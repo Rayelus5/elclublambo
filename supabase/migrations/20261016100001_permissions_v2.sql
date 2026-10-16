@@ -7,28 +7,49 @@
 -- CHANNEL_MASK = 31759 (1|2|4|8|1024|2048|4096|8192|16384): the only bits that may live in a channel overwrite.
 -- GLOBAL_MASK  = 65535 & ~31759 = 33776.
 
+-- Stable identity for roles the code depends on (names are editable, system_key is not used by the UI).
+alter table public.roles add column system_key text unique;
+
 -- Seed roles (idempotent)
 update public.roles set permissions = 8199 where is_everyone;
 
-insert into public.roles (name, color, position, permissions, is_everyone, is_system) values
-  ('Verificado', '#3DDC84', 20,  3072,  false, false),
-  ('Soporte',    '#FFB020', 100, 19456, false, false),
-  ('Moderador',  '#FF5A5A', 500, 56360, false, false)
+insert into public.roles (name, color, position, permissions, is_everyone, is_system, system_key) values
+  ('Verificado', '#3DDC84', 20,  3072,  false, false, 'verified'),
+  ('Soporte',    '#FFB020', 100, 19456, false, false, null),
+  ('Moderador',  '#FF5A5A', 500, 56360, false, false, null)
 on conflict (name) do nothing;
 
--- Data migration: every active member and every Padrino holder is Verificado (idempotent)
-insert into public.member_roles (member_id, role_id)
-select m.id, v.id
-from public.members m
-cross join (select id from public.roles where name = 'Verificado') v
-where m.status = 'active'
-   or exists (
-     select 1
-     from public.member_roles mr
-     join public.roles p on p.id = mr.role_id and p.name = 'Padrino'
-     where mr.member_id = m.id
-   )
-on conflict do nothing;
+-- Data migration: every active member and every Padrino holder is Verificado.
+-- Private and idempotent; returns the number of rows inserted.
+create function public._backfill_verified()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_count int;
+begin
+  insert into public.member_roles (member_id, role_id)
+  select m.id, v.id
+  from public.members m
+  cross join (select id from public.roles where system_key = 'verified') v
+  where m.status = 'active'
+     or exists (
+       select 1
+       from public.member_roles mr
+       join public.roles p on p.id = mr.role_id and p.name = 'Padrino'
+       where mr.member_id = m.id
+     )
+  on conflict do nothing;
+  get diagnostics v_count = row_count;
+  return v_count;
+end;
+$$;
+
+revoke execute on function public._backfill_verified() from public, anon, authenticated;
+
+select public._backfill_verified();
 
 -- Effective global permissions v2.
 -- Admin -> all bits. Otherwise (base & ~deny) | (allow & GLOBAL_MASK): a member override can never
@@ -67,7 +88,7 @@ $$;
 revoke execute on function public.member_global_permissions(uuid) from public, anon;
 grant execute on function public.member_global_permissions(uuid) to authenticated;
 
--- Grant / remove the Verificado role. Needs VERIFY_MEMBERS (or admin); target must be active,
+-- Grant / remove the Verificado role (pinned by system_key). Needs VERIFY_MEMBERS (admins resolve to all bits); target must be active,
 -- not the actor, and strictly below the actor's top role position.
 create function public.set_verified(p_member uuid, p_enabled boolean)
 returns void
@@ -78,12 +99,12 @@ as $$
 declare
   v_actor uuid;
   v_target public.members;
-  v_role uuid;
+  v_role public.roles;
 begin
   v_actor := public.current_member_id();
   if v_actor is null
      or not public.is_active_member()
-     or not (public.has_global_perm(32768) or public.has_global_perm(512)) then
+     or not public.has_global_perm(32768) then
     raise exception 'forbidden';
   end if;
 
@@ -101,17 +122,23 @@ begin
     raise exception 'hierarchy';
   end if;
 
-  select r.id into v_role from public.roles r where r.name = 'Verificado';
-  if v_role is null then
+  select * into v_role from public.roles r where r.system_key = 'verified';
+  if not found then
     raise exception 'invalid_input';
+  end if;
+
+  -- Cannot grant a role above you or carrying bits you do not have.
+  if v_role.position >= public.member_top_position(v_actor)
+     or (v_role.permissions & ~public.member_global_permissions(v_actor)) <> 0 then
+    raise exception 'hierarchy';
   end if;
 
   if p_enabled then
     insert into public.member_roles (member_id, role_id)
-    values (v_target.id, v_role)
+    values (v_target.id, v_role.id)
     on conflict do nothing;
   else
-    delete from public.member_roles where member_id = v_target.id and role_id = v_role;
+    delete from public.member_roles where member_id = v_target.id and role_id = v_role.id;
   end if;
 
   insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
