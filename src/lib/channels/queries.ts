@@ -1,12 +1,9 @@
 import "server-only";
+import { cache } from "react";
 import { createServerClient } from "@/lib/supabase/server";
-import type { ChannelKind, ChannelRow } from "@/lib/channels/tree";
+import type { ChannelDetailRow, ChannelKind, ChannelRow } from "@/lib/channels/tree";
 
-export type ChannelDetail = ChannelRow & {
-  slowmodeSeconds: number;
-  ticketsEnabled: boolean;
-  alphaEnabled: boolean;
-};
+export type ChannelDetail = ChannelDetailRow;
 
 type DbChannel = {
   id: string;
@@ -34,13 +31,17 @@ const toDetail = (c: DbChannel): ChannelDetail => ({
   alphaEnabled: c.alpha_enabled,
 });
 
-/** Canales que el miembro puede ver (la RLS de `channels` ya filtra con can_view). Dinámico: usar dentro de Suspense. */
-export async function getVisibleChannels(): Promise<ChannelDetail[]> {
+/**
+ * Canales que el miembro puede ver, con todos sus ajustes (la RLS de `channels` ya filtra con can_view).
+ * Memoizada por petición con `cache()`: el layout, la página y el editor comparten una sola consulta.
+ * Dinámico: usar dentro de Suspense.
+ */
+export const getVisibleChannels = cache(async (): Promise<ChannelDetail[]> => {
   const supabase = await createServerClient();
   const { data, error } = await supabase.from("channels").select(COLUMNS).returns<DbChannel[]>();
   if (error) throw error;
   return (data ?? []).map(toDetail);
-}
+});
 
 /** Serializable para el cliente: solo las columnas del árbol. */
 export const toRow = ({ id, parentId, kind, name, topic, position }: ChannelDetail): ChannelRow => ({

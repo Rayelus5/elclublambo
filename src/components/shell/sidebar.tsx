@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Ticket, Users } from "lucide-react";
+import { Home, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -36,6 +36,12 @@ function SidebarBody({ perms, wallet, channels = [] }: Props) {
           <NavLink href="/admin/members">
             <Users className="size-4" aria-hidden />
             Miembros
+          </NavLink>
+        ) : null}
+        {hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES) ? (
+          <NavLink href="/settings">
+            <Settings className="size-4" aria-hidden />
+            Ajustes
           </NavLink>
         ) : null}
       </nav>

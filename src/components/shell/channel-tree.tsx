@@ -8,8 +8,8 @@ import { findPath, type TreeNode } from "@/lib/channels/tree";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "elclub:collapsed";
-const FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+// Inset: el contenedor con overflow-y-auto recortaría un anillo exterior.
+const FOCUS = "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent";
 
 // Almacén externo mínimo sobre localStorage (con respaldo en memoria si no está disponible).
 const listeners = new Set<() => void>();
@@ -186,8 +186,10 @@ export function ChannelTree({ nodes }: { nodes: TreeNode[] }) {
   const collapsed = new Set([...stored].filter((id) => !revealed.has(id)));
 
   const toggleCategory = (id: string) => {
-    const next = new Set(collapsed);
-    if (!next.delete(id)) next.add(id);
+    // Partir de lo guardado (no de lo mostrado) para no perder preferencias de ancestros revelados.
+    const next = new Set(stored);
+    if (collapsed.has(id)) next.delete(id);
+    else next.add(id);
     setRevealed((prev) => new Set([...prev].filter((r) => r !== id)));
     writeCollapsed([...next]);
   };

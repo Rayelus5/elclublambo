@@ -108,6 +108,29 @@ describe("ChannelTree", () => {
     expect(screen.getByRole("link", { name: "L1" })).toHaveAttribute("aria-current", "page");
   });
 
+  it("keeps the stored preference of a revealed ancestor when toggling another category", () => {
+    window.localStorage.setItem("elclub:collapsed", JSON.stringify(["cat2"]));
+    pathname.value = "/c/l1";
+    render(<ChannelTree nodes={nodes} />);
+    fireEvent.click(screen.getByRole("button", { name: /Comunidad/ }));
+    expect(new Set(JSON.parse(window.localStorage.getItem("elclub:collapsed") ?? "[]"))).toEqual(
+      new Set(["cat1", "cat2"]),
+    );
+  });
+
+  it("uses an inset focus ring so the sidebar scroller never clips it", () => {
+    render(<ChannelTree nodes={nodes} />);
+    for (const el of [
+      screen.getByRole("link", { name: "General" }),
+      screen.getByRole("button", { name: /Comunidad/ }),
+      screen.getByRole("button", { name: /Airdrops/ }),
+      screen.getByRole("link", { name: "Abrir Airdrops" }),
+    ]) {
+      expect(el).toHaveClass("focus-visible:ring-inset");
+      expect(el.className).not.toContain("ring-offset");
+    }
+  });
+
   it("renders nothing visible for an empty tree without crashing", () => {
     render(<ChannelTree nodes={[]} />);
     expect(screen.queryByRole("link")).toBeNull();
@@ -120,5 +143,16 @@ describe("Sidebar with channels", () => {
     const aside = screen.getByRole("complementary");
     expect(within(aside).getByRole("navigation", { name: "Canales" })).toBeInTheDocument();
     expect(within(aside).getByRole("link", { name: "General" })).toHaveAttribute("href", "/c/gen");
+  });
+
+  it.each([[128n], [64n], [512n]])("shows the Ajustes link for perms %s", (perms) => {
+    render(<Sidebar perms={perms} wallet="0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" channels={ROWS} />);
+    const aside = screen.getByRole("complementary");
+    expect(within(aside).getByRole("link", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
+  });
+
+  it("hides the Ajustes link without manage permissions", () => {
+    render(<Sidebar perms={7n} wallet="0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" channels={ROWS} />);
+    expect(screen.queryByRole("link", { name: "Ajustes" })).toBeNull();
   });
 });

@@ -9,6 +9,13 @@ export type ChannelRow = {
   position: number;
 };
 
+/** Fila completa (con ajustes) para el editor de ajustes. Serializable. */
+export type ChannelDetailRow = ChannelRow & {
+  slowmodeSeconds: number;
+  ticketsEnabled: boolean;
+  alphaEnabled: boolean;
+};
+
 export type TreeNode = ChannelRow & { children: TreeNode[] };
 
 /** Árbol ordenado por `position`. Descarta huérfanos (su padre no es visible) y todo lo que cuelga de ellos. */
@@ -53,4 +60,45 @@ export function findPath(tree: TreeNode[], id: string): TreeNode[] {
     if (below.length > 0) return [node, ...below];
   }
   return [];
+}
+
+export const MAX_DEPTH = 6;
+export const SLOWMODE_MIN = 5;
+export const SLOWMODE_MAX = 604800;
+
+export type ParentOption = { id: string | null; label: string };
+
+function height(node: TreeNode): number {
+  return 1 + Math.max(0, ...node.children.map(height));
+}
+
+function findNode(tree: TreeNode[], id: string): TreeNode | null {
+  for (const n of tree) {
+    if (n.id === id) return n;
+    const below = findNode(n.children, id);
+    if (below) return below;
+  }
+  return null;
+}
+
+/**
+ * Padres válidos para mover `node`: una categoría solo a la raíz; foros y textos solo bajo categorías o foros
+ * (nunca la raíz, ni textos), fuera de su propio subárbol y sin pasar de 6 niveles.
+ */
+export function validParents(tree: TreeNode[], node: { id: string; kind: ChannelKind }): ParentOption[] {
+  if (node.kind === "category") return [{ id: null, label: "Raíz" }];
+  const self = findNode(tree, node.id);
+  const h = self ? height(self) : 1;
+  const out: ParentOption[] = [];
+  const walk = (nodes: TreeNode[], path: string[]) => {
+    for (const n of nodes) {
+      if (n.id === node.id || n.kind === "text") continue;
+      const here = [...path, n.name];
+      // n está a profundidad `here.length`; el nodo movido quedaría en length+1 y su subárbol llegaría a length+h.
+      if (here.length + h <= MAX_DEPTH) out.push({ id: n.id, label: here.join(" / ") });
+      walk(n.children, here);
+    }
+  };
+  walk(tree, []);
+  return out;
 }
