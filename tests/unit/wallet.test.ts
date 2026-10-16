@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isSuperAdminWallet, normalizeAddress, walletFromUser } from "@/lib/auth/wallet";
+import { isSuperAdminWallet, normalizeAddress, shortAddress, walletFromUser } from "@/lib/auth/wallet";
+
+describe("shortAddress", () => {
+  it("shortens to 0x1234…abcd", () => {
+    expect(shortAddress("0xD590d5D858d5B61C357e7a40Ee6b6a72D938b82d")).toBe("0xD590…b82d");
+  });
+});
 
 describe("walletFromUser", () => {
   const A = "0x9F202eb556F95308de0268f60b5757d83744De02";

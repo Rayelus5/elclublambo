@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { completeLogin } from "@/lib/auth/actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
+import { shortAddress } from "@/lib/auth/wallet";
 import { rpcErrorMessage } from "@/lib/errors";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { getAppChain } from "@/lib/web3/chains";
@@ -24,10 +25,6 @@ function isUserRejection(err: unknown): boolean {
   const e = err as { name?: string; code?: number; cause?: unknown };
   if (e.name === "UserRejectedRequestError" || e.code === 4001) return true;
   return e.cause ? isUserRejection(e.cause) : false;
-}
-
-function shortAddress(a: string): string {
-  return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
 export function LoginPanel({ inviteCode = null, next = null }: Props) {

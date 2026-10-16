@@ -3,13 +3,10 @@ import { Home, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { NavLink } from "@/components/shell/nav-link";
 import { Topbar } from "@/components/shell/topbar";
+import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 
 type Props = { perms: bigint; wallet: `0x${string}` };
-
-function shortAddress(a: string): string {
-  return `${a.slice(0, 6)}…${a.slice(-4)}`;
-}
 
 function SidebarBody({ perms, wallet }: Props) {
   return (

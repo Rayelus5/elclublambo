@@ -6,6 +6,11 @@ export function normalizeAddress(a: string): `0x${string}` {
   return n as `0x${string}`;
 }
 
+/** 0x1234…abcd */
+export function shortAddress(addr: string): string {
+  return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
+}
+
 type UserLike = {
   identities?: Array<{ provider: string; identity_data?: Record<string, unknown> | null }>;
 };
