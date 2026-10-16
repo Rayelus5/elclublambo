@@ -3,15 +3,15 @@
 create table public.messages (
   id uuid primary key default gen_random_uuid(),
   channel_id uuid not null references public.channels (id) on delete cascade,
-  thread_root_id uuid references public.messages (id) on delete cascade,
+  thread_root_id uuid,
   author_id uuid not null references public.members (id),
   body jsonb not null,
   body_text text not null,
   expanded boolean not null default false,
   allow_links boolean not null,
   kind text not null default 'text' check (kind in ('text', 'alpha')),
-  quoted_message_id uuid references public.messages (id) on delete set null,
-  reply_count integer not null default 0,
+  quoted_message_id uuid,
+  reply_count integer not null default 0 check (reply_count >= 0),
   last_reply_at timestamptz,
   pinned_at timestamptz,
   pinned_by uuid references public.members (id),
@@ -19,10 +19,19 @@ create table public.messages (
   deleted_at timestamptz,
   deleted_by uuid references public.members (id),
   created_at timestamptz not null default now(),
-  constraint messages_body_text_len check (char_length(body_text) <= 20000)
+  constraint messages_body_text_len check (char_length(body_text) <= 20000),
+  constraint messages_compact_len check (expanded or char_length(body_text) <= 4000),
+  constraint messages_body_size check (octet_length(body::text) <= 65536),
+  constraint messages_id_channel_key unique (id, channel_id),
+  -- same-channel references only (PG15+ column list on SET NULL)
+  constraint messages_thread_root_fk foreign key (thread_root_id, channel_id)
+    references public.messages (id, channel_id) on delete cascade,
+  constraint messages_quoted_fk foreign key (quoted_message_id, channel_id)
+    references public.messages (id, channel_id) on delete set null (quoted_message_id)
 );
 
 create index messages_channel_created_idx on public.messages (channel_id, created_at desc, id);
+create index messages_quoted_idx on public.messages (quoted_message_id) where quoted_message_id is not null;
 create index messages_thread_idx on public.messages (thread_root_id, created_at);
 create index messages_author_idx on public.messages (channel_id, author_id, created_at desc);
 
@@ -54,6 +63,9 @@ create table public.message_mentions (
 );
 create index message_mentions_message_idx on public.message_mentions (message_id);
 
+create unique index message_mentions_unique on public.message_mentions
+  (message_id, kind, coalesce(target_id, '00000000-0000-0000-0000-000000000000'::uuid));
+
 create table public.alpha_details (
   message_id uuid primary key references public.messages (id) on delete cascade,
   contract_address text not null check (contract_address ~ '^0x[0-9a-f]{40}$'),
@@ -74,7 +86,7 @@ alter table public.message_mentions enable row level security;
 alter table public.alpha_details enable row level security;
 alter table public.channel_reads enable row level security;
 
--- visible_channels() is evaluated once per query (InitPlan); children join through messages' own RLS.
+-- visible_channels() is evaluated once per query (hashed SubPlan, evaluated once per query); children join through messages' own RLS.
 create policy messages_select on public.messages for select to authenticated
   using (channel_id in (select v.id from public.visible_channels() v));
 

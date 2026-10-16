@@ -1,5 +1,5 @@
 begin;
-select plan(33);
+select plan(43);
 
 -- structure
 select has_table('public', 'messages', 'messages exists');
@@ -63,6 +63,29 @@ select throws_ok($$insert into public.message_mentions (message_id, kind, target
 select throws_ok($$insert into public.alpha_details (message_id, contract_address)
   values ('00000000-0000-0000-0000-0000000000a2', '0xABC')$$, '23514', null, 'bad address rejected');
 
+select throws_ok($$insert into public.messages (channel_id, thread_root_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.txtH')::uuid, '00000000-0000-0000-0000-0000000000a2', current_setting('t.a')::uuid, '{}', 'x', false)$$, '23503', null, 'cross-channel thread root rejected');
+select throws_ok($$insert into public.messages (channel_id, quoted_message_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.txtH')::uuid, '00000000-0000-0000-0000-0000000000a2', current_setting('t.a')::uuid, '{}', 'x', false)$$, '23503', null, 'cross-channel quote rejected');
+select lives_ok($$insert into public.messages (channel_id, thread_root_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.txtV')::uuid, '00000000-0000-0000-0000-0000000000a2', current_setting('t.a')::uuid, '{}', 'x', false)$$, 'same-channel reply ok');
+select throws_ok($$insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.txtV')::uuid, current_setting('t.a')::uuid, '{}', repeat('x', 4001), false)$$, '23514', null, 'compact over 4000 rejected');
+select throws_ok($$insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.txtV')::uuid, current_setting('t.a')::uuid, jsonb_build_object('k', repeat('x', 65600)), 'x', false)$$, '23514', null, 'json over 64KB rejected');
+select throws_ok($$insert into public.messages (channel_id, author_id, body, body_text, allow_links, reply_count)
+  values (current_setting('t.txtV')::uuid, current_setting('t.a')::uuid, '{}', 'x', false, -1)$$, '23514', null, 'negative reply_count rejected');
+select throws_ok($$insert into public.message_mentions (message_id, kind, target_id, notify)
+  values ('00000000-0000-0000-0000-0000000000a2', 'everyone', null, false)$$, '23505', null, 'duplicate everyone mention rejected');
+select throws_ok($$insert into public.message_mentions (message_id, kind, target_id, notify)
+  values ('00000000-0000-0000-0000-0000000000a2', 'everyone', gen_random_uuid(), false)$$, '23514', null, 'everyone with target rejected');
+select throws_ok($$insert into public.alpha_details (message_id, contract_address)
+  values ('00000000-0000-0000-0000-0000000000a1', '0x' || repeat('A', 40))$$, '23514', null, 'mixed-case address rejected');
+select is((select count(*)::int from information_schema.role_table_grants
+  where grantee = 'authenticated' and table_schema = 'public'
+    and table_name in ('messages','message_attachments','message_reactions','message_mentions','alpha_details','channel_reads')
+    and privilege_type in ('INSERT','UPDATE','DELETE')), 0, 'no authenticated write grants on message tables');
+
 -- RLS: member b (no VIEW on hidden)
 select tests.authenticate_as((select auth_user_id from public.members where id = current_setting('t.b')::uuid));
 select is((select count(*)::int from public.messages where channel_id = current_setting('t.txtH')::uuid), 0, 'no VIEW: 0 messages in hidden');
@@ -70,7 +93,7 @@ select is((select count(*)::int from public.message_attachments), 1, 'no VIEW: o
 select is((select count(*)::int from public.message_reactions), 1, 'no VIEW: only visible reaction');
 select is((select count(*)::int from public.message_mentions), 1, 'no VIEW: only visible mention');
 select is((select count(*)::int from public.alpha_details), 1, 'no VIEW: only visible alpha');
-select is((select count(*)::int from public.messages where channel_id = current_setting('t.txtV')::uuid), 1, 'VIEW: sees visible message');
+select is((select count(*)::int from public.messages where id = '00000000-0000-0000-0000-0000000000a2'), 1, 'VIEW: sees visible message');
 select is((select count(*)::int from public.channel_reads), 1, 'channel_reads: only own');
 select is((select member_id from public.channel_reads), current_setting('t.b')::uuid, 'channel_reads row is own');
 select throws_ok($$insert into public.messages (channel_id, author_id, body, body_text, allow_links)
