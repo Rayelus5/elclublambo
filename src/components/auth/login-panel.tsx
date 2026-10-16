@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
+import { useAccount, useDisconnect, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ type Props = { inviteCode?: string | null; next?: string | null };
 
 const MSG_VERIFY = "No se pudo verificar la firma. Inténtalo de nuevo.";
 const MSG_CANCELLED = "Firma cancelada.";
+const MSG_SWITCH = "No se pudo cambiar de red.";
 
 function isUserRejection(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -34,7 +35,8 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
   const { open } = useAppKit();
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
-  const { switchChain } = useSwitchChain();
+  const { switchChain, isPending: switching } = useSwitchChain();
+  const { disconnect } = useDisconnect();
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +47,7 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
     if (!address || signing) return;
     setError(null);
     setSigning(true);
+    let navigated = false;
     try {
       const message = buildLoginMessage({
         address,
@@ -79,11 +82,13 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
         setError(rpcErrorMessage(loginError));
         return;
       }
+      // Éxito: se mantiene `signing` activo mientras navega para evitar un doble envío.
+      navigated = true;
       router.replace(redirectTo === "/" ? safeNextPath(next) : redirectTo);
     } catch {
       setError(MSG_VERIFY);
     } finally {
-      setSigning(false);
+      if (!navigated) setSigning(false);
     }
   }
 
@@ -102,9 +107,17 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
           Conectar wallet
         </Button>
       ) : wrongChain ? (
-        <Button type="button" size="lg" onClick={() => switchChain({ chainId: target.id })}>
+        <Button
+          type="button"
+          size="lg"
+          disabled={switching}
+          onClick={() => {
+            setError(null);
+            switchChain({ chainId: target.id }, { onError: () => setError(MSG_SWITCH) });
+          }}
+        >
           <Repeat aria-hidden />
-          Cambiar a Linea
+          {switching ? "Cambiando…" : "Cambiar a Linea"}
         </Button>
       ) : (
         <Button type="button" size="lg" disabled={signing} onClick={signIn}>
@@ -112,6 +125,12 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
           {signing ? "Firmando…" : "Firmar y entrar"}
         </Button>
       )}
+
+      {isConnected ? (
+        <Button type="button" variant="ghost" size="sm" disabled={signing} onClick={() => disconnect()}>
+          Cambiar de wallet
+        </Button>
+      ) : null}
 
       {error ? (
         <p role="alert" className="border border-danger px-4 py-3 text-[13px] text-danger rounded-control">

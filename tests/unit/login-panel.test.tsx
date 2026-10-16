@@ -1,6 +1,6 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const ADDRESS = "0xD590d5D858d5B61C357e7a40Ee6b6a72D938b82d";
 const LINEA_SEPOLIA = 59141;
@@ -12,6 +12,8 @@ const account = vi.hoisted(() => ({
 }));
 const signMessageAsync = vi.hoisted(() => vi.fn());
 const switchChain = vi.hoisted(() => vi.fn());
+const disconnect = vi.hoisted(() => vi.fn());
+const switchState = vi.hoisted(() => ({ isPending: false }));
 const open = vi.hoisted(() => vi.fn());
 const signInWithWeb3 = vi.hoisted(() => vi.fn());
 const completeLogin = vi.hoisted(() => vi.fn());
@@ -20,7 +22,8 @@ const replace = vi.hoisted(() => vi.fn());
 vi.mock("wagmi", () => ({
   useAccount: () => account,
   useSignMessage: () => ({ signMessageAsync }),
-  useSwitchChain: () => ({ switchChain }),
+  useSwitchChain: () => ({ switchChain, isPending: switchState.isPending }),
+  useDisconnect: () => ({ disconnect }),
 }));
 vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open }) }));
 vi.mock("@/lib/supabase/browser", () => ({
@@ -37,10 +40,9 @@ function connect(chainId = LINEA_SEPOLIA) {
   account.isConnected = true;
 }
 
-afterEach(cleanup);
-
 beforeEach(() => {
   vi.clearAllMocks();
+  switchState.isPending = false;
   account.address = undefined;
   account.chainId = undefined;
   account.isConnected = false;
@@ -62,7 +64,7 @@ describe("LoginPanel", () => {
     render(<LoginPanel />);
     expect(screen.queryByRole("button", { name: /Firmar y entrar/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Cambiar a Linea" }));
-    expect(switchChain).toHaveBeenCalledWith({ chainId: LINEA_SEPOLIA });
+    expect(switchChain).toHaveBeenCalledWith({ chainId: LINEA_SEPOLIA }, expect.objectContaining({ onError: expect.any(Function) }));
     expect(signMessageAsync).not.toHaveBeenCalled();
   });
 
@@ -154,6 +156,52 @@ describe("LoginPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
     const btn = await screen.findByRole("button", { name: /Firmando…/ });
     expect(btn).toBeDisabled();
+  });
+
+  it("does not re-enable the button after a successful redirect (no double submit)", async () => {
+    connect();
+    render(<LoginPanel />);
+    await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: /Firmando…/ })).toBeDisabled();
+  });
+
+  it("wrong chain: switching shows pending state", () => {
+    connect(1);
+    switchState.isPending = true;
+    render(<LoginPanel />);
+    expect(screen.getByRole("button", { name: "Cambiando…" })).toBeDisabled();
+  });
+
+  it("wrong chain: switch failure shows role=alert", async () => {
+    connect(1);
+    switchChain.mockImplementation((_v, opts) => opts?.onError?.(new Error("nope")));
+    render(<LoginPanel />);
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar a Linea" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo cambiar de red.");
+  });
+
+  it("connected: 'Cambiar de wallet' disconnects and has a 44px target", async () => {
+    connect();
+    render(<LoginPanel />);
+    const btn = screen.getByRole("button", { name: "Cambiar de wallet" });
+    expect(btn).toHaveClass("min-h-11");
+    await userEvent.click(btn);
+    expect(disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("disconnected: no 'Cambiar de wallet'", () => {
+    render(<LoginPanel />);
+    expect(screen.queryByRole("button", { name: "Cambiar de wallet" })).toBeNull();
+  });
+
+  it("a failed sign-in re-enables the button", async () => {
+    connect();
+    signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
+    render(<LoginPanel />);
+    await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
+    await screen.findByRole("alert");
+    expect(screen.getByRole("button", { name: /Firmar y entrar/ })).toBeEnabled();
   });
 
   it.each([
