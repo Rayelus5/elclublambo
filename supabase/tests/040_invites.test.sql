@@ -1,5 +1,5 @@
 begin;
-select plan(43);
+select plan(50);
 
 -- fixtures: admin (bootstrap, SuperAdmin), sponsor + sponsor2 (Padrino), plain member
 select set_config('t.admin', tests.create_member('0xa000000000000000000000000000000000000001', null, true)::text, true);
@@ -21,6 +21,7 @@ create function pg_temp.code(p_invite text) returns text language sql security d
 select set_config('t.n1', tests.create_wallet_user('0xb000000000000000000000000000000000000001')::text, true);
 select set_config('t.n2', tests.create_wallet_user('0xb000000000000000000000000000000000000002')::text, true);
 select set_config('t.n3', tests.create_wallet_user('0xb000000000000000000000000000000000000003')::text, true);
+select set_config('t.n6', tests.create_wallet_user('0xb000000000000000000000000000000000000006')::text, true);
 select set_config('t.n5', tests.create_wallet_user('0xb000000000000000000000000000000000000005')::text, true);
 
 -- privileges
@@ -170,6 +171,33 @@ select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
 select is((select count(*)::int from public.invites), 6, 'admin sees all');
 select tests.authenticate_as(current_setting('t.n5')::uuid);
 select is((select count(*)::int from public.invites), 0, 'non-member sees none');
+select tests.clear_authentication();
+
+-- demoted sponsor: invites created while Padrino stop admitting people
+select tests.authenticate_as(pg_temp.uid(current_setting('t.sp2')));
+select set_config('t.inv_d', (public.create_invite(5, 24)).id::text, true);
+select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
+select public.set_member_role(current_setting('t.sp2')::uuid, (select id from public.roles where name = 'Padrino'), false);
+select set_config('t.inv_a', (public.create_invite(5, 24)).id::text, true);
+select tests.authenticate_as(current_setting('t.n3')::uuid);
+select throws_ok(format($q$select public.redeem_invite(%L)$q$, pg_temp.code(current_setting('t.inv_d'))),
+  'P0001', 'invite_revoked', 'demoted padrino (no CREATE_INVITES) -> invite_revoked');
+select tests.authenticate_as(current_setting('t.n6')::uuid);
+select ok(public.redeem_invite(pg_temp.code(current_setting('t.inv_a'))) is not null, 'admin (all bits) invite still redeemable');
+select tests.clear_authentication();
+
+-- catch-all RLS guard: no write policies besides members_update_own
+select is((select count(*)::int from pg_policies where schemaname = 'public' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+  and policyname <> 'members_update_own'), 0, 'no write policies other than members_update_own');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.plain')));
+select throws_ok(format($q$insert into public.member_roles (member_id, role_id) values (%L::uuid, (select id from public.roles where name = 'SuperAdmin'))$q$, current_setting('t.plain')),
+  '42501', null, 'active member cannot insert member_roles');
+select throws_ok(format($q$insert into public.member_permission_overrides (member_id, allow, deny) values (%L::uuid, 1023, 0)$q$, current_setting('t.plain')),
+  '42501', null, 'active member cannot insert member_permission_overrides');
+select throws_ok(format($q$insert into public.invites (code, created_by, max_uses, expires_at) values ('forged', %L::uuid, 1, now() + interval '1 day')$q$, current_setting('t.plain')),
+  '42501', null, 'active member cannot insert invites');
+select throws_ok(format($q$insert into public.bans (member_id, banned_by, reason) values (%L::uuid, %L::uuid, 'x')$q$, current_setting('t.plain'), current_setting('t.plain')),
+  '42501', null, 'active member cannot insert bans');
 select tests.clear_authentication();
 
 select * from finish();
