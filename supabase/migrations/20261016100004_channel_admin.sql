@@ -91,6 +91,7 @@ declare
   v_name text;
   v_topic text;
   v_slow int := coalesce(p_slowmode, 0);
+  v_changes jsonb;
 begin
   perform pg_advisory_xact_lock(hashtext('public.channels_tree'));
 
@@ -127,9 +128,30 @@ begin
       alpha_enabled = coalesce(p_alpha, false)
   where id = p_id;
 
+  -- audit only the changed fields, as {field: {from, to}}
+  v_changes := '{}'::jsonb;
+  if v_node.name is distinct from v_name then
+    v_changes := v_changes || jsonb_build_object('name', jsonb_build_object('from', v_node.name, 'to', v_name));
+  end if;
+  if v_node.topic is distinct from v_topic then
+    v_changes := v_changes || jsonb_build_object('topic', jsonb_build_object('from', v_node.topic, 'to', v_topic));
+  end if;
+  if v_node.slowmode_seconds is distinct from v_slow then
+    v_changes := v_changes || jsonb_build_object('slowmode_seconds',
+      jsonb_build_object('from', v_node.slowmode_seconds, 'to', v_slow));
+  end if;
+  if v_node.tickets_enabled is distinct from coalesce(p_tickets, false) then
+    v_changes := v_changes || jsonb_build_object('tickets_enabled',
+      jsonb_build_object('from', v_node.tickets_enabled, 'to', coalesce(p_tickets, false)));
+  end if;
+  if v_node.alpha_enabled is distinct from coalesce(p_alpha, false) then
+    v_changes := v_changes || jsonb_build_object('alpha_enabled',
+      jsonb_build_object('from', v_node.alpha_enabled, 'to', coalesce(p_alpha, false)));
+  end if;
+
   insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
   values (v_actor, 'channel_updated', 'channel', p_id,
-          jsonb_build_object('name', v_name, 'previous_name', v_node.name));
+          jsonb_build_object('name', v_name, 'changes', v_changes));
 end;
 $$;
 
@@ -174,6 +196,20 @@ begin
     raise exception 'forbidden';
   end if;
 
+  -- Moving a subtree changes the inherited permissions of every descendant for other members:
+  -- the actor must be able to see the whole subtree, not just the root of it.
+  if exists (
+    with recursive d as (
+      select c.id from public.channels c where c.parent_id = p_id
+      union all
+      select c.id from public.channels c join d on c.parent_id = d.id
+    ) cycle id set is_cycle using path
+    select 1 from d
+    where not d.is_cycle and (public.channel_permissions(v_actor, d.id) & 1) = 0
+  ) then
+    raise exception 'forbidden';
+  end if;
+
   -- Reparent first: the tree guard rejects cycles, bad kinds and depth > 6; the whole call rolls back.
   if v_node.parent_id is distinct from p_new_parent then
     update public.channels set parent_id = p_new_parent where id = p_id;
@@ -196,7 +232,9 @@ begin
   from public.channels c
   where c.parent_id is not distinct from p_new_parent and c.id <> p_id;
 
-  v_idx := greatest(0, least(coalesce(p_index, 0), coalesce(array_length(v_new_ids, 1), 0)));
+  -- p_index null means "append at the end"; otherwise clamped to [0, n].
+  v_idx := greatest(0, least(coalesce(p_index, coalesce(array_length(v_new_ids, 1), 0)),
+                             coalesce(array_length(v_new_ids, 1), 0)));
   v_new_ids := v_new_ids[1:v_idx] || p_id || v_new_ids[v_idx + 1:coalesce(array_length(v_new_ids, 1), 0)];
 
   update public.channels c set position = o.ord - 1
@@ -239,7 +277,12 @@ begin
   end if;
 
   if exists (select 1 from public.channels c where c.parent_id = p_id) then
-    raise exception 'not_empty';
+    -- do not reveal children the actor cannot see
+    if exists (select 1 from public.channels c
+               where c.parent_id = p_id and (public.channel_permissions(v_actor, c.id) & 1) <> 0) then
+      raise exception 'not_empty';
+    end if;
+    raise exception 'forbidden';
   end if;
 
   delete from public.channels where id = p_id;

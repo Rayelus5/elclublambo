@@ -1,5 +1,5 @@
 begin;
-select plan(50);
+select plan(63);
 
 -- privileges
 select ok(not has_function_privilege('anon', 'public.create_channel(uuid,text,text,text)', 'execute'), 'anon cannot create_channel');
@@ -119,11 +119,62 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select throws_ok(format($q$select public.create_channel(%L::uuid, 'text', 'deep')$q$, current_setting('t.d6')), 'P0001', 'depth_limit', 'create beyond depth 6');
 select throws_ok(format($q$select public.move_channel(%L::uuid, %L::uuid, 0)$q$, current_setting('t.g'), current_setting('t.d6')), 'P0001', 'depth_limit', 'move beyond depth 6');
 
+-- hidden descendants / hidden source / inactive actor
+select tests.clear_authentication();
+select set_config('t.hx', tests.create_channel(current_setting('t.cat1')::uuid, 'forum', 'hx')::text, true);
+select set_config('t.hy', tests.create_channel(current_setting('t.hx')::uuid, 'text', 'hy')::text, true);
+insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
+  values (current_setting('t.hy')::uuid, 'role', current_setting('t.everyone')::uuid, 0, 1);
+select set_config('t.d', tests.create_member('0x00000000000000000000000000000000000b0004', current_setting('t.a')::uuid)::text, true);
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.d')::uuid, id from public.roles where name = 'T090 gestor';
+update public.members set status = 'banned' where id = current_setting('t.d')::uuid;
+select set_config('t.ud', (select auth_user_id::text from public.members where id = current_setting('t.d')::uuid), true);
+
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok(format($q$select public.move_channel(%L::uuid, %L::uuid, 0)$q$, current_setting('t.hx'), current_setting('t.g')),
+  'P0001', 'forbidden', 'cannot move a subtree with descendants hidden from the actor');
+select tests.clear_authentication();
+select is((select parent_id from public.channels where id = current_setting('t.hx')::uuid), current_setting('t.cat1')::uuid, 'hidden-descendant move left tree unchanged');
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok(format($q$select public.move_channel(%L::uuid, %L::uuid, 0)$q$, current_setting('t.hid'), current_setting('t.cat1')),
+  'P0001', 'forbidden', 'cannot move a hidden source node');
+select throws_ok(format($q$select public.delete_channel(%L::uuid)$q$, current_setting('t.hx')),
+  'P0001', 'forbidden', 'delete with only hidden children does not reveal them');
+select tests.authenticate_as(current_setting('t.ud')::uuid);
+select throws_ok(format($q$select public.create_channel(%L::uuid, 'forum', 'X')$q$, current_setting('t.cat1')),
+  'P0001', 'forbidden', 'inactive actor with 128 is forbidden');
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+
+-- null index appends; f currently holds t3, t2, f2 (t1 moved away)
+select lives_ok(format($q$select public.move_channel(%L::uuid, %L::uuid, null)$q$, current_setting('t.t3'), current_setting('t.f')), 'null index appends');
+select tests.clear_authentication();
+select is((select array_agg(id order by position) from public.channels where parent_id = current_setting('t.f')::uuid),
+  array[current_setting('t.t2')::uuid, current_setting('t.f2')::uuid, current_setting('t.t3')::uuid], 'null index placed last');
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+
 -- delete
 select throws_ok(format($q$select public.delete_channel(%L::uuid)$q$, current_setting('t.f')), 'P0001', 'not_empty', 'delete with children');
 select lives_ok(format($q$select public.delete_channel(%L::uuid)$q$, current_setting('t.t2')), 'delete leaf');
 select tests.clear_authentication();
 select is((select count(*)::int from public.channels where id = current_setting('t.t2')::uuid), 0, 'leaf gone');
+select is((select array_agg(position order by position) from public.channels where parent_id = current_setting('t.f')::uuid), array[0,1], 'siblings renumbered after delete');
+
+select is((select actor_member_id::text || ':' || (payload->>'name') from public.audit_log
+  where action = 'channel_created' and target_id = current_setting('t.f')::uuid),
+  current_setting('t.b') || ':Foro', 'created audit: actor, target, name');
+select is((select array_agg(k order by k) from public.audit_log a, jsonb_object_keys(a.payload->'changes') k
+  where a.action = 'channel_updated' and a.target_id = current_setting('t.t1')::uuid),
+  array['alpha_enabled','name','slowmode_seconds','tickets_enabled','topic'], 'updated audit: changed fields only');
+select is((select payload->'changes'->'name' from public.audit_log
+  where action = 'channel_updated' and target_id = current_setting('t.t1')::uuid),
+  '{"from":"t1","to":"Renombrado"}'::jsonb, 'updated audit: before/after');
+select is((select actor_member_id::text || ':' || (payload->>'to_parent_id') from public.audit_log
+  where action = 'channel_moved' and target_id = current_setting('t.t1')::uuid),
+  current_setting('t.b') || ':' || current_setting('t.g'), 'moved audit: actor, target, destination');
+select is((select actor_member_id::text || ':' || (payload->>'name') from public.audit_log
+  where action = 'channel_deleted' and target_id = current_setting('t.t2')::uuid),
+  current_setting('t.b') || ':t2', 'deleted audit: actor, target, name');
 
 -- audit
 select is((select array_agg(distinct action order by action) from public.audit_log where action like 'channel\_%'),
