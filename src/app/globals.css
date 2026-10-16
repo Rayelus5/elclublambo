@@ -1,11 +1,11 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
 /*
- * Tokens de diseÃ±o (spec Â§1). Fuente de verdad: src/styles/tokens.ts
+ * Tokens de diseño (spec §1). Fuente de verdad: src/styles/tokens.ts
  * (tests/unit/tokens.test.ts verifica que ambos coincidan).
- * Solo tema oscuro. NingÃºn componente usa hex sueltos: todo pasa por estas variables.
+ * Solo tema oscuro. Ningún componente usa hex sueltos: todo pasa por estas variables.
  */
 :root {
   --bg: #0a0a0a;
