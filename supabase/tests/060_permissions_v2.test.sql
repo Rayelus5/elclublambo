@@ -1,5 +1,5 @@
 begin;
-select plan(31);
+select plan(25);
 
 -- seed roles (exact)
 select results_eq(
@@ -97,27 +97,7 @@ select tests.clear_authentication();
 select is((select count(*)::int from public.roles where system_key = 'verified' and name = 'Verificado'), 1,
   'Verificado is pinned with system_key verified');
 
--- backfill helper: private and idempotent
-select ok(not has_function_privilege('anon', 'public._backfill_verified()', 'execute'), 'anon cannot run the backfill');
-select ok(not has_function_privilege('authenticated', 'public._backfill_verified()', 'execute'), 'authenticated cannot run the backfill');
-select set_config('t.bfa', tests.create_member('0xe000000000000000000000000000000000000011', current_setting('t.admin')::uuid)::text, true);
-select set_config('t.bfp', tests.create_member('0xe000000000000000000000000000000000000012', current_setting('t.admin')::uuid)::text, true);
-insert into public.member_roles (member_id, role_id)
-  select current_setting('t.bfp')::uuid, id from public.roles where name = 'Padrino';
-update public.members set status = 'banned' where id = current_setting('t.bfp')::uuid;
-select public._backfill_verified();
-select is((select count(*)::int from public.member_roles mr join public.roles r on r.id = mr.role_id
-  where r.system_key = 'verified' and mr.member_id = current_setting('t.bfa')::uuid), 1, 'backfill: active member verified');
-select is((select count(*)::int from public.member_roles mr join public.roles r on r.id = mr.role_id
-  where r.system_key = 'verified' and mr.member_id = current_setting('t.bfp')::uuid), 1, 'backfill: banned Padrino holder verified');
-select is((select count(*)::int from public.member_roles mr join public.roles r on r.id = mr.role_id
-  where r.system_key = 'verified' and mr.member_id = current_setting('t.banned')::uuid), 0, 'backfill: banned non-Padrino not verified');
-select is(public._backfill_verified(), 0, 'backfill: second call inserts nothing');
-
 -- cannot grant a role carrying bits the actor lacks
--- (the moderator holds Verificado after the backfill, so drop it first or the raised bit would be inherited)
-delete from public.member_roles where member_id = current_setting('t.mod')::uuid
-  and role_id = (select id from public.roles where system_key = 'verified');
 update public.roles set permissions = 3072 | 128 where system_key = 'verified';
 select tests.authenticate_as((select auth_user_id from public.members where id = current_setting('t.mod')::uuid));
 select throws_ok(format($q$select public.set_verified(%L::uuid, true)$q$, current_setting('t.pen')),

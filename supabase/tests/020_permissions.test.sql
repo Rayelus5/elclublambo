@@ -53,10 +53,7 @@ select throws_ok(
   $$insert into public.members (auth_user_id, wallet_address, is_bootstrap)
     values (gen_random_uuid(), '0x2000000000000000000000000000000000000001', true)$$,
   '42501', null, 'active cannot insert members');
-select set_config('t.cnt', (select count(*) from public.members)::text, true);
-delete from public.members;
-select is((select count(*) from public.members)::text, current_setting('t.cnt'),
-  'active delete on members affects no rows');
+select throws_ok($$delete from public.members$$, '42501', null, 'active cannot delete members');
 select tests.clear_authentication();
 
 -- banned

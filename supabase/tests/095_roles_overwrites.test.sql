@@ -170,7 +170,7 @@ select throws_ok(format($q$select public.update_role(%L::uuid, (select name from
   'P0001', 'forbidden', '@everyone color cannot change');
 select lives_ok(format($q$select public.update_role(%L::uuid, (select name from public.roles where is_everyone), (select color from public.roles where is_everyone), 8195)$q$, current_setting('t.everyone')),
   '@everyone permissions can change within the actor''s own');
-select throws_ok(format($q$select public.update_role(%L::uuid, (select name from public.roles where is_everyone), (select color from public.roles where is_everyone), 8199 | 8)$q$, current_setting('t.everyone')),
+select throws_ok(format($q$select public.update_role(%L::uuid, (select name from public.roles where is_everyone), (select color from public.roles where is_everyone), 8199 | 16)$q$, current_setting('t.everyone')),
   'P0001', 'hierarchy', '@everyone permissions limited to the actor''s own');
 select throws_ok(format($q$select public.update_role(%L::uuid, 'Verificado 2', '#3DDC84', 2)$q$, current_setting('t.verified')),
   'P0001', 'forbidden', 'system_key roles cannot be renamed');

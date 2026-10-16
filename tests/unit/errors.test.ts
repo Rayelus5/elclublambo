@@ -37,6 +37,11 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorCode({ message: "depth_limit" })).toBe("depth_limit");
     expect(knownErrorCode("not_empty")).toBe("not_empty");
   });
+  it("hierarchy copy covers rank and missing permissions", () => {
+    expect(rpcErrorMessage("hierarchy")).toBe(
+      "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
+    );
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });
 

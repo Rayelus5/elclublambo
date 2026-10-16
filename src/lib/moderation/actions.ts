@@ -55,7 +55,7 @@ export async function toggleSponsorRoleAction(input: {
   const { data: role, error: roleError } = await supabase
     .from("roles")
     .select("id")
-    .eq("name", "Padrino")
+    .eq("system_key", "sponsor")
     .maybeSingle<{ id: string }>();
   if (roleError) return { error: rpcErrorCode(roleError) };
   if (!role) return { error: "unknown" };

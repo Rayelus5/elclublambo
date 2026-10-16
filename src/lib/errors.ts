@@ -10,7 +10,7 @@ const MESSAGES: Record<string, string> = {
   invite_exhausted: "Esta invitación está agotada.",
   invite_revoked: "Esta invitación fue anulada.",
   invalid_input: "Los datos enviados no son válidos.",
-  hierarchy: "No puedes actuar sobre alguien de rango igual o superior al tuyo.",
+  hierarchy: "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
   not_empty: "El canal tiene subcanales; muévelos o bórralos antes.",
   invalid_tree: "Ese movimiento rompería la estructura del árbol.",
   depth_limit: "Se ha superado la profundidad máxima (6 niveles).",

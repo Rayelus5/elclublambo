@@ -62,9 +62,11 @@ describe("toggleSponsorRoleAction", () => {
     revalidatePath.mockReset();
   });
 
+  const eq = vi.fn();
+
   function roleLookup(result: { data: unknown; error: unknown }) {
     from.mockReturnValue({
-      select: () => ({ eq: () => ({ maybeSingle: async () => result }) }),
+      select: () => ({ eq: eq.mockReturnValue({ maybeSingle: async () => result }) }),
     });
   }
 
@@ -73,10 +75,11 @@ describe("toggleSponsorRoleAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("looks up the Padrino role and calls set_member_role", async () => {
+  it("looks up the sponsor role by system_key and calls set_member_role", async () => {
     roleLookup({ data: { id: ROLE }, error: null });
     rpc.mockResolvedValue({ error: null });
     expect(await toggleSponsorRoleAction({ memberId: ID, enabled: true })).toEqual({});
+    expect(eq).toHaveBeenCalledWith("system_key", "sponsor");
     expect(rpc).toHaveBeenCalledWith("set_member_role", { p_member: ID, p_role: ROLE, p_enabled: true });
     expect(revalidatePath).toHaveBeenCalledWith("/admin/members");
   });
