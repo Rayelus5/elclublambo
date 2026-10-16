@@ -20,11 +20,30 @@ begin
     provider, provider_id, user_id, identity_data, last_sign_in_at, created_at, updated_at
   ) values (
     'web3', 'web3:ethereum:' || p_address, v_id,
-    jsonb_build_object('address', p_address, 'chain', 'ethereum', 'network', 59141),
+    jsonb_build_object('custom_claims', jsonb_build_object(
+      'address', p_address, 'chain', 'ethereum', 'network', '59141')),
     now(), now(), now()
   );
 
   return v_id;
+end;
+$$;
+
+create or replace function tests.create_member(
+  p_address text,
+  p_invited_by uuid default null,
+  p_bootstrap boolean default false
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_user uuid := tests.create_wallet_user(p_address);
+  v_member uuid := gen_random_uuid();
+begin
+  insert into public.members (id, auth_user_id, wallet_address, invited_by_member_id, is_bootstrap)
+  values (v_member, v_user, lower(p_address), p_invited_by, p_bootstrap);
+  return v_member;
 end;
 $$;
 
