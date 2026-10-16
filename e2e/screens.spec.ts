@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { createClient } from "@supabase/supabase-js";
 import { expect, test } from "@playwright/test";
 import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
@@ -25,6 +26,16 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   const code = url.split("/invite/")[1]!;
 
+  const { data: general } = await createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  )
+    .from("channels")
+    .select("id")
+    .eq("name", "General")
+    .single<{ id: string }>();
+
   const targets = [
     { name: "login", ctx: anon, path: "/login" },
     { name: "invite", ctx: anon, path: `/invite/${code}` },
@@ -32,6 +43,10 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
     { name: "invites", ctx: admin, path: "/invites" },
     { name: "profile", ctx: admin, path: `/u/${adminAddr}` },
     { name: "members", ctx: admin, path: "/admin/members" },
+    // F2a
+    { name: "channel", ctx: admin, path: `/c/${general!.id}` },
+    { name: "settings-channels", ctx: admin, path: "/settings/channels" },
+    { name: "settings-roles", ctx: admin, path: "/settings/roles" },
   ];
 
   for (const width of WIDTHS) {
