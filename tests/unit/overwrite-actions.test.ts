@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { searchMembersAction, setOverwriteAction } from "@/lib/channels/actions";
+import { getMyChannelPermsAction, searchMembersAction, setOverwriteAction } from "@/lib/channels/actions";
 import { addDomainAction, removeDomainAction } from "@/lib/domains/actions";
 import { createRoleAction, deleteRoleAction, moveRoleAction, updateRoleAction } from "@/lib/roles/actions";
 
@@ -54,20 +54,57 @@ describe("setOverwriteAction", () => {
 });
 
 describe("searchMembersAction", () => {
+  const chain = (data: unknown) => {
+    const limit = vi.fn().mockResolvedValue({ data, error: null });
+    const or = vi.fn().mockReturnValue({ limit });
+    const eq = vi.fn().mockReturnValue({ or });
+    select.mockReturnValue({ eq });
+    return { limit, or, eq };
+  };
+
   it("returns [] for short queries without querying", async () => {
     expect(await searchMembersAction("a")).toEqual([]);
     expect(select).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
-  it("maps rows and strips filter metacharacters", async () => {
-    const limit = vi
-      .fn()
-      .mockResolvedValue({ data: [{ id: A, display_name: "Ana", wallet_address: "0xabc" }], error: null });
-    const or = vi.fn().mockReturnValue({ limit });
-    select.mockReturnValue({ or });
+  it("returns [] when the caller lacks MANAGE_CHANNELS", async () => {
+    rpc.mockResolvedValue({ data: 8199, error: null });
+    expect(await searchMembersAction("ana")).toEqual([]);
+    expect(rpc).toHaveBeenCalledWith("my_permissions");
+    expect(select).not.toHaveBeenCalled();
+  });
+  it("allows administrators", async () => {
+    rpc.mockResolvedValue({ data: 512, error: null });
+    chain([]);
+    expect(await searchMembersAction("ana")).toEqual([]);
+    expect(select).toHaveBeenCalled();
+  });
+  it("maps active rows and strips filter metacharacters", async () => {
+    rpc.mockResolvedValue({ data: 128, error: null });
+    const { limit, or, eq } = chain([{ id: A, display_name: "Ana", wallet_address: "0xabc" }]);
     const res = await searchMembersAction("an%,(a)");
+    expect(eq).toHaveBeenCalledWith("status", "active");
     expect(or).toHaveBeenCalledWith("display_name.ilike.%ana%,wallet_address.ilike.%ana%");
     expect(limit).toHaveBeenCalledWith(10);
     expect(res).toEqual([{ id: A, displayName: "Ana", walletAddress: "0xabc" }]);
+  });
+  it("collapses whitespace to single spaces and keeps dots", async () => {
+    rpc.mockResolvedValue({ data: 128, error: null });
+    const { or } = chain([]);
+    await searchMembersAction("  Ana   María.  Pérez ");
+    expect(or).toHaveBeenCalledWith("display_name.ilike.%ana maría. pérez%,wallet_address.ilike.%ana maría. pérez%");
+  });
+});
+
+describe("getMyChannelPermsAction", () => {
+  it("returns the actor bits for one channel", async () => {
+    rpc.mockResolvedValue({ data: 31759, error: null });
+    expect(await getMyChannelPermsAction(A)).toEqual({ bits: "31759" });
+    expect(rpc).toHaveBeenCalledWith("my_channel_permissions", { p_channel: A });
+  });
+  it("rejects bad ids", async () => {
+    expect(await getMyChannelPermsAction("x")).toEqual({ error: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 

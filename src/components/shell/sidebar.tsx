@@ -32,7 +32,7 @@ function SidebarBody({ perms, wallet, channels = [] }: Props) {
             Invitaciones
           </NavLink>
         ) : null}
-        {hasPerm(perms, Perm.BAN_MEMBERS) ? (
+        {hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS) ? (
           <NavLink href="/admin/members">
             <Users className="size-4" aria-hidden />
             Miembros

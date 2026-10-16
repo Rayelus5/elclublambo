@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { ChannelTreeEditor, type MatrixData } from "@/components/settings/channel-tree-editor";
 import type { OverwriteRow } from "@/components/settings/permission-matrix";
 import { getVisibleChannels } from "@/lib/channels/queries";
-import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
+import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { getRolesContext } from "@/lib/roles/queries";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -44,23 +44,8 @@ async function ChannelsContent() {
     members = (data ?? []).map((m) => ({ id: m.id, displayName: m.display_name, walletAddress: m.wallet_address }));
   }
 
-  // Bits de canal del actor por canal (el admin los tiene todos sin consultar).
-  const channelPerms: Record<string, string> = {};
-  if (actor.isAdmin) {
-    for (const c of channels) channelPerms[c.id] = CHANNEL_MASK.toString();
-  } else {
-    const entries = await Promise.all(
-      channels.map(async (c) => {
-        const { data } = await supabase.rpc("my_channel_permissions", { p_channel: c.id });
-        return [c.id, String(data ?? 0)] as const;
-      }),
-    );
-    for (const [id, bits] of entries) channelPerms[id] = bits;
-  }
-
   const matrix: MatrixData = {
     overwritesByChannel,
-    channelPerms,
     roles: roles.map((r) => ({
       id: r.id,
       name: r.name,

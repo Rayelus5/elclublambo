@@ -2,12 +2,12 @@
 
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortAddress } from "@/lib/auth/wallet";
 import { rpcErrorMessage } from "@/lib/errors";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
-import { toggleSponsorRoleAction } from "@/lib/moderation/actions";
+import { setVerifiedAction, toggleSponsorRoleAction } from "@/lib/moderation/actions";
 import { BanDialog } from "./ban-dialog";
 import { StatusBadge, type MemberSummary } from "./sponsor-tree";
 
@@ -15,6 +15,7 @@ export type AdminMemberRow = MemberSummary & {
   sponsor: MemberSummary | null;
   sponsorIsAdmin?: boolean;
   isPadrino: boolean;
+  isVerified: boolean;
   needsReview: boolean;
   createdAt: string;
 };
@@ -54,6 +55,37 @@ function PadrinoToggle({
   );
 }
 
+function VerifiedToggle({
+  member,
+  onError,
+}: {
+  member: AdminMemberRow;
+  onError: (m: string | null) => void;
+}) {
+  const [pending, startTransition] = useTransition();
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="secondary"
+      aria-label={`Verificado: ${nameOf(member)}`}
+      aria-pressed={member.isVerified}
+      disabled={pending}
+      className={member.isVerified ? "border-success text-success" : undefined}
+      onClick={() => {
+        onError(null);
+        startTransition(async () => {
+          const res = await setVerifiedAction({ memberId: member.id, enabled: !member.isVerified });
+          if (res.error) onError(rpcErrorMessage(res.error));
+        });
+      }}
+    >
+      <BadgeCheck aria-hidden />
+      Verificado
+    </Button>
+  );
+}
+
 export function MemberTable({
   members,
   meId,
@@ -67,6 +99,8 @@ export function MemberTable({
   const [banned, setBanned] = useState<string | null>(null);
   const statusRef = useRef<HTMLParagraphElement>(null);
   const canManageRoles = hasPerm(perms, Perm.MANAGE_ROLES);
+  const canVerify = hasPerm(perms, Perm.VERIFY_MEMBERS);
+  const canBan = hasPerm(perms, Perm.BAN_MEMBERS);
 
   // The banned row loses its actions (and its dialog unmounts), so move focus to the announcement.
   function onBanned(m: MemberSummary) {
@@ -116,6 +150,11 @@ export function MemberTable({
                           Padrino
                         </span>
                       ) : null}
+                      {m.isVerified ? (
+                        <span className="inline-block border border-success px-2 py-0.5 text-[13px] text-success rounded-control">
+                          Verificado
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-2 text-fg-muted">
@@ -147,8 +186,11 @@ export function MemberTable({
                   <td className="px-4 py-2">
                     {actionable ? (
                       <div className="flex flex-wrap items-center gap-2">
+                        {canVerify ? <VerifiedToggle member={m} onError={setError} /> : null}
                         {canManageRoles ? <PadrinoToggle member={m} onError={setError} /> : null}
-                        <BanDialog member={m} sponsor={m.sponsor} sponsorIsAdmin={m.sponsorIsAdmin} onBanned={onBanned} />
+                        {canBan ? (
+                          <BanDialog member={m} sponsor={m.sponsor} sponsorIsAdmin={m.sponsorIsAdmin} onBanned={onBanned} />
+                        ) : null}
                       </div>
                     ) : null}
                   </td>

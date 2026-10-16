@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -105,7 +106,6 @@ export async function moveChannelAction(input: {
   return {};
 }
 
-const CHANNEL_MASK = 31759n;
 const BIGINT_RE = /^\d{1,6}$/;
 
 /**
@@ -146,16 +146,32 @@ export async function setOverwriteAction(
 
 export type MemberHit = { id: string; displayName: string | null; walletAddress: string };
 
-/** Búsqueda de miembros por nombre o wallet para añadir un overwrite. La RLS de members limita el acceso. */
+/** Bits de canal del actor en un canal; se pide solo para el canal seleccionado en el editor. */
+export async function getMyChannelPermsAction(channelId: string): Promise<{ bits?: string; error?: string }> {
+  if (!isUuid(channelId)) return { error: "invalid_input" };
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("my_channel_permissions", { p_channel: channelId });
+  if (error) return { error: rpcErrorCode(error) };
+  return { bits: String(data ?? 0) };
+}
+
+/** Búsqueda de miembros activos por nombre o wallet para añadir un overwrite. Solo con MANAGE_CHANNELS o admin. */
 export async function searchMembersAction(query: string): Promise<MemberHit[]> {
   if (typeof query !== "string") return [];
-  // Fuera comodines y metacaracteres del filtro de PostgREST.
-  const q = query.replace(/[%_,()*\\.:"'\s]/g, "").toLowerCase();
+  // Fuera comodines y metacaracteres del filtro de PostgREST; los espacios se normalizan a uno solo.
+  const q = query
+    .replace(/[%_,()*\\:"']/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
   if (q.length < 2 || q.length > 42) return [];
   const supabase = await createServerClient();
+  const { data: rawPerms, error: permsError } = await supabase.rpc("my_permissions");
+  if (permsError || !hasPerm(BigInt(String(rawPerms ?? 0)), Perm.MANAGE_CHANNELS)) return [];
   const { data, error } = await supabase
     .from("members")
     .select("id, display_name, wallet_address")
+    .eq("status", "active")
     .or(`display_name.ilike.%${q}%,wallet_address.ilike.%${q}%`)
     .limit(10);
   if (error || !data) return [];

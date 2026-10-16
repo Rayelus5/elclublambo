@@ -27,7 +27,7 @@ async function MembersContent() {
   const supabase = await createServerClient();
   const { data: rawPerms } = await supabase.rpc("my_permissions");
   const perms = BigInt(String(rawPerms ?? 0));
-  if (!hasPerm(perms, Perm.BAN_MEMBERS)) notFound();
+  if (!hasPerm(perms, Perm.BAN_MEMBERS) && !hasPerm(perms, Perm.VERIFY_MEMBERS)) notFound();
 
   const { data: me, error: meError } = await supabase.rpc("current_member_id");
   if (meError) throw meError;
@@ -75,6 +75,24 @@ async function MembersContent() {
     padrinoIds = new Set((holders ?? []).map((h) => h.member_id));
   }
 
+  const { data: verifiedRole, error: verifiedRoleError } = await supabase
+    .from("roles")
+    .select("id")
+    .eq("system_key", "verified")
+    .maybeSingle<{ id: string }>();
+  if (verifiedRoleError) throw verifiedRoleError;
+
+  let verifiedIds = new Set<string>();
+  if (verifiedRole) {
+    const { data: holders, error: holdersError } = await supabase
+      .from("member_roles")
+      .select("member_id")
+      .eq("role_id", verifiedRole.id)
+      .returns<{ member_id: string }[]>();
+    if (holdersError) throw holdersError;
+    verifiedIds = new Set((holders ?? []).map((h) => h.member_id));
+  }
+
   const byId = new Map((members ?? []).map((m) => [m.id, m]));
   const rows: AdminMemberRow[] = (members ?? []).map((m) => {
     const sponsor = m.invited_by_member_id ? byId.get(m.invited_by_member_id) : undefined;
@@ -83,6 +101,7 @@ async function MembersContent() {
       sponsor: sponsor ? toSummary(sponsor) : null,
       sponsorIsAdmin: sponsor ? adminIds.has(sponsor.id) : false,
       isPadrino: padrinoIds.has(m.id),
+      isVerified: verifiedIds.has(m.id),
       needsReview: m.needs_review_since !== null,
       createdAt: m.created_at,
     };

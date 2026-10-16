@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useMemo, useState, useTransition } from "react";
+import { useEffect, useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   closestCenter,
@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createChannelAction, moveChannelAction } from "@/lib/channels/actions";
+import { createChannelAction, getMyChannelPermsAction, moveChannelAction } from "@/lib/channels/actions";
 import {
   buildTree,
   MAX_DEPTH,
@@ -50,6 +50,7 @@ import {
   type TreeNode,
 } from "@/lib/channels/tree";
 import { rpcErrorMessage } from "@/lib/errors";
+import { CHANNEL_MASK } from "@/lib/permissions/bits";
 import { cn } from "@/lib/utils";
 
 const FOCUS =
@@ -351,8 +352,8 @@ function CreateDialog({
 
 export type MatrixData = {
   overwritesByChannel: Record<string, OverwriteRow[]>;
-  /** Bits de canal del actor por canal (bigint serializado). */
-  channelPerms: Record<string, string>;
+  /** Bits de canal del actor ya conocidos (bigint serializado); el resto se piden al seleccionar el canal. */
+  channelPerms?: Record<string, string>;
   roles: MatrixRole[];
   members: MatrixMember[];
   isAdmin: boolean;
@@ -361,6 +362,8 @@ export type MatrixData = {
 
 export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetailRow[]; matrix?: MatrixData }) {
   const router = useRouter();
+  // Id estable: sin él dnd-kit usa un contador global y el HTML de servidor no coincide con el cliente.
+  const dndId = useId();
   const tree = useMemo(() => buildTree(channels), [channels]);
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -425,8 +428,29 @@ export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetai
 
   const selected = selectedId ? (byId.get(selectedId) ?? null) : null;
 
+  // Los bits del actor en el canal se piden solo para el canal seleccionado (el admin los tiene todos).
+  const [fetchedPerms, setFetchedPerms] = useState<Record<string, string>>({});
+  const needsPerms = !!(selected && matrix && !matrix.isAdmin && matrix.channelPerms?.[selected.id] === undefined);
+  const selectedForPerms = needsPerms ? selected!.id : null;
+  const haveFetched = selectedForPerms !== null && fetchedPerms[selectedForPerms] !== undefined;
+  useEffect(() => {
+    if (!selectedForPerms || haveFetched) return;
+    let cancelled = false;
+    void getMyChannelPermsAction(selectedForPerms).then((res) => {
+      if (!cancelled) setFetchedPerms((p) => ({ ...p, [selectedForPerms]: res.bits ?? "0" }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedForPerms, haveFetched]);
+  const actorPerms = !selected || !matrix
+    ? undefined
+    : matrix.isAdmin
+      ? CHANNEL_MASK.toString()
+      : (matrix.channelPerms?.[selected.id] ?? fetchedPerms[selected.id]);
+
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+    <div className="flex flex-col gap-8">
       <section aria-labelledby="arbol-titulo" className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 id="arbol-titulo" className="text-h2">
@@ -451,6 +475,7 @@ export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetai
         ) : (
           <div className="rounded-panel border border-border bg-surface py-2">
             <DndContext
+              id={dndId}
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragStart={onDragStart}
@@ -484,7 +509,7 @@ export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetai
       </section>
 
       {selected && matrix ? (
-        <section aria-labelledby="permisos-titulo" className="flex min-w-0 flex-col gap-3 lg:col-span-2">
+        <section aria-labelledby="permisos-titulo" className="flex min-w-0 flex-col gap-3">
           <h3 id="permisos-titulo" className="text-h2">
             Permisos de {selected.name}
           </h3>
@@ -492,21 +517,27 @@ export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetai
             Cada celda alterna entre heredar, permitir y denegar. Solo puedes tocar permisos que tú tienes en este
             canal y roles por debajo del tuyo.
           </p>
+          {actorPerms === undefined ? (
+            <p role="status" className="text-sm text-fg-muted">
+              Cargando permisos…
+            </p>
+          ) : (
           <PermissionMatrix
             key={selected.id}
             channelId={selected.id}
             overwrites={matrix.overwritesByChannel[selected.id] ?? []}
             roles={matrix.roles}
             members={matrix.members}
-            actorChannelPerms={matrix.channelPerms[selected.id] ?? "0"}
+            actorChannelPerms={actorPerms}
             isAdmin={matrix.isAdmin}
             actorTop={matrix.actorTop}
           />
+          )}
         </section>
       ) : null}
 
       <MoveDialog
-        key={moving?.id ?? "none"}
+        key={moving?.id ?? "move-none"}
         node={moving}
         tree={tree}
         onClose={() => setMoving(null)}
@@ -516,7 +547,7 @@ export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetai
         }}
       />
       <CreateDialog
-        key={creating ? (creating.parent?.id ?? "root") : "none"}
+        key={creating ? (creating.parent?.id ?? "root") : "create-none"}
         target={creating}
         onClose={() => setCreating(null)}
         onDone={() => {

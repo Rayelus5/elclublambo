@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const refresh = vi.hoisted(() => vi.fn());
 const moveChannelAction = vi.hoisted(() => vi.fn());
 const createChannelAction = vi.hoisted(() => vi.fn());
+const getMyChannelPermsAction = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 vi.mock("@/lib/channels/actions", () => ({
   moveChannelAction,
@@ -13,6 +14,7 @@ vi.mock("@/lib/channels/actions", () => ({
   deleteChannelAction: vi.fn(),
   setOverwriteAction: vi.fn(),
   searchMembersAction: vi.fn(),
+  getMyChannelPermsAction,
 }));
 
 import { ChannelTreeEditor } from "@/components/settings/channel-tree-editor";
@@ -49,6 +51,7 @@ const ROWS: ChannelDetailRow[] = [
 ];
 
 beforeEach(() => {
+  getMyChannelPermsAction.mockReset();
   refresh.mockReset();
   moveChannelAction.mockReset();
   createChannelAction.mockReset();
@@ -161,6 +164,29 @@ describe("ChannelTreeEditor", () => {
     expect(screen.queryByRole("table")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Editar Reglas" }));
     expect(screen.getByRole("button", { name: /@everyone · Ver canal: denegado/ })).toBeInTheDocument();
+  });
+
+  it("fetches the actor's channel bits lazily, only for the selected channel (non-admin)", async () => {
+    const user = userEvent.setup();
+    getMyChannelPermsAction.mockResolvedValue({ bits: "31759" });
+    render(
+      <ChannelTreeEditor
+        channels={ROWS}
+        matrix={{
+          overwritesByChannel: { rul: [{ targetType: "role", targetId: "ev", allow: "0", deny: "1" }] },
+          channelPerms: {},
+          roles: [{ id: "ev", name: "@everyone", color: "#A3A3A3", position: 0, isEveryone: true, isAdminRole: false }],
+          members: [],
+          isAdmin: false,
+          actorTop: 10,
+        }}
+      />,
+    );
+    expect(getMyChannelPermsAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Editar Reglas" }));
+    expect(await screen.findByRole("button", { name: /@everyone · Ver canal: denegado/ })).toBeInTheDocument();
+    expect(getMyChannelPermsAction).toHaveBeenCalledTimes(1);
+    expect(getMyChannelPermsAction).toHaveBeenCalledWith("rul");
   });
 
   it("moving to another parent calls moveChannelAction with append", async () => {

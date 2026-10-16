@@ -2,13 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { ALL_PERMS, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COLOR_RE = /^#[0-9A-Fa-f]{6}$/;
 const NAME_MAX = 32;
-const ALL_PERMS = 65535;
-const ADMINISTRATOR = 512;
 
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
 
@@ -25,8 +24,8 @@ function cleanColor(v: unknown): string | null {
 /** El bit 512 (ADMINISTRATOR) nunca se concede desde la UI. */
 function cleanPerms(v: unknown): number | null {
   if (typeof v !== "string" || !/^\d{1,5}$/.test(v)) return null;
-  const n = Number(v);
-  return n <= ALL_PERMS && (n & ADMINISTRATOR) === 0 ? n : null;
+  const n = BigInt(v);
+  return n <= ALL_PERMS && (n & Perm.ADMINISTRATOR) === 0n ? Number(n) : null;
 }
 
 function refresh() {
