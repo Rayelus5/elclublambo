@@ -1,10 +1,11 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /*
- * Tokens de diseño (spec §1). Fuente de verdad: src/styles/tokens.ts
+ * Tokens de diseÃ±o (spec Â§1). Fuente de verdad: src/styles/tokens.ts
  * (tests/unit/tokens.test.ts verifica que ambos coincidan).
- * Solo tema oscuro. Ningún componente usa hex sueltos: todo pasa por estas variables.
+ * Solo tema oscuro. NingÃºn componente usa hex sueltos: todo pasa por estas variables.
  */
 :root {
   --bg: #0a0a0a;
@@ -86,7 +87,6 @@
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
-  --text-display: clamp(2.5rem, 6vw, 5rem);
   --text-h1: 2.25rem;
   --text-h2: 1.5rem;
   --text-h3: 1.125rem;
@@ -162,7 +162,7 @@
 
 @utility text-display {
   font-family: var(--font-display);
-  font-size: var(--text-display);
+  font-size: clamp(2.5rem, 6vw, 5rem);
   font-weight: 900;
   font-variation-settings: "wdth" 125;
   font-stretch: 125%;

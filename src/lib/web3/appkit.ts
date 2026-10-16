@@ -1,6 +1,7 @@
 import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import type { AppKitNetwork } from "@reown/appkit/networks";
+import { colors } from "@/styles/tokens";
 import { APP_CHAINS } from "./chains";
 
 // IDs del explorer de Reown (WalletGuide).
@@ -35,29 +36,28 @@ export const appKit =
   typeof window === "undefined"
     ? null
     : createAppKit({
-    adapters: [wagmiAdapter],
-    networks,
-    projectId,
-    metadata: {
-      name: "El Club Lambo",
-      description: "Foro privado de la comunidad",
-      url: origin,
-      icons: [],
-    },
-    themeMode: "dark",
-    themeVariables: {
-      "--w3m-accent": "#61DFFF",
-      "--w3m-border-radius-master": "2px",
-      "--w3m-font-family": "DM Sans, sans-serif",
-    },
-    features: {
-      email: false,
-      socials: false,
-      swaps: false,
-      onramp: false,
-      analytics: false,
-    },
-    featuredWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
-    includeWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
-  });
-  
+        adapters: [wagmiAdapter],
+        networks,
+        projectId,
+        metadata: {
+          name: "El Club Lambo",
+          description: "Foro privado de la comunidad",
+          url: origin,
+          icons: [],
+        },
+        themeMode: "dark",
+        themeVariables: {
+          "--w3m-accent": colors.accent,
+          "--w3m-border-radius-master": "2px",
+          "--w3m-font-family": "DM Sans, sans-serif",
+        },
+        features: {
+          email: false,
+          socials: false,
+          swaps: false,
+          onramp: false,
+          analytics: false,
+        },
+        featuredWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
+        includeWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
+      });
