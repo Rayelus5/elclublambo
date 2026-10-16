@@ -72,12 +72,12 @@ async function newUser(db: SupabaseClient): Promise<Who> {
 }
 
 /** Subscribes privately; resolves with status and collected events. */
-async function listen(who: Who, channelId: string) {
+async function listen(who: Who, channelId: string, timeoutMs = 5000) {
   const events: Array<{ event: string; payload: unknown }> = [];
   const ch: RealtimeChannel = who.client.channel(`channel:${channelId}`, { config: { private: true } });
   ch.on("broadcast", { event: "message_created" }, (m) => events.push({ event: m.event, payload: m.payload }));
   const status = await new Promise<string>((resolve) => {
-    const t = setTimeout(() => resolve("TIMEOUT"), 5000);
+    const t = setTimeout(() => resolve("TIMEOUT"), timeoutMs);
     ch.subscribe((s, err) => {
       if (s === "SUBSCRIBED" || s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
         clearTimeout(t);
@@ -112,8 +112,6 @@ describe.skipIf(!up)(`private realtime broadcast authorization ${up ? "" : `(ski
     const a = await newUser(db);
     const b = await newUser(db);
     clients.push(a.client, b.client);
-    const everyone = must(await db.from("roles").select("id").eq("is_everyone", true).single(), "everyone");
-    void everyone;
     const cat = must(
       await db.from("channels").insert({ kind: "category", name: `spike_cat_${randomUUID().slice(0, 6)}` }).select("id").single(),
       "category",
@@ -169,6 +167,47 @@ describe.skipIf(!up)(`private realtime broadcast authorization ${up ? "" : `(ski
     expect(lb.status).toBe("SUBSCRIBED");
     await emit(visible);
     expect(await waitFor(lb.events, 3000)).toBeGreaterThan(0);
+    expect(lb.events[0]!.payload).toMatchObject({ channel_id: visible });
+  }, 30000);
+
+  it("malformed private topics get nothing and do not break a valid join", async () => {
+    const { a, visible } = await setup();
+    for (const topic of ["channel:zzzz", "room:x", "channel:ZZZZZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZZZZZZZZZ"]) {
+      const bad = a.client.channel(topic, { config: { private: true } });
+      open.push(bad);
+      const st = await new Promise<string>((resolve) => {
+        const t = setTimeout(() => resolve("TIMEOUT"), 3000);
+        bad.subscribe((s) => {
+          if (s === "SUBSCRIBED" || s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
+            clearTimeout(t);
+            resolve(s);
+          }
+        });
+      });
+      console.log("[spike] malformed", topic, "->", st);
+      expect(st).not.toBe("SUBSCRIBED");
+      await a.client.removeChannel(bad);
+    }
+    const t0 = Date.now();
+    const la = await listen(a, visible, 20000);
+    open.push(la.ch);
+    console.log("[spike] join took ms:", Date.now() - t0);
+    console.log("[spike] valid join after malformed:", la.status);
+    expect(la.status).toBe("SUBSCRIBED");
+    await emit(visible);
+    expect(await waitFor(la.events, 3000)).toBeGreaterThan(0);
+  }, 40000);
+
+  it("clients cannot broadcast on a private channel topic", async () => {
+    const { a, b, visible } = await setup();
+    const la = await listen(a, visible);
+    const lb = await listen(b, visible);
+    open.push(la.ch, lb.ch);
+    expect(la.status).toBe("SUBSCRIBED");
+    expect(lb.status).toBe("SUBSCRIBED");
+    await la.ch.send({ type: "broadcast", event: "message_created", payload: { id: "x", channel_id: visible } });
+    await sleep(3000);
+    expect(lb.events.length).toBe(0);
   }, 30000);
 
   it("observes: losing VIEW while subscribed (not asserted)", async () => {

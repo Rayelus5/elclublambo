@@ -18,12 +18,17 @@ perform realtime.send(payload jsonb, event text, topic text, private boolean);
 ```sql
 create policy ... on realtime.messages for select to authenticated
 using (
-  realtime.topic() ~ '^channel:[0-9a-f-]{36}$'
-  and public.can_view(substring(realtime.topic() from 9)::uuid)
+  case
+    when realtime.topic() ~ '^channel:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      then public.can_view(substring(realtime.topic() from 9)::uuid)
+    else false
+  end
 );
 ```
 
-- El regex va antes del cast (el `and` se evalua en ese orden en la practica; un tema invalido no rompio la politica).
+- Se exige CASE, no AND: Postgres no garantiza el orden de evaluacion de AND en una politica, y un cast uuid invalido la romperia. Regex UUID estricto.
+- No hay politica INSERT en `realtime.messages` a proposito: los clientes nunca deben emitir broadcast (verificado: un `send` de A no llega a B).
+- Temas mal formados (`channel:zzzz`, `room:x`) no devuelven datos y no rompen el join valido del mismo cliente (testeado).
 - Sin politica el join privado falla (visto en RED: la suscripcion no llega a SUBSCRIBED).
 - `can_view` usa `auth.uid()` del JWT del socket, funciona dentro de la politica.
 
@@ -55,3 +60,8 @@ ch.on("broadcast", { event: "message_created" }, (m) => ...).subscribe((status, 
 - La denegacion en el primer intento puede aparecer como `TIMEOUT` y no como `CHANNEL_ERROR`; la UI no debe depender del texto del error.
 - Task 5: absorber la politica y reemplazar `_spike_emit` por triggers (SECURITY DEFINER) que llamen `realtime.send`.
 - No se probo si un refresco de token (`setAuth`) en el mismo socket reevalua la politica; verificar en Task 5/8 si se quiere cortar sin resuscribir.
+
+## Notas del fix round 1
+
+- Un cliente que se une a temas denegados o mal formados debe llamar `removeChannel` a esos canales; si no, realtime-js los reintenta y retrasa/ahoga el join valido del mismo cliente (visto: TIMED_OUT de 10 s con 3 temas malos sin limpiar; con `removeChannel` el join valido llega, tras ~6 s de backoff en el peor caso).
+- Un `send` de un cliente autenticado a un tema privado sin politica INSERT no llega a otros suscriptores (testeado).
