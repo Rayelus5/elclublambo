@@ -26,6 +26,11 @@ describe("completeLogin", () => {
     expect(await completeLogin(null)).toEqual({ redirectTo: "/login" });
   });
 
+  it("first status read errors -> /no-access with unknown", async () => {
+    serverRpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/no-access", error: "unknown" });
+  });
+
   it("active member -> /", async () => {
     serverRpc.mockResolvedValueOnce({ data: "active", error: null });
     expect(await completeLogin(null)).toEqual({ redirectTo: "/" });

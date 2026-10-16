@@ -25,12 +25,13 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
   const wallet = walletFromUser(user);
   if (!wallet) return { redirectTo: "/no-access" };
 
-  const readStatus = async (): Promise<MembershipStatus> => {
+  const readStatus = async (): Promise<MembershipStatus | null> => {
     const { data: s, error } = await supabase.rpc("my_membership_status");
-    return !error && STATUSES.includes(s as MembershipStatus) ? (s as MembershipStatus) : "none";
+    return !error && STATUSES.includes(s as MembershipStatus) ? (s as MembershipStatus) : null;
   };
 
   const status = await readStatus();
+  if (!status) return { redirectTo: "/no-access", error: "unknown" };
   const decision = resolvePostLogin({
     status,
     isSuperAdmin: isSuperAdminWallet(wallet, process.env.SUPER_ADMIN_WALLET),
@@ -58,7 +59,7 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
         p_auth_user_id: user.id,
         p_wallet: wallet,
       });
-      if (!error) return { redirectTo: redirectForStatus(await readStatus()) };
+      if (!error) return { redirectTo: redirectForStatus((await readStatus()) ?? "none") };
       const c = rpcErrorCode(error);
       if (c === "bootstrap_closed") {
         return inviteCode ? redeem(inviteCode) : { redirectTo: "/no-access" };

@@ -1,9 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
+import { applySessionHeaders } from "@/lib/auth/session-headers";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+  let sessionCookies: { name: string; value: string; options?: Record<string, unknown> }[] = [];
+  let sessionHeaders: Record<string, string> = {};
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,10 +14,11 @@ export async function proxy(request: NextRequest) {
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet, headers) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+          sessionCookies = cookiesToSet;
+          sessionHeaders = { ...sessionHeaders, ...headers };
+          response = applySessionHeaders(NextResponse.next({ request }), sessionCookies, sessionHeaders);
         },
       },
     },
@@ -31,14 +35,12 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/login";
     url.search = "";
     url.searchParams.set("next", pathname);
-    const redirect = NextResponse.redirect(url);
-    response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
-    return redirect;
+    return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
 };
