@@ -25,6 +25,11 @@ describe("rpcErrorMessage", () => {
 
 describe("rpcErrorCode", () => {
   it("extracts a known code", () => expect(rpcErrorCode({ message: "invite_expired" })).toBe("invite_expired"));
+  it("maps deadlock/serialization pg codes to retry", () => {
+    expect(rpcErrorCode({ code: "40P01", message: "deadlock detected" })).toBe("retry");
+    expect(rpcErrorCode({ code: "40001", message: "could not serialize" })).toBe("retry");
+    expect(rpcErrorMessage("retry")).toBe("Hubo un conflicto con otra acción. Inténtalo de nuevo.");
+  });
   it("unknown otherwise", () => {
     expect(rpcErrorCode({ message: "boom" })).toBe("unknown");
     expect(rpcErrorCode(null)).toBe("unknown");

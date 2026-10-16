@@ -46,7 +46,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
   const [sponsorRes, inviteesRes] = await Promise.all([
     member.invited_by_member_id
       ? supabase.from("members").select(COLUMNS).eq("id", member.invited_by_member_id).maybeSingle<DbMember>()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: null, error: null }),
     supabase
       .from("members")
       .select(COLUMNS)
@@ -54,6 +54,9 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       .order("created_at", { ascending: true })
       .returns<DbMember[]>(),
   ]);
+
+  if (sponsorRes.error) throw sponsorRes.error;
+  if (inviteesRes.error) throw inviteesRes.error;
 
   const sponsor = sponsorRes.data ? toSummary(sponsorRes.data) : null;
   const invitees = (inviteesRes.data ?? []).map(toSummary);

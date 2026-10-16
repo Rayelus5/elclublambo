@@ -11,6 +11,7 @@ const MESSAGES: Record<string, string> = {
   invite_revoked: "Esta invitación fue anulada.",
   invalid_input: "Los datos enviados no son válidos.",
   hierarchy: "No puedes actuar sobre alguien de rango igual o superior al tuyo.",
+  retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 
 const FALLBACK = "Algo falló. Inténtalo de nuevo.";
@@ -19,8 +20,12 @@ export function rpcErrorMessage(code: string): string {
   return (Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : undefined) ?? FALLBACK;
 }
 
+/** Postgres deadlock_detected / serialization_failure: safe to retry. */
+const RETRYABLE_PG_CODES = new Set(["40P01", "40001"]);
+
 /** Supabase returns `raise exception '<code>'` as error.message. */
-export function rpcErrorCode(error: { message?: string } | null | undefined): string {
+export function rpcErrorCode(error: { message?: string; code?: string } | null | undefined): string {
+  if (error?.code && RETRYABLE_PG_CODES.has(error.code)) return "retry";
   const m = error?.message;
   return m && Object.hasOwn(MESSAGES, m) ? m : "unknown";
 }
