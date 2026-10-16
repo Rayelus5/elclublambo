@@ -1,0 +1,33 @@
+import { describe, it, expect } from "vitest";
+import { rpcErrorMessage, rpcErrorCode } from "@/lib/errors";
+
+const FALLBACK = "Algo falló. Inténtalo de nuevo.";
+
+describe("rpcErrorMessage", () => {
+  it.each([
+    ["invite_expired", "caducado"],
+    ["invite_exhausted", "agotada"],
+    ["invite_revoked", "anulada"],
+    ["invite_not_found", "no existe"],
+    ["already_member", "ya eres miembro"],
+    ["forbidden", "No tienes permiso"],
+  ])("%s contains %s", (code, text) => {
+    expect(rpcErrorMessage(code)).toContain(text);
+  });
+  it.each(["bootstrap_closed", "wallet_mismatch", "hierarchy", "invalid_input", "not_authenticated", "not_member"])(
+    "%s has specific copy",
+    (code) => {
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+    },
+  );
+  it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
+});
+
+describe("rpcErrorCode", () => {
+  it("extracts a known code", () => expect(rpcErrorCode({ message: "invite_expired" })).toBe("invite_expired"));
+  it("unknown otherwise", () => {
+    expect(rpcErrorCode({ message: "boom" })).toBe("unknown");
+    expect(rpcErrorCode(null)).toBe("unknown");
+    expect(rpcErrorCode(undefined)).toBe("unknown");
+  });
+});

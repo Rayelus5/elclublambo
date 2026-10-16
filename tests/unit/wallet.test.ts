@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { isSuperAdminWallet, normalizeAddress } from "@/lib/auth/wallet";
+import { isSuperAdminWallet, normalizeAddress, walletFromUser } from "@/lib/auth/wallet";
+
+describe("walletFromUser", () => {
+  const A = "0x9F202eb556F95308de0268f60b5757d83744De02";
+  const web3 = (data: Record<string, unknown> | null) => ({
+    identities: [{ provider: "web3", identity_data: data }],
+  });
+  it("reads web3 identity custom_claims.address, normalized", () => {
+    expect(walletFromUser(web3({ custom_claims: { address: A } }))).toBe(A.toLowerCase());
+  });
+  it("returns null when absent, non-web3 or malformed", () => {
+    expect(walletFromUser(null)).toBeNull();
+    expect(walletFromUser({})).toBeNull();
+    expect(walletFromUser({ identities: [] })).toBeNull();
+    expect(
+      walletFromUser({ identities: [{ provider: "email", identity_data: { custom_claims: { address: A } } }] }),
+    ).toBeNull();
+    expect(walletFromUser(web3(null))).toBeNull();
+    expect(walletFromUser(web3({ custom_claims: {} }))).toBeNull();
+    expect(walletFromUser(web3({ custom_claims: { address: "nope" } }))).toBeNull();
+    expect(walletFromUser(web3({ custom_claims: { address: 5 } }))).toBeNull();
+  });
+});
 
 const CHECKSUM = "0x9F202eb556F95308de0268f60b5757d83744De02";
 

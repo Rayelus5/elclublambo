@@ -6,6 +6,24 @@ export function normalizeAddress(a: string): `0x${string}` {
   return n as `0x${string}`;
 }
 
+type UserLike = {
+  identities?: Array<{ provider: string; identity_data?: Record<string, unknown> | null }>;
+};
+
+/** Wallet from the Supabase web3 identity (custom_claims.address), normalized; null if absent/malformed. */
+export function walletFromUser(user: UserLike | null): `0x${string}` | null {
+  const identity = user?.identities?.find((i) => i.provider === "web3");
+  const claims = identity?.identity_data?.custom_claims;
+  if (!claims || typeof claims !== "object") return null;
+  const address = (claims as Record<string, unknown>).address;
+  if (typeof address !== "string") return null;
+  try {
+    return normalizeAddress(address);
+  } catch {
+    return null;
+  }
+}
+
 export function isSuperAdminWallet(address: string, envValue: string | undefined): boolean {
   if (!envValue) return false;
   try {

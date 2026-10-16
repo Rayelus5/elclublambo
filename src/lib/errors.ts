@@ -1,0 +1,26 @@
+const MESSAGES: Record<string, string> = {
+  not_authenticated: "Tu sesión no es válida. Vuelve a conectar tu wallet.",
+  not_member: "No eres miembro del club.",
+  already_member: "Esta wallet ya está dentro: ya eres miembro del club.",
+  forbidden: "No tienes permiso para hacer esto.",
+  bootstrap_closed: "El acceso inicial ya está cerrado.",
+  wallet_mismatch: "La wallet conectada no coincide con la esperada.",
+  invite_not_found: "Esta invitación no existe.",
+  invite_expired: "Esta invitación ha caducado.",
+  invite_exhausted: "Esta invitación está agotada.",
+  invite_revoked: "Esta invitación fue anulada.",
+  invalid_input: "Los datos enviados no son válidos.",
+  hierarchy: "No puedes actuar sobre alguien de rango igual o superior al tuyo.",
+};
+
+const FALLBACK = "Algo falló. Inténtalo de nuevo.";
+
+export function rpcErrorMessage(code: string): string {
+  return (Object.hasOwn(MESSAGES, code) ? MESSAGES[code] : undefined) ?? FALLBACK;
+}
+
+/** Supabase returns `raise exception '<code>'` as error.message. */
+export function rpcErrorCode(error: { message?: string } | null | undefined): string {
+  const m = error?.message;
+  return m && Object.hasOwn(MESSAGES, m) ? m : "unknown";
+}
