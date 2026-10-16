@@ -2,3 +2,5 @@
 .claude/skills/ui-ux-pro-max/
 .env*.local
 node_modules/
+.claude/worktrees/
+.superpowers/
