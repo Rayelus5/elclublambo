@@ -12,12 +12,15 @@ export function shortAddress(addr: string): string {
 }
 
 type UserLike = {
-  identities?: Array<{ provider: string; identity_data?: Record<string, unknown> | null }>;
+  identities?: Array<{ provider: string; created_at?: string; identity_data?: Record<string, unknown> | null }>;
 };
 
 /** Wallet from the Supabase web3 identity (custom_claims.address), normalized; null if absent/malformed. */
 export function walletFromUser(user: UserLike | null): `0x${string}` | null {
-  const identity = user?.identities?.find((i) => i.provider === "web3");
+  // Earliest web3 identity first (mirrors the SQL auth_wallet_address ordering).
+  const identity = (user?.identities ?? [])
+    .filter((i) => i.provider === "web3")
+    .sort((a, b) => Date.parse(a.created_at ?? "") - Date.parse(b.created_at ?? "") || 0)[0];
   const claims = identity?.identity_data?.custom_claims;
   if (!claims || typeof claims !== "object") return null;
   const address = (claims as Record<string, unknown>).address;

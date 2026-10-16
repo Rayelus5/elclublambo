@@ -14,6 +14,11 @@ const MESSAGES: Record<string, string> = {
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 
+/** Allowlist untrusted input (e.g. a query param) to a known error code; never echo raw text. */
+export function knownErrorCode(value: unknown): string | null {
+  return typeof value === "string" && Object.hasOwn(MESSAGES, value) ? value : null;
+}
+
 const FALLBACK = "Algo falló. Inténtalo de nuevo.";
 
 export function rpcErrorMessage(code: string): string {

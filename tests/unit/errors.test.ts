@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { rpcErrorMessage, rpcErrorCode } from "@/lib/errors";
+import { rpcErrorMessage, rpcErrorCode, knownErrorCode } from "@/lib/errors";
+
+describe("knownErrorCode", () => {
+  it("allowlists known codes only", () => {
+    expect(knownErrorCode("forbidden")).toBe("forbidden");
+    expect(knownErrorCode("<script>")).toBeNull();
+    expect(knownErrorCode("toString")).toBeNull();
+    expect(knownErrorCode(undefined)).toBeNull();
+    expect(knownErrorCode(["forbidden"])).toBeNull();
+  });
+});
 
 const FALLBACK = "Algo falló. Inténtalo de nuevo.";
 

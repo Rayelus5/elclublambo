@@ -15,6 +15,16 @@ describe("walletFromUser", () => {
   it("reads web3 identity custom_claims.address, normalized", () => {
     expect(walletFromUser(web3({ custom_claims: { address: A } }))).toBe(A.toLowerCase());
   });
+  it("picks the earliest web3 identity by created_at (mirrors SQL)", () => {
+    const B = "0x1111111111111111111111111111111111111111";
+    const user = {
+      identities: [
+        { provider: "web3", created_at: "2026-02-01T00:00:00Z", identity_data: { custom_claims: { address: B } } },
+        { provider: "web3", created_at: "2026-01-01T00:00:00Z", identity_data: { custom_claims: { address: A } } },
+      ],
+    };
+    expect(walletFromUser(user)).toBe(A.toLowerCase());
+  });
   it("returns null when absent, non-web3 or malformed", () => {
     expect(walletFromUser(null)).toBeNull();
     expect(walletFromUser({})).toBeNull();

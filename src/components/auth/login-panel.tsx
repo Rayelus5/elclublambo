@@ -10,7 +10,6 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 import { completeLogin } from "@/lib/auth/actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
 import { shortAddress } from "@/lib/auth/wallet";
-import { rpcErrorMessage } from "@/lib/errors";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { getAppChain } from "@/lib/web3/chains";
 
@@ -73,15 +72,14 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
       }
 
       const { redirectTo, error: loginError } = await completeLogin(inviteCode);
-      // Con error y sin salir de la página (/login), se muestra aquí; en el resto la
-      // redirección (p. ej. /invite/<code>?error=…) ya presenta el error.
-      if (loginError && redirectTo === "/login") {
-        setError(rpcErrorMessage(loginError));
-        return;
-      }
       // Éxito: se mantiene `signing` activo mientras navega para evitar un doble envío.
+      // /invite/<code>?error=… ya presenta su error; /no-access lo recibe por ?error=.
       navigated = true;
-      router.replace(redirectTo === "/" ? safeNextPath(next) : redirectTo);
+      if (loginError && redirectTo === "/no-access") {
+        router.replace(`/no-access?error=${encodeURIComponent(loginError)}`);
+      } else {
+        router.replace(redirectTo === "/" ? safeNextPath(next) : redirectTo);
+      }
     } catch {
       setError(MSG_VERIFY);
     } finally {

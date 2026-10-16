@@ -46,6 +46,24 @@ async function MembersContent() {
     .maybeSingle<{ id: string }>();
   if (roleError) throw roleError;
 
+  const { data: adminRole, error: adminRoleError } = await supabase
+    .from("roles")
+    .select("id")
+    .eq("name", "SuperAdmin")
+    .maybeSingle<{ id: string }>();
+  if (adminRoleError) throw adminRoleError;
+
+  let adminIds = new Set<string>();
+  if (adminRole) {
+    const { data: admins, error: adminsError } = await supabase
+      .from("member_roles")
+      .select("member_id")
+      .eq("role_id", adminRole.id)
+      .returns<{ member_id: string }[]>();
+    if (adminsError) throw adminsError;
+    adminIds = new Set((admins ?? []).map((h) => h.member_id));
+  }
+
   let padrinoIds = new Set<string>();
   if (role) {
     const { data: holders, error: holdersError } = await supabase
@@ -63,6 +81,7 @@ async function MembersContent() {
     return {
       ...toSummary(m),
       sponsor: sponsor ? toSummary(sponsor) : null,
+      sponsorIsAdmin: sponsor ? adminIds.has(sponsor.id) : false,
       isPadrino: padrinoIds.has(m.id),
       needsReview: m.needs_review_since !== null,
       createdAt: m.created_at,

@@ -140,13 +140,12 @@ describe("LoginPanel", () => {
     expect(signInWithWeb3).not.toHaveBeenCalled();
   });
 
-  it("completeLogin error is shown when the redirect stays on the same page", async () => {
+  it("completeLogin error ending on /no-access navigates with ?error=<code>", async () => {
     connect();
-    completeLogin.mockResolvedValue({ redirectTo: "/login", error: "unknown" });
+    completeLogin.mockResolvedValue({ redirectTo: "/no-access", error: "forbidden" });
     render(<LoginPanel />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Algo falló. Inténtalo de nuevo.");
-    expect(replace).not.toHaveBeenCalled();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/no-access?error=forbidden"));
   });
 
   it("signing: button is disabled and reads 'Firmando…'", async () => {

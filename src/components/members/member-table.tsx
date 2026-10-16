@@ -13,6 +13,7 @@ import { StatusBadge, type MemberSummary } from "./sponsor-tree";
 
 export type AdminMemberRow = MemberSummary & {
   sponsor: MemberSummary | null;
+  sponsorIsAdmin?: boolean;
   isPadrino: boolean;
   needsReview: boolean;
   createdAt: string;
@@ -147,7 +148,7 @@ export function MemberTable({
                     {actionable ? (
                       <div className="flex flex-wrap items-center gap-2">
                         {canManageRoles ? <PadrinoToggle member={m} onError={setError} /> : null}
-                        <BanDialog member={m} sponsor={m.sponsor} onBanned={onBanned} />
+                        <BanDialog member={m} sponsor={m.sponsor} sponsorIsAdmin={m.sponsorIsAdmin} onBanned={onBanned} />
                       </div>
                     ) : null}
                   </td>

@@ -29,17 +29,20 @@ const nameOf = (m: MemberSummary) => m.displayName ?? shortAddress(m.walletAddre
 export function BanDialog({
   member,
   sponsor,
+  sponsorIsAdmin = false,
   onBanned,
 }: {
   member: MemberSummary;
   sponsor: MemberSummary | null;
+  /** Admins are never penalized (SQL skips it), so the option is hidden for them. */
+  sponsorIsAdmin?: boolean;
   onBanned?: (member: MemberSummary) => void;
 }) {
   const uid = useId();
   const reasonId = `${uid}-reason`;
   const sponsorId = `${uid}-sponsor`;
   const errorId = `${uid}-error`;
-  const canPenalize = sponsor !== null && sponsor.status === "active";
+  const canPenalize = sponsor !== null && sponsor.status === "active" && !sponsorIsAdmin;
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [penalize, setPenalize] = useState(false);

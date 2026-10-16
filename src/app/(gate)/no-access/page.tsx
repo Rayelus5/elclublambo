@@ -1,18 +1,17 @@
-import { SignOutButton } from "@/components/auth/sign-out-button";
+import { Suspense } from "react";
+import { NoAccessView } from "@/components/auth/no-access-view";
+import { knownErrorCode } from "@/lib/errors";
 
-export default function NoAccessPage() {
+// searchParams es dinámico: con cacheComponents debe leerse dentro de un Suspense.
+async function NoAccessContent({ searchParams }: { searchParams: Promise<{ error?: string | string[] }> }) {
+  const { error } = await searchParams;
+  return <NoAccessView errorCode={knownErrorCode(error)} />;
+}
+
+export default function NoAccessPage({ searchParams }: { searchParams: Promise<{ error?: string | string[] }> }) {
   return (
-    <>
-      <header className="flex flex-col gap-4">
-        <h1 className="text-h1">Sin acceso</h1>
-        <p className="text-fg-muted">
-          El club es solo con invitación y esta wallet aún no es miembro. Pide a alguien del club que
-          te invite y abre su enlace.
-        </p>
-      </header>
-      <section aria-label="Cambiar de wallet" className="border border-border bg-surface p-6 rounded-panel">
-        <SignOutButton label="Probar con otra wallet" />
-      </section>
-    </>
+    <Suspense fallback={<NoAccessView errorCode={null} />}>
+      <NoAccessContent searchParams={searchParams} />
+    </Suspense>
   );
 }

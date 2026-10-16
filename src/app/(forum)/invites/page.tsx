@@ -24,13 +24,22 @@ async function InvitesContent() {
   const perms = BigInt(String(rawPerms ?? 0));
   if (!hasPerm(perms, Perm.CREATE_INVITES)) notFound();
 
-  const { data: me } = await supabase.rpc("current_member_id");
-  const { data } = me
-    ? await supabase.from("invites").select("*").eq("created_by", me).order("created_at", { ascending: false })
-    : { data: [] };
+  const { data: me, error: meError } = await supabase.rpc("current_member_id");
+  if (meError) throw meError;
+  let data: DbInvite[] = [];
+  if (me) {
+    const res = await supabase
+      .from("invites")
+      .select("*")
+      .eq("created_by", me)
+      .order("created_at", { ascending: false })
+      .returns<DbInvite[]>();
+    if (res.error) throw res.error;
+    data = res.data ?? [];
+  }
 
   const now = new Date();
-  const rows: InviteRow[] = ((data ?? []) as DbInvite[]).map((inv) => ({
+  const rows: InviteRow[] = data.map((inv) => ({
     id: inv.id,
     codePrefix: inv.code.slice(0, 4),
     uses: inv.uses,

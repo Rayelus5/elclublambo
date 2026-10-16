@@ -34,6 +34,13 @@ describe("BanDialog", () => {
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
 
+  it("hides the sponsor checkbox when the sponsor is an admin (never penalized)", async () => {
+    const user = userEvent.setup();
+    render(<BanDialog member={member} sponsor={sponsor} sponsorIsAdmin />);
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
   it("blocks submit without a reason and shows a message", async () => {
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={sponsor} />);
