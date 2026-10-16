@@ -1,8 +1,8 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { afterAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { computeChannelPermissions } from "@/lib/permissions/channel";
-import { cases, toInput, type ParityCase } from "../fixtures/channel-cases";
+import { cases, toInput, EVERYONE_PERMISSIONS, type ParityCase } from "../fixtures/channel-cases";
 
 try {
   process.loadEnvFile(".env.local");
@@ -138,10 +138,13 @@ async function seed(db: SupabaseClient, c: ParityCase, run: string, cleanup: Cle
 }
 
 async function cleanupAll(db: SupabaseClient, cl: Cleanup) {
-  for (const id of [...cl.channelIds].reverse()) await db.from("channels").delete().eq("id", id);
-  for (const id of cl.roleIds) await db.from("roles").delete().eq("id", id);
-  if (cl.memberId) await db.from("members").delete().eq("id", cl.memberId);
-  if (cl.userId) await db.auth.admin.deleteUser(cl.userId);
+  const fail = (what: string, e: { message: string } | null) => {
+    if (e) throw new Error(`cleanup ${what}: ${e.message}`);
+  };
+  for (const id of [...cl.channelIds].reverse()) fail("channel", (await db.from("channels").delete().eq("id", id)).error);
+  for (const id of cl.roleIds) fail("role", (await db.from("roles").delete().eq("id", id)).error);
+  if (cl.memberId) fail("member", (await db.from("members").delete().eq("id", cl.memberId)).error);
+  if (cl.userId) fail("user", (await db.auth.admin.deleteUser(cl.userId)).error);
 }
 
 describe.skipIf(!up)(`channel_permissions sql/ts parity ${up ? "" : `(skipped: ${skipReason})`}`, () => {
@@ -149,6 +152,12 @@ describe.skipIf(!up)(`channel_permissions sql/ts parity ${up ? "" : `(skipped: $
     ? createClient(url!, serviceKey!, { auth: { persistSession: false, autoRefreshToken: false } })
     : (null as unknown as SupabaseClient);
   const run = randomUUID().slice(0, 8);
+
+  it("seeded @everyone permissions match the fixture", async () => {
+    const r = await db.from("roles").select("permissions").eq("is_everyone", true).single();
+    expect(r.error).toBeNull();
+    expect(BigInt(r.data!.permissions as number)).toBe(EVERYONE_PERMISSIONS);
+  });
 
   for (const c of cases) {
     it(c.name, async () => {
@@ -176,10 +185,6 @@ describe.skipIf(!up)(`channel_permissions sql/ts parity ${up ? "" : `(skipped: $
     } finally {
       await cleanupAll(db, cleanup);
     }
-  });
-
-  afterAll(async () => {
-    /* per-case cleanup already ran */
   });
 });
 

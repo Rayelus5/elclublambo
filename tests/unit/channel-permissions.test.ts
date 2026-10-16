@@ -10,6 +10,12 @@ describe("computeChannelPermissions (shared fixtures)", () => {
     expect(names).toContain("penalty_allow_cannot_reveal");
   });
 
+  it("empty path (missing channel) -> 0, even for admins", () => {
+    expect(
+      computeChannelPermissions({ rolesBase: 512n, isAdmin: true, path: [], penaltyDeny: 0n, active: true }),
+    ).toBe(0n);
+  });
+
   for (const c of cases) {
     it(c.name, () => {
       expect(computeChannelPermissions(toInput(c))).toBe(BigInt(c.expected));

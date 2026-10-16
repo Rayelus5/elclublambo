@@ -1,4 +1,4 @@
-import { ALL_PERMS, GLOBAL_MASK, Perm } from "./bits";
+import { CHANNEL_MASK, Perm } from "./bits";
 
 export type Ow = { allow: bigint; deny: bigint };
 
@@ -19,11 +19,12 @@ function apply(p: bigint, o: Ow | undefined): bigint {
 
 /**
  * Pure mirror of public.channel_permissions (F2a, DAO gate always passes).
+ * Returns CHANNEL bits only (admin -> CHANNEL_MASK); global bits come from has_global_perm / my_permissions.
  * Must stay in lockstep with supabase/migrations/20261016100003_channel_permissions.sql.
  */
 export function computeChannelPermissions(i: ChannelPermInput): bigint {
-  if (!i.active) return 0n;
-  if (i.isAdmin) return ALL_PERMS;
+  if (!i.active || i.path.length === 0) return 0n;
+  if (i.isAdmin) return CHANNEL_MASK;
 
   let p = i.rolesBase;
   for (const node of i.path) {
@@ -38,7 +39,9 @@ export function computeChannelPermissions(i: ChannelPermInput): bigint {
       p = apply(p, { allow, deny });
     }
     p = apply(p, node.member);
-    if ((p & Perm.VIEW_CHANNEL) === 0n) return p & GLOBAL_MASK;
+    if ((p & Perm.VIEW_CHANNEL) === 0n) return 0n;
   }
-  return p & ~i.penaltyDeny;
+  p &= ~i.penaltyDeny;
+  if ((p & Perm.VIEW_CHANNEL) === 0n) return 0n;
+  return p & CHANNEL_MASK;
 }

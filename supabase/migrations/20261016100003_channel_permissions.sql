@@ -1,6 +1,8 @@
 -- F2a cascading channel permissions (Discord-style) + read policies for the channel tree.
 -- TS mirror: src/lib/permissions/channel.ts (computeChannelPermissions). Parity is proven with
 -- tests/fixtures/channel-permissions.json. Constants: CHANNEL_MASK 31759, GLOBAL_MASK 33776, ALL 65535.
+-- channel_permissions returns CHANNEL bits only (every return is masked with 31759; admin -> 31759).
+-- Global bits come from has_global_perm / my_permissions.
 
 -- DAO gating hook. F3 replaces the body; until then nothing is gated.
 create function public.gate_passes(p_member uuid, p_channel uuid, p_scope text)
@@ -52,7 +54,7 @@ begin
      or r.id in (select mr.role_id from public.member_roles mr where mr.member_id = p_member);
 
   if (v_base & 512) <> 0 then
-    return 65535;
+    return 31759;
   end if;
 
   v_p := v_base;
@@ -95,9 +97,9 @@ begin
       v_p := (v_p & ~v_deny) | v_allow;
     end if;
 
-    -- 4. hidden node hides its whole subtree; only global bits survive
+    -- 4. hidden node hides its whole subtree (channel bits only -> nothing)
     if (v_p & 1) = 0 then
-      return v_p & 33776;
+      return 0;
     end if;
 
     -- DAO gate hook (masks accumulate; applied after the penalty)
@@ -113,10 +115,29 @@ begin
   -- 5. penalty: only its deny applies at channel level (its allow never adds channel bits)
   select o.deny into v_pen_deny from public.member_permission_overrides o where o.member_id = p_member;
   v_p := v_p & ~coalesce(v_pen_deny, 0);
+  if (v_p & 1) = 0 then
+    return 0;
+  end if;
 
   -- 6. DAO gating
-  return v_p & v_gate_mask;
+  return v_p & v_gate_mask & 31759;
 end;
+$$;
+
+-- Permissions of the current member on a channel (0 if not an active member).
+create function public.my_channel_permissions(p_channel uuid)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select coalesce(
+    (select public.channel_permissions(m.id, p_channel)
+     from public.members m
+     where m.auth_user_id = auth.uid() and m.status = 'active'),
+    0
+  )
 $$;
 
 -- Current member helpers
@@ -160,13 +181,20 @@ revoke execute on function
   public.channel_permissions(uuid, uuid),
   public.can(uuid, bigint),
   public.can_view(uuid),
-  public.visible_channels()
+  public.visible_channels(),
+  public.my_channel_permissions(uuid)
 from public, anon;
 
-revoke execute on function public.gate_passes(uuid, uuid, text) from authenticated;
+-- Internal: no information oracle about other members' permissions for API users.
+revoke execute on function
+  public.gate_passes(uuid, uuid, text),
+  public.channel_permissions(uuid, uuid),
+  public.member_global_permissions(uuid),
+  public.member_top_position(uuid)
+from authenticated;
 
 grant execute on function
-  public.channel_permissions(uuid, uuid),
+  public.my_channel_permissions(uuid),
   public.can(uuid, bigint),
   public.can_view(uuid),
   public.visible_channels()
