@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(27);
 
 -- Fixtures (as superuser)
 select set_config('t.boot', tests.create_member('0x1000000000000000000000000000000000000001', null, true)::text, true);
@@ -48,6 +48,15 @@ select throws_ok($$update public.members set status = 'banned' where true$$, '42
   'active cannot update status');
 select lives_ok($$update public.members set display_name = 'Padrino1' where auth_user_id = auth.uid()$$,
   'active can update own display_name');
+select ok(not public.has_global_perm(0), 'has_global_perm(0) is false');
+select throws_ok(
+  $$insert into public.members (auth_user_id, wallet_address, is_bootstrap)
+    values (gen_random_uuid(), '0x2000000000000000000000000000000000000001', true)$$,
+  '42501', null, 'active cannot insert members');
+select set_config('t.cnt', (select count(*) from public.members)::text, true);
+delete from public.members;
+select is((select count(*) from public.members)::text, current_setting('t.cnt'),
+  'active delete on members affects no rows');
 select tests.clear_authentication();
 
 -- banned
@@ -70,6 +79,12 @@ select is(
       and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
       and has_function_privilege('anon', p.oid, 'execute')),
   0::bigint, 'anon has no EXECUTE on public functions');
+
+select is(
+  (select count(*) from pg_class c
+    where c.relnamespace = 'public'::regnamespace and c.relkind in ('r', 'p')
+      and has_table_privilege('authenticated', c.oid, 'TRUNCATE')),
+  0::bigint, 'authenticated has no TRUNCATE on public tables');
 
 select * from finish();
 rollback;

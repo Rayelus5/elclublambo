@@ -6,6 +6,7 @@ revoke all on all sequences in schema public from anon;
 alter default privileges in schema public revoke all on sequences from anon;
 alter default privileges in schema public revoke execute on functions from public, anon;
 revoke truncate on all tables in schema public from authenticated;
+alter default privileges in schema public revoke truncate on tables from authenticated;
 
 -- Wallet of the current auth user (lowercase), from the web3 identity. Never from client input.
 create function public.auth_wallet_address()
@@ -18,6 +19,7 @@ as $$
   select lower(i.identity_data->'custom_claims'->>'address')
   from auth.identities i
   where i.user_id = auth.uid() and i.provider = 'web3'
+  order by i.created_at
   limit 1
 $$;
 
@@ -97,7 +99,7 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(
+  select p_bit > 0 and coalesce(
     (select (public.member_global_permissions(m.id) & p_bit) = p_bit
      from public.members m
      where m.auth_user_id = auth.uid() and m.status = 'active'),
