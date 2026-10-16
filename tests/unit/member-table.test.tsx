@@ -42,6 +42,20 @@ describe("MemberTable", () => {
     expect(screen.getByRole("button", { name: "Banear a Bea" })).toBeInTheDocument();
   });
 
+  it("shows an Activo badge for active members only, and keeps the Padrino tag out of Estado", () => {
+    render(
+      <MemberTable members={[{ ...ana, isPadrino: true }, gone]} meId="x" perms={ALL} />,
+    );
+    const anaRow = screen.getByRole("row", { name: /Ana/ });
+    const goneRow = screen.getByRole("row", { name: /Gus/ });
+    const [memberCell, , , statusCell] = within(anaRow).getAllByRole("cell");
+    expect(within(statusCell!).getByText("Activo")).toBeInTheDocument();
+    expect(within(statusCell!).queryByText("Padrino")).not.toBeInTheDocument();
+    expect(within(memberCell!).getByText("Padrino")).toBeInTheDocument();
+    expect(within(goneRow).queryByText("Activo")).not.toBeInTheDocument();
+    expect(within(goneRow).getByText("Baneado")).toBeInTheDocument();
+  });
+
   it("shows the Revisar badge when the member needs review", () => {
     render(<MemberTable members={[{ ...ana, needsReview: true }]} meId="x" perms={ALL} />);
     const r = screen.getByRole("row", { name: /Ana/ });

@@ -1,8 +1,12 @@
 import "server-only";
 import { createServerClient as createClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 export async function createServerClient() {
+  // supabase-js reads Date.now() (token expiry). With cacheComponents that must not run while
+  // prerendering, so mark everything that uses this client as request-time first.
+  await connection();
   const cookieStore = await cookies();
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
     cookies: {

@@ -103,12 +103,19 @@ export function MemberTable({
               return (
                 <tr key={m.id}>
                   <td className="px-4 py-2">
-                    <Link
-                      href={`/u/${m.walletAddress}`}
-                      className="inline-flex min-h-11 items-center text-fg underline-offset-4 hover:underline"
-                    >
-                      <span className={m.displayName ? undefined : "font-mono"}>{nameOf(m)}</span>
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/u/${m.walletAddress}`}
+                        className="inline-flex min-h-11 items-center text-fg underline-offset-4 hover:underline"
+                      >
+                        <span className={m.displayName ? undefined : "font-mono"}>{nameOf(m)}</span>
+                      </Link>
+                      {m.isPadrino ? (
+                        <span className="inline-block border border-accent px-2 py-0.5 text-[13px] text-accent rounded-control">
+                          Padrino
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-fg-muted">
                     {m.sponsor ? (
@@ -122,12 +129,13 @@ export function MemberTable({
                   </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <StatusBadge status={m.status} />
-                      {m.isPadrino ? (
-                        <span className="inline-block border border-accent px-2 py-0.5 text-[13px] text-accent rounded-control">
-                          Padrino
+                      {m.status === "active" ? (
+                        <span className="inline-block border border-success px-2 py-0.5 text-[13px] text-success rounded-control">
+                          Activo
                         </span>
-                      ) : null}
+                      ) : (
+                        <StatusBadge status={m.status} />
+                      )}
                       {m.needsReview ? (
                         <span className="inline-block border border-warning px-2 py-0.5 text-[13px] text-warning rounded-control">
                           Revisar

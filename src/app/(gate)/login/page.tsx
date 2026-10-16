@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { LoginPanel } from "@/components/auth/login-panel";
+import { LoginPanelLazy } from "@/components/auth/login-panel-lazy";
 
 async function LoginContent({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
   const { next } = await searchParams;
-  return <LoginPanel next={typeof next === "string" ? next : null} />;
+  return <LoginPanelLazy next={typeof next === "string" ? next : null} />;
 }
 
 export default function LoginPage(props: PageProps<"/login">) {

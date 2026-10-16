@@ -11,8 +11,18 @@ const adminAddr = E2E_SUPER_ADMIN_ADDRESS.toLowerCase();
 const keyB = newWalletKey();
 const keyC = newWalletKey();
 
+// Every browser error (console.error, uncaught exceptions) from any context, asserted empty at the end.
+const browserErrors: string[] = [];
+function trackErrors(context: BrowserContext) {
+  context.on("console", (m) => {
+    if (m.type() === "error") browserErrors.push(`console: ${m.text()} @ ${m.location().url}`);
+  });
+  context.on("weberror", (e) => browserErrors.push(`pageerror: ${e.error().message}`));
+}
+
 async function actor(browser: Browser, pk: `0x${string}`, invite?: string) {
   const context = await browser.newContext();
+  trackErrors(context);
   const landed = await loginAs(context, pk, { invite });
   const page = await context.newPage();
   return { context, page, landed };
@@ -125,4 +135,26 @@ test("5. Padrino -> B invita a C -> ban con penalización: B pierde Invitaciones
   await expect(d.page).toHaveURL(/\/invite\/.+error=invite_revoked/);
   await expect(d.page.getByText("Esta invitación fue anulada.")).toBeVisible();
   await d.context.close();
+});
+
+test("6. anonymous and member pages render without browser errors", async ({ browser }) => {
+  // Anonymous gate pages (these host the wallet panel, which must not break SSR/hydration).
+  const anon = await browser.newContext();
+  trackErrors(anon);
+  const page = await anon.newPage();
+  for (const path of ["/login", "/invite/not-a-real-code", "/no-access"]) {
+    await page.goto(path);
+    await page.waitForLoadState("networkidle");
+  }
+  await page.goto("/login");
+  await expect(page.getByRole("button", { name: "Conectar wallet" })).toBeVisible();
+  await anon.close();
+
+  // Member pages as the admin.
+  for (const path of ["/", "/invites", "/admin/members", `/u/${adminAddr}`]) {
+    await adminPage.goto(path);
+    await adminPage.waitForLoadState("networkidle");
+  }
+
+  expect(browserErrors).toEqual([]);
 });

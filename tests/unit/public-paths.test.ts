@@ -3,7 +3,7 @@ import { isPublicPath, safeNextPath } from "@/lib/auth/public-paths";
 
 describe("safeNextPath", () => {
   it.each(["/invites", "/admin/members?x=1", "/"])("%s kept", (p) => expect(safeNextPath(p)).toBe(p));
-  it.each([null, "", "//evil.com", "/\\evil.com", "https://x", "evil", "/login", "/login/complete", "/a\\b"])(
+  it.each([null, "", "//evil.com", "/\\evil.com", "https://x", "evil", "/login", "/login/complete", "/a\\b", "/\t/evil.com", "/\n/evil.com", "/ /x", "/\u0000x", "/\u007fx"])(
     "%s -> /",
     (p) => expect(safeNextPath(p)).toBe("/"),
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,7 +11,12 @@ export function Topbar({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-bg px-4 md:hidden">
-      <span className="font-display text-xl font-black tracking-tight">El Club.</span>
+      <Link
+        href="/"
+        className="inline-flex min-h-11 items-center font-display text-xl font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+      >
+        El Club.
+      </Link>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú">

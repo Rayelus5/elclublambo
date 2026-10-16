@@ -6,7 +6,12 @@ vi.mock("@/lib/auth/actions", () => ({ completeLogin }));
 
 import { GET } from "@/app/(gate)/login/complete/route";
 
-const call = (qs = "") => GET(new NextRequest(`http://localhost:3000/login/complete${qs}`));
+const call = (qs = "", site: string | null = "none") =>
+  GET(
+    new NextRequest(`http://localhost:3000/login/complete${qs}`, {
+      headers: site === null ? {} : { "sec-fetch-site": site },
+    }),
+  );
 
 describe("GET /login/complete", () => {
   beforeEach(() => completeLogin.mockReset());
@@ -36,8 +41,35 @@ describe("GET /login/complete", () => {
     expect((await call("?next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/");
   });
 
+  it.each(["/%09/evil.com", "/%0a/evil.com", "/%20/evil.com", "/%5cevil.com"])(
+    "never redirects off-origin for next=%s",
+    async (next) => {
+      completeLogin.mockResolvedValue({ redirectTo: "/" });
+      const loc = (await call(`?next=${next}`)).headers.get("location")!;
+      expect(new URL(loc).origin).toBe("http://localhost:3000");
+      expect(loc).toBe("http://localhost:3000/");
+    },
+  );
+
+  it("falls back to / if the target resolves off-origin", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "//evil.com" });
+    expect((await call()).headers.get("location")).toBe("http://localhost:3000/");
+  });
+
   it("never lets next override a non-/ outcome", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "/banned" });
     expect((await call("?next=/invites")).headers.get("location")).toBe("http://localhost:3000/banned");
+  });
+
+  it.each(["same-origin", "none"])("proceeds when Sec-Fetch-Site is %s", async (site) => {
+    completeLogin.mockResolvedValue({ redirectTo: "/" });
+    await call("", site);
+    expect(completeLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["cross-site", "same-site", null])("does not run completeLogin when Sec-Fetch-Site is %s", async (site) => {
+    const res = await call("?invite=abc", site);
+    expect(completeLogin).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe("http://localhost:3000/login");
   });
 });

@@ -60,6 +60,16 @@ describe("Sidebar", () => {
     expect(within(profile).getByText("0xd590…b82d")).toHaveClass("font-mono");
   });
 
+  it("makes the mobile top bar brand a link home, styled like the sidebar brand", () => {
+    renderSidebar(7n);
+    const topbarBrand = within(screen.getByRole("banner")).getByRole("link", { name: "El Club." });
+    expect(topbarBrand).toHaveAttribute("href", "/");
+    const sidebarBrand = within(screen.getByRole("complementary")).getByRole("link", { name: "El Club." });
+    expect(topbarBrand.className).toContain("font-display");
+    expect(topbarBrand.className).toContain("focus-visible:ring-accent");
+    expect(sidebarBrand.className).toContain("font-display");
+  });
+
   it("offers sign out", () => {
     renderSidebar(7n);
     expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();

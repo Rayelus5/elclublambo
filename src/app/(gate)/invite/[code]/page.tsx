@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { LoginPanel } from "@/components/auth/login-panel";
+import { LoginPanelLazy } from "@/components/auth/login-panel-lazy";
 import { safeDecode } from "@/lib/auth/safe-decode";
 import { rpcErrorMessage } from "@/lib/errors";
 
@@ -13,7 +13,7 @@ async function InviteContent({ props }: { props: PageProps<"/invite/[code]"> }) 
           {rpcErrorMessage(errorCode)}
         </p>
       ) : null}
-      <LoginPanel inviteCode={safeDecode(code)} />
+      <LoginPanelLazy inviteCode={safeDecode(code)} />
     </>
   );
 }

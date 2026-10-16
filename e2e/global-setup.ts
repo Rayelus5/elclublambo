@@ -6,6 +6,11 @@ import { execSync } from "node:child_process";
  */
 export default async function globalSetup() {
   // Escape hatch for fast iteration on a dirty DB (keys are random per run, so specs still pass).
+  // Never wipe anything but a local database.
+  const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").hostname;
+  if (host !== "127.0.0.1" && host !== "localhost") {
+    throw new Error(`E2E refuses to run against a non-local Supabase (${host}); it resets the database.`);
+  }
   if (process.env.E2E_SKIP_RESET) return;
   execSync("pnpm db:reset", { stdio: "inherit" });
 

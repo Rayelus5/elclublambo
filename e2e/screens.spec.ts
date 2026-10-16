@@ -44,6 +44,11 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
       if (width === 375) {
         const scrollWidth = await page.evaluate(() => document.scrollingElement!.scrollWidth);
         expect(scrollWidth, `${t.name} overflows horizontally at 375px`).toBeLessThanOrEqual(375);
+        if (t.ctx === admin) {
+          // The mobile top bar must keep its natural height (not stretch with the grid rows).
+          const header = await page.getByRole("banner").boundingBox();
+          expect(header?.height ?? Infinity, `${t.name} mobile header height`).toBeLessThanOrEqual(80);
+        }
       }
       await page.close();
     }

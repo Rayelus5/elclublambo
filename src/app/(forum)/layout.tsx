@@ -24,7 +24,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const perms = BigInt(String(rawPerms ?? 0));
 
   return (
-    <div className="grid min-h-dvh flex-1 grid-cols-1 md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
+    <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-none md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
       <Sidebar perms={perms} wallet={wallet} />
       <main className="min-w-0 px-4 py-8 sm:px-8 md:py-12">{children}</main>
       <RightRail />
