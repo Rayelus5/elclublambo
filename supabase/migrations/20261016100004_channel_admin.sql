@@ -313,3 +313,396 @@ grant execute on function
   public.move_channel(uuid, uuid, int),
   public.delete_channel(uuid)
 to authenticated;
+
+-- ===== Overwrites, roles and allowed domains (F2a Task 5) =====
+-- Anti-escalation: an actor only touches bits they hold in that channel (admins all), only targets strictly
+-- below their top role position, and never the SuperAdmin / any is_system role.
+
+create function public.set_overwrite(
+  p_channel uuid, p_target_type text, p_target uuid, p_allow bigint, p_deny bigint
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_admin boolean;
+  v_top int;
+  v_allow bigint := coalesce(p_allow, 0);
+  v_deny bigint := coalesce(p_deny, 0);
+  v_role public.roles;
+begin
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
+    raise exception 'forbidden';
+  end if;
+  if p_channel is null or (public.channel_permissions(v_actor, p_channel) & 1) = 0 then
+    raise exception 'forbidden';
+  end if;
+  if p_target is null or p_target_type is null or p_target_type not in ('role', 'member')
+     or (v_allow | v_deny) < 0 or ((v_allow | v_deny) & ~31759::bigint) <> 0 or (v_allow & v_deny) <> 0 then
+    raise exception 'invalid_input';
+  end if;
+
+  v_admin := (public.member_global_permissions(v_actor) & 512) <> 0;
+  v_top := public.member_top_position(v_actor);
+
+  if not v_admin and ((v_allow | v_deny) & ~public.channel_permissions(v_actor, p_channel)) <> 0 then
+    raise exception 'forbidden';
+  end if;
+
+  if p_target_type = 'role' then
+    select * into v_role from public.roles r where r.id = p_target for key share;
+    if not found then
+      raise exception 'invalid_input';
+    end if;
+    if v_role.is_system then
+      raise exception 'forbidden';
+    end if;
+    if not v_admin and v_role.position >= v_top then
+      raise exception 'hierarchy';
+    end if;
+  else
+    perform 1 from public.members m where m.id = p_target for key share;
+    if not found then
+      raise exception 'invalid_input';
+    end if;
+    if not v_admin and (p_target = v_actor or public.member_top_position(p_target) >= v_top) then
+      raise exception 'hierarchy';
+    end if;
+  end if;
+
+  if v_allow = 0 and v_deny = 0 then
+    delete from public.permission_overwrites
+    where channel_id = p_channel and target_type = p_target_type and target_id = p_target;
+  else
+    insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
+    values (p_channel, p_target_type, p_target, v_allow, v_deny)
+    on conflict (channel_id, target_type, target_id)
+    do update set allow = excluded.allow, deny = excluded.deny;
+  end if;
+
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (v_actor, 'overwrite_set', 'channel', p_channel,
+          jsonb_build_object('channel_id', p_channel, 'target_type', p_target_type, 'target_id', p_target,
+                             'allow', v_allow, 'deny', v_deny));
+end;
+$$;
+
+create function public.create_role(p_name text, p_color text, p_permissions bigint)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_admin boolean;
+  v_top int;
+  v_name text := btrim(p_name);
+  v_color text := upper(p_color);
+  v_pos int;
+  v_id uuid;
+begin
+  perform pg_advisory_xact_lock(hashtext('public.roles'));
+
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(64) then
+    raise exception 'forbidden';
+  end if;
+  if v_name is null or char_length(v_name) not between 1 and 32
+     or v_color is null or v_color !~ '^#[0-9A-F]{6}$'
+     or p_permissions is null or p_permissions < 0 or p_permissions > 65535 then
+    raise exception 'invalid_input';
+  end if;
+
+  v_admin := (public.member_global_permissions(v_actor) & 512) <> 0;
+  v_top := public.member_top_position(v_actor);
+  if not v_admin and (p_permissions & ~public.member_global_permissions(v_actor)) <> 0 then
+    raise exception 'hierarchy';
+  end if;
+
+  select coalesce(max(r.position), 0) + 1 into v_pos from public.roles r where r.position < v_top;
+  if v_pos >= v_top then
+    raise exception 'hierarchy';
+  end if;
+
+  begin
+    insert into public.roles (name, color, position, permissions)
+    values (v_name, v_color, v_pos, p_permissions)
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'invalid_input';
+  end;
+
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (v_actor, 'role_created', 'role', v_id,
+          jsonb_build_object('name', v_name, 'color', v_color, 'permissions', p_permissions, 'position', v_pos));
+  return v_id;
+end;
+$$;
+
+create function public.update_role(p_role uuid, p_name text, p_color text, p_permissions bigint)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_admin boolean;
+  v_top int;
+  v_role public.roles;
+  v_name text := btrim(p_name);
+  v_color text := upper(p_color);
+begin
+  perform pg_advisory_xact_lock(hashtext('public.roles'));
+
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(64) then
+    raise exception 'forbidden';
+  end if;
+  if p_role is null then
+    raise exception 'invalid_input';
+  end if;
+
+  select * into v_role from public.roles r where r.id = p_role for update;
+  if not found then
+    raise exception 'invalid_input';
+  end if;
+  if v_role.is_system then
+    raise exception 'forbidden';
+  end if;
+
+  v_admin := (public.member_global_permissions(v_actor) & 512) <> 0;
+  v_top := public.member_top_position(v_actor);
+  if not v_admin and v_role.position >= v_top then
+    raise exception 'hierarchy';
+  end if;
+
+  if v_name is null or char_length(v_name) not between 1 and 32
+     or v_color is null or v_color !~ '^#[0-9A-F]{6}$'
+     or p_permissions is null or p_permissions < 0 or p_permissions > 65535 then
+    raise exception 'invalid_input';
+  end if;
+
+  if v_role.is_everyone and (v_name <> v_role.name or v_color <> v_role.color) then
+    raise exception 'forbidden';
+  end if;
+  if v_role.system_key is not null and v_name <> v_role.name then
+    raise exception 'forbidden';
+  end if;
+
+  if not v_admin and (p_permissions & ~public.member_global_permissions(v_actor)) <> 0 then
+    raise exception 'hierarchy';
+  end if;
+
+  begin
+    update public.roles set name = v_name, color = v_color, permissions = p_permissions where id = p_role;
+  exception when unique_violation then
+    raise exception 'invalid_input';
+  end;
+
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (v_actor, 'role_updated', 'role', p_role,
+          jsonb_build_object('name', v_name, 'color', v_color, 'permissions', p_permissions,
+                             'previous_permissions', v_role.permissions));
+end;
+$$;
+
+create function public.delete_role(p_role uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_role public.roles;
+begin
+  perform pg_advisory_xact_lock(hashtext('public.roles'));
+
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(64) then
+    raise exception 'forbidden';
+  end if;
+  if p_role is null then
+    raise exception 'invalid_input';
+  end if;
+
+  select * into v_role from public.roles r where r.id = p_role for update;
+  if not found then
+    raise exception 'invalid_input';
+  end if;
+  if v_role.is_system or v_role.is_everyone or v_role.system_key is not null then
+    raise exception 'forbidden';
+  end if;
+  if (public.member_global_permissions(v_actor) & 512) = 0
+     and v_role.position >= public.member_top_position(v_actor) then
+    raise exception 'hierarchy';
+  end if;
+
+  -- member_roles cascades by FK; overwrites by the roles_overwrites_cleanup trigger
+  delete from public.roles where id = p_role;
+
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (v_actor, 'role_deleted', 'role', p_role,
+          jsonb_build_object('name', v_role.name, 'position', v_role.position));
+end;
+$$;
+
+create function public.move_role(p_role uuid, p_position int)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_admin boolean;
+  v_top int;
+  v_role public.roles;
+  v_end int;
+begin
+  perform pg_advisory_xact_lock(hashtext('public.roles'));
+
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(64) then
+    raise exception 'forbidden';
+  end if;
+  if p_role is null or p_position is null then
+    raise exception 'invalid_input';
+  end if;
+
+  select * into v_role from public.roles r where r.id = p_role for update;
+  if not found then
+    raise exception 'invalid_input';
+  end if;
+  if v_role.is_system or v_role.is_everyone then
+    raise exception 'forbidden';
+  end if;
+
+  v_admin := (public.member_global_permissions(v_actor) & 512) <> 0;
+  v_top := public.member_top_position(v_actor);
+  if not v_admin and v_role.position >= v_top then
+    raise exception 'hierarchy';
+  end if;
+  if p_position < 1 or p_position >= v_top then
+    raise exception 'hierarchy';
+  end if;
+
+  -- Make room: shift only the contiguous run of occupied positions starting at the target slot.
+  with recursive run(pos) as (
+    select p_position
+    where exists (select 1 from public.roles r
+                  where r.position = p_position and r.id <> p_role and not r.is_everyone and not r.is_system)
+    union all
+    select run.pos + 1 from run
+    where exists (select 1 from public.roles r
+                  where r.position = run.pos + 1 and r.id <> p_role and not r.is_everyone and not r.is_system)
+  )
+  select max(pos) into v_end from run;
+
+  if v_end is not null then
+    if v_end + 1 >= v_top then
+      raise exception 'hierarchy';
+    end if;
+    update public.roles r set position = r.position + 1
+    where r.position between p_position and v_end and r.id <> p_role and not r.is_everyone and not r.is_system;
+  end if;
+
+  update public.roles set position = p_position where id = p_role;
+
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (v_actor, 'role_moved', 'role', p_role,
+          jsonb_build_object('name', v_role.name, 'from_position', v_role.position, 'to_position', p_position));
+end;
+$$;
+
+create table public.allowed_domains (
+  domain text primary key check (domain ~ '^[a-z0-9.-]+\.[a-z]{2,}$'),
+  added_by uuid references public.members (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index allowed_domains_added_by_idx on public.allowed_domains (added_by);
+alter table public.allowed_domains enable row level security;
+revoke all on public.allowed_domains from anon;
+revoke insert, update, delete, truncate on public.allowed_domains from authenticated;
+create policy allowed_domains_select on public.allowed_domains
+  for select to authenticated using (public.is_active_member());
+
+insert into public.allowed_domains (domain) values
+  ('lineascan.build'), ('sepolia.lineascan.build'), ('linea.build'), ('github.com'),
+  ('x.com'), ('dexscreener.com'), ('etherscan.io');
+
+create function public.add_allowed_domain(p_domain text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_domain text := lower(btrim(p_domain));
+begin
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
+    raise exception 'forbidden';
+  end if;
+  if v_domain is null or v_domain !~ '^[a-z0-9.-]+\.[a-z]{2,}$' or char_length(v_domain) > 253 then
+    raise exception 'invalid_input';
+  end if;
+
+  insert into public.allowed_domains (domain, added_by) values (v_domain, v_actor)
+  on conflict (domain) do nothing;
+
+  insert into public.audit_log (actor_member_id, action, target_type, payload)
+  values (v_actor, 'domain_added', 'domain', jsonb_build_object('domain', v_domain));
+end;
+$$;
+
+create function public.remove_allowed_domain(p_domain text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor uuid;
+  v_domain text := lower(btrim(p_domain));
+begin
+  v_actor := public.current_member_id();
+  if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
+    raise exception 'forbidden';
+  end if;
+  if v_domain is null then
+    raise exception 'invalid_input';
+  end if;
+
+  delete from public.allowed_domains where domain = v_domain;
+
+  insert into public.audit_log (actor_member_id, action, target_type, payload)
+  values (v_actor, 'domain_removed', 'domain', jsonb_build_object('domain', v_domain));
+end;
+$$;
+
+revoke execute on function
+  public.set_overwrite(uuid, text, uuid, bigint, bigint),
+  public.create_role(text, text, bigint),
+  public.update_role(uuid, text, text, bigint),
+  public.delete_role(uuid),
+  public.move_role(uuid, int),
+  public.add_allowed_domain(text),
+  public.remove_allowed_domain(text)
+from public, anon;
+grant execute on function
+  public.set_overwrite(uuid, text, uuid, bigint, bigint),
+  public.create_role(text, text, bigint),
+  public.update_role(uuid, text, text, bigint),
+  public.delete_role(uuid),
+  public.move_role(uuid, int),
+  public.add_allowed_domain(text),
+  public.remove_allowed_domain(text)
+to authenticated;
