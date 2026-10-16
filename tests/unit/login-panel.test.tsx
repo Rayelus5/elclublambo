@@ -59,6 +59,22 @@ describe("LoginPanel", () => {
     expect(open).toHaveBeenCalledTimes(1);
   });
 
+  // MetaMask crashes ("reading 'origin'") when connect and a chain switch are
+  // requested back to back, so we ask users to pick Linea before connecting.
+  it("disconnected: hints to select the Linea network before connecting", () => {
+    render(<LoginPanel />);
+    const btn = screen.getByRole("button", { name: "Conectar wallet" });
+    expect(btn).toHaveAccessibleDescription(
+      "Antes de conectar, selecciona la red Linea Sepolia en tu wallet.",
+    );
+  });
+
+  it("connected: no network hint", () => {
+    connect(LINEA_SEPOLIA);
+    render(<LoginPanel />);
+    expect(screen.queryByText(/selecciona la red/)).toBeNull();
+  });
+
   it("wrong chain: shows 'Cambiar a Linea', switches and never signs", async () => {
     connect(1);
     render(<LoginPanel />);

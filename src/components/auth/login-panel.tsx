@@ -97,10 +97,23 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
       ) : null}
 
       {!isConnected ? (
-        <Button type="button" size="lg" onClick={() => open()}>
-          <Plug aria-hidden />
-          Conectar wallet
-        </Button>
+        <>
+          <Button
+            type="button"
+            size="lg"
+            aria-describedby="wallet-network-hint"
+            onClick={() => open()}
+          >
+            <Plug aria-hidden />
+            Conectar wallet
+          </Button>
+          {/* AppKit pide conexión y cambio de red seguidos si la wallet está en
+              otra red, y la ventana de MetaMask falla ("reading 'origin'"). */}
+          <p id="wallet-network-hint" className="text-[13px] text-fg-muted">
+            Antes de conectar, selecciona la red{" "}
+            {target.testnet ? "Linea Sepolia" : "Linea"} en tu wallet.
+          </p>
+        </>
       ) : wrongChain ? (
         <Button
           type="button"
