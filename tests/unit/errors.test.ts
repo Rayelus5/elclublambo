@@ -30,6 +30,13 @@ describe("rpcErrorMessage", () => {
       expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
     },
   );
+  it("has Spanish copy for tree errors", () => {
+    expect(rpcErrorMessage("not_empty")).toBe("El canal tiene subcanales; muévelos o bórralos antes.");
+    expect(rpcErrorMessage("invalid_tree")).toBe("Ese movimiento rompería la estructura del árbol.");
+    expect(rpcErrorMessage("depth_limit")).toBe("Se ha superado la profundidad máxima (6 niveles).");
+    expect(rpcErrorCode({ message: "depth_limit" })).toBe("depth_limit");
+    expect(knownErrorCode("not_empty")).toBe("not_empty");
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });
 

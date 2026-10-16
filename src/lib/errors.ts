@@ -11,6 +11,9 @@ const MESSAGES: Record<string, string> = {
   invite_revoked: "Esta invitación fue anulada.",
   invalid_input: "Los datos enviados no son válidos.",
   hierarchy: "No puedes actuar sobre alguien de rango igual o superior al tuyo.",
+  not_empty: "El canal tiene subcanales; muévelos o bórralos antes.",
+  invalid_tree: "Ese movimiento rompería la estructura del árbol.",
+  depth_limit: "Se ha superado la profundidad máxima (6 niveles).",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 
