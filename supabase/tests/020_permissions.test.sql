@@ -22,17 +22,17 @@ insert into public.member_permission_overrides (member_id, deny) values
 update public.members set status = 'banned' where id = current_setting('t.banned')::uuid;
 
 -- pure computation
-select is(public.member_global_permissions(current_setting('t.plain')::uuid), 7::bigint, 'no roles -> 7');
-select is(public.member_global_permissions(current_setting('t.pad')::uuid), 23::bigint, 'Padrino -> 23');
-select is(public.member_global_permissions(current_setting('t.sa')::uuid), 1023::bigint, 'SuperAdmin -> 1023');
-select is(public.member_global_permissions(current_setting('t.padden')::uuid), 7::bigint, 'Padrino deny 16 -> 7');
-select is(public.member_global_permissions(current_setting('t.sadeny')::uuid), 1023::bigint, 'admin ignores deny');
+select is(public.member_global_permissions(current_setting('t.plain')::uuid), 8199::bigint, 'no roles -> 8199');
+select is(public.member_global_permissions(current_setting('t.pad')::uuid), 8215::bigint, 'Padrino -> 8215');
+select is(public.member_global_permissions(current_setting('t.sa')::uuid), 65535::bigint, 'SuperAdmin -> 65535');
+select is(public.member_global_permissions(current_setting('t.padden')::uuid), 8199::bigint, 'Padrino deny 16 -> 8199');
+select is(public.member_global_permissions(current_setting('t.sadeny')::uuid), 65535::bigint, 'admin ignores deny');
 select is(public.member_top_position(current_setting('t.pad')::uuid), 10, 'top position Padrino');
 select is(public.member_top_position(current_setting('t.plain')::uuid), 0, 'top position plain = @everyone');
 
 -- allow override
-insert into public.member_permission_overrides (member_id, allow) values (current_setting('t.plain')::uuid, 8);
-select is(public.member_global_permissions(current_setting('t.plain')::uuid), 15::bigint, 'allow override adds bit');
+insert into public.member_permission_overrides (member_id, allow) values (current_setting('t.plain')::uuid, 16);
+select is(public.member_global_permissions(current_setting('t.plain')::uuid), 8215::bigint, 'allow override adds global bit');
 
 -- active padrino
 select tests.authenticate_as((select auth_user_id from public.members where id = current_setting('t.pad')::uuid));
@@ -41,7 +41,7 @@ select is(public.auth_wallet_address(), '0x1000000000000000000000000000000000000
 select ok(public.is_active_member(), 'is_active_member');
 select ok(public.has_global_perm(16), 'padrino has CREATE_INVITES');
 select ok(not public.has_global_perm(32), 'padrino lacks BAN_MEMBERS');
-select is(public.my_permissions(), 23::bigint, 'my_permissions padrino 23');
+select is(public.my_permissions(), 8215::bigint, 'my_permissions padrino 8215');
 select cmp_ok((select count(*) from public.members), '>', 0::bigint, 'active reads members');
 select is((select count(*) from public.bans), 0::bigint, 'active without BAN reads no bans');
 select throws_ok($$update public.members set status = 'banned' where true$$, '42501', null,

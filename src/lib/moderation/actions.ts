@@ -28,6 +28,23 @@ export async function banMemberAction(input: {
   return {};
 }
 
+export async function setVerifiedAction(input: {
+  memberId: string;
+  enabled: boolean;
+}): Promise<{ error?: string }> {
+  if (!UUID_RE.test(input.memberId)) return { error: "invalid_input" };
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("set_verified", {
+    p_member: input.memberId,
+    p_enabled: input.enabled === true,
+  });
+  if (error) return { error: rpcErrorCode(error) };
+
+  revalidatePath("/admin/members");
+  return {};
+}
+
 export async function toggleSponsorRoleAction(input: {
   memberId: string;
   enabled: boolean;

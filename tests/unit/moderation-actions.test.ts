@@ -7,7 +7,7 @@ const revalidatePath = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ rpc, from }) }));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
-import { banMemberAction, toggleSponsorRoleAction } from "@/lib/moderation/actions";
+import { banMemberAction, setVerifiedAction, toggleSponsorRoleAction } from "@/lib/moderation/actions";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const ROLE = "22222222-2222-4222-8222-222222222222";
@@ -87,5 +87,38 @@ describe("toggleSponsorRoleAction", () => {
     roleLookup({ data: { id: ROLE }, error: null });
     rpc.mockResolvedValue({ error: { message: "forbidden" } });
     expect(await toggleSponsorRoleAction({ memberId: ID, enabled: false })).toEqual({ error: "forbidden" });
+  });
+});
+
+describe("setVerifiedAction", () => {
+  beforeEach(() => {
+    rpc.mockReset();
+    revalidatePath.mockReset();
+  });
+
+  it("rejects invalid member id without calling the rpc", async () => {
+    expect(await setVerifiedAction({ memberId: "x", enabled: true })).toEqual({ error: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("calls set_verified and revalidates", async () => {
+    rpc.mockResolvedValue({ error: null });
+    expect(await setVerifiedAction({ memberId: ID, enabled: true })).toEqual({});
+    expect(rpc).toHaveBeenCalledWith("set_verified", { p_member: ID, p_enabled: true });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/members");
+  });
+
+  it("coerces enabled to a strict boolean", async () => {
+    rpc.mockResolvedValue({ error: null });
+    await setVerifiedAction({ memberId: ID, enabled: undefined as unknown as boolean });
+    expect(rpc).toHaveBeenCalledWith("set_verified", { p_member: ID, p_enabled: false });
+  });
+
+  it("maps rpc errors and does not revalidate", async () => {
+    rpc.mockResolvedValueOnce({ error: { message: "hierarchy" } });
+    expect(await setVerifiedAction({ memberId: ID, enabled: true })).toEqual({ error: "hierarchy" });
+    rpc.mockResolvedValueOnce({ error: { message: "forbidden" } });
+    expect(await setVerifiedAction({ memberId: ID, enabled: false })).toEqual({ error: "forbidden" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });
