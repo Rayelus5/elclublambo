@@ -16,7 +16,8 @@ create table public.channels (
   gate_scope text not null default 'view' check (gate_scope in ('view', 'post')),
   created_by uuid references public.members (id),
   created_at timestamptz not null default now(),
-  check (kind = 'text' or (not tickets_enabled and not alpha_enabled))
+  check (kind = 'text' or (not tickets_enabled and not alpha_enabled)),
+  check (gate_mode = 'none' or (gate_value is not null and gate_value >= 0))
 );
 create index channels_parent_position_idx on public.channels (parent_id, position);
 create index channels_created_by_idx on public.channels (created_by);
@@ -44,6 +45,14 @@ declare
   v_parent_depth int;
   v_height int;
 begin
+  -- Serialize tree writes so concurrent moves cannot commit a cycle, depth 7 or a text parent.
+  -- Not covered for REPEATABLE READ / SERIALIZABLE callers (their snapshot predates the lock).
+  -- Any recursive walk over this tree (e.g. channel_permissions' path walk) must use CYCLE or a
+  -- depth cap so a corrupt tree can never recurse forever.
+  if tg_op = 'INSERT' or new.parent_id is distinct from old.parent_id or new.kind <> old.kind then
+    perform pg_advisory_xact_lock(hashtext('public.channels_tree'));
+  end if;
+
   if new.parent_id is null then
     if new.kind <> 'category' then
       raise exception 'invalid_tree';
@@ -77,7 +86,7 @@ begin
         select c.id from public.channels c where c.parent_id = new.id
         union all
         select c.id from public.channels c join d on c.parent_id = d.id
-      )
+      ) cycle id set is_cycle using path
       select 1 from d where d.id = new.parent_id
     ) then
       raise exception 'invalid_tree';
@@ -89,8 +98,8 @@ begin
       select c.id, c.parent_id, 1 as depth from public.channels c where c.id = new.parent_id
       union all
       select c.id, c.parent_id, a.depth + 1 from public.channels c join a on c.id = a.parent_id
-    )
-    select count(*) into v_parent_depth from a;
+    ) cycle id set is_cycle using path
+    select count(*) into v_parent_depth from a where not is_cycle;
   end if;
 
   -- height of the moving subtree (the node itself = 1); new rows have no descendants
@@ -99,8 +108,8 @@ begin
       select c.id, 1 as h from public.channels c where c.parent_id = new.id
       union all
       select c.id, s.h + 1 from public.channels c join s on c.parent_id = s.id
-    )
-    select coalesce(max(h), 0) + 1 into v_height from s;
+    ) cycle id set is_cycle using path
+    select coalesce(max(h), 0) + 1 into v_height from s where not is_cycle;
   else
     v_height := 1;
   end if;
@@ -121,6 +130,7 @@ create trigger channels_tree_guard
 create function public.overwrites_cleanup_on_role_delete()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -132,6 +142,7 @@ $$;
 create function public.overwrites_cleanup_on_member_delete()
 returns trigger
 language plpgsql
+security definer
 set search_path = ''
 as $$
 begin
@@ -139,6 +150,29 @@ begin
   return old;
 end;
 $$;
+
+create function public.overwrites_target_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.target_type = 'role' then
+    perform 1 from public.roles where id = new.target_id for key share;
+  else
+    perform 1 from public.members where id = new.target_id for key share;
+  end if;
+  if not found then
+    raise exception 'invalid_input';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger overwrites_target_guard
+  before insert or update of target_type, target_id on public.permission_overwrites
+  for each row execute function public.overwrites_target_guard();
 
 create trigger roles_overwrites_cleanup
   after delete on public.roles
@@ -149,6 +183,7 @@ create trigger members_overwrites_cleanup
   for each row execute function public.overwrites_cleanup_on_member_delete();
 
 revoke execute on function public.channels_tree_guard() from public, anon, authenticated;
+revoke execute on function public.overwrites_target_guard() from public, anon, authenticated;
 revoke execute on function public.overwrites_cleanup_on_role_delete() from public, anon, authenticated;
 revoke execute on function public.overwrites_cleanup_on_member_delete() from public, anon, authenticated;
 

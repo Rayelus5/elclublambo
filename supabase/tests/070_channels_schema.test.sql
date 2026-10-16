@@ -1,5 +1,5 @@
 begin;
-select plan(34);
+select plan(40);
 
 -- tables + RLS + privileges
 select has_table('public', 'channels', 'channels exists');
@@ -75,9 +75,9 @@ select lives_ok($$update public.channels set tickets_enabled = true where id = c
 
 -- overwrites
 select throws_ok($$insert into public.permission_overwrites (channel_id, target_type, target_id, allow)
-  values (current_setting('t.txt')::uuid, 'role', gen_random_uuid(), 16)$$, '23514', null, 'bit 16 not allowed');
+  values (current_setting('t.txt')::uuid, 'role', (select id from public.roles where is_everyone), 16)$$, '23514', null, 'bit 16 not allowed');
 select throws_ok($$insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
-  values (current_setting('t.txt')::uuid, 'role', gen_random_uuid(), 1, 1)$$, '23514', null, 'allow & deny overlap');
+  values (current_setting('t.txt')::uuid, 'role', (select id from public.roles where is_everyone), 1, 1)$$, '23514', null, 'allow & deny overlap');
 
 -- cleanup of overwrites when role / member deleted
 insert into public.roles (name, color, position, permissions) values ('Temp', '#112233', 5, 0);
@@ -90,6 +90,15 @@ delete from public.roles where id = current_setting('t.role')::uuid;
 select is((select count(*)::int from public.permission_overwrites where target_type = 'role' and target_id = current_setting('t.role')::uuid), 0, 'role delete cleans overwrites');
 delete from public.members where id = current_setting('t.mem')::uuid;
 select is((select count(*)::int from public.permission_overwrites where target_type = 'member' and target_id = current_setting('t.mem')::uuid), 0, 'member delete cleans overwrites');
+
+-- fix round 1
+select throws_ok($$update public.channels set kind = 'forum' where id = current_setting('t.cat')::uuid$$, 'P0001', 'invalid_tree', 'root category -> forum');
+select throws_ok($$update public.channels set kind = 'category' where id = current_setting('t.h2')::uuid$$, 'P0001', 'invalid_tree', 'child forum -> category');
+select throws_ok($$update public.channels set kind = 'forum' where id = current_setting('t.txt')::uuid$$, '23514', null, 'text with tickets -> forum');
+select throws_ok($$select tests.create_channel(gen_random_uuid(), 'forum', 'x')$$, 'P0001', 'invalid_tree', 'nonexistent parent');
+select throws_ok($$insert into public.permission_overwrites (channel_id, target_type, target_id, allow)
+  values (current_setting('t.txt')::uuid, 'role', gen_random_uuid(), 1)$$, 'P0001', 'invalid_input', 'nonexistent overwrite target');
+select throws_ok($$update public.channels set gate_mode = 'min_net_usdc' where id = current_setting('t.txt')::uuid$$, '23514', null, 'gate_mode needs gate_value');
 
 select * from finish();
 rollback;
