@@ -69,6 +69,14 @@ begin
   end if;
 
   v_reason := coalesce(nullif(btrim(p_reason), ''), 'revoked_by_user');
+  if char_length(v_reason) > 200 then
+    raise exception 'invalid_input';
+  end if;
+
+  -- Already revoked: keep the original revoked_at/reason (no-op, no audit).
+  if v_invite.revoked_at is not null then
+    return;
+  end if;
 
   update public.invites
      set revoked_at = now(), revoked_reason = v_reason
@@ -89,6 +97,7 @@ as $$
 declare
   v_wallet text;
   v_invite public.invites;
+  v_creator uuid;
   v_creator_status text;
   v_member_id uuid;
 begin
@@ -104,12 +113,18 @@ begin
     raise exception 'already_member';
   end if;
 
-  select * into v_invite from public.invites i where i.code = p_code for update;
+  -- Lock order: creator (share) before invite (update), same as ban_member (member, then invites).
+  select i.created_by into v_creator from public.invites i where i.code = p_code;
   if not found then
     raise exception 'invite_not_found';
   end if;
 
-  select m.status into v_creator_status from public.members m where m.id = v_invite.created_by;
+  select m.status into v_creator_status from public.members m where m.id = v_creator for share;
+
+  select * into v_invite from public.invites i where i.code = p_code for update;
+  if not found then
+    raise exception 'invite_not_found';
+  end if;
 
   if v_invite.revoked_at is not null or v_creator_status is distinct from 'active' then
     raise exception 'invite_revoked';

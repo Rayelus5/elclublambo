@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(43);
 
 -- fixtures: admin (bootstrap, SuperAdmin), sponsor + sponsor2 (Padrino), plain member
 select set_config('t.admin', tests.create_member('0xa000000000000000000000000000000000000001', null, true)::text, true);
@@ -130,6 +130,19 @@ select public.revoke_invite(current_setting('t.inv_b')::uuid, 'spam');
 select tests.clear_authentication();
 select is((select revoked_reason from public.invites where id = current_setting('t.inv_b')::uuid), 'spam', 'admin (BAN_MEMBERS) can revoke any invite');
 
+-- revoking twice keeps the original reason and does not re-audit
+select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
+select public.revoke_invite(current_setting('t.inv_b')::uuid, 'second reason');
+select tests.clear_authentication();
+select is((select revoked_reason from public.invites where id = current_setting('t.inv_b')::uuid), 'spam', 'second revoke keeps original reason');
+select is((select count(*)::int from public.audit_log where action = 'invite_revoked' and target_id = current_setting('t.inv_b')::uuid), 1, 'second revoke is not re-audited');
+
+-- reason length cap (200 after trim)
+select tests.authenticate_as(pg_temp.uid(current_setting('t.sp')));
+select throws_ok(format($q$select public.revoke_invite(%L::uuid, %L)$q$, current_setting('t.inv1'), repeat('x', 201)),
+  'P0001', 'invalid_input', '201-char reason -> invalid_input');
+select tests.clear_authentication();
+
 -- creator no longer active -> invite_revoked
 select tests.authenticate_as(pg_temp.uid(current_setting('t.sp')));
 select set_config('t.inv_c', (public.create_invite(5, 24)).id::text, true);
@@ -138,6 +151,8 @@ update public.members set status = 'banned' where id = current_setting('t.sp')::
 select tests.authenticate_as(current_setting('t.n3')::uuid);
 select throws_ok(format($q$select public.redeem_invite(%L)$q$, pg_temp.code(current_setting('t.inv_c'))),
   'P0001', 'invite_revoked', 'banned creator -> invite_revoked');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.sp')));
+select is((select count(*)::int from public.invites), 0, 'banned creator sees 0 of their invites');
 select tests.clear_authentication();
 update public.members set status = 'active' where id = current_setting('t.sp')::uuid;
 
