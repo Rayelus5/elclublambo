@@ -1,5 +1,5 @@
 begin;
-select plan(61);
+select plan(68);
 
 -- fixtures
 select set_config('t.admin', tests.create_member('0xc000000000000000000000000000000000000001', null, true)::text, true);
@@ -14,6 +14,9 @@ select set_config('t.kid', tests.create_member('0xc00000000000000000000000000000
 select set_config('t.vic2', tests.create_member('0xc00000000000000000000000000000000000000a', current_setting('t.sp2')::uuid)::text, true);
 select set_config('t.vic3', tests.create_member('0xc00000000000000000000000000000000000000b', current_setting('t.admin')::uuid)::text, true);
 select set_config('t.vic4', tests.create_member('0xc00000000000000000000000000000000000000c', current_setting('t.sp')::uuid)::text, true);
+select set_config('t.vic5', tests.create_member('0xc00000000000000000000000000000000000000d', current_setting('t.peer')::uuid)::text, true);
+select set_config('t.sp3', tests.create_member('0xc00000000000000000000000000000000000000e', current_setting('t.admin')::uuid)::text, true);
+select set_config('t.vic6', tests.create_member('0xc00000000000000000000000000000000000000f', current_setting('t.sp3')::uuid)::text, true);
 select set_config('t.newbie', tests.create_wallet_user('0xd000000000000000000000000000000000000001')::text, true);
 
 insert into public.member_roles (member_id, role_id)
@@ -28,12 +31,17 @@ insert into public.member_permission_overrides (member_id, allow) values (curren
 -- extra roles for set_member_role hierarchy checks
 insert into public.roles (name, color, position, permissions) values ('Helper', '#112233', 5, 0);
 insert into public.roles (name, color, position, permissions) values ('Chief', '#112233', 20, 0);
+insert into public.roles (name, color, position, permissions) values ('Risky', '#112233', 3, 512);
+-- sp3 holds CREATE_INVITES only through an allow override (penalty must strip it)
+insert into public.member_permission_overrides (member_id, allow) values (current_setting('t.sp3')::uuid, 16);
 
 -- active invites: victim's and the sponsors'
 insert into public.invites (code, created_by, max_uses, expires_at) values
   ('vic-code-aaaaaaaaaaaa', current_setting('t.vic')::uuid, 5, now() + interval '1 day'),
   ('sp-code-aaaaaaaaaaaaa', current_setting('t.sp')::uuid, 5, now() + interval '1 day'),
-  ('sp2-code-aaaaaaaaaaaa', current_setting('t.sp2')::uuid, 5, now() + interval '1 day');
+  ('sp2-code-aaaaaaaaaaaa', current_setting('t.sp2')::uuid, 5, now() + interval '1 day'),
+  ('vic2-code-aaaaaaaaaaa', current_setting('t.vic2')::uuid, 5, now() + interval '1 day'),
+  ('peer-code-aaaaaaaaaaa', current_setting('t.peer')::uuid, 5, now() + interval '1 day');
 
 -- sessions for the victim and for an unrelated member
 insert into auth.sessions (id, user_id, created_at, updated_at)
@@ -126,7 +134,7 @@ select tests.authenticate_as(pg_temp.uid(current_setting('t.sp')));
 select throws_ok($q$select public.create_invite(5, 24)$q$, 'P0001', 'forbidden', 'penalized sponsor cannot create invites');
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.newbie')::uuid);
-select throws_ok($q$select public.redeem_invite('vic-code-aaaaaaaaaaaa')$q$, 'P0001', 'invite_revoked', 'banned creator invite -> invite_revoked');
+select throws_ok($q$select public.redeem_invite('vic-code-aaaaaaaaaaaa')$q$, 'P0001', 'invite_revoked', 'ban_revokes_target_invites: banned creator invite -> invite_revoked');
 select tests.clear_authentication();
 select tests.authenticate_as(pg_temp.uid(current_setting('t.vic')));
 select is((select count(*)::int from public.members), 0, 'banned_member_reads_nothing');
@@ -138,6 +146,9 @@ select tests.clear_authentication();
 -- ban without penalty: sponsor keeps CREATE_INVITES and invites
 select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
 select set_config('t.ban2', public.ban_member(current_setting('t.vic2')::uuid, 'no penalty', false)::text, true);
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.newbie')::uuid);
+select throws_ok($q$select public.redeem_invite('vic2-code-aaaaaaaaaaa')$q$, 'P0001', 'invite_revoked', 'ban_revokes_target_invites without penalty -> invite_revoked');
 select tests.clear_authentication();
 select is(public.member_global_permissions(current_setting('t.sp2')::uuid) & 16, 16::bigint, 'unpenalized sponsor keeps CREATE_INVITES');
 select ok((select revoked_at is null from public.invites where code = 'sp2-code-aaaaaaaaaaaa'), 'unpenalized sponsor keeps invites');
@@ -153,6 +164,21 @@ select ok((select not sponsor_penalized and sponsor_member_id = current_setting(
   'admin sponsor not penalized');
 select is((select count(*)::int from public.member_permission_overrides where member_id = current_setting('t.admin')::uuid), 0, 'no override on admin sponsor');
 select is(public.member_global_permissions(current_setting('t.admin')::uuid), 1023::bigint, 'admin keeps all permissions');
+
+-- penalty strips an existing allow bit too
+select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
+select public.ban_member(current_setting('t.vic6')::uuid, 'allow strip', true);
+select tests.clear_authentication();
+select is(public.member_global_permissions(current_setting('t.sp3')::uuid) & 16, 0::bigint, 'penalty strips CREATE_INVITES granted via allow');
+
+-- penalty is subject to hierarchy: moderator cannot penalize a peer-ranked sponsor
+select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
+select throws_ok(format($q$select public.ban_member(%L::uuid, 'peer sponsor', true)$q$, current_setting('t.vic5')),
+  'P0001', 'hierarchy', 'penalizing a sponsor at actor rank -> hierarchy');
+select tests.clear_authentication();
+select is((select status from public.members where id = current_setting('t.vic5')::uuid), 'active', 'aborted ban leaves target active');
+select is((select count(*)::int from public.member_permission_overrides where member_id = current_setting('t.peer')::uuid), 0, 'aborted ban leaves sponsor override untouched');
+select ok((select revoked_at is null from public.invites where code = 'peer-code-aaaaaaaaaaa'), 'aborted ban leaves sponsor invites untouched');
 
 -- a moderator with BAN_MEMBERS (lower than admin) can ban a lower member
 select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
@@ -199,6 +225,8 @@ select tests.clear_authentication();
 
 -- moderator (position 10, MANAGE_ROLES via override)
 select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
+select throws_ok(format($q$select public.set_member_role(%L::uuid, %L::uuid, true)$q$, current_setting('t.plain'), (select id from public.roles where name = 'Risky')),
+  'P0001', 'hierarchy', 'role carrying bits the actor lacks -> hierarchy');
 select throws_ok(format($q$select public.set_member_role(%L::uuid, %L::uuid, true)$q$, current_setting('t.plain'), (select id from public.roles where name = 'Padrino')),
   'P0001', 'hierarchy', 'role at actor position -> hierarchy');
 select throws_ok(format($q$select public.set_member_role(%L::uuid, %L::uuid, true)$q$, current_setting('t.plain'), (select id from public.roles where name = 'Chief')),

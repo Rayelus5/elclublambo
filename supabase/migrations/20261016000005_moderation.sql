@@ -42,6 +42,10 @@ begin
   if coalesce(p_penalize_sponsor, false)
      and v_sponsor is not null
      and (public.member_global_permissions(v_sponsor) & 512) = 0 then
+    -- The penalty edits the sponsor: same hierarchy rule applies, otherwise abort the whole ban.
+    if public.member_top_position(v_sponsor) >= public.member_top_position(v_actor) then
+      raise exception 'hierarchy';
+    end if;
     v_penalize := true;
   end if;
 
@@ -52,7 +56,8 @@ begin
     on conflict (member_id) do update
       set deny = o.deny | 16,
           allow = o.allow & ~16::bigint,
-          reason = 'sponsor_penalty',
+          reason = case when o.reason is null or o.reason = '' then 'sponsor_penalty'
+                        else o.reason || '; sponsor_penalty' end,
           set_by = v_actor;
 
     update public.invites
@@ -102,7 +107,7 @@ begin
   v_actor := public.current_member_id();
   if v_actor is null
      or not public.is_active_member()
-     or not (public.has_global_perm(64) or public.has_global_perm(512)) then
+     or not public.has_global_perm(64) then
     raise exception 'forbidden';
   end if;
 
@@ -126,6 +131,7 @@ begin
 
   v_actor_top := public.member_top_position(v_actor);
   if v_role.position >= v_actor_top
+     or (v_role.permissions & ~public.member_global_permissions(v_actor)) <> 0
      or public.member_top_position(v_target.id) >= v_actor_top then
     raise exception 'hierarchy';
   end if;
