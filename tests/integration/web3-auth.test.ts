@@ -52,8 +52,6 @@ describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipRea
     expect(res.error).toBeNull();
     expect(res.data.session).not.toBeNull();
     const identity = res.data.user!.identities![0]!;
-    console.log("SPIKE identity:", JSON.stringify(identity, null, 2));
-    console.log("SPIKE app_metadata:", JSON.stringify(res.data.user!.app_metadata));
     expect(identity.provider).toBe("web3");
     // Observed (supabase auth in this stack): the SIWE fields are nested under
     // identity_data.custom_claims, NOT top-level as the plan assumed.
@@ -62,6 +60,8 @@ describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipRea
     const claims = data.custom_claims as Record<string, string>;
     expect(claims.address).toBe(account.address);
     expect(claims.chain).toBe("ethereum");
+    expect(claims.network).toBe("59141");
+    expect(claims.domain).toBe("localhost:3000");
     expect(identity.id).toBe(`web3:ethereum:${account.address}`);
   });
 
@@ -76,7 +76,6 @@ describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipRea
 
   it("accepts_mainnet_linea_chain_id", async () => {
     const { res } = await login(59144);
-    console.log("SPIKE 59144 error:", res.error?.message ?? "none");
     expect(res.error).toBeNull();
   });
 
@@ -98,8 +97,10 @@ describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipRea
     });
     const signature = await account.signMessage({ message });
     const res = await client().auth.signInWithWeb3({ chain: "ethereum", message, signature });
-    console.log("SPIKE chainId 1 error:", res.error?.message ?? "none (accepted)");
-    expect(true).toBe(true);
+    expect(res.error).toBeNull();
+    const claims = (res.data.user!.identities![0]!.identity_data as Record<string, Record<string, unknown>>)
+      .custom_claims!;
+    expect(claims.network).toBe("1");
   });
 });
 

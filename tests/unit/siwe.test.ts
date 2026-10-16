@@ -24,7 +24,7 @@ describe("buildLoginMessage", () => {
     const p = parseSiweMessage(msg);
     expect(p.chainId).toBe(59141);
     expect(p.statement).toBe("Entra en El Club Lambo. Esta firma no cuesta gas ni mueve fondos.");
-    expect(p.notBefore).toBeInstanceOf(Date);
+    expect(p.notBefore!.getTime()).toBe(p.issuedAt!.getTime());
     expect(p.expirationTime!.getTime() - p.issuedAt!.getTime()).toBe(300000);
   });
 
@@ -62,6 +62,10 @@ describe("getAppChain", () => {
   });
   it("throws_on_unknown", () => {
     process.env.NEXT_PUBLIC_CHAIN = "mainnet";
+    expect(() => getAppChain()).toThrow();
+  });
+  it("throws_on_empty_string", () => {
+    process.env.NEXT_PUBLIC_CHAIN = "";
     expect(() => getAppChain()).toThrow();
   });
   it("app_chains_are_exactly_two", () => {
