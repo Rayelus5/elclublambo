@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { Home, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { ChannelTree } from "@/components/shell/channel-tree";
+import { buildTree, type ChannelRow } from "@/lib/channels/tree";
 import { NavLink } from "@/components/shell/nav-link";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 
-type Props = { perms: bigint; wallet: `0x${string}` };
+type Props = { perms: bigint; wallet: `0x${string}`; channels?: ChannelRow[] };
 
-function SidebarBody({ perms, wallet }: Props) {
+function SidebarBody({ perms, wallet, channels = [] }: Props) {
+  const tree = buildTree(channels);
   return (
-    <div className="flex h-full flex-col gap-6 py-6">
+    <div className="flex h-full flex-col gap-4 py-6">
       <Link
         href="/"
         className="px-4 font-display text-2xl font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
@@ -18,7 +21,7 @@ function SidebarBody({ perms, wallet }: Props) {
         El Club.
       </Link>
 
-      <nav aria-label="Principal" className="flex flex-1 flex-col gap-1">
+      <nav aria-label="Principal" className="flex flex-col gap-1">
         <NavLink href="/">
           <Home className="size-4" aria-hidden />
           Inicio
@@ -35,6 +38,10 @@ function SidebarBody({ perms, wallet }: Props) {
             Miembros
           </NavLink>
         ) : null}
+      </nav>
+
+      <nav aria-label="Canales" className="min-h-0 flex-1 overflow-y-auto border-t border-border pt-2">
+        <ChannelTree nodes={tree} />
       </nav>
 
       <div className="flex flex-col gap-3 border-t border-border px-4 pt-4">
