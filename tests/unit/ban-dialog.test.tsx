@@ -29,7 +29,7 @@ describe("BanDialog", () => {
   it("hides the sponsor checkbox when there is no sponsor", async () => {
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={null} />);
-    await user.click(screen.getByRole("button", { name: "Banear" }));
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
     expect(screen.getByRole("alertdialog", { name: "Banear a Ana" })).toBeInTheDocument();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
   });
@@ -37,7 +37,7 @@ describe("BanDialog", () => {
   it("blocks submit without a reason and shows a message", async () => {
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={sponsor} />);
-    await user.click(screen.getByRole("button", { name: "Banear" }));
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
     await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
     expect(await screen.findByRole("alert")).toHaveTextContent("motivo");
     expect(banMemberAction).not.toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("BanDialog", () => {
     banMemberAction.mockResolvedValue({});
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={sponsor} />);
-    await user.click(screen.getByRole("button", { name: "Banear" }));
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
     await user.type(screen.getByLabelText("Motivo"), "  Spam repetido  ");
     await user.click(screen.getByRole("checkbox", { name: SPONSOR_LABEL }));
     await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
@@ -63,7 +63,7 @@ describe("BanDialog", () => {
     banMemberAction.mockResolvedValue({});
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={sponsor} />);
-    await user.click(screen.getByRole("button", { name: "Banear" }));
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
     await user.type(screen.getByLabelText("Motivo"), "Spam");
     await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
     await waitFor(() => expect(banMemberAction).toHaveBeenCalled());
@@ -74,17 +74,48 @@ describe("BanDialog", () => {
     banMemberAction.mockResolvedValue({ error: "hierarchy" });
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={null} />);
-    await user.click(screen.getByRole("button", { name: "Banear" }));
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
     await user.type(screen.getByLabelText("Motivo"), "Spam");
     await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
     expect(await screen.findByRole("alert")).toHaveTextContent("rango igual o superior");
     expect(screen.getByRole("alertdialog")).toBeInTheDocument();
   });
 
+  it("marks the reason as required and invalid with a described error", async () => {
+    const user = userEvent.setup();
+    render(<BanDialog member={member} sponsor={sponsor} />);
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
+    const reason = screen.getByLabelText("Motivo");
+    expect(reason).toHaveAttribute("aria-required", "true");
+    expect(reason).toHaveAttribute("aria-invalid", "false");
+    await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
+    const alert = await screen.findByRole("alert");
+    expect(reason).toHaveAttribute("aria-invalid", "true");
+    expect(reason.getAttribute("aria-describedby")).toContain(alert.id);
+  });
+
+  it("offers the penalty only when the sponsor is active", async () => {
+    const user = userEvent.setup();
+    render(<BanDialog member={member} sponsor={{ ...sponsor, status: "banned" }} />);
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+  });
+
+  it("notifies onBanned after a successful ban", async () => {
+    banMemberAction.mockResolvedValue({});
+    const onBanned = vi.fn();
+    const user = userEvent.setup();
+    render(<BanDialog member={member} sponsor={null} onBanned={onBanned} />);
+    await user.click(screen.getByRole("button", { name: "Banear a Ana" }));
+    await user.type(screen.getByLabelText("Motivo"), "Spam");
+    await user.click(document.querySelector("[data-slot=alert-dialog-action]")!);
+    await waitFor(() => expect(onBanned).toHaveBeenCalledWith(member));
+  });
+
   it("returns focus to the trigger on cancel", async () => {
     const user = userEvent.setup();
     render(<BanDialog member={member} sponsor={sponsor} />);
-    const trigger = screen.getByRole("button", { name: "Banear" });
+    const trigger = screen.getByRole("button", { name: "Banear a Ana" });
     await user.click(trigger);
     await user.click(screen.getByRole("button", { name: "Cancelar" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortAddress } from "@/lib/auth/wallet";
 import { rpcErrorMessage } from "@/lib/errors";
+import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { toggleSponsorRoleAction } from "@/lib/moderation/actions";
 import { BanDialog } from "./ban-dialog";
 import { StatusBadge, type MemberSummary } from "./sponsor-tree";
@@ -34,6 +35,7 @@ function PadrinoToggle({
       type="button"
       size="sm"
       variant="secondary"
+      aria-label={`Padrino: ${nameOf(member)}`}
       aria-pressed={member.isPadrino}
       disabled={pending}
       className={member.isPadrino ? "border-accent text-accent" : undefined}
@@ -51,19 +53,39 @@ function PadrinoToggle({
   );
 }
 
-export function MemberTable({ members, meId }: { members: AdminMemberRow[]; meId: string | null }) {
+export function MemberTable({
+  members,
+  meId,
+  perms,
+}: {
+  members: AdminMemberRow[];
+  meId: string | null;
+  perms: bigint;
+}) {
   const [error, setError] = useState<string | null>(null);
+  const [banned, setBanned] = useState<string | null>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const canManageRoles = hasPerm(perms, Perm.MANAGE_ROLES);
+
+  // The banned row loses its actions (and its dialog unmounts), so move focus to the announcement.
+  function onBanned(m: MemberSummary) {
+    setBanned(`Miembro baneado: ${nameOf(m)}`);
+    requestAnimationFrame(() => statusRef.current?.focus());
+  }
 
   if (members.length === 0) return <p className="text-fg-muted">Todavía no hay miembros.</p>;
 
   return (
     <div className="flex flex-col gap-3">
+      <p ref={statusRef} role="status" tabIndex={-1} className="text-[13px] text-fg-muted outline-none empty:hidden">
+        {banned}
+      </p>
       {error ? (
         <p role="alert" className="border border-danger px-4 py-3 text-[13px] text-danger rounded-control">
           {error}
         </p>
       ) : null}
-      <div className="overflow-x-auto border border-border rounded-panel">
+      <div className="relative overflow-x-auto border border-border rounded-panel">
         <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
           <caption className="sr-only">Miembros del club</caption>
           <thead className="bg-surface text-[13px] text-fg-muted">
@@ -116,8 +138,8 @@ export function MemberTable({ members, meId }: { members: AdminMemberRow[]; meId
                   <td className="px-4 py-2">
                     {actionable ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <PadrinoToggle member={m} onError={setError} />
-                        <BanDialog member={m} sponsor={m.sponsor} />
+                        {canManageRoles ? <PadrinoToggle member={m} onError={setError} /> : null}
+                        <BanDialog member={m} sponsor={m.sponsor} onBanned={onBanned} />
                       </div>
                     ) : null}
                   </td>

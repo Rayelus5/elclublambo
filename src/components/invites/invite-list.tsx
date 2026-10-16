@@ -73,7 +73,7 @@ export function InviteList({ invites }: { invites: InviteRow[] }) {
           {error}
         </p>
       ) : null}
-      <div className="overflow-x-auto border border-border rounded-panel">
+      <div className="relative overflow-x-auto border border-border rounded-panel">
         <table className="w-full min-w-[34rem] border-collapse text-left text-sm">
           <caption className="sr-only">Tus invitaciones</caption>
           <thead className="bg-surface text-[13px] text-fg-muted">

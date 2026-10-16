@@ -29,7 +29,8 @@ async function MembersContent() {
   const perms = BigInt(String(rawPerms ?? 0));
   if (!hasPerm(perms, Perm.BAN_MEMBERS)) notFound();
 
-  const { data: me } = await supabase.rpc("current_member_id");
+  const { data: me, error: meError } = await supabase.rpc("current_member_id");
+  if (meError) throw meError;
 
   const { data: members, error } = await supabase
     .from("members")
@@ -77,7 +78,7 @@ async function MembersContent() {
           invitó.
         </p>
       </header>
-      <MemberTable members={rows} meId={typeof me === "string" ? me : null} />
+      <MemberTable members={rows} meId={typeof me === "string" ? me : null} perms={perms} />
     </div>
   );
 }

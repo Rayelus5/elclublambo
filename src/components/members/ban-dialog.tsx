@@ -26,14 +26,25 @@ const MAX = 500;
 
 const nameOf = (m: MemberSummary) => m.displayName ?? shortAddress(m.walletAddress);
 
-export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor: MemberSummary | null }) {
+export function BanDialog({
+  member,
+  sponsor,
+  onBanned,
+}: {
+  member: MemberSummary;
+  sponsor: MemberSummary | null;
+  onBanned?: (member: MemberSummary) => void;
+}) {
   const uid = useId();
   const reasonId = `${uid}-reason`;
   const sponsorId = `${uid}-sponsor`;
+  const errorId = `${uid}-error`;
+  const canPenalize = sponsor !== null && sponsor.status === "active";
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [penalize, setPenalize] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [invalid, setInvalid] = useState(false);
   const [pending, startTransition] = useTransition();
 
   function onOpenChange(next: boolean) {
@@ -43,6 +54,7 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
       setReason("");
       setPenalize(false);
       setError(null);
+      setInvalid(false);
     }
   }
 
@@ -50,14 +62,16 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
     const trimmed = reason.trim();
     if (trimmed.length < MIN || trimmed.length > MAX) {
       setError(`Escribe un motivo de entre ${MIN} y ${MAX} caracteres.`);
+      setInvalid(true);
       return;
     }
     setError(null);
+    setInvalid(false);
     startTransition(async () => {
       const res = await banMemberAction({
         memberId: member.id,
         reason: trimmed,
-        penalizeSponsor: sponsor !== null && penalize,
+        penalizeSponsor: canPenalize && penalize,
       });
       if (res.error) {
         setError(rpcErrorMessage(res.error));
@@ -66,13 +80,20 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
       setOpen(false);
       setReason("");
       setPenalize(false);
+      onBanned?.(member);
     });
   }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogTrigger asChild>
-        <Button type="button" size="sm" variant="secondary" className="border-danger text-danger">
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          aria-label={`Banear a ${nameOf(member)}`}
+          className="border-danger text-danger"
+        >
           <Ban aria-hidden />
           Banear
         </Button>
@@ -94,7 +115,9 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
             maxLength={MAX}
             rows={3}
             disabled={pending}
-            aria-describedby={`${reasonId}-count`}
+            aria-required="true"
+            aria-invalid={invalid}
+            aria-describedby={invalid && error ? `${reasonId}-count ${errorId}` : `${reasonId}-count`}
             className="min-h-24 w-full resize-y border border-border-strong bg-surface px-3 py-2 text-sm text-fg rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-50"
           />
           <p id={`${reasonId}-count`} className="text-right text-[13px] text-fg-muted">
@@ -102,7 +125,7 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
           </p>
         </div>
 
-        {sponsor ? (
+        {canPenalize && sponsor ? (
           <div className="flex items-start gap-3">
             <Checkbox
               id={sponsorId}
@@ -119,7 +142,7 @@ export function BanDialog({ member, sponsor }: { member: MemberSummary; sponsor:
         ) : null}
 
         {error ? (
-          <p role="alert" className="border border-danger px-3 py-2 text-[13px] text-danger rounded-control">
+          <p id={errorId} role="alert" className="border border-danger px-3 py-2 text-[13px] text-danger rounded-control">
             {error}
           </p>
         ) : null}
