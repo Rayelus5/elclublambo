@@ -54,7 +54,18 @@ begin
     raise exception 'bootstrap_closed';
   end if;
 
+  -- Once any bootstrap member exists, bootstrap stays closed (even if the SuperAdmin
+  -- role was removed from it or it was deleted from member_roles).
+  if exists (select 1 from public.members m where m.is_bootstrap) then
+    raise exception 'bootstrap_closed';
+  end if;
+
   if exists (select 1 from public.member_roles mr where mr.role_id = v_role_id) then
+    raise exception 'bootstrap_closed';
+  end if;
+
+  -- Wallet already owned by a different auth user.
+  if exists (select 1 from public.members m where m.wallet_address = v_identity_wallet) then
     raise exception 'bootstrap_closed';
   end if;
 
