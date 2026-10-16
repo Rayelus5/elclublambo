@@ -81,10 +81,10 @@ select throws_ok('select * from public.roles', '42501', null, 'anon cannot read 
 select throws_ok('select * from public.app_config', '42501', null, 'anon cannot read app_config');
 reset role;
 
--- authenticated: RLS default deny (no policies) => 0 rows
-select tests.authenticate_as((select auth_user_id from public.members limit 1));
-select is((select count(*)::int from public.members), 0, 'authenticated sees 0 members (no policies)');
-select is((select count(*)::int from public.roles), 0, 'authenticated sees 0 roles (no policies)');
+-- authenticated non-member: read policies require is_active_member() => 0 rows
+select tests.authenticate_as(tests.create_wallet_user('0x5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a'));
+select is((select count(*)::int from public.members), 0, 'non-member sees 0 members');
+select is((select count(*)::int from public.roles), 0, 'non-member sees 0 roles');
 select throws_ok(
   $$insert into public.audit_log (action) values ('x')$$,
   '42501', null, 'authenticated cannot insert audit_log');
