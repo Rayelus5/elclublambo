@@ -333,7 +333,13 @@ declare
   v_allow bigint := coalesce(p_allow, 0);
   v_deny bigint := coalesce(p_deny, 0);
   v_role public.roles;
+  v_old_allow bigint := 0;
+  v_old_deny bigint := 0;
+  v_changed bigint;
 begin
+  -- same key as the role RPCs: role positions cannot move between the hierarchy check and the write
+  perform pg_advisory_xact_lock(hashtext('public.roles'));
+
   v_actor := public.current_member_id();
   if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
     raise exception 'forbidden';
@@ -350,6 +356,20 @@ begin
   v_top := public.member_top_position(v_actor);
 
   if not v_admin and ((v_allow | v_deny) & ~public.channel_permissions(v_actor, p_channel)) <> 0 then
+    raise exception 'forbidden';
+  end if;
+
+  -- Changing or deleting an existing row also touches its OLD bits: those must be held too.
+  select o.allow, o.deny into v_old_allow, v_old_deny
+  from public.permission_overwrites o
+  where o.channel_id = p_channel and o.target_type = p_target_type and o.target_id = p_target
+  for update;
+  if not found then
+    v_old_allow := 0;
+    v_old_deny := 0;
+  end if;
+  v_changed := (v_old_allow # v_allow) | (v_old_deny # v_deny);
+  if not v_admin and (v_changed & ~public.channel_permissions(v_actor, p_channel)) <> 0 then
     raise exception 'forbidden';
   end if;
 
@@ -416,6 +436,10 @@ begin
      or v_color is null or v_color !~ '^#[0-9A-F]{6}$'
      or p_permissions is null or p_permissions < 0 or p_permissions > 65535 then
     raise exception 'invalid_input';
+  end if;
+  -- ADMINISTRATOR is reserved to the is_system SuperAdmin role
+  if (p_permissions & 512) <> 0 then
+    raise exception 'forbidden';
   end if;
 
   v_admin := (public.member_global_permissions(v_actor) & 512) <> 0;
@@ -495,8 +519,20 @@ begin
     raise exception 'forbidden';
   end if;
 
-  if not v_admin and (p_permissions & ~public.member_global_permissions(v_actor)) <> 0 then
-    raise exception 'hierarchy';
+  if (p_permissions & 512) <> 0 then
+    raise exception 'forbidden';
+  end if;
+
+  if not v_admin then
+    -- roles held by everyone (@everyone, system_key roles) never get global bits except CREATE_INVITES
+    if (v_role.is_everyone or v_role.system_key is not null)
+       and (p_permissions & ~(31759::bigint | 16)) <> 0 then
+      raise exception 'forbidden';
+    end if;
+    -- only the bits that change must be held by the actor (untouched foreign bits are fine)
+    if ((v_role.permissions # p_permissions) & ~public.member_global_permissions(v_actor)) <> 0 then
+      raise exception 'hierarchy';
+    end if;
   end if;
 
   begin
@@ -622,7 +658,7 @@ end;
 $$;
 
 create table public.allowed_domains (
-  domain text primary key check (domain ~ '^[a-z0-9.-]+\.[a-z]{2,}$'),
+  domain text primary key check (domain ~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$'),
   added_by uuid references public.members (id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -646,20 +682,24 @@ as $$
 declare
   v_actor uuid;
   v_domain text := lower(btrim(p_domain));
+  v_rows int;
 begin
   v_actor := public.current_member_id();
   if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
     raise exception 'forbidden';
   end if;
-  if v_domain is null or v_domain !~ '^[a-z0-9.-]+\.[a-z]{2,}$' or char_length(v_domain) > 253 then
+  if v_domain is null or v_domain !~ '^([a-z0-9]([a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$' or char_length(v_domain) > 253 then
     raise exception 'invalid_input';
   end if;
 
   insert into public.allowed_domains (domain, added_by) values (v_domain, v_actor)
   on conflict (domain) do nothing;
+  get diagnostics v_rows = row_count;
 
-  insert into public.audit_log (actor_member_id, action, target_type, payload)
-  values (v_actor, 'domain_added', 'domain', jsonb_build_object('domain', v_domain));
+  if v_rows > 0 then
+    insert into public.audit_log (actor_member_id, action, target_type, payload)
+    values (v_actor, 'domain_added', 'domain', jsonb_build_object('domain', v_domain));
+  end if;
 end;
 $$;
 
@@ -672,6 +712,7 @@ as $$
 declare
   v_actor uuid;
   v_domain text := lower(btrim(p_domain));
+  v_rows int;
 begin
   v_actor := public.current_member_id();
   if v_actor is null or not public.is_active_member() or not public.has_global_perm(128) then
@@ -682,9 +723,12 @@ begin
   end if;
 
   delete from public.allowed_domains where domain = v_domain;
+  get diagnostics v_rows = row_count;
 
-  insert into public.audit_log (actor_member_id, action, target_type, payload)
-  values (v_actor, 'domain_removed', 'domain', jsonb_build_object('domain', v_domain));
+  if v_rows > 0 then
+    insert into public.audit_log (actor_member_id, action, target_type, payload)
+    values (v_actor, 'domain_removed', 'domain', jsonb_build_object('domain', v_domain));
+  end if;
 end;
 $$;
 

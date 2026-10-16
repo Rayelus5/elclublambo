@@ -1,5 +1,5 @@
 begin;
-select plan(105);
+select plan(132);
 
 -- privileges
 select ok(not has_function_privilege('anon', 'public.set_overwrite(uuid,text,uuid,bigint,bigint)', 'execute'), 'anon cannot set_overwrite');
@@ -130,7 +130,7 @@ select throws_ok($q$select public.create_role('T095 x', '#112233', 2)$q$, 'P0001
 
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select throws_ok($q$select public.create_role('T095 x', '#112233', 8)$q$, 'P0001', 'hierarchy', 'create with bits you lack is hierarchy');
-select throws_ok($q$select public.create_role('T095 x', '#112233', 512)$q$, 'P0001', 'hierarchy', 'create with ADMINISTRATOR is hierarchy');
+select throws_ok($q$select public.create_role('T095 x', '#112233', 512)$q$, 'P0001', 'forbidden', 'create with ADMINISTRATOR is reserved');
 select throws_ok($q$select public.create_role('T095 x', '#112233', 256)$q$, 'P0001', 'hierarchy', 'create with MANAGE_TREASURY you lack is hierarchy');
 select throws_ok($q$select public.create_role('', '#112233', 2)$q$, 'P0001', 'invalid_input', 'empty name is invalid_input');
 select throws_ok($q$select public.create_role(repeat('x', 33), '#112233', 2)$q$, 'P0001', 'invalid_input', 'long name is invalid_input');
@@ -174,7 +174,7 @@ select throws_ok(format($q$select public.update_role(%L::uuid, (select name from
   'P0001', 'hierarchy', '@everyone permissions limited to the actor''s own');
 select throws_ok(format($q$select public.update_role(%L::uuid, 'Verificado 2', '#3DDC84', 2)$q$, current_setting('t.verified')),
   'P0001', 'forbidden', 'system_key roles cannot be renamed');
-select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3ddc85', 2)$q$, current_setting('t.verified')),
+select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3ddc85', 3072)$q$, current_setting('t.verified')),
   'system_key role color and permissions are editable');
 select tests.clear_authentication();
 select is((select name || ':' || color || ':' || permissions::text from public.roles where id = current_setting('t.r1')::uuid),
@@ -269,6 +269,81 @@ select lives_ok($q$select public.remove_allowed_domain('EXAMPLE.com')$q$, 'remov
 select is((select count(*)::int from public.allowed_domains), 7, 'domain removed');
 select tests.clear_authentication();
 select ok((select count(*) from public.audit_log where action in ('domain_added', 'domain_removed')) >= 2, 'domain changes audited');
+
+-- ===== fix round 1: changed-bits rule, mass grants, reserved 512, domain regex, audit only on change =====
+insert into public.roles (name, color, position, permissions) values
+  ('T095 medio', '#EEEEEE', 50, 0),
+  ('T095 carga', '#EEEEEF', 51, 32);
+select set_config('t.medio', (select id::text from public.roles where name = 'T095 medio'), true);
+select set_config('t.carga', (select id::text from public.roles where name = 'T095 carga'), true);
+select set_config('t.ro', tests.create_channel(null, 'category', 'SoloLectura')::text, true);
+
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select lives_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 2)$q$, current_setting('t.ro'), current_setting('t.everyone')),
+  'admin sets @everyone deny=SEND on read-only channel');
+select lives_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 2)$q$, current_setting('t.ro'), current_setting('t.medio')),
+  'admin sets role deny=SEND on read-only channel');
+
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 0)$q$, current_setting('t.ro'), current_setting('t.everyone')),
+  'P0001', 'forbidden', 'deleting an @everyone deny the actor lacks is forbidden');
+select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 8192)$q$, current_setting('t.ro'), current_setting('t.everyone')),
+  'P0001', 'forbidden', 'replacing an @everyone deny the actor lacks is forbidden');
+select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 0)$q$, current_setting('t.ro'), current_setting('t.medio')),
+  'P0001', 'forbidden', 'deleting a lower-role deny the actor lacks is forbidden');
+select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 0, 4)$q$, current_setting('t.ro'), current_setting('t.medio')),
+  'P0001', 'forbidden', 'replacing a lower-role deny the actor lacks is forbidden');
+select tests.clear_authentication();
+select is((select allow || ':' || deny from public.permission_overwrites
+  where channel_id = current_setting('t.ro')::uuid and target_id = current_setting('t.everyone')::uuid), '0:2', '@everyone row unchanged');
+select is((select allow || ':' || deny from public.permission_overwrites
+  where channel_id = current_setting('t.ro')::uuid and target_id = current_setting('t.medio')::uuid), '0:2', 'role row unchanged');
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select lives_ok(format($q$select public.set_overwrite(%L::uuid, 'member', %L::uuid, 8192, 0)$q$, current_setting('t.ro'), current_setting('t.c')),
+  'changing only bits the actor holds is allowed');
+
+-- update_role: changed bits only
+select lives_ok(format($q$select public.update_role(%L::uuid, 'T095 carga2', '#010203', 32)$q$, current_setting('t.carga')),
+  'rename/recolor a lower role carrying a bit the actor lacks');
+select throws_ok(format($q$select public.update_role(%L::uuid, 'T095 carga2', '#010203', 0)$q$, current_setting('t.carga')),
+  'P0001', 'hierarchy', 'stripping a bit the actor lacks is hierarchy');
+select throws_ok(format($q$select public.update_role(%L::uuid, 'T095 carga2', '#010203', 32 | 256)$q$, current_setting('t.carga')),
+  'P0001', 'hierarchy', 'adding a bit the actor lacks is hierarchy');
+select lives_ok(format($q$select public.update_role(%L::uuid, 'T095 carga2', '#010203', 32 | 2)$q$, current_setting('t.carga')),
+  'adding a bit the actor holds keeps the untouched foreign bit');
+select tests.clear_authentication();
+select is((select permissions from public.roles where id = current_setting('t.carga')::uuid), 34::bigint, 'carga permissions stored');
+
+-- mass grants
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok(format($q$select public.update_role(%L::uuid, (select name from public.roles where is_everyone), (select color from public.roles where is_everyone), (select permissions | 64 from public.roles where is_everyone))$q$, current_setting('t.everyone')),
+  'P0001', 'forbidden', 'non-admin cannot give @everyone a global bit');
+select throws_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3DDC85', 3072 | 128)$q$, current_setting('t.verified')),
+  'P0001', 'forbidden', 'non-admin cannot give a system_key role a global bit');
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select lives_ok(format($q$select public.update_role(%L::uuid, (select name from public.roles where is_everyone), (select color from public.roles where is_everyone), (select permissions | 64 from public.roles where is_everyone))$q$, current_setting('t.everyone')),
+  'admin may give @everyone a global bit');
+select tests.clear_authentication();
+select is((select permissions & 64 from public.roles where is_everyone), 64::bigint, 'admin mass grant stored');
+
+-- 512 reserved to SuperAdmin
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select throws_ok($q$select public.create_role('T095 adm', '#123456', 512)$q$, 'P0001', 'forbidden', 'nobody creates a role with ADMINISTRATOR');
+select throws_ok(format($q$select public.update_role(%L::uuid, 'T095 carga2', '#010203', 512)$q$, current_setting('t.carga')),
+  'P0001', 'forbidden', 'nobody updates a role to ADMINISTRATOR');
+
+-- domain regex and audit-on-change
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok($q$select public.add_allowed_domain('..com')$q$, 'P0001', 'invalid_input', '..com is invalid');
+select throws_ok($q$select public.add_allowed_domain('-a.com')$q$, 'P0001', 'invalid_input', '-a.com is invalid');
+select throws_ok($q$select public.add_allowed_domain('a..b.com')$q$, 'P0001', 'invalid_input', 'a..b.com is invalid');
+select lives_ok($q$select public.add_allowed_domain('github.com')$q$, 'adding an existing domain');
+select lives_ok($q$select public.remove_allowed_domain('nonexistent.com')$q$, 'removing a missing domain');
+select tests.clear_authentication();
+select is((select count(*)::int from public.audit_log where action = 'domain_added' and payload->>'domain' = 'github.com'), 0,
+  'no audit when add changed nothing');
+select is((select count(*)::int from public.audit_log where action = 'domain_removed' and payload->>'domain' = 'nonexistent.com'), 0,
+  'no audit when remove changed nothing');
 
 select * from finish();
 rollback;
