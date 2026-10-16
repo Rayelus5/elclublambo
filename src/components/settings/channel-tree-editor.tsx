@@ -23,6 +23,12 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { FolderInput, GripVertical, Hash, Layers, MessagesSquare, Plus } from "lucide-react";
 import { ChannelForm } from "@/components/settings/channel-form";
+import {
+  PermissionMatrix,
+  type MatrixMember,
+  type MatrixRole,
+  type OverwriteRow,
+} from "@/components/settings/permission-matrix";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -236,7 +242,7 @@ function MoveDialog({
           <Button type="button" variant="secondary" onClick={onClose} disabled={pending}>
             Cancelar
           </Button>
-          <Button type="button" onClick={submit} disabled={pending || options.length === 0}>
+          <Button type="button" onClick={submit} disabled={pending || options.length === 0 || value === current}>
             {pending ? "Moviendo…" : "Mover"}
           </Button>
         </DialogFooter>
@@ -343,7 +349,17 @@ function CreateDialog({
   );
 }
 
-export function ChannelTreeEditor({ channels }: { channels: ChannelDetailRow[] }) {
+export type MatrixData = {
+  overwritesByChannel: Record<string, OverwriteRow[]>;
+  /** Bits de canal del actor por canal (bigint serializado). */
+  channelPerms: Record<string, string>;
+  roles: MatrixRole[];
+  members: MatrixMember[];
+  isAdmin: boolean;
+  actorTop: number;
+};
+
+export function ChannelTreeEditor({ channels, matrix }: { channels: ChannelDetailRow[]; matrix?: MatrixData }) {
   const router = useRouter();
   const tree = useMemo(() => buildTree(channels), [channels]);
   const byId = useMemo(() => new Map(channels.map((c) => [c.id, c])), [channels]);
@@ -466,6 +482,28 @@ export function ChannelTreeEditor({ channels }: { channels: ChannelDetailRow[] }
           <p className="mt-4 text-sm text-fg-muted">Selecciona un canal del árbol para editar sus ajustes.</p>
         )}
       </section>
+
+      {selected && matrix ? (
+        <section aria-labelledby="permisos-titulo" className="flex min-w-0 flex-col gap-3 lg:col-span-2">
+          <h3 id="permisos-titulo" className="text-h2">
+            Permisos de {selected.name}
+          </h3>
+          <p className="text-sm text-fg-muted">
+            Cada celda alterna entre heredar, permitir y denegar. Solo puedes tocar permisos que tú tienes en este
+            canal y roles por debajo del tuyo.
+          </p>
+          <PermissionMatrix
+            key={selected.id}
+            channelId={selected.id}
+            overwrites={matrix.overwritesByChannel[selected.id] ?? []}
+            roles={matrix.roles}
+            members={matrix.members}
+            actorChannelPerms={matrix.channelPerms[selected.id] ?? "0"}
+            isAdmin={matrix.isAdmin}
+            actorTop={matrix.actorTop}
+          />
+        </section>
+      ) : null}
 
       <MoveDialog
         key={moving?.id ?? "none"}

@@ -11,6 +11,8 @@ vi.mock("@/lib/channels/actions", () => ({
   createChannelAction,
   updateChannelAction: vi.fn(),
   deleteChannelAction: vi.fn(),
+  setOverwriteAction: vi.fn(),
+  searchMembersAction: vi.fn(),
 }));
 
 import { ChannelTreeEditor } from "@/components/settings/channel-tree-editor";
@@ -129,6 +131,38 @@ describe("ChannelTreeEditor", () => {
     expect(options).toEqual(["Comunidad", "Mercado"]);
   });
 
+  it("disables 'Mover' while the selected parent is the current one", async () => {
+    const user = userEvent.setup();
+    render(<ChannelTreeEditor channels={ROWS} />);
+    await user.click(screen.getByRole("button", { name: "Mover Trading a…" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Mover" })).toBeDisabled();
+    await user.selectOptions(within(dialog).getByLabelText("Nuevo padre"), "cat1");
+    expect(within(dialog).getByRole("button", { name: "Mover" })).toBeEnabled();
+    await user.selectOptions(within(dialog).getByLabelText("Nuevo padre"), "cat2");
+    expect(within(dialog).getByRole("button", { name: "Mover" })).toBeDisabled();
+  });
+
+  it("shows the permission matrix for the selected channel when matrix data is provided", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChannelTreeEditor
+        channels={ROWS}
+        matrix={{
+          overwritesByChannel: { rul: [{ targetType: "role", targetId: "ev", allow: "0", deny: "1" }] },
+          channelPerms: { rul: "31759" },
+          roles: [{ id: "ev", name: "@everyone", color: "#A3A3A3", position: 0, isEveryone: true, isAdminRole: false }],
+          members: [],
+          isAdmin: false,
+          actorTop: 10,
+        }}
+      />,
+    );
+    expect(screen.queryByRole("table")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Editar Reglas" }));
+    expect(screen.getByRole("button", { name: /@everyone · Ver canal: denegado/ })).toBeInTheDocument();
+  });
+
   it("moving to another parent calls moveChannelAction with append", async () => {
     const user = userEvent.setup();
     moveChannelAction.mockResolvedValue({});
@@ -169,6 +203,7 @@ describe("ChannelTreeEditor", () => {
     render(<ChannelTreeEditor channels={ROWS} />);
     await user.click(screen.getByRole("button", { name: "Mover Trading a…" }));
     const dialog = await screen.findByRole("dialog");
+    await user.selectOptions(within(dialog).getByLabelText("Nuevo padre"), "cat1");
     await user.click(within(dialog).getByRole("button", { name: "Mover" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Ese movimiento rompería");
   });

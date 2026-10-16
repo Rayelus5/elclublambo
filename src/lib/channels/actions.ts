@@ -105,6 +105,67 @@ export async function moveChannelAction(input: {
   return {};
 }
 
+const CHANNEL_MASK = 31759n;
+const BIGINT_RE = /^\d{1,6}$/;
+
+/**
+ * Guarda (o borra con 0/0) el overwrite de un rol o miembro. allow/deny llegan como string de bigint,
+ * solo con bits de canal y sin solaparse; la autorización real la hace la RPC.
+ */
+export async function setOverwriteAction(
+  channelId: string,
+  targetType: "role" | "member",
+  targetId: string,
+  allow: string,
+  deny: string,
+): Promise<{ error?: string }> {
+  if (!isUuid(channelId) || !isUuid(targetId) || (targetType !== "role" && targetType !== "member")) {
+    return { error: "invalid_input" };
+  }
+  if (typeof allow !== "string" || typeof deny !== "string" || !BIGINT_RE.test(allow) || !BIGINT_RE.test(deny)) {
+    return { error: "invalid_input" };
+  }
+  const a = BigInt(allow);
+  const d = BigInt(deny);
+  if ((a & ~CHANNEL_MASK) !== 0n || (d & ~CHANNEL_MASK) !== 0n || (a & d) !== 0n) {
+    return { error: "invalid_input" };
+  }
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("set_overwrite", {
+    p_channel: channelId,
+    p_target_type: targetType,
+    p_target: targetId,
+    p_allow: Number(a),
+    p_deny: Number(d),
+  });
+  if (error) return { error: rpcErrorCode(error) };
+  refresh();
+  return {};
+}
+
+export type MemberHit = { id: string; displayName: string | null; walletAddress: string };
+
+/** Búsqueda de miembros por nombre o wallet para añadir un overwrite. La RLS de members limita el acceso. */
+export async function searchMembersAction(query: string): Promise<MemberHit[]> {
+  if (typeof query !== "string") return [];
+  // Fuera comodines y metacaracteres del filtro de PostgREST.
+  const q = query.replace(/[%_,()*\\.:"'\s]/g, "").toLowerCase();
+  if (q.length < 2 || q.length > 42) return [];
+  const supabase = await createServerClient();
+  const { data, error } = await supabase
+    .from("members")
+    .select("id, display_name, wallet_address")
+    .or(`display_name.ilike.%${q}%,wallet_address.ilike.%${q}%`)
+    .limit(10);
+  if (error || !data) return [];
+  return (data as { id: string; display_name: string | null; wallet_address: string }[]).map((m) => ({
+    id: m.id,
+    displayName: m.display_name,
+    walletAddress: m.wallet_address,
+  }));
+}
+
 export async function deleteChannelAction(id: string): Promise<{ error?: string }> {
   if (!isUuid(id)) return { error: "invalid_input" };
   const supabase = await createServerClient();
