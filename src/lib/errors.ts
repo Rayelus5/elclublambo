@@ -21,6 +21,9 @@ const MESSAGES: Record<string, string> = {
   too_many_attachments: "Puedes adjuntar como máximo 4 imágenes.",
   too_many_reactions: "Este mensaje ya tiene el máximo de reacciones distintas.",
   thread_invalid: "No se puede responder a ese mensaje.",
+  rate_limited: "Has hecho demasiadas acciones seguidas. Espera un rato antes de volver a intentarlo.",
+  already_reported: "Ya has reportado este mensaje. El equipo de moderación lo revisará.",
+  ticket_closed: "Este ticket está cerrado. Solo el equipo puede reabrirlo.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

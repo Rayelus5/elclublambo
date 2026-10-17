@@ -44,6 +44,14 @@ describe("rpcErrorMessage", () => {
       expect(rpcErrorCode({ message: code })).toBe(code);
     },
   );
+  it.each(["rate_limited", "already_reported", "ticket_closed"])(
+    "F2c error %s has specific copy and is allowlisted",
+    (code) => {
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+      expect(rpcErrorCode({ message: code })).toBe(code);
+      expect(knownErrorCode(code)).toBe(code);
+    },
+  );
   it("slowmode copy", () =>
     expect(rpcErrorMessage("slowmode")).toBe("Vas demasiado rápido. Espera un poco antes de volver a escribir."));
   it("hierarchy copy covers rank and missing permissions", () => {
