@@ -3,15 +3,18 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isAllowedPushEndpoint } from "@/lib/push/endpoint";
 
+// `picked` = notices picked by the claim (same on every row). Rows with a null endpoint are notices whose recipient
+// has no subscription; a row with a null notification_id is a sentinel carrying only `picked`.
 type ClaimedRow = {
-  notification_id: number;
-  endpoint: string;
-  p256dh: string;
-  auth: string;
-  title: string;
-  body: string;
-  url: string;
-  tag: string;
+  notification_id: number | null;
+  endpoint: string | null;
+  p256dh: string | null;
+  auth: string | null;
+  title: string | null;
+  body: string | null;
+  url: string | null;
+  tag: string | null;
+  picked: number;
 };
 
 // Internal route only (the SQL builds one of /c/.., /tickets/.., /u/.., /moderation/reports, /admin/members,
@@ -53,7 +56,8 @@ export async function dispatchPendingPush(): Promise<{ sent: number; removed: nu
       result.removed += 1;
     };
 
-    // Keep claiming while the previous batch was full (rows are per subscription: count distinct notices), so a
+    // Keep claiming while the previous claim picked a full batch (`picked`, not rows: unsubscribed or invalid notices
+    // return few or no rows), so a
     // big fan-out (@everyone in Anuncios) is not left to expire. Bounded.
     for (let i = 0; i < MAX_BATCHES; i++) {
       const { data, error } = await admin.rpc("claim_push_notifications", { p_limit: BATCH });
@@ -63,7 +67,7 @@ export async function dispatchPendingPush(): Promise<{ sent: number; removed: nu
       }
       const rows = (data ?? []) as ClaimedRow[];
       await sendBatch(rows, remove, result);
-      if (new Set(rows.map((r) => r.notification_id)).size < BATCH) break;
+      if (Math.max(0, ...rows.map((r) => r.picked ?? 0)) < BATCH) break;
     }
   } catch (e) {
     console.error(`dispatchPendingPush: ${e instanceof Error ? e.name : "unknown error"}`);
@@ -76,12 +80,21 @@ async function sendBatch(
   remove: (endpoint: string) => Promise<void>,
   result: { sent: number; removed: number },
 ) {
+  // A rejected delete must never abort the rest of the batch.
+  const safeRemove = async (endpoint: string) => {
+    try {
+      await remove(endpoint);
+    } catch {
+      console.error(`dispatchPendingPush: delete failed for ${hostOf(endpoint)}`);
+    }
+  };
   for (const row of rows) {
+    if (!row.endpoint || !row.p256dh || !row.auth || !row.url || !row.tag) continue; // no subscription / sentinel
     try {
       if (!isAllowedPushEndpoint(row.endpoint)) {
         // Defence in depth: the table can only hold allowlisted endpoints, but never fetch anything else.
         console.error(`dispatchPendingPush: endpoint outside the allowlist (${hostOf(row.endpoint)})`);
-        await remove(row.endpoint);
+        await safeRemove(row.endpoint);
         continue;
       }
       if (!INTERNAL_URL_RE.test(row.url)) {
@@ -90,14 +103,14 @@ async function sendBatch(
       }
       await webpush.sendNotification(
         { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
-        JSON.stringify({ title: row.title, body: row.body, url: row.url, tag: row.tag }),
+        JSON.stringify({ title: row.title ?? "", body: row.body ?? "", url: row.url, tag: row.tag }),
         { TTL: 3600, urgency: row.tag.startsWith("mention:") ? "high" : "normal" },
       );
       result.sent += 1;
     } catch (e) {
       const status = (e as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
-        await remove(row.endpoint);
+        await safeRemove(row.endpoint);
       } else {
         console.error(`dispatchPendingPush: send failed (${status ?? "no status"}) for ${hostOf(row.endpoint)}`);
       }

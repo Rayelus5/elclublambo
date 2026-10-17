@@ -25,6 +25,7 @@ const row = (over: Record<string, unknown> = {}) => ({
   body: "Ana te mencionó en #general",
   url: "/c/11111111-1111-4111-8111-111111111111",
   tag: "mention:1",
+  picked: 1,
   ...over,
 });
 
@@ -137,7 +138,7 @@ describe("dispatchPendingPush", () => {
   });
 
   const fullBatch = (from: number) =>
-    Array.from({ length: 200 }, (_, i) => row({ notification_id: from + i, tag: `channel_message:${from + i}` }));
+    Array.from({ length: 200 }, (_, i) => row({ notification_id: from + i, tag: `channel_message:${from + i}`, picked: 200 }));
   const claims = () => rpc.mock.calls.filter((c) => c[0] === "claim_push_notifications").length;
 
   it("keeps claiming while the batch is full, and stops on a partial one (aggregated counts)", async () => {
@@ -151,12 +152,52 @@ describe("dispatchPendingPush", () => {
   });
 
   it("counts distinct notification ids, not rows (several subscriptions per notice)", async () => {
-    const dup = Array.from({ length: 200 }, (_, i) => row({ notification_id: 1 + (i % 100), endpoint: EP1 + i }));
+    const dup = Array.from({ length: 200 }, (_, i) => row({ notification_id: 1 + (i % 100), endpoint: EP1 + i, picked: 100 }));
     rpc.mockResolvedValueOnce({ data: dup, error: null });
     sendNotification.mockResolvedValue({ statusCode: 201 });
 
     expect(await dispatchPendingPush()).toEqual({ sent: 200, removed: 0 });
     expect(claims()).toBe(1);
+  });
+
+  it("claims again when 200 were picked but only a few rows came back (unsubscribed or invalid notices)", async () => {
+    rpc
+      .mockResolvedValueOnce({ data: [row({ picked: 200 })], error: null })
+      .mockResolvedValueOnce({ data: [row({ notification_id: 2, picked: 1 })], error: null });
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    expect(await dispatchPendingPush()).toEqual({ sent: 2, removed: 0 });
+    expect(claims()).toBe(2);
+  });
+
+  it("continues on a sentinel row (picked 200, no notice) and skips null-endpoint rows without sending", async () => {
+    rpc
+      .mockResolvedValueOnce({
+        data: [
+          row({ notification_id: null, endpoint: null, p256dh: null, auth: null, title: null, body: null, url: null, tag: null, picked: 200 }),
+        ],
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: [row({ notification_id: 5, endpoint: null, p256dh: null, auth: null, picked: 1 })],
+        error: null,
+      });
+    expect(await dispatchPendingPush()).toEqual({ sent: 0, removed: 0 });
+    expect(sendNotification).not.toHaveBeenCalled();
+    expect(claims()).toBe(2);
+  });
+
+  it("a rejecting delete does not abort the rest of the batch", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "claim_push_notifications") return { data: [row(), row({ notification_id: 2, endpoint: EP2 })], error: null };
+      throw new Error("network");
+    });
+    sendNotification
+      .mockRejectedValueOnce(Object.assign(new Error("gone"), { statusCode: 410 }))
+      .mockResolvedValueOnce({ statusCode: 201 });
+    expect(await dispatchPendingPush()).toEqual({ sent: 1, removed: 0 });
+    expect(sendNotification).toHaveBeenCalledTimes(2);
   });
 
   it("stops after 25 claims even if every batch is full", async () => {
