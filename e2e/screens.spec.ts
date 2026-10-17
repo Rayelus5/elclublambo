@@ -31,15 +31,21 @@ test.beforeAll(async ({ browser }) => {
   const code = url.split("/invite/")[1]!;
   await adminPage.close();
 
-  const { data: general } = await createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { persistSession: false } },
-  )
-    .from("channels")
-    .select("id")
-    .eq("name", "General")
-    .single<{ id: string }>();
+  const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+    auth: { persistSession: false },
+  });
+  const { data: general } = await db.from("channels").select("id").eq("name", "General").single<{ id: string }>();
+
+  // F2d: messages for the palette capture (it searches "ayuda": action, channel and message groups all answer).
+  const { data: me } = await db.from("members").select("id").eq("wallet_address", adminAddr).single<{ id: string }>();
+  const text = "Necesito ayuda con la Línea de tiempo del proyecto, ¿alguien sabe cómo se configura el calendario?";
+  await db.from("messages").insert({
+    channel_id: general!.id,
+    author_id: me!.id,
+    body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] },
+    body_text: text,
+    allow_links: false,
+  });
 
   targets = [
     { name: "login", ctx: anon, path: "/login" },
@@ -87,5 +93,31 @@ for (const width of WIDTHS) {
       }
       await page.close();
     }
+  });
+}
+
+// F2d: the Cmd+K palette open with results (actions, channels and messages), at the narrowest and widest widths.
+for (const width of [375, 1440] as const) {
+  test(`@screens capture the command palette at ${width}px`, async () => {
+    const page = await admin.newPage();
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/");
+    const dialog = page.getByRole("dialog", { name: "Buscar" });
+    // Right after the navigation the app may not be hydrated yet: retry the opener until it answers.
+    await expect(async () => {
+      if (width === 375) await page.getByRole("banner").getByRole("button", { name: "Buscar" }).click({ timeout: 1_500 });
+      else await page.keyboard.press("Control+K");
+      await expect(dialog).toBeVisible({ timeout: 1_500 });
+    }).toPass({ timeout: 15_000 });
+    await dialog.getByRole("combobox").fill("ayuda");
+    await expect(dialog.getByRole("option").filter({ hasText: "Línea de tiempo" })).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "Acciones" })).toBeVisible();
+    await expect(dialog.getByRole("group", { name: "Canales" })).toBeVisible();
+    mkdirSync(".superpowers/sdd/f2d/screens", { recursive: true });
+    await page.screenshot({ path: ".superpowers/sdd/f2d/screens/palette-" + width + ".png" });
+    if (width === 375) {
+      expect(await page.evaluate(() => document.scrollingElement!.scrollWidth)).toBeLessThanOrEqual(375);
+    }
+    await page.close();
   });
 }
