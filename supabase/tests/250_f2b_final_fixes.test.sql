@@ -198,10 +198,10 @@ select ok(not has_function_privilege('anon', 'public._insert_mentions(uuid,jsonb
   'anon cannot execute _insert_mentions');
 
 -- ===== 5. _doc_text trims ASCII whitespace only =====
-select is(public._doc_text(tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E' x '))))) ),
-  E' x ', '_doc_text keeps leading/trailing NBSP');
-select is(public._doc_text(tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E'　x '))))) ),
-  E'　x ', '_doc_text keeps other Unicode spaces');
+select is(public._doc_text(tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E'\u00a0x\u00a0'))))) ),
+  E'\u00a0x\u00a0', '_doc_text keeps leading/trailing NBSP');
+select is(public._doc_text(tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E'\u3000x\u2003'))))) ),
+  E'\u3000x\u2003', '_doc_text keeps other Unicode spaces');
 select is(public._doc_text(tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E' \t\r\f\u000bx \n'))))) ),
   'x', '_doc_text trims ASCII whitespace');
 select ok(not has_function_privilege('authenticated', 'public._doc_text(jsonb)', 'execute'), 'authenticated cannot execute _doc_text');
@@ -210,7 +210,7 @@ select ok(not has_function_privilege('anon', 'public._doc_text(jsonb)', 'execute
 -- an NBSP-only message is stored (TS and SQL agree it is not empty)
 select tests.authenticate_as(current_setting('t.uu')::uuid);
 select lives_ok(format($q$select public.post_message(%L::uuid, %L::jsonb, 'x', false, null, null, '[]'::jsonb)$q$,
-  current_setting('t.c'), tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E' ')))))::text),
+  current_setting('t.c'), tests.doc(jsonb_build_array(tests.para(jsonb_build_array(tests.txt(E'\u00a0')))))::text),
   'an NBSP-only message is accepted');
 select tests.clear_authentication();
 

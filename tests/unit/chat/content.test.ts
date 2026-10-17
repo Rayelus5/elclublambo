@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { docToPlainText, extractMentions, sanitizeDoc, type TiptapNode } from "@/lib/chat/content";
+import { docToPlainText, extractMentions, MAX_DOC_NODES, sanitizeDoc, type TiptapNode } from "@/lib/chat/content";
+import { mentionCases } from "../../fixtures/mention-cases";
 
 const t = (text: string, marks?: unknown[]) => ({ type: "text", text, ...(marks ? { marks } : {}) });
 const p = (...c: unknown[]) => ({ type: "paragraph", content: c });
@@ -104,10 +105,10 @@ describe("sanitizeDoc", () => {
   });
 
   it("caps the total number of nodes", () => {
-    const many = Array.from({ length: 20000 }, () => p(t("x")));
+    const many = Array.from({ length: MAX_DOC_NODES }, () => p(t("x")));
     const out = sanitizeDoc({ type: "doc", content: many });
     const count = (n: TiptapNode): number => 1 + (n.content ?? []).reduce((a, c) => a + count(c), 0);
-    expect(count(out)).toBeLessThanOrEqual(5001);
+    expect(count(out)).toBeLessThanOrEqual(MAX_DOC_NODES + 1);
   });
 
   it.each(["__proto__", "constructor", "toString", "hasOwnProperty"])("drops nodes whose type is %s", (type) => {
@@ -187,42 +188,27 @@ describe("extractMentions", () => {
   });
 });
 
-// Same cases as supabase/tests/250_f2b_final_fixes.test.sql (section 4): the TS and SQL mention walks must agree.
-describe("extractMentions counts only rendered mentions (parity with SQL _insert_mentions)", () => {
-  const E = { type: "mention", attrs: { kind: "everyone" } };
-  const M = "33333333-3333-3333-3333-333333333333";
-  const hola = p(t("hola"));
-  const nest = (levels: number, node: unknown) => {
-    let v: unknown = p(node);
-    for (let i = 0; i < levels; i++) v = { type: "blockquote", content: [v] };
-    return doc(hola, v);
-  };
-  const cases: Array<[string, unknown, number]> = [
-    ["visible @everyone", doc(p(t("hola"), E)), 1],
-    ["under attrs", doc({ type: "paragraph", attrs: { x: E }, content: [t("hola")] }), 0],
-    ["inside marks", doc(p({ type: "text", text: "hola", marks: [E] })), 0],
-    ["under a text node", doc(p({ type: "text", text: "hola", content: [E] })), 0],
-    ["under a hardBreak", doc(p(t("hola"), { type: "hardBreak", content: [E] })), 0],
-    ["nested inside a mention (outer only)", doc(p(t("hola"), { ...E, content: [{ type: "mention", attrs: { kind: "member", id: M } }] })), 1],
-    ["inside a codeBlock", doc(hola, { type: "codeBlock", content: [t("x"), E] }), 0],
-    ["inside a horizontalRule", doc(hola, { type: "horizontalRule", content: [p(E)] }), 0],
-    ["directly under a table", doc(hola, { type: "table", content: [p(E)] }), 0],
-    ["directly under a tableRow", doc(hola, { type: "table", content: [{ type: "tableRow", content: [p(E)] }] }), 0],
-    ["inside a table cell", doc({ type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", content: [p(t("hola"), E)] }] }] }), 1],
-    ["inline directly under the doc", doc(t("hola"), E), 1],
-    ["duplicates", doc(p(t("a"), E), p(t("b"), E)), 1],
-    ["under an unknown wrapper", doc(hola, { type: "unknownWrapper", content: [p(E)] }), 1],
-    ["at depth 40", nest(38, E), 1],
-    ["at depth 41", nest(39, E), 0],
-    ["root that is not a doc", p(t("hola"), E), 0],
-  ];
-  it.each(cases)("%s", (_n, input, expected) => expect(extractMentions(input)).toHaveLength(expected));
+// Shared with the SQL side: tests/fixtures/mention-parity.json also drives tests/integration/mention-parity.test.ts.
+describe("extractMentions counts only rendered mentions (parity fixture with SQL _insert_mentions)", () => {
+  const ids = { member: "33333333-3333-4333-8333-333333333333", role: "44444444-4444-4444-8444-444444444444" };
+  it.each(mentionCases(ids).map((c) => [c.name, c.body, c.expected] as const))("%s", (_n, body, expected) =>
+    expect(extractMentions(body)).toHaveLength(expected),
+  );
+  it("a root that is not a doc has no mentions (SQL rejects it with invalid_input)", () => {
+    expect(extractMentions({ type: "paragraph", content: [{ type: "mention", attrs: { kind: "everyone" } }] })).toEqual([]);
+  });
+  it("the sanitizer budget cannot be reached within the 64 KB body cap: the trailing mention survives", () => {
+    const body = mentionCases(ids).find((c) => c.name.includes("node budget"))!.body;
+    expect(JSON.stringify(body).length).toBeLessThanOrEqual(65536);
+    // checked as a boolean: the sanitized body is too large to print usefully on failure
+    expect(JSON.stringify(sanitizeDoc(body)).includes('"kind":"everyone"')).toBe(true);
+  });
 });
 
 describe("docToPlainText trims ASCII whitespace only (mirrors SQL _doc_text, ruling R11)", () => {
   it("keeps leading/trailing NBSP and other Unicode spaces", () => {
-    expect(docToPlainText(doc(p(t(" x "))))).toBe(" x ");
-    expect(docToPlainText(doc(p(t("　x "))))).toBe("　x ");
+    expect(docToPlainText(doc(p(t("\u00a0x\u00a0"))))).toBe("\u00a0x\u00a0");
+    expect(docToPlainText(doc(p(t("\u3000x\u2003"))))).toBe("\u3000x\u2003");
   });
   it("trims ASCII whitespace", () => {
     expect(docToPlainText(doc(p(t(" \t\r\f\u000bx \n"))))).toBe("x");

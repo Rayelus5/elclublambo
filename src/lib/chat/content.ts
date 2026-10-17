@@ -23,8 +23,15 @@ export interface TiptapDoc {
 
 /** Same cutoff as the SQL `_doc_text_rec`: nodes nested deeper than this are ignored. */
 export const MAX_DOC_DEPTH = 40;
-/** Defensive cap on the number of nodes kept by the sanitizer. */
-export const MAX_DOC_NODES = 5000;
+/**
+ * Defensive cap on the number of nodes kept by the sanitizer. It must stay out of reach of any body the server
+ * accepts (65536 bytes of `p_body::text`): if it were reached, the renderer would drop trailing nodes that the SQL
+ * `_insert_mentions` still counts (ghost mentions). Bound: every budget unit (`take`) is spent on a raw node with a
+ * string `type`, or on a synthetic wrap made for one (at most a `listItem` + a `paragraph` wrap per raw node), so at
+ * most 3 units per raw node; the smallest such node, `{"type": "table"}`, is 17 bytes, plus a separator. Hence fewer
+ * than 3 * 65536 / 17 ≈ 11.6k units; 20000 leaves margin.
+ */
+export const MAX_DOC_NODES = 20000;
 export const MAX_MENTIONS = 50;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
