@@ -70,6 +70,22 @@ describe("Sidebar", () => {
     expect(sidebarBrand.className).toContain("font-display");
   });
 
+  it("shows Reportes with MANAGE_MESSAGES (8), ADMINISTRATOR (512) or the any-channel flag", () => {
+    const { unmount } = renderSidebar(8n);
+    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
+    unmount();
+    const second = renderSidebar(512n);
+    expect(screen.getByRole("link", { name: "Reportes" })).toBeInTheDocument();
+    second.unmount();
+    render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
+    expect(screen.getByRole("link", { name: "Reportes" })).toBeInTheDocument();
+  });
+
+  it("hides Reportes without any moderation permission", () => {
+    renderSidebar(7n);
+    expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
+  });
+
   it("offers sign out", () => {
     renderSidebar(7n);
     expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();

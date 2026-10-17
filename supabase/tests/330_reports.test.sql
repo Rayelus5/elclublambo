@@ -1,5 +1,5 @@
 begin;
-select plan(53);
+select plan(62);
 
 -- helpers (rolled back with the test)
 create function pg_temp.uid(p_member text) returns uuid language sql as
@@ -202,6 +202,25 @@ select tests.clear_authentication();
 delete from public.messages where id = current_setting('t.m1')::uuid;
 select ok((select message_id is null and snapshot_text = 'estafa total aqui' and snapshot_author_id = current_setting('t.au')::uuid
            from public.reports where id = current_setting('t.r1')::uuid), 'report keeps its snapshot after the message is gone');
+
+-- ===== has_any_channel_perm (sidebar link) =====
+select ok(has_function_privilege('authenticated', 'public.has_any_channel_perm(bigint)', 'execute'), 'authenticated can call has_any_channel_perm');
+select ok(not has_function_privilege('anon', 'public.has_any_channel_perm(bigint)', 'execute'), 'anon cannot call has_any_channel_perm');
+select ok(not has_function_privilege('service_role', 'public.has_any_channel_perm(bigint)', 'execute'), 'service_role cannot call has_any_channel_perm');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
+select is(public.has_any_channel_perm(8), true, 'a moderator has MANAGE_MESSAGES somewhere');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.mod3')));
+select is(public.has_any_channel_perm(8), true, 'MANAGE_MESSAGES granted by a single channel overwrite counts');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.plain')));
+select is(public.has_any_channel_perm(8), false, 'a plain member has it nowhere');
+select throws_ok($q$select public.has_any_channel_perm(1048576)$q$, 'invalid_input', 'a non-channel bit is invalid_input');
+select throws_ok($q$select public.has_any_channel_perm(null)$q$, 'invalid_input', 'null is invalid_input');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.gone')));
+select is(public.has_any_channel_perm(8), false, 'a banned member has it nowhere');
+select tests.clear_authentication();
 
 select * from finish();
 rollback;

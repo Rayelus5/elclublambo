@@ -6,9 +6,12 @@ const h = vi.hoisted(() => ({
   onEvent: null as null | ((e: { id: string; threadRootId: string | null; events: string[] }) => void),
   onResync: null as null | (() => void),
   refresh: vi.fn(),
+  replace: vi.fn(),
   composer: [] as Array<Record<string, unknown>>,
 }));
 
+vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({}) }));
 vi.mock("@/lib/chat/realtime", () => ({
   useChannelEvents: (_id: string, cb: typeof h.onEvent, opts?: { onResync?: () => void }) => {
@@ -73,6 +76,7 @@ const emit = async (id: string, events = ["message_updated"], threadRootId: stri
 beforeEach(() => {
   h.composer.length = 0;
   h.refresh.mockReset();
+  h.replace.mockReset();
   Object.values(actions).forEach((f) => f.mockReset());
   Object.values(queries).forEach((f) => f.mockReset());
   actions.markReadAction.mockResolvedValue({});
@@ -283,6 +287,29 @@ describe("ChatView", () => {
       const panel = await screen.findByRole("dialog", { name: "Hilo" });
       expect(await within(panel).findByText("la respuesta")).toBeInTheDocument();
       expect(queries.getThread).toHaveBeenCalledWith(expect.anything(), r.id, ME);
+    });
+
+    it("closing a thread opened from ?thread removes the param from the URL without navigating away", async () => {
+      const r = root();
+      queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });
+      setup({ initialThreadId: r.id }, []);
+      const panel = await screen.findByRole("dialog", { name: "Hilo" });
+      expect(h.replace).not.toHaveBeenCalled();
+      await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
+      expect(h.replace).toHaveBeenCalledTimes(1);
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+    });
+
+    it("closing a thread opened from the list does not touch the URL", async () => {
+      const r = root();
+      queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });
+      setup({}, [r]);
+      await userEvent.click(screen.getByRole("button", { name: "1 respuesta" }));
+      const panel = await screen.findByRole("dialog", { name: "Hilo" });
+      await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
+      expect(h.replace).not.toHaveBeenCalled();
     });
 
     it("drops the thread when the linked root is gone, not in this channel, or unreadable", async () => {

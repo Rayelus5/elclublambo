@@ -1,5 +1,5 @@
 begin;
-select plan(89);
+select plan(95);
 
 -- helpers (rolled back with the test)
 create function pg_temp.uid(p_member text) returns uuid language sql as
@@ -278,6 +278,32 @@ create temp table c16 as select * from public.claim_push_notifications(2);
 select is((select count(distinct notification_id)::int from c16), 2, 'p_limit caps the number of notifications claimed');
 create temp table c17 as select * from public.claim_push_notifications(2);
 select is((select count(distinct notification_id)::int from c17), 1, 'the rest is claimed by the next call');
+
+-- ===== review hardening: channel-less message kinds, foreign-channel excerpts, trimmed excerpts =====
+insert into public.notifications (recipient_id, kind, actor_id) values (current_setting('t.r')::uuid, 'mention', current_setting('t.a')::uuid);
+create temp table c18 as select * from public.claim_push_notifications();
+select is((select count(*)::int from c18), 0, 'a message-kind notice without a channel is not sent');
+select is((select count(*)::int from public.notifications where recipient_id = current_setting('t.r')::uuid and kind = 'mention' and channel_id is null and pushed_at is not null), 1, 'it is still marked as claimed');
+
+with ins as (
+  insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.a_ch')::uuid, current_setting('t.a')::uuid, '{"type":"doc"}'::jsonb, 'OTRO-CANAL-SECRETO', false) returning id
+) select set_config('t.fm', ins.id::text, true) from ins;
+insert into public.notifications (recipient_id, kind, actor_id, channel_id, message_id)
+  values (current_setting('t.r')::uuid, 'mention', current_setting('t.a')::uuid, current_setting('t.c')::uuid, current_setting('t.fm')::uuid);
+create temp table c19 as select * from public.claim_push_notifications();
+select is((select count(*)::int from c19 where endpoint like '%/r1'), 1, 'the notice itself is still sent');
+select ok((select bool_and(body not like '%OTRO-CANAL-SECRETO%' and body not like '%«%') from c19), 'no excerpt from a message of another channel');
+
+with ins as (
+  insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  values (current_setting('t.c')::uuid, current_setting('t.a')::uuid, '{"type":"doc"}'::jsonb, repeat('x', 79) || ' zzz', false) returning id
+) select set_config('t.tm', ins.id::text, true) from ins;
+insert into public.notifications (recipient_id, kind, actor_id, channel_id, message_id)
+  values (current_setting('t.r')::uuid, 'mention', current_setting('t.a')::uuid, current_setting('t.c')::uuid, current_setting('t.tm')::uuid);
+create temp table c20 as select * from public.claim_push_notifications();
+select is((select min(substring(body from '«(.*)»')) from c20), repeat('x', 79), 'the excerpt is trimmed after the 80 character cut');
+select ok((select bool_and(body not like '% »') from c20), 'no trailing space before the closing quote');
 
 -- ===== delete by endpoint =====
 select public.delete_push_subscription_by_endpoint('https://fcm.googleapis.com/fcm/send/x1');

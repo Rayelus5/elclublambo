@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Pin, X } from "lucide-react";
 import { CANCEL_EDIT_EVENT } from "@/components/chat/message-edit";
 import { Composer } from "@/components/chat/composer";
@@ -350,15 +351,19 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     };
   }, [initialThreadId, channelId, meId, mergeDir]);
 
+  // A thread opened from a notification link keeps `?thread=<id>` in the URL: drop it on close so a refresh or a
+  // shared link does not reopen it. `replace` swaps the URL without adding a history entry or scrolling.
+  const router = useRouter();
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;
     setThread(null);
+    if (initialThreadId) router.replace(`/c/${channelId}`, { scroll: false });
     const opener = openerRef.current;
     openerRef.current = null;
     requestAnimationFrame(() => {
       if (opener?.isConnected) opener.focus();
     });
-  }, []);
+  }, [initialThreadId, channelId, router]);
 
   // --- message actions ----------------------------------------------------------------------------
 

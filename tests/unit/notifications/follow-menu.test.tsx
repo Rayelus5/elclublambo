@@ -17,6 +17,12 @@ describe("FollowMenu", () => {
     expect(screen.getByRole("button", { name: /Avisos del canal: solo menciones/i })).toBeInTheDocument();
   });
 
+  it("shows an error state instead of a default when the level could not be loaded", () => {
+    render(<FollowMenu channelId={CH} level={null} />);
+    expect(screen.getByRole("alert")).toHaveTextContent(/No se pudo cargar/i);
+    expect(screen.queryByRole("button", { name: /Avisos del canal/i })).toBeNull();
+  });
+
   it("marks the current level in the menu and calls the action on change", async () => {
     render(<FollowMenu channelId={CH} level="mentions" />);
     await userEvent.click(screen.getByRole("button", { name: /Avisos del canal/i }));

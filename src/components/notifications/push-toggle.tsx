@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { BellRing, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { currentPushSubscription, disablePush, enablePush, pushSupported } from "@/lib/push/client";
+import { currentPushSubscription, disablePush, enablePush, pushSupported, resyncPushSubscription } from "@/lib/push/client";
 
 type State = "hidden" | "off" | "on" | "denied" | "busy";
 
@@ -22,7 +22,12 @@ export function PushToggle({ publicKey }: { publicKey: string | undefined }) {
       let next: State = "off";
       if (Notification.permission === "denied") next = "denied";
       else if (Notification.permission === "granted") {
-        next = (await currentPushSubscription().catch(() => null)) ? "on" : "off";
+        const existing = await currentPushSubscription().catch(() => null);
+        if (existing) {
+          next = "on";
+          // Make sure the server row exists for this device (best effort: the toggle still reflects the browser).
+          void resyncPushSubscription(existing);
+        }
       }
       if (!cancelled) setState(next);
     })();

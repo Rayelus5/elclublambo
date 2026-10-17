@@ -70,9 +70,27 @@ describe("NotificationList", () => {
   it("switches filter and reloads from the start", async () => {
     h.list.mockResolvedValueOnce([view(5)]);
     render(<NotificationList initial={[view(2)]} initialHasMore={false} />);
-    await userEvent.click(screen.getByRole("tab", { name: "Menciones" }));
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.getByRole("button", { name: "Todas" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Menciones" }));
+    expect(screen.getByRole("button", { name: "Menciones" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Todas" })).toHaveAttribute("aria-pressed", "false");
     expect(h.list).toHaveBeenCalledWith({ filter: "mentions" }, expect.anything());
     expect(await screen.findByText(/Miembro5/)).toBeInTheDocument();
+  });
+
+  it("opening an unread item marks it read (and only that one)", async () => {
+    render(<NotificationList initial={[view(2), view(1)]} initialHasMore={false} />);
+    await userEvent.click(screen.getByRole("link", { name: /Miembro2/ }));
+    expect(h.markRead).toHaveBeenCalledWith([2]);
+    await waitFor(() => expect(screen.getAllByLabelText(/sin leer/i)).toHaveLength(1));
+    expect(h.refresh).toHaveBeenCalled();
+  });
+
+  it("opening an already read item does not call the server", async () => {
+    render(<NotificationList initial={[view(2, "2026-10-17T11:00:00Z")]} initialHasMore={false} />);
+    await userEvent.click(screen.getByRole("link", { name: /Miembro2/ }));
+    expect(h.markRead).not.toHaveBeenCalled();
   });
 
   it("reloads the first page when a realtime event arrives", async () => {

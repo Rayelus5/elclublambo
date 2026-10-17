@@ -26,8 +26,9 @@ async function TextChannel({ channel, threadId }: { channel: ChannelDetail; thre
     loadChatContext(channel.id),
     supabase.rpc("my_channel_follow", { p_channel: channel.id }),
   ]);
-  const followLevel: FollowLevel =
-    follow.data === "all" || follow.data === "mute" || follow.data === "mentions" ? follow.data : "mentions";
+  // A failed or unexpected read must not masquerade as "mentions": the menu shows an error state instead.
+  const followLevel: FollowLevel | null =
+    !follow.error && (follow.data === "all" || follow.data === "mute" || follow.data === "mentions") ? follow.data : null;
   return (
     <div className="flex flex-col gap-6">
       <header className="flex max-w-3xl flex-col gap-3">

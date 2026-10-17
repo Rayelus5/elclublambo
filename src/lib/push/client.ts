@@ -22,6 +22,26 @@ export async function currentPushSubscription(): Promise<PushSubscription | null
 
 export type EnableResult = "enabled" | "denied" | "error";
 
+function saveSubscription(subscription: PushSubscription) {
+  const json = subscription.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+  return savePushSubscriptionAction({
+    endpoint: json.endpoint ?? "",
+    keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" },
+  });
+}
+
+/**
+ * Saves the subscription this browser already has (idempotent upsert), so the server row exists even if an earlier
+ * save was lost or the row was pruned. Returns whether the server now has it.
+ */
+export async function resyncPushSubscription(subscription: PushSubscription): Promise<boolean> {
+  try {
+    return !(await saveSubscription(subscription)).error;
+  } catch {
+    return false;
+  }
+}
+
 /** Registers /sw.js, asks permission (only because the user pressed the button) and subscribes. */
 export async function enablePush(publicKey: string): Promise<EnableResult> {
   const permission = await Notification.requestPermission();
@@ -34,11 +54,7 @@ export async function enablePush(publicKey: string): Promise<EnableResult> {
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(publicKey),
       }));
-    const json = subscription.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
-    const res = await savePushSubscriptionAction({
-      endpoint: json.endpoint ?? "",
-      keys: { p256dh: json.keys?.p256dh ?? "", auth: json.keys?.auth ?? "" },
-    });
+    const res = await saveSubscription(subscription);
     if (res.error) {
       await subscription.unsubscribe().catch(() => false);
       return "error";
@@ -49,13 +65,17 @@ export async function enablePush(publicKey: string): Promise<EnableResult> {
   }
 }
 
+/**
+ * Removes the server row first and only then the browser subscription: if the server refuses, the browser keeps its
+ * subscription and the member can retry (otherwise the server would keep pushing to a subscription nobody can drop).
+ */
 export async function disablePush(): Promise<boolean> {
   try {
     const subscription = await currentPushSubscription();
     if (!subscription) return true;
-    const { endpoint } = subscription;
+    const res = await deletePushSubscriptionAction(subscription.endpoint);
+    if (res.error) return false;
     await subscription.unsubscribe();
-    await deletePushSubscriptionAction(endpoint);
     return true;
   } catch {
     return false;

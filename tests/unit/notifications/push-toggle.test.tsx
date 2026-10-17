@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
-  save: vi.fn(async () => ({})),
-  del: vi.fn(async () => ({})),
+  save: vi.fn(async (): Promise<{ error?: string }> => ({})),
+  del: vi.fn(async (): Promise<{ error?: string }> => ({})),
 }));
 vi.mock("@/lib/notifications/actions", () => ({
   savePushSubscriptionAction: h.save,
@@ -95,8 +95,38 @@ describe("PushToggle", () => {
     const f = fakeSupport({ permission: "granted", subscribed: true });
     render(<PushToggle publicKey={KEY} />);
     await userEvent.click(await screen.findByRole("button", { name: "Desactivar avisos en este dispositivo" }));
-    expect(f.sub.unsubscribe).toHaveBeenCalled();
     expect(h.del).toHaveBeenCalledWith("https://fcm.googleapis.com/fcm/send/abc");
+    expect(f.sub.unsubscribe).toHaveBeenCalled();
     expect(await screen.findByRole("button", { name: "Activar avisos en este dispositivo" })).toBeInTheDocument();
+  });
+
+  it("surfaces a server delete error and keeps the browser subscription so it can be retried", async () => {
+    h.del.mockResolvedValueOnce({ error: "forbidden" });
+    const f = fakeSupport({ permission: "granted", subscribed: true });
+    render(<PushToggle publicKey={KEY} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Desactivar avisos en este dispositivo" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/No se pudieron desactivar/);
+    expect(f.sub.unsubscribe).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Desactivar avisos en este dispositivo" })).toBeEnabled();
+  });
+
+  it("re-saves an existing browser subscription on load so the server row exists", async () => {
+    fakeSupport({ permission: "granted", subscribed: true });
+    render(<PushToggle publicKey={KEY} />);
+    await screen.findByRole("button", { name: "Desactivar avisos en este dispositivo" });
+    await waitFor(() =>
+      expect(h.save).toHaveBeenCalledWith({
+        endpoint: "https://fcm.googleapis.com/fcm/send/abc",
+        keys: { p256dh: "pk", auth: "ak" },
+      }),
+    );
+    expect(h.save).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not save anything on load without a browser subscription", async () => {
+    fakeSupport({ permission: "granted", subscribed: false });
+    render(<PushToggle publicKey={KEY} />);
+    await screen.findByRole("button", { name: "Activar avisos en este dispositivo" });
+    expect(h.save).not.toHaveBeenCalled();
   });
 });

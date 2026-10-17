@@ -92,13 +92,12 @@ export function NotificationList({ initial, initialHasMore }: { initial: Notific
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div role="tablist" aria-label="Filtro" className="flex gap-1">
+        <div role="group" aria-label="Filtro" className="flex gap-1">
           {FILTERS.map((f) => (
             <button
               key={f.id}
               type="button"
-              role="tab"
-              aria-selected={filter === f.id}
+              aria-pressed={filter === f.id}
               onClick={() => changeFilter(f.id)}
               className={cn(
                 "inline-flex min-h-11 items-center rounded-control border px-4 text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",

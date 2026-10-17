@@ -5,6 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/chat/actions", () => ({
   searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })),
 }));
+const reportMessageAction = vi.hoisted(() => vi.fn(async (): Promise<{ error?: string }> => ({})));
+vi.mock("@/lib/reports/actions", () => ({ reportMessageAction }));
 
 import { MessageItem, type MessageItemProps } from "@/components/chat/message-item";
 import { ReactionBar } from "@/components/chat/reaction-bar";
@@ -89,13 +91,21 @@ describe("MessageItem", () => {
   });
 
   describe("menu depends on permissions", () => {
-    it("a regular member on someone else's message: reply, quote, report (disabled); no edit/delete/pin", async () => {
+    it("a regular member on someone else's message: reply, quote, report; no edit/delete/pin", async () => {
       setup();
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Reportar Próximamente"]);
-      const report = screen.getByRole("menuitem", { name: /Reportar/ });
-      expect(report).toHaveAttribute("aria-disabled", "true");
-      expect(report).toHaveAttribute("title", "Próximamente");
+      expect(items()).toEqual(["Responder en hilo", "Citar", "Reportar"]);
+      expect(screen.getByRole("menuitem", { name: "Reportar" })).not.toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("Reportar opens the report dialog for that message and sends it", async () => {
+      const { message } = setup();
+      await openMenu();
+      await userEvent.click(screen.getByRole("menuitem", { name: "Reportar" }));
+      expect(await screen.findByRole("dialog", { name: "Reportar mensaje" })).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("radio", { name: /Spam/ }));
+      await userEvent.click(screen.getByRole("button", { name: "Enviar reporte" }));
+      expect(reportMessageAction).toHaveBeenCalledWith(message.id, "spam", null);
     });
 
     it("the author can edit and delete but not pin", async () => {
@@ -107,7 +117,7 @@ describe("MessageItem", () => {
     it("a moderator can delete and pin someone else's message", async () => {
       setup({ viewer: viewer({ canManage: true }) });
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Borrar", "Fijar", "Reportar Próximamente"]);
+      expect(items()).toEqual(["Responder en hilo", "Citar", "Borrar", "Fijar", "Reportar"]);
     });
 
     it("a pinned message offers to unpin", async () => {
@@ -120,7 +130,7 @@ describe("MessageItem", () => {
     it("moderators cannot edit others' messages; replies cannot be pinned or replied to again", async () => {
       setup({ viewer: viewer({ canManage: true }), message: makeMessage({ threadRootId: "root" }), variant: "thread" });
       await openMenu();
-      expect(items()).toEqual(["Borrar", "Reportar Próximamente"]);
+      expect(items()).toEqual(["Borrar", "Reportar"]);
     });
 
     it("without SEND_IN_THREADS the thread entry reads 'Ver hilo'", async () => {

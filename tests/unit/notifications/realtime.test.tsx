@@ -116,6 +116,42 @@ describe("useNotificationEvents", () => {
     expect(onResync).toHaveBeenCalledTimes(1);
   });
 
+  it("waits for an ASYNC leave to finish before joining again after a failure", async () => {
+    let finishLeave!: () => void;
+    h.removeChannel.mockImplementation(() => new Promise<void>((r) => (finishLeave = r)));
+    renderHook(() => useNotificationEvents(ME, vi.fn()));
+    await flush();
+    act(() => last().statusCb!("CHANNEL_ERROR"));
+    expect(h.removeChannel).toHaveBeenCalledTimes(1);
+    await act(async () => void vi.advanceTimersByTime(1100));
+    await flush();
+    // the failed channel is still leaving: no new join yet
+    expect(h.channels).toHaveLength(1);
+    await act(async () => finishLeave());
+    await flush();
+    expect(h.channels).toHaveLength(2);
+  });
+
+  it("re-joins after the tab was hidden for 30 s or more, not after a short absence", async () => {
+    renderHook(() => useNotificationEvents(ME, vi.fn()));
+    await flush();
+    const setVisibility = (v: "hidden" | "visible") => {
+      Object.defineProperty(document, "visibilityState", { value: v, configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    };
+    act(() => setVisibility("hidden"));
+    await act(async () => void vi.advanceTimersByTime(5_000));
+    act(() => setVisibility("visible"));
+    await flush();
+    expect(h.channels).toHaveLength(1);
+
+    act(() => setVisibility("hidden"));
+    await act(async () => void vi.advanceTimersByTime(31_000));
+    act(() => setVisibility("visible"));
+    await flush();
+    expect(h.channels).toHaveLength(2);
+  });
+
   it("re-joins when the token is refreshed and leaves on unmount", async () => {
     const { unmount } = renderHook(() => useNotificationEvents(ME, vi.fn()));
     await flush();

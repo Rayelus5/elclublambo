@@ -35,17 +35,29 @@ export function NotificationsProvider({
   const [eventTick, setEventTick] = useState(0);
   const alive = useRef(true);
   const inflight = useRef(false);
+  const rerun = useRef(false);
 
+  // A refresh requested while one is in flight may have been caused by something the running read did not see (a
+  // notice read elsewhere, a resync): remember it and read once more when the current read ends.
   const refresh = useCallback(() => {
-    if (inflight.current) return;
+    if (inflight.current) {
+      rerun.current = true;
+      return;
+    }
     inflight.current = true;
     void (async () => {
       try {
-        const { data, error } = await createBrowserClient().rpc("my_unread_notification_count");
-        if (!error && typeof data === "number" && alive.current) setCount(data);
-      } catch {
-        // keep the previous count; the next event or navigation tries again
+        do {
+          rerun.current = false;
+          try {
+            const { data, error } = await createBrowserClient().rpc("my_unread_notification_count");
+            if (!error && typeof data === "number" && alive.current) setCount(data);
+          } catch {
+            // keep the previous count; the next event or navigation tries again
+          }
+        } while (rerun.current && alive.current);
       } finally {
+        rerun.current = false;
         inflight.current = false;
       }
     })();

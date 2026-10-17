@@ -21,10 +21,21 @@ const LEVELS: Array<{ id: FollowLevel; label: string; short: string; Icon: typeo
   { id: "mute", label: "Silenciar", short: "silenciado", Icon: BellOff },
 ];
 
-/** Per-channel follow level. `level` is the effective one (own preference, else the channel default). */
-export function FollowMenu({ channelId, level }: { channelId: string; level: FollowLevel }) {
-  const [current, setCurrent] = useState<FollowLevel>(level);
+/**
+ * Per-channel follow level. `level` is the effective one (own preference, else the channel default); `null` means it
+ * could not be loaded, and an error is shown instead of a default that may not be the real setting.
+ */
+export function FollowMenu({ channelId, level }: { channelId: string; level: FollowLevel | null }) {
+  const [current, setCurrent] = useState<FollowLevel | null>(level);
   const [error, setError] = useState<string | null>(null);
+
+  if (current === null) {
+    return (
+      <p role="alert" className="text-sm text-danger">
+        No se pudo cargar tu preferencia de avisos de este canal. Recarga la página para intentarlo de nuevo.
+      </p>
+    );
+  }
   const active = LEVELS.find((l) => l.id === current) ?? LEVELS[1]!;
 
   const change = async (value: string) => {

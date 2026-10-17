@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Settings, Ticket, Users } from "lucide-react";
+import { Flag, Home, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -9,9 +9,15 @@ import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 
-type Props = { perms: bigint; wallet: `0x${string}`; channels?: ChannelRow[] };
+type Props = {
+  perms: bigint;
+  wallet: `0x${string}`;
+  channels?: ChannelRow[];
+  /** MANAGE_MESSAGES in at least one visible channel (resolved on the server; global bits are checked here). */
+  canModerate?: boolean;
+};
 
-function SidebarBody({ perms, wallet, channels = [] }: Props) {
+function SidebarBody({ perms, wallet, channels = [], canModerate = false }: Props) {
   const tree = buildTree(channels);
   return (
     <div className="flex h-full flex-col gap-4 py-6">
@@ -38,6 +44,12 @@ function SidebarBody({ perms, wallet, channels = [] }: Props) {
           <NavLink href="/admin/members">
             <Users className="size-4" aria-hidden />
             Miembros
+          </NavLink>
+        ) : null}
+        {canModerate || hasPerm(perms, Perm.MANAGE_MESSAGES) ? (
+          <NavLink href="/moderation/reports">
+            <Flag className="size-4" aria-hidden />
+            Reportes
           </NavLink>
         ) : null}
         {hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES) ? (

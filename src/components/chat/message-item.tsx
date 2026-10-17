@@ -7,6 +7,7 @@ import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { ReactionBar } from "@/components/chat/reaction-bar";
+import { ReportDialog } from "@/components/reports/report-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -95,6 +96,7 @@ export function MessageItem({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [reporting, setReporting] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -291,15 +293,14 @@ export function MessageItem({
                 </DropdownMenuItem>
               ) : null}
               {canReport ? (
-                <DropdownMenuItem disabled title="Próximamente">
-                  Reportar{" "}
-                  <span className="ml-auto text-[13px] text-fg-muted">Próximamente</span>
-                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setReporting(true)}>Reportar</DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       ) : null}
+
+      {canReport ? <ReportDialog messageId={message.id} open={reporting} onOpenChange={setReporting} /> : null}
 
       <AlertDialog
         open={confirmDelete}
