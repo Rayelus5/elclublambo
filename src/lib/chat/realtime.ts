@@ -30,6 +30,7 @@ export interface ChannelEventsOptions {
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_RETRIES = 3;
 const BASE_BACKOFF_MS = 1000;
+const REJOIN_AFTER_HIDDEN_MS = 30_000;
 
 type Pending = { timer: ReturnType<typeof setTimeout>; threadRootId: string | null; events: Set<ChannelEventName> };
 
@@ -82,19 +83,28 @@ export function useChannelEvents(
       pending.set(id, { timer, threadRootId, events });
     };
 
+    // realtime-js keeps a channel registered until the leave is acknowledged, and channel(topic) hands back that same
+    // (leaving) instance, whose subscribe() is then a no-op. So every join waits for the previous leave.
+    let leaving: Promise<unknown> = Promise.resolve();
+    const leave = (ch: NonNullable<typeof current>) => {
+      leaving = Promise.all([leaving, Promise.resolve(supabase.removeChannel(ch)).catch(() => undefined)]);
+    };
+
     const teardown = () => {
       if (retryTimer) clearTimeout(retryTimer);
       retryTimer = null;
       if (current) {
         const stale = current;
         current = null;
-        void supabase.removeChannel(stale);
+        leave(stale);
       }
     };
 
     const subscribe = async () => {
       teardown();
       const mine = ++generation;
+      await leaving;
+      if (cancelled || mine !== generation) return;
       const { data } = await supabase.auth.getSession();
       if (cancelled || mine !== generation) return;
       // The socket authorizes with the user's JWT, not the anon key.
@@ -115,7 +125,7 @@ export function useChannelEvents(
         } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           // Spike finding: leaving the failed channel registered stalls the next join.
           if (current === channel) current = null;
-          void supabase.removeChannel(channel);
+          leave(channel);
           if (attempts >= MAX_RETRIES) return;
           const delay = BASE_BACKOFF_MS * 2 ** attempts;
           attempts += 1;
@@ -132,8 +142,16 @@ export function useChannelEvents(
       void subscribe();
     };
 
+    // A short tab switch keeps the socket healthy: only re-join (and resync) after a real absence.
+    let hiddenAt: number | null = null;
     const onVisibility = () => {
-      if (document.visibilityState === "visible") rejoin();
+      if (document.visibilityState === "hidden") {
+        hiddenAt ??= Date.now();
+        return;
+      }
+      const away = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+      hiddenAt = null;
+      if (away >= REJOIN_AFTER_HIDDEN_MS) rejoin();
     };
     document.addEventListener("visibilitychange", onVisibility);
     const { data: auth } = supabase.auth.onAuthStateChange((event: string) => {

@@ -152,6 +152,23 @@ export function firstUnreadIndex(list: readonly ChatMessage[], lastReadAt: strin
   return list.findIndex((m) => m.authorId !== meId && !m.deletedAt && cmpTime(m.createdAt, lastReadAt) > 0);
 }
 
+/** Resync: the fresh newest page replaces the newest slice of the window (hard-deleted messages disappear). */
+export function replaceNewest(list: readonly ChatMessage[], fresh: readonly ChatMessage[], freshHasMore: boolean): ChatMessage[] {
+  const first = fresh[0];
+  // The fresh page is the whole history when nothing older exists: it is the window.
+  if (!first || !freshHasMore) return [...fresh];
+  return [...list.filter((m) => cmpMessages(m, first) < 0), ...fresh];
+}
+
+/** Keeps the signed URL already on screen for an unchanged attachment, so resync does not re-download images. */
+export function keepSignedUrls(previous: readonly ChatMessage[], fresh: readonly ChatMessage[]): ChatMessage[] {
+  const urls = new Map<string, string>();
+  for (const m of previous) for (const a of m.attachments) if (a.url) urls.set(a.id, a.url);
+  return fresh.map((m) =>
+    m.attachments.length === 0 ? m : { ...m, attachments: m.attachments.map((a) => ({ ...a, url: urls.get(a.id) ?? a.url })) },
+  );
+}
+
 /**
  * Reconciles a freshly read root message into the loaded window: replaced in place when present, inserted when it
  * belongs inside the window, ignored when it is older than what is loaded and more history exists.

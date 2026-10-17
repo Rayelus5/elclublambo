@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pin, X } from "lucide-react";
+import { CANCEL_EDIT_EVENT } from "@/components/chat/message-edit";
 import { Composer } from "@/components/chat/composer";
 import { MessageItem } from "@/components/chat/message-item";
 import { MessageList } from "@/components/chat/message-list";
@@ -19,8 +20,10 @@ import {
   applyReactionToggle,
   applyToWindow,
   cmpTime,
+  keepSignedUrls,
   mergeDirectory,
   removeById,
+  replaceNewest,
   upsertSorted,
   type ChatMessage,
   type Directory,
@@ -29,6 +32,7 @@ import {
 } from "@/lib/chat/model";
 import { getMessage, getMessages, getPinned, getThread } from "@/lib/chat/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
+import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
@@ -56,6 +60,7 @@ interface ThreadState {
 }
 
 const NOTICE_MS = 7000;
+const THROTTLE_MS = 5000;
 
 const byPinnedDesc = (a: ChatMessage, b: ChatMessage) => cmpTime(b.pinnedAt ?? "", a.pinnedAt ?? "");
 
@@ -95,6 +100,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
   const requests = useRef(new Map<string, number>());
   const openerRef = useRef<HTMLElement | null>(null);
   const composerBox = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLElement>(null);
+  const threadDialog = useRef<HTMLDivElement>(null);
 
   const wide = useMediaQuery("(min-width: 1024px)");
   const split = useMediaQuery("(min-width: 1280px)");
@@ -108,7 +115,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
   const readInFlight = useRef(false);
   const readQueued = useRef(false);
 
-  const markRead = useCallback(function run() {
+  const doMarkRead = useCallback(function run() {
     if (document.visibilityState === "hidden") {
       unreadDirty.current = true;
       return;
@@ -131,14 +138,31 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
       });
   }, [channelId, refreshUnread]);
 
+  // At most one mark-read (and one event-driven unread refresh) per 5 s: busy channels emit bursts of events.
+  const readThrottle = useRef<ReturnType<typeof createThrottle> | null>(null);
+  const eventRefresh = useRef<ReturnType<typeof createThrottle> | null>(null);
+  const refreshRef = useRef(refreshUnread);
   useEffect(() => {
-    markRead();
+    refreshRef.current = refreshUnread;
+  });
+  useEffect(() => {
+    const throttle = createThrottle(doMarkRead, THROTTLE_MS);
+    const refreshThrottle = createThrottle(() => refreshRef.current(), THROTTLE_MS);
+    readThrottle.current = throttle;
+    eventRefresh.current = refreshThrottle;
+    throttle.call();
     const onVisible = () => {
-      if (document.visibilityState === "visible" && atBottom.current && unreadDirty.current) markRead();
+      if (document.visibilityState === "visible" && atBottom.current && unreadDirty.current) throttle.call();
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [markRead]);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      throttle.cancel();
+      refreshThrottle.cancel();
+    };
+  }, [doMarkRead]);
+
+  const markRead = useCallback(() => readThrottle.current?.call(), []);
 
   const onAtBottomChange = useCallback(
     (value: boolean) => {
@@ -165,6 +189,11 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
       if (t.rootId === id) return null;
       return { ...t, replies: removeById(t.replies, id) };
     });
+    if (threadRef.current?.rootId === id) {
+      // The panel (and the focus inside it) vanishes: land on the message list instead of <body>.
+      openerRef.current = null;
+      requestAnimationFrame(() => logRef.current?.querySelector<HTMLElement>('[role="log"]')?.focus());
+    }
   }, []);
 
   const apply = useCallback(
@@ -212,26 +241,41 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
       const [page, pins] = await Promise.all([getMessages(supabase, channelId, meId), getPinned(supabase, channelId, meId)]);
       mergeDir(page.directory);
       mergeDir(pins.directory);
-      setRoots((l) => page.messages.reduce((acc, m) => applyToWindow(acc, m, hasMoreRef.current), l));
-      setPinned(pins.messages);
+      // The fresh newest page replaces the newest slice, so messages hard-deleted while away disappear.
+      setRoots((l) => replaceNewest(l, keepSignedUrls(l, page.messages), page.hasMore));
+      if (!page.hasMore) setHasMore(false);
+      setPinned((l) => keepSignedUrls(l, pins.messages));
       const open = threadRef.current;
       if (open) {
         const t = await getThread(supabase, open.rootId, meId);
         mergeDir(t.directory);
-        setThread((cur) => (cur && cur.rootId === open.rootId ? { ...cur, root: t.root, replies: t.replies, loading: false } : cur));
+        if (!t.root) remove(open.rootId);
+        else {
+          const root = t.root;
+          setThread((cur) =>
+            cur && cur.rootId === open.rootId
+              ? {
+                  ...cur,
+                  root: keepSignedUrls(cur.root ? [cur.root] : [], [root])[0] ?? root,
+                  replies: keepSignedUrls(cur.replies, t.replies),
+                  loading: false,
+                }
+              : cur,
+          );
+        }
       }
     } catch {
       // the next event or resync catches up
     }
     refreshUnread();
-  }, [channelId, meId, mergeDir, refreshUnread]);
+  }, [channelId, meId, mergeDir, refreshUnread, remove]);
 
   useChannelEvents(
     channelId,
     (event: ChannelEvent) => {
       void reconcile(event.id);
       if (event.threadRootId) void reconcile(event.threadRootId);
-      refreshUnread();
+      eventRefresh.current?.call();
       if (atBottom.current) markRead();
       else unreadDirty.current = true;
     },
@@ -354,6 +398,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
   const threadPanel = (inDialog: boolean) =>
     thread ? (
       <ThreadPanel
+        key={thread.rootId}
         root={thread.root}
         replies={thread.replies}
         loading={thread.loading}
@@ -376,7 +421,15 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
     ) : null;
 
   return (
-    <section aria-label="Chat del canal" className="relative flex h-[calc(100dvh-13rem)] min-h-[28rem] overflow-hidden rounded-panel border border-border bg-bg">
+    <section
+      ref={logRef}
+      aria-label="Chat del canal"
+      className="relative flex h-[calc(100dvh-13rem)] min-h-[28rem] overflow-hidden rounded-panel border border-border bg-bg"
+    >
+      {/* Outside the inert column: announcements still happen while a thread panel covers the list. */}
+      <div aria-live="polite" className="sr-only">
+        {announcement}
+      </div>
       <div className="flex min-w-0 flex-1 flex-col" inert={wide && !split && thread !== null}>
         {pinned.length > 0 ? (
           <div className="flex justify-end border-b border-border px-2">
@@ -400,10 +453,6 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
           scrollToBottomKey={scrollKey}
           {...itemHandlers}
         />
-
-        <div aria-live="polite" className="sr-only">
-          {announcement}
-        </div>
 
         {notice ? (
           <div role="alert" className="flex items-center justify-between gap-2 border-t border-danger bg-surface px-4 py-2 text-sm text-danger">
@@ -447,8 +496,26 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
 
       <Dialog open={thread !== null && !wide} onOpenChange={(open) => !open && closeThread()}>
         <DialogContent
+          ref={threadDialog}
           showCloseButton={false}
           aria-describedby={undefined}
+          onEscapeKeyDown={(e) => {
+            // Escape belongs to whatever is open inside first: an inline edit, a mention/slash popup or a picker.
+            const inside = threadDialog.current;
+            const target = e.target instanceof Element ? e.target : null;
+            const editing = target?.closest('[aria-label="Editar mensaje"]');
+            if (editing) {
+              e.preventDefault();
+              editing.dispatchEvent(new Event(CANCEL_EDIT_EVENT, { bubbles: true }));
+              return;
+            }
+            if (
+              document.querySelector("[data-suggestion-popup]") ||
+              inside?.querySelector('[aria-haspopup="true"][aria-expanded="true"]')
+            ) {
+              e.preventDefault();
+            }
+          }}
           onOpenAutoFocus={(e) => e.preventDefault()}
           onCloseAutoFocus={(e) => e.preventDefault()}
           className="top-0 left-0 h-dvh w-screen max-w-none translate-x-0 translate-y-0 gap-0 rounded-none border-0 p-0 sm:max-w-none"

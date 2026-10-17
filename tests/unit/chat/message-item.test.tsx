@@ -123,6 +123,13 @@ describe("MessageItem", () => {
       expect(items()).toEqual(["Borrar", "Reportar Próximamente"]);
     });
 
+    it("without SEND_IN_THREADS the thread entry reads 'Ver hilo'", async () => {
+      setup({ viewer: viewer({ canThread: false }) });
+      await openMenu();
+      expect(items()).toContain("Ver hilo");
+      expect(items()).not.toContain("Responder en hilo");
+    });
+
     it("without canPost there is no quote", async () => {
       setup({ viewer: viewer({ canPost: false }) });
       await openMenu();

@@ -254,7 +254,7 @@ export function MessageItem({
                     onOpenThread?.(message, triggerRef.current);
                   }}
                 >
-                  Responder en hilo
+                  {viewer.canThread ? "Responder en hilo" : "Ver hilo"}
                 </DropdownMenuItem>
               ) : null}
               {canQuote ? (

@@ -27,34 +27,34 @@ describe("channelSegment", () => {
 describe("isMissingChannel", () => {
   it("ignores paths outside /c/<id> without querying", async () => {
     const c = client({});
-    expect(await isMissingChannel(c, "/")).toBe(false);
+    expect(await isMissingChannel(c as never, "/")).toBe(false);
     expect(c.from).not.toHaveBeenCalled();
     expect(c.rpc).not.toHaveBeenCalled();
   });
 
   it("a visible channel is not missing", async () => {
     const c = client({ channel: { id: ID } });
-    expect(await isMissingChannel(c, `/c/${ID}`)).toBe(false);
+    expect(await isMissingChannel(c as never, `/c/${ID}`)).toBe(false);
     expect(c.eq).toHaveBeenCalledWith("id", ID);
   });
 
   it("a hidden or inexistent channel is missing for an active member (RLS makes them the same)", async () => {
-    expect(await isMissingChannel(client({ channel: null }), `/c/${ID}`)).toBe(true);
+    expect(await isMissingChannel(client({ channel: null }) as never, `/c/${ID}`)).toBe(true);
   });
 
   it("a malformed id is missing without touching the channels table", async () => {
     const c = client({});
-    expect(await isMissingChannel(c, "/c/not-a-uuid")).toBe(true);
+    expect(await isMissingChannel(c as never, "/c/not-a-uuid")).toBe(true);
     expect(c.from).not.toHaveBeenCalled();
   });
 
   it("does not turn into a 404 for members who are not active (the layout redirects them)", async () => {
     for (const status of ["banned", "none", null]) {
-      expect(await isMissingChannel(client({ channel: null, status }), `/c/${ID}`)).toBe(false);
+      expect(await isMissingChannel(client({ channel: null, status }) as never, `/c/${ID}`)).toBe(false);
     }
   });
 
   it("fails open when the query errors", async () => {
-    expect(await isMissingChannel(client({ channelError: { message: "db down" } }), `/c/${ID}`)).toBe(false);
+    expect(await isMissingChannel(client({ channelError: { message: "db down" } }) as never, `/c/${ID}`)).toBe(false);
   });
 });

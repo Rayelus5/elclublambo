@@ -317,6 +317,95 @@ describe("ChatView", () => {
     });
   });
 
+  describe("polish", () => {
+    it("throttles mark-read: a burst of events costs one call", async () => {
+      setup();
+      await waitFor(() => expect(actions.markReadAction).toHaveBeenCalledTimes(1));
+      queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
+      await emit("11111111-1111-4111-8111-111111111111");
+      await emit("22222222-2222-4222-8222-222222222222");
+      await emit("33333333-3333-4333-8333-333333333333");
+      expect(actions.markReadAction).toHaveBeenCalledTimes(1);
+    });
+
+    it("resync drops messages that were hard-deleted while away", async () => {
+      const { messages } = setup();
+      queries.getMessages.mockResolvedValue({ messages: [messages[1]!], hasMore: false, directory });
+      await act(async () => h.onResync?.());
+      await waitFor(() => expect(screen.queryByText("primero")).not.toBeInTheDocument());
+      expect(screen.getByText("segundo")).toBeInTheDocument();
+    });
+
+    it("opening another thread moves focus to the new panel", async () => {
+      const r1 = makeMessage({ createdAt: at(1), body: doc("raíz uno"), replyCount: 1 });
+      const r2 = makeMessage({ createdAt: at(2), body: doc("raíz dos"), replyCount: 2 });
+      queries.getThread.mockImplementation(async (_s: unknown, id: string) => ({ root: id === r1.id ? r1 : r2, replies: [], directory: none }));
+      setup({}, [r1, r2]);
+      await userEvent.click(screen.getByRole("button", { name: "1 respuesta" }));
+      const first = await screen.findByRole("dialog", { name: "Hilo" });
+      await waitFor(() => expect(within(first).getByRole("heading", { name: "Hilo" })).toHaveFocus());
+      // the dialog is modal: switch through the store of openers by closing and opening the other thread
+      await userEvent.click(within(first).getByRole("button", { name: "Cerrar hilo" }));
+      await userEvent.click(screen.getByRole("button", { name: "2 respuestas" }));
+      const second = await screen.findByRole("dialog", { name: "Hilo" });
+      await waitFor(() => expect(within(second).getByRole("heading", { name: "Hilo" })).toHaveFocus());
+      expect(within(second).getByText("raíz dos")).toBeInTheDocument();
+    });
+
+    it("lands on the message list when the open thread's root disappears", async () => {
+      const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 1 });
+      queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });
+      setup({}, [r]);
+      await userEvent.click(screen.getByRole("button", { name: "1 respuesta" }));
+      await screen.findByRole("dialog", { name: "Hilo" });
+      queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
+      await emit(r.id, ["message_deleted"]);
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.getByRole("log", { name: "Mensajes del canal" })).toHaveFocus());
+    });
+
+    it("Escape during an inline edit in the mobile thread dialog cancels the edit, not the dialog", async () => {
+      const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 1 });
+      const mine = makeMessage({ threadRootId: r.id, authorId: ME, createdAt: at(2), body: doc("mi respuesta") });
+      queries.getThread.mockResolvedValue({ root: r, replies: [mine], directory });
+      setup({}, [r]);
+      await userEvent.click(screen.getByRole("button", { name: "1 respuesta" }));
+      const dialog = await screen.findByRole("dialog", { name: "Hilo" });
+      const reply = await within(dialog).findByText("mi respuesta");
+      const item = reply.closest("li")!;
+      await userEvent.click(within(item).getByRole("button", { name: "Acciones del mensaje" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Editar" }));
+      const box = await within(dialog).findByRole("textbox", { name: "Editar mensaje" });
+      await waitFor(() => expect(box).toHaveFocus());
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(within(dialog).queryByRole("textbox", { name: "Editar mensaje" })).not.toBeInTheDocument());
+      expect(screen.getByRole("dialog", { name: "Hilo" })).toBeInTheDocument();
+    });
+
+    it("keeps the announcer outside the inert column while a thread covers the list (1024-1279)", async () => {
+      const original = window.matchMedia;
+      window.matchMedia = ((q: string) => ({
+        matches: q.includes("1024"),
+        media: q,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })) as unknown as typeof window.matchMedia;
+      try {
+        const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 1 });
+        queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });
+        const { container } = setup({}, [r]);
+        await userEvent.click(screen.getByRole("button", { name: "1 respuesta" }));
+        await screen.findByRole("complementary", { name: "Panel del hilo" });
+        expect(container.querySelector("[inert]")).not.toBeNull();
+        const live = container.querySelector('[aria-live="polite"]');
+        expect(live).not.toBeNull();
+        expect(live!.closest("[inert]")).toBeNull();
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+  });
+
   it("re-reads the latest page after a resync", async () => {
     setup();
     const fresh = makeMessage({ createdAt: at(45), body: doc("perdido mientras estabas fuera") });

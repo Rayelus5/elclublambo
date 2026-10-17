@@ -17,11 +17,25 @@ interface Props {
 }
 
 /** Inline editor for one's own message. Enter saves (Ctrl/Cmd+Enter in expanded messages), Escape cancels. */
+/** Fired by a modal parent that swallowed Escape (Radix marks it defaultPrevented) to cancel the edit instead. */
+export const CANCEL_EDIT_EVENT = "chat-edit-cancel";
+
 export function MessageEdit({ body, expanded, canMentionEveryone, onSave, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
   const editorRef = useRef<Editor | null>(null);
+  const wrapper = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef(onCancel);
+  useEffect(() => {
+    cancelRef.current = onCancel;
+  });
+  useEffect(() => {
+    const el = wrapper.current;
+    const handler = () => cancelRef.current();
+    el?.addEventListener(CANCEL_EDIT_EVENT, handler);
+    return () => el?.removeEventListener(CANCEL_EDIT_EVENT, handler);
+  }, []);
   const [initial] = useState(() => sanitizeDoc(body));
 
   const save = async () => {
@@ -59,6 +73,7 @@ export function MessageEdit({ body, expanded, canMentionEveryone, onSave, onCanc
 
   return (
     <div
+      ref={wrapper}
       className="flex flex-col gap-2"
       onKeyDown={(e) => {
         if (e.key === "Escape" && !e.defaultPrevented) {

@@ -18,7 +18,11 @@ export async function loadChatContext(channelId: string): Promise<Pick<ChatViewP
   const memberId = me.data;
   const bits = BigInt(String(perms.data ?? 0));
 
-  const [page, pins] = await Promise.all([getMessages(supabase, channelId, memberId), getPinned(supabase, channelId, memberId)]);
+  const [page, pins, self] = await Promise.all([
+    getMessages(supabase, channelId, memberId),
+    getPinned(supabase, channelId, memberId),
+    supabase.from("members").select("created_at").eq("id", memberId).maybeSingle<{ created_at: string }>(),
+  ]);
 
   const viewer: ViewerPermissions = {
     memberId,
@@ -38,7 +42,8 @@ export async function loadChatContext(channelId: string): Promise<Pick<ChatViewP
       hasMore: page.hasMore,
       directory: mergeDirectory(page.directory, pins.directory),
       pinned: pins.messages,
-      lastReadAt: read.data?.last_read_at ?? null,
+      // Same rule as my_unread_channels: with no read mark, everything since the member joined is unread.
+      lastReadAt: read.data?.last_read_at ?? self.data?.created_at ?? null,
     },
   };
 }

@@ -40,7 +40,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
-  if (user && (await isMissingChannel(supabase as unknown as Parameters<typeof isMissingChannel>[0], pathname))) {
+  if (user && (await isMissingChannel(supabase, pathname))) {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;
     url.search = "";

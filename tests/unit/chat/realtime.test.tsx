@@ -19,6 +19,8 @@ const h = vi.hoisted(() => ({
   getSession: vi.fn(async () => ({ data: { session: { access_token: "tok" } } })),
   authListeners: [] as Array<(event: string) => void>,
   unsubscribeAuth: vi.fn(),
+  /** realtime-js keeps a channel registered until the leave ack: channel(topic) returns that same instance. */
+  registry: null as null | Map<string, unknown>,
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({
@@ -32,6 +34,8 @@ vi.mock("@/lib/supabase/browser", () => ({
     },
     realtime: { setAuth: h.setAuth },
     channel: (topic: string, config: unknown) => {
+      const existing = h.registry?.get(topic);
+      if (existing) return existing;
       const ch: FakeChannel = {
         topic,
         config,
@@ -47,6 +51,7 @@ vi.mock("@/lib/supabase/browser", () => ({
         },
       };
       h.channels.push(ch);
+      h.registry?.set(topic, ch);
       return ch;
     },
     removeChannel: h.removeChannel,
@@ -61,9 +66,7 @@ const M2 = "33333333-3333-4333-8333-333333333333";
 const last = () => h.channels[h.channels.length - 1] as FakeChannel;
 const flush = async () => {
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let i = 0; i < 40; i++) await Promise.resolve();
   });
 };
 
@@ -71,9 +74,11 @@ beforeEach(() => {
   vi.useFakeTimers();
   h.channels.length = 0;
   h.authListeners.length = 0;
-  h.removeChannel.mockClear();
+  h.removeChannel.mockReset();
   h.setAuth.mockClear();
   h.unsubscribeAuth.mockClear();
+  h.registry = null;
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 });
 afterEach(() => vi.useRealTimers());
 
@@ -168,19 +173,64 @@ describe("useChannelEvents", () => {
     expect(h.channels).toHaveLength(3);
   });
 
-  it("resubscribes (and asks for a resync) when the tab becomes visible again", async () => {
+  const setVisibility = (value: "hidden" | "visible") => {
+    Object.defineProperty(document, "visibilityState", { value, configurable: true });
+    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+  };
+
+  it("resubscribes (and asks for a resync) when the tab becomes visible after a long absence", async () => {
     const onResync = vi.fn();
     mount(vi.fn(), { onResync });
     await flush();
     act(() => last().statusCb!("SUBSCRIBED"));
     const before = h.channels.length;
-    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
-    act(() => void document.dispatchEvent(new Event("visibilitychange")));
+    setVisibility("hidden");
+    act(() => void vi.advanceTimersByTime(31_000));
+    setVisibility("visible");
     await flush();
     expect(h.removeChannel).toHaveBeenCalled();
     expect(h.channels.length).toBe(before + 1);
     act(() => last().statusCb!("SUBSCRIBED"));
     expect(onResync).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not re-join after a short tab switch", async () => {
+    mount();
+    await flush();
+    act(() => last().statusCb!("SUBSCRIBED"));
+    const before = h.channels.length;
+    setVisibility("hidden");
+    act(() => void vi.advanceTimersByTime(5_000));
+    setVisibility("visible");
+    await flush();
+    expect(h.channels.length).toBe(before);
+  });
+
+  it("re-join waits for the leave ack: a fresh channel is subscribed and events flow", async () => {
+    h.registry = new Map();
+    h.removeChannel.mockImplementation(async (ch: FakeChannel) => {
+      // the stale channel stays registered (and its subscribe() would be a no-op) until the ack
+      await new Promise((r) => setTimeout(r, 50));
+      h.registry!.delete(ch.topic);
+      return "ok";
+    });
+    const { onEvent } = mount();
+    await flush();
+    act(() => last().statusCb!("SUBSCRIBED"));
+    const first = last();
+    act(() => h.authListeners.forEach((l) => l("TOKEN_REFRESHED")));
+    await flush();
+    await flush();
+    await act(async () => void vi.advanceTimersByTime(100));
+    await flush();
+    await flush();
+    expect(h.channels).toHaveLength(2);
+    expect(last()).not.toBe(first);
+    expect(last().statusCb).not.toBeNull();
+    act(() => last().statusCb!("SUBSCRIBED"));
+    act(() => last().handlers.get("message_created")!({ payload: { id: M1, channel_id: CH, thread_root_id: null } }));
+    act(() => void vi.advanceTimersByTime(160));
+    expect(onEvent).toHaveBeenCalledTimes(1);
   });
 
   it("resubscribes on TOKEN_REFRESHED but not on other auth events", async () => {

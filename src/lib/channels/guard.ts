@@ -4,6 +4,8 @@
 // response headers (200) were sent. The Next docs recommend checking in Proxy and rewriting to a not-found route
 // (node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/loading.md, "Status codes").
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CHANNEL_PATH = /^\/c\/([^/]+)\/?$/;
 
@@ -15,16 +17,7 @@ export function channelSegment(pathname: string): string | null {
   return CHANNEL_PATH.exec(pathname)?.[1] ?? null;
 }
 
-interface GuardClient {
-  from: (table: "channels") => {
-    select: (columns: "id") => {
-      eq: (column: "id", value: string) => {
-        maybeSingle: () => PromiseLike<{ data: unknown; error: unknown }>;
-      };
-    };
-  };
-  rpc: (fn: "my_membership_status") => PromiseLike<{ data: unknown; error: unknown }>;
-}
+type GuardClient = Pick<SupabaseClient, "from" | "rpc">;
 
 /**
  * True when `pathname` is `/c/<id>` and the member cannot see such a channel. RLS makes "hidden" and "does not
