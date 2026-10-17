@@ -34,6 +34,7 @@ import { getMessage, getMessages, getPinned, getThread } from "@/lib/chat/querie
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
+import { toPlainDoc } from "@/lib/chat/content";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -348,7 +349,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
 
   const editMessage = useCallback(
     async (message: ChatMessage, doc: unknown): Promise<string | null> => {
-      const res = await editMessageAction({ id: message.id, doc });
+      const res = await editMessageAction({ id: message.id, doc: toPlainDoc(doc) });
       if (res.error) return rpcErrorMessage(res.error);
       void reconcile(message.id);
       return null;

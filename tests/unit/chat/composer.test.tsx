@@ -61,6 +61,18 @@ describe("Composer", () => {
     await waitFor(() => expect(editor.isEmpty).toBe(true));
   });
 
+  it("sends a plain-object doc: ProseMirror attrs (null prototype) would reach the server action as an opaque reference and lose the links", async () => {
+    postMessageAction.mockResolvedValue({ id: "m1" });
+    const { box, editor } = await mount();
+    type(editor, '<p>mira <a href="https://ejemplo.com/x">https://ejemplo.com/x</a></p>');
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(postMessageAction).toHaveBeenCalledTimes(1));
+    const doc = postMessageAction.mock.calls[0]![0].doc as { content: Array<{ content: Array<{ marks?: Array<{ attrs: object }> }> }> };
+    const link = doc.content[0]!.content.flatMap((n) => n.marks ?? [])[0]!;
+    expect(link.attrs).toBeDefined();
+    expect(Object.getPrototypeOf(link.attrs)).toBe(Object.prototype);
+  });
+
   it("Shift+Enter does not send", async () => {
     const { box, editor } = await mount();
     type(editor, "<p>hola</p>");

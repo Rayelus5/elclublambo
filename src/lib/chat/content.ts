@@ -255,6 +255,15 @@ function convert(raw: unknown, depth: number, ctx: Ctx): TiptapNode[] {
   return [node];
 }
 
+/**
+ * Deep copy made of plain objects. `editor.getJSON()` returns attrs objects with a null prototype, which React's
+ * Server Action serializer turns into an opaque temporary reference: the server then sees no link attributes at all.
+ * Always pass a doc through this before handing it to a server action.
+ */
+export function toPlainDoc<T>(doc: T): T {
+  return JSON.parse(JSON.stringify(doc ?? null)) as T;
+}
+
 /** Rebuilds a Tiptap doc keeping only allowlisted nodes, marks and attributes. Never throws. */
 export function sanitizeDoc(doc: unknown): TiptapDoc {
   if (!isObject(doc) || own(doc, "type") !== "doc") return { type: "doc", content: [] };

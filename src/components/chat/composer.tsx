@@ -10,7 +10,7 @@ import { EmojiButton } from "@/components/chat/emoji-button";
 import { SlowmodeTimer } from "@/components/chat/slowmode-timer";
 import { Button } from "@/components/ui/button";
 import { getSlowmodeAction, postMessageAction, type AttachmentInput } from "@/lib/chat/actions";
-import { docToPlainText } from "@/lib/chat/content";
+import { docToPlainText, toPlainDoc } from "@/lib/chat/content";
 import { ImageError, uploadChatImage, type UploadedImage } from "@/lib/chat/upload";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
@@ -178,7 +178,7 @@ export function Composer(props: ComposerProps) {
     const attachmentsPayload: AttachmentInput[] = done.map((a) => a.uploaded);
     const res = await postMessageAction({
       channelId,
-      doc,
+      doc: toPlainDoc(doc),
       expanded,
       threadRootId,
       quotedId: quoted?.id,
