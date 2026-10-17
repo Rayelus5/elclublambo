@@ -148,16 +148,52 @@ describe("listReportQueue", () => {
     expect(groups.map((g) => g.count)).toEqual([2, 1]);
   });
 
-  it("flags a capped result and drops the oldest, possibly partial, group", async () => {
-    const many = Array.from({ length: 1000 }, (_, i) =>
-      row({ id: `r${i}`, message_id: i < 999 ? `m${i}` : "mlast" }),
-    );
-    many.push(); // the last row belongs to its own (partial) group
-    const { client } = fakeClient({ reports: many, members: [sponsor], member_roles: [] });
+  it("asks for one row more than the cap to detect it exactly", async () => {
+    const { client, calls } = fakeClient({ reports: [] });
+    await listReportQueue("open", client);
+    expect(calls).toContainEqual(["reports", "limit", 1001]);
+  });
+
+  it("exactly at the cap is not capped: nothing is dropped", async () => {
+    const rows = Array.from({ length: 1000 }, (_, i) => row({ id: `r${i}`, message_id: `m${i}` }));
+    const { client } = fakeClient({ reports: rows, members: [sponsor], member_roles: [] });
+    const { groups, capped } = await listReportQueue("open", client);
+    expect(capped).toBe(false);
+    expect(groups).toHaveLength(1000);
+  });
+
+  it("capped: keeps every group read when the extra row belongs to a new group", async () => {
+    const rows = Array.from({ length: 1001 }, (_, i) => row({ id: `r${i}`, message_id: `m${i}` }));
+    const { client } = fakeClient({ reports: rows, members: [sponsor], member_roles: [] });
+    const { groups, capped } = await listReportQueue("open", client);
+    expect(capped).toBe(true);
+    expect(groups).toHaveLength(1000);
+    expect(groups[0]!.messageId).toBe("m0");
+    expect(groups.some((g) => g.messageId === "m1000")).toBe(false);
+  });
+
+  it("capped: drops only the group that continues past the cap, never the newest ones", async () => {
+    // 999 single-report groups, then two reports of the same message: one inside the cap, one beyond it.
+    const rows = [
+      ...Array.from({ length: 999 }, (_, i) => row({ id: `r${i}`, message_id: `m${i}` })),
+      row({ id: "edge1", message_id: "medge" }),
+      row({ id: "edge2", message_id: "medge" }),
+    ];
+    const { client } = fakeClient({ reports: rows, members: [sponsor], member_roles: [] });
     const { groups, capped } = await listReportQueue("open", client);
     expect(capped).toBe(true);
     expect(groups).toHaveLength(999);
-    expect(groups.some((g) => g.messageId === "mlast")).toBe(false);
+    expect(groups.some((g) => g.messageId === "medge")).toBe(false);
+    expect(groups[0]!.messageId).toBe("m0");
+  });
+
+  it("capped: a single huge newest group is kept (truncated) instead of emptying the queue", async () => {
+    const rows = Array.from({ length: 1001 }, (_, i) => row({ id: `r${i}`, message_id: "mhuge" }));
+    const { client } = fakeClient({ reports: rows, members: [sponsor], member_roles: [] });
+    const { groups, capped } = await listReportQueue("open", client);
+    expect(capped).toBe(true);
+    expect(groups).toHaveLength(1);
+    expect(groups[0]!.count).toBe(1000);
   });
 
   it("throws on a database error", async () => {

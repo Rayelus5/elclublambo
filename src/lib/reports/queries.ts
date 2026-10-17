@@ -5,8 +5,9 @@ import type { MemberSummary } from "@/components/members/sponsor-tree";
 import { shortAddress } from "@/lib/auth/wallet";
 import type { ReportReason } from "@/lib/reports/reasons";
 
-// Cap on rows read. Groups are built from rows, so when the cap is hit the oldest group may be incomplete: it is
-// dropped and the page says it is showing the most recent ones.
+// Cap on rows kept. One row more is requested, so the cap is detected exactly. Groups are built from rows: the group
+// the extra row belongs to is known to continue past the cap, so it is dropped (unless it is the newest group, which is
+// kept truncated rather than emptying the queue) and the page says it is showing the most recent ones.
 const LIMIT = 1000;
 
 export type ReportStatus = "open" | "dismissed" | "actioned";
@@ -82,12 +83,14 @@ const groupKey = (r: Row) =>
 export async function listReportQueue(status: "open" | "closed", supabase: SupabaseClient): Promise<ReportQueueResult> {
   let query = supabase.from("reports").select(SELECT);
   query = status === "open" ? query.eq("status", "open") : query.in("status", ["dismissed", "actioned"]);
-  const { data, error } = (await query.order("created_at", { ascending: false }).limit(LIMIT)) as {
+  const { data, error } = (await query.order("created_at", { ascending: false }).limit(LIMIT + 1)) as {
     data: Row[] | null;
     error: { message: string } | null;
   };
   if (error) throw new Error(error.message);
-  const rows = data ?? [];
+  const all = data ?? [];
+  const capped = all.length > LIMIT;
+  const rows = capped ? all.slice(0, LIMIT) : all;
 
   // Sponsors (for the optional "penalize sponsor" ban) and whether they are administrators (never penalized).
   const sponsorIds = [...new Set(rows.map((r) => r.author?.invited_by_member_id).filter((v): v is string => !!v))];
@@ -150,7 +153,10 @@ export async function listReportQueue(status: "open" | "closed", supabase: Supab
   for (const [key, g] of groups) {
     g.reasons = [...reasonCounts.get(key)!].map(([reason, count]) => ({ reason, count })).sort((x, y) => y.count - x.count);
   }
-  const capped = rows.length >= LIMIT;
-  if (capped) groups.delete(groupKey(rows[rows.length - 1]!));
+  if (capped) {
+    const edge = groupKey(all[LIMIT]!);
+    // Insertion order is newest first: never drop the first group.
+    if (groups.has(edge) && [...groups.keys()][0] !== edge) groups.delete(edge);
+  }
   return { groups: [...groups.values()], capped };
 }
