@@ -30,6 +30,8 @@ const channelsNav = (page: Page) => page.getByRole("navigation", { name: "Canale
 const openChannel = async (page: Page, name: string) => {
   // The link's name gains " sin leer" when the channel has unread messages.
   await channelsNav(page).getByRole("link", { name: new RegExp(`^${name}( sin leer)?$`) }).click();
+  // the previous channel's log stays mounted until the navigation lands: wait for the new heading first
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
   await expect(page.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
 };
 const send = async (page: Page, text: string) => {
