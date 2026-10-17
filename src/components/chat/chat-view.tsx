@@ -43,6 +43,8 @@ export interface ChatViewProps {
   channel: { id: string; slowmodeSeconds: number; alphaEnabled?: boolean };
   viewer: ViewerPermissions;
   allowedDomains: readonly string[];
+  /** `?thread=<rootId>` from a notification link (already validated as a uuid by the page): opens that thread. */
+  initialThreadId?: string | null;
   initial: {
     messages: ChatMessage[];
     hasMore: boolean;
@@ -71,7 +73,7 @@ function upsertPinned(list: readonly ChatMessage[], m: ChatMessage): ChatMessage
 }
 
 /** The chat of one text channel: timeline, pins, threads, realtime reconciliation and read marks. */
-export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewProps) {
+export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null }: ChatViewProps) {
   const channelId = channel.id;
   const meId = viewer.memberId;
   const { refresh: refreshUnread } = useUnread();
@@ -321,6 +323,32 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
     },
     [meId, mergeDir],
   );
+
+  // A notification link names a thread that may be outside the loaded window: fetch it by id. The root must belong
+  // to this channel (RLS already hides anything unreadable); otherwise the link is ignored.
+  useEffect(() => {
+    if (!initialThreadId) return;
+    let cancelled = false;
+    openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setThread({ rootId: initialThreadId, root: null, replies: [], loading: true });
+    void (async () => {
+      try {
+        const res = await getThread(createBrowserClient(), initialThreadId, meId);
+        if (cancelled) return;
+        if (!res.root || res.root.channelId !== channelId) {
+          setThread((t) => (t && t.rootId === initialThreadId ? null : t));
+          return;
+        }
+        mergeDir(res.directory);
+        setThread((t) => (t && t.rootId === initialThreadId ? { rootId: initialThreadId, root: res.root, replies: res.replies, loading: false } : t));
+      } catch {
+        if (!cancelled) setThread((t) => (t && t.rootId === initialThreadId ? null : t));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialThreadId, channelId, meId, mergeDir]);
 
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;

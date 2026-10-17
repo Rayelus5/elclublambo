@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { RightRail } from "@/components/shell/right-rail";
 import { Sidebar } from "@/components/shell/sidebar";
 import { getVisibleChannels, toRow } from "@/lib/channels/queries";
@@ -22,13 +23,20 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const wallet = walletFromUser(user);
   if (!wallet) redirect("/login");
 
-  const [{ data: rawPerms }, channels] = await Promise.all([
+  const [{ data: rawPerms }, channels, me, unreadCount] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
+    supabase.rpc("current_member_id"),
+    supabase.rpc("my_unread_notification_count"),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
+  // The member id comes from the session on the server (it names the private realtime topic); never from the client.
+  const memberId = typeof me.data === "string" ? me.data : null;
+  if (!memberId) redirect("/no-access");
+  const initialCount = typeof unreadCount.data === "number" ? unreadCount.data : 0;
 
   return (
+    <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
       <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-none md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
         <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} />
@@ -36,6 +44,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
         <RightRail />
       </div>
     </UnreadProvider>
+    </NotificationsProvider>
   );
 }
 

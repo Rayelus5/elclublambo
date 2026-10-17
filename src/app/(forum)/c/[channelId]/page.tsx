@@ -5,7 +5,9 @@ import { Folder, Hash, Ticket, Timer, Sparkles } from "lucide-react";
 import { getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
 import { formatSlowmode } from "@/lib/channels/tree";
 import { ChatView } from "@/components/chat/chat-view";
+import { FollowMenu, type FollowLevel } from "@/components/notifications/follow-menu";
 import { loadChatContext } from "@/lib/chat/context";
+import { createServerClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -18,8 +20,14 @@ function Chip({ icon: Icon, children }: { icon: typeof Timer; children: React.Re
   );
 }
 
-async function TextChannel({ channel }: { channel: ChannelDetail }) {
-  const context = await loadChatContext(channel.id);
+async function TextChannel({ channel, threadId }: { channel: ChannelDetail; threadId: string | null }) {
+  const supabase = await createServerClient();
+  const [context, follow] = await Promise.all([
+    loadChatContext(channel.id),
+    supabase.rpc("my_channel_follow", { p_channel: channel.id }),
+  ]);
+  const followLevel: FollowLevel =
+    follow.data === "all" || follow.data === "mute" || follow.data === "mentions" ? follow.data : "mentions";
   return (
     <div className="flex flex-col gap-6">
       <header className="flex max-w-3xl flex-col gap-3">
@@ -30,6 +38,7 @@ async function TextChannel({ channel }: { channel: ChannelDetail }) {
           {channel.name}
         </h1>
         {channel.topic ? <p className="text-fg-muted">{channel.topic}</p> : null}
+        <FollowMenu key={channel.id} channelId={channel.id} level={followLevel} />
         {channel.slowmodeSeconds > 0 || channel.ticketsEnabled || channel.alphaEnabled ? (
           <ul className="flex flex-wrap gap-2" aria-label="Ajustes del canal">
             {channel.slowmodeSeconds > 0 ? (
@@ -40,7 +49,7 @@ async function TextChannel({ channel }: { channel: ChannelDetail }) {
           </ul>
         ) : null}
       </header>
-      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }} {...context} />
+      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }} initialThreadId={threadId} {...context} />
     </div>
   );
 }
@@ -80,8 +89,17 @@ function ChildList({ channel, items }: { channel: ChannelDetail; items: ChannelD
 }
 
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
-async function ChannelContent({ params }: { params: Promise<{ channelId: string }> }) {
+async function ChannelContent({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ channelId: string }>;
+  searchParams: Promise<{ thread?: string | string[] }>;
+}) {
   const { channelId } = await params;
+  const { thread } = await searchParams;
+  // A notification link opens this thread; anything that is not a uuid is ignored.
+  const threadId = typeof thread === "string" && UUID.test(thread) ? thread : null;
   if (!UUID.test(channelId)) notFound();
 
   // La RLS de `channels` solo devuelve lo visible: lo oculto es indistinguible de lo inexistente.
@@ -89,15 +107,21 @@ async function ChannelContent({ params }: { params: Promise<{ channelId: string 
   const channel = all.find((c) => c.id === channelId);
   if (!channel) notFound();
 
-  if (channel.kind === "text") return <TextChannel channel={channel} />;
+  if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} />;
   const kids = all.filter((c) => c.parentId === channel.id).toSorted((a, b) => a.position - b.position);
   return <ChildList channel={channel} items={kids} />;
 }
 
-export default function ChannelPage({ params }: { params: Promise<{ channelId: string }> }) {
+export default function ChannelPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ channelId: string }>;
+  searchParams: Promise<{ thread?: string | string[] }>;
+}) {
   return (
     <Suspense fallback={<div className="min-h-64" aria-hidden />}>
-      <ChannelContent params={params} />
+      <ChannelContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

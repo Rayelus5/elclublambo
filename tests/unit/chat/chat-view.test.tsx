@@ -275,6 +275,29 @@ describe("ChatView", () => {
       await waitFor(() => expect(screen.getByRole("button", { name: "1 respuesta" })).toHaveFocus());
     });
 
+    it("opens the thread named by initialThreadId (a notification link) even when the root is not in the window", async () => {
+      const r = root();
+      const reply = makeMessage({ threadRootId: r.id, createdAt: at(2), body: doc("la respuesta") });
+      queries.getThread.mockResolvedValue({ root: r, replies: [reply], directory: none });
+      setup({ initialThreadId: r.id }, []);
+      const panel = await screen.findByRole("dialog", { name: "Hilo" });
+      expect(await within(panel).findByText("la respuesta")).toBeInTheDocument();
+      expect(queries.getThread).toHaveBeenCalledWith(expect.anything(), r.id, ME);
+    });
+
+    it("drops the thread when the linked root is gone, not in this channel, or unreadable", async () => {
+      queries.getThread.mockResolvedValue({ root: null, replies: [], directory: none });
+      setup({ initialThreadId: "00000000-0000-4000-8000-0000000000aa" }, []);
+      await waitFor(() => expect(queries.getThread).toHaveBeenCalled());
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
+
+      const foreign = makeMessage({ channelId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" });
+      queries.getThread.mockResolvedValue({ root: foreign, replies: [], directory: none });
+      setup({ initialThreadId: foreign.id }, []);
+      await waitFor(() => expect(queries.getThread).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
+    });
+
     it("closes with Escape", async () => {
       const r = root();
       queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });

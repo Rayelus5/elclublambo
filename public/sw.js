@@ -26,6 +26,8 @@ self.addEventListener("push", (event) => {
   } catch {
     payload = {};
   }
+  // JSON `null`, numbers, strings and booleans parse fine but are not a payload object.
+  if (!payload || typeof payload !== "object") payload = {};
   const title = typeof payload.title === "string" && payload.title ? payload.title : "El Club Lambo";
   const options = {
     body: typeof payload.body === "string" ? payload.body : "",

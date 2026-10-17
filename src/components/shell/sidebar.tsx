@@ -4,6 +4,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
 import { NavLink } from "@/components/shell/nav-link";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -26,6 +27,7 @@ function SidebarBody({ perms, wallet, channels = [] }: Props) {
           <Home className="size-4" aria-hidden />
           Inicio
         </NavLink>
+        <NotificationBell variant="nav" />
         {hasPerm(perms, Perm.CREATE_INVITES) ? (
           <NavLink href="/invites">
             <Ticket className="size-4" aria-hidden />

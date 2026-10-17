@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -17,12 +18,14 @@ export function Topbar({ children }: { children: React.ReactNode }) {
       >
         El Club.
       </Link>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú">
-            <Menu aria-hidden />
-          </Button>
-        </DialogTrigger>
+      <div className="flex items-center">
+        <NotificationBell />
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú">
+              <Menu aria-hidden />
+            </Button>
+          </DialogTrigger>
         <DialogContent
           showCloseButton
           className="top-0 left-0 h-dvh w-[280px] max-w-[85vw] translate-x-0 translate-y-0 content-start gap-0 rounded-none border-y-0 border-l-0 bg-bg p-0 data-open:slide-in-from-left sm:max-w-[85vw]"
@@ -34,7 +37,8 @@ export function Topbar({ children }: { children: React.ReactNode }) {
           <DialogDescription className="sr-only">Navegación principal del foro</DialogDescription>
           {children}
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </header>
   );
 }
