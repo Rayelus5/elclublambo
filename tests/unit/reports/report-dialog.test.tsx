@@ -46,6 +46,16 @@ describe("ReportDialog", () => {
     expect(report).not.toHaveBeenCalled();
   });
 
+  it("the counter uses the trimmed length, like the validation", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("radio", { name: /Spam/ }));
+    await userEvent.click(screen.getByLabelText(/Nota/));
+    await userEvent.paste("  " + "x".repeat(500) + "  ");
+    expect(screen.getByText("500/500")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Enviar reporte" }));
+    expect(report).toHaveBeenCalledTimes(1);
+  });
+
   it("sends reason and trimmed note, then confirms", async () => {
     setup();
     await userEvent.click(screen.getByRole("radio", { name: /Estafa/ }));

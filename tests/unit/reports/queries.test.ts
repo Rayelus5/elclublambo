@@ -57,7 +57,7 @@ const sponsor = { id: SP, wallet_address: "0x22222222222222222222222222222222222
 describe("listReportQueue", () => {
   it("queries open reports newest first", async () => {
     const { client, calls } = fakeClient({ reports: [] });
-    expect(await listReportQueue("open", client)).toEqual([]);
+    expect(await listReportQueue("open", client)).toEqual({ groups: [], capped: false });
     expect(calls).toContainEqual(["reports", "eq", "status", "open"]);
     expect(calls).toContainEqual(["reports", "order", "created_at", { ascending: false }]);
   });
@@ -79,7 +79,7 @@ describe("listReportQueue", () => {
       members: [sponsor],
       member_roles: [],
     });
-    const groups = await listReportQueue("open", client);
+    const { groups } = await listReportQueue("open", client);
     expect(groups).toHaveLength(2);
     const [g, other] = groups;
     expect(g).toMatchObject({
@@ -111,7 +111,7 @@ describe("listReportQueue", () => {
       members: [sponsor],
       member_roles: [],
     });
-    const groups = await listReportQueue("open", client);
+    const { groups } = await listReportQueue("open", client);
     expect(groups).toHaveLength(2);
     expect(groups.find((g) => g.reportId === "a")).toMatchObject({ messageDeleted: true, snapshotText: "compra ya" });
     expect(groups.find((g) => g.reportId === "b")).toMatchObject({ messageId: null, messageDeleted: true, snapshotText: "texto guardado" });
@@ -123,15 +123,41 @@ describe("listReportQueue", () => {
       members: [sponsor],
       member_roles: [{ member_id: SP }],
     });
-    const [g] = await listReportQueue("open", client);
+    const [g] = (await listReportQueue("open", client)).groups;
     expect(g!.author?.sponsorIsAdmin).toBe(true);
   });
 
   it("falls back to the short wallet without a display name", async () => {
     const { client } = fakeClient({ reports: [row({ author: { ...author, display_name: null, invited_by_member_id: null } })] });
-    const [g] = await listReportQueue("open", client);
+    const [g] = (await listReportQueue("open", client)).groups;
     expect(g!.author?.name).toBe("0xd590…b82d");
     expect(g!.author?.sponsor).toBeNull();
+  });
+
+  it("closed items are grouped per resolution batch, not merged across batches", async () => {
+    const { client } = fakeClient({
+      reports: [
+        row({ id: "a", status: "dismissed", resolved_at: "2026-10-17T12:00:00+00:00" }),
+        row({ id: "b", status: "dismissed", resolved_at: "2026-10-17T12:00:00+00:00" }),
+        row({ id: "c", status: "dismissed", resolved_at: "2026-10-17T09:00:00+00:00" }),
+      ],
+      members: [sponsor],
+      member_roles: [],
+    });
+    const { groups } = await listReportQueue("closed", client);
+    expect(groups.map((g) => g.count)).toEqual([2, 1]);
+  });
+
+  it("flags a capped result and drops the oldest, possibly partial, group", async () => {
+    const many = Array.from({ length: 1000 }, (_, i) =>
+      row({ id: `r${i}`, message_id: i < 999 ? `m${i}` : "mlast" }),
+    );
+    many.push(); // the last row belongs to its own (partial) group
+    const { client } = fakeClient({ reports: many, members: [sponsor], member_roles: [] });
+    const { groups, capped } = await listReportQueue("open", client);
+    expect(capped).toBe(true);
+    expect(groups).toHaveLength(999);
+    expect(groups.some((g) => g.messageId === "mlast")).toBe(false);
   });
 
   it("throws on a database error", async () => {

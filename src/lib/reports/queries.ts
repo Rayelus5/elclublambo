@@ -5,7 +5,9 @@ import type { MemberSummary } from "@/components/members/sponsor-tree";
 import { shortAddress } from "@/lib/auth/wallet";
 import type { ReportReason } from "@/lib/reports/reasons";
 
-const LIMIT = 300;
+// Cap on rows read. Groups are built from rows, so when the cap is hit the oldest group may be incomplete: it is
+// dropped and the page says it is showing the most recent ones.
+const LIMIT = 1000;
 
 export type ReportStatus = "open" | "dismissed" | "actioned";
 
@@ -66,7 +68,18 @@ const SELECT =
 const nameOf = (m: { display_name: string | null; wallet_address: string }) =>
   m.display_name?.trim() || shortAddress(m.wallet_address);
 
-export async function listReportQueue(status: "open" | "closed", supabase: SupabaseClient): Promise<ReportGroup[]> {
+export interface ReportQueueResult {
+  groups: ReportGroup[];
+  /** More (older) reports exist than were read. */
+  capped: boolean;
+}
+
+// Open: one group per message. Closed: per message and resolution batch (a batch shares resolved_at and status), so
+// a message resolved twice shows two items.
+const groupKey = (r: Row) =>
+  `${r.message_id ?? `report:${r.id}`}:${r.status}${r.status === "open" ? "" : `:${r.resolved_at ?? ""}`}`;
+
+export async function listReportQueue(status: "open" | "closed", supabase: SupabaseClient): Promise<ReportQueueResult> {
   let query = supabase.from("reports").select(SELECT);
   query = status === "open" ? query.eq("status", "open") : query.in("status", ["dismissed", "actioned"]);
   const { data, error } = (await query.order("created_at", { ascending: false }).limit(LIMIT)) as {
@@ -97,7 +110,7 @@ export async function listReportQueue(status: "open" | "closed", supabase: Supab
   const groups = new Map<string, ReportGroup>();
   const reasonCounts = new Map<string, Map<ReportReason, number>>();
   for (const r of rows) {
-    const key = `${r.message_id ?? `report:${r.id}`}:${r.status}`;
+    const key = groupKey(r);
     let g = groups.get(key);
     if (!g) {
       const a = r.author;
@@ -137,5 +150,7 @@ export async function listReportQueue(status: "open" | "closed", supabase: Supab
   for (const [key, g] of groups) {
     g.reasons = [...reasonCounts.get(key)!].map(([reason, count]) => ({ reason, count })).sort((x, y) => y.count - x.count);
   }
-  return [...groups.values()];
+  const capped = rows.length >= LIMIT;
+  if (capped) groups.delete(groupKey(rows[rows.length - 1]!));
+  return { groups: [...groups.values()], capped };
 }

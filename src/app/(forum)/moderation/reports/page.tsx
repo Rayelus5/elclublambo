@@ -26,7 +26,7 @@ async function ReportsContent({ searchParams }: { searchParams: Promise<{ status
   if (anywhere !== true) notFound();
   const perms = BigInt(String(rawPerms ?? 0));
 
-  const groups = await listReportQueue(status, supabase);
+  const { groups, capped } = await listReportQueue(status, supabase);
   return (
     <div className="flex max-w-3xl flex-col gap-6">
       <header className="flex flex-col gap-2">
@@ -50,7 +50,7 @@ async function ReportsContent({ searchParams }: { searchParams: Promise<{ status
           </Link>
         ))}
       </nav>
-      <ReportQueue groups={groups} status={status} canBan={hasPerm(perms, Perm.BAN_MEMBERS)} />
+      <ReportQueue groups={groups} status={status} canBan={hasPerm(perms, Perm.BAN_MEMBERS)} capped={capped} />
     </div>
   );
 }

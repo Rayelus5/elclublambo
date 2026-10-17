@@ -148,9 +148,9 @@ export function ReportDialog({
               />
               <p
                 id={`${noteId}-count`}
-                className={cn("text-right text-[13px]", note.length > REPORT_NOTE_MAX ? "text-danger" : "text-fg-muted")}
+                className={cn("text-right text-[13px]", note.trim().length > REPORT_NOTE_MAX ? "text-danger" : "text-fg-muted")}
               >
-                {note.length}/{REPORT_NOTE_MAX}
+                {note.trim().length}/{REPORT_NOTE_MAX}
               </p>
             </div>
 

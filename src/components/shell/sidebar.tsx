@@ -13,7 +13,7 @@ type Props = {
   perms: bigint;
   wallet: `0x${string}`;
   channels?: ChannelRow[];
-  /** MANAGE_MESSAGES in at least one visible channel (resolved on the server; global bits are checked here). */
+  /** MANAGE_MESSAGES in at least one visible channel (has_any_channel_perm): the same rule as the page's 404. */
   canModerate?: boolean;
 };
 
@@ -46,7 +46,7 @@ function SidebarBody({ perms, wallet, channels = [], canModerate = false }: Prop
             Miembros
           </NavLink>
         ) : null}
-        {canModerate || hasPerm(perms, Perm.MANAGE_MESSAGES) ? (
+        {canModerate ? (
           <NavLink href="/moderation/reports">
             <Flag className="size-4" aria-hidden />
             Reportes

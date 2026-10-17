@@ -6,7 +6,6 @@ import { Sidebar } from "@/components/shell/sidebar";
 import { getVisibleChannels, toRow } from "@/lib/channels/queries";
 import { UnreadProvider } from "@/lib/chat/unread";
 import { walletFromUser } from "@/lib/auth/wallet";
-import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
@@ -31,10 +30,9 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     supabase.rpc("my_unread_notification_count"),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
-  // The reports link also shows for MANAGE_MESSAGES granted only by a channel overwrite.
-  const canModerate = hasPerm(perms, Perm.MANAGE_MESSAGES)
-    ? true
-    : (await supabase.rpc("has_any_channel_perm", { p_bit: 8 })).data === true;
+  // Same rule as the reports page (a 404 otherwise): MANAGE_MESSAGES in at least one visible channel. Admins get the
+  // channel bits through channel_permissions, so the RPC covers them too.
+  const canModerate = (await supabase.rpc("has_any_channel_perm", { p_bit: 8 })).data === true;
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
   const memberId = typeof me.data === "string" ? me.data : null;
   if (!memberId) redirect("/no-access");

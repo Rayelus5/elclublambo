@@ -104,6 +104,33 @@ describe("ReportQueue", () => {
     expect(h.refresh).not.toHaveBeenCalled();
   });
 
+  it("retry after delete ok + resolve failed resolves without deleting again, and refreshes after the delete", async () => {
+    h.resolve.mockResolvedValueOnce({ error: "unknown" });
+    render(<ReportQueue groups={[group()]} status="open" canBan />);
+    await userEvent.click(screen.getByRole("button", { name: "Borrar mensaje" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Borrar y resolver" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(h.del).toHaveBeenCalledTimes(1);
+    expect(h.refresh).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Borrar y resolver" }));
+    await waitFor(() => expect(h.resolve).toHaveBeenCalledTimes(2));
+    expect(h.del).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshes after a ban even when the resolve fails", async () => {
+    h.resolve.mockResolvedValueOnce({ error: "unknown" });
+    render(<ReportQueue groups={[group()]} status="open" canBan />);
+    await userEvent.click(screen.getByRole("button", { name: "Banear a Ana" }));
+    await userEvent.type(screen.getByLabelText("Motivo"), "estafa reiterada");
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Banear" }));
+    await waitFor(() => expect(h.refresh).toHaveBeenCalled());
+  });
+
+  it("shows a cap note when the queue was truncated", () => {
+    render(<ReportQueue groups={[group()]} status="open" canBan capped />);
+    expect(screen.getByText(/más recientes/i)).toBeInTheDocument();
+  });
+
   it("dismisses", async () => {
     render(<ReportQueue groups={[group()]} status="open" canBan />);
     await userEvent.click(screen.getByRole("button", { name: "Descartar" }));

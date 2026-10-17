@@ -41,6 +41,8 @@ function ReportCard({ group, canBan }: { group: ReportGroup; canBan: boolean }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // The delete already succeeded (a retry after a failed resolve must not delete again).
+  const [deleted, setDeleted] = useState(false);
   const open = group.status === "open";
 
   async function resolve(status: "dismissed" | "actioned"): Promise<boolean> {
@@ -65,12 +67,15 @@ function ReportCard({ group, canBan }: { group: ReportGroup; canBan: boolean }) 
 
   const deleteAndResolve = async () => {
     const ok = await run(async () => {
-      if (group.messageId && !group.messageDeleted) {
+      if (group.messageId && !group.messageDeleted && !deleted) {
         const res = await deleteMessageAction(group.messageId).catch(() => ({ error: "unknown" }) as { error?: string });
         if (res.error) {
           setError(rpcErrorMessage(res.error));
           return false;
         }
+        setDeleted(true);
+        // The message is gone whatever happens next: show the real state even if the resolve below fails.
+        router.refresh();
       }
       return resolve("actioned");
     });
@@ -152,7 +157,12 @@ function ReportCard({ group, canBan }: { group: ReportGroup; canBan: boolean }) 
               member={{ id: author.id, walletAddress: author.walletAddress, displayName: author.name, status: author.status }}
               sponsor={author.sponsor}
               sponsorIsAdmin={author.sponsorIsAdmin}
-              onBanned={() => void run(() => resolve("actioned"))}
+              onBanned={() =>
+                void run(() => resolve("actioned")).then((ok) => {
+                  // The member is banned either way: refresh so the ban button and "Descartar" reflect it.
+                  if (!ok) router.refresh();
+                })
+              }
             />
           ) : null}
           <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={() => void run(() => resolve("dismissed"))}>
@@ -207,27 +217,37 @@ export function ReportQueue({
   groups,
   status,
   canBan,
+  capped = false,
 }: {
   groups: ReportGroup[];
   status: "open" | "closed";
   canBan: boolean;
+  /** More (older) reports exist than the ones listed. */
+  capped?: boolean;
 }) {
   if (groups.length === 0) {
     return (
       <p className="py-8 text-fg-muted">
         {status === "open"
           ? "No hay reportes abiertos. Cuando alguien reporte un mensaje de un canal que moderas, aparecerá aquí."
-          : "Todavía no has resuelto ningún reporte."}
+          : "Todavía no hay reportes resueltos."}
       </p>
     );
   }
   return (
-    <ul aria-label={status === "open" ? "Reportes abiertos" : "Reportes resueltos"} className="flex flex-col gap-3">
-      {groups.map((g) => (
-        <li key={g.key}>
-          <ReportCard group={g} canBan={canBan} />
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-3">
+      {capped ? (
+        <p className="text-[13px] text-fg-muted">
+          Mostrando los reportes más recientes. Resuelve los de arriba para ver los más antiguos.
+        </p>
+      ) : null}
+      <ul aria-label={status === "open" ? "Reportes abiertos" : "Reportes resueltos"} className="flex flex-col gap-3">
+        {groups.map((g) => (
+          <li key={g.key}>
+            <ReportCard group={g} canBan={canBan} />
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

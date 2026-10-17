@@ -70,19 +70,16 @@ describe("Sidebar", () => {
     expect(sidebarBrand.className).toContain("font-display");
   });
 
-  it("shows Reportes with MANAGE_MESSAGES (8), ADMINISTRATOR (512) or the any-channel flag", () => {
-    const { unmount } = renderSidebar(8n);
-    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
-    unmount();
-    const second = renderSidebar(512n);
-    expect(screen.getByRole("link", { name: "Reportes" })).toBeInTheDocument();
-    second.unmount();
+  it("shows Reportes only when the server says the member moderates a visible channel", () => {
     render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
-    expect(screen.getByRole("link", { name: "Reportes" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
   });
 
-  it("hides Reportes without any moderation permission", () => {
-    renderSidebar(7n);
+  it("hides Reportes without the flag, even with global 8 or 512 (the page would be a 404)", () => {
+    const { unmount } = renderSidebar(8n);
+    expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
+    unmount();
+    renderSidebar(512n);
     expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
   });
 
