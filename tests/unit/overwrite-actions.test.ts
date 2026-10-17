@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createServerClient: async () => ({ rpc, from: () => ({ select }) }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({}) }));
 
 import { getMyChannelPermsAction, searchMembersAction, setOverwriteAction } from "@/lib/channels/actions";
 import { addDomainAction, removeDomainAction } from "@/lib/domains/actions";

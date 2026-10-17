@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
 import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -185,8 +186,18 @@ export async function searchMembersAction(query: string): Promise<MemberHit[]> {
 export async function deleteChannelAction(id: string): Promise<{ error?: string }> {
   if (!isUuid(id)) return { error: "invalid_input" };
   const supabase = await createServerClient();
-  const { error } = await supabase.rpc("delete_channel", { p_id: id });
+  const { data, error } = await supabase.rpc("delete_channel", { p_id: id });
   if (error) return { error: rpcErrorCode(error) };
+  // The channel is already gone; leftover objects are best-effort (bucket may not exist yet).
+  const raw = (data as { paths?: unknown } | null)?.paths;
+  const paths = Array.isArray(raw) ? raw.filter((p): p is string => typeof p === "string") : [];
+  if (paths.length > 0) {
+    try {
+      await createAdminClient().storage.from("chat-images").remove(paths);
+    } catch {
+      /* ignore */
+    }
+  }
   refresh();
   return {};
 }

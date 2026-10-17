@@ -14,6 +14,12 @@ const MESSAGES: Record<string, string> = {
   not_empty: "El canal tiene subcanales; muévelos o bórralos antes.",
   invalid_tree: "Ese movimiento rompería la estructura del árbol.",
   depth_limit: "Se ha superado la profundidad máxima (6 niveles).",
+  slowmode: "Vas demasiado rápido. Espera un poco antes de volver a escribir.",
+  not_a_contract: "Esa dirección no es un contrato en Linea.",
+  too_long: "El mensaje es demasiado largo.",
+  too_many_attachments: "Puedes adjuntar como máximo 4 imágenes.",
+  too_many_reactions: "Este mensaje ya tiene el máximo de reacciones distintas.",
+  thread_invalid: "No se puede responder a ese mensaje.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

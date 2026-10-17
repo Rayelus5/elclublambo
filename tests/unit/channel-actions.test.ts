@@ -3,7 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const rpc = vi.hoisted(() => vi.fn());
 const revalidatePath = vi.hoisted(() => vi.fn());
 
+const remove = vi.hoisted(() => vi.fn());
+const from = vi.hoisted(() => vi.fn());
+
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ rpc }) }));
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    storage: {
+      from: (bucket: string) => {
+        from(bucket);
+        return { remove };
+      },
+    },
+  }),
+}));
 vi.mock("next/cache", () => ({ revalidatePath }));
 
 import {
@@ -19,6 +32,8 @@ const B = "6f1c1c5e-0000-4000-8000-000000000002";
 beforeEach(() => {
   rpc.mockReset();
   revalidatePath.mockReset();
+  remove.mockReset();
+  from.mockReset();
 });
 
 function expectRevalidated() {
@@ -140,11 +155,32 @@ describe("moveChannelAction", () => {
 });
 
 describe("deleteChannelAction", () => {
-  it("calls delete_channel and revalidates", async () => {
-    rpc.mockResolvedValue({ error: null });
+  it("calls delete_channel, removes its storage objects and revalidates", async () => {
+    rpc.mockResolvedValue({ data: { paths: ["c/m/a.png", "c/m/b.png"] }, error: null });
+    remove.mockResolvedValue({ data: [], error: null });
     expect(await deleteChannelAction(A)).toEqual({});
     expect(rpc).toHaveBeenCalledWith("delete_channel", { p_id: A });
+    expect(from).toHaveBeenCalledWith("chat-images");
+    expect(remove).toHaveBeenCalledWith(["c/m/a.png", "c/m/b.png"]);
     expectRevalidated();
+  });
+  it("skips storage when there are no paths", async () => {
+    rpc.mockResolvedValue({ data: { paths: [] }, error: null });
+    expect(await deleteChannelAction(A)).toEqual({});
+    expect(remove).not.toHaveBeenCalled();
+  });
+  it("tolerates a missing bucket or storage failure", async () => {
+    rpc.mockResolvedValue({ data: { paths: ["c/m/a.png"] }, error: null });
+    remove.mockResolvedValue({ data: null, error: { message: "Bucket not found" } });
+    expect(await deleteChannelAction(A)).toEqual({});
+    remove.mockRejectedValue(new Error("boom"));
+    expect(await deleteChannelAction(A)).toEqual({});
+    expectRevalidated();
+  });
+  it("does not touch storage when the rpc fails", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "forbidden" } });
+    expect(await deleteChannelAction(A)).toEqual({ error: "forbidden" });
+    expect(remove).not.toHaveBeenCalled();
   });
   it("rejects non-uuid and maps not_empty", async () => {
     expect(await deleteChannelAction("x")).toEqual({ error: "invalid_input" });

@@ -37,6 +37,15 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorCode({ message: "depth_limit" })).toBe("depth_limit");
     expect(knownErrorCode("not_empty")).toBe("not_empty");
   });
+  it.each(["slowmode", "not_a_contract", "too_long", "too_many_attachments", "too_many_reactions", "thread_invalid"])(
+    "chat error %s has specific copy and is allowlisted",
+    (code) => {
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+      expect(rpcErrorCode({ message: code })).toBe(code);
+    },
+  );
+  it("slowmode copy", () =>
+    expect(rpcErrorMessage("slowmode")).toBe("Vas demasiado rápido. Espera un poco antes de volver a escribir."));
   it("hierarchy copy covers rank and missing permissions", () => {
     expect(rpcErrorMessage("hierarchy")).toBe(
       "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
