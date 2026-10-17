@@ -44,7 +44,7 @@ describe("rpcErrorMessage", () => {
       expect(rpcErrorCode({ message: code })).toBe(code);
     },
   );
-  it.each(["rate_limited", "already_reported", "ticket_closed"])(
+  it.each(["rate_limited", "already_reported", "ticket_closed", "too_many_open_tickets"])(
     "F2c error %s has specific copy and is allowlisted",
     (code) => {
       expect(rpcErrorMessage(code)).not.toBe(FALLBACK);

@@ -1,5 +1,5 @@
 begin;
-select plan(45);
+select plan(53);
 
 -- helpers (rolled back with the test)
 create function pg_temp.uid(p_member text) returns uuid language sql as
@@ -29,29 +29,37 @@ select set_config('t.mod2', tests.create_member('0x' || lpad('d3305', 40, '0'), 
 select set_config('t.plain', tests.create_member('0x' || lpad('d3306', 40, '0'), current_setting('t.admin')::uuid)::text, true);
 select set_config('t.gone', tests.create_member('0x' || lpad('d3307', 40, '0'), current_setting('t.admin')::uuid)::text, true);
 update public.members set status = 'banned' where id = current_setting('t.gone')::uuid;
+-- mod3: MANAGE_MESSAGES only through an overwrite on channel c2; vm: has the mods role but VIEW denied on channel c
+select set_config('t.mod3', tests.create_member('0x' || lpad('d3308', 40, '0'), current_setting('t.admin')::uuid)::text, true);
+select set_config('t.vm', tests.create_member('0x' || lpad('d3309', 40, '0'), current_setting('t.admin')::uuid)::text, true);
 
 -- moderators: role with MANAGE_MESSAGES (8) on top of @everyone
 insert into public.roles (name, color, position, permissions) values ('T330 mods', '#AAAAAA', 63, 8);
 insert into public.member_roles (member_id, role_id)
   select m, r.id from public.roles r,
-    unnest(array[current_setting('t.mod')::uuid, current_setting('t.mod2')::uuid, current_setting('t.gone')::uuid]) m
+    unnest(array[current_setting('t.mod')::uuid, current_setting('t.mod2')::uuid, current_setting('t.gone')::uuid,
+                 current_setting('t.vm')::uuid]) m
   where r.name = 'T330 mods';
 insert into public.member_roles (member_id, role_id)
   select current_setting('t.admin')::uuid, id from public.roles where name = 'SuperAdmin';
 
 select set_config('t.cat', tests.create_channel(null, 'category', 'T330cat')::text, true);
 select set_config('t.c', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't330')::text, true);
+select set_config('t.c2', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't330b')::text, true);
 select set_config('t.hid', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't330hid')::text, true);
 -- rep cannot see the hidden channel; mod2 has no MANAGE_MESSAGES in t.c
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny) values
   (current_setting('t.hid')::uuid, 'member', current_setting('t.rep')::uuid, 0, 1),
-  (current_setting('t.c')::uuid, 'member', current_setting('t.mod2')::uuid, 0, 8);
+  (current_setting('t.c')::uuid, 'member', current_setting('t.mod2')::uuid, 0, 8),
+  (current_setting('t.c2')::uuid, 'member', current_setting('t.mod3')::uuid, 8, 0),
+  (current_setting('t.c')::uuid, 'member', current_setting('t.vm')::uuid, 0, 1);
 
 select set_config('t.m1', pg_temp.msg(current_setting('t.c'), current_setting('t.au'), 'estafa total aqui')::text, true);
 select set_config('t.m2', pg_temp.msg(current_setting('t.c'), current_setting('t.rep'), 'mensaje del reportante')::text, true);
 select set_config('t.m3', pg_temp.msg(current_setting('t.c'), current_setting('t.au'), 'mensaje borrado')::text, true);
 update public.messages set deleted_at = now() where id = current_setting('t.m3')::uuid;
 select set_config('t.m4', pg_temp.msg(current_setting('t.hid'), current_setting('t.au'), 'mensaje oculto')::text, true);
+select set_config('t.m6', pg_temp.msg(current_setting('t.c2'), current_setting('t.au'), 'texto en c2')::text, true);
 select set_config('t.m5', pg_temp.msg(current_setting('t.c'), current_setting('t.au'), repeat('x', 1500))::text, true);
 
 -- ===== forbidden: own, deleted, hidden, missing (same error, no existence oracle) =====
@@ -99,6 +107,16 @@ select ok((select n.message_id is null and n.channel_id = current_setting('t.c')
              and n.data->>'report_id' = current_setting('t.r1')),
   'notice carries channel, report id and actor, no message id');
 
+-- ===== per-channel staff scope: a report in c2 (mod3 has 8 only there; vm has 8 everywhere but VIEW denied in c) =====
+select tests.authenticate_as(pg_temp.uid(current_setting('t.rep2')));
+select set_config('t.r6', public.report_message(current_setting('t.m6')::uuid, 'spam', null)::text, true);
+select tests.clear_authentication();
+select is(pg_temp.nn(current_setting('t.mod3'), 'report_new'), 1, 'bit 8 through an overwrite in c2 gets the c2 report notice');
+select is((select count(*)::int from public.notifications where recipient_id = current_setting('t.mod3')::uuid
+  and kind = 'report_new' and channel_id = current_setting('t.c')::uuid), 0, 'mod3 got no notice for channel c');
+select is((select count(*)::int from public.notifications where recipient_id = current_setting('t.vm')::uuid
+  and kind = 'report_new' and channel_id = current_setting('t.c')::uuid), 0, 'bit 8 with VIEW denied: no report_new for channel c');
+
 -- ===== already_reported (same member, same open report) =====
 select tests.authenticate_as(pg_temp.uid(current_setting('t.rep')));
 select throws_ok(format($q$select public.report_message(%L::uuid, 'spam', null)$q$, current_setting('t.m1')), 'already_reported', 'second open report: already_reported');
@@ -143,10 +161,21 @@ select tests.authenticate_as(pg_temp.uid(current_setting('t.rep')));
 select is((select count(*)::int from public.reports), 0, 'the reporter does not see the queue either');
 select tests.clear_authentication();
 select tests.authenticate_as(pg_temp.uid(current_setting('t.mod2')));
-select is((select count(*)::int from public.reports), 0, 'moderator with deny 8 in the channel sees nothing');
+select is((select count(*)::int from public.reports where channel_id = current_setting('t.c')::uuid), 0, 'moderator with deny 8 in the channel sees none of its reports');
 select tests.clear_authentication();
 select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
-select ok((select count(*)::int from public.reports) >= 3, 'moderator with 8 sees the queue');
+-- rep: m1, m5, bulk 1..8 and bulk 9 = 11; rep2: m1 and the c2 message = 2
+select is((select count(*)::int from public.reports), 13, 'moderator with 8 sees exactly the 13 reports');
+select is((select string_agg(distinct snapshot_text, '|' order by snapshot_text) from public.reports where status = 'open'),
+  'bulk 9|estafa total aqui|texto en c2', 'open queue snapshots are exactly the expected texts');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.mod3')));
+select is((select string_agg(snapshot_text, '|') from public.reports), 'texto en c2', 'overwrite-only moderator sees only the c2 report');
+select throws_ok(format($q$select public.resolve_report(%L::uuid, 'dismissed')$q$, current_setting('t.r1')), 'forbidden', 'overwrite-only moderator cannot resolve a report of channel c');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.vm')));
+select is((select count(*)::int from public.reports where channel_id = current_setting('t.c')::uuid), 0, 'bit 8 with VIEW denied sees no report of channel c');
+select throws_ok(format($q$select public.resolve_report(%L::uuid, 'dismissed')$q$, current_setting('t.r1')), 'forbidden', 'bit 8 with VIEW denied cannot resolve');
 select tests.clear_authentication();
 
 -- ===== resolve_report =====
