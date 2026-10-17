@@ -12,6 +12,12 @@ export function EmojiButton({ editor, disabled }: { editor: Editor | null; disab
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
 
+  // Closing the panel from inside returns focus to the trigger so keyboard users keep their place.
+  const close = () => {
+    setOpen(false);
+    wrap.current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
+  };
+
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
@@ -28,7 +34,7 @@ export function EmojiButton({ editor, disabled }: { editor: Editor | null; disab
       onKeyDown={(e) => {
         if (e.key === "Escape" && open) {
           e.stopPropagation();
-          setOpen(false);
+          close();
         }
       }}
     >
@@ -51,6 +57,7 @@ export function EmojiButton({ editor, disabled }: { editor: Editor | null; disab
           >
             <EmojiPicker
               onPick={(emoji) => {
+                // Inserting focuses the editor, which is where typing continues.
                 editor?.chain().focus().insertContent(emoji).run();
                 setOpen(false);
               }}

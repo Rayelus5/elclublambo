@@ -55,6 +55,8 @@ export function Composer(props: ComposerProps) {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
+  const slowRef = useRef(false);
   const [count, setCount] = useState(0);
   const [hasContent, setHasContent] = useState(false);
   const [slow, setSlow] = useState({ seconds: 0, key: 0 });
@@ -72,6 +74,7 @@ export function Composer(props: ComposerProps) {
   const startSlowmode = useCallback((seconds: number) => {
     if (seconds <= 0) return;
     setSlow((s) => ({ seconds, key: s.key + 1 }));
+    slowRef.current = true;
     setSlowActive(true);
   }, []);
 
@@ -100,7 +103,11 @@ export function Composer(props: ComposerProps) {
       const { data, error: err } = await createBrowserClient().rpc("current_member_id");
       if (err || typeof data !== "string") throw new Error("no member");
       return data;
-    })();
+    })().catch((e) => {
+      // Don't cache the failure: the next upload retries.
+      memberId.current = null;
+      throw e;
+    });
     return memberId.current;
   };
 
@@ -142,7 +149,11 @@ export function Composer(props: ComposerProps) {
 
   /** Shared by the compact box and the expanded dialog. Resolves true when the message was posted. */
   const send = async (doc: unknown, expanded: boolean): Promise<boolean> => {
-    if (sending || slowActive || !canPost) return false;
+    if (sendingRef.current || !canPost) return false;
+    if (slowRef.current) {
+      setError("Espera a que termine el tiempo de espera del canal para enviar.");
+      return false;
+    }
     const current = attachmentsRef.current;
     if (current.some((a) => a.status === "uploading")) {
       setError("Espera a que terminen de subir las imágenes.");
@@ -156,6 +167,7 @@ export function Composer(props: ComposerProps) {
       return false;
     }
 
+    sendingRef.current = true;
     setSending(true);
     setError(null);
     const attachmentsPayload: AttachmentInput[] = done.map((a) => a.uploaded);
@@ -167,11 +179,17 @@ export function Composer(props: ComposerProps) {
       quotedId: quoted?.id,
       attachments: attachmentsPayload,
     }).catch(() => ({ error: "unknown" }) as { id?: string; error?: string; slowmodeSeconds?: number });
+    sendingRef.current = false;
     setSending(false);
 
     if (res.error || !res.id) {
-      if (res.error === "slowmode") startSlowmode(res.slowmodeSeconds ?? slowmodeSeconds ?? 0);
-      else setError(rpcErrorMessage(res.error ?? "unknown"));
+      if (res.error === "slowmode") {
+        // The error detail may be missing: ask the server clock before giving up.
+        let seconds = res.slowmodeSeconds ?? 0;
+        if (seconds <= 0) seconds = (await getSlowmodeAction(channelId).catch(() => ({ seconds: 0 }))).seconds;
+        if (seconds > 0) startSlowmode(seconds);
+        else setError(rpcErrorMessage("slowmode"));
+      } else setError(rpcErrorMessage(res.error ?? "unknown"));
       return false;
     }
 
@@ -203,7 +221,8 @@ export function Composer(props: ComposerProps) {
       setHasContent(!isDocEmpty(ed));
       setError(null);
     },
-    editable: canPost && !slowActive,
+    // The cooldown only locks sending: members can keep drafting.
+    editable: canPost,
   });
   useEffect(() => {
     editorRef.current = editor;
@@ -260,7 +279,10 @@ export function Composer(props: ComposerProps) {
           ))}
         </ul>
       ) : null}
-      <SlowmodeTimer seconds={slow.seconds} resetKey={slow.key} onElapsed={() => setSlowActive(false)} />
+      <SlowmodeTimer seconds={slow.seconds} resetKey={slow.key} onElapsed={() => {
+          slowRef.current = false;
+          setSlowActive(false);
+        }} />
       {error ? (
         <p role="alert" className="text-[13px] text-danger">
           {error}
@@ -316,14 +338,14 @@ export function Composer(props: ComposerProps) {
             variant="ghost"
             size="icon"
             aria-label="Adjuntar imagen"
-            disabled={locked || attachments.length >= MAX_ATTACHMENTS}
+            disabled={attachments.length >= MAX_ATTACHMENTS}
             onClick={() => fileInput.current?.click()}
           >
             <Paperclip aria-hidden />
           </Button>
         ) : null}
-        <EmojiButton editor={editor} disabled={locked} />
-        <Button type="button" variant="ghost" size="icon" aria-label="Expandir editor" disabled={locked} onClick={openExpanded}>
+        <EmojiButton editor={editor} />
+        <Button type="button" variant="ghost" size="icon" aria-label="Expandir editor" onClick={openExpanded}>
           <Maximize2 aria-hidden />
         </Button>
         {draft ? <span className="text-[13px] text-fg-muted">Borrador en el editor ampliado</span> : null}
@@ -367,7 +389,7 @@ export function Composer(props: ComposerProps) {
         open={expandedOpen}
         onOpenChange={setExpandedOpen}
         initialDoc={draft}
-        onDraftChange={setDraft}
+        onDraftChange={(doc) => setDraft(doc && docToPlainText(doc) !== "" ? doc : null)}
         canMentionEveryone={canMentionEveryone}
         onAlpha={onAlpha}
         onAttach={canAttach ? () => fileInput.current?.click() : undefined}

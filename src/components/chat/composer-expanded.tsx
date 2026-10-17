@@ -135,7 +135,7 @@ function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEvery
 
   const submit = async () => {
     const ed = editorRef.current;
-    if (!ed || locked || sending) return;
+    if (!ed || sending) return;
     const doc = ed.getJSON();
     if (await onSend(doc)) {
       onDraftChange(null);
@@ -152,9 +152,9 @@ function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEvery
     onSubmit: () => void submit(),
     onUpdate: (ed) => {
       setCount(docToPlainText(ed.getJSON()).length);
-      onDraftChange(ed.getJSON());
+      onDraftChange(docToPlainText(ed.getJSON()) === "" ? null : ed.getJSON());
     },
-    editable: !locked,
+    editable: true,
     initialContent: initialDoc,
   });
   useEffect(() => {
@@ -173,11 +173,11 @@ function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEvery
         {status}
         <div className="flex items-center gap-1">
           {onAttach ? (
-            <Button type="button" variant="ghost" size="icon" aria-label="Adjuntar imagen" onClick={onAttach} disabled={locked}>
+            <Button type="button" variant="ghost" size="icon" aria-label="Adjuntar imagen" onClick={onAttach}>
               <Paperclip aria-hidden />
             </Button>
           ) : null}
-          <EmojiButton editor={editor} disabled={locked} />
+          <EmojiButton editor={editor} />
           <span className="flex-1" />
           <span className={cn("text-[13px] tabular-nums", over ? "text-danger" : "text-fg-muted")}>
             {count} / {EXPANDED_LIMIT}

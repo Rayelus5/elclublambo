@@ -51,13 +51,12 @@ export default function EmojiPicker({ onPick }: { onPick: (emoji: string) => voi
   const category = CATEGORIES.find((c) => c.id === active) ?? CATEGORIES[0]!;
   return (
     <div className="w-72 max-w-[calc(100vw-2rem)] rounded-panel border border-border-strong bg-surface p-2">
-      <div role="tablist" aria-label="Categorías de emoji" className="mb-2 flex flex-wrap gap-1">
+      <div role="group" aria-label="Categorías de emoji" className="mb-2 flex flex-wrap gap-1">
         {CATEGORIES.map((c) => (
           <button
             key={c.id}
             type="button"
-            role="tab"
-            aria-selected={c.id === active}
+            aria-pressed={c.id === active}
             onClick={() => setActive(c.id)}
             className={cn(
               "min-h-11 rounded-control px-2.5 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
@@ -68,7 +67,7 @@ export default function EmojiPicker({ onPick }: { onPick: (emoji: string) => voi
           </button>
         ))}
       </div>
-      <div role="tabpanel" aria-label={category.label} className="grid grid-cols-6 gap-1">
+      <div role="group" aria-label={`Emoji: ${category.label}`} className="grid grid-cols-6 gap-1">
         {category.emoji.map((e) => (
           <button
             key={e}

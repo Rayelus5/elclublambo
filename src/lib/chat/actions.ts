@@ -162,13 +162,15 @@ export async function getSlowmodeAction(channelId: string): Promise<{ seconds: n
 export async function searchMentionTargetsAction(query: string): Promise<MentionSearchResult> {
   const empty: MentionSearchResult = { members: [], roles: [] };
   if (typeof query !== "string") return empty;
-  // No wildcards or PostgREST filter metacharacters; whitespace collapsed.
-  const q = query
-    .replace(/[%_,()*\\:"']/g, "")
+  // No PostgREST filter metacharacters; whitespace collapsed. % and _ are kept but escaped below so they
+  // match literally (a member named "foo_bar" is found by "foo_bar").
+  const clean = query
+    .replace(/[,()*\\:"']/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
-  if (q.length > 42) return empty;
+  if (clean.length > 42) return empty;
+  const q = clean.replace(/[%_]/g, "\\$&");
 
   const supabase = await createServerClient();
   let rolesQuery = supabase.from("roles").select("id, name").eq("is_everyone", false);

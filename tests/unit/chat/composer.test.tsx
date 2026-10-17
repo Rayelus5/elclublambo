@@ -13,12 +13,11 @@ vi.mock("@/lib/chat/actions", () => ({
 }));
 const uploadChatImage = vi.fn();
 vi.mock("@/lib/chat/upload", async (orig) => ({ ...(await orig<typeof import("@/lib/chat/upload")>()), uploadChatImage: (...a: unknown[]) => uploadChatImage(...a) }));
-vi.mock("@/lib/supabase/browser", () => ({
-  createBrowserClient: () => ({ rpc: async () => ({ data: "44444444-4444-4444-8444-444444444444", error: null }) }),
-}));
+const memberRpc = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc: memberRpc }) }));
 
 import { Composer } from "@/components/chat/composer";
-import { SlowmodeTimer } from "@/components/chat/slowmode-timer";
+import { formatDuration, SlowmodeTimer } from "@/components/chat/slowmode-timer";
 
 const CH = "11111111-1111-4111-8111-111111111111";
 const base = { channelId: CH, canPost: true, canAttach: true, canMentionEveryone: false, slowmodeSeconds: 0 };
@@ -41,6 +40,8 @@ beforeEach(() => {
   getSlowmodeAction.mockReset();
   getSlowmodeAction.mockResolvedValue({ seconds: 0 });
   uploadChatImage.mockReset();
+  memberRpc.mockReset();
+  memberRpc.mockResolvedValue({ data: "44444444-4444-4444-8444-444444444444", error: null });
 });
 afterEach(() => vi.useRealTimers());
 
@@ -128,9 +129,76 @@ describe("Composer", () => {
     fireEvent.keyDown(box, { key: "Enter" });
     expect(await screen.findByText("Puedes escribir de nuevo en 12s")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar mensaje" })).toBeDisabled();
-    expect(editor.isEditable).toBe(false);
+    // only sending is locked: the member can keep drafting
+    expect(editor.isEditable).toBe(true);
+    // Enter during the cooldown does not call the server and explains why
+    postMessageAction.mockClear();
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Espera");
+    expect(postMessageAction).not.toHaveBeenCalled();
     // keeps the text the member wrote
     expect(editor.getText()).toBe("hola");
+  });
+
+  it("a slowmode error without details asks the server, and alerts if it is still unknown", async () => {
+    postMessageAction.mockResolvedValue({ error: "slowmode" });
+    getSlowmodeAction.mockResolvedValue({ seconds: 0 });
+    const first = await mount({ slowmodeSeconds: 30 });
+    type(first.editor, "<p>hola</p>");
+    getSlowmodeAction.mockClear();
+    getSlowmodeAction.mockResolvedValue({ seconds: 9 });
+    fireEvent.keyDown(first.box, { key: "Enter" });
+    expect(await screen.findByText("Puedes escribir de nuevo en 9s")).toBeInTheDocument();
+    expect(getSlowmodeAction).toHaveBeenCalledWith(CH);
+  });
+
+  it("a slowmode error with unknown seconds everywhere shows the generic copy", async () => {
+    postMessageAction.mockResolvedValue({ error: "slowmode" });
+    getSlowmodeAction.mockResolvedValue({ seconds: 0 });
+    const { box, editor } = await mount({ slowmodeSeconds: 30 });
+    type(editor, "<p>hola</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Vas demasiado rápido");
+  });
+
+  it("retries resolving the member id after a failure", async () => {
+    uploadChatImage.mockResolvedValue({ path: "p", mime: "image/webp", size: 5, width: 1, height: 1 });
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }));
+    memberRpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    const { box } = await mount();
+    const f = () => new File([new Uint8Array(4)], "a.png", { type: "image/png" });
+    fireEvent.paste(box, { clipboardData: { files: [f()], items: [], getData: () => "" } });
+    await screen.findByRole("alert");
+    expect(uploadChatImage).not.toHaveBeenCalled();
+    fireEvent.paste(box, { clipboardData: { files: [f()], items: [], getData: () => "" } });
+    await waitFor(() => expect(uploadChatImage).toHaveBeenCalledTimes(1));
+    expect(memberRpc).toHaveBeenCalledTimes(2);
+    vi.unstubAllGlobals();
+  });
+
+  it("does not send twice when Enter is pressed again while a post is in flight", async () => {
+    let resolve!: (v: unknown) => void;
+    postMessageAction.mockImplementation(() => new Promise((r) => (resolve = r)));
+    const { box, editor } = await mount();
+    type(editor, "<p>hola</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(postMessageAction).toHaveBeenCalledTimes(1);
+    await act(async () => resolve({ id: "m1" }));
+  });
+
+  it("emoji picker uses pressed category buttons and Escape returns focus to the trigger", async () => {
+    await mount();
+    const trigger = screen.getByRole("button", { name: "Insertar emoji" });
+    await userEvent.click(trigger);
+    expect(await screen.findByRole("group", { name: "Categorías de emoji" })).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Caras" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Gestos" }));
+    expect(screen.getByRole("button", { name: "Gestos" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Categorías de emoji" })).not.toBeInTheDocument());
+    expect(trigger).toHaveFocus();
   });
 
   it("shows other mapped errors with role=alert and keeps the draft", async () => {
@@ -189,21 +257,26 @@ describe("Composer", () => {
 });
 
 describe("SlowmodeTimer", () => {
-  it("counts down and announces politely", () => {
+  it("ticks silently (aria-hidden) and announces only the start and the end", () => {
     vi.useFakeTimers();
     const onElapsed = vi.fn();
-    render(<SlowmodeTimer seconds={3} resetKey={1} onElapsed={onElapsed} />);
+    const { container } = render(<SlowmodeTimer seconds={3} resetKey={1} onElapsed={onElapsed} />);
     const status = screen.getByText("Puedes escribir de nuevo en 3s");
-    expect(status.closest("[aria-live]")).toHaveAttribute("aria-live", "polite");
+    expect(status.closest("[aria-hidden='true']")).not.toBeNull();
+    const live = container.querySelector("[aria-live='polite']")!;
+    expect(live).toHaveClass("sr-only");
+    expect(live.textContent).toBe("Podrás escribir de nuevo en 3s");
     act(() => {
       vi.advanceTimersByTime(1000);
     });
     expect(screen.getByText("Puedes escribir de nuevo en 2s")).toBeInTheDocument();
+    expect(live.textContent).toBe("Podrás escribir de nuevo en 3s");
     act(() => {
       vi.advanceTimersByTime(2000);
     });
     expect(screen.queryByText(/Puedes escribir/)).not.toBeInTheDocument();
     expect(onElapsed).toHaveBeenCalledTimes(1);
+    expect(live.textContent).toBe("Ya puedes escribir");
   });
 
   it("restarts when the reset key changes", () => {
@@ -219,5 +292,17 @@ describe("SlowmodeTimer", () => {
   it("renders no text for 0 seconds (the live region stays mounted)", () => {
     const { container } = render(<SlowmodeTimer seconds={0} resetKey={1} />);
     expect(container.textContent).toBe("");
+  });
+
+  it("formats long durations", () => {
+    expect(formatDuration(5)).toBe("5s");
+    expect(formatDuration(59)).toBe("59s");
+    expect(formatDuration(60)).toBe("1:00");
+    expect(formatDuration(125)).toBe("2:05");
+    expect(formatDuration(3600)).toBe("1:00:00");
+    expect(formatDuration(3725)).toBe("1:02:05");
+    expect(formatDuration(86400)).toBe("1d 0:00");
+    expect(formatDuration(604800)).toBe("7d 0:00");
+    expect(formatDuration(90061)).toBe("1d 1:01");
   });
 });
