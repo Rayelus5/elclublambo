@@ -10,10 +10,12 @@ const keyA = newWalletKey();
 const keyM = newWalletKey();
 const keyN = newWalletKey();
 
+// WalletConnect telemetry is rate limited (429) when the suite runs repeatedly: not an app error.
+const THIRD_PARTY_TELEMETRY = "https://pulse.walletconnect.org/";
 const browserErrors: string[] = [];
 function trackErrors(context: BrowserContext) {
   context.on("console", (m) => {
-    if (m.type() === "error") browserErrors.push(`console: ${m.text()} @ ${m.location().url} (page ${m.page()?.url()})`);
+    if (m.type() === "error" && !m.location().url.startsWith(THIRD_PARTY_TELEMETRY)) browserErrors.push(`console: ${m.text()} @ ${m.location().url} (page ${m.page()?.url()})`);
   });
   context.on("weberror", (e) => browserErrors.push(`pageerror: ${e.error().message}`));
 }
@@ -25,6 +27,7 @@ let n: Actor; // plain member who cannot post in Soporte Técnico
 let ids: Record<string, string>;
 let secretId = "";
 let targetId = "";
+let secretMsgId = "";
 let rootId = "";
 let replyId = "";
 
@@ -57,7 +60,9 @@ const results = (p: Page) => palette(p).getByRole("option");
 /** Opens the palette with the keyboard shortcut and waits for its input to take the focus. */
 async function openPalette(p: Page) {
   // Right after a navigation the shortcut listener may not be attached yet (hydration): press until it answers.
-  // Once open, a further Ctrl+K is swallowed by the palette, so retrying is safe.
+  // Once open, a further Ctrl+K is swallowed by the palette, so retrying is safe. Opening a dialog while the page body
+  // is still hydrating makes Radix mutate the DOM under React (hydration mismatch), so let the network settle first.
+  await p.waitForLoadState("networkidle");
   await expect(async () => {
     await p.keyboard.press("Control+K");
     await expect(palette(p)).toBeVisible({ timeout: 1_500 });
@@ -109,7 +114,7 @@ test.beforeAll(async ({ browser }) => {
     .from("permission_overwrites")
     .insert({ channel_id: secretId, target_type: "role", target_id: everyone.data!.id, allow: 0, deny: 1 });
   expect(hide.error).toBeNull();
-  await seed([{ channel_id: secretId, author_id: admin.id, text: "palabra xilofonoraro solo para el staff", at: new Date() }]);
+  secretMsgId = (await seed([{ channel_id: secretId, author_id: admin.id, text: "palabra xilofonoraro solo para el staff", at: new Date() }]))[0]!;
 
   // General: 100 old root messages. The target is the 21st oldest, so it lies outside the newest page (50) with
   // older messages beyond the +-15 window as well.
@@ -268,7 +273,17 @@ test("6. un mensaje de un canal oculto nunca llega a A; el admin sí lo encuentr
   await expect(hit).toBeVisible();
   await expect(hit).toContainText("#Secreta");
   await admin.page.keyboard.press("Enter");
-  await expect(admin.page).toHaveURL(new RegExp(`/c/${secretId}\\?.*m=`));
+  await expect(admin.page).toHaveURL(new RegExp(`/c/${secretId}\\?.*m=${secretMsgId}`));
+  const secretLi = li(admin.page, secretMsgId);
+  await expect(secretLi).toBeVisible();
+  await expect(secretLi).toHaveAttribute("aria-current", "true");
+
+  // Anchor path: the hidden message id aimed at another channel reveals nothing and highlights nothing.
+  await a.page.goto(`/c/${ids["General"]}?m=${secretMsgId}`);
+  await expect(a.page.getByRole("textbox", { name: "Mensaje", exact: true })).toBeVisible();
+  await a.page.waitForLoadState("networkidle");
+  await expect(a.page.locator('[aria-current="true"]')).toHaveCount(0);
+  await expect(a.page.getByText("xilofonoraro")).toHaveCount(0);
 });
 
 test("7. solo con teclado: Ctrl+K, flechas, Enter y Escape devuelve el foco", async () => {
@@ -305,6 +320,7 @@ test("8. a 375px: el botón de la barra superior y el del drawer abren la paleta
 
   const topButton = page.getByRole("banner").getByRole("button", { name: "Buscar" });
   await expect(topButton).toBeVisible();
+  await page.waitForLoadState("networkidle");
   expect((await topButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await topButton.click();
   await expect(palette(page)).toBeVisible();
@@ -330,7 +346,7 @@ test("8. a 375px: el botón de la barra superior y el del drawer abren la paleta
   expect(await noOverflow()).toBe(true);
   await page.keyboard.press("Escape");
   await expect(palette(page)).toHaveCount(0);
-  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+  await expect(page.getByRole("button", { name: "Abrir menú" })).toBeFocused();
   await page.close();
 });
 

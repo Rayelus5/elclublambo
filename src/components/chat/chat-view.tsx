@@ -487,6 +487,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   // The 2 s highlight starts once the target is on screen (a reply may wait for its thread to load).
   const targetShown =
     highlightId !== null && (roots.some((m) => m.id === highlightId) || (thread?.replies.some((m) => m.id === highlightId) ?? false));
+  const clearHighlight = useCallback(() => setHighlightId(null), []);
   useEffect(() => {
     if (!targetShown) return;
     setAnnouncement("Mostrando el mensaje seleccionado");
@@ -528,6 +529,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           markRead();
         }}
         highlightId={highlightId}
+        onTargetMissing={clearHighlight}
         inDialog={inDialog}
         onEdit={editMessage}
         onDelete={deleteMessage}

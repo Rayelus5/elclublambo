@@ -1,5 +1,5 @@
 begin;
-select plan(55);
+select plan(56);
 
 -- privileges / security mode
 select ok(not (select prosecdef from pg_proc where oid = 'public.search_messages(text,integer,uuid)'::regprocedure), 'search_messages is SECURITY INVOKER');
@@ -74,6 +74,8 @@ update public.channels set gate_mode = 'min_share_bps', gate_value = 100, gate_s
 create or replace function public.gate_passes(p_member uuid, p_channel uuid, p_scope text)
 returns boolean language sql stable security definer set search_path = '' as $$ select false $$;
 select tests.ins(current_setting('t.txtG')::uuid, 'contenido gated zebra');
+-- positive control: the gated row exists and is indexed, so the two 0-counts below really come from the view gate
+select is((select count(*)::int from public.messages where channel_id = current_setting('t.txtG')::uuid and search_tsv @@ to_tsquery('simple', 'gated:*')), 1, 'positive control: the gated message exists and is indexed');
 insert into public.messages (channel_id, author_id, body, body_text, allow_links)
   select current_setting('t.txt')::uuid, current_setting('t.a')::uuid, '{"type":"doc","content":[]}'::jsonb, 'bulkword ' || g, true
   from generate_series(1, 60) g;

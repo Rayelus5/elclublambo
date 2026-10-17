@@ -64,7 +64,7 @@ async function type(input: HTMLElement, value: string) {
 }
 
 describe("CommandPalette", () => {
-  it("has an accessible title and lists Acciones then Canales on an empty query (no forums or categories)", () => {
+  it("has an accessible title and lists Acciones then Canales on an empty query (forums included, categories not)", () => {
     setup();
     expect(screen.getByRole("dialog", { name: "Buscar" })).toBeInTheDocument();
     const groups = screen.getAllByRole("group").map((g) => g.getAttribute("aria-labelledby"));
@@ -73,7 +73,9 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Canales")).toBeInTheDocument();
     expect(screen.getByRole("option", { name: /Crear invitación/ })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "general" })).toBeInTheDocument();
-    expect(screen.queryByText("Foro de ideas")).not.toBeInTheDocument();
+    const forum = screen.getByRole("option", { name: "Foro de ideas" });
+    expect(forum.querySelector("svg.lucide-folder")).not.toBeNull();
+    expect(screen.getByRole("option", { name: "general" }).querySelector("svg.lucide-hash")).not.toBeNull();
     expect(screen.queryByText("Comunidad")).not.toBeInTheDocument();
     expect(h.searchMessages).not.toHaveBeenCalled();
   });

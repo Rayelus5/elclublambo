@@ -5,10 +5,12 @@ import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 // members in two browser contexts. The DB is reset by global-setup; scenarios share state, so run serially.
 test.describe.configure({ mode: "serial" });
 
+// WalletConnect telemetry is rate limited (429) when the suite runs repeatedly: not an app error.
+const THIRD_PARTY_TELEMETRY = "https://pulse.walletconnect.org/";
 const browserErrors: string[] = [];
 function trackErrors(context: BrowserContext) {
   context.on("console", (m) => {
-    if (m.type() === "error") browserErrors.push(`console: ${m.text()} @ ${m.location().url}`);
+    if (m.type() === "error" && !m.location().url.startsWith(THIRD_PARTY_TELEMETRY)) browserErrors.push(`console: ${m.text()} @ ${m.location().url}`);
   });
   context.on("weberror", (e) => browserErrors.push(`pageerror: ${e.error().message}`));
 }

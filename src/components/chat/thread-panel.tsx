@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { Composer } from "@/components/chat/composer";
 import { MessageItem, type MessageItemHandlers } from "@/components/chat/message-item";
@@ -25,6 +25,8 @@ export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "
   inDialog?: boolean;
   /** Reply of a `?m=` jump: centred once the thread has loaded, and highlighted while set. */
   highlightId?: string | null;
+  /** The highlighted reply is not among the loaded replies (thread longer than the page): drop the highlight. */
+  onTargetMissing?: () => void;
 }
 
 /** One-level thread: the root, its replies and a composer bound to the thread. Used inline (≥1024) and in a dialog. */
@@ -41,6 +43,7 @@ export function ThreadPanel({
   onPosted,
   inDialog = false,
   highlightId = null,
+  onTargetMissing,
   ...handlers
 }: ThreadPanelProps) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -54,6 +57,13 @@ export function ThreadPanel({
   }, []);
 
   const count = replies.length;
+  // Once loading ends, an anchor that is not among the replies will never render. The notice outlives the highlight.
+  const [targetMissing, setTargetMissing] = useState(false);
+  const missingNow = highlightId !== null && !loading && root !== null && !replies.some((m) => m.id === highlightId);
+  if (missingNow && !targetMissing) setTargetMissing(true);
+  useEffect(() => {
+    if (missingNow) onTargetMissing?.();
+  }, [missingNow, onTargetMissing]);
   // The jump target is centred the first time it is rendered. After that only a change of the reply count follows
   // the end (clearing the highlight must not yank the reader away).
   const centred = useRef<string | null>(null);
@@ -125,6 +135,11 @@ export function ThreadPanel({
             <p className="border-t border-border pt-3 text-[13px] font-bold text-fg-muted">
               {count === 0 ? "Sin respuestas todavía" : count === 1 ? "1 respuesta" : `${count} respuestas`}
             </p>
+            {targetMissing ? (
+              <p role="status" className="text-sm text-warning">
+                Esta respuesta es demasiado antigua para mostrarla en el hilo.
+              </p>
+            ) : null}
             {count > 0 ? (
               <ol aria-label="Respuestas">
                 {replies.map((m, i) => (

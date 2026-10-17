@@ -87,4 +87,23 @@ describe("ThreadPanel", () => {
     expect(screen.getByText("Mensaje eliminado")).toBeInTheDocument();
     expect(screen.getByText("primera respuesta")).toBeInTheDocument();
   });
+
+  it("tells the reader when the anchored reply is not among the loaded replies and clears the highlight", () => {
+    const onTargetMissing = vi.fn();
+    setup({ highlightId: "99999999-9999-4999-8999-999999999999", onTargetMissing });
+    expect(screen.getByRole("status")).toHaveTextContent("Esta respuesta es demasiado antigua para mostrarla en el hilo.");
+    expect(onTargetMissing).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows no notice while loading or when the anchored reply is present", () => {
+    const onTargetMissing = vi.fn();
+    const root = makeMessage({ body: doc("raíz") });
+    const reply = makeMessage({ threadRootId: root.id, body: doc("hija") });
+    const { unmount } = setup({ root, replies: [reply], highlightId: reply.id, onTargetMissing });
+    expect(screen.queryByText(/demasiado antigua/)).not.toBeInTheDocument();
+    unmount();
+    setup({ root, replies: [], loading: true, highlightId: "99999999-9999-4999-8999-999999999999", onTargetMissing });
+    expect(screen.queryByText(/demasiado antigua/)).not.toBeInTheDocument();
+    expect(onTargetMissing).not.toHaveBeenCalled();
+  });
 });

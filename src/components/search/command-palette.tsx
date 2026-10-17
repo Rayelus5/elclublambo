@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AtSign, Flag, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
+import { AtSign, Flag, Folder, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -127,7 +127,7 @@ function PaletteBody({
 
   const shownActions = useMemo(() => actions.filter((a) => matches(q, a.label, a.keywords)), [actions, q]);
   const shownChannels = useMemo(() => {
-    const textOnly = channels.filter((c) => c.kind === "text").toSorted((a, b) => a.position - b.position);
+    const textOnly = channels.filter((c) => c.kind !== "category").toSorted((a, b) => a.position - b.position);
     if (q !== "") return textOnly.filter((c) => matches(q, c.name, c.topic ?? undefined)).slice(0, 8);
     const recents = readRecents();
     const recent = recents.flatMap((id) => textOnly.find((c) => c.id === id) ?? []);
@@ -181,7 +181,11 @@ function PaletteBody({
                   go(`/c/${c.id}`);
                 }}
               >
-                <Hash aria-hidden className="text-fg-muted" />
+                {c.kind === "forum" ? (
+                  <Folder aria-hidden className="text-fg-muted" />
+                ) : (
+                  <Hash aria-hidden className="text-fg-muted" />
+                )}
                 <span className="min-w-0 truncate">{c.name}</span>
               </CommandItem>
             ))}
