@@ -174,6 +174,107 @@
   max-width: 68ch;
 }
 
+/* Editor del compositor (Tiptap). Solo tokens. */
+.composer-prose {
+  font-size: 15px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.composer-prose .ProseMirror {
+  min-height: 1.55em;
+  outline: none;
+}
+.composer-prose .ProseMirror p {
+  margin: 0;
+}
+.composer-prose .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--fg-muted);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.composer-prose .ProseMirror h1 {
+  font-size: 1.5rem;
+  margin: 0.75em 0 0.25em;
+}
+.composer-prose .ProseMirror h2 {
+  font-size: 1.25rem;
+  margin: 0.75em 0 0.25em;
+}
+.composer-prose .ProseMirror h3 {
+  font-size: 1.05rem;
+  margin: 0.75em 0 0.25em;
+}
+.composer-prose .ProseMirror ul,
+.composer-prose .ProseMirror ol {
+  margin: 0.25em 0;
+  padding-left: 1.5rem;
+}
+.composer-prose .ProseMirror ul {
+  list-style: disc;
+}
+.composer-prose .ProseMirror ol {
+  list-style: decimal;
+}
+.composer-prose .ProseMirror blockquote {
+  margin: 0.5em 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border-strong);
+  color: var(--fg-muted);
+}
+.composer-prose .ProseMirror pre {
+  margin: 0.5em 0;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  overflow-x: auto;
+}
+.composer-prose .ProseMirror code {
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 0.05em 0.3em;
+  font-size: 0.9em;
+}
+.composer-prose .ProseMirror pre code {
+  background: none;
+  padding: 0;
+}
+.composer-prose .ProseMirror hr {
+  border: 0;
+  border-top: 1px solid var(--border-strong);
+  margin: 0.75em 0;
+}
+.composer-prose .ProseMirror table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  table-layout: fixed;
+  width: 100%;
+}
+.composer-prose .ProseMirror th,
+.composer-prose .ProseMirror td {
+  border: 1px solid var(--border-strong);
+  padding: 0.25rem 0.5rem;
+  vertical-align: top;
+}
+.composer-prose .ProseMirror th {
+  background: var(--surface-2);
+  font-weight: 700;
+  text-align: left;
+}
+.composer-prose .ProseMirror .selectedCell {
+  background: var(--surface-2);
+}
+.composer-prose .ProseMirror [data-type="mention"] {
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  border-radius: var(--radius-control);
+  padding: 0 0.3em;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

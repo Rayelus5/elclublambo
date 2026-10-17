@@ -8,8 +8,8 @@ function file(type: string, bytes = 10, name = "x"): File {
 }
 
 /** Mocks createImageBitmap + canvas. `outBytes` is the size of the re-encoded blob. */
-function mockCanvas(opts: { w?: number; h?: number; px?: Px; outBytes?: number; toBlobNull?: boolean } = {}) {
-  const { w = 800, h = 600, px = { alpha: false }, outBytes = 1000, toBlobNull = false } = opts;
+function mockCanvas(opts: { w?: number; h?: number; px?: Px; outBytes?: number; toBlobNull?: boolean; outType?: string } = {}) {
+  const { w = 800, h = 600, px = { alpha: false }, outBytes = 1000, toBlobNull = false, outType } = opts;
   const close = vi.fn();
   vi.stubGlobal("createImageBitmap", vi.fn(async () => ({ width: w, height: h, close })));
   const drawImage = vi.fn();
@@ -17,7 +17,7 @@ function mockCanvas(opts: { w?: number; h?: number; px?: Px; outBytes?: number; 
   if (px.alpha) data[7] = 0;
   const getImageData = vi.fn(() => ({ data }));
   const toBlob = vi.fn((cb: (b: Blob | null) => void, type?: string) => {
-    cb(toBlobNull ? null : new Blob([new Uint8Array(outBytes)], { type }));
+    cb(toBlobNull ? null : new Blob([new Uint8Array(outBytes)], { type: outType ?? type }));
   });
   const canvases: HTMLCanvasElement[] = [];
   const realCreate = document.createElement.bind(document);
@@ -114,6 +114,17 @@ describe("prepareImage", () => {
     await expect(prepareImage(file("image/jpeg"))).rejects.toMatchObject({ code: "image_decode" });
   });
 
+  it("reports the mime the browser really produced (Safari may return png for webp)", async () => {
+    mockCanvas({ outType: "image/png" });
+    const r = await prepareImage(file("image/jpeg"));
+    expect(r.mime).toBe("image/png");
+  });
+
+  it("falls back to the requested mime when the blob has no type", async () => {
+    mockCanvas({ outType: "" });
+    expect((await prepareImage(file("image/jpeg"))).mime).toBe("image/webp");
+  });
+
   it("reports a failed encode", async () => {
     mockCanvas({ toBlobNull: true });
     await expect(prepareImage(file("image/jpeg"))).rejects.toMatchObject({ code: "image_decode" });
@@ -164,5 +175,18 @@ describe("uploadChatImage", () => {
     mockCanvas();
     upload.mockResolvedValueOnce({ data: null, error: { message: "denied" } });
     await expect(uploadChatImage(sb, CH, ME, file("image/jpeg"))).rejects.toMatchObject({ code: "image_upload" });
+  });
+
+  it("picks the extension from the real mime", async () => {
+    mockCanvas({ outType: "image/png" });
+    expect((await uploadChatImage(sb, CH, ME, file("image/jpeg"))).path.endsWith(".png")).toBe(true);
+    expect(upload).toHaveBeenCalledWith(expect.any(String), expect.any(Blob), expect.objectContaining({ contentType: "image/png" }));
+  });
+
+  it("attaches the storage error as cause", async () => {
+    mockCanvas();
+    const storageError = { message: "denied" };
+    upload.mockResolvedValueOnce({ data: null, error: storageError });
+    await expect(uploadChatImage(sb, CH, ME, file("image/jpeg"))).rejects.toMatchObject({ cause: storageError });
   });
 });

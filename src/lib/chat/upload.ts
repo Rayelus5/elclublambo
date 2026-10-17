@@ -17,8 +17,11 @@ const IMAGE_ERROR_COPY: Record<ImageErrorCode, string> = {
 };
 
 export class ImageError extends Error {
-  constructor(public readonly code: ImageErrorCode) {
-    super(IMAGE_ERROR_COPY[code]);
+  constructor(
+    public readonly code: ImageErrorCode,
+    options?: { cause?: unknown },
+  ) {
+    super(IMAGE_ERROR_COPY[code], options);
     this.name = "ImageError";
   }
 }
@@ -69,9 +72,11 @@ export async function prepareImage(file: File): Promise<PreparedImage> {
     ctx.drawImage(bmp, 0, 0, width, height);
 
     const keepPng = file.type === "image/png" && hasTransparency(ctx, width, height);
-    const mime = keepPng ? "image/png" : "image/webp";
-    const blob = await toBlob(canvas, mime, keepPng ? undefined : 0.9);
+    const requested = keepPng ? "image/png" : "image/webp";
+    const blob = await toBlob(canvas, requested, keepPng ? undefined : 0.9);
     if (blob.size > MAX_IMAGE_BYTES) throw new ImageError("image_too_large");
+    // Safari can't encode webp and silently returns a PNG: trust the blob, not the request.
+    const mime = ALLOWED.has(blob.type) ? blob.type : requested;
     return { blob, width, height, mime };
   } finally {
     bmp.close?.();
@@ -103,6 +108,6 @@ export async function uploadChatImage(
   const { error } = await supabase.storage
     .from(CHAT_IMAGES_BUCKET)
     .upload(path, blob, { contentType: mime, upsert: false, cacheControl: "3600" });
-  if (error) throw new ImageError("image_upload");
+  if (error) throw new ImageError("image_upload", { cause: error });
   return { path, mime, size: blob.size, width, height };
 }
