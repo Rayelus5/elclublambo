@@ -1,5 +1,5 @@
 begin;
-select plan(33);
+select plan(34);
 
 -- ===== bucket =====
 select is((select public from storage.buckets where id = 'chat-images'), false, 'chat-images bucket is private');
@@ -92,9 +92,12 @@ select set_config('t.ph', tests.pth(current_setting('t.cH'), current_setting('t.
 select tests.ins(current_setting('t.pv'));
 select tests.ins(current_setting('t.ph'));
 
-select tests.authenticate_as(current_setting('t.uu')::uuid);
+select tests.authenticate_as(current_setting('t.ue')::uuid);
 select is((select count(*)::int from storage.objects where bucket_id = 'chat-images' and name = current_setting('t.pv')), 1,
-  'member who can view the channel reads its image');
+  'uploader reads their own unattached image');
+select tests.authenticate_as(current_setting('t.uu')::uuid);
+select is((select count(*)::int from storage.objects where bucket_id = 'chat-images' and name = current_setting('t.pv')), 0,
+  'another viewer of the channel cannot read an unattached image (final fixes: attached or own only)');
 select is((select count(*)::int from storage.objects where bucket_id = 'chat-images' and name = current_setting('t.ph')), 0,
   'member who cannot view the channel sees 0 rows');
 select tests.authenticate_as(current_setting('t.uf')::uuid);
@@ -102,7 +105,7 @@ select is((select count(*)::int from storage.objects where bucket_id = 'chat-ima
   'member granted VIEW on the hidden channel reads its image');
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select is((select count(*)::int from storage.objects where bucket_id = 'chat-images' and name = current_setting('t.pv')), 1, 'admin reads visible image');
+select is((select count(*)::int from storage.objects where bucket_id = 'chat-images' and name = current_setting('t.pv')), 0, 'admin cannot read another member''s unattached image either');
 select tests.clear_authentication();
 set local role anon;
 select is((select count(*)::int from storage.objects where bucket_id = 'chat-images'), 0, 'anon sees no chat image');
@@ -163,15 +166,13 @@ select throws_ok(format($q$select tests.post(%L::uuid, jsonb_build_array(jsonb_b
   current_setting('t.c'), current_setting('t.pbig')), 'P0001', 'invalid_input', 'object metadata size over 5 MB: invalid_input');
 select tests.clear_authentication();
 
--- an object without metadata falls back to the claims
+-- an object without metadata is rejected: Storage is the only authority (final fixes)
 select set_config('t.pnull', tests.pth(current_setting('t.c'), current_setting('t.e')), true);
 select tests.ins(current_setting('t.pnull'));
 select tests.authenticate_as(current_setting('t.ue')::uuid);
-select set_config('t.msg2', tests.post(current_setting('t.c')::uuid,
-  jsonb_build_array(jsonb_build_object('path', current_setting('t.pnull'), 'mime', 'image/gif', 'size', 77)))::text, true);
+select throws_ok(format($q$select tests.post(%L::uuid, jsonb_build_array(jsonb_build_object('path', %L, 'mime', 'image/gif', 'size', 77)))$q$,
+  current_setting('t.c'), current_setting('t.pnull')), 'P0001', 'invalid_input', 'object without metadata: invalid_input (no client fallback)');
 select tests.clear_authentication();
-select is((select mime || ':' || size_bytes from public.message_attachments where message_id = current_setting('t.msg2')::uuid), 'image/gif:77',
-  'object without metadata keeps the client claims');
 
 -- the same object cannot back two messages
 select tests.authenticate_as(current_setting('t.ue')::uuid);
