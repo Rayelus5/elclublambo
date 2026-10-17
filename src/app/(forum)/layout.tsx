@@ -23,16 +23,20 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const wallet = walletFromUser(user);
   if (!wallet) redirect("/login");
 
-  const [{ data: rawPerms }, channels, me, unreadCount] = await Promise.all([
+  // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
+  // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
+  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
     supabase.rpc("current_member_id"),
     supabase.rpc("my_unread_notification_count"),
+    supabase.rpc("has_any_channel_perm", { p_bit: 8 }),
+    // RLS only returns the tickets the member authored or supports: the number of open ones.
+    supabase.from("tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
-  // Same rule as the reports page (a 404 otherwise): MANAGE_MESSAGES in at least one visible channel. Admins get the
-  // channel bits through channel_permissions, so the RPC covers them too.
-  const canModerate = (await supabase.rpc("has_any_channel_perm", { p_bit: 8 })).data === true;
+  const canModerate = moderates.data === true;
+  const openTicketCount = openTickets.error ? 0 : (openTickets.count ?? 0);
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
   const memberId = typeof me.data === "string" ? me.data : null;
   if (!memberId) redirect("/no-access");
@@ -42,7 +46,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
       <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-none md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
-        <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} />
+        <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} openTickets={openTicketCount} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-12">{children}</main>
         <RightRail />
       </div>

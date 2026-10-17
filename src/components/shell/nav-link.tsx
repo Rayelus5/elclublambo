@@ -4,21 +4,40 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type Props = { href: string; children: React.ReactNode };
+type Props = {
+  href: string;
+  children: React.ReactNode;
+  /** Accessible name when the visible content is not all of it (e.g. with a counter badge). */
+  label?: string;
+  /** Small counter shown at the end of the row. */
+  badge?: string;
+};
 
-export function NavLink({ href, children }: Props) {
+export function NavLink({ href, children, label, badge }: Props) {
   const pathname = usePathname();
   const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
   return (
     <Link
       href={href}
       aria-current={active ? "page" : undefined}
+      aria-label={label}
       className={cn(
         "flex min-h-11 items-center gap-3 border-l-2 px-4 text-sm font-bold transition-colors duration-150 ease-out outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
       )}
     >
       {children}
+      {badge ? (
+        <>
+          <span className="flex-1" />
+          <span
+            aria-hidden
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-control bg-accent px-1 font-mono text-[11px] font-bold text-bg"
+          >
+            {badge}
+          </span>
+        </>
+      ) : null}
     </Link>
   );
 }

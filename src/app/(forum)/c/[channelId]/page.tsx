@@ -5,6 +5,7 @@ import { Folder, Hash, Ticket, Timer, Sparkles } from "lucide-react";
 import { getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
 import { formatSlowmode } from "@/lib/channels/tree";
 import { ChatView } from "@/components/chat/chat-view";
+import { OpenTicketDialog } from "@/components/tickets/open-ticket-dialog";
 import { FollowMenu, type FollowLevel } from "@/components/notifications/follow-menu";
 import { loadChatContext } from "@/lib/chat/context";
 import { createServerClient } from "@/lib/supabase/server";
@@ -39,7 +40,12 @@ async function TextChannel({ channel, threadId }: { channel: ChannelDetail; thre
           {channel.name}
         </h1>
         {channel.topic ? <p className="text-fg-muted">{channel.topic}</p> : null}
-        <FollowMenu key={channel.id} channelId={channel.id} level={followLevel} />
+        <div className="flex flex-wrap items-center gap-2">
+          <FollowMenu key={channel.id} channelId={channel.id} level={followLevel} />
+          {channel.ticketsEnabled && context.viewer.canPost ? (
+            <OpenTicketDialog key={channel.id} channelId={channel.id} channelName={channel.name} />
+          ) : null}
+        </div>
         {channel.slowmodeSeconds > 0 || channel.ticketsEnabled || channel.alphaEnabled ? (
           <ul className="flex flex-wrap gap-2" aria-label="Ajustes del canal">
             {channel.slowmodeSeconds > 0 ? (

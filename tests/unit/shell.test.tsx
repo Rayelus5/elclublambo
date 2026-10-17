@@ -83,6 +83,14 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
   });
 
+  it("always links to Tickets, with the open count when there are any", () => {
+    const { unmount } = renderSidebar(7n);
+    expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
+    unmount();
+    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} />);
+    expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/tickets");
+  });
+
   it("offers sign out", () => {
     renderSidebar(7n);
     expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();

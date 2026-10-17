@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flag, Home, Settings, Ticket, Users } from "lucide-react";
+import { Flag, Home, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -15,9 +15,11 @@ type Props = {
   channels?: ChannelRow[];
   /** MANAGE_MESSAGES in at least one visible channel (has_any_channel_perm): the same rule as the page's 404. */
   canModerate?: boolean;
+  /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
+  openTickets?: number;
 };
 
-function SidebarBody({ perms, wallet, channels = [], canModerate = false }: Props) {
+function SidebarBody({ perms, wallet, channels = [], canModerate = false, openTickets = 0 }: Props) {
   const tree = buildTree(channels);
   return (
     <div className="flex h-full flex-col gap-4 py-6">
@@ -34,6 +36,14 @@ function SidebarBody({ perms, wallet, channels = [], canModerate = false }: Prop
           Inicio
         </NavLink>
         <NotificationBell variant="nav" />
+        <NavLink
+          href="/tickets"
+          label={openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined}
+          badge={openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined}
+        >
+          <LifeBuoy className="size-4" aria-hidden />
+          Tickets
+        </NavLink>
         {hasPerm(perms, Perm.CREATE_INVITES) ? (
           <NavLink href="/invites">
             <Ticket className="size-4" aria-hidden />
