@@ -13,6 +13,8 @@ const WIDTHS = [375, 768, 1024, 1440] as const;
 const adminAddr = E2E_SUPER_ADMIN_ADDRESS.toLowerCase();
 
 test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) => {
+  // 12 pages x 4 widths, each waiting for the network to settle on a dev server that compiles on demand.
+  test.setTimeout(480_000);
   mkdirSync(OUT, { recursive: true });
 
   // Anonymous: /login and an invite landing.
@@ -47,6 +49,10 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
     { name: "channel", ctx: admin, path: `/c/${general!.id}` },
     { name: "settings-channels", ctx: admin, path: "/settings/channels" },
     { name: "settings-roles", ctx: admin, path: "/settings/roles" },
+    // F2c (empty states; the data-backed captures live in f2c-notify / f2c-support)
+    { name: "notifications", ctx: admin, path: "/notifications" },
+    { name: "tickets", ctx: admin, path: "/tickets" },
+    { name: "reports", ctx: admin, path: "/moderation/reports" },
   ];
 
   for (const width of WIDTHS) {
