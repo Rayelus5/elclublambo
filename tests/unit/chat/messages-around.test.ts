@@ -136,6 +136,17 @@ describe("getMessagesAround", () => {
     expect(res.threadRootId).toBeNull();
   });
 
+  it("breaks created_at ties by id on both sides", async () => {
+    const tied = [1, 2, 3, 4, 5].map((n) => row(n, { created_at: ts(1) }));
+    const { client } = fakeClient(tied);
+    const res = await getMessagesAround(client, CH, ME, id(3), { before: 5, after: 5 });
+    expect(res.messages.map((m) => m.id)).toEqual([id(1), id(2), id(3), id(4), id(5)]);
+    const small = await getMessagesAround(client, CH, ME, id(3), { before: 1, after: 1 });
+    expect(small.messages.map((m) => m.id)).toEqual([id(2), id(3), id(4)]);
+    expect(small.hasMore).toBe(true);
+    expect(small.hasNewer).toBe(true);
+  });
+
   it("uses (created_at, id) cursors on both sides", async () => {
     const { client, log } = fakeClient(thirty);
     await getMessagesAround(client, CH, ME, id(15), { before: 3, after: 2 });

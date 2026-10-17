@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -42,13 +42,14 @@ vi.mock("@/lib/chat/actions", () => ({
 const queries = vi.hoisted(() => ({
   getMessage: vi.fn(),
   getMessages: vi.fn(),
+  getMessagesByIds: vi.fn(),
   getThread: vi.fn(),
   getPinned: vi.fn(),
 }));
 vi.mock("@/lib/chat/queries", () => queries);
 
 import { ChatView, type ChatViewProps } from "@/components/chat/chat-view";
-import { emptyDirectory } from "@/lib/chat/model";
+import { emptyDirectory, type ChatMessage } from "@/lib/chat/model";
 import { CHANNEL, directory, doc, makeMessage, ME, OTHER, viewer } from "./fixtures";
 
 const none = emptyDirectory();
@@ -474,13 +475,22 @@ describe("ChatView", () => {
     };
     const item = (id: string) => document.getElementById(`msg-${id}`)!;
 
-    it("scrolls the anchor to the centre and highlights it with aria-current for two seconds", async () => {
-      const msgs = anchored();
-      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: true, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
-      expect(item(msgs[1]!.id)).toHaveAttribute("aria-current", "true");
-      expect(item(msgs[0]!.id)).not.toHaveAttribute("aria-current");
-      expect(scrolls.find((s) => s.id === msgs[1]!.id)?.arg).toMatchObject({ block: "center", behavior: "smooth" });
-      await waitFor(() => expect(item(msgs[1]!.id)).not.toHaveAttribute("aria-current"), { timeout: 3500 });
+    it("scrolls the anchor to the centre, highlights it with aria-current for exactly two seconds and announces it", () => {
+      vi.useFakeTimers();
+      try {
+        const msgs = anchored();
+        setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: true, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+        expect(item(msgs[1]!.id)).toHaveAttribute("aria-current", "true");
+        expect(item(msgs[0]!.id)).not.toHaveAttribute("aria-current");
+        expect(scrolls.find((s) => s.id === msgs[1]!.id)?.arg).toMatchObject({ block: "center", behavior: "smooth" });
+        expect(screen.getByText("Mostrando el mensaje seleccionado")).toBeInTheDocument();
+        act(() => void vi.advanceTimersByTime(1900));
+        expect(item(msgs[1]!.id)).toHaveAttribute("aria-current", "true");
+        act(() => void vi.advanceTimersByTime(200));
+        expect(item(msgs[1]!.id)).not.toHaveAttribute("aria-current");
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("does not animate the scroll under prefers-reduced-motion", () => {
@@ -545,6 +555,85 @@ describe("ChatView", () => {
       expect(actions.markReadAction).not.toHaveBeenCalled();
     });
 
+    const anchoredProps = (msgs: ChatMessage[]) => ({
+      initialAnchorId: msgs[1]!.id,
+      initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null },
+    });
+
+    it("only a created root beyond the window raises 'Hay mensajes nuevos' and the announcement", async () => {
+      const msgs = anchored();
+      setup(anchoredProps(msgs), msgs);
+      const incoming = makeMessage({ createdAt: at(40), body: doc("llegó al final") });
+      queries.getMessage.mockResolvedValue({ message: incoming, messages: [incoming], directory });
+      await emit(incoming.id, ["message_updated", "reaction_added"]);
+      await emit(incoming.id, ["message_pinned"]);
+      expect(screen.queryByText("Hay mensajes nuevos")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Mensaje nuevo de/)).not.toBeInTheDocument();
+      await emit(incoming.id, ["message_created"]);
+      expect(await screen.findByText("Hay mensajes nuevos")).toBeInTheDocument();
+      expect(screen.getByText(/Mensaje nuevo de/)).toBeInTheDocument();
+    });
+
+    it("a reply-driven reconcile of a root beyond the window is not news", async () => {
+      const msgs = anchored();
+      setup(anchoredProps(msgs), msgs);
+      const far = makeMessage({ createdAt: at(40), body: doc("raíz lejana"), replyCount: 1 });
+      queries.getMessage.mockImplementation(async (_s: unknown, id: string) =>
+        id === far.id ? { message: far, messages: [far], directory } : { message: null, messages: [], directory: none },
+      );
+      await emit("99999999-9999-4999-8999-999999999999", ["message_created"], far.id);
+      await waitFor(() => expect(queries.getMessage).toHaveBeenCalledWith(expect.anything(), far.id, ME));
+      expect(screen.queryByText("Hay mensajes nuevos")).not.toBeInTheDocument();
+    });
+
+    it("resync in an anchored view re-reads the loaded window by id: applies edits, drops deletions, appends nothing", async () => {
+      const msgs = anchored();
+      setup(anchoredProps(msgs), msgs);
+      const edited = { ...msgs[0]!, body: doc("uno editado") };
+      queries.getMessagesByIds.mockResolvedValue({ messages: [edited, msgs[1]!], directory });
+      await act(async () => h.onResync?.());
+      expect(await screen.findByText("uno editado")).toBeInTheDocument();
+      expect(screen.queryByText("tres")).not.toBeInTheDocument();
+      expect(queries.getMessagesByIds.mock.calls[0]![1]).toEqual(msgs.map((m) => m.id));
+      expect(queries.getMessages).not.toHaveBeenCalled();
+      expect(screen.queryByText("Hay mensajes nuevos")).not.toBeInTheDocument();
+    });
+
+    it("posting from an anchored view goes to the latest window", () => {
+      const msgs = anchored();
+      setup(anchoredProps(msgs), msgs);
+      const onPosted = h.composer.at(-1)!.onPosted as (id: string) => void;
+      act(() => onPosted("11111111-1111-4111-8111-111111111111"));
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+    });
+
+    it("shows an inline error with a retry when 'Ir a lo más reciente' never completes", () => {
+      vi.useFakeTimers();
+      try {
+        const msgs = anchored();
+        setup(anchoredProps(msgs), msgs);
+        fireEvent.click(screen.getByRole("button", { name: "Ir a lo más reciente" }));
+        expect(screen.getByRole("button", { name: "Ir a lo más reciente" })).toBeDisabled();
+        act(() => void vi.advanceTimersByTime(8100));
+        expect(screen.getByRole("alert")).toHaveTextContent("No se pudo cargar lo más reciente");
+        const retry = screen.getByRole("button", { name: "Reintentar" });
+        expect(retry).toBeEnabled();
+        fireEvent.click(retry);
+        expect(h.replace).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("keeps ?m and the nonce when closing the thread of a root anchor", async () => {
+      const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 1 });
+      queries.getThread.mockResolvedValue({ root: r, replies: [], directory: none });
+      setup({ initialThreadId: r.id, initialAnchorId: r.id, initialAnchorNonce: "n1" }, [r]);
+      const panel = await screen.findByRole("dialog", { name: "Hilo" });
+      await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}?m=${r.id}&h=n1`, { scroll: false });
+    });
+
     it("a reply anchor opens its thread and highlights the reply there", async () => {
       const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 2 });
       const a = makeMessage({ threadRootId: r.id, createdAt: at(2), body: doc("otra respuesta") });
@@ -556,6 +645,11 @@ describe("ChatView", () => {
       expect(hit).toHaveAttribute("aria-current", "true");
       expect(within(panel).getByText("otra respuesta").closest("li")).not.toHaveAttribute("aria-current");
       await waitFor(() => expect(scrolls.some((s) => s.id === target.id)).toBe(true));
+      // the main list shows the root, not the bottom of the window
+      expect(scrolls.some((s) => s.id === r.id)).toBe(true);
+      // closing the thread drops m as well, otherwise a refresh would reopen it
+      await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
     });
   });
 

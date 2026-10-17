@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pin, X } from "lucide-react";
 import { CANCEL_EDIT_EVENT } from "@/components/chat/message-edit";
@@ -32,7 +32,7 @@ import {
   type ReactionChip,
   type ViewerPermissions,
 } from "@/lib/chat/model";
-import { getMessage, getMessages, getPinned, getThread } from "@/lib/chat/queries";
+import { getMessage, getMessages, getMessagesByIds, getPinned, getThread } from "@/lib/chat/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
@@ -52,6 +52,11 @@ export interface ChatViewProps {
    * centred and highlighted for 2 s; when it is a reply, `initialThreadId` is its thread and it is highlighted there.
    */
   initialAnchorId?: string | null;
+  /**
+   * `&h=<nonce>` from the search palette (page-validated). Only the page uses it (it is part of the view key, so
+   * choosing the same message again remounts and re-highlights); ChatView keeps it in the URLs it writes back.
+   */
+  initialAnchorNonce?: string | null;
   initial: {
     messages: ChatMessage[];
     hasMore: boolean;
@@ -74,6 +79,7 @@ interface ThreadState {
 const NOTICE_MS = 7000;
 const THROTTLE_MS = 5000;
 const HIGHLIGHT_MS = 2000;
+const LATEST_TIMEOUT_MS = 8000;
 
 const byPinnedDesc = (a: ChatMessage, b: ChatMessage) => cmpTime(b.pinnedAt ?? "", a.pinnedAt ?? "");
 
@@ -83,7 +89,7 @@ function upsertPinned(list: readonly ChatMessage[], m: ChatMessage): ChatMessage
 }
 
 /** The chat of one text channel: timeline, pins, threads, realtime reconciliation and read marks. */
-export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null }: ChatViewProps) {
+export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null, initialAnchorNonce = null }: ChatViewProps) {
   const channelId = channel.id;
   const meId = viewer.memberId;
   const { refresh: refreshUnread } = useUnread();
@@ -105,7 +111,17 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const [hasNewer] = useState(initial.hasNewer ?? false);
   const [pendingNew, setPendingNew] = useState(false);
   const [highlightId, setHighlightId] = useState<string | null>(initialAnchorId);
-  const [goingLatest, startLatest] = useTransition();
+  const [latest, setLatest] = useState<"idle" | "loading" | "error">("idle");
+  const latestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (latestTimer.current) clearTimeout(latestTimer.current);
+    },
+    [],
+  );
+  // A reply anchor is not in the list: the list scrolls to its thread root instead.
+  const anchorIsReply = initialAnchorId !== null && initialThreadId !== null && !initial.messages.some((m) => m.id === initialAnchorId);
+  const listScrollId = anchorIsReply ? initialThreadId : initialAnchorId;
 
   const rootsRef = useRef(roots);
   const hasMoreRef = useRef(hasMore);
@@ -221,12 +237,13 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   }, []);
 
   const apply = useCallback(
-    (m: ChatMessage) => {
+    (m: ChatMessage, created = false) => {
       if (m.threadRootId === null) {
         const list = rootsRef.current;
         const isNew = !list.some((x) => x.id === m.id);
-        if (isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
-        if (isNew && m.authorId !== meId && !m.deletedAt) {
+        // Only a freshly CREATED root counts as news: edits, reactions, pins, deletes and reply-driven reconciles do not.
+        if (created && isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
+        if (created && isNew && m.authorId !== meId && !m.deletedAt) {
           setAnnouncement(`Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}`);
         }
         setRoots((l) => applyToWindow(l, m, hasMoreRef.current, hasNewerRef.current));
@@ -241,7 +258,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
 
   /** Re-reads one message through RLS and folds it into whatever is on screen. Stale answers are dropped. */
   const reconcile = useCallback(
-    async (id: string) => {
+    async (id: string, created = false) => {
       const ticket = (requests.current.get(id) ?? 0) + 1;
       requests.current.set(id, ticket);
       let result;
@@ -256,7 +273,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         return;
       }
       mergeDir(result.directory);
-      apply(result.message);
+      apply(result.message, created);
     },
     [apply, meId, mergeDir, remove],
   );
@@ -264,16 +281,24 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const resync = useCallback(async () => {
     const supabase = createBrowserClient();
     try {
-      const [page, pins] = await Promise.all([getMessages(supabase, channelId, meId), getPinned(supabase, channelId, meId)]);
+      const anchored = hasNewerRef.current;
+      const loaded = rootsRef.current.map((m) => m.id);
+      const [page, pins] = await Promise.all([
+        // Anchored view: the newest page is not what is on screen, so the loaded window itself is re-read by id.
+        anchored ? getMessagesByIds(supabase, loaded, meId) : getMessages(supabase, channelId, meId),
+        getPinned(supabase, channelId, meId),
+      ]);
       mergeDir(page.directory);
       mergeDir(pins.directory);
-      // The fresh newest page replaces the newest slice, so messages hard-deleted while away disappear.
-      if (hasNewerRef.current) {
-        // Anchored view: the newest slice is not what is on screen, so it must not replace the window.
-        setPendingNew(true);
+      if (anchored) {
+        // Edits are applied and messages deleted for good while away are dropped; nothing is appended.
+        const fresh = new Map(page.messages.map((m) => [m.id, m]));
+        setRoots((l) => keepSignedUrls(l, l.flatMap((m) => fresh.get(m.id) ?? [])));
       } else {
-        setRoots((l) => replaceNewest(l, keepSignedUrls(l, page.messages), page.hasMore));
-        if (!page.hasMore) setHasMore(false);
+        // The fresh newest page replaces the newest slice, so messages hard-deleted while away disappear.
+        const newest = page as Awaited<ReturnType<typeof getMessages>>;
+        setRoots((l) => replaceNewest(l, keepSignedUrls(l, newest.messages), newest.hasMore));
+        if (!newest.hasMore) setHasMore(false);
       }
       setPinned((l) => keepSignedUrls(l, pins.messages));
       const open = threadRef.current;
@@ -304,7 +329,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   useChannelEvents(
     channelId,
     (event: ChannelEvent) => {
-      void reconcile(event.id);
+      void reconcile(event.id, event.events.includes("message_created"));
       if (event.threadRootId) void reconcile(event.threadRootId);
       eventRefresh.current?.call();
       if (atBottom.current) markRead();
@@ -382,20 +407,28 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   // shared link does not reopen it. `replace` swaps the URL without adding a history entry or scrolling.
   const router = useRouter();
   const goLatest = useCallback(() => {
-    // Dropping `m` changes the page's view key: the server renders the normal latest window and the chat remounts on it.
-    startLatest(() => router.replace(`/c/${channelId}`, { scroll: false }));
+    // Dropping `m` (and `h`) changes the page's view key: the server renders the normal latest window and the chat
+    // remounts on it. If this view is still here after a while the navigation failed: say so and allow a retry.
+    setLatest("loading");
+    if (latestTimer.current) clearTimeout(latestTimer.current);
+    latestTimer.current = setTimeout(() => setLatest("error"), LATEST_TIMEOUT_MS);
+    router.replace(`/c/${channelId}`, { scroll: false });
   }, [channelId, router]);
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;
     setThread(null);
-    // Keep `m` (the anchored window) when there is one: only the thread goes away.
-    if (initialThreadId) router.replace(initialAnchorId ? `/c/${channelId}?m=${initialAnchorId}` : `/c/${channelId}`, { scroll: false });
+    // The thread of a reply anchor is derived from `m`, so `m` goes with it (otherwise a refresh would reopen it). A
+    // root anchor keeps `m` (and its nonce): only the thread goes away and the window stays.
+    if (initialThreadId) {
+      const keep = initialAnchorId && !anchorIsReply ? `?m=${initialAnchorId}${initialAnchorNonce ? `&h=${initialAnchorNonce}` : ""}` : "";
+      router.replace(`/c/${channelId}${keep}`, { scroll: false });
+    }
     const opener = openerRef.current;
     openerRef.current = null;
     requestAnimationFrame(() => {
       if (opener?.isConnected) opener.focus();
     });
-  }, [initialThreadId, initialAnchorId, channelId, router]);
+  }, [initialThreadId, initialAnchorId, initialAnchorNonce, anchorIsReply, channelId, router]);
 
   // --- message actions ----------------------------------------------------------------------------
 
@@ -451,6 +484,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     highlightId !== null && (roots.some((m) => m.id === highlightId) || (thread?.replies.some((m) => m.id === highlightId) ?? false));
   useEffect(() => {
     if (!targetShown) return;
+    setAnnouncement("Mostrando el mensaje seleccionado");
     const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [targetShown]);
@@ -528,10 +562,11 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           onAtBottomChange={onAtBottomChange}
           scrollToBottomKey={scrollKey}
           highlightId={highlightId}
+          scrollToId={listScrollId}
           hasNewer={hasNewer}
           pendingNew={pendingNew}
           onGoLatest={goLatest}
-          goingLatest={goingLatest}
+          latest={latest}
           {...itemHandlers}
         />
 

@@ -21,7 +21,7 @@ function Chip({ icon: Icon, children }: { icon: typeof Timer; children: React.Re
   );
 }
 
-async function TextChannel({ channel, threadId, messageId }: { channel: ChannelDetail; threadId: string | null; messageId: string | null }) {
+async function TextChannel({ channel, threadId, messageId, nonce }: { channel: ChannelDetail; threadId: string | null; messageId: string | null; nonce: string | null }) {
   const supabase = await createServerClient();
   const [{ anchor, ...context }, follow] = await Promise.all([
     loadChatContext(channel.id, messageId),
@@ -56,13 +56,15 @@ async function TextChannel({ channel, threadId, messageId }: { channel: ChannelD
           </ul>
         ) : null}
       </header>
-      {/* A new `?m=` (e.g. from the search palette, same channel) remounts the view so it loads that window. A reply
+      {/* Contract with the search palette: `?m=<messageId>[&h=<nonce>]`. `h` is any short token ([A-Za-z0-9_-], 1-32); it
+          only exists to change this key, so choosing the SAME message again remounts the view and re-highlights it. A new `?m=` (e.g. from the search palette, same channel) remounts the view so it loads that window. A reply
           anchor always opens its own thread, derived under RLS from the message (it wins over a stale `?thread=`). */}
       <ChatView
-        key={`${channel.id}:${messageId ?? ""}`}
+        key={`${channel.id}:${messageId ?? ""}:${nonce ?? ""}`}
         channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }}
         initialThreadId={anchor?.threadRootId ?? threadId}
         initialAnchorId={anchor?.id ?? null}
+        initialAnchorNonce={nonce}
         {...context}
       />
     </div>
@@ -109,13 +111,14 @@ async function ChannelContent({
   searchParams,
 }: {
   params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ thread?: string | string[]; m?: string | string[] }>;
+  searchParams: Promise<{ thread?: string | string[]; m?: string | string[]; h?: string | string[] }>;
 }) {
   const { channelId } = await params;
-  const { thread, m } = await searchParams;
+  const { thread, m, h } = await searchParams;
   // A notification link opens this thread; anything that is not a uuid is ignored.
   const threadId = typeof thread === "string" && UUID.test(thread) ? thread : null;
   // `?m=<messageId>` jumps to a message (search results); anything that is not a uuid is ignored.
+  const nonce = typeof h === "string" && /^[\w-]{1,32}$/.test(h) ? h : null;
   const messageId = typeof m === "string" && UUID.test(m) ? m : null;
   if (!UUID.test(channelId)) notFound();
 
@@ -124,7 +127,7 @@ async function ChannelContent({
   const channel = all.find((c) => c.id === channelId);
   if (!channel) notFound();
 
-  if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} messageId={messageId} />;
+  if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} messageId={messageId} nonce={nonce} />;
   const kids = all.filter((c) => c.parentId === channel.id).toSorted((a, b) => a.position - b.position);
   return <ChildList channel={channel} items={kids} />;
 }
@@ -134,7 +137,7 @@ export default function ChannelPage({
   searchParams,
 }: {
   params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ thread?: string | string[]; m?: string | string[] }>;
+  searchParams: Promise<{ thread?: string | string[]; m?: string | string[]; h?: string | string[] }>;
 }) {
   return (
     <Suspense fallback={<div className="min-h-64" aria-hidden />}>

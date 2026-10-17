@@ -30,7 +30,10 @@ export interface MessageListProps extends MessageItemHandlers {
   /** Sticky notice that live messages arrived but were not appended (needs `hasNewer`). */
   pendingNew?: boolean;
   onGoLatest?: () => void;
-  goingLatest?: boolean;
+  /** State of "Ir a lo más reciente": `error` after a navigation that never completed. */
+  latest?: "idle" | "loading" | "error";
+  /** Initial scroll target when it differs from the highlight (the root of a reply anchor). */
+  scrollToId?: string | null;
 }
 
 /**
@@ -52,7 +55,8 @@ export function MessageList({
   hasNewer = false,
   pendingNew = false,
   onGoLatest,
-  goingLatest = false,
+  latest = "idle",
+  scrollToId = null,
   ...handlers
 }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -65,7 +69,7 @@ export function MessageList({
   });
   const [hasNew, setHasNew] = useState(false);
   // The initial placement happens once: the anchor if there is one in the window, the bottom otherwise.
-  const initialAnchor = useRef(highlightId);
+  const initialAnchor = useRef(scrollToId ?? highlightId);
 
   const report = useCallback(
     (value: boolean) => {
@@ -168,19 +172,37 @@ export function MessageList({
       </div>
 
       {hasNewer ? (
-        <Button
-          type="button"
-          size="sm"
-          disabled={goingLatest}
-          aria-busy={goingLatest}
-          onClick={onGoLatest}
-          className="absolute right-4 bottom-3"
-        >
-          {goingLatest ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ArrowDown aria-hidden />}
-          {pendingNew ? "Hay mensajes nuevos" : null}
-          {pendingNew ? <span className="sr-only">. </span> : null}
-          <span className={pendingNew ? "border-l border-current/40 pl-2" : undefined}>Ir a lo más reciente</span>
-        </Button>
+        <div className="absolute right-4 bottom-3 left-4 flex flex-col items-end gap-2">
+          {latest === "error" ? (
+            <p role="alert" className="rounded-control border border-danger bg-surface px-3 py-2 text-sm text-danger">
+              No se pudo cargar lo más reciente. Inténtalo de nuevo.
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            disabled={latest === "loading"}
+            aria-busy={latest === "loading"}
+            onClick={onGoLatest}
+            className="max-w-full"
+          >
+            {latest === "loading" ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ArrowDown aria-hidden />}
+            {latest === "error" ? <span>Reintentar</span> : null}
+            {latest !== "error" && pendingNew ? (
+              <>
+                {/* Below sm the long copy would not fit 375 px: a short visible label, the full one for readers. */}
+                <span aria-hidden className="sm:hidden">
+                  Nuevos
+                </span>
+                <span className="sr-only sm:not-sr-only">Hay mensajes nuevos</span>
+                <span className="sr-only">. </span>
+              </>
+            ) : null}
+            {latest !== "error" ? (
+              <span className={pendingNew ? "border-l border-current/40 pl-2" : undefined}>Ir a lo más reciente</span>
+            ) : null}
+          </Button>
+        </div>
       ) : hasNew ? (
         <Button
           type="button"

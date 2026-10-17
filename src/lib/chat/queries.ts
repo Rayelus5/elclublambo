@@ -282,6 +282,21 @@ export async function getMessagesAround(
   };
 }
 
+const BY_IDS_CHUNK = 100;
+
+/** Root messages by id under RLS (anything deleted for good or no longer visible is simply absent). Unordered. */
+export async function getMessagesByIds(supabase: SupabaseClient, ids: readonly string[], meId: string): Promise<Hydrated> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += BY_IDS_CHUNK) chunks.push(ids.slice(i, i + BY_IDS_CHUNK));
+  const rows: MessageRow[] = [];
+  for (const chunk of chunks) {
+    const { data, error } = await supabase.from("messages").select(COLUMNS).in("id", chunk).is("thread_root_id", null).returns<MessageRow[]>();
+    if (error) throw error;
+    rows.push(...(data ?? []));
+  }
+  return hydrateMessages(supabase, rows, meId);
+}
+
 /** One message by id, or null when it does not exist or the member cannot see it (RLS). */
 export async function getMessage(supabase: SupabaseClient, id: string, meId: string): Promise<Hydrated & { message: ChatMessage | null }> {
   const { data, error } = await supabase.from("messages").select(COLUMNS).eq("id", id).maybeSingle<MessageRow>();
