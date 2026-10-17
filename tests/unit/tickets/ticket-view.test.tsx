@@ -218,4 +218,34 @@ describe("TicketView", () => {
     });
     expect(await screen.findByText("Ticket cerrado")).toBeInTheDocument();
   });
+  it("after the author confirms Cerrar, focus moves to the Ticket cerrado banner (not body)", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Cerrar ticket" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, cerrar" }));
+    const banner = await screen.findByText("Ticket cerrado");
+    await waitFor(() => expect(banner.closest("[role='status']")).toHaveFocus());
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it("after staff closes, focus goes to Reabrir ticket; after reopening, back to Cerrar ticket", async () => {
+    setup({ viewer: { isStaff: true } });
+    await userEvent.click(screen.getByRole("button", { name: "Cerrar ticket" }));
+    await userEvent.click(screen.getByRole("button", { name: "Sí, cerrar" }));
+    const reopen = await screen.findByRole("button", { name: "Reabrir ticket" });
+    await waitFor(() => expect(reopen).toHaveFocus());
+    await userEvent.click(reopen);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cerrar ticket" })).toHaveFocus());
+  });
+
+  it("a realtime close does not steal focus from the composer", async () => {
+    setup();
+    const box = screen.getByLabelText(/Escribe tu respuesta/);
+    await userEvent.type(box, "a medias");
+    h.getState.mockResolvedValue({ status: "closed" });
+    await act(async () => {
+      h.handlers.onUpdated?.();
+    });
+    await screen.findByText("Ticket cerrado");
+    expect(screen.getByText("Ticket cerrado").closest("[role='status']")).not.toHaveFocus();
+  });
 });

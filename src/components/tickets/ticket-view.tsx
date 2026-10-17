@@ -41,6 +41,12 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
   const [pending, startTransition] = useTransition();
   const seen = useRef(new Set(initialMessages.map((m) => m.id)));
   const endRef = useRef<HTMLDivElement>(null);
+  // Focus target after a status change made from this screen: the control that triggered it disappears, so focus
+  // would otherwise fall back to <body>. Realtime/remote changes never set it (they must not steal focus).
+  const focusAfter = useRef<"closed" | "open" | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const reopenRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
 
   // Events carry ids only: the message is always re-read through RLS, and never added twice.
   const addMessage = useCallback(
@@ -76,6 +82,15 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
     endRef.current?.scrollIntoView?.({ block: "end" });
   }, [messages.length]);
 
+  useEffect(() => {
+    const target = focusAfter.current;
+    // wait for the transition to end: the buttons are disabled while it is pending and a disabled button can't focus
+    if (!target || target !== status || pending) return;
+    focusAfter.current = null;
+    const el = status === "closed" ? (viewer.isStaff ? reopenRef.current : bannerRef.current) : closeRef.current;
+    el?.focus();
+  }, [status, pending, viewer.isStaff]);
+
   const change = (next: TicketStatus) => {
     setError(null);
     startTransition(async () => {
@@ -84,6 +99,7 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
         setError(rpcErrorMessage(res.error));
         return;
       }
+      focusAfter.current = next;
       setStatus(next);
     });
   };
@@ -112,12 +128,12 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
           <span className="text-[13px] text-fg-muted">en #{ticket.channelName}</span>
           <span className="flex-1" />
           {!closed ? (
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => setConfirmClose(true)}>
+            <Button ref={closeRef} type="button" variant="secondary" disabled={pending} onClick={() => setConfirmClose(true)}>
               <Lock aria-hidden />
               Cerrar ticket
             </Button>
           ) : viewer.isStaff ? (
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => change("open")}>
+            <Button ref={reopenRef} type="button" variant="secondary" disabled={pending} onClick={() => change("open")}>
               <RotateCcw aria-hidden />
               Reabrir ticket
             </Button>
@@ -155,7 +171,12 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
       <div ref={endRef} aria-hidden />
 
       {closed ? (
-        <div role="status" className="flex items-start gap-3 rounded-panel border border-border-strong bg-surface px-4 py-3">
+        <div
+          ref={bannerRef}
+          role="status"
+          tabIndex={-1}
+          className="flex items-start gap-3 rounded-panel border border-border-strong bg-surface px-4 py-3 outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
           <Lock className="mt-0.5 size-4 shrink-0 text-fg-muted" aria-hidden />
           <div className="flex flex-col gap-0.5">
             <strong className="text-sm font-bold text-fg">Ticket cerrado</strong>
