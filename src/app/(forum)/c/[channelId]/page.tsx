@@ -41,9 +41,9 @@ async function TextChannel({ channel, threadId }: { channel: ChannelDetail; thre
         </h1>
         {channel.topic ? <p className="text-fg-muted">{channel.topic}</p> : null}
         <div className="flex flex-wrap items-center gap-2">
-          <FollowMenu key={channel.id} channelId={channel.id} level={followLevel} />
+          <FollowMenu key={`follow-${channel.id}`}channelId={channel.id} level={followLevel} />
           {channel.ticketsEnabled && context.viewer.canPost ? (
-            <OpenTicketDialog key={channel.id} channelId={channel.id} channelName={channel.name} />
+            <OpenTicketDialog key={`tickets-${channel.id}`}channelId={channel.id} channelName={channel.name} />
           ) : null}
         </div>
         {channel.slowmodeSeconds > 0 || channel.ticketsEnabled || channel.alphaEnabled ? (

@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
+import { isHiddenReportsPage } from "@/lib/reports/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
 
 export async function proxy(request: NextRequest) {
@@ -42,7 +43,13 @@ export async function proxy(request: NextRequest) {
 
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
   // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
-  if (user && ((await isMissingChannel(supabase, pathname)) || (await isMissingTicket(supabase, pathname)))) {
+  // The report queue does not exist either for a member who moderates no channel.
+  if (
+    user &&
+    ((await isMissingChannel(supabase, pathname)) ||
+      (await isMissingTicket(supabase, pathname)) ||
+      (await isHiddenReportsPage(supabase, pathname)))
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;
     url.search = "";
