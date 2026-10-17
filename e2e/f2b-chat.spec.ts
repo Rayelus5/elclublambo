@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
@@ -15,6 +16,8 @@ const browserErrors: string[] = [];
 function trackErrors(context: BrowserContext) {
   context.on("console", (m) => {
     if (m.type() === "error") browserErrors.push(`console: ${m.text()} @ ${m.location().url}`);
+    // Several Tiptap editors used to re-register link protocols and make linkifyjs warn; that must stay fixed.
+    if (m.type() === "warning" && m.text().includes("linkifyjs")) browserErrors.push(`warning: ${m.text()}`);
   });
   context.on("weberror", (e) => browserErrors.push(`pageerror: ${e.error().message}`));
 }
@@ -54,6 +57,36 @@ const send = async (page: Page, text: string) => {
   await composer(page).press("Enter");
 };
 const messageWith = (page: Page, text: string) => page.locator("li[data-message-id]", { hasText: text }).first();
+
+/**
+ * Joins the private realtime topic of a channel with the session of a browser context (its auth cookies), the same
+ * way the app's client does, and returns the final join status.
+ */
+async function privateJoinStatus(ctx: BrowserContext, channelId: string): Promise<string> {
+  const jar = (await ctx.cookies()).map((c) => ({ name: c.name, value: c.value }));
+  const ssr = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: { getAll: () => jar, setAll: () => {} },
+  });
+  const { data } = await ssr.auth.getSession();
+  const token = data.session?.access_token;
+  expect(token, "session token from the context cookies").toBeTruthy();
+  const rt = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  await rt.realtime.setAuth(token!);
+  const ch = rt.channel(`channel:${channelId}`, { config: { private: true } });
+  const status = await new Promise<string>((resolve) => {
+    const t = setTimeout(() => resolve("TIMEOUT"), 10_000);
+    ch.subscribe((s) => {
+      if (s === "SUBSCRIBED" || s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
+        clearTimeout(t);
+        resolve(s);
+      }
+    });
+  });
+  await rt.removeAllChannels();
+  return status;
+}
 
 async function createInvite(page: Page): Promise<string> {
   await page.goto("/invites");
@@ -182,7 +215,7 @@ test("4. slowmode de 5 s: el segundo mensaje de B muestra la cuenta atrás y lue
   await expect(messageWith(bPage, "dos")).toBeVisible();
 });
 
-test("5. enlaces: sin EMBED_LINKS son texto; de un dominio no permitido llevan a /out con el aviso", async ({ context }) => {
+test("5. enlaces: sin EMBED_LINKS son texto; de un dominio no permitido llevan a /out con el aviso", async () => {
   await openChannel(bPage, "General");
   await openChannel(modPage, "General");
 
@@ -209,11 +242,16 @@ test("5. enlaces: sin EMBED_LINKS son texto; de un dominio no permitido llevan a
   await expect(popup.getByText("ejemplo-mod.com", { exact: true })).toBeVisible();
   await expect(popup.getByText(/Nunca conectes tu wallet/)).toBeVisible();
   await popup.close();
-  void context;
 });
 
-test("6. un canal sin VIEW no emite eventos al miembro: nada aparece en su vista ni en su barra", async () => {
-  // B has General open; the admin posts in the hidden channel and then, as a sentinel, in General.
+test("6. un canal sin VIEW: B no puede unirse a su tema realtime y nada aparece en su vista ni en su barra", async () => {
+  // Realtime authorization itself: with B's own session, the private topic of the hidden channel never reaches
+  // SUBSCRIBED, while the topic of a channel B can view does (control). The policy is covered in depth by
+  // tests/integration/realtime-auth.test.ts; this checks it with the session the app really uses.
+  expect(await privateJoinStatus(bCtx, ids["Secreto"]!)).not.toBe("SUBSCRIBED");
+  expect(await privateJoinStatus(bCtx, ids["General"]!)).toBe("SUBSCRIBED");
+
+  // The UI side: B has General open; the admin posts in the hidden channel and then in General.
   await openChannel(bPage, "General");
   await adminPage.goto(`/c/${ids["Secreto"]}`);
   await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
@@ -223,7 +261,8 @@ test("6. un canal sin VIEW no emite eventos al miembro: nada aparece en su vista
   await adminPage.goto("/");
   await openChannel(adminPage, "General");
   await send(adminPage, "centinela general");
-  // events are delivered in order: once the sentinel is here, a leaked secret event would be too
+  // B's live view keeps working (the General message arrives); the hidden one shows up nowhere. Different topics have
+  // no delivery-order guarantee, so this part is a smoke check: the join assertion above is the authorization proof.
   await expect(messageWith(bPage, "centinela general")).toBeVisible();
   await expect(bPage.getByText("contenido secreto")).toHaveCount(0);
   await expect(channelsNav(bPage).getByRole("link", { name: /Secreto/ })).toHaveCount(0);
@@ -241,8 +280,11 @@ test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y v
   // Trading has alpha_enabled; B (no EMBED_LINKS) is not offered the command, the Moderador is.
   await openChannel(bPage, "Trading");
   await composer(bPage).click();
-  await composer(bPage).pressSequentially("/alpha");
+  await composer(bPage).pressSequentially("/");
+  // the suggestion menu is open (another command is listed) before checking that /alpha is absent from it
+  await expect(bPage.getByRole("option", { name: /codigo/i })).toBeVisible();
   await expect(bPage.getByRole("option", { name: /alpha/i })).toHaveCount(0);
+  await composer(bPage).press("Escape");
   await composer(bPage).fill("");
 
   await openChannel(modPage, "Trading");
@@ -252,7 +294,7 @@ test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y v
   await modPage.getByRole("option", { name: /alpha/i }).click();
   const dialog = modPage.getByRole("dialog", { name: "Publicar alpha" });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByLabel("Tu tesis")).toHaveValue(/mi tesis/);
+  await expect(dialog.getByLabel(/Tu tesis/)).toHaveValue(/mi tesis/);
 
   await dialog.getByLabel("Contrato en Linea").fill("0x123");
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
