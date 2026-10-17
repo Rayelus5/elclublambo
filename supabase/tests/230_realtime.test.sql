@@ -1,5 +1,5 @@
 begin;
-select plan(37);
+select plan(38);
 
 create function tests.td(p_text text) returns jsonb language sql as $$
   select jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(
@@ -125,6 +125,14 @@ select public.set_pinned(current_setting('t.m3')::uuid, true);
 select tests.clear_authentication();
 select is((select count(*)::int from public.audit_log where target_id = current_setting('t.m3')::uuid), 1, 'pin twice: one audit row');
 select is(tests.ev('message_pinned', current_setting('t.m3')::uuid), 1, 'pin twice: one event');
+
+-- ===== channel delete cascades emit no per-message events (Task 5 review) =====
+select set_config('t.cd', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't230del')::text, true);
+insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  select current_setting('t.cd')::uuid, current_setting('t.x')::uuid, tests.td('c' || g), 'c' || g, false from generate_series(1, 3) g;
+delete from public.channels where id = current_setting('t.cd')::uuid;
+select is((select count(*)::int from realtime.messages m where m.event = 'message_deleted' and m.payload->>'channel_id' = current_setting('t.cd')),
+  0, 'deleting a channel with 3 messages emits no message_deleted events');
 
 select * from finish();
 rollback;

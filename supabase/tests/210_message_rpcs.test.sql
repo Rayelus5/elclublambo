@@ -21,10 +21,15 @@ create function tests.mdoc(variadic p_nodes jsonb[]) returns jsonb language sql 
   select jsonb_build_object('type', 'doc', 'content', jsonb_build_array(
     jsonb_build_object('type', 'paragraph', 'content', to_jsonb(p_nodes))))
 $$;
-create function tests.att(p_ch uuid, p_member uuid) returns jsonb language sql as $$
-  select jsonb_build_array(jsonb_build_object(
-    'path', p_ch || '/' || p_member || '/' || gen_random_uuid() || '.png',
-    'mime', 'image/png', 'size', 1234, 'width', 10, 'height', 10))
+create function tests.att(p_ch uuid, p_member uuid) returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_path text := p_ch || '/' || p_member || '/' || gen_random_uuid() || '.png';
+begin
+  -- the post RPC verifies the object exists in storage (F2b task 6)
+  insert into storage.objects (bucket_id, name, metadata)
+    values ('chat-images', v_path, jsonb_build_object('mimetype', 'image/png', 'size', 1234));
+  return jsonb_build_array(jsonb_build_object('path', v_path, 'mime', 'image/png', 'size', 1234, 'width', 10, 'height', 10));
+end
 $$;
 
 -- privileges
