@@ -24,6 +24,11 @@ function renderSidebar(perms: bigint) {
 }
 
 describe("Sidebar", () => {
+  it("shows a Buscar button in the sidebar and in the mobile top bar", () => {
+    renderSidebar(7n);
+    expect(screen.getAllByRole("button", { name: /^Buscar/ })).toHaveLength(2);
+  });
+
   it("always shows Inicio", () => {
     renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/");

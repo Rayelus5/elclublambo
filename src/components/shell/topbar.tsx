@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Menu } from "lucide-react";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { SearchButton } from "@/components/search/search-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
@@ -19,6 +20,7 @@ export function Topbar({ children }: { children: React.ReactNode }) {
         El Club.
       </Link>
       <div className="flex items-center">
+        <SearchButton />
         <NotificationBell />
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
@@ -30,7 +32,7 @@ export function Topbar({ children }: { children: React.ReactNode }) {
           showCloseButton
           className="top-0 left-0 h-dvh w-[280px] max-w-[85vw] translate-x-0 translate-y-0 content-start gap-0 rounded-none border-y-0 border-l-0 bg-bg p-0 data-open:slide-in-from-left sm:max-w-[85vw]"
           onClick={(e) => {
-            if ((e.target as HTMLElement).closest("a")) setOpen(false);
+            if ((e.target as HTMLElement).closest("a, [data-close-drawer]")) setOpen(false);
           }}
         >
           <DialogTitle className="sr-only">Menú</DialogTitle>

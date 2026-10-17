@@ -5,9 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   open: vi.fn(async (): Promise<{ id?: string; error?: string }> => ({ id: "t-1" })),
   push: vi.fn(),
+  search: "",
 }));
 vi.mock("@/lib/tickets/actions", () => ({ openTicketAction: h.open }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: h.push }),
+  usePathname: () => "/c/ch",
+  useSearchParams: () => new URLSearchParams(h.search),
+}));
 
 import { OpenTicketDialog } from "@/components/tickets/open-ticket-dialog";
 
@@ -21,9 +26,24 @@ async function openDialog() {
 beforeEach(() => {
   h.open.mockReset().mockResolvedValue({ id: "t-1" });
   h.push.mockReset();
+  h.search = "";
 });
 
 describe("OpenTicketDialog", () => {
+  it("opens by itself with ?openTicket=1 (palette action) and drops the param from the URL", async () => {
+    h.search = "openTicket=1&x=2";
+    const replace = vi.spyOn(window.history, "replaceState");
+    render(<OpenTicketDialog channelId={CH} channelName="soporte" />);
+    expect(await screen.findByRole("dialog", { name: "Abrir un ticket" })).toBeInTheDocument();
+    expect(replace).toHaveBeenCalledWith(null, "", "/c/ch?x=2");
+    replace.mockRestore();
+  });
+
+  it("stays closed without ?openTicket=1", () => {
+    render(<OpenTicketDialog channelId={CH} channelName="soporte" />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("opens with a labelled subject and message, privately explained", async () => {
     await openDialog();
     expect(screen.getByRole("dialog", { name: "Abrir un ticket" })).toBeInTheDocument();

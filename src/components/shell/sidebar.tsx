@@ -5,6 +5,7 @@ import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
 import { NavLink } from "@/components/shell/nav-link";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { SearchButton } from "@/components/search/search-button";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -35,6 +36,7 @@ function SidebarBody({ perms, wallet, channels = [], canModerate = false, openTi
           <Home className="size-4" aria-hidden />
           Inicio
         </NavLink>
+        <SearchButton variant="nav" />
         <NotificationBell variant="nav" />
         <NavLink
           href="/tickets"

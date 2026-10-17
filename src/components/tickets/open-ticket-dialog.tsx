@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useId, useState, useTransition } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -15,12 +15,27 @@ import { cn } from "@/lib/utils";
 /** "Abrir ticket" button of a channel header with the form in a dialog. On success it opens the new ticket. */
 export function OpenTicketDialog({ channelId, channelName }: { channelId: string; channelName: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const uid = useId();
   const [open, setOpen] = useState(false);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // `?openTicket=1` (the palette's "Abrir ticket en #canal" action) opens the form once. The channel page only
+  // renders this component when tickets are enabled and the member can post, so the param cannot bypass that.
+  const wantsOpen = searchParams.get("openTicket") === "1";
+  useEffect(() => {
+    if (!wantsOpen) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reacting to a URL request, then consuming it
+    setOpen(true);
+    const rest = new URLSearchParams(searchParams.toString());
+    rest.delete("openTicket");
+    const qs = rest.toString();
+    window.history.replaceState(null, "", qs ? `${pathname}?${qs}` : pathname);
+  }, [wantsOpen, searchParams, pathname]);
 
   const change = (next: boolean) => {
     if (pending) return;

@@ -647,9 +647,9 @@ describe("ChatView", () => {
       await waitFor(() => expect(scrolls.some((s) => s.id === target.id)).toBe(true));
       // the main list shows the root, not the bottom of the window
       expect(scrolls.some((s) => s.id === r.id)).toBe(true);
-      // closing the thread drops m as well, otherwise a refresh would reopen it
+      // closing the thread drops the reply anchor but keeps the reading position at the thread root
       await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}?m=${r.id}`, { scroll: false });
     });
   });
 

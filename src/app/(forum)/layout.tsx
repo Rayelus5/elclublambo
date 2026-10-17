@@ -1,9 +1,12 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
+import { SearchProvider } from "@/components/search/search-provider";
 import { RightRail } from "@/components/shell/right-rail";
 import { Sidebar } from "@/components/shell/sidebar";
 import { getVisibleChannels, toRow } from "@/lib/channels/queries";
+import { buildActions } from "@/lib/search/actions-list";
+import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { UnreadProvider } from "@/lib/chat/unread";
 import { walletFromUser } from "@/lib/auth/wallet";
 import { createServerClient } from "@/lib/supabase/server";
@@ -35,6 +38,17 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     supabase.from("tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
+  // "Abrir ticket en #canal" is offered only where the member can post (same SEND_MESSAGES check as the channel page).
+  const ticketChannels = (
+    await Promise.all(
+      channels
+        .filter((c) => c.kind === "text" && c.ticketsEnabled)
+        .map(async (c) => {
+          const { data } = await supabase.rpc("my_channel_permissions", { p_channel: c.id });
+          return hasPerm(BigInt(String(data ?? 0)), Perm.SEND_MESSAGES) ? { id: c.id, name: c.name } : null;
+        }),
+    )
+  ).flatMap((c) => c ?? []);
   const canModerate = moderates.data === true;
   const openTicketCount = openTickets.error ? 0 : (openTickets.count ?? 0);
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
@@ -45,11 +59,13 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   return (
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
+    <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
       <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-none md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
         <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} openTickets={openTicketCount} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-12">{children}</main>
         <RightRail />
       </div>
+    </SearchProvider>
     </UnreadProvider>
     </NotificationsProvider>
   );

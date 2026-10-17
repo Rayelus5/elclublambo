@@ -417,10 +417,15 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;
     setThread(null);
-    // The thread of a reply anchor is derived from `m`, so `m` goes with it (otherwise a refresh would reopen it). A
-    // root anchor keeps `m` (and its nonce): only the thread goes away and the window stays.
+    // The thread of a reply anchor is derived from `m`, so `m` moves to the thread root (otherwise a refresh would
+    // reopen it). A root anchor keeps `m` (and its nonce): only the thread goes away and the window stays.
     if (initialThreadId) {
-      const keep = initialAnchorId && !anchorIsReply ? `?m=${initialAnchorId}${initialAnchorNonce ? `&h=${initialAnchorNonce}` : ""}` : "";
+      // A reply anchor goes back to its thread root (`?m=<root>`) so the reading position stays where the reply was.
+      const keep = initialAnchorId
+        ? anchorIsReply
+          ? `?m=${initialThreadId}`
+          : `?m=${initialAnchorId}${initialAnchorNonce ? `&h=${initialAnchorNonce}` : ""}`
+        : "";
       router.replace(`/c/${channelId}${keep}`, { scroll: false });
     }
     const opener = openerRef.current;
