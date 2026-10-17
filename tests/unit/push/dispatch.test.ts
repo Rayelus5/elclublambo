@@ -135,6 +135,38 @@ describe("dispatchPendingPush", () => {
     expect(await dispatchPendingPush()).toEqual({ sent: 0, removed: 1 });
     expect(sendNotification).not.toHaveBeenCalled();
   });
+
+  const fullBatch = (from: number) =>
+    Array.from({ length: 200 }, (_, i) => row({ notification_id: from + i, tag: `channel_message:${from + i}` }));
+  const claims = () => rpc.mock.calls.filter((c) => c[0] === "claim_push_notifications").length;
+
+  it("keeps claiming while the batch is full, and stops on a partial one (aggregated counts)", async () => {
+    rpc
+      .mockResolvedValueOnce({ data: fullBatch(1), error: null })
+      .mockResolvedValueOnce({ data: [row({ notification_id: 999 })], error: null });
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    expect(await dispatchPendingPush()).toEqual({ sent: 201, removed: 0 });
+    expect(claims()).toBe(2);
+  });
+
+  it("counts distinct notification ids, not rows (several subscriptions per notice)", async () => {
+    const dup = Array.from({ length: 200 }, (_, i) => row({ notification_id: 1 + (i % 100), endpoint: EP1 + i }));
+    rpc.mockResolvedValueOnce({ data: dup, error: null });
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    expect(await dispatchPendingPush()).toEqual({ sent: 200, removed: 0 });
+    expect(claims()).toBe(1);
+  });
+
+  it("stops after 25 claims even if every batch is full", async () => {
+    let n = 0;
+    rpc.mockImplementation(async () => ({ data: fullBatch((n++ * 200) + 1), error: null }));
+    sendNotification.mockResolvedValue({ statusCode: 201 });
+
+    expect(await dispatchPendingPush()).toEqual({ sent: 25 * 200, removed: 0 });
+    expect(claims()).toBe(25);
+  });
 });
 
 describe("schedulePushDispatch", () => {

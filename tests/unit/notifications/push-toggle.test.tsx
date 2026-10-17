@@ -107,7 +107,9 @@ describe("PushToggle", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Desactivar avisos en este dispositivo" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(/No se pudieron desactivar/);
     expect(f.sub.unsubscribe).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Desactivar avisos en este dispositivo" })).toBeEnabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Desactivar avisos en este dispositivo" })).toBeEnabled(),
+    );
   });
 
   it("re-saves an existing browser subscription on load so the server row exists", async () => {

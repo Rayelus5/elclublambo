@@ -73,11 +73,12 @@ export function ReportDialog({
       const res = await reportMessageAction(messageId, reason, trimmed === "" ? null : trimmed).catch(
         () => ({ error: "unknown" }) as { error?: string },
       );
-      if (res.error) {
-        setError(rpcErrorMessage(res.error));
-        return;
-      }
-      setDone(true);
+      // Nested transition: updates after an await are not part of the outer one, so without it the result would
+      // commit while `pending` is still true (error shown next to an "Enviando…" button).
+      startTransition(() => {
+        if (res.error) setError(rpcErrorMessage(res.error));
+        else setDone(true);
+      });
     });
   };
 

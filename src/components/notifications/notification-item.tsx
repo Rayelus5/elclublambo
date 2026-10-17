@@ -28,7 +28,7 @@ export function notificationCopy(n: NotificationView): ReactNode {
     case "ticket_new":
       return <>Nuevo ticket: <strong className="font-bold text-fg">{subject}</strong></>;
     case "ticket_reply":
-      return <>Respuesta en tu ticket <strong className="font-bold text-fg">{subject}</strong></>;
+      return <>Respuesta en el ticket <strong className="font-bold text-fg">{subject}</strong></>;
     case "ticket_status":
       return (
         <>

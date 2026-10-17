@@ -35,7 +35,7 @@ describe("NotificationItem", () => {
     [{ kind: "report_new" }, "Nuevo reporte en #trading"],
     [{ kind: "member_review" }, "Ana está marcado para revisar"],
     [{ kind: "ticket_new", ticketSubject: "Ayuda" }, "Nuevo ticket: Ayuda"],
-    [{ kind: "ticket_reply", ticketSubject: "Ayuda" }, "Respuesta en tu ticket Ayuda"],
+    [{ kind: "ticket_reply", ticketSubject: "Ayuda" }, "Respuesta en el ticket Ayuda"],
     [{ kind: "ticket_status", ticketSubject: "Ayuda", ticketStatus: "closed" }, "Ticket Ayuda cerrado"],
     [{ kind: "ticket_status", ticketSubject: "Ayuda", ticketStatus: "open" }, "Ticket Ayuda reabierto"],
   ] as const)("copy for %o", (over, expected) => {

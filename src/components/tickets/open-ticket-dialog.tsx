@@ -46,12 +46,15 @@ export function OpenTicketDialog({ channelId, channelName }: { channelId: string
     setError(null);
     startTransition(async () => {
       const res = await openTicketAction(channelId, s.value, b.value).catch(() => ({ error: "unknown" }) as { id?: string; error?: string });
-      if (res.error || !res.id) {
-        setError(rpcErrorMessage(res.error ?? "unknown"));
-        return;
-      }
-      setOpen(false);
-      router.push(`/tickets/${res.id}`);
+      // Nested transition so the result commits together with pending=false.
+      startTransition(() => {
+        if (res.error || !res.id) {
+          setError(rpcErrorMessage(res.error ?? "unknown"));
+          return;
+        }
+        setOpen(false);
+        router.push(`/tickets/${res.id}`);
+      });
     });
   };
 

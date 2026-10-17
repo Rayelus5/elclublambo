@@ -95,12 +95,15 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
     setError(null);
     startTransition(async () => {
       const res = await setTicketStatusAction(ticket.id, next).catch(() => ({ error: "unknown" }) as { error?: string });
-      if (res.error) {
-        setError(rpcErrorMessage(res.error));
-        return;
-      }
-      focusAfter.current = next;
-      setStatus(next);
+      // Nested transition so the result commits together with pending=false.
+      startTransition(() => {
+        if (res.error) {
+          setError(rpcErrorMessage(res.error));
+          return;
+        }
+        focusAfter.current = next;
+        setStatus(next);
+      });
     });
   };
 
