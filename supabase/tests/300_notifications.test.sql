@@ -103,7 +103,7 @@ select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ux')::uuid);
 select is(public.mark_notifications_read(array[(select id from public.notifications where recipient_id = current_setting('t.y')::uuid limit 1)]),
   0, 'cannot see/mark another member notification by id');
-select is(public.mark_notifications_read(null), 3, 'null marks all own (includes the hidden-channel row)');
+select is(public.mark_notifications_read(null), 2, 'null marks all visible own rows (the hidden-channel row is skipped)');
 select is(public.my_unread_notification_count(), 0, 'nothing unread afterwards');
 select is(public.mark_notifications_read(null), 0, 'idempotent');
 select tests.clear_authentication();
