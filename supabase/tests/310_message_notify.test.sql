@@ -1,5 +1,5 @@
 begin;
-select plan(66);
+select plan(75);
 
 -- helpers (rolled back with the test)
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -218,6 +218,62 @@ select is((select count(*)::int from (
   select recipient_id, message_id from public.notifications where message_id is not null group by 1, 2 having count(*) > 1) s),
   0, 'never two notifications for the same (recipient, message)');
 select is((select count(*)::int from public.notifications where recipient_id = actor_id), 0, 'nobody is notified of their own message');
+
+-- ===== Task 2 review minors =====
+-- mute suppresses @role (x belongs to the role)
+select tests.authenticate_as(current_setting('t.ux')::uuid);
+select public.set_channel_follow(current_setting('t.c')::uuid, 'mute');
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.up')::uuid);
+select set_config('t.mr', tests.post(current_setting('t.c')::uuid, tests.mdoc(tests.mn('role', current_setting('t.role'))))::text, true);
+select tests.clear_authentication();
+select is(tests.nk(current_setting('t.mr'), current_setting('t.x')), null, 'mute suppresses @role');
+select is(tests.nc(current_setting('t.mr')), 0, '@role: the only other role member cannot see the channel, so nobody is notified');
+select tests.authenticate_as(current_setting('t.ux')::uuid);
+select public.set_channel_follow(current_setting('t.c')::uuid, 'mentions');
+select tests.clear_authentication();
+
+-- Alpha path (post_message_as, service role) fans out too
+insert into public.roles (name, color, position, permissions) values ('T310 embed', '#CCCCCC', 63, 2048);
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.p')::uuid, id from public.roles where name = 'T310 embed';
+select set_config('t.alpha', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't310alpha')::text, true);
+update public.channels set alpha_enabled = true where id = current_setting('t.alpha')::uuid;
+set local role service_role;
+select set_config('t.am', public.post_message_as(current_setting('t.p')::uuid, current_setting('t.alpha')::uuid,
+  tests.mdoc(tests.mn('member', current_setting('t.x'))), 'x', false, null, null, '[]',
+  '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01')::text, true);
+reset role;
+select is(tests.nk(current_setting('t.am'), current_setting('t.x')), 'mention', 'post_message_as notifies a mentioned member');
+select is(tests.nc(current_setting('t.am')), 1, 'post_message_as: only the mentioned member');
+
+-- the author of a deleted earlier reply is not a thread participant any more
+select tests.authenticate_as(current_setting('t.ux')::uuid);
+select set_config('t.dr', tests.post(current_setting('t.c')::uuid, tests.td('raiz2'))::text, true);
+select tests.authenticate_as(current_setting('t.uq')::uuid);
+select set_config('t.dr1', tests.post(current_setting('t.c')::uuid, tests.td('r de q'), current_setting('t.dr')::uuid)::text, true);
+select tests.clear_authentication();
+update public.messages set deleted_at = now() where id = current_setting('t.dr1')::uuid;
+select tests.authenticate_as(current_setting('t.uy')::uuid);
+select set_config('t.dr2', tests.post(current_setting('t.c')::uuid, tests.td('r de y'), current_setting('t.dr')::uuid)::text, true);
+select tests.clear_authentication();
+select is(tests.nk(current_setting('t.dr2'), current_setting('t.x')), 'reply', 'deleted-reply thread: root author is notified');
+select is(tests.nk(current_setting('t.dr2'), current_setting('t.q')), null, 'author of a deleted earlier reply is not notified');
+select is(tests.nc(current_setting('t.dr2')), 1, 'deleted-reply thread: only the root author');
+
+-- a quoted author who can no longer view the channel gets nothing
+select tests.authenticate_as(current_setting('t.uh')::uuid);
+select set_config('t.hq', tests.post(current_setting('t.cA')::uuid, tests.td('de h'))::text, true);
+select tests.clear_authentication();
+insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
+  values (current_setting('t.cA')::uuid, 'member', current_setting('t.h')::uuid, 0, 1);
+select tests.authenticate_as(current_setting('t.up')::uuid);
+select set_config('t.qh', tests.post(current_setting('t.cA')::uuid, tests.td('cito a h'), null, current_setting('t.hq')::uuid)::text, true);
+select tests.clear_authentication();
+select is(tests.nk(current_setting('t.qh'), current_setting('t.h')), null, 'quoted author without VIEW_CHANNEL gets nothing');
+select is(tests.nk(current_setting('t.qh'), current_setting('t.x')), 'channel_message', 'others still get the root message notice');
+delete from public.permission_overwrites
+  where channel_id = current_setting('t.cA')::uuid and target_id = current_setting('t.h')::uuid;
 
 -- ===== Task 1 review minors =====
 -- (a) re-saving the oldest subscription keeps it; cap stays 10
