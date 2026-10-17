@@ -24,7 +24,9 @@ const sponsor: MemberSummary = {
 const SPONSOR_LABEL = "Penalizar también a Bruno: pierde el permiso de invitar y se anulan sus invitaciones activas";
 
 describe("BanDialog", () => {
-  beforeEach(() => banMemberAction.mockReset());
+  beforeEach(() => {
+    banMemberAction.mockReset();
+  });
 
   it("hides the sponsor checkbox when there is no sponsor", async () => {
     const user = userEvent.setup();

@@ -71,6 +71,18 @@ begin
 end;
 $$;
 
+create or replace function tests.create_channel(p_parent uuid, p_kind text, p_name text)
+returns uuid
+language plpgsql
+as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into public.channels (id, parent_id, kind, name) values (v_id, p_parent, p_kind, p_name);
+  return v_id;
+end;
+$$;
+
 grant usage on schema tests to public;
 grant execute on all functions in schema tests to public;
 

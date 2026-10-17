@@ -1,0 +1,29 @@
+{
+  "$comment": "Mention parity: how many message_mentions rows a post body must produce. Shared by the TS extractMentions unit test (tests/unit/chat/content.test.ts) and the SQL _insert_mentions integration test against the real DB (tests/integration/mention-parity.test.ts). $EV is an @everyone mention node, $MEMBER/$ROLE are replaced with an existing active member / role id. 'generate' builds large bodies (see tests/fixtures/mention-cases.ts).",
+  "cases": [
+    { "name": "visible @everyone", "expected": 1, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }, "$EV"] }] } },
+    { "name": "member and role mentions", "expected": 2, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }, { "type": "mention", "attrs": { "kind": "member", "id": "$MEMBER" } }, { "type": "mention", "attrs": { "kind": "role", "id": "$ROLE" } }] }] } },
+    { "name": "under attrs", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "attrs": { "x": "$EV" }, "content": [{ "type": "text", "text": "hola" }] }] } },
+    { "name": "inside marks", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola", "marks": ["$EV"] }] }] } },
+    { "name": "under a text node", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola", "content": ["$EV"] }] }] } },
+    { "name": "under a hardBreak", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }, { "type": "hardBreak", "content": ["$EV"] }] }] } },
+    { "name": "nested inside a mention (outer only)", "expected": 1, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }, { "type": "mention", "attrs": { "kind": "everyone" }, "content": [{ "type": "mention", "attrs": { "kind": "member", "id": "$MEMBER" } }] }] }] } },
+    { "name": "inside a codeBlock", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": "codeBlock", "content": [{ "type": "text", "text": "x" }, "$EV"] }] } },
+    { "name": "inside a horizontalRule", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": "horizontalRule", "content": [{ "type": "paragraph", "content": ["$EV"] }] }] } },
+    { "name": "directly under a table", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": "table", "content": [{ "type": "paragraph", "content": ["$EV"] }] }] } },
+    { "name": "directly under a tableRow", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": "table", "content": [{ "type": "tableRow", "content": [{ "type": "paragraph", "content": ["$EV"] }] }] }] } },
+    { "name": "inside a table cell", "expected": 1, "body": { "type": "doc", "content": [{ "type": "table", "content": [{ "type": "tableRow", "content": [{ "type": "tableCell", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }, "$EV"] }] }] }] }] } },
+    { "name": "inline directly under the doc", "expected": 1, "body": { "type": "doc", "content": [{ "type": "text", "text": "hola" }, "$EV"] } },
+    { "name": "duplicates", "expected": 1, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "a" }, "$EV"] }, { "type": "paragraph", "content": [{ "type": "text", "text": "b" }, "$EV"] }] } },
+    { "name": "under an unknown wrapper", "expected": 1, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": "unknownWrapper", "content": [{ "type": "paragraph", "content": ["$EV"] }] }] } },
+    { "name": "under a node whose type is a number", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": 1, "content": ["$EV"] }] } },
+    { "name": "under a node whose type is a boolean", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": true, "content": ["$EV"] }] } },
+    { "name": "under a node whose type is an object", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": { "x": 1 }, "content": ["$EV"] }] } },
+    { "name": "under a node whose type is an array", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": [], "content": ["$EV"] }] } },
+    { "name": "under a node whose type is null", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "type": null, "content": ["$EV"] }] } },
+    { "name": "under a node without type", "expected": 0, "body": { "type": "doc", "content": [{ "type": "paragraph", "content": [{ "type": "text", "text": "hola" }] }, { "content": [{ "type": "paragraph", "content": ["$EV"] }] }] } },
+    { "name": "at depth 40", "expected": 1, "generate": { "nest": 38 } },
+    { "name": "at depth 41", "expected": 0, "generate": { "nest": 39 } },
+    { "name": "after 1300 (hardBreak, listItem) pairs (sanitizer node budget)", "expected": 1, "generate": { "listPairs": 1300 } }
+  ]
+}

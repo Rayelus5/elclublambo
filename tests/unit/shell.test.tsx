@@ -24,6 +24,11 @@ function renderSidebar(perms: bigint) {
 }
 
 describe("Sidebar", () => {
+  it("shows a Buscar button in the sidebar and in the mobile top bar", () => {
+    renderSidebar(7n);
+    expect(screen.getAllByRole("button", { name: /^Buscar/ })).toHaveLength(2);
+  });
+
   it("always shows Inicio", () => {
     renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/");
@@ -68,6 +73,27 @@ describe("Sidebar", () => {
     expect(topbarBrand.className).toContain("font-display");
     expect(topbarBrand.className).toContain("focus-visible:ring-accent");
     expect(sidebarBrand.className).toContain("font-display");
+  });
+
+  it("shows Reportes only when the server says the member moderates a visible channel", () => {
+    render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
+    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
+  });
+
+  it("hides Reportes without the flag, even with global 8 or 512 (the page would be a 404)", () => {
+    const { unmount } = renderSidebar(8n);
+    expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
+    unmount();
+    renderSidebar(512n);
+    expect(screen.queryByRole("link", { name: "Reportes" })).toBeNull();
+  });
+
+  it("always links to Tickets, with the open count when there are any", () => {
+    const { unmount } = renderSidebar(7n);
+    expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
+    unmount();
+    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} />);
+    expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/tickets");
   });
 
   it("offers sign out", () => {

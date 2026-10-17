@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { schedulePushDispatch } from "@/lib/push/schedule";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,6 +25,24 @@ export async function banMemberAction(input: {
   });
   if (error) return { error: rpcErrorCode(error) };
 
+  schedulePushDispatch();
+  revalidatePath("/admin/members");
+  return {};
+}
+
+export async function setVerifiedAction(input: {
+  memberId: string;
+  enabled: boolean;
+}): Promise<{ error?: string }> {
+  if (!UUID_RE.test(input.memberId)) return { error: "invalid_input" };
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("set_verified", {
+    p_member: input.memberId,
+    p_enabled: input.enabled === true,
+  });
+  if (error) return { error: rpcErrorCode(error) };
+
   revalidatePath("/admin/members");
   return {};
 }
@@ -38,7 +57,7 @@ export async function toggleSponsorRoleAction(input: {
   const { data: role, error: roleError } = await supabase
     .from("roles")
     .select("id")
-    .eq("name", "Padrino")
+    .eq("system_key", "sponsor")
     .maybeSingle<{ id: string }>();
   if (roleError) return { error: rpcErrorCode(roleError) };
   if (!role) return { error: "unknown" };

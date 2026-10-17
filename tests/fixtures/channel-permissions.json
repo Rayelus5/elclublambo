@@ -1,0 +1,541 @@
+{
+  "_doc": "Shared SQL/TS parity cases. @everyone is always the seeded role (8199). bigints are decimal strings. path is root -> channel (inclusive).",
+  "everyonePermissions": "8199",
+  "cases": [
+    {
+      "name": "simple_cascade",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "2"
+          }
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8197"
+    },
+    {
+      "name": "role_allow_beats_role_deny_same_level",
+      "roles": [
+        {
+          "key": "a",
+          "permissions": "0"
+        },
+        {
+          "key": "b",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "a",
+          "b"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "roles": [
+            {
+              "roleKey": "a",
+              "allow": "0",
+              "deny": "6"
+            },
+            {
+              "roleKey": "b",
+              "allow": "2",
+              "deny": "0"
+            }
+          ]
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8195"
+    },
+    {
+      "name": "member_beats_role",
+      "roles": [
+        {
+          "key": "a",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "a"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt",
+          "roles": [
+            {
+              "roleKey": "a",
+              "allow": "0",
+              "deny": "2"
+            }
+          ],
+          "member": {
+            "allow": "2",
+            "deny": "0"
+          }
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "hidden_ancestor_beats_descendant_allow",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          }
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "3",
+            "deny": "0"
+          }
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "hidden_ancestor_returns_zero_even_with_global_bits",
+      "roles": [
+        {
+          "key": "g",
+          "permissions": "48"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "g"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          }
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "3",
+            "deny": "0"
+          }
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "hidden_leaf_returns_zero_even_with_global_bits",
+      "roles": [
+        {
+          "key": "g",
+          "permissions": "32"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "g"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          }
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "admin_bypasses_everything",
+      "roles": [
+        {
+          "key": "root",
+          "permissions": "512"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "root"
+        ],
+        "active": true,
+        "penaltyDeny": "65535"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          }
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "0",
+            "deny": "2"
+          }
+        }
+      ],
+      "expected": "31759"
+    },
+    {
+      "name": "penalty_allow_cannot_reveal",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0",
+        "penaltyAllow": "1"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          }
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "penalty_deny_send",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "2"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8197"
+    },
+    {
+      "name": "penalty_deny_view_hides",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "1"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "inactive_member_gets_zero",
+      "roles": [
+        {
+          "key": "g",
+          "permissions": "48"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "g"
+        ],
+        "active": false,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "0"
+    },
+    {
+      "name": "everyone_deny_role_allow",
+      "roles": [
+        {
+          "key": "a",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "a"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "7"
+          },
+          "roles": [
+            {
+              "roleKey": "a",
+              "allow": "3",
+              "deny": "0"
+            }
+          ]
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8195"
+    },
+    {
+      "name": "three_levels_alternating",
+      "roles": [
+        {
+          "key": "a",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "a"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "2"
+          }
+        },
+        {
+          "key": "forum",
+          "roles": [
+            {
+              "roleKey": "a",
+              "allow": "2",
+              "deny": "0"
+            }
+          ]
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "0",
+            "deny": "6"
+          }
+        }
+      ],
+      "expected": "8193"
+    },
+    {
+      "name": "overwrite_for_role_member_lacks_has_no_effect",
+      "roles": [
+        {
+          "key": "other",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "roles": [
+            {
+              "roleKey": "other",
+              "allow": "0",
+              "deny": "1"
+            }
+          ]
+        },
+        {
+          "key": "txt",
+          "roles": [
+            {
+              "roleKey": "other",
+              "allow": "0",
+              "deny": "2"
+            }
+          ]
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "roles_base_is_or_of_member_roles",
+      "roles": [
+        {
+          "key": "v",
+          "permissions": "3072"
+        },
+        {
+          "key": "m",
+          "permissions": "24"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "v",
+          "m"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "11279"
+    },
+    {
+      "name": "same_level_member_regrants_view",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt",
+          "everyone": {
+            "allow": "0",
+            "deny": "1"
+          },
+          "member": {
+            "allow": "1",
+            "deny": "0"
+          }
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "forum_allow_then_leaf_everyone_deny",
+      "roles": [
+        {
+          "key": "a",
+          "permissions": "0"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "a"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "forum",
+          "roles": [
+            {
+              "roleKey": "a",
+              "allow": "1024",
+              "deny": "0"
+            }
+          ]
+        },
+        {
+          "key": "txt",
+          "everyone": {
+            "allow": "0",
+            "deny": "2"
+          }
+        }
+      ],
+      "expected": "9221"
+    },
+    {
+      "name": "penalty_allow_channel_bits_grant_nothing",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0",
+        "penaltyAllow": "1032"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8199"
+    }
+  ]
+}

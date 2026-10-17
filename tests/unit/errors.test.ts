@@ -30,6 +30,35 @@ describe("rpcErrorMessage", () => {
       expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
     },
   );
+  it("has Spanish copy for tree errors", () => {
+    expect(rpcErrorMessage("not_empty")).toBe("El canal tiene subcanales; muévelos o bórralos antes.");
+    expect(rpcErrorMessage("invalid_tree")).toBe("Ese movimiento rompería la estructura del árbol.");
+    expect(rpcErrorMessage("depth_limit")).toBe("Se ha superado la profundidad máxima (6 niveles).");
+    expect(rpcErrorCode({ message: "depth_limit" })).toBe("depth_limit");
+    expect(knownErrorCode("not_empty")).toBe("not_empty");
+  });
+  it.each(["slowmode", "not_a_contract", "too_long", "too_many_attachments", "too_many_reactions", "thread_invalid"])(
+    "chat error %s has specific copy and is allowlisted",
+    (code) => {
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+      expect(rpcErrorCode({ message: code })).toBe(code);
+    },
+  );
+  it.each(["rate_limited", "already_reported", "ticket_closed", "too_many_open_tickets"])(
+    "F2c error %s has specific copy and is allowlisted",
+    (code) => {
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+      expect(rpcErrorCode({ message: code })).toBe(code);
+      expect(knownErrorCode(code)).toBe(code);
+    },
+  );
+  it("slowmode copy", () =>
+    expect(rpcErrorMessage("slowmode")).toBe("Vas demasiado rápido. Espera un poco antes de volver a escribir."));
+  it("hierarchy copy covers rank and missing permissions", () => {
+    expect(rpcErrorMessage("hierarchy")).toBe(
+      "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
+    );
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });
 

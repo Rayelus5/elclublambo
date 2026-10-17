@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/moderation/actions", () => ({ banMemberAction: vi.fn(), toggleSponsorRoleAction: vi.fn() }));
+vi.mock("@/lib/moderation/actions", () => ({ banMemberAction: vi.fn(), toggleSponsorRoleAction: vi.fn(), setVerifiedAction: vi.fn() }));
 
 import { MemberTable, type AdminMemberRow } from "@/components/members/member-table";
 import { Perm } from "@/lib/permissions/bits";
@@ -11,6 +11,7 @@ const row = (over: Partial<AdminMemberRow> & { id: string; walletAddress: string
   status: "active",
   sponsor: null,
   isPadrino: false,
+  isVerified: false,
   needsReview: false,
   createdAt: "2026-10-01T00:00:00Z",
   ...over,
@@ -71,5 +72,35 @@ describe("MemberTable", () => {
   it("shows the Padrino toggle to ADMINISTRATOR", () => {
     render(<MemberTable members={[ana]} meId="x" perms={Perm.ADMINISTRATOR} />);
     expect(screen.getByRole("button", { name: "Padrino: Ana" })).toBeInTheDocument();
+  });
+
+  it("shows the Verificado toggle with VERIFY_MEMBERS, not for the own row, with aria-pressed", () => {
+    render(
+      <MemberTable
+        members={[me, ana, { ...ana, id: "b", displayName: "Bea", isVerified: true }]}
+        meId="me"
+        perms={Perm.VERIFY_MEMBERS}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Verificado: Ana" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Verificado: Bea" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByRole("button", { name: "Verificado: Yo" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Banear a Ana" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Verificado toggle to ADMINISTRATOR and hides it without the permission", () => {
+    const { unmount } = render(<MemberTable members={[ana]} meId="x" perms={Perm.ADMINISTRATOR} />);
+    expect(screen.getByRole("button", { name: "Verificado: Ana" })).toBeInTheDocument();
+    unmount();
+    render(<MemberTable members={[ana]} meId="x" perms={Perm.BAN_MEMBERS} />);
+    expect(screen.queryByRole("button", { name: "Verificado: Ana" })).not.toBeInTheDocument();
+  });
+
+  it("shows the Verificado badge in the member cell", () => {
+    render(<MemberTable members={[{ ...ana, isVerified: true }, { ...me, id: "z", displayName: "Zoe" }]} meId="x" perms={ALL} />);
+    const [memberCell] = within(screen.getByRole("row", { name: /Ana/ })).getAllByRole("cell");
+    expect(within(memberCell!).getByText("Verificado")).toBeInTheDocument();
+    const [zoeCell] = within(screen.getByRole("row", { name: /Zoe/ })).getAllByRole("cell");
+    expect(within(zoeCell!).queryByText("Verificado")).not.toBeInTheDocument();
   });
 });

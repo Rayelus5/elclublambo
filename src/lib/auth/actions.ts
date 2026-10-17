@@ -3,6 +3,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rpcErrorCode } from "@/lib/errors";
+import { schedulePushDispatch } from "@/lib/push/schedule";
 import { isSuperAdminWallet, walletFromUser } from "./wallet";
 import { resolvePostLogin, type MembershipStatus } from "./post-login";
 
@@ -40,7 +41,10 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
 
   const redeem = async (code: string): Promise<Result> => {
     const { error } = await supabase.rpc("redeem_invite", { p_code: code });
-    if (!error) return { redirectTo: "/" };
+    if (!error) {
+      schedulePushDispatch();
+      return { redirectTo: "/" };
+    }
     const c = rpcErrorCode(error);
     return { redirectTo: `/invite/${encodeURIComponent(code)}?error=${c}`, error: c };
   };
