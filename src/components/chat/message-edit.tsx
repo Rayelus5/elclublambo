@@ -16,10 +16,10 @@ interface Props {
   onCancel: () => void;
 }
 
-/** Inline editor for one's own message. Enter saves (Ctrl/Cmd+Enter in expanded messages), Escape cancels. */
 /** Fired by a modal parent that swallowed Escape (Radix marks it defaultPrevented) to cancel the edit instead. */
 export const CANCEL_EDIT_EVENT = "chat-edit-cancel";
 
+/** Inline editor for one's own message. Enter saves (Ctrl/Cmd+Enter in expanded messages), Escape cancels. */
 export function MessageEdit({ body, expanded, canMentionEveryone, onSave, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);

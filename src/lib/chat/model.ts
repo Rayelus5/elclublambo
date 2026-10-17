@@ -1,9 +1,14 @@
 // View model of the chat and the pure helpers around it (no React, no Supabase): usable on server and client.
 
+/** A contract address as the Alpha flow accepts it (the database stores it lowercased). */
+export const ALPHA_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
 export interface MessageAttachment {
   id: string;
   /** Signed URL (1 h); null when signing failed. */
   url: string | null;
+  /** When the URL was signed (ms since epoch); lets a resync reuse it only while it is clearly still valid. */
+  signedAt?: number;
   mime: string;
   width: number | null;
   height: number | null;
@@ -30,6 +35,8 @@ export interface ChatMessage {
   body: unknown;
   allowLinks: boolean;
   kind: "text" | "alpha";
+  /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
+  alphaAddress: string | null;
   expanded: boolean;
   quotedId: string | null;
   quote: QuotePreview | null;
@@ -69,6 +76,8 @@ export interface ViewerPermissions {
   canAttach: boolean;
   canMentionEveryone: boolean;
   canReact: boolean;
+  /** EMBED_LINKS: needed (with the channel's alpha_enabled) to post Alpha theses. */
+  canEmbed?: boolean;
 }
 
 // --- reactions ------------------------------------------------------------------------------------
@@ -160,12 +169,27 @@ export function replaceNewest(list: readonly ChatMessage[], fresh: readonly Chat
   return [...list.filter((m) => cmpMessages(m, first) < 0), ...fresh];
 }
 
+/** A signed URL lasts one hour; reuse it for 50 minutes at most so a long-open tab never shows a dead image. */
+export const SIGNED_URL_REUSE_MS = 50 * 60 * 1000;
+
 /** Keeps the signed URL already on screen for an unchanged attachment, so resync does not re-download images. */
-export function keepSignedUrls(previous: readonly ChatMessage[], fresh: readonly ChatMessage[]): ChatMessage[] {
-  const urls = new Map<string, string>();
-  for (const m of previous) for (const a of m.attachments) if (a.url) urls.set(a.id, a.url);
+export function keepSignedUrls(previous: readonly ChatMessage[], fresh: readonly ChatMessage[], now = Date.now()): ChatMessage[] {
+  const reusable = new Map<string, MessageAttachment>();
+  for (const m of previous) {
+    for (const a of m.attachments) {
+      if (a.url && a.signedAt !== undefined && now - a.signedAt < SIGNED_URL_REUSE_MS) reusable.set(a.id, a);
+    }
+  }
   return fresh.map((m) =>
-    m.attachments.length === 0 ? m : { ...m, attachments: m.attachments.map((a) => ({ ...a, url: urls.get(a.id) ?? a.url })) },
+    m.attachments.length === 0
+      ? m
+      : {
+          ...m,
+          attachments: m.attachments.map((a) => {
+            const keep = reusable.get(a.id);
+            return keep ? { ...a, url: keep.url, signedAt: keep.signedAt } : a;
+          }),
+        },
   );
 }
 

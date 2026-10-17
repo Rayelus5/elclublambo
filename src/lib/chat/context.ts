@@ -32,6 +32,7 @@ export async function loadChatContext(channelId: string): Promise<Pick<ChatViewP
     canAttach: hasPerm(bits, Perm.ATTACH_FILES),
     canMentionEveryone: hasPerm(bits, Perm.MENTION_EVERYONE),
     canReact: hasPerm(bits, Perm.ADD_REACTIONS),
+    canEmbed: hasPerm(bits, Perm.EMBED_LINKS),
   };
 
   return {

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
+import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
@@ -204,6 +205,7 @@ export function MessageItem({
                 )}
               </blockquote>
             ) : null}
+            {message.kind === "alpha" && message.alphaAddress ? <AlphaCard address={message.alphaAddress} /> : null}
             <MessageContent doc={message.body} allowLinks={message.allowLinks} allowedDomains={allowedDomains} mentionsDir={directory} />
             {message.editedAt ? (
               <span className="self-start text-[13px] text-fg-muted" title={`Editado ${formatTime(message.editedAt)}`}>

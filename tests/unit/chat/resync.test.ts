@@ -28,13 +28,26 @@ describe("replaceNewest (resync)", () => {
 });
 
 describe("keepSignedUrls", () => {
-  const att = (id: string, url: string | null) => ({ id, url, mime: "image/png", width: 1, height: 1 });
+  const NOW = Date.UTC(2026, 9, 17, 12, 0, 0);
+  const MIN = 60_000;
+  const att = (id: string, url: string | null, signedAt?: number) => ({ id, url, mime: "image/png", width: 1, height: 1, signedAt });
 
   it("reuses the existing URL of the same attachment so images are not downloaded again", () => {
-    const old = makeMessage({ attachments: [att("1", "https://old/1")] });
-    const fresh = { ...old, attachments: [att("1", "https://new/1"), att("2", "https://new/2")] };
-    const out = keepSignedUrls([old], [fresh]);
+    const old = makeMessage({ attachments: [att("1", "https://old/1", NOW - 10 * MIN)] });
+    const fresh = { ...old, attachments: [att("1", "https://new/1", NOW), att("2", "https://new/2", NOW)] };
+    const out = keepSignedUrls([old], [fresh], NOW);
     expect(out[0]!.attachments.map((x) => x.url)).toEqual(["https://old/1", "https://new/2"]);
+    expect(out[0]!.attachments[0]!.signedAt).toBe(NOW - 10 * MIN);
+  });
+
+  it("takes the fresh URL once the old one is 50 minutes old (the signature lasts one hour), or has no timestamp", () => {
+    const aged = makeMessage({ attachments: [att("1", "https://old/1", NOW - 50 * MIN)] });
+    const fresh = { ...aged, attachments: [att("1", "https://new/1", NOW)] };
+    expect(keepSignedUrls([aged], [fresh], NOW)[0]!.attachments[0]).toMatchObject({ url: "https://new/1", signedAt: NOW });
+    const almost = makeMessage({ attachments: [att("1", "https://old/1", NOW - 49 * MIN)] });
+    expect(keepSignedUrls([almost], [fresh], NOW)[0]!.attachments[0]!.url).toBe("https://old/1");
+    const untracked = makeMessage({ attachments: [att("1", "https://old/1")] });
+    expect(keepSignedUrls([untracked], [fresh], NOW)[0]!.attachments[0]!.url).toBe("https://new/1");
   });
 
   it("leaves messages without a previous copy alone, and replaces a missing old URL", () => {

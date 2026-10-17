@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { Loader2, Maximize2, Paperclip, Send, X } from "lucide-react";
+import { AlphaDialog } from "@/components/chat/alpha-dialog";
 import { ComposerExpanded } from "@/components/chat/composer-expanded";
 import { useChatEditor } from "@/components/chat/composer-editor";
 import { EmojiButton } from "@/components/chat/emoji-button";
@@ -41,8 +42,8 @@ export interface ComposerProps {
   /** The channel's configured slowmode; the live countdown always comes from the server. */
   slowmodeSeconds: number;
   onPosted?: (id: string) => void;
-  /** Opens the Alpha dialog (Task 10). When omitted, /alpha is hidden. */
-  onAlpha?: () => void;
+  /** The channel has alpha_enabled and the member has EMBED_LINKS: /alpha opens the Alpha dialog. Hidden otherwise. */
+  canAlpha?: boolean;
 }
 
 function isDocEmpty(editor: Editor | null): boolean {
@@ -50,7 +51,7 @@ function isDocEmpty(editor: Editor | null): boolean {
 }
 
 export function Composer(props: ComposerProps) {
-  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, onAlpha } =
+  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha } =
     props;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -64,6 +65,9 @@ export function Composer(props: ComposerProps) {
   const [slowActive, setSlowActive] = useState(false);
   const [expandedOpen, setExpandedOpen] = useState(false);
   const [draft, setDraft] = useState<unknown | null>(null);
+  const draftRef = useRef<unknown | null>(null);
+  const [alphaOpen, setAlphaOpen] = useState(false);
+  const [alphaText, setAlphaText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const memberId = useRef<Promise<string> | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -201,11 +205,22 @@ export function Composer(props: ComposerProps) {
     attachmentsRef.current = [];
     setAttachments([]);
     setDraft(null);
+    draftRef.current = null;
     onRemoveQuoted?.();
     onPosted?.(res.id);
     if (slowmodeSeconds > 0) void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
     return true;
   };
+
+  const openAlpha = useCallback(() => {
+    // The thesis starts from whatever is being drafted (compact box or expanded draft).
+    const ed = editorRef.current;
+    const fromBox = ed ? docToPlainText(ed.getJSON()) : "";
+    setAlphaText(fromBox !== "" ? fromBox : draftRef.current ? docToPlainText(draftRef.current) : "");
+    setExpandedOpen(false);
+    setAlphaOpen(true);
+  }, []);
+  const onAlpha = canAlpha ? openAlpha : undefined;
 
   const editor = useChatEditor({
     expanded: false,
@@ -233,6 +248,7 @@ export function Composer(props: ComposerProps) {
     const ed = editorRef.current;
     if (ed && !isDocEmpty(ed)) {
       // The compact schema is a subset of the expanded one: move the text over, don't duplicate it.
+      draftRef.current = ed.getJSON();
       setDraft(ed.getJSON());
       ed.commands.clearContent(true);
       setCount(0);
@@ -396,7 +412,11 @@ export function Composer(props: ComposerProps) {
         open={expandedOpen}
         onOpenChange={setExpandedOpen}
         initialDoc={draft}
-        onDraftChange={(doc) => setDraft(doc && docToPlainText(doc) !== "" ? doc : null)}
+        onDraftChange={(doc) => {
+          const next = doc && docToPlainText(doc) !== "" ? doc : null;
+          draftRef.current = next;
+          setDraft(next);
+        }}
         canMentionEveryone={canMentionEveryone}
         onAlpha={onAlpha}
         onAttach={canAttach ? () => fileInput.current?.click() : undefined}
@@ -405,6 +425,24 @@ export function Composer(props: ComposerProps) {
         onSend={(doc) => send(doc, true)}
         status={status}
       />
+      {canAlpha ? (
+        <AlphaDialog
+          open={alphaOpen}
+          onOpenChange={setAlphaOpen}
+          channelId={channelId}
+          initialText={alphaText}
+          onPosted={(id) => {
+            // The thesis moved into the Alpha message: the drafts are spent.
+            editorRef.current?.commands.clearContent(true);
+            setCount(0);
+            setHasContent(false);
+            setDraft(null);
+            draftRef.current = null;
+            if (slowmodeSeconds > 0) void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
+            onPosted?.(id);
+          }}
+        />
+      ) : null}
     </section>
   );
 }

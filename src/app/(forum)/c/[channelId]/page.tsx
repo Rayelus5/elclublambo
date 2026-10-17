@@ -40,7 +40,7 @@ async function TextChannel({ channel }: { channel: ChannelDetail }) {
           </ul>
         ) : null}
       </header>
-      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds }} {...context} />
+      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }} {...context} />
     </div>
   );
 }

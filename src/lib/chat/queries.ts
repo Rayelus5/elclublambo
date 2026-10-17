@@ -74,13 +74,21 @@ export async function hydrateMessages(
   const ids = rows.map((r) => r.id);
   const quotedIds = unique(rows.flatMap((r) => (r.quoted_message_id ? [r.quoted_message_id] : [])));
 
-  const [attachmentsRes, reactionsRes, quotedRes] = await Promise.all([
+  const alphaIds = rows.filter((r) => r.kind === "alpha" && !r.deleted_at).map((r) => r.id);
+
+  const [attachmentsRes, reactionsRes, quotedRes, alphaRes] = await Promise.all([
     supabase.from("message_attachments").select("id, message_id, storage_path, mime, width, height").in("message_id", ids),
     supabase.from("message_reactions").select("message_id, member_id, emoji, created_at").in("message_id", ids),
     quotedIds.length > 0
       ? supabase.from("messages").select("id, author_id, body_text, deleted_at").in("id", quotedIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    alphaIds.length > 0
+      ? supabase.from("alpha_details").select("message_id, contract_address").in("message_id", alphaIds)
+      : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
+  const alphaByMessage = new Map(
+    ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string }>).map((a) => [a.message_id, a.contract_address]),
+  );
 
   const attachmentRows = (attachmentsRes.data ?? []) as Array<{
     id: string;
@@ -121,10 +129,12 @@ export async function hydrateMessages(
     directory.roles[r.id] = { name: r.name, color: r.color };
   }
 
+  const signedAt = Date.now();
   const attachmentsByMessage = new Map<string, MessageAttachment[]>();
   for (const a of attachmentRows) {
     const list = attachmentsByMessage.get(a.message_id) ?? [];
-    list.push({ id: a.id, url: signed.get(a.storage_path) ?? null, mime: a.mime, width: a.width, height: a.height });
+    const url = signed.get(a.storage_path) ?? null;
+    list.push({ id: a.id, url, ...(url ? { signedAt } : {}), mime: a.mime, width: a.width, height: a.height });
     attachmentsByMessage.set(a.message_id, list);
   }
   const reactions = aggregateReactions((reactionsRes.data ?? []) as ReactionRow[], meId);
@@ -146,6 +156,7 @@ export async function hydrateMessages(
       body: r.body,
       allowLinks: r.allow_links,
       kind: r.kind,
+      alphaAddress: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
       expanded: r.expanded,
       quotedId: r.quoted_message_id,
       quote: r.quoted_message_id ? (quotes.get(r.quoted_message_id) ?? null) : null,

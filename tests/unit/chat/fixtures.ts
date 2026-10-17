@@ -21,6 +21,7 @@ export function makeMessage(over: Partial<ChatMessage> = {}): ChatMessage {
     body: doc(`mensaje ${counter}`),
     allowLinks: true,
     kind: "text",
+    alphaAddress: null,
     expanded: false,
     quotedId: null,
     quote: null,

@@ -21,6 +21,8 @@ const h = vi.hoisted(() => ({
   unsubscribeAuth: vi.fn(),
   /** realtime-js keeps a channel registered until the leave ack: channel(topic) returns that same instance. */
   registry: null as null | Map<string, unknown>,
+  /** What supabase.getChannels() reports (the real client prefixes topics with "realtime:"). */
+  stillRegistered: [] as unknown[],
 }));
 
 vi.mock("@/lib/supabase/browser", () => ({
@@ -55,6 +57,7 @@ vi.mock("@/lib/supabase/browser", () => ({
       return ch;
     },
     removeChannel: h.removeChannel,
+    getChannels: () => [...(h.stillRegistered as unknown[])],
   }),
 }));
 
@@ -78,6 +81,7 @@ beforeEach(() => {
   h.setAuth.mockClear();
   h.unsubscribeAuth.mockClear();
   h.registry = null;
+  h.stillRegistered = [];
   Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 });
 afterEach(() => vi.useRealTimers());
@@ -231,6 +235,33 @@ describe("useChannelEvents", () => {
     act(() => last().handlers.get("message_created")!({ payload: { id: M1, channel_id: CH, thread_root_id: null } }));
     act(() => void vi.advanceTimersByTime(160));
     expect(onEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it("removes a channel that is still registered after the leave settled (leave timeout) before joining again", async () => {
+    mount();
+    await flush();
+    const first = last();
+    act(() => first.statusCb!("SUBSCRIBED"));
+    // the leave "finishes" (e.g. timed out) but realtime-js still lists the old channel
+    h.removeChannel.mockResolvedValue("timed out");
+    h.stillRegistered = [{ topic: `realtime:channel:${CH}` }];
+    act(() => h.authListeners.forEach((l) => l("TOKEN_REFRESHED")));
+    await flush();
+    await flush();
+    const calls = h.removeChannel.mock.calls.map((c) => c[0]);
+    expect(calls[0]).toBe(first);
+    expect(calls[1]).toEqual({ topic: `realtime:channel:${CH}` });
+    expect(h.channels).toHaveLength(2);
+  });
+
+  it("does not touch other registered channels while re-joining", async () => {
+    mount();
+    await flush();
+    act(() => last().statusCb!("SUBSCRIBED"));
+    h.stillRegistered = [{ topic: "realtime:channel:99999999-9999-4999-8999-999999999999" }];
+    act(() => h.authListeners.forEach((l) => l("TOKEN_REFRESHED")));
+    await flush();
+    expect(h.removeChannel).toHaveBeenCalledTimes(1);
   });
 
   it("resubscribes on TOKEN_REFRESHED but not on other auth events", async () => {

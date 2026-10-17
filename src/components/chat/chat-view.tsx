@@ -39,7 +39,7 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
 
 export interface ChatViewProps {
-  channel: { id: string; slowmodeSeconds: number };
+  channel: { id: string; slowmodeSeconds: number; alphaEnabled?: boolean };
   viewer: ViewerPermissions;
   allowedDomains: readonly string[];
   initial: {
@@ -470,6 +470,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
               canPost
               canAttach={viewer.canAttach}
               canMentionEveryone={viewer.canMentionEveryone}
+              canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true}
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}

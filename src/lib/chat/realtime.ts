@@ -105,6 +105,14 @@ export function useChannelEvents(
       const mine = ++generation;
       await leaving;
       if (cancelled || mine !== generation) return;
+      // A leave that timed out resolves without unregistering the channel; channel(topic) would hand that zombie
+      // back and the join would be a no-op. Remove it again before joining.
+      const topic = `channel:${channelId}`;
+      const zombie = supabase.getChannels().find((c) => c.topic === topic || c.topic === `realtime:${topic}`);
+      if (zombie) {
+        await Promise.resolve(supabase.removeChannel(zombie)).catch(() => undefined);
+        if (cancelled || mine !== generation) return;
+      }
       const { data } = await supabase.auth.getSession();
       if (cancelled || mine !== generation) return;
       // The socket authorizes with the user's JWT, not the anon key.

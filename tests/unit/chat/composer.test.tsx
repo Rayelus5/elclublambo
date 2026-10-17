@@ -11,6 +11,7 @@ vi.mock("@/lib/chat/actions", () => ({
   getSlowmodeAction: (...a: unknown[]) => getSlowmodeAction(...a),
   searchMentionTargetsAction: (...a: unknown[]) => searchMentionTargetsAction(...(a as [])),
 }));
+vi.mock("@/lib/chat/alpha", () => ({ postAlphaAction: vi.fn() }));
 const uploadChatImage = vi.fn();
 vi.mock("@/lib/chat/upload", async (orig) => ({ ...(await orig<typeof import("@/lib/chat/upload")>()), uploadChatImage: (...a: unknown[]) => uploadChatImage(...a) }));
 const memberRpc = vi.hoisted(() => vi.fn());
@@ -288,6 +289,13 @@ describe("Composer", () => {
     const h1 = screen.getByRole("button", { name: "Encabezado 1" });
     await userEvent.click(h1);
     await waitFor(() => expect(screen.getByRole("button", { name: "Encabezado 1" })).toHaveAttribute("aria-pressed", "true"));
+  });
+});
+
+describe("Composer alpha", () => {
+  it("does not mount the Alpha dialog unless the channel and the member allow it", async () => {
+    await mount();
+    expect(screen.queryByRole("dialog", { name: "Publicar alpha" })).toBeNull();
   });
 });
 
