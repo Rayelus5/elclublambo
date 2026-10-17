@@ -195,10 +195,12 @@ export function keepSignedUrls(previous: readonly ChatMessage[], fresh: readonly
 
 /**
  * Reconciles a freshly read root message into the loaded window: replaced in place when present, inserted when it
- * belongs inside the window, ignored when it is older than what is loaded and more history exists.
+ * belongs inside the window, ignored when it is older than what is loaded and more history exists, and ignored when
+ * it is newer than what is loaded and `hasNewer` (an anchored view): appending it would leave a gap in the timeline.
  */
-export function applyToWindow(list: readonly ChatMessage[], message: ChatMessage, hasMore: boolean): ChatMessage[] {
+export function applyToWindow(list: readonly ChatMessage[], message: ChatMessage, hasMore: boolean, hasNewer = false): ChatMessage[] {
   if (list.some((m) => m.id === message.id)) return upsertSorted(list, message);
   if (hasMore && list.length > 0 && cmpMessages(message, list[0]!) < 0) return [...list];
+  if (hasNewer && list.length > 0 && cmpMessages(message, list.at(-1)!) > 0) return [...list];
   return upsertSorted(list, message);
 }

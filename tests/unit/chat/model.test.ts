@@ -146,4 +146,15 @@ describe("applyToWindow", () => {
   it("inserts an older message when the whole history is loaded", () => {
     expect(applyToWindow([first], old, false).map((m) => m.id)).toEqual(["1", "2"]);
   });
+  it("does not append a newer message when newer pages exist (anchored view)", () => {
+    expect(applyToWindow([first], newer, false, true).map((m) => m.id)).toEqual(["2"]);
+  });
+  it("still updates a loaded message when newer pages exist", () => {
+    const edited = { ...first, editedAt: "2026-10-17T12:00:00+00:00" };
+    expect(applyToWindow([first], edited, false, true)[0]!.editedAt).toBe("2026-10-17T12:00:00+00:00");
+  });
+  it("still inserts a message that falls inside the anchored window", () => {
+    const mid = msg({ id: "2b", createdAt: "2026-10-17T10:30:00+00:00" });
+    expect(applyToWindow([first, newer], mid, false, true).map((m) => m.id)).toEqual(["2", "2b", "3"]);
+  });
 });

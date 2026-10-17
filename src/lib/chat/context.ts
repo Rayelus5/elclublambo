@@ -1,12 +1,20 @@
 import "server-only";
 import { createServerClient } from "@/lib/supabase/server";
 import { mergeDirectory, type ViewerPermissions } from "@/lib/chat/model";
-import { getMessages, getPinned } from "@/lib/chat/queries";
+import { getMessages, getMessagesAround, getPinned } from "@/lib/chat/queries";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import type { ChatViewProps } from "@/components/chat/chat-view";
 
 /** Everything the chat needs for its first paint, read through the member's own RLS. Dynamic: use inside Suspense. */
-export async function loadChatContext(channelId: string): Promise<Pick<ChatViewProps, "viewer" | "allowedDomains" | "initial">> {
+export async function loadChatContext(
+  channelId: string,
+  anchorId: string | null = null,
+): Promise<
+  Pick<ChatViewProps, "viewer" | "allowedDomains" | "initial"> & {
+    /** The `?m=` message when it resolved in this channel; `threadRootId` is set when it is a reply. */
+    anchor: { id: string; threadRootId: string | null } | null;
+  }
+> {
   const supabase = await createServerClient();
   const [me, perms, domains, read] = await Promise.all([
     supabase.rpc("current_member_id"),
@@ -19,7 +27,9 @@ export async function loadChatContext(channelId: string): Promise<Pick<ChatViewP
   const bits = BigInt(String(perms.data ?? 0));
 
   const [page, pins, self] = await Promise.all([
-    getMessages(supabase, channelId, memberId),
+    anchorId
+      ? getMessagesAround(supabase, channelId, memberId, anchorId)
+      : getMessages(supabase, channelId, memberId).then((p) => ({ ...p, hasNewer: false, anchorId: null, threadRootId: null })),
     getPinned(supabase, channelId, memberId),
     supabase.from("members").select("created_at").eq("id", memberId).maybeSingle<{ created_at: string }>(),
   ]);
@@ -36,11 +46,13 @@ export async function loadChatContext(channelId: string): Promise<Pick<ChatViewP
   };
 
   return {
+    anchor: page.anchorId ? { id: page.anchorId, threadRootId: page.threadRootId } : null,
     viewer,
     allowedDomains: ((domains.data ?? []) as Array<{ domain: string }>).map((d) => d.domain),
     initial: {
       messages: page.messages,
       hasMore: page.hasMore,
+      hasNewer: page.hasNewer,
       directory: mergeDirectory(page.directory, pins.directory),
       pinned: pins.messages,
       // Same rule as my_unread_channels: with no read mark, everything since the member joined is unread.

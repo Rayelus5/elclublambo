@@ -7,6 +7,12 @@ const empty = { messages: [], hasMore: false, directory: { members: {}, roles: {
 vi.mock("@/lib/chat/queries", () => ({
   getMessages: vi.fn(async () => empty),
   getPinned: vi.fn(async () => empty),
+  getMessagesAround: vi.fn(async (_s: unknown, _c: string, _m: string, id: string) => ({
+    ...empty,
+    hasNewer: true,
+    anchorId: id === "missing" ? null : id,
+    threadRootId: id === "reply" ? "root-1" : null,
+  })),
 }));
 
 function table(name: string) {
@@ -44,6 +50,20 @@ describe("loadChatContext lastReadAt", () => {
 
   it("falls back to the member's join date, like my_unread_channels", async () => {
     expect((await loadChatContext("c")).initial.lastReadAt).toBe("2026-01-02T00:00:00+00:00");
+  });
+
+  it("loads the window around an anchor and exposes it", async () => {
+    const ctx = await loadChatContext("c", "reply");
+    expect(ctx.anchor).toEqual({ id: "reply", threadRootId: "root-1" });
+    expect(ctx.initial.hasNewer).toBe(true);
+  });
+
+  it("has no anchor (and no newer pages) for a normal load or an anchor that does not resolve", async () => {
+    const plain = await loadChatContext("c");
+    expect(plain.anchor).toBeNull();
+    expect(plain.initial.hasNewer).toBe(false);
+    const missing = await loadChatContext("c", "missing");
+    expect(missing.anchor).toBeNull();
   });
 
   it("maps channel permission bits", async () => {

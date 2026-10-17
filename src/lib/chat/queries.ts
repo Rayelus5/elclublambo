@@ -202,6 +202,86 @@ export async function getMessages(
   return { ...(await hydrateMessages(supabase, page, meId)), hasMore };
 }
 
+export const AROUND_SIDE = 15;
+
+/**
+ * The window of root messages around a message, oldest first, for a `?m=` link. A reply is centred on its thread
+ * root (`threadRootId` says which, so the caller can open the thread). `anchorId` echoes `messageId` when it resolved
+ * and is null when the message does not exist, is not visible (RLS), belongs to another channel or is a reply whose
+ * root is not readable: the result is then the normal latest page (`hasNewer` false).
+ */
+export async function getMessagesAround(
+  supabase: SupabaseClient,
+  channelId: string,
+  meId: string,
+  messageId: string,
+  opts: { before?: number; after?: number } = {},
+): Promise<Hydrated & { hasMore: boolean; hasNewer: boolean; anchorId: string | null; threadRootId: string | null }> {
+  const before = opts.before ?? AROUND_SIDE;
+  const after = opts.after ?? AROUND_SIDE;
+  const latest = async () => ({
+    ...(await getMessages(supabase, channelId, meId)),
+    hasNewer: false,
+    anchorId: null,
+    threadRootId: null,
+  });
+
+  const target = await supabase.from("messages").select(COLUMNS).eq("id", messageId).eq("channel_id", channelId).maybeSingle<MessageRow>();
+  if (target.error) throw target.error;
+  if (!target.data) return latest();
+
+  let root: MessageRow | null = target.data;
+  if (target.data.thread_root_id) {
+    const res = await supabase
+      .from("messages")
+      .select(COLUMNS)
+      .eq("id", target.data.thread_root_id)
+      .eq("channel_id", channelId)
+      .is("thread_root_id", null)
+      .maybeSingle<MessageRow>();
+    if (res.error) throw res.error;
+    root = res.data;
+  }
+  if (!root) return latest();
+
+  const { created_at: at, id } = root;
+  const [olderRes, newerRes] = await Promise.all([
+    supabase
+      .from("messages")
+      .select(COLUMNS)
+      .eq("channel_id", channelId)
+      .is("thread_root_id", null)
+      .or(`created_at.lt.${at},and(created_at.eq.${at},id.lt.${id})`)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(before + 1)
+      .returns<MessageRow[]>(),
+    supabase
+      .from("messages")
+      .select(COLUMNS)
+      .eq("channel_id", channelId)
+      .is("thread_root_id", null)
+      .or(`created_at.gt.${at},and(created_at.eq.${at},id.gt.${id})`)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(after + 1)
+      .returns<MessageRow[]>(),
+  ]);
+  if (olderRes.error) throw olderRes.error;
+  if (newerRes.error) throw newerRes.error;
+  const older = olderRes.data ?? [];
+  const newer = newerRes.data ?? [];
+
+  const rows = [...older.slice(0, before).toReversed(), root, ...newer.slice(0, after)];
+  return {
+    ...(await hydrateMessages(supabase, rows, meId)),
+    hasMore: older.length > before,
+    hasNewer: newer.length > after,
+    anchorId: messageId,
+    threadRootId: target.data.thread_root_id,
+  };
+}
+
 /** One message by id, or null when it does not exist or the member cannot see it (RLS). */
 export async function getMessage(supabase: SupabaseClient, id: string, meId: string): Promise<Hydrated & { message: ChatMessage | null }> {
   const { data, error } = await supabase.from("messages").select(COLUMNS).eq("id", id).maybeSingle<MessageRow>();

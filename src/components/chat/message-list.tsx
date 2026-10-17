@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { ArrowDown, Loader2 } from "lucide-react";
 import { MessageItem, type MessageItemHandlers } from "@/components/chat/message-item";
 import { Button } from "@/components/ui/button";
+import { scrollMessageIntoView } from "@/lib/chat/scroll";
 import { firstUnreadIndex, isGrouped, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
 
 /** Within this many pixels of the end the list counts as "at the bottom" and keeps following new messages. */
@@ -22,6 +23,14 @@ export interface MessageListProps extends MessageItemHandlers {
   onAtBottomChange?: (atBottom: boolean) => void;
   /** Bump to force the list to the bottom (e.g. after sending a message). */
   scrollToBottomKey?: number;
+  /** Message of a `?m=` jump: scrolled into view (centred) on mount and highlighted while set. */
+  highlightId?: string | null;
+  /** Newer messages exist beyond the loaded window (anchored view): the end of the list is not the latest. */
+  hasNewer?: boolean;
+  /** Sticky notice that live messages arrived but were not appended (needs `hasNewer`). */
+  pendingNew?: boolean;
+  onGoLatest?: () => void;
+  goingLatest?: boolean;
 }
 
 /**
@@ -39,6 +48,11 @@ export function MessageList({
   onLoadMore,
   onAtBottomChange,
   scrollToBottomKey = 0,
+  highlightId = null,
+  hasNewer = false,
+  pendingNew = false,
+  onGoLatest,
+  goingLatest = false,
   ...handlers
 }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -50,6 +64,8 @@ export function MessageList({
     key: scrollToBottomKey,
   });
   const [hasNew, setHasNew] = useState(false);
+  // The initial placement happens once: the anchor if there is one in the window, the bottom otherwise.
+  const initialAnchor = useRef(highlightId);
 
   const report = useCallback(
     (value: boolean) => {
@@ -76,7 +92,14 @@ export function MessageList({
     const appended = before.lastId !== undefined && lastId !== before.lastId;
     const forced = before.key !== scrollToBottomKey;
 
-    if (before.firstId === undefined || forced) {
+    if (before.firstId === undefined && initialAnchor.current) {
+      const target = el.querySelector(`[data-message-id="${initialAnchor.current}"]`);
+      if (target) {
+        // Not at the bottom any more: report it so mark-read waits until the reader really reaches the end.
+        report(false);
+        scrollMessageIntoView(target);
+      } else scrollToBottom();
+    } else if (before.firstId === undefined || forced) {
       scrollToBottom();
     } else if (prepended) {
       // Keep what the reader was looking at in place.
@@ -86,7 +109,7 @@ export function MessageList({
       else setHasNew(true);
     }
     prev.current = { firstId, lastId, height: el.scrollHeight, key: scrollToBottomKey };
-  }, [messages, scrollToBottomKey, scrollToBottom]);
+  }, [messages, scrollToBottomKey, scrollToBottom, report]);
 
   const unreadAt = firstUnreadIndex(messages, lastReadAt, viewer.memberId);
 
@@ -131,6 +154,7 @@ export function MessageList({
                   key={m.id}
                   separator={i === unreadAt}
                   message={m}
+                  highlighted={m.id === highlightId}
                   grouped={i !== unreadAt && isGrouped(messages[i - 1], m)}
                   directory={directory}
                   allowedDomains={allowedDomains}
@@ -143,7 +167,21 @@ export function MessageList({
         </div>
       </div>
 
-      {hasNew ? (
+      {hasNewer ? (
+        <Button
+          type="button"
+          size="sm"
+          disabled={goingLatest}
+          aria-busy={goingLatest}
+          onClick={onGoLatest}
+          className="absolute right-4 bottom-3"
+        >
+          {goingLatest ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ArrowDown aria-hidden />}
+          {pendingNew ? "Hay mensajes nuevos" : null}
+          {pendingNew ? <span className="sr-only">. </span> : null}
+          <span className={pendingNew ? "border-l border-current/40 pl-2" : undefined}>Ir a lo más reciente</span>
+        </Button>
+      ) : hasNew ? (
         <Button
           type="button"
           size="sm"
@@ -163,6 +201,7 @@ export function MessageList({
 
 function ListEntry({
   separator,
+  highlighted,
   message,
   grouped,
   directory,
@@ -171,6 +210,7 @@ function ListEntry({
   handlers,
 }: {
   separator: boolean;
+  highlighted: boolean;
   message: ChatMessage;
   grouped: boolean;
   directory: Directory;
@@ -193,6 +233,7 @@ function ListEntry({
         allowedDomains={allowedDomains}
         viewer={viewer}
         grouped={grouped}
+        highlighted={highlighted}
         {...handlers}
       />
     </>

@@ -21,10 +21,10 @@ function Chip({ icon: Icon, children }: { icon: typeof Timer; children: React.Re
   );
 }
 
-async function TextChannel({ channel, threadId }: { channel: ChannelDetail; threadId: string | null }) {
+async function TextChannel({ channel, threadId, messageId }: { channel: ChannelDetail; threadId: string | null; messageId: string | null }) {
   const supabase = await createServerClient();
-  const [context, follow] = await Promise.all([
-    loadChatContext(channel.id),
+  const [{ anchor, ...context }, follow] = await Promise.all([
+    loadChatContext(channel.id, messageId),
     supabase.rpc("my_channel_follow", { p_channel: channel.id }),
   ]);
   // A failed or unexpected read must not masquerade as "mentions": the menu shows an error state instead.
@@ -56,7 +56,15 @@ async function TextChannel({ channel, threadId }: { channel: ChannelDetail; thre
           </ul>
         ) : null}
       </header>
-      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }} initialThreadId={threadId} {...context} />
+      {/* A new `?m=` (e.g. from the search palette, same channel) remounts the view so it loads that window. A reply
+          anchor always opens its own thread, derived under RLS from the message (it wins over a stale `?thread=`). */}
+      <ChatView
+        key={`${channel.id}:${messageId ?? ""}`}
+        channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds, alphaEnabled: channel.alphaEnabled }}
+        initialThreadId={anchor?.threadRootId ?? threadId}
+        initialAnchorId={anchor?.id ?? null}
+        {...context}
+      />
     </div>
   );
 }
@@ -101,12 +109,14 @@ async function ChannelContent({
   searchParams,
 }: {
   params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ thread?: string | string[] }>;
+  searchParams: Promise<{ thread?: string | string[]; m?: string | string[] }>;
 }) {
   const { channelId } = await params;
-  const { thread } = await searchParams;
+  const { thread, m } = await searchParams;
   // A notification link opens this thread; anything that is not a uuid is ignored.
   const threadId = typeof thread === "string" && UUID.test(thread) ? thread : null;
+  // `?m=<messageId>` jumps to a message (search results); anything that is not a uuid is ignored.
+  const messageId = typeof m === "string" && UUID.test(m) ? m : null;
   if (!UUID.test(channelId)) notFound();
 
   // La RLS de `channels` solo devuelve lo visible: lo oculto es indistinguible de lo inexistente.
@@ -114,7 +124,7 @@ async function ChannelContent({
   const channel = all.find((c) => c.id === channelId);
   if (!channel) notFound();
 
-  if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} />;
+  if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} messageId={messageId} />;
   const kids = all.filter((c) => c.parentId === channel.id).toSorted((a, b) => a.position - b.position);
   return <ChildList channel={channel} items={kids} />;
 }
@@ -124,7 +134,7 @@ export default function ChannelPage({
   searchParams,
 }: {
   params: Promise<{ channelId: string }>;
-  searchParams: Promise<{ thread?: string | string[] }>;
+  searchParams: Promise<{ thread?: string | string[]; m?: string | string[] }>;
 }) {
   return (
     <Suspense fallback={<div className="min-h-64" aria-hidden />}>

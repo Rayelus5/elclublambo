@@ -44,6 +44,8 @@ export interface MessageItemProps extends MessageItemHandlers {
   /** Continues the previous message's run: no avatar or header. */
   grouped?: boolean;
   variant?: MessageVariant;
+  /** The target of a `?m=` jump, for a couple of seconds: accent border and `aria-current`. */
+  highlighted?: boolean;
 }
 
 const DAY_TIME = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit" });
@@ -85,6 +87,7 @@ export function MessageItem({
   viewer,
   grouped = false,
   variant = "list",
+  highlighted = false,
   onOpenThread,
   onQuote,
   onEdit,
@@ -139,8 +142,10 @@ export function MessageItem({
     <li
       id={`msg-${message.id}`}
       data-message-id={message.id}
+      aria-current={highlighted ? "true" : undefined}
       className={cn(
-        "group relative -mx-2 flex gap-3 rounded-control px-2 py-1 focus-within:bg-surface-2/60 hover:bg-surface-2/60",
+        "group relative -mx-2 flex gap-3 rounded-control border-l-2 px-2 py-1 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        highlighted ? "border-accent bg-surface-2" : "border-transparent",
         grouped ? "mt-0" : "mt-3 first:mt-0",
       )}
     >

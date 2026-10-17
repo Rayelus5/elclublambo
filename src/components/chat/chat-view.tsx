@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Pin, X } from "lucide-react";
 import { CANCEL_EDIT_EVENT } from "@/components/chat/message-edit";
@@ -20,6 +20,7 @@ import {
 import {
   applyReactionToggle,
   applyToWindow,
+  cmpMessages,
   cmpTime,
   keepSignedUrls,
   mergeDirectory,
@@ -46,9 +47,16 @@ export interface ChatViewProps {
   allowedDomains: readonly string[];
   /** `?thread=<rootId>` from a notification link (already validated as a uuid by the page): opens that thread. */
   initialThreadId?: string | null;
+  /**
+   * `?m=<messageId>` (already validated and resolved by the server): the window in `initial` is built around it. It is
+   * centred and highlighted for 2 s; when it is a reply, `initialThreadId` is its thread and it is highlighted there.
+   */
+  initialAnchorId?: string | null;
   initial: {
     messages: ChatMessage[];
     hasMore: boolean;
+    /** Anchored view: newer messages exist beyond the loaded window. */
+    hasNewer?: boolean;
     directory: Directory;
     pinned: ChatMessage[];
     /** `channel_reads.last_read_at` before this visit: where the "Nuevos" separator goes. */
@@ -65,6 +73,7 @@ interface ThreadState {
 
 const NOTICE_MS = 7000;
 const THROTTLE_MS = 5000;
+const HIGHLIGHT_MS = 2000;
 
 const byPinnedDesc = (a: ChatMessage, b: ChatMessage) => cmpTime(b.pinnedAt ?? "", a.pinnedAt ?? "");
 
@@ -74,7 +83,7 @@ function upsertPinned(list: readonly ChatMessage[], m: ChatMessage): ChatMessage
 }
 
 /** The chat of one text channel: timeline, pins, threads, realtime reconciliation and read marks. */
-export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null }: ChatViewProps) {
+export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null }: ChatViewProps) {
   const channelId = channel.id;
   const meId = viewer.memberId;
   const { refresh: refreshUnread } = useUnread();
@@ -90,11 +99,19 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const [announcement, setAnnouncement] = useState("");
   const [pinnedOpen, setPinnedOpen] = useState(false);
   const [scrollKey, setScrollKey] = useState(0);
+  // Anchored view (`?m=`): the window may end before the newest message. Live messages beyond it are NOT appended (that
+  // would leave a gap in the timeline, the same rule getMessages' cursor follows); they raise `pendingNew` instead and
+  // "Ir a lo más reciente" reloads the normal view. Edits and deletes of loaded messages still apply.
+  const [hasNewer] = useState(initial.hasNewer ?? false);
+  const [pendingNew, setPendingNew] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(initialAnchorId);
+  const [goingLatest, startLatest] = useTransition();
 
   const rootsRef = useRef(roots);
   const hasMoreRef = useRef(hasMore);
   const threadRef = useRef(thread);
   const directoryRef = useRef(directory);
+  const hasNewerRef = useRef(hasNewer);
   useEffect(() => {
     rootsRef.current = roots;
     hasMoreRef.current = hasMore;
@@ -154,9 +171,10 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     const refreshThrottle = createThrottle(() => refreshRef.current(), THROTTLE_MS);
     readThrottle.current = throttle;
     eventRefresh.current = refreshThrottle;
-    throttle.call();
+    // Landing in the middle of history does not mark the channel read: the newest messages have not been seen.
+    if (!hasNewerRef.current) throttle.call();
     const onVisible = () => {
-      if (document.visibilityState === "visible" && atBottom.current && unreadDirty.current) throttle.call();
+      if (document.visibilityState === "visible" && atBottom.current && unreadDirty.current && !hasNewerRef.current) throttle.call();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
@@ -166,7 +184,9 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     };
   }, [doMarkRead]);
 
-  const markRead = useCallback(() => readThrottle.current?.call(), []);
+  const markRead = useCallback(() => {
+    if (!hasNewerRef.current) readThrottle.current?.call();
+  }, []);
 
   const onAtBottomChange = useCallback(
     (value: boolean) => {
@@ -203,11 +223,13 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const apply = useCallback(
     (m: ChatMessage) => {
       if (m.threadRootId === null) {
-        const isNew = !rootsRef.current.some((x) => x.id === m.id);
+        const list = rootsRef.current;
+        const isNew = !list.some((x) => x.id === m.id);
+        if (isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
         if (isNew && m.authorId !== meId && !m.deletedAt) {
           setAnnouncement(`Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}`);
         }
-        setRoots((l) => applyToWindow(l, m, hasMoreRef.current));
+        setRoots((l) => applyToWindow(l, m, hasMoreRef.current, hasNewerRef.current));
         setPinned((l) => upsertPinned(l, m));
         setThread((t) => (t && t.rootId === m.id ? { ...t, root: m } : t));
       } else {
@@ -246,8 +268,13 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       mergeDir(page.directory);
       mergeDir(pins.directory);
       // The fresh newest page replaces the newest slice, so messages hard-deleted while away disappear.
-      setRoots((l) => replaceNewest(l, keepSignedUrls(l, page.messages), page.hasMore));
-      if (!page.hasMore) setHasMore(false);
+      if (hasNewerRef.current) {
+        // Anchored view: the newest slice is not what is on screen, so it must not replace the window.
+        setPendingNew(true);
+      } else {
+        setRoots((l) => replaceNewest(l, keepSignedUrls(l, page.messages), page.hasMore));
+        if (!page.hasMore) setHasMore(false);
+      }
       setPinned((l) => keepSignedUrls(l, pins.messages));
       const open = threadRef.current;
       if (open) {
@@ -354,16 +381,21 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   // A thread opened from a notification link keeps `?thread=<id>` in the URL: drop it on close so a refresh or a
   // shared link does not reopen it. `replace` swaps the URL without adding a history entry or scrolling.
   const router = useRouter();
+  const goLatest = useCallback(() => {
+    // Dropping `m` changes the page's view key: the server renders the normal latest window and the chat remounts on it.
+    startLatest(() => router.replace(`/c/${channelId}`, { scroll: false }));
+  }, [channelId, router]);
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;
     setThread(null);
-    if (initialThreadId) router.replace(`/c/${channelId}`, { scroll: false });
+    // Keep `m` (the anchored window) when there is one: only the thread goes away.
+    if (initialThreadId) router.replace(initialAnchorId ? `/c/${channelId}?m=${initialAnchorId}` : `/c/${channelId}`, { scroll: false });
     const opener = openerRef.current;
     openerRef.current = null;
     requestAnimationFrame(() => {
       if (opener?.isConnected) opener.focus();
     });
-  }, [initialThreadId, channelId, router]);
+  }, [initialThreadId, initialAnchorId, channelId, router]);
 
   // --- message actions ----------------------------------------------------------------------------
 
@@ -414,6 +446,15 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     requestAnimationFrame(() => composerBox.current?.querySelector<HTMLElement>('[role="textbox"]')?.focus());
   }, []);
 
+  // The 2 s highlight starts once the target is on screen (a reply may wait for its thread to load).
+  const targetShown =
+    highlightId !== null && (roots.some((m) => m.id === highlightId) || (thread?.replies.some((m) => m.id === highlightId) ?? false));
+  useEffect(() => {
+    if (!targetShown) return;
+    const timer = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [targetShown]);
+
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), NOTICE_MS);
@@ -447,6 +488,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           void reconcile(thread.rootId);
           markRead();
         }}
+        highlightId={highlightId}
         inDialog={inDialog}
         onEdit={editMessage}
         onDelete={deleteMessage}
@@ -485,6 +527,11 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           onLoadMore={() => void loadMore()}
           onAtBottomChange={onAtBottomChange}
           scrollToBottomKey={scrollKey}
+          highlightId={highlightId}
+          hasNewer={hasNewer}
+          pendingNew={pendingNew}
+          onGoLatest={goLatest}
+          goingLatest={goingLatest}
           {...itemHandlers}
         />
 
@@ -509,6 +556,11 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}
               onPosted={(id) => {
+                // A message sent from the middle of history lands at the end: show the latest window.
+                if (hasNewerRef.current) {
+                  goLatest();
+                  return;
+                }
                 void reconcile(id);
                 setScrollKey((k) => k + 1);
                 markRead();

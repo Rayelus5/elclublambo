@@ -6,6 +6,7 @@ import { Composer } from "@/components/chat/composer";
 import { MessageItem, type MessageItemHandlers } from "@/components/chat/message-item";
 import { Button } from "@/components/ui/button";
 import { DialogTitle } from "@/components/ui/dialog";
+import { scrollMessageIntoView } from "@/lib/chat/scroll";
 import { isGrouped, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
 
 export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "onDelete" | "onToggleReaction"> {
@@ -22,6 +23,8 @@ export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "
   onPosted?: (id: string) => void;
   /** Rendered inside a Radix Dialog: the heading is then the dialog's title. */
   inDialog?: boolean;
+  /** Reply of a `?m=` jump: centred once the thread has loaded, and highlighted while set. */
+  highlightId?: string | null;
 }
 
 /** One-level thread: the root, its replies and a composer bound to the thread. Used inline (≥1024) and in a dialog. */
@@ -37,6 +40,7 @@ export function ThreadPanel({
   onClose,
   onPosted,
   inDialog = false,
+  highlightId = null,
   ...handlers
 }: ThreadPanelProps) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -50,10 +54,27 @@ export function ThreadPanel({
   }, []);
 
   const count = replies.length;
+  // The jump target is centred the first time it is rendered. After that only a change of the reply count follows
+  // the end (clearing the highlight must not yank the reader away).
+  const centred = useRef<string | null>(null);
+  const lastCount = useRef<number | null>(null);
   useEffect(() => {
     const el = scroller.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [count]);
+    if (!el) return;
+    if (highlightId && centred.current !== highlightId) {
+      const target = el.querySelector(`[data-message-id="${highlightId}"]`);
+      if (target) {
+        centred.current = highlightId;
+        lastCount.current = count;
+        scrollMessageIntoView(target);
+        return;
+      }
+      if (loading) return;
+    }
+    if (lastCount.current === count) return;
+    lastCount.current = count;
+    if (!highlightId || centred.current !== highlightId) el.scrollTop = el.scrollHeight;
+  }, [count, highlightId, loading]);
 
   return (
     <section
@@ -114,6 +135,7 @@ export function ThreadPanel({
                     allowedDomains={allowedDomains}
                     viewer={viewer}
                     variant="thread"
+                    highlighted={m.id === highlightId}
                     grouped={isGrouped(replies[i - 1], m)}
                     {...handlers}
                   />

@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   onEvent: null as null | ((e: { id: string; threadRootId: string | null; events: string[] }) => void),
@@ -453,6 +453,109 @@ describe("ChatView", () => {
       } finally {
         window.matchMedia = original;
       }
+    });
+  });
+
+  describe("jump to a message (?m=)", () => {
+    const scrolls: Array<{ id: string | null; arg: unknown }> = [];
+    const original = Element.prototype.scrollIntoView;
+    beforeEach(() => {
+      scrolls.length = 0;
+      Element.prototype.scrollIntoView = function (this: Element, arg?: unknown) {
+        scrolls.push({ id: this.getAttribute("data-message-id"), arg });
+      };
+    });
+    afterEach(() => {
+      Element.prototype.scrollIntoView = original;
+    });
+    const anchored = () => {
+      const msgs = [makeMessage({ createdAt: at(1), body: doc("uno") }), makeMessage({ createdAt: at(2), body: doc("objetivo") }), makeMessage({ createdAt: at(3), body: doc("tres") })];
+      return msgs;
+    };
+    const item = (id: string) => document.getElementById(`msg-${id}`)!;
+
+    it("scrolls the anchor to the centre and highlights it with aria-current for two seconds", async () => {
+      const msgs = anchored();
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: true, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      expect(item(msgs[1]!.id)).toHaveAttribute("aria-current", "true");
+      expect(item(msgs[0]!.id)).not.toHaveAttribute("aria-current");
+      expect(scrolls.find((s) => s.id === msgs[1]!.id)?.arg).toMatchObject({ block: "center", behavior: "smooth" });
+      await waitFor(() => expect(item(msgs[1]!.id)).not.toHaveAttribute("aria-current"), { timeout: 3500 });
+    });
+
+    it("does not animate the scroll under prefers-reduced-motion", () => {
+      const original = window.matchMedia;
+      window.matchMedia = ((q: string) => ({ matches: q.includes("reduce"), media: q, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+      try {
+        const msgs = anchored();
+        setup({ initialAnchorId: msgs[1]!.id }, msgs);
+        expect(scrolls.find((s) => s.id === msgs[1]!.id)?.arg).toMatchObject({ block: "center", behavior: "auto" });
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+
+    it("a normal view highlights nothing and offers no 'Ir a lo más reciente'", () => {
+      const msgs = anchored();
+      setup({}, msgs);
+      expect(document.querySelector('[aria-current="true"]')).toBeNull();
+      expect(screen.queryByRole("button", { name: "Ir a lo más reciente" })).not.toBeInTheDocument();
+    });
+
+    it("'Ir a lo más reciente' drops ?m from the URL", async () => {
+      const msgs = anchored();
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      await userEvent.click(screen.getByRole("button", { name: "Ir a lo más reciente" }));
+      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+    });
+
+    it("keeps loading older messages from the anchored view", async () => {
+      const msgs = anchored();
+      const older = makeMessage({ createdAt: at(0), body: doc("anterior") });
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: true, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      queries.getMessages.mockResolvedValue({ messages: [older], hasMore: false, directory: none });
+      await userEvent.click(screen.getByRole("button", { name: "Cargar anteriores" }));
+      expect(await screen.findByText("anterior")).toBeInTheDocument();
+      expect(queries.getMessages.mock.calls[0]![3].before).toEqual({ createdAt: msgs[0]!.createdAt, id: msgs[0]!.id });
+    });
+
+    it("does not append realtime messages out of order while newer pages exist, and says so", async () => {
+      const msgs = anchored();
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      const incoming = makeMessage({ createdAt: at(40), body: doc("llegó al final") });
+      queries.getMessage.mockResolvedValue({ message: incoming, messages: [incoming], directory });
+      await emit(incoming.id, ["message_created"]);
+      expect(screen.queryByText("llegó al final")).not.toBeInTheDocument();
+      expect(await screen.findByText("Hay mensajes nuevos")).toBeInTheDocument();
+    });
+
+    it("still applies edits to messages inside the anchored window", async () => {
+      const msgs = anchored();
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      const edited = { ...msgs[2]!, body: doc("tres editado") };
+      queries.getMessage.mockResolvedValue({ message: edited, messages: [edited], directory });
+      await emit(edited.id);
+      expect(await screen.findByText("tres editado")).toBeInTheDocument();
+    });
+
+    it("does not mark the channel read while newer messages remain unseen", async () => {
+      const msgs = anchored();
+      setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
+      await emit("11111111-1111-4111-8111-111111111111");
+      expect(actions.markReadAction).not.toHaveBeenCalled();
+    });
+
+    it("a reply anchor opens its thread and highlights the reply there", async () => {
+      const r = makeMessage({ createdAt: at(1), body: doc("raíz"), replyCount: 2 });
+      const a = makeMessage({ threadRootId: r.id, createdAt: at(2), body: doc("otra respuesta") });
+      const target = makeMessage({ threadRootId: r.id, createdAt: at(3), body: doc("la respuesta buscada") });
+      queries.getThread.mockResolvedValue({ root: r, replies: [a, target], directory: none });
+      setup({ initialThreadId: r.id, initialAnchorId: target.id }, [r]);
+      const panel = await screen.findByRole("dialog", { name: "Hilo" });
+      const hit = (await within(panel).findByText("la respuesta buscada")).closest("li")!;
+      expect(hit).toHaveAttribute("aria-current", "true");
+      expect(within(panel).getByText("otra respuesta").closest("li")).not.toHaveAttribute("aria-current");
+      await waitFor(() => expect(scrolls.some((s) => s.id === target.id)).toBe(true));
     });
   });
 
