@@ -5,7 +5,7 @@ const back = vi.hoisted(() => vi.fn());
 const push = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ back, push }) }));
 
-import { OutView } from "@/components/chat/out-view";
+import { needsHomographWarning, OutView } from "@/components/chat/out-view";
 import { isPublicPath } from "@/lib/auth/public-paths";
 
 describe("OutView", () => {
@@ -13,7 +13,7 @@ describe("OutView", () => {
     "%j shows the invalid message",
     (u) => {
       render(<OutView u={u} />);
-      expect(screen.getByText("Enlace no válido.")).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Solo se pueden abrir enlaces http(s) completos.");
       expect(screen.queryByRole("link", { name: /Continuar/ })).toBeNull();
     },
   );
@@ -36,6 +36,13 @@ describe("OutView", () => {
     expect(screen.getAllByText("xn--gthub-n4a.com").length).toBeGreaterThan(0);
     expect(screen.getByText("gıthub.com")).toBeInTheDocument();
     expect(screen.getByText(/caracteres que se parecen/i)).toBeInTheDocument();
+  });
+
+  it("fails closed: an undecodable xn-- label still warns", () => {
+    expect(needsHomographWarning("xn--a.com", "xn--a.com")).toBe(true);
+    expect(needsHomographWarning("www.xn--a.com", "www.xn--a.com")).toBe(true);
+    expect(needsHomographWarning("example.com", "example.com")).toBe(false);
+    expect(needsHomographWarning("notxn--a.com", "notxn--a.com")).toBe(false);
   });
 
   it("does not show the homograph warning for ASCII hosts", () => {

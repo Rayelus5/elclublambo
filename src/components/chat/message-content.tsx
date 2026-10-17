@@ -74,6 +74,9 @@ function renderText(node: TiptapNode, props: Props): ReactNode {
         >
           {out}
           {c.kind === "guarded" ? <ExternalLink aria-hidden className="ml-0.5 inline size-3 align-baseline" /> : null}
+          <span className="sr-only">
+            {c.kind === "guarded" ? " (sale de El Club, abre en una pestaña nueva)" : " (abre en una pestaña nueva)"}
+          </span>
         </a>
       );
     }

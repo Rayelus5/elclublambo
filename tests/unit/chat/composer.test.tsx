@@ -161,6 +161,41 @@ describe("Composer", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Vas demasiado rápido");
   });
 
+  it("Enter sends when the mention popup has no matches (zero-match @xyz)", async () => {
+    postMessageAction.mockResolvedValue({ id: "m1" });
+    const { box, editor } = await mount();
+    act(() => {
+      editor.commands.focus("end");
+      editor.commands.insertContent("@xyz");
+    });
+    // let the (debounced) suggestion search resolve with no results
+    await new Promise((r) => setTimeout(r, 350));
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(postMessageAction).toHaveBeenCalledTimes(1));
+  });
+
+  it("disables the attach button while a send is in flight", async () => {
+    let resolve!: (v: unknown) => void;
+    postMessageAction.mockImplementation(() => new Promise((r) => (resolve = r)));
+    const { box, editor } = await mount();
+    type(editor, "<p>hola</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Adjuntar imagen" })).toBeDisabled());
+    await act(async () => resolve({ id: "m1" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Adjuntar imagen" })).toBeEnabled());
+  });
+
+  it("clears the 'Espera' alert when the cooldown elapses", async () => {
+    postMessageAction.mockResolvedValue({ error: "slowmode", slowmodeSeconds: 1 });
+    const { box, editor } = await mount({ slowmodeSeconds: 30 });
+    type(editor, "<p>hola</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await screen.findByText("Puedes escribir de nuevo en 1s");
+    fireEvent.keyDown(box, { key: "Enter" });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Espera");
+    await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument(), { timeout: 3000 });
+  });
+
   it("retries resolving the member id after a failure", async () => {
     uploadChatImage.mockResolvedValue({ path: "p", mime: "image/webp", size: 5, width: 1, height: 1 });
     vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: () => "blob:x", revokeObjectURL: () => {} }));

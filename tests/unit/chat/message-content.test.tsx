@@ -26,7 +26,7 @@ describe("MessageContent links", () => {
 
   it("allowed domain is a direct link with safe rel/target", () => {
     renderDoc(doc(p(t("repo", link("https://sub.github.com/x")))));
-    const a = screen.getByRole("link", { name: "repo" });
+    const a = screen.getByRole("link", { name: /^repo ?\(abre en una pestaña nueva\)$/ });
     expect(a).toHaveAttribute("href", "https://sub.github.com/x");
     expect(a).toHaveAttribute("target", "_blank");
     expect(a).toHaveAttribute("rel", "noopener noreferrer nofollow ugc");
@@ -34,7 +34,7 @@ describe("MessageContent links", () => {
 
   it("lookalike domains go through /out", () => {
     renderDoc(doc(p(t("x", link("https://github.com.evil.io/p?a=1")))));
-    const a = screen.getByRole("link", { name: "x" });
+    const a = screen.getByRole("link", { name: /^x ?\(sale de El Club, abre en una pestaña nueva\)$/ });
     expect(a).toHaveAttribute("href", `/out?u=${encodeURIComponent("https://github.com.evil.io/p?a=1")}`);
     expect(a).toHaveAttribute("rel", "noopener noreferrer nofollow ugc");
     expect(a).toHaveAttribute("target", "_blank");

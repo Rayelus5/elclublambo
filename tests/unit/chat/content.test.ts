@@ -110,6 +110,12 @@ describe("sanitizeDoc", () => {
     expect(count(out)).toBeLessThanOrEqual(5001);
   });
 
+  it.each(["__proto__", "constructor", "toString", "hasOwnProperty"])("drops nodes whose type is %s", (type) => {
+    const out = sanitizeDoc(JSON.parse(`{"type":"doc","content":[{"type":"${type}","content":[{"type":"paragraph","content":[{"type":"text","text":"a"}]}]}]}`));
+    expect(JSON.stringify(out)).not.toContain(type);
+    expect(docToPlainText(out)).toBe("a");
+  });
+
   it("ignores prototype pollution style keys", () => {
     const evil = JSON.parse('{"type":"doc","__proto__":{"x":1},"content":[{"type":"paragraph","attrs":{"__proto__":{"y":1}},"content":[{"type":"text","text":"a"}]}]}');
     const out = sanitizeDoc(evil);
@@ -130,6 +136,10 @@ describe("docToPlainText (mirrors SQL _doc_text)", () => {
     ["hardBreak is newline", doc(p(t("a"), { type: "hardBreak" }, t("b"))), "a\nb"],
     ["nested lists", doc({ type: "bulletList", content: [{ type: "listItem", content: [p(t("a"))] }, { type: "listItem", content: [p(t("b"))] }] }), "a\nb"],
     ["table cells separated by newline", doc({ type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", content: [p(t("a"))] }, { type: "tableCell", content: [p(t("b"))] }] }] }), "a\nb"],
+    ["a non-object sibling between inlines is transparent (SQL NULL tri-state)", doc(p(t("a"), 5, t("b"))), "ab"],
+    ["a typeless sibling between inlines is transparent", doc(p(t("a"), {}, t("b"))), "ab"],
+    ["a typeless first sibling does not add a newline before an inline", doc(p({}, t("b"))), "b"],
+    ["typeless block between blocks", doc(p(t("a")), {}, p(t("b"))), "a\n\nb"],
     ["empty paragraph between", doc(p(t("a")), p(), p(t("b"))), "a\n\nb"],
     ["horizontalRule between blocks", doc(p(t("a")), { type: "horizontalRule" }, p(t("b"))), "a\n\nb"],
     ["leading/trailing whitespace trimmed", doc(p(t("  a  ")), p()), "a"],

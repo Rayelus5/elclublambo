@@ -138,15 +138,14 @@ function createRender<T>(
 
     return {
       onStart(props: SuggestionProps<T, T>) {
-        // Active as soon as the trigger is typed, even before the async items resolve: Enter must not
-        // send a half-typed mention.
-        open[kind] = true;
+        // "Open" for key handling only while the popup has entries to pick: with zero matches Enter sends.
+        open[kind] = props.items.length > 0;
         renderer = new ReactRenderer(SuggestionList, { props: propsFor(props), editor: props.editor });
         document.body.appendChild(renderer.element);
         place(props);
       },
       onUpdate(props: SuggestionProps<T, T>) {
-        open[kind] = true;
+        open[kind] = props.items.length > 0;
         renderer?.updateProps(propsFor(props));
         place(props);
       },

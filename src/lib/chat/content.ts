@@ -236,7 +236,7 @@ function convert(raw: unknown, depth: number, ctx: Ctx): TiptapNode[] {
   }
   if (type === "hardBreak") return take(ctx) ? [{ type }] : [];
 
-  const mode = CHILD_MODE[type];
+  const mode = Object.prototype.hasOwnProperty.call(CHILD_MODE, type) ? CHILD_MODE[type] : undefined;
   const rawChildren = own(raw, "content");
   const kids: TiptapNode[] = [];
   if (Array.isArray(rawChildren)) {
@@ -280,11 +280,16 @@ function textRec(node: unknown, depth: number): string {
   if (type === "hardBreak") return "\n";
   if (!Array.isArray(node.content)) return "";
   let out = "";
-  let prevInline = false;
+  // SQL three-valued logic: `(child ->> 'type') in (...)` is NULL when the child is not an object or has no
+  // (or a JSON null) `type`; `not v_first and not (NULL and prev)` then adds a newline only when it is TRUE.
+  let prevInline: boolean | null = false;
   let first = true;
   for (const child of node.content) {
-    const inline = isObject(child) && (child.type === "text" || child.type === "mention" || child.type === "hardBreak");
-    if (!first && !(inline && prevInline)) out += "\n";
+    const childType = isObject(child) && child.type !== null && child.type !== undefined ? child.type : null;
+    const inline: boolean | null =
+      childType === null ? null : childType === "text" || childType === "mention" || childType === "hardBreak";
+    const both = inline === false || prevInline === false ? false : inline === null || prevInline === null ? null : true;
+    if (!first && both === false) out += "\n";
     out += textRec(child, depth + 1);
     prevInline = inline;
     first = false;

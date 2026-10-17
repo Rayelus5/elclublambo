@@ -19,6 +19,7 @@ export const COMPACT_LIMIT = 4000;
 const EXPANDED_LIMIT = 20000;
 const MAX_ATTACHMENTS = 4;
 const ACCEPT = "image/png,image/jpeg,image/webp,image/gif";
+const SLOW_WAIT_COPY = "Espera a que termine el tiempo de espera del canal para enviar.";
 const NO_ATTACH_COPY = "No tienes permiso para adjuntar imágenes en este canal.";
 
 type Attachment = {
@@ -151,7 +152,7 @@ export function Composer(props: ComposerProps) {
   const send = async (doc: unknown, expanded: boolean): Promise<boolean> => {
     if (sendingRef.current || !canPost) return false;
     if (slowRef.current) {
-      setError("Espera a que termine el tiempo de espera del canal para enviar.");
+      setError(SLOW_WAIT_COPY);
       return false;
     }
     const current = attachmentsRef.current;
@@ -279,10 +280,16 @@ export function Composer(props: ComposerProps) {
           ))}
         </ul>
       ) : null}
-      <SlowmodeTimer seconds={slow.seconds} resetKey={slow.key} onElapsed={() => {
+      <SlowmodeTimer
+        seconds={slow.seconds}
+        resetKey={slow.key}
+        onElapsed={() => {
           slowRef.current = false;
           setSlowActive(false);
-        }} />
+          // The "Espera…" alert is stale once the cooldown is over.
+          setError((e) => (e === SLOW_WAIT_COPY ? null : e));
+        }}
+      />
       {error ? (
         <p role="alert" className="text-[13px] text-danger">
           {error}
@@ -338,7 +345,7 @@ export function Composer(props: ComposerProps) {
             variant="ghost"
             size="icon"
             aria-label="Adjuntar imagen"
-            disabled={attachments.length >= MAX_ATTACHMENTS}
+            disabled={sending || attachments.length >= MAX_ATTACHMENTS}
             onClick={() => fileInput.current?.click()}
           >
             <Paperclip aria-hidden />

@@ -4,6 +4,11 @@ import { buttonVariants } from "@/components/ui/button";
 import { parseExternalUrl } from "@/lib/chat/links";
 import { cn } from "@/lib/utils";
 
+/** Fail closed: any punycode label warns, even one the decoder could not turn into Unicode. */
+export function needsHomographWarning(host: string, unicodeHost: string): boolean {
+  return /(^|\.)xn--/i.test(host) || unicodeHost !== host;
+}
+
 /** Interstitial shown before leaving the forum through a link that is not on the allowed list. */
 export function OutView({ u }: { u: string | undefined }) {
   const target = parseExternalUrl(u);
@@ -15,7 +20,7 @@ export function OutView({ u }: { u: string | undefined }) {
           Enlace no válido
         </h1>
         <p role="alert" className="text-fg-muted">
-          Enlace no válido.
+          Solo se pueden abrir enlaces http(s) completos.
         </p>
         <div>
           <OutBackButton />
@@ -24,7 +29,8 @@ export function OutView({ u }: { u: string | undefined }) {
     );
   }
 
-  const differs = target.unicodeHost !== target.host;
+  const differs = needsHomographWarning(target.host, target.unicodeHost);
+  const showUnicode = target.unicodeHost !== target.host;
 
   return (
     <section className="flex flex-col gap-6" aria-labelledby="out-title">
@@ -39,7 +45,7 @@ export function OutView({ u }: { u: string | undefined }) {
         <div className="flex flex-col gap-1">
           <span className="text-xs font-bold tracking-wide text-fg-muted uppercase">Dominio</span>
           <span className="font-mono text-base break-all text-fg">{target.host}</span>
-          {differs ? (
+          {showUnicode ? (
             <>
               <span className="text-xs font-bold tracking-wide text-fg-muted uppercase">Como se ve en Unicode</span>
               <span className="font-mono text-base break-all text-fg">{target.unicodeHost}</span>
