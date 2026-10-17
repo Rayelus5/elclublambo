@@ -4,6 +4,7 @@ import { docToPlainText, sanitizeDoc } from "@/lib/chat/content";
 import { verifyLineaContract } from "@/lib/chat/linea";
 import { ALPHA_ADDRESS_RE } from "@/lib/chat/model";
 import { rpcErrorCode } from "@/lib/errors";
+import { schedulePushDispatch } from "@/lib/push/schedule";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -70,5 +71,6 @@ export async function postAlphaAction(input: {
     const n = Number.parseInt((error as { details?: string | null }).details ?? "", 10);
     return { error: code, slowmodeSeconds: Number.isFinite(n) && n > 0 ? n : undefined };
   }
+  schedulePushDispatch();
   return { id: String(data) };
 }

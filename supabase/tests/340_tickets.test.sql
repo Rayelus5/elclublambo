@@ -1,5 +1,5 @@
 begin;
-select plan(98);
+select plan(115);
 
 create function pg_temp.uid(p_member text) returns uuid language sql as
   $$ select auth_user_id from public.members where id = p_member::uuid $$;
@@ -226,9 +226,63 @@ select is(public.my_unread_notification_count(), 0, 'nor counts them');
 select is(public.mark_notifications_read(null), 0, 'nor marks them read');
 select tests.clear_authentication();
 
+-- ===== whitespace-only input is rejected (locale-independent trim of space, \t \n \v \f \r) =====
+select tests.authenticate_as(pg_temp.uid(current_setting('t.a')));
+select throws_ok(format($q$select public.open_ticket(%L::uuid, E'\t\t\t\t\t', 'hola')$q$, current_setting('t.tc')), 'invalid_input', 'tab-only subject: invalid_input');
+select throws_ok(format($q$select public.open_ticket(%L::uuid, E' \n\x0b\f\r ', 'hola')$q$, current_setting('t.tc')), 'invalid_input', 'newline/vtab/formfeed/cr-only subject: invalid_input');
+select throws_ok(format($q$select public.open_ticket(%L::uuid, E'\t\tab\t\t', 'hola')$q$, current_setting('t.tc')), 'invalid_input', 'length rule applies after trim');
+select throws_ok(format($q$select public.open_ticket(%L::uuid, 'Asunto valido', E' \t\n\x0b\f\r ')$q$, current_setting('t.tc')), 'invalid_input', 'whitespace-only body: invalid_input');
+select throws_ok(format($q$select public.post_ticket_message(%L::uuid, E' \t\n\x0b\f\r ')$q$, current_setting('t.t2')), 'invalid_input', 'whitespace-only message: invalid_input');
+select lives_ok(format($q$select public.post_ticket_message(%L::uuid, E'\t\n hola con espacios \x0b\f\r')$q$, current_setting('t.t2')), 'padded message is accepted');
+select is((select body_text from public.ticket_messages where ticket_id = current_setting('t.t2')::uuid order by created_at desc limit 1),
+  'hola con espacios', 'and stored trimmed');
+select set_config('t.t5', public.open_ticket(current_setting('t.tc')::uuid, E'\t\x0b Asunto con tabs \f\r\n', E'\n cuerpo \t')::text, true);
+select tests.clear_authentication();
+select is((select subject from public.tickets where id = current_setting('t.t5')::uuid), 'Asunto con tabs', 'subject trimmed of every ascii whitespace');
+select is((select body_text from public.ticket_messages where ticket_id = current_setting('t.t5')::uuid), 'cuerpo', 'body trimmed of every ascii whitespace');
+
+-- ===== author reply falls back to every staff member when no participant still has access =====
+select tests.authenticate_as(pg_temp.uid(current_setting('t.b')));
+select set_config('t.t6', public.open_ticket(current_setting('t.other')::uuid, 'Ticket de B', 'hola')::text, true);
+select tests.clear_authentication();
+select is(pg_temp.nt(current_setting('t.s3'), 'ticket_new', current_setting('t.t6')), 1, 'staff of the channel got ticket_new');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.s3')));
+select public.post_ticket_message(current_setting('t.t6')::uuid, 'Hola B');
+select tests.clear_authentication();
+-- the only participating staff member loses access
+update public.permission_overwrites set deny = 1
+  where channel_id = current_setting('t.other')::uuid and target_type = 'member' and target_id = current_setting('t.s3')::uuid;
+select tests.authenticate_as(pg_temp.uid(current_setting('t.b')));
+select public.post_ticket_message(current_setting('t.t6')::uuid, 'Sigo esperando');
+select tests.clear_authentication();
+select is(pg_temp.nt(current_setting('t.s3'), 'ticket_reply', current_setting('t.t6')), 0, 'the participant who lost access is not notified');
+select is(pg_temp.nt(current_setting('t.admin'), 'ticket_reply', current_setting('t.t6')), 1, 'the fallback notifies the staff who still have access');
+
 -- ===== realtime triggers =====
 select ok(exists (select 1 from pg_trigger where tgrelid = 'public.ticket_messages'::regclass and tgname = 'ticket_messages_broadcast_insert'), 'ticket_messages broadcast trigger');
 select ok(exists (select 1 from pg_trigger where tgrelid = 'public.tickets'::regclass and tgname = 'tickets_broadcast_update'), 'tickets broadcast trigger');
+
+-- ticket_updated fires on real changes only: a post that only moves last_message_at emits no event
+select set_config('t.rt0', (select count(*)::text from realtime.messages where event = 'ticket_updated' and topic = 'ticket:' || current_setting('t.t2')), true);
+update public.tickets set last_message_at = now() where id = current_setting('t.t2')::uuid;
+select is((select count(*)::text from realtime.messages where event = 'ticket_updated' and topic = 'ticket:' || current_setting('t.t2')),
+  current_setting('t.rt0'), 'last_message_at-only update emits no ticket_updated');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.a')));
+select public.post_ticket_message(current_setting('t.t2')::uuid, 'otro mensaje');
+select tests.clear_authentication();
+select is((select count(*)::text from realtime.messages where event = 'ticket_updated' and topic = 'ticket:' || current_setting('t.t2')),
+  current_setting('t.rt0'), 'posting a message emits ticket_message_created only');
+select tests.authenticate_as(pg_temp.uid(current_setting('t.a')));
+select public.set_ticket_status(current_setting('t.t2')::uuid, 'closed');
+select tests.clear_authentication();
+select is((select count(*)::text from realtime.messages where event = 'ticket_updated' and topic = 'ticket:' || current_setting('t.t2')),
+  (current_setting('t.rt0')::int + 1)::text, 'a status change emits exactly one ticket_updated');
+
+-- ===== tickets RLS: staff branch goes through visible_channels() =====
+select ok((select qual from pg_policies where schemaname = 'public' and tablename = 'tickets' and policyname = 'tickets_select') like '%visible_channels%16384%',
+  'staff branch of tickets_select uses visible_channels()');
+select ok((select qual from pg_policies where schemaname = 'public' and tablename = 'tickets' and policyname = 'tickets_select') like '%author_id%',
+  'author branch of tickets_select is kept');
 
 select * from finish();
 rollback;

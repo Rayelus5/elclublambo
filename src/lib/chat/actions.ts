@@ -3,6 +3,7 @@
 import { docToPlainText, sanitizeDoc } from "@/lib/chat/content";
 import type { MentionSearchResult } from "@/lib/chat/mentions";
 import { rpcErrorCode } from "@/lib/errors";
+import { schedulePushDispatch } from "@/lib/push/schedule";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -83,6 +84,7 @@ export async function postMessageAction(input: {
     const code = rpcErrorCode(error);
     return code === "slowmode" ? { error: code, slowmodeSeconds: slowmodeSeconds(error) } : { error: code };
   }
+  schedulePushDispatch();
   return { id: String(data) };
 }
 
@@ -93,7 +95,9 @@ export async function editMessageAction(input: { id: string; doc: unknown }): Pr
   const text = docToPlainText(doc);
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("edit_message", { p_id: input.id, p_body: doc, p_body_text: text });
-  return error ? { error: rpcErrorCode(error) } : {};
+  if (error) return { error: rpcErrorCode(error) };
+  schedulePushDispatch();
+  return {};
 }
 
 export async function deleteMessageAction(id: string): Promise<ActionResult> {

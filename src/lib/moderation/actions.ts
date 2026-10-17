@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { schedulePushDispatch } from "@/lib/push/schedule";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,6 +25,7 @@ export async function banMemberAction(input: {
   });
   if (error) return { error: rpcErrorCode(error) };
 
+  schedulePushDispatch();
   revalidatePath("/admin/members");
   return {};
 }

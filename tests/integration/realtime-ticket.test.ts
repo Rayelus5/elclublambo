@@ -59,31 +59,57 @@ describe.skipIf(!up)(`ticket realtime ${up ? "" : `(skipped: ${skipReason})`}`, 
 
     const la = await listenTicket(author, ticketId);
     const ls = await listenTicket(staff, ticketId);
+    // The outsider is subscribed BEFORE any event and stays subscribed until the end of the test: a live socket
+    // (its own member topic, which it may join) must see nothing of the ticket, and its attempt to join the ticket
+    // topic must have been denied and must stay denied while the events happen.
     const lo = await listenTicket(outsider, ticketId);
+    const bystander = outsider.client.channel(`member:${outsider.memberId}`, { config: { private: true } });
+    const bystanderEvents: Array<{ event: string; payload: Record<string, unknown> }> = [];
+    bystander.on("broadcast", { event: "*" }, (m) => bystanderEvents.push({ event: m.event, payload: m.payload }));
+    const bystanderStatus = await new Promise<string>((resolve) => {
+      const t = setTimeout(() => resolve("TIMEOUT"), 5000);
+      bystander.subscribe((s) => {
+        if (s === "SUBSCRIBED" || s === "CHANNEL_ERROR" || s === "TIMED_OUT" || s === "CLOSED") {
+          clearTimeout(t);
+          resolve(s);
+        }
+      });
+    });
     expect(la.status).toBe("SUBSCRIBED");
     expect(ls.status).toBe("SUBSCRIBED");
     expect(lo.status).not.toBe("SUBSCRIBED");
-    await outsider.client.removeChannel(lo.ch); // denied topics must be removed
+    expect(bystanderStatus).toBe("SUBSCRIBED");
 
     const posted = await staff.client.rpc("post_ticket_message", { p_ticket: ticketId, p_body: "Lo revisamos" });
     expect(posted.error).toBeNull();
 
     expect(await waitFor(la.events, 5000)).toBeGreaterThan(0);
     expect(await waitFor(ls.events, 5000)).toBeGreaterThan(0);
+    await sleep(1000);
     for (const l of [la, ls]) {
-      const created = l.events.find((e) => e.event === "ticket_message_created");
-      expect(created).toBeTruthy();
-      expect(created!.payload).toEqual({ id: posted.data, ticket_id: ticketId });
+      const created = l.events.filter((e) => e.event === "ticket_message_created");
+      expect(created).toHaveLength(1);
+      expect(created[0]!.payload).toEqual({ id: posted.data, ticket_id: ticketId });
+      // a post only moves last_message_at: exactly one event per post, no extra ticket_updated
+      expect(l.events.filter((e) => e.event === "ticket_updated")).toHaveLength(0);
     }
 
     const closed = await staff.client.rpc("set_ticket_status", { p_ticket: ticketId, p_status: "closed" });
     expect(closed.error).toBeNull();
-    await sleep(1500);
-    const updated = la.events.find((e) => e.event === "ticket_updated");
-    expect(updated?.payload).toEqual({ id: ticketId, ticket_id: ticketId });
+    await sleep(2000);
+    // both the author and the staff listener receive ticket_updated, ids only, once
+    for (const l of [la, ls]) {
+      const updated = l.events.filter((e) => e.event === "ticket_updated");
+      expect(updated).toHaveLength(1);
+      expect(updated[0]!.payload).toEqual({ id: ticketId, ticket_id: ticketId });
+    }
 
-    await sleep(1500);
-    expect(lo.events.length).toBe(0);
+    // the outsider's live socket saw nothing, and its ticket join is still not joined
+    expect(bystanderEvents).toEqual([]);
+    expect(lo.events).toEqual([]);
+    expect(lo.ch.state).not.toBe("joined");
+    await outsider.client.removeChannel(lo.ch); // denied topics must be removed
+    await outsider.client.removeChannel(bystander);
     await author.client.removeChannel(la.ch);
     await staff.client.removeChannel(ls.ch);
   }, 60000);
