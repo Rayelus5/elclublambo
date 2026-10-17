@@ -15,13 +15,14 @@ const SearchContext = createContext<SearchContextValue>({ open: () => {} });
 export const useSearch = () => useContext(SearchContext);
 
 /**
- * True while a composer suggestion popup (@ mentions, / commands) is on screen, or the event comes from an editor
- * that reports one with aria-expanded: Mod+K must not steal the keyboard in the middle of a mention.
+ * True while a composer suggestion popup (@ mentions, / commands) is on screen, or the event comes from an expanded
+ * combobox: Mod+K must not steal the keyboard in the middle of a mention.
  */
 function suggestionOpen(target: EventTarget | null): boolean {
   if (typeof document === "undefined") return false;
   if (document.querySelector("[data-suggestion-popup]")) return true;
-  return target instanceof Element && target.closest('[aria-expanded="true"]') !== null;
+  // Only comboboxes: an expanded disclosure (sidebar category, popover trigger) must not block the shortcut.
+  return target instanceof Element && target.closest('[role="combobox"][aria-expanded="true"]') !== null;
 }
 
 /** Layout-level provider: global Mod+K shortcut + the palette itself. Data comes from what the forum layout loaded. */
@@ -45,9 +46,15 @@ export function SearchProvider({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() !== "k" || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
+      // `code` covers non-Latin layouts where `key` is not "k".
+      if ((e.key.toLowerCase() !== "k" && e.code !== "KeyK") || !(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey) return;
       if (e.defaultPrevented || e.isComposing) return;
-      if (isOpen || suggestionOpen(e.target)) return;
+      if (isOpen) {
+        // Already open: keep it open and stop the browser's own Ctrl+K (its search bar) from stealing the focus.
+        e.preventDefault();
+        return;
+      }
+      if (suggestionOpen(e.target)) return;
       e.preventDefault();
       open();
     };

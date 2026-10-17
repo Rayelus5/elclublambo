@@ -40,7 +40,8 @@ export async function searchMessages(
 
   // Author names under the same RLS; an author that cannot be read falls back to "alguien".
   const authorIds = [...new Set(rows.map((r) => r.author_id))];
-  const { data: members } = await supabase.from("members").select("id, display_name, wallet_address").in("id", authorIds);
+  const { data: members, error: membersError } = await supabase.from("members").select("id, display_name, wallet_address").in("id", authorIds);
+  if (membersError) console.error("search: author lookup failed", membersError);
   const names = new Map<string, string>();
   for (const m of (members ?? []) as Array<{ id: string; display_name: string | null; wallet_address: string }>) {
     names.set(m.id, m.display_name?.trim() || shortAddress(m.wallet_address));
@@ -50,7 +51,7 @@ export async function searchMessages(
     channelId: r.channel_id,
     threadRootId: r.thread_root_id,
     authorId: r.author_id,
-    authorName: names.get(r.author_id) ?? "alguien",
+    authorName: names.get(r.author_id) ?? (membersError ? "autor desconocido" : "alguien"),
     createdAt: r.created_at,
     snippet: r.snippet,
   }));

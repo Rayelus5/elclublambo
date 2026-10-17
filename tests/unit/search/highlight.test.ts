@@ -31,6 +31,9 @@ describe("highlight", () => {
     expect(joined(parts)).toBe("La línea de Árboles");
     expect(marked(parts)).toEqual(["lín", "Árb"]);
   });
+  it("marks the longest matching term", () => {
+    expect(marked(highlight("la linea", "li linea"))).toEqual(["linea"]);
+  });
   it("matches by prefix only, not inside a word", () => {
     expect(marked(highlight("la línea", "nea"))).toEqual([]);
   });

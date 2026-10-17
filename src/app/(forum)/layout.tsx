@@ -28,7 +28,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
 
   // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
   // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
-  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets] = await Promise.all([
+  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
     supabase.rpc("current_member_id"),
@@ -36,19 +36,22 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     supabase.rpc("has_any_channel_perm", { p_bit: 8 }),
     // RLS only returns the tickets the member authored or supports: the number of open ones.
     supabase.from("tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
+    // "Abrir ticket en #canal" is offered only where the member can post (same SEND_MESSAGES check as the channel
+    // page). getVisibleChannels is cached per request, so this chains on the same read, in parallel with the rest.
+    getVisibleChannels().then(async (all) =>
+      (
+        await Promise.all(
+          all
+            .filter((c) => c.kind === "text" && c.ticketsEnabled)
+            .map(async (c) => {
+              const { data } = await supabase.rpc("my_channel_permissions", { p_channel: c.id });
+              return hasPerm(BigInt(String(data ?? 0)), Perm.SEND_MESSAGES) ? { id: c.id, name: c.name } : null;
+            }),
+        )
+      ).flatMap((c) => c ?? []),
+    ),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
-  // "Abrir ticket en #canal" is offered only where the member can post (same SEND_MESSAGES check as the channel page).
-  const ticketChannels = (
-    await Promise.all(
-      channels
-        .filter((c) => c.kind === "text" && c.ticketsEnabled)
-        .map(async (c) => {
-          const { data } = await supabase.rpc("my_channel_permissions", { p_channel: c.id });
-          return hasPerm(BigInt(String(data ?? 0)), Perm.SEND_MESSAGES) ? { id: c.id, name: c.name } : null;
-        }),
-    )
-  ).flatMap((c) => c ?? []);
   const canModerate = moderates.data === true;
   const openTicketCount = openTickets.error ? 0 : (openTickets.count ?? 0);
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.

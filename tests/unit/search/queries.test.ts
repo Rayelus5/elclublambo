@@ -40,6 +40,18 @@ describe("searchMessages", () => {
     expect(hits[0]!.threadRootId).toBe("r");
     expect(hits[1]!.authorName).toBe("alguien");
   });
+  it("keeps the hits as 'autor desconocido' and logs when the author lookup fails", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const f = fake({
+      rpc: () => ({ data: [{ id: "m1", channel_id: "c", thread_root_id: null, author_id: "a1", created_at: "t", snippet: "x" }], error: null }),
+      members: { data: null, error: { message: "nope" } },
+    });
+    const hits = await searchMessages(f.client, "xx");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.authorName).toBe("autor desconocido");
+    expect(log).toHaveBeenCalled();
+    log.mockRestore();
+  });
   it("returns [] without a members query when there are no hits", async () => {
     const f = fake({ rpc: () => ({ data: [], error: null }) });
     expect(await searchMessages(f.client, "xx")).toEqual([]);

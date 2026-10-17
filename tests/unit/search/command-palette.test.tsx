@@ -239,14 +239,44 @@ describe("SearchProvider shortcut", () => {
     popup.remove();
   });
 
-  it("does not open from an editor whose aria-expanded is true", () => {
+  it("does not open from an expanded combobox", () => {
     mount();
     const editor = screen.getByTestId("editor");
+    editor.setAttribute("role", "combobox");
     editor.setAttribute("aria-expanded", "true");
     const ev = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
     act(() => void editor.dispatchEvent(ev));
     expect(ev.defaultPrevented).toBe(false);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("still opens from a focused expanded disclosure button (sidebar category)", () => {
+    render(
+      <SearchProvider channels={channels} actions={actions}>
+        <button type="button" aria-expanded="true">categoría</button>
+      </SearchProvider>,
+    );
+    const btn = screen.getByRole("button", { name: "categoría" });
+    btn.focus();
+    const ev = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => void btn.dispatchEvent(ev));
+    expect(ev.defaultPrevented).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Buscar" })).toBeInTheDocument();
+  });
+
+  it("opens on a non-Latin layout through e.code", () => {
+    mount();
+    fireEvent.keyDown(document, { key: "л", code: "KeyK", ctrlKey: true });
+    expect(screen.getByRole("dialog", { name: "Buscar" })).toBeInTheDocument();
+  });
+
+  it("Mod+K while open is prevented (no browser search bar) and keeps the palette open", () => {
+    mount();
+    fireEvent.keyDown(document, { key: "k", ctrlKey: true });
+    const ev = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => void screen.getByRole("combobox").dispatchEvent(ev));
+    expect(ev.defaultPrevented).toBe(true);
+    expect(screen.getByRole("dialog", { name: "Buscar" })).toBeInTheDocument();
   });
 
   it("opens from the editor when no suggestion is open", () => {

@@ -29,8 +29,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = "Command Palette",
-  description = "Search for a command to run...",
+  title = "Buscar",
+  description = "Busca y elige un resultado con las flechas y Enter.",
   children,
   className,
   showCloseButton = false,
