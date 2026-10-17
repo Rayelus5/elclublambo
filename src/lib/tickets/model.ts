@@ -1,3 +1,5 @@
+import type { TicketMessageView } from "@/lib/tickets/queries";
+
 // Pure helpers for tickets (shared by the server actions and the client components): validation and the plain-text
 // link splitter. Kept out of the "use server" module, which can only export async functions.
 
@@ -7,20 +9,33 @@ export const BODY_MAX = 4000;
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Length in code points, like SQL char_length (an emoji counts once, not twice as `.length` does). */
+export const cpLength = (s: string): number => [...s].length;
+
 export type Checked = { ok: true; value: string } | { ok: false };
 
 /** Subject: trimmed, 3 to 120 characters (the database checks the same). */
 export function validateSubject(raw: unknown): Checked {
   if (typeof raw !== "string") return { ok: false };
   const value = raw.trim();
-  return value.length >= SUBJECT_MIN && value.length <= SUBJECT_MAX ? { ok: true, value } : { ok: false };
+  const n = cpLength(value);
+  return n >= SUBJECT_MIN && n <= SUBJECT_MAX ? { ok: true, value } : { ok: false };
 }
 
 /** Message body: plain text, trimmed, 1 to 4000 characters. */
 export function validateBody(raw: unknown): Checked {
   if (typeof raw !== "string") return { ok: false };
   const value = raw.trim();
-  return value.length >= 1 && value.length <= BODY_MAX ? { ok: true, value } : { ok: false };
+  const n = cpLength(value);
+  return n >= 1 && n <= BODY_MAX ? { ok: true, value } : { ok: false };
+}
+
+/** Adds the messages that are not in the list yet and keeps it sorted by creation date (stable). */
+export function mergeMessages(prev: TicketMessageView[], incoming: TicketMessageView[]): TicketMessageView[] {
+  const have = new Set(prev.map((m) => m.id));
+  const fresh = incoming.filter((m) => !have.has(m.id));
+  if (fresh.length === 0) return prev;
+  return [...prev, ...fresh].sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt));
 }
 
 export type BodyPart = { type: "text"; value: string } | { type: "url"; value: string };

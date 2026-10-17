@@ -143,6 +143,20 @@ export async function getTicketMessage(supabase: SupabaseClient, id: string): Pr
   return toMessage(data, data.ticket.author_id);
 }
 
+/** Every message of a ticket in ONE query (used to resync after a gap). */
+export async function getTicketMessages(supabase: SupabaseClient, ticketId: string): Promise<TicketMessageView[]> {
+  const { data, error } = (await supabase
+    .from("ticket_messages")
+    .select(`id, author_id, body_text, allow_links, created_at, ${MSG_AUTHOR}, ticket:tickets(author_id)`)
+    .eq("ticket_id", ticketId)
+    .order("created_at", { ascending: true })) as {
+    data: Array<MessageRow & { ticket: { author_id: string } | null }> | null;
+    error: unknown;
+  };
+  if (error || !data) return [];
+  return data.filter((r) => r.ticket).map((r) => toMessage(r, r.ticket!.author_id));
+}
+
 /** Re-reads the status of a ticket. */
 export async function getTicketState(supabase: SupabaseClient, id: string): Promise<{ status: TicketStatus } | null> {
   const { data, error } = (await supabase.from("tickets").select("status").eq("id", id).maybeSingle()) as {

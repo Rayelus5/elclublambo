@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { LifeBuoy } from "lucide-react";
+import { LocalTime } from "@/components/tickets/local-time";
 import type { TicketListItem } from "@/lib/tickets/queries";
-
-const date = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /** List of tickets (server component). `showAuthor` is for the support inbox, where the author is somebody else. */
 export function TicketList({ items, showAuthor, empty }: { items: TicketListItem[]; showAuthor: boolean; empty: string }) {
@@ -26,7 +25,7 @@ export function TicketList({ items, showAuthor, empty }: { items: TicketListItem
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-fg-muted">
               <span>#{t.channelName}</span>
               {showAuthor ? <span>{t.authorName}</span> : null}
-              <time dateTime={t.lastMessageAt}>{date.format(new Date(t.lastMessageAt))}</time>
+              <LocalTime iso={t.lastMessageAt} />
             </span>
           </Link>
         </li>

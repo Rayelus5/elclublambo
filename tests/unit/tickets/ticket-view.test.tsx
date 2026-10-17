@@ -7,12 +7,13 @@ const h = vi.hoisted(() => ({
   setStatus: vi.fn(async (): Promise<{ error?: string }> => ({})),
   getMessage: vi.fn(),
   getState: vi.fn(),
+  getMessages: vi.fn(),
   handlers: {} as { onMessage?: (id: string) => void; onUpdated?: () => void; onResync?: () => void },
   refresh: vi.fn(),
 }));
 
 vi.mock("@/lib/tickets/actions", () => ({ postTicketMessageAction: h.post, setTicketStatusAction: h.setStatus }));
-vi.mock("@/lib/tickets/queries", () => ({ getTicketMessage: h.getMessage, getTicketState: h.getState }));
+vi.mock("@/lib/tickets/queries", () => ({ getTicketMessage: h.getMessage, getTicketMessages: h.getMessages, getTicketState: h.getState }));
 vi.mock("@/lib/tickets/realtime", () => ({
   useTicketEvents: (_id: string, handlers: typeof h.handlers) => {
     h.handlers = handlers;
@@ -38,7 +39,7 @@ function setup(over: Partial<TicketViewProps> = {}) {
   const props: TicketViewProps = {
     ticket: { id: T, subject: "No puedo entrar", status: "open", channelName: "soporte", authorId: "author" },
     initialMessages: [base, { ...base, id: "m2", authorId: "staff1", authorName: "Bruno", isStaff: true, bodyText: "mira https://x.example" }],
-    viewer: { memberId: "author", isStaff: false },
+    viewer: { isStaff: false },
     allowedDomains: [],
     ...over,
   };
@@ -50,6 +51,7 @@ beforeEach(() => {
   h.setStatus.mockReset().mockResolvedValue({});
   h.getMessage.mockReset();
   h.getState.mockReset();
+  h.getMessages.mockReset();
   h.refresh.mockReset();
   h.handlers = {};
 });
@@ -93,16 +95,79 @@ describe("TicketView", () => {
   it("staff can reopen a closed ticket", async () => {
     setup({
       ticket: { id: T, subject: "S", status: "closed", channelName: "soporte", authorId: "author" },
-      viewer: { memberId: "staff1", isStaff: true },
+      viewer: { isStaff: true },
     });
     await userEvent.click(screen.getByRole("button", { name: "Reabrir ticket" }));
     expect(h.setStatus).toHaveBeenCalledWith(T, "open");
   });
 
-  it("closing calls the action", async () => {
+  it("closing asks for confirmation first, explaining that only staff can reopen", async () => {
     setup();
     await userEvent.click(screen.getByRole("button", { name: "Cerrar ticket" }));
+    expect(h.setStatus).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("Solo el equipo puede reabrirlo");
+    await userEvent.click(screen.getByRole("button", { name: "Sí, cerrar" }));
     expect(h.setStatus).toHaveBeenCalledWith(T, "closed");
+  });
+
+  it("cancelling the confirmation does not close", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Cerrar ticket" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(h.setStatus).not.toHaveBeenCalled();
+  });
+
+  it("keeps focus on the textarea while sending (not disabled) and ignores a second Enter", async () => {
+    let finish!: () => void;
+    h.post.mockImplementation(() => new Promise((r) => (finish = () => r({ id: "m-new" }))));
+    h.getMessage.mockResolvedValue({ ...base, id: "m-new", bodyText: "hola" });
+    setup();
+    const box = screen.getByLabelText(/Escribe tu respuesta/) as HTMLTextAreaElement;
+    await userEvent.type(box, "hola{Enter}");
+    expect(box).not.toBeDisabled();
+    expect(box).toHaveFocus();
+    await userEvent.type(box, "{Enter}");
+    expect(h.post).toHaveBeenCalledTimes(1);
+    await act(async () => finish());
+    expect(box).toHaveFocus();
+  });
+
+  it("a ticket_closed error refreshes the status and keeps the draft visible", async () => {
+    h.post.mockResolvedValue({ error: "ticket_closed" });
+    h.getState.mockResolvedValue({ status: "closed" });
+    setup();
+    await userEvent.type(screen.getByLabelText(/Escribe tu respuesta/), "mi borrador{Enter}");
+    expect(await screen.findByText("Ticket cerrado")).toBeInTheDocument();
+    const draft = screen.getByLabelText(/borrador/i) as HTMLTextAreaElement;
+    expect(draft.value).toBe("mi borrador");
+    expect(draft).toHaveAttribute("readonly");
+  });
+
+  it("a realtime close keeps the unsent draft", async () => {
+    setup();
+    await userEvent.type(screen.getByLabelText(/Escribe tu respuesta/), "a medias");
+    h.getState.mockResolvedValue({ status: "closed" });
+    await act(async () => {
+      h.handlers.onUpdated?.();
+    });
+    expect(await screen.findByText("Ticket cerrado")).toBeInTheDocument();
+    expect((screen.getByLabelText(/borrador/i) as HTMLTextAreaElement).value).toBe("a medias");
+  });
+
+  it("resync fetches the missing messages in one query and keeps them sorted by date", async () => {
+    setup();
+    const older = { ...base, id: "m0", bodyText: "intermedio", createdAt: "2026-10-17T10:00:30+00:00" };
+    const newest = { ...base, id: "m9", bodyText: "al final", createdAt: "2026-10-17T11:00:00+00:00" };
+    h.getState.mockResolvedValue({ status: "open" });
+    h.getMessages.mockResolvedValue([newest, base, older]);
+    await act(async () => {
+      h.handlers.onResync?.();
+    });
+    await screen.findByText("al final");
+    expect(h.getMessages).toHaveBeenCalledTimes(1);
+    expect(h.getMessage).not.toHaveBeenCalled();
+    const texts = screen.getAllByRole("listitem").map((li) => li.textContent ?? "");
+    expect(texts.findIndex((x) => x.includes("intermedio"))).toBeLessThan(texts.findIndex((x) => x.includes("al final")));
   });
 
   it("Enter sends, Shift+Enter adds a new line, the counter counts", async () => {
@@ -125,6 +190,7 @@ describe("TicketView", () => {
 
   it("shows the server error and keeps the draft", async () => {
     h.post.mockResolvedValue({ error: "ticket_closed" });
+    h.getState.mockResolvedValue({ status: "open" });
     setup();
     const box = screen.getByLabelText(/Escribe tu respuesta/) as HTMLTextAreaElement;
     await userEvent.type(box, "hola{Enter}");

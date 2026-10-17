@@ -16,13 +16,10 @@ async function TicketContent({ params }: { params: Promise<{ ticketId: string }>
   const detail = await getTicket(ticketId.toLowerCase(), supabase);
   if (!detail) notFound();
 
-  const [me, perms, domains] = await Promise.all([
-    supabase.rpc("current_member_id"),
+  const [perms, domains] = await Promise.all([
     supabase.rpc("my_channel_permissions", { p_channel: detail.ticket.channelId }),
     supabase.from("allowed_domains").select("domain"),
   ]);
-  const memberId = typeof me.data === "string" ? me.data : "";
-  if (!memberId) notFound();
 
   return (
     <TicketView
@@ -35,7 +32,7 @@ async function TicketContent({ params }: { params: Promise<{ ticketId: string }>
         authorId: detail.ticket.authorId,
       }}
       initialMessages={detail.messages}
-      viewer={{ memberId, isStaff: hasPerm(BigInt(String(perms.data ?? 0)), Perm.MANAGE_TICKETS) }}
+      viewer={{ isStaff: hasPerm(BigInt(String(perms.data ?? 0)), Perm.MANAGE_TICKETS) }}
       allowedDomains={((domains.data ?? []) as Array<{ domain: string }>).map((d) => d.domain)}
     />
   );

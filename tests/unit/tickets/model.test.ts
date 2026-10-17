@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { linkifyPlainText, validateBody, validateSubject } from "@/lib/tickets/model";
+import { cpLength, linkifyPlainText, validateBody, validateSubject } from "@/lib/tickets/model";
 
 describe("validateSubject", () => {
   it("trims and accepts 3 to 120 characters", () => {
@@ -40,5 +40,17 @@ describe("linkifyPlainText", () => {
   });
   it("keeps newlines untouched", () => {
     expect(linkifyPlainText("a\n\nb", true)).toEqual([{ type: "text", value: "a\n\nb" }]);
+  });
+});
+
+describe("code point counting (matches SQL char_length)", () => {
+  it("counts an emoji as one character", () => {
+    expect(cpLength("😀a")).toBe(2);
+    expect(validateBody("😀".repeat(4000))).toMatchObject({ ok: true });
+    expect(validateBody("😀".repeat(4001))).toEqual({ ok: false });
+    expect(validateSubject("😀".repeat(120))).toMatchObject({ ok: true });
+    expect(validateSubject("😀".repeat(121))).toEqual({ ok: false });
+    expect(validateSubject("😀😀")).toEqual({ ok: false });
+    expect(validateSubject("😀😀😀")).toMatchObject({ ok: true });
   });
 });

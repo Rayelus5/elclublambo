@@ -3,13 +3,25 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Lock, RotateCcw } from "lucide-react";
+import { LocalTime } from "@/components/tickets/local-time";
 import { TicketBody } from "@/components/tickets/ticket-body";
 import { TicketComposer } from "@/components/tickets/ticket-composer";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { setTicketStatusAction } from "@/lib/tickets/actions";
-import { getTicketMessage, getTicketState, type TicketMessageView, type TicketStatus } from "@/lib/tickets/queries";
+import { getTicketMessage, getTicketMessages, getTicketState, type TicketMessageView, type TicketStatus } from "@/lib/tickets/queries";
+import { mergeMessages } from "@/lib/tickets/model";
 import { useTicketEvents } from "@/lib/tickets/realtime";
 import { cn } from "@/lib/utils";
 
@@ -17,16 +29,15 @@ export interface TicketViewProps {
   ticket: { id: string; subject: string; status: TicketStatus; channelName: string; authorId: string };
   initialMessages: TicketMessageView[];
   /** `isStaff`: the reader holds MANAGE_TICKETS in the ticket's channel (the only ones who can reopen). */
-  viewer: { memberId: string; isStaff: boolean };
+  viewer: { isStaff: boolean };
   allowedDomains: readonly string[];
 }
-
-const time = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: TicketViewProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [status, setStatus] = useState<TicketStatus>(ticket.status);
   const [error, setError] = useState<string | null>(null);
+  const [confirmClose, setConfirmClose] = useState(false);
   const [pending, startTransition] = useTransition();
   const seen = useRef(new Set(initialMessages.map((m) => m.id)));
   const endRef = useRef<HTMLDivElement>(null);
@@ -41,7 +52,7 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
         seen.current.delete(id);
         return;
       }
-      setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+      setMessages((prev) => mergeMessages(prev, [m]));
     },
     [],
   );
@@ -52,12 +63,12 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
   }, [ticket.id]);
 
   const resync = useCallback(async () => {
-    // events may have been missed: re-read the status and whatever is newer than the last message we have
+    // events may have been missed: re-read the status and every message in ONE query, adding the unseen ones sorted
     await refreshStatus();
-    const supabase = createBrowserClient();
-    const { data } = await supabase.from("ticket_messages").select("id").eq("ticket_id", ticket.id).order("created_at");
-    for (const row of (data ?? []) as Array<{ id: string }>) await addMessage(row.id);
-  }, [addMessage, refreshStatus, ticket.id]);
+    const all = await getTicketMessages(createBrowserClient(), ticket.id).catch(() => []);
+    for (const m of all) seen.current.add(m.id);
+    setMessages((prev) => mergeMessages(prev, all));
+  }, [refreshStatus, ticket.id]);
 
   useTicketEvents(ticket.id, { onMessage: (id) => void addMessage(id), onUpdated: () => void refreshStatus(), onResync: () => void resync() });
 
@@ -101,7 +112,7 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
           <span className="text-[13px] text-fg-muted">en #{ticket.channelName}</span>
           <span className="flex-1" />
           {!closed ? (
-            <Button type="button" variant="secondary" disabled={pending} onClick={() => change("closed")}>
+            <Button type="button" variant="secondary" disabled={pending} onClick={() => setConfirmClose(true)}>
               <Lock aria-hidden />
               Cerrar ticket
             </Button>
@@ -135,9 +146,7 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
                   Staff
                 </span>
               ) : null}
-              <time dateTime={m.createdAt} className="text-[13px] text-fg-muted">
-                {time.format(new Date(m.createdAt))}
-              </time>
+              <LocalTime iso={m.createdAt} className="text-[13px] text-fg-muted" />
             </div>
             <TicketBody text={m.bodyText} allowLinks={m.allowLinks} allowedDomains={allowedDomains} />
           </li>
@@ -155,9 +164,30 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
             </span>
           </div>
         </div>
-      ) : (
-        <TicketComposer ticketId={ticket.id} onPosted={(id) => (id ? void addMessage(id) : undefined)} />
-      )}
+      ) : null}
+      <TicketComposer
+        ticketId={ticket.id}
+        closed={closed}
+        onPosted={(id) => (id ? void addMessage(id) : undefined)}
+        onError={(code) => {
+          if (code === "ticket_closed") void refreshStatus();
+        }}
+      />
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cerrar este ticket?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Nadie podrá escribir más en él. Solo el equipo puede reabrirlo; si necesitas algo más después, tendrás que abrir otro ticket.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => change("closed")}>Sí, cerrar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
