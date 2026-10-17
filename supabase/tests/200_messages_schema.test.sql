@@ -1,4 +1,5 @@
 begin;
+set local client_min_messages = warning;
 select plan(43);
 
 -- structure

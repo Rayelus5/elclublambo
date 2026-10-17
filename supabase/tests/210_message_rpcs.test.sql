@@ -1,4 +1,5 @@
 begin;
+set local client_min_messages = warning;
 select plan(149);
 
 -- helpers (rolled back with the test); they run as the invoking role, the RPCs under test are the definers

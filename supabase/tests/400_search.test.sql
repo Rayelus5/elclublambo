@@ -1,5 +1,5 @@
 begin;
-select plan(51);
+select plan(55);
 
 -- privileges / security mode
 select ok(not (select prosecdef from pg_proc where oid = 'public.search_messages(text,integer,uuid)'::regprocedure), 'search_messages is SECURITY INVOKER');
@@ -22,7 +22,9 @@ select is((select am.amname from pg_class c join pg_am am on am.oid = c.relam wh
 -- helper: pure functions
 select is(public.f_unaccent('Línea ñandú'), 'Linea nandu', 'f_unaccent strips accents');
 select is(public._search_tsquery('Línea  Dos')::text, '''linea'':* & ''dos'':*', 'tsquery tokenizes, unaccents, prefixes');
-select is(public._search_tsquery('a & b | !c:*')::text, '''a'':* & ''b'':* & ''c'':*', 'operators are stripped, only words remain');
+select is(public._search_tsquery('ab & cd | !ef:*')::text, '''ab'':* & ''cd'':* & ''ef'':*', 'operators are stripped, only words remain');
+select is(public._search_tsquery('a b')::text, null, 'one-letter terms only -> null');
+select is(public._search_tsquery('a b c d e f g h linea')::text, '''linea'':*', 'one-letter terms dropped before the 8-term cap');
 select is(public._search_tsquery('x')::text, null, 'one char -> null');
 select is(public._search_tsquery('   ')::text, null, 'blank -> null');
 select is(public._search_tsquery(null)::text, null, 'null -> null');
@@ -44,6 +46,7 @@ select set_config('t.uban', (select auth_user_id::text from public.members where
 select set_config('t.cat', tests.create_channel(null, 'category', 'T400cat')::text, true);
 select set_config('t.txt', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't400txt')::text, true);
 select set_config('t.txt2', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't400txt2')::text, true);
+select set_config('t.txtG', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't400gated')::text, true);
 select set_config('t.catH', tests.create_channel(null, 'category', 'T400hid')::text, true);
 select set_config('t.txtH', tests.create_channel(current_setting('t.catH')::uuid, 'text', 't400hid')::text, true);
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny) values
@@ -66,6 +69,15 @@ select set_config('t.mh', tests.ins(current_setting('t.txtH')::uuid, 'linea secr
 select set_config('t.md', tests.ins(current_setting('t.txt')::uuid, 'linea borrada zebra', null, true)::text, true);
 select tests.ins(current_setting('t.txt')::uuid, '');
 
+-- a view-gated channel whose gate the member fails (gate_passes is a no-op until F3; forced false inside this rolled-back test)
+update public.channels set gate_mode = 'min_share_bps', gate_value = 100, gate_scope = 'view' where id = current_setting('t.txtG')::uuid;
+create or replace function public.gate_passes(p_member uuid, p_channel uuid, p_scope text)
+returns boolean language sql stable security definer set search_path = '' as $$ select false $$;
+select tests.ins(current_setting('t.txtG')::uuid, 'contenido gated zebra');
+insert into public.messages (channel_id, author_id, body, body_text, allow_links)
+  select current_setting('t.txt')::uuid, current_setting('t.a')::uuid, '{"type":"doc","content":[]}'::jsonb, 'bulkword ' || g, true
+  from generate_series(1, 60) g;
+
 -- generated column is accent-insensitive
 select is((select search_tsv::text from public.messages where id = current_setting('t.m1')::uuid), '''de'':3 ''linea'':2 ''prueba'':4 ''una'':1 ''zebra'':5', 'search_tsv unaccented');
 
@@ -80,12 +92,14 @@ select is((select thread_root_id from public.search_messages('respuesta')), curr
 select is((select id from public.search_messages('zebra') limit 1), current_setting('t.m2')::uuid, 'higher ts_rank first');
 select is((select snippet from public.search_messages('prueba')), 'Una Línea de prueba zebra', 'snippet is plain left(body_text,160)');
 select is((select count(*)::int from public.search_messages('linea', 0)), 1, 'p_limit 0 clamps to 1');
-select is((select count(*)::int from public.search_messages('linea', 500)), 3, 'p_limit 500 clamps to 50');
-select lives_ok($q$select * from public.search_messages('a & b | !c:*')$q$, 'tsquery syntax is harmless');
-select lives_ok($q$select * from public.search_messages('''); drop table x; --')$q$, 'sql injection attempt is harmless');
-select lives_ok($q$select * from public.search_messages('%_\')$q$, 'like chars are harmless');
+select is((select count(*)::int from public.search_messages('bulkword', 500)), 50, 'p_limit 500 clamps to 50');
+select is((select count(*)::int from public.search_messages('gated')), 0, 'message in a view-gated channel never appears');
+select is((select count(*)::int from public.search_messages('gated', 20, current_setting('t.txtG')::uuid)), 0, 'p_channel at a gated channel returns nothing');
+select is((select count(*)::int from public.search_messages('ab & cd | !ef:*')), 0, 'tsquery syntax is harmless');
+select is((select count(*)::int from public.search_messages('''); drop table x; --')), 0, 'sql injection attempt is harmless');
+select is((select count(*)::int from public.search_messages('%_')), 0, 'like chars are harmless');
 select is((select count(*)::int from public.search_messages('😀😀')), 0, 'emoji-only query returns nothing');
-select lives_ok(format($q$select * from public.search_messages(%L)$q$, repeat('lineaa ', 1500)), '10k char query does not error');
+select is((select count(*)::int from public.search_messages(repeat('lineaa ', 1500))), 0, '10k char query is capped and finds nothing');
 select is((select count(*)::int from public.search_messages('')), 0, 'empty query returns nothing');
 select is((select count(*)::int from public.search_messages(null)), 0, 'null query returns nothing');
 
