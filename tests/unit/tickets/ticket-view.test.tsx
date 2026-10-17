@@ -246,6 +246,11 @@ describe("TicketView", () => {
       h.handlers.onUpdated?.();
     });
     await screen.findByText("Ticket cerrado");
-    expect(screen.getByText("Ticket cerrado").closest("[role='status']")).not.toHaveFocus();
+    // The component moved nothing: focus is where the user left it (the editable box is swapped for a read-only draft
+    // when the ticket closes, so it may fall back to body), never on the banner or on a button.
+    const active = document.activeElement;
+    expect(active).toBe(box.isConnected ? box : document.body);
+    expect(active?.closest("[role='status']")).toBeNull();
+    expect(active?.tagName).not.toBe("BUTTON");
   });
 });

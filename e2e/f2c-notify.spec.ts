@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { chromium, expect, test, type BrowserContext } from "@playwright/test";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
@@ -82,32 +83,99 @@ test("1. B menciona a A: la campana de A sube sin recargar, el ítem lleva al ca
   await expect.poll(async () => (await service().from("notifications").select("id").eq("recipient_id", a.id).is("read_at", null)).data?.length).toBe(0);
 });
 
-test("2. Silencio: un mensaje raíz de B no avisa a A (la mención directa sí); con «Todos los mensajes» sí", async () => {
+test("2. Todos los mensajes avisa; con Silencio un mensaje raíz y un @everyone del admin no avisan, la mención directa sí", async () => {
+  await admin.page.goto("/");
   await openChannel(a.page, "Trading");
   await openChannel(b.page, "Trading");
+  await openChannel(admin.page, "Trading");
+  const followButton = a.page.getByRole("button", { name: /^Avisos del canal:/ });
+  const inTrading = async () => (await kindsFor(a.id)).filter((n) => n.channel_id === ids["Trading"]).map((n) => n.kind).sort();
 
-  await a.page.getByRole("button", { name: /^Avisos del canal:/ }).click();
+  // Trading defaults to "solo menciones", so only after choosing "Todos" can a root message notify
+  await followButton.click();
+  await a.page.getByRole("menuitemradio", { name: "Todos los mensajes" }).click();
+  await expect(a.page.getByRole("button", { name: "Avisos del canal: todos los mensajes" })).toBeVisible();
+  const level = async () =>
+    (await service().from("channel_follow_prefs").select("level").eq("member_id", a.id).eq("channel_id", ids["Trading"]!)).data;
+  await expect.poll(level).toEqual([{ level: "all" }]); // the menu is optimistic: wait for the server
+  await send(b.page, "raíz con A en todo");
+  await expect(messageWith(a.page, "raíz con A en todo")).toBeVisible();
+  await expect(bell(a.page, 1)).toBeVisible();
+  expect(await inTrading()).toEqual(["channel_message"]);
+
+  // Mute: neither a root message nor an @everyone from the admin (who has MENTION_EVERYONE) reaches A
+  await followButton.click();
   await a.page.getByRole("menuitemradio", { name: "Silenciar" }).click();
   await expect(a.page.getByRole("button", { name: "Avisos del canal: silenciado" })).toBeVisible();
+  // the menu updates optimistically: wait until the server has stored the preference before sending anything
+  await expect.poll(level).toEqual([{ level: "mute" }]);
 
   await send(b.page, "raíz con A en silencio");
   await expect(messageWith(b.page, "raíz con A en silencio")).toBeVisible();
+  await sendMention(admin.page, "everyone", " aviso general");
+  await expect(messageWith(b.page, "aviso general")).toBeVisible(); // it did reach the channel (and B)
   // a direct @member mention is not suppressed by mute and doubles as the "nothing else arrived" sentinel
   await sendMention(b.page, NAME_A, " ping directo");
   await expect(messageWith(a.page, "ping directo")).toBeVisible();
-  await expect(bell(a.page, 1)).toBeVisible();
-  const muted = (await kindsFor(a.id)).filter((n) => n.channel_id === ids["Trading"]);
-  expect(muted.map((n) => n.kind)).toEqual(["mention"]);
-
-  await a.page.getByRole("button", { name: /^Avisos del canal:/ }).click();
-  await a.page.getByRole("menuitemradio", { name: "Todos los mensajes" }).click();
-  await expect(a.page.getByRole("button", { name: "Avisos del canal: todos los mensajes" })).toBeVisible();
-
-  await send(b.page, "raíz con A en todo");
-  await expect(messageWith(a.page, "raíz con A en todo")).toBeVisible();
   await expect(bell(a.page, 2)).toBeVisible();
-  const all = (await kindsFor(a.id)).filter((n) => n.channel_id === ids["Trading"]).map((n) => n.kind).sort();
-  expect(all).toEqual(["channel_message", "mention"]);
+  expect(await inTrading()).toEqual(["channel_message", "mention"]);
+  // control: the @everyone really notified someone who is not muted
+  const everyoneForB = await service().from("notifications").select("kind").eq("recipient_id", b.id).eq("channel_id", ids["Trading"]!);
+  expect(everyoneForB.data?.map((n) => (n as { kind: string }).kind)).toContain("mention");
+});
+
+// Always-on variant of the push opt-in. Only the browser's push-service handshake is stubbed (permission and
+// PushManager.subscribe/getSubscription, which need Google API keys that Playwright's Chromium lacks); everything
+// else is the real path: the toggle, the service worker registration, the server action, the anti-SSRF validation
+// of the endpoint and p256dh/auth shapes in save_push_subscription, RLS and delete.
+test("3a. Web Push (suscripción simulada): el interruptor crea la fila, B no tiene ninguna y al apagarlo se borra", async ({ browser }) => {
+  const endpoint = `https://fcm.googleapis.com/fcm/send/e2e-${randomBytes(12).toString("hex")}`;
+  const p256dh = randomBytes(65).toString("base64url"); // 87 chars, like a real uncompressed P-256 key
+  const auth = randomBytes(16).toString("base64url"); // 22 chars
+  const context = await browser.newContext();
+  trackErrors(context);
+  await loginAs(context, keyA);
+  await context.addInitScript(
+    ({ endpoint, p256dh, auth }) => {
+      Object.defineProperty(Notification, "permission", { get: () => "granted", configurable: true });
+      Notification.requestPermission = async () => "granted";
+      let current: unknown = null;
+      const fake = {
+        endpoint,
+        toJSON: () => ({ endpoint, keys: { p256dh, auth } }),
+        unsubscribe: async () => {
+          current = null;
+          return true;
+        },
+      };
+      PushManager.prototype.getSubscription = async () => current as PushSubscription | null;
+      PushManager.prototype.subscribe = async () => {
+        current = fake;
+        return fake as unknown as PushSubscription;
+      };
+    },
+    { endpoint, p256dh, auth },
+  );
+  try {
+    const page = await context.newPage();
+    await page.goto("/notifications");
+    const on = page.getByRole("button", { name: "Desactivar avisos en este dispositivo" });
+    const off = page.getByRole("button", { name: "Activar avisos en este dispositivo" });
+    await expect(off).toBeVisible();
+    await off.click();
+    await expect(on).toBeVisible();
+
+    const rows = await service().from("push_subscriptions").select("endpoint, member_id").eq("member_id", a.id);
+    expect(rows.error).toBeNull();
+    expect(rows.data).toEqual([{ endpoint, member_id: a.id }]);
+    expect((await service().from("push_subscriptions").select("id").eq("member_id", b.id)).data).toHaveLength(0);
+
+    await on.click();
+    await expect(off).toBeVisible();
+    await expect.poll(async () => (await service().from("push_subscriptions").select("id").eq("member_id", a.id)).data?.length).toBe(0);
+  } finally {
+    await context.close();
+  }
 });
 
 // Subscribing needs a Chromium that has Google API keys and can reach its push service (FCM). The browsers Playwright

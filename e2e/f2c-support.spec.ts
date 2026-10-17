@@ -8,6 +8,7 @@ import {
   joinAs,
   messageWith,
   openChannel,
+  rpcAs,
   send,
   service,
   type Actor,
@@ -165,7 +166,9 @@ test("5. el staff cierra el ticket: B ve el cierre, ya no puede escribir y el fo
   await expect(b.page.getByRole("button", { name: "Enviar", exact: true })).toHaveCount(0);
   await expect(b.page.getByRole("button", { name: "Reabrir ticket" })).toHaveCount(0);
 
-  // B cannot write by any path: the closed ticket keeps its two messages
+  // B cannot write by any path: the server refuses with ticket_closed and the ticket keeps its two messages
+  const attempt = await rpcAs(b.context, "post_ticket_message", { p_ticket: ticketId, p_body: "¿sigue abierto?" });
+  expect(attempt.error?.message).toContain("ticket_closed");
   const rows = await service().from("ticket_messages").select("id").eq("ticket_id", ticketId);
   expect(rows.data).toHaveLength(2);
 });

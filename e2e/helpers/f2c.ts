@@ -1,3 +1,4 @@
+import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { addressOf, loginAs } from "./auth";
@@ -84,6 +85,15 @@ export async function sendMention(page: Page, name: string, rest: string) {
   await page.getByRole("option", { name: new RegExp(name) }).click();
   await box.pressSequentially(rest);
   await box.press("Enter");
+}
+
+/** Calls an RPC with the session of a browser context (its auth cookies), exactly as the app's server actions do. */
+export async function rpcAs(context: BrowserContext, fn: string, args: Record<string, unknown>) {
+  const jar = (await context.cookies()).map((c) => ({ name: c.name, value: c.value }));
+  const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    cookies: { getAll: () => jar, setAll: () => {} },
+  });
+  return supabase.rpc(fn, args);
 }
 
 /** The bell link with its accessible name ("Notificaciones" or "Notificaciones, N sin leer"). */

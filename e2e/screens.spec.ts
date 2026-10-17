@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext } from "@playwright/test";
 import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
 // Opt-in visual pass: `SCREENS=1 pnpm test:e2e e2e/screens.spec.ts` (or --grep @screens).
@@ -12,14 +12,16 @@ const OUT = ".superpowers/sdd/f1/screens";
 const WIDTHS = [375, 768, 1024, 1440] as const;
 const adminAddr = E2E_SUPER_ADMIN_ADDRESS.toLowerCase();
 
-test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) => {
-  // 12 pages x 4 widths, each waiting for the network to settle on a dev server that compiles on demand.
-  test.setTimeout(480_000);
-  mkdirSync(OUT, { recursive: true });
+test.describe.configure({ mode: "serial" });
 
+let anon: BrowserContext;
+let admin: BrowserContext;
+let targets: Array<{ name: string; ctx: BrowserContext; path: string }>;
+
+test.beforeAll(async ({ browser }) => {
   // Anonymous: /login and an invite landing.
-  const anon = await browser.newContext();
-  const admin = await browser.newContext();
+  anon = await browser.newContext();
+  admin = await browser.newContext();
   await loginAs(admin, E2E_SUPER_ADMIN_PK);
   const adminPage = await admin.newPage();
 
@@ -27,6 +29,7 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
   await adminPage.getByRole("button", { name: "Crear invitación" }).click();
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   const code = url.split("/invite/")[1]!;
+  await adminPage.close();
 
   const { data: general } = await createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +41,7 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
     .eq("name", "General")
     .single<{ id: string }>();
 
-  const targets = [
+  targets = [
     { name: "login", ctx: anon, path: "/login" },
     { name: "invite", ctx: anon, path: `/invite/${code}` },
     { name: "home", ctx: admin, path: "/" },
@@ -54,8 +57,19 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
     { name: "tickets", ctx: admin, path: "/tickets" },
     { name: "reports", ctx: admin, path: "/moderation/reports" },
   ];
+});
 
-  for (const width of WIDTHS) {
+test.afterAll(async () => {
+  await anon?.close();
+  await admin?.close();
+});
+
+// One test per width: a failure points at one viewport and each stays well inside its own timeout (12 pages, each
+// waiting for the network to settle on a server that may compile routes on demand).
+for (const width of WIDTHS) {
+  test(`@screens capture the F1/F2 pages at ${width}px`, async () => {
+    test.setTimeout(240_000);
+    mkdirSync(OUT, { recursive: true });
     for (const t of targets) {
       const page = await t.ctx.newPage();
       await page.setViewportSize({ width, height: 900 });
@@ -73,7 +87,5 @@ test("@screens capture the F1 pages at 375/768/1024/1440", async ({ browser }) =
       }
       await page.close();
     }
-  }
-  await anon.close();
-  await admin.close();
-});
+  });
+}

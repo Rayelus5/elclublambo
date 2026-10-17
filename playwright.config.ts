@@ -32,11 +32,13 @@ export default defineConfig({
   use: { baseURL: "http://localhost:3000" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "pnpm dev",
+    // E2E_PROD=1 runs against a production build (`next build && next start`): no on-demand compile races, which is
+    // the closest to what ships. NEXT_PUBLIC_* values are baked at build time, hence the same `env` for both steps.
+    command: process.env.E2E_PROD === "1" ? "pnpm build && pnpm start" : "pnpm dev",
     url: "http://localhost:3000",
     // Always boot with the E2E env; stop any other server on :3000 first.
     reuseExistingServer: false,
     env,
-    timeout: 120_000,
+    timeout: process.env.E2E_PROD === "1" ? 600_000 : 120_000,
   },
 });
