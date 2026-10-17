@@ -1,13 +1,18 @@
 begin;
-select plan(128);
+select plan(149);
 
 -- helpers (rolled back with the test); they run as the invoking role, the RPCs under test are the definers
+create function tests.td(p_text text) returns jsonb language sql as $$
+  select case when p_text is null or p_text = '' then '{"type":"doc","content":[]}'::jsonb
+    else jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(
+      'type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', p_text))))) end
+$$;
 create function tests.post(
   p_ch uuid, p_text text default 'hola', p_root uuid default null, p_expanded boolean default false,
   p_quoted uuid default null, p_att jsonb default '[]'::jsonb, p_body jsonb default null
 ) returns uuid language sql as $$
   select public.post_message(p_ch,
-    coalesce(p_body, '{"type":"doc","content":[]}'::jsonb), p_text, p_expanded, p_root, p_quoted, p_att)
+    coalesce(p_body, tests.td(p_text)), p_text, p_expanded, p_root, p_quoted, p_att)
 $$;
 create function tests.mn(p_kind text, p_id text) returns jsonb language sql as $$
   select jsonb_build_object('type', 'mention', 'attrs', jsonb_build_object('kind', p_kind, 'id', p_id))
@@ -155,7 +160,7 @@ begin
 end $$;
 select ok(current_setting('t.detail') ~ '^[0-9]+$' and current_setting('t.detail')::int between 1 and 60, 'slowmode DETAIL carries the remaining seconds');
 select ok(public.my_slowmode_remaining(current_setting('t.slow')::uuid) between 1 and 60, 'my_slowmode_remaining reports it');
-select lives_ok($$select public.edit_message(current_setting('t.slowroot')::uuid, '{"type":"doc","content":[]}', 'editado')$$, 'edits are not rate limited');
+select lives_ok($$select public.edit_message(current_setting('t.slowroot')::uuid, tests.td('editado'), 'editado')$$, 'edits are not rate limited');
 select tests.authenticate_as(current_setting('t.uw')::uuid);
 select lives_ok($$select tests.post(current_setting('t.slow')::uuid, 'hilo', current_setting('t.slowroot')::uuid)$$, 'first reply of w ok');
 select throws_ok($$select tests.post(current_setting('t.slow')::uuid, 'raiz')$$, 'P0001', 'slowmode', 'a thread reply counts for slowmode');
@@ -164,10 +169,66 @@ select lives_ok($$select tests.post(current_setting('t.slow')::uuid, 'mod 1')$$,
 select lives_ok($$select tests.post(current_setting('t.slow')::uuid, 'mod 2')$$, 'MANAGE_MESSAGES: exempt from slowmode');
 select is(public.my_slowmode_remaining(current_setting('t.slow')::uuid), 0, 'MANAGE_MESSAGES: remaining 0');
 select tests.clear_authentication();
-update public.messages set created_at = now() - interval '61 seconds' where author_id = current_setting('t.u')::uuid;
+update public.member_channel_last_post set last_post_at = now() - interval '61 seconds' where member_id = current_setting('t.u')::uuid;
 select tests.authenticate_as(current_setting('t.uu')::uuid);
 select is(public.my_slowmode_remaining(current_setting('t.slow')::uuid), 0, 'window elapsed: remaining 0');
 select lives_ok($$select tests.post(current_setting('t.slow')::uuid, 'ya puedo')$$, 'window elapsed: can post again');
+select tests.clear_authentication();
+-- remaining is clamped to the channel's slowmode_seconds even with a future timestamp
+update public.member_channel_last_post set last_post_at = now() + interval '1 hour'
+  where member_id = current_setting('t.u')::uuid and channel_id = current_setting('t.slow')::uuid;
+select is(public._slowmode_remaining(current_setting('t.u')::uuid, current_setting('t.slow')::uuid), 60, 'remaining is clamped to slowmode_seconds');
+-- deleting your own message does not reset the window
+select tests.authenticate_as(current_setting('t.ux')::uuid);
+select set_config('t.xslow', tests.post(current_setting('t.slow')::uuid, 'x1')::text, true);
+select public.delete_message(current_setting('t.xslow')::uuid);
+select throws_ok($$select tests.post(current_setting('t.slow')::uuid, 'x2')$$, 'P0001', 'slowmode', 'post, delete, post: slowmode still applies');
+select tests.clear_authentication();
+select is((select count(*)::int from public.messages where id = current_setting('t.xslow')::uuid), 0, 'the deleted message is really gone');
+select ok(not has_table_privilege('authenticated', 'public.member_channel_last_post', 'SELECT'), 'authenticated cannot read member_channel_last_post');
+select ok(not has_table_privilege('anon', 'public.member_channel_last_post', 'SELECT'), 'anon cannot read member_channel_last_post');
+select ok((select relrowsecurity from pg_class where oid = 'public.member_channel_last_post'::regclass), 'member_channel_last_post RLS on');
+-- my_slowmode_remaining reveals nothing for channels the caller cannot view
+update public.channels set slowmode_seconds = 60 where id = current_setting('t.txtH')::uuid;
+insert into public.member_channel_last_post (member_id, channel_id, last_post_at)
+  values (current_setting('t.u')::uuid, current_setting('t.txtH')::uuid, now());
+select is(public._slowmode_remaining(current_setting('t.u')::uuid, current_setting('t.txtH')::uuid), 60, 'fixture: slowmode active in the hidden channel');
+select tests.authenticate_as(current_setting('t.uu')::uuid);
+select is(public.my_slowmode_remaining(current_setting('t.txtH')::uuid), 0, 'my_slowmode_remaining is 0 without VIEW');
+select tests.clear_authentication();
+
+-- ===== body_text is derived server-side =====
+select tests.authenticate_as(current_setting('t.uu')::uuid);
+select set_config('t.derived', public.post_message(current_setting('t.txt')::uuid, tests.td('texto real'), 'texto falso', false, null, null, '[]')::text, true);
+select tests.clear_authentication();
+select is((select body_text from public.messages where id = current_setting('t.derived')::uuid), 'texto real', 'mismatched p_body_text is ignored');
+select is(public._doc_text(jsonb_build_object('type', 'doc', 'content', jsonb_build_array(
+  jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(
+    jsonb_build_object('type', 'text', 'text', 'uno'), jsonb_build_object('type', 'hardBreak'),
+    jsonb_build_object('type', 'text', 'text', 'dos'))),
+  jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(
+    jsonb_build_object('type', 'mention', 'attrs', jsonb_build_object('kind', 'member', 'id', 'x', 'label', 'ana')),
+    jsonb_build_object('type', 'text', 'text', ' hola'))),
+  jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(tests.mn('everyone', null)))))),
+  E'uno\ndos\n@ana hola\n@', '_doc_text: text, hardBreak, mention label and block separators');
+select is(public._doc_text('{"type":"doc","content":[]}'), '', '_doc_text: empty doc');
+select tests.authenticate_as(current_setting('t.uu')::uuid);
+select throws_ok($$select public.post_message(current_setting('t.txt')::uuid, tests.td(repeat('x', 4001)), 'x', false, null, null, '[]')$$,
+  'P0001', 'too_long', 'big body with tiny p_body_text: too_long in compact mode');
+select lives_ok($$select public.post_message(current_setting('t.txt')::uuid, tests.td(repeat('x', 4001)), 'x', true, null, null, '[]')$$, 'the same body is fine expanded');
+select throws_ok($$select public.post_message(current_setting('t.txt')::uuid, tests.td(repeat('x', 20001)), 'x', true, null, null, '[]')$$,
+  'P0001', 'too_long', 'derived text over 20000 even expanded: too_long');
+select throws_ok($$select public.post_message(current_setting('t.txt')::uuid, '{"type":"doc","content":[]}', 'texto no vacio', false, null, null, '[]')$$,
+  'P0001', 'invalid_input', 'empty doc with non-empty p_body_text: invalid_input');
+select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'texto no vacio')$q$, current_setting('t.derived')),
+  'P0001', 'invalid_input', 'edit to an empty doc with text: invalid_input');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td(repeat('x', 4001)), 'x')$q$, current_setting('t.derived')),
+  'P0001', 'too_long', 'edit: big body with tiny p_body_text: too_long');
+select lives_ok(format($q$select public.edit_message(%L::uuid, tests.td('nuevo'), 'otro')$q$, current_setting('t.derived')), 'edit with a mismatched p_body_text');
+select tests.clear_authentication();
+select is((select body_text from public.messages where id = current_setting('t.derived')::uuid), 'nuevo', 'edit stores the derived text');
+select ok(not has_function_privilege('authenticated', 'public._doc_text(jsonb)', 'execute'), 'authenticated cannot _doc_text');
+select ok(not has_function_privilege('anon', 'public._doc_text(jsonb)', 'execute'), 'anon cannot _doc_text');
 
 -- ===== links =====
 select tests.authenticate_as(current_setting('t.ue')::uuid);
@@ -251,23 +312,23 @@ select is((select count(*)::int from public.message_mentions where message_id = 
 
 -- ===== edit =====
 select tests.authenticate_as(current_setting('t.uw')::uuid);
-select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'hack')$q$, current_setting('t.root1')), 'P0001', 'forbidden', 'editing someone else''s message: forbidden');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td('hack'), 'hack')$q$, current_setting('t.root1')), 'P0001', 'forbidden', 'editing someone else''s message: forbidden');
 select tests.authenticate_as(current_setting('t.um')::uuid);
-select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'hack')$q$, current_setting('t.root1')), 'P0001', 'forbidden', 'moderators cannot edit others either');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td('hack'), 'hack')$q$, current_setting('t.root1')), 'P0001', 'forbidden', 'moderators cannot edit others either');
 select tests.authenticate_as(current_setting('t.uu')::uuid);
-select throws_ok(format($q$select public.edit_message(gen_random_uuid(), '{"type":"doc","content":[]}', 'x')$q$), 'P0001', 'forbidden', 'editing a missing message: forbidden');
-select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', repeat('x', 4001))$q$, current_setting('t.root1')), 'P0001', 'too_long', 'edit over the compact limit: too_long');
-select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', '')$q$, current_setting('t.root1')), 'P0001', 'invalid_input', 'edit to empty without attachments: invalid_input');
+select throws_ok(format($q$select public.edit_message(gen_random_uuid(), tests.td('x'), 'x')$q$), 'P0001', 'forbidden', 'editing a missing message: forbidden');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td(repeat('x', 4001)), repeat('x', 4001))$q$, current_setting('t.root1')), 'P0001', 'too_long', 'edit over the compact limit: too_long');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td(''), '')$q$, current_setting('t.root1')), 'P0001', 'invalid_input', 'edit to empty without attachments: invalid_input');
 select lives_ok(format($q$select public.edit_message(%L::uuid, %L::jsonb, 'editado')$q$, current_setting('t.mroot'),
   tests.mdoc(tests.mn('member', current_setting('t.b')))::text), 'author edits');
 select tests.clear_authentication();
-select is((select body_text from public.messages where id = current_setting('t.mroot')::uuid), 'editado', 'edit stores the new text');
+select is((select body_text from public.messages where id = current_setting('t.mroot')::uuid), '@', 'edit stores the derived text (mention without label)');
 select ok((select edited_at is not null from public.messages where id = current_setting('t.mroot')::uuid), 'edit sets edited_at');
 select is((select count(*)::int from public.message_mentions where message_id = current_setting('t.mroot')::uuid), 1, 'edit recomputes mentions');
 -- allow_links is recomputed against the author's current permissions
 delete from public.member_roles where member_id = current_setting('t.e')::uuid and role_id = current_setting('t.rolePower')::uuid;
 select tests.authenticate_as(current_setting('t.ue')::uuid);
-select lives_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'sin permiso')$q$, current_setting('t.eroot')), 'edit after losing EMBED_LINKS');
+select lives_ok(format($q$select public.edit_message(%L::uuid, tests.td('sin permiso'), 'sin permiso')$q$, current_setting('t.eroot')), 'edit after losing EMBED_LINKS');
 select tests.clear_authentication();
 select is((select allow_links from public.messages where id = current_setting('t.eroot')::uuid), false, 'edit recomputes allow_links');
 insert into public.member_roles (member_id, role_id) values (current_setting('t.e')::uuid, current_setting('t.rolePower')::uuid);
@@ -276,18 +337,18 @@ insert into public.member_roles (member_id, role_id) values (current_setting('t.
 select set_config('t.addr', '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01', true);
 set local role service_role;
 select set_config('t.alphamsg', public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid,
-  '{"type":"doc","content":[]}', 'mira este contrato', false, null, null, '[]', current_setting('t.addr'))::text, true);
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', %L)$q$,
+  tests.td('mira este contrato'), 'mira este contrato', false, null, null, '[]', current_setting('t.addr'))::text, true);
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
   current_setting('t.e'), current_setting('t.txt'), current_setting('t.addr')), 'P0001', 'forbidden', 'alpha in a channel without alpha_enabled: forbidden');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
   current_setting('t.u'), current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'alpha without EMBED_LINKS: forbidden');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', '0x123')$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', '0x123')$q$,
   current_setting('t.e'), current_setting('t.alpha')), 'P0001', 'invalid_input', 'alpha with a malformed address: invalid_input');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', null)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', null)$q$,
   current_setting('t.e'), current_setting('t.alpha')), 'P0001', 'invalid_input', 'post_message_as without address: invalid_input');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
   current_setting('t.ban'), current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'banned member: forbidden');
-select throws_ok(format($q$select public.post_message_as(null, %L::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(null, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
   current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'null member: forbidden');
 reset role;
 select is((select kind from public.messages where id = current_setting('t.alphamsg')::uuid), 'alpha', 'alpha message has kind alpha');
@@ -295,8 +356,8 @@ select is((select author_id from public.messages where id = current_setting('t.a
 select is((select allow_links from public.messages where id = current_setting('t.alphamsg')::uuid), true, 'alpha allow_links true');
 select is((select contract_address from public.alpha_details where message_id = current_setting('t.alphamsg')::uuid), lower(current_setting('t.addr')), 'alpha address stored lowercase');
 select tests.authenticate_as(current_setting('t.ue')::uuid);
-select lives_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'contrato editado')$q$, current_setting('t.alphamsg')), 'alpha author edits');
-select throws_ok($$select public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid, '{"type":"doc","content":[]}', 'x', false, null, null, '[]', current_setting('t.addr'))$$,
+select lives_ok(format($q$select public.edit_message(%L::uuid, tests.td('contrato editado'), 'contrato editado')$q$, current_setting('t.alphamsg')), 'alpha author edits');
+select throws_ok($$select public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid, tests.td('x'), 'x', false, null, null, '[]', current_setting('t.addr'))$$,
   '42501', null, 'authenticated cannot call post_message_as');
 select lives_ok($$select tests.post(current_setting('t.alpha')::uuid, 'texto normal')$$, 'regular post in an alpha channel ok');
 select tests.clear_authentication();
@@ -332,7 +393,7 @@ select is((select count(*)::int from public.message_attachments where message_id
   + (select count(*)::int from public.message_mentions where message_id = current_setting('t.droot')::uuid), 0, 'soft delete removes attachments, reactions and mentions');
 select tests.authenticate_as(current_setting('t.ue')::uuid);
 select throws_ok(format($q$select public.delete_message(%L::uuid)$q$, current_setting('t.droot')), 'P0001', 'invalid_input', 'deleting a tombstone again: invalid_input');
-select throws_ok(format($q$select public.edit_message(%L::uuid, '{"type":"doc","content":[]}', 'x')$q$, current_setting('t.droot')), 'P0001', 'forbidden', 'editing a deleted message: forbidden');
+select throws_ok(format($q$select public.edit_message(%L::uuid, tests.td('x'), 'x')$q$, current_setting('t.droot')), 'P0001', 'forbidden', 'editing a deleted message: forbidden');
 select tests.authenticate_as(current_setting('t.uu')::uuid);
 select lives_ok(format($q$select tests.post(%L::uuid, 'responder a borrado', %L::uuid)$q$, current_setting('t.txt'), current_setting('t.droot')), 'replying to a soft-deleted root is allowed');
 -- hard delete of a reply

@@ -169,13 +169,25 @@ describe("deleteChannelAction", () => {
     expect(await deleteChannelAction(A)).toEqual({});
     expect(remove).not.toHaveBeenCalled();
   });
-  it("tolerates a missing bucket or storage failure", async () => {
+  it("tolerates a missing bucket or storage failure but logs it", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     rpc.mockResolvedValue({ data: { paths: ["c/m/a.png"] }, error: null });
-    remove.mockResolvedValue({ data: null, error: { message: "Bucket not found" } });
+    remove.mockResolvedValue({ data: null, error: { message: "Bucket not found", statusCode: "404" } });
     expect(await deleteChannelAction(A)).toEqual({});
+    expect(log).toHaveBeenCalledTimes(1);
     remove.mockRejectedValue(new Error("boom"));
     expect(await deleteChannelAction(A)).toEqual({});
+    expect(log).toHaveBeenCalledTimes(2);
     expectRevalidated();
+    log.mockRestore();
+  });
+  it("removes objects in chunks of 1000", async () => {
+    const paths = Array.from({ length: 2500 }, (_, i) => `c/m/${i}.png`);
+    rpc.mockResolvedValue({ data: { paths }, error: null });
+    remove.mockResolvedValue({ data: [], error: null });
+    await deleteChannelAction(A);
+    expect(remove).toHaveBeenCalledTimes(3);
+    expect(remove.mock.calls.map((c) => c[0].length)).toEqual([1000, 1000, 500]);
   });
   it("does not touch storage when the rpc fails", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "forbidden" } });

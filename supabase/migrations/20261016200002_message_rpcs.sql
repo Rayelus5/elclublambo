@@ -1,9 +1,77 @@
 -- F2b: message write RPCs. Every chat write is authorized here (tables have no write grants).
 -- Shared logic lives in private definer functions revoked from every API role.
 
+-- Last post time per (member, channel). Survives deletion of the message, so deleting your own message
+-- cannot reset the slowmode window. Only written by _post_message_core; not readable through the API.
+create table public.member_channel_last_post (
+  member_id uuid not null references public.members (id) on delete cascade,
+  channel_id uuid not null references public.channels (id) on delete cascade,
+  last_post_at timestamptz not null,
+  primary key (member_id, channel_id)
+);
+create index member_channel_last_post_channel_idx on public.member_channel_last_post (channel_id);
+alter table public.member_channel_last_post enable row level security;
+revoke all on public.member_channel_last_post from anon, authenticated;
+
+-- Plain text of a Tiptap doc, derived server-side (body_text sent by clients is ignored: it cannot be trusted
+-- for length limits, search or notifications). Rules, mirrored by the TS docToPlainText (Task 7):
+--   text node -> its text; mention -> '@' || attrs.label ('@' alone without a label); hardBreak -> newline;
+--   any other node -> its children joined; two consecutive inline children (text/mention/hardBreak) join with '',
+--   every other pair of siblings is separated by a newline; nesting deeper than 40 levels is ignored;
+--   the result is trimmed of leading/trailing whitespace.
+create function public._doc_text_rec(p_node jsonb, p_depth int)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+  v_type text;
+  v_out text := '';
+  v_child jsonb;
+  v_inline boolean;
+  v_prev_inline boolean := false;
+  v_first boolean := true;
+begin
+  if p_depth > 40 or jsonb_typeof(p_node) is distinct from 'object' then
+    return '';
+  end if;
+  v_type := p_node ->> 'type';
+  if v_type = 'text' then
+    return case when jsonb_typeof(p_node -> 'text') = 'string' then p_node ->> 'text' else '' end;
+  elsif v_type = 'mention' then
+    return '@' || case when jsonb_typeof(p_node -> 'attrs' -> 'label') = 'string'
+                       then p_node -> 'attrs' ->> 'label' else '' end;
+  elsif v_type = 'hardBreak' then
+    return E'\n';
+  end if;
+  if jsonb_typeof(p_node -> 'content') is distinct from 'array' then
+    return '';
+  end if;
+  for v_child in select e.value from jsonb_array_elements(p_node -> 'content') e loop
+    v_inline := (v_child ->> 'type') in ('text', 'mention', 'hardBreak');
+    if not v_first and not (v_inline and v_prev_inline) then
+      v_out := v_out || E'\n';
+    end if;
+    v_out := v_out || public._doc_text_rec(v_child, p_depth + 1);
+    v_prev_inline := v_inline;
+    v_first := false;
+  end loop;
+  return v_out;
+end;
+$$;
+
+create function public._doc_text(p_doc jsonb)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select regexp_replace(public._doc_text_rec(p_doc, 0), '^\s+|\s+$', '', 'g')
+$$;
+
 -- Seconds the member still has to wait before posting in the channel (0 = free to post).
--- Slowmode applies when slowmode_seconds > 0 and the member lacks MANAGE_MESSAGES; it counts the member's
--- latest message in the channel, thread replies included. Uses the database clock only.
+-- Slowmode applies when slowmode_seconds > 0 and the member lacks MANAGE_MESSAGES. Uses the database clock only.
 create function public._slowmode_remaining(p_member uuid, p_channel uuid)
 returns int
 language plpgsql
@@ -19,12 +87,12 @@ begin
   if coalesce(v_slow, 0) = 0 or (public.channel_permissions(p_member, p_channel) & 8) <> 0 then
     return 0;
   end if;
-  select max(m.created_at) into v_last
-  from public.messages m where m.channel_id = p_channel and m.author_id = p_member;
+  select l.last_post_at into v_last
+  from public.member_channel_last_post l where l.member_id = p_member and l.channel_id = p_channel;
   if v_last is null then
     return 0;
   end if;
-  return greatest(ceil(v_slow - extract(epoch from (now() - v_last)))::int, 0);
+  return least(greatest(ceil(v_slow - extract(epoch from (now() - v_last)))::int, 0), v_slow);
 end;
 $$;
 
@@ -35,7 +103,8 @@ stable
 security definer
 set search_path = ''
 as $$
-  select coalesce(public._slowmode_remaining(public.current_member_id(), p_channel), 0)
+  select case when public.can_view(p_channel)
+    then coalesce(public._slowmode_remaining(public.current_member_id(), p_channel), 0) else 0 end
 $$;
 
 -- Parses the mention nodes of a Tiptap doc into message_mentions (deduped, max 50).
@@ -103,6 +172,7 @@ declare
   v_id uuid;
   v_kind text := 'text';
   v_paths text[] := '{}';
+  v_text text;
 begin
   if p_member is null or p_channel is null then
     raise exception 'forbidden';
@@ -134,11 +204,15 @@ begin
     end if;
   end if;
 
-  if p_body is null or jsonb_typeof(p_body) <> 'object' or p_body_text is null then
+  -- p_body_text is accepted for signature compatibility only: the stored text is derived from the doc
+  if p_body is null or jsonb_typeof(p_body) <> 'object' then
     raise exception 'invalid_input';
   end if;
-  if octet_length(p_body::text) > 65536 or char_length(p_body_text) > 20000
-     or (not v_expanded and char_length(p_body_text) > 4000) then
+  if octet_length(p_body::text) > 65536 then
+    raise exception 'too_long';
+  end if;
+  v_text := public._doc_text(p_body);
+  if char_length(v_text) > 20000 or (not v_expanded and char_length(v_text) > 4000) then
     raise exception 'too_long';
   end if;
 
@@ -148,7 +222,7 @@ begin
   if jsonb_array_length(v_atts) > 4 then
     raise exception 'too_many_attachments';
   end if;
-  if btrim(p_body_text) = '' and jsonb_array_length(v_atts) = 0 then
+  if v_text = '' and jsonb_array_length(v_atts) = 0 then
     raise exception 'invalid_input';
   end if;
 
@@ -204,7 +278,7 @@ begin
 
   insert into public.messages (channel_id, thread_root_id, author_id, body, body_text, expanded,
                                allow_links, kind, quoted_message_id)
-  values (p_channel, p_thread_root, p_member, p_body, p_body_text, v_expanded,
+  values (p_channel, p_thread_root, p_member, p_body, v_text, v_expanded,
           (v_perms & 2048) = 2048, v_kind, p_quoted)
   returning id into v_id;
 
@@ -216,11 +290,20 @@ begin
     insert into public.alpha_details (message_id, contract_address) values (v_id, lower(p_alpha_address));
   end if;
 
-  insert into public.message_attachments (message_id, storage_path, mime, size_bytes, width, height)
-  select v_id, e.value ->> 'path', e.value ->> 'mime', (e.value ->> 'size')::int,
-         case when (e.value ->> 'width') ~ '^[0-9]{1,5}$' then (e.value ->> 'width')::int end,
-         case when (e.value ->> 'height') ~ '^[0-9]{1,5}$' then (e.value ->> 'height')::int end
-  from jsonb_array_elements(v_atts) e;
+  insert into public.member_channel_last_post (member_id, channel_id, last_post_at)
+  values (p_member, p_channel, now())
+  on conflict (member_id, channel_id) do update set last_post_at = excluded.last_post_at;
+
+  begin
+    insert into public.message_attachments (message_id, storage_path, mime, size_bytes, width, height)
+    select v_id, e.value ->> 'path', e.value ->> 'mime', (e.value ->> 'size')::int,
+           case when (e.value ->> 'width') ~ '^[0-9]{1,5}$' then (e.value ->> 'width')::int end,
+           case when (e.value ->> 'height') ~ '^[0-9]{1,5}$' then (e.value ->> 'height')::int end
+    from jsonb_array_elements(v_atts) e;
+  exception when unique_violation then
+    -- a concurrent request claimed the same storage path
+    raise exception 'invalid_input';
+  end;
 
   perform public._insert_mentions(v_id, p_body, v_perms);
   return v_id;
@@ -269,6 +352,7 @@ declare
   v_actor uuid := public.current_member_id();
   v_msg public.messages;
   v_perms bigint;
+  v_text text;
 begin
   select * into v_msg from public.messages m where m.id = p_id for update;
   if v_actor is null or not found or v_msg.author_id <> v_actor or v_msg.deleted_at is not null then
@@ -280,20 +364,24 @@ begin
     raise exception 'forbidden';
   end if;
 
-  if p_body is null or jsonb_typeof(p_body) <> 'object' or p_body_text is null then
+  -- p_body_text is accepted for signature compatibility only: the stored text is derived from the doc
+  if p_body is null or jsonb_typeof(p_body) <> 'object' then
     raise exception 'invalid_input';
   end if;
-  if octet_length(p_body::text) > 65536 or char_length(p_body_text) > 20000
-     or (not v_msg.expanded and char_length(p_body_text) > 4000) then
+  if octet_length(p_body::text) > 65536 then
     raise exception 'too_long';
   end if;
-  if btrim(p_body_text) = '' and not exists (
+  v_text := public._doc_text(p_body);
+  if char_length(v_text) > 20000 or (not v_msg.expanded and char_length(v_text) > 4000) then
+    raise exception 'too_long';
+  end if;
+  if v_text = '' and not exists (
     select 1 from public.message_attachments a where a.message_id = p_id) then
     raise exception 'invalid_input';
   end if;
 
   update public.messages
-  set body = p_body, body_text = p_body_text, allow_links = (v_perms & 2048) = 2048, edited_at = now()
+  set body = p_body, body_text = v_text, allow_links = (v_perms & 2048) = 2048, edited_at = now()
   where id = p_id;
 
   delete from public.message_mentions where message_id = p_id;
@@ -378,6 +466,8 @@ end;
 $$;
 
 revoke execute on function
+  public._doc_text_rec(jsonb, int),
+  public._doc_text(jsonb),
   public._slowmode_remaining(uuid, uuid),
   public._insert_mentions(uuid, jsonb, bigint),
   public._post_message_core(uuid, uuid, jsonb, text, boolean, uuid, uuid, jsonb, text),

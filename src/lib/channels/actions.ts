@@ -192,10 +192,17 @@ export async function deleteChannelAction(id: string): Promise<{ error?: string 
   const raw = (data as { paths?: unknown } | null)?.paths;
   const paths = Array.isArray(raw) ? raw.filter((p): p is string => typeof p === "string") : [];
   if (paths.length > 0) {
-    try {
-      await createAdminClient().storage.from("chat-images").remove(paths);
-    } catch {
-      /* ignore */
+    const bucket = createAdminClient().storage.from("chat-images");
+    for (let i = 0; i < paths.length; i += 1000) {
+      try {
+        const { error: storageError } = await bucket.remove(paths.slice(i, i + 1000));
+        if (storageError) {
+          const code = (storageError as { statusCode?: string }).statusCode ?? "unknown";
+          console.error(`deleteChannelAction: storage cleanup failed (${code}): ${storageError.message}`);
+        }
+      } catch (e) {
+        console.error(`deleteChannelAction: storage cleanup threw: ${e instanceof Error ? e.message : "unknown"}`);
+      }
     }
   }
   refresh();
