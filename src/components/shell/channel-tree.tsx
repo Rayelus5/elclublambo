@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, ChevronDown, ChevronRight, Hash } from "lucide-react";
 import { findPath, type TreeNode } from "@/lib/channels/tree";
+import { useUnread } from "@/lib/chat/unread";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "elclub:collapsed";
@@ -59,6 +60,8 @@ function activeIdFrom(pathname: string): string | null {
 }
 
 function ChannelLink({ node, depth, active }: { node: TreeNode; depth: number; active: boolean }) {
+  const { unread } = useUnread();
+  const hasUnread = unread.has(node.id);
   return (
     <Link
       href={`/c/${node.id}`}
@@ -72,6 +75,9 @@ function ChannelLink({ node, depth, active }: { node: TreeNode; depth: number; a
     >
       <Hash className="size-4 shrink-0" aria-hidden />
       <span className="min-w-0 truncate">{node.name}</span>
+      {hasUnread ? (
+        <span role="img" aria-label="sin leer" className="ml-auto size-2 shrink-0 rounded-full bg-accent" />
+      ) : null}
     </Link>
   );
 }

@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
+import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -36,6 +37,14 @@ export async function proxy(request: NextRequest) {
     url.search = "";
     url.searchParams.set("next", pathname);
     return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
+  }
+
+  // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
+  if (user && (await isMissingChannel(supabase as unknown as Parameters<typeof isMissingChannel>[0], pathname))) {
+    const url = request.nextUrl.clone();
+    url.pathname = NOT_FOUND_PATH;
+    url.search = "";
+    return applySessionHeaders(NextResponse.rewrite(url, { status: 404 }), sessionCookies, sessionHeaders);
   }
 
   return response;

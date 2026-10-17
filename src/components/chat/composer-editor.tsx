@@ -294,7 +294,7 @@ function buildExtensions(h: HandlersRef, open: OpenState, expanded: boolean) {
 
 // --- hook ------------------------------------------------------------------------------------------
 
-export function useChatEditor(opts: EditorHandlers & { editable: boolean; initialContent?: unknown }) {
+export function useChatEditor(opts: EditorHandlers & { editable: boolean; initialContent?: unknown; label?: string }) {
   // The extension list is built once; it reads the latest handlers lazily through this getter.
   const [store] = useState(() => new HandlerStore(opts));
   useEffect(() => {
@@ -312,7 +312,7 @@ export function useChatEditor(opts: EditorHandlers & { editable: boolean; initia
       attributes: {
         role: "textbox",
         "aria-multiline": "true",
-        "aria-label": "Mensaje",
+        "aria-label": opts.label ?? "Mensaje",
         spellcheck: "true",
       },
       handleKeyDown: (view, event) => {

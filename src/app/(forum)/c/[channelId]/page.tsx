@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { Folder, Hash, Ticket, Timer, Sparkles } from "lucide-react";
 import { getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
 import { formatSlowmode } from "@/lib/channels/tree";
+import { ChatView } from "@/components/chat/chat-view";
+import { loadChatContext } from "@/lib/chat/context";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -16,10 +18,11 @@ function Chip({ icon: Icon, children }: { icon: typeof Timer; children: React.Re
   );
 }
 
-function TextChannel({ channel }: { channel: ChannelDetail }) {
+async function TextChannel({ channel }: { channel: ChannelDetail }) {
+  const context = await loadChatContext(channel.id);
   return (
-    <div className="flex max-w-3xl flex-col gap-10">
-      <header className="flex flex-col gap-3">
+    <div className="flex flex-col gap-6">
+      <header className="flex max-w-3xl flex-col gap-3">
         <h1 className="text-h1">
           <span className="text-fg-muted" aria-hidden>
             #
@@ -37,9 +40,7 @@ function TextChannel({ channel }: { channel: ChannelDetail }) {
           </ul>
         ) : null}
       </header>
-      <p className="rounded-panel border border-dashed border-border-strong p-6 text-fg-muted">
-        El chat llega en la siguiente entrega.
-      </p>
+      <ChatView key={channel.id} channel={{ id: channel.id, slowmodeSeconds: channel.slowmodeSeconds }} {...context} />
     </div>
   );
 }

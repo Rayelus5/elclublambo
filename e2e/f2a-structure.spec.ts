@@ -58,10 +58,13 @@ test.afterAll(async () => {
   await bCtx?.close();
 });
 
-// The channel page streams inside <Suspense>, so the HTTP status is already 200 when notFound() fires:
-// the 404 shows up as the not-found UI, not as the response status.
+// The channel page streams inside <Suspense>, so a notFound() there would already be a 200: the proxy decides
+// the 404 before the page renders (src/lib/channels/guard.ts), so the response itself must be a real 404.
+const notFoundPaths: string[] = [];
 async function expectNotFound(page: Page, path: string) {
-  await page.goto(path);
+  notFoundPaths.push(path);
+  const response = await page.goto(path);
+  expect(response?.status()).toBe(404);
   await expect(page.getByText("This page could not be found.")).toBeVisible();
 }
 
@@ -179,7 +182,18 @@ test("6. sin errores de consola en las páginas nuevas", async () => {
   }
   await bPage.goto(`/c/${vipId}`);
   await bPage.waitForLoadState("networkidle");
-  // Next logs the 404 resource responses as console errors ("Failed to load resource ... 404").
-  const unexpected = browserErrors.filter((e) => !/status of 404/.test(e));
+  // A text channel mounts the realtime chat (history log + composer).
+  await adminPage.goto("/");
+  await channelsNav(adminPage).getByRole("link", { name: "General", exact: true }).click();
+  await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
+  await expect(adminPage.getByRole("textbox", { name: "Mensaje" })).toBeVisible();
+  await adminPage.waitForLoadState("networkidle");
+  // The only tolerated errors are the browser's own "Failed to load resource ... 404" lines for the documents
+  // this spec deliberately requested as missing channels.
+  const expected404 = (e: string) =>
+    /status of 404/.test(e) && [...notFoundPaths, `/c/${vipId}`].some((path) => e.endsWith(`@ http://localhost:3000${path}`));
+  // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
+  const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
+  const unexpected = browserErrors.filter((e) => !expected404(e) && !coopOn404(e));
   expect(unexpected).toEqual([]);
 });
