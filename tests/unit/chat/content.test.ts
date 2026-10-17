@@ -186,3 +186,45 @@ describe("extractMentions", () => {
     expect(extractMentions(doc(p(...ms)))).toHaveLength(50);
   });
 });
+
+// Same cases as supabase/tests/250_f2b_final_fixes.test.sql (section 4): the TS and SQL mention walks must agree.
+describe("extractMentions counts only rendered mentions (parity with SQL _insert_mentions)", () => {
+  const E = { type: "mention", attrs: { kind: "everyone" } };
+  const M = "33333333-3333-3333-3333-333333333333";
+  const hola = p(t("hola"));
+  const nest = (levels: number, node: unknown) => {
+    let v: unknown = p(node);
+    for (let i = 0; i < levels; i++) v = { type: "blockquote", content: [v] };
+    return doc(hola, v);
+  };
+  const cases: Array<[string, unknown, number]> = [
+    ["visible @everyone", doc(p(t("hola"), E)), 1],
+    ["under attrs", doc({ type: "paragraph", attrs: { x: E }, content: [t("hola")] }), 0],
+    ["inside marks", doc(p({ type: "text", text: "hola", marks: [E] })), 0],
+    ["under a text node", doc(p({ type: "text", text: "hola", content: [E] })), 0],
+    ["under a hardBreak", doc(p(t("hola"), { type: "hardBreak", content: [E] })), 0],
+    ["nested inside a mention (outer only)", doc(p(t("hola"), { ...E, content: [{ type: "mention", attrs: { kind: "member", id: M } }] })), 1],
+    ["inside a codeBlock", doc(hola, { type: "codeBlock", content: [t("x"), E] }), 0],
+    ["inside a horizontalRule", doc(hola, { type: "horizontalRule", content: [p(E)] }), 0],
+    ["directly under a table", doc(hola, { type: "table", content: [p(E)] }), 0],
+    ["directly under a tableRow", doc(hola, { type: "table", content: [{ type: "tableRow", content: [p(E)] }] }), 0],
+    ["inside a table cell", doc({ type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", content: [p(t("hola"), E)] }] }] }), 1],
+    ["inline directly under the doc", doc(t("hola"), E), 1],
+    ["duplicates", doc(p(t("a"), E), p(t("b"), E)), 1],
+    ["under an unknown wrapper", doc(hola, { type: "unknownWrapper", content: [p(E)] }), 1],
+    ["at depth 40", nest(38, E), 1],
+    ["at depth 41", nest(39, E), 0],
+    ["root that is not a doc", p(t("hola"), E), 0],
+  ];
+  it.each(cases)("%s", (_n, input, expected) => expect(extractMentions(input)).toHaveLength(expected));
+});
+
+describe("docToPlainText trims ASCII whitespace only (mirrors SQL _doc_text, ruling R11)", () => {
+  it("keeps leading/trailing NBSP and other Unicode spaces", () => {
+    expect(docToPlainText(doc(p(t(" x "))))).toBe(" x ");
+    expect(docToPlainText(doc(p(t("　x "))))).toBe("　x ");
+  });
+  it("trims ASCII whitespace", () => {
+    expect(docToPlainText(doc(p(t(" \t\r\f\u000bx \n"))))).toBe("x");
+  });
+});

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const SEND_MESSAGES = 2;
 const EMBED_LINKS = 2048;
 
 /**
@@ -43,7 +44,8 @@ export async function postAlphaAction(input: {
   if (me.error || typeof memberId !== "string" || status.data !== "active") return { error: "forbidden" };
   if (!channel.data || channel.data.kind !== "text" || !channel.data.alpha_enabled) return { error: "forbidden" };
   const bits = BigInt(String(perms.data ?? 0));
-  if ((bits & BigInt(EMBED_LINKS)) === 0n) return { error: "forbidden" };
+  // EMBED_LINKS for the Alpha card and SEND_MESSAGES to post at all: checked before the rate-limited on-chain lookup.
+  if ((bits & BigInt(EMBED_LINKS)) === 0n || (bits & BigInt(SEND_MESSAGES)) === 0n) return { error: "forbidden" };
 
   try {
     if (!(await verifyLineaContract(input.address))) return { error: "not_a_contract" };

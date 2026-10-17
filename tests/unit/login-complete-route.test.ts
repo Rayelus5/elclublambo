@@ -14,7 +14,9 @@ const call = (qs = "", site: string | null = "none") =>
   );
 
 describe("GET /login/complete", () => {
-  beforeEach(() => completeLogin.mockReset());
+  beforeEach(() => {
+    completeLogin.mockReset();
+  });
 
   it("passes the invite code and redirects to the outcome", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "/invite/abc?error=invite_expired" });

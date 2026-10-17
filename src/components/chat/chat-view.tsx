@@ -471,7 +471,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial }: ChatViewP
               canPost
               canAttach={viewer.canAttach}
               canMentionEveryone={viewer.canMentionEveryone}
-              canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true}
+              canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true && viewer.canPost === true}
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}

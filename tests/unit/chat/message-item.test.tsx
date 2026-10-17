@@ -188,6 +188,26 @@ describe("MessageItem", () => {
     expect(screen.queryByRole("textbox", { name: "Editar mensaje" })).not.toBeInTheDocument();
   });
 
+  it("an image message can be saved with an empty caption (SQL allows it)", async () => {
+    const att = { id: "a1", url: null, mime: "image/png", width: 10, height: 10 };
+    const { onEdit } = setup({ message: makeMessage({ authorId: ME, body: { type: "doc", content: [] }, attachments: [att] }) });
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Editar" }));
+    await screen.findByRole("textbox", { name: "Editar mensaje" });
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(onEdit).toHaveBeenCalledTimes(1));
+  });
+
+  it("a text-only message cannot be saved empty", async () => {
+    const { onEdit } = setup({ message: makeMessage({ authorId: ME, body: { type: "doc", content: [] } }) });
+    await openMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Editar" }));
+    await screen.findByRole("textbox", { name: "Editar mensaje" });
+    await userEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("vacío");
+    expect(onEdit).not.toHaveBeenCalled();
+  });
+
   it("an edit error keeps the editor open and is announced", async () => {
     const onEdit = vi.fn<NonNullable<MessageItemProps["onEdit"]>>(async () => "No se pudo guardar.");
     setup({ message: makeMessage({ authorId: ME }), onEdit });

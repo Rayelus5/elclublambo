@@ -176,6 +176,7 @@ export function MessageItem({
             body={message.body}
             expanded={message.expanded}
             canMentionEveryone={viewer.canMentionEveryone}
+            hasAttachments={message.attachments.length > 0}
             onSave={async (doc) => {
               const err = (await onEdit?.(message, doc)) ?? null;
               if (!err) {

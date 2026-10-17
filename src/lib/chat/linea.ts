@@ -20,5 +20,8 @@ export async function verifyLineaContract(address: string): Promise<boolean> {
   } catch {
     throw new Error("network");
   }
-  return typeof code === "string" && code !== "0x" && code.length > 2;
+  if (typeof code !== "string" || code.length <= 2) return false;
+  // EIP-7702 delegation designator (0xef0100 || address): the account is an EOA, not a contract (ruling R8)
+  if (code.toLowerCase().startsWith("0xef0100")) return false;
+  return true;
 }

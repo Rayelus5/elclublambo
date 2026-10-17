@@ -17,6 +17,8 @@ export interface AlphaDialogProps {
   /** Plain text taken from the composer when the dialog opened (editable here). */
   initialText: string;
   onPosted: (id: string) => void;
+  /** The post hit slowmode: the composer starts its countdown with these seconds. */
+  onSlowmode?: (seconds: number) => void;
 }
 
 /** Plain text → a minimal Tiptap doc: one paragraph per line. The server sanitizes it again. */
@@ -28,10 +30,14 @@ function textToDoc(text: string) {
   };
 }
 
-function Form({ onOpenChange, channelId, initialText, onPosted }: AlphaDialogProps) {
+type Field = "address" | "thesis" | null;
+const ERROR_ID = "alpha-error";
+const THESIS_HINT_ID = "alpha-thesis-hint";
+
+function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: AlphaDialogProps) {
   const [address, setAddress] = useState("");
   const [thesis, setThesis] = useState(initialText);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; field: Field } | null>(null);
   const [sending, setSending] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -39,16 +45,16 @@ function Form({ onOpenChange, channelId, initialText, onPosted }: AlphaDialogPro
     if (sending) return;
     const clean = address.trim();
     if (!ALPHA_ADDRESS_RE.test(clean)) {
-      setError("Introduce una dirección de contrato válida (0x seguido de 40 caracteres hexadecimales).");
+      setError({ text: "Introduce una dirección de contrato válida (0x seguido de 40 caracteres hexadecimales).", field: "address" });
       return;
     }
     if (thesis.trim() === "") {
-      setError("Escribe tu tesis: por qué merece la pena este contrato.");
+      setError({ text: "Escribe tu tesis: por qué merece la pena este contrato.", field: "thesis" });
       return;
     }
     setSending(true);
     setError(null);
-    let res: { id?: string; error?: string };
+    let res: { id?: string; error?: string; slowmodeSeconds?: number };
     try {
       res = await postAlphaAction({ channelId, address: clean, doc: textToDoc(thesis) });
     } catch {
@@ -56,11 +62,18 @@ function Form({ onOpenChange, channelId, initialText, onPosted }: AlphaDialogPro
     }
     setSending(false);
     if (res.error || !res.id) {
-      setError(rpcErrorMessage(res.error ?? "unknown"));
+      if (res.error === "slowmode" && res.slowmodeSeconds && res.slowmodeSeconds > 0) onSlowmode?.(res.slowmodeSeconds);
+      setError({ text: rpcErrorMessage(res.error ?? "unknown"), field: res.error === "not_a_contract" ? "address" : null });
       return;
     }
     onPosted(res.id);
     onOpenChange(false);
+  };
+
+  const invalid = (field: Field) => (error && error.field === field ? { "aria-invalid": true as const } : {});
+  const describedBy = (field: Field, ...ids: string[]) => {
+    const all = error && error.field === field ? [...ids, ERROR_ID] : ids;
+    return all.length > 0 ? all.join(" ") : undefined;
   };
 
   return (
@@ -78,10 +91,14 @@ function Form({ onOpenChange, channelId, initialText, onPosted }: AlphaDialogPro
           autoComplete="off"
           spellCheck={false}
           className="font-mono"
+          {...invalid("address")}
+          aria-describedby={describedBy("address")}
         />
       </div>
       <div className="flex flex-col gap-2">
-        <Label htmlFor="alpha-thesis">Tu tesis</Label>
+        <Label htmlFor="alpha-thesis">
+          Tu tesis <span className="font-normal text-fg-muted">(obligatoria)</span>
+        </Label>
         <textarea
           id="alpha-thesis"
           value={thesis}
@@ -89,17 +106,24 @@ function Form({ onOpenChange, channelId, initialText, onPosted }: AlphaDialogPro
             setThesis(e.target.value);
             setError(null);
           }}
+          required
+          aria-required="true"
+          {...invalid("thesis")}
+          aria-describedby={describedBy("thesis", THESIS_HINT_ID)}
           rows={5}
           maxLength={4000}
-          className="w-full min-w-0 rounded-control border border-input bg-transparent px-2.5 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg md:text-sm"
+          className="w-full min-w-0 rounded-control border border-input bg-transparent px-2.5 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg aria-invalid:border-danger md:text-sm"
         />
+        <p id={THESIS_HINT_ID} className="text-[13px] text-fg-muted">
+          Texto plano: los enlaces, menciones y formatos se publican como texto.
+        </p>
       </div>
       <p className="text-[13px] text-fg-muted">
         Comprobamos en Linea que la dirección es un contrato antes de publicar. Contenido de terceros: nada de esto es consejo financiero.
       </p>
       {error ? (
-        <p role="alert" className="text-sm text-danger">
-          {error}
+        <p id={ERROR_ID} role="alert" className="text-sm text-danger">
+          {error.text}
         </p>
       ) : null}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

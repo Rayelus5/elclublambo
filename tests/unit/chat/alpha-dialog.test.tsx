@@ -17,7 +17,11 @@ function setup(initialText = "") {
   return { onPosted, onOpenChange, user: userEvent.setup() };
 }
 
-beforeEach(() => postAlphaAction.mockReset());
+// Block body on purpose: a function returned from beforeEach is run by Vitest as a cleanup hook, and mockReset()
+// returns the mock itself, so `() => postAlphaAction.mockReset()` would call the action once more after each test.
+beforeEach(() => {
+  postAlphaAction.mockReset();
+});
 
 describe("AlphaDialog", () => {
   it("rejects a malformed address on the client without calling the server", async () => {
@@ -69,6 +73,54 @@ describe("AlphaDialog", () => {
     expect(onPosted).not.toHaveBeenCalled();
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
     expect(screen.getByRole("button", { name: "Publicar alpha" })).toBeEnabled();
+  });
+
+  it("hands the slowmode seconds to the composer so its countdown starts", async () => {
+    postAlphaAction.mockResolvedValue({ error: "slowmode", slowmodeSeconds: 42 });
+    const onSlowmode = vi.fn();
+    const user = userEvent.setup();
+    render(<AlphaDialog open onOpenChange={vi.fn()} channelId={CH} initialText="tesis" onPosted={vi.fn()} onSlowmode={onSlowmode} />);
+    await user.type(screen.getByLabelText("Contrato en Linea"), ADDR);
+    await user.click(screen.getByRole("button", { name: "Publicar alpha" }));
+    await waitFor(() => expect(onSlowmode).toHaveBeenCalledWith(42));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/espera/i);
+  });
+
+  it("shows the fallback copy and re-enables the button when the action rejects", async () => {
+    postAlphaAction.mockRejectedValue(new Error("boom"));
+    const { user, onPosted } = setup("tesis");
+    await user.type(screen.getByLabelText("Contrato en Linea"), ADDR);
+    await user.click(screen.getByRole("button", { name: "Publicar alpha" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Algo falló");
+    expect(screen.getByRole("button", { name: "Publicar alpha" })).toBeEnabled();
+    expect(onPosted).not.toHaveBeenCalled();
+  });
+
+  it("marks the thesis as required, visibly and for assistive tech", () => {
+    setup("");
+    const thesis = screen.getByRole("textbox", { name: /Tu tesis/ });
+    expect(thesis).toBeRequired();
+    expect(thesis).toHaveAttribute("aria-required", "true");
+    expect(screen.getByText("(obligatoria)")).toBeVisible();
+    expect(screen.getByText(/texto plano/i)).toBeInTheDocument();
+  });
+
+  it("links the error to the offending field", async () => {
+    const { user } = setup("");
+    const address = screen.getByLabelText("Contrato en Linea");
+    await user.type(address, "0x123");
+    await user.click(screen.getByRole("button", { name: "Publicar alpha" }));
+    const alert = await screen.findByRole("alert");
+    expect(alert.id).not.toBe("");
+    expect(address).toHaveAttribute("aria-invalid", "true");
+    expect(address).toHaveAttribute("aria-describedby", expect.stringContaining(alert.id));
+    await user.clear(address);
+    await user.type(address, ADDR);
+    await user.click(screen.getByRole("button", { name: "Publicar alpha" }));
+    const thesis = screen.getByRole("textbox", { name: /Tu tesis/ });
+    await waitFor(() => expect(thesis).toHaveAttribute("aria-invalid", "true"));
+    expect(thesis).toHaveAttribute("aria-describedby", expect.stringContaining(screen.getByRole("alert").id));
+    expect(address).not.toHaveAttribute("aria-invalid", "true");
   });
 
   it("treats an answer without id or error as a generic failure", async () => {

@@ -89,8 +89,8 @@ export async function postMessageAction(input: {
 export async function editMessageAction(input: { id: string; doc: unknown }): Promise<ActionResult> {
   if (!isUuid(input.id)) return { error: "invalid_input" };
   const doc = sanitizeDoc(input.doc);
+  // An empty text is allowed when the message has attachments (clearing an image caption): SQL decides.
   const text = docToPlainText(doc);
-  if (text === "") return { error: "invalid_input" };
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("edit_message", { p_id: input.id, p_body: doc, p_body_text: text });
   return error ? { error: rpcErrorCode(error) } : {};

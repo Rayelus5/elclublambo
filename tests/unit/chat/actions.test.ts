@@ -126,13 +126,20 @@ describe("postMessageAction", () => {
 });
 
 describe("editMessageAction", () => {
-  it("sanitizes and rejects empty docs", async () => {
+  it("sanitizes and validates the id", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
-    expect(await editMessageAction({ id: MSG, doc: doc("") })).toEqual({ error: "invalid_input" });
     expect(await editMessageAction({ id: "x", doc: doc("a") })).toEqual({ error: "invalid_input" });
     expect(rpc).not.toHaveBeenCalled();
     expect(await editMessageAction({ id: MSG, doc: doc("hola") })).toEqual({});
     expect(rpc).toHaveBeenCalledWith("edit_message", { p_id: MSG, p_body: doc("hola"), p_body_text: "hola" });
+  });
+
+  it("lets SQL decide on an empty text (allowed when the message has attachments)", async () => {
+    rpc.mockResolvedValueOnce({ data: null, error: null });
+    expect(await editMessageAction({ id: MSG, doc: doc("") })).toEqual({});
+    expect(rpc).toHaveBeenCalledWith("edit_message", { p_id: MSG, p_body: { type: "doc", content: [{ type: "paragraph" }] }, p_body_text: "" });
+    rpc.mockResolvedValueOnce({ data: null, error: { message: "invalid_input" } });
+    expect(await editMessageAction({ id: MSG, doc: doc("") })).toEqual({ error: "invalid_input" });
   });
 
   it("maps errors", async () => {

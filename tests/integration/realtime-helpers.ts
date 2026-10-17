@@ -47,6 +47,9 @@ export async function newUser(db: SupabaseClient): Promise<Who> {
     nonce: generateNonce(),
     domain: "localhost:3000",
     uri: "http://localhost:3000/login",
+    // Backdated: the Auth container's clock can trail the host by a moment, and a message issued "now" was then
+    // rejected as "Signed Ethereum message becomes valid in the future" (flaky). Still well inside the 5 min window.
+    now: new Date(Date.now() - 30_000),
   });
   const signature = await account.signMessage({ message });
   const client = createClient(url!, anon!, opts);

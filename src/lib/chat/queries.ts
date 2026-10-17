@@ -14,6 +14,7 @@ import {
 } from "@/lib/chat/model";
 
 export const PAGE_SIZE = 50;
+// Accepted residual (ruling R9): an already-signed URL stays valid up to 1 h after the member loses VIEW.
 export const SIGNED_URL_SECONDS = 3600;
 const THREAD_LIMIT = 500;
 const PINNED_LIMIT = 50;

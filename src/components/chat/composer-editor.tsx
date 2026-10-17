@@ -279,7 +279,8 @@ function buildExtensions(h: HandlersRef, open: OpenState, expanded: boolean) {
     Link.configure({
       autolink: true,
       openOnClick: false,
-      protocols: ["http", "https"],
+      // No `protocols`: http/https are linkify built-ins. Registering them again from every editor instance only made
+      // linkifyjs warn "already initialized" (it is a global singleton); isAllowedUri below still limits links to http(s).
       defaultProtocol: "https",
       isAllowedUri: (url, ctx) => ctx.defaultValidate(url) && /^https?:\/\//i.test(url),
     }),

@@ -321,36 +321,30 @@ export interface MentionRef {
   id: string | null;
 }
 
-/** Valid, deduplicated mentions of a doc in document order (max 50), like the server stores them. */
+/**
+ * Valid, deduplicated mentions of a doc in document order (max 50), like the server stores them. Only mentions the
+ * renderer shows count: the walk follows `content` arrays of the sanitized doc (never attrs, marks or other keys),
+ * which is the same rule set the SQL `_insert_mentions` applies (supabase/migrations/20261016200006_f2b_final_fixes.sql).
+ */
 export function extractMentions(doc: unknown): MentionRef[] {
   const out: MentionRef[] = [];
   const seen = new Set<string>();
-  const stack: unknown[] = [doc];
+  const stack: TiptapNode[] = [...sanitizeDoc(doc).content].reverse();
   while (stack.length > 0 && out.length < MAX_MENTIONS) {
-    const v = stack.pop();
-    if (Array.isArray(v)) {
-      for (let i = v.length - 1; i >= 0; i--) stack.push(v[i]);
+    const n = stack.pop()!;
+    if (n.type === "mention") {
+      // sanitizeMention already validated kind and id (lowercased)
+      const kind = n.attrs?.kind as MentionRef["kind"];
+      const ref: MentionRef = { kind, id: kind === "everyone" ? null : String(n.attrs?.id) };
+      const key = `${ref.kind}:${ref.id ?? ""}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(ref);
+      }
       continue;
     }
-    if (!isObject(v)) continue;
-    if (v.type === "mention") {
-      const kind = own(v.attrs, "kind");
-      const id = own(v.attrs, "id");
-      let ref: MentionRef | null = null;
-      if (kind === "everyone") ref = { kind, id: null };
-      else if ((kind === "member" || kind === "role") && typeof id === "string" && UUID_RE.test(id)) {
-        ref = { kind, id: id.toLowerCase() };
-      }
-      if (ref) {
-        const key = `${ref.kind}:${ref.id ?? ""}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          out.push(ref);
-        }
-      }
-    }
-    const values = Object.values(v);
-    for (let i = values.length - 1; i >= 0; i--) stack.push(values[i]);
+    const kids = n.content ?? [];
+    for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]!);
   }
   return out;
 }

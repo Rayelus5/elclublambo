@@ -38,6 +38,13 @@ describe("verifyLineaContract", () => {
     expect(h.getCode).toHaveBeenCalledWith({ address: ADDR });
   });
 
+  it("treats an EIP-7702 delegated EOA (0xef0100 designator) as not a contract (ruling R8)", async () => {
+    h.getCode.mockResolvedValueOnce("0xef0100" + "ab".repeat(20));
+    expect(await verifyLineaContract(ADDR)).toBe(false);
+    h.getCode.mockResolvedValueOnce("0xEF0100" + "AB".repeat(20));
+    expect(await verifyLineaContract(ADDR)).toBe(false);
+  });
+
   it("throws 'network' when the RPC fails", async () => {
     h.getCode.mockRejectedValue(new Error("fetch failed"));
     await expect(verifyLineaContract(ADDR)).rejects.toThrow("network");

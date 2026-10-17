@@ -102,6 +102,13 @@ describe("postAlphaAction", () => {
     expect(h.adminRpc).not.toHaveBeenCalled();
   });
 
+  it("forbidden without SEND_MESSAGES, before spending the on-chain lookup", async () => {
+    session({ perms: 2048 + 1 });
+    expect(await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") })).toEqual({ error: "forbidden" });
+    expect(h.verify).not.toHaveBeenCalled();
+    expect(h.adminRpc).not.toHaveBeenCalled();
+  });
+
   it("validates ids and the address before touching anything", async () => {
     expect(await postAlphaAction({ channelId: "x", address: ADDR, doc: doc("x") })).toEqual({ error: "invalid_input" });
     expect(await postAlphaAction({ channelId: CH, address: "0xabc", doc: doc("x") })).toEqual({ error: "invalid_input" });

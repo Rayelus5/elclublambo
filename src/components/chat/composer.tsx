@@ -42,7 +42,7 @@ export interface ComposerProps {
   /** The channel's configured slowmode; the live countdown always comes from the server. */
   slowmodeSeconds: number;
   onPosted?: (id: string) => void;
-  /** The channel has alpha_enabled and the member has EMBED_LINKS: /alpha opens the Alpha dialog. Hidden otherwise. */
+  /** alpha_enabled channel and the member has EMBED_LINKS and SEND_MESSAGES: /alpha opens the Alpha dialog. Hidden otherwise. */
   canAlpha?: boolean;
 }
 
@@ -198,6 +198,12 @@ export function Composer(props: ComposerProps) {
       return false;
     }
 
+    afterPosted(res.id);
+    return true;
+  };
+
+  /** A message left the composer (normal or Alpha post): every draft piece is spent, including images and the quote. */
+  const afterPosted = (id: string) => {
     editorRef.current?.commands.clearContent(true);
     setCount(0);
     setHasContent(false);
@@ -207,9 +213,8 @@ export function Composer(props: ComposerProps) {
     setDraft(null);
     draftRef.current = null;
     onRemoveQuoted?.();
-    onPosted?.(res.id);
+    onPosted?.(id);
     if (slowmodeSeconds > 0) void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
-    return true;
   };
 
   const openAlpha = useCallback(() => {
@@ -431,16 +436,9 @@ export function Composer(props: ComposerProps) {
           onOpenChange={setAlphaOpen}
           channelId={channelId}
           initialText={alphaText}
-          onPosted={(id) => {
-            // The thesis moved into the Alpha message: the drafts are spent.
-            editorRef.current?.commands.clearContent(true);
-            setCount(0);
-            setHasContent(false);
-            setDraft(null);
-            draftRef.current = null;
-            if (slowmodeSeconds > 0) void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
-            onPosted?.(id);
-          }}
+          // The thesis moved into the Alpha message: the drafts are spent (pending images and the quote too).
+          onPosted={afterPosted}
+          onSlowmode={startSlowmode}
         />
       ) : null}
     </section>

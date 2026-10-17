@@ -11,6 +11,8 @@ interface Props {
   body: unknown;
   expanded: boolean;
   canMentionEveryone: boolean;
+  /** The message has images: an empty text is allowed (the caption is cleared, the images stay). */
+  hasAttachments?: boolean;
   /** Resolves to an error message, or null when the edit was saved. */
   onSave: (doc: unknown) => Promise<string | null>;
   onCancel: () => void;
@@ -20,7 +22,7 @@ interface Props {
 export const CANCEL_EDIT_EVENT = "chat-edit-cancel";
 
 /** Inline editor for one's own message. Enter saves (Ctrl/Cmd+Enter in expanded messages), Escape cancels. */
-export function MessageEdit({ body, expanded, canMentionEveryone, onSave, onCancel }: Props) {
+export function MessageEdit({ body, expanded, canMentionEveryone, hasAttachments = false, onSave, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
@@ -42,7 +44,7 @@ export function MessageEdit({ body, expanded, canMentionEveryone, onSave, onCanc
     const ed = editorRef.current;
     if (!ed || savingRef.current) return;
     const doc = ed.getJSON();
-    if (docToPlainText(doc) === "") {
+    if (docToPlainText(doc) === "" && !hasAttachments) {
       setError("El mensaje no puede quedar vacío.");
       return;
     }
