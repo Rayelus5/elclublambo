@@ -21,7 +21,11 @@ function trackErrors(context: BrowserContext) {
   context.on("weberror", (e) => browserErrors.push(`pageerror: ${e.error().message}`));
 }
 test.afterEach(() => {
-  const errors = browserErrors;
+  // Test 5 requests /settings/economia as a non-admin on purpose: the browser logs the deliberate 404 document.
+  const expected404 = (e: string) => /status of 404/.test(e) && e.includes("@ http://localhost:3000/settings/economia ");
+  // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
+  const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
+  const errors = browserErrors.filter((e) => !expected404(e) && !coopOn404(e));
   browserErrors = [];
   expect(errors, "browser console errors").toEqual([]);
 });
@@ -69,7 +73,7 @@ test("1. newcomer without a handle is sent to the welcome, must pick a handle an
   await expect(p.getByRole("heading", { level: 2, name: "Elige tu @handle" })).toBeVisible();
   await expect(p.getByRole("button", { name: "Saltar" })).toHaveCount(0);
 
-  const input = p.getByLabel("@handle");
+  const input = p.getByRole("textbox", { name: "@handle" });
   await input.fill("ADMIN");
   await expect(p.getByRole("alert").filter({ hasText: "Ese nombre está reservado" })).toBeVisible();
   await expect(p.getByRole("button", { name: "Siguiente" })).toBeDisabled();
@@ -94,9 +98,9 @@ test("2. profile: bio, links and avatar show on the public page, hostile domains
 
   await p.getByLabel("Bio").fill("Construyo cosas en la red de pruebas.");
   await p.getByRole("button", { name: "Añadir enlace" }).click();
-  await p.getByLabel("Enlace 1").fill("https://github.com/x");
+  await p.getByRole("textbox", { name: "Enlace 1", exact: true }).fill("https://github.com/x");
   await p.getByRole("button", { name: "Añadir enlace" }).click();
-  await p.getByLabel("Enlace 2").fill("https://evil.example");
+  await p.getByRole("textbox", { name: "Enlace 2", exact: true }).fill("https://evil.example");
   await p.getByRole("button", { name: "Guardar perfil" }).click();
   await expect(p.getByText("Perfil guardado.")).toBeVisible();
 

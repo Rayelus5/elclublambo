@@ -1,11 +1,10 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { addressOf, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance criteria of F1. The DB is reset by global-setup; scenarios share state, so run serially.
 test.describe.configure({ mode: "serial" });
 
-const short = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 const adminAddr = E2E_SUPER_ADMIN_ADDRESS.toLowerCase();
 
 const keyB = newWalletKey();
@@ -72,7 +71,7 @@ test("3. el admin invita, B canjea y su perfil muestra al admin como padrino", a
 
   await page.goto(`/u/${addressOf(keyB)}`);
   const sponsor = page.getByRole("region", { name: "Le invitó" });
-  await expect(sponsor.getByRole("link", { name: new RegExp(short(adminAddr)) })).toBeVisible();
+  await expect(sponsor.getByRole("link", { name: handleOf(E2E_SUPER_ADMIN_PK) })).toBeVisible();
   await context.close();
 });
 
@@ -99,8 +98,8 @@ test("5. Padrino -> B invita a C -> ban con penalización: B pierde Invitaciones
 }) => {
   // Admin grants Padrino to B.
   await adminPage.goto("/admin/members");
-  await adminPage.getByRole("button", { name: `Padrino: ${short(addressOf(keyB))}` }).click();
-  await expect(adminPage.getByRole("button", { name: `Padrino: ${short(addressOf(keyB))}` })).toHaveAttribute(
+  await adminPage.getByRole("button", { name: `Padrino: ${handleOf(keyB)}` }).click();
+  await expect(adminPage.getByRole("button", { name: `Padrino: ${handleOf(keyB)}` })).toHaveAttribute(
     "aria-pressed",
     "true",
   );
@@ -118,12 +117,12 @@ test("5. Padrino -> B invita a C -> ban con penalización: B pierde Invitaciones
 
   // Admin bans C penalizing the sponsor.
   await adminPage.goto("/admin/members");
-  await adminPage.getByRole("button", { name: `Banear a ${short(addressOf(keyC))}` }).click();
+  await adminPage.getByRole("button", { name: `Banear a ${handleOf(keyC)}` }).click();
   await adminPage.getByLabel("Motivo").fill("Spam repetido");
   await adminPage.getByRole("checkbox", { name: /Penalizar también a/ }).click();
   await adminPage.getByRole("button", { name: "Banear", exact: true }).click();
   await expect(adminPage.getByRole("alertdialog")).toBeHidden();
-  await expect(adminPage.getByRole("row", { name: new RegExp(short(addressOf(keyC))) })).toContainText("Baneado");
+  await expect(adminPage.getByRole("row", { name: new RegExp(handleOf(keyC)) })).toContainText("Baneado");
 
   // B no longer sees Invitaciones.
   await b.page.goto("/");

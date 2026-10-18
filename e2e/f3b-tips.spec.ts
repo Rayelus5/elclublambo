@@ -3,7 +3,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, messageWith, openChannel, rpcAs, send, service, type Actor } from "./helpers/f2c";
-import { installTestWallet, type TestWallet } from "./helpers/wallet";
+import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F3b acceptance on a local Hardhat chain (e2e/chain/start-chain.mjs, started by playwright.config.ts) whose chain id
 // and USDC address are Linea Sepolia's, with the server verifying against it (LINEA_SEPOLIA_RPC_URL, TIP_CONFIRMATIONS=1).
@@ -60,11 +60,15 @@ test.beforeAll(async ({ browser }) => {
   a = await member(browser, tipper.privateKey, NAMES.a, admin.page);
   b = await member(browser, recipient.privateKey, NAMES.b, admin.page);
   c = await member(browser, viewer.privateKey, NAMES.c, admin.page);
-  for (const x of [a, b, c]) await x.page.setViewportSize(desktop);
+  for (const x of [a, b, c]) {
+    await x.page.setViewportSize(desktop);
+    await x.page.goto("/"); // joinAs leaves its page blank
+  }
   // joinAs already opened a page in A's context; wallet scripts only apply to pages created afterwards.
   await a.page.close();
   walletA = await installTestWallet(a.context, { address: tipper.address });
   a.page = await a.context.newPage();
+  await a.page.goto("/");
   await a.page.setViewportSize(desktop);
 });
 
@@ -74,11 +78,8 @@ test.afterAll(async () => {
 
 /** Opens the AppKit modal from the dialog's "Conectar wallet" and picks the injected wallet. */
 async function connectWallet(page: Page) {
-  const dialog = page.getByRole("dialog", { name: "Dar propina" });
-  await dialog.getByRole("button", { name: "Conectar wallet" }).click();
   // The modal is mounted outside the Radix dialog: clicking inside it must work while the dialog is open (not trapped).
-  const modal = page.locator("w3m-modal");
-  await modal.getByText("MetaMask").first().click();
+  await connectInjected(page, "Dar propina");
 }
 
 /** Reconnects only if the page did not restore the previous connection by itself. */
@@ -120,6 +121,9 @@ test("1. USDC tip with fee: two signatures, badge live for everyone, thread noti
   await p.getByLabel("Wallet de la plataforma (Linea Sepolia)", { exact: true }).fill(platform.address);
   await p.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }).click();
   await expect(p.getByText("Direcciones guardadas.")).toBeVisible();
+  // Pages loaded before this config show the old platform wallet; the tip/bounty dialog refuses an intent that does not
+  // match what it displayed ("Recarga la página"), so reload them.
+  for (const x of [a, b, c]) await x.page.reload();
 
   // B posts; C and A already have General open and see it live.
   await openChannel(c.page, "General");
@@ -157,7 +161,7 @@ test("1. USDC tip with fee: two signatures, badge live for everyone, thread noti
   }
 
   // Thread notice.
-  await dialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click(); // not the X (data-slot="dialog-close")
   await messageWith(a.page, MSG_1).getByRole("button", { name: "Acciones del mensaje" }).click();
   await a.page.getByRole("menuitem", { name: /hilo/ }).click();
   const panel = a.page.getByRole("complementary", { name: "Panel del hilo" });
@@ -196,10 +200,15 @@ test("2. anonymous ETH tip on B's profile: B and a third member see Anónimo, ne
 
   for (const viewerPage of [c.page, b.page]) {
     await viewerPage.goto(`/u/${recipient.address.toLowerCase()}`);
-    await expect(viewerPage.getByText("Anónimo", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
-    await expect(viewerPage.getByText("0,001 ETH").first()).toBeVisible();
-    await expect(viewerPage.getByText(NAMES.a)).toHaveCount(0);
-    await expect(viewerPage.getByText(addressOf(tipper.privateKey).slice(0, 8), { exact: false })).toHaveCount(0);
+    // B's profile also lists test 1's public tip from A, so check the anonymous tip's own row.
+    const received = viewerPage.getByRole("region", { name: "Propinas recibidas" });
+    const row = received.getByRole("listitem").filter({ hasText: "0,001 ETH" });
+    await expect(row).toHaveCount(1, { timeout: 30_000 });
+    await expect(row.getByText("Anónimo", { exact: true })).toBeVisible();
+    await expect(row.getByText(NAMES.a)).toHaveCount(0);
+    await expect(row.getByText(addressOf(tipper.privateKey).slice(0, 8), { exact: false })).toHaveCount(0);
+    // No explorer link that would reveal the sender (F3d-R3).
+    await expect(row.getByRole("link", { name: "Ver transacción en el explorador" })).toHaveCount(0);
   }
   // The donor sees their own tip as theirs.
   await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
@@ -262,6 +271,7 @@ test("4. wallet on another address than the session: the dialog explains it and 
 });
 
 test("5. interrupted flow: tab closed right after the second signature, the next visit credits the tip exactly once", async ({ browser }) => {
+  await b.page.goto("/c/" + (await generalId())); // test 2 left B on a profile
   await send(b.page, MSG_2);
   await expect(messageWith(b.page, MSG_2)).toBeVisible();
 

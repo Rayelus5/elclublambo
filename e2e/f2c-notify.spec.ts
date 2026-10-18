@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { chromium, expect, test, type BrowserContext } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
 import {
   bell,
   channelIds,
@@ -76,7 +76,7 @@ test("1. B menciona a A: la campana de A sube sin recargar, el ítem lleva al ca
 
   await bell(a.page, 1).click();
   await expect(a.page).toHaveURL(/\/notifications$/);
-  const item = a.page.getByRole("list", { name: "Notificaciones" }).getByRole("link", { name: new RegExp(`${NAME_B}.*te mencionó en #General`) });
+  const item = a.page.getByRole("list", { name: "Notificaciones" }).getByRole("link", { name: new RegExp(`${handleOf(keyB)} te mencionó en #General`) });
   await expect(item).toBeVisible();
   await item.click();
   await expect(a.page).toHaveURL(new RegExp(`/c/${ids["General"]}`));

@@ -1,9 +1,10 @@
 import { createPublicClient, createWalletClient, erc20Abi, http } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, openChannel, service, type Actor } from "./helpers/f2c";
-import { installTestWallet, type TestWallet } from "./helpers/wallet";
+import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F3d acceptance: DAO treasury, DAO gating and reconciliation, on the F3b local Hardhat chain (e2e/chain/start-chain.mjs,
 // started by playwright.config.ts). The Hardhat node answers the `finalized` tag with its latest block, so a donation
@@ -16,7 +17,9 @@ const adminAccount = hardhatAccount(1); // == E2E_SUPER_ADMIN_PK
 const memberB = hardhatAccount(2); // B: watches the ranking
 const memberA = hardhatAccount(3); // A: donor, session wallet and signer
 const stranger = hardhatAccount(4); // sends USDC straight to the Safe, outside the app
-const safe = hardhatAccount(8); // the Linea Sepolia Safe
+// The Linea Sepolia Safe: a fresh, unfunded address (every Hardhat account is pre-minted 1M mock USDC, which reconciliation
+// would rightly report as an unledgered balance). It only receives, so no key is ever used.
+const safe = { address: privateKeyToAccount(generatePrivateKey()).address };
 const platform = hardhatAccount(9); // receives the fee
 
 const NAMES = { a: "Donante A", b: "Observador B" };
@@ -178,15 +181,13 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
   const dialog = a.page.getByRole("dialog", { name: "Donar a la DAO" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("button", { name: "Continuar" })).toBeDisabled();
-  await dialog.getByRole("button", { name: "Conectar wallet" }).click();
-  await a.page.locator("w3m-modal").getByText("MetaMask").first().click();
-  await expect(dialog.getByRole("button", { name: "Conectar wallet" })).toHaveCount(0);
+  await connectInjected(a.page, "Donar a la DAO");
   await dialog.getByLabel("Importe").fill("10");
   await expect(dialog.getByTestId("tip-total")).toHaveText("10,26 USDC");
   await dialog.getByRole("button", { name: "Continuar" }).click();
   await expect(dialog.getByText("Donación acreditada.")).toBeVisible({ timeout: 60_000 });
   expect(walletA.sent).toHaveLength(2); // fee + donation
-  await dialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click(); // not the X (data-slot="dialog-close")
 
   expect((await usdcOf(safe.address)) - safeBefore).toBe(10_000_000n);
   expect((await usdcOf(platform.address)) - platformBefore).toBe(260_000n);
@@ -226,7 +227,10 @@ test("4. ranking toggle: A opts in and B sees A's handle", async () => {
     .poll(
       async () => {
         await b.page.goto("/dao");
-        return b.page.getByRole("table", { name: "Ranking de la DAO" }).getByText(handleA).count();
+        // The ranking streams in after load: count() does not wait, so wait for the table first.
+        const table = b.page.getByRole("table", { name: "Ranking de la DAO" });
+        await expect(table).toBeVisible();
+        return table.getByText(handleA).count();
       },
       { timeout: 30_000, intervals: [1_000] },
     )

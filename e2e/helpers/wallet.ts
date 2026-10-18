@@ -1,4 +1,4 @@
-import type { BrowserContext } from "@playwright/test";
+import { expect, type BrowserContext, type Page } from "@playwright/test";
 import { CHAIN_ID, RPC_URL } from "../chain/shared.mjs";
 
 export type TestWallet = {
@@ -174,4 +174,20 @@ export async function installTestWallet(context: BrowserContext, opts: TestWalle
   });
   await context.addInitScript(injected, { address: opts.address, rpcUrl: RPC_URL, chainId: CHAIN_ID });
   return wallet;
+}
+
+/**
+ * Connects the injected wallet from a payment dialog's "Conectar wallet": opens the AppKit modal (mounted outside the
+ * Radix dialog) and picks MetaMask (the EIP-6963 announcement above). Retried, because a click that lands while the
+ * modal is still animating in does nothing; done once the dialog no longer offers "Conectar wallet".
+ */
+export async function connectInjected(page: Page, dialogName: string) {
+  const dialog = page.getByRole("dialog", { name: dialogName });
+  const connect = dialog.getByRole("button", { name: "Conectar wallet" });
+  const metamask = page.locator("w3m-modal").getByText("MetaMask").first();
+  await expect(async () => {
+    if (!(await metamask.isVisible()) && (await connect.isVisible())) await connect.click({ timeout: 5_000 });
+    await metamask.click({ timeout: 5_000 });
+    await expect(connect).toHaveCount(0, { timeout: 5_000 });
+  }).toPass({ timeout: 45_000 });
 }

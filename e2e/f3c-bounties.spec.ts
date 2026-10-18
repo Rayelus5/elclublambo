@@ -1,9 +1,9 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { composer, createInvite, joinAs, messageWith, openChannel, rpcAs, service, type Actor } from "./helpers/f2c";
-import { installTestWallet, type TestWallet } from "./helpers/wallet";
+import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F3c acceptance, bounties, on the F3b local Hardhat chain (e2e/chain/start-chain.mjs, started by playwright.config.ts):
 // the author signs with an injected EIP-1193 wallet bound to a Hardhat account and logs in with that same account's key.
@@ -48,11 +48,15 @@ test.beforeAll(async ({ browser }) => {
   a = await joinAs(browser, author.privateKey, await invite(), NAMES.a, "Verificado", trackErrors);
   b = await joinAs(browser, solverAccount.privateKey, await invite(), NAMES.b, undefined, trackErrors);
   c = await joinAs(browser, plain.privateKey, await invite(), NAMES.c, undefined, trackErrors);
-  for (const x of [a, b, c]) await x.page.setViewportSize(desktop);
+  for (const x of [a, b, c]) {
+    await x.page.setViewportSize(desktop);
+    await x.page.goto("/"); // joinAs leaves its page blank
+  }
   // joinAs already opened a page in A's context; wallet scripts only apply to pages created afterwards.
   await a.page.close();
   walletA = await installTestWallet(a.context, { address: author.address });
   a.page = await a.context.newPage();
+  await a.page.goto("/");
   await a.page.setViewportSize(desktop);
 
   const { data, error } = await service().from("channels").select("id").eq("name", "General").single<{ id: string }>();
@@ -70,7 +74,9 @@ const threadPanel = (page: Page) => page.getByRole("complementary", { name: "Pan
 
 /** The author publishes a bounty in General with /bounty. */
 async function publishBounty(page: Page, description: string, amount: string): Promise<string> {
-  await openChannel(page, "General");
+  // A fresh load of General: an open thread panel from an earlier step would add a second "Mensaje" composer.
+  await page.goto(`/c/${generalChannel}`);
+  await expect(page.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await composer(page).click();
   await composer(page).pressSequentially("/bounty");
   await page.getByRole("option", { name: /\/bounty/ }).click();
@@ -91,7 +97,7 @@ async function reply(page: Page, bountyId: string, text: string) {
   await page.goto(`/c/${generalChannel}?thread=${bountyId}`);
   const panel = threadPanel(page);
   await expect(panel).toBeVisible();
-  const box = panel.getByRole("textbox", { name: "Mensaje del hilo" });
+  const box = panel.getByRole("textbox", { name: "Mensaje", exact: true });
   await box.click();
   await box.fill(text);
   await box.press("Enter");
@@ -110,9 +116,7 @@ async function markSolution(page: Page, bountyId: string, replyText: string) {
 }
 
 async function connectWallet(page: Page) {
-  const dialog = page.getByRole("dialog", { name: "Pagar bounty" });
-  await dialog.getByRole("button", { name: "Conectar wallet" }).click();
-  await page.locator("w3m-modal").getByText("MetaMask").first().click();
+  await connectInjected(page, "Pagar bounty");
 }
 
 /** Reconnects only if the page did not restore the previous connection by itself. */
@@ -120,7 +124,7 @@ async function connectIfNeeded(page: Page) {
   const dialog = page.getByRole("dialog", { name: "Pagar bounty" });
   const connect = dialog.getByRole("button", { name: "Conectar wallet" });
   const ready = dialog.getByRole("button", { name: "Continuar" });
-  await expect(connect.or(ready)).toBeVisible();
+  await expect(connect.or(ready).first()).toBeVisible(); // both show while disconnected (Continuar disabled)
   await page.waitForTimeout(2_000);
   if (await connect.isVisible()) await connectWallet(page);
 }
@@ -136,7 +140,7 @@ async function payFromCard(page: Page, description: string, total: string) {
   await dialog.getByRole("button", { name: "Continuar" }).click();
   await expect(dialog.getByText("Bounty pagado")).toBeVisible({ timeout: 60_000 });
   expect(walletA.sent.length - before).toBe(2); // fee + payment
-  await dialog.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click(); // not the X (data-slot="dialog-close")
 }
 
 test("1. create: a Verificado member types /bounty, publishes 5 USDC and the card says Abierto", async () => {
@@ -151,13 +155,16 @@ test("1. create: a Verificado member types /bounty, publishes 5 USDC and the car
   await p.getByLabel("Wallet de la plataforma (Linea Sepolia)", { exact: true }).fill(platform.address);
   await p.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }).click();
   await expect(p.getByText("Direcciones guardadas.")).toBeVisible();
+  // Pages loaded before this config show the old platform wallet; the tip/bounty dialog refuses an intent that does not
+  // match what it displayed ("Recarga la página"), so reload them.
+  for (const x of [a, b, c]) await x.page.reload();
 
   await openChannel(b.page, "General");
   bountyIds.first = await publishBounty(a.page, "Bounty uno: falla el login", "5");
   await expect(a.page.getByText("5 USDC").first()).toBeVisible();
   // Another viewer sees it live.
   await expect(status(b.page, "Bounty uno: falla el login")).toHaveText("Abierto", { timeout: 30_000 });
-  const row = await service().from("bounties").select("token, amount").eq("message_id", bountyIds.first!).single<{ token: string; amount: string }>();
+  const row = await service().from("bounties").select("token, amount::text").eq("message_id", bountyIds.first!).single<{ token: string; amount: string }>();
   expect(row.data).toMatchObject({ token: "USDC", amount: "5000000" });
 });
 
@@ -175,7 +182,11 @@ test("2. solve and pay: mark B's reply, B is notified, A signs twice, card Pagad
 
   // B's bell and notification list.
   await b.page.goto("/notifications");
-  await expect(b.page.getByText(`${NAMES.a} ha elegido tu respuesta como solución del bounty`)).toBeVisible();
+  await expect(b.page.getByText(`${handleOf(author.privateKey)} ha elegido tu respuesta como solución del bounty`)).toBeVisible();
+
+  // B goes back to the channel: the Pagado status below must reach B live.
+  await b.page.goto(`/c/${generalChannel}`);
+  await expect(status(b.page, text)).toHaveText("Solución elegida · quedan 7 días para pagar");
 
   const solverBefore = await usdcOf(solverAccount.address);
   const platformBefore = await usdcOf(platform.address);
@@ -195,7 +206,7 @@ test("2. solve and pay: mark B's reply, B is notified, A signs twice, card Pagad
 
   // B hears about the payment.
   await b.page.goto("/notifications");
-  await expect(b.page.getByText(`${NAMES.a} te ha pagado el bounty`)).toBeVisible();
+  await expect(b.page.getByText(`${handleOf(author.privateKey)} te ha pagado el bounty`)).toBeVisible();
 });
 
 test("3. unpaid then paid late: 8 days after marking the card and the author's profile say Impagado; paying makes it Pagado tarde", async () => {

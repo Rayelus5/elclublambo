@@ -14,6 +14,8 @@ export const E2E_SUPER_ADMIN_ADDRESS = privateKeyToAccount(E2E_SUPER_ADMIN_PK).a
 
 export const newWalletKey = (): Hex => generatePrivateKey();
 export const addressOf = (pk: Hex) => privateKeyToAccount(pk).address.toLowerCase();
+/** The display label loginAs gives a member without a display name: the deterministic handle "@u_<10 hex>". */
+export const handleOf = (pk: Hex) => "@u_" + addressOf(pk).slice(2, 12);
 
 const ORIGIN = "http://localhost:3000";
 const CHAIN_ID = 59141; // linea sepolia
