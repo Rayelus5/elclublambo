@@ -1,3 +1,4 @@
+import "server-only";
 import {
   CHART_RANGES,
   CoinNotFoundError,
@@ -31,7 +32,7 @@ function safeImage(v: unknown): string | null {
   if (typeof v !== "string") return null;
   try {
     const u = new URL(v);
-    return u.protocol === "https:" && IMAGE_HOSTS.has(u.hostname) ? v : null;
+    return u.protocol === "https:" && IMAGE_HOSTS.has(u.hostname) && !u.username && !u.password && !u.port ? v : null;
   } catch {
     return null;
   }
@@ -80,11 +81,13 @@ export async function fetchTopMarkets(): Promise<MarketCoin[]> {
   }
   if (!Array.isArray(body)) throw new MarketUnavailableError("malformed_body");
   const out: MarketCoin[] = [];
+  const seen = new Set<string>();
   for (const r of body) {
     if (!isObj(r)) continue;
     const id = str(r.id);
     const name = str(r.name);
-    if (!id || !name || !isCoinId(id)) continue;
+    if (!id || !name || !isCoinId(id) || seen.has(id)) continue;
+    seen.add(id);
     const spark = isObj(r.sparkline_in_7d) && Array.isArray(r.sparkline_in_7d.price) ? r.sparkline_in_7d.price : [];
     out.push({
       id,
@@ -112,7 +115,7 @@ export async function fetchCoin(id: string): Promise<CoinDetail> {
   if (!isObj(body)) throw new MarketUnavailableError("malformed_body");
   const rid = str(body.id);
   const name = str(body.name);
-  if (!rid || !name) throw new MarketUnavailableError("malformed_body");
+  if (!rid || !name || rid !== id) throw new MarketUnavailableError("malformed_body");
   const md = isObj(body.market_data) ? body.market_data : {};
   const usd = (v: unknown) => (isObj(v) ? num(v.usd) : null);
   const links = isObj(body.links) ? body.links : {};
@@ -138,7 +141,7 @@ export async function fetchCoin(id: string): Promise<CoinDetail> {
 
 export async function fetchChart(id: string, range: ChartRange): Promise<ChartPoint[]> {
   if (!isCoinId(id)) throw new CoinNotFoundError();
-  if (!CHART_RANGES.includes(range)) throw new MarketUnavailableError("invalid_range");
+  if (!CHART_RANGES.includes(range)) throw new CoinNotFoundError();
   const body = await getJson(`/coins/${id}/market_chart?vs_currency=usd&days=${range}`);
   if (!isObj(body) || !Array.isArray(body.prices)) throw new MarketUnavailableError("malformed_body");
   const pts: ChartPoint[] = [];

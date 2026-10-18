@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
+
 import { CoinNotFoundError, MarketUnavailableError } from "@/lib/market/types";
 import { fetchChart, fetchCoin, fetchTopMarkets, isCoinId } from "@/lib/market/coingecko";
 
@@ -123,12 +125,25 @@ describe("fetchTopMarkets", () => {
       "http://coin-images.coingecko.com/a.png",
       "https://evil.example.com/a.png",
       "https://coin-images.coingecko.com.evil.com/a.png",
+      "https://user:pw@coin-images.coingecko.com/a.png",
+      "https://coin-images.coingecko.com:8443/a.png",
       "javascript:alert(1)",
       "not a url",
     ];
     fetchMock.mockResolvedValue(json(imgs.map((image, i) => ({ id: `c${i}`, name: `C${i}`, symbol: "c", image }))));
     const coins = await fetchTopMarkets();
-    expect(coins.map((c) => c.image)).toEqual([imgs[0], imgs[1], null, null, null, null, null]);
+    expect(coins.map((c) => c.image)).toEqual([imgs[0], imgs[1], null, null, null, null, null, null, null]);
+  });
+
+  it("drops duplicate ids keeping the first", async () => {
+    fetchMock.mockResolvedValue(
+      json([
+        { id: "x", name: "First", symbol: "x" },
+        { id: "x", name: "Second", symbol: "x" },
+      ]),
+    );
+    const coins = await fetchTopMarkets();
+    expect(coins.map((c) => c.name)).toEqual(["First"]);
   });
 
   it("filters non-finite sparkline entries", async () => {
@@ -207,6 +222,11 @@ describe("fetchCoin", () => {
     expect(c.image).toBeNull();
   });
 
+  it("a returned id different from the requested one is unavailable", async () => {
+    fetchMock.mockResolvedValue(json({ id: "other", symbol: "o", name: "Other" }));
+    await expect(fetchCoin("bitcoin")).rejects.toBeInstanceOf(MarketUnavailableError);
+  });
+
   it("404 -> CoinNotFoundError", async () => {
     fetchMock.mockResolvedValue(json({ error: "coin not found" }, 404));
     await expect(fetchCoin("nope")).rejects.toBeInstanceOf(CoinNotFoundError);
@@ -243,7 +263,7 @@ describe("fetchChart", () => {
 
   it("invalid id or range without fetching", async () => {
     await expect(fetchChart("a/b", "1")).rejects.toBeInstanceOf(CoinNotFoundError);
-    await expect(fetchChart("bitcoin", "9" as never)).rejects.toBeInstanceOf(MarketUnavailableError);
+    await expect(fetchChart("bitcoin", "9" as never)).rejects.toBeInstanceOf(CoinNotFoundError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -119,6 +119,21 @@ describe("getCoin / getChart", () => {
     expect(store.write).not.toHaveBeenCalled();
   });
 
+  it("CoinNotFoundError with a stale copy present stores nothing", async () => {
+    const store = fakeStore({ "coin:gone": { payload: { id: "gone" }, fetchedAt: iso(T0 - 900_000) } });
+    const fetchCoin = vi.fn().mockRejectedValue(new CoinNotFoundError("gone"));
+    await expect(getCoin("gone", deps(store, { fetchCoin }))).rejects.toBeInstanceOf(CoinNotFoundError);
+    expect(store.write).not.toHaveBeenCalled();
+  });
+
+  it("chart: stale fallback when the refetch fails", async () => {
+    const pts = [[1, 2]];
+    const store = fakeStore({ "chart:bitcoin:30": { payload: pts, fetchedAt: iso(T0 - 900_000) } });
+    const fetchChart = vi.fn().mockRejectedValue(new MarketUnavailableError("down"));
+    const r = await getChart("bitcoin", "30", deps(store, { fetchChart }));
+    expect(r).toEqual({ data: pts, fetchedAt: iso(T0 - 900_000), stale: true });
+  });
+
   it("invalid id never touches the store or the network", async () => {
     const store = fakeStore();
     const fetchCoin = vi.fn();
