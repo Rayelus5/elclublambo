@@ -26,6 +26,20 @@ const SKEW_SECONDS = 120n;
 
 class NotFound extends Error {}
 
+let warnedConfirmations = false;
+/** TIP_CONFIRMATIONS if it is an integer >= 1, else 3 (a bad value is logged once). */
+function defaultConfirmations(): number {
+  const raw = process.env.TIP_CONFIRMATIONS;
+  if (raw === undefined) return 3;
+  const n = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+  if (Number.isSafeInteger(n) && n >= 1) return n;
+  if (!warnedConfirmations) {
+    warnedConfirmations = true;
+    console.error(`[payments] invalid TIP_CONFIRMATIONS=${JSON.stringify(raw)}, using 3`);
+  }
+  return 3;
+}
+
 function isNotFound(e: unknown): boolean {
   const name = (e as { name?: string } | null)?.name ?? "";
   return name === "TransactionNotFoundError" || name === "TransactionReceiptNotFoundError";
@@ -33,29 +47,44 @@ function isNotFound(e: unknown): boolean {
 
 /** Checks a single transfer on-chain against what the payment intent expects. Never throws. */
 export async function verifyTransfer(input: VerifyInput, client: PublicClient = chainClient(input.chain)): Promise<VerifyResult> {
-  const confirmations = input.confirmations ?? Number(process.env.TIP_CONFIRMATIONS ?? 3);
+  const confirmations = input.confirmations ?? defaultConfirmations();
   try {
+    const rpcChain = await client.getChainId();
+    if (rpcChain !== input.chain) {
+      console.error(`[payments] RPC chain mismatch: expected ${input.chain}, got ${rpcChain}`);
+      return err("rpc_unavailable");
+    }
+
     let receipt;
     try {
       receipt = await client.getTransactionReceipt({ hash: input.txHash });
     } catch (e) {
-      if (isNotFound(e)) throw new NotFound();
-      throw e;
+      if (!isNotFound(e)) throw e;
+      // Broadcast but not mined yet: pending. Unknown to the node: not found.
+      try {
+        await client.getTransaction({ hash: input.txHash });
+      } catch (e2) {
+        if (isNotFound(e2)) throw new NotFound();
+        throw e2;
+      }
+      return { status: "pending" };
     }
     if (receipt.status !== "success") return err("tx_failed");
 
     const head = await client.getBlockNumber();
     if (head - receipt.blockNumber + 1n < BigInt(confirmations)) return { status: "pending" };
 
+    let tx;
+    try {
+      tx = await client.getTransaction({ hash: input.txHash });
+    } catch (e) {
+      if (isNotFound(e)) throw new NotFound();
+      throw e;
+    }
+    if (tx.chainId !== undefined && tx.chainId !== input.chain) return err("tx_mismatch");
+
     let logIndex = -1;
     if (input.token === "ETH") {
-      let tx;
-      try {
-        tx = await client.getTransaction({ hash: input.txHash });
-      } catch (e) {
-        if (isNotFound(e)) throw new NotFound();
-        throw e;
-      }
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
     } else {
       const usdc = NETWORKS[input.chain].usdc;
@@ -67,7 +96,7 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
       logIndex = hit.logIndex;
     }
 
-    const block = await client.getBlock({ blockNumber: receipt.blockNumber });
+    const block = await client.getBlock({ blockHash: receipt.blockHash });
     const notBefore = BigInt(Math.floor(input.notBefore.getTime() / 1000));
     if (block.timestamp < notBefore - SKEW_SECONDS) return err("tx_too_old");
 

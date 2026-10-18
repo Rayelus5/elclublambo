@@ -36,14 +36,16 @@ type Opts = {
   receipt?: Record<string, unknown> | Error;
   block?: Record<string, unknown> | Error;
   head?: bigint | Error;
+  chainId?: number | Error;
 };
 function fake(o: Opts = {}) {
   const run = <T,>(v: T | Error) => (v instanceof Error ? Promise.reject(v) : Promise.resolve(v));
   return {
     getTransaction: vi.fn(() => run(o.tx ?? { from: PAYER, to: TO, value: 5n })),
-    getTransactionReceipt: vi.fn(() => run(o.receipt ?? { status: "success", blockNumber: 100n, logs: [] })),
+    getTransactionReceipt: vi.fn(() => run(o.receipt ?? { status: "success", blockNumber: 100n, blockHash: "0xbeef", logs: [] })),
     getBlock: vi.fn(() => run(o.block ?? { timestamp: TS })),
     getBlockNumber: vi.fn(() => run(o.head ?? 110n)),
+    getChainId: vi.fn(() => run(o.chainId ?? CHAIN)),
   } as never;
 }
 
@@ -100,12 +102,24 @@ describe("verifyTransfer status, timing and RPC", () => {
     expect(await verifyTransfer(eth, fake({ receipt: { status: "reverted", blockNumber: 100n, logs: [] } }))).toEqual({ status: "error", code: "tx_failed" });
   });
   it("unknown tx -> tx_not_found", async () => {
-    expect(await verifyTransfer(eth, fake({ receipt: notFound }))).toEqual({ status: "error", code: "tx_not_found" });
+    expect(await verifyTransfer(eth, fake({ receipt: notFound, tx: notFound }))).toEqual({ status: "error", code: "tx_not_found" });
     expect(await verifyTransfer(eth, fake({ tx: notFound }))).toEqual({ status: "error", code: "tx_not_found" });
   });
-  it("receipt not yet mined -> tx_not_found", async () => {
+  it("tx known but receipt not yet available -> pending", async () => {
     const e = Object.assign(new Error("x"), { name: "TransactionReceiptNotFoundError" });
-    expect(await verifyTransfer(eth, fake({ receipt: e }))).toEqual({ status: "error", code: "tx_not_found" });
+    expect(await verifyTransfer(eth, fake({ receipt: e }))).toEqual({ status: "pending" });
+  });
+  it("RPC on another chain -> rpc_unavailable", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await verifyTransfer(eth, fake({ chainId: 59144 }))).toEqual({ status: "error", code: "rpc_unavailable" });
+  });
+  it("tx.chainId of another chain -> tx_mismatch (ETH and USDC)", async () => {
+    const tx = { from: PAYER, to: TO, value: 5n, chainId: 59144 };
+    expect(await verifyTransfer(eth, fake({ tx }))).toEqual({ status: "error", code: "tx_mismatch" });
+    const usdcIn = { ...base, token: "USDC" as const, amount: 1000n };
+    const receipt = { status: "success", blockNumber: 100n, blockHash: "0xbeef", logs: [transferLog(USDC, PAYER, TO, 1000n, 0)] };
+    expect(await verifyTransfer(usdcIn, fake({ tx, receipt }))).toEqual({ status: "error", code: "tx_mismatch" });
+    expect(await verifyTransfer(usdcIn, fake({ tx: { ...tx, chainId: CHAIN }, receipt }))).toMatchObject({ status: "ok" });
   });
   it("too few confirmations -> pending; enough -> ok", async () => {
     expect(await verifyTransfer({ ...eth, confirmations: 3 }, fake({ head: 101n }))).toEqual({ status: "pending" });
@@ -113,12 +127,20 @@ describe("verifyTransfer status, timing and RPC", () => {
     expect(await verifyTransfer({ ...eth, confirmations: 1 }, fake({ head: 100n }))).toMatchObject({ status: "ok" });
   });
   it("defaults confirmations to TIP_CONFIRMATIONS env, else 3", async () => {
-    vi.stubEnv("TIP_CONFIRMATIONS", "");
     vi.unstubAllEnvs();
     delete process.env.TIP_CONFIRMATIONS;
     expect(await verifyTransfer(eth, fake({ head: 101n }))).toEqual({ status: "pending" });
     vi.stubEnv("TIP_CONFIRMATIONS", "1");
     expect(await verifyTransfer(eth, fake({ head: 100n }))).toMatchObject({ status: "ok" });
+    vi.unstubAllEnvs();
+  });
+  it("invalid TIP_CONFIRMATIONS falls back to 3", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    for (const v of ["", "abc", "1.5", "0"]) {
+      vi.stubEnv("TIP_CONFIRMATIONS", v);
+      expect(await verifyTransfer(eth, fake({ head: 101n }))).toEqual({ status: "pending" });
+      expect(await verifyTransfer(eth, fake({ head: 102n }))).toMatchObject({ status: "ok" });
+    }
     vi.unstubAllEnvs();
   });
   it("block older than notBefore - 120 s -> tx_too_old; exactly at the edge is fine", async () => {
