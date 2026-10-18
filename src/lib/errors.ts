@@ -49,6 +49,8 @@ const MESSAGES: Record<string, string> = {
     "Este bounty se publicó en otra red; podrás pagarlo cuando esa red vuelva a estar activa.",
   payment_in_progress: "Ya hay un pago de este bounty en curso. Espera a que se confirme.",
   channel_has_bounties: "Este canal tiene bounties y no se puede borrar.",
+  safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
+  invalid_state: "Esta donación ya no se puede procesar en su estado actual.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
   platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",
   too_many_intents: "Tienes demasiadas propinas pendientes. Espera a que caduquen o se confirmen.",
