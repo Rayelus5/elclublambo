@@ -2,6 +2,10 @@ import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
+const order: string[] = [];
+const connection = vi.fn(async () => void order.push("connection"));
+vi.mock("next/server", () => ({ connection: () => connection() }));
+
 const settle = vi.fn();
 vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: (...a: unknown[]) => settle(...a) }));
 const reconcile = vi.fn();
@@ -30,6 +34,17 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("POST /api/cron/dao", () => {
+  it("waits for a real request (connection) before reading the env or answering, so GET is never prerendered", async () => {
+    order.length = 0;
+    vi.stubEnv("CRON_SECRET", "");
+    const res = POST(req("Bearer x"));
+    expect(order).toEqual(["connection"]);
+    expect((await res).status).toBe(503);
+    expect(connection).toHaveBeenCalledTimes(1);
+    await GET(req("Bearer x", "GET"));
+    expect(connection).toHaveBeenCalledTimes(2);
+  });
+
   it("503 when CRON_SECRET is unset, and nothing runs", async () => {
     vi.stubEnv("CRON_SECRET", "");
     expect((await POST(req("Bearer anything"))).status).toBe(503);

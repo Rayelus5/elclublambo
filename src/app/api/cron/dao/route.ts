@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { reconcile } from "@/lib/treasury/reconcile";
@@ -35,6 +36,8 @@ type ChainReport = {
  * POST for external schedulers, GET for Vercel Cron (which sends GET with the same header); both share the handler.
  */
 async function handle(request: Request) {
+  // Opt out of prerendering: without this a GET with an unset CRON_SECRET could be baked into a static 503.
+  await connection();
   const secret = process.env.CRON_SECRET;
   if (!secret) return Response.json({ error: "cron_not_configured" }, { status: 503 });
   if (!authorized(request.headers.get("authorization"), secret)) return Response.json({ error: "unauthorized" }, { status: 401 });
