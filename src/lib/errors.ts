@@ -75,6 +75,8 @@ const MESSAGES: Record<string, string> = {
   withdrawal_exists: "Ya tienes una retirada en curso. Cancélala o espera a que se resuelva.",
   insufficient_shares: "No tienes tantas participaciones.",
   amount_too_small: "La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones.",
+  nav_not_ready: "El fondo aún no tiene valoración. Inténtalo tras la próxima.",
+  reason_required: "Escribe un motivo de 1 a 280 caracteres.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

@@ -1,7 +1,7 @@
 -- F4c Task 2: withdrawal requests (one active per chain and member), the per-network switch, locked shares, the
 -- counted supply S_eff = total_shares - approved_locked_shares and gating on unlocked shares.
 begin;
-select plan(82);
+select plan(86);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.wh(p_n int) returns text language sql immutable as $$
@@ -268,6 +268,11 @@ select is((select share_bps from public.dao_ranking() where member_id = current_
 select is((select string_agg(rank || ':' || label || ':' || share_bps, ',' order by rank) from public.dao_ranking()
            where member_id is distinct from current_setting('t.a')::uuid), '2:Anónimo:3333', 'ranking: B counts 2 / 6');
 select tests.clear_authentication();
+-- F4c Task 2 carry ii: gating divides the unlocked shares by S_eff (not by total_shares)
+select is((select share_bps || ':' || net_usdc from public._member_dao_standing(current_setting('t.a')::uuid)), '6666:4000000',
+  'gating: A counts (8 - 4) / S_eff 6 = 6666 bps and 4 of 8 net');
+select is((select share_bps || ':' || net_usdc from public._member_dao_standing(current_setting('t.b')::uuid)), '3333:2000000',
+  'gating: B counts 2 / S_eff 6 = 3333 bps (2000 over total_shares)');
 
 -- ===== 8. dao_overview().myWithdrawal =====
 select is(current_setting('t.ova')::jsonb -> 'withdrawalsEnabled', 'true'::jsonb, 'withdrawalsEnabled for the active chain');
@@ -304,6 +309,16 @@ select public.cancel_withdrawal(current_setting('t.r4')::uuid);
 select tests.clear_authentication();
 select is(tests.wev() - current_setting('t.ev0')::int, 2, 'a status change sends one more');
 select has_trigger('public', 'withdrawal_requests', 'withdrawal_requests_broadcast', 'withdrawal_requests broadcast trigger');
+
+-- ===== 10. F4c Task 2 carry iii: an inactive member cannot request or cancel =====
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select set_config('t.r5', public.request_withdrawal(2000000000000000000)::text, true);
+select tests.clear_authentication();
+update public.members set status = 'banned' where id = current_setting('t.b')::uuid;
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok($$select public.request_withdrawal(1000000000000000000)$$, 'forbidden', 'a banned member cannot request');
+select throws_ok(format('select public.cancel_withdrawal(%L)', current_setting('t.r5')), 'forbidden', 'a banned member cannot cancel');
+select tests.clear_authentication();
 
 select * from finish();
 rollback;
