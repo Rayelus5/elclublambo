@@ -25,6 +25,14 @@ const MESSAGES: Record<string, string> = {
   already_reported: "Ya has reportado este mensaje. El equipo de moderación lo revisará.",
   too_many_open_tickets: "Ya tienes 3 tickets abiertos. Cierra alguno para abrir otro.",
   ticket_closed: "Este ticket está cerrado. Solo el equipo puede reabrirlo.",
+  handle_invalid: "El @handle debe tener entre 3 y 20 caracteres: letras sin acentos, números o guion bajo.",
+  handle_reserved: "Ese nombre está reservado",
+  handle_taken: "Ese nombre ya está en uso",
+  handle_cooldown: "Solo puedes cambiar tu @handle una vez cada 30 días",
+  handle_required: "Elige tu @handle para continuar.",
+  bio_too_long: "La bio puede tener como máximo 280 caracteres.",
+  links_invalid: "Los enlaces deben ser https, tener un dominio válido, medir como máximo 200 caracteres y ser 3 como mucho.",
+  avatar_invalid: "La imagen de perfil no es válida: usa PNG, JPG o WebP de hasta 2 MB.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

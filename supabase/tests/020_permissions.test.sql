@@ -46,8 +46,8 @@ select cmp_ok((select count(*) from public.members), '>', 0::bigint, 'active rea
 select is((select count(*) from public.bans), 0::bigint, 'active without BAN reads no bans');
 select throws_ok($$update public.members set status = 'banned' where true$$, '42501', null,
   'active cannot update status');
-select lives_ok($$update public.members set display_name = 'Padrino1' where auth_user_id = auth.uid()$$,
-  'active can update own display_name');
+select throws_ok($$update public.members set display_name = 'Padrino1' where auth_user_id = auth.uid()$$, '42501', null,
+  'active cannot update display_name directly (profile writes go through update_profile)');
 select ok(not public.has_global_perm(0), 'has_global_perm(0) is false');
 select throws_ok(
   $$insert into public.members (auth_user_id, wallet_address, is_bootstrap)
