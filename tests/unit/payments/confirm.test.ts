@@ -29,7 +29,7 @@ const CREATED = "2026-10-18T12:00:00.000Z";
 
 function intent(over: Record<string, unknown> = {}) {
   return {
-    id: "i1", member_id: "m1", chain_id: 59141, token: "USDC", amount: "1000000", fee_amount: "50000",
+    id: "i1", purpose: "tip", member_id: "m1", chain_id: 59141, token: "USDC", amount: "1000000", fee_amount: "50000",
     recipient_address: RECIPIENT, platform_address: PLATFORM, status: "pending",
     main_tx_hash: MAIN, fee_tx_hash: FEE, created_at: CREATED, expires_at: "2026-10-19T12:00:00.000Z", ...over,
   };
@@ -94,6 +94,22 @@ describe("confirmIntent", () => {
     tables.payment_intents = intent({ purpose: "tip" });
     await confirmIntent("i1");
     expect(rpc).toHaveBeenCalledWith("confirm_tip", expect.objectContaining({ p_main: { txHash: MAIN, logIndex: 7, blockNumber: "10" } }));
+  });
+
+  it.each(["donation", "weird", undefined])("fails closed on unknown purpose %s: no verification, no confirm RPC", async (purpose) => {
+    tables.payment_intents = intent({ purpose });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed" });
+    expect(verifyTransfer).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("confirm_bounty_payment", expect.anything());
+  });
+
+  it("treats already_paid from confirm_bounty_payment as a permanent failure", async () => {
+    tables.payment_intents = intent({ purpose: "bounty" });
+    rpc.mockImplementation(async (name: string) =>
+      name === "confirm_bounty_payment" ? { data: null, error: { message: "already_paid" } } : { data: null, error: null });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "already_paid" });
+    expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "already_paid" });
   });
 
   it("fails with tx_already_used when confirm_tip reports it", async () => {

@@ -472,12 +472,6 @@ select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, nu
 select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
   jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', now() - interval '2 days' - interval '3 minutes')),
   'P0001', 'tx_mismatch', 'a timestamp before the intent (minus 120 s) is a mismatch');
-select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', now() + interval '5 minutes')),
-  'P0001', 'tx_mismatch', 'a timestamp in the future is a mismatch');
-select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', extract(epoch from now())::bigint + 3600)),
-  'P0001', 'tx_mismatch', 'epoch seconds are parsed and range-checked too');
 select lives_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
   jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700,
     'blockTimestamp', to_char((now() - interval '1 day' - interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))),
@@ -487,6 +481,26 @@ select is((select public.bounty_status(b) from public.bounties b where b.message
   'paid_at is the block time, so the status is paid and not paid_late');
 select ok((select paid_at < solution_marked_at + interval '7 days' and paid_at < now() - interval '1 day' from public.bounties
   where message_id = current_setting('t.b10')::uuid), 'paid_at is not the confirm time');
+
+-- ===== F3c Task 3: a block timestamp ahead of the database clock is clamped to now() =====
+reset role;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select set_config('t.b11', tests.bounty(current_setting('t.ch'))::text, true);
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select set_config('t.r11', tests.post(current_setting('t.ch')::uuid, tests.td('solution 11'), current_setting('t.b11')::uuid)::text, true);
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select public.mark_bounty_solution(current_setting('t.b11')::uuid, current_setting('t.r11')::uuid);
+select set_config('t.i11', public.create_bounty_payment_intent(current_setting('t.b11')::uuid, 10000000, 0)::text, true);
+select public.attach_intent_tx((current_setting('t.i11')::jsonb ->> 'id')::uuid, 'main', tests.hash(111));
+select tests.clear_authentication();
+set local role service_role;
+select lives_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i11')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(111), 'logIndex', 1, 'blockNumber', 710,
+    'blockTimestamp', to_char((now() + interval '10 minutes') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))),
+  'a block time a few minutes ahead of the database clock is accepted');
+reset role;
+select is((select paid_at from public.bounties where message_id = current_setting('t.b11')::uuid), now(),
+  'paid_at is clamped to now()');
 
 select * from finish();
 rollback;

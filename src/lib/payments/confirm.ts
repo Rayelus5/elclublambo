@@ -63,6 +63,9 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (i.status === "failed") return failed(i.failure_code ?? "unknown");
   if (i.status === "expired") return failed("intent_expired");
 
+  // Fail closed: only purposes with a known confirm RPC are credited; anything else is never verified nor credited.
+  if (i.purpose !== "tip" && i.purpose !== "bounty") return failed("invalid_input");
+
   if (!hasRequiredHashes(i)) return { status: "pending" };
 
   const { data: payer } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
