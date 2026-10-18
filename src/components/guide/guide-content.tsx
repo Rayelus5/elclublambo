@@ -218,8 +218,9 @@ function Fondo() {
       <Sub title="Fondo del club">
         <p>
           Si la Safe ya tenía dinero antes de que nadie tuviera participaciones, ese dinero pertenece a una posición aparte
-          llamada «Fondo del club». Lo mismo ocurre con cualquier valor que la Safe ya tuviera en la primera valoración y que el registro no atribuía a nadie. Cuenta en el total de participaciones, pero no se puede retirar, no vota, no entra en
-          sorteos y no abre canales con candado.
+          llamada «Fondo del club». Lo mismo ocurre con cualquier valor que la Safe ya tuviera en la primera valoración y que
+          el registro no atribuía a nadie. Cuenta en el total de participaciones, pero no se puede retirar, no vota, no
+          entra en sorteos y no abre canales con candado.
         </p>
       </Sub>
       <Sub title="Riesgo">
@@ -233,11 +234,11 @@ function Fondo() {
           registro interno de la comunidad, no un producto financiero.
         </p>
       </Sub>
-      <Sub title="Lo que llegará más adelante">
+      <Sub title="Retiradas y sorteos">
         <p>
-          Las retiradas y los sorteos llegarán más adelante. Las retiradas empezarán desactivadas: se activan por red cuando
-          el club lo decida y, aun entonces, dependen de la disponibilidad y de la decisión del tesorero. Hoy no se puede
-          retirar nada.
+          Las retiradas y los sorteos, si llegan, vendrán más adelante. Las retiradas, si llegan, empezarán desactivadas: se
+          activarán por red cuando el club lo decida y, aun entonces, dependerán de la disponibilidad y de la decisión del
+          tesorero. Hoy no se puede retirar nada.
         </p>
       </Sub>
     </>

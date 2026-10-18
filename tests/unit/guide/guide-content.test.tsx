@@ -43,7 +43,8 @@ describe("guide: fondo", () => {
         /Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero\./,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/retiradas y los sorteos llegarán más adelante/i)).toBeInTheDocument();
+    expect(screen.getByText(/retiradas y los sorteos, si llegan/i)).toBeInTheDocument();
+    expect(screen.queryByText(/llegarán/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/liquidativo/)).not.toBeInTheDocument();
     expect(screen.getByText(/empezarán desactivadas/)).toBeInTheDocument();

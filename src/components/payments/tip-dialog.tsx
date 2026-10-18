@@ -274,8 +274,11 @@ function TipFlow({
     let cancelled = false;
     getDaoOverview(createBrowserClient())
       .then((o) => {
-        // Only this chain's price; with no shares yet the rate is 1 USD per participación (F4a-R9).
-        if (!cancelled && o.chainId === chainId) setSharePrice(o.sharePriceUsd6 > 0n ? o.sharePriceUsd6 : 1_000_000n);
+        // Only this chain's price; with totalShares = 0 the rate is 1 USD per participación (F4a-R9).
+        if (!cancelled && o.chainId === chainId) {
+          if (o.sharePriceUsd6 > 0n) setSharePrice(o.sharePriceUsd6);
+          else if (o.totalShares === 0n) setSharePrice(1_000_000n);
+        }
       })
       .catch(() => {
         /* the estimate line is simply absent */

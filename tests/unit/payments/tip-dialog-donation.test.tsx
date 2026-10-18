@@ -148,11 +148,20 @@ describe("TipDialog donation mode: form", () => {
   });
 
   it("estimates at 1 USD per participación while nobody holds shares (R9)", async () => {
-    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "0" }, error: null });
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, totalShares: "0", sharePriceUsd6: "0" }, error: null });
     setup();
     await userEvent.type(amountBox(), "10");
     expect(await screen.findByText("≈ 10 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
     expect(screen.getByTestId("share-price")).toHaveTextContent("Valor por participación: 1 USD");
+  });
+
+  it("hides the estimate when shares exist but the price is 0", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, totalShares: "5000000000000000000", sharePriceUsd6: "0" }, error: null });
+    setup();
+    await userEvent.type(amountBox(), "10");
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("share-price")).not.toBeInTheDocument();
   });
 
   it("ignores an overview of another chain", async () => {
