@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,12 +25,14 @@ vi.mock("@/lib/payments/tip-actions", () => ({ createTipIntentAction, attachTxAc
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { TipDialog } from "@/components/payments/tip-dialog";
 import type { EconomyConfig } from "@/lib/economy/config";
+import { loadSends, upsertSend } from "@/lib/payments/pending-sends";
 
 const SESSION = "0x1111111111111111111111111111111111111111";
 const PLATFORM = "0x4444444444444444444444444444444444444444";
 const RECIPIENT_WALLET = "0x2222222222222222222222222222222222222222";
 const FEE_HASH = `0x${"fe".repeat(32)}`;
-const MAIN_HASH = `0x${"ma".replace(/[^0-9a-f]/g, "a").repeat(32)}`;
+const MAIN_HASH = "0x" + "aa".repeat(32);
+const MEMBER = "99999999-9999-4999-8999-999999999999";
 const INTENT_ID = "11111111-1111-4111-8111-111111111111";
 
 const recipient = { id: "22222222-2222-4222-8222-222222222222", handle: "ana_l", displayName: "Ana", walletAddress: RECIPIENT_WALLET, avatarPath: null };
@@ -42,10 +44,10 @@ const config = (over: Partial<EconomyConfig> = {}): EconomyConfig => ({
   ...over,
 });
 
-function setup(opts: { cfg?: EconomyConfig; wallet?: string; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] } = {}) {
+function setup(opts: { onOpenChange?: (o: boolean) => void; cfg?: EconomyConfig; wallet?: string; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] } = {}) {
   return render(
-    <EconomyProvider config={opts.cfg ?? config()} wallet={opts.wallet ?? SESSION}>
-      <TipDialog target={opts.target ?? { type: "message", messageId: "33333333-3333-4333-8333-333333333333" }} recipient={opts.recipient ?? recipient} open onOpenChange={() => {}} />
+    <EconomyProvider config={opts.cfg ?? config()} wallet={opts.wallet ?? SESSION} memberId={MEMBER}>
+      <TipDialog target={opts.target ?? { type: "message", messageId: "33333333-3333-4333-8333-333333333333" }} recipient={opts.recipient ?? recipient} open onOpenChange={opts.onOpenChange ?? (() => {})} />
     </EconomyProvider>,
   );
 }
@@ -67,6 +69,7 @@ async function typeAmount(v: string) {
 }
 
 beforeEach(() => {
+  window.localStorage.clear();
   account.address = SESSION;
   account.chainId = 59141;
   account.isConnected = true;
@@ -167,8 +170,8 @@ describe("TipDialog signing and verification", () => {
       feeBps: 100,
       anonymous: false,
     });
-    expect(send).toHaveBeenNthCalledWith(1, { chain: 59141, token: "USDC", to: PLATFORM, amount: 100000n });
-    expect(send).toHaveBeenNthCalledWith(2, { chain: 59141, token: "USDC", to: RECIPIENT_WALLET, amount: 10000000n });
+    expect(send).toHaveBeenNthCalledWith(1, { chain: 59141, token: "USDC", to: PLATFORM, amount: 100000n, account: SESSION });
+    expect(send).toHaveBeenNthCalledWith(2, { chain: 59141, token: "USDC", to: RECIPIENT_WALLET, amount: 10000000n, account: SESSION });
     expect(attachTxAction).toHaveBeenNthCalledWith(1, INTENT_ID, "fee", FEE_HASH);
     expect(attachTxAction).toHaveBeenNthCalledWith(2, INTENT_ID, "main", MAIN_HASH);
     const links = screen.getAllByRole("link", { name: /Ver en el explorador/ });
@@ -255,5 +258,175 @@ describe("TipDialog signing and verification", () => {
     await typeAmount("10");
     await userEvent.click(continuar());
     await waitFor(() => expect(screen.getByText("La transferencia no coincide.")).toBeInTheDocument());
+  });
+});
+
+const setupAttachFailures = (failMain: number) => {
+  let n = 0;
+  attachTxAction.mockImplementation(async (_id: string, role: string) => {
+    if (role === "main" && n < failMain) {
+      n += 1;
+      throw new Error("offline");
+    }
+    return { ok: true };
+  });
+};
+
+describe("TipDialog after something was signed (F3b-R4)", () => {
+  it("a non-rejection send error returns to the form with a generic message", async () => {
+    send.mockReset().mockRejectedValue(new Error("boom"));
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText(/No se pudo enviar la transacción/)).toBeInTheDocument();
+    expect(continuar()).toBeEnabled();
+  });
+
+  it("an intent-creation throw returns to the form and signs nothing", async () => {
+    createTipIntentAction.mockRejectedValue(new Error("offline"));
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText("No se pudo preparar la propina. Inténtalo de nuevo.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+    expect(continuar()).toBeEnabled();
+  });
+
+  it("writes each hash to the ledger and clears it once confirmed", async () => {
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    await screen.findByText("Propina enviada");
+    expect(loadSends(MEMBER)).toEqual([]);
+  });
+
+  it("keeps the ledger entry when attach fails, then retries attach without signing again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      setupAttachFailures(4);
+      setup();
+      await typeAmount("10");
+      await userEvent.click(continuar());
+      await vi.advanceTimersByTimeAsync(8000);
+      expect(await screen.findByText("No hemos podido registrar tu transacción.")).toBeInTheDocument();
+      expect(screen.getAllByRole("link", { name: /Ver en el explorador/ })).toHaveLength(2);
+      expect(loadSends(MEMBER)[0]).toMatchObject({ feeHash: FEE_HASH, mainHash: MAIN_HASH, feeAttached: true });
+      await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+      await screen.findByText("Propina enviada");
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(createTipIntentAction).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("fee paid and main rejected: resumes the same intent and signs only the main", async () => {
+    send.mockReset().mockResolvedValueOnce(FEE_HASH).mockRejectedValueOnce(Object.assign(new Error("rejected"), { code: 4001 })).mockResolvedValueOnce(MAIN_HASH);
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText("La comisión ya está pagada. Falta firmar la propina.")).toBeInTheDocument();
+    expect(screen.getByText("Si cancelas, la comisión enviada no se devolverá y la propina no se acreditará.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Firmar la propina" }));
+    await screen.findByText("Propina enviada");
+    expect(createTipIntentAction).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(send).toHaveBeenLastCalledWith({ chain: 59141, token: "USDC", to: RECIPIENT_WALLET, amount: 10000000n, account: SESSION });
+    expect(attachTxAction).toHaveBeenLastCalledWith(INTENT_ID, "main", MAIN_HASH);
+  });
+
+  it("Cancelar on the resume state drops the ledger entry and closes", async () => {
+    send.mockReset().mockResolvedValueOnce(FEE_HASH).mockRejectedValueOnce(Object.assign(new Error("rejected"), { code: 4001 }));
+    const onOpenChange = vi.fn();
+    setup({ onOpenChange });
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    await userEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
+    expect(loadSends(MEMBER)).toEqual([]);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("a reopened dialog resumes from the ledger instead of a fresh form", async () => {
+    upsertSend(MEMBER, {
+      intentId: INTENT_ID,
+      chainId: 59141,
+      token: "USDC",
+      targetType: "message",
+      targetId: "33333333-3333-4333-8333-333333333333",
+      feeRequired: true,
+      feeHash: FEE_HASH,
+      feeAttached: true,
+      createdAt: Date.now() - 60_000,
+      intent,
+    });
+    send.mockReset().mockResolvedValueOnce(MAIN_HASH);
+    setup();
+    expect(screen.getByText("La comisión ya está pagada. Falta firmar la propina.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Firmar la propina" }));
+    await screen.findByText("Propina enviada");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+  });
+
+  it("does not resume an entry for another target", () => {
+    upsertSend(MEMBER, {
+      intentId: INTENT_ID,
+      chainId: 59141,
+      token: "USDC",
+      targetType: "message",
+      feeRequired: true,
+      feeHash: FEE_HASH,
+      intent,
+      targetId: "44444444-4444-4444-8444-444444444444",
+      createdAt: Date.now(),
+    });
+    setup();
+    expect(screen.getByLabelText("Importe")).toBeInTheDocument();
+  });
+
+  it("refuses to sign when the intent recipient is not the shown one", async () => {
+    createTipIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, recipientAddress: "0x5555555555555555555555555555555555555555" } });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText("Los datos del envío no coinciden. Recarga la página.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("refuses to sign when the platform address is not the configured one", async () => {
+    createTipIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, platformAddress: "0x5555555555555555555555555555555555555555" } });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText("Los datos del envío no coinciden. Recarga la página.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("aborts when the connected account changed after Continuar", async () => {
+    createTipIntentAction.mockImplementation(async () => {
+      account.address = "0x9999999999999999999999999999999999999999";
+      return { ok: true, intent };
+    });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    // Both the form error and the wallet notice say it.
+    expect((await screen.findAllByText("Conecta la wallet 0x1111…1111 para enviar.")).length).toBeGreaterThan(0);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("closing while verifying asks first", async () => {
+    verifyIntentAction.mockReset().mockResolvedValue({ status: "pending" });
+    const onOpenChange = vi.fn();
+    setup({ onOpenChange });
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    await screen.findByText(/Verificando/);
+    await userEvent.keyboard("{Escape}");
+    expect(await screen.findByText("¿Cerrar? Si ya firmaste, la propina se seguirá verificando.")).toBeInTheDocument();
+    expect(onOpenChange).not.toHaveBeenCalled();
+    await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cerrar" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 });

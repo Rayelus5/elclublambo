@@ -17,6 +17,7 @@ import { shortAddress } from "@/lib/auth/wallet";
 import { explorerTx, NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
 import { feeFor, formatAmount, parseAmount, TIP_LIMITS, type Token } from "@/lib/payments/amounts";
+import { findResumable, loadSends, removeSend, upsertSend, type PendingSend } from "@/lib/payments/pending-sends";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { cn } from "@/lib/utils";
@@ -28,10 +29,21 @@ const POLL_MS = 3000;
 const POLL_WINDOW_MS = 120_000;
 const TOKENS: Token[] = ["USDC", "ETH"];
 
-type Step = "form" | "signing" | "verifying" | "done" | "failed";
+type Step = "form" | "signing" | "attach-retry" | "resume" | "verifying" | "done" | "failed";
 type Hashes = { fee?: string; main?: string };
+/** What has been signed and told to the server for one intent; mirrors the ledger entry. */
+type Sent = Pick<PendingSend, "feeHash" | "mainHash" | "feeAttached" | "mainAttached">;
 
-class AttachError extends Error {}
+const RETRY_DELAYS_MS = [1000, 2000, 4000];
+const MSG_CANCELLED = "Has cancelado la firma.";
+const MSG_SEND_FAILED = "No se pudo enviar la transacción. Revisa tu wallet e inténtalo de nuevo.";
+const MSG_MISMATCH = "Los datos del envío no coinciden. Recarga la página.";
+const MSG_PREPARE = "No se pudo preparar la propina. Inténtalo de nuevo.";
+
+/** A refusal to sign with a message for the member (wrong signer, intent that disagrees with what was shown). */
+class SignGuardError extends Error {}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 /** Wallets reject with code 4001 or a message saying so; anything else is a different failure. */
 function isRejection(e: unknown): boolean {
@@ -57,64 +69,95 @@ export function TipDialog({
 }) {
   // The AppKit modal lives outside this dialog: while it is open, the dialog must not trap pointer or focus nor close.
   const { open: walletModalOpen } = useAppKitState();
-  const lockedRef = useRef(false);
+  // Set by the flow while a signature or a verification is in flight: closing then asks first.
+  const busyRef = useRef(false);
+  const [askClose, setAskClose] = useState(false);
   return (
     <Dialog
       open={open}
       modal={!walletModalOpen}
       onOpenChange={(next) => {
-        if (!next && lockedRef.current) return;
-        onOpenChange(next);
+        if (next) return onOpenChange(true);
+        if (busyRef.current) return setAskClose(true);
+        onOpenChange(false);
       }}
     >
       <DialogContent
         className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
         onInteractOutside={(e) => {
-          if (walletModalOpen || lockedRef.current) e.preventDefault();
-        }}
-        onEscapeKeyDown={(e) => {
-          if (lockedRef.current) e.preventDefault();
+          if (walletModalOpen) e.preventDefault();
         }}
       >
         <DialogHeader>
           <DialogTitle className="font-display text-lg font-bold">Dar propina</DialogTitle>
           <DialogDescription>Va directo a su wallet. La comisión de la plataforma se suma aparte.</DialogDescription>
         </DialogHeader>
-        <TipFlow target={target} recipient={recipient} lockedRef={lockedRef} onClose={() => onOpenChange(false)} />
+        {askClose ? (
+          <div role="alertdialog" aria-label="Confirmar cierre" className="flex flex-col gap-3 rounded-control border border-warning p-3">
+            <p className="text-sm text-fg">¿Cerrar? Si ya firmaste, la propina se seguirá verificando.</p>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => setAskClose(false)}>
+                Seguir aquí
+              </Button>
+              <Button
+                onClick={() => {
+                  setAskClose(false);
+                  onOpenChange(false);
+                }}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <TipFlow target={target} recipient={recipient} busyRef={busyRef} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget; recipient: TipRecipient; lockedRef: { current: boolean }; onClose: () => void }) {
+function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; recipient: TipRecipient; busyRef: { current: boolean }; onClose: () => void }) {
   const economy = useEconomy();
+  const { memberId } = economy;
   const chainId = economy.activeChainId;
   const network = NETWORKS[chainId];
   const platform = economy.chains[chainId].platform;
+  const targetId = target.type === "message" ? target.messageId : recipient.id;
 
   const account = useAccount();
+  const accountRef = useRef(account);
+  useEffect(() => {
+    accountRef.current = account;
+  });
   const { switchChain, isPending: switching } = useSwitchChain();
   const { open: openWallet } = useAppKit();
   const { send } = useSendTransfer();
+
+  // A fee already paid for this target whose tip was never signed: resume it instead of showing a fresh form.
+  const [resumable] = useState(() => findResumable(memberId, target.type, targetId));
+  const flowRef = useRef<{ it: TipIntent; st: Sent } | null>(
+    resumable ? { it: resumable.intent, st: { feeHash: resumable.feeHash, mainHash: resumable.mainHash, feeAttached: resumable.feeAttached, mainAttached: resumable.mainAttached } } : null,
+  );
 
   const [token, setToken] = useState<Token>("USDC");
   const [amountText, setAmountText] = useState("");
   const [feeBps, setFeeBps] = useState(economy.minFeeBps);
   const [anonymous, setAnonymous] = useState(false);
-  const [step, setStep] = useState<Step>("form");
+  const [step, setStep] = useState<Step>(resumable ? "resume" : "form");
   const [formError, setFormError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [resumeError, setResumeError] = useState<string | null>(null);
   const [progress, setProgress] = useState<{ index: number; total: number }>({ index: 1, total: 1 });
-  const [intent, setIntent] = useState<TipIntent | null>(null);
-  const [hashes, setHashes] = useState<Hashes>({});
+  const [intent, setIntent] = useState<TipIntent | null>(resumable?.intent ?? null);
+  const [hashes, setHashes] = useState<Hashes>({ fee: resumable?.feeHash, main: resumable?.mainHash });
   const [slow, setSlow] = useState(false);
 
   useEffect(() => {
-    lockedRef.current = step === "signing";
+    busyRef.current = step === "signing" || step === "verifying";
     return () => {
-      lockedRef.current = false;
+      busyRef.current = false;
     };
-  }, [step, lockedRef]);
+  }, [step, busyRef]);
 
   // Verification: ask the server every 3 s for up to 2 min; after that it keeps verifying on its own.
   useEffect(() => {
@@ -125,8 +168,12 @@ function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget;
     const tick = async () => {
       const r = await verifyIntentAction(intent.id).catch(() => ({ status: "pending" }) as const);
       if (cancelled) return;
-      if (r.status === "confirmed") return setStep("done");
+      if (r.status === "confirmed") {
+        removeSend(memberId, intent.id);
+        return setStep("done");
+      }
       if (r.status === "failed") {
+        removeSend(memberId, intent.id);
         setFailure(r.error);
         return setStep("failed");
       }
@@ -138,7 +185,7 @@ function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget;
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [step, intent]);
+  }, [step, intent, memberId]);
 
   const units = parseAmount(amountText, token);
   const limits = TIP_LIMITS[token];
@@ -163,51 +210,146 @@ function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget;
 
   const canContinue = units !== null && reason === null && wallet === null;
 
+  /** Re-checked right before every signature: the connected account is still the session wallet, on the right chain. */
+  function guardSigner(it: TipIntent) {
+    const acc = accountRef.current;
+    if (!acc.isConnected || !acc.address || acc.address.toLowerCase() !== economy.wallet.toLowerCase()) {
+      throw new SignGuardError(`Conecta la wallet ${shortAddress(economy.wallet)} para enviar.`);
+    }
+    if (acc.chainId !== it.chainId) throw new SignGuardError(`Cambia tu wallet a ${NETWORKS[it.chainId as ChainId]?.name ?? "la red activa"} para enviar.`);
+  }
+
+  /** What the member was shown must be what gets signed: the intent's addresses are checked against the screen/config. */
+  function guardIntent(it: TipIntent) {
+    const feeRequired = BigInt(it.feeAmount) > 0n;
+    if (it.recipientAddress.toLowerCase() !== recipient.walletAddress.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
+    if (feeRequired && (!it.platformAddress || !economy.chains[it.chainId as ChainId]?.platform || it.platformAddress.toLowerCase() !== economy.chains[it.chainId as ChainId].platform!.toLowerCase())) {
+      throw new SignGuardError(MSG_MISMATCH);
+    }
+  }
+
+  /** attachTxAction is idempotent for the same hash: up to 3 retries with 1 s, 2 s, 4 s backoff. */
+  async function attachWithRetry(intentId: string, role: "fee" | "main", hash: string): Promise<boolean> {
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      try {
+        const r = await attachTxAction(intentId, role, hash);
+        if (r.ok) return true;
+      } catch {
+        /* network or server-action error: retry */
+      }
+      if (attempt < RETRY_DELAYS_MS.length) await sleep(RETRY_DELAYS_MS[attempt]!);
+    }
+    return false;
+  }
+
+  /**
+   * Drives one intent from whatever has been signed so far to verification: attach pending hashes, sign the fee if still
+   * missing, sign the main transfer if still missing. Once anything is signed it never goes back to the form.
+   */
+  async function proceed(it: TipIntent, st: Sent, target_: { targetType: "message" | "profile"; targetId: string }) {
+    flowRef.current = { it, st };
+    setIntent(it);
+    const feeRequired = BigInt(it.feeAmount) > 0n && !!it.platformAddress;
+    const chain = it.chainId as ChainId;
+    const commit = (patch: Partial<Sent>) => {
+      Object.assign(st, patch);
+      const base: PendingSend = {
+        intentId: it.id,
+        chainId: it.chainId,
+        token: it.token,
+        targetType: target_.targetType,
+        targetId: target_.targetId,
+        feeRequired,
+        createdAt: Date.now(),
+        intent: it,
+        ...st,
+      };
+      // Keep the original createdAt when the entry exists already.
+      const existing = loadSends(memberId).find((e) => e.intentId === it.id);
+      upsertSend(memberId, existing ? { ...existing, ...st } : base);
+      setHashes({ fee: st.feeHash, main: st.mainHash });
+    };
+    const attachPending = async () => {
+      for (const role of ["fee", "main"] as const) {
+        const hash = st[`${role}Hash`];
+        if (!hash || st[`${role}Attached`]) continue;
+        if (!(await attachWithRetry(it.id, role, hash))) return false;
+        commit(role === "fee" ? { feeAttached: true } : { mainAttached: true });
+      }
+      return true;
+    };
+    const signed = () => !!st.feeHash || !!st.mainHash;
+    try {
+      if (!(await attachPending())) return setStep("attach-retry");
+      if (feeRequired && !st.feeHash) {
+        setStep("signing");
+        setProgress({ index: 1, total: 2 });
+        guardIntent(it);
+        guardSigner(it);
+        const hash = await send({ chain, token: it.token, to: it.platformAddress as `0x${string}`, amount: BigInt(it.feeAmount), account: economy.wallet as `0x${string}` });
+        commit({ feeHash: hash }); // in the ledger before the server is told
+        if (!(await attachPending())) return setStep("attach-retry");
+      }
+      if (!st.mainHash) {
+        setStep("signing");
+        setProgress({ index: feeRequired ? 2 : 1, total: feeRequired ? 2 : 1 });
+        guardIntent(it);
+        guardSigner(it);
+        const hash = await send({ chain, token: it.token, to: it.recipientAddress as `0x${string}`, amount: BigInt(it.amount), account: economy.wallet as `0x${string}` });
+        commit({ mainHash: hash });
+        if (!(await attachPending())) return setStep("attach-retry");
+      }
+    } catch (e) {
+      const msg = e instanceof SignGuardError ? e.message : isRejection(e) ? MSG_CANCELLED : MSG_SEND_FAILED;
+      if (!signed()) {
+        // Nothing left the wallet: safe to start over.
+        setFormError(msg);
+        return setStep("form");
+      }
+      // The fee is paid: the same intent is resumed, never a new one.
+      setResumeError(msg);
+      return setStep("resume");
+    }
+    setStep("verifying");
+  }
+
   async function submit() {
     if (!canContinue || units === null) return;
     setFormError(null);
     setStep("signing");
     setProgress({ index: 1, total: 1 });
-    const created = await createTipIntentAction({
-      targetType: target.type,
-      targetId: target.type === "message" ? target.messageId : recipient.id,
-      token,
-      amount: amountText.trim(),
-      feeBps,
-      anonymous,
-    });
+    let created: Awaited<ReturnType<typeof createTipIntentAction>>;
+    try {
+      created = await createTipIntentAction({
+        targetType: target.type,
+        targetId,
+        token,
+        amount: amountText.trim(),
+        feeBps,
+        anonymous,
+      });
+    } catch {
+      // Nothing has been signed yet.
+      setFormError(MSG_PREPARE);
+      return setStep("form");
+    }
     if (!created.ok) {
       setFormError(created.error);
       return setStep("form");
     }
-    const it = created.intent;
-    setIntent(it);
-    const chain = it.chainId as ChainId;
-    const feeAmount = BigInt(it.feeAmount);
-    const total = feeAmount > 0n && it.platformAddress ? 2 : 1;
-    const got: Hashes = {};
-    const attach = async (role: "fee" | "main", hash: `0x${string}`) => {
-      got[role] = hash;
-      setHashes({ ...got });
-      const r = await attachTxAction(it.id, role, hash);
-      if (!r.ok) throw new AttachError(r.error);
-    };
-    try {
-      if (total === 2) {
-        setProgress({ index: 1, total });
-        await attach("fee", await send({ chain, token: it.token, to: it.platformAddress as `0x${string}`, amount: feeAmount }));
-      }
-      setProgress({ index: total, total });
-      await attach("main", await send({ chain, token: it.token, to: it.recipientAddress as `0x${string}`, amount: BigInt(it.amount) }));
-    } catch (e) {
-      if (e instanceof AttachError) {
-        setFailure(e.message);
-        return setStep("failed");
-      }
-      setFormError(isRejection(e) ? "Has cancelado la firma." : "No se pudo enviar la transacción. Revisa tu wallet e inténtalo de nuevo.");
-      return setStep("form");
-    }
-    setStep("verifying");
+    await proceed(created.intent, {}, { targetType: target.type, targetId });
+  }
+
+  function resume() {
+    const flow = flowRef.current;
+    if (!flow) return;
+    setResumeError(null);
+    void proceed(flow.it, flow.st, { targetType: target.type, targetId });
+  }
+
+  function cancelResume() {
+    if (flowRef.current) removeSend(memberId, flowRef.current.it.id);
+    onClose();
   }
 
   if (step === "signing") {
@@ -232,7 +374,46 @@ function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget;
             );
           })}
         </ol>
-        <p className="text-sm text-fg-muted">Confirma en tu wallet. No cierres esta ventana.</p>
+        <p className="text-sm text-fg-muted">Confirma en tu wallet.</p>
+      </div>
+    );
+  }
+
+  if (step === "resume") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p className="text-sm font-bold text-fg">La comisión ya está pagada. Falta firmar la propina.</p>
+        {resumeError ? (
+          <p role="alert" className="text-sm text-danger">
+            {resumeError}
+          </p>
+        ) : null}
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <p className="text-[13px] text-warning">Si cancelas, la comisión enviada no se devolverá y la propina no se acreditará.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={resume}>Firmar la propina</Button>
+          <Button variant="outline" onClick={cancelResume}>
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === "attach-retry") {
+    return (
+      <div className="flex flex-col gap-4">
+        <p role="alert" className="flex items-start gap-2 text-sm text-danger">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          No hemos podido registrar tu transacción.
+        </p>
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={resume}>Reintentar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </div>
       </div>
     );
   }
@@ -360,7 +541,7 @@ function TipFlow({ target, recipient, lockedRef, onClose }: { target: TipTarget;
       </div>
 
       {reason ? (
-        <p role="alert" className="text-sm text-danger">
+        <p aria-live="polite" className="text-sm text-danger">
           {reason}
         </p>
       ) : null}
