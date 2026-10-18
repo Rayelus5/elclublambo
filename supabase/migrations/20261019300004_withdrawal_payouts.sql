@@ -21,7 +21,17 @@
 --   dao_operations: a linked outflow is explained, its note defaults to "Retirada de un miembro" and its hash is shown
 --   only to treasurers (the explorer would reveal the recipient). No column names the counterparty.
 --
+--   Fix round 1: a request with a linked payout candidate (a real payment awaiting verification) cannot be rejected
+--   (invalid_state) nor expired (ruling F4c-R3); dao_operations explains a linked outflow only while its request is
+--   approved (as its candidate or its recorded payout) or paid (as its payout); every payout record, burn and revert
+--   is audited, with a null actor when the cron does it (ruling F4c-R4).
+--
 -- Lock order: request row (for update) -> chain_config (for share) -> dao_state (for update) -> dao_positions.
+-- Exception: record_safe_operations takes chain_config (for share) first and then the matched request row
+-- (for update of w). A concurrent record_withdrawal_payout / reject_withdrawal on that request is waited for and the
+-- match is re-checked after it commits, so a second payment cannot be linked to a request that was just paid or
+-- rejected. Both sides hold chain_config only for share, which do not conflict; a Safe change (chain_config for
+-- update) queued between them can at worst cause a deadlock that Postgres detects and aborts (the cron retries).
 
 -- ===== _dao_liabilities_usd6 (latest 20261019300003): paid requests count for reads before their payout block =====
 create or replace function public._dao_liabilities_usd6(p_chain int, p_at_block bigint)
@@ -42,6 +52,10 @@ as $$
                               else w.status in ('approved', 'paid')
                                    and (w.payout_block is null or w.payout_block > p_at_block) end), 0)
 $$;
+
+-- the paid-row branch of the liabilities reads every recorded payout by block (review minor 3)
+create index withdrawal_requests_payout_block_idx on public.withdrawal_requests (chain_id, payout_block)
+  where status in ('approved', 'paid');
 
 -- ===== _withdrawal_unlink_ops (internal): unlink a request's other outflows; alert each one once =====
 create function public._withdrawal_unlink_ops(p_request uuid, p_keep_hash text, p_keep_log int)
@@ -144,6 +158,13 @@ begin
   if v_to <> w.destination_address or v_amount < w.amount_usdc_locked then
     raise exception 'tx_mismatch';
   end if;
+  -- the scan already saw this log: it must be the same transfer
+  if exists (select 1 from public.dao_safe_operations o
+             where o.chain_id = w.chain_id and o.tx_hash = v_hash and o.log_index = v_log
+               and (o.asset <> 'USDC' or o.direction <> 'out' or o.counterparty is distinct from v_to
+                    or o.amount <> v_amount)) then
+    raise exception 'tx_mismatch';
+  end if;
   if v_at < w.approved_at - interval '120 seconds' then
     raise exception 'tx_too_old';
   end if;
@@ -171,11 +192,10 @@ begin
   set withdrawal_id = w.id
   where chain_id = w.chain_id and tx_hash = v_hash and log_index = v_log and asset = 'USDC' and direction = 'out';
 
-  if p_actor is not null then
-    insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
-    values (p_actor, 'withdrawal_payout_recorded', 'withdrawal_request', w.id, jsonb_build_object(
-      'request', w.id, 'txHash', v_hash, 'logIndex', v_log, 'blockNumber', v_block, 'amount', v_amount::text));
-  end if;
+  -- R4: also when the cron recorded it (null actor)
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (p_actor, 'withdrawal_payout_recorded', 'withdrawal_request', w.id, jsonb_build_object(
+    'request', w.id, 'txHash', v_hash, 'logIndex', v_log, 'blockNumber', v_block, 'amount', v_amount::text));
 
   return jsonb_build_object('status', 'recorded');
 end;
@@ -225,7 +245,7 @@ begin
 
   update public.dao_positions
   set shares = shares - w.shares,
-      locked_shares = 0,
+      locked_shares = greatest(locked_shares - w.shares, 0),
       net_contributed_usdc = greatest(net_contributed_usdc - w.payout_amount, 0),
       updated_at = now()
   where chain_id = w.chain_id and member_id = w.member_id;
@@ -236,6 +256,11 @@ begin
 
   insert into public.notifications (recipient_id, kind, data)
   values (w.member_id, 'withdrawal_paid', jsonb_build_object('requestId', w.id, 'amount', w.payout_amount::text));
+
+  -- R4: the burn is part of the money trail
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (null, 'withdrawal_paid', 'withdrawal_request', w.id, jsonb_build_object(
+    'request', w.id, 'txHash', w.payout_tx_hash, 'amount', w.payout_amount::text, 'shares', w.shares::text));
 
   return jsonb_build_object('status', 'paid');
 end;
@@ -271,6 +296,12 @@ begin
 
   -- its outflow is unexplained again
   perform public._withdrawal_unlink_ops(w.id, null, null);
+
+  -- R4: the cleared payout stays in the money trail
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (null, 'withdrawal_payout_reverted', 'withdrawal_request', w.id, jsonb_build_object(
+    'request', w.id, 'txHash', w.payout_tx_hash, 'logIndex', w.payout_log_index, 'blockNumber', w.payout_block,
+    'amount', w.payout_amount::text));
 end;
 $$;
 
@@ -381,7 +412,8 @@ begin
           and w.destination_address = v_cp and v_amount >= w.amount_usdc_locked
           and v_at >= w.approved_at - interval '120 seconds' and v_at <= w.approved_at + interval '14 days'
         order by w.approved_at, w.id
-        limit 1;
+        limit 1
+        for update of w; -- waits for a concurrent record / reject, then re-checks (header: lock-order exception)
       end if;
     end if;
 
@@ -430,17 +462,28 @@ begin
     raise exception 'forbidden';
   end if;
   v_treasurer := public.has_global_perm(256);
+  -- a link explains the outflow only while its request is approved (as its candidate or its recorded payout) or paid
+  -- (as its payout); any other link (rejected, cancelled, expired, not the payout) shows as an unexplained outflow
   return query
+  with ops as (
+    select o.id, o.asset, o.direction, o.amount, o.tx_hash, o.occurred_at, o.note,
+           coalesce((w.status = 'approved' and (w.payout_tx_hash is null
+                                                or (w.payout_tx_hash = o.tx_hash and w.payout_log_index = o.log_index)))
+                    or (w.status = 'paid' and w.payout_tx_hash = o.tx_hash and w.payout_log_index = o.log_index),
+                    false) as payout
+    from public.dao_safe_operations o
+    left join public.withdrawal_requests w on w.id = o.withdrawal_id
+    where o.chain_id = (select (c.value #>> '{}')::int from public.app_config c where c.key = 'active_chain_id')
+      and o.ledger_id is null
+      and (o.direction = 'out' or o.note is not null or v_treasurer)
+  )
   select o.id, o.asset, o.direction, o.amount::text,
-         case when o.withdrawal_id is not null then case when v_treasurer then o.tx_hash end
+         case when o.payout then case when v_treasurer then o.tx_hash end
               when o.direction = 'out' or v_treasurer then o.tx_hash end,
          o.occurred_at,
-         case when o.withdrawal_id is not null then coalesce(o.note, 'Retirada de un miembro') else o.note end,
-         (o.direction = 'in' or o.note is not null or o.withdrawal_id is not null)
-  from public.dao_safe_operations o
-  where o.chain_id = (select (c.value #>> '{}')::int from public.app_config c where c.key = 'active_chain_id')
-    and o.ledger_id is null
-    and (o.direction = 'out' or o.note is not null or v_treasurer)
+         case when o.payout then coalesce(o.note, 'Retirada de un miembro') else o.note end,
+         (o.direction = 'in' or o.note is not null or o.payout)
+  from ops o
   order by o.occurred_at desc, o.id desc
   limit greatest(1, least(coalesce(p_limit, 30), 100));
 end;
@@ -472,6 +515,10 @@ begin
   if not (w.status = 'pending' or (w.status = 'approved' and w.payout_tx_hash is null)) then
     raise exception 'invalid_state';
   end if;
+  -- fix round 1: a linked payout candidate is a real payment awaiting verification (as for expiry, ruling F4c-R3)
+  if w.status = 'approved' and exists (select 1 from public.dao_safe_operations o where o.withdrawal_id = w.id) then
+    raise exception 'invalid_state';
+  end if;
 
   if w.status = 'approved' then
     -- the shares return to S_eff and the liability to the NAV
@@ -501,6 +548,65 @@ begin
 
   insert into public.notifications (recipient_id, kind, data)
   values (w.member_id, 'withdrawal_rejected', jsonb_build_object('requestId', w.id, 'reason', v_reason));
+end;
+$$;
+
+-- ===== expire_withdrawal_approvals (latest 20261019300003): R3, skip a request with a linked candidate in its window =====
+create or replace function public.expire_withdrawal_approvals()
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_ids uuid[];
+  w public.withdrawal_requests;
+  v_n int := 0;
+begin
+  -- every request row first, in id order (lock order: request rows -> dao_state)
+  select coalesce(array_agg(x.id order by x.id), '{}') into v_ids
+  from (select r.id from public.withdrawal_requests r
+        where r.status = 'approved' and r.payout_tx_hash is null and r.approved_at < now() - interval '14 days'
+          -- F4c-R3: a payment mined inside the window and awaiting verification must not be expired
+          and not exists (select 1 from public.dao_safe_operations o
+                          where o.withdrawal_id = r.id
+                            and o.occurred_at between r.approved_at - interval '120 seconds'
+                                                  and r.approved_at + interval '14 days')
+        order by r.id
+        for update) x;
+
+  for w in select * from public.withdrawal_requests r where r.id = any (v_ids) order by r.id loop
+    update public.dao_state
+    set approved_locked_shares = approved_locked_shares - w.shares,
+        value_usdc = value_usdc + w.amount_usdc_locked,
+        updated_at = now()
+    where chain_id = w.chain_id;
+
+    update public.withdrawal_requests
+    set status = 'pending',
+        amount_usdc_locked = null,
+        approved_by = null,
+        approved_at = null,
+        self_approved = false,
+        last_expired_at = now(),
+        updated_at = now()
+    where id = w.id;
+
+    insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+    values (null, 'withdrawal_expired', 'withdrawal_request', w.id, jsonb_build_object(
+      'request', w.id, 'amount', w.amount_usdc_locked::text, 'approvedAt', w.approved_at));
+
+    insert into public.notifications (recipient_id, kind, data)
+    values (w.member_id, 'withdrawal_expired', jsonb_build_object('requestId', w.id));
+
+    insert into public.notifications (recipient_id, kind, data)
+    select m.id, 'treasury_notice', jsonb_build_object('event', 'approval_expired', 'requestId', w.id)
+    from public.members m
+    where m.status = 'active' and (public.member_global_permissions(m.id) & 256) <> 0;
+
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
 end;
 $$;
 

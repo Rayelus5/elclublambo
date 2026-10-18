@@ -3,7 +3,7 @@
 -- bounded by payout_block also for paid requests (iv), re-approval replaces the cached NAV (v), blank reasons (vi), and
 -- the share-price invariant across approve -> record -> burn / revert at an unchanged Safe valuation.
 begin;
-select plan(127);
+select plan(139);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.xh(p_n int) returns text language sql immutable as $$
@@ -317,6 +317,16 @@ select ok(tests.xopw(205) is null and tests.xalerts(205) = tests.xtreas(), 'date
 select is(tests.xcand(),
   current_setting('t.ra') || ':' || tests.xh(201) || ':0:' || tests.xw('a') || ':8000000:true',
   'the candidates are unchanged');
+-- fix round 1: a linked candidate is a real payment awaiting verification; the request cannot be rejected meanwhile
+select tests.authenticate_as(current_setting('t.ut')::uuid);
+select throws_ok(format('select public.reject_withdrawal(%L, %L)', current_setting('t.ra'), 'motivo'),
+  'invalid_state', 'an approved request with a linked payout candidate cannot be rejected');
+select tests.clear_authentication();
+select is((select status from public.withdrawal_requests where id = current_setting('t.ra')::uuid), 'approved',
+  'and stays approved');
+-- the scan's match locks the request row (a concurrent record / reject is waited for and re-checked)
+select ok((select pg_get_functiondef('public.record_safe_operations(int,text,jsonb,bigint)'::regprocedure)
+           ~* 'limit 1\s+for update of w'), 'the scan''s match query takes the request row lock (for update of w)');
 
 -- ===== 4. record =====
 select set_config('t.pa', tests.xpay(206, 120, now() + interval '2 minutes', tests.xw('a'), 8500000)::text, true);
@@ -392,6 +402,12 @@ select throws_ok(format('select tests.xrec(%L, %L, %L)', current_setting('t.rb')
 select throws_ok(format('select tests.xrec(%L, %L)', current_setting('t.rc'),
                         tests.xpay(301, 130, now() + interval '1 minute', tests.xw('c'), 2000000)),
   'invalid_state', 'a cancelled request raises invalid_state');
+select throws_ok(format('select tests.xrec(%L, %L)', current_setting('t.rb'),
+                        tests.xpay(203, 130, now() + interval '1 minute', tests.xw('b'), 2000000)),
+  'tx_mismatch', 'a payload that disagrees with the scanned operation of the same tx/log (8 USDC) raises tx_mismatch');
+select ok(exists (select 1 from pg_indexes where schemaname = 'public' and tablename = 'withdrawal_requests'
+                  and indexname = 'withdrawal_requests_payout_block_idx'),
+  'the liabilities scan has a partial index on (chain_id, payout_block)');
 select throws_ok(format('select tests.xrec(%L, %L)', gen_random_uuid(),
                         tests.xpay(301, 130, now() + interval '1 minute', tests.xw('b'), 2000000)),
   'not_found', 'an unknown request raises not_found');
@@ -453,6 +469,11 @@ select is(tests.xfin(current_setting('t.ra')::uuid, 500), '{"status": "already"}
 select is((select count(*)::int from public.notifications where recipient_id = current_setting('t.a')::uuid
              and kind = 'withdrawal_paid'), 1, 'and notifies nothing more');
 select is(tests.xstate(), '6000000000000000000:1000000000000000000:9583334', 'and burns nothing more');
+select is((select coalesce(actor_member_id::text, 'null') || ' ' || payload::text from public.audit_log
+           where action = 'withdrawal_paid' and target_id = current_setting('t.ra')::uuid),
+  'null ' || jsonb_build_object('request', current_setting('t.ra'), 'txHash', tests.xh(206), 'amount', '8500000',
+                                'shares', '4000000000000000000')::text,
+  'R4: finalize writes one audit withdrawal_paid (no actor) with the payout and the burned shares');
 -- carry (iv): a read before the payout block still holds the paid USDC, so the paid request still counts there
 select is(tests.xliab(119), 9916666::numeric, 'liabilities at 119 after the burn: A''s 8 (paid at 120) + B''s 1.916666');
 select is(tests.xliab(120), 1916666::numeric, 'from 120 on only B''s');
@@ -465,18 +486,31 @@ select is(tests.xops(jsonb_build_array(tests.xop(210, 1916666, tests.xw('b'), no
   jsonb_build_object('inserted', 1, 'alerts', 0), 'the scan links B''s exact payout without an alert');
 select is(tests.xcand(),
   current_setting('t.rb') || ':' || tests.xh(210) || ':0:' || tests.xw('b') || ':1916666:true', 'B''s payout is a candidate');
+-- R3: aged 15 days with its linked candidate inside the window, the approval does not expire
+update public.withdrawal_requests set approved_at = approved_at - interval '15 days' where id = current_setting('t.rb')::uuid;
+update public.dao_safe_operations set occurred_at = now() - interval '14 days' where id = tests.xopid(210);
+select is(tests.xexp(), 0, 'R3: an approval with a linked candidate inside its window is not expired');
+select is((select status from public.withdrawal_requests where id = current_setting('t.rb')::uuid), 'approved', 'B stays approved');
+update public.withdrawal_requests set approved_at = approved_at + interval '15 days' where id = current_setting('t.rb')::uuid;
+update public.dao_safe_operations set occurred_at = now() + interval '3 minutes' where id = tests.xopid(210);
 select is(tests.xrec(current_setting('t.rb')::uuid, tests.xpay(210, 140, now() + interval '3 minutes', tests.xw('b'), 1916666)),
   '{"status": "recorded"}'::jsonb, 'the cron records it (no actor)');
 select is((select (payout_recorded_by is null)::text from public.withdrawal_requests where id = current_setting('t.rb')::uuid),
   'true', 'detected by the cron: payout_recorded_by is null');
 select is((select count(*)::int from public.audit_log where action = 'withdrawal_payout_recorded'
-             and target_id = current_setting('t.rb')::uuid), 0, 'no audit entry without an actor');
+             and target_id = current_setting('t.rb')::uuid and actor_member_id is null), 1,
+  'R4: a cron-recorded payout is audited with a null actor');
 select is(tests.xawait(),
   current_setting('t.rb') || ':' || tests.xh(210) || ':' || tests.xw('b') || ':1916666:140:true:true',
   'B awaits finality (A is paid and gone from the list)');
 select throws_ok(format('select tests.xrev(%L)', current_setting('t.ra')), 'invalid_state', 'a paid request cannot be reverted');
 select throws_ok(format('select tests.xrev(%L)', current_setting('t.rc')), 'invalid_state', 'a cancelled request cannot be reverted');
 select lives_ok(format('select tests.xrev(%L)', current_setting('t.rb')), 'B''s payout is reverted');
+select is((select payload from public.audit_log where action = 'withdrawal_payout_reverted'
+             and target_id = current_setting('t.rb')::uuid and actor_member_id is null),
+  jsonb_build_object('request', current_setting('t.rb'), 'txHash', tests.xh(210), 'logIndex', 0, 'blockNumber', 140,
+                     'amount', '1916666'),
+  'R4: the revert is audited with the payout it cleared');
 select is((select status || ':' || coalesce(payout_tx_hash, '-') || ':' || coalesce(payout_block::text, '-') || ':'
                   || coalesce(payout_amount::text, '-') || ':' || (payout_recorded_at is null)
            from public.withdrawal_requests where id = current_setting('t.rb')::uuid),
@@ -500,6 +534,16 @@ select ok((select not exists (select 1 from unnest(p.proargnames) a
                               where a ~* 'counterparty|destination|wallet|member|recipient')
            from pg_proc p where p.oid = 'public.dao_operations(int)'::regprocedure),
   'no dao_operations column names the counterparty');
+-- defense in depth: a link to a request that is neither approved nor paid explains nothing
+update public.dao_safe_operations set withdrawal_id = current_setting('t.rc')::uuid where id = tests.xopid(204);
+select is(tests.xfeed(current_setting('t.ut')::uuid, 204), tests.xh(204) || '|-|false',
+  'an outflow linked to a cancelled request is unexplained for treasurers');
+select is(tests.xfeed(current_setting('t.ub')::uuid, 204), tests.xh(204) || '|-|false',
+  'and for members, with its hash like any unexplained outflow');
+update public.dao_safe_operations set withdrawal_id = current_setting('t.ra')::uuid where id = tests.xopid(205);
+select is(tests.xfeed(current_setting('t.ub')::uuid, 205), tests.xh(205) || '|-|false',
+  'an outflow linked to a paid request that is not its payout is unexplained');
+update public.dao_safe_operations set withdrawal_id = null where id in (tests.xopid(204), tests.xopid(205));
 
 -- ===== 10. invariant: another holder's price at an unchanged Safe valuation =====
 -- Safe: 11.916666 USDC. Liabilities: B's 1.916666. NAV 10 over S_eff 5 -> 2 USDC.
