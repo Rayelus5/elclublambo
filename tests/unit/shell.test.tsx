@@ -11,7 +11,6 @@ vi.mock("@/lib/supabase/browser", () => ({
 }));
 
 import { Sidebar } from "@/components/shell/sidebar";
-import { RightRail } from "@/components/shell/right-rail";
 
 const WALLET = "0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" as const;
 
@@ -190,9 +189,4 @@ describe("Sidebar", () => {
   });
 });
 
-describe("RightRail", () => {
-  it("shows the Próximamente placeholder", () => {
-    render(<RightRail />);
-    expect(screen.getByText("Próximamente")).toBeInTheDocument();
-  });
-});
+// RightRail: tests/unit/shell/right-rail.test.tsx

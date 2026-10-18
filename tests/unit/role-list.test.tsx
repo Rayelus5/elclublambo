@@ -29,7 +29,7 @@ const ROLES = [
   role("ver", "Verificado", 20, { systemKey: "verified" }),
   role("ev", "@everyone", 0, { isEveryone: true }),
 ];
-const admin = { isAdmin: true, top: 1000 };
+const admin = { isAdmin: true, top: 1000, perms: "1023" };
 
 beforeEach(() => {
   refresh.mockReset();
@@ -48,7 +48,7 @@ describe("RoleList drag & drop", () => {
   });
 
   it("a delegate gets no handle on roles they cannot move", () => {
-    render(<RoleList roles={ROLES} actor={{ isAdmin: false, top: 500 }} />);
+    render(<RoleList roles={ROLES} actor={{ isAdmin: false, top: 500, perms: "64" }} />);
     expect(screen.queryByRole("button", { name: "Reordenar Moderador" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reordenar Verificado" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reordenar Soporte" })).toBeInTheDocument();
