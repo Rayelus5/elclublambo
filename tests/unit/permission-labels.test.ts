@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHANNEL_BIT_LIST, PERM_LABEL, SELECTABLE_BIT_LIST } from "@/lib/permissions/labels";
+import { CHANNEL_BIT_LIST, PERM_LABEL, SAFE_ROLE_MASK, SELECTABLE_BIT_LIST } from "@/lib/permissions/labels";
 import { CHANNEL_MASK, Perm } from "@/lib/permissions/bits";
 import { settingsSections } from "@/lib/permissions/settings";
 import { cycleState, getState, setState } from "@/lib/permissions/overwrite-state";
@@ -17,6 +17,10 @@ describe("permission labels", () => {
 
   it("labels CREATE_BOUNTIES as Crear bounties", () => {
     expect(PERM_LABEL.get(Perm.CREATE_BOUNTIES)).toBe("Crear bounties");
+  });
+
+  it("SAFE_ROLE_MASK matches the SQL member-safe mask 76823", () => {
+    expect(SAFE_ROLE_MASK).toBe(76823n);
   });
 
   it("exposes the 10 channel bits and 16 selectable bits", () => {

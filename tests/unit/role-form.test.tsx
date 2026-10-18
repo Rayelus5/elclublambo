@@ -96,6 +96,16 @@ describe("RoleForm", () => {
     expect(screen.getByLabelText("Adjuntar imágenes")).toBeEnabled();
   });
 
+  it("system/@everyone roles: non-admins only get the SQL member-safe bits (no moderation or tickets)", () => {
+    render(<RoleForm role={role({ isEveryone: true, name: "@everyone", position: 0 })} actor={actor({ perms: "131071" })} />);
+    expect(screen.getByLabelText("Moderar mensajes")).toBeDisabled();
+    expect(screen.getByLabelText("Mencionar a todos")).toBeDisabled();
+    expect(screen.getByLabelText("Gestionar tickets")).toBeDisabled();
+    expect(screen.getByLabelText("Ver canal")).toBeEnabled();
+    expect(screen.getByLabelText("Crear bounties")).toBeEnabled();
+    expect(screen.getByLabelText("Crear invitaciones")).toBeEnabled();
+  });
+
   it("@everyone: only permissions are editable", () => {
     render(
       <RoleForm

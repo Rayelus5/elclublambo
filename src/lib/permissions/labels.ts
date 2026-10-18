@@ -1,4 +1,4 @@
-import { CHANNEL_MASK, Perm } from "@/lib/permissions/bits";
+import { Perm } from "@/lib/permissions/bits";
 
 export type BitLabel = { bit: bigint; label: string };
 
@@ -31,5 +31,17 @@ export const SELECTABLE_BIT_LIST: readonly BitLabel[] = [...GLOBAL_BIT_LIST, ...
 
 export const PERM_LABEL: ReadonlyMap<bigint, string> = new Map(SELECTABLE_BIT_LIST.map((b) => [b.bit, b.label]));
 
-/** Bits que un rol de sistema o @everyone puede tener si quien edita no es admin. */
-export const SAFE_ROLE_MASK = CHANNEL_MASK | Perm.CREATE_INVITES;
+/**
+ * Bits que un rol de sistema o @everyone puede tener si quien edita no es admin. Debe ser idéntico a la máscara
+ * "member-safe" del SQL (76823, update_role / set_overwrite): ver, enviar, responder en hilos, crear invitaciones,
+ * adjuntar, insertar enlaces, reaccionar y crear bounties.
+ */
+export const SAFE_ROLE_MASK =
+  Perm.VIEW_CHANNEL |
+  Perm.SEND_MESSAGES |
+  Perm.SEND_IN_THREADS |
+  Perm.CREATE_INVITES |
+  Perm.ATTACH_FILES |
+  Perm.EMBED_LINKS |
+  Perm.ADD_REACTIONS |
+  Perm.CREATE_BOUNTIES;

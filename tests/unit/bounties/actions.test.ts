@@ -126,4 +126,13 @@ describe("createBountyPaymentIntentAction", () => {
     const r = await createBountyPaymentIntentAction({ bountyId: B, amount: "10", feeBps: 500 });
     expect((r as { error: string }).error).toContain(copy);
   });
+  it("a failed token read is transient (unknown, retry), never not_found", async () => {
+    rpc.mockImplementation(async (name: string) => (name === "bounty_details" ? { data: null, error: { message: "timeout" } } : { data: intent, error: null }));
+    expect(await createBountyPaymentIntentAction({ bountyId: B, amount: "10", feeBps: 500 })).toMatchObject({ ok: false, code: "unknown" });
+    expect(rpc).not.toHaveBeenCalledWith("create_bounty_payment_intent", expect.anything());
+  });
+  it("a token read that succeeds with no row is not_found", async () => {
+    rpc.mockImplementation(async (name: string) => (name === "bounty_details" ? { data: [], error: null } : { data: intent, error: null }));
+    expect(await createBountyPaymentIntentAction({ bountyId: B, amount: "10", feeBps: 500 })).toMatchObject({ ok: false, code: "not_found" });
+  });
 });

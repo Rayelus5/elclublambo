@@ -77,6 +77,7 @@ export async function createBountyPaymentIntentAction(input: {
   const supabase = await createServerClient();
   // The amount is typed in the bounty's own token, which the client does not send: read it (RLS-scoped) to scale it.
   const token = await bountyToken(supabase, bountyId);
+  if (token === "error") return fail("unknown");
   if (!token) return fail("not_found");
   const units = parseAmount(amount, token);
   if (units === null || units <= 0n) return fail("invalid_input");
@@ -90,8 +91,10 @@ export async function createBountyPaymentIntentAction(input: {
   return { ok: true, intent: data as TipIntent };
 }
 
-async function bountyToken(supabase: Awaited<ReturnType<typeof createServerClient>>, bountyId: string): Promise<Token | null> {
-  const { data } = await supabase.rpc("bounty_details", { p_message_ids: [bountyId] });
-  const row = Array.isArray(data) ? (data[0] as { token?: unknown } | undefined) : undefined;
+/** The bounty's token; null only when the read succeeded with no visible bounty, "error" when the read failed (transient). */
+async function bountyToken(supabase: Awaited<ReturnType<typeof createServerClient>>, bountyId: string): Promise<Token | null | "error"> {
+  const { data, error } = await supabase.rpc("bounty_details", { p_message_ids: [bountyId] });
+  if (error || !Array.isArray(data)) return "error";
+  const row = data[0] as { token?: unknown } | undefined;
   return isToken(row?.token) ? row.token : null;
 }
