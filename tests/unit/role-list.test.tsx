@@ -92,4 +92,21 @@ describe("RoleList drag & drop", () => {
     expect(names.findIndex((n) => n.includes("Moderador"))).toBeLessThan(names.findIndex((n) => n.includes("Soporte")));
     spy.mockRestore();
   });
+
+  it("a delegate dropping a role at or above their own rank is told so without calling the server", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      const i = this.tagName === "LI" ? [...document.querySelectorAll("li")].indexOf(this as HTMLLIElement) : 0;
+      const top = Math.max(i, 0) * 48;
+      return { x: 0, y: top, top, left: 0, right: 400, bottom: top + 48, width: 400, height: 48, toJSON: () => ({}) };
+    });
+    render(<RoleList roles={ROLES} actor={{ isAdmin: false, top: 500, perms: "64" }} />);
+    screen.getByRole("button", { name: "Reordenar Soporte" }).focus();
+    await user.keyboard(" ");
+    await user.keyboard("{ArrowUp}");
+    await user.keyboard(" ");
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(moveRoleAction).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });

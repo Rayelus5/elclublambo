@@ -2,10 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ path: "/", rpc: vi.fn(), topic: vi.fn() }));
+const h = vi.hoisted(() => ({ path: "/", rpc: vi.fn(), topic: vi.fn(), desktop: true }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc: h.rpc }) }));
 vi.mock("@/lib/realtime/private-topic", () => ({ usePrivateTopic: h.topic }));
+vi.mock("@/lib/use-media-query", () => ({ useMediaQuery: () => h.desktop }));
 
 import { RightRail } from "@/components/shell/right-rail";
 import { ShellGrid } from "@/components/shell/shell-grid";
@@ -13,6 +14,7 @@ import { ShellGrid } from "@/components/shell/shell-grid";
 const CH = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
+  h.desktop = true;
   localStorage.clear();
   h.topic.mockReset();
   h.rpc.mockReset().mockImplementation(async (fn: string) => {
@@ -66,5 +68,13 @@ describe("RightRail", () => {
     h.rpc.mockImplementation(async () => ({ data: null, error: { message: "not_found" } }));
     renderRail();
     expect(await screen.findByText("No se pudo cargar el canal.")).toBeInTheDocument();
+  });
+
+  it("below desktop width it neither fetches nor subscribes (the rail is not shown there)", () => {
+    h.desktop = false;
+    h.path = "/";
+    renderRail();
+    expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.topic).not.toHaveBeenCalled();
   });
 });

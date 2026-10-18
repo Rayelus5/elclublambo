@@ -31,7 +31,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { RoleForm, type FormActor } from "@/components/settings/role-form";
 import { rpcErrorMessage } from "@/lib/errors";
 import { deleteRoleAction, moveRoleAction } from "@/lib/roles/actions";
-import { canDragRole, canManageRole, dropPosition, type RoleItem } from "@/lib/roles/rules";
+import { canDragRole, canManageRole, canMoveTo, dropPosition, type RoleItem } from "@/lib/roles/rules";
 import { cn } from "@/lib/utils";
 
 const ICON_BUTTON =
@@ -147,6 +147,11 @@ export function RoleList({ roles, actor }: Props) {
     if (from < 0 || to < 0 || !target || target.isSystem || target.isEveryone) return;
     const next = arrayMove(ids, from, to);
     const position = dropPosition(next.map((id) => byId.get(id)!), String(active.id));
+    // A slot at or above the actor's own rank would bounce off move_role: say so without a round trip.
+    if (!canMoveTo(position, actor)) {
+      setError(rpcErrorMessage("hierarchy"));
+      return;
+    }
     setError(null);
     setOptimistic({ base: baseKey, ids: next });
     startTransition(async () => {

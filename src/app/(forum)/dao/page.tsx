@@ -16,7 +16,7 @@ import { balanceSeries, donutSlices } from "@/lib/treasury/charts";
 import { finalitySnapshot } from "@/lib/treasury/finality";
 import { getLastReconciliation } from "@/lib/treasury/last-run";
 import { getDaoHistory, getDaoOverview, getDaoRanking } from "@/lib/treasury/queries";
-import { settlePendingDonations } from "@/lib/treasury/settle";
+import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/settle";
 
 export const metadata: Metadata = { title: "DAO" };
 
@@ -43,7 +43,9 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   // Viewing the DAO settles whatever is already final (anyone's, a few per view) without waiting for the cron or the
   // donor's next visit; a credit then reaches every open /dao through DaoLive.
   const chainId = overview.chainId;
-  after(() => settlePendingDonations(chainId, { limit: 5 }).catch((e) => console.error("[treasury] dao page settle failed", e)));
+  if (shouldSettleFromView()) {
+    after(() => settlePendingDonations(chainId, { limit: 5 }).catch((e) => console.error("[treasury] dao page settle failed", e)));
+  }
 
   return (
     <div className="flex w-full flex-col gap-8">

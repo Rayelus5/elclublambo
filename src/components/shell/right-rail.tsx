@@ -20,6 +20,7 @@ import {
 import { formatAmount } from "@/lib/payments/amounts";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
 import { createBrowserClient } from "@/lib/supabase/browser";
+import { useMediaQuery } from "@/lib/use-media-query";
 
 const CHANNEL_PATH = /^\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
 const ROW =
@@ -39,16 +40,30 @@ type Load<T> = { status: "loading" } | { status: "ready"; data: T } | { status: 
 /** Inside a channel: its topic, how many members can see it, its pins and open bounties. */
 function ChannelRail({ channelId }: { channelId: string }) {
   const [state, setState] = useState<Load<{ overview: ChannelOverview; pins: HomePin[]; bounties: HomeBounty[] }>>({ status: "loading" });
+  const [version, setVersion] = useState(0);
   useEffect(() => {
     let alive = true;
     const supabase = createBrowserClient();
     Promise.all([getChannelOverview(supabase, channelId), getHomePins(supabase, 5, channelId), getOpenBounties(supabase, 5, channelId)])
       .then(([overview, pins, bounties]) => alive && setState({ status: "ready", data: { overview, pins, bounties } }))
-      .catch(() => alive && setState({ status: "error" }));
+      .catch(() => alive && setState((s) => (s.status === "ready" ? s : { status: "error" })));
     return () => {
       alive = false;
     };
-  }, [channelId]);
+  }, [channelId, version]);
+  // A new bounty (or a tip/donation) anywhere refreshes the open-bounty list; pins refresh on the next visit.
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+  const bump = () => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setVersion((v) => v + 1), 300);
+  };
+  usePrivateTopic("activity", "activity_changed", { onEvent: bump, onResync: bump });
 
   if (state.status === "loading") return <p className="px-2 text-sm text-fg-muted">Cargando…</p>;
   if (state.status === "error") return <p className="px-2 text-sm text-fg-muted">No se pudo cargar el canal.</p>;
@@ -141,6 +156,9 @@ export function RightRail() {
   const pathname = usePathname() ?? "/";
   const channelId = CHANNEL_PATH.exec(pathname)?.[1] ?? null;
   const { collapsed, setCollapsed } = useRail();
+  // Hidden below lg: do not fetch or hold a realtime channel for a panel nobody sees.
+  const desktop = useMediaQuery("(min-width: 1024px)");
+  if (!desktop) return <aside aria-hidden className="hidden" />;
 
   if (collapsed) {
     return (

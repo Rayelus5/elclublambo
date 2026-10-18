@@ -166,10 +166,16 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     return () => ro.disconnect();
   }, []);
   const panelWidth = chatWidth > 0 ? clampThreadWidth(threadWidth, chatWidth) : threadWidth;
-  const resizeThread = (w: number) => {
-    setThreadWidth(w);
-    saveThreadWidth(w);
-  };
+  const resizeThread = (w: number) => setThreadWidth(w);
+  const savedWidth = useRef<number | null>(null);
+  useEffect(() => {
+    if (savedWidth.current === null) {
+      savedWidth.current = threadWidth; // the loaded value: nothing to save
+      return;
+    }
+    const t = setTimeout(() => saveThreadWidth(threadWidth), 400);
+    return () => clearTimeout(t);
+  }, [threadWidth]);
 
   const mergeDir = useCallback((extra: Directory) => setDirectory((d) => mergeDirectory(d, extra)), []);
 
