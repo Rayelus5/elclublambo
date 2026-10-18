@@ -9,7 +9,7 @@ import { TipProfileButton } from "@/components/payments/tip-profile-button";
 import { ProfileLinks } from "@/components/profile/profile-links";
 import { TipsReceived } from "@/components/profile/tips-received";
 import { getEconomyConfig } from "@/lib/economy/config";
-import { getMemberTips, type TipEntry } from "@/lib/payments/queries";
+import { getMemberTipTotals, getMemberTips } from "@/lib/payments/queries";
 import { HANDLE_RE } from "@/lib/members/handle";
 import { identityFromRow, memberName } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
@@ -67,11 +67,16 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
   const allowedDomains = (domains.data ?? []).map((d: { domain: string }) => d.domain);
   const links = Array.isArray(member.links) ? member.links.filter((l): l is string => typeof l === "string") : [];
 
-  // Totals add up to the 100 most recent tips (the RPC cap); the list shows 20. A failed read hides the section.
-  const tipsPromise = Promise.all([getMemberTips(supabase, member.id, 100), getEconomyConfig()]).then(
-    ([entries, config]): { entries: TipEntry[]; activeChainId: typeof config.activeChainId } => ({ entries, activeChainId: config.activeChainId }),
-    () => null,
-  );
+  // Exact per-chain totals come from the server (uncapped); the list is the 20 most recent. A failed read hides the section.
+  const tipsPromise = getEconomyConfig()
+    .then(async (config) => {
+      const [entries, totals] = await Promise.all([
+        getMemberTips(supabase, member.id),
+        getMemberTipTotals(supabase, member.id, config.activeChainId),
+      ]);
+      return { entries, totals, activeChainId: config.activeChainId };
+    })
+    .catch(() => null);
   const [sponsorRes, inviteesRes, tips] = await Promise.all([
     member.invited_by_member_id
       ? supabase.from("members").select(COLUMNS).eq("id", member.invited_by_member_id).maybeSingle<DbMember>()
@@ -121,7 +126,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
         </p>
       </header>
 
-      {tips ? <TipsReceived entries={tips.entries} activeChainId={tips.activeChainId} /> : null}
+      {tips ? <TipsReceived entries={tips.entries} totals={tips.totals} activeChainId={tips.activeChainId} /> : null}
 
       <SponsorTree sponsor={sponsor} invitees={invitees} />
     </div>

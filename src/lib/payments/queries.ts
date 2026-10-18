@@ -46,13 +46,16 @@ function units(text: unknown, fallback: unknown): bigint {
   return 0n;
 }
 
-/** Totals per message, tokens ordered USDC then ETH. Never throws: a failed read just shows no badge. */
-export async function getTipSummaries(supabase: SupabaseClient, messageIds: readonly string[]): Promise<Map<string, TipTotal[]>> {
+/**
+ * Totals per message, tokens ordered USDC then ETH. Never throws: null means the read FAILED (callers keep what they
+ * show); an empty map means nobody tipped any of the messages.
+ */
+export async function getTipSummaries(supabase: SupabaseClient, messageIds: readonly string[]): Promise<Map<string, TipTotal[]> | null> {
   const out = new Map<string, TipTotal[]>();
   if (messageIds.length === 0) return out;
   try {
     const { data, error } = await supabase.rpc("tips_summary", { p_message_ids: [...messageIds] });
-    if (error || !Array.isArray(data)) return out;
+    if (error || !Array.isArray(data)) return null;
     for (const r of data as Array<{ message_id: string; token: unknown; total: unknown; total_text?: unknown; tip_count: number }>) {
       if (!isToken(r.token)) continue;
       const list = out.get(r.message_id) ?? [];
@@ -61,9 +64,18 @@ export async function getTipSummaries(supabase: SupabaseClient, messageIds: read
     }
     for (const list of out.values()) list.sort((a, b) => TOKEN_ORDER[a.token] - TOKEN_ORDER[b.token]);
   } catch {
-    return new Map();
+    return null;
   }
   return out;
+}
+
+/** Exact totals per token of the tips a member received on one chain (server-side sum, no cap). USDC then ETH. */
+export async function getMemberTipTotals(supabase: SupabaseClient, memberId: string, chainId: ChainId): Promise<TipTotal[]> {
+  const { data, error } = await supabase.rpc("member_tips_totals", { p_member: memberId, p_chain: chainId });
+  if (error) throw error;
+  return ((data ?? []) as Array<{ token: unknown; total_text: unknown; tip_count: number }>)
+    .flatMap((r): TipTotal[] => (isToken(r.token) ? [{ token: r.token, total: units(r.total_text, null), count: Number(r.tip_count) }] : []))
+    .sort((a, b) => TOKEN_ORDER[a.token] - TOKEN_ORDER[b.token]);
 }
 
 interface TipRow {

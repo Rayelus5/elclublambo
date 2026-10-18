@@ -178,7 +178,7 @@ export async function hydrateMessages(
       createdAt: r.created_at,
       attachments: attachmentsByMessage.get(r.id) ?? [],
       reactions: reactions.get(r.id) ?? [],
-      tips: tipSummaries.get(r.id) ?? [],
+      tips: tipSummaries?.get(r.id) ?? [],
       tipId: r.kind === "system" ? (r.tip_id ?? null) : null,
       tipLink: r.kind === "system" && r.tip_id ? (tipLinks.get(r.tip_id) ?? null) : null,
     }),

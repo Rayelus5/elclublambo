@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { donorLabel, getMemberTips, getMessageTips, getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
+import { donorLabel, getMemberTipTotals, getMemberTips, getMessageTips, getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
 
 const M1 = "11111111-1111-4111-8111-111111111111";
 const M2 = "22222222-2222-4222-8222-222222222222";
@@ -22,7 +22,7 @@ describe("getTipSummaries", () => {
         { message_id: M2, token: "ETH", total: 1.2345678901234568e19, tip_count: 1, total_text: "12345678901234567890" },
       ],
     });
-    const map = await getTipSummaries(supabase as never, [M1, M2]);
+    const map = (await getTipSummaries(supabase as never, [M1, M2]))!;
     expect(map.get(M1)).toEqual([
       { token: "USDC", total: 12_500_000n, count: 2 },
       { token: "ETH", total: 1_000_000_000_000_000n, count: 1 },
@@ -32,10 +32,10 @@ describe("getTipSummaries", () => {
 
   it("does not call the database for no ids and swallows failures", async () => {
     const supabase = client({});
-    expect((await getTipSummaries(supabase as never, [])).size).toBe(0);
+    expect((await getTipSummaries(supabase as never, []))?.size).toBe(0);
     expect(supabase.rpc).not.toHaveBeenCalled();
     const broken = { rpc: vi.fn(async () => ({ data: null, error: { message: "x" } })) };
-    expect((await getTipSummaries(broken as never, [M1])).size).toBe(0);
+    expect(await getTipSummaries(broken as never, [M1])).toBeNull();
   });
 });
 
@@ -78,5 +78,22 @@ describe("getTipNoticeLinks", () => {
     const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 59144, main_tx_hash: HASH }] });
     const map = await getTipNoticeLinks(supabase as never, ["t1"]);
     expect(map.get("t1")).toEqual({ chainId: 59144, txHash: HASH });
+  });
+});
+
+describe("getMemberTipTotals", () => {
+  it("reads the server-side totals for the chain, USDC then ETH, exact", async () => {
+    const supabase = client({
+      member_tips_totals: [
+        { token: "ETH", total_text: "12345678901234567890", tip_count: 1 },
+        { token: "USDC", total_text: "155000000", tip_count: 151 },
+      ],
+    });
+    const totals = await getMemberTipTotals(supabase as never, M1, 59141);
+    expect(totals).toEqual([
+      { token: "USDC", total: 155_000_000n, count: 151 },
+      { token: "ETH", total: 12_345_678_901_234_567_890n, count: 1 },
+    ]);
+    expect(supabase.rpc).toHaveBeenCalledWith("member_tips_totals", { p_member: M1, p_chain: 59141 });
   });
 });

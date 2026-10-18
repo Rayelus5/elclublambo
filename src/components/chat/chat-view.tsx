@@ -262,7 +262,12 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     async (rootId: string) => {
       const open = threadRef.current;
       const ids = [rootId, ...(open && open.rootId === rootId ? open.replies.filter((m) => m.kind !== "system").map((m) => m.id) : [])];
+      const key = `tips:${rootId}`;
+      const ticket = (requests.current.get(key) ?? 0) + 1;
+      requests.current.set(key, ticket);
       const summaries = await getTipSummaries(createBrowserClient(), ids);
+      // A failed read keeps the badges on screen; an older answer never overwrites a newer one.
+      if (!summaries || requests.current.get(key) !== ticket) return;
       for (const id of ids) patchMessage(id, (m) => ({ ...m, tips: summaries.get(id) ?? [] }));
     },
     [patchMessage],

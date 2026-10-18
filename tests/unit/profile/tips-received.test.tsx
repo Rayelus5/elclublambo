@@ -18,22 +18,23 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
 });
 
 describe("TipsReceived", () => {
-  it("totals per token for the active chain only", () => {
+  it("shows the server totals of the active chain as a labelled list", () => {
     render(
       <TipsReceived
         activeChainId={59141}
-        entries={[
-          entry({ tipId: "1", amount: 5_000_000n }),
-          entry({ tipId: "2", amount: 2_500_000n }),
-          entry({ tipId: "3", token: "ETH", amount: 1_000_000_000_000_000n }),
-          entry({ tipId: "4", amount: 700_000_000n, chainId: 59144 }),
+        totals={[
+          { token: "USDC", total: 7_500_000n, count: 2 },
+          { token: "ETH", total: 1_000_000_000_000_000n, count: 1 },
         ]}
+        entries={[entry({ tipId: "4", amount: 700_000_000n, chainId: 59144 })]}
       />,
     );
-    const totals = screen.getByLabelText(/totales/i);
+    expect(screen.getByText("Totales en Linea Sepolia")).toBeInTheDocument();
+    const totals = document.querySelector("dl")!;
+    expect(totals).toHaveAttribute("aria-labelledby", "tips-totals-title");
     expect(totals.textContent).toContain("7,5 USDC");
     expect(totals.textContent).toContain("0,001 ETH");
-    expect(totals.textContent).not.toContain("707");
+    // the listed tip of another chain is not added to the totals
     expect(totals.textContent).not.toContain("700");
   });
 
@@ -41,18 +42,24 @@ describe("TipsReceived", () => {
     render(
       <TipsReceived
         activeChainId={59141}
+        totals={[{ token: "USDC", total: 15_000_000n, count: 3 }]}
         entries={[entry({ tipId: "1" }), entry({ tipId: "2", donorName: null, anonymous: true }), entry({ tipId: "3", isMe: true, anonymous: true, donorName: "Yo" })]}
       />,
     );
-    const list = screen.getByRole("list");
+    const list = screen.getAllByRole("list").at(-1)!;
     expect(within(list).getByText("Dona")).toBeInTheDocument();
     expect(within(list).getByText("Anónimo")).toBeInTheDocument();
     expect(within(list).getByText("Tú (anónimo)")).toBeInTheDocument();
     expect(within(list).getAllByRole("link", { name: /ver transacción/i })[0]).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
   });
 
+  it("says there are none on the active chain when only other chains have tips", () => {
+    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ chainId: 59144 })]} />);
+    expect(screen.getByText("Sin propinas en Linea Sepolia.")).toBeInTheDocument();
+  });
+
   it("says there are none yet", () => {
-    render(<TipsReceived activeChainId={59141} entries={[]} />);
+    render(<TipsReceived activeChainId={59141} totals={[]} entries={[]} />);
     expect(screen.getByText(/todavía no hay propinas/i)).toBeInTheDocument();
   });
 });
