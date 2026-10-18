@@ -25,6 +25,7 @@ import { MessageEdit } from "@/components/chat/message-edit";
 import { SystemNotice } from "@/components/chat/system-notice";
 import { ReactionBar } from "@/components/chat/reaction-bar";
 import { MemberAvatar } from "@/components/members/member-avatar";
+import { MemberCardTrigger } from "@/components/members/member-card";
 import { TipDialog } from "@/components/payments/tip-dialog";
 import { TipsBadge } from "@/components/payments/tips-badge";
 import { ReportDialog } from "@/components/reports/report-dialog";
@@ -241,6 +242,10 @@ export function MessageItem({
       <div className="w-9 shrink-0">
         {grouped ? (
           <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+        ) : authorId ? (
+          <MemberCardTrigger memberId={authorId} label={name} className="block">
+            <MemberAvatar member={identity} size={32} />
+          </MemberCardTrigger>
         ) : (
           <MemberAvatar member={identity} size={32} />
         )}
@@ -249,9 +254,13 @@ export function MessageItem({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         {grouped ? null : (
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-display font-bold text-fg" title={author?.walletAddress}>
-              {name}
-            </span>
+            {authorId ? (
+              <MemberCardTrigger memberId={authorId} label={name} className="font-display font-bold text-fg hover:underline">
+                {name}
+              </MemberCardTrigger>
+            ) : (
+              <span className="font-display font-bold text-fg">{name}</span>
+            )}
             {author?.displayName?.trim() && author.handle ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
             <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />
             {message.pinnedAt && !deleted ? (

@@ -137,7 +137,6 @@ export const messageHref = (channelId: string, messageId: string) => `/c/${chann
 export interface ChannelOverview {
   name: string;
   topic: string | null;
-  memberCount: number;
 }
 
 /** One channel for the rail; a hidden or missing channel raises not_found (the rail then shows nothing). */
@@ -145,5 +144,5 @@ export async function getChannelOverview(supabase: Client, channelId: string): P
   const { data, error } = await supabase.rpc("channel_overview", { p_channel: channelId });
   if (error) throw new Error(error.message);
   const o = (data ?? {}) as Row;
-  return { name: str(o.name), topic: strOrNull(o.topic), memberCount: Number(o.memberCount ?? 0) };
+  return { name: str(o.name), topic: strOrNull(o.topic) };
 }

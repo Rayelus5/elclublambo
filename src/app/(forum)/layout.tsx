@@ -7,6 +7,7 @@ import { EconomyProvider } from "@/components/payments/economy-provider";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { SearchProvider } from "@/components/search/search-provider";
 import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
+import { PresenceHeartbeat } from "@/components/members/presence-heartbeat";
 import { RightRail } from "@/components/shell/right-rail";
 import { ShellGrid } from "@/components/shell/shell-grid";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -107,6 +108,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   return (
     <EconomyProvider config={economy} wallet={wallet} memberId={memberId}>
     <PendingSendsSync memberId={memberId} />
+    <PresenceHeartbeat />
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>

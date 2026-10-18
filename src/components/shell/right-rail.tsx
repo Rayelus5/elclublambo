@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PanelRightClose, PanelRightOpen, Pin, Target, Users } from "lucide-react";
+import { PanelRightClose, PanelRightOpen, Pin, Target } from "lucide-react";
 import { ActivityList } from "@/components/home/activity-list";
+import { MemberAvatar } from "@/components/members/member-avatar";
+import { MemberCardTrigger, PresenceDot } from "@/components/members/member-card";
 import { useRail } from "@/components/shell/shell-grid";
 import {
   getChannelOverview,
@@ -17,10 +19,13 @@ import {
   type HomeBounty,
   type HomePin,
 } from "@/lib/home/queries";
+import { getChannelMembers, type ChannelMember } from "@/lib/members/card";
+import { memberName } from "@/lib/members/name";
 import { formatAmount } from "@/lib/payments/amounts";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { cn } from "@/lib/utils";
 
 const CHANNEL_PATH = /^\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
 const ROW =
@@ -37,7 +42,78 @@ function RailSection({ title, children }: { title: string; children: ReactNode }
 
 type Load<T> = { status: "loading" } | { status: "ready"; data: T } | { status: "error" };
 
-/** Inside a channel: its topic, how many members can see it, its pins and open bounties. */
+const MEMBERS_REFRESH_MS = 60_000;
+
+function MemberRow({ m }: { m: ChannelMember }) {
+  const name = memberName(m);
+  return (
+    <li>
+      <MemberCardTrigger
+        memberId={m.id}
+        label={name}
+        className={cn("flex min-h-11 w-full items-center gap-2 px-2 py-1 text-sm hover:bg-surface-2", !m.online && "opacity-60")}
+      >
+        <span className="relative shrink-0">
+          <MemberAvatar member={m} size={24} />
+          <PresenceDot online={m.online} className="absolute -right-0.5 -bottom-0.5 ring-2 ring-surface" />
+        </span>
+        <span className="min-w-0 flex-1 truncate text-fg">{name}</span>
+        {m.roleColor ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: m.roleColor }} /> : null}
+      </MemberCardTrigger>
+    </li>
+  );
+}
+
+/** Who can read the channel, online first (server-authoritative presence, refreshed every minute). */
+function ChannelMembers({ channelId }: { channelId: string }) {
+  const [state, setState] = useState<Load<ChannelMember[]>>({ status: "loading" });
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      getChannelMembers(createBrowserClient(), channelId)
+        .then((data) => alive && setState({ status: "ready", data }))
+        .catch(() => alive && setState((s) => (s.status === "ready" ? s : { status: "error" })));
+    void load();
+    const timer = setInterval(() => {
+      if (document.visibilityState === "visible") void load();
+    }, MEMBERS_REFRESH_MS);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [channelId]);
+
+  if (state.status === "loading") return <p className="px-2 text-sm text-fg-muted">Cargando miembros…</p>;
+  if (state.status === "error") return <p className="px-2 text-sm text-fg-muted">No se pudieron cargar los miembros.</p>;
+  const online = state.data.filter((m) => m.online);
+  const offline = state.data.filter((m) => !m.online);
+  return (
+    <div className="flex flex-col gap-4">
+      <RailSection title={`En línea — ${online.length}`}>
+        {online.length === 0 ? (
+          <p className="px-2 text-sm text-fg-muted">Nadie conectado ahora.</p>
+        ) : (
+          <ul aria-label="Miembros en línea" className="flex flex-col">
+            {online.map((m) => (
+              <MemberRow key={m.id} m={m} />
+            ))}
+          </ul>
+        )}
+      </RailSection>
+      {offline.length > 0 ? (
+        <RailSection title={`Desconectados — ${offline.length}`}>
+          <ul aria-label="Miembros desconectados" className="flex flex-col">
+            {offline.map((m) => (
+              <MemberRow key={m.id} m={m} />
+            ))}
+          </ul>
+        </RailSection>
+      ) : null}
+    </div>
+  );
+}
+
+/** Inside a channel: its topic, its pins and open bounties, and who can read it (online first). */
 function ChannelRail({ channelId }: { channelId: string }) {
   const [state, setState] = useState<Load<{ overview: ChannelOverview; pins: HomePin[]; bounties: HomeBounty[] }>>({ status: "loading" });
   const [version, setVersion] = useState(0);
@@ -84,10 +160,6 @@ function ChannelRail({ channelId }: { channelId: string }) {
       <div className="flex flex-col gap-2 px-2">
         <p className="font-display text-lg font-bold break-words text-fg">#{overview.name}</p>
         {overview.topic ? <p className="text-sm break-words text-fg-muted">{overview.topic}</p> : null}
-        <p className="flex items-center gap-2 text-sm text-fg-muted">
-          <Users aria-hidden className="size-4" />
-          {overview.memberCount === 1 ? "1 miembro con acceso" : `${overview.memberCount} miembros con acceso`}
-        </p>
       </div>
       <RailSection title="Fijados">
         {pins.length === 0 ? (
@@ -124,6 +196,7 @@ function ChannelRail({ channelId }: { channelId: string }) {
           </ul>
         )}
       </RailSection>
+      <ChannelMembers channelId={channelId} />
     </div>
   );
 }

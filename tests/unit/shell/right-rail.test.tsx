@@ -18,7 +18,15 @@ beforeEach(() => {
   localStorage.clear();
   h.topic.mockReset();
   h.rpc.mockReset().mockImplementation(async (fn: string) => {
-    if (fn === "channel_overview") return { data: { name: "general", topic: "Charla del club", memberCount: 24 }, error: null };
+    if (fn === "channel_overview") return { data: { name: "general", topic: "Charla del club" }, error: null };
+    if (fn === "channel_members")
+      return {
+        data: [
+          { member_id: "m1", handle: "ana", display_name: null, wallet_address: "0x1111111111111111111111111111111111111111", avatar_path: null, online: true, role_color: "#61DFFF" },
+          { member_id: "m2", handle: "beto", display_name: null, wallet_address: "0x2222222222222222222222222222222222222222", avatar_path: null, online: false, role_color: null },
+        ],
+        error: null,
+      };
     if (fn === "home_pinned") return { data: [{ message_id: "p1", channel_id: CH, channel_name: "general", author_label: null, excerpt: "Normas", pinned_at: "" }], error: null };
     if (fn === "home_open_bounties") return { data: [], error: null };
     if (fn === "club_activity")
@@ -40,7 +48,11 @@ describe("RightRail", () => {
     renderRail();
     expect(await screen.findByText("#general")).toBeInTheDocument();
     expect(screen.getByText("Charla del club")).toBeInTheDocument();
-    expect(screen.getByText("24 miembros con acceso")).toBeInTheDocument();
+    const online = await screen.findByRole("list", { name: "Miembros en línea" });
+    expect(online).toHaveTextContent("@ana");
+    expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@beto");
+    expect(screen.getByText("En línea — 1")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ver tarjeta de @ana" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Normas/ })).toHaveAttribute("href", `/c/${CH}?m=p1`);
     expect(screen.getByText("Ninguno abierto aquí.")).toBeInTheDocument();
     expect(h.rpc).toHaveBeenCalledWith("home_pinned", { p_limit: 5, p_channel: CH });

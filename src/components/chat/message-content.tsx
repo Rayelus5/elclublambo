@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
+import { MemberCardTrigger } from "@/components/members/member-card";
 import { sanitizeDoc, type TiptapMark, type TiptapNode } from "@/lib/chat/content";
 import { classifyLink } from "@/lib/chat/links";
 import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
@@ -42,7 +43,7 @@ function Mention({ node, dir }: { node: TiptapNode; dir: MentionsDir }) {
     name = `@${role?.name ?? "desconocido"}`;
     color = role && HEX_COLOR.test(role.color) ? role.color : null;
   }
-  return (
+  const chip = (
     <span
       data-mention={String(kind)}
       className="inline-flex items-center gap-1 rounded-control border border-border-strong bg-surface-2 px-1.5 align-baseline text-[0.95em] font-medium text-fg"
@@ -51,6 +52,14 @@ function Mention({ node, dir }: { node: TiptapNode; dir: MentionsDir }) {
       {color ? <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: color }} /> : null}
       <span>{name}</span>
     </span>
+  );
+  // A known member's mention opens their card, like the author's name.
+  return kind === "member" && has(dir.members, id) ? (
+    <MemberCardTrigger memberId={id} label={name} className="inline align-baseline">
+      {chip}
+    </MemberCardTrigger>
+  ) : (
+    chip
   );
 }
 
