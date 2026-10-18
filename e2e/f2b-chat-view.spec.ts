@@ -69,7 +69,11 @@ test("1. un mensaje llega en vivo al otro miembro", async () => {
 
 test("2. una reacción se ve en vivo y alterna con aria-pressed", async () => {
   const mine = messageWith(memberPage, "hola desde el admin");
-  await mine.getByRole("button", { name: "Añadir reacción" }).click();
+  // Discord-style: no add button under a message without reactions; it lives in the actions menu.
+  await expect(mine.getByRole("button", { name: "Añadir reacción" })).toHaveCount(0);
+  await mine.hover();
+  await mine.getByRole("button", { name: "Acciones del mensaje" }).click();
+  await memberPage.getByRole("menuitem", { name: "Añadir reacción" }).click();
   await memberPage.getByRole("button", { name: "Insertar 😀" }).click();
   const chipMember = mine.getByRole("button", { name: /😀/ });
   await expect(chipMember).toHaveAttribute("aria-pressed", "true");

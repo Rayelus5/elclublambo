@@ -1,7 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CircleCheck, CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
+import {
+  CircleCheck,
+  CornerDownRight,
+  Coins,
+  Flag,
+  Link2,
+  MessageSquare,
+  MessageSquareReply,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Quote,
+  SmilePlus,
+  Trash2,
+} from "lucide-react";
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { BountyCard } from "@/components/chat/bounty-card";
@@ -112,6 +127,7 @@ export function MessageItem({
   const [confirmMark, setConfirmMark] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
+  const [reactionPicker, setReactionPicker] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -133,7 +149,8 @@ export function MessageItem({
   const canTip = !own && !deleted && variant !== "pinned" && message.kind !== "system" && authorId !== null;
   // Only the author of an open bounty gets the handler; it is offered on other members' visible replies.
   const canMark = !!onMarkSolution && !own && !deleted && variant === "thread" && message.threadRootId !== null && message.kind !== "system";
-  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
+  const canAddReaction = viewer.canReact && !deleted && variant !== "pinned" && !!onToggleReaction;
+  const hasMenu = canAddReaction || canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
     variant === "list" && isRoot && message.replyCount > 0 ? (
@@ -200,6 +217,7 @@ export function MessageItem({
                   void navigator.clipboard?.writeText(url).catch(() => undefined);
                 }}
               >
+                <Link2 aria-hidden />
                 Copiar enlace
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -319,6 +337,8 @@ export function MessageItem({
             reactions={message.reactions}
             canReact={viewer.canReact}
             onToggle={(emoji) => onToggleReaction?.(message, emoji)}
+            pickerOpen={reactionPicker}
+            onPickerOpenChange={setReactionPicker}
           />
         ) : null}
         {canMark ? (
@@ -352,6 +372,17 @@ export function MessageItem({
                 }
               }}
             >
+              {canAddReaction ? (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    focusMoved.current = true;
+                    setReactionPicker(true);
+                  }}
+                >
+                  <SmilePlus aria-hidden />
+                  Añadir reacción
+                </DropdownMenuItem>
+              ) : null}
               {canReply ? (
                 <DropdownMenuItem
                   onSelect={() => {
@@ -359,6 +390,7 @@ export function MessageItem({
                     onOpenThread?.(message, triggerRef.current);
                   }}
                 >
+                  <MessageSquareReply aria-hidden />
                   {viewer.canThread ? "Responder en hilo" : "Ver hilo"}
                 </DropdownMenuItem>
               ) : null}
@@ -369,6 +401,7 @@ export function MessageItem({
                     onQuote?.(message);
                   }}
                 >
+                  <Quote aria-hidden />
                   Citar
                 </DropdownMenuItem>
               ) : null}
@@ -379,22 +412,33 @@ export function MessageItem({
                     setEditing(true);
                   }}
                 >
+                  <Pencil aria-hidden />
                   Editar
                 </DropdownMenuItem>
               ) : null}
               {canDelete ? (
                 <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                  <Trash2 aria-hidden />
                   Borrar
                 </DropdownMenuItem>
               ) : null}
               {canPin ? (
                 <DropdownMenuItem onSelect={() => onPin?.(message, message.pinnedAt === null)}>
+                  {message.pinnedAt === null ? <Pin aria-hidden /> : <PinOff aria-hidden />}
                   {message.pinnedAt === null ? "Fijar" : "Desfijar"}
                 </DropdownMenuItem>
               ) : null}
-              {canTip ? <DropdownMenuItem onSelect={() => setTipping(true)}>Dar propina</DropdownMenuItem> : null}
+              {canTip ? (
+                <DropdownMenuItem onSelect={() => setTipping(true)}>
+                  <Coins aria-hidden />
+                  Dar propina
+                </DropdownMenuItem>
+              ) : null}
               {canReport ? (
-                <DropdownMenuItem onSelect={() => setReporting(true)}>Reportar</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setReporting(true)}>
+                  <Flag aria-hidden />
+                  Reportar
+                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>

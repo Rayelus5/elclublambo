@@ -13,25 +13,35 @@ interface Props {
   /** ADD_REACTIONS: without it chips are read-only and there is no add button. */
   canReact: boolean;
   onToggle: (emoji: string) => void;
+  /** Controlled picker (the message menu's "Añadir reacción" opens it); uncontrolled when omitted. */
+  pickerOpen?: boolean;
+  onPickerOpenChange?: (open: boolean) => void;
 }
 
 const CHIP =
   "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-control border px-2.5 text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none disabled:cursor-default";
 
-export function ReactionBar({ reactions, canReact, onToggle }: Props) {
-  const [open, setOpen] = useState(false);
+/**
+ * Reaction chips, Discord-style: the add chip only sits next to existing reactions; a message without any offers
+ * "Añadir reacción" from its actions menu instead, which opens the same picker through `pickerOpen`.
+ */
+export function ReactionBar({ reactions, canReact, onToggle, pickerOpen, onPickerOpenChange }: Props) {
+  const [ownOpen, setOwnOpen] = useState(false);
+  const open = pickerOpen ?? ownOpen;
+  const setOpen = (next: boolean) => (onPickerOpenChange ? onPickerOpenChange(next) : setOwnOpen(next));
   const wrap = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const onPointer = (e: PointerEvent) => {
-      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
+      if (wrap.current && !wrap.current.contains(e.target as Node)) (onPickerOpenChange ?? setOwnOpen)(false);
     };
     document.addEventListener("pointerdown", onPointer);
     return () => document.removeEventListener("pointerdown", onPointer);
-  }, [open]);
+  }, [open, onPickerOpenChange]);
 
-  if (reactions.length === 0 && !canReact) return null;
+  const showAdd = canReact && reactions.length > 0;
+  if (reactions.length === 0 && !(canReact && open)) return null;
 
   const close = () => {
     setOpen(false);
@@ -72,20 +82,20 @@ export function ReactionBar({ reactions, canReact, onToggle }: Props) {
           ))}
         </ul>
       ) : null}
-      {canReact ? (
+      {showAdd ? (
         <button
           type="button"
           aria-label="Añadir reacción"
           aria-haspopup="true"
           aria-expanded={open}
-          onClick={() => setOpen((o) => !o)}
+          onClick={() => setOpen(!open)}
           className={cn(CHIP, "border-border text-fg-muted hover:border-border-strong hover:text-fg")}
         >
           <SmilePlus aria-hidden className="size-4" />
         </button>
       ) : null}
-      {open ? (
-        <div className="absolute bottom-full left-0 z-20 mb-2">
+      {canReact && open ? (
+        <div className={cn("z-20", reactions.length > 0 ? "absolute bottom-full left-0 mb-2" : "relative")}>
           <Suspense
             fallback={<div className="w-72 rounded-panel border border-border-strong bg-surface p-4 text-sm text-fg-muted">Cargando…</div>}
           >
