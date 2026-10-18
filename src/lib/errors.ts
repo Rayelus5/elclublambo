@@ -48,7 +48,8 @@ const MESSAGES: Record<string, string> = {
   bounty_chain_inactive:
     "Este bounty se publicó en otra red; podrás pagarlo cuando esa red vuelva a estar activa.",
   payment_in_progress: "Ya hay un pago de este bounty en curso. Espera a que se confirme.",
-  channel_has_bounties: "Este canal tiene bounties y no se puede borrar.",
+  bounty_has_solution: "No puedes borrar un bounty con una solución elegida sin pagar.",
+  channel_has_bounties:"Este canal tiene bounties y no se puede borrar.",
   reverted: "Esta donación ya no se verifica en la red y se ha revertido. Si pagaste, contacta con soporte.",
   safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
   safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",

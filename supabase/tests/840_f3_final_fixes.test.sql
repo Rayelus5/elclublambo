@@ -82,9 +82,9 @@ select public.delete_message(current_setting('t.x2')::uuid);
 select public.delete_message(current_setting('t.x6')::uuid);
 select public.delete_message(current_setting('t.x7')::uuid);
 select public.delete_message(current_setting('t.x11')::uuid);
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select public.delete_message(current_setting('t.x3')::uuid);
 select tests.clear_authentication();
+-- an author deletion of a marked bounty (refused since 20261018800021, F3-R6): set directly, as a pre-guard row
+update public.messages set deleted_at = now(), deleted_by = current_setting('t.a')::uuid where id = current_setting('t.x3')::uuid;
 update public.members set status = 'banned' where id = current_setting('t.c')::uuid;
 
 -- ===== F3-R1: derived statuses and precedence =====

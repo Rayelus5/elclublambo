@@ -198,11 +198,15 @@ select tests.clear_authentication();
 update public.bounties set solution_marked_at = now() - interval '8 days' where message_id = current_setting('t.b5')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).unpaid), 2, 'two unpaid bounties before deleting');
-select is((public.delete_message(current_setting('t.b5')::uuid) ->> 'hard')::boolean, false, 'deleting a marked bounty message is a soft delete');
+-- F3-R6 (20261018800021): the author can no longer delete a bounty with a marked, unpaid solution; the soft-deleted
+-- state below is set directly to keep covering the record and FK rules for bounties deleted before that guard.
+select throws_ok($$select public.delete_message(tests.cfg('t.b5')::uuid)$$, 'P0001', 'bounty_has_solution',
+  'the author cannot delete a bounty with a marked, unpaid solution');
 select is((public.delete_message(current_setting('t.b4')::uuid) ->> 'hard')::boolean, false, 'deleting a bounty without replies is a soft delete');
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is((public.delete_message(current_setting('t.r5')::uuid) ->> 'hard')::boolean, false, 'deleting the solution reply is a soft delete');
 select tests.clear_authentication();
+update public.messages set deleted_at = now(), deleted_by = current_setting('t.a')::uuid where id = current_setting('t.b5')::uuid;
 select ok((select deleted_at is not null from public.messages where id = current_setting('t.b5')::uuid), 'the bounty message survives, deleted');
 select ok((select deleted_at is not null from public.messages where id = current_setting('t.r5')::uuid), 'the solution message survives, deleted');
 select is((select kind from public.messages where id = current_setting('t.b5')::uuid), 'bounty', 'a soft-deleted bounty keeps its kind');
