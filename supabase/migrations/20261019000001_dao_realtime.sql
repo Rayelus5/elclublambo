@@ -7,7 +7,13 @@ create policy "realtime_receive_dao_topic"
   on realtime.messages
   for select
   to authenticated
-  using (realtime.topic() = 'dao' and public.is_active_member());
+  -- CASE like the other topic policies (ruling F2b-R3): evaluation order is guaranteed.
+  using (
+    case
+      when realtime.topic() = 'dao' then public.is_active_member()
+      else false
+    end
+  );
 -- Intentionally NO insert policy on realtime.messages: clients must never broadcast.
 
 create function public.broadcast_dao_event()
