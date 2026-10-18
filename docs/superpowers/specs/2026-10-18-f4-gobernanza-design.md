@@ -57,7 +57,14 @@ La DAO deja de ser una hucha de USDC y pasa a ser **un fondo de inversión comú
 8. **Seguimiento de la inversión, automático más notas:**
    - El foro lee la Safe y guarda el valor del fondo cada hora, para la gráfica.
    - El tesorero puede añadir una nota a cada operación ("compramos 2 ETH") con su enlace al explorador.
-9. **Página Mercado** en la barra superior:
+9. **Fondo del club.** El dinero de la Safe que no procede de donaciones registradas pertenece al club:
+   - un aporte inicial, por ejemplo el 1 USDC actual en mainnet;
+   - lo que quede cuando todos hayan retirado;
+   - una transferencia directa.
+
+   Se registra como participación del **"Fondo del club"**: cuenta en el valor y beneficia a todos, pero nadie puede retirarla.
+10. **Sorteos ponderados tras un interruptor por red** (Plan Maestro §2, `weighted_raffles_enabled`): los activa el SuperAdmin; apagados en mainnet y encendidos en Sepolia por defecto. Los sorteos igualitarios están siempre disponibles.
+11. **Página Mercado** en la barra superior:
    - Top 100 con precio, variación 1h/24h/7d, capitalización, volumen y minigráfico de 7 días.
    - Ficha por cripto con gráfico (24h/7d/30d/1a) y datos clave.
    - API gratuita (CoinGecko), con caché en servidor.
@@ -71,29 +78,37 @@ La DAO deja de ser una hucha de USDC y pasa a ser **un fondo de inversión comú
      - donaciones recibidas pero aún no acreditadas (en finalidad);
      - retiradas aprobadas y no pagadas.
    - El supply de shares que cuenta excluye las shares bloqueadas por esas retiradas aprobadas.
-2. **Precio de ETH para valorar:**
+   - Los **premios de sorteo prometidos** también son obligación desde que se crea el sorteo hasta que se paga o se cancela. Un premio en ETH se valora al precio del momento del cálculo.
+2. **Precio de ETH para valorar** (el límite de antigüedad sigue el heartbeat documentado del feed, no una hora fija):
    - **Oráculo on-chain de Chainlink ETH/USD en Linea**: verificable y difícil de manipular.
-   - Si el feed está obsoleto (más de 1 h) o no existe en la red (Linea Sepolia), se usa CoinGecko, con una comprobación de cordura frente a la última valoración.
+   - Si el feed está obsoleto (más allá de su heartbeat) o no existe en la red (Linea Sepolia), se usa CoinGecko, con una comprobación de cordura frente a la última valoración.
    - Si ninguna fuente es fiable, **no se emiten ni se fijan shares**: la operación espera, como un error transitorio.
    - El builder verifica en la documentación oficial de Chainlink la dirección del feed y si existe en Sepolia; no se escribe de memoria.
    - USDC se valora a 1 USD.
 3. **Emisión de shares:** al acreditar una donación, `shares = S == 0 ? d·10¹² : floor(d · S / NAV_previo)`.
+   - **Fondo del club:** cuando `S == 0` y `NAV_previo > 0`, antes de emitir se acuñan shares del "Fondo del club" por `NAV_previo · 10¹²`, de modo que el dinero previo siga siendo del club. Es la decisión 9 del usuario.
+     - El Fondo del club es una posición especial sin miembro: no se puede retirar, no vota, no participa en sorteos y no abre candados.
+     - Sí cuenta en `S` y en el reparto (en el donut sale como "Fondo del club").
+   - En la migración desde F3, si la Safe vale más que el ledger, esa diferencia se acuña al Fondo del club con el mismo criterio.
    - `NAV_previo` es el NAV en el momento de acreditar, sin esta donación ni las demás pendientes.
    - Sustituye a la fórmula de F3 basada en el valor del ledger.
    - Una transferencia directa a la Safe sí sube el NAV: beneficia a todos por igual y nadie puede reclamarla como suya.
    - Contra el clásico ataque de inflación (el primer donante con pocas shares que dona "por fuera" para que los siguientes reciban 0) hay dos defensas:
      - donación mínima;
      - si el cálculo da 0 shares, la donación no se acredita: se marca para revisión del tesorero, sin perder el registro.
-4. **La reconciliación cambia de sentido.**
+4. **La reconciliación cambia de sentido.** Lee lo que sale de la Safe sin APIs de terceros:
+   - logs `Transfer` de USDC y WETH desde la Safe;
+   - variaciones del ETH nativo entre instantáneas.
    - Ya no compara el ledger con el balance, porque el NAV es el balance a mercado.
    - Ahora vigila otras cosas y avisa a los tesoreros:
      - activos no admitidos en la Safe;
      - salidas de USDC/ETH sin retirada ni sorteo registrados (gasto sin explicar).
-   - Las notas del tesorero pueden "explicar" una salida.
+   - Las notas del tesorero pueden "explicar" una salida. Un swap USDC→ETH aparece como "sin explicar" hasta que el tesorero le pone su nota; el aviso lo dice.
 5. **Instantáneas horarias del NAV y del valor por share**, por red, desde el cron existente (`/api/cron/dao`). Alimentan la gráfica de evolución. Una instantánea fallida (RPC u oráculo caído) se salta, no se inventa.
 
 ### Retiradas
-6. **Flujo:**
+6. **Importe y autoaprobación:** el importe es **estrictamente** la fórmula; el tesorero no puede ajustarlo. Si el swap tiene deslizamiento, lo absorbe el fondo. Un tesorero puede aprobar su propia retirada (imprescindible mientras el SuperAdmin sea el único tesorero); queda en el `audit_log` y se marca en el panel.
+6b. **Flujo:**
    - **Solicitud:** el miembro indica las shares o un %, que se bloquean.
    - **Aprobación** por un tesorero: el importe en USDC se fija como `shares · NAV / S` en ese momento y pasa a ser una obligación que descuenta del NAV.
    - **Pago:** se verifica una transferencia USDC desde la Safe de esa red a la wallet del miembro por **al menos** el importe fijado, con las mismas reglas que las donaciones (confirmaciones, log del contrato oficial, finalidad y anti-reutilización).
@@ -101,11 +116,14 @@ La DAO deja de ser una hucha de USDC y pasa a ser **un fondo de inversión comú
    - **Otros finales:**
      - el miembro puede cancelar mientras esté pendiente;
      - el tesorero puede rechazar con un motivo;
-     - una aprobación sin pagar en 14 días caduca y libera las shares (el tesorero puede volver a aprobarla al precio nuevo).
+     - una aprobación sin pagar en 14 días **vuelve a "pendiente"**, con las shares aún bloqueadas, y deja de restar del NAV; el tesorero la vuelve a aprobar al precio nuevo.
+   - Solo se casa un pago con una retirada **aprobada y vigente**, por el importe de esa aprobación. Una transferencia a un miembro con la retirada cancelada o rechazada no quema nada: aparece como salida sin explicar.
 7. **Prioridades:**
    - Solo se puede aprobar si las retiradas están activadas en esa red.
    - La UI del tesorero muestra si hay USDC suficiente en la Safe para pagar.
 8. **El gating usa las shares no bloqueadas.** Pedir una retirada te quita el acceso que dependía de esas shares desde el primer momento: si no, se podría pedir la retirada, entrar en el canal y cancelar.
+   - La **aportación neta** del candado baja con lo retirado: se resta el USDC pagado, con suelo 0.
+   - Mientras haya una retirada pendiente, el candado usa la aportación neta × (shares no bloqueadas / shares totales).
 
 ### Sorteos
 9. **Sorteo verificable:**
@@ -113,11 +131,14 @@ La DAO deja de ser una hucha de USDC y pasa a ser **un fondo de inversión comú
    - Al cerrar, se fija el primer bloque de Linea posterior al cierre y se revela la semilla.
    - Ganador = `keccak256(semilla ‖ hash del bloque) mod peso_total`, recorriendo las participaciones en orden estable.
    - La página del sorteo muestra todos los datos para recalcularlo a mano.
-10. **Pesos:**
+10. **Pesos y privacidad:**
     - Igualitario: 1 por participante.
+    - La lista de participantes aplica la regla del ranking: un donante oculto sale como "Anónimo #n". Así se puede verificar el sorteo sin desvelar a nadie.
+    - Un ganador oculto aparece como "Anónimo", aunque él recibe su aviso.
+    - Las operaciones recientes y los avisos públicos nunca nombran a quién se paga una retirada.
     - Ponderado: las shares no bloqueadas en el momento del cierre, en un snapshot inmutable. Si no tienes shares, pesas 0: no puedes ganar, aunque puedes apuntarte y la UI lo explica.
 11. **Premio:**
-    - En USDC o ETH, por importe, con la red mostrada.
+    - En USDC o **WETH**, por importe, con la red mostrada. Un pago en ETH nativo desde una Safe no deja log verificable sin APIs de terceros; por eso el foro pide WETH y la UI lo explica.
     - El tesorero lo paga desde la Safe al ganador y se verifica igual que una retirada.
     - Si no se paga en 14 días, el sorteo queda marcado como "impagado", visible (como los bounties).
     - El pago baja el NAV de forma natural.
@@ -134,6 +155,9 @@ La DAO deja de ser una hucha de USDC y pasa a ser **un fondo de inversión comú
     - Se fijan con un **snapshot al crear la encuesta** (Plan Maestro §2), con las shares no bloqueadas de la red activa.
     - Lineal = shares; cuadrático = raíz de las shares, con precisión fija y aritmética entera.
     - En modos ponderados, quien no tiene shares puede votar con peso 0 y lo ve explicado; el recuento muestra votantes y peso por separado.
+14b. **Resultados sin delatar:**
+    - Por opción solo se publica el **% de peso**, redondeado a 1 decimal, más el número **total** de votantes; nunca los votantes por opción.
+    - Con menos de 3 votantes no se publican resultados ("muy pocos votos para mostrarlos sin revelar quién votó qué").
 14. **Voto secreto de verdad:**
     - Los votos se guardan en una tabla sin lectura directa para nadie, ni siquiera admins vía UI.
     - Solo una función agrega los resultados, y solo tras el cierre.
