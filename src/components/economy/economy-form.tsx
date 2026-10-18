@@ -246,15 +246,12 @@ export function EconomyForm({ config }: { config: EconomyConfig }) {
         ) : null}
       </section>
 
-      <FeeCard key={`fee-${config.minFeeBps}`} minFeeBps={config.minFeeBps} />
+      {/* Stable keys: the cards already hold what was saved, and a remount on refresh would drop their "guardada" status. */}
+      <FeeCard minFeeBps={config.minFeeBps} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {CHAIN_IDS.map((id) => (
-          <AddressesCard
-            key={`${id}-${config.chains[id].safe}-${config.chains[id].platform}`}
-            chain={id}
-            addresses={config.chains[id]}
-          />
+          <AddressesCard key={id} chain={id} addresses={config.chains[id]} />
         ))}
       </div>
 

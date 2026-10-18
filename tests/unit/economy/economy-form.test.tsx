@@ -76,6 +76,24 @@ describe("EconomyForm", () => {
     await waitFor(() => expect(setMinFeeBpsAction).toHaveBeenCalledWith(500));
   });
 
+  it("keeps the saved confirmations when the refreshed config arrives with the new values", async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<EconomyForm config={config} />);
+    const fee = screen.getByLabelText("Comisión mínima (%)");
+    await user.clear(fee);
+    await user.type(fee, "5");
+    await user.click(screen.getByRole("button", { name: "Guardar comisión" }));
+    expect(await screen.findByText("Comisión guardada.")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Safe (Linea)"), SAFE);
+    await user.click(screen.getByRole("button", { name: "Guardar direcciones de Linea" }));
+    expect(await screen.findByText("Direcciones guardadas.")).toBeInTheDocument();
+
+    // router.refresh() re-renders the page with the stored values.
+    rerender(<EconomyForm config={{ ...config, minFeeBps: 500, chains: { ...config.chains, 59144: { safe: SAFE, platform: null } } }} />);
+    expect(screen.getByText("Comisión guardada.")).toBeInTheDocument();
+    expect(screen.getByText("Direcciones guardadas.")).toBeInTheDocument();
+  });
+
   it("rejects an out-of-range fee inline", async () => {
     const user = userEvent.setup();
     render(<EconomyForm config={config} />);
