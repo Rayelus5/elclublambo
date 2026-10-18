@@ -8,6 +8,7 @@ import { Composer } from "@/components/chat/composer";
 import { MessageItem } from "@/components/chat/message-item";
 import { MessageList } from "@/components/chat/message-list";
 import { ThreadPanel } from "@/components/chat/thread-panel";
+import { ThreadResizer } from "@/components/chat/thread-resizer";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { markSolutionAction } from "@/lib/bounties/actions";
@@ -42,6 +43,7 @@ import { toPlainDoc } from "@/lib/chat/content";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
+import { clampThreadWidth, loadThreadWidth, saveThreadWidth, THREAD_DEFAULT, THREAD_MIN } from "@/lib/chat/thread-width";
 
 export interface ChatViewProps {
   channel: { id: string; slowmodeSeconds: number; alphaEnabled?: boolean };
@@ -141,11 +143,33 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const requests = useRef(new Map<string, number>());
   const openerRef = useRef<HTMLElement | null>(null);
   const composerBox = useRef<HTMLDivElement>(null);
-  const logRef = useRef<HTMLElement>(null);
   const threadDialog = useRef<HTMLDivElement>(null);
 
+  const logRef = useRef<HTMLElement>(null);
   const wide = useMediaQuery("(min-width: 1024px)");
   const split = useMediaQuery("(min-width: 1280px)");
+
+  // Desktop thread panel: resizable beside the channel (remembered per browser) or maximized over it, Teams-style.
+  const [threadWidth, setThreadWidth] = useState(THREAD_DEFAULT);
+  const [threadMax, setThreadMax] = useState(false);
+  const [chatWidth, setChatWidth] = useState(0);
+  useEffect(() => {
+    setThreadWidth(loadThreadWidth());
+  }, []);
+  useEffect(() => {
+    const el = logRef.current;
+    if (!el) return;
+    const measure = () => setChatWidth(el.clientWidth);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const panelWidth = chatWidth > 0 ? clampThreadWidth(threadWidth, chatWidth) : threadWidth;
+  const resizeThread = (w: number) => {
+    setThreadWidth(w);
+    saveThreadWidth(w);
+  };
 
   const mergeDir = useCallback((extra: Directory) => setDirectory((d) => mergeDirectory(d, extra)), []);
 
@@ -577,6 +601,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         onToggleReaction={itemHandlers.onToggleReaction}
         onBountyChanged={itemHandlers.onBountyChanged}
         onMarkSolution={markSolution}
+        maximized={!inDialog && threadMax}
+        onToggleMaximize={inDialog ? undefined : () => setThreadMax((m) => !m)}
       />
     ) : null;
 
@@ -590,7 +616,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       <div aria-live="polite" className="sr-only">
         {announcement}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col" inert={wide && !split && thread !== null}>
+      <div className="flex min-w-0 flex-1 flex-col" inert={wide && thread !== null && (!split || threadMax)}>
         {pinned.length > 0 ? (
           <div className="flex justify-end border-b border-border px-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => setPinnedOpen(true)}>
@@ -658,10 +684,18 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         </div>
       </div>
 
+      {thread && wide && split && !threadMax ? (
+        <ThreadResizer width={panelWidth} min={THREAD_MIN} max={Math.max(THREAD_MIN, chatWidth - THREAD_MIN)} onChange={resizeThread} />
+      ) : null}
       {thread && wide ? (
         <aside
           aria-label="Panel del hilo"
-          className="absolute inset-y-0 right-0 z-10 w-[min(24rem,100%)] border-l border-border-strong xl:static xl:z-auto xl:w-96 xl:shrink-0"
+          style={threadMax ? undefined : { width: split ? panelWidth : undefined }}
+          className={
+            threadMax
+              ? "absolute inset-0 z-10"
+              : "absolute inset-y-0 right-0 z-10 w-[min(24rem,100%)] border-l border-border-strong xl:static xl:z-auto xl:w-auto xl:shrink-0"
+          }
         >
           {threadPanel(false)}
         </aside>

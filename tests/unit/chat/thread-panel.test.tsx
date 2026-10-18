@@ -40,6 +40,25 @@ function setup(props: Partial<ThreadPanelProps> = {}) {
 }
 
 describe("ThreadPanel", () => {
+  it("offers to expand the thread over the channel and back (desktop only)", async () => {
+    const onToggleMaximize = vi.fn();
+    const { rerender, root } = setup({ onToggleMaximize, maximized: false });
+    const expand = screen.getByRole("button", { name: "Ampliar hilo" });
+    expect(expand).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(expand);
+    expect(onToggleMaximize).toHaveBeenCalledTimes(1);
+    rerender(
+      <ThreadPanel root={root} replies={[]} loading={false} directory={directory} allowedDomains={[]} viewer={viewer()} channelId={CHANNEL}
+        slowmodeSeconds={0} onClose={() => {}} maximized onToggleMaximize={onToggleMaximize} />,
+    );
+    expect(screen.getByRole("button", { name: "Reducir hilo" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("has no expand button without a handler (the mobile dialog is already full screen)", () => {
+    setup();
+    expect(screen.queryByRole("button", { name: "Ampliar hilo" })).not.toBeInTheDocument();
+  });
+
   it("shows the root, the replies and a composer bound to the thread", () => {
     const { root } = setup();
     expect(screen.getByRole("heading", { name: "Hilo" })).toBeInTheDocument();

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, X } from "lucide-react";
+import { Loader2, Maximize2, Minimize2, X } from "lucide-react";
 import { Composer } from "@/components/chat/composer";
 import { MessageItem, type MessageItemHandlers } from "@/components/chat/message-item";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,9 @@ export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "
   highlightId?: string | null;
   /** The highlighted reply is not among the loaded replies (thread longer than the page): drop the highlight. */
   onTargetMissing?: () => void;
+  /** Desktop only: the thread covers the whole chat (Teams-style) or sits beside the channel. */
+  maximized?: boolean;
+  onToggleMaximize?: () => void;
 }
 
 /** One-level thread: the root, its replies and a composer bound to the thread. Used inline (≥1024) and in a dialog. */
@@ -44,6 +47,8 @@ export function ThreadPanel({
   inDialog = false,
   highlightId = null,
   onTargetMissing,
+  maximized = false,
+  onToggleMaximize,
   ...handlers
 }: ThreadPanelProps) {
   const heading = useRef<HTMLHeadingElement>(null);
@@ -110,9 +115,24 @@ export function ThreadPanel({
             Hilo
           </h2>
         )}
-        <Button type="button" variant="ghost" size="icon" aria-label="Cerrar hilo" onClick={onClose}>
-          <X aria-hidden />
-        </Button>
+        <div className="flex items-center">
+          {onToggleMaximize ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={maximized ? "Reducir hilo" : "Ampliar hilo"}
+              aria-pressed={maximized}
+              title={maximized ? "Reducir hilo" : "Ampliar hilo"}
+              onClick={onToggleMaximize}
+            >
+              {maximized ? <Minimize2 aria-hidden /> : <Maximize2 aria-hidden />}
+            </Button>
+          ) : null}
+          <Button type="button" variant="ghost" size="icon" aria-label="Cerrar hilo" onClick={onClose}>
+            <X aria-hidden />
+          </Button>
+        </div>
       </header>
 
       <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
