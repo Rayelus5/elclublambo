@@ -83,9 +83,9 @@ test("1. desktop: Mercado in the top bar; top 100 with Bitcoin first, '—' for 
   const nullRow = rows(page).nth(1);
   await expect(nullRow.getByRole("link", { name: /^Null Price Coin/ })).toBeVisible();
   await expect(nullRow.getByRole("cell").nth(2)).toHaveText("—");
-  await expect(nullRow.getByRole("img")).toHaveCount(0);
-  // Bitcoin's sparkline carries a text equivalent.
-  await expect(first.getByRole("img", { name: /^Tendencia de 7 días de Bitcoin: (sube|baja|sin cambios)$/ })).toBeVisible();
+  await expect(nullRow.locator("svg[role=img]")).toHaveCount(0);
+  // Bitcoin's sparkline carries a text equivalent (rendered; its column only shows on a wide panel, ruling F4b-R4).
+  await expect(first.locator("svg[role=img]")).toHaveAttribute("aria-label", /^Tendencia de 7 días de Bitcoin: (sube|baja|sin cambios)$/);
 
   const attribution = page.getByRole("link", { name: "Datos de CoinGecko" });
   await expect(attribution).toHaveAttribute("href", "https://www.coingecko.com");
@@ -179,7 +179,7 @@ test("4. outage: stale copy with its time after a good fetch; clear error with R
   await expect(page.getByText(/^Actualizado a las/)).toBeVisible();
 });
 
-test("5. 375 px: no horizontal scroll (even with a very long coin name), secondary columns hidden; wider screens stay inside main", async ({ browser }) => {
+test("5. 375 px: no horizontal scroll (even with a very long coin name), secondary columns hidden; wider screens never scroll sideways either", async ({ browser }) => {
   const mobile = await memberContext(browser, { width: 375, height: 812 });
   try {
     const m = await mobile.newPage();
@@ -205,19 +205,26 @@ test("5. 375 px: no horizontal scroll (even with a very long coin name), seconda
     const panel = m.getByTestId("market-table-panel");
     expect(await panel.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
 
-    // Wider screens show every column: the page still never scrolls sideways and the table stays inside <main>
-    // (if all the columns do not fit, the panel itself scrolls).
+    // Wider screens (ruling F4b-R4): more columns appear as the panel grows, but neither the page nor the panel ever
+    // scrolls sideways, and the table stays inside <main>. The long-name row is still there.
     for (const width of [768, 1024, 1280]) {
       await m.setViewportSize({ width, height: 900 });
-      await expect(m.getByRole("columnheader", { name: "Capitalización" })).toBeVisible();
-      const fit = await m.evaluate(() => ({
-        doc: document.documentElement.scrollWidth,
-        panelRight: document.querySelector("[data-testid=market-table-panel]")!.getBoundingClientRect().right,
-        mainRight: document.querySelector("main")!.getBoundingClientRect().right,
-      }));
-      expect(fit.doc, `scrollWidth at ${width}px`).toBeLessThanOrEqual(width);
+      await expect(long).toBeVisible();
+      const fit = await m.evaluate(() => {
+        const panelEl = document.querySelector("[data-testid=market-table-panel]")!;
+        return {
+          doc: document.documentElement.scrollWidth,
+          panelOverflow: panelEl.scrollWidth - panelEl.clientWidth,
+          panelRight: panelEl.getBoundingClientRect().right,
+          mainRight: document.querySelector("main")!.getBoundingClientRect().right,
+        };
+      });
+      expect(fit.doc, `page scrollWidth at ${width}px`).toBeLessThanOrEqual(width);
+      expect(fit.panelOverflow, `panel sideways overflow at ${width}px`).toBeLessThanOrEqual(0);
       expect(fit.panelRight, `table panel inside <main> at ${width}px`).toBeLessThanOrEqual(fit.mainRight);
     }
+    // At 1280 px <main> is wide enough for the first tier (7 d, Capitalización).
+    await expect(m.getByRole("columnheader", { name: "Capitalización" })).toBeVisible();
   } finally {
     await mobile.close();
   }
