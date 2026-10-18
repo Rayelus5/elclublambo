@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MemberAvatar } from "@/components/members/member-avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { shortAddress } from "@/lib/auth/wallet";
 import { getMemberCard, type MemberCardData } from "@/lib/members/card";
-import { parsePresenceEvent } from "@/lib/members/presence";
+import { createPresenceApplier, parsePresenceEvent } from "@/lib/members/presence";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
 import { memberName } from "@/lib/members/name";
 import { createBrowserClient } from "@/lib/supabase/browser";
@@ -26,10 +26,12 @@ type Load = { status: "loading" } | { status: "ready"; card: MemberCardData } | 
 /** Mounted only while the card is open: its online line follows the presence topic live. */
 function LivePresence({ memberId, initial }: { memberId: string; initial: boolean }) {
   const [online, setOnline] = useState(initial);
+  const [applier] = useState(() => createPresenceApplier((_id, value) => setOnline(value)));
+  useEffect(() => () => applier.dispose(), [applier]);
   usePrivateTopic("presence", "presence_changed", {
     onEvent: (payload) => {
       const ev = parsePresenceEvent(payload);
-      if (ev && ev.memberId === memberId) setOnline(ev.online);
+      if (ev && ev.memberId === memberId) applier.handle(ev);
     },
   });
   return (

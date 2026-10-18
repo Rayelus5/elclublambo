@@ -20,7 +20,7 @@ import {
   type HomePin,
 } from "@/lib/home/queries";
 import { getChannelMembers, getOnline, type ChannelMember } from "@/lib/members/card";
-import { parsePresenceEvent } from "@/lib/members/presence";
+import { createPresenceApplier, parsePresenceEvent } from "@/lib/members/presence";
 import { memberName } from "@/lib/members/name";
 import { formatAmount } from "@/lib/payments/amounts";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
@@ -99,16 +99,21 @@ function ChannelMembers({ channelId }: { channelId: string }) {
       clearInterval(timer);
     };
   }, [channelId]);
-  // Live: the database announces each online/offline transition.
+  // Live: the database announces each online/offline transition (offline after a short grace: reloads don't blink).
+  const [applier] = useState(() =>
+    createPresenceApplier((memberId, online) =>
+      setState((s) =>
+        s.status === "ready" && s.data.some((m) => m.id === memberId)
+          ? { status: "ready", data: s.data.map((m) => (m.id === memberId ? { ...m, online } : m)) }
+          : s,
+      ),
+    ),
+  );
+  useEffect(() => () => applier.dispose(), [applier]);
   usePrivateTopic("presence", "presence_changed", {
     onEvent: (payload) => {
       const ev = parsePresenceEvent(payload);
-      if (!ev) return;
-      setState((s) =>
-        s.status === "ready" && s.data.some((m) => m.id === ev.memberId)
-          ? { status: "ready", data: s.data.map((m) => (m.id === ev.memberId ? { ...m, online: ev.online } : m)) }
-          : s,
-      );
+      if (ev) applier.handle(ev);
     },
   });
 

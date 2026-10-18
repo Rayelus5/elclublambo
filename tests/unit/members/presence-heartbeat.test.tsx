@@ -40,7 +40,7 @@ describe("PresenceHeartbeat", () => {
   it("beats on load and every 30 s, also in the background", async () => {
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     render(<PresenceHeartbeat />);
-    expect(rpc).toHaveBeenCalledWith("touch_presence");
+    expect(rpc).toHaveBeenCalledWith("touch_presence", { p_device: expect.stringMatching(/^[0-9a-f-]{36}$/) });
     act(() => vi.advanceTimersByTime(30_000));
     expect(rpc).toHaveBeenCalledTimes(2);
   });

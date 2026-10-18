@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { touchPresence } from "@/lib/members/card";
-import { BEAT_MS, forgetTab, otherLiveTabs, rememberTab, sendLeave } from "@/lib/members/presence";
+import { BEAT_MS, forgetTab, otherLiveTabs, presenceDeviceId, rememberTab, sendLeave } from "@/lib/members/presence";
 import { createBrowserClient } from "@/lib/supabase/browser";
 
 /**
@@ -13,7 +13,8 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 export function PresenceHeartbeat() {
   useEffect(() => {
     const supabase = createBrowserClient();
-    const tabId = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : String(Math.random());
+    const tabId = crypto.randomUUID();
+    const deviceId = presenceDeviceId();
     // pagehide cannot await anything: keep the access token at hand.
     let token: string | null = null;
     void supabase.auth.getSession().then(({ data }) => {
@@ -25,7 +26,7 @@ export function PresenceHeartbeat() {
 
     const beat = () => {
       rememberTab(tabId);
-      void touchPresence(supabase).catch(() => undefined);
+      void touchPresence(supabase, deviceId).catch(() => undefined);
     };
     const onVisible = () => {
       if (document.visibilityState === "visible") beat();
@@ -33,7 +34,12 @@ export function PresenceHeartbeat() {
     const onPageHide = () => {
       forgetTab(tabId);
       if (otherLiveTabs(tabId)) return;
-      sendLeave({ url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "", anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "", token });
+      sendLeave({
+        url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+        anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+        token,
+        deviceId,
+      });
     };
 
     beat();

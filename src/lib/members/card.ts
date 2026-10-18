@@ -63,6 +63,11 @@ export async function getOnline(supabase: Client, memberIds: readonly string[]):
 }
 
 /** Heartbeat: the server stamps the session's own member (never a client-supplied id). Failures are ignored. */
-export async function touchPresence(supabase: Client): Promise<void> {
-  await supabase.rpc("touch_presence");
+export async function touchPresence(supabase: Client, deviceId: string): Promise<void> {
+  await supabase.rpc("touch_presence", { p_device: deviceId });
+}
+
+/** The explicit goodbye of this device (sign-out); closing a tab uses the keepalive sendLeave instead. */
+export async function leavePresence(supabase: Client, deviceId: string): Promise<void> {
+  await supabase.rpc("leave_presence", { p_device: deviceId });
 }

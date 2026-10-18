@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { leavePresence } from "@/lib/members/card";
+import { presenceDeviceId } from "@/lib/members/presence";
 import { createBrowserClient } from "@/lib/supabase/browser";
 
 export function SignOutButton({ label }: { label: string }) {
@@ -13,7 +15,10 @@ export function SignOutButton({ label }: { label: string }) {
   async function signOut() {
     setBusy(true);
     try {
-      await createBrowserClient().auth.signOut();
+      const supabase = createBrowserClient();
+      // Say goodbye while the session still exists, so others see this device go offline at once.
+      await leavePresence(supabase, presenceDeviceId()).catch(() => undefined);
+      await supabase.auth.signOut();
     } finally {
       router.replace("/login");
       setBusy(false);

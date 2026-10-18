@@ -1,6 +1,6 @@
 -- Member card + server-authoritative presence + channel member list.
 begin;
-select plan(24);
+select plan(28);
 
 select set_config('t.a', tests.create_member('0x' || lpad('f8900', 40, '0'), null, true)::text, true);
 select set_config('t.b', tests.create_member('0x' || lpad('f8901', 40, '0'), current_setting('t.a')::uuid)::text, true);
@@ -18,14 +18,14 @@ insert into public.permission_overwrites (channel_id, target_type, target_id, al
 
 -- presence: the heartbeat stamps only the caller, and is throttled
 select tests.authenticate_as(current_setting('t.ub')::uuid);
-select public.touch_presence();
+select public.touch_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
 select tests.clear_authentication();
 select isnt((select last_seen_at from public.member_presence where member_id = current_setting('t.b')::uuid), null, 'touch_presence stamps the caller');
 select is((select count(*)::int from public.member_presence where member_id = current_setting('t.a')::uuid), 0, 'and nobody else');
 update public.member_presence set last_seen_at = now() - interval '10 seconds' where member_id = current_setting('t.b')::uuid;
 select set_config('t.seen', (select last_seen_at::text from public.member_presence where member_id = current_setting('t.b')::uuid), true);
 select tests.authenticate_as(current_setting('t.ub')::uuid);
-select public.touch_presence();
+select public.touch_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
 select tests.clear_authentication();
 select is((select last_seen_at::text from public.member_presence where member_id = current_setting('t.b')::uuid), current_setting('t.seen'), 'a second beat within 30 s writes nothing');
 
@@ -83,19 +83,38 @@ create function tests.pres(p_member uuid, p_online boolean) returns int language
     and m.payload->>'member_id' = p_member::text and (m.payload->>'online')::boolean = p_online
 $$;
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select public.touch_presence();
+select public.touch_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
 select tests.clear_authentication();
 select is(tests.pres(current_setting('t.c')::uuid, true), 1, 'going online broadcasts presence_changed online');
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select public.touch_presence();
+select public.touch_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
 select tests.clear_authentication();
 select is(tests.pres(current_setting('t.c')::uuid, true), 1, 'a beat while already online broadcasts nothing');
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select public.leave_presence();
+select public.leave_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
 select tests.clear_authentication();
 select is(tests.pres(current_setting('t.c')::uuid, false), 1, 'leaving broadcasts presence_changed offline');
 select is((public._member_online(current_setting('t.c')::uuid)), false, 'and the member reads offline at once');
 select ok((select private from realtime.messages where topic = 'presence' limit 1), 'on the private presence topic');
+
+-- LP1: two devices — closing one keeps the member online and announces nothing
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select public.touch_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
+select public.touch_presence('89000000-0000-4000-8000-0000000000d2'::uuid);
+select public.leave_presence('89000000-0000-4000-8000-0000000000d1'::uuid);
+select tests.clear_authentication();
+select is(public._member_online(current_setting('t.c')::uuid), true, 'still online on the other device');
+select is(tests.pres(current_setting('t.c')::uuid, false), 1, 'no second offline broadcast while a device remains');
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select public.leave_presence('89000000-0000-4000-8000-0000000000d2'::uuid);
+select tests.clear_authentication();
+select is(tests.pres(current_setting('t.c')::uuid, false), 2, 'the last device closing announces offline');
+-- a device id only ever touches the caller's own rows
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select public.leave_presence('89000000-0000-4000-8000-0000000000d2'::uuid);
+select tests.clear_authentication();
+select is((select count(*)::int from public.member_presence where member_id = current_setting('t.b')::uuid) >= 1, true,
+  'another member''s leave with the same device id does not touch B''s own presence rows by mistake');
 
 select * from finish();
 rollback;

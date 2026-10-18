@@ -71,12 +71,15 @@ describe("MemberCardTrigger", () => {
   });
 
   it("the open card follows the member going offline live", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<MemberCardTrigger memberId={ID} label="Ana Pérez">Ana</MemberCardTrigger>);
     await userEvent.click(screen.getByRole("button", { name: "Ver tarjeta de Ana Pérez" }));
     const card = await screen.findByRole("dialog", { name: "Ana Pérez" });
     expect(card).toHaveTextContent("En línea");
     const handlers = topic.mock.calls.findLast((c) => c[0] === "presence")![2] as { onEvent: (p: unknown) => void };
     act(() => handlers.onEvent({ member_id: ID, online: false }));
+    act(() => vi.advanceTimersByTime(5_000));
     expect(card).toHaveTextContent("Desconectado");
+    vi.useRealTimers();
   });
 });

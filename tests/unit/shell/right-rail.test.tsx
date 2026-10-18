@@ -101,13 +101,17 @@ describe("RightRail", () => {
     expect(h.rpc.mock.calls.at(-1)![0]).toBe("home_open_bounties");
   });
 
-  it("a presence event moves a member between the online and offline groups live", async () => {
+  it("a presence event moves a member between the online and offline groups live (offline after a short grace)", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     h.path = `/c/${CH}`;
     renderRail();
     await screen.findByRole("list", { name: "Miembros en línea" });
     const handlers = h.topic.mock.calls.findLast((c) => c[0] === "presence")![2] as { onEvent: (p: unknown) => void };
     act(() => handlers.onEvent({ member_id: "33333333-3333-4333-8333-333333333331", online: false }));
+    expect(screen.getByText("En línea — 1")).toBeInTheDocument(); // not yet: a reload would come straight back
+    act(() => vi.advanceTimersByTime(5_000));
     expect(screen.getByText("En línea — 0")).toBeInTheDocument();
+    vi.useRealTimers();
     expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@ana");
   });
 });
