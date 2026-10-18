@@ -75,7 +75,11 @@ async function CoinContent({ id, searchParams }: { id: string; searchParams: Pro
         {c.image ? <img src={c.image} alt="" width={40} height={40} className="size-10 shrink-0 rounded-full" /> : null}
         <div className="flex min-w-0 flex-col">
           <h1 className="text-h1 break-words">
-            {c.name} <span className="text-fg-muted uppercase">{c.symbol}</span>
+            {c.name}{" "}
+            {/* Untrusted length: capped and truncated (inline-block so it sits on the name's line when it fits). */}
+            <span className="inline-block max-w-[10ch] truncate align-bottom text-fg-muted uppercase" title={c.symbol.toUpperCase()}>
+              {c.symbol}
+            </span>
           </h1>
           {c.rank !== null ? <p className="text-[13px] text-fg-muted">Puesto #{c.rank} por capitalización</p> : null}
         </div>

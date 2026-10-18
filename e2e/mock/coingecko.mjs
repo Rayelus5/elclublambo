@@ -2,8 +2,8 @@
 // F4b e2e never touches the real API. Plain Node HTTP, no dependencies, deterministic fixtures.
 // The app reaches it through COINGECKO_API_BASE (playwright.config.ts).
 //   GET  /api/v3/coins/markets                  100 rows (see MARKETS below)
-//   GET  /api/v3/coins/bitcoin                  coin detail
-//   GET  /api/v3/coins/bitcoin/market_chart     ?days=1|7|30|365
+//   GET  /api/v3/coins/{bitcoin,longcoin}       coin detail
+//   GET  /api/v3/coins/{bitcoin,longcoin}/market_chart  ?days=1|7|30|365
 //   GET  /api/v3/coins/<anything else>[/...]    404
 //   POST /__fail | /__ok                        every data endpoint answers 503 until /__ok
 //   GET  /__health                              readiness (Playwright webServer url)
@@ -15,6 +15,8 @@ export const MOCK_PORT = 8549;
 const IMG = "https://coin-images.coingecko.com/coins/images";
 /** A coin name long enough to stress the 375 px layout (the "Cripto" cell must truncate, never widen the page). */
 export const LONG_NAME = "Very Long Experimental Interoperability Governance Token Of The Decentralised Future";
+/** A symbol with no break opportunity: must be truncated in the table and the coin header. */
+export const LONG_SYMBOL = "verylongsymbolwithoutanyspaces";
 
 /** A deterministic 7-day sparkline: 168 hourly points around `base`, trending by `trend` over the week. */
 function sparkline(base, trend) {
@@ -57,8 +59,8 @@ MARKETS[0] = row(1, {
 MARKETS[1] = row(2, { id: "nullcoin", symbol: "nul", name: "Null Price Coin", current_price: null, sparkline_in_7d: undefined });
 // Row 3: image on a foreign host (must not be rendered).
 MARKETS[2] = row(3, { id: "foreigncoin", symbol: "frn", name: "Foreign Image Coin", image: "https://evil.example.com/x.png" });
-// Row 4: a very long name.
-MARKETS[3] = row(4, { id: "longcoin", symbol: "long", name: LONG_NAME });
+// Row 4: a very long name and a very long symbol (both untrusted lengths).
+MARKETS[3] = row(4, { id: "longcoin", symbol: LONG_SYMBOL, name: LONG_NAME });
 
 const BITCOIN = {
   id: "bitcoin",
@@ -78,6 +80,18 @@ const BITCOIN = {
     ath_date: { usd: "2024-03-14T07:10:36.635Z" },
   },
 };
+
+// The long-name coin also has a page (coin header at 375 px).
+const LONGCOIN = {
+  ...BITCOIN,
+  id: "longcoin",
+  symbol: LONG_SYMBOL,
+  name: LONG_NAME,
+  image: { large: null },
+  market_cap_rank: 4,
+  links: { homepage: [] },
+};
+const DETAILS = { bitcoin: BITCOIN, longcoin: LONGCOIN };
 
 // Fixed timeline so every run draws the same chart.
 const T_END = Date.UTC(2026, 9, 18, 12, 0, 0);
@@ -114,8 +128,10 @@ export function handle(req, res) {
   if (failing) return send(res, 503, { error: "service unavailable" });
 
   if (path === "/api/v3/coins/markets") return send(res, 200, MARKETS);
-  if (path === "/api/v3/coins/bitcoin") return send(res, 200, BITCOIN);
-  if (path === "/api/v3/coins/bitcoin/market_chart") {
+  const coin = /^\/api\/v3\/coins\/([^/]+)(\/market_chart)?$/.exec(path);
+  const detail = coin && Object.hasOwn(DETAILS, coin[1]) ? DETAILS[coin[1]] : null;
+  if (detail && !coin[2]) return send(res, 200, detail);
+  if (detail && coin[2]) {
     const days = Number(url.searchParams.get("days"));
     if (![1, 7, 30, 365].includes(days)) return send(res, 400, { error: "invalid days" });
     return send(res, 200, chart(days));

@@ -8,7 +8,8 @@ const PRICE_BIG = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, max
 const PRICE_SMALL = new Intl.NumberFormat("es-ES", { maximumSignificantDigits: 6, maximumFractionDigits: 20 });
 const COMPACT = new Intl.NumberFormat("es-ES", { notation: "compact", maximumFractionDigits: 2 });
 const PCT = new Intl.NumberFormat("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "exceptZero" });
-const TIME = new Intl.DateTimeFormat("es-ES", { hour: "2-digit", minute: "2-digit" });
+const TIME_OPTS = { hour: "2-digit", minute: "2-digit" } as const;
+const TIME_UTC = new Intl.DateTimeFormat("es-ES", { ...TIME_OPTS, timeZone: "UTC" });
 
 export function formatPrice(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return DASH;
@@ -48,8 +49,13 @@ export function formatDate(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? DASH : DATE.format(d);
 }
 
-/** HH:MM in the runtime's es-ES locale and timezone. */
-export function formatTime(iso: string): string {
+/**
+ * HH:MM in es-ES: in the runtime's own time zone (the viewer's, when it runs in the browser), or in UTC with
+ * `{ utc: true }` (stable server output; see LocalClock). The default-zone formatter is built per call so the zone in
+ * effect at call time is used.
+ */
+export function formatTime(iso: string, opts: { utc?: boolean } = {}): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? DASH : TIME.format(d);
+  if (Number.isNaN(d.getTime())) return DASH;
+  return opts.utc ? TIME_UTC.format(d) : new Intl.DateTimeFormat("es-ES", TIME_OPTS).format(d);
 }

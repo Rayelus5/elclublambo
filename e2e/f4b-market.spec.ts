@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { service } from "./helpers/f2c";
-import { LONG_NAME, MOCK_PORT } from "./mock/coingecko.mjs";
+import { LONG_NAME, LONG_SYMBOL, MOCK_PORT } from "./mock/coingecko.mjs";
 
 // F4b acceptance: /mercado and /mercado/[id] against the local mock CoinGecko (e2e/mock/coingecko.mjs, wired through
 // COINGECKO_API_BASE in playwright.config.ts). The server cache lives in `market_cache` (service role only); the
@@ -201,6 +201,13 @@ test("5. 375 px: no horizontal scroll (even with a very long coin name), seconda
     const box = await long.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+    // The long symbol stays inside the Cripto cell too (an overflowing flex item would not change scrollWidth: it would
+    // paint over the Precio column instead).
+    const spill = await long.evaluate((a) => {
+      const cell = a.closest("td")!.getBoundingClientRect();
+      return Math.max(...[...a.children].map((c) => c.getBoundingClientRect().right)) - cell.right;
+    });
+    expect(spill).toBeLessThanOrEqual(0);
     // Rank, coin, price and 24 h fit: the panel does not need to scroll sideways at 375 px either.
     const panel = m.getByTestId("market-table-panel");
     expect(await panel.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
@@ -225,6 +232,13 @@ test("5. 375 px: no horizontal scroll (even with a very long coin name), seconda
     }
     // At 1280 px <main> is wide enough for the first tier (7 d, Capitalización).
     await expect(m.getByRole("columnheader", { name: "Capitalización" })).toBeVisible();
+
+    // The coin page header with the very long name and symbol at 375 px: no sideways scroll either.
+    await m.setViewportSize({ width: 375, height: 812 });
+    await m.goto("/mercado/longcoin");
+    await expect(m.getByRole("heading", { level: 1, name: new RegExp(`^${LONG_NAME}`) })).toBeVisible({ timeout: 30_000 });
+    await expect(m.getByRole("heading", { level: 1 })).toContainText(LONG_SYMBOL, { ignoreCase: true });
+    expect(await m.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
   } finally {
     await mobile.close();
   }

@@ -26,6 +26,14 @@ describe("MarketTable", () => {
     const heads = screen.getAllByRole("columnheader").map((h) => h.textContent);
     expect(heads).toEqual(["#", "Cripto", "Precio", "1 h", "24 h", "7 d", "Capitalización", "Volumen 24 h", "7 días"]);
   });
+  it("truncates a long symbol (untrusted length) instead of letting it widen the Cripto cell", () => {
+    const sym = "averyveryverylongsymbol";
+    render(<MarketTable coins={[{ ...btc, symbol: sym }]} />);
+    const span = screen.getByText(sym);
+    expect(span).toHaveClass("truncate", "min-w-0", "max-w-[6ch]");
+    expect(span).not.toHaveClass("shrink-0");
+    expect(span).toHaveAttribute("title", sym.toUpperCase());
+  });
   it("links each name to its page", () => {
     render(<MarketTable coins={[btc]} />);
     expect(screen.getByRole("link", { name: /Bitcoin/ })).toHaveAttribute("href", "/mercado/bitcoin");

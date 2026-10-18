@@ -1,16 +1,17 @@
-import { formatTime } from "@/lib/market/format";
+import { LocalClock } from "@/components/market/local-clock";
 
-/** When the figures are from, whether the last refresh failed, and the mandatory CoinGecko attribution. */
+/** When the figures are from (in the viewer's time zone), whether the last refresh failed, and the mandatory CoinGecko attribution. */
 export function MarketStatus({ fetchedAt, stale }: { fetchedAt: string; stale: boolean }) {
-  const time = formatTime(fetchedAt);
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-fg-muted">
       {stale ? (
         <p role="status" className="font-bold text-warning">
-          No se pudo actualizar. Datos de las {time}.
+          No se pudo actualizar. Datos de las <LocalClock iso={fetchedAt} />.
         </p>
       ) : (
-        <p>Actualizado a las {time}</p>
+        <p>
+          Actualizado a las <LocalClock iso={fetchedAt} />
+        </p>
       )}
       <a
         href="https://www.coingecko.com"

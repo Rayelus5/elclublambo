@@ -85,7 +85,10 @@ export function MarketTable({ coins }: { coins: MarketCoin[] }) {
                   <span className="min-w-0 truncate" title={c.name}>
                     {c.name}
                   </span>
-                  <span className="shrink-0 text-[13px] font-normal text-fg-muted uppercase">{c.symbol}</span>
+                  {/* Untrusted length: capped and truncated so it never widens or spills out of the cell. */}
+                  <span className="min-w-0 max-w-[6ch] truncate text-[13px] font-normal text-fg-muted uppercase" title={c.symbol.toUpperCase()}>
+                    {c.symbol}
+                  </span>
                 </Link>
               </td>
               <td className={cn(td, "whitespace-nowrap")}>{formatPrice(c.priceUsd)}</td>

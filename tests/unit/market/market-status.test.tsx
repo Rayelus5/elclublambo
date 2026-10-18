@@ -7,8 +7,9 @@ const AT = "2026-10-18T10:05:00.000Z";
 
 describe("MarketStatus", () => {
   it("fresh: Actualizado a las HH:MM, no alert", () => {
-    render(<MarketStatus fetchedAt={AT} stale={false} />);
-    expect(screen.getByText(`Actualizado a las ${formatTime(AT)}`)).toBeInTheDocument();
+    const { container } = render(<MarketStatus fetchedAt={AT} stale={false} />);
+    // The time is a <time> element inside the sentence (LocalClock, viewer's zone).
+    expect(container.querySelector("p")).toHaveTextContent(`Actualizado a las ${formatTime(AT)}`);
     expect(screen.queryByRole("status")).toBeNull();
   });
   it("stale: status role with the copy time", () => {
