@@ -13,10 +13,15 @@ export type VerifyInput = {
   amount: bigint;
   notBefore: Date;
   confirmations?: number;
+  /**
+   * USDC only (withdrawal payouts): accept the first Transfer log, in log order, that pays at least `amount` (the payer
+   * may round up). Without it the value must match exactly. Native ETH is always exact.
+   */
+  atLeast?: boolean;
 };
 
 export type VerifyResult =
-  | { status: "ok"; logIndex: number; blockNumber: bigint; blockTimestamp: Date }
+  | { status: "ok"; logIndex: number; /** The matched log's value (tx.value for ETH). */ value: bigint; blockNumber: bigint; blockTimestamp: Date }
   | { status: "pending" }
   | { status: "error"; code: "tx_not_found" | "tx_failed" | "tx_mismatch" | "tx_too_old" | "rpc_unavailable" };
 
@@ -84,23 +89,27 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
     if (tx.chainId !== undefined && tx.chainId !== input.chain) return err("tx_mismatch");
 
     let logIndex = -1;
+    let value: bigint;
     if (input.token === "ETH") {
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
+      value = tx.value;
     } else {
       const usdc = NETWORKS[input.chain].usdc;
-      const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true });
-      const hit = logs.find(
-        (l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && l.args.value === input.amount,
+      const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true }).sort(
+        (a, b) => a.logIndex - b.logIndex,
       );
+      const pays = (v: bigint) => (input.atLeast ? v >= input.amount : v === input.amount);
+      const hit = logs.find((l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value));
       if (!hit) return err("tx_mismatch");
       logIndex = hit.logIndex;
+      value = hit.args.value;
     }
 
     const block = await client.getBlock({ blockHash: receipt.blockHash });
     const notBefore = BigInt(Math.floor(input.notBefore.getTime() / 1000));
     if (block.timestamp < notBefore - SKEW_SECONDS) return err("tx_too_old");
 
-    return { status: "ok", logIndex, blockNumber: receipt.blockNumber, blockTimestamp: new Date(Number(block.timestamp) * 1000) };
+    return { status: "ok", logIndex, value, blockNumber: receipt.blockNumber, blockTimestamp: new Date(Number(block.timestamp) * 1000) };
   } catch (e) {
     if (e instanceof NotFound) return err("tx_not_found");
     return err("rpc_unavailable");

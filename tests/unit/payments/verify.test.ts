@@ -55,7 +55,7 @@ const notFound = Object.assign(new Error("not found"), { name: "TransactionNotFo
 describe("verifyTransfer ETH", () => {
   const eth = { ...base, token: "ETH" as const, amount: 5n };
   it("accepts a matching native transfer (log index -1)", async () => {
-    expect(await verifyTransfer(eth, fake())).toEqual({ status: "ok", logIndex: -1, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
+    expect(await verifyTransfer(eth, fake())).toEqual({ status: "ok", logIndex: -1, value: 5n, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
   });
   it("rejects wrong to / value / from", async () => {
     for (const tx of [{ from: PAYER, to: OTHER, value: 5n }, { from: PAYER, to: TO, value: 6n }, { from: OTHER, to: TO, value: 5n }]) {
@@ -76,7 +76,7 @@ describe("verifyTransfer USDC", () => {
       transferLog(USDC, PAYER, TO, 999n, 1),
       transferLog(USDC, PAYER, TO, 1000n, 2),
     ];
-    expect(await verifyTransfer(usdc, fake({ receipt: rc(logs) }))).toEqual({ status: "ok", logIndex: 2, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
+    expect(await verifyTransfer(usdc, fake({ receipt: rc(logs) }))).toEqual({ status: "ok", logIndex: 2, value: 1000n, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
   });
   it("matches the usdc address case-insensitively", async () => {
     const logs = [transferLog(USDC.toLowerCase(), PAYER, TO, 1000n, 7)];
@@ -93,6 +93,46 @@ describe("verifyTransfer USDC", () => {
   it("ignores undecodable logs", async () => {
     const junk = { ...transferLog(USDC, PAYER, TO, 1000n, 0), topics: [pad("0x01")] };
     expect(await verifyTransfer(usdc, fake({ receipt: rc([junk]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+});
+
+describe("verifyTransfer USDC atLeast (withdrawal payouts)", () => {
+  const payout = { ...base, token: "USDC" as const, amount: 8_000000n, atLeast: true };
+  const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });
+  it("accepts a log paying more than the amount and returns the paid value", async () => {
+    expect(await verifyTransfer(payout, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 8_500000n, 4)]) }))).toEqual({
+      status: "ok", logIndex: 4, value: 8_500000n, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000),
+    });
+  });
+  it("accepts exactly the amount", async () => {
+    expect(await verifyTransfer(payout, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 8_000000n, 0)]) }))).toMatchObject({ status: "ok", value: 8_000000n });
+  });
+  it("rejects one unit short", async () => {
+    expect(await verifyTransfer(payout, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 7_999999n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("rejects a log from another token contract even when it pays enough", async () => {
+    expect(await verifyTransfer(payout, fake({ receipt: rc([transferLog(FAKE_TOKEN, PAYER, TO, 9_000000n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("rejects the right amount to another wallet or from another sender", async () => {
+    for (const l of [transferLog(USDC, PAYER, OTHER, 9_000000n, 0), transferLog(USDC, OTHER, TO, 9_000000n, 0)]) {
+      expect(await verifyTransfer(payout, fake({ receipt: rc([l]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    }
+  });
+  it("takes the first qualifying log in log order", async () => {
+    const logs = [
+      transferLog(USDC, PAYER, TO, 9_000000n, 6),
+      transferLog(USDC, PAYER, TO, 1_000000n, 2),
+      transferLog(USDC, PAYER, TO, 8_100000n, 3),
+    ];
+    expect(await verifyTransfer(payout, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 3, value: 8_100000n });
+  });
+  it("without atLeast an overpayment is still a mismatch (exact match for tips and donations)", async () => {
+    const exact = { ...payout, atLeast: undefined };
+    expect(await verifyTransfer(exact, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 8_500000n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("atLeast does not relax native ETH (exact value)", async () => {
+    const eth = { ...base, token: "ETH" as const, amount: 4n, atLeast: true };
+    expect(await verifyTransfer(eth, fake())).toEqual({ status: "error", code: "tx_mismatch" });
   });
 });
 

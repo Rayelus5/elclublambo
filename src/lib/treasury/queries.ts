@@ -4,6 +4,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import type { FundAsset } from "@/lib/treasury/format";
+import { parseMyWithdrawal, type MyWithdrawal } from "@/lib/treasury/withdrawals";
 
 /** The Safe's holdings at the latest NAV snapshot (base units; ETH/WETH in wei, the price with 8 decimals). */
 export interface Composition {
@@ -45,27 +46,7 @@ export interface DaoOverview {
   myWithdrawal: MyWithdrawal | null;
 }
 
-export type WithdrawalStatus = "pending" | "approved" | "paid" | "rejected" | "cancelled";
-
-const WITHDRAWAL_STATUSES: readonly WithdrawalStatus[] = ["pending", "approved", "paid", "rejected", "cancelled"];
-
-export interface MyWithdrawal {
-  id: string;
-  status: WithdrawalStatus;
-  shares: bigint;
-  /** USDC (6 decimals) fixed at approval; null until approved. */
-  amountUsdc: bigint | null;
-  approvedAt: string | null;
-  /** approvedAt + 14 days: when an unpaid approval lapses. */
-  expiresAt: string | null;
-  /** The Safe's payout was recorded (it may still await finality). */
-  payoutRecorded: boolean;
-  payoutTxHash: string | null;
-  rejectReason: string | null;
-  /** Set when an earlier approval lapsed ("Caducada · pendiente de nueva aprobación" while pending). */
-  lastExpiredAt: string | null;
-  createdAt: string;
-}
+export type { MyWithdrawal, WithdrawalStatus } from "@/lib/treasury/withdrawals";
 
 export interface RankingEntry {
   rank: number;
@@ -124,28 +105,6 @@ function big(v: unknown): bigint {
   return 0n;
 }
 
-const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
-
-function myWithdrawal(v: unknown): MyWithdrawal | null {
-  if (!v || typeof v !== "object") return null;
-  const w = v as Record<string, unknown>;
-  const status = WITHDRAWAL_STATUSES.find((s) => s === w.status);
-  if (!status || typeof w.id !== "string") return null;
-  return {
-    id: w.id,
-    status,
-    shares: big(w.shares),
-    amountUsdc: w.amountUsdc == null ? null : big(w.amountUsdc),
-    approvedAt: strOrNull(w.approvedAt),
-    expiresAt: strOrNull(w.expiresAt),
-    payoutRecorded: w.payoutRecorded === true,
-    payoutTxHash: strOrNull(w.payoutTxHash),
-    rejectReason: strOrNull(w.rejectReason),
-    lastExpiredAt: strOrNull(w.lastExpiredAt),
-    createdAt: String(w.createdAt),
-  };
-}
-
 function composition(v: unknown): Composition | null {
   if (!v || typeof v !== "object") return null;
   const c = v as Record<string, unknown>;
@@ -188,7 +147,7 @@ export async function getDaoOverview(supabase: SupabaseClient): Promise<DaoOverv
     withdrawalsEnabled: o.withdrawalsEnabled === true,
     supplyShares: big(o.supplyShares),
     myLockedShares: big(o.myLockedShares),
-    myWithdrawal: myWithdrawal(o.myWithdrawal),
+    myWithdrawal: parseMyWithdrawal(o.myWithdrawal),
   };
 }
 

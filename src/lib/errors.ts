@@ -78,6 +78,9 @@ const MESSAGES: Record<string, string> = {
   nav_not_ready: "El fondo aún no tiene valoración. Inténtalo tras la próxima.",
   reason_required: "Escribe un motivo de 1 a 280 caracteres.",
   approval_expired: "La aprobación de esta retirada caducó. Vuelve a aprobarla al precio actual.",
+  valuation_unavailable:
+    "No se puede valorar el fondo ahora mismo (precio o red no disponibles). Inténtalo en unos minutos.",
+  payout_pending: "La transacción aún no tiene confirmaciones suficientes. Vuelve a intentarlo en un momento.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts } from "@/lib/treasury/payouts";
 import { scanSafeOperations } from "@/lib/treasury/scan";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 import { takeSnapshot } from "@/lib/treasury/snapshot";
@@ -23,6 +24,7 @@ type ChainReport = {
   chainId: ChainId;
   snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
   scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
+  payouts?: { recorded: number; paid: number; reverted: number; pending: number } | "failed";
   credited?: number;
   reverted?: number;
   pending?: number;
@@ -31,8 +33,10 @@ type ChainReport = {
 };
 
 /**
- * Per chain, in order: NAV snapshot (hourly, throttled in SQL) → Safe operations scan → settlement of pending donations
- * at market NAV. Each step is isolated: one failing never stops the others. Protected by
+ * Per chain, in order: NAV snapshot (hourly, throttled in SQL) → Safe operations scan → withdrawal payouts (detect the
+ * scanned outflows, then burn the recorded ones at finality) → settlement of pending donations at market NAV. After
+ * every chain, lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window is recorded
+ * before its approval could lapse (Review Focus 4). Each step is isolated: one failing never stops the others. Protected by
  * `Authorization: Bearer ${CRON_SECRET}`. POST for external schedulers, GET for Vercel Cron (which sends GET with the
  * same header); both share the handler.
  */
@@ -68,6 +72,16 @@ async function handle(request: Request) {
         console.error("[cron/dao] scan failed", chainId, e);
         report.scan = "failed";
       }
+      // detect, then finalize; a failing half does not skip the other, and either failing reports the step as failed
+      const detected = await detectWithdrawalPayouts(chainId).catch((e: unknown) => {
+        console.error("[cron/dao] payout detection failed", chainId, e);
+        return null;
+      });
+      const finalized = await finalizeWithdrawalPayouts(chainId).catch((e: unknown) => {
+        console.error("[cron/dao] payout finalization failed", chainId, e);
+        return null;
+      });
+      report.payouts = detected && finalized ? { ...detected, ...finalized } : "failed";
     } else {
       report.skipped = "safe_not_configured";
     }
@@ -79,7 +93,15 @@ async function handle(request: Request) {
     }
     chains.push(report);
   }
-  return Response.json({ chains });
+
+  let expiredApprovals: number | "failed";
+  try {
+    expiredApprovals = await expireWithdrawalApprovals();
+  } catch (e) {
+    console.error("[cron/dao] approval expiry failed", e);
+    expiredApprovals = "failed";
+  }
+  return Response.json({ chains, expiredApprovals });
 }
 
 export const POST = handle;

@@ -13,6 +13,14 @@ const snapshot = vi.fn();
 vi.mock("@/lib/treasury/snapshot", () => ({ takeSnapshot: (...a: unknown[]) => (steps.push(`snapshot:${a[0]}`), snapshot(...a)) }));
 const scan = vi.fn();
 vi.mock("@/lib/treasury/scan", () => ({ scanSafeOperations: (...a: unknown[]) => (steps.push(`scan:${a[0]}`), scan(...a)) }));
+const detect = vi.fn();
+const finalize = vi.fn();
+const expire = vi.fn();
+vi.mock("@/lib/treasury/payouts", () => ({
+  detectWithdrawalPayouts: (...a: unknown[]) => (steps.push(`detect:${a[0]}`), detect(...a)),
+  finalizeWithdrawalPayouts: (...a: unknown[]) => (steps.push(`finalize:${a[0]}`), finalize(...a)),
+  expireWithdrawalApprovals: (...a: unknown[]) => (steps.push("expire"), expire(...a)),
+}));
 
 let safes: Record<number, string | null> = {};
 let cfgError: unknown = null;
@@ -35,6 +43,9 @@ beforeEach(() => {
   steps.length = 0;
   snapshot.mockResolvedValue("taken");
   scan.mockResolvedValue({ inserted: 2, alerts: 1 });
+  detect.mockResolvedValue({ recorded: 1 });
+  finalize.mockResolvedValue({ paid: 1, reverted: 0, pending: 3 });
+  expire.mockResolvedValue(2);
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -66,20 +77,62 @@ describe("POST /api/cron/dao", () => {
     },
   );
 
-  it("200 runs snapshot → scan → settle on each chain with a Safe and reports all three", async () => {
+  it("200 runs snapshot → scan → payouts (detect, finalize) → settle on each chain with a Safe, then expiry once", async () => {
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(steps).toEqual(["snapshot:59144", "scan:59144", "settle:59144", "snapshot:59141", "scan:59141", "settle:59141"]);
+    expect(steps).toEqual([
+      "snapshot:59144", "scan:59144", "detect:59144", "finalize:59144", "settle:59144",
+      "snapshot:59141", "scan:59141", "detect:59141", "finalize:59141", "settle:59141",
+      "expire",
+    ]);
     const body = await res.json();
     expect(body.chains).toHaveLength(2);
-    expect(body.chains[0]).toEqual({ chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, credited: 1, reverted: 0, pending: 2 });
+    expect(body.chains[0]).toEqual({
+      chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 },
+      credited: 1, reverted: 0, pending: 2,
+    });
     expect(body.chains[0]).not.toHaveProperty("diff");
+    expect(body.expiredApprovals).toBe(2);
+  });
+
+  it("Review Focus 4: every chain's payout detection runs before approvals are expired", async () => {
+    await POST(req("Bearer s3cret-value"));
+    const expireAt = steps.indexOf("expire");
+    expect(expireAt).toBe(steps.length - 1);
+    expect(steps.indexOf("detect:59144")).toBeLessThan(expireAt);
+    expect(steps.indexOf("detect:59141")).toBeLessThan(expireAt);
+    expect(expire).toHaveBeenCalledTimes(1);
+  });
+
+  it("a throwing payouts step reports failed while the others still run", async () => {
+    detect.mockRejectedValueOnce(new Error("rpc down")); // 59144's detection
+    finalize.mockResolvedValueOnce({ paid: 0, reverted: 0, pending: 0 }).mockRejectedValueOnce(new Error("rpc down")); // 59141's
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(body.chains[0]).toMatchObject({ payouts: "failed", snapshot: "taken", credited: 1 });
+    expect(body.chains[1]).toMatchObject({ payouts: "failed", credited: 1 });
+    // a failing detection does not skip the finalization (nor the other way round)
+    expect(steps).toEqual(expect.arrayContaining(["finalize:59144", "detect:59141", "settle:59144", "settle:59141"]));
+    expect(steps.at(-1)).toBe("expire");
+    expect(body.expiredApprovals).toBe(2);
+    err.mockRestore();
+  });
+
+  it("a throwing expiry reports expiredApprovals failed and keeps the chain reports", async () => {
+    expire.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.expiredApprovals).toBe("failed");
+    expect(body.chains).toHaveLength(2);
+    err.mockRestore();
   });
 
   it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(steps).toEqual(["settle:59144", "snapshot:59141", "scan:59141", "settle:59141"]);
+    expect(steps).toEqual(["settle:59144", "snapshot:59141", "scan:59141", "detect:59141", "finalize:59141", "settle:59141", "expire"]);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 
@@ -101,6 +154,7 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await POST(req("Bearer s3cret-value"))).status).toBe(500);
     expect(steps).toEqual([]);
+    expect(expire).not.toHaveBeenCalled();
     err.mockRestore();
   });
 
@@ -111,10 +165,10 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(steps).toHaveLength(6);
+    expect(steps).toHaveLength(11);
     const [a, b] = (await res.json()).chains;
-    expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", error: "settle_failed" });
-    expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", credited: 1, reverted: 0, pending: 2 });
+    expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, error: "settle_failed" });
+    expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, credited: 1, reverted: 0, pending: 2 });
     err.mockRestore();
   });
 
