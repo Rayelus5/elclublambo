@@ -126,7 +126,7 @@ select ok((select bool_and(char_length(substring(body from '«(.*)»')) between 
 select is((select min(substring(body from '«(.*)»')) from c1),
   left(regexp_replace((select body_text from public.messages where id = current_setting('t.m1')::uuid), '[[:space:][:cntrl:]]+', ' ', 'g'), 80),
   'the excerpt is the start of the message text');
-select is((select min(url) from c1), '/c/' || current_setting('t.c'), 'url is the internal channel route');
+select ok((select bool_and(url like '/c/' || current_setting('t.c') || '?m=%&h=n%') from c1), 'url opens the exact message in the channel');
 select ok((select bool_and(tag like 'mention:%') from c1), 'tag is stable and kind-prefixed');
 select ok(pg_temp.pushed(current_setting('t.n1')), 'the notification is marked as pushed');
 create temp table c1b as select * from public.claim_push_notifications() where endpoint is not null;
@@ -162,10 +162,10 @@ select set_config('t.pub', public.post_message(current_setting('t.a_ch')::uuid, 
 select tests.clear_authentication();
 create temp table c3 as select * from public.claim_push_notifications() where endpoint is not null;
 grant select on c3 to public;
-select is((select title from c3 where url = '/c/' || current_setting('t.c') || '?thread=' || current_setting('t.root') limit 1), 'Nueva respuesta', 'reply title');
-select is((select split_part(body, ':', 1) from c3 where url like '%?thread=%' limit 1), '@Ana respondió en #t350', 'reply identity phrase');
-select ok(exists (select 1 from c3 where url = '/c/' || current_setting('t.c') || '?thread=' || current_setting('t.root')), 'reply url opens the thread');
-select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url = '/c/' || current_setting('t.a_ch') and split_part(body, ':', 1) = '@Ana publicó en #t350all'),
+select is((select title from c3 where url like '/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%' limit 1), 'Nueva respuesta', 'reply title');
+select is((select split_part(body, ':', 1) from c3 where url like '%&thread=%' limit 1), '@Ana respondió en #t350', 'reply identity phrase');
+select ok(exists (select 1 from c3 where url like '/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%'), 'reply url opens the reply inside its thread');
+select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url like '/c/' || current_setting('t.a_ch') || '?m=%' and split_part(body, ':', 1) = '@Ana publicó en #t350all'),
   'channel_message wording and url');
 
 -- ===== a recipient who lost VIEW: not returned, marked =====

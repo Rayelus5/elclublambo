@@ -74,6 +74,19 @@ describe("listNotifications", () => {
     expect(views[2]!.excerpt).toBeNull();
   });
 
+  it("mentions, replies and channel messages jump to (and highlight) the exact message", async () => {
+    const MSG = "44444444-4444-4444-8444-444444444444";
+    const rows = [
+      { ...base, id: 11, kind: "mention", message_id: MSG },
+      { ...base, id: 12, kind: "reply", message_id: MSG, data: { thread_root_id: ROOT } },
+      { ...base, id: 13, kind: "channel_message", message_id: MSG },
+    ];
+    const { client } = fakeClient(rows);
+    const hrefs = (await listNotifications({ filter: "all" }, client)).map((v) => v.href);
+    // h = the notification id: clicking it again re-jumps even when the same message is already in the URL
+    expect(hrefs).toEqual([`/c/${CH}?m=${MSG}&h=n11`, `/c/${CH}?m=${MSG}&thread=${ROOT}&h=n12`, `/c/${CH}?m=${MSG}&h=n13`]);
+  });
+
   it("builds the href of every kind", async () => {
     const rows = [
       { ...base, id: 1, kind: "reply", data: { thread_root_id: ROOT } },
