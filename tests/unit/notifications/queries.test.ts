@@ -29,7 +29,7 @@ const base = {
   channel_id: CH,
   ticket_id: null,
   data: {},
-  actor: { display_name: "Ana", wallet_address: WALLET },
+  actor: { display_name: "Ana", handle: null, avatar_path: null, wallet_address: WALLET },
   channel: { name: "trading" },
   message: { body_text: "hola  mundo", deleted_at: null },
   ticket: null,
@@ -44,7 +44,7 @@ describe("listNotifications", () => {
       kind: "mention",
       createdAt: base.created_at,
       readAt: null,
-      actor: { name: "Ana", wallet: WALLET },
+      actor: { name: "@Ana", wallet: WALLET },
       channelName: "trading",
       excerpt: "hola mundo",
       ticketSubject: null,
@@ -54,11 +54,11 @@ describe("listNotifications", () => {
 
   it("falls back to the short wallet and null actor", async () => {
     const { client } = fakeClient([
-      { ...base, actor: { display_name: null, wallet_address: WALLET } },
+      { ...base, actor: { display_name: null, handle: null, avatar_path: null, wallet_address: WALLET } },
       { ...base, id: 8, actor: null },
     ]);
     const views = await listNotifications({ filter: "all" }, client);
-    expect(views[0]!.actor?.name).toBe("0xd590…b82d");
+    expect(views[0]!.actor?.name).toBe("@0xd590…b82d");
     expect(views[1]!.actor).toBeNull();
   });
 

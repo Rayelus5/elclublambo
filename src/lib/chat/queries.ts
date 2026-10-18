@@ -1,8 +1,10 @@
 // Chat reads. Every function takes a Supabase client so the same code runs on the server (first paint) and in the
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
+import { getBountyDetails } from "@/lib/bounties/queries";
 import { extractMentions } from "@/lib/chat/content";
+import { getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
 import {
   aggregateReactions,
   emptyDirectory,
@@ -24,10 +26,12 @@ interface MessageRow {
   id: string;
   channel_id: string;
   thread_root_id: string | null;
-  author_id: string;
+  /** Null for a system notice. */
+  author_id: string | null;
   body: unknown;
   allow_links: boolean;
-  kind: "text" | "alpha";
+  kind: "text" | "alpha" | "system" | "bounty";
+  tip_id?: string | null;
   expanded: boolean;
   quoted_message_id: string | null;
   reply_count: number;
@@ -39,7 +43,7 @@ interface MessageRow {
 }
 
 const COLUMNS =
-  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at";
+  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, tip_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at";
 
 export interface Cursor {
   createdAt: string;
@@ -77,7 +81,12 @@ export async function hydrateMessages(
 
   const alphaIds = rows.filter((r) => r.kind === "alpha" && !r.deleted_at).map((r) => r.id);
 
-  const [attachmentsRes, reactionsRes, quotedRes, alphaRes] = await Promise.all([
+  const tipIds = rows.flatMap((r) => (r.kind === "system" && r.tip_id && !r.deleted_at ? [r.tip_id] : []));
+  const tippable = rows.filter((r) => r.kind !== "system" && !r.deleted_at).map((r) => r.id);
+
+  const bountyIds = rows.filter((r) => r.kind === "bounty" && !r.deleted_at).map((r) => r.id);
+
+  const [attachmentsRes, reactionsRes, quotedRes, alphaRes, tipSummaries, tipLinks, bounties] = await Promise.all([
     supabase.from("message_attachments").select("id, message_id, storage_path, mime, width, height").in("message_id", ids),
     supabase.from("message_reactions").select("message_id, member_id, emoji, created_at").in("message_id", ids),
     quotedIds.length > 0
@@ -86,6 +95,9 @@ export async function hydrateMessages(
     alphaIds.length > 0
       ? supabase.from("alpha_details").select("message_id, contract_address").in("message_id", alphaIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    getTipSummaries(supabase, tippable),
+    getTipNoticeLinks(supabase, tipIds),
+    getBountyDetails(supabase, bountyIds),
   ]);
   const alphaByMessage = new Map(
     ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string }>).map((a) => [a.message_id, a.contract_address]),
@@ -101,30 +113,33 @@ export async function hydrateMessages(
   }>;
   const quotedRows = (quotedRes.data ?? []) as Array<{
     id: string;
-    author_id: string;
+    author_id: string | null;
     body_text: string;
     deleted_at: string | null;
   }>;
 
   const mentions = rows.flatMap((r) => (r.deleted_at ? [] : extractMentions(r.body)));
   const memberIds = unique([
-    ...rows.map((r) => r.author_id),
-    ...quotedRows.map((q) => q.author_id),
+    ...rows.flatMap((r) => (r.author_id ? [r.author_id] : [])),
+    ...quotedRows.flatMap((q) => (q.author_id ? [q.author_id] : [])),
+    // The solver of a bounty is the recipient of its payment: the card needs their identity.
+    ...[...(bounties?.values() ?? [])].flatMap((b) => (b.solverId ? [b.solverId] : [])),
     ...mentions.flatMap((m) => (m.kind === "member" && m.id ? [m.id] : [])),
   ]);
   const roleIds = unique(mentions.flatMap((m) => (m.kind === "role" && m.id ? [m.id] : [])));
 
   const [signed, membersRes, rolesRes] = await Promise.all([
     signPaths(supabase, unique(attachmentRows.map((a) => a.storage_path))),
-    supabase.from("members").select("id, display_name, wallet_address").in("id", memberIds),
+    supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}`).in("id", memberIds),
     roleIds.length > 0
       ? supabase.from("roles").select("id, name, color").in("id", roleIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
 
   const directory = emptyDirectory();
-  for (const m of (membersRes.data ?? []) as Array<{ id: string; display_name: string | null; wallet_address: string }>) {
-    directory.members[m.id] = { name: m.display_name?.trim() || shortAddress(m.wallet_address), walletAddress: m.wallet_address };
+  for (const m of (membersRes.data ?? []) as Array<{ id: string } & MemberIdentityRow>) {
+    const identity = identityFromRow(m);
+    directory.members[m.id] = { ...identity, name: memberName(identity) };
   }
   for (const r of (rolesRes.data ?? []) as Array<{ id: string; name: string; color: string }>) {
     directory.roles[r.id] = { name: r.name, color: r.color };
@@ -142,7 +157,7 @@ export async function hydrateMessages(
   const quotes = new Map<string, QuotePreview>();
   for (const q of quotedRows) {
     quotes.set(q.id, {
-      authorName: directory.members[q.author_id]?.name ?? "alguien",
+      authorName: (q.author_id ? directory.members[q.author_id]?.name : undefined) ?? "alguien",
       text: q.body_text.length > QUOTE_CHARS ? `${q.body_text.slice(0, QUOTE_CHARS)}…` : q.body_text,
       deleted: q.deleted_at !== null,
     });
@@ -158,6 +173,7 @@ export async function hydrateMessages(
       allowLinks: r.allow_links,
       kind: r.kind,
       alphaAddress: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
+      bounty: r.kind === "bounty" ? (bounties?.get(r.id) ?? null) : null,
       expanded: r.expanded,
       quotedId: r.quoted_message_id,
       quote: r.quoted_message_id ? (quotes.get(r.quoted_message_id) ?? null) : null,
@@ -169,6 +185,9 @@ export async function hydrateMessages(
       createdAt: r.created_at,
       attachments: attachmentsByMessage.get(r.id) ?? [],
       reactions: reactions.get(r.id) ?? [],
+      tips: tipSummaries?.get(r.id) ?? [],
+      tipId: r.kind === "system" ? (r.tip_id ?? null) : null,
+      tipLink: r.kind === "system" && r.tip_id ? (tipLinks.get(r.tip_id) ?? null) : null,
     }),
   );
   return { messages, directory };

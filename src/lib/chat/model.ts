@@ -1,4 +1,7 @@
 // View model of the chat and the pure helpers around it (no React, no Supabase): usable on server and client.
+import type { BountyDetail } from "@/lib/bounties/queries";
+import type { MemberIdentity } from "@/lib/members/name";
+import type { TipNoticeLink, TipTotal } from "@/lib/payments/queries";
 
 /** A contract address as the Alpha flow accepts it (the database stores it lowercased). */
 export const ALPHA_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -30,13 +33,16 @@ export interface ChatMessage {
   id: string;
   channelId: string;
   threadRootId: string | null;
-  authorId: string;
+  /** Null for a system notice (kind "system"). */
+  authorId: string | null;
   /** Raw Tiptap JSON as stored (untrusted: MessageContent sanitizes it). */
   body: unknown;
   allowLinks: boolean;
-  kind: "text" | "alpha";
+  kind: "text" | "alpha" | "system" | "bounty";
   /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
   alphaAddress: string | null;
+  /** Details of a bounty message; null when unreadable or not a bounty. Absent on view models built before bounties. */
+  bounty?: BountyDetail | null;
   expanded: boolean;
   quotedId: string | null;
   quote: QuotePreview | null;
@@ -49,12 +55,15 @@ export interface ChatMessage {
   createdAt: string;
   attachments: MessageAttachment[];
   reactions: ReactionChip[];
+  /** Tip totals per token (USDC then ETH); empty when nobody tipped it. */
+  tips: TipTotal[];
+  /** For a system notice: the tip it announces. */
+  tipId: string | null;
+  /** For a system notice: the transaction behind it (explorer link); null when unknown. */
+  tipLink: TipNoticeLink | null;
 }
 
-export interface DirectoryMember {
-  name: string;
-  walletAddress: string;
-}
+export type DirectoryMember = MemberIdentity & { name: string };
 
 /** Names needed to render messages: authors and everything referenced by mentions. */
 export interface Directory {
@@ -78,6 +87,8 @@ export interface ViewerPermissions {
   canReact: boolean;
   /** EMBED_LINKS: needed (with the channel's alpha_enabled) to post Alpha theses. */
   canEmbed?: boolean;
+  /** CREATE_BOUNTIES (with SEND_MESSAGES, checked where it is used): /bounty opens the bounty dialog. */
+  canBounty?: boolean;
 }
 
 // --- reactions ------------------------------------------------------------------------------------
@@ -150,7 +161,7 @@ export const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 /** True when `cur` continues the run started by `prev` (same author, under 5 minutes, nothing special). */
 export function isGrouped(prev: ChatMessage | undefined, cur: ChatMessage): boolean {
-  if (!prev || prev.authorId !== cur.authorId) return false;
+  if (!prev || prev.authorId === null || prev.authorId !== cur.authorId) return false;
   if (prev.deletedAt || cur.deletedAt || cur.quotedId) return false;
   return Date.parse(cur.createdAt) - Date.parse(prev.createdAt) < GROUP_WINDOW_MS;
 }

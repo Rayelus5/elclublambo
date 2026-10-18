@@ -59,6 +59,14 @@ describe("rpcErrorMessage", () => {
       "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
     );
   });
+  it("has Spanish copy for safe_equals_platform", () => {
+    expect(rpcErrorCode({ message: "safe_equals_platform" })).toBe("safe_equals_platform");
+    expect(rpcErrorMessage("safe_equals_platform")).toBe("La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.");
+  });
+  it("has Spanish copy for bounty_has_solution", () => {
+    expect(rpcErrorCode({ message: "bounty_has_solution" })).toBe("bounty_has_solution");
+    expect(rpcErrorMessage("bounty_has_solution")).toBe("No puedes borrar un bounty con una solución elegida sin pagar.");
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });
 

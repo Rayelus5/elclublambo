@@ -7,6 +7,15 @@ export type ChannelRow = {
   name: string;
   topic: string | null;
   position: number;
+  /** El miembro lo ve en la barra pero un candado de la DAO le impide entrar (solo nombre/tipo/padre/posición). */
+  locked?: boolean;
+};
+
+/** Candado de la DAO de un canal: dos reglas opcionales unidas con "o" (USDC en unidades base, como string). */
+export type ChannelGate = {
+  minShareBps: number | null;
+  minNetUsdc: string | null;
+  scope: "view" | "post";
 };
 
 /** Fila completa (con ajustes) para el editor de ajustes. Serializable. */
@@ -14,6 +23,7 @@ export type ChannelDetailRow = ChannelRow & {
   slowmodeSeconds: number;
   ticketsEnabled: boolean;
   alphaEnabled: boolean;
+  gate?: ChannelGate;
 };
 
 export type TreeNode = ChannelRow & { children: TreeNode[] };

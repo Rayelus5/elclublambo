@@ -32,6 +32,10 @@ export async function isMissingChannel(supabase: GuardClient, pathname: string):
     const { data, error } = await supabase.from("channels").select("id").eq("id", segment.toLowerCase()).maybeSingle();
     if (error) return false;
     if (data) return false;
+    // Not readable through RLS: it may still exist, locked by a DAO gate the member would otherwise pass. Those get
+    // the lock page (a real 200) instead of a 404; a null state keeps unknown and hidden channels indistinguishable.
+    const { data: lock, error: lockError } = await supabase.rpc("channel_lock_state", { p_channel: segment.toLowerCase() });
+    if (lockError || lock !== null) return false;
   }
 
   const { data: status, error } = await supabase.rpc("my_membership_status");

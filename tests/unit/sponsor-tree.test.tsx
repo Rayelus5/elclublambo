@@ -9,6 +9,8 @@ const C = "0x3333333333333333333333333333333333333333";
 const m = (over: Partial<MemberSummary> & { walletAddress: string }): MemberSummary => ({
   id: over.walletAddress,
   displayName: null,
+  handle: null,
+  avatarPath: null,
   status: "active",
   ...over,
 });

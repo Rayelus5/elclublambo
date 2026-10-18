@@ -169,6 +169,7 @@ export interface EditorHandlers {
   canAttach: boolean;
   canMentionEveryone: boolean;
   onAlpha?: () => void;
+  onBounty?: () => void;
   onPickImage: () => void;
   onSubmit: () => void;
   onUpdate: (editor: Editor) => void;
@@ -216,12 +217,13 @@ function buildExtensions(h: HandlersRef, open: OpenState, expanded: boolean) {
           pluginKey: new PluginKey("slashCommands"),
           char: "/",
           allow: ({ state }) => !state.selection.$from.parent.type.spec.code,
-          items: ({ query }) => filterSlashCommands(query, { canAttach: h().canAttach, hasAlpha: !!h().onAlpha }),
+          items: ({ query }) => filterSlashCommands(query, { canAttach: h().canAttach, hasAlpha: !!h().onAlpha, hasBounty: !!h().onBounty }),
           command: ({ editor, range, props }) => {
             editor.chain().focus().deleteRange(range).run();
             if (props.id === "codigo") editor.chain().focus().toggleCodeBlock().run();
             else if (props.id === "imagen") h().onPickImage();
             else if (props.id === "alpha") h().onAlpha?.();
+            else if (props.id === "bounty") h().onBounty?.();
           },
           render: createRender<SlashCommand>("slash", open, "Comandos", (c) => ({
             key: c.id,
@@ -261,7 +263,7 @@ function buildExtensions(h: HandlersRef, open: OpenState, expanded: boolean) {
       },
       render: createRender<MentionItem>("mention", open, "Menciones", (m, i) => ({
         key: `${m.kind}:${m.id ?? i}`,
-        label: m.kind === "role" ? `@${m.label}` : m.kind === "everyone" ? "@everyone" : m.label,
+        label: m.kind === "role" || m.handle ? `@${m.label}` : m.kind === "everyone" ? "@everyone" : m.label,
         hint: m.hint,
       })),
     },

@@ -33,14 +33,17 @@ export function makeMessage(over: Partial<ChatMessage> = {}): ChatMessage {
     createdAt: new Date(Date.UTC(2026, 9, 17, 10, counter, 0)).toISOString(),
     attachments: [],
     reactions: [],
+    tips: [],
+    tipId: null,
+    tipLink: null,
     ...over,
   };
 }
 
 export const directory: Directory = {
   members: {
-    [ME]: { name: "Yo Mismo", walletAddress: "0x1111111111111111111111111111111111111111" },
-    [OTHER]: { name: "Ana", walletAddress: "0x2222222222222222222222222222222222222222" },
+    [ME]: { name: "Yo Mismo", handle: null, displayName: "Yo Mismo", avatarPath: null, walletAddress: "0x1111111111111111111111111111111111111111" },
+    [OTHER]: { name: "Ana", handle: "ana_l", displayName: "Ana", avatarPath: null, walletAddress: "0x2222222222222222222222222222222222222222" },
   },
   roles: {},
 };

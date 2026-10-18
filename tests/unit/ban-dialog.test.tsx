@@ -12,12 +12,16 @@ const member: MemberSummary = {
   id: "m1",
   walletAddress: "0x1111111111111111111111111111111111111111",
   displayName: "Ana",
+  handle: null,
+  avatarPath: null,
   status: "active",
 };
 const sponsor: MemberSummary = {
   id: "s1",
   walletAddress: "0x2222222222222222222222222222222222222222",
   displayName: "Bruno",
+  handle: null,
+  avatarPath: null,
   status: "active",
 };
 

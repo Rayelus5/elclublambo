@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance criteria of F2a (channel structure and cascading permissions).
 // The DB is reset by global-setup; scenarios share state, so run serially.
@@ -124,10 +124,12 @@ test("3. un overwrite de miembro con VIEW permitido hace visible VIP para B", as
   await matrix.getByRole("button", { name: "Buscar" }).click();
   await matrix.getByRole("button", { name: new RegExp(short(bAddr)) }).click();
 
-  const viewB = matrix.getByRole("button", { name: new RegExp(`^${short(bAddr)} · Ver canal:`) });
+  // Since F3a members are labelled by their @handle (the wallet is the secondary line).
+  const bName = handleOf(keyB);
+  const viewB = matrix.getByRole("button", { name: `${bName} · Ver canal: heredar` });
   await viewB.click(); // heredar -> permitido
-  await expect(viewB).toHaveAccessibleName(`${short(bAddr)} · Ver canal: permitido`);
-  const save = matrix.getByRole("button", { name: `Guardar ${short(bAddr)}` });
+  await expect(matrix.getByRole("button", { name: `${bName} · Ver canal: permitido` })).toBeVisible();
+  const save = matrix.getByRole("button", { name: `Guardar ${bName}` });
   await save.click();
   await expect(save).toBeDisabled();
 
@@ -161,7 +163,7 @@ test("4. un Moderador verifica a C desde Miembros y aparece el badge", async ({ 
   await cPage.goto("/");
   await cCtx.close();
 
-  const cShort = short(addressOf(keyC));
+  const cShort = handleOf(keyC); // members are labelled by @handle since F3a
   await bPage.goto("/admin/members");
   const toggle = bPage.getByRole("button", { name: `Verificado: ${cShort}` });
   await expect(toggle).toHaveAttribute("aria-pressed", "false");

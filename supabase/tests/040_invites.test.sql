@@ -186,9 +186,9 @@ select tests.authenticate_as(current_setting('t.n6')::uuid);
 select ok(public.redeem_invite(pg_temp.code(current_setting('t.inv_a'))) is not null, 'admin (all bits) invite still redeemable');
 select tests.clear_authentication();
 
--- catch-all RLS guard: no write policies besides members_update_own
-select is((select count(*)::int from pg_policies where schemaname = 'public' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
-  and policyname <> 'members_update_own'), 0, 'no write policies other than members_update_own');
+-- catch-all RLS guard: no write policies at all (members profile writes go through RPCs since F3a)
+select is((select count(*)::int from pg_policies where schemaname = 'public' and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')),
+  0, 'no write policies on public tables');
 select tests.authenticate_as(pg_temp.uid(current_setting('t.plain')));
 select throws_ok(format($q$insert into public.member_roles (member_id, role_id) values (%L::uuid, (select id from public.roles where name = 'SuperAdmin'))$q$, current_setting('t.plain')),
   '42501', null, 'active member cannot insert member_roles');

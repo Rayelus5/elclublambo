@@ -100,6 +100,7 @@ describe("useChannelEvents", () => {
     expect(last().topic).toBe(`channel:${CH}`);
     expect(last().config).toEqual({ config: { private: true } });
     expect([...last().handlers.keys()].toSorted()).toEqual([
+      "bounty_changed",
       "message_created",
       "message_deleted",
       "message_pinned",

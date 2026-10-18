@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { searchMembersAction, setOverwriteAction, type MemberHit } from "@/lib/channels/actions";
 import { shortAddress } from "@/lib/auth/wallet";
 import { rpcErrorMessage } from "@/lib/errors";
+import { memberName, type MemberIdentity } from "@/lib/members/name";
 import { CHANNEL_BIT_LIST } from "@/lib/permissions/labels";
 import { cycleState, getState, setState, type TriState } from "@/lib/permissions/overwrite-state";
 import { cn } from "@/lib/utils";
@@ -24,7 +25,7 @@ export type MatrixRole = {
   /** Rol con el bit de administrador (SuperAdmin): nunca es destino de un overwrite. */
   isAdminRole: boolean;
 };
-export type MatrixMember = { id: string; displayName: string | null; walletAddress: string };
+export type MatrixMember = MemberIdentity & { id: string };
 
 type Props = {
   channelId: string;
@@ -110,7 +111,7 @@ export function PermissionMatrix({ channelId, overwrites, roles, members, actorC
     }
     const m = knownMembers.find((x) => x.id === id);
     return {
-      name: m?.displayName || (m ? shortAddress(m.walletAddress) : "Miembro"),
+      name: m ? memberName(m) : "Miembro",
       sub: m ? shortAddress(m.walletAddress) : undefined,
       // La jerarquía de miembros la valida el servidor.
       locked: false,
@@ -352,7 +353,7 @@ export function PermissionMatrix({ channelId, overwrites, roles, members, actorC
                         FOCUS,
                       )}
                     >
-                      <span className="truncate">{h.displayName || shortAddress(h.walletAddress)}</span>
+                      <span className="truncate">{memberName(h)}</span>
                       <span className="font-mono text-xs text-fg-muted">{shortAddress(h.walletAddress)}</span>
                     </button>
                   </li>

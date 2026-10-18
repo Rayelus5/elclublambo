@@ -156,3 +156,22 @@ describe("Sidebar with channels", () => {
     expect(screen.queryByRole("link", { name: "Ajustes" })).toBeNull();
   });
 });
+
+describe("ChannelTree locked rows", () => {
+  const withLock = buildTree([
+    ...ROWS,
+    { id: "vip", parentId: "cat1", kind: "text", name: "VIP", topic: null, position: 3, locked: true },
+    { id: "vcat", parentId: null, kind: "category", name: "Socios", topic: null, position: 3, locked: true },
+  ]);
+  it("a locked text channel keeps its link, shows the lock and is labelled 'bloqueado'", () => {
+    render(<ChannelTree nodes={withLock} />);
+    const link = screen.getByRole("link", { name: "VIP, bloqueado" });
+    expect(link).toHaveAttribute("href", "/c/vip");
+    expect(link.querySelector("svg.lucide-lock")).not.toBeNull();
+    expect(screen.getByRole("link", { name: "General" }).querySelector("svg.lucide-lock")).toBeNull();
+  });
+  it("a locked category is labelled too", () => {
+    render(<ChannelTree nodes={withLock} />);
+    expect(screen.getByRole("button", { name: "Socios, bloqueado" })).toHaveAttribute("aria-expanded", "true");
+  });
+});

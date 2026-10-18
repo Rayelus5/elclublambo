@@ -8,7 +8,10 @@ function client(opts: { channel?: unknown; channelError?: unknown; status?: unkn
   const eq = vi.fn(() => ({ maybeSingle }));
   const select = vi.fn(() => ({ eq }));
   const from = vi.fn(() => ({ select }));
-  const rpc = vi.fn(async () => ({ data: "status" in opts ? opts.status : "active", error: null }));
+  // channel_lock_state is null here (locked channels are covered in tests/unit/channels/guard.test.ts).
+  const rpc = vi.fn(async (name: string) =>
+    name === "channel_lock_state" ? { data: null, error: null } : { data: "status" in opts ? opts.status : "active", error: null },
+  );
   return { from, rpc, eq, maybeSingle };
 }
 

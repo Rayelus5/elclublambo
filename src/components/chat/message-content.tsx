@@ -2,9 +2,10 @@ import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
 import { sanitizeDoc, type TiptapMark, type TiptapNode } from "@/lib/chat/content";
 import { classifyLink } from "@/lib/chat/links";
+import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
 
 export interface MentionsDir {
-  members: Record<string, { name: string }>;
+  members: Record<string, MemberIdentity>;
   roles: Record<string, { name: string; color: string }>;
 }
 
@@ -33,8 +34,10 @@ function Mention({ node, dir }: { node: TiptapNode; dir: MentionsDir }) {
   let name = "@desconocido";
   let color: string | null = null;
   if (kind === "everyone") name = "@everyone";
-  else if (kind === "member" && has(dir.members, id)) name = `@${dir.members[id]?.name ?? "desconocido"}`;
-  else if (kind === "role" && has(dir.roles, id)) {
+  else if (kind === "member" && has(dir.members, id)) {
+    const member = dir.members[id];
+    name = member ? mentionLabel(member) : "@desconocido";
+  } else if (kind === "role" && has(dir.roles, id)) {
     const role = dir.roles[id];
     name = `@${role?.name ?? "desconocido"}`;
     color = role && HEX_COLOR.test(role.color) ? role.color : null;

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 
 // Both RPCs are SECURITY INVOKER: call them with the user's own (browser) client so RLS decides what is visible.
 
@@ -13,7 +13,7 @@ export type MessageHit = {
   snippet: string;
 };
 
-export type MemberHit = { id: string; displayName: string | null; walletAddress: string };
+export type MemberHit = MemberIdentity & { id: string };
 
 type MessageRow = {
   id: string;
@@ -40,11 +40,11 @@ export async function searchMessages(
 
   // Author names under the same RLS; an author that cannot be read falls back to "alguien".
   const authorIds = [...new Set(rows.map((r) => r.author_id))];
-  const { data: members, error: membersError } = await supabase.from("members").select("id, display_name, wallet_address").in("id", authorIds);
+  const { data: members, error: membersError } = await supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}`).in("id", authorIds);
   if (membersError) console.error("search: author lookup failed", membersError);
   const names = new Map<string, string>();
-  for (const m of (members ?? []) as Array<{ id: string; display_name: string | null; wallet_address: string }>) {
-    names.set(m.id, m.display_name?.trim() || shortAddress(m.wallet_address));
+  for (const m of (members ?? []) as Array<{ id: string } & MemberIdentityRow>) {
+    names.set(m.id, memberName(identityFromRow(m)));
   }
   return rows.map((r) => ({
     id: r.id,
@@ -60,9 +60,8 @@ export async function searchMessages(
 export async function searchMembers(supabase: SupabaseClient, q: string): Promise<MemberHit[]> {
   const { data, error } = await supabase.rpc("search_members", { p_q: q });
   if (error) throw error;
-  return ((data ?? []) as Array<{ id: string; display_name: string | null; wallet_address: string }>).map((m) => ({
+  return ((data ?? []) as Array<{ id: string } & MemberIdentityRow>).map((m) => ({
     id: m.id,
-    displayName: m.display_name,
-    walletAddress: m.wallet_address,
+    ...identityFromRow(m),
   }));
 }

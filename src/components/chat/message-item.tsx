@@ -1,12 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
+import { CircleCheck, CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
+import { BountyCard } from "@/components/chat/bounty-card";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
+import { SystemNotice } from "@/components/chat/system-notice";
 import { ReactionBar } from "@/components/chat/reaction-bar";
+import { MemberAvatar } from "@/components/members/member-avatar";
+import { TipDialog } from "@/components/payments/tip-dialog";
+import { TipsBadge } from "@/components/payments/tips-badge";
 import { ReportDialog } from "@/components/reports/report-dialog";
 import {
   AlertDialog,
@@ -18,8 +23,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
+import { rpcErrorMessage } from "@/lib/errors";
+import type { MemberIdentity } from "@/lib/members/name";
 import { cn } from "@/lib/utils";
 
 export type MessageVariant = "list" | "thread" | "pinned";
@@ -34,6 +42,13 @@ export interface MessageItemHandlers {
   onDelete?: (message: ChatMessage) => Promise<string | null | void> | void;
   onPin?: (message: ChatMessage, pinned: boolean) => void;
   onToggleReaction?: (message: ChatMessage, emoji: string) => void;
+  /** A bounty message changed (cancelled, or its payment dialog closed): the list re-reads it. */
+  onBountyChanged?: (message: ChatMessage) => void;
+  /**
+   * Present only for the author of an open bounty, inside its thread: marks `message` (a reply) as the solution.
+   * Resolves to an error message, or null when it was marked.
+   */
+  onMarkSolution?: (message: ChatMessage) => Promise<string | null>;
 }
 
 export interface MessageItemProps extends MessageItemHandlers {
@@ -46,6 +61,8 @@ export interface MessageItemProps extends MessageItemHandlers {
   variant?: MessageVariant;
   /** The target of a `?m=` jump, for a couple of seconds: accent border and `aria-current`. */
   highlighted?: boolean;
+  /** This reply is the bounty's marked solution. */
+  isSolution?: boolean;
 }
 
 const DAY_TIME = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit" });
@@ -68,18 +85,6 @@ function Time({ iso, className }: { iso: string; className?: string }) {
   );
 }
 
-function Avatar({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-9 items-center justify-center rounded-control border border-border-strong bg-surface-2 font-display text-sm font-bold text-fg uppercase"
-    >
-      {/* A bare wallet ("0x1234…") would put "0" in every avatar: use the first hex digit after 0x. */}
-      {Array.from(name.trim().replace(/^0x/i, ""))[0] ?? "?"}
-    </span>
-  );
-}
-
 export function MessageItem({
   message,
   directory,
@@ -88,25 +93,34 @@ export function MessageItem({
   grouped = false,
   variant = "list",
   highlighted = false,
+  isSolution = false,
   onOpenThread,
   onQuote,
   onEdit,
   onDelete,
   onPin,
   onToggleReaction,
+  onBountyChanged,
+  onMarkSolution,
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [tipping, setTipping] = useState(false);
+  const [confirmMark, setConfirmMark] = useState(false);
+  const [markError, setMarkError] = useState<string | null>(null);
+  const [marking, setMarking] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
-  const author = directory.members[message.authorId];
+  const authorId = message.authorId;
+  const author = authorId ? directory.members[authorId] : undefined;
   const name = author?.name ?? "Miembro";
+  const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: authorId ?? "", avatarPath: null };
   const deleted = message.deletedAt !== null;
-  const own = message.authorId === viewer.memberId;
+  const own = authorId !== null && authorId === viewer.memberId;
   const isRoot = message.threadRootId === null;
 
   const canReply = variant === "list" && isRoot && !deleted;
@@ -115,7 +129,11 @@ export function MessageItem({
   const canDelete = (own || viewer.canManage) && !deleted && variant !== "pinned" && !!onDelete;
   const canPin = viewer.canManage && isRoot && !deleted && variant !== "pinned" && !!onPin;
   const canReport = !own && !deleted && variant !== "pinned";
-  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canReport;
+  // Tips go to a person: never on one's own message, a deleted one, or a system notice (no author).
+  const canTip = !own && !deleted && variant !== "pinned" && message.kind !== "system" && authorId !== null;
+  // Only the author of an open bounty gets the handler; it is offered on other members' visible replies.
+  const canMark = !!onMarkSolution && !own && !deleted && variant === "thread" && message.threadRootId !== null && message.kind !== "system";
+  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
     variant === "list" && isRoot && message.replyCount > 0 ? (
@@ -138,6 +156,59 @@ export function MessageItem({
     else setConfirmDelete(false);
   };
 
+  const mark = async () => {
+    setMarking(true);
+    setMarkError(null);
+    const err = await Promise.resolve(onMarkSolution?.(message)).catch(() => rpcErrorMessage("unknown"));
+    setMarking(false);
+    if (err) setMarkError(err);
+    else setConfirmMark(false);
+  };
+
+  const bounty = message.kind === "bounty" ? message.bounty : null;
+  const solverMember = bounty?.solverId ? directory.members[bounty.solverId] : undefined;
+
+  if (message.kind === "system") {
+    // A notice a moderator removed leaves no trace in the thread.
+    if (deleted) return null;
+    return (
+      <li
+        id={`msg-${message.id}`}
+        data-message-id={message.id}
+        aria-current={highlighted ? "true" : undefined}
+        className={cn(
+          "group relative -mx-2 mt-3 flex gap-1 rounded-control border-l-2 px-2 py-0.5 transition-colors duration-150 first:mt-0 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+          highlighted ? "border-accent bg-surface-2" : "border-transparent",
+        )}
+      >
+        <SystemNotice message={message} />
+        <div className="shrink-0 self-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Acciones del mensaje"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+              >
+                <MoreHorizontal aria-hidden className="size-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent aria-label="Acciones del mensaje">
+              <DropdownMenuItem
+                onSelect={() => {
+                  const url = `${window.location.origin}/c/${message.channelId}?m=${message.id}`;
+                  void navigator.clipboard?.writeText(url).catch(() => undefined);
+                }}
+              >
+                Copiar enlace
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </li>
+    );
+  }
+
   return (
     <li
       id={`msg-${message.id}`}
@@ -153,7 +224,7 @@ export function MessageItem({
         {grouped ? (
           <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
         ) : (
-          <Avatar name={name} />
+          <MemberAvatar member={identity} size={32} />
         )}
       </div>
 
@@ -163,6 +234,7 @@ export function MessageItem({
             <span className="font-display font-bold text-fg" title={author?.walletAddress}>
               {name}
             </span>
+            {author?.displayName?.trim() && author.handle ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
             <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />
             {message.pinnedAt && !deleted ? (
               <span className="inline-flex items-center gap-1 text-[13px] text-fg-muted">
@@ -172,6 +244,13 @@ export function MessageItem({
             ) : null}
           </div>
         )}
+
+        {isSolution && !deleted ? (
+          <span className="inline-flex min-h-7 items-center gap-1.5 self-start rounded-control border border-success px-2 text-[13px] font-bold text-success">
+            <CircleCheck aria-hidden className="size-3.5" />
+            Solución
+          </span>
+        ) : null}
 
         {deleted ? (
           <p className="flex items-center gap-2 text-sm text-fg-muted italic">
@@ -214,6 +293,16 @@ export function MessageItem({
               </blockquote>
             ) : null}
             {message.kind === "alpha" && message.alphaAddress ? <AlphaCard address={message.alphaAddress} /> : null}
+            {bounty ? (
+              <BountyCard
+                messageId={message.id}
+                channelId={message.channelId}
+                bounty={bounty}
+                isAuthor={own}
+                solver={solverMember && bounty.solverId ? { ...solverMember, id: bounty.solverId } : null}
+                onChanged={() => onBountyChanged?.(message)}
+              />
+            ) : null}
             <MessageContent doc={message.body} allowLinks={message.allowLinks} allowedDomains={allowedDomains} mentionsDir={directory} />
             {message.editedAt ? (
               <span className="self-start text-[13px] text-fg-muted" title={`Editado ${formatTime(message.editedAt)}`}>
@@ -224,12 +313,18 @@ export function MessageItem({
           </>
         )}
 
+        {!deleted && message.tips.length > 0 ? <TipsBadge messageId={message.id} totals={message.tips} /> : null}
         {!deleted && variant !== "pinned" ? (
           <ReactionBar
             reactions={message.reactions}
             canReact={viewer.canReact}
             onToggle={(emoji) => onToggleReaction?.(message, emoji)}
           />
+        ) : null}
+        {canMark ? (
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setConfirmMark(true)}>
+            Marcar como solución
+          </Button>
         ) : null}
         {replies}
       </div>
@@ -297,6 +392,7 @@ export function MessageItem({
                   {message.pinnedAt === null ? "Fijar" : "Desfijar"}
                 </DropdownMenuItem>
               ) : null}
+              {canTip ? <DropdownMenuItem onSelect={() => setTipping(true)}>Dar propina</DropdownMenuItem> : null}
               {canReport ? (
                 <DropdownMenuItem onSelect={() => setReporting(true)}>Reportar</DropdownMenuItem>
               ) : null}
@@ -305,7 +401,49 @@ export function MessageItem({
         </div>
       ) : null}
 
+      {canTip && authorId && tipping ? (
+        <TipDialog target={{ type: "message", messageId: message.id }} recipient={{ ...identity, id: authorId }} open={tipping} onOpenChange={setTipping} />
+      ) : null}
+
       {canReport ? <ReportDialog messageId={message.id} open={reporting} onOpenChange={setReporting} /> : null}
+
+      {canMark ? (
+        <AlertDialog
+          open={confirmMark}
+          onOpenChange={(open) => {
+            if (marking) return;
+            setConfirmMark(open);
+            if (!open) setMarkError(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Marcar esta respuesta como solución?</AlertDialogTitle>
+              <AlertDialogDescription>
+                No se puede deshacer ni cambiar por otra. Desde ahora tienes 7 días para pagarla; pasado ese plazo el bounty queda como impagado.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {markError ? (
+              <p role="alert" className="text-sm text-danger">
+                {markError}
+              </p>
+            ) : null}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={marking}>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={marking}
+                onClick={(e) => {
+                  // Keep the dialog open until the server answers, so an error can be shown in it.
+                  e.preventDefault();
+                  void mark();
+                }}
+              >
+                Sí, marcar como solución
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
 
       <AlertDialog
         open={confirmDelete}

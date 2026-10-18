@@ -43,6 +43,7 @@ export async function loadChatContext(
     canMentionEveryone: hasPerm(bits, Perm.MENTION_EVERYONE),
     canReact: hasPerm(bits, Perm.ADD_REACTIONS),
     canEmbed: hasPerm(bits, Perm.EMBED_LINKS),
+    canBounty: hasPerm(bits, Perm.CREATE_BOUNTIES) && hasPerm(bits, Perm.SEND_MESSAGES),
   };
 
   return {

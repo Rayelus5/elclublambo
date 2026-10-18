@@ -2,7 +2,7 @@
 // the reader holds MANAGE_MESSAGES; the snapshot (author + text) survives the deletion of the message.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MemberSummary } from "@/components/members/sponsor-tree";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentity } from "@/lib/members/name";
 import type { ReportReason } from "@/lib/reports/reasons";
 
 // Cap on rows kept. One row more is requested, so the cap is detected exactly. Groups are built from rows: the group
@@ -27,6 +27,8 @@ export interface ReportGroup {
   author: {
     id: string;
     name: string;
+    /** Same member as `name`/`walletAddress`, with handle and avatar for the ban dialog. */
+    identity: MemberIdentity;
     walletAddress: string;
     status: "active" | "banned" | "left";
     sponsor: MemberSummary | null;
@@ -41,6 +43,8 @@ interface AuthorRow {
   id: string;
   wallet_address: string;
   display_name: string | null;
+  handle: string | null;
+  avatar_path: string | null;
   status: "active" | "banned" | "left";
   invited_by_member_id: string | null;
 }
@@ -63,11 +67,10 @@ interface Row {
 const SELECT =
   "id, message_id, channel_id, reason, note, snapshot_text, status, created_at, resolved_at, " +
   "channel:channels(name), " +
-  "author:members!reports_snapshot_author_id_fkey(id, wallet_address, display_name, status, invited_by_member_id), " +
+  "author:members!reports_snapshot_author_id_fkey(id, " + MEMBER_IDENTITY_COLUMNS + ", status, invited_by_member_id), " +
   "message:messages(deleted_at)";
 
-const nameOf = (m: { display_name: string | null; wallet_address: string }) =>
-  m.display_name?.trim() || shortAddress(m.wallet_address);
+const nameOf = (m: AuthorRow) => memberName(identityFromRow(m));
 
 export interface ReportQueueResult {
   groups: ReportGroup[];
@@ -98,13 +101,13 @@ export async function listReportQueue(status: "open" | "closed", supabase: Supab
   const adminSponsors = new Set<string>();
   if (sponsorIds.length > 0) {
     const [members, admins] = await Promise.all([
-      supabase.from("members").select("id, wallet_address, display_name, status").in("id", sponsorIds),
+      supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}, status`).in("id", sponsorIds),
       supabase.from("member_roles").select("member_id, roles!inner(name)").eq("roles.name", "SuperAdmin").in("member_id", sponsorIds),
     ]);
     if (members.error) throw new Error(members.error.message);
     if (admins.error) throw new Error(admins.error.message);
-    for (const m of (members.data ?? []) as Array<{ id: string; wallet_address: string; display_name: string | null; status: MemberSummary["status"] }>) {
-      sponsors.set(m.id, { id: m.id, walletAddress: m.wallet_address, displayName: m.display_name, status: m.status });
+    for (const m of (members.data ?? []) as Array<{ id: string; handle: string | null; avatar_path: string | null; wallet_address: string; display_name: string | null; status: MemberSummary["status"] }>) {
+      sponsors.set(m.id, { id: m.id, ...identityFromRow(m), status: m.status });
     }
     for (const a of (admins.data ?? []) as Array<{ member_id: string }>) adminSponsors.add(a.member_id);
   }
@@ -131,6 +134,7 @@ export async function listReportQueue(status: "open" | "closed", supabase: Supab
           ? {
               id: a.id,
               name: nameOf(a),
+              identity: identityFromRow(a),
               walletAddress: a.wallet_address,
               status: a.status,
               sponsor: a.invited_by_member_id ? (sponsors.get(a.invited_by_member_id) ?? null) : null,

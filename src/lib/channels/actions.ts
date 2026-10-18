@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
@@ -86,6 +87,38 @@ export async function updateChannelAction(input: {
   return {};
 }
 
+const NET_MAX = 10n ** 30n;
+
+/**
+ * Guarda el candado de la DAO de un canal (`set_channel_gate`): % mínimo en bps y/o aportación neta mínima en unidades
+ * base de USDC (string), unidos con "o". Ambos null lo quitan. La autorización real la hace la RPC.
+ */
+export async function setChannelGateAction(input: {
+  id: string;
+  minShareBps: number | null;
+  minNetUsdc: string | null;
+  scope: string;
+}): Promise<{ error?: string }> {
+  const shareOk =
+    input?.minShareBps === null || (Number.isInteger(input?.minShareBps) && input.minShareBps >= 0 && input.minShareBps <= 10_000);
+  const netOk =
+    input?.minNetUsdc === null || (typeof input?.minNetUsdc === "string" && /^\d{1,31}$/.test(input.minNetUsdc) && BigInt(input.minNetUsdc) <= NET_MAX);
+  if (!isUuid(input?.id) || !shareOk || !netOk || (input.scope !== "view" && input.scope !== "post")) {
+    return { error: "invalid_input" };
+  }
+
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("set_channel_gate", {
+    p_channel: input.id,
+    p_min_share_bps: input.minShareBps,
+    p_min_net_usdc: input.minNetUsdc,
+    p_scope: input.scope,
+  });
+  if (error) return { error: rpcErrorCode(error) };
+  refresh();
+  return {};
+}
+
 /** `index` es la posición final entre los hermanos del padre destino; null = al final. */
 export async function moveChannelAction(input: {
   id: string;
@@ -145,7 +178,7 @@ export async function setOverwriteAction(
   return {};
 }
 
-export type MemberHit = { id: string; displayName: string | null; walletAddress: string };
+export type MemberHit = MemberIdentity & { id: string };
 
 /** Bits de canal del actor en un canal; se pide solo para el canal seleccionado en el editor. */
 export async function getMyChannelPermsAction(channelId: string): Promise<{ bits?: string; error?: string }> {
@@ -171,16 +204,12 @@ export async function searchMembersAction(query: string): Promise<MemberHit[]> {
   if (permsError || !hasPerm(BigInt(String(rawPerms ?? 0)), Perm.MANAGE_CHANNELS)) return [];
   const { data, error } = await supabase
     .from("members")
-    .select("id, display_name, wallet_address")
+    .select(`id, ${MEMBER_IDENTITY_COLUMNS}`)
     .eq("status", "active")
-    .or(`display_name.ilike.%${q}%,wallet_address.ilike.%${q}%`)
+    .or(`display_name.ilike.%${q}%,handle.ilike.%${q}%,wallet_address.ilike.%${q}%`)
     .limit(10);
   if (error || !data) return [];
-  return (data as { id: string; display_name: string | null; wallet_address: string }[]).map((m) => ({
-    id: m.id,
-    displayName: m.display_name,
-    walletAddress: m.wallet_address,
-  }));
+  return (data as Array<{ id: string } & MemberIdentityRow>).map((m) => ({ id: m.id, ...identityFromRow(m) }));
 }
 
 export async function deleteChannelAction(id: string): Promise<{ error?: string }> {

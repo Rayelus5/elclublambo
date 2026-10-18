@@ -70,7 +70,7 @@ select set_config('t.md', tests.ins(current_setting('t.txt')::uuid, 'linea borra
 select tests.ins(current_setting('t.txt')::uuid, '');
 
 -- a view-gated channel whose gate the member fails (gate_passes is a no-op until F3; forced false inside this rolled-back test)
-update public.channels set gate_mode = 'min_share_bps', gate_value = 100, gate_scope = 'view' where id = current_setting('t.txtG')::uuid;
+update public.channels set gate_min_share_bps = 100, gate_scope = 'view' where id = current_setting('t.txtG')::uuid;
 create or replace function public.gate_passes(p_member uuid, p_channel uuid, p_scope text)
 returns boolean language sql stable security definer set search_path = '' as $$ select false $$;
 select tests.ins(current_setting('t.txtG')::uuid, 'contenido gated zebra');

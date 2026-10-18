@@ -1,0 +1,31 @@
+{
+  "reserved": [
+    "admin",
+    "administrador",
+    "superadmin",
+    "elclub",
+    "el_club",
+    "sistema",
+    "system",
+    "soporte",
+    "support",
+    "moderador",
+    "mod",
+    "staff",
+    "everyone",
+    "here",
+    "todos",
+    "anonimo",
+    "null",
+    "undefined"
+  ],
+  "cases": [
+    { "input": "Ray_L", "result": "ray_l" },
+    { "input": "ab", "error": "handle_invalid" },
+    { "input": "ADMIN", "error": "handle_reserved" },
+    { "input": "аdmin", "error": "handle_invalid" },
+    { "input": "a.b.c", "error": "handle_invalid" },
+    { "input": "  ok_name  ", "result": "ok_name" },
+    { "input": "aaaaaaaaaaaaaaaaaaaaa", "error": "handle_invalid" }
+  ]
+}

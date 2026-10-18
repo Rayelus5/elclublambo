@@ -45,6 +45,20 @@ describe("buildMentionItems", () => {
     });
     expect(items[0]!.label).toBe("0x1234…5678");
   });
+
+  it("keys a member with a handle by the handle and hints the display name or wallet", () => {
+    const items = buildMentionItems({
+      query: "ana",
+      members: [
+        { id: M1, label: "Ana", handle: "ana_l", walletAddress: "0x1234567890abcdef1234567890abcdef12345678" },
+        { id: M1, label: "", handle: "bob", walletAddress: "0x1234567890abcdef1234567890abcdef12345678" },
+      ],
+      roles: [],
+      canMentionEveryone: false,
+    });
+    expect(items[0]).toMatchObject({ label: "ana_l", handle: true, hint: "Ana" });
+    expect(items[1]).toMatchObject({ label: "bob", handle: true, hint: "0x1234…5678" });
+  });
 });
 
 describe("loadMentionItems", () => {
@@ -89,6 +103,12 @@ describe("filterSlashCommands", () => {
   it("hides /imagen without attach permission and /alpha without a handler", () => {
     expect(filterSlashCommands("", { canAttach: false, hasAlpha: false }).map((c) => c.id)).toEqual(["codigo"]);
     expect(filterSlashCommands("", { canAttach: true, hasAlpha: true }).map((c) => c.id)).toEqual(["alpha", "imagen", "codigo"]);
+  });
+  it("shows /bounty only when the member can create bounties", () => {
+    expect(filterSlashCommands("", { canAttach: true, hasAlpha: true }).map((c) => c.id)).not.toContain("bounty");
+    expect(filterSlashCommands("", { canAttach: true, hasAlpha: true, hasBounty: true }).map((c) => c.id)).toEqual(["alpha", "bounty", "imagen", "codigo"]);
+    expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: true }).map((c) => c.id)).toEqual(["bounty"]);
+    expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: false })).toEqual([]);
   });
   it("filters by prefix, ignoring case and accents", () => {
     expect(filterSlashCommands("CÓ", { canAttach: true, hasAlpha: true }).map((c) => c.id)).toEqual(["codigo"]);

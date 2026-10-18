@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 /** Barra superior y drawer de navegación para < 768px. `children` es el cuerpo del sidebar. */
-export function Topbar({ children }: { children: React.ReactNode }) {
+export function Topbar({ children, badge }: { children: React.ReactNode; badge?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-bg px-4 md:hidden">
@@ -20,6 +20,7 @@ export function Topbar({ children }: { children: React.ReactNode }) {
         El Club.
       </Link>
       <div className="flex items-center">
+        {badge}
         <SearchButton />
         <NotificationBell />
         <Dialog open={open} onOpenChange={setOpen}>

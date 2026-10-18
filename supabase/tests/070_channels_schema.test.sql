@@ -98,7 +98,7 @@ select throws_ok($$update public.channels set kind = 'forum' where id = current_
 select throws_ok($$select tests.create_channel(gen_random_uuid(), 'forum', 'x')$$, 'P0001', 'invalid_tree', 'nonexistent parent');
 select throws_ok($$insert into public.permission_overwrites (channel_id, target_type, target_id, allow)
   values (current_setting('t.txt')::uuid, 'role', gen_random_uuid(), 1)$$, 'P0001', 'invalid_input', 'nonexistent overwrite target');
-select throws_ok($$update public.channels set gate_mode = 'min_net_usdc' where id = current_setting('t.txt')::uuid$$, '23514', null, 'gate_mode needs gate_value');
+select throws_ok($$update public.channels set gate_min_share_bps = 10001 where id = current_setting('t.txt')::uuid$$, '23514', null, 'gate_min_share_bps is capped at 10000');
 
 select * from finish();
 rollback;

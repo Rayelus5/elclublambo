@@ -6,9 +6,9 @@ select results_eq(
   $$select name, position, permissions, is_everyone, is_system, color from public.roles order by position$$,
   $$values ('@everyone'::text, 0, 8199::bigint, true, false, '#A3A3A3'::text),
            ('Padrino', 10, 16::bigint, false, false, '#61DFFF'),
-           ('Verificado', 20, 3072::bigint, false, false, '#3DDC84'),
+           ('Verificado', 20, 68608::bigint, false, false, '#3DDC84'),
            ('Soporte', 100, 19456::bigint, false, false, '#FFB020'),
-           ('Moderador', 500, 56360::bigint, false, false, '#FF5A5A'),
+           ('Moderador', 500, 121896::bigint, false, false, '#FF5A5A'),
            ('SuperAdmin', 1000, 512::bigint, false, true, '#EDEDED')$$,
   'seed roles exact');
 select is((select permissions from public.roles where is_everyone), 8199::bigint, '@everyone = 8199');
@@ -33,9 +33,9 @@ union all select current_setting('t.mod2')::uuid, id from public.roles where nam
 update public.members set status = 'banned' where id = current_setting('t.banned')::uuid;
 
 -- effective permissions
-select is(public.member_global_permissions(current_setting('t.admin')::uuid), 65535::bigint, 'admin -> 65535');
+select is(public.member_global_permissions(current_setting('t.admin')::uuid), 131071::bigint, 'admin -> 131071');
 select is(public.member_global_permissions(current_setting('t.plain')::uuid), 8199::bigint, 'plain member -> 8199');
-select is(public.member_global_permissions(current_setting('t.mod')::uuid), 8199::bigint | 56360::bigint, 'Moderador -> everyone | 56360');
+select is(public.member_global_permissions(current_setting('t.mod')::uuid), 8199::bigint | 121896::bigint, 'Moderador -> everyone | 121896');
 
 -- override_allow_ignores_channel_bits: channel bits in allow never grant anything; global bits do
 insert into public.member_permission_overrides (member_id, allow, deny) values (current_setting('t.pen')::uuid, 17, 1);

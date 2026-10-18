@@ -10,6 +10,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { ThreadPanel } from "@/components/chat/thread-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { markSolutionAction } from "@/lib/bounties/actions";
 import {
   deleteMessageAction,
   editMessageAction,
@@ -33,6 +34,7 @@ import {
   type ViewerPermissions,
 } from "@/lib/chat/model";
 import { getMessage, getMessages, getMessagesByIds, getPinned, getThread } from "@/lib/chat/queries";
+import { getTipSummaries } from "@/lib/payments/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
@@ -57,6 +59,8 @@ export interface ChatViewProps {
    * choosing the same message again remounts and re-highlights); ChatView keeps it in the URLs it writes back.
    */
   initialAnchorNonce?: string | null;
+  /** Replaces the composer when the member cannot post (the DAO post-gate notice); the plain read-only line otherwise. */
+  postGate?: React.ReactNode;
   initial: {
     messages: ChatMessage[];
     hasMore: boolean;
@@ -89,7 +93,7 @@ function upsertPinned(list: readonly ChatMessage[], m: ChatMessage): ChatMessage
 }
 
 /** The chat of one text channel: timeline, pins, threads, realtime reconciliation and read marks. */
-export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null, initialAnchorNonce = null }: ChatViewProps) {
+export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null, initialAnchorNonce = null, postGate }: ChatViewProps) {
   const channelId = channel.id;
   const meId = viewer.memberId;
   const { refresh: refreshUnread } = useUnread();
@@ -244,7 +248,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         // Only a freshly CREATED root counts as news: edits, reactions, pins, deletes and reply-driven reconciles do not.
         if (created && isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
         if (created && isNew && m.authorId !== meId && !m.deletedAt) {
-          setAnnouncement(`Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}`);
+          setAnnouncement(m.authorId ? `Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}` : "Nuevo aviso de El Club");
         }
         setRoots((l) => applyToWindow(l, m, hasMoreRef.current, hasNewerRef.current));
         setPinned((l) => upsertPinned(l, m));
@@ -254,6 +258,22 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       }
     },
     [meId],
+  );
+
+  /** A tip notice arrived: re-read the totals of the thread root and of the replies in the open thread. */
+  const refreshTips = useCallback(
+    async (rootId: string) => {
+      const open = threadRef.current;
+      const ids = [rootId, ...(open && open.rootId === rootId ? open.replies.filter((m) => m.kind !== "system").map((m) => m.id) : [])];
+      const key = `tips:${rootId}`;
+      const ticket = (requests.current.get(key) ?? 0) + 1;
+      requests.current.set(key, ticket);
+      const summaries = await getTipSummaries(createBrowserClient(), ids);
+      // A failed read keeps the badges on screen; an older answer never overwrites a newer one.
+      if (!summaries || requests.current.get(key) !== ticket) return;
+      for (const id of ids) patchMessage(id, (m) => ({ ...m, tips: summaries.get(id) ?? [] }));
+    },
+    [patchMessage],
   );
 
   /** Re-reads one message through RLS and folds it into whatever is on screen. Stale answers are dropped. */
@@ -274,8 +294,12 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       }
       mergeDir(result.directory);
       apply(result.message, created);
+      // A "X ha enviado ..." notice means some message of that thread has new tip totals.
+      if (result.message.kind === "system" && result.message.tipId && result.message.threadRootId) {
+        void refreshTips(result.message.threadRootId);
+      }
     },
-    [apply, meId, mergeDir, remove],
+    [apply, meId, mergeDir, refreshTips, remove],
   );
 
   const resync = useCallback(async () => {
@@ -479,8 +503,24 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     [reconcile],
   );
 
+  /** Marking is final (the server refuses a second mark): on success the bounty root is re-read to show its new status. */
+  const markSolution = useCallback(
+    async (reply: ChatMessage): Promise<string | null> => {
+      const rootId = reply.threadRootId;
+      if (!rootId) return rpcErrorMessage("unknown");
+      const res = await markSolutionAction(rootId, reply.id).catch(() => null);
+      if (!res) return rpcErrorMessage("unknown");
+      // Also on a refusal: the bounty may already have changed (marked elsewhere, cancelled), and the card must say so.
+      void reconcile(rootId);
+      return res.ok ? null : res.error;
+    },
+    [reconcile],
+  );
+
+  const bountyChanged = useCallback((message: ChatMessage) => void reconcile(message.id), [reconcile]);
+
   const quoteMessage = useCallback((message: ChatMessage) => {
-    setQuoted({ id: message.id, authorName: directoryRef.current.members[message.authorId]?.name ?? "Miembro" });
+    setQuoted({ id: message.id, authorName: (message.authorId ? directoryRef.current.members[message.authorId]?.name : undefined) ?? "Miembro" });
     requestAnimationFrame(() => composerBox.current?.querySelector<HTMLElement>('[role="textbox"]')?.focus());
   }, []);
 
@@ -508,6 +548,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     onDelete: deleteMessage,
     onPin: (m: ChatMessage, value: boolean) => void pinMessage(m, value),
     onToggleReaction: (m: ChatMessage, emoji: string) => void toggleReaction(m, emoji),
+    onBountyChanged: bountyChanged,
   };
 
   const threadPanel = (inDialog: boolean) =>
@@ -534,6 +575,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         onEdit={editMessage}
         onDelete={deleteMessage}
         onToggleReaction={itemHandlers.onToggleReaction}
+        onBountyChanged={itemHandlers.onBountyChanged}
+        onMarkSolution={markSolution}
       />
     ) : null;
 
@@ -594,6 +637,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               canAttach={viewer.canAttach}
               canMentionEveryone={viewer.canMentionEveryone}
               canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true && viewer.canPost === true}
+              canBounty={viewer.canBounty === true && viewer.canPost === true}
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}
@@ -609,7 +653,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               }}
             />
           ) : (
-            <p className="border-t border-border bg-surface px-4 py-3 text-sm text-fg-muted">Este canal es de solo lectura.</p>
+            (postGate ?? <p className="border-t border-border bg-surface px-4 py-3 text-sm text-fg-muted">Este canal es de solo lectura.</p>)
           )}
         </div>
       </div>

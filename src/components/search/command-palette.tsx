@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AtSign, Flag, Folder, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
+import { AtSign, BookOpen, Flag, Folder, Hash, Landmark, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/command";
 import type { ChannelRow } from "@/lib/channels/tree";
 import { shortAddress } from "@/lib/auth/wallet";
+import { MemberAvatar } from "@/components/members/member-avatar";
+import { memberName } from "@/lib/members/name";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { messageHref, type ActionIcon, type PaletteAction } from "@/lib/search/actions-list";
 import { fold, highlight } from "@/lib/search/highlight";
@@ -32,6 +34,8 @@ const ICONS: Record<ActionIcon, LucideIcon> = {
   ticket: LifeBuoy,
   reports: Flag,
   profile: User,
+  guide: BookOpen,
+  dao: Landmark,
 };
 
 type Remote = { q: string; members: MemberHit[]; messages: MessageHit[]; failed: boolean };
@@ -195,8 +199,8 @@ function PaletteBody({
           <CommandGroup heading="Miembros">
             {members.map((m) => (
               <CommandItem key={m.id} value={`member:${m.id}`} onSelect={() => go(`/u/${m.walletAddress}`)}>
-                <User aria-hidden className="text-fg-muted" />
-                <span className="min-w-0 flex-1 truncate">{m.displayName?.trim() || shortAddress(m.walletAddress)}</span>
+                <MemberAvatar member={m} size={24} />
+                <span className="min-w-0 flex-1 truncate">{memberName(m)}</span>
                 <span className="shrink-0 font-mono text-[13px] text-fg-muted">{shortAddress(m.walletAddress)}</span>
               </CommandItem>
             ))}

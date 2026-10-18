@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flag, Home, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
+import { BookOpen, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -9,6 +9,8 @@ import { SearchButton } from "@/components/search/search-button";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
+import { NetworkBadge } from "@/components/economy/network-badge";
+import type { ChainId } from "@/lib/economy/networks";
 
 type Props = {
   perms: bigint;
@@ -18,6 +20,8 @@ type Props = {
   canModerate?: boolean;
   /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
   openTickets?: number;
+  /** Active network (economy_config): every member sees whether money moves on testnet. */
+  chainId?: ChainId;
 };
 
 const brandClass =
@@ -34,6 +38,8 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
       label: openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined,
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
+    { href: "/guia", text: "Guía", Icon: BookOpen },
+    { href: "/dao", text: "DAO", Icon: Landmark },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
       href: "/admin/members",
@@ -69,6 +75,7 @@ function DesktopBar(props: Props) {
         </ul>
       </nav>
       <div className="ml-auto flex items-center gap-1">
+        {props.chainId ? <NetworkBadge chainId={props.chainId} className="mr-1" /> : null}
         <SearchButton variant="bar" />
         <NotificationBell />
         <Link
@@ -92,6 +99,11 @@ function DrawerBody(props: Props) {
       <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
+      {props.chainId ? (
+        <div className="px-4">
+          <NetworkBadge chainId={props.chainId} />
+        </div>
+      ) : null}
 
       <nav aria-label="Principal" className="flex flex-col gap-1">
         {sections(props).map(({ href, text, Icon, label, badge }, i) => (
@@ -136,7 +148,7 @@ export function Sidebar(props: Props) {
   return (
     <>
       <DesktopBar {...props} />
-      <Topbar>
+      <Topbar badge={props.chainId ? <NetworkBadge chainId={props.chainId} compact className="mr-1" /> : null}>
         <DrawerBody {...props} />
       </Topbar>
       <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-r border-border bg-surface md:block">

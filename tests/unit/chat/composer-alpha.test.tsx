@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // How the composer reacts to the Alpha dialog's outcomes. The dialog itself is covered in alpha-dialog.test.tsx;
 // here it is replaced by a stub that exposes its callbacks.
+vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
 vi.mock("@/lib/chat/actions", () => ({
   postMessageAction: vi.fn(),
   getSlowmodeAction: vi.fn(async () => ({ seconds: 0 })),

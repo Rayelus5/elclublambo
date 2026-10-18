@@ -23,6 +23,7 @@ import {
   createChannelAction,
   deleteChannelAction,
   moveChannelAction,
+  setChannelGateAction,
   updateChannelAction,
 } from "@/lib/channels/actions";
 
@@ -198,5 +199,40 @@ describe("deleteChannelAction", () => {
     expect(await deleteChannelAction("x")).toEqual({ error: "invalid_input" });
     rpc.mockResolvedValue({ error: { message: "not_empty" } });
     expect(await deleteChannelAction(A)).toEqual({ error: "not_empty" });
+  });
+});
+
+describe("setChannelGateAction", () => {
+  it("calls set_channel_gate with bps, base-unit string and scope, then revalidates", async () => {
+    rpc.mockResolvedValue({ error: null });
+    expect(await setChannelGateAction({ id: A, minShareBps: 25, minNetUsdc: "12500000", scope: "post" })).toEqual({});
+    expect(rpc).toHaveBeenCalledWith("set_channel_gate", {
+      p_channel: A,
+      p_min_share_bps: 25,
+      p_min_net_usdc: "12500000",
+      p_scope: "post",
+    });
+    expectRevalidated();
+  });
+  it("nulls clear the gate", async () => {
+    rpc.mockResolvedValue({ error: null });
+    await setChannelGateAction({ id: A, minShareBps: null, minNetUsdc: null, scope: "view" });
+    expect(rpc).toHaveBeenCalledWith("set_channel_gate", expect.objectContaining({ p_min_share_bps: null, p_min_net_usdc: null }));
+  });
+  it.each([
+    [{ id: "x", minShareBps: 1, minNetUsdc: null, scope: "view" }],
+    [{ id: A, minShareBps: 10001, minNetUsdc: null, scope: "view" }],
+    [{ id: A, minShareBps: 1.5, minNetUsdc: null, scope: "view" }],
+    [{ id: A, minShareBps: null, minNetUsdc: "-1", scope: "view" }],
+    [{ id: A, minShareBps: null, minNetUsdc: "1".padEnd(32, "0"), scope: "view" }],
+    [{ id: A, minShareBps: null, minNetUsdc: "1", scope: "edit" }],
+  ])("rejects invalid input %j without calling the rpc", async (input) => {
+    expect(await setChannelGateAction(input)).toEqual({ error: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("maps rpc errors", async () => {
+    rpc.mockResolvedValue({ error: { message: "forbidden" } });
+    expect(await setChannelGateAction({ id: A, minShareBps: 1, minNetUsdc: null, scope: "view" })).toEqual({ error: "forbidden" });
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

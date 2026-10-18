@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { MemberTable, type AdminMemberRow } from "@/components/members/member-table";
 import type { MemberSummary } from "@/components/members/sponsor-tree";
+import { identityFromRow } from "@/lib/members/name";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -9,6 +10,8 @@ type DbMember = {
   id: string;
   wallet_address: string;
   display_name: string | null;
+  handle: string | null;
+  avatar_path: string | null;
   status: "active" | "banned" | "left";
   invited_by_member_id: string | null;
   needs_review_since: string | null;
@@ -17,8 +20,7 @@ type DbMember = {
 
 const toSummary = (m: DbMember): MemberSummary => ({
   id: m.id,
-  walletAddress: m.wallet_address,
-  displayName: m.display_name,
+  ...identityFromRow(m),
   status: m.status,
 });
 
@@ -34,7 +36,7 @@ async function MembersContent() {
 
   const { data: members, error } = await supabase
     .from("members")
-    .select("id, wallet_address, display_name, status, invited_by_member_id, needs_review_since, created_at")
+    .select("id, wallet_address, display_name, handle, avatar_path, status, invited_by_member_id, needs_review_since, created_at")
     .order("created_at", { ascending: false })
     .returns<DbMember[]>();
   if (error) throw error;

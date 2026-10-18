@@ -154,7 +154,7 @@ function ReportCard({ group, canBan }: { group: ReportGroup; canBan: boolean }) 
           )}
           {canBan && author && author.status === "active" ? (
             <BanDialog
-              member={{ id: author.id, walletAddress: author.walletAddress, displayName: author.name, status: author.status }}
+              member={{ id: author.id, ...author.identity, status: author.status }}
               sponsor={author.sponsor}
               sponsorIsAdmin={author.sponsorIsAdmin}
               onBanned={() =>

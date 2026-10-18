@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CHANNEL_BIT_LIST, PERM_LABEL, SELECTABLE_BIT_LIST } from "@/lib/permissions/labels";
+import { CHANNEL_BIT_LIST, PERM_LABEL, SAFE_ROLE_MASK, SELECTABLE_BIT_LIST } from "@/lib/permissions/labels";
 import { CHANNEL_MASK, Perm } from "@/lib/permissions/bits";
 import { settingsSections } from "@/lib/permissions/settings";
 import { cycleState, getState, setState } from "@/lib/permissions/overwrite-state";
@@ -15,10 +15,18 @@ describe("permission labels", () => {
     }
   });
 
-  it("exposes the 9 channel bits and 15 selectable bits", () => {
-    expect(CHANNEL_BIT_LIST).toHaveLength(9);
+  it("labels CREATE_BOUNTIES as Crear bounties", () => {
+    expect(PERM_LABEL.get(Perm.CREATE_BOUNTIES)).toBe("Crear bounties");
+  });
+
+  it("SAFE_ROLE_MASK matches the SQL member-safe mask 76823", () => {
+    expect(SAFE_ROLE_MASK).toBe(76823n);
+  });
+
+  it("exposes the 10 channel bits and 16 selectable bits", () => {
+    expect(CHANNEL_BIT_LIST).toHaveLength(10);
     expect(CHANNEL_BIT_LIST.reduce((a, b) => a | b.bit, 0n)).toBe(CHANNEL_MASK);
-    expect(SELECTABLE_BIT_LIST).toHaveLength(15);
+    expect(SELECTABLE_BIT_LIST).toHaveLength(16);
     expect(SELECTABLE_BIT_LIST.some((b) => b.bit === Perm.ADMINISTRATOR)).toBe(false);
   });
 });
@@ -32,7 +40,15 @@ describe("settingsSections gating", () => {
     expect(hrefs(Perm.MANAGE_ROLES)).toEqual(["/settings/roles"]);
   });
   it("ADMINISTRATOR gives everything", () => {
-    expect(hrefs(Perm.ADMINISTRATOR)).toEqual(["/settings/channels", "/settings/roles", "/settings/links"]);
+    expect(hrefs(Perm.ADMINISTRATOR)).toEqual([
+      "/settings/channels",
+      "/settings/roles",
+      "/settings/links",
+      "/settings/economia",
+    ]);
+  });
+  it("economía needs bit 512 itself, not just other management bits", () => {
+    expect(hrefs(Perm.MANAGE_CHANNELS | Perm.MANAGE_ROLES | Perm.MANAGE_TREASURY)).not.toContain("/settings/economia");
   });
   it("nothing gives nothing", () => {
     expect(hrefs(0n)).toEqual([]);

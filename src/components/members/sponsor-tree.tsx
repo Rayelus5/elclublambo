@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { shortAddress } from "@/lib/auth/wallet";
+import { MemberAvatar } from "@/components/members/member-avatar";
+import { hasFriendlyName, memberName, type MemberIdentity } from "@/lib/members/name";
 
-export type MemberSummary = {
+export type MemberSummary = MemberIdentity & {
   id: string;
-  walletAddress: string;
-  displayName: string | null;
   status: "active" | "banned" | "left";
 };
 
@@ -26,9 +25,8 @@ function MemberLink({ member }: { member: MemberSummary }) {
       href={`/u/${member.walletAddress}`}
       className="flex min-h-11 items-center gap-3 px-4 py-2 hover:bg-surface-2"
     >
-      <span className={member.displayName ? "text-fg" : "font-mono text-fg"}>
-        {member.displayName ?? shortAddress(member.walletAddress)}
-      </span>
+      <MemberAvatar member={member} size={32} />
+      <span className={hasFriendlyName(member) ? "text-fg" : "font-mono text-fg"}>{memberName(member)}</span>
       <StatusBadge status={member.status} />
       <ChevronRight aria-hidden className="ml-auto size-4 text-fg-muted" />
     </Link>

@@ -12,11 +12,15 @@ export interface MentionItem {
   /** Display text only; renderers resolve the real name from `id`. */
   label: string;
   hint?: string;
+  /** The label is the member's @handle (the list shows it with "@"; the inserted chip is "@" + label either way). */
+  handle?: true;
 }
 
 export interface MentionMemberHit {
   id: string;
+  /** Display name ("" when unset). */
   label: string;
+  handle?: string | null;
   walletAddress: string;
 }
 
@@ -43,6 +47,16 @@ export function buildMentionItems(input: {
     items.push({ kind: "everyone", id: null, label: "everyone", hint: "Avisa a todo el canal" });
   }
   for (const m of input.members) {
+    if (m.handle) {
+      items.push({
+        kind: "member",
+        id: m.id,
+        label: m.handle,
+        handle: true,
+        hint: m.label.trim() || shortAddress(m.walletAddress),
+      });
+      continue;
+    }
     items.push({
       kind: "member",
       id: m.id,
@@ -69,7 +83,7 @@ export async function loadMentionItems(
 
 // --- slash commands ---------------------------------------------------------------------------------
 
-export type SlashCommandId = "alpha" | "imagen" | "codigo";
+export type SlashCommandId = "alpha" | "bounty" | "imagen" | "codigo";
 
 export interface SlashCommand {
   id: SlashCommandId;
@@ -79,17 +93,19 @@ export interface SlashCommand {
 
 const SLASH_COMMANDS: SlashCommand[] = [
   { id: "alpha", label: "/alpha", description: "Compartir un contrato (mensaje Alpha)" },
+  { id: "bounty", label: "/bounty", description: "Publicar un bounty con recompensa" },
   { id: "imagen", label: "/imagen", description: "Adjuntar una imagen" },
   { id: "codigo", label: "/codigo", description: "Insertar un bloque de código" },
 ];
 
 const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function filterSlashCommands(query: string, opts: { canAttach: boolean; hasAlpha: boolean }): SlashCommand[] {
+export function filterSlashCommands(query: string, opts: { canAttach: boolean; hasAlpha: boolean; hasBounty?: boolean }): SlashCommand[] {
   const q = fold(query.trim());
   return SLASH_COMMANDS.filter((c) => {
     if (c.id === "imagen" && !opts.canAttach) return false;
     if (c.id === "alpha" && !opts.hasAlpha) return false;
+    if (c.id === "bounty" && !opts.hasBounty) return false;
     return c.id.startsWith(q);
   });
 }

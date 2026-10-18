@@ -1,8 +1,11 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Folder, Hash, Ticket, Timer, Sparkles } from "lucide-react";
-import { getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
+import { Folder, Hash, Lock, Ticket, Timer, Sparkles } from "lucide-react";
+import { getLockedChannels, getLockState, getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
+import { lockChainName } from "@/lib/channels/lock";
+import { LockPage } from "@/components/channels/lock-page";
+import { PostGateNotice } from "@/components/chat/post-gate-notice";
 import { formatSlowmode } from "@/lib/channels/tree";
 import { ChatView } from "@/components/chat/chat-view";
 import { OpenTicketDialog } from "@/components/tickets/open-ticket-dialog";
@@ -23,10 +26,13 @@ function Chip({ icon: Icon, children }: { icon: typeof Timer; children: React.Re
 
 async function TextChannel({ channel, threadId, messageId, nonce }: { channel: ChannelDetail; threadId: string | null; messageId: string | null; nonce: string | null }) {
   const supabase = await createServerClient();
-  const [{ anchor, ...context }, follow] = await Promise.all([
+  const [{ anchor, ...context }, follow, lock] = await Promise.all([
     loadChatContext(channel.id, messageId),
     supabase.rpc("my_channel_follow", { p_channel: channel.id }),
+    // Non-null with scope "post" when a DAO post-gate (not a role) is what keeps the member from writing here.
+    getLockState(channel.id),
   ]);
+  const postGate = lock && lock.scope === "post" && !context.viewer.canPost ? <PostGateNotice state={lock} chainName={lockChainName(lock)} /> : null;
   // A failed or unexpected read must not masquerade as "mentions": the menu shows an error state instead.
   const followLevel: FollowLevel | null =
     !follow.error && (follow.data === "all" || follow.data === "mute" || follow.data === "mentions") ? follow.data : null;
@@ -65,13 +71,16 @@ async function TextChannel({ channel, threadId, messageId, nonce }: { channel: C
         initialThreadId={anchor?.threadRootId ?? threadId}
         initialAnchorId={anchor?.id ?? null}
         initialAnchorNonce={nonce}
+        postGate={postGate}
         {...context}
       />
     </div>
   );
 }
 
-function ChildList({ channel, items }: { channel: ChannelDetail; items: ChannelDetail[] }) {
+type ChildItem = { id: string; kind: ChannelDetail["kind"]; name: string; topic: string | null; locked?: boolean };
+
+function ChildList({ channel, items }: { channel: ChannelDetail; items: ChildItem[] }) {
   return (
     <div className="flex max-w-3xl flex-col gap-8">
       <header className="flex flex-col gap-3">
@@ -93,6 +102,12 @@ function ChildList({ channel, items }: { channel: ChannelDetail; items: ChannelD
                   <span className="flex items-center gap-2 font-display text-lg font-bold text-fg">
                     <Icon className="size-4 shrink-0 text-fg-muted" aria-hidden />
                     <span className="min-w-0 truncate">{child.name}</span>
+                    {child.locked ? (
+                      <>
+                        <Lock className="size-3.5 shrink-0 text-fg-muted" aria-hidden />
+                        <span className="sr-only">(bloqueado)</span>
+                      </>
+                    ) : null}
                   </span>
                   {child.topic ? <span className="text-sm text-fg-muted">{child.topic}</span> : null}
                 </Link>
@@ -125,10 +140,16 @@ async function ChannelContent({
   // La RLS de `channels` solo devuelve lo visible: lo oculto es indistinguible de lo inexistente.
   const all = await getVisibleChannels();
   const channel = all.find((c) => c.id === channelId);
-  if (!channel) notFound();
+  if (!channel) {
+    // Unless a DAO view-gate is all that hides it: then the member gets the lock page (name, kind and requirement only).
+    const lock = await getLockState(channelId.toLowerCase());
+    if (lock && lock.scope === "view") return <LockPage state={lock} chainName={lockChainName(lock)} />;
+    notFound();
+  }
 
   if (channel.kind === "text") return <TextChannel channel={channel} threadId={threadId} messageId={messageId} nonce={nonce} />;
-  const kids = all.filter((c) => c.parentId === channel.id).toSorted((a, b) => a.position - b.position);
+  const locked = (await getLockedChannels()).filter((c) => c.parentId === channel.id);
+  const kids: ChildItem[] = [...all.filter((c) => c.parentId === channel.id), ...locked].toSorted((a, b) => a.position - b.position);
   return <ChildList channel={channel} items={kids} />;
 }
 

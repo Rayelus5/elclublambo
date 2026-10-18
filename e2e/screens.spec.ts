@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Opt-in visual pass: `SCREENS=1 pnpm test:e2e e2e/screens.spec.ts` (or --grep @screens).
 // Writes screenshots to .superpowers/sdd/f1/screens/ (git-ignored) and checks there is no
@@ -16,6 +16,7 @@ test.describe.configure({ mode: "serial" });
 
 let anon: BrowserContext;
 let admin: BrowserContext;
+let newcomer: BrowserContext;
 let targets: Array<{ name: string; ctx: BrowserContext; path: string }>;
 
 test.beforeAll(async ({ browser }) => {
@@ -29,7 +30,15 @@ test.beforeAll(async ({ browser }) => {
   await adminPage.getByRole("button", { name: "Crear invitación" }).click();
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   const code = url.split("/invite/")[1]!;
+  const invite2 = await (async () => {
+    await adminPage.goto("/invites");
+    await adminPage.getByRole("button", { name: "Crear invitación" }).click();
+    return (await adminPage.getByLabel("Tu enlace de invitación").inputValue()).split("/invite/")[1]!;
+  })();
   await adminPage.close();
+  // F3a: a newcomer who has not done the welcome yet (stays on /bienvenida), used only for that capture.
+  newcomer = await browser.newContext();
+  await loginAs(newcomer, newWalletKey(), { invite: invite2, onboard: false });
 
   const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
     auth: { persistSession: false },
@@ -62,12 +71,19 @@ test.beforeAll(async ({ browser }) => {
     { name: "notifications", ctx: admin, path: "/notifications" },
     { name: "tickets", ctx: admin, path: "/tickets" },
     { name: "reports", ctx: admin, path: "/moderation/reports" },
+    // F3a
+    { name: "bienvenida", ctx: newcomer, path: "/bienvenida" },
+    { name: "perfil", ctx: admin, path: "/perfil" },
+    { name: "profile-handle", ctx: admin, path: `/u/u_${adminAddr.slice(2, 12)}` },
+    { name: "guia-dao", ctx: admin, path: "/guia/dao" },
+    { name: "settings-economia", ctx: admin, path: "/settings/economia" },
   ];
 });
 
 test.afterAll(async () => {
   await anon?.close();
   await admin?.close();
+  await newcomer?.close();
 });
 
 // One test per width: a failure points at one viewport and each stays well inside its own timeout (12 pages, each

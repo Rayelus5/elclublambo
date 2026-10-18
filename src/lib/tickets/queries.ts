@@ -1,7 +1,7 @@
 // Ticket reads. They take a Supabase client, so they run on the server (pages) and in the browser (realtime re-reads).
 // Everything goes through RLS: a ticket is only returned to its author or to staff with MANAGE_TICKETS in its channel.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS } from "@/lib/members/name";
 
 const LIMIT = 100;
 
@@ -39,12 +39,14 @@ interface MemberRow {
   id: string;
   wallet_address: string;
   display_name: string | null;
+  handle: string | null;
+  avatar_path: string | null;
 }
 
-const nameOf = (m: MemberRow | null) => (m ? m.display_name?.trim() || shortAddress(m.wallet_address) : "Miembro");
+const nameOf = (m: MemberRow | null) => (m ? memberName(identityFromRow(m)) : "Miembro");
 
-const AUTHOR = "author:members!tickets_author_id_fkey(id, wallet_address, display_name)";
-const MSG_AUTHOR = "author:members!ticket_messages_author_id_fkey(id, wallet_address, display_name)";
+const AUTHOR = `author:members!tickets_author_id_fkey(id, ${MEMBER_IDENTITY_COLUMNS})`;
+const MSG_AUTHOR = `author:members!ticket_messages_author_id_fkey(id, ${MEMBER_IDENTITY_COLUMNS})`;
 
 interface ListRow {
   id: string;

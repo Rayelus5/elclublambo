@@ -8,6 +8,8 @@ import { Perm } from "@/lib/permissions/bits";
 
 const row = (over: Partial<AdminMemberRow> & { id: string; walletAddress: string }): AdminMemberRow => ({
   displayName: null,
+  handle: null,
+  avatarPath: null,
   status: "active",
   sponsor: null,
   isPadrino: false,
@@ -24,6 +26,11 @@ const gone = row({
   walletAddress: "0x3333333333333333333333333333333333333333",
   displayName: "Gus",
   status: "banned",
+});
+
+it("shows a whitespace-only display name as a monospace wallet", () => {
+  render(<MemberTable members={[{ ...ana, displayName: "   " }]} meId="x" perms={ALL} />);
+  expect(screen.getByText("0x2222…2222").className).toContain("font-mono");
 });
 
 const ALL = Perm.BAN_MEMBERS | Perm.MANAGE_ROLES;

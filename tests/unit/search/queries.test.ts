@@ -65,8 +65,10 @@ describe("searchMessages", () => {
 
 describe("searchMembers", () => {
   it("maps rows", async () => {
-    const f = fake({ rpc: () => ({ data: [{ id: "a", display_name: "Ana", wallet_address: "0x1" }], error: null }) });
-    expect(await searchMembers(f.client, "an")).toEqual([{ id: "a", displayName: "Ana", walletAddress: "0x1" }]);
+    const f = fake({ rpc: () => ({ data: [{ id: "a", display_name: "Ana", handle: "ana_l", avatar_path: "a/x.png", wallet_address: "0x1" }], error: null }) });
+    expect(await searchMembers(f.client, "an")).toEqual([
+      { id: "a", displayName: "Ana", handle: "ana_l", avatarPath: "a/x.png", walletAddress: "0x1" },
+    ]);
     expect(f.rpc).toHaveBeenCalledWith("search_members", { p_q: "an" });
   });
   it("throws when the rpc fails", async () => {

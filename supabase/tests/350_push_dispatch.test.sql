@@ -119,7 +119,7 @@ select is((select count(*)::int from c1), 2, 'one row per subscription of the re
 select is(pg_temp.rows_for('c1', 'r1') + pg_temp.rows_for('c1', 'r2'), 2, 'both rows belong to the recipient subscriptions');
 select is((select count(distinct notification_id)::int from c1), 1, 'both rows carry the same notification');
 select is((select min(title) from c1), 'Nueva mención', 'title');
-select is((select min(split_part(body, ':', 1)) from c1), 'Ana te mencionó en #t350', 'identity phrase uses members.display_name');
+select is((select min(split_part(body, ':', 1)) from c1), '@Ana te mencionó en #t350', 'no handle: the actor is @display_name (mentionLabel)');
 select ok((select bool_and(title not like '%SuperAdmin%' and split_part(body, ':', 1) not like '%SuperAdmin%') from c1), 'the fake mention label never reaches the title or the identity phrase');
 select ok((select bool_and(body like '%: «%»') from c1), 'the body carries a quoted excerpt');
 select ok((select bool_and(char_length(substring(body from '«(.*)»')) between 1 and 80) from c1), 'the excerpt has at most 80 characters');
@@ -147,8 +147,8 @@ create temp table c2 as select * from public.claim_push_notifications() where en
 grant select on c2 to public;
 select is((select count(*)::int from c2), 1, 'the mentioned actor gets one row');
 select is((select split_part(body, ':', 1) from c2),
-  (select left(wallet_address, 6) || '…' || right(wallet_address, 4) || ' te mencionó en #t350' from public.members where id = current_setting('t.r')::uuid),
-  'without display name the actor is the short wallet');
+  (select '@' || left(wallet_address, 6) || '…' || right(wallet_address, 4) || ' te mencionó en #t350' from public.members where id = current_setting('t.r')::uuid),
+  'no handle and no display name: the actor is @short wallet (mentionLabel)');
 
 -- ===== reply and channel_message wording =====
 select set_config('t.a_ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't350all')::text, true);
@@ -163,9 +163,9 @@ select tests.clear_authentication();
 create temp table c3 as select * from public.claim_push_notifications() where endpoint is not null;
 grant select on c3 to public;
 select is((select title from c3 where url = '/c/' || current_setting('t.c') || '?thread=' || current_setting('t.root') limit 1), 'Nueva respuesta', 'reply title');
-select is((select split_part(body, ':', 1) from c3 where url like '%?thread=%' limit 1), 'Ana respondió en #t350', 'reply identity phrase');
+select is((select split_part(body, ':', 1) from c3 where url like '%?thread=%' limit 1), '@Ana respondió en #t350', 'reply identity phrase');
 select ok(exists (select 1 from c3 where url = '/c/' || current_setting('t.c') || '?thread=' || current_setting('t.root')), 'reply url opens the thread');
-select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url = '/c/' || current_setting('t.a_ch') and split_part(body, ':', 1) = 'Ana publicó en #t350all'),
+select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url = '/c/' || current_setting('t.a_ch') and split_part(body, ':', 1) = '@Ana publicó en #t350all'),
   'channel_message wording and url');
 
 -- ===== a recipient who lost VIEW: not returned, marked =====

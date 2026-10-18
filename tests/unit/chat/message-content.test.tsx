@@ -7,6 +7,7 @@ const p = (...c: unknown[]) => ({ type: "paragraph", content: c });
 const doc = (...c: unknown[]) => ({ type: "doc", content: c });
 const link = (href: string) => [{ type: "link", attrs: { href } }];
 const dir = { members: {}, roles: {} };
+const IDENT = { handle: null, displayName: null, avatarPath: null, walletAddress: "0x1234567890abcdef1234567890abcdef12345678" };
 const M = "11111111-1111-1111-1111-111111111111";
 const R = "22222222-2222-2222-2222-222222222222";
 
@@ -115,7 +116,7 @@ describe("MessageContent sanitization", () => {
 
 describe("MessageContent mentions", () => {
   const mentionsDir = {
-    members: { [M]: { name: "Ana" } },
+    members: { [M]: { ...IDENT, name: "Ana", displayName: "Ana" } },
     roles: { [R]: { name: "Mods", color: "#22d3ee" } },
   };
   const mention = (attrs: Record<string, unknown>) => ({ type: "mention", attrs });
@@ -124,6 +125,12 @@ describe("MessageContent mentions", () => {
     renderDoc(doc(p(mention({ kind: "member", id: M, label: "Admin Oficial" }))), { mentionsDir });
     expect(screen.getByText("@Ana")).toBeInTheDocument();
     expect(screen.queryByText(/Admin Oficial/)).toBeNull();
+  });
+
+  it("renders the member's @handle when they have one", () => {
+    renderDoc(doc(p(mention({ kind: "member", id: M }))), { mentionsDir: { members: { [M]: { ...IDENT, name: "Ana", displayName: "Ana", handle: "ana_l" } }, roles: {} } });
+    expect(screen.getByText("@ana_l")).toBeInTheDocument();
+    expect(screen.queryByText("@Ana")).toBeNull();
   });
 
   it("renders role chip with resolved name and color as border/dot only", () => {
