@@ -83,6 +83,7 @@ describe("rpcErrorMessage", () => {
     ["amount_too_small", "La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones."],
     ["nav_not_ready", "El fondo aún no tiene valoración. Inténtalo tras la próxima."],
     ["reason_required", "Escribe un motivo de 1 a 280 caracteres."],
+    ["approval_expired", "La aprobación de esta retirada caducó. Vuelve a aprobarla al precio actual."],
   ])("F4c withdrawal error %s has its exact copy", (code, copy) => {
     expect(rpcErrorCode({ message: code })).toBe(code);
     expect(rpcErrorMessage(code)).toBe(copy);
