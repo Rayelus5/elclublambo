@@ -29,8 +29,8 @@ select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'
   'broadcast functions are definer with empty search_path');
 select is(to_regprocedure('public._spike_emit(uuid)'), null, 'spike helper is gone');
 
-select is((select count(*)::int from pg_policies where schemaname = 'realtime' and tablename = 'messages' and cmd = 'SELECT'), 5,
-  'one SELECT policy per topic family on realtime.messages (channel, member, ticket, dao, activity)');
+select is((select count(*)::int from pg_policies where schemaname = 'realtime' and tablename = 'messages' and cmd = 'SELECT'), 6,
+  'one SELECT policy per topic family on realtime.messages (channel, member, ticket, dao, activity, presence)');
 select ok((select bool_and(qual like '%CASE%') from pg_policies where schemaname = 'realtime' and tablename = 'messages' and cmd = 'SELECT'),
   'every receive policy guards the uuid cast with CASE');
 select is((select count(*)::int from pg_policies where schemaname = 'realtime' and tablename = 'messages' and cmd in ('INSERT', 'ALL')), 0,

@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.hoisted(() => vi.fn());
+const topic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc }) }));
+vi.mock("@/lib/realtime/private-topic", () => ({ usePrivateTopic: topic }));
 
 import { MemberCardTrigger } from "@/components/members/member-card";
 
@@ -66,5 +68,15 @@ describe("MemberCardTrigger", () => {
     const [avatar, name] = screen.getAllByRole("button", { name: "Ver tarjeta de Ana" });
     expect(avatar).toHaveAttribute("tabindex", "-1");
     expect(name).not.toHaveAttribute("tabindex");
+  });
+
+  it("the open card follows the member going offline live", async () => {
+    render(<MemberCardTrigger memberId={ID} label="Ana Pérez">Ana</MemberCardTrigger>);
+    await userEvent.click(screen.getByRole("button", { name: "Ver tarjeta de Ana Pérez" }));
+    const card = await screen.findByRole("dialog", { name: "Ana Pérez" });
+    expect(card).toHaveTextContent("En línea");
+    const handlers = topic.mock.calls.findLast((c) => c[0] === "presence")![2] as { onEvent: (p: unknown) => void };
+    act(() => handlers.onEvent({ member_id: ID, online: false }));
+    expect(card).toHaveTextContent("Desconectado");
   });
 });

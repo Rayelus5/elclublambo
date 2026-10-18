@@ -6,6 +6,8 @@ import { MemberAvatar } from "@/components/members/member-avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { shortAddress } from "@/lib/auth/wallet";
 import { getMemberCard, type MemberCardData } from "@/lib/members/card";
+import { parsePresenceEvent } from "@/lib/members/presence";
+import { usePrivateTopic } from "@/lib/realtime/private-topic";
 import { memberName } from "@/lib/members/name";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,23 @@ export function PresenceDot({ online, className }: { online: boolean; className?
 }
 
 type Load = { status: "loading" } | { status: "ready"; card: MemberCardData } | { status: "error" };
+
+/** Mounted only while the card is open: its online line follows the presence topic live. */
+function LivePresence({ memberId, initial }: { memberId: string; initial: boolean }) {
+  const [online, setOnline] = useState(initial);
+  usePrivateTopic("presence", "presence_changed", {
+    onEvent: (payload) => {
+      const ev = parsePresenceEvent(payload);
+      if (ev && ev.memberId === memberId) setOnline(ev.online);
+    },
+  });
+  return (
+    <>
+      <PresenceDot online={online} />
+      {online ? "En línea" : "Desconectado"}
+    </>
+  );
+}
 
 function CardBody({ state }: { state: Load }) {
   if (state.status === "loading") return <p className="text-sm text-fg-muted">Cargando…</p>;
@@ -36,8 +55,7 @@ function CardBody({ state }: { state: Load }) {
         </div>
       </div>
       <p className="flex flex-wrap items-center gap-2 text-sm text-fg-muted">
-        <PresenceDot online={c.online} />
-        {c.online ? "En línea" : "Desconectado"}
+        <LivePresence memberId={c.id} initial={c.online} />
         {c.status === "banned" ? (
           <span className="rounded-control border border-danger px-1.5 text-[13px] text-danger">Baneado</span>
         ) : null}

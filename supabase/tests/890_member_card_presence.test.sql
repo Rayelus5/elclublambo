@@ -1,6 +1,6 @@
 -- Member card + server-authoritative presence + channel member list.
 begin;
-select plan(19);
+select plan(24);
 
 select set_config('t.a', tests.create_member('0x' || lpad('f8900', 40, '0'), null, true)::text, true);
 select set_config('t.b', tests.create_member('0x' || lpad('f8901', 40, '0'), current_setting('t.a')::uuid)::text, true);
@@ -75,6 +75,27 @@ select is((select count(*)::int from public.channel_members(current_setting('t.g
            where member_id in (current_setting('t.a')::uuid, current_setting('t.c')::uuid)), 2,
   'the gated channel lists by role access: non-donors appear too, so the list says nothing about who donated');
 select tests.clear_authentication();
+
+-- real-time transitions (20261019000007)
+create function tests.pres(p_member uuid, p_online boolean) returns int language sql security definer set search_path = '' as $$
+  select count(*)::int from realtime.messages m
+  where m.topic = 'presence' and m.event = 'presence_changed'
+    and m.payload->>'member_id' = p_member::text and (m.payload->>'online')::boolean = p_online
+$$;
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select public.touch_presence();
+select tests.clear_authentication();
+select is(tests.pres(current_setting('t.c')::uuid, true), 1, 'going online broadcasts presence_changed online');
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select public.touch_presence();
+select tests.clear_authentication();
+select is(tests.pres(current_setting('t.c')::uuid, true), 1, 'a beat while already online broadcasts nothing');
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select public.leave_presence();
+select tests.clear_authentication();
+select is(tests.pres(current_setting('t.c')::uuid, false), 1, 'leaving broadcasts presence_changed offline');
+select is((public._member_online(current_setting('t.c')::uuid)), false, 'and the member reads offline at once');
+select ok((select private from realtime.messages where topic = 'presence' limit 1), 'on the private presence topic');
 
 select * from finish();
 rollback;

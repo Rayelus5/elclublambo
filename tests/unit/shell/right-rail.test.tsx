@@ -22,8 +22,8 @@ beforeEach(() => {
     if (fn === "channel_members")
       return {
         data: [
-          { member_id: "m1", handle: "ana", display_name: null, wallet_address: "0x1111111111111111111111111111111111111111", avatar_path: null, online: true, role_color: "#61DFFF" },
-          { member_id: "m2", handle: "beto", display_name: null, wallet_address: "0x2222222222222222222222222222222222222222", avatar_path: null, online: false, role_color: null },
+          { member_id: "33333333-3333-4333-8333-333333333331", handle: "ana", display_name: null, wallet_address: "0x1111111111111111111111111111111111111111", avatar_path: null, online: true, role_color: "#61DFFF" },
+          { member_id: "33333333-3333-4333-8333-333333333332", handle: "beto", display_name: null, wallet_address: "0x2222222222222222222222222222222222222222", avatar_path: null, online: false, role_color: null },
         ],
         error: null,
       };
@@ -95,9 +95,19 @@ describe("RightRail", () => {
     renderRail();
     await screen.findByText("#general");
     const before = h.rpc.mock.calls.length;
-    const handlers = h.topic.mock.calls.at(-1)![2] as { onEvent: () => void };
+    const handlers = h.topic.mock.calls.findLast((c) => c[0] === "activity")![2] as { onEvent: () => void };
     act(() => handlers.onEvent());
     await waitFor(() => expect(h.rpc.mock.calls.length).toBe(before + 1));
     expect(h.rpc.mock.calls.at(-1)![0]).toBe("home_open_bounties");
+  });
+
+  it("a presence event moves a member between the online and offline groups live", async () => {
+    h.path = `/c/${CH}`;
+    renderRail();
+    await screen.findByRole("list", { name: "Miembros en línea" });
+    const handlers = h.topic.mock.calls.findLast((c) => c[0] === "presence")![2] as { onEvent: (p: unknown) => void };
+    act(() => handlers.onEvent({ member_id: "33333333-3333-4333-8333-333333333331", online: false }));
+    expect(screen.getByText("En línea — 0")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@ana");
   });
 });

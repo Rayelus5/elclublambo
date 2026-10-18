@@ -20,6 +20,7 @@ import {
   type HomePin,
 } from "@/lib/home/queries";
 import { getChannelMembers, getOnline, type ChannelMember } from "@/lib/members/card";
+import { parsePresenceEvent } from "@/lib/members/presence";
 import { memberName } from "@/lib/members/name";
 import { formatAmount } from "@/lib/payments/amounts";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
@@ -42,7 +43,8 @@ function RailSection({ title, children }: { title: string; children: ReactNode }
 
 type Load<T> = { status: "loading" } | { status: "ready"; data: T } | { status: "error" };
 
-const MEMBERS_REFRESH_MS = 60_000;
+// Fallback only: transitions arrive live on the presence topic; this catches members who vanished without a goodbye.
+const MEMBERS_REFRESH_MS = 30_000;
 
 function MemberRow({ m }: { m: ChannelMember }) {
   const name = memberName(m);
@@ -97,6 +99,18 @@ function ChannelMembers({ channelId }: { channelId: string }) {
       clearInterval(timer);
     };
   }, [channelId]);
+  // Live: the database announces each online/offline transition.
+  usePrivateTopic("presence", "presence_changed", {
+    onEvent: (payload) => {
+      const ev = parsePresenceEvent(payload);
+      if (!ev) return;
+      setState((s) =>
+        s.status === "ready" && s.data.some((m) => m.id === ev.memberId)
+          ? { status: "ready", data: s.data.map((m) => (m.id === ev.memberId ? { ...m, online: ev.online } : m)) }
+          : s,
+      );
+    },
+  });
 
   if (state.status === "loading") return <p className="px-2 text-sm text-fg-muted">Cargando miembros…</p>;
   if (state.status === "error") return <p className="px-2 text-sm text-fg-muted">No se pudieron cargar los miembros.</p>;

@@ -8,14 +8,14 @@ const BASE_BACKOFF_MS = 1000;
 const REJOIN_AFTER_HIDDEN_MS = 30_000;
 
 export interface TopicHandlers {
-  /** One of the subscribed events arrived (payloads are id-free here: just re-read). */
-  onEvent?: () => void;
+  /** The subscribed event arrived; `payload` is whatever the database sent (validate before use). */
+  onEvent?: (payload: unknown) => void;
   /** The socket was re-joined after a gap: events may have been missed. */
   onResync?: () => void;
 }
 
 /**
- * Private broadcast subscription to a fixed, id-free topic every active member may join ("dao", "activity").
+ * Private broadcast subscription to a fixed topic every active member may join ("dao", "activity", "presence").
  * Same join/leave/retry pattern as `useTicketEvents` (docs/superpowers/notes/2026-10-16-realtime-spike.md): the previous
  * leave is awaited before every join, a failed channel is removed before retrying (at most three times with backoff),
  * and the socket is re-joined after a real absence and on token refresh.
@@ -65,8 +65,8 @@ export function usePrivateTopic(topic: string, event: string, handlers: TopicHan
       if (cancelled || mine !== generation) return;
 
       const channel = supabase.channel(topic, { config: { private: true } });
-      channel.on("broadcast", { event }, () => {
-        if (!cancelled) ref.current.onEvent?.();
+      channel.on("broadcast", { event }, (message: { payload?: unknown }) => {
+        if (!cancelled) ref.current.onEvent?.(message.payload);
       });
       current = channel;
       channel.subscribe((status: string) => {
