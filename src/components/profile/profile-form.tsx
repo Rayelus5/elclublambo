@@ -38,7 +38,7 @@ export function ProfileForm(props: ProfileFormProps) {
   const [pendingHandle, startHandle] = useTransition();
   const [pending, start] = useTransition();
 
-  const remaining = BIO_MAX - bio.length;
+  const remaining = BIO_MAX - [...bio].length;
   const handleDirty = handle.trim().toLowerCase() !== (savedHandle ?? "");
 
   function submitHandle(e: FormEvent) {

@@ -26,6 +26,12 @@ describe("ProfileLinks", () => {
     expect(screen.getByRole("link").getAttribute("href")!.startsWith("/out?u=")).toBe(true);
   });
 
+  it("guards a punycode host even under an allowed domain", () => {
+    render(<ProfileLinks links={["https://xn--80ak6aa92e.github.io/"]} allowedDomains={["github.io"]} />);
+    expect(screen.getByRole("link").getAttribute("href")!.startsWith("/out?u=")).toBe(true);
+    expect(screen.getByText(/caracteres internacionales/i)).toBeTruthy();
+  });
+
   it("never renders non-https or malformed entries as links", () => {
     render(<ProfileLinks links={["javascript:alert(1)", "http://x.com", "nope"]} allowedDomains={ALLOWED} />);
     expect(screen.queryAllByRole("link")).toHaveLength(0);

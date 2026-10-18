@@ -1,3 +1,4 @@
+import { reencodeImage } from "@/lib/images/strip-metadata";
 import { createBrowserClient } from "@/lib/supabase/browser";
 
 export const MAX_AVATAR_BYTES = 2097152;
@@ -10,6 +11,8 @@ export class AvatarError extends Error {
   }
 }
 
+export const AVATAR_MAX_SIDE = 512;
+
 /** Client-side check; the bucket and set_avatar enforce the same limits on the server. */
 export function checkAvatarFile(file: File): void {
   if (!Object.hasOwn(EXT, file.type)) throw new AvatarError("Usa una imagen PNG, JPG o WebP.");
@@ -17,7 +20,15 @@ export function checkAvatarFile(file: File): void {
 }
 
 /** Uploads to `<member_id>/<uuid>.<ext>` (no overwrite) and returns the object path to pass to setAvatarAction. */
-export async function uploadAvatar(file: File): Promise<string> {
+export async function uploadAvatar(original: File): Promise<string> {
+  if (!Object.hasOwn(EXT, original.type)) throw new AvatarError("Usa una imagen PNG, JPG o WebP.");
+  // Re-encode first: drops EXIF/GPS and shrinks the image, so the size check applies to what is really uploaded.
+  let file: File;
+  try {
+    file = await reencodeImage(original, { maxSide: AVATAR_MAX_SIDE });
+  } catch (e) {
+    throw new AvatarError("No se pudo procesar la imagen", { cause: e });
+  }
   checkAvatarFile(file);
   const supabase = createBrowserClient();
   const me = await supabase.rpc("current_member_id");

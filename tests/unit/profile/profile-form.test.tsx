@@ -36,6 +36,12 @@ describe("ProfileForm", () => {
     expect((screen.getByRole("button", { name: "Guardar perfil" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it("counts the bio by code points, not UTF-16 units", () => {
+    render(<ProfileForm {...base} />);
+    fireEvent.change(screen.getByLabelText("Bio"), { target: { value: "😀".repeat(280) } });
+    expect(screen.getByText("0")).toBeTruthy();
+  });
+
   it("hides 'Añadir enlace' at 3 links", async () => {
     const user = userEvent.setup();
     render(<ProfileForm {...base} links={["https://a.com"]} />);

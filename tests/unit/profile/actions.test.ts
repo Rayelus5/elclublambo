@@ -99,7 +99,13 @@ describe("setAvatarAction", () => {
   it("does not delete anything when set_avatar fails", async () => {
     failWith("avatar_invalid");
     expect(await setAvatarAction(NEW)).toEqual({ ok: false, error: rpcErrorMessage("avatar_invalid") });
-    expect(remove).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalledWith([OLD]);
+  });
+
+  it("removes the just-uploaded object when set_avatar fails", async () => {
+    failWith("avatar_invalid");
+    await setAvatarAction(NEW);
+    expect(remove).toHaveBeenCalledWith([NEW]);
   });
 
   it("never deletes an object outside the caller's folder", async () => {
@@ -125,6 +131,7 @@ describe("setAvatarAction", () => {
     remove.mockRejectedValue(new Error("net"));
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await setAvatarAction(NEW)).toEqual({ ok: true });
+    expect(spy).toHaveBeenCalled();
     spy.mockRestore();
   });
 });

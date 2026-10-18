@@ -15,8 +15,11 @@ export function ProfileLinks({ links, allowedDomains }: { links: readonly string
     const c = classifyLink(raw, allowedDomains);
     const target = parseExternalUrl(raw);
     if (c.kind === "text" || !target) return [];
+    const warn = needsHomographWarning(target.host, target.unicodeHost);
+    // A punycode host is always guarded, even under an allowed domain (e.g. xn--....github.io).
+    const view = warn ? { kind: "guarded" as const, href: `/out?u=${encodeURIComponent(target.href)}` } : c;
     const label = `${target.host}${target.href.slice(target.href.indexOf(target.host) + target.host.length)}`.replace(/\/$/, "");
-    return [{ c, target, label, warn: needsHomographWarning(target.host, target.unicodeHost) }];
+    return [{ c: view, label, warn }];
   });
   if (items.length === 0) return null;
   return (
