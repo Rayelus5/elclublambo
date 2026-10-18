@@ -114,4 +114,13 @@ describe("RightRail", () => {
     vi.useRealTimers();
     expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@ana");
   });
+
+  it("a channel the member cannot view (DAO-locked) shows the club activity, without errors", async () => {
+    h.path = `/c/${CH}`;
+    const base = h.rpc.getMockImplementation()!;
+    h.rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === "channel_overview" ? { data: null, error: null } : base(fn, args)));
+    renderRail();
+    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a la DAO/ })).toBeInTheDocument();
+    expect(screen.queryByText("No se pudo cargar el canal.")).not.toBeInTheDocument();
+  });
 });

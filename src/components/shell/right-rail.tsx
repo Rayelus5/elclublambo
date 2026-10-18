@@ -149,7 +149,7 @@ function ChannelMembers({ channelId }: { channelId: string }) {
 
 /** Inside a channel: its topic, its pins and open bounties, and who can read it (online first). */
 function ChannelRail({ channelId }: { channelId: string }) {
-  const [state, setState] = useState<Load<{ overview: ChannelOverview; pins: HomePin[]; bounties: HomeBounty[] }>>({ status: "loading" });
+  const [state, setState] = useState<Load<{ overview: ChannelOverview | null; pins: HomePin[]; bounties: HomeBounty[] }>>({ status: "loading" });
   const [version, setVersion] = useState(0);
   useEffect(() => {
     let alive = true;
@@ -189,6 +189,8 @@ function ChannelRail({ channelId }: { channelId: string }) {
   if (state.status === "loading") return <p className="px-2 text-sm text-fg-muted">Cargando…</p>;
   if (state.status === "error") return <p className="px-2 text-sm text-fg-muted">No se pudo cargar el canal.</p>;
   const { overview, pins, bounties } = state.data;
+  // A channel the member cannot view (e.g. DAO-locked: the page shows its lock) has nothing to show here.
+  if (!overview) return <ActivityRail />;
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2 px-2">

@@ -43,7 +43,7 @@ select throws_ok($$select public.member_card('00000000-0000-4000-8000-0000000089
 -- channel members
 select is((select count(*)::int from public.channel_members(current_setting('t.open')::uuid) where member_id in (current_setting('t.a')::uuid, current_setting('t.b')::uuid)), 2,
   'both members can view the open channel');
-select throws_ok(format($q$select * from public.channel_members(%L::uuid)$q$, current_setting('t.hid')), 'P0001', 'not_found', 'B cannot list a channel it cannot view');
+select is((select count(*)::int from public.channel_members(current_setting('t.hid')::uuid)), 0, 'B lists nobody in a channel it cannot view');
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select count(*)::int from public.channel_members(current_setting('t.hid')::uuid) where member_id = current_setting('t.b')::uuid), 0,

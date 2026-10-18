@@ -139,10 +139,11 @@ export interface ChannelOverview {
   topic: string | null;
 }
 
-/** One channel for the rail; a hidden or missing channel raises not_found (the rail then shows nothing). */
-export async function getChannelOverview(supabase: Client, channelId: string): Promise<ChannelOverview> {
+/** One channel for the rail; null when the member cannot view it (missing, hidden or DAO-locked). */
+export async function getChannelOverview(supabase: Client, channelId: string): Promise<ChannelOverview | null> {
   const { data, error } = await supabase.rpc("channel_overview", { p_channel: channelId });
   if (error) throw new Error(error.message);
-  const o = (data ?? {}) as Row;
+  if (data === null || data === undefined) return null;
+  const o = data as Row;
   return { name: str(o.name), topic: strOrNull(o.topic) };
 }

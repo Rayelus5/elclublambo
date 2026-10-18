@@ -55,7 +55,7 @@ select is((select count(*)::int from public.club_activity(50) where kind = 'boun
 select is((select count(*)::int from public.club_activity(50) where kind = 'bounty' and message_id = '8700a000-0000-4000-8000-000000000003'), 1, 'activity shows visible bounties');
 select is((select actor_label from public.club_activity(50) where kind = 'tip' and message_id = '8700a000-0000-4000-8000-000000000005'), 'Anónimo', 'an anonymous tip reads Anónimo to others');
 select is((select target_label from public.club_activity(50) where kind = 'tip' and message_id = '8700a000-0000-4000-8000-000000000005'), '@beto870', 'the recipient is named');
-select throws_ok(format($q$select public.channel_overview(%L::uuid)$q$, current_setting('t.hid')), 'P0001', 'not_found', 'channel_overview of a hidden channel looks missing');
+select is(public.channel_overview(current_setting('t.hid')::uuid), null, 'channel_overview of a hidden channel is null (looks missing, no error)');
 select is((select count(*)::int from public.channel_members(current_setting('t.open')::uuid)) >= 2, true, 'channel_members lists members who can view it');
 
 
