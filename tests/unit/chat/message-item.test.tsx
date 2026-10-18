@@ -56,10 +56,10 @@ describe("MessageItem", () => {
     expect(document.querySelector("time")).not.toBeNull();
   });
 
-  it("shows a muted @handle after the display name, and an identicon avatar", () => {
+  it("shows a muted @handle after the display name, and the default DiceBear avatar", () => {
     setup();
     expect(screen.getByText("@ana_l")).toBeInTheDocument();
-    expect(document.querySelector("svg[aria-hidden='true'][viewBox='0 0 5 5']")).not.toBeNull();
+    expect(document.querySelector("img[src^='https://api.dicebear.com/10.x/glass/svg?seed=']")).not.toBeNull();
   });
 
   it("shows @handle once when the author has a handle and no display name", () => {
@@ -110,11 +110,41 @@ describe("MessageItem", () => {
     expect(screen.getByText("texto citado")).toBeInTheDocument();
   });
 
+  describe("Discord-style actions", () => {
+    it("no add-reaction button sits under a message without reactions", () => {
+      setup();
+      expect(screen.queryByRole("button", { name: "Añadir reacción" })).not.toBeInTheDocument();
+    });
+
+    it("every menu entry carries an icon on its left", async () => {
+      setup({ viewer: viewer({ canManage: true }) });
+      await openMenu();
+      for (const item of screen.getAllByRole("menuitem")) {
+        expect(item.firstElementChild?.tagName.toLowerCase()).toBe("svg");
+        expect(item.firstElementChild).toHaveAttribute("aria-hidden", "true");
+      }
+    });
+
+    it("Añadir reacción in the menu opens the emoji picker and reacts", async () => {
+      const { onToggleReaction, message } = setup();
+      await openMenu();
+      await userEvent.click(screen.getByRole("menuitem", { name: "Añadir reacción" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Insertar 😀" }));
+      expect(onToggleReaction).toHaveBeenCalledWith(message, "😀");
+    });
+
+    it("without ADD_REACTIONS the menu does not offer it", async () => {
+      setup({ viewer: viewer({ canReact: false }) });
+      await openMenu();
+      expect(items()).not.toContain("Añadir reacción");
+    });
+  });
+
   describe("menu depends on permissions", () => {
     it("a regular member on someone else's message: reply, quote, report; no edit/delete/pin", async () => {
       setup();
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Dar propina", "Reportar"]);
+      expect(items()).toEqual(["Añadir reacción", "Responder en hilo", "Citar", "Dar propina", "Reportar"]);
       expect(screen.getByRole("menuitem", { name: "Reportar" })).not.toHaveAttribute("aria-disabled", "true");
     });
 
@@ -131,13 +161,13 @@ describe("MessageItem", () => {
     it("the author can edit and delete but not pin", async () => {
       setup({ message: makeMessage({ authorId: ME }) });
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Editar", "Borrar"]);
+      expect(items()).toEqual(["Añadir reacción", "Responder en hilo", "Citar", "Editar", "Borrar"]);
     });
 
     it("a moderator can delete and pin someone else's message", async () => {
       setup({ viewer: viewer({ canManage: true }) });
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Borrar", "Fijar", "Dar propina", "Reportar"]);
+      expect(items()).toEqual(["Añadir reacción", "Responder en hilo", "Citar", "Borrar", "Fijar", "Dar propina", "Reportar"]);
     });
 
     it("a pinned message offers to unpin", async () => {
@@ -150,7 +180,7 @@ describe("MessageItem", () => {
     it("moderators cannot edit others' messages; replies cannot be pinned or replied to again", async () => {
       setup({ viewer: viewer({ canManage: true }), message: makeMessage({ threadRootId: "root" }), variant: "thread" });
       await openMenu();
-      expect(items()).toEqual(["Borrar", "Dar propina", "Reportar"]);
+      expect(items()).toEqual(["Añadir reacción", "Borrar", "Dar propina", "Reportar"]);
     });
 
     it("without SEND_IN_THREADS the thread entry reads 'Ver hilo'", async () => {
@@ -301,9 +331,22 @@ describe("ReactionBar", () => {
     expect(onToggle).toHaveBeenCalledWith("🔥");
   });
 
-  it("adds a reaction through the emoji picker", async () => {
+  it("with no reactions yet there is no add chip (the message menu offers it)", () => {
+    const { container } = render(<ReactionBar reactions={[]} canReact onToggle={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Añadir reacción" })).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("opens the picker when the menu asks for it", async () => {
     const onToggle = vi.fn();
-    render(<ReactionBar reactions={[]} canReact onToggle={onToggle} />);
+    render(<ReactionBar reactions={[]} canReact onToggle={onToggle} pickerOpen onPickerOpenChange={() => {}} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Insertar 😀" }));
+    expect(onToggle).toHaveBeenCalledWith("😀");
+  });
+
+  it("adds a reaction through the emoji picker next to existing chips", async () => {
+    const onToggle = vi.fn();
+    render(<ReactionBar reactions={chips} canReact onToggle={onToggle} />);
     await userEvent.click(screen.getByRole("button", { name: "Añadir reacción" }));
     await userEvent.click(await screen.findByRole("button", { name: "Insertar 😀" }));
     expect(onToggle).toHaveBeenCalledWith("😀");

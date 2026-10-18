@@ -62,7 +62,8 @@ const intent = {
 
 const continuar = () => screen.getByRole("button", { name: "Continuar" });
 const amountBox = () => screen.getByLabelText("Importe");
-const DONE = "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).";
+const DONE = "Donación registrada.";
+const FINALITY_NOTE = "Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -121,6 +122,10 @@ describe("TipDialog donation mode: signing", () => {
     await userEvent.type(amountBox(), "10");
     await userEvent.click(continuar());
     await screen.findByText(DONE);
+    // The finality explanation is small print at the very bottom, after the close button.
+    const note = screen.getByText(FINALITY_NOTE);
+    const close = screen.getAllByRole("button", { name: "Cerrar" }).find((b) => b.getAttribute("data-slot") === "button")!;
+    expect(close.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(createDonationIntentAction).toHaveBeenCalledWith({ amount: "10", feeBps: 100 });
     expect(send).toHaveBeenNthCalledWith(1, { chain: 59141, token: "USDC", to: PLATFORM, amount: 100000n, account: SESSION });
     expect(send).toHaveBeenNthCalledWith(2, { chain: 59141, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
@@ -137,6 +142,7 @@ describe("TipDialog donation mode: signing", () => {
     await userEvent.click(continuar());
     await screen.findByText("Donación acreditada.");
     expect(screen.queryByText(DONE)).toBeNull();
+    expect(screen.queryByText(FINALITY_NOTE)).toBeNull();
   });
 
   it("keeps the main hash in the ledger under targetType 'dao' before the server is told", async () => {

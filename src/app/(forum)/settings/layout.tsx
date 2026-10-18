@@ -12,7 +12,7 @@ async function SettingsShell({ children }: { children: React.ReactNode }) {
   if (sections.length === 0) notFound();
 
   return (
-    <div className="flex max-w-5xl flex-col gap-8">
+    <div className="flex w-full flex-col gap-8">
       <h1 className="text-h1">Ajustes</h1>
       <div className="grid gap-6 md:grid-cols-[10rem_minmax(0,1fr)]">
         <SettingsNav sections={sections} />

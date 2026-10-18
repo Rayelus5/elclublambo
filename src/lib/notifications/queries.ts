@@ -102,7 +102,12 @@ function hrefFor(row: Row): string {
   if (BOUNTY_KINDS.has(row.kind)) return bountyHref(row);
   if (MESSAGE_KINDS.has(row.kind) && row.channel_id) {
     const root = row.data?.thread_root_id;
-    return `/c/${row.channel_id}${typeof root === "string" && UUID_RE.test(root) ? `?thread=${root}` : ""}`;
+    const thread = typeof root === "string" && UUID_RE.test(root) ? root : null;
+    // Jump to (and highlight) the exact message; `h` (the notification id) makes a repeated click jump again.
+    if (row.message_id && UUID_RE.test(row.message_id)) {
+      return `/c/${row.channel_id}?m=${row.message_id}${thread ? `&thread=${thread}` : ""}&h=n${row.id}`;
+    }
+    return `/c/${row.channel_id}${thread ? `?thread=${thread}` : ""}`;
   }
   if (PERSON_KINDS.has(row.kind)) return row.actor ? `/u/${row.actor.wallet_address}` : "/notifications";
   if (row.kind === "report_new") return "/moderation/reports";

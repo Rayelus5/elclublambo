@@ -27,7 +27,7 @@ select is(public.member_global_permissions(current_setting('t.pad')::uuid), 8215
 select is(public.member_global_permissions(current_setting('t.sa')::uuid), 131071::bigint, 'SuperAdmin -> 131071');
 select is(public.member_global_permissions(current_setting('t.padden')::uuid), 8199::bigint, 'Padrino deny 16 -> 8199');
 select is(public.member_global_permissions(current_setting('t.sadeny')::uuid), 131071::bigint, 'admin ignores deny');
-select is(public.member_top_position(current_setting('t.pad')::uuid), 10, 'top position Padrino');
+select is(public.member_top_position(current_setting('t.pad')::uuid), 0, 'Padrino is a badge (system_key): it never raises the rank');
 select is(public.member_top_position(current_setting('t.plain')::uuid), 0, 'top position plain = @everyone');
 
 -- allow override

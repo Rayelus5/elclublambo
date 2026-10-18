@@ -9,7 +9,7 @@ async function NotificationsContent() {
   const supabase = await createServerClient();
   const initial = await listNotifications({ filter: "all" }, supabase);
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
+    <div className="flex w-full flex-col gap-8">
       <header className="flex flex-col gap-3">
         <h1 className="text-h1">Notificaciones</h1>
         <p className="text-fg-muted">Menciones, respuestas, canales que sigues y avisos del club.</p>

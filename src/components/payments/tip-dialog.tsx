@@ -145,7 +145,7 @@ export function TipDialog({
       }}
     >
       <DialogContent
-        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
+        className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md md:max-w-3xl"
         onInteractOutside={(e) => {
           if (walletModalOpen) e.preventDefault();
         }}
@@ -722,13 +722,18 @@ function TipFlow({
           {donation
             ? credited
               ? "Donación acreditada."
-              : "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas)."
+              : "Donación registrada."
             : mode
               ? "Bounty pagado"
               : "Propina enviada"}
         </p>
         <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         <Button onClick={onClose}>Cerrar</Button>
+        {donation && !credited ? (
+          <p className="text-[13px] text-fg-muted">
+            Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -749,124 +754,129 @@ function TipFlow({
   const total = units !== null ? units + fee : null;
   return (
     <form
-      className="flex flex-col gap-4"
+      className="grid gap-4 md:grid-cols-2 md:gap-6"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
       }}
     >
-      <NetworkBadge chainId={chainId} className="self-start" />
+      {/* Desktop: who, what and how much on the left; the cost and the confirmation on the right (no scrolling). */}
+      <div className="flex min-w-0 flex-col gap-4">
+        <NetworkBadge chainId={chainId} className="self-start" />
 
-      {donation ? (
-        <SafeCard address={safe} />
-      ) : (
-        <div className="flex items-center gap-3 rounded-control border border-border p-3">
-          <MemberAvatar member={recipient!} size={32} />
-          <div className="min-w-0">
-            <p className="truncate font-bold text-fg">{mentionLabel(recipient!)}</p>
-            <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient!.walletAddress)}</p>
+        {donation ? (
+          <SafeCard address={safe} />
+        ) : (
+          <div className="flex items-center gap-3 rounded-control border border-border p-3">
+            <MemberAvatar member={recipient!} size={32} />
+            <div className="min-w-0">
+              <p className="truncate font-bold text-fg">{mentionLabel(recipient!)}</p>
+              <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient!.walletAddress)}</p>
+            </div>
           </div>
-        </div>
-      )}
-
-      {donation ? (
-        <p data-testid="locked-token" className="text-sm text-fg-muted">
-          Moneda: <span className="font-mono font-bold text-fg">USDC</span>
-        </p>
-      ) : mode ? (
-        <p data-testid="locked-token" className="text-sm text-fg-muted">
-          Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
-        </p>
-      ) : (
-      <div role="radiogroup" aria-label="Moneda" className="grid grid-cols-2 gap-1 rounded-control border border-border-strong p-1">
-        {TOKENS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="radio"
-            aria-checked={token === t}
-            onClick={() => setToken(t)}
-            className={cn(
-              "min-h-11 rounded-control text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
-              token === t ? "bg-accent text-bg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-      )}
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="tip-amount" className="text-sm font-bold text-fg">
-          Importe
-        </label>
-        <div className="flex items-center gap-2">
-          <Input
-            id="tip-amount"
-            inputMode="decimal"
-            autoComplete="off"
-            placeholder="0,00"
-            value={amountText}
-            onChange={(e) => setAmountText(e.target.value)}
-            aria-invalid={reason !== null && amountText.trim() !== "" ? true : undefined}
-            className="font-mono"
-          />
-          <span className="font-mono text-sm text-fg-muted">{token}</span>
-        </div>
-      </div>
-
-      <FeeControl minBps={economy.minFeeBps} value={feeBps} onChange={setFeeBps} />
-
-      <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-control bg-surface-2 p-3 text-sm">
-        <dt className="text-fg-muted">Para {payeeName}</dt>
-        <dd className="font-mono text-fg">{units !== null ? `${formatAmount(units, token)} ${token}` : "—"}</dd>
-        <dt className="text-fg-muted">Comisión</dt>
-        <dd className="font-mono text-fg">{units !== null ? `${formatAmount(fee, token)} ${token}` : "—"}</dd>
-        <dt className="font-bold text-fg">Total</dt>
-        <dd className="font-mono font-bold text-fg" data-testid="tip-total">
-          {total !== null ? `${formatAmount(total, token)} ${token}` : "—"}
-        </dd>
-      </dl>
-
-      {mode || donation ? null : (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-3">
-            <Checkbox id="tip-anon" checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} />
-            <label htmlFor="tip-anon" className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
-              Propina anónima
-            </label>
-          </div>
-          <p className="text-[13px] text-fg-muted">Solo se oculta en el foro: en la blockchain la transacción es pública.</p>
-        </div>
-      )}
-
-      {reason ? (
-        <p aria-live="polite" className="text-sm text-danger">
-          {reason}
-        </p>
-      ) : null}
-      {formError ? (
-        <p role="alert" className="text-sm text-danger">
-          {formError}
-        </p>
-      ) : null}
-
-      {bountyInactive && mode ? (
-        <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
-          Este bounty se publicó en {NETWORKS[mode.chainId].name}; podrás pagarlo cuando esa red vuelva a estar activa.
-        </p>
-      ) : (
-        walletNotice
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <HowItWorksLink section={donation ? "dao" : mode ? "bounties" : "propinas"} />
-        {bountyInactive ? null : (
-          <Button type="submit" disabled={!canContinue}>
-            Continuar
-          </Button>
         )}
+
+        {donation ? (
+          <p data-testid="locked-token" className="text-sm text-fg-muted">
+            Moneda: <span className="font-mono font-bold text-fg">USDC</span>
+          </p>
+        ) : mode ? (
+          <p data-testid="locked-token" className="text-sm text-fg-muted">
+            Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
+          </p>
+        ) : (
+        <div role="radiogroup" aria-label="Moneda" className="grid grid-cols-2 gap-1 rounded-control border border-border-strong p-1">
+          {TOKENS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="radio"
+              aria-checked={token === t}
+              onClick={() => setToken(t)}
+              className={cn(
+                "min-h-11 rounded-control text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                token === t ? "bg-accent text-bg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="tip-amount" className="text-sm font-bold text-fg">
+            Importe
+          </label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="tip-amount"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder="0,00"
+              value={amountText}
+              onChange={(e) => setAmountText(e.target.value)}
+              aria-invalid={reason !== null && amountText.trim() !== "" ? true : undefined}
+              className="font-mono"
+            />
+            <span className="font-mono text-sm text-fg-muted">{token}</span>
+          </div>
+        </div>
+
+        {mode || donation ? null : (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <Checkbox id="tip-anon" checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} />
+              <label htmlFor="tip-anon" className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
+                Propina anónima
+              </label>
+            </div>
+            <p className="text-[13px] text-fg-muted">Solo se oculta en el foro: en la blockchain la transacción es pública.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-4">
+        <FeeControl minBps={economy.minFeeBps} value={feeBps} onChange={setFeeBps} />
+
+        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-control bg-surface-2 p-3 text-sm">
+          <dt className="text-fg-muted">Para {payeeName}</dt>
+          <dd className="font-mono text-fg">{units !== null ? `${formatAmount(units, token)} ${token}` : "—"}</dd>
+          <dt className="text-fg-muted">Comisión</dt>
+          <dd className="font-mono text-fg">{units !== null ? `${formatAmount(fee, token)} ${token}` : "—"}</dd>
+          <dt className="font-bold text-fg">Total</dt>
+          <dd className="font-mono font-bold text-fg" data-testid="tip-total">
+            {total !== null ? `${formatAmount(total, token)} ${token}` : "—"}
+          </dd>
+        </dl>
+
+        {reason ? (
+          <p aria-live="polite" className="text-sm text-danger">
+            {reason}
+          </p>
+        ) : null}
+        {formError ? (
+          <p role="alert" className="text-sm text-danger">
+            {formError}
+          </p>
+        ) : null}
+
+        {bountyInactive && mode ? (
+          <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
+            Este bounty se publicó en {NETWORKS[mode.chainId].name}; podrás pagarlo cuando esa red vuelva a estar activa.
+          </p>
+        ) : (
+          walletNotice
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <HowItWorksLink section={donation ? "dao" : mode ? "bounties" : "propinas"} />
+          {bountyInactive ? null : (
+            <Button type="submit" disabled={!canContinue}>
+              Continuar
+            </Button>
+          )}
+        </div>
       </div>
     </form>
   );

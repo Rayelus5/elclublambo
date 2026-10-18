@@ -212,7 +212,10 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
   const ranking = b.page.getByRole("table", { name: "Ranking de la DAO" });
   await expect(ranking.getByRole("row", { name: /Anónimo/ })).toBeVisible();
   await expect(ranking.getByRole("row", { name: /100 %/ })).toBeVisible();
-  await expect(b.page.getByText(handleA)).toHaveCount(0);
+  // The DAO content never names a hidden donor. (The right rail's live activity may still name A for public tips or
+  // bounties from other specs: those are public; A's donation there reads Anónimo.)
+  await expect(b.page.getByRole("main").getByText(handleA)).toHaveCount(0);
+  await expect(b.page.getByRole("list", { name: "Actividad del club" }).getByRole("link", { name: /Anónimo donó 10 USDC a la DAO/ })).toBeVisible();
 });
 
 test("4. ranking toggle: A opts in and B sees A's handle", async () => {

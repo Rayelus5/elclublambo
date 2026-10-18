@@ -1,5 +1,5 @@
 begin;
-select plan(26);
+select plan(27);
 
 -- fixtures: a = admin, b = manager (Moderador + MANAGE_ROLES/CHANNELS override), c = banned, d = active target
 select set_config('t.a', tests.create_member('0x00000000000000000000000000000000000d0001', null, true)::text, true);
@@ -72,8 +72,11 @@ select lives_ok(format($q$select public.set_member_role(%L::uuid, %L::uuid, fals
   'Padrino can be removed again');
 
 -- ===== 4. move_role =====
-select throws_ok(format($q$select public.move_role(%L::uuid, 30)$q$, current_setting('t.verified')),
-  'P0001', 'forbidden', 'system_key roles cannot be moved');
+select lives_ok(format($q$select public.move_role(%L::uuid, 30)$q$, current_setting('t.verified')),
+  'the SuperAdmin can reorder a system_key role (roles drag & drop)');
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select throws_ok(format($q$select public.move_role(%L::uuid, 40)$q$, current_setting('t.verified')),
+  'P0001', 'forbidden', 'a MANAGE_ROLES delegate still cannot move a system_key role');
 select tests.clear_authentication();
 
 -- ===== 5. Padrino identity =====

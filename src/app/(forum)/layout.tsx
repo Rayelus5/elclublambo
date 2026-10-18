@@ -7,7 +7,10 @@ import { EconomyProvider } from "@/components/payments/economy-provider";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { SearchProvider } from "@/components/search/search-provider";
 import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
+import { PresenceHeartbeat } from "@/components/members/presence-heartbeat";
+import { ChatDensityProvider } from "@/components/chat/density";
 import { RightRail } from "@/components/shell/right-rail";
+import { ShellGrid } from "@/components/shell/shell-grid";
 import { Sidebar } from "@/components/shell/sidebar";
 import { getLockedChannels, getVisibleChannels, toRow } from "@/lib/channels/queries";
 import { getEconomyConfig } from "@/lib/economy/config";
@@ -69,9 +72,9 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
         ? (
             await supabase
               .from("members")
-              .select("handle, welcome_completed_at")
+              .select("handle, welcome_completed_at, chat_density")
               .eq("id", id)
-              .maybeSingle<{ handle: string | null; welcome_completed_at: string | null }>()
+              .maybeSingle<{ handle: string | null; welcome_completed_at: string | null; chat_density: string | null }>()
           ).data
         : null,
     ),
@@ -106,15 +109,18 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   return (
     <EconomyProvider config={economy} wallet={wallet} memberId={memberId}>
     <PendingSendsSync memberId={memberId} />
+    <PresenceHeartbeat />
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
+    <ChatDensityProvider initial={welcome.chat_density === "compact" ? "compact" : "standard"}>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
-      <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
+      <ShellGrid>
         <Sidebar perms={perms} wallet={wallet} channels={sidebarRows} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.activeChainId} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-10">{children}</main>
         <RightRail />
-      </div>
+      </ShellGrid>
     </SearchProvider>
+    </ChatDensityProvider>
     </UnreadProvider>
     </NotificationsProvider>
     </EconomyProvider>

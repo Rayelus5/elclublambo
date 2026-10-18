@@ -1,15 +1,32 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CircleCheck, CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
+import {
+  CircleCheck,
+  CornerDownRight,
+  Coins,
+  Flag,
+  Link2,
+  MessageSquare,
+  MessageSquareReply,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Quote,
+  SmilePlus,
+  Trash2,
+} from "lucide-react";
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { BountyCard } from "@/components/chat/bounty-card";
+import { useChatDensity } from "@/components/chat/density";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { SystemNotice } from "@/components/chat/system-notice";
 import { ReactionBar } from "@/components/chat/reaction-bar";
 import { MemberAvatar } from "@/components/members/member-avatar";
+import { MemberCardTrigger } from "@/components/members/member-card";
 import { TipDialog } from "@/components/payments/tip-dialog";
 import { TipsBadge } from "@/components/payments/tips-badge";
 import { ReportDialog } from "@/components/reports/report-dialog";
@@ -28,7 +45,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
 import { rpcErrorMessage } from "@/lib/errors";
 import type { MemberIdentity } from "@/lib/members/name";
+import { contrastRatio } from "@/styles/tokens";
 import { cn } from "@/lib/utils";
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const BG = "#0A0A0A";
+
+function readableNameColor(color: string | null): string | null {
+  if (!color || !HEX.test(color)) return null;
+  return contrastRatio(color, BG) >= 4.5 ? color : null;
+}
 
 export type MessageVariant = "list" | "thread" | "pinned";
 
@@ -112,6 +138,9 @@ export function MessageItem({
   const [confirmMark, setConfirmMark] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
+  const [reactionPicker, setReactionPicker] = useState(false);
+  // Compact: no avatar, the time in a narrow left column, tight spacing (the member's preference for every channel).
+  const compact = useChatDensity().density === "compact";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -119,6 +148,8 @@ export function MessageItem({
   const author = authorId ? directory.members[authorId] : undefined;
   const name = author?.name ?? "Miembro";
   const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: authorId ?? "", avatarPath: null };
+  // A role colour only when it stays readable on the dark background; otherwise the default text colour.
+  const nameColor = readableNameColor(author?.nameColor ?? null);
   const deleted = message.deletedAt !== null;
   const own = authorId !== null && authorId === viewer.memberId;
   const isRoot = message.threadRootId === null;
@@ -133,7 +164,8 @@ export function MessageItem({
   const canTip = !own && !deleted && variant !== "pinned" && message.kind !== "system" && authorId !== null;
   // Only the author of an open bounty gets the handler; it is offered on other members' visible replies.
   const canMark = !!onMarkSolution && !own && !deleted && variant === "thread" && message.threadRootId !== null && message.kind !== "system";
-  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
+  const canAddReaction = viewer.canReact && !deleted && variant !== "pinned" && !!onToggleReaction;
+  const hasMenu = canAddReaction || canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
     variant === "list" && isRoot && message.replyCount > 0 ? (
@@ -182,13 +214,13 @@ export function MessageItem({
         )}
       >
         <SystemNotice message={message} />
-        <div className="shrink-0 self-start">
+        <div className="shrink-0 self-start md:absolute md:-top-3 md:right-2 md:z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label="Acciones del mensaje"
-                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:size-8 md:border md:border-border-strong md:bg-surface md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
               >
                 <MoreHorizontal aria-hidden className="size-5" />
               </button>
@@ -200,6 +232,7 @@ export function MessageItem({
                   void navigator.clipboard?.writeText(url).catch(() => undefined);
                 }}
               >
+                <Link2 aria-hidden />
                 Copiar enlace
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -209,35 +242,56 @@ export function MessageItem({
     );
   }
 
+  // Groups: one author's consecutive messages sit tight together; a new author opens a clearly separated block.
+  // Compact keeps the avatars, smaller, and tightens everything (the member's preference for every channel).
+  const avatarSize = compact ? 24 : 32;
   return (
     <li
       id={`msg-${message.id}`}
       data-message-id={message.id}
       aria-current={highlighted ? "true" : undefined}
       className={cn(
-        "group relative -mx-2 flex gap-3 rounded-control border-l-2 px-2 py-1 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        "group relative -mx-2 flex rounded-control border-l-2 px-2 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        compact ? "gap-2.5" : "gap-3",
         highlighted ? "border-accent bg-surface-2" : "border-transparent",
-        grouped ? "mt-0" : "mt-3 first:mt-0",
+        grouped ? "mt-0 py-px" : compact ? "mt-2 pt-1 pb-px first:mt-0" : "mt-4 pt-1.5 pb-0.5 first:mt-0",
       )}
     >
-      <div className="w-9 shrink-0">
+      <div className={cn("shrink-0", compact ? "w-6" : "w-8")}>
         {grouped ? (
-          <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+          <Time
+            iso={message.createdAt}
+            className="sr-only md:not-sr-only md:block md:pt-0.5 md:text-right md:font-mono md:text-[10px] md:leading-5 md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
+          />
+        ) : authorId ? (
+          <MemberCardTrigger memberId={authorId} label={name} className={cn("block", compact ? "mt-px" : "mt-0.5")} tabbable={false}>
+            <MemberAvatar member={identity} size={avatarSize} />
+          </MemberCardTrigger>
         ) : (
-          <MemberAvatar member={identity} size={32} />
+          <MemberAvatar member={identity} size={avatarSize} />
         )}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className={cn("flex min-w-0 flex-1 flex-col text-fg/85", compact ? "gap-0.5" : "gap-1")}>
         {grouped ? null : (
-          <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-display font-bold text-fg" title={author?.walletAddress}>
-              {name}
-            </span>
-            {author?.displayName?.trim() && author.handle ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
-            <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />
+          <div className="flex flex-wrap items-baseline gap-x-2 leading-5">
+            {authorId ? (
+              <MemberCardTrigger
+                memberId={authorId}
+                label={name}
+                className={cn("font-display font-extrabold tracking-tight hover:underline", compact ? "text-[14px]" : "text-[15px]")}
+              >
+                <span style={nameColor ? { color: nameColor } : undefined} className={nameColor ? undefined : "text-fg"}>
+                  {name}
+                </span>
+              </MemberCardTrigger>
+            ) : (
+              <span className="font-display font-extrabold tracking-tight text-fg">{name}</span>
+            )}
+            {author?.displayName?.trim() && author.handle && !compact ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
+            <Time iso={message.createdAt} className="text-[12px] text-fg-muted" />
             {message.pinnedAt && !deleted ? (
-              <span className="inline-flex items-center gap-1 text-[13px] text-fg-muted">
+              <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted">
                 <Pin aria-hidden className="size-3.5" />
                 <span>Fijado</span>
               </span>
@@ -319,6 +373,8 @@ export function MessageItem({
             reactions={message.reactions}
             canReact={viewer.canReact}
             onToggle={(emoji) => onToggleReaction?.(message, emoji)}
+            pickerOpen={reactionPicker}
+            onPickerOpenChange={setReactionPicker}
           />
         ) : null}
         {canMark ? (
@@ -330,14 +386,15 @@ export function MessageItem({
       </div>
 
       {hasMenu && !editing ? (
-        <div className="shrink-0 self-start">
+        // Desktop: floats over the message's top-right corner (Discord-style), so a one-line message stays one line.
+        <div className="shrink-0 self-start md:absolute md:-top-3 md:right-2 md:z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 ref={triggerRef}
                 type="button"
                 aria-label="Acciones del mensaje"
-                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:size-8 md:border md:border-border-strong md:bg-surface md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
               >
                 <MoreHorizontal aria-hidden className="size-5" />
               </button>
@@ -352,6 +409,17 @@ export function MessageItem({
                 }
               }}
             >
+              {canAddReaction ? (
+                <DropdownMenuItem
+                  onSelect={() => {
+                    focusMoved.current = true;
+                    setReactionPicker(true);
+                  }}
+                >
+                  <SmilePlus aria-hidden />
+                  Añadir reacción
+                </DropdownMenuItem>
+              ) : null}
               {canReply ? (
                 <DropdownMenuItem
                   onSelect={() => {
@@ -359,6 +427,7 @@ export function MessageItem({
                     onOpenThread?.(message, triggerRef.current);
                   }}
                 >
+                  <MessageSquareReply aria-hidden />
                   {viewer.canThread ? "Responder en hilo" : "Ver hilo"}
                 </DropdownMenuItem>
               ) : null}
@@ -369,6 +438,7 @@ export function MessageItem({
                     onQuote?.(message);
                   }}
                 >
+                  <Quote aria-hidden />
                   Citar
                 </DropdownMenuItem>
               ) : null}
@@ -379,22 +449,33 @@ export function MessageItem({
                     setEditing(true);
                   }}
                 >
+                  <Pencil aria-hidden />
                   Editar
                 </DropdownMenuItem>
               ) : null}
               {canDelete ? (
                 <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
+                  <Trash2 aria-hidden />
                   Borrar
                 </DropdownMenuItem>
               ) : null}
               {canPin ? (
                 <DropdownMenuItem onSelect={() => onPin?.(message, message.pinnedAt === null)}>
+                  {message.pinnedAt === null ? <Pin aria-hidden /> : <PinOff aria-hidden />}
                   {message.pinnedAt === null ? "Fijar" : "Desfijar"}
                 </DropdownMenuItem>
               ) : null}
-              {canTip ? <DropdownMenuItem onSelect={() => setTipping(true)}>Dar propina</DropdownMenuItem> : null}
+              {canTip ? (
+                <DropdownMenuItem onSelect={() => setTipping(true)}>
+                  <Coins aria-hidden />
+                  Dar propina
+                </DropdownMenuItem>
+              ) : null}
               {canReport ? (
-                <DropdownMenuItem onSelect={() => setReporting(true)}>Reportar</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setReporting(true)}>
+                  <Flag aria-hidden />
+                  Reportar
+                </DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>

@@ -1,3 +1,4 @@
+import { DensityToggle } from "@/components/chat/density";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -38,7 +39,7 @@ async function TextChannel({ channel, threadId, messageId, nonce }: { channel: C
     !follow.error && (follow.data === "all" || follow.data === "mute" || follow.data === "mentions") ? follow.data : null;
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex max-w-3xl flex-col gap-3">
+      <header className="flex flex-col gap-3">
         <h1 className="text-h1">
           <span className="text-fg-muted" aria-hidden>
             #
@@ -51,6 +52,8 @@ async function TextChannel({ channel, threadId, messageId, nonce }: { channel: C
           {channel.ticketsEnabled && context.viewer.canPost ? (
             <OpenTicketDialog key={`tickets-${channel.id}`} channelId={channel.id} channelName={channel.name} />
           ) : null}
+          {/* Standard / compact applies to every text channel (also in Editar perfil). */}
+          <DensityToggle className="ml-auto" showLabels={false} />
         </div>
         {channel.slowmodeSeconds > 0 || channel.ticketsEnabled || channel.alphaEnabled ? (
           <ul className="flex flex-wrap gap-2" aria-label="Ajustes del canal">

@@ -38,7 +38,7 @@ async function TicketsContent({ searchParams }: { searchParams: Search }) {
   };
 
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">Tickets</h1>
         <p className="text-fg-muted">

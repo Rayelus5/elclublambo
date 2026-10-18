@@ -136,3 +136,16 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   }
   return "credited";
 }
+
+const VIEW_SETTLE_EVERY_MS = 30_000;
+let lastViewSettle = 0;
+
+/**
+ * Page views (/dao) settle opportunistically, but one credit re-renders every open /dao through DaoLive: at most one
+ * view-triggered settlement per 30 s per server process (the cron and the donor's own navigation are not throttled).
+ */
+export function shouldSettleFromView(now = Date.now()): boolean {
+  if (now - lastViewSettle < VIEW_SETTLE_EVERY_MS) return false;
+  lastViewSettle = now;
+  return true;
+}

@@ -19,7 +19,7 @@ export default async function GuideSectionPage({ params }: { params: Promise<{ s
   const next = GUIDE_SECTIONS[i + 1];
 
   return (
-    <article className="flex max-w-[68ch] flex-col gap-8">
+    <article className="mx-auto flex w-full max-w-[68ch] flex-col gap-8">
       <header className="flex flex-col gap-2">
         <Link href="/guia" className={`${linkClass} self-start`}>
           Guía

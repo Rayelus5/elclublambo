@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DensityToggle } from "@/components/chat/density";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
@@ -59,6 +60,16 @@ async function EditProfile() {
           Privacidad en la DAO
         </h2>
         <RankingToggle initial={row.dao_ranking_visible === true} id="perfil-dao-ranking-visible" />
+      </section>
+      <section aria-labelledby="chat-density" className="flex flex-col gap-3">
+        <h2 id="chat-density" className="text-h2">
+          Vista del chat
+        </h2>
+        <p className="text-sm text-fg-muted">
+          Compacto reduce el tamaño del avatar y el espacio entre mensajes para ver más conversación a la vez. Se aplica a
+          todos los canales de texto y también puedes cambiarlo desde cualquier canal.
+        </p>
+        <DensityToggle className="self-start" />
       </section>
     </div>
   );

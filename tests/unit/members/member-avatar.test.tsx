@@ -16,15 +16,16 @@ describe("MemberAvatar", () => {
     expect(img.getAttribute("alt")).toBe("");
   });
 
-  it("falls back to the identicon when the image fails to load", () => {
-    const { container } = render(<MemberAvatar member={{ ...m, avatarPath: PATH }} size={32} />);
-    fireEvent.error(container.querySelector("img")!);
-    expect(container.querySelector("img")).toBeNull();
-    expect(container.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
+  it("without a custom picture uses DiceBear glass seeded with the wallet", () => {
+    const { container } = render(<MemberAvatar member={m} size={24} />);
+    expect(container.querySelector("img")!.getAttribute("src")).toBe(`https://api.dicebear.com/10.x/glass/svg?seed=${m.walletAddress}`);
   });
 
-  it("renders an aria-hidden identicon svg otherwise", () => {
-    const { container } = render(<MemberAvatar member={m} size={24} />);
+  it("falls back custom -> DiceBear -> local identicon as each image fails", () => {
+    const { container } = render(<MemberAvatar member={{ ...m, avatarPath: PATH }} size={32} />);
+    fireEvent.error(container.querySelector("img")!);
+    expect(container.querySelector("img")!.getAttribute("src")).toContain("api.dicebear.com/10.x/glass");
+    fireEvent.error(container.querySelector("img")!);
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
   });

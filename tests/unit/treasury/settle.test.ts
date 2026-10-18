@@ -23,7 +23,7 @@ function builder(table: string) {
 }
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => builder(t), rpc: (...a: unknown[]) => rpc(...a) }) }));
 
-import { settlePendingDonations } from "@/lib/treasury/settle";
+import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/settle";
 
 const PAYER = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
 const SAFE = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";
@@ -189,5 +189,15 @@ describe("settlePendingDonations: scoping", () => {
     tables.payment_intents = { ...(tables.payment_intents as object), chain_id: 59141 };
     await settlePendingDonations();
     expect(chainClient).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("shouldSettleFromView", () => {
+  it("lets one /dao view settle, then throttles views for 30 s", () => {
+    const t0 = 10_000_000;
+    expect(shouldSettleFromView(t0)).toBe(true);
+    expect(shouldSettleFromView(t0 + 1_000)).toBe(false);
+    expect(shouldSettleFromView(t0 + 29_999)).toBe(false);
+    expect(shouldSettleFromView(t0 + 30_000)).toBe(true);
   });
 });

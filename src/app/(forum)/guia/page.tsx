@@ -6,7 +6,7 @@ export const metadata = { title: "Guía" };
 
 export default function GuidePage() {
   return (
-    <div className="flex max-w-[68ch] flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[68ch] flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">Guía</h1>
         <p className="text-fg-muted">

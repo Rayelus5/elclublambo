@@ -51,7 +51,8 @@ export const getRolesContext = cache(async (): Promise<RolesContext> => {
     isSystem: r.is_system,
     systemKey: r.system_key,
   }));
-  const top = roles.filter((r) => ownRoleIds.has(r.id)).reduce((m, r) => Math.max(m, r.position), 0);
+  // Same as member_top_position: system_key roles (Verificado, Padrino) are badges and never raise the rank.
+  const top = roles.filter((r) => ownRoleIds.has(r.id) && r.systemKey === null).reduce((m, r) => Math.max(m, r.position), 0);
 
   return {
     roles,

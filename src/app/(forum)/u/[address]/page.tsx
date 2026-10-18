@@ -108,41 +108,63 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
   const sponsor = sponsorRes.data ? toSummary(sponsorRes.data) : null;
   const invitees = (inviteesRes.data ?? []).map(toSummary);
 
+  const panel = "rounded-panel border border-border-strong bg-surface-2 p-4 sm:p-6";
   return (
-    <div className="flex max-w-3xl flex-col gap-10">
-      <header className="flex flex-col gap-4">
+    <div className="flex w-full flex-col gap-6">
+      <header className={`${panel} flex flex-col gap-5 sm:flex-row sm:items-start`}>
         <MemberAvatar member={identityFromRow(member)} size={96} />
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-h1">{memberName(identityFromRow(member))}</h1>
-          <StatusBadge status={member.status} />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-1">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-h1 break-words">{memberName(identityFromRow(member))}</h1>
+                <StatusBadge status={member.status} />
+              </div>
+              {member.handle && member.display_name?.trim() ? <p className="font-mono text-fg-muted">@{member.handle}</p> : null}
+            </div>
+            {isOwn ? (
+              <Link
+                href="/perfil"
+                className="inline-flex min-h-11 items-center rounded-control border border-border-strong bg-surface px-4 text-sm font-bold text-fg outline-none hover:bg-bg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+              >
+                Editar perfil
+              </Link>
+            ) : member.status === "active" ? (
+              <TipProfileButton recipient={{ ...identityFromRow(member), id: member.id }} />
+            ) : null}
+          </div>
+          {member.bio ? <p className="max-w-prose whitespace-pre-line break-words text-fg">{member.bio}</p> : null}
+          <ProfileLinks links={links} allowedDomains={allowedDomains} />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-3 text-[13px] text-fg-muted">
+            <span className="flex min-w-0 items-center gap-2">
+              <code className="font-mono break-all">{member.wallet_address}</code>
+              <CopyAddressButton address={member.wallet_address} />
+            </span>
+            <span>
+              Miembro desde <time dateTime={member.created_at}>{dateFmt.format(new Date(member.created_at))}</time>
+            </span>
+          </div>
         </div>
-        {member.handle && member.display_name?.trim() ? <p className="font-mono text-fg-muted">@{member.handle}</p> : null}
-        {member.bio ? <p className="max-w-prose whitespace-pre-line break-words">{member.bio}</p> : null}
-        <ProfileLinks links={links} allowedDomains={allowedDomains} />
-        {isOwn ? (
-          <Link
-            href="/perfil"
-            className="inline-flex min-h-11 items-center self-start rounded-control border border-border-strong px-4 text-sm font-bold text-fg outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-          >
-            Editar perfil
-          </Link>
-        ) : member.status === "active" ? (
-          <TipProfileButton recipient={{ ...identityFromRow(member), id: member.id }} />
-        ) : null}
-        <div className="flex flex-wrap items-center gap-3">
-          <code className="font-mono text-[13px] break-all text-fg-muted">{member.wallet_address}</code>
-          <CopyAddressButton address={member.wallet_address} />
-        </div>
-        <p className="text-fg-muted">
-          Miembro desde <time dateTime={member.created_at}>{dateFmt.format(new Date(member.created_at))}</time>
-        </p>
       </header>
 
-      {tips ? <TipsReceived entries={tips.entries} totals={tips.totals} activeChainId={tips.activeChainId} /> : null}
+      {tips || bounties ? (
+        <div className="grid gap-6 xl:grid-cols-2">
+          {tips ? (
+            <div className={panel}>
+              <TipsReceived entries={tips.entries} totals={tips.totals} activeChainId={tips.activeChainId} />
+            </div>
+          ) : null}
+          {bounties ? (
+            <div className={panel}>
+              <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} activeChainId={bounties.activeChainId} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
-      {bounties ? <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} activeChainId={bounties.activeChainId} /> : null}
-
-      <SponsorTree sponsor={sponsor} invitees={invitees} />
+      <div className={panel}>
+        <SponsorTree sponsor={sponsor} invitees={invitees} />
+      </div>
     </div>
   );
 }
