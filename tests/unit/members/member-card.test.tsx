@@ -55,4 +55,16 @@ describe("MemberCardTrigger", () => {
     await userEvent.click(screen.getByRole("button", { name: "Ver tarjeta de Ana Pérez" }));
     expect(await screen.findByText("No se pudo cargar este miembro.")).toBeInTheDocument();
   });
+
+  it("a duplicate trigger (the avatar beside the name) is not a second keyboard stop", () => {
+    render(
+      <>
+        <MemberCardTrigger memberId={ID} label="Ana" tabbable={false}>A</MemberCardTrigger>
+        <MemberCardTrigger memberId={ID} label="Ana">Ana</MemberCardTrigger>
+      </>,
+    );
+    const [avatar, name] = screen.getAllByRole("button", { name: "Ver tarjeta de Ana" });
+    expect(avatar).toHaveAttribute("tabindex", "-1");
+    expect(name).not.toHaveAttribute("tabindex");
+  });
 });

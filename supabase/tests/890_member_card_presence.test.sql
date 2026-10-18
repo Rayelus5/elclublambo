@@ -1,6 +1,6 @@
 -- Member card + server-authoritative presence + channel member list.
 begin;
-select plan(14);
+select plan(19);
 
 select set_config('t.a', tests.create_member('0x' || lpad('f8900', 40, '0'), null, true)::text, true);
 select set_config('t.b', tests.create_member('0x' || lpad('f8901', 40, '0'), current_setting('t.a')::uuid)::text, true);
@@ -20,14 +20,14 @@ insert into public.permission_overwrites (channel_id, target_type, target_id, al
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select public.touch_presence();
 select tests.clear_authentication();
-select isnt((select last_seen_at from public.members where id = current_setting('t.b')::uuid), null, 'touch_presence stamps the caller');
-select is((select last_seen_at from public.members where id = current_setting('t.a')::uuid), null, 'and nobody else');
-update public.members set last_seen_at = now() - interval '10 seconds' where id = current_setting('t.b')::uuid;
-select set_config('t.seen', (select last_seen_at::text from public.members where id = current_setting('t.b')::uuid), true);
+select isnt((select last_seen_at from public.member_presence where member_id = current_setting('t.b')::uuid), null, 'touch_presence stamps the caller');
+select is((select count(*)::int from public.member_presence where member_id = current_setting('t.a')::uuid), 0, 'and nobody else');
+update public.member_presence set last_seen_at = now() - interval '10 seconds' where member_id = current_setting('t.b')::uuid;
+select set_config('t.seen', (select last_seen_at::text from public.member_presence where member_id = current_setting('t.b')::uuid), true);
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select public.touch_presence();
 select tests.clear_authentication();
-select is((select last_seen_at::text from public.members where id = current_setting('t.b')::uuid), current_setting('t.seen'), 'a second beat within 30 s writes nothing');
+select is((select last_seen_at::text from public.member_presence where member_id = current_setting('t.b')::uuid), current_setting('t.seen'), 'a second beat within 30 s writes nothing');
 
 -- member card
 select tests.authenticate_as(current_setting('t.ub')::uuid);
@@ -51,6 +51,30 @@ select is((select count(*)::int from public.channel_members(current_setting('t.h
 select tests.clear_authentication();
 
 select ok(not has_function_privilege('anon', 'public.member_card(uuid)', 'execute'), 'anon cannot read cards');
+
+-- MC3: no raw timestamp is readable by members
+select ok(not has_table_privilege('authenticated', 'public.member_presence', 'select'), 'member_presence is not readable by clients');
+select hasnt_column('public', 'members', 'last_seen_at', 'members no longer carries last_seen_at');
+
+-- MC2: the cheap online refresh
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select is((select online from public.members_online(array[current_setting('t.b')::uuid])), true, 'members_online reports B online');
+select is((select online from public.members_online(array[current_setting('t.a')::uuid])), false, 'and A offline');
+select tests.clear_authentication();
+
+-- MC1: a hidden donor who passes a DAO gate is not singled out in a gated channel's list
+select set_config('t.c', tests.create_member('0x' || lpad('f8902', 40, '0'), current_setting('t.a')::uuid)::text, true);
+select set_config('t.uc', (select auth_user_id::text from public.members where id = current_setting('t.c')::uuid), true);
+select set_config('t.gated', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't890gated')::text, true);
+update public.channels set gate_min_net_usdc = 5000000, gate_scope = 'view' where id = current_setting('t.gated')::uuid;
+insert into public.dao_positions (chain_id, member_id, shares, net_contributed_usdc)
+  values (public._active_chain(), current_setting('t.b')::uuid, 10, 9000000);
+update public.dao_state set total_shares = total_shares + 10, value_usdc = value_usdc + 9000000 where chain_id = public._active_chain();
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select is((select count(*)::int from public.channel_members(current_setting('t.gated')::uuid)
+           where member_id in (current_setting('t.a')::uuid, current_setting('t.c')::uuid)), 2,
+  'the gated channel lists by role access: non-donors appear too, so the list says nothing about who donated');
+select tests.clear_authentication();
 
 select * from finish();
 rollback;

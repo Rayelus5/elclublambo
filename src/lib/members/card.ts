@@ -54,6 +54,14 @@ export async function getChannelMembers(supabase: Client, channelId: string): Pr
   }));
 }
 
+/** Cheap presence refresh for an already-loaded list: member id -> online. */
+export async function getOnline(supabase: Client, memberIds: readonly string[]): Promise<Map<string, boolean>> {
+  if (memberIds.length === 0) return new Map();
+  const { data, error } = await supabase.rpc("members_online", { p_members: memberIds });
+  if (error) throw new Error(error.message);
+  return new Map(((data ?? []) as Record<string, unknown>[]).map((r) => [String(r.member_id), r.online === true]));
+}
+
 /** Heartbeat: the server stamps the session's own member (never a client-supplied id). Failures are ignored. */
 export async function touchPresence(supabase: Client): Promise<void> {
   await supabase.rpc("touch_presence");

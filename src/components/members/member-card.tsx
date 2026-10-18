@@ -73,12 +73,15 @@ export function MemberCardTrigger({
   label,
   children,
   className,
+  tabbable = true,
 }: {
   memberId: string;
   /** Accessible name of the member (the trigger reads "Ver tarjeta de …"). */
   label: string;
   children: ReactNode;
   className?: string;
+  /** False for a duplicate trigger next to a tabbable one (the avatar beside the name): one keyboard stop per member. */
+  tabbable?: boolean;
 }) {
   const [state, setState] = useState<Load>({ status: "loading" });
   return (
@@ -95,6 +98,7 @@ export function MemberCardTrigger({
         <button
           type="button"
           aria-label={`Ver tarjeta de ${label}`}
+          tabIndex={tabbable ? undefined : -1}
           className={cn("cursor-pointer rounded-control text-left outline-none focus-visible:ring-2 focus-visible:ring-accent", className)}
         >
           {children}

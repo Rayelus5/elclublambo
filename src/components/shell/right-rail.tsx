@@ -19,7 +19,7 @@ import {
   type HomeBounty,
   type HomePin,
 } from "@/lib/home/queries";
-import { getChannelMembers, type ChannelMember } from "@/lib/members/card";
+import { getChannelMembers, getOnline, type ChannelMember } from "@/lib/members/card";
 import { memberName } from "@/lib/members/name";
 import { formatAmount } from "@/lib/payments/amounts";
 import { usePrivateTopic } from "@/lib/realtime/private-topic";
@@ -64,18 +64,33 @@ function MemberRow({ m }: { m: ChannelMember }) {
   );
 }
 
-/** Who can read the channel, online first (server-authoritative presence, refreshed every minute). */
+/**
+ * Who the channel is open to by role (DAO gates ignored on purpose: listing who passes one would name hidden donors),
+ * online first. The list is read once per channel; only the online flags are refreshed every minute (cheap RPC).
+ */
 function ChannelMembers({ channelId }: { channelId: string }) {
   const [state, setState] = useState<Load<ChannelMember[]>>({ status: "loading" });
+  const ids = useRef<string[]>([]);
   useEffect(() => {
     let alive = true;
-    const load = () =>
-      getChannelMembers(createBrowserClient(), channelId)
-        .then((data) => alive && setState({ status: "ready", data }))
-        .catch(() => alive && setState((s) => (s.status === "ready" ? s : { status: "error" })));
-    void load();
+    const supabase = createBrowserClient();
+    getChannelMembers(supabase, channelId)
+      .then((data) => {
+        if (!alive) return;
+        ids.current = data.map((m) => m.id);
+        setState({ status: "ready", data });
+      })
+      .catch(() => alive && setState({ status: "error" }));
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState !== "visible" || ids.current.length === 0) return;
+      getOnline(supabase, ids.current)
+        .then((online) =>
+          alive &&
+          setState((s) =>
+            s.status === "ready" ? { status: "ready", data: s.data.map((m) => ({ ...m, online: online.get(m.id) ?? m.online })) } : s,
+          ),
+        )
+        .catch(() => undefined);
     }, MEMBERS_REFRESH_MS);
     return () => {
       alive = false;

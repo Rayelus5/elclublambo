@@ -243,7 +243,7 @@ export function MessageItem({
         {grouped ? (
           <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
         ) : authorId ? (
-          <MemberCardTrigger memberId={authorId} label={name} className="block">
+          <MemberCardTrigger memberId={authorId} label={name} className="block" tabbable={false}>
             <MemberAvatar member={identity} size={32} />
           </MemberCardTrigger>
         ) : (
