@@ -7,7 +7,8 @@ import { installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F3d acceptance: DAO treasury, DAO gating and reconciliation, on the F3b local Hardhat chain (e2e/chain/start-chain.mjs,
 // started by playwright.config.ts). The Hardhat node answers the `finalized` tag with its latest block, so a donation
-// settles as soon as the cron route runs. TEST-ONLY keys (Hardhat's public mnemonic). Scenarios share state: run serially.
+// is credited right away by the immediate settle in confirmIntent (ruling F3-R4): the pending-finality path (UI list,
+// cron credit) is covered by unit tests (confirm, settle, cron route), not here. TEST-ONLY keys (Hardhat's public mnemonic). Scenarios share state: run serially.
 test.describe.configure({ mode: "serial" });
 
 const desktop = { width: 1280, height: 900 };
@@ -168,7 +169,7 @@ test("2. locked: A sees VIP DAO locked in the sidebar and the lock page shows re
   await expect(a.page.getByRole("log", { name: "Mensajes del canal" })).toHaveCount(0);
 });
 
-test("3. donate 10 USDC: two signatures, 'Donación registrada', pending until the cron settles it, then 100 % and balance 10 USDC", async () => {
+test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = latest), 100 % and balance 10 USDC", async () => {
   const safeBefore = await usdcOf(safe.address);
   const platformBefore = await usdcOf(platform.address);
 
@@ -183,31 +184,26 @@ test("3. donate 10 USDC: two signatures, 'Donación registrada', pending until t
   await dialog.getByLabel("Importe").fill("10");
   await expect(dialog.getByTestId("tip-total")).toHaveText("10,26 USDC");
   await dialog.getByRole("button", { name: "Continuar" }).click();
-  await expect(dialog.getByText("Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).")).toBeVisible({ timeout: 60_000 });
+  await expect(dialog.getByText("Donación acreditada.")).toBeVisible({ timeout: 60_000 });
   expect(walletA.sent).toHaveLength(2); // fee + donation
   await dialog.getByRole("button", { name: "Cerrar", exact: true }).click();
 
   expect((await usdcOf(safe.address)) - safeBefore).toBe(10_000_000n);
   expect((await usdcOf(platform.address)) - platformBefore).toBe(260_000n);
 
-  // Pending: recorded, but no shares and no balance yet.
-  await a.page.goto("/dao");
-  await expect(a.page.getByRole("list", { name: "Donaciones pendientes" })).toContainText("Pendiente de finalización");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("0 USDC");
-  await expect(a.page.getByTestId("my-share")).toHaveText("0 %");
-
-  // Settlement: Hardhat answers `finalized` with its latest block, so the cron credits it.
-  const report = await runCron("POST");
-  const sepolia = report.chains.find((c) => c.chainId === CHAIN_ID);
-  expect(sepolia?.error).toBeUndefined();
-  expect(sepolia?.credited).toBe(1);
-  expect(sepolia?.diff).toBe("0");
-
+  // Already credited: Hardhat's `finalized` block is its latest, so nothing is left pending.
   await a.page.goto("/dao");
   await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USDC");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await expect(a.page.getByTestId("my-net")).toHaveText("10 USDC");
   await expect(a.page.getByRole("list", { name: "Donaciones pendientes" })).toHaveCount(0);
+
+  // The cron finds nothing left to credit and the Safe balance matches the ledger.
+  const report = await runCron("POST");
+  const sepolia = report.chains.find((c) => c.chainId === CHAIN_ID);
+  expect(sepolia?.error).toBeUndefined();
+  expect(sepolia?.credited).toBe(0);
+  expect(sepolia?.diff).toBe("0");
 
   // B sees the treasury, and the donor as Anónimo (privacy default).
   await b.page.goto("/dao");
