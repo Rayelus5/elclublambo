@@ -16,8 +16,14 @@ export type ConfirmResult =
   | { status: "pending_finality"; ledgerId: string }
   | { status: "failed"; error: string; code: string };
 
-/** Errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */
+/** Verification errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */
 const PERMANENT = new Set(["tx_mismatch", "tx_failed", "tx_too_old", "tx_already_used"]);
+/**
+ * Errors of the recording RPCs (confirm_tip, confirm_bounty_payment, record_donation) that will never get better. Their
+ * inputs are derived deterministically from the intent and the chain, so invalid_input / not_found (a recheck the intent
+ * can no longer pass) recur on every retry: failing the intent stops reverify from retrying it for 7 days.
+ */
+const PERMANENT_RECORD = new Set([...PERMANENT, "intent_expired", "already_paid", "invalid_input", "not_found"]);
 const MAX_REVERIFY = 5;
 const LATE_CREDIT_DAYS = 7;
 
@@ -58,29 +64,51 @@ function hasRequiredHashes(i: Pick<IntentRow, "main_tx_hash" | "fee_tx_hash" | "
 export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const db = createAdminClient();
 
-  const { data: i } = await db.from("payment_intents").select(INTENT_COLUMNS).eq("id", intentId).maybeSingle<IntentRow>();
+  // F3-R3: a read ERROR is transient (pending); only a read that succeeded with no row is a definitive not_found.
+  const { data: i, error: readError } = await db.from("payment_intents").select(INTENT_COLUMNS).eq("id", intentId).maybeSingle<IntentRow>();
+  if (readError) {
+    console.error("[payments] intent read failed", intentId, readError.message);
+    return { status: "pending" };
+  }
   if (!i) return failed("not_found");
 
+  // Fails the intent for good. If that write fails, the intent stays pending and the caller is told so (never failed).
+  const permanent = async (code: string): Promise<ConfirmResult> => {
+    const { error } = await db.rpc("fail_intent", { p_intent: i.id, p_code: code });
+    if (error) {
+      console.error("[payments] fail_intent failed", i.id, code, error.message);
+      return { status: "pending" };
+    }
+    return failed(code);
+  };
+
   if (i.status === "confirmed" && i.purpose === "donation") {
-    const { data: led } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
+    const { data: led, error: ledError } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
+    if (ledError) console.error("[payments] ledger read failed", i.id, ledError.message);
     if (!led) return { status: "pending" };
     if (led.status === "credited") return { status: "confirmed", ledgerId: led.id };
     if (led.status === "reverted") return failed("reverted");
     return { status: "pending_finality", ledgerId: led.id };
   }
   if (i.status === "confirmed") {
-    const { data: tip } = await db.from("tips").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
+    const { data: tip, error: tipError } = await db.from("tips").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
+    if (tipError) console.error("[payments] tip read failed", i.id, tipError.message);
     return tip ? { status: "confirmed", tipId: tip.id } : { status: "pending" };
   }
   if (i.status === "failed") return failed(i.failure_code ?? "unknown");
   if (i.status === "expired") return failed("intent_expired");
 
-  // Fail closed: only purposes with a known confirm RPC are credited; anything else is never verified nor credited.
-  if (i.purpose !== "tip" && i.purpose !== "bounty" && i.purpose !== "donation") return failed("invalid_input");
+  // Fail closed: only purposes with a known confirm RPC are credited; anything else is never verified nor credited
+  // (and failed for good: no retry can make it pass).
+  if (i.purpose !== "tip" && i.purpose !== "bounty" && i.purpose !== "donation") return permanent("invalid_input");
 
   if (!hasRequiredHashes(i)) return { status: "pending" };
 
-  const { data: payer } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
+  const { data: payer, error: payerError } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
+  if (payerError) {
+    console.error("[payments] payer read failed", i.id, payerError.message);
+    return { status: "pending" };
+  }
   if (!payer) return failed("not_found");
 
   const fee = BigInt(i.fee_amount);
@@ -94,10 +122,6 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     ...(isDonation ? { confirmations: 1 } : {}),
   };
 
-  const permanent = async (code: string): Promise<ConfirmResult> => {
-    await db.rpc("fail_intent", { p_intent: i.id, p_code: code });
-    return failed(code);
-  };
   // pending / tx_not_found / rpc_unavailable leave the intent untouched; permanent errors fail it.
   const check = async (res: VerifyResult): Promise<ConfirmResult | null> => {
     if (res.status === "error" && PERMANENT.has(res.code)) return permanent(res.code);
@@ -106,7 +130,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
 
   let feeOk: Extract<VerifyResult, { status: "ok" }> | null = null;
   if (fee > 0n) {
-    if (!i.platform_address) return failed("platform_not_configured");
+    if (!i.platform_address) return permanent("platform_not_configured");
     const res = await verifyTransfer({ ...base, txHash: i.fee_tx_hash as `0x${string}`, to: i.platform_address, amount: fee });
     const stop = await check(res);
     if (stop) return stop;
@@ -126,7 +150,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     });
     if (recError || typeof ledgerId !== "string") {
       const code = recError ? rpcErrorCode(recError) : "unknown";
-      if (PERMANENT.has(code) || code === "intent_expired") return permanent(code);
+      if (PERMANENT_RECORD.has(code)) return permanent(code);
       console.error("[payments] record_donation failed", i.id, recError?.message);
       return { status: "pending" };
     }
@@ -155,7 +179,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   });
   if (error) {
     const code = rpcErrorCode(error);
-    if (PERMANENT.has(code) || code === "intent_expired" || code === "already_paid") return permanent(code);
+    if (PERMANENT_RECORD.has(code)) return permanent(code);
     console.error("[payments] confirm failed", i.id, error.message);
     return { status: "pending" };
   }
@@ -164,7 +188,9 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
 
 /**
  * Re-verifies a member's pending intents whose required hashes were attached (the tab may have closed after signing).
- * At most 5 per call; errors are logged and swallowed. Intents past their 24 h expiry are still tried within the
+ * At most 5 per call, newest first: an old intent that never resolves (a dropped or replaced transaction) cannot starve
+ * a newer real payment, and rechecks that can never pass are failed for good by confirmIntent. Errors are logged and
+ * swallowed. Intents past their 24 h expiry are still tried within the
  * 7-day late-credit window (ruling F3b-R2): confirm_tip decides, using hashes_attached_at.
  */
 export async function reverifyIntentsFor(memberId: string, confirm: (intentId: string) => Promise<unknown> = confirmIntent): Promise<void> {
@@ -178,7 +204,7 @@ export async function reverifyIntentsFor(memberId: string, confirm: (intentId: s
       .in("purpose", ["tip", "bounty", "donation"])
       .not("main_tx_hash", "is", null)
       .gte("created_at", since)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
       .limit(20);
     const rows = ((data ?? []) as Pick<IntentRow, "id" | "fee_amount" | "main_tx_hash" | "fee_tx_hash">[]).filter(hasRequiredHashes);
     for (const row of rows.slice(0, MAX_REVERIFY)) {

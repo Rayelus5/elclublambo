@@ -263,6 +263,53 @@ describe("TipDialog signing and verification", () => {
   });
 });
 
+describe("TipDialog definitive outcomes (F3-R3)", () => {
+  it("a non-definitive failure keeps polling and keeps the ledger entry", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      verifyIntentAction
+        .mockReset()
+        .mockResolvedValueOnce({ status: "failed", code: "unknown", error: "Algo falló. Inténtalo de nuevo." })
+        .mockResolvedValueOnce({ status: "pending" });
+      setup();
+      await typeAmount("10");
+      await userEvent.click(continuar());
+      await screen.findByText(/Verificando/);
+      await vi.advanceTimersByTimeAsync(3100);
+      expect(verifyIntentAction).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByText(/Verificando/)).toBeInTheDocument();
+      expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual([INTENT_ID]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a definitive failure ends the flow and drops the ledger entry", async () => {
+    verifyIntentAction.mockReset().mockResolvedValue({ status: "failed", code: "tx_failed", error: "La transacción falló en la red." });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    await screen.findByText("La transacción falló en la red.");
+    expect(loadSends(MEMBER)).toEqual([]);
+  });
+});
+
+describe("TipDialog tip intent check (M1)", () => {
+  it.each([
+    ["another chain", { chainId: 59144 }],
+    ["another amount", { amount: "20000000" }],
+    ["another fee", { feeAmount: "999" }],
+  ])("refuses to sign a returned intent with %s", async (_label, over) => {
+    createTipIntentAction.mockReset().mockResolvedValue({ ok: true, intent: { ...intent, ...over } });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText(/no coincide|ha cambiado|Cambia tu wallet/i)).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 const setupAttachFailures = (failMain: number) => {
   let n = 0;
   attachTxAction.mockImplementation(async (_id: string, role: string) => {

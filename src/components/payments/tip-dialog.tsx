@@ -32,6 +32,7 @@ import {
   type PendingSend,
 } from "@/lib/payments/pending-sends";
 import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
+import { isDefinitiveFailure } from "@/lib/payments/outcomes";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
 import { createDonationIntentAction } from "@/lib/treasury/actions";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
@@ -255,6 +256,8 @@ function TipFlow({
   const [intent, setIntent] = useState<TipIntent | null>(initialEntry?.intent ?? null);
   const [hashes, setHashes] = useState<Hashes>({ fee: initialEntry?.feeHash, main: initialEntry?.mainHash });
   const [slow, setSlow] = useState(false);
+  // A donation the immediate settle already credited (vs recorded and waiting for finality).
+  const [credited, setCredited] = useState(false);
 
   useEffect(() => {
     busyRef.current = step === "signing" || step === "verifying";
@@ -275,9 +278,11 @@ function TipFlow({
       // A donation recorded and verified but waiting for its block to finalize is a successful end state, not a poll.
       if (r.status === "confirmed" || r.status === "pending_finality") {
         removeSend(memberId, intent.id);
+        setCredited(r.status === "confirmed");
         return setStep("done");
       }
-      if (r.status === "failed") {
+      // F3-R3: only a definitive failure ends the flow; anything else (a transient error) keeps polling.
+      if (r.status === "failed" && isDefinitiveFailure(r.code)) {
         removeSend(memberId, intent.id);
         setFailure(r.error);
         return setStep("failed");
@@ -520,8 +525,8 @@ function TipFlow({
       setFormError(created.error);
       return setStep("form");
     }
-    if (donation) {
-      // What was shown is what gets signed: the active chain, the amount and the fee the member saw.
+    if (!mode) {
+      // Tips and donations: what was shown is what gets signed (the active chain, the amount and the fee the member saw).
       try {
         guardIntent(created.intent);
       } catch (e) {
@@ -715,7 +720,9 @@ function TipFlow({
         <p className="flex items-center gap-2 font-display text-lg font-bold text-fg">
           <CircleCheck aria-hidden className="size-5 text-success" />
           {donation
-            ? "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas)."
+            ? credited
+              ? "Donación acreditada."
+              : "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas)."
             : mode
               ? "Bounty pagado"
               : "Propina enviada"}

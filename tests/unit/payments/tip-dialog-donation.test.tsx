@@ -130,12 +130,13 @@ describe("TipDialog donation mode: signing", () => {
     expect(loadSends(MEMBER)).toEqual([]);
   });
 
-  it("treats a donation confirmed right away as done too", async () => {
+  it("a donation the immediate settle already credited says so (M4)", async () => {
     verifyIntentAction.mockReset().mockResolvedValue({ status: "confirmed", ledgerId: "l1" });
     setup();
     await userEvent.type(amountBox(), "10");
     await userEvent.click(continuar());
-    await screen.findByText(/Donación registrada/);
+    await screen.findByText("Donación acreditada.");
+    expect(screen.queryByText(DONE)).toBeNull();
   });
 
   it("keeps the main hash in the ledger under targetType 'dao' before the server is told", async () => {

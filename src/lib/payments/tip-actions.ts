@@ -78,7 +78,12 @@ export async function verifyIntentAction(
 
   // RLS only returns the caller's own intents: this is the ownership check before the service-role confirmation.
   const supabase = await createServerClient();
-  const { data: own } = await supabase.from("payment_intents").select("id").eq("id", intentId).maybeSingle<{ id: string }>();
+  // F3-R3: a read error is transient (pending); not_found only when the read succeeded with no row.
+  const { data: own, error } = await supabase.from("payment_intents").select("id").eq("id", intentId).maybeSingle<{ id: string }>();
+  if (error) {
+    console.error("[payments] intent ownership read failed", intentId, error.message);
+    return { status: "pending" };
+  }
   if (!own) return bad("not_found");
 
   return confirmIntent(intentId);

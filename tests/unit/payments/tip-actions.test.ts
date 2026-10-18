@@ -9,13 +9,14 @@ vi.mock("@/lib/payments/confirm", () => ({
 
 const rpc = vi.fn();
 let ownRow: unknown = null;
+let ownError: unknown = null;
 const supabase = {
   rpc: (...a: unknown[]) => rpc(...a),
   from: () => {
     const b: Record<string, unknown> = {};
     b.select = () => b;
     b.eq = () => b;
-    b.maybeSingle = async () => ({ data: ownRow, error: null });
+    b.maybeSingle = async () => (ownError ? { data: null, error: ownError } : { data: ownRow, error: null });
     return b;
   },
 };
@@ -30,6 +31,7 @@ const valid = { targetType: "message" as const, targetId: ID, token: "USDC" as c
 beforeEach(() => {
   vi.clearAllMocks();
   ownRow = { id: ID };
+  ownError = null;
 });
 
 describe("createTipIntentAction", () => {
@@ -86,6 +88,19 @@ describe("verifyIntentAction", () => {
     ownRow = null;
     expect(await verifyIntentAction(ID)).toMatchObject({ status: "failed" });
     expect(confirmIntent).not.toHaveBeenCalled();
+  });
+
+  it("a failed ownership read is transient: pending, never not_found (F3-R3)", async () => {
+    ownError = { message: "connection reset" };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await verifyIntentAction(ID)).toEqual({ status: "pending" });
+    expect(confirmIntent).not.toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("not_found only when the read succeeded with no row", async () => {
+    ownRow = null;
+    expect(await verifyIntentAction(ID)).toMatchObject({ status: "failed", code: "not_found" });
   });
 
   it("rejects a malformed id", async () => {

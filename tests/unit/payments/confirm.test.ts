@@ -7,12 +7,13 @@ vi.mock("@/lib/payments/verify", () => ({ verifyTransfer: (...a: unknown[]) => v
 
 const rpc = vi.fn();
 const tables: Record<string, unknown> = {};
+const tableErrors: Record<string, unknown> = {};
 const selects: Record<string, unknown[]> = {};
 function builder(table: string) {
   const b: Record<string, unknown> = {};
   for (const m of ["select", "eq", "in", "not", "gte", "order", "limit", "is"]) b[m] = (...a: unknown[]) => ((selects[table] ??= []).push([m, ...a]), b);
-  b.maybeSingle = async () => ({ data: tables[table] ?? null, error: null });
-  b.then = (res: (v: unknown) => unknown) => res({ data: tables[table] ?? [], error: null });
+  b.maybeSingle = async () => (tableErrors[table] ? { data: null, error: tableErrors[table] } : { data: tables[table] ?? null, error: null });
+  b.then = (res: (v: unknown) => unknown) => res(tableErrors[table] ? { data: null, error: tableErrors[table] } : { data: tables[table] ?? [], error: null });
   return b;
 }
 const admin = { from: (t: string) => builder(t), rpc: (...a: unknown[]) => rpc(...a) };
@@ -41,6 +42,7 @@ function intent(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.clearAllMocks();
   for (const k of Object.keys(tables)) delete tables[k];
+  for (const k of Object.keys(tableErrors)) delete tableErrors[k];
   for (const k of Object.keys(selects)) delete selects[k];
   tables.payment_intents = intent();
   tables.members = { wallet_address: PAYER };
@@ -101,7 +103,9 @@ describe("confirmIntent", () => {
 
   it.each(["weird", undefined])("fails closed on unknown purpose %s: no verification, no confirm RPC", async (purpose) => {
     tables.payment_intents = intent({ purpose });
-    expect(await confirmIntent("i1")).toMatchObject({ status: "failed" });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "invalid_input" });
+    // it can never pass: failed for good so reverify stops retrying it
+    expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "invalid_input" });
     expect(verifyTransfer).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
     expect(rpc).not.toHaveBeenCalledWith("confirm_bounty_payment", expect.anything());
@@ -168,7 +172,80 @@ describe("confirmIntent", () => {
   });
 });
 
+describe("confirmIntent: transient reads and definitive outcomes (F3-R3)", () => {
+  const err = () => vi.spyOn(console, "error").mockImplementation(() => {});
+
+  it("a failed intent read is transient: pending, not not_found, and nothing is verified", async () => {
+    tableErrors.payment_intents = { message: "connection reset" };
+    const spy = err();
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(verifyTransfer).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("a failed payer read is transient: pending", async () => {
+    tableErrors.members = { message: "timeout" };
+    const spy = err();
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(verifyTransfer).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("a payer read that succeeds with no row is a definitive not_found", async () => {
+    tables.members = null;
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "not_found" });
+  });
+
+  it("a failed tips read on a confirmed intent is pending", async () => {
+    tables.payment_intents = intent({ status: "confirmed" });
+    tableErrors.tips = { message: "boom" };
+    const spy = err();
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    spy.mockRestore();
+  });
+
+  it("a failed ledger read on a confirmed donation is pending", async () => {
+    tables.payment_intents = intent({ purpose: "donation", status: "confirmed" });
+    tableErrors.dao_ledger = { message: "boom" };
+    const spy = err();
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    spy.mockRestore();
+  });
+
+  it("when fail_intent itself errors the intent stays pending (logged), never reported as failed", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_mismatch" });
+    rpc.mockImplementation(async (name: string) => (name === "fail_intent" ? { data: null, error: { message: "boom" } } : { data: null, error: null }));
+    const spy = err();
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it.each(["invalid_input", "not_found"])("a confirm RPC recheck that can never pass (%s) fails the intent for good", async (code) => {
+    tables.payment_intents = intent({ purpose: "bounty" });
+    rpc.mockImplementation(async (name: string) =>
+      name === "confirm_bounty_payment" ? { data: null, error: { message: code } } : { data: null, error: null });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code });
+    expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: code });
+  });
+
+  it("a record_donation recheck that can never pass (invalid_input) fails the intent for good", async () => {
+    tables.payment_intents = intent({ purpose: "donation" });
+    rpc.mockImplementation(async (name: string) =>
+      name === "record_donation" ? { data: null, error: { message: "invalid_input" } } : { data: null, error: null });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "invalid_input" });
+    expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "invalid_input" });
+  });
+});
+
 describe("reverifyIntentsFor", () => {
+  it("processes the newest intents first so stuck old ones cannot starve them", async () => {
+    tables.payment_intents = [];
+    await reverifyIntentsFor("m1", async () => ({ status: "pending" }));
+    expect(selects.payment_intents).toContainEqual(["order", "created_at", { ascending: false }]);
+  });
+
   it("skips intents missing a required hash and caps at 5", async () => {
     tables.payment_intents = [
       ...Array.from({ length: 8 }, (_, n) => intent({ id: `ok${n}` })),

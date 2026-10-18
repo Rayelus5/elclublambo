@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { IN_FLIGHT_TTL_MS, loadSends, patchSend, PERMANENT_ATTACH_CODES, remainingMs, removeSend } from "@/lib/payments/pending-sends";
+import { endsPaymentFlow } from "@/lib/payments/outcomes";
 import { attachTxAction, verifyIntentAction } from "@/lib/payments/tip-actions";
 
 /**
  * Next visit after an interrupted send: attach any hash the server was never told about, then verify once. Entries
- * that confirmed or failed are dropped, and so are those that can never complete (intent expired, permanent attach
+ * that confirmed or failed for good (F3-R3: a definitive code, never a transient error) are dropped, and so are those that can never complete (intent expired, permanent attach
  * error). Silent apart from logging.
  */
 export function PendingSendsSync({ memberId }: { memberId: string }) {
@@ -44,7 +45,7 @@ export function PendingSendsSync({ memberId }: { memberId: string }) {
             continue;
           }
           const v = await verifyIntentAction(entry.intentId);
-          if (v.status === "confirmed" || v.status === "failed" || v.status === "pending_finality") removeSend(memberId, entry.intentId);
+          if (endsPaymentFlow(v)) removeSend(memberId, entry.intentId);
         } catch (e) {
           console.warn("pending-sends: sync failed", entry.intentId, e);
         }

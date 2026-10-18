@@ -57,6 +57,36 @@ describe("PendingSendsSync", () => {
     await waitFor(() => expect(loadSends(MEMBER)).toEqual([]));
   });
 
+  it.each(["tx_mismatch", "tx_failed", "tx_too_old", "tx_already_used", "already_paid", "intent_expired", "forbidden", "not_found"])(
+    "drops the entry on the definitive failure %s",
+    async (code) => {
+      upsertSend(MEMBER, entry({ intentId: "a", mainHash: HASH_M, mainAttached: true, feeHash: HASH_F, feeAttached: true }));
+      verifyIntentAction.mockResolvedValue({ status: "failed", code, error: "x" });
+      render(<PendingSendsSync memberId={MEMBER} />);
+      await waitFor(() => expect(loadSends(MEMBER)).toEqual([]));
+    },
+  );
+
+  it.each(["unknown", "rpc_unavailable", "retry"])("keeps the entry on a non-definitive failure %s (F3-R3)", async (code) => {
+    upsertSend(MEMBER, entry({ intentId: "a", mainHash: HASH_M, mainAttached: true, feeHash: HASH_F, feeAttached: true }));
+    verifyIntentAction.mockResolvedValue({ status: "failed", code, error: "x" });
+    render(<PendingSendsSync memberId={MEMBER} />);
+    await waitFor(() => expect(verifyIntentAction).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(loadSends(MEMBER)).toHaveLength(1);
+  });
+
+  it("keeps the entry when verification throws", async () => {
+    upsertSend(MEMBER, entry({ intentId: "a", mainHash: HASH_M, mainAttached: true, feeHash: HASH_F, feeAttached: true }));
+    verifyIntentAction.mockRejectedValue(new Error("network"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    render(<PendingSendsSync memberId={MEMBER} />);
+    await waitFor(() => expect(verifyIntentAction).toHaveBeenCalledTimes(1));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(loadSends(MEMBER)).toHaveLength(1);
+    warn.mockRestore();
+  });
+
   it("drops entries older than 7 days", () => {
     upsertSend(MEMBER, entry({ createdAt: Date.now() - 8 * 24 * 3600 * 1000, mainHash: HASH_M }));
     expect(loadSends(MEMBER)).toEqual([]);
