@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, ChevronDown, ChevronRight, Hash } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronRight, Hash, Lock } from "lucide-react";
 import { findPath, type TreeNode } from "@/lib/channels/tree";
 import { useUnread } from "@/lib/chat/unread";
 import { cn } from "@/lib/utils";
@@ -52,6 +52,13 @@ function parseCollapsed(raw: string): Set<string> {
   }
 }
 
+/** Candado de la DAO: el canal se ve en la barra pero no se puede entrar. */
+function LockIcon() {
+  return <Lock className="size-3.5 shrink-0" aria-hidden />;
+}
+
+const lockedLabel = (node: TreeNode) => (node.locked ? `${node.name}, bloqueado` : undefined);
+
 const indent = (depth: number) => ({ paddingLeft: `${16 + depth * 12}px` });
 
 function activeIdFrom(pathname: string): string | null {
@@ -66,6 +73,7 @@ function ChannelLink({ node, depth, active }: { node: TreeNode; depth: number; a
     <Link
       href={`/c/${node.id}`}
       aria-current={active ? "page" : undefined}
+      aria-label={lockedLabel(node)}
       style={indent(depth)}
       className={cn(
         "flex min-h-11 items-center gap-2 border-l-2 pr-4 text-sm font-medium transition-colors duration-150 ease-out hover:bg-surface-2 motion-reduce:transition-none",
@@ -75,6 +83,7 @@ function ChannelLink({ node, depth, active }: { node: TreeNode; depth: number; a
     >
       <Hash className="size-4 shrink-0" aria-hidden />
       <span className="min-w-0 truncate">{node.name}</span>
+      {node.locked ? <LockIcon /> : null}
       {hasUnread ? (
         <span role="img" aria-label="sin leer" className="ml-auto size-2 shrink-0 rounded-full bg-accent" />
       ) : null}
@@ -104,6 +113,7 @@ function Branch({ nodes, depth, state }: { nodes: TreeNode[]; depth: number; sta
               <button
                 type="button"
                 aria-expanded={expanded}
+                aria-label={lockedLabel(node)}
                 onClick={() => state.toggleCategory(node.id)}
                 style={indent(depth)}
                 className={cn(
@@ -117,6 +127,7 @@ function Branch({ nodes, depth, state }: { nodes: TreeNode[]; depth: number; sta
                   <ChevronRight className="size-4 shrink-0" aria-hidden />
                 )}
                 <span className="min-w-0 truncate">{node.name}</span>
+                {node.locked ? <LockIcon /> : null}
               </button>
               {expanded ? <Branch nodes={node.children} depth={depth + 1} state={state} /> : null}
             </div>
@@ -130,6 +141,7 @@ function Branch({ nodes, depth, state }: { nodes: TreeNode[]; depth: number; sta
               <button
                 type="button"
                 aria-expanded={expanded}
+                aria-label={lockedLabel(node)}
                 onClick={() => state.toggleForum(node.id)}
                 style={indent(depth)}
                 className={cn(
@@ -144,6 +156,7 @@ function Branch({ nodes, depth, state }: { nodes: TreeNode[]; depth: number; sta
                   <ChevronRight className="size-4 shrink-0" aria-hidden />
                 )}
                 <span className="min-w-0 truncate">{node.name}</span>
+                {node.locked ? <LockIcon /> : null}
               </button>
               <Link
                 href={`/c/${node.id}`}

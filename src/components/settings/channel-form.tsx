@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ChannelGateForm } from "@/components/settings/channel-gate-form";
 import { deleteChannelAction, updateChannelAction } from "@/lib/channels/actions";
 import { SLOWMODE_MAX, SLOWMODE_MIN, type ChannelDetailRow } from "@/lib/channels/tree";
 import { rpcErrorMessage } from "@/lib/errors";
@@ -212,6 +213,8 @@ export function ChannelForm({ channel, onDone }: Props) {
           </div>
         </fieldset>
       ) : null}
+
+      <ChannelGateForm key={`gate-${channel.id}`} channelId={channel.id} gate={channel.gate} />
 
       {error ? (
         <p role="alert" className="rounded-control border border-danger px-3 py-2 text-[13px] text-danger">

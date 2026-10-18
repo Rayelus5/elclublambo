@@ -59,6 +59,8 @@ export interface ChatViewProps {
    * choosing the same message again remounts and re-highlights); ChatView keeps it in the URLs it writes back.
    */
   initialAnchorNonce?: string | null;
+  /** Replaces the composer when the member cannot post (the DAO post-gate notice); the plain read-only line otherwise. */
+  postGate?: React.ReactNode;
   initial: {
     messages: ChatMessage[];
     hasMore: boolean;
@@ -91,7 +93,7 @@ function upsertPinned(list: readonly ChatMessage[], m: ChatMessage): ChatMessage
 }
 
 /** The chat of one text channel: timeline, pins, threads, realtime reconciliation and read marks. */
-export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null, initialAnchorNonce = null }: ChatViewProps) {
+export function ChatView({ channel, viewer, allowedDomains, initial, initialThreadId = null, initialAnchorId = null, initialAnchorNonce = null, postGate }: ChatViewProps) {
   const channelId = channel.id;
   const meId = viewer.memberId;
   const { refresh: refreshUnread } = useUnread();
@@ -651,7 +653,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               }}
             />
           ) : (
-            <p className="border-t border-border bg-surface px-4 py-3 text-sm text-fg-muted">Este canal es de solo lectura.</p>
+            (postGate ?? <p className="border-t border-border bg-surface px-4 py-3 text-sm text-fg-muted">Este canal es de solo lectura.</p>)
           )}
         </div>
       </div>

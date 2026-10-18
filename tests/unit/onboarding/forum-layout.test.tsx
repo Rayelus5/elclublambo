@@ -17,7 +17,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/server", () => ({ after: () => {} }));
 vi.mock("@/lib/payments/confirm", () => ({ reverifyMyPendingIntents: async () => {} }));
-vi.mock("@/lib/channels/queries", () => ({ getVisibleChannels: async () => [], toRow: (c: unknown) => c }));
+vi.mock("@/lib/channels/queries", () => ({ getVisibleChannels: async () => [], getLockedChannels: async () => [], toRow: (c: unknown) => c }));
 vi.mock("@/lib/economy/config", () => ({ getEconomyConfig: async () => ({ activeChainId: 59141 }) }));
 vi.mock("@/lib/auth/wallet", () => ({ walletFromUser: () => "0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" }));
 vi.mock("@/lib/supabase/server", () => ({

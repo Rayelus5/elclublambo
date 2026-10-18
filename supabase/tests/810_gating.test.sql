@@ -141,10 +141,12 @@ select is((select count(*)::int from public.visible_channels() where id = curren
 select is((public.channel_lock_state(current_setting('t.chS')::uuid) ->> 'scope'), 'view', 'lock state: view scope');
 select is(public.channel_lock_state(current_setting('t.chB')::uuid),
   jsonb_build_object('scope', 'view', 'minShareBps', 100, 'minNetUsdc', 100000000, 'myShareBps', 0, 'myNet', 0,
-    'chainId', 59141, 'name', 'both', 'kind', 'text', 'parentId', current_setting('t.cat')::uuid),
+    'chainId', 59141, 'name', 'both', 'kind', 'text', 'parentId', current_setting('t.cat')::uuid,
+    'requirements', jsonb_build_array(jsonb_build_object('channelId', current_setting('t.chB')::uuid, 'scope', 'view',
+      'minShareBps', 100, 'minNetUsdc', 100000000))),
   'lock state carries exactly the requirement, the standing and name/kind/parent');
 select is((select array_agg(k order by k) from jsonb_object_keys(public.channel_lock_state(current_setting('t.chS')::uuid)) k),
-  array['chainId','kind','minNetUsdc','minShareBps','myNet','myShareBps','name','parentId','scope'], 'lock state exposes no other key');
+  array['chainId','kind','minNetUsdc','minShareBps','myNet','myShareBps','name','parentId','requirements','scope'], 'lock state exposes no other key');
 select is((public.channel_lock_state(current_setting('t.chP')::uuid) ->> 'scope'), 'post', 'post-gate failure: scope post');
 select is(public.channel_lock_state(current_setting('t.chO')::uuid), null::jsonb, 'open channel: null');
 select is(public.channel_lock_state(current_setting('t.chH')::uuid), null::jsonb, 'role-hidden channel: null (no leak of its existence)');

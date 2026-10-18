@@ -9,7 +9,7 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
 import { RightRail } from "@/components/shell/right-rail";
 import { Sidebar } from "@/components/shell/sidebar";
-import { getVisibleChannels, toRow } from "@/lib/channels/queries";
+import { getLockedChannels, getVisibleChannels, toRow } from "@/lib/channels/queries";
 import { getEconomyConfig } from "@/lib/economy/config";
 import { buildActions } from "@/lib/search/actions-list";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -37,9 +37,11 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
   // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
   const mePromise = supabase.rpc("current_member_id");
-  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels, economy, welcome] = await Promise.all([
+  const [{ data: rawPerms }, channels, lockedChannels, me, unreadCount, moderates, openTickets, ticketChannels, economy, welcome] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
+    // Channels a DAO view-gate locks for this member: they stay in the sidebar with a lock (name/kind/parent only).
+    getLockedChannels(),
     mePromise,
     supabase.rpc("my_unread_notification_count"),
     supabase.rpc("has_any_channel_perm", { p_bit: 8 }),
@@ -75,6 +77,9 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     ),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
+  const visibleRows = channels.map(toRow);
+  const seen = new Set(visibleRows.map((c) => c.id));
+  const sidebarRows = [...visibleRows, ...lockedChannels.filter((c) => !seen.has(c.id))];
   const canModerate = moderates.data === true;
   const openTicketCount = openTickets.error ? 0 : (openTickets.count ?? 0);
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
@@ -105,7 +110,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     <UnreadProvider>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
       <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
-        <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.activeChainId} />
+        <Sidebar perms={perms} wallet={wallet} channels={sidebarRows} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.activeChainId} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-10">{children}</main>
         <RightRail />
       </div>

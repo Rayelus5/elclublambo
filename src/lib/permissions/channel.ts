@@ -18,7 +18,9 @@ function apply(p: bigint, o: Ow | undefined): bigint {
 }
 
 /**
- * Pure mirror of public.channel_permissions (F2a, DAO gate always passes).
+ * Pure mirror of the F2a role/overwrite/penalty walk of public.channel_permissions. It deliberately OMITS DAO gating
+ * (view/post gates read the on-chain ledger standing, which has no TS counterpart): it is used only by the parity
+ * tests, never to decide access at runtime.
  * Returns CHANNEL bits only (admin -> CHANNEL_MASK); global bits come from has_global_perm / my_permissions.
  * Must stay in lockstep with supabase/migrations/20261016100003_channel_permissions.sql.
  */
