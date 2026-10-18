@@ -44,7 +44,7 @@ export function PendingSendsSync({ memberId }: { memberId: string }) {
             continue;
           }
           const v = await verifyIntentAction(entry.intentId);
-          if (v.status === "confirmed" || v.status === "failed") removeSend(memberId, entry.intentId);
+          if (v.status === "confirmed" || v.status === "failed" || v.status === "pending_finality") removeSend(memberId, entry.intentId);
         } catch (e) {
           console.warn("pending-sends: sync failed", entry.intentId, e);
         }

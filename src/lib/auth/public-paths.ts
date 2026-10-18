@@ -1,4 +1,4 @@
-const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned"] as const;
+const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned", "/api/cron"] as const;
 
 /** Sanitizes a `?next=` value: only same-origin absolute paths, never auth pages. */
 export function safeNextPath(next: string | null): string {

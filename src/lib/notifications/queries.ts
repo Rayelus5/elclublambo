@@ -25,7 +25,8 @@ export type NotificationKind =
   | "ticket_status"
   | "tip_received"
   | "bounty_solution"
-  | "bounty_paid";
+  | "bounty_paid"
+  | "treasury_mismatch";
 
 export interface NotificationView {
   id: number;
@@ -106,6 +107,7 @@ function hrefFor(row: Row): string {
   if (PERSON_KINDS.has(row.kind)) return row.actor ? `/u/${row.actor.wallet_address}` : "/notifications";
   if (row.kind === "report_new") return "/moderation/reports";
   if (row.kind === "member_review") return "/admin/members";
+  if (row.kind === "treasury_mismatch") return "/dao";
   if (row.ticket_id && UUID_RE.test(row.ticket_id)) return `/tickets/${row.ticket_id}`;
   return "/notifications";
 }

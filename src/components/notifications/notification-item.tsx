@@ -35,6 +35,8 @@ export function notificationCopy(n: NotificationView): ReactNode {
       return <>{actor} ha elegido tu respuesta como solución del bounty</>;
     case "bounty_paid":
       return <>{actor} te ha pagado el bounty</>;
+    case "treasury_mismatch":
+      return <>El saldo de la Safe no coincide con el registro de la DAO</>;
     case "ticket_status":
       return (
         <>

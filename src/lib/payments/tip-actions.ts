@@ -2,7 +2,7 @@
 
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { parseAmount, type Token } from "@/lib/payments/amounts";
-import { confirmIntent } from "@/lib/payments/confirm";
+import { confirmIntent, type ConfirmResult } from "@/lib/payments/confirm";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -72,7 +72,7 @@ export async function attachTxAction(intentId: string, role: "main" | "fee", txH
 
 export async function verifyIntentAction(
   intentId: string,
-): Promise<{ status: "confirmed"; tipId: string } | { status: "pending" } | { status: "failed"; error: string; code: string }> {
+): Promise<ConfirmResult> {
   const bad = (code: string) => ({ status: "failed" as const, code, error: rpcErrorMessage(code) });
   if (typeof intentId !== "string" || !UUID_RE.test(intentId)) return bad("invalid_input");
 

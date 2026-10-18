@@ -13,6 +13,11 @@ describe("isPublicPath", () => {
   it.each(["/login", "/login/complete", "/invite/abc", "/invite/abc/x", "/no-access", "/banned"])("%s public", (p) =>
     expect(isPublicPath(p)).toBe(true),
   );
+  it("lets the bearer-protected cron route past the login redirect", () => {
+    expect(isPublicPath("/api/cron/dao")).toBe(true);
+    expect(isPublicPath("/api/cronx")).toBe(false);
+    expect(isPublicPath("/api")).toBe(false);
+  });
   it.each(["/", "/loginx", "/invites", "/invite", "/admin/members", "/u/0xabc", "/banned2"])("%s private", (p) =>
     expect(isPublicPath(p)).toBe(false),
   );

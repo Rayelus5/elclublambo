@@ -5,10 +5,13 @@ import type { Token } from "@/lib/payments/amounts";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
+import { settlePendingDonations } from "@/lib/treasury/settle";
 
 export type ConfirmResult =
   | { status: "confirmed"; tipId: string }
   | { status: "pending" }
+  /** Donation recorded and verified; credited as shares once its block is finalized. */
+  | { status: "pending_finality"; ledgerId: string }
   | { status: "failed"; error: string; code: string };
 
 /** Errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */
@@ -56,6 +59,13 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const { data: i } = await db.from("payment_intents").select(INTENT_COLUMNS).eq("id", intentId).maybeSingle<IntentRow>();
   if (!i) return failed("not_found");
 
+  if (i.status === "confirmed" && i.purpose === "donation") {
+    const { data: led } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
+    if (!led) return { status: "pending" };
+    if (led.status === "credited") return { status: "confirmed", tipId: led.id };
+    if (led.status === "reverted") return failed("reverted");
+    return { status: "pending_finality", ledgerId: led.id };
+  }
   if (i.status === "confirmed") {
     const { data: tip } = await db.from("tips").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
     return tip ? { status: "confirmed", tipId: tip.id } : { status: "pending" };
@@ -64,7 +74,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (i.status === "expired") return failed("intent_expired");
 
   // Fail closed: only purposes with a known confirm RPC are credited; anything else is never verified nor credited.
-  if (i.purpose !== "tip" && i.purpose !== "bounty") return failed("invalid_input");
+  if (i.purpose !== "tip" && i.purpose !== "bounty" && i.purpose !== "donation") return failed("invalid_input");
 
   if (!hasRequiredHashes(i)) return { status: "pending" };
 
@@ -72,7 +82,15 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (!payer) return failed("not_found");
 
   const fee = BigInt(i.fee_amount);
-  const base = { chain: i.chain_id as ChainId, token: i.token, from: payer.wallet_address, notBefore: new Date(i.created_at) };
+  const isDonation = i.purpose === "donation";
+  // A donation is recorded once mined (1 confirmation): the finality gate in settlePendingDonations is what protects it.
+  const base = {
+    chain: i.chain_id as ChainId,
+    token: i.token,
+    from: payer.wallet_address,
+    notBefore: new Date(i.created_at),
+    ...(isDonation ? { confirmations: 1 } : {}),
+  };
 
   const permanent = async (code: string): Promise<ConfirmResult> => {
     await db.rpc("fail_intent", { p_intent: i.id, p_code: code });
@@ -97,6 +115,29 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const stop = await check(mainRes);
   if (stop) return stop;
   const main = mainRes as Extract<VerifyResult, { status: "ok" }>;
+
+  if (isDonation) {
+    const { data: ledgerId, error: recError } = await db.rpc("record_donation", {
+      p_intent: i.id,
+      p_main: { txHash: i.main_tx_hash, logIndex: main.logIndex, blockNumber: main.blockNumber.toString() },
+      p_fee: feeOk ? { txHash: i.fee_tx_hash, logIndex: feeOk.logIndex, blockNumber: feeOk.blockNumber.toString() } : null,
+    });
+    if (recError || typeof ledgerId !== "string") {
+      const code = recError ? rpcErrorCode(recError) : "unknown";
+      if (PERMANENT.has(code) || code === "intent_expired") return permanent(code);
+      console.error("[payments] record_donation failed", i.id, recError?.message);
+      return { status: "pending" };
+    }
+    // Immediate settle attempt: credits at once only if the block is already final. Never undoes the recording.
+    try {
+      const s = await settlePendingDonations(i.chain_id as ChainId, { ledgerId, limit: 1 });
+      if (s.credited > 0) return { status: "confirmed", tipId: ledgerId };
+      if (s.reverted > 0) return failed("reverted");
+    } catch (e) {
+      console.error("[payments] settle after record failed", ledgerId, e);
+    }
+    return { status: "pending_finality", ledgerId };
+  }
 
   // Only bounty confirms need the block time (it sets paid_at, ruling F3c-R4); confirm_tip keeps its signature.
   const isBounty = i.purpose === "bounty";
@@ -132,7 +173,7 @@ export async function reverifyIntentsFor(memberId: string, confirm: (intentId: s
       .select("id, fee_amount:fee_amount::text, main_tx_hash, fee_tx_hash")
       .eq("member_id", memberId)
       .eq("status", "pending")
-      .in("purpose", ["tip", "bounty"])
+      .in("purpose", ["tip", "bounty", "donation"])
       .not("main_tx_hash", "is", null)
       .gte("created_at", since)
       .order("created_at", { ascending: true })
