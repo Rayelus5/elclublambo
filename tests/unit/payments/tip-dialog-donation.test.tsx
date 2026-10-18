@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,6 +21,8 @@ vi.mock("@/lib/payments/tip-actions", () => ({ createTipIntentAction: vi.fn(), a
 vi.mock("@/lib/bounties/actions", () => ({ createBountyPaymentIntentAction: vi.fn() }));
 const createDonationIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/actions", () => ({ createDonationIntentAction }));
+const rpc = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc }) }));
 
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { TipDialog } from "@/components/payments/tip-dialog";
@@ -62,10 +64,14 @@ const intent = {
 
 const continuar = () => screen.getByRole("button", { name: "Continuar" });
 const amountBox = () => screen.getByLabelText("Importe");
+const ACK =
+  "Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero.";
+const ack = () => userEvent.click(screen.getByRole("checkbox", { name: ACK }));
 const DONE = "Donación registrada.";
 const FINALITY_NOTE = "Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).";
 
 beforeEach(() => {
+  rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "2000000" }, error: null });
   window.localStorage.clear();
   account.address = SESSION;
   account.chainId = 59141;
@@ -90,7 +96,7 @@ describe("TipDialog donation mode: form", () => {
     setup();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(screen.getByTestId("locked-token")).toHaveTextContent("USDC");
-    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /anónima/i })).not.toBeInTheDocument();
     expect(screen.queryByText(/anónima/i)).not.toBeInTheDocument();
   });
 
@@ -104,7 +110,42 @@ describe("TipDialog donation mode: form", () => {
     expect(continuar()).toBeDisabled();
     await userEvent.clear(amountBox());
     await userEvent.type(amountBox(), "1");
+    await ack();
     expect(continuar()).toBeEnabled();
+  });
+
+  it("keeps Continuar disabled until the legal acknowledgement is ticked, even with a valid amount", async () => {
+    setup();
+    await userEvent.type(amountBox(), "10");
+    expect(screen.getByRole("checkbox", { name: ACK })).not.toBeChecked();
+    expect(continuar()).toBeDisabled();
+    await ack();
+    expect(continuar()).toBeEnabled();
+    await ack();
+    expect(continuar()).toBeDisabled();
+  });
+
+  it("estimates the participaciones at the current value per participación", async () => {
+    setup();
+    await userEvent.type(amountBox(), "10");
+    expect(await screen.findByText("≈ 5 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledWith("dao_overview");
+  });
+
+  it("shows no estimate line when dao_overview fails", async () => {
+    rpc.mockReset().mockResolvedValue({ data: null, error: { message: "boom" } });
+    setup();
+    await userEvent.type(amountBox(), "10");
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
+  });
+
+  it("shows no estimate while nobody holds shares (price 0)", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "0" }, error: null });
+    setup();
+    await userEvent.type(amountBox(), "10");
+    await waitFor(() => expect(rpc).toHaveBeenCalled());
+    expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
   it("explains when the active network has no Safe, and cannot continue", async () => {
@@ -120,6 +161,7 @@ describe("TipDialog donation mode: signing", () => {
   it("creates the donation intent, signs fee then main to the Safe, ends on the finality copy and clears the ledger", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
+    await ack();
     await userEvent.click(continuar());
     await screen.findByText(DONE);
     // The finality explanation is small print at the very bottom, after the close button.
@@ -139,6 +181,7 @@ describe("TipDialog donation mode: signing", () => {
     verifyIntentAction.mockReset().mockResolvedValue({ status: "confirmed", ledgerId: "l1" });
     setup();
     await userEvent.type(amountBox(), "10");
+    await ack();
     await userEvent.click(continuar());
     await screen.findByText("Donación acreditada.");
     expect(screen.queryByText(DONE)).toBeNull();
@@ -151,6 +194,7 @@ describe("TipDialog donation mode: signing", () => {
     });
     setup();
     await userEvent.type(amountBox(), "10");
+    await ack();
     await userEvent.click(continuar());
     await screen.findByText("No hemos podido registrar tu transacción.", {}, { timeout: 10_000 });
     const [entry] = loadSends(MEMBER);
@@ -161,6 +205,7 @@ describe("TipDialog donation mode: signing", () => {
     createDonationIntentAction.mockReset().mockResolvedValue({ ok: true, intent: { ...intent, recipientAddress: "0x9999999999999999999999999999999999999999" } });
     setup();
     await userEvent.type(amountBox(), "10");
+    await ack();
     await userEvent.click(continuar());
     await screen.findByText("Los datos del envío no coinciden. Recarga la página.");
     expect(send).not.toHaveBeenCalled();
@@ -170,6 +215,7 @@ describe("TipDialog donation mode: signing", () => {
     createDonationIntentAction.mockReset().mockResolvedValue({ ok: true, intent: { ...intent, amount: "99000000" } });
     setup();
     await userEvent.type(amountBox(), "10");
+    await ack();
     await userEvent.click(continuar());
     await screen.findByText("Los datos del envío no coinciden. Recarga la página.");
     expect(send).not.toHaveBeenCalled();

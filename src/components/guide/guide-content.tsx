@@ -200,6 +200,49 @@ function Dao() {
   );
 }
 
+function Fondo() {
+  return (
+    <>
+      <Sub title="Cómo se valora el fondo">
+        <p>
+          El fondo se valora a precio de mercado, en USD: el USDC, el ETH y el WETH que hay en la Safe, al precio del ETH en
+          ese momento, menos lo que el registro ya sabe que debe (por ejemplo, donaciones aún pendientes de finalización).
+          Ese total es el NAV (valor liquidativo). Se actualiza cada hora y lo ves en la página de la DAO.
+        </p>
+        <p>
+          El valor de una participación es el NAV entre el total de participaciones. Cuando donas, recibes participaciones al
+          valor del momento en que se acredita tu donación, no del momento en que firmas: por eso la estimación del diálogo
+          es orientativa y el número exacto se fija al acreditar.
+        </p>
+      </Sub>
+      <Sub title="Fondo del club">
+        <p>
+          Si la Safe ya tenía dinero antes de que nadie tuviera participaciones, ese dinero pertenece a una posición aparte
+          llamada «Fondo del club». Cuenta en el total de participaciones, pero no se puede retirar, no vota, no entra en
+          sorteos y no abre canales con candado.
+        </p>
+      </Sub>
+      <Sub title="Riesgo">
+        <p>Antes de donar tienes que aceptar esto:</p>
+        <blockquote className="border-l-2 border-border-strong pl-4 text-fg">
+          Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas
+          dependen de la disponibilidad y de la decisión del tesorero.
+        </blockquote>
+        <p>
+          El valor de tu parte sube y baja con el mercado y puede ser menor que lo que aportaste. Las participaciones son un
+          registro interno de la comunidad, no un producto financiero.
+        </p>
+      </Sub>
+      <Sub title="Lo que llegará más adelante">
+        <p>
+          Las retiradas y los sorteos llegarán más adelante. Hoy el fondo solo recibe donaciones y se valora; nada de esto se
+          puede retirar todavía.
+        </p>
+      </Sub>
+    </>
+  );
+}
+
 function Candados() {
   return (
     <>
@@ -288,6 +331,7 @@ const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
   propinas: Propinas,
   bounties: Bounties,
   dao: Dao,
+  fondo: Fondo,
   candados: Candados,
   redes: Redes,
 };

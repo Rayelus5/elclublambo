@@ -28,3 +28,22 @@ describe("guide: bounties", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("guide: fondo", () => {
+  it("is not coming soon", () => {
+    expect(isComingSoon("fondo")).toBe(false);
+  });
+  it("explains the NAV, the club fund, the risk notice and what arrives later", () => {
+    render(<GuideContent slug="fondo" />);
+    expect(screen.getByRole("heading", { name: "Cómo se valora el fondo" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Fondo del club" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Riesgo" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero\./,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/retiradas y los sorteos llegarán más adelante/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
+  });
+});

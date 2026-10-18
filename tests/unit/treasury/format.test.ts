@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBps, formatShares, formatToken, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
+import { formatBps, formatParticipaciones, formatShares, formatToken, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 
 describe("treasury format", () => {
   it("formats USD6 values with grouped thousands and at most two decimals (truncated)", () => {
@@ -43,5 +43,17 @@ describe("treasury format", () => {
     expect(formatShares(12_345n)).toBe("12.345");
     expect(formatShares(20_000_000_000_000_000_000n)).toBe("2,0·10¹⁹");
     expect(formatShares(1_234_567_890_123_456_789n)).toBe("1,2·10¹⁸");
+  });
+});
+
+describe("formatParticipaciones", () => {
+  const U = 10n ** 18n;
+  it("prints whole, fractional (2 decimals, truncated), singular and tiny values", () => {
+    expect(formatParticipaciones(5n * U)).toBe("5 participaciones");
+    expect(formatParticipaciones(U)).toBe("1 participación");
+    expect(formatParticipaciones(U / 2n)).toBe("0,5 participaciones");
+    expect(formatParticipaciones(12_345n * U + (U * 129n) / 1000n)).toBe("12.345,12 participaciones");
+    expect(formatParticipaciones(U / 1000n)).toBe("menos de 0,01 participaciones");
+    expect(formatParticipaciones(0n)).toBe("0 participaciones");
   });
 });

@@ -16,6 +16,7 @@ const GUIDE_KEYWORDS: Record<GuideSlug, string> = {
   propinas: "propinas donar premiar tip eth usdc",
   bounties: "bounty recompensa pago solución",
   dao: "dao tesorería shares donación safe",
+  fondo: "fondo común nav valor participación riesgo club",
   candados: "candado gating acceso requisito canal",
   redes: "red testnet mainnet seguridad phishing modo prueba",
 };

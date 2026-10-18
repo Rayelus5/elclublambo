@@ -84,6 +84,12 @@ beforeEach(() => {
 });
 
 describe("TipDialog form", () => {
+  it("shows no donation acknowledgement on a tip", () => {
+    setup();
+    expect(screen.queryByRole("checkbox", { name: /donación sin esperar nada/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Propina anónima/ })).toBeInTheDocument();
+  });
+
   it("shows the network, the recipient, the anonymous note and the guide link", () => {
     setup();
     expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
