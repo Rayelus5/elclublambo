@@ -27,12 +27,13 @@ function Chat({ initial }: { initial: "standard" | "compact" }) {
 }
 
 describe("chat density", () => {
-  it("standard shows the avatar; switching to compact hides it, moves the time left and saves the preference", async () => {
+  it("compact keeps the avatar, only smaller, and saves the preference", async () => {
     render(<Chat initial="standard" />);
-    expect(document.querySelector("li img, li svg[viewBox='0 0 5 5']")).not.toBeNull();
+    const avatar = () => document.querySelector("li img") as HTMLImageElement;
+    expect(avatar().getAttribute("width")).toBe("32");
     await userEvent.click(screen.getByRole("radio", { name: "Compacto" }));
     expect(screen.getByRole("radio", { name: "Compacto" })).toHaveAttribute("aria-checked", "true");
-    expect(document.querySelector("li img, li svg[viewBox='0 0 5 5']")).toBeNull();
+    expect(avatar().getAttribute("width")).toBe("24");
     expect(rpc).toHaveBeenCalledWith("set_chat_density", { p_density: "compact" });
   });
 
@@ -41,5 +42,21 @@ describe("chat density", () => {
     render(<Chat initial="standard" />);
     await userEvent.click(screen.getByRole("radio", { name: "Compacto" }));
     await waitFor(() => expect(screen.getByRole("radio", { name: "Estándar" })).toHaveAttribute("aria-checked", "true"));
+  });
+
+  it("an author's name takes their role colour when readable, the default colour when too dark", () => {
+    const withColor = (nameColor: string) => {
+      const dir = { ...directory, members: Object.fromEntries(Object.entries(directory.members).map(([k, v]) => [k, { ...v, nameColor }])) };
+      return render(
+        <ol>
+          <MessageItem message={makeMessage()} directory={dir} allowedDomains={[]} viewer={viewer()} />
+        </ol>,
+      );
+    };
+    const bright = withColor("#61DFFF");
+    expect(bright.container.querySelector("span[style*='color']")).not.toBeNull();
+    bright.unmount();
+    const dark = withColor("#111111");
+    expect(dark.container.querySelector("span[style*='color']")).toBeNull();
   });
 });

@@ -128,18 +128,26 @@ export async function hydrateMessages(
   ]);
   const roleIds = unique(mentions.flatMap((m) => (m.kind === "role" && m.id ? [m.id] : [])));
 
-  const [signed, membersRes, rolesRes] = await Promise.all([
+  const [signed, membersRes, rolesRes, colorsRes] = await Promise.all([
     signPaths(supabase, unique(attachmentRows.map((a) => a.storage_path))),
     supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}`).in("id", memberIds),
     roleIds.length > 0
       ? supabase.from("roles").select("id, name, color").in("id", roleIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
+    // Name colours are decoration: a failed read just leaves the default colour.
+    memberIds.length > 0
+      ? (async () => supabase.rpc("member_name_colors", { p_members: memberIds }))().catch(() => ({ data: [] as unknown[], error: null }))
+      : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
 
+  const nameColors = new Map<string, string>();
+  for (const c of ((colorsRes?.data ?? []) as Array<{ member_id: string; color: string | null }>)) {
+    if (c.color) nameColors.set(c.member_id, c.color);
+  }
   const directory = emptyDirectory();
   for (const m of (membersRes.data ?? []) as Array<{ id: string } & MemberIdentityRow>) {
     const identity = identityFromRow(m);
-    directory.members[m.id] = { ...identity, name: memberName(identity) };
+    directory.members[m.id] = { ...identity, name: memberName(identity), nameColor: nameColors.get(m.id) ?? null };
   }
   for (const r of (rolesRes.data ?? []) as Array<{ id: string; name: string; color: string }>) {
     directory.roles[r.id] = { name: r.name, color: r.color };

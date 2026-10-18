@@ -66,7 +66,7 @@ async function EditProfile() {
           Vista del chat
         </h2>
         <p className="text-sm text-fg-muted">
-          Estándar muestra avatar y nombre en cada grupo de mensajes; compacto los junta con menos espacio. Se aplica a
+          Compacto reduce el tamaño del avatar y el espacio entre mensajes para ver más conversación a la vez. Se aplica a
           todos los canales de texto y también puedes cambiarlo desde cualquier canal.
         </p>
         <DensityToggle className="self-start" />

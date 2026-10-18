@@ -63,7 +63,8 @@ export interface ChatMessage {
   tipLink: TipNoticeLink | null;
 }
 
-export type DirectoryMember = MemberIdentity & { name: string };
+/** `nameColor`: the colour of the member's highest coloured role (chat author names), when there is one. */
+export type DirectoryMember = MemberIdentity & { name: string; nameColor?: string | null };
 
 /** Names needed to render messages: authors and everything referenced by mentions. */
 export interface Directory {

@@ -45,7 +45,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
 import { rpcErrorMessage } from "@/lib/errors";
 import type { MemberIdentity } from "@/lib/members/name";
+import { contrastRatio } from "@/styles/tokens";
 import { cn } from "@/lib/utils";
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const BG = "#0A0A0A";
+
+function readableNameColor(color: string | null): string | null {
+  if (!color || !HEX.test(color)) return null;
+  return contrastRatio(color, BG) >= 4.5 ? color : null;
+}
 
 export type MessageVariant = "list" | "thread" | "pinned";
 
@@ -139,6 +148,8 @@ export function MessageItem({
   const author = authorId ? directory.members[authorId] : undefined;
   const name = author?.name ?? "Miembro";
   const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: authorId ?? "", avatarPath: null };
+  // A role colour only when it stays readable on the dark background; otherwise the default text colour.
+  const nameColor = readableNameColor(author?.nameColor ?? null);
   const deleted = message.deletedAt !== null;
   const own = authorId !== null && authorId === viewer.memberId;
   const isRoot = message.threadRootId === null;
@@ -203,13 +214,13 @@ export function MessageItem({
         )}
       >
         <SystemNotice message={message} />
-        <div className="shrink-0 self-start">
+        <div className="shrink-0 self-start md:absolute md:-top-3 md:right-2 md:z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
                 aria-label="Acciones del mensaje"
-                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:size-8 md:border md:border-border-strong md:bg-surface md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
               >
                 <MoreHorizontal aria-hidden className="size-5" />
               </button>
@@ -231,6 +242,9 @@ export function MessageItem({
     );
   }
 
+  // Groups: one author's consecutive messages sit tight together; a new author opens a clearly separated block.
+  // Compact keeps the avatars, smaller, and tightens everything (the member's preference for every channel).
+  const avatarSize = compact ? 24 : 32;
   return (
     <li
       id={`msg-${message.id}`}
@@ -238,49 +252,46 @@ export function MessageItem({
       aria-current={highlighted ? "true" : undefined}
       className={cn(
         "group relative -mx-2 flex rounded-control border-l-2 px-2 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
-        compact ? "gap-2 py-0" : "gap-3 py-1",
+        compact ? "gap-2.5" : "gap-3",
         highlighted ? "border-accent bg-surface-2" : "border-transparent",
-        grouped ? "mt-0" : compact ? "mt-1 first:mt-0" : "mt-3 first:mt-0",
+        grouped ? "mt-0 py-px" : compact ? "mt-2 pt-1 pb-px first:mt-0" : "mt-4 pt-1.5 pb-0.5 first:mt-0",
       )}
     >
-      {compact ? (
-        <div className="w-11 shrink-0 pt-[3px] text-right">
+      <div className={cn("shrink-0", compact ? "w-6" : "w-8")}>
+        {grouped ? (
           <Time
             iso={message.createdAt}
-            className={cn(
-              "font-mono text-[11px] text-fg-muted",
-              grouped && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
-            )}
+            className="sr-only md:not-sr-only md:block md:pt-0.5 md:text-right md:font-mono md:text-[10px] md:leading-5 md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
           />
-        </div>
-      ) : (
-        <div className="w-9 shrink-0">
-          {grouped ? (
-            <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
-          ) : authorId ? (
-            <MemberCardTrigger memberId={authorId} label={name} className="block" tabbable={false}>
-              <MemberAvatar member={identity} size={32} />
-            </MemberCardTrigger>
-          ) : (
-            <MemberAvatar member={identity} size={32} />
-          )}
-        </div>
-      )}
+        ) : authorId ? (
+          <MemberCardTrigger memberId={authorId} label={name} className={cn("block", compact ? "mt-px" : "mt-0.5")} tabbable={false}>
+            <MemberAvatar member={identity} size={avatarSize} />
+          </MemberCardTrigger>
+        ) : (
+          <MemberAvatar member={identity} size={avatarSize} />
+        )}
+      </div>
 
-      <div className={cn("flex min-w-0 flex-1 flex-col", compact ? "gap-0.5" : "gap-1")}>
+      <div className={cn("flex min-w-0 flex-1 flex-col text-fg/85", compact ? "gap-0.5" : "gap-1")}>
         {grouped ? null : (
-          <div className={cn("flex flex-wrap items-baseline gap-x-2", compact && "leading-5")}>
+          <div className="flex flex-wrap items-baseline gap-x-2 leading-5">
             {authorId ? (
-              <MemberCardTrigger memberId={authorId} label={name} className="font-display font-bold text-fg hover:underline">
-                {name}
+              <MemberCardTrigger
+                memberId={authorId}
+                label={name}
+                className={cn("font-display font-extrabold tracking-tight hover:underline", compact ? "text-[14px]" : "text-[15px]")}
+              >
+                <span style={nameColor ? { color: nameColor } : undefined} className={nameColor ? undefined : "text-fg"}>
+                  {name}
+                </span>
               </MemberCardTrigger>
             ) : (
-              <span className="font-display font-bold text-fg">{name}</span>
+              <span className="font-display font-extrabold tracking-tight text-fg">{name}</span>
             )}
             {author?.displayName?.trim() && author.handle && !compact ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
-            {compact ? null : <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />}
+            <Time iso={message.createdAt} className="text-[12px] text-fg-muted" />
             {message.pinnedAt && !deleted ? (
-              <span className="inline-flex items-center gap-1 text-[13px] text-fg-muted">
+              <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted">
                 <Pin aria-hidden className="size-3.5" />
                 <span>Fijado</span>
               </span>
@@ -375,14 +386,15 @@ export function MessageItem({
       </div>
 
       {hasMenu && !editing ? (
-        <div className="shrink-0 self-start">
+        // Desktop: floats over the message's top-right corner (Discord-style), so a one-line message stays one line.
+        <div className="shrink-0 self-start md:absolute md:-top-3 md:right-2 md:z-10">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 ref={triggerRef}
                 type="button"
                 aria-label="Acciones del mensaje"
-                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:size-8 md:border md:border-border-strong md:bg-surface md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
               >
                 <MoreHorizontal aria-hidden className="size-5" />
               </button>
