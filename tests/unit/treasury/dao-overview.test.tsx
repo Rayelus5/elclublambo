@@ -85,4 +85,38 @@ describe("DaoOverview", () => {
     expect(screen.getAllByText("5,5 USDC").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
   });
+
+  it("shows the fixed USDC amount of an approved withdrawal and explains the lock", () => {
+    const withdrawal = {
+      id: "1",
+      status: "approved" as const,
+      shares: 5n * 10n ** 18n,
+      amountUsdc: 8_000_000n,
+      approvedAt: "2026-10-18T12:00:00Z",
+      expiresAt: "2026-11-01T12:00:00Z",
+      payoutRecorded: false,
+      payoutTxHash: null,
+      rejectReason: null,
+      lastExpiredAt: null,
+      createdAt: "2026-10-18T10:00:00Z",
+    };
+    render(<DaoOverview data={{ ...base, myLockedShares: withdrawal.shares, myWithdrawal: withdrawal }} donate={null} />);
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USD");
+    expect(within(mine).getByText("Retirada aprobada: 8 USDC")).toBeInTheDocument();
+    expect(within(mine).getByText(/no cuentan para los canales con candado mientras la retirada está en curso/)).toBeInTheDocument();
+  });
+
+  it("renders the withdraw slot inside the position block, anchored as #retirada", () => {
+    render(<DaoOverview data={base} donate={null} withdraw={<button>Retirar</button>} />);
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByRole("button", { name: "Retirar" }).closest("#retirada")).not.toBeNull();
+  });
+
+  it("has no withdrawal copy without a request or slot", () => {
+    render(<DaoOverview data={base} donate={null} />);
+    expect(screen.queryByText(/Retirada aprobada/)).toBeNull();
+    expect(screen.queryByText(/mientras la retirada/)).toBeNull();
+    expect(document.getElementById("retirada")).toBeNull();
+  });
 });

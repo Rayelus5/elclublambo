@@ -193,7 +193,7 @@ function Dao() {
             Una transferencia directa a la Safe, hecha fuera del diálogo, no cuenta nunca: no da shares.
             Dona siempre desde el diálogo.
           </li>
-          <li>Hoy las aportaciones no se pueden retirar. Las retiradas, si llegan, empezarán desactivadas y se explicarán en la sección «El fondo común».</li>
+          <li>Las aportaciones se pueden retirar solo donde SuperAdmin haya activado las retiradas, y siempre con la decisión del tesorero. Cómo se pide, en la sección «El fondo común».</li>
         </Bullets>
       </Sub>
     </>
@@ -234,12 +234,37 @@ function Fondo() {
           registro interno de la comunidad, no un producto financiero.
         </p>
       </Sub>
-      <Sub title="Retiradas y sorteos">
+      <Sub title="Cómo pedir una retirada">
         <p>
-          Las retiradas y los sorteos, si llegan, vendrán más adelante. Las retiradas, si llegan, empezarán desactivadas: se
-          activarán por red cuando el club lo decida y, aun entonces, dependerán de la disponibilidad y de la decisión del
-          tesorero. Hoy no se puede retirar nada.
+          Las retiradas empiezan desactivadas y SuperAdmin las activa por red. Mientras estén desactivadas en tu red, no verás
+          el botón «Retirar» en la página de la DAO.
         </p>
+        <Steps>
+          <li>Pulsa «Retirar», elige un porcentaje de tus participaciones y confirma. Solo puedes tener una solicitud en curso.</li>
+          <li>
+            Tus participaciones quedan bloqueadas desde que pides: dejan de contar para los canales con candado hasta que se
+            resuelva. Puedes cancelar la solicitud mientras esté pendiente.
+          </li>
+          <li>
+            El tesorero la aprueba o la rechaza. Al aprobar se fija el importe al valor de mercado de ese momento: se paga en
+            USDC desde la Safe a la wallet con la que entras al club. Mínimo 1 USDC, salvo que retires todo.
+          </li>
+          <li>
+            Si no llega el pago en 14 días, la aprobación caduca: la solicitud vuelve a pendiente, con las participaciones
+            aún bloqueadas, y el tesorero tiene que aprobarla de nuevo a precio actual.
+          </li>
+          <li>
+            Cuando el pago se confirma en la red y Linea lo finaliza, las participaciones se queman y el importe pagado se resta
+            de tu aportación neta.
+          </li>
+        </Steps>
+        <p>
+          El importe que ves al pedir es solo una estimación en USDC. Las retiradas dependen de la disponibilidad de la Safe y de
+          la decisión del tesorero.
+        </p>
+      </Sub>
+      <Sub title="Sorteos">
+        <p>Los sorteos, si llegan, vendrán más adelante.</p>
       </Sub>
     </>
   );

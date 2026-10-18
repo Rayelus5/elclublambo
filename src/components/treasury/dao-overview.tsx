@@ -22,12 +22,17 @@ export function DaoOverview({
   donate,
   chart,
   finality,
+  withdraw,
 }: {
   data: Data;
   donate: ReactNode;
   chart?: ReactNode;
   finality?: Finality;
+  /** The withdrawal controls (button or status), rendered inside the position block. */
+  withdraw?: ReactNode;
 }) {
+  const w = data.myWithdrawal;
+  const inProgress = data.myLockedShares > 0n;
   const pendingTotal = data.myPending.reduce((sum, p) => sum + p.amount, 0n);
   const etaText = (createdAt: string) =>
     finality?.lagSeconds != null
@@ -80,6 +85,9 @@ export function DaoOverview({
           <span className="text-fg-muted">Tu parte: </span>
           <strong className="font-display text-2xl font-black break-all">{formatUsd(data.myValueUsd6)}</strong>
         </p>
+        {w && w.status === "approved" && w.amountUsdc !== null ? (
+          <p className="text-sm text-fg">{`Retirada aprobada: ${formatUsdc(w.amountUsdc)}`}</p>
+        ) : null}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <ShareRing bps={data.myShareBps} />
           <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
@@ -103,6 +111,17 @@ export function DaoOverview({
             </div>
           </dl>
         </div>
+        {inProgress ? (
+          <p className="text-[13px] text-fg-muted">
+            Las participaciones bloqueadas por tu retirada no cuentan para los canales con candado mientras la retirada está en
+            curso, por eso el porcentaje que ves aquí puede diferir del que usan los canales.
+          </p>
+        ) : null}
+        {withdraw ? (
+          <div id="retirada" className="scroll-mt-20">
+            {withdraw}
+          </div>
+        ) : null}
 
         {data.myPending.length > 0 ? (
           <ul aria-label="Donaciones pendientes" className="flex flex-col divide-y divide-border border-t border-border">

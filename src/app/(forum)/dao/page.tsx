@@ -11,6 +11,7 @@ import { DonateButton } from "@/components/treasury/donate-button";
 import { FundComposition } from "@/components/treasury/fund-composition";
 import { NavChart } from "@/components/treasury/nav-chart";
 import { OperationsList } from "@/components/treasury/operations-list";
+import { WithdrawControls } from "@/components/treasury/withdraw-controls";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { getEconomyConfig } from "@/lib/economy/config";
 import { explorerAddress } from "@/lib/economy/networks";
@@ -69,6 +70,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
           data={overview}
           donate={<DonateButton autoOpen={donar === "1"} />}
           finality={finality}
+          withdraw={<WithdrawControls data={overview} />}
           chart={<NavChart navAt={overview.navAt} />}
         />
         <div className="flex flex-col gap-6">

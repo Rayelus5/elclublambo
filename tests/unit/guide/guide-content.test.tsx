@@ -43,11 +43,27 @@ describe("guide: fondo", () => {
         /Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero\./,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/retiradas y los sorteos, si llegan/i)).toBeInTheDocument();
+    expect(screen.getByText(/Los sorteos, si llegan/i)).toBeInTheDocument();
     expect(screen.queryByText(/llegarán/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/liquidativo/)).not.toBeInTheDocument();
-    expect(screen.getByText(/empezarán desactivadas/)).toBeInTheDocument();
+    expect(screen.queryByText(/empezarán desactivadas/)).toBeNull();
     expect(screen.getByText(/primera valoración/)).toBeInTheDocument();
+  });
+});
+
+describe("guide: retiradas", () => {
+  it("explains how to ask for a withdrawal", () => {
+    render(<GuideContent slug="fondo" />);
+    expect(screen.getByRole("heading", { name: "Cómo pedir una retirada" })).toBeInTheDocument();
+    expect(screen.getByText(/SuperAdmin/)).toBeInTheDocument();
+    expect(screen.getByText(/14 días/)).toBeInTheDocument();
+    expect(screen.getByText(/bloqueadas desde que pides/)).toBeInTheDocument();
+    expect(screen.getByText(/se paga en USDC/)).toBeInTheDocument();
+    expect(screen.queryByText(/Hoy no se puede retirar nada/)).toBeNull();
+  });
+  it("no longer says contributions cannot be withdrawn", () => {
+    render(<GuideContent slug="dao" />);
+    expect(screen.queryByText(/Hoy las aportaciones no se pueden retirar/)).toBeNull();
   });
 });
