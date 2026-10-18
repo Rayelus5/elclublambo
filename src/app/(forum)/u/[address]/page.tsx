@@ -109,7 +109,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
   const invitees = (inviteesRes.data ?? []).map(toSummary);
 
   return (
-    <div className="flex max-w-3xl flex-col gap-10">
+    <div className="flex w-full flex-col gap-10">
       <header className="flex flex-col gap-4">
         <MemberAvatar member={identityFromRow(member)} size={96} />
         <div className="flex flex-wrap items-center gap-3">

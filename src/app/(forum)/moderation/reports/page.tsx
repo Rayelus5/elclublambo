@@ -28,7 +28,7 @@ async function ReportsContent({ searchParams }: { searchParams: Promise<{ status
 
   const { groups, capped } = await listReportQueue(status, supabase);
   return (
-    <div className="flex max-w-3xl flex-col gap-6">
+    <div className="flex w-full flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">Reportes</h1>
         <p className="text-fg-muted">
