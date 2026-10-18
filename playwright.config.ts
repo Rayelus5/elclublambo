@@ -27,6 +27,8 @@ const env = {
   // credits after one confirmation. start-chain.mjs below serves it.
   LINEA_SEPOLIA_RPC_URL: RPC_URL,
   TIP_CONFIRMATIONS: "1",
+  // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
+  CRON_SECRET: "e2e-cron-secret",
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);
