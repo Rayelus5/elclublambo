@@ -81,12 +81,17 @@ describe("valueSafe", () => {
     err.mockRestore();
   });
 
-  it("null when the last snapshot cannot be read (no unchecked CoinGecko price)", async () => {
+  it("throws when the last snapshot cannot be read (no unchecked CoinGecko price; the cron reports it)", async () => {
     errors.dao_nav_snapshots = { message: "db down" };
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await valueSafe(59141)).toBeNull();
+    await expect(valueSafe(59141)).rejects.toThrow(/dao_nav_snapshots/);
     expect(readEthPrice).not.toHaveBeenCalled();
-    err.mockRestore();
+  });
+
+  it("throws when chain_config cannot be read, so takeSnapshot fails instead of saying unavailable", async () => {
+    errors.chain_config = { message: "db down" };
+    await expect(valueSafe(59141)).rejects.toThrow(/chain_config/);
+    await expect(takeSnapshot(59141)).rejects.toThrow(/chain_config/);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 

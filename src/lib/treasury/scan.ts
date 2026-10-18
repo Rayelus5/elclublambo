@@ -28,7 +28,11 @@ const TRANSFER = parseAbiItem("event Transfer(address indexed from, address inde
 const DEPOSIT = parseAbiItem("event Deposit(address indexed dst, uint256 wad)");
 const WITHDRAWAL = parseAbiItem("event Withdrawal(address indexed src, uint256 wad)");
 
+/** Snapshot pairs diffed per run (about a day of hourly snapshots). */
+const ETH_PAIRS_PER_RUN = 24;
+
 type Client = ReturnType<typeof chainClient>;
+type Db = ReturnType<typeof createAdminClient>;
 type SnapshotRow = { block_number: string; eth_wei: string; taken_at: string };
 
 /** [from, to] split into chunks of at most CHUNK blocks. */
@@ -41,8 +45,9 @@ function chunks(from: bigint, to: bigint): [bigint, bigint][] {
 /**
  * Scans the Safe's USDC and WETH Transfer logs since the last scanned block (up to latest − TIP_CONFIRMATIONS, at most
  * 20 000 blocks per run) and stores them with record_safe_operations, which links donations, alerts treasurers on
- * outflows and advances the cursor. A native-ETH change between the last two snapshots that WETH wraps/unwraps do not
- * explain becomes an ETH operation without hash. The first scan of a chain only sets the cursor (no backfill).
+ * outflows and advances the cursor. A native-ETH change between two consecutive snapshots that WETH wraps/unwraps do
+ * not explain becomes an ETH operation without hash (every pair after the ETH cursor, F4a-R6). The first scan of a
+ * chain only sets the cursors (no backfill).
  * Null when the Safe is unset. Read errors throw before anything is recorded, so no block is ever skipped.
  */
 export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: number; alerts: number } | null> {
@@ -60,7 +65,11 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
 
   let toBlock = tip;
   const ops: SafeOperation[] = [];
-  if (cursorRaw !== null && cursorRaw !== undefined) {
+  let ethCursor: bigint | null = null;
+  if (cursorRaw === null || cursorRaw === undefined) {
+    // First scan: no backfill. The ETH diff starts at the newest snapshot.
+    ethCursor = await newestSnapshotBlock(db, chain);
+  } else {
     const cursor = BigInt(String(cursorRaw));
     const start = cursor + 1n;
     const cap = start + CHUNK * MAX_CHUNKS - 1n;
@@ -72,12 +81,18 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
     if (weth) tokens.push(["WETH", weth]);
     if (start <= toBlock) ops.push(...(await transferOps(client, safe, tokens, start, toBlock)));
 
-    const eth = await nativeEthOp(db, client, chain, safe, weth, start);
-    if (eth) ops.push(eth);
+    const eth = await nativeEthOps(db, client, chain, safe, weth, start);
+    ops.push(...eth.ops);
+    ethCursor = eth.cursor;
   }
 
   const { data, error } = await db.rpc("record_safe_operations", { p_chain: chain, p_ops: ops, p_to_block: toBlock.toString() });
   if (error) throw new Error(`record_safe_operations failed: ${error.message}`);
+  // Only after the ETH ops are stored. If this fails, the next run recomputes the same pairs and SQL dedupes them.
+  if (ethCursor !== null) {
+    const { error: cursorSetError } = await db.rpc("set_dao_eth_cursor", { p_chain: chain, p_block: ethCursor.toString() });
+    if (cursorSetError) throw new Error(`set_dao_eth_cursor failed: ${cursorSetError.message}`);
+  }
   const r = (data ?? {}) as { inserted?: unknown; alerts?: unknown };
   return { inserted: Number(r.inserted ?? 0), alerts: Number(r.alerts ?? 0) };
 }
@@ -122,31 +137,70 @@ async function transferOps(client: Client, safe: Address, tokens: ["USDC" | "WET
   return ops.filter((o) => o.amount !== "0");
 }
 
+const SNAPSHOT_COLUMNS = "block_number:block_number::text, eth_wei:eth_wei::text, taken_at";
+
+function snapshots(db: Db, chain: ChainId) {
+  return db.from("dao_nav_snapshots").select(SNAPSHOT_COLUMNS).eq("chain_id", chain);
+}
+
+async function newestSnapshotBlock(db: Db, chain: ChainId): Promise<bigint | null> {
+  const { data, error } = await snapshots(db, chain).order("block_number", { ascending: false }).limit(1).maybeSingle<SnapshotRow>();
+  if (error) throw new Error(`dao_nav_snapshots read failed: ${error.message}`);
+  return data ? BigInt(data.block_number) : null;
+}
+
 /**
- * The native-ETH change between the last two snapshots minus what WETH unwraps (+) and wraps (−) in that window explain.
- * Only for a pair not covered by an earlier scan (the newer snapshot is at or after `start`); the SQL keeps one ETH op
- * per block, so a recomputed pair is not stored twice.
+ * Ruling F4a-R6: diffs EVERY consecutive snapshot pair after the ETH cursor (the last snapshot already diffed), at most
+ * ETH_PAIRS_PER_RUN pairs per run so a long gap catches up over several runs without skipping one. Each pair gives at
+ * most one ETH op, keyed by the later snapshot's block. Without an ETH cursor (a chain scanned before it existed, or
+ * with no snapshot at its first scan) the baseline is the newest snapshot before the log scan's start, else the oldest
+ * one. Returns the new ETH cursor (null: nothing to move).
  */
-async function nativeEthOp(
-  db: ReturnType<typeof createAdminClient>,
+async function nativeEthOps(
+  db: Db,
   client: Client,
   chain: ChainId,
   safe: Address,
   weth: Address | null,
-  start: bigint,
-): Promise<SafeOperation | null> {
-  const { data, error } = await db
-    .from("dao_nav_snapshots")
-    .select("block_number:block_number::text, eth_wei:eth_wei::text, taken_at")
-    .eq("chain_id", chain)
-    .order("taken_at", { ascending: false })
-    .limit(2);
-  if (error) throw new Error(`dao_nav_snapshots read failed: ${error.message}`);
-  const [last, prev] = (data ?? []) as SnapshotRow[];
-  if (!last || !prev) return null;
+  scanStart: bigint,
+): Promise<{ ops: SafeOperation[]; cursor: bigint | null }> {
+  const { data: fromRaw, error: fromError } = await db.rpc("dao_eth_scan_from", { p_chain: chain });
+  if (fromError) throw new Error(`dao_eth_scan_from failed: ${fromError.message}`);
+
+  let rows: SnapshotRow[];
+  const read = async (q: PromiseLike<{ data: unknown; error: { message: string } | null }>) => {
+    const { data, error } = await q;
+    if (error) throw new Error(`dao_nav_snapshots read failed: ${error.message}`);
+    return (data ?? []) as SnapshotRow[];
+  };
+  if (fromRaw !== null && fromRaw !== undefined) {
+    // the snapshot at the cursor is the baseline of the first pair
+    rows = await read(snapshots(db, chain).gte("block_number", String(fromRaw)).order("block_number", { ascending: true }).limit(ETH_PAIRS_PER_RUN + 1));
+  } else {
+    const baseline = await read(snapshots(db, chain).lt("block_number", scanStart.toString()).order("block_number", { ascending: false }).limit(1));
+    const rest = await read(
+      snapshots(db, chain)
+        .gte("block_number", scanStart.toString())
+        .order("block_number", { ascending: true })
+        .limit(ETH_PAIRS_PER_RUN + 1 - baseline.length),
+    );
+    rows = [...baseline, ...rest];
+  }
+
+  const ops: SafeOperation[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const op = await pairOp(client, safe, weth, rows[i - 1]!, rows[i]!);
+    if (op) ops.push(op);
+  }
+  const last = rows.at(-1);
+  return { ops, cursor: last ? BigInt(last.block_number) : null };
+}
+
+/** The native-ETH change of one snapshot pair minus what WETH unwraps (+) and wraps (−) inside (prev, last] explain. */
+async function pairOp(client: Client, safe: Address, weth: Address | null, prev: SnapshotRow, last: SnapshotRow): Promise<SafeOperation | null> {
   const lastBlock = BigInt(last.block_number);
   const prevBlock = BigInt(prev.block_number);
-  if (lastBlock < start || lastBlock <= prevBlock) return null;
+  if (lastBlock <= prevBlock) return null;
 
   let explained = 0n;
   if (weth) {

@@ -29,17 +29,35 @@ vi.mock("@/lib/payments/chain-client", () => ({
 
 let cursor: string | number | null = 5000;
 let safe: string | null;
-let snapshots: Record<string, unknown>[] = [];
+let snapshots: { block_number: string; eth_wei: string; taken_at: string }[] = [];
+let ethCursor: string | null = null;
+let setCursorError: unknown = null;
 const rpc = vi.fn(async (...[name]: [string, unknown?]) => {
   if (name === "dao_scan_from") return { data: cursor, error: null };
+  if (name === "dao_eth_scan_from") return { data: ethCursor, error: null };
   if (name === "record_safe_operations") return { data: { inserted: 2, alerts: 1 }, error: null };
+  if (name === "set_dao_eth_cursor") return { data: null, error: setCursorError };
   return { data: null, error: { message: "unexpected" } };
 });
+/** dao_nav_snapshots honours gte / lt on block_number, order (asc/desc) and limit, like PostgREST. */
 function builder(table: string) {
   const b: Record<string, unknown> = {};
-  for (const m of ["select", "eq", "order", "limit"]) b[m] = () => b;
-  b.maybeSingle = async () => ({ data: table === "chain_config" ? { safe_address: safe } : null, error: null });
-  b.then = (res: (v: unknown) => unknown) => res({ data: table === "dao_nav_snapshots" ? snapshots : [], error: null });
+  let rows = [...snapshots];
+  let lim = Infinity;
+  for (const m of ["select", "eq"]) b[m] = () => b;
+  b.gte = (_c: string, v: string | bigint) => ((rows = rows.filter((r) => BigInt(r.block_number) >= BigInt(v))), b);
+  b.lt = (_c: string, v: string | bigint) => ((rows = rows.filter((r) => BigInt(r.block_number) < BigInt(v))), b);
+  b.order = (_c: string, o?: { ascending?: boolean }) => {
+    rows.sort((x, y) => (BigInt(x.block_number) < BigInt(y.block_number) ? -1 : 1));
+    if (o?.ascending === false) rows.reverse();
+    return b;
+  };
+  b.limit = (n: number) => ((lim = n), b);
+  b.maybeSingle = async () => ({
+    data: table === "chain_config" ? { safe_address: safe } : (rows.slice(0, lim)[0] ?? null),
+    error: null,
+  });
+  b.then = (res: (v: unknown) => unknown) => res({ data: table === "dao_nav_snapshots" ? rows.slice(0, lim) : [], error: null });
   return b;
 }
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => builder(t), rpc: (n: string, a?: unknown) => rpc(n, a) }) }));
@@ -71,7 +89,10 @@ beforeEach(() => {
   safe = SAFE;
   logs = [];
   snapshots = [];
+  ethCursor = null;
+  setCursorError = null;
 });
+const cursorSets = () => rpc.mock.calls.filter((x) => x[0] === "set_dao_eth_cursor").map((x) => x[1]);
 afterEach(() => vi.unstubAllEnvs());
 
 describe("scanSafeOperations: cursor", () => {
@@ -204,5 +225,56 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
     snapshots = [snap(4000n, 3n * ETH), snap(3000n, ETH)];
     await scanSafeOperations(59141);
     expect(recorded().p_ops).toEqual([]);
+  });
+
+  it("F4a-R6: diffs EVERY pair after the ETH cursor (an outflow in the first of three is recorded) and advances it", async () => {
+    ethCursor = "1000";
+    snapshots = [snap(1000n, 2n * ETH), snap(2000n, ETH), snap(3000n, ETH), snap(4000n, ETH + ETH / 2n), snap(500n, 9n * ETH)];
+    await scanSafeOperations(59141);
+    expect(recorded().p_ops).toEqual([
+      expect.objectContaining({ asset: "ETH", direction: "out", amount: ETH.toString(), blockNumber: "2000", txHash: null }),
+      expect.objectContaining({ asset: "ETH", direction: "in", amount: (ETH / 2n).toString(), blockNumber: "4000" }),
+    ]);
+    const windows = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal").map((a) => `${a.fromBlock}-${a.toBlock}`);
+    expect(windows).toEqual(["1001-2000", "2001-3000", "3001-4000"]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "4000" }]);
+    // the cursor moves only after the ops were stored
+    const names = rpc.mock.calls.map((c) => c[0]);
+    expect(names.indexOf("set_dao_eth_cursor")).toBeGreaterThan(names.indexOf("record_safe_operations"));
+  });
+
+  it("caps a run at 24 pairs and resumes from there next run, skipping none", async () => {
+    ethCursor = "0";
+    snapshots = Array.from({ length: 30 }, (_, i) => snap(BigInt(i * 1000), BigInt(i % 2) * ETH));
+    await scanSafeOperations(59141);
+    expect(recorded().p_ops.map((o) => o.blockNumber)).toEqual(Array.from({ length: 24 }, (_, i) => String((i + 1) * 1000)));
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "24000" }]);
+
+    rpc.mockClear();
+    ethCursor = "24000";
+    await scanSafeOperations(59141);
+    expect(recorded().p_ops.map((o) => o.blockNumber)).toEqual(["25000", "26000", "27000", "28000", "29000"]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "29000" }]);
+  });
+
+  it("first scan of a chain: the ETH cursor starts at the newest snapshot (no backfill)", async () => {
+    cursor = null;
+    snapshots = [snap(9000n, ETH), snap(9999n, 5n * ETH)];
+    await scanSafeOperations(59141);
+    expect(recorded().p_ops).toEqual([]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "9999" }]);
+  });
+
+  it("no snapshots: the ETH cursor is left alone", async () => {
+    await scanSafeOperations(59141);
+    expect(cursorSets()).toEqual([]);
+  });
+
+  it("a failing cursor update is reported (the next run recomputes the same pairs; SQL dedupes them)", async () => {
+    ethCursor = "1000";
+    snapshots = [snap(1000n, 2n * ETH), snap(2000n, ETH)];
+    setCursorError = { message: "boom" };
+    await expect(scanSafeOperations(59141)).rejects.toThrow(/set_dao_eth_cursor/);
+    expect(recorded().p_ops).toHaveLength(1);
   });
 });

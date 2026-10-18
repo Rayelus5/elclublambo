@@ -37,15 +37,15 @@ async function lastPriceE8(db: Db, chain: ChainId): Promise<bigint | null> {
 
 /**
  * The Safe's market value right now: balances read at one block, ETH at Chainlink (or a sane CoinGecko price checked
- * against the last snapshot). Null when the Safe is unset, a read fails or there is no price: callers wait, nothing is
- * defaulted.
+ * against the last snapshot). Null when the Safe is unset, a chain read fails or there is no price: callers wait,
+ * nothing is defaulted. Database read errors throw (an operator signal: the cron reports the step as failed).
  */
 export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
   const db = createAdminClient();
+  const safe = await safeAddressOf(db, chain);
+  if (!safe) return null;
+  const last = await lastPriceE8(db, chain);
   try {
-    const safe = await safeAddressOf(db, chain);
-    if (!safe) return null;
-    const last = await lastPriceE8(db, chain);
     const [assets, price] = await Promise.all([readSafeAssets(chain, safe), readEthPrice(chain, { lastPriceE8: last })]);
     if (!price) return null;
     return { assetsUsd6: assetsUsd6(assets, price.priceE8), priceE8: price.priceE8, source: price.source, assets, blockNumber: assets.blockNumber };
