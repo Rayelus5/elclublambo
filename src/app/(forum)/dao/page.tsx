@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { BalanceChart, ShareDonut } from "@/components/treasury/dao-charts";
 import { DaoHistory } from "@/components/treasury/dao-history";
@@ -12,8 +13,10 @@ import { ReconcilePanel } from "@/components/treasury/reconcile-panel";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { balanceSeries, donutSlices } from "@/lib/treasury/charts";
+import { finalitySnapshot } from "@/lib/treasury/finality";
 import { getLastReconciliation } from "@/lib/treasury/last-run";
 import { getDaoHistory, getDaoOverview, getDaoRanking } from "@/lib/treasury/queries";
+import { settlePendingDonations } from "@/lib/treasury/settle";
 
 export const metadata: Metadata = { title: "DAO" };
 
@@ -35,6 +38,12 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   ]);
   // The service-role read of the last run happens only once MANAGE_TREASURY is confirmed.
   const last = hasPerm(perms, Perm.MANAGE_TREASURY) ? await getLastReconciliation(overview.chainId) : null;
+  // The estimate costs one RPC read: only when the viewer has something waiting for finality.
+  const finality = overview.myPending.length > 0 ? await finalitySnapshot(overview.chainId) : undefined;
+  // Viewing the DAO settles whatever is already final (anyone's, a few per view) without waiting for the cron or the
+  // donor's next visit; a credit then reaches every open /dao through DaoLive.
+  const chainId = overview.chainId;
+  after(() => settlePendingDonations(chainId, { limit: 5 }).catch((e) => console.error("[treasury] dao page settle failed", e)));
 
   return (
     <div className="flex w-full flex-col gap-8">
@@ -51,6 +60,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
         <DaoOverview
           data={overview}
           donate={<DonateButton autoOpen={donar === "1"} />}
+          finality={finality}
           chart={<BalanceChart points={balanceSeries(history, overview.valueUsdc)} />}
         />
         <section aria-labelledby="split-title" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">

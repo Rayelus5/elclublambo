@@ -33,6 +33,20 @@ describe("DaoOverview", () => {
     expect(within(mine).queryByText("Pendiente de finalización")).toBeNull();
   });
 
+  it("estimates when a pending donation will be credited, from the network's finality lag", () => {
+    const createdAt = "2026-10-18T10:00:00Z";
+    const now = Date.parse(createdAt) / 1000 + 3600; // mined an hour ago
+    render(
+      <DaoOverview
+        data={{ ...base, myPending: [{ ledgerId: "l1", amount: 5_500_000n, txHash: HASH, createdAt }] }}
+        donate={null}
+        finality={{ lagSeconds: 6 * 3600, nowSeconds: now }}
+      />,
+    );
+    expect(screen.getByText(/Tus participaciones se acreditan en ~5 h/)).toBeInTheDocument();
+    expect(screen.getByText("+5,5 USDC tuyos en camino")).toBeInTheDocument();
+  });
+
   it("lists pending donations with their state and an explorer link", () => {
     render(
       <DaoOverview
@@ -40,8 +54,9 @@ describe("DaoOverview", () => {
         donate={null}
       />,
     );
-    expect(screen.getByText("Pendiente de finalización")).toBeInTheDocument();
-    expect(screen.getByText("5,5 USDC")).toBeInTheDocument();
+    expect(screen.getByText("Confirmada en la red")).toBeInTheDocument();
+    expect(screen.getByText(/se acreditan cuando Linea finalice el bloque/)).toBeInTheDocument();
+    expect(screen.getAllByText("5,5 USDC").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
   });
 });
