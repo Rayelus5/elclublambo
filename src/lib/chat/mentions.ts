@@ -12,11 +12,15 @@ export interface MentionItem {
   /** Display text only; renderers resolve the real name from `id`. */
   label: string;
   hint?: string;
+  /** The label is the member's @handle (the list shows it with "@"; the inserted chip is "@" + label either way). */
+  handle?: true;
 }
 
 export interface MentionMemberHit {
   id: string;
+  /** Display name ("" when unset). */
   label: string;
+  handle?: string | null;
   walletAddress: string;
 }
 
@@ -43,6 +47,16 @@ export function buildMentionItems(input: {
     items.push({ kind: "everyone", id: null, label: "everyone", hint: "Avisa a todo el canal" });
   }
   for (const m of input.members) {
+    if (m.handle) {
+      items.push({
+        kind: "member",
+        id: m.id,
+        label: m.handle,
+        handle: true,
+        hint: m.label.trim() || shortAddress(m.walletAddress),
+      });
+      continue;
+    }
     items.push({
       kind: "member",
       id: m.id,

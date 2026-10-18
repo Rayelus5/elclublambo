@@ -196,8 +196,8 @@ export async function searchMentionTargetsAction(query: string): Promise<Mention
       members && !members.error && members.data
         ? (members.data as { id: string; display_name: string | null; handle?: string | null; wallet_address: string }[]).map((m) => ({
             id: m.id,
-            // The inserted chip text is "@" + label, and the stored mention renders as @handle.
-            label: m.handle || (m.display_name ?? ""),
+            label: m.display_name ?? "",
+            handle: m.handle ?? null,
             walletAddress: m.wallet_address,
           }))
         : [],

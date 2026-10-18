@@ -225,7 +225,7 @@ describe("searchMentionTargetsAction", () => {
     results.members = { data: [{ id: MEMBER, display_name: "Ana", wallet_address: "0xabc" }], error: null };
     results.roles = { data: [{ id: ROOT, name: "Anfitriones" }], error: null };
     const res = await searchMentionTargetsAction("  An\%a,(x) ");
-    expect(res.members).toEqual([{ id: MEMBER, label: "Ana", walletAddress: "0xabc" }]);
+    expect(res.members).toEqual([{ id: MEMBER, label: "Ana", handle: null, walletAddress: "0xabc" }]);
     expect(res.roles).toEqual([{ id: ROOT, label: "Anfitriones" }]);
     expect(String(builders.members!.or!.mock.calls[0]![0])).toBe("display_name.ilike.%an\\%ax%,handle.ilike.%an\\%ax%,wallet_address.ilike.%an\\%ax%");
     expect(builders.members!.limit).toHaveBeenCalledWith(8);
@@ -233,10 +233,10 @@ describe("searchMentionTargetsAction", () => {
     expect(builders.roles!.ilike).toHaveBeenCalledWith("name", "%an\\%ax%");
   });
 
-  it("labels members by @handle when they have one", async () => {
+  it("returns the handle next to the display name", async () => {
     results.members = { data: [{ id: MEMBER, display_name: "Ana", handle: "ana_l", wallet_address: "0xabc" }], error: null };
     const res = await searchMentionTargetsAction("ana_l");
-    expect(res.members).toEqual([{ id: MEMBER, label: "ana_l", walletAddress: "0xabc" }]);
+    expect(res.members).toEqual([{ id: MEMBER, label: "Ana", handle: "ana_l", walletAddress: "0xabc" }]);
   });
 
   it("escapes _ and % for ilike instead of stripping them (foo_bar is found literally)", async () => {

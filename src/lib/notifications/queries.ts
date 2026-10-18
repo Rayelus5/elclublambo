@@ -3,7 +3,7 @@
 // and the actor, channel name, message excerpt and ticket subject are joined under RLS too (never copied into
 // `notifications`). The actor's identity always comes from `members`, never from message content.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { identityFromRow, memberName } from "@/lib/members/name";
+import { identityFromRow, mentionLabel } from "@/lib/members/name";
 
 export const PAGE_SIZE = 30;
 const EXCERPT_CHARS = 140;
@@ -90,7 +90,7 @@ function toView(row: Row): NotificationView {
     createdAt: row.created_at,
     readAt: row.read_at,
     actor: row.actor
-      ? { name: memberName(identityFromRow(row.actor)), wallet: row.actor.wallet_address }
+      ? { name: mentionLabel(identityFromRow(row.actor)), wallet: row.actor.wallet_address }
       : null,
     channelName: row.channel?.name ?? null,
     excerpt,

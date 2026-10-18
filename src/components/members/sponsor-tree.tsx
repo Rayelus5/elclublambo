@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { MemberAvatar } from "@/components/members/member-avatar";
-import { memberName, type MemberIdentity } from "@/lib/members/name";
+import { hasFriendlyName, memberName, type MemberIdentity } from "@/lib/members/name";
 
 export type MemberSummary = MemberIdentity & {
   id: string;
@@ -26,7 +26,7 @@ function MemberLink({ member }: { member: MemberSummary }) {
       className="flex min-h-11 items-center gap-3 px-4 py-2 hover:bg-surface-2"
     >
       <MemberAvatar member={member} size={32} />
-      <span className={member.displayName || member.handle ? "text-fg" : "font-mono text-fg"}>{memberName(member)}</span>
+      <span className={hasFriendlyName(member) ? "text-fg" : "font-mono text-fg"}>{memberName(member)}</span>
       <StatusBadge status={member.status} />
       <ChevronRight aria-hidden className="ml-auto size-4 text-fg-muted" />
     </Link>

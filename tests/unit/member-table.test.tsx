@@ -28,6 +28,11 @@ const gone = row({
   status: "banned",
 });
 
+it("shows a whitespace-only display name as a monospace wallet", () => {
+  render(<MemberTable members={[{ ...ana, displayName: "   " }]} meId="x" perms={ALL} />);
+  expect(screen.getByText("0x2222…2222").className).toContain("font-mono");
+});
+
 const ALL = Perm.BAN_MEMBERS | Perm.MANAGE_ROLES;
 
 describe("MemberTable", () => {

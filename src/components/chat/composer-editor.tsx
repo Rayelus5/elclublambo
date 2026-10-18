@@ -261,7 +261,7 @@ function buildExtensions(h: HandlersRef, open: OpenState, expanded: boolean) {
       },
       render: createRender<MentionItem>("mention", open, "Menciones", (m, i) => ({
         key: `${m.kind}:${m.id ?? i}`,
-        label: m.kind === "role" ? `@${m.label}` : m.kind === "everyone" ? "@everyone" : m.label,
+        label: m.kind === "role" || m.handle ? `@${m.label}` : m.kind === "everyone" ? "@everyone" : m.label,
         hint: m.hint,
       })),
     },

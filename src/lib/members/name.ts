@@ -15,9 +15,18 @@ export function mentionLabel(m: MemberIdentity): string {
   return m.handle ? `@${m.handle}` : `@${memberName(m)}`;
 }
 
+/** True when memberName is a real name (not the bare short wallet): drives monospace styling. */
+export function hasFriendlyName(m: MemberIdentity): boolean {
+  return !!(m.displayName?.trim() || m.handle);
+}
+
+/** Same shape set_avatar accepts: <member uuid>/<uuid>.(png|jpg|webp). Anything else yields no URL. */
+const AVATAR_PATH_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/;
+
 export function avatarUrl(path: string | null): string | null {
-  if (!path) return null;
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/avatars/${path}`;
+  const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!path || !base || !AVATAR_PATH_RE.test(path)) return null;
+  return `${base}/storage/v1/object/public/avatars/${path}`;
 }
 
 /** Row shape shared by every `members` select that feeds an identity. */

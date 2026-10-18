@@ -57,6 +57,15 @@ describe("MessageItem", () => {
     expect(document.querySelector("svg[aria-hidden='true'][viewBox='0 0 5 5']")).not.toBeNull();
   });
 
+  it("shows @handle once when the author has a handle and no display name", () => {
+    const dir = {
+      members: { [ME]: { name: "@ana_l", handle: "ana_l", displayName: null, avatarPath: null, walletAddress: "0x1111111111111111111111111111111111111111" } },
+      roles: {},
+    };
+    setup({ directory: dir, message: makeMessage({ authorId: ME }) });
+    expect(screen.getAllByText("@ana_l")).toHaveLength(1);
+  });
+
   it("falls back to a generic name when the author is unknown", () => {
     setup({ directory: { members: {}, roles: {} } });
     expect(screen.getByText("Miembro")).toBeInTheDocument();
