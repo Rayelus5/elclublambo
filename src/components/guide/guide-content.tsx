@@ -81,6 +81,10 @@ function Propinas() {
           <li>Una transacción confirmada no se puede deshacer. Comprueba destinatario e importe antes de firmar.</li>
           <li>No puedes darte propinas a ti mismo, y la transacción debe salir de la wallet con la que has entrado.</li>
           <li>
+            Las propinas en ETH deben enviarse desde una wallet normal (EOA); las smart wallets (Safe, cuentas ERC-4337) no
+            se pueden verificar todavía.
+          </li>
+          <li>
             Solo cuenta lo que haces desde el diálogo del foro. Una transferencia hecha por tu cuenta, fuera del diálogo, no
             se registra.
           </li>
@@ -285,7 +289,7 @@ const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
 };
 
 /** Sections whose feature is not shipped yet: the guide says what will exist. F3b-F3d remove each entry. */
-const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>(["propinas", "bounties", "dao", "candados"]);
+const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>(["bounties", "dao", "candados"]);
 
 export function isComingSoon(slug: GuideSlug): boolean {
   return COMING_SOON.has(slug);

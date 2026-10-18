@@ -1,5 +1,6 @@
 // View model of the chat and the pure helpers around it (no React, no Supabase): usable on server and client.
 import type { MemberIdentity } from "@/lib/members/name";
+import type { TipNoticeLink, TipTotal } from "@/lib/payments/queries";
 
 /** A contract address as the Alpha flow accepts it (the database stores it lowercased). */
 export const ALPHA_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -31,11 +32,12 @@ export interface ChatMessage {
   id: string;
   channelId: string;
   threadRootId: string | null;
-  authorId: string;
+  /** Null for a system notice (kind "system"). */
+  authorId: string | null;
   /** Raw Tiptap JSON as stored (untrusted: MessageContent sanitizes it). */
   body: unknown;
   allowLinks: boolean;
-  kind: "text" | "alpha";
+  kind: "text" | "alpha" | "system";
   /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
   alphaAddress: string | null;
   expanded: boolean;
@@ -50,6 +52,12 @@ export interface ChatMessage {
   createdAt: string;
   attachments: MessageAttachment[];
   reactions: ReactionChip[];
+  /** Tip totals per token (USDC then ETH); empty when nobody tipped it. */
+  tips: TipTotal[];
+  /** For a system notice: the tip it announces. */
+  tipId: string | null;
+  /** For a system notice: the transaction behind it (explorer link); null when unknown. */
+  tipLink: TipNoticeLink | null;
 }
 
 export type DirectoryMember = MemberIdentity & { name: string };
@@ -148,7 +156,7 @@ export const GROUP_WINDOW_MS = 5 * 60 * 1000;
 
 /** True when `cur` continues the run started by `prev` (same author, under 5 minutes, nothing special). */
 export function isGrouped(prev: ChatMessage | undefined, cur: ChatMessage): boolean {
-  if (!prev || prev.authorId !== cur.authorId) return false;
+  if (!prev || prev.authorId === null || prev.authorId !== cur.authorId) return false;
   if (prev.deletedAt || cur.deletedAt || cur.quotedId) return false;
   return Date.parse(cur.createdAt) - Date.parse(prev.createdAt) < GROUP_WINDOW_MS;
 }

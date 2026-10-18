@@ -22,7 +22,8 @@ export type NotificationKind =
   | "member_review"
   | "ticket_new"
   | "ticket_reply"
-  | "ticket_status";
+  | "ticket_status"
+  | "tip_received";
 
 export interface NotificationView {
   id: number;
@@ -66,7 +67,18 @@ const SELECT =
 const MESSAGE_KINDS = new Set<NotificationKind>(["mention", "reply", "channel_message"]);
 const PERSON_KINDS = new Set<NotificationKind>(["invite_redeemed", "godchild_banned", "sponsor_penalized"]);
 
+/** A tip notice points at the tipped message (not at the system notice); a reply also names its thread root. */
+function tipHref(row: Row): string {
+  if (!row.channel_id) return "/notifications";
+  const message = row.data?.messageId;
+  if (typeof message !== "string" || !UUID_RE.test(message)) return `/c/${row.channel_id}`;
+  const root = row.data?.threadRootId;
+  const thread = typeof root === "string" && UUID_RE.test(root) && root !== message ? `&thread=${root}` : "";
+  return `/c/${row.channel_id}?m=${message}${thread}`;
+}
+
 function hrefFor(row: Row): string {
+  if (row.kind === "tip_received") return tipHref(row);
   if (MESSAGE_KINDS.has(row.kind) && row.channel_id) {
     const root = row.data?.thread_root_id;
     return `/c/${row.channel_id}${typeof root === "string" && UUID_RE.test(root) ? `?thread=${root}` : ""}`;
@@ -79,8 +91,9 @@ function hrefFor(row: Row): string {
 }
 
 function toView(row: Row): NotificationView {
+  // The joined message of a tip is the system notice: the copy already says it, so no excerpt.
   const excerpt =
-    row.message && !row.message.deleted_at && row.message.body_text
+    row.kind !== "tip_received" && row.message && !row.message.deleted_at && row.message.body_text
       ? row.message.body_text.replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS) || null
       : null;
   const status = row.data?.status;

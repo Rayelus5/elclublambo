@@ -6,9 +6,11 @@ import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
+import { SystemNotice } from "@/components/chat/system-notice";
 import { ReactionBar } from "@/components/chat/reaction-bar";
 import { MemberAvatar } from "@/components/members/member-avatar";
 import { TipDialog } from "@/components/payments/tip-dialog";
+import { TipsBadge } from "@/components/payments/tips-badge";
 import { ReportDialog } from "@/components/reports/report-dialog";
 import {
   AlertDialog,
@@ -95,11 +97,12 @@ export function MessageItem({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
-  const author = directory.members[message.authorId];
+  const authorId = message.authorId;
+  const author = authorId ? directory.members[authorId] : undefined;
   const name = author?.name ?? "Miembro";
-  const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: message.authorId, avatarPath: null };
+  const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: authorId ?? "", avatarPath: null };
   const deleted = message.deletedAt !== null;
-  const own = message.authorId === viewer.memberId;
+  const own = authorId !== null && authorId === viewer.memberId;
   const isRoot = message.threadRootId === null;
 
   const canReply = variant === "list" && isRoot && !deleted;
@@ -109,7 +112,7 @@ export function MessageItem({
   const canPin = viewer.canManage && isRoot && !deleted && variant !== "pinned" && !!onPin;
   const canReport = !own && !deleted && variant !== "pinned";
   // Tips go to a person: never on one's own message, a deleted one, or a system notice (no author).
-  const canTip = !own && !deleted && variant !== "pinned" && (message.kind as string) !== "system" && !!message.authorId;
+  const canTip = !own && !deleted && variant !== "pinned" && message.kind !== "system" && authorId !== null;
   const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
@@ -132,6 +135,47 @@ export function MessageItem({
     if (err) setDeleteError(err);
     else setConfirmDelete(false);
   };
+
+  if (message.kind === "system") {
+    // A notice a moderator removed leaves no trace in the thread.
+    if (deleted) return null;
+    return (
+      <li
+        id={`msg-${message.id}`}
+        data-message-id={message.id}
+        aria-current={highlighted ? "true" : undefined}
+        className={cn(
+          "group relative -mx-2 mt-3 flex gap-1 rounded-control border-l-2 px-2 py-0.5 transition-colors duration-150 first:mt-0 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+          highlighted ? "border-accent bg-surface-2" : "border-transparent",
+        )}
+      >
+        <SystemNotice message={message} />
+        <div className="shrink-0 self-start">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Acciones del mensaje"
+                className="flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent data-[state=open]:bg-surface-2 md:opacity-0 md:group-focus-within:opacity-100 md:group-hover:opacity-100 md:data-[state=open]:opacity-100"
+              >
+                <MoreHorizontal aria-hidden className="size-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent aria-label="Acciones del mensaje">
+              <DropdownMenuItem
+                onSelect={() => {
+                  const url = `${window.location.origin}/c/${message.channelId}?m=${message.id}`;
+                  void navigator.clipboard?.writeText(url).catch(() => undefined);
+                }}
+              >
+                Copiar enlace
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </li>
+    );
+  }
 
   return (
     <li
@@ -220,6 +264,7 @@ export function MessageItem({
           </>
         )}
 
+        {!deleted && message.tips.length > 0 ? <TipsBadge messageId={message.id} totals={message.tips} /> : null}
         {!deleted && variant !== "pinned" ? (
           <ReactionBar
             reactions={message.reactions}
@@ -302,8 +347,8 @@ export function MessageItem({
         </div>
       ) : null}
 
-      {canTip && tipping ? (
-        <TipDialog target={{ type: "message", messageId: message.id }} recipient={{ ...identity, id: message.authorId }} open={tipping} onOpenChange={setTipping} />
+      {canTip && authorId && tipping ? (
+        <TipDialog target={{ type: "message", messageId: message.id }} recipient={{ ...identity, id: authorId }} open={tipping} onOpenChange={setTipping} />
       ) : null}
 
       {canReport ? <ReportDialog messageId={message.id} open={reporting} onOpenChange={setReporting} /> : null}

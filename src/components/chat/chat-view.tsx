@@ -33,6 +33,7 @@ import {
   type ViewerPermissions,
 } from "@/lib/chat/model";
 import { getMessage, getMessages, getMessagesByIds, getPinned, getThread } from "@/lib/chat/queries";
+import { getTipSummaries } from "@/lib/payments/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
@@ -244,7 +245,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         // Only a freshly CREATED root counts as news: edits, reactions, pins, deletes and reply-driven reconciles do not.
         if (created && isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
         if (created && isNew && m.authorId !== meId && !m.deletedAt) {
-          setAnnouncement(`Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}`);
+          setAnnouncement(m.authorId ? `Mensaje nuevo de ${directoryRef.current.members[m.authorId]?.name ?? "un miembro"}` : "Nuevo aviso de El Club");
         }
         setRoots((l) => applyToWindow(l, m, hasMoreRef.current, hasNewerRef.current));
         setPinned((l) => upsertPinned(l, m));
@@ -254,6 +255,17 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       }
     },
     [meId],
+  );
+
+  /** A tip notice arrived: re-read the totals of the thread root and of the replies in the open thread. */
+  const refreshTips = useCallback(
+    async (rootId: string) => {
+      const open = threadRef.current;
+      const ids = [rootId, ...(open && open.rootId === rootId ? open.replies.filter((m) => m.kind !== "system").map((m) => m.id) : [])];
+      const summaries = await getTipSummaries(createBrowserClient(), ids);
+      for (const id of ids) patchMessage(id, (m) => ({ ...m, tips: summaries.get(id) ?? [] }));
+    },
+    [patchMessage],
   );
 
   /** Re-reads one message through RLS and folds it into whatever is on screen. Stale answers are dropped. */
@@ -274,8 +286,12 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       }
       mergeDir(result.directory);
       apply(result.message, created);
+      // A "X ha enviado ..." notice means some message of that thread has new tip totals.
+      if (result.message.kind === "system" && result.message.tipId && result.message.threadRootId) {
+        void refreshTips(result.message.threadRootId);
+      }
     },
-    [apply, meId, mergeDir, remove],
+    [apply, meId, mergeDir, refreshTips, remove],
   );
 
   const resync = useCallback(async () => {
@@ -480,7 +496,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   );
 
   const quoteMessage = useCallback((message: ChatMessage) => {
-    setQuoted({ id: message.id, authorName: directoryRef.current.members[message.authorId]?.name ?? "Miembro" });
+    setQuoted({ id: message.id, authorName: (message.authorId ? directoryRef.current.members[message.authorId]?.name : undefined) ?? "Miembro" });
     requestAnimationFrame(() => composerBox.current?.querySelector<HTMLElement>('[role="textbox"]')?.focus());
   }, []);
 

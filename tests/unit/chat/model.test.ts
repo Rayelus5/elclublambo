@@ -29,6 +29,9 @@ const msg = (over: Partial<ChatMessage> & { id: string }): ChatMessage => ({
   createdAt: "2026-10-17T10:00:00.000000+00:00",
   attachments: [],
   reactions: [],
+  tips: [],
+  tipId: null,
+  tipLink: null,
   ...over,
 });
 

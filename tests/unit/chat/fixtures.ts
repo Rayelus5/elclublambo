@@ -33,6 +33,9 @@ export function makeMessage(over: Partial<ChatMessage> = {}): ChatMessage {
     createdAt: new Date(Date.UTC(2026, 9, 17, 10, counter, 0)).toISOString(),
     attachments: [],
     reactions: [],
+    tips: [],
+    tipId: null,
+    tipLink: null,
     ...over,
   };
 }

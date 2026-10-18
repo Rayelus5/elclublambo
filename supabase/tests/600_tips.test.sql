@@ -1,5 +1,5 @@
 begin;
-select plan(99);
+select plan(105);
 
 -- helpers (rolled back with the test)
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -261,6 +261,11 @@ select is((select t.donor_id from public.message_tips(current_setting('t.m1')::u
   current_setting('t.c')::uuid, 'the donor sees themselves on their anonymous tip');
 select is((select t.is_me from public.message_tips(current_setting('t.m1')::uuid) t where t.tip_id = current_setting('t.tip4')::uuid),
   true, 'is_me is true for the donor');
+select is((select t.anonymous from public.message_tips(current_setting('t.m1')::uuid) t where t.tip_id = current_setting('t.tip4')::uuid),
+  true, 'the donor sees the anonymous flag on their own tip');
+select is((select t.amount_text from public.message_tips(current_setting('t.m1')::uuid) t where t.tip_id = current_setting('t.tip4')::uuid),
+  (select t.amount::text from public.message_tips(current_setting('t.m1')::uuid) t where t.tip_id = current_setting('t.tip4')::uuid), 'message_tips returns the exact amount as text');
+select is((select count(*)::int from public.member_tips(current_setting('t.b')::uuid) t where t.amount_text is not null), 3, 'member_tips returns amount_text');
 
 -- ===== summary =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);
@@ -268,10 +273,15 @@ select is((select s.total::text || '/' || s.tip_count::text from public.tips_sum
   '10000000/1', 'USDC total per message');
 select is((select s.total::text from public.tips_summary(array[current_setting('t.m1')::uuid]) s where s.token = 'ETH'),
   '12500000000000000', 'ETH total per message');
+select is((select s.total_text from public.tips_summary(array[current_setting('t.m1')::uuid]) s where s.token = 'ETH'),
+  '12500000000000000', 'tips_summary returns the exact total as text');
 select tests.authenticate_as(current_setting('t.uh')::uuid);
 select is((select count(*)::int from public.tips_summary(array[current_setting('t.m1')::uuid])), 0, 'tips_summary hides hidden channels');
 select is((select count(*)::int from public.message_tips(current_setting('t.m1')::uuid)), 0, 'message_tips hides hidden channels');
 select is((select count(*)::int from public.member_tips(current_setting('t.b')::uuid)), 0, 'member_tips hides tips on invisible messages');
+select is((select count(*)::int from public.tips_by_ids(array[current_setting('t.tip1')::uuid])), 0, 'tips_by_ids hides notices of hidden channels');
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select is((select t.main_tx_hash from public.tips_by_ids(array[current_setting('t.tip1')::uuid]) t), tests.hash(1), 'tips_by_ids returns the tx behind a visible notice');
 select tests.clear_authentication();
 
 -- ===== profile tip =====
