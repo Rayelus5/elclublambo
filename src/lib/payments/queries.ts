@@ -22,7 +22,8 @@ export interface TipEntry {
   token: Token;
   amount: bigint;
   chainId: ChainId;
-  txHash: string;
+  /** Null for someone else's anonymous tip: the hash would identify the donor, so there is no explorer link. */
+  txHash: string | null;
   createdAt: string;
 }
 
@@ -87,7 +88,7 @@ interface TipRow {
   amount: unknown;
   amount_text?: unknown;
   chain_id: number;
-  main_tx_hash: string;
+  main_tx_hash: string | null;
   created_at: string;
 }
 
@@ -109,7 +110,7 @@ async function toEntries(supabase: SupabaseClient, rows: readonly TipRow[]): Pro
             token: r.token,
             amount: units(r.amount_text, r.amount),
             chainId: r.chain_id,
-            txHash: r.main_tx_hash,
+            txHash: r.main_tx_hash ?? null,
             createdAt: r.created_at,
           },
         ]
@@ -138,8 +139,9 @@ export async function getTipNoticeLinks(supabase: SupabaseClient, tipIds: readon
   try {
     const { data, error } = await supabase.rpc("tips_by_ids", { p_tip_ids: [...tipIds] });
     if (error || !Array.isArray(data)) return out;
-    for (const r of data as Array<{ tip_id: string; chain_id: number; main_tx_hash: string }>) {
-      if (isChainId(r.chain_id)) out.set(r.tip_id, { chainId: r.chain_id, txHash: r.main_tx_hash });
+    for (const r of data as Array<{ tip_id: string; chain_id: number; main_tx_hash: string | null }>) {
+      // a null hash (someone else's anonymous tip) means no link at all
+      if (isChainId(r.chain_id) && typeof r.main_tx_hash === "string") out.set(r.tip_id, { chainId: r.chain_id, txHash: r.main_tx_hash });
     }
   } catch {
     return new Map();

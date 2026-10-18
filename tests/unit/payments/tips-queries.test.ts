@@ -62,6 +62,12 @@ describe("tip entries", () => {
     expect(donorLabel(e!)).toBe("Dona");
   });
 
+  it("keeps a hidden hash as null", async () => {
+    const supabase = client({ message_tips: [row({ donor_id: null, anonymous: true, main_tx_hash: null })] });
+    const [e] = await getMessageTips(supabase as never, M1);
+    expect(e!.txHash).toBeNull();
+  });
+
   it("labels anonymous tips without ever naming the donor", async () => {
     const supabase = client(
       { member_tips: [row({ donor_id: null, anonymous: true }), row({ tip_id: "t2", is_me: true, anonymous: true }), row({ tip_id: "t3", is_me: true })] },
@@ -78,6 +84,12 @@ describe("getTipNoticeLinks", () => {
     const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 59144, main_tx_hash: HASH }] });
     const map = await getTipNoticeLinks(supabase as never, ["t1"]);
     expect(map.get("t1")).toEqual({ chainId: 59144, txHash: HASH });
+  });
+
+  it("skips a tip whose hash is hidden (someone else's anonymous tip)", async () => {
+    const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 59144, main_tx_hash: null }] });
+    const map = await getTipNoticeLinks(supabase as never, ["t1"]);
+    expect(map.has("t1")).toBe(false);
   });
 });
 

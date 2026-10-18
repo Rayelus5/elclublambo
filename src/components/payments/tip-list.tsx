@@ -41,15 +41,17 @@ export function TipList({ entries, time = "relative", className }: { entries: re
           <time dateTime={e.createdAt} suppressHydrationWarning className="text-[13px] text-fg-muted">
             {time === "relative" ? relativeTime(e.createdAt) : ABSOLUTE.format(new Date(e.createdAt))}
           </time>
-          <a
-            href={explorerTx(e.chainId, e.txHash)}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Ver transacción en el explorador"
-            className="inline-flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
-          >
-            <ExternalLink aria-hidden className="size-4" />
-          </a>
+          {e.txHash ? (
+            <a
+              href={explorerTx(e.chainId, e.txHash)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Ver transacción en el explorador"
+              className="inline-flex size-11 items-center justify-center rounded-control text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
+            >
+              <ExternalLink aria-hidden className="size-4" />
+            </a>
+          ) : null}
         </li>
       ))}
     </ul>

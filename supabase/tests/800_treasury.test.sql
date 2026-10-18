@@ -1,5 +1,5 @@
 begin;
-select plan(115);
+select plan(133);
 
 -- helpers (rolled back with the test)
 create function tests.hash(p_n int) returns text language sql immutable as $$
@@ -21,14 +21,14 @@ begin
 end;
 $$;
 -- record_donation as the service
-create function tests.rec(p_intent uuid, p_n int, p_block bigint default 100, p_fee boolean default false)
+create function tests.rec(p_intent uuid, p_n int, p_block bigint default 100, p_fee boolean default false, p_fee_block bigint default null)
 returns uuid language plpgsql as $$
 declare v uuid;
 begin
   set local role service_role;
   v := public.record_donation(p_intent,
     jsonb_build_object('txHash', tests.hash(p_n), 'logIndex', 0, 'blockNumber', p_block),
-    case when p_fee then jsonb_build_object('txHash', tests.hash(p_n + 5000), 'logIndex', 1, 'blockNumber', p_block) end);
+    case when p_fee then jsonb_build_object('txHash', tests.hash(p_n + 5000), 'logIndex', 1, 'blockNumber', coalesce(p_fee_block, p_block)) end);
   reset role;
   return v;
 end;
@@ -89,6 +89,13 @@ select ok(not has_function_privilege('authenticated', 'public.record_donation(uu
 select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid)', 'execute'), 'authenticated cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.revert_donation(uuid)', 'execute'), 'authenticated cannot revert_donation');
 select ok(not has_function_privilege('anon', 'public.credit_donation(uuid)', 'execute'), 'anon cannot credit_donation');
+select ok(not has_function_privilege('anon', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
+      and not has_function_privilege('anon', 'public.revert_donation(uuid)', 'execute'), 'anon cannot record or revert donations');
+select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute')
+      and not has_function_privilege('anon', 'public.dao_history(int)', 'execute')
+      and not has_function_privilege('anon', 'public.my_dao_position(int)', 'execute')
+      and not has_function_privilege('anon', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'anon cannot call the read RPCs or the visibility toggle');
+select ok(not has_function_privilege('authenticated', 'public._record_payment_transfers(public.payment_intents,jsonb,jsonb)', 'execute'), 'authenticated cannot call the internal recording helper');
 select ok(has_function_privilege('service_role', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
       and has_function_privilege('service_role', 'public.credit_donation(uuid)', 'execute')
       and has_function_privilege('service_role', 'public.revert_donation(uuid)', 'execute'), 'service_role runs the donation pipeline');
@@ -249,12 +256,17 @@ select set_config('t.ix2', tests.mkdon(current_setting('t.ud')::uuid, 1000000, 3
 update public.payment_intents set expires_at = now() - interval '1 hour', hashes_attached_at = null where id = current_setting('t.ix2')::uuid;
 select throws_ok(format($$select tests.rec(%L::uuid, 32, 106)$$, current_setting('t.ix2')), 'P0001', 'intent_expired', 'an expired intent without pre-expiry hashes is refused');
 select tests.clear_authentication();
--- a donation intent to a Safe that is no longer the configured one cannot be recorded
+-- F3d-R2: the intent snapshot is the authority, a Safe changed after the intent does not strand the payment
 select set_config('t.ix3', tests.mkdon(current_setting('t.ud')::uuid, 1000000, 33)::text, true);
 update public.chain_config set safe_address = '0x' || lpad('dead', 40, '0') where chain_id = 59141;
-select throws_ok(format($$select tests.rec(%L::uuid, 33, 106)$$, current_setting('t.ix3')), 'P0001', 'invalid_input', 'the intent must still point at the configured Safe');
+select lives_ok(format($$select tests.rec(%L::uuid, 33, 106)$$, current_setting('t.ix3')), 'a payment to the Safe snapshotted in the intent records even if the Safe changed');
 select tests.clear_authentication();
 update public.chain_config set safe_address = '0x' || lpad('5afe59141', 40, '0') where chain_id = 59141;
+select is((select status from public.dao_ledger where intent_id = current_setting('t.ix3')::uuid), 'pending_finality', 'and it is a pending ledger row');
+-- F3d-R2 / M2: the finality gate block is the later of the main and fee blocks
+select set_config('t.ix4', tests.mkdon(current_setting('t.ud')::uuid, 1000000, 34, 100)::text, true);
+select tests.rec(current_setting('t.ix4')::uuid, 34, 100, true, 150);
+select is((select block_number from public.dao_ledger where intent_id = current_setting('t.ix4')::uuid), 150::bigint, 'block_number is greatest(main block, fee block)');
 
 -- ===== revert =====
 select set_config('t.ir', tests.mkdon(current_setting('t.uc')::uuid, 2000000, 50, 100)::text, true);
@@ -318,6 +330,8 @@ select is((select label from public.dao_ranking(50) where member_id = current_se
 select is((select count(*)::int from public.dao_ranking(50) where member_id is null and label = 'Anónimo'), 3, 'hidden members show as Anónimo with no member_id');
 select is((select count(*)::int from public.dao_history(50) where member_id is not null), 1, 'history masks hidden donors but not the caller');
 select is((select count(*)::int from public.dao_history(50)), 5, 'history lists the credited donations only');
+select is((select count(*)::int from public.dao_history(50) where tx_hash is not null), 1, 'F3d-R3: history hides the tx hash of masked donors');
+select is((select tx_hash from public.dao_history(50) where member_id = current_setting('t.c')::uuid), tests.hash(3), 'but the donor sees their own hash');
 select is((select ledger_id from public.dao_history(50) limit 1), current_setting('t.ld')::uuid, 'history is newest first');
 select is((select amount::text from public.dao_history(50) limit 1), '1000000', 'history amounts');
 select tests.clear_authentication();
@@ -328,6 +342,7 @@ select tests.authenticate_as(current_setting('t.ud')::uuid);
 select is((select label from public.dao_ranking(50) where label = '@author1'), '@author1', 'a visible member shows with the @handle label');
 select is((select member_id from public.dao_ranking(50) where label = '@author1'), current_setting('t.a')::uuid, 'and with their member_id');
 select is((select count(*)::int from public.dao_history(50) where label = '@author1'), 2, 'visible donors show in the history');
+select is((select count(*)::int from public.dao_history(50) where label = '@author1' and tx_hash is not null), 2, 'and their hash is public');
 select throws_ok($$select public.set_dao_ranking_visible(null)$$, 'P0001', 'invalid_input', 'null is not a visibility');
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ue')::uuid);
@@ -339,6 +354,48 @@ select is((select label from public.dao_history(50) where member_id = current_se
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select ok(not exists (select 1 from public.dao_ranking(50) r where r.label = '@second2'), 'others never see a hidden label');
+select tests.clear_authentication();
+
+-- ===== F3d-R3: anonymous tips never leak their tx hash =====
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.a')::uuid, id from public.roles where name = 'SuperAdmin';
+select set_config('t.cat', tests.create_channel(null, 'category', 'T800cat')::text, true);
+select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't800')::text, true);
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select set_config('t.msg', public.post_message(current_setting('t.ch')::uuid,
+  jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object('type', 'paragraph',
+    'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', 'hola'))))), 'x', false, null, null, '[]'::jsonb)::text, true);
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select set_config('t.ta', public.create_tip_intent('message', current_setting('t.msg')::uuid, 'USDC', 1000000, 0, true)::text, true);
+select public.attach_intent_tx((current_setting('t.ta')::jsonb ->> 'id')::uuid, 'main', tests.hash(800));
+select set_config('t.tb', public.create_tip_intent('message', current_setting('t.msg')::uuid, 'USDC', 1000000, 0, false)::text, true);
+select public.attach_intent_tx((current_setting('t.tb')::jsonb ->> 'id')::uuid, 'main', tests.hash(801));
+select tests.clear_authentication();
+set local role service_role;
+select set_config('t.tipa', public.confirm_tip((current_setting('t.ta')::jsonb ->> 'id')::uuid,
+  jsonb_build_object('txHash', tests.hash(800), 'logIndex', 0, 'blockNumber', 300), null)::text, true);
+select set_config('t.tipb', public.confirm_tip((current_setting('t.tb')::jsonb ->> 'id')::uuid,
+  jsonb_build_object('txHash', tests.hash(801), 'logIndex', 0, 'blockNumber', 301), null)::text, true);
+reset role;
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select is((select main_tx_hash from public.message_tips(current_setting('t.msg')::uuid) where tip_id = current_setting('t.tipa')::uuid), null, 'message_tips hides the hash of an anonymous tip');
+select is((select main_tx_hash from public.message_tips(current_setting('t.msg')::uuid) where tip_id = current_setting('t.tipb')::uuid), tests.hash(801), 'message_tips keeps the hash of a public tip');
+select is((select main_tx_hash from public.member_tips(current_setting('t.c')::uuid) where tip_id = current_setting('t.tipa')::uuid), null, 'member_tips hides the hash of an anonymous tip');
+select is((select main_tx_hash from public.member_tips(current_setting('t.c')::uuid) where tip_id = current_setting('t.tipb')::uuid), tests.hash(801), 'member_tips keeps the hash of a public tip');
+select is((select main_tx_hash from public.tips_by_ids(array[current_setting('t.tipa')::uuid]) ), null, 'tips_by_ids hides the hash of an anonymous tip');
+select is((select main_tx_hash from public.tips_by_ids(array[current_setting('t.tipb')::uuid]) ), tests.hash(801), 'tips_by_ids keeps the hash of a public tip');
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select is((select main_tx_hash from public.message_tips(current_setting('t.msg')::uuid) where tip_id = current_setting('t.tipa')::uuid), tests.hash(800), 'the donor sees their own anonymous hash in message_tips');
+select is((select main_tx_hash from public.member_tips(current_setting('t.c')::uuid) where tip_id = current_setting('t.tipa')::uuid), tests.hash(800), 'and in member_tips');
+select is((select main_tx_hash from public.tips_by_ids(array[current_setting('t.tipa')::uuid])), tests.hash(800), 'and in tips_by_ids');
+select tests.clear_authentication();
+
+-- ===== M1: a half-empty state is refused, not guessed =====
+update public.dao_state set value_usdc = 0 where chain_id = 59141;
+select throws_ok(format($$select tests.cr(%L::uuid)$$, (select id from public.dao_ledger where intent_id = current_setting('t.ix1')::uuid)),
+  'P0001', 'invalid_state', 'credit_donation refuses S > 0 with V = 0');
 select tests.clear_authentication();
 
 select * from finish();

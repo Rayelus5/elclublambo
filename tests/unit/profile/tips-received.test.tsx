@@ -17,6 +17,14 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
   ...over,
 });
 
+describe("TipsReceived hidden hash", () => {
+  it("shows no explorer link for an anonymous tip with a hidden hash", () => {
+    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ donorName: null, anonymous: true, txHash: null })]} />);
+    expect(screen.queryByRole("link", { name: /explorador/i })).toBeNull();
+    expect(screen.getByText("Anónimo")).toBeInTheDocument();
+  });
+});
+
 describe("TipsReceived", () => {
   it("shows the server totals of the active chain as a labelled list", () => {
     render(
