@@ -42,7 +42,7 @@ beforeEach(() => {
   tables.payment_intents = intent();
   tables.members = { wallet_address: PAYER };
   tables.tips = { id: "tip1" };
-  verifyTransfer.mockImplementation(async (i: { txHash: string }) => ({ status: "ok", logIndex: i.txHash === FEE ? 3 : 7, blockNumber: 10n }));
+  verifyTransfer.mockImplementation(async (i: { txHash: string }) => ({ status: "ok", logIndex: i.txHash === FEE ? 3 : 7, blockNumber: 10n, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") }));
   rpc.mockResolvedValue({ data: "tip1", error: null });
 });
 
@@ -78,6 +78,22 @@ describe("confirmIntent", () => {
     expect((r as { error: string }).error.length).toBeGreaterThan(5);
     expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: code });
     expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
+  });
+
+  it("confirms a bounty intent through confirm_bounty_payment with the block timestamp, tips without it", async () => {
+    tables.payment_intents = intent({ purpose: "bounty" });
+    await confirmIntent("i1");
+    expect(rpc).toHaveBeenCalledWith("confirm_bounty_payment", {
+      p_intent: "i1",
+      p_main: { txHash: MAIN, logIndex: 7, blockNumber: "10", blockTimestamp: "2026-10-18T12:05:00.000Z" },
+      p_fee: { txHash: FEE, logIndex: 3, blockNumber: "10" },
+    });
+    expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
+    vi.clearAllMocks();
+    rpc.mockResolvedValue({ data: "tip1", error: null });
+    tables.payment_intents = intent({ purpose: "tip" });
+    await confirmIntent("i1");
+    expect(rpc).toHaveBeenCalledWith("confirm_tip", expect.objectContaining({ p_main: { txHash: MAIN, logIndex: 7, blockNumber: "10" } }));
   });
 
   it("fails with tx_already_used when confirm_tip reports it", async () => {

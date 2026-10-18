@@ -47,6 +47,7 @@ const MESSAGES: Record<string, string> = {
   already_paid: "Este bounty ya está pagado.",
   bounty_chain_inactive:
     "Este bounty se publicó en otra red; podrás pagarlo cuando esa red vuelva a estar activa.",
+  payment_in_progress: "Ya hay un pago de este bounty en curso. Espera a que se confirme.",
   channel_has_bounties: "Este canal tiene bounties y no se puede borrar.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
   platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",

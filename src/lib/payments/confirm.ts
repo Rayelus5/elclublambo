@@ -18,6 +18,7 @@ const LATE_CREDIT_DAYS = 7;
 
 type IntentRow = {
   id: string;
+  purpose?: "tip" | "bounty" | "donation";
   member_id: string;
   chain_id: number;
   token: Token;
@@ -35,7 +36,7 @@ type IntentRow = {
 
 // numeric(78,0) comes back as a JSON number (lossy above 2^53): cast to text in the select.
 const INTENT_COLUMNS =
-  "id, member_id, chain_id, token, amount:amount::text, fee_amount:fee_amount::text, recipient_address, platform_address, status, failure_code, main_tx_hash, fee_tx_hash, created_at, expires_at";
+  "id, purpose, member_id, chain_id, token, amount:amount::text, fee_amount:fee_amount::text, recipient_address, platform_address, status, failure_code, main_tx_hash, fee_tx_hash, created_at, expires_at";
 
 const failed = (code: string): ConfirmResult => ({ status: "failed", code, error: rpcErrorMessage(code) });
 
@@ -94,15 +95,22 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (stop) return stop;
   const main = mainRes as Extract<VerifyResult, { status: "ok" }>;
 
-  const { data: tipId, error } = await db.rpc("confirm_tip", {
+  // Only bounty confirms need the block time (it sets paid_at, ruling F3c-R4); confirm_tip keeps its signature.
+  const isBounty = i.purpose === "bounty";
+  const { data: tipId, error } = await db.rpc(isBounty ? "confirm_bounty_payment" : "confirm_tip", {
     p_intent: i.id,
-    p_main: { txHash: i.main_tx_hash, logIndex: main.logIndex, blockNumber: main.blockNumber.toString() },
+    p_main: {
+      txHash: i.main_tx_hash,
+      logIndex: main.logIndex,
+      blockNumber: main.blockNumber.toString(),
+      ...(isBounty ? { blockTimestamp: main.blockTimestamp.toISOString() } : {}),
+    },
     p_fee: feeOk ? { txHash: i.fee_tx_hash, logIndex: feeOk.logIndex, blockNumber: feeOk.blockNumber.toString() } : null,
   });
   if (error) {
     const code = rpcErrorCode(error);
-    if (PERMANENT.has(code) || code === "intent_expired") return permanent(code);
-    console.error("[payments] confirm_tip failed", i.id, error.message);
+    if (PERMANENT.has(code) || code === "intent_expired" || code === "already_paid") return permanent(code);
+    console.error("[payments] confirm failed", i.id, error.message);
     return { status: "pending" };
   }
   return { status: "confirmed", tipId: tipId as string };
@@ -121,7 +129,7 @@ export async function reverifyIntentsFor(memberId: string, confirm: (intentId: s
       .select("id, fee_amount:fee_amount::text, main_tx_hash, fee_tx_hash")
       .eq("member_id", memberId)
       .eq("status", "pending")
-      .eq("purpose", "tip")
+      .in("purpose", ["tip", "bounty"])
       .not("main_tx_hash", "is", null)
       .gte("created_at", since)
       .order("created_at", { ascending: true })

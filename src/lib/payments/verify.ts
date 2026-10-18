@@ -16,7 +16,7 @@ export type VerifyInput = {
 };
 
 export type VerifyResult =
-  | { status: "ok"; logIndex: number; blockNumber: bigint }
+  | { status: "ok"; logIndex: number; blockNumber: bigint; blockTimestamp: Date }
   | { status: "pending" }
   | { status: "error"; code: "tx_not_found" | "tx_failed" | "tx_mismatch" | "tx_too_old" | "rpc_unavailable" };
 
@@ -100,7 +100,7 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
     const notBefore = BigInt(Math.floor(input.notBefore.getTime() / 1000));
     if (block.timestamp < notBefore - SKEW_SECONDS) return err("tx_too_old");
 
-    return { status: "ok", logIndex, blockNumber: receipt.blockNumber };
+    return { status: "ok", logIndex, blockNumber: receipt.blockNumber, blockTimestamp: new Date(Number(block.timestamp) * 1000) };
   } catch (e) {
     if (e instanceof NotFound) return err("tx_not_found");
     return err("rpc_unavailable");

@@ -55,7 +55,7 @@ const notFound = Object.assign(new Error("not found"), { name: "TransactionNotFo
 describe("verifyTransfer ETH", () => {
   const eth = { ...base, token: "ETH" as const, amount: 5n };
   it("accepts a matching native transfer (log index -1)", async () => {
-    expect(await verifyTransfer(eth, fake())).toEqual({ status: "ok", logIndex: -1, blockNumber: 100n });
+    expect(await verifyTransfer(eth, fake())).toEqual({ status: "ok", logIndex: -1, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
   });
   it("rejects wrong to / value / from", async () => {
     for (const tx of [{ from: PAYER, to: OTHER, value: 5n }, { from: PAYER, to: TO, value: 6n }, { from: OTHER, to: TO, value: 5n }]) {
@@ -76,7 +76,7 @@ describe("verifyTransfer USDC", () => {
       transferLog(USDC, PAYER, TO, 999n, 1),
       transferLog(USDC, PAYER, TO, 1000n, 2),
     ];
-    expect(await verifyTransfer(usdc, fake({ receipt: rc(logs) }))).toEqual({ status: "ok", logIndex: 2, blockNumber: 100n });
+    expect(await verifyTransfer(usdc, fake({ receipt: rc(logs) }))).toEqual({ status: "ok", logIndex: 2, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000) });
   });
   it("matches the usdc address case-insensitively", async () => {
     const logs = [transferLog(USDC.toLowerCase(), PAYER, TO, 1000n, 7)];

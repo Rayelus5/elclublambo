@@ -1,5 +1,5 @@
 begin;
-select plan(123);
+select plan(140);
 
 -- helpers (rolled back with the test)
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -277,18 +277,18 @@ select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.attach_intent_tx((current_setting('t.i7')::jsonb ->> 'id')::uuid, 'main', tests.hash(71));
 select public.attach_intent_tx((current_setting('t.i7')::jsonb ->> 'id')::uuid, 'fee', tests.hash(72));
 select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, %L::jsonb)$$, current_setting('t.i7')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500),
-  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500)), '42501', null,
+  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now()),
+  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500, 'blockTimestamp', now())), '42501', null,
   'authenticated is refused at the privilege level');
 select tests.clear_authentication();
 set local role service_role;
 select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, %L::jsonb)$$, current_setting('t.i7')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(70), 'logIndex', 3, 'blockNumber', 500),
-  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500)), 'P0001', 'tx_mismatch',
+  jsonb_build_object('txHash', tests.hash(70), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now()),
+  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500, 'blockTimestamp', now())), 'P0001', 'tx_mismatch',
   'a main hash that was not attached is a mismatch');
 select set_config('t.tip7', public.confirm_bounty_payment((current_setting('t.i7')::jsonb ->> 'id')::uuid,
-  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500),
-  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500))::text, true);
+  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now()),
+  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500, 'blockTimestamp', now()))::text, true);
 reset role;
 select is((select message_id::text || '/' || to_member::text || '/' || amount::text || '/' || anonymous::text || '/' || target_type
            from public.tips where id = current_setting('t.tip7')::uuid),
@@ -308,8 +308,8 @@ select is((select count(*)::int from public.notifications where kind = 'tip_rece
 select is((select status from public.payment_intents where id = (current_setting('t.i7')::jsonb ->> 'id')::uuid), 'confirmed', 'intent confirmed');
 set local role service_role;
 select is(public.confirm_bounty_payment((current_setting('t.i7')::jsonb ->> 'id')::uuid,
-  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500),
-  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500))::text, current_setting('t.tip7'),
+  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now()),
+  jsonb_build_object('txHash', tests.hash(72), 'logIndex', 4, 'blockNumber', 500, 'blockTimestamp', now()))::text, current_setting('t.tip7'),
   'confirming a confirmed intent is idempotent');
 reset role;
 select is((select count(*)::int from public.tips), 1, 'still one tip');
@@ -323,26 +323,36 @@ select set_config('t.r8', tests.post(current_setting('t.ch')::uuid, tests.td('so
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b8')::uuid, current_setting('t.r8')::uuid);
 select set_config('t.i8', public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 10000000, 0)::text, true);
-select set_config('t.i8b', public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 10000000, 0)::text, true);
+select is(public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 10000000, 0) ->> 'id', current_setting('t.i8')::jsonb ->> 'id',
+  'asking again returns the same hashless intent (F3c-R3 a)');
+-- simulate a racing second intent (the RPC no longer produces one) to pin the confirm-time already_paid guard
+select tests.clear_authentication();
+select set_config('t.i8b', jsonb_build_object('id', gen_random_uuid())::text, true);
+insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
+    recipient_member_id, recipient_address, target_type, target_id, anonymous)
+  select (current_setting('t.i8b')::jsonb ->> 'id')::uuid, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
+    recipient_member_id, recipient_address, target_type, target_id, anonymous
+  from public.payment_intents where id = (current_setting('t.i8')::jsonb ->> 'id')::uuid;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.attach_intent_tx((current_setting('t.i8')::jsonb ->> 'id')::uuid, 'main', tests.hash(71));
 select public.attach_intent_tx((current_setting('t.i8b')::jsonb ->> 'id')::uuid, 'main', tests.hash(81));
 select tests.clear_authentication();
 set local role service_role;
 select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i8')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500)), 'P0001', 'tx_already_used',
+  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now())), 'P0001', 'tx_already_used',
   'replaying a credited transfer is refused');
 reset role;
 select is((select paid_at from public.bounties where message_id = current_setting('t.b8')::uuid), null, 'the replay paid nothing');
 set local role service_role;
 select lives_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i8b')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(81), 'logIndex', 1, 'blockNumber', 600)), 'a fresh transfer pays the bounty');
+  jsonb_build_object('txHash', tests.hash(81), 'logIndex', 1, 'blockNumber', 600, 'blockTimestamp', now())), 'a fresh transfer pays the bounty');
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.attach_intent_tx((current_setting('t.i8')::jsonb ->> 'id')::uuid, 'main', tests.hash(71));
 select tests.clear_authentication();
 set local role service_role;
 select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i8')::jsonb ->> 'id',
-  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500)), 'P0001', 'already_paid',
+  jsonb_build_object('txHash', tests.hash(71), 'logIndex', 3, 'blockNumber', 500, 'blockTimestamp', now())), 'P0001', 'already_paid',
   'a second intent of an already paid bounty is refused');
 select throws_ok(format($$select public.confirm_bounty_payment(%L, null, null)$$, (select id::text from public.payment_intents
   where purpose = 'bounty' and status = 'pending' limit 1)), 'P0001', 'already_paid', 'already_paid wins over input validation');
@@ -394,6 +404,89 @@ select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).un
 select is((select count(*)::int from public.member_unpaid_bounties(current_setting('t.a')::uuid)), 2, 'nor list it');
 select is((select count(*)::int from public.bounty_details(array[current_setting('t.bh')::uuid])), 0, 'nor read its details');
 select tests.clear_authentication();
+
+-- ===== F3c-R3: no second payment while one is creditable =====
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select set_config('t.b9', tests.bounty(current_setting('t.ch'))::text, true);
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select set_config('t.r9', tests.post(current_setting('t.ch')::uuid, tests.td('solution 9'), current_setting('t.b9')::uuid)::text, true);
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select public.mark_bounty_solution(current_setting('t.b9')::uuid, current_setting('t.r9')::uuid);
+select set_config('t.i9', public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 10000000, 100)::text, true);
+select is(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 20000000, 0), current_setting('t.i9')::jsonb,
+  'a live hashless intent is returned unchanged, new amount and fee ignored');
+select is((select count(*)::int from public.payment_intents where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid), 1,
+  'no second intent row was created');
+select public.attach_intent_tx((current_setting('t.i9')::jsonb ->> 'id')::uuid, 'main', tests.hash(91));
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+  'one hash attached (fee hash missing) already blocks a new intent');
+select public.attach_intent_tx((current_setting('t.i9')::jsonb ->> 'id')::uuid, 'fee', tests.hash(92));
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+  'both hashes attached blocks a new intent');
+-- expired but both hashes were attached before expiry, inside 7 days: still creditable
+select tests.clear_authentication();
+update public.payment_intents set created_at = now() - interval '3 hours', expires_at = now() - interval '1 hour',
+  hashes_attached_at = now() - interval '2 hours' where id = (current_setting('t.i9')::jsonb ->> 'id')::uuid;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+  'an expired intent that is still creditable (F3b-R2) blocks a new intent');
+-- no longer creditable: older than 7 days
+select tests.clear_authentication();
+update public.payment_intents set created_at = now() - interval '8 days', expires_at = now() - interval '7 days',
+  hashes_attached_at = now() - interval '7 days' - interval '1 hour' where id = (current_setting('t.i9')::jsonb ->> 'id')::uuid;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select lives_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$,
+  'a dead intent (past the 7-day late-credit window) does not block a new one');
+-- a hashless intent that expired is not returned and does not block
+select tests.clear_authentication();
+update public.payment_intents set expires_at = now() - interval '1 minute', created_at = now() - interval '25 hours'
+  where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid and main_tx_hash is null;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select isnt(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 10000000, 100) ->> 'id', null, 'an expired hashless intent is replaced by a new one');
+select is((select count(*)::int from public.payment_intents where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid), 3,
+  'three intent rows for b9 in total');
+select tests.clear_authentication();
+
+-- ===== F3c-R4: paid_at is the block timestamp =====
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select set_config('t.b10', tests.bounty(current_setting('t.ch'))::text, true);
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select set_config('t.r10', tests.post(current_setting('t.ch')::uuid, tests.td('solution 10'), current_setting('t.b10')::uuid)::text, true);
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select public.mark_bounty_solution(current_setting('t.b10')::uuid, current_setting('t.r10')::uuid);
+select set_config('t.i10', public.create_bounty_payment_intent(current_setting('t.b10')::uuid, 10000000, 0)::text, true);
+select public.attach_intent_tx((current_setting('t.i10')::jsonb ->> 'id')::uuid, 'main', tests.hash(101));
+select tests.clear_authentication();
+-- marked 8 days ago; the intent was created 2 days ago (expired, but creditable under F3b-R2); the transfer was mined
+-- 1 hour after the intent, i.e. 6 days + 23 hours after marking
+update public.bounties set solution_marked_at = now() - interval '8 days' where message_id = current_setting('t.b10')::uuid;
+update public.payment_intents set created_at = now() - interval '2 days', expires_at = now() - interval '1 day',
+  hashes_attached_at = now() - interval '47 hours' where id = (current_setting('t.i10')::jsonb ->> 'id')::uuid;
+set local role service_role;
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700)), 'P0001', 'invalid_input',
+  'a missing blockTimestamp is refused');
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', 'yesterday')), 'P0001', 'invalid_input',
+  'a malformed blockTimestamp is refused');
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', now() - interval '2 days' - interval '3 minutes')),
+  'P0001', 'tx_mismatch', 'a timestamp before the intent (minus 120 s) is a mismatch');
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', now() + interval '5 minutes')),
+  'P0001', 'tx_mismatch', 'a timestamp in the future is a mismatch');
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700, 'blockTimestamp', extract(epoch from now())::bigint + 3600)),
+  'P0001', 'tx_mismatch', 'epoch seconds are parsed and range-checked too');
+select lives_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.i10')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(101), 'logIndex', 1, 'blockNumber', 700,
+    'blockTimestamp', to_char((now() - interval '1 day' - interval '23 hours') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'))),
+  'confirm 8 days after marking with an ISO block time inside the window');
+reset role;
+select is((select public.bounty_status(b) from public.bounties b where b.message_id = current_setting('t.b10')::uuid), 'paid',
+  'paid_at is the block time, so the status is paid and not paid_late');
+select ok((select paid_at < solution_marked_at + interval '7 days' and paid_at < now() - interval '1 day' from public.bounties
+  where message_id = current_setting('t.b10')::uuid), 'paid_at is not the confirm time');
 
 select * from finish();
 rollback;
