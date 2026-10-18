@@ -35,6 +35,36 @@ export interface DaoOverview {
   /** Shares of the non-withdrawable "Fondo del club" position. */
   clubShares: bigint;
   composition: Composition | null;
+  /** chain_config.withdrawals_enabled on the active chain (SuperAdmin's per-network switch). */
+  withdrawalsEnabled: boolean;
+  /** The counted supply S_eff = total shares minus the shares of approved withdrawals. */
+  supplyShares: bigint;
+  /** Shares of the viewer's active withdrawal request (pending or approved). */
+  myLockedShares: bigint;
+  /** The viewer's active request, else the newest one closed in the last 14 days. */
+  myWithdrawal: MyWithdrawal | null;
+}
+
+export type WithdrawalStatus = "pending" | "approved" | "paid" | "rejected" | "cancelled";
+
+const WITHDRAWAL_STATUSES: readonly WithdrawalStatus[] = ["pending", "approved", "paid", "rejected", "cancelled"];
+
+export interface MyWithdrawal {
+  id: string;
+  status: WithdrawalStatus;
+  shares: bigint;
+  /** USDC (6 decimals) fixed at approval; null until approved. */
+  amountUsdc: bigint | null;
+  approvedAt: string | null;
+  /** approvedAt + 14 days: when an unpaid approval lapses. */
+  expiresAt: string | null;
+  /** The Safe's payout was recorded (it may still await finality). */
+  payoutRecorded: boolean;
+  payoutTxHash: string | null;
+  rejectReason: string | null;
+  /** Set when an earlier approval lapsed ("Caducada · pendiente de nueva aprobación" while pending). */
+  lastExpiredAt: string | null;
+  createdAt: string;
 }
 
 export interface RankingEntry {
@@ -94,6 +124,28 @@ function big(v: unknown): bigint {
   return 0n;
 }
 
+const strOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+
+function myWithdrawal(v: unknown): MyWithdrawal | null {
+  if (!v || typeof v !== "object") return null;
+  const w = v as Record<string, unknown>;
+  const status = WITHDRAWAL_STATUSES.find((s) => s === w.status);
+  if (!status || typeof w.id !== "string") return null;
+  return {
+    id: w.id,
+    status,
+    shares: big(w.shares),
+    amountUsdc: w.amountUsdc == null ? null : big(w.amountUsdc),
+    approvedAt: strOrNull(w.approvedAt),
+    expiresAt: strOrNull(w.expiresAt),
+    payoutRecorded: w.payoutRecorded === true,
+    payoutTxHash: strOrNull(w.payoutTxHash),
+    rejectReason: strOrNull(w.rejectReason),
+    lastExpiredAt: strOrNull(w.lastExpiredAt),
+    createdAt: String(w.createdAt),
+  };
+}
+
 function composition(v: unknown): Composition | null {
   if (!v || typeof v !== "object") return null;
   const c = v as Record<string, unknown>;
@@ -133,6 +185,10 @@ export async function getDaoOverview(supabase: SupabaseClient): Promise<DaoOverv
     myValueUsd6: big(o.myValueUsd6),
     clubShares: big(o.clubShares),
     composition: composition(o.composition),
+    withdrawalsEnabled: o.withdrawalsEnabled === true,
+    supplyShares: big(o.supplyShares),
+    myLockedShares: big(o.myLockedShares),
+    myWithdrawal: myWithdrawal(o.myWithdrawal),
   };
 }
 

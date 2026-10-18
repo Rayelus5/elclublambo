@@ -71,6 +71,10 @@ const MESSAGES: Record<string, string> = {
   tx_too_old: "La transacción es anterior al pago.",
   tx_already_used: "Esta transacción ya se usó.",
   rpc_unavailable: "No pudimos consultar la red. Inténtalo de nuevo en un momento.",
+  withdrawals_disabled: "Las retiradas no están activadas en esta red.",
+  withdrawal_exists: "Ya tienes una retirada en curso. Cancélala o espera a que se resuelva.",
+  insufficient_shares: "No tienes tantas participaciones.",
+  amount_too_small: "La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 

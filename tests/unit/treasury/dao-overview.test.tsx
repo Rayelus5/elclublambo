@@ -19,6 +19,10 @@ const base: Data = {
   myValueUsd6: 120_000_000n,
   clubShares: 0n,
   composition: null,
+  withdrawalsEnabled: false,
+  supplyShares: 100_000_000n * 10n ** 12n,
+  myLockedShares: 0n,
+  myWithdrawal: null,
 };
 
 describe("DaoOverview", () => {

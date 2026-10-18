@@ -32,7 +32,8 @@ describe("home sections", () => {
     render(
       <DaoSummary
         overview={{ chainId: 59141, totalShares: 1n, valueUsdc: 1n, donors: 3, myShares: 0n, myShareBps: 320, myNet: 0n, myPending: [],
-          navUsd6: 1_240_000_000n, navAt: null, sharePriceUsd6: 0n, myValueUsd6: 0n, clubShares: 0n, composition: null }}
+          navUsd6: 1_240_000_000n, navAt: null, sharePriceUsd6: 0n, myValueUsd6: 0n, clubShares: 0n, composition: null,
+          withdrawalsEnabled: false, supplyShares: 1n, myLockedShares: 0n, myWithdrawal: null }}
       />,
     );
     expect(screen.getByText("Valor del fondo")).toBeInTheDocument();

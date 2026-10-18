@@ -76,6 +76,15 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorCode({ message: "bounty_has_solution" })).toBe("bounty_has_solution");
     expect(rpcErrorMessage("bounty_has_solution")).toBe("No puedes borrar un bounty con una solución elegida sin pagar.");
   });
+  it.each([
+    ["withdrawals_disabled", "Las retiradas no están activadas en esta red."],
+    ["withdrawal_exists", "Ya tienes una retirada en curso. Cancélala o espera a que se resuelva."],
+    ["insufficient_shares", "No tienes tantas participaciones."],
+    ["amount_too_small", "La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones."],
+  ])("F4c withdrawal error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });
 
