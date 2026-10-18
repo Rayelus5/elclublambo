@@ -1,6 +1,6 @@
 -- F4a Task 2: Safe operations log, treasurer notes and unexplained-outflow alerts.
 begin;
-select plan(49);
+select plan(58);
 
 -- ===== privileges / RLS =====
 select ok(not has_function_privilege('anon', 'public.record_safe_operations(int,jsonb,bigint)', 'execute'), 'anon cannot record_safe_operations');
@@ -93,7 +93,7 @@ select set_config('t.expected', (select count(*)::text from public.members m
 select set_config('t.batch', jsonb_build_array(
   tests.op(tests.hash(9301), 0, 'USDC', 'out', '2500000'),
   tests.op(tests.hash(9302), 3, 'WETH', 'in', '1000000000000000000'),
-  tests.op(tests.hash(9201), 1, 'USDC', 'in', '4000000'))::text, true);
+  tests.op(tests.hash(9201), 0, 'USDC', 'in', '4000000'))::text, true);
 select set_config('t.r1', tests.rso(59141, current_setting('t.batch')::jsonb, 777)::text, true);
 select is((current_setting('t.r1')::jsonb ->> 'inserted')::int, 3, 'three operations inserted');
 select is((current_setting('t.r1')::jsonb ->> 'alerts')::int, current_setting('t.expected')::int, 'one alert per treasurer for the single outflow');
@@ -128,13 +128,19 @@ select set_config('t.out', (select id::text from public.dao_safe_operations wher
 
 -- ===== 3. public feed =====
 select tests.authenticate_as(current_setting('t.un')::uuid);
-select is((select count(*)::int from public.dao_operations()), 2, 'the feed hides the donation inflow');
+select is((select count(*)::int from public.dao_operations()), 1, 'a member sees only the outflow: unnoted inflows and the donation are hidden');
 select is((select explained from public.dao_operations() where direction = 'out'), false, 'the USDC outflow is unexplained');
-select is((select explained from public.dao_operations() where direction = 'in'), true, 'the WETH inflow is explained');
+select is((select tx_hash from public.dao_operations() where direction = 'out'), tests.hash(9301), 'outflows keep their hash');
 select ok(not exists (select 1 from information_schema.parameters p
   where p.specific_schema = 'public' and p.specific_name like 'dao_operations%' and p.parameter_mode = 'OUT' and p.parameter_name ilike '%counterparty%'),
   'no counterparty column');
 select is((select amount from public.dao_operations() where direction = 'out'), '2500000', 'amount is returned as text');
+select tests.clear_authentication();
+
+-- treasurer view: also the un-noted non-donation inflow, with its hash; the donation stays hidden
+select tests.authenticate_as(current_setting('t.ut')::uuid);
+select is((select count(*)::int from public.dao_operations()), 2, 'a treasurer also sees the un-noted WETH inflow, not the donation');
+select is((select tx_hash from public.dao_operations() where direction = 'in'), tests.hash(9302), 'a treasurer gets the inflow hash');
 select tests.clear_authentication();
 
 -- ===== 4. notes by role =====
@@ -152,6 +158,30 @@ select tests.authenticate_as(current_setting('t.un')::uuid);
 select is((select explained from public.dao_operations() where direction = 'out'), true, 'after a note the outflow is explained');
 select tests.clear_authentication();
 
+-- (a)/(b): a noted inflow becomes visible to members, without its hash
+select tests.authenticate_as(current_setting('t.ut')::uuid);
+select public.set_operation_note((select id from public.dao_operations() where direction = 'in'), 'Producto del swap');
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.un')::uuid);
+select is((select count(*)::int from public.dao_operations()), 2, 'a noted inflow is listed to members');
+select is((select tx_hash from public.dao_operations() where direction = 'in'), null::text, 'inflow hash is null for members');
+select tests.clear_authentication();
+select is((select payload ->> 'previous' from public.audit_log where action = 'operation_noted' order by id desc limit 1), null::text, 'audit keeps the previous note (none)');
+
+-- banned treasurer is forbidden
+select tests.authenticate_as((select auth_user_id from public.members where id = current_setting('t.x')::uuid));
+select throws_ok(format($q$select public.set_operation_note(%L::uuid, 'x')$q$, current_setting('t.out')), 'forbidden', 'a banned treasurer is forbidden');
+select tests.clear_authentication();
+
+-- (c) scan before record: the inflow is stored unlinked, then record_donation links it and it stays hidden
+select tests.rso(59141, jsonb_build_array(tests.op(tests.hash(9202), 0, 'USDC', 'in', '3000000')), 800);
+select is((select ledger_id from public.dao_safe_operations where tx_hash = tests.hash(9202)), null::uuid, 'scanned before the donation is recorded: unlinked');
+select set_config('t.led2', tests.rec(tests.mkdon(current_setting('t.un')::uuid, 3000000, 9202), 9202)::text, true);
+select is((select ledger_id from public.dao_safe_operations where tx_hash = tests.hash(9202)), current_setting('t.led2')::uuid, 'record_donation links the already scanned inflow');
+select tests.authenticate_as(current_setting('t.ut')::uuid);
+select is((select count(*)::int from public.dao_operations() where amount = '3000000'), 0, 'the late-linked donation is hidden even from treasurers');
+select tests.clear_authentication();
+
 -- ===== 5. note length =====
 select tests.authenticate_as(current_setting('t.ut')::uuid);
 select throws_ok(format($q$select public.set_operation_note(%L::uuid, '')$q$, current_setting('t.out')::uuid),
@@ -161,8 +191,8 @@ select throws_ok(format($q$select public.set_operation_note(%L::uuid, %L)$q$, cu
 select tests.clear_authentication();
 
 -- ===== 6. scan state =====
-select is((select last_block from public.dao_scan_state where chain_id = 59141), 778::bigint, 'last_block advanced');
-select is(tests.sf(59141), 778::bigint, 'dao_scan_from returns it');
+select is((select last_block from public.dao_scan_state where chain_id = 59141), 800::bigint, 'last_block advanced');
+select is(tests.sf(59141), 800::bigint, 'dao_scan_from returns it');
 select is(tests.sf(59144), null::bigint, 'dao_scan_from is null for an unscanned chain');
 
 -- ===== 7. ETH op without hash, keyed by block =====
