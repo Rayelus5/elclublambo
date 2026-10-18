@@ -94,4 +94,20 @@ describe("ApproveDialog", () => {
     await userEvent.dblClick(btn);
     expect(approveWithdrawalAction).toHaveBeenCalledTimes(1);
   });
+
+  it("repeats the banned flag where the decision is made", async () => {
+    quoteWithdrawalAction.mockResolvedValue(quote());
+    render(<ApproveDialog requestId="r1" banned open onOpenChange={() => {}} />);
+    expect(await screen.findByText(/Miembro baneado/)).toBeInTheDocument();
+  });
+
+  it("offers a retry when the quote fails", async () => {
+    quoteWithdrawalAction.mockResolvedValueOnce({ ok: false, code: "rpc_unavailable", error: "No pudimos consultar la red." });
+    quoteWithdrawalAction.mockResolvedValueOnce(quote());
+    open();
+    await userEvent.click(await screen.findByRole("button", { name: "Reintentar" }));
+    expect(await screen.findByText("Importe que se fijará: 8 USDC")).toBeInTheDocument();
+    expect(quoteWithdrawalAction).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("button", { name: "Reintentar" })).toBeNull();
+  });
 });

@@ -2,7 +2,7 @@ import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, TriangleAlert } from "lucide-react";
 import type { Address } from "viem";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { OperationsList } from "@/components/treasury/operations-list";
@@ -15,7 +15,7 @@ import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatUsdc } from "@/lib/treasury/format";
 import { formatWhen, treasuryAlerts } from "@/lib/treasury/panel";
-import { getDaoOverview, getOperations } from "@/lib/treasury/queries";
+import { getDaoOverview, getUnexplainedOutflows } from "@/lib/treasury/queries";
 import { readSafeAssets } from "@/lib/treasury/valuation";
 import { getTreasuryWithdrawals } from "@/lib/treasury/withdrawals";
 
@@ -50,11 +50,11 @@ async function TreasuryContent() {
   const isSuperAdmin = hasPerm(perms, Perm.ADMINISTRATOR);
   const meId = typeof me.data === "string" ? me.data : null;
 
-  const [economy, overview, withdrawals, operations] = await Promise.all([
+  const [economy, overview, withdrawals, unexplained] = await Promise.all([
     getEconomyConfig(),
     getDaoOverview(supabase),
     getTreasuryWithdrawals(supabase),
-    getOperations(supabase, 100),
+    getUnexplainedOutflows(supabase),
   ]);
   const chainId: ChainId = overview.chainId;
   const safe = economy.chains[chainId].safe;
@@ -78,12 +78,17 @@ async function TreasuryContent() {
   const open = withdrawals.filter((w) => w.status === "pending" || w.status === "approved");
   const ids = [...new Set(open.map((w) => w.memberId))];
   let bannedIds: string[] = [];
+  let bannedCheckFailed = false;
   if (ids.length > 0) {
-    const { data } = await supabase.from("members").select("id, status").in("id", ids);
-    bannedIds = ((data ?? []) as { id: string; status: string }[]).filter((m) => m.status === "banned").map((m) => m.id);
+    const { data, error } = await supabase.from("members").select("id, status").in("id", ids);
+    if (error) {
+      console.error("[treasury] panel banned lookup failed", error.message);
+      bannedCheckFailed = true;
+    } else {
+      bannedIds = ((data ?? []) as { id: string; status: string }[]).filter((m) => m.status === "banned").map((m) => m.id);
+    }
   }
 
-  const unexplained = operations.filter((o) => o.direction === "out" && !o.explained);
   const alerts = treasuryAlerts({ withdrawals, safeUsdc, unexplained: unexplained.length, now: new Date() });
 
   return (
@@ -107,6 +112,13 @@ async function TreasuryContent() {
           <p className="text-sm text-fg-muted">No se pudo leer el saldo de USDC de la Safe.</p>
         )}
       </header>
+
+      {bannedCheckFailed ? (
+        <p role="status" className="flex items-start gap-2 rounded-control border border-warning p-3 text-sm text-warning">
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          No se pudo comprobar si algún miembro con retirada abierta está baneado. Recarga la página antes de decidir.
+        </p>
+      ) : null}
 
       {/* Live: any change in the treasury re-renders this page through the same channel as /dao. */}
       <DaoLive />

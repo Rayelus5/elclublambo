@@ -5,7 +5,7 @@
 // (closed in the last 30 days). Dialogs live here, not in the rows: an approval moves the row to another list on refresh
 // and its success message must stay on screen.
 import { useId, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortAddress } from "@/lib/auth/wallet";
 import { explorerTx, type ChainId } from "@/lib/economy/networks";
@@ -54,7 +54,7 @@ export function WithdrawalsTable({
   /** For the explorer link of a paid request. */
   chainId?: ChainId;
 }) {
-  const [active, setActive] = useState<{ id: string; action: "approve" | "reject" | "paid"; approved: boolean } | null>(null);
+  const [active, setActive] = useState<{ id: string; action: "approve" | "reject" | "paid"; approved: boolean; banned: boolean } | null>(null);
   const idBase = useId();
   const close = (open: boolean) => {
     if (!open) setActive(null);
@@ -75,12 +75,12 @@ export function WithdrawalsTable({
               own={meId !== null && w.memberId === meId}
               banned={bannedIds.includes(w.memberId)}
               chainId={chainId}
-              onAction={(action) => setActive({ id: w.id, action, approved: w.status === "approved" })}
+              onAction={(action) => setActive({ id: w.id, action, approved: w.status === "approved", banned: bannedIds.includes(w.memberId) })}
             />
           ))}
         </ul>
       )}
-      {active?.action === "approve" ? <ApproveDialog key={active.id} requestId={active.id} open onOpenChange={close} /> : null}
+      {active?.action === "approve" ? <ApproveDialog key={active.id} requestId={active.id} banned={active.banned} open onOpenChange={close} /> : null}
       {active?.action === "reject" ? <RejectDialog key={active.id} requestId={active.id} approved={active.approved} open onOpenChange={close} /> : null}
       {active?.action === "paid" ? <MarkPaidDialog key={active.id} requestId={active.id} open onOpenChange={close} /> : null}
     </>
@@ -165,14 +165,24 @@ function Row({
         </div>
       ) : null}
       {kind === "approved" ? (
-        <div className="flex flex-wrap gap-2 md:shrink-0">
-          <Button size="sm" aria-describedby={labelId} onClick={() => onAction("paid")}>
-            Marcar como pagada
-          </Button>
-          {!recorded ? (
-            <Button size="sm" variant="secondary" aria-describedby={labelId} onClick={() => onAction("reject")}>
-              Rechazar
-            </Button>
+        <div className="flex flex-col gap-2 md:shrink-0 md:items-end">
+          <div className="flex flex-wrap gap-2">
+            {!recorded ? (
+              <Button size="sm" aria-describedby={labelId} onClick={() => onAction("paid")}>
+                Marcar como pagada
+              </Button>
+            ) : null}
+            {!recorded ? (
+              <Button size="sm" variant="secondary" aria-describedby={labelId} disabled={w.payoutLinked} onClick={() => onAction("reject")}>
+                Rechazar
+              </Button>
+            ) : null}
+          </div>
+          {!recorded && w.payoutLinked ? (
+            <p className="flex max-w-xs items-start gap-1.5 text-[13px] text-warning">
+              <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+              Hay un pago detectado pendiente de verificar.
+            </p>
           ) : null}
         </div>
       ) : null}
@@ -188,7 +198,15 @@ function RecentDetails({ w, chainId }: { w: TreasuryWithdrawal; chainId?: ChainI
         {w.status === "paid" ? `${labelOf(w)} · ${formatUsdc(w.payoutAmount ?? w.amountUsdc ?? 0n)}` : labelOf(w)}
       </p>
       {w.status === "rejected" && w.rejectReason ? <p className="text-[13px] break-words text-fg-muted">{`Motivo: ${w.rejectReason}`}</p> : null}
-      <p className="text-[13px] text-fg-muted">{w.status === "paid" ? `Pagada el ${formatWhen(closedAt)}` : `Solicitada el ${formatWhen(w.createdAt)}`}</p>
+      <p className="text-[13px] text-fg-muted">
+        {w.status === "paid"
+          ? `Pagada el ${formatWhen(closedAt)}`
+          : w.status === "rejected" && w.rejectedAt
+            ? `Rechazada el ${formatWhen(w.rejectedAt)}`
+            : w.status === "cancelled" && w.cancelledAt
+              ? `Cancelada el ${formatWhen(w.cancelledAt)}`
+              : `Solicitada el ${formatWhen(w.createdAt)}`}
+      </p>
       {w.status === "paid" && w.payoutTxHash && chainId ? (
         <a href={explorerTx(chainId, w.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
           Ver el pago en el explorador

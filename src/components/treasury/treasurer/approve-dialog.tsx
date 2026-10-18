@@ -15,10 +15,13 @@ const DIGITS = /^\d{1,78}$/;
 /** What approving would fix right now, then the approval itself. The amount comes from SQL; the treasurer cannot edit it. */
 export function ApproveDialog({
   requestId,
+  banned = false,
   open,
   onOpenChange,
 }: {
   requestId: string;
+  /** The member was banned after asking (ruling F4c-R2): they can still be paid, but the treasurer should know. */
+  banned?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
@@ -32,19 +35,20 @@ export function ApproveDialog({
           </DialogDescription>
         </DialogHeader>
         {/* Mounted only while open: the quote is read each time the dialog opens. */}
-        <ApproveBody requestId={requestId} onClose={() => onOpenChange(false)} />
+        <ApproveBody requestId={requestId} banned={banned} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function ApproveBody({ requestId, onClose }: { requestId: string; onClose: () => void }) {
+function ApproveBody({ requestId, banned, onClose }: { requestId: string; banned: boolean; onClose: () => void }) {
   const router = useRouter();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [approvedAmount, setApprovedAmount] = useState<bigint | null>(null);
   const [pending, setPending] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const inFlight = useRef(false);
 
   useEffect(() => {
@@ -68,7 +72,13 @@ function ApproveBody({ requestId, onClose }: { requestId: string; onClose: () =>
     return () => {
       live = false;
     };
-  }, [requestId]);
+  }, [requestId, attempt]);
+
+  function retry() {
+    setError(null);
+    setLoading(true);
+    setAttempt((n) => n + 1);
+  }
 
   async function approve() {
     if (!quote || inFlight.current) return;
@@ -113,6 +123,12 @@ function ApproveBody({ requestId, onClose }: { requestId: string; onClose: () =>
           Calculando el importe…
         </p>
       ) : null}
+      {banned ? (
+        <p className="flex items-start gap-2 text-sm text-warning">
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          Miembro baneado: pidió la retirada antes de que lo baneasen. Puede aprobarse y pagarse igualmente.
+        </p>
+      ) : null}
       {quote ? (
         <div className="flex flex-col gap-2 text-sm">
           <p className="text-fg">{`Importe que se fijará: ${formatUsdc(quote.amountUsdc)}`}</p>
@@ -139,6 +155,11 @@ function ApproveBody({ requestId, onClose }: { requestId: string; onClose: () =>
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           {error}
         </p>
+      ) : null}
+      {!quote && !loading && !approvedAmount ? (
+        <Button variant="secondary" onClick={retry}>
+          Reintentar
+        </Button>
       ) : null}
       <Button onClick={approve} disabled={!quote || pending}>
         {pending ? <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> : null}

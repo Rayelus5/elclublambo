@@ -50,6 +50,10 @@ export interface TreasuryWithdrawal {
   payoutAmount: bigint | null;
   payoutRecordedAt: string | null;
   paidAt: string | null;
+  /** A Safe outflow is linked as the payout and awaits verification (F4c-R6): rejecting is refused meanwhile. */
+  payoutLinked: boolean;
+  rejectedAt: string | null;
+  cancelledAt: string | null;
 }
 
 function big(v: unknown): bigint {
@@ -128,6 +132,9 @@ export async function getTreasuryWithdrawals(supabase: SupabaseClient): Promise<
       payoutAmount: bigOrNull(r.payout_amount),
       payoutRecordedAt: strOrNull(r.payout_recorded_at),
       paidAt: strOrNull(r.paid_at),
+      payoutLinked: r.payout_linked === true,
+      rejectedAt: strOrNull(r.rejected_at),
+      cancelledAt: strOrNull(r.cancelled_at),
     });
   }
   return out;

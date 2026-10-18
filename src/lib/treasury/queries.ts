@@ -192,9 +192,7 @@ export async function getNavHistory(supabase: SupabaseClient, range: NavRange): 
 const ASSETS = new Set<string>(["USDC", "ETH", "WETH"]);
 
 /** The Safe's operations, newest first, as dao_operations filters them for the viewer (ruling F4a-R5). */
-export async function getOperations(supabase: SupabaseClient, limit = 30): Promise<Operation[]> {
-  const { data, error } = await supabase.rpc("dao_operations", { p_limit: limit });
-  if (error) throw new Error(error.message);
+function parseOperations(data: unknown): Operation[] {
   return ((data ?? []) as Record<string, unknown>[])
     .filter((r) => ASSETS.has(String(r.asset)) && (r.direction === "in" || r.direction === "out"))
     .map((r) => ({
@@ -207,6 +205,19 @@ export async function getOperations(supabase: SupabaseClient, limit = 30): Promi
       note: typeof r.note === "string" ? r.note : null,
       explained: r.explained === true,
     }));
+}
+
+export async function getOperations(supabase: SupabaseClient, limit = 30): Promise<Operation[]> {
+  const { data, error } = await supabase.rpc("dao_operations", { p_limit: limit });
+  if (error) throw new Error(error.message);
+  return parseOperations(data);
+}
+
+/** Every unexplained outflow of the active chain (treasurers only; not limited to the latest operations). */
+export async function getUnexplainedOutflows(supabase: SupabaseClient): Promise<Operation[]> {
+  const { data, error } = await supabase.rpc("treasury_unexplained_outflows");
+  if (error) throw new Error(error.message);
+  return parseOperations(data);
 }
 
 /** The caller's position on a chain (the active one when omitted). */

@@ -22,10 +22,38 @@ describe("WithdrawalsSwitch", () => {
   it("toggles through the action and shows the new state", async () => {
     setWithdrawalsEnabledAction.mockResolvedValue({ ok: true });
     render(<WithdrawalsSwitch enabled={{ 59144: false, 59141: false }} />);
+    await userEvent.click(screen.getByRole("switch", { name: "Retiradas en Linea Sepolia" }));
+    expect(setWithdrawalsEnabledAction).toHaveBeenCalledWith(59141, true);
+    expect(await screen.findByText("Activadas")).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Retiradas en Linea Sepolia" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("asks for confirmation before turning mainnet ON, and cancelling changes nothing", async () => {
+    setWithdrawalsEnabledAction.mockResolvedValue({ ok: true });
+    render(<WithdrawalsSwitch enabled={{ 59144: false, 59141: false }} />);
     await userEvent.click(screen.getByRole("switch", { name: "Retiradas en Linea" }));
+    expect(screen.getByRole("dialog", { name: "Activar retiradas en Linea" })).toBeInTheDocument();
+    expect(setWithdrawalsEnabledAction).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(setWithdrawalsEnabledAction).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("switch", { name: "Retiradas en Linea" }));
+    await userEvent.click(screen.getByRole("button", { name: "Activar retiradas" }));
     expect(setWithdrawalsEnabledAction).toHaveBeenCalledWith(59144, true);
     expect(await screen.findByText("Activadas")).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: "Retiradas en Linea" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("turning mainnet OFF needs no confirmation", async () => {
+    setWithdrawalsEnabledAction.mockResolvedValue({ ok: true });
+    render(<WithdrawalsSwitch enabled={{ 59144: true, 59141: false }} />);
+    await userEvent.click(screen.getByRole("switch", { name: "Retiradas en Linea" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(setWithdrawalsEnabledAction).toHaveBeenCalledWith(59144, false);
+  });
+
+  it("re-syncs when the server's values change", () => {
+    const { rerender } = render(<WithdrawalsSwitch enabled={{ 59144: false, 59141: false }} />);
+    rerender(<WithdrawalsSwitch enabled={{ 59144: false, 59141: true }} />);
+    expect(screen.getByRole("switch", { name: "Retiradas en Linea Sepolia" })).toHaveAttribute("aria-checked", "true");
   });
 
   it("keeps the old state and shows the error when the action fails", async () => {

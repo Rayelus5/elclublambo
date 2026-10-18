@@ -42,6 +42,9 @@ const row = (over: Partial<TreasuryWithdrawal> = {}): TreasuryWithdrawal => ({
   payoutAmount: null,
   payoutRecordedAt: null,
   paidAt: null,
+  payoutLinked: false,
+  rejectedAt: null,
+  cancelledAt: null,
   ...over,
 });
 
@@ -106,7 +109,20 @@ describe("WithdrawalsTable · approved", () => {
     );
     expect(screen.getByText("Pago detectado · esperando finalidad")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Rechazar" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Marcar como pagada" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Marcar como pagada" })).toBeNull();
+  });
+
+  it("with a linked payout candidate (F4c-R6): Rechazar is disabled and says why up front", () => {
+    render(<WithdrawalsTable kind="approved" rows={[approved({ payoutLinked: true })]} meId={null} bannedIds={[]} />);
+    expect(screen.getByRole("button", { name: "Rechazar" })).toBeDisabled();
+    expect(screen.getByText("Hay un pago detectado pendiente de verificar.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Marcar como pagada" })).toBeEnabled();
+  });
+
+  it("without a candidate Rechazar is enabled and no warning shows", () => {
+    render(<WithdrawalsTable kind="approved" rows={[approved()]} meId={null} bannedIds={[]} />);
+    expect(screen.getByRole("button", { name: "Rechazar" })).toBeEnabled();
+    expect(screen.queryByText(/pago detectado pendiente/)).toBeNull();
   });
 
   it("flags a banned member (they can still be paid)", () => {
@@ -122,8 +138,8 @@ describe("WithdrawalsTable · recent", () => {
         kind="recent"
         rows={[
           row({ id: "a", status: "paid", amountUsdc: 8_000_000n, payoutAmount: 8_000_000n, paidAt: "2026-10-18T00:00:00Z" }),
-          row({ id: "b", status: "rejected", rejectReason: "Sin fondos" }),
-          row({ id: "c", status: "cancelled" }),
+          row({ id: "b", status: "rejected", rejectReason: "Sin fondos", rejectedAt: "2026-10-17T09:00:00Z" }),
+          row({ id: "c", status: "cancelled", cancelledAt: "2026-10-16T08:00:00Z" }),
         ]}
         meId={null}
         bannedIds={[]}
@@ -133,6 +149,8 @@ describe("WithdrawalsTable · recent", () => {
     expect(screen.getByText("Rechazada")).toBeInTheDocument();
     expect(screen.getByText(/Sin fondos/)).toBeInTheDocument();
     expect(screen.getByText("Cancelada")).toBeInTheDocument();
+    expect(screen.getByText(/Rechazada el 17 oct 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Cancelada el 16 oct 2026/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Aprobar|Rechazar|Marcar/ })).toBeNull();
   });
 });

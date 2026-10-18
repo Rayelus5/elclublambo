@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleAlert, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ChainId } from "@/lib/economy/networks";
 import { setWithdrawalsEnabledAction } from "@/lib/treasury/withdrawal-actions";
 import { cn } from "@/lib/utils";
@@ -16,9 +18,23 @@ const NETWORKS: { chain: ChainId; label: string; hint?: string }[] = [
 export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolean> }) {
   const router = useRouter();
   const [state, setState] = useState(enabled);
+  // Re-sync when the server's values change (a refresh, or another SuperAdmin flipping it): adjust during render.
+  const signature = `${enabled[59144]}|${enabled[59141]}`;
+  const [seen, setSeen] = useState(signature);
+  if (seen !== signature) {
+    setSeen(signature);
+    setState(enabled);
+  }
+  const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState<ChainId | null>(null);
   const [errors, setErrors] = useState<Partial<Record<ChainId, string>>>({});
   const inFlight = useRef(false);
+
+  /** Turning mainnet ON asks first: it opens real money to withdrawal requests. */
+  function onClick(chain: ChainId) {
+    if (chain === 59144 && !state[chain]) setConfirming(true);
+    else void toggle(chain);
+  }
 
   async function toggle(chain: ChainId) {
     if (inFlight.current) return;
@@ -43,6 +59,7 @@ export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolea
   }
 
   return (
+    <>
     <ul className="flex flex-col divide-y divide-border">
       {NETWORKS.map(({ chain, label, hint }) => {
         const on = state[chain];
@@ -69,7 +86,7 @@ export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolea
                   aria-labelledby={`${id}-label`}
                   aria-describedby={hint ? `${id}-hint` : undefined}
                   disabled={busy !== null}
-                  onClick={() => toggle(chain)}
+                  onClick={() => onClick(chain)}
                   className={cn(
                     "relative inline-flex h-11 w-14 shrink-0 items-center justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg disabled:opacity-50",
                   )}
@@ -103,5 +120,29 @@ export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolea
         );
       })}
     </ul>
+    <Dialog open={confirming} onOpenChange={setConfirming}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Activar retiradas en Linea</DialogTitle>
+          <DialogDescription>
+            Los miembros podrán pedir retiradas de dinero real. Recomendado solo tras una revisión legal. Puedes desactivarlo después; las solicitudes abiertas se mantienen.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            onClick={() => {
+              setConfirming(false);
+              void toggle(59144);
+            }}
+          >
+            Activar retiradas
+          </Button>
+          <Button variant="secondary" onClick={() => setConfirming(false)}>
+            Cancelar
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

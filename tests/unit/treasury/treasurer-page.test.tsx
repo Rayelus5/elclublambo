@@ -5,14 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const perms = vi.hoisted(() => ({ value: "256" }));
-const members = vi.hoisted(() => ({ rows: [] as { id: string; status: string }[] }));
+const members = vi.hoisted(() => ({ rows: [] as { id: string; status: string }[], error: null as { message: string } | null }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerClient: async () => ({
     rpc: async (fn: string) => ({ data: fn === "my_permissions" ? perms.value : fn === "current_member_id" ? "me" : null, error: null }),
     from: () => {
       const b: Record<string, unknown> = {};
       b.select = () => b;
-      b.in = async () => ({ data: members.rows, error: null });
+      b.in = async () => ({ data: members.error ? null : members.rows, error: members.error });
       return b;
     },
   }),
@@ -56,9 +56,8 @@ const overview = {
 };
 vi.mock("@/lib/treasury/queries", () => ({
   getDaoOverview: async () => overview,
-  getOperations: async () => [
+  getUnexplainedOutflows: async () => [
     { id: "o1", asset: "USDC", direction: "out", amount: 1_000_000n, txHash: null, occurredAt: "2026-10-19T09:00:00Z", note: null, explained: false },
-    { id: "o2", asset: "USDC", direction: "out", amount: 2_000_000n, txHash: null, occurredAt: "2026-10-19T08:00:00Z", note: "Swap", explained: true },
   ],
 }));
 
@@ -74,6 +73,7 @@ async function content(): Promise<ReactElement> {
 beforeEach(() => {
   perms.value = "256";
   members.rows = [];
+  members.error = null;
   notFound.mockClear();
   readSafeAssets.mockReset();
   readSafeAssets.mockResolvedValue({ usdc: 10_000_000n, eth: 0n, weth: 0n, blockNumber: 1n });
@@ -125,11 +125,26 @@ describe("/dao/tesoreria", () => {
         id: "w1", memberId: "m1", memberLabel: "@ana", wallet: SAFE, shares: 1n, positionShares: 2n, status: "pending",
         createdAt: "2026-10-18T10:00:00Z", approvedAt: null, expiresAt: null, approvedByLabel: null, selfApproved: false,
         amountUsdc: null, estimateUsd6: null, lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null,
-        payoutRecordedAt: null, paidAt: null,
+        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null,
       },
     ]);
     members.rows = [{ id: "m1", status: "banned" }];
     render(await content());
     expect(screen.getByText("Miembro baneado")).toBeInTheDocument();
+  });
+
+  it("warns instead of silently dropping the banned flags when the lookup fails", async () => {
+    getTreasuryWithdrawals.mockResolvedValue([
+      {
+        id: "w1", memberId: "m1", memberLabel: "@ana", wallet: SAFE, shares: 1n, positionShares: 2n, status: "pending",
+        createdAt: "2026-10-18T10:00:00Z", approvedAt: null, expiresAt: null, approvedByLabel: null, selfApproved: false,
+        amountUsdc: null, estimateUsd6: null, lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null,
+        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null,
+      },
+    ]);
+    members.error = { message: "boom" };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(await content());
+    expect(screen.getByRole("status")).toHaveTextContent("No se pudo comprobar si algún miembro");
   });
 });
