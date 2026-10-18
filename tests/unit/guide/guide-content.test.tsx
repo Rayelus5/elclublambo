@@ -8,7 +8,7 @@ import { GuideContent, isComingSoon } from "@/components/guide/guide-content";
 describe("guide: propinas", () => {
   it("is no longer marked as coming soon", () => {
     expect(isComingSoon("propinas")).toBe(false);
-    expect(isComingSoon("bounties")).toBe(true);
+    expect(isComingSoon("bounties")).toBe(false);
   });
   it("warns that ETH tips need a plain wallet", () => {
     render(<GuideContent slug="propinas" />);

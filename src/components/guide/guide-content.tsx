@@ -289,7 +289,7 @@ const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
 };
 
 /** Sections whose feature is not shipped yet: the guide says what will exist. F3b-F3d remove each entry. */
-const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>(["bounties", "dao", "candados"]);
+const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>(["dao", "candados"]);
 
 export function isComingSoon(slug: GuideSlug): boolean {
   return COMING_SOON.has(slug);

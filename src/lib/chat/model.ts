@@ -1,4 +1,5 @@
 // View model of the chat and the pure helpers around it (no React, no Supabase): usable on server and client.
+import type { BountyDetail } from "@/lib/bounties/queries";
 import type { MemberIdentity } from "@/lib/members/name";
 import type { TipNoticeLink, TipTotal } from "@/lib/payments/queries";
 
@@ -37,9 +38,11 @@ export interface ChatMessage {
   /** Raw Tiptap JSON as stored (untrusted: MessageContent sanitizes it). */
   body: unknown;
   allowLinks: boolean;
-  kind: "text" | "alpha" | "system";
+  kind: "text" | "alpha" | "system" | "bounty";
   /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
   alphaAddress: string | null;
+  /** Details of a bounty message; null when unreadable or not a bounty. Absent on view models built before bounties. */
+  bounty?: BountyDetail | null;
   expanded: boolean;
   quotedId: string | null;
   quote: QuotePreview | null;
@@ -84,6 +87,8 @@ export interface ViewerPermissions {
   canReact: boolean;
   /** EMBED_LINKS: needed (with the channel's alpha_enabled) to post Alpha theses. */
   canEmbed?: boolean;
+  /** CREATE_BOUNTIES (with SEND_MESSAGES, checked where it is used): /bounty opens the bounty dialog. */
+  canBounty?: boolean;
 }
 
 // --- reactions ------------------------------------------------------------------------------------

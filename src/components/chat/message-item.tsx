@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
+import { CircleCheck, CornerDownRight, MessageSquare, MoreHorizontal, Pin, Trash2 } from "lucide-react";
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
+import { BountyCard } from "@/components/chat/bounty-card";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { SystemNotice } from "@/components/chat/system-notice";
@@ -22,8 +23,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
+import { rpcErrorMessage } from "@/lib/errors";
 import type { MemberIdentity } from "@/lib/members/name";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +42,13 @@ export interface MessageItemHandlers {
   onDelete?: (message: ChatMessage) => Promise<string | null | void> | void;
   onPin?: (message: ChatMessage, pinned: boolean) => void;
   onToggleReaction?: (message: ChatMessage, emoji: string) => void;
+  /** A bounty message changed (cancelled, or its payment dialog closed): the list re-reads it. */
+  onBountyChanged?: (message: ChatMessage) => void;
+  /**
+   * Present only for the author of an open bounty, inside its thread: marks `message` (a reply) as the solution.
+   * Resolves to an error message, or null when it was marked.
+   */
+  onMarkSolution?: (message: ChatMessage) => Promise<string | null>;
 }
 
 export interface MessageItemProps extends MessageItemHandlers {
@@ -51,6 +61,8 @@ export interface MessageItemProps extends MessageItemHandlers {
   variant?: MessageVariant;
   /** The target of a `?m=` jump, for a couple of seconds: accent border and `aria-current`. */
   highlighted?: boolean;
+  /** This reply is the bounty's marked solution. */
+  isSolution?: boolean;
 }
 
 const DAY_TIME = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit" });
@@ -81,12 +93,15 @@ export function MessageItem({
   grouped = false,
   variant = "list",
   highlighted = false,
+  isSolution = false,
   onOpenThread,
   onQuote,
   onEdit,
   onDelete,
   onPin,
   onToggleReaction,
+  onBountyChanged,
+  onMarkSolution,
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -94,6 +109,9 @@ export function MessageItem({
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
   const [tipping, setTipping] = useState(false);
+  const [confirmMark, setConfirmMark] = useState(false);
+  const [markError, setMarkError] = useState<string | null>(null);
+  const [marking, setMarking] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -113,6 +131,8 @@ export function MessageItem({
   const canReport = !own && !deleted && variant !== "pinned";
   // Tips go to a person: never on one's own message, a deleted one, or a system notice (no author).
   const canTip = !own && !deleted && variant !== "pinned" && message.kind !== "system" && authorId !== null;
+  // Only the author of an open bounty gets the handler; it is offered on other members' visible replies.
+  const canMark = !!onMarkSolution && !own && !deleted && variant === "thread" && message.threadRootId !== null && message.kind !== "system";
   const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
@@ -135,6 +155,18 @@ export function MessageItem({
     if (err) setDeleteError(err);
     else setConfirmDelete(false);
   };
+
+  const mark = async () => {
+    setMarking(true);
+    setMarkError(null);
+    const err = await Promise.resolve(onMarkSolution?.(message)).catch(() => rpcErrorMessage("unknown"));
+    setMarking(false);
+    if (err) setMarkError(err);
+    else setConfirmMark(false);
+  };
+
+  const bounty = message.kind === "bounty" ? message.bounty : null;
+  const solverMember = bounty?.solverId ? directory.members[bounty.solverId] : undefined;
 
   if (message.kind === "system") {
     // A notice a moderator removed leaves no trace in the thread.
@@ -213,6 +245,13 @@ export function MessageItem({
           </div>
         )}
 
+        {isSolution && !deleted ? (
+          <span className="inline-flex min-h-7 items-center gap-1.5 self-start rounded-control border border-success px-2 text-[13px] font-bold text-success">
+            <CircleCheck aria-hidden className="size-3.5" />
+            Solución
+          </span>
+        ) : null}
+
         {deleted ? (
           <p className="flex items-center gap-2 text-sm text-fg-muted italic">
             <Trash2 aria-hidden className="size-4 shrink-0" />
@@ -254,6 +293,16 @@ export function MessageItem({
               </blockquote>
             ) : null}
             {message.kind === "alpha" && message.alphaAddress ? <AlphaCard address={message.alphaAddress} /> : null}
+            {bounty ? (
+              <BountyCard
+                messageId={message.id}
+                channelId={message.channelId}
+                bounty={bounty}
+                isAuthor={own}
+                solver={solverMember && bounty.solverId ? { ...solverMember, id: bounty.solverId } : null}
+                onChanged={() => onBountyChanged?.(message)}
+              />
+            ) : null}
             <MessageContent doc={message.body} allowLinks={message.allowLinks} allowedDomains={allowedDomains} mentionsDir={directory} />
             {message.editedAt ? (
               <span className="self-start text-[13px] text-fg-muted" title={`Editado ${formatTime(message.editedAt)}`}>
@@ -271,6 +320,11 @@ export function MessageItem({
             canReact={viewer.canReact}
             onToggle={(emoji) => onToggleReaction?.(message, emoji)}
           />
+        ) : null}
+        {canMark ? (
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setConfirmMark(true)}>
+            Marcar como solución
+          </Button>
         ) : null}
         {replies}
       </div>
@@ -352,6 +406,44 @@ export function MessageItem({
       ) : null}
 
       {canReport ? <ReportDialog messageId={message.id} open={reporting} onOpenChange={setReporting} /> : null}
+
+      {canMark ? (
+        <AlertDialog
+          open={confirmMark}
+          onOpenChange={(open) => {
+            if (marking) return;
+            setConfirmMark(open);
+            if (!open) setMarkError(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Marcar esta respuesta como solución?</AlertDialogTitle>
+              <AlertDialogDescription>
+                No se puede deshacer ni cambiar por otra. Desde ahora tienes 7 días para pagarla; pasado ese plazo el bounty queda como impagado.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {markError ? (
+              <p role="alert" className="text-sm text-danger">
+                {markError}
+              </p>
+            ) : null}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={marking}>Volver</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={marking}
+                onClick={(e) => {
+                  // Keep the dialog open until the server answers, so an error can be shown in it.
+                  e.preventDefault();
+                  void mark();
+                }}
+              >
+                Sí, marcar como solución
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      ) : null}
 
       <AlertDialog
         open={confirmDelete}

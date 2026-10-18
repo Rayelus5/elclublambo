@@ -104,6 +104,12 @@ describe("filterSlashCommands", () => {
     expect(filterSlashCommands("", { canAttach: false, hasAlpha: false }).map((c) => c.id)).toEqual(["codigo"]);
     expect(filterSlashCommands("", { canAttach: true, hasAlpha: true }).map((c) => c.id)).toEqual(["alpha", "imagen", "codigo"]);
   });
+  it("shows /bounty only when the member can create bounties", () => {
+    expect(filterSlashCommands("", { canAttach: true, hasAlpha: true }).map((c) => c.id)).not.toContain("bounty");
+    expect(filterSlashCommands("", { canAttach: true, hasAlpha: true, hasBounty: true }).map((c) => c.id)).toEqual(["alpha", "bounty", "imagen", "codigo"]);
+    expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: true }).map((c) => c.id)).toEqual(["bounty"]);
+    expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: false })).toEqual([]);
+  });
   it("filters by prefix, ignoring case and accents", () => {
     expect(filterSlashCommands("CÓ", { canAttach: true, hasAlpha: true }).map((c) => c.id)).toEqual(["codigo"]);
     expect(filterSlashCommands("im", { canAttach: false, hasAlpha: true })).toEqual([]);

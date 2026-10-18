@@ -5,11 +5,14 @@ import type { TipIntent } from "@/lib/payments/tip-actions";
  * is told, so a closed tab, a failed attach or a rejected second signature never costs the member a second payment.
  * Every access is wrapped: the flow must keep working when storage is unavailable.
  */
+/** What a send pays for: a message or profile tip, or a bounty (targetId is the bounty message id). */
+export type LedgerTargetType = "message" | "profile" | "bounty";
+
 export type PendingSend = {
   intentId: string;
   chainId: number;
   token: "ETH" | "USDC";
-  targetType: "message" | "profile";
+  targetType: LedgerTargetType;
   targetId: string;
   feeRequired: boolean;
   feeHash?: string;
@@ -81,12 +84,12 @@ export function remainingMs(intent: Pick<TipIntent, "expiresAt">, now = Date.now
 }
 
 /** A fee already paid whose main transfer was never signed, for this target. The caller checks the expiry margin. */
-export function findResumable(memberId: string, targetType: "message" | "profile", targetId: string, now = Date.now()): PendingSend | undefined {
+export function findResumable(memberId: string, targetType: LedgerTargetType, targetId: string, now = Date.now()): PendingSend | undefined {
   return loadSends(memberId, now).find((e) => e.targetType === targetType && e.targetId === targetId && e.feeRequired && !!e.feeHash && !e.mainHash);
 }
 
 /** A signature request for this target that may still be waiting in the wallet. */
-export function findInFlight(memberId: string, targetType: "message" | "profile", targetId: string, now = Date.now()): PendingSend | undefined {
+export function findInFlight(memberId: string, targetType: LedgerTargetType, targetId: string, now = Date.now()): PendingSend | undefined {
   return loadSends(memberId, now).find(
     (e) => e.targetType === targetType && e.targetId === targetId && typeof e.inFlight === "number" && now - e.inFlight < IN_FLIGHT_TTL_MS,
   );

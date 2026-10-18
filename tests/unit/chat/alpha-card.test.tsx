@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 vi.mock("@/lib/chat/actions", () => ({

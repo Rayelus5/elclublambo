@@ -27,14 +27,21 @@ import {
   remainingMs,
   removeSend,
   upsertSend,
+  type LedgerTargetType,
   type PendingSend,
 } from "@/lib/payments/pending-sends";
+import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { cn } from "@/lib/utils";
 
 export type TipTarget = { type: "message"; messageId: string } | { type: "profile" };
 export type TipRecipient = MemberIdentity & { id: string };
+/**
+ * Pays a bounty to the solution's author: the token is the bounty's, the amount cannot go below the announced one, there is
+ * no anonymity, and the bounty can only be paid on the chain it was published on.
+ */
+export type BountyMode = { kind: "bounty"; bountyId: string; token: Token; minAmount: bigint; chainId: ChainId };
 
 const POLL_MS = 3000;
 const POLL_WINDOW_MS = 120_000;
@@ -50,6 +57,8 @@ const MSG_CANCELLED = "Has cancelado la firma.";
 const MSG_SEND_FAILED = "No se pudo enviar la transacción. Revisa tu wallet e inténtalo de nuevo.";
 const MSG_MISMATCH = "Los datos del envío no coinciden. Recarga la página.";
 const MSG_PREPARE = "No se pudo preparar la propina. Inténtalo de nuevo.";
+const MSG_PREPARE_BOUNTY = "No se pudo preparar el pago. Inténtalo de nuevo.";
+const MSG_PREPARED_OTHER_AMOUNT = "Ya tenías un pago de este bounty preparado con otro importe. Revisa el formulario y continúa.";
 const MSG_EXPIRED = "La operación ha caducado y no se puede completar. La comisión enviada no se puede reutilizar.";
 
 /** A refusal to sign with a message for the member (wrong signer, intent that disagrees with what was shown). */
@@ -63,7 +72,7 @@ type AttachResult = "ok" | "retry" | { permanent: string };
 type Initial = { kind: "form" } | { kind: "inflight" | "resume" | "expired"; entry: PendingSend };
 
 /** What the ledger says about this target: a pending signature, a fee waiting for its tip, an expired leftover or nothing. */
-function evaluate(memberId: string, targetType: "message" | "profile", targetId: string): Initial {
+function evaluate(memberId: string, targetType: LedgerTargetType, targetId: string): Initial {
   const flight = findInFlight(memberId, targetType, targetId);
   if (flight) return { kind: "inflight", entry: flight };
   const res = findResumable(memberId, targetType, targetId);
@@ -75,6 +84,14 @@ const flowFromEntry = (e: PendingSend): { it: TipIntent; st: Sent } => ({
   it: e.intent,
   st: { feeHash: e.feeHash, mainHash: e.mainHash, feeAttached: e.feeAttached, mainAttached: e.mainAttached },
 });
+
+/** The fee in basis points that yields `fee` on `amount`, so the form can show an intent that was prepared earlier. */
+function feeBpsFor(amount: bigint, fee: bigint, fallback: number): number {
+  if (amount <= 0n) return fallback;
+  const base = Number((fee * 10_000n) / amount);
+  for (const bps of [base, base + 1]) if (feeFor(amount, bps) === fee) return bps;
+  return fallback;
+}
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -91,15 +108,15 @@ function isRejection(e: unknown): boolean {
 
 export function TipDialog({
   target,
+  mode,
   recipient,
   open,
   onOpenChange,
 }: {
-  target: TipTarget;
   recipient: TipRecipient;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}) {
+} & ({ target: TipTarget; mode?: undefined } | { mode: BountyMode; target?: undefined })) {
   // The AppKit modal lives outside this dialog: while it is open, the dialog must not trap pointer or focus nor close.
   const { open: walletModalOpen } = useAppKitState();
   // Set by the flow while a signature or a verification is in flight: closing then asks first.
@@ -122,12 +139,14 @@ export function TipDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-lg font-bold">Dar propina</DialogTitle>
-          <DialogDescription>Va directo a su wallet. La comisión de la plataforma se suma aparte.</DialogDescription>
+          <DialogTitle className="font-display text-lg font-bold">{mode ? "Pagar bounty" : "Dar propina"}</DialogTitle>
+          <DialogDescription>
+            {mode ? "Va directo a la wallet de quien dio la solución. La comisión de la plataforma se suma aparte." : "Va directo a su wallet. La comisión de la plataforma se suma aparte."}
+          </DialogDescription>
         </DialogHeader>
         {askClose ? (
           <div role="alertdialog" aria-label="Confirmar cierre" className="flex flex-col gap-3 rounded-control border border-warning p-3">
-            <p className="text-sm text-fg">¿Cerrar? Si ya firmaste, la propina se seguirá verificando.</p>
+            <p className="text-sm text-fg">¿Cerrar? Si ya firmaste, {mode ? "el pago" : "la propina"} se seguirá verificando.</p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => setAskClose(false)}>
                 Seguir aquí
@@ -143,19 +162,34 @@ export function TipDialog({
             </div>
           </div>
         ) : null}
-        <TipFlow target={target} recipient={recipient} busyRef={busyRef} onClose={() => onOpenChange(false)} />
+        <TipFlow target={target} mode={mode} recipient={recipient} busyRef={busyRef} onClose={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; recipient: TipRecipient; busyRef: { current: boolean }; onClose: () => void }) {
+function TipFlow({
+  target,
+  mode,
+  recipient,
+  busyRef,
+  onClose,
+}: {
+  target?: TipTarget;
+  mode?: BountyMode;
+  recipient: TipRecipient;
+  busyRef: { current: boolean };
+  onClose: () => void;
+}) {
   const economy = useEconomy();
   const { memberId } = economy;
   const chainId = economy.activeChainId;
   const network = NETWORKS[chainId];
   const platform = economy.chains[chainId].platform;
-  const targetId = target.type === "message" ? target.messageId : recipient.id;
+  // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile.
+  const ledgerType: LedgerTargetType = mode ? "bounty" : (target?.type ?? "profile");
+  const targetId = mode ? mode.bountyId : target?.type === "message" ? target.messageId : recipient.id;
+  const bountyInactive = !!mode && mode.chainId !== chainId;
 
   const account = useAccount();
   const accountRef = useRef(account);
@@ -167,7 +201,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
   const { send } = useSendTransfer();
 
   // The ledger decides how the dialog opens: a signature still pending, a fee waiting for its tip, or a fresh form.
-  const [initial] = useState<Initial>(() => evaluate(memberId, target.type, targetId));
+  const [initial] = useState<Initial>(() => evaluate(memberId, ledgerType, targetId));
   const initialEntry = initial.kind === "form" ? null : initial.entry;
   const flowRef = useRef<{ it: TipIntent; st: Sent } | null>(initialEntry ? flowFromEntry(initialEntry) : null);
   const aliveRef = useRef(true);
@@ -181,8 +215,8 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
     if (initial.kind === "expired") removeSend(memberId, initial.entry.intentId);
   }, [initial, memberId]);
 
-  const [token, setToken] = useState<Token>("USDC");
-  const [amountText, setAmountText] = useState("");
+  const [token, setToken] = useState<Token>(mode?.token ?? "USDC");
+  const [amountText, setAmountText] = useState(mode ? formatAmount(mode.minAmount, mode.token) : "");
   const [feeBps, setFeeBps] = useState(economy.minFeeBps);
   const [anonymous, setAnonymous] = useState(false);
   const [step, setStep] = useState<Step>(initial.kind === "form" ? "form" : initial.kind === "expired" ? "failed" : initial.kind);
@@ -237,6 +271,8 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
   let reason: string | null = null;
   if (self) reason = "No puedes enviarte una propina a ti mismo.";
   else if (amountText.trim() !== "" && units === null) reason = `Introduce un importe válido (como mucho ${token === "ETH" ? 18 : 6} decimales).`;
+  else if (units !== null && mode && units < mode.minAmount)
+    reason = `El importe no puede ser menor que el del bounty (${formatAmount(mode.minAmount, token)} ${token}).`;
   else if (units !== null && (units < limits.min || units > limits.max))
     reason = `El importe debe estar entre ${formatAmount(limits.min, token)} y ${formatAmount(limits.max, token)} ${token}.`;
   else if (feeBps > 0 && !platform) reason = "La plataforma aún no tiene wallet configurada en esta red.";
@@ -250,7 +286,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
         ? "chain"
         : null;
 
-  const canContinue = units !== null && reason === null && wallet === null;
+  const canContinue = units !== null && reason === null && wallet === null && !bountyInactive;
 
   /** Re-checked right before every signature: the connected account is still the session wallet, on the right chain. */
   function guardSigner(it: TipIntent) {
@@ -263,6 +299,10 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
 
   /** What the member was shown must be what gets signed: the intent's addresses are checked against the screen/config. */
   function guardIntent(it: TipIntent) {
+    // A bounty intent must be the bounty's token, on the chain it was published on, for at least the announced amount.
+    if (mode && (it.token !== mode.token || it.chainId !== mode.chainId || BigInt(it.amount) < mode.minAmount)) {
+      throw new SignGuardError(MSG_MISMATCH);
+    }
     const feeRequired = BigInt(it.feeAmount) > 0n;
     if (it.recipientAddress.toLowerCase() !== recipient.walletAddress.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
     if (feeRequired && (!it.platformAddress || !economy.chains[it.chainId as ChainId]?.platform || it.platformAddress.toLowerCase() !== economy.chains[it.chainId as ChainId].platform!.toLowerCase())) {
@@ -292,7 +332,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
    * Drives one intent from whatever has been signed so far to verification: attach pending hashes, sign the fee if still
    * missing, sign the main transfer if still missing. Once anything is signed it never goes back to the form.
    */
-  async function proceed(it: TipIntent, st: Sent, target_: { targetType: "message" | "profile"; targetId: string }) {
+  async function proceed(it: TipIntent, st: Sent, target_: { targetType: LedgerTargetType; targetId: string }) {
     flowRef.current = { it, st };
     setIntent(it);
     const feeRequired = BigInt(it.feeAmount) > 0n && !!it.platformAddress;
@@ -394,7 +434,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
 
   /** Re-reads the ledger and moves to the matching state; returns false when it is a fresh form. */
   function applyLedger(): boolean {
-    const next = evaluate(memberId, target.type, targetId);
+    const next = evaluate(memberId, ledgerType, targetId);
     if (next.kind === "form") {
       flowRef.current = null;
       setStep("form");
@@ -420,33 +460,51 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
     if (applyLedger()) return;
     setStep("signing");
     setProgress({ index: 1, total: 1 });
-    let created: Awaited<ReturnType<typeof createTipIntentAction>>;
+    let created: { ok: true; intent: TipIntent } | { ok: false; error: string };
     try {
-      created = await createTipIntentAction({
-        targetType: target.type,
-        targetId,
-        token,
-        amount: amountText.trim(),
-        feeBps,
-        anonymous,
-      });
+      created = mode
+        ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, amount: amountText.trim(), feeBps })
+        : await createTipIntentAction({
+            targetType: target?.type === "message" ? "message" : "profile",
+            targetId,
+            token,
+            amount: amountText.trim(),
+            feeBps,
+            anonymous,
+          });
     } catch {
       // Nothing has been signed yet.
-      setFormError(MSG_PREPARE);
+      setFormError(mode ? MSG_PREPARE_BOUNTY : MSG_PREPARE);
       return setStep("form");
     }
     if (!created.ok) {
       setFormError(created.error);
       return setStep("form");
     }
-    await proceed(created.intent, {}, { targetType: target.type, targetId });
+    if (mode) {
+      // The server hands back the bounty's existing unattached intent when there is one. It must be what the member sees.
+      try {
+        guardIntent(created.intent);
+      } catch (e) {
+        setFormError(e instanceof SignGuardError ? e.message : MSG_MISMATCH);
+        return setStep("form");
+      }
+      if (BigInt(created.intent.amount) !== units || BigInt(created.intent.feeAmount) !== fee) {
+        const prepared = BigInt(created.intent.amount);
+        setAmountText(formatAmount(prepared, token));
+        setFeeBps(feeBpsFor(prepared, BigInt(created.intent.feeAmount), feeBps));
+        setFormError(MSG_PREPARED_OTHER_AMOUNT);
+        return setStep("form");
+      }
+    }
+    await proceed(created.intent, {}, { targetType: ledgerType, targetId });
   }
 
   function resume() {
     const flow = flowRef.current;
     if (!flow) return;
     setResumeError(null);
-    void proceed(flow.it, flow.st, { targetType: target.type, targetId });
+    void proceed(flow.it, flow.st, { targetType: ledgerType, targetId });
   }
 
   function cancelResume() {
@@ -480,7 +538,8 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
   );
 
   if (step === "signing") {
-    const steps = progress.total === 2 ? ["Comisión", "Propina"] : ["Propina"];
+    const mainLabel = mode ? "Pago" : "Propina";
+    const steps = progress.total === 2 ? ["Comisión", mainLabel] : [mainLabel];
     return (
       <div className="flex flex-col gap-4" aria-live="polite">
         <ol className="flex flex-col gap-2">
@@ -532,7 +591,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
             <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient.walletAddress)}</p>
           </div>
         </div>
-        <p className="text-sm font-bold text-fg">La comisión ya está pagada. Falta firmar la propina.</p>
+        <p className="text-sm font-bold text-fg">La comisión ya está pagada. Falta firmar {mode ? "el pago" : "la propina"}.</p>
         {it ? (
           <p className="font-mono text-sm text-fg" data-testid="resume-amount">
             Falta: {formatAmount(BigInt(it.amount), it.token)} {it.token} para {mentionLabel(recipient)}
@@ -544,11 +603,11 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
           </p>
         ) : null}
         {walletNotice}
-        <TxLinks chain={(it?.chainId ?? chainId) as ChainId} hashes={hashes} />
-        <p className="text-[13px] text-warning">Si cancelas, la comisión enviada no se devolverá y la propina no se acreditará.</p>
+        <TxLinks chain={(it?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
+        <p className="text-[13px] text-warning">Si cancelas, la comisión enviada no se devolverá y {mode ? "el pago" : "la propina"} no se acreditará.</p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={resume} disabled={wallet !== null}>
-            Firmar la propina
+            {mode ? "Firmar el pago" : "Firmar la propina"}
           </Button>
           <Button variant="outline" onClick={cancelResume}>
             Cancelar
@@ -565,7 +624,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           No hemos podido registrar tu transacción.
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
         <div className="flex flex-wrap gap-2">
           <Button onClick={resume}>Reintentar</Button>
           <Button variant="outline" onClick={onClose}>
@@ -580,14 +639,14 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
     return (
       <div className="flex flex-col gap-4" aria-live="polite">
         {slow ? (
-          <p className="text-sm text-fg">Seguimos verificando. Puedes cerrar: la propina se acreditará sola cuando se confirme.</p>
+          <p className="text-sm text-fg">Seguimos verificando. Puedes cerrar: {mode ? "el pago se acreditará solo" : "la propina se acreditará sola"} cuando se confirme.</p>
         ) : (
           <p className="flex items-center gap-2 text-sm text-fg">
             <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
             Verificando la transacción en la red…
           </p>
         )}
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
         {slow ? <Button variant="outline" onClick={onClose}>Cerrar</Button> : null}
       </div>
     );
@@ -598,9 +657,9 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
       <div className="flex flex-col gap-4" aria-live="polite">
         <p className="flex items-center gap-2 font-display text-lg font-bold text-fg">
           <CircleCheck aria-hidden className="size-5 text-success" />
-          Propina enviada
+          {mode ? "Bounty pagado" : "Propina enviada"}
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
         <Button onClick={onClose}>Cerrar</Button>
       </div>
     );
@@ -613,7 +672,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           {failure}
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
       </div>
     );
@@ -638,6 +697,11 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
         </div>
       </div>
 
+      {mode ? (
+        <p data-testid="locked-token" className="text-sm text-fg-muted">
+          Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
+        </p>
+      ) : (
       <div role="radiogroup" aria-label="Moneda" className="grid grid-cols-2 gap-1 rounded-control border border-border-strong p-1">
         {TOKENS.map((t) => (
           <button
@@ -655,6 +719,7 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
           </button>
         ))}
       </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <label htmlFor="tip-amount" className="text-sm font-bold text-fg">
@@ -688,15 +753,17 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
         </dd>
       </dl>
 
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <Checkbox id="tip-anon" checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} />
-          <label htmlFor="tip-anon" className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
-            Propina anónima
-          </label>
+      {mode ? null : (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <Checkbox id="tip-anon" checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} />
+            <label htmlFor="tip-anon" className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
+              Propina anónima
+            </label>
+          </div>
+          <p className="text-[13px] text-fg-muted">Solo se oculta en el foro: en la blockchain la transacción es pública.</p>
         </div>
-        <p className="text-[13px] text-fg-muted">Solo se oculta en el foro: en la blockchain la transacción es pública.</p>
-      </div>
+      )}
 
       {reason ? (
         <p aria-live="polite" className="text-sm text-danger">
@@ -709,13 +776,21 @@ function TipFlow({ target, recipient, busyRef, onClose }: { target: TipTarget; r
         </p>
       ) : null}
 
-      {walletNotice}
+      {bountyInactive && mode ? (
+        <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
+          Este bounty se publicó en {NETWORKS[mode.chainId].name}; podrás pagarlo cuando esa red vuelva a estar activa.
+        </p>
+      ) : (
+        walletNotice
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <HowItWorksLink section="propinas" />
-        <Button type="submit" disabled={!canContinue}>
-          Continuar
-        </Button>
+        <HowItWorksLink section={mode ? "bounties" : "propinas"} />
+        {bountyInactive ? null : (
+          <Button type="submit" disabled={!canContinue}>
+            Continuar
+          </Button>
+        )}
       </div>
     </form>
   );
@@ -725,10 +800,10 @@ function WalletNotice({ children }: { children: ReactNode }) {
   return <div className="flex flex-col items-start gap-2 rounded-control border border-border p-3">{children}</div>;
 }
 
-function TxLinks({ chain, hashes }: { chain: ChainId; hashes: Hashes }) {
+function TxLinks({ chain, hashes, mainLabel }: { chain: ChainId; hashes: Hashes; mainLabel: string }) {
   const rows = [
     ["Comisión", hashes.fee],
-    ["Propina", hashes.main],
+    [mainLabel, hashes.main],
   ] as const;
   const shown = rows.filter(([, h]) => !!h);
   if (shown.length === 0) return null;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EditorContent, type Editor } from "@tiptap/react";
 import { Loader2, Maximize2, Paperclip, Send, X } from "lucide-react";
 import { AlphaDialog } from "@/components/chat/alpha-dialog";
+import { BountyDialog } from "@/components/chat/bounty-dialog";
 import { ComposerExpanded } from "@/components/chat/composer-expanded";
 import { useChatEditor } from "@/components/chat/composer-editor";
 import { EmojiButton } from "@/components/chat/emoji-button";
@@ -44,6 +45,8 @@ export interface ComposerProps {
   onPosted?: (id: string) => void;
   /** alpha_enabled channel and the member has EMBED_LINKS and SEND_MESSAGES: /alpha opens the Alpha dialog. Hidden otherwise. */
   canAlpha?: boolean;
+  /** CREATE_BOUNTIES and SEND_MESSAGES on this channel: /bounty opens the bounty dialog. Hidden otherwise. */
+  canBounty?: boolean;
 }
 
 function isDocEmpty(editor: Editor | null): boolean {
@@ -51,7 +54,7 @@ function isDocEmpty(editor: Editor | null): boolean {
 }
 
 export function Composer(props: ComposerProps) {
-  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha } =
+  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha, canBounty } =
     props;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -68,6 +71,8 @@ export function Composer(props: ComposerProps) {
   const draftRef = useRef<unknown | null>(null);
   const [alphaOpen, setAlphaOpen] = useState(false);
   const [alphaText, setAlphaText] = useState("");
+  const [bountyOpen, setBountyOpen] = useState(false);
+  const [bountyText, setBountyText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const memberId = useRef<Promise<string> | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -227,11 +232,22 @@ export function Composer(props: ComposerProps) {
   }, []);
   const onAlpha = canAlpha ? openAlpha : undefined;
 
+  const openBounty = useCallback(() => {
+    // The description starts from whatever is being drafted (compact box or expanded draft).
+    const ed = editorRef.current;
+    const fromBox = ed ? docToPlainText(ed.getJSON()) : "";
+    setBountyText(fromBox !== "" ? fromBox : draftRef.current ? docToPlainText(draftRef.current) : "");
+    setExpandedOpen(false);
+    setBountyOpen(true);
+  }, []);
+  const onBounty = canBounty ? openBounty : undefined;
+
   const editor = useChatEditor({
     expanded: false,
     canAttach,
     canMentionEveryone,
     onAlpha,
+    onBounty,
     onPickImage: () => fileInput.current?.click(),
     onSubmit: () => {
       const ed = editorRef.current;
@@ -424,12 +440,23 @@ export function Composer(props: ComposerProps) {
         }}
         canMentionEveryone={canMentionEveryone}
         onAlpha={onAlpha}
+        onBounty={onBounty}
         onAttach={canAttach ? () => fileInput.current?.click() : undefined}
         locked={locked}
         sending={sending}
         onSend={(doc) => send(doc, true)}
         status={status}
       />
+      {canBounty ? (
+        <BountyDialog
+          open={bountyOpen}
+          onOpenChange={setBountyOpen}
+          channelId={channelId}
+          initialText={bountyText}
+          // The description moved into the bounty message: the drafts are spent (pending images and the quote too).
+          onPosted={afterPosted}
+        />
+      ) : null}
       {canAlpha ? (
         <AlphaDialog
           open={alphaOpen}

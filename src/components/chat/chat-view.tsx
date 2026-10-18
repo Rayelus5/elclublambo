@@ -10,6 +10,7 @@ import { MessageList } from "@/components/chat/message-list";
 import { ThreadPanel } from "@/components/chat/thread-panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { markSolutionAction } from "@/lib/bounties/actions";
 import {
   deleteMessageAction,
   editMessageAction,
@@ -500,6 +501,22 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     [reconcile],
   );
 
+  /** Marking is final (the server refuses a second mark): on success the bounty root is re-read to show its new status. */
+  const markSolution = useCallback(
+    async (reply: ChatMessage): Promise<string | null> => {
+      const rootId = reply.threadRootId;
+      if (!rootId) return rpcErrorMessage("unknown");
+      const res = await markSolutionAction(rootId, reply.id).catch(() => null);
+      if (!res) return rpcErrorMessage("unknown");
+      // Also on a refusal: the bounty may already have changed (marked elsewhere, cancelled), and the card must say so.
+      void reconcile(rootId);
+      return res.ok ? null : res.error;
+    },
+    [reconcile],
+  );
+
+  const bountyChanged = useCallback((message: ChatMessage) => void reconcile(message.id), [reconcile]);
+
   const quoteMessage = useCallback((message: ChatMessage) => {
     setQuoted({ id: message.id, authorName: (message.authorId ? directoryRef.current.members[message.authorId]?.name : undefined) ?? "Miembro" });
     requestAnimationFrame(() => composerBox.current?.querySelector<HTMLElement>('[role="textbox"]')?.focus());
@@ -529,6 +546,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     onDelete: deleteMessage,
     onPin: (m: ChatMessage, value: boolean) => void pinMessage(m, value),
     onToggleReaction: (m: ChatMessage, emoji: string) => void toggleReaction(m, emoji),
+    onBountyChanged: bountyChanged,
   };
 
   const threadPanel = (inDialog: boolean) =>
@@ -555,6 +573,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         onEdit={editMessage}
         onDelete={deleteMessage}
         onToggleReaction={itemHandlers.onToggleReaction}
+        onBountyChanged={itemHandlers.onBountyChanged}
+        onMarkSolution={markSolution}
       />
     ) : null;
 
@@ -615,6 +635,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               canAttach={viewer.canAttach}
               canMentionEveryone={viewer.canMentionEveryone}
               canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true && viewer.canPost === true}
+              canBounty={viewer.canBounty === true && viewer.canPost === true}
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}

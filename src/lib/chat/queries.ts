@@ -2,6 +2,7 @@
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
+import { getBountyDetails } from "@/lib/bounties/queries";
 import { extractMentions } from "@/lib/chat/content";
 import { getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
 import {
@@ -29,7 +30,7 @@ interface MessageRow {
   author_id: string | null;
   body: unknown;
   allow_links: boolean;
-  kind: "text" | "alpha" | "system";
+  kind: "text" | "alpha" | "system" | "bounty";
   tip_id?: string | null;
   expanded: boolean;
   quoted_message_id: string | null;
@@ -83,7 +84,9 @@ export async function hydrateMessages(
   const tipIds = rows.flatMap((r) => (r.kind === "system" && r.tip_id && !r.deleted_at ? [r.tip_id] : []));
   const tippable = rows.filter((r) => r.kind !== "system" && !r.deleted_at).map((r) => r.id);
 
-  const [attachmentsRes, reactionsRes, quotedRes, alphaRes, tipSummaries, tipLinks] = await Promise.all([
+  const bountyIds = rows.filter((r) => r.kind === "bounty" && !r.deleted_at).map((r) => r.id);
+
+  const [attachmentsRes, reactionsRes, quotedRes, alphaRes, tipSummaries, tipLinks, bounties] = await Promise.all([
     supabase.from("message_attachments").select("id, message_id, storage_path, mime, width, height").in("message_id", ids),
     supabase.from("message_reactions").select("message_id, member_id, emoji, created_at").in("message_id", ids),
     quotedIds.length > 0
@@ -94,6 +97,7 @@ export async function hydrateMessages(
       : Promise.resolve({ data: [] as unknown[], error: null }),
     getTipSummaries(supabase, tippable),
     getTipNoticeLinks(supabase, tipIds),
+    getBountyDetails(supabase, bountyIds),
   ]);
   const alphaByMessage = new Map(
     ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string }>).map((a) => [a.message_id, a.contract_address]),
@@ -118,6 +122,8 @@ export async function hydrateMessages(
   const memberIds = unique([
     ...rows.flatMap((r) => (r.author_id ? [r.author_id] : [])),
     ...quotedRows.flatMap((q) => (q.author_id ? [q.author_id] : [])),
+    // The solver of a bounty is the recipient of its payment: the card needs their identity.
+    ...[...(bounties?.values() ?? [])].flatMap((b) => (b.solverId ? [b.solverId] : [])),
     ...mentions.flatMap((m) => (m.kind === "member" && m.id ? [m.id] : [])),
   ]);
   const roleIds = unique(mentions.flatMap((m) => (m.kind === "role" && m.id ? [m.id] : [])));
@@ -167,6 +173,7 @@ export async function hydrateMessages(
       allowLinks: r.allow_links,
       kind: r.kind,
       alphaAddress: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
+      bounty: r.kind === "bounty" ? (bounties?.get(r.id) ?? null) : null,
       expanded: r.expanded,
       quotedId: r.quoted_message_id,
       quote: r.quoted_message_id ? (quotes.get(r.quoted_message_id) ?? null) : null,

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const postMessageAction = vi.fn();
 const getSlowmodeAction = vi.fn();
 const searchMentionTargetsAction = vi.fn(async () => ({ members: [], roles: [] }));
+vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
 vi.mock("@/lib/chat/actions", () => ({
   postMessageAction: (...a: unknown[]) => postMessageAction(...a),
   getSlowmodeAction: (...a: unknown[]) => getSlowmodeAction(...a),

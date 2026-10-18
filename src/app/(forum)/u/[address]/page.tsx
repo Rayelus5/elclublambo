@@ -6,8 +6,10 @@ import { SponsorTree, StatusBadge, type MemberSummary } from "@/components/membe
 import { normalizeAddress } from "@/lib/auth/wallet";
 import { MemberAvatar } from "@/components/members/member-avatar";
 import { TipProfileButton } from "@/components/payments/tip-profile-button";
+import { BountyRecordSection } from "@/components/profile/bounty-record";
 import { ProfileLinks } from "@/components/profile/profile-links";
 import { TipsReceived } from "@/components/profile/tips-received";
+import { getMemberBountyRecord, getMemberUnpaidBounties } from "@/lib/bounties/queries";
 import { getEconomyConfig } from "@/lib/economy/config";
 import { getMemberTipTotals, getMemberTips } from "@/lib/payments/queries";
 import { HANDLE_RE } from "@/lib/members/handle";
@@ -77,7 +79,11 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       return { entries, totals, activeChainId: config.activeChainId };
     })
     .catch(() => null);
-  const [sponsorRes, inviteesRes, tips] = await Promise.all([
+  // Only the bounties the viewer can see are counted (the RPCs enforce it). A failed read hides the section.
+  const bountiesPromise = Promise.all([getMemberBountyRecord(supabase, member.id), getMemberUnpaidBounties(supabase, member.id)])
+    .then(([record, unpaid]) => ({ record, unpaid }))
+    .catch(() => null);
+  const [sponsorRes, inviteesRes, tips, bounties] = await Promise.all([
     member.invited_by_member_id
       ? supabase.from("members").select(COLUMNS).eq("id", member.invited_by_member_id).maybeSingle<DbMember>()
       : Promise.resolve({ data: null, error: null }),
@@ -88,6 +94,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       .order("created_at", { ascending: true })
       .returns<DbMember[]>(),
     tipsPromise,
+    bountiesPromise,
   ]);
 
   if (sponsorRes.error) throw sponsorRes.error;
@@ -127,6 +134,8 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       </header>
 
       {tips ? <TipsReceived entries={tips.entries} totals={tips.totals} activeChainId={tips.activeChainId} /> : null}
+
+      {bounties ? <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} /> : null}
 
       <SponsorTree sponsor={sponsor} invitees={invitees} />
     </div>

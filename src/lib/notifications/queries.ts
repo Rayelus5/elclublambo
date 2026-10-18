@@ -23,7 +23,9 @@ export type NotificationKind =
   | "ticket_new"
   | "ticket_reply"
   | "ticket_status"
-  | "tip_received";
+  | "tip_received"
+  | "bounty_solution"
+  | "bounty_paid";
 
 export interface NotificationView {
   id: number;
@@ -52,6 +54,7 @@ interface Row {
   read_at: string | null;
   channel_id: string | null;
   ticket_id: string | null;
+  message_id?: string | null;
   data: Record<string, unknown> | null;
   actor: { display_name: string | null; handle: string | null; avatar_path: string | null; wallet_address: string } | null;
   channel: { name: string } | null;
@@ -60,7 +63,7 @@ interface Row {
 }
 
 const SELECT =
-  "id, kind, created_at, read_at, channel_id, ticket_id, data, " +
+  "id, kind, created_at, read_at, channel_id, ticket_id, message_id, data, " +
   "actor:members!notifications_actor_id_fkey(display_name, handle, avatar_path, wallet_address), " +
   "channel:channels(name), message:messages(body_text, deleted_at), ticket:tickets(subject)";
 
@@ -77,8 +80,25 @@ function tipHref(row: Row): string {
   return `/c/${row.channel_id}?m=${message}${thread}`;
 }
 
+const BOUNTY_KINDS = new Set<NotificationKind>(["bounty_solution", "bounty_paid"]);
+
+/**
+ * A bounty notice points at the solution reply inside the bounty thread: the chosen reply (`bounty_solution`, the row's
+ * message) or the paid one (`bounty_paid`, `data.messageId`). Without it, at the bounty message itself.
+ */
+function bountyHref(row: Row): string {
+  if (!row.channel_id) return "/notifications";
+  const id = (v: unknown) => (typeof v === "string" && UUID_RE.test(v) ? v : null);
+  const bounty = id(row.data?.bountyId);
+  const target = id(row.data?.messageId) ?? id(row.message_id) ?? bounty;
+  if (!target) return `/c/${row.channel_id}`;
+  const thread = bounty && bounty !== target ? `&thread=${bounty}` : "";
+  return `/c/${row.channel_id}?m=${target}${thread}`;
+}
+
 function hrefFor(row: Row): string {
   if (row.kind === "tip_received") return tipHref(row);
+  if (BOUNTY_KINDS.has(row.kind)) return bountyHref(row);
   if (MESSAGE_KINDS.has(row.kind) && row.channel_id) {
     const root = row.data?.thread_root_id;
     return `/c/${row.channel_id}${typeof root === "string" && UUID_RE.test(root) ? `?thread=${root}` : ""}`;
@@ -93,7 +113,7 @@ function hrefFor(row: Row): string {
 function toView(row: Row): NotificationView {
   // The joined message of a tip is the system notice: the copy already says it, so no excerpt.
   const excerpt =
-    row.kind !== "tip_received" && row.message && !row.message.deleted_at && row.message.body_text
+    row.kind !== "tip_received" && !BOUNTY_KINDS.has(row.kind) && row.message && !row.message.deleted_at && row.message.body_text
       ? row.message.body_text.replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS) || null
       : null;
   const status = row.data?.status;

@@ -31,6 +31,10 @@ export function notificationCopy(n: NotificationView): ReactNode {
       return <>Respuesta en el ticket <strong className="font-bold text-fg">{subject}</strong></>;
     case "tip_received":
       return n.actor ? <>{actor} te ha enviado una propina</> : <>Has recibido una propina anónima</>;
+    case "bounty_solution":
+      return <>{actor} ha elegido tu respuesta como solución del bounty</>;
+    case "bounty_paid":
+      return <>{actor} te ha pagado el bounty</>;
     case "ticket_status":
       return (
         <>

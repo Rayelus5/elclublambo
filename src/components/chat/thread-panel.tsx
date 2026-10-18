@@ -9,7 +9,7 @@ import { DialogTitle } from "@/components/ui/dialog";
 import { scrollMessageIntoView } from "@/lib/chat/scroll";
 import { isGrouped, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
 
-export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "onDelete" | "onToggleReaction"> {
+export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "onDelete" | "onToggleReaction" | "onBountyChanged" | "onMarkSolution"> {
   /** null while loading, or when the thread no longer exists / is not visible. */
   root: ChatMessage | null;
   replies: readonly ChatMessage[];
@@ -57,6 +57,9 @@ export function ThreadPanel({
   }, []);
 
   const count = replies.length;
+  // Only the author of a still-open bounty can mark a solution, and only among this thread's replies.
+  const bounty = root?.kind === "bounty" ? (root.bounty ?? null) : null;
+  const canMark = !!root && !!bounty && bounty.status === "open" && root.authorId === viewer.memberId;
   // Once loading ends, an anchor that is not among the replies will never render. The notice outlives the highlight.
   const [targetMissing, setTargetMissing] = useState(false);
   const missingNow = highlightId !== null && !loading && root !== null && !replies.some((m) => m.id === highlightId);
@@ -130,6 +133,7 @@ export function ThreadPanel({
                 viewer={viewer}
                 variant="thread"
                 {...handlers}
+                onMarkSolution={undefined}
               />
             </ol>
             <p className="border-t border-border pt-3 text-[13px] font-bold text-fg-muted">
@@ -152,7 +156,9 @@ export function ThreadPanel({
                     variant="thread"
                     highlighted={m.id === highlightId}
                     grouped={isGrouped(replies[i - 1], m)}
+                    isSolution={!!bounty?.solutionMessageId && bounty.solutionMessageId === m.id}
                     {...handlers}
+                    onMarkSolution={canMark ? handlers.onMarkSolution : undefined}
                   />
                 ))}
               </ol>
