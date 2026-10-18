@@ -50,3 +50,6 @@ node_modules/
 supabase/.temp
 /test-results/
 /playwright-report/
+
+# on-chain e2e: hardhat cache/artifacts
+/e2e/chain/.hardhat/
