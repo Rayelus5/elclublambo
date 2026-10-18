@@ -87,7 +87,7 @@ function ChannelMembers({ channelId }: { channelId: string }) {
         .then((online) =>
           alive &&
           setState((s) =>
-            s.status === "ready" ? { status: "ready", data: s.data.map((m) => ({ ...m, online: online.get(m.id) ?? m.online })) } : s,
+            s.status === "ready" ? { status: "ready", data: s.data.map((m) => ({ ...m, online: online.get(m.id) ?? false })) } : s,
           ),
         )
         .catch(() => undefined);
