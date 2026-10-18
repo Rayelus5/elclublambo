@@ -14,6 +14,11 @@ describe("knownErrorCode", () => {
 const FALLBACK = "Algo falló. Inténtalo de nuevo.";
 
 describe("rpcErrorMessage", () => {
+  it("F4a-R12 safe_change_blocked has Spanish copy and is allowlisted", () => {
+    expect(rpcErrorCode({ message: "safe_change_blocked" })).toBe("safe_change_blocked");
+    expect(rpcErrorMessage("safe_change_blocked")).toMatch(/Safe/);
+    expect(rpcErrorMessage("safe_change_blocked")).toMatch(/participaciones|donaciones/);
+  });
   it.each([
     ["invite_expired", "caducado"],
     ["invite_exhausted", "agotada"],

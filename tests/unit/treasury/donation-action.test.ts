@@ -19,6 +19,13 @@ describe("createDonationIntentAction acknowledgement (F4a-R8)", () => {
   it("creates the intent when acknowledged is exactly true", async () => {
     const r = await createDonationIntentAction({ amount: "10", feeBps: 100, acknowledged: true });
     expect(r.ok).toBe(true);
-    expect(rpc).toHaveBeenCalledWith("create_donation_intent", { p_amount: "10000000", p_fee_bps: 100 });
+    // F4a-R11: the acknowledgement also travels to the RPC, which refuses without it
+    expect(rpc).toHaveBeenCalledWith("create_donation_intent", { p_amount: "10000000", p_fee_bps: 100, p_acknowledged: true });
+  });
+
+  it("maps the RPC's acknowledgement_required refusal to the same copy", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "acknowledgement_required" } });
+    const r = await createDonationIntentAction({ amount: "10", feeBps: 100, acknowledged: true });
+    expect(r).toMatchObject({ ok: false, code: "acknowledgement_required" });
   });
 });

@@ -14,7 +14,7 @@ declare
   v_id uuid;
 begin
   perform tests.authenticate_as(p_user);
-  v := public.create_donation_intent(p_amount, 0);
+  v := public.create_donation_intent(p_amount, 0, true);
   perform public.attach_intent_tx((v ->> 'id')::uuid, 'main', tests.nh(p_n));
   perform tests.clear_authentication();
   set local role service_role;

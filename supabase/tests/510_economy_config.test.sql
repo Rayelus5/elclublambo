@@ -72,8 +72,8 @@ select is((select payload from public.audit_log where action = 'economy.active_c
 select is((select payload from public.audit_log where action = 'economy.min_fee'),
   '{"old":0,"new":260}'::jsonb, 'audit: min fee old/new');
 select is((select payload from public.audit_log where action = 'economy.addresses'),
-  '{"chain":59144,"old":{"safe":null,"platform":null},"new":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222"}}'::jsonb,
-  'audit: addresses old/new');
+  '{"chain":59144,"old":{"safe":null,"platform":null},"new":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222"},"reset":true}'::jsonb,
+  'audit: addresses old/new (+ F4a-R12 reset flag: a first Safe starts the chain clean)');
 
 -- ===== validation =====
 select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));

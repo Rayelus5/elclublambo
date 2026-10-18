@@ -20,7 +20,7 @@ returns uuid language plpgsql as $$
 declare v jsonb;
 begin
   perform tests.authenticate_as(p_user);
-  v := public.create_donation_intent(p_amount, 0);
+  v := public.create_donation_intent(p_amount, 0, true);
   perform public.attach_intent_tx((v ->> 'id')::uuid, 'main', tests.hash(p_n));
   perform tests.clear_authentication();
   return (v ->> 'id')::uuid;

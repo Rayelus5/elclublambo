@@ -54,6 +54,8 @@ const MESSAGES: Record<string, string> = {
   reverted: "Esta donación ya no se verifica en la red y se ha revertido. Si pagaste, contacta con soporte.",
   safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
   safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",
+  safe_change_blocked:
+    "No puedes cambiar la Safe de esta red mientras haya participaciones, donaciones pendientes o pagos de donación abiertos: su valor está en la Safe actual.",
   invalid_state: "Esta operación ya no se puede procesar en su estado actual.",
   shares_zero: "La donación es demasiado pequeña para el valor actual del fondo. La revisará el tesorero.",
   assets_stale: "El saldo del fondo aún no refleja esta donación. Se reintentará en breve.",

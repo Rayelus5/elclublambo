@@ -64,6 +64,19 @@ describe("EconomyForm", () => {
     );
   });
 
+  it("explains a refused Safe change (F4a-R12) and keeps the form unsaved", async () => {
+    setChainAddressesAction.mockResolvedValue({ error: "safe_change_blocked" });
+    const user = userEvent.setup();
+    render(<EconomyForm config={config} />);
+    const safe = screen.getByLabelText("Safe (Linea Sepolia)");
+    await user.clear(safe);
+    await user.type(safe, "0x3333333333333333333333333333333333333333");
+    await user.click(screen.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/No puedes cambiar la Safe de esta red/);
+    expect(screen.queryByText("Direcciones guardadas.")).not.toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("previews the fee on 10 USDC and saves it in bps", async () => {
     const user = userEvent.setup();
     render(<EconomyForm config={config} />);
