@@ -6,7 +6,7 @@
 --   (b) create_donation_intent reads chain_config `for share`: an intent is either created against the Safe that
 --       stays, or it exists before set_chain_addresses looks for open intents (and blocks the change).
 --   (c) cancel_open_donation_intents (bit 512) expires a chain's pending donation intents that have no transaction
---       attached, so a Safe change blocked only by abandoned intents can go ahead. Attached ones keep blocking: they may
+--       hash attached (neither main nor fee), so a Safe change blocked only by abandoned intents can go ahead. Attached ones keep blocking: they may
 --       be real payments.
 --   (d) A Safe reset also deletes the unread treasury_outflow notices of the operations it deletes (read ones stay).
 -- Lock order: chain_config (share) -> dao_state (update), as set_chain_addresses (update -> update).
@@ -335,10 +335,13 @@ begin
   -- same lock order as set_chain_addresses (chain_config first)
   perform 1 from public.chain_config c where c.chain_id = p_chain for share;
 
-  -- intents with a transaction attached may be real payments: they keep blocking a Safe change
+  -- intents with ANY transaction attached may be real payments: they keep blocking a Safe change. hashes_attached_at
+  -- is only set once every required hash is in, so a fee donation with just its main transfer attached is checked
+  -- through the hash columns themselves (F4c Task 1 review).
   update public.payment_intents i
      set status = 'expired'
-   where i.chain_id = p_chain and i.purpose = 'donation' and i.status = 'pending' and i.hashes_attached_at is null;
+   where i.chain_id = p_chain and i.purpose = 'donation' and i.status = 'pending' and i.hashes_attached_at is null
+     and i.main_tx_hash is null and i.fee_tx_hash is null;
   get diagnostics v_n = row_count;
 
   insert into public.audit_log (actor_member_id, action, payload)

@@ -2,7 +2,7 @@
 -- for share in create_donation_intent, cancel_open_donation_intents (bit 512) and unread treasury_outflow notices
 -- cleaned on a Safe reset.
 begin;
-select plan(36);
+select plan(38);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.ch(p_n int) returns text language sql immutable as $$
@@ -123,6 +123,11 @@ select set_config('t.i_att', tests.cintent(current_setting('t.ub')::uuid, 200000
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select public.attach_intent_tx(current_setting('t.i_att')::uuid, 'main', tests.ch(95001));
 select tests.clear_authentication();
+-- review fix: a fee donation with only its main transfer attached has hashes_attached_at null but may be paid
+select set_config('t.i_main', tests.cintent(current_setting('t.ub')::uuid, 3000000)::text, true);
+update public.payment_intents set main_tx_hash = tests.ch(95002) where id = current_setting('t.i_main')::uuid;
+select set_config('t.i_fee', tests.cintent(current_setting('t.ub')::uuid, 4000000)::text, true);
+update public.payment_intents set fee_tx_hash = tests.ch(95003) where id = current_setting('t.i_fee')::uuid;
 -- an open intent on the other chain
 update public.chain_config set safe_address = current_setting('t.safem') where chain_id = 59144;
 update public.app_config set value = '59144'::jsonb where key = 'active_chain_id';
@@ -140,6 +145,11 @@ select tests.clear_authentication();
 select is((select string_agg(status, ',' order by amount) from public.payment_intents
            where id in (current_setting('t.i_open')::uuid, current_setting('t.i_att')::uuid)),
   'expired,pending', 'the unattached intent is expired; the attached one keeps pending (it may be a real payment)');
+select is((select status from public.payment_intents where id = current_setting('t.i_main')::uuid
+             and hashes_attached_at is null), 'pending',
+  'an intent with only its main hash attached is not cancelled (it may be a real payment)');
+select is((select status from public.payment_intents where id = current_setting('t.i_fee')::uuid), 'pending',
+  'an intent with only its fee hash attached is not cancelled');
 select is((select status from public.payment_intents where id = current_setting('t.i_other')::uuid), 'pending',
   'the other chain''s intent is untouched');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
@@ -155,7 +165,8 @@ select is(public.cancel_open_donation_intents(59141), 0, 'a second run has nothi
 select tests.clear_authentication();
 
 -- ===== 5. a Safe reset deletes the unread treasury_outflow notices of that chain's operations =====
-update public.payment_intents set status = 'expired' where id = current_setting('t.i_att')::uuid;
+update public.payment_intents set status = 'expired'
+ where id in (current_setting('t.i_att')::uuid, current_setting('t.i_main')::uuid, current_setting('t.i_fee')::uuid);
 with x as (
   insert into public.dao_safe_operations (chain_id, tx_hash, log_index, asset, direction, amount, block_number, occurred_at)
   values (59141, tests.ch(95101), 0, 'USDC', 'out', 1000000, 600, now()) returning id)
