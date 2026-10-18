@@ -1,22 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { BellRing, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { currentPushSubscription, disablePush, enablePush, pushSupported, resyncPushSubscription } from "@/lib/push/client";
 
 type State = "hidden" | "off" | "on" | "denied" | "busy";
 
+const noop = () => () => {};
+
 /**
- * Web Push opt-in for this device. Only rendered with a VAPID public key and browser support; the permission prompt
- * appears only after pressing the button.
+ * Web Push opt-in for this device. Without a VAPID public key or browser support it says why instead of the button;
+ * the permission prompt appears only after pressing the button.
  */
 export function PushToggle({ publicKey }: { publicKey: string | undefined }) {
   const [state, setState] = useState<State>("hidden");
+  // Support never changes while the page is open; the server snapshot assumes support (no notice flashes on SSR).
+  const supported = useSyncExternalStore(noop, pushSupported, () => true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!publicKey || !pushSupported()) return;
+    if (!publicKey || !supported) return;
     let cancelled = false;
     void (async () => {
       let next: State = "off";
@@ -34,9 +38,23 @@ export function PushToggle({ publicKey }: { publicKey: string | undefined }) {
     return () => {
       cancelled = true;
     };
-  }, [publicKey]);
+  }, [publicKey, supported]);
 
-  if (!publicKey || state === "hidden") return null;
+  if (!publicKey) {
+    return (
+      <p className="max-w-prose text-sm text-fg-muted">
+        Los avisos de escritorio no están configurados en este servidor. Seguirás viendo tus avisos aquí y en la campana.
+      </p>
+    );
+  }
+  if (!supported) {
+    return (
+      <p className="max-w-prose text-sm text-fg-muted">
+        Este navegador no admite avisos de escritorio. Seguirás viendo tus avisos aquí y en la campana.
+      </p>
+    );
+  }
+  if (state === "hidden") return null;
 
   if (state === "denied") {
     return (

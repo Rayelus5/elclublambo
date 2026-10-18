@@ -541,7 +541,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     <section
       ref={logRef}
       aria-label="Chat del canal"
-      className="relative flex h-[calc(100dvh-13rem)] min-h-[28rem] overflow-hidden rounded-panel border border-border bg-bg"
+      className="relative flex h-[calc(100dvh-13rem)] min-h-[28rem] md:h-[calc(100dvh-15.5rem)] overflow-hidden rounded-panel border border-border bg-bg"
     >
       {/* Outside the inert column: announcements still happen while a thread panel covers the list. */}
       <div aria-live="polite" className="sr-only">

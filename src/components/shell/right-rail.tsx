@@ -2,7 +2,7 @@ export function RightRail() {
   return (
     <aside
       aria-label="Panel lateral"
-      className="sticky top-0 hidden h-dvh border-l border-border bg-surface p-6 lg:block"
+      className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-l border-border bg-surface p-6 lg:block"
     >
       <section className="border border-border bg-bg p-4 rounded-panel">
         <h2 className="text-sm font-bold text-fg">Próximamente</h2>

@@ -20,56 +20,94 @@ type Props = {
   openTickets?: number;
 };
 
-function SidebarBody({ perms, wallet, channels = [], canModerate = false, openTickets = 0 }: Props) {
-  const tree = buildTree(channels);
+const brandClass =
+  "font-display font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
+
+/** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
+function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
+  return [
+    { href: "/", text: "Inicio", Icon: Home },
+    {
+      href: "/tickets",
+      text: "Tickets",
+      Icon: LifeBuoy,
+      label: openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined,
+      badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
+    },
+    hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
+    (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
+      href: "/admin/members",
+      text: "Miembros",
+      Icon: Users,
+    },
+    canModerate && { href: "/moderation/reports", text: "Reportes", Icon: Flag },
+    (hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES)) && {
+      href: "/settings",
+      text: "Ajustes",
+      Icon: Settings,
+    },
+  ].flatMap((s) => (s ? [s] : []));
+}
+
+/** ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right. */
+function DesktopBar(props: Props) {
+  return (
+    <header className="sticky top-0 z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
+      <Link href="/" className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
+        El Club.
+      </Link>
+      <nav aria-label="Principal" className="min-w-0 self-stretch">
+        <ul className="flex h-full flex-row">
+          {sections(props).map(({ href, text, Icon, label, badge }) => (
+            <li key={href}>
+              <NavLink href={href} variant="top" label={label} badge={badge}>
+                <Icon className="size-4" aria-hidden />
+                <span className="sr-only lg:not-sr-only">{text}</span>
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className="ml-auto flex items-center gap-1">
+        <SearchButton variant="bar" />
+        <NotificationBell />
+        <Link
+          href={`/u/${props.wallet}`}
+          className="inline-flex min-h-11 items-center rounded-control px-2 font-mono text-[13px] text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+        >
+          <span className="sr-only">Mi perfil, </span>
+          <span className="font-mono">{shortAddress(props.wallet)}</span>
+        </Link>
+        <SignOutButton label="Salir" />
+      </div>
+    </header>
+  );
+}
+
+/** <768px drawer: everything stacked (sections, channels, profile). */
+function DrawerBody(props: Props) {
+  const tree = buildTree(props.channels ?? []);
   return (
     <div className="flex h-full flex-col gap-4 py-6">
-      <Link
-        href="/"
-        className="px-4 font-display text-2xl font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-      >
+      <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
 
       <nav aria-label="Principal" className="flex flex-col gap-1">
-        <NavLink href="/">
-          <Home className="size-4" aria-hidden />
-          Inicio
-        </NavLink>
-        <SearchButton variant="nav" />
-        <NotificationBell variant="nav" />
-        <NavLink
-          href="/tickets"
-          label={openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined}
-          badge={openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined}
-        >
-          <LifeBuoy className="size-4" aria-hidden />
-          Tickets
-        </NavLink>
-        {hasPerm(perms, Perm.CREATE_INVITES) ? (
-          <NavLink href="/invites">
-            <Ticket className="size-4" aria-hidden />
-            Invitaciones
-          </NavLink>
-        ) : null}
-        {hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS) ? (
-          <NavLink href="/admin/members">
-            <Users className="size-4" aria-hidden />
-            Miembros
-          </NavLink>
-        ) : null}
-        {canModerate ? (
-          <NavLink href="/moderation/reports">
-            <Flag className="size-4" aria-hidden />
-            Reportes
-          </NavLink>
-        ) : null}
-        {hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES) ? (
-          <NavLink href="/settings">
-            <Settings className="size-4" aria-hidden />
-            Ajustes
-          </NavLink>
-        ) : null}
+        {sections(props).map(({ href, text, Icon, label, badge }, i) => (
+          <div key={href} className="contents">
+            <NavLink href={href} label={label} badge={badge}>
+              <Icon className="size-4" aria-hidden />
+              {text}
+            </NavLink>
+            {i === 0 ? (
+              <>
+                <SearchButton variant="nav" />
+                <NotificationBell variant="nav" />
+              </>
+            ) : null}
+          </div>
+        ))}
       </nav>
 
       <nav aria-label="Canales" className="min-h-0 flex-1 overflow-y-auto border-t border-border pt-2">
@@ -78,11 +116,11 @@ function SidebarBody({ perms, wallet, channels = [], canModerate = false, openTi
 
       <div className="flex flex-col gap-3 border-t border-border px-4 pt-4">
         <Link
-          href={`/u/${wallet}`}
+          href={`/u/${props.wallet}`}
           className="flex min-h-11 flex-col justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <span className="text-sm font-bold text-fg">Mi perfil</span>
-          <span className="font-mono text-[13px] text-fg-muted">{shortAddress(wallet)}</span>
+          <span className="font-mono text-[13px] text-fg-muted">{shortAddress(props.wallet)}</span>
         </Link>
         <SignOutButton label="Salir" />
       </div>
@@ -90,14 +128,21 @@ function SidebarBody({ perms, wallet, channels = [], canModerate = false, openTi
   );
 }
 
+/**
+ * Forum navigation: the desktop top bar (sections), the channel aside below it, and the mobile top bar with its
+ * drawer. Sections and channels stay apart on desktop so the forum tree reads on its own.
+ */
 export function Sidebar(props: Props) {
   return (
     <>
+      <DesktopBar {...props} />
       <Topbar>
-        <SidebarBody {...props} />
+        <DrawerBody {...props} />
       </Topbar>
-      <aside className="sticky top-0 hidden h-dvh border-r border-border bg-surface md:block">
-        <SidebarBody {...props} />
+      <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-r border-border bg-surface md:block">
+        <nav aria-label="Canales" className="h-full overflow-y-auto py-4">
+          <ChannelTree nodes={buildTree(props.channels ?? [])} />
+        </nav>
       </aside>
     </>
   );
