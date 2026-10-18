@@ -30,7 +30,7 @@ function trendLabel(c: MarketCoin): string {
 
 export function MarketTable({ coins }: { coins: MarketCoin[] }) {
   return (
-    <div className="rounded-panel border border-border bg-surface">
+    <div className="overflow-x-auto rounded-panel border border-border bg-surface" data-testid="market-table-panel">
       <table className="w-full border-collapse text-sm">
         <caption className="sr-only">Las 100 criptos con mayor capitalización</caption>
         <thead>
@@ -68,15 +68,20 @@ export function MarketTable({ coins }: { coins: MarketCoin[] }) {
           {coins.map((c, i) => (
             <tr key={c.id} className="border-b border-border last:border-b-0">
               <td className="px-3 py-2 text-left tabular-nums text-fg-muted">{c.rank ?? i + 1}</td>
-              <td className="px-3 py-2 text-left">
+              {/* Below md, w-full + max-w-0: this column takes the leftover width and never grows past it, so a long
+                  name is truncated inside the cell instead of widening the table (375 px, no horizontal scroll). From md
+                  the name has a fixed cap instead and the panel scrolls sideways when all the columns do not fit. */}
+              <td className="px-3 py-2 text-left max-md:w-full max-md:max-w-0">
                 <Link
                   href={`/mercado/${c.id}`}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-control font-bold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+                  className="flex min-h-11 max-w-full items-center gap-2 rounded-control font-bold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element -- remote CoinGecko icon, host-checked in the client */}
                   {c.image ? <img src={c.image} alt="" width={20} height={20} loading="lazy" className="size-5 shrink-0 rounded-full" /> : null}
-                  <span className="min-w-0 truncate">{c.name}</span>
-                  <span className="text-[13px] font-normal text-fg-muted uppercase">{c.symbol}</span>
+                  <span className="min-w-0 truncate md:max-w-56" title={c.name}>
+                    {c.name}
+                  </span>
+                  <span className="shrink-0 text-[13px] font-normal text-fg-muted uppercase">{c.symbol}</span>
                 </Link>
               </td>
               <td className={cn(td, "whitespace-nowrap")}>{formatPrice(c.priceUsd)}</td>

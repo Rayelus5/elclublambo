@@ -1,6 +1,7 @@
 import "server-only";
 import {
   CHART_RANGES,
+  COIN_ID_RE,
   CoinNotFoundError,
   MarketUnavailableError,
   type ChartPoint,
@@ -16,7 +17,7 @@ const TIMEOUT_MS = 5000;
 const IMAGE_HOSTS = new Set(["coin-images.coingecko.com", "assets.coingecko.com"]);
 
 export function isCoinId(id: string): boolean {
-  return typeof id === "string" && /^[a-z0-9-]{1,64}$/.test(id);
+  return typeof id === "string" && COIN_ID_RE.test(id);
 }
 
 function base(): string {

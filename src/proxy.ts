@@ -7,6 +7,7 @@ import { isHiddenReportsPage } from "@/lib/reports/guard";
 import { isHiddenSettingsPage } from "@/lib/permissions/settings-guard";
 import { needsWelcome } from "@/lib/onboarding/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
+import { isInvalidCoinPage } from "@/lib/market/guard";
 
 export async function proxy(request: NextRequest) {
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
@@ -59,12 +60,14 @@ export async function proxy(request: NextRequest) {
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
   // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
   // The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot open.
+  // /mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   if (
     user &&
     ((await isMissingChannel(supabase, pathname)) ||
       (await isMissingTicket(supabase, pathname)) ||
       (await isHiddenReportsPage(supabase, pathname)) ||
-      (await isHiddenSettingsPage(supabase, pathname)))
+      (await isHiddenSettingsPage(supabase, pathname)) ||
+      (await isInvalidCoinPage(supabase, pathname)))
   ) {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;

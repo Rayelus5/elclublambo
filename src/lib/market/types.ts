@@ -1,3 +1,6 @@
+/** A CoinGecko coin id as this app accepts it (lowercase slug). Shared by the client and the proxy guard. */
+export const COIN_ID_RE = /^[a-z0-9-]{1,64}$/;
+
 /** Market data is display-only (never feeds money logic), so plain JS numbers are fine here. */
 export type MarketCoin = {
   id: string;
