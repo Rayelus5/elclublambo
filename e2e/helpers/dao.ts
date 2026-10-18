@@ -89,6 +89,25 @@ export async function ageSnapshots() {
   }
 }
 
+/**
+ * Starts the local chain's DAO from zero, so each DAO spec is independent of order and reruns: other specs leave shares,
+ * snapshots, scan cursors and treasury alerts on chain 59141. Service role, test setup only; never touches 59144.
+ */
+export async function resetLocalDao() {
+  const db = service();
+  for (const table of ["dao_safe_operations", "dao_scan_state", "dao_nav_snapshots", "dao_reconciliations", "dao_positions", "dao_ledger"]) {
+    const { error } = await db.from(table).delete().eq("chain_id", CHAIN_ID);
+    expect(error, table).toBeNull();
+  }
+  const { error } = await db
+    .from("dao_state")
+    .update({ total_shares: 0, club_shares: 0, value_usdc: 0, nav_initialized: false, nav_at: null })
+    .eq("chain_id", CHAIN_ID);
+  expect(error).toBeNull();
+  const notices = await db.from("notifications").delete().in("kind", ["treasury_outflow", "treasury_mismatch"]);
+  expect(notices.error).toBeNull();
+}
+
 /** Ticks the donation dialog's mandatory acknowledgement ("Continuar" stays disabled until then). */
 export async function acknowledgeDonation(dialog: Locator) {
   const box = dialog.getByRole("checkbox", { name: DONATION_ACK });

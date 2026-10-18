@@ -34,13 +34,16 @@ function envAddress(name: string): Address | null {
   return v && isAddress(v) ? v : null;
 }
 
-/** The chain's USDC, WETH and ETH/USD feed. `WETH_ADDRESS_<id>` / `ETH_USD_FEED_ADDRESS_<id>` override (tests, local chain). */
+/** The chain's USDC, WETH and ETH/USD feed. `WETH_ADDRESS_59141` / `ETH_USD_FEED_ADDRESS_59141` override (tests, local chain). */
 export function addressesFor(chain: ChainId): { usdc: Address; weth: Address | null; ethUsdFeed: Address | null; heartbeatSec: number } {
   const net = NETWORKS[chain];
+  // Ruling F4a-R10: overrides only on the testnet (the local e2e chain reuses 59141); a stray env var must never swap
+  // mainnet's price oracle or WETH, which set the NAV that shares are issued at.
+  const testnet = chain === 59141;
   return {
     usdc: net.usdc,
-    weth: envAddress(`WETH_ADDRESS_${chain}`) ?? net.weth,
-    ethUsdFeed: envAddress(`ETH_USD_FEED_ADDRESS_${chain}`) ?? net.ethUsdFeed,
+    weth: (testnet ? envAddress(`WETH_ADDRESS_${chain}`) : null) ?? net.weth,
+    ethUsdFeed: (testnet ? envAddress(`ETH_USD_FEED_ADDRESS_${chain}`) : null) ?? net.ethUsdFeed,
     heartbeatSec: net.ethUsdHeartbeatSec,
   };
 }

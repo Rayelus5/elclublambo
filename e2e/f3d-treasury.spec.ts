@@ -2,7 +2,17 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { hardhatAccount } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
-import { acknowledgeDonation, ageSnapshots, mineBlock, noticesOf, operationsList, runCron, sendToken, tokenBalance as usdcOf } from "./helpers/dao";
+import {
+  acknowledgeDonation,
+  ageSnapshots,
+  mineBlock,
+  noticesOf,
+  operationsList,
+  resetLocalDao,
+  runCron,
+  sendToken,
+  tokenBalance as usdcOf,
+} from "./helpers/dao";
 import { createInvite, joinAs, openChannel, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
@@ -48,6 +58,8 @@ const channelsNav = (page: Page) => page.getByRole("navigation", { name: "Canale
 const lockedLink = (page: Page) => channelsNav(page).getByRole("link", { name: `${VIP}, bloqueado`, exact: true });
 
 test.beforeAll(async ({ browser }) => {
+  // Test 3 expects the first donation and the first valuation of the local chain: start its DAO from zero.
+  await resetLocalDao();
   const adminContext = await browser.newContext({ viewport: desktop });
   trackErrors(adminContext);
   await loginAs(adminContext, E2E_SUPER_ADMIN_PK);

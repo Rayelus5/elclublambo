@@ -10,6 +10,7 @@ import {
   mineBlock,
   noticesOf,
   operationsList,
+  resetLocalDao,
   runCron,
   sendCall,
   sendToken,
@@ -60,23 +61,8 @@ let b: Actor;
 let walletA: TestWallet;
 let walletB: TestWallet;
 let sharesBeforeB = 0n;
-
-/**
- * Starts the local chain's DAO from zero: earlier specs (f3d) leave shares, snapshots and scan cursors on chain 59141, and
- * this spec checks what happens on the very first donation. Service role, test setup only.
- */
-async function resetLocalDao() {
-  const db = service();
-  for (const table of ["dao_safe_operations", "dao_scan_state", "dao_nav_snapshots", "dao_reconciliations", "dao_positions", "dao_ledger"]) {
-    const { error } = await db.from(table).delete().eq("chain_id", CHAIN_ID);
-    expect(error, table).toBeNull();
-  }
-  const { error } = await db
-    .from("dao_state")
-    .update({ total_shares: 0, club_shares: 0, value_usdc: 0, nav_initialized: false, nav_at: null })
-    .eq("chain_id", CHAIN_ID);
-  expect(error).toBeNull();
-}
+// The global minimum fee as this spec found it (app_config min_fee_bps); test 1 changes it, afterAll puts it back.
+let minFeeBefore: unknown = null;
 
 async function setEthPrice(priceE8: bigint) {
   await sendCall(hardhatAccount(0).address, ETH_USD_FEED_ADDRESS, aggregatorAbi, "setAnswer", [priceE8]);
@@ -114,7 +100,11 @@ function parseUsd(text: string): number {
 const ranking = (page: Page) => page.getByRole("table", { name: "Ranking de la DAO" });
 
 test.beforeAll(async ({ browser }) => {
+  // This spec checks the very first donation: the local chain's DAO starts from zero whatever ran before.
   await resetLocalDao();
+  const fee = await service().from("app_config").select("value").eq("key", "min_fee_bps").single<{ value: unknown }>();
+  expect(fee.error).toBeNull();
+  minFeeBefore = fee.data!.value;
 
   const adminContext = await browser.newContext({ viewport: desktop });
   trackErrors(adminContext);
@@ -124,8 +114,6 @@ test.beforeAll(async ({ browser }) => {
   const adminRow = await service().from("members").select("id").eq("wallet_address", adminAccount.address.toLowerCase()).single<{ id: string }>();
   expect(adminRow.error).toBeNull();
   admin.id = adminRow.data!.id;
-  const outflows = await service().from("notifications").delete().eq("kind", "treasury_outflow").eq("recipient_id", admin.id);
-  expect(outflows.error).toBeNull();
 
   a = await joinAs(browser, memberA.privateKey, await createInvite(admin.page), NAMES.a, undefined, trackErrors);
   b = await joinAs(browser, memberB.privateKey, await createInvite(admin.page), NAMES.b, undefined, trackErrors);
@@ -145,8 +133,12 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   for (const x of [admin, a, b]) await x?.context.close();
-  // Leave the mock feed as start-chain.mjs set it for any later spec.
+  // Leave the mock feed as start-chain.mjs set it, and the minimum fee as found, for any later spec.
   await setEthPrice(INITIAL_ETH_PRICE_E8).catch(() => undefined);
+  if (minFeeBefore !== null) {
+    const { error } = await service().from("app_config").update({ value: minFeeBefore }).eq("key", "min_fee_bps");
+    expect(error).toBeNull();
+  }
 });
 
 test("1. setup: the admin sets a fresh Safe and the platform wallet", async () => {
@@ -155,6 +147,7 @@ test("1. setup: the admin sets a fresh Safe and the platform wallet", async () =
   await expect(p.getByRole("heading", { level: 2, name: "Economía" })).toBeVisible();
   await p.waitForLoadState("networkidle");
   // A known minimum fee, whatever earlier specs left: each donation is then exactly two transfers (fee + donation).
+  // Restored in afterAll.
   await p.getByLabel("Comisión mínima (%)").fill("2,6");
   await p.getByRole("button", { name: "Guardar comisión" }).click();
   await expect(p.getByText("Comisión guardada.")).toBeVisible();

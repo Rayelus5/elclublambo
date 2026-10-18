@@ -72,9 +72,22 @@ describe("addressesFor", () => {
     });
   });
 
+  it("ignores every override on Linea mainnet (ruling F4a-R10): the oracle and WETH stay the verified ones", () => {
+    vi.stubEnv("ETH_USD_FEED_ADDRESS_59144", FEED);
+    vi.stubEnv("WETH_ADDRESS_59144", WETH);
+    expect(addressesFor(59144)).toEqual({
+      usdc: NETWORKS[59144].usdc,
+      weth: NETWORKS[59144].weth,
+      ethUsdFeed: NETWORKS[59144].ethUsdFeed,
+      heartbeatSec: NETWORKS[59144].ethUsdHeartbeatSec,
+    });
+    // the testnet overrides still apply
+    expect(addressesFor(59141)).toMatchObject({ weth: WETH, ethUsdFeed: FEED });
+  });
+
   it("ignores a malformed override", () => {
-    vi.stubEnv("WETH_ADDRESS_59144", "not-an-address");
-    expect(addressesFor(59144).weth).toBe(NETWORKS[59144].weth);
+    vi.stubEnv("WETH_ADDRESS_59141", "not-an-address");
+    expect(addressesFor(59141).weth).toBe(NETWORKS[59141].weth);
   });
 });
 
