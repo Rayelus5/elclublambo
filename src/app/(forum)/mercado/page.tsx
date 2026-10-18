@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { MarketError } from "@/components/market/market-error";
 import { MarketStatus } from "@/components/market/market-status";
 import { MarketTable } from "@/components/market/market-table";
 import { getTopMarkets } from "@/lib/market/cache";
@@ -16,17 +16,7 @@ async function MarketContent() {
   } catch (e) {
     // Only the "no usable copy" case is a UI state; anything else is a real bug and surfaces.
     if (!(e instanceof MarketUnavailableError)) throw e;
-    return (
-      <div role="alert" className="flex flex-col items-start gap-2 rounded-panel border border-border bg-surface p-4 sm:p-6">
-        <p className="font-bold">No se pudieron cargar los precios ahora mismo.</p>
-        <Link
-          href="/mercado"
-          className="inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-        >
-          Reintentar
-        </Link>
-      </div>
-    );
+    return <MarketError message="No se pudieron cargar los precios ahora mismo." retryHref="/mercado" />;
   }
   return (
     <>
