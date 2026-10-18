@@ -9,6 +9,9 @@
 --   first valuation: a chain with an F3 ledger (nav_initialized = false, S > 0) whose NAV exceeds the ledger value V
 --                    gives the excess to the club at the ledger price: floor((NAV - V) * S / V).
 --
+-- Share price (ruling F4a-R3): the usd6 price of ONE participación = 10^18 shares (1 USDC buys 10^18 shares in an
+-- empty fund, so it starts at 1_000000): sharePriceUsd6 = floor(NAV * 10^18 / S).
+--
 -- dao_state.value_usdc keeps its name and now caches the last NAV (usd6); nav_at is when it was taken.
 -- The club fund (dao_state.club_shares) counts in total_shares; it cannot be withdrawn, does not vote, enters no
 -- raffle and opens no channel gate (it has no dao_positions row, so the gates never see it).
@@ -280,7 +283,7 @@ begin
     'myPending', v_pending,
     'navUsd6', v_value::text,
     'navAt', v_nav_at,
-    'sharePriceUsd6', case when v_total = 0 then '0' else div(v_value * 1000000000000, v_total)::text end,
+    'sharePriceUsd6', case when v_total = 0 then '0' else div(v_value * 1000000000000000000, v_total)::text end,
     'myValueUsd6', case when v_total = 0 then '0' else div(v_shares * v_value, v_total)::text end,
     'clubShares', coalesce(v_club, 0)::text,
     'composition', v_comp);
@@ -365,7 +368,7 @@ begin
   )
   select pts.t,
          pts.nav::text,
-         case when pts.sh = 0 then '0' else div(pts.nav * 1000000000000, pts.sh)::text end
+         case when pts.sh = 0 then '0' else div(pts.nav * 1000000000000000000, pts.sh)::text end
   from pts
   where (pts.back - 1) % ceil(pts.cnt / 500.0)::bigint = 0
   order by pts.t, pts.back desc;

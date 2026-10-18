@@ -1,6 +1,6 @@
 -- F4a Task 1: market-value (NAV) share issuance, the club fund and hourly NAV snapshots.
 begin;
-select plan(81);
+select plan(82);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.nh(p_n int) returns text language sql immutable as $$
@@ -120,6 +120,7 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'myShareBps', '8000', 'the donor holds 8000 bps');
 select is((select share_bps from public.dao_ranking(50) where label = 'Fondo del club'), 2000, 'the club holds 2000 bps');
 select is(public.dao_overview() -> 'composition', 'null'::jsonb, 'no snapshot yet: composition is null');
+select is(public.dao_overview() ->> 'sharePriceUsd6', '1000000', 'a fresh fund prices one participación at 1 USD');
 select tests.clear_authentication();
 
 -- ===== 4. issuance at NAV =====
@@ -224,7 +225,7 @@ select is(tests.st(59141), '12000000000000000000:2000000000000000000:14000000', 
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is(public.dao_overview() ->> 'navUsd6', '14000000', 'navUsd6');
 select ok(public.dao_overview() ->> 'navAt' is not null, 'navAt');
-select is(public.dao_overview() ->> 'sharePriceUsd6', div(14000000::numeric * 1000000000000, 12000000000000000000)::text, 'sharePriceUsd6 = NAV * 10^12 / S');
+select is(public.dao_overview() ->> 'sharePriceUsd6', '1166666', 'sharePriceUsd6 = floor(NAV * 10^18 / S): one participación');
 select is(public.dao_overview() ->> 'myValueUsd6', div(10000000000000000000::numeric * 14000000, 12000000000000000000)::text, 'myValueUsd6 = myShares * NAV / S');
 select is(public.dao_overview() ->> 'clubShares', '2000000000000000000', 'clubShares');
 select is(public.dao_overview() -> 'composition' ->> 'priceSource', 'chainlink', 'composition from the latest snapshot');
@@ -241,7 +242,7 @@ select is((select array_agg(taken_at) from public.dao_nav_history('7d')),
   (select array_agg(taken_at order by taken_at) from public.dao_nav_history('7d')), 'oldest first');
 select is((select array_agg(nav_usd6) from public.dao_nav_history('7d')), array['13000000', '12000000', '14000000'], 'the 7d history lists the snapshots');
 select is((select share_price_usd6 from public.dao_nav_history('24h') order by taken_at desc limit 1),
-  div(14000000::numeric * 1000000000000, 12000000000000000000)::text, 'share price per point');
+  '1166666', 'share price per point (per 10^18 shares)');
 select throws_ok($$select * from public.dao_nav_history('1y')$$, 'P0001', 'invalid_input', 'an unknown range');
 select tests.clear_authentication();
 insert into public.dao_nav_snapshots (chain_id, taken_at, usdc_units, eth_wei, weth_wei, eth_price_e8, assets_usd6,
