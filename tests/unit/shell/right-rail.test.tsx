@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -76,5 +76,16 @@ describe("RightRail", () => {
     renderRail();
     expect(h.rpc).not.toHaveBeenCalled();
     expect(h.topic).not.toHaveBeenCalled();
+  });
+
+  it("activity only re-reads the channel's open bounties, not the costly member count", async () => {
+    h.path = `/c/${CH}`;
+    renderRail();
+    await screen.findByText("#general");
+    const before = h.rpc.mock.calls.length;
+    const handlers = h.topic.mock.calls.at(-1)![2] as { onEvent: () => void };
+    act(() => handlers.onEvent());
+    await waitFor(() => expect(h.rpc.mock.calls.length).toBe(before + 1));
+    expect(h.rpc.mock.calls.at(-1)![0]).toBe("home_open_bounties");
   });
 });

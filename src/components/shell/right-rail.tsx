@@ -46,7 +46,18 @@ function ChannelRail({ channelId }: { channelId: string }) {
     const supabase = createBrowserClient();
     Promise.all([getChannelOverview(supabase, channelId), getHomePins(supabase, 5, channelId), getOpenBounties(supabase, 5, channelId)])
       .then(([overview, pins, bounties]) => alive && setState({ status: "ready", data: { overview, pins, bounties } }))
-      .catch(() => alive && setState((s) => (s.status === "ready" ? s : { status: "error" })));
+      .catch(() => alive && setState({ status: "error" }));
+    return () => {
+      alive = false;
+    };
+  }, [channelId]);
+  // Activity only re-reads the open bounties (the member count walks every member's permissions: once per visit).
+  useEffect(() => {
+    if (version === 0) return;
+    let alive = true;
+    getOpenBounties(createBrowserClient(), 5, channelId)
+      .then((bounties) => alive && setState((s) => (s.status === "ready" ? { status: "ready", data: { ...s.data, bounties } } : s)))
+      .catch(() => undefined);
     return () => {
       alive = false;
     };

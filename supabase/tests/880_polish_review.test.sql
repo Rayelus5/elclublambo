@@ -1,7 +1,7 @@
 -- Review fixes of the F3 polish round: system_key roles never raise a member's rank (I1), a delegate cannot shift them
 -- (I2), and the activity feed only announces credited donations (M2).
 begin;
-select plan(7);
+select plan(10);
 
 select set_config('t.a', tests.create_member('0x' || lpad('f8800', 40, '0'), null, true)::text, true);
 select set_config('t.b', tests.create_member('0x' || lpad('f8801', 40, '0'), current_setting('t.a')::uuid)::text, true);
@@ -54,6 +54,35 @@ update public.dao_ledger set status = 'credited', shares_delta = 1, credited_at 
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select actor_label from public.club_activity(50) where kind = 'donation' and amount_text = '4000000'), 'Anónimo',
   'once credited it is announced, as Anónimo for a hidden donor');
+select tests.clear_authentication();
+
+-- N4: tips in the feed — hidden channel, deleted message, profile
+select set_config('t.cat', tests.create_channel(null, 'category', 'T880cat')::text, true);
+select set_config('t.hid', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't880hid')::text, true);
+select set_config('t.open', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't880open')::text, true);
+insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
+  values (current_setting('t.hid')::uuid, 'role', (select id from public.roles where is_everyone), 0, 1);
+select set_config('t.c', tests.create_member('0x' || lpad('f8802', 40, '0'), current_setting('t.a')::uuid)::text, true);
+select set_config('t.uc', (select auth_user_id::text from public.members where id = current_setting('t.c')::uuid), true);
+insert into public.messages (id, channel_id, author_id, body, body_text, allow_links, deleted_at)
+values ('8800d000-0000-4000-8000-000000000001', current_setting('t.hid')::uuid, current_setting('t.b')::uuid, '{"type":"doc","content":[]}', 'oculto', true, null),
+       ('8800d000-0000-4000-8000-000000000002', current_setting('t.open')::uuid, current_setting('t.b')::uuid, '{"type":"doc","content":[]}', 'borrado', true, now());
+insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount, recipient_member_id,
+  recipient_address, target_type, target_id, status)
+values ('8800e000-0000-4000-8000-000000000001', current_setting('t.a')::uuid, 'tip', 59141, 'USDC', 1111111, 0, 0, 0, current_setting('t.b')::uuid,
+        '0x00000000000000000000000000000000000000dd', 'message', '8800d000-0000-4000-8000-000000000001', 'confirmed'),
+       ('8800e000-0000-4000-8000-000000000002', current_setting('t.a')::uuid, 'tip', 59141, 'USDC', 2222222, 0, 0, 0, current_setting('t.b')::uuid,
+        '0x00000000000000000000000000000000000000dd', 'message', '8800d000-0000-4000-8000-000000000002', 'confirmed'),
+       ('8800e000-0000-4000-8000-000000000003', current_setting('t.a')::uuid, 'tip', 59141, 'USDC', 3333333, 0, 0, 0, current_setting('t.b')::uuid,
+        '0x00000000000000000000000000000000000000dd', 'profile', current_setting('t.b')::uuid, 'confirmed');
+insert into public.tips (intent_id, chain_id, from_member, to_member, target_type, message_id, token, amount, fee_amount, anonymous, main_tx_hash, block_number)
+values ('8800e000-0000-4000-8000-000000000001', 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', '8800d000-0000-4000-8000-000000000001', 'USDC', 1111111, 0, false, '0x' || repeat('a', 64), 1),
+       ('8800e000-0000-4000-8000-000000000002', 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', '8800d000-0000-4000-8000-000000000002', 'USDC', 2222222, 0, false, '0x' || repeat('b', 64), 1),
+       ('8800e000-0000-4000-8000-000000000003', 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'profile', null, 'USDC', 3333333, 0, false, '0x' || repeat('c', 64), 1);
+select tests.authenticate_as(current_setting('t.uc')::uuid);
+select is((select count(*)::int from public.club_activity(50) where kind = 'tip' and amount_text = '1111111'), 0, 'a tip in a hidden channel is not in the feed');
+select is((select count(*)::int from public.club_activity(50) where kind = 'tip' and amount_text = '2222222'), 0, 'a tip on a deleted message is not in the feed');
+select is((select count(*)::int from public.club_activity(50) where kind = 'tip' and amount_text = '3333333'), 1, 'a profile tip is in the feed');
 select tests.clear_authentication();
 
 select * from finish();
