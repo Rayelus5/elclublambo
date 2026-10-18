@@ -172,6 +172,31 @@ describe("TipDialog bounty mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("F3c-R7: resumes a paid-fee intent on its own chain although it is no longer the active one (badge, switch to the intent's network, signs there)", async () => {
+    const cfg = config({ chains: { 59144: { safe: null, platform: PLATFORM }, 59141: { safe: null, platform: PLATFORM } } });
+    const old = { ...intent, chainId: 59144 };
+    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 59144, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, feeAttached: true, createdAt: Date.now(), intent: old });
+    account.chainId = 59141; // the wallet is on the active chain, the intent lives on the other one
+    const view = setup(mode({ chainId: 59144 }), cfg);
+    expect(screen.getByText("La comisión ya está pagada. Falta firmar el pago.")).toBeInTheDocument();
+    expect(screen.getByText("Linea", { exact: true })).toBeInTheDocument();
+    expect(screen.queryByText(/vuelva a estar activa/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cambiar a Linea" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cambiar a Linea Sepolia" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Firmar el pago" })).toBeDisabled();
+    expect(send).not.toHaveBeenCalled();
+
+    account.chainId = 59144; // the member switched
+    view.unmount();
+    setup(mode({ chainId: 59144 }), cfg);
+    expect(screen.queryByRole("button", { name: /^Cambiar a/ })).not.toBeInTheDocument();
+    send.mockReset().mockResolvedValueOnce(MAIN_HASH);
+    await userEvent.click(screen.getByRole("button", { name: "Firmar el pago" }));
+    await screen.findByText("Bounty pagado");
+    expect(send).toHaveBeenCalledWith({ chain: 59144, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
+    expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();
+  });
+
   it("does not mix ledgers: a message tip entry with the same id does not resume a bounty", () => {
     upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 59141, token: "USDC", targetType: "message", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, createdAt: Date.now(), intent });
     setup();

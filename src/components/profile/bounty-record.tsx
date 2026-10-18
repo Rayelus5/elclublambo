@@ -17,7 +17,8 @@ export function BountyRecordSection({ record, unpaid }: { record: BountyRecord; 
         Bounties
       </h2>
       <p className="text-fg">
-        Bounties: {record.paid} pagados · {record.paidLate} pagados tarde · {record.unpaid} impagados
+        Bounties: {record.paid} {record.paid === 1 ? "pagado" : "pagados"} · {record.paidLate}{" "}
+        {record.paidLate === 1 ? "pagado tarde" : "pagados tarde"} · {record.unpaid} {record.unpaid === 1 ? "impagado" : "impagados"}
       </p>
       {unpaid.length > 0 ? (
         <ul aria-label="Bounties impagados" className="flex flex-col gap-1">

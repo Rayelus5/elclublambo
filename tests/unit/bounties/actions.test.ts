@@ -53,6 +53,20 @@ describe("createBountyAction", () => {
   });
 });
 
+describe("createBountyAction slowmode", () => {
+  it("carries the remaining seconds of the slowmode error", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "slowmode", details: "42" } });
+    expect(await createBountyAction({ channelId: CH, body: doc, token: "USDC", amount: "5" })).toMatchObject({ ok: false, code: "slowmode", slowmodeSeconds: 42 });
+  });
+
+  it("omits the seconds when the detail is missing", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "slowmode" } });
+    const r = await createBountyAction({ channelId: CH, body: doc, token: "USDC", amount: "5" });
+    expect(r).toMatchObject({ ok: false, code: "slowmode" });
+    expect(r).not.toHaveProperty("slowmodeSeconds");
+  });
+});
+
 describe("markSolutionAction", () => {
   it("calls mark_bounty_solution", async () => {
     rpc.mockResolvedValue({ data: null, error: null });

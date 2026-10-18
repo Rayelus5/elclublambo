@@ -10,10 +10,13 @@ vi.mock("@/lib/chat/actions", () => ({
 }));
 vi.mock("@/components/chat/alpha-dialog", () => ({ AlphaDialog: () => null }));
 vi.mock("@/components/chat/bounty-dialog", () => ({
-  BountyDialog: (props: { open: boolean; channelId: string; initialText: string; onPosted: (id: string) => void }) => (
+  BountyDialog: (props: { open: boolean; channelId: string; initialText: string; onPosted: (id: string) => void; onSlowmode?: (s: number) => void }) => (
     <div data-testid="bounty-stub" data-open={String(props.open)} data-channel={props.channelId} data-text={props.initialText}>
       <button type="button" onClick={() => props.onPosted("m-bounty")}>
         stub-posted
+      </button>
+      <button type="button" onClick={() => props.onSlowmode?.(30)}>
+        stub-slowmode
       </button>
     </div>
   ),
@@ -37,6 +40,12 @@ beforeEach(() => {
 });
 
 describe("Composer + /bounty", () => {
+  it("starts the slowmode countdown when the bounty post hits slowmode", async () => {
+    await mount({ canBounty: true, slowmodeSeconds: 60 });
+    await userEvent.click(screen.getByRole("button", { name: "stub-slowmode" }));
+    expect(await screen.findByText("Puedes escribir de nuevo en 30s")).toBeInTheDocument();
+  });
+
   it("does not mount the bounty dialog without canBounty, nor offer the command", async () => {
     const { editor } = await mount();
     expect(screen.queryByTestId("bounty-stub")).not.toBeInTheDocument();

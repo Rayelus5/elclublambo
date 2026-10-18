@@ -455,6 +455,7 @@ export function Composer(props: ComposerProps) {
           initialText={bountyText}
           // The description moved into the bounty message: the drafts are spent (pending images and the quote too).
           onPosted={afterPosted}
+          onSlowmode={startSlowmode}
         />
       ) : null}
       {canAlpha ? (

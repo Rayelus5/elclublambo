@@ -174,6 +174,17 @@ describe("ChatView: bounties", () => {
     expect(within(panel).queryByRole("button", { name: "Marcar como solución" })).not.toBeInTheDocument();
   });
 
+  it("a bounty_changed event (solution marked or cancelled by someone else) re-reads the bounty root", async () => {
+    const r = root({ replyCount: 0 });
+    setup({}, [r]);
+    expect(screen.getByTestId("bounty-status")).toHaveTextContent("Abierto");
+    const cancelled = { ...r, bounty: bounty({ status: "cancelled" }) };
+    queries.getMessage.mockResolvedValue({ message: cancelled, messages: [cancelled], directory });
+    await emit(r.id, ["bounty_changed"]);
+    await waitFor(() => expect(queries.getMessage).toHaveBeenCalledWith(expect.anything(), r.id, ME));
+    await waitFor(() => expect(screen.getByTestId("bounty-status")).toHaveTextContent("Cancelado"));
+  });
+
   it("a payment notice in the bounty thread re-reads the bounty root", async () => {
     const r = root({ replyCount: 0 });
     setup({}, [r]);

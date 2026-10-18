@@ -9,7 +9,17 @@ describe("BountyRecordSection", () => {
   it("shows the counts in the agreed copy", () => {
     render(<BountyRecordSection record={{ paid: 3, paidLate: 1, unpaid: 2, open: 4 }} unpaid={[]} />);
     expect(screen.getByRole("heading", { name: "Bounties" })).toBeInTheDocument();
-    expect(screen.getByText("Bounties: 3 pagados · 1 pagados tarde · 2 impagados")).toBeInTheDocument();
+    expect(screen.getByText("Bounties: 3 pagados · 1 pagado tarde · 2 impagados")).toBeInTheDocument();
+  });
+
+  it("uses the singular for exactly one", () => {
+    render(<BountyRecordSection record={{ paid: 1, paidLate: 1, unpaid: 1, open: 0 }} unpaid={[]} />);
+    expect(screen.getByText("Bounties: 1 pagado · 1 pagado tarde · 1 impagado")).toBeInTheDocument();
+  });
+
+  it("keeps the plural for zero and for several", () => {
+    render(<BountyRecordSection record={{ paid: 0, paidLate: 2, unpaid: 1, open: 0 }} unpaid={[]} />);
+    expect(screen.getByText("Bounties: 0 pagados · 2 pagados tarde · 1 impagado")).toBeInTheDocument();
   });
 
   it("lists the unpaid bounties, linking to the bounty message", () => {

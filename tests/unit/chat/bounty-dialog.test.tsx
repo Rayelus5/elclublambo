@@ -16,14 +16,15 @@ const config = {
 };
 
 function setup(initialText = "") {
+  const onSlowmode = vi.fn();
   const onPosted = vi.fn();
   const onOpenChange = vi.fn();
   render(
     <EconomyProvider config={config} wallet="0x1111111111111111111111111111111111111111" memberId="m1">
-      <BountyDialog open onOpenChange={onOpenChange} channelId={CH} initialText={initialText} onPosted={onPosted} />
+      <BountyDialog open onOpenChange={onOpenChange} channelId={CH} initialText={initialText} onPosted={onPosted} onSlowmode={onSlowmode} />
     </EconomyProvider>,
   );
-  return { onPosted, onOpenChange, user: userEvent.setup() };
+  return { onPosted, onSlowmode, onOpenChange, user: userEvent.setup() };
 }
 
 const amountBox = () => screen.getByLabelText("Recompensa");
@@ -51,6 +52,16 @@ describe("BountyDialog", () => {
     expect(screen.getByText("La recompensa debe estar entre 1 y 100000 USDC.")).toBeInTheDocument();
     await user.click(publish());
     expect(createBountyAction).not.toHaveBeenCalled();
+  });
+
+  it("hands the slowmode seconds to the composer so its countdown starts", async () => {
+    createBountyAction.mockResolvedValue({ ok: false, code: "slowmode", error: "Vas demasiado rápido. Espera un momento.", slowmodeSeconds: 42 });
+    const { user, onSlowmode, onPosted } = setup("ayuda");
+    await user.type(amountBox(), "5");
+    await user.click(publish());
+    await waitFor(() => expect(onSlowmode).toHaveBeenCalledWith(42));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/demasiado rápido/);
+    expect(onPosted).not.toHaveBeenCalled();
   });
 
   it("uses the ETH bounds (0,0001 to 100) once ETH is chosen", async () => {

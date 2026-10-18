@@ -184,7 +184,6 @@ function TipFlow({
   const economy = useEconomy();
   const { memberId } = economy;
   const chainId = economy.activeChainId;
-  const network = NETWORKS[chainId];
   const platform = economy.chains[chainId].platform;
   // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile.
   const ledgerType: LedgerTargetType = mode ? "bounty" : (target?.type ?? "profile");
@@ -278,11 +277,14 @@ function TipFlow({
   else if (feeBps > 0 && !platform) reason = "La plataforma aún no tiene wallet configurada en esta red.";
 
   const connected = account.isConnected && !!account.address;
+  // F3c-R7: a resumed intent (fee already paid) is signed on ITS chain even when that is no longer the active one;
+  // everything the wallet has to match then refers to the intent's chain, never to the active one.
+  const walletChainId = (step === "resume" && intent ? intent.chainId : chainId) as ChainId;
   const wallet: "connect" | "mismatch" | "chain" | null = !connected
     ? "connect"
     : account.address!.toLowerCase() !== economy.wallet.toLowerCase()
       ? "mismatch"
-      : account.chainId !== chainId
+      : account.chainId !== walletChainId
         ? "chain"
         : null;
 
@@ -529,8 +531,8 @@ function TipFlow({
       {wallet === "chain" ? (
         <WalletNotice>
           <p className="text-sm text-warning">Tu wallet está en otra red.</p>
-          <Button type="button" variant="outline" disabled={switching} onClick={() => switchChain({ chainId })}>
-            Cambiar a {network.name}
+          <Button type="button" variant="outline" disabled={switching} onClick={() => switchChain({ chainId: walletChainId })}>
+            Cambiar a {NETWORKS[walletChainId].name}
           </Button>
         </WalletNotice>
       ) : null}

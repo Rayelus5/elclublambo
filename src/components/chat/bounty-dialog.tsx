@@ -22,6 +22,8 @@ export interface BountyDialogProps {
   /** Plain text taken from the composer when the dialog opened (editable here). */
   initialText: string;
   onPosted: (id: string) => void;
+  /** The post hit the channel's slowmode: the composer starts its countdown with these seconds. */
+  onSlowmode?: (seconds: number) => void;
 }
 
 const TOKENS: Token[] = ["USDC", "ETH"];
@@ -38,7 +40,7 @@ function textToDoc(text: string) {
   };
 }
 
-function Form({ onOpenChange, channelId, initialText, onPosted }: BountyDialogProps) {
+function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: BountyDialogProps) {
   const { activeChainId } = useEconomy();
   const [token, setToken] = useState<Token>("USDC");
   const [amountText, setAmountText] = useState("");
@@ -79,6 +81,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted }: BountyDialogPr
     }
     setSending(false);
     if (!res.ok) {
+      if (res.code === "slowmode" && res.slowmodeSeconds && res.slowmodeSeconds > 0) onSlowmode?.(res.slowmodeSeconds);
       setError({ text: res.error, field: res.code === "amount_out_of_range" ? "amount" : null });
       return;
     }

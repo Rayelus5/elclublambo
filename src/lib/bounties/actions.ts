@@ -11,7 +11,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const isUuid = (v: unknown): v is string => typeof v === "string" && UUID_RE.test(v);
 const isToken = (v: unknown): v is Token => v === "ETH" || v === "USDC";
 
-type Fail = { ok: false; error: string; code: string };
+type Fail = { ok: false; error: string; code: string; slowmodeSeconds?: number };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
 
 export async function createBountyAction(input: {
@@ -36,7 +36,13 @@ export async function createBountyAction(input: {
     p_token: token,
     p_amount: units.toString(),
   });
-  if (error) return fail(rpcErrorCode(error));
+  if (error) {
+    const code = rpcErrorCode(error);
+    if (code !== "slowmode") return fail(code);
+    // The remaining seconds come in the error DETAIL; the composer starts its countdown with them.
+    const n = Number.parseInt((error as { details?: string | null }).details ?? "", 10);
+    return Number.isFinite(n) && n > 0 ? { ...fail(code), slowmodeSeconds: n } : fail(code);
+  }
   if (!data) return fail("unknown");
   schedulePushDispatch();
   return { ok: true, messageId: String(data) };
