@@ -36,7 +36,8 @@ select results_eq(
   'seed roles exact');
 select results_eq(
   $$select key, value from public.app_config order by key$$,
-  $$values ('weighted_raffles_enabled'::text, 'false'::jsonb), ('withdrawals_enabled', 'false'::jsonb)$$,
+  $$values ('active_chain_id'::text, '59141'::jsonb), ('min_fee_bps', '0'::jsonb),
+    ('weighted_raffles_enabled', 'false'::jsonb), ('withdrawals_enabled', 'false'::jsonb)$$,
   'app_config seed');
 
 -- single is_everyone

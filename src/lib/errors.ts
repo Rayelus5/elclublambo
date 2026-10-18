@@ -33,7 +33,10 @@ const MESSAGES: Record<string, string> = {
   bio_too_long: "La bio puede tener como máximo 280 caracteres.",
   links_invalid: "Los enlaces deben ser https, tener un dominio válido, medir como máximo 200 caracteres y ser 3 como mucho.",
   avatar_invalid: "La imagen de perfil no es válida: usa PNG, JPG o WebP de hasta 2 MB.",
-  retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
+  fee_out_of_range: "La comisión mínima debe estar entre 0% y 50%.",
+  address_invalid: "La dirección no es válida: debe ser una dirección 0x de 40 caracteres y no la dirección cero.",
+  chain_invalid: "Esa red no está soportada.",
+  retry:"Hubo un conflicto con otra acción. Inténtalo de nuevo.",
 };
 
 /** Allowlist untrusted input (e.g. a query param) to a known error code; never echo raw text. */
