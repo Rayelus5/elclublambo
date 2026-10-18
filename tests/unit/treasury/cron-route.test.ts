@@ -8,22 +8,24 @@ const reconcile = vi.fn();
 vi.mock("@/lib/treasury/reconcile", () => ({ reconcile: (...a: unknown[]) => reconcile(...a) }));
 
 let safes: Record<number, string | null> = {};
+let cfgError: unknown = null;
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
-    from: () => ({ select: () => Promise.resolve({ data: Object.entries(safes).map(([chain_id, safe_address]) => ({ chain_id: Number(chain_id), safe_address })), error: null }) }),
+    from: () => ({ select: () => Promise.resolve({ error: cfgError, data: cfgError ? null : Object.entries(safes).map(([chain_id, safe_address]) => ({ chain_id: Number(chain_id), safe_address })) }) }),
   }),
 }));
 
-import { POST } from "@/app/api/cron/dao/route";
+import { GET, POST } from "@/app/api/cron/dao/route";
 
-const req = (auth?: string) => new Request("http://localhost/api/cron/dao", { method: "POST", headers: auth ? { authorization: auth } : {} });
+const req = (auth?: string, method = "POST") => new Request("http://localhost/api/cron/dao", { method, headers: auth ? { authorization: auth } : {} });
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("CRON_SECRET", "s3cret-value");
   safes = { 59144: "0xaaaa", 59141: "0xbbbb" };
+  cfgError = null;
   settle.mockResolvedValue({ credited: 1, reverted: 0, pending: 2 });
-  reconcile.mockResolvedValue({ ledgerValue: 1n, onchainBalance: 3n, diff: 2n, id: "r1" });
+  reconcile.mockResolvedValue({ ledgerValue: 1n, pendingValue: 0n, onchainBalance: 3n, diff: 2n, rawDiff: 2n, id: "r1" });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -61,6 +63,26 @@ describe("POST /api/cron/dao", () => {
     expect(reconcile).toHaveBeenCalledTimes(1);
     expect(settle).toHaveBeenCalledTimes(2);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured" });
+  });
+
+  it("GET (Vercel Cron) has the same auth and the same behaviour", async () => {
+    expect((await GET(req(undefined, "GET"))).status).toBe(401);
+    expect((await GET(req("Bearer nope", "GET"))).status).toBe(401);
+    vi.stubEnv("CRON_SECRET", "");
+    expect((await GET(req("Bearer s3cret-value", "GET"))).status).toBe(503);
+    vi.stubEnv("CRON_SECRET", "s3cret-value");
+    const res = await GET(req("Bearer s3cret-value", "GET"));
+    expect(res.status).toBe(200);
+    expect(reconcile).toHaveBeenCalledTimes(2);
+  });
+
+  it("a chain_config read error answers 500 and runs nothing", async () => {
+    cfgError = { message: "db down" };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await POST(req("Bearer s3cret-value"))).status).toBe(500);
+    expect(reconcile).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("one failing chain does not stop the other", async () => {

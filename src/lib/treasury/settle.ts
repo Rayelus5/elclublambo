@@ -8,10 +8,10 @@ export type SettleResult = { credited: number; reverted: number; pending: number
 export type SettleOptions = { memberId?: string; ledgerId?: string; limit?: number };
 
 const MAX_PER_CALL = 20;
-/** Errors that mean the payment no longer exists as claimed. tx_not_found is only reachable once the row is final. */
-const PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_not_found"]);
+/** Errors that mean the payment no longer exists as claimed (tx_too_old: it was mined before the intent, F3d M5). */
+const PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_too_old"]);
 
-type LedgerRow = { id: string; chain_id: number; intent_id: string; block_number: string };
+type LedgerRow = { id: string; chain_id: number; intent_id: string; block_number: string; missing_since: string | null };
 type IntentRow = {
   chain_id: number;
   member_id: string;
@@ -39,7 +39,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
 
   let q = db
     .from("dao_ledger")
-    .select("id, chain_id, intent_id, block_number:block_number::text")
+    .select("id, chain_id, intent_id, missing_since, block_number:block_number::text")
     .eq("status", "pending_finality");
   if (chain !== undefined) q = q.eq("chain_id", chain);
   if (opts.memberId) q = q.eq("member_id", opts.memberId);
@@ -99,16 +99,31 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   }
   results.push(await verifyTransfer({ ...base, txHash: i.main_tx_hash as `0x${string}`, to: i.recipient_address, amount: BigInt(i.amount) }));
 
-  // A permanent error on either transfer reverts: the payment as claimed no longer exists.
-  if (results.some((r) => r.status === "error" && PERMANENT.has(r.code))) {
+  const revert = async (): Promise<Outcome> => {
     const { error } = await db.rpc("revert_donation", { p_ledger: row.id });
     if (error) {
       console.error("[treasury] revert_donation failed", row.id, error.message);
       return "pending";
     }
     return "reverted";
+  };
+
+  // A permanent error on either transfer reverts: the payment as claimed no longer exists.
+  if (results.some((r) => r.status === "error" && PERMANENT.has(r.code))) return revert();
+  // Not found is only believed after it persisted for 30 minutes (a lagging RPC node must not revert a real donation).
+  if (results.some((r) => r.status === "error" && r.code === "tx_not_found")) {
+    const { data: allowed, error } = await db.rpc("donation_missing", { p_ledger: row.id, p_missing: true });
+    if (error) {
+      console.error("[treasury] donation_missing failed", row.id, error.message);
+      return "pending";
+    }
+    return allowed === true ? revert() : "pending";
   }
   if (!results.every((r): r is Ok => r.status === "ok")) return "pending";
+  if (row.missing_since) {
+    const { error } = await db.rpc("donation_missing", { p_ledger: row.id, p_missing: false });
+    if (error) console.error("[treasury] clearing missing_since failed", row.id, error.message);
+  }
 
   // Finality is judged on the receipts' current blocks (a reorged-and-remined tx still verifies by hash).
   const block = results.reduce((m, r) => (r.blockNumber > m ? r.blockNumber : m), 0n);

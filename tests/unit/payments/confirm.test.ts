@@ -233,7 +233,7 @@ describe("confirmIntent: donations", () => {
 
   it("returns confirmed when the immediate settle credits it", async () => {
     settle.mockResolvedValue({ credited: 1, reverted: 0, pending: 0 });
-    expect(await confirmIntent("i1")).toMatchObject({ status: "confirmed" });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", ledgerId: "ledger1" });
   });
 
   it("a reverted-on-the-spot donation fails with the reverted code", async () => {
@@ -255,7 +255,7 @@ describe("confirmIntent: donations", () => {
     expect(verifyTransfer).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
     tables.dao_ledger = { id: "ledger1", status: "credited" };
-    expect(await confirmIntent("i1")).toMatchObject({ status: "confirmed" });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", ledgerId: "ledger1" });
   });
 
   it("fails the intent on a permanent verify error like any other purpose", async () => {

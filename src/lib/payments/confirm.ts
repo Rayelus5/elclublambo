@@ -8,7 +8,9 @@ import { createServerClient } from "@/lib/supabase/server";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 
 export type ConfirmResult =
-  | { status: "confirmed"; tipId: string }
+  | { status: "confirmed"; tipId: string; ledgerId?: undefined }
+  /** A donation credited as shares (no tip exists). */
+  | { status: "confirmed"; ledgerId: string; tipId?: undefined }
   | { status: "pending" }
   /** Donation recorded and verified; credited as shares once its block is finalized. */
   | { status: "pending_finality"; ledgerId: string }
@@ -62,7 +64,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (i.status === "confirmed" && i.purpose === "donation") {
     const { data: led } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
     if (!led) return { status: "pending" };
-    if (led.status === "credited") return { status: "confirmed", tipId: led.id };
+    if (led.status === "credited") return { status: "confirmed", ledgerId: led.id };
     if (led.status === "reverted") return failed("reverted");
     return { status: "pending_finality", ledgerId: led.id };
   }
@@ -131,7 +133,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     // Immediate settle attempt: credits at once only if the block is already final. Never undoes the recording.
     try {
       const s = await settlePendingDonations(i.chain_id as ChainId, { ledgerId, limit: 1 });
-      if (s.credited > 0) return { status: "confirmed", tipId: ledgerId };
+      if (s.credited > 0) return { status: "confirmed", ledgerId };
       if (s.reverted > 0) return failed("reverted");
     } catch (e) {
       console.error("[payments] settle after record failed", ledgerId, e);

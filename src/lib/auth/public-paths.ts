@@ -1,3 +1,5 @@
+// SECURITY: every /api/cron/* route handler must authenticate itself (bearer CRON_SECRET, constant-time compare); the
+// proxy lets this prefix through without a session.
 const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned", "/api/cron"] as const;
 
 /** Sanitizes a `?next=` value: only same-origin absolute paths, never auth pages. */

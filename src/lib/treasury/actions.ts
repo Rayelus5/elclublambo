@@ -44,7 +44,16 @@ export async function setRankingVisibleAction(visible: boolean): Promise<{ ok: t
   return { ok: true };
 }
 
-export type ReconcileSummary = { chainId: number; ledgerValue: string; onchainBalance: string; diff: string; id: string };
+export type ReconcileSummary = {
+  chainId: number;
+  ledgerValue: string;
+  pendingValue: string;
+  onchainBalance: string;
+  /** Effective diff (excludes donations pending finality). */
+  diff: string;
+  rawDiff: string;
+  id: string;
+};
 
 /** "Reconciliar ahora": MANAGE_TREASURY (or admin) only, on the active chain. Amounts travel as text. */
 export async function reconcileNowAction(): Promise<{ ok: true; result: ReconcileSummary } | Fail> {
@@ -61,8 +70,10 @@ export async function reconcileNowAction(): Promise<{ ok: true; result: Reconcil
       result: {
         chainId: activeChainId,
         ledgerValue: r.ledgerValue.toString(),
+        pendingValue: r.pendingValue.toString(),
         onchainBalance: r.onchainBalance.toString(),
         diff: r.diff.toString(),
+        rawDiff: r.rawDiff.toString(),
         id: r.id,
       },
     };

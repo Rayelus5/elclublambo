@@ -91,11 +91,52 @@ describe("settlePendingDonations: the finalized gate", () => {
 });
 
 describe("settlePendingDonations: failures", () => {
-  it.each(["tx_mismatch", "tx_failed", "tx_not_found"])("reverts on permanent %s (Review Focus 4)", async (code) => {
+  it.each(["tx_mismatch", "tx_failed", "tx_too_old"])("reverts on permanent %s (Review Focus 4)", async (code) => {
     verifyTransfer.mockResolvedValue({ status: "error", code });
     expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 1, pending: 0 });
     expect(rpc).toHaveBeenCalledWith("revert_donation", { p_ledger: "l1" });
     expect(rpc).not.toHaveBeenCalledWith("credit_donation", expect.anything());
+  });
+
+  it("a first tx_not_found only marks the row as missing: no revert (M4)", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    rpc.mockResolvedValue({ data: false, error: null });
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 0, pending: 1 });
+    expect(rpc).toHaveBeenCalledWith("donation_missing", { p_ledger: "l1", p_missing: true });
+    expect(rpc).not.toHaveBeenCalledWith("revert_donation", expect.anything());
+  });
+
+  it("tx_not_found reverts once the RPC says it has been missing for 30 minutes", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    rpc.mockImplementation(async (name: string) => ({ data: name === "donation_missing" ? true : null, error: null }));
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 1, pending: 0 });
+    expect(rpc).toHaveBeenCalledWith("revert_donation", { p_ledger: "l1" });
+  });
+
+  it("a failing donation_missing call leaves the row alone", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    rpc.mockResolvedValue({ data: null, error: { message: "boom" } });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await settlePendingDonations()).toMatchObject({ reverted: 0, pending: 1 });
+    err.mockRestore();
+  });
+
+  it("a permanent error wins over a not-found on the other transfer", async () => {
+    tables.payment_intents = { ...(tables.payment_intents as object), fee_amount: "50000", platform_address: PLATFORM, fee_tx_hash: FEE };
+    verifyTransfer.mockImplementation(async (i: { txHash: string }) => (i.txHash === FEE ? { status: "error", code: "tx_not_found" } : { status: "error", code: "tx_mismatch" }));
+    expect(await settlePendingDonations()).toMatchObject({ reverted: 1 });
+    expect(rpc).not.toHaveBeenCalledWith("donation_missing", expect.anything());
+  });
+
+  it("finding the tx again clears the missing mark before crediting", async () => {
+    ledgerRows = [row("l1", 100, { missing_since: "2026-10-18T12:00:00Z" })];
+    expect(await settlePendingDonations()).toMatchObject({ credited: 1 });
+    expect(rpc).toHaveBeenCalledWith("donation_missing", { p_ledger: "l1", p_missing: false });
+  });
+
+  it("does not call donation_missing for a row that was never missing", async () => {
+    await settlePendingDonations();
+    expect(rpc).not.toHaveBeenCalledWith("donation_missing", expect.anything());
   });
 
   it("reverts when only the fee transfer no longer verifies", async () => {
@@ -104,7 +145,7 @@ describe("settlePendingDonations: failures", () => {
     expect(await settlePendingDonations()).toMatchObject({ reverted: 1 });
   });
 
-  it.each([{ status: "pending" }, { status: "error", code: "rpc_unavailable" }, { status: "error", code: "tx_too_old" }])(
+  it.each([{ status: "pending" }, { status: "error", code: "rpc_unavailable" }])(
     "leaves the row alone on transient result %j",
     async (res) => {
       verifyTransfer.mockResolvedValue(res);
