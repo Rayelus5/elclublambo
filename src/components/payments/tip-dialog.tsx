@@ -722,13 +722,18 @@ function TipFlow({
           {donation
             ? credited
               ? "Donación acreditada."
-              : "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas)."
+              : "Donación registrada."
             : mode
               ? "Bounty pagado"
               : "Propina enviada"}
         </p>
         <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         <Button onClick={onClose}>Cerrar</Button>
+        {donation && !credited ? (
+          <p className="text-[13px] text-fg-muted">
+            Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).
+          </p>
+        ) : null}
       </div>
     );
   }
