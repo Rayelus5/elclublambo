@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flag, Home, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
+import { BookOpen, Flag, Home, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -38,6 +38,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
       label: openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined,
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
+    { href: "/guia", text: "Guía", Icon: BookOpen },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
       href: "/admin/members",

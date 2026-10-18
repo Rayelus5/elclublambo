@@ -8,9 +8,11 @@ const ids = (a: ReturnType<typeof buildActions>) => a.map((x) => x.id);
 const href = (a: ReturnType<typeof buildActions>, id: string) => a.find((x) => x.id === id)?.href;
 
 describe("buildActions", () => {
-  it("always offers mentions, tickets and profile", () => {
+  it("always offers mentions, tickets, the guide and profile", () => {
     const a = buildActions(base);
-    expect(ids(a)).toEqual(["mentions", "tickets", "profile"]);
+    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:candados", "guide:redes", "profile"]);
+    expect(href(a, "guide")).toBe("/guia");
+    expect(href(a, "guide:dao")).toBe("/guia/dao");
     expect(href(a, "mentions")).toBe("/notifications?filter=mentions");
     expect(href(a, "tickets")).toBe("/tickets");
     expect(href(a, "profile")).toBe(`/u/${WALLET}`);

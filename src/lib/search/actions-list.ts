@@ -1,6 +1,7 @@
 import { hasPerm, Perm } from "@/lib/permissions/bits";
+import { GUIDE_SECTIONS, type GuideSlug } from "@/lib/guide/sections";
 
-export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile";
+export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide";
 
 export type PaletteAction = {
   id: string;
@@ -9,6 +10,14 @@ export type PaletteAction = {
   icon: ActionIcon;
   /** Extra words the local filter also matches (never rendered). */
   keywords?: string;
+};
+
+const GUIDE_KEYWORDS: Record<GuideSlug, string> = {
+  propinas: "propinas donar premiar tip eth usdc",
+  bounties: "bounty recompensa pago solución",
+  dao: "dao tesorería shares donación safe",
+  candados: "candado gating acceso requisito canal",
+  redes: "red testnet mainnet seguridad phishing modo prueba",
 };
 
 export type TicketChannel = { id: string; name: string };
@@ -45,6 +54,10 @@ export function buildActions({
   }
   if (canReports) {
     out.push({ id: "reports", label: "Cola de reportes", href: "/moderation/reports", icon: "reports", keywords: "moderación denuncias" });
+  }
+  out.push({ id: "guide", label: "Guía", href: "/guia", icon: "guide", keywords: "ayuda novato empezar cómo funciona bienvenida" });
+  for (const s of GUIDE_SECTIONS) {
+    out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
   out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
   return out;

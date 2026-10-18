@@ -1,0 +1,297 @@
+import { Suspense } from "react";
+import { getEconomyConfig } from "@/lib/economy/config";
+import { bpsToPercentText } from "@/lib/economy/networks";
+import type { GuideSlug } from "@/lib/guide/sections";
+
+/** The minimum fee, read live. Dynamic (cookies via supabase), so it lives in its own Suspense. */
+async function MinFeeValue() {
+  const text = await getEconomyConfig().then(
+    (c) => bpsToPercentText(c.minFeeBps),
+    () => null,
+  );
+  if (text === null) return <span className="text-fg-muted">(ahora mismo no se puede leer)</span>;
+  return <strong className="font-mono text-fg">{text}</strong>;
+}
+
+function MinFee() {
+  return (
+    <Suspense fallback={<span className="text-fg-muted">…</span>}>
+      <MinFeeValue />
+    </Suspense>
+  );
+}
+
+function Sub({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-h2">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function Steps({ children }: { children: React.ReactNode }) {
+  return <ol className="flex list-decimal flex-col gap-2 pl-6 marker:font-mono marker:text-fg-muted">{children}</ol>;
+}
+
+function Bullets({ children }: { children: React.ReactNode }) {
+  return <ul className="flex list-disc flex-col gap-2 pl-6 marker:text-fg-muted">{children}</ul>;
+}
+
+function Propinas() {
+  return (
+    <>
+      <Sub title="Qué es">
+        <p>
+          Una propina es un envío de ETH o USDC de un miembro a otro, para premiar un mensaje o un perfil. El dinero va
+          directo de tu wallet a la del destinatario. El club no lo guarda en ningún momento: no hay saldo, ni cuenta, ni
+          retiros.
+        </p>
+      </Sub>
+      <Sub title="Cómo se hace">
+        <Steps>
+          <li>Pulsa el botón de propina en un mensaje, en una publicación Alpha o en un perfil.</li>
+          <li>Mira la etiqueta de la red activa antes de seguir. Si es MODO PRUEBA, el dinero no es real.</li>
+          <li>Elige el token (ETH o USDC) y el importe.</li>
+          <li>Revisa el total que vas a firmar y firma en tu wallet.</li>
+          <li>Espera a que el foro verifique la transacción. Mientras tanto verás «Verificando…».</li>
+        </Steps>
+      </Sub>
+      <Sub title="Qué cuesta">
+        <p>
+          El destinatario recibe íntegro el importe anunciado. La comisión de la plataforma se suma encima: tú pagas importe
+          más comisión. El mínimo ahora mismo es <MinFee />. Puedes subirla si quieres apoyar el proyecto, pero nunca
+          bajarla de ese mínimo.
+        </p>
+        <p>
+          Si hay comisión, firmas dos transferencias normales: primero la comisión a la wallet de la plataforma y después el
+          importe al destinatario. Si la comisión es del 0 %, es una sola firma. Además de esto, tu wallet cobra el gas de la
+          red como en cualquier transferencia.
+        </p>
+      </Sub>
+      <Sub title="Propina anónima">
+        <p>
+          Puedes marcar la propina como anónima. En el foro saldrá como «Anónimo»: en la lista del mensaje y en el aviso del
+          hilo. El anonimato es solo dentro del foro. La blockchain es pública y cualquiera puede ver desde qué wallet salió
+          el envío.
+        </p>
+      </Sub>
+      <Sub title="Riesgos y límites">
+        <Bullets>
+          <li>Una transacción confirmada no se puede deshacer. Comprueba destinatario e importe antes de firmar.</li>
+          <li>No puedes darte propinas a ti mismo, y la transacción debe salir de la wallet con la que has entrado.</li>
+          <li>
+            Solo cuenta lo que haces desde el diálogo del foro. Una transferencia hecha por tu cuenta, fuera del diálogo, no
+            se registra.
+          </li>
+        </Bullets>
+      </Sub>
+    </>
+  );
+}
+
+function Bounties() {
+  return (
+    <>
+      <Sub title="Qué es">
+        <p>
+          Un bounty es un mensaje que pide ayuda y ofrece una recompensa en ETH o USDC. Quien lo publica fija el importe, el
+          token y la descripción. Las soluciones se responden en el hilo del bounty.
+        </p>
+      </Sub>
+      <Sub title="Cómo se hace">
+        <Steps>
+          <li>
+            Para publicar uno necesitas el permiso «Crear bounties» (los miembros verificados lo tienen por defecto). Escribe{" "}
+            <code className="font-mono text-fg">/bounty</code> en el chat y rellena importe, token y descripción.
+          </li>
+          <li>Los demás responden en el hilo.</li>
+          <li>Cuando una respuesta te sirve, la marcas como solución.</li>
+          <li>Pagas esa respuesta con el mismo flujo de una propina: red, importe, comisión y firma.</li>
+        </Steps>
+        <p>
+          Un bounty se paga una sola vez, a una sola respuesta, con el mismo token y al menos el importe anunciado. Mientras
+          no haya una solución marcada, puedes cancelarlo; queda visible como cancelado.
+        </p>
+      </Sub>
+      <Sub title="Qué cuesta">
+        <p>
+          Quien resuelve recibe íntegro el importe anunciado. La comisión va aparte y se suma a lo que pagas tú. El mínimo
+          ahora mismo es <MinFee />. Con comisión, firmas dos transferencias.
+        </p>
+      </Sub>
+      <Sub title="Plazos">
+        <Bullets>
+          <li>
+            Desde que marcas una solución tienes 7 días para pagarla. Si pasan sin pago, el bounty lleva la marca pública
+            «impagado», visible también en tu perfil.
+          </li>
+          <li>Si pagas después, la marca «impagado» se sustituye por «pagado tarde».</li>
+          <li>Un bounty sin solución marcada pasa a «expirado» a los 30 días. Sigue visible, pero sin marca de impagado.</li>
+        </Bullets>
+      </Sub>
+      <Sub title="Riesgos">
+        <Bullets>
+          <li>Marcar una solución es un compromiso de pago. No lo marques si no vas a pagar.</li>
+          <li>El pago es una transferencia normal y no se puede deshacer. Revisa quién es el destinatario antes de firmar.</li>
+        </Bullets>
+      </Sub>
+    </>
+  );
+}
+
+function Dao() {
+  return (
+    <>
+      <Sub title="Qué es">
+        <p>
+          La DAO es una tesorería común del club, guardada en una Safe, una cuenta multifirma en la que ningún miembro
+          mueve fondos por su cuenta. Cada red tiene su propia Safe y su propio registro. Al aportar, recibes shares: una
+          participación en la tesorería.
+        </p>
+      </Sub>
+      <Sub title="Cómo se hace">
+        <Steps>
+          <li>Abre el diálogo de donación y mira la etiqueta de la red activa.</li>
+          <li>Elige el importe en USDC. La donación mínima es de 1 USDC. Solo se aporta USDC.</li>
+          <li>Firma las transferencias en tu wallet.</li>
+          <li>
+            Espera a la finalización. Hasta entonces tu aportación aparece como «pendiente de finalización» y todavía no
+            tienes shares.
+          </li>
+        </Steps>
+      </Sub>
+      <Sub title="Shares y porcentaje">
+        <p>
+          Tus shares dependen de cuánto aportas respecto al valor que el registro de la DAO ya tenía. Tu porcentaje es tus
+          shares entre el total de shares. Las shares se calculan sobre lo que llega a la Safe, sin contar la comisión. En
+          el ranking público puedes elegir salir con tu nombre o como «Anónimo»; tu porcentaje cuenta igualmente para abrir
+          canales con candado.
+        </p>
+      </Sub>
+      <Sub title="Qué cuesta">
+        <p>
+          La comisión de la plataforma se suma encima del importe: tú pagas importe más comisión, y a la Safe llega el
+          importe completo. El mínimo ahora mismo es <MinFee />. Si hay comisión, firmas dos transferencias.
+        </p>
+      </Sub>
+      <Sub title="Riesgos y límites">
+        <Bullets>
+          <li>
+            La finalización en Linea puede tardar horas. Es normal. Así una reorganización de la red nunca crea shares que
+            no existen.
+          </li>
+          <li>
+            Una transferencia directa a la Safe, hecha fuera del diálogo, no cuenta nunca: no da shares.
+            Dona siempre desde el diálogo.
+          </li>
+          <li>Los retiros llegarán más adelante. Hoy las aportaciones no se pueden retirar.</li>
+        </Bullets>
+      </Sub>
+    </>
+  );
+}
+
+function Candados() {
+  return (
+    <>
+      <Sub title="Qué es">
+        <p>
+          Algunos canales piden una aportación a la DAO para entrar. Los ves en la barra lateral con un candado. El contenido
+          y los mensajes no se ven hasta que cumples el requisito.
+        </p>
+      </Sub>
+      <Sub title="Las reglas">
+        <p>Un canal puede pedir una de estas reglas, o las dos unidas con «o»:</p>
+        <Bullets>
+          <li>Un porcentaje mínimo de la DAO.</li>
+          <li>Una aportación neta mínima en USDC.</li>
+        </Bullets>
+        <p>
+          Con las dos, basta con cumplir una. Por ejemplo: «1 % de la DAO o 100 USDC aportados». Si el canal cuelga de un
+          foro o una categoría con requisitos, también tienes que cumplir los de arriba.
+        </p>
+      </Sub>
+      <Sub title="Dónde ves tu situación">
+        <p>
+          Al abrir un canal con candado verás el requisito, tu situación actual y un botón para donar. El cálculo usa la
+          red activa. Mientras la red activa sea de prueba, el ledger de prueba abre estos canales, así que puedes
+          probarlo todo con USDC de faucet.
+        </p>
+      </Sub>
+      <Sub title="Riesgos">
+        <Bullets>
+          <li>Tu porcentaje baja si entran nuevas aportaciones. Un canal puede cerrarse para ti sin que hayas retirado nada.</li>
+          <li>Las aportaciones aún en «pendiente de finalización» no cuentan hasta que se finalizan.</li>
+        </Bullets>
+      </Sub>
+    </>
+  );
+}
+
+function Redes() {
+  return (
+    <>
+      <Sub title="MODO PRUEBA y dinero real">
+        <p>
+          El club funciona en dos redes: Linea (dinero real) y Linea Sepolia (de prueba). Cuando la red activa es la de
+          prueba, todos ven la etiqueta «MODO PRUEBA · Linea Sepolia» arriba. Con ella puedes probar todo con fondos de
+          faucet, que no valen nada. Cada red tiene su propia tesorería, shares y ranking: lo que pasa en prueba no cuenta
+          en Linea.
+        </p>
+      </Sub>
+      <Sub title="Comprueba siempre la red">
+        <Bullets>
+          <li>Antes de enviar dinero, lee la etiqueta de la red en el diálogo.</li>
+          <li>Si tu wallet está en otra red, el foro te pedirá cambiarla antes de firmar.</li>
+          <li>Si la etiqueta no es la que esperas, cancela.</li>
+        </Bullets>
+      </Sub>
+      <Sub title="Lo que el foro nunca te pedirá">
+        <Bullets>
+          <li>Tu frase semilla o tu clave privada. Nunca, bajo ningún pretexto.</li>
+          <li>
+            Firmar nada que no sea una transferencia normal a una dirección que el propio foro te muestra, con el importe a la
+            vista.
+          </li>
+          <li>Aprobaciones de gasto, firmas de mensajes que no entiendas ni transacciones con datos opacos.</li>
+        </Bullets>
+        <p>
+          El club no custodia fondos. Si alguien, en un mensaje, un ticket o un mensaje privado, te pide algo distinto de
+          esto, es una estafa. Repórtalo.
+        </p>
+      </Sub>
+      <Sub title="Cómo reconocer el phishing">
+        <Bullets>
+          <li>
+            Los enlaces de dominios que el club no conoce pasan por una página de aviso (<code className="font-mono text-fg">/out</code>)
+            antes de abrirse. Léela. Si el dominio no es el que esperas, no continúes.
+          </li>
+          <li>Desconfía de la prisa, de los premios que no esperabas y de quien dice ser staff y te pide fondos.</li>
+          <li>Comprueba el dominio carácter a carácter: algunas estafas usan letras parecidas.</li>
+          <li>Entra siempre al foro escribiendo la dirección tú mismo o desde un marcador tuyo.</li>
+        </Bullets>
+      </Sub>
+    </>
+  );
+}
+
+const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
+  propinas: Propinas,
+  bounties: Bounties,
+  dao: Dao,
+  candados: Candados,
+  redes: Redes,
+};
+
+/** Sections whose feature is not shipped yet: the guide says what will exist. F3b-F3d remove each entry. */
+const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>(["propinas", "bounties", "dao", "candados"]);
+
+export function isComingSoon(slug: GuideSlug): boolean {
+  return COMING_SOON.has(slug);
+}
+
+export function GuideContent({ slug }: { slug: GuideSlug }) {
+  const Body = CONTENT[slug];
+  return <Body />;
+}

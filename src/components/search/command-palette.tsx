@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AtSign, Flag, Folder, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
+import { AtSign, BookOpen, Flag, Folder, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -34,6 +34,7 @@ const ICONS: Record<ActionIcon, LucideIcon> = {
   ticket: LifeBuoy,
   reports: Flag,
   profile: User,
+  guide: BookOpen,
 };
 
 type Remote = { q: string; members: MemberHit[]; messages: MessageHit[]; failed: boolean };
