@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { after } from "next/server";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { ShareDonut } from "@/components/treasury/dao-charts";
@@ -59,7 +60,17 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">DAO</h1>
         <p className="text-fg-muted">La tesorería común del club en esta red. Aportar te da participaciones en su registro.</p>
-        <HowItWorksLink section="dao" className="self-start" />
+        <div className="flex flex-wrap items-center gap-x-4">
+          <HowItWorksLink section="dao" />
+          {canNote ? (
+            <Link
+              href="/dao/tesoreria"
+              className="inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+            >
+              Panel del tesorero
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {/* Live: any donation recorded, credited or reverted (or a ranking opt-in) re-renders this page. */}

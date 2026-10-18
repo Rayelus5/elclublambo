@@ -8,6 +8,7 @@ import { isHiddenSettingsPage } from "@/lib/permissions/settings-guard";
 import { needsWelcome } from "@/lib/onboarding/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
 import { isInvalidCoinPage } from "@/lib/market/guard";
+import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 
 export async function proxy(request: NextRequest) {
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
@@ -67,6 +68,7 @@ export async function proxy(request: NextRequest) {
       (await isMissingTicket(supabase, pathname)) ||
       (await isHiddenReportsPage(supabase, pathname)) ||
       (await isHiddenSettingsPage(supabase, pathname)) ||
+      (await isHiddenTreasuryPage(supabase, pathname)) ||
       (await isInvalidCoinPage(supabase, pathname)))
   ) {
     const url = request.nextUrl.clone();

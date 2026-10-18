@@ -8,10 +8,12 @@ export type ChainAddresses = { safe: string | null; platform: string | null };
 export type EconomyConfig = {
   activeChainId: ChainId;
   minFeeBps: number;
+  /** chain_config.withdrawals_enabled per network (SuperAdmin's switch). */
+  withdrawalsEnabled: Record<ChainId, boolean>;
   chains: Record<ChainId, ChainAddresses>;
 };
 
-type RawChain = { safe?: unknown; platform?: unknown } | undefined;
+type RawChain = { safe?: unknown; platform?: unknown; withdrawalsEnabled?: unknown } | undefined;
 
 const addr = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
 
@@ -29,6 +31,10 @@ export const getEconomyConfig = cache(async (): Promise<EconomyConfig> => {
   return {
     activeChainId: isChainId(active) ? active : 59141,
     minFeeBps: Number(raw.minFeeBps ?? 0),
+    withdrawalsEnabled: {
+      59144: raw.chains?.["59144"]?.withdrawalsEnabled === true,
+      59141: raw.chains?.["59141"]?.withdrawalsEnabled === true,
+    },
     chains: { 59144: chain(59144), 59141: chain(59141) },
   };
 });

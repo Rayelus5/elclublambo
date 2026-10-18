@@ -28,7 +28,14 @@ export type NotificationKind =
   | "bounty_solution"
   | "bounty_paid"
   | "treasury_mismatch"
-  | "treasury_outflow";
+  | "treasury_outflow"
+  | "withdrawal_approved"
+  | "withdrawal_rejected"
+  | "withdrawal_paid"
+  | "withdrawal_expired"
+  | "treasury_notice";
+
+const WITHDRAWAL_KINDS = new Set<NotificationKind>(["withdrawal_approved", "withdrawal_rejected", "withdrawal_paid", "withdrawal_expired"]);
 
 export interface NotificationView {
   id: number;
@@ -43,7 +50,31 @@ export interface NotificationView {
   ticketStatus: "open" | "closed" | null;
   /** Only for `treasury_outflow`: the amount that left the Safe, formatted ("250 USDC"); null if the payload is malformed. */
   outflow?: string | null;
+  /** `withdrawal_approved` / `withdrawal_paid`: the USDC amount ("8 USDC"); null if the payload is malformed. */
+  withdrawalAmount?: string | null;
+  /** `withdrawal_rejected`: the treasurer's reason, trimmed; null when absent or malformed. */
+  withdrawalReason?: string | null;
+  /** `treasury_notice`: what happened; null for an unknown event. */
+  treasuryEvent?: "withdrawal_requested" | "approval_expired" | null;
   href: string;
+}
+
+/** USDC base units from a `data.amount` string (digits only), formatted like the push copy; never trusted as is. */
+function usdcText(data: Record<string, unknown> | null): string | null {
+  const amount = data?.amount;
+  return typeof amount === "string" && /^\d{1,60}$/.test(amount) ? formatToken(BigInt(amount), "USDC") : null;
+}
+
+function reasonText(data: Record<string, unknown> | null): string | null {
+  const reason = data?.reason;
+  if (typeof reason !== "string") return null;
+  const clean = reason.replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS);
+  return clean || null;
+}
+
+function noticeEvent(data: Record<string, unknown> | null): "withdrawal_requested" | "approval_expired" | null {
+  const e = data?.event;
+  return e === "withdrawal_requested" || e === "approval_expired" ? e : null;
 }
 
 /** `treasury_outflow` data {asset, amount}: validated like the SQL push copy (_push_build), never trusted as is. */
@@ -125,8 +156,9 @@ function hrefFor(row: Row): string {
   if (row.kind === "report_new") return "/moderation/reports";
   if (row.kind === "member_review") return "/admin/members";
   if (row.kind === "treasury_mismatch") return "/dao";
-  // Ruling F4a-R1: /dao/tesoreria arrives with F4c; until then the operations section of /dao (same url as the push).
-  if (row.kind === "treasury_outflow") return "/dao#operaciones";
+  // Ruling F4a-R1: the panel exists now (F4c), same url as the push.
+  if (row.kind === "treasury_outflow" || row.kind === "treasury_notice") return "/dao/tesoreria";
+  if (WITHDRAWAL_KINDS.has(row.kind)) return "/dao#retirada";
   if (row.ticket_id && UUID_RE.test(row.ticket_id)) return `/tickets/${row.ticket_id}`;
   return "/notifications";
 }
@@ -151,6 +183,9 @@ function toView(row: Row): NotificationView {
     ticketSubject: row.ticket?.subject ?? null,
     ticketStatus: row.kind === "ticket_status" && (status === "open" || status === "closed") ? status : null,
     ...(row.kind === "treasury_outflow" ? { outflow: outflowText(row.data) } : {}),
+    ...(row.kind === "withdrawal_approved" || row.kind === "withdrawal_paid" ? { withdrawalAmount: usdcText(row.data) } : {}),
+    ...(row.kind === "withdrawal_rejected" ? { withdrawalReason: reasonText(row.data) } : {}),
+    ...(row.kind === "treasury_notice" ? { treasuryEvent: noticeEvent(row.data) } : {}),
     href: hrefFor(row),
   };
 }

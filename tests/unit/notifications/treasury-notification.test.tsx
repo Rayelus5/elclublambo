@@ -49,9 +49,9 @@ describe("treasury_outflow notification", () => {
     return n!;
   }
 
-  it("reads «Salida de la tesorería sin explicar: <amount> <asset>» and links to the operations section", async () => {
+  it("reads «Salida de la tesorería sin explicar: <amount> <asset>» and links to the treasurer panel (R1)", async () => {
     const n = await list({ opId: "o", asset: "USDC", amount: "250000000" });
-    expect(n.href).toBe("/dao#operaciones");
+    expect(n.href).toBe("/dao/tesoreria");
     const t = render(<NotificationItem notification={n} />).container.querySelector("a")!.textContent;
     expect(t).toContain("Salida de la tesorería sin explicar: 250 USDC");
     expect(t).not.toContain("Alguien");

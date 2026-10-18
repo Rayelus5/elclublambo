@@ -45,6 +45,34 @@ export function notificationCopy(n: NotificationView): ReactNode {
       ) : (
         <>Salida de la tesorería sin explicar</>
       );
+    case "withdrawal_approved":
+      return n.withdrawalAmount ? (
+        <>
+          Tu retirada de <strong className="font-bold text-fg">{n.withdrawalAmount}</strong> está aprobada
+        </>
+      ) : (
+        <>Tu retirada está aprobada</>
+      );
+    case "withdrawal_rejected":
+      return n.withdrawalReason ? <>Tu retirada fue rechazada: {n.withdrawalReason}</> : <>Tu retirada fue rechazada</>;
+    case "withdrawal_paid":
+      return n.withdrawalAmount ? (
+        <>
+          Has recibido <strong className="font-bold text-fg">{n.withdrawalAmount}</strong> de la tesorería
+        </>
+      ) : (
+        <>Has recibido el pago de tu retirada</>
+      );
+    case "withdrawal_expired":
+      return <>Tu aprobación de retirada caducó: vuelve a estar pendiente</>;
+    case "treasury_notice":
+      return n.treasuryEvent === "approval_expired" ? (
+        <>Una retirada aprobada caducó sin pagarse</>
+      ) : n.treasuryEvent === "withdrawal_requested" ? (
+        <>Nueva solicitud de retirada</>
+      ) : (
+        <>Aviso de la tesorería</>
+      );
     case "ticket_status":
       return (
         <>
