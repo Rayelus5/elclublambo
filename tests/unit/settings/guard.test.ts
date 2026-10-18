@@ -32,6 +32,15 @@ describe("isHiddenSettingsPage", () => {
     expect(await isHiddenSettingsPage(c as never, "/settings")).toBe(false);
   });
 
+  it("a MANAGE_ROLES-only delegate opens Roles and nothing else", async () => {
+    const c = client({ perms: "64" });
+    expect(await isHiddenSettingsPage(c as never, "/settings/roles")).toBe(false);
+    expect(await isHiddenSettingsPage(c as never, "/settings")).toBe(false);
+    for (const p of ["/settings/channels", "/settings/links", "/settings/economia"]) {
+      expect(await isHiddenSettingsPage(c as never, p)).toBe(true);
+    }
+  });
+
   it("shows every section to the SuperAdmin; unknown subpaths are left to the router", async () => {
     const c = client({ perms: String(SUPER) });
     for (const p of ["/settings", "/settings/economia", "/settings/roles", "/settings/channels", "/settings/links", "/settings/nope"]) {

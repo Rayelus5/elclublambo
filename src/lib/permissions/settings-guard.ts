@@ -26,6 +26,7 @@ export async function isHiddenSettingsPage(supabase: GuardClient, pathname: stri
   }
 
   const visible = settingsSections(perms).map((s) => s.href);
+  // -1n has every bit set (ADMINISTRATOR included, which hasPerm short-circuits): every known section.
   const all = settingsSections(-1n).map((s) => s.href);
   const section = match[1] ? `/settings/${match[1]}` : null;
   const hidden = visible.length === 0 || (section !== null && all.includes(section) && !visible.includes(section));
