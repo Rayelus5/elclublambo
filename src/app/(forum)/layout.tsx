@@ -8,6 +8,7 @@ import { NotificationsProvider } from "@/components/notifications/notifications-
 import { SearchProvider } from "@/components/search/search-provider";
 import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
 import { PresenceHeartbeat } from "@/components/members/presence-heartbeat";
+import { ChatDensityProvider } from "@/components/chat/density";
 import { RightRail } from "@/components/shell/right-rail";
 import { ShellGrid } from "@/components/shell/shell-grid";
 import { Sidebar } from "@/components/shell/sidebar";
@@ -71,9 +72,9 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
         ? (
             await supabase
               .from("members")
-              .select("handle, welcome_completed_at")
+              .select("handle, welcome_completed_at, chat_density")
               .eq("id", id)
-              .maybeSingle<{ handle: string | null; welcome_completed_at: string | null }>()
+              .maybeSingle<{ handle: string | null; welcome_completed_at: string | null; chat_density: string | null }>()
           ).data
         : null,
     ),
@@ -111,6 +112,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     <PresenceHeartbeat />
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
+    <ChatDensityProvider initial={welcome.chat_density === "compact" ? "compact" : "standard"}>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
       <ShellGrid>
         <Sidebar perms={perms} wallet={wallet} channels={sidebarRows} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.activeChainId} />
@@ -118,6 +120,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
         <RightRail />
       </ShellGrid>
     </SearchProvider>
+    </ChatDensityProvider>
     </UnreadProvider>
     </NotificationsProvider>
     </EconomyProvider>

@@ -20,6 +20,7 @@ import {
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { BountyCard } from "@/components/chat/bounty-card";
+import { useChatDensity } from "@/components/chat/density";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { SystemNotice } from "@/components/chat/system-notice";
@@ -129,6 +130,8 @@ export function MessageItem({
   const [markError, setMarkError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
   const [reactionPicker, setReactionPicker] = useState(false);
+  // Compact: no avatar, the time in a narrow left column, tight spacing (the member's preference for every channel).
+  const compact = useChatDensity().density === "compact";
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -234,26 +237,39 @@ export function MessageItem({
       data-message-id={message.id}
       aria-current={highlighted ? "true" : undefined}
       className={cn(
-        "group relative -mx-2 flex gap-3 rounded-control border-l-2 px-2 py-1 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        "group relative -mx-2 flex rounded-control border-l-2 px-2 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        compact ? "gap-2 py-0" : "gap-3 py-1",
         highlighted ? "border-accent bg-surface-2" : "border-transparent",
-        grouped ? "mt-0" : "mt-3 first:mt-0",
+        grouped ? "mt-0" : compact ? "mt-1 first:mt-0" : "mt-3 first:mt-0",
       )}
     >
-      <div className="w-9 shrink-0">
-        {grouped ? (
-          <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
-        ) : authorId ? (
-          <MemberCardTrigger memberId={authorId} label={name} className="block" tabbable={false}>
+      {compact ? (
+        <div className="w-11 shrink-0 pt-[3px] text-right">
+          <Time
+            iso={message.createdAt}
+            className={cn(
+              "font-mono text-[11px] text-fg-muted",
+              grouped && "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+            )}
+          />
+        </div>
+      ) : (
+        <div className="w-9 shrink-0">
+          {grouped ? (
+            <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
+          ) : authorId ? (
+            <MemberCardTrigger memberId={authorId} label={name} className="block" tabbable={false}>
+              <MemberAvatar member={identity} size={32} />
+            </MemberCardTrigger>
+          ) : (
             <MemberAvatar member={identity} size={32} />
-          </MemberCardTrigger>
-        ) : (
-          <MemberAvatar member={identity} size={32} />
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className={cn("flex min-w-0 flex-1 flex-col", compact ? "gap-0.5" : "gap-1")}>
         {grouped ? null : (
-          <div className="flex flex-wrap items-baseline gap-x-2">
+          <div className={cn("flex flex-wrap items-baseline gap-x-2", compact && "leading-5")}>
             {authorId ? (
               <MemberCardTrigger memberId={authorId} label={name} className="font-display font-bold text-fg hover:underline">
                 {name}
@@ -261,8 +277,8 @@ export function MessageItem({
             ) : (
               <span className="font-display font-bold text-fg">{name}</span>
             )}
-            {author?.displayName?.trim() && author.handle ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
-            <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />
+            {author?.displayName?.trim() && author.handle && !compact ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
+            {compact ? null : <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />}
             {message.pinnedAt && !deleted ? (
               <span className="inline-flex items-center gap-1 text-[13px] text-fg-muted">
                 <Pin aria-hidden className="size-3.5" />
