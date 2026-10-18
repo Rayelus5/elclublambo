@@ -25,6 +25,8 @@ export interface TipEntry {
   /** Null for someone else's anonymous tip: the hash would identify the donor, so there is no explorer link. */
   txHash: string | null;
   createdAt: string;
+  /** Profile list only: the tipped message was deleted (the money still moved). Never says which message. */
+  messageDeleted?: boolean;
 }
 
 export interface TipNoticeLink {
@@ -90,6 +92,7 @@ interface TipRow {
   chain_id: number;
   main_tx_hash: string | null;
   created_at: string;
+  message_deleted?: boolean;
 }
 
 async function toEntries(supabase: SupabaseClient, rows: readonly TipRow[]): Promise<TipEntry[]> {
@@ -112,6 +115,7 @@ async function toEntries(supabase: SupabaseClient, rows: readonly TipRow[]): Pro
             chainId: r.chain_id,
             txHash: r.main_tx_hash ?? null,
             createdAt: r.created_at,
+            messageDeleted: r.message_deleted === true,
           },
         ]
       : [],

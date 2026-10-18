@@ -51,6 +51,7 @@ const MESSAGES: Record<string, string> = {
   channel_has_bounties: "Este canal tiene bounties y no se puede borrar.",
   reverted: "Esta donación ya no se verifica en la red y se ha revertido. Si pagaste, contacta con soporte.",
   safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
+  safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",
   invalid_state: "Esta operación ya no se puede procesar en su estado actual.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
   platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",

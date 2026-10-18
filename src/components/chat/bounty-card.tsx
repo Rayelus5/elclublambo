@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, Trophy, type LucideIcon } from "lucide-react";
+import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, Network, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
 import { NetworkBadge } from "@/components/economy/network-badge";
 import { TipDialog, type TipRecipient } from "@/components/payments/tip-dialog";
 import {
@@ -32,6 +32,10 @@ const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
   unpaid: { icon: CircleAlert, tone: "border-danger text-danger" },
   expired: { icon: Hourglass, tone: "border-border text-fg-muted" },
   cancelled: { icon: Ban, tone: "border-border text-fg-muted" },
+  // payment impossible: neutral, never the danger tone of an unpaid mark (F3-R1)
+  removed: { icon: ShieldX, tone: "border-border text-fg-muted" },
+  solver_unavailable: { icon: UserX, tone: "border-border text-fg-muted" },
+  other_chain: { icon: Network, tone: "border-border text-fg-muted" },
 };
 
 /** Exact chip copy per status; "solution_marked" counts the days left to pay (rounded up, at least one). */
@@ -54,6 +58,12 @@ export function statusLabel(bounty: Pick<BountyDetail, "status" | "payDeadline">
       return "Expirado";
     case "cancelled":
       return "Cancelado";
+    case "removed":
+      return "Retirado por moderación";
+    case "solver_unavailable":
+      return "Solucionador no disponible";
+    case "other_chain":
+      return "En otra red";
   }
 }
 

@@ -77,6 +77,12 @@ describe("tip entries", () => {
     expect(entries.map(donorLabel)).toEqual(["Anónimo", "Tú (anónimo)", "Tú"]);
     expect(entries[0]!.donorName).toBeNull();
   });
+
+  it("flags tips whose message was deleted (M3), never for the message popover rows", async () => {
+    const supabase = client({ member_tips: [row({ message_deleted: true }), row({ tip_id: "t2", message_deleted: false }), row({ tip_id: "t3" })] }, [donor]);
+    const entries = await getMemberTips(supabase as never, M1);
+    expect(entries.map((e) => e.messageDeleted)).toEqual([true, false, false]);
+  });
 });
 
 describe("getTipNoticeLinks", () => {

@@ -79,9 +79,14 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       return { entries, totals, activeChainId: config.activeChainId };
     })
     .catch(() => null);
-  // Only the bounties the viewer can see are counted (the RPCs enforce it). A failed read hides the section.
-  const bountiesPromise = Promise.all([getMemberBountyRecord(supabase, member.id), getMemberUnpaidBounties(supabase, member.id)])
-    .then(([record, unpaid]) => ({ record, unpaid }))
+  // Only the bounties the viewer can see, on the active chain, are counted (the RPCs enforce it). A failed read hides
+  // the section.
+  const bountiesPromise = Promise.all([
+    getMemberBountyRecord(supabase, member.id),
+    getMemberUnpaidBounties(supabase, member.id),
+    getEconomyConfig(),
+  ])
+    .then(([record, unpaid, config]) => ({ record, unpaid, activeChainId: config.activeChainId }))
     .catch(() => null);
   const [sponsorRes, inviteesRes, tips, bounties] = await Promise.all([
     member.invited_by_member_id
@@ -135,7 +140,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
 
       {tips ? <TipsReceived entries={tips.entries} totals={tips.totals} activeChainId={tips.activeChainId} /> : null}
 
-      {bounties ? <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} /> : null}
+      {bounties ? <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} activeChainId={bounties.activeChainId} /> : null}
 
       <SponsorTree sponsor={sponsor} invitees={invitees} />
     </div>

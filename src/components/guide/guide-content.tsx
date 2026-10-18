@@ -131,6 +131,10 @@ function Bounties() {
             «impagado», visible también en tu perfil.
           </li>
           <li>Si pagas después, la marca «impagado» se sustituye por «pagado tarde».</li>
+          <li>
+            Si no puedes pagar porque moderación retiró el bounty, quien lo resolvió ya no está en el club o el bounty es de
+            otra red, no hay marca de impagado mientras dure.
+          </li>
           <li>Un bounty sin solución marcada pasa a «expirado» a los 30 días. Sigue visible, pero sin marca de impagado.</li>
         </Bullets>
       </Sub>

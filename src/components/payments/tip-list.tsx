@@ -38,6 +38,7 @@ export function TipList({ entries, time = "relative", className }: { entries: re
           <span className="font-mono text-sm text-fg">
             {formatAmount(e.amount, e.token)} {e.token}
           </span>
+          {e.messageDeleted ? <span className="text-[13px] text-fg-muted italic">Mensaje eliminado</span> : null}
           <time dateTime={e.createdAt} suppressHydrationWarning className="text-[13px] text-fg-muted">
             {time === "relative" ? relativeTime(e.createdAt) : ABSOLUTE.format(new Date(e.createdAt))}
           </time>

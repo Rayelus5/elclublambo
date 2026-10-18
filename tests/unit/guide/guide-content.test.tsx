@@ -19,3 +19,12 @@ describe("guide: propinas", () => {
     ).toBeInTheDocument();
   });
 });
+
+describe("guide: bounties", () => {
+  it("explains when there is no unpaid mark because payment is impossible (F3-R1)", () => {
+    render(<GuideContent slug="bounties" />);
+    expect(
+      screen.getByText(/Si no puedes pagar porque moderación retiró el bounty, quien lo resolvió ya no está en el club o el bounty es de otra red, no hay marca de impagado mientras dure\./),
+    ).toBeInTheDocument();
+  });
+});

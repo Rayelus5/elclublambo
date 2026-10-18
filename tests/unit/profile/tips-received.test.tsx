@@ -17,6 +17,13 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
   ...over,
 });
 
+describe("TipsReceived deleted message (M3)", () => {
+  it("marks a tip whose message was deleted, still counting the money", () => {
+    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ tipId: "d", messageDeleted: true }), entry({ tipId: "l" })]} />);
+    expect(screen.getAllByText("Mensaje eliminado")).toHaveLength(1);
+  });
+});
+
 describe("TipsReceived hidden hash", () => {
   it("shows no explorer link for an anonymous tip with a hidden hash", () => {
     render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ donorName: null, anonymous: true, txHash: null })]} />);

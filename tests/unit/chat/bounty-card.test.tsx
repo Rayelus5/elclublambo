@@ -66,6 +66,9 @@ describe("BountyCard", () => {
     [marked({ status: "unpaid", payDeadline: new Date(NOW.getTime() - DAY).toISOString() }), "Impagado"],
     [detail({ status: "expired" }), "Expirado"],
     [detail({ status: "cancelled" }), "Cancelado"],
+    [marked({ status: "removed" }), "Retirado por moderación"],
+    [marked({ status: "solver_unavailable" }), "Solucionador no disponible"],
+    [marked({ status: "other_chain" }), "En otra red"],
   ])("renders the chip %#", (bounty, text) => {
     setup({ bounty });
     expect(screen.getByTestId("bounty-status")).toHaveTextContent(new RegExp(`^${text}$`));
@@ -102,6 +105,11 @@ describe("BountyCard", () => {
     setup({ isAuthor: true, solver, bounty: marked({ status }) });
     expect(screen.getByRole("button", { name: "Pagar bounty" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Cancelar bounty" })).not.toBeInTheDocument();
+  });
+
+  it.each(["removed", "solver_unavailable", "other_chain"] as const)("offers the author nothing on a %s bounty (payment impossible, no mark)", (status) => {
+    setup({ isAuthor: true, solver, bounty: marked({ status }) });
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it.each(["paid", "paid_late"] as const)("offers nothing to pay on a %s bounty (paid exactly once)", (status) => {
