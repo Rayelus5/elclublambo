@@ -148,6 +148,13 @@ describe("Sidebar", () => {
     expect(names.indexOf("DAO")).toBe(names.indexOf("Guía") + 1);
   });
 
+  it("always links to Mercado, right after the DAO (the drawer shares sections())", () => {
+    renderSidebar(0n);
+    const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
+    expect(within(desktopBar()).getByRole("link", { name: "Mercado" })).toHaveAttribute("href", "/mercado");
+    expect(names.indexOf("Mercado")).toBe(names.indexOf("DAO") + 1);
+  });
+
   it("always links to Tickets, with the open count when there are any", () => {
     const { unmount } = renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");

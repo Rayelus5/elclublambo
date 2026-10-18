@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -40,6 +40,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
     },
     { href: "/guia", text: "Guía", Icon: BookOpen },
     { href: "/dao", text: "DAO", Icon: Landmark },
+    { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
       href: "/admin/members",
