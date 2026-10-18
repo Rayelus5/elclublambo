@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
+import { BalanceChart, ShareDonut } from "@/components/treasury/dao-charts";
 import { DaoHistory } from "@/components/treasury/dao-history";
+import { DaoLive } from "@/components/treasury/dao-live";
 import { DaoOverview } from "@/components/treasury/dao-overview";
 import { DaoRanking } from "@/components/treasury/dao-ranking";
 import { DonateButton } from "@/components/treasury/donate-button";
@@ -9,6 +11,7 @@ import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { ReconcilePanel } from "@/components/treasury/reconcile-panel";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
+import { balanceSeries, donutSlices } from "@/lib/treasury/charts";
 import { getLastReconciliation } from "@/lib/treasury/last-run";
 import { getDaoHistory, getDaoOverview, getDaoRanking } from "@/lib/treasury/queries";
 
@@ -34,29 +37,46 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   const last = hasPerm(perms, Perm.MANAGE_TREASURY) ? await getLastReconciliation(overview.chainId) : null;
 
   return (
-    <div className="flex max-w-3xl flex-col gap-8">
+    <div className="flex w-full flex-col gap-8">
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">DAO</h1>
         <p className="text-fg-muted">La tesorería común del club en esta red. Aportar te da participaciones en su registro.</p>
         <HowItWorksLink section="dao" className="self-start" />
       </header>
 
-      <DaoOverview data={overview} donate={<DonateButton autoOpen={donar === "1"} />} />
+      {/* Live: any donation recorded, credited or reverted (or a ranking opt-in) re-renders this page. */}
+      <DaoLive />
 
-      <section aria-labelledby="ranking-title" className="flex flex-col gap-4">
-        <h2 id="ranking-title" className="text-h2">
-          Ranking
-        </h2>
-        <DaoRanking entries={ranking} viewerId={memberId} />
-        <RankingToggle initial={own?.data?.dao_ranking_visible === true} />
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <DaoOverview
+          data={overview}
+          donate={<DonateButton autoOpen={donar === "1"} />}
+          chart={<BalanceChart points={balanceSeries(history, overview.valueUsdc)} />}
+        />
+        <section aria-labelledby="split-title" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
+          <h2 id="split-title" className="text-h2">
+            Reparto
+          </h2>
+          <ShareDonut slices={donutSlices(ranking)} donors={overview.donors} />
+        </section>
+      </div>
 
-      <section aria-labelledby="history-title" className="flex flex-col gap-4">
-        <h2 id="history-title" className="text-h2">
-          Historial
-        </h2>
-        <DaoHistory entries={history} chainId={overview.chainId} />
-      </section>
+      <div className="grid gap-6 xl:grid-cols-2">
+        <section aria-labelledby="ranking-title" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
+          <h2 id="ranking-title" className="text-h2">
+            Ranking
+          </h2>
+          <DaoRanking entries={ranking} viewerId={memberId} />
+          <RankingToggle initial={own?.data?.dao_ranking_visible === true} />
+        </section>
+
+        <section aria-labelledby="history-title" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
+          <h2 id="history-title" className="text-h2">
+            Historial
+          </h2>
+          <DaoHistory entries={history} chainId={overview.chainId} />
+        </section>
+      </div>
 
       <ReconcilePanel perms={perms} last={last} />
 

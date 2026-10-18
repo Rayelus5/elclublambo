@@ -11,6 +11,13 @@ export const colors = {
   success: "#3DDC84",
   warning: "#FFB020",
   danger: "#FF5A5A",
+  // Chart series (DAO donut): distinct hues, none reusing a semantic colour; "rest" is the neutral slice.
+  chart1: "#61DFFF",
+  chart2: "#A594FF",
+  chart3: "#FF7AB8",
+  chart4: "#C6F36B",
+  chart5: "#FFA066",
+  chartRest: "#6B6B6B",
 } as const;
 
 function channel(v: number): number {

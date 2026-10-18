@@ -26,6 +26,16 @@ describe("design tokens contrast (>= 4.5)", () => {
   });
 });
 
+describe("chart colours: non-text graphics need >= 3:1 on the panel (WCAG 1.4.11)", () => {
+  const chart = [colors.chart1, colors.chart2, colors.chart3, colors.chart4, colors.chart5, colors.chartRest];
+  it.each(chart)("%s on surface", (hex) => {
+    expect(contrastRatio(hex, colors.surface)).toBeGreaterThanOrEqual(3);
+  });
+  it("are all distinct", () => {
+    expect(new Set(chart.map((c) => c.toLowerCase())).size).toBe(chart.length);
+  });
+});
+
 describe("globals.css sync", () => {
   const css = readFileSync(
     join(process.cwd(), "src/app/globals.css"),

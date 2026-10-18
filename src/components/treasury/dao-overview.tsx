@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { NetworkBadge } from "@/components/economy/network-badge";
+import { ShareRing } from "@/components/treasury/dao-charts";
 import { explorerTx } from "@/lib/economy/networks";
 import { formatBps, formatShares, formatUsdc } from "@/lib/treasury/format";
 import type { DaoOverview as Data } from "@/lib/treasury/queries";
@@ -10,8 +11,8 @@ const linkClass =
 const dateTime = (iso: string) =>
   new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(iso)) + " UTC";
 
-/** Balance, donors and the viewer's own position on the active network. Text and tables only: no charts. */
-export function DaoOverview({ data, donate }: { data: Data; donate: ReactNode }) {
+/** Balance (with its chart), donors and the viewer's own position on the active network. */
+export function DaoOverview({ data, donate, chart }: { data: Data; donate: ReactNode; chart?: ReactNode }) {
   return (
     <div className="flex flex-col gap-6">
       <section aria-label="Tesorería" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
@@ -30,6 +31,7 @@ export function DaoOverview({ data, donate }: { data: Data; donate: ReactNode })
             </dd>
           </div>
         </dl>
+        {chart}
         {donate ? <div className="flex flex-wrap items-center gap-3">{donate}</div> : null}
       </section>
 
@@ -37,7 +39,9 @@ export function DaoOverview({ data, donate }: { data: Data; donate: ReactNode })
         <h2 id="my-position" className="text-h2">
           Tu participación
         </h2>
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <ShareRing bps={data.myShareBps} />
+        <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
           <div>
             <dt className="text-sm text-fg-muted">De la DAO</dt>
             <dd data-testid="my-share" className="font-mono text-lg font-bold text-fg">
@@ -57,6 +61,7 @@ export function DaoOverview({ data, donate }: { data: Data; donate: ReactNode })
             </dd>
           </div>
         </dl>
+        </div>
 
         {data.myPending.length > 0 ? (
           <ul aria-label="Donaciones pendientes" className="flex flex-col divide-y divide-border border-t border-border">
