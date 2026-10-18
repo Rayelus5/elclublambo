@@ -53,7 +53,7 @@ describe("formatParticipaciones", () => {
     expect(formatParticipaciones(U)).toBe("1 participación");
     expect(formatParticipaciones(U / 2n)).toBe("0,5 participaciones");
     expect(formatParticipaciones(12_345n * U + (U * 129n) / 1000n)).toBe("12.345,12 participaciones");
-    expect(formatParticipaciones(U / 1000n)).toBe("menos de 0,01 participaciones");
+    expect(formatParticipaciones(U / 1000n)).toBe("< 0,01 participaciones");
     expect(formatParticipaciones(0n)).toBe("0 participaciones");
   });
 });

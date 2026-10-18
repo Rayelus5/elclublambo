@@ -193,7 +193,7 @@ function Dao() {
             Una transferencia directa a la Safe, hecha fuera del diálogo, no cuenta nunca: no da shares.
             Dona siempre desde el diálogo.
           </li>
-          <li>Los retiros llegarán más adelante. Hoy las aportaciones no se pueden retirar.</li>
+          <li>Hoy las aportaciones no se pueden retirar. Las retiradas, si llegan, empezarán desactivadas y se explicarán en la sección «El fondo común».</li>
         </Bullets>
       </Sub>
     </>
@@ -207,7 +207,7 @@ function Fondo() {
         <p>
           El fondo se valora a precio de mercado, en USD: el USDC, el ETH y el WETH que hay en la Safe, al precio del ETH en
           ese momento, menos lo que el registro ya sabe que debe (por ejemplo, donaciones aún pendientes de finalización).
-          Ese total es el NAV (valor liquidativo). Se actualiza cada hora y lo ves en la página de la DAO.
+          Ese total es el NAV (el valor neto del fondo). Se actualiza cada hora y lo ves en la página de la DAO.
         </p>
         <p>
           El valor de una participación es el NAV entre el total de participaciones. Cuando donas, recibes participaciones al
@@ -218,7 +218,7 @@ function Fondo() {
       <Sub title="Fondo del club">
         <p>
           Si la Safe ya tenía dinero antes de que nadie tuviera participaciones, ese dinero pertenece a una posición aparte
-          llamada «Fondo del club». Cuenta en el total de participaciones, pero no se puede retirar, no vota, no entra en
+          llamada «Fondo del club». Lo mismo ocurre con cualquier valor que la Safe ya tuviera en la primera valoración y que el registro no atribuía a nadie. Cuenta en el total de participaciones, pero no se puede retirar, no vota, no entra en
           sorteos y no abre canales con candado.
         </p>
       </Sub>
@@ -235,8 +235,9 @@ function Fondo() {
       </Sub>
       <Sub title="Lo que llegará más adelante">
         <p>
-          Las retiradas y los sorteos llegarán más adelante. Hoy el fondo solo recibe donaciones y se valora; nada de esto se
-          puede retirar todavía.
+          Las retiradas y los sorteos llegarán más adelante. Las retiradas empezarán desactivadas: se activan por red cuando
+          el club lo decida y, aun entonces, dependen de la disponibilidad y de la decisión del tesorero. Hoy no se puede
+          retirar nada.
         </p>
       </Sub>
     </>

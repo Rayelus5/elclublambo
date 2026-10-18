@@ -35,7 +35,7 @@ import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { isDefinitiveFailure } from "@/lib/payments/outcomes";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
 import { createDonationIntentAction } from "@/lib/treasury/actions";
-import { formatParticipaciones } from "@/lib/treasury/format";
+import { formatParticipaciones, formatUsdPrecise } from "@/lib/treasury/format";
 import { getDaoOverview } from "@/lib/treasury/queries";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
@@ -274,7 +274,8 @@ function TipFlow({
     let cancelled = false;
     getDaoOverview(createBrowserClient())
       .then((o) => {
-        if (!cancelled && o.sharePriceUsd6 > 0n) setSharePrice(o.sharePriceUsd6);
+        // Only this chain's price; with no shares yet the rate is 1 USD per participación (F4a-R9).
+        if (!cancelled && o.chainId === chainId) setSharePrice(o.sharePriceUsd6 > 0n ? o.sharePriceUsd6 : 1_000_000n);
       })
       .catch(() => {
         /* the estimate line is simply absent */
@@ -282,7 +283,7 @@ function TipFlow({
     return () => {
       cancelled = true;
     };
-  }, [donation]);
+  }, [donation, chainId]);
 
   useEffect(() => {
     busyRef.current = step === "signing" || step === "verifying";
@@ -535,7 +536,7 @@ function TipFlow({
     let created: { ok: true; intent: TipIntent } | { ok: false; error: string };
     try {
       created = donation
-        ? await createDonationIntentAction({ amount: amountText.trim(), feeBps })
+        ? await createDonationIntentAction({ amount: amountText.trim(), feeBps, acknowledged: true })
         : mode
         ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, amount: amountText.trim(), feeBps })
         : await createTipIntentAction({
@@ -880,15 +881,21 @@ function TipFlow({
           </dd>
         </dl>
 
+        {donation && sharePrice !== null ? (
+          <p data-testid="share-price" className="text-[13px] text-fg-muted">
+            Valor por participación: <span className="font-mono text-fg">{formatUsdPrecise(sharePrice)}</span>
+          </p>
+        ) : null}
         {estimate ? (
           <p className="text-[13px] text-fg-muted">
-            ≈ {estimate} al valor actual (el número exacto se fija al acreditar)
+            {estimate.startsWith("<") ? "" : "≈ "}
+            {estimate} al valor actual (el número exacto se fija al acreditar)
           </p>
         ) : null}
 
         {donation ? (
           <div className="flex items-start gap-3">
-            <Checkbox id="donation-ack" checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} className="mt-3" />
+            <Checkbox id="donation-ack" checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} className="mt-2.5" />
             <label htmlFor="donation-ack" className="min-h-11 flex-1 content-center py-2 text-sm text-fg">
               {DONATION_ACK}
             </label>

@@ -45,5 +45,8 @@ describe("guide: fondo", () => {
     ).toBeInTheDocument();
     expect(screen.getByText(/retiradas y los sorteos llegarán más adelante/i)).toBeInTheDocument();
     expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/liquidativo/)).not.toBeInTheDocument();
+    expect(screen.getByText(/empezarán desactivadas/)).toBeInTheDocument();
+    expect(screen.getByText(/primera valoración/)).toBeInTheDocument();
   });
 });

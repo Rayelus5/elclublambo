@@ -51,14 +51,14 @@ export function formatBps(bps: number): string {
 }
 
 /**
- * Shares (10^18 per participación) -> "5 participaciones" / "0,5 participaciones" / "menos de 0,01 participaciones":
+ * Shares (10^18 per participación) -> "5 participaciones" / "0,5 participaciones" / "< 0,01 participaciones":
  * at most 2 decimals, truncated, never through Number.
  */
 export function formatParticipaciones(shares: bigint): string {
   const unit = 10n ** 18n;
   const whole = shares / unit;
   const hundredths = ((shares % unit) * 100n) / unit;
-  if (whole === 0n && hundredths === 0n) return shares > 0n ? "menos de 0,01 participaciones" : "0 participaciones";
+  if (whole === 0n && hundredths === 0n) return shares > 0n ? "< 0,01 participaciones" : "0 participaciones";
   const frac = hundredths.toString().padStart(2, "0").replace(/0+$/, "");
   const text = `${group(whole.toString())}${frac ? `,${frac}` : ""}`;
   return `${text} ${text === "1" ? "participación" : "participaciones"}`;

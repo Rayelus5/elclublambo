@@ -124,6 +124,7 @@ describe("TipDialog bounty mode: form", () => {
   it("has no anonymous option", () => {
     setup();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/donación sin esperar nada/)).not.toBeInTheDocument();
     expect(screen.queryByText(/anónima/i)).not.toBeInTheDocument();
   });
 

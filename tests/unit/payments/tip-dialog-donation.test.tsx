@@ -140,12 +140,34 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
-  it("shows no estimate while nobody holds shares (price 0)", async () => {
+  it("shows the current value per participación next to the estimate (R7: USD)", async () => {
+    setup();
+    await userEvent.type(amountBox(), "10");
+    await screen.findByText(/participaciones al valor actual/);
+    expect(screen.getByTestId("share-price")).toHaveTextContent("Valor por participación: 2 USD");
+  });
+
+  it("estimates at 1 USD per participación while nobody holds shares (R9)", async () => {
     rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "0" }, error: null });
+    setup();
+    await userEvent.type(amountBox(), "10");
+    expect(await screen.findByText("≈ 10 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
+    expect(screen.getByTestId("share-price")).toHaveTextContent("Valor por participación: 1 USD");
+  });
+
+  it("ignores an overview of another chain", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 59144, sharePriceUsd6: "2000000" }, error: null });
     setup();
     await userEvent.type(amountBox(), "10");
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
+  });
+
+  it("drops the ≈ for dust", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "900000000000" }, error: null });
+    setup();
+    await userEvent.type(amountBox(), "1");
+    expect(await screen.findByText("< 0,01 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
   });
 
   it("explains when the active network has no Safe, and cannot continue", async () => {
@@ -168,7 +190,7 @@ describe("TipDialog donation mode: signing", () => {
     const note = screen.getByText(FINALITY_NOTE);
     const close = screen.getAllByRole("button", { name: "Cerrar" }).find((b) => b.getAttribute("data-slot") === "button")!;
     expect(close.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(createDonationIntentAction).toHaveBeenCalledWith({ amount: "10", feeBps: 100 });
+    expect(createDonationIntentAction).toHaveBeenCalledWith({ amount: "10", feeBps: 100, acknowledged: true });
     expect(send).toHaveBeenNthCalledWith(1, { chain: 59141, token: "USDC", to: PLATFORM, amount: 100000n, account: SESSION });
     expect(send).toHaveBeenNthCalledWith(2, { chain: 59141, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
     expect(attachTxAction).toHaveBeenNthCalledWith(1, INTENT_ID, "fee", FEE_HASH);

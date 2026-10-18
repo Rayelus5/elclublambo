@@ -9,6 +9,7 @@ const MESSAGES: Record<string, string> = {
   invite_expired: "Esta invitación ha caducado.",
   invite_exhausted: "Esta invitación está agotada.",
   invite_revoked: "Esta invitación fue anulada.",
+  acknowledgement_required: "Para donar tienes que aceptar el aviso de riesgo.",
   invalid_input: "Los datos enviados no son válidos.",
   hierarchy: "No puedes hacerlo: afecta a un rango igual o superior al tuyo o a permisos que no tienes.",
   not_empty: "El canal tiene subcanales; muévelos o bórralos antes.",
