@@ -126,7 +126,7 @@ describe("role actions", () => {
     expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "512" })).toEqual({
       error: "invalid_input",
     });
-    expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "65536" })).toEqual({
+    expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "131072" })).toEqual({
       error: "invalid_input",
     });
     expect(rpc).not.toHaveBeenCalled();

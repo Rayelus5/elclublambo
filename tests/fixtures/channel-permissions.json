@@ -203,7 +203,7 @@
           "root"
         ],
         "active": true,
-        "penaltyDeny": "65535"
+        "penaltyDeny": "131071"
       },
       "path": [
         {
@@ -221,7 +221,7 @@
           }
         }
       ],
-      "expected": "31759"
+      "expected": "97295"
     },
     {
       "name": "penalty_allow_cannot_reveal",
@@ -536,6 +536,143 @@
         }
       ],
       "expected": "8199"
+    },
+    {
+      "name": "bounty_bit_from_role_base",
+      "roles": [
+        {
+          "key": "r",
+          "permissions": "65536"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "r"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "73735"
+    },
+    {
+      "name": "bounty_bit_allowed_by_everyone_overwrite",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt",
+          "everyone": {
+            "allow": "65536",
+            "deny": "0"
+          }
+        }
+      ],
+      "expected": "73735"
+    },
+    {
+      "name": "bounty_bit_denied_by_member_overwrite",
+      "roles": [
+        {
+          "key": "r",
+          "permissions": "65536"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "r"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "0",
+            "deny": "65536"
+          }
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "bounty_bit_removed_by_penalty_deny",
+      "roles": [
+        {
+          "key": "r",
+          "permissions": "65536"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "r"
+        ],
+        "active": true,
+        "penaltyDeny": "65536"
+      },
+      "path": [
+        {
+          "key": "cat"
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "bounty_bit_denied_up_the_tree_returns_with_leaf_allow",
+      "roles": [
+        {
+          "key": "r",
+          "permissions": "65536"
+        }
+      ],
+      "member": {
+        "roleKeys": [
+          "r"
+        ],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "0",
+            "deny": "65536"
+          }
+        },
+        {
+          "key": "txt",
+          "roles": [
+            {
+              "roleKey": "r",
+              "allow": "65536",
+              "deny": "0"
+            }
+          ]
+        }
+      ],
+      "expected": "73735"
     }
   ]
 }

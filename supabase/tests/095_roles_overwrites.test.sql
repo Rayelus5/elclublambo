@@ -174,7 +174,7 @@ select throws_ok(format($q$select public.update_role(%L::uuid, (select name from
   'P0001', 'hierarchy', '@everyone permissions limited to the actor''s own');
 select throws_ok(format($q$select public.update_role(%L::uuid, 'Verificado 2', '#3DDC84', 2)$q$, current_setting('t.verified')),
   'P0001', 'forbidden', 'system_key roles cannot be renamed');
-select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3ddc85', 3072)$q$, current_setting('t.verified')),
+select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3ddc85', 68608)$q$, current_setting('t.verified')),
   'system_key role color and permissions are editable');
 select tests.clear_authentication();
 select is((select name || ':' || color || ':' || permissions::text from public.roles where id = current_setting('t.r1')::uuid),

@@ -15,10 +15,14 @@ describe("permission labels", () => {
     }
   });
 
-  it("exposes the 9 channel bits and 15 selectable bits", () => {
-    expect(CHANNEL_BIT_LIST).toHaveLength(9);
+  it("labels CREATE_BOUNTIES as Crear bounties", () => {
+    expect(PERM_LABEL.get(Perm.CREATE_BOUNTIES)).toBe("Crear bounties");
+  });
+
+  it("exposes the 10 channel bits and 16 selectable bits", () => {
+    expect(CHANNEL_BIT_LIST).toHaveLength(10);
     expect(CHANNEL_BIT_LIST.reduce((a, b) => a | b.bit, 0n)).toBe(CHANNEL_MASK);
-    expect(SELECTABLE_BIT_LIST).toHaveLength(15);
+    expect(SELECTABLE_BIT_LIST).toHaveLength(16);
     expect(SELECTABLE_BIT_LIST.some((b) => b.bit === Perm.ADMINISTRATOR)).toBe(false);
   });
 });

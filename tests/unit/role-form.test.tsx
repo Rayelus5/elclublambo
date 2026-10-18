@@ -43,9 +43,9 @@ describe("RoleForm", () => {
   });
 
   it("admin can toggle every offered bit", () => {
-    render(<RoleForm role={null} actor={actor({ isAdmin: true, perms: "65535" })} />);
+    render(<RoleForm role={null} actor={actor({ isAdmin: true, perms: "131071" })} />);
     expect(screen.getByLabelText("Banear miembros")).toBeEnabled();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(15);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(16);
   });
 
   it("rejects an invalid custom color without calling the action", async () => {

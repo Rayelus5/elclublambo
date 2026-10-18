@@ -16,12 +16,13 @@ export const Perm = {
   ADD_REACTIONS: 8192n,
   MANAGE_TICKETS: 16384n,
   VERIFY_MEMBERS: 32768n,
+  CREATE_BOUNTIES: 65536n,
 } as const;
 
-export const ALL_PERMS = 65535n;
+export const ALL_PERMS = 131071n;
 
 /** The only bits that may appear in a channel permission overwrite. */
-export const CHANNEL_MASK = 31759n;
+export const CHANNEL_MASK = 97295n;
 
 /** Bits that only exist globally (never in a channel overwrite). */
 export const GLOBAL_MASK = ALL_PERMS & ~CHANNEL_MASK;
