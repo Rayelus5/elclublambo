@@ -28,7 +28,7 @@ class NotFound extends Error {}
 
 let warnedConfirmations = false;
 /** TIP_CONFIRMATIONS if it is an integer >= 1, else 3 (a bad value is logged once). */
-function defaultConfirmations(): number {
+export function defaultConfirmations(): number {
   const raw = process.env.TIP_CONFIRMATIONS;
   if (raw === undefined) return 3;
   const n = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;

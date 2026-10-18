@@ -2,8 +2,9 @@ import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { reconcile } from "@/lib/treasury/reconcile";
+import { scanSafeOperations } from "@/lib/treasury/scan";
 import { settlePendingDonations } from "@/lib/treasury/settle";
+import { takeSnapshot } from "@/lib/treasury/snapshot";
 
 /** Constant-time bearer check: both buffers are padded to the same length for timingSafeEqual, then the true lengths must match. */
 function authorized(header: string | null, secret: string): boolean {
@@ -20,20 +21,20 @@ function authorized(header: string | null, secret: string): boolean {
 
 type ChainReport = {
   chainId: ChainId;
+  snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
+  scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
   credited?: number;
   reverted?: number;
   pending?: number;
-  diff?: string;
-  rawDiff?: string;
-  pendingValue?: string;
-  reconciliationId?: string;
   skipped?: "safe_not_configured";
-  error?: string;
+  error?: "settle_failed";
 };
 
 /**
- * Settles pending donations and reconciles the Safe balance on both chains. Protected by `Authorization: Bearer ${CRON_SECRET}`.
- * POST for external schedulers, GET for Vercel Cron (which sends GET with the same header); both share the handler.
+ * Per chain, in order: NAV snapshot (hourly, throttled in SQL) → Safe operations scan → settlement of pending donations
+ * at market NAV. Each step is isolated: one failing never stops the others. Protected by
+ * `Authorization: Bearer ${CRON_SECRET}`. POST for external schedulers, GET for Vercel Cron (which sends GET with the
+ * same header); both share the handler.
  */
 async function handle(request: Request) {
   // Opt out of prerendering: without this a GET with an unset CRON_SECRET could be baked into a static 503.
@@ -54,20 +55,27 @@ async function handle(request: Request) {
   const chains: ChainReport[] = [];
   for (const chainId of CHAIN_IDS) {
     const report: ChainReport = { chainId };
+    if (withSafe.has(chainId)) {
+      try {
+        report.snapshot = await takeSnapshot(chainId);
+      } catch (e) {
+        console.error("[cron/dao] snapshot failed", chainId, e);
+        report.snapshot = "failed";
+      }
+      try {
+        report.scan = await scanSafeOperations(chainId);
+      } catch (e) {
+        console.error("[cron/dao] scan failed", chainId, e);
+        report.scan = "failed";
+      }
+    } else {
+      report.skipped = "safe_not_configured";
+    }
     try {
       Object.assign(report, await settlePendingDonations(chainId));
-      if (withSafe.has(chainId)) {
-        const r = await reconcile(chainId, null);
-        report.diff = r.diff.toString();
-        report.rawDiff = r.rawDiff.toString();
-        report.pendingValue = r.pendingValue.toString();
-        report.reconciliationId = r.id;
-      } else {
-        report.skipped = "safe_not_configured";
-      }
     } catch (e) {
-      console.error("[cron/dao] failed", chainId, e);
-      report.error = "failed";
+      console.error("[cron/dao] settle failed", chainId, e);
+      report.error = "settle_failed";
     }
     chains.push(report);
   }

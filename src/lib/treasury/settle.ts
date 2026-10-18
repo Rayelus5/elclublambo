@@ -3,6 +3,7 @@ import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { valueSafe, type SafeValuation } from "@/lib/treasury/snapshot";
 
 export type SettleResult = { credited: number; reverted: number; pending: number };
 export type SettleOptions = { memberId?: string; ledgerId?: string; limit?: number };
@@ -10,6 +11,8 @@ export type SettleOptions = { memberId?: string; ledgerId?: string; limit?: numb
 const MAX_PER_CALL = 20;
 /** Errors that mean the payment no longer exists as claimed (tx_too_old: it was mined before the intent, F3d M5). */
 const PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_too_old"]);
+
+type Valuer = (chain: ChainId) => Promise<SafeValuation | null>;
 
 type LedgerRow = { id: string; chain_id: number; intent_id: string; block_number: string; missing_since: string | null };
 type IntentRow = {
@@ -31,6 +34,11 @@ type Ok = Extract<VerifyResult, { status: "ok" }>;
  * Settles `pending_finality` donations (phase 2): once the chain's finalized block is at or past the donation's block,
  * the payment is re-verified and credited, or reverted when it permanently no longer verifies. Transient and RPC errors
  * leave the rows untouched. At most 20 rows per call (cap), oldest first.
+ *
+ * Shares are issued at market NAV: the Safe is valued once per chain per call (lazily, only when a row is ready to
+ * credit) and credit_donation gets that value and the block it was read at. No valuation (RPC or price down), a stale
+ * read (`assets_stale`) or `invalid_state` keep the row pending for the next run; `shares_zero` keeps it pending for the
+ * treasurer's review.
  */
 export async function settlePendingDonations(chain?: ChainId, opts: SettleOptions = {}): Promise<SettleResult> {
   const result: SettleResult = { credited: 0, reverted: 0, pending: 0 };
@@ -65,11 +73,25 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
     return finalized.get(id) ?? null;
   };
 
+  const valuations = new Map<number, Promise<SafeValuation | null>>();
+  const valueOf: Valuer = (id) => {
+    if (!valuations.has(id)) {
+      valuations.set(
+        id,
+        valueSafe(id).catch((e) => {
+          console.error("[treasury] valuation failed", id, e);
+          return null;
+        }),
+      );
+    }
+    return valuations.get(id)!;
+  };
+
   for (const row of rows) {
     let outcome: Outcome = "pending";
     try {
       const fin = await finalizedOf(row.chain_id as ChainId);
-      if (fin !== null && BigInt(row.block_number) <= fin) outcome = await settleRow(db, row, fin);
+      if (fin !== null && BigInt(row.block_number) <= fin) outcome = await settleRow(db, row, fin, valueOf);
     } catch (e) {
       console.error("[treasury] settle failed", row.id, e);
     }
@@ -78,7 +100,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
   return result;
 }
 
-async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRow, fin: bigint): Promise<Outcome> {
+async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRow, fin: bigint, valueOf: Valuer): Promise<Outcome> {
   const { data: i } = await db
     .from("payment_intents")
     .select("chain_id, member_id, amount:amount::text, fee_amount:fee_amount::text, recipient_address, platform_address, main_tx_hash, fee_tx_hash, created_at")
@@ -129,9 +151,18 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   const block = results.reduce((m, r) => (r.blockNumber > m ? r.blockNumber : m), 0n);
   if (block > fin) return "pending";
 
-  const { error } = await db.rpc("credit_donation", { p_ledger: row.id });
+  // Review Focus 1: without a market valuation nothing is credited (no shares at a wrong price); the next run retries.
+  const v = await valueOf(chain);
+  if (!v) return "pending";
+  const { error } = await db.rpc("credit_donation", {
+    p_ledger: row.id,
+    p_assets_usd6: v.assetsUsd6.toString(),
+    p_assets_block: v.blockNumber.toString(),
+  });
   if (error) {
-    console.error("[treasury] credit_donation failed", row.id, error.message);
+    // shares_zero: too small for the fund's value, left pending for the treasurer. assets_stale / invalid_state: retried.
+    if (error.message === "shares_zero") console.error("[treasury] shares_zero", row.id, error.message);
+    else console.error("[treasury] credit_donation failed", row.id, error.message);
     return "pending";
   }
   return "credited";

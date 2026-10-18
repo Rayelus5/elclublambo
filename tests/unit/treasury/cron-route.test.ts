@@ -6,10 +6,13 @@ const order: string[] = [];
 const connection = vi.fn(async () => void order.push("connection"));
 vi.mock("next/server", () => ({ connection: () => connection() }));
 
+const steps: string[] = [];
 const settle = vi.fn();
-vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: (...a: unknown[]) => settle(...a) }));
-const reconcile = vi.fn();
-vi.mock("@/lib/treasury/reconcile", () => ({ reconcile: (...a: unknown[]) => reconcile(...a) }));
+vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: (...a: unknown[]) => (steps.push(`settle:${a[0]}`), settle(...a)) }));
+const snapshot = vi.fn();
+vi.mock("@/lib/treasury/snapshot", () => ({ takeSnapshot: (...a: unknown[]) => (steps.push(`snapshot:${a[0]}`), snapshot(...a)) }));
+const scan = vi.fn();
+vi.mock("@/lib/treasury/scan", () => ({ scanSafeOperations: (...a: unknown[]) => (steps.push(`scan:${a[0]}`), scan(...a)) }));
 
 let safes: Record<number, string | null> = {};
 let cfgError: unknown = null;
@@ -29,7 +32,9 @@ beforeEach(() => {
   safes = { 59144: "0xaaaa", 59141: "0xbbbb" };
   cfgError = null;
   settle.mockResolvedValue({ credited: 1, reverted: 0, pending: 2 });
-  reconcile.mockResolvedValue({ ledgerValue: 1n, pendingValue: 0n, onchainBalance: 3n, diff: 2n, rawDiff: 2n, id: "r1" });
+  steps.length = 0;
+  snapshot.mockResolvedValue("taken");
+  scan.mockResolvedValue({ inserted: 2, alerts: 1 });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -56,28 +61,26 @@ describe("POST /api/cron/dao", () => {
     async (auth) => {
       expect((await POST(req(auth))).status).toBe(401);
       expect(settle).not.toHaveBeenCalled();
-      expect(reconcile).not.toHaveBeenCalled();
+      expect(snapshot).not.toHaveBeenCalled();
+      expect(scan).not.toHaveBeenCalled();
     },
   );
 
-  it("200 settles and reconciles both chains with a Safe, returning counts", async () => {
+  it("200 runs snapshot → scan → settle on each chain with a Safe and reports all three", async () => {
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(settle).toHaveBeenCalledWith(59144);
-    expect(settle).toHaveBeenCalledWith(59141);
-    expect(reconcile).toHaveBeenCalledWith(59144, null);
-    expect(reconcile).toHaveBeenCalledWith(59141, null);
+    expect(steps).toEqual(["snapshot:59144", "scan:59144", "settle:59144", "snapshot:59141", "scan:59141", "settle:59141"]);
     const body = await res.json();
     expect(body.chains).toHaveLength(2);
-    expect(body.chains[0]).toMatchObject({ chainId: 59144, credited: 1, reverted: 0, pending: 2, diff: "2", reconciliationId: "r1" });
+    expect(body.chains[0]).toEqual({ chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, credited: 1, reverted: 0, pending: 2 });
+    expect(body.chains[0]).not.toHaveProperty("diff");
   });
 
-  it("skips reconciliation for a chain without a Safe but still settles it", async () => {
+  it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(reconcile).toHaveBeenCalledTimes(1);
-    expect(settle).toHaveBeenCalledTimes(2);
-    expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured" });
+    expect(steps).toEqual(["settle:59144", "snapshot:59141", "scan:59141", "settle:59141"]);
+    expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 
   it("GET (Vercel Cron) has the same auth and the same behaviour", async () => {
@@ -88,24 +91,37 @@ describe("POST /api/cron/dao", () => {
     vi.stubEnv("CRON_SECRET", "s3cret-value");
     const res = await GET(req("Bearer s3cret-value", "GET"));
     expect(res.status).toBe(200);
-    expect(reconcile).toHaveBeenCalledTimes(2);
+    expect(snapshot).toHaveBeenCalledTimes(2);
+    expect(scan).toHaveBeenCalledTimes(2);
+    expect(settle).toHaveBeenCalledTimes(2);
   });
 
   it("a chain_config read error answers 500 and runs nothing", async () => {
     cfgError = { message: "db down" };
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     expect((await POST(req("Bearer s3cret-value"))).status).toBe(500);
-    expect(reconcile).not.toHaveBeenCalled();
-    expect(settle).not.toHaveBeenCalled();
+    expect(steps).toEqual([]);
     err.mockRestore();
   });
 
-  it("one failing chain does not stop the other", async () => {
-    reconcile.mockRejectedValueOnce(new Error("rpc down"));
+  it("a failing step does not stop the others, on that chain or the next", async () => {
+    snapshot.mockRejectedValueOnce(new Error("rpc down"));
+    scan.mockRejectedValueOnce(new Error("rpc down")).mockRejectedValueOnce(new Error("rpc down"));
+    settle.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.chains.filter((c: { error?: string }) => c.error)).toHaveLength(1);
-    expect(reconcile).toHaveBeenCalledTimes(2);
+    expect(steps).toHaveLength(6);
+    const [a, b] = (await res.json()).chains;
+    expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", error: "settle_failed" });
+    expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", credited: 1, reverted: 0, pending: 2 });
+    err.mockRestore();
+  });
+
+  it("reports an unavailable valuation and a null scan as they come", async () => {
+    snapshot.mockResolvedValue("unavailable");
+    scan.mockResolvedValue(null);
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(body.chains[1]).toMatchObject({ snapshot: "unavailable", scan: null });
   });
 });

@@ -9,6 +9,9 @@ const getBlock = vi.fn();
 const chainClient = vi.fn<(c: number) => object>(() => ({ getBlock: (...a: unknown[]) => getBlock(...a) }));
 vi.mock("@/lib/payments/chain-client", () => ({ chainClient: (c: number) => chainClient(c) }));
 
+const valueSafe = vi.fn();
+vi.mock("@/lib/treasury/snapshot", () => ({ valueSafe: (...a: unknown[]) => valueSafe(...a) }));
+
 const rpc = vi.fn();
 let ledgerRows: Record<string, unknown>[] = [];
 const filters: unknown[][] = [];
@@ -34,6 +37,14 @@ const FEE = `0x${"bb".repeat(32)}`;
 const row = (id: string, block: number, over: Record<string, unknown> = {}) => ({
   id, chain_id: 59141, member_id: "m1", intent_id: `i-${id}`, tx_hash: MAIN, block_number: String(block), ...over,
 });
+const VALUATION = {
+  assetsUsd6: 12_345_678n,
+  priceE8: 200_000_000_000n,
+  source: "chainlink",
+  assets: { usdc: 12_345_678n, eth: 0n, weth: 0n, blockNumber: 120n },
+  blockNumber: 120n,
+};
+const CREDIT = { p_ledger: "l1", p_assets_usd6: "12345678", p_assets_block: "120" };
 const ok = (blockNumber: bigint) => ({ status: "ok", logIndex: 1, blockNumber, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") });
 
 beforeEach(() => {
@@ -49,6 +60,7 @@ beforeEach(() => {
   getBlock.mockResolvedValue({ number: 100n });
   verifyTransfer.mockResolvedValue(ok(100n));
   rpc.mockResolvedValue({ data: null, error: null });
+  valueSafe.mockResolvedValue(VALUATION);
 });
 
 describe("settlePendingDonations: the finalized gate", () => {
@@ -65,7 +77,7 @@ describe("settlePendingDonations: the finalized gate", () => {
     expect(verifyTransfer).toHaveBeenCalledWith(
       expect.objectContaining({ chain: 59141, token: "USDC", txHash: MAIN, from: PAYER, to: SAFE, amount: 1000000n, confirmations: 1 }),
     );
-    expect(rpc).toHaveBeenCalledWith("credit_donation", { p_ledger: "l1" });
+    expect(rpc).toHaveBeenCalledWith("credit_donation", CREDIT);
   });
 
   it("credits a row below the finalized block", async () => {
@@ -166,6 +178,54 @@ describe("settlePendingDonations: failures", () => {
     ledgerRows = [row("l1", 1), row("l2", 2, { intent_id: "i-l2" })];
     rpc.mockImplementationOnce(async () => ({ data: null, error: { message: "boom" } }));
     expect(await settlePendingDonations()).toEqual({ credited: 1, reverted: 0, pending: 1 });
+  });
+});
+
+describe("settlePendingDonations: market NAV", () => {
+  it("credits with the Safe's market valuation and the block it was read at", async () => {
+    expect(await settlePendingDonations()).toMatchObject({ credited: 1 });
+    expect(valueSafe).toHaveBeenCalledWith(59141);
+    expect(rpc).toHaveBeenCalledWith("credit_donation", CREDIT);
+  });
+
+  it("no valuation (Safe unread or no price): the row stays pending and credit_donation is not called (Review Focus 1)", async () => {
+    valueSafe.mockResolvedValue(null);
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 0, pending: 1 });
+    expect(rpc).not.toHaveBeenCalledWith("credit_donation", expect.anything());
+  });
+
+  it("a throwing valuation keeps the row pending", async () => {
+    valueSafe.mockRejectedValue(new Error("boom"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 0, pending: 1 });
+    err.mockRestore();
+  });
+
+  it("values the Safe lazily, once per chain per call, and only when a row is ready to credit", async () => {
+    ledgerRows = [row("l1", 1), row("l2", 2, { intent_id: "i-l2" })];
+    await settlePendingDonations();
+    expect(valueSafe).toHaveBeenCalledTimes(1);
+    vi.clearAllMocks();
+    getBlock.mockResolvedValue({ number: 0n });
+    await settlePendingDonations();
+    expect(valueSafe).not.toHaveBeenCalled();
+  });
+
+  it.each(["assets_stale", "invalid_state"])("%s is transient: pending, retried next run", async (code) => {
+    rpc.mockImplementation(async (name: string) => ({ data: null, error: name === "credit_donation" ? { message: code } : null }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 0, pending: 1 });
+    expect(rpc).not.toHaveBeenCalledWith("revert_donation", expect.anything());
+    err.mockRestore();
+  });
+
+  it("shares_zero leaves the row pending for the treasurer and logs [treasury] shares_zero", async () => {
+    rpc.mockImplementation(async (name: string) => ({ data: null, error: name === "credit_donation" ? { message: "shares_zero" } : null }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await settlePendingDonations()).toEqual({ credited: 0, reverted: 0, pending: 1 });
+    expect(err).toHaveBeenCalledWith("[treasury] shares_zero", "l1", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("revert_donation", expect.anything());
+    err.mockRestore();
   });
 });
 

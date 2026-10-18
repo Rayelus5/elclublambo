@@ -9,12 +9,9 @@ import { DaoOverview } from "@/components/treasury/dao-overview";
 import { DaoRanking } from "@/components/treasury/dao-ranking";
 import { DonateButton } from "@/components/treasury/donate-button";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
-import { ReconcilePanel } from "@/components/treasury/reconcile-panel";
-import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { balanceSeries, donutSlices } from "@/lib/treasury/charts";
 import { finalitySnapshot } from "@/lib/treasury/finality";
-import { getLastReconciliation } from "@/lib/treasury/last-run";
 import { getDaoHistory, getDaoOverview, getDaoRanking } from "@/lib/treasury/queries";
 import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/settle";
 
@@ -26,9 +23,8 @@ type Search = Promise<{ donar?: string | string[] }>;
 async function DaoContent({ searchParams }: { searchParams: Search }) {
   const { donar } = await searchParams;
   const supabase = await createServerClient();
-  const [{ data: rawPerms }, { data: me }] = await Promise.all([supabase.rpc("my_permissions"), supabase.rpc("current_member_id")]);
+  const { data: me } = await supabase.rpc("current_member_id");
   const memberId = typeof me === "string" ? me : null;
-  const perms = BigInt(String(rawPerms ?? 0));
 
   const [overview, ranking, history, own] = await Promise.all([
     getDaoOverview(supabase),
@@ -36,8 +32,6 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
     getDaoHistory(supabase, 50),
     memberId ? supabase.from("members").select("dao_ranking_visible").eq("id", memberId).maybeSingle<{ dao_ranking_visible: boolean }>() : null,
   ]);
-  // The service-role read of the last run happens only once MANAGE_TREASURY is confirmed.
-  const last = hasPerm(perms, Perm.MANAGE_TREASURY) ? await getLastReconciliation(overview.chainId) : null;
   // The estimate costs one RPC read: only when the viewer has something waiting for finality.
   const finality = overview.myPending.length > 0 ? await finalitySnapshot(overview.chainId) : undefined;
   // Viewing the DAO settles whatever is already final (anyone's, a few per view) without waiting for the cron or the
@@ -89,8 +83,6 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
           <DaoHistory entries={history} chainId={overview.chainId} />
         </section>
       </div>
-
-      <ReconcilePanel perms={perms} last={last} />
 
       <p role="note" className="border-t border-border pt-4 text-[13px] text-fg-muted">
         La tesorería la custodian los firmantes de la Safe. Las participaciones son un registro interno de la comunidad, no un producto financiero.
