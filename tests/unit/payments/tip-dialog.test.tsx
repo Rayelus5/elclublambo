@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const account = vi.hoisted(() => ({ address: undefined as string | undefined, chainId: undefined as number | undefined, isConnected: false }));
 const switchChain = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/treasury/actions", () => ({ createDonationIntentAction: vi.fn() }));
 vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
 vi.mock("wagmi", () => ({
   useAccount: () => account,

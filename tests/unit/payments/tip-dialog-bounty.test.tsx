@@ -21,6 +21,7 @@ const verifyIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/tip-actions", () => ({ createTipIntentAction, attachTxAction, verifyIntentAction }));
 const createBountyPaymentIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/bounties/actions", () => ({ createBountyPaymentIntentAction }));
+vi.mock("@/lib/treasury/actions", () => ({ createDonationIntentAction: vi.fn() }));
 
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { TipDialog, type BountyMode } from "@/components/payments/tip-dialog";

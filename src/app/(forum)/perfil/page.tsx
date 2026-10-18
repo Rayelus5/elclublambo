@@ -4,12 +4,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Editar perfil" };
 
-type Row = MemberIdentityRow & { bio: string | null; links: unknown; handle_changed_at: string | null };
+type Row = MemberIdentityRow & { bio: string | null; links: unknown; handle_changed_at: string | null; dao_ranking_visible: boolean };
 
 const COOLDOWN_MS = 30 * 86_400_000;
 
@@ -27,7 +28,7 @@ async function EditProfile() {
   if (me.error || typeof me.data !== "string") notFound();
   const { data: row } = await supabase
     .from("members")
-    .select(`${MEMBER_IDENTITY_COLUMNS}, bio, links, handle_changed_at`)
+    .select(`${MEMBER_IDENTITY_COLUMNS}, bio, links, handle_changed_at, dao_ranking_visible`)
     .eq("id", me.data)
     .maybeSingle<Row>();
   if (!row) notFound();
@@ -53,6 +54,12 @@ async function EditProfile() {
         links={links}
         handleNextChangeAt={handleNextChange(row.handle, row.handle_changed_at)}
       />
+      <section aria-labelledby="dao-privacy" className="flex flex-col gap-3">
+        <h2 id="dao-privacy" className="text-h2">
+          Privacidad en la DAO
+        </h2>
+        <RankingToggle initial={row.dao_ranking_visible === true} id="perfil-dao-ranking-visible" />
+      </section>
     </div>
   );
 }

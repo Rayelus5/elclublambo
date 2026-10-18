@@ -8,6 +8,9 @@ export const TIP_LIMITS: Record<Token, { min: bigint; max: bigint }> = {
   ETH: { min: 10n ** 13n, max: 100n * 10n ** 18n },
 };
 
+/** Donations to the DAO (USDC only): 1..1000000, same bounds the create_donation_intent RPC enforces. */
+export const DONATION_LIMITS = { min: 1_000_000n, max: 1_000_000n * 10n ** 6n } as const;
+
 /** "12,5" / "12.5" -> base units. Null when empty, negative, malformed or with more decimals than the token has. */
 export function parseAmount(text: string, token: Token): bigint | null {
   const m = /^(\d+)(?:[.,](\d+))?$/.exec(text.trim());

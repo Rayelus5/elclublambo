@@ -1,7 +1,7 @@
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { GUIDE_SECTIONS, type GuideSlug } from "@/lib/guide/sections";
 
-export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide";
+export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide" | "dao";
 
 export type PaletteAction = {
   id: string;
@@ -59,6 +59,8 @@ export function buildActions({
   for (const s of GUIDE_SECTIONS) {
     out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
+  out.push({ id: "dao", label: "Tesorería de la DAO", href: "/dao", icon: "dao", keywords: "dao tesorería safe ranking participaciones shares balance" });
+  out.push({ id: "donate", label: "Donar a la DAO", href: "/dao?donar=1", icon: "dao", keywords: "donar donación aportar usdc dao tesorería" });
   out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
   return out;
 }

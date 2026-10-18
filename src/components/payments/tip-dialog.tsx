@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAppKit, useAppKitState } from "@reown/appkit/react";
-import { CircleAlert, CircleCheck, Loader2 } from "lucide-react";
+import { CircleAlert, CircleCheck, Landmark, Loader2 } from "lucide-react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { NetworkBadge } from "@/components/economy/network-badge";
@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { shortAddress } from "@/lib/auth/wallet";
 import { explorerTx, NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
-import { feeFor, formatAmount, parseAmount, TIP_LIMITS, type Token } from "@/lib/payments/amounts";
+import { rpcErrorMessage } from "@/lib/errors";
+import { DONATION_LIMITS, feeFor, formatAmount, parseAmount, TIP_LIMITS, type Token } from "@/lib/payments/amounts";
 import {
   EXPIRY_MARGIN_MS,
   findInFlight,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/payments/pending-sends";
 import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
+import { createDonationIntentAction } from "@/lib/treasury/actions";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +44,11 @@ export type TipRecipient = MemberIdentity & { id: string };
  * no anonymity, and the bounty can only be paid on the chain it was published on.
  */
 export type BountyMode = { kind: "bounty"; bountyId: string; token: Token; minAmount: bigint; chainId: ChainId };
+/**
+ * Donates USDC to the active network's Safe (the DAO treasury): USDC is locked, minimum 1, no anonymity, and the
+ * recipient is the Safe of the economy config, never a member.
+ */
+export type DonationMode = { kind: "donation" };
 
 const POLL_MS = 3000;
 const POLL_WINDOW_MS = 120_000;
@@ -59,6 +66,7 @@ const MSG_MISMATCH = "Los datos del envío no coinciden. Recarga la página.";
 const MSG_PREPARE = "No se pudo preparar la propina. Inténtalo de nuevo.";
 const MSG_PREPARE_BOUNTY = "No se pudo preparar el pago. Inténtalo de nuevo.";
 const MSG_PREPARED_OTHER_AMOUNT = "Ya tenías un pago de este bounty preparado con otro importe. Revisa el formulario y continúa.";
+const MSG_PREPARE_DONATION = "No se pudo preparar la donación. Inténtalo de nuevo.";
 const MSG_EXPIRED = "La operación ha caducado y no se puede completar. La comisión enviada no se puede reutilizar.";
 
 /** A refusal to sign with a message for the member (wrong signer, intent that disagrees with what was shown). */
@@ -113,10 +121,13 @@ export function TipDialog({
   open,
   onOpenChange,
 }: {
-  recipient: TipRecipient;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-} & ({ target: TipTarget; mode?: undefined } | { mode: BountyMode; target?: undefined })) {
+} & (
+  | { target: TipTarget; mode?: undefined; recipient: TipRecipient }
+  | { mode: BountyMode; target?: undefined; recipient: TipRecipient }
+  | { mode: DonationMode; target?: undefined; recipient?: undefined }
+)) {
   // The AppKit modal lives outside this dialog: while it is open, the dialog must not trap pointer or focus nor close.
   const { open: walletModalOpen } = useAppKitState();
   // Set by the flow while a signature or a verification is in flight: closing then asks first.
@@ -139,14 +150,22 @@ export function TipDialog({
         }}
       >
         <DialogHeader>
-          <DialogTitle className="font-display text-lg font-bold">{mode ? "Pagar bounty" : "Dar propina"}</DialogTitle>
+          <DialogTitle className="font-display text-lg font-bold">
+            {mode?.kind === "donation" ? "Donar a la DAO" : mode ? "Pagar bounty" : "Dar propina"}
+          </DialogTitle>
           <DialogDescription>
-            {mode ? "Va directo a la wallet de quien dio la solución. La comisión de la plataforma se suma aparte." : "Va directo a su wallet. La comisión de la plataforma se suma aparte."}
+            {mode?.kind === "donation"
+              ? "Va directo a la Safe de la tesorería. La comisión de la plataforma se suma aparte."
+              : mode
+                ? "Va directo a la wallet de quien dio la solución. La comisión de la plataforma se suma aparte."
+                : "Va directo a su wallet. La comisión de la plataforma se suma aparte."}
           </DialogDescription>
         </DialogHeader>
         {askClose ? (
           <div role="alertdialog" aria-label="Confirmar cierre" className="flex flex-col gap-3 rounded-control border border-warning p-3">
-            <p className="text-sm text-fg">¿Cerrar? Si ya firmaste, {mode ? "el pago" : "la propina"} se seguirá verificando.</p>
+            <p className="text-sm text-fg">
+              ¿Cerrar? Si ya firmaste, {mode?.kind === "donation" ? "la donación" : mode ? "el pago" : "la propina"} se seguirá verificando.
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={() => setAskClose(false)}>
                 Seguir aquí
@@ -170,14 +189,14 @@ export function TipDialog({
 
 function TipFlow({
   target,
-  mode,
+  mode: modeProp,
   recipient,
   busyRef,
   onClose,
 }: {
   target?: TipTarget;
-  mode?: BountyMode;
-  recipient: TipRecipient;
+  mode?: BountyMode | DonationMode;
+  recipient?: TipRecipient;
   busyRef: { current: boolean };
   onClose: () => void;
 }) {
@@ -185,10 +204,20 @@ function TipFlow({
   const { memberId } = economy;
   const chainId = economy.activeChainId;
   const platform = economy.chains[chainId].platform;
-  // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile.
-  const ledgerType: LedgerTargetType = mode ? "bounty" : (target?.type ?? "profile");
-  const targetId = mode ? mode.bountyId : target?.type === "message" ? target.messageId : recipient.id;
+  // `mode` stays the bounty (most of the flow reads "is this a bounty?"); a donation is its own flag.
+  const mode = modeProp?.kind === "bounty" ? modeProp : undefined;
+  const donation = modeProp?.kind === "donation";
+  // The DAO's Safe on a given chain, from the economy config (never from the intent).
+  const safeOn = (c: number): string | null => economy.chains[c as ChainId]?.safe ?? null;
+  const safe = safeOn(chainId);
+  // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile, a
+  // donation by the constant "dao" (so a fee paid on one chain is still resumable after the active chain changes).
+  const ledgerType: LedgerTargetType = donation ? "dao" : mode ? "bounty" : (target?.type ?? "profile");
+  const targetId = donation ? "dao" : mode ? mode.bountyId : target?.type === "message" ? target.messageId : recipient!.id;
   const bountyInactive = !!mode && mode.chainId !== chainId;
+  const mainLabel = donation ? "Donación" : mode ? "Pago" : "Propina";
+  const theMain = donation ? "la donación" : mode ? "el pago" : "la propina";
+  const payeeName = donation ? "la DAO" : mentionLabel(recipient!);
 
   const account = useAccount();
   const accountRef = useRef(account);
@@ -243,7 +272,8 @@ function TipFlow({
     const tick = async () => {
       const r = await verifyIntentAction(intent.id).catch(() => ({ status: "pending" }) as const);
       if (cancelled) return;
-      if (r.status === "confirmed") {
+      // A donation recorded and verified but waiting for its block to finalize is a successful end state, not a poll.
+      if (r.status === "confirmed" || r.status === "pending_finality") {
         removeSend(memberId, intent.id);
         return setStep("done");
       }
@@ -263,12 +293,13 @@ function TipFlow({
   }, [step, intent, memberId]);
 
   const units = parseAmount(amountText, token);
-  const limits = TIP_LIMITS[token];
+  const limits = donation ? DONATION_LIMITS : TIP_LIMITS[token];
   const fee = units !== null ? feeFor(units, feeBps) : 0n;
 
-  const self = recipient.walletAddress.toLowerCase() === economy.wallet.toLowerCase();
+  const self = !donation && recipient!.walletAddress.toLowerCase() === economy.wallet.toLowerCase();
   let reason: string | null = null;
-  if (self) reason = "No puedes enviarte una propina a ti mismo.";
+  if (donation && !safe) reason = rpcErrorMessage("safe_not_configured");
+  else if (self) reason = "No puedes enviarte una propina a ti mismo.";
   else if (amountText.trim() !== "" && units === null) reason = `Introduce un importe válido (como mucho ${token === "ETH" ? 18 : 6} decimales).`;
   else if (units !== null && mode && units < mode.minAmount)
     reason = `El importe no puede ser menor que el del bounty (${formatAmount(mode.minAmount, token)} ${token}).`;
@@ -306,7 +337,11 @@ function TipFlow({
       throw new SignGuardError(MSG_MISMATCH);
     }
     const feeRequired = BigInt(it.feeAmount) > 0n;
-    if (it.recipientAddress.toLowerCase() !== recipient.walletAddress.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
+    if (donation) {
+      // A donation goes to the Safe the economy config names for the INTENT's chain, in USDC only.
+      const intentSafe = safeOn(it.chainId);
+      if (it.token !== "USDC" || !intentSafe || it.recipientAddress.toLowerCase() !== intentSafe.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
+    } else if (it.recipientAddress.toLowerCase() !== recipient!.walletAddress.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
     if (feeRequired && (!it.platformAddress || !economy.chains[it.chainId as ChainId]?.platform || it.platformAddress.toLowerCase() !== economy.chains[it.chainId as ChainId].platform!.toLowerCase())) {
       throw new SignGuardError(MSG_MISMATCH);
     }
@@ -464,7 +499,9 @@ function TipFlow({
     setProgress({ index: 1, total: 1 });
     let created: { ok: true; intent: TipIntent } | { ok: false; error: string };
     try {
-      created = mode
+      created = donation
+        ? await createDonationIntentAction({ amount: amountText.trim(), feeBps })
+        : mode
         ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, amount: amountText.trim(), feeBps })
         : await createTipIntentAction({
             targetType: target?.type === "message" ? "message" : "profile",
@@ -476,12 +513,25 @@ function TipFlow({
           });
     } catch {
       // Nothing has been signed yet.
-      setFormError(mode ? MSG_PREPARE_BOUNTY : MSG_PREPARE);
+      setFormError(donation ? MSG_PREPARE_DONATION : mode ? MSG_PREPARE_BOUNTY : MSG_PREPARE);
       return setStep("form");
     }
     if (!created.ok) {
       setFormError(created.error);
       return setStep("form");
+    }
+    if (donation) {
+      // What was shown is what gets signed: the active chain, the amount and the fee the member saw.
+      try {
+        guardIntent(created.intent);
+      } catch (e) {
+        setFormError(e instanceof SignGuardError ? e.message : MSG_MISMATCH);
+        return setStep("form");
+      }
+      if (created.intent.chainId !== chainId || BigInt(created.intent.amount) !== units || BigInt(created.intent.feeAmount) !== fee) {
+        setFormError(MSG_MISMATCH);
+        return setStep("form");
+      }
     }
     if (mode) {
       // The server hands back the bounty's existing unattached intent when there is one. It must be what the member sees.
@@ -540,7 +590,6 @@ function TipFlow({
   );
 
   if (step === "signing") {
-    const mainLabel = mode ? "Pago" : "Propina";
     const steps = progress.total === 2 ? ["Comisión", mainLabel] : [mainLabel];
     return (
       <div className="flex flex-col gap-4" aria-live="polite">
@@ -586,17 +635,21 @@ function TipFlow({
     return (
       <div className="flex flex-col gap-4">
         <NetworkBadge chainId={(it?.chainId ?? chainId) as ChainId} className="self-start" />
-        <div className="flex items-center gap-3 rounded-control border border-border p-3">
-          <MemberAvatar member={recipient} size={32} />
-          <div className="min-w-0">
-            <p className="truncate font-bold text-fg">{mentionLabel(recipient)}</p>
-            <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient.walletAddress)}</p>
+        {donation ? (
+          <SafeCard address={it ? safeOn(it.chainId) : safe} />
+        ) : (
+          <div className="flex items-center gap-3 rounded-control border border-border p-3">
+            <MemberAvatar member={recipient!} size={32} />
+            <div className="min-w-0">
+              <p className="truncate font-bold text-fg">{mentionLabel(recipient!)}</p>
+              <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient!.walletAddress)}</p>
+            </div>
           </div>
-        </div>
-        <p className="text-sm font-bold text-fg">La comisión ya está pagada. Falta firmar {mode ? "el pago" : "la propina"}.</p>
+        )}
+        <p className="text-sm font-bold text-fg">La comisión ya está pagada. Falta firmar {theMain}.</p>
         {it ? (
           <p className="font-mono text-sm text-fg" data-testid="resume-amount">
-            Falta: {formatAmount(BigInt(it.amount), it.token)} {it.token} para {mentionLabel(recipient)}
+            Falta: {formatAmount(BigInt(it.amount), it.token)} {it.token} para {payeeName}
           </p>
         ) : null}
         {resumeError ? (
@@ -605,11 +658,11 @@ function TipFlow({
           </p>
         ) : null}
         {walletNotice}
-        <TxLinks chain={(it?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
-        <p className="text-[13px] text-warning">Si cancelas, la comisión enviada no se devolverá y {mode ? "el pago" : "la propina"} no se acreditará.</p>
+        <TxLinks chain={(it?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
+        <p className="text-[13px] text-warning">Si cancelas, la comisión enviada no se devolverá y {theMain} no se acreditará.</p>
         <div className="flex flex-wrap gap-2">
           <Button onClick={resume} disabled={wallet !== null}>
-            {mode ? "Firmar el pago" : "Firmar la propina"}
+            Firmar {theMain}
           </Button>
           <Button variant="outline" onClick={cancelResume}>
             Cancelar
@@ -626,7 +679,7 @@ function TipFlow({
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           No hemos podido registrar tu transacción.
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         <div className="flex flex-wrap gap-2">
           <Button onClick={resume}>Reintentar</Button>
           <Button variant="outline" onClick={onClose}>
@@ -641,14 +694,16 @@ function TipFlow({
     return (
       <div className="flex flex-col gap-4" aria-live="polite">
         {slow ? (
-          <p className="text-sm text-fg">Seguimos verificando. Puedes cerrar: {mode ? "el pago se acreditará solo" : "la propina se acreditará sola"} cuando se confirme.</p>
+          <p className="text-sm text-fg">
+            Seguimos verificando. Puedes cerrar: {donation ? "la donación se registrará sola" : mode ? "el pago se acreditará solo" : "la propina se acreditará sola"} cuando se confirme.
+          </p>
         ) : (
           <p className="flex items-center gap-2 text-sm text-fg">
             <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
             Verificando la transacción en la red…
           </p>
         )}
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         {slow ? <Button variant="outline" onClick={onClose}>Cerrar</Button> : null}
       </div>
     );
@@ -659,9 +714,13 @@ function TipFlow({
       <div className="flex flex-col gap-4" aria-live="polite">
         <p className="flex items-center gap-2 font-display text-lg font-bold text-fg">
           <CircleCheck aria-hidden className="size-5 text-success" />
-          {mode ? "Bounty pagado" : "Propina enviada"}
+          {donation
+            ? "Donación registrada. Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas)."
+            : mode
+              ? "Bounty pagado"
+              : "Propina enviada"}
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         <Button onClick={onClose}>Cerrar</Button>
       </div>
     );
@@ -674,7 +733,7 @@ function TipFlow({
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           {failure}
         </p>
-        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mode ? "Pago" : "Propina"} />
+        <TxLinks chain={(intent?.chainId ?? chainId) as ChainId} hashes={hashes} mainLabel={mainLabel} />
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
       </div>
     );
@@ -691,15 +750,23 @@ function TipFlow({
     >
       <NetworkBadge chainId={chainId} className="self-start" />
 
-      <div className="flex items-center gap-3 rounded-control border border-border p-3">
-        <MemberAvatar member={recipient} size={32} />
-        <div className="min-w-0">
-          <p className="truncate font-bold text-fg">{mentionLabel(recipient)}</p>
-          <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient.walletAddress)}</p>
+      {donation ? (
+        <SafeCard address={safe} />
+      ) : (
+        <div className="flex items-center gap-3 rounded-control border border-border p-3">
+          <MemberAvatar member={recipient!} size={32} />
+          <div className="min-w-0">
+            <p className="truncate font-bold text-fg">{mentionLabel(recipient!)}</p>
+            <p className="font-mono text-[13px] text-fg-muted">{shortAddress(recipient!.walletAddress)}</p>
+          </div>
         </div>
-      </div>
+      )}
 
-      {mode ? (
+      {donation ? (
+        <p data-testid="locked-token" className="text-sm text-fg-muted">
+          Moneda: <span className="font-mono font-bold text-fg">USDC</span>
+        </p>
+      ) : mode ? (
         <p data-testid="locked-token" className="text-sm text-fg-muted">
           Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
         </p>
@@ -745,7 +812,7 @@ function TipFlow({
       <FeeControl minBps={economy.minFeeBps} value={feeBps} onChange={setFeeBps} />
 
       <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-control bg-surface-2 p-3 text-sm">
-        <dt className="text-fg-muted">Para {mentionLabel(recipient)}</dt>
+        <dt className="text-fg-muted">Para {payeeName}</dt>
         <dd className="font-mono text-fg">{units !== null ? `${formatAmount(units, token)} ${token}` : "—"}</dd>
         <dt className="text-fg-muted">Comisión</dt>
         <dd className="font-mono text-fg">{units !== null ? `${formatAmount(fee, token)} ${token}` : "—"}</dd>
@@ -755,7 +822,7 @@ function TipFlow({
         </dd>
       </dl>
 
-      {mode ? null : (
+      {mode || donation ? null : (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <Checkbox id="tip-anon" checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} />
@@ -787,7 +854,7 @@ function TipFlow({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <HowItWorksLink section={mode ? "bounties" : "propinas"} />
+        <HowItWorksLink section={donation ? "dao" : mode ? "bounties" : "propinas"} />
         {bountyInactive ? null : (
           <Button type="submit" disabled={!canContinue}>
             Continuar
@@ -795,6 +862,19 @@ function TipFlow({
         )}
       </div>
     </form>
+  );
+}
+
+/** The DAO treasury as the recipient: a name and the short Safe address (or nothing when the network has none). */
+function SafeCard({ address }: { address: string | null }) {
+  return (
+    <div className="flex items-center gap-3 rounded-control border border-border p-3">
+      <Landmark aria-hidden className="size-8 shrink-0 text-fg-muted" />
+      <div className="min-w-0">
+        <p className="truncate font-bold text-fg">Tesorería de la DAO (Safe)</p>
+        {address ? <p className="font-mono text-[13px] text-fg-muted">{shortAddress(address)}</p> : null}
+      </div>
+    </div>
   );
 }
 

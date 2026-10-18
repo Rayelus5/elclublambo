@@ -9,6 +9,8 @@ describe("guide: propinas", () => {
   it("is no longer marked as coming soon", () => {
     expect(isComingSoon("propinas")).toBe(false);
     expect(isComingSoon("bounties")).toBe(false);
+    expect(isComingSoon("dao")).toBe(false);
+    expect(isComingSoon("candados")).toBe(false);
   });
   it("warns that ETH tips need a plain wallet", () => {
     render(<GuideContent slug="propinas" />);

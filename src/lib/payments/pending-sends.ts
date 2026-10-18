@@ -5,8 +5,11 @@ import type { TipIntent } from "@/lib/payments/tip-actions";
  * is told, so a closed tab, a failed attach or a rejected second signature never costs the member a second payment.
  * Every access is wrapped: the flow must keep working when storage is unavailable.
  */
-/** What a send pays for: a message or profile tip, or a bounty (targetId is the bounty message id). */
-export type LedgerTargetType = "message" | "profile" | "bounty";
+/**
+ * What a send pays for: a message or profile tip, a bounty (targetId is the bounty message id) or a DAO donation
+ * (targetId is the constant "dao": a fee paid on one chain stays resumable even if the active chain changes).
+ */
+export type LedgerTargetType = "message" | "profile" | "bounty" | "dao";
 
 export type PendingSend = {
   intentId: string;

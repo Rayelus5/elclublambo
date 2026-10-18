@@ -142,6 +142,13 @@ describe("Sidebar", () => {
     expect(names.indexOf("Guía")).toBe(names.indexOf("Tickets") + 1);
   });
 
+  it("always links to the DAO dashboard, right after the guide", () => {
+    renderSidebar(0n);
+    const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
+    expect(screen.getByRole("link", { name: "DAO" })).toHaveAttribute("href", "/dao");
+    expect(names.indexOf("DAO")).toBe(names.indexOf("Guía") + 1);
+  });
+
   it("always links to Tickets, with the open count when there are any", () => {
     const { unmount } = renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
