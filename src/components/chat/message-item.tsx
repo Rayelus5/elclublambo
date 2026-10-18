@@ -8,6 +8,7 @@ import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { ReactionBar } from "@/components/chat/reaction-bar";
 import { MemberAvatar } from "@/components/members/member-avatar";
+import { TipDialog } from "@/components/payments/tip-dialog";
 import { ReportDialog } from "@/components/reports/report-dialog";
 import {
   AlertDialog,
@@ -90,6 +91,7 @@ export function MessageItem({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [reporting, setReporting] = useState(false);
+  const [tipping, setTipping] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const focusMoved = useRef(false);
 
@@ -106,7 +108,9 @@ export function MessageItem({
   const canDelete = (own || viewer.canManage) && !deleted && variant !== "pinned" && !!onDelete;
   const canPin = viewer.canManage && isRoot && !deleted && variant !== "pinned" && !!onPin;
   const canReport = !own && !deleted && variant !== "pinned";
-  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canReport;
+  // Tips go to a person: never on one's own message, a deleted one, or a system notice (no author).
+  const canTip = !own && !deleted && variant !== "pinned" && (message.kind as string) !== "system" && !!message.authorId;
+  const hasMenu = canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
 
   const replies =
     variant === "list" && isRoot && message.replyCount > 0 ? (
@@ -289,12 +293,17 @@ export function MessageItem({
                   {message.pinnedAt === null ? "Fijar" : "Desfijar"}
                 </DropdownMenuItem>
               ) : null}
+              {canTip ? <DropdownMenuItem onSelect={() => setTipping(true)}>Dar propina</DropdownMenuItem> : null}
               {canReport ? (
                 <DropdownMenuItem onSelect={() => setReporting(true)}>Reportar</DropdownMenuItem>
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      ) : null}
+
+      {canTip && tipping ? (
+        <TipDialog target={{ type: "message", messageId: message.id }} recipient={{ ...identity, id: message.authorId }} open={tipping} onOpenChange={setTipping} />
       ) : null}
 
       {canReport ? <ReportDialog messageId={message.id} open={reporting} onOpenChange={setReporting} /> : null}

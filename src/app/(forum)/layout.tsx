@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { EconomyProvider } from "@/components/payments/economy-provider";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { SearchProvider } from "@/components/search/search-provider";
 import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
@@ -94,6 +95,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const initialCount = typeof unreadCount.data === "number" ? unreadCount.data : 0;
 
   return (
+    <EconomyProvider config={economy} wallet={wallet}>
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
@@ -105,6 +107,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     </SearchProvider>
     </UnreadProvider>
     </NotificationsProvider>
+    </EconomyProvider>
   );
 }
 

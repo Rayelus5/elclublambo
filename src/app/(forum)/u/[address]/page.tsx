@@ -5,6 +5,7 @@ import { CopyAddressButton } from "@/components/members/copy-address-button";
 import { SponsorTree, StatusBadge, type MemberSummary } from "@/components/members/sponsor-tree";
 import { normalizeAddress } from "@/lib/auth/wallet";
 import { MemberAvatar } from "@/components/members/member-avatar";
+import { TipProfileButton } from "@/components/payments/tip-profile-button";
 import { ProfileLinks } from "@/components/profile/profile-links";
 import { HANDLE_RE } from "@/lib/members/handle";
 import { identityFromRow, memberName } from "@/lib/members/name";
@@ -99,6 +100,8 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
           >
             Editar perfil
           </Link>
+        ) : member.status === "active" ? (
+          <TipProfileButton recipient={{ ...identityFromRow(member), id: member.id }} />
         ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <code className="font-mono text-[13px] break-all text-fg-muted">{member.wallet_address}</code>

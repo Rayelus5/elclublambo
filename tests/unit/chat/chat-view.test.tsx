@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
+vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({}) }));
 vi.mock("@/lib/chat/realtime", () => ({

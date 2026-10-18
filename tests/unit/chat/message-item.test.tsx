@@ -7,6 +7,10 @@ vi.mock("@/lib/chat/actions", () => ({
 }));
 const reportMessageAction = vi.hoisted(() => vi.fn(async (): Promise<{ error?: string }> => ({})));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction }));
+vi.mock("@/components/payments/tip-dialog", () => ({
+  TipDialog: ({ target, recipient, open }: { target: { type: string; messageId?: string }; recipient: { id: string }; open: boolean }) =>
+    open ? <div role="dialog" aria-label="Propina" data-target={target.messageId} data-recipient={recipient.id} /> : null,
+}));
 
 import { MessageItem, type MessageItemProps } from "@/components/chat/message-item";
 import { ReactionBar } from "@/components/chat/reaction-bar";
@@ -109,7 +113,7 @@ describe("MessageItem", () => {
     it("a regular member on someone else's message: reply, quote, report; no edit/delete/pin", async () => {
       setup();
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Reportar"]);
+      expect(items()).toEqual(["Responder en hilo", "Citar", "Dar propina", "Reportar"]);
       expect(screen.getByRole("menuitem", { name: "Reportar" })).not.toHaveAttribute("aria-disabled", "true");
     });
 
@@ -132,7 +136,7 @@ describe("MessageItem", () => {
     it("a moderator can delete and pin someone else's message", async () => {
       setup({ viewer: viewer({ canManage: true }) });
       await openMenu();
-      expect(items()).toEqual(["Responder en hilo", "Citar", "Borrar", "Fijar", "Reportar"]);
+      expect(items()).toEqual(["Responder en hilo", "Citar", "Borrar", "Fijar", "Dar propina", "Reportar"]);
     });
 
     it("a pinned message offers to unpin", async () => {
@@ -145,7 +149,7 @@ describe("MessageItem", () => {
     it("moderators cannot edit others' messages; replies cannot be pinned or replied to again", async () => {
       setup({ viewer: viewer({ canManage: true }), message: makeMessage({ threadRootId: "root" }), variant: "thread" });
       await openMenu();
-      expect(items()).toEqual(["Borrar", "Reportar"]);
+      expect(items()).toEqual(["Borrar", "Dar propina", "Reportar"]);
     });
 
     it("without SEND_IN_THREADS the thread entry reads 'Ver hilo'", async () => {
@@ -153,6 +157,36 @@ describe("MessageItem", () => {
       await openMenu();
       expect(items()).toContain("Ver hilo");
       expect(items()).not.toContain("Responder en hilo");
+    });
+
+    it("offers a tip on text, Alpha and reply messages of others", async () => {
+      for (const message of [makeMessage(), makeMessage({ kind: "alpha", alphaAddress: "0x3333333333333333333333333333333333333333" }), makeMessage({ threadRootId: "root" })]) {
+        const { unmount } = setup({ message });
+        await openMenu();
+        expect(items()).toContain("Dar propina");
+        unmount();
+      }
+    });
+
+    it("no tip on one's own message", async () => {
+      setup({ message: makeMessage({ authorId: ME }) });
+      await openMenu();
+      expect(items()).not.toContain("Dar propina");
+    });
+
+    it("no tip on system notices", async () => {
+      setup({ message: makeMessage({ kind: "system" as never }), viewer: viewer({ canManage: true }) });
+      await openMenu();
+      expect(items()).not.toContain("Dar propina");
+    });
+
+    it("Dar propina opens the tip dialog for that message and its author", async () => {
+      const { message } = setup();
+      await openMenu();
+      await userEvent.click(screen.getByRole("menuitem", { name: "Dar propina" }));
+      const dialog = await screen.findByRole("dialog", { name: "Propina" });
+      expect(dialog).toHaveAttribute("data-target", message.id);
+      expect(dialog).toHaveAttribute("data-recipient", message.authorId);
     });
 
     it("without canPost there is no quote", async () => {
