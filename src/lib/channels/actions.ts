@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
+import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
@@ -145,7 +146,7 @@ export async function setOverwriteAction(
   return {};
 }
 
-export type MemberHit = { id: string; displayName: string | null; walletAddress: string };
+export type MemberHit = MemberIdentity & { id: string };
 
 /** Bits de canal del actor en un canal; se pide solo para el canal seleccionado en el editor. */
 export async function getMyChannelPermsAction(channelId: string): Promise<{ bits?: string; error?: string }> {
@@ -171,16 +172,12 @@ export async function searchMembersAction(query: string): Promise<MemberHit[]> {
   if (permsError || !hasPerm(BigInt(String(rawPerms ?? 0)), Perm.MANAGE_CHANNELS)) return [];
   const { data, error } = await supabase
     .from("members")
-    .select("id, display_name, wallet_address")
+    .select(`id, ${MEMBER_IDENTITY_COLUMNS}`)
     .eq("status", "active")
-    .or(`display_name.ilike.%${q}%,wallet_address.ilike.%${q}%`)
+    .or(`display_name.ilike.%${q}%,handle.ilike.%${q}%,wallet_address.ilike.%${q}%`)
     .limit(10);
   if (error || !data) return [];
-  return (data as { id: string; display_name: string | null; wallet_address: string }[]).map((m) => ({
-    id: m.id,
-    displayName: m.display_name,
-    walletAddress: m.wallet_address,
-  }));
+  return (data as Array<{ id: string } & MemberIdentityRow>).map((m) => ({ id: m.id, ...identityFromRow(m) }));
 }
 
 export async function deleteChannelAction(id: string): Promise<{ error?: string }> {

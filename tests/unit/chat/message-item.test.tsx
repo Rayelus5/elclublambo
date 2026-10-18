@@ -51,6 +51,12 @@ describe("MessageItem", () => {
     expect(document.querySelector("time")).not.toBeNull();
   });
 
+  it("shows a muted @handle after the display name, and an identicon avatar", () => {
+    setup();
+    expect(screen.getByText("@ana_l")).toBeInTheDocument();
+    expect(document.querySelector("svg[aria-hidden='true'][viewBox='0 0 5 5']")).not.toBeNull();
+  });
+
   it("falls back to a generic name when the author is unknown", () => {
     setup({ directory: { members: {}, roles: {} } });
     expect(screen.getByText("Miembro")).toBeInTheDocument();

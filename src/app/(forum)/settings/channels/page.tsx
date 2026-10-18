@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { ChannelTreeEditor, type MatrixData } from "@/components/settings/channel-tree-editor";
 import type { OverwriteRow } from "@/components/settings/permission-matrix";
 import { getVisibleChannels } from "@/lib/channels/queries";
+import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { getRolesContext } from "@/lib/roles/queries";
 import { createServerClient } from "@/lib/supabase/server";
 
 type DbOverwrite = { channel_id: string; target_type: "role" | "member"; target_id: string; allow: number | string; deny: number | string };
-type DbMember = { id: string; display_name: string | null; wallet_address: string };
+type DbMember = { id: string } & MemberIdentityRow;
 
 async function ChannelsContent() {
   const supabase = await createServerClient();
@@ -38,10 +39,10 @@ async function ChannelsContent() {
   if (memberIds.size > 0) {
     const { data } = await supabase
       .from("members")
-      .select("id, display_name, wallet_address")
+      .select(`id, ${MEMBER_IDENTITY_COLUMNS}`)
       .in("id", [...memberIds])
       .returns<DbMember[]>();
-    members = (data ?? []).map((m) => ({ id: m.id, displayName: m.display_name, walletAddress: m.wallet_address }));
+    members = (data ?? []).map((m) => ({ id: m.id, ...identityFromRow(m) }));
   }
 
   const matrix: MatrixData = {

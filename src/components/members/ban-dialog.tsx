@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { shortAddress } from "@/lib/auth/wallet";
+import { memberName } from "@/lib/members/name";
 import { rpcErrorMessage } from "@/lib/errors";
 import { banMemberAction } from "@/lib/moderation/actions";
 import type { MemberSummary } from "./sponsor-tree";
@@ -24,7 +24,7 @@ import type { MemberSummary } from "./sponsor-tree";
 const MIN = 3;
 const MAX = 500;
 
-const nameOf = (m: MemberSummary) => m.displayName ?? shortAddress(m.walletAddress);
+const nameOf = memberName;
 
 export function BanDialog({
   member,

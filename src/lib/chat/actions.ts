@@ -185,18 +185,19 @@ export async function searchMentionTargetsAction(query: string): Promise<Mention
       ? null
       : supabase
           .from("members")
-          .select("id, display_name, wallet_address")
+          .select("id, display_name, handle, wallet_address")
           .eq("status", "active")
-          .or(`display_name.ilike.%${q}%,wallet_address.ilike.%${q}%`)
+          .or(`display_name.ilike.%${q}%,handle.ilike.%${q}%,wallet_address.ilike.%${q}%`)
           .limit(8);
 
   const [roles, members] = await Promise.all([rolesPromise, membersPromise]);
   return {
     members:
       members && !members.error && members.data
-        ? (members.data as { id: string; display_name: string | null; wallet_address: string }[]).map((m) => ({
+        ? (members.data as { id: string; display_name: string | null; handle?: string | null; wallet_address: string }[]).map((m) => ({
             id: m.id,
-            label: m.display_name ?? "",
+            // The inserted chip text is "@" + label, and the stored mention renders as @handle.
+            label: m.handle || (m.display_name ?? ""),
             walletAddress: m.wallet_address,
           }))
         : [],

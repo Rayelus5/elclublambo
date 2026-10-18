@@ -126,6 +126,12 @@ describe("MessageContent mentions", () => {
     expect(screen.queryByText(/Admin Oficial/)).toBeNull();
   });
 
+  it("renders the member's @handle when they have one", () => {
+    renderDoc(doc(p(mention({ kind: "member", id: M }))), { mentionsDir: { members: { [M]: { name: "Ana", handle: "ana_l" } }, roles: {} } });
+    expect(screen.getByText("@ana_l")).toBeInTheDocument();
+    expect(screen.queryByText("@Ana")).toBeNull();
+  });
+
   it("renders role chip with resolved name and color as border/dot only", () => {
     renderDoc(doc(p(mention({ kind: "role", id: R, label: "Fake" }))), { mentionsDir });
     const chip = screen.getByText("@Mods");

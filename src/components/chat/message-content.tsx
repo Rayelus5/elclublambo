@@ -4,7 +4,7 @@ import { sanitizeDoc, type TiptapMark, type TiptapNode } from "@/lib/chat/conten
 import { classifyLink } from "@/lib/chat/links";
 
 export interface MentionsDir {
-  members: Record<string, { name: string }>;
+  members: Record<string, { name: string; handle?: string | null }>;
   roles: Record<string, { name: string; color: string }>;
 }
 
@@ -33,8 +33,10 @@ function Mention({ node, dir }: { node: TiptapNode; dir: MentionsDir }) {
   let name = "@desconocido";
   let color: string | null = null;
   if (kind === "everyone") name = "@everyone";
-  else if (kind === "member" && has(dir.members, id)) name = `@${dir.members[id]?.name ?? "desconocido"}`;
-  else if (kind === "role" && has(dir.roles, id)) {
+  else if (kind === "member" && has(dir.members, id)) {
+    const member = dir.members[id];
+    name = member?.handle ? `@${member.handle}` : `@${member?.name ?? "desconocido"}`;
+  } else if (kind === "role" && has(dir.roles, id)) {
     const role = dir.roles[id];
     name = `@${role?.name ?? "desconocido"}`;
     color = role && HEX_COLOR.test(role.color) ? role.color : null;

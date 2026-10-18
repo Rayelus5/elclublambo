@@ -7,6 +7,7 @@ import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
 import { ReactionBar } from "@/components/chat/reaction-bar";
+import { MemberAvatar } from "@/components/members/member-avatar";
 import { ReportDialog } from "@/components/reports/report-dialog";
 import {
   AlertDialog,
@@ -20,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
+import type { MemberIdentity } from "@/lib/members/name";
 import { cn } from "@/lib/utils";
 
 export type MessageVariant = "list" | "thread" | "pinned";
@@ -68,18 +70,6 @@ function Time({ iso, className }: { iso: string; className?: string }) {
   );
 }
 
-function Avatar({ name }: { name: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      className="flex size-9 items-center justify-center rounded-control border border-border-strong bg-surface-2 font-display text-sm font-bold text-fg uppercase"
-    >
-      {/* A bare wallet ("0x1234…") would put "0" in every avatar: use the first hex digit after 0x. */}
-      {Array.from(name.trim().replace(/^0x/i, ""))[0] ?? "?"}
-    </span>
-  );
-}
-
 export function MessageItem({
   message,
   directory,
@@ -105,6 +95,7 @@ export function MessageItem({
 
   const author = directory.members[message.authorId];
   const name = author?.name ?? "Miembro";
+  const identity: MemberIdentity = author ?? { handle: null, displayName: null, walletAddress: message.authorId, avatarPath: null };
   const deleted = message.deletedAt !== null;
   const own = message.authorId === viewer.memberId;
   const isRoot = message.threadRootId === null;
@@ -153,7 +144,7 @@ export function MessageItem({
         {grouped ? (
           <Time iso={message.createdAt} className="sr-only md:not-sr-only md:block md:pt-1 md:text-[11px] md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100" />
         ) : (
-          <Avatar name={name} />
+          <MemberAvatar member={identity} size={32} />
         )}
       </div>
 
@@ -163,6 +154,7 @@ export function MessageItem({
             <span className="font-display font-bold text-fg" title={author?.walletAddress}>
               {name}
             </span>
+            {author?.displayName?.trim() && author.handle ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
             <Time iso={message.createdAt} className="text-[13px] text-fg-muted" />
             {message.pinnedAt && !deleted ? (
               <span className="inline-flex items-center gap-1 text-[13px] text-fg-muted">

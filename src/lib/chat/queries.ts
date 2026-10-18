@@ -1,7 +1,7 @@
 // Chat reads. Every function takes a Supabase client so the same code runs on the server (first paint) and in the
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { extractMentions } from "@/lib/chat/content";
 import {
   aggregateReactions,
@@ -116,15 +116,16 @@ export async function hydrateMessages(
 
   const [signed, membersRes, rolesRes] = await Promise.all([
     signPaths(supabase, unique(attachmentRows.map((a) => a.storage_path))),
-    supabase.from("members").select("id, display_name, wallet_address").in("id", memberIds),
+    supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}`).in("id", memberIds),
     roleIds.length > 0
       ? supabase.from("roles").select("id, name, color").in("id", roleIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
   ]);
 
   const directory = emptyDirectory();
-  for (const m of (membersRes.data ?? []) as Array<{ id: string; display_name: string | null; wallet_address: string }>) {
-    directory.members[m.id] = { name: m.display_name?.trim() || shortAddress(m.wallet_address), walletAddress: m.wallet_address };
+  for (const m of (membersRes.data ?? []) as Array<{ id: string } & MemberIdentityRow>) {
+    const identity = identityFromRow(m);
+    directory.members[m.id] = { ...identity, name: memberName(identity) };
   }
   for (const r of (rolesRes.data ?? []) as Array<{ id: string; name: string; color: string }>) {
     directory.roles[r.id] = { name: r.name, color: r.color };

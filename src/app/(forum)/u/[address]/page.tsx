@@ -2,24 +2,26 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { CopyAddressButton } from "@/components/members/copy-address-button";
 import { SponsorTree, StatusBadge, type MemberSummary } from "@/components/members/sponsor-tree";
-import { normalizeAddress, shortAddress } from "@/lib/auth/wallet";
+import { normalizeAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
 
 type DbMember = {
   id: string;
   wallet_address: string;
   display_name: string | null;
+  handle: string | null;
+  avatar_path: string | null;
   status: "active" | "banned" | "left";
   invited_by_member_id: string | null;
   created_at: string;
 };
 
-const COLUMNS = "id, wallet_address, display_name, status, invited_by_member_id, created_at";
+const COLUMNS = "id, wallet_address, display_name, handle, avatar_path, status, invited_by_member_id, created_at";
 
 const toSummary = (m: DbMember): MemberSummary => ({
   id: m.id,
-  walletAddress: m.wallet_address,
-  displayName: m.display_name,
+  ...identityFromRow(m),
   status: m.status,
 });
 
@@ -65,7 +67,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
     <div className="flex max-w-3xl flex-col gap-10">
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-h1">{member.display_name ?? shortAddress(member.wallet_address)}</h1>
+          <h1 className="text-h1">{memberName(identityFromRow(member))}</h1>
           <StatusBadge status={member.status} />
         </div>
         <div className="flex flex-wrap items-center gap-3">

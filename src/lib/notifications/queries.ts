@@ -3,7 +3,7 @@
 // and the actor, channel name, message excerpt and ticket subject are joined under RLS too (never copied into
 // `notifications`). The actor's identity always comes from `members`, never from message content.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { shortAddress } from "@/lib/auth/wallet";
+import { identityFromRow, memberName } from "@/lib/members/name";
 
 export const PAGE_SIZE = 30;
 const EXCERPT_CHARS = 140;
@@ -52,7 +52,7 @@ interface Row {
   channel_id: string | null;
   ticket_id: string | null;
   data: Record<string, unknown> | null;
-  actor: { display_name: string | null; wallet_address: string } | null;
+  actor: { display_name: string | null; handle: string | null; avatar_path: string | null; wallet_address: string } | null;
   channel: { name: string } | null;
   message: { body_text: string | null; deleted_at: string | null } | null;
   ticket: { subject: string } | null;
@@ -60,7 +60,7 @@ interface Row {
 
 const SELECT =
   "id, kind, created_at, read_at, channel_id, ticket_id, data, " +
-  "actor:members!notifications_actor_id_fkey(display_name, wallet_address), " +
+  "actor:members!notifications_actor_id_fkey(display_name, handle, avatar_path, wallet_address), " +
   "channel:channels(name), message:messages(body_text, deleted_at), ticket:tickets(subject)";
 
 const MESSAGE_KINDS = new Set<NotificationKind>(["mention", "reply", "channel_message"]);
@@ -90,7 +90,7 @@ function toView(row: Row): NotificationView {
     createdAt: row.created_at,
     readAt: row.read_at,
     actor: row.actor
-      ? { name: row.actor.display_name?.trim() || shortAddress(row.actor.wallet_address), wallet: row.actor.wallet_address }
+      ? { name: memberName(identityFromRow(row.actor)), wallet: row.actor.wallet_address }
       : null,
     channelName: row.channel?.name ?? null,
     excerpt,

@@ -1,4 +1,5 @@
 // View model of the chat and the pure helpers around it (no React, no Supabase): usable on server and client.
+import type { MemberIdentity } from "@/lib/members/name";
 
 /** A contract address as the Alpha flow accepts it (the database stores it lowercased). */
 export const ALPHA_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -51,10 +52,7 @@ export interface ChatMessage {
   reactions: ReactionChip[];
 }
 
-export interface DirectoryMember {
-  name: string;
-  walletAddress: string;
-}
+export type DirectoryMember = MemberIdentity & { name: string };
 
 /** Names needed to render messages: authors and everything referenced by mentions. */
 export interface Directory {

@@ -37,6 +37,7 @@ const group = (over: Partial<ReportGroup> = {}): ReportGroup => ({
   author: {
     id: "44444444-4444-4444-8444-444444444444",
     name: "Ana",
+    identity: { handle: null, displayName: "Ana", walletAddress: "0x1111111111111111111111111111111111111111", avatarPath: null },
     walletAddress: "0x1111111111111111111111111111111111111111",
     status: "active",
     sponsor: null,

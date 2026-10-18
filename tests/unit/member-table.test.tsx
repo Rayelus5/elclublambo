@@ -8,6 +8,8 @@ import { Perm } from "@/lib/permissions/bits";
 
 const row = (over: Partial<AdminMemberRow> & { id: string; walletAddress: string }): AdminMemberRow => ({
   displayName: null,
+  handle: null,
+  avatarPath: null,
   status: "active",
   sponsor: null,
   isPadrino: false,

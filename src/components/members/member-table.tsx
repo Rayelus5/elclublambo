@@ -4,7 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { shortAddress } from "@/lib/auth/wallet";
+import { memberName } from "@/lib/members/name";
 import { rpcErrorMessage } from "@/lib/errors";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { setVerifiedAction, toggleSponsorRoleAction } from "@/lib/moderation/actions";
@@ -22,7 +22,7 @@ export type AdminMemberRow = MemberSummary & {
 
 const dateFmt = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" });
 
-const nameOf = (m: MemberSummary) => m.displayName ?? shortAddress(m.walletAddress);
+const nameOf = memberName;
 
 function PadrinoToggle({
   member,
@@ -143,7 +143,7 @@ export function MemberTable({
                         href={`/u/${m.walletAddress}`}
                         className="inline-flex min-h-11 items-center text-fg underline-offset-4 hover:underline"
                       >
-                        <span className={m.displayName ? undefined : "font-mono"}>{nameOf(m)}</span>
+                        <span className={m.displayName || m.handle ? undefined : "font-mono"}>{nameOf(m)}</span>
                       </Link>
                       {m.isPadrino ? (
                         <span className="inline-block border border-accent px-2 py-0.5 text-[13px] text-accent rounded-control">
@@ -159,7 +159,7 @@ export function MemberTable({
                   </td>
                   <td className="px-4 py-2 text-fg-muted">
                     {m.sponsor ? (
-                      <span className={m.sponsor.displayName ? undefined : "font-mono"}>{nameOf(m.sponsor)}</span>
+                      <span className={m.sponsor.displayName || m.sponsor.handle ? undefined : "font-mono"}>{nameOf(m.sponsor)}</span>
                     ) : (
                       "Fundador"
                     )}

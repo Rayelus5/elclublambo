@@ -85,15 +85,15 @@ describe("searchMembersAction", () => {
     const { limit, or, eq } = chain([{ id: A, display_name: "Ana", wallet_address: "0xabc" }]);
     const res = await searchMembersAction("an%,(a)");
     expect(eq).toHaveBeenCalledWith("status", "active");
-    expect(or).toHaveBeenCalledWith("display_name.ilike.%ana%,wallet_address.ilike.%ana%");
+    expect(or).toHaveBeenCalledWith("display_name.ilike.%ana%,handle.ilike.%ana%,wallet_address.ilike.%ana%");
     expect(limit).toHaveBeenCalledWith(10);
-    expect(res).toEqual([{ id: A, displayName: "Ana", walletAddress: "0xabc" }]);
+    expect(res).toEqual([{ id: A, displayName: "Ana", handle: null, avatarPath: null, walletAddress: "0xabc" }]);
   });
   it("collapses whitespace to single spaces and keeps dots", async () => {
     rpc.mockResolvedValue({ data: 128, error: null });
     const { or } = chain([]);
     await searchMembersAction("  Ana   María.  Pérez ");
-    expect(or).toHaveBeenCalledWith("display_name.ilike.%ana maría. pérez%,wallet_address.ilike.%ana maría. pérez%");
+    expect(or).toHaveBeenCalledWith("display_name.ilike.%ana maría. pérez%,handle.ilike.%ana maría. pérez%,wallet_address.ilike.%ana maría. pérez%");
   });
 });
 
