@@ -12,6 +12,11 @@ export function EconomyProvider({ config, wallet, memberId, children }: { config
   return <EconomyContext value={{ ...config, wallet, memberId }}>{children}</EconomyContext>;
 }
 
+/** Same as useEconomy, but null outside a provider (components that also render without the economy). */
+export function useOptionalEconomy(): EconomyContextValue | null {
+  return useContext(EconomyContext);
+}
+
 export function useEconomy(): EconomyContextValue {
   const v = useContext(EconomyContext);
   if (!v) throw new Error("useEconomy debe usarse dentro de <EconomyProvider>");

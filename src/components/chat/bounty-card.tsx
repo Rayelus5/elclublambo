@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, Network, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
 import { NetworkBadge } from "@/components/economy/network-badge";
+import { useOptionalEconomy } from "@/components/payments/economy-provider";
 import { TipDialog, type TipRecipient } from "@/components/payments/tip-dialog";
 import {
   AlertDialog,
@@ -20,9 +21,21 @@ import { cancelBountyAction } from "@/lib/bounties/actions";
 import type { BountyDetail, BountyStatus } from "@/lib/bounties/queries";
 import { rpcErrorMessage } from "@/lib/errors";
 import { formatAmount } from "@/lib/payments/amounts";
+import { findInFlight, findResumable } from "@/lib/payments/pending-sends";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
+
+function subscribeStorage(onChange: () => void): () => void {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
+
+/** What the local ledger holds for this bounty: a signature still pending, a fee paid awaiting its main transfer, or nothing. */
+function ledgerState(memberId: string, bountyId: string): "inflight" | "resume" | null {
+  if (findInFlight(memberId, "bounty", bountyId)) return "inflight";
+  return findResumable(memberId, "bounty", bountyId) ? "resume" : null;
+}
 
 const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
   open: { icon: CircleDot, tone: "border-accent text-accent" },
@@ -99,7 +112,20 @@ export function BountyCard({
   const chip = CHIP[bounty.status];
   const Icon = chip.icon;
   const canCancel = isAuthor && bounty.status === "open";
-  const canPay = isAuthor && (bounty.status === "solution_marked" || bounty.status === "unpaid") && solver !== null;
+  // F3c-R7 / N1: a payment already under way (fee paid, or a signature waiting in the wallet) must stay reachable
+  // whatever the status became (other_chain, solver_unavailable...): the dialog resumes it on the intent's own chain.
+  // Paid bounties are excluded (a resumed transfer could no longer be credited). The ledger lives in localStorage:
+  // null on the server and during hydration, re-read on every render and on storage events.
+  const economy = useOptionalEconomy();
+  const memberId = economy?.memberId ?? null;
+  const ongoing = useSyncExternalStore(
+    subscribeStorage,
+    () => (isAuthor && memberId ? ledgerState(memberId, messageId) : null),
+    () => null,
+  );
+  const settled = bounty.status === "paid" || bounty.status === "paid_late";
+  const canStart = bounty.status === "solution_marked" || bounty.status === "unpaid";
+  const canPay = isAuthor && solver !== null && !settled && (canStart || ongoing !== null);
 
   const cancel = async () => {
     setCancelling(true);
@@ -150,7 +176,7 @@ export function BountyCard({
           {canPay ? (
             <Button type="button" onClick={() => setPaying(true)}>
               <Trophy aria-hidden />
-              Pagar bounty
+              {ongoing === "resume" ? "Completar el pago" : "Pagar bounty"}
             </Button>
           ) : null}
           {canCancel ? (
