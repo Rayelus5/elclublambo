@@ -33,10 +33,19 @@ begin
   return v;
 end;
 $$;
+-- F4a: credit at NAV with assets = value_usdc + every pending donation of the chain, so NAV_previo = value_usdc
+-- and the F3 share math (floor(d * S / V)) is what these assertions keep checking
 create function tests.cr(p_ledger uuid) returns void language plpgsql as $$
+declare v_assets numeric;
 begin
+  select coalesce((select s.value_usdc
+                          + (select coalesce(sum(x.amount_usdc), 0) from public.dao_ledger x
+                             where x.chain_id = l.chain_id and x.status = 'pending_finality')
+                   from public.dao_ledger l join public.dao_state s on s.chain_id = l.chain_id
+                   where l.id = p_ledger), 0)
+    into v_assets;
   set local role service_role;
-  perform public.credit_donation(p_ledger);
+  perform public.credit_donation(p_ledger, v_assets);
   reset role;
 end;
 $$;
@@ -86,9 +95,9 @@ select ok(not has_table_privilege('anon', 'public.dao_ledger', 'select')
 select is((select count(*)::int from public.dao_state where total_shares = 0 and value_usdc = 0 and chain_id in (59144, 59141)),
   2, 'dao_state is seeded with zeros for both chains');
 select ok(not has_function_privilege('authenticated', 'public.record_donation(uuid,jsonb,jsonb)', 'execute'), 'authenticated cannot record_donation');
-select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid)', 'execute'), 'authenticated cannot credit_donation');
+select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric)', 'execute'), 'authenticated cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.revert_donation(uuid)', 'execute'), 'authenticated cannot revert_donation');
-select ok(not has_function_privilege('anon', 'public.credit_donation(uuid)', 'execute'), 'anon cannot credit_donation');
+select ok(not has_function_privilege('anon', 'public.credit_donation(uuid,numeric)', 'execute'), 'anon cannot credit_donation');
 select ok(not has_function_privilege('anon', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
       and not has_function_privilege('anon', 'public.revert_donation(uuid)', 'execute'), 'anon cannot record or revert donations');
 select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute')
@@ -97,7 +106,7 @@ select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute
       and not has_function_privilege('anon', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'anon cannot call the read RPCs or the visibility toggle');
 select ok(not has_function_privilege('authenticated', 'public._record_payment_transfers(public.payment_intents,jsonb,jsonb)', 'execute'), 'authenticated cannot call the internal recording helper');
 select ok(has_function_privilege('service_role', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
-      and has_function_privilege('service_role', 'public.credit_donation(uuid)', 'execute')
+      and has_function_privilege('service_role', 'public.credit_donation(uuid,numeric)', 'execute')
       and has_function_privilege('service_role', 'public.revert_donation(uuid)', 'execute'), 'service_role runs the donation pipeline');
 select ok(has_function_privilege('authenticated', 'public.create_donation_intent(numeric,int)', 'execute')
       and has_function_privilege('authenticated', 'public.dao_overview()', 'execute')
