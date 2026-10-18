@@ -74,8 +74,12 @@ test("1. newcomer without a handle is sent to the welcome, must pick a handle an
   await expect(p.getByRole("button", { name: "Saltar" })).toHaveCount(0);
 
   const input = p.getByRole("textbox", { name: "@handle" });
-  await input.fill("ADMIN");
-  await expect(p.getByRole("alert").filter({ hasText: "Ese nombre está reservado" })).toBeVisible();
+  // The server-rendered input is visible before React hydrates; a fill() in that window is wiped by hydration and no
+  // validation runs. Retry the fill until the hydrated form answers with the reserved-name alert.
+  await expect(async () => {
+    await input.fill("ADMIN");
+    await expect(p.getByRole("alert").filter({ hasText: "Ese nombre está reservado" })).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
   await expect(p.getByRole("button", { name: "Siguiente" })).toBeDisabled();
 
   await input.fill(HANDLE);
@@ -175,11 +179,12 @@ test("5. a non-admin gets 404 on the economy settings and forbidden from the RPC
   expect(error?.message).toContain("forbidden");
 });
 
-test("6. the guide lists 5 sections and the palette offers them", async () => {
+test("6. the guide lists 6 sections and the palette offers them", async () => {
   const p = memberPage;
   await p.goto("/guia");
   await expect(p.getByRole("heading", { level: 1, name: "Guía" })).toBeVisible();
-  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(5);
+  // propinas, bounties, dao, fondo (F4a), candados, redes
+  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(6);
 
   await p.goto("/");
   await p.waitForLoadState("networkidle");

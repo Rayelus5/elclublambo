@@ -86,6 +86,8 @@ test.beforeAll(async ({ browser }) => {
 
 test.afterAll(async () => {
   for (const x of [admin, a, b]) await x?.context.close();
+  // Leave chain 59141's DAO clean for later specs and for a real Safe saved on this DB (F4a-R12).
+  await resetLocalDao();
 });
 
 test("1. setup: the admin sets the Safe and the platform wallet, creates VIP DAO and gates it with 1 % or 5 USDC (view)", async () => {

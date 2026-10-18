@@ -139,6 +139,8 @@ test.afterAll(async () => {
     const { error } = await service().from("app_config").update({ value: minFeeBefore }).eq("key", "min_fee_bps");
     expect(error).toBeNull();
   }
+  // Leave chain 59141's DAO clean for later specs and for a real Safe saved on this DB (F4a-R12).
+  await resetLocalDao();
 });
 
 test("1. setup: the admin sets a fresh Safe and the platform wallet", async () => {

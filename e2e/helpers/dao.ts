@@ -91,7 +91,10 @@ export async function ageSnapshots() {
 
 /**
  * Starts the local chain's DAO from zero, so each DAO spec is independent of order and reruns: other specs leave shares,
- * snapshots, scan cursors and treasury alerts on chain 59141. Service role, test setup only; never touches 59144.
+ * snapshots, scan cursors and treasury alerts on chain 59141. The DAO specs call it before AND after themselves, so a run
+ * leaves 59141 clean (no Hardhat-era cursor, snapshots or shares under a later real Safe) and a later Safe change is not
+ * refused by set_chain_addresses (F4a-R12: shares, pending donations or open donation intents block it).
+ * Service role, test setup only; never touches 59144.
  */
 export async function resetLocalDao() {
   const db = service();
@@ -104,6 +107,14 @@ export async function resetLocalDao() {
     .update({ total_shares: 0, club_shares: 0, value_usdc: 0, nav_initialized: false, nav_at: null })
     .eq("chain_id", CHAIN_ID);
   expect(error).toBeNull();
+  // Open donation intents to the spec's Safe would block the next Safe change (F4a-R12).
+  const intents = await db
+    .from("payment_intents")
+    .update({ status: "expired" })
+    .eq("chain_id", CHAIN_ID)
+    .eq("purpose", "donation")
+    .eq("status", "pending");
+  expect(intents.error).toBeNull();
   const notices = await db.from("notifications").delete().in("kind", ["treasury_outflow", "treasury_mismatch"]);
   expect(notices.error).toBeNull();
 }
