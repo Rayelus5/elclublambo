@@ -56,10 +56,10 @@ describe("MessageItem", () => {
     expect(document.querySelector("time")).not.toBeNull();
   });
 
-  it("shows a muted @handle after the display name, and an identicon avatar", () => {
+  it("shows a muted @handle after the display name, and the default DiceBear avatar", () => {
     setup();
     expect(screen.getByText("@ana_l")).toBeInTheDocument();
-    expect(document.querySelector("svg[aria-hidden='true'][viewBox='0 0 5 5']")).not.toBeNull();
+    expect(document.querySelector("img[src^='https://api.dicebear.com/10.x/glass/svg?seed=']")).not.toBeNull();
   });
 
   it("shows @handle once when the author has a handle and no display name", () => {
