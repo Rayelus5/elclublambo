@@ -17,12 +17,13 @@ export type PendingSend = {
   feeAttached?: boolean;
   mainAttached?: boolean;
   createdAt: number;
+  /** Timestamp set while a wallet signature request is pending; cleared when it settles (F3b-R5). */
+  inFlight?: number;
   /** The server intent, kept so the main transfer can be signed later for the same intent. */
   intent: TipIntent;
 };
 
 export const SEND_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-export const INTENT_TTL_MS = 24 * 60 * 60 * 1000;
 
 const key = (memberId: string) => `elclub:pending-sends:${memberId}`;
 
@@ -65,9 +66,28 @@ export function removeSend(memberId: string, intentId: string): void {
   write(memberId, loadSends(memberId).filter((e) => e.intentId !== intentId));
 }
 
-/** A fee already paid whose main transfer was never signed, for this target and an intent that has not expired. */
+/** Do not sign (or resume) with less than this left on the server intent: the attach would be refused as expired. */
+export const EXPIRY_MARGIN_MS = 10 * 60 * 1000;
+/** A pending-signature marker older than this is considered abandoned. */
+export const IN_FLIGHT_TTL_MS = 10 * 60 * 1000;
+
+/** Attach errors that will never succeed: stop retrying. Anything else (network, unknown) is retried. */
+export const PERMANENT_ATTACH_CODES: ReadonlySet<string> = new Set(["intent_expired", "forbidden", "not_found"]);
+
+/** Time left on the server intent (its own `expiresAt`, never client-derived). Unparseable counts as expired. */
+export function remainingMs(intent: Pick<TipIntent, "expiresAt">, now = Date.now()): number {
+  const t = Date.parse(intent.expiresAt);
+  return Number.isNaN(t) ? -1 : t - now;
+}
+
+/** A fee already paid whose main transfer was never signed, for this target. The caller checks the expiry margin. */
 export function findResumable(memberId: string, targetType: "message" | "profile", targetId: string, now = Date.now()): PendingSend | undefined {
+  return loadSends(memberId, now).find((e) => e.targetType === targetType && e.targetId === targetId && e.feeRequired && !!e.feeHash && !e.mainHash);
+}
+
+/** A signature request for this target that may still be waiting in the wallet. */
+export function findInFlight(memberId: string, targetType: "message" | "profile", targetId: string, now = Date.now()): PendingSend | undefined {
   return loadSends(memberId, now).find(
-    (e) => e.targetType === targetType && e.targetId === targetId && e.feeRequired && !!e.feeHash && !e.mainHash && now - e.createdAt < INTENT_TTL_MS,
+    (e) => e.targetType === targetType && e.targetId === targetId && typeof e.inFlight === "number" && now - e.inFlight < IN_FLIGHT_TTL_MS,
   );
 }

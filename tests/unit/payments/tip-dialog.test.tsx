@@ -60,7 +60,7 @@ const intent = {
   feeAmount: "100000",
   recipientAddress: RECIPIENT_WALLET,
   platformAddress: PLATFORM,
-  expiresAt: "2026-10-19T00:00:00Z",
+  expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
 };
 
 const continuar = () => screen.getByRole("button", { name: "Continuar" });
@@ -428,5 +428,119 @@ describe("TipDialog after something was signed (F3b-R4)", () => {
     expect(onOpenChange).not.toHaveBeenCalled();
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Cerrar" }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+const seed = (over: Record<string, unknown> = {}) =>
+  upsertSend(MEMBER, {
+    intentId: INTENT_ID,
+    chainId: 59141,
+    token: "USDC",
+    targetType: "message",
+    targetId: "33333333-3333-4333-8333-333333333333",
+    feeRequired: true,
+    feeHash: FEE_HASH,
+    feeAttached: true,
+    createdAt: Date.now(),
+    intent,
+    ...over,
+  } as never);
+
+describe("TipDialog expiry, abort and in-flight (F3b-R5)", () => {
+  it("a leftover whose intent has under 10 minutes left is not resumed and is dropped", async () => {
+    seed({ intent: { ...intent, expiresAt: new Date(Date.now() + 5 * 60_000).toISOString() } });
+    setup();
+    expect(screen.getByText("La operación ha caducado y no se puede completar. La comisión enviada no se puede reutilizar.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Firmar la propina" })).not.toBeInTheDocument();
+    await waitFor(() => expect(loadSends(MEMBER)).toEqual([]));
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("never signs when the fresh intent is about to expire", async () => {
+    createTipIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, expiresAt: new Date(Date.now() + 60_000).toISOString() } });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText(/La operación ha caducado/)).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+    expect(loadSends(MEMBER)).toEqual([]);
+  });
+
+  it("a permanent attach error stops retrying, drops the entry and keeps the explorer link", async () => {
+    attachTxAction.mockReset().mockResolvedValue({ ok: false, code: "intent_expired", error: "Esta propina ha caducado. Crea una nueva." });
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText("Esta propina ha caducado. Crea una nueva.")).toBeInTheDocument();
+    expect(attachTxAction).toHaveBeenCalledTimes(1);
+    expect(screen.getAllByRole("link", { name: /Ver en el explorador/ })).toHaveLength(1);
+    expect(loadSends(MEMBER)).toEqual([]);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("closing aborts the flow: a late fee hash is recorded and attached but the main is never requested", async () => {
+    let resolveFee!: (h: string) => void;
+    send.mockReset().mockImplementationOnce(() => new Promise((r) => (resolveFee = r)));
+    const first = setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    await waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(loadSends(MEMBER)[0]?.inFlight).toEqual(expect.any(Number));
+    first.unmount();
+    resolveFee(FEE_HASH);
+    await waitFor(() => expect(attachTxAction).toHaveBeenCalledWith(INTENT_ID, "fee", FEE_HASH));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(send).toHaveBeenCalledTimes(1);
+    const entry = loadSends(MEMBER)[0]!;
+    expect(entry.feeHash).toBe(FEE_HASH);
+    expect(entry.inFlight).toBeUndefined();
+    setup();
+    expect(screen.getByText("La comisión ya está pagada. Falta firmar la propina.")).toBeInTheDocument();
+  });
+
+  it("reopening while a signature is pending shows the pending state, not a form", async () => {
+    seed({ feeHash: undefined, feeAttached: undefined, inFlight: Date.now() });
+    setup();
+    expect(screen.getByText("Tienes una firma pendiente en tu wallet. Complétala o recházala antes de continuar.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Importe")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar de nuevo" }));
+    expect(screen.getByText(/Tienes una firma pendiente/)).toBeInTheDocument();
+    // The request settled meanwhile: checking again releases the dialog.
+    window.localStorage.clear();
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar de nuevo" }));
+    expect(await screen.findByLabelText("Importe")).toBeInTheDocument();
+  });
+
+  it("an old in-flight marker (over 10 minutes) is ignored", () => {
+    seed({ feeHash: undefined, feeAttached: undefined, inFlight: Date.now() - 11 * 60_000 });
+    setup();
+    expect(screen.getByLabelText("Importe")).toBeInTheDocument();
+  });
+
+  it("no new intent while an unfinished entry appeared for the target after opening", async () => {
+    setup();
+    await typeAmount("10");
+    seed({ feeHash: undefined, feeAttached: undefined, inFlight: Date.now() });
+    await userEvent.click(continuar());
+    expect(await screen.findByText(/Tienes una firma pendiente/)).toBeInTheDocument();
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("the resume screen shows the network, the recipient and what is left to send", () => {
+    seed();
+    setup();
+    expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
+    expect(screen.getByText("@ana_l")).toBeInTheDocument();
+    expect(screen.getByTestId("resume-amount")).toHaveTextContent("Falta: 10 USDC para @ana_l");
+  });
+
+  it("on the wrong chain the resume screen offers the switch button and blocks signing", async () => {
+    account.chainId = 59144;
+    seed();
+    setup();
+    expect(screen.getByRole("button", { name: "Firmar la propina" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar a Linea Sepolia" }));
+    expect(switchChain).toHaveBeenCalledWith({ chainId: 59141 });
   });
 });
