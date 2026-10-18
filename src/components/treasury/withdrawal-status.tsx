@@ -52,7 +52,7 @@ export function WithdrawalStatus({ withdrawal: w, chainId }: { withdrawal: MyWit
   return (
     <div data-testid="withdrawal-status" className={`flex flex-col gap-2 rounded-control border-l-4 bg-surface-2 p-3 ${tone}`}>
       <p className="text-sm text-fg-muted">Tu retirada</p>
-      <p className="font-bold text-fg">{headline}</p>
+      <p className="font-bold break-words text-fg">{headline}</p>
       {locked ? <p className="text-[13px] text-fg-muted">{`${formatParticipaciones(w.shares)} bloqueadas`}</p> : null}
       {w.status === "approved" && w.payoutRecorded && w.amountUsdc !== null ? (
         <p className="text-[13px] text-fg-muted">{`Importe fijado: ${formatUsdc(w.amountUsdc)}`}</p>
@@ -64,7 +64,6 @@ export function WithdrawalStatus({ withdrawal: w, chainId }: { withdrawal: MyWit
           href={explorerTx(chainId, w.payoutTxHash)}
           target="_blank"
           rel="noopener noreferrer"
-          aria-label="Ver el pago en el explorador"
           className={`${linkClass} self-start`}
         >
           Ver el pago en el explorador

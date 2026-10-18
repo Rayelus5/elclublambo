@@ -64,7 +64,7 @@ export function WithdrawDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Retirar participaciones</DialogTitle>
           <DialogDescription>
@@ -82,6 +82,8 @@ export function WithdrawDialog({
               max={100}
               step={1}
               value={bps === null ? 1 : bps / 100}
+              aria-valuetext={bps === null ? undefined : `${percentText(bps)} por ciento`}
+              aria-describedby="withdraw-estimate"
               onChange={(e) => setText(percentText(Math.round(Number(e.target.value) * 100)))}
               className="h-11 w-full cursor-pointer accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             />
@@ -104,10 +106,12 @@ export function WithdrawDialog({
             {valid && estimate !== null ? (
               <>
                 <p className="text-fg-muted">{formatParticipaciones(shares)}</p>
-                <p className="text-fg">
-                  {`≈ ${formatUsdc(estimate)} al valor actual. El importe final se fija cuando el tesorero aprueba la retirada.`}
-                </p>
-                {estimate < MIN_USDC && bps !== 10000 ? (
+                {sharePriceUsd6 > 0n ? (
+                  <p className="text-fg">
+                    {`≈ ${formatUsdc(estimate)} al valor actual. El importe final se fija cuando el tesorero aprueba la retirada.`}
+                  </p>
+                ) : null}
+                {sharePriceUsd6 > 0n && estimate < MIN_USDC && bps !== 10000 ? (
                   <p className="text-warning">La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones.</p>
                 ) : null}
               </>

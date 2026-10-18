@@ -58,7 +58,8 @@ describe("WithdrawalStatus", () => {
   it("paid: label and explorer link", () => {
     show({ status: "paid", amountUsdc: 8_000_000n, payoutRecorded: true, payoutTxHash: HASH });
     expect(screen.getByText("Pagada")).toBeInTheDocument();
-    const link = screen.getByRole("link", { name: /explorador/i });
+    const link = screen.getByRole("link", { name: "Ver el pago en el explorador" });
+    expect(link).not.toHaveAttribute("aria-label");
     expect(link).toHaveAttribute("href", expect.stringContaining(HASH));
   });
 

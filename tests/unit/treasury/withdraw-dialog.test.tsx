@@ -5,10 +5,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const requestWithdrawalAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/withdrawal-actions", () => ({ requestWithdrawalAction, cancelWithdrawalAction: vi.fn() }));
 
-import type { DaoOverview } from "@/lib/treasury/queries";
-import { WithdrawControls } from "@/components/treasury/withdraw-controls";
 import { WithdrawButton } from "@/components/treasury/withdraw-button";
+import { WithdrawControls } from "@/components/treasury/withdraw-controls";
 import { WithdrawDialog } from "@/components/treasury/withdraw-dialog";
+import type { DaoOverview } from "@/lib/treasury/queries";
 
 const TEN = 10n * 10n ** 18n;
 const PRICE = 2_000_000n;
@@ -57,6 +57,26 @@ describe("WithdrawDialog", () => {
         "Tus participaciones quedan bloqueadas desde que confirmas: dejan de contar para los canales con candado. Las retiradas dependen de la disponibilidad y de la decisión del tesorero.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("gives the slider a spoken value and links it to the estimate", () => {
+    dialog();
+    const slider = screen.getByLabelText("Porcentaje a retirar");
+    fireEvent.change(slider, { target: { value: "40" } });
+    expect(slider).toHaveAttribute("aria-valuetext", "40 por ciento");
+    expect(slider).toHaveAttribute("aria-describedby", "withdraw-estimate");
+  });
+
+  it("scrolls on short screens", () => {
+    dialog();
+    expect(screen.getByRole("dialog").className).toMatch(/max-h-/);
+    expect(screen.getByRole("dialog").className).toMatch(/overflow-y-auto/);
+  });
+
+  it("hides the estimate when the share price is 0", () => {
+    render(<WithdrawDialog open onOpenChange={() => {}} myShares={TEN} sharePriceUsd6={0n} />);
+    expect(screen.queryByText(/≈/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Pedir retirada" })).toBeEnabled();
   });
 
   it("refuses an invalid percentage", () => {
