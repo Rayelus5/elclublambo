@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { READY_URL, RPC_URL } from "./e2e/chain/shared.mjs";
+import { ETH_USD_FEED_ADDRESS, READY_URL, RPC_URL, WETH_ADDRESS } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
 
 // Supabase keys come from .env.local (git-ignored); already-set process env wins.
@@ -29,6 +29,10 @@ const env = {
   TIP_CONFIRMATIONS: "1",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
   CRON_SECRET: "e2e-cron-secret",
+  // F4a: the fund is valued with the local mock Chainlink feed and mock WETH (start-chain.mjs), never a live price.
+  ETH_USD_FEED_ADDRESS_59141: ETH_USD_FEED_ADDRESS,
+  WETH_ADDRESS_59141: WETH_ADDRESS,
+  COINGECKO_DISABLED: "1",
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);

@@ -1,0 +1,107 @@
+import { createPublicClient, createWalletClient, erc20Abi, http, type Abi } from "viem";
+import { expect, type Locator, type Page } from "@playwright/test";
+import { CHAIN_ID, RPC_URL, USDC_ADDRESS } from "../chain/shared.mjs";
+import { service } from "./f2c";
+
+// Shared by the DAO specs (f3d, f4a): local-chain moves outside the app, the cron, and snapshot timing control.
+// TEST-ONLY: every account is a Hardhat default account, unlocked on the local node.
+
+export const CRON_SECRET = "e2e-cron-secret";
+
+/** Exact copy of the donation dialog's mandatory acknowledgement (F4a). */
+export const DONATION_ACK =
+  "Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero.";
+
+export const localChain = {
+  id: CHAIN_ID,
+  name: "Local Linea Sepolia",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: { default: { http: [RPC_URL] } },
+} as const;
+
+const publicClient = () => createPublicClient({ chain: localChain, transport: http(RPC_URL) });
+
+/** Raw JSON-RPC call to the local Hardhat node (hardhat_* / evm_* methods). */
+export async function hardhatRpc(method: string, params: unknown[] = []): Promise<unknown> {
+  const res = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const json = (await res.json()) as { result?: unknown; error?: { message: string } };
+  if (json.error) throw new Error(`${method}: ${json.error.message}`);
+  return json.result;
+}
+
+/** Mines one empty block: the operations scan stops at latest − TIP_CONFIRMATIONS (1), so the last tx needs one on top. */
+export const mineBlock = () => hardhatRpc("evm_mine");
+
+/** ERC-20 balance of a token (default: the local USDC) for an address. */
+export async function tokenBalance(address: string, token: `0x${string}` = USDC_ADDRESS): Promise<bigint> {
+  return publicClient().readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [address as `0x${string}`] });
+}
+
+/** Sends a contract call from an account the node signs for (a Hardhat account or an impersonated one) and waits for it. */
+export async function sendCall(from: string, to: `0x${string}`, abi: Abi, functionName: string, args: unknown[], value?: bigint) {
+  const wallet = createWalletClient({ account: from as `0x${string}`, chain: localChain, transport: http(RPC_URL) });
+  const hash = await wallet.writeContract({ address: to, abi, functionName, args, value } as Parameters<typeof wallet.writeContract>[0]);
+  const receipt = await publicClient().waitForTransactionReceipt({ hash });
+  expect(receipt.status).toBe("success");
+}
+
+/** Sends token units (default USDC) from `from` straight to `to`, bypassing the app entirely. */
+export async function sendToken(from: string, to: string, units: bigint, token: `0x${string}` = USDC_ADDRESS) {
+  await sendCall(from, token, erc20Abi, "transfer", [to, units]);
+}
+
+export type CronChain = {
+  chainId: number;
+  snapshot?: "taken" | "skipped" | "unavailable" | "failed";
+  scan?: { inserted: number; alerts: number } | null | "failed";
+  credited?: number;
+  pending?: number;
+  skipped?: string;
+  error?: string;
+};
+
+/** Snapshot + operations scan + settlement, as the scheduler would call it. Returns the local chain's report. */
+export async function runCron(method: "POST" | "GET" = "POST"): Promise<CronChain> {
+  const res = await fetch("http://localhost:3000/api/cron/dao", { method, headers: { authorization: `Bearer ${CRON_SECRET}` } });
+  expect(res.status).toBe(200);
+  const body = (await res.json()) as { chains: CronChain[] };
+  const chain = body.chains.find((c) => c.chainId === CHAIN_ID);
+  expect(chain).toBeDefined();
+  return chain!;
+}
+
+/**
+ * Makes the next cron run take a snapshot now: snapshots are throttled to one per 55 minutes (record_nav_snapshot), so
+ * the local chain's existing snapshots are moved one hour into the past. Deterministic, never waits on wall time.
+ */
+export async function ageSnapshots() {
+  const db = service();
+  const { data, error } = await db.from("dao_nav_snapshots").select("id, taken_at").eq("chain_id", CHAIN_ID);
+  expect(error).toBeNull();
+  for (const row of (data ?? []) as { id: string; taken_at: string }[]) {
+    const older = new Date(Date.parse(row.taken_at) - 60 * 60 * 1000).toISOString();
+    const { error: e } = await db.from("dao_nav_snapshots").update({ taken_at: older }).eq("id", row.id);
+    expect(e).toBeNull();
+  }
+}
+
+/** Ticks the donation dialog's mandatory acknowledgement ("Continuar" stays disabled until then). */
+export async function acknowledgeDonation(dialog: Locator) {
+  const box = dialog.getByRole("checkbox", { name: DONATION_ACK });
+  await box.click();
+  await expect(box).toBeChecked();
+}
+
+/** The admin's notifications of one kind (service role: an assertion on rows, not on the UI). */
+export async function noticesOf(recipientId: string, kind: string): Promise<number> {
+  const { data, error } = await service().from("notifications").select("id").eq("kind", kind).eq("recipient_id", recipientId);
+  expect(error).toBeNull();
+  return data?.length ?? 0;
+}
+
+/** The operations list of /dao (members see outflows and noted inflows; treasurers also un-noted inflows). */
+export const operationsList = (page: Page) => page.getByRole("list", { name: "Operaciones de la Safe" });

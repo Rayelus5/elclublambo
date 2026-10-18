@@ -1,12 +1,12 @@
-import { createPublicClient, createWalletClient, erc20Abi, http } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
+import { hardhatAccount } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { acknowledgeDonation, ageSnapshots, mineBlock, noticesOf, operationsList, runCron, sendToken, tokenBalance as usdcOf } from "./helpers/dao";
 import { createInvite, joinAs, openChannel, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
-// F3d acceptance: DAO treasury, DAO gating and reconciliation, on the F3b local Hardhat chain (e2e/chain/start-chain.mjs,
+// F3d acceptance: DAO treasury, DAO gating and direct transfers to the Safe (F4a: they raise the market NAV), on the F3b local Hardhat chain (e2e/chain/start-chain.mjs,
 // started by playwright.config.ts). The Hardhat node answers the `finalized` tag with its latest block, so a donation
 // is credited right away by the immediate settle in confirmIntent (ruling F3-R4): the pending-finality path (UI list,
 // cron credit) is covered by unit tests (confirm, settle, cron route), not here. TEST-ONLY keys (Hardhat's public mnemonic). Scenarios share state: run serially.
@@ -17,15 +17,14 @@ const adminAccount = hardhatAccount(1); // == E2E_SUPER_ADMIN_PK
 const memberB = hardhatAccount(2); // B: watches the ranking
 const memberA = hardhatAccount(3); // A: donor, session wallet and signer
 const stranger = hardhatAccount(4); // sends USDC straight to the Safe, outside the app
-// The Linea Sepolia Safe: a fresh, unfunded address (every Hardhat account is pre-minted 1M mock USDC, which reconciliation
-// would rightly report as an unledgered balance). It only receives, so no key is ever used.
+// The Linea Sepolia Safe: a fresh, unfunded address (every Hardhat account is pre-minted 1M mock USDC, which the market
+// valuation would count as fund value). It only receives, so no key is ever used.
 const safe = { address: privateKeyToAccount(generatePrivateKey()).address };
 const platform = hardhatAccount(9); // receives the fee
 
 const NAMES = { a: "Donante A", b: "Observador B" };
 const VIP = "VIP DAO";
 const SEEDED = "Mensaje reservado para socios de la DAO";
-const CRON_SECRET = "e2e-cron-secret";
 const SEPOLIA = "Linea Sepolia";
 
 // WalletConnect telemetry is rate limited (429) when the suite runs repeatedly: not an app error.
@@ -45,37 +44,8 @@ let walletA: TestWallet;
 let vipId = "";
 let handleA = "";
 
-const chain = { id: CHAIN_ID, name: "Local Linea Sepolia", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } };
-
-/** ERC-20 balance of the local USDC for an address. */
-async function usdcOf(address: string): Promise<bigint> {
-  const client = createPublicClient({ chain, transport: http(RPC_URL) });
-  return client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: "balanceOf", args: [address as `0x${string}`] });
-}
-
-/** Sends USDC from a Hardhat account (unlocked on the node) straight to `to`, bypassing the app entirely. */
-async function sendUsdc(from: string, to: string, units: bigint) {
-  const wallet = createWalletClient({ account: from as `0x${string}`, chain, transport: http(RPC_URL) });
-  const hash = await wallet.writeContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: "transfer", args: [to as `0x${string}`, units] });
-  const receipt = await createPublicClient({ chain, transport: http(RPC_URL) }).waitForTransactionReceipt({ hash });
-  expect(receipt.status).toBe("success");
-}
-
-/** Settlement + reconciliation, as the scheduler would call it. */
-async function runCron(method: "POST" | "GET" = "POST") {
-  const res = await fetch("http://localhost:3000/api/cron/dao", { method, headers: { authorization: `Bearer ${CRON_SECRET}` } });
-  expect(res.status).toBe(200);
-  return (await res.json()) as { chains: Array<{ chainId: number; credited?: number; diff?: string; skipped?: string; error?: string }> };
-}
-
 const channelsNav = (page: Page) => page.getByRole("navigation", { name: "Canales" });
 const lockedLink = (page: Page) => channelsNav(page).getByRole("link", { name: `${VIP}, bloqueado`, exact: true });
-
-async function mismatchNotices(): Promise<number> {
-  const { data, error } = await service().from("notifications").select("id").eq("kind", "treasury_mismatch").eq("recipient_id", admin.id);
-  expect(error).toBeNull();
-  return data?.length ?? 0;
-}
 
 test.beforeAll(async ({ browser }) => {
   const adminContext = await browser.newContext({ viewport: desktop });
@@ -184,6 +154,9 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
   await connectInjected(a.page, "Donar a la DAO");
   await dialog.getByLabel("Importe").fill("10");
   await expect(dialog.getByTestId("tip-total")).toHaveText("10,26 USDC");
+  // F4a: the legal acknowledgement is mandatory; "Continuar" waits for it.
+  await expect(dialog.getByRole("button", { name: "Continuar" })).toBeDisabled();
+  await acknowledgeDonation(dialog);
   await dialog.getByRole("button", { name: "Continuar" }).click();
   await expect(dialog.getByText("Donación acreditada.")).toBeVisible({ timeout: 60_000 });
   expect(walletA.sent).toHaveLength(2); // fee + donation
@@ -199,12 +172,13 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
   await expect(a.page.getByTestId("my-net")).toHaveText("10 USDC");
   await expect(a.page.getByRole("list", { name: "Donaciones pendientes" })).toHaveCount(0);
 
-  // The cron finds nothing left to credit and the Safe balance matches the ledger.
+  // The cron finds nothing left to credit, takes the first market valuation (10 USDC, no ETH) and starts the Safe's
+  // operations scan at the current block (no backfill).
   const report = await runCron("POST");
-  const sepolia = report.chains.find((c) => c.chainId === CHAIN_ID);
-  expect(sepolia?.error).toBeUndefined();
-  expect(sepolia?.credited).toBe(0);
-  expect(sepolia?.diff).toBe("0");
+  expect(report.error).toBeUndefined();
+  expect(report.credited).toBe(0);
+  expect(report.snapshot).toBe("taken");
+  expect(report.scan).toEqual({ inserted: 0, alerts: 0 });
 
   // B sees the treasury, and the donor as Anónimo (privacy default).
   await b.page.goto("/dao");
@@ -248,34 +222,42 @@ test("5. unlocked: A opens VIP DAO and reads the seeded message", async () => {
   await expect(a.page.getByText("Canal con candado")).toHaveCount(0);
 });
 
-test("6. direct transfer: 3 USDC straight to the Safe show as a positive diff and alert the admin, but never enter the ledger", async () => {
-  expect(await mismatchNotices()).toBe(0);
+test("6. direct transfer: 3 USDC straight to the Safe raise the fund value for everyone, show to treasurers as an un-noted inflow and alert nobody", async () => {
   const safeBefore = await usdcOf(safe.address);
-  await sendUsdc(stranger.address, safe.address, 3_000_000n);
+  await sendToken(stranger.address, safe.address, 3_000_000n);
   expect((await usdcOf(safe.address)) - safeBefore).toBe(3_000_000n);
+  await mineBlock(); // the scan stops one block below the tip
 
+  // Snapshots are hourly: age the last one so this run values the Safe now, whatever the wall clock says.
+  await ageSnapshots();
+  const report = await runCron("GET");
+  expect(report.error).toBeUndefined();
+  expect(report.snapshot).toBe("taken");
+  // A's donation (mined in the tip block the first scan stopped below; linked, never listed) + the 3 USDC. Inflows never alert.
+  expect(report.scan).toEqual({ inserted: 2, alerts: 0 });
+
+  // No shares minted: A still holds 100 %, now worth 13 USD; A's own contribution stays 10 USDC.
+  await a.page.goto("/dao");
+  await expect(a.page.getByTestId("dao-balance")).toHaveText("13 USD");
+  await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
+  await expect(a.page.getByTestId("my-value")).toHaveText("Tu parte: 13 USD");
+  await expect(a.page.getByTestId("my-net")).toHaveText("10 USDC");
+  await expect(a.page.getByTestId("dao-donors")).toHaveText("1");
+  // Members never see an un-noted inflow (nor its sender).
+  await expect(a.page.getByText("Aún no hay operaciones de la Safe registradas.")).toBeVisible();
+
+  // The treasurer (the admin) sees it, to annotate it; an inflow is never "Sin explicar".
   const p = admin.page;
   await p.goto("/dao");
-  await p.waitForLoadState("networkidle");
-  await p.getByRole("button", { name: "Reconciliar ahora" }).click();
-  await expect(p.getByText("Hay fondos en la Safe que no están en el registro (transferencias directas)")).toBeVisible({ timeout: 30_000 });
-  await expect(p.getByRole("region", { name: "Reconciliación" })).toContainText("+3 USDC");
+  const op = operationsList(p).getByRole("listitem").filter({ hasText: "3 USDC" });
+  await expect(op).toHaveCount(1);
+  await expect(op).toContainText("Entrada");
+  await expect(op.getByRole("button", { name: "Añadir nota" })).toBeVisible();
+  await expect(op.getByText("Sin explicar")).toHaveCount(0);
 
-  // The admin's notification list carries the alert, sent once.
-  await p.goto("/notifications");
-  await expect(p.getByText("El saldo de la Safe no coincide con el registro de la DAO").first()).toBeVisible();
-  expect(await mismatchNotices()).toBe(1);
-
-  // Deduplicated: the cron sees the same effective diff and does not notify again.
-  const report = await runCron("GET");
-  expect(report.chains.find((c) => c.chainId === CHAIN_ID)?.diff).toBe("3000000");
-  expect(await mismatchNotices()).toBe(1);
-
-  // Review focus 1: the direct transfer minted no shares and moved no value.
-  await a.page.goto("/dao");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USD");
-  await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
-  await expect(a.page.getByTestId("dao-donors")).toHaveText("1");
+  // The old balance-vs-ledger mismatch alert is gone, and an inflow raises no outflow alert.
+  expect(await noticesOf(admin.id, "treasury_mismatch")).toBe(0);
+  expect(await noticesOf(admin.id, "treasury_outflow")).toBe(0);
 });
 
 test("7. network switch: on Linea the ledger is empty (VIP DAO locks again, /dao shows 0); switching back restores both", async () => {
@@ -304,7 +286,7 @@ test("7. network switch: on Linea the ledger is empty (VIP DAO locks again, /dao
   }
 
   await a.page.goto("/dao");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USD");
+  await expect(a.page.getByTestId("dao-balance")).toHaveText("13 USD");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await a.page.goto(`/c/${vipId}`);
   await expect(a.page.getByText(SEEDED)).toBeVisible();
