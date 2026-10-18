@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { SearchProvider } from "@/components/search/search-provider";
+import { OnboardingGuideFrame } from "@/components/onboarding/guide-frame";
 import { RightRail } from "@/components/shell/right-rail";
 import { Sidebar } from "@/components/shell/sidebar";
 import { getVisibleChannels, toRow } from "@/lib/channels/queries";
@@ -75,10 +76,14 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const memberId = typeof me.data === "string" ? me.data : null;
   if (!memberId) redirect("/no-access");
 
-  // First login: the welcome (with its mandatory @handle) comes first. The guide stays reachable from the welcome itself.
-  if (welcome && welcome.welcome_completed_at === null) {
+  // First login: the welcome (with its mandatory @handle) comes first. The proxy enforces this on every page request
+  // (layouts do not re-run on client navigations); this is the defence in depth. Fails closed: no readable row means
+  // not completed. The guide is the one page allowed before the welcome, and it gets no shell, so it links nowhere.
+  if (!welcome || welcome.welcome_completed_at === null) {
     const path = (await headers()).get("x-pathname") ?? "/";
-    if (path !== "/guia" && !path.startsWith("/guia/")) redirect("/bienvenida?next=" + encodeURIComponent(path));
+    const base = path.split(/[?#]/)[0] ?? path;
+    if (base === "/guia" || base.startsWith("/guia/")) return <OnboardingGuideFrame>{children}</OnboardingGuideFrame>;
+    redirect("/bienvenida?next=" + encodeURIComponent(path));
   }
   const initialCount = typeof unreadCount.data === "number" ? unreadCount.data : 0;
 

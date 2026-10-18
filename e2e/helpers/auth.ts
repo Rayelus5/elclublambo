@@ -62,22 +62,22 @@ export async function loginAs(
   await page.waitForLoadState("domcontentloaded");
   let landed = page.url();
   if (onboard) {
-    // Existing specs expect to land in the forum: give an active member without a handle a deterministic one and mark
-    // the welcome as done (service role; the welcome flow itself is covered by its own spec with onboard: false).
+    // Existing specs expect to land in the forum: give an active member who has not done the welcome a deterministic handle
+    // (unless it has one) and mark the welcome as done (service role; the welcome flow itself is covered by its own spec with onboard: false).
     const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
       auth: { persistSession: false },
     });
     const wallet = account.address.toLowerCase();
     const { data: member, error: readError } = await db
       .from("members")
-      .select("id, handle, status")
+      .select("id, handle, status, welcome_completed_at")
       .eq("wallet_address", wallet)
-      .maybeSingle<{ id: string; handle: string | null; status: string }>();
+      .maybeSingle<{ id: string; handle: string | null; status: string; welcome_completed_at: string | null }>();
     if (readError) throw new Error(`onboarding read failed: ${readError.message}`);
-    if (member && member.status === "active" && member.handle === null) {
+    if (member && member.status === "active" && member.welcome_completed_at === null) {
       const { error: updateError } = await db
         .from("members")
-        .update({ handle: "u_" + wallet.slice(2, 12), welcome_completed_at: new Date().toISOString() })
+        .update({ handle: member.handle ?? "u_" + wallet.slice(2, 12), welcome_completed_at: new Date().toISOString() })
         .eq("id", member.id);
       if (updateError) throw new Error(`onboarding update failed: ${updateError.message}`);
       await page.goto("/");

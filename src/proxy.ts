@@ -4,6 +4,7 @@ import { isPublicPath } from "@/lib/auth/public-paths";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 import { isHiddenReportsPage } from "@/lib/reports/guard";
+import { needsWelcome } from "@/lib/onboarding/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
 
 export async function proxy(request: NextRequest) {
@@ -44,6 +45,16 @@ export async function proxy(request: NextRequest) {
     return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
   }
 
+  // First login: the welcome (mandatory @handle) comes first. Enforced here because layouts do not re-run on client
+  // navigations. /bienvenida, /guia and the (gate) pages are exempt.
+  if (user && (await needsWelcome(supabase, user.id, pathname, request.method))) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/bienvenida";
+    url.search = "";
+    url.searchParams.set("next", pathname + request.nextUrl.search);
+    return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
+  }
+
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
   // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
   // The report queue does not exist either for a member who moderates no channel.
@@ -56,7 +67,7 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;
     url.search = "";
-    return applySessionHeaders(NextResponse.rewrite(url, { status: 404 }), sessionCookies, sessionHeaders);
+    return applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders);
   }
 
   return response;

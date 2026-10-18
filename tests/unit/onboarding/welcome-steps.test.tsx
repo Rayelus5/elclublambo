@@ -93,4 +93,13 @@ describe("WelcomeSteps", () => {
     await user.click(screen.getByRole("button", { name: "Empezar" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/c/abc"));
   });
+
+  it("re-sanitizes a hostile next before navigating", async () => {
+    const user = userEvent.setup();
+    completeWelcomeAction.mockResolvedValue({ ok: true });
+    render(<WelcomeSteps {...base} initialHandle="ana" next="//evil.com" />);
+    await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    await user.click(screen.getByRole("button", { name: "Saltar" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+  });
 });
