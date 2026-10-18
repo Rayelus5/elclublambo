@@ -7,6 +7,9 @@ import { isHiddenReportsPage } from "@/lib/reports/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
 
 export async function proxy(request: NextRequest) {
+  // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
+  // Set on the request itself (overwrites anything the client sent) so the cookie refresh below still forwards with it.
+  request.headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
   let response = NextResponse.next({ request });
   let sessionCookies: { name: string; value: string; options?: Record<string, unknown> }[] = [];
   let sessionHeaders: Record<string, string> = {};

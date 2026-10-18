@@ -30,6 +30,12 @@ export default function GuidePage() {
           </li>
         ))}
       </ul>
+      <Link
+        href="/bienvenida?repetir=1"
+        className="inline-flex min-h-11 items-center self-start rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+      >
+        Ver la bienvenida de nuevo
+      </Link>
     </div>
   );
 }

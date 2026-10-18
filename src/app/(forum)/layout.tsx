@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
 import { SearchProvider } from "@/components/search/search-provider";
@@ -29,10 +30,11 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
 
   // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
   // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
-  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels, economy] = await Promise.all([
+  const mePromise = supabase.rpc("current_member_id");
+  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels, economy, welcome] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
-    supabase.rpc("current_member_id"),
+    mePromise,
     supabase.rpc("my_unread_notification_count"),
     supabase.rpc("has_any_channel_perm", { p_bit: 8 }),
     // RLS only returns the tickets the member authored or supports: the number of open ones.
@@ -53,6 +55,18 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     ),
     // Cached per request: the badge shows the active network to every member.
     getEconomyConfig(),
+    // Onboarding gate: the member row holds the welcome state (RLS lets a member read their own row).
+    mePromise.then(async ({ data: id }) =>
+      typeof id === "string"
+        ? (
+            await supabase
+              .from("members")
+              .select("handle, welcome_completed_at")
+              .eq("id", id)
+              .maybeSingle<{ handle: string | null; welcome_completed_at: string | null }>()
+          ).data
+        : null,
+    ),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
   const canModerate = moderates.data === true;
@@ -60,6 +74,12 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
   const memberId = typeof me.data === "string" ? me.data : null;
   if (!memberId) redirect("/no-access");
+
+  // First login: the welcome (with its mandatory @handle) comes first. The guide stays reachable from the welcome itself.
+  if (welcome && welcome.welcome_completed_at === null) {
+    const path = (await headers()).get("x-pathname") ?? "/";
+    if (path !== "/guia" && !path.startsWith("/guia/")) redirect("/bienvenida?next=" + encodeURIComponent(path));
+  }
   const initialCount = typeof unreadCount.data === "number" ? unreadCount.data : 0;
 
   return (

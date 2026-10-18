@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import type { BrowserContext } from "@playwright/test";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
@@ -26,8 +27,9 @@ type Jar = { name: string; value: string };
 export async function loginAs(
   context: BrowserContext,
   pk: Hex,
-  opts: { invite?: string } = {},
+  opts: { invite?: string; onboard?: boolean } = {},
 ): Promise<string> {
+  const { onboard = true } = opts;
   const account = privateKeyToAccount(pk);
   const message = buildLoginMessage({
     address: account.address,
@@ -58,7 +60,31 @@ export async function loginAs(
   const page = await context.newPage();
   await page.goto("/login/complete" + (opts.invite ? `?invite=${encodeURIComponent(opts.invite)}` : ""));
   await page.waitForLoadState("domcontentloaded");
-  const landed = page.url();
+  let landed = page.url();
+  if (onboard) {
+    // Existing specs expect to land in the forum: give an active member without a handle a deterministic one and mark
+    // the welcome as done (service role; the welcome flow itself is covered by its own spec with onboard: false).
+    const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false },
+    });
+    const wallet = account.address.toLowerCase();
+    const { data: member, error: readError } = await db
+      .from("members")
+      .select("id, handle, status")
+      .eq("wallet_address", wallet)
+      .maybeSingle<{ id: string; handle: string | null; status: string }>();
+    if (readError) throw new Error(`onboarding read failed: ${readError.message}`);
+    if (member && member.status === "active" && member.handle === null) {
+      const { error: updateError } = await db
+        .from("members")
+        .update({ handle: "u_" + wallet.slice(2, 12), welcome_completed_at: new Date().toISOString() })
+        .eq("id", member.id);
+      if (updateError) throw new Error(`onboarding update failed: ${updateError.message}`);
+      await page.goto("/");
+      await page.waitForLoadState("domcontentloaded");
+      landed = page.url();
+    }
+  }
   await page.close();
   return landed;
 }
