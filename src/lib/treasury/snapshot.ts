@@ -12,6 +12,8 @@ export type SafeValuation = {
   assets: SafeAssets;
   /** The block every balance was read at (credit_donation's p_assets_block, ruling F4a-R4). */
   blockNumber: bigint;
+  /** The Safe whose balances these are; the SQL writers refuse it (safe_changed) if chain_config moved meanwhile. */
+  safe: Address;
 };
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -48,7 +50,14 @@ export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
   try {
     const [assets, price] = await Promise.all([readSafeAssets(chain, safe), readEthPrice(chain, { lastPriceE8: last })]);
     if (!price) return null;
-    return { assetsUsd6: assetsUsd6(assets, price.priceE8), priceE8: price.priceE8, source: price.source, assets, blockNumber: assets.blockNumber };
+    return {
+      assetsUsd6: assetsUsd6(assets, price.priceE8),
+      priceE8: price.priceE8,
+      source: price.source,
+      assets,
+      blockNumber: assets.blockNumber,
+      safe,
+    };
   } catch (e) {
     console.error("[treasury] valuation failed", chain, e instanceof Error ? e.message : e);
     return null;
@@ -61,6 +70,7 @@ export async function takeSnapshot(chain: ChainId): Promise<"taken" | "skipped" 
   if (!v) return "unavailable";
   const { data, error } = await createAdminClient().rpc("record_nav_snapshot", {
     p_chain: chain,
+    p_safe: v.safe,
     p_snapshot: {
       usdcUnits: v.assets.usdc.toString(),
       ethWei: v.assets.eth.toString(),

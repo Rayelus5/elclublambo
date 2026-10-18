@@ -76,7 +76,7 @@ const ETH = 10n ** 18n;
 const recorded = () => {
   const c = rpc.mock.calls.filter((x) => x[0] === "record_safe_operations");
   expect(c).toHaveLength(1);
-  return c[0]![1] as { p_chain: number; p_ops: Record<string, unknown>[]; p_to_block: string };
+  return c[0]![1] as { p_chain: number; p_safe: string; p_ops: Record<string, unknown>[]; p_to_block: string };
 };
 const transferCalls = () => getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Transfer");
 
@@ -101,7 +101,7 @@ describe("scanSafeOperations: cursor", () => {
     logs = [{ address: USDC, event: "Transfer", args: { from: OTHER, to: SAFE, value: 5n }, blockNumber: 9000n, transactionHash: hash(1), logIndex: 0 }];
     expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
     expect(getLogs).not.toHaveBeenCalled();
-    expect(recorded()).toEqual({ p_chain: 59141, p_ops: [], p_to_block: "9997" });
+    expect(recorded()).toEqual({ p_chain: 59141, p_safe: SAFE, p_ops: [], p_to_block: "9997" });
   });
 
   it("scans from the block after the cursor up to latest − confirmations in chunks of at most 2000 blocks", async () => {
@@ -237,7 +237,7 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
     ]);
     const windows = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal").map((a) => `${a.fromBlock}-${a.toBlock}`);
     expect(windows).toEqual(["1001-2000", "2001-3000", "3001-4000"]);
-    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "4000" }]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_safe: SAFE, p_block: "4000" }]);
     // the cursor moves only after the ops were stored
     const names = rpc.mock.calls.map((c) => c[0]);
     expect(names.indexOf("set_dao_eth_cursor")).toBeGreaterThan(names.indexOf("record_safe_operations"));
@@ -248,13 +248,13 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
     snapshots = Array.from({ length: 30 }, (_, i) => snap(BigInt(i * 1000), BigInt(i % 2) * ETH));
     await scanSafeOperations(59141);
     expect(recorded().p_ops.map((o) => o.blockNumber)).toEqual(Array.from({ length: 24 }, (_, i) => String((i + 1) * 1000)));
-    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "24000" }]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_safe: SAFE, p_block: "24000" }]);
 
     rpc.mockClear();
     ethCursor = "24000";
     await scanSafeOperations(59141);
     expect(recorded().p_ops.map((o) => o.blockNumber)).toEqual(["25000", "26000", "27000", "28000", "29000"]);
-    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "29000" }]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_safe: SAFE, p_block: "29000" }]);
   });
 
   it("first scan of a chain: the ETH cursor starts at the newest snapshot (no backfill)", async () => {
@@ -262,7 +262,7 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
     snapshots = [snap(9000n, ETH), snap(9999n, 5n * ETH)];
     await scanSafeOperations(59141);
     expect(recorded().p_ops).toEqual([]);
-    expect(cursorSets()).toEqual([{ p_chain: 59141, p_block: "9999" }]);
+    expect(cursorSets()).toEqual([{ p_chain: 59141, p_safe: SAFE, p_block: "9999" }]);
   });
 
   it("no snapshots: the ETH cursor is left alone", async () => {

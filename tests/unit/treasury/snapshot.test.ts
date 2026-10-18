@@ -45,7 +45,7 @@ beforeEach(() => {
 describe("valueSafe", () => {
   it("values the Safe's assets at the price, exactly as record_nav_snapshot checks, with the read block", async () => {
     const v = await valueSafe(59141);
-    expect(v).toEqual({ assetsUsd6: EXPECTED_USD6, priceE8: PRICE, source: "chainlink", assets: ASSETS, blockNumber: 777n });
+    expect(v).toEqual({ assetsUsd6: EXPECTED_USD6, priceE8: PRICE, source: "chainlink", assets: ASSETS, blockNumber: 777n, safe: SAFE });
     expect(readSafeAssets).toHaveBeenCalledWith(59141, SAFE);
     expect(calls).toContainEqual(["chain_config", "eq", "chain_id", 59141]);
   });
@@ -100,6 +100,7 @@ describe("takeSnapshot", () => {
     expect(await takeSnapshot(59141)).toBe("taken");
     expect(rpc).toHaveBeenCalledWith("record_nav_snapshot", {
       p_chain: 59141,
+      p_safe: SAFE,
       p_snapshot: {
         usdcUnits: "5000000",
         ethWei: "500000000000000000",
@@ -110,6 +111,14 @@ describe("takeSnapshot", () => {
         assetsUsd6: EXPECTED_USD6.toString(),
       },
     });
+  });
+
+  it("passes the Safe address valueSafe read (F4c: SQL refuses it if chain_config changed meanwhile)", async () => {
+    const mixed = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
+    rows.chain_config = { safe_address: mixed };
+    await takeSnapshot(59141);
+    expect(readSafeAssets).toHaveBeenCalledWith(59141, mixed);
+    expect(rpc.mock.calls[0]![1]).toMatchObject({ p_safe: mixed });
   });
 
   it('"skipped" when the RPC throttles (55 minutes)', async () => {

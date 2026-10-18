@@ -48,7 +48,8 @@ function chunks(from: bigint, to: bigint): [bigint, bigint][] {
  * outflows and advances the cursor. A native-ETH change between two consecutive snapshots that WETH wraps/unwraps do
  * not explain becomes an ETH operation without hash (every pair after the ETH cursor, F4a-R6). The first scan of a
  * chain only sets the cursors (no backfill).
- * Null when the Safe is unset. Read errors throw before anything is recorded, so no block is ever skipped.
+ * Null when the Safe is unset. Read errors throw before anything is recorded, so no block is ever skipped. Both writers
+ * get the Safe that was read: if chain_config changed meanwhile, SQL refuses (safe_changed) and nothing is stored.
  */
 export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: number; alerts: number } | null> {
   const db = createAdminClient();
@@ -86,11 +87,16 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
     ethCursor = eth.cursor;
   }
 
-  const { data, error } = await db.rpc("record_safe_operations", { p_chain: chain, p_ops: ops, p_to_block: toBlock.toString() });
+  const { data, error } = await db.rpc("record_safe_operations", {
+    p_chain: chain,
+    p_safe: safe,
+    p_ops: ops,
+    p_to_block: toBlock.toString(),
+  });
   if (error) throw new Error(`record_safe_operations failed: ${error.message}`);
   // Only after the ETH ops are stored. If this fails, the next run recomputes the same pairs and SQL dedupes them.
   if (ethCursor !== null) {
-    const { error: cursorSetError } = await db.rpc("set_dao_eth_cursor", { p_chain: chain, p_block: ethCursor.toString() });
+    const { error: cursorSetError } = await db.rpc("set_dao_eth_cursor", { p_chain: chain, p_safe: safe, p_block: ethCursor.toString() });
     if (cursorSetError) throw new Error(`set_dao_eth_cursor failed: ${cursorSetError.message}`);
   }
   const r = (data ?? {}) as { inserted?: unknown; alerts?: unknown };

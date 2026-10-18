@@ -56,6 +56,7 @@ const MESSAGES: Record<string, string> = {
   safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",
   safe_change_blocked:
     "No puedes cambiar la Safe de esta red mientras haya participaciones, donaciones pendientes o pagos de donación abiertos: su valor está en la Safe actual.",
+  safe_changed: "La Safe de esta red cambió durante la operación. Vuelve a intentarlo.",
   invalid_state: "Esta operación ya no se puede procesar en su estado actual.",
   shares_zero: "La donación es demasiado pequeña para el valor actual del fondo. La revisará el tesorero.",
   assets_stale: "El saldo del fondo aún no refleja esta donación. Se reintentará en breve.",

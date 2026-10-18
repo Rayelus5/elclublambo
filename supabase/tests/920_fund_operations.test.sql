@@ -3,9 +3,9 @@ begin;
 select plan(58);
 
 -- ===== privileges / RLS =====
-select ok(not has_function_privilege('anon', 'public.record_safe_operations(int,jsonb,bigint)', 'execute'), 'anon cannot record_safe_operations');
-select ok(not has_function_privilege('authenticated', 'public.record_safe_operations(int,jsonb,bigint)', 'execute'), 'authenticated cannot record_safe_operations');
-select ok(has_function_privilege('service_role', 'public.record_safe_operations(int,jsonb,bigint)', 'execute'), 'service_role can record_safe_operations');
+select ok(not has_function_privilege('anon', 'public.record_safe_operations(int,text,jsonb,bigint)', 'execute'), 'anon cannot record_safe_operations');
+select ok(not has_function_privilege('authenticated', 'public.record_safe_operations(int,text,jsonb,bigint)', 'execute'), 'authenticated cannot record_safe_operations');
+select ok(has_function_privilege('service_role', 'public.record_safe_operations(int,text,jsonb,bigint)', 'execute'), 'service_role can record_safe_operations');
 select ok(not has_function_privilege('authenticated', 'public.dao_scan_from(int)', 'execute'), 'authenticated cannot dao_scan_from');
 select ok(has_function_privilege('service_role', 'public.dao_scan_from(int)', 'execute'), 'service_role can dao_scan_from');
 select ok(not has_function_privilege('anon', 'public.set_operation_note(uuid,text)', 'execute'), 'anon cannot set_operation_note');
@@ -39,11 +39,14 @@ begin
   return v;
 end;
 $$;
+-- F4c Task 1: the scan passes the Safe it read; the tests pass the configured one
 create function tests.rso(p_chain int, p_ops jsonb, p_to bigint) returns jsonb language plpgsql as $$
-declare v jsonb;
+declare
+  v jsonb;
+  v_safe text := (select c.safe_address from public.chain_config c where c.chain_id = p_chain);
 begin
   set local role service_role;
-  v := public.record_safe_operations(p_chain, p_ops, p_to);
+  v := public.record_safe_operations(p_chain, v_safe, p_ops, p_to);
   reset role;
   return v;
 end;

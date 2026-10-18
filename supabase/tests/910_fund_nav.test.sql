@@ -33,11 +33,14 @@ begin
   return v;
 end;
 $$;
+-- F4c Task 1: the snapshot carries the Safe the cron read; the tests pass the configured one
 create function tests.nsnap(p_chain int, p_snap jsonb) returns jsonb language plpgsql as $$
-declare v jsonb;
+declare
+  v jsonb;
+  v_safe text := (select c.safe_address from public.chain_config c where c.chain_id = p_chain);
 begin
   set local role service_role;
-  v := public.record_nav_snapshot(p_chain, p_snap);
+  v := public.record_nav_snapshot(p_chain, v_safe, p_snap);
   reset role;
   return v;
 end;
@@ -82,12 +85,12 @@ select hasnt_function('public', 'credit_donation', array['uuid'], 'the one-argum
 select hasnt_function('public', 'credit_donation', array['uuid', 'numeric'], 'no two-argument overload either');
 select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
       and not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint)', 'execute'), 'members cannot credit_donation');
-select ok(not has_function_privilege('authenticated', 'public.record_nav_snapshot(int,jsonb)', 'execute')
-      and not has_function_privilege('anon', 'public.record_nav_snapshot(int,jsonb)', 'execute'), 'members cannot record_nav_snapshot');
+select ok(not has_function_privilege('authenticated', 'public.record_nav_snapshot(int,text,jsonb)', 'execute')
+      and not has_function_privilege('anon', 'public.record_nav_snapshot(int,text,jsonb)', 'execute'), 'members cannot record_nav_snapshot');
 select ok(not has_function_privilege('authenticated', 'public._dao_liabilities_usd6(int,bigint)', 'execute')
       and not has_function_privilege('anon', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'members cannot read _dao_liabilities_usd6');
 select ok(has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
-      and has_function_privilege('service_role', 'public.record_nav_snapshot(int,jsonb)', 'execute')
+      and has_function_privilege('service_role', 'public.record_nav_snapshot(int,text,jsonb)', 'execute')
       and has_function_privilege('service_role', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'service_role runs the NAV pipeline');
 select ok(has_function_privilege('authenticated', 'public.dao_nav_history(text)', 'execute')
       and not has_function_privilege('anon', 'public.dao_nav_history(text)', 'execute'), 'dao_nav_history is for members only');
