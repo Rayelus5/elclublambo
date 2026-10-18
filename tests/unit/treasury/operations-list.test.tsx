@@ -75,6 +75,19 @@ describe("OperationsList", () => {
     expect(h.refresh).toHaveBeenCalled();
   });
 
+  it("lets fresh server data replace a note saved here", async () => {
+    const { rerender } = render(<OperationsList operations={[out]} chainId={59141} canNote />);
+    fireEvent.click(screen.getByRole("button", { name: "Añadir nota" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Nota de la operación" }), { target: { value: "Mía" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    // (selector: the textarea also carries the text as its default value until the editor closes)
+    expect(await screen.findByText("Mía", { selector: "p" })).toBeInTheDocument();
+    // The refresh brings another treasurer's newer note for the same operation.
+    rerender(<OperationsList operations={[{ ...out, note: "De otro tesorero", explained: true }]} chainId={59141} canNote />);
+    expect(screen.getByText("De otro tesorero")).toBeInTheDocument();
+    expect(screen.queryByText("Mía")).toBeNull();
+  });
+
   it("keeps the editor open with the error when the note is rejected", async () => {
     h.rpc.mockResolvedValue({ data: null, error: { message: "forbidden" } });
     render(<OperationsList operations={[out]} chainId={59141} canNote />);

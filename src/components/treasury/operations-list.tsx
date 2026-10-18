@@ -22,18 +22,19 @@ const linkClass =
   "inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 export function OperationsList({ operations, chainId, canNote }: { operations: Operation[]; chainId: ChainId; canNote: boolean }) {
-  // Notes saved here show at once; the refresh then brings the same note from the server.
-  const [saved, setSaved] = useState<Record<string, string>>({});
+  // Notes saved here show at once. Each remembers the server note it replaced: once the server's note for that operation
+  // differs (the refresh brought ours, or another treasurer's newer one), the server wins and the local copy is ignored.
+  const [saved, setSaved] = useState<Record<string, { note: string; replaced: string | null }>>({});
   if (operations.length === 0) return <p className="text-fg-muted">Aún no hay operaciones de la Safe registradas.</p>;
   return (
     <ul aria-label="Operaciones de la Safe" className="flex flex-col divide-y divide-border">
       {operations.map((op) => (
         <OperationRow
           key={op.id}
-          op={saved[op.id] !== undefined ? { ...op, note: saved[op.id]!, explained: true } : op}
+          op={saved[op.id] && saved[op.id]!.replaced === op.note ? { ...op, note: saved[op.id]!.note, explained: true } : op}
           chainId={chainId}
           canNote={canNote}
-          onSaved={(note) => setSaved((s) => ({ ...s, [op.id]: note }))}
+          onSaved={(note) => setSaved((s) => ({ ...s, [op.id]: { note, replaced: op.note } }))}
         />
       ))}
     </ul>

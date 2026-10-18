@@ -4,7 +4,7 @@ import { Clock } from "lucide-react";
 import { ShareRing } from "@/components/treasury/dao-charts";
 import { explorerTx } from "@/lib/economy/networks";
 import { finalityEta, formatEta } from "@/lib/treasury/eta";
-import { formatBps, formatShares, formatUsdc } from "@/lib/treasury/format";
+import { formatBps, formatShares, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 import type { DaoOverview as Data } from "@/lib/treasury/queries";
 
 const linkClass =
@@ -41,7 +41,7 @@ export function DaoOverview({
           <div className="col-span-2">
             <dt className="text-sm text-fg-muted">Valor del fondo</dt>
             <dd data-testid="dao-balance" className="font-display text-3xl font-black break-all text-fg">
-              {formatUsdc(data.navUsd6)}
+              {formatUsd(data.navUsd6)}
             </dd>
             {data.navAt ? (
               <dd className="text-[13px] text-fg-muted">
@@ -52,7 +52,7 @@ export function DaoOverview({
           <div>
             <dt className="text-sm text-fg-muted">Valor por participación</dt>
             <dd data-testid="dao-share-price" className="font-mono text-lg font-bold break-all text-fg">
-              {data.sharePriceUsd6 > 0n ? formatUsdc(data.sharePriceUsd6) : "—"}
+              {data.sharePriceUsd6 > 0n ? formatUsdPrecise(data.sharePriceUsd6) : "—"}
             </dd>
           </div>
           <div>
@@ -78,7 +78,7 @@ export function DaoOverview({
         </h2>
         <p data-testid="my-value" className="text-fg">
           <span className="text-fg-muted">Tu parte: </span>
-          <strong className="font-display text-2xl font-black break-all">{formatUsdc(data.myValueUsd6)}</strong>
+          <strong className="font-display text-2xl font-black break-all">{formatUsd(data.myValueUsd6)}</strong>
         </p>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <ShareRing bps={data.myShareBps} />

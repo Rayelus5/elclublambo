@@ -20,6 +20,20 @@ export function formatUsd(usd6: bigint): string {
   return `${neg ? "-" : ""}${group((abs / 1_000_000n).toString())}${frac ? `,${frac}` : ""} USD`;
 }
 
+/**
+ * The value of one participación (USD6), which starts near 1 USD and moves by fractions of a cent: up to 4 decimals
+ * (truncated, trailing zeros dropped) so 1,255 does not collapse to 1,25; all 6 when 4 would print a non-zero value as 0.
+ */
+export function formatUsdPrecise(usd6: bigint): string {
+  const neg = usd6 < 0n;
+  const abs = neg ? -usd6 : usd6;
+  const whole = abs / 1_000_000n;
+  const rest = abs % 1_000_000n;
+  const digits = whole === 0n && rest > 0n && rest < 100n ? 6 : 4;
+  const frac = rest.toString().padStart(6, "0").slice(0, digits).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${group(whole.toString())}${frac ? `,${frac}` : ""} USD`;
+}
+
 /** Assets the Safe holds. WETH has 18 decimals like ETH. */
 export type FundAsset = "USDC" | "ETH" | "WETH";
 

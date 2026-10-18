@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatBps, formatShares, formatToken, formatUsd, formatUsdc } from "@/lib/treasury/format";
+import { formatBps, formatShares, formatToken, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 
 describe("treasury format", () => {
   it("formats USD6 values with grouped thousands and at most two decimals (truncated)", () => {
@@ -9,6 +9,14 @@ describe("treasury format", () => {
     expect(formatUsd(5_000_000n)).toBe("5 USD");
     expect(formatUsd(10_000n)).toBe("0,01 USD");
     expect(formatUsd(9_999n)).toBe("0 USD");
+  });
+  it("formats the value per participación with up to 4 decimals (truncated), all 6 if that would hide a non-zero value", () => {
+    expect(formatUsdPrecise(1_255_000n)).toBe("1,255 USD");
+    expect(formatUsdPrecise(1_234_567n)).toBe("1,2345 USD");
+    expect(formatUsdPrecise(2_000_000n)).toBe("2 USD");
+    expect(formatUsdPrecise(1_234_000_000n)).toBe("1.234 USD");
+    expect(formatUsdPrecise(42n)).toBe("0,000042 USD");
+    expect(formatUsdPrecise(0n)).toBe("0 USD");
   });
   it("formats token amounts by their decimals (WETH has 18 like ETH)", () => {
     expect(formatToken(10n ** 18n, "ETH")).toBe("1 ETH");

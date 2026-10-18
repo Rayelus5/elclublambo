@@ -194,7 +194,7 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
 
   // Already credited: Hardhat's `finalized` block is its latest, so nothing is left pending.
   await a.page.goto("/dao");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USDC");
+  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USD");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await expect(a.page.getByTestId("my-net")).toHaveText("10 USDC");
   await expect(a.page.getByRole("list", { name: "Donaciones pendientes" })).toHaveCount(0);
@@ -208,7 +208,7 @@ test("3. donate 10 USDC: two signatures, credited at once (Hardhat finalized = l
 
   // B sees the treasury, and the donor as Anónimo (privacy default).
   await b.page.goto("/dao");
-  await expect(b.page.getByTestId("dao-balance")).toHaveText("10 USDC");
+  await expect(b.page.getByTestId("dao-balance")).toHaveText("10 USD");
   const ranking = b.page.getByRole("table", { name: "Ranking de la DAO" });
   await expect(ranking.getByRole("row", { name: /Anónimo/ })).toBeVisible();
   await expect(ranking.getByRole("row", { name: /100 %/ })).toBeVisible();
@@ -273,7 +273,7 @@ test("6. direct transfer: 3 USDC straight to the Safe show as a positive diff an
 
   // Review focus 1: the direct transfer minted no shares and moved no value.
   await a.page.goto("/dao");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USDC");
+  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USD");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await expect(a.page.getByTestId("dao-donors")).toHaveText("1");
 });
@@ -297,14 +297,14 @@ test("7. network switch: on Linea the ledger is empty (VIP DAO locks again, /dao
     await expect(a.page.getByText("Tu situación: 0 % · 0 USDC aportados en Linea", { exact: false })).toBeVisible();
     await expect(a.page.getByText(SEEDED)).toHaveCount(0);
     await a.page.goto("/dao");
-    await expect(a.page.getByTestId("dao-balance")).toHaveText("0 USDC");
+    await expect(a.page.getByTestId("dao-balance")).toHaveText("0 USD");
     await expect(a.page.getByTestId("my-share")).toHaveText("0 %");
   } finally {
     await switchTo("Linea", SEPOLIA);
   }
 
   await a.page.goto("/dao");
-  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USDC");
+  await expect(a.page.getByTestId("dao-balance")).toHaveText("10 USD");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await a.page.goto(`/c/${vipId}`);
   await expect(a.page.getByText(SEEDED)).toBeVisible();

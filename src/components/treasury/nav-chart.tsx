@@ -4,7 +4,7 @@
 // Hand-rolled step area like the old balance chart: theme tokens only, the trend also given in text.
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase/browser";
-import { formatUsdc } from "@/lib/treasury/format";
+import { formatUsd, formatUsdPrecise } from "@/lib/treasury/format";
 import { getNavHistory, type NavPoint, type NavRange } from "@/lib/treasury/queries";
 import { cn } from "@/lib/utils";
 
@@ -60,19 +60,20 @@ function Toggles<T extends string>({
   );
 }
 
-type State = { status: "loading" } | { status: "error" } | { status: "ready"; points: NavPoint[] };
+/** `points` is the last range read (null before the first); `loading` is true while a (new) range is on its way. */
+type State = { loading: boolean; error: boolean; points: NavPoint[] | null; range: NavRange };
 
 /** `navAt` is the latest valuation time: when it changes (a live refresh of /dao), the history is read again. */
 export function NavChart({ navAt = null }: { navAt?: string | null }) {
   const [range, setRange] = useState<NavRange>("7d");
   const [series, setSeries] = useState<Series>("nav");
-  const [state, setState] = useState<State>({ status: "loading" });
+  const [state, setState] = useState<State>({ loading: true, error: false, points: null, range: "7d" });
 
   useEffect(() => {
     let live = true;
     getNavHistory(createBrowserClient(), range).then(
-      (points) => live && setState({ status: "ready", points }),
-      () => live && setState({ status: "error" }),
+      (points) => live && setState({ loading: false, error: false, points, range }),
+      () => live && setState({ loading: false, error: true, points: null, range }),
     );
     return () => {
       live = false;
@@ -85,19 +86,43 @@ export function NavChart({ navAt = null }: { navAt?: string | null }) {
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Toggles label="Serie" options={SERIES} value={series} onChange={setSeries} />
-        <Toggles label="Periodo" options={RANGES} value={range} onChange={setRange} />
+        <Toggles
+          label="Periodo"
+          options={RANGES}
+          value={range}
+          onChange={(r) => {
+            if (r === range) return;
+            setRange(r);
+            setState((s) => ({ ...s, loading: true }));
+          }}
+        />
       </div>
-      {state.status === "loading" ? (
-        <div aria-hidden className="h-44 w-full rounded-control border border-border bg-bg" />
-      ) : state.status === "error" ? (
-        <p role="alert" className="text-sm text-danger">
-          No se pudo cargar el gráfico.
-        </p>
-      ) : state.points.length === 0 ? (
-        <p className="text-sm text-fg-muted">El gráfico aparecerá con la primera valoración.</p>
-      ) : (
-        <StepArea points={state.points} series={series} label={label} short={range === "24h"} />
-      )}
+      <div aria-busy={state.loading} className="flex flex-col">
+        {state.loading ? (
+          <p role="status" className="sr-only">
+            Cargando…
+          </p>
+        ) : null}
+        {state.error ? (
+          <p role="alert" className="text-sm text-danger">
+            No se pudo cargar el gráfico.
+          </p>
+        ) : state.points === null ? (
+          <div aria-hidden className="h-44 w-full rounded-control border border-border bg-bg" />
+        ) : state.points.length === 0 ? (
+          state.loading ? (
+            <div aria-hidden className="h-44 w-full rounded-control border border-border bg-bg" />
+          ) : (
+            <p className="text-sm text-fg-muted">El gráfico aparecerá con la primera valoración.</p>
+          )
+        ) : (
+          // While another range loads, the previous one stays as a dimmed placeholder, hidden from assistive tech so
+          // its dates are never read as the newly selected range.
+          <div aria-hidden={state.loading || undefined} className={cn(state.loading && "opacity-50")}>
+            <StepArea points={state.points} series={series} label={label} short={state.range === "24h"} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -118,18 +143,19 @@ function StepArea({ points, series, label, short }: { points: NavPoint[]; series
   const area = `${d} V ${H} H 0 Z`;
   const first = values[0]!;
   const last = values.at(-1)!;
+  const money = series === "price" ? formatUsdPrecise : formatUsd;
   const when = (iso: string) => (short ? hour.format(new Date(iso)) : day.format(new Date(iso)));
   const from = when(points[0]!.takenAt);
   const to = when(points.at(-1)!.takenAt);
 
   return (
     <figure className="flex flex-col gap-2">
-      {max !== last ? <span className="self-end font-mono text-[13px] text-fg-muted">{formatUsdc(max)}</span> : null}
+      {max !== last ? <span className="self-end font-mono text-[13px] text-fg-muted">{money(max)}</span> : null}
       <svg
         viewBox={`0 0 ${W} ${H}`}
         preserveAspectRatio="none"
         role="img"
-        aria-label={`${label}: de ${formatUsdc(first)} a ${formatUsdc(last)} entre ${from} y ${to}`}
+        aria-label={`${label}: de ${money(first)} a ${money(last)} entre ${from} y ${to}`}
         className="h-44 w-full overflow-visible rounded-control border border-border bg-bg"
       >
         {[0.25, 0.5, 0.75].map((f) => (
@@ -140,7 +166,7 @@ function StepArea({ points, series, label, short }: { points: NavPoint[]; series
       </svg>
       <figcaption className="flex items-baseline justify-between gap-2 text-[13px] text-fg-muted">
         <span>{from}</span>
-        <span className="font-mono font-bold text-fg">{formatUsdc(last)}</span>
+        <span className="font-mono font-bold text-fg">{money(last)}</span>
         <span>{to}</span>
       </figcaption>
     </figure>

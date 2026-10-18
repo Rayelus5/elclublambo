@@ -25,7 +25,7 @@ describe("NavChart", () => {
   it("loads the last 7 days of the fund value by default and summarises it for screen readers", async () => {
     render(<NavChart />);
     expect(h.rpc).toHaveBeenCalledWith("dao_nav_history", { p_range: "7d" });
-    expect(await screen.findByRole("img", { name: /Valor del fondo: de 100 USDC a 125,5 USDC/ })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /Valor del fondo: de 100 USD a 125,5 USD entre/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "7 días" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -41,12 +41,31 @@ describe("NavChart", () => {
     }
   });
 
+  it("while a new range loads, announces it and hides the previous range's chart from assistive tech", async () => {
+    render(<NavChart />);
+    await screen.findByRole("img");
+    let resolve!: (v: unknown) => void;
+    h.rpc.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    fireEvent.click(screen.getByRole("button", { name: "30 días" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+    expect(screen.queryByRole("img")).toBeNull();
+    resolve({ data: rows, error: null });
+    expect(await screen.findByRole("img")).toBeInTheDocument();
+    expect(screen.queryByText("Cargando…")).toBeNull();
+  });
+
+  it("announces the first load", () => {
+    h.rpc.mockReturnValue(new Promise(() => {}));
+    render(<NavChart />);
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+  });
+
   it("switches the series to the value per participación without refetching", async () => {
     render(<NavChart />);
     await screen.findByRole("img");
     const calls = h.rpc.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Valor por participación" }));
-    expect(screen.getByRole("img", { name: /Valor por participación: de 1 USDC a 1,255 USDC/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /Valor por participación: de 1 USD a 1,255 USD entre/ })).toBeInTheDocument();
     expect(h.rpc.mock.calls.length).toBe(calls);
   });
 

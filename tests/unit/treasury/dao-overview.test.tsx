@@ -26,11 +26,11 @@ describe("DaoOverview", () => {
     render(<DaoOverview data={{ ...base, valueUsdc: 1n }} donate={null} />);
     const fund = screen.getByRole("region", { name: "Tesorería" });
     expect(within(fund).getByText("Valor del fondo")).toBeInTheDocument();
-    expect(within(fund).getByTestId("dao-balance")).toHaveTextContent("1.234,5 USDC");
+    expect(within(fund).getByTestId("dao-balance").textContent).toBe("1.234,5 USD");
     expect(within(fund).getByText("Valor por participación")).toBeInTheDocument();
-    expect(within(fund).getByTestId("dao-share-price")).toHaveTextContent("2 USDC");
+    expect(within(fund).getByTestId("dao-share-price")).toHaveTextContent(/^2 USD$/);
     const mine = screen.getByRole("region", { name: "Tu participación" });
-    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USDC");
+    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USD");
   });
 
   it("shows a dash for the value per participación before anyone holds shares", () => {
@@ -41,7 +41,7 @@ describe("DaoOverview", () => {
   it("shows the network, the formatted balance, the donors and the donate slot", () => {
     render(<DaoOverview data={base} donate={<button>Donar a la DAO</button>} />);
     expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();
-    expect(screen.getByTestId("dao-balance")).toHaveTextContent("1.234,5 USDC");
+    expect(screen.getByTestId("dao-balance").textContent).toBe("1.234,5 USD");
     expect(screen.getByTestId("dao-donors")).toHaveTextContent("7");
     expect(screen.getByRole("button", { name: "Donar a la DAO" })).toBeInTheDocument();
   });
