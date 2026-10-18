@@ -13,9 +13,31 @@ const base: Data = {
   myShareBps: 20,
   myNet: 20_000_000n,
   myPending: [],
+  navUsd6: 1_234_500_000n,
+  navAt: "2026-10-18T10:00:00Z",
+  sharePriceUsd6: 2_000_000n,
+  myValueUsd6: 120_000_000n,
+  clubShares: 0n,
+  composition: null,
 };
 
 describe("DaoOverview", () => {
+  it("shows the fund value (NAV), the value per participación and my part in USD", () => {
+    render(<DaoOverview data={{ ...base, valueUsdc: 1n }} donate={null} />);
+    const fund = screen.getByRole("region", { name: "Tesorería" });
+    expect(within(fund).getByText("Valor del fondo")).toBeInTheDocument();
+    expect(within(fund).getByTestId("dao-balance")).toHaveTextContent("1.234,5 USDC");
+    expect(within(fund).getByText("Valor por participación")).toBeInTheDocument();
+    expect(within(fund).getByTestId("dao-share-price")).toHaveTextContent("2 USDC");
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USDC");
+  });
+
+  it("shows a dash for the value per participación before anyone holds shares", () => {
+    render(<DaoOverview data={{ ...base, sharePriceUsd6: 0n }} donate={null} />);
+    expect(screen.getByTestId("dao-share-price")).toHaveTextContent("—");
+  });
+
   it("shows the network, the formatted balance, the donors and the donate slot", () => {
     render(<DaoOverview data={base} donate={<button>Donar a la DAO</button>} />);
     expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();

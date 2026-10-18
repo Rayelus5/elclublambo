@@ -11,6 +11,24 @@ export function formatUsdc(units: bigint): string {
   return `${group(whole!)}${frac ? `,${frac}` : ""} USDC`;
 }
 
+/** USD with 6 decimals (USD6) -> "2.500 USD" / "370,37 USD": thousands grouped, cents at most (truncated, never floats). */
+export function formatUsd(usd6: bigint): string {
+  const neg = usd6 < 0n;
+  const abs = neg ? -usd6 : usd6;
+  const cents = (abs % 1_000_000n) / 10_000n;
+  const frac = cents.toString().padStart(2, "0").replace(/0+$/, "");
+  return `${neg ? "-" : ""}${group((abs / 1_000_000n).toString())}${frac ? `,${frac}` : ""} USD`;
+}
+
+/** Assets the Safe holds. WETH has 18 decimals like ETH. */
+export type FundAsset = "USDC" | "ETH" | "WETH";
+
+/** Base units of a fund asset -> "1.500 WETH" / "0,25 ETH" (exact: every significant decimal, no trailing zeros). */
+export function formatToken(units: bigint, asset: FundAsset): string {
+  const [whole, frac] = formatAmount(units, asset === "USDC" ? "USDC" : "ETH").split(",");
+  return `${group(whole!)}${frac ? `,${frac}` : ""} ${asset}`;
+}
+
 /** Basis points -> "0,2 %" / "12,34 %". */
 export function formatBps(bps: number): string {
   const whole = Math.trunc(bps / 100);

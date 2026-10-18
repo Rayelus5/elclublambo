@@ -1,22 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { balanceSeries, donutSlices } from "@/lib/treasury/charts";
-import type { HistoryEntry, RankingEntry } from "@/lib/treasury/queries";
+import { donutSlices } from "@/lib/treasury/charts";
+import type { RankingEntry } from "@/lib/treasury/queries";
 
 const rank = (n: number, bps: number, label = `@m${n}`): RankingEntry => ({
   rank: n,
-  memberId: label === "Anónimo" ? null : `id${n}`,
+  memberId: label === "Anónimo" || label === "Fondo del club" ? null : `id${n}`,
   label,
   shareBps: bps,
   netUsdc: 0n,
-});
-
-const hist = (iso: string, amount: bigint): HistoryEntry => ({
-  ledgerId: iso,
-  memberId: null,
-  label: "Anónimo",
-  amount,
-  txHash: null,
-  creditedAt: iso,
+  club: label === "Fondo del club",
 });
 
 describe("donutSlices", () => {
@@ -49,20 +41,22 @@ describe("donutSlices", () => {
   });
 });
 
-describe("balanceSeries", () => {
-  it("has no points without history", () => {
-    expect(balanceSeries([], 0n)).toEqual([]);
+describe("donutSlices with the club fund", () => {
+  it("labels the club fund «Fondo del club» (never by rank) with the neutral colour", () => {
+    const slices = donutSlices([rank(1, 6000, "Fondo del club"), rank(2, 4000)]);
+    expect(slices.map((s) => s.label)).toEqual(["Fondo del club", "@m2"]);
+    expect(slices[0]!.color).toBe("var(--chart-rest)");
+    expect(slices[1]!.color).toBe("var(--chart-1)");
   });
 
-  it("walks back from the current balance: starts at what was there before the oldest shown credit", () => {
-    // newest first, as dao_history returns it; only the last 2 of 3 credits are shown
-    const points = balanceSeries([hist("2026-10-18T12:00:00Z", 5_000_000n), hist("2026-10-17T12:00:00Z", 10_000_000n)], 20_000_000n);
-    expect(points.map((p) => p.usdc)).toEqual([5, 15, 20]);
-    expect(points[0]!.at).toBe("2026-10-17T12:00:00Z");
-    expect(points.at(-1)!.at).toBe("2026-10-18T12:00:00Z");
-  });
-
-  it("never goes below zero if the ledger and the shown history disagree", () => {
-    expect(balanceSeries([hist("2026-10-18T12:00:00Z", 9_000_000n)], 1_000_000n)[0]!.usdc).toBe(0);
+  it("keeps the club fund as its own slice even past the fifth place, and Resto then takes the muted colour", () => {
+    const entries = [rank(1, 3000), rank(2, 2000), rank(3, 1500), rank(4, 1000), rank(5, 800), rank(6, 700), rank(7, 500, "Fondo del club"), rank(8, 499)];
+    const slices = donutSlices(entries);
+    expect(slices.map((s) => s.label)).toEqual(["@m1", "@m2", "@m3", "@m4", "@m5", "Fondo del club", "Resto"]);
+    expect(slices.find((s) => s.label === "Fondo del club")!.bps).toBe(500);
+    expect(slices.at(-1)!.bps).toBe(1200);
+    expect(slices.at(-1)!.color).toBe("var(--fg-muted)");
+    expect(slices.reduce((a, s) => a + s.bps, 0)).toBe(10000);
+    expect(new Set(slices.map((s) => s.color)).size).toBe(slices.length);
   });
 });

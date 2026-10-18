@@ -1,5 +1,5 @@
 // Hand-rolled SVG charts for /dao: no chart library, theme tokens only, every figure also given in text.
-import type { BalancePoint, DonutSlice } from "@/lib/treasury/charts";
+import type { DonutSlice } from "@/lib/treasury/charts";
 import { formatBps } from "@/lib/treasury/format";
 
 const R = 42;
@@ -69,55 +69,5 @@ export function ShareRing({ bps }: { bps: number }) {
     <svg viewBox="0 0 100 100" role="img" aria-label={`Tu parte de la DAO: ${formatBps(bps)}`} className="size-20 shrink-0">
       <Arcs slices={bps > 0 ? [{ key: "me", bps: Math.min(bps, 10000), color: "var(--accent)" }] : []} stroke={12} />
     </svg>
-  );
-}
-
-const W = 600;
-const H = 180;
-const usdcText = (n: number) => `${n.toLocaleString("es-ES", { maximumFractionDigits: 2 })} USDC`;
-const day = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", timeZone: "UTC" });
-
-/** Step area of the treasury balance (a balance only changes when a credit lands). */
-export function BalanceChart({ points }: { points: readonly BalancePoint[] }) {
-  if (points.length === 0) {
-    return <p className="text-sm text-fg-muted">El gráfico aparecerá con la primera aportación acreditada.</p>;
-  }
-  const times = points.map((p) => new Date(p.at).getTime());
-  const t0 = times[0]!;
-  const t1 = Math.max(times.at(-1)!, t0 + 1);
-  const max = Math.max(...points.map((p) => p.usdc), 1);
-  const x = (t: number) => ((t - t0) / (t1 - t0)) * W;
-  const y = (v: number) => H - (v / max) * (H - 8);
-
-  let d = `M 0 ${y(points[0]!.usdc)}`;
-  for (let i = 1; i < points.length; i++) d += ` H ${x(times[i]!)} V ${y(points[i]!.usdc)}`;
-  d += ` H ${W}`;
-  const area = `${d} V ${H} H 0 Z`;
-  const first = points[0]!;
-  const last = points.at(-1)!;
-
-  return (
-    <figure className="flex flex-col gap-2">
-      {/* The scale's top only needs a label when it is not today's balance (shown below). */}
-      {max !== last.usdc ? <span className="self-end font-mono text-[13px] text-fg-muted">{usdcText(max)}</span> : null}
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="none"
-        role="img"
-        aria-label={`Balance de la tesorería: de ${usdcText(first.usdc)} a ${usdcText(last.usdc)} entre el ${day.format(new Date(first.at))} y el ${day.format(new Date(last.at))}`}
-        className="h-44 w-full overflow-visible rounded-control border border-border bg-bg"
-      >
-        {[0.25, 0.5, 0.75].map((f) => (
-          <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="var(--border)" strokeWidth="1" vectorEffect="non-scaling-stroke" />
-        ))}
-        <path d={area} fill="var(--accent)" fillOpacity="0.12" />
-        <path d={d} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
-      </svg>
-      <figcaption className="flex items-baseline justify-between text-[13px] text-fg-muted">
-        <span>{day.format(new Date(first.at))}</span>
-        <span className="font-mono font-bold text-fg">{usdcText(last.usdc)}</span>
-        <span>{day.format(new Date(last.at))}</span>
-      </figcaption>
-    </figure>
   );
 }

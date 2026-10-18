@@ -37,6 +37,14 @@ export function notificationCopy(n: NotificationView): ReactNode {
       return <>{actor} te ha pagado el bounty</>;
     case "treasury_mismatch":
       return <>El saldo de la Safe no coincide con el registro de la DAO</>;
+    case "treasury_outflow":
+      return n.outflow ? (
+        <>
+          Salida de la tesorería sin explicar: <strong className="font-bold text-fg">{n.outflow}</strong>
+        </>
+      ) : (
+        <>Salida de la tesorería sin explicar</>
+      );
     case "ticket_status":
       return (
         <>

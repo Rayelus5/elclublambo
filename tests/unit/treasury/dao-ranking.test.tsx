@@ -8,8 +8,8 @@ const HASH = `0x${"cd".repeat(32)}`;
 
 describe("DaoRanking", () => {
   const entries = [
-    { rank: 1, memberId: null, label: "Anónimo", shareBps: 6000, netUsdc: 60_000_000n },
-    { rank: 2, memberId: ME, label: "Ana", shareBps: 25, netUsdc: 2_500_000n },
+    { rank: 1, memberId: null, label: "Anónimo", shareBps: 6000, netUsdc: 60_000_000n, club: false },
+    { rank: 2, memberId: ME, label: "Ana", shareBps: 25, netUsdc: 2_500_000n, club: false },
   ];
   it("shows rank, name or Anónimo, percentage and contributed amount", () => {
     render(<DaoRanking entries={entries} viewerId={ME} />);
@@ -24,6 +24,12 @@ describe("DaoRanking", () => {
     const rows = screen.getAllByRole("row");
     expect(rows[2]).toHaveAttribute("aria-current", "true");
     expect(rows[1]).not.toHaveAttribute("aria-current");
+  });
+  it("shows the club fund by name, with no contributed amount", () => {
+    render(<DaoRanking entries={[{ rank: 1, memberId: null, label: "Fondo del club", shareBps: 5000, netUsdc: 0n, club: true }]} viewerId={ME} />);
+    const row = screen.getAllByRole("row")[1]!;
+    expect(within(row).getByText("Fondo del club")).toBeInTheDocument();
+    expect(within(row).getByText("—")).toBeInTheDocument();
   });
   it("says so when nobody has donated", () => {
     render(<DaoRanking entries={[]} viewerId={ME} />);

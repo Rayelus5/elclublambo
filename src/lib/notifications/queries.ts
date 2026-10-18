@@ -4,6 +4,7 @@
 // `notifications`). The actor's identity always comes from `members`, never from message content.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identityFromRow, mentionLabel } from "@/lib/members/name";
+import { formatToken } from "@/lib/treasury/format";
 
 export const PAGE_SIZE = 30;
 const EXCERPT_CHARS = 140;
@@ -26,7 +27,8 @@ export type NotificationKind =
   | "tip_received"
   | "bounty_solution"
   | "bounty_paid"
-  | "treasury_mismatch";
+  | "treasury_mismatch"
+  | "treasury_outflow";
 
 export interface NotificationView {
   id: number;
@@ -39,7 +41,17 @@ export interface NotificationView {
   ticketSubject: string | null;
   /** Only for `ticket_status`: the status the ticket moved to. */
   ticketStatus: "open" | "closed" | null;
+  /** Only for `treasury_outflow`: the amount that left the Safe, formatted ("250 USDC"); null if the payload is malformed. */
+  outflow?: string | null;
   href: string;
+}
+
+/** `treasury_outflow` data {asset, amount}: validated like the SQL push copy (_push_build), never trusted as is. */
+function outflowText(data: Record<string, unknown> | null): string | null {
+  const asset = data?.asset;
+  const amount = data?.amount;
+  if ((asset !== "USDC" && asset !== "ETH" && asset !== "WETH") || typeof amount !== "string" || !/^\d{1,60}$/.test(amount)) return null;
+  return formatToken(BigInt(amount), asset);
 }
 
 export type NotificationFilter = "all" | "mentions";
@@ -113,6 +125,8 @@ function hrefFor(row: Row): string {
   if (row.kind === "report_new") return "/moderation/reports";
   if (row.kind === "member_review") return "/admin/members";
   if (row.kind === "treasury_mismatch") return "/dao";
+  // Ruling F4a-R1: /dao/tesoreria arrives with F4c; until then the operations section of /dao (same url as the push).
+  if (row.kind === "treasury_outflow") return "/dao#operaciones";
   if (row.ticket_id && UUID_RE.test(row.ticket_id)) return `/tickets/${row.ticket_id}`;
   return "/notifications";
 }
@@ -136,6 +150,7 @@ function toView(row: Row): NotificationView {
     excerpt,
     ticketSubject: row.ticket?.subject ?? null,
     ticketStatus: row.kind === "ticket_status" && (status === "open" || status === "closed") ? status : null,
+    ...(row.kind === "treasury_outflow" ? { outflow: outflowText(row.data) } : {}),
     href: hrefFor(row),
   };
 }
