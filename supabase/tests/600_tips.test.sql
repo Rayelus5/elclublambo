@@ -95,7 +95,7 @@ select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, -
 select tests.clear_authentication();
 update public.app_config set value = '100'::jsonb where key = 'min_fee_bps';
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 99)$$, 'P0001', 'fee_out_of_range', 'fee below the configured minimum');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 99)$$, 'P0001', 'fee_below_minimum', 'fee below the configured minimum');
 select tests.clear_authentication();
 update public.app_config set value = '0'::jsonb where key = 'min_fee_bps';
 update public.chain_config set platform_wallet = null where chain_id = 59141;

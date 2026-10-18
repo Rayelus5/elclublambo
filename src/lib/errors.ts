@@ -37,6 +37,7 @@ const MESSAGES: Record<string, string> = {
   address_invalid: "La dirección no es válida: debe ser una dirección 0x de 40 caracteres y no la dirección cero.",
   chain_invalid: "Esa red no está soportada.",
   not_found: "No se ha encontrado lo que buscas. Puede que ya no exista o que no tengas acceso.",
+  fee_below_minimum: "La comisión no puede ser menor que el mínimo de la plataforma.",
   amount_out_of_range: "La cantidad está fuera de los límites permitidos para una propina.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
   platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",
