@@ -1,13 +1,13 @@
 -- F4a Task 1: market-value (NAV) share issuance, the club fund and hourly NAV snapshots.
 begin;
-select plan(82);
+select plan(92);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.nh(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
 $$;
 -- a pending_finality donation of p_amount on the active chain, by p_user, paid in tx p_n
-create function tests.npend(p_user uuid, p_amount numeric, p_n int)
+create function tests.npend(p_user uuid, p_amount numeric, p_n int, p_block bigint default 100)
 returns uuid language plpgsql as $$
 declare
   v jsonb;
@@ -19,16 +19,16 @@ begin
   perform tests.clear_authentication();
   set local role service_role;
   v_id := public.record_donation((v ->> 'id')::uuid,
-    jsonb_build_object('txHash', tests.nh(p_n), 'logIndex', 0, 'blockNumber', 100), null);
+    jsonb_build_object('txHash', tests.nh(p_n), 'logIndex', 0, 'blockNumber', p_block), null);
   reset role;
   return v_id;
 end;
 $$;
-create function tests.ncr(p_ledger uuid, p_assets numeric) returns jsonb language plpgsql as $$
+create function tests.ncr(p_ledger uuid, p_assets numeric, p_block bigint default 1000000) returns jsonb language plpgsql as $$
 declare v jsonb;
 begin
   set local role service_role;
-  v := public.credit_donation(p_ledger, p_assets);
+  v := public.credit_donation(p_ledger, p_assets, p_block);
   reset role;
   return v;
 end;
@@ -42,11 +42,11 @@ begin
   return v;
 end;
 $$;
-create function tests.nliab(p_chain int) returns numeric language plpgsql as $$
+create function tests.nliab(p_chain int, p_block bigint default null) returns numeric language plpgsql as $$
 declare v numeric;
 begin
   set local role service_role;
-  v := public._dao_liabilities_usd6(p_chain);
+  v := public._dao_liabilities_usd6(p_chain, p_block);
   reset role;
   return v;
 end;
@@ -54,11 +54,11 @@ $$;
 -- a snapshot payload; assetsUsd6 = usdc + (eth + weth) * price / 10^20 unless p_assets overrides it
 create function tests.njs(p_usdc numeric, p_eth numeric default 0, p_weth numeric default 0,
                           p_price numeric default 200000000000, p_assets text default null,
-                          p_source text default 'chainlink')
+                          p_source text default 'chainlink', p_block text default '12345')
 returns jsonb language sql immutable as $$
   select jsonb_build_object(
     'usdcUnits', p_usdc::text, 'ethWei', p_eth::text, 'wethWei', p_weth::text, 'ethPriceE8', p_price::text,
-    'priceSource', p_source, 'blockNumber', '12345',
+    'priceSource', p_source, 'blockNumber', p_block,
     'assetsUsd6', coalesce(p_assets, (p_usdc + div((p_eth + p_weth) * p_price, 100000000000000000000))::text))
 $$;
 create function tests.st(p_chain int) returns text language sql as $$
@@ -77,17 +77,18 @@ update public.chain_config set safe_address = '0x' || lpad('5afe59144', 40, '0')
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 
 -- ===== 1. signatures and privileges =====
-select has_function('public', 'credit_donation', array['uuid', 'numeric'], 'credit_donation(uuid, numeric) exists');
+select has_function('public', 'credit_donation', array['uuid', 'numeric', 'bigint'], 'credit_donation(uuid, numeric, bigint) exists');
 select hasnt_function('public', 'credit_donation', array['uuid'], 'the one-argument credit_donation is dropped');
-select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric)', 'execute')
-      and not has_function_privilege('anon', 'public.credit_donation(uuid,numeric)', 'execute'), 'members cannot credit_donation');
+select hasnt_function('public', 'credit_donation', array['uuid', 'numeric'], 'no two-argument overload either');
+select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
+      and not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint)', 'execute'), 'members cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.record_nav_snapshot(int,jsonb)', 'execute')
       and not has_function_privilege('anon', 'public.record_nav_snapshot(int,jsonb)', 'execute'), 'members cannot record_nav_snapshot');
-select ok(not has_function_privilege('authenticated', 'public._dao_liabilities_usd6(int)', 'execute')
-      and not has_function_privilege('anon', 'public._dao_liabilities_usd6(int)', 'execute'), 'members cannot read _dao_liabilities_usd6');
-select ok(has_function_privilege('service_role', 'public.credit_donation(uuid,numeric)', 'execute')
+select ok(not has_function_privilege('authenticated', 'public._dao_liabilities_usd6(int,bigint)', 'execute')
+      and not has_function_privilege('anon', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'members cannot read _dao_liabilities_usd6');
+select ok(has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
       and has_function_privilege('service_role', 'public.record_nav_snapshot(int,jsonb)', 'execute')
-      and has_function_privilege('service_role', 'public._dao_liabilities_usd6(int)', 'execute'), 'service_role runs the NAV pipeline');
+      and has_function_privilege('service_role', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'service_role runs the NAV pipeline');
 select ok(has_function_privilege('authenticated', 'public.dao_nav_history(text)', 'execute')
       and not has_function_privilege('anon', 'public.dao_nav_history(text)', 'execute'), 'dao_nav_history is for members only');
 select ok((select relrowsecurity from pg_class where oid = 'public.dao_nav_snapshots'::regclass)
@@ -163,6 +164,8 @@ select throws_ok(format($$select tests.ncr(%L::uuid, 1.5)$$, current_setting('t.
 select tests.clear_authentication();
 select throws_ok(format($$select tests.ncr(%L::uuid, null)$$, current_setting('t.l6')), 'P0001', 'invalid_input', 'null assets');
 select tests.clear_authentication();
+select throws_ok(format($$select tests.ncr(%L::uuid, 1, null)$$, current_setting('t.l6')), 'P0001', 'invalid_input', 'null assets block');
+select tests.clear_authentication();
 select throws_ok($$select tests.ncr(gen_random_uuid(), 1)$$, 'P0001', 'not_found', 'unknown ledger row');
 select tests.clear_authentication();
 
@@ -174,6 +177,26 @@ select is(current_setting('t.r6')::jsonb ->> 'clubMinted', '2000000000000000000'
 select is(current_setting('t.r6')::jsonb ->> 'shares', '1000000000000000000', 'the donor is priced as at the ledger price (d * S / V)');
 select is(tests.st(59144) || ':' || (select nav_initialized::text from public.dao_state where chain_id = 59144),
   '13000000000000000000:2000000000000000000:13000000:true', 'the chain is initialized by the credit');
+
+-- ===== 7c. ruling F4a-R4: liabilities are bounded to the block the Safe was read at =====
+-- 59144 now: S = 13e18, NAV 13 USDC, nothing pending
+select set_config('t.l8', tests.npend(current_setting('t.uc')::uuid, 1000000, 8, 150)::text, true);
+select set_config('t.l9', tests.npend(current_setting('t.ua')::uuid, 2000000, 9, 500)::text, true);
+select is(tests.nliab(59144, 200), 1000000::numeric, 'a donation mined after the read block is not a liability');
+select is(tests.nliab(59144), 3000000::numeric, 'a null block counts every pending donation');
+select is(tests.ncr(current_setting('t.l8')::uuid, 13000000 + 1000000, 200) ->> 'shares', '1000000000000000000',
+  'a later donation (its money not in the assets) is not subtracted from NAV_previo');
+select throws_ok(format($$select tests.ncr(%L::uuid, 16000000, 200)$$, current_setting('t.l9')),
+  'P0001', 'assets_stale', 'a donation mined after the read block cannot be credited with those assets');
+select tests.clear_authentication();
+select is((select status from public.dao_ledger where id = current_setting('t.l9')::uuid), 'pending_finality', 'and stays pending');
+select set_config('t.s0', tests.nsnap(59144, tests.njs(14000000, 0, 0, 200000000000, null, 'chainlink', '300'))::text, true);
+select is((select liabilities_usd6::text || ':' || nav_usd6::text from public.dao_nav_snapshots
+           where id = (current_setting('t.s0')::jsonb ->> 'id')::uuid), '0:14000000', 'a snapshot before the donation block ignores it');
+update public.dao_nav_snapshots set taken_at = taken_at - interval '1 hour' where chain_id = 59144;
+select set_config('t.s0', tests.nsnap(59144, tests.njs(16000000, 0, 0, 200000000000, null, 'chainlink', '600'))::text, true);
+select is((select liabilities_usd6::text || ':' || nav_usd6::text from public.dao_nav_snapshots
+           where id = (current_setting('t.s0')::jsonb ->> 'id')::uuid), '2000000:14000000', 'a snapshot after it subtracts it');
 
 -- ===== 8. snapshot (59141: S = 10e18, NAV 10 USDC, plus a 2 USDC pending donation) =====
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
@@ -226,7 +249,7 @@ select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is(public.dao_overview() ->> 'navUsd6', '14000000', 'navUsd6');
 select ok(public.dao_overview() ->> 'navAt' is not null, 'navAt');
 select is(public.dao_overview() ->> 'sharePriceUsd6', '1166666', 'sharePriceUsd6 = floor(NAV * 10^18 / S): one participación');
-select is(public.dao_overview() ->> 'myValueUsd6', div(10000000000000000000::numeric * 14000000, 12000000000000000000)::text, 'myValueUsd6 = myShares * NAV / S');
+select is(public.dao_overview() ->> 'myValueUsd6', '11666666', 'myValueUsd6 = floor(myShares * NAV / S)');
 select is(public.dao_overview() ->> 'clubShares', '2000000000000000000', 'clubShares');
 select is(public.dao_overview() -> 'composition' ->> 'priceSource', 'chainlink', 'composition from the latest snapshot');
 select is(public.dao_overview() -> 'composition' ->> 'usdcUnits', '16000000', 'composition is the latest snapshot');
@@ -234,6 +257,10 @@ select is(public.dao_overview() ->> 'valueUsdc', '14000000', 'valueUsdc is kept 
 select is((select share_bps::text || ':' || net_usdc::text || ':' || rank::text || ':' || (member_id is null)::text
            from public.dao_ranking(50) where label = 'Fondo del club'), '1666:0:2:true', 'the club row: bps, net 0, ranked by shares');
 select is((select rank from public.dao_ranking(50) where member_id = current_setting('t.a')::uuid), 1, 'the biggest holder ranks first');
+select tests.clear_authentication();
+select tests.authenticate_as(current_setting('t.ub')::uuid);
+select is((select string_agg(rank::text || ':' || label || ':' || coalesce(member_id::text, 'null'), ',' order by rank) from public.dao_ranking(50)),
+  '1:Anónimo:null,2:Fondo del club:null', 'a hidden donor stays masked next to the club row');
 select tests.clear_authentication();
 
 -- ===== 11. NAV history =====
@@ -256,7 +283,7 @@ select is((select nav_usd6 from public.dao_nav_history('all') order by taken_at 
 select tests.clear_authentication();
 update public.app_config set value = '59144'::jsonb where key = 'active_chain_id';
 select tests.authenticate_as(current_setting('t.ub')::uuid);
-select is((select count(*)::int from public.dao_nav_history('all')), 0, 'history is per chain');
+select is((select count(*)::int from public.dao_nav_history('all')), 2, 'history is per chain (59144 has only its own 2 snapshots)');
 select tests.clear_authentication();
 
 select * from finish();

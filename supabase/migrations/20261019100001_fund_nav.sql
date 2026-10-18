@@ -1,7 +1,8 @@
 -- F4a Task 1: the DAO is valued at market. The server reads the Safe (USDC, ETH, WETH) and the ETH/USD price, values
 -- the assets in usd6 and hands them to SQL; SQL subtracts the liabilities it knows and owns all the accounting.
 --
---   liabilities_usd6 = _dao_liabilities_usd6(chain)   (every pending_finality donation: its money is already in the Safe)
+--   liabilities_usd6 = _dao_liabilities_usd6(chain, block)   (every pending_finality donation mined at or before the
+--                      block the Safe was read at: its money is already in those assets; ruling F4a-R4)
 --   NAV              = greatest(assets_usd6 - liabilities_usd6, 0)
 --   credit:          shares = S = 0 ? d * 10^12 : floor(d * S / NAV_previo)
 --                    if S = 0 and NAV_previo > 0, the "Fondo del club" first takes club_shares = NAV_previo * 10^12
@@ -44,7 +45,9 @@ alter table public.dao_nav_snapshots enable row level security;
 revoke all on public.dao_nav_snapshots from public, anon, authenticated;
 
 -- ===== _dao_liabilities_usd6 (service_role): what the Safe holds that is not the fund's yet. F4c/F4d extend it. =====
-create function public._dao_liabilities_usd6(p_chain int)
+-- p_at_block bounds the donations to the block the assets were read at (a later donation's money is not in them);
+-- null counts every pending donation (read paths only).
+create function public._dao_liabilities_usd6(p_chain int, p_at_block bigint)
 returns numeric
 language sql
 stable
@@ -54,12 +57,16 @@ as $$
   select coalesce(sum(l.amount_usdc), 0)
   from public.dao_ledger l
   where l.chain_id = p_chain and l.status = 'pending_finality'
+    and (p_at_block is null or l.block_number <= p_at_block)
 $$;
 
 -- ===== credit_donation (service_role): phase 2 at NAV, idempotent =====
+-- p_assets_usd6 is the Safe valued at block p_assets_block. The donation must be in those assets (its block <= the
+-- read block), else assets_stale: the server read the Safe before the donation landed and retries later.
+-- A replay of a credited row returns its stored shares; clubMinted is then "0" (informational only, not a total).
 drop function public.credit_donation(uuid);
 
-create function public.credit_donation(p_ledger uuid, p_assets_usd6 numeric)
+create function public.credit_donation(p_ledger uuid, p_assets_usd6 numeric, p_assets_block bigint)
 returns jsonb
 language plpgsql
 security definer
@@ -73,7 +80,8 @@ declare
   v_club numeric := 0;
   v_shares numeric;
 begin
-  if p_assets_usd6 is null or p_assets_usd6 < 0 or p_assets_usd6 <> trunc(p_assets_usd6) then
+  if p_assets_usd6 is null or p_assets_usd6 < 0 or p_assets_usd6 <> trunc(p_assets_usd6)
+     or p_assets_block is null or p_assets_block < 0 then
     raise exception 'invalid_input';
   end if;
 
@@ -87,6 +95,9 @@ begin
   if l.status <> 'pending_finality' then
     raise exception 'invalid_state';
   end if;
+  if l.block_number > p_assets_block then
+    raise exception 'assets_stale';
+  end if;
 
   select * into s from public.dao_state x where x.chain_id = l.chain_id for update;
   if not found then
@@ -94,7 +105,7 @@ begin
   end if;
 
   -- this donation is still pending, so it is one of the liabilities: NAV_previo excludes it
-  v_nav := greatest(p_assets_usd6 - public._dao_liabilities_usd6(l.chain_id), 0);
+  v_nav := greatest(p_assets_usd6 - public._dao_liabilities_usd6(l.chain_id, p_assets_block), 0);
   v_total := s.total_shares;
 
   if v_total = 0 then
@@ -200,7 +211,7 @@ begin
     return jsonb_build_object('id', v_last.id, 'navUsd6', v_last.nav_usd6::text, 'clubMinted', '0', 'skipped', true);
   end if;
 
-  v_liab := public._dao_liabilities_usd6(p_chain);
+  v_liab := public._dao_liabilities_usd6(p_chain, v_block);
   v_nav := greatest(v_assets - v_liab, 0);
 
   -- first valuation of a chain with an F3 ledger
@@ -377,8 +388,8 @@ $$;
 
 -- ===== grants =====
 revoke execute on function
-  public._dao_liabilities_usd6(int),
-  public.credit_donation(uuid, numeric),
+  public._dao_liabilities_usd6(int, bigint),
+  public.credit_donation(uuid, numeric, bigint),
   public.record_nav_snapshot(int, jsonb),
   public.dao_overview(),
   public.dao_ranking(int),
@@ -386,8 +397,8 @@ revoke execute on function
 from public, anon, authenticated, service_role;
 
 grant execute on function
-  public._dao_liabilities_usd6(int),
-  public.credit_donation(uuid, numeric),
+  public._dao_liabilities_usd6(int, bigint),
+  public.credit_donation(uuid, numeric, bigint),
   public.record_nav_snapshot(int, jsonb)
 to service_role;
 

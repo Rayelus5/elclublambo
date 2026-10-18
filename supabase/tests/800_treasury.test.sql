@@ -45,7 +45,7 @@ begin
                    where l.id = p_ledger), 0)
     into v_assets;
   set local role service_role;
-  perform public.credit_donation(p_ledger, v_assets);
+  perform public.credit_donation(p_ledger, v_assets, 9223372036854775807);
   reset role;
 end;
 $$;
@@ -95,9 +95,9 @@ select ok(not has_table_privilege('anon', 'public.dao_ledger', 'select')
 select is((select count(*)::int from public.dao_state where total_shares = 0 and value_usdc = 0 and chain_id in (59144, 59141)),
   2, 'dao_state is seeded with zeros for both chains');
 select ok(not has_function_privilege('authenticated', 'public.record_donation(uuid,jsonb,jsonb)', 'execute'), 'authenticated cannot record_donation');
-select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric)', 'execute'), 'authenticated cannot credit_donation');
+select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint)', 'execute'), 'authenticated cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.revert_donation(uuid)', 'execute'), 'authenticated cannot revert_donation');
-select ok(not has_function_privilege('anon', 'public.credit_donation(uuid,numeric)', 'execute'), 'anon cannot credit_donation');
+select ok(not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint)', 'execute'), 'anon cannot credit_donation');
 select ok(not has_function_privilege('anon', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
       and not has_function_privilege('anon', 'public.revert_donation(uuid)', 'execute'), 'anon cannot record or revert donations');
 select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute')
@@ -106,7 +106,7 @@ select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute
       and not has_function_privilege('anon', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'anon cannot call the read RPCs or the visibility toggle');
 select ok(not has_function_privilege('authenticated', 'public._record_payment_transfers(public.payment_intents,jsonb,jsonb)', 'execute'), 'authenticated cannot call the internal recording helper');
 select ok(has_function_privilege('service_role', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
-      and has_function_privilege('service_role', 'public.credit_donation(uuid,numeric)', 'execute')
+      and has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
       and has_function_privilege('service_role', 'public.revert_donation(uuid)', 'execute'), 'service_role runs the donation pipeline');
 select ok(has_function_privilege('authenticated', 'public.create_donation_intent(numeric,int)', 'execute')
       and has_function_privilege('authenticated', 'public.dao_overview()', 'execute')
