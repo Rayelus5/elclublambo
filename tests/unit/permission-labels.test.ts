@@ -32,7 +32,15 @@ describe("settingsSections gating", () => {
     expect(hrefs(Perm.MANAGE_ROLES)).toEqual(["/settings/roles"]);
   });
   it("ADMINISTRATOR gives everything", () => {
-    expect(hrefs(Perm.ADMINISTRATOR)).toEqual(["/settings/channels", "/settings/roles", "/settings/links"]);
+    expect(hrefs(Perm.ADMINISTRATOR)).toEqual([
+      "/settings/channels",
+      "/settings/roles",
+      "/settings/links",
+      "/settings/economia",
+    ]);
+  });
+  it("economía needs bit 512 itself, not just other management bits", () => {
+    expect(hrefs(Perm.MANAGE_CHANNELS | Perm.MANAGE_ROLES | Perm.MANAGE_TREASURY)).not.toContain("/settings/economia");
   });
   it("nothing gives nothing", () => {
     expect(hrefs(0n)).toEqual([]);

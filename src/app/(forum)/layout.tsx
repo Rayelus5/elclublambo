@@ -5,6 +5,7 @@ import { SearchProvider } from "@/components/search/search-provider";
 import { RightRail } from "@/components/shell/right-rail";
 import { Sidebar } from "@/components/shell/sidebar";
 import { getVisibleChannels, toRow } from "@/lib/channels/queries";
+import { getEconomyConfig } from "@/lib/economy/config";
 import { buildActions } from "@/lib/search/actions-list";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { UnreadProvider } from "@/lib/chat/unread";
@@ -28,7 +29,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
 
   // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
   // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
-  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels] = await Promise.all([
+  const [{ data: rawPerms }, channels, me, unreadCount, moderates, openTickets, ticketChannels, economy] = await Promise.all([
     supabase.rpc("my_permissions"),
     getVisibleChannels(),
     supabase.rpc("current_member_id"),
@@ -50,6 +51,8 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
         )
       ).flatMap((c) => c ?? []),
     ),
+    // Cached per request: the badge shows the active network to every member.
+    getEconomyConfig(),
   ]);
   const perms = BigInt(String(rawPerms ?? 0));
   const canModerate = moderates.data === true;
@@ -64,7 +67,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     <UnreadProvider>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet })}>
       <div className="grid min-h-dvh flex-1 grid-cols-1 grid-rows-[auto_1fr] md:grid-rows-[auto_minmax(0,1fr)] md:grid-cols-[264px_minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)_320px]">
-        <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} openTickets={openTicketCount} />
+        <Sidebar perms={perms} wallet={wallet} channels={channels.map(toRow)} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.activeChainId} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-10">{children}</main>
         <RightRail />
       </div>
