@@ -18,6 +18,8 @@ export type VerifyInput = {
    * may round up). Without it the value must match exactly. Native ETH is always exact.
    */
   atLeast?: boolean;
+  /** USDC only: when this log qualifies it wins over earlier qualifying logs (a linked candidate's log). */
+  preferLogIndex?: number;
 };
 
 export type VerifyResult =
@@ -99,7 +101,10 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
         (a, b) => a.logIndex - b.logIndex,
       );
       const pays = (v: bigint) => (input.atLeast ? v >= input.amount : v === input.amount);
-      const hit = logs.find((l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value));
+      const qualifying = logs.filter(
+        (l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value),
+      );
+      const hit = qualifying.find((l) => l.logIndex === input.preferLogIndex) ?? qualifying[0];
       if (!hit) return err("tx_mismatch");
       logIndex = hit.logIndex;
       value = hit.args.value;

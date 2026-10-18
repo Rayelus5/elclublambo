@@ -46,7 +46,7 @@ create function tests.xexp() returns int language plpgsql as $$
 declare v int;
 begin
   set local role service_role;
-  v := public.expire_withdrawal_approvals();
+  v := public.expire_withdrawal_approvals(59141, now() + interval '100 days'); -- R5: scan far ahead
   reset role;
   return v;
 end;

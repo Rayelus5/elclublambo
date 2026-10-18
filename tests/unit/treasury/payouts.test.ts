@@ -15,7 +15,13 @@ vi.mock("@/lib/treasury/snapshot", () => ({ safeAddressOf: async () => safe }));
 const rpc = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 
-import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts, verifyPayout } from "@/lib/treasury/payouts";
+import {
+  detectWithdrawalPayouts,
+  expireWithdrawalApprovals,
+  finalizeWithdrawalPayouts,
+  scanCursorTime,
+  verifyPayout,
+} from "@/lib/treasury/payouts";
 
 const DEST = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
 const H1 = `0x${"a1".repeat(32)}`;
@@ -48,6 +54,31 @@ describe("verifyPayout", () => {
       chain: 59141, token: "USDC", txHash: H1, from: SAFE, to: DEST, amount: 8_000000n, atLeast: true, notBefore: new Date(APPROVED),
     });
   });
+  it("passes a preferred log index through (minor 2: the linked candidate's log wins when it qualifies)", async () => {
+    await verifyPayout({ chain: 59141, safe: SAFE, destination: DEST, amountLocked: 1n, approvedAt: new Date(APPROVED) }, H1 as `0x${string}`, 7);
+    expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ preferLogIndex: 7, atLeast: true }));
+  });
+});
+
+describe("scanCursorTime (ruling F4c-R5)", () => {
+  it("is the block time of the scan cursor", async () => {
+    replies.dao_scan_from = { data: 140 };
+    getBlock.mockResolvedValue({ number: 140n, timestamp: 1_800_000_000n });
+    expect(await scanCursorTime(59141)).toEqual(new Date(1_800_000_000_000));
+    expect(calls("dao_scan_from")).toEqual([{ p_chain: 59141 }]);
+    expect(getBlock).toHaveBeenCalledWith({ blockNumber: 140n });
+  });
+  it("is null without a cursor, on a read error or when the block cannot be read", async () => {
+    replies.dao_scan_from = { data: null };
+    expect(await scanCursorTime(59141)).toBeNull();
+    replies.dao_scan_from = { error: { message: "db down" } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await scanCursorTime(59141)).toBeNull();
+    replies.dao_scan_from = { data: "140" };
+    getBlock.mockRejectedValue(new Error("rpc down"));
+    expect(await scanCursorTime(59141)).toBeNull();
+    err.mockRestore();
+  });
 });
 
 const candidate = (request: string, tx: string, over: Record<string, unknown> = {}) => ({
@@ -60,7 +91,11 @@ describe("detectWithdrawalPayouts", () => {
     replies.record_withdrawal_payout = { data: { status: "recorded" } };
     expect(await detectWithdrawalPayouts(59141)).toEqual({ recorded: 1 });
     expect(calls("withdrawal_payout_candidates")).toEqual([{ p_chain: 59141 }]);
-    expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ txHash: H1, from: SAFE, to: DEST, amount: 8_000000n, atLeast: true }));
+    expect(verifyTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ txHash: H1, from: SAFE, to: DEST, amount: 8_000000n, atLeast: true, preferLogIndex: 3 }),
+    );
+    // an ok verification clears any not-found mark on the candidate
+    expect(calls("withdrawal_candidate_missing")).toEqual([{ p_request: "r1", p_tx_hash: H1, p_log_index: 3, p_missing: false }]);
     expect(calls("record_withdrawal_payout")).toEqual([
       {
         p_request: "r1",
@@ -94,11 +129,40 @@ describe("detectWithdrawalPayouts", () => {
     expect(calls("record_withdrawal_payout")).toEqual([]);
   });
 
-  it("tx_not_found asks SQL to unlink as not_found (it only does so after 30 minutes)", async () => {
+  it("a first tx_not_found only marks the candidate as missing: no unlink", async () => {
     replies.withdrawal_payout_candidates = { data: [candidate("r1", H1)] };
     verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    replies.withdrawal_candidate_missing = { data: false };
+    await detectWithdrawalPayouts(59141);
+    expect(calls("withdrawal_candidate_missing")).toEqual([{ p_request: "r1", p_tx_hash: H1, p_log_index: 3, p_missing: true }]);
+    expect(calls("unlink_withdrawal_candidate")).toEqual([]);
+  });
+
+  it("a tx_not_found 30+ minutes after the mark unlinks as not_found", async () => {
+    replies.withdrawal_payout_candidates = { data: [candidate("r1", H1)] };
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    replies.withdrawal_candidate_missing = { data: true };
     await detectWithdrawalPayouts(59141);
     expect(calls("unlink_withdrawal_candidate")).toEqual([{ p_request: "r1", p_tx_hash: H1, p_log_index: 3, p_reason: "not_found" }]);
+  });
+
+  it("a failing mark RPC unlinks nothing", async () => {
+    replies.withdrawal_payout_candidates = { data: [candidate("r1", H1)] };
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    replies.withdrawal_candidate_missing = { data: true, error: { message: "invalid_state" } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await detectWithdrawalPayouts(59141);
+    expect(calls("unlink_withdrawal_candidate")).toEqual([]);
+    err.mockRestore();
+  });
+
+  it("a retryable record error (deadlock) is not mistaken for a permanent refusal (rpcErrorCode)", async () => {
+    replies.withdrawal_payout_candidates = { data: [candidate("r1", H1)] };
+    replies.record_withdrawal_payout = { error: { message: "tx_mismatch", code: "40P01" } as { message: string } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await detectWithdrawalPayouts(59141);
+    expect(calls("unlink_withdrawal_candidate")).toEqual([]);
+    err.mockRestore();
   });
 
   it.each(["tx_mismatch", "tx_already_used", "tx_too_old"])("a record refused with %s unlinks the candidate", async (code) => {
@@ -184,14 +248,38 @@ describe("finalizeWithdrawalPayouts", () => {
     expect(calls("finalize_withdrawal")).toEqual([]);
   });
 
-  it("tx_not_found reverts only once the payout was recorded more than 30 minutes ago", async () => {
+  it("a first tx_not_found (however old the record) only sets the mark: no revert", async () => {
     verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
-    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140, { payout_recorded_at: new Date(Date.now() - 29 * 60_000).toISOString() })] };
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140, { payout_recorded_at: "2026-01-01T00:00:00.000Z" })] };
+    replies.withdrawal_payout_missing = { data: false };
     expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 0, reverted: 0, pending: 1 });
+    expect(calls("withdrawal_payout_missing")).toEqual([{ p_request: "r1", p_missing: true }]);
     expect(calls("revert_withdrawal_payout")).toEqual([]);
-    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140, { payout_recorded_at: new Date(Date.now() - 31 * 60_000).toISOString() })] };
+  });
+
+  it("a tx_not_found 30+ minutes after the first mark reverts", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140)] };
+    replies.withdrawal_payout_missing = { data: true };
     expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 0, reverted: 1, pending: 0 });
     expect(calls("revert_withdrawal_payout")).toEqual([{ p_request: "r1" }]);
+  });
+
+  it("a failing mark RPC keeps the payout pending", async () => {
+    verifyTransfer.mockResolvedValue({ status: "error", code: "tx_not_found" });
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140)] };
+    replies.withdrawal_payout_missing = { data: true, error: { message: "invalid_state" } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 0, reverted: 0, pending: 1 });
+    expect(calls("revert_withdrawal_payout")).toEqual([]);
+    err.mockRestore();
+  });
+
+  it("an ok verification clears the mark (also when the receipt is now past finality)", async () => {
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140)] };
+    verifyTransfer.mockResolvedValue(ok({ blockNumber: 151n }));
+    await finalizeWithdrawalPayouts(59141);
+    expect(calls("withdrawal_payout_missing")).toEqual([{ p_request: "r1", p_missing: false }]);
   });
 
   it.each([{ status: "pending" }, { status: "error", code: "rpc_unavailable" }, { status: "error", code: "tx_too_old" }])(
@@ -229,12 +317,13 @@ describe("finalizeWithdrawalPayouts", () => {
 });
 
 describe("expireWithdrawalApprovals", () => {
-  it("returns how many approvals lapsed", async () => {
+  it("expires one chain's lapsed approvals up to the scanned-through time and returns the count", async () => {
     replies.expire_withdrawal_approvals = { data: 2 };
-    expect(await expireWithdrawalApprovals()).toBe(2);
+    expect(await expireWithdrawalApprovals(59141, new Date("2026-10-19T12:00:00.000Z"))).toBe(2);
+    expect(calls("expire_withdrawal_approvals")).toEqual([{ p_chain: 59141, p_scanned_through: "2026-10-19T12:00:00.000Z" }]);
   });
   it("throws on an RPC error", async () => {
     replies.expire_withdrawal_approvals = { error: { message: "db down" } };
-    await expect(expireWithdrawalApprovals()).rejects.toThrow(/db down/);
+    await expect(expireWithdrawalApprovals(59141, new Date())).rejects.toThrow(/db down/);
   });
 });

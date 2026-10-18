@@ -6,7 +6,7 @@
 --   (E) unlink_withdrawal_candidate: a linked candidate that fails verification permanently is unlinked with an alert,
 --       so the request can be rejected or expire and stops being a liability forever.
 begin;
-select plan(51);
+select plan(89);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.yh(p_n int) returns text language sql immutable as $$
@@ -28,13 +28,40 @@ begin
   return v;
 end;
 $$;
-create function tests.yexp() returns int language plpgsql as $$
+-- R5: by default the scan has covered far beyond any window, so only the now() rule binds
+create function tests.yexp(p_through timestamptz default now() + interval '100 days', p_chain int default 59141)
+returns int language plpgsql as $$
 declare v int;
 begin
   set local role service_role;
-  v := public.expire_withdrawal_approvals();
+  v := public.expire_withdrawal_approvals(p_chain, p_through);
   reset role;
   return v;
+end;
+$$;
+create function tests.ypmiss(p_req uuid, p_missing boolean) returns boolean language plpgsql as $$
+declare v boolean;
+begin
+  set local role service_role;
+  v := public.withdrawal_payout_missing(p_req, p_missing);
+  reset role;
+  return v;
+end;
+$$;
+create function tests.ycmiss(p_req uuid, p_n int, p_missing boolean) returns boolean language plpgsql as $$
+declare v boolean;
+begin
+  set local role service_role;
+  v := public.withdrawal_candidate_missing(p_req, tests.yh(p_n), 0, p_missing);
+  reset role;
+  return v;
+end;
+$$;
+create function tests.yrev(p_req uuid) returns void language plpgsql as $$
+begin
+  set local role service_role;
+  perform public.revert_withdrawal_payout(p_req);
+  reset role;
 end;
 $$;
 create function tests.yliab(p_block bigint) returns numeric language plpgsql as $$
@@ -175,12 +202,26 @@ select ok(has_function_privilege('service_role', 'public.unlink_withdrawal_candi
 select ok((select bool_and(prosecdef and proconfig @> array['search_path=""']) from pg_proc
            where oid in ('public.unlink_withdrawal_candidate(uuid,text,int,text)'::regprocedure,
                          'public._dao_liabilities_usd6(int,bigint)'::regprocedure,
-                         'public.expire_withdrawal_approvals()'::regprocedure,
+                         'public.expire_withdrawal_approvals(int,timestamptz)'::regprocedure,
+                         'public.withdrawal_payout_missing(uuid,boolean)'::regprocedure,
+                         'public.withdrawal_candidate_missing(uuid,text,int,boolean)'::regprocedure,
+                         'public.revert_withdrawal_payout(uuid)'::regprocedure,
                          'public.record_safe_operations(int,text,jsonb,bigint)'::regprocedure)),
   'the new and replaced functions are definer with an empty search_path');
-select ok(not has_function_privilege('authenticated', 'public.expire_withdrawal_approvals()', 'execute')
-      and has_function_privilege('service_role', 'public.expire_withdrawal_approvals()', 'execute'),
-  'expire_withdrawal_approvals keeps its service-only grant');
+select ok(not has_function_privilege('authenticated', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
+      and not has_function_privilege('anon', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
+      and has_function_privilege('service_role', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute'),
+  'R5: expire_withdrawal_approvals(chain, scanned_through) is service-only');
+select hasnt_function('public', 'expire_withdrawal_approvals', array[]::text[],
+  'R5: the argument-less expiry is gone (it could run past what the scan covered)');
+select ok(has_function_privilege('service_role', 'public.withdrawal_payout_missing(uuid,boolean)', 'execute')
+      and not has_function_privilege('authenticated', 'public.withdrawal_payout_missing(uuid,boolean)', 'execute')
+      and not has_function_privilege('anon', 'public.withdrawal_payout_missing(uuid,boolean)', 'execute'),
+  'withdrawal_payout_missing is service-only');
+select ok(has_function_privilege('service_role', 'public.withdrawal_candidate_missing(uuid,text,int,boolean)', 'execute')
+      and not has_function_privilege('authenticated', 'public.withdrawal_candidate_missing(uuid,text,int,boolean)', 'execute')
+      and not has_function_privilege('anon', 'public.withdrawal_candidate_missing(uuid,text,int,boolean)', 'execute'),
+  'withdrawal_candidate_missing is service-only');
 
 -- ===== 2. carry (B): plain OR, same results =====
 select ok((select prosrc !~* '\mcase\M' and prosrc ~* 'w\.status in \(''approved'', ''paid''\)'
@@ -227,12 +268,29 @@ select throws_ok(format('select tests.yun(%L, 310, null)', current_setting('t.rb
 select throws_ok(format('select tests.yun(%L, 310, %L)', gen_random_uuid(), 'failed'),
   'not_found', 'an unknown request raises not_found');
 select is(tests.yun(current_setting('t.rb')::uuid, 311, 'failed'), false, 'a tx not linked to the request: false');
+-- fix round 1: the 30 minutes run from the first not-found mark, not from the scan
+update public.dao_safe_operations set created_at = now() - interval '2 days' where id = tests.yopid(310);
 select is(tests.yun(current_setting('t.rb')::uuid, 310, 'not_found'), false,
-  'not_found on an outflow scanned less than 30 minutes ago: false (a lagging node is not believed)');
+  'not_found without a missing mark: false, however old the scan (a lagging node is not believed)');
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 310, true), false, 'the first not-found only sets the mark');
+select is((select missing_since from public.dao_safe_operations where id = tests.yopid(310)), now(), 'missing_since = now()');
+select is(tests.yun(current_setting('t.rb')::uuid, 310, 'not_found'), false, 'a fresh mark does not unlink');
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 310, true), false, 'a second not-found within 30 minutes: false');
 select ok(tests.yopw(310) = current_setting('t.rb')::uuid and tests.yalerts(310) = 0, 'it stays linked, no alert');
-update public.dao_safe_operations set created_at = now() - interval '31 minutes' where id = tests.yopid(310);
+update public.dao_safe_operations set missing_since = now() - interval '31 minutes' where id = tests.yopid(310);
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 310, false), false, 'an ok verification clears the mark');
+select is((select missing_since from public.dao_safe_operations where id = tests.yopid(310)), null, 'missing_since is null');
+select is(tests.yun(current_setting('t.rb')::uuid, 310, 'not_found'), false, 'after the reset not_found does not unlink');
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 310, true), false, 'a new not-found starts a new mark');
+update public.dao_safe_operations set missing_since = now() - interval '31 minutes' where id = tests.yopid(310);
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 310, true), true, 'a not-found 30+ minutes after the mark: allowed');
+select is(tests.ycmiss(current_setting('t.rb')::uuid, 311, true), false, 'a tx not linked to the request: false');
+select throws_ok(format('select tests.ycmiss(%L, 310, null)', current_setting('t.rb')), 'invalid_input',
+  'a null p_missing raises invalid_input');
+select throws_ok(format('select tests.ycmiss(%L, 310, true)', gen_random_uuid()), 'not_found',
+  'an unknown request raises not_found');
 select is(tests.yun(current_setting('t.rb')::uuid, 310, 'not_found'), true,
-  'not_found on an outflow scanned more than 30 minutes ago: unlinked');
+  'not_found with a mark 30+ minutes old: unlinked');
 select is(tests.yopw(310), null, 'the outflow is no longer linked');
 select is(tests.yalerts(310), tests.ytreas(), 'and alerts the treasurers once');
 select ok((select alerted_at is not null from public.dao_safe_operations where id = tests.yopid(310)), 'marked alerted');
@@ -280,6 +338,48 @@ select is(tests.yopw(320), null, '(D) the stale link is removed');
 select is(tests.yalerts(320), tests.ytreas(), '(D) and the outflow alerts the treasurers once');
 select is(tests.yexp(), 0, 'a second expiry run changes nothing');
 select is(tests.yliab(null), 0::numeric, 'nothing is a liability');
+
+-- ===== 6. fix round 1: a recorded payout's not-found mark (withdrawal_payout_missing) =====
+-- T asks for all 2 (S_eff 6 after A's burn): 2 * 20 / 6 = 6.666666
+select set_config('t.rt', tests.yreq(current_setting('t.ut')::uuid, 2000000000000000000)::text, true);
+select is(tests.ya(current_setting('t.rt')::uuid, current_setting('t.t')::uuid, 20000000, 160) ->> 'amountUsdc', '6666666',
+  'T is approved at 6.666666 USDC');
+select throws_ok(format('select tests.ypmiss(%L, true)', current_setting('t.rt')), 'invalid_state',
+  'no recorded payout: invalid_state');
+select is(tests.yrec(current_setting('t.rt')::uuid, tests.ypay(330, 200, now() + interval '1 minute', tests.yw('t'), 6666666)),
+  '{"status": "recorded"}'::jsonb, 'T''s payout is recorded');
+select is(tests.ypmiss(current_setting('t.rt')::uuid, true), false, 'the first not-found only sets the mark');
+select is((select payout_missing_since from public.withdrawal_requests where id = current_setting('t.rt')::uuid), now(),
+  'payout_missing_since = now()');
+select is(tests.ypmiss(current_setting('t.rt')::uuid, true), false, 'a second not-found within 30 minutes: false');
+update public.withdrawal_requests set payout_missing_since = now() - interval '31 minutes' where id = current_setting('t.rt')::uuid;
+select is(tests.ypmiss(current_setting('t.rt')::uuid, true), true, 'a not-found 30+ minutes after the mark: allowed');
+select is(tests.ypmiss(current_setting('t.rt')::uuid, false), false, 'an ok verification clears the mark');
+select is((select payout_missing_since from public.withdrawal_requests where id = current_setting('t.rt')::uuid), null,
+  'payout_missing_since is null');
+select is(tests.ypmiss(current_setting('t.rt')::uuid, true), false, 'after the reset a not-found starts a new mark');
+select throws_ok(format('select tests.ycmiss(%L, 330, true)', current_setting('t.rt')), 'invalid_state',
+  'a recorded payout is not a candidate');
+select throws_ok(format('select tests.ypmiss(%L, true)', gen_random_uuid()), 'not_found', 'an unknown request raises not_found');
+select throws_ok(format('select tests.ypmiss(%L, null)', current_setting('t.rt')), 'invalid_input',
+  'a null p_missing raises invalid_input');
+select lives_ok(format('select tests.yrev(%L)', current_setting('t.rt')), 'the payout is reverted');
+select is((select (payout_missing_since is null) and (payout_tx_hash is null) from public.withdrawal_requests
+           where id = current_setting('t.rt')::uuid), true, 'the revert clears the mark with the payout');
+
+-- ===== 7. ruling F4c-R5: expiry never runs past what the scan covered =====
+select is(tests.yexp(), 0, 'a fresh approval does not expire however far the scan reached (the now() rule)');
+update public.withdrawal_requests set approved_at = approved_at - interval '15 days' where id = current_setting('t.rt')::uuid;
+select set_config('t.apt', (select approved_at::text from public.withdrawal_requests where id = current_setting('t.rt')::uuid), true);
+select is(tests.yexp(current_setting('t.apt')::timestamptz + interval '14 days 120 seconds'), 0,
+  'R5: scanned exactly through approved_at + 14 d + 120 s: not expired yet');
+select is(tests.yexp(now() + interval '100 days', 59144), 0, 'R5: another chain''s scan expires nothing on this one');
+select throws_ok('select tests.yexp(null)', 'invalid_input', 'R5: a null scanned-through raises invalid_input');
+select throws_ok('select tests.yexp(now(), 1)', 'invalid_input', 'R5: an unknown chain raises invalid_input');
+select is(tests.ystatus('rt'), 'approved', 'T stays approved');
+select is(tests.yexp(current_setting('t.apt')::timestamptz + interval '14 days 121 seconds'), 1,
+  'R5: scanned past approved_at + 14 d + 120 s: expired');
+select is(tests.ystatus('rt'), 'pending', 'T is pending again');
 
 select * from finish();
 rollback;

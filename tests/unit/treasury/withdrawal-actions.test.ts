@@ -10,13 +10,14 @@ vi.mock("next/cache", () => ({ revalidatePath }));
 
 const adminRpc = vi.hoisted(() => vi.fn());
 const tables = vi.hoisted(() => ({}) as Record<string, unknown>);
+const tableErrors = vi.hoisted(() => ({}) as Record<string, { message: string }>);
 const createAdminClient = vi.hoisted(() =>
   vi.fn(() => ({
     rpc: adminRpc,
     from: (table: string) => {
       const b: Record<string, unknown> = {};
       for (const m of ["select", "eq"]) b[m] = () => b;
-      b.maybeSingle = async () => ({ data: tables[table] ?? null, error: null });
+      b.maybeSingle = async () => (tableErrors[table] ? { data: null, error: tableErrors[table] } : { data: tables[table] ?? null, error: null });
       return b;
     },
   })),
@@ -60,6 +61,7 @@ beforeEach(() => {
   perms = "256";
   adminReplies = {};
   for (const k of Object.keys(tables)) delete tables[k];
+  for (const k of Object.keys(tableErrors)) delete tableErrors[k];
   tables.withdrawal_requests = {
     chain_id: 59141, member_id: MEMBER, status: "approved", destination_address: DEST, amount_usdc_locked: "8000000",
     approved_at: "2026-10-19T10:00:00.000Z", last_expired_at: null,
@@ -144,6 +146,31 @@ describe("quoteWithdrawalAction", () => {
     adminReplies.quote_withdrawal = [{ error: { message: "assets_stale" } }, { error: { message: "assets_stale" } }, { data: {} }];
     expect(await quoteWithdrawalAction(ID)).toMatchObject({ ok: false, code: "assets_stale" });
     expect(adminCalls("quote_withdrawal")).toHaveLength(2);
+  });
+
+  it("minor 3: a request read error is a Fail (unknown), not a throw", async () => {
+    tableErrors.withdrawal_requests = { message: "db down" };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await quoteWithdrawalAction(ID)).toMatchObject({ ok: false, code: "unknown" });
+    expect(await approveWithdrawalAction(ID)).toMatchObject({ ok: false, code: "unknown" });
+    expect(await markWithdrawalPaidAction(ID, HASH)).toMatchObject({ ok: false, code: "unknown" });
+    err.mockRestore();
+  });
+
+  it("minor 3: a members read error or a missing wallet is a Fail, never an empty destination", async () => {
+    adminReplies.quote_withdrawal = { data: { amountUsdc: "1", reservedUsdc: "0" } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    tableErrors.members = { message: "db down" };
+    expect(await quoteWithdrawalAction(ID)).toMatchObject({ ok: false, code: "unknown" });
+    delete tableErrors.members;
+    delete tables.members;
+    expect(await quoteWithdrawalAction(ID)).toMatchObject({ ok: false, code: "unknown" });
+    err.mockRestore();
+  });
+
+  it("minor 4: a malformed reservedUsdc is a Fail, not a BigInt throw", async () => {
+    adminReplies.quote_withdrawal = { data: { amountUsdc: "1", reservedUsdc: "1.5" } };
+    expect(await quoteWithdrawalAction(ID)).toMatchObject({ ok: false, code: "unknown" });
   });
 
   it("an unknown request is not_found; a malformed id is invalid_input with no call", async () => {

@@ -1,6 +1,7 @@
 import "server-only";
 import type { Address } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
+import { rpcErrorCode } from "@/lib/errors";
 import { chainClient } from "@/lib/payments/chain-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,8 +13,6 @@ export type PayoutTarget = { chain: ChainId; safe: Address; destination: string;
 type Db = ReturnType<typeof createAdminClient>;
 type Ok = Extract<VerifyResult, { status: "ok" }>;
 
-/** A not-found payout is only believed after it persisted this long (a lagging RPC node must not revert a real payment). */
-const NOT_FOUND_GRACE_MS = 30 * 60_000;
 /** Verification errors that mean a linked outflow is not (any more) a payment to that request. */
 const CANDIDATE_PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_too_old"]);
 /** record_withdrawal_payout refusals that will never change for that transfer and request. */
@@ -24,9 +23,10 @@ const FINAL_PERMANENT = new Set(["tx_failed", "tx_mismatch"]);
 /**
  * Verifies a withdrawal payout with the donation rules (receipt success, official USDC Transfer log, from the Safe, to the
  * destination, TIP_CONFIRMATIONS, not mined before approved_at − 120 s), except that the log may pay more than the
- * fixed amount (`atLeast`). The upper bound of the window (approved_at + 14 days) is enforced by SQL.
+ * fixed amount (`atLeast`). The upper bound of the window (approved_at + 14 days) is enforced by SQL. With
+ * `preferLogIndex` (a linked candidate's log), that log wins when it qualifies, so the recorded log is the linked one.
  */
-export function verifyPayout(t: PayoutTarget, txHash: `0x${string}`): Promise<VerifyResult> {
+export function verifyPayout(t: PayoutTarget, txHash: `0x${string}`, preferLogIndex?: number): Promise<VerifyResult> {
   return verifyTransfer({
     chain: t.chain,
     token: "USDC",
@@ -36,6 +36,7 @@ export function verifyPayout(t: PayoutTarget, txHash: `0x${string}`): Promise<Ve
     amount: t.amountLocked,
     atLeast: true,
     notBefore: t.approvedAt,
+    ...(preferLogIndex === undefined ? {} : { preferLogIndex }),
   });
 }
 
@@ -71,10 +72,29 @@ async function unlink(db: Db, c: CandidateRow, reason: "failed" | "not_found"): 
 }
 
 /**
+ * The candidate's not-found mark (as donation_missing): `missing` sets it on the first not-found and answers whether it
+ * is at least 30 minutes old; `!missing` (an ok verification) clears it. False on an RPC error (nothing is unlinked).
+ */
+async function candidateMissing(db: Db, c: CandidateRow, missing: boolean): Promise<boolean> {
+  const { data, error } = await db.rpc("withdrawal_candidate_missing", {
+    p_request: c.request_id,
+    p_tx_hash: c.tx_hash,
+    p_log_index: c.log_index,
+    p_missing: missing,
+  });
+  if (error) {
+    console.error("[treasury] withdrawal_candidate_missing failed", c.request_id, error.message);
+    return false;
+  }
+  return data === true;
+}
+
+/**
  * Cron step 1 per chain: the scan linked these Safe outflows to approved, unpaid requests. Each is verified on chain
- * and recorded with a null actor (no longer a liability from its block on). A candidate that fails for good (or the
- * record refuses for good) is unlinked, which alerts the treasurers once and lets the request be rejected or expire;
- * a pending or unreachable verification leaves it for the next run. Read errors throw (the cron reports "failed").
+ * (preferring its own log) and recorded with a null actor (no longer a liability from its block on). A candidate that
+ * fails for good (or the record refuses for good) is unlinked, which alerts the treasurers once and lets the request be
+ * rejected or expire. A not-found only unlinks once it persisted 30 minutes from its first mark; an ok verification
+ * clears the mark. A pending or unreachable verification leaves it for the next run. Read errors throw.
  */
 export async function detectWithdrawalPayouts(chain: ChainId): Promise<{ recorded: number }> {
   const db = createAdminClient();
@@ -95,13 +115,14 @@ export async function detectWithdrawalPayouts(chain: ChainId): Promise<{ recorde
         amountLocked: BigInt(c.amount_usdc_locked),
         approvedAt: new Date(c.approved_at),
       };
-      const r = await verifyPayout(target, c.tx_hash as `0x${string}`);
+      const r = await verifyPayout(target, c.tx_hash as `0x${string}`, c.log_index);
       if (r.status === "pending") continue;
       if (r.status === "error") {
         if (CANDIDATE_PERMANENT.has(r.code)) await unlink(db, c, "failed");
-        else if (r.code === "tx_not_found") await unlink(db, c, "not_found"); // SQL waits 30 min after the scan
+        else if (r.code === "tx_not_found" && (await candidateMissing(db, c, true))) await unlink(db, c, "not_found");
         continue;
       }
+      await candidateMissing(db, c, false);
       const { data: res, error: recError } = await db.rpc("record_withdrawal_payout", {
         p_request: c.request_id,
         p_safe: safe,
@@ -110,7 +131,7 @@ export async function detectWithdrawalPayouts(chain: ChainId): Promise<{ recorde
       });
       if (recError) {
         console.error("[treasury] record_withdrawal_payout failed", c.request_id, recError.message);
-        if (RECORD_PERMANENT.has(recError.message)) await unlink(db, c, "failed");
+        if (RECORD_PERMANENT.has(rpcErrorCode(recError))) await unlink(db, c, "failed");
         continue;
       }
       done.add(c.request_id);
@@ -135,8 +156,9 @@ type AwaitingRow = {
 /**
  * Cron step 2 per chain: recorded payouts at or below the finalized block are re-verified and burned
  * (finalize_withdrawal). tx_failed / tx_mismatch revert the payout (the request is approved again, its amount a
- * liability again); tx_not_found reverts only once the payout was recorded more than 30 minutes ago. Anything else,
- * and every row while the finalized block is unknown, stays pending.
+ * liability again); tx_not_found reverts only once it persisted 30 minutes from its first mark
+ * (withdrawal_payout_missing), and any ok verification clears the mark. Anything else, and every row while the
+ * finalized block is unknown, stays pending.
  */
 export async function finalizeWithdrawalPayouts(chain: ChainId): Promise<{ paid: number; reverted: number; pending: number }> {
   const result = { paid: 0, reverted: 0, pending: 0 };
@@ -168,6 +190,15 @@ export async function finalizeWithdrawalPayouts(chain: ChainId): Promise<{ paid:
   return result;
 }
 
+async function payoutMissing(db: Db, request: string, missing: boolean): Promise<boolean> {
+  const { data, error } = await db.rpc("withdrawal_payout_missing", { p_request: request, p_missing: missing });
+  if (error) {
+    console.error("[treasury] withdrawal_payout_missing failed", request, error.message);
+    return false;
+  }
+  return data === true;
+}
+
 async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingRow, fin: bigint): Promise<"paid" | "reverted" | "pending"> {
   const target: PayoutTarget = {
     chain,
@@ -189,10 +220,12 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
 
   if (r.status === "error") {
     if (FINAL_PERMANENT.has(r.code)) return revert();
-    if (r.code === "tx_not_found" && Date.now() - new Date(row.payout_recorded_at).getTime() > NOT_FOUND_GRACE_MS) return revert();
+    // a lagging node must not revert a real payout: only a not-found persisting 30 min from its first mark
+    if (r.code === "tx_not_found" && (await payoutMissing(db, row.request_id, true))) return revert();
     return "pending";
   }
   if (r.status !== "ok") return "pending";
+  await payoutMissing(db, row.request_id, false);
   // Finality is judged on the receipt's current block (a reorged-and-remined tx still verifies by hash).
   if (r.blockNumber > fin) return "pending";
 
@@ -209,9 +242,35 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
   return status === "paid" || status === "already" ? "paid" : "pending";
 }
 
-/** Global cron step after every chain's detection (Review Focus 4): lapsed approvals go back to pending. */
-export async function expireWithdrawalApprovals(): Promise<number> {
-  const { data, error } = await createAdminClient().rpc("expire_withdrawal_approvals");
+/**
+ * Ruling F4c-R5: the block time of the scan cursor (dao_scan_state.last_block), i.e. how far the Safe's outflows have
+ * been linked. Null without a cursor or when it cannot be read: that chain's approvals do not expire this run.
+ */
+export async function scanCursorTime(chain: ChainId): Promise<Date | null> {
+  try {
+    const { data, error } = await createAdminClient().rpc("dao_scan_from", { p_chain: chain });
+    if (error) {
+      console.error("[treasury] dao_scan_from failed", chain, error.message);
+      return null;
+    }
+    if (data === null || data === undefined || !/^\d+$/.test(String(data))) return null;
+    const block = await chainClient(chain).getBlock({ blockNumber: BigInt(String(data)) });
+    return new Date(Number(block.timestamp) * 1000);
+  } catch (e) {
+    console.error("[treasury] scan cursor block unavailable", chain, e);
+    return null;
+  }
+}
+
+/**
+ * Cron step after every chain's detection (Review Focus 4): the chain's lapsed approvals go back to pending, but only
+ * those whose whole payout window (+120 s) the scan has covered (`scannedThrough`, ruling F4c-R5).
+ */
+export async function expireWithdrawalApprovals(chain: ChainId, scannedThrough: Date): Promise<number> {
+  const { data, error } = await createAdminClient().rpc("expire_withdrawal_approvals", {
+    p_chain: chain,
+    p_scanned_through: scannedThrough.toISOString(),
+  });
   if (error) throw new Error(`expire_withdrawal_approvals failed: ${error.message}`);
   return Number(data ?? 0);
 }

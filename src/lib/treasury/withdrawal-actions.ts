@@ -45,15 +45,22 @@ type RequestRow = {
   last_expired_at: string | null;
 };
 
-async function readRequest(db: Db, id: string): Promise<RequestRow | null> {
+/** The request, or a Fail: not_found, or unknown on a read error (never a throw out of the action). */
+async function readRequest(db: Db, id: string): Promise<RequestRow | Fail> {
   const { data, error } = await db
     .from("withdrawal_requests")
     .select("chain_id, member_id, status, destination_address, amount_usdc_locked:amount_usdc_locked::text, approved_at, last_expired_at")
     .eq("id", id)
     .maybeSingle<RequestRow>();
-  if (error) throw new Error(error.message);
-  return data ?? null;
+  if (error) {
+    console.error("[treasury] withdrawal request read failed", id, error.message);
+    return fail("unknown");
+  }
+  return data ?? fail("not_found");
 }
+
+const isFail = (v: object): v is Fail => (v as { ok?: unknown }).ok === false;
+const DIGITS = /^\d{1,78}$/;
 
 async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
   try {
@@ -120,9 +127,18 @@ export async function quoteWithdrawalAction(id: string): Promise<
 
   const db = createAdminClient();
   const req = await readRequest(db, id);
-  if (!req) return fail("not_found");
+  if (isFail(req)) return req;
   if (!isChainId(req.chain_id)) return fail("invalid_state");
-  const { data: member } = await db.from("members").select("wallet_address").eq("id", req.member_id).maybeSingle<{ wallet_address: string }>();
+  const { data: member, error: memberError } = await db
+    .from("members")
+    .select("wallet_address")
+    .eq("id", req.member_id)
+    .maybeSingle<{ wallet_address: string }>();
+  if (memberError || !member?.wallet_address) {
+    console.error("[treasury] member wallet read failed", req.member_id, memberError?.message);
+    return fail("unknown");
+  }
+  const destination = member.wallet_address.toLowerCase();
 
   const r = await withValuation(
     req.chain_id,
@@ -135,16 +151,20 @@ export async function quoteWithdrawalAction(id: string): Promise<
       }),
     (data, v) => {
       const q = (data ?? {}) as { amountUsdc?: unknown; reservedUsdc?: unknown };
-      const reserved = BigInt(String(q.reservedUsdc ?? "0"));
+      const reservedText = String(q.reservedUsdc ?? "0");
+      const amountText = String(q.amountUsdc ?? "0");
+      // minor 4: never BigInt() a malformed RPC value (it would throw out of the action)
+      if (!DIGITS.test(reservedText) || !DIGITS.test(amountText)) return fail("unknown");
+      const reserved = BigInt(reservedText);
       const safeUsdc = v.assets.usdc;
       const available = safeUsdc > reserved ? safeUsdc - reserved : 0n;
       return {
         ok: true as const,
         quote: {
-          amountUsdc: String(q.amountUsdc ?? "0"),
+          amountUsdc: amountText,
           safeUsdc: safeUsdc.toString(),
           availableUsdc: available.toString(),
-          destination: (member?.wallet_address ?? "").toLowerCase(),
+          destination,
           selfApproval: req.member_id === me,
         },
       };
@@ -162,7 +182,7 @@ export async function approveWithdrawalAction(id: string): Promise<{ ok: true; a
 
   const db = createAdminClient();
   const req = await readRequest(db, id);
-  if (!req) return fail("not_found");
+  if (isFail(req)) return req;
   if (!isChainId(req.chain_id)) return fail("invalid_state");
 
   const r = await withValuation(
@@ -203,7 +223,7 @@ export async function markWithdrawalPaidAction(id: string, txHash: string): Prom
 
   const db = createAdminClient();
   const req = await readRequest(db, id);
-  if (!req) return fail("not_found");
+  if (isFail(req)) return req;
   if (!isChainId(req.chain_id)) return fail("invalid_state");
   if (req.status !== "approved" || !req.amount_usdc_locked || !req.approved_at || !req.destination_address) {
     return fail(req.status === "pending" && req.last_expired_at ? "approval_expired" : "invalid_state");

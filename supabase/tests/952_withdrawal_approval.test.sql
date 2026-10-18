@@ -61,7 +61,7 @@ create function tests.xexp() returns int language plpgsql as $$
 declare v int;
 begin
   set local role service_role;
-  v := public.expire_withdrawal_approvals();
+  v := public.expire_withdrawal_approvals(59141, now() + interval '100 days'); -- R5: scan far ahead
   reset role;
   return v;
 end;
@@ -163,9 +163,9 @@ select ok(has_function_privilege('service_role', 'public.approve_withdrawal(uuid
       and not has_function_privilege('authenticated', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)', 'execute')
       and not has_function_privilege('anon', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)', 'execute'),
   'approve_withdrawal is service-only');
-select ok(has_function_privilege('service_role', 'public.expire_withdrawal_approvals()', 'execute')
-      and not has_function_privilege('authenticated', 'public.expire_withdrawal_approvals()', 'execute')
-      and not has_function_privilege('anon', 'public.expire_withdrawal_approvals()', 'execute'),
+select ok(has_function_privilege('service_role', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
+      and not has_function_privilege('authenticated', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
+      and not has_function_privilege('anon', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute'),
   'expire_withdrawal_approvals is service-only');
 select ok(has_function_privilege('authenticated', 'public.reject_withdrawal(uuid,text)', 'execute')
       and not has_function_privilege('anon', 'public.reject_withdrawal(uuid,text)', 'execute'),
@@ -176,7 +176,7 @@ select ok(has_function_privilege('authenticated', 'public.treasury_withdrawals()
 select ok((select bool_and(prosecdef and proconfig @> array['search_path=""']) from pg_proc
            where oid in ('public.quote_withdrawal(uuid,text,numeric,bigint)'::regprocedure,
                          'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)'::regprocedure,
-                         'public.expire_withdrawal_approvals()'::regprocedure,
+                         'public.expire_withdrawal_approvals(int,timestamptz)'::regprocedure,
                          'public.reject_withdrawal(uuid,text)'::regprocedure,
                          'public.treasury_withdrawals()'::regprocedure)),
   'the new functions are definer with an empty search_path');

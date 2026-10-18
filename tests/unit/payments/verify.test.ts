@@ -126,6 +126,12 @@ describe("verifyTransfer USDC atLeast (withdrawal payouts)", () => {
     ];
     expect(await verifyTransfer(payout, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 3, value: 8_100000n });
   });
+  it("prefers the given log index when that log qualifies, else the first qualifying log", async () => {
+    const logs = [transferLog(USDC, PAYER, TO, 9_000000n, 2), transferLog(USDC, PAYER, TO, 8_100000n, 3), transferLog(USDC, PAYER, TO, 1n, 4)];
+    expect(await verifyTransfer({ ...payout, preferLogIndex: 3 }, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 3, value: 8_100000n });
+    expect(await verifyTransfer({ ...payout, preferLogIndex: 4 }, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 2 });
+    expect(await verifyTransfer({ ...payout, preferLogIndex: 99 }, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 2 });
+  });
   it("without atLeast an overpayment is still a mismatch (exact match for tips and donations)", async () => {
     const exact = { ...payout, atLeast: undefined };
     expect(await verifyTransfer(exact, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 8_500000n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });

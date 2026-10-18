@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts } from "@/lib/treasury/payouts";
+import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts, scanCursorTime } from "@/lib/treasury/payouts";
 import { scanSafeOperations } from "@/lib/treasury/scan";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 import { takeSnapshot } from "@/lib/treasury/snapshot";
@@ -30,13 +30,16 @@ type ChainReport = {
   pending?: number;
   skipped?: "safe_not_configured";
   error?: "settle_failed";
+  /** Ruling F4c-R5: "skipped" when this run's scan failed (or its cursor time is unknown): nothing expires past it. */
+  expiredApprovals?: number | "failed" | "skipped";
 };
 
 /**
  * Per chain, in order: NAV snapshot (hourly, throttled in SQL) → Safe operations scan → withdrawal payouts (detect the
  * scanned outflows, then burn the recorded ones at finality) → settlement of pending donations at market NAV. After
- * every chain, lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window is recorded
- * before its approval could lapse (Review Focus 4). Each step is isolated: one failing never stops the others. Protected by
+ * every chain, each chain's lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window
+ * is recorded before its approval could lapse (Review Focus 4), and the expiry is bounded by the block time of the scan
+ * cursor that chain just reached; a chain whose scan failed this run expires nothing (ruling F4c-R5). Each step is isolated: one failing never stops the others. Protected by
  * `Authorization: Bearer ${CRON_SECRET}`. POST for external schedulers, GET for Vercel Cron (which sends GET with the
  * same header); both share the handler.
  */
@@ -57,6 +60,7 @@ async function handle(request: Request) {
   );
 
   const chains: ChainReport[] = [];
+  const scannedThrough = new Map<ChainId, Date>();
   for (const chainId of CHAIN_IDS) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
@@ -68,6 +72,10 @@ async function handle(request: Request) {
       }
       try {
         report.scan = await scanSafeOperations(chainId);
+        if (report.scan) {
+          const at = await scanCursorTime(chainId);
+          if (at) scannedThrough.set(chainId, at);
+        }
       } catch (e) {
         console.error("[cron/dao] scan failed", chainId, e);
         report.scan = "failed";
@@ -94,14 +102,21 @@ async function handle(request: Request) {
     chains.push(report);
   }
 
-  let expiredApprovals: number | "failed";
-  try {
-    expiredApprovals = await expireWithdrawalApprovals();
-  } catch (e) {
-    console.error("[cron/dao] approval expiry failed", e);
-    expiredApprovals = "failed";
+  for (const report of chains) {
+    if (!withSafe.has(report.chainId)) continue;
+    const at = scannedThrough.get(report.chainId);
+    if (!at) {
+      report.expiredApprovals = "skipped";
+      continue;
+    }
+    try {
+      report.expiredApprovals = await expireWithdrawalApprovals(report.chainId, at);
+    } catch (e) {
+      console.error("[cron/dao] approval expiry failed", report.chainId, e);
+      report.expiredApprovals = "failed";
+    }
   }
-  return Response.json({ chains, expiredApprovals });
+  return Response.json({ chains });
 }
 
 export const POST = handle;

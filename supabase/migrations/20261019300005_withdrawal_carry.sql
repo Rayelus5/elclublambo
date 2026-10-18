@@ -13,8 +13,20 @@
 --       one treasury_outflow alert each (they would otherwise stay "Sin explicar" without ever alerting).
 --   (E) unlink_withdrawal_candidate (service_role): when the server's verification of a linked candidate fails for
 --       good, the link is removed with one alert and an audit entry, so the request can be rejected or expire and stops
---       being a liability forever. 'failed' unlinks at once; 'not_found' only once the outflow was scanned more than
---       30 minutes ago (a lagging RPC node is not believed, as for donations).
+--       being a liability forever. 'failed' unlinks at once; 'not_found' only once the outflow's not-found mark is
+--       30 minutes old (a lagging RPC node is not believed, as for donations).
+--
+--   Fix round 1 (Task 5 review):
+--   - Not-found marks mirror donations' missing_since (donation_missing): withdrawal_requests.payout_missing_since for
+--     a recorded payout (withdrawal_payout_missing) and dao_safe_operations.missing_since for a linked candidate
+--     (withdrawal_candidate_missing). The first not-found sets the mark, any ok verification clears it, and the
+--     server reverts / unlinks on not-found only once the mark is at least 30 minutes old. A revert clears the mark.
+--   - Ruling F4c-R5: expiry never runs past what the scan covered. expire_withdrawal_approvals(p_chain,
+--     p_scanned_through) also requires approved_at + 14 d + 120 s < p_scanned_through (the block time of the scan
+--     cursor the cron just reached), so a payout mined at the end of the window is linked before its approval lapses.
+
+alter table public.withdrawal_requests add column payout_missing_since timestamptz;
+alter table public.dao_safe_operations add column missing_since timestamptz;
 
 -- ===== _dao_liabilities_usd6 (latest 20261019300004): plain OR (carry B) =====
 create or replace function public._dao_liabilities_usd6(p_chain int, p_at_block bigint)
@@ -146,8 +158,11 @@ begin
 end;
 $$;
 
--- ===== expire_withdrawal_approvals (latest 20261019300004): re-check under the lock (A), stale links alert (D) =====
-create or replace function public.expire_withdrawal_approvals()
+-- ===== expire_withdrawal_approvals (latest 20261019300004): per chain, bounded by the scan (R5), re-check under the
+-- lock (A), stale links alert (D). The argument-less version is dropped: it could expire past what the scan covered.
+drop function public.expire_withdrawal_approvals();
+
+create function public.expire_withdrawal_approvals(p_chain int, p_scanned_through timestamptz)
 returns int
 language plpgsql
 security definer
@@ -159,10 +174,17 @@ declare
   w public.withdrawal_requests;
   v_n int := 0;
 begin
+  if p_chain is null or p_chain not in (59144, 59141) or p_scanned_through is null then
+    raise exception 'invalid_input';
+  end if;
+
   -- every lapsed approval's row first, in id order (lock order: request rows -> dao_state)
   select coalesce(array_agg(x.id order by x.id), '{}') into v_ids
   from (select r.id from public.withdrawal_requests r
-        where r.status = 'approved' and r.payout_tx_hash is null and r.approved_at < now() - interval '14 days'
+        where r.chain_id = p_chain and r.status = 'approved' and r.payout_tx_hash is null
+          and r.approved_at < now() - interval '14 days'
+          -- R5: the scan has covered the whole payout window (plus the 120 s clock tolerance)
+          and r.approved_at + interval '14 days 120 seconds' < p_scanned_through
         order by r.id
         for update) x;
 
@@ -170,7 +192,8 @@ begin
     -- carry A: each statement sees what committed while we waited for the locks (a scan's link included)
     select * into w from public.withdrawal_requests r where r.id = v_id;
     if not found or w.status <> 'approved' or w.payout_tx_hash is not null
-       or w.approved_at >= now() - interval '14 days' then
+       or w.approved_at >= now() - interval '14 days'
+       or w.approved_at + interval '14 days 120 seconds' >= p_scanned_through then
       continue;
     end if;
     -- F4c-R3: a payment mined inside the window and awaiting verification must not be expired
@@ -252,11 +275,12 @@ begin
   if not found then
     return false;
   end if;
-  if p_reason = 'not_found' and o.created_at > now() - interval '30 minutes' then
+  -- fix round 1: believed only once the first not-found mark (withdrawal_candidate_missing) is 30 minutes old
+  if p_reason = 'not_found' and (o.missing_since is null or o.missing_since > now() - interval '30 minutes') then
     return false;
   end if;
 
-  update public.dao_safe_operations set withdrawal_id = null where id = o.id;
+  update public.dao_safe_operations set withdrawal_id = null, missing_since = null where id = o.id;
   if o.alerted_at is null then
     insert into public.notifications (recipient_id, kind, data)
     select m.id, 'treasury_outflow', jsonb_build_object('opId', o.id, 'asset', o.asset, 'amount', o.amount::text)
@@ -272,7 +296,131 @@ begin
 end;
 $$;
 
+-- ===== withdrawal_payout_missing (service_role): a recorded payout's not-found mark, as donation_missing =====
+-- p_missing true: sets the mark on the first call, then answers whether it is at least 30 minutes old (revert allowed).
+-- p_missing false (any ok verification): clears it. Only an approved request with a recorded payout has one.
+create function public.withdrawal_payout_missing(p_request uuid, p_missing boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  w public.withdrawal_requests;
+begin
+  select * into w from public.withdrawal_requests x where x.id = p_request for update;
+  if not found then
+    raise exception 'not_found';
+  end if;
+  if w.status <> 'approved' or w.payout_tx_hash is null then
+    raise exception 'invalid_state';
+  end if;
+  if p_missing is null then
+    raise exception 'invalid_input';
+  end if;
+  if not p_missing then
+    update public.withdrawal_requests set payout_missing_since = null where id = w.id and payout_missing_since is not null;
+    return false;
+  end if;
+  if w.payout_missing_since is null then
+    update public.withdrawal_requests set payout_missing_since = now() where id = w.id;
+    return false;
+  end if;
+  return w.payout_missing_since <= now() - interval '30 minutes';
+end;
+$$;
+
+-- ===== withdrawal_candidate_missing (service_role): a linked candidate's not-found mark, same rule =====
+-- False (and no mark) when that outflow is not linked to the request.
+create function public.withdrawal_candidate_missing(p_request uuid, p_tx_hash text, p_log_index int, p_missing boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  w public.withdrawal_requests;
+  o public.dao_safe_operations;
+  v_hash text := lower(p_tx_hash);
+begin
+  if p_missing is null or v_hash is null or v_hash !~ '^0x[0-9a-f]{64}$' or p_log_index is null or p_log_index < 0 then
+    raise exception 'invalid_input';
+  end if;
+  select * into w from public.withdrawal_requests x where x.id = p_request for update;
+  if not found then
+    raise exception 'not_found';
+  end if;
+  if w.status <> 'approved' or w.payout_tx_hash is not null then
+    raise exception 'invalid_state';
+  end if;
+  select * into o from public.dao_safe_operations x
+  where x.withdrawal_id = w.id and x.chain_id = w.chain_id and x.tx_hash = v_hash and x.log_index = p_log_index
+  for update;
+  if not found then
+    return false;
+  end if;
+  if not p_missing then
+    update public.dao_safe_operations set missing_since = null where id = o.id and missing_since is not null;
+    return false;
+  end if;
+  if o.missing_since is null then
+    update public.dao_safe_operations set missing_since = now() where id = o.id;
+    return false;
+  end if;
+  return o.missing_since <= now() - interval '30 minutes';
+end;
+$$;
+
+-- ===== revert_withdrawal_payout (latest 20261019300004): also clears the not-found mark =====
+create or replace function public.revert_withdrawal_payout(p_request uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  w public.withdrawal_requests;
+begin
+  select * into w from public.withdrawal_requests x where x.id = p_request for update;
+  if not found then
+    raise exception 'not_found';
+  end if;
+  if w.status <> 'approved' or w.payout_tx_hash is null then
+    raise exception 'invalid_state';
+  end if;
+
+  update public.withdrawal_requests
+  set payout_tx_hash = null,
+      payout_log_index = null,
+      payout_block = null,
+      payout_amount = null,
+      payout_recorded_at = null,
+      payout_recorded_by = null,
+      payout_missing_since = null,
+      updated_at = now()
+  where id = w.id;
+
+  -- its outflow is unexplained again
+  perform public._withdrawal_unlink_ops(w.id, null, null);
+
+  -- R4: the cleared payout stays in the money trail
+  insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+  values (null, 'withdrawal_payout_reverted', 'withdrawal_request', w.id, jsonb_build_object(
+    'request', w.id, 'txHash', w.payout_tx_hash, 'logIndex', w.payout_log_index, 'blockNumber', w.payout_block,
+    'amount', w.payout_amount::text));
+end;
+$$;
+
 -- ===== grants =====
-revoke execute on function public.unlink_withdrawal_candidate(uuid, text, int, text)
-  from public, anon, authenticated, service_role;
-grant execute on function public.unlink_withdrawal_candidate(uuid, text, int, text) to service_role;
+revoke execute on function
+  public.unlink_withdrawal_candidate(uuid, text, int, text),
+  public.expire_withdrawal_approvals(int, timestamptz),
+  public.withdrawal_payout_missing(uuid, boolean),
+  public.withdrawal_candidate_missing(uuid, text, int, boolean)
+from public, anon, authenticated, service_role;
+grant execute on function
+  public.unlink_withdrawal_candidate(uuid, text, int, text),
+  public.expire_withdrawal_approvals(int, timestamptz),
+  public.withdrawal_payout_missing(uuid, boolean),
+  public.withdrawal_candidate_missing(uuid, text, int, boolean)
+to service_role;
