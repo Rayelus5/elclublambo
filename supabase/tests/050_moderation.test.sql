@@ -26,7 +26,12 @@ insert into public.member_roles (member_id, role_id)
   select m, r.id from public.roles r,
     unnest(array[current_setting('t.sp')::uuid, current_setting('t.sp2')::uuid,
                  current_setting('t.mod')::uuid, current_setting('t.peer')::uuid]) m where r.name = 'Padrino';
--- mod: Padrino (position 10) + BAN_MEMBERS (32) + MANAGE_ROLES (64) via override
+-- mod and peer rank at position 10 through a plain role (system_key roles such as Padrino never raise the rank,
+-- 20261019000004_polish_review_fixes.sql); mod: + BAN_MEMBERS (32) + MANAGE_ROLES (64) via override
+insert into public.roles (name, color, position, permissions) values ('Rango10', '#112233', 10, 0);
+insert into public.member_roles (member_id, role_id)
+  select m, r.id from public.roles r,
+    unnest(array[current_setting('t.mod')::uuid, current_setting('t.peer')::uuid]) m where r.name = 'Rango10';
 insert into public.member_permission_overrides (member_id, allow) values (current_setting('t.mod')::uuid, 96);
 -- extra roles for set_member_role hierarchy checks
 insert into public.roles (name, color, position, permissions) values ('Helper', '#112233', 5, 0);
