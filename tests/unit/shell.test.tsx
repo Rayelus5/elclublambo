@@ -23,10 +23,57 @@ function renderSidebar(perms: bigint) {
   return render(<Sidebar perms={perms} wallet={WALLET} />);
 }
 
+/** The desktop top bar (rendered first); the second banner is the mobile bar. */
+const desktopBar = () => screen.getAllByRole("banner")[0]!;
+const mobileBar = () => screen.getAllByRole("banner")[1]!;
+
 describe("Sidebar", () => {
-  it("shows a Buscar button in the sidebar and in the mobile top bar", () => {
+  it("shows a Buscar button in the desktop top bar and in the mobile top bar", () => {
     renderSidebar(7n);
-    expect(screen.getAllByRole("button", { name: /^Buscar/ })).toHaveLength(2);
+    expect(within(desktopBar()).getByRole("button", { name: /^Buscar/ })).toHaveAttribute("aria-keyshortcuts", "Control+K Meta+K");
+    expect(within(mobileBar()).getByRole("button", { name: "Buscar" })).toBeInTheDocument();
+  });
+
+  it("puts the primary navigation in the desktop top bar, horizontally", () => {
+    renderSidebar(512n);
+    const nav = within(desktopBar()).getByRole("navigation", { name: "Principal" });
+    expect(nav.querySelector("ul")).toHaveClass("flex-row");
+    for (const name of ["Inicio", "Tickets", "Invitaciones", "Miembros", "Ajustes"]) {
+      expect(within(nav).getByRole("link", { name })).toBeInTheDocument();
+    }
+  });
+
+  it("keeps the desktop top bar hidden below 768px and the mobile bar hidden above", () => {
+    renderSidebar(7n);
+    expect(desktopBar()).toHaveClass("hidden", "md:flex");
+    expect(mobileBar()).toHaveClass("md:hidden");
+  });
+
+  it("leaves only the channels in the aside", () => {
+    render(<Sidebar perms={512n} wallet={WALLET} canModerate />);
+    const aside = screen.getByRole("complementary");
+    expect(within(aside).getByRole("navigation", { name: "Canales" })).toBeInTheDocument();
+    for (const name of ["Inicio", "Tickets", "Invitaciones", "Miembros", "Reportes", "Ajustes", /Mi perfil/]) {
+      expect(within(aside).queryByRole("link", { name })).toBeNull();
+    }
+    expect(within(aside).queryByRole("button", { name: "Salir" })).toBeNull();
+  });
+
+  it("underlines the active top bar link and labels it for screen readers at every width", () => {
+    pathname.value = "/tickets";
+    renderSidebar(7n);
+    const link = within(desktopBar()).getByRole("link", { name: "Tickets" });
+    expect(link).toHaveAttribute("aria-current", "page");
+    expect(link).toHaveClass("border-b-2", "border-accent");
+    expect(within(desktopBar()).getByRole("link", { name: "Inicio" })).toHaveClass("border-transparent");
+  });
+
+  it("has the bell, the profile and sign out on the right of the desktop top bar", () => {
+    renderSidebar(7n);
+    const bar = within(desktopBar());
+    expect(bar.getByRole("link", { name: "Notificaciones" })).toHaveAttribute("href", "/notifications");
+    expect(bar.getByRole("link", { name: /Mi perfil/ })).toHaveAttribute("href", `/u/${WALLET}`);
+    expect(bar.getByRole("button", { name: "Salir" })).toBeInTheDocument();
   });
 
   it("always shows Inicio", () => {
@@ -67,9 +114,9 @@ describe("Sidebar", () => {
 
   it("makes the mobile top bar brand a link home, styled like the sidebar brand", () => {
     renderSidebar(7n);
-    const topbarBrand = within(screen.getByRole("banner")).getByRole("link", { name: "El Club." });
+    const topbarBrand = within(mobileBar()).getByRole("link", { name: "El Club." });
     expect(topbarBrand).toHaveAttribute("href", "/");
-    const sidebarBrand = within(screen.getByRole("complementary")).getByRole("link", { name: "El Club." });
+    const sidebarBrand = within(desktopBar()).getByRole("link", { name: "El Club." });
     expect(topbarBrand.className).toContain("font-display");
     expect(topbarBrand.className).toContain("focus-visible:ring-accent");
     expect(sidebarBrand.className).toContain("font-display");

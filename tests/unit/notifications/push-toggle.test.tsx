@@ -47,16 +47,18 @@ afterEach(() => {
 });
 
 describe("PushToggle", () => {
-  it("renders nothing without the public key", async () => {
+  it("explains that desktop notices are not configured without the public key", async () => {
     fakeSupport({});
-    const { container } = render(<PushToggle publicKey={undefined} />);
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    render(<PushToggle publicKey={undefined} />);
+    expect(await screen.findByText(/Los avisos de escritorio no están configurados en este servidor/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
-  it("renders nothing without browser support", async () => {
+  it("explains that the browser cannot receive notices without support", async () => {
     removeSupport();
-    const { container } = render(<PushToggle publicKey={KEY} />);
-    await waitFor(() => expect(container).toBeEmptyDOMElement());
+    render(<PushToggle publicKey={KEY} />);
+    expect(await screen.findByText(/Este navegador no admite avisos de escritorio/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
   });
 
   it("asks permission only on click, subscribes with userVisibleOnly and saves", async () => {

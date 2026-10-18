@@ -147,8 +147,8 @@ describe("Sidebar with channels", () => {
 
   it.each([[128n], [64n], [512n]])("shows the Ajustes link for perms %s", (perms) => {
     render(<Sidebar perms={perms} wallet="0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" channels={ROWS} />);
-    const aside = screen.getByRole("complementary");
-    expect(within(aside).getByRole("link", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
+    const desktopBar = screen.getAllByRole("banner")[0]!;
+    expect(within(desktopBar).getByRole("link", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
   });
 
   it("hides the Ajustes link without manage permissions", () => {
