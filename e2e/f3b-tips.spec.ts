@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, messageWith, openChannel, rpcAs, send, service, type Actor } from "./helpers/f2c";
+import { watchCsp } from "./helpers/csp";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F3b acceptance on a local Hardhat chain (e2e/chain/start-chain.mjs, started by playwright.config.ts) whose chain id
@@ -110,6 +111,8 @@ const dbTipsFor = async (fromMember: string) => {
 };
 
 test("1. USDC tip with fee: two signatures, badge live for everyone, thread notice, bell, platform balance +0.26", async () => {
+  // F5 Task 3: the whole payment (AppKit modal, wallet RPC, Realtime badge) runs under the full CSP without a violation.
+  const cspA = await watchCsp(a.page);
   // Admin sets 2.6 % and the Sepolia platform wallet (a Hardhat account).
   const p = admin.page;
   await p.goto("/settings/economia");
@@ -182,6 +185,7 @@ test("1. USDC tip with fee: two signatures, badge live for everyone, thread noti
   expect(tips[0]!.message_id).toBe(messageId);
   firstTip = { main: tips[0]!.main_tx_hash, fee: tips[0]!.fee_tx_hash! };
   expect(walletA.sent).toEqual([firstTip.fee, firstTip.main]);
+  expect(await cspA()).toEqual([]);
 });
 
 test("2. anonymous ETH tip on B's profile: B and a third member see Anónimo, never the donor", async () => {

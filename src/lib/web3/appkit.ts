@@ -65,6 +65,10 @@ export const appKit =
           onramp: false,
           analytics: false,
         },
+        // MetaMask and OKX only. AppKit otherwise adds the Coinbase Wallet / Base Account connectors, and creating the
+        // Coinbase one loads its telemetry script (cca-lite.coinbase.com), outside the CSP (src/lib/security/headers.ts).
+        enableCoinbase: false,
+        enableBaseAccount: false,
         featuredWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
         includeWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
       });
