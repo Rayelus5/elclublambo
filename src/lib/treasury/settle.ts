@@ -158,6 +158,8 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
     p_ledger: row.id,
     p_assets_usd6: v.assetsUsd6.toString(),
     p_assets_block: v.blockNumber.toString(),
+    // F4d: open WETH prizes are liabilities valued at the price of this valuation (the credit-time price)
+    p_eth_price_e8: v.priceE8.toString(),
   });
   if (error) {
     // shares_zero: too small for the fund's value, left pending for the treasurer. assets_stale / invalid_state: retried.

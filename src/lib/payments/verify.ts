@@ -3,10 +3,14 @@ import { erc20Abi, parseEventLogs, type PublicClient } from "viem";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import type { Token } from "@/lib/payments/amounts";
 import { chainClient } from "@/lib/payments/chain-client";
+import { addressesFor } from "@/lib/treasury/valuation";
+
+/** WETH only pays raffle prizes (F4d); tips and donations stay ETH / USDC. */
+export type VerifyToken = Token | "WETH";
 
 export type VerifyInput = {
   chain: ChainId;
-  token: Token;
+  token: VerifyToken;
   txHash: `0x${string}`;
   from: string;
   to: string;
@@ -14,11 +18,11 @@ export type VerifyInput = {
   notBefore: Date;
   confirmations?: number;
   /**
-   * USDC only (withdrawal payouts): accept the first Transfer log, in log order, that pays at least `amount` (the payer
-   * may round up). Without it the value must match exactly. Native ETH is always exact.
+   * ERC-20 only (withdrawal and prize payouts): accept the first Transfer log, in log order, that pays at least
+   * `amount` (the payer may round up). Without it the value must match exactly. Native ETH is always exact.
    */
   atLeast?: boolean;
-  /** USDC only: when this log qualifies it wins over earlier qualifying logs (a linked candidate's log). */
+  /** ERC-20 only: when this log qualifies it wins over earlier qualifying logs (a linked candidate's log). */
   preferLogIndex?: number;
 };
 
@@ -96,13 +100,17 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
       value = tx.value;
     } else {
-      const usdc = NETWORKS[input.chain].usdc;
+      // The official token contract: USDC from NETWORKS (as before); WETH from addressesFor, i.e. the canonical WETH, or
+      // the local chain's mock through WETH_ADDRESS_59141 (testnet only, F4a-R10). Without WETH on the chain, a WETH
+      // payout can never match.
+      const contract = input.token === "USDC" ? NETWORKS[input.chain].usdc : addressesFor(input.chain).weth;
+      if (!contract) return err("tx_mismatch");
       const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true }).sort(
         (a, b) => a.logIndex - b.logIndex,
       );
       const pays = (v: bigint) => (input.atLeast ? v >= input.amount : v === input.amount);
       const qualifying = logs.filter(
-        (l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value),
+        (l) => same(l.address, contract) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value),
       );
       const hit = qualifying.find((l) => l.logIndex === input.preferLogIndex) ?? qualifying[0];
       if (!hit) return err("tx_mismatch");

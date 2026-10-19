@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts, scanCursorTime } from "@/lib/treasury/payouts";
+import { runRaffleSteps, type RaffleReport } from "@/lib/treasury/raffle-cron";
 import { scanSafeOperations } from "@/lib/treasury/scan";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 import { takeSnapshot } from "@/lib/treasury/snapshot";
@@ -25,6 +26,8 @@ type ChainReport = {
   snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
   scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
   payouts?: { recorded: number; paid: number; reverted: number; pending: number } | "failed";
+  /** F4d: close → draw → prize payouts (detect, finalize) → unpaid notices. */
+  raffles?: RaffleReport;
   credited?: number;
   reverted?: number;
   pending?: number;
@@ -36,7 +39,8 @@ type ChainReport = {
 
 /**
  * Per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
- * burn the recorded ones at finality) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
+ * burn the recorded ones at finality) → raffles (F4d: close due raffles, draw at the finalized first block after the
+ * close, detect and finalize prize payouts, unpaid notices) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
  * market NAV. The scan comes first so every payout already mined is linked before anything is valued (and the
  * valuations read the Safe at the cursor it just reached while withdrawals are approved and unpaid). After
  * every chain, each chain's lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window
@@ -86,6 +90,14 @@ async function handle(request: Request) {
         return null;
       });
       report.payouts = detected && finalized ? { ...detected, ...finalized } : "failed";
+      // F4d: raffles after the withdrawal payouts (the scan already linked prize outflows, R4 order) and before the
+      // snapshot, so a recorded or voided prize is settled before the fund is valued
+      try {
+        report.raffles = await runRaffleSteps(chainId);
+      } catch (e) {
+        console.error("[cron/dao] raffles failed", chainId, e);
+        report.raffles = "failed";
+      }
       // F4c-R7 (c): only after the scan, so a payout already mined is linked and the snapshot does not dip by it
       try {
         report.snapshot = await takeSnapshot(chainId);

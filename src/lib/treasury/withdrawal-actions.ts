@@ -164,6 +164,8 @@ export async function quoteWithdrawalAction(id: string): Promise<
         p_safe: v.safe,
         p_assets_usd6: v.assetsUsd6.toString(),
         p_assets_block: v.blockNumber.toString(),
+        // F4d: open WETH prizes are valued at this valuation's ETH price
+        p_eth_price_e8: v.priceE8.toString(),
       }),
     (data, v) => {
       const q = (data ?? {}) as { amountUsdc?: unknown; reservedUsdc?: unknown };
@@ -210,6 +212,7 @@ export async function approveWithdrawalAction(id: string): Promise<{ ok: true; a
         p_safe: v.safe,
         p_assets_usd6: v.assetsUsd6.toString(),
         p_assets_block: v.blockNumber.toString(),
+        p_eth_price_e8: v.priceE8.toString(),
       }),
     (data) => ({ ok: true as const, amountUsdc: String((data as { amountUsdc?: unknown } | null)?.amountUsdc ?? "0") }),
   );

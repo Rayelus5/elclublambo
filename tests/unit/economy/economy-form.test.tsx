@@ -24,7 +24,7 @@ const PLAT = "0x2222222222222222222222222222222222222222";
 const config: EconomyConfig = {
   activeChainId: 59141,
   minFeeBps: 260,
-  withdrawalsEnabled: { 59144: false, 59141: false },
+  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
   chains: {
     59141: { safe: SAFE, platform: PLAT },
     59144: { safe: null, platform: null },

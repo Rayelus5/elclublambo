@@ -44,7 +44,8 @@ const VALUATION = {
   assets: { usdc: 12_345_678n, eth: 0n, weth: 0n, blockNumber: 120n },
   blockNumber: 120n,
 };
-const CREDIT = { p_ledger: "l1", p_assets_usd6: "12345678", p_assets_block: "120" };
+// F4d: the ETH price of the valuation values open WETH prizes at the credit-time price
+const CREDIT = { p_ledger: "l1", p_assets_usd6: "12345678", p_assets_block: "120", p_eth_price_e8: "200000000000" };
 const ok = (blockNumber: bigint) => ({ status: "ok", logIndex: 1, blockNumber, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") });
 
 beforeEach(() => {

@@ -52,7 +52,7 @@ const SAFE = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";
 const DEST = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
 const HASH = `0x${"ab".repeat(32)}`;
 const valuation = (block: bigint, usdc = 30_000000n) => ({
-  assetsUsd6: 40_000000n, priceE8: 1n, source: "chainlink", assets: { usdc, eth: 0n, weth: 0n, blockNumber: block }, blockNumber: block, safe: SAFE,
+  assetsUsd6: 40_000000n, priceE8: 250_000_000_000n, source: "chainlink", assets: { usdc, eth: 0n, weth: 0n, blockNumber: block }, blockNumber: block, safe: SAFE,
 });
 
 let perms = "256";
@@ -118,7 +118,7 @@ describe("quoteWithdrawalAction", () => {
     adminReplies.quote_withdrawal = { data: { amountUsdc: "8000000", navUsd6: "1", supplyShares: "1", reservedUsdc: "25000000" } };
     const r = await quoteWithdrawalAction(ID);
     expect(valueSafe).toHaveBeenCalledWith(59141);
-    expect(adminCalls("quote_withdrawal")).toEqual([{ p_request: ID, p_safe: SAFE, p_assets_usd6: "40000000", p_assets_block: "120" }]);
+    expect(adminCalls("quote_withdrawal")).toEqual([{ p_request: ID, p_safe: SAFE, p_assets_usd6: "40000000", p_assets_block: "120", p_eth_price_e8: "250000000000" }]);
     expect(r).toEqual({
       ok: true,
       quote: { amountUsdc: "8000000", safeUsdc: "30000000", availableUsdc: "5000000", destination: DEST, selfApproval: false },
@@ -193,7 +193,7 @@ describe("approveWithdrawalAction", () => {
     adminReplies.approve_withdrawal = { data: { amountUsdc: "8000000", selfApproved: false } };
     expect(await approveWithdrawalAction(ID)).toEqual({ ok: true, amountUsdc: "8000000" });
     expect(adminCalls("approve_withdrawal")).toEqual([
-      { p_request: ID, p_actor: ME, p_safe: SAFE, p_assets_usd6: "40000000", p_assets_block: "120" },
+      { p_request: ID, p_actor: ME, p_safe: SAFE, p_assets_usd6: "40000000", p_assets_block: "120", p_eth_price_e8: "250000000000" },
     ]);
     revalidatedBoth();
   });

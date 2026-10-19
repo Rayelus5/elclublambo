@@ -40,7 +40,7 @@ const INTENT_ID = "11111111-1111-4111-8111-111111111111";
 const config = (safe: string | null = SAFE): EconomyConfig => ({
   activeChainId: 59141,
   minFeeBps: 100,
-  withdrawalsEnabled: { 59144: false, 59141: false },
+  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
   chains: { 59144: { safe: null, platform: null }, 59141: { safe, platform: PLATFORM } },
 });
 

@@ -123,7 +123,7 @@ describe("BountyCard", () => {
     const MEMBER = "99999999-9999-4999-8999-999999999999";
     const intent = { id: "i-1", chainId: 59141, token: "USDC" as const, amount: "25000000", feeAmount: "250000", recipientAddress: solver.walletAddress, platformAddress: "0x4444444444444444444444444444444444444444", expiresAt: new Date(Date.now() + 20 * 3600_000).toISOString() };
     const base = { intentId: "i-1", chainId: 59141, token: "USDC" as const, targetType: "bounty" as const, targetId: B, feeRequired: true, createdAt: Date.now(), intent };
-    const cfg = { activeChainId: 59144 as const, minFeeBps: 100, withdrawalsEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } };
+    const cfg = { activeChainId: 59144 as const, minFeeBps: 100, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } };
     function renderWith(bounty: BountyDetail) {
       render(
         <EconomyProvider config={cfg} wallet={solver.walletAddress} memberId={MEMBER}>

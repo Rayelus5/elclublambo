@@ -82,6 +82,14 @@ const MESSAGES: Record<string, string> = {
     "No se puede valorar el fondo ahora mismo (precio o red no disponibles). Inténtalo en unos minutos.",
   payout_pending: "La transacción aún no tiene confirmaciones suficientes. Vuelve a intentarlo en un momento.",
   retry: "Hubo un conflicto con otra acción. Inténtalo de nuevo.",
+  raffle_closed: "El sorteo ya está cerrado.",
+  raffle_drawn: "Un sorteo ya resuelto no se puede cancelar: el premio es del ganador.",
+  weighted_raffles_disabled: "Los sorteos ponderados no están activados en esta red.",
+  prize_too_small: "El premio mínimo es 1 USDC o 0,001 WETH.",
+  prize_too_large: "El premio vale más que el fondo.",
+  closes_at_invalid: "El cierre debe estar entre 1 hora y 30 días desde ahora.",
+  title_required: "Escribe un título de 1 a 80 caracteres.",
+  draw_block_invalid: "Ese bloque no es el primero posterior al cierre.",
 };
 
 /** Allowlist untrusted input (e.g. a query param) to a known error code; never echo raw text. */

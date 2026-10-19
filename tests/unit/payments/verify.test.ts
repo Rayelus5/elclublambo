@@ -2,9 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 import { encodeAbiParameters, encodeEventTopics, erc20Abi, pad } from "viem";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/treasury/valuation", async (orig) => {
+  const actual = await orig<typeof import("@/lib/treasury/valuation")>();
+  return { ...actual, addressesFor: vi.fn(actual.addressesFor) };
+});
 
 import { verifyTransfer } from "@/lib/payments/verify";
 import { NETWORKS } from "@/lib/economy/networks";
+import { addressesFor } from "@/lib/treasury/valuation";
 
 const CHAIN = 59141 as const;
 const USDC = NETWORKS[CHAIN].usdc;
@@ -200,5 +205,45 @@ describe("verifyTransfer status, timing and RPC", () => {
     expect(await verifyTransfer(eth, fake({ receipt: boom }))).toEqual({ status: "error", code: "rpc_unavailable" });
     expect(await verifyTransfer(eth, fake({ block: boom }))).toEqual({ status: "error", code: "rpc_unavailable" });
     expect(await verifyTransfer(eth, fake({ head: boom }))).toEqual({ status: "error", code: "rpc_unavailable" });
+  });
+});
+
+describe("verifyTransfer WETH (raffle prizes)", () => {
+  const MOCK_WETH = "0x2222222222222222222222222222222222222222";
+  const prize = { ...base, token: "WETH" as const, amount: 10n ** 16n, atLeast: true };
+  const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });
+  const withWeth = (weth: `0x${string}` | null) =>
+    vi.mocked(addressesFor).mockImplementation((chain) => ({ usdc: NETWORKS[chain].usdc, weth, ethUsdFeed: null, heartbeatSec: 86400 }));
+
+  it("atLeast matches a log of the WETH contract paying 0,0105 against 0,01", async () => {
+    withWeth(MOCK_WETH);
+    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 105n * 10n ** 14n, 3)]) }))).toEqual({
+      status: "ok", logIndex: 3, value: 105n * 10n ** 14n, blockNumber: 100n, blockTimestamp: new Date(Number(TS) * 1000),
+    });
+  });
+  it("reads the WETH address from addressesFor (the env override of the local chain)", async () => {
+    withWeth(MOCK_WETH);
+    await verifyTransfer(prize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n, 0)]) }));
+    expect(addressesFor).toHaveBeenCalledWith(CHAIN);
+  });
+  it("a USDC log for a WETH target is a mismatch, and a WETH log for a USDC target too", async () => {
+    withWeth(MOCK_WETH);
+    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 10n ** 18n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    const usdcPrize = { ...base, token: "USDC" as const, amount: 1_000000n, atLeast: true };
+    expect(await verifyTransfer(usdcPrize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 18n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("one wei short is a mismatch", async () => {
+    withWeth(MOCK_WETH);
+    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n - 1n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("without a WETH contract on the chain, WETH is always a mismatch", async () => {
+    withWeth(null);
+    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("WETH without atLeast is exact", async () => {
+    withWeth(MOCK_WETH);
+    const exact = { ...prize, atLeast: undefined };
+    expect(await verifyTransfer(exact, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n + 1n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    expect(await verifyTransfer(exact, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n, 0)]) }))).toMatchObject({ status: "ok" });
   });
 });
