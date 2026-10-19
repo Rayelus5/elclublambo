@@ -43,9 +43,9 @@ describe("RoleForm", () => {
   });
 
   it("admin can toggle every offered bit", () => {
-    render(<RoleForm role={null} actor={actor({ isAdmin: true, perms: "131071" })} />);
+    render(<RoleForm role={null} actor={actor({ isAdmin: true, perms: "262143" })} />);
     expect(screen.getByLabelText("Banear miembros")).toBeEnabled();
-    expect(screen.getAllByRole("checkbox")).toHaveLength(16);
+    expect(screen.getAllByRole("checkbox")).toHaveLength(17);
   });
 
   it("rejects an invalid custom color without calling the action", async () => {
@@ -97,7 +97,7 @@ describe("RoleForm", () => {
   });
 
   it("system/@everyone roles: non-admins only get the SQL member-safe bits (no moderation or tickets)", () => {
-    render(<RoleForm role={role({ isEveryone: true, name: "@everyone", position: 0 })} actor={actor({ perms: "131071" })} />);
+    render(<RoleForm role={role({ isEveryone: true, name: "@everyone", position: 0 })} actor={actor({ perms: "262143" })} />);
     expect(screen.getByLabelText("Moderar mensajes")).toBeDisabled();
     expect(screen.getByLabelText("Mencionar a todos")).toBeDisabled();
     expect(screen.getByLabelText("Gestionar tickets")).toBeDisabled();

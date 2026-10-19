@@ -19,14 +19,21 @@ describe("permission labels", () => {
     expect(PERM_LABEL.get(Perm.CREATE_BOUNTIES)).toBe("Crear bounties");
   });
 
-  it("SAFE_ROLE_MASK matches the SQL member-safe mask 76823", () => {
-    expect(SAFE_ROLE_MASK).toBe(76823n);
+  it("labels CREATE_POLLS as Crear encuestas, right after Crear bounties", () => {
+    expect(PERM_LABEL.get(Perm.CREATE_POLLS)).toBe("Crear encuestas");
+    const i = CHANNEL_BIT_LIST.findIndex((b) => b.bit === Perm.CREATE_BOUNTIES);
+    expect(CHANNEL_BIT_LIST[i + 1]).toEqual({ bit: Perm.CREATE_POLLS, label: "Crear encuestas" });
   });
 
-  it("exposes the 10 channel bits and 16 selectable bits", () => {
-    expect(CHANNEL_BIT_LIST).toHaveLength(10);
+  it("SAFE_ROLE_MASK matches the SQL member-safe mask 207895", () => {
+    expect(SAFE_ROLE_MASK).toBe(207895n);
+    expect(SAFE_ROLE_MASK & Perm.CREATE_POLLS).toBe(Perm.CREATE_POLLS);
+  });
+
+  it("exposes the 11 channel bits and 17 selectable bits", () => {
+    expect(CHANNEL_BIT_LIST).toHaveLength(11);
     expect(CHANNEL_BIT_LIST.reduce((a, b) => a | b.bit, 0n)).toBe(CHANNEL_MASK);
-    expect(SELECTABLE_BIT_LIST).toHaveLength(16);
+    expect(SELECTABLE_BIT_LIST).toHaveLength(17);
     expect(SELECTABLE_BIT_LIST.some((b) => b.bit === Perm.ADMINISTRATOR)).toBe(false);
   });
 });

@@ -29,9 +29,9 @@ select results_eq(
   $$select name, position, permissions, is_everyone, is_system, color from public.roles order by position$$,
   $$values ('@everyone'::text, 0, 8199::bigint, true, false, '#A3A3A3'::text),
            ('Padrino', 10, 16::bigint, false, false, '#61DFFF'),
-           ('Verificado', 20, 68608::bigint, false, false, '#3DDC84'),
+           ('Verificado', 20, 199680::bigint, false, false, '#3DDC84'),
            ('Soporte', 100, 19456::bigint, false, false, '#FFB020'),
-           ('Moderador', 500, 121896::bigint, false, false, '#FF5A5A'),
+           ('Moderador', 500, 252968::bigint, false, false, '#FF5A5A'),
            ('SuperAdmin', 1000, 512::bigint, false, true, '#EDEDED')$$,
   'seed roles exact');
 select results_eq(

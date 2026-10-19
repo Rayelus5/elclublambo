@@ -44,9 +44,15 @@ describe("setOverwriteAction", () => {
     [A, "role", B, "16", "0"],
     [A, "role", B, "1", "1"],
     [A, "role", B, "-1", "0"],
+    [A, "role", B, "262144", "0"],
   ])("rejects invalid input %#", async (c, t, g, a, d) => {
     expect(await setOverwriteAction(c, t as "role", g, a, d)).toEqual({ error: "invalid_input" });
     expect(rpc).not.toHaveBeenCalled();
+  });
+  it("passes the CREATE_POLLS channel bit through", async () => {
+    rpc.mockResolvedValue({ error: null });
+    expect(await setOverwriteAction(A, "role", B, "131072", "0")).toEqual({});
+    expect(rpc).toHaveBeenCalledWith("set_overwrite", expect.objectContaining({ p_allow: 131072, p_deny: 0 }));
   });
   it("maps rpc errors", async () => {
     rpc.mockResolvedValue({ error: { message: "hierarchy" } });
@@ -126,7 +132,7 @@ describe("role actions", () => {
     expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "512" })).toEqual({
       error: "invalid_input",
     });
-    expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "131072" })).toEqual({
+    expect(await createRoleAction({ name: "x", color: "#61DFFF", permissions: "262144" })).toEqual({
       error: "invalid_input",
     });
     expect(rpc).not.toHaveBeenCalled();
