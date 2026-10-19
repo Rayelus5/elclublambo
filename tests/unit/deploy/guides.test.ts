@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { productionEnvProblems } from "@/lib/deploy/readiness";
@@ -106,5 +106,114 @@ describe("docs/deploy/produccion.md", () => {
     expect(worst.length).toBeGreaterThan(15);
     for (const m of worst) expect(produccion, m).toContain(m);
     expect(produccion).toContain("Configuración de producción inválida");
+  });
+});
+
+const homelab = read("docs/deploy/preproduccion-homelab.md");
+
+describe("docs/deploy/preproduccion-homelab.md", () => {
+  it("has every required section, in order", () => {
+    const sections = [
+      "## Contexto para la IA operadora",
+      "## 1. Máquina en Proxmox",
+      "## 2. Docker",
+      "## 3. Supabase self-hosted",
+      "## 4. Arrancar Supabase",
+      "## 5. Realtime solo privado",
+      "## 6. Studio",
+      "## 7. Entorno de la web",
+      "## 8. Cloudflare Tunnel",
+      "## 9. Runner de GitHub",
+      "## 10. Primer despliegue",
+      "## 11. Mantenimiento",
+      "## 12. Solución de problemas",
+      "## 13. Checklist final",
+    ];
+    let last = -1;
+    for (const s of sections) {
+      const at = homelab.indexOf(`\n${s}`);
+      expect(at, s).toBeGreaterThan(last);
+      last = at;
+    }
+  });
+
+  it("covers every required topic", () => {
+    const required = [
+      "pre.elclub.party",
+      "pre-api.elclub.party",
+      "supabase_default",
+      "elclub-pre",
+      "GOTRUE_EXTERNAL_WEB3_ETHEREUM_ENABLED",
+      "GOTRUE_RATE_LIMIT_WEB3",
+      "DISABLE_SIGNUP=false",
+      "API_EXTERNAL_URL=https://pre-api.elclub.party",
+      "SITE_URL=https://pre.elclub.party",
+      "ADDITIONAL_REDIRECT_URLS",
+      "127.0.0.1",
+      "cloudflared tunnel ingress rule",
+      "http_status:404",
+      "65532",
+      "UUID",
+      "WAF",
+      "private_only",
+      "pg_dump",
+      "select version()",
+      "major_version",
+      "check:rpc",
+      "--chain 59141",
+      "/settings/economia",
+      "SUPER_ADMIN_WALLET",
+      "/opt/elclub/pre/web.env",
+      "/opt/elclub/pre/cloudflared/credentials.json",
+      "/opt/supabase/docker",
+      "ssh -L 8000:127.0.0.1:8000",
+      "Reown",
+      "elclub dev/pre",
+      "lineaSepolia",
+      "max-size",
+      "unattended-upgrades",
+      "Comprueba:",
+      "Necesita al humano",
+      "produccion.md",
+      "entornos.md",
+    ];
+    for (const s of required) expect(homelab, s).toContain(s);
+  });
+
+  it("names every key of the preproduction env templates", () => {
+    const dir = join(root, "deploy/preprod");
+    const templates = readdirSync(dir).filter((f) => f.endsWith(".env.example"));
+    expect(templates.length).toBeGreaterThan(0);
+    for (const t of templates) {
+      const keys = envKeys(`deploy/preprod/${t}`);
+      expect(keys.length).toBeGreaterThan(20);
+      for (const k of keys) expect(homelab, `${t}: ${k}`).toContain(`\`${k}\``);
+    }
+  });
+
+  it("names every secret and the runner labels of the preproduction workflow, and no deploy hook", () => {
+    const workflow = read(".github/workflows/preproduction.yml");
+    const secrets = [...workflow.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]);
+    expect(secrets).toEqual(["PREPROD_DB_URL", "PREPROD_DB_PASSWORD"]);
+    for (const s of secrets) expect(homelab, s).toContain(`\`${s}\``);
+    expect(homelab).toContain("PGPASSWORD");
+    const labels = /runs-on: \[([^\]]+)\]/.exec(workflow)?.[1];
+    expect(labels).toBeTruthy();
+    expect(homelab).toContain(labels!.replace(/\s/g, ""));
+    expect(homelab).not.toMatch(/deploy hook|VERCEL_DEPLOY_HOOK_URL/i);
+  });
+
+  it("never exposes Studio, Postgres or a published port beyond loopback", () => {
+    expect(homelab).not.toMatch(/studio\.[\w.-]*elclub\.party|pre-studio|hostname:\s*\S*studio/i);
+    expect(homelab).not.toMatch(/0\.0\.0\.0:\d+/);
+    expect(homelab).not.toMatch(/service:\s*http:\/\/studio/i);
+    expect(homelab).toMatch(/Studio[^\n]*nunca/i);
+  });
+
+  it("covers the troubleshooting cases", () => {
+    const trouble = homelab.slice(homelab.indexOf("## 12. Solución de problemas"));
+    for (const s of ["502", "Kong", "404", "CSP", "NEXT_PUBLIC_SUPABASE_URL", "401", "Offline", "migrate"]) {
+      expect(trouble, s).toContain(s);
+    }
   });
 });
