@@ -4,7 +4,7 @@ import { Clock } from "lucide-react";
 import { ShareRing } from "@/components/treasury/dao-charts";
 import { explorerTx } from "@/lib/economy/networks";
 import { finalityEta, formatEta } from "@/lib/treasury/eta";
-import { formatBps, formatShares, formatUsdc } from "@/lib/treasury/format";
+import { formatBps, formatShares, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 import type { DaoOverview as Data } from "@/lib/treasury/queries";
 
 const linkClass =
@@ -16,18 +16,23 @@ const dateTime = (iso: string) =>
 /** The network's finality lag (null when unknown) and the render time, both in seconds. */
 export type Finality = { lagSeconds: number | null; nowSeconds: number };
 
-/** Balance (with its chart), donors and the viewer's own position on the active network. */
+/** Fund value at market (with its chart), value per participación, donors and the viewer's own position on the active network. */
 export function DaoOverview({
   data,
   donate,
   chart,
   finality,
+  withdraw,
 }: {
   data: Data;
   donate: ReactNode;
   chart?: ReactNode;
   finality?: Finality;
+  /** The withdrawal controls (button or status), rendered inside the position block. */
+  withdraw?: ReactNode;
 }) {
+  const w = data.myWithdrawal;
+  const inProgress = data.myLockedShares > 0n;
   const pendingTotal = data.myPending.reduce((sum, p) => sum + p.amount, 0n);
   const etaText = (createdAt: string) =>
     finality?.lagSeconds != null
@@ -37,16 +42,27 @@ export function DaoOverview({
     <div className="flex flex-col gap-6">
       <section aria-label="Tesorería" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
         <NetworkBadge chainId={data.chainId} className="self-start" />
-        <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <dl className="grid grid-cols-2 gap-4">
+          <div className="col-span-2">
+            <dt className="text-sm text-fg-muted">Valor del fondo</dt>
+            <dd data-testid="dao-balance" className="font-display text-3xl font-black break-all text-fg">
+              {formatUsd(data.navUsd6)}
+            </dd>
+            {data.navAt ? (
+              <dd className="text-[13px] text-fg-muted">
+                A precio de mercado · <time dateTime={data.navAt}>{dateTime(data.navAt)}</time>
+              </dd>
+            ) : null}
+          </div>
           <div>
-            <dt className="text-sm text-fg-muted">Balance de la tesorería</dt>
-            <dd data-testid="dao-balance" className="font-display text-3xl font-black text-fg">
-              {formatUsdc(data.valueUsdc)}
+            <dt className="text-sm text-fg-muted">Valor por participación</dt>
+            <dd data-testid="dao-share-price" className="font-mono text-lg font-bold break-all text-fg">
+              {data.sharePriceUsd6 > 0n ? formatUsdPrecise(data.sharePriceUsd6) : "—"}
             </dd>
           </div>
           <div>
             <dt className="text-sm text-fg-muted">Donantes</dt>
-            <dd data-testid="dao-donors" className="font-display text-3xl font-black text-fg">
+            <dd data-testid="dao-donors" className="font-mono text-lg font-bold text-fg">
               {data.donors}
             </dd>
           </div>
@@ -65,6 +81,13 @@ export function DaoOverview({
         <h2 id="my-position" className="text-h2">
           Tu participación
         </h2>
+        <p data-testid="my-value" className="text-fg">
+          <span className="text-fg-muted">Tu parte: </span>
+          <strong className="font-display text-2xl font-black break-all">{formatUsd(data.myValueUsd6)}</strong>
+        </p>
+        {w && w.status === "approved" && w.amountUsdc !== null ? (
+          <p className="text-sm text-fg">{`Retirada aprobada: ${formatUsdc(w.amountUsdc)}`}</p>
+        ) : null}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <ShareRing bps={data.myShareBps} />
           <dl className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
@@ -88,6 +111,17 @@ export function DaoOverview({
             </div>
           </dl>
         </div>
+        {inProgress ? (
+          <p className="text-[13px] text-fg-muted">
+            Las participaciones bloqueadas por tu retirada no cuentan para los canales con candado mientras la retirada está en
+            curso, por eso el porcentaje que ves aquí puede diferir del que usan los canales.
+          </p>
+        ) : null}
+        {withdraw ? (
+          <div id="retirada" className="scroll-mt-20">
+            {withdraw}
+          </div>
+        ) : null}
 
         {data.myPending.length > 0 ? (
           <ul aria-label="Donaciones pendientes" className="flex flex-col divide-y divide-border border-t border-border">

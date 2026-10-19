@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/lib/chat/actions", () => ({ searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })) }));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn(async () => ({})) }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));

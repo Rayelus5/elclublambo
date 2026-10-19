@@ -3,20 +3,31 @@ import { erc20Abi, parseEventLogs, type PublicClient } from "viem";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import type { Token } from "@/lib/payments/amounts";
 import { chainClient } from "@/lib/payments/chain-client";
+import { addressesFor } from "@/lib/treasury/valuation";
+
+/** WETH only pays raffle prizes (F4d); tips and donations stay ETH / USDC. */
+export type VerifyToken = Token | "WETH";
 
 export type VerifyInput = {
   chain: ChainId;
-  token: Token;
+  token: VerifyToken;
   txHash: `0x${string}`;
   from: string;
   to: string;
   amount: bigint;
   notBefore: Date;
   confirmations?: number;
+  /**
+   * ERC-20 only (withdrawal and prize payouts): accept the first Transfer log, in log order, that pays at least
+   * `amount` (the payer may round up). Without it the value must match exactly. Native ETH is always exact.
+   */
+  atLeast?: boolean;
+  /** ERC-20 only: when this log qualifies it wins over earlier qualifying logs (a linked candidate's log). */
+  preferLogIndex?: number;
 };
 
 export type VerifyResult =
-  | { status: "ok"; logIndex: number; blockNumber: bigint; blockTimestamp: Date }
+  | { status: "ok"; logIndex: number; /** The matched log's value (tx.value for ETH). */ value: bigint; blockNumber: bigint; blockTimestamp: Date }
   | { status: "pending" }
   | { status: "error"; code: "tx_not_found" | "tx_failed" | "tx_mismatch" | "tx_too_old" | "rpc_unavailable" };
 
@@ -28,7 +39,7 @@ class NotFound extends Error {}
 
 let warnedConfirmations = false;
 /** TIP_CONFIRMATIONS if it is an integer >= 1, else 3 (a bad value is logged once). */
-function defaultConfirmations(): number {
+export function defaultConfirmations(): number {
   const raw = process.env.TIP_CONFIRMATIONS;
   if (raw === undefined) return 3;
   const n = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
@@ -84,23 +95,34 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
     if (tx.chainId !== undefined && tx.chainId !== input.chain) return err("tx_mismatch");
 
     let logIndex = -1;
+    let value: bigint;
     if (input.token === "ETH") {
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
+      value = tx.value;
     } else {
-      const usdc = NETWORKS[input.chain].usdc;
-      const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true });
-      const hit = logs.find(
-        (l) => same(l.address, usdc) && same(l.args.from, input.from) && same(l.args.to, input.to) && l.args.value === input.amount,
+      // The official token contract: USDC from NETWORKS (as before); WETH from addressesFor, i.e. the canonical WETH, or
+      // the local chain's mock through WETH_ADDRESS_59141 (testnet only, F4a-R10). Without WETH on the chain, a WETH
+      // payout can never match.
+      const contract = input.token === "USDC" ? NETWORKS[input.chain].usdc : addressesFor(input.chain).weth;
+      if (!contract) return err("tx_mismatch");
+      const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true }).sort(
+        (a, b) => a.logIndex - b.logIndex,
       );
+      const pays = (v: bigint) => (input.atLeast ? v >= input.amount : v === input.amount);
+      const qualifying = logs.filter(
+        (l) => same(l.address, contract) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value),
+      );
+      const hit = qualifying.find((l) => l.logIndex === input.preferLogIndex) ?? qualifying[0];
       if (!hit) return err("tx_mismatch");
       logIndex = hit.logIndex;
+      value = hit.args.value;
     }
 
     const block = await client.getBlock({ blockHash: receipt.blockHash });
     const notBefore = BigInt(Math.floor(input.notBefore.getTime() / 1000));
     if (block.timestamp < notBefore - SKEW_SECONDS) return err("tx_too_old");
 
-    return { status: "ok", logIndex, blockNumber: receipt.blockNumber, blockTimestamp: new Date(Number(block.timestamp) * 1000) };
+    return { status: "ok", logIndex, value, blockNumber: receipt.blockNumber, blockTimestamp: new Date(Number(block.timestamp) * 1000) };
   } catch (e) {
     if (e instanceof NotFound) return err("tx_not_found");
     return err("rpc_unavailable");

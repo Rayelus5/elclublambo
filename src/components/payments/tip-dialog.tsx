@@ -35,6 +35,9 @@ import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { isDefinitiveFailure } from "@/lib/payments/outcomes";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
 import { createDonationIntentAction } from "@/lib/treasury/actions";
+import { formatParticipaciones, formatUsdPrecise } from "@/lib/treasury/format";
+import { getDaoOverview } from "@/lib/treasury/queries";
+import { createBrowserClient } from "@/lib/supabase/browser";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +71,10 @@ const MSG_PREPARE = "No se pudo preparar la propina. Inténtalo de nuevo.";
 const MSG_PREPARE_BOUNTY = "No se pudo preparar el pago. Inténtalo de nuevo.";
 const MSG_PREPARED_OTHER_AMOUNT = "Ya tenías un pago de este bounty preparado con otro importe. Revisa el formulario y continúa.";
 const MSG_PREPARE_DONATION = "No se pudo preparar la donación. Inténtalo de nuevo.";
+/** Exact copy the member accepts before donating (F4a: mandatory legal acknowledgement). */
+const DONATION_ACK =
+  "Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero.";
+const SHARES_PER_PARTICIPACION = 10n ** 18n;
 const MSG_EXPIRED = "La operación ha caducado y no se puede completar. La comisión enviada no se puede reutilizar.";
 
 /** A refusal to sign with a message for the member (wrong signer, intent that disagrees with what was shown). */
@@ -248,6 +255,9 @@ function TipFlow({
   const [amountText, setAmountText] = useState(mode ? formatAmount(mode.minAmount, mode.token) : "");
   const [feeBps, setFeeBps] = useState(economy.minFeeBps);
   const [anonymous, setAnonymous] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
+  // USD6 value of one participación, read only when the dialog opens as a donation; null when unknown or unreadable.
+  const [sharePrice, setSharePrice] = useState<bigint | null>(null);
   const [step, setStep] = useState<Step>(initial.kind === "form" ? "form" : initial.kind === "expired" ? "failed" : initial.kind);
   const [formError, setFormError] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(initial.kind === "expired" ? MSG_EXPIRED : null);
@@ -258,6 +268,25 @@ function TipFlow({
   const [slow, setSlow] = useState(false);
   // A donation the immediate settle already credited (vs recorded and waiting for finality).
   const [credited, setCredited] = useState(false);
+
+  useEffect(() => {
+    if (!donation) return;
+    let cancelled = false;
+    getDaoOverview(createBrowserClient())
+      .then((o) => {
+        // Only this chain's price; with totalShares = 0 the rate is 1 USD per participación (F4a-R9).
+        if (!cancelled && o.chainId === chainId) {
+          if (o.sharePriceUsd6 > 0n) setSharePrice(o.sharePriceUsd6);
+          else if (o.totalShares === 0n) setSharePrice(1_000_000n);
+        }
+      })
+      .catch(() => {
+        /* the estimate line is simply absent */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [donation, chainId]);
 
   useEffect(() => {
     busyRef.current = step === "signing" || step === "verifying";
@@ -324,7 +353,12 @@ function TipFlow({
         ? "chain"
         : null;
 
-  const canContinue = units !== null && reason === null && wallet === null && !bountyInactive;
+  const canContinue = units !== null && reason === null && wallet === null && !bountyInactive && (!donation || acknowledged);
+  // amount (USDC = USD, 6 decimals) · 10^18 / value per participación = shares; shown in participaciones.
+  const estimate =
+    donation && units !== null && reason === null && sharePrice !== null
+      ? formatParticipaciones((units * SHARES_PER_PARTICIPACION) / sharePrice)
+      : null;
 
   /** Re-checked right before every signature: the connected account is still the session wallet, on the right chain. */
   function guardSigner(it: TipIntent) {
@@ -505,7 +539,7 @@ function TipFlow({
     let created: { ok: true; intent: TipIntent } | { ok: false; error: string };
     try {
       created = donation
-        ? await createDonationIntentAction({ amount: amountText.trim(), feeBps })
+        ? await createDonationIntentAction({ amount: amountText.trim(), feeBps, acknowledged: true })
         : mode
         ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, amount: amountText.trim(), feeBps })
         : await createTipIntentAction({
@@ -849,6 +883,27 @@ function TipFlow({
             {total !== null ? `${formatAmount(total, token)} ${token}` : "—"}
           </dd>
         </dl>
+
+        {donation && sharePrice !== null ? (
+          <p data-testid="share-price" className="text-[13px] text-fg-muted">
+            Valor por participación: <span className="font-mono text-fg">{formatUsdPrecise(sharePrice)}</span>
+          </p>
+        ) : null}
+        {estimate ? (
+          <p className="text-[13px] text-fg-muted">
+            {estimate.startsWith("<") ? "" : "≈ "}
+            {estimate} al valor actual (el número exacto se fija al acreditar)
+          </p>
+        ) : null}
+
+        {donation ? (
+          <div className="flex items-start gap-3">
+            <Checkbox id="donation-ack" checked={acknowledged} onCheckedChange={(v) => setAcknowledged(v === true)} className="mt-2.5" />
+            <label htmlFor="donation-ack" className="min-h-11 flex-1 content-center py-2 text-sm text-fg">
+              {DONATION_ACK}
+            </label>
+          </div>
+        ) : null}
 
         {reason ? (
           <p aria-live="polite" className="text-sm text-danger">

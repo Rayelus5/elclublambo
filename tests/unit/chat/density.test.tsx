@@ -6,6 +6,7 @@ const rpc = vi.hoisted(() => vi.fn(async () => ({ data: null, error: null as unk
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc }) }));
 vi.mock("@/lib/chat/actions", () => ({ searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })) }));
 vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 

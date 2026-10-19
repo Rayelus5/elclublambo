@@ -7,7 +7,13 @@ const setActiveChainAction = vi.hoisted(() => vi.fn());
 const setMinFeeBpsAction = vi.hoisted(() => vi.fn());
 const setChainAddressesAction = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
-vi.mock("@/lib/economy/actions", () => ({ setActiveChainAction, setMinFeeBpsAction, setChainAddressesAction }));
+const cancelOpenDonationIntentsAction = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/economy/actions", () => ({
+  setActiveChainAction,
+  setMinFeeBpsAction,
+  setChainAddressesAction,
+  cancelOpenDonationIntentsAction,
+}));
 
 import { EconomyForm } from "@/components/economy/economy-form";
 import type { EconomyConfig } from "@/lib/economy/config";
@@ -18,6 +24,7 @@ const PLAT = "0x2222222222222222222222222222222222222222";
 const config: EconomyConfig = {
   activeChainId: 59141,
   minFeeBps: 260,
+  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
   chains: {
     59141: { safe: SAFE, platform: PLAT },
     59144: { safe: null, platform: null },
@@ -29,6 +36,7 @@ beforeEach(() => {
   setActiveChainAction.mockReset().mockResolvedValue({});
   setMinFeeBpsAction.mockReset().mockResolvedValue({});
   setChainAddressesAction.mockReset().mockResolvedValue({});
+  cancelOpenDonationIntentsAction.mockReset().mockResolvedValue({ count: 2 });
 });
 
 describe("EconomyForm", () => {
@@ -62,6 +70,93 @@ describe("EconomyForm", () => {
     await waitFor(() =>
       expect(setChainAddressesAction).toHaveBeenCalledWith({ chain: 59144, safe: SAFE, platform: null }),
     );
+  });
+
+  it("explains a refused Safe change (F4a-R12) and keeps the form unsaved", async () => {
+    setChainAddressesAction.mockResolvedValue({ error: "safe_change_blocked" });
+    const user = userEvent.setup();
+    render(<EconomyForm config={config} />);
+    const safe = screen.getByLabelText("Safe (Linea Sepolia)");
+    await user.clear(safe);
+    await user.type(safe, "0x3333333333333333333333333333333333333333");
+    await user.click(screen.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/No puedes cambiar la Safe de esta red/);
+    expect(screen.queryByText("Direcciones guardadas.")).not.toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("offers to cancel open donation payments only after a refused Safe change (F4a carry c)", async () => {
+    const user = userEvent.setup();
+    render(<EconomyForm config={config} />);
+    expect(screen.queryByRole("button", { name: "Cancelar pagos de donación abiertos" })).not.toBeInTheDocument();
+
+    setChainAddressesAction.mockResolvedValue({ error: "safe_change_blocked" });
+    const safe = screen.getByLabelText("Safe (Linea Sepolia)");
+    await user.clear(safe);
+    await user.type(safe, "0x3333333333333333333333333333333333333333");
+    await user.click(screen.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }));
+    expect(await screen.findByRole("button", { name: "Cancelar pagos de donación abiertos" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Cancela los pagos de donación que aún no tienen transacción. Si alguien está pagando justo ahora, su donación no se acreditará sola.",
+      ),
+    ).toBeInTheDocument();
+    // only on the card whose Safe change was refused
+    expect(screen.getAllByRole("button", { name: "Cancelar pagos de donación abiertos" })).toHaveLength(1);
+  });
+
+  async function refuseSafeChange(user: ReturnType<typeof userEvent.setup>) {
+    setChainAddressesAction.mockResolvedValue({ error: "safe_change_blocked" });
+    render(<EconomyForm config={config} />);
+    const safe = screen.getByLabelText("Safe (Linea Sepolia)");
+    await user.clear(safe);
+    await user.type(safe, "0x3333333333333333333333333333333333333333");
+    await user.click(screen.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }));
+    return screen.findByRole("button", { name: "Cancelar pagos de donación abiertos" });
+  }
+
+  it("lets the cancel button label wrap (375 px)", async () => {
+    const user = userEvent.setup();
+    const button = await refuseSafeChange(user);
+    expect(button.className).toContain("whitespace-normal");
+  });
+
+  it("asks for confirmation before cancelling, and going back cancels nothing (F4c-R1)", async () => {
+    const user = userEvent.setup();
+    await user.click(await refuseSafeChange(user));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveTextContent("¿Cancelar los pagos de donación abiertos?");
+    expect(dialog).toHaveTextContent(/Linea Sepolia/);
+    expect(cancelOpenDonationIntentsAction).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Volver" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    expect(cancelOpenDonationIntentsAction).not.toHaveBeenCalled();
+  });
+
+  it("cancels the open donation payments of that chain once confirmed and tells how many (plural)", async () => {
+    const user = userEvent.setup();
+    await user.click(await refuseSafeChange(user));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar pagos" }));
+    await waitFor(() => expect(cancelOpenDonationIntentsAction).toHaveBeenCalledWith(59141));
+    expect(await screen.findByText("2 pagos cancelados. Vuelve a guardar la Safe.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancelar pagos de donación abiertos" })).not.toBeInTheDocument();
+  });
+
+  it("uses the singular for one cancelled payment (F4c-R1)", async () => {
+    cancelOpenDonationIntentsAction.mockResolvedValue({ count: 1 });
+    const user = userEvent.setup();
+    await user.click(await refuseSafeChange(user));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar pagos" }));
+    expect(await screen.findByText("1 pago cancelado. Vuelve a guardar la Safe.")).toBeInTheDocument();
+  });
+
+  it("shows a cancel error without hiding why the Safe change was refused", async () => {
+    cancelOpenDonationIntentsAction.mockResolvedValue({ error: "forbidden" });
+    const user = userEvent.setup();
+    await user.click(await refuseSafeChange(user));
+    await user.click(await screen.findByRole("button", { name: "Sí, cancelar pagos" }));
+    expect(await screen.findByText("No tienes permiso para hacer esto.")).toBeInTheDocument();
+    expect(screen.getByText(/No puedes cambiar la Safe de esta red/)).toBeInTheDocument();
   });
 
   it("previews the fee on 10 USDC and saves it in bps", async () => {

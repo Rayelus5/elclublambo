@@ -15,6 +15,7 @@ vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
 vi.mock("@/lib/bounties/actions", () => ({ markSolutionAction: (...a: unknown[]) => h.mark(...a), cancelBountyAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({}) }));
 vi.mock("@/lib/chat/realtime", () => ({
   useChannelEvents: (_id: string, cb: typeof h.onEvent, opts?: { onResync?: () => void }) => {
@@ -120,6 +121,18 @@ describe("ChatView: bounties", () => {
     h.composer.length = 0;
     setup({ viewer: viewer({ canBounty: false }) });
     expect(h.composer.at(-1)).toMatchObject({ canBounty: false });
+  });
+
+  it("offers /encuesta only to the root composer, and only with CREATE_POLLS and posting rights", () => {
+    setup({ viewer: viewer({ canPoll: true }) });
+    expect(h.composer.length).toBeGreaterThan(0);
+    for (const p of h.composer) {
+      expect(p.threadRootId).toBeUndefined();
+      expect(p).toMatchObject({ canPoll: true });
+    }
+    h.composer.length = 0;
+    setup({ viewer: viewer({ canPoll: false }) });
+    expect(h.composer.at(-1)).toMatchObject({ canPoll: false });
   });
 
   it("renders the bounty card in the list", () => {

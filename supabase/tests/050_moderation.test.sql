@@ -168,7 +168,7 @@ select tests.clear_authentication();
 select ok((select not sponsor_penalized and sponsor_member_id = current_setting('t.admin')::uuid from public.bans where id = current_setting('t.ban3')::uuid),
   'admin sponsor not penalized');
 select is((select count(*)::int from public.member_permission_overrides where member_id = current_setting('t.admin')::uuid), 0, 'no override on admin sponsor');
-select is(public.member_global_permissions(current_setting('t.admin')::uuid), 131071::bigint, 'admin keeps all permissions');
+select is(public.member_global_permissions(current_setting('t.admin')::uuid), 262143::bigint, 'admin keeps all permissions');
 
 -- penalty strips an existing allow bit too
 select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));

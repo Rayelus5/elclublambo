@@ -203,7 +203,7 @@
           "root"
         ],
         "active": true,
-        "penaltyDeny": "131071"
+        "penaltyDeny": "262143"
       },
       "path": [
         {
@@ -221,7 +221,7 @@
           }
         }
       ],
-      "expected": "97295"
+      "expected": "228367"
     },
     {
       "name": "penalty_allow_cannot_reveal",
@@ -673,6 +673,54 @@
         }
       ],
       "expected": "73735"
+    },
+    {
+      "name": "poll_bit_cascade",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "131072",
+            "deny": "0"
+          }
+        },
+        {
+          "key": "txt",
+          "member": {
+            "allow": "0",
+            "deny": "131072"
+          }
+        }
+      ],
+      "expected": "8199"
+    },
+    {
+      "name": "poll_bit_inherited_from_category",
+      "roles": [],
+      "member": {
+        "roleKeys": [],
+        "active": true,
+        "penaltyDeny": "0"
+      },
+      "path": [
+        {
+          "key": "cat",
+          "everyone": {
+            "allow": "131072",
+            "deny": "0"
+          }
+        },
+        {
+          "key": "txt"
+        }
+      ],
+      "expected": "139271"
     }
   ]
 }

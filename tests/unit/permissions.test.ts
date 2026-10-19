@@ -20,13 +20,14 @@ describe("Perm bits", () => {
     expect(Perm.MANAGE_TICKETS).toBe(16384n);
     expect(Perm.VERIFY_MEMBERS).toBe(32768n);
     expect(Perm.CREATE_BOUNTIES).toBe(65536n);
-    expect(Object.keys(Perm)).toHaveLength(17);
+    expect(Perm.CREATE_POLLS).toBe(131072n);
+    expect(Object.keys(Perm)).toHaveLength(18);
   });
 
   it("has exact masks", () => {
-    expect(ALL_PERMS).toBe(131071n);
-    expect(CHANNEL_MASK).toBe(97295n);
-    expect(CHANNEL_MASK).toBe(1n | 2n | 4n | 8n | 1024n | 2048n | 4096n | 8192n | 16384n | 65536n);
+    expect(ALL_PERMS).toBe(262143n);
+    expect(CHANNEL_MASK).toBe(228367n);
+    expect(CHANNEL_MASK).toBe(1n | 2n | 4n | 8n | 1024n | 2048n | 4096n | 8192n | 16384n | 65536n | 131072n);
     expect(GLOBAL_MASK).toBe(33776n);
     expect(GLOBAL_MASK).toBe(ALL_PERMS & ~CHANNEL_MASK);
     expect(CHANNEL_MASK & GLOBAL_MASK).toBe(0n);

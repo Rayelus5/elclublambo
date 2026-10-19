@@ -42,6 +42,7 @@ const solver = { id: "22222222-2222-4222-8222-222222222222", handle: "ana_l", di
 const config = (over: Partial<EconomyConfig> = {}): EconomyConfig => ({
   activeChainId: 59141,
   minFeeBps: 100,
+  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
   chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: PLATFORM } },
   ...over,
 });
@@ -124,6 +125,7 @@ describe("TipDialog bounty mode: form", () => {
   it("has no anonymous option", () => {
     setup();
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/donación sin esperar nada/)).not.toBeInTheDocument();
     expect(screen.queryByText(/anónima/i)).not.toBeInTheDocument();
   });
 

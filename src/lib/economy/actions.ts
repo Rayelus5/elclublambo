@@ -54,3 +54,16 @@ export async function setChainAddressesAction(input: {
   revalidatePath("/", "layout");
   return {};
 }
+
+/**
+ * Expires the chain's pending donation intents that have no transaction attached (bit 512, checked by the RPC), so a
+ * Safe change blocked only by abandoned payments can be saved. Intents with a transaction keep blocking.
+ */
+export async function cancelOpenDonationIntentsAction(chain: number): Promise<{ error?: string; count?: number }> {
+  if (!isChainId(chain)) return { error: "chain_invalid" };
+  const supabase = await createServerClient();
+  const { data, error } = await supabase.rpc("cancel_open_donation_intents", { p_chain: chain });
+  if (error) return { error: rpcErrorCode(error) };
+  revalidatePath("/", "layout");
+  return { count: Number(data ?? 0) };
+}

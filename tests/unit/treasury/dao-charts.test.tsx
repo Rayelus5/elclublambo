@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { BalanceChart, ShareDonut, ShareRing } from "@/components/treasury/dao-charts";
+import { ShareDonut, ShareRing } from "@/components/treasury/dao-charts";
 
 describe("ShareDonut", () => {
   it("draws one arc per slice and a legend with every label and percentage in text", () => {
@@ -25,27 +25,6 @@ describe("ShareDonut", () => {
     render(<ShareDonut donors={0} slices={[]} />);
     expect(screen.getByText("Aún no hay aportaciones.")).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
-  });
-});
-
-describe("BalanceChart", () => {
-  it("summarises the trend for screen readers and labels the axis ends", () => {
-    render(
-      <BalanceChart
-        points={[
-          { at: "2026-10-17T12:00:00Z", usdc: 0 },
-          { at: "2026-10-17T12:00:00Z", usdc: 10 },
-          { at: "2026-10-18T12:00:00Z", usdc: 25.5 },
-        ]}
-      />,
-    );
-    expect(screen.getByRole("img", { name: /Balance de la tesorería: de 0 USDC a 25,5 USDC/ })).toBeInTheDocument();
-    expect(screen.getByText("25,5 USDC")).toBeInTheDocument();
-  });
-
-  it("shows an empty state with no history", () => {
-    render(<BalanceChart points={[]} />);
-    expect(screen.getByText("El gráfico aparecerá con la primera aportación acreditada.")).toBeInTheDocument();
   });
 });
 

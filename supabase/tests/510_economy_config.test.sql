@@ -33,7 +33,7 @@ select is((select count(*)::int from pg_policies where schemaname = 'public' and
 select is((select count(*)::int from public.chain_config), 2, 'chain_config seeded with two chains');
 select tests.authenticate_as(pg_temp.uid(current_setting('t.plain')));
 select is(public.economy_config(),
-  '{"activeChainId":59141,"minFeeBps":0,"chains":{"59144":{"safe":null,"platform":null},"59141":{"safe":null,"platform":null}}}'::jsonb,
+  '{"activeChainId":59141,"minFeeBps":0,"chains":{"59144":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":false},"59141":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":true}}}'::jsonb,
   'defaults read through economy_config');
 select is((select count(*)::int from public.chain_config), 2, 'active member can select chain_config');
 
@@ -62,7 +62,7 @@ select lives_ok($$select public.set_min_fee_bps(260)$$, 'admin sets min fee');
 select lives_ok($$select public.set_chain_addresses(59144, '0xAbCdEf0123456789aBcDeF0123456789abcdef01', '0x2222222222222222222222222222222222222222')$$,
   'admin sets addresses');
 select is(public.economy_config(),
-  '{"activeChainId":59144,"minFeeBps":260,"chains":{"59144":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222"},"59141":{"safe":null,"platform":null}}}'::jsonb,
+  '{"activeChainId":59144,"minFeeBps":260,"chains":{"59144":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222","withdrawalsEnabled":false,"weightedRafflesEnabled":false},"59141":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":true}}}'::jsonb,
   'values read back, addresses lowercased');
 select tests.clear_authentication();
 
@@ -72,8 +72,8 @@ select is((select payload from public.audit_log where action = 'economy.active_c
 select is((select payload from public.audit_log where action = 'economy.min_fee'),
   '{"old":0,"new":260}'::jsonb, 'audit: min fee old/new');
 select is((select payload from public.audit_log where action = 'economy.addresses'),
-  '{"chain":59144,"old":{"safe":null,"platform":null},"new":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222"}}'::jsonb,
-  'audit: addresses old/new');
+  '{"chain":59144,"old":{"safe":null,"platform":null},"new":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222"},"reset":true}'::jsonb,
+  'audit: addresses old/new (+ F4a-R12 reset flag: a first Safe starts the chain clean)');
 
 -- ===== validation =====
 select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));

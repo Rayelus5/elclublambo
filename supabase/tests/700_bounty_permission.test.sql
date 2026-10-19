@@ -1,4 +1,4 @@
--- F3c Task 1: CREATE_BOUNTIES channel bit (65536). CHANNEL_MASK 97295, ALL 131071, member-safe mask 76823.
+-- F3c Task 1: CREATE_BOUNTIES channel bit (65536). Masks updated by F4e: CHANNEL_MASK 228367, ALL 262143, member-safe 207895.
 begin;
 select plan(22);
 
@@ -29,8 +29,8 @@ select lives_ok(format($q$insert into public.permission_overwrites (channel_id, 
   values (%L::uuid, 'role', %L::uuid, 65536, 0)$q$, current_setting('t.ch'), current_setting('t.bajo')),
   'an overwrite allowing 65536 is accepted');
 select throws_ok(format($q$insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
-  values (%L::uuid, 'role', %L::uuid, 131072, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
-  '23514', null, 'an overwrite with 131072 is rejected');
+  values (%L::uuid, 'role', %L::uuid, 262144, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
+  '23514', null, 'an overwrite with 262144 is rejected');
 
 -- channel_permissions returns the bit when allowed, omits it when denied
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
@@ -41,9 +41,9 @@ update public.permission_overwrites set allow = 0, deny = 65536
   where channel_id = current_setting('t.ch')::uuid and target_type = 'member' and target_id = current_setting('t.c')::uuid;
 select is(public.channel_permissions(current_setting('t.c')::uuid, current_setting('t.ch')::uuid) & 65536, 0::bigint,
   'channel_permissions omits the bit when denied');
-select is(public.channel_permissions(current_setting('t.a')::uuid, current_setting('t.ch')::uuid), 97295::bigint,
-  'admin gets the full channel mask 97295');
-select is(public.member_global_permissions(current_setting('t.a')::uuid), 131071::bigint, 'admin global permissions are 131071');
+select is(public.channel_permissions(current_setting('t.a')::uuid, current_setting('t.ch')::uuid), 228367::bigint,
+  'admin gets the full channel mask 228367');
+select is(public.member_global_permissions(current_setting('t.a')::uuid), 262143::bigint, 'admin global permissions are 262143');
 -- the penalty mechanism cannot be used to smuggle global bits
 select is(public.member_global_permissions(current_setting('t.b')::uuid) & 65536, 65536::bigint,
   'a role bit 65536 shows in global permissions of the holder');
@@ -52,7 +52,7 @@ select is(public.member_global_permissions(current_setting('t.b')::uuid) & 65536
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.can(current_setting('t.ch')::uuid, 65536), true, 'can() accepts 65536');
 select is(public.has_any_channel_perm(65536), true, 'has_any_channel_perm accepts 65536');
-select throws_ok($q$select public.can(null, 131072)$q$, 'P0001', 'invalid_input', 'can() still rejects bits outside the channel mask');
+select throws_ok($q$select public.can(null, 262144)$q$, 'P0001', 'invalid_input', 'can() still rejects bits outside the channel mask');
 
 -- non-admin delegate: 65536 on @everyone and on Verificado is allowed, 8 is not
 select lives_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 65536, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
@@ -63,22 +63,22 @@ select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uui
   'P0001', 'forbidden', 'delegate cannot put 8 on @everyone');
 select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 65536 | 8, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
   'P0001', 'forbidden', 'delegate cannot mix 8 with 65536 on @everyone');
-select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 131072, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
-  'P0001', 'invalid_input', 'bit 131072 is outside the channel mask');
+select throws_ok(format($q$select public.set_overwrite(%L::uuid, 'role', %L::uuid, 262144, 0)$q$, current_setting('t.ch'), current_setting('t.everyone')),
+  'P0001', 'invalid_input', 'bit 262144 is outside the channel mask');
 
 -- update_role: member-safe mask on mass roles for non-admins
-select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3DDC84', 3072 | 65536)$q$, current_setting('t.verified')),
+select lives_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3DDC84', 3072 | 65536 | 131072)$q$, current_setting('t.verified')),
   'delegate can grant 65536 to a system_key role');
 select throws_ok(format($q$select public.update_role(%L::uuid, 'Verificado', '#3DDC84', 3072 | 8)$q$, current_setting('t.verified')),
   'P0001', 'forbidden', 'delegate cannot grant 8 to a system_key role');
 select tests.clear_authentication();
 
--- role permissions are bounded by 131071
+-- role permissions are bounded by 262143
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select lives_ok($q$select public.create_role('T700 ok', '#123456', 131071 & ~512)$q$, 'create_role accepts up to 131071 (without ADMINISTRATOR)');
-select throws_ok($q$select public.create_role('T700 big', '#123456', 131072)$q$, 'P0001', 'invalid_input', 'create_role rejects above 131071');
-select throws_ok(format($q$select public.update_role(%L::uuid, 'T700 bajo', '#CCCCCC', 131072)$q$, current_setting('t.bajo')),
-  'P0001', 'invalid_input', 'update_role rejects above 131071');
+select lives_ok($q$select public.create_role('T700 ok', '#123456', 262143 & ~512)$q$, 'create_role accepts up to 262143 (without ADMINISTRATOR)');
+select throws_ok($q$select public.create_role('T700 big', '#123456', 262144)$q$, 'P0001', 'invalid_input', 'create_role rejects above 262143');
+select throws_ok(format($q$select public.update_role(%L::uuid, 'T700 bajo', '#CCCCCC', 262144)$q$, current_setting('t.bajo')),
+  'P0001', 'invalid_input', 'update_role rejects above 262143');
 select tests.clear_authentication();
 
 select * from finish();

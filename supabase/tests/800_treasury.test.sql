@@ -1,5 +1,5 @@
 begin;
-select plan(133);
+select plan(129);
 
 -- helpers (rolled back with the test)
 create function tests.hash(p_n int) returns text language sql immutable as $$
@@ -11,7 +11,7 @@ returns uuid language plpgsql as $$
 declare v jsonb;
 begin
   perform tests.authenticate_as(p_user);
-  v := public.create_donation_intent(p_amount, p_fee);
+  v := public.create_donation_intent(p_amount, p_fee, true);
   perform public.attach_intent_tx((v ->> 'id')::uuid, 'main', tests.hash(p_n));
   if p_fee > 0 then
     perform public.attach_intent_tx((v ->> 'id')::uuid, 'fee', tests.hash(p_n + 5000));
@@ -33,10 +33,19 @@ begin
   return v;
 end;
 $$;
+-- F4a: credit at NAV with assets = value_usdc + every pending donation of the chain, so NAV_previo = value_usdc
+-- and the F3 share math (floor(d * S / V)) is what these assertions keep checking
 create function tests.cr(p_ledger uuid) returns void language plpgsql as $$
+declare v_assets numeric;
 begin
+  select coalesce((select s.value_usdc
+                          + (select coalesce(sum(x.amount_usdc), 0) from public.dao_ledger x
+                             where x.chain_id = l.chain_id and x.status = 'pending_finality')
+                   from public.dao_ledger l join public.dao_state s on s.chain_id = l.chain_id
+                   where l.id = p_ledger), 0)
+    into v_assets;
   set local role service_role;
-  perform public.credit_donation(p_ledger);
+  perform public.credit_donation(p_ledger, v_assets, 9223372036854775807);
   reset role;
 end;
 $$;
@@ -86,47 +95,45 @@ select ok(not has_table_privilege('anon', 'public.dao_ledger', 'select')
 select is((select count(*)::int from public.dao_state where total_shares = 0 and value_usdc = 0 and chain_id in (59144, 59141)),
   2, 'dao_state is seeded with zeros for both chains');
 select ok(not has_function_privilege('authenticated', 'public.record_donation(uuid,jsonb,jsonb)', 'execute'), 'authenticated cannot record_donation');
-select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid)', 'execute'), 'authenticated cannot credit_donation');
+select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute'), 'authenticated cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.revert_donation(uuid)', 'execute'), 'authenticated cannot revert_donation');
-select ok(not has_function_privilege('anon', 'public.credit_donation(uuid)', 'execute'), 'anon cannot credit_donation');
+select ok(not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute'), 'anon cannot credit_donation');
 select ok(not has_function_privilege('anon', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
       and not has_function_privilege('anon', 'public.revert_donation(uuid)', 'execute'), 'anon cannot record or revert donations');
 select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute')
       and not has_function_privilege('anon', 'public.dao_history(int)', 'execute')
-      and not has_function_privilege('anon', 'public.my_dao_position(int)', 'execute')
       and not has_function_privilege('anon', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'anon cannot call the read RPCs or the visibility toggle');
 select ok(not has_function_privilege('authenticated', 'public._record_payment_transfers(public.payment_intents,jsonb,jsonb)', 'execute'), 'authenticated cannot call the internal recording helper');
 select ok(has_function_privilege('service_role', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
-      and has_function_privilege('service_role', 'public.credit_donation(uuid)', 'execute')
+      and has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute')
       and has_function_privilege('service_role', 'public.revert_donation(uuid)', 'execute'), 'service_role runs the donation pipeline');
-select ok(has_function_privilege('authenticated', 'public.create_donation_intent(numeric,int)', 'execute')
+select ok(has_function_privilege('authenticated', 'public.create_donation_intent(numeric,int,boolean)', 'execute')
       and has_function_privilege('authenticated', 'public.dao_overview()', 'execute')
       and has_function_privilege('authenticated', 'public.dao_ranking(int)', 'execute')
       and has_function_privilege('authenticated', 'public.dao_history(int)', 'execute')
-      and has_function_privilege('authenticated', 'public.my_dao_position(int)', 'execute')
       and has_function_privilege('authenticated', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'authenticated gets the member-facing RPCs');
-select ok(not has_function_privilege('anon', 'public.create_donation_intent(numeric,int)', 'execute')
+select ok(not has_function_privilege('anon', 'public.create_donation_intent(numeric,int,boolean)', 'execute')
       and not has_function_privilege('anon', 'public.dao_overview()', 'execute'), 'anon cannot call the member-facing RPCs');
 select is((select dao_ranking_visible from public.members where id = current_setting('t.a')::uuid), false, 'members are anonymous in the ranking by default');
 
 -- ===== donation intent =====
 select tests.authenticate_as(current_setting('t.uf')::uuid);
-select throws_ok($$select public.create_donation_intent(1000000, 0)$$, 'P0001', 'safe_not_configured', 'no Safe on the active chain');
+select throws_ok($$select public.create_donation_intent(1000000, 0, true)$$, 'P0001', 'safe_not_configured', 'no Safe on the active chain');
 select tests.clear_authentication();
 update public.chain_config set safe_address = '0x' || lpad('5afe59141', 40, '0') where chain_id = 59141;
 update public.chain_config set safe_address = '0x' || lpad('5afe59144', 40, '0') where chain_id = 59144;
 select tests.authenticate_as(current_setting('t.uf')::uuid);
-select throws_ok($$select public.create_donation_intent(999999, 0)$$, 'P0001', 'amount_out_of_range', 'below 1 USDC');
-select throws_ok($$select public.create_donation_intent(1000000000001, 0)$$, 'P0001', 'amount_out_of_range', 'above 1000000 USDC');
-select throws_ok($$select public.create_donation_intent(1000000.5, 0)$$, 'P0001', 'invalid_input', 'fractional base units');
-select throws_ok($$select public.create_donation_intent(null, 0)$$, 'P0001', 'invalid_input', 'null amount');
-select throws_ok($$select public.create_donation_intent(1000000, null)$$, 'P0001', 'invalid_input', 'null fee');
-select throws_ok($$select public.create_donation_intent(1000000, 5001)$$, 'P0001', 'fee_out_of_range', 'fee above 50 %');
+select throws_ok($$select public.create_donation_intent(999999, 0, true)$$, 'P0001', 'amount_out_of_range', 'below 1 USDC');
+select throws_ok($$select public.create_donation_intent(1000000000001, 0, true)$$, 'P0001', 'amount_out_of_range', 'above 1000000 USDC');
+select throws_ok($$select public.create_donation_intent(1000000.5, 0, true)$$, 'P0001', 'invalid_input', 'fractional base units');
+select throws_ok($$select public.create_donation_intent(null, 0, true)$$, 'P0001', 'invalid_input', 'null amount');
+select throws_ok($$select public.create_donation_intent(1000000, null, true)$$, 'P0001', 'invalid_input', 'null fee');
+select throws_ok($$select public.create_donation_intent(1000000, 5001, true)$$, 'P0001', 'fee_out_of_range', 'fee above 50 %');
 select tests.clear_authentication();
 update public.app_config set value = '100'::jsonb where key = 'min_fee_bps';
 select tests.authenticate_as(current_setting('t.uf')::uuid);
-select throws_ok($$select public.create_donation_intent(1000000, 50)$$, 'P0001', 'fee_below_minimum', 'fee below the platform minimum');
-select set_config('t.fi', public.create_donation_intent(1000001, 100)::text, true);
+select throws_ok($$select public.create_donation_intent(1000000, 50, true)$$, 'P0001', 'fee_below_minimum', 'fee below the platform minimum');
+select set_config('t.fi', public.create_donation_intent(1000001, 100, true)::text, true);
 select tests.clear_authentication();
 update public.app_config set value = '0'::jsonb where key = 'min_fee_bps';
 select is(current_setting('t.fi')::jsonb ->> 'recipientAddress', '0x' || lpad('5afe59141', 40, '0'), 'the recipient is the Safe of the active chain');
@@ -138,17 +145,17 @@ select is((select token || ':' || purpose || ':' || target_type || ':' || anonym
   'USDC:donation:dao:false:null:59141', 'the intent snapshot: USDC donation to the dao, not anonymous, no member recipient');
 update public.chain_config set platform_wallet = null where chain_id = 59141;
 select tests.authenticate_as(current_setting('t.uf')::uuid);
-select throws_ok($$select public.create_donation_intent(1000000, 100)$$, 'P0001', 'platform_not_configured', 'fee > 0 needs the platform wallet');
-select lives_ok($$select public.create_donation_intent(1000000, 0)$$, 'no fee needs no platform wallet');
+select throws_ok($$select public.create_donation_intent(1000000, 100, true)$$, 'P0001', 'platform_not_configured', 'fee > 0 needs the platform wallet');
+select lives_ok($$select public.create_donation_intent(1000000, 0, true)$$, 'no fee needs no platform wallet');
 select tests.clear_authentication();
 update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
 select tests.authenticate_as(current_setting('t.ue')::uuid);
-select throws_ok($$select public.create_donation_intent(1000000, 0)$$, 'P0001', 'forbidden', 'a banned member cannot donate');
+select throws_ok($$select public.create_donation_intent(1000000, 0, true)$$, 'P0001', 'forbidden', 'a banned member cannot donate');
 select tests.clear_authentication();
 -- cap: f already holds 2 pending intents, 18 more reach 20
 select tests.authenticate_as(current_setting('t.uf')::uuid);
-select lives_ok($$select count(public.create_donation_intent(1000000, 0)) from generate_series(1, 18)$$, '20 pending intents are allowed');
-select throws_ok($$select public.create_donation_intent(1000000, 0)$$, 'P0001', 'too_many_intents', 'the 21st pending intent is refused');
+select lives_ok($$select count(public.create_donation_intent(1000000, 0, true)) from generate_series(1, 18)$$, '20 pending intents are allowed');
+select throws_ok($$select public.create_donation_intent(1000000, 0, true)$$, 'P0001', 'too_many_intents', 'the 21st pending intent is refused');
 select tests.clear_authentication();
 
 -- ===== two-phase crediting and the share math =====
@@ -294,7 +301,7 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'chainId', '59144', 'dao_overview follows the active chain');
 select is(public.dao_overview() ->> 'myShares', '0', 'testnet shares do not show on the other chain');
 select is((select count(*)::int from public.dao_ranking(50)), 0, 'the ranking of a fresh chain is empty');
-select set_config('t.im', public.create_donation_intent(5000000, 0)::text, true);
+select set_config('t.im', public.create_donation_intent(5000000, 0, true)::text, true);
 select is(current_setting('t.im')::jsonb ->> 'recipientAddress', '0x' || lpad('5afe59144', 40, '0'), 'the intent targets the Safe of the new active chain');
 select public.attach_intent_tx((current_setting('t.im')::jsonb ->> 'id')::uuid, 'main', tests.hash(60));
 select tests.clear_authentication();
@@ -306,15 +313,11 @@ select is((select total_shares::text || ':' || value_usdc::text from public.dao_
 select is((select count(*)::int from public.dao_positions where chain_id = 59144), 1, 'only the 59144 donor has a 59144 position');
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'myShareBps', '10000', 'the sole donor of 59144 holds 100 %');
-select is((select share_bps from public.my_dao_position(59144)), 10000, 'my_dao_position reads the requested chain');
-select is((select net_usdc::text from public.my_dao_position(59141)), '10000000', 'my_dao_position reads the other chain too');
 select is((select count(*)::int from public.dao_history(50)), 1, 'the history is per chain');
-select throws_ok($$select * from public.my_dao_position(1)$$, 'P0001', 'chain_invalid', 'my_dao_position refuses an unknown chain');
 select tests.clear_authentication();
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'totalShares', current_setting('t.s59141'), 'back on 59141 the overview shows the 59141 ledger');
-select is((select share_bps from public.my_dao_position()), (select share_bps from public.my_dao_position(59141)), 'my_dao_position defaults to the active chain');
 select tests.clear_authentication();
 
 -- ===== reads and anonymity =====

@@ -105,6 +105,7 @@ describe("useChannelEvents", () => {
       "message_deleted",
       "message_pinned",
       "message_updated",
+      "poll_changed",
       "reaction_changed",
     ]);
   });

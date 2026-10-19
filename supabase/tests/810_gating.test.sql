@@ -106,7 +106,7 @@ select is(public.channel_permissions(current_setting('t.s')::uuid, current_setti
 select is(public.channel_permissions(current_setting('t.p')::uuid, current_setting('t.chP')::uuid), 8199::bigint, 'post-gate passer keeps SEND');
 select is(public.channel_permissions(current_setting('t.s')::uuid, current_setting('t.chK')::uuid), 0::bigint, 'a view-gated category hides its children');
 insert into public.member_roles (member_id, role_id) select current_setting('t.a')::uuid, id from public.roles where (permissions & 512) <> 0 and is_system limit 1;
-select is(public.channel_permissions(current_setting('t.a')::uuid, current_setting('t.chS')::uuid), 97295::bigint, 'an administrator bypasses every gate');
+select is(public.channel_permissions(current_setting('t.a')::uuid, current_setting('t.chS')::uuid), 228367::bigint, 'an administrator bypasses every gate');
 select is(public._channel_permissions_core(current_setting('t.s')::uuid, current_setting('t.chS')::uuid, true), 8199::bigint, 'core ignoring the view gate returns the role bits');
 select is(public._channel_permissions_core(current_setting('t.s')::uuid, current_setting('t.chS')::uuid, false), 0::bigint, 'core honouring the gate matches channel_permissions');
 select is(public._channel_permissions_core(current_setting('t.s')::uuid, current_setting('t.chP')::uuid, true), 8193::bigint, 'ignoring the view gate does not ignore the post gate');

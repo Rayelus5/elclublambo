@@ -2,7 +2,7 @@ import { Perm } from "@/lib/permissions/bits";
 
 export type BitLabel = { bit: bigint; label: string };
 
-/** Los 10 bits que pueden aparecer en un overwrite de canal, en orden de columna. */
+/** Los 11 bits que pueden aparecer en un overwrite de canal, en orden de columna. */
 export const CHANNEL_BIT_LIST: readonly BitLabel[] = [
   { bit: Perm.VIEW_CHANNEL, label: "Ver canal" },
   { bit: Perm.SEND_MESSAGES, label: "Enviar mensajes" },
@@ -14,6 +14,7 @@ export const CHANNEL_BIT_LIST: readonly BitLabel[] = [
   { bit: Perm.ADD_REACTIONS, label: "Reaccionar" },
   { bit: Perm.MANAGE_TICKETS, label: "Gestionar tickets" },
   { bit: Perm.CREATE_BOUNTIES, label: "Crear bounties" },
+  { bit: Perm.CREATE_POLLS, label: "Crear encuestas" },
 ];
 
 /** Bits globales (ADMINISTRATOR nunca se ofrece ni se etiqueta). */
@@ -26,15 +27,15 @@ export const GLOBAL_BIT_LIST: readonly BitLabel[] = [
   { bit: Perm.VERIFY_MEMBERS, label: "Verificar miembros" },
 ];
 
-/** Los 16 bits que se pueden marcar en un rol: globales primero, luego los de canal. */
+/** Los 17 bits que se pueden marcar en un rol: globales primero, luego los de canal. */
 export const SELECTABLE_BIT_LIST: readonly BitLabel[] = [...GLOBAL_BIT_LIST, ...CHANNEL_BIT_LIST];
 
 export const PERM_LABEL: ReadonlyMap<bigint, string> = new Map(SELECTABLE_BIT_LIST.map((b) => [b.bit, b.label]));
 
 /**
  * Bits que un rol de sistema o @everyone puede tener si quien edita no es admin. Debe ser idéntico a la máscara
- * "member-safe" del SQL (76823, update_role / set_overwrite): ver, enviar, responder en hilos, crear invitaciones,
- * adjuntar, insertar enlaces, reaccionar y crear bounties.
+ * "member-safe" del SQL (207895, update_role / set_overwrite): ver, enviar, responder en hilos, crear invitaciones,
+ * adjuntar, insertar enlaces, reaccionar, crear bounties y crear encuestas.
  */
 export const SAFE_ROLE_MASK =
   Perm.VIEW_CHANNEL |
@@ -44,4 +45,5 @@ export const SAFE_ROLE_MASK =
   Perm.ATTACH_FILES |
   Perm.EMBED_LINKS |
   Perm.ADD_REACTIONS |
-  Perm.CREATE_BOUNTIES;
+  Perm.CREATE_BOUNTIES |
+  Perm.CREATE_POLLS;

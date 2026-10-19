@@ -31,12 +31,60 @@ export function notificationCopy(n: NotificationView): ReactNode {
       return <>Respuesta en el ticket <strong className="font-bold text-fg">{subject}</strong></>;
     case "tip_received":
       return n.actor ? <>{actor} te ha enviado una propina</> : <>Has recibido una propina anónima</>;
+    case "poll_closed":
+      return <>Se ha cerrado la encuesta en la que votaste en {channel}</>;
     case "bounty_solution":
       return <>{actor} ha elegido tu respuesta como solución del bounty</>;
     case "bounty_paid":
       return <>{actor} te ha pagado el bounty</>;
-    case "treasury_mismatch":
-      return <>El saldo de la Safe no coincide con el registro de la DAO</>;
+    case "treasury_outflow":
+      return n.outflow ? (
+        <>
+          Salida de la tesorería sin explicar: <strong className="font-bold text-fg">{n.outflow}</strong>
+        </>
+      ) : (
+        <>Salida de la tesorería sin explicar</>
+      );
+    case "withdrawal_approved":
+      return n.withdrawalAmount ? (
+        <>
+          Tu retirada de <strong className="font-bold text-fg">{n.withdrawalAmount}</strong> está aprobada
+        </>
+      ) : (
+        <>Tu retirada está aprobada</>
+      );
+    case "withdrawal_rejected":
+      return n.withdrawalReason ? <>Tu retirada fue rechazada: {n.withdrawalReason}</> : <>Tu retirada fue rechazada</>;
+    case "withdrawal_paid":
+      return n.withdrawalAmount ? (
+        <>
+          Has recibido <strong className="font-bold text-fg">{n.withdrawalAmount}</strong> de la tesorería
+        </>
+      ) : (
+        <>Has recibido el pago de tu retirada</>
+      );
+    case "withdrawal_expired":
+      return <>Tu aprobación de retirada caducó: vuelve a estar pendiente</>;
+    case "raffle_won":
+      return n.raffleTitle && n.rafflePrize ? (
+        <>
+          Has ganado el sorteo «{n.raffleTitle}»: <strong className="font-bold text-fg">{n.rafflePrize}</strong>
+        </>
+      ) : (
+        <>Has ganado un sorteo</>
+      );
+    case "treasury_notice":
+      return n.treasuryEvent === "raffle_drawn" ? (
+        <>Un sorteo tiene ganador: paga el premio</>
+      ) : n.treasuryEvent === "raffle_unpaid" ? (
+        <>Un premio de sorteo lleva 14 días sin pagarse</>
+      ) : n.treasuryEvent === "approval_expired" ? (
+        <>Una retirada aprobada caducó sin pagarse</>
+      ) : n.treasuryEvent === "withdrawal_requested" ? (
+        <>Nueva solicitud de retirada</>
+      ) : (
+        <>Aviso de la tesorería</>
+      );
     case "ticket_status":
       return (
         <>

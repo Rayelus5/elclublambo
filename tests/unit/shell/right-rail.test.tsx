@@ -1,6 +1,6 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ path: "/", rpc: vi.fn(), topic: vi.fn(), desktop: true }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path }));
@@ -33,6 +33,11 @@ beforeEach(() => {
       return { data: [{ kind: "donation", at: "2026-10-18T10:00:00Z", actor_label: "@eva", token: "USDC", amount_text: "10000000" }], error: null };
     return { data: null, error: { message: "unexpected" } };
   });
+});
+
+// Restored even when an assertion fails, so fake timers never leak into the next test.
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const renderRail = () =>
@@ -91,13 +96,22 @@ describe("RightRail", () => {
   });
 
   it("activity only re-reads the channel's open bounties, not the costly member count", async () => {
+    // The re-read is debounced 300 ms. Waiting for it in real time inside waitFor's 1 s budget was the full-suite flake
+    // (under parallel load the timer plus the render overran it); fake timers make the 300 ms exact.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     h.path = `/c/${CH}`;
     renderRail();
     await screen.findByText("#general");
+    // every first read has landed (members, pins, bounties) before counting
+    await screen.findByRole("list", { name: "Miembros en línea" });
+    await screen.findByText("Ninguno abierto aquí.");
     const before = h.rpc.mock.calls.length;
     const handlers = h.topic.mock.calls.findLast((c) => c[0] === "activity")![2] as { onEvent: () => void };
     act(() => handlers.onEvent());
-    await waitFor(() => expect(h.rpc.mock.calls.length).toBe(before + 1));
+    await act(() => vi.advanceTimersByTimeAsync(299));
+    expect(h.rpc.mock.calls.length).toBe(before); // still debounced
+    await act(() => vi.advanceTimersByTimeAsync(1));
+    expect(h.rpc.mock.calls.length).toBe(before + 1);
     expect(h.rpc.mock.calls.at(-1)![0]).toBe("home_open_bounties");
   });
 
@@ -111,7 +125,6 @@ describe("RightRail", () => {
     expect(screen.getByText("En línea — 1")).toBeInTheDocument(); // not yet: a reload would come straight back
     act(() => vi.advanceTimersByTime(5_000));
     expect(screen.getByText("En línea — 0")).toBeInTheDocument();
-    vi.useRealTimers();
     expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@ana");
   });
 

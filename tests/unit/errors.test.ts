@@ -14,6 +14,21 @@ describe("knownErrorCode", () => {
 const FALLBACK = "Algo falló. Inténtalo de nuevo.";
 
 describe("rpcErrorMessage", () => {
+  it("F4a-R12 safe_change_blocked has Spanish copy and is allowlisted", () => {
+    expect(rpcErrorCode({ message: "safe_change_blocked" })).toBe("safe_change_blocked");
+    expect(rpcErrorMessage("safe_change_blocked")).toMatch(/Safe/);
+    expect(rpcErrorMessage("safe_change_blocked")).toMatch(/participaciones|donaciones/);
+  });
+  it("R-M3 valuation_paused has its own copy (not the donation one of assets_stale)", () => {
+    expect(rpcErrorCode({ message: "valuation_paused" })).toBe("valuation_paused");
+    expect(rpcErrorMessage("valuation_paused")).toBe(
+      "Valoración en pausa: hay una salida de la Safe sin explicar mientras una retirada o un premio siguen pendientes de pago. Mira «Avisos» en el panel del tesorero.",
+    );
+  });
+  it("F4c safe_changed has its exact Spanish copy and is allowlisted", () => {
+    expect(rpcErrorCode({ message: "safe_changed" })).toBe("safe_changed");
+    expect(rpcErrorMessage("safe_changed")).toBe("La Safe de esta red cambió durante la operación. Vuelve a intentarlo.");
+  });
   it.each([
     ["invite_expired", "caducado"],
     ["invite_exhausted", "agotada"],
@@ -66,6 +81,31 @@ describe("rpcErrorMessage", () => {
   it("has Spanish copy for bounty_has_solution", () => {
     expect(rpcErrorCode({ message: "bounty_has_solution" })).toBe("bounty_has_solution");
     expect(rpcErrorMessage("bounty_has_solution")).toBe("No puedes borrar un bounty con una solución elegida sin pagar.");
+  });
+  it.each([
+    ["withdrawals_disabled", "Las retiradas no están activadas en esta red."],
+    ["withdrawal_exists", "Ya tienes una retirada en curso. Cancélala o espera a que se resuelva."],
+    ["insufficient_shares", "No tienes tantas participaciones."],
+    ["amount_too_small", "La retirada mínima es de 1 USDC, salvo que retires todas tus participaciones."],
+    ["nav_not_ready", "El fondo aún no tiene valoración. Inténtalo tras la próxima."],
+    ["reason_required", "Escribe un motivo de 1 a 280 caracteres."],
+    ["approval_expired", "La aprobación de esta retirada caducó. Vuelve a aprobarla al precio actual."],
+  ])("F4c withdrawal error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
+  it.each([
+    ["raffle_closed", "El sorteo ya está cerrado."],
+    ["raffle_drawn", "Un sorteo ya resuelto no se puede cancelar: el premio es del ganador."],
+    ["weighted_raffles_disabled", "Los sorteos ponderados no están activados en esta red."],
+    ["prize_too_small", "El premio mínimo es 1 USDC o 0,001 WETH."],
+    ["prize_too_large", "El premio no puede superar la mitad del valor del fondo."],
+    ["closes_at_invalid", "El cierre debe estar entre 1 hora y 30 días desde ahora."],
+    ["title_required", "Escribe un título de 1 a 80 caracteres."],
+    ["draw_block_invalid", "Ese bloque no es el primero posterior al cierre."],
+  ])("F4d raffle error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
   });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
 });

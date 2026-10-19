@@ -5,7 +5,7 @@ import { ShareRing } from "@/components/treasury/dao-charts";
 import { DonateButton } from "@/components/treasury/donate-button";
 import { messageHref, type ActiveChannel, type HomeBounty, type HomePin, type UnreadSummary } from "@/lib/home/queries";
 import { formatAmount } from "@/lib/payments/amounts";
-import { formatBps, formatUsdc } from "@/lib/treasury/format";
+import { formatBps, formatUsd } from "@/lib/treasury/format";
 import type { DaoOverview } from "@/lib/treasury/queries";
 
 const LINK =
@@ -101,8 +101,8 @@ export function DaoSummary({ overview }: { overview: DaoOverview }) {
         <ShareRing bps={overview.myShareBps} />
         <dl className="grid flex-1 grid-cols-2 gap-3">
           <div>
-            <dt className="text-[13px] text-fg-muted">Balance</dt>
-            <dd className="font-display text-xl font-black text-fg">{formatUsdc(overview.valueUsdc)}</dd>
+            <dt className="text-[13px] text-fg-muted">Valor del fondo</dt>
+            <dd className="font-display text-xl font-black break-all text-fg">{formatUsd(overview.navUsd6)}</dd>
           </div>
           <div>
             <dt className="text-[13px] text-fg-muted">Tu parte</dt>

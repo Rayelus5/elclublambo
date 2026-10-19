@@ -11,11 +11,57 @@ export function formatUsdc(units: bigint): string {
   return `${group(whole!)}${frac ? `,${frac}` : ""} USDC`;
 }
 
+/** USD with 6 decimals (USD6) -> "2.500 USD" / "370,37 USD": thousands grouped, cents at most (truncated, never floats). */
+export function formatUsd(usd6: bigint): string {
+  const neg = usd6 < 0n;
+  const abs = neg ? -usd6 : usd6;
+  const cents = (abs % 1_000_000n) / 10_000n;
+  const frac = cents.toString().padStart(2, "0").replace(/0+$/, "");
+  return `${neg ? "-" : ""}${group((abs / 1_000_000n).toString())}${frac ? `,${frac}` : ""} USD`;
+}
+
+/**
+ * The value of one participación (USD6), which starts near 1 USD and moves by fractions of a cent: up to 4 decimals
+ * (truncated, trailing zeros dropped) so 1,255 does not collapse to 1,25; all 6 when 4 would print a non-zero value as 0.
+ */
+export function formatUsdPrecise(usd6: bigint): string {
+  const neg = usd6 < 0n;
+  const abs = neg ? -usd6 : usd6;
+  const whole = abs / 1_000_000n;
+  const rest = abs % 1_000_000n;
+  const digits = whole === 0n && rest > 0n && rest < 100n ? 6 : 4;
+  const frac = rest.toString().padStart(6, "0").slice(0, digits).replace(/0+$/, "");
+  return `${neg ? "-" : ""}${group(whole.toString())}${frac ? `,${frac}` : ""} USD`;
+}
+
+/** Assets the Safe holds. WETH has 18 decimals like ETH. */
+export type FundAsset = "USDC" | "ETH" | "WETH";
+
+/** Base units of a fund asset -> "1.500 WETH" / "0,25 ETH" (exact: every significant decimal, no trailing zeros). */
+export function formatToken(units: bigint, asset: FundAsset): string {
+  const [whole, frac] = formatAmount(units, asset === "USDC" ? "USDC" : "ETH").split(",");
+  return `${group(whole!)}${frac ? `,${frac}` : ""} ${asset}`;
+}
+
 /** Basis points -> "0,2 %" / "12,34 %". */
 export function formatBps(bps: number): string {
   const whole = Math.trunc(bps / 100);
   const frac = String(Math.abs(bps % 100)).padStart(2, "0").replace(/0+$/, "");
   return `${whole}${frac ? `,${frac}` : ""} %`;
+}
+
+/**
+ * Shares (10^18 per participación) -> "5 participaciones" / "0,5 participaciones" / "< 0,01 participaciones":
+ * at most 2 decimals, truncated, never through Number.
+ */
+export function formatParticipaciones(shares: bigint): string {
+  const unit = 10n ** 18n;
+  const whole = shares / unit;
+  const hundredths = ((shares % unit) * 100n) / unit;
+  if (whole === 0n && hundredths === 0n) return shares > 0n ? "< 0,01 participaciones" : "0 participaciones";
+  const frac = hundredths.toString().padStart(2, "0").replace(/0+$/, "");
+  const text = `${group(whole.toString())}${frac ? `,${frac}` : ""}`;
+  return `${text} ${text === "1" ? "participación" : "participaciones"}`;
 }
 
 const SUPERSCRIPT = "⁰¹²³⁴⁵⁶⁷⁸⁹";

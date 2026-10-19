@@ -8,6 +8,7 @@ vi.mock("@/lib/chat/actions", () => ({
   getSlowmodeAction: vi.fn(async () => ({ seconds: 0 })),
   searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })),
 }));
+vi.mock("@/components/chat/poll-dialog", () => ({ PollDialog: () => null }));
 vi.mock("@/components/chat/alpha-dialog", () => ({ AlphaDialog: () => null }));
 vi.mock("@/components/chat/bounty-dialog", () => ({
   BountyDialog: (props: { open: boolean; channelId: string; initialText: string; onPosted: (id: string) => void; onSlowmode?: (s: number) => void }) => (

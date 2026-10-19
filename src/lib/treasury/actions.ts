@@ -1,12 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getEconomyConfig } from "@/lib/economy/config";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
-import { hasPerm, Perm } from "@/lib/permissions/bits";
 import type { TipIntent } from "@/lib/payments/tip-actions";
 import { createServerClient } from "@/lib/supabase/server";
-import { reconcile } from "@/lib/treasury/reconcile";
 
 type Fail = { ok: false; error: string; code: string };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
@@ -21,14 +18,20 @@ function parseUsdc(text: string): bigint | null {
 }
 
 /** Creates a donation intent on the active chain's Safe. Amount is typed USDC text; the RPC enforces 1..1000000. */
-export async function createDonationIntentAction(input: { amount: string; feeBps: number }): Promise<{ ok: true; intent: TipIntent } | Fail> {
-  const { amount, feeBps } = input ?? ({} as { amount: string; feeBps: number });
+export async function createDonationIntentAction(input: { amount: string; feeBps: number; acknowledged: true }): Promise<{ ok: true; intent: TipIntent } | Fail> {
+  const { amount, feeBps, acknowledged } = input ?? ({} as { amount: string; feeBps: number; acknowledged: unknown });
+  // F4a-R8/R11: the risk acknowledgement is refused early here, and the RPC refuses it again (it is granted to members).
+  if (acknowledged !== true) return fail("acknowledgement_required");
   if (typeof amount !== "string" || !Number.isInteger(feeBps) || feeBps < 0 || feeBps > 5000) return fail("invalid_input");
   const units = parseUsdc(amount);
   if (units === null || units <= 0n) return fail("invalid_input");
 
   const supabase = await createServerClient();
-  const { data, error } = await supabase.rpc("create_donation_intent", { p_amount: units.toString(), p_fee_bps: feeBps });
+  const { data, error } = await supabase.rpc("create_donation_intent", {
+    p_amount: units.toString(),
+    p_fee_bps: feeBps,
+    p_acknowledged: acknowledged,
+  });
   if (error) return fail(rpcErrorCode(error));
   if (!data) return fail("unknown");
   return { ok: true, intent: data as TipIntent };
@@ -42,45 +45,4 @@ export async function setRankingVisibleAction(visible: boolean): Promise<{ ok: t
   revalidatePath("/dao");
   revalidatePath("/perfil");
   return { ok: true };
-}
-
-export type ReconcileSummary = {
-  chainId: number;
-  ledgerValue: string;
-  pendingValue: string;
-  onchainBalance: string;
-  /** Effective diff (excludes donations pending finality). */
-  diff: string;
-  rawDiff: string;
-  id: string;
-};
-
-/** "Reconciliar ahora": MANAGE_TREASURY (or admin) only, on the active chain. Amounts travel as text. */
-export async function reconcileNowAction(): Promise<{ ok: true; result: ReconcileSummary } | Fail> {
-  const supabase = await createServerClient();
-  const [{ data: perms }, { data: memberId }] = await Promise.all([supabase.rpc("my_permissions"), supabase.rpc("current_member_id")]);
-  if (typeof memberId !== "string" || !hasPerm(BigInt(String(perms ?? 0)), Perm.MANAGE_TREASURY)) return fail("forbidden");
-
-  const { activeChainId } = await getEconomyConfig();
-  try {
-    const r = await reconcile(activeChainId, memberId);
-    revalidatePath("/dao");
-    return {
-      ok: true,
-      result: {
-        chainId: activeChainId,
-        ledgerValue: r.ledgerValue.toString(),
-        pendingValue: r.pendingValue.toString(),
-        onchainBalance: r.onchainBalance.toString(),
-        diff: r.diff.toString(),
-        rawDiff: r.rawDiff.toString(),
-        id: r.id,
-      },
-    };
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "";
-    if (message === "safe_not_configured") return fail("safe_not_configured");
-    console.error("[treasury] reconcileNow failed", e);
-    return fail("rpc_unavailable");
-  }
 }

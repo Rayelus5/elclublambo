@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({
   markRead: vi.fn(async () => ({})),
@@ -31,9 +31,18 @@ const view = (id: number, readAt: string | null = null): NotificationView => ({
   href: "/c/x",
 });
 
+// jsdom cannot navigate to another document and prints "Not implemented" when a link is followed (M5). The item's own
+// click handler still runs; only the browser's default action is cancelled, at the document, after it.
+const stopNavigation = (e: MouseEvent) => {
+  if ((e.target as Element | null)?.closest?.("a[href]")) e.preventDefault();
+};
 beforeEach(() => {
   vi.clearAllMocks();
   h.tick = 0;
+  document.addEventListener("click", stopNavigation);
+});
+afterEach(() => {
+  document.removeEventListener("click", stopNavigation);
 });
 
 describe("NotificationList", () => {

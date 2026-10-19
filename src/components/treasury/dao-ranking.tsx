@@ -40,7 +40,12 @@ export function DaoRanking({ entries, viewerId }: { entries: RankingEntry[]; vie
                   {mine ? <span className="ml-2 text-[13px] font-normal text-accent">(tú)</span> : null}
                 </td>
                 <td className="py-3 pr-2 text-right font-mono">{formatBps(e.shareBps)}</td>
-                <td className="py-3 text-right font-mono">{formatUsdc(e.netUsdc)}</td>
+                <td className="py-3 text-right font-mono">
+                  {e.club ? <>
+                      <span aria-hidden>—</span>
+                      <span className="sr-only">Sin aportación propia</span>
+                    </> : formatUsdc(e.netUsdc)}
+                </td>
               </tr>
             );
           })}

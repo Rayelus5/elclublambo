@@ -12,6 +12,7 @@ const CH = "11111111-1111-4111-8111-111111111111";
 const config = {
   activeChainId: 59141 as const,
   minFeeBps: 100,
+  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
   chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } },
 };
 

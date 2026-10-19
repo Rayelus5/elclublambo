@@ -34,7 +34,7 @@ select ok((select is_bootstrap and status = 'active' and invited_by_member_id is
   from public.members where id = current_setting('t.m1')::uuid), 'member is active bootstrap with no inviter');
 select is((select count(*)::int from public.member_roles mr join public.roles r on r.id = mr.role_id
   where mr.member_id = current_setting('t.m1')::uuid and r.name = 'SuperAdmin' and r.is_system), 1, 'SuperAdmin role assigned');
-select is(public.member_global_permissions(current_setting('t.m1')::uuid), 131071::bigint, 'full permissions');
+select is(public.member_global_permissions(current_setting('t.m1')::uuid), 262143::bigint, 'full permissions');
 select is((select count(*)::int from public.audit_log
   where action = 'bootstrap_super_admin' and actor_member_id = current_setting('t.m1')::uuid
     and target_type = 'member' and target_id = current_setting('t.m1')::uuid

@@ -44,6 +44,7 @@ export async function loadChatContext(
     canReact: hasPerm(bits, Perm.ADD_REACTIONS),
     canEmbed: hasPerm(bits, Perm.EMBED_LINKS),
     canBounty: hasPerm(bits, Perm.CREATE_BOUNTIES) && hasPerm(bits, Perm.SEND_MESSAGES),
+    canPoll: hasPerm(bits, Perm.CREATE_POLLS) && hasPerm(bits, Perm.SEND_MESSAGES),
   };
 
   return {

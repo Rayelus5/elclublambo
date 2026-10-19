@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NetworkBadge } from "@/components/economy/network-badge";
-import { setActiveChainAction, setChainAddressesAction, setMinFeeBpsAction } from "@/lib/economy/actions";
+import {
+  cancelOpenDonationIntentsAction,
+  setActiveChainAction,
+  setChainAddressesAction,
+  setMinFeeBpsAction,
+} from "@/lib/economy/actions";
 import type { ChainAddresses, EconomyConfig } from "@/lib/economy/config";
 import {
   bpsToPercentText,
@@ -126,11 +131,36 @@ function AddressesCard({ chain, addresses }: { chain: ChainId; addresses: ChainA
   const [platform, setPlatform] = useState(addresses.platform ?? "");
   const [errors, setErrors] = useState<{ safe?: string; platform?: string; form?: string }>({});
   const [saved, setSaved] = useState(false);
+  // F4a carry c: after a refused Safe change, offer to cancel the open donation payments that have no transaction
+  const [blocked, setBlocked] = useState(false);
+  const [cancelled, setCancelled] = useState<number | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  function cancelOpen() {
+    setCancelled(null);
+    setCancelError(null);
+    startTransition(async () => {
+      const res = await cancelOpenDonationIntentsAction(chain);
+      setConfirming(false);
+      if (res.error) {
+        // keep the refusal visible: the cancel error goes beside it
+        setCancelError(rpcErrorMessage(res.error));
+        return;
+      }
+      setErrors({});
+      setBlocked(false);
+      setCancelled(res.count ?? 0);
+    });
+  }
 
   function save(e: React.FormEvent) {
     e.preventDefault();
     setSaved(false);
+    setBlocked(false);
+    setCancelled(null);
+    setCancelError(null);
     const next = { safe: addressProblem(safe) ?? undefined, platform: addressProblem(platform) ?? undefined };
     setErrors(next);
     if (next.safe || next.platform) return;
@@ -143,6 +173,7 @@ function AddressesCard({ chain, addresses }: { chain: ChainId; addresses: ChainA
       });
       if (res.error) {
         setErrors({ form: rpcErrorMessage(res.error) });
+        setBlocked(res.error === "safe_change_blocked");
         return;
       }
       setSaved(true);
@@ -189,6 +220,34 @@ function AddressesCard({ chain, addresses }: { chain: ChainId; addresses: ChainA
           {errors.form}
         </p>
       ) : null}
+      {blocked ? (
+        <div className="flex flex-col items-start gap-2">
+          <p id={`${uid}-cancel-help`} className="text-[13px] text-fg-muted">
+            Cancela los pagos de donación que aún no tienen transacción. Si alguien está pagando justo ahora, su donación
+            no se acreditará sola.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            disabled={pending}
+            onClick={() => setConfirming(true)}
+            aria-describedby={`${uid}-cancel-help`}
+            className="h-auto py-2 text-left whitespace-normal"
+          >
+            Cancelar pagos de donación abiertos
+          </Button>
+          {cancelError ? (
+            <p role="alert" className="text-[13px] text-danger">
+              {cancelError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {cancelled !== null ? (
+        <p role="status" className="text-[13px] text-success">
+          {`${cancelled === 1 ? "1 pago cancelado." : `${cancelled} pagos cancelados.`} Vuelve a guardar la Safe.`}
+        </p>
+      ) : null}
       {saved ? (
         <p role="status" className="text-[13px] text-success">
           Direcciones guardadas.
@@ -199,6 +258,29 @@ function AddressesCard({ chain, addresses }: { chain: ChainId; addresses: ChainA
           {pending ? "Guardando…" : "Guardar direcciones"}
         </Button>
       </div>
+
+      <AlertDialog open={confirming} onOpenChange={(o) => !o && !pending && setConfirming(false)}>
+        <AlertDialogContent className="data-[size=default]:max-w-md data-[size=default]:sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar los pagos de donación abiertos?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {`Se cancelarán los pagos de donación de ${name} que aún no tienen transacción. Si alguien está pagando justo ahora, su donación no se acreditará sola.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pending}
+              onClick={(e) => {
+                e.preventDefault();
+                cancelOpen();
+              }}
+            >
+              {pending ? "Cancelando…" : "Sí, cancelar pagos"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   );
 }

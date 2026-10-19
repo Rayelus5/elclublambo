@@ -13,13 +13,39 @@ const base: Data = {
   myShareBps: 20,
   myNet: 20_000_000n,
   myPending: [],
+  navUsd6: 1_234_500_000n,
+  navAt: "2026-10-18T10:00:00Z",
+  sharePriceUsd6: 2_000_000n,
+  myValueUsd6: 120_000_000n,
+  clubShares: 0n,
+  composition: null,
+  withdrawalsEnabled: false,
+  supplyShares: 100_000_000n * 10n ** 12n,
+  myLockedShares: 0n,
+  myWithdrawal: null,
 };
 
 describe("DaoOverview", () => {
+  it("shows the fund value (NAV), the value per participación and my part in USD", () => {
+    render(<DaoOverview data={{ ...base, valueUsdc: 1n }} donate={null} />);
+    const fund = screen.getByRole("region", { name: "Tesorería" });
+    expect(within(fund).getByText("Valor del fondo")).toBeInTheDocument();
+    expect(within(fund).getByTestId("dao-balance").textContent).toBe("1.234,5 USD");
+    expect(within(fund).getByText("Valor por participación")).toBeInTheDocument();
+    expect(within(fund).getByTestId("dao-share-price")).toHaveTextContent(/^2 USD$/);
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USD");
+  });
+
+  it("shows a dash for the value per participación before anyone holds shares", () => {
+    render(<DaoOverview data={{ ...base, sharePriceUsd6: 0n }} donate={null} />);
+    expect(screen.getByTestId("dao-share-price")).toHaveTextContent("—");
+  });
+
   it("shows the network, the formatted balance, the donors and the donate slot", () => {
     render(<DaoOverview data={base} donate={<button>Donar a la DAO</button>} />);
     expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();
-    expect(screen.getByTestId("dao-balance")).toHaveTextContent("1.234,5 USDC");
+    expect(screen.getByTestId("dao-balance").textContent).toBe("1.234,5 USD");
     expect(screen.getByTestId("dao-donors")).toHaveTextContent("7");
     expect(screen.getByRole("button", { name: "Donar a la DAO" })).toBeInTheDocument();
   });
@@ -58,5 +84,39 @@ describe("DaoOverview", () => {
     expect(screen.getByText(/se acreditan cuando Linea finalice el bloque/)).toBeInTheDocument();
     expect(screen.getAllByText("5,5 USDC").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
+  });
+
+  it("shows the fixed USDC amount of an approved withdrawal and explains the lock", () => {
+    const withdrawal = {
+      id: "1",
+      status: "approved" as const,
+      shares: 5n * 10n ** 18n,
+      amountUsdc: 8_000_000n,
+      approvedAt: "2026-10-18T12:00:00Z",
+      expiresAt: "2026-11-01T12:00:00Z",
+      payoutRecorded: false,
+      payoutTxHash: null,
+      rejectReason: null,
+      lastExpiredAt: null,
+      createdAt: "2026-10-18T10:00:00Z",
+    };
+    render(<DaoOverview data={{ ...base, myLockedShares: withdrawal.shares, myWithdrawal: withdrawal }} donate={null} />);
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByTestId("my-value").textContent).toBe("Tu parte: 120 USD");
+    expect(within(mine).getByText("Retirada aprobada: 8 USDC")).toBeInTheDocument();
+    expect(within(mine).getByText(/no cuentan para los canales con candado mientras la retirada está en curso/)).toBeInTheDocument();
+  });
+
+  it("renders the withdraw slot inside the position block, anchored as #retirada", () => {
+    render(<DaoOverview data={base} donate={null} withdraw={<button>Retirar</button>} />);
+    const mine = screen.getByRole("region", { name: "Tu participación" });
+    expect(within(mine).getByRole("button", { name: "Retirar" }).closest("#retirada")).not.toBeNull();
+  });
+
+  it("has no withdrawal copy without a request or slot", () => {
+    render(<DaoOverview data={base} donate={null} />);
+    expect(screen.queryByText(/Retirada aprobada/)).toBeNull();
+    expect(screen.queryByText(/mientras la retirada/)).toBeNull();
+    expect(document.getElementById("retirada")).toBeNull();
   });
 });
