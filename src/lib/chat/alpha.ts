@@ -5,6 +5,7 @@ import { verifyLineaContract } from "@/lib/chat/linea";
 import { ALPHA_ADDRESS_RE } from "@/lib/chat/model";
 import { rpcErrorCode } from "@/lib/errors";
 import { schedulePushDispatch } from "@/lib/push/schedule";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -47,6 +48,10 @@ export async function postAlphaAction(input: {
   const bits = BigInt(String(perms.data ?? 0));
   // EMBED_LINKS for the Alpha card and SEND_MESSAGES to post at all: checked before the rate-limited on-chain lookup.
   if ((bits & BigInt(EMBED_LINKS)) === 0n || (bits & BigInt(SEND_MESSAGES)) === 0n) return { error: "forbidden" };
+
+  // F5-R2 chain_verify pre-hit (its own transaction) before spending the on-chain lookup.
+  const limit = await hitRateLimit(supabase, "chain_verify");
+  if (limit !== "ok") return { error: limit === "rate_limited" ? "rate_limited" : "network" };
 
   try {
     if (!(await verifyLineaContract(input.address))) return { error: "not_a_contract" };

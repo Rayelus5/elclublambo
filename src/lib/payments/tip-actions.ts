@@ -4,6 +4,7 @@ import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { parseAmount, type Token } from "@/lib/payments/amounts";
 import { confirmIntent, type ConfirmResult } from "@/lib/payments/confirm";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { createServerClient } from "@/lib/supabase/server";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -86,6 +87,10 @@ export async function verifyIntentAction(
     return { status: "pending" };
   }
   if (!own) return bad("not_found");
+
+  // F5-R2 chain_verify pre-hit (its own transaction) before any RPC read. A limited or failed charge stays pending, never
+  // failed: the dialog keeps waiting and the cron settles the intent later (Review Focus 1).
+  if ((await hitRateLimit(supabase, "chain_verify")) !== "ok") return { status: "pending" };
 
   return confirmIntent(intentId);
 }

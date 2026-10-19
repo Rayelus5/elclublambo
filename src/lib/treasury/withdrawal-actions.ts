@@ -4,6 +4,7 @@ import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { payoutPayload, verifyPayout } from "@/lib/treasury/payouts";
@@ -240,6 +241,10 @@ export async function markWithdrawalPaidAction(id: string, txHash: string): Prom
   }
   const safe = await safeAddressOf(db, req.chain_id);
   if (!safe) return fail("safe_not_configured");
+
+  // F5-R2 chain_verify pre-hit (its own transaction, the caller's JWT) before the on-chain verification.
+  const limit = await hitRateLimit(await createServerClient(), "chain_verify");
+  if (limit !== "ok") return fail(limit === "rate_limited" ? "rate_limited" : "unknown");
 
   const v = await verifyPayout(
     {

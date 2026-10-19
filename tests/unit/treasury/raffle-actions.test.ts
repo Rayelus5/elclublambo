@@ -27,6 +27,9 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 const safeAddressOf = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/snapshot", () => ({ safeAddressOf }));
 
+const hit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rate-limit", () => ({ hitRateLimit: hit }));
+
 const verifyPrizePayout = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/raffle-cron", async (importOriginal) => ({ ...(await importOriginal<object>()), verifyPrizePayout }));
 
@@ -76,6 +79,7 @@ beforeEach(() => {
   });
   safeAddressOf.mockResolvedValue(SAFE);
   verifyPrizePayout.mockResolvedValue({ status: "ok", logIndex: 2, value: 105n * 10n ** 14n, blockNumber: 140n, blockTimestamp: TS });
+  hit.mockResolvedValue("ok");
 });
 
 const revalidated = (id?: string) => {
@@ -116,6 +120,23 @@ describe("markRafflePaidAction", () => {
       },
     ]);
     revalidated(ID);
+  });
+  it("charges chain_verify before verifying; limited -> rate_limited, error -> unknown, the chain is never read", async () => {
+    adminReplies.record_raffle_payout = { data: { status: "recorded" } };
+    await markRafflePaidAction(ID, HASH);
+    expect(hit).toHaveBeenCalledWith(expect.anything(), "chain_verify");
+    verifyPrizePayout.mockClear();
+    hit.mockResolvedValue("rate_limited");
+    expect(await markRafflePaidAction(ID, HASH)).toMatchObject({ ok: false, code: "rate_limited" });
+    hit.mockResolvedValue("error");
+    expect(await markRafflePaidAction(ID, HASH)).toMatchObject({ ok: false, code: "unknown" });
+    expect(verifyPrizePayout).not.toHaveBeenCalled();
+    expect(adminCalls("record_raffle_payout")).toHaveLength(1);
+  });
+  it("a non-treasurer is never charged", async () => {
+    perms = "0";
+    await markRafflePaidAction(ID, HASH);
+    expect(hit).not.toHaveBeenCalled();
   });
   it("verify pending maps to payout_pending; verify errors pass through; nothing is recorded", async () => {
     verifyPrizePayout.mockResolvedValueOnce({ status: "pending" });

@@ -4,12 +4,15 @@ import { createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rpcErrorCode } from "@/lib/errors";
 import { schedulePushDispatch } from "@/lib/push/schedule";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { isSuperAdminWallet, walletFromUser } from "./wallet";
 import { resolvePostLogin, type MembershipStatus } from "./post-login";
 
 type Result = { redirectTo: string; error?: string };
 
 const STATUSES: MembershipStatus[] = ["none", "active", "banned", "left"];
+/** Invite codes are base64url of 16 random bytes (22 chars, create_invite); anything else cannot exist (review S4). */
+const INVITE_CODE_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
 function redirectForStatus(status: MembershipStatus): string {
   if (status === "active") return "/";
@@ -39,7 +42,15 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
     inviteCode,
   });
 
-  const redeem = async (code: string): Promise<Result> => {
+  const redeem = async (code: unknown): Promise<Result> => {
+    // S4: a code of the wrong shape is refused as not found before it is charged or reaches the RPC.
+    if (typeof code !== "string" || !INVITE_CODE_RE.test(code)) return { redirectTo: "/no-access", error: "invite_not_found" };
+    // F5-R2 redeem_invite pre-hit (its own transaction): a failed redemption rolls back any hit taken inside it.
+    const limit = await hitRateLimit(supabase, "redeem_invite");
+    if (limit !== "ok") {
+      const c = limit === "rate_limited" ? "rate_limited" : "unknown";
+      return { redirectTo: `/invite/${encodeURIComponent(code)}?error=${c}`, error: c };
+    }
     const { error } = await supabase.rpc("redeem_invite", { p_code: code });
     if (!error) {
       schedulePushDispatch();
@@ -57,7 +68,7 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
     case "no_access":
       return { redirectTo: "/no-access" };
     case "redeem":
-      return redeem(inviteCode!);
+      return redeem(inviteCode);
     case "bootstrap": {
       const { error } = await createAdminClient().rpc("bootstrap_super_admin", {
         p_auth_user_id: user.id,
