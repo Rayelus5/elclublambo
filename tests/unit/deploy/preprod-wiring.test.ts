@@ -188,6 +188,8 @@ describe("tunnel ingress", () => {
 describe("cron crontab", () => {
   it("calls the DAO cron hourly over the compose network, logging only the outcome", () => {
     expect(crontab.endsWith("\n")).toBe(true);
+    // No extension, so *.sh/*.yml do not cover it: a CRLF checkout would break busybox crond.
+    expect(read(".gitattributes")).toMatch(/^deploy\/preprod\/cron\/crontab text eol=lf$/m);
     expect(crontab).not.toContain("\r");
     const jobs = crontab.split("\n").filter((l) => l.trim() && !l.startsWith("#"));
     expect(jobs).toHaveLength(1);
