@@ -33,33 +33,30 @@ vi.mock("@/lib/treasury/queries", () => ({
 }));
 vi.mock("@/lib/treasury/charts", () => ({ donutSlices: () => [] }));
 
-for (const path of [
-  "dao-charts",
-  "dao-history",
-  "dao-live",
-  "dao-overview",
-  "dao-ranking",
-  "donate-button",
-  "fund-composition",
-  "nav-chart",
-  "operations-list",
-  "withdraw-controls",
-  "ranking-toggle",
-]) {
-  vi.doMock(`@/components/treasury/${path}`, () => {
-    const Stub = () => null;
-    return { ShareDonut: Stub, DaoHistory: Stub, DaoLive: Stub, DaoOverview: Stub, DaoRanking: Stub, DonateButton: Stub, FundComposition: Stub, NavChart: Stub, OperationsList: Stub, WithdrawControls: Stub, RankingToggle: Stub };
-  });
-}
+// Every heavy child of the page is stubbed with a hoisted vi.mock, and the page is imported statically below: its module
+// graph loads while the file is collected, never inside a test's time budget. (It used to be a dynamic import in the
+// first test, which under full-suite parallel load could take longer than the test timeout: the flake.)
+vi.mock("@/components/treasury/dao-charts", () => ({ ShareDonut: () => null }));
+vi.mock("@/components/treasury/dao-history", () => ({ DaoHistory: () => null }));
+vi.mock("@/components/treasury/dao-live", () => ({ DaoLive: () => null }));
+vi.mock("@/components/treasury/dao-overview", () => ({ DaoOverview: () => null }));
+vi.mock("@/components/treasury/dao-ranking", () => ({ DaoRanking: () => null }));
+vi.mock("@/components/treasury/donate-button", () => ({ DonateButton: () => null }));
+vi.mock("@/components/treasury/fund-composition", () => ({ FundComposition: () => null }));
+vi.mock("@/components/treasury/nav-chart", () => ({ NavChart: () => null }));
+vi.mock("@/components/treasury/operations-list", () => ({ OperationsList: () => null }));
+vi.mock("@/components/treasury/withdraw-controls", () => ({ WithdrawControls: () => null }));
+vi.mock("@/components/treasury/ranking-toggle", () => ({ RankingToggle: () => null }));
 vi.mock("@/components/treasury/raffles/raffle-list", () => ({ RaffleList: () => null }));
 vi.mock("@/components/guide/how-it-works-link", () => ({ HowItWorksLink: () => null }));
+
+import DaoPage from "@/app/(forum)/dao/page";
 
 beforeEach(() => {
   perms.value = "256";
 });
 
 async function dao(): Promise<ReactElement> {
-  const { default: DaoPage } = await import("@/app/(forum)/dao/page");
   const suspense = DaoPage({ searchParams: Promise.resolve({}) }) as ReactElement<{ children: ReactElement }>;
   const el = suspense.props.children as ReactElement<object> & { type: (p: object) => Promise<ReactElement> };
   return el.type(el.props);
@@ -69,7 +66,7 @@ describe("/dao · Panel del tesorero link", () => {
   it("shows the link to /dao/tesoreria for MANAGE_TREASURY", async () => {
     render(await dao());
     expect(screen.getByRole("link", { name: "Panel del tesorero" })).toHaveAttribute("href", "/dao/tesoreria");
-  }, 20_000);
+  });
 
   it("does not show it to a member", async () => {
     perms.value = "0";

@@ -2,7 +2,7 @@
 
 // The fund's value (NAV) or the value of one participación over time, from the hourly snapshots (dao_nav_history).
 // Hand-rolled step area like the old balance chart: theme tokens only, the trend also given in text.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { formatUsd, formatUsdPrecise } from "@/lib/treasury/format";
 import { getNavHistory, type NavPoint, type NavRange } from "@/lib/treasury/queries";
@@ -20,6 +20,8 @@ const SERIES: { id: Series; label: string }[] = [
   { id: "nav", label: "Valor del fondo" },
   { id: "price", label: "Valor por participación" },
 ];
+
+const noopSubscribe = () => () => {};
 
 const W = 600;
 const H = 180;
@@ -68,6 +70,8 @@ export function NavChart({ navAt = null }: { navAt?: string | null }) {
   const [range, setRange] = useState<NavRange>("7d");
   const [series, setSeries] = useState<Series>("nav");
   const [state, setState] = useState<State>({ loading: true, error: false, points: null, range: "7d" });
+  // false on the server and during hydration, true afterwards (and on a client-only render)
+  const hydrated = useSyncExternalStore(noopSubscribe, () => true, () => false);
 
   useEffect(() => {
     let live = true;
@@ -93,16 +97,17 @@ export function NavChart({ navAt = null }: { navAt?: string | null }) {
           onChange={(r) => {
             if (r === range) return;
             setRange(r);
-            setState((s) => ({ ...s, loading: true }));
+            // a previous range's error must not stay on screen while (or after) the new one loads
+            setState((s) => ({ ...s, loading: true, error: false }));
           }}
         />
       </div>
       <div aria-busy={state.loading} className="flex flex-col">
-        {state.loading ? (
-          <p role="status" className="sr-only">
-            Cargando…
-          </p>
-        ) : null}
+        {/* One polite live region, always mounted: a region inserted together with its text is often not read. On the
+            server and at hydration it is empty, so the first «Cargando…» is a change screen readers announce. */}
+        <p role="status" aria-live="polite" className="sr-only">
+          {hydrated && state.loading ? "Cargando…" : ""}
+        </p>
         {state.error ? (
           <p role="alert" className="text-sm text-danger">
             No se pudo cargar el gráfico.

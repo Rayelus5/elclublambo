@@ -158,7 +158,7 @@ describe("/dao/tesoreria", () => {
         id: "w1", memberId: "m1", memberLabel: "@ana", wallet: SAFE, shares: 1n, positionShares: 2n, status: "pending",
         createdAt: "2026-10-18T10:00:00Z", approvedAt: null, expiresAt: null, approvedByLabel: null, selfApproved: false,
         amountUsdc: null, estimateUsd6: null, lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null,
-        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null,
+        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null, unexplainedOutflow: false,
       },
     ]);
     members.rows = [{ id: "m1", status: "banned" }];
@@ -172,7 +172,7 @@ describe("/dao/tesoreria", () => {
         id: "w1", memberId: "m1", memberLabel: "@ana", wallet: SAFE, shares: 1n, positionShares: 2n, status: "pending",
         createdAt: "2026-10-18T10:00:00Z", approvedAt: null, expiresAt: null, approvedByLabel: null, selfApproved: false,
         amountUsdc: null, estimateUsd6: null, lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null,
-        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null,
+        payoutRecordedAt: null, paidAt: null, payoutLinked: false, rejectedAt: null, cancelledAt: null, unexplainedOutflow: false,
       },
     ]);
     members.error = { message: "boom" };

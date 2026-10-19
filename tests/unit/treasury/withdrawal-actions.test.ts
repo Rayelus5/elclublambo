@@ -123,7 +123,8 @@ describe("quoteWithdrawalAction", () => {
       ok: true,
       quote: { amountUsdc: "8000000", safeUsdc: "30000000", availableUsdc: "5000000", destination: DEST, selfApproval: false },
     });
-    revalidatedBoth();
+    // F4c minor #7: a quote is read-only, so it refreshes nothing
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("availableUsdc never goes below zero; selfApproval when the treasurer is the member", async () => {

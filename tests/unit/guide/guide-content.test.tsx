@@ -62,6 +62,10 @@ describe("guide: retiradas", () => {
     expect(screen.getByText(/se paga en USDC/)).toBeInTheDocument();
     expect(screen.queryByText(/Hoy no se puede retirar nada/)).toBeNull();
   });
+  it("says the payout is one transfer of at least the fixed amount, never split", () => {
+    render(<GuideContent slug="fondo" />);
+    expect(screen.getByText(/una sola transferencia de al menos el importe fijado/)).toBeInTheDocument();
+  });
   it("no longer says contributions cannot be withdrawn", () => {
     render(<GuideContent slug="dao" />);
     expect(screen.queryByText(/Hoy las aportaciones no se pueden retirar/)).toBeNull();
@@ -82,6 +86,15 @@ describe("guide: sorteos", () => {
     expect(screen.getByText(/se marca como impagado a los 14 días/)).toBeInTheDocument();
     expect(screen.getByText(/primera ejecución del proceso automático tras la hora de cierre/)).toBeInTheDocument();
     expect(screen.getByText(/en un club pequeño puede deducirse quién es un miembro oculto/)).toBeInTheDocument();
+  });
+
+  it("warns that a WETH prize is valued at creation and can weigh more if ETH rises before payment", () => {
+    render(<GuideContent slug="fondo" />);
+    const p = screen.getByText(/Un premio en WETH se valora al crear el sorteo/);
+    expect(p).toHaveTextContent(/50 %/);
+    expect(p).toHaveTextContent(/si el ETH sube mucho antes del pago/i);
+    expect(p).toHaveTextContent(/donaciones pueden esperar a la siguiente valoración/);
+    expect(p).toHaveTextContent(/cancelarlo antes del sorteo/);
   });
 
   it("does not overclaim the seed's secrecy and says the winner's wallet is visible on-chain", () => {

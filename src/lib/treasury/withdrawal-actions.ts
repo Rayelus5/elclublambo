@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
-import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { payoutPayload, verifyPayout } from "@/lib/treasury/payouts";
 import { scanSafeOperations } from "@/lib/treasury/scan";
 import { safeAddressOf, valuationCap, valueSafe, type SafeValuation } from "@/lib/treasury/snapshot";
+import { treasurerId } from "@/lib/treasury/treasurer";
 
 type Fail = { ok: false; error: string; code: string };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
@@ -23,16 +23,6 @@ const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 function revalidate() {
   revalidatePath("/dao");
   revalidatePath("/dao/tesoreria");
-}
-
-/** The caller's member id when they hold MANAGE_TREASURY (or ADMINISTRATOR), else null. Uses the caller's JWT only. */
-async function treasurerId(): Promise<string | null> {
-  const supabase = await createServerClient();
-  const [perms, me] = await Promise.all([supabase.rpc("my_permissions"), supabase.rpc("current_member_id")]);
-  const raw = String(perms.data ?? "0");
-  const bits = /^\d+$/.test(raw) ? BigInt(raw) : 0n;
-  if (!hasPerm(bits, Perm.MANAGE_TREASURY)) return null;
-  return typeof me.data === "string" ? me.data : null;
 }
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -188,7 +178,7 @@ export async function quoteWithdrawalAction(id: string): Promise<
       };
     },
   );
-  if (r.ok) revalidate();
+  // read-only (F4c minor #7): nothing to revalidate
   return r;
 }
 

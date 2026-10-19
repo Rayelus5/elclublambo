@@ -54,7 +54,13 @@ export function WithdrawalsTable({
   /** For the explorer link of a paid request. */
   chainId?: ChainId;
 }) {
-  const [active, setActive] = useState<{ id: string; action: "approve" | "reject" | "paid"; approved: boolean; banned: boolean } | null>(null);
+  const [active, setActive] = useState<{
+    id: string;
+    action: "approve" | "reject" | "paid";
+    approved: boolean;
+    banned: boolean;
+    unexplainedOutflow: boolean;
+  } | null>(null);
   const idBase = useId();
   const close = (open: boolean) => {
     if (!open) setActive(null);
@@ -75,13 +81,30 @@ export function WithdrawalsTable({
               own={meId !== null && w.memberId === meId}
               banned={bannedIds.includes(w.memberId)}
               chainId={chainId}
-              onAction={(action) => setActive({ id: w.id, action, approved: w.status === "approved", banned: bannedIds.includes(w.memberId) })}
+              onAction={(action) =>
+                setActive({
+                  id: w.id,
+                  action,
+                  approved: w.status === "approved",
+                  banned: bannedIds.includes(w.memberId),
+                  unexplainedOutflow: w.unexplainedOutflow,
+                })
+              }
             />
           ))}
         </ul>
       )}
       {active?.action === "approve" ? <ApproveDialog key={active.id} requestId={active.id} banned={active.banned} open onOpenChange={close} /> : null}
-      {active?.action === "reject" ? <RejectDialog key={active.id} requestId={active.id} approved={active.approved} open onOpenChange={close} /> : null}
+      {active?.action === "reject" ? (
+        <RejectDialog
+          key={active.id}
+          requestId={active.id}
+          approved={active.approved}
+          unexplainedOutflow={active.unexplainedOutflow}
+          open
+          onOpenChange={close}
+        />
+      ) : null}
       {active?.action === "paid" ? <MarkPaidDialog key={active.id} requestId={active.id} open onOpenChange={close} /> : null}
     </>
   );
@@ -192,11 +215,22 @@ function Row({
 
 function RecentDetails({ w, chainId }: { w: TreasuryWithdrawal; chainId?: ChainId }) {
   const closedAt = w.paidAt ?? w.createdAt;
+  // F4c minor #3: "≥ pays", so an overpayment is valid but lowers everyone else's NAV; the excess is shown.
+  const overpaid =
+    w.status === "paid" && w.payoutAmount !== null && w.amountUsdc !== null && w.payoutAmount > w.amountUsdc
+      ? w.payoutAmount - w.amountUsdc
+      : null;
   return (
     <>
       <p className="text-sm font-bold text-fg">
         {w.status === "paid" ? `${labelOf(w)} · ${formatUsdc(w.payoutAmount ?? w.amountUsdc ?? 0n)}` : labelOf(w)}
       </p>
+      {overpaid !== null ? (
+        <p className="flex items-start gap-1.5 text-[13px] font-bold text-warning">
+          <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+          {`Pagado de más: ${formatUsdc(overpaid)}`}
+        </p>
+      ) : null}
       {w.status === "rejected" && w.rejectReason ? <p className="text-[13px] break-words text-fg-muted">{`Motivo: ${w.rejectReason}`}</p> : null}
       <p className="text-[13px] text-fg-muted">
         {w.status === "paid"

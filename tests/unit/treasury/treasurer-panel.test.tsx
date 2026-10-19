@@ -46,6 +46,7 @@ const row = (over: Partial<TreasuryWithdrawal> = {}): TreasuryWithdrawal => ({
   payoutLinked: false,
   rejectedAt: null,
   cancelledAt: null,
+  unexplainedOutflow: false,
   ...over,
 });
 
@@ -133,6 +134,20 @@ describe("WithdrawalsTable · approved", () => {
     expect(screen.queryByText(/pago detectado pendiente/)).toBeNull();
   });
 
+  it("with an unexplained USDC outflow to the wallet: the reject dialog warns and asks for confirmation (P1)", async () => {
+    render(<WithdrawalsTable kind="approved" rows={[approved({ unexplainedOutflow: true })]} meId={null} bannedIds={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: "Rechazar" }));
+    const dialog = screen.getByRole("dialog", { name: "Rechazar retirada" });
+    expect(within(dialog).getByText(/Hay una salida de USDC a esta wallet sin explicar/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("checkbox")).toBeInTheDocument();
+  });
+
+  it("a pending request's reject dialog never asks for that confirmation", async () => {
+    render(<WithdrawalsTable kind="pending" rows={[row({ unexplainedOutflow: true })]} meId={null} bannedIds={[]} />);
+    await userEvent.click(screen.getByRole("button", { name: "Rechazar" }));
+    expect(within(screen.getByRole("dialog")).queryByRole("checkbox")).toBeNull();
+  });
+
   it("flags a banned member (they can still be paid)", () => {
     render(<WithdrawalsTable kind="approved" rows={[approved()]} meId={null} bannedIds={["m1"]} />);
     expect(screen.getByText("Miembro baneado")).toBeInTheDocument();
@@ -160,6 +175,23 @@ describe("WithdrawalsTable · recent", () => {
     expect(screen.getByText(/Rechazada el 17 oct 2026/)).toBeInTheDocument();
     expect(screen.getByText(/Cancelada el 16 oct 2026/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Aprobar|Rechazar|Marcar/ })).toBeNull();
+  });
+
+  it("flags a payout above the fixed amount as «Pagado de más», with the difference (F4c minor #3)", () => {
+    render(
+      <WithdrawalsTable
+        kind="recent"
+        rows={[
+          row({ id: "a", status: "paid", amountUsdc: 8_000_000n, payoutAmount: 9_500_000n, paidAt: "2026-10-18T00:00:00Z" }),
+          row({ id: "b", memberLabel: "@bea", status: "paid", amountUsdc: 8_000_000n, payoutAmount: 8_000_000n, paidAt: "2026-10-18T00:00:00Z" }),
+        ]}
+        meId={null}
+        bannedIds={[]}
+      />,
+    );
+    const [over, exact] = screen.getAllByRole("listitem");
+    expect(within(over!).getByText("Pagado de más: 1,5 USDC")).toBeInTheDocument();
+    expect(within(exact!).queryByText(/Pagado de más/)).toBeNull();
   });
 });
 

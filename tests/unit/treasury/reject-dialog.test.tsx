@@ -38,6 +38,28 @@ describe("RejectDialog", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
+  it("with an unexplained USDC outflow to the wallet after the approval: warns and needs an explicit confirmation", async () => {
+    rejectWithdrawalAction.mockResolvedValue({ ok: true });
+    render(<RejectDialog requestId="r1" approved unexplainedOutflow open onOpenChange={() => {}} />);
+    expect(
+      screen.getByText("Hay una salida de USDC a esta wallet sin explicar después de la aprobación. Si ya pagaste, usa «Marcar como pagada»."),
+    ).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Motivo"), "Sin fondos");
+    const btn = screen.getByRole("button", { name: "Rechazar" });
+    expect(btn).toBeDisabled();
+    const confirm = screen.getByRole("checkbox", { name: /no es el pago de esta retirada/ });
+    await userEvent.click(confirm);
+    expect(btn).toBeEnabled();
+    await userEvent.click(btn);
+    expect(rejectWithdrawalAction).toHaveBeenCalledWith("r1", "Sin fondos");
+  });
+
+  it("without that outflow there is no warning nor confirmation", () => {
+    render(<RejectDialog requestId="r1" approved open onOpenChange={() => {}} />);
+    expect(screen.queryByText(/sin explicar después de la aprobación/)).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
   it("explains the refusal while a detected payout waits for verification (R3)", async () => {
     rejectWithdrawalAction.mockResolvedValue({ ok: false, code: "invalid_state", error: "Esta operación ya no se puede procesar en su estado actual." });
     render(<RejectDialog requestId="r1" approved open onOpenChange={() => {}} />);

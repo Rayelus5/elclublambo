@@ -5,7 +5,7 @@ import { rpcErrorCode } from "@/lib/errors";
 import { chainClient } from "@/lib/payments/chain-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { PrizeToken } from "@/lib/treasury/raffles";
+import { isPrizeToken, type PrizeToken } from "@/lib/treasury/raffles";
 import { safeAddressOf } from "@/lib/treasury/snapshot";
 
 /** What a drawn raffle's payout must be: the prize token from the chain's Safe to the winner, at least the prize. */
@@ -39,8 +39,6 @@ const CANDIDATE_PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_too_old"]);
 const RECORD_PERMANENT = new Set(["tx_mismatch", "tx_already_used", "tx_too_old"]);
 /** At finality only these revert: the payout as recorded no longer exists. */
 const FINAL_PERMANENT = new Set(["tx_failed", "tx_mismatch"]);
-
-const isPrizeToken = (v: unknown): v is PrizeToken => v === "USDC" || v === "WETH";
 
 /**
  * Verifies a prize payout with the withdrawal rules: receipt success, a Transfer log of the official prize token

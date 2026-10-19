@@ -61,7 +61,8 @@ export function MarkPaidDialog({
         <DialogHeader>
           <DialogTitle>Marcar como pagada</DialogTitle>
           <DialogDescription>
-            Pega el hash de la transferencia de USDC que hiciste desde la Safe. Se comprueba en la red: importe, origen y destino.
+            Pega el hash de la transferencia de USDC que hiciste desde la Safe. Se comprueba en la red: importe, origen y destino. El
+            pago debe ser una sola transferencia de al menos el importe fijado: no se admiten pagos repartidos en varias.
           </DialogDescription>
         </DialogHeader>
         {done ? (

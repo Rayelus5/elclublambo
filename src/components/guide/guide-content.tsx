@@ -247,7 +247,8 @@ function Fondo() {
           </li>
           <li>
             El tesorero la aprueba o la rechaza. Al aprobar se fija el importe al valor de mercado de ese momento: se paga en
-            USDC desde la Safe a la wallet con la que entras al club. Mínimo 1 USDC, salvo que retires todo.
+            USDC desde la Safe a la wallet con la que entras al club. Mínimo 1 USDC, salvo que retires todo. El pago es una
+            sola transferencia de al menos el importe fijado: un pago repartido en varias transferencias no cuenta.
           </li>
           <li>
             Si no llega el pago en 14 días, la aprobación caduca: la solicitud vuelve a pendiente, con las participaciones
@@ -267,6 +268,10 @@ function Fondo() {
         <p>
           Un tesorero crea un sorteo con un premio en USDC o en WETH, una fecha de cierre y un modo. El premio sale del fondo y baja su valor sin cambiar el
           porcentaje de nadie. Se paga en WETH en lugar de ETH porque un envío de ETH nativo desde la Safe no deja un registro que el foro pueda comprobar.
+        </p>
+        <p>
+          Un premio en WETH se valora al crear el sorteo, cuando puede valer como mucho el 50 % del fondo. Si el ETH sube mucho antes del pago, el
+          premio pesa más de lo previsto y las donaciones pueden esperar a la siguiente valoración; el tesorero puede cancelarlo antes del sorteo.
         </p>
         <Bullets>
           <li>En el modo igualitario todos los miembros activos que se apuntan pesan lo mismo.</li>

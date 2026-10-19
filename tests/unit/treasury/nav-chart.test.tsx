@@ -81,6 +81,35 @@ describe("NavChart", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo cargar el gráfico.");
   });
 
+  it("a load error clears when another range is chosen", async () => {
+    h.rpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    render(<NavChart />);
+    expect(await screen.findByRole("alert")).toHaveTextContent("No se pudo cargar el gráfico.");
+    let resolve!: (v: unknown) => void;
+    h.rpc.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    fireEvent.click(screen.getByRole("button", { name: "30 días" }));
+    // while the new range loads the old error is gone and the wait is announced
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Cargando…");
+    resolve({ data: rows, error: null });
+    expect(await screen.findByRole("img")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps one polite status region mounted, so the first «Cargando…» is announced and later waits too", async () => {
+    let resolve!: (v: unknown) => void;
+    h.rpc.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+    render(<NavChart />);
+    const status = screen.getByRole("status");
+    expect(status).toHaveAttribute("aria-live", "polite");
+    expect(status).toHaveTextContent("Cargando…");
+    resolve({ data: rows, error: null });
+    await screen.findByRole("img");
+    // the same region stays (empty), ready for the next wait
+    expect(screen.getByRole("status")).toBe(status);
+    expect(status).toHaveTextContent(/^$/);
+  });
+
   it("reloads when a new valuation lands", async () => {
     const { rerender } = render(<NavChart navAt="2026-10-18T10:00:00Z" />);
     await screen.findByRole("img");

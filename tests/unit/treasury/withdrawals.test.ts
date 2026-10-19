@@ -79,7 +79,7 @@ describe("getTreasuryWithdrawals", () => {
           position_shares: "5000000000000000000", status: "approved", created_at: "c", approved_at: "a", expires_at: "e",
           approved_by_label: "@tesorero", self_approved: false, amount_usdc: "8000000", estimate_usd6: "8100000",
           last_expired_at: null, reject_reason: null, payout_tx_hash: null, payout_amount: null, payout_recorded_at: null,
-          paid_at: null, payout_linked: true, rejected_at: "2026-10-17T00:00:00Z", cancelled_at: null,
+          paid_at: null, payout_linked: true, rejected_at: "2026-10-17T00:00:00Z", cancelled_at: null, unexplained_outflow: true,
         },
         {
           id: "w2", member_id: "m2", member_label: "@bea", wallet: "0xdef", shares: "1", position_shares: "1",
@@ -95,7 +95,7 @@ describe("getTreasuryWithdrawals", () => {
         id: "w1", memberId: "m1", memberLabel: "@ana", wallet: "0xabc", shares: 4n * 10n ** 18n,
         positionShares: 5n * 10n ** 18n, status: "approved", createdAt: "c", approvedAt: "a", expiresAt: "e",
         approvedByLabel: "@tesorero", selfApproved: false, amountUsdc: 8_000000n, estimateUsd6: 8_100000n,
-        lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null, payoutRecordedAt: null, paidAt: null, payoutLinked: true, rejectedAt: "2026-10-17T00:00:00Z", cancelledAt: null,
+        lastExpiredAt: null, rejectReason: null, payoutTxHash: null, payoutAmount: null, payoutRecordedAt: null, paidAt: null, payoutLinked: true, rejectedAt: "2026-10-17T00:00:00Z", cancelledAt: null, unexplainedOutflow: true,
       },
     ]);
   });

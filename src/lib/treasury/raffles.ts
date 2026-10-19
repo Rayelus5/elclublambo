@@ -12,6 +12,9 @@ export type RaffleMode = "equal" | "weighted";
 
 const STATUSES: readonly RaffleStatus[] = ["open", "closed", "drawn", "paid", "cancelled", "void"];
 const TOKENS: readonly PrizeToken[] = ["USDC", "WETH"];
+
+/** The two prize tokens (USDC, WETH); the one definition, shared by the actions and the cron. */
+export const isPrizeToken = (v: unknown): v is PrizeToken => TOKENS.some((t) => t === v);
 const MODES: readonly RaffleMode[] = ["equal", "weighted"];
 
 export interface RaffleCard {

@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { isChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
-import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { prizePayload, verifyPrizePayout } from "@/lib/treasury/raffle-cron";
-import { parsePrize, type PrizeToken, type RaffleMode } from "@/lib/treasury/raffles";
+import { isPrizeToken, parsePrize, type PrizeToken, type RaffleMode } from "@/lib/treasury/raffles";
 import { safeAddressOf } from "@/lib/treasury/snapshot";
+import { treasurerId } from "@/lib/treasury/treasurer";
 
 type Fail = { ok: false; error: string; code: string };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
@@ -19,23 +19,12 @@ const ISO_WITH_ZONE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{
 const DIGITS = /^\d{1,78}$/;
 
 const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
-const isPrizeToken = (v: unknown): v is PrizeToken => v === "USDC" || v === "WETH";
 const isMode = (v: unknown): v is RaffleMode => v === "equal" || v === "weighted";
 
 function revalidate(id?: string) {
   revalidatePath("/dao");
   revalidatePath("/dao/tesoreria");
   if (id) revalidatePath(`/dao/sorteos/${id}`);
-}
-
-/** The caller's member id when they hold MANAGE_TREASURY (or ADMINISTRATOR), else null. Uses the caller's JWT only. */
-async function treasurerId(): Promise<string | null> {
-  const supabase = await createServerClient();
-  const [perms, me] = await Promise.all([supabase.rpc("my_permissions"), supabase.rpc("current_member_id")]);
-  const raw = String(perms.data ?? "0");
-  const bits = /^\d+$/.test(raw) ? BigInt(raw) : 0n;
-  if (!hasPerm(bits, Perm.MANAGE_TREASURY)) return null;
-  return typeof me.data === "string" ? me.data : null;
 }
 
 /** Treasurer (re-checked in SQL): a raffle on the active chain; `prize` is decimal text in the prize token's units. */

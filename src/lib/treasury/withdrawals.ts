@@ -54,6 +54,11 @@ export interface TreasuryWithdrawal {
   payoutLinked: boolean;
   rejectedAt: string | null;
   cancelledAt: string | null;
+  /**
+   * Approved and unpaid, and the Safe sent USDC to the destination after the approval (120 s tolerance) that is still
+   * unexplained: maybe a split or short payout the forum could not link. Rejecting then needs an explicit confirmation.
+   */
+  unexplainedOutflow: boolean;
 }
 
 function big(v: unknown): bigint {
@@ -135,6 +140,7 @@ export async function getTreasuryWithdrawals(supabase: SupabaseClient): Promise<
       payoutLinked: r.payout_linked === true,
       rejectedAt: strOrNull(r.rejected_at),
       cancelledAt: strOrNull(r.cancelled_at),
+      unexplainedOutflow: r.unexplained_outflow === true,
     });
   }
   return out;

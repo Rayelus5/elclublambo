@@ -17,6 +17,12 @@ beforeEach(() => {
 });
 
 describe("MarkPaidDialog", () => {
+  it("says the payout must be one transfer of at least the fixed amount, never split", () => {
+    render(<MarkPaidDialog requestId="r1" open onOpenChange={() => {}} />);
+    expect(screen.getByText(/una sola transferencia de al menos el importe fijado/)).toBeInTheDocument();
+    expect(screen.getByText(/no se admiten pagos repartidos/i)).toBeInTheDocument();
+  });
+
   it("validates the hash before calling", async () => {
     render(<MarkPaidDialog requestId="r1" open onOpenChange={() => {}} />);
     await userEvent.type(screen.getByLabelText("Hash de la transacción"), "0x123");
