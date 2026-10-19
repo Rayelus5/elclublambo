@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Loader2, Vote } from "lucide-react";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,12 @@ import { cn } from "@/lib/utils";
 
 const MINUTE_MS = 60_000;
 const DAY_MS = 86_400_000;
+/** Re-read delays after the close while the server still says open: 2 s, 5 s, 15 s, then every 30 s. */
+const CLOSE_RETRY_MS = [2_000, 5_000, 15_000, 30_000] as const;
+
+const noSubscribe = () => () => {};
+const clientSnapshot = () => true;
+const serverSnapshot = () => false;
 
 /**
  * The card of a poll message, under its question. It renders only what poll_details returned for the caller: the own
@@ -26,25 +32,40 @@ export function PollCard({
   now = Date.now,
 }: {
   poll: PollDetail;
-  /** The poll must be re-read: after voting, and once when the close time passes. */
+  /** The poll must be re-read: after voting, and when the close time passes (repeated until a re-read says closed). */
   onChanged: () => void;
   readOnly?: boolean;
   /** Injected by tests; defaults to the wall clock. */
   now?: () => number;
 }) {
   const [nowMs, setNowMs] = useState(() => now());
+  // False on the server and during hydration, true after mount: the first pass renders from poll.closed alone, so the
+  // server HTML and the hydrating client always pick the same branch at the close; the local clock is adopted after.
+  const mounted = useSyncExternalStore(noSubscribe, clientSnapshot, serverSnapshot);
   const [picked, setPicked] = useState<string | null>(null);
+  // After a successful vote, the server's vote as it now stands, until the next prop arrives: the card stays
+  // consistent ("Tu voto", "Cambiar voto" disabled) even if the re-read fails.
+  const [optimistic, setOptimistic] = useState<string | null>(null);
   // Once the server's vote changes (the re-read after a successful vote, or a vote from another tab) the local pick is
-  // spent and the card follows the server again (React's "adjust state when a prop changes" pattern, during render).
+  // spent and the card follows the server again; any new prop ends the optimistic vote (React's "adjust state when a
+  // prop changes" pattern, during render).
   const [seenMine, setSeenMine] = useState(poll.myOptionId);
   if (seenMine !== poll.myOptionId) {
     setSeenMine(poll.myOptionId);
     setPicked(null);
   }
+  const [seenPoll, setSeenPoll] = useState(poll);
+  if (seenPoll !== poll) {
+    setSeenPoll(poll);
+    setOptimistic(null);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
   const firedFor = useRef<string | null>(null);
+  // Re-reads made since the close timer fired while the server still said open; `retryTick` re-runs the effect.
+  const closeRetries = useRef(0);
+  const [retryTick, setRetryTick] = useState(0);
   const radios = useRef<Array<HTMLButtonElement | null>>([]);
 
   // Keep the latest callbacks without re-arming timers on every render.
@@ -56,7 +77,7 @@ export function PollCard({
   });
 
   const closesMs = Date.parse(poll.closesAt);
-  const closed = poll.closed || nowMs >= closesMs;
+  const closed = poll.closed || (mounted && nowMs >= closesMs);
 
   // Minute ticker: keeps "Cierra en ..." fresh and re-evaluates whether the close timer can be armed.
   useEffect(() => {
@@ -65,26 +86,40 @@ export function PollCard({
     return () => clearInterval(id);
   }, [closed]);
 
-  // Close timer: only armed when < 24 h remain (a longer setTimeout would overflow); the ticker re-arms it.
+  // Close timer: only armed when < 24 h remain (a longer setTimeout would overflow); the ticker re-arms it. The close
+  // counts as handled only once a re-read says closed: while the server still says open (its clock may lag ours), keep
+  // re-reading with a capped backoff. Stops when a closed prop arrives or on unmount (the cleanup clears the timer).
   useEffect(() => {
-    if (poll.closed || !Number.isFinite(closesMs) || firedFor.current === poll.closesAt) return;
+    if (poll.closed || !Number.isFinite(closesMs)) return;
+    if (firedFor.current === poll.closesAt) {
+      const delay = CLOSE_RETRY_MS[Math.min(closeRetries.current, CLOSE_RETRY_MS.length - 1)]!;
+      const id = setTimeout(() => {
+        closeRetries.current += 1;
+        setRetryTick((t) => t + 1);
+        onChangedRef.current();
+      }, delay);
+      return () => clearTimeout(id);
+    }
     const remaining = closesMs - nowRef.current();
     if (remaining >= DAY_MS) return;
     const id = setTimeout(
       () => {
         firedFor.current = poll.closesAt;
+        closeRetries.current = 0;
         setNowMs(nowRef.current());
+        setRetryTick((t) => t + 1);
         onChangedRef.current();
       },
       Math.max(remaining, 0),
     );
     return () => clearTimeout(id);
-  }, [poll.closed, poll.closesAt, closesMs, nowMs]);
+  }, [poll.closed, poll.closesAt, closesMs, nowMs, retryTick]);
 
-  const effective = picked ?? poll.myOptionId;
-  const hasVote = poll.myOptionId !== null;
-  const myLabel = poll.options.find((o) => o.id === poll.myOptionId)?.label ?? null;
-  const canSubmit = effective !== null && effective !== poll.myOptionId && !busy;
+  const mine = optimistic ?? poll.myOptionId;
+  const effective = picked ?? mine;
+  const hasVote = mine !== null;
+  const myLabel = poll.options.find((o) => o.id === mine)?.label ?? null;
+  const canSubmit = effective !== null && effective !== mine && !busy;
   const weighted = poll.weightMode !== "equal";
 
   const submit = async () => {
@@ -96,6 +131,8 @@ export function PollCard({
     sending.current = false;
     setBusy(false);
     if (res.ok) {
+      setOptimistic(effective);
+      setPicked(null);
       onChanged();
       return;
     }
@@ -127,7 +164,9 @@ export function PollCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-        <span suppressHydrationWarning title={`Cierra el ${formatWhen(poll.closesAt)}`} className={cn("font-bold", closed ? "text-fg-muted" : "text-fg")}>
+        {/* Keyed on `mounted`: the server's text (its clock) is kept by suppressHydrationWarning, so the span is
+            re-created once the local clock is adopted. */}
+        <span key={mounted ? "local" : "first"} suppressHydrationWarning title={`Cierra el ${formatWhen(poll.closesAt)}`} className={cn("font-bold", closed ? "text-fg-muted" : "text-fg")}>
           {closed ? "Cerrada" : pollTimeLeft(poll.closesAt, nowMs)}
         </span>
         <span aria-live="polite" className="text-fg-muted">

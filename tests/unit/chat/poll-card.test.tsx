@@ -1,4 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -159,6 +161,20 @@ describe("PollCard: open, voted", () => {
     expect(screen.getByRole("button", { name: "Cambiar voto" })).toBeDisabled();
   });
 
+  it("keeps the new vote shown after success even if the re-read never arrives (M2), and follows the next prop", async () => {
+    const { rerender } = render(<PollCard poll={voted()} onChanged={() => {}} now={now} />);
+    await userEvent.click(screen.getByRole("radio", { name: "No" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar voto" }));
+    // No re-read: the card is consistent with the vote the server took.
+    expect(await screen.findByText("Tu voto: No")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Cambiar voto" })).toBeDisabled();
+    // The next prop is the truth again.
+    rerender(<PollCard poll={voted()} onChanged={() => {}} now={now} />);
+    expect(screen.getByText("Tu voto: Sí")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Sí" })).toHaveAttribute("aria-checked", "true");
+  });
+
   it("re-reads the poll when the server says it is already closed", async () => {
     vote.mockResolvedValue({ ok: false, code: "poll_closed", error: "La encuesta ya está cerrada." });
     const onChanged = vi.fn();
@@ -313,19 +329,57 @@ describe("PollCard: live", () => {
     expect(screen.getByText("Cierra en 2 min")).toBeInTheDocument();
   });
 
-  it("calls onChanged once when closesAt passes and shows it closed", () => {
+  it("calls onChanged when closesAt passes and shows it closed; no more calls once the server says closed", () => {
     const onChanged = vi.fn();
-    render(<PollCard poll={poll({ closesAt: iso(NOW + 90_000), myOptionId: A, iVoted: true })} onChanged={onChanged} />);
+    const p = poll({ closesAt: iso(NOW + 90_000), myOptionId: A, iVoted: true });
+    const { rerender } = render(<PollCard poll={p} onChanged={onChanged} />);
     expect(screen.getByRole("radiogroup")).toBeInTheDocument();
     act(() => void vi.advanceTimersByTime(89_000));
     expect(onChanged).not.toHaveBeenCalled();
     act(() => void vi.advanceTimersByTime(2_000));
     expect(onChanged).toHaveBeenCalledTimes(1);
-    act(() => void vi.advanceTimersByTime(5 * 60_000));
-    expect(onChanged).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     expect(screen.getByText("Votaste")).toBeInTheDocument();
     expect(screen.queryByText(/Tu voto:/)).not.toBeInTheDocument();
+    // The re-read comes back closed: the card stops asking.
+    rerender(<PollCard poll={{ ...p, closed: true, myOptionId: null, results: { status: "pending" } }} onChanged={onChanged} />);
+    act(() => void vi.advanceTimersByTime(10 * 60_000));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps re-reading with a capped backoff while the server still says open after the close (clock skew, I1)", () => {
+    const onChanged = vi.fn();
+    const p = poll({ closesAt: iso(NOW + 1_000) });
+    const { rerender } = render(<PollCard poll={p} onChanged={onChanged} />);
+    act(() => void vi.advanceTimersByTime(1_000));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    // The re-read arrives still open (the database clock lags ours): a new prop object, closed: false.
+    rerender(<PollCard poll={{ ...p }} onChanged={onChanged} />);
+    act(() => void vi.advanceTimersByTime(1_999));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    act(() => void vi.advanceTimersByTime(1));
+    expect(onChanged).toHaveBeenCalledTimes(2); // +2 s
+    act(() => void vi.advanceTimersByTime(5_000));
+    expect(onChanged).toHaveBeenCalledTimes(3); // +5 s
+    act(() => void vi.advanceTimersByTime(15_000));
+    expect(onChanged).toHaveBeenCalledTimes(4); // +15 s
+    act(() => void vi.advanceTimersByTime(30_000));
+    expect(onChanged).toHaveBeenCalledTimes(5); // then every 30 s
+    act(() => void vi.advanceTimersByTime(30_000));
+    expect(onChanged).toHaveBeenCalledTimes(6);
+    rerender(<PollCard poll={{ ...p, closed: true, results: { status: "pending" } }} onChanged={onChanged} />);
+    act(() => void vi.advanceTimersByTime(10 * 60_000));
+    expect(onChanged).toHaveBeenCalledTimes(6);
+  });
+
+  it("stops re-reading on unmount", () => {
+    const onChanged = vi.fn();
+    const { unmount } = render(<PollCard poll={poll({ closesAt: iso(NOW + 1_000) })} onChanged={onChanged} />);
+    act(() => void vi.advanceTimersByTime(1_000));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    unmount();
+    act(() => void vi.advanceTimersByTime(10 * 60_000));
+    expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
   it("arms no close timer while 24 h or more remain, and arms it once the minute ticker sees < 24 h", () => {
@@ -345,5 +399,31 @@ describe("PollCard: live", () => {
     render(<PollCard poll={poll({ closed: true, closesAt: iso(NOW - 5000) })} onChanged={onChanged} />);
     act(() => void vi.advanceTimersByTime(120_000));
     expect(onChanged).not.toHaveBeenCalled();
+  });
+});
+
+describe("PollCard: hydration at the close (M1)", () => {
+  it("renders the first pass from poll.closed only, then adopts the local clock after mount, with no mismatch", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const p = poll({ closesAt: iso(NOW), myOptionId: A, iVoted: true });
+    // The server renders a moment before the close; the browser hydrates a moment after it.
+    const html = renderToString(<PollCard poll={p} onChanged={() => {}} now={() => NOW - 1_000} />);
+    expect(html).toContain('role="radiogroup"');
+    const host = document.createElement("div");
+    host.innerHTML = html;
+    document.body.appendChild(host);
+    const recoverable: unknown[] = [];
+    await act(async () => {
+      hydrateRoot(host, <PollCard poll={p} onChanged={() => {}} now={() => NOW + 1_000} />, {
+        onRecoverableError: (e) => void recoverable.push(e),
+      });
+    });
+    expect(recoverable).toEqual([]);
+    expect(errors).not.toHaveBeenCalled();
+    expect(host.querySelector('[role="radiogroup"]')).toBeNull();
+    expect(host).toHaveTextContent("Cerrada");
+    expect(host).toHaveTextContent("Votaste");
+    host.remove();
+    errors.mockRestore();
   });
 });
