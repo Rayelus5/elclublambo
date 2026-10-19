@@ -20,6 +20,7 @@ import {
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
 import { BountyCard } from "@/components/chat/bounty-card";
+import { PollCard } from "@/components/chat/poll-card";
 import { useChatDensity } from "@/components/chat/density";
 import { MessageContent } from "@/components/chat/message-content";
 import { MessageEdit } from "@/components/chat/message-edit";
@@ -70,6 +71,8 @@ export interface MessageItemHandlers {
   onToggleReaction?: (message: ChatMessage, emoji: string) => void;
   /** A bounty message changed (cancelled, or its payment dialog closed): the list re-reads it. */
   onBountyChanged?: (message: ChatMessage) => void;
+  /** A poll card asks to be re-read (after voting, or when its close time passes). */
+  onPollChanged?: (message: ChatMessage) => void;
   /**
    * Present only for the author of an open bounty, inside its thread: marks `message` (a reply) as the solution.
    * Resolves to an error message, or null when it was marked.
@@ -127,6 +130,7 @@ export function MessageItem({
   onPin,
   onToggleReaction,
   onBountyChanged,
+  onPollChanged,
   onMarkSolution,
 }: MessageItemProps) {
   const [editing, setEditing] = useState(false);
@@ -156,7 +160,8 @@ export function MessageItem({
 
   const canReply = variant === "list" && isRoot && !deleted;
   const canQuote = variant === "list" && !deleted && viewer.canPost;
-  const canEdit = own && !deleted && variant !== "pinned" && !!onEdit;
+  // A poll is never edited: it would change what others already voted on (poll_not_editable in SQL).
+  const canEdit = own && !deleted && variant !== "pinned" && !!onEdit && message.kind !== "poll";
   const canDelete = (own || viewer.canManage) && !deleted && variant !== "pinned" && !!onDelete;
   const canPin = viewer.canManage && isRoot && !deleted && variant !== "pinned" && !!onPin;
   const canReport = !own && !deleted && variant !== "pinned";
@@ -358,6 +363,9 @@ export function MessageItem({
               />
             ) : null}
             <MessageContent doc={message.body} allowLinks={message.allowLinks} allowedDomains={allowedDomains} mentionsDir={directory} />
+            {message.kind === "poll" && message.poll ? (
+              <PollCard poll={message.poll} readOnly={variant === "pinned"} onChanged={() => onPollChanged?.(message)} />
+            ) : null}
             {message.editedAt ? (
               <span className="self-start text-[13px] text-fg-muted" title={`Editado ${formatTime(message.editedAt)}`}>
                 editado

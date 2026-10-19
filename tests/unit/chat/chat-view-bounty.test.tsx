@@ -15,6 +15,7 @@ vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));
 vi.mock("@/lib/bounties/actions", () => ({ markSolutionAction: (...a: unknown[]) => h.mark(...a), cancelBountyAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({}) }));
 vi.mock("@/lib/chat/realtime", () => ({
   useChannelEvents: (_id: string, cb: typeof h.onEvent, opts?: { onResync?: () => void }) => {

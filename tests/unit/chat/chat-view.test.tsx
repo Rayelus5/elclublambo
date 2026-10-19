@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: h.replace }) }));

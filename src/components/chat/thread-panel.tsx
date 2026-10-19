@@ -9,7 +9,7 @@ import { DialogTitle } from "@/components/ui/dialog";
 import { scrollMessageIntoView } from "@/lib/chat/scroll";
 import { isGrouped, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
 
-export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "onDelete" | "onToggleReaction" | "onBountyChanged" | "onMarkSolution"> {
+export interface ThreadPanelProps extends Pick<MessageItemHandlers, "onEdit" | "onDelete" | "onToggleReaction" | "onBountyChanged" | "onPollChanged" | "onMarkSolution"> {
   /** null while loading, or when the thread no longer exists / is not visible. */
   root: ChatMessage | null;
   replies: readonly ChatMessage[];

@@ -548,6 +548,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   );
 
   const bountyChanged = useCallback((message: ChatMessage) => void reconcile(message.id), [reconcile]);
+  const pollChanged = bountyChanged;
 
   const quoteMessage = useCallback((message: ChatMessage) => {
     setQuoted({ id: message.id, authorName: (message.authorId ? directoryRef.current.members[message.authorId]?.name : undefined) ?? "Miembro" });
@@ -579,6 +580,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     onPin: (m: ChatMessage, value: boolean) => void pinMessage(m, value),
     onToggleReaction: (m: ChatMessage, emoji: string) => void toggleReaction(m, emoji),
     onBountyChanged: bountyChanged,
+    onPollChanged: pollChanged,
   };
 
   const threadPanel = (inDialog: boolean) =>
@@ -606,6 +608,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         onDelete={deleteMessage}
         onToggleReaction={itemHandlers.onToggleReaction}
         onBountyChanged={itemHandlers.onBountyChanged}
+        onPollChanged={itemHandlers.onPollChanged}
         onMarkSolution={markSolution}
         maximized={!inDialog && threadMax}
         onToggleMaximize={inDialog ? undefined : () => setThreadMax((m) => !m)}

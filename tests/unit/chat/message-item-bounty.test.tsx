@@ -7,6 +7,7 @@ vi.mock("@/lib/chat/actions", () => ({
 }));
 vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
 vi.mock("@/lib/bounties/actions", () => ({ cancelBountyAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
 vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
 
 import { MessageItem, type MessageItemProps } from "@/components/chat/message-item";
