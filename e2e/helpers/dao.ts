@@ -114,6 +114,32 @@ export async function ageDraw(raffleId: string, days: number) {
   expect(error).toBeNull();
 }
 
+/**
+ * Gives a member `shares` participaciones (18 decimals) on the local chain, `locked` of them locked, and adds them to
+ * dao_state.total_shares (service role, F4e). A position with no ledger behind it: enough for a weighted poll's snapshot,
+ * which reads only dao_positions; resetLocalDao clears it again.
+ */
+export async function seedPosition(memberId: string, shares: bigint, locked = 0n) {
+  const db = service();
+  const pos = await db
+    .from("dao_positions")
+    .upsert({ chain_id: CHAIN_ID, member_id: memberId, shares: shares.toString(), locked_shares: locked.toString() }, { onConflict: "chain_id,member_id" });
+  expect(pos.error).toBeNull();
+  const state = await db.from("dao_state").select("total_shares::text").eq("chain_id", CHAIN_ID).single<{ total_shares: string }>();
+  expect(state.error).toBeNull();
+  const total = BigInt(state.data!.total_shares) + shares;
+  const upd = await db.from("dao_state").update({ total_shares: total.toString() }).eq("chain_id", CHAIN_ID);
+  expect(upd.error).toBeNull();
+}
+
+/** Moves a poll's close `closedSecondsAgo` into the past (service role, F4e): it reads as closed at once, and the next cron run finalizes it. */
+export async function agePoll(messageId: string, closedSecondsAgo: number) {
+  const closesAt = new Date(Date.now() - closedSecondsAgo * 1000).toISOString();
+  const { data, error } = await service().from("polls").update({ closes_at: closesAt }).eq("message_id", messageId).select("message_id");
+  expect(error).toBeNull();
+  expect(data).toHaveLength(1);
+}
+
 export type CronChain = {
   chainId: number;
   snapshot?: "taken" | "skipped" | "unavailable" | "failed";
@@ -198,6 +224,7 @@ export async function resetLocalDao() {
     "withdrawal_expired",
     "treasury_notice",
     "raffle_won",
+    "poll_closed",
   ]);
   expect(notices.error).toBeNull();
 }
