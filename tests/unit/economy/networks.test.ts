@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { getAddress } from "viem";
+import { afterEach, describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
+
+import { addressesFor } from "@/lib/treasury/valuation";
 import { bpsToPercentText, explorerAddress, explorerTx, NETWORKS, percentTextToBps } from "@/lib/economy/networks";
 
 describe("NETWORKS", () => {
@@ -29,6 +33,29 @@ describe("NETWORKS", () => {
     expect(explorerTx(59141, "0xab")).toBe("https://sepolia.lineascan.build/tx/0xab");
     expect(explorerTx(59144, "0xab")).toBe("https://lineascan.build/tx/0xab");
     expect(explorerAddress(59144, "0xcd")).toBe("https://lineascan.build/address/0xcd");
+  });
+});
+
+describe("mainnet pins (F5 §7)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("59144 holds the verified, checksummed addresses", () => {
+    const n = NETWORKS[59144];
+    expect(n.usdc).toBe("0x176211869cA2b568f2A7D4EE941E073a821EE1ff");
+    expect(n.weth).toBe("0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f");
+    expect(n.ethUsdFeed).toBe("0x3c6Cd9Cc7c7a4c2Cf5a82734CD249D7D593354dA");
+    expect(n.ethUsdHeartbeatSec).toBe(86400);
+    expect(n.testnet).toBe(false);
+    for (const a of [n.usdc, n.weth!, n.ethUsdFeed!]) expect(a).toBe(getAddress(a));
+  });
+
+  it("addressesFor(59144) ignores every override env var", () => {
+    const bad = "0x" + "0".repeat(36) + "0bad";
+    for (const k of ["WETH_ADDRESS_59144", "ETH_USD_FEED_ADDRESS_59144", "WETH_ADDRESS_59141", "ETH_USD_FEED_ADDRESS_59141"]) vi.stubEnv(k, bad);
+    const a = addressesFor(59144);
+    expect(a.usdc).toBe(NETWORKS[59144].usdc);
+    expect(a.weth).toBe(NETWORKS[59144].weth);
+    expect(a.ethUsdFeed).toBe(NETWORKS[59144].ethUsdFeed);
   });
 });
 

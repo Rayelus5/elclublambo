@@ -36,6 +36,8 @@ test("GET /login sends the CSP and the security headers (no HSTS over http)", as
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("object-src 'none'");
   expect(csp).not.toContain("upgrade-insecure-requests");
+  // 'unsafe-eval' is a dev-only allowance (HMR); a production build must never ship it.
+  if (process.env.E2E_PROD === "1") expect(csp).not.toContain("'unsafe-eval'");
   expect(h["x-content-type-options"]).toBe("nosniff");
   expect(h["x-frame-options"]).toBe("DENY");
   expect(h["referrer-policy"]).toBe("strict-origin-when-cross-origin");

@@ -1,5 +1,9 @@
 import type { NextConfig } from "next";
+import { assertProductionReady } from "./src/lib/deploy/readiness";
 import { headerEnvFromProcess, securityHeaders } from "./src/lib/security/headers";
+
+// F5-R10: a Vercel production build with a testnet/unsafe configuration fails here, before anything deploys.
+assertProductionReady();
 
 const nextConfig: NextConfig = {
   // Standalone server only for the preproduction Docker image (F5-R7); Vercel and local dev keep the default output.
