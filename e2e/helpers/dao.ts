@@ -143,7 +143,7 @@ export async function agePoll(messageId: string, closedSecondsAgo: number) {
 export type CronChain = {
   chainId: number;
   snapshot?: "taken" | "skipped" | "unavailable" | "failed";
-  scan?: { inserted: number; alerts: number } | null | "failed";
+  scan?: { inserted: number; alerts: number } | null | "failed" | "scan_gap";
   payouts?: { recorded: number; paid: number; reverted: number; awaitingFinality: number } | "failed";
   credited?: number;
   pending?: number;
@@ -154,7 +154,7 @@ export type CronChain = {
   /** F4d: close + draw, prize payout detection and finality, unpaid notices. */
   raffles?:
     | { closed: number; voided: number; drawn: number; pending: number; recorded: number; paid: number; reverted: number; unpaidNotices: number;
-        awaitingFinality: number; refusedDraws: { raffleId: string; code: string }[] }
+        awaitingFinality: number; refusedDraws: { raffleId: string; code: string }[]; failed: string[] }
     | "failed";
 };
 

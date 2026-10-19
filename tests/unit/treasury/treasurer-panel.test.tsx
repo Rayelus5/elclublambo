@@ -57,7 +57,7 @@ const drawnRaffle = (over: Partial<TreasuryRaffle> = {}): TreasuryRaffle => ({
   id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
   mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w", winnerLabel: "@ana",
   winnerAddress: "0x1234567890abcdef1234567890abcdef12345678", drawnAt: "2026-10-02T00:00:00Z", unpaid: false, payoutTxHash: null,
-  payoutRecordedAt: null, paidAt: null, cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null, ...over,
+  payoutRecordedAt: null, paidAt: null, cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null, unexplainedOutflow: false, ...over,
 });
 
 beforeEach(() => Object.values(actions).forEach((f) => f.mockReset()));
@@ -315,6 +315,47 @@ describe("treasuryAlerts · raffles", () => {
     expect(screen.getByRole("link", { name: "No se pudo hacer el sorteo: Sorteo de otoño" })).toHaveAttribute("href", "#sorteos");
     expect(screen.getByText(/Ese bloque no es el primero posterior al cierre\./)).toBeInTheDocument();
     expect(screen.queryByText("Sin avisos.")).toBeNull();
+  });
+
+  it("F4-R2: names the obligation whose unexplained outflow pauses credits, and says how to resolve it", () => {
+    const a = treasuryAlerts({
+      ...base,
+      withdrawals: [approved({ unexplainedOutflow: true })],
+      safeUsdc: 100_000_000n,
+      safeWeth: 0n,
+      raffles: [drawnRaffle({ id: "r9", title: "Sorteo de invierno", unexplainedOutflow: true }), drawnRaffle({ id: "r2" })],
+    });
+    expect(a.paused).toEqual([
+      { id: "w1", kind: "withdrawal", who: "@ana", destination: "0x1234567890abcdef1234567890abcdef12345678" },
+      { id: "r9", kind: "prize", who: "Sorteo de invierno", destination: "0x1234567890abcdef1234567890abcdef12345678" },
+    ]);
+    render(<TreasuryAlerts alerts={a} />);
+    expect(
+      screen.getByText("Créditos en pausa: hay una salida sin explicar a 0x1234…5678 mientras la retirada de @ana sigue pendiente de pago"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Créditos en pausa: hay una salida sin explicar a 0x1234…5678 mientras el premio de «Sorteo de invierno» sigue pendiente de pago"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText(/una sola transferencia de al menos el importe/).length).toBe(2);
+    expect(screen.getAllByText(/Si la salida no tiene que ver, añádele una nota/).length).toBe(2);
+  });
+
+  it("a withdrawal whose payout is already recorded is not paused", () => {
+    const rec = approved({ unexplainedOutflow: true, payoutRecordedAt: "2026-10-19T00:00:00Z", payoutTxHash: `0x${"a".repeat(64)}` });
+    expect(treasuryAlerts({ ...base, withdrawals: [rec], safeUsdc: 100_000_000n }).paused).toEqual([]);
+  });
+
+  it("F4-R1: a scan stuck for 3 runs or 3 hours is an alert; a short gap is not", () => {
+    const at = (h: number) => new Date(NOW.getTime() - h * 3_600_000).toISOString();
+    const gap = (runs: number, since: string) => treasuryAlerts({ ...base, safeUsdc: 1n, scanGap: { runs, since } }).scanStuck;
+    expect(gap(2, at(1))).toBeNull();
+    expect(gap(3, at(1))).toEqual({ runs: 3, since: at(1) });
+    expect(gap(1, at(3))).toEqual({ runs: 1, since: at(3) });
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, scanGap: null }).scanStuck).toBeNull();
+    render(<TreasuryAlerts alerts={treasuryAlerts({ ...base, safeUsdc: 1n, scanGap: { runs: 4, since: at(5) } })} />);
+    expect(screen.getByText("El escaneo de la Safe está atascado")).toBeInTheDocument();
+    expect(screen.getByText(/4 pasadas seguidas/)).toHaveTextContent(/las donaciones esperan para acreditarse/);
+    expect(screen.getByText(/4 pasadas seguidas/)).toHaveTextContent(/Revisa el nodo RPC de Linea/);
   });
 
   it("stays at «Sin avisos.» with covered, recent prizes", () => {

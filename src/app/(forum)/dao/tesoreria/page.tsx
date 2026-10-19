@@ -18,7 +18,7 @@ import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatUsdc } from "@/lib/treasury/format";
 import { formatWhen, treasuryAlerts } from "@/lib/treasury/panel";
-import { getDaoOverview, getUnexplainedOutflows } from "@/lib/treasury/queries";
+import { getDaoOverview, getScanGap, getUnexplainedOutflows } from "@/lib/treasury/queries";
 import { getTreasuryRaffles, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import { readSafeAssets } from "@/lib/treasury/valuation";
 import { getTreasuryWithdrawals } from "@/lib/treasury/withdrawals";
@@ -54,11 +54,12 @@ async function TreasuryContent() {
   const isSuperAdmin = hasPerm(perms, Perm.ADMINISTRATOR);
   const meId = typeof me.data === "string" ? me.data : null;
 
-  const [economy, overview, withdrawals, unexplained, raffleResult] = await Promise.all([
+  const [economy, overview, withdrawals, unexplained, scanGap, raffleResult] = await Promise.all([
     getEconomyConfig(),
     getDaoOverview(supabase),
     getTreasuryWithdrawals(supabase),
     getUnexplainedOutflows(supabase),
+    getScanGap(supabase),
     getTreasuryRaffles(supabase).then(
       (rows) => ({ rows, failed: false }),
       (e: unknown) => {
@@ -105,7 +106,7 @@ async function TreasuryContent() {
     }
   }
 
-  const alerts = treasuryAlerts({ withdrawals, safeUsdc, safeWeth, raffles, unexplained: unexplained.length, now: new Date() });
+  const alerts = treasuryAlerts({ withdrawals, safeUsdc, safeWeth, raffles, unexplained: unexplained.length, scanGap, now: new Date() });
 
   return (
     <div className="flex w-full flex-col gap-8">

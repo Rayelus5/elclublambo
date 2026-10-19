@@ -14,19 +14,26 @@ export type PrizeTarget = { chain: ChainId; safe: Address; token: PrizeToken; wi
 /** A draw that did not happen this run: draw_raffle's refusal code, "retry" (a transient database error) or "draw_failed" (a thrown error). */
 export type RefusedDraw = { raffleId: string; code: string };
 
+export type RaffleStep = "draw" | "detect" | "finalize" | "unpaid";
+
+/**
+ * The raffle steps' report. M3: a failing step is named in `failed` and only its own fields are missing; the others
+ * (refused draws, payouts awaiting finality…) stay. "failed" only when runRaffleSteps itself throws (the route).
+ */
 export type RaffleReport =
   | {
-      closed: number;
-      voided: number;
-      drawn: number;
-      pending: number;
-      recorded: number;
-      paid: number;
-      reverted: number;
-      unpaidNotices: number;
+      failed: RaffleStep[];
+      closed?: number;
+      voided?: number;
+      drawn?: number;
+      pending?: number;
+      refusedDraws?: RefusedDraw[];
+      recorded?: number;
+      paid?: number;
+      reverted?: number;
       /** Recorded prize payouts still awaiting finality after this run's finalize step. */
-      awaitingFinality: number;
-      refusedDraws: RefusedDraw[];
+      awaitingFinality?: number;
+      unpaidNotices?: number;
     }
   | "failed";
 
@@ -397,27 +404,28 @@ export async function notifyUnpaidRaffles(chain: ChainId): Promise<number> {
 
 /**
  * The cron's raffle steps for one chain: draw (close + draw) → detect payouts → finalize payouts → unpaid notices. Each
- * is isolated (one failing never skips the others); any failure makes the whole report "failed", like `payouts`.
+ * is isolated (one failing never skips the others). M3: a failed step is listed in `failed` and the others' results
+ * stay in the report.
  */
 export async function runRaffleSteps(chain: ChainId): Promise<RaffleReport> {
-  const step = <T>(name: string, run: () => Promise<T>) =>
+  const failed: RaffleStep[] = [];
+  const step = <T>(name: RaffleStep, run: () => Promise<T>) =>
     run().catch((e: unknown) => {
       console.error(`[treasury] raffle ${name} failed`, chain, e);
+      failed.push(name);
       return null;
     });
   const draw = await step("draw", () => drawDueRaffles(chain));
-  const detected = await step("payout detection", () => detectRafflePayouts(chain));
-  const finalized = await step("payout finalization", () => finalizeRafflePayouts(chain));
-  const unpaid = await step("unpaid notices", () => notifyUnpaidRaffles(chain));
-  if (!draw || !detected || !finalized || unpaid === null) return "failed";
-  const { refused, ...counts } = draw;
-  return {
-    ...counts,
-    ...detected,
-    paid: finalized.paid,
-    reverted: finalized.reverted,
-    unpaidNotices: unpaid,
-    awaitingFinality: finalized.pending,
-    refusedDraws: refused,
-  };
+  const detected = await step("detect", () => detectRafflePayouts(chain));
+  const finalized = await step("finalize", () => finalizeRafflePayouts(chain));
+  const unpaid = await step("unpaid", () => notifyUnpaidRaffles(chain));
+  const report: Exclude<RaffleReport, "failed"> = { failed };
+  if (draw) {
+    const { refused, ...counts } = draw;
+    Object.assign(report, counts, { refusedDraws: refused });
+  }
+  if (detected) Object.assign(report, detected);
+  if (finalized) Object.assign(report, { paid: finalized.paid, reverted: finalized.reverted, awaitingFinality: finalized.pending });
+  if (unpaid !== null) report.unpaidNotices = unpaid;
+  return report;
 }

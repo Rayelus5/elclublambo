@@ -366,7 +366,7 @@ describe("notifyUnpaidRaffles / runRaffleSteps", () => {
     replies.raffle_payout_candidates = { data: [] };
     replies.raffles_awaiting_finality = { data: [] };
     replies.notify_unpaid_raffles = { data: 1 };
-    expect(await runRaffleSteps(59141)).toEqual({ closed: 1, voided: 0, drawn: 0, pending: 0, recorded: 0, paid: 0, reverted: 0, unpaidNotices: 1, awaitingFinality: 0, refusedDraws: [] });
+    expect(await runRaffleSteps(59141)).toEqual({ closed: 1, voided: 0, drawn: 0, pending: 0, recorded: 0, paid: 0, reverted: 0, unpaidNotices: 1, awaitingFinality: 0, refusedDraws: [], failed: [] });
     const order = rpc.mock.calls.map((c) => c[0]);
     expect(order).toEqual(["close_due_raffles", "raffles_awaiting_draw", "raffle_payout_candidates", "raffles_awaiting_finality", "notify_unpaid_raffles"]);
   });
@@ -385,13 +385,36 @@ describe("notifyUnpaidRaffles / runRaffleSteps", () => {
     expect(report).toMatchObject({ awaitingFinality: 2, paid: 0, refusedDraws: [{ raffleId: "r9", code: "draw_block_invalid" }] });
     err.mockRestore();
   });
-  it("a failing sub-step makes the report failed but the others still run", async () => {
+  it("M3: a failing later step keeps the draw's refusals and the finality count", async () => {
+    replies.close_due_raffles = { data: { closed: 0, voided: 0 } };
+    replies.raffles_awaiting_draw = { data: [{ raffle_id: "r9", closes_at: "1970-01-01T00:00:13+00:00" }] };
+    replies.draw_raffle = { error: { message: "draw_block_invalid" } };
+    replies.raffle_payout_candidates = { error: { message: "db down" } };
+    replies.raffles_awaiting_finality = { data: [awaiting("r1", 999)] };
+    replies.notify_unpaid_raffles = { error: { message: "db down" } };
+    getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 5));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await runRaffleSteps(59141)).toEqual({
+      failed: ["detect", "unpaid"],
+      closed: 0,
+      voided: 0,
+      drawn: 0,
+      pending: 1,
+      refusedDraws: [{ raffleId: "r9", code: "draw_block_invalid" }],
+      paid: 0,
+      reverted: 0,
+      awaitingFinality: 1,
+    });
+    err.mockRestore();
+  });
+  it("a failing sub-step is named in the report but the others still run", async () => {
     replies.close_due_raffles = { error: { message: "db down" } };
     replies.raffle_payout_candidates = { data: [] };
     replies.raffles_awaiting_finality = { data: [] };
     replies.notify_unpaid_raffles = { data: 0 };
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await runRaffleSteps(59141)).toBe("failed");
+    // M3: the report keeps what the other steps returned and names the failed one
+    expect(await runRaffleSteps(59141)).toEqual({ failed: ["draw"], recorded: 0, paid: 0, reverted: 0, awaitingFinality: 0, unpaidNotices: 0 });
     expect(calls("raffle_payout_candidates")).toHaveLength(1);
     expect(calls("raffles_awaiting_finality")).toHaveLength(1);
     expect(calls("notify_unpaid_raffles")).toHaveLength(1);

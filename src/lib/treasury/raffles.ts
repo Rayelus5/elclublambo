@@ -100,6 +100,8 @@ export interface TreasuryRaffle {
   paidLate: boolean;
   /** While closed: the code with which the cron's draw was refused (draw_block_invalid, invalid_state…), else null. */
   drawRefused: string | null;
+  /** Drawn and unpaid, with an unexplained outflow to the winner in the payout window: valuations pause (F4-R2). */
+  unexplainedOutflow: boolean;
 }
 
 function big(v: unknown): bigint | null {
@@ -256,6 +258,7 @@ export async function getTreasuryRaffles(supabase: Rpc): Promise<TreasuryRaffle[
       createdAt: String(r.created_at ?? ""),
       paidLate: r.paid_late === true,
       drawRefused: strOrNull(r.draw_refused),
+      unexplainedOutflow: r.unexplained_outflow === true,
     });
   }
   return out;

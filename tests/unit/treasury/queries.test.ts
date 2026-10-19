@@ -1,6 +1,20 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
-import { getDaoOverview } from "@/lib/treasury/queries";
+import { getDaoOverview, getScanGap } from "@/lib/treasury/queries";
+
+describe("getScanGap (F4-R1)", () => {
+  it("reads treasury_scan_gap: runs and since, or null; a read error is null (the panel still renders)", async () => {
+    const c = client({ runs: 3, since: "2026-10-19T08:00:00+00:00" });
+    expect(await getScanGap(c)).toEqual({ runs: 3, since: "2026-10-19T08:00:00+00:00" });
+    expect(c.rpc).toHaveBeenCalledWith("treasury_scan_gap");
+    expect(await getScanGap(client(null))).toBeNull();
+    expect(await getScanGap(client({ runs: "x" }))).toBeNull();
+    const failing = { rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "forbidden" } }) } as unknown as SupabaseClient;
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await getScanGap(failing)).toBeNull();
+    err.mockRestore();
+  });
+});
 
 function client(data: unknown): SupabaseClient {
   return { rpc: vi.fn().mockResolvedValue({ data, error: null }) } as unknown as SupabaseClient;

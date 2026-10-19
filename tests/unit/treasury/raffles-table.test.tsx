@@ -40,6 +40,7 @@ export const raffle = (over: Partial<TreasuryRaffle> = {}): TreasuryRaffle => ({
   createdAt: "2026-10-19T10:00:00Z",
   paidLate: false,
   drawRefused: null,
+  unexplainedOutflow: false,
   ...over,
 });
 

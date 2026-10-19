@@ -64,7 +64,16 @@ describe("guide: retiradas", () => {
   });
   it("says the payout is one transfer of at least the fixed amount, never split", () => {
     render(<GuideContent slug="fondo" />);
-    expect(screen.getByText(/una sola transferencia de al menos el importe fijado/)).toBeInTheDocument();
+    expect(screen.getAllByText(/una sola transferencia de al menos el importe fijado/).length).toBeGreaterThan(0);
+  });
+  it("F4-R2: explains why credits pause after a non-conforming payout and how the treasurer resolves it", () => {
+    render(<GuideContent slug="fondo" />);
+    const p = screen.getByText(/las donaciones, las aprobaciones y la valoración del fondo se ponen en pausa/);
+    expect(p).toHaveTextContent(/pago parcial o repartido/);
+    expect(p).toHaveTextContent(/pide al miembro que lo devuelva/);
+    expect(p).toHaveTextContent(/completa el pago con una sola transferencia de al menos el importe fijado/);
+    expect(p).toHaveTextContent(/añade una nota a las salidas parciales/);
+    expect(p).toHaveTextContent(/Si la salida no tiene nada que ver, basta con añadirle una nota/);
   });
   it("no longer says contributions cannot be withdrawn", () => {
     render(<GuideContent slug="dao" />);

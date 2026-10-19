@@ -206,6 +206,21 @@ export async function getOperations(supabase: SupabaseClient, limit = 30): Promi
   return parseOperations(data);
 }
 
+/** Consecutive Safe-scan runs that could not prove their logs complete (F4-R1). */
+export type ScanGap = { runs: number; since: string };
+
+/** The active chain's scan gap (treasurers), or null while the scan advances. A read error is logged and read as null. */
+export async function getScanGap(supabase: SupabaseClient): Promise<ScanGap | null> {
+  const { data, error } = await supabase.rpc("treasury_scan_gap");
+  if (error) {
+    console.error("[treasury] scan gap read failed", error.message);
+    return null;
+  }
+  const v = data as { runs?: unknown; since?: unknown } | null;
+  if (!v || typeof v.runs !== "number" || typeof v.since !== "string") return null;
+  return { runs: v.runs, since: v.since };
+}
+
 /** Every unexplained outflow of the active chain (treasurers only; not limited to the latest operations). */
 export async function getUnexplainedOutflows(supabase: SupabaseClient): Promise<Operation[]> {
   const { data, error } = await supabase.rpc("treasury_unexplained_outflows");

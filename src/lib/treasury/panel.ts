@@ -1,6 +1,7 @@
 // Treasurer panel helpers (isomorphic): date format and the «Avisos» (alerts) derived from the withdrawals, the Safe's
 // USDC and the unexplained outflows. Amounts are bigint USDC (6 decimals).
 import { knownErrorCode, rpcErrorMessage } from "@/lib/errors";
+import type { ScanGap } from "@/lib/treasury/queries";
 import { formatPrize, type PrizeToken, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import type { TreasuryWithdrawal } from "@/lib/treasury/withdrawals";
 
@@ -43,7 +44,19 @@ export interface TreasuryAlertsData {
   prizeUnderfunded: { token: PrizeToken; reserved: bigint; safe: bigint }[];
   /** Closed raffles whose draw the cron could not make (stored once per raffle and code; gone once drawn or cancelled). */
   refusedDraws: { id: string; title: string; code: string }[];
+  /**
+   * F4-R2: obligations still unpaid with an unexplained outflow to their destination in the payout window. While any
+   * exists, every valuation (credits, approvals, snapshots) answers assets_stale. `who`: the member or the raffle title.
+   */
+  paused: { id: string; kind: "withdrawal" | "prize"; who: string; destination: string }[];
+  /** F4-R1: the scan has not advanced for SCAN_GAP_RUNS runs or SCAN_GAP_HOURS hours. */
+  scanStuck: ScanGap | null;
 }
+
+/** F4-R1: the scan is reported stuck after this many consecutive gap runs (the cron runs hourly)… */
+export const SCAN_GAP_RUNS = 3;
+/** …or once the first gap is this old. */
+export const SCAN_GAP_HOURS = 3;
 
 /** Drawn raffles whose prize the Safe still owes: no payout recorded yet. */
 const prizeOwed = (r: TreasuryRaffle) => r.status === "drawn" && r.payoutTxHash === null && r.payoutRecordedAt === null;
@@ -59,6 +72,8 @@ export function treasuryAlerts(input: {
   safeWeth?: bigint | null;
   raffles?: TreasuryRaffle[];
   unexplained: number;
+  /** treasury_scan_gap: null while the scan advances. */
+  scanGap?: ScanGap | null;
   now: Date;
 }): TreasuryAlertsData {
   const raffles = input.raffles ?? [];
@@ -81,10 +96,23 @@ export function treasuryAlerts(input: {
   const refusedDraws = raffles
     .filter((r) => r.status === "closed" && r.drawRefused !== null)
     .map((r) => ({ id: r.id, title: r.title, code: r.drawRefused! }));
+  const paused: TreasuryAlertsData["paused"] = [
+    ...input.withdrawals
+      .filter((w) => w.status === "approved" && w.unexplainedOutflow && !payoutRecorded(w))
+      .map((w) => ({ id: w.id, kind: "withdrawal" as const, who: w.memberLabel, destination: w.wallet })),
+    ...raffles
+      .filter((r) => prizeOwed(r) && r.unexplainedOutflow && r.winnerAddress !== null)
+      .map((r) => ({ id: r.id, kind: "prize" as const, who: r.title, destination: r.winnerAddress! })),
+  ];
+  const gap = input.scanGap ?? null;
+  const scanStuck =
+    gap && (gap.runs >= SCAN_GAP_RUNS || input.now.getTime() - new Date(gap.since).getTime() >= SCAN_GAP_HOURS * HOUR_MS) ? gap : null;
   return {
     unpaidRaffles,
     prizeUnderfunded,
     refusedDraws,
+    paused,
+    scanStuck,
     expiring,
     underfunded: input.safeUsdc !== null && reserved > input.safeUsdc ? { reserved, safeUsdc: input.safeUsdc } : null,
     unexplained: input.unexplained,

@@ -168,7 +168,7 @@ describe("getDaoRaffles / getRaffleDetail / getTreasuryRaffles", () => {
         id: "r1", title: "T", status: "drawn", prizeToken: "USDC", prizeAmount: 5_000000n, prizeValueUsd6: 5_000000n,
         mode: "equal", closesAt: "c", entries: 2, totalWeight: 2n, winnerMemberId: "m1", winnerLabel: "Ana",
         winnerAddress: "0xabc", drawnAt: "d", unpaid: true, payoutTxHash: null, payoutRecordedAt: null, paidAt: null,
-        cancelReason: null, createdByLabel: "Tesorero", createdAt: "x", paidLate: false, drawRefused: null,
+        cancelReason: null, createdByLabel: "Tesorero", createdAt: "x", paidLate: false, drawRefused: null, unexplainedOutflow: false,
       },
     ]);
   });
@@ -178,10 +178,11 @@ describe("getDaoRaffles / getRaffleDetail / getTreasuryRaffles", () => {
       closes_at: "c", entries: 1, created_at: "x", paid_late: true, draw_refused: null,
     };
     const { supabase } = client({
-      treasury_raffles: { data: [row, { ...row, id: "r2", status: "closed", paid_late: false, draw_refused: "draw_block_invalid" }] },
+      treasury_raffles: { data: [row, { ...row, id: "r2", status: "closed", paid_late: false, draw_refused: "draw_block_invalid", unexplained_outflow: true }] },
     });
     const [paid, closed] = await getTreasuryRaffles(supabase);
     expect(paid).toMatchObject({ paidLate: true, drawRefused: null });
-    expect(closed).toMatchObject({ paidLate: false, drawRefused: "draw_block_invalid" });
+    expect(closed).toMatchObject({ paidLate: false, drawRefused: "draw_block_invalid", unexplainedOutflow: true });
+    expect(paid!.unexplainedOutflow).toBe(false);
   });
 });

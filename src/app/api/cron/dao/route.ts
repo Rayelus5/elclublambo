@@ -86,7 +86,8 @@ async function handle(request: Request) {
     if (withSafe.has(chainId)) {
       try {
         report.scan = await scanSafeOperations(chainId);
-        if (report.scan) {
+        // F4-R1: a "scan_gap" did not move the cursor, so (like a failed scan) it bounds no expiry
+        if (report.scan && typeof report.scan === "object") {
           const at = await scanCursorTime(chainId);
           if (at) scannedThrough.set(chainId, at);
         }

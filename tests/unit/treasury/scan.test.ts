@@ -7,9 +7,16 @@ type FakeLog = { address: string; event: string; args: Record<string, unknown>; 
 
 let latest = 10_000n;
 let logs: FakeLog[] = [];
+/** A lagging log index: getLogs omits every log above this block (and says nothing). */
+let logsHead: bigint | null = null;
+/** A non-archive node: balance reads below this block fail. */
+let stateFrom: bigint | null = null;
+/** Token balances before any log (lower-cased token address → units). */
+let baseBalance: Record<string, bigint> = {};
 const getLogs = vi.fn(async (a: GetLogsArgs) =>
   logs.filter(
     (l) =>
+      (logsHead === null || l.blockNumber <= logsHead) &&
       l.address.toLowerCase() === a.address.toLowerCase() &&
       l.event === a.event.name &&
       l.blockNumber >= a.fromBlock &&
@@ -19,11 +26,29 @@ const getLogs = vi.fn(async (a: GetLogsArgs) =>
 );
 const getBlock = vi.fn(async ({ blockNumber }: { blockNumber: bigint }) => ({ number: blockNumber, timestamp: 1_800_000_000n + blockNumber }));
 const getBlockNumber = vi.fn(async () => latest);
+/** balanceOf(safe) at a block: the base plus every log up to it (Transfer in/out, WETH Deposit/Withdrawal), like a real token. */
+const readContract = vi.fn(async (a: { address: string; functionName: string; args: [string]; blockNumber: bigint }) => {
+  if (a.functionName !== "balanceOf") throw new Error(`unexpected ${a.functionName}`);
+  if (stateFrom !== null && a.blockNumber < stateFrom) throw new Error("missing trie node");
+  const token = a.address.toLowerCase();
+  const who = a.args[0].toLowerCase();
+  let bal = baseBalance[token] ?? 0n;
+  for (const l of logs) {
+    if (l.address.toLowerCase() !== token || l.blockNumber > a.blockNumber) continue;
+    const arg = (k: string) => String(l.args[k] ?? "").toLowerCase();
+    const v = (l.args.value ?? l.args.wad ?? 0n) as bigint;
+    if (l.event === "Transfer") bal += (arg("to") === who ? v : 0n) - (arg("from") === who ? v : 0n);
+    if (l.event === "Deposit" && arg("dst") === who) bal += v;
+    if (l.event === "Withdrawal" && arg("src") === who) bal -= v;
+  }
+  return bal;
+});
 vi.mock("@/lib/payments/chain-client", () => ({
   chainClient: () => ({
     getLogs: (a: GetLogsArgs) => getLogs(a),
     getBlock: (a: { blockNumber: bigint }) => getBlock(a),
     getBlockNumber: () => getBlockNumber(),
+    readContract: (a: never) => readContract(a),
   }),
 }));
 
@@ -32,10 +57,14 @@ let safe: string | null;
 let snapshots: { block_number: string; eth_wei: string; taken_at: string }[] = [];
 let ethCursor: string | null = null;
 let setCursorError: unknown = null;
+/** dao_scan_balances: the balances stored at a block (null: none). */
+let stored: { block: string; balances: Record<string, string> } | null = null;
 const rpc = vi.fn(async (...[name]: [string, unknown?]) => {
   if (name === "dao_scan_from") return { data: cursor, error: null };
+  if (name === "dao_scan_balances") return { data: stored, error: null };
   if (name === "dao_eth_scan_from") return { data: ethCursor, error: null };
-  if (name === "record_safe_operations") return { data: { inserted: 2, alerts: 1 }, error: null };
+  if (name === "record_safe_scan") return { data: { inserted: 2, alerts: 1 }, error: null };
+  if (name === "record_scan_gap") return { data: 1, error: null };
   if (name === "set_dao_eth_cursor") return { data: null, error: setCursorError };
   return { data: null, error: { message: "unexpected" } };
 });
@@ -74,10 +103,12 @@ const iso = (block: bigint) => new Date(Number(1_800_000_000n + block) * 1000).t
 const ETH = 10n ** 18n;
 
 const recorded = () => {
-  const c = rpc.mock.calls.filter((x) => x[0] === "record_safe_operations");
+  const c = rpc.mock.calls.filter((x) => x[0] === "record_safe_scan");
   expect(c).toHaveLength(1);
-  return c[0]![1] as { p_chain: number; p_safe: string; p_ops: Record<string, unknown>[]; p_to_block: string };
+  return c[0]![1] as { p_chain: number; p_safe: string; p_ops: Record<string, unknown>[]; p_to_block: string; p_balances: Record<string, string> | null };
 };
+/** The scan range's chunks: the continuity check reads WETH Deposit/Withdrawal over them too (not a snapshot-pair window). */
+const SCAN_RANGES = new Set(["5001-7000", "7001-9000", "9001-9997"]);
 const transferCalls = () => getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Transfer");
 
 beforeEach(() => {
@@ -91,6 +122,10 @@ beforeEach(() => {
   snapshots = [];
   ethCursor = null;
   setCursorError = null;
+  stored = null;
+  logsHead = null;
+  stateFrom = null;
+  baseBalance = {};
 });
 const cursorSets = () => rpc.mock.calls.filter((x) => x[0] === "set_dao_eth_cursor").map((x) => x[1]);
 afterEach(() => vi.unstubAllEnvs());
@@ -101,7 +136,7 @@ describe("scanSafeOperations: cursor", () => {
     logs = [{ address: USDC, event: "Transfer", args: { from: OTHER, to: SAFE, value: 5n }, blockNumber: 9000n, transactionHash: hash(1), logIndex: 0 }];
     expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
     expect(getLogs).not.toHaveBeenCalled();
-    expect(recorded()).toEqual({ p_chain: 59141, p_safe: SAFE, p_ops: [], p_to_block: "9997" });
+    expect(recorded()).toEqual({ p_chain: 59141, p_safe: SAFE, p_ops: [], p_to_block: "9997", p_balances: { USDC: "5", WETH: "0" } });
   });
 
   it("scans from the block after the cursor up to latest − confirmations in chunks of at most 2000 blocks", async () => {
@@ -133,7 +168,7 @@ describe("scanSafeOperations: cursor", () => {
     cursor = "9997";
     await scanSafeOperations(59141);
     expect(transferCalls()).toHaveLength(0);
-    expect(recorded()).toMatchObject({ p_ops: [], p_to_block: "9997" });
+    expect(recorded()).toMatchObject({ p_ops: [], p_to_block: "9997", p_balances: null });
   });
 
   it("null when the Safe is not configured, without reading the chain", async () => {
@@ -146,7 +181,79 @@ describe("scanSafeOperations: cursor", () => {
   it("a log read failure records nothing (the cursor does not move past unscanned blocks)", async () => {
     getLogs.mockRejectedValueOnce(new Error("rpc down"));
     await expect(scanSafeOperations(59141)).rejects.toThrow("rpc down");
-    expect(rpc).not.toHaveBeenCalledWith("record_safe_operations", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("record_safe_scan", expect.anything());
+  });
+});
+
+describe("scanSafeOperations: balance continuity (F4-R1)", () => {
+  const payout = (block: bigint, value = 400_000_000n) =>
+    ({ address: USDC, event: "Transfer", args: { from: SAFE, to: OTHER, value }, blockNumber: block, transactionHash: hash(70), logIndex: 0 }) as FakeLog;
+
+  it("a node whose logs stop short (getLogs [] over a real balance change) does not move the cursor: scan_gap", async () => {
+    baseBalance = { [USDC.toLowerCase()]: 1_000_000_000n };
+    logs = [payout(9_500n)];
+    logsHead = 9_000n; // the log index trails: the payout at 9500 is never returned
+    stored = { block: "5000", balances: { USDC: "1000000000", WETH: "0" } };
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
+    expect(rpc).not.toHaveBeenCalledWith("record_safe_scan", expect.anything());
+    expect(rpc).toHaveBeenCalledWith("record_scan_gap", { p_chain: 59141 });
+    expect(cursorSets()).toEqual([]);
+  });
+
+  it("a toBlock the client does not have is a gap too", async () => {
+    getBlock.mockRejectedValueOnce(new Error("block not found"));
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
+    expect(rpc).not.toHaveBeenCalledWith("record_safe_scan", expect.anything());
+  });
+
+  it("happy path: the logs explain every balance change and the balances at toBlock are stored with the cursor", async () => {
+    baseBalance = { [USDC.toLowerCase()]: 1_000_000_000n, [WETH]: 5n * ETH };
+    logs = [
+      payout(9_500n),
+      { address: USDC, event: "Transfer", args: { from: OTHER, to: SAFE, value: 3_000_000n }, blockNumber: 6_000n, transactionHash: hash(71), logIndex: 1 },
+    ];
+    stored = { block: "5000", balances: { USDC: "1000000000", WETH: (5n * ETH).toString() } };
+    expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
+    expect(recorded()).toMatchObject({ p_to_block: "9997", p_balances: { USDC: "603000000", WETH: (5n * ETH).toString() } });
+    // the balances are read at toBlock from the same client, and toBlock was checked to exist
+    expect(readContract).toHaveBeenCalledWith(expect.objectContaining({ address: USDC, blockNumber: 9_997n }));
+    expect(getBlock).toHaveBeenCalledWith({ blockNumber: 9_997n });
+  });
+
+  it("a WETH wrap (Deposit) and unwrap (Withdrawal) are counted: no false gap", async () => {
+    baseBalance = { [WETH]: 2n * ETH };
+    logs = [
+      { address: WETH, event: "Deposit", args: { dst: SAFE, wad: 3n * ETH }, blockNumber: 6_000n, transactionHash: hash(72), logIndex: 0 },
+      { address: WETH, event: "Withdrawal", args: { src: SAFE, wad: ETH }, blockNumber: 7_000n, transactionHash: hash(73), logIndex: 0 },
+    ];
+    stored = { block: "5000", balances: { USDC: "0", WETH: (2n * ETH).toString() } };
+    expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
+    expect(recorded().p_balances).toEqual({ USDC: "0", WETH: (4n * ETH).toString() });
+  });
+
+  it("without stored balances at the cursor it reads them at start − 1", async () => {
+    baseBalance = { [USDC.toLowerCase()]: 1_000_000_000n };
+    logs = [payout(9_500n)];
+    logsHead = 9_000n;
+    stored = { block: "4000", balances: { USDC: "1", WETH: "0" } }; // read at another block: not trusted
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
+    expect(readContract).toHaveBeenCalledWith(expect.objectContaining({ address: USDC, blockNumber: 5_000n }));
+  });
+
+  it("a non-archive node that cannot read start − 1 falls back for this run and stores the balances at toBlock", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    baseBalance = { [USDC.toLowerCase()]: 7n };
+    stateFrom = 9_000n;
+    expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
+    expect(recorded().p_balances).toEqual({ USDC: "7", WETH: "0" });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("a failing balance read at toBlock is a gap (the node may not have that block)", async () => {
+    stored = { block: "5000", balances: { USDC: "0", WETH: "0" } };
+    readContract.mockRejectedValueOnce(new Error("header not found"));
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
   });
 });
 
@@ -162,7 +269,7 @@ describe("scanSafeOperations: mapping", () => {
       { txHash: hash(1), logIndex: 3, asset: "USDC", direction: "in", amount: "1000000", counterparty: OTHER, blockNumber: "5005", occurredAt: iso(5005n) },
       { txHash: hash(2), logIndex: 0, asset: "WETH", direction: "out", amount: "2000000000000000000", counterparty: OTHER, blockNumber: "8000", occurredAt: iso(8000n) },
     ]);
-    expect(getBlock).toHaveBeenCalledTimes(2);
+    expect(getBlock).toHaveBeenCalledTimes(3); // two block times + the continuity check that toBlock exists
   });
 
   it("ignores a Safe-to-Safe transfer (not an operation)", async () => {
@@ -194,7 +301,7 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
     expect(recorded().p_ops).toEqual([
       { txHash: null, logIndex: null, asset: "ETH", direction: "in", amount: (ETH + ETH / 2n).toString(), counterparty: null, blockNumber: "9999", occurredAt: "2026-10-18T13:00:00.000Z" },
     ]);
-    const window = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal");
+    const window = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal" && !SCAN_RANGES.has(`${a.fromBlock}-${a.toBlock}`));
     expect(window).toEqual([expect.objectContaining({ address: WETH, args: { src: SAFE }, fromBlock: 9001n, toBlock: 9999n })]);
   });
 
@@ -235,12 +342,12 @@ describe("scanSafeOperations: native ETH between the last two snapshots", () => 
       expect.objectContaining({ asset: "ETH", direction: "out", amount: ETH.toString(), blockNumber: "2000", txHash: null }),
       expect.objectContaining({ asset: "ETH", direction: "in", amount: (ETH / 2n).toString(), blockNumber: "4000" }),
     ]);
-    const windows = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal").map((a) => `${a.fromBlock}-${a.toBlock}`);
+    const windows = getLogs.mock.calls.map((c) => c[0]).filter((a) => a.event.name === "Withdrawal" && !SCAN_RANGES.has(`${a.fromBlock}-${a.toBlock}`)).map((a) => `${a.fromBlock}-${a.toBlock}`);
     expect(windows).toEqual(["1001-2000", "2001-3000", "3001-4000"]);
     expect(cursorSets()).toEqual([{ p_chain: 59141, p_safe: SAFE, p_block: "4000" }]);
     // the cursor moves only after the ops were stored
     const names = rpc.mock.calls.map((c) => c[0]);
-    expect(names.indexOf("set_dao_eth_cursor")).toBeGreaterThan(names.indexOf("record_safe_operations"));
+    expect(names.indexOf("set_dao_eth_cursor")).toBeGreaterThan(names.indexOf("record_safe_scan"));
   });
 
   it("caps a run at 24 pairs and resumes from there next run, skipping none", async () => {

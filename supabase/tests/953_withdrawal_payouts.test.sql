@@ -549,6 +549,11 @@ select is(tests.xfeed(current_setting('t.ub')::uuid, 205), tests.xh(205) || '|-|
 update public.dao_safe_operations set withdrawal_id = null where id in (tests.xopid(204), tests.xopid(205));
 
 -- ===== 10. invariant: another holder's price at an unchanged Safe valuation =====
+-- F4-R2 (20261019600004): the unexplained outflows of the sections above (B's reverted payout 210, 203 to B, 204 to C)
+-- sit inside B's and C's payout windows, so they would pause every valuation. This section measures prices, not the
+-- pause (pinned in 983): treasurer notes explain them.
+update public.dao_safe_operations set note = 'Explicada'
+ where chain_id = 59141 and direction = 'out' and note is null and withdrawal_id is null and raffle_id is null;
 -- Safe: 11.916666 USDC. Liabilities: B's 1.916666. NAV 10 over S_eff 5 -> 2 USDC.
 select is(tests.xsnap(11916666, 150) ->> 'navUsd6', '10000000', 'baseline snapshot: NAV 10');
 select set_config('t.p0', tests.xprice(), true);

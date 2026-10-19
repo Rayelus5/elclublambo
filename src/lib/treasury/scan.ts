@@ -1,5 +1,5 @@
 import "server-only";
-import { parseAbiItem, type Address } from "viem";
+import { erc20Abi, parseAbiItem, type Address } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { defaultConfirmations } from "@/lib/payments/verify";
@@ -32,6 +32,9 @@ const WITHDRAWAL = parseAbiItem("event Withdrawal(address indexed src, uint256 w
 const ETH_PAIRS_PER_RUN = 24;
 
 type Client = ReturnType<typeof chainClient>;
+type Token = "USDC" | "WETH";
+/** Token balances of the Safe, as decimal strings (record_safe_scan's p_balances). */
+type Balances = Partial<Record<Token, string>>;
 type Db = ReturnType<typeof createAdminClient>;
 type SnapshotRow = { block_number: string; eth_wei: string; taken_at: string };
 
@@ -48,10 +51,13 @@ function chunks(from: bigint, to: bigint): [bigint, bigint][] {
  * outflows and advances the cursor. A native-ETH change between two consecutive snapshots that WETH wraps/unwraps do
  * not explain becomes an ETH operation without hash (every pair after the ETH cursor, F4a-R6). The first scan of a
  * chain only sets the cursors (no backfill).
+ * F4-R1: the range is recorded (and the cursor advanced, with the balances at toBlock, in record_safe_scan) only when
+ * its logs explain every token balance change (`continuity`); otherwise nothing is recorded, record_scan_gap counts the
+ * run and the result is "scan_gap" (the treasurer is alerted once gaps persist).
  * Null when the Safe is unset. Read errors throw before anything is recorded, so no block is ever skipped. Both writers
  * get the Safe that was read: if chain_config changed meanwhile, SQL refuses (safe_changed) and nothing is stored.
  */
-export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: number; alerts: number } | null> {
+export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: number; alerts: number } | "scan_gap" | null> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return null;
@@ -64,12 +70,22 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
   const { data: cursorRaw, error: cursorError } = await db.rpc("dao_scan_from", { p_chain: chain });
   if (cursorError) throw new Error(`dao_scan_from failed: ${cursorError.message}`);
 
+  const { usdc, weth } = addressesFor(chain);
+  const tokens: [Token, Address][] = [["USDC", usdc]];
+  if (weth) tokens.push(["WETH", weth]);
+
   let toBlock = tip;
   const ops: SafeOperation[] = [];
   let ethCursor: bigint | null = null;
+  let balances: Balances | null = null;
   if (cursorRaw === null || cursorRaw === undefined) {
-    // First scan: no backfill. The ETH diff starts at the newest snapshot.
+    // First scan: no backfill. The ETH diff starts at the newest snapshot. The balances at the new cursor start the
+    // continuity chain (a failed read leaves them unset: the next run reads them at its start − 1).
     ethCursor = await newestSnapshotBlock(db, chain);
+    balances = await balancesAt(client, safe, tokens, toBlock).catch((e: unknown) => {
+      console.warn("[treasury] first-scan balance read failed", chain, e);
+      return null;
+    });
   } else {
     const cursor = BigInt(String(cursorRaw));
     const start = cursor + 1n;
@@ -77,23 +93,32 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
     toBlock = tip < cap ? tip : cap;
     if (toBlock < cursor) toBlock = cursor;
 
-    const { usdc, weth } = addressesFor(chain);
-    const tokens: ["USDC" | "WETH", Address][] = [["USDC", usdc]];
-    if (weth) tokens.push(["WETH", weth]);
-    if (start <= toBlock) ops.push(...(await transferOps(client, safe, tokens, start, toBlock)));
+    if (start <= toBlock) {
+      const transfers = await transferOps(client, safe, tokens, start, toBlock);
+      // F4-R1: the cursor moves only when these logs explain every balance change of the range
+      const checked = await continuity(db, client, chain, safe, tokens, weth, start, toBlock, transfers);
+      if (checked === "gap") {
+        const { error: gapError } = await db.rpc("record_scan_gap", { p_chain: chain });
+        if (gapError) console.error("[treasury] record_scan_gap failed", chain, gapError.message);
+        return "scan_gap";
+      }
+      balances = checked;
+      ops.push(...transfers);
+    }
 
     const eth = await nativeEthOps(db, client, chain, safe, weth, start);
     ops.push(...eth.ops);
     ethCursor = eth.cursor;
   }
 
-  const { data, error } = await db.rpc("record_safe_operations", {
+  const { data, error } = await db.rpc("record_safe_scan", {
     p_chain: chain,
     p_safe: safe,
     p_ops: ops,
     p_to_block: toBlock.toString(),
+    p_balances: balances,
   });
-  if (error) throw new Error(`record_safe_operations failed: ${error.message}`);
+  if (error) throw new Error(`record_safe_scan failed: ${error.message}`);
   // Only after the ETH ops are stored. If this fails, the next run recomputes the same pairs and SQL dedupes them.
   if (ethCursor !== null) {
     const { error: cursorSetError } = await db.rpc("set_dao_eth_cursor", { p_chain: chain, p_safe: safe, p_block: ethCursor.toString() });
@@ -103,7 +128,90 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
   return { inserted: Number(r.inserted ?? 0), alerts: Number(r.alerts ?? 0) };
 }
 
-async function transferOps(client: Client, safe: Address, tokens: ["USDC" | "WETH", Address][], from: bigint, to: bigint): Promise<SafeOperation[]> {
+/** The Safe's balance of each scanned token at `block` (throws when the client cannot read that state). */
+async function balancesAt(client: Client, safe: Address, tokens: [Token, Address][], block: bigint): Promise<Balances> {
+  const out: Balances = {};
+  for (const [asset, address] of tokens) {
+    const v = await client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber: block });
+    out[asset] = v.toString();
+  }
+  return out;
+}
+
+/**
+ * Ruling F4-R1. The range's logs are complete only if, for every token, the balance at the cursor plus the logged
+ * inflows minus the logged outflows (WETH: plus Deposit, minus Withdrawal) is the balance at toBlock. All reads use the
+ * client that served getLogs, after checking that it has toBlock; a node whose log index trails its head returns []
+ * with no error, and only the balances show it. "gap" when anything does not add up or cannot be read at toBlock.
+ * The balance at the cursor is the stored one when it was read at exactly the cursor, else balanceOf(start − 1); if
+ * that read fails (a node without archive state) this one run is not checked (logged), and the balances at toBlock
+ * are stored so the next run is.
+ */
+async function continuity(
+  db: Db,
+  client: Client,
+  chain: ChainId,
+  safe: Address,
+  tokens: [Token, Address][],
+  weth: Address | null,
+  start: bigint,
+  toBlock: bigint,
+  transfers: SafeOperation[],
+): Promise<Balances | "gap"> {
+  try {
+    await client.getBlock({ blockNumber: toBlock });
+  } catch (e) {
+    console.error("[treasury] scan: toBlock unavailable", chain, toBlock, e);
+    return "gap";
+  }
+  let after: Balances;
+  try {
+    after = await balancesAt(client, safe, tokens, toBlock);
+  } catch (e) {
+    console.error("[treasury] scan: balances at toBlock unavailable", chain, toBlock, e);
+    return "gap";
+  }
+
+  const { data: storedRaw, error } = await db.rpc("dao_scan_balances", { p_chain: chain });
+  if (error) throw new Error(`dao_scan_balances failed: ${error.message}`);
+  const stored = storedRaw as { block?: unknown; balances?: Record<string, unknown> } | null;
+  const trusted = stored && String(stored.block) === (start - 1n).toString() ? (stored.balances ?? {}) : {};
+
+  const delta: Record<Token, bigint> = { USDC: 0n, WETH: 0n };
+  for (const o of transfers) {
+    if (o.asset === "ETH") continue;
+    delta[o.asset] += o.direction === "in" ? BigInt(o.amount) : -BigInt(o.amount);
+  }
+  if (weth) {
+    for (const [fromBlock, to] of chunks(start, toBlock)) {
+      const [wraps, unwraps] = await Promise.all([
+        client.getLogs({ address: weth, event: DEPOSIT, args: { dst: safe }, fromBlock, toBlock: to }),
+        client.getLogs({ address: weth, event: WITHDRAWAL, args: { src: safe }, fromBlock, toBlock: to }),
+      ]);
+      for (const l of wraps) delta.WETH += l.args.wad ?? 0n;
+      for (const l of unwraps) delta.WETH -= l.args.wad ?? 0n;
+    }
+  }
+
+  for (const [asset, address] of tokens) {
+    let before: bigint | null = typeof trusted[asset] === "string" && /^\d+$/.test(trusted[asset] as string) ? BigInt(trusted[asset] as string) : null;
+    if (before === null) {
+      try {
+        before = await client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber: start - 1n });
+      } catch (e) {
+        console.warn("[treasury] scan: no balance at the cursor (non-archive node?): this run is not checked for", asset, chain, e);
+        continue;
+      }
+    }
+    if (before + delta[asset] !== BigInt(after[asset]!)) {
+      console.error("[treasury] scan: the logs do not explain the balance change", chain, asset, { before, delta: delta[asset], after: after[asset], start, toBlock });
+      return "gap";
+    }
+  }
+  return after;
+}
+
+async function transferOps(client: Client, safe: Address, tokens: [Token, Address][], from: bigint, to: bigint): Promise<SafeOperation[]> {
   const safeLc = safe.toLowerCase();
   const times = new Map<bigint, string>();
   const occurredAt = async (block: bigint) => {

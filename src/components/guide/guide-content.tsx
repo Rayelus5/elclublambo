@@ -260,6 +260,14 @@ function Fondo() {
           </li>
         </Steps>
         <p>
+          Si sale USDC de la Safe hacia la wallet de una retirada aprobada (o del ganador de un premio sin pagar) y el foro no puede
+          reconocerlo como el pago, las donaciones, las aprobaciones y la valoración del fondo se ponen en pausa: ese dinero ya
+          no está en la Safe y el fondo se valoraría por debajo de lo que vale. Si fue un pago parcial o repartido, el tesorero
+          pide al miembro que lo devuelva, o completa el pago con una sola transferencia de al menos el importe fijado y añade una
+          nota a las salidas parciales. Si la salida no tiene nada que ver, basta con añadirle una nota. Todo vuelve a la normalidad
+          en cuanto la salida queda explicada.
+        </p>
+        <p>
           El importe que ves al pedir es solo una estimación en USDC. Las retiradas dependen de la disponibilidad de la Safe y de
           la decisión del tesorero.
         </p>

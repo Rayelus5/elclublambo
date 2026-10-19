@@ -64,7 +64,9 @@ const overview = {
   navUsd6: 100_000_000n,
   composition: { usdcUnits: 4_000_000n, ethWei: 0n, wethWei: 0n, ethPriceE8: 2000_00000000n, priceSource: "chainlink", takenAt: "2026-10-19T10:00:00Z" },
 };
+const scanGap = vi.hoisted(() => ({ value: null as { runs: number; since: string } | null }));
 vi.mock("@/lib/treasury/queries", () => ({
+  getScanGap: async () => scanGap.value,
   getDaoOverview: async () => overview,
   getUnexplainedOutflows: async () => [
     { id: "o1", asset: "USDC", direction: "out", amount: 1_000_000n, txHash: null, occurredAt: "2026-10-19T09:00:00Z", note: null, explained: false },
@@ -91,6 +93,7 @@ beforeEach(() => {
   getTreasuryWithdrawals.mockResolvedValue([]);
   getTreasuryRaffles.mockReset();
   getTreasuryRaffles.mockResolvedValue([]);
+  scanGap.value = null;
 });
 
 describe("/dao/tesoreria", () => {
@@ -110,6 +113,12 @@ describe("/dao/tesoreria", () => {
     expect(screen.queryByRole("switch", { name: /Sorteos ponderados/ })).toBeNull();
     expect(screen.getByText(/USDC en la Safe: 10 USDC/)).toBeInTheDocument();
     expect(screen.getByText(/1 salida sin explicar/)).toBeInTheDocument();
+  });
+
+  it("F4-R1: a stuck scan shows in «Avisos»", async () => {
+    scanGap.value = { runs: 5, since: "2026-01-01T00:00:00Z" };
+    render(await content());
+    expect(screen.getByText("El escaneo de la Safe está atascado")).toBeInTheDocument();
   });
 
   it("adds the switch section (before Recientes) for ADMINISTRATOR", async () => {
@@ -135,7 +144,7 @@ describe("/dao/tesoreria", () => {
         id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
         mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w1", winnerLabel: "@ana",
         winnerAddress: SAFE, drawnAt: "2026-10-02T00:00:00Z", unpaid: true, payoutTxHash: null, payoutRecordedAt: null, paidAt: null,
-        cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null,
+        cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null, unexplainedOutflow: false,
       },
     ]);
     members.rows = [{ id: "w1", status: "banned" }];

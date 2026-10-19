@@ -263,6 +263,14 @@ describe("POST /api/cron/dao", () => {
     expect(steps.filter((s) => s === "polls")).toHaveLength(1);
   });
 
+  it("F4-R1: a scan_gap is reported and, like a failed scan, expires nothing on that chain", async () => {
+    scan.mockResolvedValueOnce("scan_gap"); // 59144
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(body.chains[0]).toMatchObject({ scan: "scan_gap", expiredApprovals: "skipped", snapshot: "taken" });
+    expect(body.chains[1]).toMatchObject({ scan: { inserted: 2, alerts: 1 }, expiredApprovals: 2 });
+    expect(steps).not.toContain("cursor:59144");
+  });
+
   it("reports an unavailable valuation and a null scan as they come", async () => {
     snapshot.mockResolvedValue("unavailable");
     scan.mockResolvedValue(null);
