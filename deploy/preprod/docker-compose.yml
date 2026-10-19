@@ -24,14 +24,22 @@ services:
     env_file: ${ELCLUB_ENV_FILE:-/opt/elclub/pre/web.env}
     ports:
       - "127.0.0.1:3000:3000"
+    # Runs as uid 1001 and binds 3000: no capability is needed. Not read_only: revalidatePath makes Next rewrite the
+    # prerendered pages under .next/server at runtime.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     restart: unless-stopped
 
   # Hourly GET /api/cron/dao (Vercel Cron's job in production). busybox crond does not hand the container env to its
   # jobs, so the bearer header is written once to a 0600 file and read by curl with -H @file: the secret never appears
-  # on a command line (ps) or in the logs. crond itself then runs with an empty environment.
+  # on a command line (ps) or in the logs. crond itself then runs with an empty environment. The container gets only
+  # CRON_SECRET (interpolated from the --env-file), never the rest of web.env.
   cron:
     image: alpine:3.20
-    env_file: ${ELCLUB_ENV_FILE:-/opt/elclub/pre/web.env}
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in /opt/elclub/pre/web.env}
     depends_on:
       - web
     volumes:
@@ -45,6 +53,15 @@ services:
         { [ -n "$$CRON_SECRET" ] || { echo "cron: CRON_SECRET is empty" >&2; exit 1; }; } &&
         printf 'Authorization: Bearer %s\n' "$$CRON_SECRET" > /etc/elclub-cron.header &&
         exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin crond -f -l 8
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # busybox crond switches to the job's user (root -> root) with setgroups/setgid/setuid; without these two it hangs
+    # before running the job (checked with alpine:3.20). apk add needs nothing more.
+    cap_add:
+      - SETUID
+      - SETGID
     restart: unless-stopped
 
   # Locally-managed tunnel; the ingress (deploy/preprod/cloudflared/config.yml) lives in the repo. The credentials file

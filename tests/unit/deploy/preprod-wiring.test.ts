@@ -43,7 +43,8 @@ function service(name: string): string {
   expect(start, `service ${name}`).toBeGreaterThan(-1);
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
-    if (/^ {0,2}[a-z][\w-]*:/.test(lines[i] ?? "")) {
+    // The next service, a top-level key, or the comment block that introduces the next service.
+    if (/^ {0,2}([a-z][\w-]*:|#)/.test(lines[i] ?? "")) {
       end = i;
       break;
     }
@@ -141,14 +142,45 @@ describe("preproduction compose", () => {
   it("cron is alpine busybox crond that writes the bearer header to a private file at start", () => {
     const cron = service("cron");
     expect(cron).toContain("image: alpine:3.20");
-    expect(cron).toContain("env_file: ${ELCLUB_ENV_FILE:-/opt/elclub/pre/web.env}");
+    // Only CRON_SECRET, interpolated from the host env file and required: never the whole web.env (service-role key,
+    // VAPID private key, RPC URLs).
+    expect(cron).not.toContain("env_file");
+    expect(cron).toMatch(/environment:\n\s+CRON_SECRET: \$\{CRON_SECRET:\?[^}]*\}\n/);
+    const envLines = cron.slice(cron.indexOf("environment:")).split("\n").slice(1);
+    const vars: string[] = [];
+    for (const l of envLines) {
+      if (!/^ {6}\S/.test(l)) break;
+      vars.push(l.trim().split(":")[0]!);
+    }
+    expect(vars).toEqual(["CRON_SECRET"]);
     expect(cron).toContain("./cron/crontab:/etc/crontabs/root:ro");
     expect(cron).toMatch(/depends_on:/);
     expect(cron).toContain("umask 077");
     // $$ so compose does not interpolate the secret into the container's command line at parse time.
     expect(cron).toContain('"$$CRON_SECRET"');
-    expect(cron).not.toMatch(/[^$]\$CRON_SECRET|\$\{CRON_SECRET/);
+    const command = cron.slice(cron.indexOf("command:"));
+    expect(command).not.toMatch(/[^$]\$CRON_SECRET|\$\{CRON_SECRET/);
     expect(cron).toContain("exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin crond -f -l 8");
+  });
+
+  it("web and cron drop every capability and cannot gain privileges", () => {
+    for (const name of ["web", "cron"]) {
+      const s = service(name);
+      expect(s, name).toMatch(/security_opt:\n\s+- no-new-privileges:true\n/);
+      expect(s, name).toMatch(/cap_drop:\n\s+- ALL\n/);
+    }
+    // web runs as uid 1001 and needs no capability back; cron may only get back what busybox crond and apk need.
+    expect(service("web")).not.toContain("cap_add");
+    const cron = service("cron");
+    const caps: string[] = [];
+    if (cron.includes("cap_add:")) {
+      for (const l of cron.slice(cron.indexOf("cap_add:")).split("\n").slice(1)) {
+        const m = /^\s+- ([A-Z_]+)$/.exec(l);
+        if (!m) break;
+        caps.push(m[1]!);
+      }
+    }
+    for (const c of caps) expect(["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]).toContain(c);
   });
 
   it("cloudflared is pinned, runs the repo ingress and joins both networks", () => {
@@ -232,18 +264,27 @@ describe("preproduction workflow", () => {
     expect(push).toBeLessThan(up);
     expect(up).toBeLessThan(smoke);
     expect(s).toContain('supabase db push --db-url "$PREPROD_DB_URL" --yes');
+    // The password travels in PGPASSWORD (honoured by the CLI's pgx driver, checked with 2.121.0), never in argv.
+    expect(s).toContain("PGPASSWORD: ${{ secrets.PREPROD_DB_PASSWORD }}");
     expect(s).toMatch(/supabase\/setup-cli@v1\n\s+with:\n\s+version: 2\.121\.0/);
     expect(s).toContain("docker image prune -f");
+  });
+
+  it("never lets a failed build or migration through to the restart", () => {
+    const c = code(workflow);
+    expect(c).not.toContain("continue-on-error");
+    expect(c).not.toMatch(/\bif:/);
+    expect(c).not.toMatch(/\|\|\s*true|;\s*true\b|set \+e/);
   });
 
   it("uses the host env file for compose and only the PREPROD_DB_URL secret, never echoed", () => {
     expect(workflow).toContain("ELCLUB_ENV_FILE: /opt/elclub/pre/web.env");
     expect(workflow).toContain("COMPOSE: docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml");
     const names = [...workflow.matchAll(/\$\{\{\s*secrets\.(\w+)\s*\}\}/g)].map((m) => m[1]);
-    expect(new Set(names)).toEqual(new Set(["PREPROD_DB_URL"]));
+    expect(new Set(names)).toEqual(new Set(["PREPROD_DB_URL", "PREPROD_DB_PASSWORD"]));
     for (const line of workflow.split("\n")) {
       if (/\becho\b|\bprintenv\b|^\s*(run:\s*)?env\s*$|\bset -x\b|\bcat\b/.test(line)) {
-        expect(line).not.toMatch(/secrets\.|PREPROD_DB_URL|ELCLUB_ENV_FILE|web\.env/);
+        expect(line).not.toMatch(/secrets\.|PREPROD_DB_URL|PGPASSWORD|ELCLUB_ENV_FILE|web\.env/);
       }
     }
     expect(workflow).not.toContain("\r");
@@ -260,8 +301,12 @@ describe("env templates", () => {
     expect(env.get("NEXT_PUBLIC_CHAIN")).toBe("lineaSepolia");
     expect(env.get("NEXT_PUBLIC_LINEA_RPC_URL")).toBe("");
     expect(env.get("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL")).toBe("");
+    // An empty TIP_CONFIRMATIONS is invalid for defaultConfirmations and logs a console.error: set the default.
+    expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
     for (const [k, v] of env) {
-      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_CHAIN"].includes(k)) expect(v, k).toBe("");
+      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_CHAIN", "TIP_CONFIRMATIONS"].includes(k)) {
+        expect(v, k).toBe("");
+      }
     }
   });
 
@@ -276,6 +321,7 @@ describe("env templates", () => {
     expect(env.get("NEXT_PUBLIC_LINEA_RPC_URL")).toBe("");
     expect(env.get("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL")).toBe("");
     expect(env.get("ENABLE_EXPERIMENTAL_COREPACK")).toBe("1");
+    expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
     expect(prodEnv).not.toContain("pre.elclub.party");
     expect(prodEnv).not.toContain("pre-api");
   });

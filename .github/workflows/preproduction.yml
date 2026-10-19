@@ -5,7 +5,8 @@ name: preproduction
 # never runs against the old schema. Runs on the self-hosted runner labelled elclub-pre, so there is no pull_request
 # trigger: a self-hosted runner must never run fork code.
 # Host files (not in the repo): /opt/elclub/pre/web.env (from deploy/preprod/web.env.example) and
-# /opt/elclub/pre/cloudflared/credentials.json. GitHub secret needed (environment preproduction): PREPROD_DB_URL.
+# /opt/elclub/pre/cloudflared/credentials.json. GitHub secrets needed (environment preproduction): PREPROD_DB_URL
+# (without the password) and PREPROD_DB_PASSWORD.
 on:
   push:
     branches: [develop]
@@ -35,9 +36,12 @@ jobs:
         with:
           version: 2.121.0
 
+      # PREPROD_DB_URL has no password (postgresql://user@host:port/postgres); the CLI's pgx driver reads it from
+      # PGPASSWORD (checked with CLI 2.121.0), so it never appears in the process argv on the runner host.
       - name: Migrate
         env:
           PREPROD_DB_URL: ${{ secrets.PREPROD_DB_URL }}
+          PGPASSWORD: ${{ secrets.PREPROD_DB_PASSWORD }}
         run: supabase db push --db-url "$PREPROD_DB_URL" --yes
 
       - name: Restart
