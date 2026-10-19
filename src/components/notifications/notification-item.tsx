@@ -65,8 +65,20 @@ export function notificationCopy(n: NotificationView): ReactNode {
       );
     case "withdrawal_expired":
       return <>Tu aprobación de retirada caducó: vuelve a estar pendiente</>;
+    case "raffle_won":
+      return n.raffleTitle && n.rafflePrize ? (
+        <>
+          Has ganado el sorteo «{n.raffleTitle}»: <strong className="font-bold text-fg">{n.rafflePrize}</strong>
+        </>
+      ) : (
+        <>Has ganado un sorteo</>
+      );
     case "treasury_notice":
-      return n.treasuryEvent === "approval_expired" ? (
+      return n.treasuryEvent === "raffle_drawn" ? (
+        <>Un sorteo tiene ganador: paga el premio</>
+      ) : n.treasuryEvent === "raffle_unpaid" ? (
+        <>Un premio de sorteo lleva 14 días sin pagarse</>
+      ) : n.treasuryEvent === "approval_expired" ? (
         <>Una retirada aprobada caducó sin pagarse</>
       ) : n.treasuryEvent === "withdrawal_requested" ? (
         <>Nueva solicitud de retirada</>

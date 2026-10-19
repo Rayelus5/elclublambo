@@ -43,7 +43,7 @@ describe("guide: fondo", () => {
         /Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero\./,
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Los sorteos, si llegan/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Los sorteos, si llegan/i)).toBeNull();
     expect(screen.queryByText(/llegarán/)).not.toBeInTheDocument();
     expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/liquidativo/)).not.toBeInTheDocument();
@@ -56,8 +56,8 @@ describe("guide: retiradas", () => {
   it("explains how to ask for a withdrawal", () => {
     render(<GuideContent slug="fondo" />);
     expect(screen.getByRole("heading", { name: "Cómo pedir una retirada" })).toBeInTheDocument();
-    expect(screen.getByText(/SuperAdmin/)).toBeInTheDocument();
-    expect(screen.getByText(/14 días/)).toBeInTheDocument();
+    expect(screen.getAllByText(/SuperAdmin/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/14 días/).length).toBeGreaterThan(0);
     expect(screen.getByText(/bloqueadas desde que pides/)).toBeInTheDocument();
     expect(screen.getByText(/se paga en USDC/)).toBeInTheDocument();
     expect(screen.queryByText(/Hoy no se puede retirar nada/)).toBeNull();
@@ -65,5 +65,22 @@ describe("guide: retiradas", () => {
   it("no longer says contributions cannot be withdrawn", () => {
     render(<GuideContent slug="dao" />);
     expect(screen.queryByText(/Hoy las aportaciones no se pueden retirar/)).toBeNull();
+  });
+});
+
+describe("guide: sorteos", () => {
+  it("explains how raffles work", () => {
+    render(<GuideContent slug="fondo" />);
+    expect(screen.getByRole("heading", { name: "Cómo funcionan los sorteos" })).toBeInTheDocument();
+    expect(screen.getByText(/sale del fondo y baja su valor sin cambiar el porcentaje de nadie/)).toBeInTheDocument();
+    expect(screen.getAllByText(/igualitario/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/SuperAdmin lo activa por red/)).toBeInTheDocument();
+    expect(screen.getByText(/compromiso/)).toBeInTheDocument();
+    expect(screen.getByText(/primer bloque de Linea posterior al cierre/)).toBeInTheDocument();
+    expect(screen.getByText(/Anónimo #/)).toBeInTheDocument();
+    expect(screen.getByText(/WETH en lugar de ETH/)).toBeInTheDocument();
+    expect(screen.getByText(/se marca como impagado a los 14 días/)).toBeInTheDocument();
+    expect(screen.getByText(/primera ejecución del proceso automático tras la hora de cierre/)).toBeInTheDocument();
+    expect(screen.getByText(/en un club pequeño puede deducirse quién es un miembro oculto/)).toBeInTheDocument();
   });
 });

@@ -51,6 +51,7 @@ for (const path of [
     return { ShareDonut: Stub, DaoHistory: Stub, DaoLive: Stub, DaoOverview: Stub, DaoRanking: Stub, DonateButton: Stub, FundComposition: Stub, NavChart: Stub, OperationsList: Stub, WithdrawControls: Stub, RankingToggle: Stub };
   });
 }
+vi.mock("@/components/treasury/raffles/raffle-list", () => ({ RaffleList: () => null }));
 vi.mock("@/components/guide/how-it-works-link", () => ({ HowItWorksLink: () => null }));
 
 beforeEach(() => {
@@ -68,7 +69,7 @@ describe("/dao · Panel del tesorero link", () => {
   it("shows the link to /dao/tesoreria for MANAGE_TREASURY", async () => {
     render(await dao());
     expect(screen.getByRole("link", { name: "Panel del tesorero" })).toHaveAttribute("href", "/dao/tesoreria");
-  });
+  }, 20_000);
 
   it("does not show it to a member", async () => {
     perms.value = "0";

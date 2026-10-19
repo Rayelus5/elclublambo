@@ -59,6 +59,10 @@ export function explorerTx(chain: ChainId, hash: string): string {
   return `${NETWORKS[chain].explorer}/tx/${hash}`;
 }
 
+export function explorerBlock(chain: ChainId, n: bigint): string {
+  return `${NETWORKS[chain].explorer}/block/${n}`;
+}
+
 export function explorerAddress(chain: ChainId, addr: string): string {
   return `${NETWORKS[chain].explorer}/address/${addr}`;
 }

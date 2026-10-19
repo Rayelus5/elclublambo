@@ -33,6 +33,7 @@ export type NotificationKind =
   | "withdrawal_rejected"
   | "withdrawal_paid"
   | "withdrawal_expired"
+  | "raffle_won"
   | "treasury_notice";
 
 const WITHDRAWAL_KINDS = new Set<NotificationKind>(["withdrawal_approved", "withdrawal_rejected", "withdrawal_paid", "withdrawal_expired"]);
@@ -55,7 +56,10 @@ export interface NotificationView {
   /** `withdrawal_rejected`: the treasurer's reason, trimmed; null when absent or malformed. */
   withdrawalReason?: string | null;
   /** `treasury_notice`: what happened; null for an unknown event. */
-  treasuryEvent?: "withdrawal_requested" | "approval_expired" | null;
+  treasuryEvent?: TreasuryEvent | null;
+  /** `raffle_won`: the raffle title and the prize ("10 USDC"); each null when the payload is malformed. */
+  raffleTitle?: string | null;
+  rafflePrize?: string | null;
   href: string;
 }
 
@@ -72,9 +76,22 @@ function reasonText(data: Record<string, unknown> | null): string | null {
   return clean || null;
 }
 
-function noticeEvent(data: Record<string, unknown> | null): "withdrawal_requested" | "approval_expired" | null {
+const NOTICE_EVENTS = ["withdrawal_requested", "approval_expired", "raffle_drawn", "raffle_unpaid"] as const;
+export type TreasuryEvent = (typeof NOTICE_EVENTS)[number];
+
+function noticeEvent(data: Record<string, unknown> | null): TreasuryEvent | null {
   const e = data?.event;
-  return e === "withdrawal_requested" || e === "approval_expired" ? e : null;
+  return NOTICE_EVENTS.find((x) => x === e) ?? null;
+}
+
+/** `raffle_won` data {raffleId, title, token, amount}, validated, never trusted as is. */
+function raffleWonView(data: Record<string, unknown> | null): { raffleTitle: string | null; rafflePrize: string | null } {
+  const title = typeof data?.title === "string" ? data.title.replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS) : "";
+  const token = data?.token;
+  const amount = data?.amount;
+  const prize =
+    (token === "USDC" || token === "WETH") && typeof amount === "string" && /^\d{1,60}$/.test(amount) ? formatToken(BigInt(amount), token) : null;
+  return { raffleTitle: title || null, rafflePrize: prize };
 }
 
 /** `treasury_outflow` data {asset, amount}: validated like the SQL push copy (_push_build), never trusted as is. */
@@ -157,7 +174,15 @@ function hrefFor(row: Row): string {
   if (row.kind === "member_review") return "/admin/members";
   if (row.kind === "treasury_mismatch") return "/dao";
   // Ruling F4a-R1: the panel exists now (F4c), same url as the push.
-  if (row.kind === "treasury_outflow" || row.kind === "treasury_notice") return "/dao/tesoreria";
+  if (row.kind === "raffle_won") {
+    const id = row.data?.raffleId;
+    return typeof id === "string" && UUID_RE.test(id) ? `/dao/sorteos/${id}` : "/dao#sorteos";
+  }
+  if (row.kind === "treasury_notice") {
+    const event = noticeEvent(row.data);
+    return event === "raffle_drawn" || event === "raffle_unpaid" ? "/dao/tesoreria#sorteos" : "/dao/tesoreria";
+  }
+  if (row.kind === "treasury_outflow") return "/dao/tesoreria";
   if (WITHDRAWAL_KINDS.has(row.kind)) return "/dao#retirada";
   if (row.ticket_id && UUID_RE.test(row.ticket_id)) return `/tickets/${row.ticket_id}`;
   return "/notifications";
@@ -186,6 +211,7 @@ function toView(row: Row): NotificationView {
     ...(row.kind === "withdrawal_approved" || row.kind === "withdrawal_paid" ? { withdrawalAmount: usdcText(row.data) } : {}),
     ...(row.kind === "withdrawal_rejected" ? { withdrawalReason: reasonText(row.data) } : {}),
     ...(row.kind === "treasury_notice" ? { treasuryEvent: noticeEvent(row.data) } : {}),
+    ...(row.kind === "raffle_won" ? raffleWonView(row.data) : {}),
     href: hrefFor(row),
   };
 }

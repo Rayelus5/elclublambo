@@ -13,6 +13,7 @@ import { FundComposition } from "@/components/treasury/fund-composition";
 import { NavChart } from "@/components/treasury/nav-chart";
 import { OperationsList } from "@/components/treasury/operations-list";
 import { WithdrawControls } from "@/components/treasury/withdraw-controls";
+import { RaffleList } from "@/components/treasury/raffles/raffle-list";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { getEconomyConfig } from "@/lib/economy/config";
 import { explorerAddress } from "@/lib/economy/networks";
@@ -20,6 +21,7 @@ import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { donutSlices } from "@/lib/treasury/charts";
 import { finalitySnapshot } from "@/lib/treasury/finality";
+import { getDaoRaffles } from "@/lib/treasury/raffles";
 import { getDaoHistory, getDaoOverview, getDaoRanking, getOperations } from "@/lib/treasury/queries";
 import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/settle";
 
@@ -34,11 +36,16 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   const { data: me } = await supabase.rpc("current_member_id");
   const memberId = typeof me === "string" ? me : null;
 
-  const [overview, ranking, history, operations, own, rawPerms, economy] = await Promise.all([
+  const [overview, ranking, history, operations, raffles, own, rawPerms, economy] = await Promise.all([
     getDaoOverview(supabase),
     getDaoRanking(supabase, 50),
     getDaoHistory(supabase, 50),
     getOperations(supabase, 30),
+    // A raffle read that fails must not take the whole page down.
+    getDaoRaffles(supabase, 20).catch((e) => {
+      console.error("[treasury] dao raffles read failed", e);
+      return [];
+    }),
     memberId ? supabase.from("members").select("dao_ranking_visible").eq("id", memberId).maybeSingle<{ dao_ranking_visible: boolean }>() : null,
     supabase.rpc("my_permissions"),
     getEconomyConfig(),
@@ -141,6 +148,21 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
           Movimientos de la Safe fuera de las donaciones. Cada salida debe llevar una nota del tesorero; si no, aparece como «Sin explicar».
         </p>
         <OperationsList operations={operations} chainId={overview.chainId} canNote={canNote} />
+      </section>
+
+      <section
+        id="sorteos"
+        aria-labelledby="raffles-title"
+        className="flex scroll-mt-20 flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6"
+      >
+        <h2 id="raffles-title" className="text-h2">
+          Sorteos
+        </h2>
+        <p className="text-[13px] text-fg-muted">
+          El premio sale del fondo. El ganador se decide con una semilla secreta del foro y el primer bloque de Linea posterior al cierre, y cualquiera puede
+          comprobarlo en su navegador.
+        </p>
+        <RaffleList raffles={raffles} unlockedShares={overview.myShares > overview.myLockedShares ? overview.myShares - overview.myLockedShares : 0n} />
       </section>
 
       <p role="note" className="border-t border-border pt-4 text-[13px] text-fg-muted">

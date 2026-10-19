@@ -263,8 +263,34 @@ function Fondo() {
           la decisión del tesorero.
         </p>
       </Sub>
-      <Sub title="Sorteos">
-        <p>Los sorteos, si llegan, vendrán más adelante.</p>
+      <Sub title="Cómo funcionan los sorteos">
+        <p>
+          Un tesorero crea un sorteo con un premio en USDC o en WETH, una fecha de cierre y un modo. El premio sale del fondo y baja su valor sin cambiar el
+          porcentaje de nadie. Se paga en WETH en lugar de ETH porque un envío de ETH nativo desde la Safe no deja un registro que el foro pueda comprobar.
+        </p>
+        <Bullets>
+          <li>En el modo igualitario todos los miembros activos que se apuntan pesan lo mismo.</li>
+          <li>
+            En el modo ponderado pesan tus participaciones sin bloquear. SuperAdmin lo activa por red; mientras no lo active, solo se crean sorteos
+            igualitarios.
+          </li>
+          <li>Puedes apuntarte y salir hasta la hora de cierre. Un miembro sin participaciones puede apuntarse a uno ponderado, pero pesaría 0 y no podría ganar.</li>
+        </Bullets>
+        <p>
+          Al crear el sorteo se publica un compromiso: el hash de una semilla secreta que guarda la base de datos y que nadie puede ver antes. Los pesos se toman
+          en la primera ejecución del proceso automático tras la hora de cierre, no a la hora exacta. El ganador sale de la semilla y del hash del primer bloque
+          de Linea posterior al cierre, cuando ese bloque está finalizado (puede tardar unas horas). Entonces se revela la semilla y cualquiera puede comprobar
+          el resultado en su navegador desde la página del sorteo.
+        </p>
+        <p>
+          En la lista de participantes, quien no sale en el ranking aparece como «Anónimo #» seguido de un número. En un sorteo ponderado la lista muestra
+          participaciones desbloqueadas: en un club pequeño puede deducirse quién es un miembro oculto.
+        </p>
+        <p>
+          El premio se paga desde la Safe a la wallet con la que entras al club y el foro lo comprueba en la red. Si no se paga, el sorteo se marca como
+          impagado a los 14 días; el premio sigue siendo del ganador. Si nadie con peso se apunta, no hay ganador y el premio vuelve al fondo. Un tesorero puede
+          cancelar un sorteo antes de que se resuelva, con un motivo público.
+        </p>
       </Sub>
     </>
   );
