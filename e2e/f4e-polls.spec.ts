@@ -60,9 +60,16 @@ function capture(context: BrowserContext) {
       if (!mustIntercept(req)) return route.fallback();
       if (isPollDetails(req.url())) cap.pollDetails++;
       let res: APIResponse;
-      let body: string;
       try {
         res = await route.fetch();
+      } catch {
+        // No response reached the test (e.g. the dev server reset the connection under load): the route is aborted, so
+        // the page receives nothing either and there is no body that could leak. Not retried: a server action is a POST.
+        await route.abort().catch(() => {});
+        return;
+      }
+      let body: string;
+      try {
         body = await res.text();
       } catch (e) {
         cap.unread.push(`${req.method()} ${req.url()}: ${(e as Error).message}`);
