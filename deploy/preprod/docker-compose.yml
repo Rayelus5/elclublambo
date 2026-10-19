@@ -1,0 +1,84 @@
+# Preproduction on the homelab (F5-R7/R8): pre.elclub.party, deployed from develop by .github/workflows/preproduction.yml.
+# Self-hosted Supabase is a separate compose project (/opt/supabase/docker, project "supabase"); this one only joins its
+# default network so the tunnel can reach Kong. Every published host port binds 127.0.0.1.
+# Run from the repo root:
+#   docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d
+# The --env-file feeds the NEXT_PUBLIC_* build args below; env_file feeds the runtime env (secrets included).
+name: elclub-pre
+
+services:
+  web:
+    image: elclub-web:pre
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+        NEXT_PUBLIC_REOWN_PROJECT_ID: ${NEXT_PUBLIC_REOWN_PROJECT_ID}
+        NEXT_PUBLIC_CHAIN: ${NEXT_PUBLIC_CHAIN}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL}
+        NEXT_PUBLIC_LINEA_RPC_URL: ${NEXT_PUBLIC_LINEA_RPC_URL}
+        NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: ${NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL}
+        NEXT_PUBLIC_VAPID_PUBLIC_KEY: ${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+    env_file: ${ELCLUB_ENV_FILE:-/opt/elclub/pre/web.env}
+    ports:
+      - "127.0.0.1:3000:3000"
+    # Runs as uid 1001 and binds 3000: no capability is needed. Not read_only: revalidatePath makes Next rewrite the
+    # prerendered pages under .next/server at runtime.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  # Hourly GET /api/cron/dao (Vercel Cron's job in production). busybox crond does not hand the container env to its
+  # jobs, so the bearer header is written once to a 0600 file and read by curl with -H @file: the secret never appears
+  # on a command line (ps) or in the logs. crond itself then runs with an empty environment. The container gets only
+  # CRON_SECRET (interpolated from the --env-file), never the rest of web.env.
+  cron:
+    image: alpine:3.20
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET in /opt/elclub/pre/web.env}
+    depends_on:
+      - web
+    volumes:
+      - ./cron/crontab:/etc/crontabs/root:ro
+    command:
+      - sh
+      - -c
+      - >-
+        apk add --no-cache curl &&
+        umask 077 &&
+        { [ -n "$$CRON_SECRET" ] || { echo "cron: CRON_SECRET is empty" >&2; exit 1; }; } &&
+        printf 'Authorization: Bearer %s\n' "$$CRON_SECRET" > /etc/elclub-cron.header &&
+        exec env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin crond -f -l 8
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # busybox crond switches to the job's user (root -> root) with setgroups/setgid/setuid; without these two it hangs
+    # before running the job (checked with alpine:3.20). apk add needs nothing more.
+    cap_add:
+      - SETUID
+      - SETGID
+    restart: unless-stopped
+
+  # Locally-managed tunnel; the ingress (deploy/preprod/cloudflared/config.yml) lives in the repo. The credentials file
+  # stays on the host and must be readable by the image's nonroot user (uid 65532).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    command: tunnel --config /etc/cloudflared/config.yml run
+    depends_on:
+      - web
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - /opt/elclub/pre/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
+    networks:
+      - default
+      - supabase_default
+    restart: unless-stopped
+
+networks:
+  supabase_default:
+    external: true

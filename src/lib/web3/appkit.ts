@@ -19,10 +19,17 @@ if (!projectId) {
 
 const networks = [...APP_CHAINS] as [AppKitNetwork, ...AppKitNetwork[]];
 
+// Browser-side RPC overrides (tests/local chains only; empty in production = the public RPC). The literal references
+// are required: Next inlines NEXT_PUBLIC_* by name. They drive the wallet-balance reads before a payment is signed.
+const customRpcUrls: Record<string, { url: string }[]> = {};
+if (process.env.NEXT_PUBLIC_LINEA_RPC_URL) customRpcUrls["eip155:59144"] = [{ url: process.env.NEXT_PUBLIC_LINEA_RPC_URL }];
+if (process.env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL) customRpcUrls["eip155:59141"] = [{ url: process.env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL }];
+
 export const wagmiAdapter = new WagmiAdapter({
   networks,
   projectId,
   ssr: true,
+  ...(Object.keys(customRpcUrls).length ? { customRpcUrls } : {}),
 });
 
 const origin =
@@ -58,6 +65,10 @@ export const appKit =
           onramp: false,
           analytics: false,
         },
+        // MetaMask and OKX only. AppKit otherwise adds the Coinbase Wallet / Base Account connectors, and creating the
+        // Coinbase one loads its telemetry script (cca-lite.coinbase.com), outside the CSP (src/lib/security/headers.ts).
+        enableCoinbase: false,
+        enableBaseAccount: false,
         featuredWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
         includeWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
       });

@@ -1,8 +1,10 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
+import { hitRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { payoutPayload, verifyPayout } from "@/lib/treasury/payouts";
@@ -44,7 +46,7 @@ async function readRequest(db: Db, id: string): Promise<RequestRow | Fail> {
     .eq("id", id)
     .maybeSingle<RequestRow>();
   if (error) {
-    console.error("[treasury] withdrawal request read failed", id, error.message);
+    console.error("[treasury] withdrawal request read failed", id, safeError(error.message));
     return fail("unknown");
   }
   return data ?? fail("not_found");
@@ -57,7 +59,7 @@ async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
   try {
     return await valueSafe(chain);
   } catch (e) {
-    console.error("[treasury] valuation failed", chain, e);
+    console.error("[treasury] valuation failed", chain, safeError(e));
     return null;
   }
 }
@@ -71,7 +73,7 @@ async function catchUpScan(chain: ChainId): Promise<void> {
   try {
     if ((await valuationCap(chain)).capped) await scanSafeOperations(chain);
   } catch (e) {
-    console.error("[treasury] scan before valuation failed", chain, e);
+    console.error("[treasury] scan before valuation failed", chain, safeError(e));
   }
 }
 
@@ -141,7 +143,7 @@ export async function quoteWithdrawalAction(id: string): Promise<
     .eq("id", req.member_id)
     .maybeSingle<{ wallet_address: string }>();
   if (memberError || !member?.wallet_address) {
-    console.error("[treasury] member wallet read failed", req.member_id, memberError?.message);
+    console.error("[treasury] member wallet read failed", req.member_id, safeError(memberError?.message));
     return fail("unknown");
   }
   const destination = member.wallet_address.toLowerCase();
@@ -239,6 +241,10 @@ export async function markWithdrawalPaidAction(id: string, txHash: string): Prom
   }
   const safe = await safeAddressOf(db, req.chain_id);
   if (!safe) return fail("safe_not_configured");
+
+  // F5-R2 chain_verify pre-hit (its own transaction, the caller's JWT) before the on-chain verification.
+  const limit = await hitRateLimit(await createServerClient(), "chain_verify");
+  if (limit !== "ok") return fail(limit === "rate_limited" ? "rate_limited" : "unknown");
 
   const v = await verifyPayout(
     {

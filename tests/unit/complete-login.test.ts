@@ -6,6 +6,8 @@ const user = { id: "u1", identities: [{ provider: "web3", identity_data: { custo
 const serverRpc = vi.fn();
 const adminRpc = vi.fn();
 const getUser = vi.fn();
+const hit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rate-limit", () => ({ hitRateLimit: hit }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerClient: async () => ({ auth: { getUser }, rpc: serverRpc }),
@@ -18,6 +20,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   process.env.SUPER_ADMIN_WALLET = WALLET;
   getUser.mockResolvedValue({ data: { user }, error: null });
+  hit.mockResolvedValue("ok");
 });
 
 describe("completeLogin", () => {
@@ -70,10 +73,55 @@ describe("completeLogin", () => {
     serverRpc
       .mockResolvedValueOnce({ data: "none", error: null })
       .mockResolvedValueOnce({ data: null, error: { message: "invite_expired" } });
-    expect(await completeLogin("a b")).toEqual({
-      redirectTo: "/invite/a%20b?error=invite_expired",
+    expect(await completeLogin("Ab-9_z")).toEqual({
+      redirectTo: "/invite/Ab-9_z?error=invite_expired",
       error: "invite_expired",
     });
+  });
+
+  it("charges redeem_invite before redeeming", async () => {
+    process.env.SUPER_ADMIN_WALLET = "";
+    serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "m2", error: null });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/" });
+    expect(hit).toHaveBeenCalledWith(expect.anything(), "redeem_invite");
+    expect(hit.mock.invocationCallOrder[0]).toBeLessThan(serverRpc.mock.invocationCallOrder[1]!);
+  });
+
+  it("a limited pre-hit never calls redeem_invite (rate_limited; a failed pre-hit is unknown)", async () => {
+    process.env.SUPER_ADMIN_WALLET = "";
+    hit.mockResolvedValue("rate_limited");
+    serverRpc.mockResolvedValue({ data: "none", error: null });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=rate_limited", error: "rate_limited" });
+    hit.mockResolvedValue("error");
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=unknown", error: "unknown" });
+    expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
+  });
+
+  it("the bootstrap_closed fall-through is charged too", async () => {
+    hit.mockResolvedValue("rate_limited");
+    serverRpc.mockResolvedValue({ data: "none", error: null });
+    adminRpc.mockResolvedValue({ data: null, error: { message: "bootstrap_closed" } });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=rate_limited", error: "rate_limited" });
+    expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
+  });
+
+  it.each([["a b"], ["x".repeat(65)], ["abc/../x"], [{ code: "abc" }], [42]])(
+    "an invite code of the wrong shape (%j) is refused as not found, uncharged and unredeemed (S4)",
+    async (code) => {
+      process.env.SUPER_ADMIN_WALLET = "";
+      serverRpc.mockResolvedValue({ data: "none", error: null });
+      expect(await completeLogin(code as never)).toEqual({ redirectTo: "/no-access", error: "invite_not_found" });
+      expect(hit).not.toHaveBeenCalled();
+      expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
+    },
+  );
+
+  it("a 64-character base64url code is still a valid shape", async () => {
+    process.env.SUPER_ADMIN_WALLET = "";
+    const code = "A".repeat(32) + "z_-9".repeat(8);
+    serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "m2", error: null });
+    expect(await completeLogin(code)).toEqual({ redirectTo: "/" });
+    expect(serverRpc).toHaveBeenLastCalledWith("redeem_invite", { p_code: code });
   });
 
   it("banned -> /banned; none without code -> /no-access; no web3 wallet -> /no-access", async () => {

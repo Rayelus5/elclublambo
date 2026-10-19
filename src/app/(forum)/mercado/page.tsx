@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { MarketError } from "@/components/market/market-error";
 import { MarketStatus } from "@/components/market/market-status";
 import { MarketTable } from "@/components/market/market-table";
@@ -10,6 +11,9 @@ export const metadata: Metadata = { title: "Mercado" };
 
 // Reads the network/DB (dynamic): with cacheComponents it must live inside a Suspense.
 async function MarketContent() {
+  // Request time, explicitly: if the store fails synchronously (no service-role key, as in the preproduction image
+  // build) the cache would reach Date.now() during prerender and fail the build.
+  await connection();
   let markets: Cached<MarketCoin[]>;
   try {
     markets = await getTopMarkets();

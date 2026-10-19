@@ -27,6 +27,8 @@ const raffles = vi.fn();
 vi.mock("@/lib/treasury/raffle-cron", () => ({ runRaffleSteps: (...a: unknown[]) => (steps.push(`raffles:${a[0]}`), raffles(...a)) }));
 const finalizePolls = vi.fn();
 vi.mock("@/lib/polls/cron", () => ({ finalizeDuePolls: (...a: unknown[]) => (steps.push("polls"), finalizePolls(...a)) }));
+const prune = vi.fn();
+vi.mock("@/lib/rate-limit-cron", () => ({ pruneRateLimits: (...a: unknown[]) => prune(...a) }));
 const RAFFLES = {
   closed: 1, voided: 0, drawn: 1, pending: 0, recorded: 0, paid: 1, reverted: 0, unpaidNotices: 0, awaitingFinality: 1,
   refusedDraws: [{ raffleId: "r1", code: "draw_block_invalid" }],
@@ -41,7 +43,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { GET, POST } from "@/app/api/cron/dao/route";
+import { GET, POST, maxDuration } from "@/app/api/cron/dao/route";
 
 const req = (auth?: string, method = "POST") => new Request("http://localhost/api/cron/dao", { method, headers: auth ? { authorization: auth } : {} });
 
@@ -58,6 +60,7 @@ beforeEach(() => {
   finalize.mockResolvedValue({ paid: 1, reverted: 0, pending: 3 });
   expire.mockResolvedValue(2);
   cursorTime.mockResolvedValue(SCANNED);
+  prune.mockResolvedValue({ deleted: 4 });
   raffles.mockResolvedValue(RAFFLES);
   finalizePolls.mockResolvedValue({ finalized: 2 });
 });
@@ -216,7 +219,7 @@ describe("POST /api/cron/dao", () => {
     expect(res.status).toBe(500);
     expect(steps).toEqual(["polls"]);
     expect(expire).not.toHaveBeenCalled();
-    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: { finalized: 2 } });
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: { finalized: 2 }, rateLimits: { deleted: 4 } });
     err.mockRestore();
   });
 
@@ -226,7 +229,7 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: "failed" });
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: "failed", rateLimits: { deleted: 4 } });
     err.mockRestore();
   });
 
@@ -263,6 +266,35 @@ describe("POST /api/cron/dao", () => {
     expect(steps.filter((s) => s === "polls")).toHaveLength(1);
   });
 
+  it("prunes the rate-limit hits once per run, right after the polls and before any chain step, and reports the count", async () => {
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(prune).toHaveBeenCalledTimes(1);
+    expect(body.rateLimits).toEqual({ deleted: 4 });
+    expect(prune.mock.invocationCallOrder[0]).toBeGreaterThan(finalizePolls.mock.invocationCallOrder[0]!);
+    expect(prune.mock.invocationCallOrder[0]).toBeLessThan(scan.mock.invocationCallOrder[0]!);
+  });
+
+  it("a throwing prune step reports rateLimits failed and stops nothing else", async () => {
+    prune.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.rateLimits).toBe("failed");
+    expect(body.polls).toEqual({ finalized: 2 });
+    expect(body.chains[0]).toMatchObject({ snapshot: "taken", credited: 1, expiredApprovals: 2 });
+    expect(body.chains[1]).toMatchObject({ snapshot: "taken", credited: 1, expiredApprovals: 2 });
+    err.mockRestore();
+  });
+
+  it("a throwing polls step still prunes", async () => {
+    finalizePolls.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(body).toMatchObject({ polls: "failed", rateLimits: { deleted: 4 } });
+    err.mockRestore();
+  });
+
   it("R-M3: the cron's scan counts gaps (cron: true); a paused snapshot is reported as paused", async () => {
     snapshot.mockResolvedValue("paused");
     const body = await (await POST(req("Bearer s3cret-value"))).json();
@@ -283,5 +315,25 @@ describe("POST /api/cron/dao", () => {
     scan.mockResolvedValue(null);
     const body = await (await POST(req("Bearer s3cret-value"))).json();
     expect(body.chains[1]).toMatchObject({ snapshot: "unavailable", scan: null });
+  });
+
+  it("F5 S1: a viem RPC error is logged without the RPC key (URL reduced to origin/***)", async () => {
+    const { HttpRequestError } = await import("viem");
+    const url = "https://linea-mainnet.infura.io/v3/abc123KEY";
+    scan.mockRejectedValue(new HttpRequestError({ url, body: { method: "eth_getLogs" } }));
+    detect.mockRejectedValue(new Error("wrapped", { cause: new HttpRequestError({ url, body: {} }) }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await POST(req("Bearer s3cret-value"));
+    const logged = JSON.stringify(err.mock.calls, (_k, v) => (v instanceof Error ? `${v.message} ${String((v as { cause?: unknown }).cause)}` : v));
+    expect(err).toHaveBeenCalled();
+    expect(logged).not.toContain("abc123KEY");
+    expect(logged).toContain("https://linea-mainnet.infura.io/***");
+    err.mockRestore();
+  });
+});
+
+describe("cron route runtime", () => {
+  it("allows up to 300 s per run (F5-R14)", () => {
+    expect(maxDuration).toBe(300);
   });
 });

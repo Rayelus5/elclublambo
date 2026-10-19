@@ -60,9 +60,16 @@ function capture(context: BrowserContext) {
       if (!mustIntercept(req)) return route.fallback();
       if (isPollDetails(req.url())) cap.pollDetails++;
       let res: APIResponse;
-      let body: string;
       try {
         res = await route.fetch();
+      } catch {
+        // No response reached the test (e.g. the dev server reset the connection under load): the route is aborted, so
+        // the page receives nothing either and there is no body that could leak. Not retried: a server action is a POST.
+        await route.abort().catch(() => {});
+        return;
+      }
+      let body: string;
+      try {
         body = await res.text();
       } catch (e) {
         cap.unread.push(`${req.method()} ${req.url()}: ${(e as Error).message}`);
@@ -118,12 +125,25 @@ async function expectPollPayloadSeen(context: BrowserContext) {
   const bodies = await capturedBodies(context);
   expect(bodies.some((b) => /(?:iVoted|i_voted)\\*"\s*:\s*(?:true|false)/.test(b)), "a closed poll payload was received").toBe(true);
 }
-const resetCapture = (context: BrowserContext) => {
-  const cap = captures.get(context)!;
+/**
+ * Clears what a context captured so far. Open-poll poll_details / RSC responses may still be in flight (a live re-read
+ * after the last vote): clearing then would let a late pre-close reply, which legitimately carries the voter's own
+ * option, land in the post-close window. So first wait for the page's network to go idle and for the captured bodies
+ * to stop growing, and only then clear.
+ */
+async function resetCapture(x: Actor) {
+  const cap = captures.get(x.context)!;
+  let seen = -1;
+  while (seen !== cap.bodies.length) {
+    seen = cap.bodies.length;
+    await x.page.waitForLoadState("networkidle");
+    await Promise.all(cap.bodies);
+    await x.page.waitForTimeout(300); // a request fired by the last response would show up as a new body
+  }
   cap.bodies = [];
   cap.pollDetails = 0;
   cap.unread = [];
-};
+}
 
 let admin: Actor;
 let a: Actor;
@@ -330,7 +350,7 @@ test("3. vote and change: counts move live on a new voter only, nobody gets anyo
 
 test("4. close and results: once closes_at passes the bars appear with 'Votaste' and no option; the cron notifies the voters", async () => {
   const { id } = polls.equal;
-  for (const x of [a, b]) resetCapture(x.context);
+  for (const x of [a, b]) await resetCapture(x);
   await agePoll(id, 60);
 
   const expectResults = async (page: Page) => {
@@ -420,7 +440,7 @@ test("6. weighted: lineal by participaciones, B (no shares) is told its vote wei
   await expect(card(a.page, Q.weighted).getByText("6 votantes", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(card(a.page, Q.weighted)).not.toContainText("%");
 
-  for (const x of [a, b]) resetCapture(x.context);
+  for (const x of [a, b]) await resetCapture(x);
   await agePoll(id, 60);
   // Sí = 6 + 6 = 12, No = 3 + 1 + 4 (+ B's 0) = 8, of 20: 60 % and 40 %, whole numbers.
   const expectResults = async (page: Page) => {

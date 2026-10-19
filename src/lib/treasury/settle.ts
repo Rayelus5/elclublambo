@@ -1,4 +1,5 @@
 import "server-only";
+import { safeError } from "@/lib/security/redact";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
@@ -54,7 +55,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
   if (opts.ledgerId) q = q.eq("id", opts.ledgerId);
   const { data, error } = await q.order("created_at", { ascending: true }).limit(limit);
   if (error) {
-    console.error("[treasury] settle query failed", error.message);
+    console.error("[treasury] settle query failed", safeError(error.message));
     return result;
   }
   const rows = ((data ?? []) as unknown as LedgerRow[]).filter((r) => isChainId(r.chain_id));
@@ -66,7 +67,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
         const block = await chainClient(id).getBlock({ blockTag: "finalized" });
         finalized.set(id, block.number);
       } catch (e) {
-        console.error("[treasury] finalized block unavailable", id, e);
+        console.error("[treasury] finalized block unavailable", id, safeError(e));
         finalized.set(id, null);
       }
     }
@@ -79,7 +80,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
       valuations.set(
         id,
         valueSafe(id).catch((e) => {
-          console.error("[treasury] valuation failed", id, e);
+          console.error("[treasury] valuation failed", id, safeError(e));
           return null;
         }),
       );
@@ -93,7 +94,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
       const fin = await finalizedOf(row.chain_id as ChainId);
       if (fin !== null && BigInt(row.block_number) <= fin) outcome = await settleRow(db, row, fin, valueOf);
     } catch (e) {
-      console.error("[treasury] settle failed", row.id, e);
+      console.error("[treasury] settle failed", row.id, safeError(e));
     }
     result[outcome]++;
   }
@@ -124,7 +125,7 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   const revert = async (): Promise<Outcome> => {
     const { error } = await db.rpc("revert_donation", { p_ledger: row.id });
     if (error) {
-      console.error("[treasury] revert_donation failed", row.id, error.message);
+      console.error("[treasury] revert_donation failed", row.id, safeError(error.message));
       return "pending";
     }
     return "reverted";
@@ -136,7 +137,7 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   if (results.some((r) => r.status === "error" && r.code === "tx_not_found")) {
     const { data: allowed, error } = await db.rpc("donation_missing", { p_ledger: row.id, p_missing: true });
     if (error) {
-      console.error("[treasury] donation_missing failed", row.id, error.message);
+      console.error("[treasury] donation_missing failed", row.id, safeError(error.message));
       return "pending";
     }
     return allowed === true ? revert() : "pending";
@@ -144,7 +145,7 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   if (!results.every((r): r is Ok => r.status === "ok")) return "pending";
   if (row.missing_since) {
     const { error } = await db.rpc("donation_missing", { p_ledger: row.id, p_missing: false });
-    if (error) console.error("[treasury] clearing missing_since failed", row.id, error.message);
+    if (error) console.error("[treasury] clearing missing_since failed", row.id, safeError(error.message));
   }
 
   // Finality is judged on the receipts' current blocks (a reorged-and-remined tx still verifies by hash).
@@ -163,8 +164,8 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   });
   if (error) {
     // shares_zero: too small for the fund's value, left pending for the treasurer. assets_stale / invalid_state: retried.
-    if (error.message === "shares_zero") console.error("[treasury] shares_zero", row.id, error.message);
-    else console.error("[treasury] credit_donation failed", row.id, error.message);
+    if (error.message === "shares_zero") console.error("[treasury] shares_zero", row.id, safeError(error.message));
+    else console.error("[treasury] credit_donation failed", row.id, safeError(error.message));
     return "pending";
   }
   return "credited";

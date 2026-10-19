@@ -1,0 +1,65 @@
+name: preproduction
+
+# Preproduction (pre.elclub.party) on the homelab, from develop (F5-R7): build the image -> migrate (supabase db push)
+# -> restart -> smoke. Building first means a broken build never migrates; restarting after migrating means new code
+# never runs against the old schema. Runs on the self-hosted runner labelled elclub-pre, so there is no pull_request
+# trigger: a self-hosted runner must never run fork code.
+# Host files (not in the repo): /opt/elclub/pre/web.env (from deploy/preprod/web.env.example) and
+# /opt/elclub/pre/cloudflared/credentials.json. GitHub secrets needed (environment preproduction): PREPROD_DB_URL
+# (without the password) and PREPROD_DB_PASSWORD.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: preproduction
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, linux, elclub-pre]
+    environment: preproduction
+    env:
+      ELCLUB_ENV_FILE: /opt/elclub/pre/web.env
+      COMPOSE: docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: $COMPOSE build web
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      # PREPROD_DB_URL has no password (postgresql://user@host:port/postgres); the CLI's pgx driver reads it from
+      # PGPASSWORD (checked with CLI 2.121.0), so it never appears in the process argv on the runner host.
+      - name: Migrate
+        env:
+          PREPROD_DB_URL: ${{ secrets.PREPROD_DB_URL }}
+          PGPASSWORD: ${{ secrets.PREPROD_DB_PASSWORD }}
+        run: supabase db push --db-url "$PREPROD_DB_URL" --yes
+
+      - name: Restart
+        run: |
+          $COMPOSE up -d --no-build web cron cloudflared
+          # Bind-mounted single files (crontab, tunnel config) keep the old inode/content: always recreate these two.
+          $COMPOSE up -d --no-build --force-recreate cron cloudflared
+
+      - name: Smoke
+        run: |
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS -o /dev/null http://127.0.0.1:3000/login; then
+              exit 0
+            fi
+            sleep 3
+          done
+          $COMPOSE ps
+          exit 1
+
+      - name: Prune dangling images
+        run: docker image prune -f

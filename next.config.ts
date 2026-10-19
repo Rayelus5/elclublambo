@@ -1,25 +1,18 @@
 import type { NextConfig } from "next";
+import { assertProductionReady } from "./src/lib/deploy/readiness";
+import { headerEnvFromProcess, securityHeaders } from "./src/lib/security/headers";
 
-// Only frame-src / frame-ancestors are set on purpose: no default-src, so nothing else (scripts, fetches, images)
-// is restricted. Child frames allowed: the DexScreener chart of Alpha messages and the iframes the wallet SDK
-// (Reown AppKit / WalletConnect) mounts for its secure site and for Verify.
-const FRAME_SRC = [
-  "https://dexscreener.com",
-  "https://secure.walletconnect.org",
-  "https://secure.walletconnect.com",
-  "https://secure-mobile.walletconnect.org",
-  "https://secure-mobile.walletconnect.com",
-  "https://verify.walletconnect.org",
-  "https://verify.walletconnect.com",
-];
-const CSP = `frame-src ${FRAME_SRC.join(" ")}; frame-ancestors 'none'`;
+// F5-R10: a Vercel production build with a testnet/unsafe configuration fails here, before anything deploys.
+assertProductionReady();
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Standalone server only for the preproduction Docker image (F5-R7); Vercel and local dev keep the default output.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   cacheComponents: true,
   partialPrefetching: true,
   async headers() {
-    return [{ source: "/:path*", headers: [{ key: "Content-Security-Policy", value: CSP }] }];
+    // Full CSP + security headers (F5-R3/R4), derived from NEXT_PUBLIC_* env when this config loads.
+    return [{ source: "/:path*", headers: securityHeaders(headerEnvFromProcess()) }];
   },
   turbopack: {
     resolveAlias: {

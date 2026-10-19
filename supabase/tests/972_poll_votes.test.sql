@@ -127,8 +127,9 @@ select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'
 select ok(not has_function_privilege('authenticated', 'public._push_build(bigint)', 'execute')
       and not has_function_privilege('service_role', 'public._push_build(bigint)', 'execute'),
   '_push_build is still internal');
-select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace),
-  'schema private still holds no function');
+select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
+                                                and p.oid <> 'private.rate_limit(text,text,int,interval)'::regprocedure),
+  'schema private still holds no function but private.rate_limit (F5 Task 2, executable by no API role: 990)');
 
 -- ===== 2. carry: create_poll whitespace set (F4e-R1) and the VIEW-inclusive bit check =====
 select tests.login(current_setting('t.a'));

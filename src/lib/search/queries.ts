@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeError } from "@/lib/security/redact";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 
 // Both RPCs are SECURITY INVOKER: call them with the user's own (browser) client so RLS decides what is visible.
@@ -41,7 +42,7 @@ export async function searchMessages(
   // Author names under the same RLS; an author that cannot be read falls back to "alguien".
   const authorIds = [...new Set(rows.map((r) => r.author_id))];
   const { data: members, error: membersError } = await supabase.from("members").select(`id, ${MEMBER_IDENTITY_COLUMNS}`).in("id", authorIds);
-  if (membersError) console.error("search: author lookup failed", membersError);
+  if (membersError) console.error("search: author lookup failed", safeError(membersError));
   const names = new Map<string, string>();
   for (const m of (members ?? []) as Array<{ id: string } & MemberIdentityRow>) {
     names.set(m.id, memberName(identityFromRow(m)));

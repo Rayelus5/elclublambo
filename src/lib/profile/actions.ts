@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { normalizeHandle } from "@/lib/members/handle";
@@ -56,9 +57,9 @@ async function removeOwnAvatar(memberId: string, path: string | null) {
   if (!m || m[1] !== memberId.toLowerCase()) return;
   try {
     const { error } = await createAdminClient().storage.from("avatars").remove([path]);
-    if (error) console.error(`setAvatarAction: avatar cleanup failed: ${error.message}`);
+    if (error) console.error(`setAvatarAction: avatar cleanup failed: ${safeError(error.message)}`);
   } catch (e) {
-    console.error(`setAvatarAction: avatar cleanup threw: ${e instanceof Error ? e.message : "unknown"}`);
+    console.error(`setAvatarAction: avatar cleanup threw: ${safeError(e)}`);
   }
 }
 

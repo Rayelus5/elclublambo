@@ -1,5 +1,6 @@
 import "server-only";
 import type { Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import type { ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assetsUsd6, readEthPrice, readSafeAssets, type EthPrice, type SafeAssets } from "@/lib/treasury/valuation";
@@ -78,7 +79,7 @@ export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
       safe,
     };
   } catch (e) {
-    console.error("[treasury] valuation failed", chain, e instanceof Error ? e.message : e);
+    console.error("[treasury] valuation failed", chain, safeError(e));
     return null;
   }
 }

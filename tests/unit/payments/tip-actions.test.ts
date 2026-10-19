@@ -7,6 +7,9 @@ vi.mock("@/lib/payments/confirm", () => ({
   confirmIntent: (...a: unknown[]) => confirmIntent(...a),
 }));
 
+const hit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rate-limit", () => ({ hitRateLimit: hit }));
+
 const rpc = vi.fn();
 let ownRow: unknown = null;
 let ownError: unknown = null;
@@ -32,6 +35,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   ownRow = { id: ID };
   ownError = null;
+  hit.mockResolvedValue("ok");
 });
 
 describe("createTipIntentAction", () => {
@@ -96,6 +100,24 @@ describe("verifyIntentAction", () => {
     expect(await verifyIntentAction(ID)).toEqual({ status: "pending" });
     expect(confirmIntent).not.toHaveBeenCalled();
     err.mockRestore();
+  });
+
+  it("charges chain_verify after the ownership read, before confirming", async () => {
+    confirmIntent.mockResolvedValue({ status: "pending" });
+    await verifyIntentAction(ID);
+    expect(hit).toHaveBeenCalledWith(supabase, "chain_verify");
+    ownRow = null;
+    hit.mockClear();
+    await verifyIntentAction(ID);
+    expect(hit).not.toHaveBeenCalled();
+  });
+
+  it("a limited verification stays pending (never failed) and never reaches the chain (Review Focus 1)", async () => {
+    hit.mockResolvedValue("rate_limited");
+    expect(await verifyIntentAction(ID)).toEqual({ status: "pending" });
+    hit.mockResolvedValue("error");
+    expect(await verifyIntentAction(ID)).toEqual({ status: "pending" });
+    expect(confirmIntent).not.toHaveBeenCalled();
   });
 
   it("not_found only when the read succeeded with no row", async () => {

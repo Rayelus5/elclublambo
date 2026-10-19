@@ -16,8 +16,26 @@ export async function finalityLagSeconds(chain: ChainId, nowSeconds = Math.floor
   }
 }
 
-/** The lag plus the moment it was measured, as the /dao page hands it to DaoOverview. */
+/** How long a measured lag is reused per chain (it moves over hours): one RPC read per chain per minute per process. */
+export const FINALITY_CACHE_MS = 60_000;
+
+const lagCache = new Map<ChainId, { lagSeconds: number | null; measuredAt: number }>();
+
+/**
+ * The lag plus the moment it was measured, as the /dao page hands it to DaoOverview. Cached per chain for
+ * FINALITY_CACHE_MS, including an unavailable RPC (null), so reloading /dao never costs an RPC read per render (F5 S15).
+ */
 export async function finalitySnapshot(chain: ChainId): Promise<{ lagSeconds: number | null; nowSeconds: number }> {
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  return { lagSeconds: await finalityLagSeconds(chain, nowSeconds), nowSeconds };
+  const now = Date.now();
+  const nowSeconds = Math.floor(now / 1000);
+  const hit = lagCache.get(chain);
+  if (hit && now - hit.measuredAt < FINALITY_CACHE_MS && now >= hit.measuredAt) return { lagSeconds: hit.lagSeconds, nowSeconds };
+  const lagSeconds = await finalityLagSeconds(chain, nowSeconds);
+  lagCache.set(chain, { lagSeconds, measuredAt: now });
+  return { lagSeconds, nowSeconds };
+}
+
+/** Tests only. */
+export function resetFinalityCache(): void {
+  lagCache.clear();
 }

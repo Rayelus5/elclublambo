@@ -1,5 +1,6 @@
 import "server-only";
 import type { Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import type { ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode } from "@/lib/errors";
 import { chainClient } from "@/lib/payments/chain-client";
@@ -68,7 +69,7 @@ async function unlink(db: Db, c: CandidateRow, reason: "failed" | "not_found"): 
     p_log_index: c.log_index,
     p_reason: reason,
   });
-  if (error) console.error("[treasury] unlink_withdrawal_candidate failed", c.request_id, error.message);
+  if (error) console.error("[treasury] unlink_withdrawal_candidate failed", c.request_id, safeError(error.message));
 }
 
 /**
@@ -83,7 +84,7 @@ async function candidateMissing(db: Db, c: CandidateRow, missing: boolean): Prom
     p_missing: missing,
   });
   if (error) {
-    console.error("[treasury] withdrawal_candidate_missing failed", c.request_id, error.message);
+    console.error("[treasury] withdrawal_candidate_missing failed", c.request_id, safeError(error.message));
     return false;
   }
   return data === true;
@@ -130,14 +131,14 @@ export async function detectWithdrawalPayouts(chain: ChainId): Promise<{ recorde
         p_actor: null,
       });
       if (recError) {
-        console.error("[treasury] record_withdrawal_payout failed", c.request_id, recError.message);
+        console.error("[treasury] record_withdrawal_payout failed", c.request_id, safeError(recError.message));
         if (RECORD_PERMANENT.has(rpcErrorCode(recError))) await unlink(db, c, "failed");
         continue;
       }
       done.add(c.request_id);
       if ((res as { status?: unknown } | null)?.status === "recorded") recorded++;
     } catch (e) {
-      console.error("[treasury] payout detection failed", c.request_id, e);
+      console.error("[treasury] payout detection failed", c.request_id, safeError(e));
     }
   }
   return { recorded };
@@ -177,7 +178,7 @@ export async function finalizeWithdrawalPayouts(chain: ChainId): Promise<{ paid:
     const block = await chainClient(chain).getBlock({ blockTag: "finalized" });
     fin = block.number;
   } catch (e) {
-    console.error("[treasury] finalized block unavailable", chain, e);
+    console.error("[treasury] finalized block unavailable", chain, safeError(e));
   }
 
   for (const row of rows) {
@@ -185,7 +186,7 @@ export async function finalizeWithdrawalPayouts(chain: ChainId): Promise<{ paid:
     try {
       if (fin !== null && fin !== undefined && BigInt(row.payout_block) <= fin) outcome = await finalizeRow(db, chain, safe, row, fin);
     } catch (e) {
-      console.error("[treasury] payout finalization failed", row.request_id, e);
+      console.error("[treasury] payout finalization failed", row.request_id, safeError(e));
     }
     result[outcome]++;
   }
@@ -195,7 +196,7 @@ export async function finalizeWithdrawalPayouts(chain: ChainId): Promise<{ paid:
 async function payoutMissing(db: Db, request: string, missing: boolean): Promise<boolean> {
   const { data, error } = await db.rpc("withdrawal_payout_missing", { p_request: request, p_missing: missing });
   if (error) {
-    console.error("[treasury] withdrawal_payout_missing failed", request, error.message);
+    console.error("[treasury] withdrawal_payout_missing failed", request, safeError(error.message));
     return false;
   }
   return data === true;
@@ -214,7 +215,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
   const revert = async (): Promise<"reverted" | "pending"> => {
     const { error } = await db.rpc("revert_withdrawal_payout", { p_request: row.request_id });
     if (error) {
-      console.error("[treasury] revert_withdrawal_payout failed", row.request_id, error.message);
+      console.error("[treasury] revert_withdrawal_payout failed", row.request_id, safeError(error.message));
       return "pending";
     }
     return "reverted";
@@ -243,7 +244,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
     p_finalized_block: fin.toString(),
   });
   if (error) {
-    console.error("[treasury] finalize_withdrawal failed", row.request_id, error.message);
+    console.error("[treasury] finalize_withdrawal failed", row.request_id, safeError(error.message));
     return "pending";
   }
   const status = (data as { status?: unknown } | null)?.status;
@@ -258,14 +259,14 @@ export async function scanCursorTime(chain: ChainId): Promise<Date | null> {
   try {
     const { data, error } = await createAdminClient().rpc("dao_scan_from", { p_chain: chain });
     if (error) {
-      console.error("[treasury] dao_scan_from failed", chain, error.message);
+      console.error("[treasury] dao_scan_from failed", chain, safeError(error.message));
       return null;
     }
     if (data === null || data === undefined || !/^\d+$/.test(String(data))) return null;
     const block = await chainClient(chain).getBlock({ blockNumber: BigInt(String(data)) });
     return new Date(Number(block.timestamp) * 1000);
   } catch (e) {
-    console.error("[treasury] scan cursor block unavailable", chain, e);
+    console.error("[treasury] scan cursor block unavailable", chain, safeError(e));
     return null;
   }
 }

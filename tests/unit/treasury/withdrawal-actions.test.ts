@@ -32,6 +32,9 @@ vi.mock("@/lib/treasury/snapshot", () => ({ valueSafe, safeAddressOf, valuationC
 const scanSafeOperations = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/scan", () => ({ scanSafeOperations }));
 
+const hit = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/rate-limit", () => ({ hitRateLimit: hit }));
+
 const verifyPayout = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/payouts", async (importOriginal) => ({ ...(await importOriginal<object>()), verifyPayout }));
 
@@ -86,6 +89,7 @@ beforeEach(() => {
   valuationCap.mockResolvedValue({ capped: false, block: null });
   scanSafeOperations.mockResolvedValue({ inserted: 0, alerts: 0 });
   verifyPayout.mockResolvedValue({ status: "ok", logIndex: 2, value: 8_000000n, blockNumber: 130n, blockTimestamp: new Date("2026-10-19T10:05:00.000Z") });
+  hit.mockResolvedValue("ok");
 });
 
 const revalidatedBoth = () => {
@@ -285,6 +289,19 @@ describe("markWithdrawalPaidAction", () => {
       },
     ]);
     revalidatedBoth();
+  });
+
+  it("charges chain_verify before verifying; limited -> rate_limited, error -> unknown, the chain is never read", async () => {
+    adminReplies.record_withdrawal_payout = { data: { status: "recorded" } };
+    await markWithdrawalPaidAction(ID, HASH);
+    expect(hit).toHaveBeenCalledWith(expect.anything(), "chain_verify");
+    verifyPayout.mockClear();
+    hit.mockResolvedValue("rate_limited");
+    expect(await markWithdrawalPaidAction(ID, HASH)).toMatchObject({ ok: false, code: "rate_limited" });
+    hit.mockResolvedValue("error");
+    expect(await markWithdrawalPaidAction(ID, HASH)).toMatchObject({ ok: false, code: "unknown" });
+    expect(verifyPayout).not.toHaveBeenCalled();
+    expect(adminCalls("record_withdrawal_payout")).toHaveLength(1);
   });
 
   it("returns already for the same payout again", async () => {

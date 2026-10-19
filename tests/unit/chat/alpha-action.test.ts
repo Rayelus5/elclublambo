@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   channelRow: vi.fn(),
   adminRpc: vi.fn(),
   verify: vi.fn(),
+  hit: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -19,6 +20,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: h.adminRpc }) }));
 vi.mock("@/lib/chat/linea", () => ({ verifyLineaContract: h.verify }));
+vi.mock("@/lib/rate-limit", () => ({ hitRateLimit: h.hit }));
 
 import { postAlphaAction } from "@/lib/chat/alpha";
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   session();
   h.verify.mockResolvedValue(true);
   h.adminRpc.mockResolvedValue({ data: MSG, error: null });
+  h.hit.mockResolvedValue("ok");
 });
 
 describe("postAlphaAction", () => {
@@ -107,6 +110,23 @@ describe("postAlphaAction", () => {
     expect(await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") })).toEqual({ error: "forbidden" });
     expect(h.verify).not.toHaveBeenCalled();
     expect(h.adminRpc).not.toHaveBeenCalled();
+  });
+
+  it("charges chain_verify before the on-chain lookup; limited -> rate_limited, nothing verified or posted", async () => {
+    await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") });
+    expect(h.hit).toHaveBeenCalledWith(expect.anything(), "chain_verify");
+    h.hit.mockResolvedValue("rate_limited");
+    expect(await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") })).toEqual({ error: "rate_limited" });
+    h.hit.mockResolvedValue("error");
+    expect(await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") })).toEqual({ error: "network" });
+    expect(h.verify).toHaveBeenCalledTimes(1);
+    expect(h.adminRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("a refused caller is not charged", async () => {
+    session({ perms: 3 });
+    await postAlphaAction({ channelId: CH, address: ADDR, doc: doc("x") });
+    expect(h.hit).not.toHaveBeenCalled();
   });
 
   it("validates ids and the address before touching anything", async () => {

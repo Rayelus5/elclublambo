@@ -15,7 +15,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/guia/dao",
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
-vi.mock("next/server", () => ({ after: () => {} }));
+const after = vi.hoisted(() => vi.fn());
+vi.mock("next/server", () => ({ after }));
 vi.mock("@/lib/payments/confirm", () => ({ reverifyMyPendingIntents: async () => {} }));
 vi.mock("@/lib/channels/queries", () => ({ getVisibleChannels: async () => [], getLockedChannels: async () => [], toRow: (c: unknown) => c }));
 vi.mock("@/lib/economy/config", () => ({ getEconomyConfig: async () => ({ activeChainId: 59141 }) }));
@@ -71,5 +72,21 @@ describe("ForumLayout onboarding gate", () => {
     state.path = "/perfil";
     state.welcome = null;
     await expect(renderShell()).rejects.toThrow("REDIRECT:/bienvenida?next=%2Fperfil");
+  });
+});
+
+describe("ForumLayout background rechecks (F5 S2)", () => {
+  it("schedules the member's payment rechecks at most once per throttle window, so reload spam cannot multiply RPC reads", async () => {
+    const { resetRecheckThrottle } = await import("@/lib/payments/recheck-throttle");
+    resetRecheckThrottle();
+    state.path = "/guia/dao";
+    state.welcome = { handle: null, welcome_completed_at: null };
+    after.mockClear();
+    await renderShell();
+    const first = after.mock.calls.length;
+    expect(first).toBe(2); // reverify pending intents + settle own donations
+    await renderShell();
+    await renderShell();
+    expect(after.mock.calls.length).toBe(first);
   });
 });

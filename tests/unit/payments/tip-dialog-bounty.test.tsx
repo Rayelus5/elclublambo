@@ -14,6 +14,13 @@ vi.mock("@reown/appkit/react", () => ({
 
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ send }) }));
+const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as bigint | null }));
+const preflight = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/payments/preflight", async (orig) => ({
+  ...(await orig<typeof import("@/lib/payments/preflight")>()),
+  useWalletBalances: () => ({ ...balances }),
+  useBalancePreflight: () => preflight,
+}));
 
 const createTipIntentAction = vi.hoisted(() => vi.fn());
 const attachTxAction = vi.hoisted(() => vi.fn());
@@ -79,6 +86,9 @@ const continuar = () => screen.getByRole("button", { name: "Continuar" });
 const amountBox = () => screen.getByLabelText("Importe");
 
 beforeEach(() => {
+  balances.eth = null;
+  balances.usdc = null;
+  preflight.mockReset().mockResolvedValue(null);
   window.localStorage.clear();
   account.address = SESSION;
   account.chainId = 59141;

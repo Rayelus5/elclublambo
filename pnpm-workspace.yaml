@@ -3,6 +3,7 @@ allowBuilds:
   sharp: false
   unrs-resolver: false
   supabase: true
+  keccak: false
 minimumReleaseAgeExclude:
   - '@supabase/auth-js@2.118.0'
   - '@supabase/functions-js@2.118.0'

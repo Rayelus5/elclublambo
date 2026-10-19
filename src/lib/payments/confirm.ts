@@ -1,4 +1,5 @@
 import "server-only";
+import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import type { ChainId } from "@/lib/economy/networks";
 import type { Token } from "@/lib/payments/amounts";
@@ -67,7 +68,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   // F3-R3: a read ERROR is transient (pending); only a read that succeeded with no row is a definitive not_found.
   const { data: i, error: readError } = await db.from("payment_intents").select(INTENT_COLUMNS).eq("id", intentId).maybeSingle<IntentRow>();
   if (readError) {
-    console.error("[payments] intent read failed", intentId, readError.message);
+    console.error("[payments] intent read failed", intentId, safeError(readError.message));
     return { status: "pending" };
   }
   if (!i) return failed("not_found");
@@ -76,7 +77,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const permanent = async (code: string): Promise<ConfirmResult> => {
     const { error } = await db.rpc("fail_intent", { p_intent: i.id, p_code: code });
     if (error) {
-      console.error("[payments] fail_intent failed", i.id, code, error.message);
+      console.error("[payments] fail_intent failed", i.id, code, safeError(error.message));
       return { status: "pending" };
     }
     return failed(code);
@@ -84,7 +85,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
 
   if (i.status === "confirmed" && i.purpose === "donation") {
     const { data: led, error: ledError } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
-    if (ledError) console.error("[payments] ledger read failed", i.id, ledError.message);
+    if (ledError) console.error("[payments] ledger read failed", i.id, safeError(ledError.message));
     if (!led) return { status: "pending" };
     if (led.status === "credited") return { status: "confirmed", ledgerId: led.id };
     if (led.status === "reverted") return failed("reverted");
@@ -92,7 +93,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   }
   if (i.status === "confirmed") {
     const { data: tip, error: tipError } = await db.from("tips").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
-    if (tipError) console.error("[payments] tip read failed", i.id, tipError.message);
+    if (tipError) console.error("[payments] tip read failed", i.id, safeError(tipError.message));
     return tip ? { status: "confirmed", tipId: tip.id } : { status: "pending" };
   }
   if (i.status === "failed") return failed(i.failure_code ?? "unknown");
@@ -106,7 +107,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
 
   const { data: payer, error: payerError } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
   if (payerError) {
-    console.error("[payments] payer read failed", i.id, payerError.message);
+    console.error("[payments] payer read failed", i.id, safeError(payerError.message));
     return { status: "pending" };
   }
   if (!payer) return failed("not_found");
@@ -151,7 +152,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     if (recError || typeof ledgerId !== "string") {
       const code = recError ? rpcErrorCode(recError) : "unknown";
       if (PERMANENT_RECORD.has(code)) return permanent(code);
-      console.error("[payments] record_donation failed", i.id, recError?.message);
+      console.error("[payments] record_donation failed", i.id, safeError(recError?.message));
       return { status: "pending" };
     }
     // Immediate settle attempt: credits at once only if the block is already final. Never undoes the recording.
@@ -160,7 +161,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
       if (s.credited > 0) return { status: "confirmed", ledgerId };
       if (s.reverted > 0) return failed("reverted");
     } catch (e) {
-      console.error("[payments] settle after record failed", ledgerId, e);
+      console.error("[payments] settle after record failed", ledgerId, safeError(e));
     }
     return { status: "pending_finality", ledgerId };
   }
@@ -180,7 +181,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   if (error) {
     const code = rpcErrorCode(error);
     if (PERMANENT_RECORD.has(code)) return permanent(code);
-    console.error("[payments] confirm failed", i.id, error.message);
+    console.error("[payments] confirm failed", i.id, safeError(error.message));
     return { status: "pending" };
   }
   return { status: "confirmed", tipId: tipId as string };
@@ -211,11 +212,11 @@ export async function reverifyIntentsFor(memberId: string, confirm: (intentId: s
       try {
         await confirm(row.id);
       } catch (e) {
-        console.error("[payments] reverify failed", row.id, e);
+        console.error("[payments] reverify failed", row.id, safeError(e));
       }
     }
   } catch (e) {
-    console.error("[payments] reverify query failed", e);
+    console.error("[payments] reverify query failed", safeError(e));
   }
 }
 
@@ -229,6 +230,6 @@ export async function reverifyMyPendingIntents(memberId?: string): Promise<void>
     }
     if (id) await reverifyIntentsFor(id);
   } catch (e) {
-    console.error("[payments] reverifyMyPendingIntents failed", e);
+    console.error("[payments] reverifyMyPendingIntents failed", safeError(e));
   }
 }

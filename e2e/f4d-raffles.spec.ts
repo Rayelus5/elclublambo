@@ -19,6 +19,7 @@ import {
   tokenBalance,
 } from "./helpers/dao";
 import { createInvite, joinAs, service, type Actor } from "./helpers/f2c";
+import { watchCsp } from "./helpers/csp";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
 // F4d acceptance: verifiable raffles on the local Hardhat chain (e2e/chain/start-chain.mjs, mock USDC / WETH / ETH-USD
@@ -290,7 +291,8 @@ test("4. close and draw: the cron closes, draws with the first finalized block a
   await wp.goto("/dao");
   await expect(card(wp, TITLES.usdc).getByText("¡Has ganado!")).toBeVisible();
 
-  // The public verifier, in A's browser, against the local chain.
+  // The public verifier, in A's browser, against the local chain. F5 Task 3: its browser RPC read stays inside the CSP.
+  const cspA = await watchCsp(pa);
   await pa.goto(`/dao/sorteos/${ids.usdc}`);
   await pa.waitForLoadState("networkidle");
   await pa.getByRole("button", { name: "Comprobar en este navegador" }).click();
@@ -302,6 +304,7 @@ test("4. close and draw: the cron closes, draws with the first finalized block a
   await expect(checks.filter({ hasText: "es el primer bloque posterior al cierre" })).toHaveCount(1);
   await expect(pa.getByText(/^No coincide/)).toHaveCount(0);
   await expect(pa.getByText("No se pudo consultar la red")).toHaveCount(0);
+  expect(await cspA()).toEqual([]);
 });
 
 test("5. pay by hash: the pasted transfer is verified, the cron marks it paid, the outflow is a «Premio de sorteo»", async () => {
