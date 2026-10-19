@@ -43,7 +43,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { GET, POST } from "@/app/api/cron/dao/route";
+import { GET, POST, maxDuration } from "@/app/api/cron/dao/route";
 
 const req = (auth?: string, method = "POST") => new Request("http://localhost/api/cron/dao", { method, headers: auth ? { authorization: auth } : {} });
 
@@ -329,5 +329,11 @@ describe("POST /api/cron/dao", () => {
     expect(logged).not.toContain("abc123KEY");
     expect(logged).toContain("https://linea-mainnet.infura.io/***");
     err.mockRestore();
+  });
+});
+
+describe("cron route runtime", () => {
+  it("allows up to 300 s per run (F5-R14)", () => {
+    expect(maxDuration).toBe(300);
   });
 });
