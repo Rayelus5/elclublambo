@@ -18,7 +18,7 @@ const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as b
 const preflight = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/preflight", async (orig) => ({
   ...(await orig<typeof import("@/lib/payments/preflight")>()),
-  useWalletBalances: () => ({ ...balances, refetch: vi.fn() }),
+  useWalletBalances: () => ({ ...balances }),
   useBalancePreflight: () => preflight,
 }));
 

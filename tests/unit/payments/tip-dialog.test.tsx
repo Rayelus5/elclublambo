@@ -22,7 +22,7 @@ const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as b
 const preflight = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/preflight", async (orig) => ({
   ...(await orig<typeof import("@/lib/payments/preflight")>()),
-  useWalletBalances: () => ({ ...balances, refetch: vi.fn() }),
+  useWalletBalances: () => ({ ...balances }),
   useBalancePreflight: () => preflight,
 }));
 
@@ -591,6 +591,18 @@ describe("TipDialog expiry, abort and in-flight (F3b-R5)", () => {
     expect(await screen.findByText(/Tienes una firma pendiente/)).toBeInTheDocument();
     expect(createTipIntentAction).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("resume with a short balance: only the main is required, nothing is signed, the resume screen says the fee is paid", async () => {
+    seed();
+    preflight.mockResolvedValue("No tienes suficiente USDC en Linea Sepolia: necesitas 10 USDC para la propina y tienes 9. La comisión ya está pagada: añade saldo y pulsa Firmar para continuar.");
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: "Firmar la propina" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/La comisión ya está pagada/);
+    expect(preflight).toHaveBeenCalledWith(expect.objectContaining({ feePaid: true, feeAmount: 0n, mainAmount: 10000000n }));
+    expect(send).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Firmar la propina" })).toBeInTheDocument();
+    expect(loadSends(MEMBER)).toHaveLength(1);
   });
 
   it("the resume screen shows the network, the recipient and what is left to send", () => {

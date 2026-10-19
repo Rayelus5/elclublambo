@@ -39,7 +39,7 @@ export function preflightShortfall(i: PreflightInput): string | null {
     if (i.feePaid) {
       return `No tienes suficiente ${i.token} en ${net}: necesitas ${need} para la ${i.mainLabel} y tienes ${has}. La comisión ya está pagada: añade saldo y pulsa Firmar para continuar.`;
     }
-    return `No tienes suficiente ${i.token} en ${net}: necesitas ${need} (${i.mainLabel} + comisión) y tienes ${has}. No se ha enviado nada.`;
+    return `No tienes suficiente ${i.token} en ${net}: necesitas ${need}${i.feeAmount > 0n ? ` (${i.mainLabel} + comisión)` : ""} y tienes ${has}. No se ha enviado nada.`;
   }
   if (i.token === "USDC" && i.eth <= 0n) return `Necesitas algo de ETH en ${net} para pagar el gas.`;
   return null;
@@ -53,7 +53,7 @@ export function formBalanceError(i: { chain: ChainId; token: Token; amount: bigi
   const need = i.amount + i.fee;
   const short = i.token === "USDC" ? i.balance < need : i.balance <= need;
   if (short) {
-    return `Saldo insuficiente: necesitas ${formatAmount(need, i.token)} ${i.token} (importe + comisión) y tienes ${formatAmount(i.balance, i.token)}.`;
+    return `Saldo insuficiente: necesitas ${formatAmount(need, i.token)} ${i.token}${i.fee > 0n ? " (importe + comisión)" : ""} y tienes ${formatAmount(i.balance, i.token)}.`;
   }
   if (i.token === "USDC" && i.eth <= 0n) return `Necesitas algo de ETH en ${NETWORKS[i.chain].name} para el gas.`;
   return null;
@@ -79,7 +79,7 @@ export function useBalancePreflight(): (a: Omit<PreflightInput, "eth" | "usdc"> 
 }
 
 /** Live balances for the form; null when not readable (or no account). Re-read on mount and when account/chain change. */
-export function useWalletBalances(chain: ChainId, account: `0x${string}` | undefined): { eth: bigint | null; usdc: bigint | null; refetch: () => void } {
+export function useWalletBalances(chain: ChainId, account: `0x${string}` | undefined): { eth: bigint | null; usdc: bigint | null } {
   const enabled = !!account;
   const eth = useBalance({ address: account, chainId: chain, query: { enabled } });
   const usdc = useReadContract({
@@ -93,9 +93,5 @@ export function useWalletBalances(chain: ChainId, account: `0x${string}` | undef
   return {
     eth: eth.data?.value ?? null,
     usdc: typeof usdc.data === "bigint" ? usdc.data : null,
-    refetch: () => {
-      void eth.refetch();
-      void usdc.refetch();
-    },
   };
 }

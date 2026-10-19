@@ -39,6 +39,11 @@ describe("preflightShortfall", () => {
     expect(preflightShortfall({ ...base, token: "ETH", feeAmount: E / 100n, mainAmount: E, usdc: 0n, eth: 2n * E })).toBeNull();
   });
 
+  it("omits the fee wording when there is no fee", () => {
+    const msg = preflightShortfall({ ...base, token: "USDC", feeAmount: 0n, mainAmount: 10n * U, usdc: 9n * U, eth: E });
+    expect(msg).toBe("No tienes suficiente USDC en Linea: necesitas 10 USDC y tienes 9. No se ha enviado nada.");
+  });
+
   it("on resume only the main amount is required and the message says the fee is paid", () => {
     const msg = preflightShortfall({ ...base, token: "USDC", feeAmount: 250_000n, mainAmount: 10n * U, usdc: 9n * U, eth: E, feePaid: true });
     expect(msg).toContain("necesitas 10 USDC para la donación y tienes 9");
@@ -82,8 +87,8 @@ describe("useBalancePreflight", () => {
 describe("useWalletBalances", () => {
   const acct = "0x1111111111111111111111111111111111111111" as const;
   it("reads ETH and USDC on the given chain and exposes them", () => {
-    useBalance.mockReturnValue({ data: { value: E }, refetch: vi.fn() });
-    useReadContract.mockReturnValue({ data: 3n * U, refetch: vi.fn() });
+    useBalance.mockReturnValue({ data: { value: E } });
+    useReadContract.mockReturnValue({ data: 3n * U });
     const { result } = renderHook(() => useWalletBalances(59144, acct));
     expect(result.current.eth).toBe(E);
     expect(result.current.usdc).toBe(3n * U);
@@ -92,8 +97,8 @@ describe("useWalletBalances", () => {
   });
 
   it("gives null when a balance is unreadable", () => {
-    useBalance.mockReturnValue({ data: undefined, refetch: vi.fn() });
-    useReadContract.mockReturnValue({ data: undefined, refetch: vi.fn() });
+    useBalance.mockReturnValue({ data: undefined });
+    useReadContract.mockReturnValue({ data: undefined });
     const { result } = renderHook(() => useWalletBalances(59144, acct));
     expect(result.current.eth).toBeNull();
     expect(result.current.usdc).toBeNull();
@@ -107,6 +112,15 @@ describe("formBalanceError", () => {
   });
   it("asks for ETH for gas on a USDC payment with no ETH", () => {
     expect(formBalanceError({ ...f, balance: 20n * U, eth: 0n })).toBe("Necesitas algo de ETH en Linea para el gas.");
+  });
+  it("omits the fee wording when there is no fee", () => {
+    expect(formBalanceError({ ...f, fee: 0n, balance: 9_800_000n })).toBe("Saldo insuficiente: necesitas 10 USDC y tienes 9,8.");
+  });
+  it("ETH token: refuses when the balance does not exceed amount + fee (gas margin)", () => {
+    const eth = { chain: 59144 as const, token: "ETH" as const, amount: E, fee: E / 100n, eth: 0n };
+    expect(formBalanceError({ ...eth, balance: E })).toBe("Saldo insuficiente: necesitas 1,01 ETH (importe + comisión) y tienes 1.");
+    expect(formBalanceError({ ...eth, balance: E + E / 100n })).toMatch(/^Saldo insuficiente/);
+    expect(formBalanceError({ ...eth, balance: 2n * E })).toBeNull();
   });
   it("is null when covered", () => {
     expect(formBalanceError({ ...f, balance: 10_050_000n })).toBeNull();
