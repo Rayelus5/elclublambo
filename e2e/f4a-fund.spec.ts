@@ -236,7 +236,8 @@ test("3. investment: the Safe swaps 5 USDC for 0,002 WETH and ETH goes to 3000 U
   const notice = p.getByRole("list", { name: "Notificaciones" }).getByRole("link", { name: /Salida de la tesorería sin explicar: 5 USDC/ });
   await expect(notice).toHaveCount(1);
   await notice.click();
-  await expect(p).toHaveURL(/\/dao#operaciones$/);
+  // Ruling F4a-R1: the treasurer panel exists now (F4c), so the notice opens it.
+  await expect(p).toHaveURL(/\/dao\/tesoreria$/);
 });
 
 test("4. note: the treasurer explains the outflow; members see the note and it no longer alerts", async () => {
