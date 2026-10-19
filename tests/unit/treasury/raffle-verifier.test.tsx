@@ -107,11 +107,34 @@ describe("RaffleVerifier", () => {
     expect(bad.textContent!.startsWith("✗")).toBe(true);
   });
 
-  it("says so when the chain cannot be read, without calling the draw wrong", async () => {
+  it("says so when the chain cannot be read: only the maths were checked, and the draw is not called wrong", async () => {
     fetchDrawBlocks.mockRejectedValue(new Error("rpc down"));
     await run(detailOf(equal3));
-    expect(await screen.findByText("Comprobado: el compromiso coincide y gana la participación #3.")).toBeInTheDocument();
+    expect(await screen.findByText("Comprobado el cálculo: el compromiso coincide y gana la participación #3. El bloque queda sin comprobar.")).toBeInTheDocument();
+    expect(screen.queryByText(/^Comprobado: el compromiso/)).toBeNull();
     expect(screen.getByText(/No se pudo consultar la red/)).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("a block that does not exist on the chain is a failed check, not an unreachable network", async () => {
+    fetchDrawBlocks.mockResolvedValue(null);
+    await run(detailOf(equal3));
+    const list = await screen.findByRole("list", { name: "Comprobaciones" });
+    const li = within(list).getAllByRole("listitem")[0]!;
+    expect(li.textContent).toBe("✗El bloque 777 no existe en la red.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("No coincide");
+    expect(screen.queryByText(/No se pudo consultar la red/)).toBeNull();
+  });
+
+  it.each([
+    ["hash", { drawBlockHash: null }],
+    ["number", { drawBlockNumber: null }],
+    ["time", { drawBlockTime: null }],
+  ])("a draw with weight but no block %s is Datos no válidos, never a green check", async (_n, over) => {
+    await run(detailOf(equal3, over as Partial<RaffleDetail>));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Datos no válidos");
+    expect(screen.queryByText(/Comprobado/)).toBeNull();
+    expect(fetchDrawBlocks).not.toHaveBeenCalled();
   });
 
   it("a tampered seed does not match the commitment", async () => {

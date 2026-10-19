@@ -19,6 +19,9 @@ export function RaffleCard({ raffle: r, unlockedShares }: { raffle: Card; unlock
   const closed = r.status === "closed";
   const hasWinner = r.status === "drawn" || r.status === "paid";
   const unpaidShown = r.status === "drawn" && r.unpaid && !r.payoutRecorded;
+  // Past its close but not yet processed by the cron: already closed to joining (the server refuses it too).
+  // eslint-disable-next-line react-hooks/purity -- a plain time comparison for the first paint; the button re-arms itself
+  const pastClose = Date.parse(r.closesAt) <= Date.now();
   const weighted = r.mode === "weighted";
 
   return (
@@ -81,7 +84,7 @@ export function RaffleCard({ raffle: r, unlockedShares }: { raffle: Card; unlock
       {r.status === "void" ? <p className="text-sm">Sin ganador: nadie con peso se apuntó.</p> : null}
       {r.status === "cancelled" ? <p className="text-sm">{`Cancelado: ${r.cancelReason ?? "sin motivo"}`}</p> : null}
 
-      {open ? <JoinRaffleButton id={r.id} entered={r.iEntered} disabled={!open} closesAt={r.closesAt} /> : null}
+      {open ? <JoinRaffleButton id={r.id} entered={r.iEntered} disabled={pastClose} closesAt={r.closesAt} /> : null}
 
       <Link
         href={`/dao/sorteos/${r.id}`}

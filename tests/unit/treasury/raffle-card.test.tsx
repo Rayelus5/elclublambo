@@ -100,9 +100,9 @@ describe("RaffleCard: open", () => {
     expect(screen.getByRole("button", { name: "Participar" })).toBeInTheDocument();
   });
 
-  it("disables joining once closesAt has passed (the cron has not closed it yet)", async () => {
+  it("is disabled on the very first paint once closesAt has passed (the cron has not closed it yet)", () => {
     show({ closesAt: PAST });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Participar" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Participar" })).toBeDisabled();
   });
 });
 

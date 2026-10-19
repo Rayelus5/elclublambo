@@ -27,6 +27,8 @@ const env = {
   // On-chain tips (e2e/f3b-tips.spec.ts): the server verifies against the local Hardhat chain (chain id 59141) and
   // credits after one confirmation. start-chain.mjs below serves it.
   LINEA_SEPOLIA_RPC_URL: RPC_URL,
+  // The raffle verifier reads the draw block in the browser: the same local chain (public var, baked at build time).
+  NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: RPC_URL,
   TIP_CONFIRMATIONS: "1",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
   CRON_SECRET: "e2e-cron-secret",

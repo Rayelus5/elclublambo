@@ -35,7 +35,7 @@ function readInputs(d: RaffleDetail): { seed: Hex; commit: Hex; blockHash: Hex; 
   if (d.totalWeight !== null && d.totalWeight !== total) return null;
   if (d.drawBlockHash !== null && !HEX32.test(d.drawBlockHash)) return null;
   // A draw with weight needs its block hash; a void one (nobody with weight) is decided by the weights alone.
-  if (total > 0n && d.drawBlockHash === null) return null;
+  if (total > 0n && (d.drawBlockHash === null || d.drawBlockNumber === null || d.drawBlockTime === null)) return null;
   return {
     seed: d.seedReveal as Hex,
     commit: d.commit as Hex,
@@ -103,6 +103,9 @@ export function RaffleVerifier({ detail: d }: { detail: RaffleDetail }) {
         try {
           const chain = await fetchDrawBlocks(d.chainId, d.drawBlockNumber);
           const n = d.drawBlockNumber.toString();
+          if (chain === null) {
+            checks.push({ ok: false, text: `El bloque ${n} no existe en la red.` });
+          } else {
           const hashOk = chain.hash.toLowerCase() === d.drawBlockHash.toLowerCase();
           checks.push({
             ok: hashOk,
@@ -122,6 +125,7 @@ export function RaffleVerifier({ detail: d }: { detail: RaffleDetail }) {
               ? `El bloque ${n} es el primer bloque posterior al cierre.`
               : `El bloque ${n} no es el primer bloque posterior al cierre.`,
           });
+          }
         } catch {
           chainUnavailable = true;
         }
@@ -134,7 +138,9 @@ export function RaffleVerifier({ detail: d }: { detail: RaffleDetail }) {
         mismatch,
         verdict: voidDraw
           ? "Comprobado: nadie tenía peso, así que no hay ganador."
-          : `Comprobado: el compromiso coincide y gana la participación #${check.position}.`,
+          : chainUnavailable
+            ? `Comprobado el cálculo: el compromiso coincide y gana la participación #${check.position}. El bloque queda sin comprobar.`
+            : `Comprobado: el compromiso coincide y gana la participación #${check.position}.`,
         r: voidDraw ? null : check.r,
         checks,
         chainUnavailable,
