@@ -5,9 +5,9 @@
 -- Plus the Task 3 carry: draw_raffle accepts only ISO timestamps, no block from the future, and stores the parent time.
 -- Setup: 59141 valued at 200 USDC (ETH at 2000 USD), S = 10 * 10^18. W has an approved withdrawal of 20 USDC.
 -- Drawn raffles: R1 10 USDC to A, R2 0.01 WETH (20 USD) to C, R3 5 USDC to W, R4 2 USDC to P (drawn 21 days ago),
--- R5 3 USDC and R6 4 USDC to D (drawn 15 days ago). RO (1 USDC) stays open.
+-- R5 3 USDC and R6 4 USDC to D (drawn 15 days ago), R7 25 USDC to W (fix round: F4d-R4). RO (1 USDC) stays open.
 begin;
-select plan(125);
+select plan(139);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.zh(p_n int) returns text language sql immutable as $$
@@ -222,6 +222,15 @@ begin
   return v;
 end;
 $$;
+create function tests.ztrunpaid(p_raffle uuid) returns boolean language plpgsql as $$
+declare v boolean;
+begin
+  perform tests.authenticate_as(tests.zuser('t'));
+  select x.unpaid into v from public.treasury_raffles() x where x.id = p_raffle;
+  perform tests.clear_authentication();
+  return v;
+end;
+$$;
 create function tests.zcard(p_member text, p_raffle uuid) returns jsonb language plpgsql as $$
 declare v jsonb;
 begin
@@ -318,16 +327,19 @@ select set_config('t.ro', tests.zcreate('USDC', 1000000)::text, true);
 select set_config('t.r4', tests.zcreate('USDC', 2000000)::text, true);
 select set_config('t.r5', tests.zcreate('USDC', 3000000)::text, true);
 select set_config('t.r6', tests.zcreate('USDC', 4000000)::text, true);
+select set_config('t.r7', tests.zcreate('USDC', 25000000)::text, true);
 select tests.zdrawn(current_setting('t.r1')::uuid, 'a', now());
 select tests.zdrawn(current_setting('t.r2')::uuid, 'c', now());
 select tests.zdrawn(current_setting('t.r3')::uuid, 'w', now());
 select tests.zdrawn(current_setting('t.r4')::uuid, 'p', now() - interval '21 days');
 select tests.zdrawn(current_setting('t.r5')::uuid, 'd', now() - interval '15 days');
-select tests.zdrawn(current_setting('t.r6')::uuid, 'd', now() - interval '15 days');
+-- drawn an hour after R5: the old "oldest draw first" candidate order would give R6's 4 USDC to R5
+select tests.zdrawn(current_setting('t.r6')::uuid, 'd', now() - interval '15 days' + interval '1 hour');
+select tests.zdrawn(current_setting('t.r7')::uuid, 'w', now());
 
-select is(tests.zvalue(), 135000000::numeric,
-  'setup: 200 USDC - the approved 20 - the prizes 10 + 20 (WETH at 2000) + 5 + 1 + 2 + 3 + 4 = 135 USDC');
-select is(tests.zliab(null), 65000000::numeric, 'setup: liabilities 65 USDC on the read path');
+select is(tests.zvalue(), 110000000::numeric,
+  'setup: 200 USDC - the approved 20 - the prizes 10 + 20 (WETH at 2000) + 5 + 1 + 2 + 3 + 4 + 25 = 110 USDC');
+select is(tests.zliab(null), 90000000::numeric, 'setup: liabilities 90 USDC on the read path');
 
 -- ===== 1. grants =====
 select ok((select bool_and(has_function_privilege('service_role', f, 'execute')
@@ -369,6 +381,18 @@ select ok((select pg_get_functiondef('public.record_safe_operations(int,text,jso
            ~* 'limit 1\s+for update of r'), 'the scan''s raffle match takes the raffle row lock (for update of r)');
 select ok((select pg_get_functiondef('public.record_safe_operations(int,text,jsonb,bigint)'::regprocedure)
            ~* 'r\.payout_log_index = v_log\s+for share of r'), 'the exact prize-payout match takes for share of r');
+select ok((select position('r.payout_log_index = v_log' in d) < position('w.destination_address = v_cp' in d)
+           from pg_get_functiondef('public.record_safe_operations(int,text,jsonb,bigint)'::regprocedure) d),
+  'F4d-R4: the scan checks recorded prize payouts before withdrawal candidates');
+select ok((select bool_and(pg_get_functiondef(f::regprocedure) ~* 'pg_advisory_xact_lock')
+           from unnest(array['public.record_raffle_payout(uuid,text,jsonb,uuid)',
+                             'public.record_withdrawal_payout(uuid,text,jsonb,uuid)']) f),
+  'both record functions serialize on (chain, tx, log) with an advisory lock');
+select ok(pg_get_functiondef('public.record_withdrawal_payout(uuid,text,jsonb,uuid)'::regprocedure)
+            ~* 'direction = ''out''\s+and raffle_id is null'
+      and pg_get_functiondef('public.record_raffle_payout(uuid,text,jsonb,uuid)'::regprocedure)
+            ~* 'direction = ''out''\s+and withdrawal_id is null',
+  'each record''s link update leaves an op linked to the other kind alone');
 
 -- ===== 2. scan links =====
 select is(tests.zops(jsonb_build_array(
@@ -381,11 +405,25 @@ select is(tests.zcand(),
   current_setting('t.r1') || ':' || tests.zh(101) || ':0:USDC:' || tests.zw('a') || ':10000000:true,'
   || current_setting('t.r2') || ':' || tests.zh(102) || ':0:WETH:' || tests.zw('c') || ':10000000000000000:true',
   'raffle_payout_candidates lists both');
-select is(tests.zliab(100), 55000000::numeric, 'R2-F4d: at block 100 the linked R1 outflow counts as paid');
-select is(tests.zliab(101), 35000000::numeric, 'and at 101 the linked R2 outflow too (WETH at the snapshot price)');
+select is(tests.zliab(100), 80000000::numeric, 'R2-F4d: at block 100 the linked R1 outflow counts as paid');
+select is(tests.zliab(101), 60000000::numeric, 'and at 101 the linked R2 outflow too (WETH at the snapshot price)');
 select is(200000000 - tests.zliab(99), 170000000 - tests.zliab(101),
   'price invariant: NAV before the payouts (Safe 200) = NAV after them (Safe 170)');
-select is(tests.zvalue(), 135000000::numeric, 'the scan leaves the cached value alone');
+select is(tests.zvalue(), 110000000::numeric, 'the scan leaves the cached value alone');
+
+-- F4d-R4: a prize payout pasted before the scan sees it is never captured by a withdrawal candidate. R7 pays W 25 USDC,
+-- which also fits W's approved, unlinked 20 USDC withdrawal.
+select is(tests.zrec(current_setting('t.r7')::uuid,
+                     tests.zpay(151, 151, now() + interval '1 minute', tests.zw('w'), 'USDC', 25000000),
+                     current_setting('t.t')::uuid),
+  '{"status": "recorded"}'::jsonb, 'R7''s payout is recorded by paste before the scan');
+select is(tests.zops(jsonb_build_array(
+            tests.zop(151, 'USDC', 25000000, tests.zw('w'), now() + interval '1 minute', 151)), 151),
+  jsonb_build_object('inserted', 1, 'alerts', 0), 'the scan inserts it without an alert');
+select ok(tests.zopr(151) = current_setting('t.r7')::uuid and tests.zopw(151) is null,
+  'F4d-R4: it links R7 (its recorded payout), not W''s withdrawal candidate');
+select is(tests.zliab(150) - tests.zliab(151), 25000000::numeric,
+  'at block 151 only R7 leaves the liabilities: the withdrawal stays owed (no double count)');
 
 -- a withdrawal match takes precedence over a raffle match for the same outflow
 select is(tests.zops(jsonb_build_array(
@@ -433,7 +471,7 @@ select is((select payload from public.audit_log where action = 'raffle_payout_re
   'audit raffle_payout_recorded');
 select is(tests.zliab(139) - tests.zliab(140), 10000000::numeric,
   'R1 is a liability for a read at payout_block - 1 and not at payout_block');
-select is(tests.zvalue(), 135000000::numeric, 'recording leaves the cached value alone (Review Focus 4)');
+select is(tests.zvalue(), 110000000::numeric, 'recording leaves the cached value alone (Review Focus 4)');
 select is(tests.zops(jsonb_build_array(
             tests.zop(120, 'USDC', 10500000, tests.zw('a'), now() + interval '5 minutes', 140)), 140),
   jsonb_build_object('inserted', 1, 'alerts', 0), 'the scan links the recorded payout without an alert');
@@ -511,6 +549,7 @@ select is(tests.zrec(current_setting('t.r4')::uuid,
 select is(tests.zawait(),
   current_setting('t.r3') || ':' || tests.zh(104) || ':USDC:' || tests.zw('w') || ':5000000:103:0:true,'
   || current_setting('t.r1') || ':' || tests.zh(120) || ':USDC:' || tests.zw('a') || ':10000000:140:0:true,'
+  || current_setting('t.r7') || ':' || tests.zh(151) || ':USDC:' || tests.zw('w') || ':25000000:151:0:true,'
   || current_setting('t.r4') || ':' || tests.zh(160) || ':USDC:' || tests.zw('p') || ':2000000:160:0:true',
   'raffles_awaiting_finality lists the recorded payouts by block');
 select set_config('t.l140', tests.zliab(140)::text, true);
@@ -518,7 +557,7 @@ select is(tests.zfin(current_setting('t.r1')::uuid, 139), '{"status": "pending"}
 select is(tests.zfin(current_setting('t.r1')::uuid, 140), '{"status": "paid"}'::jsonb, 'at payout_block: paid');
 select is((select status || ':' || (paid_at = now()) from public.raffles where id = current_setting('t.r1')::uuid),
   'paid:true', 'R1 is paid with paid_at');
-select is(tests.zvalue(), 135000000::numeric, 'finality leaves the cached value alone');
+select is(tests.zvalue(), 110000000::numeric, 'finality leaves the cached value alone');
 select is(tests.zliab(140), current_setting('t.l140')::numeric, 'price invariant: the liabilities at 140 do not move at finality');
 select ok(exists (select 1 from public.audit_log where action = 'raffle_paid' and target_id = current_setting('t.r1')::uuid),
   'audit raffle_paid');
@@ -549,7 +588,7 @@ select ok(tests.zopr(102) is null and tests.zalerts(102) = tests.ztreas(),
   'its outflow is unlinked and alerts the treasurers once');
 select is(tests.zfeed('p', 102), tests.zh(102) || '|-|false', 'dao_operations shows it unexplained');
 select is(tests.zliab(101) - current_setting('t.l101')::numeric, 20000000::numeric, 'the WETH prize counts again');
-select is(tests.zvalue(), 135000000::numeric, 'revert leaves the cached value alone');
+select is(tests.zvalue(), 110000000::numeric, 'revert leaves the cached value alone');
 select ok(exists (select 1 from public.audit_log where action = 'raffle_payout_reverted'
                   and target_id = current_setting('t.r2')::uuid and payload ->> 'txHash' = tests.zh(102)),
   'audit raffle_payout_reverted');
@@ -563,6 +602,17 @@ select is(tests.zops(jsonb_build_array(tests.zop(170, 'USDC', 3000000, tests.zw(
   jsonb_build_object('inserted', 1, 'alerts', 0), 'a 3 USDC outflow to D is linked');
 select is(tests.zopr(170), current_setting('t.r5')::uuid, 'to R5 (R6 asks for 4 USDC)');
 select is(tests.zfeed('p', 170), '-|Premio de sorteo|true', 'a drawn raffle''s candidate is explained, hash hidden');
+-- F4d-R3: a real payment awaiting verification is not "Impagado"
+select is(tests.znotify(), 1, 'F4d-R3: notify_unpaid_raffles skips R5 (linked candidate) and notifies only R6');
+select ok(exists (select 1 from public.notifications n where n.kind = 'treasury_notice'
+                  and n.data = jsonb_build_object('event', 'raffle_unpaid', 'raffleId', current_setting('t.r6')))
+      and not exists (select 1 from public.notifications n where n.kind = 'treasury_notice'
+                      and n.data = jsonb_build_object('event', 'raffle_unpaid', 'raffleId', current_setting('t.r5'))),
+  'the notice is R6''s, none for R5');
+select is((tests.zcard('d', current_setting('t.r5')::uuid) ->> 'unpaid')::boolean, false,
+  'F4d-R3: dao_raffles does not flag R5 unpaid while its candidate is linked');
+select is(tests.ztrunpaid(current_setting('t.r5')::uuid), false, 'nor does treasury_raffles');
+select is((tests.zcard('d', current_setting('t.r6')::uuid) ->> 'unpaid')::boolean, true, 'R6 (no link) is unpaid');
 select is(tests.zcmiss(current_setting('t.r5')::uuid, 170, true), false, 'the first not-found sets the mark: false');
 select ok((select missing_since = now() from public.dao_safe_operations where id = tests.zopid(170)), 'the mark is set');
 select is(tests.zunlink(current_setting('t.r5')::uuid, 170, 'not_found'), false,
@@ -583,6 +633,10 @@ select throws_ok(format('select tests.zcmiss(%L, 104, true)', current_setting('t
   'and has no candidate mark');
 select throws_ok(format('select tests.zunlink(%L, 170, %L)', current_setting('t.r5'), 'gone'), 'invalid_input',
   'an unknown reason → invalid_input');
+-- minor 1: the largest prize the outflow covers (R6's 4), not the oldest draw (R5's 3)
+select is(tests.zops(jsonb_build_array(tests.zop(175, 'USDC', 4000000, tests.zw('d'), now(), 175)), 175),
+  jsonb_build_object('inserted', 1, 'alerts', 0), 'a 4 USDC outflow to D is linked');
+select is(tests.zopr(175), current_setting('t.r6')::uuid, 'to R6 (exact amount), not to R5 drawn an hour earlier');
 select is(tests.zrec(current_setting('t.r6')::uuid,
                      tests.zpay(180, 180, now(), tests.zw('d'), 'USDC', 4000000)),
   '{"status": "recorded"}'::jsonb, 'R6''s payout is recorded');
@@ -595,7 +649,7 @@ select throws_ok(format('select tests.zpmiss(%L, true)', current_setting('t.r5')
   'no payout mark without a recorded payout');
 
 -- ===== 9. unpaid =====
-select is(tests.znotify(), 1, 'notify_unpaid_raffles: R5 (drawn 15 days ago, no payout)');
+select is(tests.znotify(), 1, 'notify_unpaid_raffles: R5 on a later run, once its candidate is unlinked');
 select is((select count(*)::int from public.notifications n
            where n.kind = 'treasury_notice' and n.data = jsonb_build_object('event', 'raffle_unpaid',
                                                                              'raffleId', current_setting('t.r5'))),
@@ -614,7 +668,7 @@ select is(tests.zfeed('t', 120), tests.zh(120) || '|Premio de sorteo|true', 'a t
 select is(tests.zfeed('p', 104), '-|Premio de sorteo|true', 'R3''s recorded payout is explained too');
 select is(tests.zfeed('p', 103), '-|Retirada de un miembro|true', 'the withdrawal payout keeps its own note');
 select is(tests.zfeed('p', 101), tests.zh(101) || '|-|false', 'R1''s unlinked outflow is unexplained');
-select ok(not (tests.zunexp() && array[tests.zh(120), tests.zh(104), tests.zh(103)]),
+select ok(not (tests.zunexp() && array[tests.zh(120), tests.zh(104), tests.zh(103), tests.zh(151)]),
   'treasury_unexplained_outflows excludes the prize and withdrawal payouts');
 select ok(tests.zunexp() @> array[tests.zh(101), tests.zh(102), tests.zh(110), tests.zh(113), tests.zh(170)],
   'and lists the outflows that pay nothing');

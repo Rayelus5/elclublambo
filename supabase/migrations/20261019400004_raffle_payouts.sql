@@ -34,6 +34,18 @@
 --   'now' / 'epoch' / date-only literals), the block time may not be more than 120 s ahead of the database clock
 --   (draw_block_invalid), and the parent block time is stored (raffles.draw_parent_block_time, shown by raffle_detail).
 --
+-- Fix round 1 (Task 4 review):
+--   - Ruling F4d-R4 (departs from the plan's order): the scan matches the RECORDED payouts of both kinds first
+--     (withdrawal, then raffle, both for share) and only then the candidates (withdrawal precedence, then raffle). A
+--     prize payout pasted before the scan saw it is no longer captured by a withdrawal candidate (which cleared two
+--     liabilities with one transfer, then left the real payout unexplained, alerting and with a public hash).
+--   - Ruling F4d-R3: a drawn raffle with a linked candidate (a real payment awaiting verification) is not unpaid:
+--     notify_unpaid_raffles skips it (a later run notifies once it is unlinked) and so do the derived `unpaid` flags
+--     of _raffle_card and treasury_raffles (latest 20261019400003).
+--   - Minor 1: a raffle candidate is the largest prize the outflow covers (an exact amount is that one), then the
+--     oldest draw. Minor 2: both record functions take pg_advisory_xact_lock on (chain, tx, log). Minor 3: each
+--     record's link update skips an op linked to the other kind and then raises tx_already_used if one is.
+--
 -- Lock order: raffle row (for update) -> chain_config (for share) -> dao_state (for update) -> dao_positions;
 -- dao_safe_operations rows are locked after their raffle row. Exception: record_safe_operations takes chain_config (for
 -- share) first and then the matched raffle row (for update of r / for share of r), as for withdrawals (20261019300004).
@@ -129,6 +141,10 @@ begin
     raise exception 'safe_changed';
   end if;
 
+  -- fix round minor 2: a withdrawal and a prize pasted with the same (chain, tx, log) at once are serialized here (the
+  -- same key in record_withdrawal_payout), so the second one sees the first one's payout in the checks below
+  perform pg_advisory_xact_lock(hashtextextended(r.chain_id::text || ':' || v_hash || ':' || v_log::text, 0));
+
   if r.payout_tx_hash = v_hash and r.payout_log_index = v_log then
     return jsonb_build_object('status', 'already');
   end if;
@@ -183,6 +199,11 @@ begin
   set raffle_id = r.id
   where chain_id = r.chain_id and tx_hash = v_hash and log_index = v_log and asset = v_token and direction = 'out'
     and withdrawal_id is null;
+  -- fix round minor 3: a scan that linked this log to a withdrawal meanwhile wins; nothing of this call is kept
+  if exists (select 1 from public.dao_safe_operations o
+             where o.chain_id = r.chain_id and o.tx_hash = v_hash and o.log_index = v_log and o.withdrawal_id is not null) then
+    raise exception 'tx_already_used';
+  end if;
 
   -- F4c-R4: also when the cron recorded it (null actor)
   insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
@@ -462,6 +483,8 @@ begin
     select * from public.raffles x
     where x.chain_id = p_chain and x.status = 'drawn' and x.payout_tx_hash is null
       and x.drawn_at < now() - interval '14 days' and x.unpaid_notified_at is null
+      -- F4d-R3: a linked candidate is a real payment awaiting verification; once unlinked, a later run notifies
+      and not exists (select 1 from public.dao_safe_operations o where o.raffle_id = x.id)
     order by x.id
     for update
   loop
@@ -542,13 +565,23 @@ begin
       where l.chain_id = p_chain and l.tx_hash = v_hash and l.log_index = v_log limit 1;
     end if;
 
-    -- F4c: a USDC outflow that is a request's recorded payout, or that matches an approved request still unpaid
+    -- F4d-R4: the recorded payouts of both kinds first (a pasted payout is never captured by the other kind's
+    -- candidate), then the candidates, where a withdrawal takes precedence over a prize
     v_withdrawal := null;
-    if v_asset = 'USDC' and v_dir = 'out' and v_hash is not null then
-      select w.id into v_withdrawal from public.withdrawal_requests w
-      where w.chain_id = p_chain and w.payout_tx_hash = v_hash and w.payout_log_index = v_log
-      for share of w; -- carry C: a concurrent revert is waited for, then the payout is re-checked
-      if v_withdrawal is null and v_cp is not null then
+    v_raffle := null;
+    if v_dir = 'out' and v_hash is not null and v_asset in ('USDC', 'WETH') then
+      if v_asset = 'USDC' then
+        select w.id into v_withdrawal from public.withdrawal_requests w
+        where w.chain_id = p_chain and w.payout_tx_hash = v_hash and w.payout_log_index = v_log
+        for share of w; -- carry C: a concurrent revert is waited for, then the payout is re-checked
+      end if;
+      if v_withdrawal is null then
+        select r.id into v_raffle from public.raffles r
+        where r.chain_id = p_chain and r.prize_token = v_asset and r.payout_tx_hash = v_hash and r.payout_log_index = v_log
+        for share of r; -- a concurrent revert is waited for, then the payout is re-checked
+      end if;
+      -- F4c: a USDC outflow that matches an approved request still unpaid
+      if v_withdrawal is null and v_raffle is null and v_asset = 'USDC' and v_cp is not null then
         select w.id into v_withdrawal from public.withdrawal_requests w
         where w.chain_id = p_chain and w.status = 'approved' and w.payout_tx_hash is null
           and w.destination_address = v_cp and v_amount >= w.amount_usdc_locked
@@ -557,21 +590,14 @@ begin
         limit 1
         for update of w; -- waits for a concurrent record / reject, then re-checks (header: lock-order exception)
       end if;
-    end if;
-
-    -- F4d: with no withdrawal match (a withdrawal takes precedence), a prize outflow: a raffle's recorded payout, or a
-    -- drawn raffle without a payout whose winner it pays at least the prize, in the prize token, after the draw
-    v_raffle := null;
-    if v_withdrawal is null and v_asset in ('USDC', 'WETH') and v_dir = 'out' and v_hash is not null then
-      select r.id into v_raffle from public.raffles r
-      where r.chain_id = p_chain and r.prize_token = v_asset and r.payout_tx_hash = v_hash and r.payout_log_index = v_log
-      for share of r; -- a concurrent revert is waited for, then the payout is re-checked
-      if v_raffle is null and v_cp is not null then
+      -- F4d: a drawn raffle without a payout whose winner it pays at least the prize, in the prize token, after the
+      -- draw. The largest prize it covers (an exact amount is that one), then the oldest draw (fix round, minor 1).
+      if v_withdrawal is null and v_raffle is null and v_cp is not null then
         select r.id into v_raffle from public.raffles r
         where r.chain_id = p_chain and r.status = 'drawn' and r.payout_tx_hash is null
           and r.prize_token = v_asset and r.winner_address = v_cp and v_amount >= r.prize_amount
           and v_at >= r.drawn_at - interval '120 seconds'
-        order by r.drawn_at, r.id
+        order by r.prize_amount desc, r.drawn_at, r.id
         limit 1
         for update of r; -- waits for a concurrent record / revert, then re-checks (header: lock-order exception)
       end if;
@@ -662,6 +688,9 @@ begin
     raise exception 'safe_changed';
   end if;
 
+  -- fix round minor 2: serialized with record_raffle_payout on the same (chain, tx, log) key
+  perform pg_advisory_xact_lock(hashtextextended(w.chain_id::text || ':' || v_hash || ':' || v_log::text, 0));
+
   if w.payout_tx_hash = v_hash and w.payout_log_index = v_log then
     return jsonb_build_object('status', 'already');
   end if;
@@ -717,7 +746,13 @@ begin
   perform public._withdrawal_unlink_ops(w.id, v_hash, v_log);
   update public.dao_safe_operations
   set withdrawal_id = w.id
-  where chain_id = w.chain_id and tx_hash = v_hash and log_index = v_log and asset = 'USDC' and direction = 'out';
+  where chain_id = w.chain_id and tx_hash = v_hash and log_index = v_log and asset = 'USDC' and direction = 'out'
+    and raffle_id is null;
+  -- fix round minor 3: a scan that linked this log to a raffle meanwhile wins; nothing of this call is kept
+  if exists (select 1 from public.dao_safe_operations o
+             where o.chain_id = w.chain_id and o.tx_hash = v_hash and o.log_index = v_log and o.raffle_id is not null) then
+    raise exception 'tx_already_used';
+  end if;
 
   -- R4: also when the cron recorded it (null actor)
   insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
@@ -971,6 +1006,85 @@ begin
             where e.raffle_id = r.id
             window w as (order by e.position nulls last, e.entered_at, e.member_id
                          rows between unbounded preceding and current row)) l));
+end;
+$$;
+
+-- ===== _raffle_card (latest 20261019400003): F4d-R3, not unpaid while a payment awaits verification =====
+create or replace function public._raffle_card(r public.raffles, p_me uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'id', r.id,
+    'title', r.title,
+    'prizeToken', r.prize_token,
+    'prizeAmount', r.prize_amount::text,
+    'mode', r.mode,
+    'closesAt', r.closes_at,
+    'status', r.status,
+    'entries', (select count(*)::int from public.raffle_entries e where e.raffle_id = r.id),
+    'iEntered', exists (select 1 from public.raffle_entries e where e.raffle_id = r.id and e.member_id = p_me),
+    'myWeight', (select e.weight::text from public.raffle_entries e where e.raffle_id = r.id and e.member_id = p_me),
+    'totalWeight', r.total_weight::text,
+    'commit', r.seed_commit,
+    'seedReveal', r.seed_reveal,
+    'drawBlockNumber', r.draw_block_number::text,
+    'winnerLabel', case when r.winner_member_id is null then null
+                        when r.winner_member_id = p_me
+                             or (select m.dao_ranking_visible from public.members m where m.id = r.winner_member_id)
+                          then public._member_label(r.winner_member_id)
+                        else 'Anónimo' end,
+    'iWon', coalesce(r.winner_member_id = p_me, false),
+    'unpaid', coalesce(r.status = 'drawn' and r.payout_tx_hash is null and r.drawn_at < now() - interval '14 days'
+                       and not exists (select 1 from public.dao_safe_operations o where o.raffle_id = r.id), false),
+    'paidLate', coalesce(r.status = 'paid' and r.payout_block_time > r.drawn_at + interval '14 days', false),
+    'payoutRecorded', r.payout_tx_hash is not null,
+    'cancelReason', r.cancel_reason,
+    'createdAt', r.created_at)
+$$;
+
+-- ===== treasury_raffles (latest 20261019400003): F4d-R3, the same unpaid rule =====
+create or replace function public.treasury_raffles()
+returns table (id uuid, title text, status text, prize_token text, prize_amount text, prize_value_usd6 text, mode text,
+               closes_at timestamptz, entries int, total_weight text, winner_member_id uuid, winner_label text,
+               winner_address text, drawn_at timestamptz, unpaid boolean, payout_tx_hash text,
+               payout_recorded_at timestamptz, paid_at timestamptz, cancel_reason text, created_by_label text,
+               created_at timestamptz)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+  v_chain int;
+begin
+  if public.current_member_id() is null or not public.has_global_perm(256) then
+    raise exception 'forbidden';
+  end if;
+  select (c.value #>> '{}')::int into v_chain from public.app_config c where c.key = 'active_chain_id';
+
+  return query
+  select r.id, r.title, r.status, r.prize_token, r.prize_amount::text, r.prize_value_usd6::text, r.mode, r.closes_at,
+         (select count(*)::int from public.raffle_entries e where e.raffle_id = r.id),
+         r.total_weight::text,
+         r.winner_member_id,
+         public._member_label(r.winner_member_id), -- the real label: the treasurer pays this member
+         r.winner_address,
+         r.drawn_at,
+         coalesce(r.status = 'drawn' and r.payout_tx_hash is null and r.drawn_at < now() - interval '14 days'
+                  and not exists (select 1 from public.dao_safe_operations o where o.raffle_id = r.id), false),
+         r.payout_tx_hash, r.payout_recorded_at, r.paid_at, r.cancel_reason,
+         public._member_label(r.created_by),
+         r.created_at
+  from public.raffles r
+  where r.chain_id = v_chain
+    and (r.status in ('open', 'closed', 'drawn')
+         or coalesce(r.paid_at, r.cancelled_at, r.closed_at) >= now() - interval '30 days')
+  order by (r.status in ('open', 'closed', 'drawn')) desc, r.created_at desc, r.id;
 end;
 $$;
 
