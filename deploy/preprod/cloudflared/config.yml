@@ -1,0 +1,16 @@
+# Locally-managed Cloudflare Tunnel for preproduction (F5-R7/R8). DNS: pre.elclub.party and pre-api.elclub.party are
+# CNAMEs to this tunnel. No originRequest.httpHostHeader: the tunnel forwards the browser's Host (pre.elclub.party),
+# which Next's server-action CSRF check compares with Origin (security review S14).
+# pre-api only reaches Kong for the four public APIs; Studio and everything else answer 404 (Studio only via SSH
+# port-forward to 127.0.0.1:8000 on the host).
+tunnel: elclub-pre
+credentials-file: /etc/cloudflared/credentials.json
+ingress:
+  - hostname: pre.elclub.party
+    service: http://web:3000
+  - hostname: pre-api.elclub.party
+    path: ^/(auth|rest|realtime|storage)/v1/
+    service: http://kong:8000
+  - hostname: pre-api.elclub.party
+    service: http_status:404
+  - service: http_status:404

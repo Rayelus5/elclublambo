@@ -1,0 +1,24 @@
+# Build context of the preproduction image (F5-R7). Secrets never enter it: no env file is copied.
+node_modules
+**/node_modules
+.next
+.git
+.env*
+e2e
+tests/*
+# src/lib/members/handle.ts imports tests/fixtures/handles.json (shared with the SQL tests).
+!tests/fixtures
+playwright-report
+test-results
+.claude
+.superpowers
+.vercel
+docs
+deploy
+supabase/.temp
+coverage
+*.tsbuildinfo
+next-env.d.ts
+playwright.config.ts
+vitest.config.ts
+supabase

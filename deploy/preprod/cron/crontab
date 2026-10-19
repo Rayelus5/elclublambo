@@ -1,0 +1,3 @@
+# busybox crond (UTC). The bearer header comes from /etc/elclub-cron.header (0600, written at container start), so the
+# secret is never on a command line. Only the outcome is logged: "cron dao ok" or curl's error with the HTTP status.
+0 * * * * { curl -fsS -o /dev/null --max-time 330 -H @/etc/elclub-cron.header http://web:3000/api/cron/dao && echo "cron dao ok"; } > /proc/1/fd/1 2>&1

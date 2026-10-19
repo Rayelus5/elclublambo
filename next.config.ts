@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 import { headerEnvFromProcess, securityHeaders } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Standalone server only for the preproduction Docker image (F5-R7); Vercel and local dev keep the default output.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   cacheComponents: true,
   partialPrefetching: true,
   async headers() {
