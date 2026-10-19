@@ -179,12 +179,12 @@ test("5. a non-admin gets 404 on the economy settings and forbidden from the RPC
   expect(error?.message).toContain("forbidden");
 });
 
-test("6. the guide lists 6 sections and the palette offers them", async () => {
+test("6. the guide lists 7 sections and the palette offers them", async () => {
   const p = memberPage;
   await p.goto("/guia");
   await expect(p.getByRole("heading", { level: 1, name: "Guía" })).toBeVisible();
-  // propinas, bounties, dao, fondo (F4a), candados, redes
-  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(6);
+  // propinas, bounties, dao, fondo (F4a), encuestas (F4e), candados, redes
+  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(7);
 
   await p.goto("/");
   await p.waitForLoadState("networkidle");
