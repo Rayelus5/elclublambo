@@ -20,6 +20,7 @@ import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { UnreadProvider } from "@/lib/chat/unread";
 import { walletFromUser } from "@/lib/auth/wallet";
 import { reverifyMyPendingIntents } from "@/lib/payments/confirm";
+import { shouldRecheckMember } from "@/lib/payments/recheck-throttle";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -92,9 +93,12 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
 
   // Interrupted flow (tab closed after signing): re-verify this member's pending tips off the response path. The
   // member id is passed in because a Server Component cannot read request APIs inside after().
-  after(() => reverifyMyPendingIntents(memberId));
-  // Same for the member's own donations waiting for finality (at most 5 per request; errors are swallowed).
-  after(() => settlePendingDonations(undefined, { memberId, limit: 5 }).catch((e) => console.error("[treasury] layout settle failed", safeError(e))));
+  // Same for the member's own donations waiting for finality (at most 5 per run; errors are swallowed). Both cost RPC
+  // reads, so at most once per member per throttle window (F5 S2): reload spam cannot multiply the spend.
+  if (shouldRecheckMember(memberId)) {
+    after(() => reverifyMyPendingIntents(memberId));
+    after(() => settlePendingDonations(undefined, { memberId, limit: 5 }).catch((e) => console.error("[treasury] layout settle failed", safeError(e))));
+  }
 
   // First login: the welcome (with its mandatory @handle) comes first. The proxy enforces this on every page request
   // (layouts do not re-run on client navigations); this is the defence in depth. Fails closed: no readable row means

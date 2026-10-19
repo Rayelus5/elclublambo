@@ -232,7 +232,7 @@ test("3. replay: the first tip's hashes on a new intent are refused with tx_alre
   expect(fee.error).toBeNull();
   expect(main.error).toBeNull();
 
-  // The forum layout re-verifies the member's attached intents after every response.
+  // The forum layout re-verifies the member's attached intents after a response (at most once per member per 30 s, F5 S2).
   const db = service();
   await expect
     .poll(
