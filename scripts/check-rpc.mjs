@@ -1,9 +1,25 @@
 // RPC readiness checker (F5-R9). Run before pointing the app at an RPC:
-//   node --env-file=.env.local scripts/check-rpc.mjs --chain 59144
+//   pnpm check:rpc --chain 59144      (reads .env.local, then .env, from the current folder; real env vars win)
 // Checks the chain id, archive state (eth_call ~1M blocks back) and eth_getLogs over a 2001-block range
 // (the app scans in 2000-block chunks). The RPC URL holds the provider key, so it is never printed:
 // only `origin/***`, and every output line passes through `sanitize`.
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+
+/**
+ * Loads `.env.local`, then `.env`, from `cwd` when they exist. `process.loadEnvFile` never overrides a variable that is
+ * already set, so the shell's own env wins and `.env.local` wins over `.env`.
+ * @param {string} cwd
+ * @param {(p: string) => boolean} [exists]
+ * @param {(p: string) => void} [load]
+ */
+export function loadLocalEnv(cwd, exists = existsSync, load = (p) => process.loadEnvFile(p)) {
+  for (const name of [".env.local", ".env"]) {
+    const p = join(cwd, name);
+    if (exists(p)) load(p);
+  }
+}
 
 /** Same addresses as `NETWORKS[...].usdc` in src/lib/economy/networks.ts (a unit test pins them equal). */
 export const CHAINS = {
@@ -153,6 +169,7 @@ export async function checkRpc(url, chainId, fetchImpl = fetch) {
 }
 
 export async function main() {
+  loadLocalEnv(process.cwd());
   let chainId;
   try {
     chainId = resolveChain(process.argv.slice(2), process.env);

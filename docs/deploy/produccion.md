@@ -85,9 +85,9 @@ Dos reglas:
 
 1. Abre una terminal en la carpeta del proyecto.
 2. Comprueba la RPC. Tienes dos formas:
-   - Si tu `.env.local` ya tiene `LINEA_RPC_URL` con la clave de mainnet:
+   - Si tu `.env.local` (o `.env`) ya tiene `LINEA_RPC_URL` con la clave de mainnet, el script la lee solo:
      ```
-     node --env-file=.env.local scripts/check-rpc.mjs --chain 59144
+     pnpm check:rpc --chain 59144
      ```
    - Si no, en PowerShell, pidiendo la clave sin que se escriba en pantalla ni en el historial (pega la URL
      completa cuando te la pida):

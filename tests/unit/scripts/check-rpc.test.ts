@@ -1,7 +1,20 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { NETWORKS } from "@/lib/economy/networks";
-import { CHAINS, checkRpc, redactUrl, resolveChain, rpc } from "../../../scripts/check-rpc.mjs";
+import { CHAINS, checkRpc, loadLocalEnv, redactUrl, resolveChain, rpc } from "../../../scripts/check-rpc.mjs";
+
+describe("loadLocalEnv", () => {
+  it("loads .env.local then .env when present, in that order (existing vars are never overridden by loadEnvFile)", () => {
+    const loaded: string[] = [];
+    loadLocalEnv("/repo", (p: string) => p.endsWith(".env.local") || p.endsWith(".env"), (p: string) => loaded.push(p));
+    expect(loaded.map((p) => p.replace(/\\/g, "/"))).toEqual(["/repo/.env.local", "/repo/.env"]);
+  });
+  it("skips missing files", () => {
+    const loaded: string[] = [];
+    loadLocalEnv("/repo", (p: string) => p.endsWith(".env"), (p: string) => loaded.push(p));
+    expect(loaded.map((p) => p.replace(/\\/g, "/"))).toEqual(["/repo/.env"]);
+  });
+});
 
 const URL_ = "https://linea-mainnet.infura.io/v3/SECRETKEY123";
 type Handler = (params: unknown[]) => unknown;
