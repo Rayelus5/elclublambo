@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import "server-only";
 import type { Address } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
@@ -78,7 +79,7 @@ export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
       safe,
     };
   } catch (e) {
-    console.error("[treasury] valuation failed", chain, e instanceof Error ? e.message : e);
+    console.error("[treasury] valuation failed", chain, safeError(e));
     return null;
   }
 }

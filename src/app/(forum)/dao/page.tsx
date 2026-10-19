@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -43,7 +44,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
     getOperations(supabase, 30),
     // A raffle read that fails must not take the whole page down.
     getDaoRaffles(supabase, 20).catch((e) => {
-      console.error("[treasury] dao raffles read failed", e);
+      console.error("[treasury] dao raffles read failed", safeError(e));
       return [];
     }),
     memberId ? supabase.from("members").select("dao_ranking_visible").eq("id", memberId).maybeSingle<{ dao_ranking_visible: boolean }>() : null,
@@ -59,7 +60,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   // donor's next visit; a credit then reaches every open /dao through DaoLive.
   const chainId = overview.chainId;
   if (shouldSettleFromView()) {
-    after(() => settlePendingDonations(chainId, { limit: 5 }).catch((e) => console.error("[treasury] dao page settle failed", e)));
+    after(() => settlePendingDonations(chainId, { limit: 5 }).catch((e) => console.error("[treasury] dao page settle failed", safeError(e))));
   }
 
   return (

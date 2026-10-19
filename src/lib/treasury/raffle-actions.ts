@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
@@ -117,7 +118,7 @@ export async function markRafflePaidAction(id: string, txHash: string): Promise<
     .eq("id", id)
     .maybeSingle<RaffleRow>();
   if (readError) {
-    console.error("[treasury] raffle read failed", id, readError.message);
+    console.error("[treasury] raffle read failed", id, safeError(readError.message));
     return fail("unknown");
   }
   if (!raffle) return fail("not_found");

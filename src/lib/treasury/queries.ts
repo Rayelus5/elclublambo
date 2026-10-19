@@ -1,6 +1,7 @@
 // DAO reads. Every function takes a Supabase client and goes through the Task 1 RPCs, which enforce membership and the
 // ranking privacy (a hidden donor comes back as "Anónimo" with no member id and no tx hash). Share and USDC amounts
 // are numeric(78,0): the RPCs return the large ones as text; the rest are converted here without float rounding.
+import { safeError } from "@/lib/security/redact";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import type { FundAsset } from "@/lib/treasury/format";
@@ -213,7 +214,7 @@ export type ScanGap = { runs: number; since: string };
 export async function getScanGap(supabase: SupabaseClient): Promise<ScanGap | null> {
   const { data, error } = await supabase.rpc("treasury_scan_gap");
   if (error) {
-    console.error("[treasury] scan gap read failed", error.message);
+    console.error("[treasury] scan gap read failed", safeError(error.message));
     return null;
   }
   const v = data as { runs?: unknown; since?: unknown } | null;

@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { docToPlainText, sanitizeDoc } from "@/lib/chat/content";
 import type { MentionSearchResult } from "@/lib/chat/mentions";
 import { rpcErrorCode } from "@/lib/errors";
@@ -115,10 +116,10 @@ export async function deleteMessageAction(id: string): Promise<ActionResult> {
         const { error: storageError } = await bucket.remove(paths.slice(i, i + 1000));
         if (storageError) {
           const code = (storageError as { statusCode?: string }).statusCode ?? "unknown";
-          console.error(`deleteMessageAction: storage cleanup failed (${code}): ${storageError.message}`);
+          console.error(`deleteMessageAction: storage cleanup failed (${code}): ${safeError(storageError.message)}`);
         }
       } catch (e) {
-        console.error(`deleteMessageAction: storage cleanup threw: ${e instanceof Error ? e.message : "unknown"}`);
+        console.error(`deleteMessageAction: storage cleanup threw: ${safeError(e)}`);
       }
     }
   }

@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
@@ -66,13 +67,13 @@ async function handle(request: Request) {
   try {
     polls = await finalizeDuePolls();
   } catch (e) {
-    console.error("[cron/dao] polls failed", e);
+    console.error("[cron/dao] polls failed", safeError(e));
     polls = "failed";
   }
 
   const { data, error } = await createAdminClient().from("chain_config").select("chain_id, safe_address");
   if (error) {
-    console.error("[cron/dao] chain_config read failed", error.message);
+    console.error("[cron/dao] chain_config read failed", safeError(error.message));
     return Response.json({ error: "chain_config_unavailable", polls }, { status: 500 });
   }
   const withSafe = new Set(
@@ -93,16 +94,16 @@ async function handle(request: Request) {
           if (at) scannedThrough.set(chainId, at);
         }
       } catch (e) {
-        console.error("[cron/dao] scan failed", chainId, e);
+        console.error("[cron/dao] scan failed", chainId, safeError(e));
         report.scan = "failed";
       }
       // detect, then finalize; a failing half does not skip the other, and either failing reports the step as failed
       const detected = await detectWithdrawalPayouts(chainId).catch((e: unknown) => {
-        console.error("[cron/dao] payout detection failed", chainId, e);
+        console.error("[cron/dao] payout detection failed", chainId, safeError(e));
         return null;
       });
       const finalized = await finalizeWithdrawalPayouts(chainId).catch((e: unknown) => {
-        console.error("[cron/dao] payout finalization failed", chainId, e);
+        console.error("[cron/dao] payout finalization failed", chainId, safeError(e));
         return null;
       });
       report.payouts =
@@ -114,14 +115,14 @@ async function handle(request: Request) {
       try {
         report.raffles = await runRaffleSteps(chainId);
       } catch (e) {
-        console.error("[cron/dao] raffles failed", chainId, e);
+        console.error("[cron/dao] raffles failed", chainId, safeError(e));
         report.raffles = "failed";
       }
       // F4c-R7 (c): only after the scan, so a payout already mined is linked and the snapshot does not dip by it
       try {
         report.snapshot = await takeSnapshot(chainId);
       } catch (e) {
-        console.error("[cron/dao] snapshot failed", chainId, e);
+        console.error("[cron/dao] snapshot failed", chainId, safeError(e));
         report.snapshot = "failed";
       }
     } else {
@@ -130,7 +131,7 @@ async function handle(request: Request) {
     try {
       Object.assign(report, await settlePendingDonations(chainId));
     } catch (e) {
-      console.error("[cron/dao] settle failed", chainId, e);
+      console.error("[cron/dao] settle failed", chainId, safeError(e));
       report.error = "settle_failed";
     }
     chains.push(report);
@@ -146,7 +147,7 @@ async function handle(request: Request) {
     try {
       report.expiredApprovals = await expireWithdrawalApprovals(report.chainId, at);
     } catch (e) {
-      console.error("[cron/dao] approval expiry failed", report.chainId, e);
+      console.error("[cron/dao] approval expiry failed", report.chainId, safeError(e));
       report.expiredApprovals = "failed";
     }
   }

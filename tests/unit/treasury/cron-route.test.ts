@@ -284,4 +284,18 @@ describe("POST /api/cron/dao", () => {
     const body = await (await POST(req("Bearer s3cret-value"))).json();
     expect(body.chains[1]).toMatchObject({ snapshot: "unavailable", scan: null });
   });
+
+  it("F5 S1: a viem RPC error is logged without the RPC key (URL reduced to origin/***)", async () => {
+    const { HttpRequestError } = await import("viem");
+    const url = "https://linea-mainnet.infura.io/v3/abc123KEY";
+    scan.mockRejectedValue(new HttpRequestError({ url, body: { method: "eth_getLogs" } }));
+    detect.mockRejectedValue(new Error("wrapped", { cause: new HttpRequestError({ url, body: {} }) }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    await POST(req("Bearer s3cret-value"));
+    const logged = JSON.stringify(err.mock.calls, (_k, v) => (v instanceof Error ? `${v.message} ${String((v as { cause?: unknown }).cause)}` : v));
+    expect(err).toHaveBeenCalled();
+    expect(logged).not.toContain("abc123KEY");
+    expect(logged).toContain("https://linea-mainnet.infura.io/***");
+    err.mockRestore();
+  });
 });

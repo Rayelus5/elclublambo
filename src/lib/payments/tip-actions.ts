@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { parseAmount, type Token } from "@/lib/payments/amounts";
 import { confirmIntent, type ConfirmResult } from "@/lib/payments/confirm";
@@ -81,7 +82,7 @@ export async function verifyIntentAction(
   // F3-R3: a read error is transient (pending); not_found only when the read succeeded with no row.
   const { data: own, error } = await supabase.from("payment_intents").select("id").eq("id", intentId).maybeSingle<{ id: string }>();
   if (error) {
-    console.error("[payments] intent ownership read failed", intentId, error.message);
+    console.error("[payments] intent ownership read failed", intentId, safeError(error.message));
     return { status: "pending" };
   }
   if (!own) return bad("not_found");

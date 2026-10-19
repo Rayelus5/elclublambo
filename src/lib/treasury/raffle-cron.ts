@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import "server-only";
 import type { Address, Hex, PublicClient } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
@@ -129,7 +130,7 @@ async function finalizedBlock(chain: ChainId): Promise<bigint | null> {
     const block = await chainClient(chain).getBlock({ blockTag: "finalized" });
     return block.number ?? null;
   } catch (e) {
-    console.error("[treasury] finalized block unavailable", chain, e);
+    console.error("[treasury] finalized block unavailable", chain, safeError(e));
     return null;
   }
 }
@@ -183,7 +184,7 @@ export async function drawDueRaffles(
         p_block: { number: b.number.toString(), hash: b.hash, timestamp: iso(b.timestamp), parentTimestamp: iso(b.parentTimestamp) },
       });
       if (drawError) {
-        console.error("[treasury] draw_raffle failed", row.raffle_id, drawError.message);
+        console.error("[treasury] draw_raffle failed", row.raffle_id, safeError(drawError.message));
         const code = rpcErrorCode(drawError);
         result.refused.push({ raffleId: row.raffle_id, code });
         if (code !== "retry") await recordRefusal(db, row.raffle_id, code);
@@ -192,7 +193,7 @@ export async function drawDueRaffles(
       }
       if ((res as { status?: unknown } | null)?.status === "drawn") result.drawn++;
     } catch (e) {
-      console.error("[treasury] raffle draw failed", row.raffle_id, e);
+      console.error("[treasury] raffle draw failed", row.raffle_id, safeError(e));
       result.refused.push({ raffleId: row.raffle_id, code: "draw_failed" });
       result.pending++;
     }
@@ -203,7 +204,7 @@ export async function drawDueRaffles(
 /** Stores a refused draw for the treasurer's «Avisos»; a failure is logged (the cron report still lists it). */
 async function recordRefusal(db: Db, raffle: string, code: string): Promise<void> {
   const { error } = await db.rpc("record_raffle_draw_refusal", { p_raffle: raffle, p_code: code });
-  if (error) console.error("[treasury] record_raffle_draw_refusal failed", raffle, error.message);
+  if (error) console.error("[treasury] record_raffle_draw_refusal failed", raffle, safeError(error.message));
 }
 
 type CandidateRow = {
@@ -223,7 +224,7 @@ async function unlink(db: Db, c: CandidateRow, reason: "failed" | "not_found"): 
     p_log_index: c.log_index,
     p_reason: reason,
   });
-  if (error) console.error("[treasury] unlink_raffle_candidate failed", c.raffle_id, error.message);
+  if (error) console.error("[treasury] unlink_raffle_candidate failed", c.raffle_id, safeError(error.message));
 }
 
 /** The candidate's not-found mark: `missing` sets it and answers whether it is 30 minutes old; `!missing` clears it. */
@@ -235,7 +236,7 @@ async function candidateMissing(db: Db, c: CandidateRow, missing: boolean): Prom
     p_missing: missing,
   });
   if (error) {
-    console.error("[treasury] raffle_candidate_missing failed", c.raffle_id, error.message);
+    console.error("[treasury] raffle_candidate_missing failed", c.raffle_id, safeError(error.message));
     return false;
   }
   return data === true;
@@ -283,14 +284,14 @@ export async function detectRafflePayouts(chain: ChainId): Promise<{ recorded: n
         p_actor: null,
       });
       if (recError) {
-        console.error("[treasury] record_raffle_payout failed", c.raffle_id, recError.message);
+        console.error("[treasury] record_raffle_payout failed", c.raffle_id, safeError(recError.message));
         if (RECORD_PERMANENT.has(rpcErrorCode(recError))) await unlink(db, c, "failed");
         continue;
       }
       done.add(c.raffle_id);
       if ((res as { status?: unknown } | null)?.status === "recorded") recorded++;
     } catch (e) {
-      console.error("[treasury] prize payout detection failed", c.raffle_id, e);
+      console.error("[treasury] prize payout detection failed", c.raffle_id, safeError(e));
     }
   }
   return { recorded };
@@ -311,7 +312,7 @@ type AwaitingRow = {
 async function payoutMissing(db: Db, raffle: string, missing: boolean): Promise<boolean> {
   const { data, error } = await db.rpc("raffle_payout_missing", { p_raffle: raffle, p_missing: missing });
   if (error) {
-    console.error("[treasury] raffle_payout_missing failed", raffle, error.message);
+    console.error("[treasury] raffle_payout_missing failed", raffle, safeError(error.message));
     return false;
   }
   return data === true;
@@ -340,7 +341,7 @@ export async function finalizeRafflePayouts(chain: ChainId): Promise<{ paid: num
     try {
       if (fin !== null && isPrizeToken(row.token) && BigInt(row.payout_block) <= fin) outcome = await finalizeRow(db, chain, safe, row, fin);
     } catch (e) {
-      console.error("[treasury] prize payout finalization failed", row.raffle_id, e);
+      console.error("[treasury] prize payout finalization failed", row.raffle_id, safeError(e));
     }
     result[outcome]++;
   }
@@ -361,7 +362,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
   const revert = async (): Promise<"reverted" | "pending"> => {
     const { error } = await db.rpc("revert_raffle_payout", { p_raffle: row.raffle_id });
     if (error) {
-      console.error("[treasury] revert_raffle_payout failed", row.raffle_id, error.message);
+      console.error("[treasury] revert_raffle_payout failed", row.raffle_id, safeError(error.message));
       return "pending";
     }
     return "reverted";
@@ -388,7 +389,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
     p_finalized_block: fin.toString(),
   });
   if (error) {
-    console.error("[treasury] finalize_raffle_payout failed", row.raffle_id, error.message);
+    console.error("[treasury] finalize_raffle_payout failed", row.raffle_id, safeError(error.message));
     return "pending";
   }
   const status = (data as { status?: unknown } | null)?.status;
@@ -411,7 +412,7 @@ export async function runRaffleSteps(chain: ChainId): Promise<RaffleReport> {
   const failed: RaffleStep[] = [];
   const step = <T>(name: RaffleStep, run: () => Promise<T>) =>
     run().catch((e: unknown) => {
-      console.error(`[treasury] raffle ${name} failed`, chain, e);
+      console.error(`[treasury] raffle ${name} failed`, chain, safeError(e));
       failed.push(name);
       return null;
     });

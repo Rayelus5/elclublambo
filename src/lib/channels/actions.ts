@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
@@ -227,10 +228,10 @@ export async function deleteChannelAction(id: string): Promise<{ error?: string 
         const { error: storageError } = await bucket.remove(paths.slice(i, i + 1000));
         if (storageError) {
           const code = (storageError as { statusCode?: string }).statusCode ?? "unknown";
-          console.error(`deleteChannelAction: storage cleanup failed (${code}): ${storageError.message}`);
+          console.error(`deleteChannelAction: storage cleanup failed (${code}): ${safeError(storageError.message)}`);
         }
       } catch (e) {
-        console.error(`deleteChannelAction: storage cleanup threw: ${e instanceof Error ? e.message : "unknown"}`);
+        console.error(`deleteChannelAction: storage cleanup threw: ${safeError(e)}`);
       }
     }
   }

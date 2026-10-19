@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import "server-only";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
@@ -86,7 +87,7 @@ export async function scanSafeOperations(
     // continuity chain (a failed read leaves them unset: the next run reads them at its start − 1).
     ethCursor = await newestSnapshotBlock(db, chain);
     balances = await balancesAt(client, safe, tokens, toBlock).catch((e: unknown) => {
-      console.warn("[treasury] first-scan balance read failed", chain, e);
+      console.warn("[treasury] first-scan balance read failed", chain, safeError(e));
       return null;
     });
   } else {
@@ -105,7 +106,7 @@ export async function scanSafeOperations(
         // hit a transient gap and must not raise it)
         if (opts.cron) {
           const { error: gapError } = await db.rpc("record_scan_gap", { p_chain: chain });
-          if (gapError) console.error("[treasury] record_scan_gap failed", chain, gapError.message);
+          if (gapError) console.error("[treasury] record_scan_gap failed", chain, safeError(gapError.message));
         }
         return "scan_gap";
       }
@@ -171,14 +172,14 @@ async function continuity(
   try {
     await client.getBlock({ blockNumber: toBlock });
   } catch (e) {
-    console.error("[treasury] scan: toBlock unavailable", chain, toBlock, e);
+    console.error("[treasury] scan: toBlock unavailable", chain, toBlock, safeError(e));
     return "gap";
   }
   let after: Balances;
   try {
     after = await balancesAt(client, safe, tokens, toBlock);
   } catch (e) {
-    console.error("[treasury] scan: balances at toBlock unavailable", chain, toBlock, e);
+    console.error("[treasury] scan: balances at toBlock unavailable", chain, toBlock, safeError(e));
     return "gap";
   }
 
@@ -212,7 +213,7 @@ async function continuity(
       try {
         before = await readBefore(address);
       } catch (e) {
-        console.warn("[treasury] scan: no balance at the cursor (non-archive node?): this run is not checked for", asset, chain, e);
+        console.warn("[treasury] scan: no balance at the cursor (non-archive node?): this run is not checked for", asset, chain, safeError(e));
         continue;
       }
     }

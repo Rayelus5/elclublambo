@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -63,7 +64,7 @@ async function TreasuryContent() {
     getTreasuryRaffles(supabase).then(
       (rows) => ({ rows, failed: false }),
       (e: unknown) => {
-        console.error("[treasury] panel raffles read failed", e);
+        console.error("[treasury] panel raffles read failed", safeError(e));
         return { rows: [] as TreasuryRaffle[], failed: true };
       },
     ),
@@ -82,7 +83,7 @@ async function TreasuryContent() {
       safeUsdc = assets.usdc;
       safeWeth = assets.weth;
     } catch (e) {
-      console.error("[treasury] panel Safe read failed", chainId, e);
+      console.error("[treasury] panel Safe read failed", chainId, safeError(e));
     }
   }
   if (safeUsdc === null && overview.composition) {
@@ -99,7 +100,7 @@ async function TreasuryContent() {
   if (ids.length > 0) {
     const { data, error } = await supabase.from("members").select("id, status").in("id", ids);
     if (error) {
-      console.error("[treasury] panel banned lookup failed", error.message);
+      console.error("[treasury] panel banned lookup failed", safeError(error.message));
       bannedCheckFailed = true;
     } else {
       bannedIds = ((data ?? []) as { id: string; status: string }[]).filter((m) => m.status === "banned").map((m) => m.id);

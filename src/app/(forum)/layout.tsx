@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -93,7 +94,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   // member id is passed in because a Server Component cannot read request APIs inside after().
   after(() => reverifyMyPendingIntents(memberId));
   // Same for the member's own donations waiting for finality (at most 5 per request; errors are swallowed).
-  after(() => settlePendingDonations(undefined, { memberId, limit: 5 }).catch((e) => console.error("[treasury] layout settle failed", e)));
+  after(() => settlePendingDonations(undefined, { memberId, limit: 5 }).catch((e) => console.error("[treasury] layout settle failed", safeError(e))));
 
   // First login: the welcome (with its mandatory @handle) comes first. The proxy enforces this on every page request
   // (layouts do not re-run on client navigations); this is the defence in depth. Fails closed: no readable row means

@@ -1,5 +1,6 @@
 "use server";
 
+import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
@@ -44,7 +45,7 @@ async function readRequest(db: Db, id: string): Promise<RequestRow | Fail> {
     .eq("id", id)
     .maybeSingle<RequestRow>();
   if (error) {
-    console.error("[treasury] withdrawal request read failed", id, error.message);
+    console.error("[treasury] withdrawal request read failed", id, safeError(error.message));
     return fail("unknown");
   }
   return data ?? fail("not_found");
@@ -57,7 +58,7 @@ async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
   try {
     return await valueSafe(chain);
   } catch (e) {
-    console.error("[treasury] valuation failed", chain, e);
+    console.error("[treasury] valuation failed", chain, safeError(e));
     return null;
   }
 }
@@ -71,7 +72,7 @@ async function catchUpScan(chain: ChainId): Promise<void> {
   try {
     if ((await valuationCap(chain)).capped) await scanSafeOperations(chain);
   } catch (e) {
-    console.error("[treasury] scan before valuation failed", chain, e);
+    console.error("[treasury] scan before valuation failed", chain, safeError(e));
   }
 }
 
@@ -141,7 +142,7 @@ export async function quoteWithdrawalAction(id: string): Promise<
     .eq("id", req.member_id)
     .maybeSingle<{ wallet_address: string }>();
   if (memberError || !member?.wallet_address) {
-    console.error("[treasury] member wallet read failed", req.member_id, memberError?.message);
+    console.error("[treasury] member wallet read failed", req.member_id, safeError(memberError?.message));
     return fail("unknown");
   }
   const destination = member.wallet_address.toLowerCase();

@@ -1,3 +1,4 @@
+import { safeError } from "@/lib/security/redact";
 import "server-only";
 import { erc20Abi, isAddress, type Address } from "viem";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
@@ -98,7 +99,7 @@ async function chainlinkPrice(chain: ChainId, nowSec: number): Promise<bigint | 
     const priceE8 = rescaleToE8(answer, Number(decimals));
     return priceE8 > 0n ? priceE8 : null;
   } catch (e) {
-    console.error("[treasury] chainlink read failed", chain, e instanceof Error ? e.message : e);
+    console.error("[treasury] chainlink read failed", chain, safeError(e));
     return null;
   }
 }
@@ -120,7 +121,7 @@ async function coingeckoPrice(): Promise<bigint | null> {
     const priceE8 = m?.[1] ? parseUsdE8(m[1]) : null;
     return priceE8 && priceE8 > 0n ? priceE8 : null;
   } catch (e) {
-    console.error("[treasury] coingecko read failed", e instanceof Error ? e.message : e);
+    console.error("[treasury] coingecko read failed", safeError(e));
     return null;
   }
 }
