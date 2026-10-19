@@ -119,6 +119,7 @@ interface Props {
   canMentionEveryone: boolean;
   onAlpha?: () => void;
   onBounty?: () => void;
+  onPoll?: () => void;
   /** Opens the file picker; undefined when the member cannot attach files. */
   onAttach?: () => void;
   /** Slowmode lock. */
@@ -130,7 +131,7 @@ interface Props {
   status: ReactNode;
 }
 
-function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEveryone, onAlpha, onBounty, onAttach, locked, sending, onSend, status }: Props) {
+function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEveryone, onAlpha, onBounty, onPoll, onAttach, locked, sending, onSend, status }: Props) {
   const [count, setCount] = useState(() => docToPlainText(initialDoc).length);
   const editorRef = useRef<Editor | null>(null);
 
@@ -150,6 +151,7 @@ function ExpandedBody({ onOpenChange, initialDoc, onDraftChange, canMentionEvery
     canMentionEveryone,
     onAlpha,
     onBounty,
+    onPoll,
     onPickImage: () => onAttach?.(),
     onSubmit: () => void submit(),
     onUpdate: (ed) => {

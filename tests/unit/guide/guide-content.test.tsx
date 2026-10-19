@@ -91,3 +91,33 @@ describe("guide: sorteos", () => {
     expect(screen.getByText(/la wallet que recibe el premio se ve en la red/)).toBeInTheDocument();
   });
 });
+
+describe("guide: encuestas", () => {
+  it("has its subsections and the key explanations", () => {
+    expect(isComingSoon("encuestas")).toBe(false);
+    render(<GuideContent slug="encuestas" />);
+    for (const h of ["Qué es", "Cómo se vota", "Cuánto pesa tu voto", "Voto secreto", "Resultados"]) {
+      expect(screen.getByRole("heading", { name: h })).toBeInTheDocument();
+    }
+    const text = document.body.textContent ?? "";
+    for (const t of [
+      "/encuesta",
+      "Crear encuestas",
+      "1 persona, 1 voto",
+      "Lineal",
+      "Cuadrática",
+      "participaciones sin bloquear",
+      "Fondo del club",
+      "hasta el cierre",
+      "al menos 3",
+      "al menos 5",
+      "% del peso",
+      "consultiva",
+      "a nivel de la aplicación",
+      "moderadores ni tesoreros",
+    ]) {
+      expect(text, t).toContain(t);
+    }
+    expect(text).not.toMatch(/imposible para nadie/i);
+  });
+});

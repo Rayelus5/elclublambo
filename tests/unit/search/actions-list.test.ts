@@ -10,7 +10,7 @@ const href = (a: ReturnType<typeof buildActions>, id: string) => a.find((x) => x
 describe("buildActions", () => {
   it("always offers mentions, tickets, the guide and profile", () => {
     const a = buildActions(base);
-    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:candados", "guide:redes", "dao", "donate", "market", "profile"]);
+    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "dao", "donate", "market", "profile"]);
     expect(href(a, "market")).toBe("/mercado");
     expect(a.find((x) => x.id === "market")?.label).toBe("Mercado");
     expect(href(a, "dao")).toBe("/dao");

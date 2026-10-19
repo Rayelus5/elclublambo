@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   POLL_LIMITS,
@@ -72,7 +73,7 @@ describe("normalizePollText (F4e-R1)", () => {
       if (cp >= 0xd800 && cp <= 0xdfff) continue;
       expect(re.test(String.fromCharCode(cp)), `U+${cp.toString(16)}`).toBe(expected.has(cp));
     }
-    const sql = readFileSync("supabase/migrations/20261019500003_poll_votes.sql", "utf8");
+    const sql = readFileSync(path.resolve(__dirname, "../../../supabase/migrations/20261019500003_poll_votes.sql"), "utf8");
     expect(sql).toContain(`'[\\s\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]+'`);
     expect(POLL_WHITESPACE_CLASS).toBe("[\\s\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]");
   });

@@ -670,6 +670,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               canMentionEveryone={viewer.canMentionEveryone}
               canAlpha={channel.alphaEnabled === true && viewer.canEmbed === true && viewer.canPost === true}
               canBounty={viewer.canBounty === true && viewer.canPost === true}
+              canPoll={viewer.canPoll === true && viewer.canPost === true}
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}

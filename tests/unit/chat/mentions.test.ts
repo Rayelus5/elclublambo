@@ -110,6 +110,12 @@ describe("filterSlashCommands", () => {
     expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: true }).map((c) => c.id)).toEqual(["bounty"]);
     expect(filterSlashCommands("bo", { canAttach: false, hasAlpha: false, hasBounty: false })).toEqual([]);
   });
+
+  it("shows /encuesta only when the member can create polls", () => {
+    expect(filterSlashCommands("enc", { canAttach: true, hasAlpha: false, hasPoll: true }).map((c) => c.id)).toEqual(["encuesta"]);
+    expect(filterSlashCommands("enc", { canAttach: true, hasAlpha: false })).toEqual([]);
+    expect(filterSlashCommands("", { canAttach: true, hasAlpha: true, hasBounty: true, hasPoll: true }).map((c) => c.id)).toEqual(["alpha", "bounty", "encuesta", "imagen", "codigo"]);
+  });
   it("filters by prefix, ignoring case and accents", () => {
     expect(filterSlashCommands("CÓ", { canAttach: true, hasAlpha: true }).map((c) => c.id)).toEqual(["codigo"]);
     expect(filterSlashCommands("im", { canAttach: false, hasAlpha: true })).toEqual([]);

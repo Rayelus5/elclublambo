@@ -83,7 +83,7 @@ export async function loadMentionItems(
 
 // --- slash commands ---------------------------------------------------------------------------------
 
-export type SlashCommandId = "alpha" | "bounty" | "imagen" | "codigo";
+export type SlashCommandId = "alpha" | "bounty" | "encuesta" | "imagen" | "codigo";
 
 export interface SlashCommand {
   id: SlashCommandId;
@@ -94,18 +94,20 @@ export interface SlashCommand {
 const SLASH_COMMANDS: SlashCommand[] = [
   { id: "alpha", label: "/alpha", description: "Compartir un contrato (mensaje Alpha)" },
   { id: "bounty", label: "/bounty", description: "Publicar un bounty con recompensa" },
+  { id: "encuesta", label: "/encuesta", description: "Crear una encuesta con voto secreto" },
   { id: "imagen", label: "/imagen", description: "Adjuntar una imagen" },
   { id: "codigo", label: "/codigo", description: "Insertar un bloque de código" },
 ];
 
 const fold = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
-export function filterSlashCommands(query: string, opts: { canAttach: boolean; hasAlpha: boolean; hasBounty?: boolean }): SlashCommand[] {
+export function filterSlashCommands(query: string, opts: { canAttach: boolean; hasAlpha: boolean; hasBounty?: boolean; hasPoll?: boolean }): SlashCommand[] {
   const q = fold(query.trim());
   return SLASH_COMMANDS.filter((c) => {
     if (c.id === "imagen" && !opts.canAttach) return false;
     if (c.id === "alpha" && !opts.hasAlpha) return false;
     if (c.id === "bounty" && !opts.hasBounty) return false;
+    if (c.id === "encuesta" && !opts.hasPoll) return false;
     return c.id.startsWith(q);
   });
 }

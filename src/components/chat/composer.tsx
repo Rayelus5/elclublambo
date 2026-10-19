@@ -5,6 +5,7 @@ import { EditorContent, type Editor } from "@tiptap/react";
 import { Loader2, Maximize2, Paperclip, Send, X } from "lucide-react";
 import { AlphaDialog } from "@/components/chat/alpha-dialog";
 import { BountyDialog } from "@/components/chat/bounty-dialog";
+import { PollDialog } from "@/components/chat/poll-dialog";
 import { ComposerExpanded } from "@/components/chat/composer-expanded";
 import { useChatEditor } from "@/components/chat/composer-editor";
 import { EmojiButton } from "@/components/chat/emoji-button";
@@ -47,6 +48,8 @@ export interface ComposerProps {
   canAlpha?: boolean;
   /** CREATE_BOUNTIES and SEND_MESSAGES on this channel: /bounty opens the bounty dialog. Hidden otherwise. */
   canBounty?: boolean;
+  /** CREATE_POLLS and SEND_MESSAGES on this channel: /encuesta opens the poll dialog. Hidden otherwise. */
+  canPoll?: boolean;
 }
 
 function isDocEmpty(editor: Editor | null): boolean {
@@ -54,7 +57,7 @@ function isDocEmpty(editor: Editor | null): boolean {
 }
 
 export function Composer(props: ComposerProps) {
-  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha, canBounty } =
+  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha, canBounty, canPoll } =
     props;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -73,6 +76,8 @@ export function Composer(props: ComposerProps) {
   const [alphaText, setAlphaText] = useState("");
   const [bountyOpen, setBountyOpen] = useState(false);
   const [bountyText, setBountyText] = useState("");
+  const [pollOpen, setPollOpen] = useState(false);
+  const [pollText, setPollText] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const memberId = useRef<Promise<string> | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -242,12 +247,23 @@ export function Composer(props: ComposerProps) {
   }, []);
   const onBounty = canBounty ? openBounty : undefined;
 
+  const openPoll = useCallback(() => {
+    // The question starts from whatever is being drafted (compact box or expanded draft).
+    const ed = editorRef.current;
+    const fromBox = ed ? docToPlainText(ed.getJSON()) : "";
+    setPollText(fromBox !== "" ? fromBox : draftRef.current ? docToPlainText(draftRef.current) : "");
+    setExpandedOpen(false);
+    setPollOpen(true);
+  }, []);
+  const onPoll = canPoll ? openPoll : undefined;
+
   const editor = useChatEditor({
     expanded: false,
     canAttach,
     canMentionEveryone,
     onAlpha,
     onBounty,
+    onPoll,
     onPickImage: () => fileInput.current?.click(),
     onSubmit: () => {
       const ed = editorRef.current;
@@ -441,6 +457,7 @@ export function Composer(props: ComposerProps) {
         canMentionEveryone={canMentionEveryone}
         onAlpha={onAlpha}
         onBounty={onBounty}
+        onPoll={onPoll}
         onAttach={canAttach ? () => fileInput.current?.click() : undefined}
         locked={locked}
         sending={sending}
@@ -454,6 +471,17 @@ export function Composer(props: ComposerProps) {
           channelId={channelId}
           initialText={bountyText}
           // The description moved into the bounty message: the drafts are spent (pending images and the quote too).
+          onPosted={afterPosted}
+          onSlowmode={startSlowmode}
+        />
+      ) : null}
+      {canPoll ? (
+        <PollDialog
+          open={pollOpen}
+          onOpenChange={setPollOpen}
+          channelId={channelId}
+          initialQuestion={pollText}
+          // The question moved into the poll message: the drafts are spent (pending images and the quote too).
           onPosted={afterPosted}
           onSlowmode={startSlowmode}
         />

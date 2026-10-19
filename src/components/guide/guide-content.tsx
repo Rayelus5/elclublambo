@@ -383,11 +383,83 @@ function Redes() {
   );
 }
 
+function Encuestas() {
+  return (
+    <>
+      <Sub title="Qué es">
+        <p>
+          Una encuesta es un mensaje del chat con una pregunta, de 2 a 10 opciones y una hora de cierre. Para crearla
+          necesitas el permiso «Crear encuestas» en el canal, que tienen por defecto los miembros verificados y los
+          moderadores. Escribe /encuesta en el cuadro de mensaje y rellena el diálogo.
+        </p>
+        <p>
+          Es una votación consultiva: sirve para conocer la opinión del club y no mueve dinero ni ejecuta nada por sí sola.
+          Una encuesta no se puede editar una vez publicada, porque cambiaría lo que otros ya han votado.
+        </p>
+      </Sub>
+      <Sub title="Cómo se vota">
+        <Steps>
+          <li>Quien puede ver el canal puede votar: no hace falta ningún permiso extra.</li>
+          <li>Elige una opción en la tarjeta de la encuesta.</li>
+          <li>
+            Puedes cambiar tu voto hasta el cierre, pero no retirarlo. Mientras esté abierta solo ves tu propio voto y el
+            número total de votantes.
+          </li>
+        </Steps>
+        <p>
+          El cierre va de 1 hora a 30 días desde que se crea. A partir de la hora de cierre ya no se aceptan votos.
+        </p>
+      </Sub>
+      <Sub title="Cuánto pesa tu voto">
+        <p>Quien crea la encuesta elige entre tres modos:</p>
+        <Bullets>
+          <li>1 persona, 1 voto: todos los votos pesan lo mismo.</li>
+          <li>Lineal según participación: tu voto pesa lo que sumaban tus participaciones sin bloquear al crear la encuesta.</li>
+          <li>
+            Cuadrática según participación: tu voto pesa la raíz cuadrada de esas participaciones, así que quien más aportó
+            pesa más, pero menos que en el modo lineal.
+          </li>
+        </Bullets>
+        <p>
+          Los pesos se fijan cuando se crea la encuesta, con las participaciones sin bloquear de ese momento: si después
+          donas o pides una retirada, no cambian. Quien no tenía participaciones en ese momento pesa 0 en los modos
+          ponderados. El Fondo del club no es un miembro y nunca vota.
+        </p>
+      </Sub>
+      <Sub title="Voto secreto">
+        <p>
+          Los votos son secretos: nadie, ni miembros, ni moderadores ni tesoreros, puede ver desde el foro qué votó cada
+          persona. Hasta el cierre solo tú ves tu voto, y en el cierre las papeletas se sellan a nivel de la aplicación: se
+          borra el vínculo entre quien votó y lo que votó, y no queda nada con lo que consultarlo.
+        </p>
+        <p>
+          Hay un límite que ninguna encuesta puede evitar: si todos menos uno de los votantes comparten entre ellos lo que
+          votaron, pueden deducir el voto del que falta. Y en los modos ponderados, con pocos votantes un voto puede dar una
+          pista sobre la participación de alguien; por eso piden más votantes para publicar resultados.
+        </p>
+      </Sub>
+      <Sub title="Resultados">
+        <p>
+          Los resultados no se ven hasta el cierre. Entonces la tarjeta muestra, para cada opción, el % del peso que ha
+          recibido, y cuántas personas han votado. En el modo 1 persona, 1 voto el porcentaje lleva un decimal; en los
+          ponderados se redondea al entero. Los porcentajes redondeados pueden no sumar exactamente 100 %.
+        </p>
+        <p>
+          Para publicar resultados hacen falta al menos 3 votantes en el modo 1 persona, 1 voto, y al menos 5 votantes con
+          participaciones en los modos ponderados. Si no se llega, la encuesta se cierra sin resultados y no se publica ningún
+          número. Quienes votaron reciben un aviso cuando la encuesta se cierra.
+        </p>
+      </Sub>
+    </>
+  );
+}
+
 const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
   propinas: Propinas,
   bounties: Bounties,
   dao: Dao,
   fondo: Fondo,
+  encuestas: Encuestas,
   candados: Candados,
   redes: Redes,
 };
