@@ -482,7 +482,8 @@ select set_config('t.n2', (select id::text from public.notifications where kind 
 select is((select jsonb_build_object('title', title, 'body', body, 'url', url, 'tag', tag)
            from public._push_build(current_setting('t.n1')::bigint)),
   jsonb_build_object('title', 'Encuesta cerrada',
-                     'body', 'Ha cerrado la encuesta en la que votaste en #t972: «¿Pizza o sushi?»',
+                     -- copy as of 20261019500004 (ruling F4e-R5)
+                     'body', 'Se ha cerrado la encuesta en la que votaste en #t972: «¿Pizza o sushi?»',
                      'url', '/c/' || current_setting('t.ch') || '?m=' || current_setting('t.pe') || '&h=n' || current_setting('t.n1'),
                      'tag', 'poll_closed:' || current_setting('t.pe')),
   'poll_closed push: title, phrase with the question, deep link to the message');

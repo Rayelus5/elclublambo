@@ -20,11 +20,11 @@ async function view(over: Record<string, unknown> = {}) {
 }
 
 describe("poll_closed", () => {
-  it("says the poll closed, in the channel, and jumps to the poll message", async () => {
+  it("says the poll closed (impersonal, F4e-R5), in the channel, and jumps to the poll message", async () => {
     const n = await view();
-    expect(render(<NotificationItem notification={n} />).container.querySelector("a")!.textContent).toContain(
-      "Ha cerrado la encuesta en la que votaste en #general",
-    );
+    const text = render(<NotificationItem notification={n} />).container.querySelector("a")!.textContent;
+    expect(text).toContain("Se ha cerrado la encuesta en la que votaste en #general");
+    expect(text).not.toMatch(/(^|[^e] )Ha cerrado/);
     expect(n.href).toBe(`/c/${CH}?m=${MSG}&h=n9`);
   });
 
