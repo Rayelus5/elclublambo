@@ -1,6 +1,6 @@
 name: production
 
-# Deploy order is enforced here: verify -> migrate (supabase db push) -> Vercel deploy hook.
+# Deploy order is enforced here: verify -> migrate (supabase db push) -> Vercel CLI deploy --prod (F5-R19).
 # vercel.json disables Git deployments, so nothing builds before the migration and no preview exists.
 # GitHub secrets needed (environment production): SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF,
 # VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
