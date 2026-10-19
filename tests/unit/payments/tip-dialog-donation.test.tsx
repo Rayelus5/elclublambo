@@ -14,6 +14,13 @@ vi.mock("@reown/appkit/react", () => ({
 
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ send }) }));
+const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as bigint | null }));
+const preflight = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/payments/preflight", async (orig) => ({
+  ...(await orig<typeof import("@/lib/payments/preflight")>()),
+  useWalletBalances: () => ({ ...balances, refetch: vi.fn() }),
+  useBalancePreflight: () => preflight,
+}));
 
 const attachTxAction = vi.hoisted(() => vi.fn());
 const verifyIntentAction = vi.hoisted(() => vi.fn());
@@ -72,6 +79,9 @@ const DONE = "Donación registrada.";
 const FINALITY_NOTE = "Tus participaciones se acreditarán cuando el bloque se finalice (puede tardar horas).";
 
 beforeEach(() => {
+  balances.eth = null;
+  balances.usdc = null;
+  preflight.mockReset().mockResolvedValue(null);
   rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "2000000" }, error: null });
   window.localStorage.clear();
   account.address = SESSION;

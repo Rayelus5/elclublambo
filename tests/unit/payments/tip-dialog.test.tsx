@@ -18,6 +18,13 @@ vi.mock("@reown/appkit/react", () => ({
 
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ send }) }));
+const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as bigint | null }));
+const preflight = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/payments/preflight", async (orig) => ({
+  ...(await orig<typeof import("@/lib/payments/preflight")>()),
+  useWalletBalances: () => ({ ...balances, refetch: vi.fn() }),
+  useBalancePreflight: () => preflight,
+}));
 
 const createTipIntentAction = vi.hoisted(() => vi.fn());
 const attachTxAction = vi.hoisted(() => vi.fn());
@@ -77,6 +84,9 @@ beforeEach(() => {
   account.chainId = 59141;
   account.isConnected = true;
   switchChain.mockReset();
+  balances.eth = null;
+  balances.usdc = null;
+  preflight.mockReset().mockResolvedValue(null);
   openAppKit.mockReset();
   send.mockReset().mockResolvedValueOnce(FEE_HASH).mockResolvedValueOnce(MAIN_HASH);
   createTipIntentAction.mockReset().mockResolvedValue({ ok: true, intent });
@@ -598,5 +608,60 @@ describe("TipDialog expiry, abort and in-flight (F3b-R5)", () => {
     expect(screen.getByRole("button", { name: "Firmar la propina" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Cambiar a Linea Sepolia" }));
     expect(switchChain).toHaveBeenCalledWith({ chainId: 59141 });
+  });
+});
+
+describe("TipDialog balance", () => {
+  it("shows the token balance under the amount", () => {
+    balances.usdc = 12_340_000n;
+    balances.eth = 10n ** 18n;
+    setup();
+    expect(screen.getByTestId("balance")).toHaveTextContent("Saldo: 12,34 USDC");
+  });
+
+  it("shows no balance line when the balance cannot be read, and does not block", async () => {
+    setup();
+    await typeAmount("10");
+    expect(screen.queryByTestId("balance")).not.toBeInTheDocument();
+    expect(continuar()).toBeEnabled();
+  });
+
+  it("shows an inline error and disables Continuar when amount + fee exceeds the balance", async () => {
+    balances.usdc = 10_000_000n;
+    balances.eth = 10n ** 18n;
+    setup();
+    await typeAmount("10");
+    expect(screen.getByTestId("balance-error")).toHaveTextContent("Saldo insuficiente: necesitas 10,1 USDC (importe + comisión) y tienes 10.");
+    expect(continuar()).toBeDisabled();
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+  });
+
+  it("asks for ETH for gas when a USDC payment has no ETH", async () => {
+    balances.usdc = 50_000_000n;
+    balances.eth = 0n;
+    setup();
+    await typeAmount("10");
+    expect(screen.getByTestId("balance-error")).toHaveTextContent("Necesitas algo de ETH en Linea Sepolia para el gas.");
+    expect(continuar()).toBeDisabled();
+  });
+
+  it("enables Continuar when the balance covers amount + fee", async () => {
+    balances.usdc = 50_000_000n;
+    balances.eth = 10n ** 18n;
+    setup();
+    await typeAmount("10");
+    expect(screen.queryByTestId("balance-error")).not.toBeInTheDocument();
+    expect(continuar()).toBeEnabled();
+  });
+
+  it("signs nothing when the signing-time preflight finds the balance short", async () => {
+    preflight.mockResolvedValue("No tienes suficiente USDC en Linea Sepolia: necesitas 10,1 USDC (propina + comisión) y tienes 10. No se ha enviado nada.");
+    setup();
+    await typeAmount("10");
+    await userEvent.click(continuar());
+    expect(await screen.findByText(/No tienes suficiente USDC/)).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+    expect(loadSends(MEMBER)).toHaveLength(0);
+    expect(preflight).toHaveBeenCalledWith(expect.objectContaining({ feePaid: false, feeAmount: 100000n, mainAmount: 10000000n }));
   });
 });

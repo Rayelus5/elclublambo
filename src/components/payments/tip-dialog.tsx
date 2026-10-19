@@ -34,6 +34,7 @@ import {
 import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { isDefinitiveFailure } from "@/lib/payments/outcomes";
 import { attachTxAction, createTipIntentAction, verifyIntentAction, type TipIntent } from "@/lib/payments/tip-actions";
+import { formBalanceError, useBalancePreflight, useWalletBalances } from "@/lib/payments/preflight";
 import { createDonationIntentAction } from "@/lib/treasury/actions";
 import { formatParticipaciones, formatUsdPrecise } from "@/lib/treasury/format";
 import { getDaoOverview } from "@/lib/treasury/queries";
@@ -235,6 +236,7 @@ function TipFlow({
   const { switchChain, isPending: switching } = useSwitchChain();
   const { open: openWallet } = useAppKit();
   const { send } = useSendTransfer();
+  const preflight = useBalancePreflight();
 
   // The ledger decides how the dialog opens: a signature still pending, a fee waiting for its tip, or a fresh form.
   const [initial] = useState<Initial>(() => evaluate(memberId, ledgerType, targetId));
@@ -353,7 +355,16 @@ function TipFlow({
         ? "chain"
         : null;
 
-  const canContinue = units !== null && reason === null && wallet === null && !bountyInactive && (!donation || acknowledged);
+  // Live balances on the chain the wallet must be on; read only while connected as the session wallet.
+  const balances = useWalletBalances(walletChainId, connected && wallet !== "mismatch" ? (account.address as `0x${string}`) : undefined);
+  const tokenBalance = token === "USDC" ? balances.usdc : balances.eth;
+  // Before any intent exists: amount + fee (and ETH for gas) against what the wallet holds. Unreadable balance: no opinion.
+  const balanceError =
+    units !== null && reason === null && wallet === null && !bountyInactive && tokenBalance !== null
+      ? formBalanceError({ chain: walletChainId, token, amount: units, fee, balance: tokenBalance, eth: balances.eth ?? 1n })
+      : null;
+
+  const canContinue = units !== null && reason === null && balanceError === null && wallet === null && !bountyInactive && (!donation || acknowledged);
   // amount (USDC = USD, 6 decimals) · 10^18 / value per participación = shares; shown in participaciones.
   const estimate =
     donation && units !== null && reason === null && sharePrice !== null
@@ -473,6 +484,24 @@ function TipFlow({
     };
     try {
       if (stopOnAttach(await attachPending())) return;
+      // Balance check before the FIRST signature still to come (fresh send or resume): signing the fee and then failing the
+      // main transfer would leave the member with the fee gone. A failed read never blocks.
+      const needFee = feeRequired && !st.feeHash;
+      if (needFee || !st.mainHash) {
+        guardIntent(it);
+        guardSigner(it);
+        const short = await preflight({
+          chain,
+          token: it.token,
+          account: economy.wallet as `0x${string}`,
+          feeAmount: needFee ? BigInt(it.feeAmount) : 0n,
+          mainAmount: st.mainHash ? 0n : BigInt(it.amount),
+          feePaid: feeRequired && !needFee,
+          mainLabel: donation ? "donación" : mode ? "pago" : "propina",
+        });
+        if (!aliveRef.current) throw new AbortedError();
+        if (short) throw new SignGuardError(short);
+      }
       if (feeRequired && !st.feeHash) {
         setStep("signing");
         setProgress({ index: 1, total: 2 });
@@ -855,6 +884,16 @@ function TipFlow({
             />
             <span className="font-mono text-sm text-fg-muted">{token}</span>
           </div>
+          {tokenBalance !== null && connected ? (
+            <p data-testid="balance" className="font-mono text-[13px] text-fg-muted">
+              Saldo: {formatAmount(tokenBalance, token)} {token}
+            </p>
+          ) : null}
+          {balanceError ? (
+            <p role="alert" data-testid="balance-error" className="text-sm text-danger">
+              {balanceError}
+            </p>
+          ) : null}
         </div>
 
         {mode || donation ? null : (
