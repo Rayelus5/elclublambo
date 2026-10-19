@@ -63,14 +63,15 @@ export async function sendToken(from: string, to: string, units: bigint, token: 
 }
 
 /**
- * A USDC transfer made by the Safe itself (as a treasurer would from the Safe app): the Safe is impersonated and gets a
- * temporary native balance for gas, removed again afterwards so the fund never holds ETH. Returns the tx hash.
+ * A token transfer (default USDC) made by the Safe itself (as a treasurer would from the Safe app): the Safe is
+ * impersonated and gets a temporary native balance for gas, removed again afterwards so the fund never holds ETH.
+ * Returns the tx hash.
  */
-export async function safeTransfer(safe: string, to: string, units: bigint): Promise<`0x${string}`> {
+export async function safeTransfer(safe: string, to: string, units: bigint, token: `0x${string}` = USDC_ADDRESS): Promise<`0x${string}`> {
   await hardhatRpc("hardhat_setBalance", [safe, "0xde0b6b3a7640000"]);
   await hardhatRpc("hardhat_impersonateAccount", [safe]);
   try {
-    return await sendToken(safe, to, units);
+    return await sendToken(safe, to, units, token);
   } finally {
     await hardhatRpc("hardhat_stopImpersonatingAccount", [safe]);
     await hardhatRpc("hardhat_setBalance", [safe, "0x0"]);
@@ -91,6 +92,28 @@ export async function ageApproval(requestId: string, days: number) {
   expect(error).toBeNull();
 }
 
+/**
+ * Moves a raffle's close `closesAgoSeconds` into the past (service role), so the next cron run closes it (F4d): the
+ * weights are taken then, and the draw uses the first block after this close once it is finalized (Hardhat: finalized
+ * = latest, so mine a block or two on top). Joining is refused from then on. No wall-clock wait.
+ */
+export async function ageRaffle(raffleId: string, closesAgoSeconds: number) {
+  const closesAt = new Date(Date.now() - closesAgoSeconds * 1000).toISOString();
+  const { error } = await service().from("raffles").update({ closes_at: closesAt }).eq("id", raffleId);
+  expect(error).toBeNull();
+}
+
+/** Moves a drawn raffle's drawn_at `days` into the past (service role): past 14 days the prize counts as unpaid (F4d). */
+export async function ageDraw(raffleId: string, days: number) {
+  const db = service();
+  const row = await db.from("raffles").select("drawn_at").eq("id", raffleId).single<{ drawn_at: string | null }>();
+  expect(row.error).toBeNull();
+  expect(row.data!.drawn_at).not.toBeNull();
+  const older = new Date(Date.parse(row.data!.drawn_at!) - days * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await db.from("raffles").update({ drawn_at: older }).eq("id", raffleId);
+  expect(error).toBeNull();
+}
+
 export type CronChain = {
   chainId: number;
   snapshot?: "taken" | "skipped" | "unavailable" | "failed";
@@ -102,6 +125,10 @@ export type CronChain = {
   error?: string;
   /** F4c-R5: per chain; "skipped" when the scan failed this run. */
   expiredApprovals?: number | "failed" | "skipped";
+  /** F4d: close + draw, prize payout detection and finality, unpaid notices. */
+  raffles?:
+    | { closed: number; voided: number; drawn: number; pending: number; recorded: number; paid: number; reverted: number; unpaidNotices: number }
+    | "failed";
 };
 
 /** Snapshot + operations scan + settlement, as the scheduler would call it. Returns the local chain's report. */
@@ -138,9 +165,10 @@ export async function ageSnapshots() {
  */
 export async function resetLocalDao() {
   const db = service();
-  // withdrawal_requests right after dao_safe_operations (an outflow may link to a request); deleting the positions also
-  // clears their locked_shares.
-  for (const table of ["dao_safe_operations", "withdrawal_requests", "dao_scan_state", "dao_nav_snapshots", "dao_reconciliations", "dao_positions", "dao_ledger"]) {
+  // withdrawal_requests and raffles right after dao_safe_operations (an outflow may link to a request or a raffle);
+  // deleting a raffle cascades to its entries and to its secret seed (private.raffle_seeds, FK on delete cascade: no
+  // API role ever touches that schema); deleting the positions also clears their locked_shares.
+  for (const table of ["dao_safe_operations", "withdrawal_requests", "raffles", "dao_scan_state", "dao_nav_snapshots", "dao_reconciliations", "dao_positions", "dao_ledger"]) {
     const { error } = await db.from(table).delete().eq("chain_id", CHAIN_ID);
     expect(error, table).toBeNull();
   }
@@ -150,7 +178,8 @@ export async function resetLocalDao() {
     .eq("chain_id", CHAIN_ID);
   expect(error).toBeNull();
   // The withdrawals switch starts off on the local chain (F4c), as on a fresh install.
-  const sw = await db.from("chain_config").update({ withdrawals_enabled: false }).eq("chain_id", CHAIN_ID);
+  // Weighted raffles start on for the local chain, as the F4d migration sets them.
+  const sw = await db.from("chain_config").update({ withdrawals_enabled: false, weighted_raffles_enabled: true }).eq("chain_id", CHAIN_ID);
   expect(sw.error).toBeNull();
   // Open donation intents to the spec's Safe would block the next Safe change (F4a-R12).
   const intents = await db
@@ -168,6 +197,7 @@ export async function resetLocalDao() {
     "withdrawal_paid",
     "withdrawal_expired",
     "treasury_notice",
+    "raffle_won",
   ]);
   expect(notices.error).toBeNull();
 }
