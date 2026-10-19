@@ -10,7 +10,7 @@
 --   touch_presence keeps at most 10 device rows per member (the 11th device evicts the oldest).
 begin;
 set local client_min_messages = warning;
-select plan(55);
+select plan(58);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.login(p_member text) returns void language plpgsql as $$
@@ -128,6 +128,8 @@ select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'
                            'public.upload_quota_ok(text)'::regprocedure)),
   'the three functions are security definer with an empty search_path');
 select ok((select c.relrowsecurity from pg_class c where c.oid = 'private.rate_limit_hits'::regclass), 'rate_limit_hits has RLS');
+select has_index('private', 'rate_limit_hits', 'rate_limit_hits_window_start_idx', array['window_start'],
+  'rate_limit_hits has a window_start index for prune_rate_limits');
 select tests.login(current_setting('t.a'));
 select throws_ok($$select * from private.rate_limit_hits$$, '42501', null, 'a member cannot read rate_limit_hits');
 select tests.clear_authentication();
@@ -274,8 +276,12 @@ select tests.clear_authentication();
 select is((select count(*)::int from public.member_presence where member_id = current_setting('t.p')::uuid), 10,
   'an 11th device keeps the member at 10 device rows');
 select is((select count(*)::int from public.member_presence where member_id = current_setting('t.p')::uuid
-             and device_id in ('99100000-0000-4000-8000-000000000010', '99200000-0000-4000-8000-000000000001')), 1,
-  'the oldest device row is evicted and the new one is kept');
+             and device_id = '99100000-0000-4000-8000-000000000010'), 0,
+  'the oldest device row (10 min ago) is the one evicted');
+select is((select count(*)::int from public.member_presence where member_id = current_setting('t.p')::uuid
+             and device_id = '99200000-0000-4000-8000-000000000001'), 1, 'the new device row is kept');
+select is((select count(*)::int from public.member_presence where member_id = current_setting('t.p')::uuid
+             and device_id::text like '99100000-%'), 9, 'the other nine old rows stay');
 
 select * from finish();
 rollback;

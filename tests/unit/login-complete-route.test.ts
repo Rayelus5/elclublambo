@@ -33,6 +33,12 @@ describe("GET /login/complete", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/no-access");
   });
 
+  it.each(["invite_not_found", "unknown"])("passes the specific error %s through to /no-access like the JS path", async (error) => {
+    completeLogin.mockResolvedValue({ redirectTo: "/no-access", error });
+    const res = await call("?invite=abc");
+    expect(res.headers.get("location")).toBe(`http://localhost:3000/no-access?error=${error}`);
+  });
+
   it("honours a safe next only when the outcome is /", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "/" });
     expect((await call("?next=/invites")).headers.get("location")).toBe("http://localhost:3000/invites");

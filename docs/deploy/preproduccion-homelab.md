@@ -1076,9 +1076,9 @@ Si tiene USDC de Sepolia, una propina de 0.01 USDC.
   cd /home/gh-runner/actions-runner/_work/elclublambo/elclublambo
   runuser -u gh-runner -- docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate web cron
   ```
-- **Tras cambiar `deploy/preprod/cloudflared/config.yml` o `deploy/preprod/cron/crontab`:** el workflow solo recrea
-  lo que cambia de configuración, y los archivos montados pueden quedarse con la versión anterior. Recrea con el
-  comando de arriba cambiando el final por `--force-recreate cloudflared cron`.
+- **Tras cambiar `deploy/preprod/cloudflared/config.yml` o `deploy/preprod/cron/crontab`:** no hace falta hacer nada
+  a mano. Los archivos montados pueden quedarse con la versión anterior, así que el workflow recrea siempre `cron` y
+  `cloudflared` (`--force-recreate`) después de `up -d`.
 - **Volver atrás:** que el humano haga `git revert` del commit en `develop` y push: el workflow construye la versión
   anterior. Las migraciones **no** se deshacen: un **Re-run** de un run antiguo falla en **Migrate** si la base de
   datos ya tiene migraciones más nuevas (y entonces no reinicia nada). Una migración mala se arregla con otra

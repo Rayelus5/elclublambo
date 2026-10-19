@@ -45,7 +45,10 @@ jobs:
         run: supabase db push --db-url "$PREPROD_DB_URL" --yes
 
       - name: Restart
-        run: $COMPOSE up -d --no-build web cron cloudflared
+        run: |
+          $COMPOSE up -d --no-build web cron cloudflared
+          # Bind-mounted single files (crontab, tunnel config) keep the old inode/content: always recreate these two.
+          $COMPOSE up -d --no-build --force-recreate cron cloudflared
 
       - name: Smoke
         run: |

@@ -258,11 +258,14 @@ describe("preproduction workflow", () => {
     const build = s.indexOf("$COMPOSE build web");
     const push = s.indexOf("supabase db push");
     const up = s.indexOf("$COMPOSE up -d --no-build web cron cloudflared");
+    // Bind-mounted single files (crontab, tunnel config) can stay stale after `up -d`: cron and cloudflared are always recreated.
+    const recreate = s.indexOf("$COMPOSE up -d --no-build --force-recreate cron cloudflared");
     const smoke = s.indexOf("http://127.0.0.1:3000/login");
     expect(build).toBeGreaterThan(-1);
     expect(build).toBeLessThan(push);
     expect(push).toBeLessThan(up);
-    expect(up).toBeLessThan(smoke);
+    expect(up).toBeLessThan(recreate);
+    expect(recreate).toBeLessThan(smoke);
     expect(s).toContain('supabase db push --db-url "$PREPROD_DB_URL" --yes');
     // The password travels in PGPASSWORD (honoured by the CLI's pgx driver, checked with 2.121.0), never in argv.
     expect(s).toContain("PGPASSWORD: ${{ secrets.PREPROD_DB_PASSWORD }}");

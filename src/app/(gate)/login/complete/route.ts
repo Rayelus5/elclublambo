@@ -19,7 +19,13 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await completeLogin(searchParams.get("invite"));
-  const wanted = result.redirectTo === "/" ? safeNextPath(searchParams.get("next")) : result.redirectTo;
+  // Same hand-off as the login panel: /no-access takes the specific error by ?error=.
+  const wanted =
+    result.redirectTo === "/"
+      ? safeNextPath(searchParams.get("next"))
+      : result.error && result.redirectTo === "/no-access"
+        ? `/no-access?error=${encodeURIComponent(result.error)}`
+        : result.redirectTo;
   const target = new URL(wanted, origin);
   return NextResponse.redirect(target.origin === origin ? target : new URL("/", origin));
 }
