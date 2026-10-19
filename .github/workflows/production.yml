@@ -2,6 +2,8 @@ name: production
 
 # Deploy order is enforced here: verify -> migrate (supabase db push) -> Vercel deploy hook.
 # vercel.json disables Git deployments, so nothing builds before the migration and no preview exists.
+# GitHub secrets needed (environment production): SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD, SUPABASE_PROJECT_REF,
+# VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID.
 on:
   push:
     branches: [main]
@@ -50,6 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      VERCEL_DEPLOY_HOOK_URL: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
-      - run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"
+      - uses: actions/checkout@v4
+      # Remote build on Vercel (not a local prebuilt output), so Vercel's Production env vars apply and no secret is pulled here.
+      - run: npx --yes vercel@64.5.0 deploy --prod --yes --token "$VERCEL_TOKEN"

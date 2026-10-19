@@ -62,24 +62,29 @@ describe("production workflow", () => {
     expect(v).toContain("node-version: 22");
   });
 
-  it("migrates before it calls the deploy hook, non-interactively", () => {
+  it("migrates before it deploys with the pinned Vercel CLI (remote build, no hook)", () => {
     expect(workflow).toContain("supabase db push --yes");
-    expect(workflow.indexOf("db push")).toBeLessThan(workflow.indexOf("VERCEL_DEPLOY_HOOK_URL"));
-    expect(job("migrate")).not.toContain("VERCEL_DEPLOY_HOOK_URL");
-    expect(job("deploy")).toContain('curl -fsS -X POST "$VERCEL_DEPLOY_HOOK_URL"');
+    expect(workflow.indexOf("db push")).toBeLessThan(workflow.indexOf("vercel@"));
+    expect(job("migrate")).not.toContain("vercel");
+    const d = job("deploy");
+    expect(d).toMatch(/npx --yes vercel@\d+\.\d+\.\d+ deploy --prod --yes --token "\$VERCEL_TOKEN"/);
+    expect(d).not.toContain("--prebuilt");
+    expect(d).toContain("actions/checkout@v4");
+    expect(workflow).not.toContain("curl");
+    expect(workflow).not.toContain("DEPLOY_HOOK");
   });
 
-  it("only references the four expected secrets", () => {
+  it("only references the six expected secrets", () => {
     const names = [...workflow.matchAll(/\$\{\{\s*secrets\.(\w+)\s*\}\}/g)].map((m) => m[1]);
     expect(new Set(names)).toEqual(
-      new Set(["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_REF", "VERCEL_DEPLOY_HOOK_URL"]),
+      new Set(["SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD", "SUPABASE_PROJECT_REF", "VERCEL_TOKEN", "VERCEL_ORG_ID", "VERCEL_PROJECT_ID"]),
     );
   });
 
   it("never echoes or prints a secret or the secret-backed env vars", () => {
     for (const line of workflow.split("\n")) {
       if (/\becho\b|\bprintenv\b|\benv\b\s*$|\bset -x\b/.test(line)) {
-        expect(line).not.toMatch(/secrets\.|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|SUPABASE_PROJECT_REF|VERCEL_DEPLOY_HOOK_URL/);
+        expect(line).not.toMatch(/secrets\.|SUPABASE_ACCESS_TOKEN|SUPABASE_DB_PASSWORD|SUPABASE_PROJECT_REF|VERCEL_TOKEN|VERCEL_ORG_ID|VERCEL_PROJECT_ID/);
       }
     }
   });
