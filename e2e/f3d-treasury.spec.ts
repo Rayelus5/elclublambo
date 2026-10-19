@@ -302,7 +302,9 @@ test("7. network switch: on Linea the ledger is empty (VIP DAO locks again, /dao
   await expect(a.page.getByTestId("dao-balance")).toHaveText("13 USD");
   await expect(a.page.getByTestId("my-share")).toHaveText("100 %");
   await a.page.goto(`/c/${vipId}`);
-  await expect(a.page.getByText(SEEDED)).toBeVisible();
+  // Scoped to the message log: while the channel streams in, React's hidden Suspense segment can hold a second copy,
+  // and a page-wide getByText would then hit a strict-mode violation instead of waiting.
+  await expect(a.page.getByRole("log", { name: "Mensajes del canal" }).getByText(SEEDED)).toBeVisible();
   await expect(lockedLink(a.page)).toHaveCount(0);
 });
 
