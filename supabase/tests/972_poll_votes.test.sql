@@ -1,7 +1,8 @@
 -- F4e Task 3 (migration 20261019500003): secret votes changeable until the close, results only at the close with a
--- 3-voter floor, sealed ballots and voter notices.
+-- voter floor, sealed ballots and voter notices.
 --   cast_poll_vote: VIEW + active member at vote time; cast / changed / same; only a new voter broadcasts poll_changed.
 --   poll_details: open -> only the voter count and the caller's own vote; closed -> % per option (or insufficient),
+--                 (F4e-R3: equal >= 3 voters at 0.1 %; weighted >= 5 weighted voters at whole %),
 --                 never anyone's option; finalized -> the stored results, identical to the read-time tally.
 --   close_due_polls: freezes the tallies, notifies still-active voters, seals the ballots, drops the snapshot.
 --   _push_build: poll_closed -> Encuesta cerrada, deep link, the question as the excerpt; dropped without VIEW.
@@ -9,7 +10,7 @@
 --   hard-delete audit row without vote data.
 -- Setup: 59141 active; voters V1-V5, treasurer T (256), SuperAdmin S, author A (Verificado), banned Z.
 begin;
-select plan(103);
+select plan(107);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.cfg(p_key text) returns text language sql as $$ select current_setting(p_key) $$;
@@ -244,33 +245,51 @@ select is((select count(*)::int from public.audit_log
               or payload::text like '%' || tests.opt(current_setting('t.pe'), 2)::text || '%'
               or target_id = current_setting('t.pe')::uuid), 0, 'no audit row mentions the poll or a ballot');
 
--- ===== 5. weighted polls =====
--- linear: V1 6, V2 3, V3 1 (x10^18), V4 and V5 0
+-- ===== 5. weighted polls (ruling F4e-R3: >= 5 weighted voters, whole %) =====
+-- linear: V1 6, V2 3, V3 1, V5 1, T 1 (x10^18), V4 0
 select tests.pos(current_setting('t.v1'), 6000000000000000000);
 select tests.pos(current_setting('t.v2'), 3000000000000000000);
 select tests.pos(current_setting('t.v3'), 1000000000000000000);
+select tests.pos(current_setting('t.v5'), 1000000000000000000);
+select tests.pos(current_setting('t.t'), 1000000000000000000);
 select tests.pos(current_setting('t.v4'), 0);
 select set_config('t.pl', tests.poll('Lineal 2', '{X,Y}', 'linear'), true);
 select tests.vote_as(current_setting('t.v1'), current_setting('t.pl'), 1);
+select tests.vote_as(current_setting('t.t'), current_setting('t.pl'), 1);
 select tests.vote_as(current_setting('t.v2'), current_setting('t.pl'), 2);
 select tests.vote_as(current_setting('t.v3'), current_setting('t.pl'), 2);
-select is(tests.vote_as(current_setting('t.v4'), current_setting('t.pl'), 2), '{"status": "cast", "voterCount": 4}'::jsonb,
+select tests.vote_as(current_setting('t.v5'), current_setting('t.pl'), 2);
+select is(tests.vote_as(current_setting('t.v4'), current_setting('t.pl'), 2), '{"status": "cast", "voterCount": 6}'::jsonb,
   'V4 (no weight) still votes');
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pl')) ->> 'my_has_weight', 'true', 'V1 sees it has weight');
 select is(tests.det_as(current_setting('t.v4'), current_setting('t.pl')) ->> 'my_has_weight', 'false', 'V4 sees it has none');
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pl')) -> 'results', 'null'::jsonb, 'no results while open');
--- quadratic: V1 9, V2 4, V3 1 (x10^18) -> 3, 2, 1 (x10^9)
+-- quadratic: V1 9, V2 4, V3 1, V5 1, T 1 (x10^18) -> 3, 2, 1, 1, 1 (x10^9)
 select tests.pos(current_setting('t.v1'), 9000000000000000000);
 select tests.pos(current_setting('t.v2'), 4000000000000000000);
 select set_config('t.pq', tests.poll('Cuadrática', '{X,Y}', 'quadratic'), true);
 select is((select jsonb_object_agg(s.member_id::text, s.weight::text) from private.poll_weight_snapshots s
            where s.poll_id = current_setting('t.pq')::uuid),
   jsonb_build_object(current_setting('t.v1'), '3000000000', current_setting('t.v2'), '2000000000',
-                     current_setting('t.v3'), '1000000000'), 'quadratic snapshot 3, 2, 1 x10^9');
+                     current_setting('t.v3'), '1000000000', current_setting('t.v5'), '1000000000',
+                     current_setting('t.t'), '1000000000'), 'quadratic snapshot 3, 2, 1, 1, 1 x10^9');
 select tests.vote_as(current_setting('t.v1'), current_setting('t.pq'), 1);
 select tests.vote_as(current_setting('t.v2'), current_setting('t.pq'), 2);
 select tests.vote_as(current_setting('t.v3'), current_setting('t.pq'), 2);
--- insufficient: 2 voters (equal); 4 voters of whom only V1 and V2 weigh; nobody weighs
+select tests.vote_as(current_setting('t.v5'), current_setting('t.pq'), 2);
+select tests.vote_as(current_setting('t.t'), current_setting('t.pq'), 2);
+-- weighted polls with 3 and with 4 weighted voters (the second has 5 voters in all): below the R3 floor
+select set_config('t.pk3', tests.poll('Tres con peso', '{X,Y}', 'linear'), true);
+select tests.vote_as(current_setting('t.v1'), current_setting('t.pk3'), 1);
+select tests.vote_as(current_setting('t.v2'), current_setting('t.pk3'), 2);
+select tests.vote_as(current_setting('t.v3'), current_setting('t.pk3'), 2);
+select set_config('t.pk4', tests.poll('Cuatro con peso', '{X,Y}', 'quadratic'), true);
+select tests.vote_as(current_setting('t.v1'), current_setting('t.pk4'), 1);
+select tests.vote_as(current_setting('t.v2'), current_setting('t.pk4'), 2);
+select tests.vote_as(current_setting('t.v3'), current_setting('t.pk4'), 2);
+select tests.vote_as(current_setting('t.v5'), current_setting('t.pk4'), 2);
+select tests.vote_as(current_setting('t.v4'), current_setting('t.pk4'), 2);
+-- insufficient: 2 voters (equal); 4 voters of whom only some weigh; nobody weighs
 select set_config('t.pi1', tests.poll('Dos votos', '{Sí,No}'), true);
 select tests.vote_as(current_setting('t.v1'), current_setting('t.pi1'), 1);
 select tests.vote_as(current_setting('t.v2'), current_setting('t.pi1'), 2);
@@ -287,8 +306,20 @@ select tests.vote_as(current_setting('t.v2'), current_setting('t.pi3'), 1);
 select tests.vote_as(current_setting('t.v3'), current_setting('t.pi3'), 2);
 -- a later donation never changes a snapshot
 select tests.pos(current_setting('t.v4'), 9000000000000000000);
+-- the eight polls closed below, in a fixed order
+create function tests.ids() returns text[] language sql as $$
+  select array[current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'), current_setting('t.pk3'),
+               current_setting('t.pk4'), current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3')]
+$$;
 
 -- ===== 6. closed before finalize (Review Focus 2) =====
+-- the close is judged on the wall clock (M1): 1 ms after the transaction started, now() is still before closes_at
+update public.polls set closes_at = now() + interval '1 millisecond' where message_id = current_setting('t.pi1')::uuid;
+select pg_sleep(0.01);
+select tests.login(current_setting('t.v3'));
+select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pi1')), 'P0001', 'poll_closed',
+  'a close that passed during the transaction -> poll_closed (clock_timestamp, not now())');
+select tests.clear_authentication();
 -- exactly at closes_at the poll is closed
 update public.polls set closes_at = now() where message_id = current_setting('t.pi1')::uuid;
 select tests.login(current_setting('t.v3'));
@@ -296,8 +327,7 @@ select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pi1')),
   'voting at closes_at -> poll_closed');
 select tests.clear_authentication();
 update public.polls set closes_at = now() - interval '1 minute'
-  where message_id in (current_setting('t.pe')::uuid, current_setting('t.pl')::uuid, current_setting('t.pq')::uuid,
-                       current_setting('t.pi2')::uuid, current_setting('t.pi3')::uuid);
+  where message_id::text = any (tests.ids()) and message_id <> current_setting('t.pi1')::uuid;
 select tests.login(current_setting('t.v4'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pe')), 'P0001', 'poll_closed',
   'a new vote after the close -> poll_closed');
@@ -316,16 +346,27 @@ select is(tests.det_as(current_setting('t.v1'), current_setting('t.pe')) - 'opti
   'closed equal poll: no own option any more, "voted", 2 Pizza 1 Sushi -> 66.7 / 33.3 / 0');
 select is(tests.det_as(current_setting('t.v4'), current_setting('t.pe')) ->> 'i_voted', 'false', 'V4 did not vote');
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pl')) - 'options' - 'closes_at' - 'message_id',
-  jsonb_build_object('weight_mode', 'linear', 'closed', true, 'voter_count', 4, 'my_option_id', null, 'i_voted', true,
+  jsonb_build_object('weight_mode', 'linear', 'closed', true, 'voter_count', 6, 'my_option_id', null, 'i_voted', true,
                      'my_has_weight', null, 'results_status', 'published',
-                     'results', tests.res(current_setting('t.pl'), array[600, 400])),
-  'closed linear poll: 6 vs 3 + 1 + 0 -> 60 / 40, 4 voters, no own weight shown');
+                     'results', tests.res(current_setting('t.pl'), array[580, 420])),
+  'closed linear poll: 6 + 1 vs 3 + 1 + 1 + 0 -> 58 % / 42 % in whole percent (not 58.3 / 41.7), 6 voters');
 select is(public._poll_tally(current_setting('t.pl')::uuid),
-  jsonb_build_object('voterCount', 4, 'weightedVoterCount', 3, 'status', 'published',
-                     'results', tests.res(current_setting('t.pl'), array[600, 400])),
-  '_poll_tally linear: 4 voters, 3 with weight, published');
+  jsonb_build_object('voterCount', 6, 'weightedVoterCount', 5, 'status', 'published',
+                     'results', tests.res(current_setting('t.pl'), array[580, 420])),
+  '_poll_tally linear: 6 voters, 5 with weight, published');
 select is(tests.det_as(current_setting('t.v2'), current_setting('t.pq')) -> 'results',
-  tests.res(current_setting('t.pq'), array[500, 500]), 'closed quadratic poll: 3 vs 2 + 1 -> 50 / 50');
+  tests.res(current_setting('t.pq'), array[380, 630]),
+  'closed quadratic poll: 3 vs 2 + 1 + 1 + 1 -> 37.5 % / 62.5 % rounded half-up to 38 % / 63 %');
+select is(public._poll_tally(current_setting('t.pk3')::uuid),
+  '{"voterCount": 3, "weightedVoterCount": 3, "status": "insufficient", "results": null}'::jsonb,
+  'a weighted poll with 3 weighted voters -> insufficient');
+select is(public._poll_tally(current_setting('t.pk4')::uuid),
+  '{"voterCount": 5, "weightedVoterCount": 4, "status": "insufficient", "results": null}'::jsonb,
+  'a weighted poll with 5 voters but 4 weighted -> insufficient');
+select is(tests.det_as(current_setting('t.v1'), current_setting('t.pk4')) - 'options' - 'closes_at' - 'message_id',
+  jsonb_build_object('weight_mode', 'quadratic', 'closed', true, 'voter_count', 5, 'my_option_id', null, 'i_voted', true,
+                     'my_has_weight', null, 'results_status', 'insufficient', 'results', null),
+  'and poll_details shows only the voter count');
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pi1')) - 'options' - 'closes_at' - 'message_id',
   jsonb_build_object('weight_mode', 'equal', 'closed', true, 'voter_count', 2, 'my_option_id', null, 'i_voted', true,
                      'my_has_weight', null, 'results_status', 'insufficient', 'results', null),
@@ -348,10 +389,9 @@ update public.members set status = 'banned' where id = current_setting('t.v3')::
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pe')) -> 'results',
   tests.res(current_setting('t.pe'), array[667, 333, 0]), 'a ban does not move the closed results');
 select set_config('t.before', (select jsonb_object_agg(x.id, tests.det_as(current_setting('t.v1'), x.id) - 'closed')::text
-                               from unnest(array[current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                                 current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3')]) x(id)), true);
+                               from unnest(tests.ids()) x(id)), true);
 select set_config('t.due', (select count(*)::text from public.polls where closes_at <= now() and finalized_at is null), true);
-select is(current_setting('t.due')::int >= 6, true, 'at least the six closed polls are due');
+select is(current_setting('t.due')::int >= 8, true, 'at least the eight closed polls are due');
 select is((select count(*)::int from public.notifications where kind = 'channel_message'
              and message_id = current_setting('t.pe')::uuid and recipient_id = current_setting('t.v1')::uuid), 1,
   'V1 holds the channel_message notice of the poll message');
@@ -360,44 +400,35 @@ select is(public.close_due_polls(), jsonb_build_object('finalized', current_sett
   'close_due_polls finalizes every due poll');
 reset role;
 select is((select count(*)::int from public.polls
-           where message_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                      current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))
-             and finalized_at = now()), 6, 'the six polls are finalized now');
+           where message_id::text = any (tests.ids()) and finalized_at = now()), 8, 'the eight polls are finalized now');
 select is((select finalized_at from public.polls where message_id = current_setting('t.pw')::uuid), null,
   'an open poll is left alone');
 select is((select jsonb_agg(jsonb_build_object('vc', voter_count, 'wvc', weighted_voter_count, 'pub', results_published)
-                            order by array_position(array[current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                                          current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3')],
-                                                    message_id::text))
+                            order by array_position(tests.ids(), message_id::text))
            from public.polls
-           where message_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                      current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))),
-  '[{"vc": 3, "wvc": 3, "pub": true}, {"vc": 4, "wvc": 3, "pub": true}, {"vc": 3, "wvc": 3, "pub": true},
+           where message_id::text = any (tests.ids())),
+  '[{"vc": 3, "wvc": 3, "pub": true}, {"vc": 6, "wvc": 5, "pub": true}, {"vc": 5, "wvc": 5, "pub": true},
+    {"vc": 3, "wvc": 3, "pub": false}, {"vc": 5, "wvc": 4, "pub": false},
     {"vc": 2, "wvc": 2, "pub": false}, {"vc": 4, "wvc": 2, "pub": false}, {"vc": 3, "wvc": 0, "pub": false}]'::jsonb,
   'the stored counts and the published flags');
 select is((select array_agg(result_tenths order by position) from public.poll_options where poll_id = current_setting('t.pe')::uuid),
-  array[667, 333, 0], 'equal: tenths stored');
+  array[667, 333, 0], 'equal: tenths stored (0.1 % precision)');
 select is((select array_agg(result_tenths order by position) from public.poll_options where poll_id = current_setting('t.pl')::uuid),
-  array[600, 400], 'linear: tenths stored');
+  array[580, 420], 'linear: whole percent stored as tenths');
 select is((select array_agg(result_tenths order by position) from public.poll_options where poll_id = current_setting('t.pq')::uuid),
-  array[500, 500], 'quadratic: tenths stored');
+  array[380, 630], 'quadratic: whole percent stored as tenths');
 select is((select count(*)::int from public.poll_options
-           where poll_id::text in (current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))
+           where poll_id::text in (current_setting('t.pk3'), current_setting('t.pk4'), current_setting('t.pi1'),
+                                   current_setting('t.pi2'), current_setting('t.pi3'))
              and result_tenths is not null), 0, 'insufficient polls store no tenths at all');
 select is((select count(*)::int from private.poll_votes
-           where poll_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                   current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))
-             and option_id is not null), 0, 'every ballot is sealed (option_id null)');
-select is((select count(*)::int from private.poll_votes
-           where poll_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                   current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))), 19,
+           where poll_id::text = any (tests.ids()) and option_id is not null), 0, 'every ballot is sealed (option_id null)');
+select is((select count(*)::int from private.poll_votes where poll_id::text = any (tests.ids())), 31,
   'the ballots themselves remain (who voted, not what)');
-select is((select count(*)::int from private.poll_weight_snapshots
-           where poll_id::text in (current_setting('t.pl'), current_setting('t.pq'), current_setting('t.pi2'))), 0,
+select is((select count(*)::int from private.poll_weight_snapshots where poll_id::text = any (tests.ids())), 0,
   'the weight snapshots are gone');
 select is((select jsonb_object_agg(x.id, tests.det_as(current_setting('t.v1'), x.id) - 'closed')
-           from unnest(array[current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                             current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3')]) x(id)),
+           from unnest(tests.ids()) x(id)),
   current_setting('t.before')::jsonb, 'poll_details returns exactly what it returned before finalizing');
 select is(tests.det_as(current_setting('t.v1'), current_setting('t.pe')) ->> 'closed', 'true', 'a finalized poll reads closed');
 select is(tests.det_as(current_setting('t.t'), current_setting('t.pe')) - 'options' - 'closes_at' - 'message_id',
@@ -419,24 +450,19 @@ select is((select count(*)::int from public.notifications
 select is((select count(*)::int from public.notifications where kind = 'poll_closed'
              and recipient_id = current_setting('t.a')::uuid), 0, 'the non-voting author gets no notice');
 select is((select count(*)::int from public.notifications where kind = 'poll_closed'
-             and message_id::text in (current_setting('t.pl'), current_setting('t.pq'), current_setting('t.pi1'),
-                                      current_setting('t.pi2'), current_setting('t.pi3'))),
-  3 + 2 + 2 + 3 + 2, 'every still-active voter of every poll gets one notice (V3 banned)');
+             and message_id::text = any (tests.ids()) and message_id <> current_setting('t.pe')::uuid),
+  5 + 4 + 2 + 4 + 2 + 3 + 2, 'every still-active voter of every poll gets one notice (V3 banned)');
 select is((select count(*)::int from public.notifications where kind = 'poll_closed'
              and recipient_id = current_setting('t.v3')::uuid), 0, 'the banned V3 gets none anywhere');
 select is(tests.ev('poll_changed', current_setting('t.pe')), 4, 'finalizing sends one poll_changed');
 select is(tests.ev('poll_changed', current_setting('t.pi3')), 4, 'also for an insufficient poll (3 voters + finalize)');
-select is((select count(*)::int from public.audit_log
-           where target_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                     current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))),
+select is((select count(*)::int from public.audit_log where target_id::text = any (tests.ids())),
   0, 'finalizing writes no audit row');
 set local role service_role;
 select is(public.close_due_polls(), '{"finalized": 0}'::jsonb, 'a second run finalizes nothing');
 reset role;
-select is((select count(*)::int from public.notifications where kind = 'poll_closed'
-             and message_id::text in (current_setting('t.pe'), current_setting('t.pl'), current_setting('t.pq'),
-                                      current_setting('t.pi1'), current_setting('t.pi2'), current_setting('t.pi3'))),
-  2 + 12, 'and sends no second notice');
+select is((select count(*)::int from public.notifications where kind = 'poll_closed' and message_id::text = any (tests.ids())),
+  2 + 22, 'and sends no second notice');
 select tests.login(current_setting('t.v1'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pe')), 'P0001', 'poll_closed',
   'a finalized poll refuses votes');

@@ -1,13 +1,14 @@
--- F4e Task 3: secret votes changeable until the close, results only at the close with a 3-voter floor, sealed ballots
+-- F4e Task 3: secret votes changeable until the close, results only at the close above a voter floor, sealed ballots
 -- and voter notices.
 --
 --   _poll_tally(poll)    owner-only. Reads the private ballots and the creation snapshot: voterCount (all ballots),
---                        weightedVoterCount (ballots with weight > 0; every ballot weighs 1 in an equal poll) and,
---                        only when voterCount >= 3 and (equal or weightedVoterCount >= 3), the % per option as tenths
---                        rounded half-up: floor((2000 w + T) / (2 T)). Otherwise 'insufficient' and no number at all.
---                        Used on read and at finalize, so the two always agree.
---   cast_poll_vote       VIEW (bit 1) on the poll's channel and an active member at vote time; refused at or after
---                        closes_at or once finalized (checked under the poll row's share lock, which close_due_polls
+--                        weightedVoterCount (ballots with weight > 0; every ballot weighs 1 in an equal poll) and the %
+--                        per option as tenths (0-1000), rounded half-up, only when published (ruling F4e-R3):
+--                          equal:              voterCount >= 3, to 0.1 %:  floor((2000 w + T) / (2 T));
+--                          linear / quadratic: weightedVoterCount >= 5, to a whole %: 10 * floor((200 w + T) / (2 T)).
+--                        Otherwise 'insufficient' and no number at all. Used on read and at finalize, so they agree.
+--   cast_poll_vote       VIEW (bit 1) on the poll's channel and an active member at vote time; refused once the wall
+--                        clock reaches closes_at or once finalized (checked under the poll row's share lock, which close_due_polls
 --                        takes for update). cast / changed / same. Only a new voter broadcasts poll_changed (ids only);
 --                        a change sends nothing. No audit row.
 --   poll_details         open: the live voter count and only the caller's own option; closed: the tally (or the stored
@@ -149,15 +150,21 @@ begin
     where v.poll_id = p_poll
   ) b;
 
-  -- spec 14b: at least 3 voters, and at least 3 with weight in a weighted poll; otherwise no number at all
-  if v_voters < 3 or (v_mode <> 'equal' and v_weighted < 3) or v_total <= 0 then
+  -- spec 14b + ruling F4e-R3: an equal poll needs at least 3 voters; a weighted poll at least 5 voters with weight
+  -- (few weighted voters plus a fine % would let colluders recover a weight and match it to the public ranking).
+  -- Otherwise no number at all.
+  if v_voters < 3 or (v_mode <> 'equal' and v_weighted < 5) or v_total <= 0 then
     return jsonb_build_object('voterCount', v_voters, 'weightedVoterCount', v_weighted,
                               'status', 'insufficient', 'results', null);
   end if;
 
-  -- % per option rounded half-up to 1 decimal, as tenths 0-1000
+  -- % per option rounded half-up, always as tenths 0-1000: to 0.1 % in an equal poll, floor((2000 w + T) / (2 T));
+  -- to a whole % in a weighted poll (F4e-R3), 10 * floor((200 w + T) / (2 T)), so the value is a multiple of 10
   select jsonb_agg(jsonb_build_object('optionId', o.id,
-                                      'tenths', floor((2000 * coalesce(w.w, 0) + v_total) / (2 * v_total))::int)
+                                      'tenths', case when v_mode = 'equal'
+                                                     then floor((2000 * coalesce(w.w, 0) + v_total) / (2 * v_total))::int
+                                                     else 10 * floor((200 * coalesce(w.w, 0) + v_total) / (2 * v_total))::int
+                                                end)
                    order by o.position)
     into v_results
   from public.poll_options o
@@ -202,7 +209,8 @@ begin
   if (public.channel_permissions(v_me, p.channel_id) & 1) = 0 then
     raise exception 'forbidden';
   end if;
-  if now() >= p.closes_at or p.finalized_at is not null then
+  -- the wall clock, not the transaction start (review M1): no vote lands after closes_at, however long the call took
+  if clock_timestamp() >= p.closes_at or p.finalized_at is not null then
     raise exception 'poll_closed';
   end if;
   if p_option is null
