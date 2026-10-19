@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createPollAction } from "@/lib/polls/actions";
-import { POLL_LIMITS, validatePollDraft, type PollWeightMode } from "@/lib/polls/polls";
+import { normalizePollText, POLL_LIMITS, validatePollDraft, type PollWeightMode } from "@/lib/polls/polls";
 
 export interface PollDialogProps {
   open: boolean;
@@ -66,6 +66,12 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
     clear();
   };
 
+  /** Moves focus to the field the error is about (the first option for the options error). */
+  const focusField = (f: Field) => {
+    const id = f === "question" ? "poll-question" : f === "options" ? "poll-option-0" : f === "closesAt" ? "poll-close-at" : null;
+    if (id) document.getElementById(id)?.focus();
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy.current) return;
@@ -75,6 +81,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
     const check = validatePollDraft({ question, options, closesAt, now });
     if (!check.ok) {
       setError({ text: rpcErrorMessage(check.code), field: check.field });
+      focusField(check.field);
       return;
     }
     busy.current = true;
@@ -92,6 +99,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
       if (res.code === "slowmode" && res.slowmodeSeconds && res.slowmodeSeconds > 0) onSlowmode?.(res.slowmodeSeconds);
       const field: Field = res.code === "question_required" ? "question" : res.code === "poll_options_invalid" ? "options" : res.code === "closes_at_invalid" ? "closesAt" : null;
       setError({ text: res.error, field });
+      focusField(field);
       return;
     }
     onPosted(res.messageId);
@@ -102,7 +110,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
   const qErr = fieldError("question");
   const oErr = fieldError("options");
   const cErr = fieldError("closesAt");
-  const qLen = [...question].length;
+  const qLen = [...normalizePollText(question)].length;
   const radio = "mt-0.5 size-4 shrink-0 accent-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
   return (
@@ -143,12 +151,14 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
           {options.map((o, i) => (
             <li key={i} className="flex items-center gap-2">
               <Input
+                id={`poll-option-${i}`}
                 aria-label={`Opción ${i + 1}`}
                 value={o}
                 onChange={(e) => setOption(i, e.target.value)}
                 aria-invalid={oErr ? true : undefined}
                 aria-describedby={oErr ? OPTIONS_ERROR_ID : undefined}
                 autoComplete="off"
+                maxLength={POLL_LIMITS.optionMax}
               />
               {i >= 2 ? (
                 <Button
@@ -194,7 +204,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
 
       <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Cierre</legend>
-        <div role="radiogroup" aria-label="Cierre" className="flex flex-wrap gap-x-4 gap-y-1">
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
           {[...PRESETS.map((p) => ({ id: p.id as Preset, label: p.label })), { id: "custom" as Preset, label: "Otra fecha" }].map((p) => (
             <label key={p.id} className="flex min-h-11 cursor-pointer items-center gap-2 text-sm">
               <input
@@ -239,9 +249,9 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
 
       <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="mb-2 text-sm font-medium">Peso del voto</legend>
-        <div role="radiogroup" aria-label="Peso del voto" className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
           {MODES.map((m) => (
-            <div key={m.id} className="flex items-start gap-2">
+            <label key={m.id} htmlFor={`poll-mode-${m.id}`} className="flex min-h-11 cursor-pointer items-start gap-2 py-2.5">
               <input
                 type="radio"
                 id={`poll-mode-${m.id}`}
@@ -251,20 +261,21 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
                   setMode(m.id);
                   clear();
                 }}
+                aria-labelledby={`poll-mode-${m.id}-name`}
                 aria-describedby={m.help ? `poll-mode-${m.id}-help` : undefined}
                 className={radio}
               />
               <div className="flex min-w-0 flex-col gap-0.5">
-                <label htmlFor={`poll-mode-${m.id}`} className="cursor-pointer text-sm">
+                <span id={`poll-mode-${m.id}-name`} className="text-sm">
                   {m.label}
-                </label>
+                </span>
                 {m.help ? (
                   <p id={`poll-mode-${m.id}-help`} className="text-[13px] text-fg-muted">
                     {m.help}
                   </p>
                 ) : null}
               </div>
-            </div>
+            </label>
           ))}
         </div>
         <p className="text-[13px] text-fg-muted">
@@ -274,7 +285,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
       </fieldset>
 
       <p className="rounded-control border border-border bg-surface-2 p-3 text-[13px] text-fg-muted">
-        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno. Los resultados se publican al cerrar, si votan al menos 3 personas. La
+        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos 3 personas. La
         encuesta es consultiva: no ejecuta nada por sí sola.
       </p>
 

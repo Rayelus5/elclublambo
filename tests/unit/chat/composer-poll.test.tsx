@@ -46,9 +46,13 @@ describe("Composer + /encuesta", () => {
     expect(screen.queryByTestId("poll-stub")).not.toBeInTheDocument();
     act(() => {
       editor.commands.focus("end");
-      editor.commands.insertContent("/enc");
+      editor.commands.insertContent("/");
     });
-    await new Promise((r) => setTimeout(r, 50));
+    // Another command still shows (so the popup rendered); /encuesta must not be among them.
+    act(() => {
+      editor.commands.insertContent("i");
+    });
+    expect(await screen.findByText("/imagen")).toBeInTheDocument();
     expect(screen.queryByText("/encuesta")).not.toBeInTheDocument();
   });
 

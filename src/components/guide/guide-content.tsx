@@ -430,7 +430,7 @@ function Encuestas() {
         <p>
           Los votos son secretos: nadie, ni miembros, ni moderadores ni tesoreros, puede ver desde el foro qué votó cada
           persona. Hasta el cierre solo tú ves tu voto, y en el cierre las papeletas se sellan a nivel de la aplicación: se
-          borra el vínculo entre quien votó y lo que votó, y no queda nada con lo que consultarlo.
+          borra el vínculo entre quien votó y lo que votó, y la aplicación no conserva ningún registro de quién votó qué.
         </p>
         <p>
           Hay un límite que ninguna encuesta puede evitar: si todos menos uno de los votantes comparten entre ellos lo que

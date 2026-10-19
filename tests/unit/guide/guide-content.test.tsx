@@ -119,5 +119,7 @@ describe("guide: encuestas", () => {
       expect(text, t).toContain(t);
     }
     expect(text).not.toMatch(/imposible para nadie/i);
+    expect(text).not.toMatch(/no queda nada/i);
+    expect(text).toMatch(/sellan a nivel de la aplicación/);
   });
 });

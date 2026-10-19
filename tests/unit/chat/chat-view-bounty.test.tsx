@@ -122,6 +122,18 @@ describe("ChatView: bounties", () => {
     expect(h.composer.at(-1)).toMatchObject({ canBounty: false });
   });
 
+  it("offers /encuesta only to the root composer, and only with CREATE_POLLS and posting rights", () => {
+    setup({ viewer: viewer({ canPoll: true }) });
+    expect(h.composer.length).toBeGreaterThan(0);
+    for (const p of h.composer) {
+      expect(p.threadRootId).toBeUndefined();
+      expect(p).toMatchObject({ canPoll: true });
+    }
+    h.composer.length = 0;
+    setup({ viewer: viewer({ canPoll: false }) });
+    expect(h.composer.at(-1)).toMatchObject({ canPoll: false });
+  });
+
   it("renders the bounty card in the list", () => {
     const r = root();
     setup({}, [r]);

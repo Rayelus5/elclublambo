@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -34,7 +34,7 @@ describe("PollDialog", () => {
     expect(screen.getByRole("heading", { name: "Nueva encuesta" })).toBeInTheDocument();
     expect(
       screen.getByText(
-        "El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno. Los resultados se publican al cerrar, si votan al menos 3 personas. La encuesta es consultiva: no ejecuta nada por sí sola.",
+        "El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos 3 personas. La encuesta es consultiva: no ejecuta nada por sí sola.",
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/encuestas");
@@ -79,6 +79,60 @@ describe("PollDialog", () => {
     );
     expect(screen.getByText(/Con pocos votantes, un voto ponderado puede delatar la participación de alguien/)).toBeInTheDocument();
     expect(screen.getByText(/al menos 5 votantes con participaciones \(en 1 persona, 1 voto: 3\)/)).toBeInTheDocument();
+  });
+
+  it("makes each weight mode a full-height row and has one accessible name for the group", () => {
+    setup();
+    for (const n of ["1 persona, 1 voto", "Lineal según participación", "Cuadrática según participación"]) {
+      expect(screen.getByRole("radio", { name: n }).closest("label")).toHaveClass("min-h-11");
+    }
+    expect(screen.getAllByRole("group", { name: "Peso del voto" })).toHaveLength(1);
+    expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+  });
+
+  it("counts the question after normalization, like the server", async () => {
+    setup("  hola   mundo \n ");
+    expect(screen.getByText("10/300")).toBeInTheDocument();
+  });
+
+  it("limits each option to 80 characters", () => {
+    setup();
+    expect(screen.getByLabelText("Opción 1")).toHaveAttribute("maxlength", "80");
+  });
+
+  it("adds the application-level qualifier to the secrecy note", () => {
+    setup();
+    expect(screen.getByText(/a nivel de la aplicación/)).toBeInTheDocument();
+  });
+
+  it("focuses the first invalid field on a failed submit", async () => {
+    const { user } = setup();
+    await user.click(publish());
+    expect(screen.getByLabelText("Pregunta")).toHaveFocus();
+    await user.type(screen.getByLabelText("Pregunta"), "¿Sí?");
+    await user.type(screen.getByLabelText("Opción 1"), "a");
+    await user.click(publish());
+    expect(screen.getByLabelText("Opción 1")).toHaveFocus();
+  });
+
+  it("submits a custom date, and refuses an empty or out-of-range one", async () => {
+    const { user } = setup();
+    await fill(user);
+    await user.click(screen.getByRole("radio", { name: "Otra fecha" }));
+    await user.click(publish());
+    expect(screen.getByLabelText("Fecha de cierre")).toHaveFocus();
+    expect(createPollAction).not.toHaveBeenCalled();
+    const d = new Date(Date.now() + 2 * 86_400_000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    fireEvent.change(screen.getByLabelText("Fecha de cierre"), { target: { value: "2000-01-01T10:00" } });
+    await user.click(publish());
+    expect(createPollAction).not.toHaveBeenCalled();
+    createPollAction.mockResolvedValue({ ok: true, messageId: "m2" });
+    fireEvent.change(screen.getByLabelText("Fecha de cierre"), { target: { value: local } });
+    await user.click(publish());
+    expect(createPollAction).toHaveBeenCalledTimes(1);
+    expect(Date.parse(createPollAction.mock.calls[0]![0].closesAt)).toBe(new Date(local).getTime());
   });
 
   it("flags an empty question on the field without calling the server", async () => {
