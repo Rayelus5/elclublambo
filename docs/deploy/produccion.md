@@ -92,7 +92,8 @@ Dos reglas:
    - Si no, en PowerShell, pidiendo la clave sin que se escriba en pantalla ni en el historial (pega la URL
      completa cuando te la pida):
      ```
-     $env:LINEA_RPC_URL = Read-Host -MaskInput "LINEA_RPC_URL"
+     $s = Read-Host -AsSecureString "LINEA_RPC_URL"
+     $env:LINEA_RPC_URL = [System.Net.NetworkCredential]::new('', $s).Password
      pnpm check:rpc -- --chain 59144
      Remove-Item Env:LINEA_RPC_URL
      ```
@@ -275,8 +276,8 @@ Desde tu PC usa **solo** `--dry-run`. Quien aplica las migraciones a producción
    Automatic antes del merge de F5** (paso 7.1): `vercel.json` ya desactiva Git y no quieres que este ajuste interfiera
    con el despliegue por CLI.
 
-**Comprueba:** el proyecto existe en Vercel y no hay ningún deployment en Production que no sea el de tu
-despliegue del paso 7.
+**Comprueba:** el proyecto existe en Vercel y la importación ha creado un deployment en Production (fallido o roto,
+no importa). No lo uses ni lo redespliegues: el primer deployment bueno es el del paso 7.
 
 ### 3.2 Ajustes del proyecto
 
@@ -366,10 +367,12 @@ nombra variables, nunca sus valores. Qué significa cada mensaje y cómo se arre
 | `COINGECKO_API_BASE must be unset in production` | CoinGecko apunta a otro servidor (solo tests) | Borra la variable |
 | `TIP_CONFIRMATIONS must be empty or >= 3` | Menos de 3 confirmaciones es arriesgado con dinero real | Pon `3` o déjala sin crear |
 
-El build no imprime nada cuando la comprobación pasa, así que no hay una línea de log que buscar. La forma de
-asegurarte de que corre es dejar activado el ajuste de arriba. Si tienes dudas, en el primer deployment de
-Production mal configurado a propósito (por ejemplo, con `TIP_CONFIRMATIONS` a `1`) debe salir el error del
-paso 3.4; si el build pasa, `VERCEL_ENV` no llega y hay que revisar el ajuste. Luego corrige la variable.
+El build no imprime nada cuando la comprobación pasa, así que no hay una línea de log que buscar. Si en Vercel
+falta `VERCEL_ENV`, el build falla con `VERCEL_ENV is missing (enable 'Automatically expose System Environment
+Variables')`: activa el ajuste de arriba. Para ver la comprobación en acción la primera vez, haz un primer
+deployment de Production mal configurado a propósito creando `ETH_USD_FEED_ADDRESS_59141` con cualquier valor
+(es inofensiva en mainnet): debe salir `ETH_USD_FEED_ADDRESS_59141 must be unset in production`. Si el build pasa,
+la comprobación no corre y hay que revisar el ajuste. Luego borra la variable.
 
 Después de corregir una variable, relanza el despliegue (paso 7.3). Cambiar una variable en Vercel no reconstruye
 nada por sí solo.
@@ -539,6 +542,9 @@ estado Ready, y `https://elclub.party` carga la página de login.
   Environment no se llama exactamente `production`. Nada se ha desplegado.
 - **Falla `migrate` en `supabase db push`:** contraseña incorrecta (`SUPABASE_DB_PASSWORD`) o una migración que no
   aplica. La web sigue con la versión anterior. Lee el error antes de reintentar.
+- **`deploy` aparece cancelado u omitido tras `migrate`:** probablemente quedó puesto el Ignored Build Step del paso
+  3.1. Vuelve a dejar **Settings → Git → Ignored Build Step** en Automatic y relanza el workflow (paso 7.3). Es
+  seguro: las migraciones ya aplicadas no se repiten y son compatibles hacia atrás.
 - **Falla `deploy` antes de construir:** `VERCEL_TOKEN`, `VERCEL_ORG_ID` o `VERCEL_PROJECT_ID` mal o caducado. Las
   migraciones ya están aplicadas; relanza cuando lo corrijas.
 - **Falla `deploy` con `Configuración de producción inválida`:** mira la tabla del paso 3.4.

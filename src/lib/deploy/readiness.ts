@@ -45,6 +45,10 @@ export function productionEnvProblems(env: Env): string[] {
 
 /** Throws when this is a Vercel production build and the configuration is not mainnet-ready; otherwise a no-op. */
 export function assertProductionReady(env: Env = process.env): void {
+  // On Vercel (VERCEL=1) VERCEL_ENV must exist; otherwise every production build would silently skip this check.
+  if (env.VERCEL === "1" && !filled(env.VERCEL_ENV)) {
+    throw new Error("VERCEL_ENV is missing (enable 'Automatically expose System Environment Variables')");
+  }
   if (env.VERCEL_ENV !== "production") return;
   const problems = productionEnvProblems(env);
   if (problems.length > 0) throw new Error("Configuración de producción inválida: " + problems.join("; "));

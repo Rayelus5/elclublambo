@@ -87,7 +87,12 @@ describe("docs/deploy/produccion.md", () => {
   it("keeps the local checkout unlinked, secrets out of shell history, and states the backward-compatible migrations rule", () => {
     expect(produccion).toContain("supabase unlink");
     expect(produccion).toContain("supabase/.temp/project-ref");
-    expect(produccion).toContain("Read-Host -MaskInput");
+    expect(produccion).not.toContain("-MaskInput");
+    expect(produccion).toContain("Read-Host -AsSecureString");
+    expect(produccion).toContain("[System.Net.NetworkCredential]::new('', $s).Password");
+    expect(produccion).toContain("VERCEL_ENV is missing");
+    expect(produccion).toContain("`ETH_USD_FEED_ADDRESS_59141` con cualquier valor");
+    expect(produccion).toContain("Ignored Build Step");
     expect(produccion).toContain("read -rs SUPABASE_DB_PASSWORD");
     expect(produccion).toContain("Docker Desktop");
     expect(produccion).not.toMatch(/--db-url "\$URL"/);

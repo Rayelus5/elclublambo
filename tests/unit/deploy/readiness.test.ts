@@ -68,6 +68,13 @@ describe("assertProductionReady", () => {
     expect(() => assertProductionReady({ VERCEL_ENV: "development" })).not.toThrow();
   });
 
+  it("fails a Vercel build (VERCEL=1) where VERCEL_ENV is missing, naming the variable", () => {
+    for (const env of [{ ...valid, VERCEL: "1" }, { ...valid, VERCEL: "1", VERCEL_ENV: "" }]) {
+      expect(() => assertProductionReady(env)).toThrow(/VERCEL_ENV is missing/);
+    }
+    expect(() => assertProductionReady({ ...valid, VERCEL: "1", VERCEL_ENV: "preview" })).not.toThrow();
+  });
+
   it("passes a valid production env", () => {
     expect(() => assertProductionReady({ ...valid, VERCEL_ENV: "production" })).not.toThrow();
   });
