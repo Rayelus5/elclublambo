@@ -16,6 +16,7 @@ import { TreasuryAlerts } from "@/components/treasury/treasurer/treasury-alerts"
 import { WithdrawalsTable } from "@/components/treasury/treasurer/withdrawals-table";
 import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 import { treasuryAlerts } from "@/lib/treasury/panel";
+import type { TreasuryRaffle } from "@/lib/treasury/raffles";
 import type { TreasuryWithdrawal } from "@/lib/treasury/withdrawals";
 
 const UNIT = 10n ** 18n;
@@ -50,6 +51,13 @@ const row = (over: Partial<TreasuryWithdrawal> = {}): TreasuryWithdrawal => ({
 
 const approved = (over: Partial<TreasuryWithdrawal> = {}) =>
   row({ status: "approved", approvedAt: "2026-10-18T12:00:00Z", expiresAt: "2026-11-01T12:00:00Z", approvedByLabel: "@tes", amountUsdc: 8_000_000n, ...over });
+
+const drawnRaffle = (over: Partial<TreasuryRaffle> = {}): TreasuryRaffle => ({
+  id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
+  mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w", winnerLabel: "@ana",
+  winnerAddress: "0x1234567890abcdef1234567890abcdef12345678", drawnAt: "2026-10-02T00:00:00Z", unpaid: false, payoutTxHash: null,
+  payoutRecordedAt: null, paidAt: null, cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", ...over,
+});
 
 beforeEach(() => Object.values(actions).forEach((f) => f.mockReset()));
 
@@ -222,5 +230,43 @@ describe("isHiddenTreasuryPage (proxy guard)", () => {
     expect(await isHiddenTreasuryPage(client("0", "banned") as never, "/dao/tesoreria")).toBe(false);
     expect(await isHiddenTreasuryPage(client(null, "active", { message: "x" }) as never, "/dao/tesoreria")).toBe(false);
     expect(await isHiddenTreasuryPage(client("abc") as never, "/dao/tesoreria")).toBe(false);
+  });
+});
+
+describe("treasuryAlerts · raffles", () => {
+  const base = { withdrawals: [], unexplained: 0, now: NOW };
+
+  it("lists an unpaid prize with its title and prize", () => {
+    const a = treasuryAlerts({ ...base, safeUsdc: 100_000_000n, safeWeth: 0n, raffles: [drawnRaffle({ unpaid: true }), drawnRaffle({ id: "r2", title: "Reciente" })] });
+    expect(a.unpaidRaffles).toEqual([{ id: "r1", title: "Sorteo de otoño", prize: "6 USDC" }]);
+    render(<TreasuryAlerts alerts={a} />);
+    expect(screen.getByText("Premio impagado: Sorteo de otoño · 6 USDC")).toBeInTheDocument();
+    expect(screen.queryByText("Sin avisos.")).toBeNull();
+  });
+
+  it("warns when unpaid USDC prizes plus approved withdrawals exceed the Safe's USDC", () => {
+    const a = treasuryAlerts({ ...base, withdrawals: [approved()], safeUsdc: 10_000_000n, safeWeth: 0n, raffles: [drawnRaffle()] });
+    expect(a.prizeUnderfunded).toEqual([{ token: "USDC", reserved: 14_000_000n, safe: 10_000_000n }]);
+    render(<TreasuryAlerts alerts={a} />);
+    expect(screen.getByText("Premios en USDC sin saldo suficiente en la Safe")).toBeInTheDocument();
+  });
+
+  it("warns when unpaid WETH prizes exceed the Safe's WETH, ignores recorded ones, unknown balances and open raffles", () => {
+    const weth = drawnRaffle({ prizeToken: "WETH", prizeAmount: 10n ** 16n });
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 10n ** 15n, raffles: [weth] }).prizeUnderfunded).toEqual([
+      { token: "WETH", reserved: 10n ** 16n, safe: 10n ** 15n },
+    ]);
+    const recorded = drawnRaffle({ prizeToken: "WETH", prizeAmount: 10n ** 16n, payoutRecordedAt: "2026-10-03T00:00:00Z", payoutTxHash: "0x" + "a".repeat(64) });
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 0n, raffles: [recorded] }).prizeUnderfunded).toEqual([]);
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: null, raffles: [weth] }).prizeUnderfunded).toEqual([]);
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 0n, raffles: [drawnRaffle({ status: "open" })] }).prizeUnderfunded).toEqual([]);
+  });
+
+  it("stays at «Sin avisos.» with covered, recent prizes", () => {
+    const a = treasuryAlerts({ ...base, safeUsdc: 100_000_000n, safeWeth: 0n, raffles: [drawnRaffle()] });
+    expect(a.unpaidRaffles).toEqual([]);
+    expect(a.prizeUnderfunded).toEqual([]);
+    render(<TreasuryAlerts alerts={a} />);
+    expect(screen.getByText("Sin avisos.")).toBeInTheDocument();
   });
 });

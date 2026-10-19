@@ -171,6 +171,9 @@ describe("createRaffleAction", () => {
     { prizeToken: "ETH" },
     { mode: "random" },
     { closesAt: "mañana" },
+    { closesAt: "2026-10-25T18:30" },
+    { closesAt: "2026-10-25T18:30:00" },
+    { closesAt: "2026-10-25" },
     { title: 7 },
   ])("bad input %j is invalid_input with no RPC call", async (over) => {
     expect(await createRaffleAction({ ...input, ...over } as never)).toMatchObject({ ok: false, code: "invalid_input" });

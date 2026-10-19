@@ -6,7 +6,10 @@ import { ArrowLeft, TriangleAlert } from "lucide-react";
 import type { Address } from "viem";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { OperationsList } from "@/components/treasury/operations-list";
+import { CreateRaffleDialog } from "@/components/treasury/treasurer/create-raffle-dialog";
+import { RafflesTable } from "@/components/treasury/treasurer/raffles-table";
 import { TreasuryAlerts } from "@/components/treasury/treasurer/treasury-alerts";
+import { WeightedRafflesSwitch } from "@/components/treasury/treasurer/weighted-raffles-switch";
 import { WithdrawalsSwitch } from "@/components/treasury/treasurer/withdrawals-switch";
 import { WithdrawalsTable } from "@/components/treasury/treasurer/withdrawals-table";
 import { getEconomyConfig } from "@/lib/economy/config";
@@ -16,6 +19,7 @@ import { createServerClient } from "@/lib/supabase/server";
 import { formatUsdc } from "@/lib/treasury/format";
 import { formatWhen, treasuryAlerts } from "@/lib/treasury/panel";
 import { getDaoOverview, getUnexplainedOutflows } from "@/lib/treasury/queries";
+import { getTreasuryRaffles, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import { readSafeAssets } from "@/lib/treasury/valuation";
 import { getTreasuryWithdrawals } from "@/lib/treasury/withdrawals";
 
@@ -50,21 +54,32 @@ async function TreasuryContent() {
   const isSuperAdmin = hasPerm(perms, Perm.ADMINISTRATOR);
   const meId = typeof me.data === "string" ? me.data : null;
 
-  const [economy, overview, withdrawals, unexplained] = await Promise.all([
+  const [economy, overview, withdrawals, unexplained, raffleResult] = await Promise.all([
     getEconomyConfig(),
     getDaoOverview(supabase),
     getTreasuryWithdrawals(supabase),
     getUnexplainedOutflows(supabase),
+    getTreasuryRaffles(supabase).then(
+      (rows) => ({ rows, failed: false }),
+      (e: unknown) => {
+        console.error("[treasury] panel raffles read failed", e);
+        return { rows: [] as TreasuryRaffle[], failed: true };
+      },
+    ),
   ]);
+  const raffles = raffleResult.rows;
   const chainId: ChainId = overview.chainId;
   const safe = economy.chains[chainId].safe;
 
   // The Safe's USDC, live; when the read fails the latest snapshot's, labelled with its time.
   let safeUsdc: bigint | null = null;
+  let safeWeth: bigint | null = null;
   let snapshotAt: string | null = null;
   if (safe) {
     try {
-      safeUsdc = (await readSafeAssets(chainId, safe as Address)).usdc;
+      const assets = await readSafeAssets(chainId, safe as Address);
+      safeUsdc = assets.usdc;
+      safeWeth = assets.weth;
     } catch (e) {
       console.error("[treasury] panel Safe read failed", chainId, e);
     }
@@ -76,7 +91,8 @@ async function TreasuryContent() {
 
   // Members banned after asking can still be approved and paid (ruling F4c-R2): the panel only flags them.
   const open = withdrawals.filter((w) => w.status === "pending" || w.status === "approved");
-  const ids = [...new Set(open.map((w) => w.memberId))];
+  const winnerIds = raffles.filter((r) => r.status === "drawn" && r.winnerMemberId !== null).map((r) => r.winnerMemberId!);
+  const ids = [...new Set([...open.map((w) => w.memberId), ...winnerIds])];
   let bannedIds: string[] = [];
   let bannedCheckFailed = false;
   if (ids.length > 0) {
@@ -89,7 +105,7 @@ async function TreasuryContent() {
     }
   }
 
-  const alerts = treasuryAlerts({ withdrawals, safeUsdc, unexplained: unexplained.length, now: new Date() });
+  const alerts = treasuryAlerts({ withdrawals, safeUsdc, safeWeth, raffles, unexplained: unexplained.length, now: new Date() });
 
   return (
     <div className="flex w-full flex-col gap-8">
@@ -133,6 +149,32 @@ async function TreasuryContent() {
         intro="Paga desde la Safe y pega el hash, o espera a que el foro detecte la transferencia. Caducan a los 14 días."
       >
         <WithdrawalsTable kind="approved" rows={withdrawals.filter((w) => w.status === "approved")} meId={meId} bannedIds={bannedIds} chainId={chainId} />
+      </Section>
+
+      <Section
+        id="sorteos"
+        title="Sorteos"
+        intro="Crea sorteos y paga sus premios desde la Safe. El ganador sale solo al cerrar, de forma verificable."
+      >
+        {raffleResult.failed ? (
+          <p role="status" className="flex items-start gap-2 rounded-control border border-warning p-3 text-sm text-warning">
+            <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+            No se pudieron cargar los sorteos. Recarga la página.
+          </p>
+        ) : null}
+        <CreateRaffleDialog
+          weightedEnabled={economy.weightedRafflesEnabled[chainId]}
+          navUsd6={overview.navUsd6}
+          ethPriceE8={overview.composition?.ethPriceE8 ?? null}
+        />
+        <RafflesTable rows={raffles} bannedIds={bannedIds} chainId={chainId} />
+        {isSuperAdmin ? (
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <h3 className="text-sm font-bold text-fg">Sorteos ponderados</h3>
+            <p className="text-[13px] text-fg-muted">Sin él, nadie puede crear sorteos ponderados en esa red. Los ya creados siguen su curso.</p>
+            <WeightedRafflesSwitch enabled={economy.weightedRafflesEnabled} />
+          </div>
+        ) : null}
       </Section>
 
       <Section id="avisos" title="Avisos">

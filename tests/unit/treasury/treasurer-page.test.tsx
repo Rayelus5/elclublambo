@@ -40,6 +40,7 @@ vi.mock("@/lib/economy/config", () => ({
     activeChainId: 59141,
     minFeeBps: 0,
     withdrawalsEnabled: { 59144: false, 59141: true },
+    weightedRafflesEnabled: { 59144: false, 59141: true },
     chains: { 59144: { safe: null, platform: null }, 59141: { safe: SAFE, platform: null } },
   }),
 }));
@@ -49,10 +50,19 @@ vi.mock("@/lib/treasury/valuation", () => ({ readSafeAssets }));
 
 const getTreasuryWithdrawals = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/withdrawals", async (orig) => ({ ...(await orig<object>()), getTreasuryWithdrawals }));
+const getTreasuryRaffles = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/treasury/raffles", async (orig) => ({ ...(await orig<object>()), getTreasuryRaffles }));
+vi.mock("@/lib/treasury/raffle-actions", () => ({
+  createRaffleAction: vi.fn(),
+  cancelRaffleAction: vi.fn(),
+  markRafflePaidAction: vi.fn(),
+  setWeightedRafflesEnabledAction: vi.fn(),
+}));
 
 const overview = {
   chainId: 59141,
-  composition: { usdcUnits: 4_000_000n, ethWei: 0n, wethWei: 0n, ethPriceE8: 0n, priceSource: "chainlink", takenAt: "2026-10-19T10:00:00Z" },
+  navUsd6: 100_000_000n,
+  composition: { usdcUnits: 4_000_000n, ethWei: 0n, wethWei: 0n, ethPriceE8: 2000_00000000n, priceSource: "chainlink", takenAt: "2026-10-19T10:00:00Z" },
 };
 vi.mock("@/lib/treasury/queries", () => ({
   getDaoOverview: async () => overview,
@@ -79,6 +89,8 @@ beforeEach(() => {
   readSafeAssets.mockResolvedValue({ usdc: 10_000_000n, eth: 0n, weth: 0n, blockNumber: 1n });
   getTreasuryWithdrawals.mockReset();
   getTreasuryWithdrawals.mockResolvedValue([]);
+  getTreasuryRaffles.mockReset();
+  getTreasuryRaffles.mockResolvedValue([]);
 });
 
 describe("/dao/tesoreria", () => {
@@ -91,8 +103,11 @@ describe("/dao/tesoreria", () => {
   it("shows the sections in order, the live Safe USDC and no switch for a bit-256 treasurer", async () => {
     render(await content());
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
-    expect(headings).toEqual(["Retiradas pendientes", "Retiradas aprobadas", "Avisos", "Operaciones sin explicar", "Recientes"]);
+    expect(headings).toEqual(["Retiradas pendientes", "Retiradas aprobadas", "Sorteos", "Avisos", "Operaciones sin explicar", "Recientes"]);
     expect(screen.queryByText("Interruptor de retiradas")).toBeNull();
+    expect(screen.getByText("Crea sorteos y paga sus premios desde la Safe. El ganador sale solo al cerrar, de forma verificable.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Crear sorteo" })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Sorteos ponderados/ })).toBeNull();
     expect(screen.getByText(/USDC en la Safe: 10 USDC/)).toBeInTheDocument();
     expect(screen.getByText(/1 salida sin explicar/)).toBeInTheDocument();
   });
@@ -104,12 +119,30 @@ describe("/dao/tesoreria", () => {
     expect(headings).toEqual([
       "Retiradas pendientes",
       "Retiradas aprobadas",
+      "Sorteos",
       "Avisos",
       "Operaciones sin explicar",
       "Interruptor de retiradas",
       "Recientes",
     ]);
     expect(screen.getByRole("switch", { name: "Retiradas en Linea Sepolia" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("switch", { name: "Sorteos ponderados en Linea Sepolia" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("lists the raffles, flags a banned winner and warns about an unpaid prize", async () => {
+    getTreasuryRaffles.mockResolvedValue([
+      {
+        id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
+        mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w1", winnerLabel: "@ana",
+        winnerAddress: SAFE, drawnAt: "2026-10-02T00:00:00Z", unpaid: true, payoutTxHash: null, payoutRecordedAt: null, paidAt: null,
+        cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z",
+      },
+    ]);
+    members.rows = [{ id: "w1", status: "banned" }];
+    render(await content());
+    expect(screen.getByText("Ganador: @ana")).toBeInTheDocument();
+    expect(screen.getByText("Miembro baneado")).toBeInTheDocument();
+    expect(screen.getByText("Premio impagado: Sorteo de otoño · 6 USDC")).toBeInTheDocument();
   });
 
   it("falls back to the latest snapshot's USDC, with its time, when the live read fails", async () => {

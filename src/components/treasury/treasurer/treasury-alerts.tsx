@@ -1,5 +1,5 @@
 import { AlertTriangle, CircleCheck } from "lucide-react";
-import { formatUsdc } from "@/lib/treasury/format";
+import { formatToken, formatUsdc } from "@/lib/treasury/format";
 import { formatWhen, type TreasuryAlertsData } from "@/lib/treasury/panel";
 
 const linkClass =
@@ -7,7 +7,12 @@ const linkClass =
 
 /** «Avisos»: what the treasurer should act on. Each line has an icon and text, never colour alone. */
 export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
-  const none = alerts.expiring.length === 0 && alerts.underfunded === null && alerts.unexplained === 0;
+  const none =
+    alerts.expiring.length === 0 &&
+    alerts.underfunded === null &&
+    alerts.unexplained === 0 &&
+    alerts.unpaidRaffles.length === 0 &&
+    alerts.prizeUnderfunded.length === 0;
   if (none) {
     return (
       <p className="flex items-center gap-2 text-sm text-fg-muted">
@@ -38,6 +43,23 @@ export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
           </span>
         </li>
       ) : null}
+      {alerts.unpaidRaffles.map((r) => (
+        <li key={r.id} className="flex items-start gap-2 text-sm">
+          <AlertTriangle aria-hidden className="mt-3 size-4 shrink-0 text-warning" />
+          <a href="#sorteos" className={`${linkClass} break-words`}>{`Premio impagado: ${r.title} · ${r.prize}`}</a>
+        </li>
+      ))}
+      {alerts.prizeUnderfunded.map((p) => (
+        <li key={p.token} className="flex flex-col gap-0.5 text-sm">
+          <span className="flex items-start gap-2 font-bold text-warning">
+            <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" />
+            {`Premios en ${p.token} sin saldo suficiente en la Safe`}
+          </span>
+          <span className="pl-6 text-[13px] text-fg-muted">
+            {`Por pagar: ${formatToken(p.reserved, p.token)}. En la Safe: ${formatToken(p.safe, p.token)}.`}
+          </span>
+        </li>
+      ))}
       {alerts.unexplained > 0 ? (
         <li className="flex items-start gap-2 text-sm">
           <AlertTriangle aria-hidden className="mt-3 size-4 shrink-0 text-warning" />
