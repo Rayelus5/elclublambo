@@ -19,7 +19,9 @@ export function productionEnvProblems(env: Env): string[] {
   // Inlined into the client bundle and test-only (security finding S10): a provider key here would ship publicly.
   if (filled(env.NEXT_PUBLIC_LINEA_RPC_URL)) problems.push("NEXT_PUBLIC_LINEA_RPC_URL must be empty");
   if (filled(env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL)) problems.push("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL must be empty");
-  if (!filled(env.LINEA_RPC_URL)) problems.push("LINEA_RPC_URL is required");
+  for (const name of ["LINEA_RPC_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_REOWN_PROJECT_ID"]) {
+    if (!filled(env[name])) problems.push(`${name} is required`);
+  }
   // The CSP connect-src and HSTS (headers.ts) depend on these being https.
   if (!(env.NEXT_PUBLIC_SITE_URL ?? "").startsWith("https://")) problems.push("NEXT_PUBLIC_SITE_URL must be https");
   if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").startsWith("https://")) problems.push("NEXT_PUBLIC_SUPABASE_URL must be https");

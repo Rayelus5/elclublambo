@@ -9,6 +9,9 @@ const valid = {
   LINEA_RPC_URL: "https://linea-mainnet.example/v3/KEY",
   CRON_SECRET: "a".repeat(32),
   SUPER_ADMIN_WALLET: "0x" + "ab".repeat(20),
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
+  SUPABASE_SERVICE_ROLE_KEY: "service",
+  NEXT_PUBLIC_REOWN_PROJECT_ID: "reown",
 };
 
 describe("productionEnvProblems", () => {
@@ -32,6 +35,9 @@ describe("productionEnvProblems", () => {
     ["missing cron secret", { CRON_SECRET: undefined }, "CRON_SECRET must be at least 32 characters"],
     ["bad super admin", { SUPER_ADMIN_WALLET: "0x123" }, "SUPER_ADMIN_WALLET must be a 0x address"],
     ["missing super admin", { SUPER_ADMIN_WALLET: undefined }, "SUPER_ADMIN_WALLET must be a 0x address"],
+    ["missing anon key", { NEXT_PUBLIC_SUPABASE_ANON_KEY: "" }, "NEXT_PUBLIC_SUPABASE_ANON_KEY is required"],
+    ["missing service role", { SUPABASE_SERVICE_ROLE_KEY: undefined }, "SUPABASE_SERVICE_ROLE_KEY is required"],
+    ["missing reown id", { NEXT_PUBLIC_REOWN_PROJECT_ID: " " }, "NEXT_PUBLIC_REOWN_PROJECT_ID is required"],
     ["tip confirmations 2", { TIP_CONFIRMATIONS: "2" }, "TIP_CONFIRMATIONS must be empty or >= 3"],
     ["tip confirmations text", { TIP_CONFIRMATIONS: "abc" }, "TIP_CONFIRMATIONS must be empty or >= 3"],
     ...[
