@@ -13,6 +13,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
+    "check:rpc": "node scripts/check-rpc.mjs",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "db:test": "supabase db reset && supabase test db"
