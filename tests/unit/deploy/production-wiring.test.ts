@@ -26,7 +26,7 @@ describe("vercel.json", () => {
     expect(JSON.parse(read("vercel.json"))).toEqual({
       $schema: "https://openapi.vercel.sh/vercel.json",
       framework: "nextjs",
-      regions: ["fra1"],
+      regions: ["dub1"],
       git: { deploymentEnabled: false },
       crons: [{ path: "/api/cron/dao", schedule: "0 * * * *" }],
     });

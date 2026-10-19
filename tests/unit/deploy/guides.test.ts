@@ -40,8 +40,8 @@ describe("docs/deploy/entornos.md", () => {
 describe("docs/deploy/produccion.md", () => {
   it("covers every required topic", () => {
     const required = [
-      "fra1",
-      "eu-central-1",
+      "dub1",
+      "eu-west-1",
       "Web3",
       "Site URL",
       "Redirect URLs",

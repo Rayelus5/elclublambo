@@ -37,20 +37,20 @@ Si mergeas a `main` sin los secretos de GitHub, el workflow falla en el job `mig
                     Cloudflare DNS (solo DNS, nube gris)
                                  │
                                  ▼
-  navegador ──── https://elclub.party ────► Vercel (Pro, funciones en fra1, Frankfurt)
+  navegador ──── https://elclub.party ────► Vercel (Pro, funciones en dub1, Dublín)
                                                  │            ▲
                                                  │            │ vercel deploy --prod
                                                  ▼            │
-                              Supabase Cloud (Free, eu-central-1, Frankfurt)
+                              Supabase Cloud (Free, eu-west-1, Irlanda)
                                                  ▲            │
                                                  │            │
      GitHub: push a main ──► verify ──► migrate (supabase db push) ──► deploy
 ```
 
-- **Vercel** sirve la web y ejecuta el cron horario `/api/cron/dao` (`0 * * * *`). Las funciones corren en `fra1`,
+- **Vercel** sirve la web y ejecuta el cron horario `/api/cron/dao` (`0 * * * *`). Las funciones corren en `dub1` (Dublín),
   al lado de la base de datos.
-- **Supabase Cloud** guarda todo: base de datos, login, imágenes y Realtime. Región Central EU (Frankfurt),
-  `eu-central-1`.
+- **Supabase Cloud** guarda todo: base de datos, login, imágenes y Realtime. Región West EU (Ireland),
+  `eu-west-1`.
 - **GitHub Actions** despliega. Al hacer push a `main` corre `.github/workflows/production.yml`, con tres jobs
   estrictamente en orden:
   1. `verify`: `pnpm typecheck`, `pnpm lint` y `pnpm test:unit`. Si algo está en rojo, se para aquí.
@@ -129,11 +129,11 @@ no podrás reactivar tus otros proyectos pausados sin pausar otro, y elclub no s
    - **Name:** `elclub` (o el que quieras; no lo usa la app).
    - **Database Password:** pulsa **Generate a password**, cópiala y guárdala en tu gestor de contraseñas. La
      necesitarás como `SUPABASE_DB_PASSWORD` en GitHub y para las copias de seguridad.
-   - **Region:** **Central EU (Frankfurt)**. Es `eu-central-1`, la misma zona que las funciones de Vercel (`fra1`).
+   - **Region:** **West EU (Ireland)**. Es `eu-west-1`, la misma zona que las funciones de Vercel (`dub1`, Dublín).
    - **Plan:** Free.
 3. Pulsa **Create new project** y espera a que termine (un par de minutos).
 
-**Comprueba:** el proyecto aparece como activo y en **Project Settings → General** ves la región Frankfurt y el
+**Comprueba:** el proyecto aparece como activo y en **Project Settings → General** ves la región West EU (Ireland) y el
 **Project ID** (una cadena de unas 20 letras). Ese Project ID es el *project ref*: apúntalo, lo usarás como
 `SUPABASE_PROJECT_REF` y en `NEXT_PUBLIC_SUPABASE_URL=https://<ref>.supabase.co`.
 
@@ -282,12 +282,12 @@ no importa). No lo uses ni lo redespliegues: el primer deployment bueno es el de
 ### 3.2 Ajustes del proyecto
 
 1. **Settings → Build and Deployment → Node.js Version:** `22.x` (la misma que usa el workflow).
-2. **Settings → Functions:** la región debe salir como Frankfurt (`fra1`). Viene de `vercel.json`
-   (`"regions": ["fra1"]`); si sale otra, revisa que `vercel.json` esté en la raíz del repo.
+2. **Settings → Functions:** la región debe salir como Dublín (`dub1`). Viene de `vercel.json`
+   (`"regions": ["dub1"]`); si sale otra, revisa que `vercel.json` esté en la raíz del repo.
 3. **Settings → Git:** el repositorio aparece conectado. No hace falta tocar nada: `vercel.json` tiene
    `"git": { "deploymentEnabled": false }`, así que los push no despliegan por su cuenta.
 
-**Comprueba:** Node.js 22.x y región `fra1`.
+**Comprueba:** Node.js 22.x y región `dub1`.
 
 ### 3.3 Variables de entorno
 
