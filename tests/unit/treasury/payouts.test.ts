@@ -213,7 +213,7 @@ describe("detectWithdrawalPayouts", () => {
 
 const awaiting = (request: string, block: number, over: Record<string, unknown> = {}) => ({
   request_id: request, tx_hash: H1, destination: DEST, amount_usdc_locked: "8000000", approved_at: APPROVED,
-  payout_block: String(block), payout_recorded_at: new Date().toISOString(), ...over,
+  payout_block: String(block), payout_recorded_at: new Date().toISOString(), payout_log_index: 3, ...over,
 });
 
 describe("finalizeWithdrawalPayouts", () => {
@@ -231,6 +231,24 @@ describe("finalizeWithdrawalPayouts", () => {
     expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 1, reverted: 0, pending: 0 });
     expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ txHash: H1, from: SAFE, to: DEST, amount: 8_000000n, atLeast: true }));
     expect(calls("finalize_withdrawal")).toEqual([{ p_request: "r1", p_safe: SAFE, p_finalized_block: "150" }]);
+  });
+
+  it("final review minor 1: the recorded log is the one re-verified (preferLogIndex)", async () => {
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140, { payout_log_index: 3 })] };
+    replies.finalize_withdrawal = { data: { status: "paid" } };
+    expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 1, reverted: 0, pending: 0 });
+    expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ txHash: H1, preferLogIndex: 3 }));
+  });
+
+  it("final review minor 1: when only another log of the tx qualifies, nothing burns (pending, no revert)", async () => {
+    replies.withdrawals_awaiting_finality = { data: [awaiting("r1", 140, { payout_log_index: 7 })] };
+    replies.finalize_withdrawal = { data: { status: "paid" } };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await finalizeWithdrawalPayouts(59141)).toEqual({ paid: 0, reverted: 0, pending: 1 });
+    expect(calls("finalize_withdrawal")).toEqual([]);
+    expect(calls("revert_withdrawal_payout")).toEqual([]);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("a re-verified receipt now past the finalized block (reorged and re-mined) stays pending", async () => {

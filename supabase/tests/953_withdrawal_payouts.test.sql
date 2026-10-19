@@ -243,6 +243,9 @@ update public.withdrawal_requests set status = 'cancelled', cancelled_at = now()
 delete from public.dao_safe_operations where chain_id = 59141;
 delete from public.dao_nav_snapshots where chain_id = 59141;
 delete from public.dao_positions where chain_id = 59141;
+-- F4c-R7 (a): the scan has covered every block these scenarios read the Safe at (956 tests the cursor guard)
+insert into public.dao_scan_state (chain_id, last_block) values (59141, 1000000000)
+  on conflict (chain_id) do update set last_block = excluded.last_block;
 -- A 5, B 2, C 1, T 2 (x 10^18): S = 10 * 10^18 valued at 20 USDC (price 2 USDC)
 update public.dao_state set total_shares = 10000000000000000000, club_shares = 0, value_usdc = 20000000,
                             approved_locked_shares = 0, nav_initialized = true where chain_id = 59141;

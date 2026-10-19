@@ -106,7 +106,7 @@ function ApproveBody({ requestId, banned, onClose }: { requestId: string; banned
       <div className="flex flex-col gap-4">
         <p className="flex items-start gap-2 text-sm text-success">
           <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
-          {`Aprobada por ${formatUsdc(approvedAmount)}. Paga desde la Safe y pega aquí el hash, o el foro detectará la transferencia.`}
+          {`Aprobada por ${formatUsdc(approvedAmount)}. Paga desde la Safe y luego pega el hash en «Marcar como pagada», o el foro detectará la transferencia.`}
         </p>
         <Button variant="secondary" onClick={onClose}>
           Cerrar

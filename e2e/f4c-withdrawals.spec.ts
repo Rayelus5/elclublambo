@@ -124,7 +124,7 @@ async function approveA(amount: string, available: string) {
   await expect(dialog.getByText(`USDC disponible en la Safe: ${available}`)).toBeVisible();
   await expect(dialog.getByText(addressOf(memberA.privateKey), { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Aprobar y fijar importe" }).click();
-  await expect(dialog.getByText(`Aprobada por ${amount}. Paga desde la Safe y pega aquí el hash, o el foro detectará la transferencia.`)).toBeVisible();
+  await expect(dialog.getByText(`Aprobada por ${amount}. Paga desde la Safe y luego pega el hash en «Marcar como pagada», o el foro detectará la transferencia.`)).toBeVisible();
   await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click();
   await expect(rowOf(panelSection(p, "Retiradas aprobadas"), LABEL_A)).toContainText(`Aprobada · ${amount}`);
 }

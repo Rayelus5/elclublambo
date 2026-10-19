@@ -11,6 +11,9 @@ vi.mock("@/lib/treasury/valuation", async (orig) => ({
 }));
 
 const rpc = vi.fn();
+/** dao_valuation_cap's reply (F4c-R7 a); every other RPC goes to `rpc`. */
+let cap: { data: unknown; error: unknown } = { data: { capped: false, block: null }, error: null };
+const rpcCalls: string[] = [];
 const rows: Record<string, unknown> = {};
 const errors: Record<string, unknown> = {};
 const calls: unknown[][] = [];
@@ -20,7 +23,7 @@ function builder(table: string) {
   b.maybeSingle = async () => ({ data: errors[table] ? null : (rows[table] ?? null), error: errors[table] ?? null });
   return b;
 }
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => builder(t), rpc: (...a: unknown[]) => rpc(...a) }) }));
+vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => builder(t), rpc: (...a: unknown[]) => (rpcCalls.push(String(a[0])), a[0] === "dao_valuation_cap" ? Promise.resolve(cap) : rpc(...a)) }) }));
 
 import { takeSnapshot, valueSafe } from "@/lib/treasury/snapshot";
 
@@ -33,6 +36,8 @@ const EXPECTED_USD6 = 5_000_000n + 1_500_092_592n;
 beforeEach(() => {
   vi.clearAllMocks();
   calls.length = 0;
+  rpcCalls.length = 0;
+  cap = { data: { capped: false, block: null }, error: null };
   for (const k of Object.keys(rows)) delete rows[k];
   for (const k of Object.keys(errors)) delete errors[k];
   rows.chain_config = { safe_address: SAFE };
@@ -48,6 +53,32 @@ describe("valueSafe", () => {
     expect(v).toEqual({ assetsUsd6: EXPECTED_USD6, priceE8: PRICE, source: "chainlink", assets: ASSETS, blockNumber: 777n, safe: SAFE });
     expect(readSafeAssets).toHaveBeenCalledWith(59141, SAFE);
     expect(calls).toContainEqual(["chain_config", "eq", "chain_id", 59141]);
+  });
+
+  it("F4c-R7 (a): with approved, unpaid withdrawals the Safe is read at the scan cursor at most", async () => {
+    cap = { data: { capped: true, block: "700" }, error: null };
+    const v = await valueSafe(59141);
+    expect(readSafeAssets).toHaveBeenCalledWith(59141, SAFE, { maxBlock: 700n });
+    expect(v?.blockNumber).toBe(777n); // whatever block the read reports is what SQL checks
+    expect(rpcCalls).toContain("dao_valuation_cap");
+  });
+
+  it("F4c-R7 (a): capped without a scan cursor there is nothing to trust: null, no chain read", async () => {
+    cap = { data: { capped: true, block: null }, error: null };
+    expect(await valueSafe(59141)).toBeNull();
+    expect(readSafeAssets).not.toHaveBeenCalled();
+  });
+
+  it("not capped: read at the latest block (credits keep working without the cron)", async () => {
+    cap = { data: { capped: false, block: "700" }, error: null };
+    await valueSafe(59141);
+    expect(readSafeAssets).toHaveBeenCalledWith(59141, SAFE);
+  });
+
+  it("throws when the cap cannot be read (no read at an unchecked block)", async () => {
+    cap = { data: null, error: { message: "db down" } };
+    await expect(valueSafe(59141)).rejects.toThrow(/dao_valuation_cap/);
+    expect(readSafeAssets).not.toHaveBeenCalled();
   });
 
   it("passes the latest snapshot's price as lastPriceE8 (CoinGecko sanity check)", async () => {
@@ -130,6 +161,7 @@ describe("takeSnapshot", () => {
     readEthPrice.mockResolvedValue(null);
     expect(await takeSnapshot(59141)).toBe("unavailable");
     expect(rpc).not.toHaveBeenCalled();
+    expect(rpcCalls).not.toContain("record_nav_snapshot");
   });
 
   it("an RPC error throws (the cron reports it)", async () => {

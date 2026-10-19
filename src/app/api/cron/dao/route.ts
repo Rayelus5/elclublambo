@@ -35,8 +35,10 @@ type ChainReport = {
 };
 
 /**
- * Per chain, in order: NAV snapshot (hourly, throttled in SQL) → Safe operations scan → withdrawal payouts (detect the
- * scanned outflows, then burn the recorded ones at finality) → settlement of pending donations at market NAV. After
+ * Per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
+ * burn the recorded ones at finality) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
+ * market NAV. The scan comes first so every payout already mined is linked before anything is valued (and the
+ * valuations read the Safe at the cursor it just reached while withdrawals are approved and unpaid). After
  * every chain, each chain's lapsed withdrawal approvals expire: detection runs first, so a payout mined inside the window
  * is recorded before its approval could lapse (Review Focus 4), and the expiry is bounded by the block time of the scan
  * cursor that chain just reached; a chain whose scan failed this run expires nothing (ruling F4c-R5). Each step is isolated: one failing never stops the others. Protected by
@@ -65,12 +67,6 @@ async function handle(request: Request) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
       try {
-        report.snapshot = await takeSnapshot(chainId);
-      } catch (e) {
-        console.error("[cron/dao] snapshot failed", chainId, e);
-        report.snapshot = "failed";
-      }
-      try {
         report.scan = await scanSafeOperations(chainId);
         if (report.scan) {
           const at = await scanCursorTime(chainId);
@@ -90,6 +86,13 @@ async function handle(request: Request) {
         return null;
       });
       report.payouts = detected && finalized ? { ...detected, ...finalized } : "failed";
+      // F4c-R7 (c): only after the scan, so a payout already mined is linked and the snapshot does not dip by it
+      try {
+        report.snapshot = await takeSnapshot(chainId);
+      } catch (e) {
+        console.error("[cron/dao] snapshot failed", chainId, e);
+        report.snapshot = "failed";
+      }
     } else {
       report.skipped = "safe_not_configured";
     }

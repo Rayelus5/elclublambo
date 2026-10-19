@@ -61,7 +61,7 @@ describe("ApproveDialog", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Aprobar y fijar importe" }));
     expect(approveWithdrawalAction).toHaveBeenCalledWith("r1");
     expect(
-      await screen.findByText("Aprobada por 8 USDC. Paga desde la Safe y pega aquí el hash, o el foro detectará la transferencia."),
+      await screen.findByText("Aprobada por 8 USDC. Paga desde la Safe y luego pega el hash en «Marcar como pagada», o el foro detectará la transferencia."),
     ).toBeInTheDocument();
     expect(refresh).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Aprobar y fijar importe" })).toBeNull();

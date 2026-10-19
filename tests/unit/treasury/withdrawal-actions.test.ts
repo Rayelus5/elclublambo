@@ -26,7 +26,11 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient }));
 
 const valueSafe = vi.hoisted(() => vi.fn());
 const safeAddressOf = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/treasury/snapshot", () => ({ valueSafe, safeAddressOf }));
+const valuationCap = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/treasury/snapshot", () => ({ valueSafe, safeAddressOf, valuationCap }));
+
+const scanSafeOperations = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/treasury/scan", () => ({ scanSafeOperations }));
 
 const verifyPayout = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/treasury/payouts", async (importOriginal) => ({ ...(await importOriginal<object>()), verifyPayout }));
@@ -79,6 +83,8 @@ beforeEach(() => {
   });
   valueSafe.mockResolvedValue(valuation(120n));
   safeAddressOf.mockResolvedValue(SAFE);
+  valuationCap.mockResolvedValue({ capped: false, block: null });
+  scanSafeOperations.mockResolvedValue({ inserted: 0, alerts: 0 });
   verifyPayout.mockResolvedValue({ status: "ok", logIndex: 2, value: 8_000000n, blockNumber: 130n, blockTimestamp: new Date("2026-10-19T10:05:00.000Z") });
 });
 
@@ -210,6 +216,40 @@ describe("approveWithdrawalAction", () => {
     expect(await approveWithdrawalAction(ID)).toEqual({ ok: true, amountUsdc: "7" });
     expect(valueSafe).toHaveBeenCalledTimes(2);
     expect(adminCalls("approve_withdrawal")).toHaveLength(2);
+  });
+
+  it.each([
+    ["quote", () => quoteWithdrawalAction(ID), "quote_withdrawal"],
+    ["approve", () => approveWithdrawalAction(ID), "approve_withdrawal"],
+  ])("F4c-R7 (a) %s: with approved, unpaid withdrawals the Safe is scanned first, then valued", async (_n, run, rpcName) => {
+    valuationCap.mockResolvedValue({ capped: true, block: 100n });
+    const order: string[] = [];
+    scanSafeOperations.mockImplementation(async () => (order.push("scan"), { inserted: 1, alerts: 0 }));
+    valueSafe.mockImplementation(async () => (order.push("value"), valuation(120n)));
+    adminReplies[rpcName] = { data: { amountUsdc: "8000000", reservedUsdc: "0" } };
+    expect(await run()).toMatchObject({ ok: true });
+    expect(scanSafeOperations).toHaveBeenCalledWith(59141);
+    expect(order).toEqual(["scan", "value"]);
+  });
+
+  it("F4c-R7 (a): nothing approved and unpaid: no scan", async () => {
+    adminReplies.approve_withdrawal = { data: { amountUsdc: "8000000" } };
+    await approveWithdrawalAction(ID);
+    expect(valuationCap).toHaveBeenCalledWith(59141);
+    expect(scanSafeOperations).not.toHaveBeenCalled();
+  });
+
+  it("F4c-R7 (a): a failing scan or cap read is logged and the valuation still runs (SQL's guard decides)", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    valuationCap.mockResolvedValue({ capped: true, block: 100n });
+    scanSafeOperations.mockRejectedValue(new Error("rpc down"));
+    adminReplies.approve_withdrawal = { error: { message: "assets_stale" } };
+    expect(await approveWithdrawalAction(ID)).toMatchObject({ ok: false, code: "assets_stale" });
+    valuationCap.mockRejectedValue(new Error("db down"));
+    adminReplies.approve_withdrawal = { data: { amountUsdc: "7" } };
+    expect(await approveWithdrawalAction(ID)).toEqual({ ok: true, amountUsdc: "7" });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("maps SQL refusals (withdrawals_disabled, safe_changed)", async () => {

@@ -151,6 +151,8 @@ type AwaitingRow = {
   approved_at: string;
   payout_block: string;
   payout_recorded_at: string;
+  /** The recorded payout log: finality re-verifies that log, not any qualifying log of the tx. */
+  payout_log_index: number;
 };
 
 /**
@@ -207,7 +209,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
     amountLocked: BigInt(row.amount_usdc_locked),
     approvedAt: new Date(row.approved_at),
   };
-  const r = await verifyPayout(target, row.tx_hash as `0x${string}`);
+  const r = await verifyPayout(target, row.tx_hash as `0x${string}`, row.payout_log_index);
 
   const revert = async (): Promise<"reverted" | "pending"> => {
     const { error } = await db.rpc("revert_withdrawal_payout", { p_request: row.request_id });
@@ -226,6 +228,12 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
   }
   if (r.status !== "ok") return "pending";
   await payoutMissing(db, row.request_id, false);
+  // Final review minor 1: only the recorded log burns. Another qualifying log of the same tx is left to a human (no
+  // automatic revert: the member was paid by this tx either way, and a revert could lead to paying twice).
+  if (r.logIndex !== row.payout_log_index) {
+    console.error("[treasury] payout log changed at finality", row.request_id, row.payout_log_index, r.logIndex);
+    return "pending";
+  }
   // Finality is judged on the receipt's current block (a reorged-and-remined tx still verifies by hash).
   if (r.blockNumber > fin) return "pending";
 

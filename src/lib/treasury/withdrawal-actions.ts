@@ -7,7 +7,8 @@ import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { payoutPayload, verifyPayout } from "@/lib/treasury/payouts";
-import { safeAddressOf, valueSafe, type SafeValuation } from "@/lib/treasury/snapshot";
+import { scanSafeOperations } from "@/lib/treasury/scan";
+import { safeAddressOf, valuationCap, valueSafe, type SafeValuation } from "@/lib/treasury/snapshot";
 
 type Fail = { ok: false; error: string; code: string };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
@@ -72,14 +73,29 @@ async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
 }
 
 /**
- * Runs a valuation-bound service RPC: a fresh Safe valuation each try, `valuation_unavailable` without one, and one
- * retry when SQL answers `assets_stale` (a donation was credited after the read).
+ * Ruling F4c-R7 (a): while withdrawals are approved and unpaid the Safe is valued at most at the scan cursor, so the
+ * scan is brought up to the tip first (every payout already mined is then linked, and the read is recent). A failing
+ * cap read or scan is only logged: the valuation still runs and SQL's guard decides (assets_stale).
+ */
+async function catchUpScan(chain: ChainId): Promise<void> {
+  try {
+    if ((await valuationCap(chain)).capped) await scanSafeOperations(chain);
+  } catch (e) {
+    console.error("[treasury] scan before valuation failed", chain, e);
+  }
+}
+
+/**
+ * Runs a valuation-bound service RPC: the scan caught up when needed (F4c-R7 a), a fresh Safe valuation each try,
+ * `valuation_unavailable` without one, and one retry when SQL answers `assets_stale` (a donation was credited after the
+ * read, or the read is past the scan cursor).
  */
 async function withValuation<T>(
   chain: ChainId,
   call: (v: SafeValuation) => PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }>,
   done: (data: unknown, v: SafeValuation) => T,
 ): Promise<T | Fail> {
+  await catchUpScan(chain);
   for (let attempt = 0; ; attempt++) {
     const v = await safeValuation(chain);
     if (!v) return fail("valuation_unavailable");

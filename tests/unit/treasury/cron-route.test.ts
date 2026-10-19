@@ -81,12 +81,12 @@ describe("POST /api/cron/dao", () => {
     },
   );
 
-  it("200 runs snapshot → scan → payouts (detect, finalize) → settle per chain with a Safe, then expiry per chain", async () => {
+  it("200 runs scan → payouts (detect, finalize) → snapshot → settle per chain with a Safe, then expiry per chain (F4c-R7 c)", async () => {
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
     expect(steps).toEqual([
-      "snapshot:59144", "scan:59144", "cursor:59144", "detect:59144", "finalize:59144", "settle:59144",
-      "snapshot:59141", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "settle:59141",
+      "scan:59144", "cursor:59144", "detect:59144", "finalize:59144", "snapshot:59144", "settle:59144",
+      "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "snapshot:59141", "settle:59141",
       "expire:59144", "expire:59141",
     ]);
     const body = await res.json();
@@ -163,7 +163,7 @@ describe("POST /api/cron/dao", () => {
   it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(steps).toEqual(["settle:59144", "snapshot:59141", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "settle:59141", "expire:59141"]);
+    expect(steps).toEqual(["settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "snapshot:59141", "settle:59141", "expire:59141"]);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 

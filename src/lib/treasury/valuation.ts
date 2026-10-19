@@ -48,11 +48,16 @@ export function addressesFor(chain: ChainId): { usdc: Address; weth: Address | n
   };
 }
 
-/** The Safe's USDC, native ETH and WETH balances, all read at one block. RPC errors propagate (the caller skips). */
-export async function readSafeAssets(chain: ChainId, safe: Address): Promise<SafeAssets> {
+/**
+ * The Safe's USDC, native ETH and WETH balances, all read at one block: the latest, or `maxBlock` when that is older
+ * (ruling F4c-R7 a: the scan cursor while withdrawals are approved and unpaid). RPC errors propagate (the caller skips),
+ * including a node that no longer serves state that old.
+ */
+export async function readSafeAssets(chain: ChainId, safe: Address, opts: { maxBlock?: bigint } = {}): Promise<SafeAssets> {
   const client = chainClient(chain);
   const { usdc, weth } = addressesFor(chain);
-  const blockNumber = await client.getBlockNumber();
+  const latest = await client.getBlockNumber();
+  const blockNumber = opts.maxBlock !== undefined && opts.maxBlock < latest ? opts.maxBlock : latest;
   const balanceOf = (token: Address) =>
     client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber });
   const [usdcBal, eth, wethBal] = await Promise.all([

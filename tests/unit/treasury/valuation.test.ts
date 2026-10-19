@@ -109,6 +109,24 @@ describe("readSafeAssets", () => {
     expect(readContract.mock.calls.map(([a]) => a.address).sort()).toEqual([NETWORKS[59141].usdc, WETH].sort());
   });
 
+  it("F4c-R7 (a): with maxBlock below the tip, every balance is read at maxBlock", async () => {
+    getBlockNumber.mockResolvedValue(1234n);
+    getBalance.mockResolvedValue(1n);
+    readContract.mockResolvedValue(2n);
+    const r = await readSafeAssets(59141, SAFE, { maxBlock: 1200n });
+    expect(r.blockNumber).toBe(1200n);
+    expect(getBalance).toHaveBeenCalledWith({ address: SAFE, blockNumber: 1200n });
+    for (const [args] of readContract.mock.calls) expect(args).toMatchObject({ blockNumber: 1200n });
+  });
+
+  it("with maxBlock at or past the tip, reads at the tip (never a future block)", async () => {
+    getBlockNumber.mockResolvedValue(1234n);
+    getBalance.mockResolvedValue(1n);
+    readContract.mockResolvedValue(2n);
+    expect((await readSafeAssets(59141, SAFE, { maxBlock: 5000n })).blockNumber).toBe(1234n);
+    expect(getBalance).toHaveBeenCalledWith({ address: SAFE, blockNumber: 1234n });
+  });
+
   it("returns weth = 0n without reading when the chain has no WETH", async () => {
     vi.stubEnv("WETH_ADDRESS_59141", "");
     const original = NETWORKS[59141].weth;

@@ -38,17 +38,36 @@ async function lastPriceE8(db: Db, chain: ChainId): Promise<bigint | null> {
 }
 
 /**
- * The Safe's market value right now: balances read at one block, ETH at Chainlink (or a sane CoinGecko price checked
- * against the last snapshot). Null when the Safe is unset, a chain read fails or there is no price: callers wait,
- * nothing is defaulted. Database read errors throw (an operator signal: the cron reports the step as failed).
+ * Ruling F4c-R7 (a): while the chain has an approved withdrawal without a recorded payout, a Safe read is only trusted
+ * at a block the scan has covered (it has linked every payout up to there; SQL refuses a later block with
+ * assets_stale). `capped` says so; `block` is the scan cursor (null when the chain was never scanned). Throws on an
+ * RPC error.
+ */
+export async function valuationCap(chain: ChainId, db: Db = createAdminClient()): Promise<{ capped: boolean; block: bigint | null }> {
+  const { data, error } = await db.rpc("dao_valuation_cap", { p_chain: chain });
+  if (error) throw new Error(`dao_valuation_cap failed: ${error.message}`);
+  const r = (data ?? {}) as { capped?: unknown; block?: unknown };
+  const block = typeof r.block === "string" && /^\d+$/.test(r.block) ? BigInt(r.block) : null;
+  return { capped: r.capped === true, block };
+}
+
+/**
+ * The Safe's market value: balances read at one block (the latest, or at most the scan cursor while withdrawals are
+ * approved and unpaid, F4c-R7 a), ETH at Chainlink (or a sane CoinGecko price checked against the last snapshot). Null
+ * when the Safe is unset, a chain read fails, there is no price, or the read is capped but the chain was never
+ * scanned: callers wait, nothing is defaulted. Database read errors throw (an operator signal: the cron reports the
+ * step as failed).
  */
 export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return null;
+  const cap = await valuationCap(chain, db);
+  if (cap.capped && cap.block === null) return null;
   const last = await lastPriceE8(db, chain);
   try {
-    const [assets, price] = await Promise.all([readSafeAssets(chain, safe), readEthPrice(chain, { lastPriceE8: last })]);
+    const read = cap.capped && cap.block !== null ? readSafeAssets(chain, safe, { maxBlock: cap.block }) : readSafeAssets(chain, safe);
+    const [assets, price] = await Promise.all([read, readEthPrice(chain, { lastPriceE8: last })]);
     if (!price) return null;
     return {
       assetsUsd6: assetsUsd6(assets, price.priceE8),

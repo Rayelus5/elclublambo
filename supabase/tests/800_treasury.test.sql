@@ -1,5 +1,5 @@
 begin;
-select plan(133);
+select plan(129);
 
 -- helpers (rolled back with the test)
 create function tests.hash(p_n int) returns text language sql immutable as $$
@@ -102,7 +102,6 @@ select ok(not has_function_privilege('anon', 'public.record_donation(uuid,jsonb,
       and not has_function_privilege('anon', 'public.revert_donation(uuid)', 'execute'), 'anon cannot record or revert donations');
 select ok(not has_function_privilege('anon', 'public.dao_ranking(int)', 'execute')
       and not has_function_privilege('anon', 'public.dao_history(int)', 'execute')
-      and not has_function_privilege('anon', 'public.my_dao_position(int)', 'execute')
       and not has_function_privilege('anon', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'anon cannot call the read RPCs or the visibility toggle');
 select ok(not has_function_privilege('authenticated', 'public._record_payment_transfers(public.payment_intents,jsonb,jsonb)', 'execute'), 'authenticated cannot call the internal recording helper');
 select ok(has_function_privilege('service_role', 'public.record_donation(uuid,jsonb,jsonb)', 'execute')
@@ -112,7 +111,6 @@ select ok(has_function_privilege('authenticated', 'public.create_donation_intent
       and has_function_privilege('authenticated', 'public.dao_overview()', 'execute')
       and has_function_privilege('authenticated', 'public.dao_ranking(int)', 'execute')
       and has_function_privilege('authenticated', 'public.dao_history(int)', 'execute')
-      and has_function_privilege('authenticated', 'public.my_dao_position(int)', 'execute')
       and has_function_privilege('authenticated', 'public.set_dao_ranking_visible(boolean)', 'execute'), 'authenticated gets the member-facing RPCs');
 select ok(not has_function_privilege('anon', 'public.create_donation_intent(numeric,int,boolean)', 'execute')
       and not has_function_privilege('anon', 'public.dao_overview()', 'execute'), 'anon cannot call the member-facing RPCs');
@@ -315,15 +313,11 @@ select is((select total_shares::text || ':' || value_usdc::text from public.dao_
 select is((select count(*)::int from public.dao_positions where chain_id = 59144), 1, 'only the 59144 donor has a 59144 position');
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'myShareBps', '10000', 'the sole donor of 59144 holds 100 %');
-select is((select share_bps from public.my_dao_position(59144)), 10000, 'my_dao_position reads the requested chain');
-select is((select net_usdc::text from public.my_dao_position(59141)), '10000000', 'my_dao_position reads the other chain too');
 select is((select count(*)::int from public.dao_history(50)), 1, 'the history is per chain');
-select throws_ok($$select * from public.my_dao_position(1)$$, 'P0001', 'chain_invalid', 'my_dao_position refuses an unknown chain');
 select tests.clear_authentication();
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is(public.dao_overview() ->> 'totalShares', current_setting('t.s59141'), 'back on 59141 the overview shows the 59141 ledger');
-select is((select share_bps from public.my_dao_position()), (select share_bps from public.my_dao_position(59141)), 'my_dao_position defaults to the active chain');
 select tests.clear_authentication();
 
 -- ===== reads and anonymity =====

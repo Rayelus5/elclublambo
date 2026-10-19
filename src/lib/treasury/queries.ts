@@ -69,13 +69,6 @@ export interface HistoryEntry {
   creditedAt: string;
 }
 
-export interface MyPosition {
-  chainId: ChainId;
-  shares: bigint;
-  shareBps: number;
-  netUsdc: bigint;
-}
-
 export type NavRange = "24h" | "7d" | "30d" | "all";
 
 export interface NavPoint {
@@ -218,18 +211,4 @@ export async function getUnexplainedOutflows(supabase: SupabaseClient): Promise<
   const { data, error } = await supabase.rpc("treasury_unexplained_outflows");
   if (error) throw new Error(error.message);
   return parseOperations(data);
-}
-
-/** The caller's position on a chain (the active one when omitted). */
-export async function getMyDaoPosition(supabase: SupabaseClient, chain?: ChainId): Promise<MyPosition> {
-  const { data, error } = await supabase.rpc("my_dao_position", { p_chain: chain ?? null });
-  if (error) throw new Error(error.message);
-  const r = ((Array.isArray(data) ? data[0] : data) ?? {}) as Record<string, unknown>;
-  const id = Number(r.chain_id);
-  return {
-    chainId: isChainId(id) ? id : (chain ?? 59141),
-    shares: big(r.shares),
-    shareBps: Number(r.share_bps ?? 0),
-    netUsdc: big(r.net_usdc),
-  };
 }
