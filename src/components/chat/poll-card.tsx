@@ -34,6 +34,13 @@ export function PollCard({
 }) {
   const [nowMs, setNowMs] = useState(() => now());
   const [picked, setPicked] = useState<string | null>(null);
+  // Once the server's vote changes (the re-read after a successful vote, or a vote from another tab) the local pick is
+  // spent and the card follows the server again (React's "adjust state when a prop changes" pattern, during render).
+  const [seenMine, setSeenMine] = useState(poll.myOptionId);
+  if (seenMine !== poll.myOptionId) {
+    setSeenMine(poll.myOptionId);
+    setPicked(null);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const sending = useRef(false);
@@ -93,6 +100,8 @@ export function PollCard({
       return;
     }
     setError(res.error);
+    // Nothing changed on the server: the highlight goes back to the vote that stands.
+    setPicked(null);
     // The poll may have closed or changed meanwhile: re-read it either way.
     if (res.code === "poll_closed") onChanged();
   };

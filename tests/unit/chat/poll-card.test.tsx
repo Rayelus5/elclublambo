@@ -131,6 +131,34 @@ describe("PollCard: open, voted", () => {
     expect(onChanged).not.toHaveBeenCalled();
   });
 
+  it("after a successful vote the pick yields to the server's vote once re-read (no stale highlight)", async () => {
+    const { rerender } = render(<PollCard poll={voted()} onChanged={() => {}} now={now} />);
+    await userEvent.click(screen.getByRole("radio", { name: "No" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar voto" }));
+    expect(vote).toHaveBeenCalledWith("m1", B);
+    // The re-read brings the new vote: nothing left to submit.
+    rerender(<PollCard poll={poll({ myOptionId: B, iVoted: true })} onChanged={() => {}} now={now} />);
+    expect(screen.getByText("Tu voto: No")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Cambiar voto" })).toBeDisabled();
+    // The vote changes elsewhere (another tab): the card follows the server, not the old local pick.
+    rerender(<PollCard poll={poll({ myOptionId: A, iVoted: true })} onChanged={() => {}} now={now} />);
+    expect(screen.getByRole("radio", { name: "Sí" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("button", { name: "Cambiar voto" })).toBeDisabled();
+  });
+
+  it("reverts the highlight to the server's vote when voting fails", async () => {
+    vote.mockResolvedValue({ ok: false, code: "forbidden", error: "No tienes permiso para hacer esto." });
+    render(<PollCard poll={voted()} onChanged={() => {}} now={now} />);
+    await userEvent.click(screen.getByRole("radio", { name: "No" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cambiar voto" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Sí" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "No" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByRole("button", { name: "Cambiar voto" })).toBeDisabled();
+  });
+
   it("re-reads the poll when the server says it is already closed", async () => {
     vote.mockResolvedValue({ ok: false, code: "poll_closed", error: "La encuesta ya está cerrada." });
     const onChanged = vi.fn();
