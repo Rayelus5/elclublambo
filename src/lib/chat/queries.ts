@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { getBountyDetails } from "@/lib/bounties/queries";
+import { getPollDetails } from "@/lib/polls/queries";
 import { extractMentions } from "@/lib/chat/content";
 import { getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
 import {
@@ -30,7 +31,7 @@ interface MessageRow {
   author_id: string | null;
   body: unknown;
   allow_links: boolean;
-  kind: "text" | "alpha" | "system" | "bounty";
+  kind: "text" | "alpha" | "system" | "bounty" | "poll";
   tip_id?: string | null;
   expanded: boolean;
   quoted_message_id: string | null;
@@ -86,7 +87,9 @@ export async function hydrateMessages(
 
   const bountyIds = rows.filter((r) => r.kind === "bounty" && !r.deleted_at).map((r) => r.id);
 
-  const [attachmentsRes, reactionsRes, quotedRes, alphaRes, tipSummaries, tipLinks, bounties] = await Promise.all([
+  const pollIds = rows.filter((r) => r.kind === "poll" && !r.deleted_at).map((r) => r.id);
+
+  const [attachmentsRes, reactionsRes, quotedRes, alphaRes, tipSummaries, tipLinks, bounties, polls] = await Promise.all([
     supabase.from("message_attachments").select("id, message_id, storage_path, mime, width, height").in("message_id", ids),
     supabase.from("message_reactions").select("message_id, member_id, emoji, created_at").in("message_id", ids),
     quotedIds.length > 0
@@ -98,6 +101,7 @@ export async function hydrateMessages(
     getTipSummaries(supabase, tippable),
     getTipNoticeLinks(supabase, tipIds),
     getBountyDetails(supabase, bountyIds),
+    getPollDetails(supabase, pollIds),
   ]);
   const alphaByMessage = new Map(
     ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string }>).map((a) => [a.message_id, a.contract_address]),
@@ -182,6 +186,7 @@ export async function hydrateMessages(
       kind: r.kind,
       alphaAddress: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
       bounty: r.kind === "bounty" ? (bounties?.get(r.id) ?? null) : null,
+      poll: r.kind === "poll" ? (polls.get(r.id) ?? null) : null,
       expanded: r.expanded,
       quotedId: r.quoted_message_id,
       quote: r.quoted_message_id ? (quotes.get(r.quoted_message_id) ?? null) : null,

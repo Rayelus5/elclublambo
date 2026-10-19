@@ -89,6 +89,10 @@ const MESSAGES: Record<string, string> = {
   prize_too_large: "El premio no puede superar la mitad del valor del fondo.",
   closes_at_invalid: "El cierre debe estar entre 1 hora y 30 días desde ahora.",
   title_required: "Escribe un título de 1 a 80 caracteres.",
+  question_required: "Escribe la pregunta, de 1 a 300 caracteres.",
+  poll_options_invalid: "Pon de 2 a 10 opciones distintas, de 1 a 80 caracteres cada una.",
+  poll_closed: "La encuesta ya está cerrada.",
+  poll_not_editable: "Una encuesta no se puede editar: cambiaría lo que otros ya han votado.",
   draw_block_invalid: "Ese bloque no es el primero posterior al cierre.",
 };
 

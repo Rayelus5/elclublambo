@@ -25,6 +25,8 @@ vi.mock("@/lib/treasury/payouts", () => ({
 }));
 const raffles = vi.fn();
 vi.mock("@/lib/treasury/raffle-cron", () => ({ runRaffleSteps: (...a: unknown[]) => (steps.push(`raffles:${a[0]}`), raffles(...a)) }));
+const finalizePolls = vi.fn();
+vi.mock("@/lib/polls/cron", () => ({ finalizeDuePolls: (...a: unknown[]) => (steps.push("polls"), finalizePolls(...a)) }));
 const RAFFLES = { closed: 1, voided: 0, drawn: 1, pending: 0, recorded: 0, paid: 1, reverted: 0, unpaidNotices: 0 };
 const SCANNED = new Date("2026-10-19T11:59:00.000Z");
 
@@ -54,6 +56,7 @@ beforeEach(() => {
   expire.mockResolvedValue(2);
   cursorTime.mockResolvedValue(SCANNED);
   raffles.mockResolvedValue(RAFFLES);
+  finalizePolls.mockResolvedValue({ finalized: 2 });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -91,10 +94,11 @@ describe("POST /api/cron/dao", () => {
     expect(steps).toEqual([
       "scan:59144", "cursor:59144", "detect:59144", "finalize:59144", "raffles:59144", "snapshot:59144", "settle:59144",
       "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141",
-      "expire:59144", "expire:59141",
+      "expire:59144", "expire:59141", "polls",
     ]);
     const body = await res.json();
     expect(body.chains).toHaveLength(2);
+    expect(body.polls).toEqual({ finalized: 2 });
     expect(body.chains[0]).toEqual({
       chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 },
       raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: 2,
@@ -149,7 +153,7 @@ describe("POST /api/cron/dao", () => {
     expect(body.chains[1]).toMatchObject({ payouts: "failed", credited: 1, expiredApprovals: 2 });
     // a failing detection does not skip the finalization (nor the other way round)
     expect(steps).toEqual(expect.arrayContaining(["finalize:59144", "detect:59141", "settle:59144", "settle:59141"]));
-    expect(steps.at(-1)).toBe("expire:59141");
+    expect(steps.at(-2)).toBe("expire:59141");
     err.mockRestore();
   });
 
@@ -184,7 +188,7 @@ describe("POST /api/cron/dao", () => {
   it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(steps).toEqual(["settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141"]);
+    expect(steps).toEqual(["settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141", "polls"]);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 
@@ -217,11 +221,30 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(steps).toHaveLength(12); // both scans failed: no cursor read, no expiry
+    expect(steps).toHaveLength(13); // both scans failed: no cursor read, no expiry; the polls step still ran
     const [a, b] = (await res.json()).chains;
     expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, raffles: RAFFLES, error: "settle_failed", expiredApprovals: "skipped" });
     expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: "skipped" });
     err.mockRestore();
+  });
+
+  it("a throwing polls step reports polls failed while every chain step still ran", async () => {
+    finalizePolls.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.polls).toBe("failed");
+    expect(body.chains[0]).toMatchObject({ snapshot: "taken", credited: 1, expiredApprovals: 2 });
+    expect(body.chains[1]).toMatchObject({ snapshot: "taken", credited: 1, expiredApprovals: 2 });
+    err.mockRestore();
+  });
+
+  it("runs the polls step once, after the per-chain loop and the approval expiry", async () => {
+    await POST(req("Bearer s3cret-value"));
+    expect(finalizePolls).toHaveBeenCalledTimes(1);
+    expect(steps.indexOf("polls")).toBeGreaterThan(steps.indexOf("settle:59141"));
+    expect(steps.indexOf("polls")).toBeGreaterThan(steps.indexOf("expire:59141"));
   });
 
   it("reports an unavailable valuation and a null scan as they come", async () => {

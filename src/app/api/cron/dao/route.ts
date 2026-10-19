@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
+import { finalizeDuePolls } from "@/lib/polls/cron";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectWithdrawalPayouts, expireWithdrawalApprovals, finalizeWithdrawalPayouts, scanCursorTime } from "@/lib/treasury/payouts";
 import { runRaffleSteps, type RaffleReport } from "@/lib/treasury/raffle-cron";
@@ -131,7 +132,15 @@ async function handle(request: Request) {
       report.expiredApprovals = "failed";
     }
   }
-  return Response.json({ chains });
+  // F4e: once per run, independent of the chains; a failure never touches what the chains already did.
+  let polls: Awaited<ReturnType<typeof finalizeDuePolls>> | "failed";
+  try {
+    polls = await finalizeDuePolls();
+  } catch (e) {
+    console.error("[cron/dao] polls failed", e);
+    polls = "failed";
+  }
+  return Response.json({ chains, polls });
 }
 
 export const POST = handle;

@@ -11,6 +11,8 @@ export const CHANNEL_EVENTS = [
   "reaction_changed",
   // A bounty's solution was marked, it was cancelled or paid: the card is re-read like any updated message.
   "bounty_changed",
+  // A new voter was counted or the poll was finalized: the card is re-read like any updated message.
+  "poll_changed",
 ] as const;
 export type ChannelEventName = (typeof CHANNEL_EVENTS)[number];
 

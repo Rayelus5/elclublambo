@@ -34,6 +34,7 @@ export type NotificationKind =
   | "withdrawal_paid"
   | "withdrawal_expired"
   | "raffle_won"
+  | "poll_closed"
   | "treasury_notice";
 
 const WITHDRAWAL_KINDS = new Set<NotificationKind>(["withdrawal_approved", "withdrawal_rejected", "withdrawal_paid", "withdrawal_expired"]);
@@ -128,7 +129,7 @@ const SELECT =
   "actor:members!notifications_actor_id_fkey(display_name, handle, avatar_path, wallet_address), " +
   "channel:channels(name), message:messages(body_text, deleted_at), ticket:tickets(subject)";
 
-const MESSAGE_KINDS = new Set<NotificationKind>(["mention", "reply", "channel_message"]);
+const MESSAGE_KINDS = new Set<NotificationKind>(["mention", "reply", "channel_message", "poll_closed"]);
 const PERSON_KINDS = new Set<NotificationKind>(["invite_redeemed", "godchild_banned", "sponsor_penalized"]);
 
 /** A tip notice points at the tipped message (not at the system notice); a reply also names its thread root. */

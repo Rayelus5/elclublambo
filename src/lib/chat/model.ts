@@ -2,6 +2,7 @@
 import type { BountyDetail } from "@/lib/bounties/queries";
 import type { MemberIdentity } from "@/lib/members/name";
 import type { TipNoticeLink, TipTotal } from "@/lib/payments/queries";
+import type { PollDetail } from "@/lib/polls/polls";
 
 /** A contract address as the Alpha flow accepts it (the database stores it lowercased). */
 export const ALPHA_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -38,11 +39,13 @@ export interface ChatMessage {
   /** Raw Tiptap JSON as stored (untrusted: MessageContent sanitizes it). */
   body: unknown;
   allowLinks: boolean;
-  kind: "text" | "alpha" | "system" | "bounty";
+  kind: "text" | "alpha" | "system" | "bounty" | "poll";
   /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
   alphaAddress: string | null;
   /** Details of a bounty message; null when unreadable or not a bounty. Absent on view models built before bounties. */
   bounty?: BountyDetail | null;
+  /** Details of a poll message; null when unreadable or not a poll. Absent on view models built before polls. */
+  poll?: PollDetail | null;
   expanded: boolean;
   quotedId: string | null;
   quote: QuotePreview | null;
@@ -90,6 +93,8 @@ export interface ViewerPermissions {
   canEmbed?: boolean;
   /** CREATE_BOUNTIES (with SEND_MESSAGES, checked where it is used): /bounty opens the bounty dialog. */
   canBounty?: boolean;
+  /** CREATE_POLLS (with SEND_MESSAGES): /encuesta opens the poll dialog. */
+  canPoll?: boolean;
 }
 
 // --- reactions ------------------------------------------------------------------------------------
