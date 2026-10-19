@@ -77,6 +77,29 @@ describe("docs/deploy/produccion.md", () => {
     for (const s of required) expect(produccion, s).toContain(s);
   });
 
+  it("makes the production Environment branch rule mandatory and creates develop after the F5 merge", () => {
+    expect(produccion).toContain("**Obligatorio:** en **Deployment branches and tags**");
+    expect(produccion).not.toContain("Opcional, recomendado: en **Deployment branches");
+    expect(produccion).toContain("### 7.4 Crear `develop` (después del merge)");
+    expect(produccion).not.toContain("### 5.1 Rama `develop`");
+  });
+
+  it("keeps the local checkout unlinked, secrets out of shell history, and states the backward-compatible migrations rule", () => {
+    expect(produccion).toContain("supabase unlink");
+    expect(produccion).toContain("supabase/.temp/project-ref");
+    expect(produccion).toContain("Read-Host -MaskInput");
+    expect(produccion).toContain("read -rs SUPABASE_DB_PASSWORD");
+    expect(produccion).toContain("Docker Desktop");
+    expect(produccion).not.toMatch(/--db-url "\$URL"/);
+    expect(produccion).toContain("Migraciones compatibles hacia atrás");
+    expect(produccion).toContain("Automatically expose System Environment Variables");
+  });
+
+  it("carries no stale migration count and no names of the owner's other projects", () => {
+    expect(produccion).not.toMatch(/\d+ migraciones/);
+    expect(produccion).not.toMatch(/rai-music-web|ttrpg-manager|arandor/);
+  });
+
   it("names every GitHub secret the production workflow reads, and no deploy hook", () => {
     const workflow = read(".github/workflows/production.yml");
     const secrets = [...workflow.matchAll(/secrets\.([A-Z_]+)/g)].map((m) => m[1]);
@@ -201,6 +224,16 @@ describe("docs/deploy/preproduccion-homelab.md", () => {
     expect(labels).toBeTruthy();
     expect(homelab).toContain(labels!.replace(/\s/g, ""));
     expect(homelab).not.toMatch(/deploy hook|VERCEL_DEPLOY_HOOK_URL/i);
+  });
+
+  it("sets the client-IP header for GoTrue behind the tunnel and re-checks private_only after the restart", () => {
+    expect(homelab).toContain('GOTRUE_RATE_LIMIT_HEADER: "CF-Connecting-IP"');
+    const sec5 = homelab.slice(homelab.indexOf("\n## 5. Realtime solo privado"), homelab.indexOf("\n## 6. Studio"));
+    const restart = sec5.indexOf("docker compose restart realtime");
+    const check = sec5.lastIndexOf("select external_id, private_only");
+    expect(restart).toBeGreaterThan(-1);
+    expect(check).toBeGreaterThan(restart);
+    expect(sec5.indexOf("select external_id, private_only")).toBe(check);
   });
 
   it("never exposes Studio, Postgres or a published port beyond loopback", () => {

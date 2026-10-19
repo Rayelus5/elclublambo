@@ -64,7 +64,9 @@ Notas:
   direcciones verificadas de `src/lib/economy/networks.ts`. Si alguien las crea en Vercel, el build de producción
   falla.
 - `VERCEL_ENV` la pone Vercel sola. Cuando vale `production`, el build ejecuta la comprobación de
-  `src/lib/deploy/readiness.ts` (mensajes explicados en `produccion.md`, paso 3.4).
+  `src/lib/deploy/readiness.ts` (mensajes explicados en `produccion.md`, paso 3.4). Si el ajuste de Vercel
+  **Automatically expose System Environment Variables** se desactiva, `VERCEL_ENV` no llega al build y la
+  comprobación se salta en silencio: déjalo activado.
 - Las claves VAPID se generan con `pnpm exec web-push generate-vapid-keys --json`, una pareja por entorno.
 
 ## Secretos de GitHub

@@ -54,6 +54,11 @@ describe("production workflow", () => {
     expect(job("deploy")).toContain("environment: production");
   });
 
+  it("migrate and deploy only run from main, so a manual dispatch on another ref cannot touch production", () => {
+    expect(job("migrate")).toContain("if: github.ref == 'refs/heads/main'");
+    expect(job("deploy")).toContain("if: github.ref == 'refs/heads/main'");
+  });
+
   it("verify runs the frozen install, typecheck, lint and unit tests", () => {
     const v = job("verify");
     for (const cmd of ["pnpm install --frozen-lockfile", "pnpm typecheck", "pnpm lint", "pnpm test:unit"]) {

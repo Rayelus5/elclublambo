@@ -34,6 +34,7 @@ jobs:
   migrate:
     needs: verify
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -50,6 +51,7 @@ jobs:
   deploy:
     needs: migrate
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
     environment: production
     env:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

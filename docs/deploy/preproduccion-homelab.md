@@ -430,8 +430,8 @@ grep -n 'image: supabase/gotrue\|image: supabase/auth' docker-compose.yml
 Con esa etiqueta (`v2.x.y`), abre
 `https://raw.githubusercontent.com/supabase/auth/<ETIQUETA>/internal/conf/configuration.go` y busca `Web3Ethereum` y
 `RateLimitWeb3`. Las variables se llaman `GOTRUE_` + la ruta del campo en mayúsculas. Lo esperado es
-`GOTRUE_EXTERNAL_WEB3_ETHEREUM_ENABLED`, `GOTRUE_RATE_LIMIT_WEB3`, `GOTRUE_RATE_LIMIT_TOKEN_REFRESH` y
-`GOTRUE_RATE_LIMIT_VERIFY`. Si no puedes descargar el archivo, usa estos nombres y confía en la comprobación del paso
+`GOTRUE_EXTERNAL_WEB3_ETHEREUM_ENABLED`, `GOTRUE_RATE_LIMIT_WEB3`, `GOTRUE_RATE_LIMIT_TOKEN_REFRESH`,
+`GOTRUE_RATE_LIMIT_VERIFY` y `GOTRUE_RATE_LIMIT_HEADER`. Si no puedes descargar el archivo, usa estos nombres y confía en la comprobación del paso
 4.3, que lo detecta.
 
 Escribe el override, ajustando el nombre de los servicios y las variables de puertos a lo que viste en el paso 3.2.
@@ -447,6 +447,7 @@ services:
       GOTRUE_RATE_LIMIT_WEB3: "30"
       GOTRUE_RATE_LIMIT_TOKEN_REFRESH: "150"
       GOTRUE_RATE_LIMIT_VERIFY: "30"
+      GOTRUE_RATE_LIMIT_HEADER: "CF-Connecting-IP"
   kong:
     ports: !override
       - "127.0.0.1:${KONG_HTTP_PORT}:8000/tcp"
@@ -460,6 +461,14 @@ EOF
 
 Los límites son por IP y cada 5 minutos, los mismos de `supabase/config.toml` y de producción: Web3 30, refresco de
 token 150, verificaciones 30.
+
+`GOTRUE_RATE_LIMIT_HEADER: CF-Connecting-IP` le dice a GoTrue de qué cabecera sacar la IP del cliente para esos
+límites. Sin ella, todas las peticiones llegan desde el contenedor `cloudflared` y los límites por IP acabarían
+siendo **compartidos por todos los testers**. Cloudflare sobrescribe esa cabecera en cada petición, así que un
+cliente no puede falsearla. **Verifica** que tu versión de GoTrue conoce la variable: en el
+`configuration.go` del paso anterior, busca `RateLimitHeader` (variable `GOTRUE_RATE_LIMIT_HEADER`). Si no existe en
+tu versión, quita esa línea del override y apunta en el informe que los límites de login son compartidos (con dos o
+tres testers no es un problema).
 
 **Comprueba:**
 
@@ -518,11 +527,11 @@ unset PGPASSWORD
 ```
 ANON="$(grep '^ANON_KEY=' /opt/supabase/docker/.env | cut -d= -f2-)"
 curl -s http://127.0.0.1:8000/auth/v1/settings -H "apikey: $ANON" | jq '{web3: .external.web3_ethereum, email: .external.email, phone: .external.phone, disable_signup}'
-docker exec supabase-auth env | grep -E '^GOTRUE_(EXTERNAL_WEB3|RATE_LIMIT_(WEB3|TOKEN_REFRESH|VERIFY))'
+docker exec supabase-auth env | grep -E '^GOTRUE_(EXTERNAL_WEB3|RATE_LIMIT_(WEB3|TOKEN_REFRESH|VERIFY|HEADER))'
 ```
 
 **Comprueba:** el JSON es `{"web3": true, "email": false, "phone": false, "disable_signup": false}` y el segundo
-comando muestra las cuatro variables de 3.5. Si `web3` sale `null` o `false`, el nombre de la variable no es el de tu
+comando muestra las variables de 3.5 (las cuatro de límites incluida `GOTRUE_RATE_LIMIT_HEADER`, si tu versión la admite). Si `web3` sale `null` o `false`, el nombre de la variable no es el de tu
 versión de GoTrue: vuelve a 3.5, busca el nombre real y recrea con `docker compose up -d auth`. (Si el contenedor no
 se llama `supabase-auth`, míralo con `docker compose ps auth`.)
 
@@ -570,14 +579,22 @@ Si imprime `private_only`:
 
 ```
 docker exec supabase-db psql -U postgres -d postgres -c "update _realtime.tenants set private_only = true"
-docker exec supabase-db psql -U postgres -d postgres -tAc "select external_id, private_only from _realtime.tenants"
 cd /opt/supabase/docker && docker compose restart realtime
+```
+
+Espera a que `realtime` vuelva a `Up (healthy)` y **comprueba después del reinicio** (el arranque de Realtime
+puede volver a escribir el tenant con sus valores por defecto):
+
+```
+docker exec supabase-db psql -U postgres -d postgres -tAc "select external_id, private_only from _realtime.tenants"
 ```
 
 Si el `update` da `permission denied`, repítelo como `supabase_admin` con la contraseña en el entorno (como en 4.2,
 con `-U supabase_admin -h 127.0.0.1`).
 
-**Comprueba:** cada tenant sale con `|t`, y `docker compose ps realtime` vuelve a `Up (healthy)`.
+**Comprueba:** cada tenant sale con `|t` (si tras el reinicio vuelve a `|f`, repite el `update` y el reinicio, y
+apúntalo en el informe), y `docker compose ps realtime` está `Up (healthy)`. Repite esta comprobación después de
+cada actualización de Supabase (sección 11.2).
 
 Si la columna no existe, no hagas nada más: apúntalo en el informe y sigue. La app funciona igual, porque solo usa
 topics privados.
@@ -1097,7 +1114,7 @@ Si tiene USDC de Sepolia, una propina de 0.01 USDC.
   ```
   Lee el diff: añade a `.env` las claves nuevas, y comprueba que el override sigue valiendo (nombres de servicios y
   variables). Luego `cd docker && docker compose pull && docker compose up -d` y repite 3.5 (comprobación de puertos),
-  4.1, 4.2 y 4.3. Si el diff cambia la versión **mayor** de Postgres, **no actualices**: pregunta al humano.
+  4.1, 4.2 y 4.3, y la comprobación de `private_only` de la sección 5. Si el diff cambia la versión **mayor** de Postgres, **no actualices**: pregunta al humano.
 - **cloudflared:** la imagen está fijada en el compose del repo; se actualiza con un PR.
 - **Runner:** se actualiza solo.
 

@@ -11,6 +11,16 @@ const MUST_BE_UNSET = [
   "COINGECKO_API_BASE",
 ] as const;
 
+/** True for a parseable https URL with a non-empty host (a bare "https://" is not one). */
+function isHttpsUrl(value: string | undefined): boolean {
+  try {
+    const url = new URL(value ?? "");
+    return url.protocol === "https:" && url.hostname !== "";
+  } catch {
+    return false;
+  }
+}
+
 const filled = (v: string | undefined) => (v ?? "").trim() !== "";
 
 export function productionEnvProblems(env: Env): string[] {
@@ -23,8 +33,8 @@ export function productionEnvProblems(env: Env): string[] {
     if (!filled(env[name])) problems.push(`${name} is required`);
   }
   // The CSP connect-src and HSTS (headers.ts) depend on these being https.
-  if (!(env.NEXT_PUBLIC_SITE_URL ?? "").startsWith("https://")) problems.push("NEXT_PUBLIC_SITE_URL must be https");
-  if (!(env.NEXT_PUBLIC_SUPABASE_URL ?? "").startsWith("https://")) problems.push("NEXT_PUBLIC_SUPABASE_URL must be https");
+  if (!isHttpsUrl(env.NEXT_PUBLIC_SITE_URL)) problems.push("NEXT_PUBLIC_SITE_URL must be https");
+  if (!isHttpsUrl(env.NEXT_PUBLIC_SUPABASE_URL)) problems.push("NEXT_PUBLIC_SUPABASE_URL must be https");
   if ((env.CRON_SECRET ?? "").length < 32) problems.push("CRON_SECRET must be at least 32 characters");
   if (!/^0x[0-9a-fA-F]{40}$/.test(env.SUPER_ADMIN_WALLET ?? "")) problems.push("SUPER_ADMIN_WALLET must be a 0x address");
   for (const name of MUST_BE_UNSET) if (filled(env[name])) problems.push(`${name} must be unset in production`);

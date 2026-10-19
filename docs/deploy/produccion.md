@@ -20,8 +20,11 @@ mergear a `main`**:
 4. DNS en Cloudflare (paso 4). Necesitas el dominio `elclub.party` ya comprado. Si aún no lo tienes, puedes hacer
    todo lo demás y dejar el merge para cuando lo tengas: sin dominio el login con wallet no funciona, porque Supabase
    y Reown solo aceptan `elclub.party`.
-5. Rama `develop` y GitHub Environment `production` con sus 6 secretos (paso 5).
+5. GitHub Environment `production`, limitado a la rama `main`, con sus 6 secretos, y protección de `main` (paso 5).
 6. Secretos generados y Reown creado (paso 6). En la práctica los generas antes del paso 3, porque Vercel los pide.
+
+La rama `develop` **no** se crea ahora: se crea desde `main` **después** del merge de F5 (paso 7.4), para que
+herede el workflow de preproducción y `deploy/preprod/`.
 
 Si mergeas a `main` sin los secretos de GitHub, el workflow falla en el job `migrate` (no puede hacer
 `supabase link`) y **no se despliega nada**. No rompe nada: añades los secretos y relanzas el workflow (paso 7).
@@ -86,12 +89,15 @@ Dos reglas:
      ```
      node --env-file=.env.local scripts/check-rpc.mjs --chain 59144
      ```
-   - Si no, en PowerShell (sustituye la clave):
+   - Si no, en PowerShell, pidiendo la clave sin que se escriba en pantalla ni en el historial (pega la URL
+     completa cuando te la pida):
      ```
-     $env:LINEA_RPC_URL = "https://linea-mainnet.infura.io/v3/<tu-clave>"
+     $env:LINEA_RPC_URL = Read-Host -MaskInput "LINEA_RPC_URL"
      pnpm check:rpc -- --chain 59144
+     Remove-Item Env:LINEA_RPC_URL
      ```
-     Cierra la terminal al terminar, para que la clave no se quede en la variable.
+     No escribas la clave directamente en el comando: PowerShell guarda el historial en disco
+     (`ConsoleHost_history.txt`) y cerrar la terminal no lo borra.
 
 **Comprueba:** salen 4 líneas `OK`, y la URL aparece tachada (`https://linea-mainnet.infura.io/***`):
 
@@ -113,10 +119,9 @@ en ventanas de 2000 bloques y valora la Safe en bloques pasados, y sin estado de
 
 ### 2.1 Crear el proyecto
 
-Antes de empezar, ten en cuenta el límite del plan Free: **2 proyectos activos por organización**. Tu organización
-ya tiene uno activo (`rai-music-web`) y dos pausados (`ttrpg-manager` y `arandor`). Con elclub llegas a 2 activos.
-A partir de ahí no podrás reactivar `ttrpg-manager` ni `arandor` sin pausar otro, y elclub no se puede pausar porque
-es producción.
+Antes de empezar, ten en cuenta el límite del plan Free: **2 proyectos activos por organización**. Si ya tienes
+2 proyectos activos en la organización, pausa uno antes de crear este. Con elclub llegas al límite: a partir de ahí
+no podrás reactivar tus otros proyectos pausados sin pausar otro, y elclub no se puede pausar porque es producción.
 
 1. Entra en [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**.
 2. Rellena:
@@ -226,11 +231,18 @@ Quieres ver que la CLI conecta y qué migraciones va a aplicar el workflow. Desd
 pnpm exec supabase login
 pnpm exec supabase link --project-ref <ref>
 pnpm exec supabase db push --dry-run
+pnpm exec supabase unlink
 ```
 
 `login` abre el navegador. `link` te pide la contraseña de la base de datos (la del paso 2.1).
 
-**Comprueba:** `--dry-run` lista las 93 migraciones de `supabase/migrations` como pendientes y termina sin error.
+**Comprueba:** `--dry-run` lista todas las migraciones de `supabase/migrations` como pendientes y termina sin error.
+Después de `unlink`, el archivo `supabase/.temp/project-ref` ya no existe.
+
+**No dejes la carpeta enlazada a producción.** Mientras esté enlazada, cualquier comando con `--linked` o
+`db push` que lance tú, o una IA que trabaje en esta carpeta, ataca la base de datos de producción. Por eso el
+paso termina con `supabase unlink`. (Si `unlink` falla, borra el archivo `supabase/.temp/project-ref` a mano.)
+Vuelve a enlazar solo para las copias de seguridad (paso 11) y desenlaza al terminar.
 
 Desde tu PC usa **solo** `--dry-run`. Quien aplica las migraciones a producción es el workflow. Y nunca ejecutes
 `supabase db reset --linked`: borra la base de datos de producción.
@@ -253,10 +265,18 @@ Desde tu PC usa **solo** `--dry-run`. Quien aplica las migraciones a producción
 2. Conecta GitHub si te lo pide e importa el repositorio `Rayelus5/elclublambo`.
 3. **Framework Preset:** Next.js (lo detecta solo). No toques Build Command ni Install Command.
 4. No añadas variables en esta pantalla (aquí se aplicarían a todos los entornos). Pulsa **Deploy**.
-5. Este primer build **va a fallar** con `Configuración de producción inválida: …`. Es lo esperado: todavía no hay
-   variables y la comprobación de producción lo para antes de publicar nada.
+5. Este primer build construye la rama `main` **actual**, que todavía no tiene el código de F5 (ni la comprobación de
+   producción ni `vercel.json`). Todavía no hay variables, así que lo esperable es que falle (o, peor, que
+   despliegue una versión rota por otro motivo). Da igual: no lo uses.
+6. **No pulses Redeploy** sobre ese deployment, ni ahora ni cuando ya tengas variables: serviría código antiguo con
+   las variables de producción contra una base de datos sin migrar. Hasta el merge de F5, la integración con Git
+   sigue activa para `main` (`vercel.json` aún no está en `main`). Para cortarlo, ve a **Settings → Git → Ignored
+   Build Step** y elige **Don't build anything**; así los push a `main` no construyen nada por Git. **Vuelve a poner
+   Automatic antes del merge de F5** (paso 7.1): `vercel.json` ya desactiva Git y no quieres que este ajuste interfiera
+   con el despliegue por CLI.
 
-**Comprueba:** el proyecto existe en Vercel y el primer deployment aparece como fallido (Error), no como Ready.
+**Comprueba:** el proyecto existe en Vercel y no hay ningún deployment en Production que no sea el de tu
+despliegue del paso 7.
 
 ### 3.2 Ajustes del proyecto
 
@@ -305,13 +325,19 @@ La lista, con el valor que lleva cada una:
 | `CRON_SECRET` | 64 caracteres de `openssl rand -hex 32` (paso 6.1). Sensitive |
 | `ENABLE_EXPERIMENTAL_COREPACK` | `1` |
 
+**`VERCEL_ENV` tiene que existir en el build.** Es la variable que Vercel pone sola (`production`, `preview` o
+`development`) y de la que depende la comprobación del paso 3.4: si no vale `production`, la comprobación **no se
+ejecuta** y el build pasa sin revisar nada. Vercel la expone mientras esté activado **Settings → Environment
+Variables → Automatically expose System Environment Variables** (viene activado). No lo desactives, y no crees tú
+una variable `VERCEL_ENV`.
+
 `ENABLE_EXPERIMENTAL_COREPACK=1` hace que Vercel instale exactamente la versión de pnpm fijada en `package.json`
 (`"packageManager": "pnpm@12.11.2"`). Sin ella, Vercel elige la versión de pnpm a partir del lockfile y puede usar
 una más antigua. Si un build falla en la instalación con `ERR_PNPM_UNSUPPORTED_ENGINE` o con un error de formato del
 lockfile, comprueba que esta variable existe, está en Production y vale `1`.
 
-**Comprueba:** en la lista, cada variable muestra solo "Production" y las seis secretas tienen el candado de
-Sensitive.
+**Comprueba:** en la lista, cada variable muestra solo "Production", las seis secretas tienen el candado de
+Sensitive, y **Automatically expose System Environment Variables** está activado.
 
 ### 3.4 Qué comprueba el build de producción
 
@@ -328,8 +354,8 @@ nombra variables, nunca sus valores. Qué significa cada mensaje y cómo se arre
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY is required` | Falta la clave pública de Supabase | Añádela (paso 2.8) |
 | `SUPABASE_SERVICE_ROLE_KEY is required` | Falta la clave secreta de Supabase | Añádela (paso 2.8) |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID is required` | Falta el Project ID de Reown | Añádelo (paso 6.3) |
-| `NEXT_PUBLIC_SITE_URL must be https` | La URL del sitio no empieza por `https://`: sin eso no se envían HSTS ni la CSP correcta | `https://elclub.party` |
-| `NEXT_PUBLIC_SUPABASE_URL must be https` | La URL de Supabase no empieza por `https://` | `https://<ref>.supabase.co` |
+| `NEXT_PUBLIC_SITE_URL must be https` | La URL del sitio no es una URL `https://` válida con dominio: sin eso no se envían HSTS ni la CSP correcta | `https://elclub.party` |
+| `NEXT_PUBLIC_SUPABASE_URL must be https` | La URL de Supabase no es una URL `https://` válida con dominio | `https://<ref>.supabase.co` |
 | `CRON_SECRET must be at least 32 characters` | El secreto del cron es corto o falta | Genera uno con `openssl rand -hex 32` |
 | `SUPER_ADMIN_WALLET must be a 0x address` | No es una dirección `0x` + 40 caracteres hexadecimales | Copia tu dirección completa |
 | `ETH_USD_FEED_ADDRESS_59141 must be unset in production` | Hay un override de tests | Borra la variable |
@@ -339,6 +365,11 @@ nombra variables, nunca sus valores. Qué significa cada mensaje y cómo se arre
 | `COINGECKO_DISABLED must be unset in production` | El precio de respaldo de CoinGecko está apagado (solo tests) | Borra la variable |
 | `COINGECKO_API_BASE must be unset in production` | CoinGecko apunta a otro servidor (solo tests) | Borra la variable |
 | `TIP_CONFIRMATIONS must be empty or >= 3` | Menos de 3 confirmaciones es arriesgado con dinero real | Pon `3` o déjala sin crear |
+
+El build no imprime nada cuando la comprobación pasa, así que no hay una línea de log que buscar. La forma de
+asegurarte de que corre es dejar activado el ajuste de arriba. Si tienes dudas, en el primer deployment de
+Production mal configurado a propósito (por ejemplo, con `TIP_CONFIRMATIONS` a `1`) debe salir el error del
+paso 3.4; si el build pasa, `VERCEL_ENV` no llega y hay que revisar el ajuste. Luego corrige la variable.
 
 Después de corregir una variable, relanza el despliegue (paso 7.3). Cambiar una variable en Vercel no reconstruye
 nada por sí solo.
@@ -397,20 +428,14 @@ Configuration" y el certificado aparece emitido. En Cloudflare los dos registros
 
 ## 5. GitHub
 
-### 5.1 Rama `develop`
-
-El flujo es: trabajas en ramas → PR a `develop` (despliega preproducción) → PR de `develop` a `main` (despliega
-producción).
-
-1. En GitHub, en el repo, pulsa el selector de ramas, escribe `develop` y elige **Create branch develop from main**.
-
-**Comprueba:** la rama `develop` aparece en la lista de ramas.
-
-### 5.2 Environment `production` y sus secretos
+### 5.1 Environment `production` y sus secretos
 
 1. Repo → **Settings → Environments → New environment**, nombre `production` (exactamente así).
-2. Opcional, recomendado: en **Deployment branches and tags**, elige **Selected branches and tags** y añade solo
-   `main`. Así ningún otro workflow puede usar estos secretos.
+2. **Obligatorio:** en **Deployment branches and tags**, elige **Selected branches and tags** y añade solo `main`.
+   Es la barrera que impide que otra rama (con el selector de "Run workflow", o una rama que edite el workflow)
+   use estos secretos, migre la base de datos de producción o despliegue. El workflow también comprueba
+   `github.ref == 'refs/heads/main'` en `migrate` y `deploy`, pero esta regla es la que protege los secretos.
+   Opcional: añádete como **Required reviewer**, para tener que aprobar a mano el primer despliegue con dinero real.
 3. En **Environment secrets → Add environment secret**, crea estos seis:
 
    | Secreto | De dónde sale |
@@ -422,20 +447,22 @@ producción).
    | `VERCEL_ORG_ID` | el Team ID de Vercel (paso 3.5) |
    | `VERCEL_PROJECT_ID` | el Project ID de Vercel (paso 3.5) |
 
-4. Crea también el Environment `preproduction`. Sus secretos (`PREPROD_DB_URL` y `PREPROD_DB_PASSWORD`) los rellena
-   la guía de preproducción; por ahora puede quedarse vacío.
+4. Crea también el Environment `preproduction`. Sus secretos (`PREPROD_DB_URL` y `PREPROD_DB_PASSWORD`) y su regla
+   de rama (`develop`) los rellena la guía de preproducción; por ahora puede quedarse vacío.
 
-**Comprueba:** en Environments → `production` aparecen los seis secretos por nombre.
+**Comprueba:** en Environments → `production` aparecen los seis secretos por nombre, y **Deployment branches and
+tags** dice "Selected branches" con `main` como única entrada.
 
-### 5.3 Proteger `main` y `develop`
+### 5.2 Proteger `main`
 
 1. Repo → **Settings → Branches → Add branch protection rule** (o **Rules → Rulesets**, si GitHub te lleva ahí).
-2. Una regla para `main` y otra para `develop`, con:
+2. Una regla para `main` (la de `develop` se crea en el paso 7.4), con:
    - **Require a pull request before merging:** activado.
    - **Allow force pushes:** desactivado.
    - **Allow deletions:** desactivado.
 
-**Comprueba:** un `git push` directo a `main` desde tu PC es rechazado.
+**Comprueba:** un `git push` directo a `main` desde tu PC es rechazado. (Haz esto antes del merge de F5, que entra
+por pull request.)
 
 ---
 
@@ -492,8 +519,9 @@ Hay dos proyectos de Reown: "elclub prod" para producción y "elclub dev/pre" pa
 
 ### 7.1 Lanzarlo
 
-1. Revisa la lista de "Orden en el que vas a trabajar" del principio. Todo marcado.
-2. Mergea a `main` (el PR de F5, o un PR de `develop` a `main`).
+1. Revisa la lista de "Orden en el que vas a trabajar" del principio. Todo marcado. Si pusiste el Ignored Build
+   Step del paso 3.1, vuelve a dejarlo en Automatic.
+2. Mergea a `main` el PR de F5.
 3. Ve a la pestaña **Actions** del repo y abre el run del workflow **production**.
 
 **Comprueba:** los tres jobs pasan en verde y en orden: `verify` → `migrate` → `deploy`. En los logs de `migrate`
@@ -502,6 +530,9 @@ estado Ready, y `https://elclub.party` carga la página de login.
 
 ### 7.2 Si algo falla
 
+- **Falla `verify` en `pnpm install` con `ERR_PNPM_IGNORED_BUILDS`:** una dependencia con script de instalación no
+  tiene decisión en `allowBuilds` de `pnpm-workspace.yaml`. Añádela con `true` o `false` en una rama y PR. El
+  mismo error aparecería en el build de Vercel.
 - **Falla `verify`:** el código tiene un error de tipos, de lint o un test roto. No se ha tocado nada en producción.
   Arréglalo en una rama y vuelve a mergear.
 - **Falla `migrate` en `supabase link`:** falta o está mal `SUPABASE_ACCESS_TOKEN` o `SUPABASE_PROJECT_REF`, o el
@@ -518,6 +549,23 @@ estado Ready, y `https://elclub.party` carga la página de login.
 - Para lanzarlo sin hacer push: **Actions → production → Run workflow**, rama `main`.
 
 Los dos repiten `verify` → `migrate` → `deploy`. Las migraciones ya aplicadas no se vuelven a aplicar.
+
+`migrate` y `deploy` solo se ejecutan si el run es de `main`: si lanzas el workflow a mano sobre otra rama, solo
+corre `verify`, y el Environment `production` rechaza esa rama de todos modos.
+
+### 7.4 Crear `develop` (después del merge)
+
+El flujo de trabajo es: ramas → PR a `develop` (despliega preproducción) → PR de `develop` a `main` (despliega
+producción). `develop` se crea **ahora**, desde un `main` que ya contiene F5, para que tenga el workflow de
+preproducción y `deploy/preprod/`.
+
+1. En GitHub, en el repo, abre el selector de ramas, escribe `develop` y elige **Create branch develop from main**.
+2. Protégela como `main` (paso 5.2): **Settings → Branches → Add branch protection rule** para `develop`, con PR
+   obligatorio y sin force push ni borrado.
+3. Si aún no lo hiciste, **Settings → Environments → `preproduction`**: la regla de rama `develop` se añade en la guía
+   de preproducción.
+
+**Comprueba:** la rama `develop` existe, contiene `.github/workflows/preproduction.yml` y está protegida.
 
 ---
 
@@ -585,20 +633,33 @@ así que en la app no tienes que tocar nada. A partir de ahora cada pago desde l
 Supabase Free no te deja descargar copias, así que las haces tú. Una vez a la semana, y antes de cualquier cambio
 grande.
 
-1. Consigue la cadena de conexión: en Supabase, botón **Connect** arriba → **Session pooler** (funciona con IPv4).
-   Sustituye `[YOUR-PASSWORD]` por la contraseña del paso 2.1.
-2. En Git Bash, desde la carpeta del proyecto (guarda la URL en una variable para no repetirla):
+**Necesitas Docker Desktop abierto**: `supabase db dump` ejecuta `pg_dump` dentro de un contenedor.
+
+1. Enlaza la carpeta a producción solo para este paso (paso 2.9) y que la contraseña no quede en el historial:
+   en Git Bash, desde la carpeta del proyecto, léela sin eco:
    ```
-   URL='postgresql://postgres.<ref>:<contraseña>@<host-del-pooler>:5432/postgres'
+   read -rs SUPABASE_DB_PASSWORD && export SUPABASE_DB_PASSWORD
+   pnpm exec supabase login
+   pnpm exec supabase link --project-ref <ref>
+   ```
+   `read -rs` no escribe lo que pegas en pantalla ni en `~/.bash_history`. No pongas la contraseña ni la cadena de
+   conexión directamente en un comando.
+2. Descarga (`--linked` usa la contraseña del entorno, así no va en los argumentos del comando):
+   ```
    mkdir -p backup
-   pnpm exec supabase db dump --db-url "$URL" -f backup/roles.sql --role-only
-   pnpm exec supabase db dump --db-url "$URL" -f backup/schema.sql
-   pnpm exec supabase db dump --db-url "$URL" -f backup/data.sql --use-copy --data-only
+   pnpm exec supabase db dump --linked -f backup/roles.sql --role-only
+   pnpm exec supabase db dump --linked -f backup/schema.sql
+   pnpm exec supabase db dump --linked -f backup/data.sql --use-copy --data-only
    ```
-3. Imágenes de Storage (necesita el proyecto enlazado, paso 2.9):
+3. Imágenes de Storage (también con el proyecto enlazado):
    ```
    pnpm exec supabase storage cp -r ss:///chat-images ./backup/chat-images --experimental
    pnpm exec supabase storage cp -r ss:///avatars ./backup/avatars --experimental
+   ```
+   Y desenlaza al terminar, y borra la variable:
+   ```
+   pnpm exec supabase unlink
+   unset SUPABASE_DB_PASSWORD
    ```
 4. Guarda la carpeta `backup` **fuera** del repo y fuera de tu PC (un disco externo o una nube tuya, cifrada). Nunca
    la subas a GitHub: tiene los datos de todos los miembros.
@@ -628,6 +689,13 @@ grande.
   red activa en Linea, Safe y wallet de la plataforma. La base de datos nueva arranca en Sepolia y sin direcciones.
 - **La finalidad de Linea tarda.** Los pagos de retiradas y los sorteos se cierran en una pasada posterior del cron,
   no al instante. Es normal que algo quede "pendiente" hasta la siguiente hora.
+- **Migraciones compatibles hacia atrás.** El workflow aplica las migraciones (`migrate`) y solo después construye y
+  publica el código nuevo (`deploy`, que tarda unos minutos). En ese intervalo el código **antiguo** sigue sirviendo
+  tráfico sobre el esquema **nuevo**. Una migración que borre o renombre algo que el código antiguo usa (una
+  columna, la firma de una función RPC) rompe producción durante esa ventana. Regla: expandir → desplegar →
+  contraer. Primero una migración que solo añade (columnas nuevas, funciones nuevas o `create or replace`
+  compatibles); en un PR posterior, cuando el código nuevo ya está en producción, otra migración que quita lo que
+  sobra.
 - **Nunca lances los tests e2e ni `pnpm db:test` contra producción.** Escriben y borran datos. Son solo para tu
   Supabase local.
 
