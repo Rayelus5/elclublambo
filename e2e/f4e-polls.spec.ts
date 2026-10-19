@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext, type Page, type Response } from "@playwright/test";
+import { expect, test, type APIResponse, type BrowserContext, type Page, type Request, type Response } from "@playwright/test";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { agePoll, noticesOf, resetLocalDao, runCron, seedPosition } from "./helpers/dao";
 import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "./helpers/f2c";
@@ -33,38 +33,96 @@ function trackErrors(context: BrowserContext) {
 /**
  * Every response a context receives from the app (documents, RSC payloads, server-action replies) and from Supabase
  * (the chat re-reads a poll from the browser: its poll_details replies land here), kept as text.
+ *
+ * RSC payloads, server-action replies and poll_details are intercepted (context.route): the test fetches each one
+ * itself, keeps its body, and only then hands it to the page. Reading them from the response event instead loses
+ * bodies the browser drops on a navigation (Chrome frees the buffer), and an unread body is an unchecked one. A body
+ * that cannot be fetched or read is recorded and fails the check. Documents and other JSON keep the response event.
  */
-type Capture = { bodies: Promise<string>[]; pollDetails: number };
+type Capture = { bodies: Promise<string>[]; pollDetails: number; unread: string[] };
 const captures = new Map<BrowserContext, Capture>();
 const ORIGINS = ["http://localhost:3000", process.env.NEXT_PUBLIC_SUPABASE_URL!];
+const UNREAD = "<<unread>>";
+const isPollDetails = (url: string) => url.includes("/rest/v1/rpc/poll_details");
+/** RSC navigations and prefetches, server actions, and the browser's poll_details calls. */
+const mustIntercept = (req: Request) => {
+  if (req.method() === "OPTIONS") return false;
+  const h = req.headers();
+  return h["rsc"] === "1" || "next-action" in h || isPollDetails(req.url());
+};
 function capture(context: BrowserContext) {
-  const cap: Capture = { bodies: [], pollDetails: 0 };
+  const cap: Capture = { bodies: [], pollDetails: 0, unread: [] };
   captures.set(context, cap);
+  void context.route(
+    (url) => ORIGINS.some((o) => url.href.startsWith(o)),
+    async (route) => {
+      const req = route.request();
+      if (!mustIntercept(req)) return route.fallback();
+      if (isPollDetails(req.url())) cap.pollDetails++;
+      let res: APIResponse;
+      let body: string;
+      try {
+        res = await route.fetch();
+        body = await res.text();
+      } catch (e) {
+        cap.unread.push(`${req.method()} ${req.url()}: ${(e as Error).message}`);
+        await route.abort().catch(() => {});
+        return;
+      }
+      cap.bodies.push(Promise.resolve(body));
+      // The body is already decoded: drop the encoding and length so the page reads it as sent.
+      const headers = { ...res.headers() };
+      delete headers["content-encoding"];
+      delete headers["content-length"];
+      await route.fulfill({ status: res.status(), headers, body }).catch(() => {}); // the page may have navigated away
+    },
+  );
   context.on("response", (r: Response) => {
-    if (!ORIGINS.some((o) => r.url().startsWith(o))) return;
+    if (!ORIGINS.some((o) => r.url().startsWith(o)) || mustIntercept(r.request())) return;
     const type = r.headers()["content-type"] ?? "";
     if (!/text\/html|text\/x-component|text\/plain|application\/(vnd\.pgrst\.object\+)?json/.test(type)) return;
-    if (r.url().includes("/rest/v1/rpc/poll_details")) cap.pollDetails++;
-    // A body that never completes would hang the check: it is reported (and fails the assertion) instead.
     const url = r.url();
-    cap.bodies.push(
-      Promise.race([r.text().catch(() => ""), new Promise<string>((res) => setTimeout(() => res(`<<unread ${url}>>`), 10_000))]),
-    );
+    // A body that never completes would hang the check: after 10 s it counts as unread instead.
+    const body = Promise.race([
+      r.text().catch(() => UNREAD),
+      new Promise<string>((res) => setTimeout(() => res(UNREAD), 10_000)),
+    ]).then((text) => {
+      if (text !== UNREAD) return text;
+      // An RSC body outside the interception (none expected) still must be read.
+      if (type.includes("text/x-component")) cap.unread.push(`${type} ${url}`);
+      return "";
+    });
+    cap.bodies.push(body);
   });
+}
+/** Every captured body since the last reset; fails if a poll_details or RSC body could not be read. */
+async function capturedBodies(context: BrowserContext): Promise<string[]> {
+  const cap = captures.get(context)!;
+  const bodies = await Promise.all(cap.bodies);
+  expect(cap.unread, "every poll_details and RSC response was read").toEqual([]);
+  return bodies;
 }
 /** The option ids the context ever received as "its own vote" since the last reset. */
 async function ownOptionsSeen(context: BrowserContext): Promise<Set<string>> {
   const seen = new Set<string>();
-  const bodies = await Promise.all(captures.get(context)!.bodies);
-  expect(bodies.filter((b) => b.startsWith("<<unread ")), "every captured response was read").toEqual([]);
-  for (const body of bodies) {
+  for (const body of await capturedBodies(context)) {
     for (const m of body.matchAll(MY_OPTION_RE)) seen.add(m[1]!);
   }
   return seen;
 }
+/**
+ * Sanity for the closed state: the payloads still carry the poll (its iVoted / i_voted field), so an empty "no option
+ * seen" result means the option was absent, not that a renamed field slipped past the pattern.
+ */
+async function expectPollPayloadSeen(context: BrowserContext) {
+  const bodies = await capturedBodies(context);
+  expect(bodies.some((b) => /(?:iVoted|i_voted)\\*"\s*:\s*(?:true|false)/.test(b)), "a closed poll payload was received").toBe(true);
+}
 const resetCapture = (context: BrowserContext) => {
-  captures.get(context)!.bodies = [];
-  captures.get(context)!.pollDetails = 0;
+  const cap = captures.get(context)!;
+  cap.bodies = [];
+  cap.pollDetails = 0;
+  cap.unread = [];
 };
 
 let admin: Actor;
@@ -307,16 +365,18 @@ test("4. close and results: once closes_at passes the bars appear with 'Votaste'
   expect(await noticesOf(a.id, "poll_closed")).toBe(0);
   expect(await noticesOf(admin.id, "poll_closed")).toBe(0);
   await b.page.goto("/notifications");
-  await expect(b.page.getByText("Ha cerrado la encuesta en la que votaste en #General")).toHaveCount(1);
+  await expect(b.page.getByText("Se ha cerrado la encuesta en la que votaste en #General")).toHaveCount(1);
 
   // Unchanged after the cron sealed the ballots.
   await goGeneral(b.page);
   await expectResults(b.page);
   await expect(card(b.page, Q.equal).getByText("Votaste", { exact: true })).toBeVisible();
   expect((await detailsAs(b, id)).my_option_id).toBeNull();
-  // Since the close, no page received anyone's option, not even the voter's own.
+  // Since the close, no page received anyone's option, not even the voter's own, though they did receive the poll.
   expect([...(await ownOptionsSeen(b.context))]).toEqual([]);
   expect([...(await ownOptionsSeen(a.context))]).toEqual([]);
+  await expectPollPayloadSeen(b.context);
+  await expectPollPayloadSeen(a.context);
 });
 
 test("5. insufficient: with 2 voters a closed poll shows no result at all", async () => {
@@ -383,6 +443,8 @@ test("6. weighted: lineal by participaciones, B (no shares) is told its vote wei
   expect((await detailsAs(a, id)).my_option_id).toBeNull();
   expect([...(await ownOptionsSeen(a.context))]).toEqual([]);
   expect([...(await ownOptionsSeen(b.context))]).toEqual([]);
+  await expectPollPayloadSeen(a.context);
+  await expectPollPayloadSeen(b.context);
 });
 
 test("7. edit and delete: a poll offers no Editar; A deletes the insufficient poll and it leaves B's page live", async () => {
