@@ -60,6 +60,8 @@ const MESSAGES: Record<string, string> = {
   invalid_state: "Esta operación ya no se puede procesar en su estado actual.",
   shares_zero: "La donación es demasiado pequeña para el valor actual del fondo. La revisará el tesorero.",
   assets_stale: "El saldo del fondo aún no refleja esta donación. Se reintentará en breve.",
+  valuation_paused:
+    "Valoración en pausa: hay una salida de la Safe sin explicar mientras una retirada o un premio siguen pendientes de pago. Mira «Avisos» en el panel del tesorero.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
   platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",
   too_many_intents: "Tienes demasiados pagos pendientes. Espera a que caduquen o se confirmen.",

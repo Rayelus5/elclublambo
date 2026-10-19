@@ -11,6 +11,8 @@ import { markRafflePaidAction } from "@/lib/treasury/raffle-actions";
 import { formatPrize, type TreasuryRaffle } from "@/lib/treasury/raffles";
 
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+const COMBINED_HINT =
+  "Esta transacción ya está registrada como otro pago. Solo vale para este premio si la misma transferencia pagó también la retirada aprobada de este ganador, en USDC, a su wallet y por al menos la suma de los dos importes.";
 
 /** Verifies the hash of the Safe's prize transfer on chain and records it; the raffle turns paid later, at finality. */
 export function MarkRafflePaidDialog({
@@ -46,7 +48,8 @@ export function MarkRafflePaidDialog({
         setDone(true);
         router.refresh();
       } else {
-        setError(r.error);
+        // F4-R3: the one case a used transaction is accepted (a combined payout) is worth spelling out
+        setError(r.code === "tx_already_used" ? COMBINED_HINT : r.error);
       }
     } catch {
       setError("No se pudo comprobar el pago. Inténtalo de nuevo.");

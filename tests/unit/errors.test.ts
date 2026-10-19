@@ -19,6 +19,12 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorMessage("safe_change_blocked")).toMatch(/Safe/);
     expect(rpcErrorMessage("safe_change_blocked")).toMatch(/participaciones|donaciones/);
   });
+  it("R-M3 valuation_paused has its own copy (not the donation one of assets_stale)", () => {
+    expect(rpcErrorCode({ message: "valuation_paused" })).toBe("valuation_paused");
+    expect(rpcErrorMessage("valuation_paused")).toBe(
+      "Valoración en pausa: hay una salida de la Safe sin explicar mientras una retirada o un premio siguen pendientes de pago. Mira «Avisos» en el panel del tesorero.",
+    );
+  });
   it("F4c safe_changed has its exact Spanish copy and is allowlisted", () => {
     expect(rpcErrorCode({ message: "safe_changed" })).toBe("safe_changed");
     expect(rpcErrorMessage("safe_changed")).toBe("La Safe de esta red cambió durante la operación. Vuelve a intentarlo.");

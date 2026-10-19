@@ -49,7 +49,8 @@ export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
           <span className="pl-6 text-[13px] text-fg-muted">
             Las donaciones, las aprobaciones y la valoración esperan. Si fue un pago parcial o repartido, pide que lo devuelva o completa el pago con
             una sola transferencia de al menos el importe y añade una nota a las salidas parciales. Si la salida no tiene que ver, añádele una nota.
-            Si una sola transferencia pagó dos cosas, ya está enlazada a la otra: añádele la nota en «Operaciones» de la DAO.
+            Si una sola transferencia pagó la retirada y el premio de ese miembro, usa «Marcar como pagado» en el premio con el
+            mismo hash (una nota no basta).
           </span>
           <a href="#sin-explicar" className={`${linkClass} self-start pl-6`}>
             Ver las salidas sin explicar

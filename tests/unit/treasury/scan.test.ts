@@ -194,10 +194,52 @@ describe("scanSafeOperations: balance continuity (F4-R1)", () => {
     logs = [payout(9_500n)];
     logsHead = 9_000n; // the log index trails: the payout at 9500 is never returned
     stored = { block: "5000", balances: { USDC: "1000000000", WETH: "0" } };
-    expect(await scanSafeOperations(59141)).toBe("scan_gap");
+    expect(await scanSafeOperations(59141, { cron: true })).toBe("scan_gap");
     expect(rpc).not.toHaveBeenCalledWith("record_safe_scan", expect.anything());
     expect(rpc).toHaveBeenCalledWith("record_scan_gap", { p_chain: 59141 });
     expect(cursorSets()).toEqual([]);
+  });
+
+  it("R-M3: only the cron's runs count toward the stuck alert (a treasurer's catch-up scan does not)", async () => {
+    baseBalance = { [USDC.toLowerCase()]: 1_000_000_000n };
+    logs = [payout(9_500n)];
+    logsHead = 9_000n;
+    stored = { block: "5000", balances: { USDC: "1000000000", WETH: "0" } };
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
+    expect(rpc).not.toHaveBeenCalledWith("record_scan_gap", expect.anything());
+  });
+
+  it("R-M1: a stale stored baseline is re-read once at start − 1; when that explains the range the scan advances", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    baseBalance = { [USDC.toLowerCase()]: 1_000_000_000n };
+    logs = [payout(9_500n)];
+    stored = { block: "5000", balances: { USDC: "999", WETH: "0" } }; // wrong (a reorg, a node glitch…)
+    expect(await scanSafeOperations(59141, { cron: true })).toEqual({ inserted: 2, alerts: 1 });
+    expect(recorded().p_balances).toEqual({ USDC: "600000000", WETH: "0" });
+    expect(readContract).toHaveBeenCalledWith(expect.objectContaining({ address: USDC, blockNumber: 5_000n }));
+    expect(rpc).not.toHaveBeenCalledWith("record_scan_gap", expect.anything());
+    expect(err).toHaveBeenCalledWith(expect.stringMatching(/stale stored baseline/), 59141, "USDC", expect.anything());
+    err.mockRestore();
+  });
+
+  it("R-M4: USDC minted to the Safe and burned from it (Transfer from / to 0x0) reconcile: no false gap", async () => {
+    const ZERO = "0x0000000000000000000000000000000000000000";
+    baseBalance = { [USDC.toLowerCase()]: 10n };
+    logs = [
+      { address: USDC, event: "Transfer", args: { from: ZERO, to: SAFE, value: 500n }, blockNumber: 6_000n, transactionHash: hash(80), logIndex: 0 },
+      { address: USDC, event: "Transfer", args: { from: SAFE, to: ZERO, value: 200n }, blockNumber: 7_000n, transactionHash: hash(81), logIndex: 0 },
+    ];
+    stored = { block: "5000", balances: { USDC: "10", WETH: "0" } };
+    expect(await scanSafeOperations(59141)).toEqual({ inserted: 2, alerts: 1 });
+    expect(recorded().p_balances).toEqual({ USDC: "310", WETH: "0" });
+  });
+
+  it("R-M4: a missed WETH Deposit (the wrap is not in the logs the node returned) is a gap", async () => {
+    baseBalance = { [WETH]: 0n };
+    logs = [{ address: WETH, event: "Deposit", args: { dst: SAFE, wad: ETH }, blockNumber: 9_500n, transactionHash: hash(82), logIndex: 0 }];
+    logsHead = 9_000n;
+    stored = { block: "5000", balances: { USDC: "0", WETH: "0" } };
+    expect(await scanSafeOperations(59141)).toBe("scan_gap");
   });
 
   it("a toBlock the client does not have is a gap too", async () => {

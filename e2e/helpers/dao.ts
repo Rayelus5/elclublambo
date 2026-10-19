@@ -142,7 +142,7 @@ export async function agePoll(messageId: string, closedSecondsAgo: number) {
 
 export type CronChain = {
   chainId: number;
-  snapshot?: "taken" | "skipped" | "unavailable" | "failed";
+  snapshot?: "taken" | "skipped" | "unavailable" | "paused" | "failed";
   scan?: { inserted: number; alerts: number } | null | "failed" | "scan_gap";
   payouts?: { recorded: number; paid: number; reverted: number; awaitingFinality: number } | "failed";
   credited?: number;

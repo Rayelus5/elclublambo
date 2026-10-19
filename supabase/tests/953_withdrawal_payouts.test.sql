@@ -553,7 +553,7 @@ update public.dao_safe_operations set withdrawal_id = null where id in (tests.xo
 -- sit inside B's and C's payout windows, so they would pause every valuation. This section measures prices, not the
 -- pause (pinned in 983): treasurer notes explain them.
 update public.dao_safe_operations set note = 'Explicada'
- where chain_id = 59141 and direction = 'out' and note is null and withdrawal_id is null and raffle_id is null;
+ where chain_id = 59141 and tx_hash in (tests.xh(203), tests.xh(204), tests.xh(210));
 -- Safe: 11.916666 USDC. Liabilities: B's 1.916666. NAV 10 over S_eff 5 -> 2 USDC.
 select is(tests.xsnap(11916666, 150) ->> 'navUsd6', '10000000', 'baseline snapshot: NAV 10');
 select set_config('t.p0', tests.xprice(), true);

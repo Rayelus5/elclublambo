@@ -338,6 +338,12 @@ describe("treasuryAlerts · raffles", () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText(/una sola transferencia de al menos el importe/).length).toBe(2);
     expect(screen.getAllByText(/Si la salida no tiene que ver, añádele una nota/).length).toBe(2);
+    // F4-R3: a combined payment is recorded on the other obligation with the same hash; a note does not resolve it
+    expect(
+      screen.getAllByText(/Si una sola transferencia pagó la retirada y el premio de ese miembro, usa «Marcar como pagado» en el premio con el mismo hash \(una nota no basta\)/)
+        .length,
+    ).toBe(2);
+    expect(screen.queryByText(/añádele la nota en «Operaciones»/)).toBeNull();
   });
 
   it("a withdrawal whose payout is already recorded is not paused", () => {

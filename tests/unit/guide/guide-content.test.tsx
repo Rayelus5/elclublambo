@@ -74,6 +74,10 @@ describe("guide: retiradas", () => {
     expect(p).toHaveTextContent(/completa el pago con una sola transferencia de al menos el importe fijado/);
     expect(p).toHaveTextContent(/añade una nota a las salidas parciales/);
     expect(p).toHaveTextContent(/Si la salida no tiene nada que ver, basta con añadirle una nota/);
+    // F4-R3
+    expect(p).toHaveTextContent(
+      /Si una sola transferencia pagó a la vez la retirada y el premio de un mismo miembro, el tesorero usa «Marcar como pagado» en el premio con el mismo hash/,
+    );
   });
   it("no longer says contributions cannot be withdrawn", () => {
     render(<GuideContent slug="dao" />);

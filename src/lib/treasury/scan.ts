@@ -57,7 +57,10 @@ function chunks(from: bigint, to: bigint): [bigint, bigint][] {
  * Null when the Safe is unset. Read errors throw before anything is recorded, so no block is ever skipped. Both writers
  * get the Safe that was read: if chain_config changed meanwhile, SQL refuses (safe_changed) and nothing is stored.
  */
-export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: number; alerts: number } | "scan_gap" | null> {
+export async function scanSafeOperations(
+  chain: ChainId,
+  opts: { cron?: boolean } = {},
+): Promise<{ inserted: number; alerts: number } | "scan_gap" | null> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return null;
@@ -98,8 +101,12 @@ export async function scanSafeOperations(chain: ChainId): Promise<{ inserted: nu
       // F4-R1: the cursor moves only when these logs explain every balance change of the range
       const checked = await continuity(db, client, chain, safe, tokens, weth, start, toBlock, transfers);
       if (checked === "gap") {
-        const { error: gapError } = await db.rpc("record_scan_gap", { p_chain: chain });
-        if (gapError) console.error("[treasury] record_scan_gap failed", chain, gapError.message);
+        // R-M3: only the cron's hourly runs count toward the stuck alert (a treasurer's catch-up scan at the tip can
+        // hit a transient gap and must not raise it)
+        if (opts.cron) {
+          const { error: gapError } = await db.rpc("record_scan_gap", { p_chain: chain });
+          if (gapError) console.error("[treasury] record_scan_gap failed", chain, gapError.message);
+        }
         return "scan_gap";
       }
       balances = checked;
@@ -145,7 +152,10 @@ async function balancesAt(client: Client, safe: Address, tokens: [Token, Address
  * with no error, and only the balances show it. "gap" when anything does not add up or cannot be read at toBlock.
  * The balance at the cursor is the stored one when it was read at exactly the cursor, else balanceOf(start − 1); if
  * that read fails (a node without archive state) this one run is not checked (logged), and the balances at toBlock
- * are stored so the next run is.
+ * are stored so the next run is. A stored baseline that does not reconcile is re-read once at start − 1 (R-M1).
+ * Known limit (R-M4, accepted): missed logs whose changes cancel out (an inflow and an outflow of the same amount of the
+ * same token, both dropped by a lagging node) leave the balance unchanged and pass undetected; a balance check cannot
+ * see them. Mint / burn (Transfer from / to 0x0) are ordinary Transfer logs and are counted.
  */
 async function continuity(
   db: Db,
@@ -193,17 +203,29 @@ async function continuity(
     }
   }
 
+  const readBefore = (address: Address) =>
+    client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber: start - 1n });
   for (const [asset, address] of tokens) {
-    let before: bigint | null = typeof trusted[asset] === "string" && /^\d+$/.test(trusted[asset] as string) ? BigInt(trusted[asset] as string) : null;
+    const storedBefore = typeof trusted[asset] === "string" && /^\d+$/.test(trusted[asset] as string) ? BigInt(trusted[asset] as string) : null;
+    let before = storedBefore;
     if (before === null) {
       try {
-        before = await client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [safe], blockNumber: start - 1n });
+        before = await readBefore(address);
       } catch (e) {
         console.warn("[treasury] scan: no balance at the cursor (non-archive node?): this run is not checked for", asset, chain, e);
         continue;
       }
     }
     if (before + delta[asset] !== BigInt(after[asset]!)) {
+      // R-M1: a stored baseline can be stale (a reorg deeper than the confirmations, a token address change, a node
+      // that once served a wrong state): re-read it once at start − 1 before declaring a gap
+      if (storedBefore !== null) {
+        const reread = await readBefore(address).catch(() => null);
+        if (reread !== null && reread + delta[asset] === BigInt(after[asset]!)) {
+          console.error("[treasury] scan: stale stored baseline replaced by a fresh read", chain, asset, { stored: storedBefore, fresh: reread, start });
+          continue;
+        }
+      }
       console.error("[treasury] scan: the logs do not explain the balance change", chain, asset, { before, delta: delta[asset], after: after[asset], start, toBlock });
       return "gap";
     }

@@ -85,7 +85,8 @@ async function handle(request: Request) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
       try {
-        report.scan = await scanSafeOperations(chainId);
+        // R-M3: only the cron's hourly runs count toward the stuck-scan alert
+        report.scan = await scanSafeOperations(chainId, { cron: true });
         // F4-R1: a "scan_gap" did not move the cursor, so (like a failed scan) it bounds no expiry
         if (report.scan && typeof report.scan === "object") {
           const at = await scanCursorTime(chainId);

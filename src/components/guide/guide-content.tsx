@@ -264,8 +264,10 @@ function Fondo() {
           reconocerlo como el pago, las donaciones, las aprobaciones y la valoración del fondo se ponen en pausa: ese dinero ya
           no está en la Safe y el fondo se valoraría por debajo de lo que vale. Si fue un pago parcial o repartido, el tesorero
           pide al miembro que lo devuelva, o completa el pago con una sola transferencia de al menos el importe fijado y añade una
-          nota a las salidas parciales. Si la salida no tiene nada que ver, basta con añadirle una nota. Todo vuelve a la normalidad
-          en cuanto la salida queda explicada.
+          nota a las salidas parciales. Si la salida no tiene nada que ver, basta con añadirle una nota. Si una sola transferencia
+          pagó a la vez la retirada y el premio de un mismo miembro, el tesorero usa «Marcar como pagado» en el premio con el
+          mismo hash: vale si llegó a su wallet en USDC por al menos la suma de los dos importes. Todo vuelve a la normalidad en
+          cuanto la salida queda explicada o registrada.
         </p>
         <p>
           El importe que ves al pedir es solo una estimación en USDC. Las retiradas dependen de la disponibilidad de la Safe y de

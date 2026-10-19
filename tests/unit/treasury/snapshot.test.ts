@@ -164,6 +164,11 @@ describe("takeSnapshot", () => {
     expect(rpcCalls).not.toContain("record_nav_snapshot");
   });
 
+  it('R-M3: "paused" while an unexplained payout pauses valuations (not a failure)', async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "valuation_paused" } });
+    expect(await takeSnapshot(59141)).toBe("paused");
+  });
+
   it("an RPC error throws (the cron reports it)", async () => {
     rpc.mockResolvedValue({ data: null, error: { message: "invalid_input" } });
     await expect(takeSnapshot(59141)).rejects.toThrow(/record_nav_snapshot/);

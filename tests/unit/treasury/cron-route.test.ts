@@ -263,6 +263,13 @@ describe("POST /api/cron/dao", () => {
     expect(steps.filter((s) => s === "polls")).toHaveLength(1);
   });
 
+  it("R-M3: the cron's scan counts gaps (cron: true); a paused snapshot is reported as paused", async () => {
+    snapshot.mockResolvedValue("paused");
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(scan).toHaveBeenCalledWith(59141, { cron: true });
+    expect(body.chains[1]).toMatchObject({ snapshot: "paused" });
+  });
+
   it("F4-R1: a scan_gap is reported and, like a failed scan, expires nothing on that chain", async () => {
     scan.mockResolvedValueOnce("scan_gap"); // 59144
     const body = await (await POST(req("Bearer s3cret-value"))).json();

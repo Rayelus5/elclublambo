@@ -84,7 +84,7 @@ export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
 }
 
 /** Records an hourly NAV snapshot (the RPC throttles to one per 55 minutes). A failed valuation skips it. */
-export async function takeSnapshot(chain: ChainId): Promise<"taken" | "skipped" | "unavailable"> {
+export async function takeSnapshot(chain: ChainId): Promise<"taken" | "skipped" | "unavailable" | "paused"> {
   const v = await valueSafe(chain);
   if (!v) return "unavailable";
   const { data, error } = await createAdminClient().rpc("record_nav_snapshot", {
@@ -100,6 +100,8 @@ export async function takeSnapshot(chain: ChainId): Promise<"taken" | "skipped" 
       assetsUsd6: v.assetsUsd6.toString(),
     },
   });
+  // R-M3: an unexplained outflow pauses valuations (F4-R2): the step waits, it did not fail
+  if (error?.message === "valuation_paused") return "paused";
   if (error) throw new Error(`record_nav_snapshot failed: ${error.message}`);
   return (data as { skipped?: unknown } | null)?.skipped === true ? "skipped" : "taken";
 }

@@ -5,7 +5,7 @@
 -- a credited donation.
 -- Setup: 59141 valued at 1000 USDC, S = 10 * 10^18; W holds 4 and has an approved 400 USDC withdrawal.
 begin;
-select plan(24);
+select plan(27);
 
 create function tests.qh(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -32,8 +32,16 @@ $$;
 create function tests.qnote(p_n int) returns void language sql as $$
   update public.dao_safe_operations set note = 'Explicada' where chain_id = 59141 and tx_hash = tests.qh(p_n)
 $$;
-create function tests.qcovered() returns boolean language sql as $$
-  select public._dao_assets_covered(59141, (select last_block from public.dao_scan_state where chain_id = 59141))
+-- since 20261019600005 (R-M3) the pause raises valuation_paused: read here as "not covered" (the code is pinned in 984)
+create function tests.qcovered() returns boolean language plpgsql as $$
+begin
+  return public._dao_assets_covered(59141, (select last_block from public.dao_scan_state where chain_id = 59141));
+exception when others then
+  if sqlerrm = 'valuation_paused' then
+    return false;
+  end if;
+  raise;
+end;
 $$;
 create function tests.qsnap(p_block bigint) returns text language plpgsql as $$
 begin
@@ -128,7 +136,7 @@ select tests.qout(14, 200000000, now() + interval '2 minutes');
 select is((select count(*)::int from public.dao_safe_operations where tx_hash in (tests.qh(13), tests.qh(14)) and withdrawal_id is null),
   2, 'neither half covers 400: both stay unlinked');
 select ok(not tests.qcovered(), 'a split payout pauses valuations');
-select is(tests.qsnap(14), 'assets_stale', 'the snapshot answers assets_stale');
+select is(tests.qsnap(14), 'valuation_paused', 'the snapshot answers valuation_paused (R-M3)');
 select is(tests.qflag_w(), true, 'and the panel flags the withdrawal');
 select tests.qnote(13);
 select ok(not tests.qcovered(), 'one half noted: still paused');
@@ -161,7 +169,23 @@ select is(tests.qflag_w(), false, 'W is covered by its own candidate: not flagge
 select is(tests.qflag_r(), true, 'R is flagged: the outflow linked to W overpays it by the prize');
 select ok(not tests.qcovered(), 'and valuations pause: R stays a liability while its prize left inside the 550');
 select tests.qnote(16);
-select ok(tests.qcovered(), 'a treasurer note on the 550 explains it: resumed');
+-- F4-R3 (20261019600005): a note no longer lifts the overpay branch (R's prize left inside the 550)
+select ok(not tests.qcovered(), 'F4-R3: a treasurer note on the 550 does not lift the pause');
+select is(tests.qflag_r(), true, 'R stays flagged');
+create function tests.qrecr(p_n int, p_amount numeric) returns text language plpgsql as $$
+declare v jsonb;
+begin
+  set local role service_role;
+  v := public.record_raffle_payout(current_setting('t.rr')::uuid, tests.qsafe(), jsonb_build_object(
+         'txHash', tests.qh(p_n), 'logIndex', '0', 'blockNumber', p_n::text,
+         'blockTime', to_char((now() + interval '4 minutes') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+         'to', tests.qw('w'), 'token', 'USDC', 'amount', p_amount::text), null);
+  reset role;
+  return v ->> 'status';
+end;
+$$;
+select is(tests.qrecr(16, 550000000), 'recorded', 'R records the same hash: a combined payout (400 + 150)');
+select ok(tests.qcovered(), 'valuations resume');
 select is(tests.qflag_r(), false, 'and R is no longer flagged');
 
 -- ===== M1: the snapshot refuses a read older than a credited donation =====

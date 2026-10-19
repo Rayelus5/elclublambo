@@ -51,12 +51,21 @@ describe("MarkRafflePaidDialog", () => {
   it.each([
     ["payout_pending", "La transacción aún no tiene confirmaciones suficientes. Vuelve a intentarlo en un momento."],
     ["tx_mismatch", "La transacción no coincide con el pago."],
-    ["tx_already_used", "Esta transacción ya se usó."],
   ])("shows the copy of %s", async (code, error) => {
     markRafflePaidAction.mockResolvedValue({ ok: false, code, error });
     open();
     await userEvent.type(screen.getByLabelText("Hash de la transacción"), HASH);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(error);
+  });
+
+  it("F4-R3: tx_already_used explains when a combined payout is accepted", async () => {
+    markRafflePaidAction.mockResolvedValue({ ok: false, code: "tx_already_used", error: "Esta transacción ya se usó." });
+    open();
+    await userEvent.type(screen.getByLabelText("Hash de la transacción"), HASH);
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Esta transacción ya está registrada como otro pago. Solo vale para este premio si la misma transferencia pagó también la retirada aprobada de este ganador, en USDC, a su wallet y por al menos la suma de los dos importes.",
+    );
   });
 });
