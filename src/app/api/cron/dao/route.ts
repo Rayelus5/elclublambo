@@ -26,8 +26,9 @@ type ChainReport = {
   chainId: ChainId;
   snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
   scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
-  payouts?: { recorded: number; paid: number; reverted: number; pending: number } | "failed";
-  /** F4d: close → draw → prize payouts (detect, finalize) → unpaid notices. */
+  /** Withdrawal payouts: `awaitingFinality` counts the recorded ones still awaiting finality after the finalize step. */
+  payouts?: { recorded: number; paid: number; reverted: number; awaitingFinality: number } | "failed";
+  /** F4d: close → draw → prize payouts (detect, finalize) → unpaid notices; with the refused draws and the payouts awaiting finality. */
   raffles?: RaffleReport;
   credited?: number;
   reverted?: number;
@@ -102,7 +103,10 @@ async function handle(request: Request) {
         console.error("[cron/dao] payout finalization failed", chainId, e);
         return null;
       });
-      report.payouts = detected && finalized ? { ...detected, ...finalized } : "failed";
+      report.payouts =
+        detected && finalized
+          ? { ...detected, paid: finalized.paid, reverted: finalized.reverted, awaitingFinality: finalized.pending }
+          : "failed";
       // F4d: raffles after the withdrawal payouts (the scan already linked prize outflows, R4 order) and before the
       // snapshot, so a recorded or voided prize is settled before the fund is valued
       try {

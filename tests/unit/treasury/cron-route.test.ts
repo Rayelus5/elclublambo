@@ -27,7 +27,10 @@ const raffles = vi.fn();
 vi.mock("@/lib/treasury/raffle-cron", () => ({ runRaffleSteps: (...a: unknown[]) => (steps.push(`raffles:${a[0]}`), raffles(...a)) }));
 const finalizePolls = vi.fn();
 vi.mock("@/lib/polls/cron", () => ({ finalizeDuePolls: (...a: unknown[]) => (steps.push("polls"), finalizePolls(...a)) }));
-const RAFFLES = { closed: 1, voided: 0, drawn: 1, pending: 0, recorded: 0, paid: 1, reverted: 0, unpaidNotices: 0 };
+const RAFFLES = {
+  closed: 1, voided: 0, drawn: 1, pending: 0, recorded: 0, paid: 1, reverted: 0, unpaidNotices: 0, awaitingFinality: 1,
+  refusedDraws: [{ raffleId: "r1", code: "draw_block_invalid" }],
+};
 const SCANNED = new Date("2026-10-19T11:59:00.000Z");
 
 let safes: Record<number, string | null> = {};
@@ -101,7 +104,7 @@ describe("POST /api/cron/dao", () => {
     expect(body.chains).toHaveLength(2);
     expect(body.polls).toEqual({ finalized: 2 });
     expect(body.chains[0]).toEqual({
-      chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 },
+      chainId: 59144, snapshot: "taken", scan: { inserted: 2, alerts: 1 }, payouts: { recorded: 1, paid: 1, reverted: 0, awaitingFinality: 3 },
       raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: 2,
     });
     expect(body.chains[0]).not.toHaveProperty("diff");
@@ -236,8 +239,8 @@ describe("POST /api/cron/dao", () => {
     expect(res.status).toBe(200);
     expect(steps).toHaveLength(13); // both scans failed: no cursor read, no expiry; the polls step still ran
     const [a, b] = (await res.json()).chains;
-    expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, raffles: RAFFLES, error: "settle_failed", expiredApprovals: "skipped" });
-    expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, pending: 3 }, raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: "skipped" });
+    expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, awaitingFinality: 3 }, raffles: RAFFLES, error: "settle_failed", expiredApprovals: "skipped" });
+    expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, awaitingFinality: 3 }, raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: "skipped" });
     err.mockRestore();
   });
 

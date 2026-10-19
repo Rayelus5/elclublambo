@@ -105,7 +105,7 @@ describe("drawDueRaffles", () => {
     replies.raffles_awaiting_draw = { data: [{ raffle_id: "r1", closes_at: "1970-01-01T00:00:13+00:00" }] };
     replies.draw_raffle = { data: { status: "drawn", winnerPosition: 1 } };
     getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 5));
-    expect(await drawDueRaffles(59141)).toEqual({ closed: 2, voided: 1, drawn: 1, pending: 0 });
+    expect(await drawDueRaffles(59141)).toEqual({ closed: 2, voided: 1, drawn: 1, pending: 0, refused: [] });
     expect(calls("close_due_raffles")).toEqual([{ p_chain: 59141 }]);
     expect(calls("raffles_awaiting_draw")).toEqual([{ p_chain: 59141 }]);
     expect(getBlock).toHaveBeenCalledWith({ blockTag: "finalized" });
@@ -120,14 +120,14 @@ describe("drawDueRaffles", () => {
     replies.close_due_raffles = { data: { closed: 0, voided: 0 } };
     replies.raffles_awaiting_draw = { data: [{ raffle_id: "r1", closes_at: "1970-01-01T00:00:13+00:00" }] };
     getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 4));
-    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 0, pending: 1 });
+    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 0, pending: 1, refused: [] });
     expect(calls("draw_raffle")).toEqual([]);
   });
   it("without a finalized block everything awaiting stays pending", async () => {
     replies.raffles_awaiting_draw = { data: [{ raffle_id: "r1", closes_at: "1970-01-01T00:00:13+00:00" }, { raffle_id: "r2", closes_at: "1970-01-01T00:00:14+00:00" }] };
     getBlock.mockRejectedValue(new Error("rpc down"));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 0, pending: 2 });
+    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 0, pending: 2, refused: [] });
     expect(calls("draw_raffle")).toEqual([]);
     err.mockRestore();
   });
@@ -144,8 +144,48 @@ describe("drawDueRaffles", () => {
     getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 5));
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     // r1 refused: pending for the next run; r2 'already' (a concurrent caller drew it): neither drawn here nor pending
-    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 1, pending: 1 });
+    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 0, drawn: 1, pending: 1, refused: [{ raffleId: "r1", code: "draw_block_invalid" }] });
     expect(calls("draw_raffle").map((c) => c.p_raffle)).toEqual(["r1", "r2", "r3"]);
+    // the refusal is stored for the treasurer's «Avisos» (SQL keeps one per raffle and code)
+    expect(calls("record_raffle_draw_refusal")).toEqual([{ p_raffle: "r1", p_code: "draw_block_invalid" }]);
+    err.mockRestore();
+  });
+  it("reports every draw error per raffle; stores refusals but not transient failures", async () => {
+    replies.raffles_awaiting_draw = {
+      data: [
+        { raffle_id: "r1", closes_at: "1970-01-01T00:00:13+00:00" },
+        { raffle_id: "r2", closes_at: "1970-01-01T00:00:13+00:00" },
+        { raffle_id: "r3", closes_at: "1970-01-01T00:00:13+00:00" },
+        { raffle_id: "r4", closes_at: "not a date" },
+      ],
+    };
+    replies.draw_raffle = (a) =>
+      a.p_raffle === "r1"
+        ? { error: { message: "invalid_state" } }
+        : a.p_raffle === "r2"
+          ? { error: { message: "deadlock detected", code: "40P01" } }
+          : { error: { message: "something new" } };
+    replies.record_raffle_draw_refusal = (a) => (a.p_raffle === "r1" ? { error: { message: "db down" } } : { data: true });
+    getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 5));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await drawDueRaffles(59141)).toEqual({
+      closed: 0,
+      voided: 0,
+      drawn: 0,
+      pending: 4,
+      refused: [
+        { raffleId: "r1", code: "invalid_state" },
+        { raffleId: "r2", code: "retry" },
+        { raffleId: "r3", code: "unknown" },
+        { raffleId: "r4", code: "draw_failed" },
+      ],
+    });
+    // a deadlock or a thrown error (chain read, bad data) is retried next run without an alert; a failing store is logged
+    expect(calls("record_raffle_draw_refusal")).toEqual([
+      { p_raffle: "r1", p_code: "invalid_state" },
+      { p_raffle: "r3", p_code: "unknown" },
+    ]);
+    expect(err).toHaveBeenCalledWith("[treasury] record_raffle_draw_refusal failed", "r1", "db down");
     err.mockRestore();
   });
   it("throws when the close or the list fails (the cron reports raffles as failed)", async () => {
@@ -158,7 +198,7 @@ describe("drawDueRaffles", () => {
   it("with nothing awaiting it reads no block", async () => {
     replies.close_due_raffles = { data: { closed: 0, voided: 1 } };
     replies.raffles_awaiting_draw = { data: [] };
-    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 1, drawn: 0, pending: 0 });
+    expect(await drawDueRaffles(59141)).toEqual({ closed: 0, voided: 1, drawn: 0, pending: 0, refused: [] });
     expect(getBlock).not.toHaveBeenCalled();
   });
 });
@@ -326,9 +366,24 @@ describe("notifyUnpaidRaffles / runRaffleSteps", () => {
     replies.raffle_payout_candidates = { data: [] };
     replies.raffles_awaiting_finality = { data: [] };
     replies.notify_unpaid_raffles = { data: 1 };
-    expect(await runRaffleSteps(59141)).toEqual({ closed: 1, voided: 0, drawn: 0, pending: 0, recorded: 0, paid: 0, reverted: 0, unpaidNotices: 1 });
+    expect(await runRaffleSteps(59141)).toEqual({ closed: 1, voided: 0, drawn: 0, pending: 0, recorded: 0, paid: 0, reverted: 0, unpaidNotices: 1, awaitingFinality: 0, refusedDraws: [] });
     const order = rpc.mock.calls.map((c) => c[0]);
     expect(order).toEqual(["close_due_raffles", "raffles_awaiting_draw", "raffle_payout_candidates", "raffles_awaiting_finality", "notify_unpaid_raffles"]);
+  });
+  it("reports the payouts still awaiting finality and the refused draws", async () => {
+    replies.close_due_raffles = { data: { closed: 0, voided: 0 } };
+    replies.raffles_awaiting_draw = { data: [{ raffle_id: "r9", closes_at: "1970-01-01T00:00:13+00:00" }] };
+    replies.draw_raffle = { error: { message: "draw_block_invalid" } };
+    replies.raffle_payout_candidates = { data: [] };
+    // two recorded payouts: one past the finalized block (stays), one whose verification is pending
+    replies.raffles_awaiting_finality = { data: [awaiting("r1", 999), awaiting("r2", 100)] };
+    verifyTransfer.mockResolvedValue({ status: "pending" });
+    replies.notify_unpaid_raffles = { data: 0 };
+    getBlock.mockImplementation(chain([10, 10, 11, 13, 13, 20], 5));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const report = await runRaffleSteps(59141);
+    expect(report).toMatchObject({ awaitingFinality: 2, paid: 0, refusedDraws: [{ raffleId: "r9", code: "draw_block_invalid" }] });
+    err.mockRestore();
   });
   it("a failing sub-step makes the report failed but the others still run", async () => {
     replies.close_due_raffles = { error: { message: "db down" } };

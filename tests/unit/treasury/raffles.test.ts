@@ -158,7 +158,7 @@ describe("getDaoRaffles / getRaffleDetail / getTreasuryRaffles", () => {
       id: "r1", title: "T", status: "drawn", prize_token: "USDC", prize_amount: "5000000", prize_value_usd6: "5000000",
       mode: "equal", closes_at: "c", entries: 2, total_weight: "2", winner_member_id: "m1", winner_label: "Ana",
       winner_address: "0xabc", drawn_at: "d", unpaid: true, payout_tx_hash: null, payout_recorded_at: null, paid_at: null,
-      cancel_reason: null, created_by_label: "Tesorero", created_at: "x",
+      cancel_reason: null, created_by_label: "Tesorero", created_at: "x", paid_late: false, draw_refused: null,
     };
     const { rpc, supabase } = client({ treasury_raffles: { data: [row, { ...row, id: "r2", status: "bad" }] } });
     const list = await getTreasuryRaffles(supabase);
@@ -168,8 +168,20 @@ describe("getDaoRaffles / getRaffleDetail / getTreasuryRaffles", () => {
         id: "r1", title: "T", status: "drawn", prizeToken: "USDC", prizeAmount: 5_000000n, prizeValueUsd6: 5_000000n,
         mode: "equal", closesAt: "c", entries: 2, totalWeight: 2n, winnerMemberId: "m1", winnerLabel: "Ana",
         winnerAddress: "0xabc", drawnAt: "d", unpaid: true, payoutTxHash: null, payoutRecordedAt: null, paidAt: null,
-        cancelReason: null, createdByLabel: "Tesorero", createdAt: "x",
+        cancelReason: null, createdByLabel: "Tesorero", createdAt: "x", paidLate: false, drawRefused: null,
       },
     ]);
+  });
+  it("getTreasuryRaffles reads paid_late and the refused draw code", async () => {
+    const row = {
+      id: "r1", title: "T", status: "paid", prize_token: "USDC", prize_amount: "5", prize_value_usd6: "5", mode: "equal",
+      closes_at: "c", entries: 1, created_at: "x", paid_late: true, draw_refused: null,
+    };
+    const { supabase } = client({
+      treasury_raffles: { data: [row, { ...row, id: "r2", status: "closed", paid_late: false, draw_refused: "draw_block_invalid" }] },
+    });
+    const [paid, closed] = await getTreasuryRaffles(supabase);
+    expect(paid).toMatchObject({ paidLate: true, drawRefused: null });
+    expect(closed).toMatchObject({ paidLate: false, drawRefused: "draw_block_invalid" });
   });
 });

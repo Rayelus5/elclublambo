@@ -144,7 +144,7 @@ export type CronChain = {
   chainId: number;
   snapshot?: "taken" | "skipped" | "unavailable" | "failed";
   scan?: { inserted: number; alerts: number } | null | "failed";
-  payouts?: { recorded: number; paid: number; reverted: number; pending: number } | "failed";
+  payouts?: { recorded: number; paid: number; reverted: number; awaitingFinality: number } | "failed";
   credited?: number;
   pending?: number;
   skipped?: string;
@@ -153,7 +153,8 @@ export type CronChain = {
   expiredApprovals?: number | "failed" | "skipped";
   /** F4d: close + draw, prize payout detection and finality, unpaid notices. */
   raffles?:
-    | { closed: number; voided: number; drawn: number; pending: number; recorded: number; paid: number; reverted: number; unpaidNotices: number }
+    | { closed: number; voided: number; drawn: number; pending: number; recorded: number; paid: number; reverted: number; unpaidNotices: number;
+        awaitingFinality: number; refusedDraws: { raffleId: string; code: string }[] }
     | "failed";
 };
 
@@ -194,7 +195,7 @@ export async function resetLocalDao() {
   // withdrawal_requests and raffles right after dao_safe_operations (an outflow may link to a request or a raffle);
   // deleting a raffle cascades to its entries and to its secret seed (private.raffle_seeds, FK on delete cascade: no
   // API role ever touches that schema); deleting the positions also clears their locked_shares.
-  for (const table of ["dao_safe_operations", "withdrawal_requests", "raffles", "dao_scan_state", "dao_nav_snapshots", "dao_reconciliations", "dao_positions", "dao_ledger"]) {
+  for (const table of ["dao_safe_operations", "withdrawal_requests", "raffles", "dao_scan_state", "dao_nav_snapshots", "dao_positions", "dao_ledger"]) {
     const { error } = await db.from(table).delete().eq("chain_id", CHAIN_ID);
     expect(error, table).toBeNull();
   }
@@ -217,7 +218,6 @@ export async function resetLocalDao() {
   expect(intents.error).toBeNull();
   const notices = await db.from("notifications").delete().in("kind", [
     "treasury_outflow",
-    "treasury_mismatch",
     "withdrawal_approved",
     "withdrawal_rejected",
     "withdrawal_paid",

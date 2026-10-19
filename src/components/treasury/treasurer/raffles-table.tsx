@@ -7,7 +7,7 @@ import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyHashButton } from "@/components/treasury/raffles/copy-hash-button";
 import { explorerTx, type ChainId } from "@/lib/economy/networks";
-import { formatWhen } from "@/lib/treasury/panel";
+import { drawRefusalText, formatWhen } from "@/lib/treasury/panel";
 import { formatPrize, raffleStatusLabel, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import { CancelRaffleDialog } from "./cancel-raffle-dialog";
 import { MarkRafflePaidDialog } from "./mark-raffle-paid-dialog";
@@ -17,7 +17,7 @@ const linkClass =
   "inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 const recorded = (r: TreasuryRaffle) => r.payoutRecordedAt !== null || r.payoutTxHash !== null;
-const labelOf = (r: TreasuryRaffle) => raffleStatusLabel({ status: r.status, payoutRecorded: recorded(r), unpaid: r.unpaid, paidLate: false });
+const labelOf = (r: TreasuryRaffle) => raffleStatusLabel({ status: r.status, payoutRecorded: recorded(r), unpaid: r.unpaid, paidLate: r.paidLate });
 
 export function RafflesTable({ rows, bannedIds, chainId }: { rows: TreasuryRaffle[]; bannedIds: string[]; chainId: ChainId }) {
   const [active, setActive] = useState<{ id: string; action: "cancel" | "paid" } | null>(null);
@@ -103,6 +103,12 @@ function Row({
           <a href={explorerTx(chainId, r.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
             Ver el pago en el explorador
           </a>
+        ) : null}
+        {r.status === "closed" && r.drawRefused ? (
+          <p className="flex max-w-md items-start gap-1.5 text-[13px] text-warning">
+            <TriangleAlert aria-hidden className="mt-0.5 size-3.5 shrink-0" />
+            {`No se pudo hacer el sorteo: ${drawRefusalText(r.drawRefused)} El cron lo reintenta cada hora.`}
+          </p>
         ) : null}
         {banned ? (
           <p className="flex max-w-md items-start gap-1.5 text-[13px] text-warning">

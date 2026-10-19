@@ -93,6 +93,10 @@ export interface TreasuryRaffle {
   cancelReason: string | null;
   createdByLabel: string | null;
   createdAt: string;
+  /** Paid, with the payout block more than 14 days after the draw (the public card's rule). */
+  paidLate: boolean;
+  /** While closed: the code with which the cron's draw was refused (draw_block_invalid, invalid_state…), else null. */
+  drawRefused: string | null;
 }
 
 function big(v: unknown): bigint | null {
@@ -247,6 +251,8 @@ export async function getTreasuryRaffles(supabase: Rpc): Promise<TreasuryRaffle[
       cancelReason: strOrNull(r.cancel_reason),
       createdByLabel: strOrNull(r.created_by_label),
       createdAt: String(r.created_at ?? ""),
+      paidLate: r.paid_late === true,
+      drawRefused: strOrNull(r.draw_refused),
     });
   }
   return out;

@@ -56,7 +56,7 @@ const drawnRaffle = (over: Partial<TreasuryRaffle> = {}): TreasuryRaffle => ({
   id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
   mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w", winnerLabel: "@ana",
   winnerAddress: "0x1234567890abcdef1234567890abcdef12345678", drawnAt: "2026-10-02T00:00:00Z", unpaid: false, payoutTxHash: null,
-  payoutRecordedAt: null, paidAt: null, cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", ...over,
+  payoutRecordedAt: null, paidAt: null, cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null, ...over,
 });
 
 beforeEach(() => Object.values(actions).forEach((f) => f.mockReset()));
@@ -273,6 +273,16 @@ describe("treasuryAlerts · raffles", () => {
       { token: "WETH", reserved: 6n * 10n ** 16n, safe: 5n * 10n ** 16n },
     ]);
     expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 6n * 10n ** 16n, raffles: [open, closed, drawn] }).prizeUnderfunded).toEqual([]);
+  });
+
+  it("lists a closed raffle whose draw the cron could not make, with the reason, linked to the raffles", () => {
+    const closed = drawnRaffle({ status: "closed", winnerMemberId: null, drawnAt: null, drawRefused: "draw_block_invalid" });
+    const a = treasuryAlerts({ ...base, safeUsdc: 100_000_000n, safeWeth: 0n, raffles: [closed, drawnRaffle({ id: "r2", drawRefused: null })] });
+    expect(a.refusedDraws).toEqual([{ id: "r1", title: "Sorteo de otoño", code: "draw_block_invalid" }]);
+    render(<TreasuryAlerts alerts={a} />);
+    expect(screen.getByRole("link", { name: "No se pudo hacer el sorteo: Sorteo de otoño" })).toHaveAttribute("href", "#sorteos");
+    expect(screen.getByText(/Ese bloque no es el primero posterior al cierre\./)).toBeInTheDocument();
+    expect(screen.queryByText("Sin avisos.")).toBeNull();
   });
 
   it("stays at «Sin avisos.» with covered, recent prizes", () => {

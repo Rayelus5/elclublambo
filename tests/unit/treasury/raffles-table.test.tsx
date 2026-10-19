@@ -38,6 +38,8 @@ export const raffle = (over: Partial<TreasuryRaffle> = {}): TreasuryRaffle => ({
   cancelReason: null,
   createdByLabel: "@tes",
   createdAt: "2026-10-19T10:00:00Z",
+  paidLate: false,
+  drawRefused: null,
   ...over,
 });
 
@@ -126,6 +128,19 @@ describe("RafflesTable", () => {
     expect(screen.getByText("Motivo: Premio mal puesto")).toBeInTheDocument();
     expect(screen.getByText("Sin ganador")).toBeInTheDocument();
     expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("a prize paid after the 14 days reads «Pagado con retraso», like the public raffle page", () => {
+    const paid = { status: "paid" as const, payoutTxHash: `0x${"a".repeat(64)}`, payoutRecordedAt: "2026-11-12T00:00:00Z", paidAt: "2026-11-12T00:00:00Z" };
+    render(<RafflesTable rows={[drawn({ ...paid, paidLate: true }), drawn({ ...paid, id: "r2", paidLate: false })]} bannedIds={[]} chainId={59141} />);
+    const [late, onTime] = screen.getAllByRole("listitem");
+    expect(within(late!).getByText("Pagado con retraso")).toBeInTheDocument();
+    expect(within(onTime!).getByText("Pagado")).toBeInTheDocument();
+  });
+
+  it("a closed raffle whose draw was refused says so", () => {
+    render(<RafflesTable rows={[raffle({ status: "closed", drawRefused: "draw_block_invalid" })]} bannedIds={[]} chainId={59141} />);
+    expect(screen.getByText(/No se pudo hacer el sorteo/)).toBeInTheDocument();
   });
 
   it("opens the mark-paid dialog", async () => {

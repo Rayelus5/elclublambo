@@ -269,8 +269,7 @@ test("6. direct transfer: 3 USDC straight to the Safe raise the fund value for e
   await expect(op.getByRole("button", { name: "Añadir nota" })).toBeVisible();
   await expect(op.getByText("Sin explicar")).toHaveCount(0);
 
-  // The old balance-vs-ledger mismatch alert is gone, and an inflow raises no outflow alert.
-  expect(await noticesOf(admin.id, "treasury_mismatch")).toBe(0);
+  // An inflow raises no outflow alert (the old balance-vs-ledger mismatch kind no longer exists).
   expect(await noticesOf(admin.id, "treasury_outflow")).toBe(0);
 });
 

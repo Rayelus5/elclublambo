@@ -290,7 +290,7 @@ test("5. pay by hash: the pasted transfer is verified, the cron burns at finalit
   await mineBlock(); // the scan stops one block below the tip
   const report = await runCron();
   expect(report.error).toBeUndefined();
-  expect(report.payouts).toMatchObject({ paid: 1, reverted: 0 });
+  expect(report.payouts).toMatchObject({ paid: 1, reverted: 0, awaitingFinality: 0 });
   expect((await latestRequest()).status).toBe("paid");
 
   const pa = a.page;

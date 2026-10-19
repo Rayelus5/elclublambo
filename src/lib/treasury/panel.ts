@@ -1,5 +1,6 @@
 // Treasurer panel helpers (isomorphic): date format and the «Avisos» (alerts) derived from the withdrawals, the Safe's
 // USDC and the unexplained outflows. Amounts are bigint USDC (6 decimals).
+import { knownErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { formatPrize, type PrizeToken, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import type { TreasuryWithdrawal } from "@/lib/treasury/withdrawals";
 
@@ -15,6 +16,11 @@ export function formatWhen(iso: string): string {
 /** "1 nov 2026" (UTC). */
 export function formatDay(iso: string): string {
   return new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(iso));
+}
+
+/** Why the cron could not draw a raffle: the code's message, or a generic line for a code without one. */
+export function drawRefusalText(code: string): string {
+  return knownErrorCode(code) ? rpcErrorMessage(code) : "Error inesperado de la base de datos.";
 }
 
 /** True when the Safe's payout for the request has been recorded (it may still await finality). */
@@ -35,6 +41,8 @@ export interface TreasuryAlertsData {
    * WETH: open, closed and drawn prizes (the Safe may hold no WETH at all when a WETH raffle is created).
    */
   prizeUnderfunded: { token: PrizeToken; reserved: bigint; safe: bigint }[];
+  /** Closed raffles whose draw the cron could not make (stored once per raffle and code; gone once drawn or cancelled). */
+  refusedDraws: { id: string; title: string; code: string }[];
 }
 
 /** Drawn raffles whose prize the Safe still owes: no payout recorded yet. */
@@ -70,9 +78,13 @@ export function treasuryAlerts(input: {
   }
   const prizesWeth = raffles.filter(wethPrizePending).reduce((sum, r) => sum + r.prizeAmount, 0n);
   if (input.safeWeth != null && prizesWeth > input.safeWeth) prizeUnderfunded.push({ token: "WETH", reserved: prizesWeth, safe: input.safeWeth });
+  const refusedDraws = raffles
+    .filter((r) => r.status === "closed" && r.drawRefused !== null)
+    .map((r) => ({ id: r.id, title: r.title, code: r.drawRefused! }));
   return {
     unpaidRaffles,
     prizeUnderfunded,
+    refusedDraws,
     expiring,
     underfunded: input.safeUsdc !== null && reserved > input.safeUsdc ? { reserved, safeUsdc: input.safeUsdc } : null,
     unexplained: input.unexplained,

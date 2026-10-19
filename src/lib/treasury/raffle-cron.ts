@@ -11,6 +11,9 @@ import { safeAddressOf } from "@/lib/treasury/snapshot";
 /** What a drawn raffle's payout must be: the prize token from the chain's Safe to the winner, at least the prize. */
 export type PrizeTarget = { chain: ChainId; safe: Address; token: PrizeToken; winner: string; prize: bigint; drawnAt: Date };
 
+/** A draw that did not happen this run: draw_raffle's refusal code, "retry" (a transient database error) or "draw_failed" (a thrown error). */
+export type RefusedDraw = { raffleId: string; code: string };
+
 export type RaffleReport =
   | {
       closed: number;
@@ -21,6 +24,9 @@ export type RaffleReport =
       paid: number;
       reverted: number;
       unpaidNotices: number;
+      /** Recorded prize payouts still awaiting finality after this run's finalize step. */
+      awaitingFinality: number;
+      refusedDraws: RefusedDraw[];
     }
   | "failed";
 
@@ -126,15 +132,26 @@ async function finalizedBlock(chain: ChainId): Promise<bigint | null> {
 /**
  * Cron step per chain: close_due_raffles snapshots the weights of every raffle past its close (or voids it when nobody
  * can win), then each closed raffle is drawn with the first block after its close, once that block is finalized (the
- * seed is revealed only then). A missing finalized block, a draw block not yet final, a refused draw (logged) or any
- * error leaves the raffle pending for the next run. The close and the list throw (the step is reported as failed).
+ * seed is revealed only then). A missing finalized block, a draw block not yet final, a refused draw or any error
+ * leaves the raffle pending for the next run. Every draw error is reported per raffle (`refused`); a refusal by
+ * draw_raffle is also stored for the treasurer's «Avisos» (record_raffle_draw_refusal keeps one per raffle and code),
+ * while a transient database error ("retry") or a thrown error ("draw_failed": chain read, bad data) is only reported.
+ * The close and the list throw (the step is reported as failed).
  */
-export async function drawDueRaffles(chain: ChainId): Promise<{ closed: number; voided: number; drawn: number; pending: number }> {
+export async function drawDueRaffles(
+  chain: ChainId,
+): Promise<{ closed: number; voided: number; drawn: number; pending: number; refused: RefusedDraw[] }> {
   const db = createAdminClient();
   const { data: closedData, error: closeError } = await db.rpc("close_due_raffles", { p_chain: chain });
   if (closeError) throw new Error(`close_due_raffles failed: ${closeError.message}`);
   const c = (closedData ?? {}) as { closed?: unknown; voided?: unknown };
-  const result = { closed: Number(c.closed ?? 0) || 0, voided: Number(c.voided ?? 0) || 0, drawn: 0, pending: 0 };
+  const result = {
+    closed: Number(c.closed ?? 0) || 0,
+    voided: Number(c.voided ?? 0) || 0,
+    drawn: 0,
+    pending: 0,
+    refused: [] as RefusedDraw[],
+  };
 
   const { data, error } = await db.rpc("raffles_awaiting_draw", { p_chain: chain });
   if (error) throw new Error(`raffles_awaiting_draw failed: ${error.message}`);
@@ -162,16 +179,26 @@ export async function drawDueRaffles(chain: ChainId): Promise<{ closed: number; 
       });
       if (drawError) {
         console.error("[treasury] draw_raffle failed", row.raffle_id, drawError.message);
+        const code = rpcErrorCode(drawError);
+        result.refused.push({ raffleId: row.raffle_id, code });
+        if (code !== "retry") await recordRefusal(db, row.raffle_id, code);
         result.pending++;
         continue;
       }
       if ((res as { status?: unknown } | null)?.status === "drawn") result.drawn++;
     } catch (e) {
       console.error("[treasury] raffle draw failed", row.raffle_id, e);
+      result.refused.push({ raffleId: row.raffle_id, code: "draw_failed" });
       result.pending++;
     }
   }
   return result;
+}
+
+/** Stores a refused draw for the treasurer's «Avisos»; a failure is logged (the cron report still lists it). */
+async function recordRefusal(db: Db, raffle: string, code: string): Promise<void> {
+  const { error } = await db.rpc("record_raffle_draw_refusal", { p_raffle: raffle, p_code: code });
+  if (error) console.error("[treasury] record_raffle_draw_refusal failed", raffle, error.message);
 }
 
 type CandidateRow = {
@@ -385,5 +412,14 @@ export async function runRaffleSteps(chain: ChainId): Promise<RaffleReport> {
   const finalized = await step("payout finalization", () => finalizeRafflePayouts(chain));
   const unpaid = await step("unpaid notices", () => notifyUnpaidRaffles(chain));
   if (!draw || !detected || !finalized || unpaid === null) return "failed";
-  return { ...draw, ...detected, paid: finalized.paid, reverted: finalized.reverted, unpaidNotices: unpaid };
+  const { refused, ...counts } = draw;
+  return {
+    ...counts,
+    ...detected,
+    paid: finalized.paid,
+    reverted: finalized.reverted,
+    unpaidNotices: unpaid,
+    awaitingFinality: finalized.pending,
+    refusedDraws: refused,
+  };
 }

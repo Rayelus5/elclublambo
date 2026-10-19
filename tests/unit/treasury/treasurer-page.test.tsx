@@ -135,7 +135,7 @@ describe("/dao/tesoreria", () => {
         id: "r1", title: "Sorteo de otoño", status: "drawn", prizeToken: "USDC", prizeAmount: 6_000_000n, prizeValueUsd6: 6_000_000n,
         mode: "equal", closesAt: "2026-10-01T00:00:00Z", entries: 2, totalWeight: 2n, winnerMemberId: "w1", winnerLabel: "@ana",
         winnerAddress: SAFE, drawnAt: "2026-10-02T00:00:00Z", unpaid: true, payoutTxHash: null, payoutRecordedAt: null, paidAt: null,
-        cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z",
+        cancelReason: null, createdByLabel: "@tes", createdAt: "2026-09-30T00:00:00Z", paidLate: false, drawRefused: null,
       },
     ]);
     members.rows = [{ id: "w1", status: "banned" }];

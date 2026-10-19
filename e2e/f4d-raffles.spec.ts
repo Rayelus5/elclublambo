@@ -263,7 +263,7 @@ test("4. close and draw: the cron closes, draws with the first finalized block a
   await mineBlock();
   const report = await runCron();
   expect(report.error).toBeUndefined();
-  expect(report.raffles).toMatchObject({ closed: 1, drawn: 1, pending: 0 });
+  expect(report.raffles).toMatchObject({ closed: 1, drawn: 1, pending: 0, refusedDraws: [] });
 
   const row = await raffleRow(TITLES.usdc);
   expect(row.status).toBe("drawn");

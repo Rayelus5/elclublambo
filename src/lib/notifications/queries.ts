@@ -27,7 +27,6 @@ export type NotificationKind =
   | "tip_received"
   | "bounty_solution"
   | "bounty_paid"
-  | "treasury_mismatch"
   | "treasury_outflow"
   | "withdrawal_approved"
   | "withdrawal_rejected"
@@ -173,7 +172,6 @@ function hrefFor(row: Row): string {
   if (PERSON_KINDS.has(row.kind)) return row.actor ? `/u/${row.actor.wallet_address}` : "/notifications";
   if (row.kind === "report_new") return "/moderation/reports";
   if (row.kind === "member_review") return "/admin/members";
-  if (row.kind === "treasury_mismatch") return "/dao";
   // Ruling F4a-R1: the panel exists now (F4c), same url as the push.
   if (row.kind === "raffle_won") {
     const id = row.data?.raffleId;

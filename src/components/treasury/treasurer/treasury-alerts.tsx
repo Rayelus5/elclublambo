@@ -1,6 +1,6 @@
 import { AlertTriangle, CircleCheck } from "lucide-react";
 import { formatToken, formatUsdc } from "@/lib/treasury/format";
-import { formatWhen, type TreasuryAlertsData } from "@/lib/treasury/panel";
+import { drawRefusalText, formatWhen, type TreasuryAlertsData } from "@/lib/treasury/panel";
 
 const linkClass =
   "inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -12,7 +12,8 @@ export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
     alerts.underfunded === null &&
     alerts.unexplained === 0 &&
     alerts.unpaidRaffles.length === 0 &&
-    alerts.prizeUnderfunded.length === 0;
+    alerts.prizeUnderfunded.length === 0 &&
+    alerts.refusedDraws.length === 0;
   if (none) {
     return (
       <p className="flex items-center gap-2 text-sm text-fg-muted">
@@ -47,6 +48,17 @@ export function TreasuryAlerts({ alerts }: { alerts: TreasuryAlertsData }) {
         <li key={r.id} className="flex items-start gap-2 text-sm">
           <AlertTriangle aria-hidden className="mt-3 size-4 shrink-0 text-warning" />
           <a href="#sorteos" className={`${linkClass} break-words`}>{`Premio impagado: ${r.title} · ${r.prize}`}</a>
+        </li>
+      ))}
+      {alerts.refusedDraws.map((r) => (
+        <li key={`refused-${r.id}`} className="flex flex-col gap-0.5 text-sm">
+          <span className="flex items-start gap-2">
+            <AlertTriangle aria-hidden className="mt-3 size-4 shrink-0 text-warning" />
+            <a href="#sorteos" className={`${linkClass} break-words`}>{`No se pudo hacer el sorteo: ${r.title}`}</a>
+          </span>
+          <span className="pl-6 text-[13px] text-fg-muted">
+            {`${drawRefusalText(r.code)} El cron lo reintenta cada hora; si no se resuelve, cancélalo.`}
+          </span>
         </li>
       ))}
       {alerts.prizeUnderfunded.map((p) => (
