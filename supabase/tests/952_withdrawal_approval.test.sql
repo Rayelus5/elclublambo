@@ -158,13 +158,13 @@ insert into public.dao_positions (chain_id, member_id, shares, net_contributed_u
   (59141, current_setting('t.t')::uuid, 2000000000000000000, 2000000);
 
 -- ===== 1. grants =====
-select ok(has_function_privilege('service_role', 'public.quote_withdrawal(uuid,text,numeric,bigint)', 'execute')
-      and not has_function_privilege('authenticated', 'public.quote_withdrawal(uuid,text,numeric,bigint)', 'execute')
-      and not has_function_privilege('anon', 'public.quote_withdrawal(uuid,text,numeric,bigint)', 'execute'),
+select ok(has_function_privilege('service_role', 'public.quote_withdrawal(uuid,text,numeric,bigint,numeric)', 'execute')
+      and not has_function_privilege('authenticated', 'public.quote_withdrawal(uuid,text,numeric,bigint,numeric)', 'execute')
+      and not has_function_privilege('anon', 'public.quote_withdrawal(uuid,text,numeric,bigint,numeric)', 'execute'),
   'quote_withdrawal is service-only');
-select ok(has_function_privilege('service_role', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)', 'execute')
-      and not has_function_privilege('authenticated', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)', 'execute')
-      and not has_function_privilege('anon', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)', 'execute'),
+select ok(has_function_privilege('service_role', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint,numeric)', 'execute')
+      and not has_function_privilege('authenticated', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint,numeric)', 'execute')
+      and not has_function_privilege('anon', 'public.approve_withdrawal(uuid,uuid,text,numeric,bigint,numeric)', 'execute'),
   'approve_withdrawal is service-only');
 select ok(has_function_privilege('service_role', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
       and not has_function_privilege('authenticated', 'public.expire_withdrawal_approvals(int,timestamptz)', 'execute')
@@ -177,8 +177,8 @@ select ok(has_function_privilege('authenticated', 'public.treasury_withdrawals()
       and not has_function_privilege('anon', 'public.treasury_withdrawals()', 'execute'),
   'treasury_withdrawals: members yes, anon no');
 select ok((select bool_and(prosecdef and proconfig @> array['search_path=""']) from pg_proc
-           where oid in ('public.quote_withdrawal(uuid,text,numeric,bigint)'::regprocedure,
-                         'public.approve_withdrawal(uuid,uuid,text,numeric,bigint)'::regprocedure,
+           where oid in ('public.quote_withdrawal(uuid,text,numeric,bigint,numeric)'::regprocedure,
+                         'public.approve_withdrawal(uuid,uuid,text,numeric,bigint,numeric)'::regprocedure,
                          'public.expire_withdrawal_approvals(int,timestamptz)'::regprocedure,
                          'public.reject_withdrawal(uuid,text)'::regprocedure,
                          'public.treasury_withdrawals()'::regprocedure)),

@@ -201,7 +201,7 @@ select ok(has_function_privilege('service_role', 'public.unlink_withdrawal_candi
   'unlink_withdrawal_candidate is service-only');
 select ok((select bool_and(prosecdef and proconfig @> array['search_path=""']) from pg_proc
            where oid in ('public.unlink_withdrawal_candidate(uuid,text,int,text)'::regprocedure,
-                         'public._dao_liabilities_usd6(int,bigint)'::regprocedure,
+                         'public._dao_liabilities_usd6(int,bigint,numeric)'::regprocedure,
                          'public.expire_withdrawal_approvals(int,timestamptz)'::regprocedure,
                          'public.withdrawal_payout_missing(uuid,boolean)'::regprocedure,
                          'public.withdrawal_candidate_missing(uuid,text,int,boolean)'::regprocedure,
@@ -225,7 +225,7 @@ select ok(has_function_privilege('service_role', 'public.withdrawal_candidate_mi
 
 -- ===== 2. carry (B): plain OR, same results =====
 select ok((select prosrc !~* '\mcase\M' and prosrc ~* 'w\.status in \(''approved'', ''paid''\)'
-           from pg_proc where oid = 'public._dao_liabilities_usd6(int,bigint)'::regprocedure),
+           from pg_proc where oid = 'public._dao_liabilities_usd6(int,bigint,numeric)'::regprocedure),
   '(B) the withdrawal filter has no CASE and a top-level status in (approved, paid) (partial index predicate)');
 select is(tests.yliab(null), 8000000::numeric, '(B) read path: the approved, unpaid 8 USDC');
 select is(tests.yliab(99), 8000000::numeric, '(B) bounded read: approved without payout counts at any block');

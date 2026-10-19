@@ -201,10 +201,10 @@ select ok(not has_function_privilege('authenticated', 'public._dao_assets_covere
 select ok((select bool_and(prosecdef and proconfig @> array['search_path=""']) from pg_proc
            where oid in ('public.dao_valuation_cap(int)'::regprocedure,
                          'public._dao_assets_covered(int,bigint)'::regprocedure,
-                         'public._dao_liabilities_usd6(int,bigint)'::regprocedure,
-                         'public.credit_donation(uuid,numeric,bigint)'::regprocedure,
+                         'public._dao_liabilities_usd6(int,bigint,numeric)'::regprocedure,
+                         'public.credit_donation(uuid,numeric,bigint,numeric)'::regprocedure,
                          'public.record_nav_snapshot(int,text,jsonb)'::regprocedure,
-                         'public._withdrawal_valuation(public.withdrawal_requests,text,numeric,bigint,boolean)'::regprocedure,
+                         'public._withdrawal_valuation(public.withdrawal_requests,text,numeric,bigint,boolean,numeric)'::regprocedure,
                          'public.withdrawals_awaiting_finality(int)'::regprocedure,
                          'public.treasury_withdrawals()'::regprocedure)),
   'the new and replaced functions are definer with an empty search_path');

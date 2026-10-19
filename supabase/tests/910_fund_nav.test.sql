@@ -80,18 +80,18 @@ update public.chain_config set safe_address = '0x' || lpad('5afe59144', 40, '0')
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 
 -- ===== 1. signatures and privileges =====
-select has_function('public', 'credit_donation', array['uuid', 'numeric', 'bigint'], 'credit_donation(uuid, numeric, bigint) exists');
+select has_function('public', 'credit_donation', array['uuid', 'numeric', 'bigint', 'numeric'], 'credit_donation(uuid, numeric, bigint, eth_price default null) exists (F4d)');
 select hasnt_function('public', 'credit_donation', array['uuid'], 'the one-argument credit_donation is dropped');
 select hasnt_function('public', 'credit_donation', array['uuid', 'numeric'], 'no two-argument overload either');
-select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
-      and not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint)', 'execute'), 'members cannot credit_donation');
+select ok(not has_function_privilege('authenticated', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute')
+      and not has_function_privilege('anon', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute'), 'members cannot credit_donation');
 select ok(not has_function_privilege('authenticated', 'public.record_nav_snapshot(int,text,jsonb)', 'execute')
       and not has_function_privilege('anon', 'public.record_nav_snapshot(int,text,jsonb)', 'execute'), 'members cannot record_nav_snapshot');
-select ok(not has_function_privilege('authenticated', 'public._dao_liabilities_usd6(int,bigint)', 'execute')
-      and not has_function_privilege('anon', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'members cannot read _dao_liabilities_usd6');
-select ok(has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint)', 'execute')
+select ok(not has_function_privilege('authenticated', 'public._dao_liabilities_usd6(int,bigint,numeric)', 'execute')
+      and not has_function_privilege('anon', 'public._dao_liabilities_usd6(int,bigint,numeric)', 'execute'), 'members cannot read _dao_liabilities_usd6');
+select ok(has_function_privilege('service_role', 'public.credit_donation(uuid,numeric,bigint,numeric)', 'execute')
       and has_function_privilege('service_role', 'public.record_nav_snapshot(int,text,jsonb)', 'execute')
-      and has_function_privilege('service_role', 'public._dao_liabilities_usd6(int,bigint)', 'execute'), 'service_role runs the NAV pipeline');
+      and has_function_privilege('service_role', 'public._dao_liabilities_usd6(int,bigint,numeric)', 'execute'), 'service_role runs the NAV pipeline');
 select ok(has_function_privilege('authenticated', 'public.dao_nav_history(text)', 'execute')
       and not has_function_privilege('anon', 'public.dao_nav_history(text)', 'execute'), 'dao_nav_history is for members only');
 select ok((select relrowsecurity from pg_class where oid = 'public.dao_nav_snapshots'::regclass)
