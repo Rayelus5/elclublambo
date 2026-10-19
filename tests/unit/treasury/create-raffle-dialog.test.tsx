@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -107,11 +107,50 @@ describe("CreateRaffleDialog", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(error);
   });
 
-  it("blocks an empty title, an empty prize and a missing close without calling the action", async () => {
+  it("keeps the submit disabled until title, prize and close are filled", async () => {
     const d = await openDialog();
     expect(within(d).getByRole("button", { name: "Crear sorteo" })).toBeDisabled();
     await fill(d, { title: "x", prize: "50", closes: "2026-10-25T18:30" });
     expect(within(d).getByRole("button", { name: "Crear sorteo" })).toBeEnabled();
     expect(createRaffleAction).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unparsable prize on the client, without calling the action", async () => {
+    const d = await openDialog();
+    await fill(d, { prize: "abc" });
+    await userEvent.click(within(d).getByRole("button", { name: "Crear sorteo" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Escribe un premio válido");
+    expect(createRaffleAction).not.toHaveBeenCalled();
+  });
+
+  it("refuses a title over 80 characters on the client", async () => {
+    const d = await openDialog();
+    await fill(d);
+    fireEvent.change(within(d).getByLabelText("Título"), { target: { value: "a".repeat(81) } });
+    await userEvent.click(within(d).getByRole("button", { name: "Crear sorteo" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Escribe un título de 1 a 80 caracteres.");
+    expect(createRaffleAction).not.toHaveBeenCalled();
+  });
+
+  it("falls back to equal when the weighted mode is switched off while open", async () => {
+    createRaffleAction.mockResolvedValue({ ok: true, id: "r1", commit: COMMIT });
+    const props = { navUsd6: NAV, ethPriceE8: PRICE };
+    const { rerender } = render(<CreateRaffleDialog weightedEnabled {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: "Crear sorteo" }));
+    const d = screen.getByRole("dialog", { name: "Crear sorteo" });
+    await userEvent.click(within(d).getByRole("radio", { name: "Ponderado por participación" }));
+    rerender(<CreateRaffleDialog weightedEnabled={false} {...props} />);
+    expect(within(d).getByRole("radio", { name: "Igualitario" })).toBeChecked();
+    await fill(d);
+    await userEvent.click(within(d).getByRole("button", { name: "Crear sorteo" }));
+    expect(createRaffleAction.mock.calls[0]![0]).toMatchObject({ mode: "equal" });
+  });
+
+  it("announces the created raffle as a status", async () => {
+    createRaffleAction.mockResolvedValue({ ok: true, id: "r1", commit: COMMIT });
+    const d = await openDialog();
+    await fill(d);
+    await userEvent.click(within(d).getByRole("button", { name: "Crear sorteo" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Sorteo creado.");
   });
 });

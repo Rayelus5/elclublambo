@@ -80,7 +80,9 @@ function CreateBody({
   const [token, setToken] = useState<PrizeToken>("USDC");
   const [prize, setPrize] = useState("");
   const [closes, setCloses] = useState("");
-  const [mode, setMode] = useState<RaffleMode>("equal");
+  const [chosenMode, setMode] = useState<RaffleMode>("equal");
+  // The switch can go off while the dialog is open: weighted then falls back to equal (SQL would refuse it anyway).
+  const mode: RaffleMode = weightedEnabled ? chosenMode : "equal";
   const [error, setError] = useState<string | null>(null);
   const [commit, setCommit] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -120,7 +122,7 @@ function CreateBody({
   if (commit !== null) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="flex items-start gap-2 text-sm text-success">
+        <p role="status" className="flex items-start gap-2 text-sm text-success">
           <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
           <span className="min-w-0 break-all">{`Sorteo creado. Su compromiso ya es público: ${commit}`}</span>
         </p>
