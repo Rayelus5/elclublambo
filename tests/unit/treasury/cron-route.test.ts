@@ -88,13 +88,14 @@ describe("POST /api/cron/dao", () => {
     },
   );
 
-  it("200 runs scan → payouts (detect, finalize) → raffles → snapshot → settle per chain with a Safe, then expiry per chain (F4c-R7 c)", async () => {
+  it("200 runs the polls step (F4e-R4), then scan → payouts (detect, finalize) → raffles → snapshot → settle per chain with a Safe, then expiry per chain (F4c-R7 c)", async () => {
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
     expect(steps).toEqual([
+      "polls",
       "scan:59144", "cursor:59144", "detect:59144", "finalize:59144", "raffles:59144", "snapshot:59144", "settle:59144",
       "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141",
-      "expire:59144", "expire:59141", "polls",
+      "expire:59144", "expire:59141",
     ]);
     const body = await res.json();
     expect(body.chains).toHaveLength(2);
@@ -153,7 +154,7 @@ describe("POST /api/cron/dao", () => {
     expect(body.chains[1]).toMatchObject({ payouts: "failed", credited: 1, expiredApprovals: 2 });
     // a failing detection does not skip the finalization (nor the other way round)
     expect(steps).toEqual(expect.arrayContaining(["finalize:59144", "detect:59141", "settle:59144", "settle:59141"]));
-    expect(steps.at(-2)).toBe("expire:59141");
+    expect(steps.at(-1)).toBe("expire:59141");
     err.mockRestore();
   });
 
@@ -188,7 +189,7 @@ describe("POST /api/cron/dao", () => {
   it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(steps).toEqual(["settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141", "polls"]);
+    expect(steps).toEqual(["polls", "settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141"]);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 
@@ -205,12 +206,24 @@ describe("POST /api/cron/dao", () => {
     expect(settle).toHaveBeenCalledTimes(2);
   });
 
-  it("a chain_config read error answers 500 and runs nothing", async () => {
+  it("a chain_config read error answers 500 and runs no chain step, but the polls still finalize (F4e-R4)", async () => {
     cfgError = { message: "db down" };
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect((await POST(req("Bearer s3cret-value"))).status).toBe(500);
-    expect(steps).toEqual([]);
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(500);
+    expect(steps).toEqual(["polls"]);
     expect(expire).not.toHaveBeenCalled();
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: { finalized: 2 } });
+    err.mockRestore();
+  });
+
+  it("a chain_config read error with a throwing polls step reports both", async () => {
+    cfgError = { message: "db down" };
+    finalizePolls.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: "failed" });
     err.mockRestore();
   });
 
@@ -240,11 +253,11 @@ describe("POST /api/cron/dao", () => {
     err.mockRestore();
   });
 
-  it("runs the polls step once, after the per-chain loop and the approval expiry", async () => {
+  it("runs the polls step once, first: before the chain_config read and any chain step (F4e-R4)", async () => {
     await POST(req("Bearer s3cret-value"));
     expect(finalizePolls).toHaveBeenCalledTimes(1);
-    expect(steps.indexOf("polls")).toBeGreaterThan(steps.indexOf("settle:59141"));
-    expect(steps.indexOf("polls")).toBeGreaterThan(steps.indexOf("expire:59141"));
+    expect(steps[0]).toBe("polls");
+    expect(steps.filter((s) => s === "polls")).toHaveLength(1);
   });
 
   it("reports an unavailable valuation and a null scan as they come", async () => {

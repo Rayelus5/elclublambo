@@ -39,7 +39,8 @@ type ChainReport = {
 };
 
 /**
- * Per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
+ * First, once per run and before anything else (ruling F4e-R4): finalize the polls whose close has passed (DB-only,
+ * chain-independent). Then per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
  * burn the recorded ones at finality) → raffles (F4d: close due raffles, draw at the finalized first block after the
  * close, detect and finalize prize payouts, unpaid notices) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
  * market NAV. The scan comes first so every payout already mined is linked before anything is valued (and the
@@ -57,10 +58,21 @@ async function handle(request: Request) {
   if (!secret) return Response.json({ error: "cron_not_configured" }, { status: 503 });
   if (!authorized(request.headers.get("authorization"), secret)) return Response.json({ error: "unauthorized" }, { status: 401 });
 
+  // F4e-R4: polls first, once per run. The step is DB-only and chain-independent, so neither the chain_config read
+  // nor a slow chain step can delay it: it bounds how long finished polls keep unsealed ballots and unsent notices. A
+  // failure is isolated and reported, like any other step.
+  let polls: Awaited<ReturnType<typeof finalizeDuePolls>> | "failed";
+  try {
+    polls = await finalizeDuePolls();
+  } catch (e) {
+    console.error("[cron/dao] polls failed", e);
+    polls = "failed";
+  }
+
   const { data, error } = await createAdminClient().from("chain_config").select("chain_id, safe_address");
   if (error) {
     console.error("[cron/dao] chain_config read failed", error.message);
-    return Response.json({ error: "chain_config_unavailable" }, { status: 500 });
+    return Response.json({ error: "chain_config_unavailable", polls }, { status: 500 });
   }
   const withSafe = new Set(
     ((data ?? []) as { chain_id: number; safe_address: string | null }[]).filter((c) => c.safe_address).map((c) => c.chain_id),
@@ -131,14 +143,6 @@ async function handle(request: Request) {
       console.error("[cron/dao] approval expiry failed", report.chainId, e);
       report.expiredApprovals = "failed";
     }
-  }
-  // F4e: once per run, independent of the chains; a failure never touches what the chains already did.
-  let polls: Awaited<ReturnType<typeof finalizeDuePolls>> | "failed";
-  try {
-    polls = await finalizeDuePolls();
-  } catch (e) {
-    console.error("[cron/dao] polls failed", e);
-    polls = "failed";
   }
   return Response.json({ chains, polls });
 }
