@@ -298,14 +298,15 @@ select throws_ok($$select public.create_raffle('Sorteo', 'USDC', 100000001, now(
   'prize_too_large', '100.000001 USDC on a 100 USDC fund → prize_too_large');
 select throws_ok($$select public.create_raffle('Sorteo', 'WETH', 34000000000000000, now() + interval '1 day', 'equal')$$,
   'prize_too_large', '0.034 WETH (102 USD at 3000) on a 100 USDC fund → prize_too_large');
-select lives_ok($$select public.create_raffle('Sorteo', 'USDC', 100000000, now() + interval '1 hour 1 minute', 'equal')$$,
-  'a prize worth exactly the fund, closing just over an hour from now, passes');
+-- F4d-R7 (20261019400006): at most half the fund; the half boundary itself is pinned in 965
+select lives_ok($$select public.create_raffle('Sorteo', 'USDC', 50000000, now() + interval '1 hour 1 minute', 'equal')$$,
+  'a prize worth exactly half the fund, closing just over an hour from now, passes');
 select tests.clear_authentication();
 -- that one only proved the boundaries: drop it and restore the fund
 delete from public.raffles;
 update public.dao_state set value_usdc = 100000000 where chain_id = 59141;
 select is((select count(*)::int from public.audit_log where action = 'raffle_created'
-           and payload ->> 'valueUsd6' = '100000000' and actor_member_id = current_setting('t.t')::uuid), 1,
+           and payload ->> 'valueUsd6' = '50000000' and actor_member_id = current_setting('t.t')::uuid), 1,
   'the boundary raffle was audited (and its seed went with it on delete)');
 
 -- ===== 2. the weighted switch =====

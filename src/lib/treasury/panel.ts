@@ -30,12 +30,18 @@ export interface TreasuryAlertsData {
   unexplained: number;
   /** Drawn raffles more than 14 days after the draw with no payout recorded. */
   unpaidRaffles: { id: string; title: string; prize: string }[];
-  /** Prizes drawn and not yet paid, per token, that the Safe's balance does not cover (USDC includes approved withdrawals). */
+  /**
+   * Prizes not yet paid, per token, that the Safe's balance does not cover. USDC: drawn prizes plus approved withdrawals.
+   * WETH: open, closed and drawn prizes (the Safe may hold no WETH at all when a WETH raffle is created).
+   */
   prizeUnderfunded: { token: PrizeToken; reserved: bigint; safe: bigint }[];
 }
 
 /** Drawn raffles whose prize the Safe still owes: no payout recorded yet. */
 const prizeOwed = (r: TreasuryRaffle) => r.status === "drawn" && r.payoutTxHash === null && r.payoutRecordedAt === null;
+/** WETH prizes still to be paid: open and closed raffles too, not only drawn ones. */
+const wethPrizePending = (r: TreasuryRaffle) =>
+  r.prizeToken === "WETH" && (r.status === "open" || r.status === "closed" || prizeOwed(r));
 
 export function treasuryAlerts(input: {
   withdrawals: TreasuryWithdrawal[];
@@ -62,7 +68,7 @@ export function treasuryAlerts(input: {
   if (input.safeUsdc !== null && prizesUsdc > 0n && prizesUsdc + reserved > input.safeUsdc) {
     prizeUnderfunded.push({ token: "USDC", reserved: prizesUsdc + reserved, safe: input.safeUsdc });
   }
-  const prizesWeth = owedOf("WETH");
+  const prizesWeth = raffles.filter(wethPrizePending).reduce((sum, r) => sum + r.prizeAmount, 0n);
   if (input.safeWeth != null && prizesWeth > input.safeWeth) prizeUnderfunded.push({ token: "WETH", reserved: prizesWeth, safe: input.safeWeth });
   return {
     unpaidRaffles,

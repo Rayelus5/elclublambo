@@ -59,7 +59,7 @@ describe("RaffleCard: open", () => {
     expect(screen.getByText(`Compromiso: ${COMMIT}`)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Copiar compromiso/ })).toBeInTheDocument();
     expect(
-      screen.getByText("Es el hash de una semilla secreta. La semilla se revela al cerrar, así que nadie puede saber antes quién ganará."),
+      screen.getByText("Es el hash de una semilla secreta. La semilla se revela al sortear, así que nadie puede saber antes quién ganará."),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver participantes y cómo comprobarlo" })).toHaveAttribute("href", `/dao/sorteos/${ID}`);
   });

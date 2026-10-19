@@ -86,7 +86,7 @@ const MESSAGES: Record<string, string> = {
   raffle_drawn: "Un sorteo ya resuelto no se puede cancelar: el premio es del ganador.",
   weighted_raffles_disabled: "Los sorteos ponderados no están activados en esta red.",
   prize_too_small: "El premio mínimo es 1 USDC o 0,001 WETH.",
-  prize_too_large: "El premio vale más que el fondo.",
+  prize_too_large: "El premio no puede superar la mitad del valor del fondo.",
   closes_at_invalid: "El cierre debe estar entre 1 hora y 30 días desde ahora.",
   title_required: "Escribe un título de 1 a 80 caracteres.",
   draw_block_invalid: "Ese bloque no es el primero posterior al cierre.",

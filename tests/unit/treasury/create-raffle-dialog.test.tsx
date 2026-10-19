@@ -97,7 +97,7 @@ describe("CreateRaffleDialog", () => {
   });
 
   it.each([
-    ["prize_too_large", "El premio vale más que el fondo."],
+    ["prize_too_large", "El premio no puede superar la mitad del valor del fondo."],
     ["closes_at_invalid", "El cierre debe estar entre 1 hora y 30 días desde ahora."],
   ])("shows %s", async (code, error) => {
     createRaffleAction.mockResolvedValue({ ok: false, code, error });

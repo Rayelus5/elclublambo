@@ -277,14 +277,17 @@ function Fondo() {
           <li>Puedes apuntarte y salir hasta la hora de cierre. Un miembro sin participaciones puede apuntarse a uno ponderado, pero pesaría 0 y no podría ganar.</li>
         </Bullets>
         <p>
-          Al crear el sorteo se publica un compromiso: el hash de una semilla secreta que guarda la base de datos y que nadie puede ver antes. Los pesos se toman
+          Al crear el sorteo se publica un compromiso: el hash de una semilla secreta que guarda la base de datos. Ni los miembros ni los tesoreros
+          pueden verla antes del sorteo (técnicamente, solo quien opera la base de datos podría leerla; la comprobación detecta un sorteo hecho con otra
+          semilla o con otro bloque). Los pesos se toman
           en la primera ejecución del proceso automático tras la hora de cierre, no a la hora exacta. El ganador sale de la semilla y del hash del primer bloque
           de Linea posterior al cierre, cuando ese bloque está finalizado (puede tardar unas horas). Entonces se revela la semilla y cualquiera puede comprobar
           el resultado en su navegador desde la página del sorteo.
         </p>
         <p>
           En la lista de participantes, quien no sale en el ranking aparece como «Anónimo #» seguido de un número. En un sorteo ponderado la lista muestra
-          participaciones desbloqueadas: en un club pequeño puede deducirse quién es un miembro oculto.
+          participaciones desbloqueadas: en un club pequeño puede deducirse quién es un miembro oculto. Además, el premio sale de la Safe, que es
+          pública: aunque en el foro el ganador aparezca como «Anónimo», la wallet que recibe el premio se ve en la red, en las transferencias de la Safe.
         </p>
         <p>
           El premio se paga desde la Safe a la wallet con la que entras al club y el foro lo comprueba en la red. Si no se paga, el sorteo se marca como

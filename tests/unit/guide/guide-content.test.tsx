@@ -83,4 +83,11 @@ describe("guide: sorteos", () => {
     expect(screen.getByText(/primera ejecución del proceso automático tras la hora de cierre/)).toBeInTheDocument();
     expect(screen.getByText(/en un club pequeño puede deducirse quién es un miembro oculto/)).toBeInTheDocument();
   });
+
+  it("does not overclaim the seed's secrecy and says the winner's wallet is visible on-chain", () => {
+    render(<GuideContent slug="fondo" />);
+    expect(screen.queryByText(/nadie puede ver antes/)).toBeNull();
+    expect(screen.getByText(/Ni los miembros ni los tesoreros pueden verla antes del sorteo/)).toBeInTheDocument();
+    expect(screen.getByText(/la wallet que recibe el premio se ve en la red/)).toBeInTheDocument();
+  });
 });

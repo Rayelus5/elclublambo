@@ -262,6 +262,19 @@ describe("treasuryAlerts · raffles", () => {
     expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 0n, raffles: [drawnRaffle({ status: "open" })] }).prizeUnderfunded).toEqual([]);
   });
 
+  it("counts open and closed WETH prizes in the WETH shortfall too (not paid, cancelled or void ones)", () => {
+    const open = drawnRaffle({ id: "o", status: "open", prizeToken: "WETH", prizeAmount: 10n ** 16n, winnerMemberId: null, drawnAt: null });
+    const closed = drawnRaffle({ id: "c", status: "closed", prizeToken: "WETH", prizeAmount: 2n * 10n ** 16n, winnerMemberId: null, drawnAt: null });
+    const drawn = drawnRaffle({ id: "d", prizeToken: "WETH", prizeAmount: 3n * 10n ** 16n });
+    const gone = ["paid", "cancelled", "void"].map((status, i) =>
+      drawnRaffle({ id: `g${i}`, status: status as TreasuryRaffle["status"], prizeToken: "WETH", prizeAmount: 10n ** 18n }),
+    );
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 5n * 10n ** 16n, raffles: [open, closed, drawn, ...gone] }).prizeUnderfunded).toEqual([
+      { token: "WETH", reserved: 6n * 10n ** 16n, safe: 5n * 10n ** 16n },
+    ]);
+    expect(treasuryAlerts({ ...base, safeUsdc: 1n, safeWeth: 6n * 10n ** 16n, raffles: [open, closed, drawn] }).prizeUnderfunded).toEqual([]);
+  });
+
   it("stays at «Sin avisos.» with covered, recent prizes", () => {
     const a = treasuryAlerts({ ...base, safeUsdc: 100_000_000n, safeWeth: 0n, raffles: [drawnRaffle()] });
     expect(a.unpaidRaffles).toEqual([]);
