@@ -1,10 +1,10 @@
-import { safeError } from "@/lib/security/redact";
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import type { Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { OperationsList } from "@/components/treasury/operations-list";
 import { CreateRaffleDialog } from "@/components/treasury/treasurer/create-raffle-dialog";

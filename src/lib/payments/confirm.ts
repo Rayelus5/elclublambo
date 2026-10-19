@@ -1,5 +1,5 @@
-import { safeError } from "@/lib/security/redact";
 import "server-only";
+import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import type { ChainId } from "@/lib/economy/networks";
 import type { Token } from "@/lib/payments/amounts";

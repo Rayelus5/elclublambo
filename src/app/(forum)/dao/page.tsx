@@ -1,8 +1,8 @@
-import { safeError } from "@/lib/security/redact";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { after } from "next/server";
+import { safeError } from "@/lib/security/redact";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { ShareDonut } from "@/components/treasury/dao-charts";
 import { DaoHistory } from "@/components/treasury/dao-history";

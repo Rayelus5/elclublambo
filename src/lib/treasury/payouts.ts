@@ -1,6 +1,6 @@
-import { safeError } from "@/lib/security/redact";
 import "server-only";
 import type { Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import type { ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode } from "@/lib/errors";
 import { chainClient } from "@/lib/payments/chain-client";

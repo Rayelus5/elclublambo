@@ -1,6 +1,6 @@
-import { safeError } from "@/lib/security/redact";
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
+import { safeError } from "@/lib/security/redact";
 import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
 import { finalizeDuePolls } from "@/lib/polls/cron";
 import { createAdminClient } from "@/lib/supabase/admin";

@@ -1,5 +1,5 @@
-import { safeError } from "@/lib/security/redact";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeError } from "@/lib/security/redact";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 
 // Both RPCs are SECURITY INVOKER: call them with the user's own (browser) client so RLS decides what is visible.

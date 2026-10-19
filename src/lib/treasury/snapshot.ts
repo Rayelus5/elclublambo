@@ -1,6 +1,6 @@
-import { safeError } from "@/lib/security/redact";
 import "server-only";
 import type { Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import type { ChainId } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assetsUsd6, readEthPrice, readSafeAssets, type EthPrice, type SafeAssets } from "@/lib/treasury/valuation";

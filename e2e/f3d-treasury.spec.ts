@@ -232,7 +232,7 @@ test("5. unlocked: A opens VIP DAO and reads the seeded message", async () => {
   await a.page.goto("/");
   await expect(lockedLink(a.page)).toHaveCount(0);
   await openChannel(a.page, VIP);
-  await expect(a.page.getByText(SEEDED)).toBeVisible();
+  await expect(a.page.getByRole("log", { name: "Mensajes del canal" }).getByText(SEEDED)).toBeVisible();
   await expect(a.page.getByText("Canal con candado")).toHaveCount(0);
 });
 

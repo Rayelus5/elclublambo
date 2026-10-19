@@ -1,8 +1,8 @@
-import { safeError } from "@/lib/security/redact";
 import { Suspense } from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import { safeError } from "@/lib/security/redact";
 import { PendingSendsSync } from "@/components/payments/pending-sends-sync";
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";

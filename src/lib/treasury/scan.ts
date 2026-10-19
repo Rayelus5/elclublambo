@@ -1,6 +1,6 @@
-import { safeError } from "@/lib/security/redact";
 import "server-only";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
+import { safeError } from "@/lib/security/redact";
 import type { ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { defaultConfirmations } from "@/lib/payments/verify";
