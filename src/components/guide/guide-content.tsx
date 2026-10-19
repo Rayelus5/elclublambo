@@ -447,7 +447,7 @@ function Encuestas() {
         <p>
           Para publicar resultados hacen falta al menos 3 votantes en el modo 1 persona, 1 voto, y al menos 5 votantes con
           participaciones en los modos ponderados. Si no se llega, la encuesta se cierra sin resultados y no se publica ningún
-          número. Quienes votaron reciben un aviso cuando la encuesta se cierra.
+          porcentaje. Quienes votaron reciben un aviso cuando la encuesta se cierra.
         </p>
       </Sub>
     </>

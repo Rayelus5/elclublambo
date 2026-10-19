@@ -158,7 +158,6 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
                 aria-invalid={oErr ? true : undefined}
                 aria-describedby={oErr ? OPTIONS_ERROR_ID : undefined}
                 autoComplete="off"
-                maxLength={POLL_LIMITS.optionMax}
               />
               {i >= 2 ? (
                 <Button
@@ -285,7 +284,8 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
       </fieldset>
 
       <p className="rounded-control border border-border bg-surface-2 p-3 text-[13px] text-fg-muted">
-        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos 3 personas. La
+        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos{" "}
+        {mode === "equal" ? "3 personas" : "5 personas con participaciones"}. La
         encuesta es consultiva: no ejecuta nada por sí sola.
       </p>
 

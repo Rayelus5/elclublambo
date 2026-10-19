@@ -95,9 +95,33 @@ describe("PollDialog", () => {
     expect(screen.getByText("10/300")).toBeInTheDocument();
   });
 
-  it("limits each option to 80 characters", () => {
-    setup();
-    expect(screen.getByLabelText("Opción 1")).toHaveAttribute("maxlength", "80");
+  it("never truncates an option in the browser (M8): the validator counts code points, as the server does", async () => {
+    const { user } = setup();
+    const option = screen.getByLabelText("Opción 1");
+    expect(option).not.toHaveAttribute("maxlength");
+    // 41 emoji: 82 UTF-16 units but 41 characters, well inside the 80-character limit.
+    fireEvent.change(option, { target: { value: "😀".repeat(41) } });
+    expect(option).toHaveValue("😀".repeat(41));
+    await user.type(screen.getByLabelText("Pregunta"), "¿Cuál?");
+    await user.type(screen.getByLabelText("Opción 2"), "b");
+    createPollAction.mockResolvedValue({ ok: true, messageId: "m1" });
+    await user.click(publish());
+    await waitFor(() => expect(createPollAction).toHaveBeenCalledTimes(1));
+    expect(createPollAction.mock.calls[0]![0].options[0]).toBe("😀".repeat(41));
+  });
+
+  it("states the results floor for the selected weight mode (M6)", async () => {
+    const { user } = setup();
+    const equal = /Los resultados se publican al cerrar, si votan al menos 3 personas\./;
+    const weighted = /Los resultados se publican al cerrar, si votan al menos 5 personas con participaciones\./;
+    expect(screen.getByText(equal)).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Lineal según participación" }));
+    expect(screen.getByText(weighted)).toBeInTheDocument();
+    expect(screen.queryByText(equal)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "Cuadrática según participación" }));
+    expect(screen.getByText(weighted)).toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "1 persona, 1 voto" }));
+    expect(screen.getByText(equal)).toBeInTheDocument();
   });
 
   it("adds the application-level qualifier to the secrecy note", () => {

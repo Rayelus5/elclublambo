@@ -121,5 +121,8 @@ describe("guide: encuestas", () => {
     expect(text).not.toMatch(/imposible para nadie/i);
     expect(text).not.toMatch(/no queda nada/i);
     expect(text).toMatch(/sellan a nivel de la aplicación/);
+    // Below the floor the card still shows "N votantes": no percentage is published, not "no number" (M6).
+    expect(text).toContain("no se publica ningún porcentaje");
+    expect(text).not.toContain("ningún número");
   });
 });
