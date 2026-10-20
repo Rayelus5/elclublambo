@@ -2,3 +2,4 @@
 *.yml text eol=lf
 Dockerfile text eol=lf
 deploy/preprod/cron/crontab text eol=lf
+*.env.example text eol=lf
