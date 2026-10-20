@@ -63,19 +63,21 @@ describe("MessageList", () => {
     const separator = screen.getByRole("separator", { name: "Nuevos mensajes" });
     expect(separator).toHaveTextContent("Nuevos");
     const items = screen.getAllByRole("listitem").filter((li) => li.getAttribute("role") !== "separator");
-    const order = Array.from(document.querySelectorAll("ol > li")).map((li) => (li === separator ? "sep" : li.textContent));
-    expect(order.indexOf("sep")).toBe(2);
+    // The day separator opens the list; «Nuevos» comes after the two read messages.
+    const order = Array.from(document.querySelectorAll("ol > li")).map((li) => (li === separator ? "sep" : li.getAttribute("role") === "separator" ? "day" : li.textContent));
+    expect(order[0]).toBe("day");
+    expect(order.indexOf("sep")).toBe(3);
     expect(within(items.at(-1)!).getByText("sin leer")).toBeInTheDocument();
   });
 
   it("has no separator without a read mark or when everything is read", () => {
     setup({ messages: [makeMessage({ createdAt: at(0) })], lastReadAt: null });
-    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    expect(screen.queryByRole("separator", { name: "Nuevos mensajes" })).not.toBeInTheDocument();
   });
 
   it("has no separator when everything is read", () => {
     setup({ messages: [makeMessage({ createdAt: at(0) })], lastReadAt: at(10) });
-    expect(screen.queryByRole("separator")).not.toBeInTheDocument();
+    expect(screen.queryByRole("separator", { name: "Nuevos mensajes" })).not.toBeInTheDocument();
   });
 
   it("offers to load older messages and reports the click", async () => {

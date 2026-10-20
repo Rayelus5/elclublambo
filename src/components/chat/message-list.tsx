@@ -1,14 +1,18 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Loader2 } from "lucide-react";
-import { MessageItem, type MessageItemHandlers } from "@/components/chat/message-item";
+import { MessageItem, type MessageDelivery, type MessageItemHandlers } from "@/components/chat/message-item";
 import { Button } from "@/components/ui/button";
-import { scrollMessageIntoView } from "@/lib/chat/scroll";
-import { firstUnreadIndex, isGrouped, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
+import { countUnseen, decideScroll, isNearBottom, newMessagesLabel, scrollMessageIntoView, type Cursor } from "@/lib/chat/scroll";
+import { buildTimeline, isArrival } from "@/lib/chat/timeline";
+import { useViewerDay } from "@/lib/chat/use-viewer-day";
+import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
 
-/** Within this many pixels of the end the list counts as "at the bottom" and keeps following new messages. */
-const BOTTOM_SLACK = 48;
+/** A message I sent that the server has not confirmed yet (or refused): shown after the timeline. */
+export interface PendingView extends MessageDelivery {
+  message: ChatMessage;
+}
 
 export interface MessageListProps extends MessageItemHandlers {
   messages: readonly ChatMessage[];
@@ -34,11 +38,19 @@ export interface MessageListProps extends MessageItemHandlers {
   latest?: "idle" | "loading" | "error";
   /** Initial scroll target when it differs from the highlight (the root of a reply anchor). */
   scrollToId?: string | null;
+  /** My optimistic messages, newest last. */
+  pending?: readonly PendingView[];
+  /** Real message id -> the pending key it replaced: the row keeps its React key (no remount, no second animation). */
+  rowKeys?: Readonly<Record<string, string>>;
 }
 
+const NO_PENDING: readonly PendingView[] = [];
+const NO_KEYS: Readonly<Record<string, string>> = {};
+
 /**
- * The timeline: anchored to the bottom, follows new messages while the reader is at the bottom, keeps the reading
- * position when older messages are prepended, groups runs of the same author and marks where the unread start.
+ * The timeline: anchored to the bottom, follows new messages while the reader is at the bottom (a pill counts them
+ * otherwise), keeps the reading position when older messages are prepended, separates days in the viewer's time zone,
+ * groups runs of the same author, marks where the unread start and animates only what arrives after mount.
  */
 export function MessageList({
   messages,
@@ -57,25 +69,35 @@ export function MessageList({
   onGoLatest,
   latest = "idle",
   scrollToId = null,
+  pending = NO_PENDING,
+  rowKeys = NO_KEYS,
   ...handlers
 }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
-  const prev = useRef<{ firstId: string | undefined; lastId: string | undefined; height: number; key: number }>({
+  const prev = useRef<{ firstId: string | undefined; height: number; key: number; day: string | null }>({
     firstId: undefined,
-    lastId: undefined,
     height: 0,
     key: scrollToBottomKey,
+    day: null,
   });
-  const [hasNew, setHasNew] = useState(false);
+  // Where the reader left the bottom: what arrives after it is counted in the «N mensajes nuevos» pill.
+  const [unseenMark, setUnseenMark] = useState<Cursor | null>(null);
   // The initial placement happens once: the anchor if there is one in the window, the bottom otherwise.
   const initialAnchor = useRef(scrollToId ?? highlightId);
+  // The history on screen at mount never animates; only messages newer than its newest one do.
+  const [newestAtMount] = useState(() => messages.at(-1));
+  const newestRef = useRef(messages.at(-1));
+  useLayoutEffect(() => {
+    newestRef.current = messages.at(-1);
+  });
 
   const report = useCallback(
     (value: boolean) => {
       if (atBottom.current === value) return;
       atBottom.current = value;
-      if (value) setHasNew(false);
+      const last = newestRef.current;
+      setUnseenMark(value || !last ? null : { createdAt: last.createdAt, id: last.id });
       onAtBottomChange?.(value);
     },
     [onAtBottomChange],
@@ -86,36 +108,46 @@ export function MessageList({
     if (el) el.scrollTop = el.scrollHeight;
   }, []);
 
+  const day = useViewerDay();
+  const timeZone = day?.timeZone ?? null;
+  const today = day?.today ?? null;
+  const dayStamp = day ? `${timeZone}|${today}` : null;
+  const all = useMemo(() => (pending.length > 0 ? [...messages, ...pending.map((p) => p.message)] : messages), [messages, pending]);
+  const timeline = useMemo(
+    () => buildTimeline(all, { lastReadAt, meId: viewer.memberId, timeZone, today }),
+    [all, lastReadAt, viewer.memberId, timeZone, today],
+  );
+  const delivery = useMemo(() => new Map(pending.map((p) => [p.message.id, p])), [pending]);
+
   useLayoutEffect(() => {
     const el = scroller.current;
     if (!el) return;
-    const firstId = messages[0]?.id;
-    const lastId = messages.at(-1)?.id;
+    const firstId = all[0]?.id;
     const before = prev.current;
-    const prepended = before.firstId !== undefined && firstId !== before.firstId && messages.some((m) => m.id === before.firstId);
-    const appended = before.lastId !== undefined && lastId !== before.lastId;
-    const forced = before.key !== scrollToBottomKey;
+    const initial = before.firstId === undefined;
+    const prepended = !initial && firstId !== before.firstId && all.some((m) => m.id === before.firstId);
+    const anchor = initial && initialAnchor.current ? el.querySelector(`[data-message-id="${initialAnchor.current}"]`) : null;
+    const action = decideScroll({ initial, anchorFound: anchor !== null, forced: before.key !== scrollToBottomKey, prepended, atBottom: atBottom.current });
 
-    if (before.firstId === undefined && initialAnchor.current) {
-      const target = el.querySelector(`[data-message-id="${initialAnchor.current}"]`);
-      if (target) {
-        // Not at the bottom any more: report it so mark-read waits until the reader really reaches the end.
-        report(false);
-        scrollMessageIntoView(target);
-      } else scrollToBottom();
-    } else if (before.firstId === undefined || forced) {
+    if (action === "anchor" && anchor) {
+      // Not at the bottom any more: report it so mark-read waits until the reader really reaches the end.
+      report(false);
+      scrollMessageIntoView(anchor);
+    } else if (action === "bottom") {
       scrollToBottom();
-    } else if (prepended) {
+      report(true);
+    } else if (action === "keep") {
       // Keep what the reader was looking at in place.
       el.scrollTop += el.scrollHeight - before.height;
-    } else if (appended) {
-      if (atBottom.current) scrollToBottom();
-      else setHasNew(true);
+    } else if (before.day === null && dayStamp !== null && initialAnchor.current) {
+      // The day separators appeared right after hydration and pushed the `?m=` anchor down: centre it again.
+      const target = el.querySelector(`[data-message-id="${initialAnchor.current}"]`);
+      if (target) scrollMessageIntoView(target, true);
     }
-    prev.current = { firstId, lastId, height: el.scrollHeight, key: scrollToBottomKey };
-  }, [messages, scrollToBottomKey, scrollToBottom, report]);
+    prev.current = { firstId, height: el.scrollHeight, key: scrollToBottomKey, day: dayStamp };
+  }, [all, dayStamp, scrollToBottomKey, scrollToBottom, report]);
 
-  const unreadAt = firstUnreadIndex(messages, lastReadAt, viewer.memberId);
+  const unseen = countUnseen(messages, unseenMark, viewer.memberId);
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -125,10 +157,7 @@ export function MessageList({
         aria-label="Mensajes del canal"
         aria-live="off"
         tabIndex={0}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          report(el.scrollHeight - el.scrollTop - el.clientHeight < BOTTOM_SLACK);
-        }}
+        onScroll={(e) => report(isNearBottom(e.currentTarget))}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain px-2 py-3 outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
       >
         <div className="mt-auto flex flex-col">
@@ -147,25 +176,32 @@ export function MessageList({
             </Button>
           ) : null}
 
-          {messages.length === 0 ? (
+          {all.length === 0 ? (
             <p className="py-10 text-center text-fg-muted">
               {viewer.canPost ? "Todavía no hay mensajes. Sé el primero en escribir." : "Todavía no hay mensajes."}
             </p>
           ) : (
             <ol className="flex flex-col">
-              {messages.map((m, i) => (
-                <ListEntry
-                  key={m.id}
-                  separator={i === unreadAt}
-                  message={m}
-                  highlighted={m.id === highlightId}
-                  grouped={i !== unreadAt && isGrouped(messages[i - 1], m)}
-                  directory={directory}
-                  allowedDomains={allowedDomains}
-                  viewer={viewer}
-                  handlers={handlers}
-                />
-              ))}
+              {timeline.map((entry) =>
+                entry.type === "day" ? (
+                  <DaySeparator key={`day-${entry.key}`} label={entry.label} />
+                ) : entry.type === "unread" ? (
+                  <UnreadSeparator key="unread" />
+                ) : (
+                  <MessageItem
+                    key={rowKeys[entry.message.id] ?? entry.message.id}
+                    message={entry.message}
+                    directory={directory}
+                    allowedDomains={allowedDomains}
+                    viewer={viewer}
+                    grouped={entry.grouped}
+                    highlighted={entry.message.id === highlightId}
+                    entering={isArrival(entry.message, newestAtMount)}
+                    delivery={delivery.get(entry.message.id)}
+                    {...handlers}
+                  />
+                ),
+              )}
             </ol>
           )}
         </div>
@@ -203,7 +239,7 @@ export function MessageList({
             ) : null}
           </Button>
         </div>
-      ) : hasNew ? (
+      ) : unseen > 0 ? (
         <Button
           type="button"
           size="sm"
@@ -211,53 +247,34 @@ export function MessageList({
             scrollToBottom();
             report(true);
           }}
-          className="absolute right-4 bottom-3"
+          className="absolute right-4 bottom-3 shadow-lg animate-in fade-in slide-in-from-bottom-2 duration-200"
         >
+          {newMessagesLabel(unseen)}
           <ArrowDown aria-hidden />
-          Mensajes nuevos
         </Button>
       ) : null}
     </div>
   );
 }
 
-function ListEntry({
-  separator,
-  highlighted,
-  message,
-  grouped,
-  directory,
-  allowedDomains,
-  viewer,
-  handlers,
-}: {
-  separator: boolean;
-  highlighted: boolean;
-  message: ChatMessage;
-  grouped: boolean;
-  directory: Directory;
-  allowedDomains: readonly string[];
-  viewer: ViewerPermissions;
-  handlers: MessageItemHandlers;
-}) {
+function DaySeparator({ label }: { label: string }) {
   return (
-    <>
-      {separator ? (
-        <li role="separator" aria-label="Nuevos mensajes" className="my-3 flex items-center gap-3 text-[13px] font-bold text-accent">
-          <span aria-hidden className="h-px flex-1 bg-accent" />
-          Nuevos
-          <span aria-hidden className="h-px flex-1 bg-accent" />
-        </li>
-      ) : null}
-      <MessageItem
-        message={message}
-        directory={directory}
-        allowedDomains={allowedDomains}
-        viewer={viewer}
-        grouped={grouped}
-        highlighted={highlighted}
-        {...handlers}
-      />
-    </>
+    <li role="separator" aria-label={label} className="my-3 flex items-center gap-3 text-[12px] font-semibold text-fg-muted">
+      <span aria-hidden className="h-px flex-1 bg-border" />
+      <span aria-hidden className="rounded-control border border-border px-2.5 py-0.5">
+        {label}
+      </span>
+      <span aria-hidden className="h-px flex-1 bg-border" />
+    </li>
+  );
+}
+
+function UnreadSeparator() {
+  return (
+    <li role="separator" aria-label="Nuevos mensajes" className="my-3 flex items-center gap-3 text-[13px] font-bold text-accent">
+      <span aria-hidden className="h-px flex-1 bg-accent" />
+      Nuevos
+      <span aria-hidden className="h-px flex-1 bg-accent" />
+    </li>
   );
 }

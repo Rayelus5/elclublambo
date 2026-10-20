@@ -2,7 +2,9 @@
 
 import { useRef, useState } from "react";
 import {
+  CircleAlert,
   CircleCheck,
+  Clock3,
   CornerDownRight,
   Coins,
   Flag,
@@ -14,8 +16,10 @@ import {
   Pin,
   PinOff,
   Quote,
+  RotateCcw,
   SmilePlus,
   Trash2,
+  X,
 } from "lucide-react";
 import { AlphaCard } from "@/components/chat/alpha-card";
 import { AttachmentGrid } from "@/components/chat/attachment-grid";
@@ -80,6 +84,17 @@ export interface MessageItemHandlers {
   onMarkSolution?: (message: ChatMessage) => Promise<string | null>;
 }
 
+/** Delivery state of a message I just sent (optimistic): no actions until the server confirms it. */
+export interface MessageDelivery {
+  status: "sending" | "failed";
+  /** Why it failed, ready to show. */
+  error?: string | null;
+  /** The retry is checking or resending. */
+  retrying?: boolean;
+  onRetry: () => void;
+  onDiscard: () => void;
+}
+
 export interface MessageItemProps extends MessageItemHandlers {
   message: ChatMessage;
   directory: Directory;
@@ -92,6 +107,10 @@ export interface MessageItemProps extends MessageItemHandlers {
   highlighted?: boolean;
   /** This reply is the bounty's marked solution. */
   isSolution?: boolean;
+  /** It arrived after the list mounted: slides in once (read at mount only; history never animates). */
+  entering?: boolean;
+  /** Present while my optimistic message is unconfirmed or failed. */
+  delivery?: MessageDelivery;
 }
 
 const DAY_TIME = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit" });
@@ -123,6 +142,8 @@ export function MessageItem({
   variant = "list",
   highlighted = false,
   isSolution = false,
+  entering = false,
+  delivery,
   onOpenThread,
   onQuote,
   onEdit,
@@ -143,6 +164,11 @@ export function MessageItem({
   const [markError, setMarkError] = useState<string | null>(null);
   const [marking, setMarking] = useState(false);
   const [reactionPicker, setReactionPicker] = useState(false);
+  // Decided once, at mount: a later re-render (edit, reaction, resync) never replays the entry.
+  const [enter, setEnter] = useState(entering);
+  const endEnter = (e: React.AnimationEvent) => {
+    if (e.target === e.currentTarget) setEnter(false);
+  };
   // Compact: no avatar, the time in a narrow left column, tight spacing (the member's preference for every channel).
   const compact = useChatDensity().density === "compact";
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -170,7 +196,8 @@ export function MessageItem({
   // Only the author of an open bounty gets the handler; it is offered on other members' visible replies.
   const canMark = !!onMarkSolution && !own && !deleted && variant === "thread" && message.threadRootId !== null && message.kind !== "system";
   const canAddReaction = viewer.canReact && !deleted && variant !== "pinned" && !!onToggleReaction;
-  const hasMenu = canAddReaction || canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport;
+  // An unconfirmed message has no id on the server yet: nothing can be done with it but retry or discard.
+  const hasMenu = !delivery && (canAddReaction || canReply || canQuote || canEdit || canDelete || canPin || canTip || canReport);
 
   const replies =
     variant === "list" && isRoot && message.replyCount > 0 ? (
@@ -213,11 +240,14 @@ export function MessageItem({
         id={`msg-${message.id}`}
         data-message-id={message.id}
         aria-current={highlighted ? "true" : undefined}
+        onAnimationEnd={endEnter}
         className={cn(
-          "group relative -mx-2 mt-3 flex gap-1 rounded-control border-l-2 px-2 py-0.5 transition-colors duration-150 first:mt-0 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+          "group relative isolate -mx-2 mt-3 flex gap-1 rounded-control border-l-2 px-2 py-0.5 transition-colors duration-150 first:mt-0 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
           highlighted ? "border-accent bg-surface-2" : "border-transparent",
+          enter && "animate-message-in",
         )}
       >
+        <HighlightGlow on={highlighted} />
         <SystemNotice message={message} />
         <div className="shrink-0 self-start md:absolute md:-top-3 md:right-2 md:z-10">
           <DropdownMenu>
@@ -255,15 +285,19 @@ export function MessageItem({
       id={`msg-${message.id}`}
       data-message-id={message.id}
       aria-current={highlighted ? "true" : undefined}
+      aria-busy={delivery?.status === "sending" ? true : undefined}
+      onAnimationEnd={endEnter}
       className={cn(
-        "group relative -mx-2 flex rounded-control border-l-2 px-2 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
+        "group relative isolate -mx-2 flex rounded-control border-l-2 px-2 transition-colors duration-150 focus-within:bg-surface-2/60 hover:bg-surface-2/60 motion-reduce:transition-none",
         compact ? "gap-2.5" : "gap-3",
-        highlighted ? "border-accent bg-surface-2" : "border-transparent",
+        delivery?.status === "failed" ? "border-danger" : highlighted ? "border-accent bg-surface-2" : "border-transparent",
         grouped ? "mt-0 py-px" : compact ? "mt-2 pt-1 pb-px first:mt-0" : "mt-4 pt-1.5 pb-0.5 first:mt-0",
+        enter && "animate-message-in",
       )}
     >
+      <HighlightGlow on={highlighted} />
       <div className={cn("shrink-0", compact ? "w-6" : "w-8")}>
-        {grouped ? (
+        {grouped && delivery ? null : grouped ? (
           <Time
             iso={message.createdAt}
             className="sr-only md:not-sr-only md:block md:pt-0.5 md:text-right md:font-mono md:text-[10px] md:leading-5 md:text-fg-muted md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100"
@@ -277,7 +311,7 @@ export function MessageItem({
         )}
       </div>
 
-      <div className={cn("flex min-w-0 flex-1 flex-col text-fg/85", compact ? "gap-0.5" : "gap-1")}>
+      <div className={cn("flex min-w-0 flex-1 flex-col text-fg/85", compact ? "gap-0.5" : "gap-1", delivery?.status === "sending" && "opacity-70")}>
         {grouped ? null : (
           <div className="flex flex-wrap items-baseline gap-x-2 leading-5">
             {authorId ? (
@@ -294,7 +328,7 @@ export function MessageItem({
               <span className="font-display font-extrabold tracking-tight text-fg">{name}</span>
             )}
             {author?.displayName?.trim() && author.handle && !compact ? <span className="text-[13px] text-fg-muted">@{author.handle}</span> : null}
-            <Time iso={message.createdAt} className="text-[12px] text-fg-muted" />
+            {delivery ? null : <Time iso={message.createdAt} className="text-[12px] text-fg-muted" />}
             {message.pinnedAt && !deleted ? (
               <span className="inline-flex items-center gap-1 text-[12px] text-fg-muted">
                 <Pin aria-hidden className="size-3.5" />
@@ -375,8 +409,9 @@ export function MessageItem({
           </>
         )}
 
+        {delivery ? <DeliveryStatus delivery={delivery} /> : null}
         {!deleted && message.tips.length > 0 ? <TipsBadge messageId={message.id} totals={message.tips} /> : null}
-        {!deleted && variant !== "pinned" ? (
+        {!deleted && variant !== "pinned" && !delivery ? (
           <ReactionBar
             reactions={message.reactions}
             canReact={viewer.canReact}
@@ -573,5 +608,45 @@ export function MessageItem({
         </AlertDialogContent>
       </AlertDialog>
     </li>
+  );
+}
+
+/** The accent wash of a `?m=` target (notification, mention, search): fades in, holds while highlighted, fades out. */
+function HighlightGlow({ on }: { on: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "pointer-events-none absolute inset-0 -z-10 rounded-control bg-accent/10 transition-opacity duration-200 ease-out motion-reduce:transition-none",
+        on ? "opacity-100" : "opacity-0",
+      )}
+    />
+  );
+}
+
+function DeliveryStatus({ delivery }: { delivery: MessageDelivery }) {
+  if (delivery.status === "sending") {
+    return (
+      <p className="flex items-center gap-1.5 text-[12px] text-fg-muted">
+        <Clock3 aria-hidden className="size-3.5" />
+        Enviando…
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+      <p className="flex min-h-11 items-center gap-1.5 pr-1 text-[13px] text-danger">
+        <CircleAlert aria-hidden className="size-4 shrink-0" />
+        <span>{`No se ha enviado.${delivery.error ? ` ${delivery.error}` : ""}`}</span>
+      </p>
+      <Button type="button" variant="ghost" size="sm" disabled={delivery.retrying} aria-busy={delivery.retrying} onClick={delivery.onRetry}>
+        <RotateCcw aria-hidden className={cn(delivery.retrying && "animate-spin motion-reduce:animate-none")} />
+        Reintentar
+      </Button>
+      <Button type="button" variant="ghost" size="sm" disabled={delivery.retrying} onClick={delivery.onDiscard}>
+        <X aria-hidden />
+        Descartar
+      </Button>
+    </div>
   );
 }
