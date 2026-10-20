@@ -45,9 +45,11 @@ describe("MessageList", () => {
         makeMessage({ authorId: OTHER, createdAt: at(30) }),
       ],
     });
-    // Ana: first of the run, again after Yo Mismo, and again after a 24 min gap -> 3 headers
-    expect(screen.getAllByText("Ana")).toHaveLength(3);
-    expect(screen.getAllByText("Yo Mismo")).toHaveLength(1);
+    // Ana: first of the run, again after Yo Mismo, and again after a 24 min gap -> 3 headers (grouped rows only carry
+    // the name for screen readers)
+    const visible = (name: string) => screen.getAllByText(name).filter((el) => !el.classList.contains("sr-only"));
+    expect(visible("Ana")).toHaveLength(3);
+    expect(visible("Yo Mismo")).toHaveLength(1);
     expect(screen.getAllByRole("listitem")).toHaveLength(6);
   });
 

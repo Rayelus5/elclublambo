@@ -41,10 +41,12 @@ interface MessageRow {
   edited_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  /** Idempotency key of the author's optimistic send (null for messages sent without one). */
+  client_id?: string | null;
 }
 
 const COLUMNS =
-  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, tip_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at";
+  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, tip_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at, client_id";
 
 export interface Cursor {
   createdAt: string;
@@ -196,6 +198,7 @@ export async function hydrateMessages(
       editedAt: r.edited_at,
       deletedAt: r.deleted_at,
       createdAt: r.created_at,
+      clientId: r.client_id ?? null,
       attachments: attachmentsByMessage.get(r.id) ?? [],
       reactions: reactions.get(r.id) ?? [],
       tips: tipSummaries?.get(r.id) ?? [],

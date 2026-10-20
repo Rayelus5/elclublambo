@@ -58,10 +58,13 @@ export async function postMessageAction(input: {
   threadRootId?: string | null;
   quotedId?: string | null;
   attachments?: AttachmentInput[];
+  /** Idempotency key of an optimistic send: the server returns the message already written with it (a retry). */
+  clientId?: string | null;
 }): Promise<{ id?: string; error?: string; slowmodeSeconds?: number }> {
   if (!isUuid(input.channelId)) return { error: "invalid_input" };
   if (input.threadRootId != null && !isUuid(input.threadRootId)) return { error: "invalid_input" };
   if (input.quotedId != null && !isUuid(input.quotedId)) return { error: "invalid_input" };
+  if (input.clientId != null && !isUuid(input.clientId)) return { error: "invalid_input" };
   const attachments = cleanAttachments(input.attachments);
   if (attachments === "too_many") return { error: "too_many_attachments" };
   if (attachments === null) return { error: "invalid_input" };
@@ -80,6 +83,7 @@ export async function postMessageAction(input: {
     p_thread_root: input.threadRootId ?? null,
     p_quoted: input.quotedId ?? null,
     p_attachments: attachments,
+    p_client_id: input.clientId ?? null,
   });
   if (error) {
     const code = rpcErrorCode(error);

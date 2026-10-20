@@ -1,7 +1,7 @@
 // Optimistic sending: a message I sent is shown at once ("Enviando…") and replaced by the real one when the server
-// confirms it. Pure helpers (no React, no Supabase).
+// confirms it. Its key is also the server's idempotency key (`messages.client_id`): a retry resends with the same key
+// and the server returns the message it already wrote. Pure helpers (no React, no Supabase).
 import type { AttachmentInput } from "@/lib/chat/actions";
-import { docToPlainText } from "@/lib/chat/content";
 import type { ChatMessage, QuotePreview } from "@/lib/chat/model";
 
 export interface PendingAttachment {
@@ -15,22 +15,21 @@ export interface PendingAttachment {
 }
 
 export interface PendingMessage {
-  /** Client key: the React key of the row, kept when the real message replaces it (no remount, no second animation). */
+  /**
+   * A uuid: the React key of the row (kept when the real message replaces it: no remount, no second animation) and the
+   * `client_id` sent to the server, which deduplicates retries with it.
+   */
   key: string;
   doc: unknown;
-  /** Plain text of `doc`, to recognise the message if it was written despite an error. */
-  text: string;
   expanded: boolean;
   quotedId: string | null;
   quote: QuotePreview | null;
   attachments: PendingAttachment[];
   createdAt: string;
-  /** Ids of my messages already on screen when I sent it: none of them can be this one. */
-  seen: string[];
   status: "sending" | "failed";
   /**
-   * Why it failed. `rejected`: the server refused it, nothing was written, resending is safe. `unknown`: the call
-   * broke (network, timeout) and it may have been written: a retry first looks for it.
+   * Why it failed. `rejected`: the server refused it, nothing was written. `unknown`: the call broke (network, timeout)
+   * and it may have been written. Either way a retry is a plain resend with the same key.
    */
   outcome?: "rejected" | "unknown";
   error?: string;
@@ -39,7 +38,7 @@ export interface PendingMessage {
 }
 
 /** What the composer hands over when it sends optimistically. */
-export type OutgoingMessage = Pick<PendingMessage, "doc" | "text" | "expanded" | "quotedId" | "attachments">;
+export type OutgoingMessage = Pick<PendingMessage, "doc" | "expanded" | "quotedId" | "attachments">;
 
 export type SettleResult = { ok: true; id: string } | { ok: false; outcome: "rejected" | "unknown"; error: string };
 
@@ -71,6 +70,7 @@ export function pendingToMessage(p: PendingMessage, meId: string, channelId: str
     editedAt: null,
     deletedAt: null,
     createdAt: p.createdAt,
+    clientId: p.key,
     attachments: p.attachments.map((a) => ({ id: a.id, url: a.previewUrl, mime: a.mime, width: a.width, height: a.height })),
     reactions: [],
     tips: [],
@@ -80,18 +80,9 @@ export function pendingToMessage(p: PendingMessage, meId: string, channelId: str
 }
 
 /**
- * The real message behind a pending one, if it was written: mine, in the channel (not a reply), the same text and
- * number of images, not on screen when it was sent and not already matched to another pending message.
+ * `m` is the real message behind the pending one: mine, carrying its key. Exact, never by text. A message the server
+ * refused is never matched: nothing was written for it.
  */
-export function findLanded(p: PendingMessage, candidates: readonly ChatMessage[], meId: string, claimed: ReadonlySet<string>): ChatMessage | undefined {
-  return candidates.find(
-    (m) =>
-      m.authorId === meId &&
-      m.threadRootId === null &&
-      m.deletedAt === null &&
-      !p.seen.includes(m.id) &&
-      !claimed.has(m.id) &&
-      m.attachments.length === p.attachments.length &&
-      docToPlainText(m.body) === p.text,
-  );
+export function isEchoOf(p: PendingMessage, m: ChatMessage, meId: string): boolean {
+  return p.outcome !== "rejected" && m.authorId === meId && m.clientId === p.key;
 }

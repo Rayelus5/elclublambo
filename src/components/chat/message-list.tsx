@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { countUnseen, decideScroll, isNearBottom, newMessagesLabel, scrollMessageIntoView, type Cursor } from "@/lib/chat/scroll";
 import { buildTimeline, isArrival } from "@/lib/chat/timeline";
 import { useViewerDay } from "@/lib/chat/use-viewer-day";
-import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
+import { cmpMessages, type ChatMessage, type Directory, type ViewerPermissions } from "@/lib/chat/model";
 
 /** A message I sent that the server has not confirmed yet (or refused): shown after the timeline. */
 export interface PendingView extends MessageDelivery {
@@ -42,6 +42,8 @@ export interface MessageListProps extends MessageItemHandlers {
   pending?: readonly PendingView[];
   /** Real message id -> the pending key it replaced: the row keeps its React key (no remount, no second animation). */
   rowKeys?: Readonly<Record<string, string>>;
+  /** Newest message of the last resync: messages up to it (missed while disconnected) mount without animating. */
+  quietUntil?: ChatMessage;
 }
 
 const NO_PENDING: readonly PendingView[] = [];
@@ -71,6 +73,7 @@ export function MessageList({
   scrollToId = null,
   pending = NO_PENDING,
   rowKeys = NO_KEYS,
+  quietUntil,
   ...handlers
 }: MessageListProps) {
   const scroller = useRef<HTMLDivElement>(null);
@@ -197,7 +200,10 @@ export function MessageList({
                     grouped={entry.grouped}
                     highlighted={entry.message.id === highlightId}
                     // My own send always slides in (its time is the device clock, which may lag the server's).
-                    entering={delivery.has(entry.message.id) || isArrival(entry.message, newestAtMount)}
+                    entering={
+                      delivery.has(entry.message.id) ||
+                      (isArrival(entry.message, newestAtMount) && !(quietUntil && cmpMessages(entry.message, quietUntil) <= 0))
+                    }
                     delivery={delivery.get(entry.message.id)}
                     {...handlers}
                   />

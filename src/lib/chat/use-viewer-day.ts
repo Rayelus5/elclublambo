@@ -19,10 +19,15 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
-// A string snapshot: stable between calls while nothing changes (useSyncExternalStore compares with Object.is).
+// A string snapshot: stable between calls while nothing changes (useSyncExternalStore compares with Object.is). It is
+// read on every render, so the Intl work is cached and redone at most once a second (the store ticks every minute).
+let cached: { at: number; value: string } | null = null;
 function snapshot(): string {
+  const now = Date.now();
+  if (cached && now - cached.at < 1000) return cached.value;
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  return `${timeZone}|${dayKey(new Date().toISOString(), timeZone) ?? ""}`;
+  cached = { at: now, value: `${timeZone}|${dayKey(new Date(now).toISOString(), timeZone) ?? ""}` };
+  return cached.value;
 }
 
 const serverSnapshot = () => null;

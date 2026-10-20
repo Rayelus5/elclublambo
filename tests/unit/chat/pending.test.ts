@@ -1,18 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { findLanded, pendingToMessage, settleOutcome, type PendingMessage } from "@/lib/chat/pending";
+import { isEchoOf, pendingToMessage, settleOutcome, type PendingMessage } from "@/lib/chat/pending";
 import { CHANNEL, doc, makeMessage, ME, OTHER } from "./fixtures";
 
 function pending(over: Partial<PendingMessage> = {}): PendingMessage {
   return {
     key: "p-1",
     doc: doc("hola a todos"),
-    text: "hola a todos",
     expanded: false,
     quotedId: null,
     quote: null,
     attachments: [],
     createdAt: new Date(Date.UTC(2026, 9, 18, 10, 0, 0)).toISOString(),
-    seen: [],
     status: "sending",
     ...over,
   };
@@ -48,26 +46,16 @@ describe("pendingToMessage", () => {
   });
 });
 
-describe("findLanded", () => {
-  it("finds my message with the same text that was not on screen when I sent it", () => {
-    const before = makeMessage({ authorId: ME, body: doc("hola a todos") });
-    const landed = makeMessage({ authorId: ME, body: doc("hola a todos") });
-    const p = pending({ seen: [before.id] });
-    expect(findLanded(p, [before, landed], ME, new Set())?.id).toBe(landed.id);
+describe("isEchoOf", () => {
+  it("matches my message carrying the pending key, and nothing else", () => {
+    const p = pending({ status: "failed", outcome: "unknown" });
+    expect(isEchoOf(p, makeMessage({ authorId: ME, clientId: "p-1" }), ME)).toBe(true);
+    expect(isEchoOf(p, makeMessage({ authorId: ME, clientId: "otra" }), ME)).toBe(false);
+    expect(isEchoOf(p, makeMessage({ authorId: ME, clientId: null, body: doc("hola a todos") }), ME)).toBe(false);
+    expect(isEchoOf(p, makeMessage({ authorId: OTHER, clientId: "p-1" }), ME)).toBe(false);
   });
 
-  it("ignores other authors, other texts, replies and messages already claimed by another send", () => {
-    const p = pending();
-    const other = makeMessage({ authorId: OTHER, body: doc("hola a todos") });
-    const text = makeMessage({ authorId: ME, body: doc("otra cosa") });
-    const reply = makeMessage({ authorId: ME, body: doc("hola a todos"), threadRootId: other.id });
-    const claimed = makeMessage({ authorId: ME, body: doc("hola a todos") });
-    expect(findLanded(p, [other, text, reply, claimed], ME, new Set([claimed.id]))).toBeUndefined();
-  });
-
-  it("needs the same number of images", () => {
-    const p = pending({ attachments: [] });
-    const withImage = makeMessage({ authorId: ME, body: doc("hola a todos"), attachments: [{ id: "x", url: null, mime: "image/png", width: null, height: null }] });
-    expect(findLanded(p, [withImage], ME, new Set())).toBeUndefined();
+  it("never matches a message the server refused (nothing was written)", () => {
+    expect(isEchoOf(pending({ status: "failed", outcome: "rejected" }), makeMessage({ authorId: ME, clientId: "p-1" }), ME)).toBe(false);
   });
 });

@@ -76,6 +76,21 @@ describe("postMessageAction", () => {
     expect(args).toMatchObject({ p_channel: CH, p_expanded: false, p_thread_root: null, p_quoted: null, p_attachments: [] });
   });
 
+  it("passes the client key so a retry of the same message is deduplicated by the server", async () => {
+    rpc.mockResolvedValue({ data: MSG, error: null });
+    const KEY = "55555555-5555-4555-8555-555555555555";
+    await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false, clientId: KEY });
+    expect((rpc.mock.calls[0] as [string, Record<string, unknown>])[1]).toMatchObject({ p_client_id: KEY });
+    rpc.mockClear();
+    await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false });
+    expect((rpc.mock.calls[0] as [string, Record<string, unknown>])[1]).toMatchObject({ p_client_id: null });
+  });
+
+  it("refuses a client key that is not a uuid", async () => {
+    expect(await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false, clientId: "nope" })).toEqual({ error: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("rejects an empty doc without calling the RPC", async () => {
     expect(await postMessageAction({ channelId: CH, doc: doc(""), expanded: false })).toEqual({ error: "invalid_input" });
     expect(await postMessageAction({ channelId: CH, doc: doc("   \n "), expanded: false })).toEqual({ error: "invalid_input" });

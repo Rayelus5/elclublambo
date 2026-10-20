@@ -89,8 +89,6 @@ export interface MessageDelivery {
   status: "sending" | "failed";
   /** Why it failed, ready to show. */
   error?: string | null;
-  /** The retry is checking or resending. */
-  retrying?: boolean;
   onRetry: () => void;
   onDiscard: () => void;
 }
@@ -312,6 +310,8 @@ export function MessageItem({
       </div>
 
       <div className={cn("flex min-w-0 flex-1 flex-col text-fg/85", compact ? "gap-0.5" : "gap-1", delivery?.status === "sending" && "opacity-70")}>
+        {/* A grouped row shows no header: screen readers still hear who wrote it. */}
+        {grouped ? <span className="sr-only">{name}</span> : null}
         {grouped ? null : (
           <div className="flex flex-wrap items-baseline gap-x-2 leading-5">
             {authorId ? (
@@ -639,11 +639,11 @@ function DeliveryStatus({ delivery }: { delivery: MessageDelivery }) {
         <CircleAlert aria-hidden className="size-4 shrink-0" />
         <span>{`No se ha enviado.${delivery.error ? ` ${delivery.error}` : ""}`}</span>
       </p>
-      <Button type="button" variant="ghost" size="sm" disabled={delivery.retrying} aria-busy={delivery.retrying} onClick={delivery.onRetry}>
-        <RotateCcw aria-hidden className={cn(delivery.retrying && "animate-spin motion-reduce:animate-none")} />
+      <Button type="button" variant="ghost" size="sm" onClick={delivery.onRetry}>
+        <RotateCcw aria-hidden />
         Reintentar
       </Button>
-      <Button type="button" variant="ghost" size="sm" disabled={delivery.retrying} onClick={delivery.onDiscard}>
+      <Button type="button" variant="ghost" size="sm" onClick={delivery.onDiscard}>
         <X aria-hidden />
         Descartar
       </Button>

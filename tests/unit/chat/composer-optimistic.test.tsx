@@ -51,7 +51,7 @@ describe("Composer with an optimistic sender", () => {
     type(editor, "<p>hola</p>");
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(onSendOptimistic).toHaveBeenCalledTimes(1));
-    expect(onSendOptimistic.mock.calls[0]![0]).toMatchObject({ text: "hola", expanded: false, quotedId: "q1", attachments: [] });
+    expect(onSendOptimistic.mock.calls[0]![0]).toMatchObject({ doc: { type: "doc" }, expanded: false, quotedId: "q1", attachments: [] });
     // Cleared before the server answered.
     expect(editor.isEmpty).toBe(true);
     expect(postMessageAction).not.toHaveBeenCalled();
@@ -61,7 +61,7 @@ describe("Composer with an optimistic sender", () => {
     type(editor, "<p>otra</p>");
     fireEvent.keyDown(box, { key: "Enter" });
     await waitFor(() => expect(onSendOptimistic).toHaveBeenCalledTimes(2));
-    expect(onSendOptimistic.mock.calls[1]![0]).toMatchObject({ text: "otra" });
+    expect(JSON.stringify(onSendOptimistic.mock.calls[1]![0].doc)).toContain("otra");
     await act(async () => finish({}));
   });
 

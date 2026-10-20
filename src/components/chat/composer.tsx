@@ -229,7 +229,6 @@ export function Composer(props: ComposerProps) {
       }
       const outgoing: OutgoingMessage = {
         doc: toPlainDoc(doc),
-        text: docToPlainText(doc),
         expanded,
         quotedId: quoted?.id ?? null,
         attachments: done.map((a) => ({
