@@ -156,6 +156,44 @@
   }
 }
 
+/* Landing /start. CSS-only entrances (they run before any JS, so the hero paints at once) and the ambient loops. The pop
+   fills only backwards: once done, the square's own scroll transform (Motion) takes over. Under reduced motion the
+   classes carry motion-reduce:animate-none as well as the global rule below. */
+@theme {
+  --animate-start-pop: start-pop 800ms cubic-bezier(0.34, 1.56, 0.64, 1) 150ms backwards;
+  --animate-start-rise: start-rise 700ms cubic-bezier(0.2, 0, 0, 1) 250ms backwards;
+  --animate-start-marquee: start-marquee 60s linear infinite;
+  --animate-start-cue: start-cue 1.8s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+
+  @keyframes start-pop {
+    from {
+      transform: scale(0);
+    }
+  }
+
+  @keyframes start-rise {
+    from {
+      opacity: 0;
+      transform: translateY(1.5rem);
+    }
+  }
+
+  @keyframes start-marquee {
+    to {
+      transform: translateX(-50%);
+    }
+  }
+
+  @keyframes start-cue {
+    from {
+      transform: translateY(-100%);
+    }
+    to {
+      transform: translateY(200%);
+    }
+  }
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -263,6 +301,17 @@
   font-stretch: 125%;
   letter-spacing: -0.02em;
   line-height: 1;
+}
+
+/* Archivo's width axis outside h1–h3 (the landing's display copy). */
+@utility wide {
+  font-variation-settings: "wdth" 125;
+  font-stretch: 125%;
+}
+
+@utility semiwide {
+  font-variation-settings: "wdth" 112;
+  font-stretch: 112%;
 }
 
 @utility measure {
