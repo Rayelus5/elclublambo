@@ -34,13 +34,13 @@ end
 $$;
 
 -- privileges
-select ok(not has_function_privilege('anon', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb)', 'execute'), 'anon cannot post_message');
-select ok(has_function_privilege('authenticated', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb)', 'execute'), 'authenticated can post_message');
+select ok(not has_function_privilege('anon', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'anon cannot post_message');
+select ok(has_function_privilege('authenticated', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'authenticated can post_message');
 select ok(not has_function_privilege('authenticated', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'authenticated cannot post_message_as');
 select ok(not has_function_privilege('anon', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'anon cannot post_message_as');
 select ok(has_function_privilege('service_role', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'service_role can post_message_as');
-select ok(not has_function_privilege('authenticated', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'authenticated cannot core');
-select ok(not has_function_privilege('service_role', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'service_role cannot core');
+select ok(not has_function_privilege('authenticated', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid)', 'execute'), 'authenticated cannot core');
+select ok(not has_function_privilege('service_role', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid)', 'execute'), 'service_role cannot core');
 select ok(not has_function_privilege('anon', 'public.edit_message(uuid,jsonb,text)', 'execute'), 'anon cannot edit_message');
 select ok(not has_function_privilege('anon', 'public.delete_message(uuid)', 'execute'), 'anon cannot delete_message');
 select ok(has_function_privilege('authenticated', 'public.my_slowmode_remaining(uuid)', 'execute'), 'authenticated can my_slowmode_remaining');

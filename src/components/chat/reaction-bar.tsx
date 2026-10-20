@@ -22,6 +22,38 @@ const CHIP =
   "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-control border px-2.5 text-sm outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none disabled:cursor-default";
 
 /**
+ * One chip. A chip added after mount scales in; when its count changes (mine or someone else's, up or down) the
+ * emoji and count pop: they are re-keyed so the animation replays, while the button itself (and its focus) stays.
+ */
+function Chip({ reaction: r, isNew, canReact, onToggle }: { reaction: ReactionChip; isNew: boolean; canReact: boolean; onToggle: (emoji: string) => void }) {
+  const [enter] = useState(isNew);
+  const [seen, setSeen] = useState(r.count);
+  const [bumps, setBumps] = useState(0);
+  if (seen !== r.count) {
+    setSeen(r.count);
+    setBumps((b) => b + 1);
+  }
+  return (
+    <button
+      type="button"
+      aria-pressed={r.reactedByMe}
+      disabled={!canReact}
+      onClick={() => onToggle(r.emoji)}
+      className={cn(
+        CHIP,
+        enter && "animate-reaction-in",
+        r.reactedByMe ? "border-accent bg-surface-2 text-accent" : "border-border bg-surface text-fg-muted enabled:hover:border-border-strong enabled:hover:text-fg",
+      )}
+    >
+      <span key={bumps} data-reaction-count className={cn("inline-flex items-center gap-1.5", bumps > 0 && "animate-reaction-pop")}>
+        <span>{r.emoji}</span>
+        <span className="font-bold tabular-nums">{r.count}</span>
+      </span>
+    </button>
+  );
+}
+
+/**
  * Reaction chips, Discord-style: the add chip only sits next to existing reactions; a message without any offers
  * "Añadir reacción" from its actions menu instead, which opens the same picker through `pickerOpen`.
  */
@@ -30,6 +62,8 @@ export function ReactionBar({ reactions, canReact, onToggle, pickerOpen, onPicke
   const open = pickerOpen ?? ownOpen;
   const setOpen = (next: boolean) => (onPickerOpenChange ? onPickerOpenChange(next) : setOwnOpen(next));
   const wrap = useRef<HTMLDivElement>(null);
+  // The reactions the message had when it appeared do not animate; ones added later pop in.
+  const [initial] = useState(() => new Set(reactions.map((r) => r.emoji)));
 
   useEffect(() => {
     if (!open) return;
@@ -63,21 +97,7 @@ export function ReactionBar({ reactions, canReact, onToggle, pickerOpen, onPicke
         <ul aria-label="Reacciones" className="contents">
           {reactions.map((r) => (
             <li key={r.emoji} className="contents">
-              <button
-                type="button"
-                aria-pressed={r.reactedByMe}
-                disabled={!canReact}
-                onClick={() => onToggle(r.emoji)}
-                className={cn(
-                  CHIP,
-                  r.reactedByMe
-                    ? "border-accent bg-surface-2 text-accent"
-                    : "border-border bg-surface text-fg-muted enabled:hover:border-border-strong enabled:hover:text-fg",
-                )}
-              >
-                <span>{r.emoji}</span>
-                <span className="font-bold tabular-nums">{r.count}</span>
-              </button>
+              <Chip reaction={r} isNew={!initial.has(r.emoji)} canReact={canReact} onToggle={onToggle} />
             </li>
           ))}
         </ul>

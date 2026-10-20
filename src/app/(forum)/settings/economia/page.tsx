@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { EconomyForm } from "@/components/economy/economy-form";
 import { getEconomyConfig } from "@/lib/economy/config";
@@ -24,7 +25,7 @@ async function EconomyContent() {
 
 export default function EconomySettingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <EconomyContent />
     </Suspense>
   );

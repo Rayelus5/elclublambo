@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { NotificationList } from "@/components/notifications/notification-list";
 import { PushToggle } from "@/components/notifications/push-toggle";
 import { listNotifications, PAGE_SIZE } from "@/lib/notifications/queries";
@@ -22,7 +23,7 @@ async function NotificationsContent() {
 
 export default function NotificationsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <NotificationsContent />
     </Suspense>
   );

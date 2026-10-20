@@ -145,10 +145,12 @@ describe("Sidebar with channels", () => {
     expect(within(aside).getByRole("link", { name: "General" })).toHaveAttribute("href", "/c/gen");
   });
 
-  it.each([[128n], [64n], [512n]])("shows the Ajustes link for perms %s", (perms) => {
+  it.each([[128n], [64n], [512n]])("shows the Ajustes link for perms %s", async (perms) => {
     render(<Sidebar perms={perms} wallet="0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" channels={ROWS} />);
     const desktopBar = screen.getAllByRole("banner")[0]!;
-    expect(within(desktopBar).getByRole("link", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
+    // Staff sections live in the «Más» menu of the top bar.
+    await userEvent.setup().click(within(desktopBar).getByRole("button", { name: "Más" }));
+    expect(await screen.findByRole("menuitem", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
   });
 
   it("hides the Ajustes link without manage permissions", () => {

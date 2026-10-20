@@ -56,6 +56,11 @@ export interface ChatMessage {
   deletedAt: string | null;
   /** Kept as the raw PostgREST string: it is the (created_at, id) pagination cursor, microseconds included. */
   createdAt: string;
+  /**
+   * The key of the author's optimistic send (`messages.client_id`): the pending row with that key is this message.
+   * Absent on view models built before T-004 and null for messages sent without one.
+   */
+  clientId?: string | null;
   attachments: MessageAttachment[];
   reactions: ReactionChip[];
   /** Tip totals per token (USDC then ETH); empty when nobody tipped it. */

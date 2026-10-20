@@ -7,7 +7,8 @@ const LABEL: Record<ChartRange, string> = { "1": "24 h", "7": "7 d", "30": "30 d
 /** Range selector as plain links (`?r=`), so the page stays a server component and the choice is shareable. */
 export function RangeTabs({ id, active }: { id: string; active: ChartRange }) {
   return (
-    <nav aria-label="Periodo del gráfico" className="flex flex-wrap gap-1">
+    // A phone gets one full-width segmented control (four equal thumb targets); wider screens keep it compact.
+    <nav aria-label="Periodo del gráfico" className="grid grid-cols-4 gap-1 sm:inline-grid sm:self-start">
       {CHART_RANGES.map((r) => (
         <Link
           key={r}

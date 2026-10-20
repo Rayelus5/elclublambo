@@ -11,6 +11,12 @@ import { MarkRafflePaidDialog } from "@/components/treasury/treasurer/mark-raffl
 import type { TreasuryRaffle } from "@/lib/treasury/raffles";
 
 const raffle = { id: "r1", title: "Sorteo de otoño", prizeToken: "WETH", prizeAmount: 10n ** 16n, winnerLabel: "@ana" } as TreasuryRaffle;
+// A 66-character hash typed key by key costs about a second per test (each keystroke re-renders the dialog), and several
+// seconds under the full parallel suite: past the 5 s timeout. Typing is not what these tests check, so the hash is pasted.
+const enterHash = async (value: string) => {
+  await userEvent.click(screen.getByLabelText("Hash de la transacción"));
+  await userEvent.paste(value);
+};
 const HASH = `0x${"ab".repeat(32)}`;
 
 beforeEach(() => {
@@ -41,7 +47,7 @@ describe("MarkRafflePaidDialog", () => {
   it("verifies, thanks and refreshes", async () => {
     markRafflePaidAction.mockResolvedValue({ ok: true, status: "recorded" });
     open();
-    await userEvent.type(screen.getByLabelText("Hash de la transacción"), `  ${HASH} `);
+    await enterHash(`  ${HASH} `);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(markRafflePaidAction).toHaveBeenCalledWith("r1", HASH);
     expect(await screen.findByText("Pago verificado. El sorteo quedará pagado cuando la red lo finalice.")).toBeInTheDocument();
@@ -54,7 +60,7 @@ describe("MarkRafflePaidDialog", () => {
   ])("shows the copy of %s", async (code, error) => {
     markRafflePaidAction.mockResolvedValue({ ok: false, code, error });
     open();
-    await userEvent.type(screen.getByLabelText("Hash de la transacción"), HASH);
+    await enterHash(HASH);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(error);
   });
@@ -62,7 +68,7 @@ describe("MarkRafflePaidDialog", () => {
   it("F4-R3: tx_already_used explains when a combined payout is accepted", async () => {
     markRafflePaidAction.mockResolvedValue({ ok: false, code: "tx_already_used", error: "Esta transacción ya se usó." });
     open();
-    await userEvent.type(screen.getByLabelText("Hash de la transacción"), HASH);
+    await enterHash(HASH);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Esta transacción ya está registrada como otro pago. Solo vale para este premio si la misma transferencia pagó también la retirada aprobada de este ganador, en USDC, a su wallet y por al menos la suma de los dos importes.",

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { RoleList } from "@/components/settings/role-list";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -24,7 +25,7 @@ async function RolesContent() {
 
 export default function RolesSettingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <RolesContent />
     </Suspense>
   );

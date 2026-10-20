@@ -1,0 +1,345 @@
+import { act, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const h = vi.hoisted(() => ({
+  onEvent: null as null | ((e: { id: string; threadRootId: string | null; events: string[] }) => void),
+  onResync: null as null | (() => void),
+  composer: [] as Array<Record<string, unknown>>,
+}));
+
+vi.mock("@/lib/bounties/actions", () => ({ createBountyAction: vi.fn(), createBountyPaymentIntentAction: vi.fn(), cancelBountyAction: vi.fn(), markSolutionAction: vi.fn() }));
+vi.mock("@/lib/polls/actions", () => ({ votePollAction: vi.fn(), createPollAction: vi.fn() }));
+vi.mock("@/lib/reports/actions", () => ({ reportMessageAction: vi.fn() }));
+vi.mock("@/components/payments/tip-dialog", () => ({ TipDialog: () => null }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ replace: vi.fn() }) }));
+vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({}) }));
+vi.mock("@/lib/chat/realtime", () => ({
+  useChannelEvents: (_id: string, cb: typeof h.onEvent, opts?: { onResync?: () => void }) => {
+    h.onEvent = cb;
+    h.onResync = opts?.onResync ?? null;
+  },
+}));
+vi.mock("@/lib/chat/unread", () => ({ useUnread: () => ({ unread: new Set<string>(), refresh: vi.fn() }) }));
+vi.mock("@/components/chat/composer", () => ({
+  Composer: (props: Record<string, unknown>) => {
+    h.composer.push(props);
+    return <div role="textbox" aria-label="Mensaje" />;
+  },
+}));
+
+const actions = vi.hoisted(() => ({
+  postMessageAction: vi.fn(),
+  toggleReactionAction: vi.fn(),
+  editMessageAction: vi.fn(),
+  deleteMessageAction: vi.fn(),
+  setPinnedAction: vi.fn(),
+}));
+vi.mock("@/lib/chat/actions", () => ({ ...actions, searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })) }));
+
+const queries = vi.hoisted(() => ({
+  getMessage: vi.fn(),
+  getMessages: vi.fn(),
+  getMessagesByIds: vi.fn(),
+  getThread: vi.fn(),
+  getPinned: vi.fn(),
+  markChannelRead: vi.fn(),
+}));
+vi.mock("@/lib/chat/queries", () => queries);
+
+import { ChatView, CONFIRM_REREAD_MS, type ChatViewProps } from "@/components/chat/chat-view";
+import type { OutgoingMessage } from "@/lib/chat/pending";
+import { emptyDirectory } from "@/lib/chat/model";
+import { CHANNEL, directory, doc, makeMessage, ME, OTHER, viewer } from "./fixtures";
+
+const none = emptyDirectory();
+const history = () => [makeMessage({ body: doc("historia") })];
+
+function setup(props: Partial<ChatViewProps> = {}) {
+  return render(
+    <ChatView
+      channel={{ id: CHANNEL, slowmodeSeconds: 0 }}
+      viewer={viewer()}
+      allowedDomains={[]}
+      initial={{ messages: history(), hasMore: false, directory, pinned: [], lastReadAt: null }}
+      {...props}
+    />,
+  );
+}
+
+const outgoing = (text = "hola"): OutgoingMessage => ({ doc: doc(text), expanded: false, quotedId: null, attachments: [] });
+const composer = () => h.composer.at(-1)!;
+const handOver = (text = "hola") => (composer().onSendOptimistic as (m: OutgoingMessage) => Promise<unknown>)(outgoing(text));
+async function send(text = "hola") {
+  let result: Promise<unknown> = Promise.resolve();
+  await act(async () => {
+    result = handOver(text);
+  });
+  return result;
+}
+const row = (text: string) => screen.getByText(text).closest("li")!;
+const rows = (text: string) => screen.queryAllByText(text).map((t) => t.closest("li"));
+const keyOf = (call: number) => (actions.postMessageAction.mock.calls[call]![0] as { clientId: string }).clientId;
+const liveRegion = () => document.querySelector('[aria-live="polite"]')!;
+const echo = async (m: ReturnType<typeof makeMessage>) => {
+  queries.getMessage.mockResolvedValue({ message: m, messages: [m], directory });
+  await act(async () => h.onEvent!({ id: m.id, threadRootId: null, events: ["message_created"] }));
+};
+
+beforeEach(() => {
+  h.composer.length = 0;
+  Object.values(actions).forEach((f) => f.mockReset());
+  Object.values(queries).forEach((f) => f.mockReset());
+  queries.markChannelRead.mockResolvedValue({});
+  sessionStorage.clear();
+  queries.getPinned.mockResolvedValue({ messages: [], directory: none });
+  queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
+});
+
+describe("ChatView: optimistic send", () => {
+  it("shows the message at once as «Enviando…» and swaps in the confirmed one in the same row", async () => {
+    let answer: (v: object) => void = () => {};
+    actions.postMessageAction.mockReturnValue(new Promise((r) => (answer = r)));
+    setup();
+    act(() => {
+      void handOver("hola");
+    });
+    const pendingRow = row("hola");
+    expect(pendingRow).toHaveTextContent("Enviando…");
+    expect(actions.postMessageAction).toHaveBeenCalledWith({
+      channelId: CHANNEL,
+      doc: doc("hola"),
+      expanded: false,
+      quotedId: null,
+      attachments: [],
+      clientId: expect.stringMatching(/^[0-9a-f-]{36}$/),
+    });
+
+    const real = makeMessage({ authorId: ME, body: doc("hola"), clientId: keyOf(0) });
+    queries.getMessage.mockResolvedValue({ message: real, messages: [real], directory });
+    await act(async () => answer({ id: real.id }));
+    await waitFor(() => expect(row("hola")).not.toHaveTextContent("Enviando…"));
+    expect(row("hola")).toBe(pendingRow);
+    expect(row("hola")).toHaveAttribute("data-message-id", real.id);
+    expect(rows("hola")).toHaveLength(1);
+  });
+
+  it("the channel composer only sends optimistically outside an anchored view", () => {
+    setup();
+    expect(composer().onSendOptimistic).toBeTypeOf("function");
+    h.composer.length = 0;
+    setup({ initial: { messages: history(), hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } });
+    expect(composer().onSendOptimistic).toBeUndefined();
+  });
+
+  it("«Reintentar» resends with the same key, whatever the failure (the server deduplicates it)", async () => {
+    actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado/);
+
+    const real = makeMessage({ authorId: ME, body: doc("hola") });
+    actions.postMessageAction.mockResolvedValueOnce({ id: real.id });
+    queries.getMessage.mockResolvedValue({ message: { ...real, clientId: keyOf(0) }, messages: [], directory });
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    await waitFor(() => expect(row("hola")).toHaveAttribute("data-message-id", real.id));
+    expect(actions.postMessageAction).toHaveBeenCalledTimes(2);
+    expect(keyOf(1)).toBe(keyOf(0));
+    expect(queries.getMessages).not.toHaveBeenCalled();
+    expect(rows("hola")).toHaveLength(1);
+  });
+
+  it("a failed message that arrives by realtime with its key is adopted, not duplicated", async () => {
+    actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado/);
+    await echo(makeMessage({ authorId: ME, body: doc("hola"), clientId: keyOf(0) }));
+    await waitFor(() => expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument());
+    expect(rows("hola")).toHaveLength(1);
+  });
+
+  it("never adopts a message by its text: the same text from another tab stays separate", async () => {
+    actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado/);
+    await echo(makeMessage({ authorId: ME, body: doc("hola"), clientId: "99999999-9999-4999-8999-999999999999" }));
+    await waitFor(() => expect(rows("hola")).toHaveLength(2));
+    expect(screen.getByText(/No se ha enviado/)).toBeInTheDocument();
+  });
+
+  it("a message the server refused is never adopted", async () => {
+    actions.postMessageAction.mockResolvedValueOnce({ error: "rate_limited" });
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado\. Has hecho demasiadas acciones/);
+    await echo(makeMessage({ authorId: ME, body: doc("hola"), clientId: keyOf(0) }));
+    await waitFor(() => expect(rows("hola")).toHaveLength(2));
+    expect(screen.getByText(/No se ha enviado/)).toBeInTheDocument();
+  });
+
+  it("does not announce a failure once the message was adopted", async () => {
+    let fail: (e: Error) => void = () => {};
+    actions.postMessageAction.mockReturnValue(new Promise((_r, j) => (fail = j)));
+    setup();
+    act(() => {
+      void handOver("hola");
+    });
+    await echo(makeMessage({ authorId: ME, body: doc("hola"), clientId: keyOf(0) }));
+    await act(async () => fail(new Error("network")));
+    expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument();
+    expect(liveRegion()).not.toHaveTextContent("No se ha podido enviar");
+  });
+
+  it("announces every failure, also a repeated one", async () => {
+    actions.postMessageAction.mockRejectedValue(new Error("network"));
+    setup();
+    await send("hola");
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("No se ha podido enviar el mensaje"));
+    let release: () => void = () => {};
+    actions.postMessageAction.mockReturnValueOnce(new Promise((_r, j) => (release = () => j(new Error("network")))));
+    await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+    // The region is emptied while it retries, so the same words are read again.
+    expect(liveRegion()).toHaveTextContent("");
+    await act(async () => release());
+    await waitFor(() => expect(liveRegion()).toHaveTextContent("No se ha podido enviar el mensaje"));
+  });
+
+  it("a resync that brings the failed message adopts it", async () => {
+    actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado/);
+    const landed = makeMessage({ authorId: ME, body: doc("hola"), clientId: keyOf(0) });
+    queries.getMessages.mockResolvedValue({ messages: [...history(), landed], hasMore: false, directory: none });
+    await act(async () => h.onResync!());
+    await waitFor(() => expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument());
+    expect(rows("hola")).toHaveLength(1);
+  });
+
+  it("messages missed while disconnected and brought by a resync do not animate", async () => {
+    setup();
+    const missed = makeMessage({ authorId: OTHER, body: doc("perdido") });
+    queries.getMessages.mockResolvedValue({ messages: [...history(), missed], hasMore: false, directory: none });
+    await act(async () => h.onResync!());
+    expect(await screen.findByText("perdido")).toBeInTheDocument();
+    expect(row("perdido")).not.toHaveClass("animate-message-in");
+  });
+
+  it("«Descartar» removes the failed message", async () => {
+    actions.postMessageAction.mockResolvedValueOnce({ error: "forbidden" });
+    setup();
+    await send("hola");
+    await screen.findByText(/No se ha enviado/);
+    await userEvent.click(screen.getByRole("button", { name: "Descartar" }));
+    expect(screen.queryByText("hola")).not.toBeInTheDocument();
+  });
+
+  it("a confirmed send never stays on «Enviando…»: shown as sent, and the message is re-read a few seconds later", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const real = makeMessage({ authorId: ME, body: doc("hola") });
+      actions.postMessageAction.mockResolvedValueOnce({ id: real.id });
+      // The first re-read fails (network blip) and no realtime echo comes.
+      queries.getMessage.mockRejectedValueOnce(new Error("offline"));
+      setup();
+      await send("hola");
+      await waitFor(() => expect(row("hola")).not.toHaveTextContent("Enviando…"));
+      expect(row("hola")).not.toHaveAttribute("aria-busy");
+      expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument();
+
+      queries.getMessage.mockResolvedValue({ message: { ...real, clientId: keyOf(0) }, messages: [], directory });
+      await act(async () => {
+        vi.advanceTimersByTime(CONFIRM_REREAD_MS);
+      });
+      await waitFor(() => expect(row("hola")).toHaveAttribute("data-message-id", real.id));
+      expect(queries.getMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a send that settles after leaving the channel does not mark it read", async () => {
+    let answer: (v: object) => void = () => {};
+    actions.postMessageAction.mockReturnValue(new Promise((r) => (answer = r)));
+    const { unmount } = setup();
+    act(() => {
+      void handOver("hola");
+    });
+    await waitFor(() => expect(queries.markChannelRead).toHaveBeenCalled());
+    const before = queries.markChannelRead.mock.calls.length;
+    unmount();
+    await act(async () => answer({ id: makeMessage().id }));
+    expect(queries.markChannelRead).toHaveBeenCalledTimes(before);
+    expect(queries.getMessage).not.toHaveBeenCalled();
+  });
+
+  describe("failed messages survive a remount (channel switch or ?m=)", () => {
+    beforeEach(() => sessionStorage.clear());
+
+    it("restores a failed message with its text, and «Reintentar» resends the same key", async () => {
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const first = setup();
+      await send("no se pierde");
+      await screen.findByText(/No se ha enviado/);
+      first.unmount();
+
+      setup();
+      expect(await screen.findByText("no se pierde")).toBeInTheDocument();
+      expect(row("no se pierde")).toHaveTextContent("No se ha enviado.");
+      actions.postMessageAction.mockResolvedValueOnce({ id: makeMessage().id });
+      await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+      await waitFor(() => expect(actions.postMessageAction).toHaveBeenCalledTimes(2));
+      expect(keyOf(1)).toBe(keyOf(0));
+    });
+
+    it("a message still sending when the view goes away comes back as failed (unconfirmed), retryable", async () => {
+      actions.postMessageAction.mockReturnValue(new Promise(() => {}));
+      const first = setup();
+      act(() => {
+        void handOver("en vuelo");
+      });
+      first.unmount();
+      setup();
+      expect(await screen.findByText("en vuelo")).toBeInTheDocument();
+      expect(row("en vuelo")).toHaveTextContent("No se ha enviado.");
+    });
+
+    it("is not restored once the message is in the history, nor in another channel, and «Descartar» forgets it", async () => {
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const first = setup();
+      await send("hola");
+      await screen.findByText(/No se ha enviado/);
+      const key = keyOf(0);
+      first.unmount();
+
+      const other = setup({ channel: { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", slowmodeSeconds: 0 } });
+      expect(screen.queryByText("hola")).not.toBeInTheDocument();
+      other.unmount();
+
+      const landed = makeMessage({ authorId: ME, body: doc("hola"), clientId: key });
+      const again = setup({ initial: { messages: [...history(), landed], hasMore: false, directory, pinned: [], lastReadAt: null } });
+      await act(async () => {});
+      expect(rows("hola")).toHaveLength(1);
+      expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument();
+      again.unmount();
+
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const fourth = setup();
+      await send("descartado");
+      await screen.findByText(/No se ha enviado/);
+      await userEvent.click(screen.getByRole("button", { name: "Descartar" }));
+      fourth.unmount();
+      setup();
+      await act(async () => {});
+      expect(screen.queryByText("descartado")).not.toBeInTheDocument();
+    });
+  });
+
+  it("hands the server answer back to the composer (slowmode countdown)", async () => {
+    actions.postMessageAction.mockResolvedValueOnce({ error: "slowmode", slowmodeSeconds: 9 });
+    setup();
+    expect(await send("hola")).toEqual({ error: "slowmode", slowmodeSeconds: 9 });
+  });
+});

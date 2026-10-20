@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { TicketView } from "@/components/tickets/ticket-view";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -40,7 +41,7 @@ async function TicketContent({ params }: { params: Promise<{ ticketId: string }>
 
 export default function TicketPage({ params }: { params: Promise<{ ticketId: string }> }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <TicketContent params={params} />
     </Suspense>
   );

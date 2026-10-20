@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.hoisted(() => ({ value: "/" }));
@@ -25,6 +26,10 @@ function renderSidebar(perms: bigint) {
 /** The desktop top bar (rendered first); the second banner is the mobile bar. */
 const desktopBar = () => screen.getAllByRole("banner")[0]!;
 const mobileBar = () => screen.getAllByRole("banner")[1]!;
+/** Staff-only sections (Miembros, Reportes, Ajustes) sit in the «Más» menu of the desktop top bar. */
+const openMore = async () => {
+  await userEvent.setup().click(within(desktopBar()).getByRole("button", { name: "Más" }));
+};
 
 describe("Sidebar", () => {
   it("shows a Buscar button in the desktop top bar and in the mobile top bar", () => {
@@ -33,13 +38,22 @@ describe("Sidebar", () => {
     expect(within(mobileBar()).getByRole("button", { name: "Buscar" })).toBeInTheDocument();
   });
 
-  it("puts the primary navigation in the desktop top bar, horizontally", () => {
+  it("puts the primary navigation in the desktop top bar, horizontally, with the staff sections under «Más»", async () => {
     renderSidebar(512n);
     const nav = within(desktopBar()).getByRole("navigation", { name: "Principal" });
     expect(nav.querySelector("ul")).toHaveClass("flex-row");
-    for (const name of ["Inicio", "Tickets", "Invitaciones", "Miembros", "Ajustes"]) {
+    for (const name of ["Inicio", "Tickets", "Invitaciones"]) {
       expect(within(nav).getByRole("link", { name })).toBeInTheDocument();
     }
+    expect(within(nav).queryByRole("link", { name: "Miembros" })).toBeNull();
+    await openMore();
+    expect(await screen.findByRole("menuitem", { name: "Miembros" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Ajustes" })).toBeInTheDocument();
+  });
+
+  it("has no «Más» menu for a member without staff sections", () => {
+    renderSidebar(16n);
+    expect(within(desktopBar()).queryByRole("button", { name: "Más" })).toBeNull();
   });
 
   it("keeps the desktop top bar hidden below 768px and the mobile bar hidden above", () => {
@@ -92,15 +106,17 @@ describe("Sidebar", () => {
     expect(screen.queryByRole("link", { name: "Miembros" })).toBeNull();
   });
 
-  it("shows both with ADMINISTRATOR (512)", () => {
+  it("shows both with ADMINISTRATOR (512)", async () => {
     renderSidebar(512n);
     expect(screen.getByRole("link", { name: "Invitaciones" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Miembros" })).toHaveAttribute("href", "/admin/members");
+    await openMore();
+    expect(await screen.findByRole("menuitem", { name: "Miembros" })).toHaveAttribute("href", "/admin/members");
   });
 
-  it("shows Miembros with bit 32 (and no Invitaciones)", () => {
+  it("shows Miembros with bit 32 (and no Invitaciones)", async () => {
     renderSidebar(32n);
-    expect(screen.getByRole("link", { name: "Miembros" })).toBeInTheDocument();
+    await openMore();
+    expect(await screen.findByRole("menuitem", { name: "Miembros" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Invitaciones" })).toBeNull();
   });
 
@@ -121,9 +137,10 @@ describe("Sidebar", () => {
     expect(sidebarBrand.className).toContain("font-display");
   });
 
-  it("shows Reportes only when the server says the member moderates a visible channel", () => {
+  it("shows Reportes only when the server says the member moderates a visible channel", async () => {
     render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
-    expect(screen.getByRole("link", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
+    await openMore();
+    expect(await screen.findByRole("menuitem", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
   });
 
   it("hides Reportes without the flag, even with global 8 or 512 (the page would be a 404)", () => {
@@ -168,12 +185,19 @@ describe("Sidebar", () => {
     expect(screen.getByRole("button", { name: "Salir" })).toBeInTheDocument();
   });
 
-  it("marks only the active link with aria-current=page", () => {
+  it("marks only the active link with aria-current=page", async () => {
     pathname.value = "/invites";
     renderSidebar(512n);
     expect(screen.getByRole("link", { name: "Invitaciones" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current");
-    expect(screen.getByRole("link", { name: "Miembros" })).not.toHaveAttribute("aria-current");
+    await openMore();
+    expect(await screen.findByRole("menuitem", { name: "Miembros" })).not.toHaveAttribute("aria-current");
+  });
+
+  it("marks «Más» as the current section while one of its sections is open", () => {
+    pathname.value = "/settings/roles";
+    renderSidebar(512n);
+    expect(within(desktopBar()).getByRole("button", { name: "Más" })).toHaveClass("border-accent");
   });
 
   it("Inicio is active on exactly '/'", () => {
@@ -184,9 +208,10 @@ describe("Sidebar", () => {
 
   it("nav links have a >=44px target", () => {
     renderSidebar(512n);
-    for (const name of ["Inicio", "Invitaciones", "Miembros"]) {
+    for (const name of ["Inicio", "Invitaciones"]) {
       expect(screen.getByRole("link", { name })).toHaveClass("min-h-11");
     }
+    expect(within(desktopBar()).getByRole("button", { name: "Más" })).toHaveClass("min-h-11", "min-w-11");
   });
 
   it("has a labelled primary navigation and a mobile menu trigger", () => {

@@ -35,7 +35,6 @@ const actions = vi.hoisted(() => ({
   editMessageAction: vi.fn(),
   deleteMessageAction: vi.fn(),
   setPinnedAction: vi.fn(),
-  markReadAction: vi.fn(),
 }));
 vi.mock("@/lib/chat/actions", () => ({
   ...actions,
@@ -48,6 +47,7 @@ const queries = vi.hoisted(() => ({
   getMessagesByIds: vi.fn(),
   getThread: vi.fn(),
   getPinned: vi.fn(),
+  markChannelRead: vi.fn(),
 }));
 vi.mock("@/lib/chat/queries", () => queries);
 
@@ -83,7 +83,7 @@ beforeEach(() => {
   h.replace.mockReset();
   Object.values(actions).forEach((f) => f.mockReset());
   Object.values(queries).forEach((f) => f.mockReset());
-  actions.markReadAction.mockResolvedValue({});
+  queries.markChannelRead.mockResolvedValue({});
   actions.toggleReactionAction.mockResolvedValue({ active: true });
   actions.setPinnedAction.mockResolvedValue({});
   actions.deleteMessageAction.mockResolvedValue({});
@@ -103,7 +103,7 @@ describe("ChatView", () => {
 
   it("marks the channel as read when opened and refreshes the sidebar", async () => {
     setup();
-    await waitFor(() => expect(actions.markReadAction).toHaveBeenCalledWith(CHANNEL));
+    await waitFor(() => expect(queries.markChannelRead).toHaveBeenCalledWith(expect.anything(), CHANNEL));
     await waitFor(() => expect(h.refresh).toHaveBeenCalled());
   });
 
@@ -374,12 +374,12 @@ describe("ChatView", () => {
   describe("polish", () => {
     it("throttles mark-read: a burst of events costs one call", async () => {
       setup();
-      await waitFor(() => expect(actions.markReadAction).toHaveBeenCalledTimes(1));
+      await waitFor(() => expect(queries.markChannelRead).toHaveBeenCalledTimes(1));
       queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
       await emit("11111111-1111-4111-8111-111111111111");
       await emit("22222222-2222-4222-8222-222222222222");
       await emit("33333333-3333-4333-8333-333333333333");
-      expect(actions.markReadAction).toHaveBeenCalledTimes(1);
+      expect(queries.markChannelRead).toHaveBeenCalledTimes(1);
     });
 
     it("resync drops messages that were hard-deleted while away", async () => {
@@ -555,7 +555,7 @@ describe("ChatView", () => {
       const msgs = anchored();
       setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
       await emit("11111111-1111-4111-8111-111111111111");
-      expect(actions.markReadAction).not.toHaveBeenCalled();
+      expect(queries.markChannelRead).not.toHaveBeenCalled();
     });
 
     const anchoredProps = (msgs: ChatMessage[]) => ({

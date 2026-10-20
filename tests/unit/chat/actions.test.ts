@@ -24,7 +24,6 @@ import {
   deleteMessageAction,
   editMessageAction,
   getSlowmodeAction,
-  markReadAction,
   postMessageAction,
   searchMentionTargetsAction,
   setPinnedAction,
@@ -74,6 +73,21 @@ describe("postMessageAction", () => {
     });
     expect(args.p_body_text).toBe("holax");
     expect(args).toMatchObject({ p_channel: CH, p_expanded: false, p_thread_root: null, p_quoted: null, p_attachments: [] });
+  });
+
+  it("passes the client key so a retry of the same message is deduplicated by the server", async () => {
+    rpc.mockResolvedValue({ data: MSG, error: null });
+    const KEY = "55555555-5555-4555-8555-555555555555";
+    await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false, clientId: KEY });
+    expect((rpc.mock.calls[0] as [string, Record<string, unknown>])[1]).toMatchObject({ p_client_id: KEY });
+    rpc.mockClear();
+    await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false });
+    expect((rpc.mock.calls[0] as [string, Record<string, unknown>])[1]).toMatchObject({ p_client_id: null });
+  });
+
+  it("refuses a client key that is not a uuid", async () => {
+    expect(await postMessageAction({ channelId: CH, doc: doc("hola"), expanded: false, clientId: "nope" })).toEqual({ error: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("rejects an empty doc without calling the RPC", async () => {
@@ -199,13 +213,10 @@ describe("social actions", () => {
     expect(await toggleReactionAction({ messageId: "x", emoji: "👍" })).toEqual({ error: "invalid_input" });
   });
 
-  it("setPinnedAction and markReadAction", async () => {
+  it("setPinnedAction", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     expect(await setPinnedAction({ messageId: MSG, pinned: true })).toEqual({});
     expect(rpc).toHaveBeenCalledWith("set_pinned", { p_message: MSG, p_pinned: true });
-    expect(await markReadAction(CH)).toEqual({});
-    expect(rpc).toHaveBeenCalledWith("mark_channel_read", { p_channel: CH });
-    expect(await markReadAction("x")).toEqual({ error: "invalid_input" });
     rpc.mockResolvedValue({ data: null, error: { message: "forbidden" } });
     expect(await setPinnedAction({ messageId: MSG, pinned: false })).toEqual({ error: "forbidden" });
   });
