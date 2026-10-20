@@ -174,7 +174,10 @@ begin
   on conflict (author_id, client_id) where client_id is not null do nothing
   returning id into v_id;
   if v_id is null then
-    -- R1-3: a concurrent call with the same key won the insert: that message is the answer, with no side effects
+    -- R1-3: last guard only. A concurrent call with the same key won the insert, so return that message's id and skip
+    -- this function's own writes (reply count, alpha, last post, attachments). It is not side-effect free for the
+    -- caller: post_message would still run _notify_message on the returned id. In practice this branch is unreachable,
+    -- because post_message takes a per-key advisory lock and returns an existing id before calling this function.
     select m.id into v_id from public.messages m where m.author_id = p_member and m.client_id = p_client_id;
     return v_id;
   end if;
