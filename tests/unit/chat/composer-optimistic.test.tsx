@@ -57,13 +57,26 @@ describe("Composer with an optimistic sender", () => {
     expect(postMessageAction).not.toHaveBeenCalled();
     expect(onPosted).not.toHaveBeenCalled();
 
-    // One send at a time: Enter again while it is in flight does nothing.
+    // Without slowmode the next message goes right away, even while the first is in flight.
+    type(editor, "<p>otra</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(onSendOptimistic).toHaveBeenCalledTimes(2));
+    expect(onSendOptimistic.mock.calls[1]![0]).toMatchObject({ text: "otra" });
+    await act(async () => finish({}));
+  });
+
+  it("with slowmode, one send at a time: Enter while one is in flight keeps the draft", async () => {
+    let finish: (v: object) => void = () => {};
+    const onSendOptimistic = vi.fn<(m: OutgoingMessage) => Promise<object>>(() => new Promise<object>((r) => (finish = r)));
+    const { box, editor } = await mount({ onSendOptimistic, slowmodeSeconds: 5 });
+    type(editor, "<p>hola</p>");
+    fireEvent.keyDown(box, { key: "Enter" });
+    await waitFor(() => expect(onSendOptimistic).toHaveBeenCalledTimes(1));
     type(editor, "<p>otra</p>");
     fireEvent.keyDown(box, { key: "Enter" });
     expect(onSendOptimistic).toHaveBeenCalledTimes(1);
+    expect(editor.getText()).toBe("otra");
     await act(async () => finish({}));
-    fireEvent.keyDown(box, { key: "Enter" });
-    await waitFor(() => expect(onSendOptimistic).toHaveBeenCalledTimes(2));
   });
 
   it("a slowmode refusal starts the countdown (the failed message itself is shown by the list)", async () => {

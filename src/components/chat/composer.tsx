@@ -216,13 +216,17 @@ export function Composer(props: ComposerProps) {
       return false;
     }
 
-    sendingRef.current = true;
-    setSending(true);
     setError(null);
 
     if (onSendOptimistic) {
       // The list shows the message at once ("Enviando…") and owns it from here: retry, failure and the local image
-      // previews included. The box is free for the next message; one send is in flight at a time.
+      // previews included. The box is free for the next message right away; with slowmode the server would refuse a
+      // second one, so there it waits for the answer (and its countdown) first.
+      const gated = slowmodeSeconds > 0;
+      if (gated) {
+        sendingRef.current = true;
+        setSending(true);
+      }
       const outgoing: OutgoingMessage = {
         doc: toPlainDoc(doc),
         text: docToPlainText(doc),
@@ -241,8 +245,10 @@ export function Composer(props: ComposerProps) {
       void onSendOptimistic(outgoing)
         .catch(() => ({ error: "unknown" }) as OptimisticResult)
         .then(async (res) => {
-          sendingRef.current = false;
-          setSending(false);
+          if (gated) {
+            sendingRef.current = false;
+            setSending(false);
+          }
           if (res.error === "slowmode") {
             const seconds = res.slowmodeSeconds ?? (await getSlowmodeAction(channelId).catch(() => ({ seconds: 0 }))).seconds;
             startSlowmode(seconds);
@@ -253,6 +259,8 @@ export function Composer(props: ComposerProps) {
       return true;
     }
 
+    sendingRef.current = true;
+    setSending(true);
     const attachmentsPayload: AttachmentInput[] = done.map((a) => a.uploaded);
     const res = await postMessageAction({
       channelId,
