@@ -21,6 +21,7 @@ import {
 } from "@/lib/chat/actions";
 import { isEchoOf, pendingToMessage, settleOutcome, type OutgoingMessage, type PendingMessage } from "@/lib/chat/pending";
 import type { PendingView } from "@/components/chat/message-list";
+import { forgetPending, loadPending, savePending } from "@/lib/chat/pending-store";
 import {
   applyReactionToggle,
   applyToWindow,
@@ -86,6 +87,8 @@ interface ThreadState {
 
 const QUOTE_CHARS = 140;
 const FAIL_COPY = "No se ha podido enviar el mensaje";
+/** After the server confirmed a send, re-read it once more this much later if it has not shown up (blip, no echo). */
+export const CONFIRM_REREAD_MS = 4000;
 const NOTICE_MS = 7000;
 const THROTTLE_MS = 5000;
 const HIGHLIGHT_MS = 2000;
@@ -149,11 +152,34 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const hasNewerRef = useRef(hasNewer);
   // The source of truth for the pending rows, kept current synchronously: a send can settle before React re-renders.
   const pendingRef = useRef(pending);
-  const updatePending = useCallback((fn: (ps: PendingMessage[]) => PendingMessage[]) => {
-    const next = fn(pendingRef.current);
-    if (next === pendingRef.current) return;
-    pendingRef.current = next;
-    setPending(next);
+  // Unconfirmed sends are also written to sessionStorage (per channel), so a remount does not lose a failed message.
+  const updatePending = useCallback(
+    (fn: (ps: PendingMessage[]) => PendingMessage[]) => {
+      const next = fn(pendingRef.current);
+      if (next === pendingRef.current) return;
+      pendingRef.current = next;
+      setPending(next);
+      savePending(channelId, next);
+    },
+    [channelId],
+  );
+  // A send that settles after the view went away (channel switch, `?m=` remount) touches nothing here: no read mark on
+  // a channel the member left, no state. Only the stored copy is updated.
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  // Restore what was left unconfirmed in this channel, unless the history already has it (matched by its key).
+  useEffect(() => {
+    const landed = new Set(initial.messages.map((m) => m.clientId).filter(Boolean));
+    const restored = loadPending(channelId).filter((p) => !landed.has(p.key));
+    if (restored.length > 0) updatePending((ps) => [...restored, ...ps.filter((p) => !restored.some((r) => r.key === p.key))]);
+    else savePending(channelId, pendingRef.current);
+    // Mount only: `initial` is the server window this view was created with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     rootsRef.current = roots;
@@ -624,10 +650,21 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         clientId: p.key,
       }).catch(() => null);
       const settled = settleOutcome(res);
+      if (!mounted.current) {
+        // The view is gone: a confirmed message leaves the stored copy (the next view reads it from the server); a
+        // failed one stays there and comes back as a failed row.
+        if (settled.ok) forgetPending(channelId, p.key);
+        return res ?? { error: "unknown" };
+      }
       if (settled.ok) {
-        adopt(p.key, settled.id);
-        void reconcile(settled.id, true);
+        const id = settled.id;
+        adopt(p.key, id);
+        void reconcile(id, true);
         markRead();
+        // The row already looks sent; if neither the re-read nor the echo brings the message, try once more.
+        setTimeout(() => {
+          if (mounted.current && pendingRef.current.some((x) => x.key === p.key)) void reconcile(id);
+        }, CONFIRM_REREAD_MS);
       } else fail(p.key, settled.outcome, settled.error);
       return res ?? { error: "unknown" };
     },
@@ -676,12 +713,12 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const shownPending = useRef<PendingMessage[]>([]);
   useEffect(() => {
     const keys = new Set(pending.map((p) => p.key));
-    for (const p of shownPending.current) if (!keys.has(p.key)) for (const a of p.attachments) URL.revokeObjectURL(a.previewUrl);
+    for (const p of shownPending.current) if (!keys.has(p.key)) for (const a of p.attachments) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
     shownPending.current = pending;
   }, [pending]);
   useEffect(
     () => () => {
-      for (const p of shownPending.current) for (const a of p.attachments) URL.revokeObjectURL(a.previewUrl);
+      for (const p of shownPending.current) for (const a of p.attachments) if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
     },
     [],
   );
@@ -694,7 +731,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
       .filter((p) => !(p.realId && rootIds.has(p.realId)))
       .map((p) => ({
         message: pendingToMessage(p, meId, channelId),
-        status: p.status,
+        // The server answered with its id: it is sent, even before the re-read shows the real message.
+        status: p.realId ? ("sent" as const) : p.status,
         error: p.error ? rpcErrorMessage(p.error) : null,
         onRetry: () => void retrySend(p.key),
         onDiscard: () => discardSend(p.key),

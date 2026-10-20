@@ -47,7 +47,7 @@ const queries = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/chat/queries", () => queries);
 
-import { ChatView, type ChatViewProps } from "@/components/chat/chat-view";
+import { ChatView, CONFIRM_REREAD_MS, type ChatViewProps } from "@/components/chat/chat-view";
 import type { OutgoingMessage } from "@/lib/chat/pending";
 import { emptyDirectory } from "@/lib/chat/model";
 import { CHANNEL, directory, doc, makeMessage, ME, OTHER, viewer } from "./fixtures";
@@ -91,6 +91,7 @@ beforeEach(() => {
   Object.values(actions).forEach((f) => f.mockReset());
   Object.values(queries).forEach((f) => f.mockReset());
   queries.markChannelRead.mockResolvedValue({});
+  sessionStorage.clear();
   queries.getPinned.mockResolvedValue({ messages: [], directory: none });
   queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
 });
@@ -233,6 +234,107 @@ describe("ChatView: optimistic send", () => {
     await screen.findByText(/No se ha enviado/);
     await userEvent.click(screen.getByRole("button", { name: "Descartar" }));
     expect(screen.queryByText("hola")).not.toBeInTheDocument();
+  });
+
+  it("a confirmed send never stays on «Enviando…»: shown as sent, and the message is re-read a few seconds later", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const real = makeMessage({ authorId: ME, body: doc("hola") });
+      actions.postMessageAction.mockResolvedValueOnce({ id: real.id });
+      // The first re-read fails (network blip) and no realtime echo comes.
+      queries.getMessage.mockRejectedValueOnce(new Error("offline"));
+      setup();
+      await send("hola");
+      await waitFor(() => expect(row("hola")).not.toHaveTextContent("Enviando…"));
+      expect(row("hola")).not.toHaveAttribute("aria-busy");
+      expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument();
+
+      queries.getMessage.mockResolvedValue({ message: { ...real, clientId: keyOf(0) }, messages: [], directory });
+      await act(async () => {
+        vi.advanceTimersByTime(CONFIRM_REREAD_MS);
+      });
+      await waitFor(() => expect(row("hola")).toHaveAttribute("data-message-id", real.id));
+      expect(queries.getMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a send that settles after leaving the channel does not mark it read", async () => {
+    let answer: (v: object) => void = () => {};
+    actions.postMessageAction.mockReturnValue(new Promise((r) => (answer = r)));
+    const { unmount } = setup();
+    act(() => {
+      void handOver("hola");
+    });
+    await waitFor(() => expect(queries.markChannelRead).toHaveBeenCalled());
+    const before = queries.markChannelRead.mock.calls.length;
+    unmount();
+    await act(async () => answer({ id: makeMessage().id }));
+    expect(queries.markChannelRead).toHaveBeenCalledTimes(before);
+    expect(queries.getMessage).not.toHaveBeenCalled();
+  });
+
+  describe("failed messages survive a remount (channel switch or ?m=)", () => {
+    beforeEach(() => sessionStorage.clear());
+
+    it("restores a failed message with its text, and «Reintentar» resends the same key", async () => {
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const first = setup();
+      await send("no se pierde");
+      await screen.findByText(/No se ha enviado/);
+      first.unmount();
+
+      setup();
+      expect(await screen.findByText("no se pierde")).toBeInTheDocument();
+      expect(row("no se pierde")).toHaveTextContent("No se ha enviado.");
+      actions.postMessageAction.mockResolvedValueOnce({ id: makeMessage().id });
+      await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+      await waitFor(() => expect(actions.postMessageAction).toHaveBeenCalledTimes(2));
+      expect(keyOf(1)).toBe(keyOf(0));
+    });
+
+    it("a message still sending when the view goes away comes back as failed (unconfirmed), retryable", async () => {
+      actions.postMessageAction.mockReturnValue(new Promise(() => {}));
+      const first = setup();
+      act(() => {
+        void handOver("en vuelo");
+      });
+      first.unmount();
+      setup();
+      expect(await screen.findByText("en vuelo")).toBeInTheDocument();
+      expect(row("en vuelo")).toHaveTextContent("No se ha enviado.");
+    });
+
+    it("is not restored once the message is in the history, nor in another channel, and «Descartar» forgets it", async () => {
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const first = setup();
+      await send("hola");
+      await screen.findByText(/No se ha enviado/);
+      const key = keyOf(0);
+      first.unmount();
+
+      const other = setup({ channel: { id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", slowmodeSeconds: 0 } });
+      expect(screen.queryByText("hola")).not.toBeInTheDocument();
+      other.unmount();
+
+      const landed = makeMessage({ authorId: ME, body: doc("hola"), clientId: key });
+      const again = setup({ initial: { messages: [...history(), landed], hasMore: false, directory, pinned: [], lastReadAt: null } });
+      await act(async () => {});
+      expect(rows("hola")).toHaveLength(1);
+      expect(screen.queryByText(/No se ha enviado/)).not.toBeInTheDocument();
+      again.unmount();
+
+      actions.postMessageAction.mockRejectedValueOnce(new Error("network"));
+      const fourth = setup();
+      await send("descartado");
+      await screen.findByText(/No se ha enviado/);
+      await userEvent.click(screen.getByRole("button", { name: "Descartar" }));
+      fourth.unmount();
+      setup();
+      await act(async () => {});
+      expect(screen.queryByText("descartado")).not.toBeInTheDocument();
+    });
   });
 
   it("hands the server answer back to the composer (slowmode countdown)", async () => {

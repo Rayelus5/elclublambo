@@ -71,7 +71,8 @@ export function pendingToMessage(p: PendingMessage, meId: string, channelId: str
     deletedAt: null,
     createdAt: p.createdAt,
     clientId: p.key,
-    attachments: p.attachments.map((a) => ({ id: a.id, url: a.previewUrl, mime: a.mime, width: a.width, height: a.height })),
+    // A restored message has lost its local previews: its images show as unavailable until it is sent.
+    attachments: p.attachments.map((a) => ({ id: a.id, url: a.previewUrl || null, mime: a.mime, width: a.width, height: a.height })),
     reactions: [],
     tips: [],
     tipId: null,

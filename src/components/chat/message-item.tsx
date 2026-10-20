@@ -86,7 +86,8 @@ export interface MessageItemHandlers {
 
 /** Delivery state of a message I just sent (optimistic): no actions until the server confirms it. */
 export interface MessageDelivery {
-  status: "sending" | "failed";
+  /** `sent`: the server confirmed it and the real message is on its way (no state shown, still no actions). */
+  status: "sending" | "sent" | "failed";
   /** Why it failed, ready to show. */
   error?: string | null;
   onRetry: () => void;
@@ -625,6 +626,7 @@ function HighlightGlow({ on }: { on: boolean }) {
 }
 
 function DeliveryStatus({ delivery }: { delivery: MessageDelivery }) {
+  if (delivery.status === "sent") return null;
   if (delivery.status === "sending") {
     return (
       <p className="flex items-center gap-1.5 text-[12px] text-fg-muted">
