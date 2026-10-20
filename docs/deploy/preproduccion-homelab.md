@@ -838,6 +838,9 @@ Imprime una URL. **Necesita al humano:** que la abra, elija la zona `elclub.part
 
 **Comprueba:** existe `/root/.cloudflared/cert.pem`.
 
+Si el humano tarda y el comando termina con `Failed to fetch resource`, el navegador le descarga `cert.pem`: que te lo
+pase por `scp` a `/root/.cloudflared/cert.pem` (`chmod 600`) y que **borre** su copia local (da acceso a la zona).
+
 ### 8.4 Crear el túnel
 
 ```
@@ -866,6 +869,11 @@ docker run --rm --user 65532:65532 -v /opt/elclub/pre/cloudflared/credentials.js
 ```
 
 → `400 65532:65532` y `legible`.
+
+**Ojo si el workflow ya corrió antes de este paso:** Docker crea como **carpeta** cualquier archivo montado que no
+exista, así que `credentials.json` puede ser un directorio vacío (`stat -c %F` dice `directory`) y el `install` mete el
+JSON dentro. Arréglalo: `docker stop elclub-pre-cloudflared-1`, `rm -r /opt/elclub/pre/cloudflared/credentials.json`,
+repite el `install` y comprueba que `stat -c '%F %a %u:%g'` dice `regular file 400 65532:65532`.
 
 ### 8.6 Validar el ingress del repo
 
@@ -897,6 +905,11 @@ cloudflared tunnel route dns elclub-pre pre-api.elclub.party
 
 **Comprueba:** los dos comandos dicen `Added CNAME ... which will route to this tunnel`, y
 `dig +short pre-api.elclub.party` devuelve IPs de Cloudflare.
+
+Si la red usa **Pi-hole** (u otro DNS con caché) y alguien consultó estos nombres antes de crearlos, la caché guarda
+la respuesta negativa hasta 30 minutos y la web no encuentra `pre-api` (`fetch failed`). Vacíala:
+`pihole reloaddns` en el contenedor de Pi-hole (en este homelab, `pct exec 100 -- /usr/local/bin/pihole reloaddns`
+desde el host de Proxmox).
 
 ### 8.8 Regla de WAF para `pre-api.elclub.party`
 
