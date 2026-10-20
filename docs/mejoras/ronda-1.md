@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 7 | 3 | 0 | 0 | 4 | 0 |
+| 7 | 2 | 0 | 0 | 5 | 0 |
 
 ---
 
@@ -214,7 +214,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Hecho en:** —
 
 ### T-007 · La barra superior se solapa con «MODO PRUEBA» cuando hay muchas secciones
-- **Estado:** ⬜
+- **Estado:** ✅
 - **Prioridad:** P2
 - **Tipo:** arreglo
 - **Origen:** IA
@@ -226,8 +226,25 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   lo que no cabe, o el distintivo compacto en anchos medios.
 - **Cómo sabré que está bien:** como admin, a 768, 1024 y 1440 px no hay nada solapado.
 - **Capturas / referencias:** —
-- **Notas de la IA:** —
-- **Hecho en:** —
+- **Notas de la IA:**
+  - **Presupuesto de ancho fijo.** Las pestañas son solo las de miembro (Inicio, Tickets, Guía, DAO, Mercado,
+    Invitaciones: máximo 6) más un menú **«Más»** con las del personal (Miembros, Reportes, Ajustes), que solo aparece
+    si hay alguna. Así la barra no depende de cuántos permisos tenga el admin, no hay scroll horizontal y el menú es un
+    patrón estándar (teclado, Escape, foco).
+  - **Controles de la derecha que no se encogen** (`shrink-0`) y compactos por ancho: pestañas solo icono hasta 1280 px
+    (texto desde `xl`), distintivo «PRUEBA» y buscador de icono hasta 1536 px (completos desde `2xl`), perfil y «Salir»
+    solo icono bajo 1024 px (el texto queda para lectores de pantalla). El nombre completo del distintivo sigue en
+    `aria-label`.
+  - **Textos largos:** las pestañas sí se encogen y la etiqueta se trunca con puntos suspensivos antes de pisar nada; el
+    `<nav>` recorta (`overflow-hidden`) como última red. El indicador de T-002 pasa a `top-1 right-0.5`: queda en la franja
+    sobre la etiqueta y no la tapa.
+  - **e2e** `e2e/topbar-overflow.spec.ts`: admin y miembro a 768/1024/1280/1440 px, con y sin etiquetas largas simuladas;
+    comprueba que ninguna pestaña cruza los controles de la derecha ni el logo, que no se pisan entre sí, que ni la barra
+    ni la página desbordan y que cada pestaña mide ≥ 44 px. Primero rojo (a 768 px «DAO» acababa 6 px debajo de los
+    controles), luego verde.
+  - Tests unitarios de `shell` y `channel-tree` actualizados: Miembros/Reportes/Ajustes ahora se buscan abriendo «Más».
+  - Para revisar: el cajón móvil (< 768 px) no cambia y sigue listando todo.
+- **Hecho en:** 713e0b2
 
 ## 3. Funcionalidad nueva o cambios de comportamiento
 
@@ -315,3 +332,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | T-001 | ✅ | Cajón móvil con scroll propio, safe areas y overscroll contenido; e2e a 375×667 y horizontal. |
 | 2026-10-20 | T-002, T-007 | 8dfd2d7 | Loader Diamond en el área de contenido, en el chat y en el enlace pulsado; e2e con servidor lento (prod). Nueva T-007 (solape en la barra superior). |
 | 2026-10-20 | T-005, T-003 | 2769c21, e5b08d7 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
+| 2026-10-20 | T-007 | 713e0b2 | Barra superior sin solapes: pestañas de miembro + menú «Más» para el personal, controles compactos por ancho; e2e de geometría a 768-1440 px. |
