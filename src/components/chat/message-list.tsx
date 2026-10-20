@@ -196,7 +196,8 @@ export function MessageList({
                     viewer={viewer}
                     grouped={entry.grouped}
                     highlighted={entry.message.id === highlightId}
-                    entering={isArrival(entry.message, newestAtMount)}
+                    // My own send always slides in (its time is the device clock, which may lag the server's).
+                    entering={delivery.has(entry.message.id) || isArrival(entry.message, newestAtMount)}
                     delivery={delivery.get(entry.message.id)}
                     {...handlers}
                   />

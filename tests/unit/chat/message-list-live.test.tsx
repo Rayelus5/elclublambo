@@ -160,6 +160,13 @@ describe("MessageList: pending messages", () => {
     expect(onDiscard).toHaveBeenCalledTimes(1);
   });
 
+  it("my own send always slides in, even if the device clock is behind the newest message", () => {
+    const a = makeMessage({ createdAt: "2026-10-18T10:00:00.000Z" });
+    const { rerender } = render(<MessageList {...props({ messages: [a] })} />);
+    rerender(<MessageList {...props({ messages: [a], pending: [view({ message: pendingMsg({ createdAt: "2026-10-18T09:59:00.000Z" }) })] })} />);
+    expect(row("pendiente")).toHaveClass(ENTER);
+  });
+
   it("the confirmed message takes over the pending row (same element: no second animation)", () => {
     const a = makeMessage();
     const { rerender } = render(<MessageList {...props({ messages: [a], pending: [view()] })} />);
