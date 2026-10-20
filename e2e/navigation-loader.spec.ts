@@ -49,28 +49,20 @@ test.beforeEach(async ({ context, page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
 });
 
-test("al cambiar de canal se ve el diamante en el contenido y la barra lateral sigue ahí", async ({ page }) => {
+test("al cambiar de canal se ve el esqueleto del historial y la barra lateral sigue ahí", async ({ page }) => {
   prodOnly();
   await slowRsc(page, "navigations");
   const link = await homeWithPrefetch(page, GENERAL, "Canales");
   await link.click();
 
-  const loader = main(page).getByRole("status").filter({ hasText: /Cargando/ });
+  // T-004: the channel fallback is the history skeleton (grey message lines), not the diamond.
+  const loader = main(page).getByRole("status").filter({ hasText: "Cargando mensajes…" });
   await expect(loader).toBeVisible();
-  const diamond = loader.locator("svg");
-  await expect(diamond).toBeVisible();
-  // Accent token colour, and a delayed fade-in (no flash on a fast navigation).
-  const accent = await page.evaluate(() => {
-    const probe = document.createElement("span");
-    probe.style.color = "var(--accent)";
-    document.body.append(probe);
-    const color = getComputedStyle(probe).color;
-    probe.remove();
-    return color;
-  });
-  await expect(diamond).toHaveCSS("color", accent);
-  await expect(diamond).toHaveCSS("animation-name", "loader-in");
-  await expect(diamond).toHaveCSS("animation-delay", "0.15s");
+  await expect(loader.locator("[data-skeleton-panel]")).toBeVisible();
+  await expect(loader.locator("[data-skeleton-message]").first()).toBeVisible();
+  // A delayed fade-in (no flash on a fast navigation).
+  await expect(loader).toHaveCSS("animation-name", "loader-in");
+  await expect(loader).toHaveCSS("animation-delay", "0.15s");
 
   // The shell does not go away while the content loads.
   await expect(page.getByRole("navigation", { name: "Canales" })).toBeVisible();
@@ -107,12 +99,24 @@ test("con «reducir movimiento» el diamante aparece quieto", async ({ page }) =
   prodOnly();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await slowRsc(page, "navigations");
-  const link = await homeWithPrefetch(page, GENERAL, "Canales");
+  const link = await homeWithPrefetch(page, /^DAO/, "Principal");
   await link.click();
   const loader = main(page).getByRole("status").filter({ hasText: /Cargando/ });
   await expect(loader.locator("svg")).toBeVisible();
   const pixels = loader.locator("svg rect");
   await expect(pixels).toHaveCount(8);
   for (let i = 0; i < 8; i++) await expect(pixels.nth(i)).toHaveCSS("animation-iteration-count", "1");
+  await expect(page.getByRole("heading", { level: 1, name: "DAO" })).toBeVisible({ timeout: 20_000 });
+});
+
+test("con «reducir movimiento» el esqueleto del canal no late", async ({ page }) => {
+  prodOnly();
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await slowRsc(page, "navigations");
+  const link = await homeWithPrefetch(page, GENERAL, "Canales");
+  await link.click();
+  const loader = main(page).getByRole("status").filter({ hasText: "Cargando mensajes…" });
+  await expect(loader.locator("[data-skeleton-panel]")).toBeVisible();
+  await expect(loader.locator(".animate-pulse")).toHaveCSS("animation-name", "none");
   await expect(page.getByRole("heading", { level: 1, name: "General" })).toBeVisible({ timeout: 20_000 });
 });

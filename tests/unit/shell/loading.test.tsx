@@ -62,10 +62,28 @@ describe("PageLoader", () => {
 });
 
 describe("ChatHistoryLoading", () => {
-  it("shows the diamond while the channel history loads", () => {
+  it("draws a skeleton of the channel and its messages, announced as «Cargando mensajes…»", () => {
     const { container } = render(<ChatHistoryLoading />);
-    expect(screen.getByRole("status")).toHaveTextContent("Cargando mensajes…");
-    expect(container.querySelector("svg")).toHaveClass("text-accent");
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Cargando mensajes…");
+    // Grey lines instead of the diamond: hidden from assistive tech, which only hears the status text.
+    expect(container.querySelector("svg")).toBeNull();
+    const rows = container.querySelectorAll("[data-skeleton-message]");
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    expect(rows[0]!.closest("[aria-hidden='true']")).not.toBeNull();
+  });
+
+  it("keeps the chat panel's height (no jump when the history arrives) and pulses only without reduced motion", () => {
+    const { container } = render(<ChatHistoryLoading />);
+    const panel = container.querySelector("[data-skeleton-panel]")!;
+    expect(panel).toHaveClass("h-[calc(100dvh-13rem)]", "min-h-[28rem]", "md:h-[calc(100dvh-15.5rem)]");
+    const pulse = container.querySelector(".animate-pulse")!;
+    expect(pulse).toHaveClass("motion-reduce:animate-none");
+  });
+
+  it("fades in after a delay, so a fast channel switch shows nothing", () => {
+    render(<ChatHistoryLoading />);
+    expect(screen.getByRole("status")).toHaveClass("animate-loader-in");
   });
 });
 
