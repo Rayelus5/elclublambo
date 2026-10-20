@@ -164,20 +164,26 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
     precio con el cambio 24 h debajo (flecha y signo, no solo color; los lectores oyen «Cambio 24 h: …»). Desde 26rem
     vuelven las columnas # y 24 h. Es un nivel más de la regla F4b-R4 (columnas por ancho del contenedor); los demás
     niveles no cambian.
-  - **Fila tocable.** Elegí el enlace en la celda del nombre con el área estirada (`::after` que cubre la fila, que es
-    `relative`), en vez de convertir la fila en enlace: un `<a>` no puede envolver un `<tr>` sin romper la tabla, y un
-    `<tr>` con `onClick`/`role=link` pierde la semántica de fila y celdas. Así hay un solo enlace por fila (una parada
-    de tabulación), el foco dibuja un anillo alrededor de toda la fila y el hover/pulsado la ilumina. Filas de ≥ 56 px.
+  - **Fila tocable.** El enlace real sigue en la celda del nombre y es la única parada de tabulación (teclado y lector
+    de pantalla); la fila no se convierte en enlace, porque un `<a>` no puede envolver un `<tr>` y un `role=link` en el
+    `<tr>` rompe la semántica de la tabla. Para que toda la fila se pueda tocar, un componente cliente pequeño
+    (`market-row.tsx`) escucha el clic en la fila y navega con `router.push`, salvo si el clic cae en el enlace u otro
+    control, lleva Ctrl/Cmd/Mayús/Alt o botón central, o termina una selección de texto (copiar un precio). Cursor de
+    mano, la fila se ilumina al pasar y al pulsar, y con el foco de teclado en el enlace la fila entera lleva un
+    contorno (`outline`, que se ve también en modo de alto contraste). Filas de ≥ 56 px.
+    - Primero lo hice con un `::after` estirado sobre la fila; la revisión vio que, en un navegador que no trate el
+      `<tr>` como bloque contenedor, ese velo cubriría todo el panel (incluido «Ver más»), así que lo quité.
   - **Detalle.** El selector de rango es un control segmentado a todo el ancho en móvil (4 botones iguales de ≥ 44 px)
     y compacto desde `sm`. Los datos clave son tarjetas: 2 por fila en móvil, 3 y 4 según el ancho del panel; la web
     ocupa la fila entera en móvil. La variación 24 h de las tarjetas ahora lleva flecha. La gráfica ya ocupaba todo el
     ancho del contenido; no la saco al borde de la pantalla para no depender del margen del layout.
-  - **Revisado** a 320, 375, 414, 768, 1024 y 1440 px. El e2e (`e2e/f4b-market.spec.ts`, prueba 5) comprueba que no
-    hay scroll lateral en la lista a 320–1440 y en el detalle a 320/375, filas ≥ 44 px, que tocar el precio abre la
-    cripto, rangos en una fila de ≥ 44 px y tarjetas de dos en dos.
-  - **A comprobar en un iPhone real:** `position: relative` en filas de tabla funciona en Safari moderno; en uno muy
-    antiguo solo sería tocable la zona del nombre.
-- **Hecho en:** 2769c21
+  - **Revisado** con capturas a 320, 375, 414, 768, 1024 y 1440 px (lista y detalle). El e2e
+    (`e2e/f4b-market.spec.ts`, prueba 5) comprueba la lista a 320, 375, 414, 768, 1024, 1280 y 1440 px sin scroll
+    lateral y con filas ≥ 44 px, que tocar el precio abre la cripto, y en el detalle a 320/375 px: sin scroll lateral,
+    rangos en una fila de ≥ 44 px y tarjetas de dos en dos. Pasa en desarrollo y con `E2E_PROD=1`.
+  - El título accesible de la tabla ya no dice «100» (al principio se ven 10): es «Criptos con mayor
+    capitalización», y el número lo da el contador.
+- **Hecho en:** 2769c21, revisión en e5b08d7
 
 ### T-004 · Chat: animaciones y sensación de «vivo»
 - **Estado:** ⬜
@@ -250,7 +256,9 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   - **Ojo en la pestaña Red:** al revelar filas sí verás los logos nuevos (imágenes) y, en producción, quizá el prefetch
     de Next de los enlaces `/mercado/<id>` que entran en pantalla. No son recargas de la lista; si molestan, se puede
     quitar el prefetch de estas filas dentro de T-006.
-- **Hecho en:** 2769c21
+  - **Peso:** el HTML trae solo las 10 primeras filas, pero la carga RSC lleva las 100 ya pintadas (con sus
+    sparklines). Es lo que permite revelar sin pedir nada; si pesa, se mira en T-006.
+- **Hecho en:** 2769c21, revisión en e5b08d7
 
 ## 4. Textos y contenido
 
@@ -306,4 +314,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | — | — | Decisiones del humano: todo en `feature/mejoras-ronda-1` con un único PR a `develop` al final; trabajo seguido; T-004 con los 5 extras; Mercado móvil en filas compactas. Orden: T-001 → T-002 → T-005+T-003 → T-004 → T-006. |
 | 2026-10-20 | T-001 | ✅ | Cajón móvil con scroll propio, safe areas y overscroll contenido; e2e a 375×667 y horizontal. |
 | 2026-10-20 | T-002, T-007 | 8dfd2d7 | Loader Diamond en el área de contenido, en el chat y en el enlace pulsado; e2e con servidor lento (prod). Nueva T-007 (solape en la barra superior). |
-| 2026-10-20 | T-005, T-003 | 2769c21 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
+| 2026-10-20 | T-005, T-003 | 2769c21, e5b08d7 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
