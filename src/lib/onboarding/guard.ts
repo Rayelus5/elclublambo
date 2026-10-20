@@ -10,23 +10,13 @@ export function isOnboardingExempt(pathname: string): boolean {
 }
 
 /**
- * True when an authenticated member must be sent to /bienvenida: they are a member (they have a row) and
+ * Whether an authenticated member must be sent to /bienvenida: they are a member (they have a row) and
  * `welcome_completed_at` is null. Layouts do not re-run on client navigations, so the proxy enforces this on every
  * page request. Non-members (no readable row) keep the current behaviour (their pages send them to /no-access).
  * A read error fails closed (to the welcome, whose own layout re-checks the membership).
  * It is a UX gate, not access control: only page requests (GET/HEAD) are gated.
- */
-export async function needsWelcome(
-  supabase: GuardClient,
-  userId: string,
-  pathname: string,
-  method: string,
-): Promise<boolean> {
-  return (await welcomeStatus(supabase, userId, pathname, method)) === "pending";
-}
-
-/**
- * The same check with its reason: "pending" (send to the welcome; also on a read error), "completed" (read and done: it
+ *
+ * Result: "pending" (send to the welcome; also on a read error), "completed" (read and done: it
  * is set once and never undone, so the proxy may remember it, see WELCOMED_COOKIE) or "skip" (not gated: another
  * method, an exempt path, or not a member).
  */
