@@ -15,7 +15,6 @@ import { markSolutionAction } from "@/lib/bounties/actions";
 import {
   deleteMessageAction,
   editMessageAction,
-  markReadAction,
   postMessageAction,
   setPinnedAction,
   toggleReactionAction,
@@ -37,7 +36,7 @@ import {
   type ReactionChip,
   type ViewerPermissions,
 } from "@/lib/chat/model";
-import { getMessage, getMessages, getMessagesByIds, getPinned, getThread } from "@/lib/chat/queries";
+import { getMessage, getMessages, getMessagesByIds, getPinned, getThread, markChannelRead } from "@/lib/chat/queries";
 import { getTipSummaries } from "@/lib/payments/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
@@ -219,7 +218,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     }
     readInFlight.current = true;
     unreadDirty.current = false;
-    void markReadAction(channelId)
+    void markChannelRead(createBrowserClient(), channelId)
       .catch(() => ({ error: "unknown" }))
       .then(() => {
         readInFlight.current = false;

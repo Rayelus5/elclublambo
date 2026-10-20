@@ -366,6 +366,15 @@ export async function getThread(
 }
 
 /** Pinned root messages, most recently pinned first. */
+/**
+ * Moves the member's read mark of a channel to now (`mark_channel_read`, granted to `authenticated`; the database takes
+ * the member from the session). Called from the browser: one RPC, no server action round trip through Next.
+ */
+export async function markChannelRead(supabase: Pick<SupabaseClient, "rpc">, channelId: string): Promise<{ error?: string }> {
+  const { error } = await supabase.rpc("mark_channel_read", { p_channel: channelId });
+  return error ? { error: error.message } : {};
+}
+
 export async function getPinned(supabase: SupabaseClient, channelId: string, meId: string): Promise<Hydrated> {
   const { data, error } = await supabase
     .from("messages")

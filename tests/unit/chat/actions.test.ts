@@ -24,7 +24,6 @@ import {
   deleteMessageAction,
   editMessageAction,
   getSlowmodeAction,
-  markReadAction,
   postMessageAction,
   searchMentionTargetsAction,
   setPinnedAction,
@@ -214,13 +213,10 @@ describe("social actions", () => {
     expect(await toggleReactionAction({ messageId: "x", emoji: "👍" })).toEqual({ error: "invalid_input" });
   });
 
-  it("setPinnedAction and markReadAction", async () => {
+  it("setPinnedAction", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     expect(await setPinnedAction({ messageId: MSG, pinned: true })).toEqual({});
     expect(rpc).toHaveBeenCalledWith("set_pinned", { p_message: MSG, p_pinned: true });
-    expect(await markReadAction(CH)).toEqual({});
-    expect(rpc).toHaveBeenCalledWith("mark_channel_read", { p_channel: CH });
-    expect(await markReadAction("x")).toEqual({ error: "invalid_input" });
     rpc.mockResolvedValue({ data: null, error: { message: "forbidden" } });
     expect(await setPinnedAction({ messageId: MSG, pinned: false })).toEqual({ error: "forbidden" });
   });

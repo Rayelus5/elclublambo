@@ -150,13 +150,6 @@ export async function setPinnedAction(input: { messageId: string; pinned: boolea
   return error ? { error: rpcErrorCode(error) } : {};
 }
 
-export async function markReadAction(channelId: string): Promise<ActionResult> {
-  if (!isUuid(channelId)) return { error: "invalid_input" };
-  const supabase = await createServerClient();
-  const { error } = await supabase.rpc("mark_channel_read", { p_channel: channelId });
-  return error ? { error: rpcErrorCode(error) } : {};
-}
-
 /** Remaining slowmode seconds according to the database clock (never the client's). */
 export async function getSlowmodeAction(channelId: string): Promise<{ seconds: number; error?: string }> {
   if (!isUuid(channelId)) return { seconds: 0, error: "invalid_input" };
