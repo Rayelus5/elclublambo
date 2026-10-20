@@ -10,3 +10,15 @@ export function siteOrigin(env: string | undefined = process.env.NEXT_PUBLIC_SIT
   }
   return new URL(CANONICAL_ORIGIN);
 }
+
+const PRODUCTION_HOSTS = new Set(["www.elclub.party", "elclub.party"]);
+
+/** Whether this build serves production (its NEXT_PUBLIC_SITE_URL host). Anything else (preproduction, local) is never indexed. */
+export function isProductionSite(env: string | undefined = process.env.NEXT_PUBLIC_SITE_URL): boolean {
+  if (!env) return false;
+  try {
+    return PRODUCTION_HOSTS.has(new URL(env).hostname);
+  } catch {
+    return false;
+  }
+}

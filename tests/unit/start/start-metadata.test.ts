@@ -1,16 +1,32 @@
-import { describe, expect, it } from "vitest";
-import { metadata } from "@/app/start/page";
-import robots from "@/app/robots";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Metadata, MetadataRoute } from "next";
 
-describe("/start metadata", () => {
-  it("is indexable, with title, description and the production canonical", () => {
+// metadata and robots read NEXT_PUBLIC_SITE_URL (baked at build time): load them fresh for each host.
+async function load(siteUrl: string | undefined) {
+  vi.resetModules();
+  vi.stubEnv("NEXT_PUBLIC_SITE_URL", siteUrl);
+  const { metadata } = (await import("@/app/start/page")) as { metadata: Metadata };
+  const { default: robots } = (await import("@/app/robots")) as { default: () => MetadataRoute.Robots };
+  return { metadata, robots: robots() };
+}
+
+const rulesOf = (r: MetadataRoute.Robots) => (Array.isArray(r.rules) ? r.rules : [r.rules]);
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe("/start metadata in production", () => {
+  it("is indexable, with title, description and the production canonical", async () => {
+    const { metadata } = await load("https://www.elclub.party");
     expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("ElClub.") });
     expect(String(metadata.description)).toMatch(/invitación/);
     expect(metadata.alternates?.canonical).toBe("https://www.elclub.party/start");
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });
 
-  it("has an Open Graph card and a large Twitter card", () => {
+  it("has an Open Graph card and a large Twitter card", async () => {
+    const { metadata } = await load("https://www.elclub.party");
     expect(metadata.openGraph).toMatchObject({
       type: "website",
       url: "https://www.elclub.party/start",
@@ -21,15 +37,27 @@ describe("/start metadata", () => {
     expect(metadata.twitter).toMatchObject({ card: "summary_large_image" });
     expect(metadata.metadataBase).toBeInstanceOf(URL);
   });
-});
 
-describe("robots.txt", () => {
-  it("allows /start (and the assets it needs) and keeps the private forum out", () => {
-    const r = robots();
-    const rules = Array.isArray(r.rules) ? r.rules : [r.rules];
-    const all = rules.find((x) => x.userAgent === "*");
+  it("robots.txt allows /start (and the assets it needs) and keeps the private forum out", async () => {
+    const { robots } = await load("https://elclub.party");
+    const all = rulesOf(robots).find((x) => x.userAgent === "*");
     expect(all).toBeDefined();
     expect([all!.allow].flat()).toEqual(expect.arrayContaining(["/start", "/_next/"]));
     expect([all!.disallow].flat()).toContain("/");
+  });
+});
+
+describe.each(["https://pre.elclub.party", "http://localhost:3000", undefined])("outside production (%s)", (siteUrl) => {
+  it("/start is noindex, nofollow", async () => {
+    const { metadata } = await load(siteUrl);
+    expect(metadata.robots).toMatchObject({ index: false, follow: false });
+  });
+
+  it("robots.txt disallows everything for every user agent", async () => {
+    const { robots } = await load(siteUrl);
+    const rules = rulesOf(robots);
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toMatchObject({ userAgent: "*", disallow: "/" });
+    expect(rules[0]!.allow).toBeUndefined();
   });
 });

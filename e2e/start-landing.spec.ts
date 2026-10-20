@@ -53,7 +53,7 @@ test("anonymous: /start answers 200 in place, with its metadata, no errors, no C
   }
 });
 
-test("the share card and robots.txt are public", async ({ page, request }) => {
+test("the share card and robots.txt are public; outside production nothing is indexable", async ({ page, request }) => {
   await page.goto("/start");
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://www.elclub.party/start");
   await expect(page.locator('meta[name="twitter:card"]')).toHaveAttribute("content", "summary_large_image");
@@ -64,7 +64,10 @@ test("the share card and robots.txt are public", async ({ page, request }) => {
   expect(image.headers()["content-type"]).toBe("image/png");
   const robots = await request.get("/robots.txt", { maxRedirects: 0 });
   expect(robots.status()).toBe(200);
-  expect(await robots.text()).toContain("Allow: /start");
+  // The e2e server is not production (localhost): nothing is indexable there (robots.ts, isProductionSite).
+  expect(await robots.text()).toMatch(/Disallow: \/\s*$/);
+  expect(await robots.text()).not.toContain("Allow: /start");
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
 });
 
 test("signed in (welcome still pending): /start is served as is, without redirects", async ({ browser }) => {
