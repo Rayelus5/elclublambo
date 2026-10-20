@@ -1,6 +1,8 @@
 // SECURITY: every /api/cron/* route handler must authenticate itself (bearer CRON_SECRET, constant-time compare); the
 // proxy lets this prefix through without a session.
-const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned", "/api/cron"] as const;
+// /start is the public landing (with its generated OG/Twitter images under /start/*) and /robots.txt lets crawlers in:
+// both are served the same with or without a session, and the welcome gate skips them too.
+const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned", "/api/cron", "/start", "/robots.txt"] as const;
 
 /** Sanitizes a `?next=` value: only same-origin absolute paths, never auth pages. */
 export function safeNextPath(next: string | null): string {
