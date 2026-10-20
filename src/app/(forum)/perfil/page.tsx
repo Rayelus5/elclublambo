@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { DensityToggle } from "@/components/chat/density";
 import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { ProfileForm } from "@/components/profile/profile-form";
+import { UiZoomToggle } from "@/components/profile/ui-zoom-toggle";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
@@ -71,6 +72,15 @@ async function EditProfile() {
           todos los canales de texto y también puedes cambiarlo desde cualquier canal.
         </p>
         <DensityToggle className="self-start" />
+      </section>
+      <section aria-labelledby="ui-zoom" className="flex flex-col gap-3">
+        <h2 id="ui-zoom" className="text-h2">
+          Tamaño de la interfaz
+        </h2>
+        <p className="text-sm text-fg-muted">
+          Amplía o reduce toda la web, como la lupa del navegador. Se guarda solo en este dispositivo.
+        </p>
+        <UiZoomToggle className="self-start" />
       </section>
     </div>
   );

@@ -221,6 +221,38 @@
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
+
+  /* Scrollbars: finas, cuadradas y en el acento. Chromium/Safari usan los pseudo-elementos (solo mientras no haya
+     scrollbar-color); Firefox, que no los conoce, usa el estándar. */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 0;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg);
+  }
+
+  ::-webkit-scrollbar-button {
+    display: none;
+  }
+
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--accent) transparent;
+    }
+  }
 }
 
 @utility text-display {
