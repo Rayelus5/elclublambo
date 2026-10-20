@@ -8,7 +8,8 @@ import { leavePresence } from "@/lib/members/card";
 import { presenceDeviceId } from "@/lib/members/presence";
 import { createBrowserClient } from "@/lib/supabase/browser";
 
-export function SignOutButton({ label }: { label: string }) {
+/** `collapse`: below 1024px only the icon is drawn (the text stays for screen readers). */
+export function SignOutButton({ label, collapse = false }: { label: string; collapse?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -28,7 +29,7 @@ export function SignOutButton({ label }: { label: string }) {
   return (
     <Button type="button" size="lg" variant="secondary" disabled={busy} onClick={signOut}>
       <LogOut aria-hidden />
-      {label}
+      {collapse ? <span className="sr-only lg:not-sr-only">{label}</span> : label}
     </Button>
   );
 }
