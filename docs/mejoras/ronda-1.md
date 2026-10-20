@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 6 | 5 | 0 | 0 | 1 | 0 |
+| 7 | 5 | 0 | 0 | 2 | 0 |
 
 ---
 
@@ -89,7 +89,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 ## 2. Diseño e interfaz
 
 ### T-002 · Indicador de carga al cambiar de página o de canal
-- **Estado:** ⬜
+- **Estado:** ✅
 - **Prioridad:** P1
 - **Tipo:** diseño
 - **Dónde:** toda la web, al navegar entre secciones del menú (Inicio, Mercado, DAO, Guía…) y entre canales
@@ -114,8 +114,32 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   - el menú no desaparece mientras carga;
   - lectores de pantalla anuncian «Cargando…».
 - **Capturas / referencias:** loader Diamond de loading-ui (registro `@loading-ui`).
-- **Notas de la IA:** —
-- **Hecho en:** —
+- **Notas de la IA:**
+  - **Componente.** Instalado con `shadcn add @loading-ui/diamond` (añade el registro a `components.json`). Está en
+    `src/components/loading-ui/diamond.tsx`, tal cual viene del registro y sin dependencias nuevas.
+  - **Contenido.** `PageLoader` (`src/components/shell/page-loader.tsx`) sustituye los fallbacks vacíos de las páginas
+    del foro y del layout de Ajustes, y se añade `(forum)/loading.tsx`. Va dentro de `<main>`, así que la barra lateral
+    y la superior no se mueven. Ocupa el mismo `min-h-64` que el hueco vacío de antes, así que no hay salto. Lleva
+    `role="status"` con «Cargando…» para lectores de pantalla, y el diamante, en `text-accent`, es decorativo.
+  - **Sin parpadeo.** El diamante entra con `animate-loader-in`, que es opacidad por CSS con 150 ms de retraso y no usa
+    temporizadores JS. Con «reducir movimiento», la regla global quita la animación pero conserva el retraso: el
+    diamante aparece quieto.
+  - **Chat.** Al cambiar de canal sale «Cargando mensajes…» (`ChatHistoryLoading`), que es el único sitio que T-004
+    tendrá que cambiar por el esqueleto. El historial se carga en el servidor junto con la cabecera del canal.
+  - **Enlace pulsado.** `LinkPending` (`useLinkStatus`) muestra un diamante pequeño en los enlaces de secciones y de
+    canales mientras la navegación no termina. Su hueco es fijo y el diamante solo se monta mientras está pendiente.
+    En la barra superior va en la esquina, fuera del flujo, así que las pestañas no cambian de ancho.
+  - **Pruebas.**
+    - `tests/unit/shell/loading.test.tsx`.
+    - `e2e/navigation-loader.spec.ts`: simula un servidor lento reteniendo las peticiones RSC. Los casos del área de
+      contenido necesitan `E2E_PROD=1`, porque el fallback llega con el shell prerenderizado.
+    - En el build de producción, a 375/768/1024/1440, el loader no provoca desplazamientos de maquetación.
+  - **A tener en cuenta.**
+    - En local cada navegación tarda más de 150 ms, así que el diamante se ve casi siempre. En PRE debería verse menos.
+    - Si un build local no muestra la animación, borra `.next/cache/turbopack`: tenía en caché un CSS anterior sin la
+      clase nueva.
+    - He visto un fallo que no es de esta tarea y lo apunto como T-007.
+- **Hecho en:** 8dfd2d7
 
 ### T-003 · Mercado: interfaz para móvil y pantallas estrechas
 - **Estado:** ⬜
@@ -163,6 +187,22 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   3. Esqueleto de carga del historial (líneas grises) en lugar de pantalla vacía.
   4. Animación sutil al añadir o quitar una reacción.
   5. Resaltado breve del mensaje al que lleva una notificación o una mención.
+- **Hecho en:** —
+
+### T-007 · La barra superior se solapa con «MODO PRUEBA» cuando hay muchas secciones
+- **Estado:** ⬜
+- **Prioridad:** P2
+- **Tipo:** arreglo
+- **Origen:** IA
+- **Dónde:** barra superior de escritorio (`src/components/shell/sidebar.tsx`, `DesktopBar`), de 768 a 1440 px, con un
+  admin que ve las 9 secciones.
+- **Qué pasa ahora:** el `<nav>` es `min-w-0` y su lista no se recorta ni pasa a otra línea. Las pestañas siguen por
+  debajo del distintivo «MODO PRUEBA · Linea Sepolia» y del buscador, y se pisan (visto en las capturas de T-002).
+- **Qué quiero:** que las pestañas nunca queden debajo de los controles de la derecha. Por ejemplo, un menú «Más» para
+  lo que no cabe, o el distintivo compacto en anchos medios.
+- **Cómo sabré que está bien:** como admin, a 768, 1024 y 1440 px no hay nada solapado.
+- **Capturas / referencias:** —
+- **Notas de la IA:** —
 - **Hecho en:** —
 
 ## 3. Funcionalidad nueva o cambios de comportamiento
@@ -238,3 +278,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | T-001…T-006 | — | Tareas definidas a partir de lo que contó el humano; revisión del código para concretar causas. |
 | 2026-10-20 | — | — | Decisiones del humano: todo en `feature/mejoras-ronda-1` con un único PR a `develop` al final; trabajo seguido; T-004 con los 5 extras; Mercado móvil en filas compactas. Orden: T-001 → T-002 → T-005+T-003 → T-004 → T-006. |
 | 2026-10-20 | T-001 | ✅ | Cajón móvil con scroll propio, safe areas y overscroll contenido; e2e a 375×667 y horizontal. |
+| 2026-10-20 | T-002, T-007 | 8dfd2d7 | Loader Diamond en el área de contenido, en el chat y en el enlace pulsado; e2e con servidor lento (prod). Nueva T-007 (solape en la barra superior). |
