@@ -92,3 +92,40 @@ describe("proxy onboarding gate", () => {
     expect(res.headers.get("x-middleware-request-x-pathname")).toBe("/perfil");
   });
 });
+
+// T-006: the proxy runs on every page request, router prefetches included (one per link in view), and Next strips the
+// router headers before it, so prefetches cannot be told apart. The welcome is set once and never undone
+// (coalesce in complete_welcome), so once the read sees it completed, a cookie bound to the user remembers it and later
+// requests skip the read. A cookie for anyone else is ignored. It is a UX gate: the forum layout re-checks the row.
+describe("proxy welcome memo", () => {
+  const done = { data: { welcome_completed_at: "2026-10-18T00:00:00Z" }, error: null };
+
+  it("remembers a completed welcome in an httpOnly cookie bound to the user and skips the read afterwards", async () => {
+    state.row = done;
+    const first = await call("/");
+    expect(state.membersReads).toBe(1);
+    const cookie = first.cookies.get("ecl_welcomed");
+    expect(cookie?.value).toBe("u1");
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.sameSite).toBe("lax");
+
+    const second = await call("/c/x", { headers: { cookie: "ecl_welcomed=u1" } });
+    expect(second.headers.get("location")).toBeNull();
+    expect(state.membersReads).toBe(1);
+  });
+
+  it("ignores a memo cookie of another user", async () => {
+    state.row = { data: { welcome_completed_at: null }, error: null };
+    const res = await call("/", { headers: { cookie: "ecl_welcomed=someone-else" } });
+    expect(state.membersReads).toBe(1);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/bienvenida");
+  });
+
+  it("does not set the memo while the welcome is pending, nor for a non-member", async () => {
+    const pending = await call("/");
+    expect(pending.cookies.get("ecl_welcomed")).toBeUndefined();
+    state.row = { data: null, error: null };
+    const outsider = await call("/");
+    expect(outsider.cookies.get("ecl_welcomed")).toBeUndefined();
+  });
+});

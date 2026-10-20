@@ -5,7 +5,7 @@ import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 import { isHiddenReportsPage } from "@/lib/reports/guard";
 import { isHiddenSettingsPage } from "@/lib/permissions/settings-guard";
-import { needsWelcome } from "@/lib/onboarding/guard";
+import { WELCOMED_COOKIE, welcomeStatus } from "@/lib/onboarding/guard";
 import { isMissingTicket } from "@/lib/tickets/guard";
 import { isInvalidCoinPage } from "@/lib/market/guard";
 import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
@@ -50,13 +50,31 @@ export async function proxy(request: NextRequest) {
 
   // First login: the welcome (mandatory @handle) comes first. Enforced here because layouts do not re-run on client
   // navigations. /bienvenida, /guia and the (gate) pages are exempt.
-  if (user && (await needsWelcome(supabase, user.id, pathname, request.method))) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/bienvenida";
-    url.search = "";
-    url.searchParams.set("next", pathname + request.nextUrl.search);
-    return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
+  // A completed welcome is never undone: once read, a cookie bound to this user skips the read (T-006).
+  let welcomedNow = false;
+  if (user && request.cookies.get(WELCOMED_COOKIE)?.value !== user.id) {
+    const welcome = await welcomeStatus(supabase, user.id, pathname, request.method);
+    if (welcome === "pending") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/bienvenida";
+      url.search = "";
+      url.searchParams.set("next", pathname + request.nextUrl.search);
+      return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
+    }
+    welcomedNow = welcome === "completed";
   }
+  const remember = <R extends NextResponse>(res: R): R => {
+    if (welcomedNow && user) {
+      res.cookies.set(WELCOMED_COOKIE, user.id, {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: request.nextUrl.protocol === "https:",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
+    return res;
+  };
 
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
   // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
@@ -74,10 +92,10 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;
     url.search = "";
-    return applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders);
+    return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   }
 
-  return response;
+  return remember(response);
 }
 
 export const config = {
