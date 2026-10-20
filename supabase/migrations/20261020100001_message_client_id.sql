@@ -9,6 +9,16 @@
 --     is `on conflict do nothing` (re-selecting on a miss) as the last guard.
 --   * One post_message signature only (the 7-argument one is dropped; 7-argument calls still resolve through the
 --     default). Grants are restated exactly as before.
+--
+-- Rollback: rolling the APP back (Vercel instant rollback) is safe on its own and needs nothing here: the old build
+-- calls post_message with its 7 named arguments (p_client_id takes its default) and never reads client_id, so the
+-- column and the index can stay. A DATABASE revert is a forward migration: drop post_message(…, uuid) and
+-- _post_message_core(…, uuid), recreate them from 20261017300002 and 20261019700101, restate the grants, then drop the
+-- index and the column.
+
+-- The ALTER takes an ACCESS EXCLUSIVE lock on messages until commit: on a busy table fail fast (the push is retried)
+-- instead of queueing every chat read and write behind it. `db push` runs the file in one transaction.
+set local lock_timeout = '5s';
 
 alter table public.messages add column client_id uuid;
 create unique index messages_author_client_id_key on public.messages (author_id, client_id) where client_id is not null;

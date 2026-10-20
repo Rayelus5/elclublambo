@@ -4,7 +4,7 @@
 --   before the rate limit, the slowmode check and any side effect; one signature only, same grants.
 begin;
 set local client_min_messages = warning;
-select plan(22);
+select plan(23);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.login(p_member text) returns void language plpgsql as $$
@@ -100,6 +100,10 @@ select is(tests.post(current_setting('t.slow'), tests.doc('lento'), current_sett
 select throws_ok($$select tests.post(current_setting('t.slow'), tests.doc('otro'), gen_random_uuid()::text)$$,
   'P0001', 'slowmode', 'a new key inside the window is still refused');
 select is(tests.rows(current_setting('t.slow')), 1, 'slowmode channel: one row');
+
+-- ===== 6. a key never answers about another channel =====
+select throws_ok($$select tests.post(current_setting('t.ch'), tests.doc('lento'), current_setting('t.k2'))$$,
+  'P0001', 'invalid_input', 'the same author and key in another channel: invalid_input');
 
 select * from finish();
 rollback;
