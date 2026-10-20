@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound, redirect } from "next/navigation";
 import { settingsSections } from "@/lib/permissions/settings";
 import { createServerClient } from "@/lib/supabase/server";
@@ -13,7 +14,7 @@ async function SettingsRedirect(): Promise<never> {
 
 export default function SettingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <SettingsRedirect />
     </Suspense>
   );

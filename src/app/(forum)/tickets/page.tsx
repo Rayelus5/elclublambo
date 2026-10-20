@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
 import { TicketList } from "@/components/tickets/ticket-list";
 import { listTickets } from "@/lib/tickets/queries";
@@ -85,7 +86,7 @@ async function TicketsContent({ searchParams }: { searchParams: Search }) {
 
 export default function TicketsPage({ searchParams }: { searchParams: Search }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <TicketsContent searchParams={searchParams} />
     </Suspense>
   );

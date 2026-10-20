@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { after } from "next/server";
@@ -175,7 +176,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
 
 export default function DaoPage({ searchParams }: { searchParams: Search }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <DaoContent searchParams={searchParams} />
     </Suspense>
   );

@@ -1,5 +1,6 @@
 import { DensityToggle } from "@/components/chat/density";
 import { Suspense } from "react";
+import { ChatHistoryLoading } from "@/components/chat/chat-history-loading";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Folder, Hash, Lock, Ticket, Timer, Sparkles } from "lucide-react";
@@ -164,7 +165,7 @@ export default function ChannelPage({
   searchParams: Promise<{ thread?: string | string[]; m?: string | string[]; h?: string | string[] }>;
 }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<ChatHistoryLoading />}>
       <ChannelContent params={params} searchParams={searchParams} />
     </Suspense>
   );

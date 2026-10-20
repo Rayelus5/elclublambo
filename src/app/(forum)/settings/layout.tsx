@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { settingsSections } from "@/lib/permissions/settings";
@@ -24,7 +25,7 @@ async function SettingsShell({ children }: { children: React.ReactNode }) {
 
 export default function SettingsLayout({ children }: LayoutProps<"/settings">) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <SettingsShell>{children}</SettingsShell>
     </Suspense>
   );

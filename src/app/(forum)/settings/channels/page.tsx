@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { ChannelTreeEditor, type MatrixData } from "@/components/settings/channel-tree-editor";
 import type { OverwriteRow } from "@/components/settings/permission-matrix";
@@ -76,7 +77,7 @@ async function ChannelsContent() {
 
 export default function ChannelsSettingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <ChannelsContent />
     </Suspense>
   );

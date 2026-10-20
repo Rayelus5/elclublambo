@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LinkPending } from "@/components/shell/link-pending";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -28,7 +29,7 @@ export function NavLink({ href, children, label, badge, variant = "side" }: Prop
         aria-current={active ? "page" : undefined}
         aria-label={label}
         className={cn(
-          "inline-flex h-14 min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-bold whitespace-nowrap transition-colors duration-150 ease-out outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset motion-reduce:transition-none",
+          "relative inline-flex h-14 min-h-11 items-center gap-2 border-b-2 px-3 text-sm font-bold whitespace-nowrap transition-colors duration-150 ease-out outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset motion-reduce:transition-none",
           active ? "border-accent text-fg" : "border-transparent text-fg-muted hover:text-fg",
         )}
       >
@@ -38,6 +39,8 @@ export function NavLink({ href, children, label, badge, variant = "side" }: Prop
             {badge}
           </span>
         ) : null}
+        {/* Out of the flow: the tab keeps its width. */}
+        <LinkPending className="absolute top-2 right-1" />
       </Link>
     );
   }
@@ -52,6 +55,7 @@ export function NavLink({ href, children, label, badge, variant = "side" }: Prop
       )}
     >
       {children}
+      <LinkPending />
       {badge ? (
         <>
           <span className="flex-1" />

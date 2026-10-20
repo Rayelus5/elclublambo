@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyAddressButton } from "@/components/members/copy-address-button";
@@ -171,7 +172,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
 
 export default function ProfilePage({ params }: { params: Promise<{ address: string }> }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <ProfileContent params={params} />
     </Suspense>
   );

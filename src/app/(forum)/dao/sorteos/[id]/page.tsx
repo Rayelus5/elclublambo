@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -136,7 +137,7 @@ async function RaffleContent({ params }: { params: Promise<{ id: string }> }) {
 
 export default function RafflePage({ params }: { params: Promise<{ id: string }> }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <RaffleContent params={params} />
     </Suspense>
   );
