@@ -478,6 +478,18 @@ docker compose config --format json | jq -r '.services | to_entries[] | select(.
 docker compose config --format json | jq '.services.auth.environment | with_entries(select(.key | test("WEB3|RATE_LIMIT|SITE_URL|URI_ALLOW|DISABLE_SIGNUP|EXTERNAL_(EMAIL|PHONE)_ENABLED")))'
 ```
 
+**Importante (versiones de 2026-10 en adelante):** el `.env` oficial fija `COMPOSE_FILE=docker-compose.yml`, y con
+eso compose **ignora** `docker-compose.override.yml`. Inclúyelo:
+
+```
+sed -i 's|^COMPOSE_FILE=.*|COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml|' /opt/supabase/docker/.env
+```
+
+En esas versiones el gateway ya no es Kong sino **Envoy**: el servicio se llama `api-gw` (contenedor
+`supabase-envoy`) y publica solo el puerto `${API_GW_HTTP_PORT:-${KONG_HTTP_PORT:-8000}}:8000`. En el override usa
+`api-gw:` con ese único puerto en lugar del bloque `kong:`. Conserva los alias de red `kong` y `envoy`, así que el
+ingress del túnel (`http://kong:8000`) sigue funcionando sin cambios.
+
 El primero lista cada servicio con puertos y **todos** empiezan por `127.0.0.1:`. Si alguno dice `TODAS`, añádelo al
 override con `!override` y repite. El segundo muestra Web3 `"true"`, los tres límites, `GOTRUE_SITE_URL` con
 `https://pre.elclub.party`, `GOTRUE_DISABLE_SIGNUP` `"false"` y email y teléfono `"false"`. Si `docker compose config`
@@ -530,6 +542,9 @@ curl -s http://127.0.0.1:8000/auth/v1/settings -H "apikey: $ANON" | jq '{web3: .
 docker exec supabase-auth env | grep -E '^GOTRUE_(EXTERNAL_WEB3|RATE_LIMIT_(WEB3|TOKEN_REFRESH|VERIFY|HEADER))'
 ```
 
+En Auth v2.197 (2026-10) `/auth/v1/settings` ya **no lista** `web3_ethereum` (sale `null` aunque esté activo): en esa
+versión manda el segundo comando, y la prueba definitiva es el primer login con wallet (paso 10.3).
+
 **Comprueba:** el JSON es `{"web3": true, "email": false, "phone": false, "disable_signup": false}` y el segundo
 comando muestra las variables de 3.5 (las cuatro de límites incluida `GOTRUE_RATE_LIMIT_HEADER`, si tu versión la admite). Si `web3` sale `null` o `false`, el nombre de la variable no es el de tu
 versión de GoTrue: vuelve a 3.5, busca el nombre real y recrea con `docker compose up -d auth`. (Si el contenedor no
@@ -555,7 +570,7 @@ PORT="$(grep '^POSTGRES_PORT=' /opt/supabase/docker/.env | cut -d= -f2-)"
 export PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' /opt/supabase/docker/.env | cut -d= -f2-)"
 docker run --rm --network host -e PGPASSWORD postgres:17-alpine psql "postgresql://postgres.$TENANT@127.0.0.1:$PORT/postgres" -tAc "select current_user"
 unset PGPASSWORD
-echo "PREPROD_DB_URL=postgresql://postgres.$TENANT@127.0.0.1:$PORT/postgres"
+echo "PREPROD_DB_URL=postgresql://postgres.$TENANT@127.0.0.1:$PORT/postgres?sslmode=disable"
 ```
 
 **Comprueba:** la consulta imprime `postgres`. La última línea es el valor exacto de `PREPROD_DB_URL` (no es secreto;
@@ -595,6 +610,19 @@ con `-U supabase_admin -h 127.0.0.1`).
 **Comprueba:** cada tenant sale con `|t` (si tras el reinicio vuelve a `|f`, repite el `update` y el reinicio, y
 apúntalo en el informe), y `docker compose ps realtime` está `Up (healthy)`. Repite esta comprobación después de
 cada actualización de Supabase (sección 11.2).
+
+**Si vuelve a `|f` tras el reinicio** (pasa en las versiones de 2026-10): Realtime re-siembra el tenant en cada
+arranque porque el compose oficial trae `SEED_SELF_HOST: "true"`. El tenant ya existe tras el primer arranque, así que
+añade al override
+
+```
+  realtime:
+    environment:
+      SEED_SELF_HOST: "false"
+```
+
+aplica con `docker compose up -d realtime`, repite el `update` (como `supabase_admin`) y el reinicio, y comprueba que
+ahora se queda en `|t`.
 
 Si la columna no existe, no hagas nada más: apúntalo en el informe y sigue. La app funciona igual, porque solo usa
 topics privados.
@@ -981,7 +1009,7 @@ El workflow lee dos secretos del GitHub Environment `preproduction`:
 
 | Secreto | Valor |
 |---|---|
-| `PREPROD_DB_URL` | la URL del paso 4.4, **sin contraseña**: `postgresql://postgres.<POOLER_TENANT_ID>@127.0.0.1:<POSTGRES_PORT>/postgres` |
+| `PREPROD_DB_URL` | la URL del paso 4.4, **sin contraseña**: `postgresql://postgres.<POOLER_TENANT_ID>@127.0.0.1:<POSTGRES_PORT>/postgres?sslmode=disable` (Supavisor local no habla TLS y `supabase db push` lo exige si no se le dice; en `127.0.0.1` no hay red que cifrar) |
 | `PREPROD_DB_PASSWORD` | `POSTGRES_PASSWORD` de `/opt/supabase/docker/.env` |
 
 El workflow pasa `PREPROD_DB_PASSWORD` a `supabase db push` como `PGPASSWORD`, así la contraseña nunca aparece en la
