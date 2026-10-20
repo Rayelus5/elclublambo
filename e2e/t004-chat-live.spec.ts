@@ -67,6 +67,8 @@ async function sendUntilLive(from: Page, to: Page, text: string): Promise<string
   }
   throw new Error(`«${text}» never arrived live`);
 }
+/** The composer's editor only exists on the client: once it is there the list is hydrated (its scroll handler too). */
+const hydrated = (page: Page) => expect(page.getByRole("textbox", { name: "Mensaje", exact: true })).toBeVisible();
 const distanceFromBottom = (page: Page) => log(page).evaluate((el) => el.scrollHeight - el.scrollTop - el.clientHeight);
 const countInDb = async (text: string) => {
   const { count } = await service().from("messages").select("id", { count: "exact", head: true }).eq("channel_id", channelId).eq("body_text", text);
@@ -190,7 +192,7 @@ test("4. si se pierde la respuesta del envío, el mensaje no se duplica", async 
   await send(adminPage, text);
   await expect.poll(() => countInDb(text)).toBe(1);
   expect(lost).toBe(1);
-  // Either realtime already adopted it, or the retry finds it instead of posting again.
+  // Either realtime already adopted it by its key, or the retry resends the same key and the server returns it.
   const retry = messageWith(adminPage, text).getByRole("button", { name: "Reintentar" });
   if (await retry.isVisible().catch(() => false)) await retry.click();
   await expect(messageWith(adminPage, text)).toHaveCount(1);
@@ -228,12 +230,45 @@ test("5. si el envío no llega al servidor, se marca en rojo y «Reintentar» lo
   await expect(messageWith(memberPage, text)).toBeVisible();
   await expect.poll(() => countInDb(text)).toBe(1);
   await expect(messageWith(adminPage, text)).toHaveCount(1);
+  await expect(messageWith(memberPage, text)).toHaveCount(1);
+});
+
+test("5b. el mismo texto enviado desde otra pestaña no se adopta: el fallido sigue fallido y al reintentar hay dos", async () => {
+  const text = "mismo texto en dos pestanas";
+  simulatingNetworkFailure = true;
+  await adminPage.route(`**/c/${channelId}`, async (route) => {
+    const req = route.request();
+    if (req.method() === "POST" && req.headers()["next-action"] && (req.postData() ?? "").includes(text)) await route.abort();
+    else await route.fallback();
+  });
+  await send(adminPage, text);
+  const failed = messageWith(adminPage, text).filter({ hasText: "No se ha enviado." });
+  await expect(failed).toHaveCount(1);
+  await adminPage.unrouteAll({ behavior: "ignoreErrors" });
+  simulatingNetworkFailure = false;
+
+  // The same member writes the same words from another tab.
+  const otherTab = await admin.newPage();
+  await otherTab.goto(`/c/${channelId}`);
+  await hydrated(otherTab);
+  await send(otherTab, text);
+  await expect.poll(() => countInDb(text)).toBe(1);
+  // The first tab shows that message AND keeps its own failed row: nothing is adopted by text.
+  await expect(messageWith(adminPage, text)).toHaveCount(2);
+  await expect(failed).toHaveCount(1);
+  await otherTab.close();
+
+  await failed.getByRole("button", { name: "Reintentar" }).click();
+  await expect(failed).toHaveCount(0);
+  await expect.poll(() => countInDb(text)).toBe(2);
+  await expect(messageWith(adminPage, text)).toHaveCount(2);
+  await expect(messageWith(memberPage, text)).toHaveCount(2);
 });
 
 test("6. con «reducir movimiento» no hay animación de entrada", async () => {
   await adminPage.emulateMedia({ reducedMotion: "reduce" });
   await adminPage.goto(`/c/${channelId}`);
-  await expect(log(adminPage)).toBeVisible();
+  await hydrated(adminPage);
   const arrived = await sendUntilLive(memberPage, adminPage, "llega sin movimiento");
   const live = (await rows(adminPage)).filter((r) => r.text.includes(arrived));
   expect(live).toHaveLength(1);
@@ -242,11 +277,11 @@ test("6. con «reducir movimiento» no hay animación de entrada", async () => {
   await adminPage.emulateMedia({ reducedMotion: "no-preference" });
 });
 
-for (const width of [375, 1024, 1440]) {
+for (const width of [375, 768, 1024, 1440]) {
   test(`7. a ${width}px: sin scroll horizontal, separadores y pastilla dentro de la pantalla`, async () => {
     await adminPage.setViewportSize({ width, height: 860 });
     await adminPage.goto(`/c/${channelId}`);
-    await expect(log(adminPage)).toBeVisible();
+    await hydrated(adminPage);
     // Scroll up once the list is hydrated (a scroll before hydration is undone by the initial bottom placement).
     await expect
       .poll(async () => {
