@@ -84,7 +84,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   Un e2e a tamaño móvil lo fija.
 - **Capturas / referencias:** —
 - **Notas de la IA:** Causa: el cajón era un grid `h-dvh` sin overflow y el cuerpo `h-full` con el nav de canales `flex-1 overflow-y-auto`; en pantallas bajas ese nav se encogía a casi nada y «Mi perfil» quedaba fuera. Ahora el `DialogContent` es una columna flex con `overflow-y-auto overscroll-contain` y relleno `env(safe-area-inset-*)`; el cuerpo y el nav de canales ya no tienen altura propia, así que todo el cajón se desplaza como un bloque. El scroll-lock de Radix evita que la página de detrás se mueva. Nota: el botón de cerrar (absoluto) se desplaza con el contenido; se cierra igual tocando un enlace, el fondo o Esc. E2E: `e2e/mobile-drawer.spec.ts` (375×667 y 667×375).
-- **Hecho en:** HASH
+- **Hecho en:** e61d65c
 
 ## 2. Diseño e interfaz
 
