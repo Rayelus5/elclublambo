@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 7 | 2 | 0 | 0 | 5 | 0 |
+| 7 | 1 | 0 | 0 | 6 | 0 |
 
 ---
 
@@ -186,7 +186,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Hecho en:** 2769c21, revisión en e5b08d7
 
 ### T-004 · Chat: animaciones y sensación de «vivo»
-- **Estado:** ⬜
+- **Estado:** ✅
 - **Prioridad:** P1
 - **Tipo:** diseño
 - **Dónde:** los canales de texto (`/c/[id]`), componentes de `src/components/chat/`.
@@ -211,7 +211,62 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
   3. Esqueleto de carga del historial (líneas grises) en lugar de pantalla vacía.
   4. Animación sutil al añadir o quitar una reacción.
   5. Resaltado breve del mensaje al que lleva una notificación o una mención.
-- **Hecho en:** —
+  - **Animaciones.** Solo CSS: `@theme` en `globals.css` (`message-in`, `reaction-in`, `reaction-pop`, 180–220 ms,
+    solo `transform` y `opacity`) y `tw-animate-css` para la pastilla. No he añadido ninguna librería. Con «reducir
+    movimiento», la regla global las deja en 0,01 ms y el mensaje simplemente aparece.
+  - **Solo lo nuevo se anima.** Cada fila decide si entra animada en el momento de montarse: entra si es más nueva que
+    el último mensaje que había al abrir el canal. El historial, «Cargar anteriores», un salto `?m=` y los repintados
+    (ediciones, reacciones, resync) nunca se animan. La clase se quita al terminar la animación.
+  - **Al enviar (envío optimista).** El compositor del canal entrega el mensaje y se vacía al momento. La fila sale
+    con «Enviando…» y el contenido atenuado, sin menú ni reacciones. Cuando el servidor confirma, el mensaje real
+    ocupa la misma fila (misma clave de React), así que no hay salto ni segunda animación. Si falla, la fila lleva el
+    borde rojo, un icono y «No se ha enviado. <motivo>», con «Reintentar» y «Descartar». El lector de pantalla lo
+    anuncia. Sin slowmode se pueden enviar varios seguidos; con slowmode se envía de uno en uno, como antes.
+  - **Reintento sin duplicados.** `post_message` no tiene clave de idempotencia y no he tocado la base de datos. Si el
+    servidor rechazó el mensaje con un código conocido, la transacción no escribió nada y «Reintentar» lo reenvía.
+    Si la llamada se rompió (red o error desconocido), puede que sí se escribiera, así que primero busca entre los
+    últimos mensajes uno mío con el mismo texto y el mismo número de imágenes que no estuviera en pantalla al enviar,
+    y si lo encuentra lo adopta. Si no puede comprobarlo, no reenvía. Además, si ese mensaje llega por realtime, se
+    reconoce y sustituye a la fila fallida.
+  - **Desplazamiento.** La lógica es pura (`decideScroll`, `countUnseen` en `src/lib/chat/scroll.ts`). Si estoy cerca
+    del final (48 px), el chat sigue los mensajes nuevos, también cuando crece el último. Si estoy más arriba, no me
+    mueve y aparece la pastilla «N mensajes nuevos ↓», que cuenta solo los mensajes de otros que no están borrados.
+  - **Separadores de día.** Usan la zona horaria del lector (`useViewerDay` con `useSyncExternalStore`, el mismo patrón
+    que `LocalClock`). El servidor no dibuja separadores, así que no hay desajuste de hidratación. Las etiquetas son
+    «Hoy», «Ayer», «12 de octubre», y «12 de octubre de 2025» si el año no es el actual. Cambian a medianoche. Si
+    hay un ancla `?m=`, se vuelve a centrar cuando aparecen los separadores.
+  - **Agrupación.** Ya existía; ahora el grupo también se corta al cambiar de día y en «Nuevos». Un mensaje agrupado
+    conserva «editado», «Mensaje eliminado» (el borrado nunca se agrupa) y el menú de moderación.
+  - **Reacciones.** Una reacción nueva entra escalando. Al cambiar el contador, sea mío o de otro y suba o baje, el
+    emoji y el número «laten»: solo se vuelve a montar ese `span`, así que el botón y su foco se quedan. Las reacciones
+    que el mensaje ya tenía no se animan. Al quitar la última reacción, el chip desaparece sin animación de salida.
+  - **Resaltado de `?m=`** (notificaciones, menciones, buscador): sobre el borde de acento de siempre, ahora un velo
+    de acento entra y sale con un fundido de 200 ms durante los 2 s. Funciona también en el panel del hilo.
+  - **Esqueleto.** `ChatHistoryLoading` ahora dibuja la cabecera y cinco mensajes en gris, en un panel de la misma
+    altura que el chat. Aparece tras 150 ms, como el loader de T-002, y con «reducir movimiento» no late. Para
+    lectores de pantalla sigue siendo `role="status"` con «Cargando mensajes…».
+  - **Pruebas.**
+    - Unitarias (rojo → verde): `timeline.test.ts`, `pending.test.ts`, `message-list-live.test.tsx`,
+      `reaction-bar.test.tsx`, `composer-optimistic.test.tsx`, `chat-view-send.test.tsx` y `shell/loading.test.tsx`.
+    - e2e `e2e/t004-chat-live.spec.ts`, con dos navegadores en Europe/Madrid. Comprueba:
+      - el historial no se anima y lo que llega sí (200 ms);
+      - «Hoy» y «Ayer»;
+      - la pastilla «2 mensajes nuevos» sin mover al lector;
+      - el resaltado de `?m=`;
+      - una respuesta perdida no duplica el mensaje;
+      - un envío cortado sale en rojo y «Reintentar» lo publica una sola vez;
+      - con reducir movimiento no hay animación;
+      - a 375, 1024 y 1440 px no hay scroll lateral y la pastilla mide ≥ 44 px dentro de la pantalla;
+      - no hay errores de consola ni de hidratación.
+    - Ha pasado 3 veces seguidas.
+    - También pasan `f2b-chat`, `f2b-chat-view` y `f2c-notify`. En `navigation-loader.spec.ts` (solo producción),
+      el cambio de canal ahora espera el esqueleto en lugar del diamante.
+  - **Para revisar.**
+    - El compositor del hilo y los diálogos de Alpha, bounty y encuesta siguen enviando como antes (esperan al
+      servidor). Solo es optimista el compositor del canal, y no en una vista anclada `?m=`, que salta a lo más
+      reciente.
+    - Mientras el mensaje está pendiente, sus imágenes se ven con la vista previa local.
+- **Hecho en:** 00f4ec3, 9626502, 003a7ce, e7dc390, d013344, 2b1e88e
 
 ### T-007 · La barra superior se solapa con «MODO PRUEBA» cuando hay muchas secciones
 - **Estado:** ✅
@@ -333,3 +388,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | T-002, T-007 | 8dfd2d7 | Loader Diamond en el área de contenido, en el chat y en el enlace pulsado; e2e con servidor lento (prod). Nueva T-007 (solape en la barra superior). |
 | 2026-10-20 | T-005, T-003 | 2769c21, e5b08d7 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
 | 2026-10-20 | T-007 | 713e0b2 | Barra superior sin solapes: pestañas de miembro + menú «Más» para el personal, controles compactos por ancho; e2e de geometría a 768-1440 px. |
+| 2026-10-20 | T-004 | 00f4ec3…2b1e88e | Chat vivo: entrada animada solo de lo nuevo, envío optimista con reintento sin duplicados, pastilla «N mensajes nuevos», separadores de día, reacciones animadas, resaltado `?m=` con fundido y esqueleto del historial; e2e con dos navegadores. |
