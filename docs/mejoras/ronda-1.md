@@ -479,6 +479,26 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
     - e2e completo con `E2E_PROD=1`: 135 pasan, 11 se saltan (solo desarrollo) y falló 1, `f3a-profiles` 4. El fallo
       era de T-007: la prueba buscaba el texto «MODO PRUEBA · Linea Sepolia», que a 1280 px ahora está oculto tras la
       etiqueta compacta. Ahora la busca por su nombre accesible (79a1094), y el fichero pasa entero (6/6).
+  - **Tras la revisión** (e443405, 374b775, e7cbbf5, 24d0c91):
+    - un tema de Realtime que agotó sus reintentos vuelve a unirse cuando llega un oyente, en vez de heredar el canal
+      muerto;
+    - se quita `needsWelcome`, que ya no se usaba;
+    - `markChannelRead` valida el uuid antes de la RPC y devuelve códigos de error (`rpcErrorCode`), no el mensaje de
+      la base de datos;
+    - la cookie `ecl_welcomed`:
+      - el proxy la borra en cuanto no hay sesión, porque es httpOnly y el cierre de sesión ocurre en el navegador;
+      - es `Secure` si `NEXT_PUBLIC_SITE_URL` es https, la misma regla que HSTS, porque tras el túnel la petición
+        llega por http;
+      - tiene pruebas de `maxAge`, `secure`, `httpOnly` y del borrado.
+  - **Puertas finales de la ronda:**
+    - unitarias: 248 ficheros, 2971 pruebas;
+    - typecheck y lint, limpios;
+    - `pnpm db:test`: 78 ficheros, 3977 pruebas;
+    - e2e completo con `E2E_PROD=1`: 138 pasan, 11 se saltan, 0 fallan;
+    - e2e completo en desarrollo: 128 pasan, 15 se saltan y 1 falla, `f4e-polls` 3 (el contador «1 votante» no
+      llegó en 30 s). Por ser un fichero en serie, sus 5 pruebas siguientes no se ejecutaron. El fichero completo pasa
+      8/8 en desarrollo al repetirlo solo, y pasa en producción. Es intermitente bajo la compilación en caliente del
+      modo desarrollo y no toca nada de esta ronda: las encuestas usan el canal del chat, no los temas compartidos.
   - **Para revisar:**
     - Cada enlace visible sigue costando en el servidor la validación de la sesión (`getUser`), y en `/c/<id>` la
       guarda del canal, porque el proxy no ve los prefetch.
