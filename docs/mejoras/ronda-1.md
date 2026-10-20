@@ -243,6 +243,24 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
       - un reintento dentro del slowmode devuelve el id en lugar de «slowmode».
   - **Avisos para lectores de pantalla.** Si el mensaje ya se adoptó, no se anuncia el fallo. Un fallo repetido se
     vuelve a leer: la región se vacía al reintentar y el texto alterna un espacio final.
+  - **Revisión final de la ronda (M1–M5, M7).**
+    - **Migración.** Lleva `set local lock_timeout = '5s'`: con la tabla ocupada, el push falla rápido y se reintenta,
+      en vez de dejar el chat en cola tras el `alter`. Tiene además una nota de vuelta atrás.
+    - **Vuelta atrás.** Basta con volver atrás la app (rollback instantáneo de Vercel): la versión anterior llama a
+      `post_message` con 7 argumentos y no lee `client_id`, así que la columna y el índice pueden quedarse. Volver
+      atrás la base de datos sería una migración nueva: recrear `post_message` y `_post_message_core` desde
+      `20261017300002` y `20261019700101`, volver a dar los permisos y borrar el índice y la columna.
+    - **pgTAP 994.** Reusar una clave en otro canal da `invalid_input`.
+    - **Un envío confirmado no se queda en «Enviando…».** En cuanto el servidor devuelve el id, la fila se ve como
+      enviada (sin estado ni `aria-busy`) y aún sin acciones. Si ni la relectura ni el eco traen el mensaje real, se
+      vuelve a leer a los 4 s.
+    - **Los mensajes fallidos sobreviven a un remontaje** (cambio de canal o `?m=`). Los envíos sin confirmar se
+      guardan por canal en `sessionStorage` (`src/lib/chat/pending-store.ts`). Al volver, aparecen como fallidos con
+      su texto. Los que seguían enviándose salen como «sin confirmar», y reintentar usa la misma clave, así que el
+      servidor no los duplica. No vuelven si el historial ya trae su clave, y «Descartar» los olvida. Las vistas
+      previas locales de las imágenes no sobreviven: esas imágenes salen como «Imagen no disponible» hasta reenviar.
+    - **Sin marca de leído tras salir.** Un envío que termina con la vista ya desmontada no marca el canal como leído
+      ni toca el estado; solo actualiza la copia guardada.
   - **Desplazamiento.** La lógica es pura (`decideScroll`, `countUnseen` en `src/lib/chat/scroll.ts`). Si estoy cerca
     del final (48 px), el chat sigue los mensajes nuevos, también cuando crece el último. Si estoy más arriba, no me
     mueve y aparece la pastilla «N mensajes nuevos ↓», que cuenta solo los mensajes de otros que no están borrados.
@@ -285,7 +303,8 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
       servidor). Solo es optimista el compositor del canal, y no en una vista anclada `?m=`, que salta a lo más
       reciente.
     - Mientras el mensaje está pendiente, sus imágenes se ven con la vista previa local.
-- **Hecho en:** 00f4ec3, 9626502, 003a7ce, e7dc390, d013344, 2b1e88e; revisión R1-3 en 80387e3, fcfdfc9, 99078d0
+- **Hecho en:** 00f4ec3, 9626502, 003a7ce, e7dc390, d013344, 2b1e88e; revisión R1-3 en 80387e3, fcfdfc9, 99078d0;
+  revisión final en a99c768, 51897ad, f49d12d, dc4243e
 
 ### T-007 · La barra superior se solapa con «MODO PRUEBA» cuando hay muchas secciones
 - **Estado:** ✅
@@ -522,5 +541,5 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | T-002, T-007 | 8dfd2d7 | Loader Diamond en el área de contenido, en el chat y en el enlace pulsado; e2e con servidor lento (prod). Nueva T-007 (solape en la barra superior). |
 | 2026-10-20 | T-005, T-003 | 2769c21, e5b08d7 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
 | 2026-10-20 | T-007 | 713e0b2 | Barra superior sin solapes: pestañas de miembro + menú «Más» para el personal, controles compactos por ancho; e2e de geometría a 768-1440 px. |
-| 2026-10-20 | T-004 | 00f4ec3…2b1e88e, 80387e3…99078d0 | Chat vivo: entrada animada solo de lo nuevo, envío optimista con reintento sin duplicados, pastilla «N mensajes nuevos», separadores de día, reacciones animadas, resaltado `?m=` con fundido y esqueleto del historial; e2e con dos navegadores. Revisión R1-3: idempotencia real con `messages.client_id` en `post_message` (migración + pgTAP), sin heurística de texto. |
+| 2026-10-20 | T-004 | 00f4ec3…2b1e88e, 80387e3…99078d0 | Chat vivo: entrada animada solo de lo nuevo, envío optimista con reintento sin duplicados, pastilla «N mensajes nuevos», separadores de día, reacciones animadas, resaltado `?m=` con fundido y esqueleto del historial; e2e con dos navegadores. Revisión R1-3: idempotencia real con `messages.client_id` en `post_message` (migración + pgTAP), sin heurística de texto. Revisión final: `lock_timeout`, nota de vuelta atrás, fallidos guardados por canal, envío confirmado sin «Enviando…» y sin marca de leído tras salir. |
 | 2026-10-20 | T-006 | 84e69a4…79a1094 | Auditoría de peticiones medida antes/después (build de producción local, 3 pasadas; PRE solo sin sesión): bienvenida recordada en cookie en el proxy (55 → 23 consultas en la primera carga, junto con T-007), «marcar leído» por RPC directa, un canal Realtime compartido por tema, Mercado como datos planos (175 → 10 KB de RSC) con prefetch por intención, causa de las pruebas intermitentes y comentario de R1-3. |
