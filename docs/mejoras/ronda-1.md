@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 6 | 5 | 0 | 1 | 0 | 0 |
+| 6 | 6 | 0 | 0 | 0 | 0 |
 
 ---
 
@@ -123,7 +123,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Tipo:** diseño
 - **Dónde:** `/mercado` (lista) y `/mercado/[id]` (detalle de una cripto), a 320, 375, 414 y 768 px.
 - **Qué pasa ahora:** en móvil la tabla se queda apretada y es poco cómoda de leer y de tocar.
-- **Qué quiero:**
+- **Qué quiero:** (decisión del humano: **filas compactas**, no tarjetas)
   - **Lista en móvil:** filas compactas tipo app de exchange: logo, nombre y símbolo, precio y cambio 24 h (con su
     signo y color, más icono o texto, no solo color). Toda la fila es tocable (≥ 44 px) y lleva al detalle. Las
     columnas extra (7 d, capitalización, volumen, sparkline) aparecen solo cuando cabe, como ya hace la tabla por
@@ -138,7 +138,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Hecho en:** —
 
 ### T-004 · Chat: animaciones y sensación de «vivo»
-- **Estado:** ❓
+- **Estado:** ⬜
 - **Prioridad:** P1
 - **Tipo:** diseño
 - **Dónde:** los canales de texto (`/c/[id]`), componentes de `src/components/chat/`.
@@ -157,8 +157,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Cómo sabré que está bien:** con dos navegadores, envío y recibo mensajes y se ve fluido, sin saltos ni scroll
   inesperado; con «reducir movimiento» activado en el sistema no hay animaciones.
 - **Capturas / referencias:** —
-- **Notas de la IA:** ❓ Pediste «entre otras cosas». Propuesta de extras para que elijas cuáles entran en esta
-  ronda; responde con los números:
+- **Notas de la IA:** el humano eligió (2026-10-20) que entren **los cinco** extras de la propuesta:
   1. Separadores de día («Hoy», «Ayer», «12 de octubre»).
   2. Agrupar mensajes seguidos del mismo autor (sin repetir avatar y nombre en cada uno).
   3. Esqueleto de carga del historial (líneas grises) en lugar de pantalla vacía.
@@ -237,3 +236,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | Fecha | Tareas | PR / commits | Notas |
 |---|---|---|---|
 | 2026-10-20 | T-001…T-006 | — | Tareas definidas a partir de lo que contó el humano; revisión del código para concretar causas. |
+| 2026-10-20 | — | — | Decisiones del humano: todo en `feature/mejoras-ronda-1` con un único PR a `develop` al final; trabajo seguido; T-004 con los 5 extras; Mercado móvil en filas compactas. Orden: T-001 → T-002 → T-005+T-003 → T-004 → T-006. |
