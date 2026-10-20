@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 6 | 6 | 0 | 0 | 0 | 0 |
+| 6 | 5 | 0 | 0 | 1 | 0 |
 
 ---
 
@@ -64,7 +64,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 ## 1. Fallos (cosas que no funcionan)
 
 ### T-001 · El menú de móvil no hace scroll
-- **Estado:** ⬜
+- **Estado:** ✅
 - **Prioridad:** P0
 - **Tipo:** arreglo
 - **Dónde:** menú lateral en móvil (< 768 px), el que se abre con el botón ☰ de la barra superior. Código:
@@ -83,8 +83,8 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 
   Un e2e a tamaño móvil lo fija.
 - **Capturas / referencias:** —
-- **Notas de la IA:** —
-- **Hecho en:** —
+- **Notas de la IA:** Causa: el cajón era un grid `h-dvh` sin overflow y el cuerpo `h-full` con el nav de canales `flex-1 overflow-y-auto`; en pantallas bajas ese nav se encogía a casi nada y «Mi perfil» quedaba fuera. Ahora el `DialogContent` es una columna flex con `overflow-y-auto overscroll-contain` y relleno `env(safe-area-inset-*)`; el cuerpo y el nav de canales ya no tienen altura propia, así que todo el cajón se desplaza como un bloque. El scroll-lock de Radix evita que la página de detrás se mueva. Nota: el botón de cerrar (absoluto) se desplaza con el contenido; se cierra igual tocando un enlace, el fondo o Esc. E2E: `e2e/mobile-drawer.spec.ts` (375×667 y 667×375).
+- **Hecho en:** HASH
 
 ## 2. Diseño e interfaz
 
@@ -237,3 +237,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 |---|---|---|---|
 | 2026-10-20 | T-001…T-006 | — | Tareas definidas a partir de lo que contó el humano; revisión del código para concretar causas. |
 | 2026-10-20 | — | — | Decisiones del humano: todo en `feature/mejoras-ronda-1` con un único PR a `develop` al final; trabajo seguido; T-004 con los 5 extras; Mercado móvil en filas compactas. Orden: T-001 → T-002 → T-005+T-003 → T-004 → T-006. |
+| 2026-10-20 | T-001 | ✅ | Cajón móvil con scroll propio, safe areas y overscroll contenido; e2e a 375×667 y horizontal. |

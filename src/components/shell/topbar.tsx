@@ -31,7 +31,7 @@ export function Topbar({ children, badge }: { children: React.ReactNode; badge?:
           </DialogTrigger>
         <DialogContent
           showCloseButton
-          className="top-0 left-0 h-dvh w-[280px] max-w-[85vw] translate-x-0 translate-y-0 content-start gap-0 rounded-none border-y-0 border-l-0 bg-bg p-0 data-open:slide-in-from-left sm:max-w-[85vw]"
+          className="top-0 left-0 h-dvh w-[280px] max-w-[85vw] translate-x-0 translate-y-0 flex flex-col gap-0 overflow-y-auto overscroll-contain rounded-none border-y-0 border-l-0 bg-bg p-0 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] data-open:slide-in-from-left sm:max-w-[85vw]"
           onClick={(e) => {
             if ((e.target as HTMLElement).closest("a, [data-close-drawer]")) setOpen(false);
           }}

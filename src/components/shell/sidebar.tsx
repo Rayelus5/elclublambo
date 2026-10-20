@@ -96,7 +96,7 @@ function DesktopBar(props: Props) {
 function DrawerBody(props: Props) {
   const tree = buildTree(props.channels ?? []);
   return (
-    <div className="flex h-full flex-col gap-4 py-6">
+    <div className="flex flex-col gap-4 py-6">
       <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
@@ -123,7 +123,7 @@ function DrawerBody(props: Props) {
         ))}
       </nav>
 
-      <nav aria-label="Canales" className="min-h-0 flex-1 overflow-y-auto border-t border-border pt-2">
+      <nav aria-label="Canales" className="border-t border-border pt-2">
         <ChannelTree nodes={tree} />
       </nav>
 
