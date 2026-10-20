@@ -194,7 +194,8 @@ test("4. si se pierde la respuesta del envío, el mensaje no se duplica", async 
   expect(lost).toBe(1);
   // Either realtime already adopted it by its key, or the retry resends the same key and the server returns it.
   const retry = messageWith(adminPage, text).getByRole("button", { name: "Reintentar" });
-  if (await retry.isVisible().catch(() => false)) await retry.click();
+  // The echo can adopt the row (and remove the button) at any moment, also mid-click: never wait on a vanished button.
+  if (await retry.isVisible().catch(() => false)) await retry.click({ timeout: 3000 }).catch(() => undefined);
   await expect(messageWith(adminPage, text)).toHaveCount(1);
   await expect(messageWith(adminPage, text)).not.toContainText("No se ha enviado");
   await expect(messageWith(adminPage, text)).not.toContainText("Enviando…");
