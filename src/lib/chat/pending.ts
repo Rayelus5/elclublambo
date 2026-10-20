@@ -38,6 +38,9 @@ export interface PendingMessage {
   realId?: string;
 }
 
+/** What the composer hands over when it sends optimistically. */
+export type OutgoingMessage = Pick<PendingMessage, "doc" | "text" | "expanded" | "quotedId" | "attachments">;
+
 export type SettleResult = { ok: true; id: string } | { ok: false; outcome: "rejected" | "unknown"; error: string };
 
 /** Classifies the answer of postMessageAction (`null` when the call itself threw). */

@@ -16,9 +16,12 @@ import {
   deleteMessageAction,
   editMessageAction,
   markReadAction,
+  postMessageAction,
   setPinnedAction,
   toggleReactionAction,
 } from "@/lib/chat/actions";
+import { findLanded, pendingToMessage, settleOutcome, type OutgoingMessage, type PendingMessage } from "@/lib/chat/pending";
+import type { PendingView } from "@/components/chat/message-list";
 import {
   applyReactionToggle,
   applyToWindow,
@@ -39,7 +42,7 @@ import { getTipSummaries } from "@/lib/payments/queries";
 import { useChannelEvents, type ChannelEvent } from "@/lib/chat/realtime";
 import { createThrottle } from "@/lib/chat/throttle";
 import { useUnread } from "@/lib/chat/unread";
-import { toPlainDoc } from "@/lib/chat/content";
+import { docToPlainText, toPlainDoc } from "@/lib/chat/content";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
@@ -82,6 +85,7 @@ interface ThreadState {
   loading: boolean;
 }
 
+const QUOTE_CHARS = 140;
 const NOTICE_MS = 7000;
 const THROTTLE_MS = 5000;
 const HIGHLIGHT_MS = 2000;
@@ -129,16 +133,25 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
   const anchorIsReply = initialAnchorId !== null && initialThreadId !== null && !initial.messages.some((m) => m.id === initialAnchorId);
   const listScrollId = anchorIsReply ? initialThreadId : initialAnchorId;
 
+  // Optimistic sends (the channel composer): shown after the timeline until the real message replaces them.
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  // Real id -> pending key: the confirmed message keeps the pending row's React key (no remount, no second animation).
+  const [rowKeys, setRowKeys] = useState<Record<string, string>>({});
+
   const rootsRef = useRef(roots);
   const hasMoreRef = useRef(hasMore);
   const threadRef = useRef(thread);
   const directoryRef = useRef(directory);
   const hasNewerRef = useRef(hasNewer);
+  const pendingRef = useRef(pending);
+  const rowKeysRef = useRef(rowKeys);
   useEffect(() => {
     rootsRef.current = roots;
     hasMoreRef.current = hasMore;
     threadRef.current = thread;
     directoryRef.current = directory;
+    pendingRef.current = pending;
+    rowKeysRef.current = rowKeys;
   });
   const requests = useRef(new Map<string, number>());
   const openerRef = useRef<HTMLElement | null>(null);
@@ -270,11 +283,31 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     }
   }, []);
 
+  /** The pending message `key` is the real message `realId`: its row takes over the pending one. */
+  const adopt = useCallback((key: string, realId: string) => {
+    setRowKeys((k) => {
+      if (k[realId] === key) return k;
+      // A pending row matches one real message only (a text match that turned out wrong is replaced).
+      const next = Object.fromEntries(Object.entries(k).filter(([, v]) => v !== key));
+      next[realId] = key;
+      return next;
+    });
+    setPending((ps) => ps.map((p) => (p.key === key ? { ...p, realId } : p)));
+  }, []);
+
   const apply = useCallback(
     (m: ChatMessage, created = false) => {
       if (m.threadRootId === null) {
         const list = rootsRef.current;
         const isNew = !list.some((x) => x.id === m.id);
+        if (m.authorId === meId) {
+          // My message reached the timeline: it replaces its pending row. One that arrives by realtime before the
+          // server answered (or after a broken call that did write it) is recognised by its text.
+          const claimed = new Set(Object.keys(rowKeysRef.current));
+          const mine = pendingRef.current.find((p) => p.realId === m.id || (!p.realId && created && isNew && findLanded(p, [m], meId, claimed)));
+          if (mine && mine.realId !== m.id) adopt(mine.key, m.id);
+          setPending((ps) => (ps.some((p) => p.realId === m.id) ? ps.filter((p) => p.realId !== m.id) : ps));
+        }
         // Only a freshly CREATED root counts as news: edits, reactions, pins, deletes and reply-driven reconciles do not.
         if (created && isNew && hasNewerRef.current && list.length > 0 && cmpMessages(m, list.at(-1)!) > 0) setPendingNew(true);
         if (created && isNew && m.authorId !== meId && !m.deletedAt) {
@@ -287,7 +320,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
         setThread((t) => (t && t.rootId === m.threadRootId ? { ...t, replies: upsertSorted(t.replies, m) } : t));
       }
     },
-    [meId],
+    [meId, adopt],
   );
 
   /** A tip notice arrived: re-read the totals of the thread root and of the replies in the open thread. */
@@ -547,6 +580,117 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     [reconcile],
   );
 
+  // --- optimistic send ----------------------------------------------------------------------------
+
+  const fail = useCallback((key: string, outcome: "rejected" | "unknown", error: string) => {
+    setPending((ps) => ps.map((p) => (p.key === key ? { ...p, status: "failed", outcome, error } : p)));
+    setAnnouncement("No se ha podido enviar el mensaje");
+  }, []);
+
+  /** Posts a pending message once. A retry only calls this when nothing was written (see `retrySend`). */
+  const deliver = useCallback(
+    async (p: PendingMessage) => {
+      const res = await postMessageAction({
+        channelId,
+        doc: p.doc,
+        expanded: p.expanded,
+        quotedId: p.quotedId,
+        attachments: p.attachments.map((a) => a.uploaded),
+      }).catch(() => null);
+      const settled = settleOutcome(res);
+      if (settled.ok) {
+        adopt(p.key, settled.id);
+        void reconcile(settled.id, true);
+        markRead();
+      } else fail(p.key, settled.outcome, settled.error);
+      return res ?? { error: "unknown" };
+    },
+    [adopt, channelId, fail, markRead, reconcile],
+  );
+
+  const sendOptimistic = useCallback(
+    (out: OutgoingMessage) => {
+      const quotedMsg = out.quotedId ? rootsRef.current.find((m) => m.id === out.quotedId) : undefined;
+      const quoteText = quotedMsg ? docToPlainText(quotedMsg.body) : "";
+      const p: PendingMessage = {
+        ...out,
+        key: crypto.randomUUID(),
+        quote: quotedMsg
+          ? {
+              authorName: (quotedMsg.authorId ? directoryRef.current.members[quotedMsg.authorId]?.name : undefined) ?? "Miembro",
+              text: quoteText.length > QUOTE_CHARS ? `${quoteText.slice(0, QUOTE_CHARS)}…` : quoteText,
+              deleted: false,
+            }
+          : null,
+        createdAt: new Date().toISOString(),
+        seen: rootsRef.current.filter((m) => m.authorId === meId).map((m) => m.id),
+        status: "sending",
+      };
+      setPending((ps) => [...ps, p]);
+      setScrollKey((k) => k + 1);
+      return deliver(p);
+    },
+    [deliver, meId],
+  );
+
+  /**
+   * Retry, idempotent: after a refusal nothing was written and it simply resends. After a broken call it may have been
+   * written, so it first looks for it among the newest messages and adopts it; it never resends if it cannot check.
+   */
+  const retrySend = useCallback(
+    async (key: string) => {
+      const p = pendingRef.current.find((x) => x.key === key);
+      if (!p || p.status !== "failed") return;
+      setPending((ps) => ps.map((x) => (x.key === key ? { ...x, status: "sending", error: undefined } : x)));
+      if (p.outcome === "unknown") {
+        let page;
+        try {
+          page = await getMessages(createBrowserClient(), channelId, meId);
+        } catch {
+          fail(key, "unknown", "unknown");
+          return;
+        }
+        const landed = findLanded(p, page.messages, meId, new Set(Object.keys(rowKeysRef.current)));
+        if (landed) {
+          mergeDir(page.directory);
+          adopt(key, landed.id);
+          apply(landed);
+          markRead();
+          return;
+        }
+      }
+      await deliver(p);
+    },
+    [adopt, apply, channelId, deliver, fail, markRead, meId, mergeDir],
+  );
+
+  const discardSend = useCallback((key: string) => setPending((ps) => ps.filter((p) => p.key !== key)), []);
+
+  // The local image previews belong to the pending message: freed once it is confirmed, discarded or the chat unmounts.
+  const shownPending = useRef<PendingMessage[]>([]);
+  useEffect(() => {
+    const keys = new Set(pending.map((p) => p.key));
+    for (const p of shownPending.current) if (!keys.has(p.key)) for (const a of p.attachments) URL.revokeObjectURL(a.previewUrl);
+    shownPending.current = pending;
+  }, [pending]);
+  useEffect(
+    () => () => {
+      for (const p of shownPending.current) for (const a of p.attachments) URL.revokeObjectURL(a.previewUrl);
+    },
+    [],
+  );
+
+  const rootIds = new Set(roots.map((m) => m.id));
+  const pendingViews: PendingView[] = pending
+    .filter((p) => !(p.realId && rootIds.has(p.realId)))
+    .map((p) => ({
+      message: pendingToMessage(p, meId, channelId),
+      status: p.status,
+      error: p.error ? rpcErrorMessage(p.error) : null,
+      onRetry: () => void retrySend(p.key),
+      onDiscard: () => discardSend(p.key),
+    }));
+
   const bountyChanged = useCallback((message: ChatMessage) => void reconcile(message.id), [reconcile]);
   const pollChanged = bountyChanged;
 
@@ -652,6 +796,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           pendingNew={pendingNew}
           onGoLatest={goLatest}
           latest={latest}
+          pending={pendingViews}
+          rowKeys={rowKeys}
           {...itemHandlers}
         />
 
@@ -677,6 +823,8 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
               slowmodeSeconds={channel.slowmodeSeconds}
               quoted={quoted ?? undefined}
               onRemoveQuoted={() => setQuoted(null)}
+              // An anchored view (`?m=`) jumps to the latest window after posting: no pending row to keep there.
+              onSendOptimistic={hasNewer ? undefined : sendOptimistic}
               onPosted={(id) => {
                 // A message sent from the middle of history lands at the end: show the latest window.
                 if (hasNewerRef.current) {
