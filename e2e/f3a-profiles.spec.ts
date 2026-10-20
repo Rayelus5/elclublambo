@@ -145,7 +145,8 @@ test("4. SuperAdmin sets fee and addresses, switches network and members see the
 
   // Members see the test-mode badge while Sepolia is active.
   await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner").getByText(BADGE)).toBeVisible();
+  // T-007: below 1536 px the top bar shows the compact «PRUEBA» badge, named in full for screen readers.
+  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
 
   await p.getByRole("button", { name: "Cambiar a Linea", exact: true }).click();
   const dialog = p.getByRole("alertdialog");
@@ -156,13 +157,14 @@ test("4. SuperAdmin sets fee and addresses, switches network and members see the
   await memberPage.goto("/");
   await expect(memberPage.getByRole("banner")).toBeVisible();
   await expect(memberPage.getByText("MODO PRUEBA")).toHaveCount(0);
+  await expect(memberPage.getByRole("img", { name: /MODO PRUEBA/ })).toHaveCount(0);
 
   // Switch back.
   await p.getByRole("button", { name: "Cambiar a Linea Sepolia" }).click();
   await p.getByRole("alertdialog").getByRole("button", { name: "Continuar" }).click();
   await expect(p.getByRole("button", { name: "Cambiar a Linea", exact: true })).toBeVisible();
   await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner").getByText(BADGE)).toBeVisible();
+  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
 
   // The fee persisted as 260 bps.
   const { data } = await service().from("app_config").select("*");
