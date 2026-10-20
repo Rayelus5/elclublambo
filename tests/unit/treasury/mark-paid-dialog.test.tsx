@@ -9,6 +9,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
 import { MarkPaidDialog } from "@/components/treasury/treasurer/mark-paid-dialog";
 
+// A 66-character hash typed key by key costs about a second per test (each keystroke re-renders the dialog), and several
+// seconds under the full parallel suite: past the 5 s timeout. Typing is not what these tests check, so the hash is pasted.
+const enterHash = async (value: string) => {
+  await userEvent.click(screen.getByLabelText("Hash de la transacción"));
+  await userEvent.paste(value);
+};
 const HASH = `0x${"ab".repeat(32)}`;
 
 beforeEach(() => {
@@ -34,7 +40,7 @@ describe("MarkPaidDialog", () => {
   it("verifies a valid hash and explains that the shares burn at finality", async () => {
     markWithdrawalPaidAction.mockResolvedValue({ ok: true, status: "recorded" });
     render(<MarkPaidDialog requestId="r1" open onOpenChange={() => {}} />);
-    await userEvent.type(screen.getByLabelText("Hash de la transacción"), ` ${HASH} `);
+    await enterHash(` ${HASH} `);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(markWithdrawalPaidAction).toHaveBeenCalledWith("r1", HASH);
     expect(await screen.findByText("Pago verificado. Las participaciones se quemarán cuando la red lo finalice.")).toBeInTheDocument();
@@ -49,7 +55,7 @@ describe("MarkPaidDialog", () => {
   ])("shows the copy for %s", async (code, error) => {
     markWithdrawalPaidAction.mockResolvedValue({ ok: false, code, error });
     render(<MarkPaidDialog requestId="r1" open onOpenChange={() => {}} />);
-    await userEvent.type(screen.getByLabelText("Hash de la transacción"), HASH);
+    await enterHash(HASH);
     await userEvent.click(screen.getByRole("button", { name: "Comprobar pago" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(error);
   });
