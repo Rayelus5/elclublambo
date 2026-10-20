@@ -13,7 +13,9 @@ export const MARKET_PAGE_SIZE = 10;
  */
 export function MarketReveal({ caption, head, rows }: { caption: string; head: ReactNode; rows: ReactNode[] }) {
   const total = rows.length;
-  const [visible, setVisible] = useState(Math.min(MARKET_PAGE_SIZE, total));
+  const [revealed, setRevealed] = useState(MARKET_PAGE_SIZE);
+  // Clamped on render: a revalidated, shorter list never reads «Mostrando 20 de 7».
+  const visible = Math.min(revealed, total);
   const tbody = useRef<HTMLTableSectionElement>(null);
   const focusRow = useRef<number | null>(null);
 
@@ -26,7 +28,7 @@ export function MarketReveal({ caption, head, rows }: { caption: string; head: R
 
   function showMore() {
     focusRow.current = visible;
-    setVisible(Math.min(visible + MARKET_PAGE_SIZE, total));
+    setRevealed(Math.min(visible + MARKET_PAGE_SIZE, total));
   }
 
   return (

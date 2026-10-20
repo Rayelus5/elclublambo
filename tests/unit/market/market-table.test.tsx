@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { MarketTable } from "@/components/market/market-table";
 import type { MarketCoin } from "@/lib/market/types";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const btc: MarketCoin = {
   id: "bitcoin",
@@ -22,7 +24,8 @@ const broken: MarketCoin = { ...btc, id: "weird", name: "Weird", symbol: "wrd", 
 describe("MarketTable", () => {
   it("has the caption and the nine columns", () => {
     render(<MarketTable coins={[btc]} />);
-    expect(screen.getByRole("table", { name: "Las 100 criptos con mayor capitalización" })).toBeInTheDocument();
+    // Neutral: the table shows 10 at first, so the caption does not claim a count (the live counter does).
+    expect(screen.getByRole("table", { name: "Criptos con mayor capitalización" })).toBeInTheDocument();
     const heads = screen.getAllByRole("columnheader").map((h) => h.textContent);
     expect(heads).toEqual(["#", "Cripto", "Precio", "1 h", "24 h", "7 d", "Capitalización", "Volumen 24 h", "7 días"]);
   });
@@ -91,15 +94,17 @@ describe("MarketTable", () => {
     // Exchange-style: name over symbol.
     expect(within(cells[1]!).getByText("Bitcoin").parentElement).toHaveClass("flex-col");
   });
-  // The whole row is the hit area, but the only link stays in the name cell (stretched with a pseudo-element), so the
-  // table keeps its row/cell semantics and each row is one tab stop.
-  it("makes the whole row tappable through one stretched link in the name cell", () => {
+  // The whole row is the touch target through a click handler on the row (market-row.test.tsx has the rules); the
+  // only link stays in the name cell, so the table keeps its row/cell semantics and each row is one tab stop. No
+  // stretched ::after overlay: where a <tr> is not a containing block it would cover the whole panel.
+  it("makes the whole row tappable with one real link in the name cell and no overlay", () => {
     render(<MarketTable coins={[btc]} />);
     const row = screen.getAllByRole("row")[1]!;
-    expect(row).toHaveClass("relative");
+    expect(row).toHaveClass("cursor-pointer");
+    expect(row).not.toHaveClass("relative");
     const links = within(row).getAllByRole("link");
     expect(links).toHaveLength(1);
-    expect(links[0]).toHaveClass("after:absolute", "after:inset-0");
+    expect(links[0]!.className).not.toMatch(/after:/);
     expect(links[0]!.closest("td")).toBe(within(row).getAllByRole("cell")[1]);
   });
   it("is a size container that never scrolls sideways", () => {
@@ -153,6 +158,15 @@ describe("MarketTable", () => {
       expect(bodyRows()).toHaveLength(25);
       expect(counter()).toHaveTextContent("Mostrando 25 de 25");
       expect(document.activeElement).toBe(within(bodyRows()[20]!).getByRole("link", { name: /Coin 21/ }));
+      expect(screen.queryByRole("button", { name: "Ver más" })).toBeNull();
+    });
+
+    it("never counts past the total when a revalidated list shrinks", () => {
+      const { rerender } = render(<MarketTable coins={many(25)} />);
+      fireEvent.click(screen.getByRole("button", { name: "Ver más" }));
+      rerender(<MarketTable coins={many(7)} />);
+      expect(bodyRows()).toHaveLength(7);
+      expect(counter()).toHaveTextContent("Mostrando 7 de 7");
       expect(screen.queryByRole("button", { name: "Ver más" })).toBeNull();
     });
 

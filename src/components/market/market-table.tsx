@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChangeIcon, changeTone } from "@/components/market/change";
 import { MarketReveal } from "@/components/market/market-reveal";
+import { MarketRow } from "@/components/market/market-row";
 import { Sparkline } from "@/components/market/sparkline";
 import { formatChange, formatCompactUsd, formatPrice } from "@/lib/market/format";
 import type { MarketCoin } from "@/lib/market/types";
@@ -72,16 +73,17 @@ const head = (
 function Row({ c, rank }: { c: MarketCoin; rank: number }) {
   const day = formatChange(c.change24h);
   return (
-    // The whole row is the hit area through the name link's stretched ::after (the row is its containing block). The
-    // row itself is not a link: the table keeps its row/cell semantics and each coin is a single tab stop.
-    <tr className="relative border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-surface-2 has-[a:active]:bg-surface-2 motion-reduce:transition-none">
+    // The whole row opens the coin on tap (MarketRow); the name link is the single tab stop for keyboard and screen
+    // readers, so the table keeps its row/cell semantics.
+    <MarketRow href={`/mercado/${c.id}`}>
       <td className={cn(TIER_SM, "px-3 py-2 text-left tabular-nums text-fg-muted")}>{rank}</td>
       {/* w-full + max-w-0: this column takes the leftover width and never grows past it, so a long name is truncated
           inside the cell instead of widening the table. */}
       <td className="w-full max-w-0 px-3 py-2 text-left">
         <Link
           href={`/mercado/${c.id}`}
-          className="flex min-h-11 max-w-full items-center gap-3 outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-accent focus-visible:after:ring-inset"
+          // Its keyboard focus is drawn as an outline around the whole row (MarketRow), plus an underline here.
+          className="flex min-h-11 max-w-full items-center gap-3 underline-offset-4 outline-none focus-visible:underline"
         >
           {/* eslint-disable-next-line @next/next/no-img-element -- remote CoinGecko icon, host-checked in the client */}
           {c.image ? <img src={c.image} alt="" width={28} height={28} loading="lazy" className="size-7 shrink-0 rounded-full" /> : null}
@@ -118,7 +120,7 @@ function Row({ c, rank }: { c: MarketCoin; rank: number }) {
           <Sparkline points={c.sparkline7d} label={trendLabel(c)} />
         </span>
       </td>
-    </tr>
+    </MarketRow>
   );
 }
 
@@ -126,7 +128,7 @@ export function MarketTable({ coins }: { coins: MarketCoin[] }) {
   return (
     <div className="@container rounded-panel border border-border bg-surface" data-testid="market-table-panel">
       <MarketReveal
-        caption="Las 100 criptos con mayor capitalización"
+        caption="Criptos con mayor capitalización"
         head={head}
         rows={coins.map((c, i) => (
           <Row key={c.id} c={c} rank={c.rank ?? i + 1} />

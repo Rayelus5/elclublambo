@@ -288,9 +288,8 @@ test("5. 375 px: compact tappable rows, no horizontal scroll (even with a very l
 
     // The whole row is tappable: a tap on the price (outside the name link's own box) opens the coin.
     await m.setViewportSize({ width: 375, height: 812 });
-    // (A real tap at the cell's centre: Playwright's locator click would refuse, since the link's ::after covers it.)
-    const priceBox = (await rows(m).first().locator("td").nth(2).boundingBox())!;
-    await m.mouse.click(priceBox.x + priceBox.width / 2, priceBox.y + priceBox.height / 2);
+    // (locator("td"): the hidden # cell is out of the accessibility tree, so getByRole("cell") would shift the index.)
+    await rows(m).first().locator("td").nth(2).click();
     await expect(m).toHaveURL(/\/mercado\/bitcoin$/);
     await expect(m.getByRole("heading", { level: 1, name: /^Bitcoin/ })).toBeVisible({ timeout: 30_000 });
     // Coin page on a phone: the chart spans the content width, the four ranges share one row of thumb-sized targets,
