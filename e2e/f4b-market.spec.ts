@@ -45,6 +45,8 @@ async function clearCache() {
 }
 
 const rows = (page: Page) => page.locator("table tbody tr");
+// T-005: the list shows ten coins at a time; the counter lives in a polite live region.
+const counter = (page: Page) => page.getByText(/^Mostrando \d+ de \d+$/);
 const coinLink = (page: Page, name: string) => page.getByRole("table").getByRole("link", { name: new RegExp(`^${name}\\b`) });
 
 let admin: BrowserContext;
@@ -63,17 +65,19 @@ test.afterAll(async () => {
   await admin?.close();
 });
 
-test("1. desktop: Mercado in the top bar; top 100 with Bitcoin first, '—' for the null price, attribution and time", async () => {
+test("1. desktop: Mercado in the top bar; first 10 of the top 100 with Bitcoin first, '—' for the null price, attribution and time", async () => {
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Principal" });
   await nav.getByRole("link", { name: "Mercado" }).click();
   await expect(page).toHaveURL(/\/mercado$/);
   await expect(page.getByRole("heading", { level: 1, name: "Mercado" })).toBeVisible();
 
-  await expect(rows(page)).toHaveCount(100, { timeout: 30_000 });
+  await expect(rows(page)).toHaveCount(10, { timeout: 30_000 });
+  await expect(counter(page)).toHaveText("Mostrando 10 de 100");
   const first = rows(page).first();
   await expect(first.getByRole("link", { name: /^Bitcoin/ })).toBeVisible();
-  await expect(first.getByRole("cell").nth(2)).toHaveText(BTC_PRICE);
+  // The price cell also holds the compact 24 h change (hidden on this wide panel): match the price at its start.
+  await expect(first.getByRole("cell").nth(2)).toHaveText(new RegExp(`^${BTC_PRICE}`));
   // Bitcoin's icon is on a CoinGecko host: rendered. The foreign-host icon is not.
   await expect(first.locator("img")).toHaveCount(1);
   await expect(rows(page).nth(2).getByRole("link", { name: /^Foreign Image Coin/ })).toBeVisible();
@@ -82,7 +86,7 @@ test("1. desktop: Mercado in the top bar; top 100 with Bitcoin first, '—' for 
   // Row 2: no price and no sparkline, still a row, with a dash for the price.
   const nullRow = rows(page).nth(1);
   await expect(nullRow.getByRole("link", { name: /^Null Price Coin/ })).toBeVisible();
-  await expect(nullRow.getByRole("cell").nth(2)).toHaveText("—");
+  await expect(nullRow.getByRole("cell").nth(2)).toHaveText(/^—/);
   await expect(nullRow.locator("svg[role=img]")).toHaveCount(0);
   // Bitcoin's sparkline carries a text equivalent (rendered; its column only shows on a wide panel, ruling F4b-R4).
   await expect(first.locator("svg[role=img]")).toHaveAttribute("aria-label", /^Tendencia de 7 días de Bitcoin: (sube|baja|sin cambios)$/);
@@ -92,6 +96,42 @@ test("1. desktop: Mercado in the top bar; top 100 with Bitcoin first, '—' for 
   await expect(attribution).toHaveAttribute("target", "_blank");
   await expect(attribution).toHaveAttribute("rel", "noopener noreferrer");
   await expect(page.getByText(/^Actualizado a las \d{2}:\d{2}$/)).toBeVisible();
+});
+
+test("1b. Ver más reveals 10 more per click from the data already loaded: no request, focus on the first new row, live counter", async () => {
+  // Anything that would mean reloading the list: the page itself (document or RSC), a Server Action, or CoinGecko.
+  // (Revealed rows may load their icons, which are routed to a local pixel, and Next may prefetch the new coin links.)
+  const reloads: string[] = [];
+  const onRequest = (r: import("@playwright/test").Request) => {
+    const url = new URL(r.url());
+    if (url.origin === MOCK || r.method() !== "GET" || url.pathname === "/mercado") reloads.push(`${r.method()} ${r.url()}`);
+  };
+  page.on("request", onRequest);
+  try {
+    const more = page.getByRole("button", { name: "Ver más" });
+    await more.click();
+    await expect(rows(page)).toHaveCount(20);
+    await expect(counter(page)).toHaveText("Mostrando 20 de 100");
+    await expect(rows(page).nth(10).getByRole("link")).toBeFocused();
+    await more.click();
+    await more.click();
+    await expect(rows(page)).toHaveCount(40);
+    await expect(counter(page)).toHaveText("Mostrando 40 de 100");
+    await expect(rows(page).nth(30).getByRole("link")).toBeFocused();
+    await expect(counter(page)).toHaveAttribute("aria-live", "polite");
+    // Give any stray request a moment to show up before checking.
+    await page.waitForTimeout(500);
+  } finally {
+    page.off("request", onRequest);
+  }
+  expect(reloads).toEqual([]);
+
+  // To the end: the button goes away once all 100 are on screen.
+  const more = page.getByRole("button", { name: "Ver más" });
+  for (let i = 0; i < 6; i++) await more.click();
+  await expect(rows(page)).toHaveCount(100);
+  await expect(counter(page)).toHaveText("Mostrando 100 de 100");
+  await expect(more).toHaveCount(0);
 });
 
 test("2. Bitcoin page: heading, range switch to 30 d updates URL and chart, facts visible", async () => {
@@ -142,7 +182,7 @@ test("3. unknown coin shows the not-found page and is not cached; an invalid id 
 test("4. outage: stale copy with its time after a good fetch; clear error with Reintentar without any copy", async () => {
   await clearCache();
   await page.goto("/mercado");
-  await expect(rows(page)).toHaveCount(100);
+  await expect(rows(page)).toHaveCount(10);
   await expect(page.getByText(/^Actualizado a las/)).toBeVisible();
 
   // Age the list copy past its 60 s TTL, then take the API down.
@@ -159,7 +199,7 @@ test("4. outage: stale copy with its time after a good fetch; clear error with R
     await page.reload();
     await expect(page.getByRole("status").filter({ hasText: /^No se pudo actualizar\. Datos de las \d{2}:\d{2}\.$/ })).toBeVisible();
     await expect(coinLink(page, "Bitcoin")).toBeVisible();
-    await expect(rows(page)).toHaveCount(100);
+    await expect(rows(page)).toHaveCount(10);
     await expect(page.getByText(/^Actualizado a las/)).toHaveCount(0);
 
     // No copy at all: a clear error, never an empty table.
@@ -175,22 +215,33 @@ test("4. outage: stale copy with its time after a good fetch; clear error with R
 
   // Back up: Reintentar loads fresh data.
   await page.getByRole("link", { name: "Reintentar" }).click();
-  await expect(rows(page)).toHaveCount(100);
+  await expect(rows(page)).toHaveCount(10);
   await expect(page.getByText(/^Actualizado a las/)).toBeVisible();
 });
 
-test("5. 375 px: no horizontal scroll (even with a very long coin name), secondary columns hidden; wider screens never scroll sideways either", async ({ browser }) => {
+test("5. 375 px: compact tappable rows, no horizontal scroll (even with a very long coin name); 320 to 1440 px never scroll sideways either", async ({ browser }) => {
+  // Many widths plus two coin-page loads: on a cold dev server this needs more than the default budget.
+  test.setTimeout(240_000);
   const mobile = await memberContext(browser, { width: 375, height: 812 });
   try {
     const m = await mobile.newPage();
     await m.goto("/mercado");
-    await expect(rows(m)).toHaveCount(100);
+    await expect(rows(m)).toHaveCount(10);
     const long = m.getByRole("table").getByRole("link", { name: LONG_NAME });
     await expect(long).toBeVisible();
     await expect(m.getByRole("columnheader", { name: "Capitalización" })).toBeHidden();
     await expect(m.getByRole("columnheader", { name: "Cripto" })).toBeVisible();
     await expect(m.getByRole("columnheader", { name: "Precio" })).toBeVisible();
-    await expect(m.getByRole("columnheader", { name: "24 h" })).toBeVisible();
+    // T-003 compact rows: # and 24 h fold into the Cripto and Precio cells (rank under the name, change under the price).
+    await expect(m.getByRole("columnheader", { name: "#" })).toBeHidden();
+    await expect(m.getByRole("columnheader", { name: "24 h" })).toBeHidden();
+    const btcRow = rows(m).first();
+    // (The hidden # cell is out of the accessibility tree, so reach the rank through the link.)
+    await expect(btcRow.getByRole("link").getByText("#1", { exact: true })).toBeVisible();
+    await expect(btcRow.locator("[data-compact-change]")).toBeVisible();
+    await expect(btcRow.locator("[data-compact-change]")).toHaveText(/^Cambio 24 h:[+-]?\d/);
+    // Every row is a comfortable target.
+    for (const h of await rows(m).evaluateAll((trs) => trs.map((tr) => tr.getBoundingClientRect().height))) expect(h).toBeGreaterThanOrEqual(44);
     const widths = await m.evaluate(() => ({
       doc: document.documentElement.scrollWidth,
       body: document.body.scrollWidth,
@@ -214,7 +265,7 @@ test("5. 375 px: no horizontal scroll (even with a very long coin name), seconda
 
     // Wider screens (ruling F4b-R4): more columns appear as the panel grows, but neither the page nor the panel ever
     // scrolls sideways, and the table stays inside <main>. The long-name row is still there.
-    for (const width of [768, 1024, 1280]) {
+    for (const width of [320, 414, 768, 1024, 1280, 1440]) {
       await m.setViewportSize({ width, height: 900 });
       await expect(long).toBeVisible();
       const fit = await m.evaluate(() => {
@@ -230,8 +281,44 @@ test("5. 375 px: no horizontal scroll (even with a very long coin name), seconda
       expect(fit.panelOverflow, `panel sideways overflow at ${width}px`).toBeLessThanOrEqual(0);
       expect(fit.panelRight, `table panel inside <main> at ${width}px`).toBeLessThanOrEqual(fit.mainRight);
     }
-    // At 1280 px <main> is wide enough for the first tier (7 d, Capitalización).
+    // At 1440 px <main> is wide enough for the first tiers (#, 24 h, 7 d, Capitalización).
     await expect(m.getByRole("columnheader", { name: "Capitalización" })).toBeVisible();
+    await expect(m.getByRole("columnheader", { name: "24 h" })).toBeVisible();
+    await expect(rows(m).first().locator("[data-compact-change]")).toBeHidden();
+
+    // The whole row is tappable: a tap on the price (outside the name link's own box) opens the coin.
+    await m.setViewportSize({ width: 375, height: 812 });
+    // (A real tap at the cell's centre: Playwright's locator click would refuse, since the link's ::after covers it.)
+    const priceBox = (await rows(m).first().locator("td").nth(2).boundingBox())!;
+    await m.mouse.click(priceBox.x + priceBox.width / 2, priceBox.y + priceBox.height / 2);
+    await expect(m).toHaveURL(/\/mercado\/bitcoin$/);
+    await expect(m.getByRole("heading", { level: 1, name: /^Bitcoin/ })).toBeVisible({ timeout: 30_000 });
+    // Coin page on a phone: the chart spans the content width, the four ranges share one row of thumb-sized targets,
+    // the key data are cards two per row, and nothing scrolls sideways (320 and 375 px).
+    for (const width of [320, 375]) {
+      await m.setViewportSize({ width, height: 812 });
+      const fit = await m.evaluate(() => {
+        const main = document.querySelector("main")!;
+        const cs = getComputedStyle(main);
+        const content = main.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const chart = document.querySelector("main figure svg[role=img]")!.getBoundingClientRect();
+        const tabs = [...document.querySelectorAll('nav[aria-label="Periodo del gráfico"] a')].map((a) => a.getBoundingClientRect());
+        const cards = [...document.querySelectorAll("main dl > div")].map((d) => d.getBoundingClientRect());
+        return {
+          doc: document.documentElement.scrollWidth,
+          content,
+          chart: chart.width,
+          tabTops: tabs.map((t) => Math.round(t.top)),
+          tabMin: Math.min(...tabs.flatMap((t) => [t.width, t.height])),
+          cardTops: cards.slice(0, 2).map((c) => Math.round(c.top)),
+        };
+      });
+      expect(fit.doc, `coin page scrollWidth at ${width}px`).toBeLessThanOrEqual(width);
+      expect(fit.chart).toBeGreaterThanOrEqual(fit.content - 1);
+      expect(new Set(fit.tabTops).size, "ranges on one row").toBe(1);
+      expect(fit.tabMin).toBeGreaterThanOrEqual(44);
+      expect(fit.cardTops[0]).toBe(fit.cardTops[1]);
+    }
 
     // The coin page header with the very long name and symbol at 375 px: no sideways scroll either.
     await m.setViewportSize({ width: 375, height: 812 });

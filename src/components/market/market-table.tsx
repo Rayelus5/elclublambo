@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowDown, ArrowUp, Minus } from "lucide-react";
+import { ChangeIcon, changeTone } from "@/components/market/change";
+import { MarketReveal } from "@/components/market/market-reveal";
 import { Sparkline } from "@/components/market/sparkline";
 import { formatChange, formatCompactUsd, formatPrice } from "@/lib/market/format";
 import type { MarketCoin } from "@/lib/market/types";
@@ -7,7 +8,9 @@ import { cn } from "@/lib/utils";
 
 // Ruling F4b-R4: the table always fits its panel (never a sideways scroll, inside or outside). Columns appear in tiers
 // by the PANEL's width (container queries), because the forum shell's sidebar and right rail make <main> narrower at
-// 1024 px than at 768 px. Base: #, Cripto, Precio, 24 h.
+// 1024 px than at 768 px. Base (T-003, compact exchange-style rows on a phone): Cripto (logo, name over symbol and
+// rank) and Precio (price over the 24 h change).
+const TIER_SM = "hidden @min-[26rem]:table-cell"; // #, 24 h as their own columns (panel ≥ 26rem: 768 px, 1024 px)
 const TIER_MD = "hidden @min-[38rem]:table-cell"; // 7 d, Capitalización (panel ≥ 38rem: fits at 1280 px with the rail)
 const TIER_LG = "hidden @3xl:table-cell"; // 7-day sparkline (≥ 48rem)
 const TIER_XL = "hidden @5xl:table-cell"; // 1 h, Volumen 24 h (≥ 64rem)
@@ -16,11 +19,10 @@ const td = "px-3 py-2 text-right tabular-nums";
 
 function Change({ value, tier }: { value: number | null; tier?: string }) {
   const { text, dir } = formatChange(value);
-  const Icon = dir === "up" ? ArrowUp : dir === "down" ? ArrowDown : Minus;
   return (
-    <td className={cn(td, tier, dir === "up" && "text-success", dir === "down" && "text-danger", dir === "flat" && "text-fg-muted")}>
+    <td className={cn(td, tier, "whitespace-nowrap", changeTone(dir))}>
       <span className="inline-flex items-center justify-end gap-1">
-        <Icon className="size-3.5 shrink-0" aria-hidden />
+        <ChangeIcon dir={dir} />
         {text}
       </span>
     </td>
@@ -33,79 +35,103 @@ function trendLabel(c: MarketCoin): string {
   return `Tendencia de 7 días de ${c.name}: ${last > first ? "sube" : last < first ? "baja" : "sin cambios"}`;
 }
 
+const head = (
+  <thead>
+    <tr className="border-b border-border">
+      <th scope="col" className={cn(th, TIER_SM, "w-10 text-left")}>
+        #
+      </th>
+      <th scope="col" className={cn(th, "text-left")}>
+        Cripto
+      </th>
+      <th scope="col" className={th}>
+        Precio
+      </th>
+      <th scope="col" className={cn(th, TIER_XL)}>
+        1 h
+      </th>
+      <th scope="col" className={cn(th, TIER_SM)}>
+        24 h
+      </th>
+      <th scope="col" className={cn(th, TIER_MD)}>
+        7 d
+      </th>
+      <th scope="col" className={cn(th, TIER_MD)}>
+        Capitalización
+      </th>
+      <th scope="col" className={cn(th, TIER_XL)}>
+        Volumen 24 h
+      </th>
+      <th scope="col" className={cn(th, TIER_LG)}>
+        7 días
+      </th>
+    </tr>
+  </thead>
+);
+
+function Row({ c, rank }: { c: MarketCoin; rank: number }) {
+  const day = formatChange(c.change24h);
+  return (
+    // The whole row is the hit area through the name link's stretched ::after (the row is its containing block). The
+    // row itself is not a link: the table keeps its row/cell semantics and each coin is a single tab stop.
+    <tr className="relative border-b border-border transition-colors duration-150 last:border-b-0 hover:bg-surface-2 has-[a:active]:bg-surface-2 motion-reduce:transition-none">
+      <td className={cn(TIER_SM, "px-3 py-2 text-left tabular-nums text-fg-muted")}>{rank}</td>
+      {/* w-full + max-w-0: this column takes the leftover width and never grows past it, so a long name is truncated
+          inside the cell instead of widening the table. */}
+      <td className="w-full max-w-0 px-3 py-2 text-left">
+        <Link
+          href={`/mercado/${c.id}`}
+          className="flex min-h-11 max-w-full items-center gap-3 outline-none after:absolute after:inset-0 after:content-[''] focus-visible:after:ring-2 focus-visible:after:ring-accent focus-visible:after:ring-inset"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- remote CoinGecko icon, host-checked in the client */}
+          {c.image ? <img src={c.image} alt="" width={28} height={28} loading="lazy" className="size-7 shrink-0 rounded-full" /> : null}
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-bold text-fg" title={c.name}>
+              {c.name}
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5 text-[13px] text-fg-muted">
+              <span className="shrink-0 tabular-nums @min-[26rem]:hidden">{`#${rank}`}</span>
+              {/* Untrusted length: capped and truncated so it never widens or spills out of the cell. */}
+              <span className="min-w-0 max-w-[6ch] truncate uppercase" title={c.symbol.toUpperCase()}>
+                {c.symbol}
+              </span>
+            </span>
+          </span>
+        </Link>
+      </td>
+      <td className={cn(td, "whitespace-nowrap")}>
+        <span className="block">{formatPrice(c.priceUsd)}</span>
+        {/* Compact rows: the 24 h change sits under the price until the 24 h column has room of its own. */}
+        <span data-compact-change className={cn("mt-0.5 flex items-center justify-end gap-1 text-[13px] @min-[26rem]:hidden", changeTone(day.dir))}>
+          <span className="sr-only">Cambio 24 h:</span>
+          <ChangeIcon dir={day.dir} />
+          {day.text}
+        </span>
+      </td>
+      <Change value={c.change1h} tier={TIER_XL} />
+      <Change value={c.change24h} tier={TIER_SM} />
+      <Change value={c.change7d} tier={TIER_MD} />
+      <td className={cn(td, TIER_MD, "whitespace-nowrap")}>{formatCompactUsd(c.marketCapUsd)}</td>
+      <td className={cn(td, TIER_XL, "whitespace-nowrap")}>{formatCompactUsd(c.volumeUsd)}</td>
+      <td className={cn(td, TIER_LG)}>
+        <span className="inline-flex justify-end">
+          <Sparkline points={c.sparkline7d} label={trendLabel(c)} />
+        </span>
+      </td>
+    </tr>
+  );
+}
+
 export function MarketTable({ coins }: { coins: MarketCoin[] }) {
   return (
     <div className="@container rounded-panel border border-border bg-surface" data-testid="market-table-panel">
-      <table className="w-full border-collapse text-sm">
-        <caption className="sr-only">Las 100 criptos con mayor capitalización</caption>
-        <thead>
-          <tr className="border-b border-border">
-            <th scope="col" className={cn(th, "w-10 text-left")}>
-              #
-            </th>
-            <th scope="col" className={cn(th, "text-left")}>
-              Cripto
-            </th>
-            <th scope="col" className={th}>
-              Precio
-            </th>
-            <th scope="col" className={cn(th, TIER_XL)}>
-              1 h
-            </th>
-            <th scope="col" className={th}>
-              24 h
-            </th>
-            <th scope="col" className={cn(th, TIER_MD)}>
-              7 d
-            </th>
-            <th scope="col" className={cn(th, TIER_MD)}>
-              Capitalización
-            </th>
-            <th scope="col" className={cn(th, TIER_XL)}>
-              Volumen 24 h
-            </th>
-            <th scope="col" className={cn(th, TIER_LG)}>
-              7 días
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {coins.map((c, i) => (
-            <tr key={c.id} className="border-b border-border last:border-b-0">
-              <td className="px-3 py-2 text-left tabular-nums text-fg-muted">{c.rank ?? i + 1}</td>
-              {/* w-full + max-w-0: this column takes the leftover width and never grows past it, so a long name is
-                  truncated inside the cell instead of widening the table. */}
-              <td className="w-full max-w-0 px-3 py-2 text-left">
-                <Link
-                  href={`/mercado/${c.id}`}
-                  className="flex min-h-11 max-w-full items-center gap-2 rounded-control font-bold outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- remote CoinGecko icon, host-checked in the client */}
-                  {c.image ? <img src={c.image} alt="" width={20} height={20} loading="lazy" className="size-5 shrink-0 rounded-full" /> : null}
-                  <span className="min-w-0 truncate" title={c.name}>
-                    {c.name}
-                  </span>
-                  {/* Untrusted length: capped and truncated so it never widens or spills out of the cell. */}
-                  <span className="min-w-0 max-w-[6ch] truncate text-[13px] font-normal text-fg-muted uppercase" title={c.symbol.toUpperCase()}>
-                    {c.symbol}
-                  </span>
-                </Link>
-              </td>
-              <td className={cn(td, "whitespace-nowrap")}>{formatPrice(c.priceUsd)}</td>
-              <Change value={c.change1h} tier={TIER_XL} />
-              <Change value={c.change24h} />
-              <Change value={c.change7d} tier={TIER_MD} />
-              <td className={cn(td, TIER_MD, "whitespace-nowrap")}>{formatCompactUsd(c.marketCapUsd)}</td>
-              <td className={cn(td, TIER_XL, "whitespace-nowrap")}>{formatCompactUsd(c.volumeUsd)}</td>
-              <td className={cn(td, TIER_LG)}>
-                <span className="inline-flex justify-end">
-                  <Sparkline points={c.sparkline7d} label={trendLabel(c)} />
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <MarketReveal
+        caption="Las 100 criptos con mayor capitalización"
+        head={head}
+        rows={coins.map((c, i) => (
+          <Row key={c.id} c={c} rank={c.rank ?? i + 1} />
+        ))}
+      />
     </div>
   );
 }

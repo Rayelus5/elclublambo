@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { MarketTable } from "@/components/market/market-table";
 import type { MarketCoin } from "@/lib/market/types";
@@ -40,7 +40,8 @@ describe("MarketTable", () => {
   });
   it("shows signed variations with an aria-hidden arrow and token colours", () => {
     render(<MarketTable coins={[btc]} />);
-    const up = screen.getByText("+2,35 %");
+    const cells = within(screen.getAllByRole("row")[1]!).getAllByRole("cell");
+    const up = within(cells[4]!).getByText("+2,35 %");
     expect(up.closest("td")).toHaveClass("text-success");
     expect(up.closest("td")!.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
     const down = screen.getByText("-3,20 %");
@@ -52,15 +53,19 @@ describe("MarketTable", () => {
   // <main> narrower at 1024 px (about 440 px) than at 768 px (about 504 px).
   //   base: #, Cripto, Precio, 24 h · "md" tier (@min-[38rem]): 7 d, Capitalización · "lg" tier (@3xl, 48rem): 7-day
   //   sparkline · "xl" tier (@5xl, 64rem): 1 h, Volumen 24 h.
-  const TIERS = ["@min-[38rem]", "@3xl", "@5xl"] as const;
+  // T-003: below 26rem the panel shows compact exchange-style rows (logo, name over symbol, price over the 24 h
+  // change), so # and the 24 h column join the tiers too.
+  const TIERS = ["@min-[26rem]", "@min-[38rem]", "@3xl", "@5xl"] as const;
   const SHOW_FROM: Record<string, { index: number; tier: (typeof TIERS)[number] }> = {
+    "#": { index: 0, tier: "@min-[26rem]" },
+    "24 h": { index: 4, tier: "@min-[26rem]" },
     "7 d": { index: 5, tier: "@min-[38rem]" },
     Capitalización: { index: 6, tier: "@min-[38rem]" },
     "7 días": { index: 8, tier: "@3xl" },
     "1 h": { index: 3, tier: "@5xl" },
     "Volumen 24 h": { index: 7, tier: "@5xl" },
   };
-  it("shows #, Cripto, Precio and 24 h always and the rest by panel-width tier", () => {
+  it("shows Cripto and Precio always and the rest by panel-width tier", () => {
     render(<MarketTable coins={[btc]} />);
     const cells = within(screen.getAllByRole("row")[1]!).getAllByRole("cell");
     for (const [name, { index, tier }] of Object.entries(SHOW_FROM)) {
@@ -71,8 +76,31 @@ describe("MarketTable", () => {
         expect(el.className).not.toMatch(/(^|\s)(md|lg|xl):table-cell/);
       }
     }
-    for (const name of ["#", "Cripto", "Precio", "24 h"]) expect(screen.getByRole("columnheader", { name })).not.toHaveClass("hidden");
-    for (const i of [0, 1, 2, 4]) expect(cells[i]).not.toHaveClass("hidden");
+    for (const name of ["Cripto", "Precio"]) expect(screen.getByRole("columnheader", { name })).not.toHaveClass("hidden");
+    for (const i of [1, 2]) expect(cells[i]).not.toHaveClass("hidden");
+  });
+  it("compact rows: the price cell carries the 24 h change and the name cell the rank, only below the first tier", () => {
+    render(<MarketTable coins={[btc]} />);
+    const cells = within(screen.getAllByRole("row")[1]!).getAllByRole("cell");
+    const compactChange = within(cells[2]!).getByText("+2,35 %").closest("[data-compact-change]")!;
+    expect(compactChange).toHaveClass("@min-[26rem]:hidden", "text-success");
+    expect(compactChange.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(within(compactChange as HTMLElement).getByText("Cambio 24 h:")).toHaveClass("sr-only");
+    const rank = within(cells[1]!).getByText("#1");
+    expect(rank).toHaveClass("@min-[26rem]:hidden");
+    // Exchange-style: name over symbol.
+    expect(within(cells[1]!).getByText("Bitcoin").parentElement).toHaveClass("flex-col");
+  });
+  // The whole row is the hit area, but the only link stays in the name cell (stretched with a pseudo-element), so the
+  // table keeps its row/cell semantics and each row is one tab stop.
+  it("makes the whole row tappable through one stretched link in the name cell", () => {
+    render(<MarketTable coins={[btc]} />);
+    const row = screen.getAllByRole("row")[1]!;
+    expect(row).toHaveClass("relative");
+    const links = within(row).getAllByRole("link");
+    expect(links).toHaveLength(1);
+    expect(links[0]).toHaveClass("after:absolute", "after:inset-0");
+    expect(links[0]!.closest("td")).toBe(within(row).getAllByRole("cell")[1]);
   });
   it("is a size container that never scrolls sideways", () => {
     const { container } = render(<MarketTable coins={[btc]} />);
@@ -88,13 +116,51 @@ describe("MarketTable", () => {
     expect(row.querySelector("[role=img]")).toBeNull();
     expect(container.textContent).not.toMatch(/NaN|undefined|null/);
   });
-  it("renders the image only when present, 20x20, lazy, decorative", () => {
+  it("renders the image only when present, 28x28, lazy, decorative", () => {
     render(<MarketTable coins={[btc]} />);
     const img = screen.getAllByRole("row")[1]!.querySelector("img")!;
     expect(img).toHaveAttribute("src", btc.image!);
-    expect(img).toHaveAttribute("width", "20");
-    expect(img).toHaveAttribute("height", "20");
+    expect(img).toHaveAttribute("width", "28");
+    expect(img).toHaveAttribute("height", "28");
     expect(img).toHaveAttribute("alt", "");
     expect(img).toHaveAttribute("loading", "lazy");
+  });
+
+  // T-005: ten at a time over the data already on the page.
+  describe("Ver más", () => {
+    const many = (n: number): MarketCoin[] =>
+      Array.from({ length: n }, (_, k) => ({ ...btc, id: `coin-${k + 1}`, name: `Coin ${k + 1}`, rank: k + 1 }));
+    const bodyRows = () => screen.getAllByRole("row").slice(1);
+    const counter = () => screen.getByText(/^Mostrando \d+ de \d+$/);
+
+    it("shows the first ten and a live counter", () => {
+      render(<MarketTable coins={many(25)} />);
+      expect(bodyRows()).toHaveLength(10);
+      expect(counter()).toHaveTextContent("Mostrando 10 de 25");
+      expect(counter()).toHaveAttribute("aria-live", "polite");
+      expect(screen.getByRole("button", { name: "Ver más" })).toBeInTheDocument();
+    });
+
+    it("reveals ten more per click, moves focus to the first new row and hides the button at the end", () => {
+      render(<MarketTable coins={many(25)} />);
+      const more = screen.getByRole("button", { name: "Ver más" });
+      expect(more.className).toContain("min-h-11");
+      fireEvent.click(more);
+      expect(bodyRows()).toHaveLength(20);
+      expect(counter()).toHaveTextContent("Mostrando 20 de 25");
+      expect(document.activeElement).toBe(within(bodyRows()[10]!).getByRole("link", { name: /Coin 11/ }));
+      fireEvent.click(screen.getByRole("button", { name: "Ver más" }));
+      expect(bodyRows()).toHaveLength(25);
+      expect(counter()).toHaveTextContent("Mostrando 25 de 25");
+      expect(document.activeElement).toBe(within(bodyRows()[20]!).getByRole("link", { name: /Coin 21/ }));
+      expect(screen.queryByRole("button", { name: "Ver más" })).toBeNull();
+    });
+
+    it("has no button when everything fits in the first page", () => {
+      render(<MarketTable coins={many(7)} />);
+      expect(bodyRows()).toHaveLength(7);
+      expect(counter()).toHaveTextContent("Mostrando 7 de 7");
+      expect(screen.queryByRole("button", { name: "Ver más" })).toBeNull();
+    });
   });
 });
