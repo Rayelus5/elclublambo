@@ -265,6 +265,31 @@ test("5b. el mismo texto enviado desde otra pestaña no se adopta: el fallido si
   await expect(messageWith(memberPage, text)).toHaveCount(2);
 });
 
+test("5c. un mensaje fallido no se pierde al cambiar de canal y volver", async () => {
+  const text = "fallido que vuelve";
+  simulatingNetworkFailure = true;
+  await adminPage.route(`**/c/${channelId}`, async (route) => {
+    const req = route.request();
+    if (req.method() === "POST" && req.headers()["next-action"] && (req.postData() ?? "").includes(text)) await route.abort();
+    else await route.fallback();
+  });
+  await send(adminPage, text);
+  await expect(messageWith(adminPage, text)).toContainText("No se ha enviado.");
+  await adminPage.unrouteAll({ behavior: "ignoreErrors" });
+  simulatingNetworkFailure = false;
+
+  await adminPage.getByRole("navigation", { name: "Canales" }).getByRole("link", { name: /^General( sin leer)?$/ }).click();
+  await expect(adminPage.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
+  await adminPage.goto(`/c/${channelId}`);
+  await hydrated(adminPage);
+  const row = messageWith(adminPage, text);
+  await expect(row).toContainText("No se ha enviado.");
+  await row.getByRole("button", { name: "Reintentar" }).click();
+  await expect(row).not.toContainText("No se ha enviado.");
+  await expect.poll(() => countInDb(text)).toBe(1);
+  await expect(messageWith(memberPage, text)).toHaveCount(1);
+});
+
 test("6. con «reducir movimiento» no hay animación de entrada", async () => {
   await adminPage.emulateMedia({ reducedMotion: "reduce" });
   await adminPage.goto(`/c/${channelId}`);
