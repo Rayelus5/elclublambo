@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MarketTable } from "@/components/market/market-table";
 import type { MarketCoin } from "@/lib/market/types";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }) }));
 
 const btc: MarketCoin = {
   id: "bitcoin",

@@ -35,6 +35,8 @@ function Row({ c }: { c: MarketRowData }) {
       <td className="w-full max-w-0 px-3 py-2 text-left">
         <Link
           href={c.href}
+          // Prefetched on intent by MarketRow instead of on entering the viewport (T-006).
+          prefetch={false}
           // Its keyboard focus is drawn as an outline around the whole row (MarketRow), plus an underline here.
           className="flex min-h-11 max-w-full items-center gap-3 underline-offset-4 outline-none focus-visible:underline"
         >

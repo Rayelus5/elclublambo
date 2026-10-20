@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MarketRow } from "@/components/market/market-row";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const prefetch = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, prefetch }) }));
 
 // The row is the big touch target; the name link stays the one keyboard/screen-reader affordance (T-003 review).
 function renderRow() {
@@ -27,7 +28,29 @@ function renderRow() {
 }
 
 describe("MarketRow", () => {
-  beforeEach(() => push.mockClear());
+  beforeEach(() => {
+    push.mockClear();
+    prefetch.mockClear();
+  });
+
+  // T-006: the list holds up to 100 coin links; they are prefetched on intent (pointer over the row, a touch or keyboard
+  // focus), not each one as it scrolls into view.
+  it("prefetches the coin once when the pointer, a touch or the focus reaches the row", () => {
+    const row = renderRow();
+    expect(prefetch).not.toHaveBeenCalled();
+    fireEvent.pointerEnter(row);
+    expect(prefetch).toHaveBeenCalledWith("/mercado/bitcoin");
+    fireEvent.pointerEnter(row);
+    fireEvent.touchStart(row);
+    fireEvent.focus(screen.getByRole("link", { name: "Bitcoin" }));
+    expect(prefetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefetches on keyboard focus of the link", () => {
+    renderRow();
+    fireEvent.focus(screen.getByRole("link", { name: "Bitcoin" }));
+    expect(prefetch).toHaveBeenCalledWith("/mercado/bitcoin");
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it("opens the coin on a plain click anywhere in the row", () => {
