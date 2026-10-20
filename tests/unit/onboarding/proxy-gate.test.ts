@@ -121,6 +121,42 @@ describe("proxy welcome memo", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/bienvenida");
   });
 
+  it("keeps the memo a year, httpOnly, lax, on the whole site, and not Secure on a plain-http site", async () => {
+    state.row = done;
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    const cookie = (await call("/")).cookies.get("ecl_welcomed");
+    expect(cookie).toMatchObject({ value: "u1", httpOnly: true, sameSite: "lax", path: "/", maxAge: 31_536_000 });
+    expect(cookie?.secure).toBeFalsy();
+  });
+
+  // Same rule as HSTS (F5-R4): behind the Cloudflare Tunnel the request reaches Next as http://web:3000, so the
+  // request protocol cannot decide it; the public site URL does.
+  it("is Secure whenever the public site URL is https, even when the request arrives over http", async () => {
+    state.row = done;
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.elclub.party";
+    try {
+      const cookie = (await call("/")).cookies.get("ecl_welcomed");
+      expect(cookie?.secure).toBe(true);
+    } finally {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    }
+  });
+
+  it("clears the memo once the session is gone (signed out)", async () => {
+    state.user = null;
+    const res = await call("/", { headers: { cookie: "ecl_welcomed=u1" } });
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    const cleared = res.cookies.get("ecl_welcomed");
+    expect(cleared?.value).toBe("");
+    expect(cleared?.maxAge === 0 || (cleared?.expires instanceof Date && cleared.expires.getTime() <= Date.now())).toBe(true);
+  });
+
+  it("leaves a signed-out request without the memo alone", async () => {
+    state.user = null;
+    const res = await call("/");
+    expect(res.cookies.get("ecl_welcomed")).toBeUndefined();
+  });
+
   it("does not set the memo while the welcome is pending, nor for a non-member", async () => {
     const pending = await call("/");
     expect(pending.cookies.get("ecl_welcomed")).toBeUndefined();

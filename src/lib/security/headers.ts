@@ -67,7 +67,8 @@ function originOf(url: string | undefined): URL | null {
   }
 }
 
-const isHttps = (url: string | undefined) => originOf(url)?.protocol === "https:";
+/** True for an https: URL (the public site URL decides HSTS, upgrade-insecure-requests and Secure cookies). */
+export const isHttps = (url: string | undefined) => originOf(url)?.protocol === "https:";
 
 /** The origin plus its WebSocket twin (Realtime): wss: for https:, ws: for http:. */
 function withSocket(url: string | undefined): string[] {
