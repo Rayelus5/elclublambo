@@ -36,7 +36,7 @@
 
 | Total | ⬜ | 🔄 | ❓ | ✅ | ⏭️ |
 |---|---|---|---|---|---|
-| 7 | 1 | 0 | 0 | 6 | 0 |
+| 7 | 0 | 0 | 0 | 7 | 0 |
 
 ---
 
@@ -358,7 +358,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 ## 5. Rendimiento y técnica
 
 ### T-006 · Auditoría y optimización de las peticiones al navegar
-- **Estado:** ⬜
+- **Estado:** ✅
 - **Prioridad:** P1
 - **Tipo:** rendimiento
 - **Dónde:** toda la web, sobre todo al cambiar de página y de canal.
@@ -388,8 +388,103 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
     de arriba;
   - todo sigue funcionando (e2e en verde).
 - **Capturas / referencias:** —
-- **Notas de la IA:** —
-- **Hecho en:** —
+- **Notas de la IA:**
+  - **Cómo se ha medido.**
+    - **PRE** pide la firma de una cartera real, así que sin el humano solo se pudo medir sin sesión: `/` redirige a
+      `/login`, con 48 peticiones, 973 KB, unos 0,5 s (3,4 s la primera vez, en frío) y 2 llamadas a Reown
+      (`api.web3modal.org`). Los recorridos con sesión se midieron en local.
+    - **Local:** build de producción (`next build && next start`, el mismo entorno que `E2E_PROD=1`), con la cadena y
+      CoinGecko simulados del e2e, y la BD recién reiniciada con 40 mensajes en General y en Noticias. Entra el
+      superadmin del e2e, a 1440×900.
+    - «Antes» es `6783267` (develop + la ronda escrita), en un worktree temporal; «después» son estos commits. Cada
+      recorrido se hizo 3 veces, tras una ronda de calentamiento, y la tabla da la mediana.
+    - Las consultas del servidor se contaron envolviendo el `fetch` de los clientes Supabase del proxy, del render y
+      de servicio. Esa instrumentación no está commiteada.
+  - **Tabla.** «Tiempo» va del clic (o del `goto`) a ver el contenido: el h1 y el último mensaje en los canales, la
+    tabla en Mercado. «Supabase» son las llamadas REST/RPC del navegador. «Consultas servidor» son las que hace el
+    proxy más las del render y las acciones.
+
+    | Recorrido | | Peticiones | KB | Tiempo | RSC nav / prefetch (KB) | Acciones de servidor | Supabase | Realtime join / leave | Terceros | Consultas servidor (proxy + render) |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | Inicio (primera carga) | antes | 79 | 1154 | 513 ms | 0 / 25 (75) | 0 | 3 | 2 / 0 | 2 | 55 + 21 |
+    | | después | 73 | 1153 | 442 ms | 0 / 19 (62) | 0 | 3 | 2 / 0 | 2 | **23** + 21 |
+    | Inicio → General | antes | 13 | 220 | 415 ms | 1 / 0 (7) | 1 | 7 | 3 / 1 | 1 | 5 + 16 |
+    | | después | 13 | 215 | 419 ms | 1 / 0 (8) | **0** | 8 | 2 / **0** | 1 | **2** + 15 |
+    | General → Noticias | antes | 9 | 12 | 425 ms | 1 / 0 (7) | 1 | 7 | 3 / 3 | 0 | 5 + 16 |
+    | | después | 9 | 12 | 404 ms | 1 / 0 (8) | **0** | 8 | **1 / 1** | 0 | **2** + 15 |
+    | Noticias → Mercado | antes | 12 | 191 | 441 ms | 1 / 5 (175) | 0 | 3 | 1 / 3 | 2 | 12 + 1 |
+    | | después | **7** | **29** | **129 ms** | 1 / **0** (**10**) | 0 | 3 | 0 / 2 | 2 | **1** + 1 |
+    | Mercado → DAO | antes | 7 | 26 | 184 ms | 1 / 2 (8) | 0 | 3 | 1 / 0 | 0 | 8 + 10 |
+    | | después | 7 | 26 | 170 ms | 1 / 2 (8) | 0 | 3 | 1 / 0 | 0 | **5** + 9 |
+
+    En la primera carga hay 6 prefetch menos (25 → 19) por T-007, no por esta tarea: Miembros, Reportes y Ajustes
+    ahora están dentro del menú «Más» y no se precargan. El resto de la bajada del proxy en esa fila (39 → 23) es la
+    cookie de bienvenida (arreglo 1). Los tiempos de Inicio y de los canales están dentro del ruido local; donde hay
+    una mejora clara es en Mercado.
+  - **Lo que dicen los datos sobre los sospechosos.**
+    1. **Prefetch de la barra lateral:** sí, pero acotado. Con `partialPrefetching`, cada enlace visible cuesta una
+       petición pequeña (≈3 KB, el árbol de la ruta) más una por ruta (el App Shell, compartido). No se repiten al
+       volver a pintar. Lo caro estaba en el servidor: cada prefetch pasa por el proxy, que validaba la sesión, leía
+       la bienvenida y, para `/c/<id>`, comprobaba el canal (55 consultas en la primera carga). Next quita las
+       cabeceras del router antes de llamar al proxy, así que este no puede distinguir un prefetch de una navegación.
+       Lo intenté (2e378ff) y lo revertí (deb44b4) al ver que la medición no cambiaba.
+    2. **Consultas repetidas en el render:** no se confirma. Dentro de una misma petición no hay lecturas duplicadas
+       (`getVisibleChannels`, `getLockState` y `getEconomyConfig` ya usan `cache()`). El segundo `current_member_id`
+       de la primera carga es del `after()` de pagos, que ya tiene su límite. No he añadido `cache()` donde no aporta.
+    3. **Realtime:** sí. Al cambiar de canal, el panel derecho se vuelve a montar y salía y volvía a entrar en
+       `activity` y `presence` en cada cambio (3 joins y 3 leaves). Además, dos oyentes del mismo tema (la lista de
+       miembros y una tarjeta de miembro abierta) se quitaban el canal el uno al otro como «zombi».
+    4. **Trabajo de fondo del layout:** el latido de presencia solo se envía al cargar y cada `BEAT_MS`, y
+       `after()` ya tiene su límite. Al navegar se repiten `my_unread_channels` (dos veces en un canal: al cambiar
+       de ruta y después de marcar leído) y `my_unread_notification_count`. Son RPC pequeñas y mantienen frescos los
+       puntos y el contador, así que se quedan. Lo que sí sobraba era la acción de servidor de «marcar leído».
+    5. **Terceros:** Reown hace 2 peticiones (`config` y `project-limits`) en cada carga completa, no al navegar.
+       Quitarlas pediría iniciar AppKit solo al abrir la cartera, lo que es un cambio de arquitectura del login y los
+       pagos y queda fuera. DiceBear sale una vez y luego lo sirve la caché del navegador. Las imágenes de CoinGecko
+       se cargan en diferido.
+  - **Arreglos** (uno por commit, con TDD):
+    1. **Cookie de bienvenida en el proxy** (3a5ef72). La bienvenida se marca una vez y nunca se deshace
+       (`coalesce`). Así que, cuando el proxy la ve completada, guarda una cookie httpOnly `ecl_welcomed` con el id del
+       usuario, y en las siguientes peticiones (también los prefetch) no vuelve a leer `members`. Si la cookie es de
+       otro usuario, se ignora. Es una puerta de UX: el layout del foro vuelve a leer la fila en cada render completo.
+    2. **«Marcar leído» con una RPC directa** (84e69a4). Antes era una acción de servidor que, en cada visita a un
+       canal, costaba un POST a Next, con sesión, bienvenida y guarda del canal en el proxy, solo para llamar a
+       `mark_channel_read`. Ahora es una RPC desde el navegador; la función está concedida a `authenticated` y toma
+       al miembro de la sesión.
+    3. **Un canal compartido por tema de Realtime** (c3203a4). `usePrivateTopic` reparte un único canal entre todos
+       los oyentes de un tema, y lo mantiene 1,5 s tras el último. Un remontaje lo recoge sin leave ni join. Los
+       eventos llegan a cada oyente por su nombre, y el aviso de resync sigue llegando a todos.
+    4. **Mercado como datos planos** (e64f622). La carga RSC llevaba las 100 filas ya pintadas: clases, iconos y una
+       sparkline de 168 puntos por fila (175 KB). Ahora el servidor manda un objeto pequeño por cripto
+       (`MarketRowData`) con las cifras ya formateadas, así que no hay `Intl` en el cliente ni desajustes de
+       hidratación. La sparkline se reduce a 48 puntos con un decimal, y el cliente dibuja solo las filas que enseña.
+       «Ver más» sigue sin pedir nada. La navegación a Mercado pasa de 175 KB a 10 KB de RSC.
+    5. **Prefetch de las criptos por intención** (8e86c9f). Los enlaces `/mercado/<id>` llevan `prefetch={false}`, y
+       la fila los precarga una vez al pasar el puntero, al tocarla o al enfocar su enlace. Así, revelar filas ya no
+       dispara un prefetch por fila.
+    6. **Pruebas intermitentes** (a79579f). La causa no era la carga en sí:
+       - los diálogos de pago escribían tecla a tecla un hash de 66 caracteres, lo que costaba ~1,1 s por prueba
+         (cada tecla vuelve a pintar el diálogo) y pasaba de 5 s con la suite en paralelo. Ahora el hash se pega
+         (0,15 s);
+       - `appkit-config` cargaba `viem/chains` de cero tras `resetModules` (1,1 s). Las redes no están bajo prueba y
+         ahora se simulan (18 ms). No he subido ningún timeout.
+    7. **Resto de T-004** (3d1fc15): el comentario de la rama de conflicto de `_post_message_core` ahora dice que es la
+       última red, que `post_message` sí notificaría sobre el id devuelto y que es inalcanzable por el bloqueo por
+       clave.
+  - **Frescura:** permisos, mensajes y saldos no se cachean en ningún sitio nuevo. Lo único que se recuerda es la
+    bienvenida, que no se puede deshacer.
+  - **Pruebas:**
+    - unitarias: 2965;
+    - `pnpm db:test`: 78 ficheros;
+    - e2e completo con `E2E_PROD=1`: 135 pasan, 11 se saltan (solo desarrollo) y falló 1, `f3a-profiles` 4. El fallo
+      era de T-007: la prueba buscaba el texto «MODO PRUEBA · Linea Sepolia», que a 1280 px ahora está oculto tras la
+      etiqueta compacta. Ahora la busca por su nombre accesible (79a1094), y el fichero pasa entero (6/6).
+  - **Para revisar:**
+    - Cada enlace visible sigue costando en el servidor la validación de la sesión (`getUser`), y en `/c/<id>` la
+      guarda del canal, porque el proxy no ve los prefetch.
+    - Si un día los proyectos de Supabase firman con claves asimétricas, `getClaims()` en el proxy validaría el JWT
+      sin ir al servidor de auth. Es un cambio de seguridad que conviene decidir aparte.
+- **Hecho en:** 84e69a4, c3203a4, e64f622, 8e86c9f, a79579f, 3a5ef72, 3d1fc15, 79a1094 (2e378ff revertido en deb44b4)
 
 ## 6. Otros / ideas sueltas
 
@@ -408,3 +503,4 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 | 2026-10-20 | T-005, T-003 | 2769c21, e5b08d7 | Mercado de 10 en 10 con «Ver más» sin peticiones; filas compactas tocables en móvil; detalle con rango segmentado y datos en tarjetas. |
 | 2026-10-20 | T-007 | 713e0b2 | Barra superior sin solapes: pestañas de miembro + menú «Más» para el personal, controles compactos por ancho; e2e de geometría a 768-1440 px. |
 | 2026-10-20 | T-004 | 00f4ec3…2b1e88e, 80387e3…99078d0 | Chat vivo: entrada animada solo de lo nuevo, envío optimista con reintento sin duplicados, pastilla «N mensajes nuevos», separadores de día, reacciones animadas, resaltado `?m=` con fundido y esqueleto del historial; e2e con dos navegadores. Revisión R1-3: idempotencia real con `messages.client_id` en `post_message` (migración + pgTAP), sin heurística de texto. |
+| 2026-10-20 | T-006 | 84e69a4…79a1094 | Auditoría de peticiones medida antes/después (build de producción local, 3 pasadas; PRE solo sin sesión): bienvenida recordada en cookie en el proxy (55 → 23 consultas en la primera carga, junto con T-007), «marcar leído» por RPC directa, un canal Realtime compartido por tema, Mercado como datos planos (175 → 10 KB de RSC) con prefetch por intención, causa de las pruebas intermitentes y comentario de R1-3. |
