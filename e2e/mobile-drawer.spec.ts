@@ -63,10 +63,28 @@ for (const [label, size] of [
     await last.scrollIntoViewIfNeeded();
     await expect(last).toBeInViewport({ ratio: 1 });
 
+    // The close button stays pinned while the menu is scrolled to the bottom, and closes the drawer.
+    await expect(drawer.getByRole("button", { name: "Cerrar" })).toBeInViewport({ ratio: 1 });
+
     // Tapping a link closes the drawer.
     await last.click();
     await expect(drawer).toBeHidden();
     await expect(page).toHaveURL(/\/c\//);
+    await context.close();
+  });
+
+  test(`el botón Cerrar sigue fijo tras bajar y cierra el cajón (${label})`, async ({ browser }) => {
+    const context = await browser.newContext({ viewport: size, hasTouch: true });
+    await loginAs(context, E2E_SUPER_ADMIN_PK);
+    const page = await context.newPage();
+    const drawer = await openDrawer(page);
+    await drawer.hover();
+    for (let i = 0; i < 12; i++) await page.mouse.wheel(0, 400);
+    await expect(drawer.getByRole("link", { name: /Mi perfil/ })).toBeInViewport({ ratio: 1 });
+    const close = drawer.getByRole("button", { name: "Cerrar" });
+    await expect(close).toBeInViewport({ ratio: 1 });
+    await close.click();
+    await expect(drawer).toBeHidden();
     await context.close();
   });
 }
