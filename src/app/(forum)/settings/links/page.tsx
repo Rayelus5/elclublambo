@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { DomainList } from "@/components/settings/domain-list";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
@@ -31,7 +32,7 @@ async function LinksContent() {
 
 export default function LinksSettingsPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <LinksContent />
     </Suspense>
   );

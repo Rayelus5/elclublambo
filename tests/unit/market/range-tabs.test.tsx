@@ -22,4 +22,12 @@ describe("RangeTabs", () => {
     render(<RangeTabs id="bitcoin" active="7" />);
     for (const a of screen.getAllByRole("link")) expect(a.className).toContain("min-h-11");
   });
+
+  // T-003: on a phone the four ranges share the full width as one segmented control (big thumb targets).
+  it("spreads the ranges over the full width on narrow screens", () => {
+    render(<RangeTabs id="bitcoin" active="7" />);
+    const nav = screen.getByRole("navigation", { name: "Periodo del gráfico" });
+    expect(nav).toHaveClass("grid", "grid-cols-4", "sm:inline-grid");
+    for (const a of screen.getAllByRole("link")) expect(a).toHaveClass("min-w-11");
+  });
 });

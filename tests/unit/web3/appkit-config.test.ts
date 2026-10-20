@@ -6,6 +6,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => ({ createAppKit: vi.fn(() => ({})) }));
 vi.mock("@reown/appkit/react", () => ({ createAppKit: h.createAppKit }));
+// The networks are not under test, and loading viem/chains afresh (resetModules) took about a second alone and past the
+// 5 s timeout in the full parallel suite.
+vi.mock("@/lib/web3/chains", () => ({ APP_CHAINS: [{ id: 59141 }, { id: 59144 }] }));
 vi.mock("@reown/appkit-adapter-wagmi", () => ({
   WagmiAdapter: class {
     constructor(public opts: unknown) {}

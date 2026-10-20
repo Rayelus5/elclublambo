@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Archivo, DM_Sans, JetBrains_Mono } from "next/font/google";
 import { Providers } from "@/components/providers";
+import { UI_ZOOM_BOOT } from "@/lib/ui-zoom";
 import "./globals.css";
 
 // Variable font sin `weight`: queda disponible todo el rango wght (800–900) y el eje wdth.
@@ -33,7 +34,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="es"
       className={`${archivo.variable} ${dmSans.variable} ${jetbrainsMono.variable} h-full`}
+      suppressHydrationWarning
     >
+      <head>
+        {/* Tamaño de la interfaz elegido en el perfil (solo este dispositivo): se aplica antes del primer pintado. */}
+        <script dangerouslySetInnerHTML={{ __html: UI_ZOOM_BOOT }} />
+      </head>
       <body className="flex min-h-full flex-col bg-bg font-body text-fg">
         <Providers>{children}</Providers>
       </body>

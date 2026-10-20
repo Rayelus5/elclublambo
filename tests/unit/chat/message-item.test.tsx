@@ -82,9 +82,11 @@ describe("MessageItem", () => {
     expect(screen.getByText("editado")).toBeInTheDocument();
   });
 
-  it("grouped messages omit the author header", () => {
+  it("grouped messages omit the visible author header but keep the name for screen readers", () => {
     setup({ grouped: true });
-    expect(screen.queryByText("Ana")).not.toBeInTheDocument();
+    const name = screen.getByText("Ana");
+    expect(name).toHaveClass("sr-only");
+    expect(screen.queryByRole("button", { name: /Ver tarjeta de Ana/ })).not.toBeInTheDocument();
   });
 
   it("a soft-deleted message is a placeholder without content, menu or reactions", () => {

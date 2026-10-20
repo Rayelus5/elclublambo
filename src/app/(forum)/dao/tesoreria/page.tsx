@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -216,7 +217,7 @@ async function TreasuryContent() {
 
 export default function TreasuryPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <TreasuryContent />
     </Suspense>
   );

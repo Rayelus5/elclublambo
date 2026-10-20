@@ -1,6 +1,8 @@
 // Chat reads. Every function takes a Supabase client so the same code runs on the server (first paint) and in the
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { rpcErrorCode } from "@/lib/errors";
+import { UUID_RE } from "@/lib/tickets/model";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { getBountyDetails } from "@/lib/bounties/queries";
 import { getPollDetails } from "@/lib/polls/queries";
@@ -41,10 +43,12 @@ interface MessageRow {
   edited_at: string | null;
   deleted_at: string | null;
   created_at: string;
+  /** Idempotency key of the author's optimistic send (null for messages sent without one). */
+  client_id?: string | null;
 }
 
 const COLUMNS =
-  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, tip_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at";
+  "id, channel_id, thread_root_id, author_id, body, allow_links, kind, expanded, quoted_message_id, tip_id, reply_count, last_reply_at, pinned_at, edited_at, deleted_at, created_at, client_id";
 
 export interface Cursor {
   createdAt: string;
@@ -196,6 +200,7 @@ export async function hydrateMessages(
       editedAt: r.edited_at,
       deletedAt: r.deleted_at,
       createdAt: r.created_at,
+      clientId: r.client_id ?? null,
       attachments: attachmentsByMessage.get(r.id) ?? [],
       reactions: reactions.get(r.id) ?? [],
       tips: tipSummaries?.get(r.id) ?? [],
@@ -360,6 +365,16 @@ export async function getThread(
   if (!rootRes.data) return { root: null, replies: [], directory: emptyDirectory() };
   const { messages, directory } = await hydrateMessages(supabase, [rootRes.data, ...(repliesRes.data ?? [])], meId);
   return { root: messages[0] ?? null, replies: messages.slice(1), directory };
+}
+
+/**
+ * Moves the member's read mark of a channel to now (`mark_channel_read`, granted to `authenticated`; the database takes
+ * the member from the session). Called from the browser: one RPC, no server action round trip through Next.
+ */
+export async function markChannelRead(supabase: Pick<SupabaseClient, "rpc">, channelId: string): Promise<{ error?: string }> {
+  if (!UUID_RE.test(channelId)) return { error: "invalid_input" };
+  const { error } = await supabase.rpc("mark_channel_read", { p_channel: channelId });
+  return error ? { error: rpcErrorCode(error) } : {};
 }
 
 /** Pinned root messages, most recently pinned first. */

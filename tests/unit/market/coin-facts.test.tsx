@@ -61,4 +61,20 @@ describe("CoinFacts", () => {
     expect(value("Puesto")).toBe("—");
     expect(value("Máximo histórico")).toBe("—");
   });
+
+  // T-003: the key data are small cards in a grid that reflows by the panel's width (two per row on a phone).
+  it("lays the facts out as cards in a responsive grid", () => {
+    const { container } = render(<CoinFacts coin={coin} />);
+    const dl = container.querySelector("dl")!;
+    expect(dl).toHaveClass("grid", "grid-cols-2");
+    expect(dl.parentElement).toHaveClass("@container");
+    for (const card of dl.children) expect(card).toHaveClass("rounded-panel", "border", "bg-surface");
+  });
+
+  it("states the 24 h direction with an icon, not colour alone", () => {
+    render(<CoinFacts coin={coin} />);
+    const dd = screen.getByText("Variación 24 h", { selector: "dt" }).nextElementSibling!;
+    expect(dd).toHaveClass("text-danger");
+    expect(dd.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+  });
 });

@@ -13,6 +13,7 @@ import { SlowmodeTimer } from "@/components/chat/slowmode-timer";
 import { Button } from "@/components/ui/button";
 import { getSlowmodeAction, postMessageAction, type AttachmentInput } from "@/lib/chat/actions";
 import { docToPlainText, toPlainDoc } from "@/lib/chat/content";
+import type { OutgoingMessage } from "@/lib/chat/pending";
 import { ImageError, uploadChatImage, type UploadedImage } from "@/lib/chat/upload";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
@@ -50,15 +51,35 @@ export interface ComposerProps {
   canBounty?: boolean;
   /** CREATE_POLLS and SEND_MESSAGES on this channel: /encuesta opens the poll dialog. Hidden otherwise. */
   canPoll?: boolean;
+  /**
+   * Optimistic sending (the channel's own composer): the message is handed over and the box clears at once; the
+   * caller posts it, shows it as pending and resolves with the server's answer (only slowmode matters here).
+   */
+  onSendOptimistic?: (message: OutgoingMessage) => Promise<OptimisticResult>;
 }
+
+export type OptimisticResult = { error?: string; slowmodeSeconds?: number };
 
 function isDocEmpty(editor: Editor | null): boolean {
   return !editor || docToPlainText(editor.getJSON()) === "";
 }
 
 export function Composer(props: ComposerProps) {
-  const { channelId, threadRootId, quoted, onRemoveQuoted, canPost, canAttach, canMentionEveryone, slowmodeSeconds, onPosted, canAlpha, canBounty, canPoll } =
-    props;
+  const {
+    channelId,
+    threadRootId,
+    quoted,
+    onRemoveQuoted,
+    canPost,
+    canAttach,
+    canMentionEveryone,
+    slowmodeSeconds,
+    onPosted,
+    canAlpha,
+    canBounty,
+    canPoll,
+    onSendOptimistic,
+  } = props;
 
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -162,7 +183,20 @@ export function Composer(props: ComposerProps) {
     setError(null);
   };
 
-  /** Shared by the compact box and the expanded dialog. Resolves true when the message was posted. */
+  /** Empties the box, the expanded draft, the images and the quote. `handedOver` previews now belong to the list. */
+  const clearDraft = (handedOver: ReadonlySet<string> = new Set()) => {
+    editorRef.current?.commands.clearContent(true);
+    setCount(0);
+    setHasContent(false);
+    for (const a of attachmentsRef.current) if (!handedOver.has(a.id)) URL.revokeObjectURL(a.previewUrl);
+    attachmentsRef.current = [];
+    setAttachments([]);
+    setDraft(null);
+    draftRef.current = null;
+    onRemoveQuoted?.();
+  };
+
+  /** Shared by the compact box and the expanded dialog. Resolves true when the message was posted (or handed over). */
   const send = async (doc: unknown, expanded: boolean): Promise<boolean> => {
     if (sendingRef.current || !canPost) return false;
     if (slowRef.current) {
@@ -182,9 +216,50 @@ export function Composer(props: ComposerProps) {
       return false;
     }
 
+    setError(null);
+
+    if (onSendOptimistic) {
+      // The list shows the message at once ("Enviando…") and owns it from here: retry, failure and the local image
+      // previews included. The box is free for the next message right away; with slowmode the server would refuse a
+      // second one, so there it waits for the answer (and its countdown) first.
+      const gated = slowmodeSeconds > 0;
+      if (gated) {
+        sendingRef.current = true;
+        setSending(true);
+      }
+      const outgoing: OutgoingMessage = {
+        doc: toPlainDoc(doc),
+        expanded,
+        quotedId: quoted?.id ?? null,
+        attachments: done.map((a) => ({
+          id: a.id,
+          previewUrl: a.previewUrl,
+          mime: a.uploaded.mime,
+          width: a.uploaded.width || null,
+          height: a.uploaded.height || null,
+          uploaded: a.uploaded,
+        })),
+      };
+      clearDraft(new Set(done.map((a) => a.id)));
+      void onSendOptimistic(outgoing)
+        .catch(() => ({ error: "unknown" }) as OptimisticResult)
+        .then(async (res) => {
+          if (gated) {
+            sendingRef.current = false;
+            setSending(false);
+          }
+          if (res.error === "slowmode") {
+            const seconds = res.slowmodeSeconds ?? (await getSlowmodeAction(channelId).catch(() => ({ seconds: 0 }))).seconds;
+            startSlowmode(seconds);
+          } else if (!res.error && slowmodeSeconds > 0) {
+            void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
+          }
+        });
+      return true;
+    }
+
     sendingRef.current = true;
     setSending(true);
-    setError(null);
     const attachmentsPayload: AttachmentInput[] = done.map((a) => a.uploaded);
     const res = await postMessageAction({
       channelId,
@@ -214,15 +289,7 @@ export function Composer(props: ComposerProps) {
 
   /** A message left the composer (normal or Alpha post): every draft piece is spent, including images and the quote. */
   const afterPosted = (id: string) => {
-    editorRef.current?.commands.clearContent(true);
-    setCount(0);
-    setHasContent(false);
-    for (const a of attachmentsRef.current) URL.revokeObjectURL(a.previewUrl);
-    attachmentsRef.current = [];
-    setAttachments([]);
-    setDraft(null);
-    draftRef.current = null;
-    onRemoveQuoted?.();
+    clearDraft();
     onPosted?.(id);
     if (slowmodeSeconds > 0) void getSlowmodeAction(channelId).then((r) => startSlowmode(r.seconds));
   };

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
 import { MemberTable, type AdminMemberRow } from "@/components/members/member-table";
 import type { MemberSummary } from "@/components/members/sponsor-tree";
@@ -125,7 +126,7 @@ async function MembersContent() {
 
 export default function AdminMembersPage() {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <MembersContent />
     </Suspense>
   );

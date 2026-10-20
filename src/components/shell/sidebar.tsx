@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
+import { MoreMenu } from "@/components/shell/more-menu";
 import { NavLink } from "@/components/shell/nav-link";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { SearchButton } from "@/components/search/search-button";
@@ -46,47 +47,65 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
       href: "/admin/members",
       text: "Miembros",
       Icon: Users,
+      staff: true,
     },
-    canModerate && { href: "/moderation/reports", text: "Reportes", Icon: Flag },
+    canModerate && { href: "/moderation/reports", text: "Reportes", Icon: Flag, staff: true },
     (hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES)) && {
       href: "/settings",
       text: "Ajustes",
       Icon: Settings,
+      staff: true,
     },
   ].flatMap((s) => (s ? [s] : []));
 }
 
-/** ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right. */
+/**
+ * ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right.
+ *
+ * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 6) plus
+ * one «Más» menu that holds the staff-only ones (Miembros, Reportes, Ajustes). The controls never shrink; the tabs do
+ * (a label truncates before a tab overlaps anything). Below 1280px tabs are icon-only, the network badge and the
+ * search are compact until 1536px, and the profile / sign-out lose their text below 1024px.
+ */
 function DesktopBar(props: Props) {
+  const all = sections(props);
+  const tabs = all.filter((s) => !("staff" in s));
+  const more = all.flatMap((s) => ("staff" in s ? [{ href: s.href, text: s.text, icon: <s.Icon className="size-4" aria-hidden /> }] : []));
   return (
     <header className="sticky top-0 z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
       <Link href="/" className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
         El Club.
       </Link>
-      <nav aria-label="Principal" className="min-w-0 self-stretch">
+      <nav aria-label="Principal" className="min-w-0 self-stretch overflow-hidden">
         <ul className="flex h-full flex-row">
-          {sections(props).map(({ href, text, Icon, label, badge }) => (
-            <li key={href}>
+          {tabs.map(({ href, text, Icon, label, badge }) => (
+            <li key={href} className="min-w-11 shrink">
               <NavLink href={href} variant="top" label={label} badge={badge}>
-                <Icon className="size-4" aria-hidden />
-                <span className="sr-only lg:not-sr-only">{text}</span>
+                <Icon className="size-4 shrink-0" aria-hidden />
+                <span className="sr-only min-w-0 xl:not-sr-only xl:truncate">{text}</span>
               </NavLink>
             </li>
           ))}
+          {more.length > 0 ? (
+            <li className="shrink-0">
+              <MoreMenu items={more} />
+            </li>
+          ) : null}
         </ul>
       </nav>
-      <div className="ml-auto flex items-center gap-1">
-        {props.chainId ? <NetworkBadge chainId={props.chainId} className="mr-1" /> : null}
+      <div data-testid="bar-controls" className="ml-auto flex shrink-0 items-center gap-1">
+        {props.chainId ? <NetworkBadge chainId={props.chainId} responsive className="mr-1" /> : null}
         <SearchButton variant="bar" />
         <NotificationBell />
         <Link
           href={`/u/${props.wallet}`}
-          className="inline-flex min-h-11 items-center rounded-control px-2 font-mono text-[13px] text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control px-2 font-mono text-[13px] text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
+          <User className="size-4 lg:hidden" aria-hidden />
           <span className="sr-only">Mi perfil, </span>
-          <span className="font-mono">{shortAddress(props.wallet)}</span>
+          <span className="sr-only font-mono lg:not-sr-only">{shortAddress(props.wallet)}</span>
         </Link>
-        <SignOutButton label="Salir" />
+        <SignOutButton label="Salir" collapse />
       </div>
     </header>
   );
@@ -96,7 +115,7 @@ function DesktopBar(props: Props) {
 function DrawerBody(props: Props) {
   const tree = buildTree(props.channels ?? []);
   return (
-    <div className="flex h-full flex-col gap-4 py-6">
+    <div className="flex flex-col gap-4 py-6">
       <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
@@ -123,7 +142,7 @@ function DrawerBody(props: Props) {
         ))}
       </nav>
 
-      <nav aria-label="Canales" className="min-h-0 flex-1 overflow-y-auto border-t border-border pt-2">
+      <nav aria-label="Canales" className="border-t border-border pt-2">
         <ChannelTree nodes={tree} />
       </nav>
 

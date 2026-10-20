@@ -255,3 +255,26 @@ describe("docs/deploy/preproduccion-homelab.md", () => {
     }
   });
 });
+
+// Lessons from the first real homelab install (2026-10-20, Supabase self-hosted with the Envoy gateway, CT 103 LXC).
+describe("homelab guide matches the real install", () => {
+  it("connects the migrations without TLS on loopback", () => {
+    expect(homelab).toContain("sslmode=disable");
+  });
+  it("loads the override through COMPOSE_FILE (the official .env pins it to docker-compose.yml alone)", () => {
+    expect(homelab).toContain("COMPOSE_FILE=docker-compose.yml:docker-compose.override.yml");
+  });
+  it("stops Realtime from re-seeding the tenant (which resets private_only) and names the Envoy gateway", () => {
+    expect(homelab).toContain("SEED_SELF_HOST");
+    expect(homelab).toContain("api-gw");
+  });
+});
+
+describe("env templates are LF", () => {
+  it(".gitattributes forces LF on *.env.example and the templates carry no CR", () => {
+    expect(read(".gitattributes")).toMatch(/^\*\.env\.example text eol=lf$/m);
+    for (const p of ["deploy/preprod/web.env.example", "deploy/prod/vercel.env.example", ".env.example"]) {
+      expect(read(p).includes("\r"), p).toBe(false);
+    }
+  });
+});

@@ -26,7 +26,6 @@ const actions = vi.hoisted(() => ({
   editMessageAction: vi.fn(),
   deleteMessageAction: vi.fn(),
   setPinnedAction: vi.fn(),
-  markReadAction: vi.fn(),
 }));
 vi.mock("@/lib/chat/actions", () => ({ ...actions, searchMentionTargetsAction: vi.fn(async () => ({ members: [], roles: [] })) }));
 
@@ -36,6 +35,7 @@ const queries = vi.hoisted(() => ({
   getMessagesByIds: vi.fn(),
   getThread: vi.fn(),
   getPinned: vi.fn(),
+  markChannelRead: vi.fn(),
 }));
 vi.mock("@/lib/chat/queries", () => queries);
 
@@ -69,7 +69,7 @@ beforeEach(() => {
   h.refresh.mockReset();
   Object.values(actions).forEach((f) => f.mockReset());
   Object.values(queries).forEach((f) => f.mockReset());
-  actions.markReadAction.mockResolvedValue({});
+  queries.markChannelRead.mockResolvedValue({});
   queries.getPinned.mockResolvedValue({ messages: [], directory: none });
   queries.getMessage.mockResolvedValue({ message: null, messages: [], directory: none });
 });

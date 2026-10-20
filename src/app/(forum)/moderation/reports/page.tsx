@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ReportQueue } from "@/components/reports/report-queue";
@@ -61,7 +62,7 @@ export default function ModerationReportsPage({
   searchParams: Promise<{ status?: string | string[] }>;
 }) {
   return (
-    <Suspense fallback={<div className="min-h-64" aria-hidden />}>
+    <Suspense fallback={<PageLoader />}>
       <ReportsContent searchParams={searchParams} />
     </Suspense>
   );
