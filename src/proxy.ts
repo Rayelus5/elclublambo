@@ -10,6 +10,11 @@ import { isMissingTicket } from "@/lib/tickets/guard";
 import { isInvalidCoinPage } from "@/lib/market/guard";
 import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 
+/** A `<Link>`/`router.prefetch()` request (full or per-segment prefetch), as opposed to a navigation. */
+function isRouterPrefetch(request: NextRequest): boolean {
+  return request.headers.has("next-router-prefetch") || request.headers.has("next-router-segment-prefetch");
+}
+
 export async function proxy(request: NextRequest) {
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
   // Set on the request itself (overwrites anything the client sent) so the cookie refresh below still forwards with it.
@@ -47,6 +52,11 @@ export async function proxy(request: NextRequest) {
     url.searchParams.set("next", pathname);
     return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
   }
+
+  // T-006: a router prefetch only gets the route's static App Shell (partialPrefetching: no member data, the same for
+  // every session), so the page checks below cannot change what it receives; they cost a few reads per link in view.
+  // The navigation request that follows a click is not a prefetch and gets every check. The session is still validated.
+  if (isRouterPrefetch(request)) return response;
 
   // First login: the welcome (mandatory @handle) comes first. Enforced here because layouts do not re-run on client
   // navigations. /bienvenida, /guia and the (gate) pages are exempt.
