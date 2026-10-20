@@ -1,6 +1,8 @@
 // Chat reads. Every function takes a Supabase client so the same code runs on the server (first paint) and in the
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { rpcErrorCode } from "@/lib/errors";
+import { UUID_RE } from "@/lib/tickets/model";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { getBountyDetails } from "@/lib/bounties/queries";
 import { getPollDetails } from "@/lib/polls/queries";
@@ -365,16 +367,17 @@ export async function getThread(
   return { root: messages[0] ?? null, replies: messages.slice(1), directory };
 }
 
-/** Pinned root messages, most recently pinned first. */
 /**
  * Moves the member's read mark of a channel to now (`mark_channel_read`, granted to `authenticated`; the database takes
  * the member from the session). Called from the browser: one RPC, no server action round trip through Next.
  */
 export async function markChannelRead(supabase: Pick<SupabaseClient, "rpc">, channelId: string): Promise<{ error?: string }> {
+  if (!UUID_RE.test(channelId)) return { error: "invalid_input" };
   const { error } = await supabase.rpc("mark_channel_read", { p_channel: channelId });
-  return error ? { error: error.message } : {};
+  return error ? { error: rpcErrorCode(error) } : {};
 }
 
+/** Pinned root messages, most recently pinned first. */
 export async function getPinned(supabase: SupabaseClient, channelId: string, meId: string): Promise<Hydrated> {
   const { data, error } = await supabase
     .from("messages")
