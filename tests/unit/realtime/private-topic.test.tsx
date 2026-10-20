@@ -151,4 +151,29 @@ describe("usePrivateTopic", () => {
     ha.unmount();
     hb.unmount();
   });
+
+  it("a topic that gave up after its retries joins again when a listener comes back", async () => {
+    const first = renderHook(() => usePrivateTopic("presence", "presence_changed", {}));
+    await flush();
+    // The first join and its three retries fail: the topic gives up.
+    for (let i = 0; i < 4; i++) {
+      act(() => channels()[channels().length - 1]!.statusCb!("CHANNEL_ERROR"));
+      await act(async () => {
+        vi.advanceTimersByTime(10_000);
+      });
+      await flush();
+    }
+    expect(channels()).toHaveLength(4);
+    first.unmount();
+
+    // A remount within the release delay must not inherit the dead channel.
+    const onEvent = vi.fn();
+    const second = renderHook(() => usePrivateTopic("presence", "presence_changed", { onEvent }));
+    await flush();
+    expect(channels()).toHaveLength(5);
+    act(() => channels()[4]!.statusCb!("SUBSCRIBED"));
+    broadcast(channels()[4]!, "presence_changed", { ok: true });
+    expect(onEvent).toHaveBeenCalledWith({ ok: true });
+    second.unmount();
+  });
 });

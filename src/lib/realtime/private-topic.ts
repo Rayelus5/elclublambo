@@ -28,6 +28,8 @@ interface Topic {
   listeners: Set<Listener>;
   release: ReturnType<typeof setTimeout> | null;
   close: () => void;
+  /** Joins again if the topic gave up after its retries (a new listener should not inherit a dead channel). */
+  revive: () => void;
 }
 
 /** One realtime channel per topic for the whole page, shared by every component listening to it. */
@@ -40,12 +42,13 @@ const topics = new Map<string, Topic>();
  * absence and on token refresh. Every broadcast goes to the listeners of its event.
  */
 function openTopic(topic: string): Topic {
-  const entry: Topic = { listeners: new Set(), release: null, close: () => {} };
+  const entry: Topic = { listeners: new Set(), release: null, close: () => {}, revive: () => {} };
   const supabase = createBrowserClient();
   let cancelled = false;
   let generation = 0;
   let attempts = 0;
   let joinedBefore = false;
+  let gaveUp = false;
   let current: ReturnType<typeof supabase.channel> | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -88,12 +91,16 @@ function openTopic(topic: string): Topic {
       if (cancelled || mine !== generation) return;
       if (status === "SUBSCRIBED") {
         attempts = 0;
+        gaveUp = false;
         if (joinedBefore) for (const l of [...entry.listeners]) l.handlers.current.onResync?.();
         joinedBefore = true;
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
         if (current === channel) current = null;
         leave(channel);
-        if (attempts >= MAX_RETRIES) return;
+        if (attempts >= MAX_RETRIES) {
+          gaveUp = true;
+          return;
+        }
         const delay = BASE_BACKOFF_MS * 2 ** attempts;
         attempts += 1;
         retryTimer = setTimeout(() => {
@@ -106,7 +113,11 @@ function openTopic(topic: string): Topic {
 
   const rejoin = () => {
     attempts = 0;
+    gaveUp = false;
     void subscribe();
+  };
+  entry.revive = () => {
+    if (gaveUp && !cancelled) rejoin();
   };
 
   let hiddenAt: number | null = null;
@@ -148,6 +159,7 @@ function listen(topic: string, listener: Listener): () => void {
     mine.release = null;
   }
   mine.listeners.add(listener);
+  mine.revive();
   return () => {
     mine.listeners.delete(listener);
     if (mine.listeners.size > 0 || mine.release) return;
