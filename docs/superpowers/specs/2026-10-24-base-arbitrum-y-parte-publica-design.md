@@ -48,8 +48,8 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
 4. **Lo que recibe quien dona** (sin valor económico): **rol/insignia de donante**, **lista pública de donantes**
    (con opción de ocultarse) y **canales exclusivos**.
 5. **Encuestas: 1 miembro = 1 voto.** Se quitan los modos lineal y cuadrático.
-6. **Comisión de plataforma en propinas y bounties: se mantiene** y cuenta como **donación individual a ElClub.**
-   del pagador (suma para su rol y su puesto en la lista).
+6. **Sin comisión de plataforma** en propinas y bounties (cambio del 2026-10-24: "quitémoslas para ahorrarnos
+   problemas"). El código de comisión se desactiva y se quita de la interfaz; no se cobra nada en ningún flujo.
 7. **Sorteos: solo peso igual.** Textos explicativos más intuitivos y cortos. **Premios no solo monetarios**: un rol,
    un objeto físico, algo libre… hay que diseñar para eso.
 8. **Parte pública** (sin invitación, ES + EN, misma estética de la web): sorteos verificables, **ElClub Pay**,
@@ -85,8 +85,8 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   redes; valor en USD fijado al verificar (USDC 1:1; ETH con Chainlink ETH/USD de esa red, con comprobación del
   *sequencer uptime feed* de L2). Verificación on-chain como hoy (recibo, log, `from` = wallet del miembro, `to` =
   Safe, finalidad por red, único `(chain_id, tx_hash, log_index)`). (Medio.)
-- **D8 Reconocimiento:** rol de sistema **«Mecenas»** asignado automáticamente con la primera donación verificada
-  (y con la primera comisión pagada, según decisión 6). Canales exclusivos = permisos de canal dados a ese rol con el
+- **D8 Reconocimiento:** rol de sistema **«Mecenas»** asignado automáticamente con la primera donación verificada.
+  Canales exclusivos = permisos de canal dados a ese rol con el
   sistema de roles existente; además el gating del canal admite "donado total ≥ X USD" (sustituye a `min_share_bps` y
   `min_net_usdc`). Lista pública en `/donar` (o la ruta que sustituya a `/dao`) por total USD, con el interruptor
   de ocultarse que ya existe (`dao_ranking_visible`). (Bajo.)
@@ -106,9 +106,9 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   verifica la transferencia), `role` (se asigna el rol al ganador automáticamente) y `custom` (texto + imagen
   opcional; el organizador marca "entregado"). Un sorteo puede tener varios premios (1.º, 2.º…). Sin entrada de pago,
   nunca. (Bajo.)
-- **D13 Comisión → donación:** la transferencia de comisión (ya separada y firmada por el usuario) va a la Safe del
-  club y se registra como donación del pagador. *Aviso honesto:* llamarla donación no cambia su naturaleza fiscal si
-  es obligatoria; con dinero real hay que consultarlo con un gestor (ver ⚠️). (Medio, legal.)
+- **D13 Sin comisión:** propinas y bounties transfieren solo el importe al destinatario (una transacción). La
+  configuración de comisión (`min_fee_bps`, monedero de plataforma) queda a 0 / sin uso; los textos y el desglose
+  "importe + comisión" desaparecen. (Bajo.)
 - **D14 Builder Codes (ERC-8021):** sufijo en el calldata de **toda** transacción que la app pide firmar en Base
   (propinas, bounties, donaciones, pagos públicos, premios, avales). Código en env `NEXT_PUBLIC_BASE_BUILDER_CODE`;
   sin código, no se añade nada. En Arbitrum no se añade. (Bajo.)
@@ -148,8 +148,7 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   entorno (`BASE_*`/`ARBITRUM_*` RPC), readiness, finalidad y tamaños de escaneo por red, logos, Builder Codes (D14),
   login (D5), tests migrados de 59141 a las nuevas redes. Propinas y bounties funcionando en ambas redes con el
   selector de token.
-- **P1 — Club simplificado.** Donaciones + Mecenas + lista + canales + transparencia (D6–D10), comisión como
-  donación (D13), encuestas 1p1v, sorteos rehechos (D11–D12) con textos nuevos, alphas multired (D19), guía
+- **P1 — Club simplificado.** Donaciones + Mecenas + lista + canales + transparencia (D6–D10), sin comisión (D13), encuestas 1p1v, sorteos rehechos (D11–D12) con textos nuevos, alphas multired (D19), guía
   actualizada.
 - **P2 — Parte pública I.** Cuentas públicas (D15), i18n y rutas (D16), **landing pública** creativa, hub
   `/herramientas`, **Sorteos verificables públicos**: cualquiera con wallet crea un sorteo gratis para su comunidad
@@ -194,10 +193,14 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   mercados de predicción, Linea, migración de datos de prueba de Linea, contrato Vault.
 
 ## ⚠️ HACER A MANO ⚠️ (el usuario; cada plan lo recuerda cuando haga falta)
-1. Crear la Safe del club en **Base** y desplegarla con la **misma dirección** en **Arbitrum** (app.safe.global →
-   "Add network"), y lo mismo en Base Sepolia + Arbitrum Sepolia para PRE. Pasar las direcciones.
-2. Registrar el **Builder Code** en base.dev y pasarlo.
-3. Claves RPC para Base y Arbitrum (Infura/Alchemy) en Vercel y en `web.env` de PRE.
+1. ✅ Safe del club: `0x380f2e12081995359e2Ab88E3c31c6b227904234`, añadida en Base, Arbitrum, Base Sepolia y
+   Arbitrum Sepolia. **Pendiente: activarla (desplegarla) en cada una** — el 2026-10-24 `eth_getCode` devuelve `0x`
+   en las cuatro (solo está desplegada en Linea mainnet). Al activarla, comprobar owners y umbral: una Safe añadida a
+   otra red se despliega con la configuración **original**, no con los cambios posteriores.
+2. ✅ Builder Code: `bc_ttxulybv` (va en `NEXT_PUBLIC_BASE_BUILDER_CODE`).
+3. ✅ RPC Infura de Base y Arbitrum (mainnet y Sepolia) entregadas por el usuario; van en `.env.local`, Vercel y
+   `web.env` de PRE como secretos (`BASE_RPC_URL`, `BASE_SEPOLIA_RPC_URL`, `ARBITRUM_RPC_URL`,
+   `ARBITRUM_SEPOLIA_RPC_URL`), nunca en el repo.
 4. Explorador: la API de Etherscan V2 para Base requiere plan de pago; alternativa Blockscout (decidir al planificar).
-5. Antes de activar comisión o x402 con dinero real: hablar con un gestor (alta, IRPF, IVA).
+5. Antes de activar x402 con dinero real: hablar con un gestor (alta, IRPF, IVA).
 6. Reown: añadir las nuevas redes no requiere cambios de dominio; revisar que el proyecto permite Base y Arbitrum.
