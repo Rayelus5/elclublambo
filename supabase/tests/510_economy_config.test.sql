@@ -1,5 +1,5 @@
 begin;
-select plan(35);
+select plan(36);
 
 -- fixtures: admin (bootstrap, SuperAdmin), plain active member, outsider (auth user without membership)
 select set_config('t.admin', tests.create_member('0xa510000000000000000000000000000000000001', null, true)::text, true);
@@ -32,9 +32,12 @@ select is((select count(*)::int from pg_policies where schemaname = 'public' and
 -- ===== defaults =====
 select is((select count(*)::int from public.chain_config), 2, 'chain_config seeded with two chains');
 select tests.authenticate_as(pg_temp.uid(current_setting('t.plain')));
-select is(public.economy_config(),
+select is(public.economy_config() - array['enabledChainIds', 'networks', 'legacyDaoEnabled'],
   '{"activeChainId":59141,"minFeeBps":0,"chains":{"59144":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":false},"59141":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":true}}}'::jsonb,
   'defaults read through economy_config');
+-- P0 Task 1: the multi-network keys sit next to the old ones
+select ok(public.economy_config() ?& array['enabledChainIds', 'networks', 'legacyDaoEnabled'],
+  'economy_config carries enabledChainIds, networks and legacyDaoEnabled');
 select is((select count(*)::int from public.chain_config), 2, 'active member can select chain_config');
 
 -- ===== non-admin cannot write (Review Focus 4) =====
@@ -61,7 +64,7 @@ select lives_ok($$select public.set_active_chain(59144)$$, 'admin sets active ch
 select lives_ok($$select public.set_min_fee_bps(260)$$, 'admin sets min fee');
 select lives_ok($$select public.set_chain_addresses(59144, '0xAbCdEf0123456789aBcDeF0123456789abcdef01', '0x2222222222222222222222222222222222222222')$$,
   'admin sets addresses');
-select is(public.economy_config(),
+select is(public.economy_config() - array['enabledChainIds', 'networks', 'legacyDaoEnabled'],
   '{"activeChainId":59144,"minFeeBps":260,"chains":{"59144":{"safe":"0xabcdef0123456789abcdef0123456789abcdef01","platform":"0x2222222222222222222222222222222222222222","withdrawalsEnabled":false,"weightedRafflesEnabled":false},"59141":{"safe":null,"platform":null,"withdrawalsEnabled":false,"weightedRafflesEnabled":true}}}'::jsonb,
   'values read back, addresses lowercased');
 select tests.clear_authentication();

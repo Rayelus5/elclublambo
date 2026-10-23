@@ -103,8 +103,9 @@ select ok(not exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
                         and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole)),
   'no default privilege hands a future object in private to an API role');
 select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
-                                                and p.oid <> 'private.rate_limit(text,text,int,interval)'::regprocedure),
-  'schema private still holds no function but private.rate_limit (F5 Task 2, executable by no API role: 990)');
+                                                and p.oid not in ('private.rate_limit(text,text,int,interval)'::regprocedure,
+                                                                  'private.chain_enabled(int)'::regprocedure)),
+  'schema private still holds no function but private.rate_limit and private.chain_enabled (F5 Task 2 / P0 Task 1, executable by no API role: 990, 995)');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select * from private.poll_votes$$, '42501', null, 'authenticated cannot read private.poll_votes');
 select throws_ok($$select * from private.poll_weight_snapshots$$, '42501', null,
