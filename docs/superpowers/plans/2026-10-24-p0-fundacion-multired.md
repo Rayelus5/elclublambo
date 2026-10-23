@@ -52,6 +52,7 @@
   - Se investiga si GoTrue verifica firmas ERC-1271/6492 y el resultado queda en un comentario de `appkit.ts` y en el PR.
   - En P0 solo se aceptan EOAs: `enableBaseAccount` y `enableCoinbase` siguen en `false`, porque el conector de Coinbase carga telemetría fuera de la CSP.
 - **P0-R12, "MODO PRUEBA".** Pasa a ser una propiedad del entorno (`networkSet() === "testnet"`), no de una red. `NetworkBadge` se sustituye por `TestModeBadge`, y cada importe muestra el logo de su red.
+- **P0-R14, las cuatro redes habilitadas en BD (ruling del controlador, 2026-10-24).** La migración deja habilitadas Base, Arbitrum y sus Sepolia en todas las BD; el conjunto del build decide cuáles se usan, así PRO no depende de un paso manual tras desplegar. Como una RPC de Postgres puede llamarse sin pasar por la server action, la **verificación on-chain** (propinas, bounties) rechaza con `chain_invalid` cualquier `chain_id` fuera de `appChainIds()` antes de pedir un cliente RPC; test unitario en la Tarea 4.
 - **P0-R13, e2e.**
   - Dos nodos Hardhat: 84532 en `:8545` y 421614 en `:8546`. En cada uno se despliega un USDC simulado en la dirección de Circle de esa testnet. `:8547/ready` responde cuando ambos están listos.
   - La wallet inyectada cambia de red de verdad (`wallet_switchEthereumChain` + `chainChanged`).
@@ -120,8 +121,8 @@
 
     | chain_id | network | name | testnet | enabled | safe_address |
     |---|---|---|---|---|---|
-    | 8453 | base | Base | false | false | Safe en minúsculas |
-    | 42161 | arbitrum | Arbitrum | false | false | Safe en minúsculas |
+    | 8453 | base | Base | false | true | Safe en minúsculas |
+    | 42161 | arbitrum | Arbitrum | false | true | Safe en minúsculas |
     | 84532 | base | Base Sepolia | true | true | Safe en minúsculas |
     | 421614 | arbitrum | Arbitrum Sepolia | true | true | Safe en minúsculas |
     | 59144 | linea | Linea | false | false | null |
@@ -148,7 +149,7 @@
 - [ ] **Step 1: Escribir `995_chains.test.sql` (falla)** con `plan(N)`:
   - `has_table('public','chains')`;
   - las 6 filas exactas de la tabla de arriba;
-  - `private.chain_enabled(84532)` y `(421614)` son true; `(8453)`, `(59141)` y `(1)` son false;
+  - `private.chain_enabled(84532)`, `(421614)`, `(8453)` y `(42161)` son true; `(59141)`, `(59144)` y `(1)` son false;
   - insertar un `payment_intents` con `chain_id = 1` falla con `23503` (FK); con `chain_id = 59141` pasa la FK (filas legadas válidas); con `84532` pasa;
   - `set_chain_enabled(59144, true)` lanza `chain_invalid`; como miembro sin el bit 512 lanza `forbidden`; como SuperAdmin `set_chain_enabled(8453, true)` cambia la fila y deja una fila `chain_enabled` en `audit_log`;
   - un miembro nuevo tiene `receive_networks = '{base,arbitrum}'`; `set_receive_networks('{arbitrum}')` lo guarda; `'{}'` y `'{linea}'` lanzan `invalid_input`; `'{base,base}'` guarda `'{base}'`;
@@ -157,7 +158,7 @@
   - `economy_config()->'enabledChainIds' = '[84532, 421614]'`, `->'networks'->'84532'->>'safe'` = Safe en minúsculas, `->'legacyDaoEnabled' = 'false'`.
 - [ ] **Step 2: Ejecutar** (con permiso) `pnpm db:test`. Esperado: FAIL en `995_chains`.
 - [ ] **Step 3: Escribir la migración** `20261024100001_chains.sql` según Interfaces. Comentario de cabecera: D2/D21, P0-R1, P0-R3.
-- [ ] **Step 4: Ajustar** `510_economy_config` (claves nuevas presentes, claves viejas intactas) y añadir a `991_mainnet_defaults` que 8453 y 42161 empiezan deshabilitadas y `legacy_dao_enabled = false`.
+- [ ] **Step 4: Ajustar** `510_economy_config` (claves nuevas presentes, claves viejas intactas) y añadir a `991_mainnet_defaults` que 8453 y 42161 empiezan habilitadas y `legacy_dao_enabled = false`.
 - [ ] **Step 5: Ejecutar** (con permiso) `pnpm db:test`. Esperado: PASS, también todos los pgTAP legados.
 - [ ] **Step 6: Commit** `feat(db): tabla chains con FK en tablas vivas, redes del destinatario y flags de P0`.
 
@@ -753,6 +754,6 @@
    - **borrar** `NEXT_PUBLIC_CHAIN`, `LINEA_RPC_URL`, `LINEA_SEPOLIA_RPC_URL`, `NEXT_PUBLIC_LINEA_RPC_URL` y `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL`, porque la readiness hace fallar el build si quedan.
 3. **PRE (`web.env` del homelab):** `NEXT_PUBLIC_NETWORK_SET=testnet`, `BASE_SEPOLIA_RPC_URL`, `ARBITRUM_SEPOLIA_RPC_URL` y `NEXT_PUBLIC_BASE_BUILDER_CODE=bc_ttxulybv`; quitar las `LINEA_*`. En local, lo mismo en `.env.local`.
 4. **Reown:** en los dos proyectos ("elclub prod" y "elclub dev/pre"), comprobar que admiten Base y Arbitrum (y sus Sepolia en dev/pre). No hace falta tocar los dominios.
-5. **PRO después de migrar:** en `/settings/economia`, habilitar **Base** y **Arbitrum** y deshabilitar **Base Sepolia** y **Arbitrum Sepolia**. La migración deja las testnets habilitadas en todas las BD, y el build de mainnet las ignora de todos modos.
+5. (Nada que hacer en PRO tras migrar: la migración habilita las cuatro redes no Linea en todas las BD y cada build solo usa su conjunto; ver P0-R14.)
 6. **PRE, opcional:** reiniciar los datos de prueba de Linea desde el SuperAdmin o con `supabase db reset` en el homelab. Ya no se muestran, pero siguen en la BD.
 7. **Wallets de prueba:** añadir Base Sepolia y Arbitrum Sepolia en MetaMask y pedir ETH de prueba en los faucets oficiales, y USDC de prueba en faucet.circle.com.
