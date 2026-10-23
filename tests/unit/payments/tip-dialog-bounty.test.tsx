@@ -36,7 +36,6 @@ import type { EconomyConfig } from "@/lib/economy/config";
 import { loadSends, upsertSend } from "@/lib/payments/pending-sends";
 
 const SESSION = "0x1111111111111111111111111111111111111111";
-const PLATFORM = "0x4444444444444444444444444444444444444444";
 const SOLVER_WALLET = "0x2222222222222222222222222222222222222222";
 const FEE_HASH = `0x${"fe".repeat(32)}`;
 const MAIN_HASH = `0x${"aa".repeat(32)}`;
@@ -76,9 +75,9 @@ const intent = {
   chainId: 84532,
   token: "USDC" as const,
   amount: "25000000",
-  feeAmount: "250000",
+  feeAmount: "0",
   recipientAddress: SOLVER_WALLET,
-  platformAddress: PLATFORM,
+  platformAddress: null as string | null,
   expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString(),
 };
 
@@ -93,7 +92,7 @@ beforeEach(() => {
   account.address = SESSION;
   account.chainId = 84532;
   account.isConnected = true;
-  send.mockReset().mockResolvedValueOnce(FEE_HASH).mockResolvedValueOnce(MAIN_HASH);
+  send.mockReset().mockResolvedValueOnce(MAIN_HASH);
   createTipIntentAction.mockReset();
   createBountyPaymentIntentAction.mockReset().mockResolvedValue({ ok: true, intent });
   attachTxAction.mockReset().mockResolvedValue({ ok: true });
@@ -151,21 +150,20 @@ describe("TipDialog bounty mode: form", () => {
 });
 
 describe("TipDialog bounty mode: signing", () => {
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
-  it.skip("creates the intent through the bounty action (never the tip action), signs fee then main, and clears the ledger", async () => {
+  it("creates the intent through the bounty action (never the tip action), signs the main, and clears the ledger", async () => {
     setup();
     await userEvent.click(continuar());
     await screen.findByText("Bounty pagado");
     expect(createTipIntentAction).not.toHaveBeenCalled();
-    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, amount: "25", feeBps: 100 });
-    expect(send).toHaveBeenNthCalledWith(1, { chain: 84532, token: "USDC", to: PLATFORM, amount: 250000n, account: SESSION });
-    expect(send).toHaveBeenNthCalledWith(2, { chain: 84532, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
-    expect(attachTxAction).toHaveBeenNthCalledWith(1, INTENT_ID, "fee", FEE_HASH);
-    expect(attachTxAction).toHaveBeenNthCalledWith(2, INTENT_ID, "main", MAIN_HASH);
+    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, amount: "25", feeBps: 0 });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledWith({ chain: 84532, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
+    expect(attachTxAction).toHaveBeenCalledTimes(1);
+    expect(attachTxAction).toHaveBeenCalledWith(INTENT_ID, "main", MAIN_HASH);
     expect(loadSends(MEMBER)).toEqual([]);
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: needs a platform fee, which P0-R5 removes (the config has no platform wallet); rewritten there.
   it.skip("keys the ledger by targetType 'bounty' and the bounty message id; fee paid + main rejected resumes the same intent", async () => {
     send.mockReset().mockResolvedValueOnce(FEE_HASH).mockRejectedValueOnce(Object.assign(new Error("rejected"), { code: 4001 })).mockResolvedValueOnce(MAIN_HASH);
     setup();
@@ -187,8 +185,7 @@ describe("TipDialog bounty mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
-  it.skip("F3c-R7: resumes a paid-fee intent on its own chain although it is no longer the active one (badge, switch to the intent's network, signs there)", async () => {
+  it("F3c-R7: resumes a paid-fee intent on its own chain although it is no longer the active one (badge, switch to the intent's network, signs there)", async () => {
     const cfg = config();
     const old = { ...intent, chainId: 8453 };
     upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 8453, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, feeAttached: true, createdAt: Date.now(), intent: old });
@@ -252,9 +249,8 @@ describe("TipDialog bounty mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
-  it.skip("when the server hands back an already prepared intent with a different amount, shows it instead of signing something unseen", async () => {
-    createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, amount: "30000000", feeAmount: "300000" } });
+  it("when the server hands back an already prepared intent with a different amount, shows it instead of signing something unseen", async () => {
+    createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, amount: "30000000" } });
     setup();
     await userEvent.click(continuar());
     expect(await screen.findByText(/Ya tenías un pago de este bounty preparado con otro importe/)).toBeInTheDocument();

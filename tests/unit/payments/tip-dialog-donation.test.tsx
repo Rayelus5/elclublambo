@@ -136,7 +136,7 @@ describe("TipDialog donation mode: form", () => {
     expect(continuar()).toBeDisabled();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("estimates the participaciones at the current value per participación", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
@@ -152,7 +152,7 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("shows the current value per participación next to the estimate (R7: USD)", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
@@ -160,7 +160,7 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.getByTestId("share-price")).toHaveTextContent("Valor por participación: 2 USD");
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("estimates at 1 USD per participación while nobody holds shares (R9)", async () => {
     rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, totalShares: "0", sharePriceUsd6: "0" }, error: null });
     setup();
@@ -186,7 +186,7 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("drops the ≈ for dust", async () => {
     rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, sharePriceUsd6: "900000000000" }, error: null });
     setup();
@@ -204,7 +204,7 @@ describe("TipDialog donation mode: form", () => {
 });
 
 describe("TipDialog donation mode: signing", () => {
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("creates the donation intent, signs fee then main to the Safe, ends on the finality copy and clears the ledger", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
@@ -224,7 +224,7 @@ describe("TipDialog donation mode: signing", () => {
     expect(loadSends(MEMBER)).toEqual([]);
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("a donation the immediate settle already credited says so (M4)", async () => {
     verifyIntentAction.mockReset().mockResolvedValue({ status: "confirmed", ledgerId: "l1" });
     setup();
@@ -236,7 +236,7 @@ describe("TipDialog donation mode: signing", () => {
     expect(screen.queryByText(FINALITY_NOTE)).toBeNull();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("keeps the main hash in the ledger under targetType 'dao' before the server is told", async () => {
     attachTxAction.mockReset().mockImplementation(async () => {
       throw new Error("offline");
@@ -270,7 +270,7 @@ describe("TipDialog donation mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  // Task 11: donations are legacy DAO (P0-R2: dao_overview and Safe only on Linea, DAO paused); removed from TipDialog there.
   it.skip("resumes a paid fee for the same intent, signing only the main transfer", async () => {
     upsertSend(MEMBER, {
       intentId: INTENT_ID,
