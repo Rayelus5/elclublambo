@@ -22,12 +22,16 @@ const SAFE = "0x1111111111111111111111111111111111111111";
 const PLAT = "0x2222222222222222222222222222222222222222";
 
 const config: EconomyConfig = {
-  activeChainId: 59141,
-  minFeeBps: 260,
-  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
-  chains: {
-    59141: { safe: SAFE, platform: PLAT },
-    59144: { safe: null, platform: null },
+  enabledChainIds: [84532, 421614],
+  safes: {},
+  legacyDaoEnabled: false,
+  legacy: {
+    activeChainId: 59141,
+    withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
+    chains: {
+      59141: { safe: SAFE, platform: PLAT },
+      59144: { safe: null, platform: null },
+    },
   },
 };
 
@@ -162,7 +166,8 @@ describe("EconomyForm", () => {
   it("previews the fee on 10 USDC and saves it in bps", async () => {
     const user = userEvent.setup();
     render(<EconomyForm config={config} />);
-    expect(screen.getByText("Sobre 10 USDC: 0,26 USDC")).toBeInTheDocument();
+    // The config no longer carries the minimum fee (P0-R5); the card starts at 0 until Task 5 removes it.
+    expect(screen.getByText("Sobre 10 USDC: 0,00 USDC")).toBeInTheDocument();
     const fee = screen.getByLabelText("Comisión mínima (%)");
     await user.clear(fee);
     await user.type(fee, "5");
@@ -184,7 +189,7 @@ describe("EconomyForm", () => {
     expect(await screen.findByText("Direcciones guardadas.")).toBeInTheDocument();
 
     // router.refresh() re-renders the page with the stored values.
-    rerender(<EconomyForm config={{ ...config, minFeeBps: 500, chains: { ...config.chains, 59144: { safe: SAFE, platform: null } } }} />);
+    rerender(<EconomyForm config={{ ...config, legacy: { ...config.legacy, chains: { ...config.legacy.chains, 59144: { safe: SAFE, platform: null } } } }} />);
     expect(screen.getByText("Comisión guardada.")).toBeInTheDocument();
     expect(screen.getByText("Direcciones guardadas.")).toBeInTheDocument();
   });

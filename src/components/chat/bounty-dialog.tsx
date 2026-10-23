@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createBountyAction } from "@/lib/bounties/actions";
 import { BOUNTY_LIMITS } from "@/lib/bounties/limits";
+import { chainForKey } from "@/lib/economy/networks";
 import { rpcErrorMessage } from "@/lib/errors";
 import { formatAmount, parseAmount, type Token } from "@/lib/payments/amounts";
 import { cn } from "@/lib/utils";
@@ -41,7 +42,7 @@ function textToDoc(text: string) {
 }
 
 function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: BountyDialogProps) {
-  const { activeChainId } = useEconomy();
+  const activeChainId = useEconomy().enabledChainIds[0] ?? chainForKey("base");
   const [token, setToken] = useState<Token>("USDC");
   const [amountText, setAmountText] = useState("");
   const [description, setDescription] = useState(initialText);

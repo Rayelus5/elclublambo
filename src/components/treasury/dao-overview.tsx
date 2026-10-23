@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { NetworkBadge } from "@/components/economy/network-badge";
 import { Clock } from "lucide-react";
 import { ShareRing } from "@/components/treasury/dao-charts";
-import { explorerTx } from "@/lib/economy/networks";
+import { legacyExplorerTx } from "@/lib/legacy/linea";
 import { finalityEta, formatEta } from "@/lib/treasury/eta";
 import { formatBps, formatShares, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 import type { DaoOverview as Data } from "@/lib/treasury/queries";
@@ -140,7 +140,7 @@ export function DaoOverview({
                   </span>
                 </div>
                 <a
-                  href={explorerTx(data.chainId, p.txHash)}
+                  href={legacyExplorerTx(data.chainId, p.txHash)}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="Ver en el explorador: donación pendiente"

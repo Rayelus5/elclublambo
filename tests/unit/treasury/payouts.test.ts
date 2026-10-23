@@ -6,7 +6,7 @@ const verifyTransfer = vi.fn();
 vi.mock("@/lib/payments/verify", () => ({ verifyTransfer: (...a: unknown[]) => verifyTransfer(...a) }));
 
 const getBlock = vi.fn();
-vi.mock("@/lib/payments/chain-client", () => ({ chainClient: () => ({ getBlock: (...a: unknown[]) => getBlock(...a) }) }));
+vi.mock("@/lib/legacy/linea-client", () => ({ legacyChainClient: () => ({ getBlock: (...a: unknown[]) => getBlock(...a) }) }));
 
 const SAFE = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";
 let safe: string | null = SAFE;

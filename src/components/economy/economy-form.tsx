@@ -23,14 +23,9 @@ import {
   setMinFeeBpsAction,
 } from "@/lib/economy/actions";
 import type { ChainAddresses, EconomyConfig } from "@/lib/economy/config";
-import {
-  bpsToPercentText,
-  CHAIN_IDS,
-  feeOnTenUsdc,
-  NETWORKS,
-  percentTextToBps,
-  type ChainId,
-} from "@/lib/economy/networks";
+import { bpsToPercentText, feeOnTenUsdc, percentTextToBps } from "@/lib/economy/networks";
+// Legacy settings (chain_config, active_chain_id) until Task 5 replaces this form.
+import { LEGACY_CHAIN_IDS as CHAIN_IDS, LEGACY_NETWORKS as NETWORKS, type LegacyChainId as ChainId } from "@/lib/legacy/linea";
 import { rpcErrorMessage } from "@/lib/errors";
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
@@ -291,7 +286,7 @@ export function EconomyForm({ config }: { config: EconomyConfig }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const targetName = target ? NETWORKS[target].name : "";
-  const warning = target ? missingWarning(targetName, config.chains[target]) : null;
+  const warning = target ? missingWarning(targetName, config.legacy.chains[target]) : null;
 
   function confirmSwitch() {
     const chain = target;
@@ -314,8 +309,8 @@ export function EconomyForm({ config }: { config: EconomyConfig }) {
         <h3 className="text-h3">Red activa</h3>
         <p className="text-sm text-fg-muted">La red en la que se mueve el dinero. Todos los miembros ven cuál es.</p>
         <div className="flex flex-wrap items-center gap-3">
-          <NetworkBadge chainId={config.activeChainId} />
-          {CHAIN_IDS.filter((id) => id !== config.activeChainId).map((id) => (
+          <NetworkBadge chainId={config.legacy.activeChainId} />
+          {CHAIN_IDS.filter((id) => id !== config.legacy.activeChainId).map((id) => (
             <Button key={id} type="button" variant="outline" disabled={pending} onClick={() => setTarget(id)}>
               Cambiar a {NETWORKS[id].name}
             </Button>
@@ -329,11 +324,11 @@ export function EconomyForm({ config }: { config: EconomyConfig }) {
       </section>
 
       {/* Stable keys: the cards already hold what was saved, and a remount on refresh would drop their "guardada" status. */}
-      <FeeCard minFeeBps={config.minFeeBps} />
+      <FeeCard minFeeBps={0} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {CHAIN_IDS.map((id) => (
-          <AddressesCard key={id} chain={id} addresses={config.chains[id]} />
+          <AddressesCard key={id} chain={id} addresses={config.legacy.chains[id]} />
         ))}
       </div>
 

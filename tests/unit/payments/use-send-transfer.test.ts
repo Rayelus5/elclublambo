@@ -22,22 +22,22 @@ beforeEach(() => {
 describe("useSendTransfer", () => {
   it("sends ETH as a plain native transfer on the chain", async () => {
     const { result } = renderHook(() => useSendTransfer());
-    await expect(result.current.send({ chain: 59141, token: "ETH", to: TO, amount: 10n ** 15n })).resolves.toBe(HASH);
-    expect(sendTransactionAsync).toHaveBeenCalledWith({ to: TO, value: 10n ** 15n, chainId: 59141 });
+    await expect(result.current.send({ chain: 84532, token: "ETH", to: TO, amount: 10n ** 15n })).resolves.toBe(HASH);
+    expect(sendTransactionAsync).toHaveBeenCalledWith({ to: TO, value: 10n ** 15n, chainId: 84532 });
     expect(writeContractAsync).not.toHaveBeenCalled();
   });
 
   it("sends USDC as ERC-20 transfer on the chain's official contract", async () => {
     const { result } = renderHook(() => useSendTransfer());
-    await result.current.send({ chain: 59144, token: "USDC", to: TO, amount: 12_500_000n });
+    await result.current.send({ chain: 8453, token: "USDC", to: TO, amount: 12_500_000n });
     const arg = writeContractAsync.mock.calls[0]![0];
-    expect(arg).toMatchObject({ address: NETWORKS[59144].usdc, functionName: "transfer", args: [TO, 12_500_000n], chainId: 59144 });
+    expect(arg).toMatchObject({ address: NETWORKS[8453].usdc, functionName: "transfer", args: [TO, 12_500_000n], chainId: 8453 });
     expect(sendTransactionAsync).not.toHaveBeenCalled();
   });
 
   it("propagates a rejection", async () => {
     sendTransactionAsync.mockRejectedValue(new Error("User rejected"));
     const { result } = renderHook(() => useSendTransfer());
-    await expect(result.current.send({ chain: 59141, token: "ETH", to: TO, amount: 1n })).rejects.toThrow("User rejected");
+    await expect(result.current.send({ chain: 84532, token: "ETH", to: TO, amount: 1n })).rejects.toThrow("User rejected");
   });
 });

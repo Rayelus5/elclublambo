@@ -11,7 +11,7 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
   anonymous: false,
   token: "USDC",
   amount: 5_000_000n,
-  chainId: 59141,
+  chainId: 84532,
   txHash: HASH,
   createdAt: "2026-10-18T10:00:00Z",
   ...over,
@@ -19,14 +19,14 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
 
 describe("TipsReceived deleted message (M3)", () => {
   it("marks a tip whose message was deleted, still counting the money", () => {
-    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ tipId: "d", messageDeleted: true }), entry({ tipId: "l" })]} />);
+    render(<TipsReceived activeChainId={84532} totals={[]} entries={[entry({ tipId: "d", messageDeleted: true }), entry({ tipId: "l" })]} />);
     expect(screen.getAllByText("Mensaje eliminado")).toHaveLength(1);
   });
 });
 
 describe("TipsReceived hidden hash", () => {
   it("shows no explorer link for an anonymous tip with a hidden hash", () => {
-    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ donorName: null, anonymous: true, txHash: null })]} />);
+    render(<TipsReceived activeChainId={84532} totals={[]} entries={[entry({ donorName: null, anonymous: true, txHash: null })]} />);
     expect(screen.queryByRole("link", { name: /explorador/i })).toBeNull();
     expect(screen.getByText("Anónimo")).toBeInTheDocument();
   });
@@ -36,15 +36,15 @@ describe("TipsReceived", () => {
   it("shows the server totals of the active chain as a labelled list", () => {
     render(
       <TipsReceived
-        activeChainId={59141}
+        activeChainId={84532}
         totals={[
           { token: "USDC", total: 7_500_000n, count: 2 },
           { token: "ETH", total: 1_000_000_000_000_000n, count: 1 },
         ]}
-        entries={[entry({ tipId: "4", amount: 700_000_000n, chainId: 59144 })]}
+        entries={[entry({ tipId: "4", amount: 700_000_000n, chainId: 8453 })]}
       />,
     );
-    expect(screen.getByText("Totales en Linea Sepolia")).toBeInTheDocument();
+    expect(screen.getByText("Totales en Base Sepolia")).toBeInTheDocument();
     const totals = document.querySelector("dl")!;
     expect(totals).toHaveAttribute("aria-labelledby", "tips-totals-title");
     expect(totals.textContent).toContain("7,5 USDC");
@@ -56,7 +56,7 @@ describe("TipsReceived", () => {
   it("lists the tips with anonymity rules and explorer links", () => {
     render(
       <TipsReceived
-        activeChainId={59141}
+        activeChainId={84532}
         totals={[{ token: "USDC", total: 15_000_000n, count: 3 }]}
         entries={[entry({ tipId: "1" }), entry({ tipId: "2", donorName: null, anonymous: true }), entry({ tipId: "3", isMe: true, anonymous: true, donorName: "Yo" })]}
       />,
@@ -65,16 +65,16 @@ describe("TipsReceived", () => {
     expect(within(list).getByText("Dona")).toBeInTheDocument();
     expect(within(list).getByText("Anónimo")).toBeInTheDocument();
     expect(within(list).getByText("Tú (anónimo)")).toBeInTheDocument();
-    expect(within(list).getAllByRole("link", { name: /ver transacción/i })[0]).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
+    expect(within(list).getAllByRole("link", { name: /ver transacción/i })[0]).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
   });
 
   it("says there are none on the active chain when only other chains have tips", () => {
-    render(<TipsReceived activeChainId={59141} totals={[]} entries={[entry({ chainId: 59144 })]} />);
-    expect(screen.getByText("Sin propinas en Linea Sepolia.")).toBeInTheDocument();
+    render(<TipsReceived activeChainId={84532} totals={[]} entries={[entry({ chainId: 8453 })]} />);
+    expect(screen.getByText("Sin propinas en Base Sepolia.")).toBeInTheDocument();
   });
 
   it("says there are none yet", () => {
-    render(<TipsReceived activeChainId={59141} totals={[]} entries={[]} />);
+    render(<TipsReceived activeChainId={84532} totals={[]} entries={[]} />);
     expect(screen.getByText(/todavía no hay propinas/i)).toBeInTheDocument();
   });
 });

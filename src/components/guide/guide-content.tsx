@@ -1,25 +1,4 @@
-import { Suspense } from "react";
-import { getEconomyConfig } from "@/lib/economy/config";
-import { bpsToPercentText } from "@/lib/economy/networks";
 import type { GuideSlug } from "@/lib/guide/sections";
-
-/** The minimum fee, read live. Dynamic (cookies via supabase), so it lives in its own Suspense. */
-async function MinFeeValue() {
-  const text = await getEconomyConfig().then(
-    (c) => bpsToPercentText(c.minFeeBps),
-    () => null,
-  );
-  if (text === null) return <span className="text-fg-muted">(ahora mismo no se puede leer)</span>;
-  return <strong className="font-mono text-fg">{text}</strong>;
-}
-
-function MinFee() {
-  return (
-    <Suspense fallback={<span className="text-fg-muted">…</span>}>
-      <MinFeeValue />
-    </Suspense>
-  );
-}
 
 function Sub({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -60,8 +39,7 @@ function Propinas() {
       <Sub title="Qué cuesta">
         <p>
           El destinatario recibe íntegro el importe anunciado. La comisión de la plataforma se suma encima: tú pagas importe
-          más comisión. El mínimo ahora mismo es <MinFee />. Puedes subirla si quieres apoyar el proyecto, pero nunca
-          bajarla de ese mínimo.
+          más comisión.
         </p>
         <p>
           Si hay comisión, firmas dos transferencias normales: primero la comisión a la wallet de la plataforma y después el
@@ -120,8 +98,7 @@ function Bounties() {
       </Sub>
       <Sub title="Qué cuesta">
         <p>
-          Quien resuelve recibe íntegro el importe anunciado. La comisión va aparte y se suma a lo que pagas tú. El mínimo
-          ahora mismo es <MinFee />. Con comisión, firmas dos transferencias.
+          Quien resuelve recibe íntegro el importe anunciado. La comisión va aparte y se suma a lo que pagas tú. Con comisión, firmas dos transferencias.
         </p>
       </Sub>
       <Sub title="Plazos">
@@ -180,7 +157,7 @@ function Dao() {
       <Sub title="Qué cuesta">
         <p>
           La comisión de la plataforma se suma encima del importe: tú pagas importe más comisión, y a la Safe llega el
-          importe completo. El mínimo ahora mismo es <MinFee />. Si hay comisión, firmas dos transferencias.
+          importe completo. Si hay comisión, firmas dos transferencias.
         </p>
       </Sub>
       <Sub title="Riesgos y límites">

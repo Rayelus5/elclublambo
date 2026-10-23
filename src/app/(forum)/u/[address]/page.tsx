@@ -12,6 +12,7 @@ import { ProfileLinks } from "@/components/profile/profile-links";
 import { TipsReceived } from "@/components/profile/tips-received";
 import { getMemberBountyRecord, getMemberUnpaidBounties } from "@/lib/bounties/queries";
 import { getEconomyConfig } from "@/lib/economy/config";
+import { chainForKey } from "@/lib/economy/networks";
 import { getMemberTipTotals, getMemberTips } from "@/lib/payments/queries";
 import { HANDLE_RE } from "@/lib/members/handle";
 import { identityFromRow, memberName } from "@/lib/members/name";
@@ -75,9 +76,9 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
     .then(async (config) => {
       const [entries, totals] = await Promise.all([
         getMemberTips(supabase, member.id),
-        getMemberTipTotals(supabase, member.id, config.activeChainId),
+        getMemberTipTotals(supabase, member.id, config.enabledChainIds[0] ?? chainForKey("base")),
       ]);
-      return { entries, totals, activeChainId: config.activeChainId };
+      return { entries, totals, activeChainId: config.enabledChainIds[0] ?? chainForKey("base") };
     })
     .catch(() => null);
   // Only the bounties the viewer can see, on the active chain, are counted (the RPCs enforce it). A failed read hides
@@ -87,7 +88,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
     getMemberUnpaidBounties(supabase, member.id),
     getEconomyConfig(),
   ])
-    .then(([record, unpaid, config]) => ({ record, unpaid, activeChainId: config.activeChainId }))
+    .then(([record, unpaid, config]) => ({ record, unpaid, activeChainId: config.enabledChainIds[0] ?? chainForKey("base") }))
     .catch(() => null);
   const [sponsorRes, inviteesRes, tips, bounties] = await Promise.all([
     member.invited_by_member_id

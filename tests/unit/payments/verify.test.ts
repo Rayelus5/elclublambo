@@ -7,11 +7,12 @@ vi.mock("@/lib/treasury/valuation", async (orig) => {
   return { ...actual, addressesFor: vi.fn(actual.addressesFor) };
 });
 
-import { verifyTransfer } from "@/lib/payments/verify";
+import { defaultConfirmations, verifyTransfer } from "@/lib/payments/verify";
 import { NETWORKS } from "@/lib/economy/networks";
+import { LEGACY_NETWORKS } from "@/lib/legacy/linea";
 import { addressesFor } from "@/lib/treasury/valuation";
 
-const CHAIN = 59141 as const;
+const CHAIN = 84532 as const;
 const USDC = NETWORKS[CHAIN].usdc;
 const PAYER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 const TO = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC";
@@ -43,16 +44,18 @@ type Opts = {
   head?: bigint | Error;
   chainId?: number | Error;
 };
-function fake(o: Opts = {}) {
+function fakeOn(o: Opts = {}, chainId: number = CHAIN) {
   const run = <T,>(v: T | Error) => (v instanceof Error ? Promise.reject(v) : Promise.resolve(v));
   return {
     getTransaction: vi.fn(() => run(o.tx ?? { from: PAYER, to: TO, value: 5n })),
     getTransactionReceipt: vi.fn(() => run(o.receipt ?? { status: "success", blockNumber: 100n, blockHash: "0xbeef", logs: [] })),
     getBlock: vi.fn(() => run(o.block ?? { timestamp: TS })),
     getBlockNumber: vi.fn(() => run(o.head ?? 110n)),
-    getChainId: vi.fn(() => run(o.chainId ?? CHAIN)),
+    getChainId: vi.fn(() => run(o.chainId ?? chainId)),
   } as never;
 }
+
+const fake = fakeOn;
 
 const base = { chain: CHAIN, txHash: HASH, from: PAYER.toLowerCase(), to: TO.toLowerCase(), notBefore: NOT_BEFORE };
 const notFound = Object.assign(new Error("not found"), { name: "TransactionNotFoundError" });
@@ -162,10 +165,10 @@ describe("verifyTransfer status, timing and RPC", () => {
   });
   it("RPC on another chain -> rpc_unavailable", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await verifyTransfer(eth, fake({ chainId: 59144 }))).toEqual({ status: "error", code: "rpc_unavailable" });
+    expect(await verifyTransfer(eth, fake({ chainId: 421614 }))).toEqual({ status: "error", code: "rpc_unavailable" });
   });
   it("tx.chainId of another chain -> tx_mismatch (ETH and USDC)", async () => {
-    const tx = { from: PAYER, to: TO, value: 5n, chainId: 59144 };
+    const tx = { from: PAYER, to: TO, value: 5n, chainId: 421614 };
     expect(await verifyTransfer(eth, fake({ tx }))).toEqual({ status: "error", code: "tx_mismatch" });
     const usdcIn = { ...base, token: "USDC" as const, amount: 1000n };
     const receipt = { status: "success", blockNumber: 100n, blockHash: "0xbeef", logs: [transferLog(USDC, PAYER, TO, 1000n, 0)] };
@@ -208,12 +211,70 @@ describe("verifyTransfer status, timing and RPC", () => {
   });
 });
 
-describe("verifyTransfer WETH (raffle prizes)", () => {
-  const MOCK_WETH = "0x2222222222222222222222222222222222222222";
-  const prize = { ...base, token: "WETH" as const, amount: 10n ** 16n, atLeast: true };
+describe("defaultConfirmations", () => {
+  it("per network without TIP_CONFIRMATIONS: Base 3, Arbitrum 20, legacy Linea 3", () => {
+    vi.unstubAllEnvs();
+    delete process.env.TIP_CONFIRMATIONS;
+    expect(defaultConfirmations(421614)).toBe(20);
+    expect(defaultConfirmations(42161)).toBe(20);
+    expect(defaultConfirmations(84532)).toBe(3);
+    expect(defaultConfirmations(8453)).toBe(3);
+    expect(defaultConfirmations(59141)).toBe(3);
+  });
+  it("a valid TIP_CONFIRMATIONS wins on every network", () => {
+    vi.stubEnv("TIP_CONFIRMATIONS", "1");
+    expect(defaultConfirmations(421614)).toBe(1);
+    expect(defaultConfirmations(59141)).toBe(1);
+    vi.unstubAllEnvs();
+  });
+  it("an invalid TIP_CONFIRMATIONS falls back to the network's", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("TIP_CONFIRMATIONS", "abc");
+    expect(defaultConfirmations(421614)).toBe(20);
+    vi.unstubAllEnvs();
+  });
+  it("Arbitrum Sepolia waits 20 blocks by default", async () => {
+    delete process.env.TIP_CONFIRMATIONS;
+    const eth = { ...base, chain: 421614 as const, token: "ETH" as const, amount: 5n };
+    expect(await verifyTransfer(eth, fake({ head: 118n }, 421614))).toEqual({ status: "pending" });
+    expect(await verifyTransfer(eth, fake({ head: 119n }, 421614))).toMatchObject({ status: "ok" });
+  });
+});
+
+describe("verifyTransfer on the new networks", () => {
   const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });
+  it("USDC of Arbitrum Sepolia is read from its own registry entry", async () => {
+    const usdc = NETWORKS[421614].usdc;
+    const input = { ...base, chain: 421614 as const, token: "USDC" as const, amount: 1000n, confirmations: 1 };
+    expect(await verifyTransfer(input, fake({ receipt: rc([transferLog(usdc, PAYER, TO, 1000n, 0)]) }, 421614))).toMatchObject({ status: "ok" });
+    // Base Sepolia's USDC on Arbitrum Sepolia is a lookalike.
+    expect(await verifyTransfer(input, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 1000n, 0)]) }, 421614))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+  it("WETH on a new network is always tx_mismatch (no WETH there)", async () => {
+    vi.mocked(addressesFor).mockClear();
+    const prize = { ...base, token: "WETH" as const, amount: 10n ** 16n, atLeast: true };
+    const anyLog = transferLog("0x2222222222222222222222222222222222222222", PAYER, TO, 10n ** 16n, 0);
+    expect(await verifyTransfer(prize, fake({ receipt: rc([anyLog]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    expect(addressesFor).not.toHaveBeenCalled();
+  });
+});
+
+// Legacy island (P0-R2): raffle prizes stay on Linea until P1, so these cases keep 59141.
+describe("verifyTransfer WETH (raffle prizes, legacy Linea)", () => {
+  const LCHAIN = 59141 as const;
+  const LUSDC = LEGACY_NETWORKS[LCHAIN].usdc;
+  const MOCK_WETH = "0x2222222222222222222222222222222222222222";
+  const prize = { ...base, chain: LCHAIN, token: "WETH" as const, amount: 10n ** 16n, atLeast: true };
+  const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });
+  const fake = (o: Opts = {}) => fakeOn(o, LCHAIN);
   const withWeth = (weth: `0x${string}` | null) =>
-    vi.mocked(addressesFor).mockImplementation((chain) => ({ usdc: NETWORKS[chain].usdc, weth, ethUsdFeed: null, heartbeatSec: 86400 }));
+    vi.mocked(addressesFor).mockImplementation((chain) => ({ usdc: LEGACY_NETWORKS[chain].usdc, weth, ethUsdFeed: null, heartbeatSec: 86400 }));
+
+  it("legacy USDC still verifies against the Linea contract", async () => {
+    withWeth(MOCK_WETH);
+    const usdcIn = { ...base, chain: LCHAIN, token: "USDC" as const, amount: 1000n };
+    expect(await verifyTransfer(usdcIn, fake({ receipt: rc([transferLog(LUSDC, PAYER, TO, 1000n, 0)]) }))).toMatchObject({ status: "ok" });
+  });
 
   it("atLeast matches a log of the WETH contract paying 0,0105 against 0,01", async () => {
     withWeth(MOCK_WETH);
@@ -224,12 +285,12 @@ describe("verifyTransfer WETH (raffle prizes)", () => {
   it("reads the WETH address from addressesFor (the env override of the local chain)", async () => {
     withWeth(MOCK_WETH);
     await verifyTransfer(prize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 16n, 0)]) }));
-    expect(addressesFor).toHaveBeenCalledWith(CHAIN);
+    expect(addressesFor).toHaveBeenCalledWith(LCHAIN);
   });
   it("a USDC log for a WETH target is a mismatch, and a WETH log for a USDC target too", async () => {
     withWeth(MOCK_WETH);
-    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(USDC, PAYER, TO, 10n ** 18n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
-    const usdcPrize = { ...base, token: "USDC" as const, amount: 1_000000n, atLeast: true };
+    expect(await verifyTransfer(prize, fake({ receipt: rc([transferLog(LUSDC, PAYER, TO, 10n ** 18n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    const usdcPrize = { ...base, chain: LCHAIN, token: "USDC" as const, amount: 1_000000n, atLeast: true };
     expect(await verifyTransfer(usdcPrize, fake({ receipt: rc([transferLog(MOCK_WETH, PAYER, TO, 10n ** 18n, 0)]) }))).toEqual({ status: "error", code: "tx_mismatch" });
   });
   it("one wei short is a mismatch", async () => {

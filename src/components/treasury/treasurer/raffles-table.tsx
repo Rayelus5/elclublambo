@@ -6,7 +6,7 @@ import { useId, useState } from "react";
 import { TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyHashButton } from "@/components/treasury/raffles/copy-hash-button";
-import { explorerTx, type ChainId } from "@/lib/economy/networks";
+import { legacyExplorerTx, type LegacyChainId } from "@/lib/legacy/linea";
 import { drawRefusalText, formatWhen } from "@/lib/treasury/panel";
 import { formatPrize, raffleStatusLabel, type TreasuryRaffle } from "@/lib/treasury/raffles";
 import { CancelRaffleDialog } from "./cancel-raffle-dialog";
@@ -19,7 +19,7 @@ const linkClass =
 const recorded = (r: TreasuryRaffle) => r.payoutRecordedAt !== null || r.payoutTxHash !== null;
 const labelOf = (r: TreasuryRaffle) => raffleStatusLabel({ status: r.status, payoutRecorded: recorded(r), unpaid: r.unpaid, paidLate: r.paidLate });
 
-export function RafflesTable({ rows, bannedIds, chainId }: { rows: TreasuryRaffle[]; bannedIds: string[]; chainId: ChainId }) {
+export function RafflesTable({ rows, bannedIds, chainId }: { rows: TreasuryRaffle[]; bannedIds: string[]; chainId: LegacyChainId }) {
   const [active, setActive] = useState<{ id: string; action: "cancel" | "paid" } | null>(null);
   const idBase = useId();
   const target = active ? (rows.find((r) => r.id === active.id) ?? null) : null;
@@ -58,7 +58,7 @@ function Row({
   r: TreasuryRaffle;
   labelId: string;
   banned: boolean;
-  chainId: ChainId;
+  chainId: LegacyChainId;
   onAction: (a: "cancel" | "paid") => void;
 }) {
   const canCancel = r.status === "open" || r.status === "closed";
@@ -100,7 +100,7 @@ function Row({
         ) : null}
         {r.status === "cancelled" && r.cancelReason ? <p className="text-[13px] break-words text-fg-muted">{`Motivo: ${r.cancelReason}`}</p> : null}
         {r.status === "paid" && r.payoutTxHash ? (
-          <a href={explorerTx(chainId, r.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
+          <a href={legacyExplorerTx(chainId, r.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
             Ver el pago en el explorador
           </a>
         ) : null}

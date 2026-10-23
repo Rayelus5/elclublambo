@@ -48,7 +48,7 @@ describe("tip entries", () => {
     token: "USDC",
     amount: 5,
     amount_text: "5000000",
-    chain_id: 59141,
+    chain_id: 84532,
     main_tx_hash: HASH,
     created_at: "2026-10-18T10:00:00Z",
     ...over,
@@ -58,7 +58,7 @@ describe("tip entries", () => {
   it("resolves the donor name and reads exact amounts", async () => {
     const supabase = client({ message_tips: [row()] }, [donor]);
     const [e] = await getMessageTips(supabase as never, M1);
-    expect(e).toMatchObject({ tipId: "t1", donorName: "Dona", isMe: false, anonymous: false, token: "USDC", amount: 5_000_000n, chainId: 59141, txHash: HASH });
+    expect(e).toMatchObject({ tipId: "t1", donorName: "Dona", isMe: false, anonymous: false, token: "USDC", amount: 5_000_000n, chainId: 84532, txHash: HASH });
     expect(donorLabel(e!)).toBe("Dona");
   });
 
@@ -87,13 +87,13 @@ describe("tip entries", () => {
 
 describe("getTipNoticeLinks", () => {
   it("maps tip ids to chain and hash", async () => {
-    const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 59144, main_tx_hash: HASH }] });
+    const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 8453, main_tx_hash: HASH }] });
     const map = await getTipNoticeLinks(supabase as never, ["t1"]);
-    expect(map.get("t1")).toEqual({ chainId: 59144, txHash: HASH });
+    expect(map.get("t1")).toEqual({ chainId: 8453, txHash: HASH });
   });
 
   it("skips a tip whose hash is hidden (someone else's anonymous tip)", async () => {
-    const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 59144, main_tx_hash: null }] });
+    const supabase = client({ tips_by_ids: [{ tip_id: "t1", chain_id: 8453, main_tx_hash: null }] });
     const map = await getTipNoticeLinks(supabase as never, ["t1"]);
     expect(map.has("t1")).toBe(false);
   });
@@ -107,11 +107,11 @@ describe("getMemberTipTotals", () => {
         { token: "USDC", total_text: "155000000", tip_count: 151 },
       ],
     });
-    const totals = await getMemberTipTotals(supabase as never, M1, 59141);
+    const totals = await getMemberTipTotals(supabase as never, M1, 84532);
     expect(totals).toEqual([
       { token: "USDC", total: 155_000_000n, count: 151 },
       { token: "ETH", total: 12_345_678_901_234_567_890n, count: 1 },
     ]);
-    expect(supabase.rpc).toHaveBeenCalledWith("member_tips_totals", { p_member: M1, p_chain: 59141 });
+    expect(supabase.rpc).toHaveBeenCalledWith("member_tips_totals", { p_member: M1, p_chain: 84532 });
   });
 });

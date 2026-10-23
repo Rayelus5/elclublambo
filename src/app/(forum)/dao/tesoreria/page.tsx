@@ -15,7 +15,7 @@ import { WeightedRafflesSwitch } from "@/components/treasury/treasurer/weighted-
 import { WithdrawalsSwitch } from "@/components/treasury/treasurer/withdrawals-switch";
 import { WithdrawalsTable } from "@/components/treasury/treasurer/withdrawals-table";
 import { getEconomyConfig } from "@/lib/economy/config";
-import { NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { LEGACY_NETWORKS, type LegacyChainId } from "@/lib/legacy/linea";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatUsdc } from "@/lib/treasury/format";
@@ -71,8 +71,8 @@ async function TreasuryContent() {
     ),
   ]);
   const raffles = raffleResult.rows;
-  const chainId: ChainId = overview.chainId;
-  const safe = economy.chains[chainId].safe;
+  const chainId: LegacyChainId = overview.chainId;
+  const safe = economy.legacy.chains[chainId].safe;
 
   // The Safe's USDC, live; when the read fails the latest snapshot's, labelled with its time.
   let safeUsdc: bigint | null = null;
@@ -121,7 +121,7 @@ async function TreasuryContent() {
           DAO
         </Link>
         <h1 className="text-h1">Panel del tesorero</h1>
-        <p className="text-fg-muted">{`Retiradas y operaciones de la Safe en ${NETWORKS[chainId].name}.`}</p>
+        <p className="text-fg-muted">{`Retiradas y operaciones de la Safe en ${LEGACY_NETWORKS[chainId].name}.`}</p>
         {safeUsdc !== null ? (
           <p className="text-sm text-fg">
             {`USDC en la Safe: ${formatUsdc(safeUsdc)}`}
@@ -166,7 +166,7 @@ async function TreasuryContent() {
           </p>
         ) : null}
         <CreateRaffleDialog
-          weightedEnabled={economy.weightedRafflesEnabled[chainId]}
+          weightedEnabled={economy.legacy.weightedRafflesEnabled[chainId]}
           navUsd6={overview.navUsd6}
           ethPriceE8={overview.composition?.ethPriceE8 ?? null}
         />
@@ -175,7 +175,7 @@ async function TreasuryContent() {
           <div className="flex flex-col gap-3 border-t border-border pt-4">
             <h3 className="text-sm font-bold text-fg">Sorteos ponderados</h3>
             <p className="text-[13px] text-fg-muted">Sin él, nadie puede crear sorteos ponderados en esa red. Los ya creados siguen su curso.</p>
-            <WeightedRafflesSwitch enabled={economy.weightedRafflesEnabled} />
+            <WeightedRafflesSwitch enabled={economy.legacy.weightedRafflesEnabled} />
           </div>
         ) : null}
       </Section>
@@ -198,7 +198,7 @@ async function TreasuryContent() {
 
       {isSuperAdmin ? (
         <Section id="interruptor" title="Interruptor de retiradas" intro="Sin él, nadie puede pedir ni aprobar retiradas en esa red. Cancelar, rechazar y registrar pagos siguen disponibles.">
-          <WithdrawalsSwitch enabled={economy.withdrawalsEnabled} />
+          <WithdrawalsSwitch enabled={economy.legacy.withdrawalsEnabled} />
         </Section>
       ) : null}
 

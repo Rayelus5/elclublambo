@@ -7,7 +7,7 @@ vi.mock("@/lib/payments/verify", () => ({ verifyTransfer: (...a: unknown[]) => v
 
 const getBlock = vi.fn();
 const chainClient = vi.fn<(c: number) => object>(() => ({ getBlock: (...a: unknown[]) => getBlock(...a) }));
-vi.mock("@/lib/payments/chain-client", () => ({ chainClient: (c: number) => chainClient(c) }));
+vi.mock("@/lib/legacy/linea-client", () => ({ legacyChainClient: (c: number) => chainClient(c) }));
 
 const valueSafe = vi.fn();
 vi.mock("@/lib/treasury/snapshot", () => ({ valueSafe: (...a: unknown[]) => valueSafe(...a) }));

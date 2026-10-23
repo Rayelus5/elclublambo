@@ -5,17 +5,17 @@ import { useRouter } from "next/navigation";
 import { CircleAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { ChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
 import { setWithdrawalsEnabledAction } from "@/lib/treasury/withdrawal-actions";
 import { cn } from "@/lib/utils";
 
-const NETWORKS: { chain: ChainId; label: string; hint?: string }[] = [
+const NETWORKS: { chain: LegacyChainId; label: string; hint?: string }[] = [
   { chain: 59144, label: "Retiradas en Linea", hint: "Recomendado solo tras una revisión legal." },
   { chain: 59141, label: "Retiradas en Linea Sepolia" },
 ];
 
 /** SuperAdmin's per-network switch. Requesting, quoting and approving need it on; cancel, reject and payouts never do. */
-export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolean> }) {
+export function WithdrawalsSwitch({ enabled }: { enabled: Record<LegacyChainId, boolean> }) {
   const router = useRouter();
   const [state, setState] = useState(enabled);
   // Re-sync when the server's values change (a refresh, or another SuperAdmin flipping it): adjust during render.
@@ -26,17 +26,17 @@ export function WithdrawalsSwitch({ enabled }: { enabled: Record<ChainId, boolea
     setState(enabled);
   }
   const [confirming, setConfirming] = useState(false);
-  const [busy, setBusy] = useState<ChainId | null>(null);
-  const [errors, setErrors] = useState<Partial<Record<ChainId, string>>>({});
+  const [busy, setBusy] = useState<LegacyChainId | null>(null);
+  const [errors, setErrors] = useState<Partial<Record<LegacyChainId, string>>>({});
   const inFlight = useRef(false);
 
   /** Turning mainnet ON asks first: it opens real money to withdrawal requests. */
-  function onClick(chain: ChainId) {
+  function onClick(chain: LegacyChainId) {
     if (chain === 59144 && !state[chain]) setConfirming(true);
     else void toggle(chain);
   }
 
-  async function toggle(chain: ChainId) {
+  async function toggle(chain: LegacyChainId) {
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(chain);

@@ -17,14 +17,14 @@ import { directory, doc, makeMessage, viewer } from "./fixtures";
 const HASH = `0x${"ef".repeat(32)}`;
 const TEXT = "@ana ha enviado 12,5 USDC a @bob por este mensaje";
 const notice = (over = {}) =>
-  makeMessage({ kind: "system", authorId: null, body: doc(TEXT), tipId: "t1", tipLink: { chainId: 59141, txHash: HASH }, ...over });
+  makeMessage({ kind: "system", authorId: null, body: doc(TEXT), tipId: "t1", tipLink: { chainId: 84532, txHash: HASH }, ...over });
 
 describe("SystemNotice", () => {
   it("shows El Club, the text and the explorer link", () => {
     render(<SystemNotice message={notice()} />);
     expect(screen.getByText("El Club")).toBeInTheDocument();
     expect(screen.getByText(TEXT)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /ver transacción/i })).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
+    expect(screen.getByRole("link", { name: /ver transacción/i })).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
   });
 
   it("has no link when the transaction is unknown", () => {

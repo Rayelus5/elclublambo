@@ -21,7 +21,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), notFound: vi.fn() }));
 vi.mock("@/lib/treasury/withdrawal-actions", () => ({}));
 vi.mock("@/lib/economy/config", () => ({
-  getEconomyConfig: async () => ({ activeChainId: 59141, minFeeBps: 0, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } }),
+  getEconomyConfig: async () => ({ enabledChainIds: [], safes: {}, legacyDaoEnabled: true, legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } } }),
 }));
 vi.mock("@/lib/treasury/finality", () => ({ finalitySnapshot: vi.fn() }));
 vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: vi.fn(), shouldSettleFromView: () => false }));

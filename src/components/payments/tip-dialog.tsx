@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { shortAddress } from "@/lib/auth/wallet";
-import { explorerTx, NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { chainForKey, explorerTx, NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
 import { rpcErrorMessage } from "@/lib/errors";
 import { DONATION_LIMITS, feeFor, formatAmount, parseAmount, TIP_LIMITS, type Token } from "@/lib/payments/amounts";
@@ -211,13 +211,14 @@ function TipFlow({
 }) {
   const economy = useEconomy();
   const { memberId } = economy;
-  const chainId = economy.activeChainId;
-  const platform = economy.chains[chainId].platform;
+  // Compile-only until Task 11 reworks the dialog: the first enabled network, and no platform fee (P0-R5).
+  const chainId = economy.enabledChainIds[0] ?? chainForKey("base");
+  const platform = null as string | null;
   // `mode` stays the bounty (most of the flow reads "is this a bounty?"); a donation is its own flag.
   const mode = modeProp?.kind === "bounty" ? modeProp : undefined;
   const donation = modeProp?.kind === "donation";
   // The DAO's Safe on a given chain, from the economy config (never from the intent).
-  const safeOn = (c: number): string | null => economy.chains[c as ChainId]?.safe ?? null;
+  const safeOn = (c: number): string | null => economy.safes[c as ChainId] ?? null;
   const safe = safeOn(chainId);
   // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile, a
   // donation by the constant "dao" (so a fee paid on one chain is still resumable after the active chain changes).
@@ -255,7 +256,7 @@ function TipFlow({
 
   const [token, setToken] = useState<Token>(mode?.token ?? "USDC");
   const [amountText, setAmountText] = useState(mode ? formatAmount(mode.minAmount, mode.token) : "");
-  const [feeBps, setFeeBps] = useState(economy.minFeeBps);
+  const [feeBps, setFeeBps] = useState(0);
   const [anonymous, setAnonymous] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   // USD6 value of one participación, read only when the dialog opens as a donation; null when unknown or unreadable.
@@ -277,7 +278,7 @@ function TipFlow({
     getDaoOverview(createBrowserClient())
       .then((o) => {
         // Only this chain's price; with totalShares = 0 the rate is 1 USD per participación (F4a-R9).
-        if (!cancelled && o.chainId === chainId) {
+        if (!cancelled && (o.chainId as number) === chainId) {
           if (o.sharePriceUsd6 > 0n) setSharePrice(o.sharePriceUsd6);
           else if (o.totalShares === 0n) setSharePrice(1_000_000n);
         }
@@ -392,7 +393,7 @@ function TipFlow({
       const intentSafe = safeOn(it.chainId);
       if (it.token !== "USDC" || !intentSafe || it.recipientAddress.toLowerCase() !== intentSafe.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
     } else if (it.recipientAddress.toLowerCase() !== recipient!.walletAddress.toLowerCase()) throw new SignGuardError(MSG_MISMATCH);
-    if (feeRequired && (!it.platformAddress || !economy.chains[it.chainId as ChainId]?.platform || it.platformAddress.toLowerCase() !== economy.chains[it.chainId as ChainId].platform!.toLowerCase())) {
+    if (feeRequired && (!it.platformAddress || !platform || it.platformAddress.toLowerCase() !== platform.toLowerCase())) {
       throw new SignGuardError(MSG_MISMATCH);
     }
   }
@@ -910,7 +911,7 @@ function TipFlow({
       </div>
 
       <div className="flex min-w-0 flex-col gap-4">
-        <FeeControl minBps={economy.minFeeBps} value={feeBps} onChange={setFeeBps} />
+        <FeeControl minBps={0} value={feeBps} onChange={setFeeBps} />
 
         <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-control bg-surface-2 p-3 text-sm">
           <dt className="text-fg-muted">Para {payeeName}</dt>

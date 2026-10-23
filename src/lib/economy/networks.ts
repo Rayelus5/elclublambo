@@ -1,58 +1,112 @@
-export type ChainId = 59144 | 59141;
+import type { Chain } from "viem";
+import { arbitrum, arbitrumSepolia, base, baseSepolia } from "viem/chains";
+
+export type ChainId = 8453 | 42161 | 84532 | 421614;
+export type NetworkKey = "base" | "arbitrum";
+/** The build's chains: PRO uses mainnet, PRE / local / e2e use testnet (NEXT_PUBLIC_NETWORK_SET, P0-R1). */
+export type NetworkSet = "mainnet" | "testnet";
 
 export type Network = {
   id: ChainId;
+  key: NetworkKey;
   name: string;
-  usdc: `0x${string}`;
-  /** Canonical WETH (18 decimals); null when the chain has none. */
-  weth: `0x${string}` | null;
-  /** Chainlink ETH/USD proxy (8 decimals); null when there is no feed (CoinGecko fallback only). */
-  ethUsdFeed: `0x${string}` | null;
-  /** The feed's heartbeat in seconds; an answer older than heartbeat + 10 % is stale. */
-  ethUsdHeartbeatSec: number;
-  explorer: string;
   testnet: boolean;
+  /** Circle's native USDC (6 decimals). No USDC.e (D3). */
+  usdc: `0x${string}`;
+  explorer: string;
+  viemChain: Chain;
+  /** Server-side RPC override; empty means the chain's public RPC. */
+  serverRpcEnv: "BASE_RPC_URL" | "ARBITRUM_RPC_URL" | "BASE_SEPOLIA_RPC_URL" | "ARBITRUM_SEPOLIA_RPC_URL";
+  logo: string;
+  /** Tip confirmations (P0-R9) and the Safe scan's chunking (consumed in P1). */
+  finality: { tipConfirmations: number; scanChunkBlocks: number; maxScanChunks: number };
 };
+
+const BASE_FINALITY = { tipConfirmations: 3, scanChunkBlocks: 2000, maxScanChunks: 10 };
+const ARBITRUM_FINALITY = { tipConfirmations: 20, scanChunkBlocks: 2000, maxScanChunks: 40 };
 
 /**
- * Verified addresses (fetched 2026-10-18):
- * - USDC: Circle's docs (developers.circle.com/stablecoins/usdc-contract-addresses).
- * - ETH/USD: Chainlink's feed directory behind docs.chain.link/data-feeds/price-feeds/addresses?network=linea
- *   (reference-data-directory.vercel.app/feeds-ethereum-mainnet-linea-1.json and
- *   feeds-ethereum-testnet-sepolia-linea-1.json, entry "ETH / USD"): mainnet proxy 0x3c6C…54dA, Linea Sepolia proxy
- *   0x0B55…24bc, both 8 decimals, heartbeat 86400 s, deviation 0.5 %. On-chain decimals() = 8 checked the same day.
- * - WETH: the official Linea token list linked from docs.linea.build/network/build/contracts ("Other tokens"):
- *   github.com/Consensys/linea-token-list json/linea-mainnet-token-shortlist.json (updatedAt 2026-08-29) and
- *   json/linea-sepolia-token-shortlist.json (updatedAt 2025-12-22), symbol WETH, 18 decimals. The mainnet address is
- *   also Chainlink CCIP's WETH fee token for Linea (docs.chain.link/ccip/directory/mainnet/chain/ethereum-mainnet-linea-1).
+ * USDC: Circle's docs (developers.circle.com/stablecoins/usdc-contract-addresses), re-checked 2026-10-24, with
+ * on-chain decimals() = 6 on each chain the same day. Explorers: web links only (P0-R10).
  */
 export const NETWORKS: Record<ChainId, Network> = {
-  59144: {
-    id: 59144,
-    name: "Linea",
-    usdc: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
-    weth: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
-    ethUsdFeed: "0x3c6Cd9Cc7c7a4c2Cf5a82734CD249D7D593354dA",
-    ethUsdHeartbeatSec: 86400,
-    explorer: "https://lineascan.build",
+  8453: {
+    id: 8453,
+    key: "base",
+    name: "Base",
     testnet: false,
+    usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    explorer: "https://basescan.org",
+    viemChain: base,
+    serverRpcEnv: "BASE_RPC_URL",
+    logo: "/brand/networks/base.svg",
+    finality: BASE_FINALITY,
   },
-  59141: {
-    id: 59141,
-    name: "Linea Sepolia",
-    usdc: "0xFEce4462D57bD51A6A552365A011b95f0E16d9B7",
-    weth: "0x06565ed324Ee9fb4DB0FF80B7eDbE4Cb007555a3",
-    ethUsdFeed: "0x0B553921D3282250f0FB1D1EF2aA71365A7624bc",
-    ethUsdHeartbeatSec: 86400,
-    explorer: "https://sepolia.lineascan.build",
+  42161: {
+    id: 42161,
+    key: "arbitrum",
+    name: "Arbitrum",
+    testnet: false,
+    usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+    explorer: "https://arbiscan.io",
+    viemChain: arbitrum,
+    serverRpcEnv: "ARBITRUM_RPC_URL",
+    logo: "/brand/networks/arbitrum.svg",
+    finality: ARBITRUM_FINALITY,
+  },
+  84532: {
+    id: 84532,
+    key: "base",
+    name: "Base Sepolia",
     testnet: true,
+    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    explorer: "https://sepolia.basescan.org",
+    viemChain: baseSepolia,
+    serverRpcEnv: "BASE_SEPOLIA_RPC_URL",
+    logo: "/brand/networks/base.svg",
+    finality: BASE_FINALITY,
+  },
+  421614: {
+    id: 421614,
+    key: "arbitrum",
+    name: "Arbitrum Sepolia",
+    testnet: true,
+    usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+    explorer: "https://sepolia.arbiscan.io",
+    viemChain: arbitrumSepolia,
+    serverRpcEnv: "ARBITRUM_SEPOLIA_RPC_URL",
+    logo: "/brand/networks/arbitrum.svg",
+    finality: ARBITRUM_FINALITY,
   },
 };
 
-export const CHAIN_IDS: ChainId[] = [59144, 59141];
+export const CHAIN_IDS: readonly ChainId[] = [8453, 42161, 84532, 421614];
 
 export function isChainId(n: unknown): n is ChainId {
-  return n === 59144 || n === 59141;
+  return typeof n === "number" && (CHAIN_IDS as readonly number[]).includes(n);
+}
+
+export function chainsForSet(set: NetworkSet): ChainId[] {
+  return CHAIN_IDS.filter((c) => NETWORKS[c].testnet === (set === "testnet"));
+}
+
+/** The build's network set. Unset is testnet; anything else throws (a typo must not silently pick a set). */
+export function networkSet(value: string | undefined = process.env.NEXT_PUBLIC_NETWORK_SET): NetworkSet {
+  if (value === undefined) return "testnet";
+  if (value === "mainnet" || value === "testnet") return value;
+  throw new Error(`Unknown NEXT_PUBLIC_NETWORK_SET: ${value}`);
+}
+
+/** The chains this build uses, base first. */
+export function appChainIds(): ChainId[] {
+  return chainsForSet(networkSet());
+}
+
+/** The build's chain for a network key ("base" -> 8453 on mainnet, 84532 on testnet). */
+export function chainForKey(key: NetworkKey): ChainId {
+  const c = appChainIds().find((id) => NETWORKS[id].key === key);
+  if (c === undefined) throw new Error(`No chain for network ${key}`);
+  return c;
 }
 
 export function explorerTx(chain: ChainId, hash: string): string {

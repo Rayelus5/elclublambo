@@ -8,8 +8,8 @@ describe("bounty queries", () => {
     const m = await getBountyDetails(
       client({
         data: [
-          { message_id: "a", token: "ETH", amount_text: "100000000000000000001", chain_id: 59141, status: "solution_marked", solution_message_id: "r", solver_id: "s", solution_marked_at: "t", pay_deadline: "d", paid_tip_id: null },
-          { message_id: "bad", token: "DAI", amount_text: "1", chain_id: 59141, status: "open" },
+          { message_id: "a", token: "ETH", amount_text: "100000000000000000001", chain_id: 84532, status: "solution_marked", solution_message_id: "r", solver_id: "s", solution_marked_at: "t", pay_deadline: "d", paid_tip_id: null },
+          { message_id: "bad", token: "DAI", amount_text: "1", chain_id: 84532, status: "open" },
         ],
         error: null,
       }),
@@ -19,7 +19,7 @@ describe("bounty queries", () => {
     expect(m?.get("a")).toMatchObject({ amount: 100000000000000000001n, status: "solution_marked", payDeadline: "d", solverId: "s", paidTipId: null });
   });
   it.each(["removed", "solver_unavailable", "other_chain"])("accepts the derived status %s", async (status) => {
-    const m = await getBountyDetails(client({ data: [{ message_id: "a", token: "USDC", amount_text: "1", chain_id: 59141, status }], error: null }), ["a"]);
+    const m = await getBountyDetails(client({ data: [{ message_id: "a", token: "USDC", amount_text: "1", chain_id: 84532, status }], error: null }), ["a"]);
     expect(m?.get("a")?.status).toBe(status);
   });
   it("returns an empty map for no ids and null on failure", async () => {
@@ -32,14 +32,14 @@ describe("bounty queries", () => {
     const u = await getMemberUnpaidBounties(
       client({
         data: [
-          { message_id: "a", channel_id: "c", token: "USDC", amount_text: "5000000", solution_marked_at: "t", chain_id: 59141 },
+          { message_id: "a", channel_id: "c", token: "USDC", amount_text: "5000000", solution_marked_at: "t", chain_id: 84532 },
           { message_id: "b", channel_id: "c", token: "USDC", amount_text: "5000000", solution_marked_at: "t", chain_id: 1 },
         ],
         error: null,
       }),
       "m",
     );
-    expect(u).toEqual([{ messageId: "a", channelId: "c", token: "USDC", amount: 5000000n, solutionMarkedAt: "t", chainId: 59141 }]);
+    expect(u).toEqual([{ messageId: "a", channelId: "c", token: "USDC", amount: 5000000n, solutionMarkedAt: "t", chainId: 84532 }]);
     await expect(getMemberUnpaidBounties(client({ data: null, error: { message: "x" } }), "m")).rejects.toBeTruthy();
   });
 });

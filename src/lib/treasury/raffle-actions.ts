@@ -2,7 +2,7 @@
 
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
-import { isChainId } from "@/lib/economy/networks";
+import { isLegacyChainId } from "@/lib/legacy/linea";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { hitRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -127,7 +127,7 @@ export async function markRafflePaidAction(id: string, txHash: string): Promise<
   if (
     raffle.status !== "drawn" ||
     raffle.payout_tx_hash !== null ||
-    !isChainId(raffle.chain_id) ||
+    !isLegacyChainId(raffle.chain_id) ||
     !isPrizeToken(raffle.prize_token) ||
     !raffle.winner_address ||
     !raffle.drawn_at ||
@@ -169,7 +169,7 @@ export async function markRafflePaidAction(id: string, txHash: string): Promise<
 
 /** SuperAdmin (ADMINISTRATOR, re-checked in SQL): the per-network weighted raffles switch (gates creation only). */
 export async function setWeightedRafflesEnabledAction(chain: number, enabled: boolean): Promise<{ ok: true } | Fail> {
-  if (!isChainId(chain) || typeof enabled !== "boolean") return fail("invalid_input");
+  if (!isLegacyChainId(chain) || typeof enabled !== "boolean") return fail("invalid_input");
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("set_weighted_raffles_enabled", { p_chain: chain, p_enabled: enabled });
   if (error) return fail(rpcErrorCode(error));

@@ -3,7 +3,7 @@
 // are numeric(78,0): the RPCs return the large ones as text; the rest are converted here without float rounding.
 import { safeError } from "@/lib/security/redact";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isChainId, type ChainId } from "@/lib/economy/networks";
+import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
 import type { FundAsset } from "@/lib/treasury/format";
 import { parseMyWithdrawal, type MyWithdrawal } from "@/lib/treasury/withdrawals";
 
@@ -18,7 +18,7 @@ export interface Composition {
 }
 
 export interface DaoOverview {
-  chainId: ChainId;
+  chainId: LegacyChainId;
   totalShares: bigint;
   valueUsdc: bigint;
   donors: number;
@@ -119,7 +119,7 @@ export async function getDaoOverview(supabase: SupabaseClient): Promise<DaoOverv
   const chain = Number(o.chainId);
   const pending = Array.isArray(o.myPending) ? (o.myPending as Record<string, unknown>[]) : [];
   return {
-    chainId: isChainId(chain) ? chain : 59141,
+    chainId: isLegacyChainId(chain) ? chain : 59141,
     totalShares: big(o.totalShares),
     valueUsdc: big(o.valueUsdc),
     donors: Number(o.donors ?? 0),

@@ -3,7 +3,7 @@
 // not depend on the forum's own server.
 import { BlockNotFoundError, createPublicClient, http } from "viem";
 import { linea, lineaSepolia } from "viem/chains";
-import type { ChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
 
 export interface DrawBlocks {
   hash: string;
@@ -17,13 +17,13 @@ export interface DrawBlocks {
  * production so the public RPC is used and the check stays independent of the forum. Never the server's
  * LINEA_*_RPC_URL, which may carry a private key. The references are literal because Next inlines them by name.
  */
-function browserRpcUrl(chain: ChainId): string | undefined {
+function browserRpcUrl(chain: LegacyChainId): string | undefined {
   const url = chain === 59144 ? process.env.NEXT_PUBLIC_LINEA_RPC_URL : process.env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL;
   return url || undefined;
 }
 
 /** The draw block and its parent, null when the chain has no such block; throws when the network cannot be read. */
-export async function fetchDrawBlocks(chain: ChainId, blockNumber: bigint): Promise<DrawBlocks | null> {
+export async function fetchDrawBlocks(chain: LegacyChainId, blockNumber: bigint): Promise<DrawBlocks | null> {
   const client = createPublicClient({
     chain: chain === 59144 ? linea : lineaSepolia,
     transport: http(browserRpcUrl(chain), { timeout: 10000, retryCount: 1 }),

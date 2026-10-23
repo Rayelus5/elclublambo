@@ -18,7 +18,7 @@ import { WithdrawControls } from "@/components/treasury/withdraw-controls";
 import { RaffleList } from "@/components/treasury/raffles/raffle-list";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { getEconomyConfig } from "@/lib/economy/config";
-import { explorerAddress } from "@/lib/economy/networks";
+import { legacyExplorerAddress } from "@/lib/legacy/linea";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { donutSlices } from "@/lib/treasury/charts";
@@ -54,7 +54,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   ]);
   // Treasurers annotate the Safe's operations (set_operation_note re-checks MANAGE_TREASURY).
   const canNote = hasPerm(BigInt(String(rawPerms.data ?? 0)), Perm.MANAGE_TREASURY);
-  const safe = economy.chains[overview.chainId].safe;
+  const safe = economy.legacy.chains[overview.chainId].safe;
   // The estimate costs one RPC read: only when the viewer has something waiting for finality.
   const finality = overview.myPending.length > 0 ? await finalitySnapshot(overview.chainId) : undefined;
   // Viewing the DAO settles whatever is already final (anyone's, a few per view) without waiting for the cron or the
@@ -137,7 +137,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
           </h2>
           {safe ? (
             <a
-              href={explorerAddress(overview.chainId, safe)}
+              href={legacyExplorerAddress(overview.chainId, safe)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"

@@ -47,7 +47,7 @@ const detailsRow = {
   message_id: BOUNTY,
   token: "USDC",
   amount_text: "25000000",
-  chain_id: 59141,
+  chain_id: 84532,
   status: "solution_marked",
   solution_message_id: REPLY,
   solver_id: SOLVER,

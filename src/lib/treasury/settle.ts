@@ -1,7 +1,7 @@
 import "server-only";
 import { safeError } from "@/lib/security/redact";
-import { isChainId, type ChainId } from "@/lib/economy/networks";
-import { chainClient } from "@/lib/payments/chain-client";
+import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
+import { legacyChainClient } from "@/lib/legacy/linea-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { valueSafe, type SafeValuation } from "@/lib/treasury/snapshot";
@@ -13,7 +13,7 @@ const MAX_PER_CALL = 20;
 /** Errors that mean the payment no longer exists as claimed (tx_too_old: it was mined before the intent, F3d M5). */
 const PERMANENT = new Set(["tx_failed", "tx_mismatch", "tx_too_old"]);
 
-type Valuer = (chain: ChainId) => Promise<SafeValuation | null>;
+type Valuer = (chain: LegacyChainId) => Promise<SafeValuation | null>;
 
 type LedgerRow = { id: string; chain_id: number; intent_id: string; block_number: string; missing_since: string | null };
 type IntentRow = {
@@ -41,7 +41,7 @@ type Ok = Extract<VerifyResult, { status: "ok" }>;
  * read (`assets_stale`) or `invalid_state` keep the row pending for the next run; `shares_zero` keeps it pending for the
  * treasurer's review.
  */
-export async function settlePendingDonations(chain?: ChainId, opts: SettleOptions = {}): Promise<SettleResult> {
+export async function settlePendingDonations(chain?: LegacyChainId, opts: SettleOptions = {}): Promise<SettleResult> {
   const result: SettleResult = { credited: 0, reverted: 0, pending: 0 };
   const db = createAdminClient();
   const limit = Math.max(1, Math.min(MAX_PER_CALL, Math.floor(opts.limit ?? MAX_PER_CALL)));
@@ -58,13 +58,13 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
     console.error("[treasury] settle query failed", safeError(error.message));
     return result;
   }
-  const rows = ((data ?? []) as unknown as LedgerRow[]).filter((r) => isChainId(r.chain_id));
+  const rows = ((data ?? []) as unknown as LedgerRow[]).filter((r) => isLegacyChainId(r.chain_id));
 
   const finalized = new Map<number, bigint | null>();
-  const finalizedOf = async (id: ChainId): Promise<bigint | null> => {
+  const finalizedOf = async (id: LegacyChainId): Promise<bigint | null> => {
     if (!finalized.has(id)) {
       try {
-        const block = await chainClient(id).getBlock({ blockTag: "finalized" });
+        const block = await legacyChainClient(id).getBlock({ blockTag: "finalized" });
         finalized.set(id, block.number);
       } catch (e) {
         console.error("[treasury] finalized block unavailable", id, safeError(e));
@@ -91,7 +91,7 @@ export async function settlePendingDonations(chain?: ChainId, opts: SettleOption
   for (const row of rows) {
     let outcome: Outcome = "pending";
     try {
-      const fin = await finalizedOf(row.chain_id as ChainId);
+      const fin = await finalizedOf(row.chain_id as LegacyChainId);
       if (fin !== null && BigInt(row.block_number) <= fin) outcome = await settleRow(db, row, fin, valueOf);
     } catch (e) {
       console.error("[treasury] settle failed", row.id, safeError(e));
@@ -111,7 +111,7 @@ async function settleRow(db: ReturnType<typeof createAdminClient>, row: LedgerRo
   const { data: payer } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
   if (!payer) return "pending";
 
-  const chain = row.chain_id as ChainId;
+  const chain = row.chain_id as LegacyChainId;
   const base = { chain, token: "USDC" as const, from: payer.wallet_address, notBefore: new Date(i.created_at), confirmations: 1 };
   const fee = BigInt(i.fee_amount);
   if (fee > 0n && (!i.platform_address || !i.fee_tx_hash)) return "pending";

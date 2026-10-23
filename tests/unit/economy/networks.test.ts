@@ -1,61 +1,102 @@
 import { getAddress } from "viem";
-import { afterEach, describe, expect, it, vi } from "vitest";
-vi.mock("server-only", () => ({}));
-
-import { addressesFor } from "@/lib/treasury/valuation";
-import { bpsToPercentText, explorerAddress, explorerTx, NETWORKS, percentTextToBps } from "@/lib/economy/networks";
+import { describe, expect, it } from "vitest";
+import {
+  appChainIds,
+  bpsToPercentText,
+  CHAIN_IDS,
+  chainForKey,
+  chainsForSet,
+  explorerAddress,
+  explorerBlock,
+  explorerTx,
+  isChainId,
+  networkSet,
+  NETWORKS,
+  percentTextToBps,
+} from "@/lib/economy/networks";
 
 describe("NETWORKS", () => {
-  it("pins the USDC, WETH and ETH/USD feed addresses, explorers and testnet flags", () => {
-    expect(NETWORKS[59144]).toEqual({
-      id: 59144,
-      name: "Linea",
-      usdc: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff",
-      weth: "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
-      ethUsdFeed: "0x3c6Cd9Cc7c7a4c2Cf5a82734CD249D7D593354dA",
-      ethUsdHeartbeatSec: 86400,
-      explorer: "https://lineascan.build",
-      testnet: false,
+  it("has the four chains", () => {
+    expect(CHAIN_IDS).toEqual([8453, 42161, 84532, 421614]);
+    expect(Object.keys(NETWORKS).map(Number).sort()).toEqual([8453, 42161, 84532, 421614].sort());
+  });
+
+  it("pins Circle's native USDC per chain (checksummed)", () => {
+    const usdc = Object.fromEntries(CHAIN_IDS.map((c) => [c, NETWORKS[c].usdc]));
+    expect(usdc).toEqual({
+      8453: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      42161: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      84532: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+      421614: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     });
-    expect(NETWORKS[59141]).toEqual({
-      id: 59141,
-      name: "Linea Sepolia",
-      usdc: "0xFEce4462D57bD51A6A552365A011b95f0E16d9B7",
-      weth: "0x06565ed324Ee9fb4DB0FF80B7eDbE4Cb007555a3",
-      ethUsdFeed: "0x0B553921D3282250f0FB1D1EF2aA71365A7624bc",
-      ethUsdHeartbeatSec: 86400,
-      explorer: "https://sepolia.lineascan.build",
-      testnet: true,
-    });
+    for (const c of CHAIN_IDS) expect(NETWORKS[c].usdc).toBe(getAddress(NETWORKS[c].usdc));
+  });
+
+  it("keys, names, testnet flags, server RPC env and logos", () => {
+    expect(CHAIN_IDS.map((c) => [NETWORKS[c].key, NETWORKS[c].name, NETWORKS[c].testnet, NETWORKS[c].serverRpcEnv, NETWORKS[c].logo])).toEqual([
+      ["base", "Base", false, "BASE_RPC_URL", "/brand/networks/base.svg"],
+      ["arbitrum", "Arbitrum", false, "ARBITRUM_RPC_URL", "/brand/networks/arbitrum.svg"],
+      ["base", "Base Sepolia", true, "BASE_SEPOLIA_RPC_URL", "/brand/networks/base.svg"],
+      ["arbitrum", "Arbitrum Sepolia", true, "ARBITRUM_SEPOLIA_RPC_URL", "/brand/networks/arbitrum.svg"],
+    ]);
+  });
+
+  it("each viemChain matches its id", () => {
+    for (const c of CHAIN_IDS) {
+      expect(NETWORKS[c].id).toBe(c);
+      expect(NETWORKS[c].viemChain.id).toBe(c);
+    }
+  });
+
+  it("finality per network: Base {3, 2000, 10}, Arbitrum {20, 2000, 40}", () => {
+    for (const c of [8453, 84532] as const) expect(NETWORKS[c].finality).toEqual({ tipConfirmations: 3, scanChunkBlocks: 2000, maxScanChunks: 10 });
+    for (const c of [42161, 421614] as const) expect(NETWORKS[c].finality).toEqual({ tipConfirmations: 20, scanChunkBlocks: 2000, maxScanChunks: 40 });
+  });
+
+  it("has no WETH or price feed fields (P0-R8)", () => {
+    for (const c of CHAIN_IDS) {
+      expect(NETWORKS[c]).not.toHaveProperty("weth");
+      expect(NETWORKS[c]).not.toHaveProperty("ethUsdFeed");
+      expect(NETWORKS[c]).not.toHaveProperty("ethUsdHeartbeatSec");
+    }
   });
 
   it("builds explorer links", () => {
-    expect(explorerTx(59141, "0xab")).toBe("https://sepolia.lineascan.build/tx/0xab");
-    expect(explorerTx(59144, "0xab")).toBe("https://lineascan.build/tx/0xab");
-    expect(explorerAddress(59144, "0xcd")).toBe("https://lineascan.build/address/0xcd");
+    expect(explorerTx(8453, "0xab")).toBe("https://basescan.org/tx/0xab");
+    expect(explorerTx(421614, "0xab").startsWith("https://sepolia.arbiscan.io/tx/")).toBe(true);
+    expect(explorerTx(84532, "0xab")).toBe("https://sepolia.basescan.org/tx/0xab");
+    expect(explorerAddress(42161, "0xcd")).toBe("https://arbiscan.io/address/0xcd");
+    expect(explorerBlock(8453, 12n)).toBe("https://basescan.org/block/12");
   });
 });
 
-describe("mainnet pins (F5 §7)", () => {
-  afterEach(() => vi.unstubAllEnvs());
+describe("isChainId", () => {
+  it("accepts the four chains and rejects Linea and junk", () => {
+    for (const c of [8453, 42161, 84532, 421614]) expect(isChainId(c)).toBe(true);
+    for (const c of [59141, 59144, 1, "8453", null, undefined]) expect(isChainId(c)).toBe(false);
+  });
+});
 
-  it("59144 holds the verified, checksummed addresses", () => {
-    const n = NETWORKS[59144];
-    expect(n.usdc).toBe("0x176211869cA2b568f2A7D4EE941E073a821EE1ff");
-    expect(n.weth).toBe("0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f");
-    expect(n.ethUsdFeed).toBe("0x3c6Cd9Cc7c7a4c2Cf5a82734CD249D7D593354dA");
-    expect(n.ethUsdHeartbeatSec).toBe(86400);
-    expect(n.testnet).toBe(false);
-    for (const a of [n.usdc, n.weth!, n.ethUsdFeed!]) expect(a).toBe(getAddress(a));
+describe("network sets", () => {
+  it("chainsForSet", () => {
+    expect(chainsForSet("mainnet")).toEqual([8453, 42161]);
+    expect(chainsForSet("testnet")).toEqual([84532, 421614]);
   });
 
-  it("addressesFor(59144) ignores every override env var", () => {
-    const bad = "0x" + "0".repeat(36) + "0bad";
-    for (const k of ["WETH_ADDRESS_59144", "ETH_USD_FEED_ADDRESS_59144", "WETH_ADDRESS_59141", "ETH_USD_FEED_ADDRESS_59141"]) vi.stubEnv(k, bad);
-    const a = addressesFor(59144);
-    expect(a.usdc).toBe(NETWORKS[59144].usdc);
-    expect(a.weth).toBe(NETWORKS[59144].weth);
-    expect(a.ethUsdFeed).toBe(NETWORKS[59144].ethUsdFeed);
+  it("networkSet: undefined is testnet, unknown throws", () => {
+    expect(networkSet(undefined)).toBe("testnet");
+    expect(networkSet("mainnet")).toBe("mainnet");
+    expect(networkSet("testnet")).toBe("testnet");
+    expect(() => networkSet("linea")).toThrow();
+  });
+
+  it("appChainIds follows the build set (testnet in the test env)", () => {
+    expect(appChainIds()).toEqual([84532, 421614]);
+  });
+
+  it("chainForKey picks the build's chain for a network key", () => {
+    expect(chainForKey("base")).toBe(84532);
+    expect(chainForKey("arbitrum")).toBe(421614);
   });
 });
 

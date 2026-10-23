@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
-import { isChainId, MAX_FEE_BPS } from "@/lib/economy/networks";
+import { MAX_FEE_BPS } from "@/lib/economy/networks";
+import { isLegacyChainId as isChainId } from "@/lib/legacy/linea";
 import { createServerClient } from "@/lib/supabase/server";
 
 const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;

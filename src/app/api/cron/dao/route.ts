@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { safeError } from "@/lib/security/redact";
-import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
+import { LEGACY_CHAIN_IDS, type LegacyChainId } from "@/lib/legacy/linea";
 import { finalizeDuePolls } from "@/lib/polls/cron";
 import { pruneRateLimits } from "@/lib/rate-limit-cron";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +25,7 @@ function authorized(header: string | null, secret: string): boolean {
 }
 
 type ChainReport = {
-  chainId: ChainId;
+  chainId: LegacyChainId;
   snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
   scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
   /** Withdrawal payouts: `awaitingFinality` counts the recorded ones still awaiting finality after the finalize step. */
@@ -91,8 +91,8 @@ async function handle(request: Request) {
   );
 
   const chains: ChainReport[] = [];
-  const scannedThrough = new Map<ChainId, Date>();
-  for (const chainId of CHAIN_IDS) {
+  const scannedThrough = new Map<LegacyChainId, Date>();
+  for (const chainId of LEGACY_CHAIN_IDS) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
       try {

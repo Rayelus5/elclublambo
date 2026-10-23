@@ -45,10 +45,10 @@ const MEMBER = "99999999-9999-4999-8999-999999999999";
 const INTENT_ID = "11111111-1111-4111-8111-111111111111";
 
 const config = (safe: string | null = SAFE): EconomyConfig => ({
-  activeChainId: 59141,
-  minFeeBps: 100,
-  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
-  chains: { 59144: { safe: null, platform: null }, 59141: { safe, platform: PLATFORM } },
+  enabledChainIds: [84532, 421614],
+  safes: safe ? { 84532: safe } : {},
+  legacyDaoEnabled: false,
+  legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } },
 });
 
 function setup(cfg: EconomyConfig = config()) {
@@ -61,7 +61,7 @@ function setup(cfg: EconomyConfig = config()) {
 
 const intent = {
   id: INTENT_ID,
-  chainId: 59141,
+  chainId: 84532,
   token: "USDC" as const,
   amount: "10000000",
   feeAmount: "100000",
@@ -82,10 +82,10 @@ beforeEach(() => {
   balances.eth = null;
   balances.usdc = null;
   preflight.mockReset().mockResolvedValue(null);
-  rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "2000000" }, error: null });
+  rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, sharePriceUsd6: "2000000" }, error: null });
   window.localStorage.clear();
   account.address = SESSION;
-  account.chainId = 59141;
+  account.chainId = 84532;
   account.isConnected = true;
   send.mockReset().mockResolvedValueOnce(FEE_HASH).mockResolvedValueOnce(MAIN_HASH);
   createDonationIntentAction.mockReset().mockResolvedValue({ ok: true, intent });
@@ -136,7 +136,8 @@ describe("TipDialog donation mode: form", () => {
     expect(continuar()).toBeDisabled();
   });
 
-  it("estimates the participaciones at the current value per participación", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("estimates the participaciones at the current value per participación", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
     expect(await screen.findByText("≈ 5 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
@@ -151,15 +152,17 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
-  it("shows the current value per participación next to the estimate (R7: USD)", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("shows the current value per participación next to the estimate (R7: USD)", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
     await screen.findByText(/participaciones al valor actual/);
     expect(screen.getByTestId("share-price")).toHaveTextContent("Valor por participación: 2 USD");
   });
 
-  it("estimates at 1 USD per participación while nobody holds shares (R9)", async () => {
-    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, totalShares: "0", sharePriceUsd6: "0" }, error: null });
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("estimates at 1 USD per participación while nobody holds shares (R9)", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, totalShares: "0", sharePriceUsd6: "0" }, error: null });
     setup();
     await userEvent.type(amountBox(), "10");
     expect(await screen.findByText("≈ 10 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
@@ -167,7 +170,7 @@ describe("TipDialog donation mode: form", () => {
   });
 
   it("hides the estimate when shares exist but the price is 0", async () => {
-    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, totalShares: "5000000000000000000", sharePriceUsd6: "0" }, error: null });
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, totalShares: "5000000000000000000", sharePriceUsd6: "0" }, error: null });
     setup();
     await userEvent.type(amountBox(), "10");
     await waitFor(() => expect(rpc).toHaveBeenCalled());
@@ -176,15 +179,16 @@ describe("TipDialog donation mode: form", () => {
   });
 
   it("ignores an overview of another chain", async () => {
-    rpc.mockReset().mockResolvedValue({ data: { chainId: 59144, sharePriceUsd6: "2000000" }, error: null });
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 8453, sharePriceUsd6: "2000000" }, error: null });
     setup();
     await userEvent.type(amountBox(), "10");
     await waitFor(() => expect(rpc).toHaveBeenCalled());
     expect(screen.queryByText(/participaciones al valor actual/)).not.toBeInTheDocument();
   });
 
-  it("drops the ≈ for dust", async () => {
-    rpc.mockReset().mockResolvedValue({ data: { chainId: 59141, sharePriceUsd6: "900000000000" }, error: null });
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("drops the ≈ for dust", async () => {
+    rpc.mockReset().mockResolvedValue({ data: { chainId: 84532, sharePriceUsd6: "900000000000" }, error: null });
     setup();
     await userEvent.type(amountBox(), "1");
     expect(await screen.findByText("< 0,01 participaciones al valor actual (el número exacto se fija al acreditar)")).toBeInTheDocument();
@@ -200,7 +204,8 @@ describe("TipDialog donation mode: form", () => {
 });
 
 describe("TipDialog donation mode: signing", () => {
-  it("creates the donation intent, signs fee then main to the Safe, ends on the finality copy and clears the ledger", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("creates the donation intent, signs fee then main to the Safe, ends on the finality copy and clears the ledger", async () => {
     setup();
     await userEvent.type(amountBox(), "10");
     await ack();
@@ -211,15 +216,16 @@ describe("TipDialog donation mode: signing", () => {
     const close = screen.getAllByRole("button", { name: "Cerrar" }).find((b) => b.getAttribute("data-slot") === "button")!;
     expect(close.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(createDonationIntentAction).toHaveBeenCalledWith({ amount: "10", feeBps: 100, acknowledged: true });
-    expect(send).toHaveBeenNthCalledWith(1, { chain: 59141, token: "USDC", to: PLATFORM, amount: 100000n, account: SESSION });
-    expect(send).toHaveBeenNthCalledWith(2, { chain: 59141, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
+    expect(send).toHaveBeenNthCalledWith(1, { chain: 84532, token: "USDC", to: PLATFORM, amount: 100000n, account: SESSION });
+    expect(send).toHaveBeenNthCalledWith(2, { chain: 84532, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
     expect(attachTxAction).toHaveBeenNthCalledWith(1, INTENT_ID, "fee", FEE_HASH);
     expect(attachTxAction).toHaveBeenNthCalledWith(2, INTENT_ID, "main", MAIN_HASH);
     expect(verifyIntentAction).toHaveBeenCalledTimes(1);
     expect(loadSends(MEMBER)).toEqual([]);
   });
 
-  it("a donation the immediate settle already credited says so (M4)", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("a donation the immediate settle already credited says so (M4)", async () => {
     verifyIntentAction.mockReset().mockResolvedValue({ status: "confirmed", ledgerId: "l1" });
     setup();
     await userEvent.type(amountBox(), "10");
@@ -230,7 +236,8 @@ describe("TipDialog donation mode: signing", () => {
     expect(screen.queryByText(FINALITY_NOTE)).toBeNull();
   });
 
-  it("keeps the main hash in the ledger under targetType 'dao' before the server is told", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("keeps the main hash in the ledger under targetType 'dao' before the server is told", async () => {
     attachTxAction.mockReset().mockImplementation(async () => {
       throw new Error("offline");
     });
@@ -263,10 +270,11 @@ describe("TipDialog donation mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("resumes a paid fee for the same intent, signing only the main transfer", async () => {
+  // Task 11: fee / donation flow removed by P0-R5 (no platform fee) and P0-R2 (DAO paused); rewritten there.
+  it.skip("resumes a paid fee for the same intent, signing only the main transfer", async () => {
     upsertSend(MEMBER, {
       intentId: INTENT_ID,
-      chainId: 59141,
+      chainId: 84532,
       token: "USDC",
       targetType: "dao",
       targetId: "dao",
@@ -282,7 +290,7 @@ describe("TipDialog donation mode: signing", () => {
     await userEvent.click(screen.getByRole("button", { name: "Firmar la donación" }));
     await screen.findByText(DONE);
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledWith({ chain: 59141, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
+    expect(send).toHaveBeenCalledWith({ chain: 84532, token: "USDC", to: SAFE, amount: 10000000n, account: SESSION });
     expect(createDonationIntentAction).not.toHaveBeenCalled();
   });
 });

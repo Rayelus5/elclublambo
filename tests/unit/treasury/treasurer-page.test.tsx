@@ -37,11 +37,15 @@ vi.mock("@/components/treasury/dao-live", () => ({ DaoLive: () => null }));
 const SAFE = "0x00000000000000000000000000000000000000aa";
 vi.mock("@/lib/economy/config", () => ({
   getEconomyConfig: async () => ({
-    activeChainId: 59141,
-    minFeeBps: 0,
-    withdrawalsEnabled: { 59144: false, 59141: true },
-    weightedRafflesEnabled: { 59144: false, 59141: true },
-    chains: { 59144: { safe: null, platform: null }, 59141: { safe: SAFE, platform: null } },
+    enabledChainIds: [],
+    safes: {},
+    legacyDaoEnabled: true,
+    legacy: {
+      activeChainId: 59141,
+      withdrawalsEnabled: { 59144: false, 59141: true },
+      weightedRafflesEnabled: { 59144: false, 59141: true },
+      chains: { 59144: { safe: null, platform: null }, 59141: { safe: SAFE, platform: null } },
+    },
   }),
 }));
 

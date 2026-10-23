@@ -7,13 +7,14 @@ vi.mock("@/lib/bounties/actions", () => ({ createBountyAction }));
 
 import { BountyDialog } from "@/components/chat/bounty-dialog";
 import { EconomyProvider } from "@/components/payments/economy-provider";
+import type { EconomyConfig } from "@/lib/economy/config";
 
 const CH = "11111111-1111-4111-8111-111111111111";
-const config = {
-  activeChainId: 59141 as const,
-  minFeeBps: 100,
-  withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false },
-  chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } },
+const config: EconomyConfig = {
+  enabledChainIds: [84532, 421614],
+  safes: {},
+  legacyDaoEnabled: false,
+  legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } },
 };
 
 function setup(initialText = "") {
@@ -38,7 +39,7 @@ beforeEach(() => {
 describe("BountyDialog", () => {
   it("shows the active network and the guide link", () => {
     setup();
-    expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();
+    expect(screen.getByText(/MODO PRUEBA · Base Sepolia/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
   });
 

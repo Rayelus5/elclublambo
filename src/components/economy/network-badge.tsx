@@ -1,4 +1,5 @@
-import { NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { isChainId, NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { LEGACY_NETWORKS, type LegacyChainId } from "@/lib/legacy/linea";
 import { cn } from "@/lib/utils";
 
 const base = "inline-flex items-center rounded-control border px-2 py-1 font-mono text-[11px] leading-none font-bold tracking-wide whitespace-nowrap";
@@ -13,13 +14,14 @@ export function NetworkBadge({
   responsive = false,
   className,
 }: {
-  chainId: ChainId;
+  /** A legacy id only from the legacy DAO overview, until Task 8 replaces this badge. */
+  chainId: ChainId | LegacyChainId;
   compact?: boolean;
   /** Desktop top bar: compact below 1536px, full from there (CSS shows one of the two; the other is display:none). */
   responsive?: boolean;
   className?: string;
 }) {
-  const net = NETWORKS[chainId];
+  const net = isChainId(chainId) ? NETWORKS[chainId] : LEGACY_NETWORKS[chainId];
   const full = net.testnet ? `MODO PRUEBA · ${net.name}` : net.name;
   const tone = net.testnet ? "border-warning text-warning" : "border-border text-fg-muted";
   if (responsive && net.testnet) {

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { NETWORKS } from "@/lib/economy/networks";
+// scripts/check-rpc.mjs still checks Linea until Task 3 moves it to Base and Arbitrum.
+import { LEGACY_NETWORKS as NETWORKS } from "@/lib/legacy/linea";
 import { CHAINS, checkRpc, loadLocalEnv, redactUrl, resolveChain, rpc } from "../../../scripts/check-rpc.mjs";
 
 describe("loadLocalEnv", () => {
