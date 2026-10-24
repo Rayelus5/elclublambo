@@ -72,7 +72,7 @@ insert into public.permission_overwrites (channel_id, target_type, target_id, al
   values (current_setting('t.chG')::uuid, 'member', current_setting('t.c')::uuid, 131072, 0);
 select is(public.channel_permissions(current_setting('t.c')::uuid, current_setting('t.chG')::uuid) & 131072, 131072::bigint,
   'ungated: the member holds 131072 on the channel');
-update public.channels set gate_min_share_bps = 100, gate_scope = 'view' where id = current_setting('t.chG')::uuid;
+update public.channels set gate_min_donated_usd6 = 100, gate_scope = 'view' where id = current_setting('t.chG')::uuid;
 select is(public.channel_permissions(current_setting('t.c')::uuid, current_setting('t.chG')::uuid), 0::bigint,
   'a failed view-gate returns 0 (clears 131072 too)');
 

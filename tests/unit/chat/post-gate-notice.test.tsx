@@ -8,22 +8,18 @@ import type { LockState } from "@/lib/channels/lock";
 
 const state: LockState = {
   scope: "post",
-  minShareBps: 100,
-  minNetUsdc: null,
-  myShareBps: 0,
-  myNet: 0n,
-  chainId: 59141,
+  minDonatedUsd6: 1_000_000n,
+  myDonatedUsd6: 0n,
   name: "Alpha",
   kind: "text",
   parentId: null,
-  requirements: [{ channelId: "c1", scope: "post", minShareBps: 100, minNetUsdc: null }],
+  requirements: [{ channelId: "c1", scope: "post", minDonatedUsd6: 1_000_000n }],
 };
 
 describe("PostGateNotice", () => {
-  it("replaces the composer with the requirement, the situation and the guide link; the donate button", () => {
-    render(<PostGateNotice state={state} chainName="Linea Sepolia" />);
-    expect(screen.getByText("Necesitas 1 % de la DAO")).toBeInTheDocument();
-    expect(screen.getByText("Tu situación: 0 % · 0 USDC aportados en Linea Sepolia")).toBeInTheDocument();
+  it("replaces the composer with the donation requirement, what the member has, the donate button and the guide link", () => {
+    render(<PostGateNotice state={state} />);
+    expect(screen.getByText("Canal para quien ha donado al menos 1 USD. Llevas 0 USD.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Donar a ElClub." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/candados");
     expect(screen.queryByRole("textbox")).toBeNull();

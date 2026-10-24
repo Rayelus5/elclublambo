@@ -217,14 +217,14 @@ delete from public.permission_overwrites where channel_id = current_setting('t.c
 select tests.login(current_setting('t.z'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pe')), 'P0001', 'forbidden', 'a banned member -> forbidden');
 select tests.clear_authentication();
--- a view-gated channel: V5 holds no shares, so it cannot see ch2 while the gate is on
+-- a view-gated channel: V5 has donated nothing, so it cannot see ch2 while the gate is on
 select set_config('t.pg', tests.poll('Con puerta', '{Sí,No}', 'equal', current_setting('t.ch2')), true);
-update public.channels set gate_min_share_bps = 100, gate_scope = 'view' where id = current_setting('t.ch2')::uuid;
+update public.channels set gate_min_donated_usd6 = 100, gate_scope = 'view' where id = current_setting('t.ch2')::uuid;
 select tests.login(current_setting('t.v5'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pg')), 'P0001', 'forbidden',
   'a view gate the member fails -> forbidden');
 select tests.clear_authentication();
-update public.channels set gate_min_share_bps = null, gate_scope = 'post' where id = current_setting('t.ch2')::uuid;
+update public.channels set gate_min_donated_usd6 = null, gate_scope = 'post' where id = current_setting('t.ch2')::uuid;
 select is(tests.vote_as(current_setting('t.v5'), current_setting('t.pg'), 1) ->> 'status', 'cast', 'with the gate off V5 votes');
 select is((select count(*)::int from private.poll_votes where poll_id = current_setting('t.pe')::uuid), 1,
   'no refused call left a ballot');
