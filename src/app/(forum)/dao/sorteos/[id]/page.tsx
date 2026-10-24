@@ -7,7 +7,9 @@ import { ArrowLeft } from "lucide-react";
 import { CopyHashButton } from "@/components/treasury/raffles/copy-hash-button";
 import { RaffleVerifier } from "@/components/treasury/raffles/raffle-verifier";
 import { WEIGHTS_NOTE } from "@/components/treasury/raffles/raffle-notes";
+import { DaoPaused } from "@/components/treasury/dao-paused";
 import { DaoLive } from "@/components/treasury/dao-live";
+import { getEconomyConfig } from "@/lib/economy/config";
 import { legacyExplorerBlock, LEGACY_NETWORKS } from "@/lib/legacy/linea";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatParticipaciones } from "@/lib/treasury/format";
@@ -33,6 +35,7 @@ const linkClass =
 // Reads cookies (dynamic): under cacheComponents it must live inside a Suspense. The id comes from the url, so it is
 // checked before it reaches the database.
 async function RaffleContent({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const supabase = await createServerClient();

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, TriangleAlert } from "lucide-react";
 import type { Address } from "viem";
 import { safeError } from "@/lib/security/redact";
+import { DaoPaused } from "@/components/treasury/dao-paused";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { OperationsList } from "@/components/treasury/operations-list";
 import { CreateRaffleDialog } from "@/components/treasury/treasurer/create-raffle-dialog";
@@ -49,6 +50,7 @@ function parsePerms(raw: unknown): bigint {
 // Reads cookies (dynamic): under cacheComponents it must live inside a Suspense. The proxy answers 404 before this runs;
 // the check here is the second wall (and the only one if the proxy failed open).
 async function TreasuryContent() {
+  if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
   const supabase = await createServerClient();
   const [rawPerms, me] = await Promise.all([supabase.rpc("my_permissions"), supabase.rpc("current_member_id")]);
   const perms = parsePerms(rawPerms.data);

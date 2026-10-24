@@ -23,13 +23,15 @@ type Props = {
   openTickets?: number;
   /** Active network (economy_config): every member sees whether money moves on testnet. */
   chainId?: ChainId;
+  /** app_config.legacy_dao_enabled: with false the «DAO» entry is not shown. */
+  daoEnabled: boolean;
 };
 
 const brandClass =
   "font-display font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 /** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
-function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
+function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: Props) {
   return [
     { href: "/", text: "Inicio", Icon: Home },
     {
@@ -40,7 +42,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
     { href: "/guia", text: "Guía", Icon: BookOpen },
-    { href: "/dao", text: "DAO", Icon: Landmark },
+    daoEnabled && { href: "/dao", text: "DAO", Icon: Landmark },
     { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {

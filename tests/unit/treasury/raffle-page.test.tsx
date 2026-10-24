@@ -12,6 +12,7 @@ const notFound = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/components/treasury/dao-live", () => ({ DaoLive: () => null }));
+vi.mock("@/lib/economy/config", () => ({ getEconomyConfig: async () => ({ legacyDaoEnabled: true }) }));
 vi.mock("@/lib/treasury/raffle-verify-chain", () => ({ fetchDrawBlocks: vi.fn() }));
 
 const getRaffleDetail = vi.hoisted(() => vi.fn());

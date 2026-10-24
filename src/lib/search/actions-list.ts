@@ -33,11 +33,14 @@ export function buildActions({
   canReports,
   ticketChannels,
   wallet,
+  daoEnabled = true,
 }: {
   perms: bigint;
   canReports: boolean;
   ticketChannels: readonly TicketChannel[];
   wallet: string;
+  /** app_config.legacy_dao_enabled: while false the DAO and donate entries are left out. */
+  daoEnabled?: boolean;
 }): PaletteAction[] {
   const out: PaletteAction[] = [];
   if (hasPerm(perms, Perm.CREATE_INVITES)) {
@@ -61,8 +64,10 @@ export function buildActions({
   for (const s of GUIDE_SECTIONS) {
     out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
-  out.push({ id: "dao", label: "Tesorería de la DAO", href: "/dao", icon: "dao", keywords: "dao tesorería safe ranking participaciones shares balance" });
-  out.push({ id: "donate", label: "Donar a la DAO", href: "/dao?donar=1", icon: "dao", keywords: "donar donación aportar usdc dao tesorería" });
+  if (daoEnabled) {
+    out.push({ id: "dao", label: "Tesorería de la DAO", href: "/dao", icon: "dao", keywords: "dao tesorería safe ranking participaciones shares balance" });
+    out.push({ id: "donate", label: "Donar a la DAO", href: "/dao?donar=1", icon: "dao", keywords: "donar donación aportar usdc dao tesorería" });
+  }
   out.push({ id: "market", label: "Mercado", href: "/mercado", icon: "market", keywords: "mercado precios criptos bitcoin ethereum cotización top 100" });
   out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
   return out;

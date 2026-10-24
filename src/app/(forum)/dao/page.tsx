@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { safeError } from "@/lib/security/redact";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { ShareDonut } from "@/components/treasury/dao-charts";
+import { DaoPaused } from "@/components/treasury/dao-paused";
 import { DaoHistory } from "@/components/treasury/dao-history";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { DaoOverview } from "@/components/treasury/dao-overview";
@@ -33,6 +34,7 @@ type Search = Promise<{ donar?: string | string[] }>;
 
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
 async function DaoContent({ searchParams }: { searchParams: Search }) {
+  if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
   const { donar } = await searchParams;
   const supabase = await createServerClient();
   const { data: me } = await supabase.rpc("current_member_id");

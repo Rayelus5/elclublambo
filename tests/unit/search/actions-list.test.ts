@@ -64,3 +64,11 @@ describe("messageHref", () => {
     expect(messageHref({ channelId: C, id: M, threadRootId: R }, "abc12")).toBe(`/c/${C}?thread=${R}&m=${M}&h=abc12`);
   });
 });
+
+describe("buildActions with the legacy DAO paused", () => {
+  it("omits dao and donate when daoEnabled is false, and keeps them otherwise", () => {
+    expect(ids(buildActions({ ...base, daoEnabled: false }))).not.toContain("dao");
+    expect(ids(buildActions({ ...base, daoEnabled: false }))).not.toContain("donate");
+    expect(ids(buildActions({ ...base, daoEnabled: true }))).toEqual(expect.arrayContaining(["dao", "donate"]));
+  });
+});
