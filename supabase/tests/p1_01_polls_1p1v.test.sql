@@ -4,7 +4,7 @@
 --   - The five-argument function is gone; polls.chain_id admits null and has no Linea check left.
 --   - Two ballots from different members weigh 1 each in _poll_tally.
 begin;
-select plan(9);
+select plan(8);
 
 create function tests.td(p_text text) returns jsonb language sql as $$
   select jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(

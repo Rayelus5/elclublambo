@@ -204,8 +204,8 @@ select throws_ok($$select tests.poll(tests.cfg('t.ch'), null, '{Sí,No}')$$, 'P0
   'a null question -> question_required');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), repeat('a', 301), '{Sí,No}')$$, 'P0001', 'question_required',
   '301 characters -> question_required');
-select throws_ok($$select tests.poll(tests.cfg('t.ch'), '  ', '{Sí}', 'majority', now())$$, 'P0001', 'question_required',
-  'the question is checked before the options, the mode and the close');
+select throws_ok($$select tests.poll(tests.cfg('t.ch'), '  ', '{Sí}', 'equal', now())$$, 'P0001', 'question_required',
+  'the question is checked before the options and the close');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí}')$$, 'P0001', 'poll_options_invalid', 'one option');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{1,2,3,4,5,6,7,8,9,10,11}')$$, 'P0001', 'poll_options_invalid',
   'eleven options');

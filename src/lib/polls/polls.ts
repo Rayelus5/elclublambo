@@ -82,8 +82,8 @@ export function validatePollDraft(d: { question: string; options: string[]; clos
 }
 
 /**
- * Tenths of a percent as text: 333 -> "33,3 %", 1000 -> "100 %". A whole number carries no decimal, so the weighted
- * results (multiples of 10, F4e-R3) read "58 %" and the equal ones "66,7 %". Never sum these expecting 100 %.
+ * Tenths of a percent as text: 333 -> "33,3 %", 1000 -> "100 %". A whole number carries no decimal ("58 %", "66,7 %").
+ * Percentages are rounded, so never sum them expecting exactly 100 %.
  */
 export function formatTenths(t: number): string {
   const whole = Math.floor(t / 10);
