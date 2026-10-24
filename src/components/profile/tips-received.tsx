@@ -1,25 +1,14 @@
 import { TipList } from "@/components/payments/tip-list";
-import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { formatAmount } from "@/lib/payments/amounts";
 import type { TipEntry, TipTotal } from "@/lib/payments/queries";
 
 export const RECENT_TIPS = 20;
 
 /**
- * `totals` are the exact server-side sums per token for the active chain (not derived from `entries`); `entries` are
- * the most recent tips, any chain, listed with the same anonymity rules as the message popover.
+ * `totals` are the exact server-side sums per token over the enabled networks (not derived from `entries`); `entries`
+ * are the most recent tips, any network, each with its network's logo and the same anonymity rules as the message popover.
  */
-export function TipsReceived({
-  entries,
-  totals,
-  activeChainId,
-}: {
-  entries: readonly TipEntry[];
-  totals: readonly TipTotal[];
-  activeChainId: ChainId;
-}) {
-  const network = NETWORKS[activeChainId];
-
+export function TipsReceived({ entries, totals }: { entries: readonly TipEntry[]; totals: readonly TipTotal[] }) {
   return (
     <section aria-labelledby="tips-received-title" className="flex flex-col gap-4">
       <h2 id="tips-received-title" className="text-h2">
@@ -30,11 +19,11 @@ export function TipsReceived({
       ) : (
         <>
           {totals.length === 0 ? (
-            <p className="text-fg-muted">Sin propinas en {network.name}.</p>
+            <p className="text-fg-muted">Sin propinas en las redes activas.</p>
           ) : (
             <div className="flex flex-col gap-1">
               <p id="tips-totals-title" className="text-sm text-fg-muted">
-                Totales en {network.name}
+                Totales
               </p>
               <dl aria-labelledby="tips-totals-title" className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
                 {totals.map((t) => (
@@ -48,7 +37,7 @@ export function TipsReceived({
               </dl>
             </div>
           )}
-          <TipList entries={entries.slice(0, RECENT_TIPS)} time="absolute" />
+          <TipList entries={entries.slice(0, RECENT_TIPS)} time="absolute" withNetwork />
         </>
       )}
     </section>

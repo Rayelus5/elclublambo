@@ -10,9 +10,9 @@ const chainClient = vi.fn<(c: number) => object>(() => ({
   getBalance: (...a: unknown[]) => getBalance(...a),
   getBlockNumber: (...a: unknown[]) => getBlockNumber(...a),
 }));
-vi.mock("@/lib/payments/chain-client", () => ({ chainClient: (c: number) => chainClient(c) }));
+vi.mock("@/lib/legacy/linea-client", () => ({ legacyChainClient: (c: number) => chainClient(c) }));
 
-import { NETWORKS } from "@/lib/economy/networks";
+import { LEGACY_NETWORKS as NETWORKS } from "@/lib/legacy/linea";
 import { addressesFor, assetsUsd6, readEthPrice, readSafeAssets } from "@/lib/treasury/valuation";
 
 const SAFE = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";

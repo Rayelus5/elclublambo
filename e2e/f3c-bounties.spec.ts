@@ -1,20 +1,23 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { CHAIN_ID, hardhatAccount, RPC_URL, USDC_ADDRESS } from "./chain/shared.mjs";
+import { CHAINS, hardhatAccount } from "./chain/shared.mjs";
 import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { composer, createInvite, joinAs, messageWith, openChannel, rpcAs, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
-// F3c acceptance, bounties, on the F3b local Hardhat chain (e2e/chain/start-chain.mjs, started by playwright.config.ts):
-// the author signs with an injected EIP-1193 wallet bound to a Hardhat account and logs in with that same account's key.
-// TEST-ONLY keys (Hardhat's public mnemonic). Scenarios share state (the same members and bounties): run serially.
+// F3c / P0 acceptance, bounties, on the two local Hardhat chains of F3b (e2e/chain/start-chain.mjs: Base Sepolia 84532 and
+// Arbitrum Sepolia 421614): a bounty is announced on one network and paid with the same token on any network the solver
+// accepts, in one transfer, no fee. The author signs with an injected EIP-1193 wallet that really switches networks,
+// bound to a Hardhat account, and logs in with that same account's key. TEST-ONLY keys (Hardhat's public mnemonic).
+// Scenarios share state (the same members and bounties): run serially.
 test.describe.configure({ mode: "serial" });
 
 const desktop = { width: 1280, height: 900 };
 const author = hardhatAccount(3); // A: Verificado, session wallet and signer
 const solverAccount = hardhatAccount(2); // B: replies, gets paid
 const plain = hardhatAccount(5); // C: no CREATE_BOUNTIES
-const platform = hardhatAccount(9); // receives the fee
+const BASE = 84532;
+const ARB = 421614;
 
 const NAMES = { a: "Autora Bounty", b: "Solucionador B", c: "Miembro Raso C" };
 const DAY_MS = 86_400_000;
@@ -82,6 +85,9 @@ async function publishBounty(page: Page, description: string, amount: string): P
   await page.getByRole("option", { name: /\/bounty/ }).click();
   const dialog = page.getByRole("dialog", { name: "Publicar bounty" });
   await expect(dialog).toBeVisible();
+  // The announced asset: USDC on Base Sepolia (the network is only a guide, P0-R4).
+  await dialog.getByRole("radio", { name: /^USDC\s*Base Sepolia/ }).click();
+  await expect(dialog.getByRole("radio", { name: /^USDC\s*Base Sepolia/ })).toHaveAttribute("aria-checked", "true");
   await dialog.getByLabel("Recompensa").fill(amount);
   await dialog.getByLabel("Descripción").fill(description);
   await dialog.getByRole("button", { name: "Publicar bounty" }).click();
@@ -129,46 +135,44 @@ async function connectIfNeeded(page: Page) {
   if (await connect.isVisible()) await connectWallet(page);
 }
 
-/** The author pays from the card; returns once the dialog says it is done. */
-async function payFromCard(page: Page, description: string, total: string) {
+/**
+ * The author pays from the card on `network` (its USDC row in "Red de pago"); returns the payment's hash once the dialog
+ * says it is done. Picking another network than the announced one makes the wallet switch by itself.
+ */
+async function payFromCard(page: Page, description: string, amount: string, network: "Base Sepolia" | "Arbitrum Sepolia"): Promise<string> {
   await bountyCard(page, description).getByRole("button", { name: "Pagar bounty" }).click();
   const dialog = page.getByRole("dialog", { name: "Pagar bounty" });
   await expect(dialog).toBeVisible();
   await connectIfNeeded(page);
-  await expect(dialog.getByTestId("tip-total")).toHaveText(total);
+  await expect(dialog.getByTestId("locked-token")).toHaveText("Moneda del bounty: USDC");
+  // The announced network is offered first.
+  await expect(dialog.getByRole("radio", { name: /^USDC\s*Base Sepolia/ })).toHaveAttribute("aria-checked", "true");
+  const row = dialog.getByRole("radio", { name: new RegExp(`^USDC\\s*${network}`) });
+  await row.click();
+  await expect(row).toHaveAttribute("aria-checked", "true");
+  await expect(dialog.getByText("Tu wallet está en otra red.")).toHaveCount(0);
+  // No fee: the summary is the bounty's amount.
+  await expect(dialog.getByTestId("tip-summary")).toContainText(`${amount} USDC`);
   const before = walletA.sent.length;
+  await expect(dialog.getByRole("button", { name: "Continuar" })).toBeEnabled();
   await dialog.getByRole("button", { name: "Continuar" }).click();
   await expect(dialog.getByText("Bounty pagado")).toBeVisible({ timeout: 60_000 });
-  expect(walletA.sent.length - before).toBe(2); // fee + payment
+  expect(walletA.sent.length - before).toBe(1); // one transfer, no fee
   await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click(); // not the X (data-slot="dialog-close")
+  return walletA.sent[walletA.sent.length - 1]!;
 }
 
-test("1. create: a Verificado member types /bounty, publishes 5 USDC and the card says Abierto", async () => {
-  // Admin sets the 2.6 % fee and the platform wallet (same setup as F3b).
-  const p = admin.page;
-  await p.goto("/settings/economia");
-  await expect(p.getByRole("heading", { level: 2, name: "Economía" })).toBeVisible();
-  await p.waitForLoadState("networkidle");
-  await p.getByLabel("Comisión mínima (%)").fill("2,6");
-  await p.getByRole("button", { name: "Guardar comisión" }).click();
-  await expect(p.getByText("Comisión guardada.")).toBeVisible();
-  await p.getByLabel("Wallet de la plataforma (Linea Sepolia)", { exact: true }).fill(platform.address);
-  await p.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }).click();
-  await expect(p.getByText("Direcciones guardadas.")).toBeVisible();
-  // Pages loaded before this config show the old platform wallet; the tip/bounty dialog refuses an intent that does not
-  // match what it displayed ("Recarga la página"), so reload them.
-  for (const x of [a, b, c]) await x.page.reload();
-
+test("1. create: a Verificado member types /bounty, publishes 5 USDC on Base Sepolia and the card says Abierto", async () => {
   await openChannel(b.page, "General");
   bountyIds.first = await publishBounty(a.page, "Bounty uno: falla el login", "5");
   await expect(a.page.getByText("5 USDC").first()).toBeVisible();
   // Another viewer sees it live.
   await expect(status(b.page, "Bounty uno: falla el login")).toHaveText("Abierto", { timeout: 30_000 });
-  const row = await service().from("bounties").select("token, amount::text").eq("message_id", bountyIds.first!).single<{ token: string; amount: string }>();
-  expect(row.data).toMatchObject({ token: "USDC", amount: "5000000" });
+  const row = await service().from("bounties").select("chain_id, token, amount::text").eq("message_id", bountyIds.first!).single<{ chain_id: number; token: string; amount: string }>();
+  expect(row.data).toMatchObject({ chain_id: BASE, token: "USDC", amount: "5000000" });
 });
 
-test("2. solve and pay: mark B's reply, B is notified, A signs twice, card Pagado, Recompensado badge and notice", async () => {
+test("2. solve and pay on Arbitrum Sepolia: mark B's reply, B is notified, A signs once on 421614, card Pagado, badge and notice", async () => {
   const text = "Bounty uno: falla el login";
   const solution = "La causa es la cookie de sesión";
   await reply(b.page, bountyIds.first!, solution);
@@ -188,12 +192,15 @@ test("2. solve and pay: mark B's reply, B is notified, A signs twice, card Pagad
   await b.page.goto(`/c/${generalChannel}`);
   await expect(status(b.page, text)).toHaveText("Solución elegida · quedan 7 días para pagar");
 
-  const solverBefore = await usdcOf(solverAccount.address);
-  const platformBefore = await usdcOf(platform.address);
+  const solverBefore = await usdcOf(ARB, solverAccount.address);
+  const solverBaseBefore = await usdcOf(BASE, solverAccount.address);
   await a.page.goto(`/c/${generalChannel}`);
-  await payFromCard(a.page, text, "5,13 USDC");
-  expect(((await usdcOf(solverAccount.address)) - solverBefore).toString()).toBe("5000000");
-  expect(((await usdcOf(platform.address)) - platformBefore).toString()).toBe("130000");
+  const hash = await payFromCard(a.page, text, "5", "Arbitrum Sepolia");
+  // Announced on Base Sepolia, paid with the same token on Arbitrum Sepolia: the money moved there only.
+  expect(((await usdcOf(ARB, solverAccount.address)) - solverBefore).toString()).toBe("5000000");
+  expect(await usdcOf(BASE, solverAccount.address)).toBe(solverBaseBefore);
+  const transfer = await service().from("onchain_transfers").select("chain_id, role").eq("tx_hash", hash).single<{ chain_id: number; role: string }>();
+  expect(transfer.data).toEqual({ chain_id: ARB, role: "main" });
 
   await expect(status(a.page, text)).toHaveText("Pagado", { timeout: 30_000 });
   await expect(status(b.page, text)).toHaveText("Pagado", { timeout: 30_000 });
@@ -230,7 +237,7 @@ test("3. unpaid then paid late: 8 days after marking the card and the author's p
   await expect(c.page.getByText("Bounties: 1 pagado · 0 pagados tarde · 1 impagado")).toBeVisible();
   await expect(c.page.getByRole("list", { name: "Bounties impagados" }).getByRole("link")).toHaveCount(1);
 
-  await payFromCard(a.page, text, "5,13 USDC");
+  await payFromCard(a.page, text, "5", "Base Sepolia");
   await expect(status(a.page, text)).toHaveText("Pagado tarde", { timeout: 30_000 });
   await c.page.goto(`/u/${author.address.toLowerCase()}`);
   await expect(c.page.getByText("Bounties: 1 pagado · 1 pagado tarde · 0 impagados")).toBeVisible();
@@ -271,6 +278,7 @@ test("5. no permission: a member without Crear bounties is not offered /bounty a
   const direct = await rpcAs(c.context, "create_bounty", {
     p_channel: generalChannel,
     p_body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "intento sin permiso" }] }] },
+    p_chain_id: 84532,
     p_token: "USDC",
     p_amount: "5000000",
   });
@@ -284,11 +292,12 @@ test("6. no browser errors in any context", () => {
   expect(browserErrors.filter((e) => !coopOn404(e))).toEqual([]);
 });
 
-/** ERC-20 balance of the local USDC for an address. */
-async function usdcOf(address: string): Promise<bigint> {
+/** ERC-20 balance of the local mock USDC of `chainId` for an address. */
+async function usdcOf(chainId: 84532 | 421614, address: string): Promise<bigint> {
+  const { rpcUrl, usdc } = CHAINS[chainId];
   const client = createPublicClient({
-    chain: { id: CHAIN_ID, name: "Local Linea Sepolia", nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [RPC_URL] } } },
-    transport: http(RPC_URL),
+    chain: { id: chainId, name: `Local ${chainId}`, nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 }, rpcUrls: { default: { http: [rpcUrl] } } },
+    transport: http(rpcUrl),
   });
-  return client.readContract({ address: USDC_ADDRESS, abi: erc20Abi, functionName: "balanceOf", args: [address as `0x${string}`] });
+  return client.readContract({ address: usdc as `0x${string}`, abi: erc20Abi, functionName: "balanceOf", args: [address as `0x${string}`] });
 }

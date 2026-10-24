@@ -1,16 +1,16 @@
 import "server-only";
 import type { Address, Hex, PublicClient } from "viem";
 import { safeError } from "@/lib/security/redact";
-import type { ChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
 import { rpcErrorCode } from "@/lib/errors";
-import { chainClient } from "@/lib/payments/chain-client";
+import { legacyChainClient } from "@/lib/legacy/linea-client";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPrizeToken, type PrizeToken } from "@/lib/treasury/raffles";
 import { safeAddressOf } from "@/lib/treasury/snapshot";
 
 /** What a drawn raffle's payout must be: the prize token from the chain's Safe to the winner, at least the prize. */
-export type PrizeTarget = { chain: ChainId; safe: Address; token: PrizeToken; winner: string; prize: bigint; drawnAt: Date };
+export type PrizeTarget = { chain: LegacyChainId; safe: Address; token: PrizeToken; winner: string; prize: bigint; drawnAt: Date };
 
 /** A draw that did not happen this run: draw_raffle's refusal code, "retry" (a transient database error) or "draw_failed" (a thrown error). */
 export type RefusedDraw = { raffleId: string; code: string };
@@ -125,9 +125,9 @@ export async function firstBlockAfter(
 
 const iso = (seconds: bigint) => new Date(Number(seconds) * 1000).toISOString();
 
-async function finalizedBlock(chain: ChainId): Promise<bigint | null> {
+async function finalizedBlock(chain: LegacyChainId): Promise<bigint | null> {
   try {
-    const block = await chainClient(chain).getBlock({ blockTag: "finalized" });
+    const block = await legacyChainClient(chain).getBlock({ blockTag: "finalized" });
     return block.number ?? null;
   } catch (e) {
     console.error("[treasury] finalized block unavailable", chain, safeError(e));
@@ -145,7 +145,7 @@ async function finalizedBlock(chain: ChainId): Promise<bigint | null> {
  * The close and the list throw (the step is reported as failed).
  */
 export async function drawDueRaffles(
-  chain: ChainId,
+  chain: LegacyChainId,
 ): Promise<{ closed: number; voided: number; drawn: number; pending: number; refused: RefusedDraw[] }> {
   const db = createAdminClient();
   const { data: closedData, error: closeError } = await db.rpc("close_due_raffles", { p_chain: chain });
@@ -169,7 +169,7 @@ export async function drawDueRaffles(
     result.pending += rows.length;
     return result;
   }
-  const client = chainClient(chain);
+  const client = legacyChainClient(chain);
   for (const row of rows) {
     try {
       const closesAt = new Date(row.closes_at);
@@ -249,7 +249,7 @@ async function candidateMissing(db: Db, c: CandidateRow, missing: boolean): Prom
  * kind recorded that outflow: 20261019400005 re-links it); a not-found only once its first mark is 30 minutes old; an
  * ok verification clears the mark. A pending or unreachable verification waits for the next run. Read errors throw.
  */
-export async function detectRafflePayouts(chain: ChainId): Promise<{ recorded: number }> {
+export async function detectRafflePayouts(chain: LegacyChainId): Promise<{ recorded: number }> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return { recorded: 0 };
@@ -325,7 +325,7 @@ async function payoutMissing(db: Db, raffle: string, missing: boolean): Promise<
  * mark, and an ok verification clears the mark. Anything else, and every row while the finalized block is unknown,
  * stays pending: a lagging RPC never reverts a real payout.
  */
-export async function finalizeRafflePayouts(chain: ChainId): Promise<{ paid: number; reverted: number; pending: number }> {
+export async function finalizeRafflePayouts(chain: LegacyChainId): Promise<{ paid: number; reverted: number; pending: number }> {
   const result = { paid: 0, reverted: 0, pending: 0 };
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
@@ -348,7 +348,7 @@ export async function finalizeRafflePayouts(chain: ChainId): Promise<{ paid: num
   return result;
 }
 
-async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingRow, fin: bigint): Promise<"paid" | "reverted" | "pending"> {
+async function finalizeRow(db: Db, chain: LegacyChainId, safe: Address, row: AwaitingRow, fin: bigint): Promise<"paid" | "reverted" | "pending"> {
   const target: PrizeTarget = {
     chain,
     safe,
@@ -397,7 +397,7 @@ async function finalizeRow(db: Db, chain: ChainId, safe: Address, row: AwaitingR
 }
 
 /** Cron step per chain: treasury_notice raffle_unpaid, once per raffle drawn 14+ days ago without a payout. */
-export async function notifyUnpaidRaffles(chain: ChainId): Promise<number> {
+export async function notifyUnpaidRaffles(chain: LegacyChainId): Promise<number> {
   const { data, error } = await createAdminClient().rpc("notify_unpaid_raffles", { p_chain: chain });
   if (error) throw new Error(`notify_unpaid_raffles failed: ${error.message}`);
   return Number(data ?? 0) || 0;
@@ -408,7 +408,7 @@ export async function notifyUnpaidRaffles(chain: ChainId): Promise<number> {
  * is isolated (one failing never skips the others). M3: a failed step is listed in `failed` and the others' results
  * stay in the report.
  */
-export async function runRaffleSteps(chain: ChainId): Promise<RaffleReport> {
+export async function runRaffleSteps(chain: LegacyChainId): Promise<RaffleReport> {
   const failed: RaffleStep[] = [];
   const step = <T>(name: RaffleStep, run: () => Promise<T>) =>
     run().catch((e: unknown) => {

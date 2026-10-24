@@ -54,7 +54,7 @@ export function highlight(text: string, q: string): Segment[] {
   const marked = new Array<boolean>(chars.length).fill(false);
   for (const m of folded.matchAll(WORD)) {
     const start = m.index;
-    // the longest matching term, so "li linea" marks all of "linea"
+    // the longest matching term, so "ar arbitrum" marks all of "arbitrum"
     const term = terms.filter((t) => m[0].startsWith(t)).sort((a, b) => b.length - a.length)[0];
     if (term === undefined) continue;
     const first = origin[start]!;

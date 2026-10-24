@@ -21,7 +21,7 @@ vi.mock("next/server", () => ({ after: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }), notFound: vi.fn() }));
 vi.mock("@/lib/treasury/withdrawal-actions", () => ({}));
 vi.mock("@/lib/economy/config", () => ({
-  getEconomyConfig: async () => ({ activeChainId: 59141, minFeeBps: 0, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } }),
+  getEconomyConfig: async () => ({ enabledChainIds: [], safes: {}, legacyDaoEnabled: true, legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } } }),
 }));
 vi.mock("@/lib/treasury/finality", () => ({ finalitySnapshot: vi.fn() }));
 vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: vi.fn(), shouldSettleFromView: () => false }));
@@ -41,7 +41,6 @@ vi.mock("@/components/treasury/dao-history", () => ({ DaoHistory: () => null }))
 vi.mock("@/components/treasury/dao-live", () => ({ DaoLive: () => null }));
 vi.mock("@/components/treasury/dao-overview", () => ({ DaoOverview: () => null }));
 vi.mock("@/components/treasury/dao-ranking", () => ({ DaoRanking: () => null }));
-vi.mock("@/components/treasury/donate-button", () => ({ DonateButton: () => null }));
 vi.mock("@/components/treasury/fund-composition", () => ({ FundComposition: () => null }));
 vi.mock("@/components/treasury/nav-chart", () => ({ NavChart: () => null }));
 vi.mock("@/components/treasury/operations-list", () => ({ OperationsList: () => null }));
@@ -57,7 +56,7 @@ beforeEach(() => {
 });
 
 async function dao(): Promise<ReactElement> {
-  const suspense = DaoPage({ searchParams: Promise.resolve({}) }) as ReactElement<{ children: ReactElement }>;
+  const suspense = DaoPage() as ReactElement<{ children: ReactElement }>;
   const el = suspense.props.children as ReactElement<object> & { type: (p: object) => Promise<ReactElement> };
   return el.type(el.props);
 }

@@ -7,8 +7,10 @@ import { ArrowLeft } from "lucide-react";
 import { CopyHashButton } from "@/components/treasury/raffles/copy-hash-button";
 import { RaffleVerifier } from "@/components/treasury/raffles/raffle-verifier";
 import { WEIGHTS_NOTE } from "@/components/treasury/raffles/raffle-notes";
+import { DaoPaused } from "@/components/treasury/dao-paused";
 import { DaoLive } from "@/components/treasury/dao-live";
-import { explorerBlock, NETWORKS } from "@/lib/economy/networks";
+import { getEconomyConfig } from "@/lib/economy/config";
+import { legacyExplorerBlock, LEGACY_NETWORKS } from "@/lib/legacy/linea";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatParticipaciones } from "@/lib/treasury/format";
 import { formatWhen } from "@/lib/treasury/panel";
@@ -33,6 +35,7 @@ const linkClass =
 // Reads cookies (dynamic): under cacheComponents it must live inside a Suspense. The id comes from the url, so it is
 // checked before it reaches the database.
 async function RaffleContent({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
   const { id } = await params;
   if (!UUID.test(id)) notFound();
   const supabase = await createServerClient();
@@ -62,7 +65,7 @@ async function RaffleContent({ params }: { params: Promise<{ id: string }> }) {
         </h2>
         <dl className="flex flex-col gap-3 text-sm">
           <Row term="Premio">{formatPrize(d.prizeAmount, d.prizeToken)}</Row>
-          <Row term="Red">{NETWORKS[d.chainId].name}</Row>
+          <Row term="Red">{LEGACY_NETWORKS[d.chainId].name}</Row>
           <Row term="Cierre">{formatWhen(d.closesAt)}</Row>
           <Row term="Modo">{weighted ? "Ponderado por participación" : "Igualitario"}</Row>
           <Row term="Compromiso">
@@ -80,7 +83,7 @@ async function RaffleContent({ params }: { params: Promise<{ id: string }> }) {
           </Row>
           <Row term="Bloque">
             {d.drawBlockNumber !== null ? (
-              <a href={explorerBlock(d.chainId, d.drawBlockNumber)} target="_blank" rel="noopener noreferrer" className={`${linkClass} font-mono`}>
+              <a href={legacyExplorerBlock(d.chainId, d.drawBlockNumber)} target="_blank" rel="noopener noreferrer" className={`${linkClass} font-mono`}>
                 {d.drawBlockNumber.toString()}
               </a>
             ) : (

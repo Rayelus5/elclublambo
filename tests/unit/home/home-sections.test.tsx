@@ -1,7 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@/components/treasury/donate-button", () => ({ DonateButton: () => <button>Donar a la DAO</button> }));
+import { describe, expect, it } from "vitest";
 
 import { ActiveChannelsList, DaoSummary, HomeCard, OpenBountiesList, PinnedList, UnreadBanner } from "@/components/home/home-sections";
 
@@ -28,7 +26,7 @@ describe("home sections", () => {
     expect(link).toHaveTextContent("solución elegida");
   });
 
-  it("DAO summary: balance, own share and donate", () => {
+  it("DAO summary: balance, own share and the DAO link; no donate button until P1", () => {
     render(
       <DaoSummary
         overview={{ chainId: 59141, totalShares: 1n, valueUsdc: 1n, donors: 3, myShares: 0n, myShareBps: 320, myNet: 0n, myPending: [],
@@ -39,7 +37,7 @@ describe("home sections", () => {
     expect(screen.getByText("Valor del fondo")).toBeInTheDocument();
     expect(screen.getByText("1.240 USD")).toBeInTheDocument();
     expect(screen.getByText("3,2 %")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Donar a la DAO" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Donar a la DAO" })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver la DAO" })).toHaveAttribute("href", "/dao");
   });
 

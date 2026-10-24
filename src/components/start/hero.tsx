@@ -11,7 +11,7 @@ const TICKER = [
   "Sorteo · commit-reveal",
   "Encuesta · voto secreto",
   "Tesorería · Safe 2-de-3",
-  "Red · Linea",
+  "Redes · Base y Arbitrum",
 ];
 
 /**
@@ -67,7 +67,7 @@ export function Hero() {
         <div className="relative mx-auto flex w-full max-w-[1600px] flex-1 flex-col px-4 pt-6 sm:px-8 sm:pt-8">
           <p className="flex items-center gap-3 font-mono text-small tracking-wide text-fg-muted uppercase">
             <span aria-hidden className="inline-block size-2 bg-accent" />
-            Foro privado · Red Linea
+            Foro privado · Base y Arbitrum
           </p>
 
           <div className="flex flex-1 flex-col justify-center gap-8 py-10 sm:gap-10">
@@ -98,7 +98,7 @@ export function Hero() {
                   El foro privado para quien se toma cripto en serio.
                 </p>
                 <p className="animate-start-rise text-fg-muted [animation-delay:120ms] motion-reduce:animate-none">
-                  Solo con invitación. Sin ruido. Construido en Linea.
+                  Solo con invitación. Sin ruido. Construido en Base y Arbitrum.
                 </p>
               </div>
               <a

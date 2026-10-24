@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: replace, 
 
 import { WelcomeSteps } from "@/components/onboarding/welcome-steps";
 
-const base = { initialHandle: null as string | null, next: "/c/abc", chainId: 59141 as const };
+const base = { initialHandle: null as string | null, next: "/c/abc", chainIds: [84532, 421614] as (84532 | 421614)[] };
 
 describe("WelcomeSteps", () => {
   beforeEach(() => {
@@ -79,12 +79,33 @@ describe("WelcomeSteps", () => {
     expect(completeWelcomeAction).toHaveBeenCalledTimes(1);
   });
 
+  it("P0: step 2 says tips and bounties go on Base or Arbitrum with no fee; step 3 says the DAO is being rebuilt", async () => {
+    const user = userEvent.setup();
+    render(<WelcomeSteps {...base} initialHandle="ana" />);
+    await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    let text = document.body.textContent ?? "";
+    expect(text).toMatch(/Base o Arbitrum/);
+    expect(text).toMatch(/ElClub\. no custodia fondos/);
+    expect(text).not.toMatch(/comisión/i);
+    await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    text = document.body.textContent ?? "";
+    expect(text).toMatch(/La DAO se está rehaciendo/);
+  });
+
+  it("step 4 shows every network the club uses", async () => {
+    const user = userEvent.setup();
+    render(<WelcomeSteps {...base} initialHandle="ana" />);
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(screen.getByText("Base Sepolia")).toBeTruthy();
+    expect(screen.getByText("Arbitrum Sepolia")).toBeTruthy();
+  });
+
   it("'Empezar' on step 4 shows the network badge, completes and navigates; a failure stays put", async () => {
     const user = userEvent.setup();
     completeWelcomeAction.mockResolvedValueOnce({ ok: false, error: "Elige tu @handle para continuar." });
     render(<WelcomeSteps {...base} initialHandle="ana" />);
     for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
-    expect(screen.getByText("MODO PRUEBA · Linea Sepolia")).toBeTruthy();
+    expect(screen.getByText("Base Sepolia")).toBeTruthy();
     expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/guia/redes");
     await user.click(screen.getByRole("button", { name: "Empezar" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Elige tu @handle");

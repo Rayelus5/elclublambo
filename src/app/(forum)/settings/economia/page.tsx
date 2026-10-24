@@ -1,8 +1,9 @@
 import { Suspense } from "react";
 import { PageLoader } from "@/components/shell/page-loader";
 import { notFound } from "next/navigation";
-import { EconomyForm } from "@/components/economy/economy-form";
+import { NetworksForm } from "@/components/economy/networks-form";
 import { getEconomyConfig } from "@/lib/economy/config";
+import { appChainIds } from "@/lib/economy/networks";
 import { createServerClient } from "@/lib/supabase/server";
 
 async function EconomyContent() {
@@ -12,13 +13,18 @@ async function EconomyContent() {
   if ((BigInt(String(rawPerms ?? 0)) & 512n) === 0n) notFound();
 
   const config = await getEconomyConfig();
+  const chains = appChainIds().map((chainId) => ({
+    chainId,
+    enabled: config.enabledChainIds.includes(chainId),
+    safe: config.safes[chainId] ?? null,
+  }));
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h2 className="text-h2">Economía</h2>
-        <p className="text-fg-muted">Red activa, comisión mínima y direcciones de la Safe y de la plataforma por red.</p>
+        <p className="text-fg-muted">Redes en las que se puede mover dinero. Cada miembro elige además dónde quiere recibirlo.</p>
       </header>
-      <EconomyForm config={config} />
+      <NetworksForm chains={chains} />
     </div>
   );
 }

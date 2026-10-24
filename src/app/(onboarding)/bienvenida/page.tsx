@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { WelcomeSteps } from "@/components/onboarding/welcome-steps";
 import { getEconomyConfig } from "@/lib/economy/config";
+import { chainForKey } from "@/lib/economy/networks";
 import { safeNextPath } from "@/lib/onboarding/next-path";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -36,10 +37,10 @@ async function Welcome({ searchParams }: { searchParams: Params }) {
   return (
     <>
       <header className="flex flex-col gap-2">
-        <h1 className="text-h1">Bienvenida a El Club</h1>
+        <h1 className="text-h1">Bienvenida a ElClub.</h1>
         <p className="text-fg-muted">Cuatro pasos rápidos. Solo el primero es obligatorio.</p>
       </header>
-      <WelcomeSteps initialHandle={row.handle} next={next} chainId={economy.activeChainId} />
+      <WelcomeSteps initialHandle={row.handle} next={next} chainIds={economy.enabledChainIds.length > 0 ? economy.enabledChainIds : [chainForKey("base")]} />
     </>
   );
 }

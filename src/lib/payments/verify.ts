@@ -1,6 +1,8 @@
 import "server-only";
 import { erc20Abi, parseEventLogs, type PublicClient } from "viem";
-import { NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { isChainId, NETWORKS, type ChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
+import { legacyChainClient } from "@/lib/legacy/linea-client";
 import type { Token } from "@/lib/payments/amounts";
 import { chainClient } from "@/lib/payments/chain-client";
 import { addressesFor } from "@/lib/treasury/valuation";
@@ -9,7 +11,8 @@ import { addressesFor } from "@/lib/treasury/valuation";
 export type VerifyToken = Token | "WETH";
 
 export type VerifyInput = {
-  chain: ChainId;
+  /** A legacy chain (59144/59141) only for the legacy islands (DAO payouts, raffle prizes; P0-R2). */
+  chain: ChainId | LegacyChainId;
   token: VerifyToken;
   txHash: `0x${string}`;
   from: string;
@@ -38,18 +41,21 @@ const SKEW_SECONDS = 120n;
 class NotFound extends Error {}
 
 let warnedConfirmations = false;
-/** TIP_CONFIRMATIONS if it is an integer >= 1, else 3 (a bad value is logged once). */
-export function defaultConfirmations(): number {
+/** TIP_CONFIRMATIONS if it is an integer >= 1, else the network's (P0-R9; 3 on the legacy chains). A bad value is logged once. */
+export function defaultConfirmations(chain: ChainId | LegacyChainId): number {
+  const fallback = isChainId(chain) ? NETWORKS[chain].finality.tipConfirmations : 3;
   const raw = process.env.TIP_CONFIRMATIONS;
-  if (raw === undefined) return 3;
+  if (raw === undefined) return fallback;
   const n = /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
   if (Number.isSafeInteger(n) && n >= 1) return n;
   if (!warnedConfirmations) {
     warnedConfirmations = true;
-    console.error(`[payments] invalid TIP_CONFIRMATIONS=${JSON.stringify(raw)}, using 3`);
+    console.error(`[payments] invalid TIP_CONFIRMATIONS=${JSON.stringify(raw)}, using the network's default`);
   }
-  return 3;
+  return fallback;
 }
+
+const defaultClient = (c: ChainId | LegacyChainId): PublicClient => (isChainId(c) ? chainClient(c) : legacyChainClient(c));
 
 function isNotFound(e: unknown): boolean {
   const name = (e as { name?: string } | null)?.name ?? "";
@@ -57,8 +63,8 @@ function isNotFound(e: unknown): boolean {
 }
 
 /** Checks a single transfer on-chain against what the payment intent expects. Never throws. */
-export async function verifyTransfer(input: VerifyInput, client: PublicClient = chainClient(input.chain)): Promise<VerifyResult> {
-  const confirmations = input.confirmations ?? defaultConfirmations();
+export async function verifyTransfer(input: VerifyInput, client: PublicClient = defaultClient(input.chain)): Promise<VerifyResult> {
+  const confirmations = input.confirmations ?? defaultConfirmations(input.chain);
   try {
     const rpcChain = await client.getChainId();
     if (rpcChain !== input.chain) {
@@ -100,10 +106,13 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
       value = tx.value;
     } else {
-      // The official token contract: USDC from NETWORKS (as before); WETH from addressesFor, i.e. the canonical WETH, or
-      // the local chain's mock through WETH_ADDRESS_59141 (testnet only, F4a-R10). Without WETH on the chain, a WETH
-      // payout can never match.
-      const contract = input.token === "USDC" ? NETWORKS[input.chain].usdc : addressesFor(input.chain).weth;
+      // The official token contract. New chains: USDC from NETWORKS, and no WETH (a WETH payout never matches). Legacy
+      // chains: addressesFor, i.e. the canonical USDC / WETH, or the local chain's WETH mock through WETH_ADDRESS_59141
+      // (testnet only, F4a-R10).
+      const chain = input.chain;
+      const contract = isChainId(chain)
+        ? input.token === "USDC" ? NETWORKS[chain].usdc : null
+        : input.token === "USDC" ? addressesFor(chain).usdc : addressesFor(chain).weth;
       if (!contract) return err("tx_mismatch");
       const logs = parseEventLogs({ abi: erc20Abi, eventName: "Transfer", logs: receipt.logs, strict: true }).sort(
         (a, b) => a.logIndex - b.logIndex,

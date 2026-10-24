@@ -7,7 +7,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, ArrowDownLeft, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { explorerTx, type ChainId } from "@/lib/economy/networks";
+import { legacyExplorerTx, type LegacyChainId } from "@/lib/legacy/linea";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { formatToken } from "@/lib/treasury/format";
@@ -21,7 +21,7 @@ const dateTime = (iso: string) =>
 const linkClass =
   "inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
-export function OperationsList({ operations, chainId, canNote }: { operations: Operation[]; chainId: ChainId; canNote: boolean }) {
+export function OperationsList({ operations, chainId, canNote }: { operations: Operation[]; chainId: LegacyChainId; canNote: boolean }) {
   // Notes saved here show at once. Each remembers the server note it replaced: once the server's note for that operation
   // differs (the refresh brought ours, or another treasurer's newer one), the server wins and the local copy is ignored.
   const [saved, setSaved] = useState<Record<string, { note: string; replaced: string | null }>>({});
@@ -48,7 +48,7 @@ function OperationRow({
   onSaved,
 }: {
   op: Operation;
-  chainId: ChainId;
+  chainId: LegacyChainId;
   canNote: boolean;
   onSaved: (note: string) => void;
 }) {
@@ -68,7 +68,7 @@ function OperationRow({
         </time>
         {op.txHash ? (
           <a
-            href={explorerTx(chainId, op.txHash)}
+            href={legacyExplorerTx(chainId, op.txHash)}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Ver en el explorador: ${out ? "salida" : "entrada"} de ${formatToken(op.amount, op.asset)}`}

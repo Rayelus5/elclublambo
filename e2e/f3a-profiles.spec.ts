@@ -1,7 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { channelIds, createInvite, messageWith, openChannel, rpcAs, sendMention, service } from "./helpers/f2c";
-import { privateKeyToAccount } from "viem/accounts";
 
 // F3a acceptance: mandatory-handle welcome, profile editing, mentions by @handle, SuperAdmin economy settings,
 // non-admin protection and the guide. Generated test wallets only. The DB is reset by global-setup; scenarios share
@@ -31,7 +30,8 @@ test.afterEach(() => {
 });
 
 const HANDLE = "ray_test1";
-const BADGE = "MODO PRUEBA · Linea Sepolia";
+/** P0-R12: a property of the build (NEXT_PUBLIC_NETWORK_SET=testnet in playwright.config.ts), not of a network. */
+const BADGE = "MODO PRUEBA";
 const desktop = { width: 1280, height: 900 };
 
 let admin: BrowserContext;
@@ -128,47 +128,34 @@ test("3. a mention of the member renders @handle", async () => {
   await expect(msg.getByText(`@${HANDLE}`).first()).toBeVisible();
 });
 
-test("4. SuperAdmin sets fee and addresses, switches network and members see the badge change", async () => {
+test("4. SuperAdmin sees the build's two test networks, disables and re-enables one; members see MODO PRUEBA", async () => {
   const p = adminPage;
   await p.goto("/settings/economia");
   await expect(p.getByRole("heading", { level: 2, name: "Economía" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 
-  await p.getByLabel("Comisión mínima (%)").fill("2,6");
-  await p.getByRole("button", { name: "Guardar comisión" }).click();
-  await expect(p.getByText("Comisión guardada.")).toBeVisible();
+  // The testnet set: Base Sepolia and Arbitrum Sepolia, both enabled; no fee and no Linea anywhere (P0-R5).
+  const baseSwitch = p.getByRole("switch", { name: "Habilitar Base Sepolia" });
+  const arbSwitch = p.getByRole("switch", { name: "Habilitar Arbitrum Sepolia" });
+  await expect(baseSwitch).toHaveAttribute("aria-checked", "true");
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "true");
+  await expect(p.getByRole("switch")).toHaveCount(2);
+  await expect(p.getByRole("main").getByText(/Linea|Comisión/)).toHaveCount(0);
 
-  await p.getByLabel("Safe (Linea Sepolia)", { exact: true }).fill(privateKeyToAccount(newWalletKey()).address);
-  await p.getByLabel("Wallet de la plataforma (Linea Sepolia)", { exact: true }).fill(privateKeyToAccount(newWalletKey()).address);
-  await p.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }).click();
-  await expect(p.getByText("Direcciones guardadas.")).toBeVisible();
-
-  // Members see the test-mode badge while Sepolia is active.
+  // Members see the test-mode badge on a testnet build.
   await memberPage.goto("/");
   // T-007: below 1536 px the top bar shows the compact «PRUEBA» badge, named in full for screen readers.
-  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
+  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE, exact: true })).toBeVisible();
 
-  await p.getByRole("button", { name: "Cambiar a Linea", exact: true }).click();
-  const dialog = p.getByRole("alertdialog");
-  await expect(dialog.getByText("Los envíos de dinero pasarán a Linea. ¿Continuar?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Continuar" }).click();
-  await expect(p.getByRole("button", { name: "Cambiar a Linea Sepolia" })).toBeVisible();
-
-  await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner")).toBeVisible();
-  await expect(memberPage.getByText("MODO PRUEBA")).toHaveCount(0);
-  await expect(memberPage.getByRole("img", { name: /MODO PRUEBA/ })).toHaveCount(0);
-
-  // Switch back.
-  await p.getByRole("button", { name: "Cambiar a Linea Sepolia" }).click();
-  await p.getByRole("alertdialog").getByRole("button", { name: "Continuar" }).click();
-  await expect(p.getByRole("button", { name: "Cambiar a Linea", exact: true })).toBeVisible();
-  await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
-
-  // The fee persisted as 260 bps.
-  const { data } = await service().from("app_config").select("*");
-  expect(JSON.stringify(data)).toContain("260");
+  const enabled = async (chainId: number) =>
+    (await service().from("chains").select("enabled").eq("chain_id", chainId).single<{ enabled: boolean }>()).data?.enabled;
+  await arbSwitch.click();
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "false");
+  expect(await enabled(421614)).toBe(false);
+  // Switch back (later specs pay on Arbitrum Sepolia).
+  await arbSwitch.click();
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "true");
+  expect(await enabled(421614)).toBe(true);
 });
 
 test("5. a non-admin gets 404 on the economy settings and forbidden from the RPCs", async () => {
@@ -177,7 +164,7 @@ test("5. a non-admin gets 404 on the economy settings and forbidden from the RPC
   expect(res?.status()).toBe(404);
   await page.close();
 
-  const { error } = await rpcAs(plain, "set_min_fee_bps", { p_bps: 0 });
+  const { error } = await rpcAs(plain, "set_chain_enabled", { p_chain: 421614, p_enabled: false });
   expect(error?.message).toContain("forbidden");
 });
 

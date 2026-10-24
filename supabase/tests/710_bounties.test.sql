@@ -1,5 +1,5 @@
 begin;
-select plan(140);
+select plan(137);
 
 -- helpers (rolled back with the test)
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -12,12 +12,18 @@ returns uuid language sql as $$
 $$;
 create function tests.bounty(p_ch text, p_token text default 'USDC', p_amount numeric default 10000000)
 returns uuid language sql as $$
-  select public.create_bounty(p_ch::uuid, tests.td('bounty'), p_token, p_amount)
+  select public.create_bounty(p_ch::uuid, tests.td('bounty'), 84532, p_token, p_amount)
 $$;
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
 $$;
 create function tests.cfg(p_key text) returns text language sql as $$ select current_setting(p_key) $$;
+-- the RPCs no longer charge a fee (P0-R5); confirm_bounty_payment still handles one, so a legacy fee is simulated here
+create function tests.simulate_fee(p_intent text, p_bps int) returns void language sql as $$
+  update public.payment_intents
+  set fee_bps = p_bps, fee_amount = div(amount * p_bps + 9999, 10000), platform_address = '0x' || lpad('f00', 40, '0')
+  where id = p_intent::uuid
+$$;
 
 -- ===== fixtures =====
 select set_config('t.a', tests.create_member('0x' || lpad('d7100', 40, '0'), null, true)::text, true);                       -- author
@@ -38,7 +44,6 @@ select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, '
 select set_config('t.hid', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't710hidden')::text, true);
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
   values (current_setting('t.hid')::uuid, 'member', current_setting('t.v')::uuid, 0, 1);
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
 
 -- ===== schema / privileges =====
 select ok((select relrowsecurity from pg_class where oid = 'public.bounties'::regclass), 'RLS on bounties');
@@ -50,8 +55,8 @@ select ok(not has_table_privilege('anon', 'public.bounties', 'select'), 'anon ca
 select ok(not has_function_privilege('authenticated', 'public.confirm_bounty_payment(uuid,jsonb,jsonb)', 'execute'), 'authenticated cannot confirm_bounty_payment');
 select ok(not has_function_privilege('anon', 'public.confirm_bounty_payment(uuid,jsonb,jsonb)', 'execute'), 'anon cannot confirm_bounty_payment');
 select ok(has_function_privilege('service_role', 'public.confirm_bounty_payment(uuid,jsonb,jsonb)', 'execute'), 'service_role confirms bounty payments');
-select ok(has_function_privilege('authenticated', 'public.create_bounty(uuid,jsonb,text,numeric)', 'execute'), 'authenticated creates bounties');
-select ok(not has_function_privilege('anon', 'public.create_bounty(uuid,jsonb,text,numeric)', 'execute'), 'anon cannot create bounties');
+select ok(has_function_privilege('authenticated', 'public.create_bounty(uuid,jsonb,int,text,numeric)', 'execute'), 'authenticated creates bounties');
+select ok(not has_function_privilege('anon', 'public.create_bounty(uuid,jsonb,int,text,numeric)', 'execute'), 'anon cannot create bounties');
 
 -- ===== creation =====
 select tests.authenticate_as(current_setting('t.uc')::uuid);
@@ -70,15 +75,15 @@ select lives_ok($$select tests.bounty(tests.cfg('t.ch'), 'ETH', 1000000000000000
 select set_config('t.b1', tests.bounty(current_setting('t.ch'))::text, true);
 select tests.clear_authentication();
 select is((select kind from public.messages where id = current_setting('t.b1')::uuid), 'bounty', 'the message has kind bounty');
-select is((select chain_id from public.bounties where message_id = current_setting('t.b1')::uuid), 59141, 'the bounty records the active chain');
+select is((select chain_id from public.bounties where message_id = current_setting('t.b1')::uuid), 84532, 'the bounty records its network');
 select is((select count(*)::int from public.bounties), 5, 'every accepted bounty has a bounties row; rejected ones left none');
 select is((select count(*)::int from public.messages where kind = 'bounty'), 5, 'rejected creations left no message behind');
 
 -- the core validation is shared: bad doc and slowmode apply to bounties
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty(tests.cfg('t.ch')::uuid, '{"type":"paragraph"}'::jsonb, 'USDC', 1000000)$$,
+select throws_ok($$select public.create_bounty(tests.cfg('t.ch')::uuid, '{"type":"paragraph"}'::jsonb, 84532, 'USDC', 1000000)$$,
   'P0001', 'invalid_input', 'a non-doc body is refused by the shared core');
-select throws_ok($$select public.create_bounty(tests.cfg('t.ch')::uuid, tests.td(repeat('x', 4001)), 'USDC', 1000000)$$,
+select throws_ok($$select public.create_bounty(tests.cfg('t.ch')::uuid, tests.td(repeat('x', 4001)), 84532, 'USDC', 1000000)$$,
   'P0001', 'too_long', 'an over-long body is refused by the shared core');
 select tests.clear_authentication();
 select set_config('t.slow', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't710slow')::text, true);
@@ -236,40 +241,28 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r7', tests.post(current_setting('t.ch')::uuid, tests.td('solution 7'), current_setting('t.b7')::uuid)::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b7')::uuid, current_setting('t.r7')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b6')::uuid, 10000000, 0)$$, 'P0001', 'no_solution', 'no intent before marking');
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 9999999, 0)$$, 'P0001', 'amount_below_bounty', 'below the announced amount');
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 5001)$$, 'P0001', 'fee_out_of_range', 'fee above 5000 bps');
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b2')::uuid, 10000000, 0)$$, 'P0001', 'bounty_closed', 'a cancelled bounty cannot be paid');
-select throws_ok($$select public.create_bounty_payment_intent(gen_random_uuid(), 10000000, 0)$$, 'P0001', 'not_found', 'unknown bounty');
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 100000000001, 0)$$, 'P0001', 'amount_out_of_range', 'above the USDC maximum');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b6')::uuid, 84532, 10000000)$$, 'P0001', 'no_solution', 'no intent before marking');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 84532, 9999999)$$, 'P0001', 'amount_below_bounty', 'below the announced amount');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b2')::uuid, 84532, 10000000)$$, 'P0001', 'bounty_closed', 'a cancelled bounty cannot be paid');
+select throws_ok($$select public.create_bounty_payment_intent(gen_random_uuid(), 84532, 10000000)$$, 'P0001', 'not_found', 'unknown bounty');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 84532, 100000000001)$$, 'P0001', 'amount_out_of_range', 'above the USDC maximum');
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 0)$$, 'P0001', 'forbidden', 'a non-author cannot create the intent');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 84532, 10000000)$$, 'P0001', 'forbidden', 'a non-author cannot create the intent');
 select tests.authenticate_as(current_setting('t.ub')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 0)$$, 'P0001', 'forbidden', 'the solver cannot create the intent');
-select tests.clear_authentication();
-update public.app_config set value = '100'::jsonb where key = 'min_fee_bps';
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 84532, 10000000)$$, 'P0001', 'forbidden', 'the solver cannot create the intent');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 99)$$, 'P0001', 'fee_below_minimum', 'fee below the minimum');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 59141, 10000000)$$, 'P0001', 'chain_invalid', 'a Linea chain is refused');
 select tests.clear_authentication();
-update public.app_config set value = '0'::jsonb where key = 'min_fee_bps';
-update public.chain_config set platform_wallet = null where chain_id = 59141;
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 100)$$, 'P0001', 'platform_not_configured', 'fee without platform wallet');
-select tests.clear_authentication();
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
-update public.app_config set value = '59144'::jsonb where key = 'active_chain_id';
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 0)$$, 'P0001', 'bounty_chain_inactive', 'inactive chain');
-select tests.clear_authentication();
-update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.i7', public.create_bounty_payment_intent(current_setting('t.b7')::uuid, 12000000, 100)::text, true);
+select set_config('t.i7', public.create_bounty_payment_intent(current_setting('t.b7')::uuid, 84532, 12000000)::text, true);
 select is((current_setting('t.i7')::jsonb ->> 'recipientAddress'), '0x' || lpad('d7101', 40, '0'), 'recipient snapshot is the solver wallet');
-select is((current_setting('t.i7')::jsonb ->> 'feeAmount'), '120000', 'the fee goes on top of the amount');
+select is((current_setting('t.i7')::jsonb ->> 'feeAmount'), '0', 'no fee on top of the amount');
 select is((current_setting('t.i7')::jsonb ->> 'amount'), '12000000', 'an amount above the announced one is accepted');
-select is((current_setting('t.i7')::jsonb ->> 'platformAddress'), '0x' || lpad('f00', 40, '0'), 'platform wallet is snapshotted');
+select is((current_setting('t.i7')::jsonb ->> 'platformAddress'), null, 'no platform address');
 select tests.clear_authentication();
+-- i7 carries a legacy fee so confirm_bounty_payment's fee path stays covered
+select tests.simulate_fee(current_setting('t.i7')::jsonb ->> 'id', 100);
 select is((select purpose || '/' || target_type || '/' || target_id::text || '/' || token || '/' || anonymous::text
            from public.payment_intents where id = (current_setting('t.i7')::jsonb ->> 'id')::uuid),
   'bounty/bounty/' || current_setting('t.b7') || '/USDC/false', 'intent: purpose, target, token and never anonymous');
@@ -320,14 +313,14 @@ select is((select count(*)::int from public.tips), 1, 'still one tip');
 
 -- already paid / replay
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 10000000, 0)$$, 'P0001', 'already_paid', 'a paid bounty refuses a new intent');
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b7')::uuid, 84532, 10000000)$$, 'P0001', 'already_paid', 'a paid bounty refuses a new intent');
 select set_config('t.b8', tests.bounty(current_setting('t.ch'))::text, true);
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r8', tests.post(current_setting('t.ch')::uuid, tests.td('solution 8'), current_setting('t.b8')::uuid)::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b8')::uuid, current_setting('t.r8')::uuid);
-select set_config('t.i8', public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 10000000, 0)::text, true);
-select is(public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 10000000, 0) ->> 'id', current_setting('t.i8')::jsonb ->> 'id',
+select set_config('t.i8', public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 84532, 10000000)::text, true);
+select is(public.create_bounty_payment_intent(current_setting('t.b8')::uuid, 84532, 10000000) ->> 'id', current_setting('t.i8')::jsonb ->> 'id',
   'asking again returns the same hashless intent (F3c-R3 a)');
 -- simulate a racing second intent (the RPC no longer produces one) to pin the confirm-time already_paid guard
 select tests.clear_authentication();
@@ -365,7 +358,7 @@ select is((select count(*)::int from public.tips), 2, 'two tips in total');
 
 -- a tip intent cannot be confirmed as a bounty payment, and vice versa
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select set_config('t.itip', public.create_tip_intent('message', current_setting('t.r7')::uuid, 'USDC', 10000000, 0, false)::text, true);
+select set_config('t.itip', public.create_tip_intent('message', current_setting('t.r7')::uuid, 84532, 'USDC', 10000000, false)::text, true);
 select tests.clear_authentication();
 set local role service_role;
 select throws_ok(format($$select public.confirm_bounty_payment(%L, null, null)$$, current_setting('t.itip')::jsonb ->> 'id'),
@@ -416,37 +409,41 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r9', tests.post(current_setting('t.ch')::uuid, tests.td('solution 9'), current_setting('t.b9')::uuid)::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b9')::uuid, current_setting('t.r9')::uuid);
-select set_config('t.i9', public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 10000000, 100)::text, true);
-select is(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 20000000, 0), current_setting('t.i9')::jsonb,
-  'a live hashless intent is returned unchanged, new amount and fee ignored');
+select set_config('t.i9', public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 84532, 10000000)::text, true);
+select is(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 84532, 20000000), current_setting('t.i9')::jsonb,
+  'a live hashless intent is returned unchanged, new amount ignored');
 select is((select count(*)::int from public.payment_intents where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid), 1,
   'no second intent row was created');
+-- i9 carries a legacy fee: a missing fee hash must still block a new intent
+select tests.clear_authentication();
+select tests.simulate_fee(current_setting('t.i9')::jsonb ->> 'id', 100);
+select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.attach_intent_tx((current_setting('t.i9')::jsonb ->> 'id')::uuid, 'main', tests.hash(91));
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 84532, 10000000)$$, 'P0001', 'payment_in_progress',
   'one hash attached (fee hash missing) already blocks a new intent');
 select public.attach_intent_tx((current_setting('t.i9')::jsonb ->> 'id')::uuid, 'fee', tests.hash(92));
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 84532, 10000000)$$, 'P0001', 'payment_in_progress',
   'both hashes attached blocks a new intent');
 -- expired but both hashes were attached before expiry, inside 7 days: still creditable
 select tests.clear_authentication();
 update public.payment_intents set created_at = now() - interval '3 hours', expires_at = now() - interval '1 hour',
   hashes_attached_at = now() - interval '2 hours' where id = (current_setting('t.i9')::jsonb ->> 'id')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$, 'P0001', 'payment_in_progress',
+select throws_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 84532, 10000000)$$, 'P0001', 'payment_in_progress',
   'an expired intent that is still creditable (F3b-R2) blocks a new intent');
 -- no longer creditable: older than 7 days
 select tests.clear_authentication();
 update public.payment_intents set created_at = now() - interval '8 days', expires_at = now() - interval '7 days',
   hashes_attached_at = now() - interval '7 days' - interval '1 hour' where id = (current_setting('t.i9')::jsonb ->> 'id')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select lives_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 10000000, 100)$$,
+select lives_ok($$select public.create_bounty_payment_intent(tests.cfg('t.b9')::uuid, 84532, 10000000)$$,
   'a dead intent (past the 7-day late-credit window) does not block a new one');
 -- a hashless intent that expired is not returned and does not block
 select tests.clear_authentication();
 update public.payment_intents set expires_at = now() - interval '1 minute', created_at = now() - interval '25 hours'
   where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid and main_tx_hash is null;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select isnt(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 10000000, 100) ->> 'id', null, 'an expired hashless intent is replaced by a new one');
+select isnt(public.create_bounty_payment_intent(current_setting('t.b9')::uuid, 84532, 10000000) ->> 'id', null, 'an expired hashless intent is replaced by a new one');
 select is((select count(*)::int from public.payment_intents where purpose = 'bounty' and target_id = current_setting('t.b9')::uuid), 3,
   'three intent rows for b9 in total');
 select tests.clear_authentication();
@@ -458,7 +455,7 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r10', tests.post(current_setting('t.ch')::uuid, tests.td('solution 10'), current_setting('t.b10')::uuid)::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b10')::uuid, current_setting('t.r10')::uuid);
-select set_config('t.i10', public.create_bounty_payment_intent(current_setting('t.b10')::uuid, 10000000, 0)::text, true);
+select set_config('t.i10', public.create_bounty_payment_intent(current_setting('t.b10')::uuid, 84532, 10000000)::text, true);
 select public.attach_intent_tx((current_setting('t.i10')::jsonb ->> 'id')::uuid, 'main', tests.hash(101));
 select tests.clear_authentication();
 -- marked 8 days ago; the intent was created 2 days ago (expired, but creditable under F3b-R2); the transfer was mined
@@ -494,7 +491,7 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r11', tests.post(current_setting('t.ch')::uuid, tests.td('solution 11'), current_setting('t.b11')::uuid)::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select public.mark_bounty_solution(current_setting('t.b11')::uuid, current_setting('t.r11')::uuid);
-select set_config('t.i11', public.create_bounty_payment_intent(current_setting('t.b11')::uuid, 10000000, 0)::text, true);
+select set_config('t.i11', public.create_bounty_payment_intent(current_setting('t.b11')::uuid, 84532, 10000000)::text, true);
 select public.attach_intent_tx((current_setting('t.i11')::jsonb ->> 'id')::uuid, 'main', tests.hash(111));
 select tests.clear_authentication();
 set local role service_role;

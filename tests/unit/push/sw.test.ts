@@ -33,7 +33,7 @@ describe("public/sw.js push handler", () => {
   it.each([null, 42, "texto", true])("tolerates a non-object JSON payload (%j)", async (value) => {
     const { push, showNotification } = loadSw();
     await push({ json: () => value });
-    expect(showNotification).toHaveBeenCalledWith("El Club Lambo", expect.objectContaining({ body: "", data: { url: "https://club.example/" } }));
+    expect(showNotification).toHaveBeenCalledWith("ElClub.", expect.objectContaining({ body: "", data: { url: "https://club.example/" } }));
   });
 
   it("tolerates missing data and unparsable JSON", async () => {
@@ -52,6 +52,6 @@ describe("public/sw.js push handler", () => {
   it("falls back to home for a cross-origin url", async () => {
     const { push, showNotification } = loadSw();
     await push({ json: () => ({ url: "https://evil.example/x" }) });
-    expect(showNotification).toHaveBeenCalledWith("El Club Lambo", expect.objectContaining({ data: { url: "https://club.example/" } }));
+    expect(showNotification).toHaveBeenCalledWith("ElClub.", expect.objectContaining({ data: { url: "https://club.example/" } }));
   });
 });

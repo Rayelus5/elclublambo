@@ -1,7 +1,7 @@
-# Guía de producción: elclub.party en Vercel + Supabase Cloud (Linea mainnet)
+# Guía de producción: elclub.party en Vercel + Supabase Cloud (Base y Arbitrum mainnet)
 
 Esta guía te lleva desde cero hasta tener elclublambo funcionando en `https://elclub.party` con dinero real en
-Linea mainnet. Está escrita para hacerla una vez, en orden, sin haber usado antes Vercel ni Supabase Cloud.
+Base y Arbitrum mainnet. Está escrita para hacerla una vez, en orden, sin haber usado antes Vercel ni Supabase Cloud.
 
 Cada paso termina con una línea **Comprueba:** que dice qué tienes que ver. Si no lo ves, para ahí y no sigas: los
 pasos siguientes dan por hecho que el anterior salió bien.
@@ -68,43 +68,46 @@ Lo que **nunca** pasa:
 
 ---
 
-## 1. RPC de Linea mainnet (Infura)
+## 1. RPC de Base y Arbitrum mainnet
 
 La app lee la blockchain desde el servidor: verifica propinas, pagos de bounties y donaciones, y el cron valora la
-Safe y escanea sus operaciones. Para eso usa `LINEA_RPC_URL`, tu endpoint de Infura con la clave dentro.
+Safe y escanea sus operaciones. Para eso usa `BASE_RPC_URL` y `ARBITRUM_RPC_URL`, tus endpoints de proveedor (por ejemplo Infura) con la clave dentro.
 
 Dos reglas:
 
 - **La clave tiene que ir en la ruta o en la query de la URL, nunca en el nombre del host.** Infura lo hace bien:
-  `https://linea-mainnet.infura.io/v3/<tu-clave>`. Los logs de la app tachan todo lo que va después del host, pero
+  `https://base-mainnet.infura.io/v3/<tu-clave>`. Los logs de la app tachan todo lo que va después del host, pero
   el host se deja visible a propósito. Un proveedor que meta la clave en el subdominio la acabaría enseñando en los
   logs.
 - **Nunca pongas una clave en una variable `NEXT_PUBLIC_*`.** Esas variables se copian dentro del JavaScript que
-  descarga cualquier visitante. `NEXT_PUBLIC_LINEA_RPC_URL` y `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` son solo para
+  descarga cualquier visitante. `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` y `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` son solo para
   tests y en producción van **vacías** (el build falla si no lo están).
 
 1. Abre una terminal en la carpeta del proyecto.
 2. Comprueba la RPC. Tienes dos formas:
-   - Si tu `.env.local` (o `.env`) ya tiene `LINEA_RPC_URL` con la clave de mainnet, el script la lee solo:
+   - Si tu `.env.local` (o `.env`) ya tiene `BASE_RPC_URL` y `ARBITRUM_RPC_URL` con las claves de mainnet, el
+     script las lee solo. Sin `--chain` comprueba las dos redes de `NEXT_PUBLIC_NETWORK_SET`; con `--chain` una:
      ```
-     pnpm check:rpc --chain 59144
+     pnpm check:rpc --chain 8453
+     pnpm check:rpc --chain 42161
      ```
    - Si no, en PowerShell, pidiendo la clave sin que se escriba en pantalla ni en el historial (pega la URL
      completa cuando te la pida):
      ```
-     $s = Read-Host -AsSecureString "LINEA_RPC_URL"
-     $env:LINEA_RPC_URL = [System.Net.NetworkCredential]::new('', $s).Password
-     pnpm check:rpc -- --chain 59144
-     Remove-Item Env:LINEA_RPC_URL
+     $s = Read-Host -AsSecureString "BASE_RPC_URL"
+     $env:BASE_RPC_URL = [System.Net.NetworkCredential]::new('', $s).Password
+     pnpm check:rpc -- --chain 8453
+     Remove-Item Env:BASE_RPC_URL
+     (repite con ARBITRUM_RPC_URL y --chain 42161)
      ```
      No escribas la clave directamente en el comando: PowerShell guarda el historial en disco
      (`ConsoleHost_history.txt`) y cerrar la terminal no lo borra.
 
-**Comprueba:** salen 4 líneas `OK`, y la URL aparece tachada (`https://linea-mainnet.infura.io/***`):
+**Comprueba:** salen 4 líneas `OK` por red, y la URL aparece tachada (`https://base-mainnet.infura.io/***`):
 
 ```
-Comprobando https://linea-mainnet.infura.io/*** en Linea (59144)
-OK eth_chainId 59144
+Comprobando https://base-mainnet.infura.io/*** en Base (8453)
+OK eth_chainId 8453
 OK eth_blockNumber <número>
 OK archive state at block <número>
 OK eth_getLogs over 2001 blocks
@@ -295,7 +298,7 @@ Ve a **Settings → Environment Variables**. Añade cada variable de `deploy/pro
 
 - **Environments:** marca **solo Production**. Desmarca Preview y Development. Así, aunque algún día existiera una
   preview, no tendría acceso a la base de datos de producción.
-- **Sensitive:** actívalo en las secretas: `SUPABASE_SERVICE_ROLE_KEY`, `LINEA_RPC_URL`, `LINEA_SEPOLIA_RPC_URL`,
+- **Sensitive:** actívalo en las secretas: `SUPABASE_SERVICE_ROLE_KEY`, `BASE_RPC_URL`, `ARBITRUM_RPC_URL`,
   `VAPID_PRIVATE_KEY`, `CRON_SECRET` y `COINGECKO_API_KEY`. Una variable sensible no se puede volver a leer desde
   el panel, solo sobrescribir.
 - **No crees** las que la plantilla deja fuera a propósito: `ETH_USD_FEED_ADDRESS_59141`, `WETH_ADDRESS_59141`,
@@ -311,12 +314,13 @@ La lista, con el valor que lleva cada una:
 | `SUPABASE_SERVICE_ROLE_KEY` | clave secreta de Supabase (paso 2.8). Sensitive |
 | `SUPER_ADMIN_WALLET` | tu wallet `0x…` de SuperAdmin (paso 8) |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | Project ID de "elclub prod" (paso 6.3) |
-| `NEXT_PUBLIC_CHAIN` | `linea` |
+| `NEXT_PUBLIC_NETWORK_SET` | `mainnet` (Base y Arbitrum mainnet) |
+| `NEXT_PUBLIC_BASE_BUILDER_CODE` | tu Builder Code de base.dev (letras, números, `_` y `-`, hasta 32). Obligatoria |
 | `NEXT_PUBLIC_SITE_URL` | `https://elclub.party` |
-| `LINEA_RPC_URL` | tu URL de Infura mainnet (paso 1). Sensitive |
-| `LINEA_SEPOLIA_RPC_URL` | opcional: tu URL de Infura Sepolia. Solo se usa si cambias la red activa a Sepolia. Sensitive |
-| `NEXT_PUBLIC_LINEA_RPC_URL` | no la crees (debe estar vacía) |
-| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` | no la crees (debe estar vacía) |
+| `BASE_RPC_URL` | tu RPC de Base mainnet (paso 1). Sensitive |
+| `ARBITRUM_RPC_URL` | tu RPC de Arbitrum One (paso 1). Sensitive |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | no la crees (debe estar vacía) |
+| `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` | no la crees (debe estar vacía) |
 | `TIP_CONFIRMATIONS` | `3` |
 | `COINGECKO_API_KEY` | opcional: tu clave demo de CoinGecko. Sensitive |
 | `VAPID_PUBLIC_KEY` | clave pública VAPID de producción (paso 6.2) |
@@ -348,10 +352,12 @@ nombra variables, nunca sus valores. Qué significa cada mensaje y cómo se arre
 
 | Mensaje | Qué pasa | Arreglo |
 |---|---|---|
-| `NEXT_PUBLIC_CHAIN must be linea` | La red no es mainnet | Pon `NEXT_PUBLIC_CHAIN` = `linea` |
-| `NEXT_PUBLIC_LINEA_RPC_URL must be empty` | Hay una RPC en una variable pública: iría al navegador | Borra la variable |
-| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL must be empty` | Igual, para Sepolia | Borra la variable |
-| `LINEA_RPC_URL is required` | Falta tu RPC de Infura | Añádela (paso 1) |
+| `NEXT_PUBLIC_NETWORK_SET must be mainnet` | El build no es de mainnet (o la variable está vacía, que significa testnet) | Pon `NEXT_PUBLIC_NETWORK_SET` = `mainnet` |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL must be empty` | Hay una RPC en una variable pública: iría al navegador | Borra la variable |
+| `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL must be empty` | Igual, para Arbitrum Sepolia | Borra la variable |
+| `BASE_RPC_URL is required` | Falta tu RPC de Base | Añádela (paso 1) |
+| `ARBITRUM_RPC_URL is required` | Falta tu RPC de Arbitrum | Añádela (paso 1) |
+| `NEXT_PUBLIC_BASE_BUILDER_CODE must be a builder code` | Falta el Builder Code o tiene caracteres no válidos (solo letras, números, `_` y `-`, de 1 a 32) | Copia tu código de base.dev |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY is required` | Falta la clave pública de Supabase | Añádela (paso 2.8) |
 | `SUPABASE_SERVICE_ROLE_KEY is required` | Falta la clave secreta de Supabase | Añádela (paso 2.8) |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID is required` | Falta el Project ID de Reown | Añádelo (paso 6.3) |
@@ -363,6 +369,11 @@ nombra variables, nunca sus valores. Qué significa cada mensaje y cómo se arre
 | `WETH_ADDRESS_59141 must be unset in production` | Hay un override de tests | Borra la variable |
 | `ETH_USD_FEED_ADDRESS_59144 must be unset in production` | Hay un override de tests | Borra la variable |
 | `WETH_ADDRESS_59144 must be unset in production` | Hay un override de tests | Borra la variable |
+| `NEXT_PUBLIC_CHAIN must be unset in production` | Queda configuración de la red anterior en Vercel | Borra la variable |
+| `LINEA_RPC_URL must be unset in production` | Igual: configuración de la red anterior | Borra la variable |
+| `LINEA_SEPOLIA_RPC_URL must be unset in production` | Igual | Borra la variable |
+| `NEXT_PUBLIC_LINEA_RPC_URL must be unset in production` | Igual | Borra la variable |
+| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL must be unset in production` | Igual | Borra la variable |
 | `COINGECKO_DISABLED must be unset in production` | El precio de respaldo de CoinGecko está apagado (solo tests) | Borra la variable |
 | `COINGECKO_API_BASE must be unset in production` | CoinGecko apunta a otro servidor (solo tests) | Borra la variable |
 | `TIP_CONFIRMATIONS must be empty or >= 3` | Menos de 3 confirmaciones es arriesgado con dinero real | Pon `3` o déjala sin crear |
@@ -579,16 +590,14 @@ preproducción y `deploy/preprod/`.
 
 1. Abre `https://elclub.party` y conecta **la wallet cuya dirección pusiste en `SUPER_ADMIN_WALLET`**. Firma el
    mensaje. Como la base de datos está vacía, ese primer login te crea como SuperAdmin.
-2. Ve a **`/settings/economia`**:
-   - En **Red activa**, pulsa **Cambiar a Linea** y confirma. La base de datos arranca con Linea Sepolia (59141) como
-     red activa, así que tienes que pasarla a **Linea mainnet** (59144) a mano.
-   - En la tarjeta de **Linea**, rellena **Safe (Linea)** con la dirección de tu Safe de mainnet y **Wallet de la
-     plataforma (Linea)** con la wallet que cobra las comisiones. Pulsa **Guardar direcciones**.
-3. Ve a **`/dao/tesoreria`** y comprueba que **Retiradas en Linea** y **Sorteos ponderados en Linea** están
+2. No hay nada que activar a mano: la migración habilita las cuatro redes (Base, Arbitrum y sus testnets) y el
+   build decide cuáles se usan (`NEXT_PUBLIC_NETWORK_SET=mainnet`: Base y Arbitrum). Abre `/settings/economia` solo
+   para comprobar que ve las dos redes de mainnet.
+3. Ve a **`/dao/tesoreria`** y comprueba que **Retiradas** y **Sorteos ponderados** están
    **apagados**. Vienen apagados por defecto. Actívalos **solo tras revisión legal**: los dos mueven dinero real
    según las participaciones, y el plan maestro exige revisarlos con un abogado antes de encenderlos en mainnet.
 
-**Comprueba:** en `/settings/economia` la red activa es Linea, y las direcciones de Linea aparecen guardadas.
+**Comprueba:** `/settings/economia` muestra Base y Arbitrum, y ninguna testnet.
 
 ---
 
@@ -600,8 +609,8 @@ Hoy tu Safe de mainnet tiene un solo firmante: si pierdes esa wallet, pierdes el
 1. Prepara dos wallets más que **controles tú**: por ejemplo una en MetaMask del PC, otra en el móvil, e idealmente
    una hardware wallet. Cada una con su propia frase semilla, guardada aparte.
 2. **Nunca compartas una frase semilla** con nadie ni la escribas en un chat, un correo o este repositorio.
-3. La wallet que ya firma la Safe necesita un poco de ETH en Linea para pagar el gas de los cambios.
-4. Entra en [app.safe.global](https://app.safe.global), conecta la wallet firmante y abre tu Safe en Linea.
+3. La wallet que ya firma la Safe necesita un poco de ETH en la red de tu Safe para pagar el gas de los cambios.
+4. Entra en [app.safe.global](https://app.safe.global), conecta la wallet firmante y abre tu Safe.
 5. **Settings → Setup**, en la sección de firmantes:
    - **Add signer** con la primera wallet nueva. Cuando te pregunte el umbral, deja 1.
    - **Add signer** con la segunda. Esta vez pon el umbral en **2 de 3**.
@@ -624,12 +633,12 @@ así que en la app no tienes que tocar nada. A partir de ahora cada pago desde l
    `connect-src`), `strict-transport-security: max-age=63072000; includeSubDomains`, `x-frame-options: DENY` y
    `x-content-type-options: nosniff`.
 2. **Login y una propina.** Entra con dos cuentas de prueba tuyas (la segunda con una invitación de la primera) y
-   manda una propina de 0.01 USDC de una a la otra en Linea mainnet.
+   manda una propina de 0.01 USDC de una a la otra en Base mainnet.
    **Comprueba:** la propina aparece confirmada tras unas pocas confirmaciones.
 3. **Cron.** En Vercel → proyecto → **Settings → Cron Jobs** aparece `/api/cron/dao` cada hora. Después de la
    siguiente hora en punto, en **Logs** filtra por `/api/cron/dao`.
    **Comprueba:** la petición responde 200 con un JSON.
-4. **RPC.** Repite `pnpm check:rpc -- --chain 59144` (paso 1) de vez en cuando, y siempre que cambies de plan o de
+4. **RPC.** Repite `pnpm check:rpc` (paso 1) de vez en cuando, y siempre que cambies de plan o de
    proveedor.
 
 ---
@@ -683,7 +692,7 @@ grande.
 
 - **RPC:** Infura tiene que servir estado de archivo y `eth_getLogs` de al menos 2000 bloques. Lo compruebas con
   `check:rpc` (paso 1).
-- **`NEXT_PUBLIC_LINEA_RPC_URL` y `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` siempre vacías** en producción. El build falla
+- **`NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` y `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` siempre vacías** en producción. El build falla
   si no lo están.
 - **Nunca `tx=rollback`** en PostgREST (paso 2.7).
 - **Retiradas apagadas por defecto**, y **sorteos ponderados apagados en mainnet**. Se encienden solo tras revisión
@@ -691,9 +700,9 @@ grande.
 - **Cambiar una variable `NEXT_PUBLIC_*` o la URL de Supabase obliga a reconstruir.** Esas variables, y la CSP que se
   calcula con ellas, quedan fijadas dentro del build. Tras cambiarlas en Vercel, relanza el workflow (paso 7.3). Si
   usas **Redeploy** en el panel de Vercel, desmarca la caché de build.
-- **Después de vaciar la base de datos** (por ejemplo, si restauras en un proyecto nuevo), vuelve a `/settings/economia`:
-  red activa en Linea, Safe y wallet de la plataforma. La base de datos nueva arranca en Sepolia y sin direcciones.
-- **La finalidad de Linea tarda.** Los pagos de retiradas y los sorteos se cierran en una pasada posterior del cron,
+- **Después de vaciar la base de datos** (por ejemplo, si restauras en un proyecto nuevo), vuelve a `/settings/economia`
+  y comprueba que ve Base y Arbitrum: la migración habilita las cuatro redes y el build decide cuáles se usan.
+- **La finalidad tarda.** Los pagos de retiradas y los sorteos se cierran en una pasada posterior del cron,
   no al instante. Es normal que algo quede "pendiente" hasta la siguiente hora.
 - **Migraciones compatibles hacia atrás.** El workflow aplica las migraciones (`migrate`) y solo después construye y
   publica el código nuevo (`deploy`, que tarda unos minutos). En ese intervalo el código **antiguo** sigue sirviendo

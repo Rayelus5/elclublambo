@@ -1,8 +1,8 @@
 import { parseAbi, parseEther, parseUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { CHAIN_ID, hardhatAccount, WETH_ADDRESS } from "./chain/shared.mjs";
-import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
+import { CHAIN_ID, hardhatAccount, WETH_ADDRESS } from "./chain.mjs";
+import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "../helpers/auth";
 import {
   acknowledgeDonation,
   ageDraw,
@@ -17,10 +17,10 @@ import {
   sendCall,
   sendToken,
   tokenBalance,
-} from "./helpers/dao";
-import { createInvite, joinAs, service, type Actor } from "./helpers/f2c";
-import { watchCsp } from "./helpers/csp";
-import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
+} from "./dao";
+import { createInvite, joinAs, service, type Actor } from "../helpers/f2c";
+import { watchCsp } from "../helpers/csp";
+import { connectInjected, installTestWallet, type TestWallet } from "../helpers/wallet";
 
 // F4d acceptance: verifiable raffles on the local Hardhat chain (e2e/chain/start-chain.mjs, mock USDC / WETH / ETH-USD
 // feed at 2500 USD). A treasurer creates a raffle (the prize leaves the share value at once), members join, the cron

@@ -18,7 +18,7 @@ export const addressOf = (pk: Hex) => privateKeyToAccount(pk).address.toLowerCas
 export const handleOf = (pk: Hex) => "@u_" + addressOf(pk).slice(2, 12);
 
 const ORIGIN = "http://localhost:3000";
-const CHAIN_ID = 59141; // linea sepolia
+const CHAIN_ID = 84532; // Base Sepolia (the testnet set's first network)
 
 type Jar = { name: string; value: string };
 

@@ -231,10 +231,17 @@ select is((select total_shares::text || ':' || value_usdc::text from public.dao_
   (current_setting('t.s2')::numeric + (select shares_delta from public.dao_ledger where id = current_setting('t.ld')::uuid))::text || ':' || (current_setting('t.v2')::numeric + 1000000)::text,
   'a replayed claim changes neither S nor V');
 -- a tip tx cannot be claimed as a donation, and a donation tx cannot be claimed as a tip
+-- P0: create_tip_intent refuses Linea now, so the two legacy tip intents on 59141 are inserted directly
+select set_config('t.it', jsonb_build_object('id', gen_random_uuid())::text, true);
+select set_config('t.it2', jsonb_build_object('id', gen_random_uuid())::text, true);
+insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
+                                    recipient_member_id, recipient_address, target_type, target_id, anonymous)
+  select (x.k::jsonb ->> 'id')::uuid, current_setting('t.a')::uuid, 'tip', 59141, 'USDC', 1000000, 0, 0, 0,
+         m.id, m.wallet_address, 'profile', m.id, false
+  from public.members m, (values (current_setting('t.it')), (current_setting('t.it2'))) x(k)
+  where m.id = current_setting('t.c')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.it', public.create_tip_intent('profile', current_setting('t.c')::uuid, 'USDC', 1000000, 0, false)::text, true);
 select public.attach_intent_tx((current_setting('t.it')::jsonb ->> 'id')::uuid, 'main', tests.hash(900));
-select set_config('t.it2', public.create_tip_intent('profile', current_setting('t.c')::uuid, 'USDC', 1000000, 0, false)::text, true);
 select public.attach_intent_tx((current_setting('t.it2')::jsonb ->> 'id')::uuid, 'main', tests.hash(2));   -- b's donation tx
 select tests.clear_authentication();
 set local role service_role;
@@ -370,9 +377,9 @@ select set_config('t.msg', public.post_message(current_setting('t.ch')::uuid,
     'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', 'hola'))))), 'x', false, null, null, '[]'::jsonb)::text, true);
 select tests.clear_authentication();
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.ta', public.create_tip_intent('message', current_setting('t.msg')::uuid, 'USDC', 1000000, 0, true)::text, true);
+select set_config('t.ta', public.create_tip_intent('message', current_setting('t.msg')::uuid, 84532, 'USDC', 1000000, true)::text, true);
 select public.attach_intent_tx((current_setting('t.ta')::jsonb ->> 'id')::uuid, 'main', tests.hash(800));
-select set_config('t.tb', public.create_tip_intent('message', current_setting('t.msg')::uuid, 'USDC', 1000000, 0, false)::text, true);
+select set_config('t.tb', public.create_tip_intent('message', current_setting('t.msg')::uuid, 84532, 'USDC', 1000000, false)::text, true);
 select public.attach_intent_tx((current_setting('t.tb')::jsonb ->> 'id')::uuid, 'main', tests.hash(801));
 select tests.clear_authentication();
 set local role service_role;

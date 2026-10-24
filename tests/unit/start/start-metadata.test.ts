@@ -21,6 +21,8 @@ describe("/start metadata in production", () => {
     const { metadata } = await load("https://www.elclub.party");
     expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("ElClub.") });
     expect(String(metadata.description)).toMatch(/invitación/);
+    expect(String(metadata.description)).toMatch(/Base y Arbitrum/);
+    expect(JSON.stringify(metadata)).not.toMatch(/Linea/);
     expect(metadata.alternates?.canonical).toBe("https://www.elclub.party/start");
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });

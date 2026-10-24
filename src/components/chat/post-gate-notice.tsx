@@ -1,6 +1,5 @@
 import { Lock } from "lucide-react";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
-import { DonateButton } from "@/components/treasury/donate-button";
 import { lockSituationText, requirementText, type LockState } from "@/lib/channels/lock";
 
 /** Takes the composer's place in a channel the member can read but a DAO post-gate stops them from writing in. */
@@ -23,7 +22,6 @@ export function PostGateNotice({ state, chainName }: { state: LockState; chainNa
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <DonateButton />
         <HowItWorksLink section="candados" />
       </div>
     </section>

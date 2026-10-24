@@ -11,15 +11,17 @@ import {
 } from "@/components/home/home-sections";
 import { getActiveChannels, getHomePins, getOpenBounties, getUnreadSummary } from "@/lib/home/queries";
 import { createServerClient } from "@/lib/supabase/server";
+import { getEconomyConfig } from "@/lib/economy/config";
 import { getDaoOverview } from "@/lib/treasury/queries";
 
 // Each section settles on its own: a failing read shows a short error in its card instead of blanking the page.
 async function HomeContent() {
   const supabase = await createServerClient();
+  const daoEnabled = (await getEconomyConfig()).legacyDaoEnabled;
   const [unread, bounties, dao, pins, active] = await Promise.allSettled([
     getUnreadSummary(supabase),
     getOpenBounties(supabase, 5),
-    getDaoOverview(supabase),
+    daoEnabled ? getDaoOverview(supabase) : Promise.resolve(null),
     getHomePins(supabase, 5),
     getActiveChannels(supabase, 8),
   ]);
@@ -46,9 +48,11 @@ async function HomeContent() {
         >
           {bounties.status === "fulfilled" ? <OpenBountiesList bounties={bounties.value} /> : null}
         </HomeCard>
-        <HomeCard id="home-dao" title="DAO" failed={dao.status === "rejected"}>
-          {dao.status === "fulfilled" ? <DaoSummary overview={dao.value} /> : null}
-        </HomeCard>
+        {daoEnabled ? (
+          <HomeCard id="home-dao" title="DAO" failed={dao.status === "rejected"}>
+            {dao.status === "fulfilled" && dao.value ? <DaoSummary overview={dao.value} /> : null}
+          </HomeCard>
+        ) : null}
       </div>
 
       <HomeCard id="home-pins" title="Anuncios fijados" failed={pins.status === "rejected"}>

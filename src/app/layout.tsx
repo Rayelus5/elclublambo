@@ -25,7 +25,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "El Club Lambo",
+  title: "ElClub.",
   description: "Foro privado de la comunidad, solo con invitación.",
 };
 

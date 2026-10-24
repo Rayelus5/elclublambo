@@ -5,12 +5,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cancelBountyAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/bounties/actions", () => ({ cancelBountyAction }));
 vi.mock("@/components/payments/tip-dialog", () => ({
-  TipDialog: ({ mode, recipient, open }: { mode: { bountyId: string; token: string; minAmount: bigint; chainId: number }; recipient: { id: string }; open: boolean }) =>
+  TipDialog: ({ mode, recipient, open }: { mode: { bountyId: string; token: string; minAmount: bigint; chainId: number; solverId: string }; recipient: { id: string }; open: boolean }) =>
     open ? (
-      <div role="dialog" aria-label="Pago" data-bounty={mode.bountyId} data-token={mode.token} data-min={String(mode.minAmount)} data-chain={mode.chainId} data-recipient={recipient.id} />
+      <div role="dialog" aria-label="Pago" data-bounty={mode.bountyId} data-token={mode.token} data-min={String(mode.minAmount)} data-chain={mode.chainId} data-solver={mode.solverId} data-recipient={recipient.id} />
     ) : null,
 }));
 
+import type { EconomyConfig } from "@/lib/economy/config";
 import { BountyCard } from "@/components/chat/bounty-card";
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { upsertSend } from "@/lib/payments/pending-sends";
@@ -27,7 +28,7 @@ const detail = (over: Partial<BountyDetail> = {}): BountyDetail => ({
   messageId: B,
   token: "USDC",
   amount: 25_000_000n,
-  chainId: 59141,
+  chainId: 84532,
   status: "open",
   solutionMessageId: null,
   solverId: null,
@@ -54,7 +55,7 @@ describe("BountyCard", () => {
     setup();
     const amount = screen.getByText("25 USDC");
     expect(amount).toHaveClass("font-mono");
-    expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
   });
 
   it.each([
@@ -70,7 +71,6 @@ describe("BountyCard", () => {
     [detail({ status: "cancelled" }), "Cancelado"],
     [marked({ status: "removed" }), "Retirado por moderación"],
     [marked({ status: "solver_unavailable" }), "Solucionador no disponible"],
-    [marked({ status: "other_chain" }), "En otra red"],
   ])("renders the chip %#", (bounty, text) => {
     setup({ bounty });
     expect(screen.getByTestId("bounty-status")).toHaveTextContent(new RegExp(`^${text}$`));
@@ -109,7 +109,7 @@ describe("BountyCard", () => {
     expect(screen.queryByRole("button", { name: "Cancelar bounty" })).not.toBeInTheDocument();
   });
 
-  it.each(["removed", "solver_unavailable", "other_chain"] as const)("offers the author nothing on a %s bounty (payment impossible, no mark)", (status) => {
+  it.each(["removed", "solver_unavailable"] as const)("offers the author nothing on a %s bounty (payment impossible, no mark)", (status) => {
     setup({ isAuthor: true, solver, bounty: marked({ status }) });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -119,11 +119,11 @@ describe("BountyCard", () => {
     expect(screen.queryByRole("button", { name: "Pagar bounty" })).not.toBeInTheDocument();
   });
 
-  describe("resume after the status changed (N1, F3c-R7)", () => {
+  describe("a payment under way after the status changed (N1, F3c-R7)", () => {
     const MEMBER = "99999999-9999-4999-8999-999999999999";
-    const intent = { id: "i-1", chainId: 59141, token: "USDC" as const, amount: "25000000", feeAmount: "250000", recipientAddress: solver.walletAddress, platformAddress: "0x4444444444444444444444444444444444444444", expiresAt: new Date(Date.now() + 20 * 3600_000).toISOString() };
-    const base = { intentId: "i-1", chainId: 59141, token: "USDC" as const, targetType: "bounty" as const, targetId: B, feeRequired: true, createdAt: Date.now(), intent };
-    const cfg = { activeChainId: 59144 as const, minFeeBps: 100, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } };
+    const intent = { id: "i-1", chainId: 84532, token: "USDC" as const, amount: "25000000", feeAmount: "0", recipientAddress: solver.walletAddress, platformAddress: null, expiresAt: new Date(Date.now() + 20 * 3600_000).toISOString() };
+    const base = { intentId: "i-1", chainId: 84532, token: "USDC" as const, targetType: "bounty" as const, targetId: B, feeRequired: false, createdAt: Date.now(), intent };
+    const cfg: EconomyConfig = { enabledChainIds: [8453, 42161], safes: {}, legacyDaoEnabled: false, legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } } };
     function renderWith(bounty: BountyDetail) {
       render(
         <EconomyProvider config={cfg} wallet={solver.walletAddress} memberId={MEMBER}>
@@ -133,43 +133,43 @@ describe("BountyCard", () => {
     }
     beforeEach(() => window.localStorage.clear());
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with a fee already paid offers Completar el pago", async (status) => {
-      upsertSend(MEMBER, { ...base, feeHash: `0x${"fe".repeat(32)}` });
-      renderWith(marked({ status }));
-      const user = userEvent.setup();
-      await user.click(await screen.findByRole("button", { name: "Completar el pago" }));
-      expect(screen.getByRole("dialog", { name: "Pago" })).toHaveAttribute("data-bounty", B);
+    it("a fee-era leftover (fee paid, main never signed) no longer offers to complete the payment", async () => {
+      upsertSend(MEMBER, { ...base, feeRequired: true, feeHash: `0x${"fe".repeat(32)}` } as never);
+      renderWith(marked({ status: "solver_unavailable" }));
+      await new Promise((r) => setTimeout(r, 10));
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with a signature in flight offers Pagar bounty", async (status) => {
+    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with a signature in flight offers Pagar bounty", async (status) => {
       upsertSend(MEMBER, { ...base, inFlight: Date.now() });
       renderWith(marked({ status }));
       expect(await screen.findByRole("button", { name: "Pagar bounty" })).toBeInTheDocument();
     });
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with nothing pending still offers no new payment", async (status) => {
+    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with nothing pending still offers no new payment", async (status) => {
       renderWith(marked({ status }));
       await new Promise((r) => setTimeout(r, 10));
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
     it("an entry for another bounty does not count", async () => {
-      upsertSend(MEMBER, { ...base, targetId: "other", feeHash: `0x${"fe".repeat(32)}` });
-      renderWith(marked({ status: "other_chain" }));
+      upsertSend(MEMBER, { ...base, targetId: "other", inFlight: Date.now() });
+      renderWith(marked({ status: "solver_unavailable" }));
       await new Promise((r) => setTimeout(r, 10));
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
   });
 
   it("Pagar bounty opens the payment dialog in bounty mode for the solver", async () => {
-    const { user } = setup({ isAuthor: true, solver, bounty: marked({ chainId: 59144 }) });
+    const { user } = setup({ isAuthor: true, solver, bounty: marked({ chainId: 8453 }) });
     await user.click(screen.getByRole("button", { name: "Pagar bounty" }));
     const dialog = screen.getByRole("dialog", { name: "Pago" });
     expect(dialog).toHaveAttribute("data-bounty", B);
     expect(dialog).toHaveAttribute("data-token", "USDC");
     expect(dialog).toHaveAttribute("data-min", "25000000");
-    expect(dialog).toHaveAttribute("data-chain", "59144");
+    expect(dialog).toHaveAttribute("data-chain", "8453");
     expect(dialog).toHaveAttribute("data-recipient", solver.id);
+    expect(dialog).toHaveAttribute("data-solver", solver.id);
   });
 
   it("cancels only after a confirmation and then reports the change", async () => {

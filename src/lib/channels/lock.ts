@@ -1,7 +1,7 @@
 // Lock state of a DAO-gated channel (channel_lock_state / locked_channels) and the Spanish copy that describes it.
 // Pure: safe to import from client components.
 
-import { isChainId, NETWORKS } from "@/lib/economy/networks";
+import { isLegacyChainId, LEGACY_NETWORKS } from "@/lib/legacy/linea";
 import { formatBps, formatUsdc } from "@/lib/treasury/format";
 import type { ChannelKind } from "@/lib/channels/tree";
 
@@ -89,14 +89,14 @@ export function lockRequirementText(state: LockState): string {
   return requirementText(state);
 }
 
-/** "Tu situación: 0,2 % · 20 USDC aportados en Linea Sepolia" */
+/** "Tu situación: 0,2 % · 20 USDC aportados en la red activa" */
 export function lockSituationText(state: LockState, chainName: string): string {
   return `Tu situación: ${formatBps(state.myShareBps)} · ${formatUsdc(state.myNet)} aportados en ${chainName}`;
 }
 
 /** Name of the network the state was measured on (the lock state's own chain, not a hard-coded one). */
 export function lockChainName(state: LockState): string {
-  return isChainId(state.chainId) ? NETWORKS[state.chainId].name : "la red activa";
+  return isLegacyChainId(state.chainId) ? LEGACY_NETWORKS[state.chainId].name : "la red activa";
 }
 
 const GATE_PERCENT = /^(\d+)(?:[.,](\d{1,2}))?$/;

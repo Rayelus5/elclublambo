@@ -37,9 +37,18 @@ const SCANNED = new Date("2026-10-19T11:59:00.000Z");
 
 let safes: Record<number, string | null> = {};
 let cfgError: unknown = null;
+let legacyFlag: unknown = true;
+let flagError: { message: string } | null = null;
+const chainConfigRead = vi.fn();
 vi.mock("@/lib/supabase/admin", () => ({
   createAdminClient: () => ({
-    from: () => ({ select: () => Promise.resolve({ error: cfgError, data: cfgError ? null : Object.entries(safes).map(([chain_id, safe_address]) => ({ chain_id: Number(chain_id), safe_address })) }) }),
+    from: (table: string) => {
+      if (table === "app_config") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve(flagError ? { error: flagError, data: null } : { error: null, data: legacyFlag === undefined ? null : { value: legacyFlag } }) }) }) };
+      }
+      chainConfigRead(table);
+      return { select: () => Promise.resolve({ error: cfgError, data: cfgError ? null : Object.entries(safes).map(([chain_id, safe_address]) => ({ chain_id: Number(chain_id), safe_address })) }) };
+    },
   }),
 }));
 
@@ -52,6 +61,8 @@ beforeEach(() => {
   vi.stubEnv("CRON_SECRET", "s3cret-value");
   safes = { 59144: "0xaaaa", 59141: "0xbbbb" };
   cfgError = null;
+  legacyFlag = true;
+  flagError = null;
   settle.mockResolvedValue({ credited: 1, reverted: 0, pending: 2 });
   steps.length = 0;
   snapshot.mockResolvedValue("taken");
@@ -335,5 +346,27 @@ describe("POST /api/cron/dao", () => {
 describe("cron route runtime", () => {
   it("allows up to 300 s per run (F5-R14)", () => {
     expect(maxDuration).toBe(300);
+  });
+});
+
+describe("POST /api/cron/dao with the legacy DAO paused (P0)", () => {
+  it.each([false, undefined, "true"])("legacy_dao_enabled=%j: only polls and rate limits run, no chain step, chain_config unread", async (flag) => {
+    legacyFlag = flag;
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ polls: { finalized: 2 }, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
+    expect(steps).toEqual(["polls"]);
+    for (const fn of [scan, raffles, snapshot, settle, detect, finalize, expire]) expect(fn).not.toHaveBeenCalled();
+    expect(chainConfigRead).not.toHaveBeenCalled();
+  });
+
+  it("a failed app_config read is logged and still counts as paused (fail closed)", async () => {
+    flagError = { message: "db down" };
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(await res.json()).toEqual({ polls: { finalized: 2 }, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
+    expect(chainConfigRead).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith("[cron/dao] app_config read failed", expect.anything());
+    error.mockRestore();
   });
 });

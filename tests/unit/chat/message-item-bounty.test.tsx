@@ -18,7 +18,7 @@ const bounty = (over: Partial<BountyDetail> = {}): BountyDetail => ({
   messageId: "root",
   token: "USDC",
   amount: 25_000_000n,
-  chainId: 59141,
+  chainId: 84532,
   status: "open",
   solutionMessageId: null,
   solverId: null,

@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import { colors } from "@/styles/tokens";
 
 // The share card of /start, rendered at build time from the app's own fonts and tokens (no external origin).
-export const alt = "ElClub. El foro privado para quien se toma cripto en serio. Solo con invitación, en Linea.";
+export const alt = "ElClub. El foro privado para quien se toma cripto en serio. Solo con invitación, en Base y Arbitrum.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -35,7 +35,7 @@ export default async function Image() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontFamily: "JetBrains Mono", fontSize: 24, color: colors.fgMuted }}>
           <div style={{ width: 14, height: 14, background: colors.accent }} />
-          FORO PRIVADO · RED LINEA
+          FORO PRIVADO · BASE Y ARBITRUM
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <div style={{ display: "flex", alignItems: "flex-end", fontFamily: "Archivo", fontSize: 220, lineHeight: 0.8, letterSpacing: -10 }}>

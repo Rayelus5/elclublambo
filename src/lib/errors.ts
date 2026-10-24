@@ -37,8 +37,9 @@ const MESSAGES: Record<string, string> = {
   fee_out_of_range: "La comisión mínima debe estar entre 0% y 50%.",
   address_invalid: "La dirección no es válida: debe ser una dirección 0x de 40 caracteres y no la dirección cero.",
   chain_invalid: "Esa red no está soportada.",
+  chain_disabled: "Esa red ya no está disponible.",
+  network_not_accepted: "Esta persona no recibe pagos en esa red.",
   not_found: "No se ha encontrado lo que buscas. Puede que ya no exista o que no tengas acceso.",
-  fee_below_minimum: "La comisión no puede ser menor que el mínimo de la plataforma.",
   amount_out_of_range: "La cantidad está fuera de los límites permitidos.",
   invalid_solution: "Esa respuesta no puede ser la solución: debe ser una respuesta visible de otro miembro en el hilo del bounty.",
   already_marked: "Este bounty ya tiene una solución elegida y no se puede cambiar ni cancelar.",
@@ -46,8 +47,6 @@ const MESSAGES: Record<string, string> = {
   no_solution: "Primero tienes que elegir una respuesta como solución.",
   amount_below_bounty: "El importe no puede ser menor que el del bounty.",
   already_paid: "Este bounty ya está pagado.",
-  bounty_chain_inactive:
-    "Este bounty se publicó en otra red; podrás pagarlo cuando esa red vuelva a estar activa.",
   payment_in_progress: "Ya hay un pago de este bounty en curso. Espera a que se confirme.",
   bounty_has_solution: "No puedes borrar un bounty con una solución elegida sin pagar.",
   channel_has_bounties:"Este canal tiene bounties y no se puede borrar.",
@@ -63,7 +62,6 @@ const MESSAGES: Record<string, string> = {
   valuation_paused:
     "Valoración en pausa: hay una salida de la Safe sin explicar mientras una retirada o un premio siguen pendientes de pago. Mira «Avisos» en el panel del tesorero.",
   self_payment: "No puedes enviarte una propina a ti mismo.",
-  platform_not_configured: "La comisión de la plataforma aún no está configurada en esta red.",
   too_many_intents: "Tienes demasiados pagos pendientes. Espera a que caduquen o se confirmen.",
   tx_already_attached: "Este pago ya tiene una transacción asociada.",
   intent_expired: "Este pago ha caducado. Crea uno nuevo.",

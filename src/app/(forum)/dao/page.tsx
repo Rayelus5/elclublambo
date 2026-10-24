@@ -6,11 +6,11 @@ import { after } from "next/server";
 import { safeError } from "@/lib/security/redact";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { ShareDonut } from "@/components/treasury/dao-charts";
+import { DaoPaused } from "@/components/treasury/dao-paused";
 import { DaoHistory } from "@/components/treasury/dao-history";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { DaoOverview } from "@/components/treasury/dao-overview";
 import { DaoRanking } from "@/components/treasury/dao-ranking";
-import { DonateButton } from "@/components/treasury/donate-button";
 import { FundComposition } from "@/components/treasury/fund-composition";
 import { NavChart } from "@/components/treasury/nav-chart";
 import { OperationsList } from "@/components/treasury/operations-list";
@@ -18,7 +18,7 @@ import { WithdrawControls } from "@/components/treasury/withdraw-controls";
 import { RaffleList } from "@/components/treasury/raffles/raffle-list";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
 import { getEconomyConfig } from "@/lib/economy/config";
-import { explorerAddress } from "@/lib/economy/networks";
+import { legacyExplorerAddress } from "@/lib/legacy/linea";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 import { donutSlices } from "@/lib/treasury/charts";
@@ -29,11 +29,9 @@ import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/set
 
 export const metadata: Metadata = { title: "DAO" };
 
-type Search = Promise<{ donar?: string | string[] }>;
-
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
-async function DaoContent({ searchParams }: { searchParams: Search }) {
-  const { donar } = await searchParams;
+async function DaoContent() {
+  if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
   const supabase = await createServerClient();
   const { data: me } = await supabase.rpc("current_member_id");
   const memberId = typeof me === "string" ? me : null;
@@ -54,7 +52,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   ]);
   // Treasurers annotate the Safe's operations (set_operation_note re-checks MANAGE_TREASURY).
   const canNote = hasPerm(BigInt(String(rawPerms.data ?? 0)), Perm.MANAGE_TREASURY);
-  const safe = economy.chains[overview.chainId].safe;
+  const safe = economy.legacy.chains[overview.chainId].safe;
   // The estimate costs one RPC read: only when the viewer has something waiting for finality.
   const finality = overview.myPending.length > 0 ? await finalitySnapshot(overview.chainId) : undefined;
   // Viewing the DAO settles whatever is already final (anyone's, a few per view) without waiting for the cron or the
@@ -88,7 +86,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <DaoOverview
           data={overview}
-          donate={<DonateButton autoOpen={donar === "1"} />}
+          donate={null /* donations return in P1 */}
           finality={finality}
           withdraw={<WithdrawControls data={overview} />}
           chart={<NavChart navAt={overview.navAt} />}
@@ -137,7 +135,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
           </h2>
           {safe ? (
             <a
-              href={explorerAddress(overview.chainId, safe)}
+              href={legacyExplorerAddress(overview.chainId, safe)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
@@ -174,10 +172,10 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   );
 }
 
-export default function DaoPage({ searchParams }: { searchParams: Search }) {
+export default function DaoPage() {
   return (
     <Suspense fallback={<PageLoader />}>
-      <DaoContent searchParams={searchParams} />
+      <DaoContent />
     </Suspense>
   );
 }

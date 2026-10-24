@@ -1,7 +1,7 @@
 import "server-only";
 import type { Address } from "viem";
 import { safeError } from "@/lib/security/redact";
-import type { ChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assetsUsd6, readEthPrice, readSafeAssets, type EthPrice, type SafeAssets } from "@/lib/treasury/valuation";
 
@@ -20,13 +20,13 @@ export type SafeValuation = {
 type Db = ReturnType<typeof createAdminClient>;
 
 /** The chain's Safe from chain_config, or null when unset. Throws on a read error. */
-export async function safeAddressOf(db: Db, chain: ChainId): Promise<Address | null> {
+export async function safeAddressOf(db: Db, chain: LegacyChainId): Promise<Address | null> {
   const { data, error } = await db.from("chain_config").select("safe_address").eq("chain_id", chain).maybeSingle<{ safe_address: string | null }>();
   if (error) throw new Error(`chain_config read failed: ${error.message}`);
   return (data?.safe_address as Address | null | undefined) ?? null;
 }
 
-async function lastPriceE8(db: Db, chain: ChainId): Promise<bigint | null> {
+async function lastPriceE8(db: Db, chain: LegacyChainId): Promise<bigint | null> {
   const { data, error } = await db
     .from("dao_nav_snapshots")
     .select("eth_price_e8:eth_price_e8::text")
@@ -44,7 +44,7 @@ async function lastPriceE8(db: Db, chain: ChainId): Promise<bigint | null> {
  * assets_stale). `capped` says so; `block` is the scan cursor (null when the chain was never scanned). Throws on an
  * RPC error.
  */
-export async function valuationCap(chain: ChainId, db: Db = createAdminClient()): Promise<{ capped: boolean; block: bigint | null }> {
+export async function valuationCap(chain: LegacyChainId, db: Db = createAdminClient()): Promise<{ capped: boolean; block: bigint | null }> {
   const { data, error } = await db.rpc("dao_valuation_cap", { p_chain: chain });
   if (error) throw new Error(`dao_valuation_cap failed: ${error.message}`);
   const r = (data ?? {}) as { capped?: unknown; block?: unknown };
@@ -59,7 +59,7 @@ export async function valuationCap(chain: ChainId, db: Db = createAdminClient())
  * scanned: callers wait, nothing is defaulted. Database read errors throw (an operator signal: the cron reports the
  * step as failed).
  */
-export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
+export async function valueSafe(chain: LegacyChainId): Promise<SafeValuation | null> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return null;
@@ -85,7 +85,7 @@ export async function valueSafe(chain: ChainId): Promise<SafeValuation | null> {
 }
 
 /** Records an hourly NAV snapshot (the RPC throttles to one per 55 minutes). A failed valuation skips it. */
-export async function takeSnapshot(chain: ChainId): Promise<"taken" | "skipped" | "unavailable" | "paused"> {
+export async function takeSnapshot(chain: LegacyChainId): Promise<"taken" | "skipped" | "unavailable" | "paused"> {
   const v = await valueSafe(chain);
   if (!v) return "unavailable";
   const { data, error } = await createAdminClient().rpc("record_nav_snapshot", {

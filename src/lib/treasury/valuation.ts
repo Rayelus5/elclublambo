@@ -1,8 +1,8 @@
 import "server-only";
 import { erc20Abi, isAddress, type Address } from "viem";
 import { safeError } from "@/lib/security/redact";
-import { NETWORKS, type ChainId } from "@/lib/economy/networks";
-import { chainClient } from "@/lib/payments/chain-client";
+import { LEGACY_NETWORKS, type LegacyChainId } from "@/lib/legacy/linea";
+import { legacyChainClient } from "@/lib/legacy/linea-client";
 
 export type SafeAssets = { usdc: bigint; eth: bigint; weth: bigint; blockNumber: bigint };
 export type EthPrice = { priceE8: bigint; source: "chainlink" | "coingecko" };
@@ -36,8 +36,8 @@ function envAddress(name: string): Address | null {
 }
 
 /** The chain's USDC, WETH and ETH/USD feed. `WETH_ADDRESS_59141` / `ETH_USD_FEED_ADDRESS_59141` override (tests, local chain). */
-export function addressesFor(chain: ChainId): { usdc: Address; weth: Address | null; ethUsdFeed: Address | null; heartbeatSec: number } {
-  const net = NETWORKS[chain];
+export function addressesFor(chain: LegacyChainId): { usdc: Address; weth: Address | null; ethUsdFeed: Address | null; heartbeatSec: number } {
+  const net = LEGACY_NETWORKS[chain];
   // Ruling F4a-R10: overrides only on the testnet (the local e2e chain reuses 59141); a stray env var must never swap
   // mainnet's price oracle or WETH, which set the NAV that shares are issued at.
   const testnet = chain === 59141;
@@ -54,8 +54,8 @@ export function addressesFor(chain: ChainId): { usdc: Address; weth: Address | n
  * (ruling F4c-R7 a: the scan cursor while withdrawals are approved and unpaid). RPC errors propagate (the caller skips),
  * including a node that no longer serves state that old.
  */
-export async function readSafeAssets(chain: ChainId, safe: Address, opts: { maxBlock?: bigint } = {}): Promise<SafeAssets> {
-  const client = chainClient(chain);
+export async function readSafeAssets(chain: LegacyChainId, safe: Address, opts: { maxBlock?: bigint } = {}): Promise<SafeAssets> {
+  const client = legacyChainClient(chain);
   const { usdc, weth } = addressesFor(chain);
   const latest = await client.getBlockNumber();
   const blockNumber = opts.maxBlock !== undefined && opts.maxBlock < latest ? opts.maxBlock : latest;
@@ -82,11 +82,11 @@ function rescaleToE8(answer: bigint, decimals: number): bigint {
 }
 
 /** A fresh, positive Chainlink answer in 8 decimals, or null (no feed, stale, non-positive or read error). */
-async function chainlinkPrice(chain: ChainId, nowSec: number): Promise<bigint | null> {
+async function chainlinkPrice(chain: LegacyChainId, nowSec: number): Promise<bigint | null> {
   const { ethUsdFeed, heartbeatSec } = addressesFor(chain);
   if (!ethUsdFeed) return null;
   try {
-    const client = chainClient(chain);
+    const client = legacyChainClient(chain);
     const [round, decimals] = await Promise.all([
       client.readContract({ address: ethUsdFeed, abi: aggregatorAbi, functionName: "latestRoundData" }),
       client.readContract({ address: ethUsdFeed, abi: aggregatorAbi, functionName: "decimals" }),
@@ -130,7 +130,7 @@ async function coingeckoPrice(): Promise<bigint | null> {
  * ETH/USD in 8 decimals. Chainlink when fresh (heartbeat + 10 %) and positive; otherwise CoinGecko, accepted only
  * within ±20 % of the last snapshot's price (or when there is none); otherwise null: credits and snapshots wait.
  */
-export async function readEthPrice(chain: ChainId, opts: { lastPriceE8: bigint | null; nowSec?: number }): Promise<EthPrice | null> {
+export async function readEthPrice(chain: LegacyChainId, opts: { lastPriceE8: bigint | null; nowSec?: number }): Promise<EthPrice | null> {
   const nowSec = opts.nowSec ?? Math.floor(Date.now() / 1000);
   const chainlink = await chainlinkPrice(chain, nowSec);
   if (chainlink !== null) return { priceE8: chainlink, source: "chainlink" };

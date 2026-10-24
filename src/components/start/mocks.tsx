@@ -70,7 +70,7 @@ export function AlphaMock() {
         <span className="font-display text-xl font-extrabold semiwide">$FARO</span>
         <m.span variants={pop} className={`${chip} border-accent text-accent`}>
           <ShieldCheck className="size-3" strokeWidth={2} />
-          Contrato verificado · Linea
+          Contrato verificado
         </m.span>
       </m.div>
       <m.p variants={rise} className={`${mono} break-all`}>
@@ -243,7 +243,7 @@ export function RafflePollMock() {
 
 const COINS: [string, string, string, string][] = [
   ["ETH", "3.412,08 $", "+2,4 %", "M0 20 L10 18 L20 19 L30 14 L40 15 L50 10 L60 11 L70 6 L80 4"],
-  ["LINEA", "0,0281 $", "+6,1 %", "M0 22 L10 21 L20 16 L30 18 L40 12 L50 13 L60 8 L70 9 L80 3"],
+  ["ARB", "0,4120 $", "+6,1 %", "M0 22 L10 21 L20 16 L30 18 L40 12 L50 13 L60 8 L70 9 L80 3"],
   ["BTC", "98.104 $", "−0,8 %", "M0 8 L10 10 L20 9 L30 13 L40 12 L50 15 L60 14 L70 17 L80 16"],
   ["USDC", "1,00 $", "0,0 %", "M0 13 L20 13 L40 12 L60 13 L80 13"],
 ];

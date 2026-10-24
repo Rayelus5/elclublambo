@@ -2,29 +2,27 @@ import { toHex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 
 /**
- * Local chain constants shared by start-chain.mjs (Node) and the Playwright specs/helpers.
+ * Local chain constants shared by start-chain.mjs (Node) and the Playwright specs/helpers (P0-R13).
  * Everything here is TEST-ONLY: Hardhat's public default mnemonic. Never hold real funds on these accounts.
+ *
+ * Two Hardhat nodes, one per network of the testnet set: Base Sepolia on :8545 and Arbitrum Sepolia on :8546. Each has a
+ * mock USDC at Circle's USDC address for that testnet (src/lib/economy/networks.ts), so the app's own registry applies.
  */
-export const CHAIN_ID = 59141; // Linea Sepolia
-export const RPC_PORT = 8545;
-export const RPC_URL = `http://127.0.0.1:${RPC_PORT}`;
-/** start-chain.mjs answers 200 here once the mock USDC is in place (the RPC port opens earlier). */
+export const CHAINS = {
+  84532: { rpcPort: 8545, rpcUrl: "http://127.0.0.1:8545", usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" },
+  421614: { rpcPort: 8546, rpcUrl: "http://127.0.0.1:8546", usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" },
+};
+/** The wallet's starting network, and the one the legacy islands' helpers (e2e/legacy) talk to. */
+export const DEFAULT_CHAIN_ID = 84532;
+/** Aliases of the default (84532) node, kept for e2e/legacy (preflight ruling #11). */
+export const RPC_PORT = CHAINS[DEFAULT_CHAIN_ID].rpcPort;
+export const RPC_URL = CHAINS[DEFAULT_CHAIN_ID].rpcUrl;
+/** start-chain.mjs answers 200 here once BOTH nodes have their mock USDC in place (the RPC ports open earlier). */
 export const READY_PORT = 8547;
 export const READY_URL = `http://127.0.0.1:${READY_PORT}/ready`;
-/** Circle's USDC address on Linea Sepolia (src/lib/economy/networks.ts): the mock lives here. */
-export const USDC_ADDRESS = "0xFEce4462D57bD51A6A552365A011b95f0E16d9B7";
 export const USDC_DECIMALS = 6;
-/**
- * F4a: fixed TEST-ONLY addresses for the mock Chainlink ETH/USD feed and the mock WETH (start-chain.mjs puts their code
- * there). The server reads them through the ETH_USD_FEED_ADDRESS_59141 / WETH_ADDRESS_59141 overrides
- * (playwright.config.ts), never the real Linea Sepolia addresses. Lowercase so no checksum applies.
- */
-export const ETH_USD_FEED_ADDRESS = "0x00000000000000000000000000000000000f4a01";
-export const WETH_ADDRESS = "0x00000000000000000000000000000000000f4a02";
-/** The mock feed's starting ETH/USD answer (8 decimals). */
-export const INITIAL_ETH_PRICE_E8 = 2500n * 10n ** 8n;
 export const HARDHAT_MNEMONIC = "test test test test test test test test test test test junk";
-/** Hardhat's default accounts get this much mock USDC (base units: 1,000,000 USDC). */
+/** Hardhat's default accounts get this much mock USDC on each chain (base units: 1,000,000 USDC). */
 export const MINT_PER_ACCOUNT = 1_000_000n * 10n ** 6n;
 export const MINTED_ACCOUNTS = 10;
 

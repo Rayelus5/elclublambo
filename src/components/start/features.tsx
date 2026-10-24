@@ -67,7 +67,7 @@ const FEATURES: Feature[] = [
     icon: Landmark,
     label: "DAO",
     title: "Tesorería común (DAO)",
-    body: "Un fondo común en una Safe multifirma 2-de-3 en Linea, valorado a precio de mercado y con las participaciones a la vista de todos.",
+    body: "Un fondo común en una Safe multifirma 2-de-3 en Base y Arbitrum, valorado a precio de mercado y con las participaciones a la vista de todos.",
     notice: TREASURY_NOTICE,
     tags: ["Safe 2-de-3", "Valor a mercado"],
     path: "/dao",

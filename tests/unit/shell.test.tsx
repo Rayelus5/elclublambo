@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 function renderSidebar(perms: bigint) {
-  return render(<Sidebar perms={perms} wallet={WALLET} />);
+  return render(<Sidebar perms={perms} wallet={WALLET} daoEnabled />);
 }
 
 /** The desktop top bar (rendered first); the second banner is the mobile bar. */
@@ -30,6 +30,14 @@ const mobileBar = () => screen.getAllByRole("banner")[1]!;
 const openMore = async () => {
   await userEvent.setup().click(within(desktopBar()).getByRole("button", { name: "Más" }));
 };
+
+describe("Sidebar with the legacy DAO paused", () => {
+  it("hides the DAO entry in the desktop bar and the drawer", () => {
+    render(<Sidebar perms={7n} wallet={WALLET} daoEnabled={false} />);
+    expect(screen.queryByRole("link", { name: "DAO" })).toBeNull();
+    expect(screen.getAllByRole("link", { name: "Mercado" }).length).toBeGreaterThan(0);
+  });
+});
 
 describe("Sidebar", () => {
   it("shows a Buscar button in the desktop top bar and in the mobile top bar", () => {
@@ -63,7 +71,7 @@ describe("Sidebar", () => {
   });
 
   it("leaves only the channels in the aside", () => {
-    render(<Sidebar perms={512n} wallet={WALLET} canModerate />);
+    render(<Sidebar perms={512n} wallet={WALLET} canModerate daoEnabled />);
     const aside = screen.getByRole("complementary");
     expect(within(aside).getByRole("navigation", { name: "Canales" })).toBeInTheDocument();
     for (const name of ["Inicio", "Tickets", "Invitaciones", "Miembros", "Reportes", "Ajustes", /Mi perfil/]) {
@@ -138,7 +146,7 @@ describe("Sidebar", () => {
   });
 
   it("shows Reportes only when the server says the member moderates a visible channel", async () => {
-    render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
+    render(<Sidebar perms={7n} wallet={WALLET} canModerate daoEnabled />);
     await openMore();
     expect(await screen.findByRole("menuitem", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
   });
@@ -176,7 +184,7 @@ describe("Sidebar", () => {
     const { unmount } = renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
     unmount();
-    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} />);
+    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} daoEnabled />);
     expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/tickets");
   });
 

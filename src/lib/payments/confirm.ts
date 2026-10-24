@@ -1,7 +1,8 @@
 import "server-only";
 import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
-import type { ChainId } from "@/lib/economy/networks";
+import { appChainIds, isChainId } from "@/lib/economy/networks";
+import type { LegacyChainId } from "@/lib/legacy/linea";
 import type { Token } from "@/lib/payments/amounts";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -103,6 +104,11 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   // (and failed for good: no retry can make it pass).
   if (i.purpose !== "tip" && i.purpose !== "bounty" && i.purpose !== "donation") return permanent("invalid_input");
 
+  // Review Focus 4 / P0-R14: a legacy-chain leftover, or a network outside this build's set (the DB enables all four, and the
+  // RPC can be called without the server action), is failed for good before anything asks for a chain client.
+  const chain = i.chain_id;
+  if (!isChainId(chain) || !appChainIds().includes(chain)) return permanent("chain_disabled");
+
   if (!hasRequiredHashes(i)) return { status: "pending" };
 
   const { data: payer, error: payerError } = await db.from("members").select("wallet_address").eq("id", i.member_id).maybeSingle<{ wallet_address: string }>();
@@ -116,7 +122,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const isDonation = i.purpose === "donation";
   // A donation is recorded once mined (1 confirmation): the finality gate in settlePendingDonations is what protects it.
   const base = {
-    chain: i.chain_id as ChainId,
+    chain,
     token: i.token,
     from: payer.wallet_address,
     notBefore: new Date(i.created_at),
@@ -157,7 +163,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     }
     // Immediate settle attempt: credits at once only if the block is already final. Never undoes the recording.
     try {
-      const s = await settlePendingDonations(i.chain_id as ChainId, { ledgerId, limit: 1 });
+      const s = await settlePendingDonations(i.chain_id as LegacyChainId, { ledgerId, limit: 1 });
       if (s.credited > 0) return { status: "confirmed", ledgerId };
       if (s.reverted > 0) return failed("reverted");
     } catch (e) {
