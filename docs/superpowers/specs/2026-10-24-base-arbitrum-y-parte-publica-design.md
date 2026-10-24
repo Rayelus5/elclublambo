@@ -221,3 +221,4 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
 4. Explorador: la API de Etherscan V2 para Base requiere plan de pago; alternativa Blockscout (decidir al planificar).
 5. Antes de activar x402 con dinero real: hablar con un gestor (alta, IRPF, IVA).
 6. Reown: añadir las nuevas redes no requiere cambios de dominio; revisar que el proyecto permite Base y Arbitrum.
+7. Candados de canal (P1): al desplegar P1, los canales con candado quedan abiertos (las reglas antiguas de % y aportación neta dejan de aplicarse): vuelve a fijar cada candado en Ajustes → canal → «Donado mínimo (USD)». Mientras tanto su contenido es visible para todos los miembros.

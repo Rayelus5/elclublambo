@@ -817,3 +817,4 @@
 ## ⚠️ HACER A MANO ⚠️ (el usuario)
 - **Desplegar la Safe** `0x380f2e12081995359e2Ab88E3c31c6b227904234` en Base Sepolia y Arbitrum Sepolia (PRE) y, antes de PRO, en Base y Arbitrum, con los mismos owners y umbral. Sin ella, `/donar` muestra «Donaciones aún no disponibles» (P1-R6) y no se pueden pagar premios USDC de sorteos.
 - **Asignar canales a Mecenas:** en Ajustes → canal → permisos, quita «Ver canal» a @everyone y dáselo al rol Mecenas.
+- **Volver a fijar los candados:** Al desplegar P1, los canales con candado quedan abiertos (las reglas antiguas de % y aportación neta dejan de aplicarse): vuelve a fijar cada candado en Ajustes → canal → «Donado mínimo (USD)». Mientras tanto su contenido es visible para todos los miembros.
