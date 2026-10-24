@@ -134,7 +134,7 @@ describe("preproduction compose", () => {
     const web = service("web");
     expect(web).toMatch(/context: \.\.\/\.\./);
     for (const k of publicKeys) expect(web).toContain(`${k}: \${${k}}`);
-    expect(web).not.toMatch(/SERVICE_ROLE|CRON_SECRET|VAPID_PRIVATE|(?<!NEXT_PUBLIC_)LINEA_(SEPOLIA_)?RPC_URL/);
+    expect(web).not.toMatch(/SERVICE_ROLE|CRON_SECRET|VAPID_PRIVATE|(?<!NEXT_PUBLIC_)(BASE|ARBITRUM)_(SEPOLIA_)?RPC_URL/);
     expect(web).toContain("env_file: ${ELCLUB_ENV_FILE:-/opt/elclub/pre/web.env}");
     expect(web).toContain("restart: unless-stopped");
   });
@@ -295,19 +295,46 @@ describe("preproduction workflow", () => {
 });
 
 describe("env templates", () => {
+  it("every template and the Dockerfile declare the multi-network variables and no Linea (P0 Task 3)", () => {
+    const needed = ["NEXT_PUBLIC_NETWORK_SET", "NEXT_PUBLIC_BASE_BUILDER_CODE", "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL", "NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL"];
+    const envExample = read(".env.example");
+    for (const [name, text] of [[".env.example", envExample], ["web.env.example", preEnv], ["vercel.env.example", prodEnv]] as const) {
+      for (const k of needed) expect(envOf(text).has(k), `${name} ${k}`).toBe(true);
+      expect(text, name).not.toMatch(/linea/i);
+    }
+    // Never an empty set in a template: an unset one means testnet, which must be a choice, not an accident.
+    expect(envOf(envExample).get("NEXT_PUBLIC_NETWORK_SET")).toBe("testnet");
+    for (const k of needed) {
+      expect(dockerfile, `Dockerfile ARG ${k}`).toContain(`ARG ${k}`);
+      expect(dockerfile, `Dockerfile ENV ${k}`).toContain(`${k}=$${k}`);
+      expect(service("web"), `compose ${k}`).toContain(`${k}: \${${k}}`);
+    }
+    expect(dockerfile).not.toMatch(/linea/i);
+    expect(compose).not.toMatch(/linea/i);
+  });
+
+  it("no secret is NEXT_PUBLIC_ in any template", () => {
+    for (const text of [read(".env.example"), preEnv, prodEnv]) {
+      for (const k of envOf(text).keys()) {
+        if (k.startsWith("NEXT_PUBLIC_")) expect(k).not.toMatch(/SERVICE_ROLE|SECRET|PRIVATE|(?<!BASE_SEPOLIA|ARBITRUM_SEPOLIA)_RPC_URL$/);
+      }
+    }
+  });
+
   it("web.env.example has every key of .env.example, preproduction values only", () => {
     const env = envOf(preEnv);
     for (const k of exampleKeys) expect(env.has(k), k).toBe(true);
     expect(preEnv).not.toContain("supabase.co");
     expect(env.get("NEXT_PUBLIC_SUPABASE_URL")).toBe("https://pre-api.elclub.party");
     expect(env.get("NEXT_PUBLIC_SITE_URL")).toBe("https://pre.elclub.party");
-    expect(env.get("NEXT_PUBLIC_CHAIN")).toBe("lineaSepolia");
-    expect(env.get("NEXT_PUBLIC_LINEA_RPC_URL")).toBe("");
-    expect(env.get("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.get("NEXT_PUBLIC_NETWORK_SET")).toBe("testnet");
+    expect(env.get("NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.get("NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.has("NEXT_PUBLIC_BASE_BUILDER_CODE")).toBe(true);
     // An empty TIP_CONFIRMATIONS is invalid for defaultConfirmations and logs a console.error: set the default.
     expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
     for (const [k, v] of env) {
-      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_CHAIN", "TIP_CONFIRMATIONS"].includes(k)) {
+      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_NETWORK_SET", "TIP_CONFIRMATIONS"].includes(k)) {
         expect(v, k).toBe("");
       }
     }
@@ -319,10 +346,11 @@ describe("env templates", () => {
     for (const k of exampleKeys.filter((k) => !overrides.includes(k))) expect(env.has(k), k).toBe(true);
     for (const k of overrides) expect(env.has(k), k).toBe(false);
     expect(env.get("NEXT_PUBLIC_SITE_URL")).toBe("https://elclub.party");
-    expect(env.get("NEXT_PUBLIC_CHAIN")).toBe("linea");
+    expect(env.get("NEXT_PUBLIC_NETWORK_SET")).toBe("mainnet");
     expect(env.get("NEXT_PUBLIC_SUPABASE_URL")).toBe("https://<ref>.supabase.co");
-    expect(env.get("NEXT_PUBLIC_LINEA_RPC_URL")).toBe("");
-    expect(env.get("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.get("NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.get("NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL")).toBe("");
+    expect(env.has("NEXT_PUBLIC_BASE_BUILDER_CODE")).toBe(true);
     expect(env.get("ENABLE_EXPERIMENTAL_COREPACK")).toBe("1");
     expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
     expect(prodEnv).not.toContain("pre.elclub.party");

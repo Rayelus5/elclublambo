@@ -4,9 +4,9 @@ Hay tres entornos:
 
 | Entorno | Dónde | Red | Supabase | Se despliega |
 |---|---|---|---|---|
-| Desarrollo | tu PC, `http://localhost:3000` | Linea Sepolia (o la cadena Hardhat local de los e2e) | local (`pnpm db:start`) | `pnpm dev` |
-| Preproducción | Proxmox de casa, `https://pre.elclub.party` | Linea Sepolia | self-hosted, `https://pre-api.elclub.party` | push a `develop` |
-| Producción | Vercel, `https://elclub.party` | Linea mainnet | Supabase Cloud, `https://<ref>.supabase.co` | push a `main` |
+| Desarrollo | tu PC, `http://localhost:3000` | Base Sepolia y Arbitrum Sepolia (o la cadena Hardhat local de los e2e) | local (`pnpm db:start`) | `pnpm dev` |
+| Preproducción | Proxmox de casa, `https://pre.elclub.party` | Base Sepolia y Arbitrum Sepolia | self-hosted, `https://pre-api.elclub.party` | push a `develop` |
+| Producción | Vercel, `https://elclub.party` | Base y Arbitrum mainnet | Supabase Cloud, `https://<ref>.supabase.co` | push a `main` |
 
 Dónde se ponen las variables:
 
@@ -38,12 +38,15 @@ Cómo leer las celdas:
 | `SUPABASE_SERVICE_ROLE_KEY` | \<tu valor\> (`pnpm exec supabase status`) | \<tu valor\> (`SERVICE_ROLE_KEY` del self-hosted) | \<tu valor\> (secret o service_role) | **sí** | no |
 | `SUPER_ADMIN_WALLET` | \<tu valor\> (tu wallet de pruebas) | \<tu valor\> | \<tu valor\> (tu wallet de SuperAdmin) | no | no |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub prod") | no | sí |
-| `NEXT_PUBLIC_CHAIN` | `lineaSepolia` | `lineaSepolia` | `linea` | no | sí |
+| `NEXT_PUBLIC_NETWORK_SET` | `testnet` | `testnet` | `mainnet` | no | sí |
+| `NEXT_PUBLIC_BASE_BUILDER_CODE` | vacía | vacía | \<tu valor\> (tu Builder Code de base.dev, obligatoria: el build falla si no) | no | sí |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | `https://pre.elclub.party` | `https://elclub.party` | no | sí |
-| `LINEA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | \<tu valor\> (Infura mainnet, obligatoria) | **sí** | no |
-| `LINEA_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> (Infura Sepolia) | vacía, o \<tu valor\> si algún día cambias la red activa a Sepolia | **sí** | no |
-| `NEXT_PUBLIC_LINEA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
-| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
+| `BASE_RPC_URL` | vacía (RPC pública) | vacía | \<tu valor\> (RPC de Base mainnet, obligatoria) | **sí** | no |
+| `ARBITRUM_RPC_URL` | vacía (RPC pública) | vacía | \<tu valor\> (RPC de Arbitrum One, obligatoria) | **sí** | no |
+| `BASE_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | vacía (el build de mainnet no la usa) | **sí** | no |
+| `ARBITRUM_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | vacía (el build de mainnet no la usa) | **sí** | no |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
+| `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
 | `TIP_CONFIRMATIONS` | vacía (= 3) | `3` | `3` | no | no |
 | `ETH_USD_FEED_ADDRESS_59141` | vacía (solo e2e / cadena local) | vacía | vacía (el build falla si no) | no | no |
 | `WETH_ADDRESS_59141` | vacía (solo e2e / cadena local) | vacía | vacía (el build falla si no) | no | no |
@@ -60,9 +63,14 @@ Cómo leer las celdas:
 
 Notas:
 
-- `ETH_USD_FEED_ADDRESS_59144` y `WETH_ADDRESS_59144` no existen como override: Linea mainnet usa siempre las
-  direcciones verificadas de `src/lib/economy/networks.ts`. Si alguien las crea en Vercel, el build de producción
-  falla.
+- `ETH_USD_FEED_ADDRESS_59144` y `WETH_ADDRESS_59144` no existen como override: la red heredada usa siempre las
+  direcciones verificadas del código. Si alguien las crea en Vercel, el build de producción falla.
+- `NEXT_PUBLIC_NETWORK_SET` decide qué redes usa el build. Vacía o ausente significa `testnet`; cualquier otro valor
+  que no sea `mainnet` o `testnet` rompe el build. La migración de la base de datos habilita las cuatro redes: el
+  build decide cuáles se usan, así que no hay nada que activar a mano en `/settings/economia`.
+- Las variables de la configuración anterior (`NEXT_PUBLIC_CHAIN`, `LINEA_RPC_URL`, `LINEA_SEPOLIA_RPC_URL`,
+  `NEXT_PUBLIC_LINEA_RPC_URL`, `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL`) ya no las lee nada. Si siguen en Vercel, el build
+  de producción falla hasta que las borres.
 - `VERCEL_ENV` la pone Vercel sola. Cuando vale `production`, el build ejecuta la comprobación de
   `src/lib/deploy/readiness.ts` (mensajes explicados en `produccion.md`, paso 3.4). Si el ajuste de Vercel
   **Automatically expose System Environment Variables** se desactiva, `VERCEL_ENV` no llega al build y la

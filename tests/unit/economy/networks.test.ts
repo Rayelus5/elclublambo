@@ -85,6 +85,7 @@ describe("network sets", () => {
 
   it("networkSet: undefined is testnet, unknown throws", () => {
     expect(networkSet(undefined)).toBe("testnet");
+    expect(networkSet("")).toBe("testnet");
     expect(networkSet("mainnet")).toBe("mainnet");
     expect(networkSet("testnet")).toBe("testnet");
     expect(() => networkSet("linea")).toThrow();

@@ -9,8 +9,10 @@
 export type HeaderEnv = {
   supabaseUrl: string | undefined;
   siteUrl: string | undefined;
-  /** Browser-side RPC overrides (NEXT_PUBLIC_LINEA_*_RPC_URL): tests and local chains only, empty in production. */
+  /** Browser-side RPC overrides (NEXT_PUBLIC_*_SEPOLIA_RPC_URL): tests and local chains only, empty in production. */
   publicRpcUrls: (string | undefined)[];
+  /** The build's chains (NEXT_PUBLIC_NETWORK_SET): decides which public RPCs connect-src allows. */
+  networkSet: "mainnet" | "testnet";
   dev: boolean;
 };
 
@@ -28,12 +30,16 @@ export const FRAME_SRC = [
 ] as const;
 
 /**
- * The networks' public RPCs (viem's `rpcUrls.default` for linea / lineaSepolia). Callers in the browser:
+ * The public RPC origins per network set (the origin of viem's `rpcUrls.default` for each chain of
+ * `chainsForSet(set)`; a test pins the parity, so this file does not import networks.ts). Callers in the browser:
  * - the raffle verifier (src/lib/treasury/raffle-verify-chain.ts) when no NEXT_PUBLIC_ override is set;
  * - wagmi's read transports, which the AppKit WagmiAdapter builds as fallback([customRpcUrls…, Reown RPC when the chain
- *   is supported (Linea mainnet), the chain's default RPC]) (@reown/appkit-utils CaipNetworkUtil.getViemTransport).
+ *   is supported, the chain's default RPC]) (@reown/appkit-utils CaipNetworkUtil.getViemTransport).
  */
-const PUBLIC_RPCS = ["https://rpc.linea.build", "https://rpc.sepolia.linea.build"] as const;
+export const PUBLIC_RPCS: Record<"mainnet" | "testnet", readonly string[]> = {
+  mainnet: ["https://mainnet.base.org", "https://arb1.arbitrum.io"],
+  testnet: ["https://sepolia.base.org", "https://sepolia-rollup.arbitrum.io"],
+};
 
 /** Reown AppKit / WalletConnect, from node_modules/@reown and @walletconnect. */
 const WALLET_CONNECT = [
@@ -81,11 +87,19 @@ function withSocket(url: string | undefined): string[] {
 
 const unique = (xs: readonly string[]) => [...new Set(xs)];
 
+function setOf(value: string | undefined): "mainnet" | "testnet" {
+  if (value === undefined || value === "") return "testnet";
+  if (value === "mainnet" || value === "testnet") return value;
+  throw new Error(`Unknown NEXT_PUBLIC_NETWORK_SET: ${value}`);
+}
+
 export function headerEnvFromProcess(env: NodeJS.ProcessEnv = process.env): HeaderEnv {
   return {
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     siteUrl: env.NEXT_PUBLIC_SITE_URL,
-    publicRpcUrls: [env.NEXT_PUBLIC_LINEA_RPC_URL, env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL],
+    publicRpcUrls: [env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL, env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL],
+    // Same rule as networkSet() in economy/networks.ts: unset or empty is testnet, a typo throws.
+    networkSet: setOf(env.NEXT_PUBLIC_NETWORK_SET),
     dev: env.NODE_ENV === "development",
   };
 }
@@ -105,7 +119,7 @@ export function buildCsp(env: HeaderEnv): string {
     ["img-src", ["'self'", ...(supabase ? [supabase] : []), ...IMAGE_HOSTS, "data:", "blob:"]],
     ["font-src", ["'self'", ...FONT_HOSTS]],
     // Supabase REST, Auth, Storage and Realtime; the public RPCs; test RPC overrides (AppKit customRpcUrls, verifier).
-    ["connect-src", ["'self'", ...withSocket(env.supabaseUrl), ...PUBLIC_RPCS, ...rpcOverrides, ...WALLET_CONNECT]],
+    ["connect-src", ["'self'", ...withSocket(env.supabaseUrl), ...PUBLIC_RPCS[env.networkSet], ...rpcOverrides, ...WALLET_CONNECT]],
     ["frame-src", FRAME_SRC],
     ["worker-src", ["'self'"]], // /sw.js (Web Push)
     ["manifest-src", ["'self'"]],

@@ -1,8 +1,16 @@
 // F5-R10: mainnet readiness. `next.config.ts` calls assertProductionReady() so a Vercel production build with a wrong
 // configuration fails before anything is deployed. Problems name variables only, never values (they may be secrets).
+import { BUILDER_CODE_RE } from "../web3/builder-code-format";
+
 type Env = Record<string, string | undefined>;
 
 const MUST_BE_UNSET = [
+  // Pre-Base configuration that may linger in Vercel: nothing reads it any more.
+  "NEXT_PUBLIC_CHAIN",
+  "LINEA_RPC_URL",
+  "LINEA_SEPOLIA_RPC_URL",
+  "NEXT_PUBLIC_LINEA_RPC_URL",
+  "NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL",
   "ETH_USD_FEED_ADDRESS_59141",
   "WETH_ADDRESS_59141",
   "ETH_USD_FEED_ADDRESS_59144",
@@ -25,11 +33,16 @@ const filled = (v: string | undefined) => (v ?? "").trim() !== "";
 
 export function productionEnvProblems(env: Env): string[] {
   const problems: string[] = [];
-  if (env.NEXT_PUBLIC_CHAIN !== "linea") problems.push("NEXT_PUBLIC_CHAIN must be linea");
+  // An empty or missing set means testnet, so only the literal "mainnet" is ready.
+  if (env.NEXT_PUBLIC_NETWORK_SET !== "mainnet") problems.push("NEXT_PUBLIC_NETWORK_SET must be mainnet");
   // Inlined into the client bundle and test-only (security finding S10): a provider key here would ship publicly.
-  if (filled(env.NEXT_PUBLIC_LINEA_RPC_URL)) problems.push("NEXT_PUBLIC_LINEA_RPC_URL must be empty");
-  if (filled(env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL)) problems.push("NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL must be empty");
-  for (const name of ["LINEA_RPC_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_REOWN_PROJECT_ID"]) {
+  if (filled(env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL)) problems.push("NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL must be empty");
+  if (filled(env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL)) problems.push("NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL must be empty");
+  // Public by design (it is inlined into every Base transaction), but a typo would tag transactions with a wrong code.
+  if (!BUILDER_CODE_RE.test((env.NEXT_PUBLIC_BASE_BUILDER_CODE ?? "").trim())) {
+    problems.push("NEXT_PUBLIC_BASE_BUILDER_CODE must be a builder code");
+  }
+  for (const name of ["BASE_RPC_URL", "ARBITRUM_RPC_URL", "NEXT_PUBLIC_SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "NEXT_PUBLIC_REOWN_PROJECT_ID"]) {
     if (!filled(env[name])) problems.push(`${name} is required`);
   }
   // The CSP connect-src and HSTS (headers.ts) depend on these being https.

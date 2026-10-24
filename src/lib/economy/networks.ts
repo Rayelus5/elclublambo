@@ -90,9 +90,9 @@ export function chainsForSet(set: NetworkSet): ChainId[] {
   return CHAIN_IDS.filter((c) => NETWORKS[c].testnet === (set === "testnet"));
 }
 
-/** The build's network set. Unset is testnet; anything else throws (a typo must not silently pick a set). */
+/** The build's network set. Unset or empty is testnet; anything else throws (a typo must not silently pick a set). */
 export function networkSet(value: string | undefined = process.env.NEXT_PUBLIC_NETWORK_SET): NetworkSet {
-  if (value === undefined) return "testnet";
+  if (value === undefined || value === "") return "testnet";
   if (value === "mainnet" || value === "testnet") return value;
   throw new Error(`Unknown NEXT_PUBLIC_NETWORK_SET: ${value}`);
 }
