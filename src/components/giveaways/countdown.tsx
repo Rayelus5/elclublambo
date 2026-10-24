@@ -16,14 +16,33 @@ export function useNowSeconds(): number | null {
   return useSyncExternalStore(subscribe, nowSeconds, serverNow);
 }
 
+/** Public pages' copy: templates with {t} (time left) and {d} (date), plus the date locale. */
+export type CountdownLabels = { closesIn: string; closesOn: string; locale: string };
+
 /** «Cierra en 2 h 5 min» until the close; then `endedText`. Not a live region: a ticking announcement is noise. */
-export function Countdown({ closesAt, endedText = "Esperando el sorteo", className }: { closesAt: string; endedText?: string; className?: string }) {
+export function Countdown({
+  closesAt,
+  endedText = "Esperando el sorteo",
+  className,
+  labels,
+}: {
+  closesAt: string;
+  endedText?: string;
+  className?: string;
+  /** Without it, the club's Spanish texts. */
+  labels?: CountdownLabels;
+}) {
   const now = useNowSeconds();
   const at = Date.parse(closesAt);
   const left = now === null ? null : formatCountdown(at - now * 1000);
-  const text = now === null ? `Cierra el ${formatClose(closesAt)}` : left ? `Cierra en ${left}` : endedText;
+  const date = labels
+    ? new Intl.DateTimeFormat(labels.locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(closesAt))
+    : formatClose(closesAt);
+  const closesOn = labels ? labels.closesOn.replace("{d}", date) : `Cierra el ${date}`;
+  const closesIn = (l: string) => (labels ? labels.closesIn.replace("{t}", l) : `Cierra en ${l}`);
+  const text = now === null ? closesOn : left ? closesIn(left) : endedText;
   return (
-    <time dateTime={closesAt} title={formatClose(closesAt)} suppressHydrationWarning className={className}>
+    <time dateTime={closesAt} title={date} suppressHydrationWarning className={className}>
       {text}
     </time>
   );
