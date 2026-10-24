@@ -1,22 +1,20 @@
 "use client";
 
 import { useEffect } from "react";
-import type { ChainId } from "@/lib/economy/networks";
 import { IN_FLIGHT_TTL_MS, loadSends, patchSend, PERMANENT_ATTACH_CODES, pruneUnsupportedSends, removeSend } from "@/lib/payments/pending-sends";
 import { endsPaymentFlow } from "@/lib/payments/outcomes";
 import { attachTxAction, verifyIntentAction } from "@/lib/payments/tip-actions";
 
 /**
  * Next visit after an interrupted send: attach a hash the server was never told about, then verify once. Leftovers
- * that can never complete here (fee era, disabled chain) are dropped first (Review Focus 4). Entries that confirmed or
+ * that can never complete here (unsigned, fee era or legacy chain) are dropped first (Review Focus 4). Entries that confirmed or
  * failed for good (F3-R3: a definitive code, never a transient error) are dropped, and so are those with a permanent
  * attach error. Silent apart from logging.
  */
-export function PendingSendsSync({ memberId, enabledChainIds }: { memberId: string; enabledChainIds: readonly ChainId[] }) {
-  const enabledKey = enabledChainIds.join(",");
+export function PendingSendsSync({ memberId }: { memberId: string }) {
   useEffect(() => {
     let cancelled = false;
-    pruneUnsupportedSends(memberId, enabledKey === "" ? [] : (enabledKey.split(",").map(Number) as ChainId[]));
+    pruneUnsupportedSends(memberId);
     void (async () => {
       for (const entry of loadSends(memberId)) {
         if (cancelled) return;
@@ -45,6 +43,6 @@ export function PendingSendsSync({ memberId, enabledChainIds }: { memberId: stri
     return () => {
       cancelled = true;
     };
-  }, [memberId, enabledKey]);
+  }, [memberId]);
   return null;
 }

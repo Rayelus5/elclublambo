@@ -11,7 +11,6 @@ import { loadSends, upsertSend, type PendingSend } from "@/lib/payments/pending-
 const MEMBER = "99999999-9999-4999-8999-999999999999";
 const HASH_F = "0x" + "fe".repeat(32);
 const HASH_M = "0x" + "aa".repeat(32);
-const ENABLED = [84532, 421614] as const;
 const intent = { id: "i", chainId: 84532, token: "USDC" as const, amount: "1", feeAmount: "0", recipientAddress: "0x1", platformAddress: null, expiresAt: new Date(Date.now() + 24 * 3600 * 1000).toISOString() };
 const entry = (over: Partial<PendingSend> & Record<string, unknown>): PendingSend =>
   ({
@@ -26,7 +25,7 @@ const entry = (over: Partial<PendingSend> & Record<string, unknown>): PendingSen
     ...over,
   }) as PendingSend;
 
-const sync = () => render(<PendingSendsSync memberId={MEMBER} enabledChainIds={ENABLED} />);
+const sync = () => render(<PendingSendsSync memberId={MEMBER} />);
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -125,9 +124,9 @@ describe("PendingSendsSync (F3b-R5)", () => {
 });
 
 describe("PendingSendsSync leftovers (Review Focus 4)", () => {
-  it("on mount drops fee-era entries and entries on a disabled chain without attaching or verifying them", async () => {
+  it("on mount drops unsigned fee-era and legacy-chain entries without attaching or verifying them", async () => {
     upsertSend(MEMBER, entry({ intentId: "fee", feeRequired: true, feeHash: HASH_F, feeAttached: true }));
-    upsertSend(MEMBER, entry({ intentId: "linea", chainId: 59141, mainHash: HASH_M }));
+    upsertSend(MEMBER, entry({ intentId: "linea", chainId: 59141, inFlight: Date.now() }));
     upsertSend(MEMBER, entry({ intentId: "ok", mainHash: HASH_M, mainAttached: true }));
     verifyIntentAction.mockResolvedValue({ status: "pending" });
     sync();
@@ -135,5 +134,14 @@ describe("PendingSendsSync leftovers (Review Focus 4)", () => {
     expect(verifyIntentAction).toHaveBeenCalledWith("ok");
     expect(attachTxAction).not.toHaveBeenCalled();
     expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual(["ok"]);
+  });
+
+  it("still attaches and verifies a signed entry on a legacy chain: only the server's definitive answer drops it", async () => {
+    upsertSend(MEMBER, entry({ intentId: "linea", chainId: 59141, mainHash: HASH_M }));
+    verifyIntentAction.mockResolvedValue({ status: "failed", code: "chain_disabled", error: "x" });
+    sync();
+    await waitFor(() => expect(loadSends(MEMBER)).toEqual([]));
+    expect(attachTxAction).toHaveBeenCalledWith("linea", "main", HASH_M);
+    expect(verifyIntentAction).toHaveBeenCalledWith("linea");
   });
 });

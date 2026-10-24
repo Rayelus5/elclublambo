@@ -193,10 +193,10 @@ function TipFlow({
   const invalidateBalances = useInvalidateAssetBalances();
   const { ensure, switching, failedFor } = useEnsureChain();
 
-  // Leftovers that can never complete (fee era, disabled chain) go first (Review Focus 4); then the ledger decides how
+  // Leftovers that can never complete (unsigned, fee era or legacy chain) go first (Review Focus 4); then the ledger decides how
   // the dialog opens: a signature still pending in the wallet, or a fresh form.
   const [initial] = useState<Initial>(() => {
-    pruneUnsupportedSends(memberId, enabledChainIds);
+    pruneUnsupportedSends(memberId);
     return evaluate(memberId, ledgerType, targetId);
   });
   const flowRef = useRef<{ it: TipIntent; st: Sent } | null>(null);

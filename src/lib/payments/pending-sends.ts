@@ -1,4 +1,4 @@
-import type { ChainId } from "@/lib/economy/networks";
+import { appChainIds } from "@/lib/economy/networks";
 import type { TipIntent } from "@/lib/payments/tip-actions";
 
 /**
@@ -84,12 +84,15 @@ export function remainingMs(intent: Pick<TipIntent, "expiresAt">, now = Date.now
 }
 
 /**
- * Drops leftovers that can never complete here (Review Focus 4): entries of the fee era (two transfers) and entries on a
- * chain that is not enabled (a legacy chain, or a network the SuperAdmin turned off). Returns how many were dropped.
+ * Drops leftovers that can never complete here (Review Focus 4): unsigned entries of the fee era (two transfers) and
+ * unsigned entries on a chain outside the build's set (a legacy chain). The DB network switch is deliberately not
+ * consulted, and an entry with a main hash is never dropped: that payment may already be on chain, and only a definitive
+ * attach/verify answer may forget it. Returns how many were dropped.
  */
-export function pruneUnsupportedSends(memberId: string, enabled: readonly ChainId[]): number {
+export function pruneUnsupportedSends(memberId: string): number {
+  const build = appChainIds() as readonly number[];
   const list = loadSends(memberId);
-  const keep = list.filter((e) => e.feeRequired !== true && (enabled as readonly number[]).includes(e.chainId));
+  const keep = list.filter((e) => !!e.mainHash || (e.feeRequired !== true && build.includes(e.chainId)));
   if (keep.length !== list.length) write(memberId, keep);
   return list.length - keep.length;
 }

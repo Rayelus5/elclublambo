@@ -9,18 +9,34 @@ const entry = (over: Partial<PendingSend> & Record<string, unknown>): PendingSen
 beforeEach(() => window.localStorage.clear());
 
 describe("pruneUnsupportedSends (Review Focus 4)", () => {
-  it("drops entries that needed a fee or live on a chain outside the enabled ones, and says how many", () => {
-    upsertSend(MEMBER, entry({ intentId: "fee", feeRequired: true, feeHash: `0x${"fe".repeat(32)}` }));
+  const HASH = `0x${"aa".repeat(32)}`;
+
+  it("drops unsigned entries of the fee era or on a chain outside the build set, and says how many", () => {
+    upsertSend(MEMBER, entry({ intentId: "fee", feeRequired: true }));
     upsertSend(MEMBER, entry({ intentId: "linea", chainId: 59141 }));
     upsertSend(MEMBER, entry({ intentId: "arb", chainId: 421614 }));
-    upsertSend(MEMBER, entry({ intentId: "ok", chainId: 84532, mainHash: `0x${"aa".repeat(32)}` }));
-    expect(pruneUnsupportedSends(MEMBER, [84532])).toBe(3);
-    expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual(["ok"]);
+    upsertSend(MEMBER, entry({ intentId: "ok", chainId: 84532 }));
+    expect(pruneUnsupportedSends(MEMBER)).toBe(2);
+    expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual(["arb", "ok"]);
+  });
+
+  it("never drops an entry with a signed main hash, even outside the build set or from the fee era", () => {
+    upsertSend(MEMBER, entry({ intentId: "fee", feeRequired: true, mainHash: HASH }));
+    upsertSend(MEMBER, entry({ intentId: "linea", chainId: 59141, mainHash: HASH }));
+    expect(pruneUnsupportedSends(MEMBER)).toBe(0);
+    expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual(["fee", "linea"]);
+  });
+
+  it("keeps a signed entry on a chain the SuperAdmin disabled (the DB switch is not consulted)", () => {
+    upsertSend(MEMBER, entry({ intentId: "disabled", chainId: 421614, mainHash: HASH }));
+    upsertSend(MEMBER, entry({ intentId: "unsigned", chainId: 421614 }));
+    expect(pruneUnsupportedSends(MEMBER)).toBe(0);
+    expect(loadSends(MEMBER)).toHaveLength(2);
   });
 
   it("returns 0 and leaves the ledger alone when everything is supported", () => {
     upsertSend(MEMBER, entry({ intentId: "a" }));
-    expect(pruneUnsupportedSends(MEMBER, [84532, 421614])).toBe(0);
+    expect(pruneUnsupportedSends(MEMBER)).toBe(0);
     expect(loadSends(MEMBER)).toHaveLength(1);
   });
 });

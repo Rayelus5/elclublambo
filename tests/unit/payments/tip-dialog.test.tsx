@@ -680,11 +680,24 @@ describe("TipDialog leftovers (Review Focus 4)", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("an in-flight entry on a disabled network does not block the form", async () => {
-    seed({ chainId: 421614, inFlight: Date.now(), intent: { ...intent, chainId: 421614 } });
-    await setup({ cfg: config({ enabledChainIds: [84532] }) });
+  it("an in-flight entry on a legacy chain does not block the form", async () => {
+    seed({ chainId: 59141, inFlight: Date.now(), intent: { ...intent, chainId: 59141 } });
+    await setup();
     expect(screen.getByLabelText("Importe")).toBeInTheDocument();
     expect(loadSends(MEMBER)).toEqual([]);
+  });
+
+  it("an in-flight entry on a network the SuperAdmin disabled is kept: the wallet may still sign it", async () => {
+    seed({ chainId: 421614, inFlight: Date.now(), intent: { ...intent, chainId: 421614 } });
+    mount({ cfg: config({ enabledChainIds: [84532] }) });
+    expect(screen.getByText(/Tienes una firma pendiente/)).toBeInTheDocument();
+    expect(loadSends(MEMBER)).toHaveLength(1);
+  });
+
+  it("a signed entry of the fee era is kept until the server answers for it", async () => {
+    seed({ feeRequired: true, mainHash: `0x${"aa".repeat(32)}` });
+    mount();
+    expect(loadSends(MEMBER)).toHaveLength(1);
   });
 });
 
