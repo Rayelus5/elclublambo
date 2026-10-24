@@ -12,6 +12,8 @@ $$;
 
 select set_config('t.a', tests.create_member('0x' || lpad('e9c30', 40, '0'), null, true)::text, true);
 select set_config('t.m', tests.create_member('0x' || lpad('e9c31', 40, '0'), current_setting('t.a')::uuid)::text, true);
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.a')::uuid, id from public.roles where name = 'SuperAdmin';
 select set_config('t.ua', (select auth_user_id::text from public.members where id = current_setting('t.a')::uuid), true);
 select set_config('t.um', (select auth_user_id::text from public.members where id = current_setting('t.m')::uuid), true);
 select set_config('t.stranger', tests.create_wallet_user('0x' || lpad('e9c3f', 40, '0'))::text, true);
@@ -53,10 +55,11 @@ select throws_ok(format($$select public.record_club_expense(1, 'USDC', 5, %L, 1,
 reset role;
 
 -- ===== 3. reads and notes =====
+select set_config('t.label', public._member_label(current_setting('t.a')::uuid), true);
 select tests.authenticate_as(current_setting('t.um')::uuid);
 select is((select count(*)::int from public.club_expenses_list()), 3, 'a member reads the three expenses');
 select results_eq($$select amount, note, recorder_label from public.club_expenses_list() where token = 'USDC' and amount = '5000000'$$,
-  format($$values ('5000000'::text, 'Servidor del mes'::text, public._member_label(%L))$$, current_setting('t.a')),
+  format($$values ('5000000'::text, 'Servidor del mes'::text, %L)$$, current_setting('t.label')),
   'the list carries the amount as text, the trimmed note and the recorder label');
 select throws_ok(format($$select public.set_club_expense_note(%L, 'Hackeado')$$, current_setting('t.e1')), 'P0001', 'forbidden',
   'a member without MANAGE_TREASURY cannot change a note');

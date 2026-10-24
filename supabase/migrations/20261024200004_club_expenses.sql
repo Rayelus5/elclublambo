@@ -38,7 +38,9 @@ as $$
 declare
   v_note text := btrim(coalesce(p_note, ''));
   v_id uuid;
+  v_kind text;
 begin
+  v_kind := (case when p_token = 'ETH' then 'safe_tx' else 'usdc_log' end);
   if p_actor is null
      or not exists (select 1 from public.members m where m.id = p_actor and m.status = 'active')
      or (public.member_global_permissions(p_actor) & 256) <> 256 then
@@ -48,7 +50,7 @@ begin
      or p_amount is null or p_amount <= 0 or p_amount <> trunc(p_amount)
      or p_tx_hash is null or p_tx_hash !~ '^0x[0-9a-f]{64}$'
      or p_log_index is null
-     or p_verified_kind is distinct from case p_token when 'ETH' then 'safe_tx' else 'usdc_log' end
+     or p_verified_kind is distinct from v_kind
      or (p_token = 'ETH' and p_log_index <> -1)
      or (p_token = 'USDC' and p_log_index < 0)
      or char_length(v_note) not between 1 and 280 then
