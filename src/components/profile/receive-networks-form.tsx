@@ -4,10 +4,9 @@ import { useId, useState, useTransition } from "react";
 import { NetworkLogo } from "@/components/economy/network-logo";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { chainForKey, type NetworkKey } from "@/lib/economy/networks";
+import { chainForKey, NETWORK_KEYS, type NetworkKey } from "@/lib/economy/networks";
 import { setReceiveNetworksAction } from "@/lib/profile/actions";
 
-const KEYS: readonly NetworkKey[] = ["base", "arbitrum"];
 const NAMES: Record<NetworkKey, string> = { base: "Base", arbitrum: "Arbitrum" };
 
 /** Which networks tips can reach the member on. Never empty: the last checked box stays on. */
@@ -20,7 +19,7 @@ export function ReceiveNetworksForm({ initial }: { initial: NetworkKey[] }) {
   const onlyOne = selected.length === 1;
 
   function toggle(key: NetworkKey, on: boolean) {
-    setSelected((cur) => (on ? KEYS.filter((k) => k === key || cur.includes(k)) : cur.filter((k) => k !== key)));
+    setSelected((cur) => (on ? NETWORK_KEYS.filter((k) => k === key || cur.includes(k)) : cur.filter((k) => k !== key)));
     setSaved(false);
     setMessage(null);
   }
@@ -49,7 +48,7 @@ export function ReceiveNetworksForm({ initial }: { initial: NetworkKey[] }) {
         Si tu dirección es de un exchange o una smart wallet, deja solo la red que admite.
       </p>
       <div className="flex flex-col gap-1">
-        {KEYS.map((key) => {
+        {NETWORK_KEYS.map((key) => {
           const checked = selected.includes(key);
           const locked = checked && onlyOne;
           const id = `${uid}-${key}`;

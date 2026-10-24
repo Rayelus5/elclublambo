@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { shortAddress } from "@/lib/auth/wallet";
 import { createBountyPaymentIntentAction } from "@/lib/bounties/actions";
 import { assetId, assetsFor, rankAssets, type AssetId } from "@/lib/economy/assets";
-import { chainForKey, explorerTx, NETWORKS, type ChainId, type NetworkKey } from "@/lib/economy/networks";
+import { chainForKey, explorerTx, NETWORK_KEYS, NETWORKS, type ChainId, type NetworkKey } from "@/lib/economy/networks";
 import { mentionLabel, type MemberIdentity } from "@/lib/members/name";
 import { formatAmount, parseAmount, TIP_LIMITS, type Token } from "@/lib/payments/amounts";
 import { useAssetBalances, useInvalidateAssetBalances } from "@/lib/payments/balances";
@@ -54,7 +54,6 @@ const POLL_MS = 3000;
 const POLL_WINDOW_MS = 120_000;
 /** Wait after the last selection change before asking the wallet to switch: arrow keys must not prompt once per row. */
 const SWITCH_DEBOUNCE_MS = 300;
-const ALL_NETWORKS: NetworkKey[] = ["base", "arbitrum"];
 
 type Step = "form" | "signing" | "attach-retry" | "inflight" | "verifying" | "done" | "failed";
 /** What has been signed and told to the server for one intent; mirrors the ledger entry. */
@@ -214,7 +213,7 @@ function TipFlow({
   useEffect(() => {
     let cancelled = false;
     getReceiveNetworks(createBrowserClient(), payeeId)
-      .catch(() => ALL_NETWORKS)
+      .catch(() => [...NETWORK_KEYS])
       .then((keys) => {
         if (!cancelled) setAccept(keys);
       });

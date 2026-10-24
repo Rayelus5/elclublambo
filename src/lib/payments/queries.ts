@@ -3,7 +3,7 @@
 // caller's own. Amounts are read from the `*_text` columns because numeric(78,0) travels as a JSON number and loses
 // digits past 2^53 in JavaScript.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isChainId, type ChainId, type NetworkKey } from "@/lib/economy/networks";
+import { isChainId, isNetworkKey, NETWORK_KEYS, type ChainId, type NetworkKey } from "@/lib/economy/networks";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import type { Token } from "@/lib/payments/amounts";
 
@@ -84,8 +84,6 @@ export async function getMemberTipTotals(supabase: SupabaseClient, memberId: str
     .sort((a, b) => TOKEN_ORDER[a.token] - TOKEN_ORDER[b.token]);
 }
 
-const ALL_NETWORKS: readonly NetworkKey[] = ["base", "arbitrum"];
-
 /**
  * The networks a member receives payments on (D22), valid keys only, in their stored order. Never throws: a failed
  * read or an odd value means both networks (the server still refuses a network the member does not accept).
@@ -94,13 +92,13 @@ export async function getReceiveNetworks(supabase: SupabaseClient, memberId: str
   try {
     const { data, error } = await supabase.rpc("receive_networks_of", { p_member: memberId });
     if (!error && Array.isArray(data)) {
-      const keys = [...new Set(data)].filter((k): k is NetworkKey => ALL_NETWORKS.includes(k as NetworkKey));
+      const keys = [...new Set(data)].filter(isNetworkKey);
       if (keys.length > 0) return keys;
     }
   } catch {
     // fall through
   }
-  return [...ALL_NETWORKS];
+  return [...NETWORK_KEYS];
 }
 
 interface TipRow {

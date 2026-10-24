@@ -9,7 +9,7 @@ import { ProfileForm } from "@/components/profile/profile-form";
 import { ReceiveNetworksForm } from "@/components/profile/receive-networks-form";
 import { UiZoomToggle } from "@/components/profile/ui-zoom-toggle";
 import { RankingToggle } from "@/components/treasury/ranking-toggle";
-import type { NetworkKey } from "@/lib/economy/networks";
+import { isNetworkKey, NETWORK_KEYS, type NetworkKey } from "@/lib/economy/networks";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -40,8 +40,8 @@ async function EditProfile() {
 
   const links = Array.isArray(row.links) ? row.links.filter((l): l is string => typeof l === "string") : [];
 
-  const receiveNetworks = (row.receive_networks ?? []).filter((n): n is NetworkKey => n === "base" || n === "arbitrum");
-  if (receiveNetworks.length === 0) receiveNetworks.push("base", "arbitrum");
+  const receiveNetworks: NetworkKey[] = (row.receive_networks ?? []).filter(isNetworkKey);
+  if (receiveNetworks.length === 0) receiveNetworks.push(...NETWORK_KEYS);
 
   return (
     <div className="flex max-w-2xl flex-col gap-10">

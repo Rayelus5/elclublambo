@@ -1,5 +1,5 @@
 import { getAddress } from "viem";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appChainIds,
   CHAIN_IDS,
@@ -9,9 +9,13 @@ import {
   explorerBlock,
   explorerTx,
   isChainId,
+  isNetworkKey,
+  NETWORK_KEYS,
   networkSet,
   NETWORKS,
 } from "@/lib/economy/networks";
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe("NETWORKS", () => {
   it("has the four chains", () => {
@@ -89,12 +93,34 @@ describe("network sets", () => {
     expect(() => networkSet("linea")).toThrow();
   });
 
-  it("appChainIds follows the build set (testnet in the test env)", () => {
+  it("appChainIds follows the build set", () => {
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
+    expect(appChainIds()).toEqual([84532, 421614]);
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "mainnet");
+    expect(appChainIds()).toEqual([8453, 42161]);
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", undefined);
     expect(appChainIds()).toEqual([84532, 421614]);
   });
 
   it("chainForKey picks the build's chain for a network key", () => {
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
     expect(chainForKey("base")).toBe(84532);
     expect(chainForKey("arbitrum")).toBe(421614);
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "mainnet");
+    expect(chainForKey("base")).toBe(8453);
+    expect(chainForKey("arbitrum")).toBe(42161);
+  });
+});
+
+describe("network keys", () => {
+  it("NETWORK_KEYS lists base then arbitrum, matching the keys of NETWORKS", () => {
+    expect(NETWORK_KEYS).toEqual(["base", "arbitrum"]);
+    expect([...new Set(CHAIN_IDS.map((c) => NETWORKS[c].key))]).toEqual([...NETWORK_KEYS]);
+  });
+
+  it("isNetworkKey accepts only the known keys", () => {
+    expect(isNetworkKey("base")).toBe(true);
+    expect(isNetworkKey("arbitrum")).toBe(true);
+    for (const v of ["linea", "Base", "", null, undefined, 8453]) expect(isNetworkKey(v)).toBe(false);
   });
 });

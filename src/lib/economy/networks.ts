@@ -2,7 +2,13 @@ import type { Chain } from "viem";
 import { arbitrum, arbitrumSepolia, base, baseSepolia } from "viem/chains";
 
 export type ChainId = 8453 | 42161 | 84532 | 421614;
-export type NetworkKey = "base" | "arbitrum";
+/** The payment networks, base first. A member's accepted networks and every network picker use these keys. */
+export const NETWORK_KEYS = ["base", "arbitrum"] as const;
+export type NetworkKey = (typeof NETWORK_KEYS)[number];
+
+export function isNetworkKey(value: unknown): value is NetworkKey {
+  return typeof value === "string" && (NETWORK_KEYS as readonly string[]).includes(value);
+}
 /** The build's chains: PRO uses mainnet, PRE / local / e2e use testnet (NEXT_PUBLIC_NETWORK_SET, P0-R1). */
 export type NetworkSet = "mainnet" | "testnet";
 
