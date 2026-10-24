@@ -107,6 +107,23 @@ describe("verifyTransfer USDC", () => {
   });
 });
 
+describe("verifyTransfer USDC with to: null (club expenses, any recipient)", () => {
+  const anyTo = { ...base, token: "USDC" as const, amount: 1000n, to: null };
+  const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });
+  it("accepts a log from the Safe to anyone and returns its index", async () => {
+    const logs = [transferLog(USDC, OTHER, TO, 1000n, 0), transferLog(USDC, PAYER, OTHER, 1000n, 3)];
+    expect(await verifyTransfer(anyTo, fake({ receipt: rc(logs) }))).toMatchObject({ status: "ok", logIndex: 3, value: 1000n });
+  });
+  it("rejects a log from another address, another value or another token", async () => {
+    for (const l of [transferLog(USDC, OTHER, TO, 1000n, 0), transferLog(USDC, PAYER, TO, 999n, 0), transferLog(FAKE_TOKEN, PAYER, TO, 1000n, 0)]) {
+      expect(await verifyTransfer(anyTo, fake({ receipt: rc([l]) }))).toEqual({ status: "error", code: "tx_mismatch" });
+    }
+  });
+  it("is never accepted for native ETH", async () => {
+    expect(await verifyTransfer({ ...anyTo, token: "ETH" }, fake({ tx: { from: PAYER, to: null, value: 1000n } }))).toEqual({ status: "error", code: "tx_mismatch" });
+  });
+});
+
 describe("verifyTransfer USDC atLeast (withdrawal payouts)", () => {
   const payout = { ...base, token: "USDC" as const, amount: 8_000000n, atLeast: true };
   const rc = (logs: unknown[]) => ({ status: "success", blockNumber: 100n, logs });

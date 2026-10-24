@@ -74,3 +74,28 @@ export async function getMyDonorStatus(supabase: Client): Promise<MyDonorStatus>
   const d = ((await call(supabase, "my_donor_status")) ?? {}) as Row;
   return { totalUsd6: big(d.totalUsd6), isMecenas: d.isMecenas === true, visible: d.visible !== false };
 }
+
+export interface ClubExpense {
+  id: string;
+  chainId: number;
+  token: Token;
+  amount: bigint;
+  txHash: string;
+  note: string;
+  recordedAt: string;
+  recorderLabel: string;
+}
+
+/** The Safe's noted expenses, newest first (club_expenses_list, supabase/migrations/20261024200004_club_expenses.sql). */
+export async function getClubExpenses(supabase: Client, limit = 30): Promise<ClubExpense[]> {
+  return arr(await call(supabase, "club_expenses_list", { p_limit: limit })).map((r) => ({
+    id: str(r.id),
+    chainId: num(r.chain_id),
+    token: r.token === "ETH" ? "ETH" : "USDC",
+    amount: big(r.amount),
+    txHash: str(r.tx_hash),
+    note: str(r.note),
+    recordedAt: str(r.recorded_at),
+    recorderLabel: str(r.recorder_label),
+  }));
+}

@@ -1,19 +1,22 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
+import { AddExpenseTrigger } from "@/components/donations/add-expense-dialog";
 import { DonateButton } from "@/components/donations/donate-button";
 import { DonationSummary, RecentDonations } from "@/components/donations/donation-summary";
 import { DonorList } from "@/components/donations/donor-list";
 import { DonorVisibilityToggle } from "@/components/donations/donor-visibility-toggle";
+import { ExpenseList } from "@/components/donations/expense-list";
 import { MecenasBadge } from "@/components/donations/mecenas-badge";
 import { SafeBalances } from "@/components/donations/safe-balances";
 import { PageLoader } from "@/components/shell/page-loader";
-import { getDonationOverview, getDonorRanking, getMyDonorStatus } from "@/lib/donations/queries";
+import { getClubExpenses, getDonationOverview, getDonorRanking, getMyDonorStatus } from "@/lib/donations/queries";
 import { getSafeBalances } from "@/lib/donations/safe-balances";
 import { getEconomyConfig } from "@/lib/economy/config";
 import { appChainIds } from "@/lib/economy/networks";
 import { safeError } from "@/lib/security/redact";
 import { createServerClient } from "@/lib/supabase/server";
 import { formatUsd } from "@/lib/treasury/format";
+import { treasurerId } from "@/lib/treasury/treasurer";
 
 export const metadata: Metadata = { title: "Donar" };
 
@@ -55,10 +58,12 @@ async function SafeBalancesBlock() {
 async function DonarContent({ searchParams }: { searchParams: SearchParams }) {
   const { donar } = await searchParams;
   const supabase = await createServerClient();
-  const [overview, ranking, me] = await Promise.all([
+  const [overview, ranking, me, expenses, treasurer] = await Promise.all([
     settle("overview", getDonationOverview(supabase)),
     settle("ranking", getDonorRanking(supabase, 50)),
     settle("my status", getMyDonorStatus(supabase)),
+    settle("expenses", getClubExpenses(supabase, 30)),
+    settle("treasurer", treasurerId()),
   ]);
 
   return (
@@ -111,7 +116,14 @@ async function DonarContent({ searchParams }: { searchParams: SearchParams }) {
         </Section>
       </div>
 
-      {/* Gastos de la Safe: Task 6. */}
+      <Section id="gastos" title="Gastos" intro="Lo que ha salido de la Safe, anotado por un tesorero. Cada gasto enlaza a su transacción para que lo compruebes.">
+        {treasurer ? (
+          <div>
+            <AddExpenseTrigger chains={appChainIds()} />
+          </div>
+        ) : null}
+        {expenses ? <ExpenseList items={expenses} /> : <p className="text-sm text-danger">{READ_FAILED}</p>}
+      </Section>
 
       <p role="note" className="border-t border-border pt-4 text-[13px] text-fg-muted">
         ElClub. no custodia fondos: la Safe la controlan sus firmantes. Donar no da derechos económicos.
