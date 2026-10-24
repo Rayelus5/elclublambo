@@ -1,11 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const account = vi.hoisted(() => ({ address: undefined as string | undefined, chainId: undefined as number | undefined, isConnected: false }));
+const switchChain = vi.hoisted(() => vi.fn());
 vi.mock("wagmi", () => ({
   useAccount: () => account,
-  useSwitchChain: () => ({ switchChain: vi.fn(), isPending: false }),
+  useSwitchChain: () => ({ switchChain, isPending: false }),
 }));
 vi.mock("@reown/appkit/react", () => ({
   useAppKit: () => ({ open: vi.fn() }),
@@ -72,10 +73,13 @@ async function setup(m: BountyMode = mode(), cfg: EconomyConfig = config()) {
 }
 
 function mount(m: BountyMode = mode(), cfg: EconomyConfig = config()) {
-  return render(
+  return render(ui(m, cfg));
+}
+function ui(m: BountyMode = mode(), cfg: EconomyConfig = config()) {
+  return (
     <EconomyProvider config={cfg} wallet={SESSION} memberId={MEMBER}>
       <TipDialog mode={m} recipient={solver} open onOpenChange={() => {}} />
-    </EconomyProvider>,
+    </EconomyProvider>
   );
 }
 
@@ -101,6 +105,7 @@ beforeEach(() => {
   account.address = SESSION;
   account.chainId = 84532;
   account.isConnected = true;
+  switchChain.mockReset();
   send.mockReset().mockResolvedValueOnce(MAIN_HASH);
   createTipIntentAction.mockReset();
   createBountyPaymentIntentAction.mockReset().mockResolvedValue({ ok: true, intent });
@@ -225,12 +230,30 @@ describe("TipDialog bounty mode: signing", () => {
     createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, chainId: 421614 } });
     await setup();
     expect(screen.getByText("Tu wallet está en otra red.")).toBeInTheDocument();
-    expect(continuar()).toBeDisabled();
     await userEvent.click(radio(/USDC.*Arbitrum Sepolia/));
     await userEvent.click(continuar());
     await screen.findByText("Bounty pagado");
     expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, chainId: 421614, amount: "25" });
     expect(send).toHaveBeenCalledWith({ chain: 421614, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
+  });
+
+  it("announced network differs from the wallet's: Continuar switches the wallet and pays on the announced one", async () => {
+    account.chainId = 421614;
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted = () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    expect(switchChain).not.toHaveBeenCalled();
+    await userEvent.click(continuar());
+    expect(switchChain.mock.calls[0]![0]).toEqual({ chainId: 84532 });
+    expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();
+    account.chainId = 84532;
+    view.rerender(ui());
+    act(() => accepted!());
+    await screen.findByText("Bounty pagado");
+    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, chainId: 84532, amount: "25" });
+    expect(send).toHaveBeenCalledWith({ chain: 84532, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
   });
 
   it("a fee-era leftover for this bounty is discarded and the form opens (Review Focus 4)", async () => {

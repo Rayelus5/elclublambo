@@ -259,10 +259,13 @@ function TipFlow({
   });
   useEffect(() => {
     if (!switchReq) return;
-    const t = setTimeout(() => ensureRef.current(switchReq.chainId), SWITCH_DEBOUNCE_MS);
+    const t = setTimeout(() => void ensureRef.current(switchReq.chainId), SWITCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [switchReq]);
+  // Set by "Continuar" while it waits for the wallet to reach this chain; the flow then goes on by itself.
+  const autoSubmitRef = useRef<ChainId | null>(null);
   const pick = (id: AssetId) => {
+    autoSubmitRef.current = null;
     setPicked(id);
     const a = assets.find((x) => x.id === id);
     if (a) setSwitchReq((prev) => ({ chainId: a.chainId, seq: (prev?.seq ?? 0) + 1 }));
@@ -331,13 +334,15 @@ function TipFlow({
 
   const tokenBalance = asset ? (balances[asset.id] ?? null) : null;
   const gasBalance = balances[assetId("ETH", chainId)];
+  // A wallet on another network does not block "Continuar": pressing it asks for the switch first.
+  const walletReady = wallet === null || wallet === "chain";
   // Before any intent exists: the amount (and ETH for gas) against what the wallet holds. Unreadable balance: no opinion.
   const balanceError =
-    units !== null && reason === null && wallet === null && asset && tokenBalance !== null
+    units !== null && reason === null && walletReady && asset && tokenBalance !== null
       ? formBalanceError({ chain: chainId, token, amount: units, balance: tokenBalance, eth: gasBalance ?? 1n })
       : null;
 
-  const canContinue = !!asset && units !== null && reason === null && balanceError === null && wallet === null;
+  const canContinue = !!asset && units !== null && reason === null && balanceError === null && walletReady;
 
   /** Re-checked right before the signature: the connected account is still the session wallet, on the intent's chain. */
   function guardSigner(it: TipIntent) {
@@ -480,6 +485,14 @@ function TipFlow({
     if (!canContinue || units === null || !asset) return;
     const chosen = asset;
     setFormError(null);
+    if (wallet === "chain") {
+      // The wallet is on another network than the chosen asset's: ask for the switch now (never on open), and go on by
+      // itself once the wallet is there. A rejected switch only shows the failedFor notice.
+      const want = chosen.chainId;
+      autoSubmitRef.current = want;
+      if (!(await ensure(want)) && autoSubmitRef.current === want) autoSubmitRef.current = null;
+      return;
+    }
     // No new intent while a signature for this target may still be pending.
     if (applyLedger()) return;
     setStep("signing");
@@ -534,6 +547,25 @@ function TipFlow({
     if (!flow) return;
     void proceed(flow.it, flow.st, { targetType: ledgerType, targetId });
   }
+
+  // "Continuar" asked for a switch: once the wallet reports the asset's chain, submit again (it re-checks everything). A
+  // different selection in the meantime cancels it.
+  const submitRef = useRef(submit);
+  useEffect(() => {
+    submitRef.current = submit;
+  });
+  const assetChain = asset?.chainId;
+  useEffect(() => {
+    const want = autoSubmitRef.current;
+    if (want === null) return;
+    if (assetChain !== want) {
+      autoSubmitRef.current = null;
+      return;
+    }
+    if (account.chainId !== want) return;
+    autoSubmitRef.current = null;
+    void submitRef.current();
+  }, [account.chainId, assetChain]);
 
   const txChain = (intent?.chainId ?? chainId) as ChainId;
 
@@ -643,7 +675,7 @@ function TipFlow({
       <WalletNotice>
         <p className="text-sm text-warning">Tu wallet está en otra red.</p>
         {failedFor === chainId ? <p className="text-[13px] text-fg-muted">No se pudo cambiar de red. Cámbiala desde tu wallet o inténtalo otra vez.</p> : null}
-        <Button type="button" variant="outline" disabled={switching} onClick={() => ensure(chainId)}>
+        <Button type="button" variant="outline" disabled={switching} onClick={() => void ensure(chainId)}>
           Cambiar a {NETWORKS[chainId].name}
         </Button>
       </WalletNotice>
@@ -752,7 +784,7 @@ function TipFlow({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <HowItWorksLink section={mode ? "bounties" : "propinas"} />
           {noCommonNetwork ? null : (
-            <Button type="submit" disabled={!canContinue}>
+            <Button type="submit" disabled={!canContinue || switching}>
               Continuar
             </Button>
           )}

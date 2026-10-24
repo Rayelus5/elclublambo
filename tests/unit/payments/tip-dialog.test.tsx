@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
@@ -68,11 +68,15 @@ const config = (over: Partial<EconomyConfig> = {}): EconomyConfig => ({
   ...over,
 });
 
-function mount(opts: { onOpenChange?: (o: boolean) => void; cfg?: EconomyConfig; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] } = {}) {
-  return render(
+type MountOpts = { onOpenChange?: (o: boolean) => void; cfg?: EconomyConfig; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] };
+function mount(opts: MountOpts = {}) {
+  return render(ui(opts));
+}
+function ui(opts: MountOpts = {}) {
+  return (
     <EconomyProvider config={opts.cfg ?? config()} wallet={SESSION} memberId={MEMBER}>
       <TipDialog target={opts.target ?? { type: "message", messageId: MESSAGE }} recipient={opts.recipient ?? recipient} open onOpenChange={opts.onOpenChange ?? (() => {})} />
-    </EconomyProvider>,
+    </EconomyProvider>
   );
 }
 
@@ -215,16 +219,65 @@ describe("TipDialog network switch (Review Focus 1)", () => {
     expect(switchChain.mock.calls[0]![0]).toEqual({ chainId: 421614 });
   });
 
-  it("when the switch fails: 'Cambiar a Arbitrum Sepolia', Continuar disabled and nothing is sent", async () => {
+  it("when the switch fails: 'Cambiar a Arbitrum Sepolia', and Continuar only retries the switch: nothing is sent", async () => {
     switchChain.mockImplementation((_a: unknown, o?: { onError?: (e: Error) => void }) => o?.onError?.(new Error("rejected")));
     await setup();
     await userEvent.click(radio(/USDC.*Arbitrum Sepolia/));
     await waitFor(() => expect(switchChain).toHaveBeenCalled());
     await typeAmount("1");
     expect(screen.getByText("Tu wallet está en otra red.")).toBeInTheDocument();
+    expect(screen.getByText("No se pudo cambiar de red. Cámbiala desde tu wallet o inténtalo otra vez.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cambiar a Arbitrum Sepolia" })).toBeInTheDocument();
-    expect(continuar()).toBeDisabled();
     await userEvent.click(continuar());
+    await waitFor(() => expect(switchChain).toHaveBeenCalledTimes(2));
+    expect(switchChain.mock.calls[1]![0]).toEqual({ chainId: 421614 });
+    expect(screen.getByText("No se pudo cambiar de red. Cámbiala desde tu wallet o inténtalo otra vez.")).toBeInTheDocument();
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("auto-selected asset on another network: no prompt on open; Continuar switches the wallet, then the tip goes ahead there", async () => {
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 5_000_000n, "ETH:421614": E };
+    createTipIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, chainId: 421614, amount: "1000000" } });
+    // The wallet accepts the switch: wagmi re-renders with the new chain (here: an explicit rerender), then onSuccess.
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted = () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    expect(radio(/USDC.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "true");
+    await typeAmount("1");
+    await new Promise((r) => setTimeout(r, 450));
+    expect(switchChain).not.toHaveBeenCalled();
+    expect(continuar()).toBeEnabled();
+    await userEvent.click(continuar());
+    expect(switchChain).toHaveBeenCalledTimes(1);
+    expect(switchChain.mock.calls[0]![0]).toEqual({ chainId: 421614 });
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+    account.chainId = 421614;
+    view.rerender(ui());
+    act(() => accepted!());
+    await screen.findByText("Propina enviada");
+    expect(createTipIntentAction).toHaveBeenCalledTimes(1);
+    expect(createTipIntentAction).toHaveBeenCalledWith(expect.objectContaining({ chainId: 421614, token: "USDC", amount: "1" }));
+    expect(send).toHaveBeenCalledWith({ chain: 421614, token: "USDC", to: RECIPIENT_WALLET, amount: 1_000_000n, account: SESSION });
+  });
+
+  it("choosing another asset (even on the same network) while the switch is pending cancels the automatic send", async () => {
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 5_000_000n, "ETH:421614": E };
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted ??= () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    await typeAmount("0,5");
+    await userEvent.click(continuar());
+    expect(switchChain).toHaveBeenCalledTimes(1);
+    await userEvent.click(radio(/ETH.*Arbitrum Sepolia/));
+    account.chainId = 421614;
+    view.rerender(ui());
+    act(() => accepted!());
+    await new Promise((r) => setTimeout(r, 50));
     expect(createTipIntentAction).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });

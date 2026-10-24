@@ -298,6 +298,42 @@ test("4. receive networks: with B accepting Base only, the picker never offers A
   }
 });
 
+test("4b. auto-selected asset on the other network: no prompt on open, Continuar switches the wallet and the tip goes ahead", async () => {
+  const db = service();
+  const set = await db.from("members").update({ receive_networks: ["arbitrum"] }).eq("id", b.id);
+  expect(set.error).toBeNull();
+  const chainOf = () =>
+    a.page.evaluate(() => (window as unknown as { ethereum: { request(a: { method: string }): Promise<string> } }).ethereum.request({ method: "eth_chainId" }));
+  try {
+    await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
+    await a.page.getByRole("button", { name: "Dar propina" }).click();
+    const dialog = a.page.getByRole("dialog", { name: "Dar propina" });
+    await expect(dialog).toBeVisible();
+    await connectIfNeeded(a.page);
+    // Test 3 left the wallet on Base Sepolia; B only takes Arbitrum, so the picked asset is on the other network.
+    expect(await chainOf()).toBe("0x14a34");
+    await expect(assetRow(a.page, "USDC", "Arbitrum Sepolia")).toHaveAttribute("aria-checked", "true");
+    await expect(dialog.getByText("Tu wallet está en otra red.")).toBeVisible();
+    // Opening the dialog never prompts the wallet.
+    await a.page.waitForTimeout(1_000);
+    expect(await chainOf()).toBe("0x14a34");
+    const recipientBefore = await usdcBalance(ARB, recipient.address);
+
+    await dialog.getByLabel("Importe").fill("1");
+    await expect(dialog.getByRole("button", { name: "Continuar" })).toBeEnabled();
+    await dialog.getByRole("button", { name: "Continuar" }).click();
+    await expect.poll(chainOf).toBe("0x66eee");
+    await expect(dialog.getByText("Propina enviada")).toBeVisible({ timeout: 60_000 });
+    expect(walletA.sent).toHaveLength(4);
+    expect((await usdcBalance(ARB, recipient.address)) - recipientBefore).toBe(1_000_000n);
+    const tip = (await dbTipsFor(a.id)).find((t) => t.main_tx_hash === walletA.sent[3]);
+    expect(tip).toMatchObject({ chain_id: ARB, message_id: null });
+  } finally {
+    const reset = await db.from("members").update({ receive_networks: ["base", "arbitrum"] }).eq("id", b.id);
+    expect(reset.error).toBeNull();
+  }
+});
+
 test("5. replay: the first tip's hash on a new intent is refused with tx_already_used and credits nothing", async () => {
   expect(firstTipHash).not.toBe("");
   const created = await rpcAs(a.context, "create_tip_intent", {
