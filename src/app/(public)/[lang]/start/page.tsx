@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
 };
 
+// Bloqueante a propósito (ver el layout de [lang]).
+export const instant = false;
+
 export default function StartPage() {
   return <StartLanding />;
 }

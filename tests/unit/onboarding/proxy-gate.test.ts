@@ -144,7 +144,8 @@ describe("proxy welcome memo", () => {
 
   it("clears the memo once the session is gone (signed out)", async () => {
     state.user = null;
-    const res = await call("/", { headers: { cookie: "ecl_welcomed=u1" } });
+    // A private page: signed out, "/" is the public landing now (it clears the memo too, but does not go to /login).
+    const res = await call("/perfil", { headers: { cookie: "ecl_welcomed=u1" } });
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
     const cleared = res.cookies.get("ecl_welcomed");
     expect(cleared?.value).toBe("");

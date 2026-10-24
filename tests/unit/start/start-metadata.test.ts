@@ -5,7 +5,7 @@ import type { Metadata, MetadataRoute } from "next";
 async function load(siteUrl: string | undefined) {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", siteUrl);
-  const { metadata } = (await import("@/app/start/page")) as { metadata: Metadata };
+  const { metadata } = (await import("@/app/(public)/[lang]/start/page")) as { metadata: Metadata };
   const { default: robots } = (await import("@/app/robots")) as { default: () => MetadataRoute.Robots };
   return { metadata, robots: robots() };
 }
@@ -46,7 +46,8 @@ describe("/start metadata in production", () => {
     const { robots } = await load("https://elclub.party");
     const all = rulesOf(robots).find((x) => x.userAgent === "*");
     expect(all).toBeDefined();
-    expect([all!.allow].flat()).toEqual(expect.arrayContaining(["/start", "/_next/"]));
+    expect([all!.allow].flat()).toEqual(expect.arrayContaining(["/$", "/en", "/start", "/herramientas", "/_next/"]));
+    expect(robots.sitemap).toBe("https://elclub.party/sitemap.xml");
     expect([all!.disallow].flat()).toContain("/");
   });
 });

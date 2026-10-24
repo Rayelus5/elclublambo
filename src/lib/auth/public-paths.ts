@@ -1,8 +1,20 @@
 // SECURITY: every /api/cron/* route handler must authenticate itself (bearer CRON_SECRET, constant-time compare); the
 // proxy lets this prefix through without a session.
-// /start is the public landing (with its generated OG/Twitter images under /start/*) and /robots.txt lets crawlers in:
-// both are served the same with or without a session, and the welcome gate skips them too.
-const PUBLIC_PREFIXES = ["/login", "/invite", "/no-access", "/banned", "/api/cron", "/start", "/robots.txt"] as const;
+// The public part is served the same with or without a session, and the welcome gate skips it too: /start, the English
+// tree (/en/*), the Spanish tools (/herramientas/*), /robots.txt and /sitemap.xml. "/" is not listed: the proxy resolves it (landing or
+// forum) before the gate. The internal OG/Twitter images under /es/* are let through by the proxy (isInternalImagePath).
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/invite",
+  "/no-access",
+  "/banned",
+  "/api/cron",
+  "/start",
+  "/en",
+  "/herramientas",
+  "/robots.txt",
+  "/sitemap.xml",
+] as const;
 
 /** Sanitizes a `?next=` value: only same-origin absolute paths, never auth pages. */
 export function safeNextPath(next: string | null): string {

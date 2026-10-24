@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
+import { decidePublicRoute, isInternalImagePath, type PublicState } from "@/lib/i18n/public-routing";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 import { isHiddenReportsPage } from "@/lib/reports/guard";
@@ -63,7 +64,28 @@ export async function proxy(request: NextRequest) {
   };
 
   const { pathname } = request.nextUrl;
-  if (!user && !isPublicPath(pathname)) {
+
+  // Public part (bilingual tree): "/" is the landing unless the visitor is an active member (then the forum); Spanish
+  // public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their canonical URL (308).
+  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/".
+  let publicState: PublicState = user ? "public" : "anon";
+  if (user && pathname === "/") {
+    const { data: status, error } = await supabase.rpc("my_membership_status");
+    if (!error && status === "active") publicState = "member";
+  }
+  const route = decidePublicRoute(pathname, publicState);
+  if (route.kind === "redirect") {
+    const url = request.nextUrl.clone();
+    url.pathname = route.to;
+    return remember(applySessionHeaders(NextResponse.redirect(url, 308), sessionCookies, sessionHeaders));
+  }
+  if (route.kind === "rewrite") {
+    const url = request.nextUrl.clone();
+    url.pathname = route.to;
+    return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
+  }
+
+  if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
