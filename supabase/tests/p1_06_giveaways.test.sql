@@ -1,12 +1,15 @@
 -- P1 Task 8 (migration 20261024200006): free, equal-weight giveaways drawn with drand quicknet (P1-R8..R10).
 --   - create_giveaway: MANAGE_TREASURY only, 1..10 prizes, role prizes under P1-R9, closes_at window, enabled networks.
 --   - enter / leave: idempotent, refused from closes_at on (giveaway_closed).
---   - close_due_giveaways: positions 1..n among active members; 0 entries -> void with the seed revealed (RF 3).
+--   - create_giveaway role prizes also need MANAGE_ROLES (or ADMINISTRATOR) and a role inside the creator's permissions.
+--   - close_due_giveaways: positions 1..n over every entry, frozen at the close; 0 entries -> void, seed revealed (RF 3).
 --   - draw_giveaway: the target round only, randomness = sha256(signature) of the real round 1000, distinct winners,
---     not_enough_entries (RF 3), role_unavailable for a deleted or widened role (RF 4), giveaway_won notified.
+--     not_enough_entries (RF 3), role_unavailable for a deleted or widened role (RF 4), winner_inactive for a winner
+--     who left or was banned, giveaway_won notified.
+--   - cancel_giveaway: only open and before closes_at.
 --   - record_giveaway_payout: tx_already_used for a hash behind an intent or another prize; delivered / cancel / reads.
 begin;
-select plan(72);
+select plan(82);
 
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -39,7 +42,9 @@ insert into public.member_roles (member_id, role_id)
   select current_setting('t.a')::uuid, id from public.roles where name = 'SuperAdmin';
 select set_config('t.t', tests.create_member('0x' || lpad('e9d01', 40, '0'), current_setting('t.a')::uuid)::text, true);
 insert into public.roles (name, color, position, permissions) values
-  ('Tesorería P1', '#112233', 50, 256),
+  ('Tesorería P1', '#112233', 50, 320),
+  ('Solo caja P1', '#112244', 50, 256),
+  ('Raro P1', '#112255', 10, 16),
   ('Premio P1', '#223344', 20, 0),
   ('Alto P1', '#334455', 60, 0),
   ('Caro P1', '#445566', 5, 256),
@@ -49,6 +54,11 @@ insert into public.roles (name, color, position, permissions) values
   ('Ovr P1', '#8899AA', 24, 0);
 insert into public.member_roles (member_id, role_id)
   select current_setting('t.t')::uuid, id from public.roles where name = 'Tesorería P1';
+-- a treasurer without MANAGE_ROLES
+select set_config('t.t2', tests.create_member('0x' || lpad('e9d02', 40, '0'), current_setting('t.a')::uuid)::text, true);
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.t2')::uuid, id from public.roles where name = 'Solo caja P1';
+select set_config('t.ut2', (select auth_user_id::text from public.members where id = current_setting('t.t2')::uuid), true);
 do $$
 begin
   for i in 1 .. 8 loop
@@ -122,6 +132,15 @@ select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}
   'P0001', 'role_not_allowed', 'a role above the creator is not a prize');
 select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}]')$$, current_setting('t.r_canal')),
   'P0001', 'role_not_allowed', 'a role widened by a channel overwrite outside the member mask is not a prize');
+select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}]')$$,
+                        (select id from public.roles where name = 'Raro P1')),
+  'P0001', 'role_not_allowed', 'a role with a permission the creator lacks is not a prize (subset, as set_member_role)');
+select tests.authenticate_as(current_setting('t.ut2')::uuid);
+select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}]')$$, current_setting('t.r_premio')),
+  'P0001', 'role_not_allowed', 'a treasurer without MANAGE_ROLES cannot offer a role prize');
+select lives_ok($$select tests.gw_create('[{"kind":"custom","label":"Sin rol"}]')$$,
+  'a treasurer without MANAGE_ROLES still creates non-role giveaways');
+select tests.authenticate_as(current_setting('t.ut')::uuid);
 select throws_ok($$select tests.gw_create('[{"kind":"crypto","chainId":59144,"amount":"5000000"}]')$$,
   'P0001', 'chain_invalid', 'a crypto prize on a disabled network is chain_invalid');
 select throws_ok($$select tests.gw_create('[{"kind":"crypto","chainId":84532,"amount":"0"}]')$$,
@@ -144,6 +163,10 @@ select set_config('t.g4', tests.gw_create(format('[{"kind":"role","roleId":"%s"}
 -- G8: a role that gains a moderating channel overwrite before the draw; G9: an entry vanishes before the draw
 select set_config('t.g8', tests.gw_create(format('[{"kind":"role","roleId":"%s"}]', current_setting('t.r_ovr'))::jsonb)::text, true);
 select set_config('t.g9', tests.gw_create('[{"kind":"custom","label":"Taza"}]')::text, true);
+-- G10: two entrants, one who leaves the club before the close and one banned after it (winner_inactive)
+select set_config('t.g10', tests.gw_create('[{"kind":"custom","label":"Gorra"},{"kind":"custom","label":"Llavero"}]')::text, true);
+-- G11: due (closes_at passed) but not yet closed by the cron, then cancelled too late
+select set_config('t.g11', tests.gw_create('[{"kind":"custom","label":"Tarde para cancelar"}]')::text, true);
 -- G5: nobody enters (void); G6: entered after the close; G7: cancelled
 select set_config('t.g5', tests.gw_create('[{"kind":"custom","label":"Nada"}]')::text, true);
 select set_config('t.g6', tests.gw_create('[{"kind":"custom","label":"Tarde"}]')::text, true);
@@ -169,13 +192,13 @@ select ok(exists (select 1 from public.audit_log where action = 'giveaway_create
 -- ===== 4. enter / leave =====
 do $$
 begin
-  for i in 1 .. 8 loop
+  for i in 1 .. 7 loop
     perform tests.enter_as(current_setting('t.m' || i)::uuid, current_setting('t.g1')::uuid);
   end loop;
 end;
 $$;
 select tests.enter_as(current_setting('t.m1')::uuid, current_setting('t.g1')::uuid);
-select is((select count(*)::int from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid), 8,
+select is((select count(*)::int from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid), 7,
   'entering twice is idempotent');
 select tests.authenticate_as(current_setting('t.um1')::uuid);
 select lives_ok(format($$select public.leave_giveaway(%L)$$, current_setting('t.g2')), 'leaving a giveaway never entered is a no-op');
@@ -194,6 +217,8 @@ select tests.enter_as(current_setting('t.m3')::uuid, current_setting('t.g8')::uu
 select tests.enter_as(current_setting('t.m4')::uuid, current_setting('t.g9')::uuid);
 select tests.enter_as(current_setting('t.m5')::uuid, current_setting('t.g9')::uuid);
 select tests.enter_as(current_setting('t.m1')::uuid, current_setting('t.g7')::uuid);
+select tests.enter_as(current_setting('t.m8')::uuid, current_setting('t.g10')::uuid);
+select tests.enter_as(current_setting('t.m6')::uuid, current_setting('t.g10')::uuid);
 
 select tests.gw_due(current_setting('t.g6')::uuid);
 select tests.authenticate_as(current_setting('t.um1')::uuid);
@@ -213,19 +238,35 @@ select tests.gw_due(current_setting('t.g3')::uuid, true);
 select tests.gw_due(current_setting('t.g4')::uuid, true);
 select tests.gw_due(current_setting('t.g8')::uuid, true);
 select tests.gw_due(current_setting('t.g9')::uuid, true);
+select tests.gw_due(current_setting('t.g10')::uuid, true);
 select tests.gw_due(current_setting('t.g5')::uuid);
 select set_config('t.g5seed', (select '0x' || encode(seed, 'hex') from private.giveaway_seeds
                                where giveaway_id = current_setting('t.g5')::uuid), true);
 set local role service_role;
-select is(public.close_due_giveaways(), '{"closed": 6, "voided": 2}'::jsonb,
-  'close_due_giveaways closes the six with entries and voids the two without');
+select is(public.close_due_giveaways(), '{"closed": 7, "voided": 2}'::jsonb,
+  'close_due_giveaways closes the seven with entries and voids the two without');
 reset role;
 select results_eq($$select position from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid
                     and position is not null order by position$$,
-  $$select generate_series(1, 7)$$, 'positions 1..7 for the active entries');
-select is((select position from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid
-           and member_id = current_setting('t.m8')::uuid), null::int, 'a member who left keeps no position');
-select is((select entry_count from public.giveaways where id = current_setting('t.g1')::uuid), 7, 'entry_count counts active entries');
+  $$select generate_series(1, 7)$$, 'positions 1..7 for the seven entries');
+select results_eq($$select member_id::text, position from public.giveaway_entries
+                    where giveaway_id = current_setting('t.g10')::uuid order by position$$,
+  $$values (current_setting('t.m8'), 1), (current_setting('t.m6'), 2)$$,
+  'a member who left before the close keeps their position: positions are frozen over every entry');
+select is((select entry_count from public.giveaways where id = current_setting('t.g10')::uuid), 2,
+  'entry_count counts every entry, active or not');
+select is((select entry_count from public.giveaways where id = current_setting('t.g1')::uuid), 7, 'entry_count of G1');
+-- m6 is banned between the close and the draw; a later cron run recomputes nothing
+update public.members set status = 'banned' where id = current_setting('t.m6')::uuid;
+set local role service_role;
+select is(public.close_due_giveaways(), '{"closed": 0, "voided": 0}'::jsonb, 'a later cron run leaves closed giveaways alone');
+reset role;
+-- G11 is due now, after the cron run: still open, but past closes_at
+select tests.gw_due(current_setting('t.g11')::uuid);
+select results_eq($$select member_id::text, position from public.giveaway_entries
+                    where giveaway_id = current_setting('t.g10')::uuid order by position$$,
+  $$values (current_setting('t.m8'), 1), (current_setting('t.m6'), 2)$$,
+  'a ban after the close changes no position');
 select is((select position from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid
            and member_id = current_setting('t.m1')::uuid), 1, 'positions follow entered_at');
 select ok((select status = 'void' and seed_reveal = current_setting('t.g5seed') and entry_count = 0
@@ -267,6 +308,7 @@ select is(public.draw_giveaway(current_setting('t.g2')::uuid, 1000, tests.sig())
 select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g3'), tests.sig()), 'G3 draws');
 select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g4'), tests.sig()), 'G4 draws');
 select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g8'), tests.sig()), 'G8 draws');
+select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g10'), tests.sig()), 'G10 draws');
 select throws_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g9'), tests.sig()),
   'P0001', 'invalid_state', 'an entry list shorter than entry_count refuses to draw (parity with the verifier)');
 reset role;
@@ -311,12 +353,17 @@ select ok((select status = 'unawarded' and unawarded_reason = 'role_unavailable'
       and not exists (select 1 from public.member_roles where member_id = current_setting('t.m3')::uuid
                       and role_id = current_setting('t.r_ovr')::uuid),
   'a role that gained a moderating overwrite is role_unavailable and is not granted (RF 4)');
+select results_eq($$select status, unawarded_reason, winner_member_id is not null, winner_position
+                    from public.giveaway_prizes where giveaway_id = current_setting('t.g10')::uuid order by rank$$,
+  $$values ('unawarded'::text, 'winner_inactive'::text, true, 1), ('unawarded', 'winner_inactive', true, 2)$$,
+  'winners who left or were banned are consumed but unawarded (winner_inactive)');
 select ok((select count(*) = 3 and bool_and(n.data ->> 'giveawayId' = current_setting('t.g1')
                                          and n.data ->> 'title' = 'Gran sorteo' and n.data ? 'prizeLabel')
            from public.notifications n where n.kind = 'giveaway_won' and n.data ->> 'giveawayId' = current_setting('t.g1'))
       and not exists (select 1 from public.notifications n where n.kind = 'giveaway_won'
-                      and n.data ->> 'giveawayId' in (current_setting('t.g3'), current_setting('t.g4'), current_setting('t.g8'))),
-  'giveaway_won to each winner; nothing for an unavailable role');
+                      and n.data ->> 'giveawayId' in (current_setting('t.g3'), current_setting('t.g4'), current_setting('t.g8'),
+                                                      current_setting('t.g10'))),
+  'giveaway_won to each winner; nothing for an unavailable role or an inactive winner');
 select is((select b.url || '|' || b.body from public.notifications n, public._push_build(n.id) b
            where n.kind = 'giveaway_won' and n.data ->> 'giveawayId' = current_setting('t.g1') and n.data ->> 'prizeLabel' = '5 USDC'),
   '/sorteos/' || current_setting('t.g1') || '|Has ganado «5 USDC» en «Gran sorteo»', 'the push links to /sorteos/<id>');
@@ -364,6 +411,10 @@ select throws_ok(format($$select public.mark_giveaway_prize_delivered(%L)$$, cur
 -- ===== 8. cancel =====
 select throws_ok(format($$select public.cancel_giveaway(%L, 'Ya sorteado')$$, current_setting('t.g1')), 'P0001', 'invalid_state',
   'a drawn giveaway cannot be cancelled');
+select throws_ok(format($$select public.cancel_giveaway(%L, 'Demasiado tarde')$$, current_setting('t.g11')), 'P0001', 'invalid_state',
+  'an open giveaway past closes_at cannot be cancelled (the entries are frozen)');
+select throws_ok(format($$select public.cancel_giveaway(%L, 'Esperando')$$, current_setting('t.g9')), 'P0001', 'invalid_state',
+  'a closed giveaway awaiting its draw cannot be cancelled');
 select lives_ok(format($$select public.cancel_giveaway(%L, 'Premio no disponible')$$, current_setting('t.g7')),
   'a treasurer cancels an open giveaway');
 select tests.clear_authentication();
@@ -380,7 +431,7 @@ select ok((select c ->> 'status' = 'drawn' and (c ->> 'iEntered')::boolean and (
            from unnest(public.giveaways_list()) c where c ->> 'id' = current_setting('t.g1')),
   'giveaways_list: the card with entries, prizes (amount as text) and winners');
 select ok((select d ->> 'seedReveal' is not null and d ->> 'drandRandomness' = 'fe290beca10872ef2fb164d2aa4442de4566183ec51c56ff3cd603d930e54fdd'
-                  and (d ->> 'targetRound')::bigint = 1000 and jsonb_array_length(d -> 'entries') = 8
+                  and (d ->> 'targetRound')::bigint = 1000 and jsonb_array_length(d -> 'entries') = 7
                   and d -> 'prizeStates' -> 0 ->> 'payoutTxHash' = tests.hash(1)
            from public.giveaway_detail(current_setting('t.g1')::uuid) d),
   'giveaway_detail: the draw inputs, the entries and the payout hash');

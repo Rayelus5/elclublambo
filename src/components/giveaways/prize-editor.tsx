@@ -53,20 +53,32 @@ export function prizeInputs(rows: readonly PrizeRow[]): { ok: true; prizes: Give
 const NEXT_KEYS: Record<string, 1 | -1> = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
 
 /** USDC · Rol · Otro as one segmented radiogroup (arrow keys move and select). */
-function KindPicker({ value, onChange, label, disabled }: { value: Kind; onChange(k: Kind): void; label: string; disabled?: boolean }) {
+function KindPicker({
+  value,
+  onChange,
+  label,
+  disabled,
+  kinds,
+}: {
+  value: Kind;
+  onChange(k: Kind): void;
+  label: string;
+  disabled?: boolean;
+  kinds: readonly { value: Kind; text: string }[];
+}) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const onKeyDown = (e: KeyboardEvent, i: number) => {
     if (e.altKey || e.ctrlKey || e.metaKey) return;
     const step = NEXT_KEYS[e.key];
     if (!step) return;
     e.preventDefault();
-    const next = (i + step + KINDS.length) % KINDS.length;
-    onChange(KINDS[next]!.value);
+    const next = (i + step + kinds.length) % kinds.length;
+    onChange(kinds[next]!.value);
     refs.current[next]?.focus();
   };
   return (
     <div role="radiogroup" aria-label={label} className="inline-flex self-start rounded-control border border-border-strong p-0.5">
-      {KINDS.map((k, i) => {
+      {kinds.map((k, i) => {
         const checked = k.value === value;
         return (
           <button
@@ -124,7 +136,14 @@ function Row({
           <Trash2 aria-hidden className="size-4" />
         </Button>
       ) : null}
-      <KindPicker value={row.kind} onChange={(kind) => set({ kind })} label={`Tipo del premio ${rank}`} disabled={disabled} />
+      {/* «Rol» only when there is a role to offer: none for a treasurer without MANAGE_ROLES (P1-R9, _giveaway_role_ok) */}
+      <KindPicker
+        value={row.kind}
+        onChange={(kind) => set({ kind })}
+        label={`Tipo del premio ${rank}`}
+        disabled={disabled}
+        kinds={roles.length > 0 ? KINDS : KINDS.filter((k) => k.value !== "role")}
+      />
       {row.kind === "crypto" ? (
         <>
           {chains.length > 1 ? <NetworkPicker value={row.chainId} onChange={(chainId) => set({ chainId })} chains={chains} label="Red" /> : null}
@@ -140,9 +159,6 @@ function Row({
           <label htmlFor={`${id}-role`} className="text-sm font-bold text-fg">
             Rol
           </label>
-          {roles.length === 0 ? (
-            <p className="text-[13px] text-fg-muted">No hay roles que puedas sortear: deben estar por debajo del tuyo y sin permisos de gestión.</p>
-          ) : null}
           <select id={`${id}-role`} className={SELECT} value={row.roleId} onChange={(e) => set({ roleId: e.target.value })}>
             <option value="">Elige un rol</option>
             {roles.map((r) => (

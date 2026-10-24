@@ -10,7 +10,8 @@ export type PrizeKind = (typeof PRIZE_KINDS)[number];
 export const PRIZE_STATUSES = ["pending", "awarded", "unawarded", "paid", "delivered"] as const;
 export type PrizeStatus = (typeof PRIZE_STATUSES)[number];
 
-export type UnawardedReason = "not_enough_entries" | "role_unavailable";
+export const UNAWARDED_REASONS = ["not_enough_entries", "role_unavailable", "winner_inactive"] as const;
+export type UnawardedReason = (typeof UNAWARDED_REASONS)[number];
 
 export interface GiveawayPrize {
   rank: number;
@@ -40,7 +41,7 @@ export interface GiveawayCard {
 }
 
 export interface GiveawayEntry {
-  /** 1..n once closed (null before, or for a member no longer active at the close). */
+  /** 1..n once closed (every entry, frozen at closes_at); null before. */
   position: number | null;
   label: string | null;
   isMe: boolean;

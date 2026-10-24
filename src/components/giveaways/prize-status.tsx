@@ -1,7 +1,7 @@
 import { CircleCheck, CircleDashed, CircleSlash, Clock, Coins, ExternalLink, Gift, Shield, type LucideIcon } from "lucide-react";
 import { NetworkLogo } from "@/components/economy/network-logo";
 import { explorerTx, isChainId } from "@/lib/economy/networks";
-import type { GiveawayPrize, GiveawayPrizeState } from "@/lib/giveaways/types";
+import type { GiveawayPrize, GiveawayPrizeState, UnawardedReason } from "@/lib/giveaways/types";
 import { cn } from "@/lib/utils";
 
 const KIND_ICON: Record<GiveawayPrize["kind"], LucideIcon> = { crypto: Coins, role: Shield, custom: Gift };
@@ -19,6 +19,12 @@ export function PrizeLabel({ prize, className }: { prize: GiveawayPrize; classNa
     </span>
   );
 }
+
+const UNAWARDED_NOTE: Record<UnawardedReason, string> = {
+  not_enough_entries: "No hubo participantes suficientes.",
+  role_unavailable: "El rol ya no se podía sortear.",
+  winner_inactive: "El ganador ya no es miembro.",
+};
 
 type Tone = "muted" | "warning" | "success";
 type View = { text: string; tone: Tone; Icon: LucideIcon; note?: string };
@@ -40,7 +46,7 @@ function view(p: GiveawayPrizeState): View {
         text: "Sin ganador",
         tone: "muted",
         Icon: CircleSlash,
-        note: p.unawardedReason === "role_unavailable" ? "El rol ya no se podía sortear." : "No hubo participantes suficientes.",
+        note: UNAWARDED_NOTE[p.unawardedReason ?? "not_enough_entries"],
       };
   }
 }

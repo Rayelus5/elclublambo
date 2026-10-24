@@ -5,6 +5,7 @@ import {
   GIVEAWAY_STATUSES,
   PRIZE_KINDS,
   PRIZE_STATUSES,
+  UNAWARDED_REASONS,
   type GiveawayCard,
   type GiveawayDetail,
   type GiveawayEntry,
@@ -14,6 +15,7 @@ import {
   type GiveawayWinner,
   type PrizeKind,
   type PrizeStatus,
+  type UnawardedReason,
 } from "@/lib/giveaways/types";
 
 type Client = Pick<SupabaseClient, "rpc">;
@@ -64,7 +66,7 @@ const entry = (r: Row): GiveawayEntry => ({ position: numOrNull(r.position), lab
 function prizeState(r: Row): GiveawayPrizeState | null {
   const base = prize(r);
   if (!base || !isPrizeStatus(r.status)) return null;
-  const reason = r.unawardedReason === "not_enough_entries" || r.unawardedReason === "role_unavailable" ? r.unawardedReason : null;
+  const reason = (UNAWARDED_REASONS as readonly unknown[]).includes(r.unawardedReason) ? (r.unawardedReason as UnawardedReason) : null;
   return {
     ...base,
     id: str(r.id),

@@ -4,6 +4,7 @@ import type { RoleItem } from "@/lib/roles/rules";
 
 /** The member-safe mask of SQL _giveaway_role_ok / update_role (P1-R9). */
 const MEMBER_SAFE = 207895n;
+const MANAGE_ROLES = 64n;
 
 /** "2 d 4 h", "3 h 20 min", "9 min 5 s", "42 s"; null once the time is up. */
 export function formatCountdown(ms: number): string | null {
@@ -38,13 +39,22 @@ export type RoleOption = { id: string; name: string; color: string };
 
 /**
  * The roles a treasurer may offer as a prize (P1-R9): not @everyone, no is_system or system_key, permissions inside the
- * member-safe mask, no channel overwrite widening it past that mask (`widened`, see widenedRoleIds), and strictly below
- * the creator unless ADMINISTRATOR. create_giveaway re-checks all of it (_giveaway_role_ok) and answers role_not_allowed.
+ * member-safe mask, no channel overwrite widening it past that mask (`widened`, see widenedRoleIds), and the MANAGE_ROLES
+ * model of set_member_role: the creator holds MANAGE_ROLES (or is ADMINISTRATOR), holds every permission of the role,
+ * and is strictly above it unless ADMINISTRATOR. Without MANAGE_ROLES the list is empty (the dialog hides «Rol»).
+ * create_giveaway re-checks all of it (_giveaway_role_ok) and answers role_not_allowed.
  */
 export function giveawayRoleOptions(
   ctx: { roles: readonly RoleItem[]; actor: { isAdmin: boolean; perms?: string; top: number } },
   widened: ReadonlySet<string> = new Set(),
 ): RoleOption[] {
+  let actorPerms: bigint;
+  try {
+    actorPerms = BigInt(ctx.actor.perms ?? "0");
+  } catch {
+    actorPerms = 0n;
+  }
+  if (!ctx.actor.isAdmin && (actorPerms & MANAGE_ROLES) === 0n) return [];
   return ctx.roles
     .filter((r) => {
       if (r.isEveryone || r.isSystem || r.systemKey !== null || widened.has(r.id)) return false;
@@ -55,7 +65,8 @@ export function giveawayRoleOptions(
         return false;
       }
       if ((perms & ~MEMBER_SAFE) !== 0n) return false;
-      return ctx.actor.isAdmin || r.position < ctx.actor.top;
+      if (ctx.actor.isAdmin) return true;
+      return (perms & ~actorPerms) === 0n && r.position < ctx.actor.top;
     })
     .map((r) => ({ id: r.id, name: r.name, color: r.color }));
 }
@@ -79,7 +90,7 @@ export function widenedRoleIds(rows: readonly { target_id: string; allow: number
   return out;
 }
 
-/** A prize the member actually won: a winner kept on an unawarded prize (role_unavailable) is not a win. */
+/** A prize the member actually won: a winner kept on an unawarded prize (role_unavailable, winner_inactive) is not a win. */
 export function isWin(p: { iWon: boolean; status: string }): boolean {
   return p.iWon && (p.status === "awarded" || p.status === "paid" || p.status === "delivered");
 }

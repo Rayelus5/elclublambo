@@ -94,7 +94,7 @@ async function callAsMember(fn: string, args: Record<string, unknown>): Promise<
   return { ok: true };
 }
 
-/** Treasurer: cancels an open or closed giveaway with a public reason; the seed is deleted, never revealed. */
+/** Treasurer: cancels an open giveaway before closes_at with a public reason; the seed is deleted, never revealed. */
 export async function cancelGiveawayAction(id: string, reason: string): Promise<{ ok: true } | Fail> {
   if (!isId(id) || typeof reason !== "string") return fail("invalid_input");
   return callAsMember("cancel_giveaway", { p_id: id, p_reason: reason });

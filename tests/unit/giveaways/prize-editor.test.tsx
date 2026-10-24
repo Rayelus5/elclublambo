@@ -52,6 +52,12 @@ describe("PrizeEditor", () => {
     expect(within(row).getByLabelText("Premio")).toBeInTheDocument();
   });
 
+  it("without roles to offer (no MANAGE_ROLES, or none allowed) the «Rol» kind is not shown", () => {
+    render(<PrizeEditor rows={[newPrizeRow(84532)]} onChange={() => {}} chains={[84532]} roles={[]} />);
+    const kind = screen.getByRole("radiogroup", { name: "Tipo del premio 1" });
+    expect(within(kind).getAllByRole("radio").map((r) => r.textContent)).toEqual(["USDC", "Otro"]);
+  });
+
   it("removes a row, never the last one", async () => {
     render(<Harness />);
     expect(screen.queryByRole("button", { name: /Quitar premio/ })).toBeNull();

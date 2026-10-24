@@ -62,6 +62,12 @@ describe("PrizeStatus", () => {
     expect(screen.getByText("El rol ya no se podía sortear.")).toBeInTheDocument();
   });
 
+  it("unawarded winner_inactive: «Sin ganador», the winner is no longer a member", () => {
+    render(<PrizeStatus prize={prize({ status: "unawarded", unawardedReason: "winner_inactive" })} />);
+    expect(screen.getByText("Sin ganador")).toBeInTheDocument();
+    expect(screen.getByText("El ganador ya no es miembro.")).toBeInTheDocument();
+  });
+
   it("before the draw: «Por sortear»", () => {
     render(<PrizeStatus prize={prize({ status: "pending", winnerPosition: null, winnerLabel: null })} />);
     expect(screen.getByText("Por sortear")).toBeInTheDocument();

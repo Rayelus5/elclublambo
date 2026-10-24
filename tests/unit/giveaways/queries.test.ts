@@ -70,6 +70,11 @@ describe("getGiveaway", () => {
         unawardedReason: "not_enough_entries", winnerPosition: null, winnerLabel: null, iWon: false, winnerAddress: null,
         payoutTxHash: null, paidAt: null, deliveredAt: null,
       },
+      {
+        id: "p3", rank: 3, kind: "custom", label: "Gorra", chainId: null, token: null, amount: null, status: "unawarded",
+        unawardedReason: "winner_inactive", winnerPosition: 2, winnerLabel: "@luis", iWon: false, winnerAddress: null,
+        payoutTxHash: null, paidAt: null, deliveredAt: null,
+      },
     ],
   };
 
@@ -88,6 +93,7 @@ describe("getGiveaway", () => {
     });
     expect(g!.prizeStates[0]).toMatchObject({ id: "p1", amount: 5_000_000n, status: "awarded", winnerPosition: 1, winnerAddress: "0xabc" });
     expect(g!.prizeStates[1]).toMatchObject({ amount: null, unawardedReason: "not_enough_entries", winnerPosition: null });
+    expect(g!.prizeStates[2]).toMatchObject({ status: "unawarded", unawardedReason: "winner_inactive", winnerPosition: 2 });
   });
 
   it("null for not_found or a malformed id; throws on other errors", async () => {

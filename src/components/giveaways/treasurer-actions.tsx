@@ -67,7 +67,7 @@ export function MarkDeliveredButton({ prizeId }: { prizeId: string }) {
   );
 }
 
-/** «Cancelar» with a public reason. The seed is deleted, never revealed. */
+/** «Cancelar» with a public reason, only before closes_at (the server says invalid_state after). The seed is deleted, never revealed. */
 export function CancelGiveawayButton({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");

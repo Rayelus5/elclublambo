@@ -38,9 +38,23 @@ describe("giveawayRoleOptions (P1-R9, the server re-checks)", () => {
   ];
 
   it("keeps only member-safe roles below the creator", () => {
-    const opts = giveawayRoleOptions({ roles, actor: { isAdmin: false, perms: "256", top: 6 } });
+    const opts = giveawayRoleOptions({ roles, actor: { isAdmin: false, perms: String(256 | 64 | 207895), top: 6 } });
     expect(opts.map((r) => r.id)).toEqual(["vet"]);
     expect(opts[0]).toEqual({ id: "vet", name: "Veterano", color: "#ffffff" });
+  });
+
+  it("a treasurer without MANAGE_ROLES (64) gets no role at all (as _giveaway_role_ok)", () => {
+    expect(giveawayRoleOptions({ roles, actor: { isAdmin: false, perms: "256", top: 6 } })).toEqual([]);
+    expect(giveawayRoleOptions({ roles, actor: { isAdmin: false, top: 6 } })).toEqual([]);
+  });
+
+  it("with MANAGE_ROLES, only roles whose permissions the creator also holds", () => {
+    const more = [...roles, role({ id: "rare", name: "Raro", position: 2, permissions: String(16) })];
+    // the creator lacks bit 16: neither Veterano (207895 includes 16) nor Raro (16) is offered
+    const opts = giveawayRoleOptions({ roles: more, actor: { isAdmin: false, perms: String(256 | 64 | (207895 & ~16)), top: 6 } });
+    expect(opts).toEqual([]);
+    const withRare = giveawayRoleOptions({ roles: more, actor: { isAdmin: false, perms: String(256 | 64 | 16 | 1), top: 6 } });
+    expect(withRare.map((r) => r.id)).toEqual(["rare"]);
   });
 
   it("an administrator may pick any member-safe role", () => {

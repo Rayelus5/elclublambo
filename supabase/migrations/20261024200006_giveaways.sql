@@ -8,7 +8,7 @@
 --   create_giveaway (bit 256)          1..10 prizes, closes_at in [now + 10 min, now + 30 days], target_round fixed at
 --                                      creation: the first drand quicknet round emitted strictly after closes_at.
 --   enter_giveaway / leave_giveaway    active member, open giveaway, before closes_at; bucket raffle_entry 30 / 10 min.
---   close_due_giveaways (service)      positions 1..n by (entered_at, member_id) among ACTIVE members; 0 -> void.
+--   close_due_giveaways (service)      positions 1..n by (entered_at, member_id) over every entry; 0 -> void.
 --   draw_giveaway (service)            after TS fetched round target_round and verified its BLS signature; SQL checks
 --                                      randomness = sha256(signature) by computing it, then runs the draw below.
 --   record_giveaway_payout (service)   after TS verified the USDC Transfer from the Safe to winner_address.
@@ -19,7 +19,7 @@
 --   seed       = the 32 raw bytes behind seed_reveal ('0x' || 64 hex)
 --   randomness = sha256(signature bytes): 32 raw bytes (drand_randomness, 64 hex, no 0x)
 --   entries    = the giveaway's entries with a position, ordered by position (1..n, assigned at close by
---                (entered_at, member_id) among active members): the list L = [p_1 .. p_n]
+--                (entered_at, member_id) over every entry): the list L = [p_1 .. p_n]
 --   r_1        = keccak256(seed || randomness)      64 bytes in: seed first, randomness second; 32 bytes out
 --   for k = 1 .. m (prizes by rank ascending):
 --     if L is empty: prize k is 'unawarded' ('not_enough_entries')
@@ -29,6 +29,8 @@
 --   The winners are a pure function of (seed, randomness, n, m): the expected winners of the fixture are 1-based
 --   positions by rank. A role prize whose role is no longer allowed at the draw (P1-R9) still consumes its winner, so
 --   that every later prize matches the public verifier; it is 'unawarded' ('role_unavailable') and grants nothing.
+--   Likewise a winner who is no longer an active member at the draw: 'unawarded' ('winner_inactive'), no grant, no
+--   notification.
 -- Lock order: giveaway row (for update / for share) -> prize rows.
 
 -- ===== tables =====
@@ -76,7 +78,8 @@ create table public.giveaway_prizes (
   winner_address text check (winner_address is null or winner_address ~ '^0x[0-9a-f]{40}$'),
   winner_position int check (winner_position is null or winner_position >= 1),
   status text not null default 'pending' check (status in ('pending', 'awarded', 'unawarded', 'paid', 'delivered')),
-  unawarded_reason text check (unawarded_reason is null or unawarded_reason in ('not_enough_entries', 'role_unavailable')),
+  unawarded_reason text check (unawarded_reason is null
+                               or unawarded_reason in ('not_enough_entries', 'role_unavailable', 'winner_inactive')),
   payout_tx_hash text check (payout_tx_hash is null or payout_tx_hash ~ '^0x[0-9a-f]{64}$'),
   payout_log_index int check (payout_log_index is null or payout_log_index >= 0),
   paid_at timestamptz,
@@ -152,7 +155,10 @@ $$;
 
 -- ===== _giveaway_role_ok: P1-R9 for a role prize, checked at creation and again at the draw =====
 -- Not @everyone, not is_system, no system_key (Verificado, Padrino, Mecenas), permissions inside the member-safe mask
--- 207895 (also every channel overwrite's allow bits on the role), and the actor (active) is ADMINISTRATOR or strictly above the role (member_top_position, as set_member_role).
+-- 207895 (also every channel overwrite's allow bits on the role), and the actor (active) may hand the role out under
+-- the MANAGE_ROLES model of set_member_role (20261016100006): MANAGE_ROLES (64) or ADMINISTRATOR (512), the role's
+-- permissions a subset of the actor's, and the actor ADMINISTRATOR or strictly above the role (member_top_position).
+-- member_global_permissions gives an ADMINISTRATOR every bit, so the subset rule never stops one.
 create function public._giveaway_role_ok(p_role uuid, p_actor uuid)
 returns boolean
 language sql
@@ -169,6 +175,8 @@ as $$
        and not exists (select 1 from public.permission_overwrites o
                        where o.target_type = 'role' and o.target_id = r.id and (o.allow & ~207895::bigint) <> 0)
        and exists (select 1 from public.members m where m.id = p_actor and m.status = 'active')
+       and (public.member_global_permissions(p_actor) & (64 | 512)) <> 0
+       and (r.permissions & ~public.member_global_permissions(p_actor)) = 0
        and ((public.member_global_permissions(p_actor) & 512) <> 0
             or r.position < public.member_top_position(p_actor))
     from public.roles r
@@ -296,7 +304,9 @@ begin
 end;
 $$;
 
--- ===== cancel_giveaway (bit 256): open or closed only; the seed is deleted, never revealed =====
+-- ===== cancel_giveaway (bit 256): open and before closes_at only; the seed is deleted, never revealed =====
+-- From closes_at on the entries are frozen and the drand round is public soon after, so a cancel then would let a
+-- treasurer void a draw whose outcome they can already compute: invalid_state.
 create function public.cancel_giveaway(p_id uuid, p_reason text)
 returns void
 language plpgsql
@@ -318,7 +328,7 @@ begin
   if not found then
     raise exception 'not_found';
   end if;
-  if g.status not in ('open', 'closed') then
+  if g.status <> 'open' or now() >= g.closes_at then
     raise exception 'invalid_state';
   end if;
 
@@ -387,9 +397,11 @@ end;
 $$;
 
 -- ===== close_due_giveaways (service role, cron) =====
--- Each due giveaway, in id order and FOR UPDATE: positions 1..n by (entered_at, member_id) among the entries of
--- active members (the rest keep a null position and cannot win), entry_count = n. n = 0 -> void: the seed is
--- revealed (copied, then deleted) and every prize is unawarded ('not_enough_entries').
+-- Each due giveaway, in id order and FOR UPDATE: positions 1..n by (entered_at, member_id) over EVERY entry, frozen as
+-- they stood at closes_at (a member's status at the cron run does not reorder or drop anyone: that would let a
+-- moderator move the list between the close and the draw), entry_count = n. A winner who is no longer an active
+-- member at the draw is consumed and left 'unawarded' ('winner_inactive'). n = 0 -> void: the seed is revealed
+-- (copied, then deleted) and every prize is unawarded ('not_enough_entries').
 create function public.close_due_giveaways()
 returns jsonb
 language plpgsql
@@ -414,8 +426,7 @@ begin
     set position = o.pos
     from (select e2.member_id, row_number() over (order by e2.entered_at, e2.member_id)::int as pos
           from public.giveaway_entries e2
-          join public.members m on m.id = e2.member_id
-          where e2.giveaway_id = g.id and m.status = 'active') o
+          where e2.giveaway_id = g.id) o
     where e.giveaway_id = g.id and e.member_id = o.member_id;
     select count(*)::int into v_count
     from public.giveaway_entries e where e.giveaway_id = g.id and e.position is not null;
@@ -481,7 +492,9 @@ declare
   v_winner uuid;
   v_pos int;
   v_wallet text;
+  v_active boolean;
   v_ok boolean;
+  v_reason text;
   v_winners jsonb := '[]'::jsonb;
 begin
   if p_id is null or p_round is null or p_round < 1 or v_sig !~ '^[0-9a-f]{96}$' then
@@ -536,17 +549,23 @@ begin
       v_pos := v_positions[v_i + 1];
       v_members := v_members[1:v_i] || v_members[v_i + 2:v_n];
       v_positions := v_positions[1:v_i] || v_positions[v_i + 2:v_n];
-      select lower(m.wallet_address) into v_wallet from public.members m where m.id = v_winner;
+      select lower(m.wallet_address), m.status = 'active' into v_wallet, v_active
+      from public.members m where m.id = v_winner;
       v_winners := v_winners || jsonb_build_object('rank', p.rank, 'position', v_pos);
 
       v_ok := true;
-      if p.kind = 'role' then
-        v_ok := p.role_id is not null and public._giveaway_role_ok(p.role_id, g.created_by);
+      v_reason := null;
+      if not coalesce(v_active, false) then
+        v_ok := false;
+        v_reason := 'winner_inactive';
+      elsif p.kind = 'role' and (p.role_id is null or not public._giveaway_role_ok(p.role_id, g.created_by)) then
+        v_ok := false;
+        v_reason := 'role_unavailable';
       end if;
 
       if not v_ok then
         update public.giveaway_prizes
-        set status = 'unawarded', unawarded_reason = 'role_unavailable',
+        set status = 'unawarded', unawarded_reason = v_reason,
             winner_member_id = v_winner, winner_address = v_wallet, winner_position = v_pos
         where id = p.id;
       else
@@ -678,7 +697,8 @@ end;
 $$;
 
 -- ===== _giveaway_card (internal): the member-facing card of giveaway g for viewer p_me =====
--- winners: the prizes that went to someone (awarded, paid, delivered); a role_unavailable prize is not a win.
+-- winners: the prizes that went to someone (awarded, paid, delivered); a role_unavailable or winner_inactive prize is
+-- not a win.
 create function public._giveaway_card(g public.giveaways, p_me uuid)
 returns jsonb
 language sql

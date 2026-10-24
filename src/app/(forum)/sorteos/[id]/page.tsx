@@ -99,7 +99,8 @@ async function GiveawayContent({ params }: { params: Params }) {
         <Section id="tesorero" title="Panel del tesorero" intro="«Sortear ahora» funciona en cuanto existe la ronda de drand; si no, lo hace el cron.">
           <div className="flex flex-wrap items-start gap-3">
             <DrawNowButton id={g.id} />
-            <CancelGiveawayButton id={g.id} />
+            {/* cancel_giveaway refuses from closes_at on (invalid_state): never offered once the giveaway closed */}
+            {open ? <CancelGiveawayButton id={g.id} /> : null}
           </div>
         </Section>
       ) : null}
