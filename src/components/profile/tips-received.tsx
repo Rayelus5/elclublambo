@@ -35,7 +35,7 @@ export function TipsReceived({
           ) : (
             <div className="flex flex-col gap-1">
               <p id="tips-totals-title" className="inline-flex items-center gap-2 text-sm text-fg-muted">
-                <NetworkLogo chainId={activeChainId} size={16} />
+                <NetworkLogo chainId={activeChainId} size={16} decorative />
                 Totales en {network.name}
               </p>
               <dl aria-labelledby="tips-totals-title" className="flex flex-wrap items-baseline gap-x-6 gap-y-1">

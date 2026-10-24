@@ -9,11 +9,14 @@ export function NetworkLogo({
   chainId,
   size = 20,
   withName = false,
+  decorative = false,
   className,
 }: {
   chainId: ChainId;
   size?: number;
   withName?: boolean;
+  /** The name is already in the surrounding text: the image gets an empty alt. */
+  decorative?: boolean;
   className?: string;
 }) {
   const net = NETWORKS[chainId];
@@ -21,7 +24,7 @@ export function NetworkLogo({
     // eslint-disable-next-line @next/next/no-img-element -- tiny static SVG from /public
     <img
       src={net.logo}
-      alt={withName ? "" : net.name}
+      alt={withName || decorative ? "" : net.name}
       width={size}
       height={size}
       className={cn("shrink-0 rounded-full", withName ? undefined : className)}
