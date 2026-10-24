@@ -51,6 +51,8 @@ const MESSAGES: Record<string, string> = {
   bounty_has_solution: "No puedes borrar un bounty con una solución elegida sin pagar.",
   channel_has_bounties:"Este canal tiene bounties y no se puede borrar.",
   reverted: "Esta donación ya no se verifica en la red y se ha revertido. Si pagaste, contacta con soporte.",
+  price_unavailable: "Esperando precio de ETH. Se acreditará en cuanto haya uno fiable.",
+  safe_not_deployed: "La Safe del club aún no existe en esta red. Prueba con otra red.",
   safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
   safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",
   safe_change_blocked:
