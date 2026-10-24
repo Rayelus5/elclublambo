@@ -82,7 +82,9 @@ async function handle(request: Request) {
   }
 
   // P0: while the legacy DAO is paused (anything but a stored `true`) no chain step runs and chain_config is not read.
-  const { data: flag } = await createAdminClient().from("app_config").select("value").eq("key", "legacy_dao_enabled").maybeSingle();
+  const { data: flag, error: flagError } = await createAdminClient().from("app_config").select("value").eq("key", "legacy_dao_enabled").maybeSingle();
+  // A failed read fails closed (paused), but must not look like a deliberate pause in the logs.
+  if (flagError) console.error("[cron/dao] app_config read failed", safeError(flagError.message));
   if ((flag as { value?: unknown } | null)?.value !== true) {
     return Response.json({ polls, rateLimits, chains: "legacy_paused" });
   }
