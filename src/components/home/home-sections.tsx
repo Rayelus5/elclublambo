@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { AtSign, BellRing, Hash, MessageSquareReply, Pin, Target } from "lucide-react";
 import { ShareRing } from "@/components/treasury/dao-charts";
-import { DonateButton } from "@/components/treasury/donate-button";
 import { messageHref, type ActiveChannel, type HomeBounty, type HomePin, type UnreadSummary } from "@/lib/home/queries";
 import { formatAmount } from "@/lib/payments/amounts";
 import { formatBps, formatUsd } from "@/lib/treasury/format";
@@ -112,7 +111,6 @@ export function DaoSummary({ overview }: { overview: DaoOverview }) {
       </div>
       <p className="text-[13px] text-fg-muted">{overview.donors === 1 ? "1 donante" : `${overview.donors} donantes`} en esta red.</p>
       <div className="flex flex-wrap items-center gap-3">
-        <DonateButton />
         <Link href="/dao" className={LINK}>
           Ver la DAO
         </Link>

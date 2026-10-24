@@ -142,7 +142,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
           </p>
         ) : (
           <p className="text-[13px] text-fg-muted">
-            Entre {formatAmount(limits.min, token)} y {formatAmount(limits.max, token)} {token}. Se paga a la solución que elijas, con la comisión aparte.
+            Entre {formatAmount(limits.min, token)} y {formatAmount(limits.max, token)} {token}. Se paga a la solución que elijas.
           </p>
         )}
       </div>

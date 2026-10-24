@@ -14,11 +14,11 @@ vi.mock("@reown/appkit/react", () => ({
 
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ send }) }));
-const balances = vi.hoisted(() => ({ eth: null as bigint | null, usdc: null as bigint | null }));
+const balances = vi.hoisted(() => ({ map: {} as Record<string, bigint | null> }));
+vi.mock("@/lib/payments/balances", () => ({ useAssetBalances: () => balances.map, useInvalidateAssetBalances: () => () => {}, readAssetBalance: vi.fn() }));
 const preflight = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/preflight", async (orig) => ({
   ...(await orig<typeof import("@/lib/payments/preflight")>()),
-  useWalletBalances: () => ({ ...balances }),
   useBalancePreflight: () => preflight,
 }));
 
@@ -28,7 +28,6 @@ const verifyIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/tip-actions", () => ({ createTipIntentAction, attachTxAction, verifyIntentAction }));
 const createBountyPaymentIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/bounties/actions", () => ({ createBountyPaymentIntentAction }));
-vi.mock("@/lib/treasury/actions", () => ({ createDonationIntentAction: vi.fn() }));
 
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { TipDialog, type BountyMode } from "@/components/payments/tip-dialog";
@@ -37,7 +36,6 @@ import { loadSends, upsertSend } from "@/lib/payments/pending-sends";
 
 const SESSION = "0x1111111111111111111111111111111111111111";
 const SOLVER_WALLET = "0x2222222222222222222222222222222222222222";
-const FEE_HASH = `0x${"fe".repeat(32)}`;
 const MAIN_HASH = `0x${"aa".repeat(32)}`;
 const MEMBER = "99999999-9999-4999-8999-999999999999";
 const INTENT_ID = "11111111-1111-4111-8111-111111111111";
@@ -85,8 +83,7 @@ const continuar = () => screen.getByRole("button", { name: "Continuar" });
 const amountBox = () => screen.getByLabelText("Importe");
 
 beforeEach(() => {
-  balances.eth = null;
-  balances.usdc = null;
+  balances.map = {};
   preflight.mockReset().mockResolvedValue(null);
   window.localStorage.clear();
   account.address = SESSION;
@@ -138,7 +135,7 @@ describe("TipDialog bounty mode: form", () => {
     expect(screen.queryByText(/anónima/i)).not.toBeInTheDocument();
   });
 
-  it("when the bounty chain is not the active one, explains it and cannot continue", async () => {
+  it("when the bounty's network is not enabled, explains it and cannot continue", async () => {
     setup(mode({ chainId: 8453 }));
     expect(
       screen.getByText("Este bounty se publicó en Base; podrás pagarlo cuando esa red vuelva a estar activa."),
@@ -163,62 +160,28 @@ describe("TipDialog bounty mode: signing", () => {
     expect(loadSends(MEMBER)).toEqual([]);
   });
 
-  // Task 11: needs a platform fee, which P0-R5 removes (the config has no platform wallet); rewritten there.
-  it.skip("keys the ledger by targetType 'bounty' and the bounty message id; fee paid + main rejected resumes the same intent", async () => {
-    send.mockReset().mockResolvedValueOnce(FEE_HASH).mockRejectedValueOnce(Object.assign(new Error("rejected"), { code: 4001 })).mockResolvedValueOnce(MAIN_HASH);
-    setup();
+  it("pays a bounty published on another enabled network on that network", async () => {
+    account.chainId = 421614;
+    createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, chainId: 421614 } });
+    setup(mode({ chainId: 421614 }));
+    expect(screen.getByText("Arbitrum Sepolia")).toBeInTheDocument();
     await userEvent.click(continuar());
-    expect(await screen.findByText("La comisión ya está pagada. Falta firmar el pago.")).toBeInTheDocument();
-    expect(loadSends(MEMBER)[0]).toMatchObject({ intentId: INTENT_ID, targetType: "bounty", targetId: BOUNTY, feeHash: FEE_HASH });
-    await userEvent.click(screen.getByRole("button", { name: "Firmar el pago" }));
     await screen.findByText("Bounty pagado");
-    expect(send).toHaveBeenCalledTimes(3);
-    expect(send).toHaveBeenNthCalledWith(3, { chain: 84532, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
-    expect(createBountyPaymentIntentAction).toHaveBeenCalledTimes(1);
+    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, chainId: 421614, amount: "25" });
+    expect(send).toHaveBeenCalledWith({ chain: 421614, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
   });
 
-  it("opens straight into the resume state for a bounty whose fee is already paid, without a new intent", async () => {
-    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 84532, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, feeAttached: true, createdAt: Date.now(), intent });
+  it("a fee-era leftover for this bounty is discarded and the form opens (Review Focus 4)", () => {
+    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 84532, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, createdAt: Date.now(), intent: { ...intent, feeAmount: "250000" } });
     setup();
-    expect(screen.getByText("La comisión ya está pagada. Falta firmar el pago.")).toBeInTheDocument();
-    expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("F3c-R7: resumes a paid-fee intent on its own chain although it is no longer the active one (badge, switch to the intent's network, signs there)", async () => {
-    const cfg = config();
-    const old = { ...intent, chainId: 8453 };
-    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 8453, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, feeAttached: true, createdAt: Date.now(), intent: old });
-    account.chainId = 84532; // the wallet is on the active chain, the intent lives on the other one
-    const view = setup(mode({ chainId: 8453 }), cfg);
-    expect(screen.getByText("La comisión ya está pagada. Falta firmar el pago.")).toBeInTheDocument();
-    expect(screen.getByText("Base", { exact: true })).toBeInTheDocument();
-    expect(screen.queryByText(/vuelva a estar activa/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Cambiar a Base" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Cambiar a Base Sepolia" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Firmar el pago" })).toBeDisabled();
-    expect(send).not.toHaveBeenCalled();
-
-    account.chainId = 8453; // the member switched
-    view.unmount();
-    setup(mode({ chainId: 8453 }), cfg);
-    expect(screen.queryByRole("button", { name: /^Cambiar a/ })).not.toBeInTheDocument();
-    send.mockReset().mockResolvedValueOnce(MAIN_HASH);
-    await userEvent.click(screen.getByRole("button", { name: "Firmar el pago" }));
-    await screen.findByText("Bounty pagado");
-    expect(send).toHaveBeenCalledWith({ chain: 8453, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
-    expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();
-  });
-
-  it("does not mix ledgers: a message tip entry with the same id does not resume a bounty", () => {
-    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 84532, token: "USDC", targetType: "message", targetId: BOUNTY, feeRequired: true, feeHash: FEE_HASH, createdAt: Date.now(), intent });
-    setup();
-    expect(screen.queryByText(/La comisión ya está pagada/)).not.toBeInTheDocument();
     expect(amountBox()).toBeInTheDocument();
+    expect(screen.queryByText(/ya está pagada/)).not.toBeInTheDocument();
+    expect(loadSends(MEMBER)).toEqual([]);
+    expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();
   });
 
   it("blocks a fresh intent while a signature for this bounty may still be pending in the wallet", async () => {
-    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 84532, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: true, createdAt: Date.now(), inFlight: Date.now(), intent });
+    upsertSend(MEMBER, { intentId: INTENT_ID, chainId: 84532, token: "USDC", targetType: "bounty", targetId: BOUNTY, feeRequired: false, createdAt: Date.now(), inFlight: Date.now(), intent });
     setup();
     expect(screen.getByText(/Tienes una firma pendiente en tu wallet/)).toBeInTheDocument();
     expect(createBountyPaymentIntentAction).not.toHaveBeenCalled();

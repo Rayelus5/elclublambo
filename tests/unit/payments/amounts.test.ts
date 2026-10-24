@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TIP_LIMITS, TOKEN_DECIMALS, feeFor, formatAmount, parseAmount } from "@/lib/payments/amounts";
+import { TIP_LIMITS, TOKEN_DECIMALS, formatAmount, parseAmount } from "@/lib/payments/amounts";
 
 describe("parseAmount", () => {
   it("accepts comma and dot decimals", () => {
@@ -47,15 +47,6 @@ describe("formatAmount", () => {
     [100n * 10n ** 18n, "ETH", "100"],
   ] as const)("%s %s -> %s", (units, token, text) => {
     expect(formatAmount(units, token)).toBe(text);
-  });
-});
-
-describe("feeFor", () => {
-  it("rounds up", () => {
-    expect(feeFor(10000000n, 260)).toBe(260000n);
-    expect(feeFor(10001n, 1)).toBe(2n);
-    expect(feeFor(10000n, 0)).toBe(0n);
-    expect(feeFor(10000n, 5000)).toBe(5000n);
   });
 });
 

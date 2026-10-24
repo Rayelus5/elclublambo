@@ -120,26 +120,3 @@ export function explorerBlock(chain: ChainId, n: bigint): string {
 export function explorerAddress(chain: ChainId, addr: string): string {
   return `${NETWORKS[chain].explorer}/address/${addr}`;
 }
-
-export const MAX_FEE_BPS = 5000;
-
-/** 260 -> "2,6 %". Basis points to a percent with a decimal comma and no trailing zeros. */
-export function bpsToPercentText(bps: number): string {
-  const whole = Math.floor(bps / 100);
-  const frac = String(bps % 100).padStart(2, "0").replace(/0+$/, "");
-  return `${whole}${frac ? `,${frac}` : ""} %`;
-}
-
-/** "2,6" / "2.6" / "0,05" -> basis points. Null when malformed, over 50 % or with more than 2 decimals. */
-export function percentTextToBps(text: string): number | null {
-  const m = /^(\d+)(?:[.,](\d{1,2}))?$/.exec(text.trim());
-  if (!m) return null;
-  const bps = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0") || "0");
-  return Number.isSafeInteger(bps) && bps <= MAX_FEE_BPS ? bps : null;
-}
-
-/** The fee over 10 USDC as "0,26" (at least 2 decimals, at most 4: 1 bps of 10 USDC is 0,001). */
-export function feeOnTenUsdc(bps: number): string {
-  const v = (bps / 1000).toFixed(4).replace(/0{1,2}$/, "");
-  return v.replace(".", ",");
-}

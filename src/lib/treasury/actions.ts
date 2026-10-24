@@ -17,19 +17,22 @@ function parseUsdc(text: string): bigint | null {
   return BigInt(m[1]!) * 10n ** BigInt(USDC_DECIMALS) + BigInt((m[2] ?? "").padEnd(USDC_DECIMALS, "0") || "0");
 }
 
-/** Creates a donation intent on the active chain's Safe. Amount is typed USDC text; the RPC enforces 1..1000000. */
-export async function createDonationIntentAction(input: { amount: string; feeBps: number; acknowledged: true }): Promise<{ ok: true; intent: TipIntent } | Fail> {
-  const { amount, feeBps, acknowledged } = input ?? ({} as { amount: string; feeBps: number; acknowledged: unknown });
+/**
+ * Creates a donation intent on the active chain's Safe (legacy DAO, P0-R2; no UI until P1). Amount is typed USDC text;
+ * the RPC enforces 1..1000000. No platform fee (P0-R5): the RPC still takes the bps, always 0.
+ */
+export async function createDonationIntentAction(input: { amount: string; acknowledged: true }): Promise<{ ok: true; intent: TipIntent } | Fail> {
+  const { amount, acknowledged } = input ?? ({} as { amount: string; acknowledged: unknown });
   // F4a-R8/R11: the risk acknowledgement is refused early here, and the RPC refuses it again (it is granted to members).
   if (acknowledged !== true) return fail("acknowledgement_required");
-  if (typeof amount !== "string" || !Number.isInteger(feeBps) || feeBps < 0 || feeBps > 5000) return fail("invalid_input");
+  if (typeof amount !== "string") return fail("invalid_input");
   const units = parseUsdc(amount);
   if (units === null || units <= 0n) return fail("invalid_input");
 
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("create_donation_intent", {
     p_amount: units.toString(),
-    p_fee_bps: feeBps,
+    p_fee_bps: 0,
     p_acknowledged: acknowledged,
   });
   if (error) return fail(rpcErrorCode(error));

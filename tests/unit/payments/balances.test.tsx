@@ -11,7 +11,7 @@ vi.mock("wagmi/actions", () => ({
 }));
 vi.mock("wagmi", () => ({ useConfig: () => ({ fake: "config" }) }));
 
-import { useAssetBalances } from "@/lib/payments/balances";
+import { useAssetBalances, useInvalidateAssetBalances } from "@/lib/payments/balances";
 import { assetsFor } from "@/lib/economy/assets";
 import { NETWORKS } from "@/lib/economy/networks";
 
@@ -59,5 +59,17 @@ describe("useAssetBalances", () => {
     expect(result.current).toEqual({ "USDC:84532": null, "ETH:84532": null });
     expect(getBalance).not.toHaveBeenCalled();
     expect(readContract).not.toHaveBeenCalled();
+  });
+});
+
+describe("useInvalidateAssetBalances", () => {
+  it("re-reads every asset balance after a payment", async () => {
+    const { result } = renderHook(() => ({ balances: useAssetBalances(assetsFor([84532]), ACCOUNT), invalidate: useInvalidateAssetBalances() }), { wrapper });
+    await waitFor(() => expect(result.current.balances["ETH:84532"]).toBe(5n));
+    const before = getBalance.mock.calls.length;
+    getBalance.mockResolvedValue({ value: 7n });
+    result.current.invalidate();
+    await waitFor(() => expect(result.current.balances["ETH:84532"]).toBe(7n));
+    expect(getBalance.mock.calls.length).toBeGreaterThan(before);
   });
 });

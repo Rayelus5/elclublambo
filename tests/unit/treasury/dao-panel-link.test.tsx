@@ -41,7 +41,6 @@ vi.mock("@/components/treasury/dao-history", () => ({ DaoHistory: () => null }))
 vi.mock("@/components/treasury/dao-live", () => ({ DaoLive: () => null }));
 vi.mock("@/components/treasury/dao-overview", () => ({ DaoOverview: () => null }));
 vi.mock("@/components/treasury/dao-ranking", () => ({ DaoRanking: () => null }));
-vi.mock("@/components/treasury/donate-button", () => ({ DonateButton: () => null }));
 vi.mock("@/components/treasury/fund-composition", () => ({ FundComposition: () => null }));
 vi.mock("@/components/treasury/nav-chart", () => ({ NavChart: () => null }));
 vi.mock("@/components/treasury/operations-list", () => ({ OperationsList: () => null }));
@@ -57,7 +56,7 @@ beforeEach(() => {
 });
 
 async function dao(): Promise<ReactElement> {
-  const suspense = DaoPage({ searchParams: Promise.resolve({}) }) as ReactElement<{ children: ReactElement }>;
+  const suspense = DaoPage() as ReactElement<{ children: ReactElement }>;
   const el = suspense.props.children as ReactElement<object> & { type: (p: object) => Promise<ReactElement> };
   return el.type(el.props);
 }

@@ -1,128 +1,91 @@
 import { renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getBalance = vi.hoisted(() => vi.fn());
-const readContract = vi.hoisted(() => vi.fn());
-const useBalance = vi.hoisted(() => vi.fn());
-const useReadContract = vi.hoisted(() => vi.fn());
-vi.mock("wagmi", () => ({ useConfig: () => ({ fake: true }), useBalance, useReadContract }));
-vi.mock("wagmi/actions", () => ({ getBalance, readContract }));
+const readAssetBalance = vi.hoisted(() => vi.fn());
+vi.mock("wagmi", () => ({ useConfig: () => ({ fake: true }) }));
+vi.mock("@/lib/payments/balances", () => ({ readAssetBalance }));
 
-import { formBalanceError, preflightShortfall, useBalancePreflight, useWalletBalances } from "@/lib/payments/preflight";
+import { formBalanceError, preflightShortfall, useBalancePreflight } from "@/lib/payments/preflight";
 
 const U = 1_000_000n;
 const E = 10n ** 18n;
-const base = { chain: 8453 as const, mainLabel: "donación", feePaid: false };
+const base = { chain: 84532 as const, mainLabel: "la propina" };
 
 describe("preflightShortfall", () => {
-  it("lets a USDC payment through when the balance covers fee + main and there is ETH for gas", () => {
-    expect(preflightShortfall({ ...base, token: "USDC", feeAmount: 50_000n, mainAmount: 10n * U, usdc: 11n * U, eth: 1n })).toBeNull();
+  it("lets a USDC payment through when the balance covers the amount and there is ETH for gas", () => {
+    expect(preflightShortfall({ ...base, token: "USDC", amount: 10n * U, usdc: 10n * U, eth: 1n })).toBeNull();
   });
 
-  it("refuses when USDC covers the fee but not fee + main, saying nothing was sent", () => {
-    const msg = preflightShortfall({ ...base, token: "USDC", feeAmount: 250_000n, mainAmount: 10n * U, usdc: 9_800_000n, eth: E });
-    expect(msg).toBe("No tienes suficiente USDC en Base: necesitas 10,25 USDC (donación + comisión) y tienes 9,8. No se ha enviado nada.");
-  });
-
-  it("refuses a USDC payment with no ETH for gas", () => {
-    expect(preflightShortfall({ ...base, token: "USDC", feeAmount: 0n, mainAmount: U, usdc: 5n * U, eth: 0n })).toBe(
-      "Necesitas algo de ETH en Base para pagar el gas.",
+  it("refuses a USDC payment the balance does not cover, saying nothing was sent", () => {
+    expect(preflightShortfall({ ...base, token: "USDC", amount: 10n * U, usdc: 9n * U, eth: E })).toBe(
+      "No tienes suficiente USDC en Base Sepolia para la propina: necesitas 10 USDC y tienes 9. No se ha enviado nada.",
     );
   });
 
-  it("refuses an ETH tip when ETH does not exceed fee + main", () => {
-    const msg = preflightShortfall({ ...base, mainLabel: "propina", token: "ETH", feeAmount: E / 100n, mainAmount: E, usdc: 0n, eth: E });
-    expect(msg).toMatch(/^No tienes suficiente ETH en Base: necesitas 1,01 ETH \(propina \+ comisión\) y tienes 1\. No se ha enviado nada\.$/);
+  it("asks for ETH for gas when USDC is enough but there is no ETH", () => {
+    expect(preflightShortfall({ ...base, token: "USDC", amount: U, usdc: 5n * U, eth: 0n })).toBe("Necesitas algo de ETH en Base Sepolia para pagar el gas.");
   });
 
-  it("lets an ETH tip through with a margin", () => {
-    expect(preflightShortfall({ ...base, token: "ETH", feeAmount: E / 100n, mainAmount: E, usdc: 0n, eth: 2n * E })).toBeNull();
+  it("refuses an ETH payment when ETH does not exceed the amount (gas margin)", () => {
+    expect(preflightShortfall({ ...base, mainLabel: "el pago", token: "ETH", amount: E, usdc: 0n, eth: E })).toBe(
+      "No tienes suficiente ETH en Base Sepolia para el pago: necesitas 1 ETH y tienes 1. No se ha enviado nada.",
+    );
+    expect(preflightShortfall({ ...base, token: "ETH", amount: E, usdc: 0n, eth: 2n * E })).toBeNull();
   });
 
-  it("omits the fee wording when there is no fee", () => {
-    const msg = preflightShortfall({ ...base, token: "USDC", feeAmount: 0n, mainAmount: 10n * U, usdc: 9n * U, eth: E });
-    expect(msg).toBe("No tienes suficiente USDC en Base: necesitas 10 USDC y tienes 9. No se ha enviado nada.");
-  });
-
-  it("on resume only the main amount is required and the message says the fee is paid", () => {
-    const msg = preflightShortfall({ ...base, token: "USDC", feeAmount: 250_000n, mainAmount: 10n * U, usdc: 9n * U, eth: E, feePaid: true });
-    expect(msg).toContain("necesitas 10 USDC para la donación y tienes 9");
-    expect(msg).toContain("La comisión ya está pagada");
-    expect(msg).toContain("Firmar");
-  });
-
-  it("on resume passes when the balance covers just the main amount", () => {
-    expect(preflightShortfall({ ...base, token: "USDC", feeAmount: 250_000n, mainAmount: 10n * U, usdc: 10n * U, eth: 1n, feePaid: true })).toBeNull();
+  it("names the payment's network", () => {
+    expect(preflightShortfall({ ...base, chain: 421614, token: "USDC", amount: U, usdc: U, eth: 0n })).toBe("Necesitas algo de ETH en Arbitrum Sepolia para pagar el gas.");
   });
 });
 
 describe("useBalancePreflight", () => {
-  beforeEach(() => {
-    getBalance.mockReset().mockResolvedValue({ value: E });
-    readContract.mockReset().mockResolvedValue(20n * U);
-  });
   const acct = "0x1111111111111111111111111111111111111111" as const;
-  const args = { chain: 8453 as const, token: "USDC" as const, account: acct, feeAmount: 100_000n, mainAmount: 10n * U, feePaid: false, mainLabel: "donación" };
+  const args = { chain: 421614 as const, token: "USDC" as const, account: acct, amount: 10n * U, mainLabel: "la propina" };
+  beforeEach(() => {
+    readAssetBalance.mockReset().mockImplementation(async (_c: unknown, a: { token: string }) => (a.token === "ETH" ? E : 20n * U));
+  });
 
-  it("reads both balances on the intent's chain and returns null when enough", async () => {
+  it("reads the token and the chain's ETH through readAssetBalance on the payment's chain", async () => {
     const { result } = renderHook(() => useBalancePreflight());
     expect(await result.current(args)).toBeNull();
-    expect(getBalance).toHaveBeenCalledWith({ fake: true }, { address: acct, chainId: 8453 });
-    expect(readContract).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ functionName: "balanceOf", args: [acct], chainId: 8453 }));
+    const ids = readAssetBalance.mock.calls.map((c) => (c[1] as { id: string }).id).sort();
+    expect(ids).toEqual(["ETH:421614", "USDC:421614"]);
+    expect(readAssetBalance.mock.calls.every((c) => (c[0] as { fake?: boolean }).fake === true && c[2] === acct)).toBe(true);
+  });
+
+  it("reads ETH once for an ETH payment", async () => {
+    const { result } = renderHook(() => useBalancePreflight());
+    expect(await result.current({ ...args, token: "ETH", amount: E / 2n })).toBeNull();
+    expect(readAssetBalance.mock.calls.map((c) => (c[1] as { id: string }).id)).toEqual(["ETH:421614"]);
   });
 
   it("returns the shortfall message when short", async () => {
-    readContract.mockResolvedValue(5n * U);
+    readAssetBalance.mockImplementation(async (_c: unknown, a: { token: string }) => (a.token === "ETH" ? E : 5n * U));
     const { result } = renderHook(() => useBalancePreflight());
-    expect(await result.current(args)).toMatch(/No tienes suficiente USDC/);
+    expect(await result.current(args)).toMatch(/No tienes suficiente USDC en Arbitrum Sepolia/);
   });
 
-  it("does not block when the balance read fails", async () => {
-    readContract.mockRejectedValue(new Error("rpc down"));
+  it("does not block when a balance read fails", async () => {
+    readAssetBalance.mockRejectedValue(new Error("rpc down"));
     const { result } = renderHook(() => useBalancePreflight());
     expect(await result.current(args)).toBeNull();
-  });
-});
-
-describe("useWalletBalances", () => {
-  const acct = "0x1111111111111111111111111111111111111111" as const;
-  it("reads ETH and USDC on the given chain and exposes them", () => {
-    useBalance.mockReturnValue({ data: { value: E } });
-    useReadContract.mockReturnValue({ data: 3n * U });
-    const { result } = renderHook(() => useWalletBalances(8453, acct));
-    expect(result.current.eth).toBe(E);
-    expect(result.current.usdc).toBe(3n * U);
-    expect(useBalance).toHaveBeenCalledWith(expect.objectContaining({ address: acct, chainId: 8453 }));
-    expect(useReadContract).toHaveBeenCalledWith(expect.objectContaining({ functionName: "balanceOf", args: [acct], chainId: 8453 }));
-  });
-
-  it("gives null when a balance is unreadable", () => {
-    useBalance.mockReturnValue({ data: undefined });
-    useReadContract.mockReturnValue({ data: undefined });
-    const { result } = renderHook(() => useWalletBalances(8453, acct));
-    expect(result.current.eth).toBeNull();
-    expect(result.current.usdc).toBeNull();
   });
 });
 
 describe("formBalanceError", () => {
-  const f = { chain: 8453 as const, token: "USDC" as const, amount: 10n * U, fee: 50_000n, eth: E };
-  it("says how much is needed and held when amount + fee exceeds the balance", () => {
-    expect(formBalanceError({ ...f, balance: 9_800_000n })).toBe("Saldo insuficiente: necesitas 10,05 USDC (importe + comisión) y tienes 9,8.");
+  const f = { chain: 84532 as const, token: "USDC" as const, amount: 10n * U, eth: E };
+  it("says how much is needed and held when the amount exceeds the balance", () => {
+    expect(formBalanceError({ ...f, balance: 9_800_000n })).toBe("Saldo insuficiente: necesitas 10 USDC y tienes 9,8.");
   });
   it("asks for ETH for gas on a USDC payment with no ETH", () => {
-    expect(formBalanceError({ ...f, balance: 20n * U, eth: 0n })).toBe("Necesitas algo de ETH en Base para el gas.");
+    expect(formBalanceError({ ...f, balance: 20n * U, eth: 0n })).toBe("Necesitas algo de ETH en Base Sepolia para el gas.");
   });
-  it("omits the fee wording when there is no fee", () => {
-    expect(formBalanceError({ ...f, fee: 0n, balance: 9_800_000n })).toBe("Saldo insuficiente: necesitas 10 USDC y tienes 9,8.");
-  });
-  it("ETH token: refuses when the balance does not exceed amount + fee (gas margin)", () => {
-    const eth = { chain: 8453 as const, token: "ETH" as const, amount: E, fee: E / 100n, eth: 0n };
-    expect(formBalanceError({ ...eth, balance: E })).toBe("Saldo insuficiente: necesitas 1,01 ETH (importe + comisión) y tienes 1.");
-    expect(formBalanceError({ ...eth, balance: E + E / 100n })).toMatch(/^Saldo insuficiente/);
+  it("ETH token: refuses when the balance does not exceed the amount (gas margin)", () => {
+    const eth = { chain: 84532 as const, token: "ETH" as const, amount: E, eth: 0n };
+    expect(formBalanceError({ ...eth, balance: E })).toBe("Saldo insuficiente: necesitas 1 ETH y tienes 1.");
     expect(formBalanceError({ ...eth, balance: 2n * E })).toBeNull();
   });
   it("is null when covered", () => {
-    expect(formBalanceError({ ...f, balance: 10_050_000n })).toBeNull();
+    expect(formBalanceError({ ...f, balance: 10n * U })).toBeNull();
   });
 });

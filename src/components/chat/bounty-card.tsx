@@ -21,7 +21,7 @@ import { cancelBountyAction } from "@/lib/bounties/actions";
 import type { BountyDetail, BountyStatus } from "@/lib/bounties/queries";
 import { rpcErrorMessage } from "@/lib/errors";
 import { formatAmount } from "@/lib/payments/amounts";
-import { findInFlight, findResumable } from "@/lib/payments/pending-sends";
+import { findInFlight } from "@/lib/payments/pending-sends";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
@@ -31,10 +31,9 @@ function subscribeStorage(onChange: () => void): () => void {
   return () => window.removeEventListener("storage", onChange);
 }
 
-/** What the local ledger holds for this bounty: a signature still pending, a fee paid awaiting its main transfer, or nothing. */
-function ledgerState(memberId: string, bountyId: string): "inflight" | "resume" | null {
-  if (findInFlight(memberId, "bounty", bountyId)) return "inflight";
-  return findResumable(memberId, "bounty", bountyId) ? "resume" : null;
+/** What the local ledger holds for this bounty: a signature still pending in the wallet, or nothing. */
+function ledgerState(memberId: string, bountyId: string): "inflight" | null {
+  return findInFlight(memberId, "bounty", bountyId) ? "inflight" : null;
 }
 
 const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
@@ -109,9 +108,9 @@ export function BountyCard({
   const chip = CHIP[bounty.status];
   const Icon = chip.icon;
   const canCancel = isAuthor && bounty.status === "open";
-  // F3c-R7 / N1: a payment already under way (fee paid, or a signature waiting in the wallet) must stay reachable
-  // whatever the status became (solver_unavailable...): the dialog resumes it on the intent's own chain.
-  // Paid bounties are excluded (a resumed transfer could no longer be credited). The ledger lives in localStorage:
+  // F3c-R7 / N1: a payment already under way (a signature waiting in the wallet) must stay reachable
+  // whatever the status became (solver_unavailable...): the dialog shows the pending signature.
+  // Paid bounties are excluded (the transfer could no longer be credited). The ledger lives in localStorage:
   // null on the server and during hydration, re-read on every render and on storage events.
   const economy = useOptionalEconomy();
   const memberId = economy?.memberId ?? null;
@@ -173,7 +172,7 @@ export function BountyCard({
           {canPay ? (
             <Button type="button" onClick={() => setPaying(true)}>
               <Trophy aria-hidden />
-              {ongoing === "resume" ? "Completar el pago" : "Pagar bounty"}
+              Pagar bounty
             </Button>
           ) : null}
           {canCancel ? (

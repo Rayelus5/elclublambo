@@ -30,21 +30,19 @@ function Propinas() {
       <Sub title="Cómo se hace">
         <Steps>
           <li>Pulsa el botón de propina en un mensaje, en una publicación Alpha o en un perfil.</li>
-          <li>Mira la etiqueta de la red activa antes de seguir. Si es MODO PRUEBA, el dinero no es real.</li>
-          <li>Elige el token (ETH o USDC) y el importe.</li>
-          <li>Revisa el total que vas a firmar y firma en tu wallet.</li>
+          <li>
+            Elige con qué pagar: USDC o ETH, en Base o en Arbitrum. Solo aparecen las redes en las que esa persona acepta
+            pagos. Si ves MODO PRUEBA, el dinero no es real.
+          </li>
+          <li>Escribe el importe. Si tu wallet está en otra red, el foro te pide cambiarla.</li>
+          <li>Revisa a quién y cuánto envías, y firma en tu wallet.</li>
           <li>Espera a que el foro verifique la transacción. Mientras tanto verás «Verificando…».</li>
         </Steps>
       </Sub>
       <Sub title="Qué cuesta">
         <p>
-          El destinatario recibe íntegro el importe anunciado. La comisión de la plataforma se suma encima: tú pagas importe
-          más comisión.
-        </p>
-        <p>
-          Si hay comisión, firmas dos transferencias normales: primero la comisión a la wallet de la plataforma y después el
-          importe al destinatario. Si la comisión es del 0 %, es una sola firma. Además de esto, tu wallet cobra el gas de la
-          red como en cualquier transferencia.
+          El destinatario recibe íntegro el importe. El club no cobra nada: firmas una sola transferencia normal, directa a
+          su wallet. Tu wallet cobra el gas de la red, como en cualquier transferencia.
         </p>
       </Sub>
       <Sub title="Propina anónima">
@@ -89,7 +87,7 @@ function Bounties() {
           </li>
           <li>Los demás responden en el hilo.</li>
           <li>Cuando una respuesta te sirve, la marcas como solución.</li>
-          <li>Pagas esa respuesta con el mismo flujo de una propina: red, importe, comisión y firma.</li>
+          <li>Pagas esa respuesta con el mismo flujo de una propina: importe y una sola firma.</li>
         </Steps>
         <p>
           Un bounty se paga una sola vez, a una sola respuesta, con el mismo token y al menos el importe anunciado. Mientras
@@ -98,7 +96,8 @@ function Bounties() {
       </Sub>
       <Sub title="Qué cuesta">
         <p>
-          Quien resuelve recibe íntegro el importe anunciado. La comisión va aparte y se suma a lo que pagas tú. Con comisión, firmas dos transferencias.
+          Quien resuelve recibe íntegro el importe anunciado. El club no cobra nada: es una sola transferencia, más el gas
+          de la red.
         </p>
       </Sub>
       <Sub title="Plazos">

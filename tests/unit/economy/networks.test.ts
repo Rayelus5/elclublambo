@@ -2,7 +2,6 @@ import { getAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import {
   appChainIds,
-  bpsToPercentText,
   CHAIN_IDS,
   chainForKey,
   chainsForSet,
@@ -12,7 +11,6 @@ import {
   isChainId,
   networkSet,
   NETWORKS,
-  percentTextToBps,
 } from "@/lib/economy/networks";
 
 describe("NETWORKS", () => {
@@ -98,31 +96,5 @@ describe("network sets", () => {
   it("chainForKey picks the build's chain for a network key", () => {
     expect(chainForKey("base")).toBe(84532);
     expect(chainForKey("arbitrum")).toBe(421614);
-  });
-});
-
-describe("percentTextToBps", () => {
-  it("accepts comma or dot decimals up to 2 places", () => {
-    expect(percentTextToBps("2,6")).toBe(260);
-    expect(percentTextToBps("2.6")).toBe(260);
-    expect(percentTextToBps("0,05")).toBe(5);
-    expect(percentTextToBps("0")).toBe(0);
-    expect(percentTextToBps(" 1 ")).toBe(100);
-    expect(percentTextToBps("50")).toBe(5000);
-  });
-
-  it("rejects out of range or malformed input", () => {
-    for (const bad of ["50,01", "51", "100", "1,234", "-1", "", "abc", "1,", ",5", "1e1"]) {
-      expect(percentTextToBps(bad), bad).toBeNull();
-    }
-  });
-});
-
-describe("bpsToPercentText", () => {
-  it("formats with a decimal comma", () => {
-    expect(bpsToPercentText(260)).toBe("2,6 %");
-    expect(bpsToPercentText(5)).toBe("0,05 %");
-    expect(bpsToPercentText(0)).toBe("0 %");
-    expect(bpsToPercentText(5000)).toBe("50 %");
   });
 });

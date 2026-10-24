@@ -11,7 +11,6 @@ import { DaoHistory } from "@/components/treasury/dao-history";
 import { DaoLive } from "@/components/treasury/dao-live";
 import { DaoOverview } from "@/components/treasury/dao-overview";
 import { DaoRanking } from "@/components/treasury/dao-ranking";
-import { DonateButton } from "@/components/treasury/donate-button";
 import { FundComposition } from "@/components/treasury/fund-composition";
 import { NavChart } from "@/components/treasury/nav-chart";
 import { OperationsList } from "@/components/treasury/operations-list";
@@ -30,12 +29,9 @@ import { settlePendingDonations, shouldSettleFromView } from "@/lib/treasury/set
 
 export const metadata: Metadata = { title: "DAO" };
 
-type Search = Promise<{ donar?: string | string[] }>;
-
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
-async function DaoContent({ searchParams }: { searchParams: Search }) {
+async function DaoContent() {
   if (!(await getEconomyConfig()).legacyDaoEnabled) return <DaoPaused />;
-  const { donar } = await searchParams;
   const supabase = await createServerClient();
   const { data: me } = await supabase.rpc("current_member_id");
   const memberId = typeof me === "string" ? me : null;
@@ -90,7 +86,7 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <DaoOverview
           data={overview}
-          donate={<DonateButton autoOpen={donar === "1"} />}
+          donate={null /* donations return in P1 */}
           finality={finality}
           withdraw={<WithdrawControls data={overview} />}
           chart={<NavChart navAt={overview.navAt} />}
@@ -176,10 +172,10 @@ async function DaoContent({ searchParams }: { searchParams: Search }) {
   );
 }
 
-export default function DaoPage({ searchParams }: { searchParams: Search }) {
+export default function DaoPage() {
   return (
     <Suspense fallback={<PageLoader />}>
-      <DaoContent searchParams={searchParams} />
+      <DaoContent />
     </Suspense>
   );
 }

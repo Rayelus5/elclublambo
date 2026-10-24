@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
+import { useCallback, useMemo } from "react";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { erc20Abi } from "viem";
 import { getBalance, readContract } from "wagmi/actions";
 import { useConfig, type Config } from "wagmi";
@@ -42,4 +42,10 @@ export function useAssetBalances(assets: readonly Asset[], account: `0x${string}
     })),
   });
   return Object.fromEntries(all.map((a, i) => [a.id, results[i]?.data ?? null])) as AssetBalances;
+}
+
+/** After a payment: every cached asset balance is stale, so the next picker shows what the wallet holds now. */
+export function useInvalidateAssetBalances(): () => void {
+  const client = useQueryClient();
+  return useCallback(() => void client.invalidateQueries({ queryKey: ["assetBalance"] }), [client]);
 }

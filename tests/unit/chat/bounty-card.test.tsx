@@ -119,10 +119,10 @@ describe("BountyCard", () => {
     expect(screen.queryByRole("button", { name: "Pagar bounty" })).not.toBeInTheDocument();
   });
 
-  describe("resume after the status changed (N1, F3c-R7)", () => {
+  describe("a payment under way after the status changed (N1, F3c-R7)", () => {
     const MEMBER = "99999999-9999-4999-8999-999999999999";
-    const intent = { id: "i-1", chainId: 84532, token: "USDC" as const, amount: "25000000", feeAmount: "250000", recipientAddress: solver.walletAddress, platformAddress: "0x4444444444444444444444444444444444444444", expiresAt: new Date(Date.now() + 20 * 3600_000).toISOString() };
-    const base = { intentId: "i-1", chainId: 84532, token: "USDC" as const, targetType: "bounty" as const, targetId: B, feeRequired: true, createdAt: Date.now(), intent };
+    const intent = { id: "i-1", chainId: 84532, token: "USDC" as const, amount: "25000000", feeAmount: "0", recipientAddress: solver.walletAddress, platformAddress: null, expiresAt: new Date(Date.now() + 20 * 3600_000).toISOString() };
+    const base = { intentId: "i-1", chainId: 84532, token: "USDC" as const, targetType: "bounty" as const, targetId: B, feeRequired: false, createdAt: Date.now(), intent };
     const cfg: EconomyConfig = { enabledChainIds: [8453, 42161], safes: {}, legacyDaoEnabled: false, legacy: { activeChainId: 59141, withdrawalsEnabled: { 59144: false, 59141: false }, weightedRafflesEnabled: { 59144: false, 59141: false }, chains: { 59144: { safe: null, platform: null }, 59141: { safe: null, platform: null } } } };
     function renderWith(bounty: BountyDetail) {
       render(
@@ -133,12 +133,11 @@ describe("BountyCard", () => {
     }
     beforeEach(() => window.localStorage.clear());
 
-    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with a fee already paid offers Completar el pago", async (status) => {
-      upsertSend(MEMBER, { ...base, feeHash: `0x${"fe".repeat(32)}` });
-      renderWith(marked({ status }));
-      const user = userEvent.setup();
-      await user.click(await screen.findByRole("button", { name: "Completar el pago" }));
-      expect(screen.getByRole("dialog", { name: "Pago" })).toHaveAttribute("data-bounty", B);
+    it("a fee-era leftover (fee paid, main never signed) no longer offers to complete the payment", async () => {
+      upsertSend(MEMBER, { ...base, feeRequired: true, feeHash: `0x${"fe".repeat(32)}` } as never);
+      renderWith(marked({ status: "solver_unavailable" }));
+      await new Promise((r) => setTimeout(r, 10));
+      expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });
 
     it.each(["removed", "solver_unavailable"] as const)("a %s bounty with a signature in flight offers Pagar bounty", async (status) => {
@@ -154,7 +153,7 @@ describe("BountyCard", () => {
     });
 
     it("an entry for another bounty does not count", async () => {
-      upsertSend(MEMBER, { ...base, targetId: "other", feeHash: `0x${"fe".repeat(32)}` });
+      upsertSend(MEMBER, { ...base, targetId: "other", inFlight: Date.now() });
       renderWith(marked({ status: "solver_unavailable" }));
       await new Promise((r) => setTimeout(r, 10));
       expect(screen.queryByRole("button")).not.toBeInTheDocument();

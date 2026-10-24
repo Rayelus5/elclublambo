@@ -113,7 +113,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
 
   return (
     <EconomyProvider config={economy} wallet={wallet} memberId={memberId}>
-    <PendingSendsSync memberId={memberId} />
+    <PendingSendsSync memberId={memberId} enabledChainIds={economy.enabledChainIds} />
     <PresenceHeartbeat />
     <NotificationsProvider memberId={memberId} initialCount={initialCount}>
     <UnreadProvider>
