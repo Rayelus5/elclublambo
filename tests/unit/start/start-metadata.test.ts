@@ -2,10 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Metadata, MetadataRoute } from "next";
 
 // metadata and robots read NEXT_PUBLIC_SITE_URL (baked at build time): load them fresh for each host.
-async function load(siteUrl: string | undefined) {
+async function load(siteUrl: string | undefined, lang: "es" | "en" = "es") {
   vi.resetModules();
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", siteUrl);
-  const { metadata } = (await import("@/app/(public)/[lang]/start/page")) as { metadata: Metadata };
+  const { generateMetadata } = (await import("@/app/(public)/[lang]/start/page")) as unknown as {
+    generateMetadata: (props: { params: Promise<{ lang: string }> }) => Promise<Metadata>;
+  };
+  const metadata = await generateMetadata({ params: Promise.resolve({ lang }) });
   const { default: robots } = (await import("@/app/robots")) as { default: () => MetadataRoute.Robots };
   return { metadata, robots: robots() };
 }
@@ -25,7 +28,8 @@ describe("/start metadata in production", () => {
     expect(String(metadata.description)).toMatch(/donaciones/);
     expect(String(metadata.description)).not.toMatch(/tesorería/i);
     expect(JSON.stringify(metadata)).not.toMatch(/Linea/);
-    expect(metadata.alternates?.canonical).toBe("https://www.elclub.party/start");
+    expect(metadata.alternates?.canonical).toBe("/start");
+    expect(metadata.alternates?.languages).toMatchObject({ es: "/start", en: "/en/start", "x-default": "/start" });
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });
 
@@ -33,13 +37,23 @@ describe("/start metadata in production", () => {
     const { metadata } = await load("https://www.elclub.party");
     expect(metadata.openGraph).toMatchObject({
       type: "website",
-      url: "https://www.elclub.party/start",
+      url: "/start",
       siteName: "ElClub.",
       locale: "es_ES",
     });
     expect(metadata.openGraph?.title).toEqual(expect.stringContaining("ElClub."));
     expect(metadata.twitter).toMatchObject({ card: "summary_large_image" });
     expect(metadata.metadataBase).toBeInstanceOf(URL);
+  });
+
+  it("the English page is English, en_US, and canonicalizes to /en/start", async () => {
+    const { metadata } = await load("https://www.elclub.party", "en");
+    expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("private forum") });
+    expect(String(metadata.description)).toMatch(/invitation-only/);
+    expect(metadata.alternates?.canonical).toBe("/en/start");
+    expect(metadata.alternates?.languages).toMatchObject({ es: "/start", en: "/en/start" });
+    expect(metadata.openGraph).toMatchObject({ locale: "en_US", url: "/en/start" });
+    expect(metadata.robots).toMatchObject({ index: true, follow: true });
   });
 
   it("robots.txt allows /start (and the assets it needs) and keeps the private forum out", async () => {

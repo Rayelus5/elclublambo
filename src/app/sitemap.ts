@@ -9,7 +9,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   if (!isProductionSite()) return [];
   const origin = siteOrigin().origin;
   return ROUTES.map((route) => {
-    const { languages } = alternatesFor(route);
+    const { languages } = alternatesFor(route, undefined, "es");
     return {
       url: origin + languages.es,
       alternates: { languages: { es: origin + languages.es, en: origin + languages.en } },

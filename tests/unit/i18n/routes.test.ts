@@ -138,7 +138,7 @@ describe("route map", () => {
   });
 
   it("alternatesFor", () => {
-    expect(alternatesFor("giveaways")).toEqual({
+    expect(alternatesFor("giveaways", undefined, "es")).toEqual({
       canonical: "/herramientas/sorteos",
       languages: {
         es: "/herramientas/sorteos",
@@ -146,8 +146,11 @@ describe("route map", () => {
         "x-default": "/herramientas/sorteos",
       },
     });
-    expect(alternatesFor("giveaway", { id: ID }).languages.en).toBe(`/en/tools/giveaways/${ID}`);
-    expect(alternatesFor("home").languages).toEqual({ es: "/", en: "/en", "x-default": "/" });
+    expect(alternatesFor("giveaway", { id: ID }, "es").languages.en).toBe(`/en/tools/giveaways/${ID}`);
+    expect(alternatesFor("home", undefined, "es").languages).toEqual({ es: "/", en: "/en", "x-default": "/" });
+    expect(alternatesFor("giveaways", undefined, "en").canonical).toBe("/en/tools/giveaways");
+    expect(alternatesFor("giveaway", { id: ID }, "en").canonical).toBe(`/en/tools/giveaways/${ID}`);
+    expect(alternatesFor("giveaways", undefined, "en").languages["x-default"]).toBe("/herramientas/sorteos");
   });
 
   it("giveaway requires an id", () => {

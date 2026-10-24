@@ -13,7 +13,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
   const { lang } = await params;
   if (!isLang(lang)) return {};
   const t = getDictionary(lang).landing;
-  const alternates = alternatesFor("home");
+  const alternates = alternatesFor("home", undefined, lang);
   return {
     metadataBase: siteOrigin(),
     title: { absolute: t.metaTitle },

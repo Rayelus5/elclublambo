@@ -1,13 +1,18 @@
 import { ImageResponse } from "next/og";
+import { getDictionary, isLang } from "@/lib/i18n";
 import { ogFonts } from "@/lib/og/fonts";
 import { colors } from "@/styles/tokens";
 
-// The share card of /start, rendered at build time from the app's own fonts and tokens (no external origin).
-export const alt = "ElClub. El foro privado para quien se toma cripto en serio. Solo con invitación, en Base y Arbitrum.";
+// The share card of /start, from the app's own fonts and tokens (no external origin). Language-neutral alt (a static
+// export cannot depend on [lang]); the text drawn on the card follows the language.
+export const alt = "ElClub. Private forum / Foro privado · Base · Arbitrum";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-export default async function Image() {
+export default async function Image({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang: rawLang } = await params;
+  const lang = isLang(rawLang) ? rawLang : "es";
+  const t = getDictionary(lang).start;
   const fonts = await ogFonts();
   return new ImageResponse(
     (
@@ -28,14 +33,14 @@ export default async function Image() {
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16, fontFamily: "JetBrains Mono", fontSize: 24, color: colors.fgMuted }}>
           <div style={{ width: 14, height: 14, background: colors.accent }} />
-          FORO PRIVADO · BASE Y ARBITRUM
+          {t.ogKicker}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
           <div style={{ display: "flex", alignItems: "flex-end", fontFamily: "Archivo", fontSize: 220, lineHeight: 0.8, letterSpacing: -10 }}>
             ElClub
             <div style={{ width: 42, height: 42, marginLeft: 8, marginBottom: 4, background: colors.accent }} />
           </div>
-          <div style={{ display: "flex", fontSize: 40, color: colors.fg }}>El foro privado para quien se toma cripto en serio.</div>
+          <div style={{ display: "flex", fontSize: 40, color: colors.fg }}>{t.ogTagline}</div>
         </div>
         <div
           style={{
@@ -48,8 +53,8 @@ export default async function Image() {
             color: colors.fgMuted,
           }}
         >
-          <span>Solo con invitación. Sin ruido.</span>
-          <span style={{ color: colors.accent }}>elclub.party/start</span>
+          <span>{t.ogFoot}</span>
+          <span style={{ color: colors.accent }}>{lang === "en" ? "elclub.party/en/start" : "elclub.party/start"}</span>
         </div>
       </div>
     ),

@@ -102,11 +102,12 @@ export function switchLang(pathname: string, to: Lang): string {
 
 export function alternatesFor(
   route: RouteKey,
-  params?: Params,
+  params: Params | undefined,
+  lang: Lang,
 ): { canonical: string; languages: { es: string; en: string; "x-default": string } } {
   const es = localizedPath("es", route, params);
   const en = localizedPath("en", route, params);
-  return { canonical: es, languages: { es, en, "x-default": es } };
+  return { canonical: localizedPath(lang, route, params), languages: { es, en, "x-default": es } };
 }
 
 export { LANGS };

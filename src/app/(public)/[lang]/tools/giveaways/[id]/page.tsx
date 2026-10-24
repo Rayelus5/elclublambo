@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   } catch {
     // The page itself reports the failure; the metadata keeps the generic title.
   }
-  return { title, robots: { index: false, follow: false }, alternates: alternatesFor("giveaway", { id }) };
+  return { title, robots: { index: false, follow: false }, alternates: alternatesFor("giveaway", { id }, lang) };
 }
 
 async function Content({ params, searchParams }: Pick<Props, "params" | "searchParams">) {

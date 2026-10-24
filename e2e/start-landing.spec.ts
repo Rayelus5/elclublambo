@@ -133,6 +133,45 @@ test("with motion, scrolling through reveals everything by the end", async ({ br
   await context.close();
 });
 
+test("/en/start answers 200 in English, links to the English tools and keeps the invitation request disabled", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const errors = trackErrors(context);
+  const page = await context.newPage();
+  const res = await page.goto("/en/start");
+  expect(res?.status()).toBe(200);
+  expect(new URL(page.url()).pathname).toBe("/en/start");
+  await expect(page.getByRole("heading", { level: 1, name: "ElClub." })).toBeVisible();
+  await expect(page.getByText("The private forum for people serious about crypto.")).toBeVisible();
+  await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://www.elclub.party/en/start");
+  await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
+  expect(await horizontalOverflow(page)).toBe(0);
+  await scrollThrough(page);
+  expect(await horizontalOverflow(page)).toBe(0);
+  const tools = page.getByRole("link", { name: "See the tools" });
+  await tools.scrollIntoViewIfNeeded();
+  await expect(tools).toHaveAttribute("href", "/en/tools");
+  const button = page.getByRole("button", { name: /Request an invitation/ });
+  await expect(button).toHaveAttribute("aria-disabled", "true");
+  await expect(page.getByText("Solicitar invitación")).toHaveCount(0);
+  expect(errors).toEqual([]);
+  await context.close();
+});
+
+test("the Spanish /start links to /herramientas and the OG card renders per language", async ({ page, request }) => {
+  await page.goto("/start");
+  const tools = page.getByRole("link", { name: "Ver las herramientas" });
+  await tools.scrollIntoViewIfNeeded();
+  await expect(tools).toHaveAttribute("href", "/herramientas");
+  for (const route of ["/start", "/en/start"]) {
+    await page.goto(route);
+    const og = await page.locator('meta[property="og:image"]').getAttribute("content");
+    expect(og, route).toBeTruthy();
+    const image = await request.get(new URL(og!).pathname + new URL(og!).search, { maxRedirects: 0 });
+    expect(image.status(), route).toBe(200);
+    expect(image.headers()["content-type"]).toBe("image/png");
+  }
+});
+
 test("/login points newcomers to /start", async ({ page }) => {
   await page.goto("/login");
   const link = page.getByRole("link", { name: "¿Qué es ElClub.?" });

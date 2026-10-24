@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/tools">): 
   const { lang } = await params;
   if (!isLang(lang)) return {};
   const t = getDictionary(lang).tools;
-  const alternates = alternatesFor("tools");
+  const alternates = alternatesFor("tools", undefined, lang);
   return {
     title: t.metaTitle,
     description: t.metaDescription,
