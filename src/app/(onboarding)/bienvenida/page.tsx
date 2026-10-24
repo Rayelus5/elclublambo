@@ -37,7 +37,7 @@ async function Welcome({ searchParams }: { searchParams: Params }) {
   return (
     <>
       <header className="flex flex-col gap-2">
-        <h1 className="text-h1">Bienvenida a El Club</h1>
+        <h1 className="text-h1">Bienvenida a ElClub.</h1>
         <p className="text-fg-muted">Cuatro pasos rápidos. Solo el primero es obligatorio.</p>
       </header>
       <WelcomeSteps initialHandle={row.handle} next={next} chainIds={economy.enabledChainIds.length > 0 ? economy.enabledChainIds : [chainForKey("base")]} />

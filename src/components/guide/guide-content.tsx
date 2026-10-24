@@ -136,8 +136,7 @@ function Dao() {
           donar ni recibir shares, y la página de la DAO lo indica.
         </p>
         <p>
-          Cuando vuelva, esta guía explicará cómo aportar, cómo se
-          calculan las shares y qué riesgos asumes.
+          Cuando vuelva, esta guía explicará cómo aportar, cómo se calculan las shares y qué riesgos asumes.
         </p>
       </Sub>
     </>
