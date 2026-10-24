@@ -10,13 +10,13 @@ const href = (a: ReturnType<typeof buildActions>, id: string) => a.find((x) => x
 describe("buildActions", () => {
   it("always offers mentions, tickets, the guide and profile", () => {
     const a = buildActions(base);
-    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "donate", "giveaways", "market", "profile"]);
+    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:donaciones", "guide:sorteos", "guide:encuestas", "guide:candados", "guide:redes", "donate", "giveaways", "market", "profile"]);
     expect(href(a, "market")).toBe("/mercado");
     expect(a.find((x) => x.id === "market")?.label).toBe("Mercado");
     expect(href(a, "donate")).toBe("/donar");
     expect(a.find((x) => x.id === "donate")?.label).toBe("Donar a ElClub.");
     expect(href(a, "guide")).toBe("/guia");
-    expect(href(a, "guide:dao")).toBe("/guia/dao");
+    expect(href(a, "guide:donaciones")).toBe("/guia/donaciones");
     expect(href(a, "mentions")).toBe("/notifications?filter=mentions");
     expect(href(a, "tickets")).toBe("/tickets");
     expect(href(a, "profile")).toBe(`/u/${WALLET}`);

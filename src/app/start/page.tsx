@@ -4,7 +4,7 @@ import { CANONICAL_ORIGIN, isProductionSite, siteOrigin } from "@/lib/start/site
 
 const TITLE = "ElClub. · El foro privado para quien se toma cripto en serio";
 const DESCRIPTION =
-  "Foro privado y asíncrono en Base y Arbitrum, solo con invitación: canales y chat, alphas con contrato verificado, bounties, propinas, tesorería común y sorteos verificables.";
+  "Foro privado y asíncrono en Base y Arbitrum, solo con invitación: canales y chat, alphas con contrato verificado, bounties, propinas, donaciones y sorteos verificables.";
 const URL_START = `${CANONICAL_ORIGIN}/start`;
 
 // Public, and indexable only in production (the rest of the forum never is). The OG/Twitter images come from opengraph-image.tsx.

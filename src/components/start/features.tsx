@@ -7,7 +7,7 @@ import { AlphaMock, BountyMock, ChatMock, MarketMock, ModerationMock, RafflePoll
 import { rise, Stage, useMotionOn } from "./motion";
 
 export const TREASURY_NOTICE =
-  "Donar es voluntario. Las participaciones dan voz y visibilidad dentro del club; no son una inversión ni prometen rentabilidad.";
+  "ElClub. no custodia fondos. Donar no da derechos económicos: es voluntario, no es una inversión ni promete rentabilidad.";
 
 type Feature = {
   id: string;
@@ -63,14 +63,14 @@ const FEATURES: Feature[] = [
     Mock: TipsMock,
   },
   {
-    id: "tesoreria",
+    id: "donaciones",
     icon: Landmark,
-    label: "DAO",
-    title: "Tesorería común (DAO)",
-    body: "Un fondo común en una Safe multifirma 2-de-3 en Base y Arbitrum, valorado a precio de mercado y con las participaciones a la vista de todos.",
+    label: "Donaciones",
+    title: "Donaciones",
+    body: "Dona en Base o Arbitrum a la Safe del club. Sin retorno, con transparencia.",
     notice: TREASURY_NOTICE,
-    tags: ["Safe 2-de-3", "Valor a mercado"],
-    path: "/dao",
+    tags: ["Mecenas", "Safe"],
+    path: "/donar",
     Mock: TreasuryMock,
   },
   {
@@ -78,9 +78,9 @@ const FEATURES: Feature[] = [
     icon: Dices,
     label: "Sorteos y encuestas",
     title: "Sorteos verificables y encuestas con voto secreto",
-    body: "Los sorteos usan commit-reveal: cualquiera puede comprobar que el ganador salió limpio. En las encuestas secretas nadie ve los resultados hasta el cierre.",
-    tags: ["Commit-reveal", "Voto secreto"],
-    path: "/dao/sorteos",
+    body: "Los sorteos son gratis y el ganador sale de una ronda de drand: cualquiera puede comprobarlo en su navegador. En las encuestas secretas nadie ve los resultados hasta el cierre.",
+    tags: ["drand", "Voto secreto"],
+    path: "/sorteos",
     Mock: RafflePollMock,
   },
   {

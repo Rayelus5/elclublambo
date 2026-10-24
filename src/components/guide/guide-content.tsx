@@ -127,33 +127,95 @@ function Bounties() {
   );
 }
 
-function Dao() {
+function Donaciones() {
   return (
     <>
-      <Sub title="La DAO se está rehaciendo">
+      <Sub title="Qué es">
         <p>
-          La tesorería común del club se está rehaciendo para funcionar en Base y en Arbitrum. Mientras tanto no se puede
-          donar ni recibir shares, y la página de la DAO lo indica.
+          Puedes donar al club en USDC o ETH, en Base o en Arbitrum. El dinero va directo a la Safe del club, una cuenta
+          multifirma que gestionan los tesoreros. ElClub. no custodia fondos: la Safe es del club y cada movimiento se puede
+          ver en la blockchain.
         </p>
         <p>
-          Cuando vuelva, esta guía explicará cómo aportar, cómo se calculan las shares y qué riesgos asumes.
+          Donar no da derechos económicos: no es una inversión, no hay porcentaje, retorno ni promesa de rentabilidad, y una
+          donación no se devuelve.
+        </p>
+      </Sub>
+      <Sub title="Cómo donar">
+        <Steps>
+          <li>Abre Donar en el menú y elige la red y la moneda. Si ves MODO PRUEBA, el dinero no es real.</li>
+          <li>Escribe el importe y pulsa Continuar. Si tu wallet está en otra red, el foro le pide cambiarla.</li>
+          <li>Revisa la dirección de la Safe y firma una transferencia normal en tu wallet.</li>
+          <li>
+            Espera a que el foro verifique la transacción. Las donaciones en ETH se cuentan en USD con el precio de ese
+            momento; si el precio no está disponible, la donación queda «Esperando precio» y se acredita más tarde.
+          </li>
+        </Steps>
+        <p>En una red donde la Safe aún no está desplegada no se puede donar, y el foro no ofrece esa red.</p>
+      </Sub>
+      <Sub title="Qué recibes">
+        <Bullets>
+          <li>El rol Mecenas, desde 1 USD donado en total. Se suman todas tus donaciones verificadas.</li>
+          <li>
+            Tu nombre en la lista de donantes, que solo ven los miembros. Puedes ocultarte desde tu perfil cuando quieras.
+          </li>
+          <li>Acceso a los canales que el rol Mecenas permite y a los que piden haber donado cierta cantidad.</li>
+        </Bullets>
+      </Sub>
+      <Sub title="Transparencia">
+        <p>
+          En la página Donar ves los saldos de la Safe por red, las donaciones recientes y los gastos. Cada gasto lo anota un
+          tesorero con su transacción y una nota que explica para qué fue, y puedes abrirlo en el explorador de bloques para
+          comprobarlo.
         </p>
       </Sub>
     </>
   );
 }
 
-function Fondo() {
+function Sorteos() {
   return (
     <>
-      <Sub title="El fondo común se está rehaciendo">
+      <Sub title="Qué es">
         <p>
-          El fondo común se está rehaciendo para funcionar en Base y en Arbitrum. Mientras tanto no hay donaciones, ni
-          retiradas, ni valoración nueva del fondo.
+          Un sorteo es gratis: apuntarse no cuesta nada ni exige donar. Todos los apuntados tienen la misma probabilidad,
+          sin boletos ni pesos. Cada miembro puede apuntarse una vez hasta la hora de cierre.
         </p>
+      </Sub>
+      <Sub title="Premios">
+        <p>Un sorteo puede tener hasta 10 premios, de tres tipos:</p>
+        <Bullets>
+          <li>USDC, que paga un tesorero desde la Safe del club y se puede comprobar en la blockchain.</li>
+          <li>Un rol del foro, que se asigna al ganador.</li>
+          <li>Otra cosa, descrita en texto.</li>
+        </Bullets>
         <p>
-          Los sorteos también se están rehaciendo: hoy no se crean sorteos nuevos. Cuando vuelvan, esta guía explicará cómo
-          se valora el fondo, cómo pedir una retirada y cómo se comprueba un sorteo.
+          Cada persona gana como mucho un premio. Si hay menos apuntados que premios, los que sobran quedan sin adjudicar.
+          ElClub. no custodia fondos: los premios en USDC los envía el tesorero, no el foro.
+        </p>
+      </Sub>
+      <Sub title="Cómo se elige al ganador">
+        <Steps>
+          <li>
+            Al crear el sorteo se publica un compromiso: la huella de una semilla secreta que solo conoce el servidor. Así no
+            se puede cambiar después.
+          </li>
+          <li>
+            Se fija una ronda de drand posterior al cierre. drand es una red pública que emite un número aleatorio cada 3
+            segundos, que nadie conoce de antemano.
+          </li>
+          <li>
+            Cuando esa ronda existe, se revela la semilla y se combina con el número de drand. Ese resultado, con el orden de
+            los apuntados, decide quién gana cada premio.
+          </li>
+        </Steps>
+        <p>Si drand no responde, el sorteo espera y se reintenta. No se elige nada sin esa ronda.</p>
+      </Sub>
+      <Sub title="Cómo comprobarlo">
+        <p>
+          En la página de cada sorteo terminado, el verificador repite el cálculo en tu navegador: descarga la ronda de drand,
+          comprueba su firma, comprueba que la semilla coincide con el compromiso y calcula los ganadores. Si no se puede
+          descargar la ronda, te lo dice, pero eso no quiere decir que el sorteo sea inválido.
         </p>
       </Sub>
     </>
@@ -165,31 +227,30 @@ function Candados() {
     <>
       <Sub title="Qué es">
         <p>
-          Algunos canales piden una aportación a la DAO para entrar. Los ves en la barra lateral con un candado. El contenido
-          y los mensajes no se ven hasta que cumples el requisito.
+          Algunos canales piden haber donado al club para entrar. Los ves en la barra lateral con un candado. El contenido y
+          los mensajes no se ven hasta que cumples el requisito.
         </p>
       </Sub>
-      <Sub title="Las reglas">
-        <p>Un canal puede pedir una de estas reglas, o las dos unidas con «o»:</p>
-        <Bullets>
-          <li>Un porcentaje mínimo de la DAO.</li>
-          <li>Una aportación neta mínima en USDC.</li>
-        </Bullets>
+      <Sub title="La regla">
         <p>
-          Con las dos, basta con cumplir una. Por ejemplo: «1 % de la DAO o 100 USDC aportados». Si el canal cuelga de un
-          foro o una categoría con requisitos, también tienes que cumplir los de arriba.
+          Un canal pide un total donado mínimo, en USD. Cuenta la suma de todas tus donaciones verificadas, en cualquier red y
+          moneda. Por ejemplo: «10 USD donados». Si el canal cuelga de un foro o una categoría con requisitos, también tienes
+          que cumplir los de arriba.
+        </p>
+        <p>
+          Otros canales son solo para el rol Mecenas, que se gana donando 1 USD o más. Ese permiso lo decide el canal, no un
+          candado de cantidad.
         </p>
       </Sub>
       <Sub title="Dónde ves tu situación">
         <p>
-          Al abrir un canal con candado verás el requisito y tu situación actual. Mientras la DAO se rehace no se puede
-          donar para cumplirlo.
+          Al abrir un canal con candado verás el requisito y lo que llevas donado. Desde ahí puedes ir a Donar para cumplirlo.
         </p>
       </Sub>
       <Sub title="Riesgos">
         <Bullets>
-          <li>Tu porcentaje baja si entran nuevas aportaciones. Un canal puede cerrarse para ti sin que hayas retirado nada.</li>
-          <li>Las aportaciones aún en «pendiente de finalización» no cuentan hasta que se finalizan.</li>
+          <li>Las donaciones aún en «Verificando» o «Esperando precio» no cuentan hasta que se acreditan.</li>
+          <li>Donar no da derechos económicos: es un regalo al club, no una compra.</li>
         </Bullets>
       </Sub>
     </>
@@ -266,23 +327,8 @@ function Encuestas() {
           </li>
         </Steps>
         <p>
-          El cierre va de 1 hora a 30 días desde que se crea. A partir de la hora de cierre ya no se aceptan votos.
-        </p>
-      </Sub>
-      <Sub title="Cuánto pesa tu voto">
-        <p>Quien crea la encuesta elige entre tres modos:</p>
-        <Bullets>
-          <li>1 persona, 1 voto: todos los votos pesan lo mismo.</li>
-          <li>Lineal según participación: tu voto pesa lo que sumaban tus participaciones sin bloquear al crear la encuesta.</li>
-          <li>
-            Cuadrática según participación: tu voto pesa la raíz cuadrada de esas participaciones, así que quien más aportó
-            pesa más, pero menos que en el modo lineal.
-          </li>
-        </Bullets>
-        <p>
-          Los pesos se fijan cuando se crea la encuesta, con las participaciones sin bloquear de ese momento: si después
-          donas o pides una retirada, no cambian. Quien no tenía participaciones en ese momento pesa 0 en los modos
-          ponderados. El Fondo del club no es un miembro y nunca vota.
+          1 miembro = 1 voto: todos los votos pesan lo mismo, se haya donado o no. El cierre va de 1 hora a 30 días desde que
+          se crea. A partir de la hora de cierre ya no se aceptan votos.
         </p>
       </Sub>
       <Sub title="Voto secreto">
@@ -293,20 +339,18 @@ function Encuestas() {
         </p>
         <p>
           Hay un límite que ninguna encuesta puede evitar: si todos menos uno de los votantes comparten entre ellos lo que
-          votaron, pueden deducir el voto del que falta. Y en los modos ponderados, con pocos votantes un voto puede dar una
-          pista sobre la participación de alguien; por eso piden más votantes para publicar resultados.
+          votaron, pueden deducir el voto del que falta.
         </p>
       </Sub>
       <Sub title="Resultados">
         <p>
-          Los resultados no se ven hasta el cierre. Entonces la tarjeta muestra, para cada opción, el % del peso que ha
-          recibido, y cuántas personas han votado. En el modo 1 persona, 1 voto el porcentaje lleva un decimal; en los
-          ponderados se redondea al entero. Los porcentajes redondeados pueden no sumar exactamente 100 %.
+          Los resultados no se ven hasta el cierre. Entonces la tarjeta muestra, para cada opción, el porcentaje de votos que
+          ha recibido, con un decimal, y cuántas personas han votado. Los porcentajes redondeados pueden no sumar exactamente
+          100 %.
         </p>
         <p>
-          Para publicar resultados hacen falta al menos 3 votantes en el modo 1 persona, 1 voto, y al menos 5 votantes con
-          participaciones en los modos ponderados. Si no se llega, la encuesta se cierra sin resultados y no se publica ningún
-          porcentaje. Quienes votaron reciben un aviso cuando la encuesta se cierra.
+          Para publicar resultados hacen falta al menos 3 votantes. Si no se llega, la encuesta se cierra sin resultados y no
+          se publica ningún porcentaje. Quienes votaron reciben un aviso cuando la encuesta se cierra.
         </p>
       </Sub>
     </>
@@ -316,14 +360,14 @@ function Encuestas() {
 const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
   propinas: Propinas,
   bounties: Bounties,
-  dao: Dao,
-  fondo: Fondo,
+  donaciones: Donaciones,
+  sorteos: Sorteos,
   encuestas: Encuestas,
   candados: Candados,
   redes: Redes,
 };
 
-/** Sections whose feature is not shipped yet: the guide says what will exist. Empty: the paused DAO and raffles say so in their own sections. */
+/** Sections whose feature is not shipped yet: the guide says what will exist. Empty: every section describes what is live. */
 const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>();
 
 export function isComingSoon(slug: GuideSlug): boolean {

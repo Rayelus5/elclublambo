@@ -70,7 +70,7 @@ export function StartFooter() {
           <span aria-hidden className="ml-[0.06em] inline-block size-[0.22em] bg-accent" />
         </p>
         <p className="max-w-[44rem]">
-          Tesorería: fondo común en una Safe multifirma 2-de-3 en Base y Arbitrum. {TREASURY_NOTICE}
+          Donaciones a la Safe del club en Base y Arbitrum. {TREASURY_NOTICE}
         </p>
         <p className="font-mono text-[0.75rem]">Construido en Base y Arbitrum</p>
       </div>

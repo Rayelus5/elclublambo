@@ -63,7 +63,7 @@ describe("StartLanding with reduced motion", () => {
       .getAllByRole("heading", { level: 3 })
       .map((h) => h.textContent);
     expect(names).toHaveLength(8);
-    for (const word of ["Canales", "Alphas", "Bounties", "Propinas", "Tesorería", "Sorteos", "Mercado", "Moderación"]) {
+    for (const word of ["Canales", "Alphas", "Bounties", "Propinas", "Donaciones", "Sorteos", "Mercado", "Moderación"]) {
       expect(names.some((n) => n?.includes(word))).toBe(true);
     }
   });
@@ -77,10 +77,20 @@ describe("StartLanding with reduced motion", () => {
     expect(steps).toHaveTextContent(/ni mueve fondos/);
   });
 
-  it("warns that the treasury is not an investment, next to the feature and in the footer", () => {
+  it("says donations have no economic rights, next to the feature and in the footer", () => {
     render(<StartLanding />);
-    expect(screen.getAllByText(/no son una inversión ni prometen rentabilidad/).length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText(/2-de-3/).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Donar no da derechos económicos/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Dona en Base o Arbitrum a la Safe del club. Sin retorno, con transparencia.")).toBeInTheDocument();
+    expect(screen.getAllByText("Mecenas").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Safe").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("explains raffles with drand, with no commit-reveal, shares or treasury leftovers", () => {
+    render(<StartLanding />);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/drand/);
+    expect(text).not.toMatch(/commit-reveal/i);
+    expect(text).not.toMatch(/participaciones|2-de-3|Tesorería/);
   });
 
   it("offers «Solicitar invitación» disabled as «Próximamente», and tells invitees what to do", () => {

@@ -22,6 +22,8 @@ describe("/start metadata in production", () => {
     expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("ElClub.") });
     expect(String(metadata.description)).toMatch(/invitación/);
     expect(String(metadata.description)).toMatch(/Base y Arbitrum/);
+    expect(String(metadata.description)).toMatch(/donaciones/);
+    expect(String(metadata.description)).not.toMatch(/tesorería/i);
     expect(JSON.stringify(metadata)).not.toMatch(/Linea/);
     expect(metadata.alternates?.canonical).toBe("https://www.elclub.party/start");
     expect(metadata.robots).toMatchObject({ index: true, follow: true });
