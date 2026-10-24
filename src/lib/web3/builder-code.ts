@@ -22,8 +22,15 @@ export function builderCodeSuffix(codes: readonly string[]): `0x${string}` {
   return concat([codesHex, numberToHex(length, { size: 1 }), "0x00", ERC8021_MARKER]);
 }
 
-/** The attribution suffix for transfers on `chain`: only the Base network carries it (never Arbitrum). */
+/**
+ * The attribution suffix for transfers on `chain`: only the Base network carries it (never Arbitrum). A malformed code
+ * is logged and skipped rather than blocking the payment; the deploy readiness check refuses it in production.
+ */
 export function dataSuffixFor(chain: ChainId, code: string | undefined = process.env.NEXT_PUBLIC_BASE_BUILDER_CODE): `0x${string}` | undefined {
   if (NETWORKS[chain].key !== "base" || !code) return undefined;
+  if (!BUILDER_CODE_RE.test(code)) {
+    console.error(`dataSuffixFor: invalid NEXT_PUBLIC_BASE_BUILDER_CODE "${code}", sending without attribution`);
+    return undefined;
+  }
   return builderCodeSuffix([code]);
 }

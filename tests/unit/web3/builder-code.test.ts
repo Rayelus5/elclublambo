@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ERC8021_MARKER, builderCodeSuffix, dataSuffixFor } from "@/lib/web3/builder-code";
 
 const REAL = "0x62635f747478756c7962760b0080218021802180218021802180218021";
@@ -29,5 +29,11 @@ describe("dataSuffixFor", () => {
     expect(dataSuffixFor(42161, "bc_ttxulybv")).toBeUndefined();
     expect(dataSuffixFor(421614, "bc_ttxulybv")).toBeUndefined();
     expect(dataSuffixFor(84532, "")).toBeUndefined();
+  });
+  it("logs and returns undefined on a malformed code instead of breaking the payment (readiness enforces it in PRO)", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(dataSuffixFor(84532, "not a code!")).toBeUndefined();
+    expect(error).toHaveBeenCalledTimes(1);
+    error.mockRestore();
   });
 });
