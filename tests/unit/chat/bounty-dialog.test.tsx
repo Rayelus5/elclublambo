@@ -101,6 +101,7 @@ describe("BountyDialog", () => {
           { type: "paragraph", content: [{ type: "text", text: "línea dos" }] },
         ],
       },
+      chainId: 84532,
       token: "USDC",
       amount: "25",
     });

@@ -1,6 +1,7 @@
 "use server";
 
 import { safeError } from "@/lib/security/redact";
+import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { parseAmount, type Token } from "@/lib/payments/amounts";
 import { confirmIntent, type ConfirmResult } from "@/lib/payments/confirm";
@@ -24,9 +25,9 @@ export type TipIntent = {
 export type TipInput = {
   targetType: "message" | "profile";
   targetId: string;
+  chainId: ChainId;
   token: Token;
   amount: string;
-  feeBps: number;
   anonymous: boolean;
 };
 
@@ -34,17 +35,19 @@ type Fail = { ok: false; error: string; code: string };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
 
 export async function createTipIntentAction(input: TipInput): Promise<{ ok: true; intent: TipIntent } | Fail> {
-  const { targetType, targetId, token, amount, feeBps, anonymous } = input ?? ({} as TipInput);
+  const { targetType, targetId, chainId, token, amount, anonymous } = input ?? ({} as TipInput);
   if (
     (targetType !== "message" && targetType !== "profile") ||
     typeof targetId !== "string" || !UUID_RE.test(targetId) ||
+    !isChainId(chainId) ||
     (token !== "ETH" && token !== "USDC") ||
     typeof amount !== "string" ||
-    !Number.isInteger(feeBps) || feeBps < 0 || feeBps > 5000 ||
     typeof anonymous !== "boolean"
   ) {
     return fail("invalid_input");
   }
+  // Review Focus 5: a network outside the build's set never reaches the RPC, even if the DB has it enabled.
+  if (!appChainIds().includes(chainId)) return fail("chain_invalid");
   const units = parseAmount(amount, token);
   if (units === null || units <= 0n) return fail("invalid_input");
 
@@ -52,9 +55,9 @@ export async function createTipIntentAction(input: TipInput): Promise<{ ok: true
   const { data, error } = await supabase.rpc("create_tip_intent", {
     p_target_type: targetType,
     p_target_id: targetId,
+    p_chain_id: chainId,
     p_token: token,
     p_amount: units.toString(),
-    p_fee_bps: feeBps,
     p_anonymous: anonymous,
   });
   if (error) return fail(rpcErrorCode(error));

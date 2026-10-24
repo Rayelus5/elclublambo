@@ -571,13 +571,13 @@ function TipFlow({
       created = donation
         ? await createDonationIntentAction({ amount: amountText.trim(), feeBps, acknowledged: true })
         : mode
-        ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, amount: amountText.trim(), feeBps })
+        ? await createBountyPaymentIntentAction({ bountyId: mode.bountyId, chainId, amount: amountText.trim() })
         : await createTipIntentAction({
             targetType: target?.type === "message" ? "message" : "profile",
             targetId,
+            chainId,
             token,
             amount: amountText.trim(),
-            feeBps,
             anonymous,
           });
     } catch {

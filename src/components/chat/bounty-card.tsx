@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, Network, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
+import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
 import { NetworkBadge } from "@/components/economy/network-badge";
 import { useOptionalEconomy } from "@/components/payments/economy-provider";
 import { TipDialog, type TipRecipient } from "@/components/payments/tip-dialog";
@@ -48,7 +48,6 @@ const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
   // payment impossible: neutral, never the danger tone of an unpaid mark (F3-R1)
   removed: { icon: ShieldX, tone: "border-border text-fg-muted" },
   solver_unavailable: { icon: UserX, tone: "border-border text-fg-muted" },
-  other_chain: { icon: Network, tone: "border-border text-fg-muted" },
 };
 
 /** Exact chip copy per status; "solution_marked" counts the days left to pay (rounded up, at least one). */
@@ -75,8 +74,6 @@ export function statusLabel(bounty: Pick<BountyDetail, "status" | "payDeadline">
       return "Retirado por moderación";
     case "solver_unavailable":
       return "Solucionador no disponible";
-    case "other_chain":
-      return "En otra red";
   }
 }
 
@@ -113,7 +110,7 @@ export function BountyCard({
   const Icon = chip.icon;
   const canCancel = isAuthor && bounty.status === "open";
   // F3c-R7 / N1: a payment already under way (fee paid, or a signature waiting in the wallet) must stay reachable
-  // whatever the status became (other_chain, solver_unavailable...): the dialog resumes it on the intent's own chain.
+  // whatever the status became (solver_unavailable...): the dialog resumes it on the intent's own chain.
   // Paid bounties are excluded (a resumed transfer could no longer be credited). The ledger lives in localStorage:
   // null on the server and during hydration, re-read on every render and on storage events.
   const economy = useOptionalEconomy();

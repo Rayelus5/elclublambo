@@ -185,9 +185,9 @@ describe("TipDialog signing and verification", () => {
     expect(createTipIntentAction).toHaveBeenCalledWith({
       targetType: "message",
       targetId: "33333333-3333-4333-8333-333333333333",
+      chainId: 84532,
       token: "USDC",
       amount: "10",
-      feeBps: 0,
       anonymous: false,
     });
     expect(send).toHaveBeenCalledTimes(1);

@@ -18,9 +18,21 @@ describe("bounty queries", () => {
     expect(m?.size).toBe(1);
     expect(m?.get("a")).toMatchObject({ amount: 100000000000000000001n, status: "solution_marked", payDeadline: "d", solverId: "s", paidTipId: null });
   });
-  it.each(["removed", "solver_unavailable", "other_chain"])("accepts the derived status %s", async (status) => {
+  it.each(["removed", "solver_unavailable"])("accepts the derived status %s", async (status) => {
     const m = await getBountyDetails(client({ data: [{ message_id: "a", token: "USDC", amount_text: "1", chain_id: 84532, status }], error: null }), ["a"]);
     expect(m?.get("a")?.status).toBe(status);
+  });
+  it.each(["other_chain", "weird"])("drops a row with an unknown status (%s)", async (status) => {
+    const m = await getBountyDetails(
+      client({ data: [{ message_id: "a", token: "USDC", amount_text: "1", chain_id: 421614, status }, { message_id: "b", token: "USDC", amount_text: "1", chain_id: 421614, status: "open" }], error: null }),
+      ["a", "b"],
+    );
+    expect(m?.has("a")).toBe(false);
+    expect(m?.get("b")?.status).toBe("open");
+  });
+  it("drops a leftover Linea bounty without failing the read", async () => {
+    const m = await getBountyDetails(client({ data: [{ message_id: "a", token: "USDC", amount_text: "1", chain_id: 59141, status: "open" }], error: null }), ["a"]);
+    expect(m?.size).toBe(0);
   });
   it("returns an empty map for no ids and null on failure", async () => {
     expect((await getBountyDetails(client({}), []))?.size).toBe(0);

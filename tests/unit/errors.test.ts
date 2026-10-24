@@ -108,6 +108,20 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorMessage(code)).toBe(copy);
   });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
+  it.each([
+    ["network_not_accepted", "Esta persona no recibe pagos en esa red."],
+    ["chain_disabled", "Esa red ya no está disponible."],
+  ])("P0 multi-network error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
+  it.each(["bounty_chain_inactive", "fee_below_minimum", "platform_not_configured"])(
+    "the fee and single-chain code %s is gone (P0-R4, P0-R5)",
+    (code) => {
+      expect(knownErrorCode(code)).toBeNull();
+      expect(rpcErrorMessage(code)).toBe(FALLBACK);
+    },
+  );
 });
 
 describe("rpcErrorCode", () => {

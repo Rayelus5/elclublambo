@@ -1,5 +1,5 @@
 begin;
-select plan(105);
+select plan(102);
 
 -- helpers (rolled back with the test)
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -10,10 +10,16 @@ create function tests.post(p_ch uuid, p_body jsonb, p_root uuid default null)
 returns uuid language sql as $$
   select public.post_message(p_ch, p_body, 'x', false, p_root, null, '[]'::jsonb)
 $$;
--- a message tip intent: (target message, token, amount, bps, anonymous) -> jsonb
-create function tests.tip(p_msg text, p_token text, p_amount numeric, p_bps int, p_anon boolean default false)
+-- a message tip intent on Base Sepolia: (target message, token, amount, anonymous) -> jsonb
+create function tests.tip(p_msg text, p_token text, p_amount numeric, p_anon boolean default false)
 returns jsonb language sql as $$
-  select public.create_tip_intent('message', p_msg::uuid, p_token, p_amount, p_bps, p_anon)
+  select public.create_tip_intent('message', p_msg::uuid, 84532, p_token, p_amount, p_anon)
+$$;
+-- the RPCs no longer charge a fee (P0-R5); confirm_tip still handles one, so a legacy fee intent is simulated here
+create function tests.simulate_fee(p_intent text, p_bps int) returns void language sql as $$
+  update public.payment_intents
+  set fee_bps = p_bps, fee_amount = div(amount * p_bps + 9999, 10000), platform_address = '0x' || lpad('f00', 40, '0')
+  where id = p_intent::uuid
 $$;
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -36,8 +42,8 @@ select ok(not has_function_privilege('anon', 'public.confirm_tip(uuid,jsonb,json
 select ok(has_function_privilege('service_role', 'public.confirm_tip(uuid,jsonb,jsonb)', 'execute'), 'service_role confirms tips');
 select ok(not has_function_privilege('authenticated', 'public.fail_intent(uuid,text)', 'execute'), 'authenticated cannot fail_intent');
 select ok(has_function_privilege('service_role', 'public.fail_intent(uuid,text)', 'execute'), 'service_role fails intents');
-select ok(has_function_privilege('authenticated', 'public.create_tip_intent(text,uuid,text,numeric,int,boolean)', 'execute'), 'authenticated creates intents');
-select ok(not has_function_privilege('anon', 'public.create_tip_intent(text,uuid,text,numeric,int,boolean)', 'execute'), 'anon cannot create intents');
+select ok(has_function_privilege('authenticated', 'public.create_tip_intent(text,uuid,int,text,numeric,boolean)', 'execute'), 'authenticated creates intents');
+select ok(not has_function_privilege('anon', 'public.create_tip_intent(text,uuid,int,text,numeric,boolean)', 'execute'), 'anon cannot create intents');
 select ok(not has_function_privilege('anon', 'public.message_tips(uuid)', 'execute'), 'anon cannot message_tips');
 select throws_ok($$insert into public.messages (channel_id, author_id, body, body_text, allow_links, kind)
   values (gen_random_uuid(), null, '{}', 'x', false, 'text')$$, null, null, 'a non-system message needs an author');
@@ -62,8 +68,6 @@ select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, '
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
   values (current_setting('t.ch')::uuid, 'member', current_setting('t.h')::uuid, 0, 1);
 
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
-
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.m1', tests.post(current_setting('t.ch')::uuid, tests.td('root one'))::text, true);
 select set_config('t.m2', tests.post(current_setting('t.ch')::uuid, tests.td('root two'))::text, true);
@@ -74,55 +78,47 @@ update public.messages set deleted_at = now() where id = current_setting('t.m3')
 
 -- ===== intent creation =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.i1', tests.tip(current_setting('t.m1'), 'USDC', 10000000, 260)::text, true);
-select is((current_setting('t.i1')::jsonb ->> 'feeAmount'), '260000', 'fee: 10 USDC at 260 bps = 260000');
+select set_config('t.i1', tests.tip(current_setting('t.m1'), 'USDC', 10000000)::text, true);
+select is((current_setting('t.i1')::jsonb ->> 'feeAmount'), '0', 'no fee: feeAmount is 0');
 select is((current_setting('t.i1')::jsonb ->> 'amount'), '10000000', 'amount is returned as a string');
-select is((current_setting('t.i1')::jsonb ->> 'chainId')::int, 59141, 'chainId is the active chain');
+select is((current_setting('t.i1')::jsonb ->> 'chainId')::int, 84532, 'chainId is the requested network');
 select is((current_setting('t.i1')::jsonb ->> 'recipientAddress'), '0x' || lpad('d6001', 40, '0'), 'recipient wallet is snapshotted');
-select is((current_setting('t.i1')::jsonb ->> 'platformAddress'), '0x' || lpad('f00', 40, '0'), 'platform wallet is snapshotted');
-select is((tests.tip(current_setting('t.m1'), 'USDC', 10001, 1) ->> 'feeAmount'), '2', 'fee rounds up (ceil)');
-select is((tests.tip(current_setting('t.m1'), 'USDC', 10000, 0) ->> 'platformAddress'), null, 'no platform address without a fee');
+select is((current_setting('t.i1')::jsonb ->> 'platformAddress'), null, 'no platform address');
+select is((public.create_tip_intent('message', current_setting('t.m1')::uuid, 421614, 'USDC', 10001, false) ->> 'chainId')::int, 421614,
+  'a tip on Arbitrum Sepolia keeps its network');
+select is((tests.tip(current_setting('t.m1'), 'USDC', 10000) ->> 'platformAddress'), null, 'no platform address at the minimum either');
 select is((select chain_id from public.payment_intents where id = (current_setting('t.i1')::jsonb ->> 'id')::uuid),
-  59141, 'intent snapshot equals the active chain');
+  84532, 'intent snapshot equals the requested network');
 select is((select count(*)::int from public.payment_intents), 3, 'a member reads their own intents');
 
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 9999, 0)$$, 'P0001', 'amount_out_of_range', 'USDC below minimum');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 100000000001, 0)$$, 'P0001', 'amount_out_of_range', 'USDC above maximum');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 9999999999999, 0)$$, 'P0001', 'amount_out_of_range', 'ETH below minimum');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 100000000000000000001, 0)$$, 'P0001', 'amount_out_of_range', 'ETH above maximum');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 5001)$$, 'P0001', 'fee_out_of_range', 'fee above 5000 bps');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, -1)$$, 'P0001', 'fee_out_of_range', 'negative fee');
-select tests.clear_authentication();
-update public.app_config set value = '100'::jsonb where key = 'min_fee_bps';
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 99)$$, 'P0001', 'fee_below_minimum', 'fee below the configured minimum');
-select tests.clear_authentication();
-update public.app_config set value = '0'::jsonb where key = 'min_fee_bps';
-update public.chain_config set platform_wallet = null where chain_id = 59141;
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 100)$$, 'P0001', 'platform_not_configured', 'fee without platform wallet');
-select lives_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 0)$$, 'no fee needs no platform wallet');
-select tests.clear_authentication();
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m3'), 'USDC', 10000000, 0)$$, 'P0001', 'not_found', 'deleted message is not found');
-select throws_ok($$select public.create_tip_intent('profile', current_setting('t.a')::uuid, 'USDC', 10000000, 0, false)$$,
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 9999)$$, 'P0001', 'amount_out_of_range', 'USDC below minimum');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 100000000001)$$, 'P0001', 'amount_out_of_range', 'USDC above maximum');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 9999999999999)$$, 'P0001', 'amount_out_of_range', 'ETH below minimum');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 100000000000000000001)$$, 'P0001', 'amount_out_of_range', 'ETH above maximum');
+select throws_ok($$select public.create_tip_intent('message', current_setting('t.m1')::uuid, 59141, 'USDC', 10000000, false)$$,
+  'P0001', 'chain_invalid', 'a Linea chain is refused');
+select throws_ok($$select public.create_tip_intent('message', current_setting('t.m1')::uuid, null, 'USDC', 10000000, false)$$,
+  'P0001', 'invalid_input', 'a null chain is invalid input');
+select throws_ok($$select tests.tip(current_setting('t.m3'), 'USDC', 10000000)$$, 'P0001', 'not_found', 'deleted message is not found');
+select throws_ok($$select public.create_tip_intent('profile', current_setting('t.a')::uuid, 84532, 'USDC', 10000000, false)$$,
   'P0001', 'self_payment', 'self-tip to own profile');
 select tests.authenticate_as(current_setting('t.ub')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 0)$$, 'P0001', 'self_payment', 'self-tip to own message');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000)$$, 'P0001', 'self_payment', 'self-tip to own message');
 select tests.authenticate_as(current_setting('t.uh')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000, 0)$$, 'P0001', 'not_found', 'message in a hidden channel is not found');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000000)$$, 'P0001', 'not_found', 'message in a hidden channel is not found');
 select tests.authenticate_as(current_setting('t.um')::uuid);
-select lives_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000, 0) from generate_series(1, 20)$$, '20 pending intents are allowed');
-select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000, 0)$$, 'P0001', 'too_many_intents', 'the 21st pending intent fails');
+select lives_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000) from generate_series(1, 20)$$, '20 pending intents are allowed');
+select throws_ok($$select tests.tip(current_setting('t.m1'), 'USDC', 10000)$$, 'P0001', 'too_many_intents', 'the 21st pending intent fails');
 select tests.clear_authentication();
 -- the failing 21st (and ETH one) leave the count; expire the batch so the member can tip again
 update public.payment_intents set expires_at = now() - interval '1 minute' where member_id = current_setting('t.m')::uuid;
 select tests.authenticate_as(current_setting('t.um')::uuid);
-select lives_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 100000000000000000000, 0)$$, 'expired intents do not count; ETH at the maximum is accepted');
+select lives_ok($$select tests.tip(current_setting('t.m1'), 'ETH', 100000000000000000000)$$, 'expired intents do not count; ETH at the maximum is accepted');
 select tests.clear_authentication();
 
 -- ===== attaching hashes =====
+-- i1 carries a legacy fee (260 bps of 10 USDC = 260000) so confirm_tip's fee path stays covered
+select tests.simulate_fee(current_setting('t.i1')::jsonb ->> 'id', 260);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select lives_ok(format($$select public.attach_intent_tx(%L, 'main', %L)$$, current_setting('t.i1')::jsonb ->> 'id', tests.hash(1)),
   'attach the main hash');
@@ -138,7 +134,7 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select throws_ok(format($$select public.attach_intent_tx(%L, 'main', %L)$$, current_setting('t.i1')::jsonb ->> 'id', tests.hash(3)),
   'P0001', 'not_found', 'another member''s intent is not found');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.iexp', tests.tip(current_setting('t.m1'), 'USDC', 10000000, 0)::text, true);
+select set_config('t.iexp', tests.tip(current_setting('t.m1'), 'USDC', 10000000)::text, true);
 select tests.clear_authentication();
 update public.payment_intents set expires_at = now() - interval '1 minute' where id = (current_setting('t.iexp')::jsonb ->> 'id')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
@@ -200,7 +196,7 @@ select is((select count(*)::int from public.tips), 1, 'still one tip');
 
 -- replay of the same transfer on another intent
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.i3', tests.tip(current_setting('t.m2'), 'USDC', 10000000, 0)::text, true);
+select set_config('t.i3', tests.tip(current_setting('t.m2'), 'USDC', 10000000)::text, true);
 select public.attach_intent_tx((current_setting('t.i3')::jsonb ->> 'id')::uuid, 'main', tests.hash(1));
 select tests.clear_authentication();
 set local role service_role;
@@ -223,7 +219,10 @@ select is((select reply_count from public.messages where id = current_setting('t
 
 -- ===== anonymity =====
 select tests.authenticate_as(current_setting('t.uc')::uuid);
-select set_config('t.i4', tests.tip(current_setting('t.m1'), 'ETH', 12500000000000000, 100, true)::text, true);
+select set_config('t.i4', tests.tip(current_setting('t.m1'), 'ETH', 12500000000000000, true)::text, true);
+select tests.clear_authentication();
+select tests.simulate_fee(current_setting('t.i4')::jsonb ->> 'id', 100);
+select tests.authenticate_as(current_setting('t.uc')::uuid);
 select public.attach_intent_tx((current_setting('t.i4')::jsonb ->> 'id')::uuid, 'main', tests.hash(10));
 select public.attach_intent_tx((current_setting('t.i4')::jsonb ->> 'id')::uuid, 'fee', tests.hash(11));
 select tests.clear_authentication();
@@ -286,7 +285,7 @@ select tests.clear_authentication();
 
 -- ===== profile tip =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.i5', public.create_tip_intent('profile', current_setting('t.b')::uuid, 'ETH', 10000000000000, 0, false)::text, true);
+select set_config('t.i5', public.create_tip_intent('profile', current_setting('t.b')::uuid, 84532, 'ETH', 10000000000000, false)::text, true);
 select public.attach_intent_tx((current_setting('t.i5')::jsonb ->> 'id')::uuid, 'main', tests.hash(20));
 select tests.clear_authentication();
 set local role service_role;
@@ -302,7 +301,7 @@ select tests.clear_authentication();
 
 -- ===== failing an intent =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.i6', tests.tip(current_setting('t.m1'), 'USDC', 10000000, 0)::text, true);
+select set_config('t.i6', tests.tip(current_setting('t.m1'), 'USDC', 10000000)::text, true);
 select tests.clear_authentication();
 set local role service_role;
 select public.fail_intent((current_setting('t.i6')::jsonb ->> 'id')::uuid, 'tx_failed');
@@ -313,7 +312,7 @@ select is((select status || '/' || failure_code from public.payment_intents wher
 -- ===== system messages =====
 select set_config('t.notice', (select m.id::text from public.messages m where m.tip_id = current_setting('t.tip1')::uuid), true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.tip(current_setting('t.notice'), 'USDC', 10000000, 0)$$, 'P0001', 'not_found', 'a system notice is never a tip target');
+select throws_ok($$select tests.tip(current_setting('t.notice'), 'USDC', 10000000)$$, 'P0001', 'not_found', 'a system notice is never a tip target');
 select throws_ok($$select public.edit_message(current_setting('t.notice')::uuid, tests.td('hacked'), 'x')$$, 'P0001', 'forbidden', 'a system notice cannot be edited');
 select throws_ok($$select public.report_message(current_setting('t.notice')::uuid, 'spam', null)$$, 'P0001', 'forbidden', 'a system notice cannot be reported');
 select lives_ok($$select public.toggle_reaction(current_setting('t.notice')::uuid, '👍')$$, 'a system notice accepts reactions');

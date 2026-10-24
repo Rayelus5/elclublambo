@@ -76,7 +76,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
     setError(null);
     let res: Awaited<ReturnType<typeof createBountyAction>>;
     try {
-      res = await createBountyAction({ channelId, body: textToDoc(description), token, amount: amountText.trim() });
+      res = await createBountyAction({ channelId, body: textToDoc(description), chainId: activeChainId, token, amount: amountText.trim() });
     } catch {
       res = { ok: false, code: "unknown", error: rpcErrorMessage("unknown") };
     }

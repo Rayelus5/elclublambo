@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -29,28 +29,41 @@ import { attachTxAction, createTipIntentAction, verifyIntentAction } from "@/lib
 
 const ID = "11111111-1111-4111-8111-111111111111";
 const HASH = `0x${"ab".repeat(32)}`;
-const valid = { targetType: "message" as const, targetId: ID, token: "USDC" as const, amount: "12,5", feeBps: 500, anonymous: false };
+const valid = { targetType: "message" as const, targetId: ID, chainId: 84532 as const, token: "USDC" as const, amount: "12,5", anonymous: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
   ownRow = { id: ID };
   ownError = null;
   hit.mockResolvedValue("ok");
+  vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("createTipIntentAction", () => {
   it("converts the amount to base units and returns the intent", async () => {
-    const intent = { id: ID, chainId: 59141, token: "USDC", amount: "12500000", feeAmount: "625000", recipientAddress: "0xa", platformAddress: "0xb", expiresAt: "x" };
+    const intent = { id: ID, chainId: 84532, token: "USDC", amount: "12500000", feeAmount: "0", recipientAddress: "0xa", platformAddress: null, expiresAt: "x" };
     rpc.mockResolvedValue({ data: intent, error: null });
     expect(await createTipIntentAction(valid)).toEqual({ ok: true, intent });
+    // no p_fee_bps: the RPC takes the chain and charges no fee (P0-R5)
     expect(rpc).toHaveBeenCalledWith("create_tip_intent", {
-      p_target_type: "message", p_target_id: ID, p_token: "USDC", p_amount: "12500000", p_fee_bps: 500, p_anonymous: false,
+      p_target_type: "message", p_target_id: ID, p_chain_id: 84532, p_token: "USDC", p_amount: "12500000", p_anonymous: false,
     });
+  });
+
+  it("a chain outside the build's set is chain_invalid without calling the RPC (Review Focus 5)", async () => {
+    expect(await createTipIntentAction({ ...valid, chainId: 8453 })).toMatchObject({ ok: false, code: "chain_invalid" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([59141, 1, "84532", undefined])("a chain id that is not a network (%s) is invalid_input without calling the RPC", async (chainId) => {
+    expect(await createTipIntentAction({ ...valid, chainId } as never)).toMatchObject({ ok: false, code: "invalid_input" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it.each([
     { amount: "abc" }, { amount: "-1" }, { amount: "1,0000001" }, { targetId: "nope" }, { token: "DAI" }, { targetType: "bounty" },
-    { feeBps: 1.5 }, { feeBps: -1 }, { feeBps: 5001 },
+    { anonymous: "no" },
   ])("rejects invalid input %o without calling the RPC", async (over) => {
     const r = await createTipIntentAction({ ...valid, ...over } as never);
     expect(r).toMatchObject({ ok: false });
@@ -58,8 +71,8 @@ describe("createTipIntentAction", () => {
   });
 
   it("maps RPC errors to Spanish copy and keeps the code", async () => {
-    rpc.mockResolvedValue({ data: null, error: { message: "fee_below_minimum" } });
-    expect(await createTipIntentAction(valid)).toMatchObject({ ok: false, code: "fee_below_minimum", error: expect.stringContaining("comisión") });
+    rpc.mockResolvedValue({ data: null, error: { message: "network_not_accepted" } });
+    expect(await createTipIntentAction(valid)).toMatchObject({ ok: false, code: "network_not_accepted", error: expect.stringContaining("esa red") });
   });
 });
 

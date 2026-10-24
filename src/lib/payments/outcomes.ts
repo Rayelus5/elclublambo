@@ -6,8 +6,9 @@
  * Failure codes that can never get better. The server only ever stores these on a failed intent (fail_intent), and
  * only these end a flow on the client. `not_found` reaches the client only when a read succeeded with no row.
  * `invalid_input` covers rechecks that can never pass (the intent no longer describes its target) and malformed ids;
- * `reverted` is a donation whose transfer stopped verifying (ruling F3d-R6); `platform_not_configured` is an intent
- * charging a fee with no platform address snapshotted, which no retry can fix.
+ * `reverted` is a donation whose transfer stopped verifying (ruling F3d-R6); `platform_not_configured` is a legacy intent
+ * charging a fee with no platform address snapshotted, which no retry can fix; `chain_disabled` is an intent on a
+ * network this build no longer uses (a Linea leftover, Review Focus 4).
  */
 export const DEFINITIVE_FAILURE_CODES: ReadonlySet<string> = new Set([
   "tx_mismatch",
@@ -21,6 +22,7 @@ export const DEFINITIVE_FAILURE_CODES: ReadonlySet<string> = new Set([
   "invalid_input",
   "reverted",
   "platform_not_configured",
+  "chain_disabled",
 ]);
 
 export function isDefinitiveFailure(code: string | null | undefined): boolean {

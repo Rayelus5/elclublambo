@@ -45,7 +45,7 @@ create function tests.tips(p_member text, p_to text, p_n int) returns void langu
 begin
   for i in 1..p_n loop
     perform tests.login(p_member);
-    perform public.create_tip_intent('profile', p_to::uuid, 'USDC', 10000, 0, false);
+    perform public.create_tip_intent('profile', p_to::uuid, 84532, 'USDC', 10000, false);
     perform tests.clear_authentication();
     update public.payment_intents set status = 'expired' where member_id = p_member::uuid and status = 'pending';
   end loop;
@@ -189,7 +189,7 @@ select tests.clear_authentication();
 
 select lives_ok(format($$select tests.tips(%L, %L, 30)$$, current_setting('t.a'), current_setting('t.b')), '30 tip intents pass');
 select tests.login(current_setting('t.a'));
-select throws_ok(format($$select public.create_tip_intent('profile', %L::uuid, 'USDC', 10000, 0, false)$$, current_setting('t.b')),
+select throws_ok(format($$select public.create_tip_intent('profile', %L::uuid, 84532, 'USDC', 10000, false)$$, current_setting('t.b')),
   'P0001', 'rate_limited', 'payment_intent 31st raises');
 select tests.clear_authentication();
 

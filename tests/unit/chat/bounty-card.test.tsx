@@ -71,7 +71,6 @@ describe("BountyCard", () => {
     [detail({ status: "cancelled" }), "Cancelado"],
     [marked({ status: "removed" }), "Retirado por moderación"],
     [marked({ status: "solver_unavailable" }), "Solucionador no disponible"],
-    [marked({ status: "other_chain" }), "En otra red"],
   ])("renders the chip %#", (bounty, text) => {
     setup({ bounty });
     expect(screen.getByTestId("bounty-status")).toHaveTextContent(new RegExp(`^${text}$`));
@@ -110,7 +109,7 @@ describe("BountyCard", () => {
     expect(screen.queryByRole("button", { name: "Cancelar bounty" })).not.toBeInTheDocument();
   });
 
-  it.each(["removed", "solver_unavailable", "other_chain"] as const)("offers the author nothing on a %s bounty (payment impossible, no mark)", (status) => {
+  it.each(["removed", "solver_unavailable"] as const)("offers the author nothing on a %s bounty (payment impossible, no mark)", (status) => {
     setup({ isAuthor: true, solver, bounty: marked({ status }) });
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
@@ -134,7 +133,7 @@ describe("BountyCard", () => {
     }
     beforeEach(() => window.localStorage.clear());
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with a fee already paid offers Completar el pago", async (status) => {
+    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with a fee already paid offers Completar el pago", async (status) => {
       upsertSend(MEMBER, { ...base, feeHash: `0x${"fe".repeat(32)}` });
       renderWith(marked({ status }));
       const user = userEvent.setup();
@@ -142,13 +141,13 @@ describe("BountyCard", () => {
       expect(screen.getByRole("dialog", { name: "Pago" })).toHaveAttribute("data-bounty", B);
     });
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with a signature in flight offers Pagar bounty", async (status) => {
+    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with a signature in flight offers Pagar bounty", async (status) => {
       upsertSend(MEMBER, { ...base, inFlight: Date.now() });
       renderWith(marked({ status }));
       expect(await screen.findByRole("button", { name: "Pagar bounty" })).toBeInTheDocument();
     });
 
-    it.each(["other_chain", "solver_unavailable"] as const)("a %s bounty with nothing pending still offers no new payment", async (status) => {
+    it.each(["removed", "solver_unavailable"] as const)("a %s bounty with nothing pending still offers no new payment", async (status) => {
       renderWith(marked({ status }));
       await new Promise((r) => setTimeout(r, 10));
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
@@ -156,7 +155,7 @@ describe("BountyCard", () => {
 
     it("an entry for another bounty does not count", async () => {
       upsertSend(MEMBER, { ...base, targetId: "other", feeHash: `0x${"fe".repeat(32)}` });
-      renderWith(marked({ status: "other_chain" }));
+      renderWith(marked({ status: "solver_unavailable" }));
       await new Promise((r) => setTimeout(r, 10));
       expect(screen.queryByRole("button")).not.toBeInTheDocument();
     });

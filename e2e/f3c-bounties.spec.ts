@@ -271,6 +271,7 @@ test("5. no permission: a member without Crear bounties is not offered /bounty a
   const direct = await rpcAs(c.context, "create_bounty", {
     p_channel: generalChannel,
     p_body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "intento sin permiso" }] }] },
+    p_chain_id: 84532,
     p_token: "USDC",
     p_amount: "5000000",
   });

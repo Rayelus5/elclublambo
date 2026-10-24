@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
@@ -33,7 +33,7 @@ const CREATED = "2026-10-18T12:00:00.000Z";
 
 function intent(over: Record<string, unknown> = {}) {
   return {
-    id: "i1", purpose: "tip", member_id: "m1", chain_id: 59141, token: "USDC", amount: "1000000", fee_amount: "50000",
+    id: "i1", purpose: "tip", member_id: "m1", chain_id: 84532, token: "USDC", amount: "1000000", fee_amount: "50000",
     recipient_address: RECIPIENT, platform_address: PLATFORM, status: "pending",
     main_tx_hash: MAIN, fee_tx_hash: FEE, created_at: CREATED, expires_at: "2026-10-19T12:00:00.000Z", ...over,
   };
@@ -49,15 +49,51 @@ beforeEach(() => {
   tables.tips = { id: "tip1" };
   verifyTransfer.mockImplementation(async (i: { txHash: string }) => ({ status: "ok", logIndex: i.txHash === FEE ? 3 : 7, blockNumber: 10n, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") }));
   rpc.mockResolvedValue({ data: "tip1", error: null });
+  vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("confirmIntent", () => {
   it("verifies the fee first against the platform address, then the main against the recipient", async () => {
     expect(await confirmIntent("i1")).toEqual({ status: "confirmed", tipId: "tip1" });
     const calls = verifyTransfer.mock.calls.map((c) => c[0]);
-    expect(calls[0]).toMatchObject({ txHash: FEE, to: PLATFORM, from: PAYER, amount: 50000n, token: "USDC", chain: 59141 });
+    expect(calls[0]).toMatchObject({ txHash: FEE, to: PLATFORM, from: PAYER, amount: 50000n, token: "USDC", chain: 84532 });
     expect(calls[1]).toMatchObject({ txHash: MAIN, to: RECIPIENT, from: PAYER, amount: 1000000n });
     expect(calls[1].notBefore).toEqual(new Date(CREATED));
+  });
+
+  // Review Focus 4 / P0-R14: a leftover Linea intent, or a chain outside the build's set, is failed for good with
+  // chain_disabled before anything touches a chain (the verifier is what builds the chain client).
+  it.each([
+    ["a leftover Linea intent", 59141, "tip"],
+    ["a mainnet chain on a testnet build", 8453, "tip"],
+    ["a bounty payment on a chain outside the build", 42161, "bounty"],
+    ["a legacy donation", 59144, "donation"],
+  ])("fails %s with chain_disabled without verifying", async (_label, chain_id, purpose) => {
+    tables.payment_intents = intent({ chain_id, purpose });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "chain_disabled", error: "Esa red ya no está disponible." });
+    expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "chain_disabled" });
+    expect(verifyTransfer).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("confirm_bounty_payment", expect.anything());
+  });
+
+  it("checks the chain even before the hashes: a Linea intent without hashes is failed too", async () => {
+    tables.payment_intents = intent({ chain_id: 59141, main_tx_hash: null, fee_tx_hash: null });
+    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "chain_disabled" });
+  });
+
+  it("a confirmed Linea intent still resolves to its tip (nothing to verify)", async () => {
+    tables.payment_intents = intent({ chain_id: 59141, status: "confirmed" });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", tipId: "tip1" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("verifies a mainnet intent on a mainnet build", async () => {
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "mainnet");
+    tables.payment_intents = intent({ chain_id: 8453 });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", tipId: "tip1" });
+    expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ chain: 8453 }));
   });
 
   it("passes the verifier's log indexes and block numbers to confirm_tip", async () => {
@@ -305,7 +341,7 @@ describe("confirmIntent: donations", () => {
 
   it("returns pending_finality with the ledger id when the settle attempt does not credit it", async () => {
     expect(await confirmIntent("i1")).toEqual({ status: "pending_finality", ledgerId: "ledger1" });
-    expect(settle).toHaveBeenCalledWith(59141, { ledgerId: "ledger1", limit: 1 });
+    expect(settle).toHaveBeenCalledWith(84532, { ledgerId: "ledger1", limit: 1 });
   });
 
   it("returns confirmed when the immediate settle credits it", async () => {

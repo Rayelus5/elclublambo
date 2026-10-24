@@ -1,6 +1,7 @@
 "use server";
 
 import { docToPlainText, sanitizeDoc } from "@/lib/chat/content";
+import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { parseAmount, type Token } from "@/lib/payments/amounts";
 import type { TipIntent } from "@/lib/payments/tip-actions";
@@ -14,14 +15,24 @@ const isToken = (v: unknown): v is Token => v === "ETH" || v === "USDC";
 type Fail = { ok: false; error: string; code: string; slowmodeSeconds?: number };
 const fail = (code: string): Fail => ({ ok: false, code, error: rpcErrorMessage(code) });
 
+/** Review Focus 5: invalid_input when it is not a network at all, chain_invalid when this build does not use it. */
+function chainError(chainId: unknown): "invalid_input" | "chain_invalid" | null {
+  if (!isChainId(chainId)) return "invalid_input";
+  return appChainIds().includes(chainId) ? null : "chain_invalid";
+}
+
 export async function createBountyAction(input: {
   channelId: string;
   body: unknown;
+  /** The announced network (P0-R4): the bounty can still be paid on any network the solver accepts. */
+  chainId: ChainId;
   token: Token;
   amount: string;
 }): Promise<{ ok: true; messageId: string } | Fail> {
-  const { channelId, body, token, amount } = input ?? ({} as typeof input);
+  const { channelId, body, chainId, token, amount } = input ?? ({} as typeof input);
   if (!isUuid(channelId) || !isToken(token) || typeof amount !== "string") return fail("invalid_input");
+  const badChain = chainError(chainId);
+  if (badChain) return fail(badChain);
   const units = parseAmount(amount, token);
   if (units === null || units <= 0n) return fail("invalid_input");
 
@@ -33,6 +44,7 @@ export async function createBountyAction(input: {
   const { data, error } = await supabase.rpc("create_bounty", {
     p_channel: channelId,
     p_body: doc,
+    p_chain_id: chainId,
     p_token: token,
     p_amount: units.toString(),
   });
@@ -67,13 +79,14 @@ export async function cancelBountyAction(bountyId: string): Promise<{ ok: true }
 
 export async function createBountyPaymentIntentAction(input: {
   bountyId: string;
+  /** Any enabled network the solver accepts; the token is always the bounty's (P0-R4). */
+  chainId: ChainId;
   amount: string;
-  feeBps: number;
 }): Promise<{ ok: true; intent: TipIntent } | Fail> {
-  const { bountyId, amount, feeBps } = input ?? ({} as typeof input);
-  if (!isUuid(bountyId) || typeof amount !== "string" || !Number.isInteger(feeBps) || feeBps < 0 || feeBps > 5000) {
-    return fail("invalid_input");
-  }
+  const { bountyId, chainId, amount } = input ?? ({} as typeof input);
+  if (!isUuid(bountyId) || typeof amount !== "string") return fail("invalid_input");
+  const badChain = chainError(chainId);
+  if (badChain) return fail(badChain);
   const supabase = await createServerClient();
   // The amount is typed in the bounty's own token, which the client does not send: read it (RLS-scoped) to scale it.
   const token = await bountyToken(supabase, bountyId);
@@ -83,8 +96,8 @@ export async function createBountyPaymentIntentAction(input: {
   if (units === null || units <= 0n) return fail("invalid_input");
   const { data, error } = await supabase.rpc("create_bounty_payment_intent", {
     p_bounty: bountyId,
+    p_chain_id: chainId,
     p_amount: units.toString(),
-    p_fee_bps: feeBps,
   });
   if (error) return fail(rpcErrorCode(error));
   if (!data) return fail("unknown");

@@ -14,7 +14,7 @@ declare
   v_r uuid;
 begin
   perform tests.authenticate_as(p_author_user::uuid);
-  v_b := public.create_bounty(current_setting('t.ch')::uuid, tests.td('bounty'), 'USDC', 10000000);
+  v_b := public.create_bounty(current_setting('t.ch')::uuid, tests.td('bounty'), 84532, 'USDC', 10000000);
   perform tests.authenticate_as(p_solver_user::uuid);
   v_r := public.post_message(current_setting('t.ch')::uuid, tests.td('answer'), 'x', false, v_b, null, '[]'::jsonb);
   perform tests.authenticate_as(p_author_user::uuid);
@@ -40,7 +40,7 @@ select set_config('t.x2', tests.marked(current_setting('t.ua'), current_setting(
 select set_config('t.x3', tests.marked(current_setting('t.ua'), current_setting('t.ub'))::text, true);   -- marked, unpaid (moderator)
 update public.bounties set paid_at = solution_marked_at + interval '1 hour' where message_id = current_setting('t.x2')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.x4', public.create_bounty(current_setting('t.ch')::uuid, tests.td('open'), 'USDC', 10000000)::text, true);
+select set_config('t.x4', public.create_bounty(current_setting('t.ch')::uuid, tests.td('open'), 84532, 'USDC', 10000000)::text, true);
 
 select throws_ok($$select public.delete_message(tests.cfg('t.x1')::uuid)$$, 'P0001', 'bounty_has_solution',
   'the author (even with MANAGE_MESSAGES) cannot delete a bounty with a marked, unpaid solution');

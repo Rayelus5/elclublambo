@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { appChainIds, type ChainId } from "@/lib/economy/networks";
+import { appChainIds, chainForKey, type ChainId } from "@/lib/economy/networks";
 import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -34,6 +34,11 @@ type Raw = {
   networks?: Record<string, { enabled?: unknown; safe?: unknown } | undefined>;
   legacyDaoEnabled?: unknown;
 };
+
+/** The network shown first: the first enabled one, or the build's Base when none is enabled. */
+export function primaryChainId(config: Pick<EconomyConfig, "enabledChainIds">): ChainId {
+  return config.enabledChainIds[0] ?? chainForKey("base");
+}
 
 const addr = (v: unknown) => (typeof v === "string" && v !== "" ? v : null);
 

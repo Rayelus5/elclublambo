@@ -155,7 +155,7 @@ describe("TipDialog bounty mode: signing", () => {
     await userEvent.click(continuar());
     await screen.findByText("Bounty pagado");
     expect(createTipIntentAction).not.toHaveBeenCalled();
-    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, amount: "25", feeBps: 0 });
+    expect(createBountyPaymentIntentAction).toHaveBeenCalledWith({ bountyId: BOUNTY, chainId: 84532, amount: "25" });
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({ chain: 84532, token: "USDC", to: SOLVER_WALLET, amount: 25000000n, account: SESSION });
     expect(attachTxAction).toHaveBeenCalledTimes(1);

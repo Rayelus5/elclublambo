@@ -6,9 +6,10 @@ import { isChainId, type ChainId } from "@/lib/economy/networks";
 import type { Token } from "@/lib/payments/amounts";
 
 /**
- * Derived by SQL bounty_status. Precedence (first match wins): cancelled > paid > paid_late > removed > other_chain >
- * solver_unavailable > unpaid > solution_marked > expired > open. removed (deleted by moderation), other_chain (not the
- * active chain) and solver_unavailable (solver banned or left) mean the author cannot pay: never an unpaid mark (F3-R1).
+ * Derived by SQL bounty_status. Precedence (first match wins): cancelled > paid > paid_late > removed >
+ * solver_unavailable > unpaid > solution_marked > expired > open. removed (deleted by moderation) and solver_unavailable
+ * (solver banned or left) mean the author cannot pay: never an unpaid mark (F3-R1). There is no other_chain: a bounty
+ * is paid on any enabled network the solver accepts (P0-R4).
  */
 export type BountyStatus =
   | "open"
@@ -19,7 +20,6 @@ export type BountyStatus =
   | "expired"
   | "cancelled"
   | "removed"
-  | "other_chain"
   | "solver_unavailable";
 
 const STATUSES: ReadonlySet<string> = new Set<BountyStatus>([
@@ -31,7 +31,6 @@ const STATUSES: ReadonlySet<string> = new Set<BountyStatus>([
   "expired",
   "cancelled",
   "removed",
-  "other_chain",
   "solver_unavailable",
 ]);
 const isToken = (v: unknown): v is Token => v === "ETH" || v === "USDC";
@@ -68,7 +67,7 @@ export interface UnpaidBounty {
   token: Token;
   amount: bigint;
   solutionMarkedAt: string | null;
-  /** Always the active chain (the RPC counts no other), shown as a network label. */
+  /** The announced network (the RPC lists the enabled networks only), shown as a network label. */
   chainId: ChainId;
 }
 
@@ -100,7 +99,7 @@ export async function getBountyDetails(supabase: SupabaseClient, messageIds: rea
   return out;
 }
 
-/** Counts of the member's bounties on the active chain that the viewer can see. */
+/** Counts of the member's bounties on the enabled networks that the viewer can see. */
 export async function getMemberBountyRecord(supabase: SupabaseClient, memberId: string): Promise<BountyRecord> {
   const { data, error } = await supabase.rpc("member_bounty_record", { p_member: memberId });
   if (error) throw error;
@@ -109,7 +108,7 @@ export async function getMemberBountyRecord(supabase: SupabaseClient, memberId: 
   return { paid: n(r?.paid), paidLate: n(r?.paid_late), unpaid: n(r?.unpaid), open: n(r?.open) };
 }
 
-/** The member's unpaid bounties on the active chain that the viewer can see, oldest mark first. */
+/** The member's unpaid bounties on the enabled networks that the viewer can see, oldest mark first. */
 export async function getMemberUnpaidBounties(supabase: SupabaseClient, memberId: string): Promise<UnpaidBounty[]> {
   const { data, error } = await supabase.rpc("member_unpaid_bounties", { p_member: memberId });
   if (error) throw error;

@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { donorLabel, getMemberTipTotals, getMemberTips, getMessageTips, getTipNoticeLinks, getTipSummaries } from "@/lib/payments/queries";
+import {
+  donorLabel,
+  getMemberTipTotals,
+  getMemberTips,
+  getMessageTips,
+  getReceiveNetworks,
+  getTipNoticeLinks,
+  getTipSummaries,
+} from "@/lib/payments/queries";
 
 const M1 = "11111111-1111-4111-8111-111111111111";
 const M2 = "22222222-2222-4222-8222-222222222222";
@@ -100,18 +108,44 @@ describe("getTipNoticeLinks", () => {
 });
 
 describe("getMemberTipTotals", () => {
-  it("reads the server-side totals for the chain, USDC then ETH, exact", async () => {
+  it("reads the server-side totals over the enabled networks, USDC then ETH, exact", async () => {
     const supabase = client({
       member_tips_totals: [
         { token: "ETH", total_text: "12345678901234567890", tip_count: 1 },
         { token: "USDC", total_text: "155000000", tip_count: 151 },
       ],
     });
-    const totals = await getMemberTipTotals(supabase as never, M1, 84532);
+    const totals = await getMemberTipTotals(supabase as never, M1);
     expect(totals).toEqual([
       { token: "USDC", total: 155_000_000n, count: 151 },
       { token: "ETH", total: 12_345_678_901_234_567_890n, count: 1 },
     ]);
-    expect(supabase.rpc).toHaveBeenCalledWith("member_tips_totals", { p_member: M1, p_chain: 84532 });
+    // one row per token across the enabled networks: no chain parameter any more
+    expect(supabase.rpc).toHaveBeenCalledWith("member_tips_totals", { p_member: M1 });
+  });
+});
+
+describe("getReceiveNetworks", () => {
+  const reading = (result: { data: unknown; error: unknown }) => ({ rpc: vi.fn(async () => result) });
+
+  it("returns the recipient's networks from receive_networks_of", async () => {
+    const supabase = reading({ data: ["arbitrum"], error: null });
+    expect(await getReceiveNetworks(supabase as never, M1)).toEqual(["arbitrum"]);
+    expect(supabase.rpc).toHaveBeenCalledWith("receive_networks_of", { p_member: M1 });
+  });
+
+  it("falls back to both networks on an error", async () => {
+    expect(await getReceiveNetworks(reading({ data: null, error: { message: "not_found" } }) as never, M1)).toEqual(["base", "arbitrum"]);
+  });
+
+  it("keeps only valid keys, and falls back to both when none is left", async () => {
+    expect(await getReceiveNetworks(reading({ data: ["linea", "base", "base"], error: null }) as never, M1)).toEqual(["base"]);
+    expect(await getReceiveNetworks(reading({ data: ["linea"], error: null }) as never, M1)).toEqual(["base", "arbitrum"]);
+    expect(await getReceiveNetworks(reading({ data: "base", error: null }) as never, M1)).toEqual(["base", "arbitrum"]);
+  });
+
+  it("never throws", async () => {
+    const supabase = { rpc: vi.fn(async () => { throw new Error("offline"); }) };
+    expect(await getReceiveNetworks(supabase as never, M1)).toEqual(["base", "arbitrum"]);
   });
 });

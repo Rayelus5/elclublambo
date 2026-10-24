@@ -12,11 +12,19 @@ $$;
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
 $$;
--- creates an intent as the donor and attaches a main hash (and a fee hash when p_fee > 0); returns the intent id
+-- the RPCs no longer charge a fee (P0-R5); confirm_tip still handles one, so a legacy fee intent is simulated here
+create function tests.simulate_fee(p_intent uuid, p_bps int) returns void language sql security definer set search_path = '' as $$
+  update public.payment_intents
+  set fee_bps = p_bps, fee_amount = div(amount * p_bps + 9999, 10000), platform_address = '0x' || lpad('f00', 40, '0')
+  where id = p_intent
+$$;
+-- creates an intent on Base Sepolia as the donor (with a simulated legacy fee when p_bps > 0) and attaches a main hash
+-- (and a fee hash when p_fee > 0); returns the intent id
 create function tests.intent(p_msg text, p_bps int, p_main int, p_fee int default 0) returns uuid language plpgsql as $$
 declare v_id uuid;
 begin
-  v_id := (public.create_tip_intent('message', p_msg::uuid, 'USDC', 10000000, p_bps, false) ->> 'id')::uuid;
+  v_id := (public.create_tip_intent('message', p_msg::uuid, 84532, 'USDC', 10000000, false) ->> 'id')::uuid;
+  if p_bps > 0 then perform tests.simulate_fee(v_id, p_bps); end if;
   if p_main > 0 then perform public.attach_intent_tx(v_id, 'main', tests.hash(p_main)); end if;
   if p_fee > 0 then perform public.attach_intent_tx(v_id, 'fee', tests.hash(p_fee)); end if;
   return v_id;
@@ -36,7 +44,6 @@ insert into public.member_roles (member_id, role_id)
   select current_setting('t.mod')::uuid, id from public.roles where name = 'T610 mods';
 select set_config('t.cat', tests.create_channel(null, 'category', 'T610cat')::text, true);
 select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't610')::text, true);
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
 
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.m1', tests.post(current_setting('t.ch')::uuid, tests.td('root one'))::text, true);
@@ -180,14 +187,14 @@ reset role;
 select is((select failure_code from public.payment_intents where id = current_setting('t.i4')::uuid), 'tx_failed',
   'a failed intent keeps its first failure code');
 
--- ===== m4: fee codes =====
+-- ===== P0-R5: no fee, whatever min_fee_bps says =====
 update public.app_config set value = '100'::jsonb where key = 'min_fee_bps';
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok(format($$select public.create_tip_intent('message', %L, 'USDC', 10000000, 99, false)$$, current_setting('t.m1')),
-  'P0001', 'fee_below_minimum', 'below the platform minimum');
-select throws_ok(format($$select public.create_tip_intent('message', %L, 'USDC', 10000000, 5001, false)$$, current_setting('t.m1')),
-  'P0001', 'fee_out_of_range', 'above 50% stays fee_out_of_range');
+select set_config('t.i9', public.create_tip_intent('message', current_setting('t.m1')::uuid, 84532, 'USDC', 10000000, false)::text, true);
+select is((current_setting('t.i9')::jsonb ->> 'feeAmount'), '0', 'a leftover min_fee_bps charges no fee');
 select tests.clear_authentication();
+select is((select fee_bps || '/' || min_fee_bps from public.payment_intents where id = (current_setting('t.i9')::jsonb ->> 'id')::uuid),
+  '0/0', 'the intent stores fee_bps and min_fee_bps 0');
 
 select * from finish();
 rollback;
