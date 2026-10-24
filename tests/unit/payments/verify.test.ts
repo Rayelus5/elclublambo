@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { encodeAbiParameters, encodeEventTopics, erc20Abi, pad } from "viem";
 
 vi.mock("server-only", () => ({}));
@@ -59,6 +59,9 @@ const fake = fakeOn;
 
 const base = { chain: CHAIN, txHash: HASH, from: PAYER.toLowerCase(), to: TO.toLowerCase(), notBefore: NOT_BEFORE };
 const notFound = Object.assign(new Error("not found"), { name: "TransactionNotFoundError" });
+
+// Every test leaves TIP_CONFIRMATIONS as it found it (stubbed values, including "unset", are undone here).
+afterEach(() => vi.unstubAllEnvs());
 
 describe("verifyTransfer ETH", () => {
   const eth = { ...base, token: "ETH" as const, amount: 5n };
@@ -181,12 +184,10 @@ describe("verifyTransfer status, timing and RPC", () => {
     expect(await verifyTransfer({ ...eth, confirmations: 1 }, fake({ head: 100n }))).toMatchObject({ status: "ok" });
   });
   it("defaults confirmations to TIP_CONFIRMATIONS env, else 3", async () => {
-    vi.unstubAllEnvs();
-    delete process.env.TIP_CONFIRMATIONS;
+    vi.stubEnv("TIP_CONFIRMATIONS", undefined);
     expect(await verifyTransfer(eth, fake({ head: 101n }))).toEqual({ status: "pending" });
     vi.stubEnv("TIP_CONFIRMATIONS", "1");
     expect(await verifyTransfer(eth, fake({ head: 100n }))).toMatchObject({ status: "ok" });
-    vi.unstubAllEnvs();
   });
   it("invalid TIP_CONFIRMATIONS falls back to 3", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
@@ -195,7 +196,6 @@ describe("verifyTransfer status, timing and RPC", () => {
       expect(await verifyTransfer(eth, fake({ head: 101n }))).toEqual({ status: "pending" });
       expect(await verifyTransfer(eth, fake({ head: 102n }))).toMatchObject({ status: "ok" });
     }
-    vi.unstubAllEnvs();
   });
   it("block older than notBefore - 120 s -> tx_too_old; exactly at the edge is fine", async () => {
     const nb = BigInt(Math.floor(NOT_BEFORE.getTime() / 1000));
@@ -213,8 +213,7 @@ describe("verifyTransfer status, timing and RPC", () => {
 
 describe("defaultConfirmations", () => {
   it("per network without TIP_CONFIRMATIONS: Base 3, Arbitrum 20, legacy Linea 3", () => {
-    vi.unstubAllEnvs();
-    delete process.env.TIP_CONFIRMATIONS;
+    vi.stubEnv("TIP_CONFIRMATIONS", undefined);
     expect(defaultConfirmations(421614)).toBe(20);
     expect(defaultConfirmations(42161)).toBe(20);
     expect(defaultConfirmations(84532)).toBe(3);
@@ -225,16 +224,14 @@ describe("defaultConfirmations", () => {
     vi.stubEnv("TIP_CONFIRMATIONS", "1");
     expect(defaultConfirmations(421614)).toBe(1);
     expect(defaultConfirmations(59141)).toBe(1);
-    vi.unstubAllEnvs();
   });
   it("an invalid TIP_CONFIRMATIONS falls back to the network's", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.stubEnv("TIP_CONFIRMATIONS", "abc");
     expect(defaultConfirmations(421614)).toBe(20);
-    vi.unstubAllEnvs();
   });
   it("Arbitrum Sepolia waits 20 blocks by default", async () => {
-    delete process.env.TIP_CONFIRMATIONS;
+    vi.stubEnv("TIP_CONFIRMATIONS", undefined);
     const eth = { ...base, chain: 421614 as const, token: "ETH" as const, amount: 5n };
     expect(await verifyTransfer(eth, fake({ head: 118n }, 421614))).toEqual({ status: "pending" });
     expect(await verifyTransfer(eth, fake({ head: 119n }, 421614))).toMatchObject({ status: "ok" });
