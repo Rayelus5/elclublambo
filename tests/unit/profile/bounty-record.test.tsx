@@ -28,7 +28,6 @@ describe("BountyRecordSection", () => {
       <BountyRecordSection
         record={{ paid: 0, paidLate: 0, unpaid: 1, open: 0 }}
         unpaid={[{ messageId: M1, channelId: CH, token: "USDC", amount: 25_000_000n, solutionMarkedAt: "2026-10-01T10:00:00Z", chainId: 84532 }]}
-       
       />,
     );
     const list = screen.getByRole("list", { name: "Bounties impagados" });

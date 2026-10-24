@@ -274,6 +274,16 @@ describe("TipDialog bounty mode: signing", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it("refuses an intent on a network the solver does not accept (not offered here)", async () => {
+    getReceiveNetworks.mockResolvedValue(["arbitrum"]);
+    account.chainId = 421614;
+    createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, chainId: 84532 } });
+    await setup();
+    await userEvent.click(continuar());
+    expect(await screen.findByText("Los datos del envío no coinciden. Recarga la página.")).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+  });
+
   it("when the server hands back an already prepared intent with a different amount, shows it instead of signing something unseen", async () => {
     createBountyPaymentIntentAction.mockResolvedValue({ ok: true, intent: { ...intent, amount: "30000000" } });
     await setup();

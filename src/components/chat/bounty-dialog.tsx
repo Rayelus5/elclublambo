@@ -99,19 +99,26 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
-      <div className="flex flex-col gap-2">
-        <AssetPicker
-          assets={assets}
-          balances={balances}
-          amount={units}
-          value={asset?.id ?? null}
-          onChange={(id) => {
-            setPicked(id);
-            setError(null);
-          }}
-        />
-        <p className="text-[13px] text-fg-muted">La red es orientativa: podrás pagar con el mismo token en otra red que acepte quien lo resuelva.</p>
-      </div>
+      {asset ? (
+        <div className="flex flex-col gap-2">
+          {/* A guide only: no amount, so the rows never reorder while the reward is typed. */}
+          <AssetPicker
+            assets={assets}
+            balances={balances}
+            amount={null}
+            value={asset.id}
+            onChange={(id) => {
+              setPicked(id);
+              setError(null);
+            }}
+          />
+          <p className="text-[13px] text-fg-muted">La red es orientativa: podrás pagar con el mismo token en otra red que acepte quien lo resuelva.</p>
+        </div>
+      ) : (
+        <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
+          Ahora mismo no hay ninguna red activa para publicar bounties.
+        </p>
+      )}
 
       <div className="flex flex-col gap-2">
         <Label htmlFor="bounty-amount">Recompensa</Label>
@@ -176,7 +183,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={sending}>
+          <Button type="submit" disabled={sending || !asset}>
             {sending ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <Trophy aria-hidden />}
             Publicar bounty
           </Button>

@@ -400,9 +400,9 @@ function TipFlow({
     };
     const commit = (patch: Partial<Sent>) => {
       Object.assign(st, patch);
+      setMainHash(st.mainHash); // on screen even if the ledger write below fails
       ensureEntry();
       patchSend(memberId, it.id, patch);
-      setMainHash(st.mainHash);
     };
     /** Returns true when the flow must stop here (state already set). */
     const attachPending = async (): Promise<boolean> => {

@@ -446,6 +446,8 @@ describe("TipDialog after something was signed (F3b-R4)", () => {
       await typeAmount("10");
       await userEvent.click(continuar());
       expect(await screen.findByText("No hemos podido registrar tu transacción.")).toBeInTheDocument();
+      // the hash is on screen even though the ledger write failed
+      expect(screen.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute("href", expect.stringContaining(MAIN_HASH));
       expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual([INTENT_ID]);
       expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
       ledger.patchSend.mockImplementation(real);

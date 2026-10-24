@@ -76,6 +76,28 @@ describe("BountyDialog", () => {
     await waitFor(() => expect(onPosted).toHaveBeenCalledWith("m1"));
   });
 
+  it("the picker is only a guide: rows keep their order while the reward is typed", async () => {
+    balances.map = { "USDC:84532": 2_000_000n, "ETH:84532": 10n ** 18n, "USDC:421614": 100_000_000n, "ETH:421614": 10n ** 18n };
+    const { user } = setup("ayuda");
+    const order = () => screen.getAllByRole("radio").map((r) => r.getAttribute("aria-label") ?? r.textContent);
+    const before = order();
+    await user.type(amountBox(), "50");
+    expect(order()).toEqual(before);
+    expect(screen.getAllByRole("radio")[0]).toHaveAccessibleName(/USDC.*Base Sepolia/);
+  });
+
+  it("with no enabled network it says so and cannot publish", async () => {
+    const onPosted = vi.fn();
+    render(
+      <EconomyProvider config={{ ...config, enabledChainIds: [] }} wallet="0x1111111111111111111111111111111111111111" memberId="m1">
+        <BountyDialog open onOpenChange={() => {}} channelId={CH} initialText="ayuda" onPosted={onPosted} />
+      </EconomyProvider>,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Ahora mismo no hay ninguna red activa para publicar bounties.");
+    expect(publish()).toBeDisabled();
+    expect(createBountyAction).not.toHaveBeenCalled();
+  });
+
   it("choosing ETH:421614 posts that token and network", async () => {
     createBountyAction.mockResolvedValue({ ok: true, messageId: "m1" });
     const { user, onPosted } = setup("ayuda");

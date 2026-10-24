@@ -72,7 +72,6 @@ describe("TipsReceived", () => {
   it("lists the tips with anonymity rules and explorer links", () => {
     render(
       <TipsReceived
-       
         totals={[{ token: "USDC", total: 15_000_000n, count: 3 }]}
         entries={[entry({ tipId: "1" }), entry({ tipId: "2", donorName: null, anonymous: true }), entry({ tipId: "3", isMe: true, anonymous: true, donorName: "Yo" })]}
       />,
