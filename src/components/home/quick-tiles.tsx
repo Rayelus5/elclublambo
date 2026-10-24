@@ -68,8 +68,10 @@ const Title = ({ children }: { children: ReactNode }) => (
 );
 
 /**
- * Inicio's quick access row. Unread comes from the live unread set (useUnread); until it first answers, the server's
- * newest-first list stands in (`unreadOrder`), so the server HTML already shows the real count.
+ * Inicio's quick access row. Unread comes from the live unread set (useUnread) once it has answered, so it can read
+ * «Al día»; until then the server's newest-first list stands in (`unreadOrder`), so the server HTML already shows the
+ * real count. `highlights` null (their read failed): Sin leer and Menciones still show, Bounties says it is not
+ * available, Donaciones shows «Donar» and there is no giveaway or poll tile.
  */
 export function QuickTiles({
   highlights,
@@ -77,7 +79,7 @@ export function QuickTiles({
   unreadOrder = [],
   bountyHref,
 }: {
-  highlights: HomeHighlights;
+  highlights: HomeHighlights | null;
   /** Unread mentions plus replies. */
   mentions: number;
   /** Channel ids with unread messages, newest first (home_unread_channels). */
@@ -85,13 +87,16 @@ export function QuickTiles({
   /** The first open bounty; the guide when there is none. */
   bountyHref?: string;
 }) {
-  const { unread } = useUnread();
+  const { unread, loaded } = useUnread();
   const { channels } = useSearch();
-  const ids = unread.size > 0 ? [...unreadOrder.filter((id) => unread.has(id)), ...[...unread].filter((id) => !unreadOrder.includes(id))] : unreadOrder;
+  const ids = loaded || unread.size > 0 ? [...unreadOrder.filter((id) => unread.has(id)), ...[...unread].filter((id) => !unreadOrder.includes(id))] : unreadOrder;
   const firstText = channels.filter((c) => c.kind === "text").toSorted((a, b) => a.position - b.position)[0];
   const unreadHref = ids[0] ? `/c/${ids[0]}` : firstText ? `/c/${firstText.id}` : "/guia";
 
-  const { giveaway, poll, donor, openBounties } = highlights;
+  const giveaway = highlights?.giveaway ?? null;
+  const poll = highlights?.poll ?? null;
+  const isMecenas = highlights?.donor.isMecenas ?? false;
+  const openBounties = highlights?.openBounties ?? 0;
   const events = (giveaway ? 1 : 0) + (poll ? 1 : 0);
 
   return (
@@ -103,10 +108,19 @@ export function QuickTiles({
         <Count>{mentions}</Count>
       </Tile>
       <Tile href={openBounties > 0 && bountyHref ? bountyHref : "/guia/bounties"} icon={Target} label="Bounties">
-        <Count>{openBounties}</Count>
+        {highlights ? (
+          <Count>{openBounties}</Count>
+        ) : (
+          <>
+            <Count>
+              <span aria-hidden>—</span>
+            </Count>
+            <span className="text-small text-fg-muted">No disponible</span>
+          </>
+        )}
       </Tile>
-      <Tile href="/donar" icon={HandHeart} label="Donaciones" active={donor.isMecenas}>
-        <Word>{donor.isMecenas ? "Mecenas" : "Donar"}</Word>
+      <Tile href="/donar" icon={HandHeart} label="Donaciones" active={isMecenas}>
+        <Word>{isMecenas ? "Mecenas" : "Donar"}</Word>
       </Tile>
       {giveaway ? (
         <Tile href={`/sorteos/${giveaway.id}`} icon={Dices} label="Sorteo" active={giveaway.iEntered} className={WIDE[events]}>

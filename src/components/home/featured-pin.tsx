@@ -6,14 +6,19 @@ import { Pin } from "lucide-react";
 import { HomeSection, PinnedList } from "@/components/home/home-sections";
 import { messageHref, type HomePin } from "@/lib/home/queries";
 
-/** The newest pinned message, big; «Ver todos (N)» unfolds the others. Nothing at all when nothing is pinned. */
-export function FeaturedPin({ pins, failed = false }: { pins: readonly HomePin[]; failed?: boolean }) {
+/**
+ * The newest pinned message, big; «Ver todos (N)» unfolds the others. Nothing at all when nothing is pinned. The page
+ * reads `max + 1` pins: more than `max` means the list is capped, so only the newest `max` show and N is left out.
+ */
+export function FeaturedPin({ pins, failed = false, max = Infinity }: { pins: readonly HomePin[]; failed?: boolean; max?: number }) {
   const [all, setAll] = useState(false);
   const listId = useId();
   if (failed) return <HomeSection id="home-pin" title="Anuncio fijado" failed />;
   if (pins.length === 0) return null;
 
-  const [top, ...rest] = pins.toSorted((a, b) => Date.parse(b.pinnedAt) - Date.parse(a.pinnedAt));
+  const capped = pins.length > max;
+  const shown = pins.toSorted((a, b) => Date.parse(b.pinnedAt) - Date.parse(a.pinnedAt)).slice(0, max);
+  const [top, ...rest] = shown;
   return (
     <HomeSection
       id="home-pin"
@@ -27,7 +32,7 @@ export function FeaturedPin({ pins, failed = false }: { pins: readonly HomePin[]
             onClick={() => setAll((v) => !v)}
             className="inline-flex min-h-11 items-center rounded-control px-2 text-sm font-bold text-fg-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
           >
-            {all ? "Ver menos" : `Ver todos (${pins.length})`}
+            {all ? "Ver menos" : capped ? "Ver todos" : `Ver todos (${shown.length})`}
           </button>
         ) : null
       }

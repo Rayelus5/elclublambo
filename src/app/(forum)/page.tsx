@@ -22,6 +22,9 @@ import { cn } from "@/lib/utils";
 
 type Client = Awaited<ReturnType<typeof createServerClient>>;
 
+/** Pins shown on Inicio; one more is read to know whether the list is capped. */
+const PIN_MAX = 10;
+
 async function myName(supabase: Client): Promise<string> {
   const me = await supabase.rpc("current_member_id");
   if (me.error || typeof me.data !== "string") throw new Error("no member");
@@ -39,7 +42,7 @@ async function HomeContent() {
     getUnreadSummary(supabase),
     getHomeUnreadChannels(supabase, 20),
     getOpenBounties(supabase, 1),
-    getHomePins(supabase, 10),
+    getHomePins(supabase, PIN_MAX + 1),
     getActiveChannels(supabase, 5),
   ]);
 
@@ -56,21 +59,18 @@ async function HomeContent() {
           <HomeSearch />
         </div>
 
-        {highlights.status === "fulfilled" ? (
-          <QuickTiles
-            highlights={highlights.value}
-            mentions={mentions}
-            unreadOrder={unread.map((c) => c.channelId)}
-            bountyHref={bounty ? messageHref(bounty.channelId, bounty.messageId) : undefined}
-          />
-        ) : (
-          <HomeSection id="home-quick" title="Accesos rápidos" failed />
-        )}
+        {/* failed highlights degrade only their tiles: Sin leer and Menciones still show */}
+        <QuickTiles
+          highlights={highlights.status === "fulfilled" ? highlights.value : null}
+          mentions={mentions}
+          unreadOrder={unread.map((c) => c.channelId)}
+          bountyHref={bounty ? messageHref(bounty.channelId, bounty.messageId) : undefined}
+        />
 
         <ContinueCards channels={unread} failed={unreadChannels.status === "rejected"} />
 
         <div className={cn("grid gap-10", showPin && "@4xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] @4xl:gap-8")}>
-          <FeaturedPin pins={pins.status === "fulfilled" ? pins.value : []} failed={pins.status === "rejected"} />
+          <FeaturedPin pins={pins.status === "fulfilled" ? pins.value : []} failed={pins.status === "rejected"} max={PIN_MAX} />
           <HomeSection id="home-active" title="Actividad reciente" failed={active.status === "rejected"}>
             {active.status === "fulfilled" ? <ActiveChannelsList channels={active.value} /> : null}
           </HomeSection>

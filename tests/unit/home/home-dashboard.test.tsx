@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ unread: new Set<string>() as ReadonlySet<string> }));
-vi.mock("@/lib/chat/unread", () => ({ useUnread: () => ({ unread: h.unread, refresh: () => {} }) }));
+const h = vi.hoisted(() => ({ unread: new Set<string>() as ReadonlySet<string>, loaded: true }));
+vi.mock("@/lib/chat/unread", () => ({ useUnread: () => ({ unread: h.unread, loaded: h.loaded, refresh: () => {} }) }));
 
 import { HomeGreeting } from "@/components/home/home-greeting";
 import { QuickTiles } from "@/components/home/quick-tiles";
@@ -77,6 +77,32 @@ describe("QuickTiles", () => {
     const bounties = t.getByRole("link", { name: /Bounties/ });
     expect(bounties).toHaveTextContent("3");
     expect(bounties).toHaveAttribute("href", `/c/${C1}?m=b1`);
+  });
+
+  it("before the live unread set answers, the server list stands in; once it answers, an empty set reads «Al día»", () => {
+    h.unread = new Set();
+    h.loaded = false;
+    const { unmount } = render(<QuickTiles highlights={base} mentions={0} unreadOrder={[C1]} />);
+    expect(tiles().getByRole("link", { name: /Sin leer/ })).toHaveTextContent("1");
+    unmount();
+    h.loaded = true;
+    render(<QuickTiles highlights={base} mentions={0} unreadOrder={[C1]} />);
+    expect(tiles().getByRole("link", { name: /Sin leer/ })).toHaveTextContent("Al día");
+  });
+
+  it("without highlights (their read failed) Sin leer and Menciones still show; the rest degrade", () => {
+    h.unread = new Set([C1]);
+    render(<QuickTiles highlights={null} mentions={2} unreadOrder={[C1]} />);
+    const t = tiles();
+    expect(t.getByRole("link", { name: /Sin leer/ })).toHaveTextContent("1");
+    expect(t.getByRole("link", { name: /Menciones/ })).toHaveTextContent("2");
+    const bounties = t.getByRole("link", { name: /Bounties/ });
+    expect(bounties).toHaveAttribute("href", "/guia/bounties");
+    expect(bounties).toHaveTextContent("—");
+    expect(bounties).toHaveTextContent("No disponible");
+    expect(t.getByRole("link", { name: /Donar/ })).toHaveAttribute("href", "/donar");
+    expect(t.queryByRole("link", { name: /Sorteo/ })).not.toBeInTheDocument();
+    expect(t.queryByRole("link", { name: /Encuesta/ })).not.toBeInTheDocument();
   });
 
   it("an open giveaway and an open poll get their tiles", () => {
@@ -176,6 +202,16 @@ describe("FeaturedPin", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("link", { name: /Reunión el viernes/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Calendario/ })).toBeInTheDocument();
+  });
+
+  it("«Ver todos» omits N when the list was capped (more pins than read)", () => {
+    const many = Array.from({ length: 11 }, (_, i) => pin(`p${i}`, `Fijado ${i}`, new Date(Date.UTC(2026, 9, 1 + i)).toISOString()));
+    render(<FeaturedPin pins={many} max={10} />);
+    expect(screen.getByRole("button", { name: "Ver todos" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ver todos \(/ })).not.toBeInTheDocument();
+    // the newest is featured and the oldest (beyond the cap) is not listed
+    expect(screen.getByRole("link", { name: /Fijado 10/ })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Fijado 0$/ })).not.toBeInTheDocument();
   });
 
   it("a single pin has no «Ver todos»; none renders nothing", () => {
