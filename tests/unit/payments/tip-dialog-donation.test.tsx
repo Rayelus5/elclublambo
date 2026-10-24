@@ -99,7 +99,7 @@ describe("TipDialog donation mode: form", () => {
     expect(screen.getByRole("heading", { name: "Donar a la DAO" })).toBeInTheDocument();
     expect(screen.getByText("Tesorería de la DAO (Safe)")).toBeInTheDocument();
     expect(screen.getByText("0x5555…5555")).toBeInTheDocument();
-    expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/dao");
   });
 

@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
-import { NetworkBadge } from "@/components/economy/network-badge";
 import { Clock } from "lucide-react";
 import { ShareRing } from "@/components/treasury/dao-charts";
-import { legacyExplorerTx } from "@/lib/legacy/linea";
+import { LEGACY_NETWORKS, legacyExplorerTx } from "@/lib/legacy/linea";
 import { finalityEta, formatEta } from "@/lib/treasury/eta";
 import { formatBps, formatShares, formatUsd, formatUsdc, formatUsdPrecise } from "@/lib/treasury/format";
 import type { DaoOverview as Data } from "@/lib/treasury/queries";
@@ -41,7 +40,7 @@ export function DaoOverview({
   return (
     <div className="flex flex-col gap-6">
       <section aria-label="Tesorería" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
-        <NetworkBadge chainId={data.chainId} className="self-start" />
+        <p className="self-start font-mono text-[13px] font-bold text-fg-muted">{LEGACY_NETWORKS[data.chainId].name}</p>
         <dl className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <dt className="text-sm text-fg-muted">Valor del fondo</dt>

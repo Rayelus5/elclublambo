@@ -103,7 +103,7 @@ describe("TipDialog bounty mode: form", () => {
   it("is titled as a bounty payment and links to the bounties guide", () => {
     setup();
     expect(screen.getByRole("heading", { name: "Pagar bounty" })).toBeInTheDocument();
-    expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
   });
 

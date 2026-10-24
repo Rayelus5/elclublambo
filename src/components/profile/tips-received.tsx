@@ -1,4 +1,5 @@
 import { TipList } from "@/components/payments/tip-list";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { formatAmount } from "@/lib/payments/amounts";
 import type { TipEntry, TipTotal } from "@/lib/payments/queries";
@@ -33,7 +34,8 @@ export function TipsReceived({
             <p className="text-fg-muted">Sin propinas en {network.name}.</p>
           ) : (
             <div className="flex flex-col gap-1">
-              <p id="tips-totals-title" className="text-sm text-fg-muted">
+              <p id="tips-totals-title" className="inline-flex items-center gap-2 text-sm text-fg-muted">
+                <NetworkLogo chainId={activeChainId} size={16} />
                 Totales en {network.name}
               </p>
               <dl aria-labelledby="tips-totals-title" className="flex flex-wrap items-baseline gap-x-6 gap-y-1">

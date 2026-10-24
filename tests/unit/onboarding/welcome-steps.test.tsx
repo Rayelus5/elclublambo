@@ -84,7 +84,7 @@ describe("WelcomeSteps", () => {
     completeWelcomeAction.mockResolvedValueOnce({ ok: false, error: "Elige tu @handle para continuar." });
     render(<WelcomeSteps {...base} initialHandle="ana" />);
     for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
-    expect(screen.getByText("MODO PRUEBA · Base Sepolia")).toBeTruthy();
+    expect(screen.getByText("Base Sepolia")).toBeTruthy();
     expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/guia/redes");
     await user.click(screen.getByRole("button", { name: "Empezar" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Elige tu @handle");

@@ -34,7 +34,7 @@ describe("BountyRecordSection", () => {
     const link = within(list).getByRole("link");
     expect(link).toHaveAttribute("href", `/c/${CH}?m=${M1}`);
     expect(link).toHaveTextContent("25 USDC");
-    expect(link).toHaveTextContent("MODO PRUEBA · Base Sepolia");
+    expect(within(link).getByAltText("Base Sepolia")).toBeInTheDocument();
   });
 
   it("labels the network the record counts (F3-R2)", () => {

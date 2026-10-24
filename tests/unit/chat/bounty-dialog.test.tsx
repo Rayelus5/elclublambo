@@ -39,7 +39,7 @@ beforeEach(() => {
 describe("BountyDialog", () => {
   it("shows the active network and the guide link", () => {
     setup();
-    expect(screen.getByText(/MODO PRUEBA · Base Sepolia/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
   });
 

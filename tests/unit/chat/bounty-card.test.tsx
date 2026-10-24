@@ -55,7 +55,7 @@ describe("BountyCard", () => {
     setup();
     const amount = screen.getByText("25 USDC");
     expect(amount).toHaveClass("font-mono");
-    expect(screen.getByText(/MODO PRUEBA · Base Sepolia/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
   });
 
   it.each([

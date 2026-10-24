@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, Trophy } from "lucide-react";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { useEconomy } from "@/components/payments/economy-provider";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
-      <NetworkBadge chainId={activeChainId} className="self-start" />
+      <NetworkLogo chainId={activeChainId} withName className="self-start" />
 
       <div role="radiogroup" aria-label="Moneda" className="grid grid-cols-2 gap-1 rounded-control border border-border-strong p-1">
         {TOKENS.map((t) => (

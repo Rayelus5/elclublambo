@@ -120,7 +120,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
     <ChatDensityProvider initial={welcome.chat_density === "compact" ? "compact" : "standard"}>
     <SearchProvider channels={channels.map(toRow)} actions={buildActions({ perms, canReports: canModerate, ticketChannels, wallet, daoEnabled: economy.legacyDaoEnabled })}>
       <ShellGrid>
-        <Sidebar perms={perms} wallet={wallet} channels={sidebarRows} canModerate={canModerate} openTickets={openTicketCount} chainId={economy.enabledChainIds[0]} daoEnabled={economy.legacyDaoEnabled} />
+        <Sidebar perms={perms} wallet={wallet} channels={sidebarRows} canModerate={canModerate} openTickets={openTicketCount} daoEnabled={economy.legacyDaoEnabled} />
         <main className="min-w-0 px-4 py-8 sm:px-8 md:py-10">{children}</main>
         <RightRail />
       </ShellGrid>

@@ -44,7 +44,7 @@ describe("DaoOverview", () => {
 
   it("shows the network, the formatted balance, the donors and the donate slot", () => {
     render(<DaoOverview data={base} donate={<button>Donar a la DAO</button>} />);
-    expect(screen.getByText(/MODO PRUEBA · Linea Sepolia/)).toBeInTheDocument();
+    expect(screen.getByText("Linea Sepolia")).toBeInTheDocument();
     expect(screen.getByTestId("dao-balance").textContent).toBe("1.234,5 USD");
     expect(screen.getByTestId("dao-donors")).toHaveTextContent("7");
     expect(screen.getByRole("button", { name: "Donar a la DAO" })).toBeInTheDocument();

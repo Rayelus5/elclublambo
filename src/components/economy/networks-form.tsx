@@ -6,6 +6,7 @@ import { CircleAlert, Loader2 } from "lucide-react";
 import { shortAddress } from "@/lib/auth/wallet";
 import { rpcErrorMessage } from "@/lib/errors";
 import { setChainEnabledAction } from "@/lib/economy/actions";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { explorerAddress, NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +42,11 @@ export function NetworksForm({ chains }: { chains: NetworkRow[] }) {
           <li key={chainId} className="flex flex-col gap-2 py-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-0.5">
-                <span id={`${id}-name`} className="text-sm font-bold text-fg">
-                  {name}
+                <span className="inline-flex items-center gap-2">
+                  <NetworkLogo chainId={chainId} size={20} />
+                  <span id={`${id}-name`} className="text-sm font-bold text-fg">
+                    {name}
+                  </span>
                 </span>
                 {safe ? (
                   <a

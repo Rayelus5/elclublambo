@@ -5,7 +5,7 @@ import { useAppKit, useAppKitState } from "@reown/appkit/react";
 import { CircleAlert, CircleCheck, Landmark, Loader2 } from "lucide-react";
 import { useAccount, useSwitchChain } from "wagmi";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { MemberAvatar } from "@/components/members/member-avatar";
 import { FeeControl } from "@/components/payments/fee-control";
 import { useEconomy } from "@/components/payments/economy-provider";
@@ -703,7 +703,7 @@ function TipFlow({
     const it = intent;
     return (
       <div className="flex flex-col gap-4">
-        <NetworkBadge chainId={(it?.chainId ?? chainId) as ChainId} className="self-start" />
+        <NetworkLogo chainId={(it?.chainId ?? chainId) as ChainId} withName className="self-start" />
         {donation ? (
           <SafeCard address={it ? safeOn(it.chainId) : safe} />
         ) : (
@@ -826,7 +826,7 @@ function TipFlow({
     >
       {/* Desktop: who, what and how much on the left; the cost and the confirmation on the right (no scrolling). */}
       <div className="flex min-w-0 flex-col gap-4">
-        <NetworkBadge chainId={chainId} className="self-start" />
+        <NetworkLogo chainId={chainId} withName className="self-start" />
 
         {donation ? (
           <SafeCard address={safe} />

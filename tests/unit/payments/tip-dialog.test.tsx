@@ -102,7 +102,7 @@ describe("TipDialog form", () => {
 
   it("shows the network, the recipient, the anonymous note and the guide link", () => {
     setup();
-    expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
     expect(screen.getByText("@ana_l")).toBeInTheDocument();
     expect(screen.getByText("0x2222…2222")).toBeInTheDocument();
     expect(screen.getByText("Solo se oculta en el foro: en la blockchain la transacción es pública.")).toBeInTheDocument();
@@ -611,7 +611,7 @@ describe("TipDialog expiry, abort and in-flight (F3b-R5)", () => {
   it("the resume screen shows the network, the recipient and what is left to send", () => {
     seed();
     setup();
-    expect(screen.getByText(/MODO PRUEBA/)).toBeInTheDocument();
+    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
     expect(screen.getByText("@ana_l")).toBeInTheDocument();
     expect(screen.getByTestId("resume-amount")).toHaveTextContent("Falta: 10 USDC para @ana_l");
   });

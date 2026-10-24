@@ -10,8 +10,7 @@ import { SearchButton } from "@/components/search/search-button";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
-import { NetworkBadge } from "@/components/economy/network-badge";
-import type { ChainId } from "@/lib/economy/networks";
+import { TestModeBadge } from "@/components/economy/test-mode-badge";
 
 type Props = {
   perms: bigint;
@@ -21,8 +20,6 @@ type Props = {
   canModerate?: boolean;
   /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
   openTickets?: number;
-  /** Active network (economy_config): every member sees whether money moves on testnet. */
-  chainId?: ChainId;
   /** app_config.legacy_dao_enabled: with false the «DAO» entry is not shown. */
   daoEnabled: boolean;
 };
@@ -96,7 +93,7 @@ function DesktopBar(props: Props) {
         </ul>
       </nav>
       <div data-testid="bar-controls" className="ml-auto flex shrink-0 items-center gap-1">
-        {props.chainId ? <NetworkBadge chainId={props.chainId} responsive className="mr-1" /> : null}
+        <TestModeBadge responsive className="mr-1" />
         <SearchButton variant="bar" />
         <NotificationBell />
         <Link
@@ -121,11 +118,7 @@ function DrawerBody(props: Props) {
       <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
-      {props.chainId ? (
-        <div className="px-4">
-          <NetworkBadge chainId={props.chainId} />
-        </div>
-      ) : null}
+      <TestModeBadge className="mx-4 self-start" />
 
       <nav aria-label="Principal" className="flex flex-col gap-1">
         {sections(props).map(({ href, text, Icon, label, badge }, i) => (
@@ -170,7 +163,7 @@ export function Sidebar(props: Props) {
   return (
     <>
       <DesktopBar {...props} />
-      <Topbar badge={props.chainId ? <NetworkBadge chainId={props.chainId} compact className="mr-1" /> : null}>
+      <Topbar badge={<TestModeBadge compact className="mr-1" />}>
         <DrawerBody {...props} />
       </Topbar>
       <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-r border-border bg-surface md:block">

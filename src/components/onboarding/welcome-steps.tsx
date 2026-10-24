@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink } from "lucide-react";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -178,7 +178,7 @@ export function WelcomeSteps({ initialHandle, next, chainId }: { initialHandle: 
               desconfía de quien te pida tu frase secreta.
             </p>
             <div>
-              <NetworkBadge chainId={chainId} />
+              <NetworkLogo chainId={chainId} withName />
             </div>
           </div>
         )}

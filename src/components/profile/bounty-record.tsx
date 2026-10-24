@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import type { BountyRecord, UnpaidBounty } from "@/lib/bounties/queries";
 import type { ChainId } from "@/lib/economy/networks";
 import { formatAmount } from "@/lib/payments/amounts";
@@ -28,7 +28,7 @@ export function BountyRecordSection({
         <h2 id="bounty-record-title" className="text-h2">
           Bounties
         </h2>
-        <NetworkBadge chainId={activeChainId} />
+        <NetworkLogo chainId={activeChainId} withName />
       </div>
       <p className="text-fg">
         Bounties: {record.paid} {record.paid === 1 ? "pagado" : "pagados"} · {record.paidLate}{" "}
@@ -44,7 +44,7 @@ export function BountyRecordSection({
               >
                 <CircleAlert aria-hidden className="size-4 shrink-0 text-danger" />
                 <span className="font-mono font-bold text-fg">{`${formatAmount(b.amount, b.token)} ${b.token}`}</span>
-                <NetworkBadge chainId={b.chainId} />
+                <NetworkLogo chainId={b.chainId} size={16} />
                 {b.solutionMarkedAt ? (
                   <span className="text-[13px] text-fg-muted">
                     Solución elegida el <time dateTime={b.solutionMarkedAt}>{DATE.format(new Date(b.solutionMarkedAt))}</time>

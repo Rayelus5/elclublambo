@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { useOptionalEconomy } from "@/components/payments/economy-provider";
 import { TipDialog, type TipRecipient } from "@/components/payments/tip-dialog";
 import {
@@ -144,7 +144,7 @@ export function BountyCard({
           <Trophy aria-hidden className="size-3.5" />
           Bounty
         </span>
-        <NetworkBadge chainId={bounty.chainId} />
+        <NetworkLogo chainId={bounty.chainId} withName />
       </div>
 
       <p className="font-mono text-2xl font-bold break-all text-fg">{`${formatAmount(bounty.amount, bounty.token)} ${bounty.token}`}</p>
