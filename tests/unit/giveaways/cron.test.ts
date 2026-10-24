@@ -56,6 +56,21 @@ describe("runGiveawaySteps", () => {
     expect(calls("draw_giveaway")).toHaveLength(0);
   });
 
+  it("once drand is unavailable in a run, the remaining giveaways wait without fetching again", async () => {
+    rpcAnswers.set("giveaways_awaiting_draw", () => ({
+      data: [
+        { id: G1, target_round: 4990 },
+        { id: G2, target_round: 4995 },
+        { id: G3, target_round: 5000 },
+      ],
+      error: null,
+    }));
+    fetchBeacon.mockResolvedValue({ status: "unavailable" });
+    expect(await runGiveawaySteps()).toMatchObject({ drawn: 0, waiting: 3, failed: 0 });
+    expect(fetchBeacon).toHaveBeenCalledTimes(1);
+    expect(calls("draw_giveaway")).toHaveLength(0);
+  });
+
   it("an invalid beacon counts as failed, is logged and is not drawn", async () => {
     fetchBeacon.mockResolvedValue({ status: "invalid" });
     const err = vi.spyOn(console, "error").mockImplementation(() => {});

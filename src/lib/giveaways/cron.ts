@@ -49,6 +49,7 @@ export async function drawOne(db: Admin, id: string, round: bigint, nowMs = Date
  * P1-R12, hourly from /api/cron/dao (before the legacy branch, so it runs while the legacy DAO is paused): close the
  * due giveaways, then draw every closed one whose drand round exists. A failed close is logged and the draws still
  * run; a failed read of the closed giveaways throws (the route reports the step as failed). Each draw is isolated.
+ * Once drand answers 'unavailable' in a run, the giveaways left count as waiting without asking it again.
  */
 export async function runGiveawaySteps(): Promise<GiveawayReport> {
   const db = createAdminClient();
@@ -67,7 +68,12 @@ export async function runGiveawaySteps(): Promise<GiveawayReport> {
   if (awaiting.error) throw new Error(`giveaways_awaiting_draw: ${awaiting.error.message}`);
   const rows = (Array.isArray(awaiting.data) ? awaiting.data : []) as { id: string; target_round: number | string }[];
 
+  let drandDown = false;
   for (const row of rows) {
+    if (drandDown) {
+      report.waiting++;
+      continue;
+    }
     let outcome: DrawOutcome;
     try {
       outcome = await drawOne(db, row.id, BigInt(row.target_round));
@@ -75,6 +81,7 @@ export async function runGiveawaySteps(): Promise<GiveawayReport> {
       console.error("[giveaways] draw failed", row.id, safeError(e));
       outcome = { status: "failed", code: "unknown" };
     }
+    if (outcome.status === "waiting" && outcome.code === "drand_unavailable") drandDown = true;
     if (outcome.status === "drawn" || outcome.status === "already") report.drawn++;
     else if (outcome.status === "waiting") report.waiting++;
     else report.failed++;
