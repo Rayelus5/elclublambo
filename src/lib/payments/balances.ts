@@ -27,9 +27,12 @@ function withGas(assets: readonly Asset[]): Asset[] {
   return [...out.values()];
 }
 
+export const BALANCE_STALE_MS = 20_000;
+
 /**
  * Live balances of the account for each asset, each read on its own chain (not the wallet's current one). Null while
- * loading, when the read fails or without an account: unknown never blocks, the wallet still protects.
+ * loading, when the read fails or without an account: unknown never blocks, the wallet still protects. Reads stay
+ * fresh for BALANCE_STALE_MS so reopening a picker does not hit every RPC again; a payment invalidates them at once.
  */
 export function useAssetBalances(assets: readonly Asset[], account: `0x${string}` | undefined): AssetBalances {
   const config = useConfig();
@@ -39,6 +42,7 @@ export function useAssetBalances(assets: readonly Asset[], account: `0x${string}
       queryKey: ["assetBalance", a.id, account] as const,
       queryFn: () => readAssetBalance(config, a, account!),
       enabled: !!account,
+      staleTime: BALANCE_STALE_MS,
     })),
   });
   return Object.fromEntries(all.map((a, i) => [a.id, results[i]?.data ?? null])) as AssetBalances;

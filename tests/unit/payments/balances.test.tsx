@@ -54,6 +54,17 @@ describe("useAssetBalances", () => {
     expect(result.current["USDC:84532"]).toBe(84532n);
   });
 
+  it("reuses fresh balances when the picker reopens instead of reading the chain again (staleTime)", async () => {
+    const first = renderHook(() => useAssetBalances(assetsFor([84532]), ACCOUNT), { wrapper });
+    await waitFor(() => expect(first.result.current["USDC:84532"]).toBe(84532n));
+    const reads = getBalance.mock.calls.length + readContract.mock.calls.length;
+    first.unmount();
+    const second = renderHook(() => useAssetBalances(assetsFor([84532]), ACCOUNT), { wrapper });
+    expect(second.result.current["USDC:84532"]).toBe(84532n);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(getBalance.mock.calls.length + readContract.mock.calls.length).toBe(reads);
+  });
+
   it("reads nothing without an account", () => {
     const { result } = renderHook(() => useAssetBalances(assetsFor([84532]), undefined), { wrapper });
     expect(result.current).toEqual({ "USDC:84532": null, "ETH:84532": null });
