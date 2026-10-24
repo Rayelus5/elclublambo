@@ -152,7 +152,7 @@ $$;
 
 -- ===== _giveaway_role_ok: P1-R9 for a role prize, checked at creation and again at the draw =====
 -- Not @everyone, not is_system, no system_key (Verificado, Padrino, Mecenas), permissions inside the member-safe mask
--- 207895, and the actor (active) is ADMINISTRATOR or strictly above the role (member_top_position, as set_member_role).
+-- 207895 (also every channel overwrite's allow bits on the role), and the actor (active) is ADMINISTRATOR or strictly above the role (member_top_position, as set_member_role).
 create function public._giveaway_role_ok(p_role uuid, p_actor uuid)
 returns boolean
 language sql
@@ -165,6 +165,9 @@ as $$
        and not r.is_system
        and r.system_key is null
        and (r.permissions & ~207895::bigint) = 0
+       -- a channel overwrite can widen a role too (e.g. MANAGE_MESSAGES in one channel): same mask
+       and not exists (select 1 from public.permission_overwrites o
+                       where o.target_type = 'role' and o.target_id = r.id and (o.allow & ~207895::bigint) <> 0)
        and exists (select 1 from public.members m where m.id = p_actor and m.status = 'active')
        and ((public.member_global_permissions(p_actor) & 512) <> 0
             or r.position < public.member_top_position(p_actor))
@@ -513,7 +516,8 @@ begin
     into v_members, v_positions
   from public.giveaway_entries e
   where e.giveaway_id = g.id and e.position is not null;
-  if v_members is null then
+  -- a member hard-deleted after the close would shorten the list and break parity with the public verifier
+  if v_members is null or cardinality(v_members) <> g.entry_count then
     raise exception 'invalid_state';
   end if;
 

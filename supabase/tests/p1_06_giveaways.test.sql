@@ -6,7 +6,7 @@
 --     not_enough_entries (RF 3), role_unavailable for a deleted or widened role (RF 4), giveaway_won notified.
 --   - record_giveaway_payout: tx_already_used for a hash behind an intent or another prize; delivered / cancel / reads.
 begin;
-select plan(67);
+select plan(71);
 
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -44,7 +44,9 @@ insert into public.roles (name, color, position, permissions) values
   ('Alto P1', '#334455', 60, 0),
   ('Caro P1', '#445566', 5, 256),
   ('Temporal P1', '#556677', 21, 0),
-  ('Crece P1', '#667788', 22, 0);
+  ('Crece P1', '#667788', 22, 0),
+  ('Canal P1', '#778899', 23, 0),
+  ('Ovr P1', '#8899AA', 24, 0);
 insert into public.member_roles (member_id, role_id)
   select current_setting('t.t')::uuid, id from public.roles where name = 'Tesorería P1';
 do $$
@@ -61,6 +63,13 @@ select set_config('t.stranger', tests.create_wallet_user('0x' || lpad('e9d1f', 4
 select set_config('t.r_premio', (select id::text from public.roles where name = 'Premio P1'), true);
 select set_config('t.r_temporal', (select id::text from public.roles where name = 'Temporal P1'), true);
 select set_config('t.r_crece', (select id::text from public.roles where name = 'Crece P1'), true);
+select set_config('t.r_canal', (select id::text from public.roles where name = 'Canal P1'), true);
+select set_config('t.r_ovr', (select id::text from public.roles where name = 'Ovr P1'), true);
+select set_config('t.cat', tests.create_channel(null, 'category', 'P106cat')::text, true);
+select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 'p106mod')::text, true);
+-- 'Canal P1' moderates one channel (MANAGE_MESSAGES = 8, outside the member mask) through an overwrite
+insert into public.permission_overwrites (channel_id, target_type, target_id, allow)
+values (current_setting('t.ch')::uuid, 'role', current_setting('t.r_canal')::uuid, 8);
 
 -- ===== 1. privileges =====
 select ok(has_function_privilege('authenticated', 'public.create_giveaway(text,text,timestamptz,jsonb)', 'execute')
@@ -111,6 +120,8 @@ select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}
 select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}]')$$,
                         (select id from public.roles where name = 'Alto P1')),
   'P0001', 'role_not_allowed', 'a role above the creator is not a prize');
+select throws_ok(format($$select tests.gw_create('[{"kind":"role","roleId":"%s"}]')$$, current_setting('t.r_canal')),
+  'P0001', 'role_not_allowed', 'a role widened by a channel overwrite outside the member mask is not a prize');
 select throws_ok($$select tests.gw_create('[{"kind":"crypto","chainId":59144,"amount":"5000000"}]')$$,
   'P0001', 'chain_invalid', 'a crypto prize on a disabled network is chain_invalid');
 select throws_ok($$select tests.gw_create('[{"kind":"crypto","chainId":84532,"amount":"0"}]')$$,
@@ -130,6 +141,9 @@ select set_config('t.g2', tests.gw_create('[{"kind":"crypto","chainId":84532,"am
 -- G3: a role prize whose role is deleted before the draw; G4: one whose role gains permissions
 select set_config('t.g3', tests.gw_create(format('[{"kind":"role","roleId":"%s"}]', current_setting('t.r_temporal'))::jsonb)::text, true);
 select set_config('t.g4', tests.gw_create(format('[{"kind":"role","roleId":"%s"}]', current_setting('t.r_crece'))::jsonb)::text, true);
+-- G8: a role that gains a moderating channel overwrite before the draw; G9: an entry vanishes before the draw
+select set_config('t.g8', tests.gw_create(format('[{"kind":"role","roleId":"%s"}]', current_setting('t.r_ovr'))::jsonb)::text, true);
+select set_config('t.g9', tests.gw_create('[{"kind":"custom","label":"Taza"}]')::text, true);
 -- G5: nobody enters (void); G6: entered after the close; G7: cancelled
 select set_config('t.g5', tests.gw_create('[{"kind":"custom","label":"Nada"}]')::text, true);
 select set_config('t.g6', tests.gw_create('[{"kind":"custom","label":"Tarde"}]')::text, true);
@@ -176,6 +190,9 @@ select is((select count(*)::int from public.giveaway_entries where giveaway_id =
   'leave removes the entry');
 select tests.enter_as(current_setting('t.m1')::uuid, current_setting('t.g3')::uuid);
 select tests.enter_as(current_setting('t.m2')::uuid, current_setting('t.g4')::uuid);
+select tests.enter_as(current_setting('t.m3')::uuid, current_setting('t.g8')::uuid);
+select tests.enter_as(current_setting('t.m4')::uuid, current_setting('t.g9')::uuid);
+select tests.enter_as(current_setting('t.m5')::uuid, current_setting('t.g9')::uuid);
 select tests.enter_as(current_setting('t.m1')::uuid, current_setting('t.g7')::uuid);
 
 select tests.gw_due(current_setting('t.g6')::uuid);
@@ -194,12 +211,14 @@ select tests.gw_due(current_setting('t.g1')::uuid, true);
 select tests.gw_due(current_setting('t.g2')::uuid, true);
 select tests.gw_due(current_setting('t.g3')::uuid, true);
 select tests.gw_due(current_setting('t.g4')::uuid, true);
+select tests.gw_due(current_setting('t.g8')::uuid, true);
+select tests.gw_due(current_setting('t.g9')::uuid, true);
 select tests.gw_due(current_setting('t.g5')::uuid);
 select set_config('t.g5seed', (select '0x' || encode(seed, 'hex') from private.giveaway_seeds
                                where giveaway_id = current_setting('t.g5')::uuid), true);
 set local role service_role;
-select is(public.close_due_giveaways(), '{"closed": 4, "voided": 2}'::jsonb,
-  'close_due_giveaways closes the four with entries and voids the two without');
+select is(public.close_due_giveaways(), '{"closed": 6, "voided": 2}'::jsonb,
+  'close_due_giveaways closes the six with entries and voids the two without');
 reset role;
 select results_eq($$select position from public.giveaway_entries where giveaway_id = current_setting('t.g1')::uuid
                     and position is not null order by position$$,
@@ -226,6 +245,11 @@ where id = current_setting('t.g1')::uuid;
 -- G4's role gains a permission outside the member mask, G3's role is deleted
 update public.roles set permissions = 256 where id = current_setting('t.r_crece')::uuid;
 delete from public.roles where id = current_setting('t.r_temporal')::uuid;
+-- G8's role gets a moderating overwrite after creation
+insert into public.permission_overwrites (channel_id, target_type, target_id, allow)
+values (current_setting('t.ch')::uuid, 'role', current_setting('t.r_ovr')::uuid, 8);
+-- G9 loses an entry after the close (what a hard-deleted member's cascade does)
+delete from public.giveaway_entries where giveaway_id = current_setting('t.g9')::uuid and member_id = current_setting('t.m5')::uuid;
 
 set local role service_role;
 select is((select array_agg(id order by id) from public.giveaways_awaiting_draw()),
@@ -242,6 +266,9 @@ select is(public.draw_giveaway(current_setting('t.g1')::uuid, 1000, upper(tests.
 select is(public.draw_giveaway(current_setting('t.g2')::uuid, 1000, tests.sig()) ->> 'status', 'drawn', 'G2 draws');
 select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g3'), tests.sig()), 'G3 draws');
 select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g4'), tests.sig()), 'G4 draws');
+select lives_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g8'), tests.sig()), 'G8 draws');
+select throws_ok(format($$select public.draw_giveaway(%L, 1000, %L)$$, current_setting('t.g9'), tests.sig()),
+  'P0001', 'invalid_state', 'an entry list shorter than entry_count refuses to draw (parity with the verifier)');
 reset role;
 
 select ok((select status = 'drawn'
@@ -277,11 +304,16 @@ select ok((select status = 'unawarded' and unawarded_reason = 'role_unavailable'
       and not exists (select 1 from public.member_roles where member_id = current_setting('t.m2')::uuid
                       and role_id = current_setting('t.r_crece')::uuid),
   'a role that gained permissions is role_unavailable and is not granted (RF 4)');
+select ok((select status = 'unawarded' and unawarded_reason = 'role_unavailable' from public.giveaway_prizes
+           where giveaway_id = current_setting('t.g8')::uuid)
+      and not exists (select 1 from public.member_roles where member_id = current_setting('t.m3')::uuid
+                      and role_id = current_setting('t.r_ovr')::uuid),
+  'a role that gained a moderating overwrite is role_unavailable and is not granted (RF 4)');
 select ok((select count(*) = 3 and bool_and(n.data ->> 'giveawayId' = current_setting('t.g1')
                                          and n.data ->> 'title' = 'Gran sorteo' and n.data ? 'prizeLabel')
            from public.notifications n where n.kind = 'giveaway_won' and n.data ->> 'giveawayId' = current_setting('t.g1'))
       and not exists (select 1 from public.notifications n where n.kind = 'giveaway_won'
-                      and n.data ->> 'giveawayId' in (current_setting('t.g3'), current_setting('t.g4'))),
+                      and n.data ->> 'giveawayId' in (current_setting('t.g3'), current_setting('t.g4'), current_setting('t.g8'))),
   'giveaway_won to each winner; nothing for an unavailable role');
 select is((select b.url || '|' || b.body from public.notifications n, public._push_build(n.id) b
            where n.kind = 'giveaway_won' and n.data ->> 'giveawayId' = current_setting('t.g1') and n.data ->> 'prizeLabel' = '5 USDC'),
