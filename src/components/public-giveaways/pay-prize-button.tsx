@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { CircleCheck, Loader2, RefreshCw, Send } from "lucide-react";
@@ -28,6 +28,45 @@ function isUserRejection(err: unknown): boolean {
   if (e.name === "UserRejectedRequestError" || e.code === 4001) return true;
   return e.cause ? isUserRejection(e.cause) : false;
 }
+
+/**
+ * The hash of a sent payout, per prize, kept until it verifies: a reload or a second tab during the pending window must
+ * offer «Comprobar de nuevo» on it, never a second transfer. Storage may be missing or throw (private mode, blocked site
+ * data): every access is guarded and the button then falls back to its in-memory state.
+ */
+const storageKey = (prizeId: string) => `elclub:pg-pay:${prizeId}`;
+
+export function readSentHash(prizeId: string): Hash | null {
+  try {
+    const v = window.localStorage.getItem(storageKey(prizeId));
+    return v && TX_HASH.test(v) ? (v as Hash) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSentHash(prizeId: string, hash: Hash): void {
+  try {
+    window.localStorage.setItem(storageKey(prizeId), hash);
+  } catch {
+    // Without storage the guard only lasts while the page is open.
+  }
+}
+
+function clearSentHash(prizeId: string): void {
+  try {
+    window.localStorage.removeItem(storageKey(prizeId));
+  } catch {
+    // Nothing stored, or no storage at all.
+  }
+}
+
+/** Re-reads when another tab stores or clears a hash. The server snapshot is null (no storage there). */
+const subscribeStorage = (onChange: () => void) => {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+};
+const noStoredHash = () => null;
 
 type Outcome = { kind: "paid" } | { kind: "pending" } | { kind: "error"; text: string };
 
@@ -61,7 +100,8 @@ type Phase = "idle" | "switching" | "sending" | "confirming" | "paid" | "pending
 /**
  * «Pagar ahora»: the host's wallet moves to the prize's network, sends the USDC to the winner (useSendTransfer adds the
  * Builder Code on Base) and the hash is verified on chain. Once a hash exists the button never offers to pay again:
- * any later failure offers «Comprobar de nuevo» on that same hash, so a slow RPC cannot lead to a double payment.
+ * any later failure offers «Comprobar de nuevo» on that same hash, so a slow RPC cannot lead to a double payment. The
+ * hash is also stored per prize (see readSentHash), so a reload or another tab resumes the check instead of paying again.
  */
 export function PayPrizeButton({
   prizeId,
@@ -72,6 +112,7 @@ export function PayPrizeButton({
   t,
   errors,
   retryDelayMs = 4000,
+  onSentHash,
 }: {
   prizeId: string;
   chainId: ChainId;
@@ -82,6 +123,8 @@ export function PayPrizeButton({
   t: HostLabels;
   errors: Errors;
   retryDelayMs?: number;
+  /** True while a sent hash exists for this prize (the panel hides «Ya lo pagué» then). */
+  onSentHash?: (sent: boolean) => void;
 }) {
   const { ensure } = useEnsureChain();
   const { send } = useSendTransfer();
@@ -91,13 +134,23 @@ export function PayPrizeButton({
   const [hash, setHash] = useState<Hash | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // A hash sent before a reload (or from another tab) counts as this button's own: resume on it.
+  const stored = useSyncExternalStore(subscribeStorage, () => readSentHash(prizeId), noStoredHash);
+  const current = hash ?? stored;
+
+  useEffect(() => {
+    onSentHash?.(current !== null);
+  }, [current, onSentHash]);
+
   async function check(h: Hash, retries: number) {
     setError(null);
     setPhase("confirming");
     const r = await verify(h, retries);
     if (!r) return;
-    if (r.kind === "paid") setPhase("paid");
-    else if (r.kind === "pending") setPhase("pending");
+    if (r.kind === "paid") {
+      clearSentHash(prizeId);
+      setPhase("paid");
+    } else if (r.kind === "pending") setPhase("pending");
     else {
       setError(r.text);
       setPhase("pending");
@@ -107,6 +160,13 @@ export function PayPrizeButton({
   async function pay() {
     if (phase !== "idle") return;
     setError(null);
+    const stored = readSentHash(prizeId);
+    if (stored) {
+      // Another tab already paid this prize: check that hash, never send a second transfer.
+      setHash(stored);
+      await check(stored, 0);
+      return;
+    }
     if (!isConnected || !address || address.toLowerCase() !== hostAddress.toLowerCase()) {
       setError(fill(t.useHostWallet, { address: shortAddress(hostAddress) }));
       return;
@@ -126,6 +186,7 @@ export function PayPrizeButton({
       setPhase("idle");
       return;
     }
+    writeSentHash(prizeId, h);
     setHash(h);
     await check(h, PENDING_RETRIES);
   }
@@ -143,15 +204,15 @@ export function PayPrizeButton({
   const busyText = phase === "switching" ? t.switching : phase === "sending" ? t.sending : t.confirming;
   return (
     <div className="flex flex-col items-start gap-2">
-      {hash === null ? (
+      {current === null ? (
         <Button type="button" onClick={pay} disabled={busy}>
           {busy ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <Send aria-hidden />}
           {busy ? busyText : t.payNow}
         </Button>
       ) : (
         <>
-          {phase === "pending" && !error ? <p className="text-sm text-fg-muted">{t.pendingLong}</p> : null}
-          <Button type="button" variant="outline" onClick={() => check(hash, 0)} disabled={busy}>
+          {!busy && !error ? <p className="text-sm text-fg-muted">{t.pendingLong}</p> : null}
+          <Button type="button" variant="outline" onClick={() => check(current, 0)} disabled={busy}>
             {busy ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden />}
             {busy ? busyText : t.checkAgain}
           </Button>

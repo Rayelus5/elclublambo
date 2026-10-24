@@ -169,6 +169,19 @@ describe("GiveawayDetail · prizes and host panel", () => {
     expect(within(host).getByText(getDictionary("es").common.noCustody, { exact: false })).toBeInTheDocument();
   });
 
+  it("a payout hash waiting for verification: «Comprobar de nuevo», and neither «Pagar ahora» nor «Ya lo pagué»", async () => {
+    window.localStorage.setItem("elclub:pg-pay:aaaaaaaa-aaaa-4aaa-8aaa-000000000001", `0x${"ef".repeat(32)}`);
+    try {
+      setup({ signedIn: true, view: { ...drawn, isHost: true } });
+      const host = screen.getByRole("region", { name: es.detail.host.title });
+      expect(await within(host).findByRole("button", { name: es.detail.host.checkAgain })).toBeInTheDocument();
+      expect(within(host).queryByRole("button", { name: es.detail.host.payNow })).toBeNull();
+      expect(within(host).queryByRole("button", { name: es.detail.host.alreadyPaid })).toBeNull();
+    } finally {
+      window.localStorage.clear();
+    }
+  });
+
   it("a visitor sees no host panel and no pay button", () => {
     setup({ signedIn: true, view: drawn });
     expect(screen.queryByRole("region", { name: es.detail.host.title })).toBeNull();

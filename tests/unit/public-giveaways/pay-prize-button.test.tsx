@@ -42,6 +42,8 @@ beforeEach(() => {
   send.mockReset().mockResolvedValue(HASH);
   ensure.mockReset().mockResolvedValue(true);
   account.address = HOST;
+  window.localStorage.clear();
+  vi.restoreAllMocks();
 });
 
 describe("PayPrizeButton", () => {
@@ -111,6 +113,61 @@ describe("PayPrizeButton", () => {
     await userEvent.click(screen.getByRole("button", { name: d.detail.host.payNow }));
     expect(await screen.findByText(d.detail.host.sendCancelled)).toBeInTheDocument();
     expect(markPublicPrizePaidAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("PayPrizeButton · double-payment guard across reloads", () => {
+  const KEY = `elclub:pg-pay:${PRIZE}`;
+
+  it("a reload during the pending window resumes on the stored hash: no «Pagar ahora»", async () => {
+    markPublicPrizePaidAction.mockResolvedValue({ ok: false, error: "pending" });
+    const first = setup();
+    await userEvent.click(screen.getByRole("button", { name: d.detail.host.payNow }));
+    await screen.findByRole("button", { name: d.detail.host.checkAgain });
+    expect(window.localStorage.getItem(KEY)).toBe(HASH);
+    first.unmount();
+
+    setup();
+    expect(await screen.findByRole("button", { name: d.detail.host.checkAgain })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: d.detail.host.payNow })).toBeNull();
+    markPublicPrizePaidAction.mockResolvedValue({ ok: true, status: "already" });
+    await userEvent.click(screen.getByRole("button", { name: d.detail.host.checkAgain }));
+    expect(await screen.findByText(d.detail.host.paidOk)).toBeInTheDocument();
+    expect(markPublicPrizePaidAction).toHaveBeenLastCalledWith(PRIZE, HASH);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("clears the stored hash once paid", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: d.detail.host.payNow }));
+    expect(await screen.findByText(d.detail.host.paidOk)).toBeInTheDocument();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it("a hash stored by another tab after this one loaded: «Pagar ahora» checks it instead of sending", async () => {
+    setup();
+    const pay = screen.getByRole("button", { name: d.detail.host.payNow });
+    window.localStorage.setItem(KEY, HASH);
+    await userEvent.click(pay);
+    expect(await screen.findByText(d.detail.host.paidOk)).toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
+    expect(ensure).not.toHaveBeenCalled();
+    expect(markPublicPrizePaidAction).toHaveBeenCalledWith(PRIZE, HASH);
+  });
+
+  it("storage that throws does not break paying", async () => {
+    const boom = () => {
+      throw new Error("SecurityError");
+    };
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(boom);
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(boom);
+    setup();
+    await userEvent.click(screen.getByRole("button", { name: d.detail.host.payNow }));
+    expect(await screen.findByText(d.detail.host.paidOk)).toBeInTheDocument();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(markPublicPrizePaidAction).toHaveBeenCalledWith(PRIZE, HASH);
   });
 });
 
