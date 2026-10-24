@@ -134,3 +134,25 @@ describe("completeLogin", () => {
     expect((await completeLogin(null)).redirectTo).toBe("/no-access");
   });
 });
+
+describe("completeLogin public mode", () => {
+  it("none -> public, never redeems", async () => {
+    serverRpc.mockResolvedValueOnce({ data: "none", error: null });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "public" });
+    expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
+  });
+  it("left and active -> public", async () => {
+    serverRpc.mockResolvedValueOnce({ data: "left", error: null });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "public" });
+    serverRpc.mockResolvedValueOnce({ data: "active", error: null });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "public" });
+  });
+  it("banned -> /banned", async () => {
+    serverRpc.mockResolvedValueOnce({ data: "banned", error: null });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/banned" });
+  });
+  it("no user -> /login", async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/login" });
+  });
+});

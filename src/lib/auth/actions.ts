@@ -20,7 +20,7 @@ function redirectForStatus(status: MembershipStatus): string {
   return "/no-access";
 }
 
-export async function completeLogin(inviteCode: string | null): Promise<Result> {
+export async function completeLogin(inviteCode: string | null, mode: "club" | "public" = "club"): Promise<Result> {
   const supabase = await createServerClient();
   const { data } = await supabase.auth.getUser();
   const user = data?.user;
@@ -36,6 +36,8 @@ export async function completeLogin(inviteCode: string | null): Promise<Result> 
 
   const status = await readStatus();
   if (!status) return { redirectTo: "/no-access", error: "unknown" };
+  // Public side: any non-banned wallet stays where it is; the client navigates to `next`.
+  if (mode === "public" && status !== "banned") return { redirectTo: "public" };
   const decision = resolvePostLogin({
     status,
     isSuperAdmin: isSuperAdminWallet(wallet, process.env.SUPER_ADMIN_WALLET),

@@ -1,5 +1,9 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { LANGS, isLang } from "@/lib/i18n/config";
+import { PublicHeader } from "@/components/public/public-header";
+import { PublicHeaderSlot } from "@/components/public/public-header-slot";
+import { PublicFooter } from "@/components/public/public-footer";
 
 // El árbol público puede bloquear: es/en se prerrenderizan por completo (generateStaticParams) y un idioma desconocido debe
 // responder 404 de verdad, no 200 en streaming.
@@ -16,7 +20,11 @@ export default async function PublicLangLayout({ children, params }: LayoutProps
   if (!isLang(lang)) notFound();
   return (
     <div lang={lang} className="flex min-h-full flex-col">
+      <Suspense fallback={<PublicHeader lang={lang} session="pending" />}>
+        <PublicHeaderSlot lang={lang} />
+      </Suspense>
       {children}
+      <PublicFooter lang={lang} />
     </div>
   );
 }
