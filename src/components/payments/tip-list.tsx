@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { explorerTx } from "@/lib/economy/networks";
 import { formatAmount } from "@/lib/payments/amounts";
 import { donorLabel, type TipEntry } from "@/lib/payments/queries";
@@ -27,16 +28,28 @@ export function relativeTime(iso: string, now = Date.now()): string {
 
 /**
  * The donor list: each tip as donor label, amount, time and explorer link. `time="absolute"` renders a fixed date
- * (server-rendered lists such as the profile); "relative" is for client-side popovers.
+ * (server-rendered lists such as the profile); "relative" is for client-side popovers. `withNetwork` adds each tip's
+ * network logo next to its amount (lists that mix networks).
  */
-export function TipList({ entries, time = "relative", className }: { entries: readonly TipEntry[]; time?: "relative" | "absolute"; className?: string }) {
+export function TipList({
+  entries,
+  time = "relative",
+  withNetwork = false,
+  className,
+}: {
+  entries: readonly TipEntry[];
+  time?: "relative" | "absolute";
+  withNetwork?: boolean;
+  className?: string;
+}) {
   return (
     <ul className={cn("flex flex-col divide-y divide-border", className)}>
       {entries.map((e) => (
         <li key={e.tipId} className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 py-2">
           <span className="min-w-0 flex-1 truncate font-display font-bold text-fg">{donorLabel(e)}</span>
-          <span className="font-mono text-sm text-fg">
+          <span className="inline-flex items-center gap-2 font-mono text-sm text-fg">
             {formatAmount(e.amount, e.token)} {e.token}
+            {withNetwork ? <NetworkLogo chainId={e.chainId} size={16} /> : null}
           </span>
           {e.messageDeleted ? <span className="text-[13px] text-fg-muted italic">Mensaje eliminado</span> : null}
           <time dateTime={e.createdAt} suppressHydrationWarning className="text-[13px] text-fg-muted">

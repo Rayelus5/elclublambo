@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 const account = vi.hoisted(() => ({ address: undefined as string | undefined, chainId: undefined as number | undefined, isConnected: false }));
 const switchChain = vi.hoisted(() => vi.fn());
@@ -37,6 +37,13 @@ const createTipIntentAction = vi.hoisted(() => vi.fn());
 const attachTxAction = vi.hoisted(() => vi.fn());
 const verifyIntentAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/tip-actions", () => ({ createTipIntentAction, attachTxAction, verifyIntentAction }));
+// The real ledger, with patchSend observable so a test can make one write blow up.
+const ledger = vi.hoisted(() => ({ patchSend: undefined as unknown as Mock<typeof import("@/lib/payments/pending-sends").patchSend> }));
+vi.mock("@/lib/payments/pending-sends", async (orig) => {
+  const real = await orig<typeof import("@/lib/payments/pending-sends")>();
+  ledger.patchSend = vi.fn(real.patchSend);
+  return { ...real, patchSend: (...a: Parameters<typeof real.patchSend>) => ledger.patchSend(...a) };
+});
 
 import { EconomyProvider } from "@/components/payments/economy-provider";
 import { TipDialog } from "@/components/payments/tip-dialog";
@@ -194,6 +201,18 @@ describe("TipDialog network switch (Review Focus 1)", () => {
     expect(radio(/ETH.*Base Sepolia/)).toHaveAttribute("aria-checked", "true");
     await new Promise((r) => setTimeout(r, 450));
     expect(switchChain).not.toHaveBeenCalled();
+  });
+
+  it("arrow keys ending on another network's asset ask for exactly one switch, after the debounce", async () => {
+    await setup();
+    radio(/USDC.*Base Sepolia/).focus();
+    // USDC Base → USDC Arbitrum → ETH Base → ETH Arbitrum
+    await userEvent.keyboard("{ArrowDown}{ArrowDown}{ArrowDown}");
+    expect(radio(/ETH.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "true");
+    expect(switchChain).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 450));
+    expect(switchChain).toHaveBeenCalledTimes(1);
+    expect(switchChain.mock.calls[0]![0]).toEqual({ chainId: 421614 });
   });
 
   it("when the switch fails: 'Cambiar a Arbitrum Sepolia', Continuar disabled and nothing is sent", async () => {
@@ -414,6 +433,29 @@ describe("TipDialog after something was signed (F3b-R4)", () => {
     await userEvent.click(continuar());
     expect(await screen.findByText(/No se pudo enviar la transacción/)).toBeInTheDocument();
     expect(continuar()).toBeEnabled();
+  });
+
+  it("an error once the hash exists never drops the ledger entry nor goes back to the form", async () => {
+    const real = ledger.patchSend.getMockImplementation()!;
+    ledger.patchSend.mockImplementation((m, id, patch) => {
+      if (patch.mainHash) throw new Error("storage exploded");
+      return real(m, id, patch);
+    });
+    try {
+      await setup();
+      await typeAmount("10");
+      await userEvent.click(continuar());
+      expect(await screen.findByText("No hemos podido registrar tu transacción.")).toBeInTheDocument();
+      expect(loadSends(MEMBER).map((e) => e.intentId)).toEqual([INTENT_ID]);
+      expect(screen.queryByRole("button", { name: "Continuar" })).not.toBeInTheDocument();
+      ledger.patchSend.mockImplementation(real);
+      await userEvent.click(screen.getByRole("button", { name: "Reintentar" }));
+      await screen.findByText("Propina enviada");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(attachTxAction).toHaveBeenCalledWith(INTENT_ID, "main", MAIN_HASH);
+    } finally {
+      ledger.patchSend.mockImplementation(real);
+    }
   });
 
   it("an intent-creation throw returns to the form and signs nothing", async () => {

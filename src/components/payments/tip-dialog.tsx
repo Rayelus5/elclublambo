@@ -5,7 +5,6 @@ import { useAppKit, useAppKitState } from "@reown/appkit/react";
 import { CircleAlert, CircleCheck, Loader2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { AssetLogo } from "@/components/economy/asset-logo";
-import { NetworkLogo } from "@/components/economy/network-logo";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { MemberAvatar } from "@/components/members/member-avatar";
 import { AssetPicker } from "@/components/payments/asset-picker";
@@ -45,10 +44,11 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 export type TipTarget = { type: "message"; messageId: string } | { type: "profile" };
 export type TipRecipient = MemberIdentity & { id: string };
 /**
- * Pays a bounty to the solution's author: the token is the bounty's, the amount cannot go below the announced one, there is
- * no anonymity, and (until Task 12 adds the picker) it is paid on the network it was published on.
+ * Pays a bounty to the solution's author (`solverId`): the token is the bounty's, the amount cannot go below the
+ * announced one and there is no anonymity. `chainId` is the announced network (P0-R4): offered first, but any enabled
+ * network the solver accepts can carry the same token.
  */
-export type BountyMode = { kind: "bounty"; bountyId: string; token: Token; minAmount: bigint; chainId: ChainId };
+export type BountyMode = { kind: "bounty"; bountyId: string; token: Token; minAmount: bigint; chainId: ChainId; solverId: string };
 
 const POLL_MS = 3000;
 const POLL_WINDOW_MS = 120_000;
@@ -178,7 +178,6 @@ function TipFlow({
   // The ledger is keyed by what is being paid: a bounty by its message id, a tip by its message or the profile.
   const ledgerType: LedgerTargetType = mode ? "bounty" : (target?.type ?? "profile");
   const targetId = mode ? mode.bountyId : target?.type === "message" ? target.messageId : recipient.id;
-  const bountyInactive = !!mode && !enabledChainIds.includes(mode.chainId);
   const mainLabel = mode ? "Pago" : "Propina";
   const theMain = mode ? "el pago" : "la propina";
   const payeeName = mentionLabel(recipient);
@@ -209,12 +208,12 @@ function TipFlow({
     };
   }, []);
 
-  // The networks the recipient accepts (P0-R7); a tip only. Null while loading.
+  // The networks the payee accepts (P0-R7). Null while loading.
+  const payeeId = mode ? mode.solverId : recipient.id;
   const [accept, setAccept] = useState<NetworkKey[] | null>(null);
   useEffect(() => {
-    if (mode) return;
     let cancelled = false;
-    getReceiveNetworks(createBrowserClient(), recipient.id)
+    getReceiveNetworks(createBrowserClient(), payeeId)
       .catch(() => ALL_NETWORKS)
       .then((keys) => {
         if (!cancelled) setAccept(keys);
@@ -222,19 +221,23 @@ function TipFlow({
     return () => {
       cancelled = true;
     };
-  }, [mode, recipient.id]);
+  }, [payeeId]);
 
+  // A bounty is paid in its own token only, on whichever accepted network carries it.
+  const bountyToken = mode?.token;
   const assets = useMemo(() => {
-    if (mode) return bountyInactive ? [] : assetsFor([mode.chainId]).filter((a) => a.token === mode.token);
-    return accept ? assetsFor(enabledChainIds, accept) : [];
-  }, [mode, bountyInactive, accept, enabledChainIds]);
+    if (!accept) return [];
+    const all = assetsFor(enabledChainIds, accept);
+    return bountyToken ? all.filter((a) => a.token === bountyToken) : all;
+  }, [accept, enabledChainIds, bountyToken]);
 
   const connected = account.isConnected && !!account.address;
   const sessionWallet = connected && account.address!.toLowerCase() === economy.wallet.toLowerCase();
   const balances = useAssetBalances(assets, sessionWallet ? (account.address as `0x${string}`) : undefined);
 
-  // Selection: the member's explicit pick, else the best payable asset. The automatic pick follows the balances until all
-  // of them are known, then stays put (it never moves under the member while typing).
+  // Selection: the member's explicit pick, else (a bounty) the announced network, else the best payable asset. The
+  // automatic pick follows the balances until all of them are known, then stays put (it never moves under the member
+  // while typing).
   const [picked, setPicked] = useState<AssetId | null>(null);
   const [frozenAuto, setFrozenAuto] = useState<AssetId | null>(null);
   const bestNow = assets.length > 0 ? rankAssets(assets, balances, null)[0]!.id : null;
@@ -242,7 +245,8 @@ function TipFlow({
   // Adjusting state while rendering (not in an effect): React re-renders this component before painting.
   if (frozenAuto === null && allKnown && bestNow) setFrozenAuto(bestNow);
   const auto = frozenAuto ?? bestNow;
-  const asset = (mode ? assets[0] : (assets.find((a) => a.id === picked) ?? assets.find((a) => a.id === auto) ?? assets[0])) ?? null;
+  const announced = mode ? assets.find((a) => a.chainId === mode.chainId) : undefined;
+  const asset = assets.find((a) => a.id === picked) ?? announced ?? assets.find((a) => a.id === auto) ?? assets[0] ?? null;
   const token: Token = asset?.token ?? mode?.token ?? "USDC";
   const chainId: ChainId = asset?.chainId ?? mode?.chainId ?? enabledChainIds[0] ?? chainForKey("base");
 
@@ -312,7 +316,7 @@ function TipFlow({
 
   const units = parseAmount(amountText, token);
   const limits = TIP_LIMITS[token];
-  const noCommonNetwork = !mode && accept !== null && assets.length === 0;
+  const noCommonNetwork = accept !== null && assets.length === 0;
 
   const self = recipient.walletAddress.toLowerCase() === economy.wallet.toLowerCase();
   let reason: string | null = null;
@@ -333,7 +337,7 @@ function TipFlow({
       ? formBalanceError({ chain: chainId, token, amount: units, balance: tokenBalance, eth: gasBalance ?? 1n })
       : null;
 
-  const canContinue = !!asset && units !== null && reason === null && balanceError === null && wallet === null && !bountyInactive;
+  const canContinue = !!asset && units !== null && reason === null && balanceError === null && wallet === null;
 
   /** Re-checked right before the signature: the connected account is still the session wallet, on the intent's chain. */
   function guardSigner(it: TipIntent) {
@@ -346,8 +350,8 @@ function TipFlow({
 
   /** What the member was shown must be what gets signed: one transfer, no fee, to the recipient on screen. */
   function guardIntent(it: TipIntent) {
-    // A bounty intent must be the bounty's token, on the chain it was published on, for at least the announced amount.
-    if (mode && (it.token !== mode.token || it.chainId !== mode.chainId || BigInt(it.amount) < mode.minAmount)) {
+    // A bounty intent must be the bounty's token, on a network offered here, for at least the announced amount.
+    if (mode && (it.token !== mode.token || !assets.some((a) => a.chainId === it.chainId) || BigInt(it.amount) < mode.minAmount)) {
       throw new SignGuardError(MSG_MISMATCH);
     }
     if (BigInt(it.feeAmount) !== 0n) throw new SignGuardError(MSG_MISMATCH);
@@ -445,6 +449,8 @@ function TipFlow({
       }
     } catch (e) {
       if (e instanceof AbortedError) return;
+      // Something was signed: the entry stays and the flow can only go on attaching it, never back to the form.
+      if (st.mainHash) return setStep("attach-retry");
       // Nothing left the wallet in any of these: safe to start over.
       removeSend(memberId, it.id);
       if (e instanceof ExpiredError) {
@@ -661,14 +667,7 @@ function TipFlow({
           </div>
         </div>
 
-        {mode ? (
-          <>
-            <NetworkLogo chainId={mode.chainId} withName className="self-start" />
-            <p data-testid="locked-token" className="text-sm text-fg-muted">
-              Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
-            </p>
-          </>
-        ) : accept === null ? (
+        {accept === null ? (
           <div aria-busy="true" className="flex min-h-24 items-center gap-2 rounded-control border border-border p-3 text-sm text-fg-muted">
             <Loader2 aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
             Cargando monedas…
@@ -677,6 +676,13 @@ function TipFlow({
           <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
             {MSG_NO_COMMON_NETWORK}
           </p>
+        ) : mode ? (
+          <>
+            <p data-testid="locked-token" className="text-sm text-fg-muted">
+              Moneda del bounty: <span className="font-mono font-bold text-fg">{mode.token}</span>
+            </p>
+            <AssetPicker assets={assets} balances={balances} amount={units} value={asset?.id ?? null} onChange={pick} label="Red de pago" />
+          </>
         ) : (
           <AssetPicker assets={assets} balances={balances} amount={units} value={asset?.id ?? null} onChange={pick} />
         )}
@@ -700,11 +706,6 @@ function TipFlow({
             />
             <span className="font-mono text-sm text-fg-muted">{token}</span>
           </div>
-          {mode && tokenBalance !== null && connected ? (
-            <p data-testid="balance" className="font-mono text-[13px] text-fg-muted">
-              Saldo: {formatAmount(tokenBalance, token)} {token}
-            </p>
-          ) : null}
           {balanceError ? (
             <p role="alert" data-testid="balance-error" className="text-sm text-danger">
               {balanceError}
@@ -746,17 +747,11 @@ function TipFlow({
           </p>
         ) : null}
 
-        {bountyInactive && mode ? (
-          <p role="alert" className="rounded-control border border-warning p-3 text-sm text-warning">
-            Este bounty se publicó en {NETWORKS[mode.chainId].name}; podrás pagarlo cuando esa red vuelva a estar activa.
-          </p>
-        ) : (
-          walletNotice
-        )}
+        {walletNotice}
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <HowItWorksLink section={mode ? "bounties" : "propinas"} />
-          {bountyInactive || noCommonNetwork ? null : (
+          {noCommonNetwork ? null : (
             <Button type="submit" disabled={!canContinue}>
               Continuar
             </Button>

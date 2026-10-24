@@ -43,7 +43,7 @@ export function NetworksForm({ chains }: { chains: NetworkRow[] }) {
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="inline-flex items-center gap-2">
-                  <NetworkLogo chainId={chainId} size={20} />
+                  <NetworkLogo chainId={chainId} size={20} decorative />
                   <span id={`${id}-name`} className="text-sm font-bold text-fg">
                     {name}
                   </span>

@@ -185,7 +185,7 @@ export function BountyCard({
 
       {paying && solver ? (
         <TipDialog
-          mode={{ kind: "bounty", bountyId: messageId, token: bounty.token, minAmount: bounty.amount, chainId: bounty.chainId }}
+          mode={{ kind: "bounty", bountyId: messageId, token: bounty.token, minAmount: bounty.amount, chainId: bounty.chainId, solverId: solver.id }}
           recipient={solver}
           open={paying}
           onOpenChange={(open) => {

@@ -5,9 +5,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const cancelBountyAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/bounties/actions", () => ({ cancelBountyAction }));
 vi.mock("@/components/payments/tip-dialog", () => ({
-  TipDialog: ({ mode, recipient, open }: { mode: { bountyId: string; token: string; minAmount: bigint; chainId: number }; recipient: { id: string }; open: boolean }) =>
+  TipDialog: ({ mode, recipient, open }: { mode: { bountyId: string; token: string; minAmount: bigint; chainId: number; solverId: string }; recipient: { id: string }; open: boolean }) =>
     open ? (
-      <div role="dialog" aria-label="Pago" data-bounty={mode.bountyId} data-token={mode.token} data-min={String(mode.minAmount)} data-chain={mode.chainId} data-recipient={recipient.id} />
+      <div role="dialog" aria-label="Pago" data-bounty={mode.bountyId} data-token={mode.token} data-min={String(mode.minAmount)} data-chain={mode.chainId} data-solver={mode.solverId} data-recipient={recipient.id} />
     ) : null,
 }));
 
@@ -169,6 +169,7 @@ describe("BountyCard", () => {
     expect(dialog).toHaveAttribute("data-min", "25000000");
     expect(dialog).toHaveAttribute("data-chain", "8453");
     expect(dialog).toHaveAttribute("data-recipient", solver.id);
+    expect(dialog).toHaveAttribute("data-solver", solver.id);
   });
 
   it("cancels only after a confirmation and then reports the change", async () => {

@@ -2,34 +2,22 @@ import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { NetworkLogo } from "@/components/economy/network-logo";
 import type { BountyRecord, UnpaidBounty } from "@/lib/bounties/queries";
-import type { ChainId } from "@/lib/economy/networks";
 import { formatAmount } from "@/lib/payments/amounts";
 
 const DATE = new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" });
 
 /**
- * A member's bounty record on the active chain as the viewer is allowed to see it (bounties in channels the viewer
- * cannot see, or on another network, are not counted: F3-R2). Nothing to say, nothing rendered. The unpaid ones link to
- * the bounty message and carry their network.
+ * A member's bounty record over the enabled networks as the viewer is allowed to see it (bounties in channels the
+ * viewer cannot see, or on a disabled network, are not counted: F3-R2). Nothing to say, nothing rendered. The unpaid
+ * ones link to the bounty message and carry their network.
  */
-export function BountyRecordSection({
-  record,
-  unpaid,
-  activeChainId,
-}: {
-  record: BountyRecord;
-  unpaid: readonly UnpaidBounty[];
-  activeChainId: ChainId;
-}) {
+export function BountyRecordSection({ record, unpaid }: { record: BountyRecord; unpaid: readonly UnpaidBounty[] }) {
   if (record.paid + record.paidLate + record.unpaid === 0) return null;
   return (
     <section aria-labelledby="bounty-record-title" className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 id="bounty-record-title" className="text-h2">
-          Bounties
-        </h2>
-        <NetworkLogo chainId={activeChainId} withName />
-      </div>
+      <h2 id="bounty-record-title" className="text-h2">
+        Bounties
+      </h2>
       <p className="text-fg">
         Bounties: {record.paid} {record.paid === 1 ? "pagado" : "pagados"} · {record.paidLate}{" "}
         {record.paidLate === 1 ? "pagado tarde" : "pagados tarde"} · {record.unpaid} {record.unpaid === 1 ? "impagado" : "impagados"}

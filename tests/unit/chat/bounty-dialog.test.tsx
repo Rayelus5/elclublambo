@@ -4,6 +4,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createBountyAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/bounties/actions", () => ({ createBountyAction }));
+const balances = vi.hoisted(() => ({ map: {} as Record<string, bigint | null>, calls: [] as unknown[][] }));
+vi.mock("@/lib/payments/balances", () => ({
+  useAssetBalances: (...a: unknown[]) => {
+    balances.calls.push(a);
+    return balances.map;
+  },
+}));
 
 import { BountyDialog } from "@/components/chat/bounty-dialog";
 import { EconomyProvider } from "@/components/payments/economy-provider";
@@ -32,15 +39,51 @@ function setup(initialText = "") {
 const amountBox = () => screen.getByLabelText("Recompensa");
 const publish = () => screen.getByRole("button", { name: "Publicar bounty" });
 
+const radio = (re: RegExp) => screen.getByRole("radio", { name: re });
+
 beforeEach(() => {
   createBountyAction.mockReset();
+  balances.map = {};
+  balances.calls = [];
 });
 
 describe("BountyDialog", () => {
-  it("shows the active network and the guide link", () => {
+  it("offers USDC and ETH of every enabled network, USDC of the first one chosen, and the guide link", () => {
     setup();
-    expect(screen.getByText("Base Sepolia")).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Moneda" });
+    expect(group.querySelectorAll('[role="radio"]')).toHaveLength(4);
+    expect(radio(/USDC.*Base Sepolia/)).toHaveAttribute("aria-checked", "true");
+    expect(radio(/ETH.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "false");
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
+  });
+
+  it("explains the network is indicative and that ElClub. holds no funds", () => {
+    setup();
+    expect(
+      screen.getByText("La red es orientativa: podrás pagar con el mismo token en otra red que acepte quien lo resuelva."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("ElClub. no custodia fondos: va directo a su wallet.")).toBeInTheDocument();
+  });
+
+  it("shows the creator's balances as a guide (read for the session wallet), without blocking a bigger reward", async () => {
+    balances.map = { "USDC:84532": 2_000_000n, "ETH:84532": 0n, "USDC:421614": 0n, "ETH:421614": 0n };
+    createBountyAction.mockResolvedValue({ ok: true, messageId: "m1" });
+    const { user, onPosted } = setup("ayuda");
+    expect(balances.calls.at(-1)![1]).toBe("0x1111111111111111111111111111111111111111");
+    expect(radio(/USDC.*Base Sepolia/)).toHaveAccessibleName(/Saldo: 2/);
+    await user.type(amountBox(), "50");
+    await user.click(publish());
+    await waitFor(() => expect(onPosted).toHaveBeenCalledWith("m1"));
+  });
+
+  it("choosing ETH:421614 posts that token and network", async () => {
+    createBountyAction.mockResolvedValue({ ok: true, messageId: "m1" });
+    const { user, onPosted } = setup("ayuda");
+    await user.click(radio(/ETH.*Arbitrum Sepolia/));
+    await user.type(amountBox(), "0,01");
+    await user.click(publish());
+    await waitFor(() => expect(onPosted).toHaveBeenCalledWith("m1"));
+    expect(createBountyAction).toHaveBeenCalledWith(expect.objectContaining({ chainId: 421614, token: "ETH", amount: "0,01" }));
   });
 
   it("rejects a USDC amount under 1 or over 100000 without calling the server", async () => {
@@ -68,7 +111,7 @@ describe("BountyDialog", () => {
 
   it("uses the ETH bounds (0,0001 to 100) once ETH is chosen", async () => {
     const { user } = setup("ayuda");
-    await user.click(screen.getByRole("radio", { name: "ETH" }));
+    await user.click(radio(/ETH.*Base Sepolia/));
     await user.type(amountBox(), "0,00001");
     expect(screen.getByText("La recompensa debe estar entre 0,0001 y 100 ETH.")).toBeInTheDocument();
     await user.clear(amountBox());

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Loader2, Trophy } from "lucide-react";
-import { NetworkLogo } from "@/components/economy/network-logo";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
+import { AssetPicker } from "@/components/payments/asset-picker";
 import { useEconomy } from "@/components/payments/economy-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,10 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createBountyAction } from "@/lib/bounties/actions";
 import { BOUNTY_LIMITS } from "@/lib/bounties/limits";
-import { chainForKey } from "@/lib/economy/networks";
+import { assetsFor, type AssetId } from "@/lib/economy/assets";
 import { rpcErrorMessage } from "@/lib/errors";
-import { formatAmount, parseAmount, type Token } from "@/lib/payments/amounts";
-import { cn } from "@/lib/utils";
+import { formatAmount, parseAmount } from "@/lib/payments/amounts";
+import { useAssetBalances } from "@/lib/payments/balances";
 
 export interface BountyDialogProps {
   open: boolean;
@@ -27,7 +27,6 @@ export interface BountyDialogProps {
   onSlowmode?: (seconds: number) => void;
 }
 
-const TOKENS: Token[] = ["USDC", "ETH"];
 type Field = "amount" | "description" | null;
 const ERROR_ID = "bounty-error";
 const RANGE_ID = "bounty-range";
@@ -42,8 +41,14 @@ function textToDoc(text: string) {
 }
 
 function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: BountyDialogProps) {
-  const activeChainId = useEconomy().enabledChainIds[0] ?? chainForKey("base");
-  const [token, setToken] = useState<Token>("USDC");
+  const economy = useEconomy();
+  // Creating a bounty moves no funds: the (token, network) picked here fixes the token and announces a network; the
+  // balances are only a guide.
+  const assets = useMemo(() => assetsFor(economy.enabledChainIds), [economy.enabledChainIds]);
+  const balances = useAssetBalances(assets, economy.wallet as `0x${string}`);
+  const [picked, setPicked] = useState<AssetId | null>(null);
+  const asset = assets.find((a) => a.id === picked) ?? assets[0] ?? null;
+  const token = asset?.token ?? "USDC";
   const [amountText, setAmountText] = useState("");
   const [description, setDescription] = useState(initialText);
   const [error, setError] = useState<{ text: string; field: Field } | null>(null);
@@ -59,7 +64,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (sending) return;
+    if (sending || !asset) return;
     if (!typed) {
       setError({ text: "Introduce el importe de la recompensa.", field: "amount" });
       return;
@@ -76,7 +81,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
     setError(null);
     let res: Awaited<ReturnType<typeof createBountyAction>>;
     try {
-      res = await createBountyAction({ channelId, body: textToDoc(description), chainId: activeChainId, token, amount: amountText.trim() });
+      res = await createBountyAction({ channelId, body: textToDoc(description), chainId: asset.chainId, token: asset.token, amount: amountText.trim() });
     } catch {
       res = { ok: false, code: "unknown", error: rpcErrorMessage("unknown") };
     }
@@ -94,27 +99,18 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
-      <NetworkLogo chainId={activeChainId} withName className="self-start" />
-
-      <div role="radiogroup" aria-label="Moneda" className="grid grid-cols-2 gap-1 rounded-control border border-border-strong p-1">
-        {TOKENS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            role="radio"
-            aria-checked={token === t}
-            onClick={() => {
-              setToken(t);
-              setError(null);
-            }}
-            className={cn(
-              "min-h-11 rounded-control text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
-              token === t ? "bg-accent text-bg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
-            )}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="flex flex-col gap-2">
+        <AssetPicker
+          assets={assets}
+          balances={balances}
+          amount={units}
+          value={asset?.id ?? null}
+          onChange={(id) => {
+            setPicked(id);
+            setError(null);
+          }}
+        />
+        <p className="text-[13px] text-fg-muted">La red es orientativa: podrás pagar con el mismo token en otra red que acepte quien lo resuelva.</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -165,6 +161,8 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Bo
         />
         <p className="text-[13px] text-fg-muted">Texto plano. Las soluciones llegan como respuestas en el hilo del bounty.</p>
       </div>
+
+      <p className="text-[13px] text-fg-muted">ElClub. no custodia fondos: va directo a su wallet.</p>
 
       {error ? (
         <p id={ERROR_ID} role="alert" className="text-sm text-danger">
