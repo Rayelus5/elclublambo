@@ -73,6 +73,16 @@ export const en = {
       errLabel: "Describe the prize (1 to 120 characters).",
       errMinTx: "Enter a whole number from 0 to 1000.",
     },
+    og: {
+      kicker: "VERIFIABLE GIVEAWAY · BASE AND ARBITRUM",
+      genericTitle: "Giveaways anyone can verify",
+      genericAlt: "ElClub. Verifiable giveaways with public drand randomness, no custody of funds.",
+      prizeOne: "{n} prize",
+      prizeMany: "{n} prizes",
+      closes: "Closes {d}",
+      winners: "Winners announced",
+      alt: "{title}. Verifiable giveaway on ElClub.",
+    },
     detail: {
       metaTitle: "Giveaway",
       back: "Giveaways",

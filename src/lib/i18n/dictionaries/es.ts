@@ -73,6 +73,16 @@ export const es = {
       errLabel: "Describe el premio (1 a 120 caracteres).",
       errMinTx: "Escribe un número entero de 0 a 1000.",
     },
+    og: {
+      kicker: "SORTEO VERIFICABLE · BASE Y ARBITRUM",
+      genericTitle: "Sorteos que cualquiera puede comprobar",
+      genericAlt: "ElClub. Sorteos verificables con azar público de drand, sin custodia de fondos.",
+      prizeOne: "{n} premio",
+      prizeMany: "{n} premios",
+      closes: "Cierra el {d}",
+      winners: "Ganadores anunciados",
+      alt: "{title}. Sorteo verificable en ElClub.",
+    },
     detail: {
       metaTitle: "Sorteo",
       back: "Sorteos",

@@ -1,6 +1,5 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { ImageResponse } from "next/og";
+import { ogFonts } from "@/lib/og/fonts";
 import { colors } from "@/styles/tokens";
 
 // The share card of /start, rendered at build time from the app's own fonts and tokens (no external origin).
@@ -8,14 +7,8 @@ export const alt = "ElClub. El foro privado para quien se toma cripto en serio. 
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const font = (file: string) => readFile(join(process.cwd(), "src/assets/fonts", file));
-
 export default async function Image() {
-  const [archivo, dmSans, mono] = await Promise.all([
-    font("archivo-expanded-black.ttf"),
-    font("dm-sans-regular.ttf"),
-    font("jetbrains-mono-regular.ttf"),
-  ]);
+  const fonts = await ogFonts();
   return new ImageResponse(
     (
       <div
@@ -62,11 +55,7 @@ export default async function Image() {
     ),
     {
       ...size,
-      fonts: [
-        { name: "Archivo", data: archivo, weight: 900, style: "normal" },
-        { name: "DM Sans", data: dmSans, weight: 400, style: "normal" },
-        { name: "JetBrains Mono", data: mono, weight: 400, style: "normal" },
-      ],
+      fonts,
     },
   );
 }
