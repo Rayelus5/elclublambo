@@ -92,8 +92,9 @@ describe("StartLanding with reduced motion", () => {
     expect(text).toMatch(/rol Mecenas/);
     expect(text).toMatch(/premios de rol, de objeto o en USDC/);
     expect(text).toMatch(/un miembro, un voto/i);
+    expect(text).toMatch(/voto secreto/i);
+    expect(text).toMatch(/nadie ve los resultados hasta el cierre/);
     expect(text).toMatch(/Sin comisión de la plataforma/);
-    expect(text).not.toMatch(/voto secreto/i);
   });
 
   it("says donations have no economic rights, next to the feature and in the footer", () => {
@@ -149,5 +150,7 @@ describe("StartLanding with reduced motion", () => {
     const text = container.textContent ?? "";
     expect(text).not.toMatch(/Solicitar|Próximamente|Qué hay dentro|Cómo se entra|Desliza|Gracias|Sorteo|Contrato verificado/);
     expect(text).not.toMatch(/[¿¡]/);
+    expect(text).toMatch(/secret ballot/i);
+    expect(text).toMatch(/nobody sees the results until it closes/);
   });
 });
