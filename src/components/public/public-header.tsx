@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getDictionary } from "@/lib/i18n";
 import { LANGS, type Lang } from "@/lib/i18n/config";
-import { localizedPath, switchLang } from "@/lib/i18n/routes";
+import { localizedPath, switchLang, toPublicPath } from "@/lib/i18n/routes";
 import type { PublicSession } from "@/lib/auth/public-session";
 import { AccountChip } from "./account-chip";
 import { PublicConnectLazy } from "./public-connect-lazy";
@@ -15,7 +15,10 @@ const focus =
 /** `session`: the signed-in wallet, null for a visitor, "pending" while the (dynamic) session is still being read. */
 export function PublicHeader({ lang, session }: { lang: Lang; session: PublicSession | null | "pending" }) {
   const t = getDictionary(lang);
-  const pathname = usePathname() ?? localizedPath(lang, "home");
+  // On the server usePathname() is the INTERNAL path (/es/tools); in the browser it is the public one (/herramientas).
+  // Normalise to the public path so server and client render the same links.
+  const raw = usePathname() ?? localizedPath(lang, "home");
+  const pathname = toPublicPath(raw) ?? raw;
 
   return (
     <header className="border-b border-border bg-bg">
