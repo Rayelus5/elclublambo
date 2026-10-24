@@ -1,7 +1,7 @@
 import { expect, test, type APIResponse, type BrowserContext, type Page, type Request, type Response } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
-import { agePoll, noticesOf, resetLocalDao, runCron, seedPosition } from "./helpers/dao";
-import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "./helpers/f2c";
+import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "../helpers/auth";
+import { agePoll, noticesOf, resetLocalDao, runCron, seedPosition } from "./dao";
+import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "../helpers/f2c";
 
 // F4e acceptance: polls with a secret vote, in General. A (Verificado, carries CREATE_POLLS) creates them; B, C, D and E
 // are plain members. The point of this spec is privacy: across browser contexts nobody ever receives someone else's

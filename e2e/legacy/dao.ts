@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, erc20Abi, http, type Abi } from "viem";
 import { expect, type Locator, type Page } from "@playwright/test";
-import { CHAIN_ID, RPC_URL, USDC_ADDRESS } from "../chain/shared.mjs";
-import { service } from "./f2c";
+import { CHAIN_ID, RPC_URL, USDC_ADDRESS } from "./chain.mjs";
+import { service } from "../helpers/f2c";
 
 // Shared by the DAO specs (f3d, f4a): local-chain moves outside the app, the cron, and snapshot timing control.
 // TEST-ONLY: every account is a Hardhat default account, unlocked on the local node.

@@ -1,7 +1,7 @@
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { hardhatAccount } from "./chain/shared.mjs";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { hardhatAccount } from "./chain.mjs";
+import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "../helpers/auth";
 import {
   acknowledgeDonation,
   ageSnapshots,
@@ -12,9 +12,9 @@ import {
   runCron,
   sendToken,
   tokenBalance as usdcOf,
-} from "./helpers/dao";
-import { createInvite, joinAs, openChannel, service, type Actor } from "./helpers/f2c";
-import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
+} from "./dao";
+import { createInvite, joinAs, openChannel, service, type Actor } from "../helpers/f2c";
+import { connectInjected, installTestWallet, type TestWallet } from "../helpers/wallet";
 
 // F3d acceptance: DAO treasury, DAO gating and direct transfers to the Safe (F4a: they raise the market NAV), on the F3b local Hardhat chain (e2e/chain/start-chain.mjs,
 // started by playwright.config.ts). The Hardhat node answers the `finalized` tag with its latest block, so a donation

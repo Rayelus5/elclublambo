@@ -1,5 +1,5 @@
 import { expect, type BrowserContext, type Page } from "@playwright/test";
-import { CHAIN_ID, RPC_URL } from "../chain/shared.mjs";
+import { CHAINS, DEFAULT_CHAIN_ID } from "../chain/shared.mjs";
 
 export type TestWallet = {
   address: string;
@@ -15,16 +15,21 @@ export type TestWalletOptions = {
    * `n` counts from 1. Whatever it awaits holds the app back, so a spec can cut the network at exactly this point.
    */
   onSent?: (n: number, hash: string) => void | Promise<void>;
+  /** The network the wallet starts on (every page load starts there again); defaults to Base Sepolia. */
+  chainId?: number;
 };
 
-type PageConfig = { address: string; rpcUrl: string; chainId: number };
+type PageConfig = { address: string; rpcUrls: Record<number, string>; chainId: number };
 
 /** Runs in the page (serialised by Playwright): no closures over Node values. */
-function injected({ address, rpcUrl, chainId }: PageConfig) {
+function injected({ address, rpcUrls, chainId: initialChainId }: PageConfig) {
   type Req = { method: string; params?: unknown[] };
   const w = window as unknown as Record<string, unknown> & { __walletSent?: (n: number, hash: string) => Promise<void> };
   const STORE = "__testwallet_permitted";
-  const chainHex = "0x" + chainId.toString(16);
+  const hex = (id: number) => "0x" + id.toString(16);
+  // The wallet's current network, as in a real wallet: wallet_switchEthereumChain moves it, and eth_chainId and every
+  // forwarded call follow it. Kept per page (a reload starts again on the initial network).
+  let chainId = initialChainId;
   const listeners = new Map<string, Set<(...a: unknown[]) => void>>();
   const emit = (event: string, ...args: unknown[]) => listeners.get(event)?.forEach((fn) => fn(...args));
   const read = () => {
@@ -47,7 +52,7 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
 
   const err = (code: number, message: string) => Object.assign(new Error(message), { code });
   async function node(method: string, params: unknown[] = []): Promise<unknown> {
-    const res = await fetch(rpcUrl, {
+    const res = await fetch(rpcUrls[chainId]!, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ jsonrpc: "2.0", id: Date.now(), method, params }),
@@ -65,7 +70,7 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
           if (!permitted) {
             permitted = true;
             write(true);
-            emit("connect", { chainId: chainHex });
+            emit("connect", { chainId: hex(chainId) });
             emit("accountsChanged", [address]);
           }
           return [address];
@@ -73,7 +78,7 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
         case "eth_accounts":
           return permitted ? [address] : [];
         case "eth_chainId":
-          return chainHex;
+          return hex(chainId);
         case "net_version":
           return String(chainId);
         case "wallet_getPermissions":
@@ -89,22 +94,17 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
           emit("accountsChanged", []);
           return null;
         case "wallet_switchEthereumChain": {
-          const target = (params[0] as { chainId?: string } | undefined)?.chainId;
-          if (target?.toLowerCase() === chainHex) return null;
-          throw err(4902, "Unrecognized chain ID");
+          // Only the networks the test nodes run (a real wallet answers 4902 for one it does not know).
+          const target = Number.parseInt((params[0] as { chainId?: string } | undefined)?.chainId ?? "", 16);
+          if (!rpcUrls[target]) throw err(4902, "Unrecognized chain ID");
+          if (target !== chainId) {
+            chainId = target;
+            emit("chainChanged", hex(chainId));
+          }
+          return null;
         }
         case "wallet_addEthereumChain":
           return null;
-        case "linea_estimateGas": {
-          // viem's Linea chain asks the wallet for fees through this Linea-only method: answer from the standard ones.
-          const tx = params[0] as Record<string, unknown>;
-          const [gas, tip, block] = await Promise.all([
-            node("eth_estimateGas", [tx]),
-            node("eth_maxPriorityFeePerGas"),
-            node("eth_getBlockByNumber", ["latest", false]) as Promise<{ baseFeePerGas?: string }>,
-          ]);
-          return { gasLimit: gas, baseFeePerGas: block.baseFeePerGas ?? "0x1", priorityFeePerGas: tip };
-        }
         case "eth_sendTransaction": {
           if (!permitted) throw err(4100, "The requested account has not been authorized by the user.");
           const tx = { ...(params[0] as Record<string, unknown>) };
@@ -112,7 +112,9 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
             throw err(4100, "The requested account has not been authorized by the user.");
           }
           tx.from = address;
-          delete tx.chainId; // the node only runs this one chain; the wallet already vouched for it
+          // Each node runs one chain, the current one; a request for another chain is refused like a real wallet does.
+          if (tx.chainId !== undefined && Number(tx.chainId) !== chainId) throw err(4901, "The provider is not connected to the requested chain.");
+          delete tx.chainId;
           const hash = (await node("eth_sendTransaction", [tx])) as string;
           sentCount += 1;
           await w.__walletSent?.(sentCount, hash);
@@ -162,7 +164,8 @@ function injected({ address, rpcUrl, chainId }: PageConfig) {
 
 /**
  * Injects an EIP-1193 / EIP-6963 wallet into every page of `context` (call it before the first page loads). It signs
- * with a Hardhat default account by forwarding `eth_*` calls to the local node, which has those accounts unlocked.
+ * with a Hardhat default account by forwarding `eth_*` calls to the local node of its current network (CHAINS), which
+ * has those accounts unlocked, and switches between those networks on wallet_switchEthereumChain (P0-R13).
  * TEST-ONLY: the accounts come from Hardhat's public mnemonic.
  */
 export async function installTestWallet(context: BrowserContext, opts: TestWalletOptions): Promise<TestWallet> {
@@ -172,7 +175,8 @@ export async function installTestWallet(context: BrowserContext, opts: TestWalle
     const n = wallet.sent.push(hash);
     await opts.onSent?.(n, hash);
   });
-  await context.addInitScript(injected, { address: opts.address, rpcUrl: RPC_URL, chainId: CHAIN_ID });
+  const rpcUrls = Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [Number(id), c.rpcUrl]));
+  await context.addInitScript(injected, { address: opts.address, rpcUrls, chainId: opts.chainId ?? DEFAULT_CHAIN_ID });
   return wallet;
 }
 

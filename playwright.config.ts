@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { ETH_USD_FEED_ADDRESS, READY_URL, RPC_URL, WETH_ADDRESS } from "./e2e/chain/shared.mjs";
+import { CHAINS, READY_URL } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
 import { MOCK_PORT as MOCK_COINGECKO_PORT } from "./e2e/mock/coingecko.mjs";
 
@@ -20,22 +20,23 @@ const env = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   NEXT_PUBLIC_REOWN_PROJECT_ID: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "",
-  NEXT_PUBLIC_CHAIN: "lineaSepolia",
+  // P0-R1: the testnet set (Base Sepolia 84532 and Arbitrum Sepolia 421614), the one PRE and local use.
+  NEXT_PUBLIC_NETWORK_SET: "testnet",
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: E2E_VAPID_PUBLIC_KEY,
   // TEST-ONLY wallet (e2e/helpers/auth.ts), never the real SuperAdmin.
   SUPER_ADMIN_WALLET: E2E_SUPER_ADMIN_ADDRESS,
-  // On-chain tips (e2e/f3b-tips.spec.ts): the server verifies against the local Hardhat chain (chain id 59141) and
-  // credits after one confirmation. start-chain.mjs below serves it.
-  LINEA_SEPOLIA_RPC_URL: RPC_URL,
-  // The raffle verifier reads the draw block in the browser: the same local chain (public var, baked at build time).
-  NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: RPC_URL,
+  // On-chain tips and bounties (e2e/f3b-tips.spec.ts, e2e/f3c-bounties.spec.ts): the server verifies against the two
+  // local Hardhat nodes (start-chain.mjs below) and credits after one confirmation.
+  BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
+  ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
+  // The browser reads balances from the same nodes (public vars, baked at build time; empty in production).
+  NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
+  NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
   TIP_CONFIRMATIONS: "1",
+  // P0-R6: TEST-ONLY Builder Code; f3b checks the ERC-8021 suffix it puts on Base transfers.
+  NEXT_PUBLIC_BASE_BUILDER_CODE: "bc_e2etest",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
   CRON_SECRET: "e2e-cron-secret",
-  // F4a: the fund is valued with the local mock Chainlink feed and mock WETH (start-chain.mjs), never a live price.
-  ETH_USD_FEED_ADDRESS_59141: ETH_USD_FEED_ADDRESS,
-  WETH_ADDRESS_59141: WETH_ADDRESS,
-  COINGECKO_DISABLED: "1",
   // F4b: the Mercado pages read the local mock CoinGecko (e2e/mock/coingecko.mjs), never the real API.
   COINGECKO_API_BASE: `http://127.0.0.1:${MOCK_COINGECKO_PORT}/api/v3`,
 };
@@ -44,6 +45,8 @@ Object.assign(process.env, env);
 
 export default defineConfig({
   testDir: "e2e",
+  // P0-R2: se reescriben en P1. The legacy DAO / raffle / poll specs still target Linea and the paused DAO.
+  testIgnore: ["legacy/**"],
   globalSetup: "./e2e/global-setup.ts",
   timeout: 120_000,
   expect: { timeout: 15_000 },
@@ -55,8 +58,9 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      // Local Hardhat node (chain 59141, mock USDC at Linea Sepolia's USDC address). Plain `node`: no shell syntax, so it
-      // runs the same from PowerShell, cmd and bash. Ready when it answers on READY_URL (after the mock is deployed).
+      // Two local Hardhat nodes (P0-R13): 84532 on :8545 and 421614 on :8546, each with a mock USDC at Circle's address for
+      // that testnet. Plain `node`: no shell syntax, so it runs the same from PowerShell, cmd and bash. Ready when it
+      // answers on READY_URL (after both mocks are deployed).
       command: "node e2e/chain/start-chain.mjs",
       url: READY_URL,
       reuseExistingServer: false,

@@ -1,8 +1,8 @@
 import { parseAbi, parseEther, parseUnits } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { CHAIN_ID, ETH_USD_FEED_ADDRESS, hardhatAccount, INITIAL_ETH_PRICE_E8, WETH_ADDRESS } from "./chain/shared.mjs";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { CHAIN_ID, ETH_USD_FEED_ADDRESS, hardhatAccount, INITIAL_ETH_PRICE_E8, WETH_ADDRESS } from "./chain.mjs";
+import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "../helpers/auth";
 import {
   acknowledgeDonation,
   ageSnapshots,
@@ -15,9 +15,9 @@ import {
   sendCall,
   sendToken,
   tokenBalance,
-} from "./helpers/dao";
-import { createInvite, joinAs, service, type Actor } from "./helpers/f2c";
-import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
+} from "./dao";
+import { createInvite, joinAs, service, type Actor } from "../helpers/f2c";
+import { connectInjected, installTestWallet, type TestWallet } from "../helpers/wallet";
 
 // F4a acceptance: the fund at market value on the local Hardhat chain (e2e/chain/start-chain.mjs), with the mock
 // Chainlink ETH/USD feed and the mock WETH at fixed test addresses (ETH_USD_FEED_ADDRESS_59141 / WETH_ADDRESS_59141 in
