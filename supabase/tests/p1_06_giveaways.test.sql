@@ -354,7 +354,7 @@ select ok((select status = 'unawarded' and unawarded_reason = 'role_unavailable'
                       and role_id = current_setting('t.r_ovr')::uuid),
   'a role that gained a moderating overwrite is role_unavailable and is not granted (RF 4)');
 select results_eq($$select status, unawarded_reason, winner_member_id is not null, winner_position
-                    from public.giveaway_prizes where giveaway_id = current_setting('t.g10')::uuid order by rank$$,
+                    from public.giveaway_prizes where giveaway_id = current_setting('t.g10')::uuid order by winner_position$$,
   $$values ('unawarded'::text, 'winner_inactive'::text, true, 1), ('unawarded', 'winner_inactive', true, 2)$$,
   'winners who left or were banned are consumed but unawarded (winner_inactive)');
 select ok((select count(*) = 3 and bool_and(n.data ->> 'giveawayId' = current_setting('t.g1')
