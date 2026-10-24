@@ -47,7 +47,7 @@ update public.app_config set value = '59141'::jsonb where key = 'active_chain_id
 
 select tests.login(current_setting('t.a'));
 select set_config('t.p', public.create_poll(current_setting('t.ch')::uuid, '¿Té o café?', array['Té', 'Café'],
-                                             now() + interval '1 day', 'equal')::text, true);
+                                             now() + interval '1 day')::text, true);
 select tests.clear_authentication();
 select tests.vote_as(current_setting('t.m'), current_setting('t.p'), 1);
 select tests.vote_as(current_setting('t.v1'), current_setting('t.p'), 1);

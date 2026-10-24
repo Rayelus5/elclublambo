@@ -17,7 +17,7 @@ const GUIDE_KEYWORDS: Record<GuideSlug, string> = {
   bounties: "bounty recompensa pago solución",
   dao: "dao tesorería shares donación safe",
   fondo: "fondo común nav valor participación riesgo club",
-  encuestas: "encuesta votación voto secreto votar poll peso participaciones",
+  encuestas: "encuesta votación voto secreto votar poll",
   candados: "candado gating acceso requisito canal",
   redes: "red testnet mainnet seguridad phishing modo prueba",
 };

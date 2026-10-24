@@ -195,7 +195,7 @@ select tests.clear_authentication();
 
 select tests.login(current_setting('t.c'));
 select set_config('t.poll', public.create_poll(current_setting('t.ch')::uuid, '¿Sí o no?', array['Sí', 'No'],
-                                               now() + interval '1 day', 'equal')::text, true);
+                                               now() + interval '1 day')::text, true);
 select tests.clear_authentication();
 select set_config('t.o1', (select id::text from public.poll_options where poll_id = current_setting('t.poll')::uuid and position = 1), true);
 select set_config('t.o2', (select id::text from public.poll_options where poll_id = current_setting('t.poll')::uuid and position = 2), true);

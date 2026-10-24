@@ -23,6 +23,11 @@ describe("buildActions", () => {
     expect(href(a, "tickets")).toBe("/tickets");
     expect(href(a, "profile")).toBe(`/u/${WALLET}`);
   });
+  it("the polls guide entry has no weight keywords", () => {
+    const kw = buildActions(base).find((x) => x.id === "guide:encuestas")?.keywords ?? "";
+    expect(kw).toContain("encuesta");
+    expect(kw).not.toMatch(/participaciones|peso/);
+  });
   it("create invite needs CREATE_INVITES", () => {
     expect(href(buildActions({ ...base, perms: Perm.CREATE_INVITES }), "invite")).toBe("/invites");
     expect(ids(buildActions({ ...base, perms: Perm.SEND_MESSAGES }))).not.toContain("invite");

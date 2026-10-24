@@ -59,7 +59,7 @@ export type PollDraftCheck =
   | { ok: true }
   | { ok: false; code: "question_required" | "poll_options_invalid" | "closes_at_invalid"; field: "question" | "options" | "closesAt" };
 
-/** Same rules, same order as create_poll (weight mode and chain are checked by the server). */
+/** Same rules, same order as create_poll (the server judges channel and permissions). */
 export function validatePollDraft(d: { question: string; options: string[]; closesAt: Date; now: Date }): PollDraftCheck {
   const q = normalizePollText(typeof d.question === "string" ? d.question : "");
   if (len(q) < 1 || len(q) > POLL_LIMITS.questionMax) return { ok: false, code: "question_required", field: "question" };
@@ -79,12 +79,6 @@ export function validatePollDraft(d: { question: string; options: string[]; clos
     return { ok: false, code: "closes_at_invalid", field: "closesAt" };
   }
   return { ok: true };
-}
-
-export function pollModeLabel(m: PollWeightMode): string {
-  if (m === "linear") return "Ponderada · lineal según participación";
-  if (m === "quadratic") return "Ponderada · cuadrática según participación";
-  return "1 persona, 1 voto";
 }
 
 /**

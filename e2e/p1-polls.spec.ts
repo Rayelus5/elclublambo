@@ -1,21 +1,19 @@
 import { expect, test, type APIResponse, type BrowserContext, type Page, type Request, type Response } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "../helpers/auth";
-import { agePoll, noticesOf, resetLocalDao, runCron, seedPosition } from "./dao";
-import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "../helpers/f2c";
+import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "./helpers/f2c";
 
-// F4e acceptance: polls with a secret vote, in General. A (Verificado, carries CREATE_POLLS) creates them; B, C, D and E
-// are plain members. The point of this spec is privacy: across browser contexts nobody ever receives someone else's
-// option (DOM and every response the page gets), results appear only after the close and only above the floor (equal ≥ 3
-// voters with 0.1 %; weighted ≥ 5 voters with participaciones and whole %, ruling F4e-R3), a vote change is invisible to
-// others, and once closed even the voter sees only "Votaste". Closing is deterministic: closes_at is moved into the past
-// (agePoll) and the cron is run; no wall-clock waits. Weights come from positions written by the service role
-// (seedPosition) on chain 59141. Scenarios share state: run serially.
+// P1 acceptance: polls are one member = one vote, with a secret ballot, in General. A (Verificado, carries
+// CREATE_POLLS) creates them; B, C and D are plain members. The point of this spec is privacy: across browser contexts
+// nobody ever receives someone else's option (DOM and every response the page gets), results appear only after the
+// close and only from 3 voters (0.1 % steps), a vote change is invisible to others, and once closed even the voter
+// sees only "Votaste". Closing is deterministic: closes_at is moved into the past (agePoll) and the cron is run; no
+// wall-clock waits. There are no weight modes and no network: the dialog offers neither. Scenarios share state: run
+// serially.
 test.describe.configure({ mode: "serial" });
 
 const desktop = { width: 1280, height: 900 };
-const NAMES = { a: "Encuestadora A", b: "Votante B", c: "Votante C", d: "Votante D", e: "Votante E" };
-const Q = { equal: "¿Pizza, sushi o tacos?", few: "¿Café o té?", weighted: "¿Ampliamos el fondo?" };
-const ONE = 10n ** 18n; // one participación
+const NAMES = { a: "Encuestadora A", b: "Votante B", c: "Votante C", d: "Votante D" };
+const Q = { equal: "¿Pizza, sushi o tacos?", few: "¿Café o té?" };
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 // The own option as the page receives it: RSC payloads (HTML-inlined, so quotes may come escaped) and server-action replies.
 const MY_OPTION_RE = new RegExp(`(?:myOptionId|my_option_id)\\\\*"\\s*:\\s*\\\\*"(${UUID})`, "g");
@@ -43,6 +41,33 @@ type Capture = { bodies: Promise<string>[]; pollDetails: number; unread: string[
 const captures = new Map<BrowserContext, Capture>();
 const ORIGINS = ["http://localhost:3000", process.env.NEXT_PUBLIC_SUPABASE_URL!];
 const UNREAD = "<<unread>>";
+const CRON_SECRET = "e2e-cron-secret";
+
+/** Moves a poll's close `closedSecondsAgo` into the past (service role): it reads as closed at once, and the next cron run finalizes it. */
+async function agePoll(messageId: string, closedSecondsAgo: number) {
+  const closesAt = new Date(Date.now() - closedSecondsAgo * 1000).toISOString();
+  const { data, error } = await service().from("polls").update({ closes_at: closesAt }).eq("message_id", messageId).select("message_id");
+  expect(error).toBeNull();
+  expect(data).toHaveLength(1);
+}
+
+/** The hourly cron, as the scheduler would call it (it finalizes the due polls). */
+async function runCron() {
+  const res = await fetch("http://localhost:3000/api/cron/dao", { method: "POST", headers: { authorization: `Bearer ${CRON_SECRET}` } });
+  expect(res.status).toBe(200);
+}
+
+/** The member's notifications of one kind (service role: an assertion on rows, not on the UI). */
+async function noticesOf(recipientId: string, kind: string): Promise<number> {
+  const { data, error } = await service().from("notifications").select("id").eq("kind", kind).eq("recipient_id", recipientId);
+  expect(error).toBeNull();
+  return data?.length ?? 0;
+}
+
+async function clearPollNotices() {
+  const { error } = await service().from("notifications").delete().eq("kind", "poll_closed");
+  expect(error).toBeNull();
+}
 const isPollDetails = (url: string) => url.includes("/rest/v1/rpc/poll_details");
 /** RSC navigations and prefetches, server actions, and the browser's poll_details calls. */
 const mustIntercept = (req: Request) => {
@@ -150,16 +175,14 @@ let a: Actor;
 let b: Actor;
 let c: Actor;
 let d: Actor;
-let e: Actor;
 let generalChannel = "";
 const polls: Record<keyof typeof Q, { id: string; options: Record<string, string> }> = {
   equal: { id: "", options: {} },
   few: { id: "", options: {} },
-  weighted: { id: "", options: {} },
 };
 
 test.beforeAll(async ({ browser }) => {
-  await resetLocalDao();
+  await clearPollNotices();
   const adminContext = await browser.newContext({ viewport: desktop });
   trackErrors(adminContext);
   capture(adminContext);
@@ -178,8 +201,7 @@ test.beforeAll(async ({ browser }) => {
   b = await joinAs(browser, newWalletKey(), await invite(), NAMES.b, undefined, onContext);
   c = await joinAs(browser, newWalletKey(), await invite(), NAMES.c, undefined, onContext);
   d = await joinAs(browser, newWalletKey(), await invite(), NAMES.d, undefined, onContext);
-  e = await joinAs(browser, newWalletKey(), await invite(), NAMES.e, undefined, onContext);
-  for (const x of [admin, a, b, c, d, e]) await x.page.setViewportSize(desktop);
+  for (const x of [admin, a, b, c, d]) await x.page.setViewportSize(desktop);
 
   const { data, error } = await service().from("channels").select("id").eq("name", "General").single<{ id: string }>();
   expect(error).toBeNull();
@@ -187,8 +209,8 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.afterAll(async () => {
-  await resetLocalDao();
-  for (const x of [admin, a, b, c, d, e]) await x?.context.close();
+  await clearPollNotices();
+  for (const x of [admin, a, b, c, d]) await x?.context.close();
 });
 
 const card = (page: Page, question: string) => messageWith(page, question);
@@ -202,7 +224,7 @@ async function goGeneral(page: Page) {
 }
 
 /** A publishes a poll in General with /encuesta; returns its message id and option ids by label. */
-async function publishPoll(page: Page, question: string, options: string[], mode: "1 persona, 1 voto" | "Lineal según participación") {
+async function publishPoll(page: Page, question: string, options: string[]) {
   await goGeneral(page);
   await composer(page).click();
   await composer(page).pressSequentially("/encuesta");
@@ -215,7 +237,8 @@ async function publishPoll(page: Page, question: string, options: string[], mode
     await dialog.getByRole("textbox", { name: `Opción ${i + 1}`, exact: true }).fill(options[i]!);
   }
   await dialog.getByRole("radio", { name: "1 hora" }).check();
-  await dialog.getByRole("radio", { name: mode }).check();
+  // One person, one vote: the dialog offers no weight choice.
+  await expect(dialog.getByRole("group", { name: "Peso del voto" })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Publicar encuesta" }).click();
   await expect(dialog).toBeHidden();
   await expect(card(page, question).getByText("Encuesta", { exact: true })).toBeVisible();
@@ -270,7 +293,6 @@ test("1. permission: a Verificado member is offered /encuesta, a plain member is
     p_question: "intento sin permiso",
     p_options: ["Sí", "No"],
     p_closes_at: new Date(Date.now() + 2 * 3_600_000).toISOString(),
-    p_weight_mode: "equal",
   });
   expect(direct.error?.message).toBe("forbidden");
   const { count } = await service().from("polls").select("*", { count: "exact", head: true }).eq("author_id", b.id);
@@ -279,7 +301,7 @@ test("1. permission: a Verificado member is offered /encuesta, a plain member is
 
 test("2. create, equal: A publishes a 1-hour poll and B's open page shows the card live with 0 votantes", async () => {
   // B already has General open (step 1): the card must arrive without a reload.
-  polls.equal = await publishPoll(a.page, Q.equal, ["Pizza", "Sushi", "Tacos"], "1 persona, 1 voto");
+  polls.equal = await publishPoll(a.page, Q.equal, ["Pizza", "Sushi", "Tacos"]);
   const box = card(b.page, Q.equal);
   await expect(box.getByText("Encuesta", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(box.getByText("0 votantes", { exact: true })).toBeVisible();
@@ -400,7 +422,7 @@ test("4. close and results: once closes_at passes the bars appear with 'Votaste'
 });
 
 test("5. insufficient: with 2 voters a closed poll shows no result at all", async () => {
-  polls.few = await publishPoll(a.page, Q.few, ["Café", "Té"], "1 persona, 1 voto");
+  polls.few = await publishPoll(a.page, Q.few, ["Café", "Té"]);
   await voteAs(b, polls.few.id, polls.few.options["Café"]!);
   await voteAs(c, polls.few.id, polls.few.options["Té"]!);
   await agePoll(polls.few.id, 60);
@@ -418,56 +440,7 @@ test("5. insufficient: with 2 voters a closed poll shows no result at all", asyn
   expect(row.my_option_id).toBeNull();
 });
 
-test("6. weighted: lineal by participaciones, B (no shares) is told its vote weighs 0, results in whole % of the total weight", async () => {
-  // Five voters with participaciones (the weighted floor, F4e-R3) and B with none.
-  await seedPosition(a.id, 6n * ONE);
-  await seedPosition(admin.id, 6n * ONE);
-  await seedPosition(c.id, 3n * ONE);
-  await seedPosition(d.id, 1n * ONE);
-  await seedPosition(e.id, 4n * ONE);
-
-  polls.weighted = await publishPoll(a.page, Q.weighted, ["Sí", "No"], "Lineal según participación");
-  const { id, options } = polls.weighted;
-  await expect(card(a.page, Q.weighted).getByText("Ponderada · lineal según participación", { exact: true })).toBeVisible();
-
-  await goGeneral(b.page);
-  await expect(card(b.page, Q.weighted).getByText(/^Tu voto pesa 0: en esta encuesta cuentan las participaciones sin bloquear/)).toBeVisible();
-  await voteInCard(b.page, Q.weighted, "No");
-  await voteInCard(a.page, Q.weighted, "Sí");
-  await expect(card(a.page, Q.weighted).getByText("Tu voto pesa según tus participaciones al crear la encuesta.")).toBeVisible();
-  await voteAs(admin, id, options["Sí"]!);
-  for (const x of [c, d, e]) await voteAs(x, id, options.No!);
-  await expect(card(a.page, Q.weighted).getByText("6 votantes", { exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(card(a.page, Q.weighted)).not.toContainText("%");
-
-  for (const x of [a, b]) await resetCapture(x);
-  await agePoll(id, 60);
-  // Sí = 6 + 6 = 12, No = 3 + 1 + 4 (+ B's 0) = 8, of 20: 60 % and 40 %, whole numbers.
-  const expectResults = async (page: Page) => {
-    await expect(resultRow(page, Q.weighted, "Sí")).toContainText("60 %");
-    await expect(resultRow(page, Q.weighted, "No")).toContainText("40 %");
-    await expect(card(page, Q.weighted).getByText("6 votantes · % del peso total", { exact: true })).toBeVisible();
-    await expect(results(page, Q.weighted)).not.toContainText(","); // whole % only (F4e-R3)
-    await expect(card(page, Q.weighted)).not.toContainText("Tu voto");
-  };
-  await a.page.reload();
-  await expectResults(a.page);
-  await b.page.reload();
-  await expectResults(b.page);
-
-  await runCron();
-  expect(await noticesOf(a.id, "poll_closed")).toBe(1);
-  await a.page.reload();
-  await expectResults(a.page);
-  await expect(card(a.page, Q.weighted).getByText("Votaste", { exact: true })).toBeVisible();
-  expect((await detailsAs(a, id)).my_option_id).toBeNull();
-  expect([...(await ownOptionsSeen(a.context))]).toEqual([]);
-  expect([...(await ownOptionsSeen(b.context))]).toEqual([]);
-  await expectPollPayloadSeen(a.context);
-  await expectPollPayloadSeen(b.context);
-});
-
-test("7. edit and delete: a poll offers no Editar; A deletes the insufficient poll and it leaves B's page live", async () => {
+test("6. edit and delete: a poll offers no Editar; A deletes the insufficient poll and it leaves B's page live", async () => {
   await goGeneral(a.page);
   await goGeneral(b.page);
   await expect(card(b.page, Q.few)).toBeVisible();
@@ -487,7 +460,7 @@ test("7. edit and delete: a poll offers no Editar; A deletes the insufficient po
   expect(opts.data).toEqual([]);
 });
 
-test("8. no browser errors in any context", () => {
+test("7. no browser errors in any context", () => {
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   expect(browserErrors.filter((e) => !coopOn404(e))).toEqual([]);
 });
