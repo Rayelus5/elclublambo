@@ -12,10 +12,10 @@ const STEPS: { title: string; body: ReactNode; extra?: ReactNode }[] = [
   },
   {
     title: "Abre el enlace con tu wallet",
-    body: "Ábrelo en el navegador donde tengas MetaMask u OKX instalada, con la red Linea.",
+    body: "Ábrelo en el navegador donde tengas MetaMask u OKX instalada, en Base o Arbitrum.",
     extra: (
       <ul className="flex flex-wrap gap-2">
-        {["MetaMask", "OKX Wallet", "Red Linea"].map((t) => (
+        {["MetaMask", "OKX Wallet", "Base y Arbitrum"].map((t) => (
           <li key={t} className="border border-border-strong px-2 py-1 font-mono text-[0.75rem] text-fg rounded-control">
             {t}
           </li>
@@ -32,7 +32,7 @@ const STEPS: { title: string; body: ReactNode; extra?: ReactNode }[] = [
           <PenLine className="size-3.5 text-accent" strokeWidth={1.75} />
           Solicitud de firma
         </span>
-        <span className="text-fg-muted">elclub.party quiere que inicies sesión con tu cuenta de Linea.</span>
+        <span className="text-fg-muted">elclub.party quiere que inicies sesión con tu cuenta de Ethereum.</span>
         <span className="flex justify-between border-t border-border pt-2 text-fg">
           <span>Coste</span>
           <span className="text-accent">0 gas</span>

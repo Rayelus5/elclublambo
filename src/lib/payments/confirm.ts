@@ -104,7 +104,7 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   // (and failed for good: no retry can make it pass).
   if (i.purpose !== "tip" && i.purpose !== "bounty" && i.purpose !== "donation") return permanent("invalid_input");
 
-  // Review Focus 4 / P0-R14: a Linea leftover, or a network outside this build's set (the DB enables all four, and the
+  // Review Focus 4 / P0-R14: a legacy-chain leftover, or a network outside this build's set (the DB enables all four, and the
   // RPC can be called without the server action), is failed for good before anything asks for a chain client.
   const chain = i.chain_id;
   if (!isChainId(chain) || !appChainIds().includes(chain)) return permanent("chain_disabled");

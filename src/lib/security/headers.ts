@@ -44,7 +44,7 @@ export const PUBLIC_RPCS: Record<"mainnet" | "testnet", readonly string[]> = {
 /** Reown AppKit / WalletConnect, from node_modules/@reown and @walletconnect. */
 const WALLET_CONNECT = [
   "https://api.web3modal.org", // AppKit remote config, wallet list and wallet images
-  "https://rpc.walletconnect.org", // Reown blockchain API: wagmi read transport on Linea mainnet, balances
+  "https://rpc.walletconnect.org", // Reown blockchain API: wagmi read transport, balances
   "https://rpc.walletconnect.com",
   "wss://relay.walletconnect.org", // WalletConnect relay (mobile wallets)
   "wss://relay.walletconnect.com",

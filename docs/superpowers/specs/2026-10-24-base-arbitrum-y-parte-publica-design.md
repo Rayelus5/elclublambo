@@ -148,6 +148,12 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   entorno (`BASE_*`/`ARBITRUM_*` RPC), readiness, finalidad y tamaños de escaneo por red, logos, Builder Codes (D14),
   login (D5), tests migrados de 59141 a las nuevas redes. Propinas y bounties funcionando en ambas redes con el
   selector de token.
+  **Hecho (2026-10-24, rama `feature/base-arbitrum-y-parte-publica`).** Los huecos de este spec se resolvieron al
+  planificar con los rulings P0-R1…P0-R14 de `docs/superpowers/plans/2026-10-24-p0-fundacion-multired.md` (sección
+  "Decisiones del constructor"): islas legadas hasta P1 (P0-R2), la DAO y los sorteos en pausa con "se está rehaciendo",
+  sin comisión (P0-R5), Builder Code solo en Base (P0-R6), "MODO PRUEBA" por entorno (P0-R12) y las cuatro redes
+  habilitadas en BD (P0-R14). Si la wallet está en otra red que la moneda elegida, "Continuar" le pide cambiarla y el
+  pago sigue solo.
 - **P1 — Club simplificado.** Donaciones + Mecenas + lista + canales + transparencia (D6–D10), sin comisión (D13), encuestas 1p1v, sorteos rehechos (D11–D12) con textos nuevos, alphas multired (D19), guía
   actualizada.
 - **P2 — Parte pública I.** Cuentas públicas (D15), i18n y rutas (D16), **landing pública** creativa, hub

@@ -46,7 +46,14 @@ describe("StartLanding with reduced motion", () => {
   it("shows the hero copy", () => {
     render(<StartLanding />);
     expect(screen.getByText("El foro privado para quien se toma cripto en serio.")).toBeInTheDocument();
-    expect(screen.getByText(/Solo con invitación\. Sin ruido\. Construido en Linea\./)).toBeInTheDocument();
+    expect(screen.getByText(/Solo con invitación\. Sin ruido\. Construido en Base y Arbitrum\./)).toBeInTheDocument();
+  });
+
+  it("says Base and Arbitrum, never Linea (P0)", () => {
+    render(<StartLanding />);
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/Linea/);
+    expect(text).toContain("Base y Arbitrum");
   });
 
   it("presents every feature as an h3", () => {

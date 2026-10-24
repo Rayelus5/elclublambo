@@ -11,7 +11,7 @@ import { addressesFor } from "@/lib/treasury/valuation";
 export type VerifyToken = Token | "WETH";
 
 export type VerifyInput = {
-  /** A legacy Linea chain only for the legacy islands (DAO payouts, raffle prizes; P0-R2). */
+  /** A legacy chain (59144/59141) only for the legacy islands (DAO payouts, raffle prizes; P0-R2). */
   chain: ChainId | LegacyChainId;
   token: VerifyToken;
   txHash: `0x${string}`;
@@ -41,7 +41,7 @@ const SKEW_SECONDS = 120n;
 class NotFound extends Error {}
 
 let warnedConfirmations = false;
-/** TIP_CONFIRMATIONS if it is an integer >= 1, else the network's (P0-R9; 3 on legacy Linea). A bad value is logged once. */
+/** TIP_CONFIRMATIONS if it is an integer >= 1, else the network's (P0-R9; 3 on the legacy chains). A bad value is logged once. */
 export function defaultConfirmations(chain: ChainId | LegacyChainId): number {
   const fallback = isChainId(chain) ? NETWORKS[chain].finality.tipConfirmations : 3;
   const raw = process.env.TIP_CONFIRMATIONS;

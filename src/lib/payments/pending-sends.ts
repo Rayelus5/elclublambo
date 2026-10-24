@@ -85,7 +85,7 @@ export function remainingMs(intent: Pick<TipIntent, "expiresAt">, now = Date.now
 
 /**
  * Drops leftovers that can never complete here (Review Focus 4): entries of the fee era (two transfers) and entries on a
- * chain that is not enabled (Linea, or a network the SuperAdmin turned off). Returns how many were dropped.
+ * chain that is not enabled (a legacy chain, or a network the SuperAdmin turned off). Returns how many were dropped.
  */
 export function pruneUnsupportedSends(memberId: string, enabled: readonly ChainId[]): number {
   const list = loadSends(memberId);

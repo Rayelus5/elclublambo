@@ -70,7 +70,7 @@ export function AlphaMock() {
         <span className="font-display text-xl font-extrabold semiwide">$FARO</span>
         <m.span variants={pop} className={`${chip} border-accent text-accent`}>
           <ShieldCheck className="size-3" strokeWidth={2} />
-          Contrato verificado · Linea
+          Contrato verificado
         </m.span>
       </m.div>
       <m.p variants={rise} className={`${mono} break-all`}>

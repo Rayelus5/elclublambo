@@ -8,7 +8,7 @@
  * `invalid_input` covers rechecks that can never pass (the intent no longer describes its target) and malformed ids;
  * `reverted` is a donation whose transfer stopped verifying (ruling F3d-R6); `platform_not_configured` is a legacy intent
  * charging a fee with no platform address snapshotted, which no retry can fix; `chain_disabled` is an intent on a
- * network this build no longer uses (a Linea leftover, Review Focus 4).
+ * network this build no longer uses (a legacy-chain leftover, Review Focus 4).
  */
 export const DEFINITIVE_FAILURE_CODES: ReadonlySet<string> = new Set([
   "tx_mismatch",

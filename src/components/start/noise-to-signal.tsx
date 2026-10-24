@@ -121,7 +121,7 @@ function SignalThread() {
         trading · hilo
       </p>
       <div className="flex flex-col gap-2">
-        <p className="font-display text-xl leading-tight font-extrabold semiwide">Tesis: liquidez en Linea antes del próximo epoch</p>
+        <p className="font-display text-xl leading-tight font-extrabold semiwide">Tesis: liquidez en Base antes del próximo epoch</p>
         <p className="text-small text-fg-muted">@marta · hace 2 h</p>
         <p className="text-[0.9375rem]">Resumen en cinco puntos, contrato verificado y gráfico. Lo dejo aquí para leerlo con calma.</p>
         <p className="inline-flex w-fit items-center gap-1.5 border border-border-strong px-2 py-0.5 font-mono text-[0.75rem] text-accent rounded-control">

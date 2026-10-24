@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import { colors } from "@/styles/tokens";
 
 // The share card of /start, rendered at build time from the app's own fonts and tokens (no external origin).
-export const alt = "ElClub. El foro privado para quien se toma cripto en serio. Solo con invitación, en Linea.";
+export const alt = "ElClub. El foro privado para quien se toma cripto en serio. Solo con invitación, en Base y Arbitrum.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

@@ -89,7 +89,7 @@ export function lockRequirementText(state: LockState): string {
   return requirementText(state);
 }
 
-/** "Tu situación: 0,2 % · 20 USDC aportados en Linea Sepolia" */
+/** "Tu situación: 0,2 % · 20 USDC aportados en la red activa" */
 export function lockSituationText(state: LockState, chainName: string): string {
   return `Tu situación: ${formatBps(state.myShareBps)} · ${formatUsdc(state.myNet)} aportados en ${chainName}`;
 }

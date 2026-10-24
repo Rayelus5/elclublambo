@@ -27,7 +27,7 @@ const STEPS: Step[] = [
 const GUIDE_LINK =
   "inline-flex min-h-11 items-center gap-2 rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
-export function WelcomeSteps({ initialHandle, next, chainId }: { initialHandle: string | null; next: string; chainId: ChainId }) {
+export function WelcomeSteps({ initialHandle, next, chainIds }: { initialHandle: string | null; next: string; chainIds: readonly ChainId[] }) {
   const router = useRouter();
   const [index, setIndex] = useState(0);
   const [savedHandle, setSavedHandle] = useState(initialHandle);
@@ -161,25 +161,30 @@ export function WelcomeSteps({ initialHandle, next, chainId }: { initialHandle: 
 
         {index === 1 && (
           <p className="text-fg-muted">
-            Puedes premiar un mensaje o un perfil con una propina en ETH o USDC, y abrir un bounty para pedir ayuda con una
-            recompensa. El dinero va directo de tu wallet a la de la otra persona: el club no custodia nada.
+            Puedes premiar un mensaje o un perfil con una propina en ETH o USDC, en Base o Arbitrum, y abrir un bounty para
+            pedir ayuda con una recompensa. Sin comisiones: el dinero va directo de tu wallet a la de la otra persona.
+            ElClub. no custodia fondos.
           </p>
         )}
         {index === 2 && (
           <p className="text-fg-muted">
-            La DAO es una tesorería común a la que puedes aportar USDC; tu porcentaje depende de lo que aportas. Algunos
-            canales llevan candado: piden unos requisitos y verás si los cumples antes de entrar.
+            La DAO se está rehaciendo para Base y Arbitrum: por ahora no se puede donar. Algunos canales llevan candado:
+            piden unos requisitos y verás si los cumples antes de entrar.
           </p>
         )}
         {index === 3 && (
           <div className="flex flex-col gap-4">
             <p className="text-fg-muted">
-              Ahora mismo el club mueve dinero en esta red. Comprueba siempre la red y la dirección antes de firmar, y
-              desconfía de quien te pida tu frase secreta.
+              El club mueve dinero en estas redes. Comprueba siempre la red y la dirección antes de firmar, y desconfía de
+              quien te pida tu frase secreta.
             </p>
-            <div>
-              <NetworkLogo chainId={chainId} withName />
-            </div>
+            <ul className="flex flex-wrap gap-3">
+              {chainIds.map((id) => (
+                <li key={id}>
+                  <NetworkLogo chainId={id} withName />
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
