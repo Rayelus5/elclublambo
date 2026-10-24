@@ -1,6 +1,7 @@
 import "server-only";
 import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
+import { verifyClubSafe } from "@/lib/economy/club-safe";
 import { appChainIds, isChainId } from "@/lib/economy/networks";
 import { readEthUsd, usd6For } from "@/lib/economy/eth-price";
 import type { Token } from "@/lib/payments/amounts";
@@ -12,8 +13,11 @@ export type ConfirmResult =
   | { status: "confirmed"; tipId: string; donationId?: undefined }
   /** A verified donation recorded in `donations` (P1). */
   | { status: "confirmed"; donationId: string; tipId?: undefined }
-  /** `reason` says what it waits for when that is not the chain itself (price_unavailable: ETH donation with no trusted price). */
-  | { status: "pending"; reason?: "price_unavailable" }
+  /**
+   * `reason` says what it waits for when that is not the chain itself: price_unavailable (ETH donation with no trusted
+   * price), safe_not_deployed (the club Safe has no code on that network yet).
+   */
+  | { status: "pending"; reason?: "price_unavailable" | "safe_not_deployed" }
   | { status: "failed"; error: string; code: string };
 
 /** Verification errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */
@@ -143,6 +147,11 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const main = mainRes as Extract<VerifyResult, { status: "ok" }>;
 
   if (isDonation) {
+    // P1-R6: credit only into a deployed club Safe. Not deployed stays pending, never failed: the funds sit at the
+    // Safe's counterfactual address and become reachable once it is deployed there. A failed check also waits.
+    const safe = await verifyClubSafe(chain);
+    if (safe === "not_deployed") return { status: "pending", reason: "safe_not_deployed" };
+    if (safe !== "ok") return { status: "pending" };
     // ETH is valued by Chainlink only; with no trusted price it stays pending (never credited, never failed).
     let priceE8: bigint | null = null;
     if (i.token === "ETH") {

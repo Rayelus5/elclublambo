@@ -25,6 +25,9 @@ vi.mock("@/lib/economy/eth-price", async (orig) => ({
   readEthUsd: (...a: unknown[]) => readEthUsd(...a),
 }));
 
+const verifyClubSafe = vi.fn();
+vi.mock("@/lib/economy/club-safe", () => ({ verifyClubSafe: (...a: unknown[]) => verifyClubSafe(...a) }));
+
 import { confirmIntent, reverifyIntentsFor } from "@/lib/payments/confirm";
 
 const PAYER = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
@@ -52,6 +55,7 @@ beforeEach(() => {
   tables.tips = { id: "tip1" };
   verifyTransfer.mockImplementation(async (i: { txHash: string }) => ({ status: "ok", logIndex: i.txHash === FEE ? 3 : 7, blockNumber: 10n, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") }));
   rpc.mockResolvedValue({ data: "tip1", error: null });
+  verifyClubSafe.mockResolvedValue("ok");
   vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -358,6 +362,28 @@ describe("confirmIntent: donations", () => {
     readEthUsd.mockResolvedValue(null);
     expect(await confirmIntent("i1")).toEqual({ status: "pending", reason: "price_unavailable" });
     expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("the club Safe not deployed on that network: pending with safe_not_deployed, never credited nor failed", async () => {
+    verifyClubSafe.mockResolvedValue("not_deployed");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending", reason: "safe_not_deployed" });
+    expect(verifyClubSafe).toHaveBeenCalledWith(84532);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("the Safe check failing (network, not_configured) also stays pending, never credited", async () => {
+    verifyClubSafe.mockResolvedValue("network");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    verifyClubSafe.mockResolvedValue("not_configured");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("a tip never asks for the club Safe", async () => {
+    tables.payment_intents = intent();
+    rpc.mockResolvedValue({ data: "tip1", error: null });
+    await confirmIntent("i1");
+    expect(verifyClubSafe).not.toHaveBeenCalled();
   });
 
   it("an already outcome of confirm_donation is also confirmed", async () => {
