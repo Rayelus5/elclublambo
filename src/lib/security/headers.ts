@@ -11,6 +11,8 @@ export type HeaderEnv = {
   siteUrl: string | undefined;
   /** Browser-side RPC overrides (NEXT_PUBLIC_*_SEPOLIA_RPC_URL): tests and local chains only, empty in production. */
   publicRpcUrls: (string | undefined)[];
+  /** NEXT_PUBLIC_DRAND_API_BASE: the e2e drand (P1-R11), honoured on the testnet set only; unset in PRE and PRO. */
+  drandApiBase?: string | undefined;
   /** The build's chains (NEXT_PUBLIC_NETWORK_SET): decides which public RPCs connect-src allows. */
   networkSet: "mainnet" | "testnet";
   dev: boolean;
@@ -40,6 +42,12 @@ export const PUBLIC_RPCS: Record<"mainnet" | "testnet", readonly string[]> = {
   mainnet: ["https://mainnet.base.org", "https://arb1.arbitrum.io"],
   testnet: ["https://sepolia.base.org", "https://sepolia-rollup.arbitrum.io"],
 };
+
+/**
+ * drand quicknet relays the giveaway verifier fetches beacons from in the browser (DRAND_API_BASES in
+ * src/lib/giveaways/drand.ts; a test pins the parity, so this file does not import drand.ts).
+ */
+export const DRAND_ORIGINS = ["https://api.drand.sh", "https://api2.drand.sh", "https://api3.drand.sh", "https://drand.cloudflare.com"] as const;
 
 /** Reown AppKit / WalletConnect, from node_modules/@reown and @walletconnect. */
 const WALLET_CONNECT = [
@@ -98,6 +106,7 @@ export function headerEnvFromProcess(env: NodeJS.ProcessEnv = process.env): Head
     supabaseUrl: env.NEXT_PUBLIC_SUPABASE_URL,
     siteUrl: env.NEXT_PUBLIC_SITE_URL,
     publicRpcUrls: [env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL, env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL],
+    drandApiBase: env.NEXT_PUBLIC_DRAND_API_BASE,
     // Same rule as networkSet() in economy/networks.ts: unset or empty is testnet, a typo throws.
     networkSet: setOf(env.NEXT_PUBLIC_NETWORK_SET),
     dev: env.NODE_ENV === "development",
@@ -110,6 +119,7 @@ export function buildCsp(env: HeaderEnv): string {
     const o = originOf(u)?.origin;
     return o ? [o] : [];
   });
+  const drandOverride = env.networkSet === "testnet" ? originOf(env.drandApiBase)?.origin : undefined;
 
   const directives: [string, readonly string[]][] = [
     ["default-src", ["'self'"]],
@@ -118,8 +128,20 @@ export function buildCsp(env: HeaderEnv): string {
     // Supabase: chat images (signed URLs) and avatars (public URLs). data:/blob: for composer previews and AppKit.
     ["img-src", ["'self'", ...(supabase ? [supabase] : []), ...IMAGE_HOSTS, "data:", "blob:"]],
     ["font-src", ["'self'", ...FONT_HOSTS]],
-    // Supabase REST, Auth, Storage and Realtime; the public RPCs; test RPC overrides (AppKit customRpcUrls, verifier).
-    ["connect-src", ["'self'", ...withSocket(env.supabaseUrl), ...PUBLIC_RPCS[env.networkSet], ...rpcOverrides, ...WALLET_CONNECT]],
+    // Supabase REST, Auth, Storage and Realtime; the public RPCs; test RPC overrides (AppKit customRpcUrls, verifier);
+    // drand for the giveaway verifier (plus the e2e drand on testnet).
+    [
+      "connect-src",
+      [
+        "'self'",
+        ...withSocket(env.supabaseUrl),
+        ...PUBLIC_RPCS[env.networkSet],
+        ...rpcOverrides,
+        ...WALLET_CONNECT,
+        ...DRAND_ORIGINS,
+        ...(drandOverride ? [drandOverride] : []),
+      ],
+    ],
     ["frame-src", FRAME_SRC],
     ["worker-src", ["'self'"]], // /sw.js (Web Push)
     ["manifest-src", ["'self'"]],

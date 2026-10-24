@@ -175,6 +175,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.3.0)
+      '@noble/curves':
+        specifier: 1.9.7
+        version: 1.9.7
       '@reown/appkit':
         specifier: ^1.8.24
         version: 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)

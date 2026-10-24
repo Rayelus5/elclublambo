@@ -6,7 +6,7 @@
 --     not_enough_entries (RF 3), role_unavailable for a deleted or widened role (RF 4), giveaway_won notified.
 --   - record_giveaway_payout: tx_already_used for a hash behind an intent or another prize; delivered / cancel / reads.
 begin;
-select plan(71);
+select plan(72);
 
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -278,6 +278,8 @@ select ok((select status = 'drawn'
            from public.giveaways where id = current_setting('t.g1')::uuid)
       and not exists (select 1 from private.giveaway_seeds where giveaway_id = current_setting('t.g1')::uuid),
   'drawn: randomness = sha256(signature), the seed revealed and deleted');
+select results_eq($$select winner_position from public.giveaway_prizes where giveaway_id = current_setting('t.g1')::uuid order by rank$$,
+  $$values (4), (2), (5)$$, 'the fixture seed and round 1000 give the fixture winners by rank (tests/fixtures/giveaway-draw.json, TS drawWinners)');
 select is((select count(distinct winner_member_id)::int from public.giveaway_prizes
            where giveaway_id = current_setting('t.g1')::uuid and winner_position between 1 and 7), 3,
   'three distinct winners among the seven positions');

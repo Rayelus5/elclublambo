@@ -96,6 +96,12 @@ const MESSAGES: Record<string, string> = {
   poll_closed: "La encuesta ya está cerrada.",
   poll_not_editable: "Una encuesta no se puede editar: cambiaría lo que otros ya han votado.",
   draw_block_invalid: "Ese bloque no es el primero posterior al cierre.",
+  round_not_ready: "La ronda de drand de este sorteo aún no existe. Espera unos segundos.",
+  giveaway_closed: "Este sorteo ya está cerrado.",
+  role_not_allowed: "Ese rol no se puede sortear: debe ser un rol sin permisos de gestión y por debajo del tuyo.",
+  drand_unavailable: "No se pudo descargar la ronda de drand. Se reintentará.",
+  drand_invalid: "La ronda descargada de drand no tiene una firma válida. Se reintentará.",
+  giveaway_closes_at_invalid: "El cierre debe estar entre 10 minutos y 30 días desde ahora.",
 };
 
 /** Allowlist untrusted input (e.g. a query param) to a known error code; never echo raw text. */
