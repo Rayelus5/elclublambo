@@ -1,7 +1,7 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAINS, CLUB_SAFE, ETH_USD_PRICE_E8, hardhatAccount } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, rpcAs, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
@@ -18,6 +18,8 @@ const desktop = { width: 1280, height: 900 };
 const donor = hardhatAccount(6); // A
 const watcher = hardhatAccount(7); // C
 const NAMES = { a: "Mecenas A", c: "Observador C" };
+/** How lists name a member: public._member_label gives the @handle first (here the generated @u_<wallet>), not the display name. */
+const LABEL_A = handleOf(donor.privateKey);
 const DIALOG = "Donar a ElClub.";
 
 // WalletConnect telemetry is rate limited (429) when the suite runs repeatedly: not an app error.
@@ -130,8 +132,8 @@ test("1. 5 USDC on Base Sepolia: one signature, in recent donations and in the l
   await expect(a.page.getByRole("region", { name: "Tu estado" }).getByText("Mecenas", { exact: true })).toBeVisible();
   await c.page.goto("/donar");
   const recent = c.page.getByRole("list", { name: "Donaciones recientes" });
-  await expect(recent.getByRole("listitem").filter({ hasText: NAMES.a }).filter({ hasText: "5 USDC" })).toHaveCount(1);
-  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: NAMES.a })).toContainText("5 USD");
+  await expect(recent.getByRole("listitem").filter({ hasText: LABEL_A }).filter({ hasText: "5 USDC" })).toHaveCount(1);
+  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: LABEL_A })).toContainText("5 USD");
 });
 
 test("2. ETH on Arbitrum Sepolia: the wallet switches network and usd6 = amount x 2000", async () => {
@@ -170,9 +172,9 @@ test("3. anonymous donation: another member sees «Anónimo», never the donor",
   const row = c.page.getByRole("list", { name: "Donaciones recientes" }).getByRole("listitem").filter({ hasText: "1,23 USDC" });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Anónimo", { exact: true })).toBeVisible();
-  await expect(row.getByText(NAMES.a)).toHaveCount(0);
+  await expect(row.getByText(LABEL_A)).toHaveCount(0);
   // A's row in the list counts only the public donations for others: 5 USDC + 20 USD of ETH.
-  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: NAMES.a })).toContainText("25 USD");
+  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: LABEL_A })).toContainText("25 USD");
 });
 
 test("4. with the switch off, the donor leaves the list for everyone else", async () => {
@@ -184,12 +186,12 @@ test("4. with the switch off, the donor leaves the list for everyone else", asyn
   await expect.poll(async () => (await service().from("members").select("donor_visible").eq("id", a.id).single<{ donor_visible: boolean }>()).data?.donor_visible).toBe(false);
 
   await c.page.goto("/donar");
-  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByText(NAMES.a)).toHaveCount(0);
+  await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByText(LABEL_A)).toHaveCount(0);
   // Their donations still show, unnamed.
-  await expect(c.page.getByRole("list", { name: "Donaciones recientes" }).getByText(NAMES.a)).toHaveCount(0);
+  await expect(c.page.getByRole("list", { name: "Donaciones recientes" }).getByText(LABEL_A)).toHaveCount(0);
   // A still sees their own row, marked «Tú».
   await a.page.reload();
-  await expect(a.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: NAMES.a })).toContainText("Tú");
+  await expect(a.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: LABEL_A })).toContainText("Tú");
 });
 
 test("5. replay: the first donation's hash on a new intent is refused with tx_already_used", async () => {
