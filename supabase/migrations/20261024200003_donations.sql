@@ -2,7 +2,7 @@
 --   - public.donations replaces the legacy dao_ledger as the record of a donation. It keeps donor_address and allows a
 --     null member_id so P2 (public donors) needs no migration.
 --   - create_donation_intent(chain, token, amount, anonymous): USDC or ETH on any enabled network, to chains.safe_address,
---     no fee. The legacy (numeric, int, boolean) signature is dropped.
+--     no fee. The legacy (numeric, int, boolean) overload stays untouched.
 --   - confirm_donation (service_role): records the verified transfer, stores the USD value computed by the server and
 --     grants Mecenas once the member's total reaches app_config.donor_role_min_usd6. The role is never removed here.
 --   - members.donor_visible lets a donor leave the list; reads never reveal an anonymous or hidden donor to others.
@@ -43,8 +43,7 @@ insert into public.roles (name, color, position, permissions, is_everyone, is_sy
   ('Mecenas', '#C6F36B', 15, 0, false, false, 'donor')
 on conflict (name) do nothing;
 
--- ===== create_donation_intent (latest 20261019700101_rate_limits.sql; legacy signature dropped) =====
-drop function public.create_donation_intent(numeric, int, boolean);
+-- ===== create_donation_intent: new 4-arg overload; the legacy (numeric, int, boolean) one stays frozen (spec D10) =====
 create function public.create_donation_intent(p_chain_id int, p_token text, p_amount numeric, p_anonymous boolean)
 returns jsonb
 language plpgsql
@@ -222,14 +221,14 @@ begin
     raise exception 'forbidden';
   end if;
   return jsonb_build_object(
-    'totalUsd6', (select coalesce(sum(d.usd6), 0) from public.donations d),
+    'totalUsd6', (select coalesce(sum(d.usd6), 0)::text from public.donations d),
     'donorCount', (select count(distinct d.donor_address) from public.donations d),
-    'byChain', coalesce((select jsonb_agg(jsonb_build_object('chainId', t.chain_id, 'usd6', t.usd6) order by t.chain_id)
+    'byChain', coalesce((select jsonb_agg(jsonb_build_object('chainId', t.chain_id, 'usd6', t.usd6::text) order by t.chain_id)
                          from (select d.chain_id, sum(d.usd6) as usd6 from public.donations d group by d.chain_id) t),
                         '[]'::jsonb),
     'recent', coalesce((select jsonb_agg(jsonb_build_object(
                           'id', r.id, 'at', r.verified_at, 'chainId', r.chain_id, 'token', r.token,
-                          'amount', r.amount::text, 'usd6', r.usd6,
+                          'amount', r.amount::text, 'usd6', r.usd6::text,
                           'donorLabel', case
                             when r.member_id is not null and r.member_id = v_me then public._member_label(r.member_id)
                             when r.member_id is null or r.anonymous or not r.visible then null
@@ -248,7 +247,7 @@ $$;
 -- Others' totals count only their non-anonymous donations, so an anonymous gift never surfaces through a visible name.
 -- The caller's own row always shows, with everything they gave.
 create function public.donor_ranking(p_limit int default 50)
-returns table (member_id uuid, label text, total_usd6 numeric, is_me boolean)
+returns table (member_id uuid, label text, total_usd6 text, is_me boolean)
 language plpgsql
 stable
 security definer
@@ -276,7 +275,7 @@ begin
     join public.members m on m.id = t.mid
     where t.total > 0 and (m.donor_visible or t.mid = v_me)
   )
-  select r.mid, public._member_label(r.mid), r.total, r.me
+  select r.mid, public._member_label(r.mid), r.total::text, r.me
   from ranked r
   where r.rn <= v_lim or r.me
   order by r.total desc, r.mid;
@@ -298,7 +297,7 @@ begin
     raise exception 'forbidden';
   end if;
   return jsonb_build_object(
-    'totalUsd6', (select coalesce(sum(d.usd6), 0) from public.donations d where d.member_id = v_me),
+    'totalUsd6', (select coalesce(sum(d.usd6), 0)::text from public.donations d where d.member_id = v_me),
     'isMecenas', exists (select 1 from public.member_roles mr join public.roles r on r.id = mr.role_id
                          where mr.member_id = v_me and r.system_key = 'donor'),
     'visible', (select m.donor_visible from public.members m where m.id = v_me));

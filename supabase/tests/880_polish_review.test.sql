@@ -37,23 +37,23 @@ select throws_ok(format($q$select public.move_role(%L::uuid, 300)$q$, (select id
   'P0001', 'hierarchy', 'a delegate cannot push Verificado out of its slot');
 select tests.clear_authentication();
 
--- M2: a pending donation is not announced; once credited it is
+-- M2: a donation not yet confirmed is not announced; once confirmed it is
 insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
   recipient_address, target_type, status)
 values ('8800b000-0000-4000-8000-000000000001', current_setting('t.b')::uuid, 'donation', 59141, 'USDC', 4000000, 0, 0, 0,
   '0x00000000000000000000000000000000000000cc', 'dao', 'confirmed');
 update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
-insert into public.dao_ledger (id, chain_id, kind, member_id, amount_usdc, intent_id, tx_hash, log_index, block_number)
-values ('8800c000-0000-4000-8000-000000000001', 59141, 'donation', current_setting('t.b')::uuid, 4000000,
-  '8800b000-0000-4000-8000-000000000001', '0x' || repeat('9', 64), 0, 1);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select count(*)::int from public.club_activity(50) where kind = 'donation' and amount_text = '4000000'), 0,
-  'a donation pending finality is not in the feed');
+  'a donation not yet confirmed is not in the feed');
 select tests.clear_authentication();
-update public.dao_ledger set status = 'credited', shares_delta = 1, credited_at = now() where id = '8800c000-0000-4000-8000-000000000001';
+update public.members set donor_visible = false where id = current_setting('t.b')::uuid;
+insert into public.donations (intent_id, chain_id, token, amount, usd6, price_source, member_id, donor_address, tx_hash, log_index, block_number)
+select '8800b000-0000-4000-8000-000000000001', 59141, 'USDC', 4000000, 4000000, 'usdc', m.id, m.wallet_address, '0x' || repeat('9', 64), 0, 1
+from public.members m where m.id = current_setting('t.b')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select actor_label from public.club_activity(50) where kind = 'donation' and amount_text = '4000000'), 'Anónimo',
-  'once credited it is announced, as Anónimo for a hidden donor');
+  'once confirmed it is announced, as Anónimo for a hidden donor');
 select tests.clear_authentication();
 
 -- N4: tips in the feed — hidden channel, deleted message, profile

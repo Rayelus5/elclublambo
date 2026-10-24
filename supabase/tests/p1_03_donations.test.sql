@@ -1,6 +1,6 @@
 -- P1 Task 3 (migration 20261024200003): donations, the Mecenas role, donor visibility and reads.
 --   - create_donation_intent(chain, token, amount, anonymous): to the club Safe, chain_invalid / amount_out_of_range /
---     forbidden; the legacy (numeric, int, boolean) signature is gone.
+--     forbidden; the legacy (numeric, int, boolean) overload stays frozen.
 --   - confirm_donation (service_role) records the donation and grants Mecenas once the total reaches 1 USD (never twice).
 --   - donor_ranking hides donors who left the list (but shows the caller), donation_overview hides anonymous ones.
 --   - club_activity reads the donations table.
@@ -42,7 +42,7 @@ select set_config('t.u3', (select auth_user_id::text from public.members where i
 select set_config('t.stranger', tests.create_wallet_user('0x' || lpad('d9c3f', 40, '0'))::text, true);
 
 -- ===== 1. schema, privileges, config =====
-select ok(to_regprocedure('public.create_donation_intent(numeric,int,boolean)') is null, 'the legacy create_donation_intent is gone');
+select ok(to_regprocedure('public.create_donation_intent(numeric,int,boolean)') is not null, 'the frozen legacy create_donation_intent overload still exists');
 select ok(has_function_privilege('authenticated', 'public.create_donation_intent(int,text,numeric,boolean)', 'execute')
       and not has_function_privilege('anon', 'public.create_donation_intent(int,text,numeric,boolean)', 'execute'),
   'create_donation_intent: authenticated yes, anon no');
@@ -131,11 +131,11 @@ select public.set_donor_visible(false);
 select tests.authenticate_as(current_setting('t.u1')::uuid);
 select is((select count(*)::int from public.donor_ranking()), 1,
   'd1 sees only itself: d2 left the list and d3 only gave anonymously');
-select results_eq($$select is_me, total_usd6 from public.donor_ranking()$$, $$values (true, 8000000::numeric)$$,
+select results_eq($$select is_me, total_usd6 from public.donor_ranking()$$, $$values (true, '8000000'::text)$$,
   'd1 row is marked is_me with its total');
 select tests.authenticate_as(current_setting('t.u2')::uuid);
 select is((select count(*)::int from public.donor_ranking()), 2, 'd2 sees d1 and its own hidden row');
-select results_eq($$select total_usd6 from public.donor_ranking() where is_me$$, $$values (500000::numeric)$$,
+select results_eq($$select total_usd6 from public.donor_ranking() where is_me$$, $$values ('500000'::text)$$,
   'd2 own row is shown with is_me');
 
 select tests.authenticate_as(current_setting('t.u1')::uuid);
