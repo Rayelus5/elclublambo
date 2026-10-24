@@ -166,6 +166,7 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   pago sigue solo.
 - **P1 — Club simplificado.** Donaciones + Mecenas + lista + canales + transparencia (D6–D10), sin comisión (D13), encuestas 1p1v, sorteos rehechos (D11–D12) con textos nuevos, alphas multired (D19), guía
   actualizada y **nuevo «Inicio»** (decisión 13, D26) al final del bloque.
+  **Hecho (2026-10-24, rama `feature/p1-club-simplificado`).** Los huecos de este spec se resolvieron al planificar con los rulings P1-R1…P1-R17 de `docs/superpowers/plans/2026-10-24-p1-club-simplificado.md` ("Decisiones del constructor"): `/donar` dentro del club hasta P2 (P1-R1), lista de donantes con opción de salir (P1-R2), Mecenas desde 1 USD (P1-R3), candados por total donado (P1-R4), precio de ETH solo con Chainlink y secuenciador (P1-R5), sin Safe desplegada no se ofrece donar (P1-R6), gastos anotados por hash (P1-R7), sorteos en tablas `giveaways*` con drand quicknet y premios USDC, rol o texto (P1-R8…R12) y nuevo «Inicio» con buscador protagonista (P1-R16). El legado de la DAO queda congelado (D10).
 - **P2 — Parte pública I.** Cuentas públicas (D15), i18n y rutas (D16), **landing pública** creativa, hub
   `/herramientas`, **Sorteos verificables públicos**: cualquiera con wallet crea un sorteo gratis para su comunidad
   (X/Discord/Telegram) con premios de cualquier tipo, comparte un enlace, los participantes se apuntan firmando
