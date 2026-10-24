@@ -36,6 +36,7 @@ Cómo leer las celdas:
 | `NEXT_PUBLIC_SUPABASE_URL` | `http://127.0.0.1:54321` | `https://pre-api.elclub.party` | `https://<ref>.supabase.co` | no | sí |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | \<tu valor\> (`pnpm exec supabase status`) | \<tu valor\> (`ANON_KEY` del Supabase self-hosted) | \<tu valor\> (publishable o anon) | no | sí |
 | `SUPABASE_SERVICE_ROLE_KEY` | \<tu valor\> (`pnpm exec supabase status`) | \<tu valor\> (`SERVICE_ROLE_KEY` del self-hosted) | \<tu valor\> (secret o service_role) | **sí** | no |
+| `SUPABASE_INTERNAL_URL` | vacía | `http://kong:8000` (la red Docker de Supabase: el servidor no sale por Cloudflare, que los operadores bloquean en partidos de LaLiga) | vacía | no | no |
 | `SUPER_ADMIN_WALLET` | \<tu valor\> (tu wallet de pruebas) | \<tu valor\> | \<tu valor\> (tu wallet de SuperAdmin) | no | no |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub prod") | no | sí |
 | `NEXT_PUBLIC_NETWORK_SET` | `testnet` | `testnet` | `mainnet` | no | sí |

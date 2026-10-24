@@ -10,6 +10,7 @@ import { isMissingTicket } from "@/lib/tickets/guard";
 import { isInvalidCoinPage } from "@/lib/market/guard";
 import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 import { isHttps } from "@/lib/security/headers";
+import { authCookieName, serverSupabaseUrl } from "@/lib/supabase/urls";
 
 export async function proxy(request: NextRequest) {
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
@@ -20,9 +21,10 @@ export async function proxy(request: NextRequest) {
   let sessionHeaders: Record<string, string> = {};
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serverSupabaseUrl(),
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: { name: authCookieName(process.env.NEXT_PUBLIC_SUPABASE_URL!) },
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll(cookiesToSet, headers) {

@@ -122,6 +122,10 @@ describe("preproduction compose", () => {
     expect(compose).toMatch(/^networks:\n(?: {2}.*\n)*? {2}supabase_default:\n {4}external: true$/m);
   });
 
+  it("web joins supabase_default too, so its server reaches the gateway by container name", () => {
+    expect(service("web")).toMatch(/networks:\n {6}- default\n {6}- supabase_default\n/);
+  });
+
   it("publishes only 127.0.0.1 ports and never Kong, Postgres or Studio", () => {
     const ports = [...compose.matchAll(/^\s+-\s+"?([\d.:]+)"?\s*$/gm)].map((m) => m[1]!).filter((p) => p.includes(":"));
     expect(ports).toEqual(["127.0.0.1:3000:3000"]);
@@ -333,8 +337,10 @@ describe("env templates", () => {
     expect(env.has("NEXT_PUBLIC_BASE_BUILDER_CODE")).toBe(true);
     // An empty TIP_CONFIRMATIONS is invalid for defaultConfirmations and logs a console.error: set the default.
     expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
+    // The server talks to Supabase over the Docker network (fix/pre-supabase-red-interna).
+    expect(env.get("SUPABASE_INTERNAL_URL")).toBe("http://kong:8000");
     for (const [k, v] of env) {
-      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_NETWORK_SET", "TIP_CONFIRMATIONS"].includes(k)) {
+      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_NETWORK_SET", "TIP_CONFIRMATIONS", "SUPABASE_INTERNAL_URL"].includes(k)) {
         expect(v, k).toBe("");
       }
     }
@@ -353,6 +359,7 @@ describe("env templates", () => {
     expect(env.has("NEXT_PUBLIC_BASE_BUILDER_CODE")).toBe(true);
     expect(env.get("ENABLE_EXPERIMENTAL_COREPACK")).toBe("1");
     expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
+    expect(env.get("SUPABASE_INTERNAL_URL")).toBe("");
     expect(prodEnv).not.toContain("pre.elclub.party");
     expect(prodEnv).not.toContain("pre-api");
   });
