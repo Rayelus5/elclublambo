@@ -180,6 +180,13 @@ describe("Sidebar", () => {
     expect(names.indexOf("Mercado")).toBe(names.indexOf("Donar") + 1);
   });
 
+  it("always links to Sorteos, right after Mercado", () => {
+    renderSidebar(0n);
+    const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
+    expect(within(desktopBar()).getByRole("link", { name: "Sorteos" })).toHaveAttribute("href", "/sorteos");
+    expect(names.indexOf("Sorteos")).toBe(names.indexOf("Mercado") + 1);
+  });
+
   it("always links to Tickets, with the open count when there are any", () => {
     const { unmount } = renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");

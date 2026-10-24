@@ -1,7 +1,7 @@
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { GUIDE_SECTIONS, type GuideSlug } from "@/lib/guide/sections";
 
-export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide" | "donate" | "market";
+export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide" | "donate" | "market" | "giveaways";
 
 export type PaletteAction = {
   id: string;
@@ -62,6 +62,7 @@ export function buildActions({
     out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
   out.push({ id: "donate", label: "Donar a ElClub.", href: "/donar", icon: "donate", keywords: "donar mecenas donación aportar usdc eth safe" });
+  out.push({ id: "giveaways", label: "Sorteos", href: "/sorteos", icon: "giveaways", keywords: "sorteo sorteos premio participar drand gratis" });
   out.push({ id: "market", label: "Mercado", href: "/mercado", icon: "market", keywords: "mercado precios criptos bitcoin ethereum cotización top 100" });
   out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
   return out;

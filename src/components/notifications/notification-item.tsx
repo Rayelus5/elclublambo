@@ -73,6 +73,14 @@ export function notificationCopy(n: NotificationView): ReactNode {
       ) : (
         <>Has ganado un sorteo</>
       );
+    case "giveaway_won":
+      return n.giveawayTitle && n.giveawayPrize ? (
+        <>
+          Has ganado «<strong className="font-bold text-fg">{n.giveawayPrize}</strong>» en «{n.giveawayTitle}»
+        </>
+      ) : (
+        <>Has ganado un sorteo</>
+      );
     case "treasury_notice":
       return n.treasuryEvent === "raffle_drawn" ? (
         <>Un sorteo tiene ganador: paga el premio</>

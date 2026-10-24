@@ -10,7 +10,7 @@ const href = (a: ReturnType<typeof buildActions>, id: string) => a.find((x) => x
 describe("buildActions", () => {
   it("always offers mentions, tickets, the guide and profile", () => {
     const a = buildActions(base);
-    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "donate", "market", "profile"]);
+    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "donate", "giveaways", "market", "profile"]);
     expect(href(a, "market")).toBe("/mercado");
     expect(a.find((x) => x.id === "market")?.label).toBe("Mercado");
     expect(href(a, "donate")).toBe("/donar");
@@ -65,6 +65,14 @@ describe("messageHref", () => {
   });
   it("reply opens its thread", () => {
     expect(messageHref({ channelId: C, id: M, threadRootId: R }, "abc12")).toBe(`/c/${C}?thread=${R}&m=${M}&h=abc12`);
+  });
+});
+
+describe("buildActions · giveaways (P1)", () => {
+  it("offers «Sorteos» to every member", () => {
+    const g = buildActions(base).find((x) => x.id === "giveaways");
+    expect(g).toMatchObject({ label: "Sorteos", href: "/sorteos", icon: "giveaways" });
+    expect(g?.keywords).toContain("sorteo");
   });
 });
 

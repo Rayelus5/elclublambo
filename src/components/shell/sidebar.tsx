@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChartCandlestick, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Dices, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -39,6 +39,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
     { href: "/guia", text: "Guía", Icon: BookOpen },
     { href: "/donar", text: "Donar", Icon: HandHeart },
     { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
+    { href: "/sorteos", text: "Sorteos", Icon: Dices },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
       href: "/admin/members",
@@ -59,7 +60,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
 /**
  * ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right.
  *
- * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 6) plus
+ * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 7) plus
  * one «Más» menu that holds the staff-only ones (Miembros, Reportes, Ajustes). The controls never shrink; the tabs do
  * (a label truncates before a tab overlaps anything). Below 1280px tabs are icon-only, the network badge and the
  * search are compact until 1536px, and the profile / sign-out lose their text below 1024px.
