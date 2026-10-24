@@ -2,6 +2,7 @@
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { rpcErrorCode } from "@/lib/errors";
+import { publicSupabaseUrl } from "@/lib/supabase/urls";
 import { UUID_RE } from "@/lib/tickets/model";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { getBountyDetails } from "@/lib/bounties/queries";
@@ -67,7 +68,7 @@ async function signPaths(supabase: SupabaseClient, paths: string[]): Promise<Map
   if (paths.length === 0) return out;
   const { data, error } = await supabase.storage.from("chat-images").createSignedUrls(paths, SIGNED_URL_SECONDS);
   if (error || !data) return out;
-  for (const item of data) if (item.path && item.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  for (const item of data) if (item.path && item.signedUrl && !item.error) out.set(item.path, publicSupabaseUrl(item.signedUrl));
   return out;
 }
 

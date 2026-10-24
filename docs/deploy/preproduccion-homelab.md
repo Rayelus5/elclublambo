@@ -711,6 +711,7 @@ Usa la función `setkv` del paso 3.3 (si abriste otra shell, vuelve a definirla)
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://pre-api.elclub.party` (ya viene en la plantilla) | nada |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ANON_KEY` de `/opt/supabase/docker/.env` | tú |
 | `SUPABASE_SERVICE_ROLE_KEY` | `SERVICE_ROLE_KEY` de `/opt/supabase/docker/.env` | tú |
+| `SUPABASE_INTERNAL_URL` | `http://kong:8000` (ya viene): el servidor habla con Supabase por la red Docker, sin pasar por Cloudflare | nada |
 | `SUPER_ADMIN_WALLET` | una wallet **de pruebas** del humano (`0x` + 40 hex). Nunca su wallet de SuperAdmin de producción | humano |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | Project ID del proyecto de Reown **"elclub dev/pre"**, con `pre.elclub.party` en su allowlist | humano |
 | `NEXT_PUBLIC_NETWORK_SET` | `testnet` (ya viene): Base Sepolia y Arbitrum Sepolia | nada |
@@ -766,7 +767,7 @@ grep -c -E '^NEXT_PUBLIC_(SUPABASE|SITE)_URL=https://' /opt/elclub/pre/web.env
 stat -c '%a %U' /opt/elclub/pre/web.env
 ```
 
-- Puestas: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+- Puestas: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_INTERNAL_URL`,
   `SUPER_ADMIN_WALLET`, `NEXT_PUBLIC_REOWN_PROJECT_ID`, `NEXT_PUBLIC_NETWORK_SET`, `NEXT_PUBLIC_SITE_URL`,
   `BASE_SEPOLIA_RPC_URL` y `ARBITRUM_SEPOLIA_RPC_URL` (si las dio), `TIP_CONFIRMATIONS`, las cuatro VAPID y `CRON_SECRET` (y `COINGECKO_API_KEY` si la dio).
 - Vacías: el resto.
