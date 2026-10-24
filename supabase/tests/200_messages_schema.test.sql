@@ -41,9 +41,9 @@ insert into public.message_reactions (message_id, member_id, emoji) values
 insert into public.message_mentions (message_id, kind, target_id, notify) values
   ('00000000-0000-0000-0000-0000000000a1', 'everyone', null, false),
   ('00000000-0000-0000-0000-0000000000a2', 'everyone', null, false);
-insert into public.alpha_details (message_id, contract_address) values
-  ('00000000-0000-0000-0000-0000000000a1', '0x' || repeat('a', 40)),
-  ('00000000-0000-0000-0000-0000000000a2', '0x' || repeat('b', 40));
+insert into public.alpha_details (message_id, contract_address, chain_id) values
+  ('00000000-0000-0000-0000-0000000000a1', '0x' || repeat('a', 40), 84532),
+  ('00000000-0000-0000-0000-0000000000a2', '0x' || repeat('b', 40), 84532);
 insert into public.channel_reads (member_id, channel_id) values
   (current_setting('t.a')::uuid, current_setting('t.txtV')::uuid),
   (current_setting('t.b')::uuid, current_setting('t.txtV')::uuid);
@@ -61,8 +61,8 @@ select throws_ok($$insert into public.message_reactions (message_id, member_id, 
   values ('00000000-0000-0000-0000-0000000000a2', current_setting('t.b')::uuid, repeat('x', 33))$$, '23514', null, 'emoji over 32 bytes rejected');
 select throws_ok($$insert into public.message_mentions (message_id, kind, target_id, notify)
   values ('00000000-0000-0000-0000-0000000000a2', 'member', null, false)$$, '23514', null, 'member mention needs target');
-select throws_ok($$insert into public.alpha_details (message_id, contract_address)
-  values ('00000000-0000-0000-0000-0000000000a2', '0xABC')$$, '23514', null, 'bad address rejected');
+select throws_ok($$insert into public.alpha_details (message_id, contract_address, chain_id)
+  values ('00000000-0000-0000-0000-0000000000a2', '0xABC', 84532)$$, '23514', null, 'bad address rejected');
 
 select throws_ok($$insert into public.messages (channel_id, thread_root_id, author_id, body, body_text, allow_links)
   values (current_setting('t.txtH')::uuid, '00000000-0000-0000-0000-0000000000a2', current_setting('t.a')::uuid, '{}', 'x', false)$$, '23503', null, 'cross-channel thread root rejected');
@@ -80,8 +80,8 @@ select throws_ok($$insert into public.message_mentions (message_id, kind, target
   values ('00000000-0000-0000-0000-0000000000a2', 'everyone', null, false)$$, '23505', null, 'duplicate everyone mention rejected');
 select throws_ok($$insert into public.message_mentions (message_id, kind, target_id, notify)
   values ('00000000-0000-0000-0000-0000000000a2', 'everyone', gen_random_uuid(), false)$$, '23514', null, 'everyone with target rejected');
-select throws_ok($$insert into public.alpha_details (message_id, contract_address)
-  values ('00000000-0000-0000-0000-0000000000a1', '0x' || repeat('A', 40))$$, '23514', null, 'mixed-case address rejected');
+select throws_ok($$insert into public.alpha_details (message_id, contract_address, chain_id)
+  values ('00000000-0000-0000-0000-0000000000a1', '0x' || repeat('A', 40), 84532)$$, '23514', null, 'mixed-case address rejected');
 select is((select count(*)::int from information_schema.role_table_grants
   where grantee = 'authenticated' and table_schema = 'public'
     and table_name in ('messages','message_attachments','message_reactions','message_mentions','alpha_details','channel_reads')

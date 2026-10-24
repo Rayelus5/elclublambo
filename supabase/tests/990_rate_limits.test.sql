@@ -167,7 +167,7 @@ select tests.clear_authentication();
 delete from private.rate_limit_hits;
 set local role service_role;
 select lives_ok($$select public.post_message_as(current_setting('t.a')::uuid, current_setting('t.alpha')::uuid, tests.doc('alpha'),
-                                                'alpha', false, null, null, '[]'::jsonb, '0x' || lpad('a990', 40, '0'))$$, 'post_message_as posts for A');
+                                                'alpha', false, null, null, '[]'::jsonb, '0x' || lpad('a990', 40, '0'), 84532)$$, 'post_message_as posts for A');
 reset role;
 select is(tests.hits(current_setting('t.a'), 'message_min') || ':' || tests.hits(current_setting('t.a'), 'message_hour'), '1:1',
   'post_message_as is charged to A (both buckets)');

@@ -1,8 +1,9 @@
 "use server";
 
 import { docToPlainText, sanitizeDoc } from "@/lib/chat/content";
-import { verifyLineaContract } from "@/lib/chat/linea";
+import { verifyContract } from "@/lib/chat/contract";
 import { ALPHA_ADDRESS_RE } from "@/lib/chat/model";
+import { appChainIds, isChainId } from "@/lib/economy/networks";
 import { rpcErrorCode } from "@/lib/errors";
 import { schedulePushDispatch } from "@/lib/push/schedule";
 import { hitRateLimit } from "@/lib/rate-limit";
@@ -20,11 +21,16 @@ const EMBED_LINKS = 2048;
  */
 export async function postAlphaAction(input: {
   channelId: string;
+  chainId: number;
   address: string;
   doc: unknown;
 }): Promise<{ id?: string; error?: string; slowmodeSeconds?: number }> {
   if (typeof input.channelId !== "string" || !UUID_RE.test(input.channelId)) return { error: "invalid_input" };
   if (typeof input.address !== "string" || !ALPHA_ADDRESS_RE.test(input.address)) return { error: "invalid_input" };
+
+  // Only the build's own networks (Base and Arbitrum, mainnet or testnet); the RPC checks the chain again.
+  if (!isChainId(input.chainId) || !appChainIds().includes(input.chainId)) return { error: "chain_invalid" };
+  const chain = input.chainId;
 
   const doc = sanitizeDoc(input.doc);
   // post_message_as derives the text again; an empty thesis has nothing to show and the RPC rejects it.
@@ -54,7 +60,7 @@ export async function postAlphaAction(input: {
   if (limit !== "ok") return { error: limit === "rate_limited" ? "rate_limited" : "network" };
 
   try {
-    if (!(await verifyLineaContract(input.address))) return { error: "not_a_contract" };
+    if (!(await verifyContract(chain, input.address as `0x${string}`))) return { error: "not_a_contract" };
   } catch {
     return { error: "network" };
   }
@@ -69,6 +75,7 @@ export async function postAlphaAction(input: {
     p_quoted: null,
     p_attachments: [],
     p_alpha_address: input.address.toLowerCase(),
+    p_alpha_chain: chain,
   });
   if (error) {
     const code = rpcErrorCode(error);

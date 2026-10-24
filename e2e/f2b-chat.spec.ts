@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import { CHAINS } from "./chain/shared.mjs";
 import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance of F2b beyond the live-view scenarios in f2b-chat-view.spec.ts: roles and read-only channels,
@@ -298,17 +299,17 @@ test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y v
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel(/Tu tesis/)).toHaveValue(/mi tesis/);
 
-  await dialog.getByLabel("Contrato en Linea").fill("0x123");
+  await dialog.getByLabel("Contrato").fill("0x123");
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog.getByRole("alert")).toContainText("dirección de contrato válida");
   await dialog.getByRole("button", { name: "Cancelar" }).click();
   await expect(dialog).toHaveCount(0);
 });
 
-// Alpha end to end needs the real Linea RPC (getCode). Wrapped USDC-like token contract on Linea mainnet.
-const LINEA_CONTRACT = "0x176211869cA2b568f2A7D4EE941E073a821EE1ff";
-test("7b. Alpha de extremo a extremo con RPC de Linea real", async () => {
-  test.skip(process.env.LINEA_RPC_REACHABLE !== "1", "needs network access to a Linea mainnet RPC: set LINEA_RPC_REACHABLE=1");
+// Alpha end to end against the local Hardhat node of Base Sepolia (84532): the mock USDC sits at Circle's address there,
+// so it is a real contract; no public network is needed (BASE_SEPOLIA_RPC_URL points at the node in the e2e env).
+const BASE_SEPOLIA_CONTRACT = CHAINS[84532].usdc;
+test("7b. alpha con contrato verificado en Base Sepolia", async () => {
   await modPage.reload();
   await expect(modPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await composer(modPage).click();
@@ -317,21 +318,21 @@ test("7b. Alpha de extremo a extremo con RPC de Linea real", async () => {
   const dialog = modPage.getByRole("dialog", { name: "Publicar alpha" });
 
   // an EOA-looking address: not a contract
-  await dialog.getByLabel("Contrato en Linea").fill("0x000000000000000000000000000000000000dEaD");
+  await dialog.getByLabel("Contrato").fill("0x000000000000000000000000000000000000dEaD");
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog.getByRole("alert")).toContainText("no es un contrato");
 
-  await dialog.getByLabel("Contrato en Linea").fill(LINEA_CONTRACT);
+  await dialog.getByLabel("Contrato").fill(BASE_SEPOLIA_CONTRACT);
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog).toHaveCount(0);
   const card = messageWith(modPage, "tesis real");
   await expect(card.getByText("Alpha · Tesis")).toBeVisible();
-  await expect(card.getByRole("link", { name: /Lineascan/ })).toHaveAttribute(
+  await expect(card.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute(
     "href",
-    `https://lineascan.build/address/${LINEA_CONTRACT.toLowerCase()}`,
+    `https://sepolia.basescan.org/address/${BASE_SEPOLIA_CONTRACT.toLowerCase()}`,
   );
   await card.scrollIntoViewIfNeeded();
-  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/linea\/0x/);
+  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/base\/0x/);
 });
 
 test("8. CSP: frame-ancestors none y frame-src acotado; el login renderiza sin errores", async ({ browser }) => {

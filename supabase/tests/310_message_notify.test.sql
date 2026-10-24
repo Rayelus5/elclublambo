@@ -32,8 +32,8 @@ select ok(not has_function_privilege('service_role', 'public._notify_message(uui
 select ok(has_function_privilege('authenticated', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'authenticated still posts');
 select ok(not has_function_privilege('anon', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'anon still cannot post');
 select ok(has_function_privilege('authenticated', 'public.edit_message(uuid,jsonb,text)', 'execute'), 'authenticated still edits');
-select ok(has_function_privilege('service_role', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'service_role still post_message_as');
-select ok(not has_function_privilege('authenticated', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'authenticated still cannot post_message_as');
+select ok(has_function_privilege('service_role', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,int)', 'execute'), 'service_role still post_message_as');
+select ok(not has_function_privilege('authenticated', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,int)', 'execute'), 'authenticated still cannot post_message_as');
 
 -- ===== fixtures =====
 select set_config('t.a', tests.create_member('0x' || lpad('d3100', 40, '0'), null, true)::text, true);
@@ -242,7 +242,7 @@ update public.channels set alpha_enabled = true where id = current_setting('t.al
 set local role service_role;
 select set_config('t.am', public.post_message_as(current_setting('t.p')::uuid, current_setting('t.alpha')::uuid,
   tests.mdoc(tests.mn('member', current_setting('t.x'))), 'x', false, null, null, '[]',
-  '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01')::text, true);
+  '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01', 84532)::text, true);
 reset role;
 select is(tests.nk(current_setting('t.am'), current_setting('t.x')), 'mention', 'post_message_as notifies a mentioned member');
 select is(tests.nc(current_setting('t.am')), 1, 'post_message_as: only the mentioned member');

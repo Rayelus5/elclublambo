@@ -40,8 +40,8 @@ export interface ChatMessage {
   body: unknown;
   allowLinks: boolean;
   kind: "text" | "alpha" | "system" | "bounty" | "poll";
-  /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
-  alphaAddress: string | null;
+  /** Contract of an Alpha message (lowercase address) and its network; null for ordinary messages. */
+  alpha: { address: string; chainId: number } | null;
   /** Details of a bounty message; null when unreadable or not a bounty. Absent on view models built before bounties. */
   bounty?: BountyDetail | null;
   /** Details of a poll message; null when unreadable or not a poll. Absent on view models built before polls. */

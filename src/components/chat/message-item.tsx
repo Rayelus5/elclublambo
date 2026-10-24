@@ -386,7 +386,7 @@ export function MessageItem({
                 )}
               </blockquote>
             ) : null}
-            {message.kind === "alpha" && message.alphaAddress ? <AlphaCard address={message.alphaAddress} /> : null}
+            {message.kind === "alpha" && message.alpha ? <AlphaCard address={message.alpha.address} chainId={message.alpha.chainId} /> : null}
             {bounty ? (
               <BountyCard
                 messageId={message.id}

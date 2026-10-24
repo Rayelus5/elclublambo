@@ -16,7 +16,7 @@ const MESSAGES: Record<string, string> = {
   invalid_tree: "Ese movimiento rompería la estructura del árbol.",
   depth_limit: "Se ha superado la profundidad máxima (6 niveles).",
   slowmode: "Vas demasiado rápido. Espera un poco antes de volver a escribir.",
-  not_a_contract: "Esa dirección no es un contrato en Linea.",
+  not_a_contract: "Esa dirección no es un contrato en esa red.",
   network: "No se pudo verificar el contrato. Inténtalo de nuevo.",
   too_long: "El mensaje es demasiado largo.",
   too_many_attachments: "Puedes adjuntar como máximo 4 imágenes.",

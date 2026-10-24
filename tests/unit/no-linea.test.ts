@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
-// P0: the app runs on Base and Arbitrum. "Linea" may only remain in the legacy islands (the paused DAO, its polls and
-// treasury code), the alpha contract check (still on Linea mainnet) and the readiness check that forbids Linea env vars.
+// The app runs on Base and Arbitrum. "Linea" may only remain in the legacy islands (the paused DAO, its polls and
+// treasury code) and the readiness check that forbids Linea env vars. Alphas are on Base and Arbitrum too (P1).
 const ROOT = join(process.cwd(), "src");
 const EXEMPT = [
   /^src\/lib\/legacy\//,
@@ -11,15 +11,9 @@ const EXEMPT = [
   /^src\/components\/treasury\//,
   /^src\/app\/\(forum\)\/dao\//,
   /^src\/lib\/polls\//,
-  /^src\/lib\/chat\/linea\.ts$/,
-  /^src\/components\/chat\/alpha-[^/]*\.tsx$/,
   /^src\/app\/api\/cron\/dao\//,
   /^src\/lib\/deploy\/readiness\.ts$/,
-  /^src\/lib\/chat\/alpha\.ts$/,
-  /^src\/lib\/chat\/model\.ts$/,
 ];
-/** Single exempt lines: the alpha error copy. */
-const EXEMPT_LINE = /^\s*not_a_contract:/;
 const LINEA = /\bLinea\b/i;
 /** Module specifiers are paths, not copy: `from "…"`, `import("…")`, `vi.mock("…")`. */
 const SPECIFIER = /(\bfrom\s*|\bimport\s*\(\s*|\bmock\s*\(\s*)(["'])[^"']*\2/g;
@@ -41,7 +35,6 @@ describe("no Linea outside the legacy islands (P0)", () => {
       readFileSync(abs, "utf8")
         .split(/\r?\n/)
         .forEach((line, i) => {
-          if (EXEMPT_LINE.test(line)) return;
           if (LINEA.test(line.replace(SPECIFIER, ""))) hits.push(`${rel}:${i + 1}: ${line.trim()}`);
         });
     }
