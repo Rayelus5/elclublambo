@@ -1,16 +1,8 @@
-import { linea, lineaSepolia } from "viem/chains";
 import type { Chain } from "viem";
+import { NETWORKS, appChainIds } from "@/lib/economy/networks";
 
-export const APP_CHAINS = [lineaSepolia, linea] as const;
-
-export function getAppChain(): Chain {
-  const name = process.env.NEXT_PUBLIC_CHAIN ?? "lineaSepolia";
-  switch (name) {
-    case "linea":
-      return linea;
-    case "lineaSepolia":
-      return lineaSepolia;
-    default:
-      throw new Error(`Unknown NEXT_PUBLIC_CHAIN: ${name}`);
-  }
+/** The build's chains (NEXT_PUBLIC_NETWORK_SET) as viem chains, Base first: AppKit's networks and its default. */
+export function appChains(): readonly [Chain, ...Chain[]] {
+  const [first, ...rest] = appChainIds().map((id) => NETWORKS[id].viemChain);
+  return [first!, ...rest];
 }

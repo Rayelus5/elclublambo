@@ -1,6 +1,6 @@
 import type { Address } from "viem";
 import { createSiweMessage, generateSiweNonce } from "viem/siwe";
-import { APP_CHAINS } from "./chains";
+import { appChainIds } from "@/lib/economy/networks";
 
 export const LOGIN_STATEMENT =
   "Entra en El Club Lambo. Esta firma no cuesta gas ni mueve fondos.";
@@ -17,7 +17,8 @@ export type LoginMessageParams = {
 };
 
 export function buildLoginMessage(p: LoginMessageParams): string {
-  if (!APP_CHAINS.some((c) => c.id === p.chainId)) {
+  // Login works on any of the build's chains (D5): the wallet signs on whichever it is connected to.
+  if (!(appChainIds() as number[]).includes(p.chainId)) {
     throw new Error("invalid_input");
   }
   const now = p.now ?? new Date();
