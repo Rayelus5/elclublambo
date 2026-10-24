@@ -52,6 +52,18 @@ describe("AssetPicker", () => {
     expect(screen.getAllByRole("radio")[3]).toHaveAttribute("aria-checked", "true");
   });
 
+  it.each(["{Alt>}{ArrowDown}{/Alt}", "{Control>}{ArrowDown}{/Control}", "{Meta>}{End}{/Meta}"])(
+    "leaves modified keys (%s) to the browser and assistive tech",
+    async (keys) => {
+      const onChange = vi.fn();
+      render(<AssetPicker assets={TESTNET} balances={{}} amount={null} value="USDC:84532" onChange={onChange} />);
+      screen.getAllByRole("radio")[0]!.focus();
+      await userEvent.keyboard(keys);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(screen.getAllByRole("radio")[0]).toHaveFocus();
+    },
+  );
+
   it("is reachable by Tab on the first row when nothing is chosen", () => {
     render(<Controlled />);
     expect(screen.getAllByRole("radio").map((r) => r.tabIndex)).toEqual([0, -1, -1, -1]);

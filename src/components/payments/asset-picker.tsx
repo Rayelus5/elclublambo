@@ -50,6 +50,8 @@ export function AssetPicker({
   const arbitrumUsdc = assets.some((a) => a.token === "USDC" && NETWORKS[a.chainId].key === "arbitrum");
 
   const onKeyDown = (e: KeyboardEvent, i: number) => {
+    // Modified keys belong to the browser and assistive tech (history, screen reader commands).
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
     const step = NEXT_KEYS[e.key];
     const target = step ? (i + step + ranked.length) % ranked.length : e.key === "Home" ? 0 : e.key === "End" ? ranked.length - 1 : -1;
     if (target === -1) return;
