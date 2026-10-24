@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { rpcErrorMessage } from "@/lib/errors";
 import { createPollAction } from "@/lib/polls/actions";
-import { normalizePollText, POLL_LIMITS, validatePollDraft, type PollWeightMode } from "@/lib/polls/polls";
+import { normalizePollText, POLL_LIMITS, validatePollDraft } from "@/lib/polls/polls";
 
 export interface PollDialogProps {
   open: boolean;
@@ -35,16 +35,6 @@ const PRESETS = [
 ] as const;
 type Preset = (typeof PRESETS)[number]["id"] | "custom";
 
-const MODES: { id: PollWeightMode; label: string; help?: string }[] = [
-  { id: "equal", label: "1 persona, 1 voto" },
-  { id: "linear", label: "Lineal según participación", help: "Cada voto pesa lo que sumaban tus participaciones sin bloquear al crear la encuesta." },
-  {
-    id: "quadratic",
-    label: "Cuadrática según participación",
-    help: "Cada voto pesa la raíz cuadrada de esas participaciones: quien más aportó pesa más, pero menos que en lineal.",
-  },
-];
-
 const QUESTION_ERROR_ID = "poll-question-error";
 const OPTIONS_ERROR_ID = "poll-options-error";
 const CLOSE_ERROR_ID = "poll-close-error";
@@ -55,7 +45,6 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
   const [options, setOptions] = useState<string[]>(["", ""]);
   const [preset, setPreset] = useState<Preset>("1d");
   const [custom, setCustom] = useState("");
-  const [mode, setMode] = useState<PollWeightMode>("equal");
   const [error, setError] = useState<{ text: string; field: Field } | null>(null);
   const [sending, setSending] = useState(false);
   const busy = useRef(false);
@@ -89,7 +78,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
     setError(null);
     let res: Awaited<ReturnType<typeof createPollAction>>;
     try {
-      res = await createPollAction({ channelId, question, options, closesAt: closesAt.toISOString(), weightMode: mode });
+      res = await createPollAction({ channelId, question, options, closesAt: closesAt.toISOString() });
     } catch {
       res = { ok: false, code: "unknown", error: rpcErrorMessage("unknown") };
     }
@@ -111,7 +100,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
   const oErr = fieldError("options");
   const cErr = fieldError("closesAt");
   const qLen = [...normalizePollText(question)].length;
-  const radio = "mt-0.5 size-4 shrink-0 accent-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
+  const radio = "size-4 shrink-0 accent-[var(--color-accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-5" noValidate>
@@ -214,7 +203,7 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
                   setPreset(p.id);
                   clear();
                 }}
-                className={radio.replace("mt-0.5 ", "")}
+                className={radio}
               />
               {p.label}
             </label>
@@ -246,47 +235,8 @@ function Form({ onOpenChange, channelId, initialQuestion, onPosted, onSlowmode }
         )}
       </fieldset>
 
-      <fieldset className="flex min-w-0 flex-col gap-2">
-        <legend className="mb-2 text-sm font-medium">Peso del voto</legend>
-        <div className="flex flex-col gap-1">
-          {MODES.map((m) => (
-            <label key={m.id} htmlFor={`poll-mode-${m.id}`} className="flex min-h-11 cursor-pointer items-start gap-2 py-2.5">
-              <input
-                type="radio"
-                id={`poll-mode-${m.id}`}
-                name="poll-mode"
-                checked={mode === m.id}
-                onChange={() => {
-                  setMode(m.id);
-                  clear();
-                }}
-                aria-labelledby={`poll-mode-${m.id}-name`}
-                aria-describedby={m.help ? `poll-mode-${m.id}-help` : undefined}
-                className={radio}
-              />
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span id={`poll-mode-${m.id}-name`} className="text-sm">
-                  {m.label}
-                </span>
-                {m.help ? (
-                  <p id={`poll-mode-${m.id}-help`} className="text-[13px] text-fg-muted">
-                    {m.help}
-                  </p>
-                ) : null}
-              </div>
-            </label>
-          ))}
-        </div>
-        <p className="text-[13px] text-fg-muted">
-          Con pocos votantes, un voto ponderado puede delatar la participación de alguien. Los resultados ponderados necesitan al menos 5 votantes con
-          participaciones (en 1 persona, 1 voto: 3).
-        </p>
-      </fieldset>
-
       <p className="rounded-control border border-border bg-surface-2 p-3 text-[13px] text-fg-muted">
-        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos{" "}
-        {mode === "equal" ? "3 personas" : "5 personas con participaciones"}. La
-        encuesta es consultiva: no ejecuta nada por sí sola.
+        El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos 3 personas. La encuesta es consultiva: no ejecuta nada por sí sola.
       </p>
 
       {error && error.field === null ? (

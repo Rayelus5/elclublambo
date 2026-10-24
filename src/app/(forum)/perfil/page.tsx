@@ -8,14 +8,14 @@ import { AvatarUpload } from "@/components/profile/avatar-upload";
 import { ProfileForm } from "@/components/profile/profile-form";
 import { ReceiveNetworksForm } from "@/components/profile/receive-networks-form";
 import { UiZoomToggle } from "@/components/profile/ui-zoom-toggle";
-import { RankingToggle } from "@/components/treasury/ranking-toggle";
+import { DonorVisibilityToggle } from "@/components/donations/donor-visibility-toggle";
 import { isNetworkKey, NETWORK_KEYS, type NetworkKey } from "@/lib/economy/networks";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Editar perfil" };
 
-type Row = MemberIdentityRow & { bio: string | null; links: unknown; handle_changed_at: string | null; dao_ranking_visible: boolean; receive_networks: string[] | null };
+type Row = MemberIdentityRow & { bio: string | null; links: unknown; handle_changed_at: string | null; donor_visible: boolean; receive_networks: string[] | null };
 
 const COOLDOWN_MS = 30 * 86_400_000;
 
@@ -33,7 +33,7 @@ async function EditProfile() {
   if (me.error || typeof me.data !== "string") notFound();
   const { data: row } = await supabase
     .from("members")
-    .select(`${MEMBER_IDENTITY_COLUMNS}, bio, links, handle_changed_at, dao_ranking_visible, receive_networks`)
+    .select(`${MEMBER_IDENTITY_COLUMNS}, bio, links, handle_changed_at, donor_visible, receive_networks`)
     .eq("id", me.data)
     .maybeSingle<Row>();
   if (!row) notFound();
@@ -63,11 +63,11 @@ async function EditProfile() {
         handleNextChangeAt={handleNextChange(row.handle, row.handle_changed_at)}
       />
       <ReceiveNetworksForm initial={receiveNetworks} />
-      <section aria-labelledby="dao-privacy" className="flex flex-col gap-3">
-        <h2 id="dao-privacy" className="text-h2">
-          Privacidad en la DAO
+      <section aria-labelledby="donor-list" className="flex flex-col gap-3">
+        <h2 id="donor-list" className="text-h2">
+          Lista de donantes
         </h2>
-        <RankingToggle initial={row.dao_ranking_visible === true} id="perfil-dao-ranking-visible" />
+        <DonorVisibilityToggle initial={row.donor_visible !== false} id="perfil-donor-visible" />
       </section>
       <section aria-labelledby="chat-density" className="flex flex-col gap-3">
         <h2 id="chat-density" className="text-h2">

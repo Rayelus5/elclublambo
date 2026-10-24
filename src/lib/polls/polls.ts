@@ -59,7 +59,7 @@ export type PollDraftCheck =
   | { ok: true }
   | { ok: false; code: "question_required" | "poll_options_invalid" | "closes_at_invalid"; field: "question" | "options" | "closesAt" };
 
-/** Same rules, same order as create_poll (weight mode and chain are checked by the server). */
+/** Same rules, same order as create_poll (the server judges channel and permissions). */
 export function validatePollDraft(d: { question: string; options: string[]; closesAt: Date; now: Date }): PollDraftCheck {
   const q = normalizePollText(typeof d.question === "string" ? d.question : "");
   if (len(q) < 1 || len(q) > POLL_LIMITS.questionMax) return { ok: false, code: "question_required", field: "question" };
@@ -81,15 +81,9 @@ export function validatePollDraft(d: { question: string; options: string[]; clos
   return { ok: true };
 }
 
-export function pollModeLabel(m: PollWeightMode): string {
-  if (m === "linear") return "Ponderada · lineal según participación";
-  if (m === "quadratic") return "Ponderada · cuadrática según participación";
-  return "1 persona, 1 voto";
-}
-
 /**
- * Tenths of a percent as text: 333 -> "33,3 %", 1000 -> "100 %". A whole number carries no decimal, so the weighted
- * results (multiples of 10, F4e-R3) read "58 %" and the equal ones "66,7 %". Never sum these expecting 100 %.
+ * Tenths of a percent as text: 333 -> "33,3 %", 1000 -> "100 %". A whole number carries no decimal ("58 %", "66,7 %").
+ * Percentages are rounded, so never sum them expecting exactly 100 %.
  */
 export function formatTenths(t: number): string {
   const whole = Math.floor(t / 10);

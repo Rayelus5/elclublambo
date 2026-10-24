@@ -79,7 +79,7 @@ describe("WelcomeSteps", () => {
     expect(completeWelcomeAction).toHaveBeenCalledTimes(1);
   });
 
-  it("P0: step 2 says tips and bounties go on Base or Arbitrum with no fee; step 3 says the DAO is being rebuilt", async () => {
+  it("P0: step 2 says tips and bounties go on Base or Arbitrum with no fee; step 3 explains donations and Mecenas", async () => {
     const user = userEvent.setup();
     render(<WelcomeSteps {...base} initialHandle="ana" />);
     await user.click(screen.getByRole("button", { name: "Siguiente" }));
@@ -89,7 +89,10 @@ describe("WelcomeSteps", () => {
     expect(text).not.toMatch(/comisión/i);
     await user.click(screen.getByRole("button", { name: "Siguiente" }));
     text = document.body.textContent ?? "";
-    expect(text).toMatch(/La DAO se está rehaciendo/);
+    expect(text).toMatch(/Donar no da derechos económicos/);
+    expect(text).toMatch(/Mecenas/);
+    expect(text).not.toMatch(/no se puede donar|se está rehaciendo/);
+    expect(screen.getByRole("link", { name: /Guía: Donaciones y Mecenas/ }).getAttribute("href")).toBe("/guia/donaciones");
   });
 
   it("step 4 shows every network the club uses", async () => {

@@ -1,5 +1,6 @@
 // Home summary and right-rail reads. Every list comes from a definer RPC that only returns what the caller may see
-// (supabase/migrations/20261019000003_home_and_rail.sql); amounts arrive as text and become bigint here.
+// (supabase/migrations/20261019000003_home_and_rail.sql, 20261024200007_home_dashboard.sql); amounts arrive as text and
+// become bigint here.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Token } from "@/lib/payments/amounts";
 
@@ -43,6 +44,23 @@ export interface ActivityItem {
   channelId: string | null;
   messageId: string | null;
   targetWallet: string | null;
+}
+
+export interface HomeUnreadChannel {
+  channelId: string;
+  channelName: string;
+  /** Capped at 99 by the RPC. */
+  unreadCount: number;
+  lastExcerpt: string;
+  lastAuthor: string;
+  lastAt: string;
+}
+
+export interface HomeHighlights {
+  openBounties: number;
+  poll: { messageId: string; channelId: string; question: string; closesAt: string } | null;
+  giveaway: { id: string; title: string; closesAt: string; iEntered: boolean } | null;
+  donor: { isMecenas: boolean };
 }
 
 export interface UnreadSummary {
@@ -117,6 +135,39 @@ export async function getClubActivity(supabase: Client, limit = 15): Promise<Act
       messageId: strOrNull(r.message_id),
       targetWallet: strOrNull(r.target_wallet),
     }));
+}
+
+/** Visible channels with messages from others since the member last read them, newest first. */
+export async function getHomeUnreadChannels(supabase: Client, limit = 6): Promise<HomeUnreadChannel[]> {
+  return (await rows(supabase, "home_unread_channels", { p_limit: limit })).map((r) => ({
+    channelId: str(r.channel_id),
+    channelName: str(r.channel_name),
+    unreadCount: Number(r.unread_count ?? 0),
+    lastExcerpt: str(r.last_excerpt),
+    lastAuthor: str(r.last_author),
+    lastAt: str(r.last_at),
+  }));
+}
+
+const obj = (v: unknown): Row | null => (v !== null && typeof v === "object" && !Array.isArray(v) ? (v as Row) : null);
+
+/** Open bounties count, the newest open poll, the open giveaway closing first and the Mecenas flag. */
+export async function getHomeHighlights(supabase: Client): Promise<HomeHighlights> {
+  const { data, error } = await supabase.rpc("home_highlights");
+  if (error) throw new Error(error.message);
+  const o = obj(data) ?? {};
+  const poll = obj(o.poll);
+  const giveaway = obj(o.giveaway);
+  return {
+    openBounties: typeof o.openBounties === "number" ? o.openBounties : 0,
+    poll: poll
+      ? { messageId: str(poll.messageId), channelId: str(poll.channelId), question: str(poll.question), closesAt: str(poll.closesAt) }
+      : null,
+    giveaway: giveaway
+      ? { id: str(giveaway.id), title: str(giveaway.title), closesAt: str(giveaway.closesAt), iEntered: giveaway.iEntered === true }
+      : null,
+    donor: { isMecenas: obj(o.donor)?.isMecenas === true },
+  };
 }
 
 /** Unread mentions and replies (RLS: own rows in visible channels only). Errors read as zero: a summary, not a gate. */

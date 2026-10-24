@@ -16,7 +16,8 @@ export type VerifyInput = {
   token: VerifyToken;
   txHash: `0x${string}`;
   from: string;
-  to: string;
+  /** `null` (ERC-20 only, club expenses): any recipient. The sender and the exact value still have to match. */
+  to: string | null;
   amount: bigint;
   notBefore: Date;
   confirmations?: number;
@@ -103,6 +104,7 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
     let logIndex = -1;
     let value: bigint;
     if (input.token === "ETH") {
+      if (input.to === null) return err("tx_mismatch");
       if (!same(tx.from, input.from) || !same(tx.to, input.to) || tx.value !== input.amount) return err("tx_mismatch");
       value = tx.value;
     } else {
@@ -119,7 +121,7 @@ export async function verifyTransfer(input: VerifyInput, client: PublicClient = 
       );
       const pays = (v: bigint) => (input.atLeast ? v >= input.amount : v === input.amount);
       const qualifying = logs.filter(
-        (l) => same(l.address, contract) && same(l.args.from, input.from) && same(l.args.to, input.to) && pays(l.args.value),
+        (l) => same(l.address, contract) && same(l.args.from, input.from) && (input.to === null || same(l.args.to, input.to)) && pays(l.args.value),
       );
       const hit = qualifying.find((l) => l.logIndex === input.preferLogIndex) ?? qualifying[0];
       if (!hit) return err("tx_mismatch");

@@ -53,7 +53,7 @@ function parseCollapsed(raw: string): Set<string> {
   }
 }
 
-/** Candado de la DAO: el canal se ve en la barra pero no se puede entrar. */
+/** Candado por lo donado: el canal se ve en la barra pero no se puede entrar. */
 function LockIcon() {
   return <Lock className="size-3.5 shrink-0" aria-hidden />;
 }

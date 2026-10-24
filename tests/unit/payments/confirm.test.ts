@@ -19,8 +19,14 @@ function builder(table: string) {
 const admin = { from: (t: string) => builder(t), rpc: (...a: unknown[]) => rpc(...a) };
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => admin }));
 
-const settle = vi.fn();
-vi.mock("@/lib/treasury/settle", () => ({ settlePendingDonations: (...a: unknown[]) => settle(...a) }));
+const readEthUsd = vi.fn();
+vi.mock("@/lib/economy/eth-price", async (orig) => ({
+  ...(await orig<typeof import("@/lib/economy/eth-price")>()),
+  readEthUsd: (...a: unknown[]) => readEthUsd(...a),
+}));
+
+const verifyClubSafe = vi.fn();
+vi.mock("@/lib/economy/club-safe", () => ({ verifyClubSafe: (...a: unknown[]) => verifyClubSafe(...a) }));
 
 import { confirmIntent, reverifyIntentsFor } from "@/lib/payments/confirm";
 
@@ -49,6 +55,7 @@ beforeEach(() => {
   tables.tips = { id: "tip1" };
   verifyTransfer.mockImplementation(async (i: { txHash: string }) => ({ status: "ok", logIndex: i.txHash === FEE ? 3 : 7, blockNumber: 10n, blockTimestamp: new Date("2026-10-18T12:05:00.000Z") }));
   rpc.mockResolvedValue({ data: "tip1", error: null });
+  verifyClubSafe.mockResolvedValue("ok");
   vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -241,9 +248,9 @@ describe("confirmIntent: transient reads and definitive outcomes (F3-R3)", () =>
     spy.mockRestore();
   });
 
-  it("a failed ledger read on a confirmed donation is pending", async () => {
+  it("a failed donations read on a confirmed donation is pending", async () => {
     tables.payment_intents = intent({ purpose: "donation", status: "confirmed" });
-    tableErrors.dao_ledger = { message: "boom" };
+    tableErrors.donations = { message: "boom" };
     const spy = err();
     expect(await confirmIntent("i1")).toEqual({ status: "pending" });
     spy.mockRestore();
@@ -266,10 +273,10 @@ describe("confirmIntent: transient reads and definitive outcomes (F3-R3)", () =>
     expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: code });
   });
 
-  it("a record_donation recheck that can never pass (invalid_input) fails the intent for good", async () => {
-    tables.payment_intents = intent({ purpose: "donation" });
+  it("a confirm_donation recheck that can never pass (invalid_input) fails the intent for good", async () => {
+    tables.payment_intents = intent({ purpose: "donation", fee_amount: "0", fee_tx_hash: null, platform_address: null });
     rpc.mockImplementation(async (name: string) =>
-      name === "record_donation" ? { data: null, error: { message: "invalid_input" } } : { data: null, error: null });
+      name === "confirm_donation" ? { data: null, error: { message: "invalid_input" } } : { data: null, error: null });
     expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "invalid_input" });
     expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "invalid_input" });
   });
@@ -323,59 +330,88 @@ describe("reverifyIntentsFor", () => {
 
 describe("confirmIntent: donations", () => {
   beforeEach(() => {
-    tables.payment_intents = intent({ purpose: "donation" });
-    rpc.mockResolvedValue({ data: "ledger1", error: null });
-    settle.mockResolvedValue({ credited: 0, reverted: 0, pending: 1 });
+    tables.payment_intents = intent({ purpose: "donation", fee_amount: "0", fee_tx_hash: null, platform_address: null });
+    rpc.mockResolvedValue({ data: { status: "confirmed", donationId: "don1" }, error: null });
+    readEthUsd.mockResolvedValue({ priceE8: 236045646999n });
   });
 
-  it("records the donation (not confirm_tip) with the verified block numbers, verifying with a single confirmation", async () => {
-    await confirmIntent("i1");
-    expect(rpc).toHaveBeenCalledWith("record_donation", {
+  it("USDC: confirm_donation gets p_usd6 equal to the amount, no price, default confirmations", async () => {
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", donationId: "don1" });
+    expect(rpc).toHaveBeenCalledWith("confirm_donation", {
       p_intent: "i1",
       p_main: { txHash: MAIN, logIndex: 7, blockNumber: "10" },
-      p_fee: { txHash: FEE, logIndex: 3, blockNumber: "10" },
+      p_usd6: "1000000",
+      p_eth_price_e8: null,
     });
+    expect(readEthUsd).not.toHaveBeenCalled();
+    const arg = verifyTransfer.mock.calls[0]![0];
+    expect(arg).toMatchObject({ txHash: MAIN, to: RECIPIENT, from: PAYER, amount: 1000000n });
+    expect(arg).not.toHaveProperty("confirmations");
     expect(rpc).not.toHaveBeenCalledWith("confirm_tip", expect.anything());
-    expect(verifyTransfer).toHaveBeenCalledWith(expect.objectContaining({ txHash: MAIN, confirmations: 1 }));
   });
 
-  it("returns pending_finality with the ledger id when the settle attempt does not credit it", async () => {
-    expect(await confirmIntent("i1")).toEqual({ status: "pending_finality", ledgerId: "ledger1" });
-    expect(settle).toHaveBeenCalledWith(84532, { ledgerId: "ledger1", limit: 1 });
+  it("ETH: reads the price and sends usd6 and the price", async () => {
+    tables.payment_intents = intent({ purpose: "donation", token: "ETH", amount: "1000000000000000000", fee_amount: "0", fee_tx_hash: null, platform_address: null });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", donationId: "don1" });
+    expect(readEthUsd).toHaveBeenCalledWith(84532);
+    expect(rpc).toHaveBeenCalledWith("confirm_donation", expect.objectContaining({ p_usd6: "2360456469", p_eth_price_e8: "236045646999" }));
   });
 
-  it("returns confirmed when the immediate settle credits it", async () => {
-    settle.mockResolvedValue({ credited: 1, reverted: 0, pending: 0 });
-    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", ledgerId: "ledger1" });
+  it("ETH without a price stays pending with price_unavailable: no confirm_donation, no fail_intent", async () => {
+    tables.payment_intents = intent({ purpose: "donation", token: "ETH", amount: "1000000000000000000", fee_amount: "0", fee_tx_hash: null, platform_address: null });
+    readEthUsd.mockResolvedValue(null);
+    expect(await confirmIntent("i1")).toEqual({ status: "pending", reason: "price_unavailable" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("a reverted-on-the-spot donation fails with the reverted code", async () => {
-    settle.mockResolvedValue({ credited: 0, reverted: 1, pending: 0 });
-    expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "reverted" });
+  it("the club Safe not deployed on that network: pending with safe_not_deployed, never credited nor failed", async () => {
+    verifyClubSafe.mockResolvedValue("not_deployed");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending", reason: "safe_not_deployed" });
+    expect(verifyClubSafe).toHaveBeenCalledWith(84532);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("a settle failure never undoes the recording", async () => {
-    settle.mockRejectedValue(new Error("rpc down"));
-    const err = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(await confirmIntent("i1")).toEqual({ status: "pending_finality", ledgerId: "ledger1" });
-    err.mockRestore();
+  it("the Safe check failing (network, not_configured) also stays pending, never credited", async () => {
+    verifyClubSafe.mockResolvedValue("network");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    verifyClubSafe.mockResolvedValue("not_configured");
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("an already-confirmed donation intent resolves from its ledger row, without touching the chain", async () => {
+  it("a tip never asks for the club Safe", async () => {
+    tables.payment_intents = intent();
+    rpc.mockResolvedValue({ data: "tip1", error: null });
+    await confirmIntent("i1");
+    expect(verifyClubSafe).not.toHaveBeenCalled();
+  });
+
+  it("an already outcome of confirm_donation is also confirmed", async () => {
+    rpc.mockResolvedValue({ data: { status: "already", donationId: "don1" }, error: null });
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", donationId: "don1" });
+  });
+
+  it("a transient confirm_donation error stays pending", async () => {
+    rpc.mockResolvedValue({ data: null, error: { message: "boom", code: "XX000" } });
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await confirmIntent("i1")).toEqual({ status: "pending" });
+    expect(rpc).not.toHaveBeenCalledWith("fail_intent", expect.anything());
+    spy.mockRestore();
+  });
+
+  it("an already-confirmed donation intent resolves from donations, without touching the chain", async () => {
     tables.payment_intents = intent({ purpose: "donation", status: "confirmed" });
-    tables.dao_ledger = { id: "ledger1", status: "pending_finality" };
-    expect(await confirmIntent("i1")).toEqual({ status: "pending_finality", ledgerId: "ledger1" });
+    tables.donations = { id: "don1" };
+    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", donationId: "don1" });
     expect(verifyTransfer).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
-    tables.dao_ledger = { id: "ledger1", status: "credited" };
-    expect(await confirmIntent("i1")).toEqual({ status: "confirmed", ledgerId: "ledger1" });
   });
 
   it("fails the intent on a permanent verify error like any other purpose", async () => {
     verifyTransfer.mockResolvedValue({ status: "error", code: "tx_mismatch" });
     expect(await confirmIntent("i1")).toMatchObject({ status: "failed", code: "tx_mismatch" });
     expect(rpc).toHaveBeenCalledWith("fail_intent", { p_intent: "i1", p_code: "tx_mismatch" });
-    expect(rpc).not.toHaveBeenCalledWith("record_donation", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("confirm_donation", expect.anything());
   });
 
   it("includes donations in the interrupted-flow reverification", async () => {

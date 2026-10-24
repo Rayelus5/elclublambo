@@ -38,12 +38,12 @@ afterEach(() => vi.unstubAllGlobals());
 const reveal = () => act(() => observers.forEach((o) => o.cb([{ isIntersecting: true }])));
 
 describe("AlphaCard", () => {
-  it("shows the chip, the address in mono, the lineascan link and the third-party notice", () => {
-    render(<AlphaCard address={ADDR} />);
+  it("shows the chip, the address in mono, the explorer link and the third-party notice", () => {
+    render(<AlphaCard address={ADDR} chainId={84532} />);
     expect(screen.getByText("Alpha · Tesis")).toBeInTheDocument();
     expect(screen.getByText(ADDR)).toHaveClass("font-mono");
-    const link = screen.getByRole("link", { name: /Lineascan/i });
-    expect(link).toHaveAttribute("href", `https://lineascan.build/address/${ADDR}`);
+    const link = screen.getByRole("link", { name: /Ver en el explorador/i });
+    expect(link).toHaveAttribute("href", `https://sepolia.basescan.org/address/${ADDR}`);
     expect(link).toHaveAttribute("target", "_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
     expect(link.getAttribute("rel")).toContain("noreferrer");
@@ -51,12 +51,12 @@ describe("AlphaCard", () => {
   });
 
   it("mounts the DexScreener iframe only after the card scrolls into view", () => {
-    const { container } = render(<AlphaCard address={ADDR} />);
+    const { container } = render(<AlphaCard address={ADDR} chainId={84532} />);
     expect(container.querySelector("iframe")).toBeNull();
     reveal();
     const frame = container.querySelector("iframe")!;
     expect(frame).not.toBeNull();
-    expect(frame.getAttribute("src")).toBe(`https://dexscreener.com/linea/${ADDR}?embed=1&theme=dark&trades=0&info=0`);
+    expect(frame.getAttribute("src")).toBe(`https://dexscreener.com/base/${ADDR}?embed=1&theme=dark&trades=0&info=0`);
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin allow-popups");
     expect(frame.getAttribute("loading")).toBe("lazy");
     expect(frame.getAttribute("title")).toBe("Gráfico de 0x1234…5678 en DexScreener");
@@ -64,10 +64,34 @@ describe("AlphaCard", () => {
     expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
   });
 
+  it("Arbitrum: arbiscan link and the arbitrum DexScreener chart", () => {
+    const { container } = render(<AlphaCard address={ADDR} chainId={42161} />);
+    expect(screen.getByRole("link", { name: /Ver en el explorador/i })).toHaveAttribute("href", `https://arbiscan.io/address/${ADDR}`);
+    reveal();
+    expect(container.querySelector("iframe")!.getAttribute("src")).toBe(
+      `https://dexscreener.com/arbitrum/${ADDR}?embed=1&theme=dark&trades=0&info=0`,
+    );
+  });
+
+  it("names the network on the card", () => {
+    render(<AlphaCard address={ADDR} chainId={42161} />);
+    expect(screen.getByText("Arbitrum")).toBeInTheDocument();
+  });
+
+  it("a legacy row on a network that is gone shows only the address and the copy button", () => {
+    const { container } = render(<AlphaCard address={ADDR} chainId={59144} />);
+    reveal();
+    expect(screen.getByText(ADDR)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copiar dirección" })).toBeInTheDocument();
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(container.querySelector("a")).toBeNull();
+    expect(screen.getByText("Alpha · Tesis")).toBeInTheDocument();
+  });
+
   it("copies the address and confirms it", async () => {
     const user = userEvent.setup();
     const writeText = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue();
-    render(<AlphaCard address={ADDR} />);
+    render(<AlphaCard address={ADDR} chainId={84532} />);
     await user.click(screen.getByRole("button", { name: "Copiar dirección" }));
     expect(writeText).toHaveBeenCalledWith(ADDR);
     expect(await screen.findByText("Copiada")).toBeInTheDocument();
@@ -76,12 +100,12 @@ describe("AlphaCard", () => {
   it("falls back to mounting right away without IntersectionObserver", () => {
     vi.unstubAllGlobals();
     // jsdom has none
-    const { container } = render(<AlphaCard address={ADDR} />);
+    const { container } = render(<AlphaCard address={ADDR} chainId={84532} />);
     expect(container.querySelector("iframe")).not.toBeNull();
   });
 
   it("never builds URLs from an invalid address", () => {
-    const { container } = render(<AlphaCard address={'0x"><script>'} />);
+    const { container } = render(<AlphaCard address={'0x"><script>'} chainId={84532} />);
     reveal();
     expect(container.querySelector("iframe")).toBeNull();
     expect(container.querySelector("a")).toBeNull();
@@ -90,7 +114,7 @@ describe("AlphaCard", () => {
 
 describe("MessageItem with an alpha message", () => {
   it("renders the card above the thesis", () => {
-    const m = makeMessage({ kind: "alpha", alphaAddress: ADDR });
+    const m = makeMessage({ kind: "alpha", alpha: { address: ADDR, chainId: 84532 } });
     render(
       <ol>
         <MessageItem message={m} directory={directory} allowedDomains={[]} viewer={viewer()} />

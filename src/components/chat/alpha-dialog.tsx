@@ -4,10 +4,12 @@ import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { NetworkPicker } from "@/components/economy/network-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { postAlphaAction } from "@/lib/chat/alpha";
 import { ALPHA_ADDRESS_RE } from "@/lib/chat/model";
+import { appChainIds, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorMessage } from "@/lib/errors";
 
 export interface AlphaDialogProps {
@@ -35,6 +37,8 @@ const ERROR_ID = "alpha-error";
 const THESIS_HINT_ID = "alpha-thesis-hint";
 
 function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: AlphaDialogProps) {
+  const chains = appChainIds();
+  const [chain, setChain] = useState<ChainId>(chains[0]!);
   const [address, setAddress] = useState("");
   const [thesis, setThesis] = useState(initialText);
   const [error, setError] = useState<{ text: string; field: Field } | null>(null);
@@ -56,7 +60,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Al
     setError(null);
     let res: { id?: string; error?: string; slowmodeSeconds?: number };
     try {
-      res = await postAlphaAction({ channelId, address: clean, doc: textToDoc(thesis) });
+      res = await postAlphaAction({ channelId, chainId: chain, address: clean, doc: textToDoc(thesis) });
     } catch {
       res = { error: "unknown" };
     }
@@ -78,8 +82,9 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Al
 
   return (
     <form onSubmit={(e) => void submit(e)} className="flex flex-col gap-4" noValidate>
+      <NetworkPicker value={chain} onChange={setChain} chains={chains} label="Red" />
       <div className="flex flex-col gap-2">
-        <Label htmlFor="alpha-address">Contrato en Linea</Label>
+        <Label htmlFor="alpha-address">Contrato</Label>
         <Input
           id="alpha-address"
           value={address}
@@ -119,7 +124,7 @@ function Form({ onOpenChange, channelId, initialText, onPosted, onSlowmode }: Al
         </p>
       </div>
       <p className="text-[13px] text-fg-muted">
-        Comprobamos en Linea que la dirección es un contrato antes de publicar. Contenido de terceros: nada de esto es consejo financiero.
+        Comprobamos en la red elegida que la dirección es un contrato antes de publicar. Contenido de terceros: nada de esto es consejo financiero.
       </p>
       {error ? (
         <p id={ERROR_ID} role="alert" className="text-sm text-danger">
@@ -145,7 +150,7 @@ export function AlphaDialog(props: AlphaDialogProps) {
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Publicar alpha</DialogTitle>
-          <DialogDescription>Comparte un contrato de Linea con su gráfico y tu tesis.</DialogDescription>
+          <DialogDescription>Comparte un contrato de Base o Arbitrum con su gráfico y tu tesis.</DialogDescription>
         </DialogHeader>
         {/* Mounted only while open: every opening starts from the composer's current text. */}
         <Form {...props} />

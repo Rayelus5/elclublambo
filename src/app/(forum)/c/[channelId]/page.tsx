@@ -5,7 +5,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Folder, Hash, Lock, Ticket, Timer, Sparkles } from "lucide-react";
 import { getLockedChannels, getLockState, getVisibleChannels, type ChannelDetail } from "@/lib/channels/queries";
-import { lockChainName } from "@/lib/channels/lock";
 import { LockPage } from "@/components/channels/lock-page";
 import { PostGateNotice } from "@/components/chat/post-gate-notice";
 import { formatSlowmode } from "@/lib/channels/tree";
@@ -31,10 +30,10 @@ async function TextChannel({ channel, threadId, messageId, nonce }: { channel: C
   const [{ anchor, ...context }, follow, lock] = await Promise.all([
     loadChatContext(channel.id, messageId),
     supabase.rpc("my_channel_follow", { p_channel: channel.id }),
-    // Non-null with scope "post" when a DAO post-gate (not a role) is what keeps the member from writing here.
+    // Non-null with scope "post" when a donation post-gate (not a role) is what keeps the member from writing here.
     getLockState(channel.id),
   ]);
-  const postGate = lock && lock.scope === "post" && !context.viewer.canPost ? <PostGateNotice state={lock} chainName={lockChainName(lock)} /> : null;
+  const postGate = lock && lock.scope === "post" && !context.viewer.canPost ? <PostGateNotice state={lock} /> : null;
   // A failed or unexpected read must not masquerade as "mentions": the menu shows an error state instead.
   const followLevel: FollowLevel | null =
     !follow.error && (follow.data === "all" || follow.data === "mute" || follow.data === "mentions") ? follow.data : null;
@@ -145,9 +144,9 @@ async function ChannelContent({
   const all = await getVisibleChannels();
   const channel = all.find((c) => c.id === channelId);
   if (!channel) {
-    // Unless a DAO view-gate is all that hides it: then the member gets the lock page (name, kind and requirement only).
+    // Unless a donation view-gate is all that hides it: then the member gets the lock page (name, kind and requirement only).
     const lock = await getLockState(channelId.toLowerCase());
-    if (lock && lock.scope === "view") return <LockPage state={lock} chainName={lockChainName(lock)} />;
+    if (lock && lock.scope === "view") return <LockPage state={lock} />;
     notFound();
   }
 

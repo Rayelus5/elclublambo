@@ -75,7 +75,7 @@ test.beforeAll(async ({ browser }) => {
     { name: "bienvenida", ctx: newcomer, path: "/bienvenida" },
     { name: "perfil", ctx: admin, path: "/perfil" },
     { name: "profile-handle", ctx: admin, path: `/u/u_${adminAddr.slice(2, 12)}` },
-    { name: "guia-dao", ctx: admin, path: "/guia/dao" },
+    { name: "guia-donaciones", ctx: admin, path: "/guia/donaciones" },
     { name: "settings-economia", ctx: admin, path: "/settings/economia" },
   ];
 });

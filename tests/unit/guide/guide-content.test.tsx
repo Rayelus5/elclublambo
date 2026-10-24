@@ -1,16 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/economy/config", () => ({ getEconomyConfig: async () => ({ minFeeBps: 100 }) }));
-
+import { describe, expect, it } from "vitest";
 import { GuideContent, isComingSoon } from "@/components/guide/guide-content";
+import { GUIDE_SECTIONS } from "@/lib/guide/sections";
+
+const SLUGS = GUIDE_SECTIONS.map((s) => s.slug);
+
+function headings() {
+  return screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+}
 
 describe("guide: propinas", () => {
   it("is no longer marked as coming soon", () => {
-    expect(isComingSoon("propinas")).toBe(false);
-    expect(isComingSoon("bounties")).toBe(false);
-    expect(isComingSoon("dao")).toBe(false);
-    expect(isComingSoon("candados")).toBe(false);
+    for (const slug of SLUGS) expect(isComingSoon(slug)).toBe(false);
   });
   it("warns that ETH tips need a plain wallet", () => {
     render(<GuideContent slug="propinas" />);
@@ -29,45 +30,50 @@ describe("guide: bounties", () => {
   });
 });
 
-describe("guide: DAO, fund and raffles while the DAO is rebuilt (P0)", () => {
-  it("are not coming soon", () => {
-    expect(isComingSoon("fondo")).toBe(false);
-  });
-  it.each(["dao", "fondo"] as const)("%s says it is being rebuilt on Base and Arbitrum", (slug) => {
-    render(<GuideContent slug={slug} />);
+describe("guide: donaciones", () => {
+  it("has its subsections and the money reminders", () => {
+    render(<GuideContent slug="donaciones" />);
+    expect(headings()).toEqual(["Qué es", "Cómo donar", "Qué recibes", "Transparencia"]);
     const text = document.body.textContent ?? "";
-    expect(text).toMatch(/se está rehaciendo/);
+    expect(text).toContain("ElClub. no custodia fondos");
+    expect(text).toContain("Donar no da derechos económicos");
     expect(text).toContain("Base");
     expect(text).toContain("Arbitrum");
-    expect(text).not.toMatch(/comisión/i);
-  });
-  it("the fund section says raffles are being rebuilt too", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(document.body.textContent).toMatch(/Los sorteos también se están rehaciendo/);
-  });
-  it("locked channels no longer offer a donate button", () => {
-    render(<GuideContent slug="candados" />);
-    expect(document.body.textContent).not.toMatch(/botón para donar/);
+    expect(text).toContain("Mecenas");
+    expect(text).toContain("1 USD");
+    expect(text).toMatch(/ocultarte/);
+    expect(text).toMatch(/saldos de la Safe/);
+    expect(text).toMatch(/nota/);
   });
 });
 
-describe("guide: Base and Arbitrum, no fee (P0)", () => {
-  it.each(["propinas", "bounties", "redes"] as const)("%s names Base and Arbitrum", (slug) => {
-    render(<GuideContent slug={slug} />);
+describe("guide: sorteos", () => {
+  it("has its subsections and explains drand", () => {
+    render(<GuideContent slug="sorteos" />);
+    expect(headings()).toEqual(["Qué es", "Premios", "Cómo se elige al ganador", "Cómo comprobarlo"]);
     const text = document.body.textContent ?? "";
-    expect(text).toContain("Base");
-    expect(text).toContain("Arbitrum");
+    expect(text).toMatch(/gratis/);
+    expect(text).toMatch(/misma probabilidad/);
+    expect(text).toContain("USDC");
+    expect(text).toContain("drand");
+    expect(text).toMatch(/semilla/);
+    expect(text).toContain("ElClub. no custodia fondos");
   });
-  it.each(["propinas", "bounties", "dao", "fondo", "encuestas", "candados", "redes"] as const)(
-    "%s mentions neither a fee nor Linea",
-    (slug) => {
-      render(<GuideContent slug={slug} />);
-      const text = document.body.textContent ?? "";
-      expect(text).not.toMatch(/comisión/i);
-      expect(text).not.toMatch(/\bLinea\b/);
-    },
-  );
-  it("redes explains the test mode on Base Sepolia and Arbitrum Sepolia, and that the club holds no funds", () => {
+});
+
+describe("guide: candados", () => {
+  it("is about the total donated in USD and the Mecenas role", () => {
+    render(<GuideContent slug="candados" />);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/donado/);
+    expect(text).toContain("USD");
+    expect(text).toContain("Mecenas");
+    expect(text).not.toMatch(/porcentaje|DAO|aportaci/i);
+  });
+});
+
+describe("guide: redes", () => {
+  it("explains the test mode on Base Sepolia and Arbitrum Sepolia, and that the club holds no funds", () => {
     render(<GuideContent slug="redes" />);
     const text = document.body.textContent ?? "";
     expect(text).toContain("Base Sepolia");
@@ -77,30 +83,29 @@ describe("guide: Base and Arbitrum, no fee (P0)", () => {
   });
 });
 
-describe("guide: encuestas", () => {
-  it("has its subsections and the key explanations", () => {
-    expect(isComingSoon("encuestas")).toBe(false);
-    render(<GuideContent slug="encuestas" />);
-    for (const h of ["Qué es", "Cómo se vota", "Cuánto pesa tu voto", "Voto secreto", "Resultados"]) {
-      expect(screen.getByRole("heading", { name: h })).toBeInTheDocument();
-    }
+describe("guide: Base and Arbitrum, no fee, no legacy economy", () => {
+  it.each(["propinas", "bounties", "donaciones", "redes"] as const)("%s names Base and Arbitrum", (slug) => {
+    render(<GuideContent slug={slug} />);
     const text = document.body.textContent ?? "";
-    for (const t of [
-      "/encuesta",
-      "Crear encuestas",
-      "1 persona, 1 voto",
-      "Lineal",
-      "Cuadrática",
-      "participaciones sin bloquear",
-      "Fondo del club",
-      "hasta el cierre",
-      "al menos 3",
-      "al menos 5",
-      "% del peso",
-      "consultiva",
-      "a nivel de la aplicación",
-      "moderadores ni tesoreros",
-    ]) {
+    expect(text).toContain("Base");
+    expect(text).toContain("Arbitrum");
+  });
+  it.each(SLUGS)("%s mentions neither a fee, shares, withdrawals nor Linea", (slug) => {
+    render(<GuideContent slug={slug} />);
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/comisión/i);
+    expect(text).not.toMatch(/\bLinea\b/);
+    expect(text).not.toMatch(/participaciones|retirada|Lineal|Cuadrática/i);
+    expect(text).not.toMatch(/se está rehaciendo|se rehace/);
+  });
+});
+
+describe("guide: encuestas", () => {
+  it("has its subsections: 1 member = 1 vote, secret, results from 3 votes", () => {
+    render(<GuideContent slug="encuestas" />);
+    expect(headings()).toEqual(["Qué es", "Cómo se vota", "Voto secreto", "Resultados"]);
+    const text = document.body.textContent ?? "";
+    for (const t of ["/encuesta", "Crear encuestas", "1 miembro = 1 voto", "hasta el cierre", "al menos 3", "consultiva", "a nivel de la aplicación", "moderadores ni tesoreros"]) {
       expect(text, t).toContain(t);
     }
     expect(text).not.toMatch(/imposible para nadie/i);

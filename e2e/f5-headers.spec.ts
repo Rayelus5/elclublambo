@@ -94,12 +94,13 @@ test("no CSP violation across the main flows", async ({ browser }) => {
     p_quoted: null,
     p_attachments: [],
     p_alpha_address: ALPHA_ADDRESS,
+    p_alpha_chain: 84532,
   });
   expect(seeded.error).toBeNull();
   await openChannel(page, "Trading");
   const card = messageWith(page, thesis);
   await card.scrollIntoViewIfNeeded();
-  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/linea\/0x/);
+  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/base\/0x/);
 
   // 4. Realtime: a second member with General open sees the first member's message arrive live.
   const other = await joinAs(browser, newWalletKey(), await createInvite(page), "Testigo CSP");

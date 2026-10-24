@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, Check, Hash, KeyRound, Lock, ShieldAlert, ShieldCheck, Trophy } from "lucide-react";
+import { ArrowUpRight, Check, Hash, Lock, ShieldAlert, ShieldCheck, Trophy } from "lucide-react";
 import { m } from "motion/react";
 import { draw, grow, pop, rise, slide, Stage } from "./motion";
 
@@ -161,52 +161,44 @@ export function TipsMock() {
 export function TreasuryMock() {
   return (
     <Stage className="flex flex-col gap-5 p-4 sm:p-5" gap={0.1}>
-      <m.div variants={rise} className="flex flex-col gap-1">
-        <span className={mono}>Valor a mercado</span>
-        <span className="font-mono text-[clamp(1.5rem,4vw,2.25rem)] leading-none font-bold tabular-nums">48.213,50 $</span>
-      </m.div>
       <m.div variants={rise} className="flex flex-col gap-2">
-        <span className={mono}>Safe multifirma · 2 de 3 firmas</span>
-        <div className="grid grid-cols-3 gap-2">
-          {[true, true, false].map((signed, i) => (
-            <m.span
-              key={i}
-              variants={signed ? pop : rise}
-              className={`flex items-center justify-center gap-1.5 border py-2 font-mono text-[0.75rem] rounded-control ${signed ? "border-accent text-accent" : "border-border text-fg-muted"}`}
-            >
-              <KeyRound className="size-3.5" strokeWidth={1.75} />
-              {signed ? "Firmada" : "Pendiente"}
+        <span className={mono}>Safe del club · saldos por red</span>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            ["Base", "2.140 USDC"],
+            ["Arbitrum", "0,85 ETH"],
+          ].map(([net, bal]) => (
+            <m.span key={net} variants={rise} className="flex flex-col gap-1 border border-border p-3 rounded-control">
+              <span className={mono}>{net}</span>
+              <span className="font-mono text-[1rem] font-bold tabular-nums">{bal}</span>
             </m.span>
           ))}
         </div>
       </m.div>
       <m.div variants={rise} className="flex flex-col gap-2">
-        <span className={mono}>Composición</span>
-        <div className="flex h-3 w-full gap-px">
-          <m.span variants={grow} className="block w-[58%] origin-left bg-[var(--chart-1)]" />
-          <m.span variants={grow} className="block w-[42%] origin-left bg-[var(--chart-2)]" />
-        </div>
-        <div className={`${mono} flex gap-4`}>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2 bg-[var(--chart-1)]" /> ETH 58 %
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block size-2 bg-[var(--chart-2)]" /> USDC 42 %
-          </span>
-        </div>
+        <span className={mono}>Donaciones recientes</span>
+        <m.ul variants={rise} className="flex flex-col divide-y divide-border border-t border-border text-[0.875rem]">
+          {[
+            ["@marta", "25 USDC"],
+            ["@iker", "0,01 ETH"],
+            ["@dani", "5 USDC"],
+          ].map(([who, amount]) => (
+            <li key={who} className="flex items-center justify-between py-1.5">
+              <span className="flex items-center gap-2">
+                {who}
+                <m.span variants={pop} className={`${chip} border-accent text-accent`}>
+                  Mecenas
+                </m.span>
+              </span>
+              <span className="font-mono text-fg-muted tabular-nums">{amount}</span>
+            </li>
+          ))}
+        </m.ul>
       </m.div>
-      <m.ul variants={rise} className="flex flex-col divide-y divide-border border-t border-border text-[0.875rem]">
-        {[
-          ["@marta", "12,4 %"],
-          ["@iker", "9,8 %"],
-          ["@dani", "7,1 %"],
-        ].map(([who, share]) => (
-          <li key={who} className="flex justify-between py-1.5">
-            <span>{who}</span>
-            <span className="font-mono text-fg-muted tabular-nums">{share}</span>
-          </li>
-        ))}
-      </m.ul>
+      <m.div variants={rise} className={`${mono} flex items-center gap-1.5`}>
+        <ShieldCheck className="size-3.5" strokeWidth={1.75} />
+        Gasto · 120 USDC · nota del tesorero
+      </m.div>
     </Stage>
   );
 }
@@ -215,10 +207,10 @@ export function RafflePollMock() {
   return (
     <Stage className="grid gap-3 p-4 sm:grid-cols-2 sm:p-5" gap={0.14}>
       <m.div variants={rise} className="flex flex-col gap-2 border border-border p-3 rounded-panel">
-        <span className="text-[0.8125rem] font-bold">Sorteo · 0,05 ETH</span>
-        <span className={mono}>1 · Compromiso</span>
+        <span className="text-[0.8125rem] font-bold">Sorteo · 50 USDC</span>
+        <span className={mono}>1 · Compromiso con la semilla</span>
         <span className="font-mono text-[0.6875rem] break-all text-fg">0x3b9e…a71f</span>
-        <span className={mono}>2 · Revelado en el bloque 18.204.551</span>
+        <span className={mono}>2 · Ronda de drand 28.341.907</span>
         <m.span variants={pop} className={`${chip} w-fit border-accent text-accent`}>
           <Trophy className="size-3" strokeWidth={2} />
           Gana @noa · compruébalo tú

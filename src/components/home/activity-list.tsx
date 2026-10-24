@@ -1,22 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { Coins, Landmark, Target } from "lucide-react";
+import { Coins, HandHeart, Target } from "lucide-react";
 import { relativeTime } from "@/components/payments/tip-list";
 import { messageHref, type ActivityItem } from "@/lib/home/queries";
 import { formatAmount } from "@/lib/payments/amounts";
 
-const ICON = { tip: Coins, donation: Landmark, bounty: Target } as const;
+const ICON = { tip: Coins, donation: HandHeart, bounty: Target } as const;
 
 function sentence(i: ActivityItem): string {
   const amount = `${formatAmount(i.amount, i.token)} ${i.token}`;
   if (i.kind === "tip") return `${i.actorLabel} dio ${amount} a ${i.targetLabel ?? "un miembro"}`;
-  if (i.kind === "donation") return `${i.actorLabel} donó ${amount} a la DAO`;
+  if (i.kind === "donation") return `${i.actorLabel} donó ${amount} a ElClub.`;
   return `${i.actorLabel} abrió un bounty de ${amount}`;
 }
 
 function href(i: ActivityItem): string {
-  if (i.kind === "donation") return "/dao";
+  if (i.kind === "donation") return "/donar";
   if (i.channelId && i.messageId) return messageHref(i.channelId, i.messageId);
   return i.targetWallet ? `/u/${i.targetWallet}` : "/";
 }

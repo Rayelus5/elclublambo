@@ -1,27 +1,29 @@
 import "server-only";
 import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
+import { verifyClubSafe } from "@/lib/economy/club-safe";
 import { appChainIds, isChainId } from "@/lib/economy/networks";
-import type { LegacyChainId } from "@/lib/legacy/linea";
+import { readEthUsd, usd6For } from "@/lib/economy/eth-price";
 import type { Token } from "@/lib/payments/amounts";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
-import { settlePendingDonations } from "@/lib/treasury/settle";
 
 export type ConfirmResult =
-  | { status: "confirmed"; tipId: string; ledgerId?: undefined }
-  /** A donation credited as shares (no tip exists). */
-  | { status: "confirmed"; ledgerId: string; tipId?: undefined }
-  | { status: "pending" }
-  /** Donation recorded and verified; credited as shares once its block is finalized. */
-  | { status: "pending_finality"; ledgerId: string }
+  | { status: "confirmed"; tipId: string; donationId?: undefined }
+  /** A verified donation recorded in `donations` (P1). */
+  | { status: "confirmed"; donationId: string; tipId?: undefined }
+  /**
+   * `reason` says what it waits for when that is not the chain itself: price_unavailable (ETH donation with no trusted
+   * price), safe_not_deployed (the club Safe has no code on that network yet).
+   */
+  | { status: "pending"; reason?: "price_unavailable" | "safe_not_deployed" }
   | { status: "failed"; error: string; code: string };
 
 /** Verification errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */
 const PERMANENT = new Set(["tx_mismatch", "tx_failed", "tx_too_old", "tx_already_used"]);
 /**
- * Errors of the recording RPCs (confirm_tip, confirm_bounty_payment, record_donation) that will never get better. Their
+ * Errors of the recording RPCs (confirm_tip, confirm_bounty_payment, confirm_donation) that will never get better. Their
  * inputs are derived deterministically from the intent and the chain, so invalid_input / not_found (a recheck the intent
  * can no longer pass) recur on every retry: failing the intent stops reverify from retrying it for 7 days.
  */
@@ -85,12 +87,9 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   };
 
   if (i.status === "confirmed" && i.purpose === "donation") {
-    const { data: led, error: ledError } = await db.from("dao_ledger").select("id, status").eq("intent_id", i.id).maybeSingle<{ id: string; status: string }>();
-    if (ledError) console.error("[payments] ledger read failed", i.id, safeError(ledError.message));
-    if (!led) return { status: "pending" };
-    if (led.status === "credited") return { status: "confirmed", ledgerId: led.id };
-    if (led.status === "reverted") return failed("reverted");
-    return { status: "pending_finality", ledgerId: led.id };
+    const { data: don, error: donError } = await db.from("donations").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
+    if (donError) console.error("[payments] donation read failed", i.id, safeError(donError.message));
+    return don ? { status: "confirmed", donationId: don.id } : { status: "pending" };
   }
   if (i.status === "confirmed") {
     const { data: tip, error: tipError } = await db.from("tips").select("id").eq("intent_id", i.id).maybeSingle<{ id: string }>();
@@ -120,13 +119,11 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
 
   const fee = BigInt(i.fee_amount);
   const isDonation = i.purpose === "donation";
-  // A donation is recorded once mined (1 confirmation): the finality gate in settlePendingDonations is what protects it.
   const base = {
     chain,
     token: i.token,
     from: payer.wallet_address,
     notBefore: new Date(i.created_at),
-    ...(isDonation ? { confirmations: 1 } : {}),
   };
 
   // pending / tx_not_found / rpc_unavailable leave the intent untouched; permanent errors fail it.
@@ -150,26 +147,34 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const main = mainRes as Extract<VerifyResult, { status: "ok" }>;
 
   if (isDonation) {
-    const { data: ledgerId, error: recError } = await db.rpc("record_donation", {
+    // P1-R6: credit only into a deployed club Safe. Not deployed stays pending, never failed: the funds sit at the
+    // Safe's counterfactual address and become reachable once it is deployed there. A failed check also waits.
+    const safe = await verifyClubSafe(chain);
+    if (safe === "not_deployed") return { status: "pending", reason: "safe_not_deployed" };
+    if (safe !== "ok") return { status: "pending" };
+    // ETH is valued by Chainlink only; with no trusted price it stays pending (never credited, never failed).
+    let priceE8: bigint | null = null;
+    if (i.token === "ETH") {
+      const price = await readEthUsd(chain);
+      if (!price) return { status: "pending", reason: "price_unavailable" };
+      priceE8 = price.priceE8;
+    }
+    const usd6 = usd6For(i.token, BigInt(i.amount), priceE8);
+    if (usd6 === null) return { status: "pending", reason: "price_unavailable" };
+    const { data, error: donError } = await db.rpc("confirm_donation", {
       p_intent: i.id,
       p_main: { txHash: i.main_tx_hash, logIndex: main.logIndex, blockNumber: main.blockNumber.toString() },
-      p_fee: feeOk ? { txHash: i.fee_tx_hash, logIndex: feeOk.logIndex, blockNumber: feeOk.blockNumber.toString() } : null,
+      p_usd6: usd6.toString(),
+      p_eth_price_e8: priceE8 === null ? null : priceE8.toString(),
     });
-    if (recError || typeof ledgerId !== "string") {
-      const code = recError ? rpcErrorCode(recError) : "unknown";
+    const donationId = (data as { donationId?: unknown } | null)?.donationId;
+    if (donError || typeof donationId !== "string") {
+      const code = donError ? rpcErrorCode(donError) : "unknown";
       if (PERMANENT_RECORD.has(code)) return permanent(code);
-      console.error("[payments] record_donation failed", i.id, safeError(recError?.message));
+      console.error("[payments] confirm_donation failed", i.id, safeError(donError?.message));
       return { status: "pending" };
     }
-    // Immediate settle attempt: credits at once only if the block is already final. Never undoes the recording.
-    try {
-      const s = await settlePendingDonations(i.chain_id as LegacyChainId, { ledgerId, limit: 1 });
-      if (s.credited > 0) return { status: "confirmed", ledgerId };
-      if (s.reverted > 0) return failed("reverted");
-    } catch (e) {
-      console.error("[payments] settle after record failed", ledgerId, safeError(e));
-    }
-    return { status: "pending_finality", ledgerId };
+    return { status: "confirmed", donationId };
   }
 
   // Only bounty confirms need the block time (it sets paid_at, ruling F3c-R4); confirm_tip keeps its signature.

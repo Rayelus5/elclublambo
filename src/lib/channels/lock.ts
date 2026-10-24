@@ -1,28 +1,25 @@
-// Lock state of a DAO-gated channel (channel_lock_state / locked_channels) and the Spanish copy that describes it.
-// Pure: safe to import from client components.
+// Lock state of a channel gated by donations (channel_lock_state / locked_channels) and the Spanish copy that
+// describes it. Pure: safe to import from client components.
 
-import { isLegacyChainId, LEGACY_NETWORKS } from "@/lib/legacy/linea";
-import { formatBps, formatUsdc } from "@/lib/treasury/format";
+import { parseAmount } from "@/lib/payments/amounts";
+import { formatUsd } from "@/lib/treasury/format";
 import type { ChannelKind } from "@/lib/channels/tree";
 
 export type GateScope = "view" | "post";
 
-/** One failing gate on the path to the channel. `channelId` is null only for a pre-`requirements` RPC answer. */
+/** One failing gate on the path to the channel. `channelId` is null only for an answer without `requirements`. */
 export type LockRequirement = {
   channelId: string | null;
   scope: GateScope;
-  minShareBps: number | null;
-  minNetUsdc: bigint | null;
+  /** Minimum the member has to have donated, in usd6 (USD with 6 decimals). */
+  minDonatedUsd6: bigint;
 };
 
 export type LockState = {
   scope: GateScope;
   /** Top-level rule = the outermost failing gate (same as requirements[0]). */
-  minShareBps: number | null;
-  minNetUsdc: bigint | null;
-  myShareBps: number;
-  myNet: bigint;
-  chainId: number;
+  minDonatedUsd6: bigint | null;
+  myDonatedUsd6: bigint;
   name: string;
   kind: ChannelKind;
   parentId: string | null;
@@ -32,17 +29,11 @@ export type LockState = {
 
 const KINDS: ChannelKind[] = ["category", "forum", "text"];
 
+/** numeric(78,0) travels as text in jsonb; a plain integer number is accepted too. */
 function bigintOrNull(v: unknown): bigint | null {
-  if (v === null || v === undefined) return null;
-  try {
-    return BigInt(typeof v === "number" ? Math.trunc(v) : String(v));
-  } catch {
-    return null;
-  }
-}
-
-function intOrNull(v: unknown): number | null {
-  return typeof v === "number" && Number.isInteger(v) ? v : null;
+  if (typeof v === "number") return Number.isInteger(v) && v >= 0 ? BigInt(v) : null;
+  if (typeof v === "string" && /^\d{1,78}$/.test(v)) return BigInt(v);
+  return null;
 }
 
 /** The jsonb of channel_lock_state -> a typed state, or null when it is null or malformed. */
@@ -52,23 +43,30 @@ export function parseLockState(raw: unknown): LockState | null {
   if (r.scope !== "view" && r.scope !== "post") return null;
   if (typeof r.name !== "string" || !KINDS.includes(r.kind as ChannelKind)) return null;
   const scope = r.scope;
-  const minShareBps = intOrNull(r.minShareBps);
-  const minNetUsdc = bigintOrNull(r.minNetUsdc);
-  const requirements: LockRequirement[] = Array.isArray(r.requirements)
-    ? (r.requirements as Array<Record<string, unknown>>).map((q) => ({
+  const minDonatedUsd6 = bigintOrNull(r.minDonatedUsd6);
+  const myDonatedUsd6 = bigintOrNull(r.myDonatedUsd6);
+  if (minDonatedUsd6 === null || myDonatedUsd6 === null) return null;
+
+  let requirements: LockRequirement[];
+  if (Array.isArray(r.requirements)) {
+    requirements = [];
+    for (const q of r.requirements as Array<Record<string, unknown>>) {
+      const min = bigintOrNull(q?.minDonatedUsd6);
+      if (min === null) continue;
+      requirements.push({
         channelId: typeof q.channelId === "string" ? q.channelId : null,
         scope: q.scope === "post" ? "post" : "view",
-        minShareBps: intOrNull(q.minShareBps),
-        minNetUsdc: bigintOrNull(q.minNetUsdc),
-      }))
-    : [{ channelId: null, scope, minShareBps, minNetUsdc }];
+        minDonatedUsd6: min,
+      });
+    }
+    if (requirements.length === 0) return null;
+  } else {
+    requirements = [{ channelId: null, scope, minDonatedUsd6 }];
+  }
   return {
     scope,
-    minShareBps,
-    minNetUsdc,
-    myShareBps: intOrNull(r.myShareBps) ?? 0,
-    myNet: bigintOrNull(r.myNet) ?? 0n,
-    chainId: typeof r.chainId === "number" ? r.chainId : 0,
+    minDonatedUsd6,
+    myDonatedUsd6,
     name: r.name,
     kind: r.kind as ChannelKind,
     parentId: typeof r.parentId === "string" ? r.parentId : null,
@@ -76,35 +74,24 @@ export function parseLockState(raw: unknown): LockState | null {
   };
 }
 
-/** "Necesitas 1 % de la DAO o 100 USDC aportados": only the rules that are set, joined with "o". */
-export function requirementText(rule: { minShareBps: number | null; minNetUsdc: bigint | null }): string {
-  const parts: string[] = [];
-  if (rule.minShareBps !== null) parts.push(`${formatBps(rule.minShareBps)} de la DAO`);
-  if (rule.minNetUsdc !== null) parts.push(`${formatUsdc(rule.minNetUsdc)} aportados`);
-  return `Necesitas ${parts.join(" o ")}`;
+/** "Canal para quien ha donado al menos 10 USD." */
+export function requirementText(rule: { minDonatedUsd6: bigint | null }): string {
+  return rule.minDonatedUsd6 === null
+    ? "Canal con candado."
+    : `Canal para quien ha donado al menos ${formatUsd(rule.minDonatedUsd6)}.`;
 }
 
-/** Requirement of the outermost failing gate (the top-level fields of the state). */
-export function lockRequirementText(state: LockState): string {
-  return requirementText(state);
+/** "Llevas 9,99 USD." */
+export function lockSituationText(state: Pick<LockState, "myDonatedUsd6">): string {
+  return `Llevas ${formatUsd(state.myDonatedUsd6)}.`;
 }
 
-/** "Tu situación: 0,2 % · 20 USDC aportados en la red activa" */
-export function lockSituationText(state: LockState, chainName: string): string {
-  return `Tu situación: ${formatBps(state.myShareBps)} · ${formatUsdc(state.myNet)} aportados en ${chainName}`;
+/** "Canal para quien ha donado al menos 10 USD. Llevas 9,99 USD." (the outermost failing gate). */
+export function lockText(state: LockState): string {
+  return `${requirementText(state)} ${lockSituationText(state)}`;
 }
 
-/** Name of the network the state was measured on (the lock state's own chain, not a hard-coded one). */
-export function lockChainName(state: LockState): string {
-  return isLegacyChainId(state.chainId) ? LEGACY_NETWORKS[state.chainId].name : "la red activa";
-}
-
-const GATE_PERCENT = /^(\d+)(?:[.,](\d{1,2}))?$/;
-
-/** "2,5" / "2.5" / "0,05" -> basis points. Null when malformed, over 100 % or with more than 2 decimals. */
-export function gatePercentToBps(text: string): number | null {
-  const m = GATE_PERCENT.exec(text.trim());
-  if (!m) return null;
-  const bps = Number(m[1]) * 100 + Number((m[2] ?? "").padEnd(2, "0") || "0");
-  return Number.isSafeInteger(bps) && bps <= 10_000 ? bps : null;
+/** "12,5" / "12.5" -> usd6 (12_500_000n) with bigint math. Null when malformed, negative or past 6 decimals. */
+export function usdToUsd6(text: string): bigint | null {
+  return parseAmount(text, "USDC");
 }

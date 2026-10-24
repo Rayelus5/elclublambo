@@ -3,7 +3,7 @@ import { GUIDE_SECTIONS, isGuideSlug } from "@/lib/guide/sections";
 
 describe("GUIDE_SECTIONS", () => {
   it("has the 7 slugs in order", () => {
-    expect(GUIDE_SECTIONS.map((s) => s.slug)).toEqual(["propinas", "bounties", "dao", "fondo", "encuestas", "candados", "redes"]);
+    expect(GUIDE_SECTIONS.map((s) => s.slug)).toEqual(["propinas", "bounties", "donaciones", "sorteos", "encuestas", "candados", "redes"]);
   });
   it("gives each a title and a summary", () => {
     for (const s of GUIDE_SECTIONS) {
@@ -11,11 +11,13 @@ describe("GUIDE_SECTIONS", () => {
       expect(s.summary.trim()).not.toBe("");
     }
   });
-  it("lists the fund section as «El fondo común»", () => {
-    expect(GUIDE_SECTIONS.find((s) => s.slug === "fondo")?.title).toBe("El fondo común");
+  it("lists the donations section as «Donaciones y Mecenas»", () => {
+    expect(GUIDE_SECTIONS.find((s) => s.slug === "donaciones")?.title).toBe("Donaciones y Mecenas");
   });
   it("recognises only known slugs", () => {
-    expect(isGuideSlug("dao")).toBe(true);
+    expect(isGuideSlug("sorteos")).toBe(true);
+    expect(isGuideSlug("dao")).toBe(false);
+    expect(isGuideSlug("fondo")).toBe(false);
     expect(isGuideSlug("nope")).toBe(false);
   });
 });

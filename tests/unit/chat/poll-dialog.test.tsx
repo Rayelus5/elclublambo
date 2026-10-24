@@ -68,26 +68,12 @@ describe("PollDialog", () => {
     expect(screen.getByLabelText("Fecha de cierre")).toHaveAttribute("type", "datetime-local");
   });
 
-  it("offers the weight modes with their help and the few-voters warning (F4e-R3)", () => {
+  it("offers no weight mode: one person, one vote", () => {
     setup();
-    expect(screen.getByRole("radio", { name: "1 persona, 1 voto" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Lineal según participación" })).toHaveAccessibleDescription(
-      "Cada voto pesa lo que sumaban tus participaciones sin bloquear al crear la encuesta.",
-    );
-    expect(screen.getByRole("radio", { name: "Cuadrática según participación" })).toHaveAccessibleDescription(
-      "Cada voto pesa la raíz cuadrada de esas participaciones: quien más aportó pesa más, pero menos que en lineal.",
-    );
-    expect(screen.getByText(/Con pocos votantes, un voto ponderado puede delatar la participación de alguien/)).toBeInTheDocument();
-    expect(screen.getByText(/al menos 5 votantes con participaciones \(en 1 persona, 1 voto: 3\)/)).toBeInTheDocument();
-  });
-
-  it("makes each weight mode a full-height row and has one accessible name for the group", () => {
-    setup();
-    for (const n of ["1 persona, 1 voto", "Lineal según participación", "Cuadrática según participación"]) {
-      expect(screen.getByRole("radio", { name: n }).closest("label")).toHaveClass("min-h-11");
-    }
-    expect(screen.getAllByRole("group", { name: "Peso del voto" })).toHaveLength(1);
-    expect(screen.queryAllByRole("radiogroup")).toHaveLength(0);
+    expect(screen.queryByRole("group", { name: "Peso del voto" })).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("radio", { name: /participación/ })).toHaveLength(0);
+    expect(screen.queryByText(/participaciones/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ponderad/i)).not.toBeInTheDocument();
   });
 
   it("counts the question after normalization, like the server", async () => {
@@ -110,18 +96,9 @@ describe("PollDialog", () => {
     expect(createPollAction.mock.calls[0]![0].options[0]).toBe("😀".repeat(41));
   });
 
-  it("states the results floor for the selected weight mode (M6)", async () => {
-    const { user } = setup();
-    const equal = /Los resultados se publican al cerrar, si votan al menos 3 personas\./;
-    const weighted = /Los resultados se publican al cerrar, si votan al menos 5 personas con participaciones\./;
-    expect(screen.getByText(equal)).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Lineal según participación" }));
-    expect(screen.getByText(weighted)).toBeInTheDocument();
-    expect(screen.queryByText(equal)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Cuadrática según participación" }));
-    expect(screen.getByText(weighted)).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "1 persona, 1 voto" }));
-    expect(screen.getByText(equal)).toBeInTheDocument();
+  it("states the results floor of 3 voters", () => {
+    setup();
+    expect(screen.getByText(/Los resultados se publican al cerrar, si votan al menos 3 personas\./)).toBeInTheDocument();
   });
 
   it("adds the application-level qualifier to the secrecy note", () => {
@@ -183,12 +160,12 @@ describe("PollDialog", () => {
     const { user, onPosted, onOpenChange } = setup();
     await fill(user);
     await user.click(screen.getByRole("radio", { name: "3 días" }));
-    await user.click(screen.getByRole("radio", { name: "Lineal según participación" }));
     const before = Date.now();
     await user.dblClick(publish());
     expect(createPollAction).toHaveBeenCalledTimes(1);
     const arg = createPollAction.mock.calls[0]![0];
-    expect(arg).toMatchObject({ channelId: CH, question: "¿Dónde quedamos?", options: ["Madrid", "Lisboa"], weightMode: "linear" });
+    expect(arg).toMatchObject({ channelId: CH, question: "¿Dónde quedamos?", options: ["Madrid", "Lisboa"] });
+    expect(arg).not.toHaveProperty("weightMode");
     const diff = Date.parse(arg.closesAt) - before;
     expect(diff).toBeGreaterThanOrEqual(3 * 86_400_000 - 1000);
     expect(diff).toBeLessThanOrEqual(3 * 86_400_000 + 10_000);

@@ -7,14 +7,13 @@ export type ChannelRow = {
   name: string;
   topic: string | null;
   position: number;
-  /** El miembro lo ve en la barra pero un candado de la DAO le impide entrar (solo nombre/tipo/padre/posición). */
+  /** El miembro lo ve en la barra pero un candado por lo donado le impide entrar (solo nombre/tipo/padre/posición). */
   locked?: boolean;
 };
 
-/** Candado de la DAO de un canal: dos reglas opcionales unidas con "o" (USDC en unidades base, como string). */
+/** Candado de un canal: lo mínimo que hay que haber donado (usd6, como string) y a qué se aplica. */
 export type ChannelGate = {
-  minShareBps: number | null;
-  minNetUsdc: string | null;
+  minDonatedUsd6: string | null;
   scope: "view" | "post";
 };
 

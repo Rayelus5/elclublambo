@@ -20,7 +20,7 @@ type Step = { title: string; guide: { slug: GuideSlug; label: string } | null };
 const STEPS: Step[] = [
   { title: "Elige tu @handle", guide: null },
   { title: "Propinas y bounties", guide: { slug: "propinas", label: "Guía: Propinas" } },
-  { title: "La DAO y los canales con candado", guide: { slug: "dao", label: "Guía: DAO y shares" } },
+  { title: "Donaciones y canales con candado", guide: { slug: "donaciones", label: "Guía: Donaciones y Mecenas" } },
   { title: "Redes y seguridad", guide: { slug: "redes", label: "Guía: Redes y seguridad" } },
 ];
 
@@ -168,8 +168,8 @@ export function WelcomeSteps({ initialHandle, next, chainIds }: { initialHandle:
         )}
         {index === 2 && (
           <p className="text-fg-muted">
-            La DAO se está rehaciendo para Base y Arbitrum: por ahora no se puede donar. Algunos canales llevan candado:
-            piden unos requisitos y verás si los cumples antes de entrar.
+            Puedes donar al club en Base o Arbitrum, desde 1 USD, y recibes el rol Mecenas. Donar no da derechos económicos.
+            Algunos canales llevan candado: piden haber donado una cantidad y verás si la cumples antes de entrar.
           </p>
         )}
         {index === 3 && (

@@ -20,7 +20,7 @@ beforeEach(() => {
 });
 
 function renderSidebar(perms: bigint) {
-  return render(<Sidebar perms={perms} wallet={WALLET} daoEnabled />);
+  return render(<Sidebar perms={perms} wallet={WALLET} />);
 }
 
 /** The desktop top bar (rendered first); the second banner is the mobile bar. */
@@ -31,9 +31,9 @@ const openMore = async () => {
   await userEvent.setup().click(within(desktopBar()).getByRole("button", { name: "Más" }));
 };
 
-describe("Sidebar with the legacy DAO paused", () => {
-  it("hides the DAO entry in the desktop bar and the drawer", () => {
-    render(<Sidebar perms={7n} wallet={WALLET} daoEnabled={false} />);
+describe("Sidebar without the legacy DAO (P1)", () => {
+  it("has no DAO entry in the desktop bar or the drawer", () => {
+    render(<Sidebar perms={7n} wallet={WALLET} />);
     expect(screen.queryByRole("link", { name: "DAO" })).toBeNull();
     expect(screen.getAllByRole("link", { name: "Mercado" }).length).toBeGreaterThan(0);
   });
@@ -71,7 +71,7 @@ describe("Sidebar", () => {
   });
 
   it("leaves only the channels in the aside", () => {
-    render(<Sidebar perms={512n} wallet={WALLET} canModerate daoEnabled />);
+    render(<Sidebar perms={512n} wallet={WALLET} canModerate />);
     const aside = screen.getByRole("complementary");
     expect(within(aside).getByRole("navigation", { name: "Canales" })).toBeInTheDocument();
     for (const name of ["Inicio", "Tickets", "Invitaciones", "Miembros", "Reportes", "Ajustes", /Mi perfil/]) {
@@ -146,7 +146,7 @@ describe("Sidebar", () => {
   });
 
   it("shows Reportes only when the server says the member moderates a visible channel", async () => {
-    render(<Sidebar perms={7n} wallet={WALLET} canModerate daoEnabled />);
+    render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
     await openMore();
     expect(await screen.findByRole("menuitem", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
   });
@@ -166,25 +166,32 @@ describe("Sidebar", () => {
     expect(names.indexOf("Guía")).toBe(names.indexOf("Tickets") + 1);
   });
 
-  it("always links to the DAO dashboard, right after the guide", () => {
+  it("always links to Donar, right after the guide", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
-    expect(screen.getByRole("link", { name: "DAO" })).toHaveAttribute("href", "/dao");
-    expect(names.indexOf("DAO")).toBe(names.indexOf("Guía") + 1);
+    expect(within(desktopBar()).getByRole("link", { name: "Donar" })).toHaveAttribute("href", "/donar");
+    expect(names.indexOf("Donar")).toBe(names.indexOf("Guía") + 1);
   });
 
-  it("always links to Mercado, right after the DAO (the drawer shares sections())", () => {
+  it("always links to Mercado, right after Donar (the drawer shares sections())", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
     expect(within(desktopBar()).getByRole("link", { name: "Mercado" })).toHaveAttribute("href", "/mercado");
-    expect(names.indexOf("Mercado")).toBe(names.indexOf("DAO") + 1);
+    expect(names.indexOf("Mercado")).toBe(names.indexOf("Donar") + 1);
+  });
+
+  it("always links to Sorteos, right after Mercado", () => {
+    renderSidebar(0n);
+    const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
+    expect(within(desktopBar()).getByRole("link", { name: "Sorteos" })).toHaveAttribute("href", "/sorteos");
+    expect(names.indexOf("Sorteos")).toBe(names.indexOf("Mercado") + 1);
   });
 
   it("always links to Tickets, with the open count when there are any", () => {
     const { unmount } = renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
     unmount();
-    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} daoEnabled />);
+    render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} />);
     expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/tickets");
   });
 

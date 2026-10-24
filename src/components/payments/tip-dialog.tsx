@@ -296,7 +296,7 @@ function TipFlow({
     const tick = async () => {
       const r = await verifyIntentAction(intent.id).catch(() => ({ status: "pending" }) as const);
       if (cancelled) return;
-      if (r.status === "confirmed" || r.status === "pending_finality") {
+      if (r.status === "confirmed") {
         removeSend(memberId, intent.id);
         invalidateBalances();
         return setStep("done");

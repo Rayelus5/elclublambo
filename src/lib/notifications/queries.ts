@@ -33,6 +33,7 @@ export type NotificationKind =
   | "withdrawal_paid"
   | "withdrawal_expired"
   | "raffle_won"
+  | "giveaway_won"
   | "poll_closed"
   | "treasury_notice";
 
@@ -60,6 +61,9 @@ export interface NotificationView {
   /** `raffle_won`: the raffle title and the prize ("10 USDC"); each null when the payload is malformed. */
   raffleTitle?: string | null;
   rafflePrize?: string | null;
+  /** `giveaway_won`: the giveaway title and the prize label; each null when the payload is malformed. */
+  giveawayTitle?: string | null;
+  giveawayPrize?: string | null;
   href: string;
 }
 
@@ -92,6 +96,12 @@ function raffleWonView(data: Record<string, unknown> | null): { raffleTitle: str
   const prize =
     (token === "USDC" || token === "WETH") && typeof amount === "string" && /^\d{1,60}$/.test(amount) ? formatToken(BigInt(amount), token) : null;
   return { raffleTitle: title || null, rafflePrize: prize };
+}
+
+/** `giveaway_won` data {giveawayId, title, prizeLabel}, validated like the push copy (_push_build), never trusted as is. */
+function giveawayWonView(data: Record<string, unknown> | null): { giveawayTitle: string | null; giveawayPrize: string | null } {
+  const clean = (v: unknown) => (typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, EXCERPT_CHARS) || null : null);
+  return { giveawayTitle: clean(data?.title), giveawayPrize: clean(data?.prizeLabel) };
 }
 
 /** `treasury_outflow` data {asset, amount}: validated like the SQL push copy (_push_build), never trusted as is. */
@@ -177,6 +187,10 @@ function hrefFor(row: Row): string {
     const id = row.data?.raffleId;
     return typeof id === "string" && UUID_RE.test(id) ? `/dao/sorteos/${id}` : "/dao#sorteos";
   }
+  if (row.kind === "giveaway_won") {
+    const id = row.data?.giveawayId;
+    return typeof id === "string" && UUID_RE.test(id) ? `/sorteos/${id}` : "/sorteos";
+  }
   if (row.kind === "treasury_notice") {
     const event = noticeEvent(row.data);
     return event === "raffle_drawn" || event === "raffle_unpaid" ? "/dao/tesoreria#sorteos" : "/dao/tesoreria";
@@ -211,6 +225,7 @@ function toView(row: Row): NotificationView {
     ...(row.kind === "withdrawal_rejected" ? { withdrawalReason: reasonText(row.data) } : {}),
     ...(row.kind === "treasury_notice" ? { treasuryEvent: noticeEvent(row.data) } : {}),
     ...(row.kind === "raffle_won" ? raffleWonView(row.data) : {}),
+    ...(row.kind === "giveaway_won" ? giveawayWonView(row.data) : {}),
     href: hrefFor(row),
   };
 }

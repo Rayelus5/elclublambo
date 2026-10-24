@@ -8,9 +8,9 @@ const TICKER = [
   "Alpha · contrato verificado",
   "Bounty · 150 USDC",
   "Propina · 0,005 ETH",
-  "Sorteo · commit-reveal",
+  "Sorteo · drand",
   "Encuesta · voto secreto",
-  "Tesorería · Safe 2-de-3",
+  "Donaciones · Safe del club",
   "Redes · Base y Arbitrum",
 ];
 

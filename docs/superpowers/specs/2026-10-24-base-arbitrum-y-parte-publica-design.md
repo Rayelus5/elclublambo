@@ -63,6 +63,12 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
 12. **Privacidad entre club y parte pública:** el perfil público es independiente (alias propio, espacio de nombres
     distinto del handle del club) y no muestra nada del club salvo que el miembro active la insignia «Miembro de
     ElClub.». Se avisa de que la dirección de la wallet es pública de todos modos.
+13. **«Inicio» del foro privado se rehace** (2026-10-24) como introducción/dashboard visual e intuitivo, sin
+    información innecesaria. Estructura «buscador protagonista»: saludo + **buscador grande estilo navegador** que
+    funciona exactamente igual que el de Ctrl+K; debajo **accesos rápidos** (fichas con icono: sin leer, bounties
+    abiertos, sorteo activo, encuesta abierta, donar/Mecenas), **«Continúa donde lo dejaste»** (canales con no
+    leídos como tarjetas), **anuncio fijado destacado** (el más reciente; el resto tras «ver todos») y **actividad
+    reciente** compacta. La tarjeta de la DAO desaparece.
 
 ## Decisiones de la IA (revisables; coste si es incorrecta entre paréntesis)
 - **D1 Redes por entorno:** PRO = Base (8453) + Arbitrum One (42161); PRE y local = Base Sepolia (84532) + Arbitrum
@@ -140,6 +146,10 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
 - **D24 Premios cripto de sorteos del club:** solo quien tiene `MANAGE_TREASURY` crea sorteos del club con premio
   pagado por la Safe. El pago se registra pegando el hash de la transacción y se verifica on-chain (de la Safe al
   ganador, token e importe exactos); no depende del escaneo legado de la DAO.
+- **D26 Buscador de Inicio:** es un campo real en la página (no un botón): al escribir, los resultados salen debajo
+  con el mismo motor, las mismas secciones (canales, hilos, miembros, acciones) y el mismo teclado (↑↓, Enter, Esc)
+  que la paleta Ctrl+K, reutilizando su cuerpo; Ctrl+K sigue abriendo la paleta. Las fichas sin dato (no hay sorteo
+  ni encuesta abiertos) no se muestran. (Bajo: es UI.)
 - **D25 Alcance de cada plan:** un plan detallado por bloque de §Prioridades. El plan del siguiente bloque se escribe
   cuando el anterior está terminado, para que parta de lo construido.
 
@@ -155,7 +165,8 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
   habilitadas en BD (P0-R14). Si la wallet está en otra red que la moneda elegida, "Continuar" le pide cambiarla y el
   pago sigue solo.
 - **P1 — Club simplificado.** Donaciones + Mecenas + lista + canales + transparencia (D6–D10), sin comisión (D13), encuestas 1p1v, sorteos rehechos (D11–D12) con textos nuevos, alphas multired (D19), guía
-  actualizada.
+  actualizada y **nuevo «Inicio»** (decisión 13, D26) al final del bloque.
+  **Hecho (2026-10-24, rama `feature/p1-club-simplificado`).** Los huecos de este spec se resolvieron al planificar con los rulings P1-R1…P1-R17 de `docs/superpowers/plans/2026-10-24-p1-club-simplificado.md` ("Decisiones del constructor"): `/donar` dentro del club hasta P2 (P1-R1), lista de donantes con opción de salir (P1-R2), Mecenas desde 1 USD (P1-R3), candados por total donado (P1-R4), precio de ETH solo con Chainlink y secuenciador (P1-R5), sin Safe desplegada no se ofrece donar (P1-R6), gastos anotados por hash (P1-R7), sorteos en tablas `giveaways*` con drand quicknet y premios USDC, rol o texto (P1-R8…R12) y nuevo «Inicio» con buscador protagonista (P1-R16). El legado de la DAO queda congelado (D10).
 - **P2 — Parte pública I.** Cuentas públicas (D15), i18n y rutas (D16), **landing pública** creativa, hub
   `/herramientas`, **Sorteos verificables públicos**: cualquiera con wallet crea un sorteo gratis para su comunidad
   (X/Discord/Telegram) con premios de cualquier tipo, comparte un enlace, los participantes se apuntan firmando
@@ -210,3 +221,4 @@ prueba: la migración puede romper compatibilidad con los datos de Linea sin mig
 4. Explorador: la API de Etherscan V2 para Base requiere plan de pago; alternativa Blockscout (decidir al planificar).
 5. Antes de activar x402 con dinero real: hablar con un gestor (alta, IRPF, IVA).
 6. Reown: añadir las nuevas redes no requiere cambios de dominio; revisar que el proyecto permite Base y Arbitrum.
+7. Candados de canal (P1): al desplegar P1, los canales con candado quedan abiertos (las reglas antiguas de % y aportación neta dejan de aplicarse): vuelve a fijar cada candado en Ajustes → canal → «Donado mínimo (USD)». Mientras tanto su contenido es visible para todos los miembros.

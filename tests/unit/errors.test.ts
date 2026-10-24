@@ -107,6 +107,17 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorCode({ message: code })).toBe(code);
     expect(rpcErrorMessage(code)).toBe(copy);
   });
+  it.each([
+    ["round_not_ready", "La ronda de drand de este sorteo aún no existe. Espera unos segundos."],
+    ["giveaway_closed", "Este sorteo ya está cerrado."],
+    ["role_not_allowed", "Ese rol no se puede sortear: debe ser un rol sin permisos de gestión y por debajo del tuyo."],
+    ["drand_unavailable", "No se pudo descargar la ronda de drand. Se reintentará."],
+    ["drand_invalid", "La ronda descargada de drand no tiene una firma válida. Se reintentará."],
+    ["giveaway_closes_at_invalid", "El cierre debe estar entre 10 minutos y 30 días desde ahora."],
+  ])("P1 giveaway error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
   it.each([
     ["network_not_accepted", "Esta persona no recibe pagos en esa red."],

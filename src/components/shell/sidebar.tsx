@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Dices, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -20,15 +20,13 @@ type Props = {
   canModerate?: boolean;
   /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
   openTickets?: number;
-  /** app_config.legacy_dao_enabled: with false the «DAO» entry is not shown. */
-  daoEnabled: boolean;
 };
 
 const brandClass =
   "font-display font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 /** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
-function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: Props) {
+function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
   return [
     { href: "/", text: "Inicio", Icon: Home },
     {
@@ -39,8 +37,9 @@ function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: P
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
     { href: "/guia", text: "Guía", Icon: BookOpen },
-    daoEnabled && { href: "/dao", text: "DAO", Icon: Landmark },
+    { href: "/donar", text: "Donar", Icon: HandHeart },
     { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
+    { href: "/sorteos", text: "Sorteos", Icon: Dices },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
       href: "/admin/members",
@@ -61,7 +60,7 @@ function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: P
 /**
  * ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right.
  *
- * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 6) plus
+ * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 7) plus
  * one «Más» menu that holds the staff-only ones (Miembros, Reportes, Ajustes). The controls never shrink; the tabs do
  * (a label truncates before a tab overlaps anything). Below 1280px tabs are icon-only, the network badge and the
  * search are compact until 1536px, and the profile / sign-out lose their text below 1024px.

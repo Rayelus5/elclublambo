@@ -1,7 +1,7 @@
 -- F4c Task 2: withdrawal requests (one active per chain and member), the per-network switch, locked shares, the
 -- counted supply S_eff = total_shares - approved_locked_shares and gating on unlocked shares.
 begin;
-select plan(86);
+select plan(87);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.wh(p_n int) returns text language sql immutable as $$
@@ -191,17 +191,18 @@ select throws_ok($$insert into public.withdrawal_requests (chain_id, member_id, 
                    values (59141, current_setting('t.a')::uuid, 1)$$, '23505', null,
   'the database refuses a second active request');
 
--- ===== 4. gating on unlocked shares =====
+-- ===== 4. gating reads donations only: a pending withdrawal never moves it =====
 select set_config('t.cat', tests.create_channel(null, 'category', 'T951cat')::text, true);
 select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 'T951 net')::text, true);
-update public.channels set gate_min_net_usdc = 7000000, gate_scope = 'view' where id = current_setting('t.ch')::uuid;
+update public.channels set gate_min_donated_usd6 = 7000000, gate_scope = 'view' where id = current_setting('t.ch')::uuid;
+select tests.give(current_setting('t.a')::uuid, 6000000);
 
 select is(public.gate_passes(current_setting('t.a')::uuid, current_setting('t.ch')::uuid, 'view'), false,
-  'with 4 of 10 locked the net counts 6 USDC < 7: gate fails');
+  'with 4 of 10 locked and 6 USDC donated the 7 USDC gate fails');
 select is((select share_bps || ':' || net_usdc from public._member_dao_standing(current_setting('t.a')::uuid)), '6000:6000000',
   'standing counts only unlocked shares (6000 bps, 6 USDC)');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select is((public.channel_lock_state(current_setting('t.ch')::uuid) ->> 'myShareBps')::int, 6000, 'lock state shows myShareBps = 6000');
+select is(public.channel_lock_state(current_setting('t.ch')::uuid) ->> 'myDonatedUsd6', '6000000', 'lock state shows myDonatedUsd6 = 6 USDC');
 
 -- ===== 5. cancel rules =====
 select tests.clear_authentication();
@@ -216,7 +217,9 @@ select tests.clear_authentication();
 select is((select status || ':' || (cancelled_at is not null)::text from public.withdrawal_requests where id = current_setting('t.r1')::uuid),
   'cancelled:true', 'the request is cancelled with cancelled_at');
 select is(tests.wlocked('a'), 0::numeric, 'cancelling releases the locked shares');
-select is(public.gate_passes(current_setting('t.a')::uuid, current_setting('t.ch')::uuid, 'view'), true, 'after cancelling the gate passes again');
+select is(public.gate_passes(current_setting('t.a')::uuid, current_setting('t.ch')::uuid, 'view'), false, 'cancelling releases shares but not the gate: it reads donations only');
+select tests.give(current_setting('t.a')::uuid, 1000000);
+select is(public.gate_passes(current_setting('t.a')::uuid, current_setting('t.ch')::uuid, 'view'), true, 'one more USDC donated reaches the 7 USDC gate');
 
 -- ===== 6. donate while a 100 % request is pending =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);

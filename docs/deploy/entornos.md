@@ -52,6 +52,9 @@ Cómo leer las celdas:
 | `WETH_ADDRESS_59141` | vacía (solo e2e / cadena local) | vacía | vacía (el build falla si no) | no | no |
 | `COINGECKO_DISABLED` | vacía (solo e2e) | vacía | vacía (el build falla si no) | no | no |
 | `COINGECKO_API_BASE` | vacía (los e2e la apuntan a un mock) | vacía | vacía (el build falla si no) | no | no |
+| `DRAND_API_BASE` | vacía (los e2e la apuntan al drand simulado) | vacía (drand real) | vacía (se ignora en `mainnet`) | no | no |
+| `NEXT_PUBLIC_DRAND_API_BASE` | vacía (los e2e la apuntan al drand simulado) | vacía (drand real) | vacía (se ignora en `mainnet`) | no | sí |
+| `NEXT_PUBLIC_DRAND_PUBLIC_KEY` | vacía (los e2e ponen la clave de prueba) | vacía (clave real de quicknet) | vacía (se ignora en `mainnet`) | no | sí |
 | `COINGECKO_API_KEY` | \<tu valor\> o vacía | \<tu valor\> o vacía | \<tu valor\> o vacía | **sí** | no |
 | `VAPID_PUBLIC_KEY` | \<tu valor\> o vacía (push apagado) | \<tu valor\> | \<tu valor\> | no | no |
 | `VAPID_PRIVATE_KEY` | \<tu valor\> o vacía | \<tu valor\> | \<tu valor\> | **sí** | no |

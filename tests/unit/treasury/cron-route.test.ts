@@ -29,6 +29,9 @@ const finalizePolls = vi.fn();
 vi.mock("@/lib/polls/cron", () => ({ finalizeDuePolls: (...a: unknown[]) => (steps.push("polls"), finalizePolls(...a)) }));
 const prune = vi.fn();
 vi.mock("@/lib/rate-limit-cron", () => ({ pruneRateLimits: (...a: unknown[]) => prune(...a) }));
+const giveaways = vi.fn();
+vi.mock("@/lib/giveaways/cron", () => ({ runGiveawaySteps: (...a: unknown[]) => (steps.push("giveaways"), giveaways(...a)) }));
+const GIVEAWAYS = { closed: 1, voided: 0, drawn: 1, waiting: 0, failed: 0 };
 const RAFFLES = {
   closed: 1, voided: 0, drawn: 1, pending: 0, recorded: 0, paid: 1, reverted: 0, unpaidNotices: 0, awaitingFinality: 1,
   refusedDraws: [{ raffleId: "r1", code: "draw_block_invalid" }],
@@ -74,6 +77,7 @@ beforeEach(() => {
   prune.mockResolvedValue({ deleted: 4 });
   raffles.mockResolvedValue(RAFFLES);
   finalizePolls.mockResolvedValue({ finalized: 2 });
+  giveaways.mockResolvedValue(GIVEAWAYS);
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -110,6 +114,7 @@ describe("POST /api/cron/dao", () => {
     expect(res.status).toBe(200);
     expect(steps).toEqual([
       "polls",
+      "giveaways",
       "scan:59144", "cursor:59144", "detect:59144", "finalize:59144", "raffles:59144", "snapshot:59144", "settle:59144",
       "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141",
       "expire:59144", "expire:59141",
@@ -206,7 +211,7 @@ describe("POST /api/cron/dao", () => {
   it("a chain without a Safe skips snapshot and scan but still settles", async () => {
     safes = { 59144: null, 59141: "0xbbbb" };
     const body = await (await POST(req("Bearer s3cret-value"))).json();
-    expect(steps).toEqual(["polls", "settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141"]);
+    expect(steps).toEqual(["polls", "giveaways", "settle:59144", "scan:59141", "cursor:59141", "detect:59141", "finalize:59141", "raffles:59141", "snapshot:59141", "settle:59141", "expire:59141"]);
     expect(body.chains.find((c: { chainId: number }) => c.chainId === 59144)).toMatchObject({ skipped: "safe_not_configured", credited: 1 });
   });
 
@@ -228,9 +233,9 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(500);
-    expect(steps).toEqual(["polls"]);
+    expect(steps).toEqual(["polls", "giveaways"]);
     expect(expire).not.toHaveBeenCalled();
-    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: { finalized: 2 }, rateLimits: { deleted: 4 } });
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: { finalized: 2 }, giveaways: GIVEAWAYS, rateLimits: { deleted: 4 } });
     err.mockRestore();
   });
 
@@ -240,7 +245,7 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(500);
-    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: "failed", rateLimits: { deleted: 4 } });
+    expect(await res.json()).toEqual({ error: "chain_config_unavailable", polls: "failed", giveaways: GIVEAWAYS, rateLimits: { deleted: 4 } });
     err.mockRestore();
   });
 
@@ -251,7 +256,7 @@ describe("POST /api/cron/dao", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(steps).toHaveLength(13); // both scans failed: no cursor read, no expiry; the polls step still ran
+    expect(steps).toHaveLength(14); // both scans failed: no cursor read, no expiry; the polls and giveaways steps still ran
     const [a, b] = (await res.json()).chains;
     expect(a).toEqual({ chainId: 59144, snapshot: "failed", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, awaitingFinality: 3 }, raffles: RAFFLES, error: "settle_failed", expiredApprovals: "skipped" });
     expect(b).toEqual({ chainId: 59141, snapshot: "taken", scan: "failed", payouts: { recorded: 1, paid: 1, reverted: 0, awaitingFinality: 3 }, raffles: RAFFLES, credited: 1, reverted: 0, pending: 2, expiredApprovals: "skipped" });
@@ -343,6 +348,40 @@ describe("POST /api/cron/dao", () => {
   });
 });
 
+describe("POST /api/cron/dao giveaways step (P1-R12)", () => {
+  it("runs right after the polls, once, before the legacy flag is read; reports it", async () => {
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(giveaways).toHaveBeenCalledTimes(1);
+    expect(steps.slice(0, 2)).toEqual(["polls", "giveaways"]);
+    expect(giveaways.mock.invocationCallOrder[0]).toBeLessThan(prune.mock.invocationCallOrder[0]!);
+    expect(body.giveaways).toEqual(GIVEAWAYS);
+  });
+
+  it("runs the giveaways even with legacy_dao_enabled = false", async () => {
+    legacyFlag = false;
+    const body = await (await POST(req("Bearer s3cret-value"))).json();
+    expect(giveaways).toHaveBeenCalledTimes(1);
+    expect(body).toMatchObject({ giveaways: GIVEAWAYS, chains: "legacy_paused" });
+  });
+
+  it("a throwing giveaways step reports failed and stops nothing else", async () => {
+    giveaways.mockRejectedValueOnce(new Error("db down"));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await POST(req("Bearer s3cret-value"));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({ giveaways: "failed", polls: { finalized: 2 }, rateLimits: { deleted: 4 } });
+    expect(body.chains).toHaveLength(2);
+    expect(err).toHaveBeenCalledWith("[cron/dao] giveaways failed", expect.anything());
+    err.mockRestore();
+  });
+
+  it("is not run without a valid bearer", async () => {
+    await POST(req("Bearer nope"));
+    expect(giveaways).not.toHaveBeenCalled();
+  });
+});
+
 describe("cron route runtime", () => {
   it("allows up to 300 s per run (F5-R14)", () => {
     expect(maxDuration).toBe(300);
@@ -354,8 +393,8 @@ describe("POST /api/cron/dao with the legacy DAO paused (P0)", () => {
     legacyFlag = flag;
     const res = await POST(req("Bearer s3cret-value"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ polls: { finalized: 2 }, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
-    expect(steps).toEqual(["polls"]);
+    expect(await res.json()).toEqual({ polls: { finalized: 2 }, giveaways: GIVEAWAYS, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
+    expect(steps).toEqual(["polls", "giveaways"]);
     for (const fn of [scan, raffles, snapshot, settle, detect, finalize, expire]) expect(fn).not.toHaveBeenCalled();
     expect(chainConfigRead).not.toHaveBeenCalled();
   });
@@ -364,7 +403,7 @@ describe("POST /api/cron/dao with the legacy DAO paused (P0)", () => {
     flagError = { message: "db down" };
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const res = await POST(req("Bearer s3cret-value"));
-    expect(await res.json()).toEqual({ polls: { finalized: 2 }, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
+    expect(await res.json()).toEqual({ polls: { finalized: 2 }, giveaways: GIVEAWAYS, rateLimits: { deleted: 4 }, chains: "legacy_paused" });
     expect(chainConfigRead).not.toHaveBeenCalled();
     expect(error).toHaveBeenCalledWith("[cron/dao] app_config read failed", expect.anything());
     error.mockRestore();

@@ -10,6 +10,7 @@ vi.mock("@/lib/channels/actions", () => ({ setChannelGateAction }));
 import { ChannelGateForm } from "@/components/settings/channel-gate-form";
 
 const ID = "6f1c1c5e-0000-4000-8000-000000000001";
+const FIELD = "Donado mínimo (USD)";
 
 beforeEach(() => {
   refresh.mockReset();
@@ -18,61 +19,53 @@ beforeEach(() => {
 });
 
 describe("ChannelGateForm", () => {
+  it("has a single amount field, in USD", () => {
+    render(<ChannelGateForm channelId={ID} />);
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(screen.getByLabelText(FIELD)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/DAO/)).toBeNull();
+  });
+
   it("starts from the current gate", () => {
-    render(<ChannelGateForm channelId={ID} gate={{ minShareBps: 150, minNetUsdc: "100000000", scope: "post" }} />);
-    expect(screen.getByLabelText("% mínimo de la DAO")).toHaveValue("1,5");
-    expect(screen.getByLabelText("Aportación neta mínima (USDC)")).toHaveValue("100");
+    render(<ChannelGateForm channelId={ID} gate={{ minDonatedUsd6: "12500000", scope: "post" }} />);
+    expect(screen.getByLabelText(FIELD)).toHaveValue("12,5");
     expect(screen.getByRole("radio", { name: "Escribir" })).toBeChecked();
   });
 
-  it("submits percent as bps, USDC as base units and the scope", async () => {
+  it("submits minDonatedUsd as typed and the scope", async () => {
     const user = userEvent.setup();
     render(<ChannelGateForm channelId={ID} />);
-    await user.type(screen.getByLabelText("% mínimo de la DAO"), "0,25");
-    await user.type(screen.getByLabelText("Aportación neta mínima (USDC)"), "12,5");
+    await user.type(screen.getByLabelText(FIELD), "12,5");
     await user.click(screen.getByRole("radio", { name: "Escribir" }));
     await user.click(screen.getByRole("button", { name: "Guardar candado" }));
-    await waitFor(() =>
-      expect(setChannelGateAction).toHaveBeenCalledWith({ id: ID, minShareBps: 25, minNetUsdc: "12500000", scope: "post" }),
-    );
+    await waitFor(() => expect(setChannelGateAction).toHaveBeenCalledWith({ id: ID, minDonatedUsd: "12,5", scope: "post" }));
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("both empty clears the gate", async () => {
+  it("empty clears the gate", async () => {
     const user = userEvent.setup();
-    render(<ChannelGateForm channelId={ID} gate={{ minShareBps: 100, minNetUsdc: null, scope: "view" }} />);
-    await user.clear(screen.getByLabelText("% mínimo de la DAO"));
+    render(<ChannelGateForm channelId={ID} gate={{ minDonatedUsd6: "10000000", scope: "view" }} />);
+    await user.clear(screen.getByLabelText(FIELD));
     await user.click(screen.getByRole("button", { name: "Guardar candado" }));
-    await waitFor(() =>
-      expect(setChannelGateAction).toHaveBeenCalledWith({ id: ID, minShareBps: null, minNetUsdc: null, scope: "view" }),
-    );
+    await waitFor(() => expect(setChannelGateAction).toHaveBeenCalledWith({ id: ID, minDonatedUsd: null, scope: "view" }));
   });
 
-  it.each(["100,5", "101", "1,234", "abc"])("rejects %s as percent without calling the action", async (bad) => {
+  it.each(["-1", "1,234", "abc", "1,"])("rejects %s without calling the action", async (bad) => {
     const user = userEvent.setup();
     render(<ChannelGateForm channelId={ID} />);
-    await user.type(screen.getByLabelText("% mínimo de la DAO"), bad);
+    await user.type(screen.getByLabelText(FIELD), bad);
     await user.click(screen.getByRole("button", { name: "Guardar candado" }));
-    expect(screen.getByLabelText("% mínimo de la DAO")).toHaveAttribute("aria-invalid", "true");
-    expect(screen.getByRole("alert")).toHaveTextContent("entre 0 y 100");
+    expect(screen.getByLabelText(FIELD)).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent("hasta 2 decimales");
     expect(setChannelGateAction).not.toHaveBeenCalled();
   });
 
-  it.each(["-1", "1,1234567", "abc"])("rejects %s as net amount", async (bad) => {
+  it("accepts 0 as a minimum", async () => {
     const user = userEvent.setup();
     render(<ChannelGateForm channelId={ID} />);
-    await user.type(screen.getByLabelText("Aportación neta mínima (USDC)"), bad);
+    await user.type(screen.getByLabelText(FIELD), "0");
     await user.click(screen.getByRole("button", { name: "Guardar candado" }));
-    expect(screen.getByLabelText("Aportación neta mínima (USDC)")).toHaveAttribute("aria-invalid", "true");
-    expect(setChannelGateAction).not.toHaveBeenCalled();
-  });
-
-  it("accepts 0 as a net minimum", async () => {
-    const user = userEvent.setup();
-    render(<ChannelGateForm channelId={ID} />);
-    await user.type(screen.getByLabelText("Aportación neta mínima (USDC)"), "0");
-    await user.click(screen.getByRole("button", { name: "Guardar candado" }));
-    await waitFor(() => expect(setChannelGateAction).toHaveBeenCalled());
+    await waitFor(() => expect(setChannelGateAction).toHaveBeenCalledWith({ id: ID, minDonatedUsd: "0", scope: "view" }));
   });
 
   it("shows the RPC error in Spanish", async () => {

@@ -29,6 +29,7 @@ select results_eq(
   $$select name, position, permissions, is_everyone, is_system, color from public.roles order by position$$,
   $$values ('@everyone'::text, 0, 8199::bigint, true, false, '#A3A3A3'::text),
            ('Padrino', 10, 16::bigint, false, false, '#61DFFF'),
+           ('Mecenas', 15, 0::bigint, false, false, '#C6F36B'),
            ('Verificado', 20, 199680::bigint, false, false, '#3DDC84'),
            ('Soporte', 100, 19456::bigint, false, false, '#FFB020'),
            ('Moderador', 500, 252968::bigint, false, false, '#FF5A5A'),
@@ -36,7 +37,7 @@ select results_eq(
   'seed roles exact');
 select results_eq(
   $$select key, value from public.app_config order by key$$,
-  $$values ('active_chain_id'::text, '59141'::jsonb), ('legacy_dao_enabled', 'false'::jsonb), ('min_fee_bps', '0'::jsonb),
+  $$values ('active_chain_id'::text, '59141'::jsonb), ('donor_role_min_usd6', '1000000'::jsonb), ('legacy_dao_enabled', 'false'::jsonb), ('min_fee_bps', '0'::jsonb),
     ('weighted_raffles_enabled', 'false'::jsonb), ('withdrawals_enabled', 'false'::jsonb)$$,
   'app_config seed');
 

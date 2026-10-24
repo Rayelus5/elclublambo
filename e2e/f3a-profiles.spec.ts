@@ -182,6 +182,6 @@ test("6. the guide lists 7 sections and the palette offers them", async () => {
     await p.keyboard.press("Control+K");
     await expect(dialog).toBeVisible({ timeout: 1_500 });
   }).toPass({ timeout: 15_000 });
-  await dialog.getByRole("combobox").fill("dao");
-  await expect(dialog.getByRole("option", { name: /Guía: DAO y shares/ })).toBeVisible();
+  await dialog.getByRole("combobox").fill("donaciones");
+  await expect(dialog.getByRole("option", { name: /Guía: Donaciones y Mecenas/ })).toBeVisible();
 });

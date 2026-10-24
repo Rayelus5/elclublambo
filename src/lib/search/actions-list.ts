@@ -1,7 +1,7 @@
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { GUIDE_SECTIONS, type GuideSlug } from "@/lib/guide/sections";
 
-export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide" | "dao" | "market";
+export type ActionIcon = "invite" | "settings" | "members" | "mentions" | "tickets" | "ticket" | "reports" | "profile" | "guide" | "donate" | "market" | "giveaways";
 
 export type PaletteAction = {
   id: string;
@@ -15,10 +15,10 @@ export type PaletteAction = {
 const GUIDE_KEYWORDS: Record<GuideSlug, string> = {
   propinas: "propinas donar premiar tip eth usdc",
   bounties: "bounty recompensa pago solución",
-  dao: "dao tesorería shares donación safe",
-  fondo: "fondo común nav valor participación riesgo club",
-  encuestas: "encuesta votación voto secreto votar poll peso participaciones",
-  candados: "candado gating acceso requisito canal",
+  donaciones: "donaciones donar mecenas mecenazgo safe transparencia gastos usdc eth",
+  sorteos: "sorteo sorteos gratis premio ganador drand verificar",
+  encuestas: "encuesta votación voto secreto votar poll",
+  candados: "candado gating acceso requisito canal donado mecenas",
   redes: "red testnet mainnet seguridad phishing modo prueba",
 };
 
@@ -33,14 +33,11 @@ export function buildActions({
   canReports,
   ticketChannels,
   wallet,
-  daoEnabled = true,
 }: {
   perms: bigint;
   canReports: boolean;
   ticketChannels: readonly TicketChannel[];
   wallet: string;
-  /** app_config.legacy_dao_enabled: while false the DAO and donate entries are left out. */
-  daoEnabled?: boolean;
 }): PaletteAction[] {
   const out: PaletteAction[] = [];
   if (hasPerm(perms, Perm.CREATE_INVITES)) {
@@ -64,10 +61,8 @@ export function buildActions({
   for (const s of GUIDE_SECTIONS) {
     out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
-  if (daoEnabled) {
-    out.push({ id: "dao", label: "Tesorería de la DAO", href: "/dao", icon: "dao", keywords: "dao tesorería safe ranking participaciones shares balance" });
-    out.push({ id: "donate", label: "Donar a la DAO", href: "/dao?donar=1", icon: "dao", keywords: "donar donación aportar usdc dao tesorería" });
-  }
+  out.push({ id: "donate", label: "Donar a ElClub.", href: "/donar", icon: "donate", keywords: "donar mecenas donación aportar usdc eth safe" });
+  out.push({ id: "giveaways", label: "Sorteos", href: "/sorteos", icon: "giveaways", keywords: "sorteo sorteos premio participar drand gratis" });
   out.push({ id: "market", label: "Mercado", href: "/mercado", icon: "market", keywords: "mercado precios criptos bitcoin ethereum cotización top 100" });
   out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
   return out;

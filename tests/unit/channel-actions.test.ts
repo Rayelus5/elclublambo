@@ -203,36 +203,36 @@ describe("deleteChannelAction", () => {
 });
 
 describe("setChannelGateAction", () => {
-  it("calls set_channel_gate with bps, base-unit string and scope, then revalidates", async () => {
+  it("converts USD to usd6 with bigint math and calls set_channel_gate, then revalidates", async () => {
     rpc.mockResolvedValue({ error: null });
-    expect(await setChannelGateAction({ id: A, minShareBps: 25, minNetUsdc: "12500000", scope: "post" })).toEqual({});
-    expect(rpc).toHaveBeenCalledWith("set_channel_gate", {
-      p_channel: A,
-      p_min_share_bps: 25,
-      p_min_net_usdc: "12500000",
-      p_scope: "post",
-    });
+    expect(await setChannelGateAction({ id: A, minDonatedUsd: "12,5", scope: "post" })).toEqual({});
+    expect(rpc).toHaveBeenCalledWith("set_channel_gate", { p_channel: A, p_min_donated_usd6: "12500000", p_scope: "post" });
     expectRevalidated();
   });
-  it("nulls clear the gate", async () => {
+  it("keeps every digit of a large amount (no floats)", async () => {
     rpc.mockResolvedValue({ error: null });
-    await setChannelGateAction({ id: A, minShareBps: null, minNetUsdc: null, scope: "view" });
-    expect(rpc).toHaveBeenCalledWith("set_channel_gate", expect.objectContaining({ p_min_share_bps: null, p_min_net_usdc: null }));
+    await setChannelGateAction({ id: A, minDonatedUsd: "9007199254740993", scope: "view" });
+    expect(rpc).toHaveBeenCalledWith("set_channel_gate", expect.objectContaining({ p_min_donated_usd6: "9007199254740993000000" }));
+  });
+  it("a null amount clears the gate", async () => {
+    rpc.mockResolvedValue({ error: null });
+    await setChannelGateAction({ id: A, minDonatedUsd: null, scope: "view" });
+    expect(rpc).toHaveBeenCalledWith("set_channel_gate", { p_channel: A, p_min_donated_usd6: null, p_scope: "view" });
   });
   it.each([
-    [{ id: "x", minShareBps: 1, minNetUsdc: null, scope: "view" }],
-    [{ id: A, minShareBps: 10001, minNetUsdc: null, scope: "view" }],
-    [{ id: A, minShareBps: 1.5, minNetUsdc: null, scope: "view" }],
-    [{ id: A, minShareBps: null, minNetUsdc: "-1", scope: "view" }],
-    [{ id: A, minShareBps: null, minNetUsdc: "1".padEnd(32, "0"), scope: "view" }],
-    [{ id: A, minShareBps: null, minNetUsdc: "1", scope: "edit" }],
+    [{ id: "x", minDonatedUsd: "1", scope: "view" }],
+    [{ id: A, minDonatedUsd: "-1", scope: "view" }],
+    [{ id: A, minDonatedUsd: "abc", scope: "view" }],
+    [{ id: A, minDonatedUsd: "1,1234567", scope: "view" }],
+    [{ id: A, minDonatedUsd: "1".padEnd(26, "0"), scope: "view" }],
+    [{ id: A, minDonatedUsd: "1", scope: "edit" }],
   ])("rejects invalid input %j without calling the rpc", async (input) => {
     expect(await setChannelGateAction(input)).toEqual({ error: "invalid_input" });
     expect(rpc).not.toHaveBeenCalled();
   });
   it("maps rpc errors", async () => {
     rpc.mockResolvedValue({ error: { message: "forbidden" } });
-    expect(await setChannelGateAction({ id: A, minShareBps: 1, minNetUsdc: null, scope: "view" })).toEqual({ error: "forbidden" });
+    expect(await setChannelGateAction({ id: A, minDonatedUsd: "1", scope: "view" })).toEqual({ error: "forbidden" });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

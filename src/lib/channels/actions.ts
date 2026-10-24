@@ -2,6 +2,7 @@
 
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
+import { usdToUsd6 } from "@/lib/channels/lock";
 import { rpcErrorCode } from "@/lib/errors";
 import { identityFromRow, MEMBER_IDENTITY_COLUMNS, type MemberIdentity, type MemberIdentityRow } from "@/lib/members/name";
 import { CHANNEL_MASK, hasPerm, Perm } from "@/lib/permissions/bits";
@@ -88,31 +89,27 @@ export async function updateChannelAction(input: {
   return {};
 }
 
-const NET_MAX = 10n ** 30n;
+const USD6_MAX = 10n ** 30n;
 
 /**
- * Guarda el candado de la DAO de un canal (`set_channel_gate`): % mínimo en bps y/o aportación neta mínima en unidades
- * base de USDC (string), unidos con "o". Ambos null lo quitan. La autorización real la hace la RPC.
+ * Guarda el candado de un canal (`set_channel_gate`): lo que hay que haber donado, en USD ("12,5"), que se pasa a usd6
+ * con aritmética de bigint. `null` lo quita. La autorización real la hace la RPC.
  */
 export async function setChannelGateAction(input: {
   id: string;
-  minShareBps: number | null;
-  minNetUsdc: string | null;
+  minDonatedUsd: string | null;
   scope: string;
 }): Promise<{ error?: string }> {
-  const shareOk =
-    input?.minShareBps === null || (Number.isInteger(input?.minShareBps) && input.minShareBps >= 0 && input.minShareBps <= 10_000);
-  const netOk =
-    input?.minNetUsdc === null || (typeof input?.minNetUsdc === "string" && /^\d{1,31}$/.test(input.minNetUsdc) && BigInt(input.minNetUsdc) <= NET_MAX);
-  if (!isUuid(input?.id) || !shareOk || !netOk || (input.scope !== "view" && input.scope !== "post")) {
+  const usd6 = typeof input?.minDonatedUsd === "string" ? usdToUsd6(input.minDonatedUsd) : null;
+  const amountOk = input?.minDonatedUsd === null || (usd6 !== null && usd6 <= USD6_MAX);
+  if (!isUuid(input?.id) || !amountOk || (input.scope !== "view" && input.scope !== "post")) {
     return { error: "invalid_input" };
   }
 
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("set_channel_gate", {
     p_channel: input.id,
-    p_min_share_bps: input.minShareBps,
-    p_min_net_usdc: input.minNetUsdc,
+    p_min_donated_usd6: usd6 === null ? null : usd6.toString(),
     p_scope: input.scope,
   });
   if (error) return { error: rpcErrorCode(error) };

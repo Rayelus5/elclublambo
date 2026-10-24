@@ -1,12 +1,13 @@
 import { Folder, Hash, Lock } from "lucide-react";
+import { DonateButton } from "@/components/donations/donate-button";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
-import { lockSituationText, requirementText, type LockState } from "@/lib/channels/lock";
+import { lockSituationText, lockText, requirementText, type LockState } from "@/lib/channels/lock";
 
 /**
- * What a member sees at /c/<id> when a DAO view-gate locks the channel they would otherwise see. It carries only the
- * channel's name and kind plus the requirement and the member's own standing: no topic, messages, pins or members.
+ * What a member sees at /c/<id> when a donation view-gate locks the channel they would otherwise see. It carries only
+ * the channel's name and kind plus the requirement and what the member has donated: no topic, messages, pins or members.
  */
-export function LockPage({ state, chainName }: { state: LockState; chainName: string }) {
+export function LockPage({ state }: { state: LockState }) {
   const Icon = state.kind === "text" ? Hash : Folder;
   const many = state.requirements.length > 1;
   return (
@@ -26,18 +27,25 @@ export function LockPage({ state, chainName }: { state: LockState; chainName: st
         <h2 id="lock-req" className="text-h2">
           {many ? "Requisitos" : "Requisito"}
         </h2>
-        <ul className="flex flex-col gap-2">
-          {state.requirements.map((r, i) => (
-            <li key={r.channelId ?? i} className="text-fg">
-              {requirementText(r)}
-            </li>
-          ))}
-        </ul>
-        {many ? <p className="text-sm text-fg-muted">Tienes que cumplir todos los requisitos para entrar.</p> : null}
-        <p className="border-t border-border pt-3 text-sm text-fg-muted">{lockSituationText(state, chainName)}</p>
+        {many ? (
+          <>
+            <ul className="flex flex-col gap-2">
+              {state.requirements.map((r, i) => (
+                <li key={r.channelId ?? i} className="text-fg">
+                  {requirementText(r)}
+                </li>
+              ))}
+            </ul>
+            <p className="text-sm text-fg-muted">Tienes que cumplir todos los requisitos para entrar.</p>
+            <p className="border-t border-border pt-3 text-sm text-fg-muted">{lockSituationText(state)}</p>
+          </>
+        ) : (
+          <p className="text-fg">{lockText(state)}</p>
+        )}
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
+        <DonateButton />
         <HowItWorksLink section="candados" />
       </div>
     </div>

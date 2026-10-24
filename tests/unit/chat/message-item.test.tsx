@@ -194,7 +194,7 @@ describe("MessageItem", () => {
     });
 
     it("offers a tip on text, Alpha and reply messages of others", async () => {
-      for (const message of [makeMessage(), makeMessage({ kind: "alpha", alphaAddress: "0x3333333333333333333333333333333333333333" }), makeMessage({ threadRootId: "root" })]) {
+      for (const message of [makeMessage(), makeMessage({ kind: "alpha", alpha: { address: "0x3333333333333333333333333333333333333333", chainId: 84532 } }), makeMessage({ threadRootId: "root" })]) {
         const { unmount } = setup({ message });
         await openMenu();
         expect(items()).toContain("Dar propina");

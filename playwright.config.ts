@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
-import { CHAINS, READY_URL } from "./e2e/chain/shared.mjs";
+import { CHAINS, ETH_USD_FEED, READY_URL } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
 import { MOCK_PORT as MOCK_COINGECKO_PORT } from "./e2e/mock/coingecko.mjs";
+import { MOCK_DRAND_PORT, MOCK_PUBLIC_KEY as MOCK_DRAND_PUBLIC_KEY } from "./e2e/mock/drand.mjs";
 
 // Supabase keys come from .env.local (git-ignored); already-set process env wins.
 try {
@@ -33,12 +34,21 @@ const env = {
   NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
   NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
   TIP_CONFIRMATIONS: "1",
+  // P1: ETH donations are valued with the mock Chainlink feed start-chain.mjs puts on both nodes (2000 USD); the
+  // override is honoured on the testnet set only (src/lib/economy/eth-price.ts).
+  ETH_USD_FEED_ADDRESS_84532: ETH_USD_FEED,
+  ETH_USD_FEED_ADDRESS_421614: ETH_USD_FEED,
   // P0-R6: TEST-ONLY Builder Code; f3b checks the ERC-8021 suffix it puts on Base transfers.
   NEXT_PUBLIC_BASE_BUILDER_CODE: "bc_e2etest",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
   CRON_SECRET: "e2e-cron-secret",
   // F4b: the Mercado pages read the local mock CoinGecko (e2e/mock/coingecko.mjs), never the real API.
   COINGECKO_API_BASE: `http://127.0.0.1:${MOCK_COINGECKO_PORT}/api/v3`,
+  // P1-R11: giveaways draw against the local drand (e2e/mock/drand.mjs, its own TEST-ONLY BLS key); honoured on the
+  // testnet set only (src/lib/giveaways/drand.ts). The public base is baked into the browser verifier and the CSP.
+  DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
+  NEXT_PUBLIC_DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
+  NEXT_PUBLIC_DRAND_PUBLIC_KEY: MOCK_DRAND_PUBLIC_KEY,
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);
@@ -70,6 +80,13 @@ export default defineConfig({
       // F4b: local mock CoinGecko (deterministic fixtures, POST /__fail and /__ok toggle a 503 outage).
       command: "node e2e/mock/coingecko.mjs",
       url: `http://127.0.0.1:${MOCK_COINGECKO_PORT}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      // P1-R11: local drand (quicknet's genesis and period, TEST-ONLY key; 425 for future rounds, POST /__fail and /__ok).
+      command: "node e2e/mock/drand.mjs",
+      url: `http://127.0.0.1:${MOCK_DRAND_PORT}/__health`,
       reuseExistingServer: false,
       timeout: 30_000,
     },

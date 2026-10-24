@@ -12,6 +12,16 @@ export const CHAINS = {
   84532: { rpcPort: 8545, rpcUrl: "http://127.0.0.1:8545", usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e" },
   421614: { rpcPort: 8546, rpcUrl: "http://127.0.0.1:8546", usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d" },
 };
+/** TEST-ONLY copy of the club Safe address stored in chains.safe_address (migration 20261024100001_chains.sql). */
+export const CLUB_SAFE = "0x380f2e12081995359e2Ab88E3c31c6b227904234";
+/**
+ * Where start-chain.mjs puts the mock Chainlink ETH/USD aggregator on both nodes (ETH_USD_FEED_ADDRESS_<chainId>).
+ * All lowercase on purpose: viem's isAddress rejects the mixed-case "fEed" (bad EIP-55 checksum), and eth-price.ts
+ * would then silently fall back to the real feed address.
+ */
+export const ETH_USD_FEED = "0x000000000000000000000000000000000000feed";
+/** The mock feed's answer: 2000 USD with 8 decimals. */
+export const ETH_USD_PRICE_E8 = 2000_00000000n;
 /** The wallet's starting network, and the one the legacy islands' helpers (e2e/legacy) talk to. */
 export const DEFAULT_CHAIN_ID = 84532;
 /** Aliases of the default (84532) node, kept for e2e/legacy (preflight ruling #11). */

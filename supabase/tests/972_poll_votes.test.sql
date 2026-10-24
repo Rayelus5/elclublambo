@@ -20,14 +20,32 @@ begin
   perform tests.authenticate_as((select m.auth_user_id from public.members m where m.id = p_member::uuid));
 end;
 $$;
+-- P1 Task 1: create_poll no longer takes a weight mode. The weighted rows these cases read (what F4e left behind)
+-- are seeded by hand: an equal poll turned linear / quadratic with the old creation snapshot (definer, session-proof).
+create function tests.legacy_weights(p_poll uuid, p_mode text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.polls set weight_mode = p_mode, chain_id = 59141 where message_id = p_poll;
+  insert into private.poll_weight_snapshots (poll_id, member_id, weight)
+  select p_poll, w.member_id, w.weight
+  from (select p.member_id,
+               case when p_mode = 'linear' then greatest(p.shares - p.locked_shares, 0)
+                    else public._isqrt(greatest(p.shares - p.locked_shares, 0)) end as weight
+        from public.dao_positions p
+        join public.members m on m.id = p.member_id and m.status = 'active'
+        where p.chain_id = 59141) w
+  where w.weight > 0;
+end;
+$$;
 create function tests.poll(p_question text, p_options text[], p_mode text default 'equal', p_ch text default null)
 returns text language plpgsql as $$
 declare v uuid;
 begin
   perform tests.login(current_setting('t.a'));
   v := public.create_poll(coalesce(p_ch, current_setting('t.ch'))::uuid, p_question, p_options,
-                          now() + interval '1 day', p_mode);
+                          now() + interval '1 day');
   perform tests.clear_authentication();
+  if p_mode in ('linear', 'quadratic') then perform tests.legacy_weights(v, p_mode); end if;
   return v::text;
 end;
 $$;
@@ -121,7 +139,7 @@ select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'
            from pg_proc p
            where p.oid in ('public.cast_poll_vote(uuid,uuid)'::regprocedure, 'public.poll_details(uuid[])'::regprocedure,
                            'public.close_due_polls()'::regprocedure, 'public._poll_tally(uuid)'::regprocedure,
-                           'public.create_poll(uuid,text,text[],timestamptz,text)'::regprocedure,
+                           'public.create_poll(uuid,text,text[],timestamptz)'::regprocedure,
                            'public._push_build(bigint)'::regprocedure)),
   'the new and replaced functions are definer with an empty search_path');
 select ok(not has_function_privilege('authenticated', 'public._push_build(bigint)', 'execute')
@@ -134,13 +152,13 @@ select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::
 
 -- ===== 2. carry: create_poll whitespace set (F4e-R1) and the VIEW-inclusive bit check =====
 select tests.login(current_setting('t.a'));
-select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, E'\u00a0\u00a0', '{Sí,No}', now() + interval '1 day', 'equal')$$,
+select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, E'\u00a0\u00a0', '{Sí,No}', now() + interval '1 day')$$,
   'P0001', 'question_required', 'an NBSP-only question -> question_required');
-select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, E'\ufeff \u202f\u2007', '{Sí,No}', now() + interval '1 day', 'equal')$$,
+select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, E'\ufeff \u202f\u2007', '{Sí,No}', now() + interval '1 day')$$,
   'P0001', 'question_required', 'a question of BOM, narrow NBSP and figure space only -> question_required');
-select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, 'Q', array['Sí', E'Sí\ufeff'], now() + interval '1 day', 'equal')$$,
+select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, 'Q', array['Sí', E'Sí\ufeff'], now() + interval '1 day')$$,
   'P0001', 'poll_options_invalid', 'options differing only by a trailing BOM are duplicates');
-select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, 'Q', array['a b', E'a\u3000\u00a0b'], now() + interval '1 day', 'equal')$$,
+select throws_ok($$select public.create_poll(tests.cfg('t.ch')::uuid, 'Q', array['a b', E'a\u3000\u00a0b'], now() + interval '1 day')$$,
   'P0001', 'poll_options_invalid', 'options differing only by an ideographic space + NBSP run are duplicates');
 select tests.clear_authentication();
 select set_config('t.pw', tests.poll(E'\ufeff¿Hoy\u00a0\u2028o\u205fmañana?\u202f', array[E'\u2007Hoy', E'Mañana\u3000\u1680']), true);
@@ -152,7 +170,7 @@ select is((select array_agg(label order by position) from public.poll_options wh
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
   values (current_setting('t.chv')::uuid, 'member', current_setting('t.a')::uuid, 0, 1);
 select tests.login(current_setting('t.a'));
-select throws_ok($$select public.create_poll(tests.cfg('t.chv')::uuid, '  ', '{Sí,No}', now() + interval '1 day', 'equal')$$,
+select throws_ok($$select public.create_poll(tests.cfg('t.chv')::uuid, '  ', '{Sí,No}', now() + interval '1 day')$$,
   'P0001', 'forbidden', 'no VIEW on the channel -> forbidden before any validation');
 select tests.clear_authentication();
 
@@ -199,14 +217,14 @@ delete from public.permission_overwrites where channel_id = current_setting('t.c
 select tests.login(current_setting('t.z'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pe')), 'P0001', 'forbidden', 'a banned member -> forbidden');
 select tests.clear_authentication();
--- a view-gated channel: V5 holds no shares, so it cannot see ch2 while the gate is on
+-- a view-gated channel: V5 has donated nothing, so it cannot see ch2 while the gate is on
 select set_config('t.pg', tests.poll('Con puerta', '{Sí,No}', 'equal', current_setting('t.ch2')), true);
-update public.channels set gate_min_share_bps = 100, gate_scope = 'view' where id = current_setting('t.ch2')::uuid;
+update public.channels set gate_min_donated_usd6 = 100, gate_scope = 'view' where id = current_setting('t.ch2')::uuid;
 select tests.login(current_setting('t.v5'));
 select throws_ok(format($$select tests.vote(%L, 1)$$, current_setting('t.pg')), 'P0001', 'forbidden',
   'a view gate the member fails -> forbidden');
 select tests.clear_authentication();
-update public.channels set gate_min_share_bps = null, gate_scope = 'post' where id = current_setting('t.ch2')::uuid;
+update public.channels set gate_min_donated_usd6 = null, gate_scope = 'post' where id = current_setting('t.ch2')::uuid;
 select is(tests.vote_as(current_setting('t.v5'), current_setting('t.pg'), 1) ->> 'status', 'cast', 'with the gate off V5 votes');
 select is((select count(*)::int from private.poll_votes where poll_id = current_setting('t.pe')::uuid), 1,
   'no refused call left a ballot');

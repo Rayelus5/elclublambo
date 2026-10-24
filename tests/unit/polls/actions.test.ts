@@ -19,24 +19,22 @@ const input = (over: Record<string, unknown> = {}) => ({
   question: "  ¿Comemos\n  fuera? ",
   options: ["Sí", "No"],
   closesAt: closesAt(),
-  weightMode: "equal" as const,
   ...over,
 });
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("createPollAction", () => {
-  it("calls create_poll with the normalized question, the options, an ISO close and the mode, then schedules push", async () => {
+  it("calls create_poll with the normalized question, the options and an ISO close (no weight mode), then schedules push", async () => {
     rpc.mockResolvedValue({ data: P, error: null });
     const at = closesAt();
-    const r = await createPollAction(input({ closesAt: at, weightMode: "quadratic" }) as never);
+    const r = await createPollAction(input({ closesAt: at }) as never);
     expect(r).toEqual({ ok: true, messageId: P });
     expect(rpc).toHaveBeenCalledWith("create_poll", {
       p_channel: CH,
       p_question: "¿Comemos fuera?",
       p_options: ["Sí", "No"],
       p_closes_at: new Date(at).toISOString(),
-      p_weight_mode: "quadratic",
     });
     expect(schedulePushDispatch).toHaveBeenCalled();
   });
@@ -48,7 +46,6 @@ describe("createPollAction", () => {
     ["close too soon", { closesAt: new Date(Date.now() + 60_000).toISOString() }, "closes_at_invalid"],
     ["unparsable close", { closesAt: "nope" }, "closes_at_invalid"],
     ["bad channel", { channelId: "x" }, "invalid_input"],
-    ["bad mode", { weightMode: "cubic" }, "invalid_input"],
     ["options not an array", { options: "Sí,No" }, "invalid_input"],
   ])("rejects %s with %s and no RPC call", async (_n, over, code) => {
     const r = await createPollAction(input(over) as never);

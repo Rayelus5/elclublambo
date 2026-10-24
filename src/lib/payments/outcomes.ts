@@ -31,5 +31,5 @@ export function isDefinitiveFailure(code: string | null | undefined): boolean {
 
 /** A verification result that ends the flow: credited (or recorded, for a donation) or failed for good. */
 export function endsPaymentFlow(r: { status: string; code?: string }): boolean {
-  return r.status === "confirmed" || r.status === "pending_finality" || (r.status === "failed" && isDefinitiveFailure(r.code));
+  return r.status === "confirmed" || (r.status === "failed" && isDefinitiveFailure(r.code));
 }
