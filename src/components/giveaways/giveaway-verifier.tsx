@@ -88,7 +88,10 @@ export function GiveawayVerifier({
           },
         ],
       });
-    } catch {
+    } catch (e) {
+      // Not expected (fetchBeacon and verifyGiveaway never throw): logged for diagnosis, and shown like drand being
+      // unreachable, never as a ✗ the giveaway did not earn.
+      console.error("[giveaways] verifier failed", e);
       setState({ kind: "unavailable" });
     } finally {
       busy.current = false;

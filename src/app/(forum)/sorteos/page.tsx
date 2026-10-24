@@ -4,24 +4,13 @@ import { CreateGiveawayTrigger } from "@/components/giveaways/create-giveaway-di
 import { GiveawayList } from "@/components/giveaways/giveaway-list";
 import { PageLoader } from "@/components/shell/page-loader";
 import { appChainIds } from "@/lib/economy/networks";
-import { giveawayRoleOptions, type RoleOption } from "@/lib/giveaways/format";
 import { getGiveaways } from "@/lib/giveaways/queries";
-import { getRolesContext } from "@/lib/roles/queries";
+import { getGiveawayRoleOptions } from "@/lib/giveaways/role-options";
 import { safeError } from "@/lib/security/redact";
 import { createServerClient } from "@/lib/supabase/server";
 import { treasurerId } from "@/lib/treasury/treasurer";
 
 export const metadata: Metadata = { title: "Sorteos" };
-
-/** The roles a treasurer may offer; an empty list if the read fails (the dialog says there are none). */
-async function roleOptions(): Promise<RoleOption[]> {
-  try {
-    return giveawayRoleOptions(await getRolesContext());
-  } catch (e) {
-    console.error("[giveaways] roles read failed", safeError(e));
-    return [];
-  }
-}
 
 // Reads cookies (dynamic): under cacheComponents it must live inside a Suspense.
 async function SorteosContent() {
@@ -33,7 +22,7 @@ async function SorteosContent() {
     }),
     treasurerId().catch(() => null),
   ]);
-  const roles = treasurer ? await roleOptions() : [];
+  const roles = treasurer ? await getGiveawayRoleOptions() : [];
 
   return (
     <div className="flex w-full flex-col gap-8">

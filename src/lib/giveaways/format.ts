@@ -38,13 +38,16 @@ export type RoleOption = { id: string; name: string; color: string };
 
 /**
  * The roles a treasurer may offer as a prize (P1-R9): not @everyone, no is_system or system_key, permissions inside the
- * member-safe mask, and strictly below the creator unless ADMINISTRATOR. Channel overwrites and the rest are re-checked
- * by create_giveaway, which answers role_not_allowed.
+ * member-safe mask, no channel overwrite widening it past that mask (`widened`, see widenedRoleIds), and strictly below
+ * the creator unless ADMINISTRATOR. create_giveaway re-checks all of it (_giveaway_role_ok) and answers role_not_allowed.
  */
-export function giveawayRoleOptions(ctx: { roles: readonly RoleItem[]; actor: { isAdmin: boolean; perms?: string; top: number } }): RoleOption[] {
+export function giveawayRoleOptions(
+  ctx: { roles: readonly RoleItem[]; actor: { isAdmin: boolean; perms?: string; top: number } },
+  widened: ReadonlySet<string> = new Set(),
+): RoleOption[] {
   return ctx.roles
     .filter((r) => {
-      if (r.isEveryone || r.isSystem || r.systemKey !== null) return false;
+      if (r.isEveryone || r.isSystem || r.systemKey !== null || widened.has(r.id)) return false;
       let perms: bigint;
       try {
         perms = BigInt(r.permissions);
@@ -55,4 +58,28 @@ export function giveawayRoleOptions(ctx: { roles: readonly RoleItem[]; actor: { 
       return ctx.actor.isAdmin || r.position < ctx.actor.top;
     })
     .map((r) => ({ id: r.id, name: r.name, color: r.color }));
+}
+
+/**
+ * The roles some channel overwrite grants bits outside the member-safe mask (e.g. MANAGE_MESSAGES in one channel), from
+ * permission_overwrites rows of target_type 'role'. A malformed allow counts as widening (never offered).
+ */
+export function widenedRoleIds(rows: readonly { target_id: string; allow: number | string | null }[]): Set<string> {
+  const out = new Set<string>();
+  for (const r of rows) {
+    let allow: bigint;
+    try {
+      allow = BigInt(String(r.allow ?? 0));
+    } catch {
+      out.add(r.target_id);
+      continue;
+    }
+    if ((allow & ~MEMBER_SAFE) !== 0n) out.add(r.target_id);
+  }
+  return out;
+}
+
+/** A prize the member actually won: a winner kept on an unawarded prize (role_unavailable) is not a win. */
+export function isWin(p: { iWon: boolean; status: string }): boolean {
+  return p.iWon && (p.status === "awarded" || p.status === "paid" || p.status === "delivered");
 }

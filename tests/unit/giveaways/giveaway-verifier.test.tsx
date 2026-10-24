@@ -62,3 +62,22 @@ describe("GiveawayVerifier", () => {
     expect(bad()).toHaveLength(1);
   });
 });
+
+describe("GiveawayVerifier · unexpected failure", () => {
+  it("logs it and shows the retry copy, never a ✗", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    // The failure comes from reading the answer, not from the mock itself: vitest reports an error thrown by a mock
+    // implementation as a test failure even when the caller catches it.
+    fetchBeacon.mockResolvedValue({
+      get status(): string {
+        throw new Error("boom");
+      },
+    });
+    render(<GiveawayVerifier {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar" }));
+    expect(await screen.findByText("No se pudo descargar la ronda. Inténtalo más tarde.")).toBeInTheDocument();
+    expect(bad()).toHaveLength(0);
+    expect(log).toHaveBeenCalledWith("[giveaways] verifier failed", expect.any(Error));
+    log.mockRestore();
+  });
+});

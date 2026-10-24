@@ -6,14 +6,11 @@ import { ArrowLeft, PartyPopper, Users } from "lucide-react";
 import { Countdown } from "@/components/giveaways/countdown";
 import { GiveawayVerifier } from "@/components/giveaways/giveaway-verifier";
 import { JoinButton } from "@/components/giveaways/join-button";
-import { MarkPaidButton } from "@/components/giveaways/mark-paid-dialog";
-import { PrizeLabel, PrizeStatus } from "@/components/giveaways/prize-status";
-import { CancelGiveawayButton, DrawNowButton, MarkDeliveredButton } from "@/components/giveaways/treasurer-actions";
+import { PrizeList } from "@/components/giveaways/prize-list";
+import { CancelGiveawayButton, DrawNowButton } from "@/components/giveaways/treasurer-actions";
 import { PageLoader } from "@/components/shell/page-loader";
-import { isChainId } from "@/lib/economy/networks";
-import { formatClose, participants, STATUS_LABEL } from "@/lib/giveaways/format";
+import { formatClose, isWin, participants, STATUS_LABEL } from "@/lib/giveaways/format";
 import { getGiveaway } from "@/lib/giveaways/queries";
-import type { GiveawayDetail, GiveawayPrizeState } from "@/lib/giveaways/types";
 import { createServerClient } from "@/lib/supabase/server";
 import { treasurerId } from "@/lib/treasury/treasurer";
 import { cn } from "@/lib/utils";
@@ -45,42 +42,6 @@ function Hash({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PrizeActions({ prize: p }: { prize: GiveawayPrizeState }) {
-  if (p.status !== "awarded") return null;
-  if (p.kind === "crypto" && isChainId(p.chainId)) {
-    return <MarkPaidButton prizeId={p.id} label={p.label} chainId={p.chainId} winnerAddress={p.winnerAddress} />;
-  }
-  if (p.kind === "custom") return <MarkDeliveredButton prizeId={p.id} />;
-  return null;
-}
-
-function Prizes({ g, treasurer }: { g: GiveawayDetail; treasurer: boolean }) {
-  return (
-    <ol aria-label="Premios del sorteo" className="flex flex-col divide-y divide-border">
-      {g.prizeStates.map((p) => (
-        <li key={p.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex min-w-0 flex-col gap-1">
-            <div className="flex items-center gap-3 text-sm">
-              <span className="w-5 shrink-0 font-mono text-[13px] text-fg-muted tabular-nums">{`${p.rank}.`}</span>
-              <PrizeLabel prize={p} />
-            </div>
-            {p.winnerLabel ? (
-              <p className="pl-8 text-sm text-fg-muted">
-                {p.iWon ? <strong className="font-bold text-success">Tú</strong> : <span className="text-fg">{p.winnerLabel}</span>}
-                {p.winnerPosition !== null ? <span className="font-mono tabular-nums">{` · posición ${p.winnerPosition}`}</span> : null}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-col items-start gap-2 pl-8 sm:items-end sm:pl-0">
-            <PrizeStatus prize={p} />
-            {treasurer ? <PrizeActions prize={p} /> : null}
-          </div>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 // Reads cookies (dynamic): under cacheComponents it must live inside a Suspense.
 async function GiveawayContent({ params }: { params: Params }) {
   const { id } = await params;
@@ -90,7 +51,7 @@ async function GiveawayContent({ params }: { params: Params }) {
   const treasurer = treasurerMember !== null;
   const open = g.status === "open";
   const live = open || g.status === "closed";
-  const iWon = g.prizeStates.some((p) => p.iWon);
+  const iWon = g.prizeStates.some(isWin);
   const round = g.targetRound.toString();
 
   return (
@@ -144,7 +105,7 @@ async function GiveawayContent({ params }: { params: Params }) {
       ) : null}
 
       <Section id="premios" title="Premios" intro="Se sortean en orden. Cada persona gana como mucho un premio.">
-        <Prizes g={g} treasurer={treasurer} />
+        <PrizeList prizes={g.prizeStates} treasurer={treasurer} />
       </Section>
 
       <Section id="como-se-comprueba" title="Cómo se comprueba">
