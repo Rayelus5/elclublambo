@@ -20,7 +20,7 @@ const EXEMPT = [
 ];
 /** Single exempt lines: the alpha error copy. */
 const EXEMPT_LINE = /^\s*not_a_contract:/;
-const LINEA = /\bLinea\b/;
+const LINEA = /\bLinea\b/i;
 /** Module specifiers are paths, not copy: `from "…"`, `import("…")`, `vi.mock("…")`. */
 const SPECIFIER = /(\bfrom\s*|\bimport\s*\(\s*|\bmock\s*\(\s*)(["'])[^"']*\2/g;
 

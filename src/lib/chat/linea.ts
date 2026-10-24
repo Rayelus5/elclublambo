@@ -6,7 +6,8 @@ import { ALPHA_ADDRESS_RE } from "@/lib/chat/model";
 /**
  * True when the address holds bytecode on Linea mainnet (59144). Throws `Error("network")` when the chain cannot be
  * queried, so the caller can tell "not a contract" from "could not check".
- * `LINEA_RPC_URL` overrides the chain's public RPC (rate-limited; set a dedicated one in production).
+ * Alphas stay on Linea's public RPC until P1 (P0-R2). `LINEA_RPC_URL` is only a local/test override: production must
+ * leave it unset (the deploy readiness check rejects it).
  */
 export async function verifyLineaContract(address: string): Promise<boolean> {
   if (!ALPHA_ADDRESS_RE.test(address)) return false;

@@ -105,7 +105,7 @@ function PaletteBody({
   const remoteEnabled = Array.from(q).length >= MIN_REMOTE_CHARS;
 
   // Debounced remote search. Any change of `q` (or unmount) invalidates the request in flight: a slow response for
-  // "lin" can never replace the results of "linea".
+  // "arb" can never replace the results of "arbitrum".
   useEffect(() => {
     if (!remoteEnabled) return;
     let stale = false;
