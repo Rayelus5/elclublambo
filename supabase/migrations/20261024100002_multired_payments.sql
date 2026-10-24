@@ -154,7 +154,8 @@ $$;
 
 -- ===== create_bounty_payment_intent (latest 20261019700101_rate_limits.sql) =====
 -- Paid with the bounty's token on any enabled network the solver accepts (P0-R4). The idempotent intent (a) only comes
--- back when it is on the requested network; one on another network is expired and replaced.
+-- back when it is on the requested network. One on another network is left pending (it may already be signed and
+-- broadcast, its hash not yet attached) and expires on its own; a new intent on the requested network coexists.
 drop function public.create_bounty_payment_intent(uuid, numeric, int);
 create function public.create_bounty_payment_intent(p_bounty uuid, p_chain_id int, p_amount numeric)
 returns jsonb
@@ -224,23 +225,21 @@ begin
     raise exception 'payment_in_progress';
   end if;
 
-  -- (a) idempotent: hand back the live, hashless intent as it is when it is on this network; on another network it
-  -- is expired (nothing was signed for it) and a new one follows
+  -- (a) idempotent: hand back the live, hashless intent on this network as it is. One on another network is never
+  -- touched: the author may have signed it in another tab and not attached the hash yet, and expiring it would make
+  -- that transfer unrecordable (attach_intent_tx refuses a non-pending intent). Confirmation settles the bounty once.
   select * into v_open from public.payment_intents i
   where i.purpose = 'bounty' and i.target_id = b.message_id and i.member_id = v_me and i.status = 'pending'
-    and i.expires_at > now() and i.main_tx_hash is null and i.fee_tx_hash is null
+    and i.expires_at > now() and i.main_tx_hash is null and i.fee_tx_hash is null and i.chain_id = p_chain_id
   order by i.created_at desc, i.id
   limit 1;
-  if found and v_open.chain_id = p_chain_id then
+  if found then
     return jsonb_build_object(
       'id', v_open.id, 'chainId', v_open.chain_id, 'token', v_open.token,
       'amount', v_open.amount::text, 'feeAmount', v_open.fee_amount::text,
       'recipientAddress', v_open.recipient_address, 'platformAddress', v_open.platform_address,
       'expiresAt', v_open.expires_at);
   end if;
-  update public.payment_intents i set status = 'expired'
-  where i.purpose = 'bounty' and i.target_id = b.message_id and i.member_id = v_me and i.status = 'pending'
-    and i.main_tx_hash is null and i.fee_tx_hash is null and i.chain_id <> p_chain_id;
 
   -- (c) a new intent, always in the bounty's token
   if p_amount < b.amount then

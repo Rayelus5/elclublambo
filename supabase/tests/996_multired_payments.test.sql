@@ -5,7 +5,7 @@
 --   - bounty_status loses other_chain; member_tips_totals sums the enabled networks; the reads filter on
 --     private.chain_enabled instead of the legacy active chain.
 begin;
-select plan(50);
+select plan(54);
 
 create function tests.td(p_text text) returns jsonb language sql as $$
   select jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object(
@@ -148,7 +148,7 @@ select throws_ok(format($$select public.create_bounty_payment_intent(%L, 8453, 1
 select throws_ok(format($$select public.create_bounty_payment_intent(%L, null, 1000000)$$, current_setting('t.b1')),
   'invalid_input', 'paying with a null chain is invalid_input');
 
--- (a) a hashless intent on another network is expired and replaced
+-- (a) a hashless intent on another network stays pending; the requested network gets its own intent
 select set_config('t.pa', public.create_bounty_payment_intent(current_setting('t.b1')::uuid, 421614, 1000000)::text, true);
 select is((current_setting('t.pa')::jsonb ->> 'chainId')::int, 421614, 'a payment on the announced network');
 select is(public.create_bounty_payment_intent(current_setting('t.b1')::uuid, 421614, 1000000) ->> 'id',
@@ -159,8 +159,12 @@ select is((current_setting('t.pb')::jsonb ->> 'chainId')::int || '/' || (current
           || '/' || (current_setting('t.pb')::jsonb ->> 'feeAmount'),
   '84532/USDC/0', 'paid on 84532 with the bounty token and no fee');
 select tests.clear_authentication();
-select is((select status from public.payment_intents where id = (current_setting('t.pa')::jsonb ->> 'id')::uuid), 'expired',
-  'the hashless intent on the other network is expired');
+select is((select status from public.payment_intents where id = (current_setting('t.pa')::jsonb ->> 'id')::uuid), 'pending',
+  'the intent on the other network is left pending (it may already be signed)');
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select is(public.create_bounty_payment_intent(current_setting('t.b1')::uuid, 421614, 1000000) ->> 'id',
+  current_setting('t.pa')::jsonb ->> 'id', 'both live intents coexist: asking on 421614 still returns the first one');
+select tests.clear_authentication();
 select is((select fee_bps || '/' || min_fee_bps || '/' || fee_amount || '/' || coalesce(platform_address, 'null')
            from public.payment_intents where id = (current_setting('t.pb')::jsonb ->> 'id')::uuid),
   '0/0/0/null', 'the bounty intent stores no fee');
@@ -187,6 +191,19 @@ select lives_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, nul
 reset role;
 select is((select b.paid_at is not null and t.chain_id = 84532 from public.bounties b join public.tips t on t.id = b.paid_tip_id
            where b.message_id = current_setting('t.b1')::uuid), true, 'the bounty is paid by a tip on 84532');
+-- the 421614 intent signed in another tab can still take its hash after the switch; its confirmation then meets the
+-- existing already_paid guard (the first verified payment settles the bounty)
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select lives_ok(format($$select public.attach_intent_tx(%L, 'main', %L)$$, current_setting('t.pa')::jsonb ->> 'id', tests.hash(9963)),
+  'the other-network intent is still pending and accepts its hash');
+select tests.clear_authentication();
+set local role service_role;
+select throws_ok(format($$select public.confirm_bounty_payment(%L, %L::jsonb, null)$$, current_setting('t.pa')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.hash(9963), 'logIndex', 1, 'blockNumber', 11, 'blockTimestamp', now())),
+  'already_paid', 'a second verified payment meets already_paid, without crediting a second tip');
+reset role;
+select is((select count(*)::int from public.tips t join public.payment_intents i on i.id = t.intent_id
+           where i.target_id = current_setting('t.b1')::uuid), 1, 'the bounty holds one tip');
 
 -- confirm still refuses a disabled network
 select tests.authenticate_as(current_setting('t.ua')::uuid);
