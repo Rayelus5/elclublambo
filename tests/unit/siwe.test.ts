@@ -42,7 +42,7 @@ describe("buildLoginMessage", () => {
     const msg = buildLoginMessage(base);
     const p = parseSiweMessage(msg);
     expect(p.chainId).toBe(84532);
-    expect(p.statement).toBe("Entra en El Club Lambo. Esta firma no cuesta gas ni mueve fondos.");
+    expect(p.statement).toBe("Entra en ElClub. Esta firma no cuesta gas ni mueve fondos.");
     expect(p.notBefore!.getTime()).toBe(p.issuedAt!.getTime());
     expect(p.expirationTime!.getTime() - p.issuedAt!.getTime()).toBe(300000);
   });
