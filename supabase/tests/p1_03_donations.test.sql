@@ -5,7 +5,7 @@
 --   - donor_ranking hides donors who left the list (but shows the caller), donation_overview hides anonymous ones.
 --   - club_activity reads the donations table.
 begin;
-select plan(33);
+select plan(34);
 
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -123,6 +123,16 @@ select is((select price_source || ':' || eth_price_e8::text from public.donation
 select is(public.confirm_donation((select intent_id from public.donations where tx_hash = tests.hash(9301)),
   jsonb_build_object('txHash', tests.hash(9301), 'logIndex', 1, 'blockNumber', 10), 5000000, null) ->> 'status', 'already',
   'confirming a confirmed intent again is already');
+reset role;
+
+-- a non-donation intent is not_found for confirm_donation
+insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
+  recipient_member_id, recipient_address, target_type)
+values ('9c300000-0000-4000-8000-000000000001', current_setting('t.d1')::uuid, 'tip', 84532, 'USDC', 1000000, 0, 0, 0,
+  current_setting('t.d2')::uuid, '0x' || lpad('abc', 40, '0'), 'profile');
+set local role service_role;
+select throws_ok($$select public.confirm_donation('9c300000-0000-4000-8000-000000000001', '{}'::jsonb, 1000000, null)$$,
+  'not_found', 'a tip intent cannot be confirmed as a donation');
 reset role;
 
 -- ===== 4. visibility: ranking, overview, status =====

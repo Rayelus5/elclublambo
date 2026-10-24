@@ -142,6 +142,9 @@ begin
     return jsonb_build_object('status', 'already', 'donationId', v_id);
   end if;
 
+  if i.recipient_address is null then
+    raise exception 'invalid_input';
+  end if;
   if p_usd6 is null or p_usd6 < 0 or p_usd6 <> trunc(p_usd6)
      or (i.token = 'USDC' and (p_eth_price_e8 is not null or p_usd6 <> i.amount))
      or (i.token = 'ETH' and (p_eth_price_e8 is null or p_eth_price_e8 <= 0 or p_eth_price_e8 <> trunc(p_eth_price_e8))) then
@@ -166,6 +169,8 @@ begin
 
   -- Mecenas: the member's verified total reaches the threshold (granted once, never removed here)
   select (c.value #>> '{}')::numeric into v_min from public.app_config c where c.key = 'donor_role_min_usd6';
+  -- serialize per member: two intents confirming at once must each see the other's committed donation
+  perform pg_advisory_xact_lock(hashtextextended('donor:' || i.member_id::text, 0));
   select coalesce(sum(d.usd6), 0) into v_total from public.donations d where d.member_id = i.member_id;
   if v_min is not null and v_total >= v_min then
     select r.id into v_role from public.roles r where r.system_key = 'donor';
