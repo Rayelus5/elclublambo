@@ -68,14 +68,14 @@ const config = (over: Partial<EconomyConfig> = {}): EconomyConfig => ({
   ...over,
 });
 
-type MountOpts = { onOpenChange?: (o: boolean) => void; cfg?: EconomyConfig; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] };
+type MountOpts = { open?: boolean; onOpenChange?: (o: boolean) => void; cfg?: EconomyConfig; recipient?: typeof recipient; target?: Parameters<typeof TipDialog>[0]["target"] };
 function mount(opts: MountOpts = {}) {
   return render(ui(opts));
 }
 function ui(opts: MountOpts = {}) {
   return (
     <EconomyProvider config={opts.cfg ?? config()} wallet={SESSION} memberId={MEMBER}>
-      <TipDialog target={opts.target ?? { type: "message", messageId: MESSAGE }} recipient={opts.recipient ?? recipient} open onOpenChange={opts.onOpenChange ?? (() => {})} />
+      <TipDialog target={opts.target ?? { type: "message", messageId: MESSAGE }} recipient={opts.recipient ?? recipient} open={opts.open ?? true} onOpenChange={opts.onOpenChange ?? (() => {})} />
     </EconomyProvider>
   );
 }
@@ -276,6 +276,67 @@ describe("TipDialog network switch (Review Focus 1)", () => {
     await userEvent.click(radio(/ETH.*Arbitrum Sepolia/));
     account.chainId = 421614;
     view.rerender(ui());
+    act(() => accepted!());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("the automatic pick moving to another asset on the same network while the switch is pending cancels the send", async () => {
+    // ETH on Arbitrum not known yet: USDC Arbitrum is the best so far and the pick is not frozen.
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 5_000_000n, "ETH:421614": null };
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted ??= () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    expect(radio(/USDC.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "true");
+    await typeAmount("0,5");
+    await userEvent.click(continuar());
+    expect(switchChain).toHaveBeenCalledTimes(1);
+    // While the wallet switches, the balances arrive and the automatic pick moves to ETH on Arbitrum (same network).
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 0n, "ETH:421614": E };
+    view.rerender(ui());
+    expect(radio(/ETH.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "true");
+    account.chainId = 421614;
+    view.rerender(ui());
+    act(() => accepted!());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("a different amount while the switch is pending cancels the send", async () => {
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 5_000_000n, "ETH:421614": E };
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted ??= () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    await typeAmount("1");
+    await userEvent.click(continuar());
+    await userEvent.clear(screen.getByLabelText("Importe"));
+    await typeAmount("2");
+    account.chainId = 421614;
+    view.rerender(ui());
+    act(() => accepted!());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(createTipIntentAction).not.toHaveBeenCalled();
+  });
+
+  it("closing the dialog while the switch is pending: nothing is sent after the switch lands", async () => {
+    balances.map = { "USDC:84532": 0n, "ETH:84532": 0n, "USDC:421614": 5_000_000n, "ETH:421614": E };
+    let accepted: (() => void) | undefined;
+    switchChain.mockImplementation((_a: unknown, o?: { onSuccess?: () => void }) => {
+      accepted ??= () => o?.onSuccess?.();
+    });
+    const view = await setup();
+    await typeAmount("1");
+    await userEvent.click(continuar());
+    expect(switchChain).toHaveBeenCalledTimes(1);
+    view.rerender(ui({ open: false }));
+    account.chainId = 421614;
+    view.rerender(ui({ open: false }));
     act(() => accepted!());
     await new Promise((r) => setTimeout(r, 50));
     expect(createTipIntentAction).not.toHaveBeenCalled();

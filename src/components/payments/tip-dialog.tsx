@@ -262,8 +262,9 @@ function TipFlow({
     const t = setTimeout(() => void ensureRef.current(switchReq.chainId), SWITCH_DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [switchReq]);
-  // Set by "Continuar" while it waits for the wallet to reach this chain; the flow then goes on by itself.
-  const autoSubmitRef = useRef<ChainId | null>(null);
+  // Set by "Continuar" while it waits for the wallet to reach the asset's chain: the flow then goes on by itself, but only
+  // for exactly what was confirmed (that asset and that amount).
+  const autoSubmitRef = useRef<{ chainId: ChainId; assetId: AssetId; units: bigint } | null>(null);
   const pick = (id: AssetId) => {
     autoSubmitRef.current = null;
     setPicked(id);
@@ -488,9 +489,9 @@ function TipFlow({
     if (wallet === "chain") {
       // The wallet is on another network than the chosen asset's: ask for the switch now (never on open), and go on by
       // itself once the wallet is there. A rejected switch only shows the failedFor notice.
-      const want = chosen.chainId;
-      autoSubmitRef.current = want;
-      if (!(await ensure(want)) && autoSubmitRef.current === want) autoSubmitRef.current = null;
+      const pending = { chainId: chosen.chainId, assetId: chosen.id, units };
+      autoSubmitRef.current = pending;
+      if (!(await ensure(pending.chainId)) && autoSubmitRef.current === pending) autoSubmitRef.current = null;
       return;
     }
     // No new intent while a signature for this target may still be pending.
@@ -549,23 +550,23 @@ function TipFlow({
   }
 
   // "Continuar" asked for a switch: once the wallet reports the asset's chain, submit again (it re-checks everything). A
-  // different selection in the meantime cancels it.
+  // different asset (picked or automatic, even on the same chain) or amount in the meantime cancels it.
   const submitRef = useRef(submit);
   useEffect(() => {
     submitRef.current = submit;
   });
-  const assetChain = asset?.chainId;
+  const currentAssetId = asset?.id;
   useEffect(() => {
-    const want = autoSubmitRef.current;
-    if (want === null) return;
-    if (assetChain !== want) {
+    const pending = autoSubmitRef.current;
+    if (pending === null) return;
+    if (currentAssetId !== pending.assetId || units !== pending.units) {
       autoSubmitRef.current = null;
       return;
     }
-    if (account.chainId !== want) return;
+    if (account.chainId !== pending.chainId) return;
     autoSubmitRef.current = null;
-    void submitRef.current();
-  }, [account.chainId, assetChain]);
+    if (aliveRef.current) void submitRef.current();
+  }, [account.chainId, currentAssetId, units]);
 
   const txChain = (intent?.chainId ?? chainId) as ChainId;
 
