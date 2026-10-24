@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/donations/donate-button", () => ({ DonateButton: () => <button>Donar a ElClub.</button> }));
 
 import { LockPage } from "@/components/channels/lock-page";
 import type { LockState } from "@/lib/channels/lock";
@@ -18,12 +20,12 @@ const state: LockState = {
 };
 
 describe("LockPage", () => {
-  it("shows the name, the requirement, the situation and the guide link, no donate button until P1, and no messages", () => {
+  it("shows the name, the requirement, the situation and the guide link, the donate button, and no messages", () => {
     render(<LockPage state={state} chainName="Linea Sepolia" />);
     expect(screen.getByRole("heading", { level: 1, name: /Alpha/ })).toBeInTheDocument();
     expect(screen.getByText("Necesitas 1 % de la DAO o 100 USDC aportados")).toBeInTheDocument();
     expect(screen.getByText("Tu situación: 0,2 % · 20 USDC aportados en Linea Sepolia")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Donar a la DAO" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Donar a ElClub." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/candados");
     expect(screen.queryByRole("log")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();

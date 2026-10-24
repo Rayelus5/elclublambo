@@ -44,7 +44,7 @@ const overlap = (a: Box, b: Box) => a.x < b.right - 0.5 && b.x < a.right - 0.5 &
 
 async function expectClean(page: Page, label: string) {
   const m = await measure(page);
-  // A plain member has Inicio, Tickets, Guía and Mercado (P0-R2: «DAO» stays hidden while the legacy DAO is paused).
+  // A plain member has Inicio, Tickets, Guía, Donar and Mercado (P1: «Donar» replaced «DAO»).
   expect(m.items.length, `${label}: tabs present`).toBeGreaterThanOrEqual(4);
   for (const it of m.items) {
     expect(it.right, `${label}: «${it.name}» ends before the controls`).toBeLessThanOrEqual(m.controls.x + 0.5);

@@ -2,9 +2,13 @@
 // (CHAINS in shared.mjs: Base Sepolia 84532 on :8545, Arbitrum Sepolia 421614 on :8546), then prepares each:
 //   1. eth_chainId must be that network's id (hardhat.config.cjs reads it from E2E_CHAIN_ID);
 //   2. hardhat_setCode puts the mock USDC runtime bytecode at Circle's USDC address for that testnet;
-//   3. the first MINTED_ACCOUNTS Hardhat accounts get MINT_PER_ACCOUNT mock USDC.
+//   3. the first MINTED_ACCOUNTS Hardhat accounts get MINT_PER_ACCOUNT mock USDC;
+//   4. (P1) the club Safe address gets code (runtime `0x00`: STOP, so it accepts plain ETH), so verifyClubSafe sees it
+//      deployed on both networks;
+//   5. (P1) the mock Chainlink ETH/USD aggregator goes to ETH_USD_FEED (playwright.config.ts points
+//      ETH_USD_FEED_ADDRESS_<chainId> there) with an answer of 2000 USD, stamped with the block time.
 // Once both are ready, a tiny HTTP server on READY_PORT answers 200 (Playwright waits for it, not for the RPC ports).
-// The mock feed and WETH JSONs (F4a) stay in this folder for P1; no active spec uses them.
+// The mock WETH JSON (F4a) stays in this folder; no active spec uses it.
 // Plain Node, no shell syntax: works from PowerShell, cmd and bash.
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -13,11 +17,12 @@ import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { encodeFunctionData } from "viem";
-import { CHAINS, hardhatAccount, MINT_PER_ACCOUNT, MINTED_ACCOUNTS, READY_PORT } from "./shared.mjs";
+import { CHAINS, CLUB_SAFE, ETH_USD_FEED, ETH_USD_PRICE_E8, hardhatAccount, MINT_PER_ACCOUNT, MINTED_ACCOUNTS, READY_PORT } from "./shared.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const mock = JSON.parse(readFileSync(join(here, "mock-usdc.json"), "utf8"));
+const aggregator = JSON.parse(readFileSync(join(here, "mock-aggregator.json"), "utf8"));
 const hardhatBin = join(dirname(require.resolve("hardhat/package.json")), "internal", "cli", "bootstrap.js");
 
 async function rpc(url, method, params = []) {
@@ -86,7 +91,16 @@ async function prepare(chainId) {
   }
   const code = await rpc(rpcUrl, "eth_getCode", [usdc, "latest"]);
   if (code.toLowerCase() !== mock.runtimeBytecode.toLowerCase()) throw new Error(`mock USDC code mismatch on ${chainId} after hardhat_setCode`);
-  console.log(`[chain] chain ${chainId} on ${rpcUrl}, mock USDC at ${usdc}`);
+
+  // The club Safe "exists" (getCode != 0x) and accepts ETH: a one-byte STOP runtime is enough for the e2e.
+  await rpc(rpcUrl, "hardhat_setCode", [CLUB_SAFE, "0x00"]);
+  if ((await rpc(rpcUrl, "eth_getCode", [CLUB_SAFE, "latest"])).toLowerCase() !== "0x00") throw new Error(`Safe code missing on ${chainId}`);
+
+  // ETH/USD feed at a fixed address, answer 2000 USD (8 decimals).
+  await rpc(rpcUrl, "hardhat_setCode", [ETH_USD_FEED, aggregator.runtimeBytecode]);
+  const setAnswer = encodeFunctionData({ abi: aggregator.abi, functionName: "setAnswer", args: [ETH_USD_PRICE_E8] });
+  await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, to: ETH_USD_FEED, data: setAnswer }]);
+  console.log(`[chain] chain ${chainId} on ${rpcUrl}, mock USDC at ${usdc}, Safe code at ${CLUB_SAFE}, ETH/USD feed at ${ETH_USD_FEED}`);
 }
 
 async function main() {

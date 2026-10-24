@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AtSign, BookOpen, ChartCandlestick, Flag, Folder, Hash, Landmark, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
+import { AtSign, BookOpen, ChartCandlestick, Flag, Folder, HandHeart, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
 import {
   Command,
   CommandDialog,
@@ -35,7 +35,7 @@ const ICONS: Record<ActionIcon, LucideIcon> = {
   reports: Flag,
   profile: User,
   guide: BookOpen,
-  dao: Landmark,
+  donate: HandHeart,
   market: ChartCandlestick,
 };
 

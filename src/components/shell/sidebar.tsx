@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -20,15 +20,13 @@ type Props = {
   canModerate?: boolean;
   /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
   openTickets?: number;
-  /** app_config.legacy_dao_enabled: with false the «DAO» entry is not shown. */
-  daoEnabled: boolean;
 };
 
 const brandClass =
   "font-display font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
 
 /** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
-function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: Props) {
+function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
   return [
     { href: "/", text: "Inicio", Icon: Home },
     {
@@ -39,7 +37,7 @@ function sections({ perms, canModerate = false, openTickets = 0, daoEnabled }: P
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
     { href: "/guia", text: "Guía", Icon: BookOpen },
-    daoEnabled && { href: "/dao", text: "DAO", Icon: Landmark },
+    { href: "/donar", text: "Donar", Icon: HandHeart },
     { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
     hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {

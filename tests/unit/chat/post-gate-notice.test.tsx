@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/components/donations/donate-button", () => ({ DonateButton: () => <button>Donar a ElClub.</button> }));
 
 import { PostGateNotice } from "@/components/chat/post-gate-notice";
 import type { LockState } from "@/lib/channels/lock";
@@ -18,11 +20,11 @@ const state: LockState = {
 };
 
 describe("PostGateNotice", () => {
-  it("replaces the composer with the requirement, the situation and the guide link; no donate button until P1", () => {
+  it("replaces the composer with the requirement, the situation and the guide link; the donate button", () => {
     render(<PostGateNotice state={state} chainName="Linea Sepolia" />);
     expect(screen.getByText("Necesitas 1 % de la DAO")).toBeInTheDocument();
     expect(screen.getByText("Tu situación: 0 % · 0 USDC aportados en Linea Sepolia")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Donar a la DAO" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Donar a ElClub." })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/candados");
     expect(screen.queryByRole("textbox")).toBeNull();
   });

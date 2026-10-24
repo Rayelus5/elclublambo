@@ -9,15 +9,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
 export type ConfirmResult =
-  | { status: "confirmed"; tipId: string; ledgerId?: undefined }
-  /** A donation credited as shares (no tip exists). */
-  | { status: "confirmed"; ledgerId: string; tipId?: undefined }
+  | { status: "confirmed"; tipId: string; donationId?: undefined }
   /** A verified donation recorded in `donations` (P1). */
-  | { status: "confirmed"; donationId: string; tipId?: undefined; ledgerId?: undefined }
+  | { status: "confirmed"; donationId: string; tipId?: undefined }
   /** `reason` says what it waits for when that is not the chain itself (price_unavailable: ETH donation with no trusted price). */
   | { status: "pending"; reason?: "price_unavailable" }
-  /** Donation recorded and verified; credited as shares once its block is finalized. */
-  | { status: "pending_finality"; ledgerId: string }
   | { status: "failed"; error: string; code: string };
 
 /** Verification errors that will never get better: the intent is failed for good. tx_not_found / rpc_unavailable are not here. */

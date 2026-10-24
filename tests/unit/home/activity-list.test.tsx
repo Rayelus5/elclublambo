@@ -15,7 +15,7 @@ describe("ActivityList", () => {
     ];
     render(<ActivityList items={items} />);
     expect(screen.getByRole("link", { name: /Anónimo dio 5 USDC a @bob/ })).toHaveAttribute("href", "/c/c1?m=m1");
-    expect(screen.getByRole("link", { name: /@ana donó 10 USDC a la DAO/ })).toHaveAttribute("href", "/dao");
+    expect(screen.getByRole("link", { name: /@ana donó 10 USDC a ElClub\./ })).toHaveAttribute("href", "/donar");
     expect(screen.getByRole("link", { name: /@luis abrió un bounty de 0,1 ETH/ })).toHaveAttribute("href", "/c/c2?m=m2");
     expect(screen.getByRole("link", { name: /@eva dio 0,001 ETH a @bob/ })).toHaveAttribute("href", "/u/0xabc");
   });

@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react";
+import { DonateButton } from "@/components/donations/donate-button";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { lockSituationText, requirementText, type LockState } from "@/lib/channels/lock";
 
@@ -22,6 +23,7 @@ export function PostGateNotice({ state, chainName }: { state: LockState; chainNa
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        <DonateButton />
         <HowItWorksLink section="candados" />
       </div>
     </section>

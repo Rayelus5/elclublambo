@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { setRankingVisibleAction } from "@/lib/treasury/actions";
+import { setDonorVisibleAction } from "@/lib/donations/actions";
 
-/** Privacy first: members are "Anónimo" in the DAO ranking and history until they opt in. Their % still counts for gating. */
-export function RankingToggle({ initial, id = "dao-ranking-visible" }: { initial: boolean; id?: string }) {
+/** Opt-out of the donor list (P1-R2, on by default). Hidden or not, the donations still count for Mecenas and padlocks. */
+export function DonorVisibilityToggle({ initial, id = "donor-visible" }: { initial: boolean; id?: string }) {
   const [visible, setVisible] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -16,7 +16,7 @@ export function RankingToggle({ initial, id = "dao-ranking-visible" }: { initial
     setError(null);
     start(async () => {
       try {
-        const r = await setRankingVisibleAction(next);
+        const r = await setDonorVisibleAction(next);
         if (!r.ok) {
           setVisible(previous);
           setError(r.error);
@@ -33,10 +33,10 @@ export function RankingToggle({ initial, id = "dao-ranking-visible" }: { initial
       <div className="flex items-center gap-3">
         <Checkbox id={id} checked={visible} disabled={pending} onCheckedChange={(v) => change(v === true)} />
         <label htmlFor={id} className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
-          Aparecer con mi nombre en el ranking de la DAO
+          Aparecer en la lista de donantes
         </label>
       </div>
-      <p className="text-[13px] text-fg-muted">Si lo dejas sin marcar, apareces como «Anónimo». Tu porcentaje cuenta igualmente para abrir canales con candado.</p>
+      <p className="text-[13px] text-fg-muted">Si lo desmarcas, los demás no te ven en la lista. Lo que donaste sigue contando.</p>
       {error ? (
         <p role="alert" className="text-sm text-danger">
           {error}

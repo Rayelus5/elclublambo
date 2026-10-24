@@ -66,7 +66,7 @@ describe("RightRail", () => {
   it("elsewhere shows the live club activity and listens on the activity topic", async () => {
     h.path = "/dao";
     renderRail();
-    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a la DAO/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a ElClub\./ })).toBeInTheDocument();
     expect(h.topic).toHaveBeenCalledWith("activity", "activity_changed", expect.any(Object));
   });
 
@@ -133,7 +133,7 @@ describe("RightRail", () => {
     const base = h.rpc.getMockImplementation()!;
     h.rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === "channel_overview" ? { data: null, error: null } : base(fn, args)));
     renderRail();
-    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a la DAO/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a ElClub\./ })).toBeInTheDocument();
     expect(screen.queryByText("No se pudo cargar el canal.")).not.toBeInTheDocument();
   });
 });

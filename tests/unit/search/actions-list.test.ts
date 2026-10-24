@@ -10,13 +10,11 @@ const href = (a: ReturnType<typeof buildActions>, id: string) => a.find((x) => x
 describe("buildActions", () => {
   it("always offers mentions, tickets, the guide and profile", () => {
     const a = buildActions(base);
-    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "dao", "donate", "market", "profile"]);
+    expect(ids(a)).toEqual(["mentions", "tickets", "guide", "guide:propinas", "guide:bounties", "guide:dao", "guide:fondo", "guide:encuestas", "guide:candados", "guide:redes", "donate", "market", "profile"]);
     expect(href(a, "market")).toBe("/mercado");
     expect(a.find((x) => x.id === "market")?.label).toBe("Mercado");
-    expect(href(a, "dao")).toBe("/dao");
-    expect(a.find((x) => x.id === "dao")?.label).toBe("Tesorería de la DAO");
-    expect(href(a, "donate")).toBe("/dao?donar=1");
-    expect(a.find((x) => x.id === "donate")?.label).toBe("Donar a la DAO");
+    expect(href(a, "donate")).toBe("/donar");
+    expect(a.find((x) => x.id === "donate")?.label).toBe("Donar a ElClub.");
     expect(href(a, "guide")).toBe("/guia");
     expect(href(a, "guide:dao")).toBe("/guia/dao");
     expect(href(a, "mentions")).toBe("/notifications?filter=mentions");
@@ -70,10 +68,13 @@ describe("messageHref", () => {
   });
 });
 
-describe("buildActions with the legacy DAO paused", () => {
-  it("omits dao and donate when daoEnabled is false, and keeps them otherwise", () => {
-    expect(ids(buildActions({ ...base, daoEnabled: false }))).not.toContain("dao");
-    expect(ids(buildActions({ ...base, daoEnabled: false }))).not.toContain("donate");
-    expect(ids(buildActions({ ...base, daoEnabled: true }))).toEqual(expect.arrayContaining(["dao", "donate"]));
+describe("buildActions · donations (P1)", () => {
+  it("offers «Donar a ElClub.» with its keywords and no DAO entry", () => {
+    const a = buildActions(base);
+    const donate = a.find((x) => x.id === "donate");
+    expect(donate).toMatchObject({ label: "Donar a ElClub.", href: "/donar" });
+    expect(donate?.keywords).toContain("donar mecenas donación");
+    expect(ids(a)).not.toContain("dao");
+    expect(a.filter((x) => !x.id.startsWith("guide:")).some((x) => /DAO/.test(x.label) || x.href.startsWith("/dao"))).toBe(false);
   });
 });

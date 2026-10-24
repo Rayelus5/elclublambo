@@ -1,4 +1,5 @@
 import { Folder, Hash, Lock } from "lucide-react";
+import { DonateButton } from "@/components/donations/donate-button";
 import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { lockSituationText, requirementText, type LockState } from "@/lib/channels/lock";
 
@@ -38,6 +39,7 @@ export function LockPage({ state, chainName }: { state: LockState; chainName: st
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
+        <DonateButton />
         <HowItWorksLink section="candados" />
       </div>
     </div>

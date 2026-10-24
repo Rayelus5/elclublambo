@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { CHAINS, READY_URL } from "./e2e/chain/shared.mjs";
+import { CHAINS, ETH_USD_FEED, READY_URL } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
 import { MOCK_PORT as MOCK_COINGECKO_PORT } from "./e2e/mock/coingecko.mjs";
 
@@ -33,6 +33,10 @@ const env = {
   NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
   NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
   TIP_CONFIRMATIONS: "1",
+  // P1: ETH donations are valued with the mock Chainlink feed start-chain.mjs puts on both nodes (2000 USD); the
+  // override is honoured on the testnet set only (src/lib/economy/eth-price.ts).
+  ETH_USD_FEED_ADDRESS_84532: ETH_USD_FEED,
+  ETH_USD_FEED_ADDRESS_421614: ETH_USD_FEED,
   // P0-R6: TEST-ONLY Builder Code; f3b checks the ERC-8021 suffix it puts on Base transfers.
   NEXT_PUBLIC_BASE_BUILDER_CODE: "bc_e2etest",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
