@@ -16,13 +16,15 @@ const positions = (list: readonly number[]) => (list.length ? list.join(", ") : 
 
 /**
  * The public verifier, in the browser: downloads the drand round (fetchBeacon verifies its BLS signature), then checks
- * the revealed seed against the published commit, the round against the stored randomness, and recomputes the winners.
+ * the revealed seed against the published commit, that the round is the first one after the close and matches the stored
+ * randomness, and recomputes the winners.
  * drand unreachable is never a ✗: it says so and asks to retry (Review Focus 5).
  */
 export function GiveawayVerifier({
   commit,
   seedReveal,
   targetRound,
+  closesAt,
   drandRandomness,
   entryCount,
   winnerPositions,
@@ -31,6 +33,8 @@ export function GiveawayVerifier({
   seedReveal: string;
   /** The drand round as decimal text (bigint does not cross to the client as is). */
   targetRound: string;
+  /** ISO close time: the round must be the first drand round after it. */
+  closesAt: string;
   drandRandomness: string | null;
   entryCount: number;
   /** One per prize, by rank: the winning entry position, or null for a prize left without entries. */
@@ -56,9 +60,11 @@ export function GiveawayVerifier({
         randomness: drandRandomness,
         entryCount,
         winnerPositions,
+        closesAt,
       });
       const claimed = winnerPositions.filter((w): w is number => w !== null);
       const beaconOk = beacon.status === "ok" && r.beaconOk;
+      const drandOk = beaconOk && r.roundOk;
       setState({
         kind: "done",
         steps: [
@@ -68,13 +74,15 @@ export function GiveawayVerifier({
             detail: r.commitOk ? "La semilla revelada da la huella publicada antes de empezar." : "La semilla revelada no da la huella publicada.",
           },
           {
-            ok: beaconOk,
+            ok: drandOk,
             title: `Ronda ${targetRound} de drand`,
-            detail: beaconOk
-              ? "La firma de drand es válida y coincide con la usada en el sorteo."
-              : beacon.status === "invalid"
-                ? "La ronda descargada no tiene una firma válida de drand."
-                : "La ronda de drand no coincide con la usada en el sorteo.",
+            detail: drandOk
+              ? "Es la primera ronda tras el cierre, su firma es válida y coincide con la usada en el sorteo."
+              : !r.roundOk
+                ? "No es la primera ronda de drand después del cierre."
+                : beacon.status === "invalid"
+                  ? "La ronda descargada no tiene una firma válida de drand."
+                  : "La ronda de drand no coincide con la usada en el sorteo.",
           },
           {
             ok: beaconOk && r.winnersOk,

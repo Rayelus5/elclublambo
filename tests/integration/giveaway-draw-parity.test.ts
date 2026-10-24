@@ -110,7 +110,7 @@ describe.skipIf(!up)(`giveaway draw parity: SQL draw_giveaway vs TS drawWinners 
         entryCount: g.entry_count,
         winnerPositions: positions,
       }),
-    ).toEqual({ commitOk: true, beaconOk: true, winnersOk: true, winners: ts });
+    ).toEqual({ commitOk: true, roundOk: true, beaconOk: true, winnersOk: true, winners: ts });
   }, 30_000);
 
   it("the fixture's expected winners are what TS computes (SQL pins the same seed in p1_06)", () => {

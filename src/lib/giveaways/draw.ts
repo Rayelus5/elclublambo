@@ -8,7 +8,7 @@
 //   prize k = 1 .. m (by rank): i = uint256_be(r_k) mod len(L); the winner is L[i], removed from L (order kept);
 //                               r_{k+1} = keccak256(r_k). With L empty the remaining prizes go to nobody.
 import { concat, hexToBigInt, keccak256, sha256, type Hex } from "viem";
-import { verifyBeacon } from "@/lib/giveaways/drand";
+import { targetRound, verifyBeacon } from "@/lib/giveaways/drand";
 
 const BYTES32 = /^0x[0-9a-f]{64}$/i;
 const MAX_PRIZES = 10;
@@ -44,12 +44,14 @@ export function drawWinners(seedHex: Hex, randomnessHex: string, entryCount: num
   return winners;
 }
 
-export type GiveawayCheck = { commitOk: boolean; beaconOk: boolean; winnersOk: boolean; winners: number[] };
+/** roundOk: the round is targetRound(closesAt), the first drand round after the close (true when closesAt is not given). */
+export type GiveawayCheck = { commitOk: boolean; roundOk: boolean; beaconOk: boolean; winnersOk: boolean; winners: number[] };
 
 /**
  * Recomputes a drawn giveaway from its public inputs. `winnerPositions` is the claimed winning position of each prize
  * by rank (null for a prize left without entries); a prize whose role became unavailable still has its position.
- * `randomness`, when given, must equal sha256(signature). Never throws.
+ * `randomness`, when given, must equal sha256(signature). `closesAt`, when given, pins the round: it must be
+ * targetRound(closesAt), so nobody could pick a later round after seeing it. Never throws.
  */
 export function verifyGiveaway(input: {
   commit: string;
@@ -60,12 +62,19 @@ export function verifyGiveaway(input: {
   entryCount: number;
   winnerPositions: readonly (number | null)[];
   publicKey?: string;
+  closesAt?: string | Date;
 }): GiveawayCheck {
   let commitOk = false;
   try {
     commitOk = giveawayCommit(input.seedReveal) === input.commit.toLowerCase();
   } catch {
     commitOk = false;
+  }
+
+  let roundOk = true;
+  if (input.closesAt !== undefined) {
+    const close = new Date(input.closesAt);
+    roundOk = Number.isFinite(close.getTime()) && targetRound(close) === input.round;
   }
 
   const claimed = input.randomness == null ? null : input.randomness.replace(/^0x/i, "").toLowerCase();
@@ -86,5 +95,5 @@ export function verifyGiveaway(input: {
       winnersOk = false;
     }
   }
-  return { commitOk, beaconOk, winnersOk, winners };
+  return { commitOk, roundOk, beaconOk, winnersOk, winners };
 }

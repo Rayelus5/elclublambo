@@ -15,6 +15,8 @@ const props = {
   commit: giveawayCommit(SEED),
   seedReveal: SEED,
   targetRound: String(fixture.round),
+  // round 1000 is the first quicknet round after this close
+  closesAt: new Date((1692803367 + 2994) * 1000).toISOString(),
   drandRandomness: fixture.randomness,
   entryCount: fixture.entryCount,
   winnerPositions: fixture.expectedWinners,
@@ -51,6 +53,14 @@ describe("GiveawayVerifier", () => {
     await userEvent.click(screen.getByRole("button", { name: "Comprobar" }));
     await screen.findByText(/no coinciden/);
     expect(ok()).toHaveLength(2);
+    expect(bad()).toHaveLength(1);
+  });
+
+  it("a round that is not the first after the close: ✗ on the drand step", async () => {
+    fetchBeacon.mockResolvedValue({ status: "ok", signature: fixture.signature, randomness: fixture.randomness });
+    render(<GiveawayVerifier {...props} closesAt={new Date((1692803367 + 3000) * 1000).toISOString()} />);
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar" }));
+    expect(await screen.findByText("No es la primera ronda de drand después del cierre.")).toBeInTheDocument();
     expect(bad()).toHaveLength(1);
   });
 

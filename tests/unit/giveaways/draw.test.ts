@@ -74,7 +74,16 @@ describe("verifyGiveaway", () => {
   };
 
   it("all checks pass for the fixture", () => {
-    expect(verifyGiveaway(base)).toEqual({ commitOk: true, beaconOk: true, winnersOk: true, winners });
+    expect(verifyGiveaway(base)).toEqual({ commitOk: true, roundOk: true, beaconOk: true, winnersOk: true, winners });
+  });
+
+  it("the round must be the first one after closesAt (targetRound), when closesAt is given", () => {
+    // round 1000 is the target of a close in [genesis + 2994 s, genesis + 2997 s)
+    const closesAt = new Date((1692803367 + 2994) * 1000).toISOString();
+    expect(verifyGiveaway({ ...base, closesAt })).toMatchObject({ roundOk: true, beaconOk: true });
+    const later = new Date((1692803367 + 2997) * 1000).toISOString();
+    expect(verifyGiveaway({ ...base, closesAt: later })).toMatchObject({ roundOk: false, commitOk: true, beaconOk: true });
+    expect(verifyGiveaway({ ...base, closesAt: "not a date" })).toMatchObject({ roundOk: false });
   });
 
   it("flags a wrong commit, a beacon of another round and different winners independently", () => {
@@ -92,6 +101,6 @@ describe("verifyGiveaway", () => {
   });
 
   it("never throws on a malformed reveal: every check is false", () => {
-    expect(verifyGiveaway({ ...base, seedReveal: "0x12" as Hex })).toEqual({ commitOk: false, beaconOk: true, winnersOk: false, winners: [] });
+    expect(verifyGiveaway({ ...base, seedReveal: "0x12" as Hex })).toEqual({ commitOk: false, roundOk: true, beaconOk: true, winnersOk: false, winners: [] });
   });
 });

@@ -126,6 +126,7 @@ async function GiveawayContent({ params }: { params: Params }) {
             commit={g.commit}
             seedReveal={g.seedReveal}
             targetRound={round}
+            closesAt={g.closesAt}
             drandRandomness={g.drandRandomness}
             entryCount={g.entryCount}
             winnerPositions={g.prizeStates.map((p) => p.winnerPosition)}
