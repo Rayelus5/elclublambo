@@ -1,7 +1,8 @@
 -- P1 Task 1: polls are one member = one vote. No weight modes, no network.
 --   - create_poll(uuid, text, text[], timestamptz) replaces the 5-argument version (latest 20261019500003). It no
 --     longer reads active_chain_id, asks for no chain and writes no private.poll_weight_snapshots row. It inserts
---     weight_mode = 'equal' and chain_id = null.
+--     weight_mode = 'equal' and chain_id = null. The _post_message_core it calls is the latest definition in
+--     20261020100001_message_client_id.sql (10 arguments; the 9-argument call takes p_client_id's default null).
 --   - polls.chain_id admits null (the Linea check is dropped, found by definition: Postgres named it).
 --   - weight_mode stays: legacy rows keep their value and _poll_tally / poll_details / close_due_polls /
 --     cast_poll_vote are untouched (they still read old linear / quadratic rows).

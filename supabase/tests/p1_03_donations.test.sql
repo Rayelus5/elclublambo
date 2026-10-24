@@ -5,7 +5,7 @@
 --   - donor_ranking hides donors who left the list (but shows the caller), donation_overview hides anonymous ones.
 --   - club_activity reads the donations table.
 begin;
-select plan(34);
+select plan(35);
 
 create function tests.hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -51,6 +51,7 @@ select ok(has_function_privilege('service_role', 'public.confirm_donation(uuid,j
   'confirm_donation: service_role yes, authenticated no');
 select ok(exists (select 1 from public.roles where name = 'Mecenas' and system_key = 'donor' and not is_system
                   and position = 15 and permissions = 0 and color = '#C6F36B'), 'the Mecenas role exists, pinned by system_key donor');
+select is((select count(*)::int from public.roles where system_key = 'donor'), 1, 'exactly one donor role after the seed');
 select is((select value #>> '{}' from public.app_config where key = 'donor_role_min_usd6'), '1000000',
   'the Mecenas threshold is 1 USD (1000000 in usd6)');
 select tests.authenticate_as(current_setting('t.u1')::uuid);

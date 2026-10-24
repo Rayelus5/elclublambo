@@ -39,9 +39,28 @@ alter table public.members add column donor_visible boolean not null default tru
 
 insert into public.app_config (key, value) values ('donor_role_min_usd6', '1000000'::jsonb);
 
-insert into public.roles (name, color, position, permissions, is_everyone, is_system, system_key) values
-  ('Mecenas', '#C6F36B', 15, 0, false, false, 'donor')
-on conflict (name) do nothing;
+-- A role already named «Mecenas» (made by hand) becomes the donor role instead of being skipped silently: confirm_donation
+-- looks the role up by system_key, so there must be exactly one. It is granted automatically from 1 USD, so a hand-made
+-- one may not carry more than the member-safe mask 207895, nor be @everyone, a system role or another system_key.
+do $$
+declare
+  v_role public.roles;
+begin
+  select * into v_role from public.roles r where r.name = 'Mecenas';
+  if not found then
+    insert into public.roles (name, color, position, permissions, is_everyone, is_system, system_key)
+    values ('Mecenas', '#C6F36B', 15, 0, false, false, 'donor');
+  elsif v_role.system_key is null and not v_role.is_everyone and not v_role.is_system
+        and (v_role.permissions & ~207895::bigint) = 0 then
+    update public.roles set system_key = 'donor' where id = v_role.id;
+  elsif v_role.system_key is distinct from 'donor' then
+    raise exception 'mecenas_seed: a role named Mecenas exists and cannot become the donor role; rename it first';
+  end if;
+  if (select count(*) from public.roles r where r.system_key = 'donor') <> 1 then
+    raise exception 'mecenas_seed: expected exactly one donor role';
+  end if;
+end;
+$$;
 
 -- ===== create_donation_intent: new 4-arg overload; the legacy (numeric, int, boolean) one stays frozen (spec D10) =====
 create function public.create_donation_intent(p_chain_id int, p_token text, p_amount numeric, p_anonymous boolean)
