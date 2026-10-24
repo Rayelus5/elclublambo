@@ -4,7 +4,7 @@ import { en } from "../../../src/lib/i18n/dictionaries/en";
 import { getDictionary } from "../../../src/lib/i18n";
 
 // Cadenas que se escriben igual en ambos idiomas.
-const SAME_ALLOWED = new Set(["ElClub.", "drand", "USDC", "Base", "Arbitrum"]);
+const SAME_ALLOWED = new Set(["ElClub.", "ElClub Pay", "drand", "USDC", "Base", "Arbitrum"]);
 
 type Tree = { [k: string]: string | Tree };
 
