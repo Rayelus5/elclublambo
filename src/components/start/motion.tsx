@@ -87,12 +87,15 @@ export function Stage({
   gap = 0.08,
   amount = 0.35,
   as = "div",
+  label,
 }: {
   children: ReactNode;
   className?: string;
   gap?: number;
   amount?: number;
   as?: "div" | "ul" | "ol";
+  /** Accessible name (a list of tiles, for instance). */
+  label?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const on = useMotionOn();
@@ -101,7 +104,7 @@ export function Stage({
   const Tag = m[as] as typeof m.div;
   return (
     <StageContext.Provider value={shown}>
-      <Tag ref={ref} className={className} initial={false} animate={shown ? "show" : "hide"} variants={stagger(gap)}>
+      <Tag ref={ref} aria-label={label} className={className} initial={false} animate={shown ? "show" : "hide"} variants={stagger(gap)}>
         {children}
       </Tag>
     </StageContext.Provider>
