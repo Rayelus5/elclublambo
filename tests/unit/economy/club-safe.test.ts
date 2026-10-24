@@ -48,24 +48,56 @@ describe("verifyClubSafe", () => {
     expect(await verifyClubSafe(84532)).toBe("ok");
     expect(getCode).toHaveBeenCalledTimes(1);
   });
-  it("does not cache non-ok results", async () => {
+  it("not_deployed is cached for about 60 s only, so a Safe deployed later is noticed soon", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
     getCode.mockResolvedValue("0x");
+    expect(await verifyClubSafe(84532)).toBe("not_deployed");
+    now.mockReturnValue(1_000_000 + 59_000);
+    expect(await verifyClubSafe(84532)).toBe("not_deployed");
+    expect(getCode).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(1_000_000 + 61_000);
+    getCode.mockResolvedValue("0x6080604052");
+    expect(await verifyClubSafe(84532)).toBe("ok");
+    expect(getCode).toHaveBeenCalledTimes(2);
+    now.mockRestore();
+  });
+  it("ok is cached for 10 minutes", async () => {
+    const now = vi.spyOn(Date, "now").mockReturnValue(1_000_000);
+    getCode.mockResolvedValue("0x6080604052");
     await verifyClubSafe(84532);
+    now.mockReturnValue(1_000_000 + 9 * 60_000);
+    await verifyClubSafe(84532);
+    expect(getCode).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(1_000_000 + 11 * 60_000);
     await verifyClubSafe(84532);
     expect(getCode).toHaveBeenCalledTimes(2);
+    now.mockRestore();
   });
-  it("an RPC error is network", async () => {
+  it("not_configured is cached for about 60 s too", async () => {
+    safeAddress = null;
+    expect(await verifyClubSafe(84532)).toBe("not_configured");
+    safeAddress = "0x380f2e12081995359e2Ab88E3c31c6b227904234";
+    expect(await verifyClubSafe(84532)).toBe("not_configured");
+    expect(getCode).not.toHaveBeenCalled();
+  });
+  it("an RPC error is network and never cached", async () => {
     getCode.mockRejectedValue(new Error("down"));
     expect(await verifyClubSafe(84532)).toBe("network");
+    getCode.mockResolvedValue("0x6080604052");
+    expect(await verifyClubSafe(84532)).toBe("ok");
+    expect(getCode).toHaveBeenCalledTimes(2);
   });
   it("no safe_address is not_configured without calling the RPC", async () => {
     safeAddress = null;
     expect(await verifyClubSafe(84532)).toBe("not_configured");
     expect(getCode).not.toHaveBeenCalled();
   });
-  it("a DB read error is network", async () => {
+  it("a DB read error is network and never cached", async () => {
     dbError = { message: "boom" };
     expect(await verifyClubSafe(84532)).toBe("network");
+    dbError = null;
+    getCode.mockResolvedValue("0x6080604052");
+    expect(await verifyClubSafe(84532)).toBe("ok");
   });
 });
 

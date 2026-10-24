@@ -6,22 +6,29 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export type ClubSafeStatus = "ok" | "not_deployed" | "not_configured" | "network";
 
-const CACHE_MS = 10 * 60 * 1000;
-const okUntil = new Map<ChainId, number>();
+const OK_MS = 10 * 60 * 1000;
+/** A missing Safe is remembered briefly: every page and action would otherwise hit the RPC, and a deploy shows up soon. */
+const MISSING_MS = 60 * 1000;
+const cache = new Map<ChainId, { status: "ok" | "not_deployed" | "not_configured"; until: number }>();
 
-/** Test hook: forgets cached "ok" results. */
+/** Test hook: forgets every cached result. */
 export function resetClubSafeCache(): void {
-  okUntil.clear();
+  cache.clear();
+}
+
+function remember(chain: ChainId, status: "ok" | "not_deployed" | "not_configured"): typeof status {
+  cache.set(chain, { status, until: Date.now() + (status === "ok" ? OK_MS : MISSING_MS) });
+  return status;
 }
 
 /**
  * The club Safe on this network exists: chains.safe_address is set and has contract code that is not an EIP-7702
- * delegation designator (0xef0100...). Only "ok" is cached (10 minutes, server memory): a Safe that appears later is
- * noticed on the next call, and a failure is never remembered.
+ * delegation designator (0xef0100...). Cached in server memory: "ok" for 10 minutes, "not_deployed" / "not_configured"
+ * for 60 s (a Safe deployed later is noticed within a minute). A read or RPC failure ("network") is never remembered.
  */
 export async function verifyClubSafe(chain: ChainId): Promise<ClubSafeStatus> {
-  const until = okUntil.get(chain);
-  if (until !== undefined && until > Date.now()) return "ok";
+  const hit = cache.get(chain);
+  if (hit && hit.until > Date.now()) return hit.status;
 
   const { data, error } = await createAdminClient().from("chains").select("safe_address").eq("chain_id", chain).maybeSingle<{ safe_address: string | null }>();
   if (error) {
@@ -29,14 +36,13 @@ export async function verifyClubSafe(chain: ChainId): Promise<ClubSafeStatus> {
     return "network";
   }
   const safe = data?.safe_address;
-  if (!safe) return "not_configured";
+  if (!safe) return remember(chain, "not_configured");
 
   try {
     const code = await chainClient(chain).getCode({ address: safe as `0x${string}` });
     const hex = (code ?? "0x").toLowerCase();
-    if (hex === "0x" || hex.startsWith("0xef0100")) return "not_deployed";
-    okUntil.set(chain, Date.now() + CACHE_MS);
-    return "ok";
+    if (hex === "0x" || hex.startsWith("0xef0100")) return remember(chain, "not_deployed");
+    return remember(chain, "ok");
   } catch (e) {
     console.error("[club-safe] getCode failed", chain, safeError(e));
     return "network";
