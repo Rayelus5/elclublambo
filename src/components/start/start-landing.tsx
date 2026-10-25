@@ -12,7 +12,7 @@ import { NoiseToSignal } from "./noise-to-signal";
 import { OpenTools } from "./open-tools";
 import { TrustChain } from "./trust-chain";
 
-/** Thin cyan line on top: how far along the page you are. Only with motion. */
+/** Thin Cerulean line on top: how far along the page you are. Only with motion. */
 function ScrollProgress() {
   const on = useMotionOn();
   const { scrollYProgress } = useScroll();

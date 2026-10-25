@@ -29,7 +29,8 @@ describe("GET badge", () => {
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg).toContain("@rayelus");
     expect(svg).toContain(getDictionary("es").pay.tool.badgeText);
-    expect(svg).toContain(colors.accent);
+    expect(svg).toContain(colors.accentFill);
+    expect(svg).toContain(colors.accentFillFg);
     expect(new TextEncoder().encode(svg).length).toBeLessThanOrEqual(2048);
     expect(getPublicProfileView).toHaveBeenCalledWith("rayelus");
   });

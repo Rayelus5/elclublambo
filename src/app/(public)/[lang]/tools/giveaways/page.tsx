@@ -70,7 +70,7 @@ export default async function GiveawaysToolPage({ params }: PageProps<"/[lang]/t
       <div>
         <Link
           href={localizedPath(lang, "giveawayNew")}
-          className="inline-flex min-h-11 items-center rounded-control bg-accent px-5 font-bold text-accent-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-fg focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center rounded-control bg-accent-fill px-5 font-bold text-accent-fill-fg outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           {t.create}
         </Link>

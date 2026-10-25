@@ -77,7 +77,7 @@ function CardBody({ state }: { state: Load }) {
       {c.joinedAt ? <p className="text-[13px] text-fg-muted">Miembro desde {JOINED.format(new Date(c.joinedAt))}</p> : null}
       <Link
         href={clubPath(`/u/${c.walletAddress}`)}
-        className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent px-4 text-sm font-bold text-bg outline-none hover:bg-accent/85 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+        className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent-fill px-4 text-sm font-bold text-accent-fill-fg outline-none hover:bg-accent-fill/85 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         Ver perfil completo
       </Link>

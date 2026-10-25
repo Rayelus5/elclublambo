@@ -12,15 +12,15 @@ function escapeXml(text: string): string {
 /** The embeddable payment button (P3-R5): 240x56, the label and, when there is one, the recipient's @alias. */
 function badge(label: string, alias: string | null): string {
   const text = escapeXml(label);
-  const sub = alias ? `<text x="56" y="38" font-size="12" fill="${colors.fgMuted}">@${escapeXml(alias)}</text>` : "";
+  const sub = alias ? `<text x="56" y="38" font-size="12" fill="${colors.accentFillFg}">@${escapeXml(alias)}</text>` : "";
   const y = alias ? 22 : 33;
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="56" viewBox="0 0 240 56" role="img" aria-label="${text}">` +
-    `<rect x="0.5" y="0.5" width="239" height="55" rx="10" fill="${colors.surface}" stroke="${colors.border}"/>` +
-    `<circle cx="28" cy="28" r="14" fill="${colors.accent}"/>` +
-    `<path d="M22 28l4 4 8-8" fill="none" stroke="${colors.bg}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<rect width="240" height="56" rx="10" fill="${colors.accentFill}"/>` +
+    `<circle cx="28" cy="28" r="14" fill="${colors.accentFillFg}"/>` +
+    `<path d="M22 28l4 4 8-8" fill="none" stroke="${colors.accentFill}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` +
     `<g font-family="system-ui,-apple-system,Segoe UI,sans-serif">` +
-    `<text x="56" y="${y}" font-size="14" font-weight="700" fill="${colors.fg}">${text}</text>${sub}</g>` +
+    `<text x="56" y="${y}" font-size="14" font-weight="700" fill="${colors.accentFillFg}">${text}</text>${sub}</g>` +
     `</svg>`
   );
 }

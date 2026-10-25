@@ -88,7 +88,7 @@ export function GiveawayDemo({ t, sample }: { t: Dictionary["landing"]["demo"]; 
         </Stage>
 
         <ol ref={rail} aria-label={t.stepsLabel} className="relative flex flex-col gap-16 sm:gap-20 lg:col-span-7">
-          {/* The rail: grey track, cyan fill drawn by the scroll (full when motion is off). */}
+          {/* The rail: grey track, Cerulean fill drawn by the scroll (full when motion is off). */}
           <span aria-hidden className="absolute top-2 bottom-2 left-[0.9375rem] w-px bg-border-strong" />
           <m.span
             aria-hidden
