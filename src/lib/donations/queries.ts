@@ -14,7 +14,7 @@ export interface DonationOverview {
 }
 
 export interface DonorRankRow {
-  memberId: string;
+  memberId: string | null;
   label: string;
   totalUsd6: bigint;
   isMe: boolean;
@@ -63,7 +63,7 @@ export async function getDonationOverview(supabase: Client): Promise<DonationOve
 
 export async function getDonorRanking(supabase: Client, limit = 50): Promise<DonorRankRow[]> {
   return arr(await call(supabase, "donor_ranking", { p_limit: limit })).map((r) => ({
-    memberId: str(r.member_id),
+    memberId: typeof r.member_id === "string" ? r.member_id : null,
     label: str(r.label),
     totalUsd6: big(r.total_usd6),
     isMe: r.is_me === true,

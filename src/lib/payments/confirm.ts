@@ -2,7 +2,7 @@ import "server-only";
 import { safeError } from "@/lib/security/redact";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { verifyClubSafe } from "@/lib/economy/club-safe";
-import { appChainIds, isChainId } from "@/lib/economy/networks";
+import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
 import { readEthUsd, usd6For } from "@/lib/economy/eth-price";
 import type { Token } from "@/lib/payments/amounts";
 import { verifyTransfer, type VerifyResult } from "@/lib/payments/verify";
@@ -58,6 +58,30 @@ const failed = (code: string): ConfirmResult => ({ status: "failed", code, error
 /** Required hashes are present: main always, fee only when a fee is charged. */
 function hasRequiredHashes(i: Pick<IntentRow, "main_tx_hash" | "fee_tx_hash" | "fee_amount">): boolean {
   return !!i.main_tx_hash && (BigInt(i.fee_amount) === 0n || !!i.fee_tx_hash);
+}
+
+/**
+ * Shared by club and public donations (P1-R6, P3): credit only into a deployed club Safe, and value the amount in USD.
+ * Not deployed stays pending (never failed: the funds sit at the counterfactual address); a failed Safe check also
+ * waits. ETH is valued by Chainlink only; with no trusted price it stays pending (never credited, never failed).
+ */
+export async function valueDonation(
+  chain: ChainId,
+  token: Token,
+  amount: bigint,
+): Promise<{ status: "ok"; usd6: bigint; priceE8: bigint | null } | { status: "pending"; reason?: "price_unavailable" | "safe_not_deployed" }> {
+  const safe = await verifyClubSafe(chain);
+  if (safe === "not_deployed") return { status: "pending", reason: "safe_not_deployed" };
+  if (safe !== "ok") return { status: "pending" };
+  let priceE8: bigint | null = null;
+  if (token === "ETH") {
+    const price = await readEthUsd(chain);
+    if (!price) return { status: "pending", reason: "price_unavailable" };
+    priceE8 = price.priceE8;
+  }
+  const usd6 = usd6For(token, amount, priceE8);
+  if (usd6 === null) return { status: "pending", reason: "price_unavailable" };
+  return { status: "ok", usd6, priceE8 };
 }
 
 /**
@@ -147,20 +171,9 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
   const main = mainRes as Extract<VerifyResult, { status: "ok" }>;
 
   if (isDonation) {
-    // P1-R6: credit only into a deployed club Safe. Not deployed stays pending, never failed: the funds sit at the
-    // Safe's counterfactual address and become reachable once it is deployed there. A failed check also waits.
-    const safe = await verifyClubSafe(chain);
-    if (safe === "not_deployed") return { status: "pending", reason: "safe_not_deployed" };
-    if (safe !== "ok") return { status: "pending" };
-    // ETH is valued by Chainlink only; with no trusted price it stays pending (never credited, never failed).
-    let priceE8: bigint | null = null;
-    if (i.token === "ETH") {
-      const price = await readEthUsd(chain);
-      if (!price) return { status: "pending", reason: "price_unavailable" };
-      priceE8 = price.priceE8;
-    }
-    const usd6 = usd6For(i.token, BigInt(i.amount), priceE8);
-    if (usd6 === null) return { status: "pending", reason: "price_unavailable" };
+    const valued = await valueDonation(chain, i.token, BigInt(i.amount));
+    if (valued.status === "pending") return valued;
+    const { usd6, priceE8 } = valued;
     const { data, error: donError } = await db.rpc("confirm_donation", {
       p_intent: i.id,
       p_main: { txHash: i.main_tx_hash, logIndex: main.logIndex, blockNumber: main.blockNumber.toString() },
@@ -196,6 +209,91 @@ export async function confirmIntent(intentId: string): Promise<ConfirmResult> {
     return { status: "pending" };
   }
   return { status: "confirmed", tipId: tipId as string };
+}
+
+type PublicIntentRow = {
+  id: string;
+  user_id: string;
+  donor_address: string;
+  chain_id: number;
+  token: Token;
+  amount: string;
+  recipient_address: string;
+  status: "pending" | "confirmed" | "failed" | "expired";
+  fail_reason: string | null;
+  main_tx_hash: string | null;
+  created_at: string;
+};
+
+const PUBLIC_INTENT_COLUMNS =
+  "id, user_id, donor_address, chain_id, token, amount:amount::text, recipient_address, status, fail_reason, main_tx_hash, created_at";
+
+/**
+ * Verifies a public (non-member) donation on-chain and credits it through confirm_public_donation. The SQL never sees the
+ * transfer's sender, so the transfer is pinned to the intent's donor_address here. Callers must have checked ownership.
+ */
+export async function confirmPublicDonation(intentId: string): Promise<ConfirmResult> {
+  const db = createAdminClient();
+  const { data: i, error: readError } = await db.from("public_donation_intents").select(PUBLIC_INTENT_COLUMNS).eq("id", intentId).maybeSingle<PublicIntentRow>();
+  if (readError) {
+    console.error("[payments] public intent read failed", intentId, safeError(readError.message));
+    return { status: "pending" };
+  }
+  if (!i) return failed("not_found");
+
+  const permanent = async (code: string): Promise<ConfirmResult> => {
+    const { error } = await db.rpc("fail_public_donation", { p_intent: i.id, p_reason: code });
+    if (error) {
+      console.error("[payments] fail_public_donation failed", i.id, safeError(error.message));
+      return { status: "pending" };
+    }
+    return failed(code);
+  };
+
+  if (i.status === "confirmed") {
+    const { data: don, error: donError } = await db.from("donations").select("id").eq("public_intent_id", i.id).maybeSingle<{ id: string }>();
+    if (donError) console.error("[payments] public donation read failed", i.id, safeError(donError.message));
+    return don ? { status: "confirmed", donationId: don.id } : { status: "pending" };
+  }
+  if (i.status === "failed") return failed(i.fail_reason ?? "unknown");
+  if (i.status === "expired") return failed("intent_expired");
+
+  const chain = i.chain_id;
+  if (!isChainId(chain) || !appChainIds().includes(chain)) return permanent("chain_disabled");
+  if (!i.main_tx_hash) return { status: "pending" };
+
+  const res = await verifyTransfer({
+    chain,
+    token: i.token,
+    from: i.donor_address,
+    notBefore: new Date(i.created_at),
+    txHash: i.main_tx_hash as `0x${string}`,
+    to: i.recipient_address,
+    amount: BigInt(i.amount),
+  });
+  if (res.status === "error" && PERMANENT.has(res.code)) return permanent(res.code);
+  if (res.status !== "ok") return { status: "pending" };
+
+  const valued = await valueDonation(chain, i.token, BigInt(i.amount));
+  if (valued.status === "pending") return valued;
+  const { usd6, priceE8 } = valued;
+  const { data, error } = await db.rpc("confirm_public_donation", {
+    p_intent: i.id,
+    p_main: { txHash: i.main_tx_hash, logIndex: res.logIndex, blockNumber: res.blockNumber.toString() },
+    p_usd6: usd6.toString(),
+    p_eth_price_e8: priceE8 === null ? null : priceE8.toString(),
+  });
+  if (error) {
+    const code = rpcErrorCode(error);
+    if (PERMANENT_RECORD.has(code)) return permanent(code);
+    console.error("[payments] confirm_public_donation failed", i.id, safeError(error.message));
+    return { status: "pending" };
+  }
+  const donationId = (data as { donationId?: unknown } | null)?.donationId;
+  if (typeof donationId === "string") return { status: "confirmed", donationId };
+  // "already" confirmed by a concurrent call: read the donation back.
+  const { data: don } = await db.from("donations").select("id").eq("public_intent_id", i.id).maybeSingle<{ id: string }>();
+  return don ? { status: "confirmed", donationId: don.id } : { status: "pending" };
 }
 
 /**
