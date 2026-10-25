@@ -6,7 +6,10 @@ vi.mock("server-only", () => ({}));
 const hitIpRateLimit = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/rate-limit/ip", () => ({ hitIpRateLimit }));
 const getTokenReport = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/checker/token/analyze", () => ({ getTokenReport }));
+vi.mock("@/lib/checker/token/analyze", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/checker/token/analyze")>()),
+  getTokenReport,
+}));
 vi.mock("@x402/core/server", async (importOriginal) => {
   const { FakeFacilitatorClient } = await import("./x402-mocks");
   return { ...(await importOriginal<typeof import("@x402/core/server")>()), HTTPFacilitatorClient: FakeFacilitatorClient };
@@ -17,7 +20,19 @@ import { CHECKER_DISCLAIMER } from "@/lib/checker/api";
 import { decode, facilitator, paymentSignature, resetFacilitator } from "./x402-mocks";
 
 const ADDR = "0x1234567890abcdef1234567890ABCDEF12345678";
-const REPORT = { facts: { chainId: 84532, address: ADDR.toLowerCase() }, alerts: [], checkedAt: "2026-10-25T10:00:00Z" };
+const DOWN = { status: "unknown", reason: "timeout" } as const;
+/** One source answered (the code): a real report, even with the rest unknown. */
+const REPORT = {
+  facts: { chainId: 84532, address: ADDR.toLowerCase(), code: { status: "ok", data: { hasCode: true } }, erc20: DOWN, proxy: DOWN, owner: DOWN, verification: DOWN, creation: DOWN, market: DOWN },
+  alerts: [],
+  checkedAt: "2026-10-25T10:00:00Z",
+};
+/** Every section unknown: no source answered (final review item 1). */
+const ALL_DOWN = {
+  facts: { chainId: 84532, address: ADDR.toLowerCase(), code: DOWN, erc20: DOWN, proxy: DOWN, owner: DOWN, verification: DOWN, creation: DOWN, market: DOWN },
+  alerts: [],
+  checkedAt: "2026-10-25T10:00:00Z",
+};
 
 const req = (qs: string, headers: Record<string, string> = {}) =>
   new NextRequest(`http://localhost/api/v1/check/token${qs}`, { headers: { "x-forwarded-for": "203.0.113.7", ...headers } });
@@ -91,6 +106,16 @@ describe("GET /api/v1/check/token — free (x402 off)", () => {
     expect(await res.json()).toEqual({ error: "analysis_failed" });
   });
 
+  it("every source down → 502 analysis_failed, not a 200 report of unknowns", async () => {
+    getTokenReport.mockResolvedValue(ALL_DOWN);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(req(`?chain=84532&address=${ADDR}`));
+    expect(res.status).toBe(502);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(await res.json()).toEqual({ error: "analysis_failed" });
+    err.mockRestore();
+  });
+
   it("mainnet x402 without CDP keys stays free (limiter, no facilitator)", async () => {
     vi.stubEnv("X402_ENABLED", "true");
     vi.stubEnv("X402_NETWORK", "eip155:8453");
@@ -145,6 +170,17 @@ describe("GET /api/v1/check/token — x402 on (Review Focus 5)", () => {
     expect(await res.json()).toEqual({ error: "analysis_failed" });
     expect(facilitator.verify).toHaveBeenCalledTimes(1);
     expect(facilitator.settle).not.toHaveBeenCalled();
+  });
+
+  it("every source down → 502 and the facilitator never settles", async () => {
+    const sig = paymentSignature(await paymentRequired());
+    getTokenReport.mockResolvedValue(ALL_DOWN);
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(req(`?chain=84532&address=${ADDR}`, { "payment-signature": sig }));
+    expect(res.status).toBe(502);
+    expect(await res.json()).toEqual({ error: "analysis_failed" });
+    expect(facilitator.settle).not.toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("bad parameters → 400 without asking for payment", async () => {
