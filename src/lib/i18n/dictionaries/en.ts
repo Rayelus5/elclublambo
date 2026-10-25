@@ -530,6 +530,18 @@ export const en = {
     },
     donationsNote: "Donations to the club Safe on Base and Arbitrum.",
   },
+  checker: {
+    metaTitle: "Token and link checker",
+    metaDescription: "Check a token or a link before you sign. It informs, it does not certify.",
+    title: "Token and link checker",
+    lead: "Check a token or a link before you sign.",
+    api: {
+      metaTitle: "Checker API",
+      metaDescription: "Public API to check tokens and links from your own code.",
+      title: "Checker API",
+      lead: "Query tokens and links from your own code.",
+    },
+  },
   pay: {
     tool: {
       metaTitle: "ElClub Pay · Get paid and pay in USDC",

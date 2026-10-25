@@ -530,6 +530,18 @@ export const es = {
     },
     donationsNote: "Donaciones a la Safe del club en Base y Arbitrum.",
   },
+  checker: {
+    metaTitle: "Comprobador de tokens y enlaces",
+    metaDescription: "Revisa un token o un enlace antes de firmar. Informa, no certifica.",
+    title: "Comprobador de tokens y enlaces",
+    lead: "Revisa un token o un enlace antes de firmar.",
+    api: {
+      metaTitle: "API del comprobador",
+      metaDescription: "API pública para comprobar tokens y enlaces desde tu propio código.",
+      title: "API del comprobador",
+      lead: "Consulta tokens y enlaces desde tu propio código.",
+    },
+  },
   pay: {
     tool: {
       metaTitle: "ElClub Pay · Cobra y paga en USDC",

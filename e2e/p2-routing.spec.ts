@@ -67,7 +67,7 @@ test("outside production robots.txt and sitemap.xml index nothing", async ({ req
 
 // P3: ElClub Pay and the public donate page.
 const ADDR = "0xAbCdEf0123456789abcdef0123456789ABCDEF01";
-for (const path of ["/herramientas/pay", "/en/tools/pay", `/pay/${ADDR}`, `/en/pay/${ADDR}`, "/donar", "/en/donate"]) {
+for (const path of ["/herramientas/pay", "/en/tools/pay", `/pay/${ADDR}`, `/en/pay/${ADDR}`, "/donar", "/en/donate", "/herramientas/comprobador", "/en/tools/checker", "/herramientas/comprobador/api", "/en/tools/checker/api"]) {
   test(`anonymous: ${path} answers 200 in place (public page)`, async ({ page }) => {
     const res = await page.goto(path);
     expect(res?.status()).toBe(200);

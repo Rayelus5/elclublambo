@@ -18,6 +18,13 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/api/cronx")).toBe(false);
     expect(isPublicPath("/api")).toBe(false);
   });
+  it("lets the public checker API through, with a boundary", () => {
+    expect(isPublicPath("/api/v1/check/token")).toBe(true);
+    expect(isPublicPath("/api/v1")).toBe(true);
+    expect(isPublicPath("/api/v1x")).toBe(false);
+    expect(isPublicPath("/api/v2/check/token")).toBe(false);
+    expect(isPublicPath("/api/other")).toBe(false);
+  });
   it.each(["/", "/loginx", "/invites", "/invite", "/admin/members", "/u/0xabc", "/banned2"])("%s private", (p) =>
     expect(isPublicPath(p)).toBe(false),
   );
