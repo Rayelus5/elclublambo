@@ -159,6 +159,10 @@ function Donaciones() {
           <li>
             Tu nombre en la lista de donantes, que solo ven los miembros. Puedes ocultarte desde tu perfil cuando quieras.
           </li>
+          <li>
+            Quien dona desde la parte pública sin ser miembro aparece como «Donante externo» con su dirección abreviada, solo
+            si lo elige. Si después entra en el club, sus donaciones pasan a su nombre y cuentan para Mecenas.
+          </li>
           <li>Acceso a los canales que el rol Mecenas permite y a los que piden haber donado cierta cantidad.</li>
         </Bullets>
       </Sub>
