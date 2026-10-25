@@ -33,7 +33,7 @@ vi.mock("@/lib/multisend/wallet-idle", () => ({
 import { MultisendForm } from "@/components/multisend/multisend-form";
 import { encodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
-import { progressKey, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
+import { progressKey, recordAttempt, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { lockKey } from "@/lib/multisend/run-lock";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
@@ -447,4 +447,44 @@ describe("MultisendForm", () => {
     expect(screen.queryByText(t.form.locked)).not.toBeInTheDocument();
     expect(sendButton()).toBeEnabled();
   });
+
+  describe("fix round 4", () => {
+  it("NEW-4: a line attempted from another list in the last 24 h shows as «Sin confirmar» and is only re-checked, never signed", async () => {
+    recordAttempt({ chain: 84532, from: OWNER, to: A as `0x${string}`, amount: "10000000", block: "900" }, Date.now());
+    const { recipients } = parseRecipients(LIST, 84532);
+    const { user } = setup();
+    await paste(user, LIST);
+    const progress = screen.getByRole("list", { name: t.progress.title });
+    expect(within(progress).getByText(t.progress.status.unconfirmed)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: t.form.continue }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Vas a enviar 20 USDC a 2 direcciones en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    expect(within(dialog).getByText(t.confirm.checksOne)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.confirm.confirm }));
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, listKey(84532, recipients), new Set([recipients[1]!.id, recipients[2]!.id]), new Set());
+  });
+
+  it("NEW-4: another wallet's attempt is not inherited", async () => {
+    recordAttempt({ chain: 84532, from: OTHER, to: A as `0x${string}`, amount: "10000000", block: "900" }, Date.now());
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(screen.queryByRole("list", { name: t.progress.title })).not.toBeInTheDocument();
+    expect(sendButton()).toBeEnabled();
+  });
+
+  it("minor: a not_found line without a link says how to check it instead of pointing at a link", async () => {
+    seed([{ attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(screen.getByText(t.progress.releaseHintNoLink)).toBeInTheDocument();
+    expect(screen.queryByText(t.progress.releaseHint)).not.toBeInTheDocument();
+  });
+
+  it("minor: the no-storage notice also warns about other tabs", () => {
+    hook.value.storageOk = false;
+    setup();
+    expect(t.form.storageOff).toMatch(/otra pestaña/);
+    expect(getDictionary("en").multisend.form.storageOff).toMatch(/another tab/);
+  });
+});
 });

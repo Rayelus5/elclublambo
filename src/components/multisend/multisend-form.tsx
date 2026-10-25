@@ -17,8 +17,10 @@ import { listKey, parseRecipients } from "@/lib/multisend/parse";
 import {
   alignProgress,
   clearProgress,
+  inheritAttempts,
   parseProgress,
   parseRecent,
+  parseRecentAttempts,
   progressKey,
   readProgressRaw,
   readRecentRaw,
@@ -106,9 +108,15 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
 
   const storedRaw = useSyncExternalStore(subscribeStorage, () => (owner && recipients.length > 0 ? readProgressRaw(owner, chain, key) : null), noStored);
   const stored = useMemo(() => alignProgress(parseProgress(storedRaw), recipients), [storedRaw, recipients]);
+  const fresh = useMemo(() => recipients.map((r): RowState => ({ id: r.id, to: r.to, amount: r.amount.toString(), status: "todo" })), [recipients]);
+  // NEW-4: a line attempted from another list in the last 24 h (this wallet, this chain) shows as unconfirmed, as the
+  // hook will treat it: only re-checked on chain, never signed until a scan settles it.
+  const recentRaw = useSyncExternalStore(subscribeStorage, readRecentRaw, noStored);
+  const known = stored ?? fresh;
+  const inherited = owner ? inheritAttempts(known, parseRecentAttempts(recentRaw, chain, owner, now)) : known;
   const live =
     owner && ms.runKey === progressKey(owner, chain, key) && ms.rows !== ignoredRun ? alignProgress(ms.rows, recipients) : null;
-  const progress = live ?? stored;
+  const progress = live ?? (stored !== null || inherited !== known ? inherited : null);
   const started = progress !== null && progress.some((r) => r.status !== "todo");
   const done = progress !== null && progress.every((r) => r.status === "confirmed");
 
@@ -132,7 +140,6 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const signTotal = toSign.reduce((sum, r) => sum + r.amount, 0n);
 
   // C3: a line still to sign that matches a confirmed send of the last 24 h (not one of this list's own) needs a tick.
-  const recentRaw = useSyncExternalStore(subscribeStorage, readRecentRaw, noStored);
   const ownHashes = new Set((progress ?? []).map((r) => r.hash).filter(Boolean));
   const recent = parseRecent(recentRaw, chain, now).filter((e) => !e.hash || !ownHashes.has(e.hash));
   const repeats = new Set(

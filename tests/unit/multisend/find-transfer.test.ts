@@ -29,10 +29,20 @@ describe("findTransfer", () => {
     expect((args.event as { name: string }).name).toBe("Transfer");
   });
 
-  it("no match is null; a hash already used by another line is skipped", async () => {
+  it("no match is null", async () => {
     const c = client(1_000n, () => [{ transactionHash: h(2), args: { value: 7n } }]);
     await expect(findTransfer(c as never, { ...base, amount: 8n, fromBlock: 1n })).resolves.toBeNull();
-    await expect(findTransfer(c as never, { ...base, amount: 7n, fromBlock: 1n, exclude: new Set([h(2)]) })).resolves.toBeNull();
+  });
+
+  it("NEW-1: a tx that pays several lines (an atomic batch) matches each of them; no hash is ever skipped", async () => {
+    const c = client(1_000n, () => [{ transactionHash: h(2), args: { value: 7n } }]);
+    await expect(findTransfer(c as never, { ...base, amount: 7n, fromBlock: 1n })).resolves.toBe(h(2));
+  });
+
+  it("minor: a node behind the block at send (latest < fromBlock) scanned nothing: it throws, never null", async () => {
+    const c = client(899n, () => []);
+    await expect(findTransfer(c as never, { ...base, amount: 1n, fromBlock: 900n })).rejects.toBeInstanceOf(ScanRangeError);
+    expect(c.getLogs).not.toHaveBeenCalled();
   });
 
   it("R3: scans the whole range from the block at send to latest in SCAN_CHUNK chunks", async () => {

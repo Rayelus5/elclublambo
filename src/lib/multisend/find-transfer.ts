@@ -15,10 +15,13 @@ export function scanCapFor(chain: ChainId): bigint {
   return NETWORKS[chain].key === "arbitrum" ? 400_000n : 50_000n;
 }
 
-/** The range from the block at send to latest is past the cap: nothing was scanned. */
+/**
+ * Nothing was scanned: the range from the block at send to latest is past the cap, or the node is behind the block at
+ * send (latest < fromBlock: a lagging RPC). Either way the line is `scan_failed`, never «not found».
+ */
 export class ScanRangeError extends Error {
-  constructor() {
-    super("scan range past the cap");
+  constructor(reason: "past_cap" | "behind" = "past_cap") {
+    super(reason === "past_cap" ? "scan range past the cap" : "node behind the block at send");
     this.name = "ScanRangeError";
   }
 }
@@ -29,9 +32,11 @@ type LogClient = Pick<PublicClient, "getBlockNumber" | "getLogs">;
 
 /**
  * C1/R3: a USDC `Transfer(from, to, value == amount)` mined from `fromBlock` (the block read right before the attempt)
- * up to latest, asked in SCAN_CHUNK ranges. Returns its tx hash, or null when there is none. Hashes in `exclude`
- * (other lines' transfers) never match. Throws ScanRangeError when latest is more than `maxBlocks` past `fromBlock`,
- * and passes RPC errors on: the caller then marks the line `scan_failed`, never signable.
+ * up to latest, asked in SCAN_CHUNK ranges. Returns its tx hash, or null when there is none. No hash is ever skipped:
+ * one atomic batch tx pays every line of the batch, and each line must find its own log in it (NEW-1). The parser sums
+ * the lines of one address, so two lines never share a (recipient, amount) log. Throws ScanRangeError when latest is
+ * more than `maxBlocks` past `fromBlock` or behind it, and passes RPC errors on: the caller then marks the line
+ * `scan_failed`, never signable.
  *
  * The earliest match wins. An identical transfer (same wallet, recipient and amount) made outside this tool after the
  * attempt also matches and counts as sent: the safe side, and the UI says so (finding 9).
@@ -45,15 +50,15 @@ export async function findTransfer(
     amount,
     fromBlock,
     maxBlocks,
-    exclude,
-  }: { usdc: Address; from: Address; to: Address; amount: bigint; fromBlock: bigint; maxBlocks: bigint; exclude?: ReadonlySet<string> },
+  }: { usdc: Address; from: Address; to: Address; amount: bigint; fromBlock: bigint; maxBlocks: bigint },
 ): Promise<Hash | null> {
   const latest = await client.getBlockNumber();
-  if (latest - fromBlock > maxBlocks) throw new ScanRangeError();
+  if (latest < fromBlock) throw new ScanRangeError("behind");
+  if (latest - fromBlock > maxBlocks) throw new ScanRangeError("past_cap");
   for (let a = fromBlock; a <= latest; a += SCAN_CHUNK) {
     const b = a + SCAN_CHUNK - 1n < latest ? a + SCAN_CHUNK - 1n : latest;
     const logs = await client.getLogs({ address: usdc, event: TRANSFER, args: { from, to }, fromBlock: a, toBlock: b });
-    const hit = logs.find((l) => l.args.value === amount && l.transactionHash !== null && !exclude?.has(l.transactionHash));
+    const hit = logs.find((l) => l.args.value === amount && l.transactionHash !== null);
     if (hit?.transactionHash) return hit.transactionHash;
   }
   return null;

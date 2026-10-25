@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { erc20Abi, type Log } from "viem";
-import { useCapabilities, useConfig, useSendCalls } from "wagmi";
+import { erc20Abi } from "viem";
+import { useCapabilities, useConfig, useSendCalls, type Config } from "wagmi";
 import { getBlockNumber, getPublicClient, waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
 import { assetsFor } from "@/lib/economy/assets";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
@@ -10,39 +10,20 @@ import { readAssetBalance } from "@/lib/payments/balances";
 import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { dataSuffixFor } from "@/lib/web3/builder-code";
-import { isUserRejection, NOT_FOUND_GIVE_UP_MS, sentAtNow } from "@/lib/web3/signing";
+import { sentAtNow } from "@/lib/web3/signing";
 import { findTransfer, scanCapFor } from "./find-transfer";
 import type { ParsedLine } from "./parse";
-import { alignProgress, loadProgress, mergeProgress, progressKey, recordConfirmed, saveProgress, type RowState } from "./progress";
-import { paysLine } from "./receipt";
-import { acquireLock, heartbeat, HEARTBEAT_MS, releaseLock, TAB_ID } from "./run-lock";
+import { alignProgress, inheritAttempts, loadProgress, mergeProgress, progressKey, recentAttempts, type RowState } from "./progress";
+import { Run, type CallsResult, type Deps, type MultisendError, type Receipt } from "./run";
+import { withRunLock } from "./run-lock";
 import { readWalletIdle } from "./wallet-idle";
 
+export type { MultisendError } from "./run";
+export { RECHECK_TIMEOUT_MS } from "./run";
+
 type Address = `0x${string}`;
-type Hash = `0x${string}`;
 
 export type MultisendMode = "atomic" | "sequential" | "checking";
-/** Why the last run stopped, or what it left behind (the form words it from the dictionary). */
-export type MultisendError =
-  | "switch"
-  | "cancelled"
-  | "failed"
-  | "reverted"
-  | "pending"
-  | "unconfirmed"
-  | "scan_failed"
-  | "atomic_failed"
-  | "insufficient"
-  | "no_gas"
-  /** R1: a released line was not signed because the wallet has a pending tx (or its nonces could not be read). */
-  | "wallet_pending"
-  /** R3: the block at send could not be read: nothing was signed. */
-  | "rpc"
-  /** R5: another tab is running this list. */
-  | "locked";
-
-/** How long a run waits, in total, for the receipts (or batch statuses) of the lines already sent. */
-export const RECHECK_TIMEOUT_MS = 30_000;
 
 /**
  * Every run's rows, per progress key, for this page session: the source of truth when storage is unavailable
@@ -54,241 +35,64 @@ export function resetMultisendMemory(): void {
   memory.clear();
 }
 
-class Stop extends Error {
-  constructor(readonly code: MultisendError) {
-    super(code);
-  }
-}
-
-type Receipt = { status: string; transactionHash: Hash; logs: readonly Log[] };
-type CallsResult = { status?: string; receipts?: readonly Receipt[] };
-
-/** What a run needs from the wallet and the chain (built from wagmi in the hook). */
-type Deps = {
-  waitReceipt(hash: Hash, timeout?: number): Promise<Receipt>;
-  waitCalls(id: string, timeout?: number): Promise<CallsResult>;
-  /** The tx hash of a matching Transfer log, null when none; throws when the scan itself fails or is past the cap. */
-  scan(row: RowState, block: bigint, exclude: ReadonlySet<string>): Promise<Hash | null>;
-  /** R1: true only when the wallet's pending and latest nonces were read and are equal. */
-  walletIdle(): Promise<boolean>;
-  blockNumber(): Promise<bigint>;
-  /** [USDC, ETH] of the owner on the chain, null when unknown. */
-  balances(): Promise<[bigint, bigint] | null>;
-  ensure(): Promise<boolean>;
-  sendOne(row: RowState): Promise<Hash>;
-  sendBatch(rows: readonly RowState[]): Promise<string>;
+type Wallet = {
+  ensure(chain: ChainId): Promise<boolean>;
+  sendTransfer: ReturnType<typeof useSendTransfer>["send"];
+  sendCallsAsync: ReturnType<typeof useSendCalls>["sendCallsAsync"];
 };
 
-/**
- * One run over one list. Holds the rows and writes every change to memory and storage at once, records each line that
- * becomes confirmed in the 24 h record, and runs the phases in order: plan, verify, scan, (preflight), persist the
- * attempts, sign. Only `todo` lines the user approved, and `not_found` lines the user released, are ever signed.
- */
-class Run {
-  storageOk = true;
-  constructor(
-    public rows: RowState[],
-    private readonly ctx: { chain: ChainId; owner: Address; key: string; runKey: string; usdc: Address; onChange(rows: RowState[], storageOk: boolean): void },
-    private readonly deps: Deps,
-  ) {}
-
-  private commit(next: RowState[]) {
-    this.rows = next;
-    memory.set(this.ctx.runKey, next);
-    if (!saveProgress(this.ctx.owner, this.ctx.chain, this.ctx.key, next)) this.storageOk = false;
-    this.ctx.onChange(next, this.storageOk);
-  }
-
-  patch(ids: ReadonlySet<string>, change: Partial<RowState> | ((r: RowState) => Partial<RowState>)) {
-    const now = sentAtNow();
-    this.commit(
-      this.rows.map((r) => {
-        if (!ids.has(r.id)) return r;
-        const next = { ...r, ...(typeof change === "function" ? change(r) : change) };
-        if (next.status === "confirmed" && r.status !== "confirmed") {
-          recordConfirmed({ chain: this.ctx.chain, to: next.to, amount: next.amount, ...(next.hash ? { hash: next.hash } : {}) }, now);
-        }
-        return next;
+/** The run's dependencies on wagmi, the chain and storage, for `owner` on `chain`. */
+function wagmiDeps(config: Config, chain: ChainId, owner: Address, lines: readonly ParsedLine[], key: string, wallet: Wallet, ownsRun: () => boolean): Deps {
+  const usdc = NETWORKS[chain].usdc;
+  const client = () => getPublicClient(config, { chainId: chain });
+  const chainAssets = assetsFor([chain]);
+  return {
+    waitReceipt: (hash, timeout) => waitForTransactionReceipt(config, { hash, chainId: chain, ...(timeout ? { timeout } : {}) }) as unknown as Promise<Receipt>,
+    waitCalls: (id, timeout) => waitForCallsStatus(config, { id, ...(timeout ? { timeout } : {}) }) as unknown as Promise<CallsResult>,
+    scan: (row, block) =>
+      findTransfer(client() as Parameters<typeof findTransfer>[0], {
+        usdc,
+        from: owner,
+        to: row.to,
+        amount: BigInt(row.amount),
+        fromBlock: block,
+        maxBlocks: scanCapFor(chain),
       }),
-    );
-  }
-
-  private pays(r: RowState, logs: readonly Log[] | undefined) {
-    return paysLine(logs, { usdc: this.ctx.usdc, from: this.ctx.owner, to: r.to, amount: BigInt(r.amount) });
-  }
-
-  /** 1. Plan: decided before any check, so a line that changes state during the checks is never signed in this run. */
-  plan(approved: ReadonlySet<string>, released: ReadonlySet<string>): Set<string> {
-    return new Set(this.rows.filter((r) => (r.status === "todo" && approved.has(r.id)) || (r.status === "not_found" && released.has(r.id))).map((r) => r.id));
-  }
-
-  /**
-   * 2. Verify the lines already sent, all at once under one shared timeout (finding 8), one wait per batch id. Only a
-   * receipt holding the line's Transfer confirms it; anything else (no Transfer, a non-successful batch, no answer)
-   * makes it `unconfirmed`, for the scan.
-   */
-  async verify(): Promise<void> {
-    const sent = this.rows.filter((r) => r.status === "sent");
-    const batches = [...new Set(sent.filter((r) => r.callsId).map((r) => r.callsId!))];
-    const singles = sent.filter((r) => !r.callsId && r.hash);
-    const orphans = sent.filter((r) => !r.callsId && !r.hash);
-    if (orphans.length) this.patch(new Set(orphans.map((r) => r.id)), { status: "unconfirmed" });
-    const timeout = RECHECK_TIMEOUT_MS;
-    await Promise.all([
-      ...singles.map(async (r) => {
-        const receipt = await this.deps.waitReceipt(r.hash!, timeout).catch(() => null);
-        this.settleReceipt(r.id, receipt);
-      }),
-      ...batches.map(async (id) => {
-        const res = await this.deps.waitCalls(id, timeout).catch(() => null);
-        this.settleBatch(new Set(this.rows.filter((r) => r.callsId === id && r.status === "sent").map((r) => r.id)), res);
-      }),
-    ]);
-  }
-
-  settleReceipt(id: string, receipt: Receipt | null): boolean {
-    const r = this.rows.find((x) => x.id === id)!;
-    const ok = receipt !== null && receipt.status === "success" && this.pays(r, receipt.logs);
-    this.patch(new Set([id]), ok ? { status: "confirmed", hash: receipt.transactionHash } : { status: "unconfirmed" });
-    return ok;
-  }
-
-  /** Any batch status but success (600 partial, failure, unknown, no answer) leaves every line unconfirmed. */
-  settleBatch(ids: ReadonlySet<string>, res: CallsResult | null): boolean {
-    const success = res?.status === "success";
-    this.patch(ids, (r) => {
-      const paid = success ? res.receipts?.find((rc) => rc.status === "success" && this.pays(r, rc.logs)) : undefined;
-      return paid ? { status: "confirmed", hash: paid.transactionHash } : { status: "unconfirmed" };
-    });
-    return success;
-  }
-
-  /**
-   * 3. Scan every attempted line not confirmed yet for its Transfer log (C1). Found → confirmed with that hash. The scan
-   * failed → `scan_failed` (never signable). Nothing: a rejected `todo` stays `todo`; otherwise `unconfirmed` while the
-   * attempt is fresh (the tx may still be pending) and `not_found` (tickable) once it is past the give-up window.
-   */
-  async scan(): Promise<void> {
-    for (const r of this.rows) {
-      const needs = r.status === "unconfirmed" || r.status === "not_found" || r.status === "scan_failed" || (r.status === "todo" && r.attempt);
-      if (!needs) continue;
-      const exclude = new Set(this.rows.filter((x) => x.id !== r.id && x.hash).map((x) => x.hash!));
-      let found: Hash | null;
-      try {
-        // R3: the scan starts at the block at send; without it, it cannot be scanned at all.
-        if (!r.attempt?.block) throw new Error("no block at send");
-        found = await this.deps.scan(r, BigInt(r.attempt.block), exclude);
-      } catch {
-        this.patch(new Set([r.id]), { status: "scan_failed" });
-        continue;
-      }
-      if (found) this.patch(new Set([r.id]), { status: "confirmed", hash: found });
-      else if (r.status === "todo") continue;
-      else {
-        const fresh = r.attempt !== undefined && sentAtNow() - r.attempt.at < NOT_FOUND_GIVE_UP_MS;
-        this.patch(new Set([r.id]), { status: fresh ? "unconfirmed" : "not_found" });
-      }
-    }
-  }
-
-  /** What is still signable among the planned lines, after the checks. */
-  signable(chosen: ReadonlySet<string>): RowState[] {
-    return this.rows.filter((r) => chosen.has(r.id) && (r.status === "todo" || r.status === "not_found"));
-  }
-
-  /**
-   * R1: released (`not_found`) lines go only while the wallet has no pending tx: one could still be the line's
-   * transfer, mined late. A failed nonce read keeps them back too. Returns the lines that may go and whether some
-   * were held back.
-   */
-  async holdReleased(left: readonly RowState[]): Promise<{ left: RowState[]; held: boolean }> {
-    if (!left.some((r) => r.status === "not_found")) return { left: [...left], held: false };
-    if (await this.deps.walletIdle()) return { left: [...left], held: false };
-    return { left: left.filter((r) => r.status !== "not_found"), held: true };
-  }
-
-  /** 4. Preflight: a balance known to be short signs nothing (finding 12); an unknown one does not block. */
-  async preflight(left: readonly RowState[]): Promise<void> {
-    const total = left.reduce((sum, r) => sum + BigInt(r.amount), 0n);
-    const balances = await this.deps.balances();
-    if (balances && balances[0] < total) throw new Stop("insufficient");
-    if (balances && balances[1] <= 0n) throw new Stop("no_gas");
-    if (!(await this.deps.ensure())) throw new Stop("switch");
-  }
-
-  /** 5. Persist the attempt of these lines before the wallet prompt opens: from here on they are `unconfirmed`. */
-  persistAttempts(ids: ReadonlySet<string>, block: string | undefined): void {
-    const at = sentAtNow();
-    this.patch(ids, (r) => {
-      // The scan starts at the earliest block of any attempt of the line.
-      const earliest = r.attempt?.block && block ? (BigInt(r.attempt.block) < BigInt(block) ? r.attempt.block : block) : (r.attempt?.block ?? block);
-      return { status: "unconfirmed", attempt: { ...(earliest ? { block: earliest } : {}), at }, hash: undefined, callsId: undefined };
-    });
-  }
-
-  /** 6a. Sign the lines in one atomic batch. A definitive rejection returns them to `todo` (attempt kept). */
-  async signAtomic(left: readonly RowState[], block: string | undefined): Promise<void> {
-    const ids = new Set(left.map((r) => r.id));
-    this.persistAttempts(ids, block);
-    let id: string;
-    try {
-      id = await this.deps.sendBatch(left);
-    } catch (err) {
-      if (isUserRejection(err)) {
-        this.patch(ids, { status: "todo" });
-        throw new Stop("cancelled");
-      }
-      throw new Stop("atomic_failed");
-    }
-    this.patch(ids, { status: "sent", callsId: id });
-    let res: CallsResult | null;
-    try {
-      res = await this.deps.waitCalls(id);
-    } catch {
-      this.settleBatch(ids, null);
-      throw new Stop("pending");
-    }
-    if (!this.settleBatch(ids, res)) throw new Stop("atomic_failed");
-  }
-
-  /** 6b. Sign the lines one at a time, each with its attempt persisted just before its prompt. */
-  async signSequential(left: readonly RowState[], block: string | undefined): Promise<void> {
-    for (const r of left) {
-      const ids = new Set([r.id]);
-      this.persistAttempts(ids, block);
-      let hash: Hash;
-      try {
-        hash = await this.deps.sendOne(r);
-      } catch (err) {
-        if (isUserRejection(err)) {
-          this.patch(ids, { status: "todo" });
-          throw new Stop("cancelled");
-        }
-        // The wallet may have broadcast before failing: unconfirmed, scanned before anything else.
-        throw new Stop("failed");
-      }
-      this.patch(ids, { status: "sent", hash });
-      let receipt: Receipt | null;
-      try {
-        receipt = await this.deps.waitReceipt(hash);
-      } catch {
-        receipt = null;
-      }
-      if (receipt === null) {
-        this.patch(ids, { status: "unconfirmed" });
-        throw new Stop("pending");
-      }
-      if (!this.settleReceipt(r.id, receipt)) throw new Stop("reverted");
-    }
-  }
-
-  /** What the run leaves behind when it did not stop on an error (finding 7: derived from the final rows). */
-  notice(): MultisendError | null {
-    if (this.rows.some((r) => r.status === "scan_failed")) return "scan_failed";
-    if (this.rows.some((r) => r.status === "unconfirmed" || r.status === "not_found")) return "unconfirmed";
-    if (this.rows.some((r) => r.status === "sent")) return "pending";
-    return null;
-  }
+    walletIdle: () =>
+      readWalletIdle(client() as Parameters<typeof readWalletIdle>[0], owner).then(
+        (v) => v === "idle",
+        () => false,
+      ),
+    blockNumber: () => getBlockNumber(config, { chainId: chain }),
+    balances: () =>
+      Promise.all([
+        readAssetBalance(config, chainAssets.find((a) => a.token === "USDC")!, owner),
+        readAssetBalance(config, chainAssets.find((a) => a.token === "ETH")!, owner),
+      ]).then(
+        ([u, e]): [bigint, bigint] => [u, e],
+        () => null,
+      ),
+    ensure: () => wallet.ensure(chain),
+    sendOne: (r) => wallet.sendTransfer({ chain, token: "USDC", to: r.to, amount: BigInt(r.amount), account: owner }),
+    sendBatch: async (rs) => {
+      const suffix = dataSuffixFor(chain);
+      const { id } = await wallet.sendCallsAsync({
+        chainId: chain,
+        account: owner,
+        forceAtomic: true,
+        calls: rs.map((r) => ({
+          to: usdc,
+          abi: erc20Abi,
+          functionName: "transfer" as const,
+          args: [r.to, BigInt(r.amount)] as const,
+          ...(suffix ? { dataSuffix: suffix } : {}),
+        })),
+      });
+      return id;
+    },
+    loadStored: () => alignProgress(loadProgress(owner, chain, key), lines),
+    ownsRun,
+  };
 }
 
 /**
@@ -296,10 +100,11 @@ class Run {
  * the wallet to `chain`, with the Builder Code on Base only (per call in a batch). Atomic in one `wallet_sendCalls`
  * (`forceAtomic`) when the wallet reports `atomic` supported or ready; one transfer at a time otherwise.
  *
- * Never pays a line twice (fix round 2): a line is signed only while `todo` (approved by the user in the confirmation)
- * or `not_found` after a successful scan and ticked (`released`). Every attempt is persisted before the prompt; a line
- * with an attempt and no verified Transfer is `unconfirmed` until a scan settles it. With storage unavailable, this
- * page session's memory is the record (`storageOk` false: the form tells the user).
+ * Never pays a line twice (see Run): a line is signed only while `todo` (approved by the user in the confirmation) or
+ * `not_found` after a successful scan and ticked (`released`), and one attempted before only with an idle wallet. One
+ * tab at a time runs a list (withRunLock); the run's starting rows are read inside the lock, merged from storage, this
+ * page session's memory, and the attempts of the 24 h record (NEW-4). With storage unavailable, memory is the record
+ * (`storageOk` false: the form tells the user).
  */
 export function useMultisend(chain: ChainId): {
   mode: MultisendMode;
@@ -349,93 +154,35 @@ export function useMultisend(chain: ChainId): {
       busy.current = true;
       setRunning(true);
       setError(null);
-      const usdc = NETWORKS[chain].usdc;
       const runKey = progressKey(owner, chain, key);
-      const fresh = lines.map((l): RowState => ({ id: l.id, to: l.to, amount: l.amount.toString(), status: "todo" }));
-      // R5: one tab runs a list at a time.
-      if (!acquireLock(runKey, TAB_ID, sentAtNow())) {
-        setError("locked");
-        busy.current = false;
-        setRunning(false);
-        return;
-      }
-      const beat = setInterval(() => heartbeat(runKey, TAB_ID, sentAtNow()), HEARTBEAT_MS);
-      const start = mergeProgress(alignProgress(loadProgress(owner, chain, key), lines), alignProgress(memory.get(runKey) ?? null, lines)) ?? fresh;
-      const chainAssets = assetsFor([chain]);
-      const deps: Deps = {
-        waitReceipt: (hash, timeout) =>
-          waitForTransactionReceipt(config, { hash, chainId: chain, ...(timeout ? { timeout } : {}) }) as unknown as Promise<Receipt>,
-        waitCalls: (id, timeout) => waitForCallsStatus(config, { id, ...(timeout ? { timeout } : {}) }) as unknown as Promise<CallsResult>,
-        scan: (row, block, exclude) =>
-          findTransfer(getPublicClient(config, { chainId: chain }) as Parameters<typeof findTransfer>[0], {
-            usdc,
-            from: owner,
-            to: row.to,
-            amount: BigInt(row.amount),
-            fromBlock: block,
-            maxBlocks: scanCapFor(chain),
-            exclude,
-          }),
-        walletIdle: () =>
-          readWalletIdle(getPublicClient(config, { chainId: chain }) as Parameters<typeof readWalletIdle>[0], owner).then(
-            (v) => v === "idle",
-            () => false,
-          ),
-        blockNumber: () => getBlockNumber(config, { chainId: chain }),
-        balances: () =>
-          Promise.all([
-            readAssetBalance(config, chainAssets.find((a) => a.token === "USDC")!, owner),
-            readAssetBalance(config, chainAssets.find((a) => a.token === "ETH")!, owner),
-          ]).then(
-            ([u, e]): [bigint, bigint] => [u, e],
-            () => null,
-          ),
-        ensure: () => ensure(chain),
-        sendOne: (r) => sendTransfer({ chain, token: "USDC", to: r.to, amount: BigInt(r.amount), account: owner }),
-        sendBatch: async (rs) => {
-          const suffix = dataSuffixFor(chain);
-          const { id } = await sendCallsAsync({
-            chainId: chain,
-            account: owner,
-            forceAtomic: true,
-            calls: rs.map((r) => ({
-              to: usdc,
-              abi: erc20Abi,
-              functionName: "transfer" as const,
-              args: [r.to, BigInt(r.amount)] as const,
-              ...(suffix ? { dataSuffix: suffix } : {}),
-            })),
-          });
-          return id;
-        },
-      };
-      const r = new Run(start, { chain, owner, key, runKey, usdc, onChange: (rows, ok) => (setRun({ key: runKey, rows }), setStorageOk(ok)) }, deps);
-      memory.set(runKey, start);
-      setRun({ key: runKey, rows: start });
-
-      let stop: MultisendError | null = null;
-      let held = false;
+      let outcome: MultisendError | null = "failed";
       try {
-        const chosen = r.plan(approved, released);
-        await r.verify();
-        await r.scan();
-        const going = await r.holdReleased(r.signable(chosen));
-        held = going.held;
-        const left = going.left;
-        if (left.length > 0) {
-          await r.preflight(left);
-          // R3: every attempt carries its block at send; without it nothing is signed.
-          const block = await deps.blockNumber().then(String, () => undefined);
-          if (block === undefined) throw new Stop("rpc");
-          if (mode === "atomic") await r.signAtomic(left, block);
-          else await r.signSequential(left, block);
-        }
-      } catch (err) {
-        stop = err instanceof Stop ? err.code : "failed";
+        const out = await withRunLock(runKey, (ownsRun) => {
+          const deps = wagmiDeps(config, chain, owner, lines, key, { ensure, sendTransfer, sendCallsAsync }, ownsRun);
+          const fresh = lines.map((l): RowState => ({ id: l.id, to: l.to, amount: l.amount.toString(), status: "todo" }));
+          const known = mergeProgress(deps.loadStored(), alignProgress(memory.get(runKey) ?? null, lines)) ?? fresh;
+          const start = inheritAttempts(known, recentAttempts(chain, owner, sentAtNow()));
+          memory.set(runKey, start);
+          setRun({ key: runKey, rows: start });
+          const r = new Run(
+            start,
+            {
+              chain,
+              owner,
+              key,
+              usdc: NETWORKS[chain].usdc,
+              remember: (rows) => void memory.set(runKey, rows),
+              onChange: (rows, ok) => (setRun({ key: runKey, rows }), setStorageOk(ok)),
+            },
+            deps,
+          );
+          return r.execute(approved, released, mode === "atomic");
+        });
+        outcome = out.ran ? out.value : "locked";
+      } catch {
+        outcome = "failed";
       } finally {
-        clearInterval(beat);
-        releaseLock(runKey, TAB_ID);
-        setError(stop ?? (held ? "wallet_pending" : r.notice()));
+        setError(outcome);
         busy.current = false;
         setRunning(false);
         setRuns((n) => n + 1);

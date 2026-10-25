@@ -5,7 +5,8 @@ type Hash = `0x${string}`;
 
 /**
  * Where a line stands (the state model of fix round 2; only `todo` and a ticked `not_found` may be signed):
- * - `todo`: may be signed. With an `attempt` (a definitive rejection), it is scanned first.
+ * - `todo`: may be signed. With an `attempt` (a definitive rejection of its first prompt), it is scanned first and
+ *   signed only while the wallet has no pending tx (R1, NEW-2).
  * - `sent`: the wallet returned a hash (or a batch id); waiting for the receipt.
  * - `confirmed`: a receipt (or a log scan) holds the USDC Transfer(wallet → recipient, amount); `hash` is that tx.
  * - `unconfirmed`: attempted, nothing verified yet (a wallet error, a timeout, a receipt without the Transfer, a
@@ -18,7 +19,9 @@ export type RowStatus = "todo" | "sent" | "confirmed" | "unconfirmed" | "not_fou
 /**
  * One line of a send as this browser last saw it, keyed by its identity (`id`, see lineId; C3). `attempt` is written
  * before every wallet prompt: `at` (when) and `block` (the earliest block read before any attempt: where a log scan
- * starts). `callsId` marks a line sent in an atomic batch (EIP-5792).
+ * starts). `callsId` marks a line sent in an atomic batch (EIP-5792). `hash` is the confirming tx once `confirmed`, and
+ * before that the last tx known for an attempt (for its explorer link). `updated` is when this copy last changed: two
+ * copies of a line (storage and memory, or two tabs) merge to the newest (mergeProgress).
  */
 export type RowState = {
   id: string;
@@ -29,6 +32,7 @@ export type RowState = {
   attempt?: { block?: string; at: number };
   callsId?: string;
   status: RowStatus;
+  updated?: number;
 };
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
@@ -59,7 +63,8 @@ function isRow(v: unknown): v is RowState {
     STATUSES.has(r.status) &&
     (r.hash === undefined || (typeof r.hash === "string" && TX_HASH.test(r.hash))) &&
     (r.attempt === undefined || isAttempt(r.attempt)) &&
-    (r.callsId === undefined || (typeof r.callsId === "string" && r.callsId !== ""))
+    (r.callsId === undefined || (typeof r.callsId === "string" && r.callsId !== "")) &&
+    (r.updated === undefined || (typeof r.updated === "number" && Number.isFinite(r.updated)))
   );
 }
 
@@ -109,20 +114,23 @@ export function storageAvailable(): boolean {
 }
 
 const RANK: Record<RowStatus, number> = { todo: 0, scan_failed: 1, unconfirmed: 1, not_found: 1, sent: 2, confirmed: 3 };
+const stamp = (r: RowState) => r.updated ?? r.attempt?.at ?? 0;
 
 /**
- * Per line, the more advanced of two copies (storage and memory, finding 1): confirmed beats anything, a sent hash
- * beats an attempt, an attempt beats a bare todo, and between equals the later attempt wins. A resume therefore never
- * resets a confirmed or attempted line, whichever copy was lost.
+ * Per line, the newest of two copies (storage and memory, finding 1; or another tab's write): the one with the later
+ * `updated` (its attempt time for copies written before it existed). A confirmed copy always wins, since nothing ever
+ * follows a confirmation; between copies of the same age the more advanced one wins. A resume therefore never resets a
+ * confirmed or attempted line, whichever copy was lost.
  */
 export function mergeProgress(a: readonly RowState[] | null, b: readonly RowState[] | null): RowState[] | null {
   if (!a) return b ? [...b] : null;
   if (!b) return [...a];
-  const score = (r: RowState) => RANK[r.status] * 2 + (r.attempt ? 1 : 0);
   return a.map((x, i) => {
     const y = b[i]!;
-    if (score(x) !== score(y)) return score(x) > score(y) ? x : y;
-    return (y.attempt?.at ?? 0) > (x.attempt?.at ?? 0) ? y : x;
+    if ((x.status === "confirmed") !== (y.status === "confirmed")) return x.status === "confirmed" ? x : y;
+    if (stamp(x) !== stamp(y)) return stamp(x) > stamp(y) ? x : y;
+    const score = (r: RowState) => RANK[r.status] * 2 + (r.attempt ? 1 : 0);
+    return score(y) > score(x) ? y : x;
   });
 }
 
@@ -151,11 +159,23 @@ export function alignProgress(stored: readonly RowState[] | null, lines: readonl
   return out;
 }
 
-/** C3: confirmed sends of the last 24 h, in this browser, to warn about paying the same line twice from a new list. */
+/**
+ * The 24 h record of this browser, across lists (C3, NEW-4): every confirmed send, to warn about paying the same line
+ * twice from a new list, and every attempt, so a line attempted from one list is inherited as unconfirmed by any other
+ * list (an edited one) and scanned before it can be signed. A confirmation clears the attempts it covers.
+ */
 export const RECENT_KEY = "elclub:multisend:recent";
 export const RECENT_MS = 24 * 60 * 60_000;
-const RECENT_MAX = 200;
-export type RecentSend = { chain: ChainId; to: Address; amount: string; hash?: Hash; at: number };
+/** Attempts share the record (up to 20 per run): room for 50 full runs a day before the oldest entry drops. */
+const RECENT_MAX = 1000;
+/** A confirmed send (no `kind`, as before fix round 4). `from` is the wallet, when known. */
+export type RecentSend = { chain: ChainId; from?: Address; to: Address; amount: string; hash?: Hash; at: number };
+/** An attempt: `at` is the attempt's time, `block` the block read before its prompt, `hash` its tx when known. */
+export type RecentAttempt = { kind: "attempt"; chain: ChainId; from: Address; to: Address; amount: string; block?: string; hash?: Hash; at: number };
+type RecentEntry = RecentSend | RecentAttempt;
+
+const isAttemptEntry = (e: RecentEntry): e is RecentAttempt => "kind" in e && e.kind === "attempt";
+const sameAddress = (a: string | undefined, b: string | undefined) => a !== undefined && b !== undefined && a.toLowerCase() === b.toLowerCase();
 
 /** The raw record (for useSyncExternalStore), or null without storage. */
 export function readRecentRaw(): string | null {
@@ -166,46 +186,102 @@ export function readRecentRaw(): string | null {
   }
 }
 
-/** The record's valid entries of `chain` younger than 24 h at `now`. */
-export function parseRecent(raw: string | null, chain: ChainId, now: number): RecentSend[] {
-  return parseRecentAll(raw).filter((e) => e.chain === chain && now - e.at < RECENT_MS);
+function isEntry(e: unknown): e is RecentEntry {
+  if (typeof e !== "object" || e === null) return false;
+  const r = e as Record<string, unknown>;
+  const base =
+    typeof r.chain === "number" &&
+    typeof r.to === "string" &&
+    ADDRESS.test(r.to) &&
+    typeof r.amount === "string" &&
+    UNITS.test(r.amount) &&
+    typeof r.at === "number" &&
+    (r.hash === undefined || (typeof r.hash === "string" && TX_HASH.test(r.hash))) &&
+    (r.from === undefined || (typeof r.from === "string" && ADDRESS.test(r.from)));
+  if (!base) return false;
+  if (r.kind === undefined) return true;
+  return r.kind === "attempt" && typeof r.from === "string" && (r.block === undefined || (typeof r.block === "string" && UNITS.test(r.block)));
 }
 
-function readRecent(): RecentSend[] {
-  return parseRecentAll(readRecentRaw());
-}
-
-function parseRecentAll(raw: string | null): RecentSend[] {
+function parseRecentAll(raw: string | null): RecentEntry[] {
   try {
     const v: unknown = JSON.parse(raw ?? "[]");
-    if (!Array.isArray(v)) return [];
-    return v.filter(
-      (e): e is RecentSend =>
-        typeof e === "object" &&
-        e !== null &&
-        typeof e.chain === "number" &&
-        typeof e.to === "string" &&
-        ADDRESS.test(e.to) &&
-        typeof e.amount === "string" &&
-        UNITS.test(e.amount) &&
-        typeof e.at === "number" &&
-        (e.hash === undefined || (typeof e.hash === "string" && TX_HASH.test(e.hash))),
-    );
+    return Array.isArray(v) ? v.filter(isEntry) : [];
   } catch {
     return [];
   }
 }
 
-export function recordConfirmed(entry: Omit<RecentSend, "at">, now: number): void {
+function writeRecent(entries: RecentEntry[]): void {
   try {
-    const kept = readRecent().filter((e) => now - e.at < RECENT_MS && !(entry.hash && e.hash === entry.hash && e.to.toLowerCase() === entry.to.toLowerCase()));
-    kept.push({ ...entry, at: now });
-    window.localStorage.setItem(RECENT_KEY, JSON.stringify(kept.slice(-RECENT_MAX)));
+    window.localStorage.setItem(RECENT_KEY, JSON.stringify(entries.slice(-RECENT_MAX)));
   } catch {
-    // Without storage there is no 24 h warning.
+    // Without storage there is no cross-list record (the page says so).
   }
+}
+
+/** The record's confirmed sends of `chain` younger than 24 h at `now` (the C3 warning). */
+export function parseRecent(raw: string | null, chain: ChainId, now: number): RecentSend[] {
+  return parseRecentAll(raw).filter((e): e is RecentSend => !isAttemptEntry(e) && e.chain === chain && now - e.at < RECENT_MS);
+}
+
+/** The record's attempts of `chain` from wallet `from` younger than 24 h at `now` (NEW-4). */
+export function parseRecentAttempts(raw: string | null, chain: ChainId, from: Address, now: number): RecentAttempt[] {
+  return parseRecentAll(raw).filter(
+    (e): e is RecentAttempt => isAttemptEntry(e) && e.chain === chain && sameAddress(e.from, from) && now - e.at < RECENT_MS,
+  );
+}
+
+const sameLine = (e: RecentEntry, l: { chain: ChainId; from?: Address; to: Address; amount: string }) =>
+  e.chain === l.chain && sameAddress(e.to, l.to) && e.amount === l.amount && (l.from === undefined || e.from === undefined || sameAddress(e.from, l.from));
+
+/**
+ * Records a confirmed send at `now`. With `from`, it also clears the attempts of the same line from that wallet made
+ * up to `attemptAt` (the confirmed line's last attempt; all of them without it): this confirmation covers them.
+ */
+export function recordConfirmed(entry: Omit<RecentSend, "at"> & { attemptAt?: number }, now: number): void {
+  const { attemptAt, ...send } = entry;
+  const kept = parseRecentAll(readRecentRaw()).filter((e) => {
+    if (now - e.at >= RECENT_MS) return false;
+    if (isAttemptEntry(e)) return !(send.from !== undefined && sameLine(e, send) && (attemptAt === undefined || e.at <= attemptAt));
+    return !(send.hash && e.hash === send.hash && sameAddress(e.to, send.to));
+  });
+  kept.push({ ...send, at: now });
+  writeRecent(kept);
+}
+
+/** Records an attempt (at its own time `at`). The same attempt again (now with its hash) replaces its entry. */
+export function recordAttempt(entry: Omit<RecentAttempt, "kind" | "at">, at: number): void {
+  const kept = parseRecentAll(readRecentRaw()).filter((e) => at - e.at < RECENT_MS && !(isAttemptEntry(e) && sameLine(e, entry) && e.at === at));
+  kept.push({ kind: "attempt" as const, ...entry, at });
+  writeRecent(kept);
 }
 
 export function recentConfirmed(chain: ChainId, now: number): RecentSend[] {
   return parseRecent(readRecentRaw(), chain, now);
+}
+
+export function recentAttempts(chain: ChainId, from: Address, now: number): RecentAttempt[] {
+  return parseRecentAttempts(readRecentRaw(), chain, from, now);
+}
+
+/**
+ * NEW-4: every `todo` line never attempted in this list that matches attempts from the record (same recipient and
+ * amount; the caller passes only this wallet's and chain's) becomes `unconfirmed`, with an attempt from the earliest
+ * block (none when any attempt lacks one: it cannot be scanned and ends `scan_failed`), the latest time and the latest
+ * known hash, so it is scanned before it can be signed. Returns `rows` itself when nothing matches. Pure.
+ */
+export function inheritAttempts(rows: RowState[], attempts: readonly RecentAttempt[]): RowState[] {
+  let changed = false;
+  const out = rows.map((r) => {
+    if (r.status !== "todo" || r.attempt) return r;
+    const hits = attempts.filter((e) => sameAddress(e.to, r.to) && e.amount === r.amount).sort((x, y) => x.at - y.at);
+    if (hits.length === 0) return r;
+    changed = true;
+    const blocks = hits.map((e) => e.block);
+    const block = blocks.every((b): b is string => b !== undefined) ? blocks.reduce((m, b) => (BigInt(b) < BigInt(m) ? b : m)) : undefined;
+    const hash = hits.filter((e) => e.hash).at(-1)?.hash;
+    return { ...r, status: "unconfirmed" as const, attempt: { ...(block ? { block } : {}), at: hits.at(-1)!.at }, ...(hash ? { hash } : {}) };
+  });
+  return changed ? out : rows;
 }

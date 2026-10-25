@@ -38,7 +38,7 @@ const readAssetBalance = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/balances", () => ({ readAssetBalance }));
 
 import { resetMultisendMemory, useMultisend } from "@/lib/multisend/use-multisend";
-import { loadProgress, recentConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
+import { loadProgress, progressKey, recentAttempts, recentConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { lineId, type ParsedLine } from "@/lib/multisend/parse";
 import { lockKey, LOCK_STALE_MS, TAB_ID } from "@/lib/multisend/run-lock";
 
@@ -106,7 +106,10 @@ beforeEach(() => {
   nonces.pending = 5;
   nonces.latest = 5;
 });
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  Object.defineProperty(navigator, "locks", { value: undefined, configurable: true });
+});
 
 function throwingStorage() {
   vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
@@ -353,7 +356,7 @@ describe("useMultisend sequential", () => {
     expect(send).not.toHaveBeenCalled();
     expect(result.current.rows.map((r) => r.status)).toEqual(["unconfirmed", "not_found", "confirmed"]);
     expect(result.current.rows[2]!.hash).toBe(h(55));
-    expect(findTransfer).toHaveBeenCalledWith(publicClient, { usdc: USDC_BASE, from: OWNER, to: A, amount: 10_000_000n, fromBlock: 900n, maxBlocks: 50_000n, exclude: new Set() });
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, { usdc: USDC_BASE, from: OWNER, to: A, amount: 10_000_000n, fromBlock: 900n, maxBlocks: 50_000n });
   });
 
   it("only todo lines and released not_found lines are signed; an approved unconfirmed line is not", async () => {
@@ -516,5 +519,173 @@ describe("fix round 3", () => {
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send).toHaveBeenCalledTimes(3);
     expect(window.localStorage.getItem(lockKey(RUN_KEY))).toBeNull();
+  });
+});
+
+describe("fix round 4", () => {
+  const RUN_KEY = progressKey(OWNER, 84532, KEY);
+  const notFound = () => [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "confirmed" })];
+
+  function fakeLocks() {
+    const held = new Set<string>();
+    const request = vi.fn(async (name: string, _opts: unknown, cb: (lock: { name: string } | null) => Promise<unknown>) => {
+      if (held.has(name)) return cb(null);
+      held.add(name);
+      try {
+        return await cb({ name });
+      } finally {
+        held.delete(name);
+      }
+    });
+    Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+    return { held, request };
+  }
+
+  it("NEW-2: a rejected prompt for a released line restores not_found (not todo); the next run does not sign it without a new tick", async () => {
+    saveProgress(OWNER, 84532, KEY, notFound());
+    send.mockRejectedValueOnce(userRejected);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
+    expect(result.current.rows[0]).toMatchObject({ status: "not_found", hash: h(7) });
+    expect(result.current.error).toBe("cancelled");
+    // A caller that approves every line but gives no new tick.
+    await act(() => result.current.send(rows, OWNER, KEY, ALL, new Set()));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, B]);
+    expect(result.current.rows[0]!.status).toBe("not_found");
+  });
+
+  it("NEW-2: a rejected atomic batch restores each line's own status", async () => {
+    caps.value = { data: { atomic: { status: "supported" } }, error: null, fetchStatus: "idle" };
+    saveProgress(OWNER, 84532, KEY, notFound());
+    sendCallsAsync.mockRejectedValueOnce(userRejected);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set([rows[1]!.id]), new Set([rows[0]!.id])));
+    expect(sendCallsAsync).toHaveBeenCalledTimes(1);
+    expect(result.current.rows.map((r) => r.status)).toEqual(["not_found", "todo", "confirmed"]);
+    expect(result.current.rows[1]!.attempt?.block).toBe("4242");
+  });
+
+  it("NEW-2: a todo line that carries an attempt is signed only while the wallet is idle (R1)", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { attempt: attempt(STALE()), status: "todo" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "confirmed" })]);
+    nonces.pending = 6;
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B]);
+    expect(result.current.rows[0]!.status).toBe("todo");
+    expect(result.current.error).toBe("wallet_pending");
+  });
+
+  it("minor: in one-by-one mode R1 is read again right before each released line's prompt", async () => {
+    saveProgress(OWNER, 84532, KEY, [
+      row(rows[0]!, { attempt: attempt(STALE()), status: "not_found" }),
+      row(rows[1]!, { attempt: attempt(STALE()), status: "not_found" }),
+      row(rows[2]!, { status: "confirmed" }),
+    ]);
+    send.mockImplementation(async ({ to }: { to: string }) => {
+      // Something else leaves a tx pending in the wallet while the run goes on.
+      nonces.pending = 6;
+      return h(rows.findIndex((r) => r.to === to) + 1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id, rows[1]!.id])));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A]);
+    expect(result.current.rows[1]!.status).toBe("not_found");
+    expect(result.current.error).toBe("wallet_pending");
+  });
+
+  it("NEW-3: with Web Locks, a second tab cannot run the list while the first holds it, even with its timers throttled", async () => {
+    const locks = fakeLocks();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    send.mockImplementationOnce(async () => {
+      await gate;
+      return h(1);
+    });
+    const tabA = renderHook(() => useMultisend(84532));
+    const tabB = renderHook(() => useMultisend(84532));
+    let done!: Promise<void>;
+    act(() => {
+      done = tabA.result.current.send(rows, OWNER, KEY, ALL);
+    });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    expect(locks.request).toHaveBeenCalledWith(expect.stringContaining(RUN_KEY), { ifAvailable: true }, expect.any(Function));
+    // Tab A's marker looks long stale; the Web Lock is what counts.
+    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: TAB_ID, beat: Date.now() - 10 * LOCK_STALE_MS }));
+    await act(() => tabB.result.current.send(rows, OWNER, KEY, ALL));
+    expect(tabB.result.current.error).toBe("locked");
+    expect(send).toHaveBeenCalledTimes(1);
+    release();
+    await act(() => done);
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(locks.held.size).toBe(0);
+  });
+
+  it("NEW-3: without Web Locks, a run that lost the storage lock to another tab opens no further prompt", async () => {
+    send.mockImplementationOnce(async () => {
+      window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
+      return h(1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A]);
+    expect(result.current.error).toBe("locked");
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "todo", "todo"]);
+    expect(result.current.rows[1]!.attempt).toBeUndefined();
+  });
+
+  it("NEW-3: without Web Locks, storage is merged again before each prompt: a line another tab moved is not signed, and its write is kept", async () => {
+    send.mockImplementationOnce(async () => {
+      const other = loadProgress(OWNER, 84532, KEY)!.map((r) =>
+        r.to === B ? { ...r, status: "unconfirmed" as const, attempt: { block: "4300", at: Date.now() + 1 }, updated: Date.now() + 1 } : r,
+      );
+      saveProgress(OWNER, 84532, KEY, other);
+      return h(1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A]);
+    expect(result.current.error).toBe("locked");
+    expect(loadProgress(OWNER, 84532, KEY)![1]).toMatchObject({ status: "unconfirmed", attempt: { block: "4300" } });
+  });
+
+  it("NEW-4: an attempt made from one list is inherited by an edited list: the line is scanned, never signed again", async () => {
+    send.mockResolvedValueOnce(h(1)).mockRejectedValueOnce(new Error("WalletConnect: response lost"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows.slice(0, 2), OWNER, "list-1", new Set(rows.slice(0, 2).map((r) => r.id))));
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "unconfirmed"]);
+    expect(recentAttempts(84532, OWNER, Date.now()).map((e) => e.to)).toEqual([B]);
+    send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+    // The user drops A and adds C to «retry the rest».
+    const edited = rows.slice(1);
+    await act(() => result.current.send(edited, OWNER, "list-2", new Set(edited.map((r) => r.id))));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, B, C]);
+    expect(result.current.rows[0]).toMatchObject({ to: B, status: "unconfirmed", attempt: { block: "4242" } });
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, expect.objectContaining({ to: B, fromBlock: 4242n }));
+  });
+
+  it("NEW-4: an attempt of another wallet is not inherited", async () => {
+    send.mockRejectedValueOnce(new Error("lost"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows.slice(1, 2), OWNER, "list-1", new Set([rows[1]!.id])));
+    send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+    await act(() => result.current.send(rows.slice(1, 2), C, "list-1", new Set([rows[1]!.id])));
+    expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it("minor: the attempt's hash is kept for its link: a batch without success stores its tx hash; a wallet error keeps the earlier hash", async () => {
+    caps.value = { data: { atomic: { status: "supported" } }, error: null, fetchStatus: "idle" };
+    waitForCallsStatus.mockResolvedValue({ status: "failure", statusCode: 600, receipts: [paying(h(99), [A, 10_000_000n])] });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(result.current.rows.map((r) => [r.status, r.hash])).toEqual(rows.map(() => ["unconfirmed", h(99)]));
+
+    resetMultisendMemory();
+    window.localStorage.clear();
+    caps.value = { data: undefined, error: new Error("no"), fetchStatus: "idle" };
+    saveProgress(OWNER, 84532, "k2", notFound());
+    send.mockRejectedValueOnce(new Error("WalletConnect: response lost"));
+    const second = renderHook(() => useMultisend(84532));
+    await act(() => second.result.current.send(rows, OWNER, "k2", new Set(), new Set([rows[0]!.id])));
+    expect(second.result.current.rows[0]).toMatchObject({ status: "unconfirmed", hash: h(7) });
   });
 });

@@ -19,7 +19,7 @@ const ICON = {
 
 /**
  * One row per recipient with its status (icon and text, never colour alone) and, once the wallet returned a hash, the
- * explorer link. Only a `not_found` row (a successful scan found nothing) explains itself and offers «Comprobé que no se
+ * explorer link (the confirming tx, or the last tx known for an attempt). Only a `not_found` row (a successful scan found nothing) explains itself and offers «Comprobé que no se
  * envió»: only a ticked one may be sent again. A `scan_failed` row is never tickable: its one action is «Reintentar
  * comprobación». Stacked, with addresses that wrap, so it fits 375 px. Status changes are announced politely.
  */
@@ -86,7 +86,7 @@ export function ProgressList({
             ) : null}
             {r.status === "not_found" ? (
               <div className="flex flex-col gap-1">
-                <p className="text-sm text-fg">{t.releaseHint}</p>
+                <p className="text-sm text-fg">{r.hash ? t.releaseHint : t.releaseHintNoLink}</p>
                 <label className={`flex min-h-11 items-center gap-3 text-sm text-fg ${releaseDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
                   <Checkbox checked={released.has(r.id)} disabled={releaseDisabled} onCheckedChange={(v) => onRelease(r.id, v === true)} />
                   {t.release}

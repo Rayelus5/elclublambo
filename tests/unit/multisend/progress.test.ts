@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   alignProgress,
   clearProgress,
+  inheritAttempts,
   loadProgress,
+  mergeProgress,
+  recentAttempts,
+  recordAttempt,
   progressKey,
   recentConfirmed,
   recordConfirmed,
@@ -104,5 +108,64 @@ describe("C3: confirmed sends of the last 24 h", () => {
     expect(JSON.parse(window.localStorage.getItem(RECENT_KEY)!)).toHaveLength(1);
     window.localStorage.setItem(RECENT_KEY, "{bad");
     expect(recentConfirmed(84532, 0)).toEqual([]);
+  });
+});
+
+describe("fix round 4", () => {
+  const A1 = { id: id(TO, "1000000"), to: TO, amount: "1000000" } as const;
+
+  it("minor: mergeProgress keeps the newest copy of each line by its timestamp; a confirmed copy is never undone", () => {
+    const older: RowState = { ...A1, status: "sent", hash: HASH, attempt: { block: "1", at: 100 }, updated: 100 };
+    const newer: RowState = { ...A1, status: "unconfirmed", attempt: { block: "1", at: 200 }, updated: 200 };
+    expect(mergeProgress([older], [newer])).toEqual([newer]);
+    expect(mergeProgress([newer], [older])).toEqual([newer]);
+    const confirmed: RowState = { ...A1, status: "confirmed", hash: HASH, updated: 50 };
+    expect(mergeProgress([confirmed], [newer])).toEqual([confirmed]);
+    expect(mergeProgress([newer], [confirmed])).toEqual([confirmed]);
+  });
+
+  it("NEW-4: attempts go to the 24 h record with the wallet and block; they are not confirmations", () => {
+    recordAttempt({ chain: 84532, from: OWNER, to: TO, amount: "1000000", block: "900" }, 1_000);
+    expect(recentConfirmed(84532, 2_000)).toEqual([]);
+    expect(recentAttempts(84532, OWNER, 2_000)).toEqual([{ kind: "attempt", chain: 84532, from: OWNER, to: TO, amount: "1000000", block: "900", at: 1_000 }]);
+    expect(recentAttempts(84532, TO2, 2_000)).toEqual([]);
+    expect(recentAttempts(421614, OWNER, 2_000)).toEqual([]);
+    expect(recentAttempts(84532, OWNER, 1_000 + RECENT_MS)).toEqual([]);
+    // The same attempt again (now with its hash) replaces the entry.
+    recordAttempt({ chain: 84532, from: OWNER, to: TO, amount: "1000000", block: "900", hash: HASH }, 1_000);
+    expect(recentAttempts(84532, OWNER, 2_000)).toEqual([expect.objectContaining({ hash: HASH })]);
+  });
+
+  it("NEW-4: a confirmation clears the attempts of the same line it covers, and only those", () => {
+    recordAttempt({ chain: 84532, from: OWNER, to: TO, amount: "1000000", block: "900" }, 1_000);
+    recordAttempt({ chain: 84532, from: OWNER, to: TO2, amount: "5", block: "900" }, 1_000);
+    recordAttempt({ chain: 84532, from: OWNER, to: TO, amount: "1000000", block: "950" }, 3_000);
+    recordConfirmed({ chain: 84532, from: OWNER, to: TO, amount: "1000000", hash: HASH, attemptAt: 2_000 }, 2_500);
+    expect(recentAttempts(84532, OWNER, 4_000).map((e) => [e.to, e.at])).toEqual([
+      [TO2, 1_000],
+      [TO, 3_000],
+    ]);
+    expect(recentConfirmed(84532, 4_000)).toHaveLength(1);
+  });
+
+  it("NEW-4: inheritAttempts makes an untouched todo line that matches an attempt unconfirmed, from the earliest block, with the latest time and a known hash", () => {
+    const rowsIn: RowState[] = [
+      { ...A1, status: "todo" },
+      { id: id(TO2, "2500000"), to: TO2, amount: "2500000", status: "todo" },
+    ];
+    const attempts = [
+      { kind: "attempt" as const, chain: 84532 as const, from: OWNER, to: TO.toLowerCase() as `0x${string}`, amount: "1000000", block: "950", at: 2_000 },
+      { kind: "attempt" as const, chain: 84532 as const, from: OWNER, to: TO, amount: "1000000", block: "900", hash: HASH, at: 1_000 },
+    ];
+    const out = inheritAttempts(rowsIn, attempts);
+    expect(out[0]).toEqual({ ...A1, status: "unconfirmed", attempt: { block: "900", at: 2_000 }, hash: HASH });
+    expect(out[1]).toBe(rowsIn[1]);
+    // Nothing to inherit: the same array back.
+    expect(inheritAttempts(rowsIn, [])).toBe(rowsIn);
+    // A line already attempted or past todo keeps its own record.
+    const own: RowState[] = [{ ...A1, status: "todo", attempt: { block: "1", at: 5 } }];
+    expect(inheritAttempts(own, attempts)).toBe(own);
+    // An attempt without its block cannot be scanned from anywhere: inherited without one (scan_failed later).
+    expect(inheritAttempts([{ ...A1, status: "todo" }], [{ ...attempts[0]!, block: undefined }])[0]!.attempt).toEqual({ at: 2_000 });
   });
 });
