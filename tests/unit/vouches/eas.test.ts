@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import { zeroAddress, zeroHash } from "viem";
@@ -112,5 +114,17 @@ describe("kinds", () => {
     expect(isVouchKind(3)).toBe(true);
     expect(isVouchKind(4)).toBe(false);
     expect(isVouchKind("1")).toBe(false);
+  });
+});
+
+describe("easAddresses in the client bundle", () => {
+  // Next inlines only literal `process.env.NEXT_PUBLIC_X` member accesses; `env.X` on a bare `process.env` default
+  // is undefined in the browser, so the wallet would sign to the predeploy while the server verifies the override.
+  const src = readFileSync(join(process.cwd(), "src/lib/vouches/eas.ts"), "utf8");
+  it.each(["NEXT_PUBLIC_NETWORK_SET", "NEXT_PUBLIC_EAS_ADDRESS", "NEXT_PUBLIC_EAS_REGISTRY_ADDRESS"])("reads process.env.%s literally", (name) => {
+    expect(src).toContain(`process.env.${name}`);
+  });
+  it("does not default the env parameter to the bare process.env object", () => {
+    expect(src).not.toMatch(/=\s*process\.env\s*[),]/);
   });
 });

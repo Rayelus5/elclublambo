@@ -15,63 +15,29 @@ import { VOUCH_KINDS, vouchKindKey, type VouchKind } from "@/lib/vouches/kinds";
 import type { GivenVouch } from "@/lib/vouches/types";
 import { useSessionWalletMatch } from "@/lib/vouches/use-session-wallet";
 import { useVouchWrite } from "@/lib/vouches/use-vouch-write";
-import { isFinalVouchError, PENDING_DELAYS_MS, recordUntilSettled, sentAtNow, writeErrorText } from "./vouch-flow";
+import {
+  clearSent,
+  isFinalVouchError,
+  noStored,
+  parseSent,
+  PENDING_DELAYS_MS,
+  readSentRaw,
+  recordUntilSettled,
+  sentAtNow,
+  subscribeStorage,
+  writeErrorText,
+  writeSent,
+  type Sent,
+} from "./vouch-flow";
 
 type Hash = `0x${string}`;
-type Sent = { hash: Hash; sentAt: number };
-const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 
 /**
- * Per recipient, the hash of a vouch this browser signed and the server has not recorded yet, with when it was sent.
- * While it exists the form offers «Comprobar de nuevo» on that hash instead of signing again (a reload or a second tab
- * resumes on it), like the prize button of P2; a definitive answer (isFinalVouchError: a failed tx, or one the chain
- * still does not know ten minutes later) drops it. Storage may be missing or throw: every access is guarded and the
- * in-memory copy takes over.
+ * Per recipient, the hash of a vouch this browser signed and the server has not recorded yet (see `writeSent`). While
+ * it exists the form offers «Comprobar de nuevo» on that hash instead of signing again, like the prize button of P2; a
+ * definitive answer (isFinalVouchError: a failed tx, or one the chain still does not know ten minutes later) drops it.
  */
 const storageKey = (recipient: string) => `elclub:vouch:${recipient.toLowerCase()}`;
-
-function readRaw(recipient: string): string | null {
-  try {
-    return window.localStorage.getItem(storageKey(recipient));
-  } catch {
-    return null;
-  }
-}
-
-function parseSent(raw: string | null): Sent | null {
-  if (!raw) return null;
-  try {
-    const v = JSON.parse(raw) as { hash?: unknown; sentAt?: unknown };
-    if (typeof v.hash === "string" && TX_HASH.test(v.hash) && typeof v.sentAt === "number" && Number.isFinite(v.sentAt)) {
-      return { hash: v.hash as Hash, sentAt: v.sentAt };
-    }
-  } catch {
-    // Not ours.
-  }
-  return null;
-}
-
-function writeStored(recipient: string, sent: Sent): void {
-  try {
-    window.localStorage.setItem(storageKey(recipient), JSON.stringify(sent));
-  } catch {
-    // Without storage the guard only lasts while the page is open.
-  }
-}
-
-function clearStored(recipient: string): void {
-  try {
-    window.localStorage.removeItem(storageKey(recipient));
-  } catch {
-    // Nothing stored, or no storage at all.
-  }
-}
-
-const subscribeStorage = (onChange: () => void) => {
-  window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
-};
-const noStored = () => null;
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -123,7 +89,7 @@ export function VouchForm({
   const isSelf = valid && same(r, sessionWallet);
   const duplicate = valid && kind !== null && given.some((g) => same(g.recipient, r) && g.kind === kind);
   // The snapshot is the raw string (stable between renders); parsed here.
-  const stored = parseSent(useSyncExternalStore(subscribeStorage, () => (valid ? readRaw(r) : null), noStored));
+  const stored = parseSent(useSyncExternalStore(subscribeStorage, () => (valid ? readSentRaw(storageKey(r)) : null), noStored));
   const pending: Sent | null = stored ?? (valid && local && same(local.recipient, r) ? local : null);
   const busy = phase === "signing" || phase === "confirming";
 
@@ -137,7 +103,7 @@ export function VouchForm({
       return;
     }
     if (res.ok) {
-      clearStored(to);
+      clearSent(storageKey(to));
       setLocal(null);
       setKind(null);
       setPhase("done");
@@ -145,7 +111,7 @@ export function VouchForm({
       return;
     }
     if (isFinalVouchError(res.error, sent.sentAt)) {
-      clearStored(to);
+      clearSent(storageKey(to));
       setLocal(null);
     }
     setError(t.form.errors[res.error] ?? t.form.errors.unknown);
@@ -179,7 +145,7 @@ export function VouchForm({
       return;
     }
     const sent: Sent = { hash, sentAt: sentAtNow() };
-    writeStored(r, sent);
+    writeSent(storageKey(r), sent);
     setLocal({ recipient: r, ...sent });
     await check(r, sent);
   }

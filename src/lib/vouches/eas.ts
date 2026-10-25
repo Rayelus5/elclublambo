@@ -19,11 +19,18 @@ export const SCHEMA_REGISTRY_ADDRESS = "0x42000000000000000000000000000000000000
 
 type Env = Record<string, string | undefined>;
 
+/** Literal member accesses only: Next inlines `process.env.NEXT_PUBLIC_X` in the client bundle, not `env.X`. */
+const publicEnv = (): Env => ({
+  NEXT_PUBLIC_NETWORK_SET: process.env.NEXT_PUBLIC_NETWORK_SET,
+  NEXT_PUBLIC_EAS_ADDRESS: process.env.NEXT_PUBLIC_EAS_ADDRESS,
+  NEXT_PUBLIC_EAS_REGISTRY_ADDRESS: process.env.NEXT_PUBLIC_EAS_REGISTRY_ADDRESS,
+});
+
 /**
  * The EAS and registry addresses. The env overrides (local chain without setCode, P5-R9 fallback) only count on the
  * testnet set and when they are valid addresses; on mainnet they are ignored.
  */
-export function easAddresses(env: Env = process.env): { eas: `0x${string}`; registry: `0x${string}` } {
+export function easAddresses(env: Env = publicEnv()): { eas: `0x${string}`; registry: `0x${string}` } {
   const testnet = networkSet(env.NEXT_PUBLIC_NETWORK_SET) === "testnet";
   const pick = (v: string | undefined, fallback: `0x${string}`) => (testnet && v && isAddress(v, { strict: false }) ? (v as `0x${string}`) : fallback);
   return { eas: pick(env.NEXT_PUBLIC_EAS_ADDRESS, EAS_ADDRESS), registry: pick(env.NEXT_PUBLIC_EAS_REGISTRY_ADDRESS, SCHEMA_REGISTRY_ADDRESS) };

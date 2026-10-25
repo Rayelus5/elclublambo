@@ -111,7 +111,7 @@ export async function recordRevocationAction(input: TxInput): Promise<{ ok: true
 
 /**
  * «Actualizar» (P5-R5b, Review Focus 3): re-reads a stored vouch on chain. Revoked elsewhere -> revoked_at; a uid the
- * chain no longer knows -> the row is deleted. No session; vouch_refresh by IP, failing open like the checker page.
+ * chain no longer knows -> the row is deleted once it is 10 minutes old (younger, its current state is answered). No session; vouch_refresh by IP, failing open like the checker page.
  */
 export async function refreshVouchAction(uid: string): Promise<{ ok: true; state: "active" | "revoked" | "removed" } | Fail<RefreshVouchError>> {
   if (typeof uid !== "string" || !HEX32.test(uid.trim())) return fail("invalid_input");
@@ -153,6 +153,12 @@ export async function refreshVouchAction(uid: string): Promise<{ ok: true; state
     return fail("unknown");
   }
   if (data === "not_found") return fail("not_found");
-  if (state !== "active") revalidateVouches();
-  return { ok: true, state };
+  // A row younger than 10 minutes is never removed (a lagging RPC node may read zero): the RPC then answers its current
+  // state, «active» or «revoked», and writes nothing.
+  if (data !== "active" && data !== "revoked" && data !== "removed") {
+    console.error("[vouches] unexpected refresh answer", safeError(String(data)));
+    return fail("unknown");
+  }
+  if (data === state && state !== "active") revalidateVouches();
+  return { ok: true, state: data };
 }

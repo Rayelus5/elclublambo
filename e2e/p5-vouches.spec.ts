@@ -183,14 +183,38 @@ test("6. A vouches again and withdraws it from «Tus avales»: it leaves B's lis
   expect(await activeUids()).toHaveLength(1);
 
   await givenList(page).getByRole("button", { name: "Retirar" }).click();
-  // The row's «Aval retirado.» is transient: the refresh that follows removes the row (in a production build, before it
-  // paints), so the settled outcome is the empty list.
+  // The confirmation lives outside the rows, so it survives the refresh that removes the row.
   await expect(givenList(page).getByText("Aún no has avalado a nadie.")).toBeVisible({ timeout: 60_000 });
+  await expect(givenList(page).getByRole("status")).toHaveText("Aval retirado.");
   expect(walletA.sent).toHaveLength(3);
   await expect.poll(activeUids).toEqual([]);
   await page.goto(TOOL_B);
   await expect(received(page).getByText("Esta dirección aún no tiene avales.")).toBeVisible();
   await expect(givenList(page).getByText("Aún no has avalado a nadie.")).toBeVisible();
+});
+
+test("6b. a revocation made outside the app: «Retirar» in «Tus avales» re-reads the chain and the row leaves", async () => {
+  const page = aPage;
+  await page.goto(TOOL_B);
+  await page.getByRole("radio", { name: "Hemos trabajado juntos" }).check();
+  await page.getByRole("button", { name: "Avalar" }).click();
+  await expect(page.getByText("Aval registrado.")).toBeVisible({ timeout: 60_000 });
+  const [uid] = await activeUids();
+  expect(walletA.sent).toHaveLength(4);
+  const wallet = createWalletClient({ account: voucherA.address as `0x${string}`, chain: localChain, transport: http(rpcUrl) });
+  const hash = await wallet.writeContract({ address: EAS_ADDRESS, abi: easAbi, functionName: "revoke", args: revokeArgs(uid as `0x${string}`) });
+  expect((await publicClient.waitForTransactionReceipt({ hash })).status).toBe("success");
+
+  await page.goto(TOOL_B);
+  // The stale row still blocks the same kind until the chain is re-read.
+  await page.getByRole("radio", { name: "Hemos trabajado juntos" }).check();
+  await expect(page.getByText("Ya le avalas con este tipo.")).toBeVisible();
+  await givenList(page).getByRole("button", { name: "Retirar" }).click();
+  await expect(givenList(page).getByText("Aún no has avalado a nadie.")).toBeVisible({ timeout: 60_000 });
+  await expect(givenList(page).getByRole("status")).toHaveText("Aval retirado.");
+  expect(walletA.sent).toHaveLength(4);
+  expect(await activeUids()).toEqual([]);
+  await expect(page.getByText("Ya le avalas con este tipo.")).toHaveCount(0);
 });
 
 test("7. the ES/EN switch keeps /en/tools/vouches?address=<B>; no console errors and no CSP violations", async () => {

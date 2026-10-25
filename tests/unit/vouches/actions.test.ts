@@ -243,6 +243,25 @@ describe("refreshVouchAction (Review Focus 3)", () => {
     expect(called("apply_vouch_state")[0]![1]).toEqual({ p_uid: UID, p_state: "removed", p_revoked_at: null });
   });
 
+  it("a zero read on a row younger than 10 min answers the row's current state without revalidating (lagging RPC node)", async () => {
+    readAttestation.mockResolvedValue(null);
+    answers.set("apply_vouch_state", ok("active"));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: true, state: "active" });
+    expect(called("apply_vouch_state")[0]![1]).toEqual({ p_uid: UID, p_state: "removed", p_revoked_at: null });
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("a zero read on a young row already revoked answers revoked", async () => {
+    readAttestation.mockResolvedValue(null);
+    answers.set("apply_vouch_state", ok("revoked"));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: true, state: "revoked" });
+  });
+
+  it("an unexpected answer from apply_vouch_state is unknown", async () => {
+    answers.set("apply_vouch_state", ok("weird"));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: false, error: "unknown" });
+  });
+
   it("active leaves the row as it is and does not revalidate", async () => {
     answers.set("apply_vouch_state", ok("active"));
     expect(await refreshVouchAction(UID)).toEqual({ ok: true, state: "active" });

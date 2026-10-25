@@ -954,6 +954,7 @@ export const en = {
       revoke: "Withdraw",
       revoking: "Withdrawing…",
       revoked: "Vouch withdrawn.",
+      removed: "That vouch is no longer on chain.",
     },
     unavailable: "Vouches are not available on this network yet.",
     networkUnknown: "We could not check the network, try again later.",

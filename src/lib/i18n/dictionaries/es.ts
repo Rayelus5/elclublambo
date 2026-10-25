@@ -954,6 +954,7 @@ export const es = {
       revoke: "Retirar",
       revoking: "Retirando…",
       revoked: "Aval retirado.",
+      removed: "Ese aval ya no está en la cadena.",
     },
     unavailable: "Los avales aún no están disponibles en esta red.",
     networkUnknown: "No se pudo comprobar la red, prueba más tarde.",

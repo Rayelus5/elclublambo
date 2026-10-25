@@ -3,7 +3,7 @@
 --   - record_vouch / apply_vouch_state / vouches_for / vouches_given_by / vouch_attester: service_role only.
 --   - rate_limit_hit('vouch_write') 30 / 10 min per session; ip_rate_limit_hit(..., 'vouch_refresh') 30 / 10 min per IP.
 begin;
-select plan(60);
+select plan(66);
 
 create function tests.vh(p_n int) returns text language sql immutable as $$ select '0x' || lpad(to_hex(p_n), 64, '0') $$;
 create function tests.va(p_n int) returns text language sql immutable as $$ select '0x' || lpad(to_hex(p_n), 40, '0') $$;
@@ -133,12 +133,29 @@ select tests.sr($$public.apply_vouch_state(tests.vh(11), 'revoked', '2026-10-09Z
 select is((select revoked_at from public.vouches where uid = tests.vh(11)), '2026-10-07Z'::timestamptz, 'a second revoke does not change revoked_at');
 select is(tests.sr($$public.apply_vouch_state(tests.vh(12), 'active', null)$$), to_jsonb('active'::text), 'active is applied');
 select is((select revoked_at from public.vouches where uid = tests.vh(12)), null, 'active changes nothing');
+-- A zero read right after recording may come from a lagging RPC node: rows younger than 10 minutes are never deleted,
+-- the current state is returned instead.
+select is(tests.sr($$public.apply_vouch_state(tests.vh(12), 'removed', null)$$), to_jsonb('active'::text), 'removed on a row younger than 10 min: active');
+select is((select count(*)::int from public.vouches where uid = tests.vh(12)), 1, 'and the young row is kept');
+select is(tests.sr($$public.apply_vouch_state(tests.vh(11), 'removed', null)$$), to_jsonb('revoked'::text), 'removed on a young revoked row: revoked');
+select is((select count(*)::int from public.vouches where uid = tests.vh(11)), 1, 'and the young revoked row is kept');
+update public.vouches set created_at = now() - interval '10 minutes 1 second' where uid = tests.vh(12);
 select is(tests.sr($$public.apply_vouch_state(tests.vh(12), 'removed', null)$$), to_jsonb('removed'::text), 'removed is applied');
 select is((select count(*)::int from public.vouches where uid = tests.vh(12)), 0, 'removed deletes the row');
 select is(tests.sr($$public.apply_vouch_state(tests.vh(12), 'removed', null)$$), to_jsonb('not_found'::text), 'unknown uid: not_found');
 select throws_ok($$select tests.sr($q$public.apply_vouch_state(tests.vh(1), 'weird', null)$q$)$$, 'P0001', 'invalid_input', 'unknown state');
 
--- ===== 7. rate limits =====
+-- ===== 7. alias tie-break (as the Pay page: the most recently updated profile of a wallet) =====
+select set_config('t.u2b', tests.create_wallet_user(tests.va(42))::text, true);
+insert into public.public_profiles (user_id, alias, wallet_address, created_at, updated_at)
+  values (current_setting('t.u2b')::uuid, 'ana_old', tests.va(2), '2026-01-01Z', '2026-01-01Z');
+select tests.sr($$public.record_vouch(8453, tests.vh(16), tests.va(5), tests.va(2), 3, tests.vh(116), '2026-10-08Z', null)$$);
+select is((select i ->> 'attesterAlias' from jsonb_array_elements(tests.sr($$public.vouches_for(tests.va(20))$$) -> 'items') i
+            where i ->> 'attester' = tests.va(2)), 'ana_pay', 'vouches_for: two profiles for one wallet -> the latest updated alias');
+select is(tests.sr($$public.vouches_given_by(tests.va(5))$$) -> 0 ->> 'recipientAlias', 'ana_pay',
+  'vouches_given_by: two profiles for one wallet -> the latest updated alias');
+
+-- ===== 8. rate limits =====
 select set_config('t.u1', tests.create_wallet_user(tests.va(1))::text, true);
 select tests.authenticate_as(current_setting('t.u1')::uuid);
 select lives_ok($$select public.rate_limit_hit('vouch_write') from generate_series(1, 30)$$, '30 vouch_write hits pass');

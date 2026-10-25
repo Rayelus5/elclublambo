@@ -6,7 +6,8 @@ const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const recordVouchAction = vi.hoisted(() => vi.fn());
 const recordRevocationAction = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/vouches/actions", () => ({ recordVouchAction, recordRevocationAction }));
+const refreshVouchAction = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/vouches/actions", () => ({ recordVouchAction, recordRevocationAction, refreshVouchAction }));
 const attest = vi.hoisted(() => vi.fn());
 const revoke = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/vouches/use-vouch-write", () => ({ CHAIN_SWITCH_FAILED: "chain_switch_failed", useVouchWrite: () => ({ attest, revoke, switching: false }) }));
@@ -55,6 +56,7 @@ beforeEach(() => {
   revoke.mockReset().mockResolvedValue(HASH);
   recordVouchAction.mockReset().mockResolvedValue({ ok: true, uid: UID, already: false });
   recordRevocationAction.mockReset().mockResolvedValue({ ok: true, uid: UID });
+  refreshVouchAction.mockReset().mockResolvedValue({ ok: true, state: "active" });
   account.isConnected = true;
   account.status = "connected";
   account.address = ME;
@@ -281,11 +283,103 @@ describe("GivenVouches", () => {
     expect(revoke).toHaveBeenCalledTimes(1);
   });
 
-  it("a wallet other than the session's: the warning and «Retirar» disabled", () => {
+  it("a wallet other than the session's: «Retirar» disabled, the warning left to the form above (shown once per page)", () => {
     account.address = "0x9999999999999999999999999999999999999999";
     render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} sessionWallet={ME} retryDelaysMs={NO_WAIT} />);
-    expect(screen.getByText(/0x1111…1111/)).toBeInTheDocument();
+    expect(screen.queryByText(/0x1111…1111/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: t.given.revoke })).toBeDisabled();
+    expect(screen.getByRole("button", { name: t.summary.refresh })).toBeEnabled();
+  });
+
+  const REVOKE_KEY = `elclub:vouch-revoke:${UID}`;
+  const props = { lang: "es" as const, t, chainId: 84532 as const, sessionWallet: ME as `0x${string}`, retryDelaysMs: NO_WAIT };
+
+  it("a withdrawal shows a confirmation outside the list that survives the refresh removing the row", async () => {
+    const view = render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    view.rerender(<GivenVouches {...props} given={[]} />);
+    expect(screen.getByRole("status")).toHaveTextContent(t.given.revoked);
+    expect(screen.getByText(t.given.empty)).toBeInTheDocument();
+  });
+
+  it("the signed revocation hash is stored with sentAt and resumed after a reload, never signed twice", async () => {
+    recordRevocationAction.mockResolvedValue({ ok: false, error: "pending" });
+    const view = render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    expect(await screen.findByRole("button", { name: t.form.checkAgain })).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(REVOKE_KEY)!)).toMatchObject({ hash: HASH, sentAt: expect.any(Number) });
+    view.unmount();
+
+    recordRevocationAction.mockReset().mockResolvedValue({ ok: true, uid: UID });
+    render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.form.checkAgain }));
+    await waitFor(() => expect(recordRevocationAction).toHaveBeenCalledWith({ chainId: 84532, txHash: HASH }));
+    expect(revoke).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(window.localStorage.getItem(REVOKE_KEY)).toBeNull());
+  });
+
+  it("storage that throws: the withdrawal still goes through", async () => {
+    for (const m of ["getItem", "setItem", "removeItem"] as const) {
+      vi.spyOn(Storage.prototype, m).mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    }
+    render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    expect(await screen.findByText(t.given.revoked)).toBeInTheDocument();
+  });
+
+  it("a revoke the wallet cannot send (revoked elsewhere): re-reads the chain, refreshes and confirms", async () => {
+    revoke.mockRejectedValue(new Error("execution reverted: AlreadyRevoked()"));
+    refreshVouchAction.mockResolvedValue({ ok: true, state: "revoked" });
+    const view = render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    await waitFor(() => expect(refreshVouchAction).toHaveBeenCalledWith(UID));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    view.rerender(<GivenVouches {...props} given={[]} />);
+    expect(screen.getByRole("status")).toHaveTextContent(t.given.revoked);
+  });
+
+  it("a reverted revocation (tx_failed): re-reads the chain; still active, the error stays and nothing refreshes", async () => {
+    recordRevocationAction.mockResolvedValue({ ok: false, error: "tx_failed" });
+    render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    expect(await screen.findByText(t.form.errors.tx_failed)).toBeInTheDocument();
+    expect(refreshVouchAction).toHaveBeenCalledWith(UID);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(REVOKE_KEY)).toBeNull();
+    expect(screen.getByRole("button", { name: t.given.revoke })).toBeInTheDocument();
+  });
+
+  it("a uid the chain no longer knows: the re-read removes it and says so", async () => {
+    recordRevocationAction.mockResolvedValue({ ok: false, error: "tx_failed" });
+    refreshVouchAction.mockResolvedValue({ ok: true, state: "removed" });
+    const view = render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    view.rerender(<GivenVouches {...props} given={[]} />);
+    expect(screen.getByRole("status")).toHaveTextContent(t.given.removed);
+  });
+
+  it("a cancelled signature does not re-read the chain", async () => {
+    revoke.mockRejectedValue(Object.assign(new Error("rejected"), { code: 4001 }));
+    render(<GivenVouches {...props} given={[given()]} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    expect(await screen.findByText(t.form.cancelled)).toBeInTheDocument();
+    expect(refreshVouchAction).not.toHaveBeenCalled();
+  });
+
+  it("each row has «Actualizar» (ghost): a revocation made outside the app leaves the list with a confirmation", async () => {
+    refreshVouchAction.mockResolvedValue({ ok: true, state: "revoked" });
+    const view = render(<GivenVouches {...props} given={[given()]} />);
+    const btn = screen.getByRole("button", { name: t.summary.refresh });
+    expect(btn.dataset.variant).toBe("ghost");
+    await userEvent.click(btn);
+    expect(refreshVouchAction).toHaveBeenCalledWith(UID);
+    await waitFor(() => expect(refresh).toHaveBeenCalled());
+    view.rerender(<GivenVouches {...props} given={[]} />);
+    expect(screen.getByRole("status")).toHaveTextContent(t.given.revoked);
   });
 
   it("nothing given: the empty text", () => {

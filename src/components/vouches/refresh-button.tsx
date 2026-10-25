@@ -9,9 +9,10 @@ import { refreshVouchAction } from "@/lib/vouches/actions";
 
 /**
  * «Actualizar» (P5-R5b): re-reads one stored vouch on chain, so a revocation made outside the app (easscan, another dApp)
- * leaves the counts. No session needed; the server limits it by IP.
+ * leaves the counts. No session needed; the server limits it by IP. `onChanged` hears a revoked or removed answer before
+ * the refresh takes the row away (its own message goes with it).
  */
-export function RefreshButton({ uid, t }: { uid: string; t: Dictionary["vouches"] }) {
+export function RefreshButton({ uid, t, onChanged }: { uid: string; t: Dictionary["vouches"]; onChanged?: (state: "revoked" | "removed") => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -24,7 +25,10 @@ export function RefreshButton({ uid, t }: { uid: string; t: Dictionary["vouches"
     setBusy(false);
     if (r.ok) {
       setMessage({ ok: true, text: t.summary.refreshed });
-      if (r.state !== "active") router.refresh();
+      if (r.state !== "active") {
+        onChanged?.(r.state);
+        router.refresh();
+      }
     } else setMessage({ ok: false, text: t.form.errors[r.error] ?? t.form.errors.unknown });
   }
 

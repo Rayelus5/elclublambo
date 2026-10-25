@@ -43,8 +43,66 @@ function isUserRejection(err: unknown): boolean {
   return e.cause ? isUserRejection(e.cause) : false;
 }
 
-/** The text for a wallet write that threw: the chain switch refused, the signature cancelled, or anything else. */
-export function writeErrorText(err: unknown, t: Dictionary["vouches"]["form"]): string {
-  if (err instanceof Error && err.message === CHAIN_SWITCH_FAILED) return t.switchFailed;
-  return isUserRejection(err) ? t.cancelled : t.failed;
+/** Why a wallet write threw: the chain switch refused, the signature cancelled, or anything else (e.g. a failed estimate). */
+export function writeErrorKind(err: unknown): "switch" | "cancelled" | "failed" {
+  if (err instanceof Error && err.message === CHAIN_SWITCH_FAILED) return "switch";
+  return isUserRejection(err) ? "cancelled" : "failed";
 }
+
+/** The text for a wallet write that threw. */
+export function writeErrorText(err: unknown, t: Dictionary["vouches"]["form"]): string {
+  const kind = writeErrorKind(err);
+  return kind === "switch" ? t.switchFailed : kind === "cancelled" ? t.cancelled : t.failed;
+}
+
+export type Sent = { hash: `0x${string}`; sentAt: number };
+const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
+
+/**
+ * A signed hash the server has not recorded yet, kept in localStorage under `key` with when it was sent, so a reload or
+ * a second tab resumes on it instead of signing again. Storage may be missing or throw: every access is guarded and the
+ * caller's in-memory copy takes over.
+ */
+export function readSentRaw(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+export function parseSent(raw: string | null): Sent | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw) as { hash?: unknown; sentAt?: unknown };
+    if (typeof v.hash === "string" && TX_HASH.test(v.hash) && typeof v.sentAt === "number" && Number.isFinite(v.sentAt)) {
+      return { hash: v.hash as `0x${string}`, sentAt: v.sentAt };
+    }
+  } catch {
+    // Not ours.
+  }
+  return null;
+}
+
+export function writeSent(key: string, sent: Sent): void {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(sent));
+  } catch {
+    // Without storage the guard only lasts while the page is open.
+  }
+}
+
+export function clearSent(key: string): void {
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Nothing stored, or no storage at all.
+  }
+}
+
+/** For useSyncExternalStore: other tabs writing the same key. */
+export const subscribeStorage = (onChange: () => void) => {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+};
+export const noStored = () => null;

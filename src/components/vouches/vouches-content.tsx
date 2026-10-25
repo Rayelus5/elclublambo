@@ -9,6 +9,7 @@ import type { Lang } from "@/lib/i18n/config";
 import { localizedPath } from "@/lib/i18n/routes";
 import { getPublicProfileView } from "@/lib/pay/queries";
 import { safeError } from "@/lib/security/redact";
+import type { VouchChainId } from "@/lib/vouches/eas";
 import { parseVouchLookup } from "@/lib/vouches/lookup";
 import { getVouchAvailability, getVouchesFor, getVouchesGivenBy } from "@/lib/vouches/queries";
 import type { GivenVouch, VouchesSummary } from "@/lib/vouches/types";
@@ -34,8 +35,8 @@ function Alert({ text, icon = "alert" }: { text: string; icon?: "alert" | "wait"
 
 /**
  * The tool below its header (inside the page's <Suspense>): the lookup and, with a valid `?address=` (address or Pay
- * alias), the received vouches; then, with a session, the form and «Tus avales» when our schema is registered on this
- * Base (Review Focus 1), or the connect button without one. Every read happens after `await connection()`.
+ * alias), the received vouches; then, when our schema is registered on this Base (Review Focus 1; otherwise «no
+ * disponible» for everyone, signed in or not), the form and «Tus avales» with a session or the connect button without one. Every read happens after `await connection()`.
  */
 export async function VouchesContent({ lang, searchParams }: { lang: Lang; searchParams: Promise<SearchParams> }) {
   const t = getDictionary(lang).vouches;
@@ -62,9 +63,11 @@ export async function VouchesContent({ lang, searchParams }: { lang: Lang; searc
   }
 
   const session = await getPublicSession();
+  // Availability first, for everyone: nobody is asked to sign in to a tool this network cannot use yet.
+  const { chainId, registered } = await getVouchAvailability();
   // Looking yourself up does not prefill the form with your own address (it would open on the «self» error).
   const prefill = target && session && target.address.toLowerCase() !== session.wallet.toLowerCase() ? target.address : "";
-  const sessionPart = session ? await renderSessionPart(lang, session.wallet, prefill) : null;
+  const sessionPart = registered === true && session ? await renderSessionPart(lang, chainId, session.wallet, prefill) : null;
   const next = raw ? `${action}?address=${encodeURIComponent(raw)}` : action;
 
   return (
@@ -88,7 +91,14 @@ export async function VouchesContent({ lang, searchParams }: { lang: Lang; searc
         </section>
       ) : null}
 
-      {session ? (
+      {registered !== true ? (
+        <section aria-labelledby="vouches-form" className={SECTION}>
+          <h2 id="vouches-form" className={H2}>
+            {t.form.title}
+          </h2>
+          <Alert text={registered === false ? t.unavailable : t.networkUnknown} icon="wait" />
+        </section>
+      ) : session ? (
         sessionPart
       ) : (
         <section aria-labelledby="vouches-connect" className={SECTION}>
@@ -105,21 +115,9 @@ export async function VouchesContent({ lang, searchParams }: { lang: Lang; searc
   );
 }
 
-/** The signed-in part, awaited by the caller (a plain async function, not a component: one render pass). */
-async function renderSessionPart(lang: Lang, wallet: `0x${string}`, defaultRecipient: string) {
+/** The signed-in part once the schema is registered, awaited by the caller (a plain async function, not a component: one render pass). */
+async function renderSessionPart(lang: Lang, chainId: VouchChainId, wallet: `0x${string}`, defaultRecipient: string) {
   const t = getDictionary(lang).vouches;
-  const { chainId, registered } = await getVouchAvailability();
-  if (registered !== true) {
-    return (
-      <section aria-labelledby="vouches-form" className={SECTION}>
-        <h2 id="vouches-form" className={H2}>
-          {t.form.title}
-        </h2>
-        <Alert text={registered === false ? t.unavailable : t.networkUnknown} icon="wait" />
-      </section>
-    );
-  }
-
   let given: GivenVouch[] = [];
   let givenFailed = false;
   try {

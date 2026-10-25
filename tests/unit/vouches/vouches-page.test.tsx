@@ -83,7 +83,7 @@ describe("vouches tool content", () => {
     expect(screen.queryByTestId("vouch-form")).not.toBeInTheDocument();
   });
 
-  it("no session: connect lead and an outline PublicConnect, no form, no chain read", async () => {
+  it("no session: connect lead and an outline PublicConnect, no form, no given read", async () => {
     getPublicSession.mockResolvedValue(null);
     await content("es", { address: TO });
     expect(screen.getByText(es.connectLead)).toBeInTheDocument();
@@ -91,7 +91,25 @@ describe("vouches tool content", () => {
     expect(connect.dataset.variant).toBe("outline");
     expect(connect.dataset.next).toBe(`/herramientas/avales?address=${TO}`);
     expect(screen.queryByTestId("vouch-form")).not.toBeInTheDocument();
-    expect(q.getVouchAvailability).not.toHaveBeenCalled();
+    expect(q.getVouchesGivenBy).not.toHaveBeenCalled();
+  });
+
+  it("no session, schema not registered: the unavailable text before any sign-in, no connect button", async () => {
+    getPublicSession.mockResolvedValue(null);
+    q.getVouchAvailability.mockResolvedValue({ chainId: 84532, registered: false });
+    await content("es", { address: TO });
+    expect(screen.getByText(es.unavailable)).toBeInTheDocument();
+    expect(screen.queryByText(es.connectLead)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("public-connect")).not.toBeInTheDocument();
+    expect(screen.getByText(`${es.kinds.reliable_trade} · 1`)).toBeInTheDocument();
+  });
+
+  it("no session, network unknown: «try later», no connect button", async () => {
+    getPublicSession.mockResolvedValue(null);
+    q.getVouchAvailability.mockResolvedValue({ chainId: 84532, registered: null });
+    await content("es");
+    expect(screen.getByText(es.networkUnknown)).toBeInTheDocument();
+    expect(screen.queryByTestId("public-connect")).not.toBeInTheDocument();
   });
 
   it("an alias resolves through Pay; an unknown alias says so", async () => {

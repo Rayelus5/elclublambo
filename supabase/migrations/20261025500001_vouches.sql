@@ -6,7 +6,8 @@
 -- anon and authenticated; nobody but service_role (through the RPCs below) writes.
 --
 --   record_vouch(...)        insert, lowercase; self_vouch / invalid_input; same uid again -> { already: true }
---   apply_vouch_state(...)   'active' (nothing), 'revoked' (revoked_at kept once set), 'removed' (row deleted), or not_found
+--   apply_vouch_state(...)   'active' (nothing), 'revoked' (revoked_at kept once set), 'removed' (row deleted, only once it
+--                            is 10 minutes old: younger, the current state 'active' / 'revoked' is returned), or not_found
 --   vouches_for(addr)        counts of distinct attesters per kind, distinct attesters in total, newest 50 items
 --   vouches_given_by(addr)   the newest 50 non-revoked vouches an address gave
 --   vouch_attester(uid)      the attester of a stored uid (null if unknown): the revoke action checks it before writing
@@ -80,6 +81,7 @@ as $$
 declare
   v_uid text := lower(p_uid);
   v_found int;
+  v_current text;
 begin
   if v_uid is null or v_uid !~ '^0x[0-9a-f]{64}$' or p_state is null or p_state not in ('active', 'revoked', 'removed') then
     raise exception 'invalid_input';
@@ -91,6 +93,13 @@ begin
     update public.vouches v set revoked_at = coalesce(v.revoked_at, p_revoked_at, now()) where v.uid = v_uid;
     get diagnostics v_found = row_count;
   else
+    -- A zero read right after recording can come from an RPC node a few blocks behind: a young row is kept and its
+    -- current state returned, so one lagging read cannot delete a valid vouch.
+    select case when v.revoked_at is null then 'active' else 'revoked' end into v_current
+    from public.vouches v where v.uid = v_uid and v.created_at > now() - interval '10 minutes';
+    if v_current is not null then
+      return v_current;
+    end if;
     delete from public.vouches v where v.uid = v_uid;
     get diagnostics v_found = row_count;
   end if;
@@ -127,7 +136,7 @@ begin
         'attestedAt', i.attested_at, 'txHash', i.tx_hash) order by i.attested_at desc, i.uid)
       from (select v.uid, v.chain_id, v.kind, v.attester, v.attested_at, v.tx_hash,
                    (select p.alias::text from public.public_profiles p where p.wallet_address = v.attester
-                    order by p.created_at, p.user_id limit 1) as alias
+                    order by p.updated_at desc limit 1) as alias
             from public.vouches v where v.recipient = v_recipient and v.revoked_at is null
             order by v.attested_at desc, v.uid limit 50) i), '[]'::jsonb));
 end;
@@ -152,7 +161,7 @@ begin
       'attestedAt', i.attested_at) order by i.attested_at desc, i.uid)
     from (select v.uid, v.chain_id, v.kind, v.recipient, v.attested_at,
                  (select p.alias::text from public.public_profiles p where p.wallet_address = v.recipient
-                  order by p.created_at, p.user_id limit 1) as alias
+                  order by p.updated_at desc limit 1) as alias
           from public.vouches v where v.attester = v_attester and v.revoked_at is null
           order by v.attested_at desc, v.uid limit 50) i), '[]'::jsonb);
 end;
