@@ -540,13 +540,13 @@ select is(tests.qcard('a', current_setting('t.ro')::uuid) -> 'seedReveal', 'null
 -- ===== 9. push copy =====
 select is(tests.qpush('c', 'raffle_won', jsonb_build_object('raffleId', current_setting('t.rw'), 'title', 'Sorteo ponderado',
                                                            'token', 'USDC', 'amount', '12500000')),
-  'Has ganado un sorteo|Premio: 12,5 USDC en «Sorteo ponderado». El tesorero te lo enviará desde la Safe.|/dao/sorteos/'
-    || current_setting('t.rw'), 'raffle_won push: title, body, url');
+  'Has ganado un sorteo|Premio: 12,5 USDC en «Sorteo ponderado». El tesorero te lo enviará desde la Safe.|/foro/sorteos',
+    'raffle_won push: title, body, url');
 select is(tests.qpush('c', 'raffle_won', jsonb_build_object('raffleId', current_setting('t.rw'),
                                                            'title', E'Un\ttítulo' || chr(7) || ' ' || repeat('x', 70),
                                                            'token', 'WETH', 'amount', '1500000000000000')),
   'Has ganado un sorteo|Premio: 0,0015 WETH en «' || left(E'Un título  ' || repeat('x', 70), 60)
-    || '». El tesorero te lo enviará desde la Safe.|/dao/sorteos/' || current_setting('t.rw'),
+    || '». El tesorero te lo enviará desde la Safe.|/foro/sorteos',
   'raffle_won push: WETH at 18 decimals, control characters stripped, title cut at 60');
 select is(tests.qpush('c', 'raffle_won', jsonb_build_object('raffleId', current_setting('t.rw'), 'title', 'x', 'token', 'USDC',
                                                            'amount', 'x')), null, 'a malformed amount → no push');
@@ -555,11 +555,11 @@ select is(tests.qpush('c', 'raffle_won', jsonb_build_object('raffleId', 'nope', 
 select is(tests.qpush('c', 'raffle_won', jsonb_build_object('raffleId', current_setting('t.rw'), 'title', 'x', 'token', 'DOGE',
                                                            'amount', '1')), null, 'an unknown token → no push');
 select is(tests.qpush('t', 'treasury_notice', jsonb_build_object('event', 'raffle_drawn', 'raffleId', current_setting('t.rw'))),
-  'Aviso de tesorería|Un sorteo tiene ganador: hay un premio que pagar.|/dao/tesoreria#sorteos', 'treasury_notice raffle_drawn push');
+  'Aviso de tesorería|Un sorteo tiene ganador: hay un premio que pagar.|/foro/donar', 'treasury_notice raffle_drawn push');
 select is(tests.qpush('t', 'treasury_notice', jsonb_build_object('event', 'raffle_unpaid', 'raffleId', current_setting('t.rw'))),
-  'Aviso de tesorería|Un premio de sorteo lleva 14 días sin pagarse.|/dao/tesoreria#sorteos', 'treasury_notice raffle_unpaid push');
+  'Aviso de tesorería|Un premio de sorteo lleva 14 días sin pagarse.|/foro/donar', 'treasury_notice raffle_unpaid push');
 select is(tests.qpush('t', 'treasury_notice', jsonb_build_object('event', 'withdrawal_requested', 'requestId', gen_random_uuid())),
-  'Aviso de tesorería|Hay una nueva solicitud de retirada.|/dao/tesoreria', 'the existing events keep their copy and url');
+  'Aviso de tesorería|Hay una nueva solicitud de retirada.|/foro/donar', 'the existing events keep their copy and url');
 select is(tests.qpush('a', 'treasury_notice', jsonb_build_object('event', 'raffle_drawn', 'raffleId', current_setting('t.rw'))),
   null, 'a non-treasurer gets no treasury_notice push');
 

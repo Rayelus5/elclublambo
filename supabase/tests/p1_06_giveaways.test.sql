@@ -366,7 +366,7 @@ select ok((select count(*) = 3 and bool_and(n.data ->> 'giveawayId' = current_se
   'giveaway_won to each winner; nothing for an unavailable role or an inactive winner');
 select is((select b.url || '|' || b.body from public.notifications n, public._push_build(n.id) b
            where n.kind = 'giveaway_won' and n.data ->> 'giveawayId' = current_setting('t.g1') and n.data ->> 'prizeLabel' = '5 USDC'),
-  '/sorteos/' || current_setting('t.g1') || '|Has ganado «5 USDC» en «Gran sorteo»', 'the push links to /sorteos/<id>');
+  '/foro/sorteos/' || current_setting('t.g1') || '|Has ganado «5 USDC» en «Gran sorteo»', 'the push links to /foro/sorteos/<id>');
 
 -- ===== 7. payouts and deliveries =====
 select set_config('t.p1', (select id::text from public.giveaway_prizes where giveaway_id = current_setting('t.g1')::uuid and rank = 1), true);
