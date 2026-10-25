@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -37,7 +38,7 @@ export async function generateMetadata({ params }: Pick<Props, "params">): Promi
 // Reads the network/DB (dynamic): with cacheComponents it must live inside a Suspense.
 async function CoinContent({ id, searchParams }: { id: string; searchParams: Props["searchParams"] }) {
   const range = parseRange((await searchParams).r);
-  const retryHref = `/mercado/${id}?r=${range}`;
+  const retryHref = clubPath(`/mercado/${id}?r=${range}`);
 
   // Both reads start together; each outcome is handled separately below.
   const coinP = getCoin(id).then(
@@ -114,7 +115,7 @@ export default async function CoinPage({ params, searchParams }: Props) {
   return (
     <div className="flex w-full flex-col gap-4">
       <Link
-        href="/mercado"
+        href={clubPath("/mercado")}
         className="inline-flex min-h-11 items-center gap-1 self-start rounded-control text-sm font-bold text-fg-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         <ArrowLeft className="size-4" aria-hidden />

@@ -10,12 +10,12 @@ self.addEventListener("activate", (event) => {
 });
 
 function safeUrl(raw) {
-  // Same origin only: anything else (other origin, javascript:, data:) falls back to the home page.
+  // Same origin only: anything else (other origin, javascript:, data:) falls back to the club home.
   try {
-    const target = new URL(typeof raw === "string" ? raw : "/", self.location.origin);
-    return target.origin === self.location.origin ? target : new URL("/", self.location.origin);
+    const target = new URL(typeof raw === "string" ? raw : "/foro", self.location.origin);
+    return target.origin === self.location.origin ? target : new URL("/foro", self.location.origin);
   } catch {
-    return new URL("/", self.location.origin);
+    return new URL("/foro", self.location.origin);
   }
 }
 

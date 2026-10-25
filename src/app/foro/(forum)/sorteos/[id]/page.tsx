@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -57,7 +58,7 @@ async function GiveawayContent({ params }: { params: Params }) {
   return (
     <div className="flex w-full flex-col gap-6">
       <Link
-        href="/sorteos"
+        href={clubPath("/sorteos")}
         className="inline-flex min-h-11 items-center gap-2 self-start rounded-control text-sm font-bold text-fg-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
       >
         <ArrowLeft aria-hidden className="size-4" />

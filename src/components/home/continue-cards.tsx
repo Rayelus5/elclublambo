@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { m } from "motion/react";
 import { rise, Stage } from "@/components/start/motion";
@@ -21,7 +22,7 @@ export function ContinueCards({ channels, failed = false }: { channels: readonly
           {channels.slice(0, MAX).map((c) => (
             <m.li key={c.channelId} variants={rise} className="min-w-0">
               <Link
-                href={`/c/${c.channelId}`}
+                href={clubPath(`/c/${c.channelId}`)}
                 className="flex h-full min-h-11 flex-col gap-2 rounded-panel border border-border bg-surface p-4 text-fg no-underline outline-none transition-colors duration-150 ease-out hover:border-border-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg motion-reduce:transition-none"
               >
                 <span className="flex items-baseline justify-between gap-3">

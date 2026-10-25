@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { m } from "motion/react";
@@ -91,7 +92,7 @@ export function QuickTiles({
   const { channels } = useSearch();
   const ids = loaded || unread.size > 0 ? [...unreadOrder.filter((id) => unread.has(id)), ...[...unread].filter((id) => !unreadOrder.includes(id))] : unreadOrder;
   const firstText = channels.filter((c) => c.kind === "text").toSorted((a, b) => a.position - b.position)[0];
-  const unreadHref = ids[0] ? `/c/${ids[0]}` : firstText ? `/c/${firstText.id}` : "/guia";
+  const unreadHref = ids[0] ? clubPath(`/c/${ids[0]}`) : firstText ? clubPath(`/c/${firstText.id}`) : clubPath("/guia");
 
   const giveaway = highlights?.giveaway ?? null;
   const poll = highlights?.poll ?? null;
@@ -104,10 +105,10 @@ export function QuickTiles({
       <Tile href={unreadHref} icon={Inbox} label="Sin leer" active={ids.length > 0}>
         {ids.length > 0 ? <Count>{ids.length}</Count> : <Word>Al día</Word>}
       </Tile>
-      <Tile href="/notifications" icon={AtSign} label="Menciones" active={mentions > 0}>
+      <Tile href={clubPath("/notifications")} icon={AtSign} label="Menciones" active={mentions > 0}>
         <Count>{mentions}</Count>
       </Tile>
-      <Tile href={openBounties > 0 && bountyHref ? bountyHref : "/guia/bounties"} icon={Target} label="Bounties">
+      <Tile href={openBounties > 0 && bountyHref ? bountyHref : clubPath("/guia/bounties")} icon={Target} label="Bounties">
         {highlights ? (
           <Count>{openBounties}</Count>
         ) : (
@@ -119,11 +120,11 @@ export function QuickTiles({
           </>
         )}
       </Tile>
-      <Tile href="/donar" icon={HandHeart} label="Donaciones" active={isMecenas}>
+      <Tile href={clubPath("/donar")} icon={HandHeart} label="Donaciones" active={isMecenas}>
         <Word>{isMecenas ? "Mecenas" : "Donar"}</Word>
       </Tile>
       {giveaway ? (
-        <Tile href={`/sorteos/${giveaway.id}`} icon={Dices} label="Sorteo" active={giveaway.iEntered} className={WIDE[events]}>
+        <Tile href={clubPath(`/sorteos/${giveaway.id}`)} icon={Dices} label="Sorteo" active={giveaway.iEntered} className={WIDE[events]}>
           <Title>{giveaway.title}</Title>
           <span className="mt-auto text-small text-fg-muted">
             <Countdown closesAt={giveaway.closesAt} endedText="Cerrado" />

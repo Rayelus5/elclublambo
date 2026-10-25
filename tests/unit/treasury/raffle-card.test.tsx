@@ -61,7 +61,7 @@ describe("RaffleCard: open", () => {
     expect(
       screen.getByText("Es el hash de una semilla secreta. La semilla se revela al sortear, así que nadie puede saber antes quién ganará."),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ver participantes y cómo comprobarlo" })).toHaveAttribute("href", `/dao/sorteos/${ID}`);
+    expect(screen.getByRole("link", { name: "Ver participantes y cómo comprobarlo" })).toHaveAttribute("href", `/foro/dao/sorteos/${ID}`);
   });
 
   it("says weighted mode in words", () => {
@@ -187,7 +187,7 @@ describe("RaffleCard: after the close", () => {
 
   it("every card links to the raffle page", () => {
     show({ status: "paid", winnerLabel: "ana" });
-    expect(screen.getByRole("link", { name: "Ver participantes y cómo comprobarlo" })).toHaveAttribute("href", `/dao/sorteos/${ID}`);
+    expect(screen.getByRole("link", { name: "Ver participantes y cómo comprobarlo" })).toHaveAttribute("href", `/foro/dao/sorteos/${ID}`);
   });
 });
 

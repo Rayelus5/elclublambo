@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { CircleAlert } from "lucide-react";
 import { NetworkLogo } from "@/components/economy/network-logo";
@@ -27,7 +28,7 @@ export function BountyRecordSection({ record, unpaid }: { record: BountyRecord; 
           {unpaid.map((b) => (
             <li key={b.messageId}>
               <Link
-                href={`/c/${b.channelId}?m=${b.messageId}`}
+                href={clubPath(`/c/${b.channelId}?m=${b.messageId}`)}
                 className="flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1 rounded-control border border-border px-3 py-2 outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <CircleAlert aria-hidden className="size-4 shrink-0 text-danger" />

@@ -167,7 +167,7 @@ describe("CommandPalette", () => {
     await type(input, "linea");
     fireEvent.click(screen.getByRole("option", { name: /hola/ }));
     const url = h.push.mock.calls[0]![0] as string;
-    expect(url).toMatch(new RegExp(`^/c/${C1}\\?m=33333333-3333-4333-8333-333333333333&h=[A-Za-z0-9_-]{1,32}$`));
+    expect(url).toMatch(new RegExp(`^/foro/c/${C1}\\?m=33333333-3333-4333-8333-333333333333&h=[A-Za-z0-9_-]{1,32}$`));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
@@ -178,7 +178,7 @@ describe("CommandPalette", () => {
     const { input } = setup();
     await type(input, "linea");
     fireEvent.click(screen.getByRole("option", { name: /respuesta/ }));
-    expect(h.push.mock.calls[0]![0]).toMatch(new RegExp(`^/c/${C1}\\?thread=${R}&m=3333`));
+    expect(h.push.mock.calls[0]![0]).toMatch(new RegExp(`^/foro/c/${C1}\\?thread=${R}&m=3333`));
   });
 
   it("choosing a member, a channel and an action navigates", async () => {
@@ -187,11 +187,11 @@ describe("CommandPalette", () => {
     const { input } = setup();
     await type(input, "general");
     fireEvent.click(screen.getByRole("option", { name: /Ana general/ }));
-    expect(h.push).toHaveBeenLastCalledWith("/u/0xabc");
+    expect(h.push).toHaveBeenLastCalledWith("/foro/u/0xabc");
     fireEvent.click(screen.getByRole("option", { name: "general" }));
-    expect(h.push).toHaveBeenLastCalledWith(`/c/${C1}`);
+    expect(h.push).toHaveBeenLastCalledWith(`/foro/c/${C1}`);
     fireEvent.click(screen.getByRole("option", { name: /Abrir ticket en #general/ }));
-    expect(h.push).toHaveBeenLastCalledWith(`/c/${C1}?openTicket=1`);
+    expect(h.push).toHaveBeenLastCalledWith(`/foro/c/${C1}?openTicket=1`);
   });
 });
 

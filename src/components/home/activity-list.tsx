@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { Coins, HandHeart, Target } from "lucide-react";
 import { relativeTime } from "@/components/payments/tip-list";
@@ -16,9 +17,9 @@ function sentence(i: ActivityItem): string {
 }
 
 function href(i: ActivityItem): string {
-  if (i.kind === "donation") return "/donar";
+  if (i.kind === "donation") return clubPath("/donar");
   if (i.channelId && i.messageId) return messageHref(i.channelId, i.messageId);
-  return i.targetWallet ? `/u/${i.targetWallet}` : "/";
+  return i.targetWallet ? clubPath(`/u/${i.targetWallet}`) : clubPath();
 }
 
 /** Club activity (tips, donations, new bounties), newest first. Names are already masked by the server. */

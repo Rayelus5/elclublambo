@@ -1,6 +1,7 @@
 // Home summary and right-rail reads. Every list comes from a definer RPC that only returns what the caller may see
 // (supabase/migrations/20261019000003_home_and_rail.sql, 20261024200007_home_dashboard.sql); amounts arrive as text and
 // become bigint here.
+import { clubPath } from "@/lib/club/paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Token } from "@/lib/payments/amounts";
 
@@ -183,7 +184,7 @@ export async function getUnreadSummary(supabase: Client): Promise<UnreadSummary>
 }
 
 /** Deep link to a message in its channel. */
-export const messageHref = (channelId: string, messageId: string) => `/c/${channelId}?m=${messageId}`;
+export const messageHref = (channelId: string, messageId: string) => clubPath(`/c/${channelId}?m=${messageId}`);
 
 export interface ChannelOverview {
   name: string;

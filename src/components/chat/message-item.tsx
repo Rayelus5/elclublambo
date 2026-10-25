@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useRef, useState } from "react";
 import {
   CircleAlert,
@@ -262,7 +263,7 @@ export function MessageItem({
             <DropdownMenuContent aria-label="Acciones del mensaje">
               <DropdownMenuItem
                 onSelect={() => {
-                  const url = `${window.location.origin}/c/${message.channelId}?m=${message.id}`;
+                  const url = `${window.location.origin}${clubPath(`/c/${message.channelId}?m=${message.id}`)}`;
                   void navigator.clipboard?.writeText(url).catch(() => undefined);
                 }}
               >

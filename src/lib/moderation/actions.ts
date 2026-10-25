@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
 import { schedulePushDispatch } from "@/lib/push/schedule";
@@ -26,7 +27,7 @@ export async function banMemberAction(input: {
   if (error) return { error: rpcErrorCode(error) };
 
   schedulePushDispatch();
-  revalidatePath("/admin/members");
+  revalidatePath(clubPath("/admin/members"));
   return {};
 }
 
@@ -43,7 +44,7 @@ export async function setVerifiedAction(input: {
   });
   if (error) return { error: rpcErrorCode(error) };
 
-  revalidatePath("/admin/members");
+  revalidatePath(clubPath("/admin/members"));
   return {};
 }
 
@@ -69,6 +70,6 @@ export async function toggleSponsorRoleAction(input: {
   });
   if (error) return { error: rpcErrorCode(error) };
 
-  revalidatePath("/admin/members");
+  revalidatePath(clubPath("/admin/members"));
   return {};
 }

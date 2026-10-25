@@ -37,7 +37,7 @@ describe("PollDialog", () => {
         "El voto es secreto: nadie, tampoco los admins, verá qué vota cada uno (a nivel de la aplicación). Los resultados se publican al cerrar, si votan al menos 3 personas. La encuesta es consultiva: no ejecuta nada por sí sola.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/encuestas");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/encuestas");
   });
 
   it("starts from the composer text and counts characters", () => {

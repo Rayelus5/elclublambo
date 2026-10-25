@@ -57,7 +57,7 @@ describe("ForumLayout onboarding gate", () => {
   it("renders /guia during onboarding without any forum navigation", async () => {
     await renderShell();
     expect(screen.getByText("contenido")).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Volver a la bienvenida" }).getAttribute("href")).toBe("/bienvenida");
+    expect(screen.getByRole("link", { name: "Volver a la bienvenida" }).getAttribute("href")).toBe("/foro/bienvenida");
     expect(screen.queryByRole("navigation", { name: "Principal" })).toBeNull();
     expect(screen.queryByText("Canales")).toBeNull();
     expect(screen.queryByRole("search")).toBeNull();

@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
@@ -159,7 +160,7 @@ export function BountyCard({
         </span>
         {bounty.solutionMessageId ? (
           <Link
-            href={`/c/${channelId}?m=${bounty.solutionMessageId}&thread=${messageId}`}
+            href={clubPath(`/c/${channelId}?m=${bounty.solutionMessageId}&thread=${messageId}`)}
             className="inline-flex min-h-11 items-center rounded-control px-1 text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
           >
             Ver solución

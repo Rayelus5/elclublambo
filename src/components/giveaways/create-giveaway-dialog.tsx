@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Info, Loader2, Plus } from "lucide-react";
@@ -74,7 +75,7 @@ function CreateGiveawayDialog({
         const r = await createGiveawayAction({ title: t, description: description.trim() || null, closesAt: close.toISOString(), prizes: prizes.prizes });
         if (!r.ok) return setError(r.error);
         onOpenChange(false);
-        router.push(`/sorteos/${r.id}`);
+        router.push(clubPath(`/sorteos/${r.id}`));
       } catch {
         setError("No se pudo crear el sorteo. Inténtalo de nuevo.");
       }

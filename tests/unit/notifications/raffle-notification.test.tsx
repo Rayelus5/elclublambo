@@ -22,7 +22,7 @@ describe("raffle_won", () => {
   it("names the raffle and the prize, and links to the raffle page", async () => {
     const n = await view("raffle_won", { raffleId: ID, title: "Gran sorteo", token: "USDC", amount: "10000000" });
     expect(text(n)).toContain("Has ganado el sorteo «Gran sorteo»: 10 USDC");
-    expect(n.href).toBe(`/dao/sorteos/${ID}`);
+    expect(n.href).toBe(`/foro/dao/sorteos/${ID}`);
   });
 
   it("formats a WETH prize", async () => {
@@ -33,7 +33,7 @@ describe("raffle_won", () => {
   it("falls back on malformed data and links to the section", async () => {
     const n = await view("raffle_won", { raffleId: "nope", title: 5, token: "DOGE", amount: "x" });
     expect(text(n)).toContain("Has ganado un sorteo");
-    expect(n.href).toBe("/dao#sorteos");
+    expect(n.href).toBe("/foro/dao#sorteos");
     expect(text(await view("raffle_won", null))).toContain("Has ganado un sorteo");
   });
 
@@ -47,16 +47,16 @@ describe("treasury_notice raffle events", () => {
   it("raffle_drawn asks to pay the prize", async () => {
     const n = await view("treasury_notice", { event: "raffle_drawn", raffleId: ID });
     expect(text(n)).toContain("Un sorteo tiene ganador: paga el premio");
-    expect(n.href).toBe("/dao/tesoreria#sorteos");
+    expect(n.href).toBe("/foro/dao/tesoreria#sorteos");
   });
 
   it("raffle_unpaid warns of a prize 14 days unpaid", async () => {
     const n = await view("treasury_notice", { event: "raffle_unpaid", raffleId: ID });
     expect(text(n)).toContain("Un premio de sorteo lleva 14 días sin pagarse");
-    expect(n.href).toBe("/dao/tesoreria#sorteos");
+    expect(n.href).toBe("/foro/dao/tesoreria#sorteos");
   });
 
   it("the withdrawal events keep their plain link", async () => {
-    expect((await view("treasury_notice", { event: "withdrawal_requested" })).href).toBe("/dao/tesoreria");
+    expect((await view("treasury_notice", { event: "withdrawal_requested" })).href).toBe("/foro/dao/tesoreria");
   });
 });

@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
@@ -35,7 +36,7 @@ async function TicketsContent({ searchParams }: { searchParams: Search }) {
     if (t === "staff") q.set("tab", "staff");
     if (s === "closed") q.set("status", "closed");
     const str = q.toString();
-    return str ? `/tickets?${str}` : "/tickets";
+    return str ? clubPath(`/tickets?${str}`) : clubPath("/tickets");
   };
 
   return (

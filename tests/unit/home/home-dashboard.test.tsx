@@ -52,9 +52,9 @@ describe("QuickTiles", () => {
     render(<QuickTiles highlights={base} mentions={0} />);
     const t = tiles();
     expect(t.getByRole("link", { name: /Sin leer/ })).toHaveTextContent("Al día");
-    expect(t.getByRole("link", { name: /Menciones/ })).toHaveAttribute("href", "/notifications");
-    expect(t.getByRole("link", { name: /Bounties/ })).toHaveAttribute("href", "/guia/bounties");
-    expect(t.getByRole("link", { name: /Donar/ })).toHaveAttribute("href", "/donar");
+    expect(t.getByRole("link", { name: /Menciones/ })).toHaveAttribute("href", "/foro/notifications");
+    expect(t.getByRole("link", { name: /Bounties/ })).toHaveAttribute("href", "/foro/guia/bounties");
+    expect(t.getByRole("link", { name: /Donar/ })).toHaveAttribute("href", "/foro/donar");
     expect(t.queryByRole("link", { name: /Sorteo/ })).not.toBeInTheDocument();
     expect(t.queryByRole("link", { name: /Encuesta/ })).not.toBeInTheDocument();
   });
@@ -66,17 +66,17 @@ describe("QuickTiles", () => {
         highlights={{ ...base, openBounties: 3 }}
         mentions={5}
         unreadOrder={[C2, C1]}
-        bountyHref={`/c/${C1}?m=b1`}
+        bountyHref={`/foro/c/${C1}?m=b1`}
       />,
     );
     const t = tiles();
     const unread = t.getByRole("link", { name: /Sin leer/ });
     expect(unread).toHaveTextContent("2");
-    expect(unread).toHaveAttribute("href", `/c/${C2}`);
+    expect(unread).toHaveAttribute("href", `/foro/c/${C2}`);
     expect(t.getByRole("link", { name: /Menciones/ })).toHaveTextContent("5");
     const bounties = t.getByRole("link", { name: /Bounties/ });
     expect(bounties).toHaveTextContent("3");
-    expect(bounties).toHaveAttribute("href", `/c/${C1}?m=b1`);
+    expect(bounties).toHaveAttribute("href", `/foro/c/${C1}?m=b1`);
   });
 
   it("before the live unread set answers, the server list stands in; once it answers, an empty set reads «Al día»", () => {
@@ -97,10 +97,10 @@ describe("QuickTiles", () => {
     expect(t.getByRole("link", { name: /Sin leer/ })).toHaveTextContent("1");
     expect(t.getByRole("link", { name: /Menciones/ })).toHaveTextContent("2");
     const bounties = t.getByRole("link", { name: /Bounties/ });
-    expect(bounties).toHaveAttribute("href", "/guia/bounties");
+    expect(bounties).toHaveAttribute("href", "/foro/guia/bounties");
     expect(bounties).toHaveTextContent("—");
     expect(bounties).toHaveTextContent("No disponible");
-    expect(t.getByRole("link", { name: /Donar/ })).toHaveAttribute("href", "/donar");
+    expect(t.getByRole("link", { name: /Donar/ })).toHaveAttribute("href", "/foro/donar");
     expect(t.queryByRole("link", { name: /Sorteo/ })).not.toBeInTheDocument();
     expect(t.queryByRole("link", { name: /Encuesta/ })).not.toBeInTheDocument();
   });
@@ -119,11 +119,11 @@ describe("QuickTiles", () => {
     );
     const t = tiles();
     const g = t.getByRole("link", { name: /Sorteo/ });
-    expect(g).toHaveAttribute("href", "/sorteos/g1");
+    expect(g).toHaveAttribute("href", "/foro/sorteos/g1");
     expect(g).toHaveTextContent("Camiseta del club");
     expect(g).toHaveTextContent(/Cierra/);
     const p = t.getByRole("link", { name: /Encuesta/ });
-    expect(p).toHaveAttribute("href", `/c/${C1}?m=p1`);
+    expect(p).toHaveAttribute("href", `/foro/c/${C1}?m=p1`);
     expect(p).toHaveTextContent("¿Pizza o sushi?");
   });
 
@@ -131,7 +131,7 @@ describe("QuickTiles", () => {
     h.unread = new Set();
     render(<QuickTiles highlights={{ ...base, donor: { isMecenas: true } }} mentions={0} />);
     const t = tiles();
-    expect(t.getByRole("link", { name: /Mecenas/ })).toHaveAttribute("href", "/donar");
+    expect(t.getByRole("link", { name: /Mecenas/ })).toHaveAttribute("href", "/foro/donar");
     expect(t.queryByText("Donar")).not.toBeInTheDocument();
   });
 
@@ -164,7 +164,7 @@ describe("ContinueCards", () => {
     render(<ContinueCards channels={list} />);
     const cards = screen.getAllByRole("link");
     expect(cards).toHaveLength(6);
-    expect(cards[0]).toHaveAttribute("href", `/c/${C1}`);
+    expect(cards[0]).toHaveAttribute("href", `/foro/c/${C1}`);
     expect(cards[0]).toHaveTextContent("#trading");
     expect(cards[0]).toHaveTextContent("1 nuevo");
     expect(cards[1]).toHaveTextContent("2 nuevos");
@@ -194,7 +194,7 @@ describe("FeaturedPin", () => {
       />,
     );
     const featured = screen.getByRole("link", { name: /Normas del club/ });
-    expect(featured).toHaveAttribute("href", `/c/${C1}?m=p2`);
+    expect(featured).toHaveAttribute("href", `/foro/c/${C1}?m=p2`);
     expect(screen.queryByRole("link", { name: /Reunión el viernes/ })).not.toBeInTheDocument();
     const toggle = screen.getByRole("button", { name: "Ver todos (3)" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");

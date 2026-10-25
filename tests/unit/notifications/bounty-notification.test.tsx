@@ -17,7 +17,7 @@ const view = (over: Partial<NotificationView>): NotificationView => ({
   excerpt: null,
   ticketSubject: null,
   ticketStatus: null,
-  href: "/c/x",
+  href: "/foro/c/x",
   ...over,
 });
 const text = (v: NotificationView) => render(<NotificationItem notification={v} />).container.querySelector("a")!.textContent;
@@ -56,17 +56,17 @@ describe("bounty notification links", () => {
 
   it("bounty_solution jumps to the chosen reply inside the bounty thread", async () => {
     const n = await run(row("bounty_solution", { bountyId: BOUNTY, threadRootId: BOUNTY }, { message_id: REPLY }));
-    expect(n.href).toBe(`/c/${CH}?m=${REPLY}&thread=${BOUNTY}`);
+    expect(n.href).toBe(`/foro/c/${CH}?m=${REPLY}&thread=${BOUNTY}`);
   });
 
   it("bounty_paid jumps to the paid solution inside the bounty thread", async () => {
     const n = await run(row("bounty_paid", { bountyId: BOUNTY, messageId: REPLY, threadRootId: BOUNTY }));
-    expect(n.href).toBe(`/c/${CH}?m=${REPLY}&thread=${BOUNTY}`);
+    expect(n.href).toBe(`/foro/c/${CH}?m=${REPLY}&thread=${BOUNTY}`);
   });
 
   it("falls back to the bounty message itself, then the channel", async () => {
-    expect((await run(row("bounty_paid", { bountyId: BOUNTY }))).href).toBe(`/c/${CH}?m=${BOUNTY}`);
-    expect((await run(row("bounty_solution", { bountyId: "nope" }))).href).toBe(`/c/${CH}`);
+    expect((await run(row("bounty_paid", { bountyId: BOUNTY }))).href).toBe(`/foro/c/${CH}?m=${BOUNTY}`);
+    expect((await run(row("bounty_solution", { bountyId: "nope" }))).href).toBe(`/foro/c/${CH}`);
   });
 
   it("never copies message text into the notice", async () => {

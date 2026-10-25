@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { GuideContent, isComingSoon } from "@/components/guide/guide-content";
@@ -21,7 +22,7 @@ export default async function GuideSectionPage({ params }: { params: Promise<{ s
   return (
     <article className="mx-auto flex w-full max-w-[68ch] flex-col gap-8">
       <header className="flex flex-col gap-2">
-        <Link href="/guia" className={`${linkClass} self-start`}>
+        <Link href={clubPath("/guia")} className={`${linkClass} self-start`}>
           Guía
         </Link>
         <h1 className="text-h1">{current.title}</h1>
@@ -35,14 +36,14 @@ export default async function GuideSectionPage({ params }: { params: Promise<{ s
       <GuideContent slug={current.slug} />
       <nav aria-label="Más secciones" className="flex flex-wrap justify-between gap-2 border-t border-border pt-4">
         {prev ? (
-          <Link href={`/guia/${prev.slug}`} className={linkClass}>
+          <Link href={clubPath(`/guia/${prev.slug}`)} className={linkClass}>
             Anterior: {prev.title}
           </Link>
         ) : (
           <span />
         )}
         {next ? (
-          <Link href={`/guia/${next.slug}`} className={linkClass}>
+          <Link href={clubPath(`/guia/${next.slug}`)} className={linkClass}>
             Siguiente: {next.title}
           </Link>
         ) : null}

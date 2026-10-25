@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isLegacyChainId } from "@/lib/legacy/linea";
@@ -24,9 +25,9 @@ const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 const isMode = (v: unknown): v is RaffleMode => v === "equal" || v === "weighted";
 
 function revalidate(id?: string) {
-  revalidatePath("/dao");
-  revalidatePath("/dao/tesoreria");
-  if (id) revalidatePath(`/dao/sorteos/${id}`);
+  revalidatePath(clubPath("/dao"));
+  revalidatePath(clubPath("/dao/tesoreria"));
+  if (id) revalidatePath(clubPath(`/dao/sorteos/${id}`));
 }
 
 /** Treasurer (re-checked in SQL): a raffle on the active chain; `prize` is decimal text in the prize token's units. */

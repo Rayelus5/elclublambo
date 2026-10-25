@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LinkPending } from "@/components/shell/link-pending";
@@ -21,7 +22,7 @@ const badgeClass =
 
 export function NavLink({ href, children, label, badge, variant = "side" }: Props) {
   const pathname = usePathname();
-  const active = href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+  const active = href === clubPath() ? pathname === clubPath() : pathname === href || pathname.startsWith(`${href}/`);
   if (variant === "top") {
     return (
       <Link

@@ -44,7 +44,7 @@ describe("createInviteAction", () => {
     const res = await createInviteAction(fd("5", "168"));
     expect(rpc).toHaveBeenCalledWith("create_invite", { p_max_uses: 5, p_expires_in_hours: 168 });
     expect(res).toEqual({ url: "http://localhost:3000/foro/invite/CODE22" });
-    expect(revalidatePath).toHaveBeenCalledWith("/invites");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/invites");
   });
 
   it("uses x-forwarded-proto and NEXT_PUBLIC_SITE_URL when present", async () => {
@@ -74,7 +74,7 @@ describe("revokeInviteAction", () => {
     const id = "6f1c1c5e-0000-4000-8000-000000000001";
     expect(await revokeInviteAction(id)).toEqual({});
     expect(rpc).toHaveBeenCalledWith("revoke_invite", { p_invite_id: id, p_reason: null });
-    expect(revalidatePath).toHaveBeenCalledWith("/invites");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/invites");
   });
   it("returns the error code", async () => {
     rpc.mockResolvedValue({ error: { message: "invite_not_found" } });

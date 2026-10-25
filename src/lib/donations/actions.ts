@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { verifyClubSafe } from "@/lib/economy/club-safe";
 import { appChainIds, isChainId } from "@/lib/economy/networks";
@@ -49,5 +50,6 @@ export async function setDonorVisibleAction(visible: boolean): Promise<{ ok: tru
   const { error } = await supabase.rpc("set_donor_visible", { p_visible: visible });
   if (error) return fail(rpcErrorCode(error));
   revalidatePath("/donar");
+  revalidatePath(clubPath("/donar"));
   return { ok: true };
 }

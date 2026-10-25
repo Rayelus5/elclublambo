@@ -33,8 +33,8 @@ describe("setOverwriteAction", () => {
       p_allow: 3,
       p_deny: 4,
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/settings/channels");
-    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/settings/channels");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro", "layout");
   });
   it.each([
     ["x", "role", B, "1", "0"],
@@ -121,8 +121,8 @@ describe("role actions", () => {
     const res = await createRoleAction({ name: " VIP ", color: "#61dfff", permissions: "16" });
     expect(rpc).toHaveBeenCalledWith("create_role", { p_name: "VIP", p_color: "#61DFFF", p_permissions: 16 });
     expect(res).toEqual({ id: B });
-    expect(revalidatePath).toHaveBeenCalledWith("/settings/roles");
-    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/settings/roles");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro", "layout");
   });
   it("rejects bad color, name, and the administrator bit", async () => {
     expect(await createRoleAction({ name: "x", color: "red", permissions: "0" })).toEqual({ error: "invalid_input" });
@@ -160,7 +160,7 @@ describe("domain actions", () => {
     rpc.mockResolvedValue({ error: null });
     expect(await addDomainAction("  GitHub.com ")).toEqual({});
     expect(rpc).toHaveBeenCalledWith("add_allowed_domain", { p_domain: "github.com" });
-    expect(revalidatePath).toHaveBeenCalledWith("/settings/links");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/settings/links");
     expect(await addDomainAction("not a domain")).toEqual({ error: "invalid_input" });
     expect(await removeDomainAction("x.com")).toEqual({});
     expect(rpc).toHaveBeenLastCalledWith("remove_allowed_domain", { p_domain: "x.com" });

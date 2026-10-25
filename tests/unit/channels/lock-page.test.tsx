@@ -22,7 +22,7 @@ describe("LockPage", () => {
     expect(screen.getByRole("heading", { level: 1, name: /Alpha/ })).toBeInTheDocument();
     expect(screen.getByText("Canal para quien ha donado al menos 10 USD. Llevas 9,99 USD.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Donar a ElClub." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/candados");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/candados");
     expect(screen.queryByRole("log")).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
   });

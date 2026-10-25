@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
@@ -112,5 +113,6 @@ export async function addExpenseAction(input: ExpenseInput): Promise<{ ok: true 
   });
   if (error) return fail(rpcErrorCode(error));
   revalidatePath("/donar");
+  revalidatePath(clubPath("/donar"));
   return { ok: true };
 }

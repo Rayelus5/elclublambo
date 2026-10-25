@@ -22,13 +22,13 @@ describe("giveaway_won", () => {
   it("names the prize and the giveaway, and links to /sorteos/<id>", async () => {
     const n = await view({ giveawayId: ID, title: "Sorteo de otoño", prizeLabel: "Camiseta" });
     expect(text(n)).toContain("Has ganado «Camiseta» en «Sorteo de otoño»");
-    expect(n.href).toBe(`/sorteos/${ID}`);
+    expect(n.href).toBe(`/foro/sorteos/${ID}`);
   });
 
   it("falls back on malformed data and links to /sorteos", async () => {
     const n = await view({ giveawayId: "nope", title: 5, prizeLabel: null });
     expect(text(n)).toContain("Has ganado un sorteo");
-    expect(n.href).toBe("/sorteos");
+    expect(n.href).toBe("/foro/sorteos");
     expect(text(await view(null))).toContain("Has ganado un sorteo");
   });
 

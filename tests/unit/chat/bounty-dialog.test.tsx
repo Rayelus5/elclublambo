@@ -54,7 +54,7 @@ describe("BountyDialog", () => {
     expect(group.querySelectorAll('[role="radio"]')).toHaveLength(4);
     expect(radio(/USDC.*Base Sepolia/)).toHaveAttribute("aria-checked", "true");
     expect(radio(/ETH.*Arbitrum Sepolia/)).toHaveAttribute("aria-checked", "false");
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/bounties");
   });
 
   it("explains the network is indicative and that ElClub. holds no funds", () => {

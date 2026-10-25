@@ -40,7 +40,7 @@ export async function createInviteAction(fd: FormData): Promise<{ url?: string; 
   const code = (data as { code?: string } | null)?.code;
   if (!code) return { error: "unknown" };
 
-  revalidatePath("/invites");
+  revalidatePath(clubPath("/invites"));
   return { url: `${await siteOrigin()}${clubPath(`/invite/${code}`)}` };
 }
 
@@ -49,6 +49,6 @@ export async function revokeInviteAction(id: string): Promise<{ error?: string }
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("revoke_invite", { p_invite_id: id, p_reason: null });
   if (error) return { error: rpcErrorCode(error) };
-  revalidatePath("/invites");
+  revalidatePath(clubPath("/invites"));
   return {};
 }

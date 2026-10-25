@@ -57,7 +57,7 @@ describe("home queries", () => {
   });
 
   it("links a message in its channel", () => {
-    expect(messageHref("c1", "m1")).toBe("/c/c1?m=m1");
+    expect(messageHref("c1", "m1")).toBe("/foro/c/c1?m=m1");
   });
   it("maps unread channels from home_unread_channels", async () => {
     const c = rpcClient([

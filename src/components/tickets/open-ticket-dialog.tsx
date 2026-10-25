@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useEffect, useId, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LifeBuoy } from "lucide-react";
@@ -68,7 +69,7 @@ export function OpenTicketDialog({ channelId, channelName }: { channelId: string
           return;
         }
         setOpen(false);
-        router.push(`/tickets/${res.id}`);
+        router.push(clubPath(`/tickets/${res.id}`));
       });
     });
   };

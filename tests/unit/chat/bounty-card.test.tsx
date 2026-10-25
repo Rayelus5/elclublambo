@@ -78,7 +78,7 @@ describe("BountyCard", () => {
 
   it("lets everyone jump to the solution once one is marked", () => {
     setup({ bounty: marked() });
-    expect(screen.getByRole("link", { name: "Ver solución" })).toHaveAttribute("href", `/c/${CH}?m=${SOLUTION}&thread=${B}`);
+    expect(screen.getByRole("link", { name: "Ver solución" })).toHaveAttribute("href", `/foro/c/${CH}?m=${SOLUTION}&thread=${B}`);
   });
 
   it("has no solution link before a solution exists", () => {

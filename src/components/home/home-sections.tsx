@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Hash, Pin } from "lucide-react";
@@ -67,7 +68,7 @@ export function ActiveChannelsList({ channels }: { channels: readonly ActiveChan
       {channels.map((c) => (
         <li key={c.channelId}>
           <Link
-            href={`/c/${c.channelId}`}
+            href={clubPath(`/c/${c.channelId}`)}
             className="inline-flex min-h-11 items-center gap-2 rounded-control border border-border px-3 text-sm text-fg outline-none hover:border-border-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent"
           >
             <Hash aria-hidden className="size-4 text-fg-muted" />

@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { DensityToggle } from "@/components/chat/density";
 import { Suspense } from "react";
 import { ChatHistoryLoading } from "@/components/chat/chat-history-loading";
@@ -99,7 +100,7 @@ function ChildList({ channel, items }: { channel: ChannelDetail; items: ChildIte
             return (
               <li key={child.id}>
                 <Link
-                  href={`/c/${child.id}`}
+                  href={clubPath(`/c/${child.id}`)}
                   className="flex h-full min-h-11 flex-col gap-1 rounded-panel border border-border bg-surface p-4 transition-colors duration-150 outline-none hover:border-border-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg motion-reduce:transition-none"
                 >
                   <span className="flex items-center gap-2 font-display text-lg font-bold text-fg">

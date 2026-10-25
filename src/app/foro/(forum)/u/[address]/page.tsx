@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
@@ -115,7 +116,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
             </div>
             {isOwn ? (
               <Link
-                href="/perfil"
+                href={clubPath("/perfil")}
                 className="inline-flex min-h-11 items-center rounded-control border border-border-strong bg-surface px-4 text-sm font-bold text-fg outline-none hover:bg-bg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
               >
                 Editar perfil

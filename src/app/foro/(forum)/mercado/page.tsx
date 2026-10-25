@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
@@ -20,7 +21,7 @@ async function MarketContent() {
   } catch (e) {
     // Only the "no usable copy" case is a UI state; anything else is a real bug and surfaces.
     if (!(e instanceof MarketUnavailableError)) throw e;
-    return <MarketError message="No se pudieron cargar los precios ahora mismo." retryHref="/mercado" />;
+    return <MarketError message="No se pudieron cargar los precios ahora mismo." retryHref={clubPath("/mercado")} />;
   }
   return (
     <>

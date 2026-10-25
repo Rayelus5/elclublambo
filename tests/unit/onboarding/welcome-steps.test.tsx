@@ -92,7 +92,7 @@ describe("WelcomeSteps", () => {
     expect(text).toMatch(/Donar no da derechos económicos/);
     expect(text).toMatch(/Mecenas/);
     expect(text).not.toMatch(/no se puede donar|se está rehaciendo/);
-    expect(screen.getByRole("link", { name: /Guía: Donaciones y Mecenas/ }).getAttribute("href")).toBe("/guia/donaciones");
+    expect(screen.getByRole("link", { name: /Guía: Donaciones y Mecenas/ }).getAttribute("href")).toBe("/foro/guia/donaciones");
   });
 
   it("step 4 shows every network the club uses", async () => {
@@ -109,7 +109,7 @@ describe("WelcomeSteps", () => {
     render(<WelcomeSteps {...base} initialHandle="ana" />);
     for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
     expect(screen.getByText("Base Sepolia")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/guia/redes");
+    expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/foro/guia/redes");
     await user.click(screen.getByRole("button", { name: "Empezar" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Elige tu @handle");
     expect(replace).not.toHaveBeenCalled();

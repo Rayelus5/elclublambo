@@ -39,7 +39,7 @@ describe("MarketTable", () => {
   });
   it("links each name to its page", () => {
     render(<MarketTable coins={[btc]} />);
-    expect(screen.getByRole("link", { name: /Bitcoin/ })).toHaveAttribute("href", "/mercado/bitcoin");
+    expect(screen.getByRole("link", { name: /Bitcoin/ })).toHaveAttribute("href", "/foro/mercado/bitcoin");
   });
   it("shows signed variations with an aria-hidden arrow and token colours", () => {
     render(<MarketTable coins={[btc]} />);

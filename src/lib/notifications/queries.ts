@@ -2,6 +2,7 @@
 // realtime refresh). Everything goes through RLS: a notice of a channel/ticket the member cannot see is not returned,
 // and the actor, channel name, message excerpt and ticket subject are joined under RLS too (never copied into
 // `notifications`). The actor's identity always comes from `members`, never from message content.
+import { clubPath } from "@/lib/club/paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { identityFromRow, mentionLabel } from "@/lib/members/name";
 import { formatToken } from "@/lib/treasury/format";
@@ -143,12 +144,12 @@ const PERSON_KINDS = new Set<NotificationKind>(["invite_redeemed", "godchild_ban
 
 /** A tip notice points at the tipped message (not at the system notice); a reply also names its thread root. */
 function tipHref(row: Row): string {
-  if (!row.channel_id) return "/notifications";
+  if (!row.channel_id) return clubPath("/notifications");
   const message = row.data?.messageId;
-  if (typeof message !== "string" || !UUID_RE.test(message)) return `/c/${row.channel_id}`;
+  if (typeof message !== "string" || !UUID_RE.test(message)) return clubPath(`/c/${row.channel_id}`);
   const root = row.data?.threadRootId;
   const thread = typeof root === "string" && UUID_RE.test(root) && root !== message ? `&thread=${root}` : "";
-  return `/c/${row.channel_id}?m=${message}${thread}`;
+  return clubPath(`/c/${row.channel_id}?m=${message}${thread}`);
 }
 
 const BOUNTY_KINDS = new Set<NotificationKind>(["bounty_solution", "bounty_paid"]);
@@ -158,13 +159,13 @@ const BOUNTY_KINDS = new Set<NotificationKind>(["bounty_solution", "bounty_paid"
  * message) or the paid one (`bounty_paid`, `data.messageId`). Without it, at the bounty message itself.
  */
 function bountyHref(row: Row): string {
-  if (!row.channel_id) return "/notifications";
+  if (!row.channel_id) return clubPath("/notifications");
   const id = (v: unknown) => (typeof v === "string" && UUID_RE.test(v) ? v : null);
   const bounty = id(row.data?.bountyId);
   const target = id(row.data?.messageId) ?? id(row.message_id) ?? bounty;
-  if (!target) return `/c/${row.channel_id}`;
+  if (!target) return clubPath(`/c/${row.channel_id}`);
   const thread = bounty && bounty !== target ? `&thread=${bounty}` : "";
-  return `/c/${row.channel_id}?m=${target}${thread}`;
+  return clubPath(`/c/${row.channel_id}?m=${target}${thread}`);
 }
 
 function hrefFor(row: Row): string {
@@ -175,30 +176,30 @@ function hrefFor(row: Row): string {
     const thread = typeof root === "string" && UUID_RE.test(root) ? root : null;
     // Jump to (and highlight) the exact message; `h` (the notification id) makes a repeated click jump again.
     if (row.message_id && UUID_RE.test(row.message_id)) {
-      return `/c/${row.channel_id}?m=${row.message_id}${thread ? `&thread=${thread}` : ""}&h=n${row.id}`;
+      return clubPath(`/c/${row.channel_id}?m=${row.message_id}${thread ? `&thread=${thread}` : ""}&h=n${row.id}`);
     }
-    return `/c/${row.channel_id}${thread ? `?thread=${thread}` : ""}`;
+    return clubPath(`/c/${row.channel_id}${thread ? `?thread=${thread}` : ""}`);
   }
-  if (PERSON_KINDS.has(row.kind)) return row.actor ? `/u/${row.actor.wallet_address}` : "/notifications";
-  if (row.kind === "report_new") return "/moderation/reports";
-  if (row.kind === "member_review") return "/admin/members";
+  if (PERSON_KINDS.has(row.kind)) return row.actor ? clubPath(`/u/${row.actor.wallet_address}`) : clubPath("/notifications");
+  if (row.kind === "report_new") return clubPath("/moderation/reports");
+  if (row.kind === "member_review") return clubPath("/admin/members");
   // Ruling F4a-R1: the panel exists now (F4c), same url as the push.
   if (row.kind === "raffle_won") {
     const id = row.data?.raffleId;
-    return typeof id === "string" && UUID_RE.test(id) ? `/dao/sorteos/${id}` : "/dao#sorteos";
+    return typeof id === "string" && UUID_RE.test(id) ? clubPath(`/dao/sorteos/${id}`) : clubPath("/dao#sorteos");
   }
   if (row.kind === "giveaway_won") {
     const id = row.data?.giveawayId;
-    return typeof id === "string" && UUID_RE.test(id) ? `/sorteos/${id}` : "/sorteos";
+    return typeof id === "string" && UUID_RE.test(id) ? clubPath(`/sorteos/${id}`) : clubPath("/sorteos");
   }
   if (row.kind === "treasury_notice") {
     const event = noticeEvent(row.data);
-    return event === "raffle_drawn" || event === "raffle_unpaid" ? "/dao/tesoreria#sorteos" : "/dao/tesoreria";
+    return event === "raffle_drawn" || event === "raffle_unpaid" ? clubPath("/dao/tesoreria#sorteos") : clubPath("/dao/tesoreria");
   }
-  if (row.kind === "treasury_outflow") return "/dao/tesoreria";
-  if (WITHDRAWAL_KINDS.has(row.kind)) return "/dao#retirada";
-  if (row.ticket_id && UUID_RE.test(row.ticket_id)) return `/tickets/${row.ticket_id}`;
-  return "/notifications";
+  if (row.kind === "treasury_outflow") return clubPath("/dao/tesoreria");
+  if (WITHDRAWAL_KINDS.has(row.kind)) return clubPath("/dao#retirada");
+  if (row.ticket_id && UUID_RE.test(row.ticket_id)) return clubPath(`/tickets/${row.ticket_id}`);
+  return clubPath("/notifications");
 }
 
 function toView(row: Row): NotificationView {

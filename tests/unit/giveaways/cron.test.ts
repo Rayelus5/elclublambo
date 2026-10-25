@@ -58,8 +58,8 @@ describe("runGiveawaySteps", () => {
     ]);
     expect(fetchBeacon).toHaveBeenCalledWith(5000n);
     expect(calls("draw_giveaway")[0]![1]).toEqual({ p_id: G1, p_round: 5000, p_signature: SIG });
-    expect(revalidatePath).toHaveBeenCalledWith("/sorteos");
-    expect(revalidatePath).toHaveBeenCalledWith("/sorteos/[id]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos/[id]", "page");
   });
 
   it("Review Focus 5: drand unavailable counts as waiting and never calls draw_giveaway", async () => {
@@ -135,7 +135,7 @@ describe("runGiveawaySteps", () => {
     expect(report.public).toEqual({ closed: 0, voided: 0, drawn: 1, waiting: 0, failed: 0 });
     expect(err).toHaveBeenCalled();
     // the club close changed something: its pages are still revalidated
-    expect(revalidatePath).toHaveBeenCalledWith("/sorteos");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos");
     err.mockRestore();
   });
 

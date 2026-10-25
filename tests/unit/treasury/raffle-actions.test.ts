@@ -83,9 +83,9 @@ beforeEach(() => {
 });
 
 const revalidated = (id?: string) => {
-  expect(revalidatePath).toHaveBeenCalledWith("/dao");
-  expect(revalidatePath).toHaveBeenCalledWith("/dao/tesoreria");
-  if (id) expect(revalidatePath).toHaveBeenCalledWith(`/dao/sorteos/${id}`);
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/dao");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/dao/tesoreria");
+  if (id) expect(revalidatePath).toHaveBeenCalledWith(`/foro/dao/sorteos/${id}`);
 };
 
 describe("markRafflePaidAction", () => {

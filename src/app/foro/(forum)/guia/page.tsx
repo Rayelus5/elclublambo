@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { GUIDE_SECTIONS } from "@/lib/guide/sections";
@@ -18,7 +19,7 @@ export default function GuidePage() {
         {GUIDE_SECTIONS.map((s) => (
           <li key={s.slug}>
             <Link
-              href={`/guia/${s.slug}`}
+              href={clubPath(`/guia/${s.slug}`)}
               className="flex min-h-11 items-center justify-between gap-4 rounded-panel border border-border bg-surface p-4 outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
             >
               <span className="flex flex-col gap-1">
@@ -31,7 +32,7 @@ export default function GuidePage() {
         ))}
       </ul>
       <Link
-        href="/bienvenida?repetir=1"
+        href={clubPath("/bienvenida?repetir=1")}
         className="inline-flex min-h-11 items-center self-start rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         Ver la bienvenida de nuevo

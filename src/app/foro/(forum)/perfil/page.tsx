@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import { PageLoader } from "@/components/shell/page-loader";
 import type { Metadata } from "next";
@@ -48,7 +49,7 @@ async function EditProfile() {
       <header className="flex flex-col gap-2">
         <h1 className="text-h1">Editar perfil</h1>
         <Link
-          href={`/u/${row.handle ?? row.wallet_address}`}
+          href={clubPath(`/u/${row.handle ?? row.wallet_address}`)}
           className="inline-flex min-h-11 items-center self-start text-accent underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           Ver mi perfil

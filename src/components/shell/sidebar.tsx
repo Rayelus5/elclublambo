@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { BookOpen, ChartCandlestick, Dices, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -28,28 +29,28 @@ const brandClass =
 /** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
 function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
   return [
-    { href: "/", text: "Inicio", Icon: Home },
+    { href: clubPath(), text: "Inicio", Icon: Home },
     {
-      href: "/tickets",
+      href: clubPath("/tickets"),
       text: "Tickets",
       Icon: LifeBuoy,
       label: openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined,
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
-    { href: "/guia", text: "Guía", Icon: BookOpen },
-    { href: "/donar", text: "Donar", Icon: HandHeart },
-    { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
-    { href: "/sorteos", text: "Sorteos", Icon: Dices },
-    hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
+    { href: clubPath("/guia"), text: "Guía", Icon: BookOpen },
+    { href: clubPath("/donar"), text: "Donar", Icon: HandHeart },
+    { href: clubPath("/mercado"), text: "Mercado", Icon: ChartCandlestick },
+    { href: clubPath("/sorteos"), text: "Sorteos", Icon: Dices },
+    hasPerm(perms, Perm.CREATE_INVITES) && { href: clubPath("/invites"), text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
-      href: "/admin/members",
+      href: clubPath("/admin/members"),
       text: "Miembros",
       Icon: Users,
       staff: true,
     },
-    canModerate && { href: "/moderation/reports", text: "Reportes", Icon: Flag, staff: true },
+    canModerate && { href: clubPath("/moderation/reports"), text: "Reportes", Icon: Flag, staff: true },
     (hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES)) && {
-      href: "/settings",
+      href: clubPath("/settings"),
       text: "Ajustes",
       Icon: Settings,
       staff: true,
@@ -71,7 +72,7 @@ function DesktopBar(props: Props) {
   const more = all.flatMap((s) => ("staff" in s ? [{ href: s.href, text: s.text, icon: <s.Icon className="size-4" aria-hidden /> }] : []));
   return (
     <header className="sticky top-0 z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
-      <Link href="/" className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
+      <Link href={clubPath()} className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
         El Club.
       </Link>
       <nav aria-label="Principal" className="min-w-0 self-stretch overflow-hidden">
@@ -96,7 +97,7 @@ function DesktopBar(props: Props) {
         <SearchButton variant="bar" />
         <NotificationBell />
         <Link
-          href={`/u/${props.wallet}`}
+          href={clubPath(`/u/${props.wallet}`)}
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control px-2 font-mono text-[13px] text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <User className="size-4 lg:hidden" aria-hidden />
@@ -114,7 +115,7 @@ function DrawerBody(props: Props) {
   const tree = buildTree(props.channels ?? []);
   return (
     <div className="flex flex-col gap-4 py-6">
-      <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
+      <Link href={clubPath()} className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
       <TestModeBadge className="mx-4 self-start" />
@@ -142,7 +143,7 @@ function DrawerBody(props: Props) {
 
       <div className="flex flex-col gap-3 border-t border-border px-4 pt-4">
         <Link
-          href={`/u/${props.wallet}`}
+          href={clubPath(`/u/${props.wallet}`)}
           className="flex min-h-11 flex-col justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <span className="text-sm font-bold text-fg">Mi perfil</span>

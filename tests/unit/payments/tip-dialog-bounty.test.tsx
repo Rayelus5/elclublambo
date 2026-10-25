@@ -119,7 +119,7 @@ describe("TipDialog bounty mode: form", () => {
     await setup();
     expect(screen.getByRole("heading", { name: "Pagar bounty" })).toBeInTheDocument();
     expect(screen.getByText("ElClub. no custodia fondos: va directo a su wallet.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/bounties");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/bounties");
   });
 
   it("reads the solver's networks with the browser client", async () => {

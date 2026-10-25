@@ -48,7 +48,7 @@ describe("listNotifications", () => {
       channelName: "trading",
       excerpt: "hola mundo",
       ticketSubject: null,
-      href: `/c/${CH}`,
+      href: `/foro/c/${CH}`,
     });
   });
 
@@ -84,7 +84,7 @@ describe("listNotifications", () => {
     const { client } = fakeClient(rows);
     const hrefs = (await listNotifications({ filter: "all" }, client)).map((v) => v.href);
     // h = the notification id: clicking it again re-jumps even when the same message is already in the URL
-    expect(hrefs).toEqual([`/c/${CH}?m=${MSG}&h=n11`, `/c/${CH}?m=${MSG}&thread=${ROOT}&h=n12`, `/c/${CH}?m=${MSG}&h=n13`]);
+    expect(hrefs).toEqual([`/foro/c/${CH}?m=${MSG}&h=n11`, `/foro/c/${CH}?m=${MSG}&thread=${ROOT}&h=n12`, `/foro/c/${CH}?m=${MSG}&h=n13`]);
   });
 
   it("builds the href of every kind", async () => {
@@ -102,15 +102,15 @@ describe("listNotifications", () => {
     const { client } = fakeClient(rows);
     const hrefs = (await listNotifications({ filter: "all" }, client)).map((v) => v.href);
     expect(hrefs).toEqual([
-      `/c/${CH}?thread=${ROOT}`,
-      `/c/${CH}`,
-      `/c/${CH}`,
-      `/u/${WALLET}`,
-      `/u/${WALLET}`,
-      "/moderation/reports",
-      "/admin/members",
-      `/tickets/${TICKET}`,
-      "/notifications",
+      `/foro/c/${CH}?thread=${ROOT}`,
+      `/foro/c/${CH}`,
+      `/foro/c/${CH}`,
+      `/foro/u/${WALLET}`,
+      `/foro/u/${WALLET}`,
+      "/foro/moderation/reports",
+      "/foro/admin/members",
+      `/foro/tickets/${TICKET}`,
+      "/foro/notifications",
     ]);
   });
 

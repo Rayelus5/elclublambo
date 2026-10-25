@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { PartyPopper, Users } from "lucide-react";
 import { Countdown } from "@/components/giveaways/countdown";
@@ -20,7 +21,7 @@ export function GiveawayCard({ giveaway: g }: { giveaway: Card }) {
       <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <h3 id={titleId} className="min-w-0 text-base font-bold break-words">
           <Link
-            href={`/sorteos/${g.id}`}
+            href={clubPath(`/sorteos/${g.id}`)}
             className="rounded-control underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
           >
             {g.title}

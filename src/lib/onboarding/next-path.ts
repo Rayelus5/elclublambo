@@ -1,5 +1,5 @@
 import { safeNextPath as safeAuthNextPath } from "@/lib/auth/public-paths";
-import { clubPath } from "@/lib/club/paths";
+import { clubPath, LEGACY_WELCOME_PATH } from "@/lib/club/paths";
 
 const WELCOME = clubPath("/bienvenida");
 
@@ -11,6 +11,6 @@ const WELCOME = clubPath("/bienvenida");
 export function safeNextPath(raw: string | null): string {
   const path = safeAuthNextPath(raw);
   const base = path.split(/[?#]/)[0] ?? path;
-  if ([WELCOME, "/bienvenida"].some((p) => base === p || base.startsWith(`${p}/`))) return clubPath();
+  if ([WELCOME, LEGACY_WELCOME_PATH].some((p) => base === p || base.startsWith(`${p}/`))) return clubPath();
   return path;
 }

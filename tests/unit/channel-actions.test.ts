@@ -38,8 +38,8 @@ beforeEach(() => {
 });
 
 function expectRevalidated() {
-  expect(revalidatePath).toHaveBeenCalledWith("/settings/channels");
-  expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/settings/channels");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro", "layout");
 }
 
 describe("createChannelAction", () => {

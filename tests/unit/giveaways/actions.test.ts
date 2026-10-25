@@ -74,8 +74,8 @@ afterEach(() => {
 });
 
 const expectRevalidated = () => {
-  expect(revalidatePath).toHaveBeenCalledWith("/sorteos");
-  expect(revalidatePath).toHaveBeenCalledWith("/sorteos/[id]", "page");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos/[id]", "page");
 };
 
 describe("createGiveawayAction", () => {

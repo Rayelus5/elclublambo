@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { Suspense } from "react";
 import { PageLoader } from "@/components/shell/page-loader";
 import Link from "next/link";
@@ -9,8 +10,8 @@ import { createServerClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 const TABS = [
-  { id: "open", label: "Abiertos", href: "/moderation/reports" },
-  { id: "closed", label: "Resueltos", href: "/moderation/reports?status=closed" },
+  { id: "open", label: "Abiertos", href: clubPath("/moderation/reports") },
+  { id: "closed", label: "Resueltos", href: clubPath("/moderation/reports?status=closed") },
 ] as const;
 
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.

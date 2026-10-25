@@ -1,4 +1,4 @@
-import { clubPath } from "@/lib/club/paths";
+import { clubPath, LEGACY_LOGIN_PATH } from "@/lib/club/paths";
 
 // SECURITY: every /api/cron/* route handler must authenticate itself (bearer CRON_SECRET, constant-time compare); the
 // proxy lets this prefix through without a session.
@@ -26,7 +26,7 @@ const PUBLIC_PREFIXES = [
   "/sitemap.xml",
 ] as const;
 
-const LOGIN_PAGES = [clubPath("/login"), "/login"];
+const LOGIN_PAGES = [clubPath("/login"), LEGACY_LOGIN_PATH];
 
 /**
  * Sanitizes a `?next=` value: only same-origin absolute paths, never the login pages (the club's, or the old root one

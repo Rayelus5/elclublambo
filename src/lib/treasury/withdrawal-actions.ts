@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
@@ -23,8 +24,8 @@ const SHARES = /^[1-9]\d{0,77}$/;
 const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 
 function revalidate() {
-  revalidatePath("/dao");
-  revalidatePath("/dao/tesoreria");
+  revalidatePath(clubPath("/dao"));
+  revalidatePath(clubPath("/dao/tesoreria"));
 }
 
 type Db = ReturnType<typeof createAdminClient>;

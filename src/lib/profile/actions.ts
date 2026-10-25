@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
@@ -16,8 +17,8 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const AVATAR_OBJECT_RE = new RegExp(`^(${UUID})/${UUID}\\.(png|jpg|webp)$`);
 
 function refresh() {
-  revalidatePath("/u/[address]", "page");
-  revalidatePath("/perfil");
+  revalidatePath(clubPath("/u/[address]"), "page");
+  revalidatePath(clubPath("/perfil"));
 }
 
 export async function saveProfileAction(input: { displayName: string; bio: string; links: string[] }): Promise<ActionResult> {

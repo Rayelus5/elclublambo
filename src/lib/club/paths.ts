@@ -4,6 +4,10 @@
  */
 export const CLUB_BASE = "/foro";
 
+/** The pre-R1 root URLs of the login and welcome pages: still recognised (they 308 to the club) so a stale ?next= cannot loop. */
+export const LEGACY_LOGIN_PATH = "/login";
+export const LEGACY_WELCOME_PATH = "/bienvenida";
+
 /** True when `path` (with or without query/hash) already starts with the club base as a whole segment. */
 function hasBase(path: string): boolean {
   if (!path.startsWith(CLUB_BASE)) return false;
