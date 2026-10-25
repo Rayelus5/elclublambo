@@ -47,11 +47,11 @@ describe("APP_TOP_SEGMENTS", () => {
 });
 
 describe("isUnknownTopSegment", () => {
-  it.each(["/xx", "/foo", "/manifest.json", "/wp-admin"])("%s is unknown", (p) => {
+  it.each(["/xx", "/foo", "/manifest.json", "/wp-admin", "/pay"])("%s is unknown", (p) => {
     expect(isUnknownTopSegment(p)).toBe(true);
   });
 
-  it.each(["/", "/en", "/es", "/start", "/herramientas", "/login", "/c", "/sorteos", "/robots.txt", "/sitemap.xml", "/api", "/out"])(
+  it.each(["/", "/en", "/es", "/start", "/herramientas", "/donar", "/login", "/c", "/sorteos", "/robots.txt", "/sitemap.xml", "/api", "/out"])(
     "%s is known",
     (p) => {
       expect(isUnknownTopSegment(p)).toBe(false);

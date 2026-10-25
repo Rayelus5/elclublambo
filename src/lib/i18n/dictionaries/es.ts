@@ -530,4 +530,14 @@ export const es = {
     },
     donationsNote: "Donaciones a la Safe del club en Base y Arbitrum.",
   },
+  pay: {
+    tool: { metaTitle: "ElClub Pay · Cobra y paga en USDC", metaDescription: "Cobra y paga en USDC o ETH con un enlace, directo de wallet a wallet y sin custodia.", title: "ElClub Pay" },
+    page: { metaTitle: "Pagar", title: "Pagar" },
+    receipt: { metaTitle: "Recibo de pago", title: "Recibo de pago" },
+  },
+  donate: {
+    metaTitle: "Donar a ElClub.",
+    metaDescription: "Dona a la Safe del club en Base y Arbitrum. Donar no da derechos económicos.",
+    title: "Donar",
+  },
 } as const;

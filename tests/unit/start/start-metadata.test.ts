@@ -72,6 +72,15 @@ describe("/start metadata in production", () => {
     ["/en/tools/giveaways", true],
     ["/start", true],
     ["/herramientas/sorteos", true],
+    ["/herramientas/pay", true],
+    ["/donar", true],
+    ["/en/donate", true],
+    ["/en/tools/pay", true],
+    ["/pay/rayelus", false],
+    ["/pay/tx/84532/0xabc", false],
+    ["/en/pay/rayelus", false],
+    ["/en/pay/tx/84532/0xabc", false],
+    ["/donar/otra", false],
     ["/es/opengraph-image", true],
     ["/es/start/opengraph-image-1a2b3c", true],
     ["/es/tools/giveaways/3f1c0b9e-1111-4c4c-8888-000000000001/twitter-image", true],
@@ -102,5 +111,19 @@ describe.each(["https://pre.elclub.party", "http://localhost:3000", undefined])(
     expect(rules).toHaveLength(1);
     expect(rules[0]).toMatchObject({ userAgent: "*", disallow: "/" });
     expect(rules[0]!.allow).toBeUndefined();
+  });
+});
+
+describe("sitemap (P3)", () => {
+  it("lists the pay tool and the public donate page in production, with their alternates", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://elclub.party");
+    const { default: sitemap } = (await import("@/app/sitemap")) as { default: () => MetadataRoute.Sitemap };
+    const urls = sitemap().map((e) => e.url);
+    expect(urls).toContain("https://elclub.party/herramientas/pay");
+    expect(urls).toContain("https://elclub.party/donar");
+    const donate = sitemap().find((e) => e.url.endsWith("/donar"))!;
+    expect(donate.alternates?.languages).toEqual({ es: "https://elclub.party/donar", en: "https://elclub.party/en/donate" });
+    expect(urls.some((u) => u.includes("/pay/") && !u.endsWith("/herramientas/pay"))).toBe(false);
   });
 });

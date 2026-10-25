@@ -530,4 +530,14 @@ export const en = {
     },
     donationsNote: "Donations to the club Safe on Base and Arbitrum.",
   },
+  pay: {
+    tool: { metaTitle: "ElClub Pay · Get paid and pay in USDC", metaDescription: "Get paid and pay in USDC or ETH with a link, straight wallet to wallet and non-custodial.", title: "ElClub Pay" },
+    page: { metaTitle: "Pay", title: "Pay" },
+    receipt: { metaTitle: "Payment receipt", title: "Payment receipt" },
+  },
+  donate: {
+    metaTitle: "Donate to ElClub.",
+    metaDescription: "Donate to the club Safe on Base and Arbitrum. Donating gives no economic rights.",
+    title: "Donate",
+  },
 } satisfies Dictionary;

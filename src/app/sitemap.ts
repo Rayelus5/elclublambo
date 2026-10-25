@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { alternatesFor, type RouteKey } from "@/lib/i18n/routes";
 import { isProductionSite, siteOrigin } from "@/lib/start/site";
 
-const ROUTES: RouteKey[] = ["home", "start", "tools", "giveaways"];
+const ROUTES: RouteKey[] = ["home", "start", "tools", "giveaways", "payTool", "donate"];
 
 // Solo producción se indexa; el detalle de cada sorteo es noindex y no figura aquí. Español como URL principal, inglés como alternativa.
 export default function sitemap(): MetadataRoute.Sitemap {

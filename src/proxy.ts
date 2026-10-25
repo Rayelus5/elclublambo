@@ -75,9 +75,9 @@ export async function proxy(request: NextRequest) {
 
   // Public part (bilingual tree): "/" is the landing unless the visitor is an active member (then the forum); Spanish
   // public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their canonical URL (308).
-  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/".
+  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/" and "/donar".
   let publicState: PublicState = user ? "public" : "anon";
-  if (user && pathname === "/") {
+  if (user && (pathname === "/" || pathname === "/donar")) {
     const { data: status, error } = await supabase.rpc("my_membership_status");
     if (!error && status === "active") publicState = "member";
   }
