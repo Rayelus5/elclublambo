@@ -82,3 +82,14 @@ describe("PublicConnect", () => {
     expect(hardNavigate).not.toHaveBeenCalled();
   });
 });
+
+describe("PublicConnect variant", () => {
+  it("is the brand fill by default and takes the outline variant when asked", () => {
+    account.isConnected = false;
+    account.address = undefined;
+    const { rerender } = render(<PublicConnect lang="en" next={null} />);
+    expect(screen.getByRole("button", { name: "Connect wallet" }).getAttribute("data-variant")).toBe("default");
+    rerender(<PublicConnect lang="en" next={null} variant="outline" />);
+    expect(screen.getByRole("button", { name: "Connect wallet" }).getAttribute("data-variant")).toBe("outline");
+  });
+});
