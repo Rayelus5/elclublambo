@@ -262,7 +262,7 @@ export const en = {
   landing: {
     metaTitle: "ElClub. · Honest, verifiable, free crypto tools",
     metaDescription:
-      "Verifiable giveaways with public drand randomness, free to run and free to enter. Coming soon: payment links and a contract checker. On Base and Arbitrum.",
+      "Verifiable giveaways with public drand randomness, free to run and free to enter. Payment links, and a contract checker soon. On Base and Arbitrum.",
     ogKicker: "OPEN TOOLS · BASE AND ARBITRUM",
     ogFooter: "Verifiable giveaways. Free.",
     create: "Create giveaway",
@@ -325,7 +325,7 @@ export const en = {
   },
   tools: {
     metaTitle: "Tools",
-    metaDescription: "Open crypto tools from ElClub.: verifiable giveaways and, coming soon, payments, a token and link checker, and vouching.",
+    metaDescription: "Open crypto tools from ElClub.: verifiable giveaways, payment links and, coming soon, a token and link checker and vouching.",
     title: "Tools",
     lead: "Crypto utilities open to everyone. We never hold funds.",
     listLabel: "Tools",

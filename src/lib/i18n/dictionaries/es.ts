@@ -262,7 +262,7 @@ export const es = {
   landing: {
     metaTitle: "ElClub. · Herramientas cripto honestas, verificables y gratis",
     metaDescription:
-      "Sorteos verificables con azar público de drand, gratis para organizar y para participar. Pronto, cobros con enlace y un comprobador de contratos. En Base y Arbitrum.",
+      "Sorteos verificables con azar público de drand, gratis para organizar y para participar. Cobros con enlace de pago, y pronto un comprobador de contratos. En Base y Arbitrum.",
     ogKicker: "HERRAMIENTAS ABIERTAS · BASE Y ARBITRUM",
     ogFooter: "Sorteos verificables. Gratis.",
     create: "Crear sorteo",
@@ -325,7 +325,7 @@ export const es = {
   },
   tools: {
     metaTitle: "Herramientas",
-    metaDescription: "Herramientas cripto abiertas de ElClub.: sorteos verificables y, próximamente, pagos, comprobador de tokens y avales.",
+    metaDescription: "Herramientas cripto abiertas de ElClub.: sorteos verificables, pagos con enlace y, próximamente, comprobador de tokens y avales.",
     title: "Herramientas",
     lead: "Útiles para cripto, abiertos a cualquiera. Sin custodia de fondos.",
     listLabel: "Herramientas",
