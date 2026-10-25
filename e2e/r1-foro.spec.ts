@@ -71,6 +71,7 @@ test("3. an old message link /c/<id>?m=<msg> 308s to /foro/c/<id>?m=<msg> (Revie
   expect(location.pathname + location.search).toBe(clubPath(legacy));
 
   // In the browser the member follows it to the message.
+  // goto("/") forces a fresh document load, so the legacy URL below is a real navigation through the proxy.
   await adminPage.goto("/");
   await adminPage.goto(legacy);
   await adminPage.waitForURL((u) => u.pathname === clubPath(`/c/${general}`) && u.searchParams.get("m") === messageId);

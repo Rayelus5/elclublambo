@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isPublicPath, safeNextPath } from "@/lib/auth/public-paths";
+import { isPublicPath, safeClubNextPath, safeNextPath } from "@/lib/auth/public-paths";
 
 describe("safeNextPath", () => {
   it.each(["/foro/invites", "/foro/admin/members?x=1", "/foro", "/", "/herramientas"])("%s kept", (p) => expect(safeNextPath(p)).toBe(p));
@@ -13,6 +13,18 @@ describe("safeNextPath", () => {
     expect(safeNextPath("//evil.com", "/")).toBe("/");
     expect(safeNextPath("/foro/login", "/")).toBe("/");
     expect(safeNextPath("/herramientas", "/")).toBe("/herramientas");
+  });
+});
+
+describe("safeClubNextPath", () => {
+  it("maps an exact / to the club home", () => {
+    expect(safeClubNextPath("/")).toBe("/foro");
+  });
+  it("behaves like safeNextPath otherwise", () => {
+    expect(safeClubNextPath("/foro/invites")).toBe("/foro/invites");
+    expect(safeClubNextPath("/?x=1")).toBe("/?x=1");
+    expect(safeClubNextPath("//evil.com")).toBe("/foro");
+    expect(safeClubNextPath(null)).toBe("/foro");
   });
 });
 

@@ -71,6 +71,8 @@ test("2. a member signing in on the landing stays on it and reaches the forum th
   await expect(goForum).toBeVisible({ timeout: 30_000 });
   expect(new URL(page.url()).pathname).toBe("/");
   await expect(page.getByRole("heading", { level: 1, name: LANDING_H1 })).toBeVisible();
+  // The landing wrapper is the only visible one before the click.
+  await expect(page.locator("div[lang='es']:visible")).toHaveCount(1);
   await goForum.click();
   await page.waitForURL((u) => u.pathname === clubPath());
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();

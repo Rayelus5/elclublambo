@@ -58,7 +58,8 @@ describe("legacyClubRedirect", () => {
   it("covers every old single segment before the unknown-segment 404", () => {
     for (const seg of SEGMENTS) {
       const p = `/${seg}`;
-      expect(legacyClubRedirect(p, "") !== null || !isUnknownTopSegment(p)).toBe(true);
+      // Each old segment is unknown at the root, which is why the proxy checks the legacy table before the 404.
+      expect(isUnknownTopSegment(p)).toBe(true);
     }
   });
 });

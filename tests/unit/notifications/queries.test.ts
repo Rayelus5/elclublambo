@@ -98,6 +98,10 @@ describe("listNotifications", () => {
       { ...base, id: 7, kind: "member_review", channel_id: null },
       { ...base, id: 8, kind: "ticket_new", channel_id: null, ticket_id: TICKET, ticket: { subject: "Ayuda" } },
       { ...base, id: 9, kind: "invite_redeemed", channel_id: null, actor: null },
+      { ...base, id: 10, kind: "treasury_notice", data: { event: "raffle_drawn" } },
+      { ...base, id: 11, kind: "treasury_outflow" },
+      { ...base, id: 12, kind: "withdrawal_paid" },
+      { ...base, id: 13, kind: "raffle_won", data: { raffleId: ROOT } },
     ];
     const { client } = fakeClient(rows);
     const hrefs = (await listNotifications({ filter: "all" }, client)).map((v) => v.href);
@@ -111,6 +115,10 @@ describe("listNotifications", () => {
       "/foro/admin/members",
       `/foro/tickets/${TICKET}`,
       "/foro/notifications",
+      "/foro/donar",
+      "/foro/donar",
+      "/foro/donar",
+      "/foro/sorteos",
     ]);
   });
 

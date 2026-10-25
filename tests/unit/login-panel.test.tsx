@@ -156,6 +156,13 @@ describe("LoginPanel", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro/invites"));
   });
 
+  it("sends next='/' to the club home, not the landing", async () => {
+    connect();
+    render(<LoginPanel next="/" />);
+    await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro"));
+  });
+
   it("ignores ?next= when redirectTo is not '/'", async () => {
     connect();
     completeLogin.mockResolvedValue({ redirectTo: "/foro/banned" });

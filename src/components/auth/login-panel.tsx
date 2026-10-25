@@ -8,7 +8,7 @@ import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { completeLogin } from "@/lib/auth/actions";
-import { safeNextPath } from "@/lib/auth/public-paths";
+import { safeClubNextPath } from "@/lib/auth/public-paths";
 import { clubPath } from "@/lib/club/paths";
 import { shortAddress } from "@/lib/auth/wallet";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
@@ -82,7 +82,7 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
       if (loginError && redirectTo === clubPath("/no-access")) {
         router.replace(`${clubPath("/no-access")}?error=${encodeURIComponent(loginError)}`);
       } else {
-        router.replace(redirectTo === clubPath() ? safeNextPath(next) : redirectTo);
+        router.replace(redirectTo === clubPath() ? safeClubNextPath(next) : redirectTo);
       }
     } catch {
       setError(MSG_VERIFY);

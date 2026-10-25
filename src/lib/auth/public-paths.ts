@@ -41,6 +41,11 @@ export function safeNextPath(next: string | null, fallback: string = clubPath())
   return next;
 }
 
+/** Club-mode `next`: like `safeNextPath`, but an exact "/" (the landing) lands on the club home. */
+export function safeClubNextPath(next: string | null): string {
+  return next === "/" ? clubPath() : safeNextPath(next);
+}
+
 /** `/foro/invite` alone is not public: only `/foro/invite/*`. Other prefixes match exactly or with subpaths. */
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((p) => {

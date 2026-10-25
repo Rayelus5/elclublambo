@@ -21,39 +21,39 @@ describe("withdrawal notifications", () => {
   it("withdrawal_approved", async () => {
     const n = await view("withdrawal_approved", { requestId: "r", amount: "8000000" });
     expect(text(n)).toContain("Tu retirada de 8 USDC está aprobada");
-    expect(n.href).toBe("/foro/dao#retirada");
+    expect(n.href).toBe("/foro/donar");
   });
 
   it("withdrawal_rejected carries the reason", async () => {
     const n = await view("withdrawal_rejected", { requestId: "r", reason: "Sin fondos" });
     expect(text(n)).toContain("Tu retirada fue rechazada: Sin fondos");
-    expect(n.href).toBe("/foro/dao#retirada");
+    expect(n.href).toBe("/foro/donar");
   });
 
   it("withdrawal_paid names the amount transferred", async () => {
     const n = await view("withdrawal_paid", { requestId: "r", amount: "8500000" });
     expect(text(n)).toContain("Has recibido 8,5 USDC de la tesorería");
-    expect(n.href).toBe("/foro/dao#retirada");
+    expect(n.href).toBe("/foro/donar");
   });
 
   it("withdrawal_expired", async () => {
     const n = await view("withdrawal_expired", { requestId: "r" });
     expect(text(n)).toContain("Tu aprobación de retirada caducó: vuelve a estar pendiente");
-    expect(n.href).toBe("/foro/dao#retirada");
+    expect(n.href).toBe("/foro/donar");
   });
 
   it("treasury_notice reads by event and links to the panel", async () => {
     const a = await view("treasury_notice", { event: "withdrawal_requested", requestId: "r" });
     expect(text(a)).toContain("Nueva solicitud de retirada");
-    expect(a.href).toBe("/foro/dao/tesoreria");
+    expect(a.href).toBe("/foro/donar");
     const b = await view("treasury_notice", { event: "approval_expired", requestId: "r" });
     expect(text(b)).toContain("Una retirada aprobada caducó sin pagarse");
-    expect(b.href).toBe("/foro/dao/tesoreria");
+    expect(b.href).toBe("/foro/donar");
   });
 
   it("treasury_outflow now links to the panel (ruling F4a-R1)", async () => {
     const n = await view("treasury_outflow", { opId: "o", asset: "USDC", amount: "250000000" });
-    expect(n.href).toBe("/foro/dao/tesoreria");
+    expect(n.href).toBe("/foro/donar");
   });
 
   it("falls back to copy without the amount when the payload is malformed", async () => {

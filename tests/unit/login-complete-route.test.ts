@@ -44,6 +44,11 @@ describe("GET /foro/login/complete", () => {
     expect((await call("?next=/foro/invites")).headers.get("location")).toBe("http://localhost:3000/foro/invites");
   });
 
+  it("club login with next=/ lands on the club home, not the landing", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/foro" });
+    expect((await call("?next=/")).headers.get("location")).toBe("http://localhost:3000/foro");
+  });
+
   it("ignores an unsafe next (back to the club home, R1-R4)", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "/foro" });
     expect((await call("?next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/foro");

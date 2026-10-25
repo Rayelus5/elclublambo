@@ -1,4 +1,4 @@
-import { safeNextPath as safeAuthNextPath } from "@/lib/auth/public-paths";
+import { safeClubNextPath as safeAuthNextPath } from "@/lib/auth/public-paths";
 import { clubPath, LEGACY_WELCOME_PATH } from "@/lib/club/paths";
 
 const WELCOME = clubPath("/bienvenida");

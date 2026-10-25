@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { safeNextPath } from "@/lib/auth/public-paths";
+import { safeClubNextPath, safeNextPath } from "@/lib/auth/public-paths";
 import { completeLogin } from "@/lib/auth/actions";
 import { clubPath } from "@/lib/club/paths";
 import { publicOrigin } from "@/lib/start/site";
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
   // Same hand-off as the login panel: the club home honours a safe `next`; /foro/no-access takes the specific error.
   const wanted =
     result.redirectTo === home
-      ? safeNextPath(searchParams.get("next"))
+      ? safeClubNextPath(searchParams.get("next"))
       : result.error && result.redirectTo === noAccess
         ? `${noAccess}?error=${encodeURIComponent(result.error)}`
         : result.redirectTo;

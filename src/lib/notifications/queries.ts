@@ -183,21 +183,19 @@ function hrefFor(row: Row): string {
   if (PERSON_KINDS.has(row.kind)) return row.actor ? clubPath(`/u/${row.actor.wallet_address}`) : clubPath("/notifications");
   if (row.kind === "report_new") return clubPath("/moderation/reports");
   if (row.kind === "member_review") return clubPath("/admin/members");
-  // Ruling F4a-R1: the panel exists now (F4c), same url as the push.
+  // Same url as the push (R1).
   if (row.kind === "raffle_won") {
-    const id = row.data?.raffleId;
-    return typeof id === "string" && UUID_RE.test(id) ? clubPath(`/dao/sorteos/${id}`) : clubPath("/dao#sorteos");
+    return clubPath("/sorteos");
   }
   if (row.kind === "giveaway_won") {
     const id = row.data?.giveawayId;
     return typeof id === "string" && UUID_RE.test(id) ? clubPath(`/sorteos/${id}`) : clubPath("/sorteos");
   }
   if (row.kind === "treasury_notice") {
-    const event = noticeEvent(row.data);
-    return event === "raffle_drawn" || event === "raffle_unpaid" ? clubPath("/dao/tesoreria#sorteos") : clubPath("/dao/tesoreria");
+    return clubPath("/donar");
   }
-  if (row.kind === "treasury_outflow") return clubPath("/dao/tesoreria");
-  if (WITHDRAWAL_KINDS.has(row.kind)) return clubPath("/dao#retirada");
+  if (row.kind === "treasury_outflow") return clubPath("/donar");
+  if (WITHDRAWAL_KINDS.has(row.kind)) return clubPath("/donar");
   if (row.ticket_id && UUID_RE.test(row.ticket_id)) return clubPath(`/tickets/${row.ticket_id}`);
   return clubPath("/notifications");
 }
