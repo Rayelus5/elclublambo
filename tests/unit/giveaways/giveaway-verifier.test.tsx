@@ -9,6 +9,7 @@ vi.mock("@/lib/giveaways/drand", async (orig) => ({ ...(await orig<typeof import
 
 import { GiveawayVerifier } from "@/components/giveaways/giveaway-verifier";
 import { giveawayCommit } from "@/lib/giveaways/draw";
+import { getDictionary } from "@/lib/i18n";
 
 const SEED = fixture.seedHex as Hex;
 const props = {
@@ -89,5 +90,35 @@ describe("GiveawayVerifier · unexpected failure", () => {
     expect(bad()).toHaveLength(0);
     expect(log).toHaveBeenCalledWith("[giveaways] verifier failed", expect.any(Error));
     log.mockRestore();
+  });
+});
+
+describe("GiveawayVerifier · labels", () => {
+  it("without labels the club keeps its Spanish copy", async () => {
+    fetchBeacon.mockResolvedValue({ status: "ok", signature: fixture.signature, randomness: fixture.randomness });
+    render(<GiveawayVerifier {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: "Comprobar" }));
+    expect(await screen.findByText("Huella de la semilla")).toBeInTheDocument();
+    expect(screen.getByText(`Ronda ${fixture.round} de drand`)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Resultado de la comprobación" })).toBeInTheDocument();
+  });
+
+  it("with the English dictionary labels it speaks English", async () => {
+    const labels = getDictionary("en").giveaways.detail.verifier;
+    fetchBeacon.mockResolvedValue({ status: "ok", signature: fixture.signature, randomness: fixture.randomness });
+    render(<GiveawayVerifier {...props} labels={labels} />);
+    await userEvent.click(screen.getByRole("button", { name: labels.check }));
+    expect(await screen.findByText(labels.commitTitle)).toBeInTheDocument();
+    expect(screen.getByText(labels.roundTitle.replace("{round}", String(fixture.round)))).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: labels.ok })).toHaveLength(3);
+    expect(screen.queryByText("Huella de la semilla")).toBeNull();
+  });
+
+  it("drand unavailable in English", async () => {
+    const labels = getDictionary("en").giveaways.detail.verifier;
+    fetchBeacon.mockResolvedValue({ status: "unavailable" });
+    render(<GiveawayVerifier {...props} labels={labels} />);
+    await userEvent.click(screen.getByRole("button", { name: labels.check }));
+    expect(await screen.findByText(labels.unavailable)).toBeInTheDocument();
   });
 });

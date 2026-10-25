@@ -6,13 +6,17 @@ import type { Hex } from "viem";
 import { Button } from "@/components/ui/button";
 import { fetchBeacon } from "@/lib/giveaways/drand";
 import { verifyGiveaway } from "@/lib/giveaways/draw";
+import type { Dictionary } from "@/lib/i18n";
+import { es } from "@/lib/i18n/dictionaries/es";
+import { fill } from "@/lib/i18n/fill";
 
 type Step = { ok: boolean; title: string; detail: string };
 type State = { kind: "idle" } | { kind: "checking" } | { kind: "unavailable" } | { kind: "done"; steps: Step[] };
 
-const UNAVAILABLE = "No se pudo descargar la ronda. Inténtalo más tarde.";
+export type VerifierLabels = Dictionary["giveaways"]["detail"]["verifier"];
 
-const positions = (list: readonly number[]) => (list.length ? list.join(", ") : "ninguna");
+/** The club's Spanish copy: the public dictionary's verifier section in Spanish is the same text. */
+const DEFAULT_LABELS: VerifierLabels = es.giveaways.detail.verifier;
 
 /**
  * The public verifier, in the browser: downloads the drand round (fetchBeacon verifies its BLS signature), then checks
@@ -28,6 +32,7 @@ export function GiveawayVerifier({
   drandRandomness,
   entryCount,
   winnerPositions,
+  labels: l = DEFAULT_LABELS,
 }: {
   commit: string;
   seedReveal: string;
@@ -39,7 +44,10 @@ export function GiveawayVerifier({
   entryCount: number;
   /** One per prize, by rank: the winning entry position, or null for a prize left without entries. */
   winnerPositions: readonly (number | null)[];
+  /** Copy from the public dictionary; without it, the club's Spanish texts. */
+  labels?: VerifierLabels;
 }) {
+  const positions = (list: readonly number[]) => (list.length ? list.join(", ") : l.none);
   const [state, setState] = useState<State>({ kind: "idle" });
   const busy = useRef(false);
   const round = BigInt(targetRound);
@@ -70,29 +78,23 @@ export function GiveawayVerifier({
         steps: [
           {
             ok: r.commitOk,
-            title: "Huella de la semilla",
-            detail: r.commitOk ? "La semilla revelada da la huella publicada antes de empezar." : "La semilla revelada no da la huella publicada.",
+            title: l.commitTitle,
+            detail: r.commitOk ? l.commitOk : l.commitBad,
           },
           {
             ok: drandOk,
-            title: `Ronda ${targetRound} de drand`,
-            detail: drandOk
-              ? "Es la primera ronda tras el cierre, su firma es válida y coincide con la usada en el sorteo."
-              : !r.roundOk
-                ? "No es la primera ronda de drand después del cierre."
-                : beacon.status === "invalid"
-                  ? "La ronda descargada no tiene una firma válida de drand."
-                  : "La ronda de drand no coincide con la usada en el sorteo.",
+            title: fill(l.roundTitle, { round: targetRound }),
+            detail: drandOk ? l.roundOk : !r.roundOk ? l.roundNotFirst : beacon.status === "invalid" ? l.roundBadSignature : l.roundMismatch,
           },
           {
             ok: beaconOk && r.winnersOk,
-            title: "Ganadores",
+            title: l.winnersTitle,
             detail:
               beaconOk && r.winnersOk
-                ? `Los ganadores coinciden: posiciones ${positions(r.winners)}.`
+                ? fill(l.winnersOk, { list: positions(r.winners) })
                 : beaconOk
-                  ? `Los ganadores no coinciden: salen las posiciones ${positions(r.winners)} y se publicaron ${positions(claimed)}.`
-                  : "Sin una ronda válida no se pueden recalcular los ganadores.",
+                  ? fill(l.winnersBad, { list: positions(r.winners), claimed: positions(claimed) })
+                  : l.winnersNoBeacon,
           },
         ],
       });
@@ -111,18 +113,18 @@ export function GiveawayVerifier({
     <div className="flex flex-col gap-3">
       <Button type="button" variant="outline" className="self-start" onClick={check} disabled={checking}>
         {checking ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ShieldCheck aria-hidden />}
-        {checking ? "Comprobando…" : "Comprobar"}
+        {checking ? l.checking : l.check}
       </Button>
       <div aria-live="polite" className="flex flex-col gap-2">
-        {state.kind === "unavailable" ? <p className="text-sm text-fg-muted">{UNAVAILABLE}</p> : null}
+        {state.kind === "unavailable" ? <p className="text-sm text-fg-muted">{l.unavailable}</p> : null}
         {state.kind === "done" ? (
-          <ol aria-label="Resultado de la comprobación" className="flex flex-col gap-2">
+          <ol aria-label={l.result} className="flex flex-col gap-2">
             {state.steps.map((s) => (
               <li key={s.title} className="flex items-start gap-2 text-sm">
                 {s.ok ? (
-                  <CircleCheck role="img" aria-label="Correcto" className="mt-0.5 size-5 shrink-0 text-success" />
+                  <CircleCheck role="img" aria-label={l.ok} className="mt-0.5 size-5 shrink-0 text-success" />
                 ) : (
-                  <CircleX role="img" aria-label="No coincide" className="mt-0.5 size-5 shrink-0 text-danger" />
+                  <CircleX role="img" aria-label={l.bad} className="mt-0.5 size-5 shrink-0 text-danger" />
                 )}
                 <span className="flex min-w-0 flex-col">
                   <span className="font-bold">{s.title}</span>

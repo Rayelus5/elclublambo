@@ -136,8 +136,9 @@ test("1. the treasurer creates a giveaway with USDC on Base Sepolia, a role and 
   const dialog = page.getByRole("dialog", { name: "Crear sorteo" });
   await expect(dialog.getByText("Gratis: nunca se paga por participar. Todos tienen la misma probabilidad.")).toBeVisible();
   await dialog.getByLabel("Título").fill(TITLE);
-  // 12 minutes: the minute is truncated in the field and the server wants at least 10.
-  await dialog.getByLabel("Cierre").fill(localIn(12 * 60_000));
+  // Two hours ahead (test 3 moves the close into the past): the server wants at least 10 minutes, and a local time within
+  // an hour of a DST change back is ambiguous and read an hour earlier, so a 12-minute close failed on that night.
+  await dialog.getByLabel("Cierre").fill(localIn(2 * 3600_000));
 
   const first = dialog.getByRole("group", { name: "Premio 1" });
   await first.getByRole("radio", { name: /Base Sepolia/ }).click();

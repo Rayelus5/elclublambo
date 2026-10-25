@@ -50,7 +50,8 @@ test.afterAll(async () => {
 
 test("1. una wallet sin invitación acaba en /no-access", async ({ browser }) => {
   const { context, page } = await actor(browser, newWalletKey());
-  await page.goto("/");
+  // "/" is the public landing for a signed-in account without membership (P2); forum routes still send it to /no-access.
+  await page.goto("/invites");
   await expect(page).toHaveURL(/\/no-access$/);
   await expect(page.getByRole("heading", { name: "Sin acceso" })).toBeVisible();
   await context.close();

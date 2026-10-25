@@ -118,6 +118,104 @@ describe.skipIf(!up)(`giveaway draw parity: SQL draw_giveaway vs TS drawWinners 
   });
 });
 
+// P2 Task 5: the public draw (draw_public_giveaway, private.giveaway_pick) against the same TS mirror. The host is any
+// signed-in wallet (create_public_giveaway with its random secret seed); entries are written by the service role in a
+// known order, then the production path closes and draws with drand round 1000. giveaway_pick itself is pinned on the
+// fixture by supabase/tests/p2_03_public_giveaways_draw.test.sql.
+describe.skipIf(!up)(`giveaway draw parity: SQL draw_public_giveaway vs TS drawWinners ${up ? "" : `(skipped: ${skipReason})`}`, () => {
+  const db = up ? createClient(url!, serviceKey!, opts) : (null as unknown as SupabaseClient);
+  const run = randomUUID().slice(0, 8);
+  const created = { giveaways: [] as string[], members: [] as string[], users: [] as string[] };
+  let host: Who;
+  const entrants: { userId: string; wallet: string }[] = [];
+
+  beforeAll(async () => {
+    host = await newUser(db);
+    created.members.push(host.memberId);
+    for (let i = 0; i < 12; i++) {
+      const user = await db.auth.admin.createUser({ email: `pgw_parity_${run}_${i}@parity.test`, email_confirm: true });
+      if (user.error) throw new Error(`createUser: ${user.error.message}`);
+      created.users.push(user.data.user.id);
+      entrants.push({ userId: user.data.user.id, wallet: `0x${randomBytes(20).toString("hex")}` });
+    }
+  }, 60_000);
+
+  afterAll(async () => {
+    if (!up) return;
+    for (const id of created.giveaways) await db.from("public_giveaways").delete().eq("id", id);
+    for (const id of created.members) await db.from("members").delete().eq("id", id);
+    for (const id of created.users) await db.auth.admin.deleteUser(id);
+  });
+
+  async function drawPublic(entries: number, prizes: number) {
+    const res = await host.client.rpc("create_public_giveaway", {
+      p_title: `Paridad pública ${run} ${entries}x${prizes}`,
+      p_description: null,
+      p_closes_at: new Date(Date.now() + 3_600_000).toISOString(),
+      p_host_name: null,
+      p_min_tx_count: 0,
+      p_allowlist: null,
+      p_prizes: Array.from({ length: prizes }, (_, k) => ({ kind: "custom", label: `Premio ${k + 1}` })),
+    });
+    expect(res.error).toBeNull();
+    const id = res.data as string;
+    created.giveaways.push(id);
+
+    const t0 = Date.now() - 3_600_000;
+    const rows = entrants.slice(0, entries).map((e, i) => ({
+      giveaway_id: id,
+      user_id: e.userId,
+      wallet_address: e.wallet,
+      entered_at: new Date(t0 + i * 1000).toISOString(),
+    }));
+    if (rows.length) expect((await db.from("public_giveaway_entries").insert(rows)).error).toBeNull();
+    expect(
+      (await db.from("public_giveaways").update({ closes_at: new Date(Date.now() - 60_000).toISOString(), target_round: fixture.round }).eq("id", id))
+        .error,
+    ).toBeNull();
+    expect((await db.rpc("close_due_public_giveaways")).error).toBeNull();
+    const drawn = await db.rpc("draw_public_giveaway", { p_id: id, p_round: fixture.round, p_signature: fixture.signature });
+    expect(drawn.error).toBeNull();
+    expect(drawn.data).toBe("drawn");
+
+    const g = must<{ seed_commit: string; seed_reveal: string; drand_randomness: string; entry_count: number }>(
+      await db.from("public_giveaways").select("seed_commit, seed_reveal, drand_randomness, entry_count").eq("id", id).single(),
+      "read public giveaway",
+    );
+    const p = must<{ rank: number; winner_position: number | null; winner_address: string | null }[]>(
+      await db.from("public_giveaway_prizes").select("rank, winner_position, winner_address").eq("giveaway_id", id).order("rank"),
+      "read public prizes",
+    );
+    return { g, prizes: p };
+  }
+
+  it.each([
+    [7, 3],
+    [2, 3],
+    [12, 10],
+    [1, 1],
+  ])("%i entries, %i prizes: SQL winners = TS winners, and the public verifier agrees", async (entries, prizes) => {
+    const { g, prizes: rows } = await drawPublic(entries, prizes);
+    const positions = rows.map((x) => x.winner_position);
+    expect(g.entry_count).toBe(entries);
+    expect(g.drand_randomness).toBe(fixture.randomness);
+    const ts = drawWinners(g.seed_reveal as Hex, g.drand_randomness, entries, prizes);
+    expect(positions).toEqual(Array.from({ length: prizes }, (_, k) => ts[k] ?? null));
+    expect(rows.map((x) => x.winner_address)).toEqual(positions.map((pos) => (pos === null ? null : entrants[pos - 1]!.wallet)));
+    expect(
+      verifyGiveaway({
+        commit: g.seed_commit,
+        seedReveal: g.seed_reveal as Hex,
+        round: BigInt(fixture.round),
+        signature: fixture.signature,
+        randomness: g.drand_randomness,
+        entryCount: g.entry_count,
+        winnerPositions: positions,
+      }),
+    ).toEqual({ commitOk: true, roundOk: true, beaconOk: true, winnersOk: true, winners: ts });
+  }, 30_000);
+});
+
 describe.skipIf(up)("giveaway draw parity (skipped)", () => {
   it.skip(skipReason, () => {});
 });

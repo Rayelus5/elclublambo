@@ -5,6 +5,12 @@ import { appChainIds } from "@/lib/economy/networks";
 export const LOGIN_STATEMENT =
   "Entra en ElClub. Esta firma no cuesta gas ni mueve fondos.";
 
+/** The sign-in phrase per language (the public side signs in the visitor's language; the club is Spanish-only). */
+export const LOGIN_STATEMENTS: Record<"es" | "en", string> = {
+  es: LOGIN_STATEMENT,
+  en: "Sign in to ElClub. This signature costs no gas and moves no funds.",
+};
+
 const VALIDITY_MS = 5 * 60 * 1000;
 
 export type LoginMessageParams = {
@@ -14,6 +20,7 @@ export type LoginMessageParams = {
   domain: string;
   uri: string;
   now?: Date;
+  lang?: "es" | "en";
 };
 
 export function buildLoginMessage(p: LoginMessageParams): string {
@@ -29,7 +36,7 @@ export function buildLoginMessage(p: LoginMessageParams): string {
     uri: p.uri,
     nonce: p.nonce,
     version: "1",
-    statement: LOGIN_STATEMENT,
+    statement: LOGIN_STATEMENTS[p.lang ?? "es"],
     issuedAt: now,
     notBefore: now,
     expirationTime: new Date(now.getTime() + VALIDITY_MS),

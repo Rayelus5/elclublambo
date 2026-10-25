@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { m, useScroll, useTransform, type MotionValue } from "motion/react";
+import type { StartDict } from "./dict";
 import { rise, Stage, useMotionOn } from "./motion";
 
 type Node = { handle: string; x: number; y: number; level: 0 | 1 | 2 };
@@ -81,7 +82,7 @@ function Member({ node, progress, on }: { node: Node; progress: MotionValue<numb
   );
 }
 
-export function TrustChain() {
+export function TrustChain({ t }: { t: StartDict }) {
   const on = useMotionOn();
   const stage = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({ target: stage, offset: ["start 0.85", "end 0.5"] });
@@ -90,15 +91,13 @@ export function TrustChain() {
       <div className="mx-auto grid w-full max-w-[1600px] items-center gap-16 px-4 py-24 sm:px-8 sm:py-32 lg:grid-cols-12">
         <Stage className="flex flex-col gap-6 lg:col-span-5">
           <m.h2 variants={rise} id="start-cadena" className="text-[clamp(2.5rem,6vw,5rem)] leading-[0.9] font-black tracking-[-0.04em]">
-            La cadena de confianza
+            {t.trust.title}
           </m.h2>
           <m.p variants={rise} className="text-[1.125rem]">
-            Aquí no se entra buscando en Google. Solo entra quien recibe la invitación de un miembro, y cada miembro responde de a
-            quién invita.
+            {t.trust.lead}
           </m.p>
           <m.p variants={rise} className="text-fg-muted">
-            Por eso el club crece despacio y con gente que alguien de dentro conoce. Cada línea es una invitación, y todas tienen
-            remitente.
+            {t.trust.body}
           </m.p>
         </Stage>
         <div ref={stage} aria-hidden className="relative h-[20rem] w-full sm:h-[26rem] lg:col-span-7">

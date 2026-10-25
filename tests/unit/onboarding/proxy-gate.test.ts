@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 
 type Row = { data: { welcome_completed_at: string | null } | null; error: { message: string } | null };
 const state = vi.hoisted(() => ({
@@ -52,7 +53,18 @@ describe("proxy onboarding gate", () => {
     expect(loc.searchParams.get("next")).toBe("/c/x?a=1");
   });
 
-  it.each(["/guia", "/guia/dao", "/bienvenida", "/login", "/invite/abc", "/banned", "/no-access"])(
+  it.each([
+    "/guia",
+    "/guia/dao",
+    "/bienvenida",
+    "/login",
+    "/invite/abc",
+    "/banned",
+    "/no-access",
+    "/es/opengraph-image",
+    "/es/start/twitter-image-1a2b3c",
+    "/es/tools/giveaways/3f1c0b9e-1111-4c4c-8888-000000000001/opengraph-image",
+  ])(
     "lets %s through while the welcome is incomplete",
     async (path) => {
       const res = await call(path);
@@ -144,7 +156,8 @@ describe("proxy welcome memo", () => {
 
   it("clears the memo once the session is gone (signed out)", async () => {
     state.user = null;
-    const res = await call("/", { headers: { cookie: "ecl_welcomed=u1" } });
+    // A private page: signed out, "/" is the public landing now (it clears the memo too, but does not go to /login).
+    const res = await call("/perfil", { headers: { cookie: "ecl_welcomed=u1" } });
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
     const cleared = res.cookies.get("ecl_welcomed");
     expect(cleared?.value).toBe("");

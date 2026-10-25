@@ -18,6 +18,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
+  // P2-R16: the public connect comes back here (?mode=public): no invite, any non-banned wallet goes back to `next`.
+  // A lost session ("/login") goes back to `next` too: the public page offers to connect again (the club login does not).
+  if (searchParams.get("mode") === "public") {
+    const { redirectTo } = await completeLogin(null, "public");
+    const back = redirectTo === "public" || redirectTo === "/login";
+    const target = new URL(back ? safeNextPath(searchParams.get("next")) : redirectTo, origin);
+    return NextResponse.redirect(target.origin === origin ? target : new URL("/", origin));
+  }
+
   const result = await completeLogin(searchParams.get("invite"));
   // Same hand-off as the login panel: /no-access takes the specific error by ?error=.
   const wanted =
