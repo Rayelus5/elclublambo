@@ -91,6 +91,16 @@ describe("GET /api/v1/check/link — x402 on (Review Focus 5)", () => {
     expect(hitIpRateLimit).not.toHaveBeenCalled();
   });
 
+  it("the 402 resource URL uses the public origin, not the bind address", async () => {
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://pre.elclub.party");
+    const internal = new NextRequest(`http://0.0.0.0:3000/api/v1/check/link${q("https://github.com")}`, { headers: { "x-forwarded-for": "203.0.113.7" } });
+    const res = await GET(internal);
+    expect(res.status).toBe(402);
+    const pr = decode(res.headers.get("payment-required"));
+    expect(pr.resource.url.startsWith("https://pre.elclub.party/api/v1/check/link")).toBe(true);
+    expect(pr.resource.url).toContain("url=");
+  });
+
   it("the analyser throwing after a verified payment → 502, never settled", async () => {
     const first = await GET(req(q("https://github.com")));
     const sig = paymentSignature(decode(first.headers.get("payment-required")));

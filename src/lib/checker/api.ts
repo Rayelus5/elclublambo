@@ -1,9 +1,10 @@
 import "server-only";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
 import { hitIpRateLimit } from "@/lib/rate-limit/ip";
 import { safeError } from "@/lib/security/redact";
+import { publicOrigin } from "@/lib/start/site";
 import { ADDRESS_RE, MAX_QUERY_LENGTH } from "./input";
 import { analyzeLink } from "./link/analyze";
 import { paidHandler, warnIfMisconfigured, x402Config, type X402Config } from "./x402";
@@ -90,7 +91,9 @@ async function servePaid(request: NextRequest, kind: Kind, cfg: Extract<X402Conf
     console.error(`[checker-api] x402 handler for ${kind} could not be built`, safeError(e));
     return apiError(503, "unavailable");
   }
-  const res = await paid(request);
+  // x402 takes the resource URL from the request; behind the tunnel that is the bind address (0.0.0.0), so it gets the public origin.
+  const publicRequest = new NextRequest(new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, publicOrigin(request)), request);
+  const res = await paid(publicRequest);
   if (res.status === 402) res.headers.set("Cache-Control", "no-store");
   return res;
 }
