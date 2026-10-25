@@ -82,12 +82,12 @@ describe("R2 final review", () => {
     ]);
   });
 
-  it("the Base network icon is the unaltered official Square (no circle, no white path)", () => {
+  it("the Base network icon is the round one, like the other network logos: Base Blue circle with the white Square (user's choice, 2026-10-25)", () => {
     const p = join(ROOT, "public/brand/networks/base.svg");
     expect(existsSync(p)).toBe(true);
     const svg = readFileSync(p, "utf8");
-    expect(svg).not.toMatch(/<circle/i);
-    expect(svg).not.toMatch(/#FFFFFF|white/i);
+    expect(svg).toMatch(/<circle cx="640" cy="640" r="640" fill="#0000FF"\/>/);
+    expect(svg).toMatch(/<path fill="#FFFFFF"/);
     expect(svg).toContain("M0,101.12c0-34.64");
   });
 });

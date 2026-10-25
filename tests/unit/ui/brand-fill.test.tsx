@@ -67,9 +67,13 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
   });
 
   it("no file in src or public hardcodes Base Blue (#0000FF, #00f, rgb(0,0,255)) outside globals.css and styles/tokens.ts", () => {
-    const allowed = new Set([join("src", "app", "globals.css"), join("src", "styles", "tokens.ts")]);
+    // Base's own network icon draws Base's brand colour (it is their mark, not our token).
+    const allowed = new Set([
+      join("src", "app", "globals.css"),
+      join("src", "styles", "tokens.ts"),
+      join("public", "brand", "networks", "base.svg"),
+    ]);
     const blue = /#0000ff\b|#00f\b|rgba?\(\s*0\s*,\s*0\s*,\s*255\s*[,)]/i;
-    // Base's own network icon is the official unaltered mark (`fill: blue`), not our colour.
     const files = [...walk(join(ROOT, "src")), ...walk(join(ROOT, "public"))].filter((p) => !/\.(png|ico|woff2?|jpe?g|webp)$/i.test(p));
     const offenders = files
       .map((p) => relative(ROOT, p))
