@@ -12,7 +12,7 @@ function facts(over: Partial<TokenFacts> = {}): TokenFacts {
     proxy: ok({ isProxy: false, implementation: null }),
     owner: ok({ owner: "0x0000000000000000000000000000000000000000", renounced: true }),
     verification: ok({ verified: true, source: "blockscout", abiFlags: [] }),
-    creation: ok({ creator: "0x2222222222222222222222222222222222222222", createdAt: "2025-01-01T00:00:00.000Z", ageDays: 400, isScam: false }),
+    creation: ok({ creator: "0x2222222222222222222222222222222222222222", createdAt: "2025-01-01T00:00:00.000Z", ageDays: 400, ageUnknown: null, isScam: false }),
     market: ok({ pairs: 3, liquidityUsd: 2_000_000, priceUsd: "1.00", fdv: 1e9, topPairUrl: "https://dexscreener.com/base/0xpair" }),
     ...over,
   };
@@ -43,7 +43,7 @@ describe("tokenAlerts (P4-R2)", () => {
   });
 
   it("scam flag is high", () => {
-    expect(codes(facts({ creation: ok({ creator: null, createdAt: null, ageDays: null, isScam: true }) }))).toEqual(["scam_flag:high"]);
+    expect(codes(facts({ creation: ok({ creator: null, createdAt: null, ageDays: null, ageUnknown: null, isScam: true }) }))).toEqual(["scam_flag:high"]);
   });
 
   it("unverified is medium", () => {
@@ -51,7 +51,7 @@ describe("tokenAlerts (P4-R2)", () => {
   });
 
   it("created 2 days ago is medium; 7 days is not new", () => {
-    const c = (ageDays: number) => facts({ creation: ok({ creator: null, createdAt: "x", ageDays, isScam: false }) });
+    const c = (ageDays: number) => facts({ creation: ok({ creator: null, createdAt: "x", ageDays, ageUnknown: null, isScam: false }) });
     expect(codes(c(2))).toEqual(["new_contract:medium"]);
     expect(codes(c(7))).toEqual([]);
   });
@@ -75,6 +75,11 @@ describe("tokenAlerts (P4-R2)", () => {
     expect(codes(facts({ owner: ok(null) }))).toEqual([]);
   });
 
+  it("unknown ABI flags or an unknown age never raise (nor count as safe)", () => {
+    expect(codes(facts({ verification: ok({ verified: true, source: "blockscout", abiFlags: null }) }))).toEqual([]);
+    expect(codes(facts({ creation: ok({ creator: null, createdAt: null, ageDays: null, ageUnknown: "timeout", isScam: false }) }))).toEqual([]);
+  });
+
   it("privileged ABI functions are info", () => {
     expect(codes(facts({ verification: ok({ verified: true, source: "sourcify", abiFlags: ["mint", "blacklist"] }) }))).toEqual(["abi_privileged:info"]);
   });
@@ -96,7 +101,7 @@ describe("tokenAlerts (P4-R2)", () => {
     const f = facts({
       owner: ok({ owner: "0x4444444444444444444444444444444444444444", renounced: false }),
       verification: ok({ verified: false, source: "blockscout", abiFlags: [] }),
-      creation: ok({ creator: null, createdAt: null, ageDays: 1, isScam: true }),
+      creation: ok({ creator: null, createdAt: null, ageDays: 1, ageUnknown: null, isScam: true }),
     });
     expect(codes(f)).toEqual(["scam_flag:high", "unverified:medium", "new_contract:medium", "owner_active:info"]);
   });

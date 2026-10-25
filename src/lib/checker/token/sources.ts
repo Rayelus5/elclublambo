@@ -1,5 +1,13 @@
 import "server-only";
-import { BaseError, erc20Abi, HttpRequestError, LimitExceededRpcError, TimeoutError } from "viem";
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  erc20Abi,
+  HttpRequestError,
+  LimitExceededRpcError,
+  TimeoutError,
+} from "viem";
 import { NETWORKS, networkSet, type ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { ok, unknown, type Erc20Data, type OwnerData, type ProxyData, type Section, type UnknownReason } from "./types";
@@ -81,8 +89,8 @@ export async function getJson(url: string): Promise<Fetched> {
     if (res.status === 429) return { kind: "fail", reason: "rate_limited" };
     const text = await res.text();
     const challenged = res.headers.has("cf-mitigated") || CLOUDFLARE_CHALLENGE.test(text.slice(0, 4096));
-    if (res.status === 403) return { kind: "fail", reason: challenged ? "blocked" : "error" };
-    if (!res.ok) return { kind: "fail", reason: "error" };
+    // A Cloudflare challenge can come with any 4xx/5xx (403, 503…): blocked, checked before the generic failure.
+    if (!res.ok) return { kind: "fail", reason: challenged ? "blocked" : "error" };
     try {
       return { kind: "ok", json: JSON.parse(text) as unknown };
     } catch {
@@ -152,21 +160,22 @@ export async function blockscoutAddress(base: string, address: string): Promise<
   });
 }
 
-/** The creation transaction's timestamp (ISO), or null when it cannot be read. */
-export async function blockscoutTxTime(base: string, hash: string): Promise<string | null> {
+/** The creation transaction's timestamp (ISO). A failed lookup is unknown with its reason, never «no date». */
+export async function blockscoutTxTime(base: string, hash: string): Promise<Section<string>> {
   const r = await getJson(`${base}/api/v2/transactions/${hash}`);
-  if (r.kind !== "ok" || !isObj(r.json)) return null;
+  if (r.kind === "fail") return unknown(r.reason);
+  if (r.kind !== "ok" || !isObj(r.json)) return unknown("error");
   const ts = str(r.json.timestamp);
-  if (!ts) return null;
   // Blockscout sends microseconds ("…00.000000Z"); keep milliseconds so Date parses it everywhere.
-  const t = Date.parse(ts.replace(/(\.\d{3})\d+/, "$1"));
-  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+  const t = ts ? Date.parse(ts.replace(/(\.\d{3})\d+/, "$1")) : NaN;
+  return Number.isFinite(t) ? ok(new Date(t).toISOString()) : unknown("error");
 }
 
-/** The verified ABI from `/api/v2/smart-contracts/{addr}`, or null. */
-export async function blockscoutAbi(base: string, address: string): Promise<unknown[] | null> {
+/** The verified ABI from `/api/v2/smart-contracts/{addr}`; any failure (404 included) is unknown with its reason. */
+export async function blockscoutAbi(base: string, address: string): Promise<Section<unknown[]>> {
   const r = await getJson(`${base}/api/v2/smart-contracts/${address}`);
-  return r.kind === "ok" && isObj(r.json) && Array.isArray(r.json.abi) ? r.json.abi : null;
+  if (r.kind === "fail") return unknown(r.reason);
+  return r.kind === "ok" && isObj(r.json) && Array.isArray(r.json.abi) ? ok(r.json.abi) : unknown("error");
 }
 
 // --- Sourcify ----------------------------------------------------------------------------------------------------------
@@ -298,8 +307,10 @@ async function readChainUnbounded(chain: ChainId, address: `0x${string}`): Promi
       const o = addr(await client.readContract({ address, abi: OWNER_ABI, functionName: "owner" }));
       return ok(o === null ? null : { owner: o, renounced: o === ZERO_ADDRESS });
     } catch (e) {
-      const reason = rpcFailure(e);
-      return reason ? unknown(reason) : ok(null); // a revert: there is no owner() to read
+      // Only a real revert (or an empty answer) means there is no owner() to read; any other failure is unknown.
+      if (e instanceof BaseError && e.walk((x) => x instanceof ContractFunctionRevertedError || x instanceof ContractFunctionZeroDataError))
+        return ok(null);
+      return unknown(rpcFailure(e) ?? "error");
     }
   })();
 

@@ -35,7 +35,7 @@ export function tokenAlerts(f: TokenFacts): TokenAlert[] {
 
   if (f.proxy.status === "ok" && f.proxy.data.isProxy) add("upgradeable_proxy", "medium");
   if (f.owner.status === "ok" && f.owner.data && !f.owner.data.renounced) add("owner_active", "info");
-  if (verification && verification.abiFlags.length > 0) add("abi_privileged", "info");
+  if (verification?.abiFlags && verification.abiFlags.length > 0) add("abi_privileged", "info");
 
   return sort(out);
 }

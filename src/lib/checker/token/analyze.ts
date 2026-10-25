@@ -1,7 +1,7 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import type { ChainId } from "@/lib/economy/networks";
+import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { tokenAlerts } from "./alerts";
 import {
   abiFlags,
@@ -22,23 +22,33 @@ const DAY_MS = 86_400_000;
  * Verification: Blockscout's answer first (it also imports Sourcify), Sourcify as the fallback (P4-R1). A positive from
  * either is verified. A negative from Blockscout is «not verified»; a negative from Sourcify alone is not enough (the
  * contract may be verified elsewhere), so with Blockscout down the section stays unknown with Blockscout's reason.
+ * The ABI flags come from Blockscout's ABI, else Sourcify's; with neither readable they are unknown (null), not «none».
  */
 function verificationOf(
   bs: Section<BlockscoutAddress>,
   sf: Awaited<ReturnType<typeof sourcifyContract>>,
-  bsAbi: unknown[] | null,
+  bsAbi: Section<unknown[]> | null,
 ): Section<VerificationData> {
   const sfAbi = sf.status === "ok" ? sf.data.abi : null;
-  if (bs.status === "ok" && bs.data.verified) return ok({ verified: true, source: "blockscout", abiFlags: abiFlags(bsAbi ?? sfAbi) });
-  if (sf.status === "ok" && sf.data.verified) return ok({ verified: true, source: "sourcify", abiFlags: abiFlags(sfAbi) });
+  const flags = (abi: unknown[] | null) => (abi === null ? null : abiFlags(abi));
+  if (bs.status === "ok" && bs.data.verified) {
+    return ok({ verified: true, source: "blockscout", abiFlags: flags(bsAbi?.status === "ok" ? bsAbi.data : sfAbi) });
+  }
+  if (sf.status === "ok" && sf.data.verified) return ok({ verified: true, source: "sourcify", abiFlags: flags(sfAbi) });
   if (bs.status === "ok") return ok({ verified: false, source: "blockscout", abiFlags: [] });
   return unknown(bs.reason);
 }
 
-function creationOf(bs: Section<BlockscoutAddress>, createdAt: string | null): Section<CreationData> {
+/**
+ * Creator and scam flag come with the address; the age needs the creation transaction. If that lookup fails the age is
+ * unknown (`ageUnknown` = its reason) while the rest stays: a scam flag must not be lost to a slow second request.
+ */
+function creationOf(bs: Section<BlockscoutAddress>, tx: Section<string> | null): Section<CreationData> {
   if (bs.status !== "ok") return unknown(bs.reason);
+  const createdAt = tx?.status === "ok" ? tx.data : null;
   const ageDays = createdAt === null ? null : Math.max(0, Math.floor((Date.now() - Date.parse(createdAt)) / DAY_MS));
-  return ok({ creator: bs.data.creator, createdAt, ageDays, isScam: bs.data.isScam });
+  const ageUnknown = tx?.status === "unknown" ? tx.reason : null;
+  return ok({ creator: bs.data.creator, createdAt, ageDays, ageUnknown, isScam: bs.data.isScam });
 }
 
 /** The RPC's EIP-1967 read decides; Blockscout's detected implementation (other proxy patterns) can only add to it. */
@@ -54,7 +64,8 @@ function proxyOf(rpc: Section<ProxyData>, bs: Section<BlockscoutAddress>): Secti
  * time (callers `await connection()` first: no RPC or external read at build).
  */
 export async function analyzeToken(chain: ChainId, address: `0x${string}`): Promise<TokenReport> {
-  // It goes into source URLs: the callers validate it, this guards the paths anyway.
+  // Both go into source URLs and lookups: the callers validate them, this guards anyway.
+  if (!isChainId(chain)) throw new Error("analyzeToken: invalid chain");
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new Error("analyzeToken: invalid address");
   const a = address.toLowerCase() as `0x${string}`;
   const src = checkerSources(chain);
@@ -65,7 +76,7 @@ export async function analyzeToken(chain: ChainId, address: `0x${string}`): Prom
     src.dexscreener ? dexscreenerMarket(src.dexscreener, a) : Promise.resolve(unknown<never>("unsupported")),
   ]);
   const b = bs.status === "ok" ? bs.data : null;
-  const [createdAt, bsAbi] = await Promise.all([
+  const [creationTx, bsAbi] = await Promise.all([
     b?.creationTx ? blockscoutTxTime(src.blockscout, b.creationTx) : null,
     b?.verified ? blockscoutAbi(src.blockscout, a) : null,
   ]);
@@ -78,7 +89,7 @@ export async function analyzeToken(chain: ChainId, address: `0x${string}`): Prom
     proxy: chainFacts.code.status === "ok" && chainFacts.code.data.hasCode ? proxyOf(chainFacts.proxy, bs) : chainFacts.proxy,
     owner: chainFacts.owner,
     verification: verificationOf(bs, sf, bsAbi),
-    creation: creationOf(bs, createdAt),
+    creation: creationOf(bs, creationTx),
     market,
   };
   return { facts, alerts: tokenAlerts(facts), checkedAt: new Date().toISOString() };
@@ -90,12 +101,11 @@ export const TOKEN_REPORT_CACHE = { stale: 300, revalidate: 600, expire: 1200 } 
 const SECTIONS = ["code", "erc20", "proxy", "owner", "verification", "creation", "market"] as const;
 
 /**
- * Nothing answered because of our side or a passing outage (every section unknown by error/timeout; `unsupported` is
- * neutral): not worth keeping for 10 minutes. Blocked or rate-limited sources are a valid, cacheable state.
+ * Not worth keeping for 10 minutes: a report with no `ok` section at all, whatever the reasons (timeouts, rate limits,
+ * a challenge… are all transient from the reader's side). One answering source makes the report cacheable.
  */
 export function totalFailure(f: TokenFacts): boolean {
-  const reasons = SECTIONS.map((k) => f[k]).map((s) => (s.status === "unknown" ? s.reason : null));
-  return reasons.every((r) => r === "error" || r === "timeout" || r === "unsupported") && reasons.some((r) => r !== "unsupported");
+  return SECTIONS.every((k) => f[k].status === "unknown");
 }
 
 /**

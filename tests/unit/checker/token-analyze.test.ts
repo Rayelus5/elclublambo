@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { TimeoutError } from "viem";
+import { ContractFunctionRevertedError, RpcRequestError, TimeoutError } from "viem";
 
 vi.mock("server-only", () => ({}));
 const cacheLife = vi.hoisted(() => vi.fn());
@@ -110,7 +110,7 @@ describe("analyzeToken: a healthy token", () => {
     expect(r.facts.verification).toEqual({ status: "ok", data: { verified: true, source: "blockscout", abiFlags: [] } });
     expect(r.facts.creation).toEqual({
       status: "ok",
-      data: { creator: "0x2222222222222222222222222222222222222222", createdAt: "2025-01-01T00:00:00.000Z", ageDays: 662, isScam: false },
+      data: { creator: "0x2222222222222222222222222222222222222222", createdAt: "2025-01-01T00:00:00.000Z", ageDays: 662, ageUnknown: null, isScam: false },
     });
     expect(r.facts.market).toEqual({
       status: "ok",
@@ -169,7 +169,7 @@ describe("analyzeToken: failing sources (Review Focus 1)", () => {
     };
     const r = await analyzeToken(8453, TOKEN);
     expect(r.facts.verification).toEqual({ status: "ok", data: { verified: false, source: "blockscout", abiFlags: [] } });
-    expect(r.facts.creation).toEqual({ status: "ok", data: { creator: null, createdAt: null, ageDays: null, isScam: false } });
+    expect(r.facts.creation).toEqual({ status: "ok", data: { creator: null, createdAt: null, ageDays: null, ageUnknown: null, isScam: false } });
     expect(alertCodes(r)).toEqual(["unverified:medium"]);
   });
 
@@ -179,6 +179,34 @@ describe("analyzeToken: failing sources (Review Focus 1)", () => {
     routes.blockscout = (url) =>
       url.includes("/api/v2/addresses/") ? json({ is_contract: true, is_verified: true, is_scam: true }) : blockscoutOk(url);
     expect(alertCodes(await analyzeToken(8453, TOKEN))).toEqual(["scam_flag:high"]);
+  });
+
+  it("creation-tx timeout → the age is unknown (no ok age claim), creator and scam flag stay", async () => {
+    routes.blockscout = (url) => (url.includes("/api/v2/transactions/") ? timeout() : blockscoutOk(url));
+    const r = await analyzeToken(8453, TOKEN);
+    expect(r.facts.creation).toEqual({
+      status: "ok",
+      data: { creator: "0x2222222222222222222222222222222222222222", createdAt: null, ageDays: null, ageUnknown: "timeout", isScam: false },
+    });
+    expect(alertCodes(r)).toEqual([]);
+  });
+
+  it("ABI fetch 500 with no Sourcify ABI → privileged functions unknown (null), not «none»", async () => {
+    routes.blockscout = (url) => (url.includes("/api/v2/smart-contracts/") ? new Response("boom", { status: 500 }) : blockscoutOk(url));
+    const r = await analyzeToken(8453, TOKEN);
+    expect(r.facts.verification).toEqual({ status: "ok", data: { verified: true, source: "blockscout", abiFlags: null } });
+    routes.sourcify = () => json({ match: "match", abi: [{ type: "function", name: "mint" }] });
+    expect((await analyzeToken(8453, TOKEN)).facts.verification).toEqual({ status: "ok", data: { verified: true, source: "blockscout", abiFlags: ["mint"] } });
+  });
+
+  it("a Cloudflare challenge on a 5xx is blocked too", async () => {
+    routes.blockscout = () => new Response("<title>Just a moment...</title>", { status: 503, headers: { "content-type": "text/html" } });
+    expect((await analyzeToken(8453, TOKEN)).facts.creation).toEqual({ status: "unknown", reason: "blocked" });
+  });
+
+  it("an unknown chain or a malformed address throws the validation error", async () => {
+    await expect(analyzeToken(1 as never, TOKEN)).rejects.toThrow("analyzeToken: invalid chain");
+    await expect(analyzeToken(8453, "0x123" as never)).rejects.toThrow("analyzeToken: invalid address");
   });
 
   it("DexScreener timeout → market unknown/timeout and no liquidity alert", async () => {
@@ -243,8 +271,15 @@ describe("analyzeToken: what the chain says (Review Focus 2)", () => {
     const active = await analyzeToken(8453, TOKEN);
     expect(active.facts.owner).toEqual({ status: "ok", data: { owner: "0x4444444444444444444444444444444444444444", renounced: false } });
     expect(alertCodes(active)).toEqual(["owner_active:info"]);
-    client.readContract.mockRejectedValue(new Error("execution reverted"));
+    client.readContract.mockRejectedValue(new ContractFunctionRevertedError({ abi: [], functionName: "owner", message: "execution reverted" }));
     expect((await analyzeToken(8453, TOKEN)).facts.owner).toEqual({ status: "ok", data: null });
+  });
+
+  it("owner(): a JSON-RPC failure that is not a revert is unknown, not «no owner»", async () => {
+    client.readContract.mockRejectedValue(new RpcRequestError({ body: {}, url: "https://rpc", error: { code: -32603, message: "internal error" } }));
+    expect((await analyzeToken(8453, TOKEN)).facts.owner).toEqual({ status: "unknown", reason: "error" });
+    client.readContract.mockRejectedValue(new Error("socket hang up"));
+    expect((await analyzeToken(8453, TOKEN)).facts.owner).toEqual({ status: "unknown", reason: "error" });
   });
 
   it("created 2 days ago → new_contract", async () => {
@@ -327,7 +362,7 @@ describe("getTokenReport (P4-R7)", () => {
     expect(cacheTag).toHaveBeenCalledWith(`checker-token:8453:${mixed.toLowerCase()}`);
   });
 
-  it("does not cache a report whose every section failed, but still returns it from a single analysis", async () => {
+  it("does not cache a report with no ok section (timeouts and errors), but still returns it from a single analysis", async () => {
     client.getCode.mockRejectedValue(new TimeoutError({ body: {}, url: "https://rpc" }));
     routes = { blockscout: () => new Response("x", { status: 500 }), sourcify: timeout, dex: timeout };
     const r = await getTokenReport(8453, TOKEN);
@@ -338,11 +373,22 @@ describe("getTokenReport (P4-R7)", () => {
     expect(cacheTag).not.toHaveBeenCalled();
   });
 
-  it("caches a report where sources are only blocked or unsupported (a valid state for 10 min)", async () => {
+  it("does not cache a report with no ok section whatever the reasons (blocked, rate limited, unsupported)", async () => {
     vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
     client.getCode.mockRejectedValue(new TimeoutError({ body: {}, url: "https://rpc" }));
     routes.blockscout = cloudflare;
-    await getTokenReport(84532, TOKEN);
+    routes.sourcify = () => new Response("slow down", { status: 429 });
+    const r = await getTokenReport(84532, TOKEN);
+    expect(r.facts.verification).toEqual({ status: "unknown", reason: "blocked" });
+    expect(r.facts.market).toEqual({ status: "unknown", reason: "unsupported" });
+    expect(cacheLife).not.toHaveBeenCalled();
+    expect(client.getCode).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches a report as soon as one section answered, even with blocked sources (a valid state for 10 min)", async () => {
+    routes.blockscout = cloudflare;
+    routes.dex = timeout;
+    await getTokenReport(8453, TOKEN);
     expect(cacheLife).toHaveBeenCalledWith(TOKEN_REPORT_CACHE);
   });
 });

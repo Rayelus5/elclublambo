@@ -8,8 +8,19 @@ export type Section<T> = { status: "ok"; data: T } | { status: "unknown"; reason
 export type Erc20Data = { name: string | null; symbol: string | null; decimals: number; totalSupply: string };
 export type ProxyData = { isProxy: boolean; implementation: string | null };
 export type OwnerData = { owner: string | null; renounced: boolean };
-export type VerificationData = { verified: boolean; source: "blockscout" | "sourcify"; abiFlags: string[] };
-export type CreationData = { creator: string | null; createdAt: string | null; ageDays: number | null; isScam: boolean };
+/** `abiFlags: null` = verified, but its ABI could not be read: the privileged functions are unknown (not «none»). */
+export type VerificationData = { verified: boolean; source: "blockscout" | "sourcify"; abiFlags: string[] | null };
+/**
+ * `ageUnknown` is set when the creation transaction exists but its time could not be read: the age shows «Desconocido»
+ * (null `ageDays` with `ageUnknown: null` = no creation transaction known at all).
+ */
+export type CreationData = {
+  creator: string | null;
+  createdAt: string | null;
+  ageDays: number | null;
+  ageUnknown: UnknownReason | null;
+  isScam: boolean;
+};
 export type MarketData = {
   pairs: number;
   liquidityUsd: number | null;
