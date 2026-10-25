@@ -1,11 +1,17 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
+import { MultisendLazy } from "@/components/multisend/multisend-lazy";
+import { getPublicSession } from "@/lib/auth/public-session";
+import { appChainIds } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
-import { isLang, OG_LOCALE } from "@/lib/i18n/config";
+import { isLang, OG_LOCALE, type Lang } from "@/lib/i18n/config";
 import { alternatesFor } from "@/lib/i18n/routes";
 import { isProductionSite } from "@/lib/start/site";
 
-// Marcador de P6: la ruta existe (mapa, sitemap y proxy) y la herramienta llega en la Task 4 del plan.
+// Bloqueante a propósito (ver el layout de [lang]). La sesión se lee dentro de <Suspense>, después de connection(),
+// nunca en el build; la lista (#envio=) vive en el fragmento y solo la lee el navegador.
 export const instant = false;
 
 type Props = PageProps<"/[lang]/tools/multisend">;
@@ -24,18 +30,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+/** The session's wallet (only it may sign when there is a session; Review Focus 2), read per request. */
+async function MultisendContent({ lang }: { lang: Lang }) {
+  await connection();
+  const session = await getPublicSession();
+  return <MultisendLazy lang={lang} chains={appChainIds()} sessionWallet={session?.wallet ?? null} />;
+}
+
 export default async function MultisendPage({ params }: Props) {
   const { lang } = await params;
   if (!isLang(lang)) notFound();
-  const dict = getDictionary(lang);
-  const t = dict.multisend;
+  const t = getDictionary(lang).multisend;
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8 sm:py-12">
       <div className="flex flex-col gap-2">
-        <h1 className="font-display text-3xl font-bold text-fg">{t.metaTitle}</h1>
-        <p className="text-base text-fg-muted">{t.metaDescription}</p>
+        <h1 className="font-display text-3xl font-bold text-fg">{t.title}</h1>
+        <p className="text-base text-fg-muted">{t.lead}</p>
       </div>
-      <p className="rounded-control border border-border p-3 text-sm text-fg-muted">{dict.tools.comingSoon}</p>
+      <Suspense
+        fallback={
+          <div role="status" aria-live="polite" className="min-h-96">
+            <span className="sr-only">{t.loading}</span>
+            <div aria-hidden className="h-96 rounded-panel bg-surface-2 motion-safe:animate-pulse" />
+          </div>
+        }
+      >
+        <MultisendContent lang={lang} />
+      </Suspense>
     </main>
   );
 }
