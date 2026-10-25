@@ -25,6 +25,7 @@ export function ConfirmDialog({
   onOpenChange,
   total,
   count,
+  checks,
   network,
   onConfirm,
 }: {
@@ -34,6 +35,8 @@ export function ConfirmDialog({
   /** Already formatted for the language. */
   total: string;
   count: number;
+  /** Lines only re-checked on chain in this run, never signed (C2). */
+  checks: number;
   network: string;
   onConfirm(): void;
 }) {
@@ -44,6 +47,7 @@ export function ConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display text-lg font-bold text-fg">{t.title}</AlertDialogTitle>
           <AlertDialogDescription className="text-base text-fg">{body}</AlertDialogDescription>
+          {checks > 0 ? <p className="text-sm text-fg-muted">{checks === 1 ? t.checksOne : fill(t.checks, { n: checks })}</p> : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel autoFocus>{t.back}</AlertDialogCancel>

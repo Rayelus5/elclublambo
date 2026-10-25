@@ -24,7 +24,7 @@ vi.mock("@/lib/multisend/use-multisend", () => ({ useMultisend: () => hook.value
 import { MultisendForm } from "@/components/multisend/multisend-form";
 import { encodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
-import { saveProgress } from "@/lib/multisend/progress";
+import { recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 
@@ -37,6 +37,8 @@ const B = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65";
 const C = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
 const LIST = `${A},10\n${B},12,5\n${C};7.5`;
 const HASH = `0x${"ab".repeat(32)}` as const;
+const HASH2 = `0x${"cd".repeat(32)}` as const;
+const D = "0x976EA74026E726554dB657fA54763abd0C3a0aa9";
 
 function setup(opts: { lang?: "es" | "en"; session?: string | null; text?: string } = {}) {
   const user = userEvent.setup();
@@ -151,7 +153,7 @@ describe("MultisendForm", () => {
     await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: t.confirm.confirm }));
     const { recipients } = parseRecipients(LIST, 84532);
     expect(hook.value.send).toHaveBeenCalledTimes(1);
-    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, listKey(84532, recipients));
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, listKey(84532, recipients), new Set(recipients.map((r) => r.id)), new Set());
   });
 
   it("Esc closes the confirmation without signing", async () => {
@@ -177,28 +179,118 @@ describe("MultisendForm", () => {
     expect(screen.getByText("Tu wallet lo enviará en una sola operación.")).toBeInTheDocument();
   });
 
-  it("Review Focus 4: saved progress shows each sent row with its hash and «Continuar» confirms only what is left", async () => {
-    const { recipients } = parseRecipients(LIST, 84532);
+  it("Review Focus 4 + C2: saved progress shows each row with its hash; «Continuar» confirms only what will be signed and lists what is re-checked", async () => {
+    const text = `${LIST}\n${D},3`;
+    const { recipients } = parseRecipients(text, 84532);
     const key = listKey(84532, recipients);
+    const st = (i: number, extra: Partial<RowState> & { status: RowState["status"] }): RowState => ({
+      id: recipients[i]!.id,
+      to: recipients[i]!.to,
+      amount: recipients[i]!.amount.toString(),
+      ...extra,
+    });
+    // Stored in another order: progress is keyed by line identity (C3).
     saveProgress(OWNER, 84532, key, [
-      { to: recipients[0]!.to, amount: "10000000", hash: HASH, sentAt: Date.now(), status: "confirmed" },
-      { to: recipients[1]!.to, amount: "12500000", status: "failed" },
-      { to: recipients[2]!.to, amount: "7500000", status: "todo" },
+      st(3, { hash: HASH2, sentAt: Date.now(), status: "sent" }),
+      st(1, { status: "failed" }),
+      st(0, { hash: HASH, status: "confirmed" }),
+      st(2, { status: "todo" }),
     ]);
-    hook.value.error = null;
     const { user } = setup();
-    await paste(user, LIST);
+    await paste(user, text);
     const progress = screen.getByRole("list", { name: t.progress.title });
     const link = within(progress).getByRole("link", { name: fill(t.progress.viewTx, { n: 1 }) });
     expect(link).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
     expect(within(progress).getByText(t.progress.status.confirmed)).toBeInTheDocument();
     expect(within(progress).getByText(t.progress.status.failed)).toBeInTheDocument();
+    expect(within(progress).getByText(t.progress.status.sent)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: t.form.send })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: t.form.continue }));
     const dialog = await screen.findByRole("alertdialog");
     expect(within(dialog).getByText("Vas a enviar 20 USDC a 2 direcciones en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    expect(within(dialog).getByText(t.confirm.checksOne)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: t.confirm.confirm }));
-    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key);
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set([recipients[1]!.id, recipients[2]!.id]), new Set());
+  });
+
+  it("C2: with only lines to re-check, «Comprobar» re-checks without a confirmation (nothing can be signed)", async () => {
+    const { recipients } = parseRecipients(LIST, 84532);
+    const key = listKey(84532, recipients);
+    saveProgress(
+      OWNER,
+      84532,
+      key,
+      recipients.map((r, i) => ({ id: r.id, to: r.to, amount: r.amount.toString(), hash: i === 0 ? HASH : HASH2, sentAt: Date.now(), status: i === 0 ? "sent" : "confirmed" })),
+    );
+    const { user } = setup();
+    await paste(user, LIST);
+    await user.click(screen.getByRole("button", { name: t.form.check }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set(), new Set());
+  });
+
+  it("C1: an unconfirmed line shows «Sin confirmar» with its link and is left out until «Comprobé que no se envió» is ticked", async () => {
+    const { recipients } = parseRecipients(LIST, 84532);
+    const key = listKey(84532, recipients);
+    const st = (i: number, extra: Partial<RowState> & { status: RowState["status"] }): RowState => ({
+      id: recipients[i]!.id,
+      to: recipients[i]!.to,
+      amount: recipients[i]!.amount.toString(),
+      ...extra,
+    });
+    saveProgress(OWNER, 84532, key, [st(0, { hash: HASH, status: "unconfirmed" }), st(1, { hash: HASH2, status: "confirmed" }), st(2, { status: "todo" })]);
+    const { user } = setup();
+    await paste(user, LIST);
+    const progress = screen.getByRole("list", { name: t.progress.title });
+    expect(within(progress).getByText(t.progress.status.unconfirmed)).toBeInTheDocument();
+    expect(within(progress).getByRole("link", { name: fill(t.progress.viewTx, { n: 1 }) })).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
+    const release = within(progress).getByRole("checkbox", { name: t.progress.release });
+    expect(release).not.toBeChecked();
+
+    await user.click(screen.getByRole("button", { name: t.form.continue }));
+    let dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Vas a enviar 7,5 USDC a 1 dirección en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    expect(within(dialog).getByText(t.confirm.checksOne)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.confirm.back }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+
+    await user.click(release);
+    await user.click(screen.getByRole("button", { name: t.form.continue }));
+    dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Vas a enviar 17,5 USDC a 2 direcciones en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.confirm.confirm }));
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set([recipients[2]!.id]), new Set([recipients[0]!.id]));
+  });
+
+  it("C3: a line confirmed in the last 24 h warns and blocks «Enviar» until «Enviarlo otra vez» is ticked", async () => {
+    recordConfirmed({ chain: 84532, to: A as `0x${string}`, amount: "10000000", hash: HASH }, Date.now());
+    recordConfirmed({ chain: 421614, to: B as `0x${string}`, amount: "12500000", hash: HASH2 }, Date.now());
+    const { user } = setup();
+    await paste(user, LIST);
+    const preview = screen.getByRole("list", { name: t.form.preview });
+    expect(within(preview).getByText(fill(t.form.repeat, { amount: "10" }))).toBeInTheDocument();
+    expect(within(preview).getAllByRole("checkbox")).toHaveLength(1);
+    expect(screen.getByText(t.form.repeatBlock)).toBeInTheDocument();
+    expect(sendButton()).toBeDisabled();
+    await user.click(within(preview).getByRole("checkbox", { name: t.form.repeatAccept }));
+    expect(sendButton()).toBeEnabled();
+    expect(screen.queryByText(t.form.repeatBlock)).not.toBeInTheDocument();
+  });
+
+  it("C3: the list's own confirmed lines are not flagged as repeats", async () => {
+    const { recipients } = parseRecipients(LIST, 84532);
+    const key = listKey(84532, recipients);
+    saveProgress(
+      OWNER,
+      84532,
+      key,
+      recipients.map((r, i) => ({ id: r.id, to: r.to, amount: r.amount.toString(), status: i === 0 ? "confirmed" : "todo", ...(i === 0 ? { hash: HASH } : {}) })),
+    );
+    recordConfirmed({ chain: 84532, to: A as `0x${string}`, amount: "10000000", hash: HASH }, Date.now());
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(screen.queryByText(fill(t.form.repeat, { amount: "10" }))).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t.form.continue })).toBeEnabled();
   });
 
   it("an atomic failure shows its error and offers «Enviar una a una» without retrying by itself", async () => {

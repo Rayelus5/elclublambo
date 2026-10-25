@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
 import { useAppKit } from "@reown/appkit/react";
-import { CircleAlert, CircleCheck, Info, Layers, Loader2, Plug, RotateCcw, Send, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, Layers, Loader2, Plug, RefreshCw, RotateCcw, Send, TriangleAlert } from "lucide-react";
 import { NetworkPicker } from "@/components/economy/network-picker";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { shortAddress } from "@/lib/auth/wallet";
 import { assetId, assetsFor } from "@/lib/economy/assets";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
@@ -13,12 +14,21 @@ import type { Lang } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/fill";
 import { decodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
-import { clearProgress, matchesList, parseProgress, progressKey, readProgressRaw, type RowState } from "@/lib/multisend/progress";
+import {
+  alignProgress,
+  clearProgress,
+  parseProgress,
+  parseRecent,
+  progressKey,
+  readProgressRaw,
+  readRecentRaw,
+  type RowState,
+} from "@/lib/multisend/progress";
 import { useMultisend } from "@/lib/multisend/use-multisend";
 import { formatAmount } from "@/lib/payments/amounts";
 import { useAssetBalances } from "@/lib/payments/balances";
 import { canSignFor } from "@/lib/web3/can-sign";
-import { noStored, subscribeStorage } from "@/lib/web3/signing";
+import { noStored, sentAtNow, subscribeStorage } from "@/lib/web3/signing";
 import { useWalletMatch } from "@/lib/web3/use-wallet-match";
 import { ConfirmDialog } from "./confirm-dialog";
 import { ProgressList } from "./progress-list";
@@ -50,6 +60,10 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const [text, setText] = useState(readHashList);
   const [confirming, setConfirming] = useState(false);
   const [ignoredRun, setIgnoredRun] = useState<readonly RowState[] | null>(null);
+  // C1: «sin confirmar» lines the user checked were not sent; C3: repeats of the last 24 h the user accepts.
+  const [released, setReleased] = useState<ReadonlySet<string>>(() => new Set());
+  const [repeatOk, setRepeatOk] = useState<ReadonlySet<string>>(() => new Set());
+  const [now] = useState(sentAtNow);
   const ms = useMultisend(chain);
   const network = NETWORKS[chain];
   const fmt = (units: bigint) => formatUsdc(units, lang);
@@ -79,33 +93,52 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const ethBalance = balances[assetId("ETH", chain)] ?? null;
 
   const storedRaw = useSyncExternalStore(subscribeStorage, () => (owner && recipients.length > 0 ? readProgressRaw(owner, chain, key) : null), noStored);
-  const stored = useMemo(() => {
-    const rows = parseProgress(storedRaw);
-    return matchesList(rows, recipients) ? rows : null;
-  }, [storedRaw, recipients]);
-  const live = owner && ms.runKey === progressKey(owner, chain, key) && ms.rows !== ignoredRun && ms.rows.length > 0 ? ms.rows : null;
-  const progress = live ?? (stored && stored !== ignoredRun ? stored : null);
+  const stored = useMemo(() => alignProgress(parseProgress(storedRaw), recipients), [storedRaw, recipients]);
+  const live =
+    owner && ms.runKey === progressKey(owner, chain, key) && ms.rows !== ignoredRun ? alignProgress(ms.rows, recipients) : null;
+  const progress = live ?? stored;
   const started = progress !== null && progress.some((r) => r.status !== "todo");
   const done = progress !== null && progress.every((r) => r.status === "confirmed");
-  const left = progress ? recipients.filter((_, i) => progress[i]!.status !== "confirmed") : recipients;
-  const leftTotal = left.reduce((sum, r) => sum + r.amount, 0n);
+
+  // C2: what «Confirmar y firmar» will sign, and what a run only re-checks on chain (never signed in that run).
+  const isReleased = (r: RowState) => r.status === "unconfirmed" && released.has(r.id);
+  const pending = (i: number) => !progress || progress[i]!.status === "todo" || progress[i]!.status === "failed";
+  const toSign = recipients.filter((_, i) => pending(i) || isReleased(progress![i]!));
+  const toCheck = progress ? progress.filter((r) => r.status === "sent" || (r.status === "unconfirmed" && !released.has(r.id))) : [];
+  const signTotal = toSign.reduce((sum, r) => sum + r.amount, 0n);
+  const approved = new Set(recipients.filter((_, i) => pending(i)).map((r) => r.id));
+  const releasedNow = new Set(progress ? progress.filter(isReleased).map((r) => r.id) : []);
+
+  // C3: a line still to sign that matches a confirmed send of the last 24 h (not one of this list's own) needs a tick.
+  const recentRaw = useSyncExternalStore(subscribeStorage, readRecentRaw, noStored);
+  const ownHashes = new Set((progress ?? []).map((r) => r.hash).filter(Boolean));
+  const recent = parseRecent(recentRaw, chain, now).filter((e) => !e.hash || !ownHashes.has(e.hash));
+  const repeats = new Set(
+    toSign.filter((r) => recent.some((e) => e.to.toLowerCase() === r.to.toLowerCase() && e.amount === r.amount.toString())).map((r) => r.id),
+  );
+  const repeatBlocked = [...repeats].some((r) => !repeatOk.has(r));
 
   const valid = recipients.length > 0 && errors.length === 0;
-  const insufficient = valid && usdcBalance !== null && leftTotal > usdcBalance;
-  const noGas = valid && !insufficient && ethBalance !== null && ethBalance <= 0n;
-  const canSend = valid && can.ok && !insufficient && !noGas && !done && ms.mode !== "checking" && !ms.running;
+  const insufficient = valid && usdcBalance !== null && signTotal > usdcBalance;
+  const noGas = valid && toSign.length > 0 && !insufficient && ethBalance !== null && ethBalance <= 0n;
+  const ready = valid && can.ok && !done && ms.mode !== "checking" && !ms.running;
+  const canSend = ready && toSign.length > 0 && !insufficient && !noGas && !repeatBlocked;
+  const onlyCheck = ready && toSign.length === 0 && toCheck.length > 0;
 
   const reasonId = `${id}-reason`;
   const fixId = `${id}-fix`;
   const balanceId = `${id}-balance`;
+  const repeatId = `${id}-repeat`;
   const describedBy =
-    [reason ? reasonId : null, errors.length > 0 ? fixId : null, insufficient || noGas ? balanceId : null].filter(Boolean).join(" ") || undefined;
+    [reason ? reasonId : null, errors.length > 0 ? fixId : null, insufficient || noGas ? balanceId : null, repeatBlocked ? repeatId : null]
+      .filter(Boolean)
+      .join(" ") || undefined;
 
   const preview = useMemo(
     () =>
       [
-        ...errors.map((e) => ({ line: e.line, issue: e.code, to: null, amount: null })),
-        ...recipients.map((r) => ({ line: r.line, issue: null, to: r.to, amount: r.amount })),
+        ...errors.map((e) => ({ line: e.line, issue: e.code, to: null, amount: null, id: null })),
+        ...recipients.map((r) => ({ line: r.line, issue: null, to: r.to, amount: r.amount, id: r.id })),
       ].sort((a, b) => a.line - b.line),
     [errors, recipients],
   );
@@ -114,13 +147,27 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
     setConfirming(false);
     if (!canSend || !owner) return;
     setIgnoredRun(null);
-    void ms.send(recipients, owner, key);
+    void ms.send(recipients, owner, key, approved, releasedNow);
   }
+
+  function onCheck() {
+    if (!onlyCheck || !owner) return;
+    setIgnoredRun(null);
+    void ms.send(recipients, owner, key, new Set(), new Set());
+  }
+
+  const toggle = (set: (f: (s: ReadonlySet<string>) => ReadonlySet<string>) => void, lineId: string, on: boolean) =>
+    set((s) => {
+      const next = new Set(s);
+      if (on) next.add(lineId);
+      else next.delete(lineId);
+      return next;
+    });
 
   function onRestart() {
     if (!owner || !done) return;
     clearProgress(owner, chain, key);
-    setIgnoredRun(progress);
+    setIgnoredRun(ms.rows);
   }
 
   return (
@@ -170,9 +217,23 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
                       {t.form.issues[p.issue]}
                     </span>
                   ) : (
-                    <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
-                      <span className="font-mono text-[13px] break-all text-fg">{p.to}</span>
-                      <span className="shrink-0 text-sm font-bold text-fg tabular-nums">{fmt(p.amount!)} USDC</span>
+                    <span className="flex min-w-0 flex-1 flex-col gap-1">
+                      <span className="flex min-w-0 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+                        <span className="font-mono text-[13px] break-all text-fg">{p.to}</span>
+                        <span className="shrink-0 text-sm font-bold text-fg tabular-nums">{fmt(p.amount!)} USDC</span>
+                      </span>
+                      {p.id && repeats.has(p.id) ? (
+                        <span className="flex flex-col items-start gap-1">
+                          <span className="flex items-start gap-2 text-sm text-fg">
+                            <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+                            {fill(t.form.repeat, { amount: fmt(p.amount!) })}
+                          </span>
+                          <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-fg">
+                            <Checkbox checked={repeatOk.has(p.id)} onCheckedChange={(v) => toggle(setRepeatOk, p.id!, v === true)} />
+                            {t.form.repeatAccept}
+                          </label>
+                        </span>
+                      ) : null}
                     </span>
                   )}
                 </li>
@@ -184,6 +245,12 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
                 {fill(t.form.merged, { lines: m.lines.join(", ") })}
               </p>
             ))}
+            {repeatBlocked ? (
+              <p id={repeatId} className="flex items-start gap-2 text-sm font-bold text-fg">
+                <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+                {t.form.repeatBlock}
+              </p>
+            ) : null}
             {errors.length > 0 ? (
               <p id={fixId} className="flex items-start gap-2 text-sm font-bold text-danger">
                 <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
@@ -245,7 +312,15 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
         {progress && started ? (
           <div className="flex flex-col gap-2">
             <h3 className="text-sm font-bold text-fg">{t.progress.title}</h3>
-            <ProgressList t={t.progress} chainId={chain} rows={progress} lines={recipients.map((r) => r.line)} formatUsdc={fmt} />
+            <ProgressList
+              t={t.progress}
+              chainId={chain}
+              rows={progress}
+              lines={recipients.map((r) => r.line)}
+              formatUsdc={fmt}
+              released={released}
+              onRelease={(lineId, on) => toggle(setReleased, lineId, on)}
+            />
           </div>
         ) : null}
 
@@ -275,6 +350,11 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
               {t.form.restart}
             </Button>
           </div>
+        ) : onlyCheck ? (
+          <Button type="button" className="self-start" onClick={onCheck}>
+            <RefreshCw aria-hidden />
+            {t.form.check}
+          </Button>
         ) : (
           <Button
             type="button"
@@ -293,8 +373,9 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
         t={t.confirm}
         open={confirming}
         onOpenChange={setConfirming}
-        total={fmt(leftTotal)}
-        count={left.length}
+        total={fmt(signTotal)}
+        count={toSign.length}
+        checks={toCheck.length}
         network={network.name}
         onConfirm={onConfirm}
       />

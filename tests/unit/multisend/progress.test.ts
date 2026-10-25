@@ -1,12 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearProgress, loadProgress, progressKey, saveProgress, type RowState } from "@/lib/multisend/progress";
+import {
+  alignProgress,
+  clearProgress,
+  loadProgress,
+  progressKey,
+  recentConfirmed,
+  recordConfirmed,
+  RECENT_KEY,
+  RECENT_MS,
+  saveProgress,
+  type RowState,
+} from "@/lib/multisend/progress";
 
 const OWNER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const TO = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
+const TO2 = "0x90F79bf6EB2c4f870365E785982E1f101E93b906" as const;
 const HASH = `0x${"ab".repeat(32)}` as const;
+const id = (to: string, amount: string) => `${to.toLowerCase()}:${amount}:0`;
 const rows: RowState[] = [
-  { to: TO, amount: "1000000", hash: HASH, sentAt: 1_700_000_000_000, status: "confirmed" },
-  { to: TO, amount: "2500000", status: "todo" },
+  { id: id(TO, "1000000"), to: TO, amount: "1000000", hash: HASH, sentAt: 1_700_000_000_000, fromBlock: "123", status: "confirmed" },
+  { id: id(TO2, "2500000"), to: TO2, amount: "2500000", status: "unconfirmed" },
 ];
 
 beforeEach(() => window.localStorage.clear());
@@ -40,13 +53,54 @@ describe("multisend progress", () => {
     expect(() => saveProgress(OWNER, 84532, "k1", rows)).not.toThrow();
     expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
     expect(() => clearProgress(OWNER, 84532, "k1")).not.toThrow();
+    expect(() => recordConfirmed({ chain: 84532, to: TO, amount: "1", hash: HASH }, 0)).not.toThrow();
+    expect(recentConfirmed(84532, 0)).toEqual([]);
   });
 
   it("stored junk is null, not a crash", () => {
     const key = progressKey(OWNER, 84532, "k1");
-    for (const junk of ["nope", "{}", "[1]", JSON.stringify([{ ...rows[0], status: "paid" }]), JSON.stringify([{ ...rows[0], hash: "0x12" }]), JSON.stringify([{ ...rows[1], amount: "-1" }])]) {
+    for (const junk of [
+      "nope",
+      "{}",
+      "[1]",
+      JSON.stringify([{ ...rows[0], status: "paid" }]),
+      JSON.stringify([{ ...rows[0], hash: "0x12" }]),
+      JSON.stringify([{ ...rows[1], amount: "-1" }]),
+      JSON.stringify([{ ...rows[1], id: undefined }]),
+      JSON.stringify([{ ...rows[0], fromBlock: "x" }]),
+    ]) {
       window.localStorage.setItem(key, junk);
       expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
     }
+  });
+
+  it("C3: alignProgress matches by line identity, in the list's order; another set of lines is null", () => {
+    const list = [
+      { id: id(TO2, "2500000"), to: TO2, amount: 2_500_000n },
+      { id: id(TO, "1000000"), to: TO, amount: 1_000_000n },
+    ];
+    expect(alignProgress(rows, list)).toEqual([rows[1], rows[0]]);
+    expect(alignProgress(rows, list.slice(0, 1))).toBeNull();
+    expect(alignProgress(rows, [list[0]!, { id: id(TO, "1"), to: TO, amount: 1n }])).toBeNull();
+    expect(alignProgress(null, list)).toBeNull();
+  });
+});
+
+describe("C3: confirmed sends of the last 24 h", () => {
+  it("records (chain, recipient, amount, hash) and returns those of the chain within 24 h", () => {
+    recordConfirmed({ chain: 84532, to: TO, amount: "1000000", hash: HASH }, 1_000);
+    recordConfirmed({ chain: 421614, to: TO2, amount: "5", hash: HASH }, 1_000);
+    expect(recentConfirmed(84532, 2_000)).toEqual([{ chain: 84532, to: TO, amount: "1000000", hash: HASH, at: 1_000 }]);
+    expect(recentConfirmed(84532, 1_000 + RECENT_MS)).toEqual([]);
+  });
+
+  it("old entries are pruned on write, the same hash is kept once, and junk reads as empty", () => {
+    recordConfirmed({ chain: 84532, to: TO, amount: "1", hash: HASH }, 0);
+    recordConfirmed({ chain: 84532, to: TO, amount: "1", hash: HASH }, 10);
+    expect(recentConfirmed(84532, 20)).toHaveLength(1);
+    recordConfirmed({ chain: 84532, to: TO2, amount: "2" }, RECENT_MS + 20);
+    expect(JSON.parse(window.localStorage.getItem(RECENT_KEY)!)).toHaveLength(1);
+    window.localStorage.setItem(RECENT_KEY, "{bad");
+    expect(recentConfirmed(84532, 0)).toEqual([]);
   });
 });

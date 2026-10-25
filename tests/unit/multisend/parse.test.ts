@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAddress } from "viem";
-import { listKey, MAX_RECIPIENTS, parseRecipients } from "@/lib/multisend/parse";
+import { lineId, listKey, MAX_RECIPIENTS, parseRecipients } from "@/lib/multisend/parse";
 import { decodeLines, encodeLines } from "@/lib/multisend/fragment";
 
 const A = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
@@ -13,7 +13,7 @@ describe("parseRecipients", () => {
   it("a decimal comma after the separator comma: 0x…,12,5 is 12 500 000 units", () => {
     const r = parseRecipients(`${A},12,5`, 84532);
     expect(r.errors).toEqual([]);
-    expect(r.recipients).toEqual([{ line: 1, to: getAddress(A), amount: 12_500_000n }]);
+    expect(r.recipients).toEqual([{ line: 1, to: getAddress(A), amount: 12_500_000n, id: `${A}:12500000:0` }]);
     expect(r.total).toBe(12_500_000n);
   });
 
@@ -32,8 +32,8 @@ describe("parseRecipients", () => {
     const r = parseRecipients(`${A},10\n${B},5\n${upper},2,5`, 84532);
     expect(r.errors).toEqual([]);
     expect(r.recipients).toEqual([
-      { line: 1, to: getAddress(A), amount: 12_500_000n },
-      { line: 2, to: getAddress(B), amount: 5_000_000n },
+      { line: 1, to: getAddress(A), amount: 12_500_000n, id: `${A}:12500000:0` },
+      { line: 2, to: getAddress(B), amount: 5_000_000n, id: `${B}:5000000:0` },
     ]);
     expect(r.merged).toEqual([{ to: getAddress(A), lines: [1, 3] }]);
     expect(r.total).toBe(17_500_000n);
@@ -82,14 +82,22 @@ describe("parseRecipients", () => {
 });
 
 describe("listKey", () => {
-  it("is the same whatever the capitalisation, and changes with the chain, an amount or the order", () => {
+  it("is the same whatever the capitalisation or the order, and changes with the chain or an amount", () => {
     const lower = parseRecipients(`${A},1\n${B},2`, 84532).recipients;
     const upper = parseRecipients(`0x${A.slice(2).toUpperCase()},1\n${getAddress(B)},2`, 84532).recipients;
     expect(listKey(84532, lower)).toBe(listKey(84532, upper));
     expect(listKey(84532, lower)).toMatch(/^[0-9a-f]{32}$/);
     expect(listKey(421614, lower)).not.toBe(listKey(84532, lower));
     expect(listKey(84532, parseRecipients(`${A},1\n${B},3`, 84532).recipients)).not.toBe(listKey(84532, lower));
-    expect(listKey(84532, parseRecipients(`${B},2\n${A},1`, 84532).recipients)).not.toBe(listKey(84532, lower));
+    // C3: keyed by line identity, so a reordered list has the same key (and resumes).
+    expect(listKey(84532, parseRecipients(`${B},2\n${A},1`, 84532).recipients)).toBe(listKey(84532, lower));
+  });
+
+  it("C3: a line's identity is recipient (lower case) + amount + occurrence among identical lines", () => {
+    expect(lineId(getAddress(A), 1_000_000n, 0)).toBe(`${A}:1000000:0`);
+    expect(lineId(getAddress(A), 1_000_000n, 1)).toBe(`${A}:1000000:1`);
+    const r = parseRecipients(`${B},2\n${A},1`, 84532).recipients;
+    expect(r.map((x) => x.id)).toEqual([`${B}:2000000:0`, `${A}:1000000:0`]);
   });
 });
 

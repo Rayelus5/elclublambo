@@ -7,7 +7,8 @@ export const MAX_RECIPIENTS = 20;
 
 type Address = `0x${string}`;
 
-export type ParsedLine = { line: number; to: Address; amount: bigint };
+/** `id`: the line's identity (lineId), what its progress is keyed by. */
+export type ParsedLine = { line: number; to: Address; amount: bigint; id: string };
 export type LineIssue = {
   line: number;
   code: "bad_address" | "bad_amount" | "zero_amount" | "too_many_decimals" | "zero_address" | "token_contract" | "too_many";
@@ -69,10 +70,17 @@ export function parseRecipients(text: string, chain: ChainId): ParsedList {
       seen.row.amount += amount;
       seen.lines.push(line);
     } else {
-      byAddress.set(key, { row: { line, to, amount }, lines: [line] });
+      byAddress.set(key, { row: { line, to, amount, id: "" }, lines: [line] });
     }
   });
   const entries = [...byAddress.values()];
+  const seen = new Map<string, number>();
+  for (const { row } of entries) {
+    const base = lineId(row.to, row.amount, 0);
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    row.id = lineId(row.to, row.amount, n);
+  }
   return {
     recipients: entries.map((e) => e.row),
     errors,
@@ -81,8 +89,16 @@ export function parseRecipients(text: string, chain: ChainId): ParsedList {
   };
 }
 
-/** A stable hash of the normalised list (chain, lower-case addresses and amounts, in order): the progress key. */
-export function listKey(chain: ChainId, recipients: readonly Pick<ParsedLine, "to" | "amount">[]): string {
-  const text = `${chain}|${recipients.map((r) => `${r.to.toLowerCase()}:${r.amount}`).join("|")}`;
+/**
+ * A line's identity (C3): recipient in lower case, amount in base units, and its occurrence among identical lines. The
+ * parser already sums one address's lines, so the occurrence is 0 for every line it returns today.
+ */
+export function lineId(to: string, amount: bigint, occurrence: number): string {
+  return `${to.toLowerCase()}:${amount}:${occurrence}`;
+}
+
+/** A stable hash of the list's line identities (sorted, so the order does not matter) and the chain: the progress key. */
+export function listKey(chain: ChainId, recipients: readonly Pick<ParsedLine, "id">[]): string {
+  const text = `${chain}|${recipients.map((r) => r.id).sort().join("|")}`;
   return keccak256(stringToHex(text)).slice(2, 34);
 }
