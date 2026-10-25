@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 import { CHAINS, ETH_USD_FEED, READY_URL } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
+import { MOCK_CHECKER_BASE, MOCK_CHECKER_PORT } from "./e2e/mock/checker.mjs";
 import { MOCK_PORT as MOCK_COINGECKO_PORT } from "./e2e/mock/coingecko.mjs";
 import { MOCK_DRAND_PORT, MOCK_PUBLIC_KEY as MOCK_DRAND_PUBLIC_KEY } from "./e2e/mock/drand.mjs";
 
@@ -49,6 +50,15 @@ const env = {
   DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
   NEXT_PUBLIC_DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
   NEXT_PUBLIC_DRAND_PUBLIC_KEY: MOCK_DRAND_PUBLIC_KEY,
+  // P4 (ruling R-A): the token checker asks the local mock (e2e/mock/checker.mjs) instead of Blockscout and Sourcify;
+  // honoured on the testnet set only (src/lib/checker/token/sources.ts). DexScreener is never asked on testnets.
+  CHECKER_BLOCKSCOUT_BASE_84532: `${MOCK_CHECKER_BASE}/blockscout/84532`,
+  CHECKER_BLOCKSCOUT_BASE_421614: `${MOCK_CHECKER_BASE}/blockscout/421614`,
+  CHECKER_SOURCIFY_BASE: `${MOCK_CHECKER_BASE}/sourcify`,
+  CHECKER_DEXSCREENER_BASE: `${MOCK_CHECKER_BASE}/dexscreener`,
+  // P4: the free API's limiter (api_free) keys on the first x-forwarded-for entry; Next keeps the one the spec sends.
+  TRUSTED_IP_HEADER: "",
+  X402_ENABLED: "",
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);
@@ -87,6 +97,13 @@ export default defineConfig({
       // P1-R11: local drand (quicknet's genesis and period, TEST-ONLY key; 425 for future rounds, POST /__fail and /__ok).
       command: "node e2e/mock/drand.mjs",
       url: `http://127.0.0.1:${MOCK_DRAND_PORT}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      // P4: local Blockscout/Sourcify (fixtures for the local USDC; a Cloudflare-style 403 for transactions).
+      command: "node e2e/mock/checker.mjs",
+      url: `http://127.0.0.1:${MOCK_CHECKER_PORT}/__health`,
       reuseExistingServer: false,
       timeout: 30_000,
     },
