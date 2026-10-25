@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { LifeBuoy } from "lucide-react";
 import { LocalTime } from "@/components/tickets/local-time";
@@ -18,7 +19,7 @@ export function TicketList({ items, showAuthor, empty }: { items: TicketListItem
       {items.map((t) => (
         <li key={t.id}>
           <Link
-            href={`/tickets/${t.id}`}
+            href={clubPath(`/tickets/${t.id}`)}
             className="flex min-h-11 flex-col gap-1 rounded-panel border border-border bg-surface p-4 transition-colors duration-150 outline-none hover:border-border-strong hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg motion-reduce:transition-none"
           >
             <span className="font-display text-base font-bold break-words text-fg">{t.subject}</span>

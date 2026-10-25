@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
 // T-002 (ronda 1): while a navigation is slow, the content area shows the Diamond loader and the shell stays put; the
 // clicked sidebar link shows a small hint while the navigation has not committed.
@@ -29,7 +29,7 @@ async function homeWithPrefetch(page: Page, linkName: RegExp, nav: string) {
   page.on("response", (res) => {
     if (isPrefetch(res.request().headers())) prefetched.push(new URL(res.url()).pathname);
   });
-  await page.goto("/");
+  await page.goto(clubPath());
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   const link = page.getByRole("navigation", { name: nav }).first().getByRole("link", { name: linkName });
   const href = (await link.getAttribute("href"))!;
@@ -87,7 +87,7 @@ test("al cambiar de sección se ve el diamante en el contenido", async ({ page }
 
 test("el enlace pulsado muestra el indicador mientras la navegación no termina", async ({ page }) => {
   await slowRsc(page, "everything");
-  await page.goto("/");
+  await page.goto(clubPath());
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   const link = page.getByRole("navigation", { name: "Canales" }).getByRole("link", { name: GENERAL });
   await link.click();

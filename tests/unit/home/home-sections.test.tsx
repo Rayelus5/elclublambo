@@ -18,8 +18,8 @@ describe("home sections", () => {
         <ActiveChannelsList channels={[{ channelId: "c2", channelName: "trading", lastAt: "", recentCount: 12 }]} />
       </>,
     );
-    expect(screen.getByRole("link", { name: /Reunión el viernes/ })).toHaveAttribute("href", "/c/c1?m=p1");
-    expect(screen.getByRole("link", { name: /trading/ })).toHaveAttribute("href", "/c/c2");
+    expect(screen.getByRole("link", { name: /Reunión el viernes/ })).toHaveAttribute("href", "/foro/c/c1?m=p1");
+    expect(screen.getByRole("link", { name: /trading/ })).toHaveAttribute("href", "/foro/c/c2");
   });
 
   it("a failed section says so instead of rendering its content", () => {

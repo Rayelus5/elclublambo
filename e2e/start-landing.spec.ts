@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { watchCsp } from "./helpers/csp";
 
 // /start: the public landing. Served with and without a session (no login or welcome redirect), under the full CSP,
@@ -172,8 +172,8 @@ test("the Spanish /start links to /herramientas and the OG card renders per lang
   }
 });
 
-test("/login points newcomers to /start", async ({ page }) => {
-  await page.goto("/login");
+test("/foro/login points newcomers to /start", async ({ page }) => {
+  await page.goto(clubPath("/login"));
   const link = page.getByRole("link", { name: "¿Qué es ElClub.?" });
   await expect(link).toHaveAttribute("href", "/start");
   await link.click();

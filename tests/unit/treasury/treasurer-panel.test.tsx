@@ -243,25 +243,25 @@ describe("isHiddenTreasuryPage (proxy guard)", () => {
     }),
   });
 
-  it.each(["/", "/dao", "/dao/", "/dao/tesoreriax", "/x/dao/tesoreria"])("%s is not the panel: no query", async (p) => {
+  it.each(["/", "/foro/dao", "/foro/dao/", "/foro/dao/tesoreriax", "/foro/x/dao/tesoreria", "/dao/tesoreria"])("%s is not the panel: no query", async (p) => {
     const c = client("0");
     expect(await isHiddenTreasuryPage(c as never, p)).toBe(false);
     expect(c.rpc).not.toHaveBeenCalled();
   });
 
-  it.each(["/dao/tesoreria", "/dao/tesoreria/", "/dao/tesoreria/algo"])("%s is hidden without MANAGE_TREASURY", async (p) => {
+  it.each(["/foro/dao/tesoreria", "/foro/dao/tesoreria/", "/foro/dao/tesoreria/algo"])("%s is hidden without MANAGE_TREASURY", async (p) => {
     expect(await isHiddenTreasuryPage(client("8") as never, p)).toBe(true);
   });
 
   it("is visible with MANAGE_TREASURY (256) or ADMINISTRATOR (512)", async () => {
-    expect(await isHiddenTreasuryPage(client("256") as never, "/dao/tesoreria")).toBe(false);
-    expect(await isHiddenTreasuryPage(client("512") as never, "/dao/tesoreria")).toBe(false);
+    expect(await isHiddenTreasuryPage(client("256") as never, "/foro/dao/tesoreria")).toBe(false);
+    expect(await isHiddenTreasuryPage(client("512") as never, "/foro/dao/tesoreria")).toBe(false);
   });
 
   it("only active members get the 404; any error fails open", async () => {
-    expect(await isHiddenTreasuryPage(client("0", "banned") as never, "/dao/tesoreria")).toBe(false);
-    expect(await isHiddenTreasuryPage(client(null, "active", { message: "x" }) as never, "/dao/tesoreria")).toBe(false);
-    expect(await isHiddenTreasuryPage(client("abc") as never, "/dao/tesoreria")).toBe(false);
+    expect(await isHiddenTreasuryPage(client("0", "banned") as never, "/foro/dao/tesoreria")).toBe(false);
+    expect(await isHiddenTreasuryPage(client(null, "active", { message: "x" }) as never, "/foro/dao/tesoreria")).toBe(false);
+    expect(await isHiddenTreasuryPage(client("abc") as never, "/foro/dao/tesoreria")).toBe(false);
   });
 });
 

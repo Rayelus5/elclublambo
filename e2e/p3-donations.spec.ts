@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { CHAINS, CLUB_SAFE, hardhatAccount } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, service, type Actor } from "./helpers/f2c";
 import { installTestWallet, signInPublic, type TestWallet } from "./helpers/wallet";
 
@@ -137,7 +137,7 @@ test("1. a wallet without invitation signs in on /donar and donates 5 USDC, list
 });
 
 test("2. a member sees «Donante externo · 0x…» in the club's list; the public page shows no list (P3-R8)", async () => {
-  await admin.page.goto("/donar");
+  await admin.page.goto(clubPath("/donar"));
   await expect(donorList(admin.page).getByRole("listitem").filter({ hasText: EXTERNAL_LABEL })).toContainText("5 USD");
 
   const anon = await admin.page.context().browser()!.newContext({ viewport: desktop });
@@ -166,9 +166,9 @@ test("3. the same wallet redeems an invitation: its donation is claimed and it g
 
     // In the club: the member's own state shows Mecenas, and others see the member's label instead of the external one.
     await joined.page.setViewportSize(desktop);
-    await joined.page.goto("/donar");
+    await joined.page.goto(clubPath("/donar"));
     await expect(joined.page.getByRole("region", { name: "Tu estado" }).getByText("Mecenas", { exact: true })).toBeVisible();
-    await admin.page.goto("/donar");
+    await admin.page.goto(clubPath("/donar"));
     await expect(donorList(admin.page).getByRole("listitem").filter({ hasText: handleOf(donor.privateKey) })).toContainText("5 USD");
     await expect(donorList(admin.page).getByText(EXTERNAL_LABEL)).toHaveCount(0);
   } finally {

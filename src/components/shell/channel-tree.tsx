@@ -1,5 +1,6 @@
 "use client";
 
+import { CLUB_BASE, clubPath } from "@/lib/club/paths";
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -63,7 +64,7 @@ const lockedLabel = (node: TreeNode) => (node.locked ? `${node.name}, bloqueado`
 const indent = (depth: number) => ({ paddingLeft: `${16 + depth * 12}px` });
 
 function activeIdFrom(pathname: string): string | null {
-  const match = /^\/c\/([^/]+)/.exec(pathname);
+  const match = new RegExp(`^${CLUB_BASE}/c/([^/]+)`).exec(pathname);
   return match?.[1] ?? null;
 }
 
@@ -72,7 +73,7 @@ function ChannelLink({ node, depth, active }: { node: TreeNode; depth: number; a
   const hasUnread = unread.has(node.id);
   return (
     <Link
-      href={`/c/${node.id}`}
+      href={clubPath(`/c/${node.id}`)}
       aria-current={active ? "page" : undefined}
       aria-label={lockedLabel(node)}
       style={indent(depth)}
@@ -161,7 +162,7 @@ function Branch({ nodes, depth, state }: { nodes: TreeNode[]; depth: number; sta
                 {node.locked ? <LockIcon /> : null}
               </button>
               <Link
-                href={`/c/${node.id}`}
+                href={clubPath(`/c/${node.id}`)}
                 aria-label={`Abrir ${node.name}`}
                 aria-current={forumActive ? "page" : undefined}
                 className={cn(

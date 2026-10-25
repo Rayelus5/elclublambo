@@ -26,23 +26,23 @@ beforeEach(() => {
 describe("completeLogin", () => {
   it("no user -> /login", async () => {
     getUser.mockResolvedValue({ data: { user: null }, error: null });
-    expect(await completeLogin(null)).toEqual({ redirectTo: "/login" });
+    expect(await completeLogin(null)).toEqual({ redirectTo: "/foro/login" });
   });
 
   it("first status read errors -> /no-access with unknown", async () => {
     serverRpc.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/no-access", error: "unknown" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro/no-access", error: "unknown" });
   });
 
   it("active member -> /", async () => {
     serverRpc.mockResolvedValueOnce({ data: "active", error: null });
-    expect(await completeLogin(null)).toEqual({ redirectTo: "/" });
+    expect(await completeLogin(null)).toEqual({ redirectTo: "/foro" });
   });
 
   it("bootstrap success then active -> /", async () => {
     serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "active", error: null });
     adminRpc.mockResolvedValue({ data: "m1", error: null });
-    expect(await completeLogin(null)).toEqual({ redirectTo: "/" });
+    expect(await completeLogin(null)).toEqual({ redirectTo: "/foro" });
     expect(adminRpc).toHaveBeenCalledWith("bootstrap_super_admin", {
       p_auth_user_id: "u1",
       p_wallet: WALLET.toLowerCase(),
@@ -52,19 +52,19 @@ describe("completeLogin", () => {
   it("bootstrap success but banned afterwards -> /banned", async () => {
     serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "banned", error: null });
     adminRpc.mockResolvedValue({ data: "m1", error: null });
-    expect(await completeLogin(null)).toEqual({ redirectTo: "/banned" });
+    expect(await completeLogin(null)).toEqual({ redirectTo: "/foro/banned" });
   });
 
   it("bootstrap_closed without code -> /no-access", async () => {
     serverRpc.mockResolvedValueOnce({ data: "none", error: null });
     adminRpc.mockResolvedValue({ data: null, error: { message: "bootstrap_closed" } });
-    expect(await completeLogin(null)).toEqual({ redirectTo: "/no-access" });
+    expect(await completeLogin(null)).toEqual({ redirectTo: "/foro/no-access" });
   });
 
   it("bootstrap_closed falls through to redeem", async () => {
     serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "m2", error: null });
     adminRpc.mockResolvedValue({ data: null, error: { message: "bootstrap_closed" } });
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro" });
     expect(serverRpc).toHaveBeenLastCalledWith("redeem_invite", { p_code: "abc" });
   });
 
@@ -74,7 +74,7 @@ describe("completeLogin", () => {
       .mockResolvedValueOnce({ data: "none", error: null })
       .mockResolvedValueOnce({ data: null, error: { message: "invite_expired" } });
     expect(await completeLogin("Ab-9_z")).toEqual({
-      redirectTo: "/invite/Ab-9_z?error=invite_expired",
+      redirectTo: "/foro/invite/Ab-9_z?error=invite_expired",
       error: "invite_expired",
     });
   });
@@ -82,7 +82,7 @@ describe("completeLogin", () => {
   it("charges redeem_invite before redeeming", async () => {
     process.env.SUPER_ADMIN_WALLET = "";
     serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "m2", error: null });
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro" });
     expect(hit).toHaveBeenCalledWith(expect.anything(), "redeem_invite");
     expect(hit.mock.invocationCallOrder[0]).toBeLessThan(serverRpc.mock.invocationCallOrder[1]!);
   });
@@ -91,9 +91,9 @@ describe("completeLogin", () => {
     process.env.SUPER_ADMIN_WALLET = "";
     hit.mockResolvedValue("rate_limited");
     serverRpc.mockResolvedValue({ data: "none", error: null });
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=rate_limited", error: "rate_limited" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro/invite/abc?error=rate_limited", error: "rate_limited" });
     hit.mockResolvedValue("error");
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=unknown", error: "unknown" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro/invite/abc?error=unknown", error: "unknown" });
     expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
   });
 
@@ -101,7 +101,7 @@ describe("completeLogin", () => {
     hit.mockResolvedValue("rate_limited");
     serverRpc.mockResolvedValue({ data: "none", error: null });
     adminRpc.mockResolvedValue({ data: null, error: { message: "bootstrap_closed" } });
-    expect(await completeLogin("abc")).toEqual({ redirectTo: "/invite/abc?error=rate_limited", error: "rate_limited" });
+    expect(await completeLogin("abc")).toEqual({ redirectTo: "/foro/invite/abc?error=rate_limited", error: "rate_limited" });
     expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
   });
 
@@ -110,7 +110,7 @@ describe("completeLogin", () => {
     async (code) => {
       process.env.SUPER_ADMIN_WALLET = "";
       serverRpc.mockResolvedValue({ data: "none", error: null });
-      expect(await completeLogin(code as never)).toEqual({ redirectTo: "/no-access", error: "invite_not_found" });
+      expect(await completeLogin(code as never)).toEqual({ redirectTo: "/foro/no-access", error: "invite_not_found" });
       expect(hit).not.toHaveBeenCalled();
       expect(serverRpc).not.toHaveBeenCalledWith("redeem_invite", expect.anything());
     },
@@ -120,18 +120,18 @@ describe("completeLogin", () => {
     process.env.SUPER_ADMIN_WALLET = "";
     const code = "A".repeat(32) + "z_-9".repeat(8);
     serverRpc.mockResolvedValueOnce({ data: "none", error: null }).mockResolvedValueOnce({ data: "m2", error: null });
-    expect(await completeLogin(code)).toEqual({ redirectTo: "/" });
+    expect(await completeLogin(code)).toEqual({ redirectTo: "/foro" });
     expect(serverRpc).toHaveBeenLastCalledWith("redeem_invite", { p_code: code });
   });
 
   it("banned -> /banned; none without code -> /no-access; no web3 wallet -> /no-access", async () => {
     serverRpc.mockResolvedValueOnce({ data: "banned", error: null });
-    expect((await completeLogin("x")).redirectTo).toBe("/banned");
+    expect((await completeLogin("x")).redirectTo).toBe("/foro/banned");
     process.env.SUPER_ADMIN_WALLET = "";
     serverRpc.mockResolvedValueOnce({ data: "none", error: null });
-    expect((await completeLogin(null)).redirectTo).toBe("/no-access");
+    expect((await completeLogin(null)).redirectTo).toBe("/foro/no-access");
     getUser.mockResolvedValue({ data: { user: { id: "u1", identities: [] } }, error: null });
-    expect((await completeLogin(null)).redirectTo).toBe("/no-access");
+    expect((await completeLogin(null)).redirectTo).toBe("/foro/no-access");
   });
 });
 
@@ -149,10 +149,10 @@ describe("completeLogin public mode", () => {
   });
   it("banned -> /banned", async () => {
     serverRpc.mockResolvedValueOnce({ data: "banned", error: null });
-    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/banned" });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/foro/banned" });
   });
   it("no user -> /login", async () => {
     getUser.mockResolvedValue({ data: { user: null }, error: null });
-    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/login" });
+    expect(await completeLogin(null, "public")).toEqual({ redirectTo: "/foro/login" });
   });
 });

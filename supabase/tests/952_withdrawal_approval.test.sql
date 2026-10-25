@@ -425,30 +425,30 @@ select is((select approval_count from public.withdrawal_requests where id = curr
 
 -- ===== 10. push =====
 select is(tests.xpush(tests.xnote('a', 'withdrawal_approved')),
-  'Retirada aprobada|Tu retirada de 8 USDC está aprobada. El tesorero la pagará desde la Safe.|/dao#retirada',
+  'Retirada aprobada|Tu retirada de 8 USDC está aprobada. El tesorero la pagará desde la Safe.|/foro/donar',
   'push withdrawal_approved');
 select is(tests.xpush((select n.id from public.notifications n where n.kind = 'withdrawal_rejected'
                          and n.data ->> 'requestId' = current_setting('t.ra'))),
-  'Retirada rechazada|El tesorero rechazó tu retirada: «Sin liquidez ahora»|/dao#retirada',
+  'Retirada rechazada|El tesorero rechazó tu retirada: «Sin liquidez ahora»|/foro/donar',
   'push withdrawal_rejected (control characters stripped)');
 insert into public.notifications (recipient_id, kind, data) values
   (current_setting('t.a')::uuid, 'withdrawal_rejected', jsonb_build_object('requestId', gen_random_uuid(), 'reason', repeat('a', 100)));
 select is(tests.xpush(tests.xnote('a', 'withdrawal_rejected')),
-  'Retirada rechazada|El tesorero rechazó tu retirada: «' || repeat('a', 80) || '»|/dao#retirada',
+  'Retirada rechazada|El tesorero rechazó tu retirada: «' || repeat('a', 80) || '»|/foro/donar',
   'push withdrawal_rejected caps the reason at 80 characters');
 insert into public.notifications (recipient_id, kind, data) values
   (current_setting('t.a')::uuid, 'withdrawal_paid', jsonb_build_object('requestId', gen_random_uuid(), 'amount', '2500000'));
 select is(tests.xpush(tests.xnote('a', 'withdrawal_paid')),
-  'Retirada pagada|Has recibido 2,5 USDC de la tesorería.|/dao#retirada', 'push withdrawal_paid');
+  'Retirada pagada|Has recibido 2,5 USDC de la tesorería.|/foro/donar', 'push withdrawal_paid');
 select is(tests.xpush(tests.xnote('t', 'withdrawal_expired')),
-  'Aprobación caducada|Tu retirada no se pagó en 14 días y vuelve a estar pendiente de aprobación.|/dao#retirada',
+  'Aprobación caducada|Tu retirada no se pagó en 14 días y vuelve a estar pendiente de aprobación.|/foro/donar',
   'push withdrawal_expired');
 select is(tests.xpush((select n.id from public.notifications n where n.recipient_id = current_setting('t.t')::uuid
                          and n.kind = 'treasury_notice' and n.data ->> 'event' = 'withdrawal_requested' order by n.id desc limit 1)),
-  'Aviso de tesorería|Hay una nueva solicitud de retirada.|/dao/tesoreria', 'push treasury_notice withdrawal_requested');
+  'Aviso de tesorería|Hay una nueva solicitud de retirada.|/foro/donar', 'push treasury_notice withdrawal_requested');
 select is(tests.xpush((select n.id from public.notifications n where n.recipient_id = current_setting('t.t')::uuid
                          and n.kind = 'treasury_notice' and n.data ->> 'event' = 'approval_expired' order by n.id desc limit 1)),
-  'Aviso de tesorería|Una retirada aprobada caducó sin pagarse.|/dao/tesoreria', 'push treasury_notice approval_expired');
+  'Aviso de tesorería|Una retirada aprobada caducó sin pagarse.|/foro/donar', 'push treasury_notice approval_expired');
 insert into public.notifications (recipient_id, kind, data) values
   (current_setting('t.t')::uuid, 'treasury_notice', jsonb_build_object('event', 'zzz', 'requestId', gen_random_uuid()));
 select is((select count(*)::int from public._push_build(tests.xnote('t', 'treasury_notice'))), 0,
@@ -467,8 +467,8 @@ select is((select count(*)::int from public._push_build(tests.xnote('a', 'withdr
   'a missing amount builds nothing');
 insert into public.notifications (recipient_id, kind, data) values
   (current_setting('t.t')::uuid, 'treasury_outflow', jsonb_build_object('opId', gen_random_uuid(), 'asset', 'USDC', 'amount', '1000000'));
-select is((select url from public._push_build(tests.xnote('t', 'treasury_outflow'))), '/dao/tesoreria',
-  'treasury_outflow now opens /dao/tesoreria (R1)');
+select is((select url from public._push_build(tests.xnote('t', 'treasury_outflow'))), '/foro/donar',
+  'treasury_outflow now opens /foro/donar (R1)');
 
 select * from finish();
 rollback;

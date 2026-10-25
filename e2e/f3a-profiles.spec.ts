@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { channelIds, createInvite, messageWith, openChannel, rpcAs, sendMention, service } from "./helpers/f2c";
 
 // F3a acceptance: mandatory-handle welcome, profile editing, mentions by @handle, SuperAdmin economy settings,
@@ -21,7 +21,7 @@ function trackErrors(context: BrowserContext) {
 }
 test.afterEach(() => {
   // Test 5 requests /settings/economia as a non-admin on purpose: the browser logs the deliberate 404 document.
-  const expected404 = (e: string) => /status of 404/.test(e) && e.includes("@ http://localhost:3000/settings/economia ");
+  const expected404 = (e: string) => /status of 404/.test(e) && e.includes(`@ http://localhost:3000${clubPath("/settings/economia")} `);
   // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   const errors = browserErrors.filter((e) => !expected404(e) && !coopOn404(e));
@@ -66,9 +66,9 @@ test.afterAll(async () => {
 
 test("1. newcomer without a handle is sent to the welcome, must pick a handle and returns to where they were going", async () => {
   const p = memberPage;
-  await p.goto(`/c/${generalId}`);
+  await p.goto(clubPath(`/c/${generalId}`));
   await expect(p).toHaveURL(new RegExp(`/bienvenida\\?next=`));
-  expect(decodeURIComponent(new URL(p.url()).searchParams.get("next") ?? "")).toBe(`/c/${generalId}`);
+  expect(decodeURIComponent(new URL(p.url()).searchParams.get("next") ?? "")).toBe(clubPath(`/c/${generalId}`));
 
   await expect(p.getByRole("heading", { level: 2, name: "Elige tu @handle" })).toBeVisible();
   await expect(p.getByRole("button", { name: "Saltar" })).toHaveCount(0);
@@ -87,13 +87,13 @@ test("1. newcomer without a handle is sent to the welcome, must pick a handle an
   await expect(p.getByRole("heading", { level: 2, name: "Propinas y bounties" })).toBeVisible();
   await p.getByRole("button", { name: "Saltar" }).click();
 
-  await expect(p).toHaveURL(new RegExp(`/c/${generalId}$`));
+  await expect(p).toHaveURL(new RegExp(`${CLUB_BASE}/c/${generalId}$`));
   await expect(p.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
 });
 
 test("2. profile: bio, links and avatar show on the public page, hostile domains go through /out", async () => {
   const p = memberPage;
-  await p.goto("/perfil");
+  await p.goto(clubPath("/perfil"));
   await expect(p.getByRole("heading", { level: 1, name: "Editar perfil" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 
@@ -108,7 +108,7 @@ test("2. profile: bio, links and avatar show on the public page, hostile domains
   await p.getByRole("button", { name: "Guardar perfil" }).click();
   await expect(p.getByText("Perfil guardado.")).toBeVisible();
 
-  await p.goto(`/u/${HANDLE}`);
+  await p.goto(clubPath(`/u/${HANDLE}`));
   await expect(p.locator('main img[src*="/avatars/"]').first()).toBeVisible();
   await expect(p.getByText("Construyo cosas en la red de pruebas.")).toBeVisible();
   const github = p.locator('main a[href="https://github.com/x"]');
@@ -120,7 +120,7 @@ test("2. profile: bio, links and avatar show on the public page, hostile domains
 
 test("3. a mention of the member renders @handle", async () => {
   const p = adminPage;
-  await p.goto(`/c/${generalId}`);
+  await p.goto(clubPath(`/c/${generalId}`));
   await openChannel(p, "General");
   await sendMention(p, HANDLE, " bienvenido al club");
   const msg = messageWith(p, "bienvenido al club");
@@ -130,7 +130,7 @@ test("3. a mention of the member renders @handle", async () => {
 
 test("4. SuperAdmin sees the build's two test networks, disables and re-enables one; members see MODO PRUEBA", async () => {
   const p = adminPage;
-  await p.goto("/settings/economia");
+  await p.goto(clubPath("/settings/economia"));
   await expect(p.getByRole("heading", { level: 2, name: "Economía" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 
@@ -143,7 +143,7 @@ test("4. SuperAdmin sees the build's two test networks, disables and re-enables 
   await expect(p.getByRole("main").getByText(/Linea|Comisión/)).toHaveCount(0);
 
   // Members see the test-mode badge on a testnet build.
-  await memberPage.goto("/");
+  await memberPage.goto(clubPath());
   // T-007: below 1536 px the top bar shows the compact «PRUEBA» badge, named in full for screen readers.
   await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE, exact: true })).toBeVisible();
 
@@ -160,7 +160,7 @@ test("4. SuperAdmin sees the build's two test networks, disables and re-enables 
 
 test("5. a non-admin gets 404 on the economy settings and forbidden from the RPCs", async () => {
   const page = await plain.newPage();
-  const res = await page.goto("/settings/economia");
+  const res = await page.goto(clubPath("/settings/economia"));
   expect(res?.status()).toBe(404);
   await page.close();
 
@@ -170,12 +170,12 @@ test("5. a non-admin gets 404 on the economy settings and forbidden from the RPC
 
 test("6. the guide lists 7 sections and the palette offers them", async () => {
   const p = memberPage;
-  await p.goto("/guia");
+  await p.goto(clubPath("/guia"));
   await expect(p.getByRole("heading", { level: 1, name: "Guía" })).toBeVisible();
   // propinas, bounties, dao, fondo (F4a), encuestas (F4e), candados, redes
-  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(7);
+  await expect(p.locator(`main a[href^="${clubPath("/guia/")}"]`)).toHaveCount(7);
 
-  await p.goto("/");
+  await p.goto(clubPath());
   await p.waitForLoadState("networkidle");
   const dialog = p.getByRole("dialog", { name: "Buscar" });
   await expect(async () => {

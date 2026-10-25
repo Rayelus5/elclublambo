@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { DOMAIN_RE } from "@/lib/domains/validate";
 import { rpcErrorCode } from "@/lib/errors";
@@ -17,7 +18,7 @@ export async function addDomainAction(domain: string): Promise<{ error?: string 
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("add_allowed_domain", { p_domain: d });
   if (error) return { error: rpcErrorCode(error) };
-  revalidatePath("/settings/links");
+  revalidatePath(clubPath("/settings/links"));
   return {};
 }
 
@@ -27,6 +28,6 @@ export async function removeDomainAction(domain: string): Promise<{ error?: stri
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("remove_allowed_domain", { p_domain: d });
   if (error) return { error: rpcErrorCode(error) };
-  revalidatePath("/settings/links");
+  revalidatePath(clubPath("/settings/links"));
   return {};
 }

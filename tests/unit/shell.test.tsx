@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const pathname = vi.hoisted(() => ({ value: "/" }));
+const pathname = vi.hoisted(() => ({ value: "/foro" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname.value,
   useRouter: () => ({ replace: vi.fn() }),
@@ -16,7 +16,7 @@ import { Sidebar } from "@/components/shell/sidebar";
 const WALLET = "0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" as const;
 
 beforeEach(() => {
-  pathname.value = "/";
+  pathname.value = "/foro";
 });
 
 function renderSidebar(perms: bigint) {
@@ -81,7 +81,7 @@ describe("Sidebar", () => {
   });
 
   it("underlines the active top bar link and labels it for screen readers at every width", () => {
-    pathname.value = "/tickets";
+    pathname.value = "/foro/tickets";
     renderSidebar(7n);
     const link = within(desktopBar()).getByRole("link", { name: "Tickets" });
     expect(link).toHaveAttribute("aria-current", "page");
@@ -92,14 +92,14 @@ describe("Sidebar", () => {
   it("has the bell, the profile and sign out on the right of the desktop top bar", () => {
     renderSidebar(7n);
     const bar = within(desktopBar());
-    expect(bar.getByRole("link", { name: "Notificaciones" })).toHaveAttribute("href", "/notifications");
-    expect(bar.getByRole("link", { name: /Mi perfil/ })).toHaveAttribute("href", `/u/${WALLET}`);
+    expect(bar.getByRole("link", { name: "Notificaciones" })).toHaveAttribute("href", "/foro/notifications");
+    expect(bar.getByRole("link", { name: /Mi perfil/ })).toHaveAttribute("href", `/foro/u/${WALLET}`);
     expect(bar.getByRole("button", { name: "Salir" })).toBeInTheDocument();
   });
 
   it("always shows Inicio", () => {
     renderSidebar(7n);
-    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("href", "/foro");
   });
 
   it("hides Invitaciones and Miembros without the bits", () => {
@@ -110,7 +110,7 @@ describe("Sidebar", () => {
 
   it("shows Invitaciones with bit 16 (and no Miembros)", () => {
     renderSidebar(16n);
-    expect(screen.getByRole("link", { name: "Invitaciones" })).toHaveAttribute("href", "/invites");
+    expect(screen.getByRole("link", { name: "Invitaciones" })).toHaveAttribute("href", "/foro/invites");
     expect(screen.queryByRole("link", { name: "Miembros" })).toBeNull();
   });
 
@@ -118,7 +118,7 @@ describe("Sidebar", () => {
     renderSidebar(512n);
     expect(screen.getByRole("link", { name: "Invitaciones" })).toBeInTheDocument();
     await openMore();
-    expect(await screen.findByRole("menuitem", { name: "Miembros" })).toHaveAttribute("href", "/admin/members");
+    expect(await screen.findByRole("menuitem", { name: "Miembros" })).toHaveAttribute("href", "/foro/admin/members");
   });
 
   it("shows Miembros with bit 32 (and no Invitaciones)", async () => {
@@ -131,14 +131,14 @@ describe("Sidebar", () => {
   it("renders the short address in mono inside the profile link", () => {
     renderSidebar(7n);
     const profile = screen.getByRole("link", { name: /Mi perfil/ });
-    expect(profile).toHaveAttribute("href", `/u/${WALLET}`);
+    expect(profile).toHaveAttribute("href", `/foro/u/${WALLET}`);
     expect(within(profile).getByText("0xd590…b82d")).toHaveClass("font-mono");
   });
 
   it("makes the mobile top bar brand a link home, styled like the sidebar brand", () => {
     renderSidebar(7n);
     const topbarBrand = within(mobileBar()).getByRole("link", { name: "El Club." });
-    expect(topbarBrand).toHaveAttribute("href", "/");
+    expect(topbarBrand).toHaveAttribute("href", "/foro");
     const sidebarBrand = within(desktopBar()).getByRole("link", { name: "El Club." });
     expect(topbarBrand.className).toContain("font-display");
     expect(topbarBrand.className).toContain("focus-visible:ring-accent");
@@ -148,7 +148,7 @@ describe("Sidebar", () => {
   it("shows Reportes only when the server says the member moderates a visible channel", async () => {
     render(<Sidebar perms={7n} wallet={WALLET} canModerate />);
     await openMore();
-    expect(await screen.findByRole("menuitem", { name: "Reportes" })).toHaveAttribute("href", "/moderation/reports");
+    expect(await screen.findByRole("menuitem", { name: "Reportes" })).toHaveAttribute("href", "/foro/moderation/reports");
   });
 
   it("hides Reportes without the flag, even with global 8 or 512 (the page would be a 404)", () => {
@@ -162,37 +162,37 @@ describe("Sidebar", () => {
   it("always links to the guide, right after Tickets", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
-    expect(screen.getByRole("link", { name: "Guía" })).toHaveAttribute("href", "/guia");
+    expect(screen.getByRole("link", { name: "Guía" })).toHaveAttribute("href", "/foro/guia");
     expect(names.indexOf("Guía")).toBe(names.indexOf("Tickets") + 1);
   });
 
   it("always links to Donar, right after the guide", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
-    expect(within(desktopBar()).getByRole("link", { name: "Donar" })).toHaveAttribute("href", "/donar");
+    expect(within(desktopBar()).getByRole("link", { name: "Donar" })).toHaveAttribute("href", "/foro/donar");
     expect(names.indexOf("Donar")).toBe(names.indexOf("Guía") + 1);
   });
 
   it("always links to Mercado, right after Donar (the drawer shares sections())", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
-    expect(within(desktopBar()).getByRole("link", { name: "Mercado" })).toHaveAttribute("href", "/mercado");
+    expect(within(desktopBar()).getByRole("link", { name: "Mercado" })).toHaveAttribute("href", "/foro/mercado");
     expect(names.indexOf("Mercado")).toBe(names.indexOf("Donar") + 1);
   });
 
   it("always links to Sorteos, right after Mercado", () => {
     renderSidebar(0n);
     const names = within(desktopBar()).getAllByRole("link").map((l) => l.textContent);
-    expect(within(desktopBar()).getByRole("link", { name: "Sorteos" })).toHaveAttribute("href", "/sorteos");
+    expect(within(desktopBar()).getByRole("link", { name: "Sorteos" })).toHaveAttribute("href", "/foro/sorteos");
     expect(names.indexOf("Sorteos")).toBe(names.indexOf("Mercado") + 1);
   });
 
   it("always links to Tickets, with the open count when there are any", () => {
     const { unmount } = renderSidebar(7n);
-    expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/tickets");
+    expect(screen.getByRole("link", { name: "Tickets" })).toHaveAttribute("href", "/foro/tickets");
     unmount();
     render(<Sidebar perms={7n} wallet={WALLET} openTickets={2} />);
-    expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/tickets");
+    expect(screen.getByRole("link", { name: "Tickets, 2 abiertos" })).toHaveAttribute("href", "/foro/tickets");
   });
 
   it("offers sign out", () => {
@@ -201,7 +201,7 @@ describe("Sidebar", () => {
   });
 
   it("marks only the active link with aria-current=page", async () => {
-    pathname.value = "/invites";
+    pathname.value = "/foro/invites";
     renderSidebar(512n);
     expect(screen.getByRole("link", { name: "Invitaciones" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Inicio" })).not.toHaveAttribute("aria-current");
@@ -210,13 +210,13 @@ describe("Sidebar", () => {
   });
 
   it("marks «Más» as the current section while one of its sections is open", () => {
-    pathname.value = "/settings/roles";
+    pathname.value = "/foro/settings/roles";
     renderSidebar(512n);
     expect(within(desktopBar()).getByRole("button", { name: "Más" })).toHaveClass("border-accent");
   });
 
   it("Inicio is active on exactly '/'", () => {
-    pathname.value = "/";
+    pathname.value = "/foro";
     renderSidebar(7n);
     expect(screen.getByRole("link", { name: "Inicio" })).toHaveAttribute("aria-current", "page");
   });

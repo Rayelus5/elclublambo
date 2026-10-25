@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -90,7 +91,7 @@ function ReportCard({ group, canBan }: { group: ReportGroup; canBan: boolean }) 
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="font-display text-base font-bold text-fg">{countLabel}</h2>
         <Link
-          href={`/c/${group.channel.id}`}
+          href={clubPath(`/c/${group.channel.id}`)}
           className="inline-flex min-h-11 items-center rounded-control px-1 text-sm text-accent outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent"
         >
           #{group.channel.name}

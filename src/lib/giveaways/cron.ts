@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import "server-only";
 import { revalidatePath } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -21,8 +22,8 @@ export type DrawOutcome =
 type Admin = Pick<SupabaseClient, "rpc">;
 
 export function revalidateGiveaways() {
-  revalidatePath("/sorteos");
-  revalidatePath("/sorteos/[id]", "page");
+  revalidatePath(clubPath("/sorteos"));
+  revalidatePath(clubPath("/sorteos/[id]"), "page");
 }
 
 /**

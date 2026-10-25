@@ -80,7 +80,7 @@ select is((select jsonb_build_object('title', title, 'body', body, 'url', url, '
            from public._push_build(current_setting('t.n1')::bigint)),
   jsonb_build_object('title', 'Encuesta cerrada',
                      'body', 'Se ha cerrado la encuesta en la que votaste en #t973: «¿Té o café?»',
-                     'url', '/c/' || current_setting('t.ch') || '?m=' || current_setting('t.p') || '&h=n' || current_setting('t.n1'),
+                     'url', '/foro/c/' || current_setting('t.ch') || '?m=' || current_setting('t.p') || '&h=n' || current_setting('t.n1'),
                      'tag', 'poll_closed:' || current_setting('t.p')),
   'F4e-R5: the poll_closed push uses the impersonal copy; title, URL and tag unchanged');
 select ok((select position('Ha cerrado la encuesta' in p.prosrc) = 0

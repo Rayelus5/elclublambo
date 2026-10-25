@@ -893,7 +893,7 @@ cloudflared tunnel ingress validate --config $C
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/project/default
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/pg/tables
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/rest/v1/
-cloudflared tunnel ingress rule --config $C https://pre.elclub.party/login
+cloudflared tunnel ingress rule --config $C https://pre.elclub.party/foro/login
 ```
 
 **Comprueba:** `validate` dice `OK`. Cada `cloudflared tunnel ingress rule` imprime la regla que casa:
@@ -901,7 +901,7 @@ cloudflared tunnel ingress rule --config $C https://pre.elclub.party/login
 - `/project/default` (Studio) → `service: http_status:404`
 - `/pg/tables` (pg-meta) → `service: http_status:404`
 - `/rest/v1/` → `service: http://kong:8000`
-- `pre.elclub.party/login` → `service: http://web:3000`
+- `pre.elclub.party/foro/login` → `service: http://web:3000`
 
 ### 8.7 DNS
 
@@ -1076,9 +1076,9 @@ journalctl -u 'actions.runner.*' -f
 
 ```
 docker compose -p elclub-pre ps --format '{{.Service}} {{.Status}}'
-curl -s -o /dev/null -w '%{http_code}\n' https://pre.elclub.party/login
+curl -s -o /dev/null -w '%{http_code}\n' https://pre.elclub.party/foro/login
 curl -s -o /dev/null -w '%{http_code}\n' https://pre-api.elclub.party/
-curl -sI https://pre.elclub.party/login | grep -i -E '^(content-security-policy|strict-transport-security)' | grep -o -E "connect-src [^;]*|max-age=[0-9]+[^;]*"
+curl -sI https://pre.elclub.party/foro/login | grep -i -E '^(content-security-policy|strict-transport-security)' | grep -o -E "connect-src [^;]*|max-age=[0-9]+[^;]*"
 docker exec supabase-db psql -U postgres -d postgres -tAc "select count(*) from supabase_migrations.schema_migrations"
 ls /home/gh-runner/actions-runner/_work/elclublambo/elclublambo/supabase/migrations/*.sql | wc -l
 ```
@@ -1086,7 +1086,7 @@ ls /home/gh-runner/actions-runner/_work/elclublambo/elclublambo/supabase/migrati
 **Comprueba:**
 
 - `web Up (healthy)`, `cron Up`, `cloudflared Up`.
-- `200` para `/login` y `404` para la raíz de `pre-api`.
+- `200` para `/foro/login` y `404` para la raíz de `pre-api`.
 - `connect-src` contiene `https://pre-api.elclub.party` y `wss://pre-api.elclub.party`, y HSTS `max-age=63072000`.
 - Los dos últimos números son iguales (todas las migraciones aplicadas).
 
@@ -1290,7 +1290,7 @@ Policy directive: "connect-src …"`. La imagen se construyó con otra `NEXT_PUB
 de Supabase se fijan al construir.
 
 ```
-curl -sI https://pre.elclub.party/login | grep -i content-security-policy | grep -o "connect-src [^;]*"
+curl -sI https://pre.elclub.party/foro/login | grep -i content-security-policy | grep -o "connect-src [^;]*"
 grep '^NEXT_PUBLIC_SUPABASE_URL=' /opt/elclub/pre/web.env
 ```
 

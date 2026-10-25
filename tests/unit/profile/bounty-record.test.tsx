@@ -32,7 +32,7 @@ describe("BountyRecordSection", () => {
     );
     const list = screen.getByRole("list", { name: "Bounties impagados" });
     const link = within(list).getByRole("link");
-    expect(link).toHaveAttribute("href", `/c/${CH}?m=${M1}`);
+    expect(link).toHaveAttribute("href", `/foro/c/${CH}?m=${M1}`);
     expect(link).toHaveTextContent("25 USDC");
     expect(within(link).getByAltText("Base Sepolia")).toBeInTheDocument();
   });

@@ -71,7 +71,7 @@ describe("ReportQueue", () => {
     expect(within(card).getByText("parece una estafa")).toBeInTheDocument();
     expect(within(card).getByText("compra cripto ya")).toBeInTheDocument();
     expect(within(card).getByText("Ana")).toBeInTheDocument();
-    expect(within(card).getByRole("link", { name: /#general/ })).toHaveAttribute("href", `/c/${CH}`);
+    expect(within(card).getByRole("link", { name: /#general/ })).toHaveAttribute("href", `/foro/c/${CH}`);
   });
 
   it("keeps showing the snapshot when the message was deleted, without a delete button", () => {

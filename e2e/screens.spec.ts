@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Opt-in visual pass: `SCREENS=1 pnpm test:e2e e2e/screens.spec.ts` (or --grep @screens).
 // Writes screenshots to .superpowers/sdd/f1/screens/ (git-ignored) and checks there is no
@@ -26,12 +26,12 @@ test.beforeAll(async ({ browser }) => {
   await loginAs(admin, E2E_SUPER_ADMIN_PK);
   const adminPage = await admin.newPage();
 
-  await adminPage.goto("/invites");
+  await adminPage.goto(clubPath("/invites"));
   await adminPage.getByRole("button", { name: "Crear invitación" }).click();
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   const code = url.split("/invite/")[1]!;
   const invite2 = await (async () => {
-    await adminPage.goto("/invites");
+    await adminPage.goto(clubPath("/invites"));
     await adminPage.getByRole("button", { name: "Crear invitación" }).click();
     return (await adminPage.getByLabel("Tu enlace de invitación").inputValue()).split("/invite/")[1]!;
   })();
@@ -57,26 +57,26 @@ test.beforeAll(async ({ browser }) => {
   });
 
   targets = [
-    { name: "login", ctx: anon, path: "/login" },
-    { name: "invite", ctx: anon, path: `/invite/${code}` },
-    { name: "home", ctx: admin, path: "/" },
-    { name: "invites", ctx: admin, path: "/invites" },
-    { name: "profile", ctx: admin, path: `/u/${adminAddr}` },
-    { name: "members", ctx: admin, path: "/admin/members" },
+    { name: "login", ctx: anon, path: clubPath("/login") },
+    { name: "invite", ctx: anon, path: clubPath(`/invite/${code}`) },
+    { name: "home", ctx: admin, path: clubPath() },
+    { name: "invites", ctx: admin, path: clubPath("/invites") },
+    { name: "profile", ctx: admin, path: clubPath(`/u/${adminAddr}`) },
+    { name: "members", ctx: admin, path: clubPath("/admin/members") },
     // F2a
-    { name: "channel", ctx: admin, path: `/c/${general!.id}` },
-    { name: "settings-channels", ctx: admin, path: "/settings/channels" },
-    { name: "settings-roles", ctx: admin, path: "/settings/roles" },
+    { name: "channel", ctx: admin, path: clubPath(`/c/${general!.id}`) },
+    { name: "settings-channels", ctx: admin, path: clubPath("/settings/channels") },
+    { name: "settings-roles", ctx: admin, path: clubPath("/settings/roles") },
     // F2c (empty states; the data-backed captures live in f2c-notify / f2c-support)
-    { name: "notifications", ctx: admin, path: "/notifications" },
-    { name: "tickets", ctx: admin, path: "/tickets" },
-    { name: "reports", ctx: admin, path: "/moderation/reports" },
+    { name: "notifications", ctx: admin, path: clubPath("/notifications") },
+    { name: "tickets", ctx: admin, path: clubPath("/tickets") },
+    { name: "reports", ctx: admin, path: clubPath("/moderation/reports") },
     // F3a
-    { name: "bienvenida", ctx: newcomer, path: "/bienvenida" },
-    { name: "perfil", ctx: admin, path: "/perfil" },
-    { name: "profile-handle", ctx: admin, path: `/u/u_${adminAddr.slice(2, 12)}` },
-    { name: "guia-donaciones", ctx: admin, path: "/guia/donaciones" },
-    { name: "settings-economia", ctx: admin, path: "/settings/economia" },
+    { name: "bienvenida", ctx: newcomer, path: clubPath("/bienvenida") },
+    { name: "perfil", ctx: admin, path: clubPath("/perfil") },
+    { name: "profile-handle", ctx: admin, path: clubPath(`/u/u_${adminAddr.slice(2, 12)}`) },
+    { name: "guia-donaciones", ctx: admin, path: clubPath("/guia/donaciones") },
+    { name: "settings-economia", ctx: admin, path: clubPath("/settings/economia") },
   ];
 });
 
@@ -117,7 +117,7 @@ for (const width of [375, 1440] as const) {
   test(`@screens capture the command palette at ${width}px`, async () => {
     const page = await admin.newPage();
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto(clubPath());
     const dialog = page.getByRole("dialog", { name: "Buscar" });
     // Right after the navigation the app may not be hydrated yet: retry the opener until it answers.
     await expect(async () => {

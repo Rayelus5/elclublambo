@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { usdToUsd6 } from "@/lib/channels/lock";
@@ -34,8 +35,8 @@ function cleanTopic(v: unknown): { value: string | null } | null {
 }
 
 function refresh() {
-  revalidatePath("/settings/channels");
-  revalidatePath("/", "layout");
+  revalidatePath(clubPath("/settings/channels"));
+  revalidatePath(clubPath(), "layout");
 }
 
 export async function createChannelAction(input: {

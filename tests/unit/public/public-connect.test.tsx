@@ -48,29 +48,30 @@ describe("PublicConnect", () => {
   it("signs the English statement, logs in as public and navigates to next", async () => {
     render(<PublicConnect lang="en" next="/en/tools" />);
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
-    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fen%2Ftools"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/foro/login/complete?mode=public&next=%2Fen%2Ftools"));
     const message = signMessageAsync.mock.calls[0]![0].message as string;
     expect(message).toContain("Sign in to ElClub. This signature costs no gas and moves no funds.");
+    expect(message).toContain(`URI: ${window.location.origin}/foro/login`);
     expect(signInWithWeb3).toHaveBeenCalledWith({ chain: "ethereum", message, signature: "0xsig" });
   });
 
   it("signs the Spanish statement in es", async () => {
     render(<PublicConnect lang="es" next="/herramientas" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar/ }));
-    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fherramientas"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/foro/login/complete?mode=public&next=%2Fherramientas"));
     expect(signMessageAsync.mock.calls[0]![0].message).toContain("Entra en ElClub. Esta firma no cuesta gas ni mueve fondos.");
   });
 
   it("an unsafe next goes to /", async () => {
     render(<PublicConnect lang="en" next="//evil" />);
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
-    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2F"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/foro/login/complete?mode=public&next=%2F"));
   });
 
   it("keeps the query of next (?join=1)", async () => {
     render(<PublicConnect lang="es" next="/herramientas/sorteos/x?join=1" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar/ }));
-    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fherramientas%2Fsorteos%2Fx%3Fjoin%3D1"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/foro/login/complete?mode=public&next=%2Fherramientas%2Fsorteos%2Fx%3Fjoin%3D1"));
   });
 
   it("a failed Supabase sign-in shows the error and does not navigate", async () => {

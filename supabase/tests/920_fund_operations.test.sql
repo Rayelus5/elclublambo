@@ -208,7 +208,7 @@ select is((tests.rso(59141, current_setting('t.eth')::jsonb, 901) ->> 'inserted'
 select is((select title from public._push_build((select n.id from public.notifications n where n.kind = 'treasury_outflow'
   and n.recipient_id = current_setting('t.t')::uuid order by n.id limit 1))), 'Salida de la tesorería', 'push title');
 select is((select url from public._push_build((select n.id from public.notifications n where n.kind = 'treasury_outflow'
-  and n.recipient_id = current_setting('t.t')::uuid order by n.id limit 1))), '/dao/tesoreria', 'push url (ruling F4a-R1: the treasurer panel since F4c)');
+  and n.recipient_id = current_setting('t.t')::uuid order by n.id limit 1))), '/foro/donar', 'push url (ruling F4a-R1: the treasurer panel since F4c)');
 select is((select body from public._push_build((select n.id from public.notifications n where n.kind = 'treasury_outflow'
   and n.recipient_id = current_setting('t.t')::uuid order by n.id limit 1))), '2,5 USDC salió de la Safe sin explicar', 'push body');
 select is((select body from public._push_build((select n.id from public.notifications n where n.kind = 'treasury_outflow'

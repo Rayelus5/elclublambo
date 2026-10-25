@@ -21,7 +21,7 @@ describe("PostGateNotice", () => {
     render(<PostGateNotice state={state} />);
     expect(screen.getByText("Canal para quien ha donado al menos 1 USD. Llevas 0 USD.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Donar a ElClub." })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/candados");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/candados");
     expect(screen.queryByRole("textbox")).toBeNull();
   });
 });

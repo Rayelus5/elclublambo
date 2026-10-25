@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useRef, type ComponentType, type ReactNode } from "react";
 import { ChartCandlestick, Coins, Dices, Gavel, HandCoins, Landmark, MessagesSquare, Search, ShieldCheck, type LucideProps } from "lucide-react";
 import { m, useScroll, useTransform } from "motion/react";
@@ -20,15 +21,15 @@ type Feature = {
 
 // Structure only: the copy of each one lives in the `start.features` dictionary.
 const FEATURES: Feature[] = [
-  { id: "inicio", icon: Search, path: "/", Mock: HomeMock },
-  { id: "chat", icon: MessagesSquare, path: "/c/trading", Mock: ChatMock },
-  { id: "alphas", icon: ShieldCheck, path: "/c/alphas", Mock: AlphaMock },
-  { id: "bounties", icon: HandCoins, path: "/c/bounties", Mock: BountyMock },
-  { id: "propinas", icon: Coins, path: "/u/marta", Mock: TipsMock },
-  { id: "donaciones", icon: Landmark, path: "/donar", Mock: TreasuryMock },
-  { id: "sorteos", icon: Dices, path: "/sorteos", Mock: RafflePollMock },
-  { id: "mercado", icon: ChartCandlestick, path: "/mercado", Mock: MarketMock },
-  { id: "moderacion", icon: Gavel, path: "/admin/roles", Mock: ModerationMock },
+  { id: "inicio", icon: Search, path: clubPath(), Mock: HomeMock },
+  { id: "chat", icon: MessagesSquare, path: clubPath("/c/trading"), Mock: ChatMock },
+  { id: "alphas", icon: ShieldCheck, path: clubPath("/c/alphas"), Mock: AlphaMock },
+  { id: "bounties", icon: HandCoins, path: clubPath("/c/bounties"), Mock: BountyMock },
+  { id: "propinas", icon: Coins, path: clubPath("/u/marta"), Mock: TipsMock },
+  { id: "donaciones", icon: Landmark, path: clubPath("/donar"), Mock: TreasuryMock },
+  { id: "sorteos", icon: Dices, path: clubPath("/sorteos"), Mock: RafflePollMock },
+  { id: "mercado", icon: ChartCandlestick, path: clubPath("/mercado"), Mock: MarketMock },
+  { id: "moderacion", icon: Gavel, path: clubPath("/admin/roles"), Mock: ModerationMock },
 ];
 
 /** The mock-up's frame: a window on the front, a hatched plate behind it moving at its own pace (layering). */

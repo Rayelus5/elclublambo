@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ExternalLink } from "lucide-react";
@@ -190,7 +191,7 @@ export function WelcomeSteps({ initialHandle, next, chainIds }: { initialHandle:
 
         {step.guide && (
           <div>
-            <a href={`/guia/${step.guide.slug}`} target="_blank" rel="noopener" className={GUIDE_LINK}>
+            <a href={clubPath(`/guia/${step.guide.slug}`)} target="_blank" rel="noopener" className={GUIDE_LINK}>
               {step.guide.label}
               <ExternalLink className="size-4" aria-hidden />
               <span className="sr-only">(se abre en otra pestaña)</span>

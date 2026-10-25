@@ -66,7 +66,7 @@ describe("CreateGiveawayDialog", () => {
       ],
     });
     expect(input.closesAt).toBe(new Date(close).toISOString());
-    expect(push).toHaveBeenCalledWith(`/sorteos/${NEW_ID}`);
+    expect(push).toHaveBeenCalledWith(`/foro/sorteos/${NEW_ID}`);
   });
 
   it("refuses a close sooner than 10 minutes without calling the server", async () => {

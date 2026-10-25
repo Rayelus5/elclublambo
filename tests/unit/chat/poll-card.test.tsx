@@ -54,7 +54,7 @@ describe("PollCard: header", () => {
     expect(screen.getByText("2 votantes")).toBeInTheDocument();
     expect(screen.getByText("Voto secreto · resultados al cerrar")).toBeInTheDocument();
     expect(screen.getByText("Consultiva: el resultado no se aplica solo.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/encuestas");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/encuestas");
   });
 
   it("announces the voter count politely", () => {

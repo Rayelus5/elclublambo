@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { Fragment } from "react";
 import { AtSign, BookOpen, ChartCandlestick, Dices, Flag, Folder, HandHeart, Hash, LifeBuoy, MessageSquare, Settings, Ticket, User, Users, type LucideIcon } from "lucide-react";
 import { CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
@@ -82,7 +83,7 @@ export function SearchResults({
       {shownChannels.length > 0 ? (
         <CommandGroup heading="Canales">
           {shownChannels.map((c) => (
-            <CommandItem key={c.id} value={`channel:${c.id}`} onSelect={() => onSelect(`/c/${c.id}`, c.id)}>
+            <CommandItem key={c.id} value={`channel:${c.id}`} onSelect={() => onSelect(clubPath(`/c/${c.id}`), c.id)}>
               {c.kind === "forum" ? (
                 <Folder aria-hidden className="text-fg-muted" />
               ) : (
@@ -96,7 +97,7 @@ export function SearchResults({
       {members.length > 0 ? (
         <CommandGroup heading="Miembros">
           {members.map((m) => (
-            <CommandItem key={m.id} value={`member:${m.id}`} onSelect={() => onSelect(`/u/${m.walletAddress}`)}>
+            <CommandItem key={m.id} value={`member:${m.id}`} onSelect={() => onSelect(clubPath(`/u/${m.walletAddress}`))}>
               <MemberAvatar member={m} size={24} />
               <span className="min-w-0 flex-1 truncate">{memberName(m)}</span>
               <span className="shrink-0 font-mono text-[13px] text-fg-muted">{shortAddress(m.walletAddress)}</span>

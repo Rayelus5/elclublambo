@@ -1,5 +1,5 @@
 import { expect, test, type APIResponse, type BrowserContext, type Page, type Request, type Response } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { composer, createInvite, joinAs, messageWith, rpcAs, service, type Actor } from "./helpers/f2c";
 
 // P1 acceptance: polls are one member = one vote, with a secret ballot, in General. A (Verificado, carries
@@ -219,7 +219,7 @@ const resultRow = (page: Page, question: string, label: string) =>
   results(page, question).getByRole("listitem").filter({ has: page.getByText(label, { exact: true }) });
 
 async function goGeneral(page: Page) {
-  await page.goto(`/c/${generalChannel}`);
+  await page.goto(clubPath(`/c/${generalChannel}`));
   await expect(page.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
 }
 
@@ -406,7 +406,7 @@ test("4. close and results: once closes_at passes the bars appear with 'Votaste'
   for (const x of [b, c, d]) expect(await noticesOf(x.id, "poll_closed")).toBe(1);
   expect(await noticesOf(a.id, "poll_closed")).toBe(0);
   expect(await noticesOf(admin.id, "poll_closed")).toBe(0);
-  await b.page.goto("/notifications");
+  await b.page.goto(clubPath("/notifications"));
   await expect(b.page.getByText("Se ha cerrado la encuesta en la que votaste en #General")).toHaveCount(1);
 
   // Unchanged after the cron sealed the ballots.

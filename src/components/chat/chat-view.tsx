@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pin, X } from "lucide-react";
@@ -546,7 +547,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
     setLatest("loading");
     if (latestTimer.current) clearTimeout(latestTimer.current);
     latestTimer.current = setTimeout(() => setLatest("error"), LATEST_TIMEOUT_MS);
-    router.replace(`/c/${channelId}`, { scroll: false });
+    router.replace(clubPath(`/c/${channelId}`), { scroll: false });
   }, [channelId, router]);
   const closeThread = useCallback(() => {
     if (!threadRef.current) return;
@@ -560,7 +561,7 @@ export function ChatView({ channel, viewer, allowedDomains, initial, initialThre
           ? `?m=${initialThreadId}`
           : `?m=${initialAnchorId}${initialAnchorNonce ? `&h=${initialAnchorNonce}` : ""}`
         : "";
-      router.replace(`/c/${channelId}${keep}`, { scroll: false });
+      router.replace(clubPath(`/c/${channelId}${keep}`), { scroll: false });
     }
     const opener = openerRef.current;
     openerRef.current = null;

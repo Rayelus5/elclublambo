@@ -7,18 +7,18 @@ const redirect = vi.hoisted(() =>
 );
 vi.mock("next/navigation", () => ({ redirect }));
 
-import DaoPage from "@/app/(forum)/dao/page";
-import RafflePage from "@/app/(forum)/dao/sorteos/[id]/page";
-import TreasuryPage from "@/app/(forum)/dao/tesoreria/page";
+import DaoPage from "@/app/foro/(forum)/dao/page";
+import RafflePage from "@/app/foro/(forum)/dao/sorteos/[id]/page";
+import TreasuryPage from "@/app/foro/(forum)/dao/tesoreria/page";
 
-describe("legacy /dao routes", () => {
-  it("/dao redirects to /donar", () => {
-    expect(() => DaoPage()).toThrow("NEXT_REDIRECT:/donar");
+describe("legacy /foro/dao routes", () => {
+  it("/dao redirects to /foro/donar", () => {
+    expect(() => DaoPage()).toThrow("NEXT_REDIRECT:/foro/donar");
   });
-  it("/dao/tesoreria redirects to /donar", () => {
-    expect(() => TreasuryPage()).toThrow("NEXT_REDIRECT:/donar");
+  it("/dao/tesoreria redirects to /foro/donar", () => {
+    expect(() => TreasuryPage()).toThrow("NEXT_REDIRECT:/foro/donar");
   });
-  it("/dao/sorteos/[id] redirects to /sorteos", () => {
-    expect(() => RafflePage()).toThrow("NEXT_REDIRECT:/sorteos");
+  it("/dao/sorteos/[id] redirects to /foro/sorteos", () => {
+    expect(() => RafflePage()).toThrow("NEXT_REDIRECT:/foro/sorteos");
   });
 });

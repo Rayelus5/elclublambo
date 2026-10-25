@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
 import { GUIDE_SECTIONS, type GuideSlug } from "@/lib/guide/sections";
 
@@ -41,35 +42,35 @@ export function buildActions({
 }): PaletteAction[] {
   const out: PaletteAction[] = [];
   if (hasPerm(perms, Perm.CREATE_INVITES)) {
-    out.push({ id: "invite", label: "Crear invitación", href: "/invites", icon: "invite", keywords: "invitaciones invitar" });
+    out.push({ id: "invite", label: "Crear invitación", href: clubPath("/invites"), icon: "invite", keywords: "invitaciones invitar" });
   }
   if (hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES)) {
-    out.push({ id: "settings", label: "Ajustes del servidor", href: "/settings", icon: "settings", keywords: "ajustes configuración roles canales" });
+    out.push({ id: "settings", label: "Ajustes del servidor", href: clubPath("/settings"), icon: "settings", keywords: "ajustes configuración roles canales" });
   }
   if (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) {
-    out.push({ id: "members", label: "Miembros", href: "/admin/members", icon: "members", keywords: "gestionar verificar banear" });
+    out.push({ id: "members", label: "Miembros", href: clubPath("/admin/members"), icon: "members", keywords: "gestionar verificar banear" });
   }
-  out.push({ id: "mentions", label: "Mis menciones", href: "/notifications?filter=mentions", icon: "mentions", keywords: "notificaciones" });
-  out.push({ id: "tickets", label: "Mis tickets", href: "/tickets", icon: "tickets", keywords: "soporte" });
+  out.push({ id: "mentions", label: "Mis menciones", href: clubPath("/notifications?filter=mentions"), icon: "mentions", keywords: "notificaciones" });
+  out.push({ id: "tickets", label: "Mis tickets", href: clubPath("/tickets"), icon: "tickets", keywords: "soporte" });
   for (const c of ticketChannels) {
-    out.push({ id: `ticket:${c.id}`, label: `Abrir ticket en #${c.name}`, href: `/c/${c.id}?openTicket=1`, icon: "ticket", keywords: "soporte ayuda" });
+    out.push({ id: `ticket:${c.id}`, label: `Abrir ticket en #${c.name}`, href: clubPath(`/c/${c.id}?openTicket=1`), icon: "ticket", keywords: "soporte ayuda" });
   }
   if (canReports) {
-    out.push({ id: "reports", label: "Cola de reportes", href: "/moderation/reports", icon: "reports", keywords: "moderación denuncias" });
+    out.push({ id: "reports", label: "Cola de reportes", href: clubPath("/moderation/reports"), icon: "reports", keywords: "moderación denuncias" });
   }
-  out.push({ id: "guide", label: "Guía", href: "/guia", icon: "guide", keywords: "ayuda novato empezar cómo funciona bienvenida" });
+  out.push({ id: "guide", label: "Guía", href: clubPath("/guia"), icon: "guide", keywords: "ayuda novato empezar cómo funciona bienvenida" });
   for (const s of GUIDE_SECTIONS) {
-    out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: `/guia/${s.slug}`, icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
+    out.push({ id: `guide:${s.slug}`, label: `Guía: ${s.title}`, href: clubPath(`/guia/${s.slug}`), icon: "guide", keywords: GUIDE_KEYWORDS[s.slug] });
   }
-  out.push({ id: "donate", label: "Donar a ElClub.", href: "/donar", icon: "donate", keywords: "donar mecenas donación aportar usdc eth safe" });
-  out.push({ id: "giveaways", label: "Sorteos", href: "/sorteos", icon: "giveaways", keywords: "sorteo sorteos premio participar drand gratis" });
-  out.push({ id: "market", label: "Mercado", href: "/mercado", icon: "market", keywords: "mercado precios criptos bitcoin ethereum cotización top 100" });
-  out.push({ id: "profile", label: "Mi perfil", href: `/u/${wallet}`, icon: "profile" });
+  out.push({ id: "donate", label: "Donar a ElClub.", href: clubPath("/donar"), icon: "donate", keywords: "donar mecenas donación aportar usdc eth safe" });
+  out.push({ id: "giveaways", label: "Sorteos", href: clubPath("/sorteos"), icon: "giveaways", keywords: "sorteo sorteos premio participar drand gratis" });
+  out.push({ id: "market", label: "Mercado", href: clubPath("/mercado"), icon: "market", keywords: "mercado precios criptos bitcoin ethereum cotización top 100" });
+  out.push({ id: "profile", label: "Mi perfil", href: clubPath(`/u/${wallet}`), icon: "profile" });
   return out;
 }
 
 /** Destination of a message result. `nonce` ([A-Za-z0-9_-]{1,32}) makes choosing the same message twice re-highlight. */
 export function messageHref(m: { channelId: string; id: string; threadRootId: string | null }, nonce: string): string {
   const thread = m.threadRootId ? `thread=${m.threadRootId}&` : "";
-  return `/c/${m.channelId}?${thread}m=${m.id}&h=${nonce}`;
+  return clubPath(`/c/${m.channelId}?${thread}m=${m.id}&h=${nonce}`);
 }

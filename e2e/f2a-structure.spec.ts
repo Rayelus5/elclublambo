@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance criteria of F2a (channel structure and cascading permissions).
 // The DB is reset by global-setup; scenarios share state, so run serially.
@@ -31,7 +31,7 @@ async function actor(browser: Browser, pk: `0x${string}`, invite?: string) {
 }
 
 async function createInvite(page: Page): Promise<string> {
-  await page.goto("/invites");
+  await page.goto(clubPath("/invites"));
   await page.getByRole("button", { name: "Crear invitación" }).click();
   const url = await page.getByLabel("Tu enlace de invitación").inputValue();
   return url.split("/invite/")[1]!;
@@ -52,7 +52,7 @@ test.beforeAll(async ({ browser }) => {
   ({ context: admin, page: adminPage } = await actor(browser, E2E_SUPER_ADMIN_PK));
   const code = await createInvite(adminPage);
   ({ context: bCtx, page: bPage } = await actor(browser, keyB, code));
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -73,7 +73,7 @@ async function expectNotFound(page: Page, path: string) {
 const channelsNav = (page: Page) => page.getByRole("navigation", { name: "Canales" });
 
 test("1. el admin ve el árbol semilla en la barra lateral", async () => {
-  await adminPage.goto("/");
+  await adminPage.goto(clubPath());
   const nav = channelsNav(adminPage);
   for (const name of ["Comunidad", "Mercado", "Ayuda"]) {
     // Categories render as collapsible buttons ("Ayuda" is also a text channel, hence the role).
@@ -84,7 +84,7 @@ test("1. el admin ve el árbol semilla en la barra lateral", async () => {
 });
 
 test("2. VIP bajo Comunidad con VIEW denegado a @everyone: B no lo ve y /c/<vip> da 404", async () => {
-  await adminPage.goto("/settings/channels");
+  await adminPage.goto(clubPath("/settings/channels"));
   await adminPage.getByRole("button", { name: "Nuevo en Comunidad" }).click();
   const dialog = adminPage.getByRole("dialog");
   await dialog.getByLabel("Tipo").selectOption("text");
@@ -108,16 +108,16 @@ test("2. VIP bajo Comunidad con VIEW denegado a @everyone: B no lo ve y /c/<vip>
   expect(error).toBeNull();
   vipId = data!.id;
 
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
   await expect(channelsNav(bPage).getByRole("link", { name: "General", exact: true })).toBeVisible();
   await expect(channelsNav(bPage).getByRole("link", { name: "VIP", exact: true })).toHaveCount(0);
 
-  await expectNotFound(bPage, `/c/${vipId}`);
+  await expectNotFound(bPage, clubPath(`/c/${vipId}`));
 });
 
 test("3. un overwrite de miembro con VIEW permitido hace visible VIP para B", async () => {
   const bAddr = addressOf(keyB);
-  await adminPage.goto("/settings/channels");
+  await adminPage.goto(clubPath("/settings/channels"));
   await adminPage.getByRole("button", { name: "Editar VIP" }).click();
   const matrix = adminPage.getByRole("region", { name: "Permisos de VIP" });
   await matrix.getByLabel("Añadir miembro").fill(bAddr);
@@ -133,9 +133,9 @@ test("3. un overwrite de miembro con VIEW permitido hace visible VIP para B", as
   await save.click();
   await expect(save).toBeDisabled();
 
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
   await expect(channelsNav(bPage).getByRole("link", { name: "VIP", exact: true })).toBeVisible();
-  await bPage.goto(`/c/${vipId}`);
+  await bPage.goto(clubPath(`/c/${vipId}`));
   await expect(bPage.getByRole("heading", { name: /VIP/ })).toBeVisible();
 });
 
@@ -160,11 +160,11 @@ test("4. un Moderador verifica a C desde Miembros y aparece el badge", async ({ 
 
   const code = await createInvite(adminPage);
   const { context: cCtx, page: cPage } = await actor(browser, keyC, code);
-  await cPage.goto("/");
+  await cPage.goto(clubPath());
   await cCtx.close();
 
   const cShort = handleOf(keyC); // members are labelled by @handle since F3a
-  await bPage.goto("/admin/members");
+  await bPage.goto(clubPath("/admin/members"));
   const toggle = bPage.getByRole("button", { name: `Verificado: ${cShort}` });
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await toggle.click();
@@ -175,19 +175,19 @@ test("4. un Moderador verifica a C desde Miembros y aparece el badge", async ({ 
 });
 
 test("5. /c/<uuid aleatorio> y /c/not-a-uuid dan 404", async () => {
-  await expectNotFound(bPage, "/c/6f1c1c5e-0000-4000-8000-0000000000aa");
-  await expectNotFound(bPage, "/c/not-a-uuid");
+  await expectNotFound(bPage, clubPath("/c/6f1c1c5e-0000-4000-8000-0000000000aa"));
+  await expectNotFound(bPage, clubPath("/c/not-a-uuid"));
 });
 
 test("6. sin errores de consola en las páginas nuevas", async () => {
-  for (const path of ["/settings/channels", "/settings/roles", "/settings/links", "/admin/members", "/"]) {
+  for (const path of [clubPath("/settings/channels"), clubPath("/settings/roles"), clubPath("/settings/links"), clubPath("/admin/members"), clubPath()]) {
     await adminPage.goto(path);
     await adminPage.waitForLoadState("networkidle");
   }
-  await bPage.goto(`/c/${vipId}`);
+  await bPage.goto(clubPath(`/c/${vipId}`));
   await bPage.waitForLoadState("networkidle");
   // A text channel mounts the realtime chat (history log + composer).
-  await adminPage.goto("/");
+  await adminPage.goto(clubPath());
   await channelsNav(adminPage).getByRole("link", { name: "General", exact: true }).click();
   await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await expect(adminPage.getByRole("textbox", { name: "Mensaje" })).toBeVisible();
@@ -195,7 +195,7 @@ test("6. sin errores de consola en las páginas nuevas", async () => {
   // The only tolerated errors are the browser's own "Failed to load resource ... 404" lines for the documents
   // this spec deliberately requested as missing channels.
   const expected404 = (e: string) =>
-    /status of 404/.test(e) && [...notFoundPaths, `/c/${vipId}`].some((path) => e.endsWith(`@ http://localhost:3000${path}`));
+    /status of 404/.test(e) && [...notFoundPaths, clubPath(`/c/${vipId}`)].some((path) => e.endsWith(`@ http://localhost:3000${path}`));
   // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   const unexpected = browserErrors.filter((e) => !expected404(e) && !coopOn404(e));

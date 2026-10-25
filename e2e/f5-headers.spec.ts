@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { watchCsp } from "./helpers/csp";
 import { channelIds, createInvite, joinAs, messageWith, openChannel, send, service } from "./helpers/f2c";
 
@@ -27,8 +27,8 @@ async function expectLoadedImage(page: Page, selector: string) {
     .toBeGreaterThan(0);
 }
 
-test("GET /login sends the CSP and the security headers (no HSTS over http)", async ({ request }) => {
-  const res = await request.get("/login");
+test("GET /foro/login sends the CSP and the security headers (no HSTS over http)", async ({ request }) => {
+  const res = await request.get(clubPath("/login"));
   expect(res.ok()).toBe(true);
   const h = res.headers();
   const csp = h["content-security-policy"] ?? "";
@@ -51,7 +51,7 @@ test("no CSP violation across the main flows", async ({ browser }) => {
   const anon = await browser.newContext({ viewport: desktop });
   const login = await anon.newPage();
   const readLogin = await watchCsp(login);
-  await login.goto("/login");
+  await login.goto(clubPath("/login"));
   await login.getByRole("button", { name: "Conectar wallet" }).click();
   await expect(login.locator("w3m-modal").getByText("MetaMask").first()).toBeVisible({ timeout: 30_000 });
   await expectLoadedImage(login, "w3m-modal img");
@@ -65,7 +65,7 @@ test("no CSP violation across the main flows", async ({ browser }) => {
   await loginAs(adminContext, E2E_SUPER_ADMIN_PK);
   const page = await adminContext.newPage();
   const read = await watchCsp(page);
-  await page.goto("/");
+  await page.goto(clubPath());
   await openChannel(page, "General");
   const caption = `imagen csp ${Date.now()}`;
   await page.locator('input[type="file"]').first().setInputFiles("e2e/fixtures/avatar.png");
@@ -106,7 +106,7 @@ test("no CSP violation across the main flows", async ({ browser }) => {
   const other = await joinAs(browser, newWalletKey(), await createInvite(page), "Testigo CSP");
   await other.page.setViewportSize(desktop);
   const readOther = await watchCsp(other.page);
-  await other.page.goto("/");
+  await other.page.goto(clubPath());
   await openChannel(other.page, "General");
   await openChannel(page, "General");
   const live = `en vivo csp ${Date.now()}`;
@@ -114,7 +114,7 @@ test("no CSP violation across the main flows", async ({ browser }) => {
   await expect(messageWith(other.page, live)).toBeVisible({ timeout: 30_000 });
 
   // 5. /mercado.
-  await page.goto("/mercado");
+  await page.goto(clubPath("/mercado"));
   await expect(page.locator("table tbody tr").first()).toBeVisible({ timeout: 30_000 });
   await page.waitForLoadState("networkidle");
 

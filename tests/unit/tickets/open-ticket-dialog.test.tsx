@@ -68,7 +68,7 @@ describe("OpenTicketDialog", () => {
     await userEvent.type(screen.getByLabelText(/Mensaje/), "no puedo entrar");
     await userEvent.click(screen.getByRole("button", { name: "Enviar ticket" }));
     await waitFor(() => expect(h.open).toHaveBeenCalledWith(CH, "Ayuda", "no puedo entrar"));
-    await waitFor(() => expect(h.push).toHaveBeenCalledWith("/tickets/t-1"));
+    await waitFor(() => expect(h.push).toHaveBeenCalledWith("/foro/tickets/t-1"));
   });
 
   it("shows the limit error in Spanish", async () => {

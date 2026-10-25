@@ -93,8 +93,8 @@ beforeEach(() => {
 });
 
 const revalidatedBoth = () => {
-  expect(revalidatePath).toHaveBeenCalledWith("/dao");
-  expect(revalidatePath).toHaveBeenCalledWith("/dao/tesoreria");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/dao");
+  expect(revalidatePath).toHaveBeenCalledWith("/foro/dao/tesoreria");
 };
 
 describe("treasurer gate", () => {

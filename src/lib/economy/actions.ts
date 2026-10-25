@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
 import { appChainIds, isChainId, type ChainId } from "@/lib/economy/networks";
@@ -16,6 +17,6 @@ export async function setChainEnabledAction(
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("set_chain_enabled", { p_chain: chainId, p_enabled: enabled });
   if (error) return { ok: false, error: rpcErrorCode(error) };
-  revalidatePath("/", "layout");
+  revalidatePath(clubPath(), "layout");
   return { ok: true };
 }

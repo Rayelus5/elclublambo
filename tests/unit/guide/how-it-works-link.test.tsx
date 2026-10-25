@@ -6,7 +6,7 @@ describe("HowItWorksLink", () => {
   it("links to the section in the same tab with a descriptive name", () => {
     render(<HowItWorksLink section="donaciones" />);
     const link = screen.getByRole("link", { name: "¿Cómo funciona? Guía: Donaciones y Mecenas" });
-    expect(link).toHaveAttribute("href", "/guia/donaciones");
+    expect(link).toHaveAttribute("href", "/foro/guia/donaciones");
     expect(link).not.toHaveAttribute("target");
     expect(link).toHaveTextContent("¿Cómo funciona?");
   });

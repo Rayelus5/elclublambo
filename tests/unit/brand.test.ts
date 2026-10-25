@@ -10,7 +10,7 @@ describe("brand ElClub.", () => {
     expect(read("src/app/layout.tsx")).toMatch(/title: "ElClub\."/);
   });
   it("the welcome page says «Bienvenida a ElClub.»", () => {
-    const src = read("src/app/(onboarding)/bienvenida/page.tsx");
+    const src = read("src/app/foro/(onboarding)/bienvenida/page.tsx");
     expect(src).toContain("Bienvenida a ElClub.");
     expect(src).not.toContain("Bienvenida a El Club<");
   });

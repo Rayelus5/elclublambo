@@ -51,7 +51,7 @@ describe("isUnknownTopSegment", () => {
     expect(isUnknownTopSegment(p)).toBe(true);
   });
 
-  it.each(["/", "/en", "/es", "/start", "/herramientas", "/donar", "/login", "/c", "/sorteos", "/robots.txt", "/sitemap.xml", "/api", "/out"])(
+  it.each(["/", "/en", "/es", "/start", "/herramientas", "/donar", "/foro", "/robots.txt", "/sitemap.xml", "/api", "/out"])(
     "%s is known",
     (p) => {
       expect(isUnknownTopSegment(p)).toBe(false);
@@ -60,6 +60,6 @@ describe("isUnknownTopSegment", () => {
 
   it("only decides single-segment paths", () => {
     expect(isUnknownTopSegment("/xx/yy")).toBe(false);
-    expect(isUnknownTopSegment("/c/missing")).toBe(false);
+    expect(isUnknownTopSegment("/foro/c/missing")).toBe(false);
   });
 });

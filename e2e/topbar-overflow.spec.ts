@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { createInvite, joinAs } from "./helpers/f2c";
 
 // T-007 (ronda 1): in the desktop top bar the section tabs must never sit under (or overflow into) the controls on the right.
@@ -73,7 +73,7 @@ test("admin: nada se solapa en la barra superior (768-1440 px)", async ({ browse
   const context = await browser.newContext({ viewport: { width: 1440, height: 800 } });
   await loginAs(context, E2E_SUPER_ADMIN_PK);
   const page = await context.newPage();
-  await page.goto("/");
+  await page.goto(clubPath());
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 800 });
@@ -100,7 +100,7 @@ test("miembro normal: nada se solapa y no hay «Más» (768-1440 px)", async ({ 
   const adminPage = await adminCtx.newPage();
   const invite = await createInvite(adminPage);
   const member = await joinAs(browser, newWalletKey(), invite, "Miembro barra");
-  await member.page.goto("/");
+  await member.page.goto(clubPath());
   await expect(member.page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   for (const width of WIDTHS) {
     await member.page.setViewportSize({ width, height: 800 });

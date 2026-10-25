@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
 // T-001 (ronda 1): the mobile drawer must scroll to the last channel and "Mi perfil".
 test.describe.configure({ mode: "serial" });
@@ -24,7 +24,7 @@ test.beforeAll(async () => {
 });
 
 async function openDrawer(page: Page) {
-  await page.goto("/");
+  await page.goto(clubPath());
   await page.getByRole("button", { name: "Abrir menú" }).click();
   const drawer = page.getByRole("dialog", { name: "Menú" });
   await expect(drawer).toBeVisible();
@@ -69,7 +69,7 @@ for (const [label, size] of [
     // Tapping a link closes the drawer.
     await last.click();
     await expect(drawer).toBeHidden();
-    await expect(page).toHaveURL(/\/c\//);
+    await expect(page).toHaveURL(/\/foro\/c\//);
     await context.close();
   });
 

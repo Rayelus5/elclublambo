@@ -48,7 +48,7 @@ describe("GiveawayCard", () => {
     expect(screen.getByText("Camiseta")).toBeInTheDocument();
     expect(screen.getByText("3 participantes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Participar" })).toBeEnabled();
-    expect(screen.getByRole("link", { name: "Sorteo de otoño" })).toHaveAttribute("href", `/sorteos/${ID}`);
+    expect(screen.getByRole("link", { name: "Sorteo de otoño" })).toHaveAttribute("href", `/foro/sorteos/${ID}`);
   });
 
   it("offers «Salir» once inside, and calls the leave action", async () => {

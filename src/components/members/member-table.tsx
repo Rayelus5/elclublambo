@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { BadgeCheck, ShieldCheck } from "lucide-react";
@@ -140,7 +141,7 @@ export function MemberTable({
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/u/${m.walletAddress}`}
+                        href={clubPath(`/u/${m.walletAddress}`)}
                         className="inline-flex min-h-11 items-center text-fg underline-offset-4 hover:underline"
                       >
                         <span className={hasFriendlyName(m) ? undefined : "font-mono"}>{nameOf(m)}</span>

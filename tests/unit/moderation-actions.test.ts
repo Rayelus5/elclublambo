@@ -39,7 +39,7 @@ describe("banMemberAction", () => {
       p_reason: "spam",
       p_penalize_sponsor: true,
     });
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/members");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/admin/members");
   });
 
   it("maps rpc errors, including deadlocks to retry", async () => {
@@ -81,7 +81,7 @@ describe("toggleSponsorRoleAction", () => {
     expect(await toggleSponsorRoleAction({ memberId: ID, enabled: true })).toEqual({});
     expect(eq).toHaveBeenCalledWith("system_key", "sponsor");
     expect(rpc).toHaveBeenCalledWith("set_member_role", { p_member: ID, p_role: ROLE, p_enabled: true });
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/members");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/admin/members");
   });
 
   it("errors when the role is missing or rpc fails", async () => {
@@ -108,7 +108,7 @@ describe("setVerifiedAction", () => {
     rpc.mockResolvedValue({ error: null });
     expect(await setVerifiedAction({ memberId: ID, enabled: true })).toEqual({});
     expect(rpc).toHaveBeenCalledWith("set_verified", { p_member: ID, p_enabled: true });
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/members");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/admin/members");
   });
 
   it("coerces enabled to a strict boolean", async () => {

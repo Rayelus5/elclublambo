@@ -90,7 +90,7 @@ describe("HomeSearch", () => {
     fireEvent.focus(input);
     await type(input, "hola");
     fireEvent.click(screen.getByRole("option", { name: /hola/ }));
-    expect(h.push.mock.calls[0]![0]).toMatch(new RegExp(`^/c/${C1}\\?m=${M1}&h=`));
+    expect(h.push.mock.calls[0]![0]).toMatch(new RegExp(`^/foro/c/${C1}\\?m=${M1}&h=`));
     expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
     expect(input).toHaveValue("");
   });

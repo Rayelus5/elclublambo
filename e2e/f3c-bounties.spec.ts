@@ -1,7 +1,7 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAINS, hardhatAccount } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { composer, createInvite, joinAs, messageWith, openChannel, rpcAs, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
@@ -53,13 +53,13 @@ test.beforeAll(async ({ browser }) => {
   c = await joinAs(browser, plain.privateKey, await invite(), NAMES.c, undefined, trackErrors);
   for (const x of [a, b, c]) {
     await x.page.setViewportSize(desktop);
-    await x.page.goto("/"); // joinAs leaves its page blank
+    await x.page.goto(clubPath()); // joinAs leaves its page blank
   }
   // joinAs already opened a page in A's context; wallet scripts only apply to pages created afterwards.
   await a.page.close();
   walletA = await installTestWallet(a.context, { address: author.address });
   a.page = await a.context.newPage();
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await a.page.setViewportSize(desktop);
 
   const { data, error } = await service().from("channels").select("id").eq("name", "General").single<{ id: string }>();
@@ -78,7 +78,7 @@ const threadPanel = (page: Page) => page.getByRole("complementary", { name: "Pan
 /** The author publishes a bounty in General with /bounty. */
 async function publishBounty(page: Page, description: string, amount: string): Promise<string> {
   // A fresh load of General: an open thread panel from an earlier step would add a second "Mensaje" composer.
-  await page.goto(`/c/${generalChannel}`);
+  await page.goto(clubPath(`/c/${generalChannel}`));
   await expect(page.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await composer(page).click();
   await composer(page).pressSequentially("/bounty");
@@ -100,7 +100,7 @@ async function publishBounty(page: Page, description: string, amount: string): P
 
 /** B answers in the bounty's thread (opened straight from the URL); returns the reply text for later lookups. */
 async function reply(page: Page, bountyId: string, text: string) {
-  await page.goto(`/c/${generalChannel}?thread=${bountyId}`);
+  await page.goto(clubPath(`/c/${generalChannel}?thread=${bountyId}`));
   const panel = threadPanel(page);
   await expect(panel).toBeVisible();
   const box = panel.getByRole("textbox", { name: "Mensaje", exact: true });
@@ -112,7 +112,7 @@ async function reply(page: Page, bountyId: string, text: string) {
 
 /** The author picks the reply as the solution. */
 async function markSolution(page: Page, bountyId: string, replyText: string) {
-  await page.goto(`/c/${generalChannel}?thread=${bountyId}`);
+  await page.goto(clubPath(`/c/${generalChannel}?thread=${bountyId}`));
   const panel = threadPanel(page);
   const item = panel.locator("li[data-message-id]", { hasText: replyText }).first();
   await expect(item).toBeVisible();
@@ -180,21 +180,21 @@ test("2. solve and pay on Arbitrum Sepolia: mark B's reply, B is notified, A sig
   // A has the channel open on the card: marking must reach the other viewer live.
   await openChannel(b.page, "General");
   await markSolution(a.page, bountyIds.first!, solution);
-  await a.page.goto(`/c/${generalChannel}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}`));
   await expect(status(a.page, text)).toHaveText("Solución elegida · quedan 7 días para pagar");
   await expect(status(b.page, text)).toHaveText("Solución elegida · quedan 7 días para pagar", { timeout: 30_000 });
 
   // B's bell and notification list.
-  await b.page.goto("/notifications");
+  await b.page.goto(clubPath("/notifications"));
   await expect(b.page.getByText(`${handleOf(author.privateKey)} ha elegido tu respuesta como solución del bounty`)).toBeVisible();
 
   // B goes back to the channel: the Pagado status below must reach B live.
-  await b.page.goto(`/c/${generalChannel}`);
+  await b.page.goto(clubPath(`/c/${generalChannel}`));
   await expect(status(b.page, text)).toHaveText("Solución elegida · quedan 7 días para pagar");
 
   const solverBefore = await usdcOf(ARB, solverAccount.address);
   const solverBaseBefore = await usdcOf(BASE, solverAccount.address);
-  await a.page.goto(`/c/${generalChannel}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}`));
   const hash = await payFromCard(a.page, text, "5", "Arbitrum Sepolia");
   // Announced on Base Sepolia, paid with the same token on Arbitrum Sepolia: the money moved there only.
   expect(((await usdcOf(ARB, solverAccount.address)) - solverBefore).toString()).toBe("5000000");
@@ -206,13 +206,13 @@ test("2. solve and pay on Arbitrum Sepolia: mark B's reply, B is notified, A sig
   await expect(status(b.page, text)).toHaveText("Pagado", { timeout: 30_000 });
 
   // The solution carries the badge and the thread has the payment notice.
-  await a.page.goto(`/c/${generalChannel}?thread=${bountyIds.first!}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}?thread=${bountyIds.first!}`));
   const panel = threadPanel(a.page);
   await expect(panel.locator("li[data-message-id]", { hasText: solution }).getByRole("button", { name: /Recompensado · 5 USDC/ })).toBeVisible({ timeout: 30_000 });
   await expect(panel.getByText(/ha pagado el bounty: 5 USDC a /)).toBeVisible();
 
   // B hears about the payment.
-  await b.page.goto("/notifications");
+  await b.page.goto(clubPath("/notifications"));
   await expect(b.page.getByText(`${handleOf(author.privateKey)} te ha pagado el bounty`)).toBeVisible();
 });
 
@@ -229,17 +229,17 @@ test("3. unpaid then paid late: 8 days after marking the card and the author's p
     .eq("message_id", bountyIds.second);
   expect(backdate.error).toBeNull();
 
-  await a.page.goto(`/c/${generalChannel}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}`));
   await expect(status(a.page, text)).toHaveText("Impagado");
   // Anyone who can see the channel sees the author's record.
-  await c.page.goto(`/u/${author.address.toLowerCase()}`);
+  await c.page.goto(clubPath(`/u/${author.address.toLowerCase()}`));
   await expect(c.page.getByRole("heading", { level: 2, name: "Bounties" })).toBeVisible();
   await expect(c.page.getByText("Bounties: 1 pagado · 0 pagados tarde · 1 impagado")).toBeVisible();
   await expect(c.page.getByRole("list", { name: "Bounties impagados" }).getByRole("link")).toHaveCount(1);
 
   await payFromCard(a.page, text, "5", "Base Sepolia");
   await expect(status(a.page, text)).toHaveText("Pagado tarde", { timeout: 30_000 });
-  await c.page.goto(`/u/${author.address.toLowerCase()}`);
+  await c.page.goto(clubPath(`/u/${author.address.toLowerCase()}`));
   await expect(c.page.getByText("Bounties: 1 pagado · 1 pagado tarde · 0 impagados")).toBeVisible();
 });
 
@@ -254,9 +254,9 @@ test("4. expired: 31 days without a solution the card says Expirado and no reply
     .eq("message_id", bountyIds.third);
   expect(backdate.error).toBeNull();
 
-  await a.page.goto(`/c/${generalChannel}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}`));
   await expect(status(a.page, text)).toHaveText("Expirado");
-  await a.page.goto(`/c/${generalChannel}?thread=${bountyIds.third}`);
+  await a.page.goto(clubPath(`/c/${generalChannel}?thread=${bountyIds.third}`));
   const panel = threadPanel(a.page);
   await expect(panel.getByText(answer)).toBeVisible();
   await expect(panel.getByRole("button", { name: "Marcar como solución" })).toHaveCount(0);

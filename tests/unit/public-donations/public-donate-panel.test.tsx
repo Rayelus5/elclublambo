@@ -93,7 +93,7 @@ describe("PublicDonatePanel", () => {
   it("a member sees the link to donate from the club and no form", () => {
     setup({ session: { wallet: WALLET, isMember: true } });
     const link = screen.getByRole("link", { name: es.memberLink });
-    expect(link).toHaveAttribute("href", "/donar");
+    expect(link).toHaveAttribute("href", "/foro/donar");
     expect(screen.queryByLabelText(es.panel.amountLabel)).not.toBeInTheDocument();
   });
 

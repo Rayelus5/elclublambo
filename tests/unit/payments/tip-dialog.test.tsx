@@ -129,7 +129,7 @@ describe("TipDialog form", () => {
     expect(screen.getByText("Va directo a su wallet.")).toBeInTheDocument();
     expect(screen.getByText("ElClub. no custodia fondos: va directo a su wallet.")).toBeInTheDocument();
     expect(screen.getByText("Solo se oculta en el foro: en la blockchain la transacción es pública.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/propinas");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/propinas");
     expect(screen.queryByRole("checkbox", { name: /donación sin esperar nada/ })).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/Comisión|comisión/);
   });

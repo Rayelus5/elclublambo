@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/components/auth/login-panel-lazy", () => ({ LoginPanelLazy: () => <div /> }));
 
-import LoginPage from "@/app/(gate)/login/page";
+import LoginPage from "@/app/foro/(gate)/login/page";
 
 describe("/login", () => {
   it("links to /start for whoever arrives without an invitation", () => {

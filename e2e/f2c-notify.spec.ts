@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { chromium, expect, test, type BrowserContext } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, addressOf, E2E_SUPER_ADMIN_PK, handleOf, loginAs, newWalletKey } from "./helpers/auth";
 import {
   bell,
   channelIds,
@@ -55,7 +55,7 @@ test.beforeAll(async ({ browser }) => {
   b = await joinAs(browser, keyB, await createInvite(adminPage), NAME_B, undefined, trackErrors);
   ids = await channelIds();
   expect(addressOf(keyA)).not.toBe(addressOf(keyB));
-  for (const p of [a.page, b.page]) await p.goto("/");
+  for (const p of [a.page, b.page]) await p.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -75,18 +75,18 @@ test("1. B menciona a A: la campana de A sube sin recargar, el ítem lleva al ca
   await expect(bell(a.page, 1)).toBeVisible();
 
   await bell(a.page, 1).click();
-  await expect(a.page).toHaveURL(/\/notifications$/);
+  await expect(a.page).toHaveURL(/\/foro\/notifications$/);
   const item = a.page.getByRole("list", { name: "Notificaciones" }).getByRole("link", { name: new RegExp(`${handleOf(keyB)} te mencionó en #General`) });
   await expect(item).toBeVisible();
   await item.click();
-  await expect(a.page).toHaveURL(new RegExp(`/c/${ids["General"]}`));
+  await expect(a.page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["General"]}`));
   await expect(a.page.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
   await expect(bell(a.page, 0)).toBeVisible();
   await expect.poll(async () => (await service().from("notifications").select("id").eq("recipient_id", a.id).is("read_at", null)).data?.length).toBe(0);
 });
 
 test("2. Todos los mensajes avisa; con Silencio un mensaje raíz y un @everyone del admin no avisan, la mención directa sí", async () => {
-  await admin.page.goto("/");
+  await admin.page.goto(clubPath());
   await openChannel(a.page, "Trading");
   await openChannel(b.page, "Trading");
   await openChannel(admin.page, "Trading");
@@ -160,7 +160,7 @@ test("3a. Web Push (suscripción simulada): el interruptor crea la fila, B no ti
   );
   try {
     const page = await context.newPage();
-    await page.goto("/notifications");
+    await page.goto(clubPath("/notifications"));
     const on = page.getByRole("button", { name: "Desactivar avisos en este dispositivo" });
     const off = page.getByRole("button", { name: "Activar avisos en este dispositivo" });
     await expect(off).toBeVisible();
@@ -200,7 +200,7 @@ test("3. Web Push: con permiso concedido, el interruptor crea la fila en push_su
     await loginAs(context, keyA);
     await context.grantPermissions(["notifications"], { origin: "http://localhost:3000" });
     const page = await context.newPage();
-    await page.goto("/notifications");
+    await page.goto(clubPath("/notifications"));
     expect(await page.evaluate(() => Notification.permission)).toBe("granted");
     const toggle = page.getByRole("button", { name: "Activar avisos en este dispositivo" });
     await expect(toggle).toBeVisible();
@@ -237,7 +237,7 @@ test("@screens captura de /notifications a 375 y 1440", async () => {
   await expect(messageWith(b.page, "para la captura")).toBeVisible();
   for (const width of [375, 1440] as const) {
     await a.page.setViewportSize({ width, height: 900 });
-    await a.page.goto("/notifications");
+    await a.page.goto(clubPath("/notifications"));
     await expect(a.page.getByRole("list", { name: "Notificaciones" })).toBeVisible();
     await a.page.waitForLoadState("networkidle");
     await a.page.screenshot({ path: `${OUT}/notifications-${width}.png`, fullPage: true });

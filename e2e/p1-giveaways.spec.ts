@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAINS, CLUB_SAFE, hardhatAccount } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { createInvite, joinAs, rpcAs, service, type Actor } from "./helpers/f2c";
 
 // P1 acceptance of the giveaways (/sorteos): free, equal-weight, drawn with drand. The treasurer (the e2e SuperAdmin,
@@ -131,7 +131,7 @@ const prizeRow = (page: Page, text: string) => page.getByRole("list", { name: "P
 
 test("1. the treasurer creates a giveaway with USDC on Base Sepolia, a role and «Camiseta»", async () => {
   const page = admin.page;
-  await page.goto("/sorteos");
+  await page.goto(clubPath("/sorteos"));
   await page.getByRole("button", { name: "Crear sorteo" }).click();
   const dialog = page.getByRole("dialog", { name: "Crear sorteo" });
   await expect(dialog.getByText("Gratis: nunca se paga por participar. Todos tienen la misma probabilidad.")).toBeVisible();
@@ -173,7 +173,7 @@ test("1. the treasurer creates a giveaway with USDC on Base Sepolia, a role and 
 
 test("2. three members join; one leaves and joins again", async () => {
   for (const m of members) {
-    await m.page.goto("/sorteos");
+    await m.page.goto(clubPath("/sorteos"));
     const card = m.page.getByRole("article", { name: TITLE });
     await expect(card.getByText(/^Cierra en /)).toBeVisible();
     await card.getByRole("button", { name: "Participar" }).click();
@@ -191,7 +191,7 @@ test("2. three members join; one leaves and joins again", async () => {
   // B re-entered last: the order of entry decides the positions at the close.
   expect((data ?? []).map((e: { member_id: string }) => e.member_id)).toEqual([members[0]!.id, members[2]!.id, members[1]!.id]);
 
-  await b.page.goto(`/sorteos/${giveawayId}`);
+  await b.page.goto(clubPath(`/sorteos/${giveawayId}`));
   await expect(b.page.getByRole("list", { name: "Lista de participantes" }).getByRole("listitem")).toHaveCount(3);
 });
 
@@ -215,12 +215,12 @@ test("3. after the close the cron draws it: the role winner holds the role and i
     expect(n.data ?? []).toHaveLength(1);
   }
   const winner = members.find((m) => m.id === roleWinner)!;
-  await winner.page.goto("/notifications");
+  await winner.page.goto(clubPath("/notifications"));
   const notice = winner.page.getByRole("link", { name: new RegExp(`Has ganado «${ROLE_NAME}» en «${TITLE}»`) });
   await expect(notice).toBeVisible();
-  await expect(notice).toHaveAttribute("href", `/sorteos/${giveawayId}`);
+  await expect(notice).toHaveAttribute("href", clubPath(`/sorteos/${giveawayId}`));
 
-  await winner.page.goto(`/sorteos/${giveawayId}`);
+  await winner.page.goto(clubPath(`/sorteos/${giveawayId}`));
   await expect(prizeRow(winner.page, ROLE_NAME)).toContainText("Rol asignado");
   await expect(prizeRow(winner.page, "5 USDC")).toContainText("Pendiente de pago");
   await expect(winner.page.getByText("Has ganado", { exact: true })).toBeVisible();
@@ -228,7 +228,7 @@ test("3. after the close the cron draws it: the role winner holds the role and i
 
 test("4. «Comprobar» recomputes the draw in the browser: 3 ✓", async () => {
   const page = members[0]!.page;
-  await page.goto(`/sorteos/${giveawayId}`);
+  await page.goto(clubPath(`/sorteos/${giveawayId}`));
   await page.getByRole("button", { name: "Comprobar" }).click();
   const result = page.getByRole("list", { name: "Resultado de la comprobación" });
   await expect(result.getByRole("img", { name: "Correcto" })).toHaveCount(3);
@@ -242,7 +242,7 @@ test("5. «Marcar pagado» with a real USDC transfer from the Safe: «Pagado»",
   await hardhatRpc("evm_mine");
 
   const page = admin.page;
-  await page.goto(`/sorteos/${giveawayId}`);
+  await page.goto(clubPath(`/sorteos/${giveawayId}`));
   await prizeRow(page, "5 USDC").getByRole("button", { name: "Marcar pagado" }).click();
   const dialog = page.getByRole("dialog", { name: "Marcar pagado" });
   await dialog.getByLabel("Hash de la transacción").fill(hash);
@@ -256,7 +256,7 @@ test("5. «Marcar pagado» with a real USDC transfer from the Safe: «Pagado»",
 
 test("6. «Marcar entregado» on the «Otro» prize", async () => {
   const page = admin.page;
-  await page.goto(`/sorteos/${giveawayId}`);
+  await page.goto(clubPath(`/sorteos/${giveawayId}`));
   await prizeRow(page, "Camiseta").getByRole("button", { name: "Marcar entregado" }).click();
   await expect(prizeRow(page, "Camiseta")).toContainText("Entregado");
   expect((await prizesOf(giveawayId))[2]!.status).toBe("delivered");
@@ -277,7 +277,7 @@ test("7. a giveaway nobody joined ends void", async () => {
   await expect.poll(() => statusOf(id)).toBe("void");
 
   const page = members[0]!.page;
-  await page.goto("/sorteos");
+  await page.goto(clubPath("/sorteos"));
   const ended = page.getByRole("region", { name: "Terminados" });
   await expect(ended.getByRole("article", { name: title })).toContainText("Sin participantes");
 });

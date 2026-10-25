@@ -1,6 +1,7 @@
-// Real HTTP 404 for /moderation/reports when the member moderates no channel, decided in the proxy before the page
+// Real HTTP 404 for /foro/moderation/reports when the member moderates no channel, decided in the proxy before the page
 // streams (same reason and mechanism as src/lib/channels/guard.ts: under <Suspense> a notFound() arrives as a 200).
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { clubRelative } from "@/lib/club/paths";
 import { Perm } from "@/lib/permissions/bits";
 
 const REPORTS_PATH = /^\/moderation\/reports\/?$/;
@@ -13,7 +14,7 @@ type GuardClient = Pick<SupabaseClient, "from" | "rpc">;
  * and any error fails open (the page itself still calls notFound()).
  */
 export async function isHiddenReportsPage(supabase: GuardClient, pathname: string): Promise<boolean> {
-  if (!REPORTS_PATH.test(pathname)) return false;
+  if (!REPORTS_PATH.test(clubRelative(pathname) ?? "")) return false;
 
   const { data: anywhere, error } = await supabase.rpc("has_any_channel_perm", { p_bit: Number(Perm.MANAGE_MESSAGES) });
   if (error || anywhere !== false) return false;

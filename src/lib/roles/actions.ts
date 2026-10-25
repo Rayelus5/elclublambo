@@ -1,5 +1,6 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode } from "@/lib/errors";
 import { ALL_PERMS, Perm } from "@/lib/permissions/bits";
@@ -29,9 +30,9 @@ function cleanPerms(v: unknown): number | null {
 }
 
 function refresh() {
-  revalidatePath("/settings/roles");
-  revalidatePath("/settings/channels");
-  revalidatePath("/", "layout");
+  revalidatePath(clubPath("/settings/roles"));
+  revalidatePath(clubPath("/settings/channels"));
+  revalidatePath(clubPath(), "layout");
 }
 
 export async function createRoleAction(input: {

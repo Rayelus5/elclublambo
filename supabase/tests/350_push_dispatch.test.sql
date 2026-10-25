@@ -126,7 +126,7 @@ select ok((select bool_and(char_length(substring(body from '«(.*)»')) between 
 select is((select min(substring(body from '«(.*)»')) from c1),
   left(regexp_replace((select body_text from public.messages where id = current_setting('t.m1')::uuid), '[[:space:][:cntrl:]]+', ' ', 'g'), 80),
   'the excerpt is the start of the message text');
-select ok((select bool_and(url like '/c/' || current_setting('t.c') || '?m=%&h=n%') from c1), 'url opens the exact message in the channel');
+select ok((select bool_and(url like '/foro/c/' || current_setting('t.c') || '?m=%&h=n%') from c1), 'url opens the exact message in the channel');
 select ok((select bool_and(tag like 'mention:%') from c1), 'tag is stable and kind-prefixed');
 select ok(pg_temp.pushed(current_setting('t.n1')), 'the notification is marked as pushed');
 create temp table c1b as select * from public.claim_push_notifications() where endpoint is not null;
@@ -162,10 +162,10 @@ select set_config('t.pub', public.post_message(current_setting('t.a_ch')::uuid, 
 select tests.clear_authentication();
 create temp table c3 as select * from public.claim_push_notifications() where endpoint is not null;
 grant select on c3 to public;
-select is((select title from c3 where url like '/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%' limit 1), 'Nueva respuesta', 'reply title');
+select is((select title from c3 where url like '/foro/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%' limit 1), 'Nueva respuesta', 'reply title');
 select is((select split_part(body, ':', 1) from c3 where url like '%&thread=%' limit 1), '@Ana respondió en #t350', 'reply identity phrase');
-select ok(exists (select 1 from c3 where url like '/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%'), 'reply url opens the reply inside its thread');
-select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url like '/c/' || current_setting('t.a_ch') || '?m=%' and split_part(body, ':', 1) = '@Ana publicó en #t350all'),
+select ok(exists (select 1 from c3 where url like '/foro/c/' || current_setting('t.c') || '?m=%&thread=' || current_setting('t.root') || '&h=n%'), 'reply url opens the reply inside its thread');
+select ok(exists (select 1 from c3 where title = 'Nuevo mensaje' and url like '/foro/c/' || current_setting('t.a_ch') || '?m=%' and split_part(body, ':', 1) = '@Ana publicó en #t350all'),
   'channel_message wording and url');
 
 -- ===== a recipient who lost VIEW: not returned, marked =====
@@ -206,7 +206,7 @@ insert into public.notifications (recipient_id, kind, actor_id) values
   (current_setting('t.r')::uuid, 'sponsor_penalized', current_setting('t.a')::uuid);
 create temp table c7 as select * from public.claim_push_notifications() where endpoint is not null;
 select is((select count(*)::int from c7), 6, 'three notices x two subscriptions');
-select ok((select bool_and(url = '/u/' || (select wallet_address from public.members where id = current_setting('t.a')::uuid)) from c7), 'member notices link to the profile');
+select ok((select bool_and(url = '/foro/u/' || (select wallet_address from public.members where id = current_setting('t.a')::uuid)) from c7), 'member notices link to the profile');
 select ok((select bool_and(body like '%Ana%') from c7), 'identity from members');
 select is((select count(distinct title)::int from c7), 3, 'one distinct title per kind');
 
@@ -216,7 +216,7 @@ select set_config('t.rp', public.report_message(current_setting('t.m1')::uuid, '
 select tests.clear_authentication();
 create temp table c8 as select * from public.claim_push_notifications() where endpoint is not null;
 select is(pg_temp.rows_for('c8', 'mod1'), 1, 'the moderator gets the report notice');
-select is((select min(url) from c8 where endpoint like '%/mod1'), '/moderation/reports', 'report url');
+select is((select min(url) from c8 where endpoint like '%/mod1'), '/foro/moderation/reports', 'report url');
 insert into public.notifications (recipient_id, kind, actor_id, channel_id)
   values (current_setting('t.x')::uuid, 'report_new', current_setting('t.a')::uuid, current_setting('t.c')::uuid);
 create temp table c9 as select * from public.claim_push_notifications() where endpoint is not null;
@@ -229,7 +229,7 @@ insert into public.notifications (recipient_id, kind, actor_id) values
 create temp table c10 as select * from public.claim_push_notifications() where endpoint is not null;
 select is((select count(*)::int from c10), 1, 'only the reviewer with BAN_MEMBERS gets the review notice');
 select is(pg_temp.rows_for('c10', 'rv1'), 1, 'it is the reviewer');
-select is((select min(url) from c10), '/admin/members', 'review url');
+select is((select min(url) from c10), '/foro/admin/members', 'review url');
 
 -- ===== inactive recipient =====
 update public.members set status = 'banned' where id = current_setting('t.bn')::uuid;
@@ -245,7 +245,7 @@ select set_config('t.t1', public.open_ticket(current_setting('t.tc')::uuid, 'Pro
 select tests.clear_authentication();
 create temp table c12 as select * from public.claim_push_notifications() where endpoint is not null;
 select is(pg_temp.rows_for('c12', 's1'), 1, 'staff gets the ticket_new row');
-select is((select min(url) from c12 where endpoint like '%/s1'), '/tickets/' || current_setting('t.t1'), 'ticket url');
+select is((select min(url) from c12 where endpoint like '%/s1'), '/foro/tickets/' || current_setting('t.t1'), 'ticket url');
 select ok((select bool_and(body like '%Problema de acceso%' and body not like '%«%') from c12), 'identified by subject, no excerpt');
 select ok((select bool_and(body not like '%TEXTO-PRIVADO%') from c12), 'the ticket text is never in the payload');
 select is((select min(title) from c12 where endpoint like '%/s1'), 'Nuevo ticket', 'ticket_new title');

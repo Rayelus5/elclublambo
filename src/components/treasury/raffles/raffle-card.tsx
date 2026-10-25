@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { Info, TriangleAlert } from "lucide-react";
 import { CopyHashButton } from "@/components/treasury/raffles/copy-hash-button";
@@ -87,7 +88,7 @@ export function RaffleCard({ raffle: r, unlockedShares }: { raffle: Card; unlock
       {open ? <JoinRaffleButton id={r.id} entered={r.iEntered} disabled={pastClose} closesAt={r.closesAt} /> : null}
 
       <Link
-        href={`/dao/sorteos/${r.id}`}
+        href={clubPath(`/dao/sorteos/${r.id}`)}
         className="inline-flex min-h-11 items-center self-start rounded-control text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         Ver participantes y cómo comprobarlo
