@@ -15,6 +15,9 @@ vi.mock("@/lib/rate-limit/ip", () => ({ hitIpRateLimit }));
 const verifyVouchTx = vi.hoisted(() => vi.fn());
 const readAttestation = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/vouches/verify", () => ({ verifyVouchTx, readAttestation }));
+const rpcClient = vi.hoisted(() => ({ getChainId: vi.fn() }));
+const chainClient = vi.hoisted(() => vi.fn(() => rpcClient));
+vi.mock("@/lib/payments/chain-client", () => ({ chainClient }));
 
 type Res = { data: unknown; error: { message: string; code?: string } | null };
 const adminRpc = vi.hoisted(() => vi.fn());
@@ -22,6 +25,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: adminR
 const userClient = vi.hoisted(() => ({ rpc: vi.fn(), tag: "jwt" }));
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => userClient }));
 
+import { VOUCH_SCHEMA_UID } from "@/lib/vouches/eas";
 import { recordRevocationAction, recordVouchAction, refreshVouchAction } from "@/lib/vouches/actions";
 
 const WALLET = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
@@ -35,7 +39,7 @@ const REVOKED = new Date("2026-10-25T12:00:00.000Z");
 const ok = (data: unknown = null): Res => ({ data, error: null });
 const attestation = (over: Record<string, unknown> = {}) => ({
   uid: UID,
-  schema: `0x${"b3".repeat(32)}`,
+  schema: VOUCH_SCHEMA_UID,
   attester: WALLET,
   recipient: RECIPIENT,
   kind: 2,
@@ -57,6 +61,7 @@ beforeEach(() => {
   hitIpRateLimit.mockResolvedValue("ok");
   verifyVouchTx.mockResolvedValue({ status: "ok", attestation: attestation() });
   readAttestation.mockResolvedValue(attestation());
+  rpcClient.getChainId.mockResolvedValue(84532);
   answers.set("record_vouch", ok({ already: false, uid: UID }));
   answers.set("vouch_attester", ok(WALLET.toLowerCase()));
   answers.set("apply_vouch_state", ok("revoked"));
@@ -138,7 +143,7 @@ describe("recordVouchAction", () => {
     });
     expect(revalidatePath).toHaveBeenCalledWith("/es/tools/vouches");
     expect(revalidatePath).toHaveBeenCalledWith("/en/tools/vouches");
-    expect(revalidatePath).toHaveBeenCalledWith("/[lang]/pay/[target]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/(public)/[lang]/pay/[target]", "page");
   });
 
   it("an attestation already revoked on chain is stored with its revocation time", async () => {
@@ -225,9 +230,10 @@ describe("refreshVouchAction (Review Focus 3)", () => {
   it("revoked when the chain has a revocation time", async () => {
     readAttestation.mockResolvedValue(attestation({ revokedAt: REVOKED }));
     expect(await refreshVouchAction(UID)).toEqual({ ok: true, state: "revoked" });
-    expect(readAttestation).toHaveBeenCalledWith(84532, UID);
+    expect(chainClient).toHaveBeenCalledWith(84532);
+    expect(readAttestation).toHaveBeenCalledWith(84532, UID, rpcClient);
     expect(called("apply_vouch_state")[0]![1]).toEqual({ p_uid: UID, p_state: "revoked", p_revoked_at: REVOKED.toISOString() });
-    expect(revalidatePath).toHaveBeenCalledWith("/[lang]/pay/[target]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/(public)/[lang]/pay/[target]", "page");
   });
 
   it("removed when the chain no longer knows the uid", async () => {
@@ -277,6 +283,30 @@ describe("refreshVouchAction (Review Focus 3)", () => {
     readAttestation.mockRejectedValue(new Error("rpc down"));
     expect(await refreshVouchAction(UID)).toEqual({ ok: false, error: "rpc_unavailable" });
     expect(called("apply_vouch_state")).toHaveLength(0);
+  });
+
+  it("rpc_unavailable when the RPC is on another chain, before reading or writing", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpcClient.getChainId.mockResolvedValue(10);
+    expect(await refreshVouchAction(UID)).toEqual({ ok: false, error: "rpc_unavailable" });
+    expect(readAttestation).not.toHaveBeenCalled();
+    expect(called("apply_vouch_state")).toHaveLength(0);
+    rpcClient.getChainId.mockRejectedValue(new Error("rpc down"));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: false, error: "rpc_unavailable" });
+    expect(called("apply_vouch_state")).toHaveLength(0);
+  });
+
+  it("not_found without writing when the chain has the uid under another schema", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    readAttestation.mockResolvedValue(attestation({ schema: `0x${"cd".repeat(32)}`, revokedAt: REVOKED }));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: false, error: "not_found" });
+    expect(called("apply_vouch_state")).toHaveLength(0);
+  });
+
+  it("matches the schema case-insensitively", async () => {
+    readAttestation.mockResolvedValue(attestation({ schema: VOUCH_SCHEMA_UID.toUpperCase().replace("0X", "0x") }));
+    answers.set("apply_vouch_state", ok("active"));
+    expect(await refreshVouchAction(UID)).toEqual({ ok: true, state: "active" });
   });
 
   it("not_found if the row vanished meanwhile; unknown on database errors", async () => {

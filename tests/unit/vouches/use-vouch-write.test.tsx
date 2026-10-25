@@ -71,12 +71,12 @@ describe("useVouchWrite", () => {
     expect(writeContractAsync).not.toHaveBeenCalled();
   });
 
-  it("uses the testnet EAS override and exposes switching", () => {
+  it("uses the testnet EAS override and exposes switching", async () => {
     switching = true;
     vi.stubEnv("NEXT_PUBLIC_EAS_ADDRESS", "0x1111111111111111111111111111111111111111");
     const { result } = renderHook(() => useVouchWrite());
     expect(result.current.switching).toBe(true);
-    void result.current.attest(TO, 1);
-    return vi.waitFor(() => expect(writeContractAsync.mock.calls[0]![0].address).toBe("0x1111111111111111111111111111111111111111"));
+    await expect(result.current.attest(TO, 1)).resolves.toBe(HASH);
+    expect(writeContractAsync.mock.calls[0]![0].address).toBe("0x1111111111111111111111111111111111111111");
   });
 });

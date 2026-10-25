@@ -23,7 +23,8 @@ type Admin = Pick<SupabaseClient, "rpc">;
 
 export function revalidateGiveaways() {
   revalidatePath(clubPath("/sorteos"));
-  revalidatePath(clubPath("/sorteos/[id]"), "page");
+  // A route pattern names the file path, route group included (revalidatePath docs).
+  revalidatePath(clubPath("/(forum)/sorteos/[id]"), "page");
 }
 
 /**

@@ -8,7 +8,8 @@ import { hitIpRateLimit } from "@/lib/rate-limit/ip";
 import { safeError } from "@/lib/security/redact";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
-import { isVouchChain, vouchChain, type VouchChainId } from "./eas";
+import { chainClient } from "@/lib/payments/chain-client";
+import { isVouchChain, VOUCH_SCHEMA_UID, vouchChain, type VouchChainId } from "./eas";
 import type { RefreshVouchError, VouchError } from "./types";
 import { readAttestation, verifyVouchTx, type OnchainAttestation } from "./verify";
 
@@ -18,10 +19,13 @@ type TxInput = { chainId: number; txHash: string };
 type Fail<E> = { ok: false; error: E };
 const fail = <E>(error: E): Fail<E> => ({ ok: false, error });
 
-/** The tool and every Pay page (the recipient's may be reached by alias or address), in their internal paths. */
+/**
+ * The tool (literal internal paths) and every Pay page (the recipient's may be reached by alias or address). A route
+ * pattern names the file path, route group included: the page's cache tag is /(public)/[lang]/pay/[target]/page.
+ */
 function revalidateVouches() {
   for (const lang of ["es", "en"]) revalidatePath(`/${lang}/tools/vouches`);
-  revalidatePath("/[lang]/pay/[target]", "page");
+  revalidatePath("/(public)/[lang]/pay/[target]", "page");
 }
 
 /** Only the hash and the chain come from the client: the chain must be this deployment's Base. */
@@ -122,12 +126,25 @@ export async function refreshVouchAction(uid: string): Promise<{ ok: true; state
   }
   if (typeof attester !== "string") return fail("not_found");
 
+  // «Removed» deletes the row: an RPC on another chain (EAS sits at the same predeploy on every OP Stack chain) would
+  // read every uid as zero, so the chain id is checked first, as verifyVouchTx does.
+  const chain = vouchChain();
   let onchain: OnchainAttestation | null;
   try {
-    onchain = await readAttestation(vouchChain(), id);
+    const client = chainClient(chain);
+    const rpcChain = await client.getChainId();
+    if (rpcChain !== chain) {
+      console.error(`[vouches] RPC chain mismatch: expected ${chain}, got ${rpcChain}`);
+      return fail("rpc_unavailable");
+    }
+    onchain = await readAttestation(chain, id, client);
   } catch (e) {
     console.error("[vouches] attestation read failed", safeError(e));
     return fail("rpc_unavailable");
+  }
+  if (onchain && onchain.schema.toLowerCase() !== VOUCH_SCHEMA_UID.toLowerCase()) {
+    console.error("[vouches] stored uid has another schema on chain", id);
+    return fail("not_found");
   }
   const state = onchain === null ? "removed" : onchain.revokedAt ? "revoked" : "active";
   const { data, error } = await db.rpc("apply_vouch_state", { p_uid: id, p_state: state, p_revoked_at: iso(onchain?.revokedAt ?? null) });

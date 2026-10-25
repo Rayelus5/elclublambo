@@ -59,7 +59,7 @@ describe("runGiveawaySteps", () => {
     expect(fetchBeacon).toHaveBeenCalledWith(5000n);
     expect(calls("draw_giveaway")[0]![1]).toEqual({ p_id: G1, p_round: 5000, p_signature: SIG });
     expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos");
-    expect(revalidatePath).toHaveBeenCalledWith("/foro/sorteos/[id]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/(forum)/sorteos/[id]", "page");
   });
 
   it("Review Focus 5: drand unavailable counts as waiting and never calls draw_giveaway", async () => {

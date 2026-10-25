@@ -17,7 +17,8 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const AVATAR_OBJECT_RE = new RegExp(`^(${UUID})/${UUID}\\.(png|jpg|webp)$`);
 
 function refresh() {
-  revalidatePath(clubPath("/u/[address]"), "page");
+  // A route pattern names the file path, route group included (revalidatePath docs).
+  revalidatePath(clubPath("/(forum)/u/[address]"), "page");
   revalidatePath(clubPath("/perfil"));
 }
 

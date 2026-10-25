@@ -48,7 +48,7 @@ const aggregator = JSON.parse(readFileSync(join(here, "mock-aggregator.json"), "
 const easArtifacts = "@ethereum-attestation-service/eas-contracts/artifacts/contracts";
 const registryArtifact = require(`${easArtifacts}/SchemaRegistry.sol/SchemaRegistry.json`);
 const easArtifact = require(`${easArtifacts}/EAS.sol/EAS.json`);
-const hardhatBin =join(dirname(require.resolve("hardhat/package.json")), "internal", "cli", "bootstrap.js");
+const hardhatBin = join(dirname(require.resolve("hardhat/package.json")), "internal", "cli", "bootstrap.js");
 
 async function rpc(url, method, params = []) {
   const res = await fetch(url, {
@@ -167,9 +167,7 @@ async function prepare(chainId) {
   await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, to: ETH_USD_FEED, data: setAnswer }]);
   // P4: Multicall3 at its canonical address, as on every real chain (viem's client.multicall, used by the token checker,
   // targets it). viem ships Multicall3's creation code for its deployless calls; deploy it, then copy the runtime there.
-  const deployTx = await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, data: multicall3Bytecode }]);
-  const { contractAddress } = await rpc(rpcUrl, "eth_getTransactionReceipt", [deployTx]);
-  await rpc(rpcUrl, "hardhat_setCode", [MULTICALL3, await rpc(rpcUrl, "eth_getCode", [contractAddress, "latest"])]);
+  await rpc(rpcUrl, "hardhat_setCode", [MULTICALL3, await deployedRuntime(rpcUrl, deployer, multicall3Bytecode)]);
   if ((await rpc(rpcUrl, "eth_getCode", [MULTICALL3, "latest"])).length < 100) throw new Error(`Multicall3 missing on ${chainId}`);
   console.log(`[chain] chain ${chainId} on ${rpcUrl}, mock USDC at ${usdc}, Safe code at ${CLUB_SAFE}, ETH/USD feed at ${ETH_USD_FEED}`);
   // P5: vouches live on Base only, so only the Base Sepolia node gets EAS (after Multicall3).
