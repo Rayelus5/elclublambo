@@ -15,7 +15,13 @@
 //      constructor (so its immutable registry already points at the predeploy), its constructor writes no storage, and
 //      OpenZeppelin's EIP712 recomputes the domain separator when address(this) differs from the deploy address. Then
 //      VOUCH_SCHEMA is registered (no resolver, revocable) and the start aborts unless getSchemaRegistry() = 0x…20,
-//      version() = 1.4.0 and getSchema(uid).uid = uid.
+//      version() = 1.4.0 and getSchema(uid).uid = uid;
+//   8. (P6-R5b) gas oracles for the gas tool, as hand-written runtimes (no Solidity, no artifacts; the same trick as
+//      the Safe's `0x00`): on 84532, GAS_PRICE_ORACLE (0x…0F) gets `PUSH32 GAS_ORACLE_WORD, PUSH1 0, MSTORE,
+//      RETURN(0, 32)`, so getL1FeeUpperBound and l1BaseFee both answer GAS_ORACLE_WORD; on 421614, NODE_INTERFACE
+//      (0x…C8) gets `PUSH32 NODE_INTERFACE_L1_GAS, PUSH1 0, MSTORE, RETURN(0, 96)`, so gasEstimateL1Component answers
+//      (NODE_INTERFACE_L1_GAS, 0, 0). The start aborts unless an eth_call of l1BaseFee() returns GAS_ORACLE_WORD and
+//      gasEstimateL1Component decodes to NODE_INTERFACE_L1_GAS.
 // Once both are ready, a tiny HTTP server on READY_PORT answers 200 (Playwright waits for it, not for the RPC ports).
 // The mock WETH JSON (F4a) stays in this folder; no active spec uses it.
 // Plain Node, no shell syntax: works from PowerShell, cmd and bash.
@@ -25,16 +31,20 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { decodeFunctionResult, encodeDeployData, encodeFunctionData, encodePacked, keccak256, zeroAddress } from "viem";
+import { decodeFunctionResult, encodeDeployData, encodeFunctionData, encodePacked, keccak256, toHex, zeroAddress } from "viem";
 import {
   CHAINS,
   CLUB_SAFE,
   EAS_ADDRESS,
   ETH_USD_FEED,
   ETH_USD_PRICE_E8,
+  GAS_ORACLE_WORD,
+  GAS_PRICE_ORACLE,
   hardhatAccount,
   MINT_PER_ACCOUNT,
   MINTED_ACCOUNTS,
+  NODE_INTERFACE,
+  NODE_INTERFACE_L1_GAS,
   READY_PORT,
   SCHEMA_REGISTRY_ADDRESS,
   VOUCH_SCHEMA,
@@ -99,6 +109,42 @@ async function prepareEas(rpcUrl) {
   const schema = await call(rpcUrl, SCHEMA_REGISTRY_ADDRESS, registryArtifact.abi, "getSchema", [uid]);
   if (schema.uid !== uid) throw new Error(`vouch schema ${uid} not registered`);
   return uid;
+}
+
+// Step 8 (P6-R5b): the slices of src/lib/gas/oracles-abi.ts the checks below call.
+const l1BaseFeeAbi = [{ type: "function", name: "l1BaseFee", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] }];
+const nodeInterfaceAbi = [
+  {
+    type: "function",
+    name: "gasEstimateL1Component",
+    stateMutability: "payable",
+    inputs: [
+      { name: "to", type: "address" },
+      { name: "contractCreation", type: "bool" },
+      { name: "data", type: "bytes" },
+    ],
+    outputs: [{ type: "uint64" }, { type: "uint256" }, { type: "uint256" }],
+  },
+];
+
+/** Runtime that answers any call with `word` in the first of `words` 32-byte words (the rest zero). */
+function constantRuntime(word, words) {
+  // PUSH32 word | PUSH1 0 | MSTORE | PUSH1 size | PUSH1 0 | RETURN
+  return `0x7f${toHex(word, { size: 32 }).slice(2)}60005260${toHex(32 * words, { size: 1 }).slice(2)}6000f3`;
+}
+
+/** Step 8: the chain's gas oracle (Base: GasPriceOracle, Arbitrum: NodeInterface). Throws, aborting the start, if it does not answer as expected. */
+async function prepareGasOracle(chainId, rpcUrl) {
+  if (chainId === 84532) {
+    await rpc(rpcUrl, "hardhat_setCode", [GAS_PRICE_ORACLE, constantRuntime(GAS_ORACLE_WORD, 1)]);
+    const fee = await call(rpcUrl, GAS_PRICE_ORACLE, l1BaseFeeAbi, "l1BaseFee");
+    if (fee !== GAS_ORACLE_WORD) throw new Error(`GasPriceOracle answers ${fee}, want ${GAS_ORACLE_WORD}`);
+    return `GasPriceOracle at ${GAS_PRICE_ORACLE}`;
+  }
+  await rpc(rpcUrl, "hardhat_setCode", [NODE_INTERFACE, constantRuntime(NODE_INTERFACE_L1_GAS, 3)]);
+  const [l1Gas] = await call(rpcUrl, NODE_INTERFACE, nodeInterfaceAbi, "gasEstimateL1Component", [CHAINS[chainId].usdc, false, "0x"]);
+  if (l1Gas !== NODE_INTERFACE_L1_GAS) throw new Error(`NodeInterface answers ${l1Gas}, want ${NODE_INTERFACE_L1_GAS}`);
+  return `NodeInterface at ${NODE_INTERFACE}`;
 }
 
 const nodes = [];
@@ -175,6 +221,8 @@ async function prepare(chainId) {
     const uid = await prepareEas(rpcUrl);
     console.log(`[chain] chain ${chainId}: EAS at ${EAS_ADDRESS}, schema ${uid}`);
   }
+  // P6: the gas tool's L1 oracle on each node.
+  console.log(`[chain] chain ${chainId}: ${await prepareGasOracle(chainId, rpcUrl)}`);
 }
 
 async function main() {

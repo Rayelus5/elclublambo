@@ -50,3 +50,14 @@ export function hardhatAccount(index) {
 export const EAS_ADDRESS = "0x4200000000000000000000000000000000000021";
 export const SCHEMA_REGISTRY_ADDRESS = "0x4200000000000000000000000000000000000020";
 export const VOUCH_SCHEMA = "uint8 kind";
+
+/**
+ * Gas oracles (P6-R5b): start-chain.mjs puts a hand-written runtime at each L2's oracle address, matching
+ * src/lib/gas/oracles-abi.ts (tests/unit/gas/chain-constants.test.ts). On 84532, GAS_PRICE_ORACLE answers
+ * GAS_ORACLE_WORD to any selector (so getL1FeeUpperBound and l1BaseFee both return it); on 421614, NODE_INTERFACE
+ * answers (NODE_INTERFACE_L1_GAS, 0, 0) to any selector (gasEstimateL1Component).
+ */
+export const GAS_PRICE_ORACLE = "0x420000000000000000000000000000000000000F";
+export const NODE_INTERFACE = "0x00000000000000000000000000000000000000C8";
+export const GAS_ORACLE_WORD = 2_000_000_000n;
+export const NODE_INTERFACE_L1_GAS = 1000n;

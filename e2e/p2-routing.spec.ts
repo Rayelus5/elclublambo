@@ -125,3 +125,30 @@ test("/es/tools/vouches redirects (308) to /herramientas/avales", async ({ reque
   expect(res.status()).toBe(308);
   expect(new URL(res.headers()["location"] ?? "", "http://localhost").pathname).toBe("/herramientas/avales");
 });
+
+// P6: the three DeFi tools, in both languages; the wrong language's segment is not a page.
+for (const path of ["/herramientas/aprobaciones", "/en/tools/approvals", "/herramientas/envio-multiple", "/en/tools/multisend", "/herramientas/gas", "/en/tools/gas"]) {
+  test(`anonymous: ${path} answers 200 in place (public page)`, async ({ page }) => {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(200);
+    expect(new URL(page.url()).pathname).toBe(path);
+    await expect(page.locator("div[lang]")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+}
+
+test("P6: the gas page reads both local nodes, with their L1 oracles", async ({ page }) => {
+  await page.goto("/en/tools/gas");
+  await expect(page.getByRole("region", { name: "Base Sepolia" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Arbitrum Sepolia" })).toBeVisible();
+  await expect(page.getByText("This network could not be read. Try again in a moment.")).toHaveCount(0);
+  await expect(page.getByText("without the L1 part")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 2, name: "Ethereum (base fee only, reference)" })).toBeVisible();
+});
+
+test("/en/herramientas/gas is not a page; /es/tools/multisend redirects (308) to /herramientas/envio-multiple", async ({ request }) => {
+  expect((await request.get("/en/herramientas/gas", { maxRedirects: 0 })).status()).not.toBe(200);
+  const res = await request.get("/es/tools/multisend", { maxRedirects: 0 });
+  expect(res.status()).toBe(308);
+  expect(new URL(res.headers()["location"] ?? "", "http://localhost").pathname).toBe("/herramientas/envio-multiple");
+});
