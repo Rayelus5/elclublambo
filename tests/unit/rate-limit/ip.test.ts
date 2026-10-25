@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc }) }));
 
-import { clientIp, hitIpRateLimit, ipSubject } from "@/lib/rate-limit/ip";
+import { clientIp, hitIpRateLimit, ipSubject, normalizeIp } from "@/lib/rate-limit/ip";
 
 const h = (o: Record<string, string>) => new Headers(o);
 
@@ -35,6 +35,38 @@ describe("ipSubject", () => {
     expect(ipSubject(null, "k1")).toBe("ip:unknown");
     expect(ipSubject("1.2.3.4", "")).toBe("ip:unknown");
     expect(ipSubject("1.2.3.4", undefined)).toBe("ip:unknown");
+  });
+});
+
+describe("normalizeIp (final review item 4: one IPv6 /64 is one subject)", () => {
+  it("keeps IPv4 as is", () => {
+    expect(normalizeIp("1.2.3.4")).toBe("1.2.3.4");
+    expect(normalizeIp(" 1.2.3.4 ")).toBe("1.2.3.4");
+  });
+  it("reduces IPv6 to its /64 prefix, whatever the spelling", () => {
+    const p = "2001:db8:1:2::/64";
+    expect(normalizeIp("2001:db8:1:2:3:4:5:6")).toBe(p);
+    expect(normalizeIp("2001:0DB8:0001:0002:ffff:0:0:1")).toBe(p);
+    expect(normalizeIp("2001:db8:1:2::1")).toBe(p);
+    expect(normalizeIp("2001:db8:1:2::")).toBe(p);
+    expect(normalizeIp("[2001:db8:1:2::abcd]")).toBe(p);
+    expect(normalizeIp("2001:db8:1:2::1%eth0")).toBe(p);
+    expect(normalizeIp("2001:db8::1")).toBe("2001:db8:0:0::/64");
+    expect(normalizeIp("::1")).toBe("0:0:0:0::/64");
+    expect(normalizeIp("2001:db8:1:3::1")).not.toBe(p);
+  });
+  it("treats IPv4-mapped IPv6 as the IPv4 it carries", () => {
+    expect(normalizeIp("::ffff:1.2.3.4")).toBe("1.2.3.4");
+    expect(normalizeIp("::FFFF:102:304")).toBe("1.2.3.4");
+    expect(normalizeIp("0:0:0:0:0:ffff:1.2.3.4")).toBe("1.2.3.4");
+  });
+  it("leaves anything else as trimmed lower case", () => {
+    expect(normalizeIp(" Not-An-IP ")).toBe("not-an-ip");
+  });
+  it("ipSubject: rotating the interface id inside one /64 does not escape the limit", () => {
+    expect(ipSubject("2001:db8:1:2::1", "k")).toBe(ipSubject("2001:db8:1:2:dead:beef:0:7", "k"));
+    expect(ipSubject("2001:db8:1:2::1", "k")).not.toBe(ipSubject("2001:db8:1:3::1", "k"));
+    expect(ipSubject("::ffff:1.2.3.4", "k")).toBe(ipSubject("1.2.3.4", "k"));
   });
 });
 
