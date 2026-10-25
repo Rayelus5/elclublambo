@@ -995,6 +995,7 @@ export const en = {
       unavailable: "Couldn't get the full list; paste a token and a spender to check it.",
       revoke: "Revoke",
       signing: "Sign in your wallet…",
+      switching: "Switching network…",
       confirming: "Waiting for confirmation…",
       revoked: "Approval revoked.",
       viewTx: "View transaction",

@@ -6,8 +6,8 @@ import { useConfig, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import type { ChainId } from "@/lib/economy/networks";
 import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
-import { CHAIN_SWITCH_FAILED } from "@/lib/vouches/use-vouch-write";
 import { dataSuffixFor } from "@/lib/web3/builder-code";
+import { CHAIN_SWITCH_FAILED } from "@/lib/web3/signing";
 
 type Hash = `0x${string}`;
 

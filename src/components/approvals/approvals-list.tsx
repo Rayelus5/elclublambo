@@ -3,14 +3,24 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useAppKit } from "@reown/appkit/react";
-import { CircleAlert, CircleCheck, CircleHelp, ExternalLink, Info, Loader2, Plug, RefreshCw, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { CircleAlert, CircleHelp, ExternalLink, Info, Loader2, Plug, RefreshCw, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
 import { formatUnits } from "viem";
 import { ManualCheck } from "@/components/approvals/manual-check";
+import { addRevokeNotice } from "@/components/approvals/revoke-notices";
 import { Button } from "@/components/ui/button";
+import { checkAllowanceAction } from "@/lib/approvals/actions";
+import type { ApprovalRow, ApprovalScan } from "@/lib/approvals/types";
+import { TX_REVERTED, useRevoke } from "@/lib/approvals/use-revoke";
+import { shortAddress } from "@/lib/auth/wallet";
+import { explorerAddress, NETWORKS, type ChainId } from "@/lib/economy/networks";
+import { getDictionary, type Dictionary } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n/config";
+import { fill } from "@/lib/i18n/fill";
+import { canSignFor } from "@/lib/web3/can-sign";
 import {
   clearSent,
+  isSentFresh,
   noStored,
-  NOT_FOUND_GIVE_UP_MS,
   parseSent,
   readSentRaw,
   sentAtNow,
@@ -18,29 +28,25 @@ import {
   writeErrorKind,
   writeSent,
   type Sent,
-} from "@/components/vouches/vouch-flow";
-import { checkAllowanceAction } from "@/lib/approvals/actions";
-import type { ApprovalRow, ApprovalScan } from "@/lib/approvals/types";
-import { TX_REVERTED, useRevoke } from "@/lib/approvals/use-revoke";
-import { shortAddress } from "@/lib/auth/wallet";
-import { explorerAddress, explorerTx, NETWORKS, type ChainId } from "@/lib/economy/networks";
-import { getDictionary, type Dictionary } from "@/lib/i18n";
-import type { Lang } from "@/lib/i18n/config";
-import { fill } from "@/lib/i18n/fill";
-import { canSignFor } from "@/lib/web3/can-sign";
+} from "@/lib/web3/signing";
 import { useWalletMatch } from "@/lib/web3/use-wallet-match";
 
 type Hash = `0x${string}`;
 type Labels = Dictionary["approvals"]["list"];
 type Phase = "signing" | "confirming";
-type Notice = { key: string; hash: Hash; token: string };
+/** How a re-check was reached: the receipt said success, the tx reverted, or the receipt never came (or a stored hash). */
+type Sending = "confirmed" | "reverted" | "unconfirmed";
+
+/** Wait before checking once more when a confirmed revoke still reads active (the server's node may be a block behind). */
+const RECHECK_DELAY_MS = 3000;
 
 const rowKey = (r: { token: string; spender: string }) => `${r.token}:${r.spender}`.toLowerCase();
 
 /**
  * A revoke this browser signed whose re-check has not confirmed it yet, per (chain, owner, token, spender), so a reload
  * resumes on it («Comprobar de nuevo»). approve(spender, 0) is idempotent, so it never blocks signing again; it is
- * ignored after NOT_FOUND_GIVE_UP_MS and dropped once a re-check gives a definitive answer.
+ * ignored after the give-up window (judged at mount and again when «Comprobar de nuevo» is pressed) and dropped once a
+ * re-check gives a definitive answer.
  */
 const storageKey = (chainId: ChainId, owner: string, r: { token: string; spender: string }) =>
   `elclub:revoke:${chainId}:${owner}:${r.token}:${r.spender}`.toLowerCase();
@@ -79,6 +85,7 @@ function Item({
   owner,
   row,
   phase,
+  switching,
   error,
   disabled,
   reasonId,
@@ -91,6 +98,7 @@ function Item({
   owner: Hash;
   row: ApprovalRow;
   phase: Phase | null;
+  switching: boolean;
   error: string | null;
   disabled: boolean;
   reasonId: string | undefined;
@@ -99,7 +107,7 @@ function Item({
 }) {
   const stored = parseSent(useSyncExternalStore(subscribeStorage, () => readSentRaw(storageKey(chainId, owner, row)), noStored));
   const [now] = useState(sentAtNow);
-  const pending = stored && now - stored.sentAt < NOT_FOUND_GIVE_UP_MS ? stored : null;
+  const pending = stored && isSentFresh(stored, now) ? stored : null;
   const tokenName = row.symbol ?? shortAddress(row.token);
   const spenderName = row.spenderLabel ?? shortAddress(row.spender);
   const busy = phase !== null;
@@ -112,7 +120,7 @@ function Item({
           target="_blank"
           rel="noopener noreferrer"
           aria-label={fill(t.tokenLink, { token: tokenName })}
-          className="inline-flex min-h-11 items-center gap-1 self-start font-bold text-accent underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none sm:min-h-0"
+          className="inline-flex min-h-11 items-center gap-1 self-start font-bold text-accent underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
         >
           {tokenName}
           <ExternalLink aria-hidden className="size-3.5 shrink-0" />
@@ -141,11 +149,11 @@ function Item({
           onClick={onRevoke}
         >
           {busy ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ShieldOff aria-hidden />}
-          {phase === "signing" ? t.signing : phase === "confirming" ? t.confirming : t.revoke}
+          {phase === "signing" ? (switching ? t.switching : t.signing) : phase === "confirming" ? t.confirming : t.revoke}
         </Button>
         {pending && !busy ? (
           <>
-            <p className="text-[13px] text-fg-muted sm:text-right">{t.pending}</p>
+            {error ? null : <p className="text-[13px] text-fg-muted sm:text-right">{t.pending}</p>}
             <Button type="button" variant="outline" onClick={() => onCheck(pending)}>
               <RefreshCw aria-hidden />
               {t.checkAgain}
@@ -167,8 +175,9 @@ function Item({
  * The approvals of `owner` on `chainId` (P6-R2b/R2d), in the browser only (AppKit; see approvals-lazy.tsx). Anyone sees
  * the list; «Retirar» needs the owner's wallet connected and, with a SIWE session, the session on that wallet too
  * (Review Focus 2: the reason shows once, and nothing is ever signed otherwise). After the receipt the pair is checked
- * again on the server: at 0 the row goes and «Permiso retirado» stays (it is client state, so a router.refresh() that
- * already dropped the row keeps it). An unavailable scan never reads as «no approvals» (Review Focus 1).
+ * again on the server (once more after `recheckDelayMs` if it still reads active): at 0 the row goes and «Permiso
+ * retirado» goes to <RevokeNotices> above the list, which outlives a refresh that drops the list. An unavailable or
+ * partial scan never reads as «no approvals» (Review Focus 1): the manual check opens instead.
  */
 export function ApprovalsList({
   lang,
@@ -176,23 +185,24 @@ export function ApprovalsList({
   owner,
   scan,
   sessionWallet,
+  recheckDelayMs = RECHECK_DELAY_MS,
 }: {
   lang: Lang;
   chainId: ChainId;
   owner: Hash;
   scan: ApprovalScan;
   sessionWallet: Hash | null;
+  recheckDelayMs?: number;
 }) {
   const dict = getDictionary(lang).approvals;
   const t = dict.list;
   const router = useRouter();
   const { open: openWallet } = useAppKit();
-  const { revoke } = useRevoke();
+  const { revoke, switching } = useRevoke();
   const wallet = useWalletMatch(owner);
   const network = NETWORKS[chainId];
   const [extra, setExtra] = useState<ApprovalRow[]>([]);
   const [removed, setRemoved] = useState<ReadonlySet<string>>(() => new Set());
-  const [notices, setNotices] = useState<Notice[]>([]);
   const [busy, setBusy] = useState<{ key: string; phase: Phase } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const alive = useRef(true);
@@ -225,32 +235,55 @@ export function ApprovalsList({
       return next;
     });
 
-  /** Re-reads the pair after a revoke; `confirmed` is whether the receipt said success. */
-  async function recheck(row: ApprovalRow, hash: Hash, confirmed: boolean, failure: string | null) {
-    const key = rowKey(row);
-    setBusy({ key, phase: "confirming" });
-    let res: Awaited<ReturnType<typeof checkAllowanceAction>>;
+  const read = async (row: ApprovalRow): Promise<Awaited<ReturnType<typeof checkAllowanceAction>>> => {
     try {
-      res = await checkAllowanceAction({ chain: network.key, owner, token: row.token, spender: row.spender });
+      return await checkAllowanceAction({ chain: network.key, owner, token: row.token, spender: row.spender });
     } catch {
-      res = { ok: false, error: "rpc_unavailable" };
+      return { ok: false, error: "rpc_unavailable" };
+    }
+  };
+
+  /**
+   * Re-reads the pair after a revoke. A confirmed receipt that still reads active is read once more after
+   * `recheckDelayMs`. At 0: the row goes, the confirmation is added and the stored hash dropped. Still active: a reverted
+   * tx drops the stored hash (the user signs again); otherwise it is kept so «Comprobar de nuevo» stays.
+   */
+  async function recheck(row: ApprovalRow, hash: Hash, how: Sending) {
+    const key = rowKey(row);
+    const stored = storageKey(chainId, owner, row);
+    setBusy({ key, phase: "confirming" });
+    let res = await read(row);
+    if (how === "confirmed" && res.ok && res.row !== null && alive.current) {
+      await new Promise((r) => setTimeout(r, recheckDelayMs));
+      if (alive.current) res = await read(row);
     }
     if (!alive.current) return;
     setBusy(null);
     if (res.ok && res.row === null) {
-      clearSent(storageKey(chainId, owner, row));
+      clearSent(stored);
       setRemoved((s) => new Set(s).add(key));
-      setNotices((n) => [...n.filter((x) => x.key !== key), { key, hash, token: row.symbol ?? shortAddress(row.token) }]);
+      addRevokeNotice(chainId, owner, { key, hash, token: row.symbol ?? shortAddress(row.token) });
       setError(key, null);
       router.refresh();
       return;
     }
-    if (res.ok) {
-      if (confirmed) clearSent(storageKey(chainId, owner, row));
-      setError(key, failure ?? (confirmed ? t.stillActive : t.pending));
+    if (how === "reverted") {
+      clearSent(stored);
+      setError(key, t.reverted);
       return;
     }
-    setError(key, failure ?? t.checkFailed);
+    setError(key, !res.ok ? t.checkFailed : how === "confirmed" ? t.stillActive : t.pending);
+  }
+
+  /** «Comprobar de nuevo»: the give-up window is judged now, not only when the row mounted. */
+  function onCheck(row: ApprovalRow, sent: Sent) {
+    if (busy) return;
+    if (!isSentFresh(sent, sentAtNow())) {
+      clearSent(storageKey(chainId, owner, row));
+      setError(rowKey(row), null);
+      return;
+    }
+    void recheck(row, sent.hash, "unconfirmed");
   }
 
   async function onRevoke(row: ApprovalRow) {
@@ -266,14 +299,12 @@ export function ApprovalsList({
         setBusy({ key, phase: "confirming" });
       });
       if (!alive.current) return;
-      await recheck(row, hash, true, null);
+      await recheck(row, hash, "confirmed");
     } catch (err) {
       if (!alive.current) return;
       if (sent.hash) {
         // Sent, then the receipt failed or reverted: what the chain says now decides.
-        const reverted = err instanceof Error && err.message === TX_REVERTED;
-        if (reverted) clearSent(storageKey(chainId, owner, row));
-        await recheck(row, sent.hash, reverted, reverted ? t.reverted : null);
+        await recheck(row, sent.hash, err instanceof Error && err.message === TX_REVERTED ? "reverted" : "unconfirmed");
         return;
       }
       setBusy(null);
@@ -281,6 +312,9 @@ export function ApprovalsList({
       setError(key, kind === "switch" ? t.switchFailed : kind === "cancelled" ? t.cancelled : t.failed);
     }
   }
+
+  // A partial list that shows nothing must not read as «no approvals»: the manual check opens instead.
+  const manualOpen = scan.status === "unavailable" || (scan.partial && rows.length === 0);
 
   return (
     <section aria-labelledby="approvals-list" className="flex min-w-0 flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
@@ -307,25 +341,6 @@ export function ApprovalsList({
         </div>
       ) : null}
 
-      <div aria-live="polite" className="flex flex-col gap-2">
-        {notices.map((n) => (
-          <p key={n.key} role="status" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-fg">
-            <CircleCheck aria-hidden className="size-4 shrink-0 text-success" />
-            <span className="font-bold text-success">{t.revoked}</span>
-            <span className="text-fg-muted">{n.token}</span>
-            <a
-              href={explorerTx(chainId, n.hash)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center gap-1 text-accent underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
-            >
-              {t.viewTx}
-              <ExternalLink aria-hidden className="size-3.5 shrink-0" />
-            </a>
-          </p>
-        ))}
-      </div>
-
       {scan.status === "unavailable" ? (
         <p role="alert" className="flex items-start gap-2 rounded-control border border-warning/70 p-3 text-sm font-bold text-fg">
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -351,16 +366,17 @@ export function ApprovalsList({
                 owner={owner}
                 row={r}
                 phase={busy?.key === key ? busy.phase : null}
+                switching={switching}
                 error={errors[key] ?? null}
                 disabled={!can.ok || (busy !== null && busy.key !== key)}
                 reasonId={reasonId}
                 onRevoke={() => onRevoke(r)}
-                onCheck={(s) => recheck(r, s.hash, false, null)}
+                onCheck={(s) => onCheck(r, s)}
               />
             );
           })}
         </ul>
-      ) : scan.status === "ok" ? (
+      ) : scan.status === "ok" && !scan.partial ? (
         <p className="flex items-start gap-2 text-base text-fg">
           <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-success" />
           {fill(t.empty, { network: network.name })}
@@ -371,7 +387,7 @@ export function ApprovalsList({
         t={dict.manual}
         network={network.key}
         owner={owner}
-        open={scan.status === "unavailable"}
+        open={manualOpen}
         onFound={(row) => {
           const key = rowKey(row);
           setRemoved((s) => {

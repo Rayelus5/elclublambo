@@ -7,13 +7,15 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 const checkAllowanceAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/approvals/actions", () => ({ checkAllowanceAction }));
 const revoke = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/approvals/use-revoke", () => ({ useRevoke: () => ({ revoke, switching: false }) }));
+const revokeState = vi.hoisted(() => ({ switching: false }));
+vi.mock("@/lib/approvals/use-revoke", () => ({ TX_REVERTED: "tx_reverted", useRevoke: () => ({ revoke, switching: revokeState.switching }) }));
 const account = vi.hoisted(() => ({ isConnected: true, status: "connected" as string, address: undefined as string | undefined }));
 vi.mock("wagmi", () => ({ useAccount: () => account }));
 const openAppKit = vi.hoisted(() => vi.fn());
 vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open: openAppKit }) }));
 
 import { ApprovalsList } from "@/components/approvals/approvals-list";
+import { resetRevokeNotices, RevokeNotices } from "@/components/approvals/revoke-notices";
 import type { ApprovalRow, ApprovalScan } from "@/lib/approvals/types";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
@@ -50,8 +52,19 @@ const eoaRow: ApprovalRow = {
 const ok = (rows: ApprovalRow[], partial = false): ApprovalScan => ({ status: "ok", rows, partial });
 
 function setup(scan: ApprovalScan, sessionWallet: string | null = null) {
-  return render(<ApprovalsList lang="es" chainId={84532} owner={OWNER} scan={scan} sessionWallet={sessionWallet as `0x${string}` | null} />);
+  return render(
+    <>
+      <RevokeNotices lang="es" chainId={84532} owner={OWNER} />
+      <ApprovalsList lang="es" chainId={84532} owner={OWNER} scan={scan} sessionWallet={sessionWallet as `0x${string}` | null} recheckDelayMs={0} />
+    </>,
+  );
 }
+const KEY = `elclub:revoke:84532:${OWNER}:${USDC}:${PERMIT2}`.toLowerCase();
+const sentThen = (err: Error) =>
+  revoke.mockImplementationOnce(async (_input: unknown, onSent?: (h: string) => void) => {
+    onSent?.(HASH);
+    throw err;
+  });
 
 const fills = (root: HTMLElement) => root.querySelectorAll(".bg-accent-fill").length;
 
@@ -62,14 +75,21 @@ beforeEach(() => {
   account.address = OWNER;
   revoke.mockResolvedValue(HASH);
   checkAllowanceAction.mockResolvedValue({ ok: true, row: null });
+  revokeState.switching = false;
   window.localStorage.clear();
+  resetRevokeNotices();
+  vi.restoreAllMocks();
 });
 
 describe("ApprovalsList", () => {
   it("each row: the token linked to the explorer, the spender's label, the formatted amount and an outline «Retirar»", () => {
     const { container } = setup(ok([permit2Row]));
     const item = screen.getByRole("listitem");
-    expect(within(item).getByRole("link", { name: /USDC/ })).toHaveAttribute("href", `https://sepolia.basescan.org/address/${USDC}`);
+    const tokenLink = within(item).getByRole("link", { name: /USDC/ });
+    expect(tokenLink).toHaveAttribute("href", `https://sepolia.basescan.org/address/${USDC}`);
+    // A 44 px target at every breakpoint.
+    expect(tokenLink.className).toMatch(/(^| )min-h-11( |$)/);
+    expect(tokenLink.className).not.toMatch(/:min-h-(0|auto)/);
     expect(within(item).getByText("Permit2")).toBeInTheDocument();
     expect(within(item).getByText("12,5")).toBeInTheDocument();
     const button = within(item).getByRole("button", { name: t.list.revoke });
@@ -131,6 +151,13 @@ describe("ApprovalsList", () => {
     expect(screen.getByText(t.list.partial)).toBeInTheDocument();
   });
 
+  it("Review Focus 1: partial and empty never says «no tiene permisos»; the manual check is open instead", () => {
+    setup(ok([], true));
+    expect(screen.getByText(t.list.partial)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/no tiene permisos/);
+    expect(screen.getByLabelText(t.manual.token)).toBeVisible();
+  });
+
   it("Review Focus 1: unavailable shows the text and the open manual form, never «no tiene permisos»", () => {
     setup({ status: "unavailable", reason: "blocked" });
     expect(screen.getByText(t.list.unavailable)).toBeInTheDocument();
@@ -168,8 +195,32 @@ describe("ApprovalsList", () => {
     const view = setup(ok([permit2Row]));
     await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
     await waitFor(() => expect(screen.getByText(t.list.revoked)).toBeInTheDocument());
-    view.rerender(<ApprovalsList lang="es" chainId={84532} owner={OWNER} scan={ok([])} sessionWallet={null} />);
+    view.rerender(
+      <>
+        <RevokeNotices lang="es" chainId={84532} owner={OWNER} />
+        <ApprovalsList lang="es" chainId={84532} owner={OWNER} scan={ok([])} sessionWallet={null} recheckDelayMs={0} />
+      </>,
+    );
     expect(screen.getByText(t.list.revoked)).toBeInTheDocument();
+  });
+
+  it("the «Permiso retirado» notice sits above the list and outlives it (a refresh answered rate_limited drops the list)", async () => {
+    const view = setup(ok([permit2Row, eoaRow]));
+    await userEvent.click(screen.getAllByRole("button", { name: t.list.revoke })[0]!);
+    const notice = await screen.findByText(t.list.revoked);
+    expect(notice.compareDocumentPosition(screen.getByRole("list")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    view.rerender(<RevokeNotices lang="es" chainId={84532} owner={OWNER} />);
+    expect(screen.getByText(t.list.revoked)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: t.list.viewTx })).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
+  });
+
+  it("while the wallet switches network the busy row says so", async () => {
+    revokeState.switching = true;
+    revoke.mockImplementation(() => new Promise(() => {}));
+    setup(ok([permit2Row]));
+    await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
+    expect(await screen.findByRole("button", { name: t.list.switching })).toBeInTheDocument();
+    expect(t.list.switching).toBe("Cambiando de red…");
   });
 
   it("a cancelled signature or a refused chain switch shows the dictionary text, never the raw error", async () => {
@@ -184,12 +235,63 @@ describe("ApprovalsList", () => {
     expect(checkAllowanceAction).not.toHaveBeenCalled();
   });
 
-  it("still active after the receipt: says so and keeps the row", async () => {
+  it("still active right after a confirmed receipt: checks once more; still active keeps the row and the stored hash", async () => {
+    revoke.mockImplementation(async (_input: unknown, onSent?: (h: string) => void) => {
+      onSent?.(HASH);
+      return HASH;
+    });
     checkAllowanceAction.mockResolvedValue({ ok: true, row: permit2Row });
     setup(ok([permit2Row]));
     await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
     expect(await screen.findByText(t.list.stillActive)).toBeInTheDocument();
+    expect(checkAllowanceAction).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("listitem")).toBeInTheDocument();
+    expect(window.localStorage.getItem(KEY)).not.toBeNull();
+    expect(screen.getByRole("button", { name: t.list.checkAgain })).toBeInTheDocument();
+  });
+
+  it("a lagging node: the second check sees 0 and the row goes", async () => {
+    checkAllowanceAction.mockResolvedValueOnce({ ok: true, row: permit2Row }).mockResolvedValueOnce({ ok: true, row: null });
+    setup(ok([permit2Row]));
+    await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
+    expect(await screen.findByText(t.list.revoked)).toBeInTheDocument();
+    expect(checkAllowanceAction).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("listitem")).not.toBeInTheDocument();
+  });
+
+  it("sent, then the tx reverted: the reverted text, the stored hash cleared, the row kept", async () => {
+    sentThen(new Error("tx_reverted"));
+    checkAllowanceAction.mockResolvedValue({ ok: true, row: permit2Row });
+    setup(ok([permit2Row]));
+    await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
+    expect(await screen.findByText(t.list.reverted)).toBeInTheDocument();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByRole("listitem")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t.list.checkAgain })).not.toBeInTheDocument();
+  });
+
+  it("sent, then the receipt wait threw: the pending text, the stored hash kept, «Comprobar de nuevo» offered", async () => {
+    sentThen(new Error("timed out while waiting"));
+    checkAllowanceAction.mockResolvedValue({ ok: true, row: permit2Row });
+    setup(ok([permit2Row]));
+    await userEvent.click(screen.getByRole("button", { name: t.list.revoke }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(t.list.pending);
+    expect(document.body.textContent).not.toMatch(/timed out/);
+    expect(JSON.parse(window.localStorage.getItem(KEY)!).hash).toBe(HASH);
+    expect(screen.getByRole("button", { name: t.list.checkAgain })).toBeInTheDocument();
+    expect(checkAllowanceAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("the give-up window is evaluated when acting: a hash that went stale while the page was open is dropped, not checked", async () => {
+    const t0 = Date.now();
+    window.localStorage.setItem(KEY, JSON.stringify({ hash: HASH, sentAt: t0 - 9 * 60_000 }));
+    setup(ok([permit2Row]));
+    const button = screen.getByRole("button", { name: t.list.checkAgain });
+    vi.spyOn(Date, "now").mockReturnValue(t0 + 2 * 60_000);
+    await userEvent.click(button);
+    expect(checkAllowanceAction).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("button", { name: t.list.checkAgain })).not.toBeInTheDocument());
   });
 
   it("a stored pending revoke (fresh) offers «Comprobar de nuevo», which re-checks without signing", async () => {

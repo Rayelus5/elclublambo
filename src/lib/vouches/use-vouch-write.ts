@@ -4,12 +4,10 @@ import { useCallback } from "react";
 import { useWriteContract } from "wagmi";
 import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
 import { dataSuffixFor } from "@/lib/web3/builder-code";
+import { CHAIN_SWITCH_FAILED } from "@/lib/web3/signing";
 import { attestArgs, easAddresses, revokeArgs, vouchChain } from "./eas";
 import { easAbi } from "./eas-abi";
 import type { VouchKind } from "./kinds";
-
-/** Thrown (as the error message) when the wallet did not move to Base: nothing was signed. */
-export const CHAIN_SWITCH_FAILED = "chain_switch_failed";
 
 /**
  * The user's wallet signs EAS attest/revoke on this deployment's Base (P5-R4), after switching to it, with the Builder

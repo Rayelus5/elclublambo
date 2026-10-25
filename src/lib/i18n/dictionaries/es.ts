@@ -995,6 +995,7 @@ export const es = {
       unavailable: "No se pudo obtener la lista completa; pega un token y un spender para comprobarlo.",
       revoke: "Retirar",
       signing: "Firma en tu wallet…",
+      switching: "Cambiando de red…",
       confirming: "Esperando confirmación…",
       revoked: "Permiso retirado.",
       viewTx: "Ver transacción",

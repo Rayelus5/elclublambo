@@ -10,7 +10,7 @@ const refreshVouchAction = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/vouches/actions", () => ({ recordVouchAction, recordRevocationAction, refreshVouchAction }));
 const attest = vi.hoisted(() => vi.fn());
 const revoke = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/vouches/use-vouch-write", () => ({ CHAIN_SWITCH_FAILED: "chain_switch_failed", useVouchWrite: () => ({ attest, revoke, switching: false }) }));
+vi.mock("@/lib/vouches/use-vouch-write", () => ({ useVouchWrite: () => ({ attest, revoke, switching: false }) }));
 const account = vi.hoisted(() => ({ isConnected: true, status: "connected" as string, address: "0x1111111111111111111111111111111111111111" as string | undefined }));
 vi.mock("wagmi", () => ({ useAccount: () => account }));
 

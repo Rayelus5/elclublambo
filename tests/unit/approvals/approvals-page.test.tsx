@@ -18,6 +18,9 @@ vi.mock("@/components/approvals/approvals-lazy", () => ({
     <div data-testid="list" data-lang={p.lang} data-chain={p.chainId} data-owner={p.owner} data-scan={p.scan.status} data-session={p.sessionWallet ?? ""} />
   ),
 }));
+vi.mock("@/components/approvals/revoke-notices", () => ({
+  RevokeNotices: (p: { chainId: number; owner: string }) => <div data-testid="notices" data-chain={p.chainId} data-owner={p.owner} />,
+}));
 vi.mock("@/components/approvals/approvals-lookup", () => ({
   ApprovalsLookup: (p: { defaultValue: string; defaultChain: string; error: string | null; action: string; primary: boolean }) => (
     <div data-testid="lookup" data-value={p.defaultValue} data-chain={p.defaultChain} data-error={p.error ?? ""} data-action={p.action} data-primary={String(p.primary)} />
@@ -60,6 +63,8 @@ describe("approvals content", () => {
     expect(scanApprovals).toHaveBeenCalledWith(84532, OWNER);
     const list = screen.getByTestId("list");
     expect(list.dataset).toMatchObject({ chain: "84532", owner: OWNER, scan: "ok", session: SESSION, lang: "es" });
+    const notices = screen.getByTestId("notices");
+    expect(notices.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByTestId("lookup").dataset.primary).toBe("false");
   });
 
@@ -80,6 +85,8 @@ describe("approvals content", () => {
     expect(es.approvals.rateLimited).toBe("Demasiadas consultas, espera unos minutos.");
     expect(scanApprovals).not.toHaveBeenCalled();
     expect(screen.queryByTestId("list")).not.toBeInTheDocument();
+    // A refresh after a revoke that is answered rate_limited keeps the «Permiso retirado» notices.
+    expect(screen.getByTestId("notices").dataset).toMatchObject({ chain: "84532", owner: OWNER });
   });
 
   it("a limiter error lets the scan through; no session is a null session wallet", async () => {
