@@ -31,7 +31,6 @@ function ProofStack({ t }: { t: Dictionary["landing"] }) {
         <m.div style={on ? { y: backY } : undefined} className="border border-border bg-surface p-4 rounded-panel">
           <p className="mb-6 flex items-center justify-between font-mono text-[0.75rem] text-fg-muted uppercase">
             {t.checker.title}
-            <span className="text-accent">{t.soon}</span>
           </p>
           <p className="flex items-center gap-2 text-small text-fg">
             <ShieldAlert className="size-4 shrink-0 text-danger" strokeWidth={2} />

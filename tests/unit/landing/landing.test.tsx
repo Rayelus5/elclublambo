@@ -88,23 +88,23 @@ describe("Landing (reduced motion)", () => {
     }
   });
 
-  it("«Próximamente» CTAs are aria-disabled buttons that go nowhere", () => {
-    render(<Landing lang="es" />);
-    const soon = screen.getAllByRole("button", { name: /Comprobar contrato/ });
-    expect(soon.length).toBeGreaterThanOrEqual(1);
-    for (const button of soon) {
-      expect(button).toHaveAttribute("aria-disabled", "true");
-      expect(button).toHaveAttribute("type", "button");
-      expect(button).toHaveTextContent("Próximamente");
-      expect(button.closest("a, form")).toBeNull();
+  it("«Comprobar contrato» is a link to the checker, without «Próximamente»", () => {
+    for (const [lang, href, name] of [["es", "/herramientas/comprobador", /Comprobar contrato/], ["en", "/en/tools/checker", /Check contract/]] as const) {
+      const { unmount } = render(<Landing lang={lang} />);
+      const links = screen.getAllByRole("link", { name });
+      expect(links.length).toBeGreaterThanOrEqual(1);
+      for (const link of links) {
+        expect(link).toHaveAttribute("href", href);
+        expect(link).not.toHaveTextContent(/Próximamente|Coming soon/);
+      }
+      expect(screen.queryByRole("button", { name })).toBeNull();
+      unmount();
     }
-    expect(screen.queryByRole("link", { name: /Comprobar contrato/ })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Crear enlace de pago/ })).toBeNull();
   });
 
-  it("marks the checker as «Próximamente» and Pay as live", () => {
+  it("the checker block is live and Pay is live", () => {
     render(<Landing lang="es" />);
-    expect(within(screen.getByRole("region", { name: "Comprobador" })).getAllByText("Próximamente").length).toBeGreaterThanOrEqual(1);
+    expect(within(screen.getByRole("region", { name: "Comprobador" })).queryByText("Próximamente")).toBeNull();
     expect(within(screen.getByRole("region", { name: "ElClub Pay" })).queryByText("Próximamente")).toBeNull();
   });
 

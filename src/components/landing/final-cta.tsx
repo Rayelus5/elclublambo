@@ -48,29 +48,6 @@ export function WhatIsLink({ lang, label }: { lang: Lang; label: string }) {
   );
 }
 
-/** The «Próximamente» stamp. */
-export function SoonBadge({ label }: { label: string }) {
-  return (
-    <span className="inline-flex shrink-0 items-center border border-accent px-2 py-0.5 font-mono text-[0.75rem] leading-5 font-normal tracking-wide whitespace-nowrap text-accent uppercase rounded-control">
-      {label}
-    </span>
-  );
-}
-
-/** An action that is not live yet: focusable (never a trap), announced as disabled, does nothing (P2-R10). */
-export function SoonButton({ label, soon }: { label: string; soon: string }) {
-  return (
-    <button
-      type="button"
-      aria-disabled="true"
-      className={`inline-flex min-h-12 cursor-not-allowed flex-wrap items-center gap-3 border border-border-strong bg-surface px-5 py-3 text-left font-bold text-fg-muted rounded-control ${focus}`}
-    >
-      {label}
-      <SoonBadge label={soon} />
-    </button>
-  );
-}
-
 export function FinalCta({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) {
   return (
     <section aria-labelledby="landing-final" className="relative overflow-hidden border-t border-border">

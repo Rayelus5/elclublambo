@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { ApiDocsBody, ApiDocsStatus } from "@/components/checker/api-docs";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE } from "@/lib/i18n/config";
 import { alternatesFor } from "@/lib/i18n/routes";
@@ -27,9 +29,13 @@ export default async function CheckerApiPage({ params }: PageProps<"/[lang]/tool
   if (!isLang(lang)) notFound();
   const t = getDictionary(lang).checker.api;
   return (
-    <main className="mx-auto flex w-full max-w-xl flex-1 flex-col gap-5 px-4 py-8 sm:py-12">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 px-4 py-8 sm:py-12">
       <h1 className="font-display text-3xl font-bold text-fg">{t.title}</h1>
       <p className="text-base text-fg-muted">{t.lead}</p>
+      <Suspense fallback={null}>
+        <ApiDocsStatus lang={lang} />
+      </Suspense>
+      <ApiDocsBody lang={lang} />
     </main>
   );
 }

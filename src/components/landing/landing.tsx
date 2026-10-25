@@ -27,7 +27,7 @@ export function Landing({ lang }: { lang: Lang }) {
         <div className="border-t border-border">
           <div className="mx-auto grid w-full max-w-[1600px] lg:grid-cols-2">
             <PayDemo lang={lang} t={t} noCustody={dict.common.noCustody} />
-            <CheckerDemo t={t} soon={t.soon} />
+            <CheckerDemo lang={lang} t={t} />
           </div>
         </div>
         <Networks t={t.networks} />
