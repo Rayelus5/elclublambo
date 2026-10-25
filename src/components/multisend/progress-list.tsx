@@ -33,6 +33,8 @@ export function ProgressList({
   onRelease,
   onRetry,
   retryDisabled,
+  releaseDisabled,
+  releaseBlocked,
 }: {
   t: Dictionary["multisend"]["progress"];
   chainId: ChainId;
@@ -44,6 +46,9 @@ export function ProgressList({
   onRelease(id: string, on: boolean): void;
   onRetry(): void;
   retryDisabled: boolean;
+  /** R1: no tick while the wallet has a pending tx or its nonces are unknown; `releaseBlocked` says why. */
+  releaseDisabled: boolean;
+  releaseBlocked: string | null;
 }) {
   return (
     <ol aria-label={t.title} aria-live="polite" className="flex flex-col gap-2">
@@ -82,10 +87,11 @@ export function ProgressList({
             {r.status === "not_found" ? (
               <div className="flex flex-col gap-1">
                 <p className="text-sm text-fg">{t.releaseHint}</p>
-                <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-fg">
-                  <Checkbox checked={released.has(r.id)} onCheckedChange={(v) => onRelease(r.id, v === true)} />
+                <label className={`flex min-h-11 items-center gap-3 text-sm text-fg ${releaseDisabled ? "cursor-not-allowed" : "cursor-pointer"}`}>
+                  <Checkbox checked={released.has(r.id)} disabled={releaseDisabled} onCheckedChange={(v) => onRelease(r.id, v === true)} />
                   {t.release}
                 </label>
+                {releaseBlocked ? <p className="text-sm font-bold text-fg">{releaseBlocked}</p> : null}
               </div>
             ) : null}
           </li>

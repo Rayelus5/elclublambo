@@ -14,14 +14,22 @@ vi.mock("wagmi", () => ({
   },
   useSendCalls: () => ({ sendCallsAsync }),
 }));
-const publicClient = { tag: "public-client" };
+const nonces = vi.hoisted(() => ({ pending: 5 as number | Error, latest: 5 }));
+const publicClient = {
+  tag: "public-client",
+  getTransactionCount: vi.fn(async ({ blockTag }: { blockTag: string }) => {
+    const n = blockTag === "pending" ? nonces.pending : nonces.latest;
+    if (n instanceof Error) throw n;
+    return n;
+  }),
+};
 const waitForTransactionReceipt = vi.hoisted(() => vi.fn());
 const waitForCallsStatus = vi.hoisted(() => vi.fn());
 const getBlockNumber = vi.hoisted(() => vi.fn());
 const getPublicClient = vi.hoisted(() => vi.fn());
 vi.mock("wagmi/actions", () => ({ waitForTransactionReceipt, waitForCallsStatus, getBlockNumber, getPublicClient }));
 const findTransfer = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/multisend/find-transfer", () => ({ findTransfer }));
+vi.mock("@/lib/multisend/find-transfer", async (orig) => ({ ...(await orig<typeof import("@/lib/multisend/find-transfer")>()), findTransfer }));
 const ensure = vi.hoisted(() => vi.fn<(chainId: number) => Promise<boolean>>());
 vi.mock("@/lib/payments/use-ensure-chain", () => ({ useEnsureChain: () => ({ ensure, switching: false, failedFor: null }) }));
 const send = vi.hoisted(() => vi.fn());
@@ -32,6 +40,7 @@ vi.mock("@/lib/payments/balances", () => ({ readAssetBalance }));
 import { resetMultisendMemory, useMultisend } from "@/lib/multisend/use-multisend";
 import { loadProgress, recentConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { lineId, type ParsedLine } from "@/lib/multisend/parse";
+import { lockKey, LOCK_STALE_MS, TAB_ID } from "@/lib/multisend/run-lock";
 
 const OWNER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const A = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
@@ -94,6 +103,8 @@ beforeEach(() => {
   getBlockNumber.mockResolvedValue(4242n);
   getPublicClient.mockReturnValue(publicClient);
   findTransfer.mockResolvedValue(null);
+  nonces.pending = 5;
+  nonces.latest = 5;
 });
 afterEach(() => vi.restoreAllMocks());
 
@@ -342,7 +353,7 @@ describe("useMultisend sequential", () => {
     expect(send).not.toHaveBeenCalled();
     expect(result.current.rows.map((r) => r.status)).toEqual(["unconfirmed", "not_found", "confirmed"]);
     expect(result.current.rows[2]!.hash).toBe(h(55));
-    expect(findTransfer).toHaveBeenCalledWith(publicClient, { usdc: USDC_BASE, from: OWNER, to: A, amount: 10_000_000n, fromBlock: 900n, exclude: new Set() });
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, { usdc: USDC_BASE, from: OWNER, to: A, amount: 10_000_000n, fromBlock: 900n, maxBlocks: 50_000n, exclude: new Set() });
   });
 
   it("only todo lines and released not_found lines are signed; an approved unconfirmed line is not", async () => {
@@ -427,5 +438,83 @@ describe("useMultisend sequential", () => {
     expect(result.current.runs).toBe(0);
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(result.current.runs).toBe(1);
+  });
+});
+
+describe("fix round 3", () => {
+  const RUN_KEY = `elclub:multisend:84532:${OWNER.toLowerCase()}:${KEY}`;
+  const notFound = () => [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "confirmed" })];
+
+  it("R1: a released line is not signed while the wallet has a pending tx; the todo lines still go", async () => {
+    saveProgress(OWNER, 84532, KEY, notFound());
+    nonces.pending = 6;
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set([rows[1]!.id]), new Set([rows[0]!.id])));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B]);
+    expect(result.current.rows[0]!.status).toBe("not_found");
+    expect(result.current.error).toBe("wallet_pending");
+    expect(publicClient.getTransactionCount).toHaveBeenCalledWith({ address: OWNER, blockTag: "pending" });
+  });
+
+  it("R1: a failed nonce read also keeps a released line unsigned (the safe side)", async () => {
+    saveProgress(OWNER, 84532, KEY, notFound());
+    nonces.pending = new Error("rpc");
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("wallet_pending");
+  });
+
+  it("R1: with no pending tx, the released line is signed", async () => {
+    saveProgress(OWNER, 84532, KEY, notFound());
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A]);
+  });
+
+  it("R3: the scan cap follows the chain (400k blocks on Arbitrum)", async () => {
+    saveProgress(OWNER, 421614, KEY, [row(rows[0]!, { attempt: attempt(STALE(), "77"), status: "unconfirmed" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
+    const { result } = renderHook(() => useMultisend(421614));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set()));
+    expect(findTransfer.mock.calls[0]![1]).toMatchObject({ fromBlock: 77n, maxBlocks: 400_000n });
+  });
+
+  it("R3: an attempt without its block at send cannot be scanned: scan_failed, never tickable", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { attempt: { at: STALE() }, status: "unconfirmed" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set()));
+    expect(findTransfer).not.toHaveBeenCalled();
+    expect(result.current.rows[0]!.status).toBe("scan_failed");
+  });
+
+  it("R3: when the block at send cannot be read, nothing is signed and no attempt is written", async () => {
+    getBlockNumber.mockRejectedValue(new Error("rpc down"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("rpc");
+    expect(result.current.rows.every((r) => r.status === "todo" && !r.attempt)).toBe(true);
+  });
+
+  it("R5: while another tab holds a fresh lock on this list, a run does nothing", async () => {
+    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() - 5_000 }));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).not.toHaveBeenCalled();
+    expect(findTransfer).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("locked");
+    expect(JSON.parse(window.localStorage.getItem(lockKey(RUN_KEY))!).tab).toBe("other-tab");
+  });
+
+  it("R5: a stale lock (> 30 s) is taken over; the run holds the lock while signing and releases it after", async () => {
+    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() - LOCK_STALE_MS - 1 }));
+    send.mockImplementation(async ({ to }: { to: string }) => {
+      expect(JSON.parse(window.localStorage.getItem(lockKey(RUN_KEY))!).tab).toBe(TAB_ID);
+      return h(rows.findIndex((r) => r.to === to) + 1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).toHaveBeenCalledTimes(3);
+    expect(window.localStorage.getItem(lockKey(RUN_KEY))).toBeNull();
   });
 });

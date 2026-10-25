@@ -25,7 +25,9 @@ import {
   storageAvailable,
   type RowState,
 } from "@/lib/multisend/progress";
+import { lockedByOther, readLockRaw, TAB_ID } from "@/lib/multisend/run-lock";
 import { useMultisend } from "@/lib/multisend/use-multisend";
+import { useWalletIdle } from "@/lib/multisend/wallet-idle";
 import { formatAmount } from "@/lib/payments/amounts";
 import { useAssetBalances } from "@/lib/payments/balances";
 import { canSignFor } from "@/lib/web3/can-sign";
@@ -66,11 +68,17 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   // matches, so it is void once the line changes state or a run ends (finding 6).
   const [released, setReleased] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [repeatOk, setRepeatOk] = useState<ReadonlyMap<string, string>>(() => new Map());
-  const [now] = useState(sentAtNow);
+  const [now, setNow] = useState(sentAtNow);
   const [storageProbe] = useState(storageAvailable);
   const ms = useMultisend(chain);
   const network = NETWORKS[chain];
   const fmt = (units: bigint) => formatUsdc(units, lang);
+
+  // A clock for what goes stale on its own: another tab's lock (R5) and the 24 h record.
+  useEffect(() => {
+    const timer = setInterval(() => setNow(sentAtNow()), 10_000);
+    return () => clearInterval(timer);
+  }, []);
 
   // «Repartir gastos» on this same page links to #envio=…: a new list in the fragment replaces the text.
   useEffect(() => {
@@ -114,7 +122,10 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   // C2 and the state model: only `todo` lines and ticked `not_found` lines are signed; the other unconfirmed lines are
   // only re-checked on chain (never signed in that run).
   const statusAt = (i: number) => progress?.[i]?.status ?? "todo";
-  const releasedIds = new Set(recipients.filter((r, i) => statusAt(i) === "not_found" && ticked(released, r.id)).map((r) => r.id));
+  // R1: a not_found line may be ticked (and a tick counts) only while the wallet has no pending tx, read successfully.
+  const idle = useWalletIdle(chain, owner, !!progress?.some((r) => r.status === "not_found"));
+  const canRelease = idle === "idle";
+  const releasedIds = new Set(recipients.filter((r, i) => canRelease && statusAt(i) === "not_found" && ticked(released, r.id)).map((r) => r.id));
   const approved = new Set(recipients.filter((_, i) => statusAt(i) === "todo").map((r) => r.id));
   const toSign = recipients.filter((r) => approved.has(r.id) || releasedIds.has(r.id));
   const toCheck = progress ? progress.filter((r) => r.status !== "confirmed" && r.status !== "todo" && !releasedIds.has(r.id)) : [];
@@ -129,11 +140,14 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   );
   const repeatBlocked = [...repeats].some((r) => !ticked(repeatOk, r));
   const storageOff = !storageProbe || !ms.storageOk;
+  // R5: another tab running this list.
+  const lockRaw = useSyncExternalStore(subscribeStorage, () => (owner && recipients.length > 0 ? readLockRaw(progressKey(owner, chain, key)) : null), noStored);
+  const lockedElsewhere = lockedByOther(lockRaw, TAB_ID, now);
 
   const valid = recipients.length > 0 && errors.length === 0;
   const insufficient = valid && usdcBalance !== null && signTotal > usdcBalance;
   const noGas = valid && toSign.length > 0 && !insufficient && ethBalance !== null && ethBalance <= 0n;
-  const ready = valid && can.ok && !done && ms.mode !== "checking" && !ms.running;
+  const ready = valid && can.ok && !done && ms.mode !== "checking" && !ms.running && !lockedElsewhere;
   const canSend = ready && toSign.length > 0 && !insufficient && !noGas && !repeatBlocked;
   const onlyCheck = ready && toSign.length === 0 && toCheck.length > 0;
 
@@ -141,8 +155,9 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const fixId = `${id}-fix`;
   const balanceId = `${id}-balance`;
   const repeatId = `${id}-repeat`;
+  const lockId = `${id}-lock`;
   const describedBy =
-    [reason ? reasonId : null, errors.length > 0 ? fixId : null, insufficient || noGas ? balanceId : null, repeatBlocked ? repeatId : null]
+    [reason ? reasonId : null, lockedElsewhere ? lockId : null, errors.length > 0 ? fixId : null, insufficient || noGas ? balanceId : null, repeatBlocked ? repeatId : null]
       .filter(Boolean)
       .join(" ") || undefined;
 
@@ -192,6 +207,12 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
         {dict.common.noCustody}
       </p>
+      {lockedElsewhere ? (
+        <p role="status" className="flex items-start gap-2 rounded-control border border-warning/70 p-3 text-sm font-bold text-fg">
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+          <span id={lockId}>{t.form.locked}</span>
+        </p>
+      ) : null}
       {storageOff ? (
         <p role="status" className="flex items-start gap-2 rounded-control border border-warning/70 p-3 text-sm font-bold text-fg">
           <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
@@ -344,6 +365,8 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
               onRelease={(lineId, on) => toggle(setReleased, lineId, on)}
               onRetry={onCheck}
               retryDisabled={!ready}
+              releaseDisabled={!canRelease}
+              releaseBlocked={idle === "pending" ? t.progress.walletPending : idle === "unknown" ? t.progress.walletUnknown : null}
             />
             <p className="text-[13px] text-fg-muted">{t.progress.scanNote}</p>
           </div>

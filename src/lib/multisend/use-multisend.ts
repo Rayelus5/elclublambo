@@ -11,10 +11,12 @@ import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { dataSuffixFor } from "@/lib/web3/builder-code";
 import { isUserRejection, NOT_FOUND_GIVE_UP_MS, sentAtNow } from "@/lib/web3/signing";
-import { findTransfer } from "./find-transfer";
+import { findTransfer, scanCapFor } from "./find-transfer";
 import type { ParsedLine } from "./parse";
 import { alignProgress, loadProgress, mergeProgress, progressKey, recordConfirmed, saveProgress, type RowState } from "./progress";
 import { paysLine } from "./receipt";
+import { acquireLock, heartbeat, HEARTBEAT_MS, releaseLock, TAB_ID } from "./run-lock";
+import { readWalletIdle } from "./wallet-idle";
 
 type Address = `0x${string}`;
 type Hash = `0x${string}`;
@@ -31,7 +33,13 @@ export type MultisendError =
   | "scan_failed"
   | "atomic_failed"
   | "insufficient"
-  | "no_gas";
+  | "no_gas"
+  /** R1: a released line was not signed because the wallet has a pending tx (or its nonces could not be read). */
+  | "wallet_pending"
+  /** R3: the block at send could not be read: nothing was signed. */
+  | "rpc"
+  /** R5: another tab is running this list. */
+  | "locked";
 
 /** How long a run waits, in total, for the receipts (or batch statuses) of the lines already sent. */
 export const RECHECK_TIMEOUT_MS = 30_000;
@@ -59,8 +67,10 @@ type CallsResult = { status?: string; receipts?: readonly Receipt[] };
 type Deps = {
   waitReceipt(hash: Hash, timeout?: number): Promise<Receipt>;
   waitCalls(id: string, timeout?: number): Promise<CallsResult>;
-  /** The tx hash of a matching Transfer log, null when none; throws when the scan itself fails. */
-  scan(row: RowState, block: bigint | undefined, exclude: ReadonlySet<string>): Promise<Hash | null>;
+  /** The tx hash of a matching Transfer log, null when none; throws when the scan itself fails or is past the cap. */
+  scan(row: RowState, block: bigint, exclude: ReadonlySet<string>): Promise<Hash | null>;
+  /** R1: true only when the wallet's pending and latest nonces were read and are equal. */
+  walletIdle(): Promise<boolean>;
   blockNumber(): Promise<bigint>;
   /** [USDC, ETH] of the owner on the chain, null when unknown. */
   balances(): Promise<[bigint, bigint] | null>;
@@ -165,7 +175,9 @@ class Run {
       const exclude = new Set(this.rows.filter((x) => x.id !== r.id && x.hash).map((x) => x.hash!));
       let found: Hash | null;
       try {
-        found = await this.deps.scan(r, r.attempt?.block ? BigInt(r.attempt.block) : undefined, exclude);
+        // R3: the scan starts at the block at send; without it, it cannot be scanned at all.
+        if (!r.attempt?.block) throw new Error("no block at send");
+        found = await this.deps.scan(r, BigInt(r.attempt.block), exclude);
       } catch {
         this.patch(new Set([r.id]), { status: "scan_failed" });
         continue;
@@ -182,6 +194,17 @@ class Run {
   /** What is still signable among the planned lines, after the checks. */
   signable(chosen: ReadonlySet<string>): RowState[] {
     return this.rows.filter((r) => chosen.has(r.id) && (r.status === "todo" || r.status === "not_found"));
+  }
+
+  /**
+   * R1: released (`not_found`) lines go only while the wallet has no pending tx: one could still be the line's
+   * transfer, mined late. A failed nonce read keeps them back too. Returns the lines that may go and whether some
+   * were held back.
+   */
+  async holdReleased(left: readonly RowState[]): Promise<{ left: RowState[]; held: boolean }> {
+    if (!left.some((r) => r.status === "not_found")) return { left: [...left], held: false };
+    if (await this.deps.walletIdle()) return { left: [...left], held: false };
+    return { left: left.filter((r) => r.status !== "not_found"), held: true };
   }
 
   /** 4. Preflight: a balance known to be short signs nothing (finding 12); an unknown one does not block. */
@@ -329,6 +352,14 @@ export function useMultisend(chain: ChainId): {
       const usdc = NETWORKS[chain].usdc;
       const runKey = progressKey(owner, chain, key);
       const fresh = lines.map((l): RowState => ({ id: l.id, to: l.to, amount: l.amount.toString(), status: "todo" }));
+      // R5: one tab runs a list at a time.
+      if (!acquireLock(runKey, TAB_ID, sentAtNow())) {
+        setError("locked");
+        busy.current = false;
+        setRunning(false);
+        return;
+      }
+      const beat = setInterval(() => heartbeat(runKey, TAB_ID, sentAtNow()), HEARTBEAT_MS);
       const start = mergeProgress(alignProgress(loadProgress(owner, chain, key), lines), alignProgress(memory.get(runKey) ?? null, lines)) ?? fresh;
       const chainAssets = assetsFor([chain]);
       const deps: Deps = {
@@ -342,8 +373,14 @@ export function useMultisend(chain: ChainId): {
             to: row.to,
             amount: BigInt(row.amount),
             fromBlock: block,
+            maxBlocks: scanCapFor(chain),
             exclude,
           }),
+        walletIdle: () =>
+          readWalletIdle(getPublicClient(config, { chainId: chain }) as Parameters<typeof readWalletIdle>[0], owner).then(
+            (v) => v === "idle",
+            () => false,
+          ),
         blockNumber: () => getBlockNumber(config, { chainId: chain }),
         balances: () =>
           Promise.all([
@@ -377,21 +414,28 @@ export function useMultisend(chain: ChainId): {
       setRun({ key: runKey, rows: start });
 
       let stop: MultisendError | null = null;
+      let held = false;
       try {
         const chosen = r.plan(approved, released);
         await r.verify();
         await r.scan();
-        const left = r.signable(chosen);
+        const going = await r.holdReleased(r.signable(chosen));
+        held = going.held;
+        const left = going.left;
         if (left.length > 0) {
           await r.preflight(left);
+          // R3: every attempt carries its block at send; without it nothing is signed.
           const block = await deps.blockNumber().then(String, () => undefined);
+          if (block === undefined) throw new Stop("rpc");
           if (mode === "atomic") await r.signAtomic(left, block);
           else await r.signSequential(left, block);
         }
       } catch (err) {
         stop = err instanceof Stop ? err.code : "failed";
       } finally {
-        setError(stop ?? r.notice());
+        clearInterval(beat);
+        releaseLock(runKey, TAB_ID);
+        setError(stop ?? (held ? "wallet_pending" : r.notice()));
         busy.current = false;
         setRunning(false);
         setRuns((n) => n + 1);

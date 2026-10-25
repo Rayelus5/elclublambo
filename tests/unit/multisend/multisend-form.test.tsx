@@ -22,11 +22,19 @@ type Hook = {
 };
 const hook = vi.hoisted(() => ({ value: {} as Hook }));
 vi.mock("@/lib/multisend/use-multisend", () => ({ useMultisend: () => hook.value }));
+const idle = vi.hoisted(() => ({ value: "idle" as "idle" | "pending" | "unknown" | "checking", args: [] as unknown[] }));
+vi.mock("@/lib/multisend/wallet-idle", () => ({
+  useWalletIdle: (...args: unknown[]) => {
+    idle.args = args;
+    return idle.value;
+  },
+}));
 
 import { MultisendForm } from "@/components/multisend/multisend-form";
 import { encodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
 import { progressKey, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
+import { lockKey } from "@/lib/multisend/run-lock";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 
@@ -59,6 +67,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
   window.location.hash = "";
+  idle.value = "idle";
   account.isConnected = true;
   account.status = "connected";
   account.address = OWNER;
@@ -381,5 +390,61 @@ describe("MultisendForm", () => {
     for (const word of ["Enviar", "Destinatarios", "Saldo", "Resumen", "Línea", "Red", "custodia"]) expect(text).not.toContain(word);
     await user.click(screen.getByRole("button", { name: en.form.send }));
     expect(await screen.findByText("You are about to send 30 USDC to 3 addresses on Base Sepolia. Every transfer is final.")).toBeInTheDocument();
+  });
+
+  it("R1: with a pending tx in the wallet, a not_found line cannot be ticked, with the reason", async () => {
+    seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
+    idle.value = "pending";
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(idle.args).toEqual([84532, OWNER, true]);
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).toBeDisabled();
+    expect(screen.getByText(t.progress.walletPending)).toBeInTheDocument();
+    expect(t.progress.walletPending).toBe("Hay una transacción pendiente en tu wallet; espera a que se confirme o se cancele");
+  });
+
+  it("R1: when the wallet's nonces cannot be read (or are being read), the tick is disabled too", async () => {
+    seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
+    idle.value = "unknown";
+    const { user, rerender } = setup();
+    await paste(user, LIST);
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).toBeDisabled();
+    expect(screen.getByText(t.progress.walletUnknown)).toBeInTheDocument();
+    idle.value = "checking";
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).toBeDisabled();
+  });
+
+  it("R1: a tick given while idle does not count once a tx is pending", async () => {
+    const { recipients } = seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
+    const { user, rerender } = setup();
+    await paste(user, LIST);
+    await user.click(screen.getByRole("checkbox", { name: t.progress.release }));
+    idle.value = "pending";
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    await user.click(screen.getByRole("button", { name: t.form.continue }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Vas a enviar 7,5 USDC a 1 dirección en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: t.confirm.confirm }));
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, expect.any(String), new Set([recipients[2]!.id]), new Set());
+  });
+
+  it("R5: while another tab holds the lock on this list, it says so and nothing can start", async () => {
+    const { recipients } = parseRecipients(LIST, 84532);
+    window.localStorage.setItem(lockKey(progressKey(OWNER, 84532, listKey(84532, recipients))), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(screen.getByText(t.form.locked)).toBeInTheDocument();
+    expect(t.form.locked).toBe("Otra pestaña está enviando esta lista");
+    expect(sendButton()).toBeDisabled();
+  });
+
+  it("R5: a stale lock (> 30 s) does not block", async () => {
+    const { recipients } = parseRecipients(LIST, 84532);
+    window.localStorage.setItem(lockKey(progressKey(OWNER, 84532, listKey(84532, recipients))), JSON.stringify({ tab: "other-tab", beat: Date.now() - 31_000 }));
+    const { user } = setup();
+    await paste(user, LIST);
+    expect(screen.queryByText(t.form.locked)).not.toBeInTheDocument();
+    expect(sendButton()).toBeEnabled();
   });
 });
