@@ -4,6 +4,7 @@ import { encodeAbiParameters, encodeEventTopics, zeroAddress, zeroHash, type Pub
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/payments/chain-client", () => ({ chainClient: vi.fn() }));
 
+import { chainClient } from "@/lib/payments/chain-client";
 import { EAS_ADDRESS, encodeVouchData, VOUCH_SCHEMA_UID } from "@/lib/vouches/eas";
 import { easAbi } from "@/lib/vouches/eas-abi";
 import { isVouchSchemaRegistered, readAttestation, verifyVouchTx } from "@/lib/vouches/verify";
@@ -123,6 +124,24 @@ describe("verifyVouchTx", () => {
   it("rejects when the stored attestation has another schema", async () => {
     const c = client({ receipt: okReceipt([eventLog({})]), attestation: att({ schema: OTHER_SCHEMA }) });
     expect(await attest(c)).toEqual({ status: "error", code: "not_a_vouch" });
+  });
+
+  it("rejects when getAttestation returns another uid than the event", async () => {
+    const c = client({ receipt: okReceipt([eventLog({})]), attestation: att({ uid: `0x${"ee".repeat(32)}` }) });
+    expect(await attest(c)).toEqual({ status: "error", code: "not_a_vouch" });
+  });
+
+  it("compares the stored schema case-insensitively", async () => {
+    const upper = `0x${VOUCH_SCHEMA_UID.slice(2).toUpperCase()}` as `0x${string}`;
+    const c = client({ receipt: okReceipt([eventLog({})]), attestation: att({ schema: upper }) });
+    expect((await attest(c)).status).toBe("ok");
+  });
+
+  it("never throws when building the default client throws", async () => {
+    vi.mocked(chainClient).mockImplementationOnce(() => {
+      throw new Error("bad rpc config");
+    });
+    expect(await verifyVouchTx({ chain: CHAIN, txHash: HASH, expect: "attest", attester: ATTESTER })).toEqual({ status: "error", code: "rpc_unavailable" });
   });
 
   it("rejects a reverted transaction", async () => {

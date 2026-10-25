@@ -1,6 +1,5 @@
 import "server-only";
 import { cacheLife } from "next/cache";
-import { unstable_rethrow } from "next/navigation";
 import { parseEventLogs, zeroHash, type PublicClient } from "viem";
 import { chainClient } from "@/lib/payments/chain-client";
 import { decodeVouchData, easAddresses, VOUCH_SCHEMA_UID, type VouchChainId } from "./eas";
@@ -56,9 +55,11 @@ export async function readAttestation(chain: VouchChainId, uid: `0x${string}`, c
  */
 export async function verifyVouchTx(
   input: { chain: VouchChainId; txHash: `0x${string}`; expect: "attest" | "revoke"; attester: string },
-  client: PublicClient = chainClient(input.chain),
+  injected?: PublicClient,
 ): Promise<VerifyVouchResult> {
   try {
+    // Built inside the try: a throwing chainClient must become rpc_unavailable, not an exception.
+    const client = injected ?? chainClient(input.chain);
     const rpcChain = await client.getChainId();
     if (rpcChain !== input.chain) {
       console.error(`[vouches] RPC chain mismatch: expected ${input.chain}, got ${rpcChain}`);
@@ -90,7 +91,14 @@ export async function verifyVouchTx(
     if (!same(event.args.attester, input.attester)) return err("wrong_attester");
 
     const attestation = await readAttestation(input.chain, event.args.uid, client);
-    if (!attestation || attestation.schema !== VOUCH_SCHEMA_UID || !same(attestation.attester, input.attester)) return err("not_a_vouch");
+    if (
+      !attestation ||
+      !same(attestation.uid, event.args.uid) ||
+      !same(attestation.schema, VOUCH_SCHEMA_UID) ||
+      !same(attestation.attester, input.attester)
+    ) {
+      return err("not_a_vouch");
+    }
     if (input.expect === "revoke" && attestation.revokedAt === null) return err("not_a_vouch");
     return { status: "ok", attestation };
   } catch (e) {
@@ -105,22 +113,20 @@ export async function isVouchSchemaRegistered(chain: VouchChainId, client: Publi
   return s.uid !== zeroHash;
 }
 
-class NotRegistered extends Error {}
-
-async function registeredCached(chain: VouchChainId): Promise<true> {
+/**
+ * Cached for an hour once registered; an unregistered schema only lives a few seconds, so registering it by hand shows
+ * up almost at once and a negative is never kept long (P5-R3). `cacheLife` is called in one branch per invocation.
+ * An RPC failure throws and nothing is cached.
+ */
+async function registeredCached(chain: VouchChainId): Promise<boolean> {
   "use cache";
-  if (!(await isVouchSchemaRegistered(chain))) throw new NotRegistered(); // a throw stores nothing: only `true` is cached
-  cacheLife("hours");
-  return true;
+  const registered = await isVouchSchemaRegistered(chain);
+  if (registered) cacheLife("hours");
+  else cacheLife("seconds");
+  return registered;
 }
 
-/** `isVouchSchemaRegistered`, with a positive answer cached for an hour and a negative one never cached (P5-R3). Request time only. */
+/** `isVouchSchemaRegistered` through the cache above. Throws when the RPC fails; callers map any error to "unknown". Request time only. */
 export async function getVouchSchemaRegistered(chain: VouchChainId): Promise<boolean> {
-  try {
-    return await registeredCached(chain);
-  } catch (e) {
-    unstable_rethrow(e);
-    if (e instanceof NotRegistered) return false;
-    throw e;
-  }
+  return registeredCached(chain);
 }
