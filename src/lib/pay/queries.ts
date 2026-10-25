@@ -22,13 +22,16 @@ function toMine(raw: Raw): MyPublicProfile | null {
   };
 }
 
-/** The signed-in public account's own profile, or null (no session or no profile). */
+/**
+ * The signed-in public account's own profile, or null (no session or no profile). Throws on a read error: an empty form
+ * in its place would default to every network and could overwrite the saved ones on the next save (D22).
+ */
 export async function getMyPublicProfile(): Promise<MyPublicProfile | null> {
   if (!(await getPublicSession())) return null;
   const { data, error } = await (await createServerClient()).rpc("my_public_profile");
   if (error) {
     console.error("[pay] my profile read failed", safeError(error.message));
-    return null;
+    throw new Error("my_public_profile read failed");
   }
   return toMine(data as Raw);
 }

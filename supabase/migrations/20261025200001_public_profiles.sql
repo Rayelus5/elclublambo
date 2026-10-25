@@ -4,6 +4,7 @@
 -- refreshed on every update, so a profile can never point at an address its owner did not sign in with.
 --   upsert_public_profile / my_public_profile   authenticated public accounts (a banned club member is not one)
 --   public_profile_view / public_profile_by_address   service role only: public reads go through the server
+--   released_aliases   an alias given up by a change is held for its previous owner for 30 days (closed table)
 -- The reserved alias list must equal tests/fixtures/public-aliases.json (pinned by tests/unit/pay/public-aliases.test.ts).
 
 create table public.public_profiles (
@@ -21,6 +22,16 @@ create index public_profiles_wallet_idx on public.public_profiles (wallet_addres
 
 alter table public.public_profiles enable row level security;
 revoke all on public.public_profiles from public, anon, authenticated;
+
+-- An alias given up by a change stays held for its previous owner for 30 days (alias_held for anyone else), so an old
+-- payment link cannot be taken over at once by another account. The previous owner may reclaim it at any time.
+create table public.released_aliases (
+  alias extensions.citext primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  released_at timestamptz not null default now()
+);
+alter table public.released_aliases enable row level security;
+revoke all on public.released_aliases from public, anon, authenticated;
 
 -- ===== my_public_profile (authenticated) =====
 -- The owner's view of the profile; also what upsert_public_profile returns. Null without one.
@@ -43,7 +54,10 @@ $$;
 
 -- ===== upsert_public_profile (public account) =====
 -- Alias: trimmed (ASCII whitespace) and validated as ASCII BEFORE lowercasing, like set_handle, so Unicode look-alikes
--- are never folded into an ASCII alias. Display name: trimmed, blank = null, 1..40, no control characters.
+-- are never folded into an ASCII alias. An alias another account released less than 30 days ago is alias_held.
+-- Display name (same rules as src/lib/pay/display-name.ts): null or '' = no name; any bidi control or zero-width
+-- character (U+200B-U+200F, U+202A-U+202E, U+2066-U+2069, U+FEFF) is rejected; then a Unicode-whitespace trim (the
+-- String#trim set), and the result must be 1..40 characters with no control characters (whitespace-only is rejected).
 -- Networks: trimmed, lower-cased, deduped, ordered base then arbitrum; empty, null or unknown -> networks_invalid.
 create function public.upsert_public_profile(
   p_alias text,
@@ -62,7 +76,10 @@ declare
   v_raw text;
   v_alias text;
   v_name text;
+  v_old text;
   v_nets text[];
+  -- the String#trim whitespace set, minus U+FEFF (rejected above as zero-width)
+  v_ws constant text := '[\u0009-\u000d    -     　]';
   v_reserved constant text[] := array['admin', 'administrador', 'superadmin', 'elclub', 'el_club', 'sistema', 'system',
     'soporte', 'support', 'moderador', 'mod', 'staff', 'everyone', 'here', 'todos', 'anonimo', 'null', 'undefined',
     'pay', 'tx', 'tools', 'herramientas', 'start', 'donar', 'donate', 'en', 'es', 'elclubpay'];
@@ -83,9 +100,30 @@ begin
     raise exception 'alias_reserved';
   end if;
 
-  v_name := nullif(regexp_replace(coalesce(p_display_name, ''), '^[ \t\n\r]+|[ \t\n\r]+$', '', 'g'), '');
-  if v_name is not null and (char_length(v_name) > 40 or v_name ~ '[[:cntrl:]]') then
-    raise exception 'display_name_invalid';
+  -- serialize on the aliases involved (sorted: no deadlock), so a release and a take of the same alias cannot interleave
+  select p.alias::text into v_old from public.public_profiles p where p.user_id = v_uid for update;
+  if v_old is not null and v_old <> v_alias then
+    perform pg_advisory_xact_lock(hashtextextended('public_alias:' || least(v_old, v_alias), 0));
+    perform pg_advisory_xact_lock(hashtextextended('public_alias:' || greatest(v_old, v_alias), 0));
+  else
+    perform pg_advisory_xact_lock(hashtextextended('public_alias:' || v_alias, 0));
+  end if;
+  if exists (select 1 from public.released_aliases r
+             where r.alias = v_alias::extensions.citext and r.user_id <> v_uid
+               and r.released_at > now() - interval '30 days') then
+    raise exception 'alias_held';
+  end if;
+
+  if coalesce(p_display_name, '') = '' then
+    v_name := null;
+  else
+    if p_display_name ~ '[​-‏‪-‮⁦-⁩﻿]' then
+      raise exception 'display_name_invalid';
+    end if;
+    v_name := regexp_replace(p_display_name, '^' || v_ws || '+|' || v_ws || '+$', '', 'g');
+    if char_length(v_name) not between 1 and 40 or v_name ~ '[[:cntrl:]\u007f-\u009f]' then
+      raise exception 'display_name_invalid';
+    end if;
   end if;
 
   if p_accept_networks is null or cardinality(p_accept_networks) = 0
@@ -111,6 +149,13 @@ begin
   exception when unique_violation then
     raise exception 'alias_taken';
   end;
+
+  -- the alias given up is held for this account; the alias now in use is no longer held for anyone
+  if v_old is not null and v_old <> v_alias then
+    insert into public.released_aliases (alias, user_id, released_at) values (v_old, v_uid, now())
+    on conflict (alias) do update set user_id = excluded.user_id, released_at = excluded.released_at;
+  end if;
+  delete from public.released_aliases r where r.alias = v_alias::extensions.citext;
   return public.my_public_profile();
 end;
 $$;

@@ -6,13 +6,14 @@ import { isNetworkKey, NETWORK_KEYS } from "@/lib/economy/networks";
 import { safeError } from "@/lib/security/redact";
 import { createServerClient } from "@/lib/supabase/server";
 import { normalizeAlias } from "./alias";
+import { normalizeDisplayName } from "./display-name";
 import type { MyPublicProfile, SaveProfileError, SaveProfileInput, SaveProfileResult } from "./types";
 
-const DISPLAY_NAME_MAX = 40;
 const SQL_CODES: ReadonlySet<string> = new Set([
   "alias_invalid",
   "alias_reserved",
   "alias_taken",
+  "alias_held",
   "networks_invalid",
   "display_name_invalid",
   "rate_limited",
@@ -23,7 +24,8 @@ const fail = (error: SaveProfileError): SaveProfileResult => ({ ok: false, error
 
 /**
  * Creates or updates the signed-in public account's profile. Re-validated here and again in SQL (30 changes an hour).
- * The old alias stops working at once, so the pages of both are revalidated.
+ * The old alias stops working at once (and stays held for this account for 30 days); the new alias's page and the tool
+ * page are revalidated.
  */
 export async function savePublicProfileAction(input: SaveProfileInput): Promise<SaveProfileResult> {
   const { alias: rawAlias, displayName, acceptNetworks, showMemberBadge } = input ?? ({} as SaveProfileInput);
@@ -31,8 +33,8 @@ export async function savePublicProfileAction(input: SaveProfileInput): Promise<
   const alias = normalizeAlias(rawAlias);
   if (!alias.ok) return fail(alias.error);
   if (displayName !== undefined && typeof displayName !== "string") return fail("display_name_invalid");
-  const name = (displayName ?? "").trim();
-  if (name.length > DISPLAY_NAME_MAX) return fail("display_name_invalid");
+  const name = normalizeDisplayName(displayName ?? "");
+  if (!name.ok) return fail("display_name_invalid");
   if (!Array.isArray(acceptNetworks) || acceptNetworks.length === 0 || !acceptNetworks.every(isNetworkKey)) return fail("networks_invalid");
   const networks = NETWORK_KEYS.filter((k) => acceptNetworks.includes(k));
   if (typeof showMemberBadge !== "boolean") return fail("forbidden");
@@ -41,7 +43,7 @@ export async function savePublicProfileAction(input: SaveProfileInput): Promise<
   const supabase = await createServerClient();
   const { data, error } = await supabase.rpc("upsert_public_profile", {
     p_alias: alias.alias,
-    p_display_name: name || null,
+    p_display_name: name.name,
     p_accept_networks: networks,
     p_show_member_badge: showMemberBadge,
   });

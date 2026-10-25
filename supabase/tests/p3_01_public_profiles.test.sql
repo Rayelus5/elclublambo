@@ -4,8 +4,10 @@
 --   - upsert_public_profile / my_public_profile: authenticated public accounts (a banned club member is forbidden),
 --     30 / hour on the shared 'profile' bucket with subject 'u:' || auth.uid().
 --   - public_profile_view / public_profile_by_address: service role only. Nothing for anon; tables closed.
+--   - released_aliases: an alias given up is held 30 days for its previous owner (alias_held); display names reject
+--     bidi / zero-width characters and whitespace-only input after a Unicode trim.
 begin;
-select plan(55);
+select plan(70);
 
 create function pg_temp.up(p_alias text, p_name text, p_nets text[], p_badge boolean default false) returns text
 language plpgsql as $$
@@ -192,6 +194,46 @@ select is(tests.pp_by_address('0x' || upper(substr(current_setting('t.a3'), 3)))
   'by_address: alias and name of the profile with that wallet');
 select is(tests.pp_by_address('0x' || lpad('c3c99', 40, '0')), null, 'by_address: no profile, null');
 select is(tests.pp_by_address('nope'), null, 'by_address: invalid address, null');
+
+-- ===== 9. display name: invisible characters and Unicode whitespace (final review item 8) =====
+select tests.authenticate_as(current_setting('t.u2')::uuid);
+select is(pg_temp.up('user_two', E'Ra‮y', array['base']), 'display_name_invalid', 'a bidi override is rejected');
+select is(pg_temp.up('user_two', E'​Ray', array['base']), 'display_name_invalid', 'a leading zero-width space is rejected');
+select is(pg_temp.up('user_two', E'Ray﻿', array['base']), 'display_name_invalid', 'a BOM is rejected');
+select is(pg_temp.up('user_two', E'⁦Ray⁩', array['base']), 'display_name_invalid', 'bidi isolates are rejected');
+select is(pg_temp.up('user_two', E'　  ', array['base']), 'display_name_invalid',
+  'a name that is only Unicode whitespace is rejected');
+select is(public.upsert_public_profile('user_two', E'　 Ray ', array['base'], false) ->> 'displayName', 'Ray',
+  'Unicode whitespace around the name is trimmed');
+select tests.clear_authentication();
+
+-- ===== 10. released aliases: a 30-day hold for the previous owner (final review item 5) =====
+select ok((select c.relrowsecurity from pg_class c where c.oid = 'public.released_aliases'::regclass)
+      and not has_table_privilege('anon', 'public.released_aliases', 'select')
+      and not has_table_privilege('authenticated', 'public.released_aliases', 'select')
+      and not has_table_privilege('authenticated', 'public.released_aliases', 'insert'),
+  'released_aliases: RLS on and closed to the API roles');
+select is((select user_id::text from public.released_aliases where alias = 'alias_1'), current_setting('t.u1'),
+  'the alias given up by a change (alias_1 -> alias_2) is held for its owner');
+select tests.authenticate_as(current_setting('t.u2')::uuid);
+select is(pg_temp.up('alias_1', null, array['base']), 'alias_held', 'another account cannot take a held alias');
+select is(pg_temp.up('ALIAS_1', null, array['base']), 'alias_held', 'nor a case variant of it');
+select tests.authenticate_as(current_setting('t.u1')::uuid);
+select is(pg_temp.up('alias_1', null, array['arbitrum'], true), 'ok', 'the previous owner reclaims it');
+select tests.clear_authentication();
+select ok(not exists (select 1 from public.released_aliases where alias = 'alias_1')
+      and exists (select 1 from public.released_aliases where alias = 'alias_2' and user_id = current_setting('t.u1')::uuid),
+  'reclaiming clears its hold and holds the alias given up instead');
+select tests.authenticate_as(current_setting('t.u2')::uuid);
+select is(pg_temp.up('alias_2', null, array['base']), 'alias_held', 'the newly released alias is held too');
+select tests.clear_authentication();
+update public.released_aliases set released_at = now() - interval '31 days' where alias = 'alias_2';
+select tests.authenticate_as(current_setting('t.u2')::uuid);
+select is(pg_temp.up('alias_2', null, array['base']), 'ok', 'after 30 days another account may take it');
+select tests.clear_authentication();
+select ok(not exists (select 1 from public.released_aliases where alias = 'alias_2')
+      and exists (select 1 from public.released_aliases where alias = 'user_two' and user_id = current_setting('t.u2')::uuid),
+  'taking it clears the expired hold (and holds the taker''s previous alias)');
 
 select * from finish();
 rollback;

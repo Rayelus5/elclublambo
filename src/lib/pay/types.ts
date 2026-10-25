@@ -29,6 +29,7 @@ export type SaveProfileError =
   | "alias_invalid"
   | "alias_reserved"
   | "alias_taken"
+  | "alias_held"
   | "networks_invalid"
   | "display_name_invalid"
   | "rate_limited"
