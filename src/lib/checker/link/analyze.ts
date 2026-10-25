@@ -89,20 +89,33 @@ function registrable(host: string): string {
 }
 
 const labelOf = (domain: string): string => domain.split(".")[0] ?? domain;
-const maxDistance = (len: number): number => Math.min(2, Math.floor(len / 3));
+/**
+ * Edit distance tolerated for a known label of `len` characters. Short labels (<= 5) only match by skeleton: one edit
+ * on a 4-letter name (base → case) is another ordinary word, not an imitation.
+ */
+const maxDistance = (len: number): number => (len <= 5 ? 0 : len <= 8 ? 1 : 2);
+/** Skeletons of 1–2 letters (x.com, t.co) collide with countless unrelated domains. */
+const MIN_SKELETON_LENGTH = 3;
 
-/** A known registrable domain this host imitates (similar label or same skeleton, but not the same domain). */
-function findLookalike(hostUnicode: string, knownRegistrables: readonly string[]): string | null {
+type Lookalike = { domain: string; severity: "high" | "medium" };
+
+/**
+ * A known registrable domain this host imitates, but not the same domain: the same skeleton (it reads the same) is
+ * high; a small edit distance alone (the skeletons differ) is medium.
+ */
+function findLookalike(hostUnicode: string, knownRegistrables: readonly string[]): Lookalike | null {
   const mine = registrable(hostUnicode);
   const myLabel = labelOf(mine);
   const mySkel = skeleton(myLabel);
+  let near: string | null = null;
   for (const k of knownRegistrables) {
     if (k === mine) continue;
     const kLabel = labelOf(k);
-    if (skeleton(kLabel) === mySkel) return k;
-    if (kLabel.length >= 4 && myLabel.length >= 4 && editDistance(myLabel, kLabel) <= maxDistance(Math.min(myLabel.length, kLabel.length))) return k;
+    if (myLabel.length >= MIN_SKELETON_LENGTH && kLabel.length >= MIN_SKELETON_LENGTH && skeleton(kLabel) === mySkel) return { domain: k, severity: "high" };
+    const max = maxDistance(kLabel.length);
+    if (near === null && max > 0 && editDistance(myLabel, kLabel) <= max) near = k;
   }
-  return null;
+  return near ? { domain: near, severity: "medium" } : null;
 }
 
 /** Brand labels too generic to look for inside other names (base, safe...): only the exact/edit-distance lookalike applies. */
@@ -164,7 +177,7 @@ export function analyzeLink(input: string, known: readonly string[]): LinkReport
       if (trick) alerts.push({ code: "subdomain_trick", severity: "high", detail: trick });
       const regs = [...new Set(knownAscii.map((d) => registrable(hostToUnicode(d))))];
       const like = findLookalike(hostUnicode, regs);
-      if (like) alerts.push({ code: "lookalike", severity: "high", detail: like });
+      if (like) alerts.push({ code: "lookalike", severity: like.severity, detail: like.domain });
       else {
         const brand = findBrandInName(hostUnicode, regs);
         if (brand) alerts.push({ code: "brand_impersonation", severity: "medium", detail: brand });

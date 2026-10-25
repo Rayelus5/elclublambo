@@ -7,6 +7,10 @@ export const CRYPTO_BRANDS: readonly string[] = [
   "opensea.io",
   "base.org",
   "arbitrum.io",
+  // Official aliases: without them their own sites read as imitations of arbitrum.io (same label) or as brand use.
+  "arbitrum.one",
+  "arbitrum.foundation",
+  "blockscout.com",
   "etherscan.io",
   "basescan.org",
   "arbiscan.io",

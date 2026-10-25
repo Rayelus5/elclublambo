@@ -179,4 +179,59 @@ describe("analyzeLink (P4-R3)", () => {
       expect(bad).toEqual([]);
     });
   });
+  describe("lookalike false positives (final review item 2)", () => {
+    const sev = (url: string, code: string) => ok(url).alerts.find((a) => a.code === code)?.severity;
+
+    it.each([
+      "https://gitlab.com",
+      "https://linear.app",
+      "https://x.ai",
+      "https://finance.yahoo.com",
+      "https://case.com",
+      "https://leader.com",
+    ])("%s has no high alert", (url) => {
+      expect(ok(url).alerts.filter((a) => a.severity === "high")).toEqual([]);
+    });
+
+    it.each(["https://portal.arbitrum.one", "https://arbitrum.foundation", "https://arbitrum.blockscout.com", "https://base.blockscout.com/address/0x1"])(
+      "the official alias %s is known, with no medium/high alert",
+      (url) => {
+        const r = ok(url);
+        expect(r.isKnown).toBe(true);
+        expect(r.alerts.filter((a) => a.severity !== "info")).toEqual([]);
+      },
+    );
+
+    it("CRYPTO_BRANDS lists the official aliases", () => {
+      expect(CRYPTO_BRANDS).toEqual(expect.arrayContaining(["arbitrum.one", "arbitrum.foundation", "blockscout.com"]));
+    });
+
+    it("short labels (<= 5) match by skeleton only, not by distance", () => {
+      expect(codes("https://case.com")).not.toContain("lookalike");
+      expect(codes("https://bose.org")).not.toContain("lookalike");
+      expect(codes("https://0pensea.io")).toContain("lookalike");
+    });
+
+    it("same skeleton → high; distance only → medium", () => {
+      expect(sev("https://elc1ub.party", "lookalike")).toBe("high");
+      expect(sev("https://e1club.party", "lookalike")).toBe("high");
+      expect(sev("https://uniswap.com", "lookalike")).toBe("high");
+      expect(sev("https://elcub.party", "lookalike")).toBe("medium");
+      expect(sev("https://binence.com", "lookalike")).toBe("medium");
+      expect(sev("https://metamaskk.io", "lookalike")).toBe("medium");
+    });
+
+    it("skeleton equality needs labels of 3+ characters", () => {
+      expect(codes("https://x.ai", ["x.com"])).not.toContain("lookalike");
+      expect(codes("https://ab.io", ["ab.com"])).not.toContain("lookalike");
+      expect(codes("https://abc.io", ["abc.com"])).toContain("lookalike");
+    });
+
+    it("the phishing cases still alert", () => {
+      expect(codes("https://metamask-support.io")).toContain("brand_impersonation");
+      expect(codes("https://rnetamask.io")).toContain("lookalike");
+      expect(codes("https://elclub.party.evil.io")).toContain("subdomain_trick");
+      expect(codes("https://arbitrum-claim.io")).toContain("brand_impersonation");
+    });
+  });
 });
