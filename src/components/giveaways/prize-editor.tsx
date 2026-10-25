@@ -95,7 +95,7 @@ function KindPicker({
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
               "min-h-11 min-w-16 cursor-pointer rounded-control px-3 text-sm font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50",
-              checked ? "bg-accent text-bg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              checked ? "bg-accent text-accent-foreground" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
             )}
           >
             {k.text}

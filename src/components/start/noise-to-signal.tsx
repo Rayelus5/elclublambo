@@ -45,7 +45,7 @@ export function NoiseToSignal({ t }: { t: StartDict }) {
 
   return (
     <section id="ruido" aria-labelledby="start-ruido" className="scroll-mt-0">
-      {/* The cyan the hero's square flooded the screen with. */}
+      {/* The Cerulean the hero's square flooded the screen with. */}
       <div className="bg-accent text-bg">
         <div className="mx-auto flex min-h-svh w-full max-w-[1600px] flex-col justify-center gap-10 px-4 py-24 sm:px-8">
           <h2 id="start-ruido" className="font-mono text-small font-normal tracking-wide uppercase">

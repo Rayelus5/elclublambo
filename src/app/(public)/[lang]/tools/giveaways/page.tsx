@@ -33,7 +33,7 @@ async function Mine({ lang }: { lang: Lang }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <p className="text-small text-fg-muted">{getDictionary(lang).giveaways.home.connectHint}</p>
-      <PublicConnectLazy lang={lang} next={localizedPath(lang, "giveaways")} />
+      <PublicConnectLazy lang={lang} next={localizedPath(lang, "giveaways")} variant="outline" />
     </div>
   );
 }
@@ -70,7 +70,7 @@ export default async function GiveawaysToolPage({ params }: PageProps<"/[lang]/t
       <div>
         <Link
           href={localizedPath(lang, "giveawayNew")}
-          className="inline-flex min-h-11 items-center rounded-control bg-accent px-5 font-bold text-accent-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-fg focus-visible:ring-offset-2"
+          className="inline-flex min-h-11 items-center rounded-control bg-accent-fill px-5 font-bold text-accent-fill-fg outline-none transition-colors duration-150 hover:bg-accent-fill-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           {t.create}
         </Link>

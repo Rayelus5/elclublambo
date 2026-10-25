@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
@@ -14,7 +14,7 @@ import type { Lang } from "@/lib/i18n/config";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
-type Props = { lang: Lang; next: string | null };
+type Props = { lang: Lang; next: string | null; variant?: ComponentProps<typeof Button>["variant"] };
 
 function isUserRejection(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -24,7 +24,7 @@ function isUserRejection(err: unknown): boolean {
 }
 
 /** Connect + sign in from the public side: same SIWE login as the club, in the visitor's language, no membership needed. */
-export function PublicConnect({ lang, next }: Props) {
+export function PublicConnect({ lang, next, variant }: Props) {
   const t = getDictionary(lang);
   const c = t.connect;
   const { open } = useAppKit();
@@ -79,13 +79,14 @@ export function PublicConnect({ lang, next }: Props) {
   return (
     <div className="flex flex-col items-end gap-1">
       {!isConnected ? (
-        <Button type="button" onClick={() => open()}>
+        <Button type="button" variant={variant} onClick={() => open()}>
           <Plug aria-hidden />
           {t.common.connect}
         </Button>
       ) : wrongChain ? (
         <Button
           type="button"
+          variant={variant}
           disabled={switching}
           onClick={() => {
             setError(null);
@@ -96,7 +97,7 @@ export function PublicConnect({ lang, next }: Props) {
           {switching ? c.switching : `${c.switchTo} ${target.name}`}
         </Button>
       ) : (
-        <Button type="button" disabled={signing} onClick={signIn}>
+        <Button type="button" variant={variant} disabled={signing} onClick={signIn}>
           <PenLine aria-hidden />
           {signing ? c.signing : c.signIn}
         </Button>

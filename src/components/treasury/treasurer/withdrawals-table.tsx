@@ -179,7 +179,7 @@ function Row({
 
       {kind === "pending" ? (
         <div className="flex flex-wrap gap-2 md:shrink-0">
-          <Button size="sm" aria-describedby={labelId} onClick={() => onAction("approve")}>
+          <Button size="sm" variant="outline" aria-describedby={labelId} onClick={() => onAction("approve")}>
             Aprobar
           </Button>
           <Button size="sm" variant="secondary" aria-describedby={labelId} onClick={() => onAction("reject")}>
@@ -191,7 +191,7 @@ function Row({
         <div className="flex flex-col gap-2 md:shrink-0 md:items-end">
           <div className="flex flex-wrap gap-2">
             {!recorded ? (
-              <Button size="sm" aria-describedby={labelId} onClick={() => onAction("paid")}>
+              <Button size="sm" variant="outline" aria-describedby={labelId} onClick={() => onAction("paid")}>
                 Marcar como pagada
               </Button>
             ) : null}

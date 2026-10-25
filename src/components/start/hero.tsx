@@ -6,8 +6,8 @@ import type { StartDict } from "./dict";
 import { useMotionOn } from "./motion";
 
 /**
- * The hero is the page's thesis: «ElClub.» at full width, its period the cyan square that runs through the page.
- * Scrolling holds the hero (sticky) while that square grows until it floods the screen, handing over to the cyan
+ * The hero is the page's thesis: «ElClub.» at full width, its period the Cerulean square that runs through the page.
+ * Scrolling holds the hero (sticky) while that square grows until it floods the screen, handing over to the Cerulean
  * manifesto below. Without motion it is a still, full-height hero; the h1 is plain server HTML (fast LCP).
  */
 export function Hero({ t }: { t: StartDict }) {
@@ -64,7 +64,7 @@ export function Hero({ t }: { t: StartDict }) {
           <div className="flex flex-1 flex-col justify-center gap-8 py-10 sm:gap-10">
             <m.h1
               id="start-hero"
-              // The period is drawn (the cyan square): the name keeps it without a stray space.
+              // The period is drawn (the Cerulean square): the name keeps it without a stray space.
               aria-label="ElClub."
               style={on ? { x: titleX } : undefined}
               className="relative z-10 text-[clamp(3.75rem,22vw,19rem)] leading-[0.8] font-black tracking-[-0.055em] whitespace-nowrap"

@@ -10,19 +10,70 @@ describe("contrastRatio", () => {
   });
 });
 
+describe("paleta de Base: valores exactos", () => {
+  it("coincide con la paleta aprobada (R2-R1..R4)", () => {
+    expect(colors).toMatchObject({
+      bg: "#0A0B0D",
+      surface: "#121418",
+      surface2: "#1A1D22",
+      border: "#24272D",
+      borderStrong: "#32353D",
+      fg: "#EEF0F3",
+      fgMuted: "#B1B7C3",
+      accent: "#3C8AFF",
+      accentFill: "#0000FF",
+      accentFillFg: "#FFFFFF",
+      accentFillHover: "#0000CC",
+      success: "#66C800",
+      warning: "#FFD12F",
+      danger: "#FC401F",
+      dangerHover: "#FF5A3D",
+      chart1: "#3C8AFF",
+      chart2: "#66C800",
+      chart3: "#FFD12F",
+      chart4: "#FEA8CD",
+      chart5: "#B8A581",
+      chartRest: "#717886",
+    });
+  });
+  it("el acento nunca es Base Blue (2,3:1 sobre oscuro)", () => {
+    expect(colors.accent.toUpperCase()).not.toBe("#0000FF");
+  });
+});
+
 describe("design tokens contrast (>= 4.5)", () => {
+  const surfaces: Array<[string, string]> = [
+    ["bg", colors.bg],
+    ["surface", colors.surface],
+    ["surface-2", colors.surface2],
+  ];
+  const texts: Array<[string, string]> = [
+    ["fg", colors.fg],
+    ["fg-muted", colors.fgMuted],
+    ["accent", colors.accent],
+  ];
+  const textPairs = texts.flatMap(([tn, t]) => surfaces.map(([sn, s]) => [`${tn}/${sn}`, t, s] as [string, string, string]));
   const pairs: Array<[string, string, string]> = [
-    ["fg/bg", colors.fg, colors.bg],
-    ["fg-muted/bg", colors.fgMuted, colors.bg],
-    ["fg-muted/surface-2", colors.fgMuted, colors.surface2],
+    ...textPairs,
+    ["accent-fill-fg on accent-fill", colors.accentFillFg, colors.accentFill],
+    ["accent-fill-fg on accent-fill-hover", colors.accentFillFg, colors.accentFillHover],
     ["bg on accent", colors.bg, colors.accent],
     ["danger/bg", colors.danger, colors.bg],
+    ["bg on danger-hover", colors.bg, colors.dangerHover],
     ["success/bg", colors.success, colors.bg],
     ["warning/bg", colors.warning, colors.bg],
-    ["accent/bg", colors.accent, colors.bg],
   ];
   it.each(pairs)("%s", (_n, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("focus ring / UI components (>= 3)", () => {
+  it.each([
+    ["accent/bg", colors.bg],
+    ["accent/surface", colors.surface],
+  ])("%s", (_n, bg) => {
+    expect(contrastRatio(colors.accent, bg)).toBeGreaterThanOrEqual(3);
   });
 });
 
@@ -37,11 +88,11 @@ describe("chart colours: non-text graphics need >= 3:1 on the panel (WCAG 1.4.11
 });
 
 describe("globals.css sync", () => {
-  const css = readFileSync(
-    join(process.cwd(), "src/app/globals.css"),
-    "utf8",
-  ).toLowerCase();
-  it.each(Object.entries(colors))("token %s present", (_k, hex) => {
-    expect(css).toContain(hex.toLowerCase());
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  // `accentFillFg` -> `--accent-fill-fg`, `surface2` -> `--surface-2`, `chart1` -> `--chart-1`.
+  const cssName = (key: string) => "--" + key.replace(/([A-Z]|\d+)/g, (m) => "-" + m.toLowerCase());
+  const declared = (name: string) => css.match(new RegExp(String.raw`^\s*${name}:\s*(#[0-9a-fA-F]{6})\s*;`, "m"))?.[1];
+  it.each(Object.entries(colors))("token %s is declared under its own variable with the same value", (key, hex) => {
+    expect(declared(cssName(key))?.toLowerCase()).toBe(hex.toLowerCase());
   });
 });

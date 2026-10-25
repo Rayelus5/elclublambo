@@ -51,11 +51,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
 import { rpcErrorMessage } from "@/lib/errors";
 import type { MemberIdentity } from "@/lib/members/name";
-import { contrastRatio } from "@/styles/tokens";
+import { colors, contrastRatio } from "@/styles/tokens";
 import { cn } from "@/lib/utils";
 
 const HEX = /^#[0-9a-f]{6}$/i;
-const BG = "#0A0A0A";
+const BG = colors.bg;
 
 function readableNameColor(color: string | null): string | null {
   if (!color || !HEX.test(color)) return null;

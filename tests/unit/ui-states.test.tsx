@@ -9,7 +9,7 @@ describe("shadcn state variants", () => {
     render(<Checkbox checked aria-label="acepto" />);
     const box = screen.getByRole("checkbox", { name: "acepto" });
     expect(box).toHaveAttribute("data-state", "checked");
-    expect(box.className).toContain("data-checked:bg-primary");
+    expect(box.className).toContain("data-checked:bg-accent");
   });
 
   it("globals.css imports shadcn/tailwind.css, which defines the data-* custom variants", () => {

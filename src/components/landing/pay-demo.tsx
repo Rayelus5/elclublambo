@@ -52,7 +52,7 @@ export function PayDemo({ lang, t, noCustody }: { lang: Lang; t: Dictionary["lan
             <p className="mt-4 font-mono text-[0.75rem] text-fg-muted">
               {t.pay.payTo} <span className="text-fg">{PAY_TO}</span> · Base
             </p>
-            <span className="mt-5 flex min-h-11 items-center justify-center bg-accent font-bold text-accent-foreground rounded-control">
+            <span className="mt-5 flex min-h-11 items-center justify-center bg-accent-fill font-bold text-accent-fill-fg rounded-control">
               {t.pay.pay}
             </span>
           </m.div>
