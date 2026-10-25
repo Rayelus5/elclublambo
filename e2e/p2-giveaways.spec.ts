@@ -223,12 +223,14 @@ test("6. the host pays the USDC prize from its wallet and pastes the hash: «Pag
 test("7. the share card is a PNG for the giveaway and the generic card for an unknown id", async () => {
   const page = hostPage;
   await page.goto(esPath());
-  const og = await page.locator('meta[property="og:image"]').first().getAttribute("content");
-  expect(og).toContain(giveawayId);
-  const real = await page.request.get(og!);
+  const content = await page.locator('meta[property="og:image"]').first().getAttribute("content");
+  expect(content).toContain(giveawayId);
+  // Absolute on the site's origin (metadataBase); fetched here from the local server by its path.
+  const og = new URL(content!).pathname;
+  const real = await page.request.get(og);
   expect(real.status()).toBe(200);
   expect(real.headers()["content-type"]).toContain("image/png");
-  const unknown = await page.request.get(og!.replace(giveawayId, "00000000-0000-4000-8000-000000000000"));
+  const unknown = await page.request.get(og.replace(giveawayId, "00000000-0000-4000-8000-000000000000"));
   expect(unknown.status()).toBe(200);
   expect(unknown.headers()["content-type"]).toContain("image/png");
 });
