@@ -76,3 +76,9 @@ export function formatShares(shares: bigint): string {
     .join("");
   return `${shares < 0n ? "-" : ""}${s[0]},${s[1]}·10${exp}`;
 }
+
+/** formatUsd in the visitor's language: Spanish "1.234,5 USD", English "1,234.5 USD" (same truncation, no floats). */
+export function formatUsdIn(usd6: bigint, lang: "es" | "en"): string {
+  const es = formatUsd(usd6);
+  return lang === "en" ? es.replace(/[.,]/g, (c) => (c === "." ? "," : ".")) : es;
+}
