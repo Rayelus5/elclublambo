@@ -65,17 +65,20 @@ const DESCRIPTIONS: Record<Kind, string> = {
   link: "ElClub link checker: local analysis of a link (no request is made to it)",
 };
 
-/** The x402 v2 header a paying client sends; its presence means the facilitator is about to be asked. */
-const PAYMENT_SIGNATURE = "payment-signature";
+/**
+ * Headers carrying a payment: x402 v2's PAYMENT-SIGNATURE and the legacy X-PAYMENT, which @x402/next still accepts.
+ * Either one means the facilitator is about to be asked.
+ */
+const PAYMENT_HEADERS = ["payment-signature", "x-payment"] as const;
 
 /**
- * The paid flow. A request carrying a payment first charges one loose `api_paid_attempt` hit (300/h per IP) so forged
+ * The paid flow. A request carrying a payment (either header) first charges one loose `api_paid_attempt` hit (300/h per IP) so forged
  * headers cannot hammer the facilitator (429 when limited, 503 when the limiter fails: closed, like the free API); a
  * request without one just gets the 402 (nothing to verify, nothing to count). A handler that cannot be built (the x402
  * modules or the facilitator config failing) is a 503, never an unhandled error. Responses here are never cached.
  */
 async function servePaid(request: NextRequest, kind: Kind, cfg: Extract<X402Config, { enabled: true }>, handler: (request: NextRequest) => Promise<NextResponse>): Promise<NextResponse> {
-  if (request.headers.has(PAYMENT_SIGNATURE)) {
+  if (PAYMENT_HEADERS.some((h) => request.headers.has(h))) {
     const limit = await hitIpRateLimit("api_paid_attempt", request.headers);
     if (limit === "rate_limited") return apiError(429, "rate_limited", { "Retry-After": RETRY_AFTER_SECONDS });
     if (limit === "error") return apiError(503, "unavailable");

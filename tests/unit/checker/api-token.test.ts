@@ -209,6 +209,16 @@ describe("GET /api/v1/check/token — x402 on (Review Focus 5)", () => {
     expect(getTokenReport).not.toHaveBeenCalled();
   });
 
+  it("the legacy X-PAYMENT header (also accepted by @x402/next) is limited too: 429, the facilitator is never asked", async () => {
+    const sig = paymentSignature(await paymentRequired());
+    hitIpRateLimit.mockResolvedValue("rate_limited");
+    const res = await GET(req(`?chain=84532&address=${ADDR}`, { "x-payment": sig }));
+    expect(res.status).toBe(429);
+    expect(hitIpRateLimit).toHaveBeenCalledWith("api_paid_attempt", expect.any(Headers));
+    expect(facilitator.verify).not.toHaveBeenCalled();
+    expect(getTokenReport).not.toHaveBeenCalled();
+  });
+
   it("api_paid_attempt limiter failing → 503 (fail closed), the facilitator is never asked", async () => {
     const sig = paymentSignature(await paymentRequired());
     hitIpRateLimit.mockResolvedValue("error");
