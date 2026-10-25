@@ -40,6 +40,7 @@ import {
   cancelPublicGiveawayAction,
   createPublicGiveawayAction,
   enterPublicGiveawayAction,
+  getPublicPrizeStatusAction,
   leavePublicGiveawayAction,
   markPublicPrizeDeliveredAction,
   markPublicPrizePaidAction,
@@ -60,7 +61,7 @@ beforeEach(() => {
   countTransactions.mockResolvedValue(10);
   verifyTransfer.mockResolvedValue({ status: "ok", logIndex: 3, value: 5_000_000n, blockNumber: 77n, blockTimestamp: new Date() });
   rows.set("public_giveaway_prizes", ok({ giveaway_id: GID, kind: "crypto", status: "awarded", chain_id: 84532, amount: "5000000", winner_address: WINNER }));
-  rows.set("public_giveaways", ok({ host_user_id: HOST, host_address: HOST_ADDR, drawn_at: DRAWN_AT, min_tx_count: 0 }));
+  rows.set("public_giveaways", ok({ host_user_id: HOST, host_address: HOST_ADDR, drawn_at: DRAWN_AT, min_tx_count: 0, status: "open", closes_at: future() }));
 });
 
 describe("createPublicGiveawayAction", () => {
@@ -133,7 +134,7 @@ describe("enterPublicGiveawayAction", () => {
   });
 
   it("minTxCount 5 with 3 transactions: min_tx_not_met, the RPC is not called", async () => {
-    rows.set("public_giveaways", ok({ min_tx_count: 5 }));
+    rows.set("public_giveaways", ok({ min_tx_count: 5, status: "open", closes_at: future() }));
     countTransactions.mockResolvedValue(3);
     expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: false, error: "min_tx_not_met" });
     expect(countTransactions).toHaveBeenCalledWith(WALLET);
@@ -141,14 +142,14 @@ describe("enterPublicGiveawayAction", () => {
   });
 
   it("an RPC failure counting transactions fails closed as chain_unavailable", async () => {
-    rows.set("public_giveaways", ok({ min_tx_count: 5 }));
+    rows.set("public_giveaways", ok({ min_tx_count: 5, status: "open", closes_at: future() }));
     countTransactions.mockRejectedValue(new Error("down"));
     expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: false, error: "chain_unavailable" });
     expect(adminRpc).not.toHaveBeenCalled();
   });
 
   it("enough transactions enters with the session wallet", async () => {
-    rows.set("public_giveaways", ok({ min_tx_count: 5 }));
+    rows.set("public_giveaways", ok({ min_tx_count: 5, status: "open", closes_at: future() }));
     countTransactions.mockResolvedValue(5);
     adminRpc.mockResolvedValue(ok("entered"));
     expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: true });
@@ -171,6 +172,58 @@ describe("enterPublicGiveawayAction", () => {
   it.each(["not_allowed", "giveaway_full", "giveaway_closed"])("maps the database code %s", async (code) => {
     adminRpc.mockResolvedValue(err(code));
     expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: false, error: code });
+  });
+
+  it("charges chain_verify before counting transactions", async () => {
+    rows.set("public_giveaways", ok({ min_tx_count: 5, status: "open", closes_at: future() }));
+    countTransactions.mockImplementation(async () => {
+      expect(hitRateLimit).toHaveBeenCalledWith(expect.anything(), "chain_verify");
+      return 5;
+    });
+    expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: true });
+    expect(countTransactions).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["rate_limited", "rate_limited"],
+    ["error", "unknown"],
+  ])("a rate limit answer %s fails closed (%s) without touching the chain", async (limit, code) => {
+    rows.set("public_giveaways", ok({ min_tx_count: 5, status: "open", closes_at: future() }));
+    hitRateLimit.mockResolvedValue(limit);
+    expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: false, error: code });
+    expect(countTransactions).not.toHaveBeenCalled();
+    expect(adminRpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["a closed status", { status: "closed", closes_at: future() }],
+    ["a past closes_at", { status: "open", closes_at: new Date(Date.now() - 1000).toISOString() }],
+    ["a cancelled giveaway", { status: "cancelled", closes_at: future() }],
+  ])("%s answers giveaway_closed before the rate limit and the chain", async (_n, over) => {
+    rows.set("public_giveaways", ok({ min_tx_count: 5, ...over }));
+    expect(await enterPublicGiveawayAction(GID)).toEqual({ ok: false, error: "giveaway_closed" });
+    expect(hitRateLimit).not.toHaveBeenCalled();
+    expect(countTransactions).not.toHaveBeenCalled();
+    expect(adminRpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("getPublicPrizeStatusAction (fresh status before paying)", () => {
+  it("answers the prize's current status to its host", async () => {
+    expect(await getPublicPrizeStatusAction(PID)).toEqual({ ok: true, status: "awarded" });
+    rows.set("public_giveaway_prizes", ok({ giveaway_id: GID, status: "paid" }));
+    expect(await getPublicPrizeStatusAction(PID)).toEqual({ ok: true, status: "paid" });
+  });
+
+  it("another account is forbidden; no session not_authenticated; bad id invalid_input; missing not_found", async () => {
+    getPublicSession.mockResolvedValue({ userId: "00000000-0000-4000-8000-0000000000c2", wallet: WALLET, isMember: false });
+    expect(await getPublicPrizeStatusAction(PID)).toEqual({ ok: false, error: "forbidden" });
+    getPublicSession.mockResolvedValue(null);
+    expect(await getPublicPrizeStatusAction(PID)).toEqual({ ok: false, error: "not_authenticated" });
+    expect(await getPublicPrizeStatusAction("x")).toEqual({ ok: false, error: "invalid_input" });
+    getPublicSession.mockResolvedValue({ userId: HOST, wallet: WALLET, isMember: false });
+    rows.delete("public_giveaway_prizes");
+    expect(await getPublicPrizeStatusAction(PID)).toEqual({ ok: false, error: "not_found" });
   });
 });
 

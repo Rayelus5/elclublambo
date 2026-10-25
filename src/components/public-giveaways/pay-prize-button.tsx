@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
-import { CircleCheck, Loader2, RefreshCw, Send } from "lucide-react";
+import { CircleCheck, Loader2, RefreshCw, RotateCcw, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { shortAddress } from "@/lib/auth/wallet";
@@ -12,7 +12,7 @@ import type { Dictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
-import { markPublicPrizePaidAction } from "@/lib/public-giveaways/actions";
+import { getPublicPrizeStatusAction, markPublicPrizePaidAction } from "@/lib/public-giveaways/actions";
 
 type HostLabels = Dictionary["giveaways"]["detail"]["host"];
 type Errors = Dictionary["giveaways"]["errors"];
@@ -21,6 +21,8 @@ type Hash = `0x${string}`;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 /** First check plus five retries, 4 s apart, while the chain has not confirmed the transfer yet. */
 const PENDING_RETRIES = 5;
+/** A sent hash the chain still does not know after this long is taken as never broadcast. */
+const NOT_FOUND_GIVE_UP_MS = 10 * 60_000;
 
 function isUserRejection(err: unknown): boolean {
   if (typeof err !== "object" || err === null) return false;
@@ -30,30 +32,62 @@ function isUserRejection(err: unknown): boolean {
 }
 
 /**
- * The hash of a sent payout, per prize, kept until it verifies: a reload or a second tab during the pending window must
- * offer «Comprobar de nuevo» on it, never a second transfer. Storage may be missing or throw (private mode, blocked site
- * data): every access is guarded and the button then falls back to its in-memory state.
+ * Whether a verification answer for a sent hash is final (the hash will never pay this prize): it failed on chain, does
+ * not match the prize, was already used, or the chain still does not know it ten minutes after it was sent. Then the
+ * host may discard it and pay again. pending, rpc_unavailable and the rest only offer «Comprobar de nuevo».
  */
+export function isDefinitiveFailure(code: string, sentAt: number, now: number): boolean {
+  if (code === "tx_failed" || code === "tx_mismatch" || code === "tx_already_used") return true;
+  return code === "tx_not_found" && now - sentAt >= NOT_FOUND_GIVE_UP_MS;
+}
+
+/**
+ * Per prize, what this browser did with it: `{hash, sentAt}` while a sent payout waits for verification, then the
+ * terminal marker `paid:<hash>`. Any stored value blocks «Pagar ahora»: a reload, a second tab or a stale page resumes on
+ * the hash (or shows it paid) instead of sending a second transfer. Only a definitive failure clears it. Storage may be
+ * missing or throw (private mode, blocked site data): every access is guarded and the button then falls back to its
+ * in-memory state (and the fresh server status read before paying).
+ */
+type Stored = { kind: "sent"; hash: Hash; sentAt: number } | { kind: "paid"; hash: Hash };
+
 const storageKey = (prizeId: string) => `elclub:pg-pay:${prizeId}`;
 
-export function readSentHash(prizeId: string): Hash | null {
+function readRaw(prizeId: string): string | null {
   try {
-    const v = window.localStorage.getItem(storageKey(prizeId));
-    return v && TX_HASH.test(v) ? (v as Hash) : null;
+    return window.localStorage.getItem(storageKey(prizeId));
   } catch {
     return null;
   }
 }
 
-function writeSentHash(prizeId: string, hash: Hash): void {
+function parseStored(raw: string | null): Stored | null {
+  if (!raw) return null;
+  if (raw.startsWith("paid:")) {
+    const h = raw.slice(5);
+    return TX_HASH.test(h) ? { kind: "paid", hash: h as Hash } : null;
+  }
+  // A bare hash (older format): its send time is unknown.
+  if (TX_HASH.test(raw)) return { kind: "sent", hash: raw as Hash, sentAt: 0 };
   try {
-    window.localStorage.setItem(storageKey(prizeId), hash);
+    const v = JSON.parse(raw) as { hash?: unknown; sentAt?: unknown };
+    if (typeof v.hash === "string" && TX_HASH.test(v.hash) && typeof v.sentAt === "number" && Number.isFinite(v.sentAt)) {
+      return { kind: "sent", hash: v.hash as Hash, sentAt: v.sentAt };
+    }
+  } catch {
+    // Not ours.
+  }
+  return null;
+}
+
+function writeStored(prizeId: string, value: Stored): void {
+  try {
+    window.localStorage.setItem(storageKey(prizeId), value.kind === "paid" ? `paid:${value.hash}` : JSON.stringify({ hash: value.hash, sentAt: value.sentAt }));
   } catch {
     // Without storage the guard only lasts while the page is open.
   }
 }
 
-function clearSentHash(prizeId: string): void {
+function clearStored(prizeId: string): void {
   try {
     window.localStorage.removeItem(storageKey(prizeId));
   } catch {
@@ -61,14 +95,14 @@ function clearSentHash(prizeId: string): void {
   }
 }
 
-/** Re-reads when another tab stores or clears a hash. The server snapshot is null (no storage there). */
+/** Re-reads when another tab stores or clears a value. The server snapshot is null (no storage there). */
 const subscribeStorage = (onChange: () => void) => {
   window.addEventListener("storage", onChange);
   return () => window.removeEventListener("storage", onChange);
 };
-const noStoredHash = () => null;
+const noStored = () => null;
 
-type Outcome = { kind: "paid" } | { kind: "pending" } | { kind: "error"; text: string };
+type Outcome = { kind: "paid" } | { kind: "pending" } | { kind: "error"; code: string; text: string };
 
 /** markPublicPrizePaidAction, asked again every `delayMs` while it answers `pending` (up to `retries` more times). */
 function useVerifyPayment(prizeId: string, errors: Errors, delayMs: number) {
@@ -88,20 +122,21 @@ function useVerifyPayment(prizeId: string, errors: Errors, delayMs: number) {
         router.refresh();
         return { kind: "paid" };
       }
-      if (r.error !== "pending") return { kind: "error", text: errors[r.error] ?? errors.unknown };
+      if (r.error !== "pending") return { kind: "error", code: r.error, text: errors[r.error] ?? errors.unknown };
       if (i < retries) await new Promise((res) => setTimeout(res, delayMs));
     }
     return { kind: "pending" };
   };
 }
 
-type Phase = "idle" | "switching" | "sending" | "confirming" | "paid" | "pending";
+type Phase = "idle" | "switching" | "sending" | "confirming" | "paid" | "pending" | "failed";
 
 /**
- * «Pagar ahora»: the host's wallet moves to the prize's network, sends the USDC to the winner (useSendTransfer adds the
- * Builder Code on Base) and the hash is verified on chain. Once a hash exists the button never offers to pay again:
- * any later failure offers «Comprobar de nuevo» on that same hash, so a slow RPC cannot lead to a double payment. The
- * hash is also stored per prize (see readSentHash), so a reload or another tab resumes the check instead of paying again.
+ * «Pagar ahora»: the host's wallet moves to the prize's network, the prize's status is read fresh from the server (a
+ * stale page must not pay a prize already paid elsewhere), the USDC goes to the winner (useSendTransfer adds the Builder
+ * Code on Base) and the hash is verified on chain. Once a hash exists the button never offers to pay again: a pending or
+ * unreachable chain offers «Comprobar de nuevo» on that same hash; only a definitive failure (isDefinitiveFailure) clears
+ * it and offers «Descartar y volver a pagar» with a warning. See Stored for the per-prize memory across tabs and reloads.
  */
 export function PayPrizeButton({
   prizeId,
@@ -123,50 +158,66 @@ export function PayPrizeButton({
   t: HostLabels;
   errors: Errors;
   retryDelayMs?: number;
-  /** True while a sent hash exists for this prize (the panel hides «Ya lo pagué» then). */
+  /** True while a sent hash (or the paid marker) exists for this prize (the panel hides «Ya lo pagué» then). */
   onSentHash?: (sent: boolean) => void;
 }) {
+  const router = useRouter();
   const { ensure } = useEnsureChain();
   const { send } = useSendTransfer();
   const { address, isConnected } = useAccount();
   const verify = useVerifyPayment(prizeId, errors, retryDelayMs);
   const [phase, setPhase] = useState<Phase>("idle");
-  const [hash, setHash] = useState<Hash | null>(null);
+  const [local, setLocal] = useState<Stored | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // A hash sent before a reload (or from another tab) counts as this button's own: resume on it.
-  const stored = useSyncExternalStore(subscribeStorage, () => readSentHash(prizeId), noStoredHash);
-  const current = hash ?? stored;
+  // A value stored before a reload (or by another tab) counts as this button's own: resume on it.
+  const raw = useSyncExternalStore(subscribeStorage, () => readRaw(prizeId), noStored);
+  const stored = parseStored(raw);
+  const current: Stored | null = local ?? stored;
+  const blocked = current !== null;
 
   useEffect(() => {
-    onSentHash?.(current !== null);
-  }, [current, onSentHash]);
+    onSentHash?.(blocked);
+  }, [blocked, onSentHash]);
 
-  async function check(h: Hash, retries: number) {
+  async function check(s: { hash: Hash; sentAt: number }, retries: number) {
     setError(null);
     setPhase("confirming");
-    const r = await verify(h, retries);
+    const r = await verify(s.hash, retries);
     if (!r) return;
     if (r.kind === "paid") {
-      clearSentHash(prizeId);
+      const paid: Stored = { kind: "paid", hash: s.hash };
+      writeStored(prizeId, paid);
+      setLocal(paid);
       setPhase("paid");
     } else if (r.kind === "pending") setPhase("pending");
-    else {
+    else if (isDefinitiveFailure(r.code, s.sentAt, Date.now())) {
+      clearStored(prizeId);
+      setLocal(null);
+      setError(r.text);
+      setPhase("failed");
+    } else {
       setError(r.text);
       setPhase("pending");
     }
   }
 
+  /** Something already happened to this prize in this browser: never send, resume on it. */
+  async function resume(s: Stored) {
+    setLocal(s);
+    if (s.kind === "paid") {
+      setPhase("paid");
+      router.refresh();
+      return;
+    }
+    await check(s, 0);
+  }
+
   async function pay() {
     if (phase !== "idle") return;
     setError(null);
-    const stored = readSentHash(prizeId);
-    if (stored) {
-      // Another tab already paid this prize: check that hash, never send a second transfer.
-      setHash(stored);
-      await check(stored, 0);
-      return;
-    }
+    const before = parseStored(readRaw(prizeId)) ?? local;
+    if (before) return resume(before);
     if (!isConnected || !address || address.toLowerCase() !== hostAddress.toLowerCase()) {
       setError(fill(t.useHostWallet, { address: shortAddress(hostAddress) }));
       return;
@@ -177,6 +228,16 @@ export function PayPrizeButton({
       setPhase("idle");
       return;
     }
+    // Fresh status right before the wallet opens: another device (or a stale tab without storage) may have paid it.
+    const fresh = await getPublicPrizeStatusAction(prizeId);
+    if (!fresh.ok || fresh.status !== "awarded") {
+      setError(fresh.ok ? t.stalePrize : (errors[fresh.error] ?? errors.unknown));
+      setPhase("idle");
+      router.refresh();
+      return;
+    }
+    const meanwhile = parseStored(readRaw(prizeId));
+    if (meanwhile) return resume(meanwhile);
     setPhase("sending");
     let h: Hash;
     try {
@@ -186,17 +247,38 @@ export function PayPrizeButton({
       setPhase("idle");
       return;
     }
-    writeSentHash(prizeId, h);
-    setHash(h);
-    await check(h, PENDING_RETRIES);
+    const sent: Stored = { kind: "sent", hash: h, sentAt: Date.now() };
+    writeStored(prizeId, sent);
+    setLocal(sent);
+    await check(sent, PENDING_RETRIES);
   }
 
-  if (phase === "paid") {
+  function discard() {
+    setError(null);
+    setPhase("idle");
+  }
+
+  if (phase === "paid" || current?.kind === "paid") {
     return (
       <p role="status" className="inline-flex min-h-11 items-center gap-2 text-sm font-bold text-success">
         <CircleCheck aria-hidden className="size-4" />
         {t.paidOk}
       </p>
+    );
+  }
+
+  if (phase === "failed") {
+    return (
+      <div className="flex flex-col items-start gap-2">
+        <div role="alert" className="flex flex-col gap-1">
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
+          <p className="text-sm text-fg-muted">{t.discardWarning}</p>
+        </div>
+        <Button type="button" variant="outline" onClick={discard}>
+          <RotateCcw aria-hidden />
+          {t.discardRetry}
+        </Button>
+      </div>
     );
   }
 

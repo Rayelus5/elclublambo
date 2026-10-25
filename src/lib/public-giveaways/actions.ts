@@ -10,7 +10,13 @@ import { safeError } from "@/lib/security/redact";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 import { countTransactions } from "@/lib/public-giveaways/tx-count";
-import type { PublicFail, PublicGiveawayError, PublicGiveawayInput } from "@/lib/public-giveaways/types";
+import {
+  PUBLIC_PRIZE_STATUSES,
+  type PublicFail,
+  type PublicGiveawayError,
+  type PublicGiveawayInput,
+  type PublicPrizeStatus,
+} from "@/lib/public-giveaways/types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
@@ -118,20 +124,32 @@ export async function createPublicGiveawayAction(input: PublicGiveawayInput): Pr
   return { ok: true, id: data };
 }
 
-/** Public account: joins an open giveaway. The minimum-transactions rule is checked here, before the service-role RPC. */
+/**
+ * Public account: joins an open giveaway. The minimum-transactions rule is checked here, before the service-role RPC.
+ * A giveaway already closed answers giveaway_closed before anything else; the on-chain count is charged to the
+ * chain_verify bucket first and fails closed (F5-R2), like the payout verification.
+ */
 export async function enterPublicGiveawayAction(id: string): Promise<{ ok: true } | PublicFail> {
   if (!isId(id)) return fail("invalid_input");
   const session = await getPublicSession();
   if (!session) return fail("not_authenticated");
 
   const db = createAdminClient();
-  const { data: g, error: gErr } = await db.from("public_giveaways").select("min_tx_count").eq("id", id).maybeSingle<{ min_tx_count: number }>();
+  const { data: g, error: gErr } = await db
+    .from("public_giveaways")
+    .select("min_tx_count, status, closes_at")
+    .eq("id", id)
+    .maybeSingle<{ min_tx_count: number; status: string; closes_at: string }>();
   if (gErr) {
     console.error("[public-giveaways] giveaway read failed", safeError(gErr.message));
     return fail("unknown");
   }
   if (!g) return fail("not_found");
+  if (g.status !== "open" || !(new Date(g.closes_at).getTime() > Date.now())) return fail("giveaway_closed");
   if (g.min_tx_count > 0) {
+    const limit = await hitRateLimit(await createServerClient(), "chain_verify");
+    if (limit === "rate_limited") return fail("rate_limited");
+    if (limit !== "ok") return fail("unknown");
     let count: number;
     try {
       count = await countTransactions(session.wallet);
@@ -178,6 +196,40 @@ export async function markPublicPrizeDeliveredAction(prizeId: string): Promise<{
   const { data } = await createAdminClient().from("public_giveaway_prizes").select("giveaway_id").eq("id", prizeId).maybeSingle<{ giveaway_id: string }>();
   if (data?.giveaway_id) revalidatePublicGiveaway(data.giveaway_id);
   return { ok: true };
+}
+
+/**
+ * The host's fresh view of one prize's status, read right before «Pagar ahora» opens the wallet: a stale tab (or another
+ * device) whose page still shows the prize awarded must not send a second transfer.
+ */
+export async function getPublicPrizeStatusAction(prizeId: string): Promise<{ ok: true; status: PublicPrizeStatus } | PublicFail> {
+  if (!isId(prizeId)) return fail("invalid_input");
+  const session = await getPublicSession();
+  if (!session) return fail("not_authenticated");
+  const db = createAdminClient();
+  const { data: prize, error: prizeErr } = await db
+    .from("public_giveaway_prizes")
+    .select("giveaway_id, status")
+    .eq("id", prizeId)
+    .maybeSingle<{ giveaway_id: string; status: string }>();
+  if (prizeErr) {
+    console.error("[public-giveaways] prize read failed", safeError(prizeErr.message));
+    return fail("unknown");
+  }
+  if (!prize) return fail("not_found");
+  const { data: g, error: gErr } = await db
+    .from("public_giveaways")
+    .select("host_user_id")
+    .eq("id", prize.giveaway_id)
+    .maybeSingle<{ host_user_id: string }>();
+  if (gErr) {
+    console.error("[public-giveaways] giveaway read failed", safeError(gErr.message));
+    return fail("unknown");
+  }
+  if (!g) return fail("not_found");
+  if (g.host_user_id !== session.userId) return fail("forbidden");
+  if (!(PUBLIC_PRIZE_STATUSES as readonly string[]).includes(prize.status)) return fail("unknown");
+  return { ok: true, status: prize.status as PublicPrizeStatus };
 }
 
 type PrizeRow = { giveaway_id: string; kind: string; status: string; chain_id: number | null; amount: string | null; winner_address: string | null };
