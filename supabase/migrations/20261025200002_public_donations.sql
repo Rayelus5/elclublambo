@@ -10,7 +10,7 @@
 --   - Entering the club (any members insert: redeem_invite, bootstrap) claims the wallet's public donations and grants
 --     Mecenas once their total reaches donor_role_min_usd6 (trigger _claim_public_donations). A member who is later
 --     banned keeps them. A public donation confirmed after its donor already joined (e.g. ETH waiting on its price)
---     is recorded for that member at confirm time. Both paths grant Mecenas through _grant_donor_role_if_due.
+--     is recorded for that member at confirm time, only while the member is active (a left or banned one is never linked). Both paths grant Mecenas through _grant_donor_role_if_due.
 --   - confirm_donation (latest 20261024200003_donations.sql): its transfer already recorded by a public donation is
 --     tx_already_used instead of a raw unique violation; nothing else changes.
 --   - donor_ranking (latest 20261024200003_donations.sql), same signature: adds listed, non-anonymous external donors as
@@ -238,12 +238,13 @@ begin
     raise exception 'tx_already_used';
   end if;
 
-  -- the donor joined the club after creating the intent: record it for that member (P3-R9). A banned member's
-  -- donation stays unclaimed (they keep only what was claimed before the ban). for share: a concurrent ban waits.
-  -- same per-wallet lock as _claim_public_donations: whichever commits first, the other sees it
+  -- the donor joined the club after creating the intent: record it for that member (P3-R9). Only an ACTIVE member is
+  -- linked: a banned or left member's donation stays unclaimed (they keep only what was claimed before). for share: a
+  -- concurrent status change waits. Same per-wallet lock as _claim_public_donations: whichever commits first, the
+  -- other sees it.
   perform pg_advisory_xact_lock(hashtextextended('donor_wallet:' || i.donor_address, 0));
   select m.id into v_member from public.members m
-  where m.wallet_address = i.donor_address and m.status <> 'banned'
+  where m.wallet_address = i.donor_address and m.status = 'active'
   for share;
 
   begin

@@ -11,7 +11,7 @@
 --     a public donation confirmed after its donor joined is recorded for that member at confirm time.
 --   - confirm_donation (club) answers tx_already_used when a public donation already recorded its transfer.
 begin;
-select plan(65);
+select plan(70);
 
 create function tests.p3hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -336,6 +336,47 @@ set local role service_role;
 select throws_ok(format($$select public.confirm_donation(%L, %L::jsonb, 3000000, null)$$, current_setting('t.im2')::jsonb ->> 'id',
   jsonb_build_object('txHash', tests.p3hash(9611), 'logIndex', 1, 'blockNumber', 5)), 'P0001', 'tx_already_used',
   'confirm_donation answers tx_already_used for a transfer a public donation already recorded');
+reset role;
+
+-- ===== 9. final review: left members, expired attach, late confirm =====
+-- a member who LEFT the club donates publicly: the donation is never linked to the old membership (only active members)
+select set_config('t.ml', tests.create_member(tests.p3addr('e6a3'), current_setting('t.boot')::uuid)::text, true);
+select set_config('t.uml', (select auth_user_id::text from public.members where id = current_setting('t.ml')::uuid), true);
+update public.members set status = 'left' where id = current_setting('t.ml')::uuid;
+select is(tests.p3_donate(current_setting('t.uml')::uuid, 'USDC', 1000000, false, false, 9650, 1000000) ->> 'status',
+  'confirmed', 'a member who left can donate publicly');
+select is((select member_id from public.donations where tx_hash = tests.p3hash(9650)), null,
+  'the donation of a left member stays unlinked (member_id null)');
+
+-- attaching to an expired intent
+select tests.authenticate_as(current_setting('t.uy')::uuid);
+select set_config('t.ie', public.create_public_donation_intent(84532, 'USDC', 1000000, false, false)::text, true);
+select tests.clear_authentication();
+update public.public_donation_intents set expires_at = now() - interval '1 minute'
+where id = (current_setting('t.ie')::jsonb ->> 'id')::uuid;
+select tests.authenticate_as(current_setting('t.uy')::uuid);
+select throws_ok(format($$select public.attach_public_donation_tx(%L, %L)$$, current_setting('t.ie')::jsonb ->> 'id',
+  tests.p3hash(9651)), 'P0001', 'intent_expired', 'attaching to an expired intent is intent_expired');
+select tests.clear_authentication();
+
+-- late confirm: hash attached before expiry, confirmed after it, within 7 days of creation
+select tests.authenticate_as(current_setting('t.uy')::uuid);
+select set_config('t.il', public.create_public_donation_intent(84532, 'USDC', 1000000, false, false)::text, true);
+select public.attach_public_donation_tx((current_setting('t.il')::jsonb ->> 'id')::uuid, tests.p3hash(9652));
+select set_config('t.il8', public.create_public_donation_intent(84532, 'USDC', 1000000, false, false)::text, true);
+select public.attach_public_donation_tx((current_setting('t.il8')::jsonb ->> 'id')::uuid, tests.p3hash(9653));
+select tests.clear_authentication();
+update public.public_donation_intents set expires_at = now() - interval '1 hour'
+where id = (current_setting('t.il')::jsonb ->> 'id')::uuid;
+update public.public_donation_intents set created_at = now() - interval '8 days', expires_at = now() - interval '7 days'
+where id = (current_setting('t.il8')::jsonb ->> 'id')::uuid;
+set local role service_role;
+select is(public.confirm_public_donation((current_setting('t.il')::jsonb ->> 'id')::uuid,
+  jsonb_build_object('txHash', tests.p3hash(9652), 'logIndex', 1, 'blockNumber', 52), 1000000, null) ->> 'status',
+  'confirmed', 'an expired intent whose hash was attached in time still confirms within 7 days of creation');
+select throws_ok(format($$select public.confirm_public_donation(%L, %L::jsonb, 1000000, null)$$,
+  current_setting('t.il8')::jsonb ->> 'id', jsonb_build_object('txHash', tests.p3hash(9653), 'logIndex', 1, 'blockNumber', 53)),
+  'P0001', 'intent_expired', 'after 7 days from creation it is intent_expired even with a hash');
 reset role;
 
 select * from finish();
