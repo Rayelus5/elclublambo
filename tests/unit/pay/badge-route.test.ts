@@ -19,12 +19,12 @@ beforeEach(() => {
 });
 
 describe("GET badge", () => {
-  it("an SVG with the alias and the localised text, cacheable for an hour", async () => {
+  it("an SVG with the alias and the localised text, cacheable for an hour (also on the CDN, stale for a day)", async () => {
     getPublicProfileView.mockResolvedValue(view("rayelus"));
     const res = await call("es", "rayelus");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/svg+xml");
-    expect(res.headers.get("cache-control")).toBe("public, max-age=3600");
+    expect(res.headers.get("cache-control")).toBe("public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400");
     const svg = await res.text();
     expect(svg.startsWith("<svg")).toBe(true);
     expect(svg).toContain("@rayelus");

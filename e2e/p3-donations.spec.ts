@@ -141,14 +141,17 @@ test("2. a member sees «Donante externo · 0x…» in the club's list; the publ
   await expect(donorList(admin.page).getByRole("listitem").filter({ hasText: EXTERNAL_LABEL })).toContainText("5 USD");
 
   const anon = await admin.page.context().browser()!.newContext({ viewport: desktop });
-  trackErrors(anon);
-  const page = await anon.newPage();
-  await page.goto("/donar");
-  await expect(page.getByRole("heading", { level: 1, name: "Donar" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Lo donado" })).toBeVisible();
-  await expect(page.getByText("Donante externo", { exact: false })).toHaveCount(0);
-  await expect(donorList(page)).toHaveCount(0);
-  await anon.close();
+  try {
+    trackErrors(anon);
+    const page = await anon.newPage();
+    await page.goto("/donar");
+    await expect(page.getByRole("heading", { level: 1, name: "Donar" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Lo donado" })).toBeVisible();
+    await expect(page.getByText("Donante externo", { exact: false })).toHaveCount(0);
+    await expect(donorList(page)).toHaveCount(0);
+  } finally {
+    await anon.close();
+  }
 });
 
 test("3. the same wallet redeems an invitation: its donation is claimed and it gets Mecenas (Review Focus 4)", async ({ browser }) => {

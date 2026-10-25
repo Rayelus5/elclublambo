@@ -3,7 +3,7 @@ import { isLang } from "@/lib/i18n/config";
 import { getPublicProfileView } from "@/lib/pay/queries";
 import { colors } from "@/styles/tokens";
 
-const HEADERS = { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600" };
+const HEADERS = { "Content-Type": "image/svg+xml", "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400" };
 
 function escapeXml(text: string): string {
   return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c);

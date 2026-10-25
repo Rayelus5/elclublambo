@@ -67,7 +67,7 @@ export function isUnknownTopSegment(pathname: string): boolean {
 
 /**
  * Decide qué hace el proxy con la parte pública bilingüe (pura, para test):
- * - `/` es la landing salvo para un miembro (ve el foro); `/donar`, la página pública salvo para un miembro; `/donar`, la página pública salvo para un miembro;
+ * - `/` es la landing salvo para un miembro (ve el foro); `/donar`, la página pública salvo para un miembro;
  * - las URLs españolas del mapa se reescriben al árbol interno `/es/...`;
  * - una visita directa a `/es/...` redirige (308) a su URL canónica;
  * - lo demás (inglés, foro, desconocidas) pasa.
