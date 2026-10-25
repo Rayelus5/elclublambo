@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { GiveawayDetail } from "@/components/public-giveaways/giveaway-detail";
 import { getPublicSession } from "@/lib/auth/public-session";
 import { getDictionary } from "@/lib/i18n";
-import { isLang } from "@/lib/i18n/config";
+import { isLang, OG_LOCALE } from "@/lib/i18n/config";
+import { fill } from "@/lib/i18n/fill";
 import { alternatesFor } from "@/lib/i18n/routes";
 import { maybeDrawOnView } from "@/lib/public-giveaways/draw-on-view";
 import { getPublicGiveaway, isPublicGiveawayId } from "@/lib/public-giveaways/queries";
@@ -16,18 +17,30 @@ export const instant = false;
 
 type Props = PageProps<"/[lang]/tools/giveaways/[id]">;
 
-/** P2-R8: each giveaway is noindex; the title is the giveaway's own. */
+/** P2-R8: each giveaway is noindex; title and description (also in the shared card) are the giveaway's own. */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { lang, id } = await params;
   if (!isLang(lang) || !isPublicGiveawayId(id)) return {};
-  let title = getDictionary(lang).giveaways.detail.metaTitle;
+  const t = getDictionary(lang).giveaways;
+  let title = t.detail.metaTitle;
+  let description = t.home.metaDescription;
   try {
     const g = await getPublicGiveaway(id, null);
-    if (g) title = g.title;
+    if (g) {
+      title = g.title;
+      description = g.description ?? fill(t.og.alt, { title: g.title });
+    }
   } catch {
-    // The page itself reports the failure; the metadata keeps the generic title.
+    // The page itself reports the failure; the metadata keeps the generic texts.
   }
-  return { title, robots: { index: false, follow: false }, alternates: alternatesFor("giveaway", { id }, lang) };
+  const alternates = alternatesFor("giveaway", { id }, lang);
+  return {
+    title,
+    description,
+    robots: { index: false, follow: false },
+    alternates,
+    openGraph: { type: "website", url: alternates.canonical, siteName: "ElClub.", locale: OG_LOCALE[lang], title, description },
+  };
 }
 
 async function Content({ params, searchParams }: Pick<Props, "params" | "searchParams">) {

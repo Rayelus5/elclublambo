@@ -164,9 +164,11 @@ function Row({
             value={row.label}
             onChange={(e) => set({ label: e.target.value })}
             aria-invalid={error ? true : undefined}
-            aria-describedby={error ? errId : undefined}
+            aria-describedby={error ? `${id}-hint ${errId}` : `${id}-hint`}
           />
-          <p className="text-[13px] text-fg-muted">{t.customHint}</p>
+          <p id={`${id}-hint`} className="text-[13px] text-fg-muted">
+            {t.customHint}
+          </p>
         </div>
       )}
       {error ? (

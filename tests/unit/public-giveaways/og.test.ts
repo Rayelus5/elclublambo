@@ -33,9 +33,23 @@ describe("ogContent", () => {
     expect(c.url).toBe(`www.elclub.party/herramientas/sorteos/${ID}`);
   });
 
-  it("announces winners once drawn", () => {
-    expect(ogContent(view({ status: "drawn" }), "en").when).toBe("Winners announced");
+  it("announces winners once drawn, without repeating the status", () => {
+    const en = ogContent(view({ status: "drawn" }), "en");
+    expect(en.when).toBe("Winners announced");
+    expect(en.status).toBe("");
     expect(ogContent(view({ status: "drawn" }), "es").when).toBe("Ganadores anunciados");
+  });
+
+  it.each([
+    ["cancelled", "en", "Cancelled"],
+    ["void", "en", "No entries"],
+    ["cancelled", "es", "Cancelado"],
+    ["void", "es", "Sin participantes"],
+  ] as const)("a %s giveaway (%s) never says it closes: only its state", (status, lang, text) => {
+    const c = ogContent(view({ status }), lang);
+    expect(c.when).toBe(text);
+    expect(c.status).toBe("");
+    expect(c.when).not.toMatch(/Closes|Cierra/);
   });
 
   it("falls back to the generic tool card for null", () => {

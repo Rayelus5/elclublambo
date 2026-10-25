@@ -53,8 +53,8 @@ export default async function Image({ params }: { params: Promise<{ lang: string
               <span>{c.prizes}</span>
               <span style={{ color: colors.fgMuted }}>·</span>
               <span style={{ color: colors.fgMuted }}>{c.when}</span>
-              <span style={{ color: colors.fgMuted }}>·</span>
-              <span style={{ color: colors.accent }}>{c.status}</span>
+              {c.status ? <span style={{ color: colors.fgMuted }}>·</span> : null}
+              {c.status ? <span style={{ color: colors.accent }}>{c.status}</span> : null}
             </div>
           ) : null}
         </div>

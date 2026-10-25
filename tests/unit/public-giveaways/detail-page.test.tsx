@@ -10,6 +10,7 @@ const actions = vi.hoisted(() => ({
   cancelPublicGiveawayAction: vi.fn(),
   markPublicPrizeDeliveredAction: vi.fn(),
   markPublicPrizePaidAction: vi.fn(),
+  getPublicPrizeStatusAction: vi.fn(),
 }));
 vi.mock("@/lib/public-giveaways/actions", () => actions);
 // AppKit only exists in the browser: a stub that exposes the `next` it was given.

@@ -9,8 +9,9 @@ export interface OgContent {
   title: string;
   /** "N prizes"; empty on the generic card. */
   prizes: string;
-  /** Close date or "Winners announced"; empty on the generic card. */
+  /** Close date, "Winners announced" (drawn) or the state of a cancelled / void giveaway; empty on the generic card. */
   when: string;
+  /** The status label while it adds something (open, closed); empty otherwise and on the generic card. */
   status: string;
   /** Host + public path, no scheme. */
   url: string;
@@ -34,12 +35,15 @@ export function ogContent(view: PublicGiveawayView | null, lang: Lang): OgConten
   }
   const n = view.prizes.length;
   const date = new Intl.DateTimeFormat(lang, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(view.closesAt));
+  const label = getDictionary(lang).giveaways.detail.status[view.status];
+  // A cancelled or void giveaway will never close: its state is the whole line. Drawn: "Winners announced" says it all.
+  const finished = view.status === "cancelled" || view.status === "void";
   return {
     kicker: t.kicker,
     title: view.title,
     prizes: fill(n === 1 ? t.prizeOne : t.prizeMany, { n }),
-    when: view.status === "drawn" ? t.winners : fill(t.closes, { d: date }),
-    status: getDictionary(lang).giveaways.detail.status[view.status],
+    when: finished ? label : view.status === "drawn" ? t.winners : fill(t.closes, { d: date }),
+    status: finished || view.status === "drawn" ? "" : label,
     url: host + localizedPath(lang, "giveaway", { id: view.id }),
     alt: fill(t.alt, { title: view.title }),
   };

@@ -63,6 +63,26 @@ describe("CreateForm", () => {
     expect(createPublicGiveawayAction).not.toHaveBeenCalled();
   });
 
+  it("keeps a margin over the server's 10 minutes: a close under 11 minutes ahead is rejected here", async () => {
+    setup();
+    await userEvent.type(screen.getByLabelText(en.create.title), "Autumn draw");
+    await userEvent.type(screen.getByLabelText(en.create.amount), "5");
+    // minute precision: between 10 and 11 minutes ahead (passes 10, fails the 11-minute margin)
+    fireEvent.change(screen.getByLabelText(en.create.closes), { target: { value: localIn(11 * 60_000) } });
+    await userEvent.click(screen.getByRole("button", { name: "Create giveaway" }));
+    expect(screen.getByLabelText(en.create.closes)).toHaveAttribute("aria-invalid", "true");
+    expect(createPublicGiveawayAction).not.toHaveBeenCalled();
+  });
+
+  it("the custom prize field is described by its hint", async () => {
+    setup();
+    await userEvent.click(screen.getByRole("radio", { name: en.create.kindCustom }));
+    const field = screen.getByLabelText(en.create.customLabel);
+    const hint = screen.getByText(en.create.customHint);
+    expect(hint.id).not.toBe("");
+    expect(field.getAttribute("aria-describedby")?.split(" ")).toContain(hint.id);
+  });
+
   it("does not allow an 11th prize", async () => {
     setup();
     const add = screen.getByRole("button", { name: en.create.addPrize });

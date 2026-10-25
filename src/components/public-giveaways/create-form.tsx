@@ -15,7 +15,8 @@ import { newPrizeRow, PrizeRows, prizeError, prizeInputs, type PrizeRow } from "
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 500;
 const HOST_MAX = 60;
-const MIN_MS = 10 * 60_000;
+// The server accepts from now + 10 min; 11 here leaves a margin for the time the form takes to send.
+const MIN_MS = 11 * 60_000;
 const MAX_MS = 90 * 86_400_000;
 const FIELD =
   "min-h-11 w-full rounded-control border border-input bg-transparent px-2.5 py-1 text-base outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg aria-invalid:border-danger aria-invalid:ring-2 aria-invalid:ring-danger disabled:opacity-50 md:text-sm";

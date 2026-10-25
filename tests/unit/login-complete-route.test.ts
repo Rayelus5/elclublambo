@@ -83,6 +83,12 @@ describe("GET /login/complete", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/banned");
   });
 
+  it("public mode with the session lost (/login) goes back to the public page, not to the club login", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/login" });
+    const res = await call("?mode=public&next=" + encodeURIComponent("/en/tools/giveaways"));
+    expect(res.headers.get("location")).toBe("http://localhost:3000/en/tools/giveaways");
+  });
+
   it("public mode ignores an unsafe next", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "public" });
     expect((await call("?mode=public&next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/");
