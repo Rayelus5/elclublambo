@@ -18,6 +18,11 @@ vi.mock("@/components/pay/pay-widget-lazy", () => ({
   ),
 }));
 
+// The vouches section is its own server component (tested in tests/unit/vouches/profile-vouches.test.tsx).
+vi.mock("@/components/vouches/profile-vouches", () => ({
+  ProfileVouches: (p: { lang: string; address: string }) => <div data-testid="profile-vouches" data-lang={p.lang} data-address={p.address} />,
+}));
+
 import { PayPageContent } from "@/components/pay/pay-page-content";
 import { generateMetadata } from "@/app/(public)/[lang]/pay/[target]/page";
 import { getDictionary } from "@/lib/i18n";
@@ -57,6 +62,23 @@ describe("pay page", () => {
     expect(screen.queryByText(es.noProfileTitle)).not.toBeInTheDocument();
     expect(screen.getByText(ADDR)).toBeInTheDocument();
     expect(screen.getByTestId("widget").dataset.accept).toBe("base");
+  });
+
+  it("the vouches section comes after the payment widget, for the resolved address", async () => {
+    getPublicProfileView.mockResolvedValue({ alias: "rayelus", displayName: null, address: ADDR, acceptNetworks: ["base"], isMember: false });
+    render(await content("es", "rayelus"));
+    const widget = screen.getByTestId("widget");
+    const vouches = screen.getByTestId("profile-vouches");
+    expect(vouches.dataset.address).toBe(ADDR);
+    expect(vouches.dataset.lang).toBe("es");
+    expect(widget.compareDocumentPosition(vouches) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("a read error shows no vouches section either", async () => {
+    getPublicProfileView.mockRejectedValue(new Error("db down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(await content("es", ADDR));
+    expect(screen.queryByTestId("profile-vouches")).toBeNull();
   });
 
   it("passes the amount and asset of the link to the widget", async () => {

@@ -10,6 +10,7 @@ import { GiveawayDemo } from "./giveaway-demo";
 import { Hero } from "./hero";
 import { Networks } from "./networks";
 import { PayDemo } from "./pay-demo";
+import { VouchTeaser } from "./vouch-teaser";
 
 /**
  * The public landing (/ and /en): open tools first, the club as the reward. Header and footer come from the public
@@ -23,13 +24,14 @@ export function Landing({ lang }: { lang: Lang }) {
       <main className="flex-1 overflow-x-clip">
         <Hero lang={lang} t={t} />
         <GiveawayDemo t={t.demo} sample={t.sample} />
-        {/* The two tools on their way share one row: less weight than the live one. */}
+        {/* Pay and the checker share one row: less weight than the giveaway. */}
         <div className="border-t border-border">
           <div className="mx-auto grid w-full max-w-[1600px] lg:grid-cols-2">
             <PayDemo lang={lang} t={t} noCustody={dict.common.noCustody} />
             <CheckerDemo lang={lang} t={t} />
           </div>
         </div>
+        <VouchTeaser lang={lang} t={t} />
         <Networks t={t.networks} />
         <ClubTeaser lang={lang} t={t.club} whatIs={t.whatIs} />
         <FinalCta lang={lang} t={t} />

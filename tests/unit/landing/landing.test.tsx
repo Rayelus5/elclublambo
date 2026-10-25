@@ -55,6 +55,7 @@ describe("Landing (reduced motion)", () => {
       "Un sorteo que puedes comprobar",
       "ElClub Pay",
       "Comprobador",
+      "Avales",
       "Construido en Base · también en Arbitrum",
       "Lo mejor está dentro: un foro privado por invitación",
       "Empieza con un sorteo.",
@@ -98,6 +99,20 @@ describe("Landing (reduced motion)", () => {
         expect(link).not.toHaveTextContent(/Próximamente|Coming soon/);
       }
       expect(screen.queryByRole("button", { name })).toBeNull();
+      unmount();
+    }
+  });
+
+  it("the vouches teaser links to the tool, without «Próximamente» or the brand fill", () => {
+    for (const [lang, href, region, name] of [
+      ["es", "/herramientas/avales", "Avales", /Ver avales/],
+      ["en", "/en/tools/vouches", "Vouches", /See vouches/],
+    ] as const) {
+      const { unmount } = render(<Landing lang={lang} />);
+      const block = screen.getByRole("region", { name: region });
+      expect(within(block).getByRole("link", { name })).toHaveAttribute("href", href);
+      expect(block).not.toHaveTextContent(/Próximamente|Coming soon/);
+      expect(block.querySelector(".bg-accent-fill")).toBeNull();
       unmount();
     }
   });

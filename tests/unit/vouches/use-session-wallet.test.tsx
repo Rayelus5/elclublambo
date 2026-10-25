@@ -1,4 +1,5 @@
 import { renderHook } from "@testing-library/react";
+import { renderToString } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const account = vi.hoisted(() => ({ isConnected: true, status: "connected" as string, address: undefined as string | undefined }));
@@ -34,5 +35,12 @@ describe("useSessionWalletMatch", () => {
     account.address = undefined;
     account.status = "reconnecting";
     expect(renderHook(() => useSessionWalletMatch(ME)).result.current).toEqual({ matches: false, mismatch: false });
+  });
+
+  it("the server render (and so the hydration pass) is neutral even when connected: no match, no warning", () => {
+    function Probe() {
+      return <output>{JSON.stringify(useSessionWalletMatch(ME))}</output>;
+    }
+    expect(renderToString(<Probe />)).toContain(JSON.stringify({ matches: false, mismatch: false }).replace(/"/g, "&quot;"));
   });
 });

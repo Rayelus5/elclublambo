@@ -5,25 +5,11 @@ import type { Lang } from "@/lib/i18n/config";
 import { DATE_LOCALE, fill } from "@/lib/i18n/fill";
 import { localizedPath } from "@/lib/i18n/routes";
 import { easscanUrl } from "@/lib/vouches/eas";
-import { VOUCH_KINDS, vouchKindKey, type VouchKindKey } from "@/lib/vouches/kinds";
+import { kindRows, vouchKindKey } from "@/lib/vouches/kinds";
 import type { VouchesSummary } from "@/lib/vouches/types";
 import { RefreshButton } from "./refresh-button";
 
 const LINK = "text-accent underline-offset-4 hover:underline";
-
-/**
- * One row per kind with its distinct attesters (Review Focus 5). Kinds outside 1-3 all read «Otro»: their attesters may
- * overlap, so the row shows the largest of them (never an inflated sum).
- */
-function rows(counts: VouchesSummary["counts"]): Array<{ key: VouchKindKey; attesters: number }> {
-  const byKey = new Map<VouchKindKey, number>();
-  for (const c of counts) {
-    const key = vouchKindKey(c.kind);
-    byKey.set(key, Math.max(byKey.get(key) ?? 0, c.attesters));
-  }
-  const order: VouchKindKey[] = [...VOUCH_KINDS.map(vouchKindKey), "other"];
-  return order.filter((k) => (byKey.get(k) ?? 0) > 0).map((key) => ({ key, attesters: byKey.get(key)! }));
-}
 
 /**
  * Received vouches of an address: distinct attesters per kind and, unless `compact`, the newest vouches with the attester
@@ -51,7 +37,7 @@ export function VouchSummary({
     <div className="flex flex-col gap-4">
       <p className="text-sm text-fg-muted tabular-nums">{fill(t.summary.count, { n: summary.total })}</p>
       <ul aria-label={t.summary.countsLabel} className="flex flex-col gap-2">
-        {rows(summary.counts).map((r) => (
+        {kindRows(summary.counts).map((r) => (
           <li key={r.key} className="rounded-control border border-border px-3 py-2 text-base font-bold text-fg tabular-nums">
             {`${t.kinds[r.key]} · ${r.attesters}`}
           </li>

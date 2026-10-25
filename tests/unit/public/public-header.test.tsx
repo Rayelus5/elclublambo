@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const pathname = vi.hoisted(() => ({ value: "/" }));
-vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
+const push = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/components/public/public-connect-lazy", () => ({ PublicConnectLazy: () => null }));
 vi.mock("wagmi", () => ({ useDisconnect: () => ({ disconnect: vi.fn() }) }));
 
@@ -14,7 +15,11 @@ const hrefs = () => ({
   en: screen.getByRole("link", { name: "en" }).getAttribute("href"),
 });
 
-beforeEach(() => (pathname.value = "/"));
+beforeEach(() => {
+  pathname.value = "/";
+  push.mockReset();
+  window.history.replaceState(null, "", "/");
+});
 
 describe("PublicHeader language switcher", () => {
   it.each([
@@ -31,5 +36,30 @@ describe("PublicHeader language switcher", () => {
     pathname.value = "/en/tools";
     render(<PublicHeader lang="en" session={null} />);
     expect(hrefs()).toEqual({ es: "/herramientas", en: "/en/tools" });
+  });
+
+  it("keeps the query of the page: /herramientas/avales?address=0x… -> /en/tools/vouches?address=0x… (P5)", () => {
+    const addr = "0x3333333333333333333333333333333333333333";
+    pathname.value = "/herramientas/avales";
+    window.history.replaceState(null, "", `/herramientas/avales?address=${addr}`);
+    render(<PublicHeader lang="es" session={null} />);
+    expect(hrefs()).toEqual({ es: `/herramientas/avales?address=${addr}`, en: `/en/tools/vouches?address=${addr}` });
+  });
+
+  it("a query that changed on the same path since the render is the one the click carries", () => {
+    pathname.value = "/herramientas/avales";
+    window.history.replaceState(null, "", "/herramientas/avales?address=old");
+    render(<PublicHeader lang="es" session={null} />);
+    window.history.replaceState(null, "", "/herramientas/avales?address=new");
+    fireEvent.click(screen.getByRole("link", { name: "en" }));
+    expect(push).toHaveBeenCalledWith("/en/tools/vouches?address=new");
+  });
+
+  it("without a query the link navigates as it is", () => {
+    pathname.value = "/herramientas";
+    render(<PublicHeader lang="es" session={null} />);
+    expect(hrefs().en).toBe("/en/tools");
+    fireEvent.click(screen.getByRole("link", { name: "en" }));
+    expect(push).not.toHaveBeenCalled();
   });
 });

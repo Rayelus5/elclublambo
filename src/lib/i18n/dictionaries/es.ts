@@ -307,6 +307,11 @@ export const es = {
       liquidity: "Liquidez bloqueada 12 meses",
       check: "Comprobar contrato",
     },
+    vouches: {
+      title: "Avales",
+      lead: "Mira quién respalda a una dirección en Base, o avala a quien conoces.",
+      cta: "Ver avales",
+    },
     networks: {
       title: "Construido en Base · también en Arbitrum",
       lead: "Premios y pagos en USDC en cualquiera de las dos redes, con comisiones de céntimos.",
@@ -333,7 +338,7 @@ export const es = {
     giveaways: { name: "Sorteos verificables", text: "Sortea premios con azar público que todos pueden comprobar." },
     pay: { name: "ElClub Pay", text: "Cobra y paga en USDC con un enlace." },
     checker: { name: "Comprobador de tokens y enlaces", text: "Revisa un token o un enlace antes de firmar." },
-    guarantees: { name: "Avales", text: "Respalda a quien te pide confianza, con pruebas." },
+    guarantees: { name: "Avales", text: "Avala a quien conoces con una prueba pública en Base." },
   },
   start: {
     metaTitle: "ElClub. · El foro privado para quien se toma cripto en serio",
@@ -768,6 +773,8 @@ export const es = {
       noCustody: "ElClub. no custodia fondos. El pago va directo a esta dirección.",
       ogKicker: "ELCLUB PAY · SIN CUSTODIA",
       ogLine: "Paga en USDC o ETH, directo a su wallet.",
+      vouchesTitle: "Avales",
+      vouchesCta: "Avalar esta dirección",
     },
     receipt: {
       metaTitle: "Recibo de pago",

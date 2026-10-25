@@ -307,6 +307,11 @@ export const en = {
       liquidity: "Liquidity locked for 12 months",
       check: "Check contract",
     },
+    vouches: {
+      title: "Vouches",
+      lead: "See who backs an address on Base, or vouch for someone you know.",
+      cta: "See vouches",
+    },
     networks: {
       title: "Built on Base · also on Arbitrum",
       lead: "Prizes and payments in USDC on either network, with fees of cents.",
@@ -333,7 +338,7 @@ export const en = {
     giveaways: { name: "Verifiable giveaways", text: "Draw prizes with public randomness anyone can check." },
     pay: { name: "ElClub Pay", text: "Get paid and pay in USDC with a link." },
     checker: { name: "Token and link checker", text: "Check a token or a link before you sign." },
-    guarantees: { name: "Vouching", text: "Back whoever asks for trust, with proof." },
+    guarantees: { name: "Vouching", text: "Vouch for people you know with a public proof on Base." },
   },
   start: {
     metaTitle: "ElClub. · The private forum for people serious about crypto",
@@ -768,6 +773,8 @@ export const en = {
       noCustody: "ElClub. does not hold funds. The payment goes straight to this address.",
       ogKicker: "ELCLUB PAY · NON-CUSTODIAL",
       ogLine: "Pay in USDC or ETH, straight to their wallet.",
+      vouchesTitle: "Vouches",
+      vouchesCta: "Vouch for this address",
     },
     receipt: {
       metaTitle: "Payment receipt",
