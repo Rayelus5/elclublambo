@@ -17,16 +17,17 @@ beforeEach(() => {
 });
 
 describe("tools hub", () => {
-  it("EN: links Verifiable giveaways, Coming soon cards are not links", async () => {
+  it("EN: links Verifiable giveaways and ElClub Pay, Coming soon cards are not links", async () => {
     render(await ToolsPage({ params: Promise.resolve({ lang: "en" }) } as never));
     expect(screen.getByRole("link", { name: /Verifiable giveaways/ }).getAttribute("href")).toBe("/en/tools/giveaways");
-    expect(screen.getAllByRole("link").filter((l) => /ElClub Pay|checker|Vouching/.test(l.textContent ?? ""))).toHaveLength(0);
-    expect(screen.getAllByText("Coming soon")).toHaveLength(3);
-    expect(screen.getByText(/ElClub Pay/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: /ElClub Pay/ }).getAttribute("href")).toBe("/en/tools/pay");
+    expect(screen.getAllByRole("link").filter((l) => /checker|Vouching/.test(l.textContent ?? ""))).toHaveLength(0);
+    expect(screen.getAllByText("Coming soon")).toHaveLength(2);
   });
   it("ES links to the Spanish URL", async () => {
     render(await ToolsPage({ params: Promise.resolve({ lang: "es" }) } as never));
     expect(screen.getByRole("link", { name: /Sorteos verificables/ }).getAttribute("href")).toBe("/herramientas/sorteos");
+    expect(screen.getByRole("link", { name: /ElClub Pay/ }).getAttribute("href")).toBe("/herramientas/pay");
   });
 });
 

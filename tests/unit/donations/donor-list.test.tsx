@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DonorList } from "@/components/donations/donor-list";
 
 const rows = [
@@ -17,6 +17,21 @@ describe("DonorList", () => {
     expect(within(items[0]!).queryByText("Tú")).not.toBeInTheDocument();
     expect(items[1]).toHaveTextContent("@beto");
     expect(within(items[1]!).getByText("Tú")).toBeInTheDocument();
+  });
+
+  it("external donors: no profile link, label as given, distinct keys for identical labels", () => {
+    const ext = [
+      { memberId: null, label: "Donante externo · 0x12…ab", totalUsd6: 9_000_000n, isMe: false },
+      { memberId: null, label: "Donante externo · 0x12…ab", totalUsd6: 3_000_000n, isMe: false },
+    ];
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<DonorList rows={ext} />);
+    const items = screen.getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Donante externo · 0x12…ab");
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(errors).not.toHaveBeenCalled();
+    errors.mockRestore();
   });
 
   it("empty: says nobody is listed yet", () => {

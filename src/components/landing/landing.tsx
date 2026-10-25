@@ -26,7 +26,7 @@ export function Landing({ lang }: { lang: Lang }) {
         {/* The two tools on their way share one row: less weight than the live one. */}
         <div className="border-t border-border">
           <div className="mx-auto grid w-full max-w-[1600px] lg:grid-cols-2">
-            <PayDemo t={t} soon={t.soon} noCustody={dict.common.noCustody} />
+            <PayDemo lang={lang} t={t} noCustody={dict.common.noCustody} />
             <CheckerDemo t={t} soon={t.soon} />
           </div>
         </div>

@@ -75,27 +75,37 @@ describe("Landing (reduced motion)", () => {
     for (const link of whatIs) expect(link).toHaveAttribute("href", "/start");
   });
 
+  it("«Crear enlace de pago» is a link to the Pay tool, without «Próximamente»", () => {
+    for (const [lang, href, name] of [["es", "/herramientas/pay", /Crear enlace de pago/], ["en", "/en/tools/pay", /Create payment link/]] as const) {
+      const { unmount } = render(<Landing lang={lang} />);
+      const links = screen.getAllByRole("link", { name });
+      expect(links.length).toBeGreaterThanOrEqual(2);
+      for (const link of links) {
+        expect(link).toHaveAttribute("href", href);
+        expect(link).not.toHaveTextContent(/Próximamente|Coming soon/);
+      }
+      unmount();
+    }
+  });
+
   it("«Próximamente» CTAs are aria-disabled buttons that go nowhere", () => {
     render(<Landing lang="es" />);
-    const soon = [
-      ...screen.getAllByRole("button", { name: /Crear enlace de pago/ }),
-      ...screen.getAllByRole("button", { name: /Comprobar contrato/ }),
-    ];
-    expect(soon.length).toBeGreaterThanOrEqual(3);
+    const soon = screen.getAllByRole("button", { name: /Comprobar contrato/ });
+    expect(soon.length).toBeGreaterThanOrEqual(1);
     for (const button of soon) {
       expect(button).toHaveAttribute("aria-disabled", "true");
       expect(button).toHaveAttribute("type", "button");
       expect(button).toHaveTextContent("Próximamente");
       expect(button.closest("a, form")).toBeNull();
     }
-    expect(screen.queryByRole("link", { name: /Crear enlace de pago|Comprobar contrato/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Comprobar contrato/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Crear enlace de pago/ })).toBeNull();
   });
 
-  it("marks Pay and the checker as «Próximamente»", () => {
+  it("marks the checker as «Próximamente» and Pay as live", () => {
     render(<Landing lang="es" />);
-    for (const name of ["ElClub Pay", "Comprobador"]) {
-      expect(within(screen.getByRole("region", { name })).getAllByText("Próximamente").length).toBeGreaterThanOrEqual(1);
-    }
+    expect(within(screen.getByRole("region", { name: "Comprobador" })).getAllByText("Próximamente").length).toBeGreaterThanOrEqual(1);
+    expect(within(screen.getByRole("region", { name: "ElClub Pay" })).queryByText("Próximamente")).toBeNull();
   });
 
   it("the demo shows commit → drand round → winner, and the sample is internally consistent", () => {
