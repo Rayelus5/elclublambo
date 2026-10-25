@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const completeLogin = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/actions", () => ({ completeLogin }));
@@ -104,5 +104,67 @@ describe("GET /login/complete", () => {
     const res = await call("?invite=abc", site);
     expect(completeLogin).not.toHaveBeenCalled();
     expect(res.headers.get("location")).toBe("http://localhost:3000/login");
+  });
+});
+
+// Docker standalone on PRE: Next binds HOSTNAME=0.0.0.0:3000 behind the Cloudflare Tunnel, so the request URL is the
+// bind address. Every redirect must point at the public site (NEXT_PUBLIC_SITE_URL), never at https://0.0.0.0:3000.
+describe("GET /login/complete behind the tunnel (public origin)", () => {
+  const docker = (qs: string, site: string | null = "none") =>
+    GET(
+      new NextRequest(`http://0.0.0.0:3000/login/complete${qs}`, {
+        headers: site === null ? {} : { "sec-fetch-site": site },
+      }),
+    );
+
+  beforeEach(() => {
+    completeLogin.mockReset();
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://pre.elclub.party");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("public mode goes back to next on the public host", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "public" });
+    const res = await docker("?mode=public&next=/herramientas");
+    expect(res.headers.get("location")).toBe("https://pre.elclub.party/herramientas");
+  });
+
+  it("public mode with a lost session keeps next's query on the public host", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/login" });
+    const res = await docker("?mode=public&next=" + encodeURIComponent("/herramientas/sorteos/x?join=1"));
+    expect(res.headers.get("location")).toBe("https://pre.elclub.party/herramientas/sorteos/x?join=1");
+  });
+
+  it("public mode sends a banned wallet to /banned on the public host", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/banned" });
+    expect((await docker("?mode=public&next=/en/tools")).headers.get("location")).toBe("https://pre.elclub.party/banned");
+  });
+
+  it("public mode falls back to the public / for an unsafe next", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "public" });
+    expect((await docker("?mode=public&next=//evil.com")).headers.get("location")).toBe("https://pre.elclub.party/");
+  });
+
+  it("club login honours next on the public host", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/" });
+    expect((await docker("?next=/invites")).headers.get("location")).toBe("https://pre.elclub.party/invites");
+  });
+
+  it("club login sends the outcome to the public host", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/no-access", error: "unknown" });
+    expect((await docker("?invite=abc")).headers.get("location")).toBe("https://pre.elclub.party/no-access?error=unknown");
+  });
+
+  it("an off-origin outcome falls back to the public /", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "//evil.com" });
+    expect((await docker("")).headers.get("location")).toBe("https://pre.elclub.party/");
+  });
+
+  it("a cross-site navigation goes to the public /login", async () => {
+    const res = await docker("?invite=abc", "cross-site");
+    expect(completeLogin).not.toHaveBeenCalled();
+    expect(res.headers.get("location")).toBe("https://pre.elclub.party/login");
   });
 });
