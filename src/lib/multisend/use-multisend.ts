@@ -13,9 +13,9 @@ import { dataSuffixFor } from "@/lib/web3/builder-code";
 import { sentAtNow } from "@/lib/web3/signing";
 import { findTransfer, scanCapFor } from "./find-transfer";
 import type { ParsedLine } from "./parse";
-import { alignProgress, inheritAttempts, loadProgress, mergeProgress, progressKey, recentAttempts, type RowState } from "./progress";
+import { alignProgress, inheritAttempts, loadProgress, mergeProgress, progressKey, recentAttempts, recentConfirmed, type RowState } from "./progress";
 import { Run, type CallsResult, type Deps, type MultisendError, type Receipt } from "./run";
-import { withRunLock } from "./run-lock";
+import { walletRunKey, withRunLock } from "./run-lock";
 import { readWalletIdle } from "./wallet-idle";
 
 export type { MultisendError } from "./run";
@@ -92,6 +92,11 @@ function wagmiDeps(config: Config, chain: ChainId, owner: Address, lines: readon
     },
     loadStored: () => alignProgress(loadProgress(owner, chain, key), lines),
     ownsRun,
+    readRecord: () => {
+      const now = sentAtNow();
+      const mine = (e: { from?: string }) => e.from === undefined || e.from.toLowerCase() === owner.toLowerCase();
+      return { attempts: recentAttempts(chain, owner, now), confirmed: recentConfirmed(chain, now).filter(mine) };
+    },
   };
 }
 
@@ -102,7 +107,8 @@ function wagmiDeps(config: Config, chain: ChainId, owner: Address, lines: readon
  *
  * Never pays a line twice (see Run): a line is signed only while `todo` (approved by the user in the confirmation) or
  * `not_found` after a successful scan and ticked (`released`), and one attempted before only with an idle wallet. One
- * tab at a time runs a list (withRunLock); the run's starting rows are read inside the lock, merged from storage, this
+ * run at a time per wallet and chain, in any tab (withRunLock, NEW-5); the run's starting rows are read inside the
+ * lock, merged from storage, this
  * page session's memory, and the attempts of the 24 h record (NEW-4). With storage unavailable, memory is the record
  * (`storageOk` false: the form tells the user).
  */
@@ -157,7 +163,8 @@ export function useMultisend(chain: ChainId): {
       const runKey = progressKey(owner, chain, key);
       let outcome: MultisendError | null = "failed";
       try {
-        const out = await withRunLock(runKey, (ownsRun) => {
+        const out = await withRunLock(walletRunKey(owner, chain), (ownsRun) => {
+          const startedAt = sentAtNow();
           const deps = wagmiDeps(config, chain, owner, lines, key, { ensure, sendTransfer, sendCallsAsync }, ownsRun);
           const fresh = lines.map((l): RowState => ({ id: l.id, to: l.to, amount: l.amount.toString(), status: "todo" }));
           const known = mergeProgress(deps.loadStored(), alignProgress(memory.get(runKey) ?? null, lines)) ?? fresh;
@@ -171,6 +178,7 @@ export function useMultisend(chain: ChainId): {
               owner,
               key,
               usdc: NETWORKS[chain].usdc,
+              startedAt,
               remember: (rows) => void memory.set(runKey, rows),
               onChange: (rows, ok) => (setRun({ key: runKey, rows }), setStorageOk(ok)),
             },

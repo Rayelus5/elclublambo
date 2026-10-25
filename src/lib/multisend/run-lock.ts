@@ -15,6 +15,12 @@ type Lock = { tab: string; beat: number };
 
 export const lockKey = (runKey: string) => `${runKey}:lock`;
 
+/**
+ * NEW-5: what a run locks: the wallet on the chain, not the list, so no two runs of the same wallet overlap in any tab
+ * (two lists can share a line).
+ */
+export const walletRunKey = (owner: `0x${string}`, chain: number) => `elclub:multisend:${chain}:${owner.toLowerCase()}`;
+
 export function readLockRaw(runKey: string): string | null {
   try {
     return window.localStorage.getItem(lockKey(runKey));

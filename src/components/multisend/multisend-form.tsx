@@ -18,6 +18,7 @@ import {
   alignProgress,
   clearProgress,
   inheritAttempts,
+  mergeProgress,
   parseProgress,
   parseRecent,
   parseRecentAttempts,
@@ -27,7 +28,7 @@ import {
   storageAvailable,
   type RowState,
 } from "@/lib/multisend/progress";
-import { lockedByOther, readLockRaw, TAB_ID } from "@/lib/multisend/run-lock";
+import { lockedByOther, readLockRaw, TAB_ID, walletRunKey } from "@/lib/multisend/run-lock";
 import { useMultisend } from "@/lib/multisend/use-multisend";
 import { useWalletIdle } from "@/lib/multisend/wallet-idle";
 import { formatAmount } from "@/lib/payments/amounts";
@@ -112,11 +113,12 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   // NEW-4: a line attempted from another list in the last 24 h (this wallet, this chain) shows as unconfirmed, as the
   // hook will treat it: only re-checked on chain, never signed until a scan settles it.
   const recentRaw = useSyncExternalStore(subscribeStorage, readRecentRaw, noStored);
-  const known = stored ?? fresh;
-  const inherited = owner ? inheritAttempts(known, parseRecentAttempts(recentRaw, chain, owner, now)) : known;
   const live =
     owner && ms.runKey === progressKey(owner, chain, key) && ms.rows !== ignoredRun ? alignProgress(ms.rows, recipients) : null;
-  const progress = live ?? (stored !== null || inherited !== known ? inherited : null);
+  // After a run, each line shows its newest copy: this tab's last run or storage (another tab's later progress).
+  const known = mergeProgress(live, stored) ?? fresh;
+  const inherited = owner ? inheritAttempts(known, parseRecentAttempts(recentRaw, chain, owner, now)) : known;
+  const progress = live !== null || stored !== null || inherited !== known ? inherited : null;
   const started = progress !== null && progress.some((r) => r.status !== "todo");
   const done = progress !== null && progress.every((r) => r.status === "confirmed");
 
@@ -147,8 +149,8 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   );
   const repeatBlocked = [...repeats].some((r) => !ticked(repeatOk, r));
   const storageOff = !storageProbe || !ms.storageOk;
-  // R5: another tab running this list.
-  const lockRaw = useSyncExternalStore(subscribeStorage, () => (owner && recipients.length > 0 ? readLockRaw(progressKey(owner, chain, key)) : null), noStored);
+  // R5/NEW-5: another tab running any list of this wallet on this chain.
+  const lockRaw = useSyncExternalStore(subscribeStorage, () => (owner ? readLockRaw(walletRunKey(owner, chain)) : null), noStored);
   const lockedElsewhere = lockedByOther(lockRaw, TAB_ID, now);
 
   const valid = recipients.length > 0 && errors.length === 0;
@@ -343,6 +345,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
             {ms.mode === "atomic" ? t.form.atomic : ms.mode === "checking" ? t.form.checking : t.form.sequential}
           </p>
         ) : null}
+        {valid && can.ok ? <p className="text-[13px] text-fg-muted">{t.form.browserOnly}</p> : null}
 
         {reason ? (
           <div className="flex flex-col items-start gap-2">
@@ -376,6 +379,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
               releaseBlocked={idle === "pending" ? t.progress.walletPending : idle === "unknown" ? t.progress.walletUnknown : null}
             />
             <p className="text-[13px] text-fg-muted">{t.progress.scanNote}</p>
+            <p className="text-[13px] text-fg-muted">{t.progress.smartWallet}</p>
           </div>
         ) : null}
 

@@ -34,7 +34,7 @@ import { MultisendForm } from "@/components/multisend/multisend-form";
 import { encodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
 import { progressKey, recordAttempt, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
-import { lockKey } from "@/lib/multisend/run-lock";
+import { lockKey, walletRunKey } from "@/lib/multisend/run-lock";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 
@@ -307,7 +307,7 @@ describe("MultisendForm", () => {
     const { user, rerender } = setup();
     await paste(user, LIST);
     await user.click(screen.getByRole("checkbox", { name: t.progress.release }));
-    hook.value = { ...hook.value, runKey: progressKey(OWNER, 84532, key), rows: [{ ...stored[0]!, attempt: { at: Date.now() - 20 * 60_000, block: "1" } }, stored[1]!, stored[2]!] };
+    hook.value = { ...hook.value, runKey: progressKey(OWNER, 84532, key), rows: [{ ...stored[0]!, attempt: { at: Date.now() - 20 * 60_000, block: "1" }, updated: Date.now() }, stored[1]!, stored[2]!] };
     rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
     expect(screen.getByRole("checkbox", { name: t.progress.release })).not.toBeChecked();
   });
@@ -430,18 +430,16 @@ describe("MultisendForm", () => {
   });
 
   it("R5: while another tab holds the lock on this list, it says so and nothing can start", async () => {
-    const { recipients } = parseRecipients(LIST, 84532);
-    window.localStorage.setItem(lockKey(progressKey(OWNER, 84532, listKey(84532, recipients))), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
+    window.localStorage.setItem(lockKey(walletRunKey(OWNER, 84532)), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
     const { user } = setup();
     await paste(user, LIST);
     expect(screen.getByText(t.form.locked)).toBeInTheDocument();
-    expect(t.form.locked).toBe("Otra pestaña está enviando esta lista");
+    expect(t.form.locked).toBe("Otra pestaña está enviando con esta wallet");
     expect(sendButton()).toBeDisabled();
   });
 
   it("R5: a stale lock (> 30 s) does not block", async () => {
-    const { recipients } = parseRecipients(LIST, 84532);
-    window.localStorage.setItem(lockKey(progressKey(OWNER, 84532, listKey(84532, recipients))), JSON.stringify({ tab: "other-tab", beat: Date.now() - 31_000 }));
+    window.localStorage.setItem(lockKey(walletRunKey(OWNER, 84532)), JSON.stringify({ tab: "other-tab", beat: Date.now() - 31_000 }));
     const { user } = setup();
     await paste(user, LIST);
     expect(screen.queryByText(t.form.locked)).not.toBeInTheDocument();
@@ -487,4 +485,50 @@ describe("MultisendForm", () => {
     expect(getDictionary("en").multisend.form.storageOff).toMatch(/another tab/);
   });
 });
+
+  describe("fix round 5", () => {
+    it("NEW-5: another tab running any list of this wallet shows the notice and nothing can start", async () => {
+      window.localStorage.setItem(lockKey(walletRunKey(OWNER, 84532)), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
+      const { user } = setup();
+      await paste(user, `${D},1`);
+      expect(screen.getByText(t.form.locked)).toBeInTheDocument();
+      expect(sendButton()).toBeDisabled();
+    });
+
+    it("after a run, a newer stored copy (another tab) replaces the run's stale rows on screen", async () => {
+      const { recipients, key, stored } = seed([{ status: "todo" }, { status: "todo" }, { status: "todo" }]);
+      const at = Date.now();
+      saveProgress(OWNER, 84532, key, [{ ...stored[0]!, status: "confirmed", hash: HASH, updated: at + 5 }, stored[1]!, stored[2]!]);
+      hook.value = {
+        ...hook.value,
+        runs: 1,
+        runKey: progressKey(OWNER, 84532, key),
+        rows: [{ ...stored[0]!, status: "unconfirmed", attempt: { block: "900", at }, updated: at }, stored[1]!, stored[2]!],
+      };
+      const { user } = setup();
+      await paste(user, LIST);
+      const progress = screen.getByRole("list", { name: t.progress.title });
+      expect(within(progress).getByText(t.progress.status.confirmed)).toBeInTheDocument();
+      expect(within(progress).queryByText(t.progress.status.unconfirmed)).not.toBeInTheDocument();
+      expect(recipients).toHaveLength(3);
+    });
+
+    it("copy: honest locked and wallet_pending texts, progress lives in this browser, open requests, smart wallets", async () => {
+      for (const lang of ["es", "en"] as const) {
+        const d = getDictionary(lang).multisend;
+        expect(d.progress.errors.locked).not.toMatch(/nada|nothing/i);
+        expect(d.progress.errors.wallet_pending).not.toMatch(/marcadas|ticked/i);
+      }
+      expect(t.progress.errors.locked).toBe("Se detuvo: otra pestaña está usando esta wallet. Revisa el estado de cada línea.");
+      expect(t.progress.releaseHint).toContain("y que no tengas solicitudes de firma abiertas en tu wallet");
+      expect(t.progress.releaseHintNoLink).toContain("y que no tengas solicitudes de firma abiertas en tu wallet");
+      seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
+      const { user } = setup();
+      await paste(user, LIST);
+      expect(screen.getByText(t.form.browserOnly)).toBeInTheDocument();
+      expect(t.form.browserOnly).toBe("El progreso se guarda solo en este navegador.");
+      expect(screen.getByText(t.progress.smartWallet)).toBeInTheDocument();
+      expect(t.progress.smartWallet).toMatch(/ERC-4337/);
+    });
+  });
 });

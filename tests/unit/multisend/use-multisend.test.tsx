@@ -38,9 +38,9 @@ const readAssetBalance = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/balances", () => ({ readAssetBalance }));
 
 import { resetMultisendMemory, useMultisend } from "@/lib/multisend/use-multisend";
-import { loadProgress, progressKey, recentAttempts, recentConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
+import { loadProgress, progressKey, recentAttempts, recentConfirmed, recordAttempt, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { lineId, type ParsedLine } from "@/lib/multisend/parse";
-import { lockKey, LOCK_STALE_MS, TAB_ID } from "@/lib/multisend/run-lock";
+import { lockKey, LOCK_STALE_MS, TAB_ID, walletRunKey } from "@/lib/multisend/run-lock";
 
 const OWNER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const A = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
@@ -54,6 +54,8 @@ const line = (n: number, to: `0x${string}`, amount: bigint): ParsedLine => ({ li
 const rows: ParsedLine[] = [line(1, A, 10_000_000n), line(2, B, 12_500_000n), line(3, C, 7_500_000n)];
 const ALL = new Set(rows.map((r) => r.id));
 const KEY = "list-key";
+/** NEW-5: the run lock is per (chain, wallet), not per list. */
+const WALLET_LOCK = lockKey(walletRunKey(OWNER, 84532));
 const userRejected = Object.assign(new Error("User rejected the request."), { name: "UserRejectedRequestError", code: 4001 });
 const row = (r: ParsedLine, extra: Partial<RowState> & { status: RowState["status"] }): RowState => ({ id: r.id, to: r.to, amount: r.amount.toString(), ...extra });
 const STALE = () => Date.now() - 11 * 60_000;
@@ -445,7 +447,6 @@ describe("useMultisend sequential", () => {
 });
 
 describe("fix round 3", () => {
-  const RUN_KEY = `elclub:multisend:84532:${OWNER.toLowerCase()}:${KEY}`;
   const notFound = () => [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "confirmed" })];
 
   it("R1: a released line is not signed while the wallet has a pending tx; the todo lines still go", async () => {
@@ -500,30 +501,29 @@ describe("fix round 3", () => {
   });
 
   it("R5: while another tab holds a fresh lock on this list, a run does nothing", async () => {
-    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() - 5_000 }));
+    window.localStorage.setItem(WALLET_LOCK, JSON.stringify({ tab: "other-tab", beat: Date.now() - 5_000 }));
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send).not.toHaveBeenCalled();
     expect(findTransfer).not.toHaveBeenCalled();
     expect(result.current.error).toBe("locked");
-    expect(JSON.parse(window.localStorage.getItem(lockKey(RUN_KEY))!).tab).toBe("other-tab");
+    expect(JSON.parse(window.localStorage.getItem(WALLET_LOCK)!).tab).toBe("other-tab");
   });
 
   it("R5: a stale lock (> 30 s) is taken over; the run holds the lock while signing and releases it after", async () => {
-    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() - LOCK_STALE_MS - 1 }));
+    window.localStorage.setItem(WALLET_LOCK, JSON.stringify({ tab: "other-tab", beat: Date.now() - LOCK_STALE_MS - 1 }));
     send.mockImplementation(async ({ to }: { to: string }) => {
-      expect(JSON.parse(window.localStorage.getItem(lockKey(RUN_KEY))!).tab).toBe(TAB_ID);
+      expect(JSON.parse(window.localStorage.getItem(WALLET_LOCK)!).tab).toBe(TAB_ID);
       return h(rows.findIndex((r) => r.to === to) + 1);
     });
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send).toHaveBeenCalledTimes(3);
-    expect(window.localStorage.getItem(lockKey(RUN_KEY))).toBeNull();
+    expect(window.localStorage.getItem(WALLET_LOCK)).toBeNull();
   });
 });
 
 describe("fix round 4", () => {
-  const RUN_KEY = progressKey(OWNER, 84532, KEY);
   const notFound = () => [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "confirmed" })];
 
   function fakeLocks() {
@@ -608,9 +608,9 @@ describe("fix round 4", () => {
       done = tabA.result.current.send(rows, OWNER, KEY, ALL);
     });
     await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
-    expect(locks.request).toHaveBeenCalledWith(expect.stringContaining(RUN_KEY), { ifAvailable: true }, expect.any(Function));
+    expect(locks.request).toHaveBeenCalledWith(WALLET_LOCK, { ifAvailable: true }, expect.any(Function));
     // Tab A's marker looks long stale; the Web Lock is what counts.
-    window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: TAB_ID, beat: Date.now() - 10 * LOCK_STALE_MS }));
+    window.localStorage.setItem(WALLET_LOCK, JSON.stringify({ tab: TAB_ID, beat: Date.now() - 10 * LOCK_STALE_MS }));
     await act(() => tabB.result.current.send(rows, OWNER, KEY, ALL));
     expect(tabB.result.current.error).toBe("locked");
     expect(send).toHaveBeenCalledTimes(1);
@@ -622,7 +622,7 @@ describe("fix round 4", () => {
 
   it("NEW-3: without Web Locks, a run that lost the storage lock to another tab opens no further prompt", async () => {
     send.mockImplementationOnce(async () => {
-      window.localStorage.setItem(lockKey(RUN_KEY), JSON.stringify({ tab: "other-tab", beat: Date.now() }));
+      window.localStorage.setItem(WALLET_LOCK, JSON.stringify({ tab: "other-tab", beat: Date.now() }));
       return h(1);
     });
     const { result } = renderHook(() => useMultisend(84532));
@@ -687,5 +687,103 @@ describe("fix round 4", () => {
     const second = renderHook(() => useMultisend(84532));
     await act(() => second.result.current.send(rows, OWNER, "k2", new Set(), new Set([rows[0]!.id])));
     expect(second.result.current.rows[0]).toMatchObject({ status: "unconfirmed", hash: h(7) });
+  });
+});
+
+describe("fix round 5", () => {
+  function fakeLocks() {
+    const held = new Set<string>();
+    const request = vi.fn(async (name: string, _opts: unknown, cb: (lock: { name: string } | null) => Promise<unknown>) => {
+      if (held.has(name)) return cb(null);
+      held.add(name);
+      try {
+        return await cb({ name });
+      } finally {
+        held.delete(name);
+      }
+    });
+    Object.defineProperty(navigator, "locks", { value: { request }, configurable: true });
+    return { held, request };
+  }
+  const [lA, lB, lC] = rows as [ParsedLine, ParsedLine, ParsedLine];
+
+  it("NEW-5: two lists of the same wallet that share a line never run at once: the shared line is signed once", async () => {
+    const locks = fakeLocks();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    send.mockImplementationOnce(async () => {
+      await gate;
+      return h(1);
+    });
+    const tab1 = renderHook(() => useMultisend(84532));
+    const tab2 = renderHook(() => useMultisend(84532));
+    let done!: Promise<void>;
+    act(() => {
+      done = tab1.result.current.send([lA, lC], OWNER, "list-1", new Set([lA.id, lC.id]));
+    });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await act(() => tab2.result.current.send([lB, lC], OWNER, "list-2", new Set([lB.id, lC.id])));
+    expect(tab2.result.current.error).toBe("locked");
+    release();
+    await act(() => done);
+    expect(send.mock.calls.filter((c) => c[0].to === C)).toHaveLength(1);
+    expect(locks.request.mock.calls.every((c) => c[0] === WALLET_LOCK)).toBe(true);
+  });
+
+  it("NEW-5: another wallet's run is not blocked", async () => {
+    fakeLocks();
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    send.mockImplementationOnce(async () => {
+      await gate;
+      return h(1);
+    });
+    const tab1 = renderHook(() => useMultisend(84532));
+    const tab2 = renderHook(() => useMultisend(84532));
+    let done!: Promise<void>;
+    act(() => {
+      done = tab1.result.current.send([lA], OWNER, "list-1", new Set([lA.id]));
+    });
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(1));
+    await act(() => tab2.result.current.send([lB], C, "list-2", new Set([lB.id])));
+    expect(tab2.result.current.error).not.toBe("locked");
+    release();
+    await act(() => done);
+  });
+
+  it("NEW-5: an attempt of a planned line recorded by another list during the run holds it: not signed, inherited as unconfirmed", async () => {
+    send.mockImplementationOnce(async () => {
+      recordAttempt({ chain: 84532, from: OWNER, to: B, amount: lB.amount.toString(), block: "4300" }, Date.now() + 1);
+      return h(1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, C]);
+    expect(result.current.rows[1]).toMatchObject({ status: "unconfirmed", attempt: { block: "4300" } });
+    expect(result.current.error).toBe("other_list");
+  });
+
+  it("NEW-5: a confirmation of a planned line recorded by another list during the run holds it too", async () => {
+    send.mockImplementationOnce(async () => {
+      recordConfirmed({ chain: 84532, from: OWNER, to: B, amount: lB.amount.toString(), hash: h(80) }, Date.now() + 1);
+      return h(1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, C]);
+    expect(result.current.rows[1]!.status).toBe("todo");
+    expect(result.current.error).toBe("other_list");
+  });
+
+  it("round 5: a stored row that is invalid makes its line unconfirmed (scanned from its block), never todo; the valid rows stay", async () => {
+    window.localStorage.setItem(
+      progressKey(OWNER, 84532, KEY),
+      JSON.stringify([row(lA, { hash: h(7), status: "confirmed" }), { ...row(lB, { status: "todo" }), status: "paid", attempt: { block: "900", at: STALE() } }, row(lC, { status: "todo" })]),
+    );
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([C]);
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, expect.objectContaining({ to: B, fromBlock: 900n }));
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "not_found", "confirmed"]);
   });
 });

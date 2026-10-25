@@ -1,7 +1,19 @@
 import type { Log } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
 import { isUserRejection, NOT_FOUND_GIVE_UP_MS, sentAtNow } from "@/lib/web3/signing";
-import { mergeProgress, recordAttempt, recordConfirmed, saveProgress, type RowState } from "./progress";
+import {
+  forgetAttempt,
+  inheritAttempts,
+  mergeProgress,
+  recordAttempt,
+  recordConfirmed,
+  recordSince,
+  rowStamp,
+  saveProgress,
+  type RecentAttempt,
+  type RecentSend,
+  type RowState,
+} from "./progress";
 import { paysLine } from "./receipt";
 
 type Address = `0x${string}`;
@@ -23,8 +35,10 @@ export type MultisendError =
   | "wallet_pending"
   /** R3: the block at send could not be read: nothing was signed. */
   | "rpc"
-  /** R5/NEW-3: another tab is running this list, or took it over (or wrote it) during this run. */
-  | "locked";
+  /** R5/NEW-3/NEW-5: another tab is running for this wallet, or took over (or wrote this list) during this run. */
+  | "locked"
+  /** NEW-5: another list of this wallet attempted or confirmed a planned line during this run: it was not signed. */
+  | "other_list";
 
 /** How long a run waits, in total, for the receipts (or batch statuses) of the lines already sent. */
 export const RECHECK_TIMEOUT_MS = 30_000;
@@ -54,8 +68,10 @@ export type Deps = {
   sendBatch(rows: readonly RowState[]): Promise<string>;
   /** The stored rows of this list, in its order; null when there are none or no storage. */
   loadStored(): RowState[] | null;
-  /** NEW-3: whether this tab still runs the list (always true under a Web Lock). */
+  /** NEW-3: whether this tab still runs for this wallet (always true under a Web Lock). */
   ownsRun(): boolean;
+  /** NEW-5: the 24 h record, read now: this wallet's attempts and the chain's confirmations of this wallet. */
+  readRecord(): { attempts: RecentAttempt[]; confirmed: RecentSend[] };
 };
 
 export type RunContext = {
@@ -63,6 +79,8 @@ export type RunContext = {
   owner: Address;
   key: string;
   usdc: Address;
+  /** When the run started, before its rows and the record were read (NEW-5). */
+  startedAt: number;
   /** Every change, as it is committed (memory, for the page session). */
   remember(rows: RowState[]): void;
   onChange(rows: RowState[], storageOk: boolean): void;
@@ -82,6 +100,8 @@ export class Run {
   storageOk = true;
   /** R1 kept some lines back in this run. */
   held = false;
+  /** NEW-5: another list's attempt or confirmation kept some lines back in this run. */
+  otherList = false;
 
   constructor(
     public rows: RowState[],
@@ -101,13 +121,13 @@ export class Run {
     return this.rows.find((r) => r.id === id)!;
   }
 
-  /** Changes these lines; each changed copy gets a newer `updated` than its last one, so a merge keeps it. */
+  /** Changes these lines; each changed copy gets a later stamp than the copy it replaces, so a merge keeps it. */
   patch(ids: ReadonlySet<string>, change: Partial<RowState> | ((r: RowState) => Partial<RowState>)) {
     const now = sentAtNow();
     this.commit(
       this.rows.map((r) => {
         if (!ids.has(r.id)) return r;
-        const next: RowState = { ...r, ...(typeof change === "function" ? change(r) : change), updated: Math.max(now, (r.updated ?? 0) + 1) };
+        const next: RowState = { ...r, ...(typeof change === "function" ? change(r) : change), updated: Math.max(now, rowStamp(r) + 1) };
         if (next.status === "confirmed" && r.status !== "confirmed") {
           const { chain, owner } = this.ctx;
           recordConfirmed({ chain, from: owner, to: next.to, amount: next.amount, ...(next.hash ? { hash: next.hash } : {}), attemptAt: next.attempt?.at }, now);
@@ -139,7 +159,7 @@ export class Run {
     } catch (err) {
       return err instanceof Stop ? err.code : "failed";
     }
-    return this.held ? "wallet_pending" : this.notice();
+    return this.otherList ? "other_list" : this.held ? "wallet_pending" : this.notice();
   }
 
   /** 1. Plan: decided before any check, so a line that changes state during the checks is never signed in this run. */
@@ -246,9 +266,14 @@ export class Run {
   }
 
   /**
-   * 5. Right before a wallet prompt: R1 again for the gated lines; then, with no await before the prompt, stops if
-   * this tab no longer runs the list (NEW-3), re-reads storage (the commit merges it) and stops if any of these lines
-   * moved since they were planned (another writer). Returns the lines to prompt now.
+   * 5. Right before a wallet prompt: R1 again for the gated lines; then, with no await before the prompt:
+   * - stops if this tab no longer runs for this wallet (NEW-3);
+   * - re-reads storage (the commit merges it) and stops if any of these lines moved since they were planned;
+   * - re-reads the 24 h record and holds any line that another list attempted or confirmed since the run started
+   *   (NEW-5): an attempt is inherited (the line becomes `unconfirmed`, scanned next time); a confirmation leaves it
+   *   as it is, for the form's 24 h warning. This run writes no record entry for a line before its prompt, so every
+   *   such entry is another list's.
+   * Returns the lines to prompt now.
    */
   private async guard(planned: readonly RowState[]): Promise<RowState[]> {
     const going = await this.holdBack(planned);
@@ -256,7 +281,15 @@ export class Run {
     this.commit(this.rows);
     const current = going.map((p) => this.row(p.id));
     if (current.some((r, i) => r.status !== going[i]!.status || r.attempt?.at !== going[i]!.attempt?.at)) throw new Stop("locked");
-    return current;
+    const record = this.deps.readRecord();
+    return current.filter((r) => {
+      const since = recordSince(r, record, this.ctx.startedAt);
+      if (since.attempts.length === 0 && since.confirmed.length === 0) return true;
+      this.otherList = true;
+      const [inherited] = inheritAttempts([r], since.attempts);
+      if (inherited !== r) this.patch(new Set([r.id]), { status: inherited!.status, attempt: inherited!.attempt, hash: inherited!.hash });
+      return false;
+    });
   }
 
   /**
@@ -287,6 +320,11 @@ export class Run {
    * there was one, so a never-attempted line is now `todo` with an attempt: scanned and R1-gated before it is signed.
    */
   private restore(before: ReadonlyMap<string, RowState>) {
+    const { chain, owner } = this.ctx;
+    for (const prev of before.values()) {
+      // A re-attempt rejected: the line keeps its earlier attempt, so this one leaves the record.
+      if (prev.attempt) forgetAttempt({ chain, from: owner, to: prev.to, amount: prev.amount }, this.row(prev.id).attempt!.at);
+    }
     this.patch(new Set(before.keys()), (r) => {
       const prev = before.get(r.id)!;
       return { status: prev.status, hash: prev.hash, callsId: prev.callsId, attempt: { ...r.attempt!, at: prev.attempt?.at ?? r.attempt!.at } };

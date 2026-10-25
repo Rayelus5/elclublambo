@@ -1,3 +1,4 @@
+import { getAddress } from "viem";
 import type { ChainId } from "@/lib/economy/networks";
 
 type Address = `0x${string}`;
@@ -77,13 +78,40 @@ export function readProgressRaw(owner: Address, chain: ChainId, key: string): st
   }
 }
 
+const LINE_ID = /^(0x[0-9a-f]{40}):(\d+):\d+$/;
+
+/**
+ * An invalid stored row whose `id` still names its line (lineId): kept as `unconfirmed`, with its block at send when
+ * that is still readable (round 5). Anything else is dropped.
+ */
+function salvage(v: unknown): RowState | null {
+  if (typeof v !== "object" || v === null) return null;
+  const r = v as Record<string, unknown>;
+  const m = typeof r.id === "string" ? LINE_ID.exec(r.id) : null;
+  if (!m) return null;
+  const a = (typeof r.attempt === "object" && r.attempt !== null ? r.attempt : {}) as Record<string, unknown>;
+  const block = typeof a.block === "string" && UNITS.test(a.block) ? a.block : undefined;
+  const at = typeof a.at === "number" && Number.isFinite(a.at) ? a.at : 0;
+  return { id: r.id as string, to: getAddress(m[1]!), amount: m[2]!, status: "unconfirmed", ...(block ? { attempt: { block, at } } : {}) };
+}
+
+/**
+ * The stored rows, or null when nothing is stored. Invalid rows are dropped one by one (salvaged as `unconfirmed`
+ * when their id names the line), never the whole list (round 5): a value that cannot be read at all gives no rows,
+ * and alignProgress then makes every line `unconfirmed`, never `todo`.
+ */
 export function parseProgress(raw: string | null): RowState[] | null {
-  if (!raw) return null;
+  if (raw === null) return null;
   try {
     const v: unknown = JSON.parse(raw);
-    return Array.isArray(v) && v.length > 0 && v.every(isRow) ? v : null;
+    if (!Array.isArray(v)) return [];
+    return v.flatMap((x): RowState[] => {
+      if (isRow(x)) return [x];
+      const kept = salvage(x);
+      return kept ? [kept] : [];
+    });
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -114,7 +142,9 @@ export function storageAvailable(): boolean {
 }
 
 const RANK: Record<RowStatus, number> = { todo: 0, scan_failed: 1, unconfirmed: 1, not_found: 1, sent: 2, confirmed: 3 };
-const stamp = (r: RowState) => r.updated ?? r.attempt?.at ?? 0;
+/** When a copy of a line last changed: `updated`, or its attempt's time for copies written before `updated` existed. */
+export const rowStamp = (r: RowState) => r.updated ?? r.attempt?.at ?? 0;
+const stamp = rowStamp;
 
 /**
  * Per line, the newest of two copies (storage and memory, finding 1; or another tab's write): the one with the later
@@ -143,20 +173,14 @@ export function clearProgress(owner: Address, chain: ChainId, key: string): void
 }
 
 /**
- * The stored rows in the list's order when they are exactly the list's lines by identity (C3: a reordered list
- * resumes), or null for any other set of lines.
+ * The stored rows in the list's order, matched by line identity (C3: a reordered list resumes), or null when nothing
+ * is stored. The progress key is a hash of the list's line ids, so a stored copy lacking a line was damaged: that line
+ * is `unconfirmed` (scanned, never signed as untouched; round 5). Stored rows of other ids are ignored.
  */
-export function alignProgress(stored: readonly RowState[] | null, lines: readonly { id: string }[]): RowState[] | null {
-  if (!stored || stored.length !== lines.length) return null;
+export function alignProgress(stored: readonly RowState[] | null, lines: readonly { id: string; to: Address; amount: bigint }[]): RowState[] | null {
+  if (!stored) return null;
   const byId = new Map(stored.map((r) => [r.id, r]));
-  if (byId.size !== stored.length) return null;
-  const out: RowState[] = [];
-  for (const l of lines) {
-    const r = byId.get(l.id);
-    if (!r) return null;
-    out.push(r);
-  }
-  return out;
+  return lines.map((l) => byId.get(l.id) ?? { id: l.id, to: l.to, amount: l.amount.toString(), status: "unconfirmed" });
 }
 
 /**
@@ -257,6 +281,16 @@ export function recordAttempt(entry: Omit<RecentAttempt, "kind" | "at">, at: num
   writeRecent(kept);
 }
 
+/**
+ * Removes one attempt entry (the same line and time): a definitive rejection of a re-attempt, whose line keeps its
+ * earlier attempt (NEW-2), so the rejected one must not read as a newer attempt (NEW-6).
+ */
+export function forgetAttempt(entry: Pick<RecentAttempt, "chain" | "from" | "to" | "amount">, at: number): void {
+  const all = parseRecentAll(readRecentRaw());
+  const kept = all.filter((e) => !(isAttemptEntry(e) && sameLine(e, entry) && e.at === at));
+  if (kept.length !== all.length) writeRecent(kept);
+}
+
 export function recentConfirmed(chain: ChainId, now: number): RecentSend[] {
   return parseRecent(readRecentRaw(), chain, now);
 }
@@ -266,22 +300,37 @@ export function recentAttempts(chain: ChainId, from: Address, now: number): Rece
 }
 
 /**
- * NEW-4: every `todo` line never attempted in this list that matches attempts from the record (same recipient and
- * amount; the caller passes only this wallet's and chain's) becomes `unconfirmed`, with an attempt from the earliest
- * block (none when any attempt lacks one: it cannot be scanned and ends `scan_failed`), the latest time and the latest
- * known hash, so it is scanned before it can be signed. Returns `rows` itself when nothing matches. Pure.
+ * NEW-4/NEW-6: a line not confirmed nor sent that matches an attempt from the record (same recipient and amount; the
+ * caller passes only this wallet's and chain's) NEWER than its own attempt (any, when it has none) becomes
+ * `unconfirmed`, so it is scanned before it can be signed. Its attempt takes the newest time and the earliest block
+ * of its own and the matching attempts (none when any lacks one: it cannot be scanned and ends `scan_failed`); it
+ * keeps its own hash, or takes the latest known one. Returns `rows` itself when nothing changes. Pure.
  */
 export function inheritAttempts(rows: RowState[], attempts: readonly RecentAttempt[]): RowState[] {
   let changed = false;
   const out = rows.map((r) => {
-    if (r.status !== "todo" || r.attempt) return r;
+    if (r.status === "confirmed" || r.status === "sent") return r;
     const hits = attempts.filter((e) => sameAddress(e.to, r.to) && e.amount === r.amount).sort((x, y) => x.at - y.at);
-    if (hits.length === 0) return r;
+    const newest = hits.at(-1);
+    if (!newest || (r.attempt && newest.at <= r.attempt.at)) return r;
     changed = true;
-    const blocks = hits.map((e) => e.block);
+    const blocks = [...(r.attempt ? [r.attempt.block] : []), ...hits.map((e) => e.block)];
     const block = blocks.every((b): b is string => b !== undefined) ? blocks.reduce((m, b) => (BigInt(b) < BigInt(m) ? b : m)) : undefined;
-    const hash = hits.filter((e) => e.hash).at(-1)?.hash;
-    return { ...r, status: "unconfirmed" as const, attempt: { ...(block ? { block } : {}), at: hits.at(-1)!.at }, ...(hash ? { hash } : {}) };
+    const hash = r.hash ?? hits.filter((e) => e.hash).at(-1)?.hash;
+    return { ...r, status: "unconfirmed" as const, attempt: { ...(block ? { block } : {}), at: newest.at }, ...(hash ? { hash } : {}) };
   });
   return changed ? out : rows;
+}
+
+/**
+ * NEW-5: the record's entries for this line (same recipient and amount) written at or after `since`: what another
+ * list of this wallet attempted or confirmed while a run was going. Pure.
+ */
+export function recordSince(
+  r: Pick<RowState, "to" | "amount">,
+  record: { attempts: readonly RecentAttempt[]; confirmed: readonly RecentSend[] },
+  since: number,
+): { attempts: RecentAttempt[]; confirmed: RecentSend[] } {
+  const same = (e: { to: string; amount: string; at: number }) => sameAddress(e.to, r.to) && e.amount === r.amount && e.at >= since;
+  return { attempts: record.attempts.filter(same), confirmed: record.confirmed.filter(same) };
 }

@@ -61,7 +61,7 @@ describe("multisend progress", () => {
     expect(recentConfirmed(84532, 0)).toEqual([]);
   });
 
-  it("stored junk is null, not a crash", () => {
+  it("round 5: stored junk never crashes and never reads as an untouched list: no row survives, so every line is unconfirmed", () => {
     const key = progressKey(OWNER, 84532, "k1");
     for (const junk of [
       "nope",
@@ -76,18 +76,32 @@ describe("multisend progress", () => {
       JSON.stringify([{ ...rows[1], status: "failed" }]),
     ]) {
       window.localStorage.setItem(key, junk);
-      expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
+      const loaded = loadProgress(OWNER, 84532, "k1");
+      expect(loaded).not.toBeNull();
+      expect(loaded!.every((r) => r.status === "unconfirmed")).toBe(true);
     }
+    window.localStorage.removeItem(key);
+    expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
   });
 
-  it("C3: alignProgress matches by line identity, in the list's order; another set of lines is null", () => {
+  it("round 5: an invalid row is dropped alone; the valid rows stay, and one whose id names its line is kept as unconfirmed with its block", () => {
+    const key = progressKey(OWNER, 84532, "k1");
+    window.localStorage.setItem(key, JSON.stringify([rows[0], { ...rows[1], status: "paid", attempt: { block: "900", at: 7 } }, { nonsense: true }]));
+    expect(loadProgress(OWNER, 84532, "k1")).toEqual([
+      rows[0],
+      { id: rows[1]!.id, to: TO2, amount: "2500000", status: "unconfirmed", attempt: { block: "900", at: 7 } },
+    ]);
+  });
+
+  it("C3: alignProgress matches by line identity, in the list's order; a line with no stored row (a damaged store) is unconfirmed, never todo", () => {
     const list = [
       { id: id(TO2, "2500000"), to: TO2, amount: 2_500_000n },
       { id: id(TO, "1000000"), to: TO, amount: 1_000_000n },
     ];
     expect(alignProgress(rows, list)).toEqual([rows[1], rows[0]]);
-    expect(alignProgress(rows, list.slice(0, 1))).toBeNull();
-    expect(alignProgress(rows, [list[0]!, { id: id(TO, "1"), to: TO, amount: 1n }])).toBeNull();
+    expect(alignProgress(rows, list.slice(0, 1))).toEqual([rows[1]]);
+    expect(alignProgress(rows, [list[0]!, { id: id(TO, "1"), to: TO, amount: 1n }])).toEqual([rows[1], { id: id(TO, "1"), to: TO, amount: "1", status: "unconfirmed" }]);
+    expect(alignProgress([], list)!.map((r) => r.status)).toEqual(["unconfirmed", "unconfirmed"]);
     expect(alignProgress(null, list)).toBeNull();
   });
 });
@@ -162,10 +176,27 @@ describe("fix round 4", () => {
     expect(out[1]).toBe(rowsIn[1]);
     // Nothing to inherit: the same array back.
     expect(inheritAttempts(rowsIn, [])).toBe(rowsIn);
-    // A line already attempted or past todo keeps its own record.
-    const own: RowState[] = [{ ...A1, status: "todo", attempt: { block: "1", at: 5 } }];
+    // A line whose own attempt is newer than the record keeps it; a confirmed or sent line is never touched.
+    const own: RowState[] = [{ ...A1, status: "todo", attempt: { block: "1", at: 5_000 } }];
     expect(inheritAttempts(own, attempts)).toBe(own);
+    const settled: RowState[] = [{ ...A1, status: "confirmed", hash: HASH, attempt: { block: "1", at: 5 } }, { id: id(TO, "x"), to: TO, amount: "1000000", status: "sent", hash: HASH, attempt: { block: "1", at: 5 } }];
+    expect(inheritAttempts(settled, attempts)).toBe(settled);
     // An attempt without its block cannot be scanned from anywhere: inherited without one (scan_failed later).
     expect(inheritAttempts([{ ...A1, status: "todo" }], [{ ...attempts[0]!, block: undefined }])[0]!.attempt).toEqual({ at: 2_000 });
+  });
+});
+
+describe("round 5", () => {
+  const A1 = { id: id(TO, "1000000"), to: TO, amount: "1000000" } as const;
+  const newer = { kind: "attempt" as const, chain: 84532 as const, from: OWNER, to: TO, amount: "1000000", block: "950", at: 9_000 };
+
+  it("NEW-6: a newer attempt from another list refreshes a line with its own older attempt: unconfirmed, newest time, earliest block", () => {
+    const own: RowState[] = [{ ...A1, status: "todo", attempt: { block: "900", at: 1_000 } }];
+    expect(inheritAttempts(own, [newer])[0]).toEqual({ ...A1, status: "unconfirmed", attempt: { block: "900", at: 9_000 } });
+    const released: RowState[] = [{ ...A1, status: "not_found", hash: HASH, attempt: { block: "990", at: 1_000 } }];
+    expect(inheritAttempts(released, [newer])[0]).toEqual({ ...A1, status: "unconfirmed", hash: HASH, attempt: { block: "950", at: 9_000 } });
+    // Its own attempt in the record (same time) is not newer: nothing changes.
+    const same: RowState[] = [{ ...A1, status: "unconfirmed", attempt: { block: "950", at: 9_000 } }];
+    expect(inheritAttempts(same, [newer])).toBe(same);
   });
 });
