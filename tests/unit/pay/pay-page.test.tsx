@@ -76,17 +76,22 @@ describe("pay page", () => {
     expect(getPublicProfileView).not.toHaveBeenCalled();
   });
 
-  it("a read error on an address still lets the visitor pay it (every network, with the warning)", async () => {
+  it("a read error on an address shows the error state: no widget and no false no-profile warning (D22)", async () => {
     getPublicProfileView.mockRejectedValue(new Error("db down"));
     render(await content("en", ADDR));
-    expect(screen.getByText(en.noProfileTitle)).toBeInTheDocument();
-    expect(screen.getByTestId("widget").dataset.accept).toBe("base,arbitrum");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Pay 0x2222…2222");
+    expect(screen.getByRole("alert")).toHaveTextContent(en.loadFailed);
+    expect(screen.getByRole("link", { name: en.retry }).getAttribute("href")).toBe(`/en/pay/${ADDR}`);
+    expect(screen.queryByTestId("widget")).not.toBeInTheDocument();
+    expect(screen.queryByText(en.noProfileTitle)).not.toBeInTheDocument();
   });
 
   it("a read error on an alias shows an error state, not a payment form", async () => {
     getPublicProfileView.mockRejectedValue(new Error("db down"));
     render(await content("en", "rayelus"));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Pay @rayelus");
     expect(screen.getByRole("alert")).toHaveTextContent(en.loadFailed);
+    expect(screen.getByRole("link", { name: en.retry }).getAttribute("href")).toBe("/en/pay/rayelus");
     expect(screen.queryByTestId("widget")).not.toBeInTheDocument();
   });
 });

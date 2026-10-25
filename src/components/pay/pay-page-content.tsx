@@ -1,15 +1,16 @@
 import { notFound } from "next/navigation";
-import { BadgeCheck, CircleAlert, TriangleAlert } from "lucide-react";
+import { BadgeCheck, CircleAlert, RotateCw, TriangleAlert } from "lucide-react";
 import { CopyButton } from "@/components/pay/copy-button";
 import { PayWidgetLazy } from "@/components/pay/pay-widget-lazy";
-import { NETWORK_KEYS } from "@/lib/economy/networks";
+import { Button } from "@/components/ui/button";
 import { getDictionary } from "@/lib/i18n";
 import { isLang } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/fill";
+import { localizedPath } from "@/lib/i18n/routes";
 import { ALIAS_RE } from "@/lib/pay/alias";
 import { parsePayQuery } from "@/lib/pay/link";
 import { getPublicProfileView } from "@/lib/pay/queries";
-import { ADDRESS_RE } from "@/lib/pay/target";
+import { ADDRESS_RE, payTitleName } from "@/lib/pay/target";
 import type { PublicProfileView } from "@/lib/pay/types";
 import { safeError } from "@/lib/security/redact";
 
@@ -20,8 +21,8 @@ type Props = {
 
 /**
  * The recipient and the payment form of /pay/<alias or address>. An unknown alias is a 404 from the proxy; this
- * notFound() is the safety net for when the proxy failed open on a read error. An address always resolves (P3-R4): even
- * when the read fails it can be paid on every network, with the no-profile warning.
+ * notFound() is the safety net for when the proxy failed open on a read error. An address always resolves (P3-R4); a
+ * read error shows a retry state and no payment form.
  */
 export async function PayPageContent({ params, searchParams }: Props) {
   const { lang, target } = await params;
@@ -34,16 +35,26 @@ export async function PayPageContent({ params, searchParams }: Props) {
   try {
     view = await getPublicProfileView(target);
   } catch (e) {
+    // D22: on a read error the page cannot know which networks this target accepts (an address may have a profile
+    // limited to one network), so it offers no payment at all, alias or address alike.
     console.error("[pay] profile read failed", safeError(e instanceof Error ? e.message : String(e)));
-    if (!isAddress) {
-      return (
-        <p role="alert" className="flex items-start gap-2 rounded-panel border border-danger/60 bg-surface p-4 text-sm text-danger">
+    return (
+      <section aria-labelledby="pay-title" className="flex flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
+        <h1 id="pay-title" className="break-words font-display text-2xl font-bold text-fg sm:text-3xl">
+          {fill(t.titleTo, { name: payTitleName(target) ?? target })}
+        </h1>
+        <p role="alert" className="flex items-start gap-2 text-sm text-danger">
           <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
           {t.loadFailed}
         </p>
-      );
-    }
-    view = { alias: null, displayName: null, address: target, acceptNetworks: [...NETWORK_KEYS], isMember: false };
+        <Button asChild variant="outline" className="self-start">
+          <a href={localizedPath(lang, "pay", { target })}>
+            <RotateCw aria-hidden />
+            {t.retry}
+          </a>
+        </Button>
+      </section>
+    );
   }
   if (!view) notFound();
 

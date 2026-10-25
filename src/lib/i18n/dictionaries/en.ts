@@ -599,6 +599,7 @@ export const en = {
       noProfileTitle: "This address has no ElClub Pay profile",
       noProfileText: "Nobody has registered it here. Check it is the right one before paying: a sent payment cannot be undone.",
       loadFailed: "This payment page could not be loaded. Try again in a few minutes.",
+      retry: "Try again",
       amountLabel: "Amount",
       assetLabel: "Asset",
       balance: "Balance: ",

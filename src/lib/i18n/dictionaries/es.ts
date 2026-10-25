@@ -599,6 +599,7 @@ export const es = {
       noProfileTitle: "Esta dirección no tiene perfil de ElClub Pay",
       noProfileText: "Nadie la ha registrado aquí. Comprueba que es la correcta antes de pagar: un pago enviado no se puede deshacer.",
       loadFailed: "No se pudo cargar esta página de pago. Inténtalo de nuevo en unos minutos.",
+      retry: "Reintentar",
       amountLabel: "Importe",
       assetLabel: "Activo",
       balance: "Saldo: ",
