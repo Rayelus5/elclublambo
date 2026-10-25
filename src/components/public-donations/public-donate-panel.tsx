@@ -111,6 +111,8 @@ type Props = {
   session: { wallet: Hash; isMember: boolean } | null;
   /** Networks whose club Safe is deployed (donationChains()). Empty: donations are not open yet. */
   chains: readonly ChainId[];
+  /** The Safe check failed (RPC or database): «could not load», distinct from «no Safe deployed». */
+  chainsFailed?: boolean;
   /** The signed-in non-member's confirmed public donations, USD6 as text (null when the read failed). */
   myTotalUsd6: string | null;
   /** Where the public sign-in returns to. */
@@ -137,7 +139,7 @@ function Notices({ t }: { t: T }) {
 
 /** The donate panel of the public page: sign-in, member redirect, «not available yet», or the donation flow. */
 export function PublicDonatePanel(props: Props) {
-  const { lang, t, session, chains, myTotalUsd6, next } = props;
+  const { lang, t, session, chains, chainsFailed = false, myTotalUsd6, next } = props;
   let body: React.ReactNode;
   if (!session) {
     body = (
@@ -174,7 +176,12 @@ export function PublicDonatePanel(props: Props) {
           <HeartHandshake aria-hidden className="mt-0.5 size-4 shrink-0" />
           {t.mecenasNote}
         </p>
-        {chains.length === 0 ? (
+        {chainsFailed ? (
+          <p role="alert" className="flex items-start gap-2 text-sm text-danger">
+            <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+            {t.readFailed}
+          </p>
+        ) : chains.length === 0 ? (
           <div role="status" className="flex flex-col gap-1 rounded-control border border-border p-3">
             <p className="text-sm font-bold text-fg">{t.unavailable}</p>
             <p className="text-sm text-fg-muted">{t.unavailableText}</p>

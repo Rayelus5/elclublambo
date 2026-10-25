@@ -1,13 +1,13 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { NetworkLogo } from "@/components/economy/network-logo";
 import { PublicDonatePanelLazy } from "@/components/public-donations/public-donate-panel-lazy";
 import { PageLoader } from "@/components/shell/page-loader";
 import { getPublicSession } from "@/lib/auth/public-session";
-import { getMyPublicDonations, getPublicDonationOverview } from "@/lib/donations/public-queries";
-import { getSafeBalances } from "@/lib/donations/safe-balances";
-import { donationChains } from "@/lib/economy/club-safe";
+import { getCachedPublicDonationOverview, getCachedSafeBalances } from "@/lib/donations/public-cached";
+import { getMyPublicDonations } from "@/lib/donations/public-queries";
+import { donationChainsStatus } from "@/lib/economy/club-safe";
 import type { ChainId } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE, type Lang } from "@/lib/i18n/config";
@@ -33,9 +33,13 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/donate">):
   };
 }
 
-/** A failed read shows its own notice and leaves the rest of the page standing. */
+/**
+ * A failed read shows its own notice and leaves the rest of the page standing. Next's own control-flow rejections (the
+ * build's prerender ending on a short-lived "use cache" read) are rethrown, never shown as a failed read.
+ */
 function settle<T>(label: string, p: Promise<T>): Promise<T | null> {
   return p.catch((e: unknown) => {
+    unstable_rethrow(e);
     console.error(`[donations] public ${label} read failed`, safeError(e));
     return null;
   });
@@ -64,14 +68,14 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
 /** Public totals only: no names and no addresses (P3-R8: the club's donor list stays in the club). */
 async function Overview({ lang }: { lang: Lang }) {
   const t = getDictionary(lang).donate;
-  const overview = await settle("overview", getPublicDonationOverview());
+  const overview = await settle("overview", getCachedPublicDonationOverview());
   if (!overview) return <p className="text-sm text-danger">{t.readFailed}</p>;
   return (
     <div className="flex flex-col gap-4">
       <dl className="grid grid-cols-2 gap-4">
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-[13px] text-fg-muted">{t.totalDonated}</dt>
-          <dd className="font-display text-2xl font-bold break-words text-fg tabular-nums sm:text-3xl">{formatUsdIn(overview.totalUsd6, lang)}</dd>
+          <dd className="font-display text-2xl font-bold break-words text-fg tabular-nums sm:text-3xl">{formatUsdIn(BigInt(overview.totalUsd6), lang)}</dd>
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <dt className="text-[13px] text-fg-muted">{t.donationCount}</dt>
@@ -83,13 +87,13 @@ async function Overview({ lang }: { lang: Lang }) {
   );
 }
 
-/** What the Safe holds on each network, read on-chain now (one call per asset and network). */
+/** What the Safe holds on each network, read on-chain (cached for a minute: public page, see public-cached.ts). */
 async function SafeBalancesBlock({ lang }: { lang: Lang }) {
   const t = getDictionary(lang).donate;
-  const balances = await settle("safe balances", getSafeBalances());
+  const balances = await settle("safe balances", getCachedSafeBalances());
   if (!balances) return <p className="text-sm text-danger">{t.readFailed}</p>;
-  const amount = (v: bigint | null, token: "USDC" | "ETH") =>
-    v === null ? <span className="text-fg-muted">{t.notAvailable}</span> : <span className="font-mono text-fg tabular-nums">{tokenIn(v, token, lang)}</span>;
+  const amount = (v: string | null, token: "USDC" | "ETH") =>
+    v === null ? <span className="text-fg-muted">{t.notAvailable}</span> : <span className="font-mono text-fg tabular-nums">{tokenIn(BigInt(v), token, lang)}</span>;
   return (
     <ul aria-label={t.safeTitle} className="flex flex-col divide-y divide-border">
       {balances.map((b) => (
@@ -110,15 +114,18 @@ async function Gate({ lang }: { lang: Lang }) {
   const t = getDictionary(lang).donate;
   const session = await getPublicSession();
   const donor = session && !session.isMember;
-  const [chains, mine] = donor
-    ? await Promise.all([settle("donation chains", donationChains()), settle("my donations", getMyPublicDonations())])
-    : [[] as ChainId[], null];
+  const [status, mine] = donor
+    ? await Promise.all([settle("donation chains", donationChainsStatus()), settle("my donations", getMyPublicDonations())])
+    : [{ chains: [] as ChainId[], networkError: false }, null];
+  // A failed check with no network available reads «could not load», never «not available yet».
+  const chainsFailed = status === null || (status.chains.length === 0 && status.networkError);
   return (
     <PublicDonatePanelLazy
       lang={lang}
       t={t}
       session={session ? { wallet: session.wallet, isMember: session.isMember } : null}
-      chains={chains ?? []}
+      chains={status?.chains ?? []}
+      chainsFailed={chainsFailed}
       myTotalUsd6={mine ? mine.totalUsd6.toString() : null}
       next={localizedPath(lang, "donate")}
     />

@@ -53,7 +53,7 @@ function intentFor(input: { chainId: number; token: "USDC" | "ETH"; amount: stri
   };
 }
 
-function setup(props: { session?: { wallet: `0x${string}`; isMember: boolean } | null; chains?: ChainId[]; lang?: "es" | "en"; myTotalUsd6?: string | null } = {}) {
+function setup(props: { session?: { wallet: `0x${string}`; isMember: boolean } | null; chains?: ChainId[]; chainsFailed?: boolean; lang?: "es" | "en"; myTotalUsd6?: string | null } = {}) {
   const lang = props.lang ?? "es";
   return render(
     <PublicDonatePanel
@@ -61,6 +61,7 @@ function setup(props: { session?: { wallet: `0x${string}`; isMember: boolean } |
       t={lang === "en" ? en : es}
       session={props.session === undefined ? { wallet: WALLET, isMember: false } : props.session}
       chains={props.chains ?? [84532, 421614]}
+      chainsFailed={props.chainsFailed}
       myTotalUsd6={props.myTotalUsd6 ?? "0"}
       next="/donar"
     />,
@@ -183,5 +184,40 @@ describe("PublicDonatePanel", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(es.panel.cancelled);
     expect(window.localStorage.getItem(storageKey(WALLET, INTENT_ID))).toBeNull();
     expect(attachPublicDonationTxAction).not.toHaveBeenCalled();
+  });
+
+  it("a failed Safe check says it could not load (not «not available yet») and shows no form", () => {
+    connect();
+    setup({ chains: [], chainsFailed: true });
+    expect(screen.getByRole("alert")).toHaveTextContent(es.readFailed);
+    expect(screen.queryByText(es.unavailable)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(es.panel.amountLabel)).not.toBeInTheDocument();
+  });
+
+  async function fillAndSubmit(network: RegExp) {
+    const radio = screen.getAllByRole("radio").find((r) => /USDC/.test(r.textContent ?? "") && network.test(r.textContent ?? ""))!;
+    await userEvent.click(radio);
+    await userEvent.type(screen.getByLabelText(es.panel.amountLabel), "5");
+    await userEvent.click(screen.getByRole("button", { name: es.panel.submit }));
+  }
+
+  it("a failed network switch never creates an intent nor sends", async () => {
+    connect(84532);
+    ensure.mockResolvedValue(false);
+    setup();
+    await fillAndSubmit(/Arbitrum/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Arbitrum/);
+    expect(createPublicDonationIntentAction).not.toHaveBeenCalled();
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("a balance shortfall at preflight never sends and stores nothing", async () => {
+    connect(84532);
+    preflight.mockResolvedValue("No tienes suficiente USDC");
+    setup();
+    await fillAndSubmit(/Base/);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Saldo insuficiente/);
+    expect(send).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem(storageKey(WALLET, INTENT_ID))).toBeNull();
   });
 });
