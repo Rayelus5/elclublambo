@@ -9,9 +9,7 @@ const signMessageAsync = vi.hoisted(() => vi.fn());
 const switchChain = vi.hoisted(() => vi.fn());
 const open = vi.hoisted(() => vi.fn());
 const signInWithWeb3 = vi.hoisted(() => vi.fn());
-const completeLogin = vi.hoisted(() => vi.fn());
-const replace = vi.hoisted(() => vi.fn());
-const refresh = vi.hoisted(() => vi.fn());
+const hardNavigate = vi.hoisted(() => vi.fn());
 
 vi.mock("wagmi", () => ({
   useAccount: () => account,
@@ -21,8 +19,9 @@ vi.mock("wagmi", () => ({
 }));
 vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open }) }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ auth: { signInWithWeb3 } }) }));
-vi.mock("@/lib/auth/actions", () => ({ completeLogin }));
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, refresh }) }));
+// A full navigation to /login/complete, not a server action: signing in on the landing at / turns a member's / into the
+// forum mid-request, so an action posted from / would no longer reach the page that holds it.
+vi.mock("@/lib/navigation/hard-navigate", () => ({ hardNavigate }));
 
 import { PublicConnect } from "@/components/public/public-connect";
 
@@ -34,7 +33,6 @@ beforeEach(() => {
   account.isConnected = true;
   signMessageAsync.mockResolvedValue("0xsig");
   signInWithWeb3.mockResolvedValue({ data: {}, error: null });
-  completeLogin.mockResolvedValue({ redirectTo: "public" });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -50,31 +48,36 @@ describe("PublicConnect", () => {
   it("signs the English statement, logs in as public and navigates to next", async () => {
     render(<PublicConnect lang="en" next="/en/tools" />);
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/en/tools"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fen%2Ftools"));
     const message = signMessageAsync.mock.calls[0]![0].message as string;
     expect(message).toContain("Sign in to ElClub. This signature costs no gas and moves no funds.");
     expect(signInWithWeb3).toHaveBeenCalledWith({ chain: "ethereum", message, signature: "0xsig" });
-    expect(completeLogin).toHaveBeenCalledWith(null, "public");
-    expect(refresh).toHaveBeenCalled();
   });
 
   it("signs the Spanish statement in es", async () => {
     render(<PublicConnect lang="es" next="/herramientas" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/herramientas"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fherramientas"));
     expect(signMessageAsync.mock.calls[0]![0].message).toContain("Entra en ElClub. Esta firma no cuesta gas ni mueve fondos.");
   });
 
   it("an unsafe next goes to /", async () => {
     render(<PublicConnect lang="en" next="//evil" />);
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2F"));
   });
 
-  it("banned goes to /banned", async () => {
-    completeLogin.mockResolvedValue({ redirectTo: "/banned" });
+  it("keeps the query of next (?join=1)", async () => {
+    render(<PublicConnect lang="es" next="/herramientas/sorteos/x?join=1" />);
+    await userEvent.click(screen.getByRole("button", { name: /Firmar/ }));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/login/complete?mode=public&next=%2Fherramientas%2Fsorteos%2Fx%3Fjoin%3D1"));
+  });
+
+  it("a failed Supabase sign-in shows the error and does not navigate", async () => {
+    signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
     render(<PublicConnect lang="en" next="/en/tools" />);
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/banned"));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(hardNavigate).not.toHaveBeenCalled();
   });
 });

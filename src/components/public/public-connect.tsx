@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
-import { completeLogin } from "@/lib/auth/actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
 import { getDictionary } from "@/lib/i18n";
+import { hardNavigate } from "@/lib/navigation/hard-navigate";
 import type { Lang } from "@/lib/i18n/config";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
@@ -27,7 +26,6 @@ function isUserRejection(err: unknown): boolean {
 export function PublicConnect({ lang, next }: Props) {
   const t = getDictionary(lang);
   const c = t.connect;
-  const router = useRouter();
   const { open } = useAppKit();
   const { address, chainId, isConnected } = useAccount();
   const { signMessageAsync } = useSignMessage();
@@ -66,10 +64,11 @@ export function PublicConnect({ lang, next }: Props) {
         setError(c.errVerify);
         return;
       }
-      const { redirectTo } = await completeLogin(null, "public");
+      // P2-R16 hand-off through /login/complete (completeLogin in public mode), a full navigation rather than a server
+      // action: signing in on the landing turns a member's "/" into the forum mid-request, and an action posted from "/"
+      // would then miss the page that holds it.
       navigated = true;
-      router.replace(redirectTo === "public" ? safeNextPath(next) : redirectTo);
-      router.refresh();
+      hardNavigate(`/login/complete?mode=public&next=${encodeURIComponent(safeNextPath(next))}`);
     } catch {
       setError(c.errVerify);
     } finally {

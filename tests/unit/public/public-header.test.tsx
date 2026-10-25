@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const pathname = vi.hoisted(() => ({ value: "/" }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/components/public/public-connect-lazy", () => ({ PublicConnectLazy: () => null }));
+vi.mock("wagmi", () => ({ useDisconnect: () => ({ disconnect: vi.fn() }) }));
 
 import { PublicHeader } from "@/components/public/public-header";
 

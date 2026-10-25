@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { shortAddress } from "@/lib/auth/wallet";
@@ -15,6 +16,7 @@ type Props = { lang: Lang; wallet: string; isMember?: boolean };
 export function AccountChip({ lang, wallet, isMember = false }: Props) {
   const t = getDictionary(lang);
   const router = useRouter();
+  const { disconnect } = useDisconnect();
   const [busy, setBusy] = useState(false);
 
   async function signOut() {
@@ -22,6 +24,8 @@ export function AccountChip({ lang, wallet, isMember = false }: Props) {
     try {
       await createBrowserClient().auth.signOut();
     } finally {
+      // Drop the wallet connection too: otherwise the header would offer «Firmar y entrar» with the same wallet.
+      disconnect();
       router.refresh();
       setBusy(false);
     }

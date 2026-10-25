@@ -69,6 +69,25 @@ describe("GET /login/complete", () => {
     expect((await call("?next=/invites")).headers.get("location")).toBe("http://localhost:3000/banned");
   });
 
+  it("public mode (P2-R16): completeLogin in public mode, back to next with its query", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "public" });
+    const res = await call("?mode=public&next=" + encodeURIComponent("/herramientas/sorteos/x?join=1"));
+    expect(completeLogin).toHaveBeenCalledWith(null, "public");
+    expect(res.headers.get("location")).toBe("http://localhost:3000/herramientas/sorteos/x?join=1");
+  });
+
+  it("public mode never redeems an invite and sends a banned wallet to /banned", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "/banned" });
+    const res = await call("?mode=public&invite=abc&next=/en/tools");
+    expect(completeLogin).toHaveBeenCalledWith(null, "public");
+    expect(res.headers.get("location")).toBe("http://localhost:3000/banned");
+  });
+
+  it("public mode ignores an unsafe next", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "public" });
+    expect((await call("?mode=public&next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/");
+  });
+
   it.each(["same-origin", "none"])("proceeds when Sec-Fetch-Site is %s", async (site) => {
     completeLogin.mockResolvedValue({ redirectTo: "/" });
     await call("", site);
