@@ -1,5 +1,4 @@
 import "server-only";
-import { cacheLife, cacheTag } from "next/cache";
 import { erc20Abi, parseEventLogs, type PublicClient } from "viem";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
@@ -108,33 +107,5 @@ export async function inspectTransfer(chain: ChainId, hash: `0x${string}`, clien
   } catch (e) {
     if (e instanceof NotFound) return err("tx_not_found");
     return err("rpc_unavailable");
-  }
-}
-
-class NotFinal extends Error {}
-
-/** Only a FINAL payment is cached (the chain no longer changes it); anything else throws so nothing is stored. */
-async function readFinal(chain: ChainId, hash: `0x${string}`): Promise<Extract<InspectResult, { status: "ok" }>> {
-  "use cache";
-  cacheLife("max");
-  cacheTag(`pay-receipt:${chain}:${hash}`);
-  const r = await inspectTransfer(chain, hash);
-  if (r.status !== "ok" || !r.final) throw new NotFinal();
-  return r;
-}
-
-/**
- * The receipt's data. One uncached inspection first: a pending, non-final or error view costs a single inspection and
- * stores nothing. Only a FINAL payment goes through the cached read (one extra read on its first final view), and the
- * hash is lowercased so a transaction has a single cache entry.
- */
-export async function readReceipt(chain: ChainId, hash: `0x${string}`): Promise<InspectResult> {
-  const h = hash.toLowerCase() as `0x${string}`;
-  const fresh = await inspectTransfer(chain, h);
-  if (fresh.status !== "ok" || !fresh.final) return fresh;
-  try {
-    return await readFinal(chain, h);
-  } catch {
-    return fresh;
   }
 }

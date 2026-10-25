@@ -6,8 +6,9 @@ import { isChainId, type ChainId } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, type Lang } from "@/lib/i18n/config";
 import { alternatesFor } from "@/lib/i18n/routes";
-import { readReceipt } from "@/lib/pay/inspect";
 import { getProfileByAddress } from "@/lib/pay/queries";
+import { readReceipt } from "@/lib/pay/read-receipt";
+import { getCachedProfileByAddress } from "@/lib/pay/receipt-cache";
 import { safeError } from "@/lib/security/redact";
 
 // Bloqueante a propósito (ver el layout de [lang]). La lectura de la cadena va dentro de <Suspense>.
@@ -33,7 +34,8 @@ async function ReceiptContent({ lang, chain, hash }: { lang: Lang; chain: ChainI
   let recipient = null;
   if (result.status === "ok") {
     try {
-      recipient = await getProfileByAddress(result.to);
+      // A final receipt is viewed again and again (shared link): its recipient lookup is cached for a minute.
+      recipient = result.final ? await getCachedProfileByAddress(result.to) : await getProfileByAddress(result.to);
     } catch (e) {
       // The alias is a nicety: the receipt stands without it.
       console.error("[pay] receipt recipient lookup failed", safeError(e instanceof Error ? e.message : String(e)));
