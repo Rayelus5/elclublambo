@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { CHAINS, DEFAULT_CHAIN_ID } from "../chain/shared.mjs";
 
 export type TestWallet = {
@@ -194,4 +194,25 @@ export async function connectInjected(page: Page, dialogName: string) {
     await metamask.click({ timeout: 5_000 });
     await expect(connect).toHaveCount(0, { timeout: 5_000 });
   }).toPass({ timeout: 45_000 });
+}
+
+const PUBLIC_CONNECT = { es: { connect: "Conectar wallet", sign: "Firmar y entrar" }, en: { connect: "Connect wallet", sign: "Sign in" } };
+
+/**
+ * Signs in from the public side (P2-R16) with the injected wallet: «Conectar wallet» inside `scope` opens AppKit, MetaMask
+ * connects, then «Firmar y entrar» signs the SIWE message (the Hardhat node signs for its unlocked account) and the
+ * component navigates to its `next`. Retried like connectInjected: a click on the modal while it animates in does nothing.
+ */
+export async function signInPublic(page: Page, scope: Locator, lang: "es" | "en" = "es") {
+  const t = PUBLIC_CONNECT[lang];
+  const connect = scope.getByRole("button", { name: t.connect });
+  const sign = scope.getByRole("button", { name: t.sign });
+  const metamask = page.locator("w3m-modal").getByText("MetaMask").first();
+  await expect(async () => {
+    if (await sign.isVisible()) return;
+    if (!(await metamask.isVisible()) && (await connect.isVisible())) await connect.click({ timeout: 5_000 });
+    await metamask.click({ timeout: 5_000 });
+    await expect(sign).toBeVisible({ timeout: 5_000 });
+  }).toPass({ timeout: 45_000 });
+  await sign.click();
 }
