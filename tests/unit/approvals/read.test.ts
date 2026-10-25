@@ -1,6 +1,16 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ContractFunctionExecutionError, ContractFunctionRevertedError, HttpRequestError, maxUint256, type PublicClient, erc20Abi } from "viem";
+import {
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  HttpRequestError,
+  maxUint256,
+  RpcRequestError,
+  TimeoutError,
+  type PublicClient,
+  erc20Abi,
+} from "viem";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/payments/chain-client", () => ({ chainClient: vi.fn() }));
@@ -30,6 +40,21 @@ const revert = () =>
     contractAddress: TOKEN,
   });
 const transport = () => new HttpRequestError({ url: "http://rpc", status: 503 });
+/** A JSON-RPC error body for the whole aggregate3 call (viem copies the same error into every result of the chunk). */
+const internal = () => new RpcRequestError({ body: {}, error: { code: -32603, message: "internal error" }, url: "http://rpc" });
+const headerNotFound = () => new RpcRequestError({ body: {}, error: { code: -32000, message: "header not found" }, url: "http://rpc" });
+/** The node answered `0x` to aggregate3 itself (no Multicall3, a pruned node...). */
+const aggregateZeroData = () =>
+  new ContractFunctionExecutionError(new ContractFunctionZeroDataError({ functionName: "aggregate3" }), {
+    abi: [{ type: "function", name: "aggregate3", stateMutability: "view", inputs: [], outputs: [] }],
+    functionName: "aggregate3",
+    args: [],
+    contractAddress: "0xcA11bde05977b3631167028862bE2a173976CA11",
+  });
+/** What a fallback transport rethrows once every transport failed. */
+const fallbackFailed = () => new Error("all transports failed");
+const rpcTimeout = () => new TimeoutError({ body: {}, url: "http://rpc" });
+const rpc429 = () => new HttpRequestError({ url: "http://rpc", status: 429 });
 
 /**
  * A fake viem client: `allowances` keyed by `${token}:${spender}` (lowercase), symbol/decimals per token, code per address.
@@ -139,6 +164,37 @@ describe("readAllowances (P6-R2b)", () => {
     await expect(readAllowances(CHAIN, OWNER, [{ token: TOKEN, spender: CONTRACT_SPENDER }], client)).rejects.toThrow();
   });
 
+  it.each([
+    ["-32603 RpcRequestError", internal],
+    ["-32000 RpcRequestError", headerNotFound],
+    ["aggregate3 answered 0x", aggregateZeroData],
+    ["fallback transport error", fallbackFailed],
+  ])("a whole-batch failure (%s) throws, never «every allowance reverted»", async (_name, make) => {
+    const err = make();
+    const { client } = fakeClient({
+      allowances: { [key(TOKEN, CONTRACT_SPENDER)]: err, [key(TOKEN_2, CONTRACT_SPENDER)]: err },
+      symbols: { [TOKEN.toLowerCase()]: err, [TOKEN_2.toLowerCase()]: err },
+      decimals: { [TOKEN.toLowerCase()]: err, [TOKEN_2.toLowerCase()]: err },
+    });
+    await expect(
+      readAllowances(CHAIN, OWNER, [{ token: TOKEN, spender: CONTRACT_SPENDER }, { token: TOKEN_2, spender: CONTRACT_SPENDER }], client),
+    ).rejects.toThrow();
+  });
+
+  it("a non-revert failure of one allowance throws even if the others succeed", async () => {
+    const { client } = fakeClient({ allowances: { [key(TOKEN, CONTRACT_SPENDER)]: internal(), [key(TOKEN_2, CONTRACT_SPENDER)]: 3n } });
+    await expect(
+      readAllowances(CHAIN, OWNER, [{ token: TOKEN, spender: CONTRACT_SPENDER }, { token: TOKEN_2, spender: CONTRACT_SPENDER }], client),
+    ).rejects.toThrow();
+  });
+
+  it("every allowance reverting throws (it cannot be told apart from a broken read)", async () => {
+    const { client } = fakeClient({ allowances: { [key(TOKEN, CONTRACT_SPENDER)]: revert(), [key(TOKEN_2, CONTRACT_SPENDER)]: revert() } });
+    await expect(
+      readAllowances(CHAIN, OWNER, [{ token: TOKEN, spender: CONTRACT_SPENDER }, { token: TOKEN_2, spender: CONTRACT_SPENDER }], client),
+    ).rejects.toThrow();
+  });
+
   it("reads at most MAX_PAIRS pairs and flags the rest as partial", async () => {
     expect(MAX_PAIRS).toBe(200);
     const pairs = Array.from({ length: 201 }, (_, i) => ({ token: TOKEN, spender: `0x${(i + 1).toString(16).padStart(40, "0")}` as `0x${string}` }));
@@ -199,6 +255,25 @@ describe("scanApprovals", () => {
     vi.mocked(discoverApprovalPairs).mockResolvedValue({ status: "ok", partial: false, pairs: [{ token: TOKEN, spender: PERMIT2 }] });
     expect(await scanApprovals(CHAIN, OWNER)).toEqual({ status: "unavailable", reason: "error" });
   });
+
+  it.each([
+    ["timeout", rpcTimeout],
+    ["rate_limited", rpc429],
+    ["error", internal],
+  ] as const)("maps an RPC failure to unavailable/%s", async (reason, make) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const err = make();
+    const { client } = fakeClient({ allowances: { [key(TOKEN, PERMIT2)]: err }, symbols: { [TOKEN.toLowerCase()]: err }, decimals: { [TOKEN.toLowerCase()]: err } });
+    vi.mocked(chainClient).mockReturnValue(client);
+    vi.mocked(discoverApprovalPairs).mockResolvedValue({ status: "ok", partial: false, pairs: [{ token: TOKEN, spender: PERMIT2 }] });
+    expect(await scanApprovals(CHAIN, OWNER)).toEqual({ status: "unavailable", reason });
+  });
+
+  it("an invalid owner is invalid_input, without any read", async () => {
+    expect(await scanApprovals(CHAIN, "0xnope" as `0x${string}`)).toEqual({ status: "unavailable", reason: "invalid_input" });
+    expect(discoverApprovalPairs).not.toHaveBeenCalled();
+    expect(chainClient).not.toHaveBeenCalled();
+  });
 });
 
 describe("checkAllowance (manual check)", () => {
@@ -219,6 +294,31 @@ describe("checkAllowance (manual check)", () => {
     expect(await checkAllowance(CHAIN, OWNER, TOKEN, CONTRACT_SPENDER, client)).toEqual({ error: "rpc_unavailable" });
     const b = fakeClient({ allowances: { [key(TOKEN, CONTRACT_SPENDER)]: transport() } });
     expect(await checkAllowance(CHAIN, OWNER, TOKEN, CONTRACT_SPENDER, b.client)).toEqual({ error: "rpc_unavailable" });
+  });
+
+  it.each([
+    ["-32603 RpcRequestError", internal],
+    ["-32000 RpcRequestError", headerNotFound],
+    ["aggregate3 answered 0x", aggregateZeroData],
+    ["fallback transport error", fallbackFailed],
+  ])("a batch failure (%s) is rpc_unavailable, not not_a_token", async (_name, make) => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const err = make();
+    const { client } = fakeClient({
+      allowances: { [key(TOKEN, CONTRACT_SPENDER)]: err },
+      symbols: { [TOKEN.toLowerCase()]: err },
+      decimals: { [TOKEN.toLowerCase()]: err },
+    });
+    expect(await checkAllowance(CHAIN, OWNER, TOKEN, CONTRACT_SPENDER, client)).toEqual({ error: "rpc_unavailable" });
+  });
+
+  it("an invalid owner, token or spender is invalid_input, without any read", async () => {
+    const { client, getCode, multicall } = fakeClient({});
+    expect(await checkAllowance(CHAIN, OWNER, "0x12" as `0x${string}`, CONTRACT_SPENDER, client)).toEqual({ error: "invalid_input" });
+    expect(await checkAllowance(CHAIN, OWNER, TOKEN, "spender" as `0x${string}`, client)).toEqual({ error: "invalid_input" });
+    expect(await checkAllowance(CHAIN, "0x" as `0x${string}`, TOKEN, CONTRACT_SPENDER, client)).toEqual({ error: "invalid_input" });
+    expect(getCode).not.toHaveBeenCalled();
+    expect(multicall).not.toHaveBeenCalled();
   });
 
   it("a zero allowance is { allowance: '0' }", async () => {

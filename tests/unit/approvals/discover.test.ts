@@ -156,4 +156,17 @@ describe("discoverApprovalPairs (P6-R2, Review Focus 1)", () => {
     });
     expect(await discoverApprovalPairs(8453, OWNER, {})).toEqual({ status: "unavailable", reason: "error" });
   });
+
+  it("an invalid owner is invalid_input, without asking Blockscout", async () => {
+    for (const bad of ["0x1234", "nope", "0xF39fd6e51aad88F6F4ce6aB8827279cffFb92266" /* bad checksum */]) {
+      expect(await discoverApprovalPairs(8453, bad as `0x${string}`, {})).toEqual({ status: "unavailable", reason: "invalid_input" });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("accepts a lower-case owner", async () => {
+    fetchMock.mockResolvedValue(ok({ status: "0", message: "No logs found", result: [] }));
+    expect(await discoverApprovalPairs(8453, OWNER.toLowerCase() as `0x${string}`, {})).toEqual({ status: "ok", pairs: [], partial: false });
+    expect(new URL(String(fetchMock.mock.calls[0]![0])).searchParams.get("topic1")).toBe(OWNER_TOPIC);
+  });
 });

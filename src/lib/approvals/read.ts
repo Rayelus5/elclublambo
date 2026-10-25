@@ -1,5 +1,14 @@
 import "server-only";
-import { erc20Abi, getAddress, type PublicClient } from "viem";
+import {
+  BaseError,
+  ContractFunctionExecutionError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  erc20Abi,
+  getAddress,
+  isAddress,
+  type PublicClient,
+} from "viem";
 import type { ChainId } from "@/lib/economy/networks";
 import { chainClient } from "@/lib/payments/chain-client";
 import { contractText, rpcFailure } from "@/lib/checker/token/sources";
@@ -14,12 +23,28 @@ import { UNLIMITED_THRESHOLD, type ApprovalRow, type ApprovalScan, type SpenderK
 /** At most this many pairs are read; more makes the list partial. */
 export const MAX_PAIRS = 200;
 
-/** The node did not answer an allowance: the scan is unavailable, not «no approvals». */
+/** The node did not answer (or answered nothing usable): the scan is unavailable, never «no approvals». */
 class RpcUnavailable extends Error {
   constructor(readonly reason: "timeout" | "rate_limited" | "error") {
     super(`rpc ${reason}`);
   }
 }
+
+const unavailable = (e: unknown) => {
+  const r = rpcFailure(e);
+  return new RpcUnavailable(r === "timeout" || r === "rate_limited" ? r : "error");
+};
+
+/**
+ * A per-call revert proven by a working batch: viem only builds a ContractFunctionExecutionError for `allowance` while
+ * decoding aggregate3's own answer (call failed, or returned no data). A whole-batch failure (a JSON-RPC error body
+ * such as -32603/-32000, aggregate3 answering 0x, a fallback transport's error, a timeout…) is copied as is into every
+ * result of the chunk and is anything else: unavailable.
+ */
+const isCallRevert = (e: unknown) =>
+  e instanceof ContractFunctionExecutionError &&
+  e.functionName === "allowance" &&
+  e.walk((x) => x instanceof ContractFunctionRevertedError || x instanceof ContractFunctionZeroDataError) instanceof BaseError;
 
 type Outcome = { kind: "row"; row: ApprovalRow } | { kind: "zero" } | { kind: "revert" };
 type Result = { status: "success"; result?: unknown } | { status: "failure"; error: Error };
@@ -28,7 +53,7 @@ const symbolOf = (r: Result | undefined) => (r?.status === "success" ? contractT
 const decimalsOf = (r: Result | undefined) =>
   r?.status === "success" && typeof r.result === "number" && Number.isInteger(r.result) && r.result >= 0 && r.result <= 255 ? r.result : null;
 
-/** One outcome per pair, in order. Throws RpcUnavailable when an allowance call failed in transport. */
+/** One outcome per pair, in order. Throws RpcUnavailable unless every failed allowance is a proven per-call revert. */
 async function readPairs(chain: ChainId, owner: `0x${string}`, pairs: ApprovalPair[], client: PublicClient): Promise<Outcome[]> {
   const norm = pairs.map((p) => ({ token: getAddress(p.token), spender: getAddress(p.spender) }));
   const tokens = [...new Set(norm.map((p) => p.token))];
@@ -62,9 +87,9 @@ async function readPairs(chain: ChainId, owner: `0x${string}`, pairs: ApprovalPa
   );
   return norm.map((p, i): Outcome => {
     const r = results[i];
-    if (!r || r.status === "failure") {
-      const reason = r ? rpcFailure(r.error) : "error";
-      if (reason) throw new RpcUnavailable(reason === "timeout" || reason === "rate_limited" ? reason : "error");
+    if (!r) throw new RpcUnavailable("error");
+    if (r.status === "failure") {
+      if (!isCallRevert(r.error)) throw unavailable(r.error);
       return { kind: "revert" };
     }
     if (typeof r.result !== "bigint") return { kind: "revert" };
@@ -90,7 +115,8 @@ async function readPairs(chain: ChainId, owner: `0x${string}`, pairs: ApprovalPa
 
 /**
  * The live allowances (> 0) of the first MAX_PAIRS pairs, in the given order; a reverting allowance is omitted.
- * Throws when the node did not answer (the caller reports the scan as unavailable).
+ * Throws when the node did not answer, and when every allowance reverted: that cannot be told apart from a broken
+ * read, so it is reported as unavailable (the page falls back to the manual check) rather than as «no approvals».
  */
 export async function readAllowances(
   chain: ChainId,
@@ -100,12 +126,15 @@ export async function readAllowances(
 ): Promise<{ rows: ApprovalRow[]; partial: boolean }> {
   const partial = pairs.length > MAX_PAIRS;
   if (pairs.length === 0) return { rows: [], partial };
+  if (!isAddress(owner)) throw new TypeError("invalid owner");
   const outcomes = await readPairs(chain, owner, pairs.slice(0, MAX_PAIRS), client);
+  if (outcomes.every((o) => o.kind === "revert")) throw new RpcUnavailable("error");
   return { rows: outcomes.flatMap((o) => (o.kind === "row" ? [o.row] : [])), partial };
 }
 
 /** Discover on Blockscout, then read the live allowances. Never throws. */
 export async function scanApprovals(chain: ChainId, owner: `0x${string}`): Promise<ApprovalScan> {
+  if (!isAddress(owner)) return { status: "unavailable", reason: "invalid_input" };
   const found = await discoverApprovalPairs(chain, owner);
   if (found.status !== "ok") return found;
   try {
@@ -119,7 +148,8 @@ export async function scanApprovals(chain: ChainId, owner: `0x${string}`): Promi
 
 /**
  * One (token, spender) pair for the manual check and the re-check after a revoke: the row, `{ allowance: "0" }`,
- * `not_a_token` (no code, or `allowance` reverts) or `rpc_unavailable`.
+ * `invalid_input` (an argument is not an address), `not_a_token` (no code, or a working batch proves `allowance`
+ * reverts) or `rpc_unavailable` (anything else, including any failure that cannot be told apart from a broken read).
  */
 export async function checkAllowance(
   chain: ChainId,
@@ -127,7 +157,8 @@ export async function checkAllowance(
   token: `0x${string}`,
   spender: `0x${string}`,
   client: PublicClient = chainClient(chain),
-): Promise<ApprovalRow | { allowance: "0" } | { error: "not_a_token" | "rpc_unavailable" }> {
+): Promise<ApprovalRow | { allowance: "0" } | { error: "invalid_input" | "not_a_token" | "rpc_unavailable" }> {
+  if (!isAddress(owner) || !isAddress(token) || !isAddress(spender)) return { error: "invalid_input" };
   try {
     const code = await client.getCode({ address: getAddress(token) });
     if (!code || code === "0x") return { error: "not_a_token" };

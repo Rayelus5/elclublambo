@@ -15,7 +15,8 @@ export type ApprovalRow = {
   unlimited: boolean;
 };
 
-export type ApprovalUnavailableReason = "blocked" | "timeout" | "rate_limited" | "error";
+/** «invalid_input»: the owner is not an address (the caller validates first; the library never reads with it). */
+export type ApprovalUnavailableReason = "blocked" | "timeout" | "rate_limited" | "error" | "invalid_input";
 
 /** An unavailable scan is never «no approvals»: the page falls back to the manual check (Review Focus 1). */
 export type ApprovalScan =

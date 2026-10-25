@@ -78,6 +78,7 @@ export async function discoverApprovalPairs(
   owner: `0x${string}`,
   env: Record<string, string | undefined> = process.env,
 ): Promise<DiscoveredPairs> {
+  if (!isAddress(owner)) return { status: "unavailable", reason: "invalid_input" };
   try {
     const r = await getJson(getLogsUrl(checkerSources(chain, env).blockscout, owner));
     if (r.kind === "fail") return { status: "unavailable", reason: reasonOf(r.reason) };
