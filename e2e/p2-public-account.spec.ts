@@ -63,8 +63,6 @@ test("2. a member signing in on the landing sees the forum", async ({ browser })
   trackErrors(context);
   await installTestWallet(context, { address: member.address });
   const page = await context.newPage();
-  page.on("response", async (r) => { if (r.request().method() === "POST" && r.url().includes("3000")) console.log("DBG", r.status(), r.url(), r.headers()["content-type"], (await r.text().catch((e) => "ERR" + e)).slice(0, 800)); });
-  page.on("console", (m) => console.log("DBGC", m.type(), m.text().slice(0, 500)));
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: LANDING_H1 })).toBeVisible();
   await signInPublic(page, page.getByRole("banner"));
