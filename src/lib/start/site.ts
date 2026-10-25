@@ -22,3 +22,23 @@ export function isProductionSite(env: string | undefined = process.env.NEXT_PUBL
     return false;
   }
 }
+
+/**
+ * The origin server-side absolute redirects are built on. The standalone Docker server (preproduction) binds
+ * HOSTNAME=0.0.0.0:3000 behind the Cloudflare Tunnel, so the request URL is the bind address, never the public host:
+ * the site URL wins when it is a valid http(s) URL; otherwise (local dev, E2E) the request's own origin.
+ */
+export function publicOrigin(
+  request: { nextUrl: URL },
+  env: string | undefined = process.env.NEXT_PUBLIC_SITE_URL,
+): string {
+  if (env) {
+    try {
+      const url = new URL(env);
+      if (url.protocol === "https:" || url.protocol === "http:") return url.origin;
+    } catch {
+      // Malformed: fall through to the request origin.
+    }
+  }
+  return request.nextUrl.origin;
+}
