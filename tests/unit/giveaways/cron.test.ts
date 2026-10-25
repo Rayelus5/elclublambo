@@ -126,9 +126,29 @@ describe("runGiveawaySteps", () => {
     err.mockRestore();
   });
 
-  it("a failed awaiting read throws (the cron reports the step as failed)", async () => {
+  it("a failed awaiting read is logged and counted as a failure; the public cycle still runs", async () => {
     rpcAnswers.set("giveaways_awaiting_draw", () => ({ data: null, error: { message: "db down" } }));
-    await expect(runGiveawaySteps()).rejects.toThrow();
+    rpcAnswers.set("public_giveaways_awaiting_draw", () => ({ data: [{ id: P1, target_round: 5000 }], error: null }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const report = await runGiveawaySteps();
+    expect(report).toMatchObject({ closed: 2, voided: 1, drawn: 0, failed: 1 });
+    expect(report.public).toEqual({ closed: 0, voided: 0, drawn: 1, waiting: 0, failed: 0 });
+    expect(err).toHaveBeenCalled();
+    // the club close changed something: its pages are still revalidated
+    expect(revalidatePath).toHaveBeenCalledWith("/sorteos");
+    err.mockRestore();
+  });
+
+  it("a club cycle that throws (rpc rejects) does not skip the public cycle", async () => {
+    rpcAnswers.set("close_due_giveaways", () => {
+      throw new Error("socket hang up");
+    });
+    rpcAnswers.set("public_giveaways_awaiting_draw", () => ({ data: [{ id: P1, target_round: 5000 }], error: null }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const report = await runGiveawaySteps();
+    expect(report).toMatchObject({ closed: 0, voided: 0, drawn: 0, failed: 1 });
+    expect(report.public).toMatchObject({ drawn: 1, failed: 0 });
+    err.mockRestore();
   });
 
   it("does not revalidate when nothing changed", async () => {
@@ -203,8 +223,14 @@ describe("runGiveawaySteps: public giveaways (P2)", () => {
     err.mockRestore();
   });
 
-  it("a failed public awaiting read throws (the cron reports the step as failed)", async () => {
+  it("a failed public awaiting read is logged and counted; the club report is kept", async () => {
+    rpcAnswers.set("giveaways_awaiting_draw", () => ({ data: [{ id: G1, target_round: 5000 }], error: null }));
     rpcAnswers.set("public_giveaways_awaiting_draw", () => ({ data: null, error: { message: "db down" } }));
-    await expect(runGiveawaySteps()).rejects.toThrow();
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const report = await runGiveawaySteps();
+    expect(report).toMatchObject({ drawn: 1, failed: 0 });
+    expect(report.public).toEqual({ closed: 0, voided: 0, drawn: 0, waiting: 0, failed: 1 });
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });

@@ -6,7 +6,13 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const fetchBeacon = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/giveaways/drand", async (orig) => ({ ...(await orig<typeof import("@/lib/giveaways/drand")>()), fetchBeacon }));
 const adminRpc = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ rpc: adminRpc }) }));
+const statusRead = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/supabase/admin", () => ({
+  createAdminClient: () => ({
+    rpc: adminRpc,
+    from: () => ({ select: () => ({ eq: () => ({ maybeSingle: statusRead }) }) }),
+  }),
+}));
 
 import { roundTime } from "@/lib/giveaways/drand";
 import { maybeDrawOnView } from "@/lib/public-giveaways/draw-on-view";
@@ -22,6 +28,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   adminRpc.mockImplementation(async (fn: string) => (fn === "close_due_public_giveaways" ? { data: { closed: 0, voided: 0 }, error: null } : { data: "drawn", error: null }));
   fetchBeacon.mockResolvedValue({ status: "ok", signature: "sig" });
+  statusRead.mockResolvedValue({ data: { status: "closed" }, error: null });
 });
 
 describe("maybeDrawOnView", () => {
@@ -57,6 +64,20 @@ describe("maybeDrawOnView", () => {
     fetchBeacon.mockResolvedValue({ status: "unavailable" });
     expect(await maybeDrawOnView(view(), dueAt + 1000)).toBe(false);
     expect(adminRpc).not.toHaveBeenCalledWith("draw_public_giveaway", expect.anything());
+  });
+
+  it("the close just voided it (no entries): no drand fetch, no draw, but a change", async () => {
+    adminRpc.mockImplementation(async (fn: string) => (fn === "close_due_public_giveaways" ? { data: { closed: 0, voided: 1 }, error: null } : { data: "drawn", error: null }));
+    statusRead.mockResolvedValue({ data: { status: "void" }, error: null });
+    expect(await maybeDrawOnView(view({ status: "open" }), dueAt + 1000)).toBe(true);
+    expect(fetchBeacon).not.toHaveBeenCalled();
+    expect(adminRpc).not.toHaveBeenCalledWith("draw_public_giveaway", expect.anything());
+  });
+
+  it("a failed status read still tries the draw (the RPC re-checks the state)", async () => {
+    statusRead.mockResolvedValue({ data: null, error: { message: "boom" } });
+    expect(await maybeDrawOnView(view(), dueAt + 1000)).toBe(true);
+    expect(adminRpc).toHaveBeenCalledWith("draw_public_giveaway", expect.anything());
   });
 
   it("never throws, whatever fails", async () => {

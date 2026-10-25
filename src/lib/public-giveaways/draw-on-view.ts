@@ -7,7 +7,8 @@ import type { PublicGiveawayView } from "@/lib/public-giveaways/types";
 
 /**
  * P2-R11: opening a giveaway that is due and whose drand round already exists closes and draws it (idempotent, the hourly
- * cron does the same). True when something changed, so the page reads again. Never throws. No revalidatePath here: this
+ * cron does the same). True when something changed, so the page reads again. Never throws. After the close the status is
+ * read again: a giveaway the close just voided (or that is no longer closed) is not drawn. No revalidatePath here: this
  * runs while a page renders, where Next refuses it; the page is dynamic and simply re-reads.
  */
 export async function maybeDrawOnView(view: PublicGiveawayView, nowMs = Date.now()): Promise<boolean> {
@@ -26,6 +27,10 @@ export async function maybeDrawOnView(view: PublicGiveawayView, nowMs = Date.now
       const c = (closed.data ?? {}) as { closed?: unknown; voided?: unknown };
       changed = (Number(c.closed) || 0) + (Number(c.voided) || 0) > 0;
     }
+    // The close may have just voided this giveaway (no entries): then there is nothing to draw (nor drand to ask).
+    const { data: now, error: readErr } = await db.from("public_giveaways").select("status").eq("id", view.id).maybeSingle<{ status: string }>();
+    if (readErr) console.error("[public-giveaways] status read failed", safeError(readErr.message));
+    else if (now && now.status !== "closed") return changed;
     const outcome = await drawOne(db, view.id, round, nowMs, "draw_public_giveaway");
     return changed || outcome.status === "drawn";
   } catch (e) {
