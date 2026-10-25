@@ -6,7 +6,7 @@ import { safeError } from "@/lib/security/redact";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Buckets limited by IP (limits live in public.ip_rate_limit_hit). */
-export type IpBucket = "checker_web" | "api_free";
+export type IpBucket = "checker_web" | "api_free" | "api_paid_attempt";
 
 /**
  * The caller's IP (P4-R6): the header named by TRUSTED_IP_HEADER (cf-connecting-ip behind the PRE tunnel) or, by default,

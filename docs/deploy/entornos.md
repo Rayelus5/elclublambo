@@ -92,6 +92,11 @@ Notas:
   IP. Con `X402_ENABLED=true` y `X402_NETWORK=eip155:8453` pero sin las dos claves de CDP, la API sigue gratis y lo
   deja en los logs (`[x402] ... missing_cdp_keys`). Un error del análisis nunca se cobra (solo se liquida si la
   respuesta es < 400).
+- Con x402 encendido, cada petición que trae `PAYMENT-SIGNATURE` gasta antes un golpe del cubo `api_paid_attempt`
+  (300 por hora e IP, sujeto con hash como el resto): así una cabecera inventada no puede martillear al facilitador.
+  Una firma válida **reenviada** pasa la verificación y ejecuta el análisis, pero la liquidación falla (el nonce ya
+  se usó) y no se entrega el informe cobrado. Su coste queda acotado: el informe de token se reutiliza 10 min de la
+  caché (P4-R7), el análisis de enlaces es local y el cubo limita los intentos por IP.
 - Las claves VAPID se generan con `pnpm exec web-push generate-vapid-keys --json`, una pareja por entorno.
 
 ## Secretos de GitHub

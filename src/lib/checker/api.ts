@@ -6,7 +6,7 @@ import { hitIpRateLimit } from "@/lib/rate-limit/ip";
 import { safeError } from "@/lib/security/redact";
 import { ADDRESS_RE, MAX_QUERY_LENGTH } from "./input";
 import { analyzeLink } from "./link/analyze";
-import { paidHandler, warnIfMisconfigured, x402Config } from "./x402";
+import { paidHandler, warnIfMisconfigured, x402Config, type X402Config } from "./x402";
 
 // Shared flow of the public checker API (GET /api/v1/check/{token,link}).
 
@@ -14,7 +14,7 @@ import { paidHandler, warnIfMisconfigured, x402Config } from "./x402";
 export const CHECKER_DISCLAIMER = getDictionary("es").checker.disclaimer;
 
 const NO_STORE = { "Cache-Control": "no-store" };
-/** api_free is 60 per hour: a limited caller retries in an hour at most. */
+/** api_free (60/h) and api_paid_attempt (300/h) are hourly windows: a limited caller retries in an hour at most. */
 const RETRY_AFTER_SECONDS = "3600";
 
 export function apiError(status: number, error: string, headers: Record<string, string> = {}): NextResponse {
@@ -65,16 +65,43 @@ const DESCRIPTIONS: Record<Kind, string> = {
   link: "ElClub link checker: local analysis of a link (no request is made to it)",
 };
 
+/** The x402 v2 header a paying client sends; its presence means the facilitator is about to be asked. */
+const PAYMENT_SIGNATURE = "payment-signature";
+
+/**
+ * The paid flow. A request carrying a payment first charges one loose `api_paid_attempt` hit (300/h per IP) so forged
+ * headers cannot hammer the facilitator (429 when limited, 503 when the limiter fails: closed, like the free API); a
+ * request without one just gets the 402 (nothing to verify, nothing to count). A handler that cannot be built (the x402
+ * modules or the facilitator config failing) is a 503, never an unhandled error. Responses here are never cached.
+ */
+async function servePaid(request: NextRequest, kind: Kind, cfg: Extract<X402Config, { enabled: true }>, handler: (request: NextRequest) => Promise<NextResponse>): Promise<NextResponse> {
+  if (request.headers.has(PAYMENT_SIGNATURE)) {
+    const limit = await hitIpRateLimit("api_paid_attempt", request.headers);
+    if (limit === "rate_limited") return apiError(429, "rate_limited", { "Retry-After": RETRY_AFTER_SECONDS });
+    if (limit === "error") return apiError(503, "unavailable");
+  }
+  let paid: (request: NextRequest) => Promise<NextResponse>;
+  try {
+    paid = await paidHandler(kind, cfg, handler, DESCRIPTIONS[kind]);
+  } catch (e) {
+    console.error(`[checker-api] x402 handler for ${kind} could not be built`, safeError(e));
+    return apiError(503, "unavailable");
+  }
+  const res = await paid(request);
+  if (res.status === 402) res.headers.set("Cache-Control", "no-store");
+  return res;
+}
+
 /**
  * GET of a check: bad parameters → 400 (never charged nor counted). With x402 off, one `api_free` hit (429 +
  * Retry-After when limited, 503 when the limiter fails: the API fails closed) and the free answer. With x402 on, the
- * handler wrapped with withX402 (402 + PAYMENT-REQUIRED without a payment; settled only on < 400).
+ * handler wrapped with withX402 (402 + PAYMENT-REQUIRED without a payment; settled only on < 400), see servePaid.
  */
 export async function serveCheck<T>(request: NextRequest, kind: Kind, parse: (sp: URLSearchParams) => Parsed<T>, handler: (request: NextRequest) => Promise<NextResponse>): Promise<NextResponse> {
   const p = parse(request.nextUrl.searchParams);
   if (!p.ok) return apiError(400, p.error);
   const cfg = x402Config();
-  if (cfg.enabled) return (await paidHandler(kind, cfg, handler, DESCRIPTIONS[kind]))(request);
+  if (cfg.enabled) return servePaid(request, kind, cfg, handler);
   warnIfMisconfigured(cfg);
   const limit = await hitIpRateLimit("api_free", request.headers);
   if (limit === "rate_limited") return apiError(429, "rate_limited", { "Retry-After": RETRY_AFTER_SECONDS });
