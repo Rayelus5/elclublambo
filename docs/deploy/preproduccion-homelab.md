@@ -734,6 +734,10 @@ Usa la función `setkv` del paso 3.3 (si abriste otra shell, vuelve a definirla)
 | `VAPID_SUBJECT` | `mailto:<correo del humano>` | humano |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | el mismo valor que `VAPID_PUBLIC_KEY` | tú |
 | `CRON_SECRET` | `openssl rand -hex 32`, propio de preproducción | tú |
+| `TRUSTED_IP_HEADER` | `cf-connecting-ip` (ya viene): la IP real detrás del túnel, para los límites del comprobador | nada |
+| `X402_ENABLED` | vacía (x402 apagado). `true` solo para probar el pago por consulta en Base Sepolia | nada |
+| `X402_NETWORK`, `X402_PRICE`, `X402_PAY_TO`, `X402_FACILITATOR_URL` | vacías (= Base Sepolia, `$0.01`, la Safe del club, el facilitador público) | nada |
+| `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | vacías (solo mainnet) | nada |
 
 Todas las `NEXT_PUBLIC_*` quedan **fijadas en la imagen al construir** (son build args del compose) y las URLs tienen
 que ser `https://`: el `Dockerfile` rechaza construir si `NEXT_PUBLIC_SUPABASE_URL` o `NEXT_PUBLIC_SITE_URL` no lo
@@ -769,7 +773,7 @@ stat -c '%a %U' /opt/elclub/pre/web.env
 
 - Puestas: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_INTERNAL_URL`,
   `SUPER_ADMIN_WALLET`, `NEXT_PUBLIC_REOWN_PROJECT_ID`, `NEXT_PUBLIC_NETWORK_SET`, `NEXT_PUBLIC_SITE_URL`,
-  `BASE_SEPOLIA_RPC_URL` y `ARBITRUM_SEPOLIA_RPC_URL` (si las dio), `TIP_CONFIRMATIONS`, las cuatro VAPID y `CRON_SECRET` (y `COINGECKO_API_KEY` si la dio).
+  `BASE_SEPOLIA_RPC_URL` y `ARBITRUM_SEPOLIA_RPC_URL` (si las dio), `TIP_CONFIRMATIONS`, las cuatro VAPID, `CRON_SECRET` y `TRUSTED_IP_HEADER` (y `COINGECKO_API_KEY` si la dio).
 - Vacías: el resto.
 - El segundo comando da `2` y el tercero `600 gh-runner`.
 

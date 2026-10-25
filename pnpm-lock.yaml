@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@coinbase/x402':
+        specifier: 2.1.0
+        version: 2.1.0(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@dnd-kit/core':
         specifier: ^6.3.1
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -180,10 +183,10 @@ importers:
         version: 1.9.7
       '@reown/appkit':
         specifier: ^1.8.24
-        version: 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
+        version: 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-adapter-wagmi':
         specifier: ^1.8.24
-        version: 1.8.24(11a4dd763d54c55d9fcd6289ff8995e3)
+        version: 1.8.24(0bf8a8aeff3bbcc519beb3e8e3349433)
       '@supabase/ssr':
         specifier: ~0.12.7
         version: 0.12.7(@supabase/supabase-js@2.118.0)
@@ -217,6 +220,15 @@ importers:
       '@tiptap/suggestion':
         specifier: ^3.32.0
         version: 3.32.0(@floating-ui/dom@1.8.0)(@tiptap/core@3.32.0(@tiptap/pm@3.32.0))(@tiptap/pm@3.32.0)
+      '@x402/core':
+        specifier: 2.28.0
+        version: 2.28.0
+      '@x402/evm':
+        specifier: 2.28.0
+        version: 2.28.0(typescript@5.9.3)
+      '@x402/next':
+        specifier: 2.28.0
+        version: 2.28.0(next@16.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@playwright/test@1.64.1)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(typescript@5.9.3)
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -500,6 +512,9 @@ packages:
 
   '@coinbase/wallet-sdk@4.3.6':
     resolution: {integrity: sha512-4q8BNG1ViL4mSAAvPAtpwlOs1gpC+67eQtgIwNvT3xyeyFFd+guwkc8bcX5rTmQhXpqnhzC4f0obACbP9CqMSA==}
+
+  '@coinbase/x402@2.1.0':
+    resolution: {integrity: sha512-aKeM+cz//+FjzPVu/zgz7830x0KLtKarwCyxoeC71QgCn+Xcf0NhFpn3Qyw0H496y5YOuR/IQ67gP8DZ/hXFqQ==}
 
   '@csstools/color-helpers@6.1.2':
     resolution: {integrity: sha512-grhRy3OKmniaAEKXMjua5z/EODX0MSqBGjunw8+j/3HQjOnahs2AGhvEOIYVUWcU6ScApbhLhVrQTX8XqrMrow==}
@@ -2055,6 +2070,20 @@ packages:
     resolution: {integrity: sha512-IGrkPadYYiaDFULUYzsjUNadQQ+pwYbLP7apZDXNeB/vH7JAS5CsQ6sOuvZLGz4DuAmNap5bpV6p26fmDx0VuA==}
     engines: {node: '>=20.18.1'}
 
+  '@signinwithethereum/siwe-parser@4.2.1':
+    resolution: {integrity: sha512-GAdwNiBaRpUMTiFfPrbQ3e/RBhPbEhRRN1sZmDMLgLEZuKqKwO7V0ksVzCerE9l8HFKTNw5R/q3kPDCWJRz4zA==}
+
+  '@signinwithethereum/siwe@4.2.1':
+    resolution: {integrity: sha512-CQEQhCIgN9blil1YpaGR+wvGPdsBVK6zed5DBu03s1IdbSO3kA/n7Zp+SAkZGiHy3HY6OJm1Su0/Bd33vKK6nQ==}
+    peerDependencies:
+      ethers: ^5.7.0 || ^6.13.0
+      viem: ^2.7.0
+    peerDependenciesMeta:
+      ethers:
+        optional: true
+      viem:
+        optional: true
+
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
     engines: {node: '>=18'}
@@ -3476,6 +3505,21 @@ packages:
   '@x402/core@2.28.0':
     resolution: {integrity: sha512-Da/7zKxCKqpBoB4Msc9tFgkAv7tJTD8nG+DSSm+QdXAyJS4PQsmgVSKe17rDJTtlu0pwNbLcOje6MyQ6kaDkig==}
 
+  '@x402/evm@2.28.0':
+    resolution: {integrity: sha512-BZuoaCKMoPQQuMTa4oibvoyI06WdCpgrzgdicUu8d+5NBMAfWb6LAmSQf1KkeiS8C+25/+2JGB4cHSL0VLGnSA==}
+
+  '@x402/extensions@2.28.0':
+    resolution: {integrity: sha512-M3SVxO8DJnx7gpok/ODQp803jr21s1XrCMholNw0hSgOVvSPRksfTZ+CUNfJwteNaHmaAxGjPelXWBhTCMD9oQ==}
+
+  '@x402/next@2.28.0':
+    resolution: {integrity: sha512-DsZ3I6d+qsxkbSSwjwA5wCUQV9tPGxto5DA9TY6E2O9Om9ZS1fY+DbDWH0Ex18nDR8D4d6z6CcqvzV8Q0ctGhA==}
+    peerDependencies:
+      '@x402/paywall': ^2.28.0
+      next: '>=16.2.6'
+    peerDependenciesMeta:
+      '@x402/paywall':
+        optional: true
+
   '@x402/svm@2.28.0':
     resolution: {integrity: sha512-D6+MSi7GG9LP7Lld1/i+A+Rk9ZyET5MmZAZqAyxmIda42tW3mVZjn/RJjGQbQmTKe+lYk8KiKWbeaxoK/x/ArA==}
     peerDependencies:
@@ -3579,6 +3623,9 @@ packages:
   anymatch@3.1.3:
     resolution: {integrity: sha512-KMReFUr0B4t+D+OBkjR3KYqvocp2XaSzO55UcB6mgQMd3KbcE+mWTyvVV7D/zsdEbNnV6acZUutkiHQXvTr1Rw==}
     engines: {node: '>= 8'}
+
+  apg-js@4.4.0:
+    resolution: {integrity: sha512-fefmXFknJmtgtNEXfPwZKYkMFX4Fyeyz+fNF6JWp87biGOPslJbCBVU158zvKRZfHBKnJDy8CMM40oLFGkXT8Q==}
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
@@ -5005,6 +5052,9 @@ packages:
     resolution: {integrity: sha512-AC/7JofJvZGrrneWNaEnJeOLUx+JlGt7tNa0wZiRPT4MY1wmfKjt2+6O2p2uz2+skll8OZZmJMNqeke7kKbNgQ==}
     hasBin: true
 
+  jose@5.10.0:
+    resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
+
   jose@6.2.12:
     resolution: {integrity: sha512-9NiFmJEex0sy2Dk58j2UGBSHgUs2ypF9eZSu4L6vjOX3Dp96Sw1F3uL+H+D1sx02jZZdzUT0HgvCy59CuvXcWw==}
 
@@ -6427,6 +6477,9 @@ packages:
   tw-animate-css@1.4.0:
     resolution: {integrity: sha512-7bziOlRqH0hJx80h/3mbicLW7o8qLsH5+RaLR2t+OHM3D0JlWGODQKQ4cxbK7WlvmUxpcj6Kgu6EKqjrGFe3QQ==}
 
+  tweetnacl@1.0.3:
+    resolution: {integrity: sha512-6rt+RN7aOi1nGMyC4Xa5DdYiukl2UWCbcJft7YhxReBGQD7OAM8Pbxw6YMo4r2diNEA8FEmu32YOn9rhaiE5yw==}
+
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
@@ -7190,9 +7243,9 @@ snapshots:
       '@babel/helper-string-parser': 7.29.7
       '@babel/helper-validator-identifier': 7.29.7
 
-  '@base-org/account@2.4.0(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
+  '@base-org/account@2.4.0(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
     dependencies:
-      '@coinbase/cdp-sdk': 1.58.0(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@coinbase/cdp-sdk': 1.58.0(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
       '@noble/hashes': 1.4.0
       clsx: 1.2.1
       eventemitter3: 5.0.1
@@ -7223,7 +7276,7 @@ snapshots:
     dependencies:
       css-tree: 3.2.1
 
-  '@coinbase/cdp-sdk@1.58.0(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+  '@coinbase/cdp-sdk@1.58.0(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
     dependencies:
       '@solana-program/system': 0.10.0(@solana/kit@5.5.1(typescript@5.9.3))
       '@solana-program/token': 0.9.0(@solana/kit@5.5.1(typescript@5.9.3))
@@ -7239,6 +7292,8 @@ snapshots:
       zod: 3.25.76
     optionalDependencies:
       '@x402/core': 2.28.0
+      '@x402/evm': 2.28.0(typescript@5.9.3)
+      '@x402/extensions': 2.28.0(typescript@5.9.3)
       '@x402/svm': 2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3)
     transitivePeerDependencies:
       - bufferutil
@@ -7247,7 +7302,6 @@ snapshots:
       - supports-color
       - typescript
       - utf-8-validate
-    optional: true
 
   '@coinbase/wallet-sdk@4.3.6(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
     dependencies:
@@ -7269,6 +7323,23 @@ snapshots:
       - utf-8-validate
       - zod
     optional: true
+
+  '@coinbase/x402@2.1.0(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)':
+    dependencies:
+      '@coinbase/cdp-sdk': 1.58.0(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
+      '@x402/core': 2.28.0
+      viem: 2.57.7(typescript@5.9.3)(zod@3.25.76)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - '@x402/evm'
+      - '@x402/extensions'
+      - '@x402/svm'
+      - bufferutil
+      - debug
+      - fastestsmallesttextencoderdecoder
+      - supports-color
+      - typescript
+      - utf-8-validate
 
   '@csstools/color-helpers@6.1.2': {}
 
@@ -8667,14 +8738,14 @@ snapshots:
 
   '@radix-ui/rect@1.1.3': {}
 
-  '@reown/appkit-adapter-wagmi@1.8.24(11a4dd763d54c55d9fcd6289ff8995e3)':
+  '@reown/appkit-adapter-wagmi@1.8.24(0bf8a8aeff3bbcc519beb3e8e3349433)':
     dependencies:
-      '@reown/appkit': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-common': 1.8.24(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-controllers': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-polyfills': 1.8.24
-      '@reown/appkit-scaffold-ui': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
-      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-scaffold-ui': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-wallet': 1.8.24(typescript@5.9.3)
       '@wagmi/core': 3.6.5(@tanstack/query-core@5.104.3)(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(viem@2.57.7(typescript@5.9.3)(zod@3.25.76))
       '@walletconnect/universal-provider': 2.23.7(typescript@5.9.3)(zod@3.25.76)
@@ -8784,12 +8855,12 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@reown/appkit-pay@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
+  '@reown/appkit-pay@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
     dependencies:
       '@reown/appkit-common': 1.8.24(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-controllers': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-ui': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
-      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
       lit: 3.3.0
       valtio: 2.1.7(@types/react@19.3.0)(react@19.3.0)
     transitivePeerDependencies:
@@ -8833,13 +8904,13 @@ snapshots:
     dependencies:
       buffer: 6.0.3
 
-  '@reown/appkit-scaffold-ui@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)':
+  '@reown/appkit-scaffold-ui@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)':
     dependencies:
       '@reown/appkit-common': 1.8.24(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-controllers': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
-      '@reown/appkit-pay': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-pay': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-ui': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
-      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-wallet': 1.8.24(typescript@5.9.3)
       lit: 3.3.0
     transitivePeerDependencies:
@@ -8916,7 +8987,7 @@ snapshots:
       - utf-8-validate
       - zod
 
-  '@reown/appkit-utils@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)':
+  '@reown/appkit-utils@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)':
     dependencies:
       '@reown/appkit-common': 1.8.24(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-controllers': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
@@ -8928,7 +8999,7 @@ snapshots:
       valtio: 2.1.7(@types/react@19.3.0)(react@19.3.0)
       viem: 2.57.7(typescript@5.9.3)(zod@3.25.76)
     optionalDependencies:
-      '@base-org/account': 2.4.0(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
+      '@base-org/account': 2.4.0(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@coinbase/wallet-sdk': 4.3.6(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@safe-global/safe-apps-provider': 0.18.6(typescript@5.9.3)(zod@3.25.76)
       '@safe-global/safe-apps-sdk': 9.1.0(typescript@5.9.3)(zod@3.25.76)
@@ -8980,15 +9051,15 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@reown/appkit@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
+  '@reown/appkit@1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)':
     dependencies:
       '@reown/appkit-common': 1.8.24(typescript@5.9.3)(zod@3.25.76)
       '@reown/appkit-controllers': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
-      '@reown/appkit-pay': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-pay': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-polyfills': 1.8.24
-      '@reown/appkit-scaffold-ui': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-scaffold-ui': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-ui': 1.8.24(@types/react@19.3.0)(react@19.3.0)(typescript@5.9.3)(zod@3.25.76)
-      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
+      '@reown/appkit-utils': 1.8.24(@types/react@19.3.0)(@x402/core@2.28.0)(@x402/evm@2.28.0(typescript@5.9.3))(@x402/extensions@2.28.0(typescript@5.9.3))(@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3))(debug@4.4.3(supports-color@8.1.1))(react@19.3.0)(supports-color@8.1.1)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.3.0))(valtio@2.1.7(@types/react@19.3.0)(react@19.3.0))(zod@3.25.76)
       '@reown/appkit-wallet': 1.8.24(typescript@5.9.3)
       '@walletconnect/universal-provider': 2.23.7(typescript@5.9.3)(zod@3.25.76)
       bs58: 6.0.0
@@ -9224,6 +9295,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@signinwithethereum/siwe-parser@4.2.1':
+    dependencies:
+      '@noble/hashes': 1.8.0
+      apg-js: 4.4.0
+
+  '@signinwithethereum/siwe@4.2.1(viem@2.57.7(typescript@5.9.3)(zod@3.25.76))':
+    dependencies:
+      '@signinwithethereum/siwe-parser': 4.2.1
+    optionalDependencies:
+      viem: 2.57.7(typescript@5.9.3)(zod@3.25.76)
+
   '@sindresorhus/merge-streams@4.0.0': {}
 
   '@solana-program/compute-budget@0.11.0(@solana/kit@5.5.1(typescript@5.9.3))':
@@ -9234,7 +9316,6 @@ snapshots:
   '@solana-program/system@0.10.0(@solana/kit@5.5.1(typescript@5.9.3))':
     dependencies:
       '@solana/kit': 5.5.1(typescript@5.9.3)
-    optional: true
 
   '@solana-program/token-2022@0.6.1(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))':
     dependencies:
@@ -9245,7 +9326,6 @@ snapshots:
   '@solana-program/token@0.9.0(@solana/kit@5.5.1(typescript@5.9.3))':
     dependencies:
       '@solana/kit': 5.5.1(typescript@5.9.3)
-    optional: true
 
   '@solana/accounts@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9259,7 +9339,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/accounts@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9286,7 +9365,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/addresses@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9306,7 +9384,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/assertions@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9320,7 +9397,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/codecs-core@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9336,7 +9412,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/codecs-data-structures@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9353,7 +9428,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/codecs-numbers@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9370,7 +9444,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/codecs-strings@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9392,7 +9465,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/errors@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9400,7 +9472,6 @@ snapshots:
       commander: 14.0.2
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/errors@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9413,7 +9484,6 @@ snapshots:
   '@solana/fast-stable-stringify@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/fixed-points@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9426,7 +9496,6 @@ snapshots:
   '@solana/functional@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/functional@6.10.0(typescript@5.9.3)':
     optionalDependencies:
@@ -9445,7 +9514,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/instruction-plans@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9467,7 +9535,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/instructions@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9488,7 +9555,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/keys@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9534,12 +9600,10 @@ snapshots:
       - bufferutil
       - fastestsmallesttextencoderdecoder
       - utf-8-validate
-    optional: true
 
   '@solana/nominal-types@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/nominal-types@6.10.0(typescript@5.9.3)':
     optionalDependencies:
@@ -9560,7 +9624,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/offchain-messages@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9589,12 +9652,10 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/plugin-core@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/plugin-interfaces@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9636,12 +9697,10 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/promises@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/promises@6.10.0(typescript@5.9.3)':
     optionalDependencies:
@@ -9665,7 +9724,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/rpc-api@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9689,7 +9747,6 @@ snapshots:
   '@solana/rpc-parsed-types@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/rpc-parsed-types@6.10.0(typescript@5.9.3)':
     optionalDependencies:
@@ -9699,7 +9756,6 @@ snapshots:
   '@solana/rpc-spec-types@5.5.1(typescript@5.9.3)':
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/rpc-spec-types@6.10.0(typescript@5.9.3)':
     optionalDependencies:
@@ -9712,7 +9768,6 @@ snapshots:
       '@solana/rpc-spec-types': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/rpc-spec@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9736,7 +9791,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/rpc-subscriptions-channel-websocket@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9750,7 +9804,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-    optional: true
 
   '@solana/rpc-subscriptions-spec@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9760,7 +9813,6 @@ snapshots:
       '@solana/subscribable': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/rpc-subscriptions-spec@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9791,7 +9843,6 @@ snapshots:
       - bufferutil
       - fastestsmallesttextencoderdecoder
       - utf-8-validate
-    optional: true
 
   '@solana/rpc-transformers@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9804,7 +9855,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/rpc-transformers@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9827,7 +9877,6 @@ snapshots:
       undici-types: 7.30.0
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/rpc-types@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9841,7 +9890,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/rpc-types@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9873,7 +9921,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/signers@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9890,7 +9937,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/signers@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9914,7 +9960,6 @@ snapshots:
       '@solana/errors': 5.5.1(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
-    optional: true
 
   '@solana/subscribable@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -9934,7 +9979,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/transaction-confirmation@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9954,7 +9998,6 @@ snapshots:
       - bufferutil
       - fastestsmallesttextencoderdecoder
       - utf-8-validate
-    optional: true
 
   '@solana/transaction-messages@5.5.1(typescript@5.9.3)':
     dependencies:
@@ -9971,7 +10014,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/transaction-messages@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -10008,7 +10050,6 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - fastestsmallesttextencoderdecoder
-    optional: true
 
   '@solana/transactions@6.10.0(typescript@5.9.3)':
     dependencies:
@@ -10963,7 +11004,44 @@ snapshots:
   '@x402/core@2.28.0':
     dependencies:
       zod: 3.25.76
-    optional: true
+
+  '@x402/evm@2.28.0(typescript@5.9.3)':
+    dependencies:
+      '@x402/core': 2.28.0
+      viem: 2.57.7(typescript@5.9.3)(zod@3.25.76)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - bufferutil
+      - typescript
+      - utf-8-validate
+
+  '@x402/extensions@2.28.0(typescript@5.9.3)':
+    dependencies:
+      '@noble/curves': 1.9.7
+      '@scure/base': 1.2.6
+      '@signinwithethereum/siwe': 4.2.1(viem@2.57.7(typescript@5.9.3)(zod@3.25.76))
+      '@x402/core': 2.28.0
+      ajv: 8.20.0
+      jose: 5.10.0
+      tweetnacl: 1.0.3
+      viem: 2.57.7(typescript@5.9.3)(zod@3.25.76)
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - bufferutil
+      - ethers
+      - typescript
+      - utf-8-validate
+
+  '@x402/next@2.28.0(next@16.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@playwright/test@1.64.1)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(typescript@5.9.3)':
+    dependencies:
+      '@x402/core': 2.28.0
+      '@x402/extensions': 2.28.0(typescript@5.9.3)
+      next: 16.4.1(@babel/core@7.29.7(supports-color@8.1.1))(@playwright/test@1.64.1)(@types/node@20.19.43)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+    transitivePeerDependencies:
+      - bufferutil
+      - ethers
+      - typescript
+      - utf-8-validate
 
   '@x402/svm@2.28.0(@solana/kit@5.5.1(typescript@5.9.3))(@solana/sysvars@5.5.1(typescript@5.9.3))(typescript@5.9.3)':
     dependencies:
@@ -10984,7 +11062,6 @@ snapshots:
     optionalDependencies:
       typescript: 5.9.3
       zod: 3.25.76
-    optional: true
 
   abitype@1.2.3(typescript@5.9.3)(zod@3.22.4):
     optionalDependencies:
@@ -11070,6 +11147,8 @@ snapshots:
     dependencies:
       normalize-path: 3.0.0
       picomatch: 2.3.2
+
+  apg-js@4.4.0: {}
 
   argparse@2.0.1: {}
 
@@ -11167,8 +11246,7 @@ snapshots:
 
   async-function@1.0.0: {}
 
-  asynckit@0.4.0:
-    optional: true
+  asynckit@0.4.0: {}
 
   atomic-sleep@1.0.0: {}
 
@@ -11184,7 +11262,6 @@ snapshots:
     dependencies:
       axios: 1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1)
       is-retry-allowed: 2.2.0
-    optional: true
 
   axios@1.20.0(debug@4.4.3(supports-color@8.1.1))(supports-color@8.1.1):
     dependencies:
@@ -11195,7 +11272,6 @@ snapshots:
     transitivePeerDependencies:
       - debug
       - supports-color
-    optional: true
 
   axobject-query@4.1.0: {}
 
@@ -11328,8 +11404,7 @@ snapshots:
 
   chalk@5.6.2: {}
 
-  charenc@0.0.2:
-    optional: true
+  charenc@0.0.2: {}
 
   chokidar@4.0.3:
     dependencies:
@@ -11399,7 +11474,6 @@ snapshots:
   combined-stream@1.0.8:
     dependencies:
       delayed-stream: 1.0.0
-    optional: true
 
   command-exists@1.2.9: {}
 
@@ -11466,8 +11540,7 @@ snapshots:
     dependencies:
       uncrypto: 0.1.3
 
-  crypt@0.0.2:
-    optional: true
+  crypt@0.0.2: {}
 
   css-tree@3.2.1:
     dependencies:
@@ -11562,8 +11635,7 @@ snapshots:
 
   defu@6.1.7: {}
 
-  delayed-stream@1.0.0:
-    optional: true
+  delayed-stream@1.0.0: {}
 
   depd@2.0.0: {}
 
@@ -12182,7 +12254,6 @@ snapshots:
       es-set-tostringtag: 2.1.0
       hasown: 2.0.4
       mime-types: 2.1.35
-    optional: true
 
   forwarded@0.2.0: {}
 
@@ -12519,8 +12590,7 @@ snapshots:
       call-bound: 1.0.4
       has-tostringtag: 1.0.2
 
-  is-buffer@1.1.6:
-    optional: true
+  is-buffer@1.1.6: {}
 
   is-bun-module@2.0.0:
     dependencies:
@@ -12613,8 +12683,7 @@ snapshots:
 
   is-regexp@3.1.0: {}
 
-  is-retry-allowed@2.2.0:
-    optional: true
+  is-retry-allowed@2.2.0: {}
 
   is-set@2.0.3: {}
 
@@ -12692,6 +12761,8 @@ snapshots:
       '@pkgjs/parseargs': 0.11.0
 
   jiti@2.7.0: {}
+
+  jose@5.10.0: {}
 
   jose@6.2.12: {}
 
@@ -12985,7 +13056,6 @@ snapshots:
       charenc: 0.0.2
       crypt: 0.0.2
       is-buffer: 1.1.6
-    optional: true
 
   mdn-data@2.27.1: {}
 
@@ -13014,15 +13084,13 @@ snapshots:
       braces: 3.0.3
       picomatch: 2.3.2
 
-  mime-db@1.52.0:
-    optional: true
+  mime-db@1.52.0: {}
 
   mime-db@1.54.0: {}
 
   mime-types@2.1.35:
     dependencies:
       mime-db: 1.52.0
-    optional: true
 
   mime-types@3.0.2:
     dependencies:
@@ -13582,8 +13650,7 @@ snapshots:
 
   proxy-compare@3.0.1: {}
 
-  proxy-from-env@2.1.0:
-    optional: true
+  proxy-from-env@2.1.0: {}
 
   punycode@2.3.1: {}
 
@@ -14312,6 +14379,8 @@ snapshots:
 
   tw-animate-css@1.4.0: {}
 
+  tweetnacl@1.0.3: {}
+
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
@@ -14392,8 +14461,7 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.30.0:
-    optional: true
+  undici-types@7.30.0: {}
 
   undici@5.29.0:
     dependencies:

@@ -12,5 +12,7 @@ export default defineConfig({
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/unit/**/*.test.{ts,tsx}", "tests/integration/**/*.test.{ts,tsx}"],
     exclude: ["e2e/**", "node_modules/**"],
+    // @x402/next imports "next/server" without an extension, which Node's ESM resolver rejects: let Vite resolve it.
+    server: { deps: { inline: [/@x402\/next/] } },
   },
 });
