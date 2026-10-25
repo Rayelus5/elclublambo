@@ -199,7 +199,7 @@ test("7. sin errores de consola", async () => {
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   // (each entry ends with the page it came from, to find the culprit of a real error)
   // The browser's own "Failed to load resource ... 404" line for the pages those members were sent to on purpose.
-  const expected404 = (e: string) => /status of 404/.test(e) && /@ http:\/\/localhost:3000\/(tickets|moderation)\//.test(e.split(" (page ")[0]!);
+  const expected404 = (e: string) => /status of 404/.test(e) && new RegExp(`@ http://localhost:3000${CLUB_BASE}/(tickets|moderation)/`).test(e.split(" (page ")[0]!);
   expect(browserErrors.filter((e) => !coopOn404(e) && !expected404(e))).toEqual([]);
 });
 

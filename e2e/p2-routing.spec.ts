@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
 // P2 routing: the bilingual public tree. Spanish URLs are rewritten by the proxy to /es/*, English lives under /en/*.
 test.describe.configure({ mode: "serial" });
@@ -32,14 +32,18 @@ test("the internal /es tree redirects (308) to the canonical Spanish URL", async
   expect(new URL(res.headers()["location"] ?? "", "http://localhost").pathname).toBe("/herramientas");
 });
 
-test("a member at / sees the forum, not the landing", async ({ browser }) => {
+test("a member at / sees the landing with «Ir al foro», which opens the forum under /foro (R1)", async ({ browser }) => {
   const context = await browser.newContext();
   await loginAs(context, E2E_SUPER_ADMIN_PK);
   const page = await context.newPage();
   const res = await page.goto("/");
   expect(res?.status()).toBe(200);
+  await expect(page.getByRole("heading", { level: 1, name: "Herramientas cripto honestas, verificables y gratis." })).toBeVisible();
+  await page.getByRole("group", { name: "Tu cuenta" }).getByRole("link", { name: "Ir al foro" }).click();
+  await page.waitForURL((u) => u.pathname === clubPath());
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
-  await expect(page.locator("div[lang='es']")).toHaveCount(0);
+  // Cache Components keeps the landing in a hidden <Activity>: only a visible public wrapper would be wrong.
+  await expect(page.locator("div[lang='es']:visible")).toHaveCount(0);
   // Unknown single segment: the login gate lets a member through and the proxy answers the 404 (the [lang] layout's
   // notFound() would stream a 200).
   const unknown = await page.goto("/xx");
@@ -89,13 +93,18 @@ test("/es/donate redirects (308) to /donar", async ({ request }) => {
   expect(new URL(res.headers()["location"] ?? "", "http://localhost").pathname).toBe("/donar");
 });
 
-test("a member at /donar sees the club page, not the public one", async ({ browser }) => {
+test("a member at /donar sees the public page with «Dona desde el club» → /foro/donar (R1-R3)", async ({ browser }) => {
   const context = await browser.newContext();
   await loginAs(context, E2E_SUPER_ADMIN_PK);
   const page = await context.newPage();
   const res = await page.goto("/donar");
   expect(res?.status()).toBe(200);
-  await expect(page.getByRole("heading", { name: "Donar" })).toBeVisible();
-  await expect(page.locator("div[lang='es']")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1, name: "Donar" })).toBeVisible();
+  await expect(page.locator("div[lang='es']")).toHaveCount(1);
+  const toClub = page.getByRole("link", { name: "Dona desde el club" });
+  await expect(toClub).toHaveAttribute("href", clubPath("/donar"));
+  await toClub.click();
+  await page.waitForURL((u) => u.pathname === clubPath("/donar"));
+  await expect(page.locator("div[lang='es']:visible")).toHaveCount(0);
   await context.close();
 });
