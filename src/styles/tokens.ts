@@ -1,23 +1,26 @@
 /** Fuente de verdad de los colores (spec §1). globals.css debe reflejar estos valores. */
 export const colors = {
-  bg: "#0A0A0A",
-  surface: "#111111",
-  surface2: "#171717",
-  border: "#262626",
-  borderStrong: "#3A3A3A",
-  fg: "#EDEDED",
-  fgMuted: "#A3A3A3",
-  accent: "#61DFFF",
-  success: "#3DDC84",
-  warning: "#FFB020",
-  danger: "#FF5A5A",
+  bg: "#0A0B0D",
+  surface: "#121418",
+  surface2: "#1A1D22",
+  border: "#24272D",
+  borderStrong: "#32353D",
+  fg: "#EEF0F3",
+  fgMuted: "#B1B7C3",
+  accent: "#3C8AFF",
+  // Relleno (botones, chips): Base Blue con texto blanco. Nunca como texto, borde o anillo sobre oscuro.
+  accentFill: "#0000FF",
+  accentFillFg: "#FFFFFF",
+  success: "#66C800",
+  warning: "#FFD12F",
+  danger: "#FC401F",
   // Chart series (DAO donut): distinct hues, none reusing a semantic colour; "rest" is the neutral slice.
-  chart1: "#61DFFF",
-  chart2: "#A594FF",
-  chart3: "#FF7AB8",
-  chart4: "#C6F36B",
-  chart5: "#FFA066",
-  chartRest: "#6B6B6B",
+  chart1: "#3C8AFF",
+  chart2: "#66C800",
+  chart3: "#FFD12F",
+  chart4: "#FEA8CD",
+  chart5: "#B8A581",
+  chartRest: "#717886",
 } as const;
 
 function channel(v: number): number {

@@ -10,19 +10,66 @@ describe("contrastRatio", () => {
   });
 });
 
+describe("paleta de Base: valores exactos", () => {
+  it("coincide con la paleta aprobada (R2-R1..R4)", () => {
+    expect(colors).toMatchObject({
+      bg: "#0A0B0D",
+      surface: "#121418",
+      surface2: "#1A1D22",
+      border: "#24272D",
+      borderStrong: "#32353D",
+      fg: "#EEF0F3",
+      fgMuted: "#B1B7C3",
+      accent: "#3C8AFF",
+      accentFill: "#0000FF",
+      accentFillFg: "#FFFFFF",
+      success: "#66C800",
+      warning: "#FFD12F",
+      danger: "#FC401F",
+      chart1: "#3C8AFF",
+      chart2: "#66C800",
+      chart3: "#FFD12F",
+      chart4: "#FEA8CD",
+      chart5: "#B8A581",
+      chartRest: "#717886",
+    });
+  });
+  it("el acento nunca es Base Blue (2,3:1 sobre oscuro)", () => {
+    expect(colors.accent.toUpperCase()).not.toBe("#0000FF");
+  });
+});
+
 describe("design tokens contrast (>= 4.5)", () => {
+  const surfaces: Array<[string, string]> = [
+    ["bg", colors.bg],
+    ["surface", colors.surface],
+    ["surface-2", colors.surface2],
+  ];
+  const texts: Array<[string, string]> = [
+    ["fg", colors.fg],
+    ["fg-muted", colors.fgMuted],
+    ["accent", colors.accent],
+  ];
+  const textPairs = texts.flatMap(([tn, t]) => surfaces.map(([sn, s]) => [`${tn}/${sn}`, t, s] as [string, string, string]));
   const pairs: Array<[string, string, string]> = [
-    ["fg/bg", colors.fg, colors.bg],
-    ["fg-muted/bg", colors.fgMuted, colors.bg],
-    ["fg-muted/surface-2", colors.fgMuted, colors.surface2],
+    ...textPairs,
+    ["accent-fill-fg on accent-fill", colors.accentFillFg, colors.accentFill],
     ["bg on accent", colors.bg, colors.accent],
     ["danger/bg", colors.danger, colors.bg],
     ["success/bg", colors.success, colors.bg],
     ["warning/bg", colors.warning, colors.bg],
-    ["accent/bg", colors.accent, colors.bg],
   ];
   it.each(pairs)("%s", (_n, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
+  });
+});
+
+describe("focus ring / UI components (>= 3)", () => {
+  it.each([
+    ["accent/bg", colors.bg],
+    ["accent/surface", colors.surface],
+  ])("%s", (_n, bg) => {
+    expect(contrastRatio(colors.accent, bg)).toBeGreaterThanOrEqual(3);
   });
 });
 

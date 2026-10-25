@@ -8,23 +8,26 @@
  * Solo tema oscuro. Ningún componente usa hex sueltos: todo pasa por estas variables.
  */
 :root {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface-2: #171717;
-  --border: #262626;
-  --border-strong: #3a3a3a;
-  --fg: #ededed;
-  --fg-muted: #a3a3a3;
-  --accent: #61dfff;
-  --success: #3ddc84;
-  --warning: #ffb020;
-  --danger: #ff5a5a;
-  --chart-1: #61dfff;
-  --chart-2: #a594ff;
-  --chart-3: #ff7ab8;
-  --chart-4: #c6f36b;
-  --chart-5: #ffa066;
-  --chart-rest: #6b6b6b;
+  --bg: #0a0b0d;
+  --surface: #121418;
+  --surface-2: #1a1d22;
+  --border: #24272d;
+  --border-strong: #32353d;
+  --fg: #eef0f3;
+  --fg-muted: #b1b7c3;
+  --accent: #3c8aff;
+  /* Relleno de botones/chips: Base Blue con texto blanco (8,6:1). Nunca como texto, borde o anillo sobre oscuro (2,3:1). */
+  --accent-fill: #0000ff;
+  --accent-fill-fg: #ffffff;
+  --success: #66c800;
+  --warning: #ffd12f;
+  --danger: #fc401f;
+  --chart-1: #3c8aff;
+  --chart-2: #66c800;
+  --chart-3: #ffd12f;
+  --chart-4: #fea8cd;
+  --chart-5: #b8a581;
+  --chart-rest: #717886;
 
   --radius-control: 2px;
   --radius-panel: 4px;
@@ -39,8 +42,8 @@
   --card-foreground: var(--fg);
   --popover: var(--surface);
   --popover-foreground: var(--fg);
-  --primary: var(--accent);
-  --primary-foreground: var(--bg);
+  --primary: var(--accent-fill);
+  --primary-foreground: var(--accent-fill-fg);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted: var(--surface-2);
@@ -63,6 +66,8 @@
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-fg: var(--accent-fill-fg);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
