@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const connection = vi.hoisted(() => vi.fn(async () => undefined));
@@ -15,6 +15,7 @@ beforeEach(() => {
   connection.mockClear();
   x402Config.mockReset();
 });
+afterEach(() => vi.unstubAllEnvs());
 
 describe("API docs body", () => {
   it("ES: both endpoints with curl examples against the absolute origin, the response shape and the free limit", () => {
@@ -27,6 +28,25 @@ describe("API docs body", () => {
     expect(code.some((c) => /version/.test(c) && /kind/.test(c) && /report/.test(c) && /disclaimer/.test(c))).toBe(true);
     expect(screen.getByText(/60 consultas por hora/)).toBeTruthy();
     expect(screen.getByText(/429/)).toBeTruthy();
+  });
+  it("the curl example uses this build's first chain (Base Sepolia on a testnet build, Base on mainnet)", () => {
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "testnet");
+    const { unmount } = render(<ApiDocsBody lang="es" />);
+    const curl = () => Array.from(document.querySelectorAll("pre")).map((p) => p.textContent ?? "").find((c) => c.startsWith("curl") && c.includes("/check/token?")) ?? "";
+    expect(curl()).toContain("chain=84532&");
+    unmount();
+    vi.stubEnv("NEXT_PUBLIC_NETWORK_SET", "mainnet");
+    render(<ApiDocsBody lang="es" />);
+    expect(curl()).toContain("chain=8453&");
+  });
+  it("the limits apply when charging is off (they do not contradict the paid status)", () => {
+    render(<ApiDocsBody lang="es" />);
+    expect(screen.getByText(/Cuando el cobro está desactivado/)).toBeTruthy();
+  });
+  it("EN: the response notes the disclaimer is in Spanish, and the limit is for when charging is off", () => {
+    render(<ApiDocsBody lang="en" />);
+    expect(screen.getByText(/disclaimer.*Spanish|Spanish.*disclaimer|in Spanish/i)).toBeTruthy();
+    expect(screen.getByText(/When charging is off/)).toBeTruthy();
   });
   it("code blocks scroll inside their own box", () => {
     render(<ApiDocsBody lang="en" />);

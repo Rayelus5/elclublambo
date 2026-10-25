@@ -658,9 +658,10 @@ export const en = {
       linkTitle: "Check a link",
       linkText: "Local analysis of the link text: it is never opened. url must be encoded (encodeURIComponent).",
       responseTitle: "Response",
-      responseText: "JSON with the version, the kind of check, the report and the legal notice.",
+      responseText: "JSON with the version, the kind of check, the report and the disclaimer (always in Spanish, the club's language).",
       limitsTitle: "Limits",
-      limitsText: "Without payment, 60 requests per hour per IP. Going over returns a 429 with a Retry-After header (in seconds).",
+      limitsText:
+        "When charging is off, 60 requests per hour per IP. Going over returns a 429 with a Retry-After header (in seconds). When charging is on, each request is paid.",
       statusTitle: "Current status",
       statusFree: "Free, within the limit above.",
       statusPaid: "Paid with x402 on {network}: {price} per request.",

@@ -660,7 +660,8 @@ export const es = {
       responseTitle: "Respuesta",
       responseText: "JSON con la versión, el tipo de comprobación, el informe y el aviso legal.",
       limitsTitle: "Límites",
-      limitsText: "Sin pago, 60 consultas por hora y por IP. Al pasarte recibes un 429 con la cabecera Retry-After (en segundos).",
+      limitsText:
+        "Cuando el cobro está desactivado, 60 consultas por hora y por IP. Al pasarte recibes un 429 con la cabecera Retry-After (en segundos). Con el cobro activo, cada consulta se paga.",
       statusTitle: "Estado actual",
       statusFree: "Gratis, con el límite de arriba.",
       statusPaid: "De pago con x402 en {network}: {price} por consulta.",
