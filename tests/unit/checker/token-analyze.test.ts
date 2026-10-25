@@ -191,6 +191,23 @@ describe("analyzeToken: failing sources (Review Focus 1)", () => {
     expect(alertCodes(r)).toEqual([]);
   });
 
+  it("Blockscout 404 (not indexed) for an address with code → the age is unknown/not_indexed, not silently absent", async () => {
+    routes.blockscout = () => json({ message: "Not found" }, 404);
+    const r = await analyzeToken(8453, TOKEN);
+    expect(r.facts.creation).toEqual({
+      status: "ok",
+      data: { creator: null, createdAt: null, ageDays: null, ageUnknown: "not_indexed", isScam: false },
+    });
+    expect(alertCodes(r)).not.toContain("new_contract:medium");
+  });
+
+  it("Blockscout 404 for an address without code → no creation expected (age not unknown)", async () => {
+    client.getCode.mockResolvedValue("0x");
+    routes.blockscout = () => json({ message: "Not found" }, 404);
+    const r = await analyzeToken(8453, TOKEN);
+    expect(r.facts.creation).toEqual({ status: "ok", data: { creator: null, createdAt: null, ageDays: null, ageUnknown: null, isScam: false } });
+  });
+
   it("ABI fetch 500 with no Sourcify ABI → privileged functions unknown (null), not «none»", async () => {
     routes.blockscout = (url) => (url.includes("/api/v2/smart-contracts/") ? new Response("boom", { status: 500 }) : blockscoutOk(url));
     const r = await analyzeToken(8453, TOKEN);

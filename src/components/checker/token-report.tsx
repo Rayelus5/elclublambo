@@ -104,12 +104,16 @@ export function tokenRows(t: T, lang: Lang, report: Report): { rows: Row[]; unkn
       </span>
     ),
   );
+  // The creation itself is known from its date (or an age that could not be read), not from the creator: a missing
+  // creator alone is «Creador desconocido», never «no creation transaction».
   add("creation", s.creation, f.creation, (d) =>
     d.creator ? (
       <span className="flex flex-col gap-1">
         <span>{v.createdBy}</span>
         <AddressLink chain={f.chainId} address={d.creator} />
       </span>
+    ) : d.createdAt !== null || d.ageUnknown !== null ? (
+      v.creatorUnknown
     ) : (
       v.ageNone
     ),

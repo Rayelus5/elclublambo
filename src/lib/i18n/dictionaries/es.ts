@@ -575,6 +575,7 @@ export const es = {
         rate_limited: "la fuente limitó las consultas",
         error: "la fuente falló",
         unsupported: "no disponible en esta red",
+        not_indexed: "el explorador aún no ha indexado este contrato",
       },
       sections: {
         code: "Contrato",
@@ -601,6 +602,7 @@ export const es = {
         renounced: "Renunciado",
         ownerActive: "Propietario activo",
         createdBy: "Creado por",
+        creatorUnknown: "Creador desconocido",
         ageDays: "Hace {days} días",
         ageToday: "Hoy",
         ageNone: "Sin transacción de creación conocida",

@@ -575,6 +575,7 @@ export const en = {
         rate_limited: "the source rate-limited us",
         error: "the source failed",
         unsupported: "not available on this network",
+        not_indexed: "the explorer has not indexed this contract yet",
       },
       sections: {
         code: "Contract",
@@ -601,6 +602,7 @@ export const en = {
         renounced: "Renounced",
         ownerActive: "Active owner",
         createdBy: "Created by",
+        creatorUnknown: "Unknown creator",
         ageDays: "{days} days ago",
         ageToday: "Today",
         ageNone: "No known creation transaction",

@@ -132,6 +132,8 @@ export function abiFlags(abi: unknown): string[] {
 // --- Blockscout --------------------------------------------------------------------------------------------------------
 
 export type BlockscoutAddress = {
+  /** Blockscout answered 404: it has not indexed the address (yet), so its silence proves nothing. */
+  notIndexed: boolean;
   isContract: boolean | null;
   verified: boolean;
   creator: string | null;
@@ -144,13 +146,14 @@ export type BlockscoutAddress = {
 export async function blockscoutAddress(base: string, address: string): Promise<Section<BlockscoutAddress>> {
   const r = await getJson(`${base}/api/v2/addresses/${address}`);
   if (r.kind === "fail") return unknown(r.reason);
-  if (r.kind === "not_found") return ok({ isContract: null, verified: false, creator: null, creationTx: null, implementation: null, isScam: false });
+  if (r.kind === "not_found") return ok({ notIndexed: true, isContract: null, verified: false, creator: null, creationTx: null, implementation: null, isScam: false });
   if (!isObj(r.json)) return unknown("error");
   const j = r.json;
   const impls = Array.isArray(j.implementations) ? j.implementations : [];
   const firstImpl = impls.find(isObj);
   const tx = str(j.creation_transaction_hash) ?? str(j.creation_tx_hash);
   return ok({
+    notIndexed: false,
     isContract: typeof j.is_contract === "boolean" ? j.is_contract : null,
     verified: j.is_verified === true,
     creator: addr(j.creator_address_hash),

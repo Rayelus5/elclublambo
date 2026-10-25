@@ -83,6 +83,31 @@ describe("checker page", () => {
     );
   });
 
+  it("creation row: a known creation without creator says «Creador desconocido», not «no creation transaction»", async () => {
+    getTokenReport.mockResolvedValue(report(facts()));
+    await content("es", { q: ADDR, chain: "84532" });
+    expect(screen.getByText(es.report.values.creatorUnknown)).toBeInTheDocument();
+    expect(screen.queryByText(es.report.values.ageNone)).not.toBeInTheDocument();
+  });
+
+  it("creation row: no creation transaction known at all keeps «Sin transacción de creación conocida»", async () => {
+    getTokenReport.mockResolvedValue(report(facts({ creation: ok({ creator: null, createdAt: null, ageDays: null, ageUnknown: null, isScam: false }) })));
+    await content("es", { q: ADDR, chain: "84532" });
+    expect(screen.getByText(es.report.values.ageNone)).toBeInTheDocument();
+    expect(screen.queryByText(es.report.values.creatorUnknown)).not.toBeInTheDocument();
+  });
+
+  it("a contract Blockscout has not indexed lists the age under «No pudimos comprobar»", async () => {
+    getTokenReport.mockResolvedValue(
+      report(facts({ creation: ok({ creator: null, createdAt: null, ageDays: null, ageUnknown: "not_indexed", isScam: false }) })),
+    );
+    await content("es", { q: ADDR, chain: "84532" });
+    const unknownList = screen.getByRole("list", { name: es.report.summary.unknownTitle });
+    expect(within(unknownList).getByText(new RegExp(es.report.sections.age))).toBeInTheDocument();
+    expect(screen.getAllByText(es.report.reasons.not_indexed).length).toBeGreaterThan(0);
+    expect(screen.getByText(es.report.values.creatorUnknown)).toBeInTheDocument();
+  });
+
   it("counts alerts by severity and links DexScreener", async () => {
     getTokenReport.mockResolvedValue(
       report(facts({ verification: ok({ verified: false, source: "blockscout", abiFlags: [] }), owner: ok({ owner: ADDR, renounced: false }) })),

@@ -42,12 +42,15 @@ function verificationOf(
 /**
  * Creator and scam flag come with the address; the age needs the creation transaction. If that lookup fails the age is
  * unknown (`ageUnknown` = its reason) while the rest stays: a scam flag must not be lost to a slow second request.
+ * An address with code that Blockscout has not indexed has an unknown age (`not_indexed`), not «no creation»; without
+ * code (an account) nothing was created, so its 404 leaves the age simply absent.
  */
-function creationOf(bs: Section<BlockscoutAddress>, tx: Section<string> | null): Section<CreationData> {
+function creationOf(bs: Section<BlockscoutAddress>, tx: Section<string> | null, code: Section<{ hasCode: boolean }>): Section<CreationData> {
   if (bs.status !== "ok") return unknown(bs.reason);
   const createdAt = tx?.status === "ok" ? tx.data : null;
   const ageDays = createdAt === null ? null : Math.max(0, Math.floor((Date.now() - Date.parse(createdAt)) / DAY_MS));
-  const ageUnknown = tx?.status === "unknown" ? tx.reason : null;
+  const noCode = code.status === "ok" && !code.data.hasCode;
+  const ageUnknown = tx?.status === "unknown" ? tx.reason : bs.data.notIndexed && !noCode ? "not_indexed" : null;
   return ok({ creator: bs.data.creator, createdAt, ageDays, ageUnknown, isScam: bs.data.isScam });
 }
 
@@ -89,7 +92,7 @@ export async function analyzeToken(chain: ChainId, address: `0x${string}`): Prom
     proxy: chainFacts.code.status === "ok" && chainFacts.code.data.hasCode ? proxyOf(chainFacts.proxy, bs) : chainFacts.proxy,
     owner: chainFacts.owner,
     verification: verificationOf(bs, sf, bsAbi),
-    creation: creationOf(bs, creationTx),
+    creation: creationOf(bs, creationTx, chainFacts.code),
     market,
   };
   return { facts, alerts: tokenAlerts(facts), checkedAt: new Date().toISOString() };

@@ -1,7 +1,7 @@
 import type { ChainId } from "@/lib/economy/networks";
 
 /** Why a section could not be answered. A section in this state never adds nor removes confidence (P4, «Desconocido»). */
-export type UnknownReason = "timeout" | "blocked" | "rate_limited" | "error" | "unsupported";
+export type UnknownReason = "timeout" | "blocked" | "rate_limited" | "error" | "unsupported" | "not_indexed";
 
 export type Section<T> = { status: "ok"; data: T } | { status: "unknown"; reason: UnknownReason };
 
@@ -11,8 +11,9 @@ export type OwnerData = { owner: string | null; renounced: boolean };
 /** `abiFlags: null` = verified, but its ABI could not be read: the privileged functions are unknown (not «none»). */
 export type VerificationData = { verified: boolean; source: "blockscout" | "sourcify"; abiFlags: string[] | null };
 /**
- * `ageUnknown` is set when the creation transaction exists but its time could not be read: the age shows «Desconocido»
- * (null `ageDays` with `ageUnknown: null` = no creation transaction known at all).
+ * `ageUnknown` is set when the age could not be read: the creation transaction exists but its time did not come back,
+ * or the explorer has not indexed a contract yet (`not_indexed`). The age then shows «Desconocido» (null `ageDays`
+ * with `ageUnknown: null` = no creation transaction known at all).
  */
 export type CreationData = {
   creator: string | null;
