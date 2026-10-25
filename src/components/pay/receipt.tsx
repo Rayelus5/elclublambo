@@ -36,6 +36,8 @@ function Address({ chain, address, alias }: { chain: ChainId; address: string; a
 export function Receipt({ lang, chain, hash, result, recipient }: Props) {
   const t = getDictionary(lang).pay.receipt;
   const refreshing = result.status === "pending" || (result.status === "ok" && !result.final);
+  // A just-broadcast transaction may not be visible yet (or the RPC blinked): a few more tries, then the error stays.
+  const retryError = result.status === "error" && (result.code === "tx_not_found" || result.code === "rpc_unavailable");
 
   return (
     <section aria-labelledby="receipt-title" className="flex flex-col gap-5 rounded-panel border border-border bg-surface p-4 sm:p-6">
@@ -43,6 +45,7 @@ export function Receipt({ lang, chain, hash, result, recipient }: Props) {
         {t.title}
       </h1>
       {refreshing ? <ReceiptRefresh /> : null}
+      {retryError ? <ReceiptRefresh maxTicks={3} /> : null}
 
       {result.status === "error" ? (
         <p role="alert" className="flex items-start gap-2 text-sm text-danger">

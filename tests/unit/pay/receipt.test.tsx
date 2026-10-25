@@ -61,4 +61,15 @@ describe("Receipt", () => {
     vi.advanceTimersByTime(10_000);
     expect(refresh).not.toHaveBeenCalled();
   });
+
+  it("tx_not_found and rpc_unavailable retry 3 times then stop; other errors never retry", () => {
+    vi.useFakeTimers();
+    for (const [code, calls] of [["tx_not_found", 3], ["rpc_unavailable", 3], ["tx_failed", 0], ["not_a_payment", 0]] as const) {
+      refresh.mockReset();
+      const { unmount } = render(<Receipt lang="en" {...base} result={{ status: "error", code }} />);
+      vi.advanceTimersByTime(60_000);
+      expect(refresh, code).toHaveBeenCalledTimes(calls);
+      unmount();
+    }
+  });
 });

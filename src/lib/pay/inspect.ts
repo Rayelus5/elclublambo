@@ -123,12 +123,18 @@ async function readFinal(chain: ChainId, hash: `0x${string}`): Promise<Extract<I
   return r;
 }
 
-/** The receipt's data: a cached read for final payments, a fresh read otherwise (pending and errors are never cached). */
+/**
+ * The receipt's data. One uncached inspection first: a pending, non-final or error view costs a single inspection and
+ * stores nothing. Only a FINAL payment goes through the cached read (one extra read on its first final view), and the
+ * hash is lowercased so a transaction has a single cache entry.
+ */
 export async function readReceipt(chain: ChainId, hash: `0x${string}`): Promise<InspectResult> {
+  const h = hash.toLowerCase() as `0x${string}`;
+  const fresh = await inspectTransfer(chain, h);
+  if (fresh.status !== "ok" || !fresh.final) return fresh;
   try {
-    return await readFinal(chain, hash);
+    return await readFinal(chain, h);
   } catch {
-    // Not final (the expected case while pending, or an error): read it again, uncached.
-    return inspectTransfer(chain, hash);
+    return fresh;
   }
 }
