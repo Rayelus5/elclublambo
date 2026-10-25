@@ -2,8 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
-import { CircleAlert, CircleCheck, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
+import { CircleAlert, CircleCheck, Info, Loader2, RefreshCw, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { shortAddress } from "@/lib/auth/wallet";
@@ -13,32 +12,48 @@ import { ADDRESS_RE } from "@/lib/pay/target";
 import { recordVouchAction } from "@/lib/vouches/actions";
 import type { VouchChainId } from "@/lib/vouches/eas";
 import { VOUCH_KINDS, vouchKindKey, type VouchKind } from "@/lib/vouches/kinds";
-import type { GivenVouch, VouchError } from "@/lib/vouches/types";
+import type { GivenVouch } from "@/lib/vouches/types";
+import { useSessionWalletMatch } from "@/lib/vouches/use-session-wallet";
 import { useVouchWrite } from "@/lib/vouches/use-vouch-write";
-import { PENDING_DELAYS_MS, recordUntilSettled, writeErrorText } from "./vouch-flow";
+import { isFinalVouchError, PENDING_DELAYS_MS, recordUntilSettled, sentAtNow, writeErrorText } from "./vouch-flow";
 
 type Hash = `0x${string}`;
+type Sent = { hash: Hash; sentAt: number };
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 
 /**
- * Per recipient, the hash of a vouch this browser signed and the server has not recorded yet. While it exists the form
- * offers «Comprobar de nuevo» on that hash instead of signing again (a reload or a second tab resumes on it), like the
- * prize button of P2. Storage may be missing or throw: every access is guarded and the in-memory copy takes over.
+ * Per recipient, the hash of a vouch this browser signed and the server has not recorded yet, with when it was sent.
+ * While it exists the form offers «Comprobar de nuevo» on that hash instead of signing again (a reload or a second tab
+ * resumes on it), like the prize button of P2; a definitive answer (isFinalVouchError: a failed tx, or one the chain
+ * still does not know ten minutes later) drops it. Storage may be missing or throw: every access is guarded and the
+ * in-memory copy takes over.
  */
 const storageKey = (recipient: string) => `elclub:vouch:${recipient.toLowerCase()}`;
 
-function readStored(recipient: string): Hash | null {
+function readRaw(recipient: string): string | null {
   try {
-    const raw = window.localStorage.getItem(storageKey(recipient));
-    return raw && TX_HASH.test(raw) ? (raw as Hash) : null;
+    return window.localStorage.getItem(storageKey(recipient));
   } catch {
     return null;
   }
 }
 
-function writeStored(recipient: string, hash: Hash): void {
+function parseSent(raw: string | null): Sent | null {
+  if (!raw) return null;
   try {
-    window.localStorage.setItem(storageKey(recipient), hash);
+    const v = JSON.parse(raw) as { hash?: unknown; sentAt?: unknown };
+    if (typeof v.hash === "string" && TX_HASH.test(v.hash) && typeof v.sentAt === "number" && Number.isFinite(v.sentAt)) {
+      return { hash: v.hash as Hash, sentAt: v.sentAt };
+    }
+  } catch {
+    // Not ours.
+  }
+  return null;
+}
+
+function writeStored(recipient: string, sent: Sent): void {
+  try {
+    window.localStorage.setItem(storageKey(recipient), JSON.stringify(sent));
   } catch {
     // Without storage the guard only lasts while the page is open.
   }
@@ -58,9 +73,6 @@ const subscribeStorage = (onChange: () => void) => {
 };
 const noStored = () => null;
 
-/** Answers after which the hash will never become a vouch: the stored hash is dropped and the form signs again. */
-const FINAL: ReadonlySet<VouchError> = new Set(["invalid_input", "chain_unsupported", "tx_failed", "not_a_vouch", "wrong_attester", "self_vouch"]);
-
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 type Phase = "idle" | "signing" | "confirming" | "pending" | "done";
@@ -68,7 +80,8 @@ type Phase = "idle" | "signing" | "confirming" | "pending" | "done";
 /**
  * Vouch form (P5-R4): recipient and kind, «Avalar» signs EAS attest with the session's wallet on Base, then the hash is
  * recorded on the server, retried with back-off while the chain has not mined it. Blocked before signing: the session's
- * own address, a kind this wallet already vouched to that recipient, and a connected wallet other than the session's.
+ * own address, a kind this wallet already vouched to that recipient, and a connected wallet other than the session's
+ * (warned up front, «Avalar» disabled).
  */
 export function VouchForm({
   t,
@@ -80,22 +93,22 @@ export function VouchForm({
 }: {
   t: Dictionary["vouches"];
   chainId: VouchChainId;
-  sessionWallet: string;
+  sessionWallet: `0x${string}`;
   defaultRecipient: string;
   given: GivenVouch[];
   retryDelaysMs?: readonly number[];
 }) {
   const id = useId();
   const router = useRouter();
-  const { attest } = useVouchWrite();
-  const { address, isConnected } = useAccount();
+  const { attest } = useVouchWrite(sessionWallet);
+  const wallet = useSessionWalletMatch(sessionWallet);
   const [recipient, setRecipient] = useState(defaultRecipient);
   const [kind, setKind] = useState<VouchKind | null>(null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);
   const [kindMissing, setKindMissing] = useState(false);
-  const [local, setLocal] = useState<{ recipient: string; hash: Hash } | null>(null);
+  const [local, setLocal] = useState<({ recipient: string } & Sent) | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const alive = useRef(true);
   useEffect(() => {
@@ -109,14 +122,15 @@ export function VouchForm({
   const valid = ADDRESS_RE.test(r);
   const isSelf = valid && same(r, sessionWallet);
   const duplicate = valid && kind !== null && given.some((g) => same(g.recipient, r) && g.kind === kind);
-  const stored = useSyncExternalStore(subscribeStorage, () => (valid ? readStored(r) : null), noStored);
-  const pendingHash = stored ?? (valid && local && same(local.recipient, r) ? local.hash : null);
+  // The snapshot is the raw string (stable between renders); parsed here.
+  const stored = parseSent(useSyncExternalStore(subscribeStorage, () => (valid ? readRaw(r) : null), noStored));
+  const pending: Sent | null = stored ?? (valid && local && same(local.recipient, r) ? local : null);
   const busy = phase === "signing" || phase === "confirming";
 
-  async function check(to: string, hash: Hash) {
+  async function check(to: string, sent: Sent) {
     setError(null);
     setPhase("confirming");
-    const res = await recordUntilSettled(() => recordVouchAction({ chainId, txHash: hash }), retryDelaysMs, () => alive.current);
+    const res = await recordUntilSettled(() => recordVouchAction({ chainId, txHash: sent.hash }), retryDelaysMs, () => alive.current);
     if (res === null) return;
     if (res === "pending") {
       setPhase("pending");
@@ -130,7 +144,7 @@ export function VouchForm({
       router.refresh();
       return;
     }
-    if (FINAL.has(res.error)) {
+    if (isFinalVouchError(res.error, sent.sentAt)) {
       clearStored(to);
       setLocal(null);
     }
@@ -148,14 +162,10 @@ export function VouchForm({
       return;
     }
     if (isSelf) return;
-    if (pendingHash) return check(r, pendingHash);
-    if (duplicate) return;
+    if (pending) return check(r, pending);
+    if (duplicate || !wallet.matches) return;
     if (kind === null) {
       setKindMissing(true);
-      return;
-    }
-    if (!isConnected || !address || !same(address, sessionWallet)) {
-      setError(fill(t.form.useWallet, { address: shortAddress(sessionWallet) }));
       return;
     }
     setPhase("signing");
@@ -168,9 +178,10 @@ export function VouchForm({
       setPhase("idle");
       return;
     }
-    writeStored(r, hash);
-    setLocal({ recipient: r, hash });
-    await check(r, hash);
+    const sent: Sent = { hash, sentAt: sentAtNow() };
+    writeStored(r, sent);
+    setLocal({ recipient: r, ...sent });
+    await check(r, sent);
   }
 
   const errorId = `${id}-error`;
@@ -252,16 +263,23 @@ export function VouchForm({
         ) : null}
       </fieldset>
 
-      {pendingHash ? (
+      {wallet.mismatch ? (
+        <p className="flex items-start gap-2 text-sm text-warning">
+          <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {fill(t.form.useWallet, { address: shortAddress(sessionWallet) })}
+        </p>
+      ) : null}
+
+      {pending ? (
         <div className="flex flex-col items-start gap-2">
           {!busy && !error ? <p className="text-sm text-fg-muted">{t.form.pending}</p> : null}
-          <Button type="button" variant="outline" onClick={() => check(r, pendingHash)} disabled={busy}>
+          <Button type="button" variant="outline" onClick={() => check(r, pending)} disabled={busy}>
             {busy ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <RefreshCw aria-hidden />}
             {busy ? t.form.confirming : t.form.checkAgain}
           </Button>
         </div>
       ) : (
-        <Button type="submit" className="self-start" disabled={busy || isSelf || duplicate}>
+        <Button type="submit" className="self-start" disabled={busy || isSelf || duplicate || !wallet.matches}>
           {busy ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <ShieldCheck aria-hidden />}
           {phase === "signing" ? t.form.signing : phase === "confirming" ? t.form.confirming : t.form.submit}
         </Button>

@@ -10,7 +10,7 @@ vi.mock("@/lib/vouches/actions", () => ({ recordVouchAction, recordRevocationAct
 const attest = vi.hoisted(() => vi.fn());
 const revoke = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/vouches/use-vouch-write", () => ({ CHAIN_SWITCH_FAILED: "chain_switch_failed", useVouchWrite: () => ({ attest, revoke, switching: false }) }));
-const account = vi.hoisted(() => ({ isConnected: true, address: "0x1111111111111111111111111111111111111111" as string | undefined }));
+const account = vi.hoisted(() => ({ isConnected: true, status: "connected" as string, address: "0x1111111111111111111111111111111111111111" as string | undefined }));
 vi.mock("wagmi", () => ({ useAccount: () => account }));
 
 import { GivenVouches } from "@/components/vouches/given-vouches";
@@ -56,9 +56,14 @@ beforeEach(() => {
   recordVouchAction.mockReset().mockResolvedValue({ ok: true, uid: UID, already: false });
   recordRevocationAction.mockReset().mockResolvedValue({ ok: true, uid: UID });
   account.isConnected = true;
+  account.status = "connected";
   account.address = ME;
   window.localStorage.clear();
+  vi.restoreAllMocks();
 });
+
+const KEY = `elclub:vouch:${TO}`;
+const MINUTE = 60_000;
 
 describe("VouchForm", () => {
   it("the session's own wallet as recipient: the self text, the button disabled and nothing signed", async () => {
@@ -166,20 +171,85 @@ describe("VouchForm", () => {
     await waitFor(() => expect(attest).toHaveBeenCalledWith(TO.toUpperCase().replace("0X", "0x"), 1));
   });
 
-  it("a connected wallet other than the session's: asks for the session's wallet, nothing signed", async () => {
+  it("a connected wallet other than the session's: the warning up front, «Avalar» disabled, nothing signed", async () => {
     account.address = "0x9999999999999999999999999999999999999999";
+    setup({ defaultRecipient: TO });
+    expect(screen.getByText(/0x1111…1111/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t.form.submit })).toBeDisabled();
+    await userEvent.click(screen.getByRole("radio", { name: t.kinds.in_person }));
+    await userEvent.click(screen.getByRole("button", { name: t.form.submit }));
+    expect(attest).not.toHaveBeenCalled();
+  });
+
+  it("no wallet connected: the same warning and «Avalar» disabled; while reconnecting only disabled", () => {
+    account.isConnected = false;
+    account.address = undefined;
+    account.status = "disconnected";
+    const { unmount } = setup({ defaultRecipient: TO });
+    expect(screen.getByText(/0x1111…1111/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t.form.submit })).toBeDisabled();
+    unmount();
+    account.status = "reconnecting";
+    setup({ defaultRecipient: TO });
+    expect(screen.queryByText(/0x1111…1111/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t.form.submit })).toBeDisabled();
+  });
+
+  it("a cancelled signature shows its text and nothing is recorded", async () => {
+    attest.mockRejectedValue(Object.assign(new Error("User rejected the request."), { name: "UserRejectedRequestError" }));
     setup({ defaultRecipient: TO });
     await userEvent.click(screen.getByRole("radio", { name: t.kinds.in_person }));
     await userEvent.click(screen.getByRole("button", { name: t.form.submit }));
-    expect(await screen.findByText(/0x1111…1111/)).toBeInTheDocument();
-    expect(attest).not.toHaveBeenCalled();
+    expect(await screen.findByText(t.form.cancelled)).toBeInTheDocument();
+    expect(recordVouchAction).not.toHaveBeenCalled();
+  });
+
+  it("tx_not_found long after sending (dropped or replaced tx): the stored hash is dropped and «Avalar» comes back", async () => {
+    window.localStorage.setItem(KEY, JSON.stringify({ hash: HASH, sentAt: Date.now() - 11 * MINUTE }));
+    recordVouchAction.mockResolvedValue({ ok: false, error: "tx_not_found" });
+    setup({ defaultRecipient: TO });
+    await userEvent.click(screen.getByRole("button", { name: t.form.checkAgain }));
+    expect(await screen.findByText(t.form.errors.tx_not_found)).toBeInTheDocument();
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+    expect(screen.getByRole("button", { name: t.form.submit })).toBeEnabled();
+    expect(recordVouchAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("tx_not_found right after sending keeps the hash (the node may not have seen it yet)", async () => {
+    recordVouchAction.mockResolvedValue({ ok: false, error: "tx_not_found" });
+    setup({ defaultRecipient: TO });
+    await userEvent.click(screen.getByRole("radio", { name: t.kinds.in_person }));
+    await userEvent.click(screen.getByRole("button", { name: t.form.submit }));
+    expect(await screen.findByText(t.form.errors.tx_not_found)).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toMatchObject({ hash: HASH });
+    expect(screen.getByRole("button", { name: t.form.checkAgain })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t.form.submit })).not.toBeInTheDocument();
+  });
+
+  it("storage that throws: the vouch still goes through and, while pending, the in-memory hash blocks a second signature", async () => {
+    for (const m of ["getItem", "setItem", "removeItem"] as const) {
+      vi.spyOn(Storage.prototype, m).mockImplementation(() => {
+        throw new Error("blocked");
+      });
+    }
+    recordVouchAction.mockResolvedValue({ ok: false, error: "pending" });
+    setup({ defaultRecipient: TO });
+    await userEvent.click(screen.getByRole("radio", { name: t.kinds.in_person }));
+    await userEvent.click(screen.getByRole("button", { name: t.form.submit }));
+    expect(await screen.findByText(t.form.pending)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: t.form.submit })).not.toBeInTheDocument();
+    recordVouchAction.mockReset().mockResolvedValue({ ok: true, uid: UID, already: false });
+    await userEvent.click(screen.getByRole("button", { name: t.form.checkAgain }));
+    expect(await screen.findByText(t.form.done)).toBeInTheDocument();
+    expect(recordVouchAction).toHaveBeenCalledWith({ chainId: 84532, txHash: HASH });
+    expect(attest).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("GivenVouches", () => {
   it("«Retirar» revokes the uid and records the revocation, retrying while pending", async () => {
     recordRevocationAction.mockResolvedValueOnce({ ok: false, error: "pending" }).mockResolvedValue({ ok: true, uid: UID });
-    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} retryDelaysMs={NO_WAIT} />);
+    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} sessionWallet={ME} retryDelaysMs={NO_WAIT} />);
     await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
     await waitFor(() => expect(recordRevocationAction).toHaveBeenCalledTimes(2));
     expect(revoke).toHaveBeenCalledWith(UID);
@@ -190,15 +260,36 @@ describe("GivenVouches", () => {
 
   it("«Retirar» is an outline button and an error shows its text", async () => {
     recordRevocationAction.mockResolvedValue({ ok: false, error: "rate_limited" });
-    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} retryDelaysMs={NO_WAIT} />);
+    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} sessionWallet={ME} retryDelaysMs={NO_WAIT} />);
     const btn = screen.getByRole("button", { name: t.given.revoke });
     expect(btn.dataset.variant).toBe("outline");
     await userEvent.click(btn);
     expect(await screen.findByText(t.form.errors.rate_limited)).toBeInTheDocument();
   });
 
+  it("a revocation still pending after five calls offers «Comprobar de nuevo» on the same hash, never a second signature", async () => {
+    recordRevocationAction.mockResolvedValue({ ok: false, error: "pending" });
+    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} sessionWallet={ME} retryDelaysMs={NO_WAIT} />);
+    await userEvent.click(screen.getByRole("button", { name: t.given.revoke }));
+    expect(await screen.findByRole("button", { name: t.form.checkAgain })).toBeInTheDocument();
+    expect(recordRevocationAction).toHaveBeenCalledTimes(5);
+    expect(screen.queryByRole("button", { name: t.given.revoke })).not.toBeInTheDocument();
+    recordRevocationAction.mockReset().mockResolvedValue({ ok: true, uid: UID });
+    await userEvent.click(screen.getByRole("button", { name: t.form.checkAgain }));
+    expect(await screen.findByText(t.given.revoked)).toBeInTheDocument();
+    expect(recordRevocationAction).toHaveBeenCalledWith({ chainId: 84532, txHash: HASH });
+    expect(revoke).toHaveBeenCalledTimes(1);
+  });
+
+  it("a wallet other than the session's: the warning and «Retirar» disabled", () => {
+    account.address = "0x9999999999999999999999999999999999999999";
+    render(<GivenVouches lang="es" t={t} given={[given()]} chainId={84532} sessionWallet={ME} retryDelaysMs={NO_WAIT} />);
+    expect(screen.getByText(/0x1111…1111/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: t.given.revoke })).toBeDisabled();
+  });
+
   it("nothing given: the empty text", () => {
-    render(<GivenVouches lang="es" t={t} given={[]} chainId={84532} />);
+    render(<GivenVouches lang="es" t={t} given={[]} chainId={84532} sessionWallet={ME} />);
     expect(screen.getByText(t.given.empty)).toBeInTheDocument();
   });
 });

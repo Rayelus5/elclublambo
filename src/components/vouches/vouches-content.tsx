@@ -135,13 +135,18 @@ async function renderSessionPart(lang: Lang, wallet: `0x${string}`, defaultRecip
         <h2 id="vouches-form" className={H2}>
           {t.form.title}
         </h2>
-        <VouchForm key={defaultRecipient} t={t} chainId={chainId} sessionWallet={wallet} defaultRecipient={defaultRecipient} given={given} />
+        {/* Without the given list the duplicate check cannot run, and a duplicate would be permanent on chain. */}
+        {givenFailed ? (
+          <Alert text={t.summary.loadFailed} />
+        ) : (
+          <VouchForm key={defaultRecipient} t={t} chainId={chainId} sessionWallet={wallet} defaultRecipient={defaultRecipient} given={given} />
+        )}
       </section>
       <section aria-labelledby="vouches-given" className={SECTION}>
         <h2 id="vouches-given" className={H2}>
           {t.given.title}
         </h2>
-        {givenFailed ? <Alert text={t.summary.loadFailed} /> : <GivenVouches lang={lang} t={t} given={given} chainId={chainId} />}
+        {givenFailed ? <Alert text={t.summary.loadFailed} /> : <GivenVouches lang={lang} t={t} given={given} chainId={chainId} sessionWallet={wallet} />}
       </section>
     </>
   );

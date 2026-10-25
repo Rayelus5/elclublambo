@@ -13,9 +13,10 @@ export const CHAIN_SWITCH_FAILED = "chain_switch_failed";
 
 /**
  * The user's wallet signs EAS attest/revoke on this deployment's Base (P5-R4), after switching to it, with the Builder
- * Code suffix when one is configured (D14). Resolves to the transaction hash; the caller sends it to the server action.
+ * Code suffix when one is configured (D14). `account` pins the signer to the session's wallet, so an account changed during
+ * the switch prompt is refused by wagmi. Resolves to the transaction hash; the caller sends it to the server action.
  */
-export function useVouchWrite(): {
+export function useVouchWrite(account: `0x${string}`): {
   attest(recipient: `0x${string}`, kind: VouchKind): Promise<`0x${string}`>;
   revoke(uid: `0x${string}`): Promise<`0x${string}`>;
   switching: boolean;
@@ -27,8 +28,8 @@ export function useVouchWrite(): {
     const chain = vouchChain();
     if (!(await ensure(chain))) throw new Error(CHAIN_SWITCH_FAILED);
     const suffix = dataSuffixFor(chain);
-    return { address: easAddresses().eas, abi: easAbi, chainId: chain, ...(suffix ? { dataSuffix: suffix } : {}) };
-  }, [ensure]);
+    return { address: easAddresses().eas, abi: easAbi, chainId: chain, account, ...(suffix ? { dataSuffix: suffix } : {}) };
+  }, [ensure, account]);
 
   const attest = useCallback(
     async (recipient: `0x${string}`, kind: VouchKind) => writeContractAsync({ ...(await target()), functionName: "attest", args: attestArgs(recipient, kind) }),

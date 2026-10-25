@@ -117,11 +117,23 @@ describe("vouches tool content", () => {
   });
 
   it("a failed read of the vouches shows an error, not an empty list", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     q.getVouchesFor.mockRejectedValue(new Error("db down"));
     await content("es", { address: TO });
     expect(screen.getByRole("alert")).toHaveTextContent(es.summary.loadFailed);
     expect(screen.queryByText(es.summary.empty)).not.toBeInTheDocument();
+    spy.mockRestore();
+  });
+
+  it("a failed read of the session's given vouches: no form (a duplicate would be permanent), the error instead", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    q.getVouchesGivenBy.mockRejectedValue(new Error("db down"));
+    await content("es", { address: TO });
+    expect(screen.queryByTestId("vouch-form")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("given-vouches")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("alert").some((a) => a.textContent === es.summary.loadFailed)).toBe(true);
+    expect(screen.getByText(`${es.kinds.reliable_trade} · 1`)).toBeInTheDocument();
+    spy.mockRestore();
   });
 
   it("EN has no Spanish strings", async () => {
