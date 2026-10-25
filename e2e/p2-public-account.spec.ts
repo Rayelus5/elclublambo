@@ -33,7 +33,7 @@ test("1. a wallet without invitation signs in on /herramientas: address and «De
   const account = page.getByRole("group", { name: "Tu cuenta" });
   await expect(account.getByText(`${outsider.address.slice(0, 6)}`, { exact: false })).toBeVisible();
   await expect(account.getByRole("button", { name: "Desconectar" })).toBeVisible();
-  await expect(account.getByRole("link", { name: "Ir al club" })).toHaveCount(0);
+  await expect(account.getByRole("link", { name: "Ir al foro" })).toHaveCount(0);
   expect(new URL(page.url()).pathname).toBe("/herramientas");
 
   // Nothing of the club: a channel sends it to /no-access, / shows the landing.

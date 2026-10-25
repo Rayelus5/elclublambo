@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-  path: "/guia/dao",
+  path: "/foro/guia/dao",
   welcome: { handle: null, welcome_completed_at: null } as { handle: string | null; welcome_completed_at: string | null } | null,
 }));
 
@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
   redirect: (to: string) => {
     throw new Error(`REDIRECT:${to}`);
   },
-  usePathname: () => "/guia/dao",
+  usePathname: () => "/foro/guia/dao",
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 const after = vi.hoisted(() => vi.fn());
@@ -40,7 +40,7 @@ vi.mock("@/lib/supabase/server", () => ({
   }),
 }));
 
-import ForumLayout from "@/app/(forum)/layout";
+import ForumLayout from "@/app/foro/(forum)/layout";
 
 async function renderShell() {
   const tree = ForumLayout({ children: <p>contenido</p> } as never) as React.ReactElement<{ children: React.ReactElement }>;
@@ -50,7 +50,7 @@ async function renderShell() {
 
 describe("ForumLayout onboarding gate", () => {
   beforeEach(() => {
-    state.path = "/guia/dao";
+    state.path = "/foro/guia/dao";
     state.welcome = { handle: null, welcome_completed_at: null };
   });
 
@@ -64,14 +64,14 @@ describe("ForumLayout onboarding gate", () => {
   });
 
   it("redirects other paths during onboarding, keeping the path", async () => {
-    state.path = "/c/abc?x=1";
-    await expect(renderShell()).rejects.toThrow(`REDIRECT:/bienvenida?next=${encodeURIComponent("/c/abc?x=1")}`);
+    state.path = "/foro/c/abc?x=1";
+    await expect(renderShell()).rejects.toThrow(`REDIRECT:/foro/bienvenida?next=${encodeURIComponent("/foro/c/abc?x=1")}`);
   });
 
   it("fails closed when the member row is missing", async () => {
-    state.path = "/perfil";
+    state.path = "/foro/perfil";
     state.welcome = null;
-    await expect(renderShell()).rejects.toThrow("REDIRECT:/bienvenida?next=%2Fperfil");
+    await expect(renderShell()).rejects.toThrow("REDIRECT:/foro/bienvenida?next=%2Fforo%2Fperfil");
   });
 });
 
@@ -79,7 +79,7 @@ describe("ForumLayout background rechecks (F5 S2)", () => {
   it("schedules the member's payment rechecks at most once per throttle window, so reload spam cannot multiply RPC reads", async () => {
     const { resetRecheckThrottle } = await import("@/lib/payments/recheck-throttle");
     resetRecheckThrottle();
-    state.path = "/guia/dao";
+    state.path = "/foro/guia/dao";
     state.welcome = { handle: null, welcome_completed_at: null };
     after.mockClear();
     await renderShell();

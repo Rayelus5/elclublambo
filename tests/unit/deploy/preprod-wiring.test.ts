@@ -94,12 +94,13 @@ describe("Dockerfile", () => {
     expect(dockerfile).toMatch(/https:\/\/\?\*\) ;;/);
   });
 
-  it("copies the standalone server, .next/static and public, and checks health on /login", () => {
+  // R1: the club login lives at /foro/login (the old /login 308s to the public host, which a healthcheck must not follow).
+  it("copies the standalone server, .next/static and public, and checks health on /foro/login", () => {
     expect(dockerfile).toMatch(/\.next\/standalone/);
     expect(dockerfile).toMatch(/\.next\/static\s+\.\/\.next\/static/);
     expect(dockerfile).toMatch(/\/public\s+\.\/public/);
     expect(dockerfile).toContain('CMD ["node", "server.js"]');
-    expect(dockerfile).toMatch(/^HEALTHCHECK [^\n]*\\\n\s+CMD node -e .*127\.0\.0\.1:3000\/login/m);
+    expect(dockerfile).toMatch(/^HEALTHCHECK [^\n]*\\\n\s+CMD node -e .*127\.0\.0\.1:3000\/foro\/login'/m);
     expect(dockerfile).toMatch(/PORT=3000/);
     expect(dockerfile).toMatch(/HOSTNAME=0\.0\.0\.0/);
   });
@@ -264,7 +265,7 @@ describe("preproduction workflow", () => {
     const up = s.indexOf("$COMPOSE up -d --no-build web cron cloudflared");
     // Bind-mounted single files (crontab, tunnel config) can stay stale after `up -d`: cron and cloudflared are always recreated.
     const recreate = s.indexOf("$COMPOSE up -d --no-build --force-recreate cron cloudflared");
-    const smoke = s.indexOf("http://127.0.0.1:3000/login");
+    const smoke = s.indexOf("http://127.0.0.1:3000/foro/login");
     expect(build).toBeGreaterThan(-1);
     expect(build).toBeLessThan(push);
     expect(push).toBeLessThan(up);

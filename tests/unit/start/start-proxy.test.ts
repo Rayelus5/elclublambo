@@ -4,12 +4,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 // /start is the public landing: served with and without a session, never redirected (login, welcome).
-const state = vi.hoisted(() => ({ user: null as { id: string } | null, membership: "active" as string }));
+const state = vi.hoisted(() => ({ user: null as { id: string } | null, membership: "active" as string, rpcs: [] as string[] }));
 
 vi.mock("@supabase/ssr", () => ({
   createServerClient: () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
-    rpc: async () => ({ data: state.membership, error: null }),
+    rpc: async (fn: string) => {
+      state.rpcs.push(fn);
+      return { data: state.membership, error: null };
+    },
     from: () => {
       const q: Record<string, unknown> = {};
       q.select = () => q;
@@ -32,6 +35,7 @@ const call = (path: string) => proxy(new NextRequest(`http://localhost:3000${pat
 beforeEach(() => {
   state.user = null;
   state.membership = "active";
+  state.rpcs = [];
 });
 
 describe("isPublicPath for the landing", () => {
@@ -67,9 +71,9 @@ describe("proxy on /start", () => {
     expect(res.headers.get("x-middleware-next")).toBe("1");
   });
 
-  it("still sends an anonymous visitor of a private page to /login", async () => {
+  it("still sends an anonymous visitor of a private page to /foro/login", async () => {
     const res = await call("/startx");
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
   });
 });
 
@@ -98,11 +102,14 @@ describe("proxy on the public tree", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/herramientas");
   });
 
-  it("keeps the forum at / for an active member", async () => {
+  // R1-R3: the club lives under /foro, so "/" is the landing for everyone and costs no membership read.
+  it("shows the landing at / to an active member too, without reading the membership", async () => {
     state.user = { id: "u1" };
     state.membership = "active";
     const res = await call("/");
-    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(res.headers.get("location")).toBeNull();
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es");
+    expect(state.rpcs).not.toContain("my_membership_status");
   });
 
   it("shows the landing at / to a signed-in account without membership", async () => {
@@ -127,13 +134,19 @@ describe("proxy on /donar and /pay (P3)", () => {
     expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
   });
 
-  it("keeps the club donations page for an active member", async () => {
+  it("shows the public donate page to an active member too (R1-R3), without reading the membership", async () => {
     state.user = { id: "u1" };
     state.membership = "active";
     const res = await call("/donar");
-    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
-    // Not rewritten: it goes through the normal gates (here the mocked pending welcome).
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/bienvenida");
+    expect(res.headers.get("location")).toBeNull();
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+    expect(state.rpcs).not.toContain("my_membership_status");
+  });
+
+  it("gates the club donations page at /foro/donar (here the mocked pending welcome)", async () => {
+    state.user = { id: "u1" };
+    const res = await call("/foro/donar");
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/bienvenida");
   });
 
   it("serves /pay/<address> without a session", async () => {

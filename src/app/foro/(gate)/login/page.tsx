@@ -2,12 +2,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { LoginPanelLazy } from "@/components/auth/login-panel-lazy";
 
-async function LoginContent({ searchParams }: { searchParams: PageProps<"/login">["searchParams"] }) {
+async function LoginContent({ searchParams }: { searchParams: PageProps<"/foro/login">["searchParams"] }) {
   const { next } = await searchParams;
   return <LoginPanelLazy next={typeof next === "string" ? next : null} />;
 }
 
-export default function LoginPage(props: PageProps<"/login">) {
+export default function LoginPage(props: PageProps<"/foro/login">) {
   return (
     <>
       <header className="flex flex-col gap-4">

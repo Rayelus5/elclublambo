@@ -23,6 +23,7 @@ import { reverifyMyPendingIntents } from "@/lib/payments/confirm";
 import { shouldRecheckMember } from "@/lib/payments/recheck-throttle";
 import { settlePendingDonations } from "@/lib/treasury/settle";
 import { createServerClient } from "@/lib/supabase/server";
+import { clubPath } from "@/lib/club/paths";
 
 // Lee cookies (dinámico): con cacheComponents debe vivir dentro de un Suspense.
 async function ForumShell({ children }: { children: React.ReactNode }) {
@@ -30,14 +31,14 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect(clubPath("/login"));
 
   const { data: status } = await supabase.rpc("my_membership_status");
-  if (status === "banned") redirect("/banned");
-  if (status !== "active") redirect("/no-access");
+  if (status === "banned") redirect(clubPath("/banned"));
+  if (status !== "active") redirect(clubPath("/no-access"));
 
   const wallet = walletFromUser(user);
-  if (!wallet) redirect("/login");
+  if (!wallet) redirect(clubPath("/login"));
 
   // has_any_channel_perm(8): same rule as the reports page (a 404 otherwise), MANAGE_MESSAGES in at least one visible
   // channel. Admins get the channel bits through channel_permissions, so the RPC covers them too.
@@ -89,7 +90,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   const openTicketCount = openTickets.error ? 0 : (openTickets.count ?? 0);
   // The member id comes from the session on the server (it names the private realtime topic); never from the client.
   const memberId = typeof me.data === "string" ? me.data : null;
-  if (!memberId) redirect("/no-access");
+  if (!memberId) redirect(clubPath("/no-access"));
 
   // Interrupted flow (tab closed after signing): re-verify this member's pending tips off the response path. The
   // member id is passed in because a Server Component cannot read request APIs inside after().
@@ -104,10 +105,10 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   // (layouts do not re-run on client navigations); this is the defence in depth. Fails closed: no readable row means
   // not completed. The guide is the one page allowed before the welcome, and it gets no shell, so it links nowhere.
   if (!welcome || welcome.welcome_completed_at === null) {
-    const path = (await headers()).get("x-pathname") ?? "/";
+    const path = (await headers()).get("x-pathname") ?? clubPath();
     const base = path.split(/[?#]/)[0] ?? path;
-    if (base === "/guia" || base.startsWith("/guia/")) return <OnboardingGuideFrame>{children}</OnboardingGuideFrame>;
-    redirect("/bienvenida?next=" + encodeURIComponent(path));
+    if (base === clubPath("/guia") || base.startsWith(`${clubPath("/guia")}/`)) return <OnboardingGuideFrame>{children}</OnboardingGuideFrame>;
+    redirect(`${clubPath("/bienvenida")}?next=${encodeURIComponent(path)}`);
   }
   const initialCount = typeof unreadCount.data === "number" ? unreadCount.data : 0;
 
@@ -132,7 +133,7 @@ async function ForumShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function ForumLayout({ children }: LayoutProps<"/">) {
+export default function ForumLayout({ children }: LayoutProps<"/foro">) {
   return (
     <Suspense fallback={<div className="min-h-dvh" aria-hidden />}>
       <ForumShell>{children}</ForumShell>

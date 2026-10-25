@@ -67,14 +67,14 @@ describe("proxy · unknown top-level segment (item 1)", () => {
     expect(rewrittenTo(res)).toBe(NOT_FOUND_PATH);
   });
 
-  it("an anonymous visitor on /xx still goes to /login", async () => {
+  it("an anonymous visitor on /xx still goes to /foro/login", async () => {
     state.user = null;
     const res = await call("/xx");
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
   });
 
   it("known top-level pages are not touched", async () => {
-    for (const p of ["/perfil", "/en", "/robots.txt"]) {
+    for (const p of ["/foro", "/foro/perfil", "/en", "/robots.txt"]) {
       const res = await call(p);
       expect(res.status).not.toBe(404);
     }

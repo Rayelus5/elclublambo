@@ -11,29 +11,29 @@ function client(opts: { anywhere?: unknown; anywhereError?: unknown; status?: un
 }
 
 describe("isHiddenReportsPage", () => {
-  it.each(["/", "/moderation", "/moderation/reports/x", "/c/abc", "/x/moderation/reports"])("%s is not the queue: no query", async (p) => {
+  it.each(["/", "/foro/moderation", "/foro/moderation/reports/x", "/foro/c/abc", "/foro/x/moderation/reports", "/moderation/reports"])("%s is not the queue: no query", async (p) => {
     const c = client({});
     expect(await isHiddenReportsPage(c as never, p)).toBe(false);
     expect(c.rpc).not.toHaveBeenCalled();
   });
 
-  it.each(["/moderation/reports", "/moderation/reports/"])("%s is hidden when the member moderates no channel", async (p) => {
+  it.each(["/foro/moderation/reports", "/foro/moderation/reports/"])("%s is hidden when the member moderates no channel", async (p) => {
     expect(await isHiddenReportsPage(client({ anywhere: false }) as never, p)).toBe(true);
   });
 
   it("is visible for someone with MANAGE_MESSAGES somewhere", async () => {
     const c = client({ anywhere: true });
-    expect(await isHiddenReportsPage(c as never, "/moderation/reports")).toBe(false);
+    expect(await isHiddenReportsPage(c as never, "/foro/moderation/reports")).toBe(false);
     expect(c.rpc).toHaveBeenCalledWith("has_any_channel_perm", { p_bit: 8 });
   });
 
   it("only active members get the 404 (the layout redirects everyone else)", async () => {
-    expect(await isHiddenReportsPage(client({ anywhere: false, status: "banned" }) as never, "/moderation/reports")).toBe(false);
+    expect(await isHiddenReportsPage(client({ anywhere: false, status: "banned" }) as never, "/foro/moderation/reports")).toBe(false);
   });
 
   it("fails open on any error (the page itself still calls notFound)", async () => {
-    expect(await isHiddenReportsPage(client({ anywhereError: { message: "x" }, anywhere: null }) as never, "/moderation/reports")).toBe(false);
-    expect(await isHiddenReportsPage(client({ anywhere: false, statusError: { message: "x" } }) as never, "/moderation/reports")).toBe(false);
-    expect(await isHiddenReportsPage(client({ anywhere: null }) as never, "/moderation/reports")).toBe(false);
+    expect(await isHiddenReportsPage(client({ anywhereError: { message: "x" }, anywhere: null }) as never, "/foro/moderation/reports")).toBe(false);
+    expect(await isHiddenReportsPage(client({ anywhere: false, statusError: { message: "x" } }) as never, "/foro/moderation/reports")).toBe(false);
+    expect(await isHiddenReportsPage(client({ anywhere: null }) as never, "/foro/moderation/reports")).toBe(false);
   });
 });

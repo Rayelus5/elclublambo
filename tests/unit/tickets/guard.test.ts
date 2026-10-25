@@ -14,11 +14,11 @@ function client(opts: { ticket?: unknown; ticketError?: unknown; status?: unknow
 
 describe("ticketSegment", () => {
   it.each([
-    [`/tickets/${ID}`, ID],
-    [`/tickets/${ID}/`, ID],
-    ["/tickets/xyz", "xyz"],
+    [`/foro/tickets/${ID}`, ID],
+    [`/foro/tickets/${ID}/`, ID],
+    ["/foro/tickets/xyz", "xyz"],
   ])("%s", (path, seg) => expect(ticketSegment(path)).toBe(seg));
-  it.each(["/", "/tickets", "/tickets/", `/tickets/${ID}/x`, "/c/abc", "/x/tickets/abc"])("%s is not a ticket path", (p) =>
+  it.each(["/", "/foro/tickets", "/foro/tickets/", `/foro/tickets/${ID}/x`, "/foro/c/abc", "/foro/x/tickets/abc", `/tickets/${ID}`])("%s is not a ticket path", (p) =>
     expect(ticketSegment(p)).toBeNull(),
   );
 });
@@ -26,31 +26,31 @@ describe("ticketSegment", () => {
 describe("isMissingTicket", () => {
   it("ignores other paths without querying", async () => {
     const c = client({});
-    expect(await isMissingTicket(c as never, "/tickets")).toBe(false);
+    expect(await isMissingTicket(c as never, "/foro/tickets")).toBe(false);
     expect(c.from).not.toHaveBeenCalled();
   });
 
   it("an accessible ticket is not missing", async () => {
     const c = client({ ticket: { id: ID } });
-    expect(await isMissingTicket(c as never, `/tickets/${ID}`)).toBe(false);
+    expect(await isMissingTicket(c as never, `/foro/tickets/${ID}`)).toBe(false);
     expect(c.eq).toHaveBeenCalledWith("id", ID);
   });
 
   it("an inaccessible or inexistent ticket is missing for an active member", async () => {
-    expect(await isMissingTicket(client({ ticket: null }) as never, `/tickets/${ID}`)).toBe(true);
+    expect(await isMissingTicket(client({ ticket: null }) as never, `/foro/tickets/${ID}`)).toBe(true);
   });
 
   it("a malformed id is missing without touching the table", async () => {
     const c = client({});
-    expect(await isMissingTicket(c as never, "/tickets/not-a-uuid")).toBe(true);
+    expect(await isMissingTicket(c as never, "/foro/tickets/not-a-uuid")).toBe(true);
     expect(c.from).not.toHaveBeenCalled();
   });
 
   it("is not missing for members who are not active (the layout redirects them)", async () => {
-    expect(await isMissingTicket(client({ ticket: null, status: "banned" }) as never, `/tickets/${ID}`)).toBe(false);
+    expect(await isMissingTicket(client({ ticket: null, status: "banned" }) as never, `/foro/tickets/${ID}`)).toBe(false);
   });
 
   it("fails open on a query error", async () => {
-    expect(await isMissingTicket(client({ ticketError: { message: "boom" } }) as never, `/tickets/${ID}`)).toBe(false);
+    expect(await isMissingTicket(client({ ticketError: { message: "boom" } }) as never, `/foro/tickets/${ID}`)).toBe(false);
   });
 });

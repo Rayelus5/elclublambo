@@ -23,7 +23,7 @@ async function SettingsShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function SettingsLayout({ children }: LayoutProps<"/settings">) {
+export default function SettingsLayout({ children }: LayoutProps<"/foro/settings">) {
   return (
     <Suspense fallback={<PageLoader />}>
       <SettingsShell>{children}</SettingsShell>

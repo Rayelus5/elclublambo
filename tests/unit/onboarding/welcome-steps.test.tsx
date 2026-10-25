@@ -124,6 +124,7 @@ describe("WelcomeSteps", () => {
     render(<WelcomeSteps {...base} initialHandle="ana" next="//evil.com" />);
     await user.click(screen.getByRole("button", { name: "Siguiente" }));
     await user.click(screen.getByRole("button", { name: "Saltar" }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    // R1-R4: the fallback is the club home.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro"));
   });
 });

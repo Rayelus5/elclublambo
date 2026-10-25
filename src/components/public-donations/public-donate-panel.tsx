@@ -27,6 +27,7 @@ import type { TipIntent } from "@/lib/payments/tip-actions";
 import { useEnsureChain } from "@/lib/payments/use-ensure-chain";
 import { useSendTransfer } from "@/lib/payments/use-send-transfer";
 import { formatUsdIn } from "@/lib/treasury/format";
+import { clubPath } from "@/lib/club/paths";
 
 // Same state machine as the club's donate dialog (src/components/donations/donate-dialog.tsx), without its
 // EconomyProvider: the session comes from the page (getPublicSession) and the recipient is always the intent's
@@ -160,7 +161,7 @@ export function PublicDonatePanel(props: Props) {
       <div className="flex flex-col items-start gap-3">
         <p className="text-sm text-fg-muted">{t.memberText}</p>
         <Link
-          href="/donar"
+          href={clubPath("/donar")}
           className="inline-flex min-h-11 items-center gap-2 rounded-control bg-primary px-4 text-sm font-bold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <HeartHandshake aria-hidden className="size-4" />

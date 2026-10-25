@@ -15,7 +15,7 @@ import { LinkPending } from "@/components/shell/link-pending";
 import { NavLink } from "@/components/shell/nav-link";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { ChatHistoryLoading } from "@/components/chat/chat-history-loading";
-import ForumLoading from "@/app/(forum)/loading";
+import ForumLoading from "@/app/foro/(forum)/loading";
 import { buildTree } from "@/lib/channels/tree";
 
 beforeEach(() => {

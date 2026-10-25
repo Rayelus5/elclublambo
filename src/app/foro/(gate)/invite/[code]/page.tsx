@@ -3,7 +3,7 @@ import { LoginPanelLazy } from "@/components/auth/login-panel-lazy";
 import { safeDecode } from "@/lib/auth/safe-decode";
 import { rpcErrorMessage } from "@/lib/errors";
 
-async function InviteContent({ props }: { props: PageProps<"/invite/[code]"> }) {
+async function InviteContent({ props }: { props: PageProps<"/foro/invite/[code]"> }) {
   const [{ code }, { error }] = await Promise.all([props.params, props.searchParams]);
   const errorCode = typeof error === "string" ? error : null;
   return (
@@ -18,7 +18,7 @@ async function InviteContent({ props }: { props: PageProps<"/invite/[code]"> }) 
   );
 }
 
-export default function InvitePage(props: PageProps<"/invite/[code]">) {
+export default function InvitePage(props: PageProps<"/foro/invite/[code]">) {
   return (
     <>
       <header className="flex flex-col gap-4">

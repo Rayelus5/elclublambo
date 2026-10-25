@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { isInternalImagePath } from "@/lib/i18n/public-routing";
+import { clubPath } from "@/lib/club/paths";
 
 type GuardClient = Pick<SupabaseClient, "from">;
 
@@ -10,13 +11,13 @@ type GuardClient = Pick<SupabaseClient, "from">;
  */
 export function isOnboardingExempt(pathname: string): boolean {
   if (isPublicPath(pathname) || isInternalImagePath(pathname)) return true;
-  return ["/bienvenida", "/guia"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return [clubPath("/bienvenida"), clubPath("/guia")].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
 /**
- * Whether an authenticated member must be sent to /bienvenida: they are a member (they have a row) and
+ * Whether an authenticated member must be sent to /foro/bienvenida: they are a member (they have a row) and
  * `welcome_completed_at` is null. Layouts do not re-run on client navigations, so the proxy enforces this on every
- * page request. Non-members (no readable row) keep the current behaviour (their pages send them to /no-access).
+ * page request. Non-members (no readable row) keep the current behaviour (their pages send them to /foro/no-access).
  * A read error fails closed (to the welcome, whose own layout re-checks the membership).
  * It is a UX gate, not access control: only page requests (GET/HEAD) are gated.
  *

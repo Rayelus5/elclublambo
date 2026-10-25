@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
-import { decidePublicRoute, isInternalImagePath, isUnknownTopSegment, type PublicState } from "@/lib/i18n/public-routing";
+import { decidePublicRoute, isInternalImagePath, isUnknownTopSegment, legacyClubRedirect } from "@/lib/i18n/public-routing";
+import { clubPath } from "@/lib/club/paths";
 import { isMissingPublicGiveaway } from "@/lib/public-giveaways/exists";
 import { isInvalidPayPath, isMissingPayAlias } from "@/lib/pay/exists";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
@@ -17,6 +18,12 @@ import { publicOrigin } from "@/lib/start/site";
 import { authCookieName, serverSupabaseUrl } from "@/lib/supabase/urls";
 
 export async function proxy(request: NextRequest) {
+  // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
+  // the same path and query, before anything else: no session read, no gate. On the public origin (behind the tunnel
+  // request.nextUrl is the bind address).
+  const legacy = legacyClubRedirect(request.nextUrl.pathname, request.nextUrl.search);
+  if (legacy !== null) return NextResponse.redirect(new URL(legacy, publicOrigin(request)), 308);
+
   // Layouts do not receive the pathname: the forum layout reads it from this header (onboarding redirect keeps `next`).
   // Set on the request itself (overwrites anything the client sent) so the cookie refresh below still forwards with it.
   request.headers.set("x-pathname", request.nextUrl.pathname + request.nextUrl.search);
@@ -83,15 +90,10 @@ export async function proxy(request: NextRequest) {
     return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   };
 
-  // Public part (bilingual tree): "/" is the landing unless the visitor is an active member (then the forum); Spanish
-  // public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their canonical URL (308).
-  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/" and "/donar".
-  let publicState: PublicState = user ? "public" : "anon";
-  if (user && (pathname === "/" || pathname === "/donar")) {
-    const { data: status, error } = await supabase.rpc("my_membership_status");
-    if (!error && status === "active") publicState = "member";
-  }
-  const route = decidePublicRoute(pathname, publicState);
+  // Public part (bilingual tree): "/" is always the landing and "/donar" the public donate page (the club lives under
+  // /foro, R1-R3); Spanish public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their
+  // canonical URL (308). Decided before the gates: it is served the same with or without a session.
+  const route = decidePublicRoute(pathname);
   if (route.kind === "redirect") {
     const url = redirectUrl(route.to, request.nextUrl.search);
     return remember(applySessionHeaders(NextResponse.redirect(url, 308), sessionCookies, sessionHeaders));
@@ -105,28 +107,28 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
-    const url = redirectUrl("/login", new URLSearchParams({ next: pathname }));
+    const url = redirectUrl(clubPath("/login"), new URLSearchParams({ next: pathname }));
     return remember(applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders));
   }
 
   // First login: the welcome (mandatory @handle) comes first. Enforced here because layouts do not re-run on client
-  // navigations. /bienvenida, /guia and the (gate) pages are exempt.
+  // navigations. /foro/bienvenida, /foro/guia and the (gate) pages are exempt.
   // A completed welcome is never undone: once read, a cookie bound to this user skips the read (T-006).
   if (user && request.cookies.get(WELCOMED_COOKIE)?.value !== user.id) {
     const welcome = await welcomeStatus(supabase, user.id, pathname, request.method);
     if (welcome === "pending") {
-      const url = redirectUrl("/bienvenida", new URLSearchParams({ next: pathname + request.nextUrl.search }));
+      const url = redirectUrl(clubPath("/bienvenida"), new URLSearchParams({ next: pathname + request.nextUrl.search }));
       return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
     }
     welcomedNow = welcome === "completed";
   }
 
   // The page streams under <Suspense>, so a notFound() there would answer 200: decide the 404 here instead.
-  // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
-  // The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot open.
-  // /mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
+  // Same for /foro/tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing
+  // one. The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot
+  // open. /foro/mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
-  // went to /login above). An unknown public giveaway id under /en is a 404 with or without a session.
+  // went to /foro/login above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
   // Same for an alias nobody owns (/en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
   if (
     (await isMissingPublicGiveaway(pathname)) ||

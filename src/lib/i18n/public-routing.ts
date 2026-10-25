@@ -1,7 +1,7 @@
 import { toInternalPath, toPublicPath } from "./routes";
 import { isLang } from "./config";
+import { clubPath } from "@/lib/club/paths";
 
-export type PublicState = "anon" | "public" | "member";
 export type PublicDecision =
   | { kind: "rewrite"; to: string }
   | { kind: "redirect"; to: string }
@@ -27,15 +27,18 @@ export function isInternalImagePath(pathname: string): boolean {
  * los ficheros de metadata de la raíz y los ficheros de `public/` que el matcher del proxy no excluye. Un test los compara
  * con el árbol real.
  */
-export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set([
+export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set(["api", "favicon.ico", "foro", "out", "robots.txt", "sitemap.xml"]);
+
+/**
+ * Primeros segmentos que el club usaba antes de vivir bajo /foro (R1-R5). Ya no son rutas: el proxy los redirige (308)
+ * a /foro con la misma ruta y query, antes de cualquier gate (invitaciones compartidas, marcadores, push entregados).
+ */
+export const LEGACY_CLUB_SEGMENTS: ReadonlySet<string> = new Set([
   "admin",
-  "api",
   "banned",
   "bienvenida",
   "c",
   "dao",
-  "donar",
-  "favicon.ico",
   "guia",
   "invite",
   "invites",
@@ -44,15 +47,24 @@ export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set([
   "moderation",
   "no-access",
   "notifications",
-  "out",
   "perfil",
-  "robots.txt",
   "settings",
-  "sitemap.xml",
   "sorteos",
   "tickets",
   "u",
 ]);
+
+/**
+ * Destino `/foro…` (misma ruta y query) de una URL antigua del club, o null. `/donar` exacto es la página pública
+ * (R1-R3) y no se redirige; `/donar/<algo>` solo existía en el club.
+ */
+export function legacyClubRedirect(pathname: string, search: string): string | null {
+  const segs = pathname.split("/").filter(Boolean);
+  const first = segs[0];
+  if (first === undefined) return null;
+  if (!LEGACY_CLUB_SEGMENTS.has(first) && !(first === "donar" && segs.length > 1)) return null;
+  return clubPath(pathname) + search;
+}
 
 /**
  * Un único segmento que no es un idioma, ni una ruta de la app, ni una URL pública española (`/start`, `/herramientas`):
@@ -67,15 +79,14 @@ export function isUnknownTopSegment(pathname: string): boolean {
 
 /**
  * Decide qué hace el proxy con la parte pública bilingüe (pura, para test):
- * - `/` es la landing salvo para un miembro (ve el foro); `/donar`, la página pública salvo para un miembro;
+ * - `/` es siempre la landing y `/donar` la página pública (el club vive bajo /foro, R1-R3);
  * - las URLs españolas del mapa se reescriben al árbol interno `/es/...`;
  * - una visita directa a `/es/...` redirige (308) a su URL canónica;
  * - lo demás (inglés, foro, desconocidas) pasa.
  */
-export function decidePublicRoute(pathname: string, state: PublicState): PublicDecision {
-  if (pathname === "/") return state === "member" ? PASS : { kind: "rewrite", to: "/es" };
-  // `/donar` es la página del club para un miembro y la pública para cualquier otro (P3-R10).
-  if (pathname === "/donar") return state === "member" ? PASS : { kind: "rewrite", to: "/es/donate" };
+export function decidePublicRoute(pathname: string): PublicDecision {
+  if (pathname === "/") return { kind: "rewrite", to: "/es" };
+  if (pathname === "/donar") return { kind: "rewrite", to: "/es/donate" };
   if (isInternalImagePath(pathname)) return PASS;
 
   const first = pathname.split("/").filter(Boolean)[0];

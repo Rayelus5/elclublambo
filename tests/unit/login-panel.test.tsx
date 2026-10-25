@@ -50,7 +50,7 @@ beforeEach(() => {
   account.isConnected = false;
   signMessageAsync.mockResolvedValue("0xsig");
   signInWithWeb3.mockResolvedValue({ data: {}, error: null });
-  completeLogin.mockResolvedValue({ redirectTo: "/" });
+  completeLogin.mockResolvedValue({ redirectTo: "/foro" });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -130,14 +130,15 @@ describe("LoginPanel", () => {
     expect(arg).toMatchObject({ chain: "ethereum", signature: "0xsig" });
     expect(arg.message).toContain(ADDRESS);
     expect(arg.message).toContain(`Chain ID: ${BASE_SEPOLIA}`);
+    expect(arg.message).toContain(`URI: ${window.location.origin}/foro/login`);
   });
 
   it("success: completeLogin gets the invite code and the router redirects", async () => {
     connect();
-    completeLogin.mockResolvedValue({ redirectTo: "/no-access" });
+    completeLogin.mockResolvedValue({ redirectTo: "/foro/no-access" });
     render(<LoginPanel inviteCode="abc123" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/no-access"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro/no-access"));
     expect(completeLogin).toHaveBeenCalledWith("abc123");
   });
 
@@ -150,24 +151,24 @@ describe("LoginPanel", () => {
 
   it("honours a safe ?next= only when redirectTo is '/'", async () => {
     connect();
-    render(<LoginPanel next="/invites" />);
+    render(<LoginPanel next="/foro/invites" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/invites"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro/invites"));
   });
 
   it("ignores ?next= when redirectTo is not '/'", async () => {
     connect();
-    completeLogin.mockResolvedValue({ redirectTo: "/banned" });
-    render(<LoginPanel next="/invites" />);
+    completeLogin.mockResolvedValue({ redirectTo: "/foro/banned" });
+    render(<LoginPanel next="/foro/invites" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/banned"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro/banned"));
   });
 
   it("sanitizes an unsafe ?next=", async () => {
     connect();
     render(<LoginPanel next="//evil.com" />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro"));
   });
 
   it("signInWithWeb3 error shows a role=alert and does not redirect", async () => {
@@ -194,10 +195,10 @@ describe("LoginPanel", () => {
 
   it("completeLogin error ending on /no-access navigates with ?error=<code>", async () => {
     connect();
-    completeLogin.mockResolvedValue({ redirectTo: "/no-access", error: "forbidden" });
+    completeLogin.mockResolvedValue({ redirectTo: "/foro/no-access", error: "forbidden" });
     render(<LoginPanel />);
     await userEvent.click(screen.getByRole("button", { name: /Firmar y entrar/ }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/no-access?error=forbidden"));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro/no-access?error=forbidden"));
   });
 
   it("signing: button is disabled and reads 'Firmando…'", async () => {

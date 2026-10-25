@@ -43,7 +43,7 @@ describe("createInviteAction", () => {
     rpc.mockResolvedValue({ data: { code: "CODE22" }, error: null });
     const res = await createInviteAction(fd("5", "168"));
     expect(rpc).toHaveBeenCalledWith("create_invite", { p_max_uses: 5, p_expires_in_hours: 168 });
-    expect(res).toEqual({ url: "http://localhost:3000/invite/CODE22" });
+    expect(res).toEqual({ url: "http://localhost:3000/foro/invite/CODE22" });
     expect(revalidatePath).toHaveBeenCalledWith("/invites");
   });
 
@@ -52,9 +52,9 @@ describe("createInviteAction", () => {
       (k: string) => ({ host: "club.example", "x-forwarded-proto": "https" })[k] ?? null,
     );
     rpc.mockResolvedValue({ data: { code: "C" }, error: null });
-    expect((await createInviteAction(fd("1", "1"))).url).toBe("https://club.example/invite/C");
+    expect((await createInviteAction(fd("1", "1"))).url).toBe("https://club.example/foro/invite/C");
     process.env.NEXT_PUBLIC_SITE_URL = "https://site.test/";
-    expect((await createInviteAction(fd("1", "1"))).url).toBe("https://site.test/invite/C");
+    expect((await createInviteAction(fd("1", "1"))).url).toBe("https://site.test/foro/invite/C");
   });
 
   it("maps rpc errors to codes", async () => {

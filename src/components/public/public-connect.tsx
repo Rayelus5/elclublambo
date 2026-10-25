@@ -7,6 +7,7 @@ import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/auth/public-paths";
+import { clubPath } from "@/lib/club/paths";
 import { getDictionary } from "@/lib/i18n";
 import { hardNavigate } from "@/lib/navigation/hard-navigate";
 import type { Lang } from "@/lib/i18n/config";
@@ -49,7 +50,7 @@ export function PublicConnect({ lang, next }: Props) {
         chainId: loginChain,
         nonce: generateNonce(),
         domain: window.location.host,
-        uri: `${window.location.origin}/login`,
+        uri: `${window.location.origin}${clubPath("/login")}`, // R1-R2: same SIWE uri as the club login
         lang,
       });
       let signature: `0x${string}`;
@@ -64,11 +65,10 @@ export function PublicConnect({ lang, next }: Props) {
         setError(c.errVerify);
         return;
       }
-      // P2-R16 hand-off through /login/complete (completeLogin in public mode), a full navigation rather than a server
-      // action: signing in on the landing turns a member's "/" into the forum mid-request, and an action posted from "/"
-      // would then miss the page that holds it.
+      // P2-R16 hand-off through /foro/login/complete (completeLogin in public mode), a full navigation rather than a server
+      // action. The public `next` falls back to the landing, not to the club home (R1-R4).
       navigated = true;
-      hardNavigate(`/login/complete?mode=public&next=${encodeURIComponent(safeNextPath(next))}`);
+      hardNavigate(`${clubPath("/login/complete")}?mode=public&next=${encodeURIComponent(safeNextPath(next, "/"))}`);
     } catch {
       setError(c.errVerify);
     } finally {

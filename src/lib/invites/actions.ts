@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { rpcErrorCode } from "@/lib/errors";
 import { createServerClient } from "@/lib/supabase/server";
+import { clubPath } from "@/lib/club/paths";
 import { ALLOWED_EXPIRY_HOURS, ALLOWED_USES } from "./options";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -40,7 +41,7 @@ export async function createInviteAction(fd: FormData): Promise<{ url?: string; 
   if (!code) return { error: "unknown" };
 
   revalidatePath("/invites");
-  return { url: `${await siteOrigin()}/invite/${code}` };
+  return { url: `${await siteOrigin()}${clubPath(`/invite/${code}`)}` };
 }
 
 export async function revokeInviteAction(id: string): Promise<{ error?: string }> {

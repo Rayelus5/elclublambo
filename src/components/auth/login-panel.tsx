@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { completeLogin } from "@/lib/auth/actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
+import { clubPath } from "@/lib/club/paths";
 import { shortAddress } from "@/lib/auth/wallet";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
@@ -53,7 +54,7 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
         chainId: loginChain,
         nonce: generateNonce(),
         domain: window.location.host,
-        uri: `${window.location.origin}/login`,
+        uri: `${window.location.origin}${clubPath("/login")}`,
       });
 
       let signature: `0x${string}`;
@@ -76,12 +77,12 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
 
       const { redirectTo, error: loginError } = await completeLogin(inviteCode);
       // Éxito: se mantiene `signing` activo mientras navega para evitar un doble envío.
-      // /invite/<code>?error=… ya presenta su error; /no-access lo recibe por ?error=.
+      // /foro/invite/<code>?error=… ya presenta su error; /foro/no-access lo recibe por ?error=.
       navigated = true;
-      if (loginError && redirectTo === "/no-access") {
-        router.replace(`/no-access?error=${encodeURIComponent(loginError)}`);
+      if (loginError && redirectTo === clubPath("/no-access")) {
+        router.replace(`${clubPath("/no-access")}?error=${encodeURIComponent(loginError)}`);
       } else {
-        router.replace(redirectTo === "/" ? safeNextPath(next) : redirectTo);
+        router.replace(redirectTo === clubPath() ? safeNextPath(next) : redirectTo);
       }
     } catch {
       setError(MSG_VERIFY);
