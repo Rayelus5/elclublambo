@@ -6,7 +6,16 @@
 //   4. (P1) the club Safe address gets code (runtime `0x00`: STOP, so it accepts plain ETH), so verifyClubSafe sees it
 //      deployed on both networks;
 //   5. (P1) the mock Chainlink ETH/USD aggregator goes to ETH_USD_FEED (playwright.config.ts points
-//      ETH_USD_FEED_ADDRESS_<chainId> there) with an answer of 2000 USD, stamped with the block time.
+//      ETH_USD_FEED_ADDRESS_<chainId> there) with an answer of 2000 USD, stamped with the block time;
+//   6. (P4) Multicall3 at its canonical address;
+//   7. (P5, 84532 only) EAS (P5-R9): SchemaRegistry and EAS from @ethereum-attestation-service/eas-contracts 1.9.0 are
+//      deployed normally, then their runtime code is copied with hardhat_setCode to the OP Stack predeploys
+//      SCHEMA_REGISTRY_ADDRESS (0x…20) and EAS_ADDRESS (0x…21), the addresses the app uses on Base. This is sound:
+//      SchemaRegistry has no immutables but Semver constants and starts with empty storage; EAS gets 0x…20 in its
+//      constructor (so its immutable registry already points at the predeploy), its constructor writes no storage, and
+//      OpenZeppelin's EIP712 recomputes the domain separator when address(this) differs from the deploy address. Then
+//      VOUCH_SCHEMA is registered (no resolver, revocable) and the start aborts unless getSchemaRegistry() = 0x…20,
+//      version() = 1.4.0 and getSchema(uid).uid = uid.
 // Once both are ready, a tiny HTTP server on READY_PORT answers 200 (Playwright waits for it, not for the RPC ports).
 // The mock WETH JSON (F4a) stays in this folder; no active spec uses it.
 // Plain Node, no shell syntax: works from PowerShell, cmd and bash.
@@ -16,14 +25,30 @@ import http from "node:http";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { encodeFunctionData } from "viem";
-import { CHAINS, CLUB_SAFE, ETH_USD_FEED, ETH_USD_PRICE_E8, hardhatAccount, MINT_PER_ACCOUNT, MINTED_ACCOUNTS, READY_PORT } from "./shared.mjs";
+import { decodeFunctionResult, encodeDeployData, encodeFunctionData, encodePacked, keccak256, zeroAddress } from "viem";
+import {
+  CHAINS,
+  CLUB_SAFE,
+  EAS_ADDRESS,
+  ETH_USD_FEED,
+  ETH_USD_PRICE_E8,
+  hardhatAccount,
+  MINT_PER_ACCOUNT,
+  MINTED_ACCOUNTS,
+  READY_PORT,
+  SCHEMA_REGISTRY_ADDRESS,
+  VOUCH_SCHEMA,
+} from "./shared.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const mock = JSON.parse(readFileSync(join(here, "mock-usdc.json"), "utf8"));
 const aggregator = JSON.parse(readFileSync(join(here, "mock-aggregator.json"), "utf8"));
-const hardhatBin = join(dirname(require.resolve("hardhat/package.json")), "internal", "cli", "bootstrap.js");
+// TEST-ONLY: EAS artifacts (P5-R9), pinned by the exact devDependency version.
+const easArtifacts = "@ethereum-attestation-service/eas-contracts/artifacts/contracts";
+const registryArtifact = require(`${easArtifacts}/SchemaRegistry.sol/SchemaRegistry.json`);
+const easArtifact = require(`${easArtifacts}/EAS.sol/EAS.json`);
+const hardhatBin =join(dirname(require.resolve("hardhat/package.json")), "internal", "cli", "bootstrap.js");
 
 async function rpc(url, method, params = []) {
   const res = await fetch(url, {
@@ -41,6 +66,40 @@ const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
 // Not in viem's public exports: imported by file URL from its package folder (TEST-ONLY setup).
 const viemDir = dirname(require.resolve("viem/package.json"));
 const { multicall3Bytecode } = await import(pathToFileURL(join(viemDir, "_esm", "constants", "contracts.js")).href);
+
+/** Deploys `data` (creation code) from `from` and returns the runtime code it left behind. */
+async function deployedRuntime(rpcUrl, from, data) {
+  const tx = await rpc(rpcUrl, "eth_sendTransaction", [{ from, data }]);
+  const { contractAddress, status } = await rpc(rpcUrl, "eth_getTransactionReceipt", [tx]);
+  if (status !== "0x1" || !contractAddress) throw new Error("deployment failed");
+  return rpc(rpcUrl, "eth_getCode", [contractAddress, "latest"]);
+}
+
+async function call(rpcUrl, to, abi, functionName, args = []) {
+  const data = encodeFunctionData({ abi, functionName, args });
+  return decodeFunctionResult({ abi, functionName, data: await rpc(rpcUrl, "eth_call", [{ to, data }, "latest"]) });
+}
+
+/** Step 7: EAS at the Base predeploys with the vouch schema registered (P5-R9). Throws, aborting the start, if anything is off. */
+async function prepareEas(rpcUrl) {
+  const deployer = hardhatAccount(0).address;
+  await rpc(rpcUrl, "hardhat_setCode", [SCHEMA_REGISTRY_ADDRESS, await deployedRuntime(rpcUrl, deployer, registryArtifact.bytecode)]);
+  const easDeploy = encodeDeployData({ abi: easArtifact.abi, bytecode: easArtifact.bytecode, args: [SCHEMA_REGISTRY_ADDRESS] });
+  await rpc(rpcUrl, "hardhat_setCode", [EAS_ADDRESS, await deployedRuntime(rpcUrl, deployer, easDeploy)]);
+
+  const register = encodeFunctionData({ abi: registryArtifact.abi, functionName: "register", args: [VOUCH_SCHEMA, zeroAddress, true] });
+  const regTx = await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, to: SCHEMA_REGISTRY_ADDRESS, data: register }]);
+  if ((await rpc(rpcUrl, "eth_getTransactionReceipt", [regTx])).status !== "0x1") throw new Error("EAS schema registration reverted");
+
+  const uid = keccak256(encodePacked(["string", "address", "bool"], [VOUCH_SCHEMA, zeroAddress, true]));
+  const registry = await call(rpcUrl, EAS_ADDRESS, easArtifact.abi, "getSchemaRegistry");
+  if (registry.toLowerCase() !== SCHEMA_REGISTRY_ADDRESS.toLowerCase()) throw new Error(`EAS points at registry ${registry}`);
+  const version = await call(rpcUrl, EAS_ADDRESS, easArtifact.abi, "version");
+  if (version !== "1.4.0") throw new Error(`unexpected EAS version ${version}`);
+  const schema = await call(rpcUrl, SCHEMA_REGISTRY_ADDRESS, registryArtifact.abi, "getSchema", [uid]);
+  if (schema.uid !== uid) throw new Error(`vouch schema ${uid} not registered`);
+  return uid;
+}
 
 const nodes = [];
 let readyServer;
@@ -113,6 +172,11 @@ async function prepare(chainId) {
   await rpc(rpcUrl, "hardhat_setCode", [MULTICALL3, await rpc(rpcUrl, "eth_getCode", [contractAddress, "latest"])]);
   if ((await rpc(rpcUrl, "eth_getCode", [MULTICALL3, "latest"])).length < 100) throw new Error(`Multicall3 missing on ${chainId}`);
   console.log(`[chain] chain ${chainId} on ${rpcUrl}, mock USDC at ${usdc}, Safe code at ${CLUB_SAFE}, ETH/USD feed at ${ETH_USD_FEED}`);
+  // P5: vouches live on Base only, so only the Base Sepolia node gets EAS (after Multicall3).
+  if (chainId === 84532) {
+    const uid = await prepareEas(rpcUrl);
+    console.log(`[chain] chain ${chainId}: EAS at ${EAS_ADDRESS}, schema ${uid}`);
+  }
 }
 
 async function main() {

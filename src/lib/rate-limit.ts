@@ -4,7 +4,7 @@ import { rpcErrorCode } from "@/lib/errors";
 import { safeError } from "@/lib/security/redact";
 
 /** Buckets a server action charges up front (F5-R2); their limits live in public.rate_limit_hit. */
-export type PreHitBucket = "chain_verify" | "redeem_invite";
+export type PreHitBucket = "chain_verify" | "redeem_invite" | "vouch_write";
 
 /**
  * Charges one hit of `bucket` to the session's member (or 'u:'||auth.uid() before membership) in its own transaction,
