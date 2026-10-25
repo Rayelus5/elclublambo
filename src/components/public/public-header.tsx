@@ -1,13 +1,35 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useSyncExternalStore, type MouseEvent } from "react";
 import { getDictionary } from "@/lib/i18n";
 import { LANGS, type Lang } from "@/lib/i18n/config";
 import { localizedPath, switchLang, toPublicPath } from "@/lib/i18n/routes";
 import type { PublicSession } from "@/lib/auth/public-session";
 import { AccountChip } from "./account-chip";
 import { PublicConnectLazy } from "./public-connect-lazy";
+
+/**
+ * The URL's query, without useSearchParams (it would need its own Suspense in every shell). A path change re-renders
+ * the header and React re-reads the snapshot after the commit, once Next has written the URL; back / forward
+ * (popstate) and a query-only change on the same path (Navigation API `currententrychange`, where the browser has it)
+ * notify here.
+ */
+function subscribeLocation(onChange: () => void) {
+  const navigation = (window as { navigation?: EventTarget }).navigation;
+  // Next writes the URL inside an insertion effect and Chrome fires currententrychange right there; React forbids
+  // scheduling an update from it, so the notification waits for the end of that commit.
+  let live = true;
+  const notify = () => queueMicrotask(() => live && onChange());
+  window.addEventListener("popstate", notify);
+  navigation?.addEventListener("currententrychange", notify);
+  return () => {
+    live = false;
+    window.removeEventListener("popstate", notify);
+    navigation?.removeEventListener("currententrychange", notify);
+  };
+}
 
 const focus =
   "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg rounded-control";
@@ -19,6 +41,17 @@ export function PublicHeader({ lang, session }: { lang: Lang; session: PublicSes
   // Normalise to the public path so server and client render the same links.
   const raw = usePathname() ?? localizedPath(lang, "home");
   const pathname = toPublicPath(raw) ?? raw;
+  const router = useRouter();
+  // The language links keep the page's query (/herramientas/avales?address=… → /en/tools/vouches?address=…): the server
+  // and the hydration pass render the path alone, the browser then adds the query (subscribeLocation); a click re-reads
+  // it in case it changed unheard (a browser without the Navigation API).
+  const search = useSyncExternalStore(subscribeLocation, () => window.location.search, () => "");
+  const keepQuery = (base: string) => (e: MouseEvent<HTMLAnchorElement>) => {
+    const now = window.location.search;
+    if (now === search || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    router.push(`${base}${now}`);
+  };
 
   return (
     <header className="border-b border-border bg-bg">
@@ -46,7 +79,8 @@ export function PublicHeader({ lang, session }: { lang: Lang; session: PublicSes
             {LANGS.map((l) => (
               <Link
                 key={l}
-                href={switchLang(pathname, l)}
+                href={`${switchLang(pathname, l)}${search}`}
+                onClick={keepQuery(switchLang(pathname, l))}
                 hrefLang={l}
                 lang={l}
                 aria-current={l === lang ? "true" : undefined}

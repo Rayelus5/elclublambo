@@ -38,7 +38,7 @@ export default async function ToolsPage({ params }: PageProps<"/[lang]/tools">) 
         <ToolCard icon={Gift} name={t.giveaways.name} text={t.giveaways.text} status={t.available} href={localizedPath(lang, "giveaways")} />
         <ToolCard icon={Wallet} name={t.pay.name} text={t.pay.text} status={t.available} href={localizedPath(lang, "payTool")} />
         <ToolCard icon={ScanSearch} name={t.checker.name} text={t.checker.text} status={t.available} href={localizedPath(lang, "checker")} />
-        <ToolCard icon={BadgeCheck} name={t.guarantees.name} text={t.guarantees.text} status={t.comingSoon} />
+        <ToolCard icon={BadgeCheck} name={t.guarantees.name} text={t.guarantees.text} status={t.available} href={localizedPath(lang, "vouches")} />
       </ul>
     </main>
   );

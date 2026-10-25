@@ -103,7 +103,8 @@ select tests.clear_authentication();
 
 select is(
   (select count(*)::int from information_schema.role_table_grants
-    where table_schema = 'public' and grantee = 'anon'),
+    where table_schema = 'public' and grantee = 'anon'
+      and not (table_name = 'vouches' and privilege_type = 'SELECT')),  -- vouches: public on-chain data, select-only through RLS (P5)
   0, 'anon has no table grants in public');
 select is(
   (select count(*)::int from information_schema.role_table_grants

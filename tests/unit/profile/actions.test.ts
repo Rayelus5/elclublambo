@@ -45,6 +45,8 @@ describe("saveProfileAction", () => {
     expect(await saveProfileAction(input)).toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("update_profile", { p_display_name: "Ana", p_bio: "hola", p_links: ["https://a.com"] });
     expect(revalidatePath).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/(forum)/u/[address]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/perfil");
   });
 
   it.each(["bio_too_long", "links_invalid", "invalid_input", "forbidden"])("maps %s to its Spanish copy", async (code) => {

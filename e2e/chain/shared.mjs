@@ -42,3 +42,11 @@ export function hardhatAccount(index) {
   const privateKey = toHex(/** @type {Uint8Array} */ (account.getHdKey().privateKey));
   return { address: account.address, privateKey: /** @type {`0x${string}`} */ (privateKey) };
 }
+
+/**
+ * EAS on the 84532 node (P5-R9): start-chain.mjs puts SchemaRegistry and EAS at their OP Stack predeploy addresses and
+ * registers the vouch schema, exactly as src/lib/vouches/eas.ts expects (tests/unit/vouches/chain-constants.test.ts).
+ */
+export const EAS_ADDRESS = "0x4200000000000000000000000000000000000021";
+export const SCHEMA_REGISTRY_ADDRESS = "0x4200000000000000000000000000000000000020";
+export const VOUCH_SCHEMA = "uint8 kind";

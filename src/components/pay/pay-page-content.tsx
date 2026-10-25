@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { BadgeCheck, CircleAlert, RotateCw, TriangleAlert } from "lucide-react";
 import { CopyButton } from "@/components/pay/copy-button";
 import { PayWidgetLazy } from "@/components/pay/pay-widget-lazy";
 import { Button } from "@/components/ui/button";
+import { ProfileVouches } from "@/components/vouches/profile-vouches";
 import { getDictionary } from "@/lib/i18n";
 import { isLang } from "@/lib/i18n/config";
 import { fill } from "@/lib/i18n/fill";
@@ -22,7 +24,7 @@ type Props = {
 /**
  * The recipient and the payment form of /pay/<alias or address>. An unknown alias is a 404 from the proxy; this
  * notFound() is the safety net for when the proxy failed open on a read error. An address always resolves (P3-R4); a
- * read error shows a retry state and no payment form.
+ * read error shows a retry state and no payment form. The received vouches follow the payment (P5-R7).
  */
 export async function PayPageContent({ params, searchParams }: Props) {
   const { lang, target } = await params;
@@ -104,6 +106,11 @@ export async function PayPageContent({ params, searchParams }: Props) {
           initialAsset={asset}
         />
       </section>
+
+      {/* P5-R7: after the payment and in its own boundary, so a slow or failed vouches read never holds up «Pagar». */}
+      <Suspense fallback={<div className="min-h-40" aria-hidden />}>
+        <ProfileVouches lang={lang} address={view.address} />
+      </Suspense>
     </div>
   );
 }

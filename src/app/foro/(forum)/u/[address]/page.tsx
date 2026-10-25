@@ -11,11 +11,13 @@ import { TipProfileButton } from "@/components/payments/tip-profile-button";
 import { BountyRecordSection } from "@/components/profile/bounty-record";
 import { ProfileLinks } from "@/components/profile/profile-links";
 import { TipsReceived } from "@/components/profile/tips-received";
+import { VouchesReceived } from "@/components/profile/vouches-received";
 import { getMemberBountyRecord, getMemberUnpaidBounties } from "@/lib/bounties/queries";
 import { getMemberTipTotals, getMemberTips } from "@/lib/payments/queries";
 import { HANDLE_RE } from "@/lib/members/handle";
 import { identityFromRow, memberName } from "@/lib/members/name";
 import { createServerClient } from "@/lib/supabase/server";
+import { getVouchesFor } from "@/lib/vouches/queries";
 
 type DbMember = {
   id: string;
@@ -80,7 +82,9 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
   const bountiesPromise = Promise.all([getMemberBountyRecord(supabase, member.id), getMemberUnpaidBounties(supabase, member.id)])
     .then(([record, unpaid]) => ({ record, unpaid }))
     .catch(() => null);
-  const [sponsorRes, inviteesRes, tips, bounties] = await Promise.all([
+  // P5-R8: the public vouches of this wallet (same RPC as the public tool). A failed read hides the block.
+  const vouchesPromise = getVouchesFor(member.wallet_address).catch(() => null);
+  const [sponsorRes, inviteesRes, tips, bounties, vouches] = await Promise.all([
     member.invited_by_member_id
       ? supabase.from("members").select(COLUMNS).eq("id", member.invited_by_member_id).maybeSingle<DbMember>()
       : Promise.resolve({ data: null, error: null }),
@@ -92,6 +96,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
       .returns<DbMember[]>(),
     tipsPromise,
     bountiesPromise,
+    vouchesPromise,
   ]);
 
   if (sponsorRes.error) throw sponsorRes.error;
@@ -139,7 +144,7 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
         </div>
       </header>
 
-      {tips || bounties ? (
+      {tips || bounties || (vouches && vouches.total > 0) ? (
         <div className="grid gap-6 xl:grid-cols-2">
           {tips ? (
             <div className={panel}>
@@ -149,6 +154,11 @@ async function ProfileContent({ params }: { params: Promise<{ address: string }>
           {bounties ? (
             <div className={panel}>
               <BountyRecordSection record={bounties.record} unpaid={bounties.unpaid} />
+            </div>
+          ) : null}
+          {vouches && vouches.total > 0 ? (
+            <div className={panel}>
+              <VouchesReceived address={member.wallet_address} summary={vouches} />
             </div>
           ) : null}
         </div>
