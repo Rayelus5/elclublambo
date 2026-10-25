@@ -257,6 +257,12 @@ describe("analyzeToken: what the chain says (Review Focus 2)", () => {
     expect(r.facts.erc20).toEqual({ status: "ok", data: null });
   });
 
+  it("a multicall the node never answered (allowFailure hands back the transport error) → erc20 unknown, not «not an ERC-20»", async () => {
+    const err = new TimeoutError({ body: {}, url: "https://rpc" });
+    client.multicall.mockResolvedValue([0, 1, 2, 3].map(() => ({ status: "failure", error: err })));
+    expect((await analyzeToken(8453, TOKEN)).facts.erc20).toEqual({ status: "unknown", reason: "timeout" });
+  });
+
   it("an EIP-1967 proxy with an implementation → proxy true (medium)", async () => {
     client.getStorageAt.mockResolvedValue(`0x000000000000000000000000${IMPL.slice(2)}`);
     const r = await analyzeToken(8453, TOKEN);

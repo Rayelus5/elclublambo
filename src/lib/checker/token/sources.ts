@@ -283,6 +283,11 @@ async function readChainUnbounded(chain: ChainId, address: `0x${string}`): Promi
         ],
         allowFailure: true,
       });
+      // allowFailure turns a call the node never answered into a per-item failure too: that is unknown, not «no ERC-20».
+      for (const r of [decimals, totalSupply]) {
+        const reason = r.status === "failure" ? rpcFailure(r.error) : null;
+        if (reason) return unknown(reason);
+      }
       if (decimals.status !== "success" || typeof decimals.result !== "number") return ok(null);
       if (totalSupply.status !== "success" || typeof totalSupply.result !== "bigint") return ok(null);
       const text = (r: { status: string; result?: unknown }) => (r.status === "success" && typeof r.result === "string" ? r.result : null);
