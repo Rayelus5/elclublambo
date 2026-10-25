@@ -9,7 +9,10 @@
 --     public), since confirm_donation writes both tables in one transaction.
 --   - Entering the club (any members insert: redeem_invite, bootstrap) claims the wallet's public donations and grants
 --     Mecenas once their total reaches donor_role_min_usd6 (trigger _claim_public_donations). A member who is later
---     banned keeps them.
+--     banned keeps them. A public donation confirmed after its donor already joined (e.g. ETH waiting on its price)
+--     is recorded for that member at confirm time. Both paths grant Mecenas through _grant_donor_role_if_due.
+--   - confirm_donation (latest 20261024200003_donations.sql): its transfer already recorded by a public donation is
+--     tx_already_used instead of a raw unique violation; nothing else changes.
 --   - donor_ranking (latest 20261024200003_donations.sql), same signature: adds listed, non-anonymous external donors as
 --     «Donante externo · 0x1234…abcd» with member_id null. Member rows are unchanged.
 --   - public_donation_overview (service role): only the club total and the number of donations, for the public page.
@@ -41,6 +44,40 @@ alter table public.donations add column public_intent_id uuid unique references 
 alter table public.donations add constraint donations_one_intent check (num_nonnulls(intent_id, public_intent_id) = 1);
 alter table public.donations add column listed boolean not null default false;
 create index donations_donor_unclaimed_idx on public.donations (donor_address) where member_id is null;
+
+-- ===== shared Mecenas evaluation (trigger and confirm_public_donation) =====
+-- Same rule, lock and audit as confirm_donation: total >= donor_role_min_usd6 grants the donor role once.
+create function public._grant_donor_role_if_due(p_member uuid, p_payload jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_min numeric;
+  v_total numeric;
+  v_role uuid;
+  v_granted int;
+begin
+  select (c.value #>> '{}')::numeric into v_min from public.app_config c where c.key = 'donor_role_min_usd6';
+  perform pg_advisory_xact_lock(hashtextextended('donor:' || p_member::text, 0));
+  select coalesce(sum(d.usd6), 0) into v_total from public.donations d where d.member_id = p_member;
+  if v_min is null or v_total < v_min then
+    return;
+  end if;
+  select r.id into v_role from public.roles r where r.system_key = 'donor';
+  if v_role is null then
+    return;
+  end if;
+  insert into public.member_roles (member_id, role_id) values (p_member, v_role) on conflict do nothing;
+  get diagnostics v_granted = row_count;
+  if v_granted > 0 then
+    insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+    values (null, 'donor_role_granted', 'member', p_member,
+            jsonb_build_object('totalUsd6', v_total::text) || coalesce(p_payload, '{}'::jsonb));
+  end if;
+end;
+$$;
 
 -- ===== create_public_donation_intent =====
 -- Same ranges, Safe lookup (for share) and 20-pending cap as create_donation_intent; returns the same shape.
@@ -158,6 +195,7 @@ declare
   v_log int;
   v_block bigint;
   v_id uuid;
+  v_member uuid;
 begin
   select * into i from public.public_donation_intents x where x.id = p_intent for update;
   if not found then
@@ -200,11 +238,19 @@ begin
     raise exception 'tx_already_used';
   end if;
 
+  -- the donor joined the club after creating the intent: record it for that member (P3-R9). A banned member's
+  -- donation stays unclaimed (they keep only what was claimed before the ban). for share: a concurrent ban waits.
+  -- same per-wallet lock as _claim_public_donations: whichever commits first, the other sees it
+  perform pg_advisory_xact_lock(hashtextextended('donor_wallet:' || i.donor_address, 0));
+  select m.id into v_member from public.members m
+  where m.wallet_address = i.donor_address and m.status <> 'banned'
+  for share;
+
   begin
     insert into public.donations (public_intent_id, chain_id, token, amount, usd6, eth_price_e8, price_source, member_id,
                                   donor_address, tx_hash, log_index, block_number, anonymous, listed)
     values (i.id, i.chain_id, i.token, i.amount, p_usd6, p_eth_price_e8,
-            case i.token when 'ETH' then 'chainlink' else 'usdc' end, null,
+            case i.token when 'ETH' then 'chainlink' else 'usdc' end, v_member,
             i.donor_address, v_hash, v_log, v_block, i.anonymous, i.listed)
     returning id into v_id;
   exception when unique_violation then
@@ -212,6 +258,9 @@ begin
   end;
 
   update public.public_donation_intents set status = 'confirmed' where id = i.id;
+  if v_member is not null then
+    perform public._grant_donor_role_if_due(v_member, jsonb_build_object('donationId', v_id));
+  end if;
   return jsonb_build_object('status', 'confirmed', 'donationId', v_id);
 end;
 $$;
@@ -287,33 +336,13 @@ set search_path = ''
 as $$
 declare
   v_claimed int;
-  v_min numeric;
-  v_total numeric;
-  v_role uuid;
-  v_granted int;
 begin
+  perform pg_advisory_xact_lock(hashtextextended('donor_wallet:' || lower(new.wallet_address), 0));
   update public.donations set member_id = new.id
   where member_id is null and donor_address = lower(new.wallet_address);
   get diagnostics v_claimed = row_count;
-  if v_claimed = 0 then
-    return null;
-  end if;
-
-  select (c.value #>> '{}')::numeric into v_min from public.app_config c where c.key = 'donor_role_min_usd6';
-  -- same per-member lock as confirm_donation
-  perform pg_advisory_xact_lock(hashtextextended('donor:' || new.id::text, 0));
-  select coalesce(sum(d.usd6), 0) into v_total from public.donations d where d.member_id = new.id;
-  if v_min is not null and v_total >= v_min then
-    select r.id into v_role from public.roles r where r.system_key = 'donor';
-    if v_role is not null then
-      insert into public.member_roles (member_id, role_id) values (new.id, v_role) on conflict do nothing;
-      get diagnostics v_granted = row_count;
-      if v_granted > 0 then
-        insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
-        values (null, 'donor_role_granted', 'member', new.id,
-                jsonb_build_object('totalUsd6', v_total::text, 'claimedDonations', v_claimed));
-      end if;
-    end if;
+  if v_claimed > 0 then
+    perform public._grant_donor_role_if_due(new.id, jsonb_build_object('claimedDonations', v_claimed));
   end if;
   return null;
 end;
@@ -322,6 +351,84 @@ $$;
 create trigger members_claim_public_donations
 after insert on public.members
 for each row execute function public._claim_public_donations();
+
+-- ===== confirm_donation (latest 20261024200003_donations.sql): only the donations insert changes =====
+create or replace function public.confirm_donation(p_intent uuid, p_main jsonb, p_usd6 numeric, p_eth_price_e8 numeric)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  i public.payment_intents;
+  v_h record;
+  v_addr text;
+  v_id uuid;
+  v_min numeric;
+  v_total numeric;
+  v_role uuid;
+  v_granted int;
+begin
+  select * into i from public.payment_intents x where x.id = p_intent for update;
+  if not found or i.purpose <> 'donation' or i.target_type <> 'dao' then
+    raise exception 'not_found';
+  end if;
+  if i.status = 'confirmed' then
+    select d.id into v_id from public.donations d where d.intent_id = i.id;
+    return jsonb_build_object('status', 'already', 'donationId', v_id);
+  end if;
+
+  if i.recipient_address is null then
+    raise exception 'invalid_input';
+  end if;
+  if p_usd6 is null or p_usd6 < 0 or p_usd6 <> trunc(p_usd6)
+     or (i.token = 'USDC' and (p_eth_price_e8 is not null or p_usd6 <> i.amount))
+     or (i.token = 'ETH' and (p_eth_price_e8 is null or p_eth_price_e8 <= 0 or p_eth_price_e8 <> trunc(p_eth_price_e8))) then
+    raise exception 'invalid_input';
+  end if;
+
+  select * into v_h from public._record_payment_transfers(i, p_main, null);
+
+  select m.wallet_address into v_addr from public.members m where m.id = i.member_id;
+  if v_addr is null then
+    raise exception 'not_found';
+  end if;
+
+  -- the transfer may already be recorded by a public donation (not in onchain_transfers)
+  begin
+    insert into public.donations (intent_id, chain_id, token, amount, usd6, eth_price_e8, price_source, member_id,
+                                  donor_address, tx_hash, log_index, block_number, anonymous)
+    values (i.id, i.chain_id, i.token, i.amount, p_usd6, p_eth_price_e8,
+            case i.token when 'ETH' then 'chainlink' else 'usdc' end, i.member_id,
+            lower(v_addr), v_h.main_hash, (p_main ->> 'logIndex')::int, v_h.block, i.anonymous)
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'tx_already_used';
+  end;
+
+  update public.payment_intents set status = 'confirmed' where id = i.id;
+
+  -- Mecenas: the member's verified total reaches the threshold (granted once, never removed here)
+  select (c.value #>> '{}')::numeric into v_min from public.app_config c where c.key = 'donor_role_min_usd6';
+  -- serialize per member: two intents confirming at once must each see the other's committed donation
+  perform pg_advisory_xact_lock(hashtextextended('donor:' || i.member_id::text, 0));
+  select coalesce(sum(d.usd6), 0) into v_total from public.donations d where d.member_id = i.member_id;
+  if v_min is not null and v_total >= v_min then
+    select r.id into v_role from public.roles r where r.system_key = 'donor';
+    if v_role is not null then
+      insert into public.member_roles (member_id, role_id) values (i.member_id, v_role) on conflict do nothing;
+      get diagnostics v_granted = row_count;
+      if v_granted > 0 then
+        insert into public.audit_log (actor_member_id, action, target_type, target_id, payload)
+        values (null, 'donor_role_granted', 'member', i.member_id,
+                jsonb_build_object('totalUsd6', v_total::text, 'donationId', v_id));
+      end if;
+    end if;
+  end if;
+
+  return jsonb_build_object('status', 'confirmed', 'donationId', v_id);
+end;
+$$;
 
 -- ===== donor_ranking (latest 20261024200003_donations.sql) =====
 -- Member rows as before. External donors (member_id null) appear only with their listed, non-anonymous donations,
@@ -385,6 +492,7 @@ revoke execute on function
   public.my_public_donations(),
   public.public_donation_overview(),
   public._claim_public_donations(),
+  public._grant_donor_role_if_due(uuid, jsonb),
   public.donor_ranking(int)
 from public, anon, authenticated, service_role;
 
@@ -400,3 +508,7 @@ grant execute on function
   public.fail_public_donation(uuid, text),
   public.public_donation_overview()
 to service_role;
+
+-- create or replace keeps confirm_donation's grants; restated for clarity
+revoke execute on function public.confirm_donation(uuid, jsonb, numeric, numeric) from public, anon, authenticated;
+grant execute on function public.confirm_donation(uuid, jsonb, numeric, numeric) to service_role;

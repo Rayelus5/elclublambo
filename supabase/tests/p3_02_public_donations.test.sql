@@ -7,9 +7,11 @@
 --     (service_role), my_public_donations (authenticated).
 --   - Anti-reuse against onchain_transfers and donations; confirming twice is already.
 --   - donor_ranking keeps its signature and adds listed, non-anonymous external donors as «Donante externo · 0x…».
---   - Entering the club (redeem_invite or bootstrap) claims the wallet's public donations and grants Mecenas (P3-R9).
+--   - Entering the club (redeem_invite or bootstrap) claims the wallet's public donations and grants Mecenas (P3-R9);
+--     a public donation confirmed after its donor joined is recorded for that member at confirm time.
+--   - confirm_donation (club) answers tx_already_used when a public donation already recorded its transfer.
 begin;
-select plan(58);
+select plan(65);
 
 create function tests.p3hash(p_n int) returns text language sql immutable as $$
   select '0x' || lpad(to_hex(p_n), 64, '0')
@@ -73,6 +75,7 @@ select set_config('t.uz', tests.create_wallet_user(tests.p3addr('e6c3'))::text, 
 select set_config('t.up', tests.create_wallet_user(tests.p3addr('e6c4'))::text, true);   -- joins with 2 USD
 select set_config('t.uq', tests.create_wallet_user(tests.p3addr('e6c5'))::text, true);   -- joins with 0.5 USD
 select set_config('t.ucap', tests.create_wallet_user(tests.p3addr('e6c6'))::text, true); -- pending cap
+select set_config('t.ur', tests.create_wallet_user(tests.p3addr('e6c7'))::text, true);   -- joins before confirm
 
 -- ===== 1. schema and privileges =====
 select ok(has_function_privilege('authenticated', 'public.create_public_donation_intent(int,text,numeric,boolean,boolean)', 'execute')
@@ -299,6 +302,41 @@ select is((select (payload ->> 'totalUsd6') from public.audit_log where action =
 select is((select count(*)::int from public.donations where donor_address = tests.p3addr('e6c5')
            and member_id = current_setting('t.mq')::uuid), 1, 'a small donor is claimed too');
 select is(tests.p3_mecenas(current_setting('t.mq')::uuid), 0, 'but under 1 USD gets no Mecenas');
+
+-- ===== 7. confirmed after joining (fix round 1): intent -> attach -> redeem -> confirm =====
+select tests.authenticate_as(current_setting('t.ur')::uuid);
+select set_config('t.ir', public.create_public_donation_intent(84532, 'ETH', 1000000000000000, false, true)::text, true);
+select public.attach_public_donation_tx((current_setting('t.ir')::jsonb ->> 'id')::uuid, tests.p3hash(9640));
+select set_config('t.mr', public.redeem_invite(pg_temp.code(current_setting('t.inv')::uuid))::text, true);
+select tests.clear_authentication();
+select is(tests.p3_mecenas(current_setting('t.mr')::uuid), 0, 'joining with only a pending intent grants nothing yet');
+set local role service_role;
+select is(public.confirm_public_donation((current_setting('t.ir')::jsonb ->> 'id')::uuid,
+  jsonb_build_object('txHash', tests.p3hash(9640), 'logIndex', -1, 'blockNumber', 40), 4000000, 400000000000) ->> 'status',
+  'confirmed', 'the public donation of a wallet that joined meanwhile is confirmed');
+reset role;
+select is((select member_id from public.donations where tx_hash = tests.p3hash(9640)), current_setting('t.mr')::uuid,
+  'it is recorded for the new member');
+select is(tests.p3_mecenas(current_setting('t.mr')::uuid), 1, 'and grants Mecenas at confirm time');
+select is((select payload ->> 'totalUsd6' from public.audit_log where action = 'donor_role_granted'
+           and target_id = current_setting('t.mr')::uuid), '4000000', 'the grant at confirm time is audited');
+select ok(not has_function_privilege('authenticated', 'public._grant_donor_role_if_due(uuid,jsonb)', 'execute')
+      and not has_function_privilege('anon', 'public._grant_donor_role_if_due(uuid,jsonb)', 'execute')
+      and not has_function_privilege('service_role', 'public._grant_donor_role_if_due(uuid,jsonb)', 'execute')
+      and exists (select 1 from pg_proc p where p.oid = 'public._grant_donor_role_if_due(uuid,jsonb)'::regprocedure
+                  and p.prosecdef and p.proconfig @> array['search_path=""']),
+  'the shared Mecenas helper is definer, empty search_path and callable by no API role');
+
+-- ===== 8. club direction: a transfer already recorded by a public donation =====
+select tests.authenticate_as(current_setting('t.um1')::uuid);
+select set_config('t.im2', public.create_donation_intent(84532, 'USDC', 3000000, false)::text, true);
+select public.attach_intent_tx((current_setting('t.im2')::jsonb ->> 'id')::uuid, 'main', tests.p3hash(9611));
+select tests.clear_authentication();
+set local role service_role;
+select throws_ok(format($$select public.confirm_donation(%L, %L::jsonb, 3000000, null)$$, current_setting('t.im2')::jsonb ->> 'id',
+  jsonb_build_object('txHash', tests.p3hash(9611), 'logIndex', 1, 'blockNumber', 5)), 'P0001', 'tx_already_used',
+  'confirm_donation answers tx_already_used for a transfer a public donation already recorded');
+reset role;
 
 select * from finish();
 rollback;
