@@ -16,7 +16,10 @@ type LogClient = Pick<PublicClient, "getBlockNumber" | "getLogs">;
  * C1: a USDC `Transfer(from, to, value == amount)` mined from `fromBlock` (the block read just before signing) for at
  * most SCAN_WINDOW blocks, or within the last SCAN_WINDOW blocks when the block is unknown. Returns its tx hash, or null
  * when there is none. Hashes in `exclude` (other lines' transfers) never match. An RPC error is thrown: the caller then
- * keeps the line «sin confirmar», never resendable.
+ * marks the line `scan_failed`, never signable.
+ *
+ * The earliest match wins. An identical transfer (same wallet, recipient and amount) made outside this tool after the
+ * attempt also matches and counts as sent: the safe side, and the UI says so (finding 9).
  */
 export async function findTransfer(
   client: LogClient,

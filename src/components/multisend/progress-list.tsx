@@ -1,6 +1,7 @@
 "use client";
 
-import { CircleCheck, CircleDashed, CircleHelp, CircleX, ExternalLink, Loader2 } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleHelp, CircleX, ExternalLink, Loader2, RefreshCw, SearchX } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { explorerTx, type ChainId } from "@/lib/economy/networks";
 import type { Dictionary } from "@/lib/i18n";
@@ -11,14 +12,16 @@ const ICON = {
   todo: { Icon: CircleDashed, tone: "text-fg-muted" },
   sent: { Icon: Loader2, tone: "text-fg-muted animate-spin motion-reduce:animate-none" },
   confirmed: { Icon: CircleCheck, tone: "text-success" },
-  failed: { Icon: CircleX, tone: "text-danger" },
   unconfirmed: { Icon: CircleHelp, tone: "text-warning" },
+  not_found: { Icon: SearchX, tone: "text-warning" },
+  scan_failed: { Icon: CircleX, tone: "text-danger" },
 } as const;
 
 /**
  * One row per recipient with its status (icon and text, never colour alone) and, once the wallet returned a hash, the
- * explorer link. A «sin confirmar» row (C1) also explains itself and offers «Comprobé que no se envió»: only a ticked
- * one may be sent again. Stacked, with addresses that wrap, so it fits 375 px. Status changes are announced politely.
+ * explorer link. Only a `not_found` row (a successful scan found nothing) explains itself and offers «Comprobé que no se
+ * envió»: only a ticked one may be sent again. A `scan_failed` row is never tickable: its one action is «Reintentar
+ * comprobación». Stacked, with addresses that wrap, so it fits 375 px. Status changes are announced politely.
  */
 export function ProgressList({
   t,
@@ -28,6 +31,8 @@ export function ProgressList({
   formatUsdc,
   released,
   onRelease,
+  onRetry,
+  retryDisabled,
 }: {
   t: Dictionary["multisend"]["progress"];
   chainId: ChainId;
@@ -37,6 +42,8 @@ export function ProgressList({
   formatUsdc(units: bigint): string;
   released: ReadonlySet<string>;
   onRelease(id: string, on: boolean): void;
+  onRetry(): void;
+  retryDisabled: boolean;
 }) {
   return (
     <ol aria-label={t.title} aria-live="polite" className="flex flex-col gap-2">
@@ -66,7 +73,13 @@ export function ProgressList({
                 </a>
               ) : null}
             </div>
-            {r.status === "unconfirmed" ? (
+            {r.status === "scan_failed" ? (
+              <Button type="button" variant="outline" className="self-start" disabled={retryDisabled} onClick={onRetry}>
+                <RefreshCw aria-hidden />
+                {t.retryCheck}
+              </Button>
+            ) : null}
+            {r.status === "not_found" ? (
               <div className="flex flex-col gap-1">
                 <p className="text-sm text-fg">{t.releaseHint}</p>
                 <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-fg">

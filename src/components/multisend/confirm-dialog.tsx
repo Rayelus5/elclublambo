@@ -26,6 +26,7 @@ export function ConfirmDialog({
   total,
   count,
   checks,
+  balanceUnknown = false,
   network,
   onConfirm,
 }: {
@@ -37,6 +38,8 @@ export function ConfirmDialog({
   count: number;
   /** Lines only re-checked on chain in this run, never signed (C2). */
   checks: number;
+  /** The balance could not be read: it does not block, but the user is told to check it (finding 12). */
+  balanceUnknown?: boolean;
   network: string;
   onConfirm(): void;
 }) {
@@ -47,6 +50,7 @@ export function ConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle className="font-display text-lg font-bold text-fg">{t.title}</AlertDialogTitle>
           <AlertDialogDescription className="text-base text-fg">{body}</AlertDialogDescription>
+          {balanceUnknown ? <p className="text-sm font-bold text-fg">{fill(t.balanceUnknown, { total })}</p> : null}
           {checks > 0 ? <p className="text-sm text-fg-muted">{checks === 1 ? t.checksOne : fill(t.checks, { n: checks })}</p> : null}
         </AlertDialogHeader>
         <AlertDialogFooter>

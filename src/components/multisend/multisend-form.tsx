@@ -22,6 +22,7 @@ import {
   progressKey,
   readProgressRaw,
   readRecentRaw,
+  storageAvailable,
   type RowState,
 } from "@/lib/multisend/progress";
 import { useMultisend } from "@/lib/multisend/use-multisend";
@@ -60,10 +61,13 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const [text, setText] = useState(readHashList);
   const [confirming, setConfirming] = useState(false);
   const [ignoredRun, setIgnoredRun] = useState<readonly RowState[] | null>(null);
-  // C1: «sin confirmar» lines the user checked were not sent; C3: repeats of the last 24 h the user accepts.
-  const [released, setReleased] = useState<ReadonlySet<string>>(() => new Set());
-  const [repeatOk, setRepeatOk] = useState<ReadonlySet<string>>(() => new Set());
+  // Ticks, per line id, each tied to the state it was given in (tickStamp): `not_found` lines the user checked were
+  // not sent (C1), and repeats of the last 24 h the user accepts (C3). A tick counts only while its stamp still
+  // matches, so it is void once the line changes state or a run ends (finding 6).
+  const [released, setReleased] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [repeatOk, setRepeatOk] = useState<ReadonlyMap<string, string>>(() => new Map());
   const [now] = useState(sentAtNow);
+  const [storageProbe] = useState(storageAvailable);
   const ms = useMultisend(chain);
   const network = NETWORKS[chain];
   const fmt = (units: bigint) => formatUsdc(units, lang);
@@ -100,14 +104,21 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const started = progress !== null && progress.some((r) => r.status !== "todo");
   const done = progress !== null && progress.every((r) => r.status === "confirmed");
 
-  // C2: what «Confirmar y firmar» will sign, and what a run only re-checks on chain (never signed in that run).
-  const isReleased = (r: RowState) => r.status === "unconfirmed" && released.has(r.id);
-  const pending = (i: number) => !progress || progress[i]!.status === "todo" || progress[i]!.status === "failed";
-  const toSign = recipients.filter((_, i) => pending(i) || isReleased(progress![i]!));
-  const toCheck = progress ? progress.filter((r) => r.status === "sent" || (r.status === "unconfirmed" && !released.has(r.id))) : [];
+  const rowOf = (lineId: string) => progress?.find((r) => r.id === lineId);
+  const tickStamp = (lineId: string) => {
+    const r = rowOf(lineId);
+    return `${ms.runs}|${r?.status ?? "todo"}|${r?.hash ?? ""}|${r?.attempt?.at ?? ""}`;
+  };
+  const ticked = (ticks: ReadonlyMap<string, string>, lineId: string) => ticks.get(lineId) === tickStamp(lineId);
+
+  // C2 and the state model: only `todo` lines and ticked `not_found` lines are signed; the other unconfirmed lines are
+  // only re-checked on chain (never signed in that run).
+  const statusAt = (i: number) => progress?.[i]?.status ?? "todo";
+  const releasedIds = new Set(recipients.filter((r, i) => statusAt(i) === "not_found" && ticked(released, r.id)).map((r) => r.id));
+  const approved = new Set(recipients.filter((_, i) => statusAt(i) === "todo").map((r) => r.id));
+  const toSign = recipients.filter((r) => approved.has(r.id) || releasedIds.has(r.id));
+  const toCheck = progress ? progress.filter((r) => r.status !== "confirmed" && r.status !== "todo" && !releasedIds.has(r.id)) : [];
   const signTotal = toSign.reduce((sum, r) => sum + r.amount, 0n);
-  const approved = new Set(recipients.filter((_, i) => pending(i)).map((r) => r.id));
-  const releasedNow = new Set(progress ? progress.filter(isReleased).map((r) => r.id) : []);
 
   // C3: a line still to sign that matches a confirmed send of the last 24 h (not one of this list's own) needs a tick.
   const recentRaw = useSyncExternalStore(subscribeStorage, readRecentRaw, noStored);
@@ -116,7 +127,8 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   const repeats = new Set(
     toSign.filter((r) => recent.some((e) => e.to.toLowerCase() === r.to.toLowerCase() && e.amount === r.amount.toString())).map((r) => r.id),
   );
-  const repeatBlocked = [...repeats].some((r) => !repeatOk.has(r));
+  const repeatBlocked = [...repeats].some((r) => !ticked(repeatOk, r));
+  const storageOff = !storageProbe || !ms.storageOk;
 
   const valid = recipients.length > 0 && errors.length === 0;
   const insufficient = valid && usdcBalance !== null && signTotal > usdcBalance;
@@ -147,26 +159,30 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
     setConfirming(false);
     if (!canSend || !owner) return;
     setIgnoredRun(null);
-    void ms.send(recipients, owner, key, approved, releasedNow);
+    void ms.send(recipients, owner, key, approved, releasedIds);
   }
 
+  /** Re-check only: nothing can be signed (empty sets). Also «Reintentar comprobación» on a scan_failed line. */
   function onCheck() {
-    if (!onlyCheck || !owner) return;
+    if (!(onlyCheck || (ready && toCheck.length > 0)) || !owner) return;
     setIgnoredRun(null);
     void ms.send(recipients, owner, key, new Set(), new Set());
   }
 
-  const toggle = (set: (f: (s: ReadonlySet<string>) => ReadonlySet<string>) => void, lineId: string, on: boolean) =>
+  const toggle = (set: (f: (s: ReadonlyMap<string, string>) => ReadonlyMap<string, string>) => void, lineId: string, on: boolean) => {
+    const stamp = tickStamp(lineId);
     set((s) => {
-      const next = new Set(s);
-      if (on) next.add(lineId);
+      const next = new Map(s);
+      if (on) next.set(lineId, stamp);
       else next.delete(lineId);
       return next;
     });
+  };
 
   function onRestart() {
     if (!owner || !done) return;
     clearProgress(owner, chain, key);
+    ms.forget(owner, key);
     setIgnoredRun(ms.rows);
   }
 
@@ -176,6 +192,12 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
         <Info aria-hidden className="mt-0.5 size-4 shrink-0" />
         {dict.common.noCustody}
       </p>
+      {storageOff ? (
+        <p role="status" className="flex items-start gap-2 rounded-control border border-warning/70 p-3 text-sm font-bold text-fg">
+          <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-warning" />
+          {t.form.storageOff}
+        </p>
+      ) : null}
 
       <section aria-labelledby={`${id}-list`} className="flex min-w-0 flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
         <NetworkPicker value={chain} onChange={setChain} chains={chains} label={t.form.network} />
@@ -229,7 +251,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
                             {fill(t.form.repeat, { amount: fmt(p.amount!) })}
                           </span>
                           <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm text-fg">
-                            <Checkbox checked={repeatOk.has(p.id)} onCheckedChange={(v) => toggle(setRepeatOk, p.id!, v === true)} />
+                            <Checkbox checked={ticked(repeatOk, p.id)} onCheckedChange={(v) => toggle(setRepeatOk, p.id!, v === true)} />
                             {t.form.repeatAccept}
                           </label>
                         </span>
@@ -318,9 +340,12 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
               rows={progress}
               lines={recipients.map((r) => r.line)}
               formatUsdc={fmt}
-              released={released}
+              released={releasedIds}
               onRelease={(lineId, on) => toggle(setReleased, lineId, on)}
+              onRetry={onCheck}
+              retryDisabled={!ready}
             />
+            <p className="text-[13px] text-fg-muted">{t.progress.scanNote}</p>
           </div>
         ) : null}
 
@@ -376,6 +401,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
         total={fmt(signTotal)}
         count={toSign.length}
         checks={toCheck.length}
+        balanceUnknown={usdcBalance === null || ethBalance === null}
         network={network.name}
         onConfirm={onConfirm}
       />

@@ -16,6 +16,8 @@ type Hook = {
   running: boolean;
   switching: boolean;
   error: string | null;
+  storageOk: boolean;
+  runs: number;
   sendOneByOne: ReturnType<typeof vi.fn>;
 };
 const hook = vi.hoisted(() => ({ value: {} as Hook }));
@@ -24,7 +26,7 @@ vi.mock("@/lib/multisend/use-multisend", () => ({ useMultisend: () => hook.value
 import { MultisendForm } from "@/components/multisend/multisend-form";
 import { encodeLines } from "@/lib/multisend/fragment";
 import { listKey, parseRecipients } from "@/lib/multisend/parse";
-import { recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
+import { progressKey, recordConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { getDictionary } from "@/lib/i18n";
 import { fill } from "@/lib/i18n/fill";
 
@@ -61,7 +63,7 @@ beforeEach(() => {
   account.status = "connected";
   account.address = OWNER;
   balances.value = { "USDC:84532": 100_000_000n, "ETH:84532": 10n ** 17n, "USDC:421614": 0n, "ETH:421614": 0n };
-  hook.value = { mode: "sequential", send: vi.fn(async () => {}), rows: [], runKey: null, running: false, switching: false, error: null, sendOneByOne: vi.fn() };
+  hook.value = { mode: "sequential", send: vi.fn(async () => {}), rows: [], runKey: null, running: false, switching: false, error: null, storageOk: true, runs: 0, sendOneByOne: vi.fn() };
 });
 afterEach(() => {
   window.location.hash = "";
@@ -191,8 +193,8 @@ describe("MultisendForm", () => {
     });
     // Stored in another order: progress is keyed by line identity (C3).
     saveProgress(OWNER, 84532, key, [
-      st(3, { hash: HASH2, sentAt: Date.now(), status: "sent" }),
-      st(1, { status: "failed" }),
+      st(3, { hash: HASH2, attempt: { at: Date.now() }, status: "sent" }),
+      st(1, { status: "todo", attempt: { at: Date.now() } }),
       st(0, { hash: HASH, status: "confirmed" }),
       st(2, { status: "todo" }),
     ]);
@@ -202,8 +204,10 @@ describe("MultisendForm", () => {
     const link = within(progress).getByRole("link", { name: fill(t.progress.viewTx, { n: 1 }) });
     expect(link).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
     expect(within(progress).getByText(t.progress.status.confirmed)).toBeInTheDocument();
-    expect(within(progress).getByText(t.progress.status.failed)).toBeInTheDocument();
+    expect(within(progress).getAllByText(t.progress.status.todo)).toHaveLength(2);
     expect(within(progress).getByText(t.progress.status.sent)).toBeInTheDocument();
+    // Finding 9: an identical transfer made outside the tool also counts.
+    expect(screen.getByText(t.progress.scanNote)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: t.form.send })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: t.form.continue }));
     const dialog = await screen.findByRole("alertdialog");
@@ -220,7 +224,7 @@ describe("MultisendForm", () => {
       OWNER,
       84532,
       key,
-      recipients.map((r, i) => ({ id: r.id, to: r.to, amount: r.amount.toString(), hash: i === 0 ? HASH : HASH2, sentAt: Date.now(), status: i === 0 ? "sent" : "confirmed" })),
+      recipients.map((r, i) => ({ id: r.id, to: r.to, amount: r.amount.toString(), hash: i === 0 ? HASH : HASH2, attempt: { at: Date.now() }, status: i === 0 ? "sent" : "confirmed" })),
     );
     const { user } = setup();
     await paste(user, LIST);
@@ -229,20 +233,21 @@ describe("MultisendForm", () => {
     expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set(), new Set());
   });
 
-  it("C1: an unconfirmed line shows «Sin confirmar» with its link and is left out until «Comprobé que no se envió» is ticked", async () => {
+  function seed(states: Array<Partial<RowState> & { status: RowState["status"] }>) {
     const { recipients } = parseRecipients(LIST, 84532);
     const key = listKey(84532, recipients);
-    const st = (i: number, extra: Partial<RowState> & { status: RowState["status"] }): RowState => ({
-      id: recipients[i]!.id,
-      to: recipients[i]!.to,
-      amount: recipients[i]!.amount.toString(),
-      ...extra,
-    });
-    saveProgress(OWNER, 84532, key, [st(0, { hash: HASH, status: "unconfirmed" }), st(1, { hash: HASH2, status: "confirmed" }), st(2, { status: "todo" })]);
+    const stored = states.map((extra, i) => ({ id: recipients[i]!.id, to: recipients[i]!.to, amount: recipients[i]!.amount.toString(), ...extra }));
+    saveProgress(OWNER, 84532, key, stored);
+    return { recipients, key, stored };
+  }
+  const stale = () => ({ at: Date.now() - 11 * 60_000, block: "900" });
+
+  it("C1: a line the chain does not show (not_found) has its link and is left out until «Comprobé que no se envió» is ticked", async () => {
+    const { recipients, key } = seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "todo" }]);
     const { user } = setup();
     await paste(user, LIST);
     const progress = screen.getByRole("list", { name: t.progress.title });
-    expect(within(progress).getByText(t.progress.status.unconfirmed)).toBeInTheDocument();
+    expect(within(progress).getByText(t.progress.status.not_found)).toBeInTheDocument();
     expect(within(progress).getByRole("link", { name: fill(t.progress.viewTx, { n: 1 }) })).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
     const release = within(progress).getByRole("checkbox", { name: t.progress.release });
     expect(release).not.toBeChecked();
@@ -260,6 +265,66 @@ describe("MultisendForm", () => {
     expect(within(dialog).getByText("Vas a enviar 17,5 USDC a 2 direcciones en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: t.confirm.confirm }));
     expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set([recipients[2]!.id]), new Set([recipients[0]!.id]));
+  });
+
+  it("C1: unconfirmed and scan_failed lines cannot be ticked; scan_failed offers «Reintentar comprobación», which only re-checks", async () => {
+    const { recipients, key } = seed([{ attempt: { at: Date.now() }, status: "unconfirmed" }, { hash: HASH2, attempt: stale(), status: "scan_failed" }, { hash: HASH, status: "confirmed" }]);
+    const { user } = setup();
+    await paste(user, LIST);
+    const progress = screen.getByRole("list", { name: t.progress.title });
+    expect(within(progress).getByText(t.progress.status.unconfirmed)).toBeInTheDocument();
+    expect(within(progress).getByText(t.progress.status.scan_failed)).toBeInTheDocument();
+    expect(within(progress).queryByRole("checkbox")).not.toBeInTheDocument();
+    await user.click(within(progress).getByRole("button", { name: t.progress.retryCheck }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(hook.value.send).toHaveBeenCalledWith(recipients, OWNER, key, new Set(), new Set());
+  });
+
+  it("finding 6: a tick is cleared after a run, so a stale tick never signs again", async () => {
+    const { key, stored } = seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "confirmed" }]);
+    const { user, rerender } = setup();
+    await paste(user, LIST);
+    await user.click(screen.getByRole("checkbox", { name: t.progress.release }));
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).toBeChecked();
+    // A run ends (the line was sent again, and is not_found again later).
+    hook.value = { ...hook.value, runs: 1, runKey: progressKey(OWNER, 84532, key), rows: [{ ...stored[0]!, hash: HASH2 }, stored[1]!, stored[2]!] };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: t.form.check })).toBeInTheDocument();
+  });
+
+  it("finding 6: a tick is cleared when the line changes state, even without a new run", async () => {
+    const { key, stored } = seed([{ hash: HASH, attempt: stale(), status: "not_found" }, { hash: HASH2, status: "confirmed" }, { status: "confirmed" }]);
+    const { user, rerender } = setup();
+    await paste(user, LIST);
+    await user.click(screen.getByRole("checkbox", { name: t.progress.release }));
+    hook.value = { ...hook.value, runKey: progressKey(OWNER, 84532, key), rows: [{ ...stored[0]!, attempt: { at: Date.now() - 20 * 60_000, block: "1" } }, stored[1]!, stored[2]!] };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(screen.getByRole("checkbox", { name: t.progress.release })).not.toBeChecked();
+  });
+
+  it("no storage: a visible notice says the progress will not survive a reload", async () => {
+    hook.value.storageOk = false;
+    setup();
+    expect(screen.getByText(t.form.storageOff)).toBeInTheDocument();
+  });
+
+  it("no storage detected at load: the same notice", () => {
+    const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("denied");
+    });
+    setup();
+    expect(screen.getByText(t.form.storageOff)).toBeInTheDocument();
+    spy.mockRestore();
+  });
+
+  it("finding 12: an unknown balance does not block but the confirmation warns about it", async () => {
+    balances.value = { ...balances.value, "USDC:84532": null };
+    const { user } = setup();
+    await paste(user, LIST);
+    await user.click(sendButton());
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(fill(t.confirm.balanceUnknown, { total: "30" }))).toBeInTheDocument();
   });
 
   it("C3: a line confirmed in the last 24 h warns and blocks «Enviar» until «Enviarlo otra vez» is ticked", async () => {

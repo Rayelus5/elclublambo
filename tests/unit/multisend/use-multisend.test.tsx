@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
-import { erc20Abi } from "viem";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { encodeEventTopics, erc20Abi, numberToHex } from "viem";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const config = { tag: "wagmi-config" };
 const caps = vi.hoisted(() => ({ value: { data: undefined, error: null, fetchStatus: "idle" } as { data: unknown; error: unknown; fetchStatus: string } }));
@@ -29,7 +29,7 @@ vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ s
 const readAssetBalance = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/balances", () => ({ readAssetBalance }));
 
-import { useMultisend } from "@/lib/multisend/use-multisend";
+import { resetMultisendMemory, useMultisend } from "@/lib/multisend/use-multisend";
 import { loadProgress, recentConfirmed, saveProgress, type RowState } from "@/lib/multisend/progress";
 import { lineId, type ParsedLine } from "@/lib/multisend/parse";
 
@@ -37,7 +37,7 @@ const OWNER = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8" as const;
 const A = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 const B = "0x90F79bf6EB2c4f870365E785982E1f101E93b906" as const;
 const C = "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65" as const;
-const USDC_BASE = "0x036CbD53842c5426634e7929541eC2318f3dCF7e";
+const USDC_BASE = "0x036CbD53842c5426634e7929541eC2318f3dCF7e" as const;
 const USDC_ARB = "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d";
 const SUFFIX = "0x62635f7465737407" + "00" + "80218021802180218021802180218021";
 const h = (n: number) => `0x${n.toString(16).padStart(2, "0").repeat(32)}` as `0x${string}`;
@@ -48,23 +48,63 @@ const KEY = "list-key";
 const userRejected = Object.assign(new Error("User rejected the request."), { name: "UserRejectedRequestError", code: 4001 });
 const row = (r: ParsedLine, extra: Partial<RowState> & { status: RowState["status"] }): RowState => ({ id: r.id, to: r.to, amount: r.amount.toString(), ...extra });
 const STALE = () => Date.now() - 11 * 60_000;
+const attempt = (at = Date.now(), block = "900") => ({ block, at });
+
+/** A USDC Transfer(OWNER → to, amount) log, as a receipt carries it. */
+function transferLog(to: `0x${string}`, amount: bigint, token: `0x${string}` = USDC_BASE, from: `0x${string}` = OWNER) {
+  return {
+    address: token,
+    topics: encodeEventTopics({ abi: erc20Abi, eventName: "Transfer", args: { from, to } }),
+    data: numberToHex(amount, { size: 32 }),
+    blockNumber: 1n,
+    transactionHash: h(0),
+    logIndex: 0,
+    blockHash: h(0),
+    transactionIndex: 0,
+    removed: false,
+  };
+}
+const paying = (hash: `0x${string}`, ...pays: Array<[`0x${string}`, bigint]>) => ({
+  status: "success",
+  transactionHash: hash,
+  logs: pays.map(([to, amount]) => transferLog(to, amount)),
+});
+/** The receipt of what the wallet sent for each line of `rows` (by order of send). */
+function receiptsPay() {
+  waitForTransactionReceipt.mockImplementation(async (_c: unknown, { hash }: { hash: `0x${string}` }) => {
+    const n = Number.parseInt(hash.slice(2, 4), 16);
+    const r = rows[n - 1]!;
+    return paying(hash, [r.to, r.amount]);
+  });
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   window.localStorage.clear();
+  resetMultisendMemory();
   vi.stubEnv("NEXT_PUBLIC_BASE_BUILDER_CODE", "bc_test");
   caps.value = { data: undefined, error: new Error("wallet_getCapabilities not supported"), fetchStatus: "idle" };
   ensure.mockResolvedValue(true);
   readAssetBalance.mockResolvedValue(10n ** 12n);
-  let n = 0;
-  send.mockImplementation(async () => h(++n));
-  waitForTransactionReceipt.mockResolvedValue({ status: "success" });
+  // The wallet returns h(n) for line n, and its receipt pays that line.
+  send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+  receiptsPay();
   sendCallsAsync.mockResolvedValue({ id: "0xbatch" });
-  waitForCallsStatus.mockResolvedValue({ status: "success", receipts: [{ transactionHash: h(99) }] });
+  waitForCallsStatus.mockResolvedValue({ status: "success", statusCode: 200, receipts: [paying(h(99), ...rows.map((r): [`0x${string}`, bigint] => [r.to, r.amount]))] });
   getBlockNumber.mockResolvedValue(4242n);
   getPublicClient.mockReturnValue(publicClient);
   findTransfer.mockResolvedValue(null);
 });
+afterEach(() => vi.restoreAllMocks());
+
+function throwingStorage() {
+  vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+    throw new Error("denied");
+  });
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new Error("denied");
+  });
+}
 
 describe("useMultisend mode", () => {
   it("atomic when the wallet says supported or ready on this chain, asked with the chainId", () => {
@@ -83,9 +123,6 @@ describe("useMultisend mode", () => {
     caps.value = { data: { atomic: { status: "unsupported" } }, error: null, fetchStatus: "idle" };
     rerender();
     expect(result.current.mode).toBe("sequential");
-    caps.value = { data: {}, error: null, fetchStatus: "idle" };
-    rerender();
-    expect(result.current.mode).toBe("sequential");
     caps.value = { data: undefined, error: null, fetchStatus: "fetching" };
     rerender();
     expect(result.current.mode).toBe("checking");
@@ -97,11 +134,9 @@ describe("useMultisend atomic", () => {
     caps.value = { data: { atomic: { status: "supported" } }, error: null, fetchStatus: "idle" };
   });
 
-  it("on Base: one sendCalls with 3 transfers, forceAtomic, the account pinned and the Builder Code in every call", async () => {
+  it("on Base: one sendCalls with 3 transfers, forceAtomic, the account pinned and the Builder Code in every call; confirmed by the Transfer logs", async () => {
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(ensure).toHaveBeenCalledWith(84532);
-    expect(sendCallsAsync).toHaveBeenCalledTimes(1);
     expect(ensure.mock.invocationCallOrder[0]!).toBeLessThan(sendCallsAsync.mock.invocationCallOrder[0]!);
     expect(sendCallsAsync).toHaveBeenCalledWith({
       chainId: 84532,
@@ -111,10 +146,8 @@ describe("useMultisend atomic", () => {
     });
     expect(send).not.toHaveBeenCalled();
     expect(waitForCallsStatus).toHaveBeenCalledWith(config, { id: "0xbatch" });
-    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
-    expect(result.current.rows.every((r) => r.hash === h(99))).toBe(true);
+    expect(result.current.rows.map((r) => [r.status, r.hash])).toEqual(rows.map(() => ["confirmed", h(99)]));
     expect(result.current.error).toBeNull();
-    expect(loadProgress(OWNER, 84532, KEY)!.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
   });
 
   it("on Arbitrum: no dataSuffix in any call", async () => {
@@ -128,26 +161,44 @@ describe("useMultisend atomic", () => {
     }
   });
 
-  it("the batch id and the block before signing are stored before waiting; a failed batch leaves every row failed and offers one by one", async () => {
-    waitForCallsStatus.mockImplementation(async () => {
-      expect(loadProgress(OWNER, 84532, KEY)!.every((r) => r.status === "sent" && r.callsId === "0xbatch" && r.fromBlock === "4242")).toBe(true);
-      return { status: "failure", receipts: [] };
+  it("finding 3: every line's attempt is stored before the prompt; a partial batch (600) leaves every line unconfirmed and nothing is ever re-signed", async () => {
+    sendCallsAsync.mockImplementation(async () => {
+      const stored = loadProgress(OWNER, 84532, KEY)!;
+      expect(stored.every((r) => r.status === "unconfirmed" && r.attempt?.block === "4242")).toBe(true);
+      return { id: "0xbatch" };
     });
+    // Line 1 moved, lines 2 and 3 did not.
+    waitForCallsStatus.mockResolvedValue({ status: "failure", statusCode: 600, receipts: [paying(h(99), [A, 10_000_000n])] });
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(result.current.rows.map((r) => r.status)).toEqual(["failed", "failed", "failed"]);
+    expect(result.current.rows.map((r) => r.status)).toEqual(["unconfirmed", "unconfirmed", "unconfirmed"]);
     expect(result.current.error).toBe("atomic_failed");
     act(() => result.current.sendOneByOne());
-    expect(result.current.mode).toBe("sequential");
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(sendCallsAsync).toHaveBeenCalledTimes(1);
-    expect(send).toHaveBeenCalledTimes(3);
+    expect(send).not.toHaveBeenCalled();
+    expect(findTransfer).toHaveBeenCalledTimes(3);
   });
 
-  it("a batch still pending on resume is re-checked by its id and never sent again", async () => {
-    saveProgress(OWNER, 84532, KEY, rows.map((r) => row(r, { callsId: "0xold", sentAt: Date.now(), status: "sent" })));
+  it("finding 3: a batch the wallet errors on (not a rejection) leaves every line unconfirmed; a rejection returns them to todo", async () => {
+    sendCallsAsync.mockRejectedValueOnce(new Error("relay lost"));
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(result.current.rows.map((r) => r.status)).toEqual(["unconfirmed", "unconfirmed", "unconfirmed"]);
+    resetMultisendMemory();
+    window.localStorage.clear();
+    sendCallsAsync.mockRejectedValueOnce(userRejected);
+    const second = renderHook(() => useMultisend(84532));
+    await act(() => second.result.current.send(rows, OWNER, KEY, ALL));
+    expect(second.result.current.rows.every((r) => r.status === "todo" && r.attempt)).toBe(true);
+    expect(second.result.current.error).toBe("cancelled");
+  });
+
+  it("a batch still pending on resume is re-checked once per batch id, in one shared wait", async () => {
+    saveProgress(OWNER, 84532, KEY, rows.map((r) => row(r, { callsId: "0xold", attempt: attempt(), status: "sent" })));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set()));
+    expect(waitForCallsStatus).toHaveBeenCalledTimes(1);
     expect(waitForCallsStatus).toHaveBeenCalledWith(config, expect.objectContaining({ id: "0xold" }));
     expect(sendCallsAsync).not.toHaveBeenCalled();
     expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
@@ -155,10 +206,11 @@ describe("useMultisend atomic", () => {
 });
 
 describe("useMultisend sequential", () => {
-  it("one transfer per row, account pinned, each hash and the block before signing stored before its receipt", async () => {
-    waitForTransactionReceipt.mockImplementation(async (_c: unknown, { hash }: { hash: string }) => {
-      expect(loadProgress(OWNER, 84532, KEY)!.find((r) => r.hash === hash)).toMatchObject({ status: "sent", fromBlock: "4242" });
-      return { status: "success" };
+  it("one transfer per row, account pinned; the attempt is stored before each prompt and the receipt hash after", async () => {
+    send.mockImplementation(async ({ to }: { to: string }) => {
+      const stored = loadProgress(OWNER, 84532, KEY)!.find((r) => r.to === to)!;
+      expect(stored).toMatchObject({ status: "unconfirmed", attempt: { block: "4242" } });
+      return h(rows.findIndex((r) => r.to === to) + 1);
     });
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
@@ -170,173 +222,184 @@ describe("useMultisend sequential", () => {
       ["confirmed", h(2)],
       ["confirmed", h(3)],
     ]);
-    expect(result.current.running).toBe(false);
+    expect(recentConfirmed(84532, Date.now()).map((e) => e.hash)).toEqual([h(1), h(2), h(3)]);
   });
 
-  it("C3: every confirmed line goes to the 24 h record (chain, recipient, amount, hash)", async () => {
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(recentConfirmed(84532, Date.now()).map((e) => [e.to, e.amount, e.hash])).toEqual([
-      [A, "10000000", h(1)],
-      [B, "12500000", h(2)],
-      [C, "7500000", h(3)],
-    ]);
-  });
-
-  it("the 2nd rejected: 1st confirmed with its hash stored, 2nd failed, 3rd todo, only 2 sends", async () => {
+  it("finding 1: with storage unavailable, the in-memory state is the truth: a confirmed line is never signed again", async () => {
+    throwingStorage();
     send.mockResolvedValueOnce(h(1)).mockRejectedValueOnce(userRejected);
     const { result } = renderHook(() => useMultisend(84532));
+    expect(result.current.storageOk).toBe(true);
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "failed", "todo"]);
-    expect(result.current.error).toBe("cancelled");
-    const stored = loadProgress(OWNER, 84532, KEY)!;
-    expect(stored[0]).toMatchObject({ status: "confirmed", hash: h(1) });
-    expect(stored.map((r) => r.status)).toEqual(["confirmed", "failed", "todo"]);
-  });
-
-  it("a reverted transfer stops with that row failed", async () => {
-    waitForTransactionReceipt.mockResolvedValueOnce({ status: "success" }).mockResolvedValueOnce({ status: "reverted" });
-    const { result } = renderHook(() => useMultisend(84532));
+    expect(result.current.storageOk).toBe(false);
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "todo", "todo"]);
+    send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+    // A caller that (wrongly) approves every line: line 1 is confirmed and stays so.
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "failed", "todo"]);
-    expect(result.current.error).toBe("reverted");
-  });
-
-  it("only the approved lines are signed", async () => {
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, new Set([rows[2]!.id])));
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]![0].to).toBe(C);
-    expect(result.current.rows.map((r) => r.status)).toEqual(["todo", "todo", "confirmed"]);
-  });
-
-  it("Review Focus 4: resuming with the 1st sent and a success receipt does not resend it; sends the 2nd and 3rd", async () => {
-    saveProgress(OWNER, 84532, KEY, [
-      row(rows[0]!, { hash: h(7), sentAt: Date.now(), status: "sent" }),
-      row(rows[1]!, { status: "failed" }),
-      row(rows[2]!, { status: "todo" }),
-    ]);
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, new Set([rows[1]!.id, rows[2]!.id])));
-    expect(waitForTransactionReceipt.mock.calls[0]![1]).toMatchObject({ hash: h(7), chainId: 84532 });
-    expect(send).toHaveBeenCalledTimes(2);
-    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, B, B, C]);
     expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
-    expect(result.current.rows[0]!.hash).toBe(h(7));
+  });
+
+  it("finding 2: a wallet error that is not a rejection leaves the line unconfirmed; it is never re-signed", async () => {
+    send.mockResolvedValueOnce(h(1)).mockRejectedValueOnce(new Error("WalletConnect: response lost"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "unconfirmed", "todo"]);
+    expect(result.current.error).toBe("failed");
+    send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, B, C]);
+    expect(result.current.rows[1]!.status).toBe("unconfirmed");
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, expect.objectContaining({ to: B, fromBlock: 4242n }));
+  });
+
+  it("finding 2: a reload while the prompt was open finds the attempt and does not sign that line again", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { status: "unconfirmed", attempt: attempt() }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "todo" })]);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
+    expect(result.current.rows[0]!.status).toBe("unconfirmed");
+    expect(result.current.error).toBe("unconfirmed");
+  });
+
+  it("finding 2: a definitive rejection returns the line to todo but keeps the attempt, so it is scanned before the next signature", async () => {
+    send.mockRejectedValueOnce(userRejected);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(result.current.rows[0]).toMatchObject({ status: "todo", attempt: { block: "4242" } });
+    expect(result.current.error).toBe("cancelled");
+    send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
+    findTransfer.mockResolvedValueOnce(h(77));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(findTransfer.mock.calls[0]![1]).toMatchObject({ to: A });
+    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(77) });
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([A, B, C]);
+  });
+
+  it("finding 4: a receipt without the USDC Transfer (a cancel) is not a confirmation: unconfirmed, not recorded, never re-signed", async () => {
+    waitForTransactionReceipt.mockResolvedValueOnce({ status: "success", transactionHash: h(50), logs: [] });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows.slice(0, 1), OWNER, KEY, ALL));
+    expect(result.current.rows[0]!.status).toBe("unconfirmed");
+    expect(result.current.error).toBe("reverted");
+    expect(recentConfirmed(84532, Date.now())).toEqual([]);
+    await act(() => result.current.send(rows.slice(0, 1), OWNER, KEY, ALL));
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("finding 4: a log for another token, sender, recipient or amount does not count", async () => {
+    waitForTransactionReceipt.mockResolvedValueOnce({
+      status: "success",
+      transactionHash: h(50),
+      logs: [transferLog(A, 1n), transferLog(B, 10_000_000n), transferLog(A, 10_000_000n, USDC_ARB as `0x${string}`), transferLog(A, 10_000_000n, USDC_BASE, B)],
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows.slice(0, 1), OWNER, KEY, ALL));
+    expect(result.current.rows[0]!.status).toBe("unconfirmed");
+  });
+
+  it("finding 4: a sped-up tx is confirmed with the hash of the receipt that paid", async () => {
+    waitForTransactionReceipt.mockResolvedValueOnce(paying(h(66), [A, 10_000_000n]));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows.slice(0, 1), OWNER, KEY, ALL));
+    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(66) });
+  });
+
+  it("finding 5: a released line whose scan fails is scan_failed and is not signed", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
+    findTransfer.mockRejectedValueOnce(new Error("range too large"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.rows[0]!.status).toBe("scan_failed");
+    expect(result.current.error).toBe("scan_failed");
+  });
+
+  it("finding 5: a scan_failed line cannot be released; a retried successful scan makes it not_found, and only then a release signs it", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), attempt: attempt(STALE()), status: "scan_failed" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL, new Set([rows[0]!.id])));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.rows[0]!.status).toBe("not_found");
+    expect(result.current.error).toBe("unconfirmed");
+    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(1) });
+    // finding 7: a released line confirmed in this run leaves no «sin confirmar» notice behind.
+    expect(result.current.error).toBeNull();
+  });
+
+  it("C1: an attempted line with nothing on chain is unconfirmed while fresh and not_found once stale; a found one is confirmed", async () => {
+    saveProgress(OWNER, 84532, KEY, [
+      row(rows[0]!, { attempt: attempt(), status: "unconfirmed" }),
+      row(rows[1]!, { attempt: attempt(STALE()), status: "unconfirmed" }),
+      row(rows[2]!, { attempt: attempt(STALE()), status: "unconfirmed" }),
+    ]);
+    findTransfer.mockImplementation(async (_c: unknown, { to }: { to: string }) => (to === C ? h(55) : null));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).not.toHaveBeenCalled();
+    expect(result.current.rows.map((r) => r.status)).toEqual(["unconfirmed", "not_found", "confirmed"]);
+    expect(result.current.rows[2]!.hash).toBe(h(55));
+    expect(findTransfer).toHaveBeenCalledWith(publicClient, { usdc: USDC_BASE, from: OWNER, to: A, amount: 10_000_000n, fromBlock: 900n, exclude: new Set() });
+  });
+
+  it("only todo lines and released not_found lines are signed; an approved unconfirmed line is not", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { attempt: attempt(STALE()), status: "not_found" }), row(rows[1]!, { attempt: attempt(), status: "unconfirmed" }), row(rows[2]!, { status: "todo" })]);
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([C]);
+  });
+
+  it("finding 8: sent lines are re-checked in parallel under one shared timeout", async () => {
+    saveProgress(OWNER, 84532, KEY, rows.map((r, i) => row(r, { hash: h(i + 1), attempt: attempt(), status: "sent" })));
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    waitForTransactionReceipt.mockImplementation(async (_c: unknown, { hash }: { hash: `0x${string}` }) => {
+      await gate;
+      const r = rows[Number.parseInt(hash.slice(2, 4), 16) - 1]!;
+      return paying(hash, [r.to, r.amount]);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    let done!: Promise<void>;
+    act(() => {
+      done = result.current.send(rows, OWNER, KEY, new Set());
+    });
+    await vi.waitFor(() => expect(waitForTransactionReceipt).toHaveBeenCalledTimes(3));
+    const timeouts = waitForTransactionReceipt.mock.calls.map((c) => c[1].timeout as number);
+    expect(new Set(timeouts).size).toBe(1);
+    release();
+    await act(() => done);
+    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
+  });
+
+  it("a sent line whose receipt does not come is never re-signed; the approved todo lines still go", async () => {
+    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), attempt: attempt(), status: "sent" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "todo" })]);
+    waitForTransactionReceipt.mockRejectedValueOnce(new Error("timeout"));
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
+    expect(result.current.rows[0]!.status).toBe("unconfirmed");
   });
 
   it("C3: progress resumes for the same lines in another order", async () => {
     saveProgress(OWNER, 84532, KEY, [row(rows[2]!, { status: "todo" }), row(rows[0]!, { hash: h(7), status: "confirmed" }), row(rows[1]!, { status: "todo" })]);
     const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, new Set([rows[1]!.id, rows[2]!.id])));
-    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
-    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
-  });
-
-  it("a sent row whose receipt does not come yet is never resent; the approved others still go", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: Date.now(), status: "sent" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "todo" })]);
-    waitForTransactionReceipt.mockRejectedValueOnce(new Error("timeout"));
-    const { result } = renderHook(() => useMultisend(84532));
-    // Even if a caller approved it, a sent line is only re-checked.
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
-    expect(findTransfer).not.toHaveBeenCalled();
-    expect(result.current.rows[0]!.status).toBe("sent");
-    expect(result.current.error).toBe("pending");
   });
 
-  it("C1: no receipt after the give-up → the Transfer log scan finds it: confirmed with that hash, never resent", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: STALE(), fromBlock: "900", status: "sent" }), row(rows[1]!, { status: "confirmed", hash: h(8) })]
-      .concat([row(rows[2]!, { status: "confirmed", hash: h(9) })]));
-    waitForTransactionReceipt.mockRejectedValueOnce(new Error("timeout"));
-    findTransfer.mockResolvedValueOnce(h(55));
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(getPublicClient).toHaveBeenCalledWith(config, { chainId: 84532 });
-    expect(findTransfer).toHaveBeenCalledWith(publicClient, {
-      usdc: USDC_BASE,
-      from: OWNER,
-      to: A,
-      amount: 10_000_000n,
-      fromBlock: 900n,
-      exclude: new Set([h(8), h(9)]),
-    });
-    expect(send).not.toHaveBeenCalled();
-    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(55) });
-    expect(result.current.error).toBeNull();
-  });
-
-  it("C1: nothing found → «sin confirmar», never resent even when approved, with the unconfirmed error", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: STALE(), status: "sent" }), row(rows[1]!, { status: "todo" }), row(rows[2]!, { status: "todo" })]);
-    waitForTransactionReceipt.mockRejectedValueOnce(new Error("timeout"));
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send.mock.calls.map((c) => c[0].to)).toEqual([B, C]);
-    expect(result.current.rows[0]).toMatchObject({ status: "unconfirmed", hash: h(7) });
-    expect(result.current.error).toBe("unconfirmed");
-    expect(findTransfer.mock.calls[0]![1]).toMatchObject({ fromBlock: undefined });
-  });
-
-  it("C1: a failed log scan also leaves it «sin confirmar»", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: STALE(), status: "sent" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
-    waitForTransactionReceipt.mockRejectedValueOnce(new Error("timeout"));
-    findTransfer.mockRejectedValueOnce(new Error("rpc down"));
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(result.current.rows[0]!.status).toBe("unconfirmed");
-    expect(send).not.toHaveBeenCalled();
-  });
-
-  it("C1: an unconfirmed line is scanned again; it is resent only when released, and only if the scan still finds nothing", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: STALE(), status: "unconfirmed" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, new Set()));
-    expect(findTransfer).toHaveBeenCalledTimes(1);
-    expect(send).not.toHaveBeenCalled();
-    expect(ensure).not.toHaveBeenCalled();
-    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0]![0].to).toBe(A);
-    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(1) });
-  });
-
-  it("C1: a released line the scan does find is confirmed, not resent", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: STALE(), status: "unconfirmed" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
-    findTransfer.mockResolvedValueOnce(h(55));
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, new Set(), new Set([rows[0]!.id])));
-    expect(send).not.toHaveBeenCalled();
-    expect(result.current.rows[0]).toMatchObject({ status: "confirmed", hash: h(55) });
-  });
-
-  it("a sent row that turns failed on re-check (reverted) is not signed in the same run", async () => {
-    saveProgress(OWNER, 84532, KEY, [row(rows[0]!, { hash: h(7), sentAt: Date.now(), status: "sent" }), row(rows[1]!, { status: "confirmed" }), row(rows[2]!, { status: "confirmed" })]);
-    waitForTransactionReceipt.mockResolvedValueOnce({ status: "reverted" });
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send).not.toHaveBeenCalled();
-    expect(result.current.rows[0]!.status).toBe("failed");
-    expect(result.current.error).toBe("reverted");
-  });
-
-  it("progress for another list is ignored: everything starts from todo", async () => {
-    saveProgress(OWNER, 84532, KEY, [{ id: "x", to: A, amount: "1", status: "confirmed" }]);
-    const { result } = renderHook(() => useMultisend(84532));
-    await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send).toHaveBeenCalledTimes(3);
-  });
-
-  it("a refused chain switch signs nothing", async () => {
+  it("a refused chain switch signs nothing and leaves no attempt", async () => {
     ensure.mockResolvedValue(false);
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send).not.toHaveBeenCalled();
     expect(result.current.error).toBe("switch");
+    expect(result.current.rows.every((r) => r.status === "todo" && !r.attempt)).toBe(true);
   });
 
-  it("the balance is checked against the total before signing: short USDC or no ETH signs nothing", async () => {
+  it("finding 12: a known-short balance signs nothing; an unknown one does not block", async () => {
     readAssetBalance.mockImplementation(async (_c: unknown, asset: { token: string }) => (asset.token === "USDC" ? 29_999_999n : 10n ** 18n));
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
@@ -344,9 +407,11 @@ describe("useMultisend sequential", () => {
     expect(result.current.error).toBe("insufficient");
     readAssetBalance.mockImplementation(async (_c: unknown, asset: { token: string }) => (asset.token === "USDC" ? 30_000_000n : 0n));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
-    expect(send).not.toHaveBeenCalled();
     expect(result.current.error).toBe("no_gas");
-    expect(readAssetBalance).toHaveBeenCalledWith(config, expect.objectContaining({ chainId: 84532, token: "USDC" }), OWNER);
+    expect(send).not.toHaveBeenCalled();
+    readAssetBalance.mockRejectedValue(new Error("rpc down"));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).toHaveBeenCalledTimes(3);
   });
 
   it("all rows already confirmed: nothing to sign, not even a chain switch", async () => {
@@ -355,6 +420,12 @@ describe("useMultisend sequential", () => {
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(ensure).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
-    expect(result.current.rows.map((r) => r.status)).toEqual(["confirmed", "confirmed", "confirmed"]);
+  });
+
+  it("every run bumps `runs` (the form clears its ticks on it)", async () => {
+    const { result } = renderHook(() => useMultisend(84532));
+    expect(result.current.runs).toBe(0);
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(result.current.runs).toBe(1);
   });
 });

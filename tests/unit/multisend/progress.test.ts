@@ -18,8 +18,8 @@ const TO2 = "0x90F79bf6EB2c4f870365E785982E1f101E93b906" as const;
 const HASH = `0x${"ab".repeat(32)}` as const;
 const id = (to: string, amount: string) => `${to.toLowerCase()}:${amount}:0`;
 const rows: RowState[] = [
-  { id: id(TO, "1000000"), to: TO, amount: "1000000", hash: HASH, sentAt: 1_700_000_000_000, fromBlock: "123", status: "confirmed" },
-  { id: id(TO2, "2500000"), to: TO2, amount: "2500000", status: "unconfirmed" },
+  { id: id(TO, "1000000"), to: TO, amount: "1000000", hash: HASH, attempt: { block: "123", at: 1_700_000_000_000 }, status: "confirmed" },
+  { id: id(TO2, "2500000"), to: TO2, amount: "2500000", attempt: { at: 5 }, status: "scan_failed" },
 ];
 
 beforeEach(() => window.localStorage.clear());
@@ -31,7 +31,7 @@ describe("multisend progress", () => {
   });
 
   it("save and load round-trip; another chain, owner or list has nothing", () => {
-    saveProgress(OWNER, 84532, "k1", rows);
+    expect(saveProgress(OWNER, 84532, "k1", rows)).toBe(true);
     expect(loadProgress(OWNER, 84532, "k1")).toEqual(rows);
     expect(loadProgress(OWNER.toLowerCase() as `0x${string}`, 84532, "k1")).toEqual(rows);
     expect(loadProgress(OWNER, 421614, "k1")).toBeNull();
@@ -50,7 +50,7 @@ describe("multisend progress", () => {
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
       throw new Error("denied");
     });
-    expect(() => saveProgress(OWNER, 84532, "k1", rows)).not.toThrow();
+    expect(saveProgress(OWNER, 84532, "k1", rows)).toBe(false);
     expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
     expect(() => clearProgress(OWNER, 84532, "k1")).not.toThrow();
     expect(() => recordConfirmed({ chain: 84532, to: TO, amount: "1", hash: HASH }, 0)).not.toThrow();
@@ -67,7 +67,9 @@ describe("multisend progress", () => {
       JSON.stringify([{ ...rows[0], hash: "0x12" }]),
       JSON.stringify([{ ...rows[1], amount: "-1" }]),
       JSON.stringify([{ ...rows[1], id: undefined }]),
-      JSON.stringify([{ ...rows[0], fromBlock: "x" }]),
+      JSON.stringify([{ ...rows[0], attempt: { block: "x", at: 1 } }]),
+      JSON.stringify([{ ...rows[0], attempt: { block: "1" } }]),
+      JSON.stringify([{ ...rows[1], status: "failed" }]),
     ]) {
       window.localStorage.setItem(key, junk);
       expect(loadProgress(OWNER, 84532, "k1")).toBeNull();
