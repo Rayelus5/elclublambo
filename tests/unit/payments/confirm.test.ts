@@ -28,7 +28,7 @@ vi.mock("@/lib/economy/eth-price", async (orig) => ({
 const verifyClubSafe = vi.fn();
 vi.mock("@/lib/economy/club-safe", () => ({ verifyClubSafe: (...a: unknown[]) => verifyClubSafe(...a) }));
 
-import { confirmIntent, reverifyIntentsFor } from "@/lib/payments/confirm";
+import { confirmIntent, reverifyIntentsFor, reverifyPublicIntentsFor } from "@/lib/payments/confirm";
 
 const PAYER = "0x70997970c51812dc3a010c7d01b50e0d17dc79c8";
 const RECIPIENT = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";
@@ -325,6 +325,52 @@ describe("reverifyIntentsFor", () => {
     tables.payment_intents = [];
     await reverifyIntentsFor("m1", async () => ({ status: "pending" }));
     expect(selects.payment_intents).toEqual(expect.arrayContaining([["eq", "member_id", "m1"], ["eq", "status", "pending"]]));
+  });
+});
+
+describe("reverifyPublicIntentsFor (final review item 2c)", () => {
+  it("queries only the user's own pending public intents with a hash, from the last 7 days, newest first, at most 5", async () => {
+    tables.public_donation_intents = [];
+    vi.useFakeTimers({ now: new Date("2026-10-25T12:00:00.000Z"), toFake: ["Date"] });
+    try {
+      await reverifyPublicIntentsFor("u1", async () => ({ status: "pending" }));
+    } finally {
+      vi.useRealTimers();
+    }
+    expect(selects.public_donation_intents).toEqual(
+      expect.arrayContaining([
+        ["eq", "user_id", "u1"],
+        ["eq", "status", "pending"],
+        ["not", "main_tx_hash", "is", null],
+        ["gte", "created_at", "2026-10-18T12:00:00.000Z"],
+        ["order", "created_at", { ascending: false }],
+        ["limit", 5],
+      ]),
+    );
+  });
+
+  it("confirms each one in order, capped at 5, and swallows errors", async () => {
+    tables.public_donation_intents = Array.from({ length: 7 }, (_, n) => ({ id: `p${n}` }));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const seen: string[] = [];
+    await reverifyPublicIntentsFor("u1", async (id) => {
+      seen.push(id);
+      if (id === "p0") throw new Error("rpc down");
+      return { status: "pending" };
+    });
+    expect(seen).toEqual(["p0", "p1", "p2", "p3", "p4"]);
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("a failed read is logged and confirms nothing", async () => {
+    tableErrors.public_donation_intents = { message: "db down" };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const spy = vi.fn();
+    await reverifyPublicIntentsFor("u1", async (id) => (spy(id), { status: "pending" }));
+    expect(spy).not.toHaveBeenCalled();
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
   });
 });
 

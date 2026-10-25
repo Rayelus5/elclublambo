@@ -40,6 +40,11 @@ const POLL_WINDOW_MS = 120_000;
 const RETRY_DELAYS_MS = [1000, 2000, 4000];
 const HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/**
+ * A lost or invalid session on attach/verify. Never permanent here: the donation may already be on-chain, so the stored
+ * hash is kept and the panel asks to sign in again (the page then resumes it, and the server re-verifies it on a visit).
+ */
+const SESSION_CODES: ReadonlySet<string> = new Set(["forbidden", "not_authenticated"]);
 
 /** A sent donation waiting to be recorded: kept per wallet and intent so a reload resumes it instead of sending again. */
 type Stored = { intentId: string; chainId: ChainId; hash: Hash; attached: boolean };
@@ -187,7 +192,7 @@ export function PublicDonatePanel(props: Props) {
             <p className="text-sm text-fg-muted">{t.unavailableText}</p>
           </div>
         ) : (
-          <DonateFlow lang={lang} t={t} wallet={session.wallet} chains={chains} />
+          <DonateFlow lang={lang} t={t} wallet={session.wallet} chains={chains} next={next} />
         )}
       </div>
     );
@@ -203,7 +208,7 @@ export function PublicDonatePanel(props: Props) {
 type Step = "form" | "attaching" | "attach-retry" | "verifying" | "done" | "failed";
 type Phase = "idle" | "switching" | "preparing" | "checking" | "signing";
 
-function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Hash; chains: readonly ChainId[] }) {
+function DonateFlow({ lang, t, wallet, chains, next }: { lang: Lang; t: T; wallet: Hash; chains: readonly ChainId[]; next: string }) {
   const p = t.panel;
   const router = useRouter();
   const amountId = useId();
@@ -246,6 +251,7 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
   const [error, setError] = useState<string | null>(null);
   const [slow, setSlow] = useState(false);
   const [waitingPrice, setWaitingPrice] = useState(false);
+  const [signedOut, setSignedOut] = useState(false);
   const [pollRound, setPollRound] = useState(0);
 
   const aliveRef = useRef(true);
@@ -270,6 +276,10 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
             writeStored(wallet, done);
             setFlow(done);
             return setStep("verifying");
+          }
+          if (SESSION_CODES.has(r.code)) {
+            setSignedOut(true);
+            return setStep("attach-retry");
           }
           if (PERMANENT_ATTACH_CODES.has(r.code)) {
             clearStored(wallet, flow.intentId);
@@ -304,6 +314,10 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
         invalidateBalances();
         router.refresh();
         return setStep("done");
+      }
+      // The session is gone: the hash stays stored and polling stops until the donor signs in again.
+      if ((r.status === "pending" && r.reason === "not_authenticated") || (r.status === "failed" && SESSION_CODES.has(r.code))) {
+        return setSignedOut(true);
       }
       if (r.status === "failed" && isDefinitiveFailure(r.code)) {
         clearStored(wallet, flow.intentId);
@@ -357,7 +371,7 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
         if (!(await ensure(chosen.chain))) return fail(fill(p.switchFailed, { network: NETWORKS[chosen.chain].name }));
       }
       setPhase("preparing");
-      const created = await createPublicDonationIntentAction({ chainId: chosen.chain, token: chosen.token, amount: amountText.trim(), anonymous, listed });
+      const created = await createPublicDonationIntentAction({ chainId: chosen.chain, token: chosen.token, amount: amountText.trim(), anonymous, listed: listed && !anonymous });
       if (!created.ok) return fail(errText(created.code));
       const it: TipIntent = created.intent;
       // What gets signed is one transfer with no fee, on the chosen network, for the typed amount, to the intent's recipient.
@@ -393,6 +407,7 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
     setError(null);
     setSlow(false);
     setWaitingPrice(false);
+    setSignedOut(false);
     setAmountText("");
     setStep("form");
   }
@@ -408,6 +423,22 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
         {p.explorer}
       </a>
     ) : null;
+
+  // The session expired after sending: the hash stays stored; signing in again reloads the page, which resumes it.
+  if (signedOut && (step === "attaching" || step === "verifying" || step === "attach-retry")) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p role="alert" className="flex items-start gap-2 text-sm text-danger">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {p.signedOut}
+        </p>
+        {txLink}
+        <div>
+          <PublicConnectLazy lang={lang} next={next} />
+        </div>
+      </div>
+    );
+  }
 
   if (step === "attaching" || step === "verifying") {
     return (
@@ -550,7 +581,16 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
       <fieldset className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <Checkbox id={anonId} checked={anonymous} onCheckedChange={(v) => setAnonymous(v === true)} aria-describedby={`${anonId}-hint`} />
+            <Checkbox
+              id={anonId}
+              checked={anonymous}
+              onCheckedChange={(v) => {
+                setAnonymous(v === true);
+                // An anonymous donation never appears in the club's list.
+                if (v === true) setListed(false);
+              }}
+              aria-describedby={`${anonId}-hint`}
+            />
             <label htmlFor={anonId} className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
               {p.anonymous}
             </label>
@@ -561,8 +601,14 @@ function DonateFlow({ lang, t, wallet, chains }: { lang: Lang; t: T; wallet: Has
         </div>
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
-            <Checkbox id={listedId} checked={listed} onCheckedChange={(v) => setListed(v === true)} aria-describedby={`${listedId}-hint`} />
-            <label htmlFor={listedId} className="min-h-11 flex-1 content-center text-sm font-bold text-fg">
+            <Checkbox
+              id={listedId}
+              checked={listed && !anonymous}
+              disabled={anonymous}
+              onCheckedChange={(v) => setListed(v === true)}
+              aria-describedby={`${listedId}-hint`}
+            />
+            <label htmlFor={listedId} className={`min-h-11 flex-1 content-center text-sm font-bold ${anonymous ? "text-fg-muted" : "text-fg"}`}>
               {p.listed}
             </label>
           </div>

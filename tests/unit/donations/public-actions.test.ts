@@ -92,9 +92,11 @@ describe("verifyPublicDonationAction", () => {
     expect(verifyTransfer).not.toHaveBeenCalled();
   });
 
-  it("without a session it is forbidden", async () => {
+  it("without a session it is pending, never a definitive failure (the stored hash must survive a lost session)", async () => {
     session.mockResolvedValue(null);
-    expect(await verifyPublicDonationAction(ID)).toMatchObject({ status: "failed", code: "forbidden" });
+    expect(await verifyPublicDonationAction(ID)).toEqual({ status: "pending", reason: "not_authenticated" });
+    expect(verifyTransfer).not.toHaveBeenCalled();
+    expect(adminRpc).not.toHaveBeenCalled();
   });
 
   it("a rate-limited caller waits (pending) without reading the chain", async () => {
@@ -121,6 +123,12 @@ describe("createPublicDonationIntentAction", () => {
     expect(await createPublicDonationIntentAction(valid)).toEqual({ ok: true, intent });
     expect(userRpc).toHaveBeenCalledWith("create_public_donation_intent", { p_chain_id: 84532, p_token: "USDC", p_amount: "5000000", p_anonymous: false, p_listed: true });
   });
+  it("without a session it is not_authenticated before any Safe read", async () => {
+    session.mockResolvedValue(null);
+    expect(await createPublicDonationIntentAction(valid)).toMatchObject({ ok: false, code: "not_authenticated" });
+    expect(verifyClubSafe).not.toHaveBeenCalled();
+    expect(userRpc).not.toHaveBeenCalled();
+  });
   it("an undeployed Safe never reaches the RPC", async () => {
     verifyClubSafe.mockResolvedValue("not_deployed");
     expect(await createPublicDonationIntentAction(valid)).toMatchObject({ ok: false, code: "safe_not_deployed" });
@@ -142,6 +150,11 @@ describe("attachPublicDonationTxAction", () => {
   it("lowercases the hash and calls the RPC", async () => {
     expect(await attachPublicDonationTxAction(ID, HASH.toUpperCase().replace("0X", "0x"))).toEqual({ ok: true });
     expect(userRpc).toHaveBeenCalledWith("attach_public_donation_tx", { p_intent: ID, p_hash: HASH });
+  });
+  it("without a session it is not_authenticated (retryable once signed in again) and never calls the RPC", async () => {
+    session.mockResolvedValue(null);
+    expect(await attachPublicDonationTxAction(ID, HASH)).toMatchObject({ ok: false, code: "not_authenticated" });
+    expect(userRpc).not.toHaveBeenCalled();
   });
   it("rejects malformed input", async () => {
     expect(await attachPublicDonationTxAction("x", HASH)).toMatchObject({ ok: false, code: "invalid_input" });

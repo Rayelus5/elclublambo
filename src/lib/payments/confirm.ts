@@ -329,6 +329,39 @@ export async function reverifyIntentsFor(memberId: string, confirm: (intentId: s
   }
 }
 
+/**
+ * The public twin of reverifyIntentsFor (P3, final review): re-verifies a public account's pending donations whose hash
+ * was attached (the tab may have closed, or the session expired, after signing). At most 5 per call, newest first, within
+ * the 7-day late-credit window (confirm_public_donation decides past the 24 h expiry). Errors are logged and swallowed.
+ */
+export async function reverifyPublicIntentsFor(userId: string, confirm: (intentId: string) => Promise<unknown> = confirmPublicDonation): Promise<void> {
+  try {
+    const since = new Date(Date.now() - LATE_CREDIT_DAYS * 24 * 3600 * 1000).toISOString();
+    const { data, error } = await createAdminClient()
+      .from("public_donation_intents")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "pending")
+      .not("main_tx_hash", "is", null)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(MAX_REVERIFY);
+    if (error) {
+      console.error("[payments] public reverify query failed", safeError(error.message));
+      return;
+    }
+    for (const row of ((data ?? []) as { id: string }[]).slice(0, MAX_REVERIFY)) {
+      try {
+        await confirm(row.id);
+      } catch (e) {
+        console.error("[payments] public reverify failed", row.id, safeError(e));
+      }
+    }
+  } catch (e) {
+    console.error("[payments] public reverify query failed", safeError(e));
+  }
+}
+
 /** The caller's own pending intents (member id from the session unless the layout already resolved it). */
 export async function reverifyMyPendingIntents(memberId?: string): Promise<void> {
   try {

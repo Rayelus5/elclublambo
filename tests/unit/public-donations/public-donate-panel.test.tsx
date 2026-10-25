@@ -211,6 +211,63 @@ describe("PublicDonatePanel", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
+  it.each(["not_authenticated", "forbidden"])("a %s attach keeps the stored hash and asks to sign in again (never failed)", async (code) => {
+    connect(84532);
+    attachPublicDonationTxAction.mockResolvedValue({ ok: false, code, error: "x" });
+    setup();
+    await fillAndSubmit(/Base/);
+    expect(await screen.findByText(es.panel.signedOut)).toBeInTheDocument();
+    expect(screen.getByTestId("public-connect")).toBeInTheDocument();
+    expect(attachPublicDonationTxAction).toHaveBeenCalledTimes(1);
+    expect(verifyPublicDonationAction).not.toHaveBeenCalled();
+    expect(JSON.parse(window.localStorage.getItem(storageKey(WALLET, INTENT_ID))!)).toMatchObject({ hash: HASH, attached: false });
+  });
+
+  it("a verify without a session (pending/not_authenticated) keeps the stored hash, stops polling and asks to sign in", async () => {
+    connect(84532);
+    window.localStorage.setItem(storageKey(WALLET, INTENT_ID), JSON.stringify({ intentId: INTENT_ID, chainId: 84532, hash: HASH, attached: true }));
+    verifyPublicDonationAction.mockResolvedValue({ status: "pending", reason: "not_authenticated" });
+    setup();
+    expect(await screen.findByText(es.panel.signedOut)).toBeInTheDocument();
+    expect(screen.getByTestId("public-connect")).toBeInTheDocument();
+    expect(verifyPublicDonationAction).toHaveBeenCalledTimes(1);
+    expect(window.localStorage.getItem(storageKey(WALLET, INTENT_ID))).toContain(HASH);
+  });
+
+  it("a forbidden verify is not treated as definitive: the stored hash stays", async () => {
+    connect(84532);
+    window.localStorage.setItem(storageKey(WALLET, INTENT_ID), JSON.stringify({ intentId: INTENT_ID, chainId: 84532, hash: HASH, attached: true }));
+    verifyPublicDonationAction.mockResolvedValue({ status: "failed", code: "forbidden", error: "x" });
+    setup();
+    expect(await screen.findByText(es.panel.signedOut)).toBeInTheDocument();
+    expect(screen.queryByText(es.panel.again)).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(storageKey(WALLET, INTENT_ID))).toContain(HASH);
+  });
+
+  it("«Donación anónima» unticks and disables «Aparecer en la lista»", async () => {
+    connect(84532);
+    setup();
+    const listed = screen.getByRole("checkbox", { name: es.panel.listed });
+    await userEvent.click(listed);
+    expect(listed).toBeChecked();
+    await userEvent.click(screen.getByRole("checkbox", { name: es.panel.anonymous }));
+    expect(listed).not.toBeChecked();
+    expect(listed).toBeDisabled();
+    await userEvent.click(screen.getByRole("checkbox", { name: es.panel.anonymous }));
+    expect(listed).toBeEnabled();
+    expect(listed).not.toBeChecked();
+  });
+
+  it("an anonymous donation is never created as listed", async () => {
+    connect(84532);
+    setup();
+    await userEvent.click(screen.getByRole("checkbox", { name: es.panel.listed }));
+    await userEvent.click(screen.getByRole("checkbox", { name: es.panel.anonymous }));
+    await fillAndSubmit(/Base/);
+    await waitFor(() => expect(createPublicDonationIntentAction).toHaveBeenCalled());
+    expect(createPublicDonationIntentAction.mock.calls[0]![0]).toMatchObject({ anonymous: true, listed: false });
+  });
+
   it("a balance shortfall at preflight never sends and stores nothing", async () => {
     connect(84532);
     preflight.mockResolvedValue("No tienes suficiente USDC");

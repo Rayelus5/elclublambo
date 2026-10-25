@@ -1,18 +1,13 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
-import { notFound, unstable_rethrow } from "next/navigation";
+import { notFound } from "next/navigation";
 import { NetworkLogo } from "@/components/economy/network-logo";
-import { PublicDonatePanelLazy } from "@/components/public-donations/public-donate-panel-lazy";
+import { DonateGate, settle } from "@/components/public-donations/donate-gate";
 import { PageLoader } from "@/components/shell/page-loader";
-import { getPublicSession } from "@/lib/auth/public-session";
 import { getCachedPublicDonationOverview, getCachedSafeBalances } from "@/lib/donations/public-cached";
-import { getMyPublicDonations } from "@/lib/donations/public-queries";
-import { donationChainsStatus } from "@/lib/economy/club-safe";
-import type { ChainId } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE, type Lang } from "@/lib/i18n/config";
-import { alternatesFor, localizedPath } from "@/lib/i18n/routes";
-import { safeError } from "@/lib/security/redact";
+import { alternatesFor } from "@/lib/i18n/routes";
 import { isProductionSite } from "@/lib/start/site";
 import { formatToken, formatUsdIn } from "@/lib/treasury/format";
 
@@ -31,18 +26,6 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/donate">):
     robots: isProductionSite() ? { index: true, follow: true } : { index: false, follow: false },
     openGraph: { type: "website", url: alternates.canonical, siteName: "ElClub.", locale: OG_LOCALE[lang], title: t.metaTitle, description: t.metaDescription },
   };
-}
-
-/**
- * A failed read shows its own notice and leaves the rest of the page standing. Next's own control-flow rejections (the
- * build's prerender ending on a short-lived "use cache" read) are rethrown, never shown as a failed read.
- */
-function settle<T>(label: string, p: Promise<T>): Promise<T | null> {
-  return p.catch((e: unknown) => {
-    unstable_rethrow(e);
-    console.error(`[donations] public ${label} read failed`, safeError(e));
-    return null;
-  });
 }
 
 /** formatToken prints Spanish separators; English swaps them. */
@@ -109,29 +92,6 @@ async function SafeBalancesBlock({ lang }: { lang: Lang }) {
   );
 }
 
-/** Session gate: sign-in, the member's link to the club page, or the donation flow on the networks with a Safe. */
-async function Gate({ lang }: { lang: Lang }) {
-  const t = getDictionary(lang).donate;
-  const session = await getPublicSession();
-  const donor = session && !session.isMember;
-  const [status, mine] = donor
-    ? await Promise.all([settle("donation chains", donationChainsStatus()), settle("my donations", getMyPublicDonations())])
-    : [{ chains: [] as ChainId[], networkError: false }, null];
-  // A failed check with no network available reads «could not load», never «not available yet».
-  const chainsFailed = status === null || (status.chains.length === 0 && status.networkError);
-  return (
-    <PublicDonatePanelLazy
-      lang={lang}
-      t={t}
-      session={session ? { wallet: session.wallet, isMember: session.isMember } : null}
-      chains={status?.chains ?? []}
-      chainsFailed={chainsFailed}
-      myTotalUsd6={mine ? mine.totalUsd6.toString() : null}
-      next={localizedPath(lang, "donate")}
-    />
-  );
-}
-
 export default async function DonatePage({ params }: PageProps<"/[lang]/donate">) {
   const { lang } = await params;
   if (!isLang(lang)) notFound();
@@ -163,7 +123,7 @@ export default async function DonatePage({ params }: PageProps<"/[lang]/donate">
         </div>
         <Section id="donate-panel" title={t.panelTitle}>
           <Suspense fallback={<div className="min-h-64" aria-hidden />}>
-            <Gate lang={lang} />
+            <DonateGate lang={lang} />
           </Suspense>
         </Section>
       </div>
