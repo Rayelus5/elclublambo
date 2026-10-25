@@ -135,6 +135,8 @@ describe("route map", () => {
     expect(switchLang("/en", "es")).toBe("/");
     expect(switchLang("/c/abc", "en")).toBe("/en");
     expect(switchLang(`/en/tools/giveaways/${ID}`, "es")).toBe(`/herramientas/sorteos/${ID}`);
+    // Own keys only: an id that is an Object.prototype name is still an id.
+    expect(switchLang("/en/tools/giveaways/constructor", "es")).toBe("/herramientas/sorteos/constructor");
   });
 
   it("alternatesFor", () => {

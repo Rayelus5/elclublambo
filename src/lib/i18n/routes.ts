@@ -32,7 +32,7 @@ function split(pathname: string): string[] {
 
 /** ¿Es una lista de segmentos internos (ingleses) del mapa cerrado? */
 function isValidInternal(segs: string[], strictId = true): boolean {
-  const isId = (s: string | undefined) => (s !== undefined && (strictId ? UUID.test(s) : !(s in SEGMENTS)));
+  const isId = (s: string | undefined) => (s !== undefined && (strictId ? UUID.test(s) : !Object.hasOwn(SEGMENTS, s)));
   if (segs.length === 0) return true;
   if (segs.length === 1) return segs[0] === "start" || segs[0] === "tools";
   if (segs[0] !== "tools" || segs[1] !== "giveaways") return false;
@@ -54,7 +54,6 @@ function join(lang: Lang, segs: string[]): string {
 
 export function localizedPath(lang: Lang, route: RouteKey, params?: Params): string {
   const segs = [...ROUTES[route]];
-  if (route === "giveawayNew") segs[2] = "new";
   if (route === "giveaway") {
     if (!params?.id) throw new Error("localizedPath: giveaway requires an id");
     segs.push(params.id);

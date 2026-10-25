@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("server-only", () => ({}));
 
 // /start is the public landing: served with and without a session, never redirected (login, welcome).
 const state = vi.hoisted(() => ({ user: null as { id: string } | null, membership: "active" as string }));

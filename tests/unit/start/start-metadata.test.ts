@@ -60,9 +60,33 @@ describe("/start metadata in production", () => {
     const { robots } = await load("https://elclub.party");
     const all = rulesOf(robots).find((x) => x.userAgent === "*");
     expect(all).toBeDefined();
-    expect([all!.allow].flat()).toEqual(expect.arrayContaining(["/$", "/en", "/start", "/herramientas", "/_next/"]));
+    expect([all!.allow].flat()).toEqual(expect.arrayContaining(["/$", "/en$", "/en/", "/start", "/herramientas", "/_next/"]));
     expect(robots.sitemap).toBe("https://elclub.party/sitemap.xml");
     expect([all!.disallow].flat()).toContain("/");
+  });
+
+  // Google's rule: the longest matching pattern wins, allow on a tie; `*` any run of characters, `$` the end.
+  it.each([
+    ["/", true],
+    ["/en", true],
+    ["/en/tools/giveaways", true],
+    ["/start", true],
+    ["/herramientas/sorteos", true],
+    ["/es/opengraph-image", true],
+    ["/es/start/opengraph-image-1a2b3c", true],
+    ["/es/tools/giveaways/3f1c0b9e-1111-4c4c-8888-000000000001/twitter-image", true],
+    ["/english", false],
+    ["/es/tools", false],
+    ["/perfil", false],
+    ["/c/general", false],
+  ])("robots.txt: %s crawlable = %s", async (path, crawlable) => {
+    const { robots } = await load("https://elclub.party");
+    const all = rulesOf(robots).find((x) => x.userAgent === "*")!;
+    const toRe = (p: string) => new RegExp("^" + p.replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*"));
+    const best = (patterns: string[]) => Math.max(-1, ...patterns.filter((p) => toRe(p).test(path)).map((p) => p.length));
+    const allow = best([all.allow ?? []].flat());
+    const disallow = best([all.disallow ?? []].flat());
+    expect(allow >= 0 && allow >= disallow).toBe(crawlable);
   });
 });
 

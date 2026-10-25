@@ -40,11 +40,21 @@ test("a member at / sees the forum, not the landing", async ({ browser }) => {
   expect(res?.status()).toBe(200);
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();
   await expect(page.locator("div[lang='es']")).toHaveCount(0);
-  // Unknown language segment: the login gate lets a member through, so the [lang] route answers 404.
+  // Unknown single segment: the login gate lets a member through and the proxy answers the 404 (the [lang] layout's
+  // notFound() would stream a 200).
   const unknown = await page.goto("/xx");
   expect(unknown?.status()).toBe(404);
   await context.close();
 });
+
+// An unknown giveaway id: the page streams under <Suspense>, so the proxy decides the 404 (ES and EN, with or without a
+// session). The share card of an unknown id stays the generic PNG (covered in p2-giveaways).
+for (const path of ["/herramientas/sorteos/00000000-0000-4000-8000-000000000000", "/en/tools/giveaways/00000000-0000-4000-8000-000000000000"]) {
+  test(`anonymous: an unknown giveaway ${path} answers 404`, async ({ page }) => {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(404);
+  });
+}
 
 test("outside production robots.txt and sitemap.xml index nothing", async ({ request }) => {
   const robots = await request.get("/robots.txt", { maxRedirects: 0 });

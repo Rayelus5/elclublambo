@@ -1,11 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPublicPath } from "@/lib/auth/public-paths";
+import { isInternalImagePath } from "@/lib/i18n/public-routing";
 
 type GuardClient = Pick<SupabaseClient, "from">;
 
-/** The welcome itself and the guide (static help the welcome links to) are reachable before the welcome is done. */
+/**
+ * The welcome itself and the guide (static help the welcome links to) are reachable before the welcome is done, and so
+ * are the public pages and their internal OG/Twitter images (`/es/.../opengraph-image`: crawlers and link previews).
+ */
 export function isOnboardingExempt(pathname: string): boolean {
-  if (isPublicPath(pathname)) return true;
+  if (isPublicPath(pathname) || isInternalImagePath(pathname)) return true;
   return ["/bienvenida", "/guia"].some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

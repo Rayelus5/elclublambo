@@ -1,7 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
-import { decidePublicRoute, isInternalImagePath, type PublicState } from "@/lib/i18n/public-routing";
+import { decidePublicRoute, isInternalImagePath, isUnknownTopSegment, type PublicState } from "@/lib/i18n/public-routing";
+import { isMissingPublicGiveaway } from "@/lib/public-giveaways/exists";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 import { isHiddenReportsPage } from "@/lib/reports/guard";
@@ -65,6 +66,13 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  const notFound = () => {
+    const url = request.nextUrl.clone();
+    url.pathname = NOT_FOUND_PATH;
+    url.search = "";
+    return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
+  };
+
   // Public part (bilingual tree): "/" is the landing unless the visitor is an active member (then the forum); Spanish
   // public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their canonical URL (308).
   // Decided before the gates: it is served the same with or without a session. The membership read is only for "/".
@@ -80,6 +88,8 @@ export async function proxy(request: NextRequest) {
     return remember(applySessionHeaders(NextResponse.redirect(url, 308), sessionCookies, sessionHeaders));
   }
   if (route.kind === "rewrite") {
+    // An unknown giveaway id: the page streams under <Suspense> (its notFound() would answer 200), so 404 here.
+    if (await isMissingPublicGiveaway(route.to)) return notFound();
     const url = request.nextUrl.clone();
     url.pathname = route.to;
     return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
@@ -112,19 +122,20 @@ export async function proxy(request: NextRequest) {
   // Same for /tickets/<id>: a ticket that is not the member's (nor supported by them) looks exactly like a missing one.
   // The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot open.
   // /mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
+  // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
+  // went to /login above). An unknown public giveaway id under /en is a 404 with or without a session.
   if (
-    user &&
-    ((await isMissingChannel(supabase, pathname)) ||
-      (await isMissingTicket(supabase, pathname)) ||
-      (await isHiddenReportsPage(supabase, pathname)) ||
-      (await isHiddenSettingsPage(supabase, pathname)) ||
-      (await isHiddenTreasuryPage(supabase, pathname)) ||
-      (await isInvalidCoinPage(supabase, pathname)))
+    (await isMissingPublicGiveaway(pathname)) ||
+    (user &&
+      (isUnknownTopSegment(pathname) ||
+        (await isMissingChannel(supabase, pathname)) ||
+        (await isMissingTicket(supabase, pathname)) ||
+        (await isHiddenReportsPage(supabase, pathname)) ||
+        (await isHiddenSettingsPage(supabase, pathname)) ||
+        (await isHiddenTreasuryPage(supabase, pathname)) ||
+        (await isInvalidCoinPage(supabase, pathname))))
   ) {
-    const url = request.nextUrl.clone();
-    url.pathname = NOT_FOUND_PATH;
-    url.search = "";
-    return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
+    return notFound();
   }
 
   return remember(response);

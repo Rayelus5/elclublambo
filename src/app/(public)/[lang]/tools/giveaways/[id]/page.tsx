@@ -9,8 +9,9 @@ import { alternatesFor } from "@/lib/i18n/routes";
 import { maybeDrawOnView } from "@/lib/public-giveaways/draw-on-view";
 import { getPublicGiveaway, isPublicGiveawayId } from "@/lib/public-giveaways/queries";
 
-// Bloqueante a propósito (ver el layout de [lang]): un id desconocido responde 404 de verdad. Sesión y datos se leen
-// dentro de <Suspense> (cacheComponents).
+// Sin exigencia de navegación instantánea (como el layout de [lang]). Sesión y datos se leen dentro de <Suspense>
+// (cacheComponents), así que el notFound() de abajo respondería 200 en streaming: el 404 de un id desconocido lo decide el
+// proxy (isMissingPublicGiveaway). El notFound() queda como red de seguridad (p. ej. un sorteo borrado entre medias).
 export const instant = false;
 
 type Props = PageProps<"/[lang]/tools/giveaways/[id]">;

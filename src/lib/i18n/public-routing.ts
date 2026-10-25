@@ -23,6 +23,49 @@ export function isInternalImagePath(pathname: string): boolean {
 }
 
 /**
+ * Segmentos estáticos de primer nivel de la app: carpetas de `src/app` (grupos de rutas aplanados; `[lang]` no cuenta),
+ * los ficheros de metadata de la raíz y los ficheros de `public/` que el matcher del proxy no excluye. Un test los compara
+ * con el árbol real.
+ */
+export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set([
+  "admin",
+  "api",
+  "banned",
+  "bienvenida",
+  "c",
+  "dao",
+  "donar",
+  "favicon.ico",
+  "guia",
+  "invite",
+  "invites",
+  "login",
+  "mercado",
+  "moderation",
+  "no-access",
+  "notifications",
+  "out",
+  "perfil",
+  "robots.txt",
+  "settings",
+  "sitemap.xml",
+  "sorteos",
+  "tickets",
+  "u",
+]);
+
+/**
+ * Un único segmento que no es un idioma, ni una ruta de la app, ni una URL pública española (`/start`, `/herramientas`):
+ * Next lo resolvería con `[lang]` y el `notFound()` del layout respondería 200 en streaming, así que el proxy decide el 404.
+ */
+export function isUnknownTopSegment(pathname: string): boolean {
+  const segs = pathname.split("/").filter(Boolean);
+  if (segs.length !== 1) return false;
+  const seg = segs[0]!;
+  return !isLang(seg) && !APP_TOP_SEGMENTS.has(seg) && toInternalPath(pathname) === null;
+}
+
+/**
  * Decide qué hace el proxy con la parte pública bilingüe (pura, para test):
  * - `/` es la landing salvo para un miembro (ve el foro);
  * - las URLs españolas del mapa se reescriben al árbol interno `/es/...`;
