@@ -9,8 +9,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CHANNEL_PATH = /^\/c\/([^/]+)\/?$/;
 
-/** A route no page matches: rewriting to it yields the app's 404 with a 404 status. */
-export const NOT_FOUND_PATH = "/channel-not-found";
+/**
+ * A route no page matches: rewriting to it yields the app's 404 with a 404 status. Two segments: any single segment is
+ * the public `/[lang]` tree, whose layout would render the 404 itself (and React then warns about the root layout's
+ * script while rendering it on the client).
+ */
+export const NOT_FOUND_PATH = "/channel-not-found/404";
 
 /** The `[channelId]` segment of `/c/<id>` (no deeper paths), or null for any other pathname. */
 export function channelSegment(pathname: string): string | null {

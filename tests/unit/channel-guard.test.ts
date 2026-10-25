@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { channelSegment, isMissingChannel } from "@/lib/channels/guard";
+import { channelSegment, isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 
 const ID = "11111111-1111-4111-8111-111111111111";
 
@@ -59,5 +59,12 @@ describe("isMissingChannel", () => {
 
   it("fails open when the query errors", async () => {
     expect(await isMissingChannel(client({ channelError: { message: "db down" } }) as never, `/c/${ID}`)).toBe(false);
+  });
+});
+
+describe("NOT_FOUND_PATH", () => {
+  it("matches no route: two segments, so the public /[lang] tree (any single segment) never renders it", () => {
+    expect(NOT_FOUND_PATH.split("/").filter(Boolean).length).toBeGreaterThanOrEqual(2);
+    expect(NOT_FOUND_PATH.startsWith("/es/") || NOT_FOUND_PATH.startsWith("/en/")).toBe(false);
   });
 });
