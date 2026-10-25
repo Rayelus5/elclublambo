@@ -15,7 +15,7 @@ export function CreateLink({ lang, label }: { lang: Lang; label: string }) {
   return (
     <Link
       href={localizedPath(lang, "giveawayNew")}
-      className={`group inline-flex min-h-12 items-center gap-3 bg-accent-fill px-6 py-3 font-bold text-accent-fill-fg no-underline transition-opacity duration-150 hover:opacity-90 rounded-control ${focus}`}
+      className={`group inline-flex min-h-12 items-center gap-3 bg-accent-fill px-6 py-3 font-bold text-accent-fill-fg no-underline transition-colors duration-150 hover:bg-accent-fill-hover rounded-control ${focus}`}
     >
       {label}
       <ArrowRight aria-hidden className="size-5 transition-transform duration-150 group-hover:translate-x-0.5" strokeWidth={2.25} />

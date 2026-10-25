@@ -11,6 +11,8 @@ export const colors = {
   // Relleno (botones, chips): Base Blue con texto blanco. Nunca como texto, borde o anillo sobre oscuro.
   accentFill: "#0000FF",
   accentFillFg: "#FFFFFF",
+  // Hover sólido del relleno (Base Blue oscurecido); blanco encima 11,2:1.
+  accentFillHover: "#0000CC",
   success: "#66C800",
   warning: "#FFD12F",
   danger: "#FC401F",

@@ -19,6 +19,8 @@
   /* Relleno de botones/chips: Base Blue con texto blanco (8,6:1). Nunca como texto, borde o anillo sobre oscuro (2,3:1). */
   --accent-fill: #0000ff;
   --accent-fill-fg: #ffffff;
+  /* Hover del relleno: Base Blue oscurecido, sólido (blanco 11,2:1). */
+  --accent-fill-hover: #0000cc;
   --success: #66c800;
   --warning: #ffd12f;
   --danger: #fc401f;
@@ -68,6 +70,7 @@
   --color-accent: var(--accent);
   --color-accent-fill: var(--accent-fill);
   --color-accent-fill-fg: var(--accent-fill-fg);
+  --color-accent-fill-hover: var(--accent-fill-hover);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);

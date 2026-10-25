@@ -85,7 +85,7 @@ function KindPicker({ value, onChange, label, kinds }: { value: Kind; onChange(k
             onKeyDown={(e) => onKeyDown(e, i)}
             className={cn(
               "min-h-11 min-w-20 cursor-pointer rounded-control px-3 text-sm font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent motion-reduce:transition-none",
-              checked ? "bg-accent-fill text-accent-fill-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+              checked ? "bg-accent text-accent-foreground" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
             )}
           >
             {k.text}

@@ -23,6 +23,7 @@ describe("paleta de Base: valores exactos", () => {
       accent: "#3C8AFF",
       accentFill: "#0000FF",
       accentFillFg: "#FFFFFF",
+      accentFillHover: "#0000CC",
       success: "#66C800",
       warning: "#FFD12F",
       danger: "#FC401F",
@@ -54,6 +55,7 @@ describe("design tokens contrast (>= 4.5)", () => {
   const pairs: Array<[string, string, string]> = [
     ...textPairs,
     ["accent-fill-fg on accent-fill", colors.accentFillFg, colors.accentFill],
+    ["accent-fill-fg on accent-fill-hover", colors.accentFillFg, colors.accentFillHover],
     ["bg on accent", colors.bg, colors.accent],
     ["danger/bg", colors.danger, colors.bg],
     ["success/bg", colors.success, colors.bg],

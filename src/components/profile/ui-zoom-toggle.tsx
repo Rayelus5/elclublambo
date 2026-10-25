@@ -37,7 +37,7 @@ export function UiZoomToggle({ className }: { className?: string }) {
           onClick={() => choose(level)}
           className={cn(
             "inline-flex min-h-11 min-w-14 items-center justify-center rounded-control px-2 font-mono text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
-            zoom === level ? "bg-accent-fill text-accent-fill-fg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+            zoom === level ? "bg-accent text-accent-foreground" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
           )}
         >
           {Math.round(level * 100)} %

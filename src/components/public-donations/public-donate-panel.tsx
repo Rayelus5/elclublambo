@@ -162,7 +162,7 @@ export function PublicDonatePanel(props: Props) {
         <p className="text-sm text-fg-muted">{t.memberText}</p>
         <Link
           href={clubPath("/donar")}
-          className="inline-flex min-h-11 items-center gap-2 rounded-control bg-primary px-4 text-sm font-bold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+          className="inline-flex min-h-11 items-center gap-2 rounded-control bg-accent-fill px-4 text-sm font-bold text-accent-fill-fg outline-none transition-colors duration-150 hover:bg-accent-fill-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <HeartHandshake aria-hidden className="size-4" />
           {t.memberLink}

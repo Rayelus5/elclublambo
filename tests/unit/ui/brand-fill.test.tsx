@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("next/navigation", () => ({ usePathname: () => "/", useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/components/public/public-connect-lazy", () => ({ PublicConnectLazy: () => null }));
 vi.mock("wagmi", () => ({ useDisconnect: () => ({ disconnect: vi.fn() }) }));
+vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc: vi.fn(async () => ({ data: null, error: null })) }) }));
 vi.mock("@/lib/roles/actions", () => ({
   createRoleAction: vi.fn(),
   updateRoleAction: vi.fn(),
@@ -16,6 +17,8 @@ vi.mock("@/lib/roles/actions", () => ({
 import { Button } from "@/components/ui/button";
 import { PublicHeader } from "@/components/public/public-header";
 import { ROLE_COLOR_PALETTE } from "@/components/settings/role-form";
+import { ChatDensityProvider, DensityToggle } from "@/components/chat/density";
+import { UiZoomToggle } from "@/components/profile/ui-zoom-toggle";
 
 const ROOT = process.cwd();
 const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -60,7 +63,7 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
 
   it("the /start hero growing square is Cerulean", () => {
     const src = read("src/components/start/hero.tsx");
-    expect(src).toMatch(/ref=\{dot\}[\s\S]*?className="[^"]*\bbg-accent\b(?!-)/);
+    expect(src).toMatch(/ref=\{dot\}[^>]*className="[^"]*\bbg-accent\b(?!-)/);
   });
 
   it("no file in src hardcodes Base Blue outside globals.css and styles/tokens.ts", () => {
@@ -88,6 +91,56 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
     expect(src).toContain('fill="${colors.accentFillFg}"');
   });
 
+  it("the default Button hovers to a solid darker Base Blue, not a transparency", () => {
+    render(<Button>Hover</Button>);
+    const cls = screen.getByRole("button", { name: "Hover" }).className;
+    expect(hasClass(cls, "hover:bg-accent-fill-hover")).toBe(true);
+    expect(cls).not.toMatch(/accent-fill\/\d+/);
+  });
+
+  it("no brand fill uses a translucent hover (opacity or /NN)", () => {
+    const offenders = walk(join(ROOT, "src"))
+      .filter((p) => /\.tsx?$/.test(p))
+      .filter((p) => {
+        const src = readFileSync(p, "utf8");
+        return /accent-fill\/\d+/.test(src) || /bg-accent-fill[^"`]*hover:opacity-/.test(src);
+      })
+      .map((p) => relative(ROOT, p).split(sep).join("/"));
+    expect(offenders).toEqual([]);
+  });
+
+  it("selected segmented chips are Cerulean, not the brand fill (one Base Blue fill per screen)", () => {
+    render(
+      <ChatDensityProvider initial="standard">
+        <DensityToggle />
+        <UiZoomToggle />
+      </ChatDensityProvider>,
+    );
+    const selected = screen.getAllByRole("radio").filter((r) => r.getAttribute("aria-checked") === "true");
+    expect(selected.length).toBeGreaterThanOrEqual(2);
+    for (const chip of selected) {
+      expect(hasClass(chip.className, "bg-accent")).toBe(true);
+      expect(hasClass(chip.className, "text-accent-foreground")).toBe(true);
+      expect(chip.className).not.toContain("accent-fill");
+    }
+  });
+
+  it.each([
+    "src/components/chat/density.tsx",
+    "src/components/giveaways/prize-editor.tsx",
+    "src/components/profile/ui-zoom-toggle.tsx",
+    "src/components/public-giveaways/prize-rows.tsx",
+    "src/components/settings/channel-gate-form.tsx",
+  ])("the segmented chips in %s never use the brand fill", (file) => {
+    expect(read(file)).not.toContain("accent-fill");
+  });
+
+  it("the checked checkbox has no Base Blue border", () => {
+    const src = read("src/components/ui/checkbox.tsx");
+    expect(src).toContain("data-checked:border-transparent");
+    expect(src).not.toMatch(/border-primary/);
+  });
+
   it("the role colour palette offers Cerulean instead of the old cyan", () => {
     expect(ROLE_COLOR_PALETTE).toContain("#3C8AFF");
     expect(ROLE_COLOR_PALETTE).not.toContain("#61DFFF");
@@ -98,6 +151,7 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
     "src/components/landing/final-cta.tsx",
     "src/components/landing/pay-demo.tsx",
     "src/components/members/member-card.tsx",
+    "src/components/public-donations/public-donate-panel.tsx",
   ])("the primary call to action in %s is the brand fill", (file) => {
     const src = read(file);
     expect(src).toContain("bg-accent-fill");
