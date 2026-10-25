@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { NetworkLogo } from "@/components/economy/network-logo";
 import { DonateGate, settle } from "@/components/public-donations/donate-gate";
 import { PageLoader } from "@/components/shell/page-loader";
@@ -51,6 +52,8 @@ function Section({ id, title, intro, children }: { id: string; title: string; in
 /** Public totals only: no names and no addresses (P3-R8: the club's donor list stays in the club). */
 async function Overview({ lang }: { lang: Lang }) {
   const t = getDictionary(lang).donate;
+  // Request time only: these reads use the service role (runtime-only secret), so the build must never prerender them.
+  await connection();
   const overview = await settle("overview", getCachedPublicDonationOverview());
   if (!overview) return <p className="text-sm text-danger">{t.readFailed}</p>;
   return (
@@ -73,6 +76,7 @@ async function Overview({ lang }: { lang: Lang }) {
 /** What the Safe holds on each network, read on-chain (cached for a minute: public page, see public-cached.ts). */
 async function SafeBalancesBlock({ lang }: { lang: Lang }) {
   const t = getDictionary(lang).donate;
+  await connection(); // see Overview: never at build.
   const balances = await settle("safe balances", getCachedSafeBalances());
   if (!balances) return <p className="text-sm text-danger">{t.readFailed}</p>;
   const amount = (v: string | null, token: "USDC" | "ETH") =>
