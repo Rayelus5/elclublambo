@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import http from "node:http";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { encodeFunctionData } from "viem";
 import { CHAINS, CLUB_SAFE, ETH_USD_FEED, ETH_USD_PRICE_E8, hardhatAccount, MINT_PER_ACCOUNT, MINTED_ACCOUNTS, READY_PORT } from "./shared.mjs";
 
@@ -35,6 +35,12 @@ async function rpc(url, method, params = []) {
   if (json.error) throw new Error(`${method}: ${json.error.message}`);
   return json.result;
 }
+
+/** Multicall3's canonical address (viem's chain definitions point every testnet here). */
+const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11";
+// Not in viem's public exports: imported by file URL from its package folder (TEST-ONLY setup).
+const viemDir = dirname(require.resolve("viem/package.json"));
+const { multicall3Bytecode } = await import(pathToFileURL(join(viemDir, "_esm", "constants", "contracts.js")).href);
 
 const nodes = [];
 let readyServer;
@@ -100,6 +106,12 @@ async function prepare(chainId) {
   await rpc(rpcUrl, "hardhat_setCode", [ETH_USD_FEED, aggregator.runtimeBytecode]);
   const setAnswer = encodeFunctionData({ abi: aggregator.abi, functionName: "setAnswer", args: [ETH_USD_PRICE_E8] });
   await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, to: ETH_USD_FEED, data: setAnswer }]);
+  // P4: Multicall3 at its canonical address, as on every real chain (viem's client.multicall, used by the token checker,
+  // targets it). viem ships Multicall3's creation code for its deployless calls; deploy it, then copy the runtime there.
+  const deployTx = await rpc(rpcUrl, "eth_sendTransaction", [{ from: deployer, data: multicall3Bytecode }]);
+  const { contractAddress } = await rpc(rpcUrl, "eth_getTransactionReceipt", [deployTx]);
+  await rpc(rpcUrl, "hardhat_setCode", [MULTICALL3, await rpc(rpcUrl, "eth_getCode", [contractAddress, "latest"])]);
+  if ((await rpc(rpcUrl, "eth_getCode", [MULTICALL3, "latest"])).length < 100) throw new Error(`Multicall3 missing on ${chainId}`);
   console.log(`[chain] chain ${chainId} on ${rpcUrl}, mock USDC at ${usdc}, Safe code at ${CLUB_SAFE}, ETH/USD feed at ${ETH_USD_FEED}`);
 }
 

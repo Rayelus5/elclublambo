@@ -17,17 +17,19 @@ beforeEach(() => {
 });
 
 describe("tools hub", () => {
-  it("EN: links Verifiable giveaways and ElClub Pay, Coming soon cards are not links", async () => {
+  it("EN: links Verifiable giveaways, ElClub Pay and the Checker; Vouching stays a Coming soon card, not a link", async () => {
     render(await ToolsPage({ params: Promise.resolve({ lang: "en" }) } as never));
     expect(screen.getByRole("link", { name: /Verifiable giveaways/ }).getAttribute("href")).toBe("/en/tools/giveaways");
     expect(screen.getByRole("link", { name: /ElClub Pay/ }).getAttribute("href")).toBe("/en/tools/pay");
-    expect(screen.getAllByRole("link").filter((l) => /checker|Vouching/.test(l.textContent ?? ""))).toHaveLength(0);
-    expect(screen.getAllByText("Coming soon")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: /Token and link checker/ }).getAttribute("href")).toBe("/en/tools/checker");
+    expect(screen.getAllByRole("link").filter((l) => /Vouching/.test(l.textContent ?? ""))).toHaveLength(0);
+    expect(screen.getAllByText("Coming soon")).toHaveLength(1);
   });
   it("ES links to the Spanish URL", async () => {
     render(await ToolsPage({ params: Promise.resolve({ lang: "es" }) } as never));
     expect(screen.getByRole("link", { name: /Sorteos verificables/ }).getAttribute("href")).toBe("/herramientas/sorteos");
     expect(screen.getByRole("link", { name: /ElClub Pay/ }).getAttribute("href")).toBe("/herramientas/pay");
+    expect(screen.getByRole("link", { name: /Comprobador de tokens/ }).getAttribute("href")).toBe("/herramientas/comprobador");
   });
 });
 

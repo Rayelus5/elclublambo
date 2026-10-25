@@ -1,5 +1,8 @@
 // SECURITY: every /api/cron/* route handler must authenticate itself (bearer CRON_SECRET, constant-time compare); the
 // proxy lets this prefix through without a session.
+// /api/v1/* is the public checker API (token and link reports, optionally x402-paid): it reads no session and exposes no
+// member data, and each handler rate-limits by hashed IP. Every other /api/* route stays gated (matching is boundary-aware:
+// "/api/v1x" is not public).
 // The public part is served the same with or without a session, and the welcome gate skips it too: /start, the English
 // tree (/en/*), the Spanish tools (/herramientas/*), ElClub Pay (/pay/*), /robots.txt and /sitemap.xml. "/" is not listed: the proxy resolves it (landing or
 // forum) before the gate. The internal OG/Twitter images under /es/* are let through by the proxy (isInternalImagePath).
@@ -9,6 +12,7 @@ const PUBLIC_PREFIXES = [
   "/no-access",
   "/banned",
   "/api/cron",
+  "/api/v1",
   "/start",
   "/en",
   "/herramientas",

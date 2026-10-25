@@ -62,6 +62,14 @@ Cómo leer las celdas:
 | `VAPID_SUBJECT` | `mailto:<tu correo>` o vacía | `mailto:<tu correo>` | `mailto:<tu correo>` | no | no |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | no | sí |
 | `CRON_SECRET` | \<tu valor\> o vacía (la ruta responde 503) | \<tu valor\> (`openssl rand -hex 32`) | \<tu valor\> (`openssl rand -hex 32`, mínimo 32 caracteres) | **sí** | no |
+| `TRUSTED_IP_HEADER` | vacía (primera entrada de `x-forwarded-for`) | `cf-connecting-ip` (detrás del túnel de Cloudflare) | vacía (Vercel sobrescribe `x-forwarded-for`) | no | no |
+| `X402_ENABLED` | vacía (API gratis, limitada por IP) | vacía; `true` solo para probar el pago en Base Sepolia | vacía hasta el alta fiscal (D17) | no | no |
+| `X402_NETWORK` | vacía (= `eip155:84532`) | vacía (= `eip155:84532`, Base Sepolia) | vacía; `eip155:8453` cuando se active | no | no |
+| `X402_PRICE` | vacía (= `$0.01`) | vacía (= `$0.01`) | vacía (= `$0.01`) | no | no |
+| `X402_PAY_TO` | vacía (= la Safe del club) | vacía (= la Safe del club) | vacía (= la Safe del club) | no | no |
+| `X402_FACILITATOR_URL` | vacía (= `https://x402.org/facilitator`) | vacía (= `https://x402.org/facilitator`) | vacía (en mainnet se usa el facilitador de CDP) | no | no |
+| `CDP_API_KEY_ID` | vacía | vacía | \<tu valor\> cuando se active x402 en mainnet (portal.cdp.coinbase.com) | **sí** | no |
+| `CDP_API_KEY_SECRET` | vacía | vacía | \<tu valor\> cuando se active x402 en mainnet | **sí** | no |
 | `NEXT_OUTPUT` | vacía | `standalone` (lo fija el `Dockerfile`) | vacía | no | sí |
 | `ENABLE_EXPERIMENTAL_COREPACK` | vacía | vacía | `1` (para que Vercel use `pnpm@12.11.2`) | no | sí |
 
@@ -79,6 +87,16 @@ Notas:
   `src/lib/deploy/readiness.ts` (mensajes explicados en `produccion.md`, paso 3.4). Si el ajuste de Vercel
   **Automatically expose System Environment Variables** se desactiva, `VERCEL_ENV` no llega al build y la
   comprobación se salta en silencio: déjalo activado.
+- x402 (pago por consulta de la API del comprobador, `/api/v1/check/*`) está **apagado en todos los entornos**: no
+  hay cobro real sin el alta fiscal. Con `X402_ENABLED` vacía la API es gratis y limitada a 60 consultas por hora e
+  IP. Con `X402_ENABLED=true` y `X402_NETWORK=eip155:8453` pero sin las dos claves de CDP, la API sigue gratis y lo
+  deja en los logs (`[x402] ... missing_cdp_keys`). Un error del análisis nunca se cobra (solo se liquida si la
+  respuesta es < 400).
+- Con x402 encendido, cada petición que trae `PAYMENT-SIGNATURE` (o la antigua `X-PAYMENT`, que @x402/next también acepta) gasta antes un golpe del cubo `api_paid_attempt`
+  (300 por hora e IP, sujeto con hash como el resto): así una cabecera inventada no puede martillear al facilitador.
+  Una firma válida **reenviada** pasa la verificación y ejecuta el análisis, pero la liquidación falla (el nonce ya
+  se usó) y no se entrega el informe cobrado. Su coste queda acotado: el informe de token se reutiliza 10 min de la
+  caché (P4-R7), el análisis de enlaces es local y el cubo limita los intentos por IP.
 - Las claves VAPID se generan con `pnpm exec web-push generate-vapid-keys --json`, una pareja por entorno.
 
 ## Secretos de GitHub

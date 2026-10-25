@@ -339,8 +339,12 @@ describe("env templates", () => {
     expect(env.get("TIP_CONFIRMATIONS")).toBe("3");
     // The server talks to Supabase over the Docker network (fix/pre-supabase-red-interna).
     expect(env.get("SUPABASE_INTERNAL_URL")).toBe("http://kong:8000");
+    // Behind the Cloudflare tunnel the caller's IP comes in cf-connecting-ip (P4-R6).
+    expect(env.get("TRUSTED_IP_HEADER")).toBe("cf-connecting-ip");
+    // x402 stays off in every template (D17).
+    expect(env.get("X402_ENABLED")).toBe("");
     for (const [k, v] of env) {
-      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_NETWORK_SET", "TIP_CONFIRMATIONS", "SUPABASE_INTERNAL_URL"].includes(k)) {
+      if (!["NEXT_PUBLIC_SUPABASE_URL", "NEXT_PUBLIC_SITE_URL", "NEXT_PUBLIC_NETWORK_SET", "TIP_CONFIRMATIONS", "SUPABASE_INTERNAL_URL", "TRUSTED_IP_HEADER"].includes(k)) {
         expect(v, k).toBe("");
       }
     }

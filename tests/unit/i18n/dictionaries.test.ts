@@ -5,9 +5,9 @@ import { getDictionary } from "../../../src/lib/i18n";
 
 // Cadenas que se escriben igual en ambos idiomas.
 const SAME_ALLOWED = new Set([
-  "ElClub.", "ElClub Pay", "drand", "USDC", "Base", "Arbitrum",
+  "ElClub.", "ElClub Pay", "drand", "USDC", "Base", "Arbitrum", "Proxy", "Token",
   "Safe", "ETH", "MetaMask", "OKX Wallet", "DexScreener", "P2P", "On-chain", "Ctrl+K", "Mecenas", "0 gas", "Alphas", "Bounties", "Bounty", "Chat", "Roles",
-  "Bounty · 150 USDC", "GM GM GM GM GM", "wen lambo", "pump pump pump", "No",
+  "Bounty · 150 USDC", "GM GM GM GM GM", "wen lambo", "pump pump pump", "No", "Endpoints", "Base (mainnet)",
 ]);
 
 type Tree = { [k: string]: string | Tree };

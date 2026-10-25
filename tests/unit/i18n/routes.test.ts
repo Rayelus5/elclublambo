@@ -57,6 +57,8 @@ const rows: {
     internalEs: `/es/pay/tx/84532/${HASH}`,
     internalEn: `/en/pay/tx/84532/${HASH}`,
   },
+  { route: "checker", es: "/herramientas/comprobador", en: "/en/tools/checker", internalEs: "/es/tools/checker", internalEn: "/en/tools/checker" },
+  { route: "checkerApi", es: "/herramientas/comprobador/api", en: "/en/tools/checker/api", internalEs: "/es/tools/checker/api", internalEn: "/en/tools/checker/api" },
   { route: "donate", es: "/donar", en: "/en/donate", internalEs: "/es/donate", internalEn: "/en/donate" },
 ];
 
@@ -110,6 +112,11 @@ describe("route map", () => {
   });
 
   it("rejects unknown suffixes and non-UUID ids (R-A)", () => {
+    expect(toInternalPath("/herramientas/comprobador/otra")).toBeNull();
+    expect(toInternalPath("/herramientas/comprobador/api/x")).toBeNull();
+    expect(toInternalPath("/herramientas/checker")).toBeNull();
+    expect(toInternalPath("/en/tools/comprobador")).toBeNull();
+    expect(toInternalPath("/herramientas/api")).toBeNull();
     expect(toInternalPath(`/herramientas/sorteos/${ID}/otra`)).toBeNull();
     expect(toInternalPath(`/herramientas/sorteos/${ID}/entries/x`)).toBeNull();
     expect(toInternalPath("/herramientas/sorteos/no-es-uuid")).toBeNull();

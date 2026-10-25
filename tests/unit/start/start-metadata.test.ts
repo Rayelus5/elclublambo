@@ -76,6 +76,11 @@ describe("/start metadata in production", () => {
     ["/donar", true],
     ["/en/donate", true],
     ["/en/tools/pay", true],
+    ["/herramientas/comprobador", true],
+    ["/herramientas/comprobador/api", true],
+    ["/en/tools/checker", true],
+    ["/en/tools/checker/api", true],
+    ["/api/v1/check/token", false],
     ["/pay/rayelus", false],
     ["/pay/tx/84532/0xabc", false],
     ["/en/pay/rayelus", false],
@@ -124,6 +129,10 @@ describe("sitemap (P3)", () => {
     expect(urls).toContain("https://elclub.party/donar");
     const donate = sitemap().find((e) => e.url.endsWith("/donar"))!;
     expect(donate.alternates?.languages).toEqual({ es: "https://elclub.party/donar", en: "https://elclub.party/en/donate" });
+    expect(urls).toContain("https://elclub.party/herramientas/comprobador");
+    expect(urls).toContain("https://elclub.party/herramientas/comprobador/api");
+    const checker = sitemap().find((e) => e.url.endsWith("/herramientas/comprobador"))!;
+    expect(checker.alternates?.languages).toEqual({ es: "https://elclub.party/herramientas/comprobador", en: "https://elclub.party/en/tools/checker" });
     expect(urls.some((u) => u.includes("/pay/") && !u.endsWith("/herramientas/pay"))).toBe(false);
   });
 });
