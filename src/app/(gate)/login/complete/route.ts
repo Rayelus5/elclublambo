@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeNextPath } from "@/lib/auth/public-paths";
 import { completeLogin } from "@/lib/auth/actions";
+import { publicOrigin } from "@/lib/start/site";
 
 /**
  * Finishes a login whose session cookies already exist (non-JS fallback and E2E entry point):
@@ -9,9 +10,12 @@ import { completeLogin } from "@/lib/auth/actions";
  * It changes state (redeems invites, bootstraps the admin) on a GET, so it only runs for
  * navigations that originate from the user themselves (`Sec-Fetch-Site: same-origin | none`);
  * a cross-site link or image can never trigger it.
+ *
+ * Every redirect is built on the public origin: behind the tunnel the request URL is the bind address (0.0.0.0:3000).
  */
 export async function GET(request: NextRequest) {
-  const { origin, searchParams } = request.nextUrl;
+  const { searchParams } = request.nextUrl;
+  const origin = publicOrigin(request);
 
   const site = request.headers.get("sec-fetch-site");
   if (site !== "same-origin" && site !== "none") {

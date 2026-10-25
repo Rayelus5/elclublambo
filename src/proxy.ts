@@ -13,6 +13,7 @@ import { isMissingTicket } from "@/lib/tickets/guard";
 import { isInvalidCoinPage } from "@/lib/market/guard";
 import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 import { isHttps } from "@/lib/security/headers";
+import { publicOrigin } from "@/lib/start/site";
 import { authCookieName, serverSupabaseUrl } from "@/lib/supabase/urls";
 
 export async function proxy(request: NextRequest) {
@@ -67,6 +68,14 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Redirects go to the public origin: behind the tunnel request.nextUrl is the bind address (0.0.0.0:3000).
+  // Rewrites stay on request.nextUrl (internal).
+  const redirectUrl = (path: string, search: string | URLSearchParams = "") => {
+    const url = new URL(path, publicOrigin(request));
+    url.search = search.toString();
+    return url;
+  };
+
   const notFound = () => {
     const url = request.nextUrl.clone();
     url.pathname = NOT_FOUND_PATH;
@@ -84,8 +93,7 @@ export async function proxy(request: NextRequest) {
   }
   const route = decidePublicRoute(pathname, publicState);
   if (route.kind === "redirect") {
-    const url = request.nextUrl.clone();
-    url.pathname = route.to;
+    const url = redirectUrl(route.to, request.nextUrl.search);
     return remember(applySessionHeaders(NextResponse.redirect(url, 308), sessionCookies, sessionHeaders));
   }
   if (route.kind === "rewrite") {
@@ -97,10 +105,7 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.search = "";
-    url.searchParams.set("next", pathname);
+    const url = redirectUrl("/login", new URLSearchParams({ next: pathname }));
     return remember(applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders));
   }
 
@@ -110,10 +115,7 @@ export async function proxy(request: NextRequest) {
   if (user && request.cookies.get(WELCOMED_COOKIE)?.value !== user.id) {
     const welcome = await welcomeStatus(supabase, user.id, pathname, request.method);
     if (welcome === "pending") {
-      const url = request.nextUrl.clone();
-      url.pathname = "/bienvenida";
-      url.search = "";
-      url.searchParams.set("next", pathname + request.nextUrl.search);
+      const url = redirectUrl("/bienvenida", new URLSearchParams({ next: pathname + request.nextUrl.search }));
       return applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders);
     }
     welcomedNow = welcome === "completed";
