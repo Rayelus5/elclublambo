@@ -29,7 +29,7 @@ export function MarkPaidButton({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button type="button" size="sm" onClick={() => setOpen(true)}>
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
         Marcar pagado
       </Button>
       {open ? <MarkPaidDialog onOpenChange={setOpen} prizeId={prizeId} label={label} chainId={chainId} winnerAddress={winnerAddress} /> : null}

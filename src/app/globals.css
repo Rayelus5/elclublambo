@@ -24,6 +24,8 @@
   --success: #66c800;
   --warning: #ffd12f;
   --danger: #fc401f;
+  /* Hover sólido del botón destructivo (rojo aclarado); texto oscuro encima 6,4:1. */
+  --danger-hover: #ff5a3d;
   --chart-1: #3c8aff;
   --chart-2: #66c800;
   --chart-3: #ffd12f;
@@ -74,6 +76,7 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
 
   /* shadcn/ui */
   --color-background: var(--background);

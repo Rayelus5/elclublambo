@@ -27,6 +27,7 @@ describe("paleta de Base: valores exactos", () => {
       success: "#66C800",
       warning: "#FFD12F",
       danger: "#FC401F",
+      dangerHover: "#FF5A3D",
       chart1: "#3C8AFF",
       chart2: "#66C800",
       chart3: "#FFD12F",
@@ -58,6 +59,7 @@ describe("design tokens contrast (>= 4.5)", () => {
     ["accent-fill-fg on accent-fill-hover", colors.accentFillFg, colors.accentFillHover],
     ["bg on accent", colors.bg, colors.accent],
     ["danger/bg", colors.danger, colors.bg],
+    ["bg on danger-hover", colors.bg, colors.dangerHover],
     ["success/bg", colors.success, colors.bg],
     ["warning/bg", colors.warning, colors.bg],
   ];
@@ -86,11 +88,11 @@ describe("chart colours: non-text graphics need >= 3:1 on the panel (WCAG 1.4.11
 });
 
 describe("globals.css sync", () => {
-  const css = readFileSync(
-    join(process.cwd(), "src/app/globals.css"),
-    "utf8",
-  ).toLowerCase();
-  it.each(Object.entries(colors))("token %s present", (_k, hex) => {
-    expect(css).toContain(hex.toLowerCase());
+  const css = readFileSync(join(process.cwd(), "src/app/globals.css"), "utf8");
+  // `accentFillFg` -> `--accent-fill-fg`, `surface2` -> `--surface-2`, `chart1` -> `--chart-1`.
+  const cssName = (key: string) => "--" + key.replace(/([A-Z]|\d+)/g, (m) => "-" + m.toLowerCase());
+  const declared = (name: string) => css.match(new RegExp(String.raw`^\s*${name}:\s*(#[0-9a-fA-F]{6})\s*;`, "m"))?.[1];
+  it.each(Object.entries(colors))("token %s is declared under its own variable with the same value", (key, hex) => {
+    expect(declared(cssName(key))?.toLowerCase()).toBe(hex.toLowerCase());
   });
 });

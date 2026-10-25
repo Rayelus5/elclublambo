@@ -33,7 +33,7 @@ async function Mine({ lang }: { lang: Lang }) {
   return (
     <div className="flex flex-col items-start gap-2">
       <p className="text-small text-fg-muted">{getDictionary(lang).giveaways.home.connectHint}</p>
-      <PublicConnectLazy lang={lang} next={localizedPath(lang, "giveaways")} />
+      <PublicConnectLazy lang={lang} next={localizedPath(lang, "giveaways")} variant="outline" />
     </div>
   );
 }

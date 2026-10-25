@@ -58,7 +58,7 @@ export function MarkDeliveredButton({ prizeId }: { prizeId: string }) {
   const { error, pending, run } = useAction();
   return (
     <div className="flex flex-col gap-1">
-      <Button type="button" size="sm" disabled={pending} onClick={() => run(() => markPrizeDeliveredAction(prizeId))}>
+      <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => run(() => markPrizeDeliveredAction(prizeId))}>
         {pending ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : null}
         Marcar entregado
       </Button>

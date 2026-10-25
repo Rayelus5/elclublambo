@@ -22,7 +22,7 @@ interface Props {
 
 const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 const LINK_CLASS =
-  "rounded-control text-accent underline underline-offset-2 hover:text-accent/85 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none";
+  "rounded-control text-accent underline underline-offset-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none";
 
 function has(map: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(map, key);

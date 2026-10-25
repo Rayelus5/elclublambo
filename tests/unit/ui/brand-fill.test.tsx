@@ -66,12 +66,15 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
     expect(src).toMatch(/ref=\{dot\}[^>]*className="[^"]*\bbg-accent\b(?!-)/);
   });
 
-  it("no file in src hardcodes Base Blue outside globals.css and styles/tokens.ts", () => {
+  it("no file in src or public hardcodes Base Blue (#0000FF, #00f, rgb(0,0,255)) outside globals.css and styles/tokens.ts", () => {
     const allowed = new Set([join("src", "app", "globals.css"), join("src", "styles", "tokens.ts")]);
-    const offenders = walk(join(ROOT, "src"))
+    const blue = /#0000ff\b|#00f\b|rgba?\(\s*0\s*,\s*0\s*,\s*255\s*[,)]/i;
+    // Base's own network icon is the official unaltered mark (`fill: blue`), not our colour.
+    const files = [...walk(join(ROOT, "src")), ...walk(join(ROOT, "public"))].filter((p) => !/\.(png|ico|woff2?|jpe?g|webp)$/i.test(p));
+    const offenders = files
       .map((p) => relative(ROOT, p))
       .filter((p) => !allowed.has(p))
-      .filter((p) => /#0000ff\b/i.test(readFileSync(join(ROOT, p), "utf8")));
+      .filter((p) => blue.test(readFileSync(join(ROOT, p), "utf8")));
     expect(offenders.map((p) => p.split(sep).join("/"))).toEqual([]);
   });
 

@@ -13,7 +13,7 @@ import type { RoleItem } from "@/lib/roles/rules";
 import { cn } from "@/lib/utils";
 
 /** Los colores de rol son datos (se guardan en la BD), no estilos de la interfaz. */
-export const ROLE_COLOR_PALETTE = ["#3C8AFF", "#3DDC84", "#FFB020", "#FF5A5A", "#EDEDED", "#A3A3A3"] as const;
+export const ROLE_COLOR_PALETTE = ["#3C8AFF", "#66C800", "#FFD12F", "#FC401F", "#FEA8CD", "#B8A581", "#B6F569", "#EEF0F3", "#B1B7C3"] as const;
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
 const HEX_ERROR = "Usa un color hex de 6 dígitos, por ejemplo #3C8AFF.";
 const FOCUS =

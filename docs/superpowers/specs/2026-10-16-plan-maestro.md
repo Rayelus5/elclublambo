@@ -9,7 +9,7 @@ Entorno disponible: Node 24.19, npm 11.17 y Docker 29.8. No hay pnpm (lo activar
 - La tesorería acepta **solo USDC**.
 - Gating VIP con **dos reglas por canal**: % mínimo o aportación neta mínima.
 - Encuestas con peso **configurable**: igualitario, lineal o cuadrático.
-- Acento **cian #61DFFF**; fuentes **Archivo Expanded + DM Sans** y JetBrains Mono para datos.
+- Acento **cian #61DFFF**; fuentes **Archivo Expanded + DM Sans** y JetBrains Mono para datos. *(Sustituido por R2 (2026-10-25): Base Blue + Cerulean.)*
 
 ---
 
@@ -24,12 +24,12 @@ Fuentes de la skill: estilo *Exaggerated Minimalism* con toques de *Brutalism* (
 | `--border` | #262626 (fuerte: #3A3A3A) | bordes de 1px **en lugar de sombras** |
 | `--fg` | #EDEDED | texto (~16:1) |
 | `--fg-muted` | #A3A3A3 | secundario (~8:1) |
-| `--accent` | #61DFFF | único acento (~12:1), texto encima #0A0A0A |
+| `--accent` | #61DFFF | único acento (~12:1), texto encima #0A0A0A — Sustituido por R2 (2026-10-25): Base Blue + Cerulean. |
 | `--success` | #3DDC84 | "post recompensado", tx confirmada |
 | `--warning` | #FFB020 | guardián de enlaces |
 | `--danger` | #FF5A5A | baneos y errores |
 
-Para que el cian no parezca el "crypto azul" genérico: nada de glows, degradados ni glassmorphism. El cian solo aparece en foco, CTA primario, enlaces y estados activos.
+Para que el cian no parezca el "crypto azul" genérico: nada de glows, degradados ni glassmorphism. El cian solo aparece en foco, CTA primario, enlaces y estados activos. *(Sustituido por R2 (2026-10-25): Base Blue + Cerulean.)*
 
 **Tipografía:**
 - Títulos: Archivo (variable, `wdth 112–125`, `wght 800–900`, tracking -0.02em).

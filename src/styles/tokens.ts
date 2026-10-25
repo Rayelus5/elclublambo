@@ -16,7 +16,9 @@ export const colors = {
   success: "#66C800",
   warning: "#FFD12F",
   danger: "#FC401F",
-  // Chart series (DAO donut): distinct hues, none reusing a semantic colour; "rest" is the neutral slice.
+  // Hover sólido del botón destructivo; texto oscuro encima 6,4:1.
+  dangerHover: "#FF5A3D",
+  // Chart series (DAO donut): chart1-3 reuse accent, success and warning on purpose (R2-R4); chart4-5 are extra Base hues; "rest" is the neutral slice.
   chart1: "#3C8AFF",
   chart2: "#66C800",
   chart3: "#FFD12F",

@@ -3,7 +3,7 @@ import { classifyLink } from "@/lib/chat/links";
 import { linkifyPlainText } from "@/lib/tickets/model";
 
 const LINK_CLASS =
-  "rounded-control text-accent underline underline-offset-2 break-all hover:text-accent/85 focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none";
+  "rounded-control text-accent underline underline-offset-2 break-all hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none";
 
 /**
  * Body of a ticket message: plain text with its whitespace kept. Only when the author had EMBED_LINKS (`allowLinks`)
