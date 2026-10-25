@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { analyzeLink } from "@/lib/checker/link/analyze";
 import { CRYPTO_BRANDS, SHORTENERS } from "@/lib/checker/link/lists";
 
@@ -78,6 +78,7 @@ describe("analyzeLink (P4-R3)", () => {
 
   it("lookalike by confusable skeleton: e1club.party, elc1ub.party, rn-for-m, vv-for-w", () => {
     expect(codes("https://e1club.party")).toContain("lookalike");
+    expect(codes("https://elc1ub.party")).toContain("lookalike");
     expect(codes("https://rnetamask.io")).toContain("lookalike");
     expect(codes("https://vvikipedia.org", ["wikipedia.org"])).toContain("lookalike");
     expect(codes("https://0pensea.io")).toContain("lookalike");
@@ -139,6 +140,43 @@ describe("analyzeLink (P4-R3)", () => {
   });
 
   it("does not need the network (pure)", () => {
+    const spy = vi.spyOn(globalThis, "fetch");
     expect(ok("https://example.com").url).toBe("https://example.com/");
+    ok("https://elclub.party.evil.io");
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("subdomain trick works with a unicode known domain (compared as punycode)", () => {
+    const known = ["elclúb.party"];
+    expect(codes("https://xn--elclb-bva.party.evil.io", known)).toContain("subdomain_trick");
+  });
+
+  describe("brand in the name", () => {
+    it.each([
+      "https://metamask-support.io",
+      "https://coinbase-login.com",
+      "https://elclub-party.com",
+      "https://secure-elclub.party",
+      "https://metamask.evil.com",
+      "https://elclub.pages.dev",
+    ])("%s warns brand_impersonation (medium)", (url) => {
+      const a = ok(url).alerts.find((x) => x.code === "brand_impersonation");
+      expect(a?.severity).toBe("medium");
+      expect(a?.detail).toBeTruthy();
+    });
+
+    it.each([
+      "https://database.com",
+      "https://github.com/x",
+      "https://basecamp.com",
+      "https://safebrowsing.google.com",
+      "https://www.safe-example.org",
+      "https://elclub.party",
+      "https://app.metamask.io",
+    ])("%s has no medium/high alert", (url) => {
+      const bad = ok(url).alerts.filter((x) => x.severity !== "info");
+      expect(bad).toEqual([]);
+    });
   });
 });

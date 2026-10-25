@@ -3,7 +3,7 @@ import { SHORTENERS } from "./lists";
 
 // Pure link analysis (P4-R3): it only parses the text it is given, it never requests the URL (no SSRF).
 
-export type LinkAlertCode = "punycode" | "lookalike" | "subdomain_trick" | "not_https" | "ip_host" | "credentials" | "shortener" | "unknown_domain";
+export type LinkAlertCode = "punycode" | "lookalike" | "subdomain_trick" | "not_https" | "ip_host" | "credentials" | "shortener" | "unknown_domain" | "brand_impersonation";
 export type LinkAlertSeverity = "high" | "medium" | "info";
 export type LinkAlert = { code: LinkAlertCode; severity: LinkAlertSeverity; detail?: string };
 
@@ -105,12 +105,37 @@ function findLookalike(hostUnicode: string, knownRegistrables: readonly string[]
   return null;
 }
 
+/** Brand labels too generic to look for inside other names (base, safe...): only the exact/edit-distance lookalike applies. */
+export const GENERIC_BRAND_LABELS: ReadonlySet<string> = new Set(["base", "safe", "global", "party"]);
+const MIN_BRAND_LENGTH = 5;
+
+/** A known brand whose (skeletonised) name appears inside any non-final label of a different domain (metamask-support.io, elclub.pages.dev). */
+function findBrandInName(hostUnicode: string, knownRegistrables: readonly string[]): string | null {
+  const labels = hostUnicode.split(".").slice(0, -1).map(skeleton);
+  for (const k of knownRegistrables) {
+    const label = labelOf(k);
+    if (label.length < MIN_BRAND_LENGTH || GENERIC_BRAND_LABELS.has(label)) continue;
+    const sk = skeleton(label);
+    if (labels.some((l) => l.includes(sk))) return k;
+  }
+  return null;
+}
+
 /** A known domain that appears inside the host as a non-final label sequence (elclub.party.evil.io). */
 function findSubdomainTrick(host: string, known: readonly string[]): string | null {
   for (const d of known) {
     if (host.startsWith(`${d}.`) || host.includes(`.${d}.`)) return d;
   }
   return null;
+}
+
+/** Punycoded, lower-case hostname of a known domain (what isAllowedHost compares against), or null. */
+function asciiHost(domain: string): string | null {
+  try {
+    return new URL(`http://${domain.trim()}`).hostname || null;
+  } catch {
+    return null;
+  }
 }
 
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/;
@@ -122,7 +147,7 @@ export function analyzeLink(input: string, known: readonly string[]): LinkReport
   const host = url.hostname.replace(/\.$/, "");
   const hostUnicode = hostToUnicode(host);
   const scheme = url.protocol === "http:" ? "http" : "https";
-  const knownAscii = known.map((d) => d.trim().toLowerCase()).filter(Boolean);
+  const knownAscii = known.map(asciiHost).filter((d): d is string => d !== null);
   const isKnown = isAllowedHost(host, knownAscii);
   const isIp = IPV4.test(host) || host.startsWith("[");
   const alerts: LinkAlert[] = [];
@@ -137,8 +162,13 @@ export function analyzeLink(input: string, known: readonly string[]): LinkReport
     if (!isKnown) {
       const trick = findSubdomainTrick(host, knownAscii);
       if (trick) alerts.push({ code: "subdomain_trick", severity: "high", detail: trick });
-      const like = findLookalike(hostUnicode, [...new Set(knownAscii.map((d) => registrable(hostToUnicode(d))))]);
+      const regs = [...new Set(knownAscii.map((d) => registrable(hostToUnicode(d))))];
+      const like = findLookalike(hostUnicode, regs);
       if (like) alerts.push({ code: "lookalike", severity: "high", detail: like });
+      else {
+        const brand = findBrandInName(hostUnicode, regs);
+        if (brand) alerts.push({ code: "brand_impersonation", severity: "medium", detail: brand });
+      }
     }
   }
   if (!isKnown) alerts.push({ code: "unknown_domain", severity: "info" });
