@@ -54,6 +54,7 @@ const MESSAGES: Record<string, string> = {
   price_unavailable: "Esperando precio de ETH. Se acreditará en cuanto haya uno fiable.",
   safe_not_deployed: "La Safe del club aún no existe en esta red. Prueba con otra red.",
   safe_not_configured: "La tesorería aún no tiene Safe configurada en esta red.",
+  use_club_donation: "Eres miembro del club: dona desde la página de donaciones del club.",
   safe_equals_platform: "La wallet de la plataforma no puede ser la misma que la Safe de la tesorería.",
   safe_change_blocked:
     "No puedes cambiar la Safe de esta red mientras haya participaciones, donaciones pendientes o pagos de donación abiertos: su valor está en la Safe actual.",

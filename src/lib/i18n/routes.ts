@@ -1,13 +1,29 @@
+import { chainsForSet, networkSet } from "../economy/networks";
 import { LANGS, isLang, type Lang } from "./config";
 
-export type RouteKey = "home" | "start" | "tools" | "giveaways" | "giveawayNew" | "giveaway";
+export type RouteKey =
+  | "home"
+  | "start"
+  | "tools"
+  | "giveaways"
+  | "giveawayNew"
+  | "giveaway"
+  | "payTool"
+  | "pay"
+  | "payReceipt"
+  | "donate";
 
-type Params = { id?: string };
+type Params = { id?: string; target?: string; chainId?: string | number; hash?: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Tras `{id}` solo estos segmentos, y pasan tal cual (R-A).
 const ID_SUFFIXES = new Set(["opengraph-image", "twitter-image", "entries"]);
+// Tras `{target}` de ElClub Pay.
+const PAY_SUFFIXES = new Set(["opengraph-image", "twitter-image", "badge"]);
+const ALIAS = /^[a-z0-9_]{3,20}$/;
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 
 // Segmentos estructurales: interno (inglés) -> URL pública por idioma.
 const SEGMENTS: Record<string, Record<Lang, string>> = {
@@ -15,6 +31,7 @@ const SEGMENTS: Record<string, Record<Lang, string>> = {
   tools: { es: "herramientas", en: "tools" },
   giveaways: { es: "sorteos", en: "giveaways" },
   new: { es: "nuevo", en: "new" },
+  donate: { es: "donar", en: "donate" },
 };
 
 const ROUTES: Record<RouteKey, string[]> = {
@@ -24,17 +41,37 @@ const ROUTES: Record<RouteKey, string[]> = {
   giveaways: ["tools", "giveaways"],
   giveawayNew: ["tools", "giveaways", "new"],
   giveaway: ["tools", "giveaways"], // + id
+  payTool: ["tools", "pay"],
+  pay: ["pay"], // + target
+  payReceipt: ["pay", "tx"], // + chainId + hash
+  donate: ["donate"],
 };
 
 function split(pathname: string): string[] {
   return pathname.split("/").filter(Boolean);
 }
 
+/** `pay/{alias|0x…}[/opengraph-image|twitter-image|badge]` o `pay/tx/{chainId}/{hash}` (cadena del entorno actual). */
+function isValidPay(segs: string[]): boolean {
+  const target = segs[1];
+  if (target === undefined) return false;
+  if (target === "tx") {
+    if (segs.length !== 4) return false;
+    const chains = chainsForSet(networkSet()).map(String);
+    return chains.includes(segs[2] ?? "") && TX_HASH.test(segs[3] ?? "");
+  }
+  if (!ALIAS.test(target) && !ADDRESS.test(target)) return false;
+  if (segs.length === 2) return true;
+  return segs.length === 3 && PAY_SUFFIXES.has(segs[2] ?? "");
+}
+
 /** ¿Es una lista de segmentos internos (ingleses) del mapa cerrado? */
 function isValidInternal(segs: string[], strictId = true): boolean {
   const isId = (s: string | undefined) => (s !== undefined && (strictId ? UUID.test(s) : !Object.hasOwn(SEGMENTS, s)));
   if (segs.length === 0) return true;
-  if (segs.length === 1) return segs[0] === "start" || segs[0] === "tools";
+  if (segs[0] === "pay") return isValidPay(segs);
+  if (segs.length === 1) return segs[0] === "start" || segs[0] === "tools" || segs[0] === "donate";
+  if (segs[0] === "tools" && segs[1] === "pay") return segs.length === 2;
   if (segs[0] !== "tools" || segs[1] !== "giveaways") return false;
   if (segs.length === 2) return true;
   if (segs.length === 3) return segs[2] === "new" || isId(segs[2]);
@@ -44,6 +81,8 @@ function isValidInternal(segs: string[], strictId = true): boolean {
 
 /** Segmentos internos -> segmentos públicos del idioma (sin prefijo de idioma). */
 function publicSegments(lang: Lang, segs: string[]): string[] {
+  // `pay` es igual en todos los idiomas: lo que sigue (alias, dirección, cadena, hash) son datos, no segmentos.
+  if (segs[0] === "pay") return segs;
   return segs.map((s) => SEGMENTS[s]?.[lang] ?? s);
 }
 
@@ -57,6 +96,14 @@ export function localizedPath(lang: Lang, route: RouteKey, params?: Params): str
   if (route === "giveaway") {
     if (!params?.id) throw new Error("localizedPath: giveaway requires an id");
     segs.push(params.id);
+  }
+  if (route === "pay") {
+    if (!params?.target) throw new Error("localizedPath: pay requires a target");
+    segs.push(params.target);
+  }
+  if (route === "payReceipt") {
+    if (params?.chainId === undefined || !params.hash) throw new Error("localizedPath: payReceipt requires chainId and hash");
+    segs.push(String(params.chainId), params.hash);
   }
   return join(lang, publicSegments(lang, segs));
 }
@@ -75,6 +122,7 @@ export function toInternalPath(
   // Vuelta por el idioma: cada segmento estructural debe ser el de ese idioma
   // (así `/tools` o `/en/herramientas` no se aceptan como URL públicas).
   const internalSegs = rest.map((s) => {
+    if (rest[0] === "pay") return s;
     for (const [internal, names] of Object.entries(SEGMENTS)) {
       if (names[lang] === s) return internal;
     }

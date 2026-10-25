@@ -10,10 +10,12 @@ import {
 import { LANGS, OG_LOCALE, isLang } from "../../../src/lib/i18n/config";
 
 const ID = "3f1c0b9e-1111-4c4c-8888-000000000001";
+const ADDR = "0xAbCdEf0123456789abcdef0123456789ABCDEF01";
+const HASH = "0x" + "ab12".repeat(16);
 
 const rows: {
   route: RouteKey;
-  params?: { id: string };
+  params?: { id?: string; target?: string; chainId?: string; hash?: string };
   es: string;
   en: string;
   internalEs: string;
@@ -44,6 +46,18 @@ const rows: {
     internalEs: `/es/tools/giveaways/${ID}`,
     internalEn: `/en/tools/giveaways/${ID}`,
   },
+  { route: "payTool", es: "/herramientas/pay", en: "/en/tools/pay", internalEs: "/es/tools/pay", internalEn: "/en/tools/pay" },
+  { route: "pay", params: { target: "rayelus" }, es: "/pay/rayelus", en: "/en/pay/rayelus", internalEs: "/es/pay/rayelus", internalEn: "/en/pay/rayelus" },
+  { route: "pay", params: { target: ADDR }, es: `/pay/${ADDR}`, en: `/en/pay/${ADDR}`, internalEs: `/es/pay/${ADDR}`, internalEn: `/en/pay/${ADDR}` },
+  {
+    route: "payReceipt",
+    params: { chainId: "84532", hash: HASH },
+    es: `/pay/tx/84532/${HASH}`,
+    en: `/en/pay/tx/84532/${HASH}`,
+    internalEs: `/es/pay/tx/84532/${HASH}`,
+    internalEn: `/en/pay/tx/84532/${HASH}`,
+  },
+  { route: "donate", es: "/donar", en: "/en/donate", internalEs: "/es/donate", internalEn: "/en/donate" },
 ];
 
 describe("config", () => {
@@ -157,5 +171,59 @@ describe("route map", () => {
 
   it("giveaway requires an id", () => {
     expect(() => localizedPath("es", "giveaway")).toThrow();
+  });
+});
+
+describe("ElClub Pay and donate routes (P3)", () => {
+  it("rejects a short or malformed target", () => {
+    expect(toInternalPath("/pay/ab")).toBeNull();
+    expect(toInternalPath("/pay/Rayelus")).toBeNull();
+    expect(toInternalPath("/pay/a".padEnd(26, "a"))).toBeNull();
+    expect(toInternalPath("/pay/0x" + "a".repeat(38))).toBeNull();
+    expect(toInternalPath("/pay")).toBeNull();
+    expect(toInternalPath("/pay/")).toBeNull();
+    expect(toInternalPath("/es/pay/rayelus")).toBeNull();
+  });
+
+  it("accepts an address (any case) and the allowed suffixes after a target", () => {
+    expect(toInternalPath(`/pay/${ADDR}`)?.internal).toBe(`/es/pay/${ADDR}`);
+    expect(toInternalPath(`/pay/${ADDR.toLowerCase()}`)?.internal).toBe(`/es/pay/${ADDR.toLowerCase()}`);
+    expect(toInternalPath("/pay/alias/badge")).toEqual({ internal: "/es/pay/alias/badge", lang: "es" });
+    expect(toInternalPath("/en/pay/alias/opengraph-image")).toEqual({ internal: "/en/pay/alias/opengraph-image", lang: "en" });
+    expect(toInternalPath("/pay/alias/twitter-image")?.internal).toBe("/es/pay/alias/twitter-image");
+    expect(toInternalPath("/pay/alias/otro")).toBeNull();
+    expect(toInternalPath("/pay/alias/badge/x")).toBeNull();
+    expect(toPublicPath("/es/pay/alias/badge")).toBe("/pay/alias/badge");
+  });
+
+  it("a target that is a structural word stays a target", () => {
+    expect(toInternalPath("/pay/sorteos")?.internal).toBe("/es/pay/sorteos");
+    expect(toInternalPath("/pay/herramientas")?.internal).toBe("/es/pay/herramientas");
+    expect(switchLang("/pay/sorteos", "en")).toBe("/en/pay/sorteos");
+  });
+
+  it("receipt: only chains of the current network set, a 32-byte hash", () => {
+    expect(toInternalPath(`/pay/tx/84532/${HASH}`)).not.toBeNull();
+    expect(toInternalPath(`/pay/tx/421614/${HASH}`)).not.toBeNull();
+    expect(toInternalPath(`/pay/tx/1/${HASH}`)).toBeNull();
+    expect(toInternalPath(`/pay/tx/8453/${HASH}`)).toBeNull(); // mainnet id in a testnet build
+    expect(toInternalPath("/pay/tx/84532/0x1234")).toBeNull();
+    expect(toInternalPath(`/pay/tx/84532/${HASH}/badge`)).toBeNull();
+    expect(toInternalPath("/pay/tx")).toBeNull();
+  });
+
+  it("donate: /donar and /en/donate only", () => {
+    expect(toInternalPath("/donate")).toBeNull();
+    expect(toInternalPath("/en/donar")).toBeNull();
+    expect(toPublicPath("/es/donate")).toBe("/donar");
+    expect(switchLang("/donar", "en")).toBe("/en/donate");
+    expect(switchLang("/en/donate", "es")).toBe("/donar");
+  });
+
+  it("requires its params", () => {
+    expect(() => localizedPath("es", "pay")).toThrow();
+    expect(() => localizedPath("es", "payReceipt", { chainId: "84532" })).toThrow();
+    expect(alternatesFor("pay", { target: "rayelus" }, "es").languages.en).toBe("/en/pay/rayelus");
+    expect(alternatesFor("donate", undefined, "en").languages).toEqual({ es: "/donar", en: "/en/donate", "x-default": "/donar" });
   });
 });

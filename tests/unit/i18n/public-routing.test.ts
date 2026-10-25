@@ -48,3 +48,28 @@ describe("decidePublicRoute", () => {
     expect(decidePublicRoute("/en/herramientas", "anon")).toEqual({ kind: "pass" });
   });
 });
+
+describe("decidePublicRoute: /donar and /pay (P3)", () => {
+  it("/donar is the club page for a member and the public page for everyone else", () => {
+    expect(decidePublicRoute("/donar", "member")).toEqual({ kind: "pass" });
+    expect(decidePublicRoute("/donar", "anon")).toEqual({ kind: "rewrite", to: "/es/donate" });
+    expect(decidePublicRoute("/donar", "public")).toEqual({ kind: "rewrite", to: "/es/donate" });
+  });
+
+  it("redirects /es/donate to /donar and passes /en/donate", () => {
+    expect(decidePublicRoute("/es/donate", "anon")).toEqual({ kind: "redirect", to: "/donar" });
+    expect(decidePublicRoute("/en/donate", "anon")).toEqual({ kind: "pass" });
+  });
+
+  it("rewrites the Spanish pay URLs and ignores invalid ones", () => {
+    expect(decidePublicRoute("/herramientas/pay", "anon")).toEqual({ kind: "rewrite", to: "/es/tools/pay" });
+    expect(decidePublicRoute("/pay/rayelus", "member")).toEqual({ kind: "rewrite", to: "/es/pay/rayelus" });
+    expect(decidePublicRoute("/pay/ab", "anon")).toEqual({ kind: "pass" });
+    expect(decidePublicRoute("/en/pay/rayelus", "anon")).toEqual({ kind: "pass" });
+    expect(decidePublicRoute("/es/pay/rayelus", "anon")).toEqual({ kind: "redirect", to: "/pay/rayelus" });
+  });
+
+  it("lets the internal pay share cards through", () => {
+    expect(decidePublicRoute("/es/pay/rayelus/opengraph-image", "anon")).toEqual({ kind: "pass" });
+  });
+});

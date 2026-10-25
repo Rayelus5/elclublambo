@@ -23,6 +23,19 @@ export function CreateLink({ lang, label }: { lang: Lang; label: string }) {
   );
 }
 
+/** Primary-looking secondary action: create a payment link (ElClub Pay). */
+export function PayLink({ lang, label }: { lang: Lang; label: string }) {
+  return (
+    <Link
+      href={localizedPath(lang, "payTool")}
+      className={`group inline-flex min-h-12 items-center gap-3 border border-accent px-6 py-3 font-bold text-fg no-underline transition-colors duration-150 hover:bg-surface rounded-control ${focus}`}
+    >
+      {label}
+      <ArrowRight aria-hidden className="size-5 text-accent transition-transform duration-150 group-hover:translate-x-0.5" strokeWidth={2.25} />
+    </Link>
+  );
+}
+
 /** Secondary: what the club is (/start). */
 export function WhatIsLink({ lang, label }: { lang: Lang; label: string }) {
   return (
@@ -77,7 +90,7 @@ export function FinalCta({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) 
           </m.p>
           <m.div variants={rise} className="flex flex-wrap items-center gap-3">
             <CreateLink lang={lang} label={t.create} />
-            <SoonButton label={t.createPay} soon={t.soon} />
+            <PayLink lang={lang} label={t.createPay} />
             <WhatIsLink lang={lang} label={t.whatIs} />
           </m.div>
         </Stage>

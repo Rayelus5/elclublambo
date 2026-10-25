@@ -5,7 +5,8 @@ import { Link2 } from "lucide-react";
 import { AssetLogo } from "@/components/economy/asset-logo";
 import { EASE_OUT, pop, rise, Stage } from "@/components/start/motion";
 import type { Dictionary } from "@/lib/i18n";
-import { SoonBadge, SoonButton } from "./final-cta";
+import type { Lang } from "@/lib/i18n/config";
+import { PayLink } from "./final-cta";
 
 const PAY_LINK = "elclub.party/pay/7Kq2";
 const PAY_TO = "0x9c1e…44fa";
@@ -16,8 +17,8 @@ const growDown: Variants = {
   show: { scaleY: 1, transition: { duration: 0.5, ease: EASE_OUT } },
 };
 
-/** ElClub Pay, not live yet (P2-R10): a link that unfolds into a payment card. The mock is decorative. */
-export function PayDemo({ t, soon, noCustody }: { t: Dictionary["landing"]; soon: string; noCustody: string }) {
+/** ElClub Pay (live since P3): a link that unfolds into a payment card. The mock is decorative. */
+export function PayDemo({ lang, t, noCustody }: { lang: Lang; t: Dictionary["landing"]; noCustody: string }) {
   return (
     <section aria-labelledby="landing-pay" className="flex min-w-0 flex-col gap-8 px-4 py-20 sm:px-8 sm:py-28 lg:border-r lg:border-border">
       <Stage className="flex flex-col gap-4">
@@ -25,7 +26,6 @@ export function PayDemo({ t, soon, noCustody }: { t: Dictionary["landing"]; soon
           <h2 id="landing-pay" className="text-[clamp(2rem,4.5vw,3.75rem)] leading-[0.95] font-black tracking-[-0.04em] text-fg">
             {t.pay.title}
           </h2>
-          <SoonBadge label={soon} />
         </m.div>
         <m.p variants={rise} className="max-w-[32rem] text-[1.0625rem] text-fg-muted">
           {t.pay.lead}
@@ -60,7 +60,7 @@ export function PayDemo({ t, soon, noCustody }: { t: Dictionary["landing"]; soon
       </div>
 
       <div className="mt-auto flex flex-col items-start gap-4">
-        <SoonButton label={t.createPay} soon={soon} />
+        <PayLink lang={lang} label={t.createPay} />
         <p className="text-small text-fg-muted">{noCustody}</p>
       </div>
     </section>

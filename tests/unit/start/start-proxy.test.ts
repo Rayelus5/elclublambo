@@ -35,7 +35,7 @@ beforeEach(() => {
 });
 
 describe("isPublicPath for the landing", () => {
-  it.each(["/start", "/start/opengraph-image", "/start/twitter-image", "/robots.txt", "/sitemap.xml", "/en", "/en/tools", "/herramientas", "/herramientas/sorteos/nuevo"])("%s is public", (p) =>
+  it.each(["/start", "/start/opengraph-image", "/start/twitter-image", "/robots.txt", "/sitemap.xml", "/en", "/en/tools", "/herramientas", "/herramientas/sorteos/nuevo", "/pay/rayelus", "/pay/tx/84532/0x1"])("%s is public", (p) =>
     expect(isPublicPath(p)).toBe(true),
   );
   it.each(["/startx", "/starting", "/robots.txtx", "/robots", "/entities", "/herramientasx", "/es"])("%s stays private", (p) => expect(isPublicPath(p)).toBe(false));
@@ -110,5 +110,41 @@ describe("proxy on the public tree", () => {
     state.membership = "none";
     const res = await call("/");
     expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es");
+  });
+});
+
+describe("proxy on /donar and /pay (P3)", () => {
+  it("shows the public donate page to an anonymous visitor (rewrite, no login redirect)", async () => {
+    const res = await call("/donar");
+    expect(res.headers.get("location")).toBeNull();
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+  });
+
+  it("shows the public donate page to a signed-in non-member", async () => {
+    state.user = { id: "u1" };
+    state.membership = "none";
+    const res = await call("/donar");
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/donate");
+  });
+
+  it("keeps the club donations page for an active member", async () => {
+    state.user = { id: "u1" };
+    state.membership = "active";
+    const res = await call("/donar");
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    // Not rewritten: it goes through the normal gates (here the mocked pending welcome).
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/bienvenida");
+  });
+
+  it("serves /pay/<address> without a session", async () => {
+    const res = await call("/pay/0xAbCdEf0123456789abcdef0123456789ABCDEF01");
+    expect(res.headers.get("location")).toBeNull();
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe("/es/pay/0xAbCdEf0123456789abcdef0123456789ABCDEF01");
+  });
+
+  it("redirects /es/donate to /donar with a 308", async () => {
+    const res = await call("/es/donate");
+    expect(res.status).toBe(308);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/donar");
   });
 });

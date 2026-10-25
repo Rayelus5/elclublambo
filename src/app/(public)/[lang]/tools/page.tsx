@@ -36,7 +36,7 @@ export default async function ToolsPage({ params }: PageProps<"/[lang]/tools">) 
       </header>
       <ul aria-label={t.listLabel} className="grid gap-4 sm:grid-cols-2">
         <ToolCard icon={Gift} name={t.giveaways.name} text={t.giveaways.text} status={t.available} href={localizedPath(lang, "giveaways")} />
-        <ToolCard icon={Wallet} name={t.pay.name} text={t.pay.text} status={t.comingSoon} />
+        <ToolCard icon={Wallet} name={t.pay.name} text={t.pay.text} status={t.available} href={localizedPath(lang, "payTool")} />
         <ToolCard icon={ScanSearch} name={t.checker.name} text={t.checker.text} status={t.comingSoon} />
         <ToolCard icon={BadgeCheck} name={t.guarantees.name} text={t.guarantees.text} status={t.comingSoon} />
       </ul>

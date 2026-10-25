@@ -51,7 +51,15 @@ export async function verifyClubSafe(chain: ChainId): Promise<ClubSafeStatus> {
 
 /** The build's networks whose Safe is deployed: the only ones that offer assets to donate. */
 export async function donationChains(): Promise<ChainId[]> {
+  return (await donationChainsStatus()).chains;
+}
+
+/**
+ * donationChains plus whether any network could not be checked (a read or RPC failure, never remembered): the public
+ * donate page tells «could not load» apart from «no Safe deployed yet».
+ */
+export async function donationChainsStatus(): Promise<{ chains: ChainId[]; networkError: boolean }> {
   const chains = appChainIds();
   const results = await Promise.all(chains.map((c) => verifyClubSafe(c)));
-  return chains.filter((_, i) => results[i] === "ok");
+  return { chains: chains.filter((_, i) => results[i] === "ok"), networkError: results.includes("network") };
 }

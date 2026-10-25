@@ -67,13 +67,15 @@ export function isUnknownTopSegment(pathname: string): boolean {
 
 /**
  * Decide qué hace el proxy con la parte pública bilingüe (pura, para test):
- * - `/` es la landing salvo para un miembro (ve el foro);
+ * - `/` es la landing salvo para un miembro (ve el foro); `/donar`, la página pública salvo para un miembro;
  * - las URLs españolas del mapa se reescriben al árbol interno `/es/...`;
  * - una visita directa a `/es/...` redirige (308) a su URL canónica;
  * - lo demás (inglés, foro, desconocidas) pasa.
  */
 export function decidePublicRoute(pathname: string, state: PublicState): PublicDecision {
   if (pathname === "/") return state === "member" ? PASS : { kind: "rewrite", to: "/es" };
+  // `/donar` es la página del club para un miembro y la pública para cualquier otro (P3-R10).
+  if (pathname === "/donar") return state === "member" ? PASS : { kind: "rewrite", to: "/es/donate" };
   if (isInternalImagePath(pathname)) return PASS;
 
   const first = pathname.split("/").filter(Boolean)[0];

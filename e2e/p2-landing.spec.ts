@@ -108,15 +108,12 @@ test("with motion, scrolling through reveals every block by the end", async ({ b
   await context.close();
 });
 
-test("«Crear enlace de pago» is disabled («Próximamente») and goes nowhere", async ({ page }) => {
+test("«Crear enlace de pago» is a link to the Pay tool", async ({ page }) => {
   await page.goto("/");
-  const button = page.getByRole("button", { name: /Crear enlace de pago/ }).last();
-  await button.scrollIntoViewIfNeeded();
-  await expect(button).toHaveAttribute("aria-disabled", "true");
-  await expect(button).toContainText("Próximamente");
-  await button.click({ force: true });
-  await page.waitForTimeout(300);
-  expect(new URL(page.url()).pathname).toBe("/");
+  const link = page.getByRole("link", { name: /Crear enlace de pago/ }).last();
+  await link.scrollIntoViewIfNeeded();
+  await expect(link).toHaveAttribute("href", "/herramientas/pay");
+  await expect(link).not.toContainText("Próximamente");
 });
 
 test("«Crear sorteo» leads to the create page", async ({ page }) => {

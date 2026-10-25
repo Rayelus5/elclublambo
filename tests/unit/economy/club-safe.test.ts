@@ -18,7 +18,7 @@ vi.mock("@/lib/supabase/admin", () => ({
   }),
 }));
 
-import { donationChains, resetClubSafeCache, verifyClubSafe } from "@/lib/economy/club-safe";
+import { donationChains, donationChainsStatus, resetClubSafeCache, verifyClubSafe } from "@/lib/economy/club-safe";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -108,5 +108,15 @@ describe("donationChains", () => {
     getCode.mockResolvedValue("0x");
     resetClubSafeCache();
     expect(await donationChains()).toEqual([]);
+  });
+});
+
+describe("donationChainsStatus", () => {
+  it("tells a failed check apart from a Safe that is not deployed", async () => {
+    getCode.mockResolvedValue("0x");
+    expect(await donationChainsStatus()).toEqual({ chains: [], networkError: false });
+    resetClubSafeCache();
+    getCode.mockRejectedValue(new Error("rpc down"));
+    expect(await donationChainsStatus()).toEqual({ chains: [], networkError: true });
   });
 });

@@ -34,6 +34,9 @@ export function AssetPicker({
   value,
   onChange,
   label = "Moneda",
+  balanceLabel = "Saldo: ",
+  unknownLabel = "desconocido",
+  arbitrumNote = "En Arbitrum solo vale USDC nativo (no USDC.e).",
 }: {
   assets: readonly Asset[];
   balances: AssetBalances;
@@ -41,6 +44,10 @@ export function AssetPicker({
   value: AssetId | null;
   onChange(id: AssetId): void;
   label?: string;
+  /** Localized copy (the public pages are bilingual); the club keeps the Spanish defaults. */
+  balanceLabel?: string;
+  unknownLabel?: string;
+  arbitrumNote?: string;
 }) {
   const labelId = useId();
   const ranked = useMemo(() => rankAssets(assets, balances, amount), [assets, balances, amount]);
@@ -95,13 +102,13 @@ export function AssetPicker({
                 <span className="text-xs text-fg-muted">{NETWORKS[a.chainId].name}</span>
               </span>
               <span className={cn("shrink-0 text-xs tabular-nums", known && bal > 0n ? "text-fg" : "text-fg-muted")}>
-                {"Saldo: "}
+                {balanceLabel}
                 {known ? (
                   balanceText(bal, a)
                 ) : (
                   <>
                     <span aria-hidden>—</span>
-                    <span className="sr-only">desconocido</span>
+                    <span className="sr-only">{unknownLabel}</span>
                   </>
                 )}
               </span>
@@ -110,7 +117,7 @@ export function AssetPicker({
           );
         })}
       </div>
-      {arbitrumUsdc ? <p className="text-xs text-fg-muted">En Arbitrum solo vale USDC nativo (no USDC.e).</p> : null}
+      {arbitrumUsdc ? <p className="text-xs text-fg-muted">{arbitrumNote}</p> : null}
     </div>
   );
 }

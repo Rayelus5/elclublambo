@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isPublicPath } from "@/lib/auth/public-paths";
 import { decidePublicRoute, isInternalImagePath, isUnknownTopSegment, type PublicState } from "@/lib/i18n/public-routing";
 import { isMissingPublicGiveaway } from "@/lib/public-giveaways/exists";
+import { isInvalidPayPath, isMissingPayAlias } from "@/lib/pay/exists";
 import { applySessionHeaders } from "@/lib/auth/session-headers";
 import { isMissingChannel, NOT_FOUND_PATH } from "@/lib/channels/guard";
 import { isHiddenReportsPage } from "@/lib/reports/guard";
@@ -75,9 +76,9 @@ export async function proxy(request: NextRequest) {
 
   // Public part (bilingual tree): "/" is the landing unless the visitor is an active member (then the forum); Spanish
   // public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their canonical URL (308).
-  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/".
+  // Decided before the gates: it is served the same with or without a session. The membership read is only for "/" and "/donar".
   let publicState: PublicState = user ? "public" : "anon";
-  if (user && pathname === "/") {
+  if (user && (pathname === "/" || pathname === "/donar")) {
     const { data: status, error } = await supabase.rpc("my_membership_status");
     if (!error && status === "active") publicState = "member";
   }
@@ -89,7 +90,7 @@ export async function proxy(request: NextRequest) {
   }
   if (route.kind === "rewrite") {
     // An unknown giveaway id: the page streams under <Suspense> (its notFound() would answer 200), so 404 here.
-    if (await isMissingPublicGiveaway(route.to)) return notFound();
+    if ((await isMissingPublicGiveaway(route.to)) || (await isMissingPayAlias(route.to))) return notFound();
     const url = request.nextUrl.clone();
     url.pathname = route.to;
     return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
@@ -124,8 +125,11 @@ export async function proxy(request: NextRequest) {
   // /mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
   // went to /login above). An unknown public giveaway id under /en is a 404 with or without a session.
+  // Same for an alias nobody owns (/en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
   if (
     (await isMissingPublicGiveaway(pathname)) ||
+    (await isMissingPayAlias(pathname)) ||
+    isInvalidPayPath(pathname) ||
     (user &&
       (isUnknownTopSegment(pathname) ||
         (await isMissingChannel(supabase, pathname)) ||
