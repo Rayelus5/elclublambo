@@ -552,6 +552,7 @@ export const es = {
     report: {
       tokenTitle: "Informe del contrato",
       linkTitle: "Informe del enlace",
+      declaredName: "Nombre declarado por el contrato",
       checkedAt: "Comprobado el {date}",
       explorer: "Ver en el explorador",
       dexscreener: "Ver en DexScreener",

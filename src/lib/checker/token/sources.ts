@@ -116,13 +116,14 @@ const PRIVILEGED_FN = /^mint|blacklist|blocklist|^set\w*(fee|tax)/i;
 
 /**
  * The privileged function names in a verified ABI, in ABI order, without duplicates. Only state-changing functions
- * count: events, errors and view getters (`minter()`, `isBlacklisted()`) do not.
+ * count: events, errors and view getters (`minter()`, `isBlacklisted()`, and pre-0.5 ABIs' `constant: true` ones such
+ * as `mintingFinished()`) do not.
  */
 export function abiFlags(abi: unknown): string[] {
   if (!Array.isArray(abi)) return [];
   const out: string[] = [];
   for (const item of abi) {
-    if (!isObj(item) || item.type !== "function" || item.stateMutability === "view" || item.stateMutability === "pure") continue;
+    if (!isObj(item) || item.type !== "function" || item.stateMutability === "view" || item.stateMutability === "pure" || item.constant === true) continue;
     const name = str(item.name);
     if (name && PRIVILEGED_FN.test(name) && !out.includes(name)) out.push(name);
   }
@@ -245,6 +246,18 @@ export async function dexscreenerMarket(source: { base: string; slug: string }, 
 // ---------------------------------------------------------------------------------------------------------------------
 // RPC
 
+/** Longest contract-declared name/symbol kept, in characters (code points). */
+export const MAX_CONTRACT_TEXT = 64;
+// Control (Cc) and format (Cf: bidi overrides/isolates, zero-width…) characters: a contract can declare anything.
+const CONTROL_OR_FORMAT = /[\p{Cc}\p{Cf}]/gu;
+
+/** Text a contract declares about itself (name, symbol): control/bidi characters stripped, trimmed, capped; null if empty. */
+export function contractText(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const clean = Array.from(v.replace(CONTROL_OR_FORMAT, "").trim()).slice(0, MAX_CONTRACT_TEXT).join("").trim();
+  return clean === "" ? null : clean;
+}
+
 /** EIP-1967 `bytes32(uint256(keccak256("eip1967.proxy.implementation")) - 1)`. */
 export const EIP1967_IMPLEMENTATION_SLOT = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc";
 const OWNER_ABI = [{ type: "function", name: "owner", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "address" }] }] as const;
@@ -293,7 +306,7 @@ async function readChainUnbounded(chain: ChainId, address: `0x${string}`): Promi
       }
       if (decimals.status !== "success" || typeof decimals.result !== "number") return ok(null);
       if (totalSupply.status !== "success" || typeof totalSupply.result !== "bigint") return ok(null);
-      const text = (r: { status: string; result?: unknown }) => (r.status === "success" && typeof r.result === "string" ? r.result : null);
+      const text = (r: { status: string; result?: unknown }) => (r.status === "success" ? contractText(r.result) : null);
       return ok({ name: text(name), symbol: text(symbol), decimals: decimals.result, totalSupply: totalSupply.result.toString() });
     } catch (e) {
       return unknown(rpcFailure(e) ?? "error");

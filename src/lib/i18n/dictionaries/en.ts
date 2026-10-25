@@ -552,6 +552,7 @@ export const en = {
     report: {
       tokenTitle: "Contract report",
       linkTitle: "Link report",
+      declaredName: "Name declared by the contract",
       checkedAt: "Checked on {date}",
       explorer: "View on the explorer",
       dexscreener: "View on DexScreener",

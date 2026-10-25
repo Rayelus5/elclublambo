@@ -108,6 +108,14 @@ describe("checker page", () => {
     expect(screen.getByText(es.report.values.creatorUnknown)).toBeInTheDocument();
   });
 
+  it("the token name in the heading is labelled as declared by the contract", async () => {
+    getTokenReport.mockResolvedValue(report(facts()));
+    await content("es", { q: ADDR, chain: "84532" });
+    const label = screen.getByText(es.report.declaredName);
+    expect(label.closest("header")?.textContent).toContain("Gato");
+    expect(es.report.declaredName).toBe("Nombre declarado por el contrato");
+  });
+
   it("counts alerts by severity and links DexScreener", async () => {
     getTokenReport.mockResolvedValue(
       report(facts({ verification: ok({ verified: false, source: "blockscout", abiFlags: [] }), owner: ok({ owner: ADDR, renounced: false }) })),

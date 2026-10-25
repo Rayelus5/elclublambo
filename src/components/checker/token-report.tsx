@@ -161,9 +161,13 @@ export function TokenReport({ t, lang, report, actions }: { t: T; lang: Lang; re
           {t.report.tokenTitle}
         </h2>
         {erc20?.symbol ? (
-          <p className="text-base font-bold text-fg">
-            {erc20.name ?? erc20.symbol} <span className="text-fg-muted">({erc20.symbol})</span>
-          </p>
+          // Whatever the contract says about itself: labelled as its claim, never as a verified identity.
+          <div className="flex flex-col gap-0.5">
+            <p className="text-[13px] text-fg-muted">{t.report.declaredName}</p>
+            <p className="break-words text-base font-bold text-fg">
+              {erc20.name ?? erc20.symbol} <span className="text-fg-muted">({erc20.symbol})</span>
+            </p>
+          </div>
         ) : null}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <NetworkLogo chainId={f.chainId} size={20} withName className="text-sm" />

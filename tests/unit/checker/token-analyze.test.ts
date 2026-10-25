@@ -15,7 +15,7 @@ const chainClient = vi.hoisted(() => vi.fn(() => client));
 vi.mock("@/lib/payments/chain-client", () => ({ chainClient }));
 
 import { analyzeToken, getTokenReport, TOKEN_REPORT_CACHE } from "@/lib/checker/token/analyze";
-import { checkerSources, CHECKER_USER_AGENT } from "@/lib/checker/token/sources";
+import { abiFlags, checkerSources, CHECKER_USER_AGENT, contractText } from "@/lib/checker/token/sources";
 
 const TOKEN = "0x1111111111111111111111111111111111111111" as const;
 const IMPL = "0x3333333333333333333333333333333333333333";
@@ -328,6 +328,40 @@ describe("analyzeToken: what the chain says (Review Focus 2)", () => {
     expect(r.facts.market).toEqual({ status: "unknown", reason: "unsupported" });
     expect(fetchMock.mock.calls.some(([u]) => String(u).includes("dexscreener"))).toBe(false);
     expect(fetchMock.mock.calls.some(([u]) => String(u).startsWith("https://base-sepolia.blockscout.com/api/v2/addresses/"))).toBe(true);
+  });
+});
+
+describe("abiFlags (final review item 6)", () => {
+  it("skips legacy view functions marked constant: true (mintingFinished())", () => {
+    const abi = [
+      { type: "function", name: "mintingFinished", constant: true, inputs: [], outputs: [{ type: "bool" }] },
+      { type: "function", name: "mint", constant: false, inputs: [] },
+      { type: "function", name: "setFee", payable: false, inputs: [] },
+      { type: "function", name: "blacklisted", stateMutability: "view" },
+    ];
+    expect(abiFlags(abi)).toEqual(["mint", "setFee"]);
+  });
+});
+
+describe("contract-declared text (final review item 7)", () => {
+  it("strips control and bidi characters and caps at 64 characters", () => {
+    expect(contractText("Safe‮token ‏")).toBe("Safetoken");
+    expect(contractText("  USDC  ")).toBe("USDC");
+    expect(contractText("x".repeat(100))).toBe("x".repeat(64));
+    expect(contractText("⁦⁩")).toBeNull();
+    expect(contractText(42)).toBeNull();
+    expect(Array.from(contractText("🐸".repeat(70)) ?? "")).toHaveLength(64);
+  });
+
+  it("the ERC-20 name and symbol from the chain are sanitised", async () => {
+    client.multicall.mockResolvedValue([
+      { status: "success", result: `Evil‮${"n".repeat(80)}` },
+      { status: "success", result: "T KN" },
+      { status: "success", result: 18 },
+      { status: "success", result: 1n },
+    ]);
+    const r = await analyzeToken(8453, TOKEN);
+    expect(r.facts.erc20).toEqual({ status: "ok", data: { name: `Evil${"n".repeat(60)}`, symbol: "TKN", decimals: 18, totalSupply: "1" } });
   });
 });
 
