@@ -627,7 +627,7 @@ así que en la app no tienes que tocar nada. A partir de ahora cada pago desde l
 
 1. **Cabeceras.** En PowerShell usa `curl.exe` (no `curl`, que en PowerShell es otro comando):
    ```
-   curl.exe -sI https://elclub.party/login
+   curl.exe -sI https://elclub.party/foro/login
    ```
    **Comprueba:** salen `content-security-policy` (con `default-src 'self'` y tu `https://<ref>.supabase.co` en
    `connect-src`), `strict-transport-security: max-age=63072000; includeSubDomains`, `x-frame-options: DENY` y

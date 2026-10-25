@@ -1,7 +1,7 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { CHAINS, CLUB_SAFE, ETH_USD_PRICE_E8, hardhatAccount } from "./chain/shared.mjs";
-import { E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, handleOf, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, rpcAs, service, type Actor } from "./helpers/f2c";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
 
@@ -78,7 +78,7 @@ test.beforeAll(async ({ browser }) => {
   a.page = await a.context.newPage();
   for (const x of [a, c]) {
     await x.page.setViewportSize(desktop);
-    await x.page.goto("/donar");
+    await x.page.goto(clubPath("/donar"));
   }
 });
 
@@ -91,7 +91,7 @@ const assetRow = (page: Page, token: "USDC" | "ETH", network: string) => dialogO
 
 /** Opens the dialog from /donar's header and connects the wallet unless the page restored the connection. */
 async function openDonate(page: Page) {
-  await page.goto("/donar");
+  await page.goto(clubPath("/donar"));
   await page.getByRole("button", { name: DIALOG }).click();
   const dialog = dialogOf(page);
   await expect(dialog).toBeVisible();
@@ -130,7 +130,7 @@ test("1. 5 USDC on Base Sepolia: one signature, in recent donations and in the l
   await dialog.locator('[data-slot="button"]', { hasText: /^Cerrar$/ }).click();
   await a.page.reload();
   await expect(a.page.getByRole("region", { name: "Tu estado" }).getByText("Mecenas", { exact: true })).toBeVisible();
-  await c.page.goto("/donar");
+  await c.page.goto(clubPath("/donar"));
   const recent = c.page.getByRole("list", { name: "Donaciones recientes" });
   await expect(recent.getByRole("listitem").filter({ hasText: LABEL_A }).filter({ hasText: "5 USDC" })).toHaveCount(1);
   await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByRole("listitem").filter({ hasText: LABEL_A })).toContainText("5 USD");
@@ -168,7 +168,7 @@ test("3. anonymous donation: another member sees «Anónimo», never the donor",
   expect(walletA.sent).toHaveLength(3);
   expect((await donationsOf(a.id)).at(-1)).toMatchObject({ anonymous: true });
 
-  await c.page.goto("/donar");
+  await c.page.goto(clubPath("/donar"));
   const row = c.page.getByRole("list", { name: "Donaciones recientes" }).getByRole("listitem").filter({ hasText: "1,23 USDC" });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Anónimo", { exact: true })).toBeVisible();
@@ -178,14 +178,14 @@ test("3. anonymous donation: another member sees «Anónimo», never the donor",
 });
 
 test("4. with the switch off, the donor leaves the list for everyone else", async () => {
-  await a.page.goto("/donar");
+  await a.page.goto(clubPath("/donar"));
   const toggle = a.page.getByRole("checkbox", { name: "Aparecer en la lista de donantes" });
   await expect(toggle).toBeChecked();
   await toggle.click();
   await expect(toggle).not.toBeChecked();
   await expect.poll(async () => (await service().from("members").select("donor_visible").eq("id", a.id).single<{ donor_visible: boolean }>()).data?.donor_visible).toBe(false);
 
-  await c.page.goto("/donar");
+  await c.page.goto(clubPath("/donar"));
   await expect(c.page.getByRole("list", { name: "Lista de donantes" }).getByText(LABEL_A)).toHaveCount(0);
   // Their donations still show, unnamed.
   await expect(c.page.getByRole("list", { name: "Donaciones recientes" }).getByText(LABEL_A)).toHaveCount(0);
@@ -207,7 +207,7 @@ test("5. replay: the first donation's hash on a new intent is refused with tx_al
   await expect
     .poll(
       async () => {
-        await a.page.goto("/donar");
+        await a.page.goto(clubPath("/donar"));
         const { data } = await db.from("payment_intents").select("status, failure_code").eq("id", intentId).single<{ status: string; failure_code: string | null }>();
         return data;
       },

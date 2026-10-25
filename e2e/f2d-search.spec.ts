@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, addressOf, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { channelIds, createInvite, joinAs, openChannel, service, type Actor } from "./helpers/f2c";
 
 // F2d acceptance: the Cmd+K palette (actions, channels, members, messages) and the jump to a message, with generated
@@ -140,7 +140,7 @@ test.beforeAll(async ({ browser }) => {
   const count = await db.from("messages").update({ reply_count: 1, last_reply_at: new Date(base + 201 * 60_000).toISOString() }).eq("id", rootId);
   expect(count.error).toBeNull();
 
-  for (const p of [a.page, m.page, n.page]) await p.goto("/");
+  for (const p of [a.page, m.page, n.page]) await p.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -149,14 +149,14 @@ test.afterAll(async () => {
 });
 
 test("1. A busca «linea» y encuentra «Línea»: Enter salta al mensaje fuera de la primera página, resaltado", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await searchFor(a.page, "linea");
   const hit = messageResult(a.page, "Línea de tiempo");
   await expect(hit).toBeVisible();
   await expect(results(a.page).filter({ hasText: "relleno" })).toHaveCount(0);
   await a.page.keyboard.press("Enter");
 
-  await expect(a.page).toHaveURL(new RegExp(`/c/${ids["General"]}\\?(.*&)?m=${targetId}(&|$)`));
+  await expect(a.page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["General"]}\\?(.*&)?m=${targetId}(&|$)`));
   await expect(palette(a.page)).toHaveCount(0);
   const target = li(a.page, targetId);
   await expect(target).toBeVisible();
@@ -179,18 +179,18 @@ test("2. desde la vista anclada «Cargar anteriores» sigue funcionando y «Ir a
 
   await page.getByRole("button", { name: "Ir a lo más reciente" }).click();
   await expect(page).not.toHaveURL(/[?&]m=/);
-  await expect(page).toHaveURL(new RegExp(`/c/${ids["General"]}$`));
+  await expect(page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["General"]}$`));
   await expect(page.locator("li[data-message-id]", { hasText: "hilo raíz zafiro" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Ir a lo más reciente" })).toHaveCount(0);
   await expect(page.locator("li[data-message-id]", { hasText: "relleno 000" })).toHaveCount(0);
 });
 
 test("3. una respuesta de hilo abre el hilo con la respuesta resaltada", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await searchFor(a.page, "quetzal");
   await expect(messageResult(a.page, "quetzal")).toBeVisible();
   await a.page.keyboard.press("Enter");
-  await expect(a.page).toHaveURL(new RegExp(`/c/${ids["General"]}\\?thread=${rootId}&m=${replyId}`));
+  await expect(a.page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["General"]}\\?thread=${rootId}&m=${replyId}`));
   const thread = a.page.getByRole("region", { name: "Hilo" });
   await expect(thread).toBeVisible();
   const reply = thread.locator(`li[data-message-id="${replyId}"]`);
@@ -200,18 +200,18 @@ test("3. una respuesta de hilo abre el hilo con la respuesta resaltada", async (
 });
 
 test("4. un miembro se encuentra por prefijo de wallet y lleva a su perfil", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   const wallet = addressOf(keyM);
   await searchFor(a.page, wallet.slice(0, 10));
   const hit = results(a.page).filter({ hasText: "MarcosBus" });
   await expect(hit).toBeVisible();
   await a.page.keyboard.press("Enter");
-  await expect(a.page).toHaveURL(new RegExp(`/u/${wallet}$`));
+  await expect(a.page).toHaveURL(new RegExp(`${CLUB_BASE}/u/${wallet}$`));
   await expect(a.page.getByRole("heading", { level: 1, name: /MarcosBus/ })).toBeVisible();
 });
 
 test("5. las acciones dependen del rol y «Abrir ticket» abre el diálogo", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await openPalette(a.page);
   await expect(results(a.page).filter({ hasText: "Mis tickets" })).toBeVisible();
   await expect(results(a.page).filter({ hasText: "Mi perfil" })).toBeVisible();
@@ -220,7 +220,7 @@ test("5. las acciones dependen del rol y «Abrir ticket» abre el diálogo", asy
   await expect(results(a.page).filter({ hasText: "Crear invitación" })).toHaveCount(0);
   await a.page.keyboard.press("Escape");
 
-  await admin.page.goto("/");
+  await admin.page.goto(clubPath());
   await openPalette(admin.page);
   for (const label of ["Ajustes del servidor", "Cola de reportes", "Crear invitación", "Miembros"]) {
     await expect(results(admin.page).filter({ hasText: label }).first()).toBeVisible();
@@ -232,23 +232,23 @@ test("5. las acciones dependen del rol y «Abrir ticket» abre el diálogo", asy
   await results(a.page).filter({ hasText: "Abrir ticket en #Soporte Técnico" }).click();
   const dialog = a.page.getByRole("dialog", { name: "Abrir un ticket" });
   await expect(dialog).toBeVisible();
-  await expect(a.page).toHaveURL(new RegExp(`/c/${ids["Soporte Técnico"]}$`)); // ?openTicket is consumed
+  await expect(a.page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["Soporte Técnico"]}$`)); // ?openTicket is consumed
   await dialog.getByRole("button", { name: "Cancelar" }).click();
   await expect(dialog).toHaveCount(0);
 });
 
 test("5b. ?openTicket=1 no abre nada sin tickets en el canal ni sin permiso de publicar", async () => {
-  await a.page.goto(`/c/${ids["General"]}?openTicket=1`);
+  await a.page.goto(clubPath(`/c/${ids["General"]}?openTicket=1`));
   await expect(a.page.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
   await a.page.waitForLoadState("networkidle");
   await expect(a.page.getByRole("dialog")).toHaveCount(0);
   await expect(a.page.getByRole("button", { name: "Abrir ticket" })).toHaveCount(0);
 
   // control: a member who can post does get the dialog from the same link
-  await a.page.goto(`/c/${ids["Soporte Técnico"]}?openTicket=1`);
+  await a.page.goto(clubPath(`/c/${ids["Soporte Técnico"]}?openTicket=1`));
   await expect(a.page.getByRole("dialog", { name: "Abrir un ticket" })).toBeVisible();
 
-  await n.page.goto(`/c/${ids["Soporte Técnico"]}?openTicket=1`);
+  await n.page.goto(clubPath(`/c/${ids["Soporte Técnico"]}?openTicket=1`));
   await expect(n.page.getByRole("heading", { level: 1, name: "Soporte Técnico" })).toBeVisible();
   await n.page.waitForLoadState("networkidle");
   await expect(n.page.getByRole("dialog")).toHaveCount(0);
@@ -261,25 +261,25 @@ test("5b. ?openTicket=1 no abre nada sin tickets en el canal ni sin permiso de p
 });
 
 test("6. un mensaje de un canal oculto nunca llega a A; el admin sí lo encuentra", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await searchFor(a.page, "xilofonoraro");
   await expect(palette(a.page).getByText("Sin resultados para «xilofonoraro»")).toBeVisible();
   await expect(results(a.page)).toHaveCount(0);
   await a.page.keyboard.press("Escape");
 
-  await admin.page.goto("/");
+  await admin.page.goto(clubPath());
   await searchFor(admin.page, "xilofonoraro");
   const hit = messageResult(admin.page, "xilofonoraro");
   await expect(hit).toBeVisible();
   await expect(hit).toContainText("#Secreta");
   await admin.page.keyboard.press("Enter");
-  await expect(admin.page).toHaveURL(new RegExp(`/c/${secretId}\\?.*m=${secretMsgId}`));
+  await expect(admin.page).toHaveURL(new RegExp(`${CLUB_BASE}/c/${secretId}\\?.*m=${secretMsgId}`));
   const secretLi = li(admin.page, secretMsgId);
   await expect(secretLi).toBeVisible();
   await expect(secretLi).toHaveAttribute("aria-current", "true");
 
   // Anchor path: the hidden message id aimed at another channel reveals nothing and highlights nothing.
-  await a.page.goto(`/c/${ids["General"]}?m=${secretMsgId}`);
+  await a.page.goto(clubPath(`/c/${ids["General"]}?m=${secretMsgId}`));
   await expect(a.page.getByRole("textbox", { name: "Mensaje", exact: true })).toBeVisible();
   await a.page.waitForLoadState("networkidle");
   await expect(a.page.locator('[aria-current="true"]')).toHaveCount(0);
@@ -287,7 +287,7 @@ test("6. un mensaje de un canal oculto nunca llega a A; el admin sí lo encuentr
 });
 
 test("7. solo con teclado: Ctrl+K, flechas, Enter y Escape devuelve el foco", async () => {
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await openChannel(a.page, "General");
   const composer = a.page.getByRole("textbox", { name: "Mensaje", exact: true });
   await composer.click();
@@ -308,14 +308,14 @@ test("7. solo con teclado: Ctrl+K, flechas, Enter y Escape devuelve el foco", as
   await a.page.keyboard.press("ArrowDown"); // Mis menciones -> Mis tickets
   await expect(results(a.page).nth(1)).toContainText("Mis tickets");
   await a.page.keyboard.press("Enter");
-  await expect(a.page).toHaveURL(/\/tickets$/);
+  await expect(a.page).toHaveURL(/\/foro\/tickets$/);
   await expect(palette(a.page)).toHaveCount(0);
 });
 
 test("8. a 375px: el botón de la barra superior y el del drawer abren la paleta sin scroll horizontal", async () => {
   const page = await a.context.newPage();
   await page.setViewportSize({ width: 375, height: 800 });
-  await page.goto(`/c/${ids["General"]}`);
+  await page.goto(clubPath(`/c/${ids["General"]}`));
   const noOverflow = () => page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth);
 
   const topButton = page.getByRole("banner").getByRole("button", { name: "Buscar" });

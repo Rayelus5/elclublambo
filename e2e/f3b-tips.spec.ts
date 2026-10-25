@@ -1,7 +1,7 @@
 import { createPublicClient, erc20Abi, http } from "viem";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { CHAINS, hardhatAccount } from "./chain/shared.mjs";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { createInvite, joinAs, messageWith, openChannel, rpcAs, send, service, type Actor } from "./helpers/f2c";
 import { watchCsp } from "./helpers/csp";
 import { connectInjected, installTestWallet, type TestWallet } from "./helpers/wallet";
@@ -79,13 +79,13 @@ test.beforeAll(async ({ browser }) => {
   c = await member(browser, viewer.privateKey, NAMES.c, admin.page);
   for (const x of [a, b, c]) {
     await x.page.setViewportSize(desktop);
-    await x.page.goto("/"); // joinAs leaves its page blank
+    await x.page.goto(clubPath()); // joinAs leaves its page blank
   }
   // joinAs already opened a page in A's context; wallet scripts only apply to pages created afterwards.
   await a.page.close();
   walletA = await installTestWallet(a.context, { address: tipper.address });
   a.page = await a.context.newPage();
-  await a.page.goto("/");
+  await a.page.goto(clubPath());
   await a.page.setViewportSize(desktop);
 });
 
@@ -193,7 +193,7 @@ test("1. USDC tip on Base Sepolia: one signature, no fee, Builder Code suffix, b
   await panel.getByRole("button", { name: "Cerrar hilo" }).click();
 
   // B's bell shows a new notice.
-  await b.page.goto("/");
+  await b.page.goto(clubPath());
   await expect(b.page.getByRole("link", { name: /^Notificaciones, \d+ sin leer$/ })).toBeVisible();
 
   // Exact money, one transfer: B +10, A -10.
@@ -214,7 +214,7 @@ test("1. USDC tip on Base Sepolia: one signature, no fee, Builder Code suffix, b
 });
 
 test("2. USDC tip on Arbitrum Sepolia from B's profile: the wallet switches network by itself and the tip is credited on 421614", async () => {
-  await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
+  await a.page.goto(clubPath(`/u/${recipient.address.toLowerCase()}`));
   await a.page.getByRole("button", { name: "Dar propina" }).click();
   const dialog = a.page.getByRole("dialog", { name: "Dar propina" });
   await expect(dialog).toBeVisible();
@@ -249,7 +249,7 @@ test("2. USDC tip on Arbitrum Sepolia from B's profile: the wallet switches netw
 });
 
 test("3. anonymous ETH tip on B's profile: B and a third member see Anónimo, never the donor", async () => {
-  await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
+  await a.page.goto(clubPath(`/u/${recipient.address.toLowerCase()}`));
   await a.page.getByRole("button", { name: "Dar propina" }).click();
   const dialog = a.page.getByRole("dialog", { name: "Dar propina" });
   await expect(dialog).toBeVisible();
@@ -263,7 +263,7 @@ test("3. anonymous ETH tip on B's profile: B and a third member see Anónimo, ne
   expect(walletA.sent).toHaveLength(3);
 
   for (const viewerPage of [c.page, b.page]) {
-    await viewerPage.goto(`/u/${recipient.address.toLowerCase()}`);
+    await viewerPage.goto(clubPath(`/u/${recipient.address.toLowerCase()}`));
     // B's profile also lists the public tips from A, so check the anonymous tip's own row.
     const received = viewerPage.getByRole("region", { name: "Propinas recibidas" });
     const row = received.getByRole("listitem").filter({ hasText: "0,001 ETH" });
@@ -275,7 +275,7 @@ test("3. anonymous ETH tip on B's profile: B and a third member see Anónimo, ne
     await expect(row.getByRole("link", { name: "Ver transacción en el explorador" })).toHaveCount(0);
   }
   // The donor sees their own tip as theirs.
-  await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
+  await a.page.goto(clubPath(`/u/${recipient.address.toLowerCase()}`));
   await expect(a.page.getByText("Tú (anónimo)")).toBeVisible();
 });
 
@@ -284,7 +284,7 @@ test("4. receive networks: with B accepting Base only, the picker never offers A
   const set = await db.from("members").update({ receive_networks: ["base"] }).eq("id", b.id);
   expect(set.error).toBeNull();
   try {
-    await a.page.goto("/c/" + (await generalId()));
+    await a.page.goto(clubPath("/c/") + (await generalId()));
     await expect(messageWith(a.page, MSG_1)).toBeVisible();
     await openTipFromMessage(a.page, MSG_1);
     const dialog = a.page.getByRole("dialog", { name: "Dar propina" });
@@ -305,7 +305,7 @@ test("4b. auto-selected asset on the other network: no prompt on open, Continuar
   const chainOf = () =>
     a.page.evaluate(() => (window as unknown as { ethereum: { request(a: { method: string }): Promise<string> } }).ethereum.request({ method: "eth_chainId" }));
   try {
-    await a.page.goto(`/u/${recipient.address.toLowerCase()}`);
+    await a.page.goto(clubPath(`/u/${recipient.address.toLowerCase()}`));
     await a.page.getByRole("button", { name: "Dar propina" }).click();
     const dialog = a.page.getByRole("dialog", { name: "Dar propina" });
     await expect(dialog).toBeVisible();
@@ -354,7 +354,7 @@ test("5. replay: the first tip's hash on a new intent is refused with tx_already
   await expect
     .poll(
       async () => {
-        await a.page.goto("/");
+        await a.page.goto(clubPath());
         const { data } = await db.from("payment_intents").select("status, failure_code").eq("id", intentId).single<{ status: string; failure_code: string | null }>();
         return data;
       },
@@ -374,7 +374,7 @@ test("6. wallet on another address than the session: the dialog explains it and 
   const page = await context.newPage();
   const intentsBefore = (await service().from("payment_intents").select("id", { count: "exact", head: true }).eq("member_id", a.id)).count;
 
-  await page.goto("/c/" + (await generalId()));
+  await page.goto(clubPath("/c/") + (await generalId()));
   await expect(messageWith(page, MSG_1)).toBeVisible();
   await openTipFromMessage(page, MSG_1);
   const dialog = page.getByRole("dialog", { name: "Dar propina" });
@@ -388,7 +388,7 @@ test("6. wallet on another address than the session: the dialog explains it and 
 });
 
 test("7. interrupted flow: tab closed right after the signature, the next visit credits the tip exactly once", async ({ browser }) => {
-  await b.page.goto("/c/" + (await generalId())); // an earlier test left B on a profile
+  await b.page.goto(clubPath("/c/") + (await generalId())); // an earlier test left B on a profile
   await send(b.page, MSG_2);
   await expect(messageWith(b.page, MSG_2)).toBeVisible();
 
@@ -413,7 +413,7 @@ test("7. interrupted flow: tab closed right after the signature, the next visit 
   });
   await loginAs(context, tipper.privateKey);
   const page = await context.newPage();
-  await page.goto("/c/" + (await generalId()));
+  await page.goto(clubPath("/c/") + (await generalId()));
   await expect(messageWith(page, MSG_2)).toBeVisible();
   const msg2 = (await messageWith(page, MSG_2).getAttribute("data-message-id"))!;
   await openTipFromMessage(page, MSG_2);
@@ -436,7 +436,7 @@ test("7. interrupted flow: tab closed right after the signature, the next visit 
   // Next visit: the ledger re-attaches the hash and the server verifies it.
   cut = false;
   const next = await context.newPage();
-  await next.goto("/");
+  await next.goto(clubPath());
   await expect
     .poll(async () => (await dbTipsFor(a.id)).filter((t) => t.message_id === msg2).length, { timeout: 60_000, intervals: [2_000] })
     .toBe(1);

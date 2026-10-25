@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, E2E_SUPER_ADMIN_ADDRESS, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { channelIds, createInvite, joinAs, rpcAs, service, type Actor } from "./helpers/f2c";
 
 // P1 Task 13: the new Inicio. A plain member (A) uses the search field (the palette's engine in place), never sees a
@@ -60,7 +60,7 @@ const tiles = (p: Page) => p.getByRole("list", { name: "Accesos rápidos" });
 
 /** Opens Inicio and waits for hydration (a field filled before it would not reach React). */
 async function openHome(p: Page) {
-  await p.goto("/");
+  await p.goto(clubPath());
   await expect(p.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 }
@@ -118,7 +118,7 @@ test("1. the Inicio field finds a message and Enter jumps to it", async () => {
   // Only the message matches: it is the selected result, and Enter takes it, as in the palette.
   await expect(option).toHaveAttribute("aria-selected", "true");
   await field(p).press("Enter");
-  await expect(p).toHaveURL(new RegExp(`/c/${ids["General"]}\\?m=${wordId}`));
+  await expect(p).toHaveURL(new RegExp(`${CLUB_BASE}/c/${ids["General"]}\\?m=${wordId}`));
   await expect(p.locator(`li[data-message-id="${wordId}"]`)).toBeVisible();
 });
 
@@ -175,11 +175,11 @@ test("4. the tiles reflect an open poll and an open giveaway", async () => {
   const giveaway = t.getByRole("link", { name: /Sorteo/ });
   await expect(giveaway).toContainText(GIVEAWAY);
   await expect(giveaway).toContainText("Cierra");
-  await expect(giveaway).toHaveAttribute("href", `/sorteos/${giveawayId}`);
+  await expect(giveaway).toHaveAttribute("href", clubPath(`/sorteos/${giveawayId}`));
   const pollTile = t.getByRole("link", { name: /Encuesta/ });
   await expect(pollTile).toContainText(QUESTION);
-  await expect(pollTile).toHaveAttribute("href", `/c/${ids["General"]}?m=${pollId}`);
-  await expect(t.getByRole("link", { name: /Donaciones/ })).toHaveAttribute("href", "/donar");
+  await expect(pollTile).toHaveAttribute("href", clubPath(`/c/${ids["General"]}?m=${pollId}`));
+  await expect(t.getByRole("link", { name: /Donaciones/ })).toHaveAttribute("href", clubPath("/donar"));
 });
 
 test("5. «Continúa donde lo dejaste» shows the channel with new messages", async () => {
@@ -192,13 +192,13 @@ test("5. «Continúa donde lo dejaste» shows the channel with new messages", as
   await expect(card).toBeVisible();
   await expect(card).toContainText("1 nuevo");
   await expect(card).toContainText(`¿Alguien con la wallet bloqueada? ${STAMP}`);
-  await expect(card).toHaveAttribute("href", `/c/${ids["Soporte Técnico"]}`);
+  await expect(card).toHaveAttribute("href", clubPath(`/c/${ids["Soporte Técnico"]}`));
   // Never the hidden channel.
   await expect(section.getByText(`oculto-${STAMP}`)).toHaveCount(0);
   // The unread tile points at the newest unread channel.
   const unread = tiles(p).getByRole("link", { name: /Sin leer/ });
   await expect(unread).not.toContainText("Al día");
-  await expect(unread).toHaveAttribute("href", `/c/${ids["Soporte Técnico"]}`);
+  await expect(unread).toHaveAttribute("href", clubPath(`/c/${ids["Soporte Técnico"]}`));
   for (const width of [1280, 1920]) {
     await p.setViewportSize({ width, height: 1000 });
     await shot(p, `home-${width}`);

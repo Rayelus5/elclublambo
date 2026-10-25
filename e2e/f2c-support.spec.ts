@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { expect, test, type BrowserContext } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import {
   bell,
   createInvite,
@@ -54,7 +54,7 @@ test.beforeAll(async ({ browser }) => {
   c = await joinAs(browser, newWalletKey(), await createInvite(adminPage), "CarlaSup", undefined, trackErrors);
   mod = await joinAs(browser, newWalletKey(), await createInvite(adminPage), "ModSup", "Moderador", trackErrors);
   staff = await joinAs(browser, newWalletKey(), await createInvite(adminPage), "SofiaSup", "Soporte", trackErrors);
-  for (const p of [b.page, c.page, mod.page, staff.page]) await p.goto("/");
+  for (const p of [b.page, c.page, mod.page, staff.page]) await p.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -80,7 +80,7 @@ test("1. B reporta un mensaje de C: el moderador lo ve en la cola, lo borra y el
   await sent.getByRole("button", { name: "Listo" }).click();
   await expect(sent).toHaveCount(0);
 
-  await mod.page.goto("/moderation/reports");
+  await mod.page.goto(clubPath("/moderation/reports"));
   const card = mod.page.getByRole("article").filter({ hasText: "mensaje dudoso de C" });
   await expect(card).toBeVisible();
   await expect(card.getByRole("heading", { name: "1 reporte" })).toBeVisible();
@@ -102,14 +102,14 @@ test("1. B reporta un mensaje de C: el moderador lo ve en la cola, lo borra y el
 });
 
 test("2. /moderation/reports devuelve un 404 real a un miembro normal", async () => {
-  expect(await statusOf(b, "/moderation/reports")).toBe(404);
-  expect(await statusOf(c, "/moderation/reports?status=closed")).toBe(404);
+  expect(await statusOf(b, clubPath("/moderation/reports"))).toBe(404);
+  expect(await statusOf(c, clubPath("/moderation/reports?status=closed"))).toBe(404);
   // control: the moderator gets the page itself
-  expect(await statusOf(mod, "/moderation/reports")).toBe(200);
+  expect(await statusOf(mod, clubPath("/moderation/reports"))).toBe(200);
 });
 
 test("3. B abre un ticket en Soporte Técnico: el staff recibe el aviso y responde, y B lo ve sin recargar", async () => {
-  await b.page.goto("/");
+  await b.page.goto(clubPath());
   await openChannel(b.page, "Soporte Técnico");
   await openChannel(staff.page, "Soporte Técnico");
   await expect(bell(staff.page, 0)).toBeVisible();
@@ -119,7 +119,7 @@ test("3. B abre un ticket en Soporte Técnico: el staff recibe el aviso y respon
   await dialog.getByLabel("Asunto").fill(SUBJECT);
   await dialog.getByLabel("Mensaje").fill("Al pulsar conectar no pasa nada.");
   await dialog.getByRole("button", { name: "Enviar ticket" }).click();
-  await expect(b.page).toHaveURL(/\/tickets\/[0-9a-f-]{36}$/);
+  await expect(b.page).toHaveURL(/\/foro\/tickets\/[0-9a-f-]{36}$/);
   ticketId = b.page.url().split("/tickets/")[1]!;
   await expect(b.page.getByRole("heading", { level: 1, name: SUBJECT })).toBeVisible();
 
@@ -129,7 +129,7 @@ test("3. B abre un ticket en Soporte Técnico: el staff recibe el aviso y respon
   const item = staff.page.getByRole("list", { name: "Notificaciones" }).getByRole("link", { name: new RegExp(`Nuevo ticket: ${SUBJECT}`) });
   await expect(item).toBeVisible();
   await item.click();
-  await expect(staff.page).toHaveURL(new RegExp(`/tickets/${ticketId}$`));
+  await expect(staff.page).toHaveURL(new RegExp(`${CLUB_BASE}/tickets/${ticketId}$`));
   await expect(staff.page.getByText("Al pulsar conectar no pasa nada.")).toBeVisible();
 
   const reply = staff.page.getByLabel("Escribe tu respuesta");
@@ -143,14 +143,14 @@ test("3. B abre un ticket en Soporte Técnico: el staff recibe el aviso y respon
 });
 
 test("4. C (no staff) recibe un 404 real en el ticket de B, y también con un id inexistente o mal formado", async () => {
-  expect(await statusOf(c, `/tickets/${ticketId}`)).toBe(404);
-  expect(await statusOf(mod, `/tickets/${randomUUID()}`)).toBe(404);
-  expect(await statusOf(c, "/tickets/no-es-un-uuid")).toBe(404);
-  expect(await statusOf(c, "/tickets/123")).toBe(404);
+  expect(await statusOf(c, clubPath(`/tickets/${ticketId}`))).toBe(404);
+  expect(await statusOf(mod, clubPath(`/tickets/${randomUUID()}`))).toBe(404);
+  expect(await statusOf(c, clubPath("/tickets/no-es-un-uuid"))).toBe(404);
+  expect(await statusOf(c, clubPath("/tickets/123"))).toBe(404);
   await expect(c.page.getByText(SUBJECT)).toHaveCount(0);
   // controls: the author and the staff member get the page
-  expect(await statusOf(b, `/tickets/${ticketId}`)).toBe(200);
-  expect(await statusOf(staff, `/tickets/${ticketId}`)).toBe(200);
+  expect(await statusOf(b, clubPath(`/tickets/${ticketId}`))).toBe(200);
+  expect(await statusOf(staff, clubPath(`/tickets/${ticketId}`))).toBe(200);
   // and C never got a notice about it
   const leak = await service().from("notifications").select("id").eq("recipient_id", c.id).not("ticket_id", "is", null);
   expect(leak.data).toHaveLength(0);
@@ -209,7 +209,7 @@ test("@screens capturas de /tickets/[id] y /moderation/reports a 375 y 1440", as
   mkdirSync(OUT, { recursive: true });
 
   // an open report with two reasons for the queue
-  await c.page.goto("/");
+  await c.page.goto(clubPath());
   await openChannel(c.page, "General");
   await send(c.page, "mensaje para la captura de reportes, con un texto algo más largo para ver cómo se parte en móvil");
   await openChannel(b.page, "General");
@@ -225,9 +225,9 @@ test("@screens capturas de /tickets/[id] y /moderation/reports a 375 y 1440", as
 
   for (const width of [375, 1440] as const) {
     for (const [name, actor, path] of [
-      ["ticket", b, `/tickets/${ticketId}`],
-      ["ticket-staff", staff, `/tickets/${ticketId}`],
-      ["reports", mod, "/moderation/reports"],
+      ["ticket", b, clubPath(`/tickets/${ticketId}`)],
+      ["ticket-staff", staff, clubPath(`/tickets/${ticketId}`)],
+      ["reports", mod, clubPath("/moderation/reports")],
     ] as const) {
       await actor.page.setViewportSize({ width, height: 900 });
       await actor.page.goto(path);

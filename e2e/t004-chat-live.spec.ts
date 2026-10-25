@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // T-004 (ronda 1): the chat feels alive. Two members in two browsers: entry animation only for what arrives (never the
 // history), day separators, the «N mensajes nuevos» pill when scrolled up, the deep-link highlight, the optimistic send
@@ -84,7 +84,7 @@ let targetId = "";
 
 test.beforeAll(async ({ browser }) => {
   ({ context: admin, page: adminPage } = await actor(browser, E2E_SUPER_ADMIN_PK));
-  await adminPage.goto("/invites");
+  await adminPage.goto(clubPath("/invites"));
   await adminPage.getByRole("button", { name: "Crear invitación" }).click();
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   const memberKey = newWalletKey();
@@ -116,8 +116,8 @@ test.beforeAll(async ({ browser }) => {
   expect(ins.error).toBeNull();
   targetId = (ins.data as Array<{ id: string; body_text: string }>).find((r) => r.body_text === "objetivo del enlace")!.id;
 
-  await adminPage.goto(`/c/${channelId}`);
-  await memberPage.goto(`/c/${channelId}`);
+  await adminPage.goto(clubPath(`/c/${channelId}`));
+  await memberPage.goto(clubPath(`/c/${channelId}`));
   await expect(messageWith(adminPage, "historia 24")).toBeVisible();
   await expect(messageWith(memberPage, "historia 24")).toBeVisible();
 });
@@ -162,7 +162,7 @@ test("2. leyendo más arriba no me mueve: sale la pastilla «N mensajes nuevos»
 });
 
 test("3. un enlace a un mensaje lo centra y lo resalta un momento", async () => {
-  await adminPage.goto(`/c/${channelId}?m=${targetId}`);
+  await adminPage.goto(clubPath(`/c/${channelId}?m=${targetId}`));
   const target = messageWith(adminPage, "objetivo del enlace");
   await expect(target).toHaveAttribute("aria-current", "true");
   await expect(target).toBeInViewport();
@@ -175,7 +175,7 @@ test("3. un enlace a un mensaje lo centra y lo resalta un momento", async () => 
 });
 
 test("4. si se pierde la respuesta del envío, el mensaje no se duplica", async () => {
-  await adminPage.goto(`/c/${channelId}`);
+  await adminPage.goto(clubPath(`/c/${channelId}`));
   await expect(messageWith(adminPage, "nuevo dos")).toBeVisible();
   const text = "se pierde la respuesta";
   // The server action runs (the message is written) but its answer never reaches the browser.
@@ -250,7 +250,7 @@ test("5b. el mismo texto enviado desde otra pestaña no se adopta: el fallido si
 
   // The same member writes the same words from another tab.
   const otherTab = await admin.newPage();
-  await otherTab.goto(`/c/${channelId}`);
+  await otherTab.goto(clubPath(`/c/${channelId}`));
   await hydrated(otherTab);
   await send(otherTab, text);
   await expect.poll(() => countInDb(text)).toBe(1);
@@ -281,7 +281,7 @@ test("5c. un mensaje fallido no se pierde al cambiar de canal y volver", async (
 
   await adminPage.getByRole("navigation", { name: "Canales" }).getByRole("link", { name: /^General( sin leer)?$/ }).click();
   await expect(adminPage.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
-  await adminPage.goto(`/c/${channelId}`);
+  await adminPage.goto(clubPath(`/c/${channelId}`));
   await hydrated(adminPage);
   const row = messageWith(adminPage, text);
   await expect(row).toContainText("No se ha enviado.");
@@ -293,7 +293,7 @@ test("5c. un mensaje fallido no se pierde al cambiar de canal y volver", async (
 
 test("6. con «reducir movimiento» no hay animación de entrada", async () => {
   await adminPage.emulateMedia({ reducedMotion: "reduce" });
-  await adminPage.goto(`/c/${channelId}`);
+  await adminPage.goto(clubPath(`/c/${channelId}`));
   await hydrated(adminPage);
   const arrived = await sendUntilLive(memberPage, adminPage, "llega sin movimiento");
   const live = (await rows(adminPage)).filter((r) => r.text.includes(arrived));
@@ -306,7 +306,7 @@ test("6. con «reducir movimiento» no hay animación de entrada", async () => {
 for (const width of [375, 768, 1024, 1440]) {
   test(`7. a ${width}px: sin scroll horizontal, separadores y pastilla dentro de la pantalla`, async () => {
     await adminPage.setViewportSize({ width, height: 860 });
-    await adminPage.goto(`/c/${channelId}`);
+    await adminPage.goto(clubPath(`/c/${channelId}`));
     await hydrated(adminPage);
     // Scroll up once the list is hydrated (a scroll before hydration is undone by the initial bottom placement).
     await expect

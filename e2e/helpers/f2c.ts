@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addressOf, loginAs } from "./auth";
+import { clubPath, addressOf, loginAs } from "./auth";
 
 /** Service-role client for test setup and read-only assertions on rows the UI cannot show. */
 export const service = () =>
@@ -10,7 +10,7 @@ export const service = () =>
   });
 
 export async function createInvite(page: Page): Promise<string> {
-  await page.goto("/invites");
+  await page.goto(clubPath("/invites"));
   await page.getByRole("button", { name: "Crear invitación" }).click();
   const url = await page.getByLabel("Tu enlace de invitación").inputValue();
   return url.split("/invite/")[1]!;

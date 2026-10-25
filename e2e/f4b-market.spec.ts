@@ -1,5 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 import { service } from "./helpers/f2c";
 import { LONG_NAME, LONG_SYMBOL, MOCK_PORT } from "./mock/coingecko.mjs";
 
@@ -66,10 +66,10 @@ test.afterAll(async () => {
 });
 
 test("1. desktop: Mercado in the top bar; first 10 of the top 100 with Bitcoin first, '—' for the null price, attribution and time", async () => {
-  await page.goto("/");
+  await page.goto(clubPath());
   const nav = page.getByRole("navigation", { name: "Principal" });
   await nav.getByRole("link", { name: "Mercado" }).click();
-  await expect(page).toHaveURL(/\/mercado$/);
+  await expect(page).toHaveURL(/\/foro\/mercado$/);
   await expect(page.getByRole("heading", { level: 1, name: "Mercado" })).toBeVisible();
 
   await expect(rows(page)).toHaveCount(10, { timeout: 30_000 });
@@ -104,7 +104,7 @@ test("1b. Ver más reveals 10 more per click from the data already loaded: no re
   const reloads: string[] = [];
   const onRequest = (r: import("@playwright/test").Request) => {
     const url = new URL(r.url());
-    if (url.origin === MOCK || r.method() !== "GET" || url.pathname === "/mercado") reloads.push(`${r.method()} ${r.url()}`);
+    if (url.origin === MOCK || r.method() !== "GET" || url.pathname === clubPath("/mercado")) reloads.push(`${r.method()} ${r.url()}`);
   };
   page.on("request", onRequest);
   try {
@@ -136,7 +136,7 @@ test("1b. Ver más reveals 10 more per click from the data already loaded: no re
 
 test("2. Bitcoin page: heading, range switch to 30 d updates URL and chart, facts visible", async () => {
   await coinLink(page, "Bitcoin").click();
-  await expect(page).toHaveURL(/\/mercado\/bitcoin$/);
+  await expect(page).toHaveURL(/\/foro\/mercado\/bitcoin$/);
   await expect(page.getByRole("heading", { level: 1, name: /^Bitcoin/ })).toBeVisible({ timeout: 30_000 });
 
   const ranges = page.getByRole("navigation", { name: "Periodo del gráfico" });
@@ -145,7 +145,7 @@ test("2. Bitcoin page: heading, range switch to 30 d updates URL and chart, fact
   await expect(page.getByRole("img", { name: /^Precio de Bitcoin en 7 días:/ })).toBeVisible();
 
   await ranges.getByRole("link", { name: "30 d" }).click();
-  await expect(page).toHaveURL(/\/mercado\/bitcoin\?r=30$/);
+  await expect(page).toHaveURL(/\/foro\/mercado\/bitcoin\?r=30$/);
   await expect(ranges.getByRole("link", { name: "30 d" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("img", { name: /^Precio de Bitcoin en 30 días:/ })).toBeVisible();
   await expect(page.getByText(/en 30 días$/)).toBeVisible();
@@ -165,7 +165,7 @@ const notFoundText = "This page could not be found.";
 test("3. unknown coin shows the not-found page and is not cached; an invalid id is a real 404", async () => {
   // notFound() runs inside the page's Suspense, so the document may already be a streamed 200 (ruling F4b-R3):
   // assert on the content, not the status.
-  await page.goto("/mercado/no-existe");
+  await page.goto(clubPath("/mercado/no-existe"));
   await expect(page.getByText(notFoundText)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("table")).toHaveCount(0);
   const { data, error } = await service().from("market_cache").select("key").like("key", "%no-existe%");
@@ -174,14 +174,14 @@ test("3. unknown coin shows the not-found page and is not cached; an invalid id 
 
   // An id that fails validation is a real 404 status: the proxy decides it (src/lib/market/guard.ts) before the forum
   // layout's Suspense starts streaming.
-  const res = await page.goto("/mercado/..%2Fx");
+  const res = await page.goto(clubPath("/mercado/..%2Fx"));
   expect(res?.status()).toBe(404);
   await expect(page.getByText(notFoundText)).toBeVisible();
 });
 
 test("4. outage: stale copy with its time after a good fetch; clear error with Reintentar without any copy", async () => {
   await clearCache();
-  await page.goto("/mercado");
+  await page.goto(clubPath("/mercado"));
   await expect(rows(page)).toHaveCount(10);
   await expect(page.getByText(/^Actualizado a las/)).toBeVisible();
 
@@ -207,7 +207,7 @@ test("4. outage: stale copy with its time after a good fetch; clear error with R
     await page.reload();
     const alert = page.getByRole("alert").filter({ hasText: "No se pudieron cargar los precios" });
     await expect(alert).toBeVisible();
-    await expect(alert.getByRole("link", { name: "Reintentar" })).toHaveAttribute("href", "/mercado");
+    await expect(alert.getByRole("link", { name: "Reintentar" })).toHaveAttribute("href", clubPath("/mercado"));
     await expect(page.getByRole("table")).toHaveCount(0);
   } finally {
     await mock("__ok");
@@ -225,7 +225,7 @@ test("5. 375 px: compact tappable rows, no horizontal scroll (even with a very l
   const mobile = await memberContext(browser, { width: 375, height: 812 });
   try {
     const m = await mobile.newPage();
-    await m.goto("/mercado");
+    await m.goto(clubPath("/mercado"));
     await expect(rows(m)).toHaveCount(10);
     const long = m.getByRole("table").getByRole("link", { name: LONG_NAME });
     await expect(long).toBeVisible();
@@ -290,7 +290,7 @@ test("5. 375 px: compact tappable rows, no horizontal scroll (even with a very l
     await m.setViewportSize({ width: 375, height: 812 });
     // (locator("td"): the hidden # cell is out of the accessibility tree, so getByRole("cell") would shift the index.)
     await rows(m).first().locator("td").nth(2).click();
-    await expect(m).toHaveURL(/\/mercado\/bitcoin$/);
+    await expect(m).toHaveURL(/\/foro\/mercado\/bitcoin$/);
     await expect(m.getByRole("heading", { level: 1, name: /^Bitcoin/ })).toBeVisible({ timeout: 30_000 });
     // Coin page on a phone: the chart spans the content width, the four ranges share one row of thumb-sized targets,
     // the key data are cards two per row, and nothing scrolls sideways (320 and 375 px).
@@ -321,7 +321,7 @@ test("5. 375 px: compact tappable rows, no horizontal scroll (even with a very l
 
     // The coin page header with the very long name and symbol at 375 px: no sideways scroll either.
     await m.setViewportSize({ width: 375, height: 812 });
-    await m.goto("/mercado/longcoin");
+    await m.goto(clubPath("/mercado/longcoin"));
     await expect(m.getByRole("heading", { level: 1, name: new RegExp(`^${LONG_NAME}`) })).toBeVisible({ timeout: 30_000 });
     await expect(m.getByRole("heading", { level: 1 })).toContainText(LONG_SYMBOL, { ignoreCase: true });
     expect(await m.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(375);
@@ -335,8 +335,8 @@ test("6. an anonymous visitor never sees the market table", async ({ browser }) 
   trackErrors(anon);
   try {
     const p = await anon.newPage();
-    await p.goto("/mercado");
-    await expect(p).toHaveURL(/\/login(\?|$)/);
+    await p.goto(clubPath("/mercado"));
+    await expect(p).toHaveURL(/\/foro\/login(\?|$)/);
     await expect(p.getByRole("table")).toHaveCount(0);
   } finally {
     await anon.close();
@@ -346,7 +346,7 @@ test("6. an anonymous visitor never sees the market table", async ({ browser }) 
 test("7. no browser errors in any context", () => {
   // The browser's own "Failed to load resource ... 404" for the not-found documents this spec requested on purpose.
   const expected404 = (e: string) =>
-    /status of 404/.test(e) && ["/mercado/no-existe", "/mercado/..%2Fx"].some((path) => e.endsWith(`@ http://localhost:3000${path}`));
+    /status of 404/.test(e) && [clubPath("/mercado/no-existe"), clubPath("/mercado/..%2Fx")].some((path) => e.endsWith(`@ http://localhost:3000${path}`));
   // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   expect(browserErrors.filter((e) => !expected404(e) && !coopOn404(e))).toEqual([]);

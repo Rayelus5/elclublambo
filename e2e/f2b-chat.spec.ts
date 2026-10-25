@@ -3,7 +3,7 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { CHAINS } from "./chain/shared.mjs";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance of F2b beyond the live-view scenarios in f2b-chat-view.spec.ts: roles and read-only channels,
 // slowmode, the link guard, visibility of realtime events, Alpha and the CSP. The DB is reset by global-setup;
@@ -92,7 +92,7 @@ async function privateJoinStatus(ctx: BrowserContext, channelId: string): Promis
 }
 
 async function createInvite(page: Page): Promise<string> {
-  await page.goto("/invites");
+  await page.goto(clubPath("/invites"));
   await page.getByRole("button", { name: "Crear invitación" }).click();
   const url = await page.getByLabel("Tu enlace de invitación").inputValue();
   return url.split("/invite/")[1]!;
@@ -139,7 +139,7 @@ test.beforeAll(async ({ browser }) => {
   ]);
   expect(ow.error).toBeNull();
 
-  for (const p of [adminPage, bPage, modPage]) await p.goto("/");
+  for (const p of [adminPage, bPage, modPage]) await p.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -201,7 +201,7 @@ test("3. Reglas es de solo lectura para B (sin compositor) y el moderador sí pu
 });
 
 test("4. slowmode de 5 s: el segundo mensaje de B muestra la cuenta atrás y luego se envía", async () => {
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
   await openChannel(bPage, "Lento");
   await send(bPage, "uno");
   await expect(messageWith(bPage, "uno")).toBeVisible();
@@ -256,12 +256,12 @@ test("6. un canal sin VIEW: B no puede unirse a su tema realtime y nada aparece 
 
   // The UI side: B has General open; the admin posts in the hidden channel and then in General.
   await openChannel(bPage, "General");
-  await adminPage.goto(`/c/${ids["Secreto"]}`);
+  await adminPage.goto(clubPath(`/c/${ids["Secreto"]}`));
   await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await send(adminPage, "contenido secreto");
   await expect(messageWith(adminPage, "contenido secreto")).toBeVisible();
 
-  await adminPage.goto("/");
+  await adminPage.goto(clubPath());
   await openChannel(adminPage, "General");
   await send(adminPage, "centinela general");
   // B's live view keeps working (the General message arrives); the hidden one shows up nowhere. Different topics have
@@ -271,12 +271,12 @@ test("6. un canal sin VIEW: B no puede unirse a su tema realtime y nada aparece 
   await expect(channelsNav(bPage).getByRole("link", { name: /Secreto/ })).toHaveCount(0);
 
   // not readable by any other path either
-  const response = await bPage.goto(`/c/${ids["Secreto"]}`);
+  const response = await bPage.goto(clubPath(`/c/${ids["Secreto"]}`));
   expect(response?.status()).toBe(404);
   await expect(bPage.getByText("contenido secreto")).toHaveCount(0);
   const leak = await service().from("messages").select("id").eq("channel_id", ids["Secreto"]);
   expect(leak.data).toHaveLength(1); // it exists, B just cannot see it
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
 });
 
 test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y valida la dirección", async () => {
@@ -339,7 +339,7 @@ test("8. CSP: frame-ancestors none y frame-src acotado; el login renderiza sin e
   const anon = await browser.newContext();
   trackErrors(anon);
   const page = await anon.newPage();
-  const response = await page.goto("/login");
+  const response = await page.goto(clubPath("/login"));
   const csp = response?.headers()["content-security-policy"] ?? "";
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("frame-src https://dexscreener.com");
@@ -352,7 +352,7 @@ test("9. sin errores de consola", async () => {
   // Reown AppKit re-fetches the page URL to check its COOP header; on a deliberate 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   // The browser's own "Failed to load resource ... 404" line for the hidden channel B was sent to on purpose.
-  const hidden404 = (e: string) => /status of 404/.test(e) && e.endsWith(`@ http://localhost:3000/c/${ids["Secreto"]}`);
+  const hidden404 = (e: string) => /status of 404/.test(e) && e.endsWith(`@ http://localhost:3000${clubPath(`/c/${ids["Secreto"]}`)}`);
   expect(browserErrors.filter((e) => !coopOn404(e) && !hidden404(e))).toEqual([]);
 });
 
@@ -363,7 +363,7 @@ test("@screens capturas de F2b a 375 y 1440", async () => {
   await openChannel(adminPage, "General");
   for (const width of [375, 1440] as const) {
     for (const p of [adminPage, bPage]) await p.setViewportSize({ width, height: 900 });
-    await adminPage.goto(`/c/${ids["General"]}`);
+    await adminPage.goto(clubPath(`/c/${ids["General"]}`));
     await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
     await adminPage.waitForLoadState("networkidle");
     await adminPage.screenshot({ path: `${OUT}/general-${width}.png`, fullPage: true });
