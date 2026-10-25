@@ -268,7 +268,6 @@ export const en = {
     create: "Create giveaway",
     createPay: "Create payment link",
     whatIs: "What is ElClub.",
-    soon: "Coming soon",
     sample: "Sample data",
     hero: {
       kicker: "Open tools · no custody",

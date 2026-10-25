@@ -268,7 +268,6 @@ export const es = {
     create: "Crear sorteo",
     createPay: "Crear enlace de pago",
     whatIs: "Qué es ElClub.",
-    soon: "Próximamente",
     sample: "Datos de ejemplo",
     hero: {
       kicker: "Herramientas abiertas · sin custodia",

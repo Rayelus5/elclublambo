@@ -102,6 +102,14 @@ describe("Landing (reduced motion)", () => {
     }
   });
 
+  it("no tool on the landing is marked «Próximamente» / «Coming soon»", () => {
+    for (const lang of ["es", "en"] as const) {
+      const { container, unmount } = render(<Landing lang={lang} />);
+      expect(container.textContent).not.toMatch(/Próximamente|Coming soon/);
+      unmount();
+    }
+  });
+
   it("the checker block is live and Pay is live", () => {
     render(<Landing lang="es" />);
     expect(within(screen.getByRole("region", { name: "Comprobador" })).queryByText("Próximamente")).toBeNull();
