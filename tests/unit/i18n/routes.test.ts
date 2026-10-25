@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { MetadataRoute } from "next";
 import {
   alternatesFor,
   localizedPath,
@@ -60,6 +61,7 @@ const rows: {
   { route: "checker", es: "/herramientas/comprobador", en: "/en/tools/checker", internalEs: "/es/tools/checker", internalEn: "/en/tools/checker" },
   { route: "checkerApi", es: "/herramientas/comprobador/api", en: "/en/tools/checker/api", internalEs: "/es/tools/checker/api", internalEn: "/en/tools/checker/api" },
   { route: "donate", es: "/donar", en: "/en/donate", internalEs: "/es/donate", internalEn: "/en/donate" },
+  { route: "vouches", es: "/herramientas/avales", en: "/en/tools/vouches", internalEs: "/es/tools/vouches", internalEn: "/en/tools/vouches" },
 ];
 
 describe("config", () => {
@@ -232,5 +234,45 @@ describe("ElClub Pay and donate routes (P3)", () => {
     expect(() => localizedPath("es", "payReceipt", { chainId: "84532" })).toThrow();
     expect(alternatesFor("pay", { target: "rayelus" }, "es").languages.en).toBe("/en/pay/rayelus");
     expect(alternatesFor("donate", undefined, "en").languages).toEqual({ es: "/donar", en: "/en/donate", "x-default": "/donar" });
+  });
+});
+
+describe("vouches route (P5)", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("only the language's own segments, no suffixes", () => {
+    expect(toInternalPath("/en/herramientas/avales")).toBeNull();
+    expect(toInternalPath("/herramientas/vouches")).toBeNull();
+    expect(toInternalPath("/en/tools/avales")).toBeNull();
+    expect(toInternalPath("/herramientas/avales/otra")).toBeNull();
+    expect(toPublicPath("/es/tools/vouches/x")).toBeNull();
+    expect(switchLang("/herramientas/avales", "en")).toBe("/en/tools/vouches");
+    expect(switchLang("/en/tools/vouches", "es")).toBe("/herramientas/avales");
+    expect(alternatesFor("vouches", undefined, "en")).toEqual({
+      canonical: "/en/tools/vouches",
+      languages: { es: "/herramientas/avales", en: "/en/tools/vouches", "x-default": "/herramientas/avales" },
+    });
+  });
+
+  it("the sitemap lists the tool with its alternates and robots lets both URLs be crawled", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://elclub.party");
+    const { default: sitemap } = (await import("@/app/sitemap")) as { default: () => MetadataRoute.Sitemap };
+    const entry = sitemap().find((e) => e.url === "https://elclub.party/herramientas/avales");
+    expect(entry?.alternates?.languages).toEqual({ es: "https://elclub.party/herramientas/avales", en: "https://elclub.party/en/tools/vouches" });
+
+    const { default: robots } = (await import("@/app/robots")) as { default: () => MetadataRoute.Robots };
+    const r = robots();
+    const all = (Array.isArray(r.rules) ? r.rules : [r.rules]).find((x) => x.userAgent === "*")!;
+    // Google's rule: the longest matching pattern wins, allow on a tie.
+    const toRe = (p: string) => new RegExp("^" + p.replace(/[.+?^{}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*"));
+    const best = (patterns: string[], path: string) => Math.max(-1, ...patterns.filter((p) => toRe(p).test(path)).map((p) => p.length));
+    for (const path of ["/herramientas/avales", "/en/tools/vouches"]) {
+      const allow = best([all.allow ?? []].flat(), path);
+      const disallow = best([all.disallow ?? []].flat(), path);
+      expect(allow >= 0 && allow >= disallow, path).toBe(true);
+    }
   });
 });

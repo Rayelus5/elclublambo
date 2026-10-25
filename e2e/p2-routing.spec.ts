@@ -108,3 +108,20 @@ test("a member at /donar sees the public page with «Dona desde el club» → /f
   await expect(page.locator("div[lang='es']:visible")).toHaveCount(0);
   await context.close();
 });
+
+// P5: the vouches tool, in both languages; the wrong language's segment is not a page.
+for (const path of ["/herramientas/avales", "/en/tools/vouches"]) {
+  test(`anonymous: ${path} answers 200 in place (public page)`, async ({ page }) => {
+    const res = await page.goto(path);
+    expect(res?.status()).toBe(200);
+    expect(new URL(page.url()).pathname).toBe(path);
+    await expect(page.locator("div[lang]")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  });
+}
+
+test("/es/tools/vouches redirects (308) to /herramientas/avales", async ({ request }) => {
+  const res = await request.get("/es/tools/vouches", { maxRedirects: 0 });
+  expect(res.status()).toBe(308);
+  expect(new URL(res.headers()["location"] ?? "", "http://localhost").pathname).toBe("/herramientas/avales");
+});

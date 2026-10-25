@@ -13,7 +13,8 @@ export type RouteKey =
   | "payReceipt"
   | "checker"
   | "checkerApi"
-  | "donate";
+  | "donate"
+  | "vouches";
 
 type Params = { id?: string; target?: string; chainId?: string | number; hash?: string };
 
@@ -36,6 +37,7 @@ const SEGMENTS: Record<string, Record<Lang, string>> = {
   donate: { es: "donar", en: "donate" },
   checker: { es: "comprobador", en: "checker" },
   api: { es: "api", en: "api" },
+  vouches: { es: "avales", en: "vouches" },
 };
 
 const ROUTES: Record<RouteKey, string[]> = {
@@ -51,6 +53,7 @@ const ROUTES: Record<RouteKey, string[]> = {
   donate: ["donate"],
   checker: ["tools", "checker"],
   checkerApi: ["tools", "checker", "api"],
+  vouches: ["tools", "vouches"],
 };
 
 function split(pathname: string): string[] {
@@ -77,7 +80,7 @@ function isValidInternal(segs: string[], strictId = true): boolean {
   if (segs.length === 0) return true;
   if (segs[0] === "pay") return isValidPay(segs);
   if (segs.length === 1) return segs[0] === "start" || segs[0] === "tools" || segs[0] === "donate";
-  if (segs[0] === "tools" && segs[1] === "pay") return segs.length === 2;
+  if (segs[0] === "tools" && (segs[1] === "pay" || segs[1] === "vouches")) return segs.length === 2;
   if (segs[0] === "tools" && segs[1] === "checker") return segs.length === 2 || (segs.length === 3 && segs[2] === "api");
   if (segs[0] !== "tools" || segs[1] !== "giveaways") return false;
   if (segs.length === 2) return true;
