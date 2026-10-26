@@ -21,16 +21,45 @@ export function shouldShowIntro(i: { pathname: string; seen: boolean; reducedMot
   return (INTRO_PATHS as readonly string[]).includes(normalise(i.pathname));
 }
 
+declare global {
+  interface Window {
+    /** A press on the overlay that the boot script caught before <IntroGate> hydrated. */
+    __elclubIntro?: { x: number; y: number };
+    /** Detaches the boot script's early pointerdown listener. */
+    __elclubIntroOff?: () => void;
+  }
+}
+
 /**
  * Source of the inline boot script: the same rule as shouldShowIntro, self-contained. A throwing localStorage (blocked
- * private mode) counts as "not seen": the intro shows and can be passed, it just is not remembered.
+ * private mode) counts as "not seen": the intro shows and can be passed, it just is not remembered. With reduced motion
+ * the intro does not show and the visit counts as made (spec).
+ *
+ * The overlay paints with the HTML but its handlers only exist once the bundle hydrates (1–3 s on a phone on mobile
+ * data): when the intro shows, a capture pointerdown listener records the first primary press on the overlay (not on a
+ * link, «Saltar» is one) in window.__elclubIntro and removes itself. <IntroGate> detaches it with
+ * window.__elclubIntroOff and replays that press (takeEarlyTap).
  */
 export function introBootScript(): string {
+  const key = JSON.stringify(INTRO_KEY);
   return `(function(){try{var p=location.pathname;if(p.length>1&&p.charAt(p.length-1)==="/")p=p.slice(0,-1);if(${JSON.stringify(
     INTRO_PATHS,
-  )}.indexOf(p)<0)return;var s=false;try{s=localStorage.getItem(${JSON.stringify(
-    INTRO_KEY,
-  )})==="1"}catch(e){}if(s)return;if(typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion: reduce)").matches)return;document.documentElement.dataset.intro="on"}catch(e){}})();`;
+  )}.indexOf(p)<0)return;var s=false;try{s=localStorage.getItem(${key})==="1"}catch(e){}if(s)return;if(typeof matchMedia==="function"&&matchMedia("(prefers-reduced-motion: reduce)").matches){try{localStorage.setItem(${key},"1")}catch(e){}return}var d=document;d.documentElement.dataset.intro="on";var off=function(){d.removeEventListener("pointerdown",early,true)};function early(e){var t=e.target;if(e.button!==0||!t||!t.closest||!t.closest("[data-intro-overlay]")||t.closest("a"))return;window.__elclubIntro={x:e.clientX,y:e.clientY};off()}d.addEventListener("pointerdown",early,true);window.__elclubIntroOff=off}catch(e){}})();`;
+}
+
+/** Detaches the boot script's early listener and returns (once) the press it caught before hydration, if any. */
+export function takeEarlyTap(): { x: number; y: number } | null {
+  const w = window;
+  const off = w.__elclubIntroOff;
+  delete w.__elclubIntroOff;
+  try {
+    off?.();
+  } catch {
+    // Nothing to detach.
+  }
+  const tap = w.__elclubIntro ?? null;
+  delete w.__elclubIntro;
+  return tap;
 }
 
 /** Remembers the visit. Never throws: a blocked storage only means the intro shows again next time. */

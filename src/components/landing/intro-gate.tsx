@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type MouseEvent, type PointerEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useSyncExternalStore, type MouseEvent, type PointerEvent } from "react";
 import { getDictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
-import { gridFor, markIntroSeen, waveDelays } from "@/lib/landing/intro";
+import { gridFor, markIntroSeen, takeEarlyTap, waveDelays } from "@/lib/landing/intro";
 
 /*
  * First-visit intro of the public home (spec «1. Entrada interactiva», mockup intro-v2 variant C · Ola de giros):
@@ -72,6 +72,16 @@ export function IntroGate({ lang }: { lang: Lang }) {
     }
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+  }, [shown]);
+
+  // A press made before hydration (the boot script caught it): play from there, so the first tap is never lost. The
+  // `started` ref absorbs a duplicate (React replaying the same click, the StrictMode double effect).
+  const replayEarlyTap = useEffectEvent(() => {
+    const tap = takeEarlyTap();
+    if (tap) start(tap);
+  });
+  useEffect(() => {
+    if (shown) replayEarlyTap();
   }, [shown]);
 
   if (!shown) return null;

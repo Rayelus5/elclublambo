@@ -38,6 +38,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  delete window.__elclubIntro;
+  delete window.__elclubIntroOff;
   delete html.dataset.intro;
   Element.prototype.animate = originalAnimate;
   setItem.mockRestore();
@@ -55,6 +57,35 @@ async function expectRevealed(watch: ReturnType<typeof watchIntro>) {
 }
 
 describe("IntroGate", () => {
+  it("replays a press the boot script caught before hydration, and detaches its listener", async () => {
+    const off = vi.fn();
+    window.__elclubIntroOff = off;
+    window.__elclubIntro = { x: 40, y: 60 };
+    const watch = watchIntro();
+    render(<Page />);
+    expect(off).toHaveBeenCalledOnce();
+    expect(window.__elclubIntro).toBeUndefined();
+    expect(window.__elclubIntroOff).toBeUndefined();
+    await expectRevealed(watch);
+  });
+
+  it("a later click after the replay does not start the intro twice", async () => {
+    window.__elclubIntro = { x: 40, y: 60 };
+    const watch = watchIntro();
+    render(<Page />);
+    fireEvent.click(screen.getByRole("button", { name: "Entrar en ElClub." }));
+    await expectRevealed(watch);
+    expect(setItem.mock.calls.filter((call: unknown[]) => call[0] === INTRO_KEY)).toHaveLength(1);
+  });
+
+  it("detaches the boot listener on show even without an early press", () => {
+    const off = vi.fn();
+    window.__elclubIntroOff = off;
+    render(<Page />);
+    expect(off).toHaveBeenCalledOnce();
+    expect(html.dataset.intro).toBe("on");
+  });
+
   it("names the full-screen button for assistive tech", () => {
     render(<Page />);
     expect(screen.getByRole("button", { name: "Entrar en ElClub." })).toBeInTheDocument();
