@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useAppKit } from "@reown/appkit/react";
 import { CircleAlert, CircleCheck, Info, Layers, Loader2, Plug, RefreshCw, RotateCcw, Send, TriangleAlert } from "lucide-react";
 import { NetworkPicker } from "@/components/economy/network-picker";
@@ -83,9 +83,21 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
     return () => clearInterval(timer);
   }, []);
 
-  // «Repartir gastos» on this same page links to #envio=…: a new list in the fragment replaces the text.
+  // While a run is in progress the list on screen is the one being signed: no fragment, typing or network change
+  // replaces it (the run itself signs the lines it was started with either way).
+  const runningRef = useRef(ms.running);
+  useEffect(() => {
+    runningRef.current = ms.running;
+  }, [ms.running]);
+  const pickChain = (next: ChainId) => {
+    if (!ms.running) setChain(next);
+  };
+
+  // «Repartir gastos» on this same page links to #envio=…: a new list in the fragment replaces the text, except
+  // during a run (then it is ignored; «Enviar» in Repartir gastos can be pressed again afterwards).
   useEffect(() => {
     const onHash = () => {
+      if (runningRef.current) return;
       const next = decodeLines(window.location.hash);
       if (next !== null) setText(next);
     };
@@ -230,7 +242,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
       ) : null}
 
       <section aria-labelledby={`${id}-list`} className="flex min-w-0 flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
-        <NetworkPicker value={chain} onChange={setChain} chains={chains} label={t.form.network} />
+        <NetworkPicker value={chain} onChange={pickChain} chains={chains} label={t.form.network} />
         <div className="flex flex-col gap-2">
           <label id={`${id}-list`} htmlFor={`${id}-text`} className="text-sm font-bold text-fg">
             {t.form.label}
@@ -238,7 +250,10 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
           <textarea
             id={`${id}-text`}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              if (!ms.running) setText(e.target.value);
+            }}
+            readOnly={ms.running}
             rows={6}
             placeholder={"0x…, 12,5"}
             autoComplete="off"

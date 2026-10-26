@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -181,6 +181,32 @@ describe("MultisendForm", () => {
     window.location.hash = encodeLines(LIST);
     setup();
     expect(screen.getByRole("textbox", { name: t.form.label })).toHaveValue(LIST);
+  });
+
+  it("while a run is in progress, a new #envio= (Repartir gastos or typed by hand), the textarea and the network do not change the list", async () => {
+    window.location.hash = encodeLines(LIST);
+    const { user, rerender } = setup();
+    const box = () => screen.getByRole("textbox", { name: t.form.label });
+    hook.value = { ...hook.value, running: true };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    await act(async () => {
+      window.location.hash = encodeLines(`${D},1`);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(box()).toHaveValue(LIST);
+    expect(box()).toHaveAttribute("readonly");
+    await user.type(box(), "x");
+    expect(box()).toHaveValue(LIST);
+    await user.click(screen.getAllByRole("radio")[1]!);
+    expect(screen.getAllByRole("radio")[0]).toHaveAttribute("aria-checked", "true");
+    // Once the run ends, a new fragment replaces the list as before.
+    hook.value = { ...hook.value, running: false };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    window.location.hash = encodeLines(`${D},2`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(box()).toHaveValue(`${D},2`));
+    expect(box()).not.toHaveAttribute("readonly");
   });
 
   it("in atomic mode: «Tu wallet lo enviará en una sola operación.»", async () => {
