@@ -77,8 +77,14 @@ describe("proxy on /start", () => {
   });
 
   it("still sends an anonymous visitor of a private page to /foro/login", async () => {
-    const res = await call("/startx");
+    const res = await call("/foro/startx");
     expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
+  });
+
+  it("an unknown look-alike (/startx) is the custom 404, not the login (I1)", async () => {
+    const res = await call("/startx");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("location")).toBeNull();
   });
 });
 
