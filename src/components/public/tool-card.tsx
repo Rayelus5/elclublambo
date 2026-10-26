@@ -11,8 +11,8 @@ interface Props {
   /** Present: an active tool that links. Absent: a card that is not a link («coming soon» or switched off). */
   href?: string;
   /**
-   * A tool switched off from Administración (A-R16): no link, the icon and the description dimmed. The status label
-   * and the name keep full contrast, so the state reads in text (AA) and not only through the fade.
+   * A tool switched off from Administración (A-R16): no link, a dashed border and the icon dimmed. Every text keeps
+   * AA contrast (no fade on text), so the state reads in the status label and not only through the fade.
    */
   dimmed?: boolean;
 }
@@ -41,7 +41,8 @@ export function ToolCard({ icon: Icon, name, text, status, href, dimmed = false 
         </span>
       </span>
       <span className="font-display text-lg font-bold text-fg">{name}</span>
-      <span className={`text-base text-fg-muted${fade}`}>{text}</span>
+      {/* No fade on the description: fg-muted at 60 % falls under AA (4.0:1 on surface); fg-muted alone is 9.2:1. */}
+      <span className="text-base text-fg-muted">{text}</span>
       {href ? <ArrowRight aria-hidden className="mt-auto size-5 text-accent" /> : null}
     </>
   );

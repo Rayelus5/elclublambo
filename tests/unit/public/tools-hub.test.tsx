@@ -9,6 +9,7 @@ vi.mock("@/components/public/public-connect-lazy", () => ({ PublicConnectLazy: (
 
 import { ToolGrid } from "@/components/public/tool-grid";
 import type { ToolKey } from "@/lib/admin/state";
+import { colors, contrastRatio } from "@/styles/tokens";
 import { MyGiveaways } from "@/components/public-giveaways/my-giveaways";
 
 const ID = "123e4567-e89b-12d3-a456-426614174000";
@@ -68,6 +69,19 @@ describe("tools hub", () => {
     expect(card.querySelector("a")).toBeNull();
     expect(screen.getAllByRole("link")).toHaveLength(6);
     expect(screen.getAllByText("Available")).toHaveLength(6);
+  });
+  it("a switched-off card keeps its texts at AA: no fade stacked on the muted description (Task 8 minor)", () => {
+    renderGrid("en", new Set<ToolKey>(["gas"]));
+    const card = screen.getByText("Gas calculator").closest("li")!;
+    const texts = [screen.getByText("What a transaction costs right now on Base and Arbitrum."), screen.getByText("Gas calculator"), screen.getByText("Not available right now")];
+    // Neither the text nor any box up to the card fades it.
+    for (const t of texts) {
+      for (let el: HTMLElement | null = t; el && el !== card.parentElement; el = el.parentElement) {
+        expect(el.className.split(/\s+/).some((c) => c.startsWith("opacity-"))).toBe(false);
+      }
+    }
+    expect(texts[0]!.className.split(/\s+/)).toContain("text-fg-muted");
+    expect(contrastRatio(colors.fgMuted, colors.surface)).toBeGreaterThanOrEqual(4.5);
   });
   it("ES: a tool switched off reads «No disponible ahora»", () => {
     renderGrid("es", new Set<ToolKey>(["gas"]));
