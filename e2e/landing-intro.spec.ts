@@ -158,3 +158,50 @@ test("footer: social links and the language switch", async ({ page }) => {
   await footer.getByRole("link", { name: "en", exact: true }).click();
   await expect(page).toHaveURL(/\/en\/tools$/);
 });
+
+test("tap before hydration: one tap reveals the landing and marks it seen", async ({ page }) => {
+  // Hold every JS chunk back (until the tap) so the server-rendered overlay is tapped before React exists.
+  let tapped = false;
+  await page.route("**/_next/static/chunks/**", async (route) => {
+    for (let i = 0; i < 200 && !tapped; i++) await new Promise((r) => setTimeout(r, 50));
+    await route.continue().catch(() => {});
+  });
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/", { waitUntil: "commit" });
+  await expect(overlay(page)).toBeVisible({ timeout: 60_000 });
+  await page.mouse.click(375 * 0.8, 812 * 0.6);
+  tapped = true;
+  await expectRevealed(page);
+  expect(await page.evaluate(() => localStorage.getItem("elclub-intro-seen"))).toBe("1");
+});
+
+test("leaving the home with the gate up: html[data-intro] goes and the page scrolls", async ({ page }) => {
+  await page.goto("/");
+  await hydrated(page);
+  await page.evaluate(() => document.querySelector<HTMLAnchorElement>('footer a[href="/herramientas"], header a[href="/herramientas"]')?.click());
+  await expect(page).toHaveURL(/\/herramientas$/);
+  await expect(page.locator("html")).not.toHaveAttribute("data-intro", /.*/);
+  // The previous route may stay mounted but hidden (Activity), so check visibility, not presence.
+  await expect(overlay(page)).toBeHidden();
+  await page.mouse.wheel(0, 400);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+});
+
+test("reduced motion: no overlay and the visit is marked seen", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  await expect(overlay(page)).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("elclub-intro-seen"))).toBe("1");
+});
+
+test("client navigation into the home logs no React script-tag error", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error" || m.type() === "warning") errors.push(m.text());
+  });
+  await page.goto("/herramientas");
+  await page.getByRole("banner").getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1, name: H1 })).toBeVisible();
+  expect(errors.filter((e) => e.includes("script tag"))).toEqual([]);
+});
