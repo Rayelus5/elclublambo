@@ -47,7 +47,7 @@ export function Hero({ t }: { t: StartDict }) {
 
   return (
     <section ref={section} aria-labelledby="start-hero" className="relative motion-safe:h-[200svh]">
-      <div ref={stage} className="sticky top-0 flex h-svh min-h-[34rem] flex-col overflow-hidden">
+      <div ref={stage} className="sticky top-(--mnt-banner-h) flex h-[calc(100svh-var(--mnt-banner-h))] min-h-[34rem] flex-col overflow-hidden">
         {/* Layer 0: the grid, slower than the page. */}
         <m.div
           aria-hidden

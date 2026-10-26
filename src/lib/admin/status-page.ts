@@ -18,15 +18,40 @@ export const STATUS_FETCH_HEADER = "x-elclub-status";
 const FETCH_TIMEOUT_MS = 2000;
 const MAX_TTL_MS = 5000;
 
-const cache = new Map<string, { at: number; page: StatusPage }>();
+// `page: null` = un fallo reciente (caché negativa): se vuelve al rewrite sin pedir ni loguear otra vez.
+const cache = new Map<string, { at: number; page: StatusPage | null }>();
 
 export function __resetStatusPageCache(): void {
   cache.clear();
 }
 
-/** La petición interna del proxy a /status/* (pasa sin puerta, para no entrar en bucle). */
-export function isInternalStatusRequest(pathname: string, headers: Headers): boolean {
-  return isStatusPath(pathname) && headers.get(STATUS_FETCH_HEADER) === "1";
+/** La petición interna del proxy a /status/* (solo GET/HEAD; pasa sin puerta, para no entrar en bucle). */
+export function isInternalStatusRequest(pathname: string, method: string, headers: Headers): boolean {
+  return (method === "GET" || method === "HEAD") && isStatusPath(pathname) && headers.get(STATUS_FETCH_HEADER) === "1";
+}
+
+const LOOPBACK = new Set(["0.0.0.0", "127.0.0.1", "localhost", "[::]", "[::1]"]);
+
+/**
+ * Adónde se pide el proxy a sí mismo:
+ * - `INTERNAL_ORIGIN`, si es una URL http(s) válida;
+ * - si la petición llega a una dirección de escucha o de loopback (PRE detrás del túnel: Next construye
+ *   `https://0.0.0.0:3000` porque cloudflared manda `X-Forwarded-Proto: https`, pero escucha en http), siempre
+ *   `http://127.0.0.1:<puerto>`;
+ * - si no (Vercel), el origen de la petición.
+ */
+export function statusFetchOrigin(nextUrl: URL, env: Record<string, string | undefined> = process.env): string {
+  const configured = env.INTERNAL_ORIGIN?.trim();
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (url.protocol === "http:" || url.protocol === "https:") return url.origin;
+    } catch {
+      // Inválida: se ignora.
+    }
+  }
+  if (LOOPBACK.has(nextUrl.hostname)) return `http://127.0.0.1:${nextUrl.port || env.PORT || 3000}`;
+  return nextUrl.origin;
 }
 
 type Input = {
@@ -41,7 +66,7 @@ type Input = {
 /**
  * El HTML de /status/{lang}/{kind}, pedido al propio origen. Se guarda en memoria hasta 5 s por idioma y tipo (la CSP es
  * estática, sin nonce, así que el HTML no depende de la petición); con SITE_STATE_TTL_MS=0 (e2e) no se guarda. Cualquier
- * fallo (red, tiempo, no 2xx) devuelve null y deja un solo log con el código.
+ * fallo (red, tiempo, no 2xx) devuelve null, deja un log con el código y se recuerda el mismo tiempo (un log por ventana).
  */
 export async function fetchStatusPage({ origin, lang, kind, acceptLanguage, fetcher = fetch, now = Date.now() }: Input): Promise<StatusPage | null> {
   const ttl = Math.min(siteStateTtlMs(), MAX_TTL_MS);
@@ -63,6 +88,7 @@ export async function fetchStatusPage({ origin, lang, kind, acceptLanguage, fetc
     return page;
   } catch (e) {
     console.error("[status-page] fetch failed", safeError(e));
+    if (ttl > 0) cache.set(key, { at: now, page: null });
     return null;
   }
 }

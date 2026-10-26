@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -57,5 +59,19 @@ describe("MaintenanceBanner (A-R15)", () => {
     pathname.value = "/herramientas";
     const { container } = render(<MaintenanceBanner />);
     expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("what the banner pushes down (the /start landing)", () => {
+  const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8");
+
+  it.each(["src/components/start/hero.tsx", "src/components/start/noise-to-signal.tsx"])("the pinned section of %s sits below it", (file) => {
+    const src = read(file);
+    expect(src).not.toMatch(/sticky top-0\b/);
+    expect(src).toContain("sticky top-(--mnt-banner-h)");
+  });
+
+  it("the scroll-progress bar sits below it", () => {
+    expect(read("src/components/start/start-landing.tsx")).toMatch(/fixed inset-x-0 top-\(--mnt-banner-h\)/);
   });
 });

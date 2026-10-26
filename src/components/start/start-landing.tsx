@@ -18,7 +18,7 @@ function ScrollProgress() {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 200, damping: 40, restDelta: 0.001 });
   if (!on) return null;
-  return <m.div aria-hidden style={{ scaleX }} className="fixed inset-x-0 top-0 z-50 h-0.5 origin-left bg-accent" />;
+  return <m.div aria-hidden style={{ scaleX }} className="fixed inset-x-0 top-(--mnt-banner-h) z-50 h-0.5 origin-left bg-accent" />;
 }
 
 /** The public landing (/start, /en/start): what ElClub. is, for whoever has no invitation yet. The shared PublicFooter closes the page. */

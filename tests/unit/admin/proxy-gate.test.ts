@@ -49,8 +49,8 @@ const state = (over: { maintenance?: Partial<SiteState["maintenance"]>; switches
 });
 const MAINTENANCE = state({ maintenance: { enabled: true } });
 
-const req = (path: string, init: { method?: string; headers?: Record<string, string> } = {}) =>
-  proxy(new NextRequest(`http://localhost:3000${path}`, { method: init.method ?? "GET", headers: init.headers }));
+const req = (path: string, init: { method?: string; headers?: Record<string, string>; origin?: string } = {}) =>
+  proxy(new NextRequest(`${init.origin ?? "http://localhost:3000"}${path}`, { method: init.method ?? "GET", headers: init.headers }));
 
 const member = (wallet: string) => ({
   id: `u-${wallet.slice(2, 6)}`,
@@ -259,7 +259,7 @@ describe("proxy: real 503 status pages (self-fetch)", () => {
     expect(res.headers.get("set-cookie")).toMatch(/elclub-mnt=;/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
-    expect(String(url)).toBe("http://localhost:3000/status/es/maintenance");
+    expect(String(url)).toBe("http://127.0.0.1:3000/status/es/maintenance");
     const headers = new Headers(init?.headers);
     expect(headers.get("x-elclub-status")).toBe("1");
     expect(headers.get("accept-language")).toBe("es-ES,es;q=0.9");
@@ -276,7 +276,7 @@ describe("proxy: real 503 status pages (self-fetch)", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
     expect(res.headers.get("retry-after")).toBeNull();
-    expect(String(fetchMock.mock.calls[0]![0])).toBe("http://localhost:3000/status/en/unavailable");
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("http://127.0.0.1:3000/status/en/unavailable");
   });
 
   it("HEAD: same status and headers, no body", async () => {
@@ -333,6 +333,33 @@ describe("proxy: real 503 status pages (self-fetch)", () => {
     expect(res.status).toBe(200);
     expect(rewriteOf(res)).toBe("");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("PRE behind the tunnel (https://0.0.0.0:3000): fetches over http on 127.0.0.1 and answers 503", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    const res = await req("/herramientas", { origin: "https://0.0.0.0:3000" });
+    expect(res.status).toBe(503);
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("http://127.0.0.1:3000/status/es/maintenance");
+  });
+
+  it("a real host fetches its own origin; INTERNAL_ORIGIN overrides it", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    await req("/herramientas", { origin: "https://www.elclub.party" });
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("https://www.elclub.party/status/es/maintenance");
+    vi.stubEnv("INTERNAL_ORIGIN", "http://web:3000");
+    await req("/herramientas", { origin: "https://0.0.0.0:3000" });
+    expect(String(fetchMock.mock.calls[1]![0])).toBe("http://web:3000/status/es/maintenance");
+  });
+
+  it("the internal header ungates neither another path nor a POST", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    const page = await req("/herramientas", { headers: { "x-elclub-status": "1" } });
+    expect(page.status).toBe(503);
+    const post = await req("/status/es/maintenance", { method: "POST", headers: { "x-elclub-status": "1" } });
+    expect(post.status).toBe(404);
   });
 
   it("still 404s /status without the internal header (or with another value)", async () => {

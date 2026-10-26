@@ -21,12 +21,12 @@ import { isMaintenanceActive, retryAfterSeconds } from "@/lib/admin/state";
 import { gateDecision } from "@/lib/admin/gate";
 import { statusLang } from "@/lib/admin/paths";
 import { MAINTENANCE_BANNER_COOKIE, maintenanceAccess } from "@/lib/admin/access";
-import { fetchStatusPage, isInternalStatusRequest } from "@/lib/admin/status-page";
+import { fetchStatusPage, isInternalStatusRequest, statusFetchOrigin } from "@/lib/admin/status-page";
 
 export async function proxy(request: NextRequest) {
   // The proxy's own fetch of a status page (x-elclub-status: 1, see below): served as it is, ungated, so it cannot loop.
   // Without the header /status/* stays a 404; forging it only shows the status page, which opens nothing.
-  if (isInternalStatusRequest(request.nextUrl.pathname, request.headers)) return NextResponse.next();
+  if (isInternalStatusRequest(request.nextUrl.pathname, request.method, request.headers)) return NextResponse.next();
 
   // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
   // the same path and query, before anything else: no session read, no gate. On the public origin (behind the tunnel
@@ -131,7 +131,7 @@ export async function proxy(request: NextRequest) {
       // page from its own origin and answers it with a real 503. If that fails, the rewrite still shows the page.
       const lang = statusLang(pathname, request.headers.get("accept-language"));
       const kind = maintenance ? "maintenance" : "unavailable";
-      const page = await fetchStatusPage({ origin: request.nextUrl.origin, lang, kind, acceptLanguage: request.headers.get("accept-language") });
+      const page = await fetchStatusPage({ origin: statusFetchOrigin(request.nextUrl), lang, kind, acceptLanguage: request.headers.get("accept-language") });
       if (page) {
         res = new NextResponse(request.method === "HEAD" ? null : page.body, { status: 503, headers: { ...headers, "Content-Type": page.contentType } });
       } else {

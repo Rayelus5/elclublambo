@@ -21,6 +21,8 @@ vi.mock("@/lib/navigation/hard-navigate", () => ({ hardReload, hardNavigate: vi.
 vi.mock("@/lib/auth/siwe-sign-in", () => ({ signInWithWallet }));
 
 import { TeamAccess } from "@/components/status/team-access";
+// Warm the wallet step that TeamAccess loads with next/dynamic: under a loaded full run the cold import can outlast findBy*.
+import "@/components/status/team-access-sign";
 import { getDictionary } from "@/lib/i18n";
 
 const es = getDictionary("es");
