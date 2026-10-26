@@ -9,7 +9,7 @@ import { localizedPath, type RouteKey } from "@/lib/i18n/routes";
 
 type Card = { key: ToolKey; icon: LucideIcon; copy: "giveaways" | "pay" | "checker" | "guarantees" | "approvals" | "multisend" | "gas"; route: RouteKey };
 
-const CARDS: readonly Card[] = [
+export const CARDS: readonly Card[] = [
   { key: "giveaways", icon: Gift, copy: "giveaways", route: "giveaways" },
   { key: "pay", icon: Wallet, copy: "pay", route: "payTool" },
   { key: "checker", icon: ScanSearch, copy: "checker", route: "checker" },

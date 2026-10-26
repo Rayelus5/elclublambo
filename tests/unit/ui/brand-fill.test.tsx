@@ -72,6 +72,9 @@ describe("brand fill (Base Blue + white) vs Cerulean", () => {
       join("src", "app", "globals.css"),
       join("src", "styles", "tokens.ts"),
       join("public", "brand", "networks", "base.svg"),
+      // ElClub.'s own logo is drawn in Base Blue (it is the owner's mark, not a token).
+      join("public", "brand", "logo", "elclub-logo-1.svg"),
+      join("public", "brand", "logo", "elclub-logo-2.svg"),
     ]);
     const blue = /#0000ff\b|#00f\b|rgba?\(\s*0\s*,\s*0\s*,\s*255\s*[,)]/i;
     const files = [...walk(join(ROOT, "src")), ...walk(join(ROOT, "public"))].filter((p) => !/\.(png|ico|woff2?|jpe?g|webp)$/i.test(p));
