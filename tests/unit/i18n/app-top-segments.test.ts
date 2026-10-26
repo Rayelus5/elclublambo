@@ -29,7 +29,7 @@ function scanApp(dir: string, out: Set<string>, atRoot: boolean): void {
 }
 
 // What the proxy matcher leaves out (src/proxy.ts config.matcher): never reaches the proxy.
-const MATCHER_EXCLUDED = /^(?:favicon\.ico|sw\.js)$|\.(?:svg|png|jpg|jpeg|gif|webp|ico)$/;
+const MATCHER_EXCLUDED = /^(?:favicon\.ico|sw\.js)$/;
 
 function scan(): string[] {
   const out = new Set<string>();

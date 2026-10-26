@@ -210,6 +210,9 @@ export async function proxy(request: NextRequest) {
   return remember(response);
 }
 
+// Only Next's own assets and the files that really exist in public/ (the service worker and the brand SVGs) skip the
+// proxy. An extension is no exemption: /foro/x.png is a dynamic route like any other and goes through every gate (M1).
+// tests/unit/admin/proxy-matcher.test.ts checks this list against public/.
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|sw\\.js$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$).*)"],
 };
