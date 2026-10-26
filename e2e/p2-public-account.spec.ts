@@ -12,7 +12,7 @@ test.describe.configure({ mode: "serial" });
 const desktop = { width: 1280, height: 900 };
 const outsider = hardhatAccount(11);
 const member = hardhatAccount(12);
-const LANDING_H1 = "Herramientas cripto honestas, verificables y gratis.";
+const LANDING_H1 = "Herramientas cripto gratis y seguras";
 
 const THIRD_PARTY_TELEMETRY = "https://pulse.walletconnect.org/";
 const browserErrors: string[] = [];

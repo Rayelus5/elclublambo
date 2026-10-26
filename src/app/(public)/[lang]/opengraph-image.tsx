@@ -5,7 +5,7 @@ import { colors } from "@/styles/tokens";
 
 // The landing's share card, per language, from the app's own fonts and tokens (no external origin). Language-neutral
 // alt: a static export cannot depend on [lang]; the page's title and description carry the localized text.
-export const alt = "ElClub. Herramientas cripto honestas, verificables y gratis / Honest, verifiable, free crypto tools.";
+export const alt = "ElClub. Herramientas cripto gratis y seguras / Free and safe crypto tools";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

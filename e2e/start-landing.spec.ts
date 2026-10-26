@@ -141,7 +141,7 @@ test("/en/start answers 200 in English, links to the English tools and keeps the
   expect(res?.status()).toBe(200);
   expect(new URL(page.url()).pathname).toBe("/en/start");
   await expect(page.getByRole("heading", { level: 1, name: "ElClub." })).toBeVisible();
-  await expect(page.getByText("The private forum for people serious about crypto.")).toBeVisible();
+  await expect(page.getByText("A private crypto forum for every level")).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", "https://www.elclub.party/en/start");
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
   expect(await horizontalOverflow(page)).toBe(0);
