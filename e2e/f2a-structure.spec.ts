@@ -67,7 +67,8 @@ async function expectNotFound(page: Page, path: string) {
   notFoundPaths.push(path);
   const response = await page.goto(path);
   expect(response?.status()).toBe(404);
-  await expect(page.getByText("This page could not be found.")).toBeVisible();
+  // A-R14: the forum variant of the custom 404.
+  await expect(page.getByRole("heading", { name: "Este rincón del foro no existe" })).toBeVisible();
 }
 
 const channelsNav = (page: Page) => page.getByRole("navigation", { name: "Canales" });
