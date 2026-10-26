@@ -20,6 +20,7 @@ export const en = {
     errVerify: "We could not verify the signature. Try again.",
     errCancelled: "Signature cancelled.",
     errSwitch: "Could not switch network.",
+    errRegistrationClosed: "Account registration is closed right now.",
     goForum: "Go to the forum",
     account: "Your account",
     language: "Language",

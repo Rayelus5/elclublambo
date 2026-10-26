@@ -20,6 +20,7 @@ export const es = {
     errVerify: "No se pudo verificar la firma. Inténtalo de nuevo.",
     errCancelled: "Firma cancelada.",
     errSwitch: "No se pudo cambiar de red.",
+    errRegistrationClosed: "El registro de cuentas está cerrado ahora.",
     goForum: "Ir al foro",
     account: "Tu cuenta",
     language: "Idioma",

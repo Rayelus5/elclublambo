@@ -10,6 +10,8 @@ const switchChain = vi.hoisted(() => vi.fn());
 const open = vi.hoisted(() => vi.fn());
 const signInWithWeb3 = vi.hoisted(() => vi.fn());
 const hardNavigate = vi.hoisted(() => vi.fn());
+const signOut = vi.hoisted(() => vi.fn());
+const gate = vi.hoisted(() => vi.fn());
 
 vi.mock("wagmi", () => ({
   useAccount: () => account,
@@ -18,7 +20,9 @@ vi.mock("wagmi", () => ({
   useDisconnect: () => ({ disconnect: vi.fn() }),
 }));
 vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open }) }));
-vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ auth: { signInWithWeb3 } }) }));
+vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ auth: { signInWithWeb3, signOut } }) }));
+// A-R13: the server action that deletes a new account while registration is closed, asked before navigating.
+vi.mock("@/lib/admin/registration-actions", () => ({ publicRegistrationGate: gate }));
 // A full navigation to /login/complete, not a server action: signing in on the landing at / turns a member's / into the
 // forum mid-request, so an action posted from / would no longer reach the page that holds it.
 vi.mock("@/lib/navigation/hard-navigate", () => ({ hardNavigate }));
@@ -33,6 +37,8 @@ beforeEach(() => {
   account.isConnected = true;
   signMessageAsync.mockResolvedValue("0xsig");
   signInWithWeb3.mockResolvedValue({ data: {}, error: null });
+  signOut.mockResolvedValue({ error: null });
+  gate.mockResolvedValue({ ok: true });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -80,6 +86,35 @@ describe("PublicConnect", () => {
     await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
     expect(await screen.findByRole("alert")).toBeInTheDocument();
     expect(hardNavigate).not.toHaveBeenCalled();
+  });
+});
+
+describe("PublicConnect with registration closed (A-R13)", () => {
+  it("shows the closed message, signs out locally and does not navigate", async () => {
+    gate.mockResolvedValue({ ok: false, error: "registration_closed" });
+    render(<PublicConnect lang="es" next="/herramientas" />);
+    await userEvent.click(screen.getByRole("button", { name: /Firmar/ }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("El registro de cuentas está cerrado ahora.");
+    expect(signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(hardNavigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /Firmar/ })).toBeEnabled();
+  });
+
+  it("asks the gate after signing and before navigating when it is open", async () => {
+    render(<PublicConnect lang="en" next="/en/tools" />);
+    await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
+    await waitFor(() => expect(hardNavigate).toHaveBeenCalledWith("/foro/login/complete?mode=public&next=%2Fen%2Ftools"));
+    expect(gate).toHaveBeenCalledTimes(1);
+    expect(signInWithWeb3.mock.invocationCallOrder[0]).toBeLessThan(gate.mock.invocationCallOrder[0]!);
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("a failed sign-in never asks the gate", async () => {
+    signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
+    render(<PublicConnect lang="en" next="/en/tools" />);
+    await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
+    await screen.findByRole("alert");
+    expect(gate).not.toHaveBeenCalled();
   });
 });
 

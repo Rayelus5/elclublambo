@@ -5,11 +5,13 @@ import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { publicRegistrationGate } from "@/lib/admin/registration-actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
 import { signInWithWallet } from "@/lib/auth/siwe-sign-in";
 import { clubPath } from "@/lib/club/paths";
 import { getDictionary } from "@/lib/i18n";
 import { hardNavigate } from "@/lib/navigation/hard-navigate";
+import { createBrowserClient } from "@/lib/supabase/browser";
 import type { Lang } from "@/lib/i18n/config";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
@@ -40,6 +42,16 @@ export function PublicConnect({ lang, next, variant }: Props) {
       const result = await signInWithWallet({ address, chainId: loginChain, lang, sign: (message) => signMessageAsync({ message }) });
       if (!result.ok) {
         setError(result.error === "cancelled" ? c.errCancelled : c.errVerify);
+        return;
+      }
+      // A-R13: a new account made while registration is closed is deleted on the server; drop the local session too and
+      // say so here, before navigating. If the action itself fails, /login/complete enforces the same rule.
+      const gate = await publicRegistrationGate().catch(() => ({ ok: true }) as const);
+      if (!gate.ok) {
+        await createBrowserClient()
+          .auth.signOut({ scope: "local" })
+          .catch(() => {});
+        setError(c.errRegistrationClosed);
         return;
       }
       // P2-R16 hand-off through /foro/login/complete (completeLogin in public mode), a full navigation rather than a server
