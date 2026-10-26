@@ -114,6 +114,9 @@ test.beforeAll(async ({ browser }) => {
 test.afterEach(async () => {
   // Review Focus 1 turns Blockscout's getLogs off; never leave it off for the next spec.
   await setLogs("ok");
+  // A test that fails mid-way must not leave the wallet hooks armed: a stale rejectNext would fail a later signature.
+  rejectNext = false;
+  onSent = null;
 });
 
 test.afterAll(async () => {

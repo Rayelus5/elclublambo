@@ -7,7 +7,8 @@ vi.mock("wagmi", () => ({ useAccount: () => account }));
 const openAppKit = vi.hoisted(() => vi.fn());
 vi.mock("@reown/appkit/react", () => ({ useAppKit: () => ({ open: openAppKit }) }));
 const balances = vi.hoisted(() => ({ value: {} as Record<string, bigint | null> }));
-vi.mock("@/lib/payments/balances", () => ({ useAssetBalances: () => balances.value }));
+const invalidateBalances = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/payments/balances", () => ({ useAssetBalances: () => balances.value, useInvalidateAssetBalances: () => invalidateBalances }));
 type Hook = {
   mode: "atomic" | "sequential" | "checking";
   send: ReturnType<typeof vi.fn>;
@@ -207,6 +208,84 @@ describe("MultisendForm", () => {
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     await waitFor(() => expect(box()).toHaveValue(`${D},2`));
     expect(box()).not.toHaveAttribute("readonly");
+  });
+
+  it("Task-6 minor 1: during a run the network picker is visibly disabled and aria-disabled", async () => {
+    const { rerender } = setup();
+    const group = () => screen.getByRole("radiogroup", { name: t.form.network });
+    expect(group()).not.toHaveAttribute("aria-disabled");
+    hook.value = { ...hook.value, running: true };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(group()).toHaveAttribute("aria-disabled", "true");
+    for (const r of screen.getAllByRole("radio")) {
+      expect(r).toHaveAttribute("aria-disabled", "true");
+      expect(r.className).toMatch(/opacity-60/);
+      expect(r.className).toMatch(/cursor-not-allowed/);
+    }
+    hook.value = { ...hook.value, running: false };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(group()).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("Task-6 minor 2: while the confirmation is open, a new #envio= does not replace the list being confirmed", async () => {
+    const { user } = setup();
+    await paste(user, LIST);
+    await user.click(sendButton());
+    const dialog = await screen.findByRole("alertdialog");
+    await act(async () => {
+      window.location.hash = encodeLines(`${D},1`);
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(within(dialog).getByText("Vas a enviar 30 USDC a 3 direcciones en Base Sepolia. Cada envío es definitivo.")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: t.form.label, hidden: true })).toHaveValue(LIST);
+    await user.click(within(dialog).getByRole("button", { name: t.confirm.back }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+    window.location.hash = encodeLines(`${D},2`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: t.form.label })).toHaveValue(`${D},2`));
+  });
+
+  it("Task-6 minor 3: the list is frozen from the moment «Confirmar y firmar» starts the run, before any re-render", async () => {
+    const { user } = setup();
+    await paste(user, LIST);
+    let resolveRun = () => {};
+    hook.value.send = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          // A hashchange that lands synchronously at run start, before React re-renders with running = true.
+          window.location.hash = encodeLines(`${D},1`);
+          window.dispatchEvent(new HashChangeEvent("hashchange"));
+          resolveRun = resolve;
+        }),
+    );
+    await user.click(sendButton());
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: t.confirm.confirm }));
+    expect(hook.value.send).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20));
+    });
+    expect(screen.getByRole("textbox", { name: t.form.label })).toHaveValue(LIST);
+    // Once the run is over, a new fragment applies again.
+    await act(async () => {
+      resolveRun();
+    });
+    window.location.hash = encodeLines(`${D},2`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(screen.getByRole("textbox", { name: t.form.label })).toHaveValue(`${D},2`));
+  });
+
+  it("minor 12: the balances are read again when a run ends", () => {
+    const { rerender } = setup();
+    expect(invalidateBalances).not.toHaveBeenCalled();
+    hook.value = { ...hook.value, runs: 1 };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(invalidateBalances).toHaveBeenCalledTimes(1);
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(invalidateBalances).toHaveBeenCalledTimes(1);
+    hook.value = { ...hook.value, runs: 2 };
+    rerender(<MultisendForm lang="es" chains={[84532, 421614]} sessionWallet={null} />);
+    expect(invalidateBalances).toHaveBeenCalledTimes(2);
   });
 
   it("in atomic mode: «Tu wallet lo enviará en una sola operación.»", async () => {

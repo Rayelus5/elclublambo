@@ -32,7 +32,7 @@ import { lockedByOther, readLockRaw, TAB_ID, walletRunKey } from "@/lib/multisen
 import { useMultisend } from "@/lib/multisend/use-multisend";
 import { useWalletIdle } from "@/lib/multisend/wallet-idle";
 import { formatAmount } from "@/lib/payments/amounts";
-import { useAssetBalances } from "@/lib/payments/balances";
+import { useAssetBalances, useInvalidateAssetBalances } from "@/lib/payments/balances";
 import { canSignFor } from "@/lib/web3/can-sign";
 import { noStored, sentAtNow, subscribeStorage } from "@/lib/web3/signing";
 import { useWalletMatch } from "@/lib/web3/use-wallet-match";
@@ -84,20 +84,40 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   }, []);
 
   // While a run is in progress the list on screen is the one being signed: no fragment, typing or network change
-  // replaces it (the run itself signs the lines it was started with either way).
+  // replaces it (the run itself signs the lines it was started with either way). The same holds while the
+  // confirmation is open: what it shows is what «Confirmar y firmar» signs. `runningRef` is set synchronously when a
+  // run starts (onConfirm/onCheck), so a hashchange before the re-render is ignored too; the effect keeps it in step
+  // with the hook and the run's promise clears it.
   const runningRef = useRef(ms.running);
+  const confirmingRef = useRef(false);
   useEffect(() => {
     runningRef.current = ms.running;
   }, [ms.running]);
+  const openConfirm = (open: boolean) => {
+    confirmingRef.current = open;
+    setConfirming(open);
+  };
+  const startRun = (run: Promise<void>) => {
+    void Promise.resolve(run).finally(() => {
+      runningRef.current = false;
+    });
+  };
   const pickChain = (next: ChainId) => {
     if (!ms.running) setChain(next);
   };
 
-  // «Repartir gastos» on this same page links to #envio=…: a new list in the fragment replaces the text, except
-  // during a run (then it is ignored; «Enviar» in Repartir gastos can be pressed again afterwards).
+  // After a run the balances changed: read them again rather than wait for the stale time.
+  const invalidateBalances = useInvalidateAssetBalances();
+  useEffect(() => {
+    if (ms.runs > 0) invalidateBalances();
+  }, [ms.runs, invalidateBalances]);
+
+  // «Repartir gastos» on this same page links to #envio=…: a new list in the fragment replaces the text, except during
+  // a run or while the confirmation is open (then it is ignored). Repartir gastos fires hashchange on every press, even
+  // with the same lines, so pressing «Enviar con envío múltiple» again afterwards reloads the list.
   useEffect(() => {
     const onHash = () => {
-      if (runningRef.current) return;
+      if (runningRef.current || confirmingRef.current) return;
       const next = decodeLines(window.location.hash);
       if (next !== null) setText(next);
     };
@@ -192,17 +212,19 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
   );
 
   function onConfirm() {
-    setConfirming(false);
+    openConfirm(false);
     if (!canSend || !owner) return;
     setIgnoredRun(null);
-    void ms.send(recipients, owner, key, approved, releasedIds);
+    runningRef.current = true;
+    startRun(ms.send(recipients, owner, key, approved, releasedIds));
   }
 
   /** Re-check only: nothing can be signed (empty sets). Also «Reintentar comprobación» on a scan_failed line. */
   function onCheck() {
     if (!(onlyCheck || (ready && toCheck.length > 0)) || !owner) return;
     setIgnoredRun(null);
-    void ms.send(recipients, owner, key, new Set(), new Set());
+    runningRef.current = true;
+    startRun(ms.send(recipients, owner, key, new Set(), new Set()));
   }
 
   const toggle = (set: (f: (s: ReadonlyMap<string, string>) => ReadonlyMap<string, string>) => void, lineId: string, on: boolean) => {
@@ -242,7 +264,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
       ) : null}
 
       <section aria-labelledby={`${id}-list`} className="flex min-w-0 flex-col gap-4 rounded-panel border border-border bg-surface p-4 sm:p-6">
-        <NetworkPicker value={chain} onChange={pickChain} chains={chains} label={t.form.network} />
+        <NetworkPicker value={chain} onChange={pickChain} chains={chains} label={t.form.network} disabled={ms.running} />
         <div className="flex flex-col gap-2">
           <label id={`${id}-list`} htmlFor={`${id}-text`} className="text-sm font-bold text-fg">
             {t.form.label}
@@ -435,7 +457,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
             className="self-start"
             disabled={!canSend}
             aria-describedby={describedBy}
-            onClick={() => canSend && setConfirming(true)}
+            onClick={() => canSend && openConfirm(true)}
           >
             {ms.running ? <Loader2 aria-hidden className="animate-spin motion-reduce:animate-none" /> : <Send aria-hidden />}
             {ms.running ? (ms.switching ? t.form.switching : t.form.sending) : started ? t.form.continue : t.form.send}
@@ -446,7 +468,7 @@ export function MultisendForm({ lang, chains, sessionWallet }: { lang: Lang; cha
       <ConfirmDialog
         t={t.confirm}
         open={confirming}
-        onOpenChange={setConfirming}
+        onOpenChange={openConfirm}
         total={fmt(signTotal)}
         count={toSign.length}
         checks={toCheck.length}
