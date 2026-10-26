@@ -67,11 +67,28 @@ describe("IntroGate", () => {
     await expectRevealed(watch);
   });
 
-  it("plays on Enter on the focused button", async () => {
+  it("focuses nothing on show; Tab lands on the button and cycles button and «Saltar»", async () => {
+    const user = userEvent.setup();
+    render(<Page />);
+    const button = screen.getByRole("button", { name: "Entrar en ElClub." });
+    const skip = screen.getByRole("link", { name: "Saltar" });
+    expect(document.activeElement).not.toBe(button);
+    await user.tab();
+    expect(document.activeElement).toBe(button);
+    await user.tab();
+    expect(document.activeElement).toBe(skip);
+    await user.tab();
+    expect(document.activeElement).toBe(button);
+    await user.tab({ shift: true });
+    expect(document.activeElement).toBe(skip);
+  });
+
+  it("plays on Enter once Tab has focused the button", async () => {
     const user = userEvent.setup();
     render(<Page />);
     const watch = watchIntro();
-    screen.getByRole("button", { name: "Entrar en ElClub." }).focus();
+    await user.tab();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Entrar en ElClub." }));
     await user.keyboard("{Enter}");
     await expectRevealed(watch);
   });

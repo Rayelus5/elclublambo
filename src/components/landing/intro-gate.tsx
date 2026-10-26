@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useEffect, useRef, useSyncExternalStore, type MouseEvent, type PointerEvent } from "react";
 import { getDictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
 import { gridFor, markIntroSeen, waveDelays } from "@/lib/landing/intro";
@@ -60,9 +60,18 @@ export function IntroGate({ lang }: { lang: Lang }) {
   const buttonRef = useRef<HTMLButtonElement>(null);
   const skipRef = useRef<HTMLAnchorElement>(null);
 
-  // A gate: keyboard focus starts on it (the landing behind is covered).
+  // Focus stays inside the gate while it covers the page: the first Tab lands on the button (nothing is focused on show,
+  // so mouse and touch visitors see only the logo), then Tab and Shift+Tab cycle button ↔ «Saltar».
   useEffect(() => {
-    if (shown && !started.current) buttonRef.current?.focus({ preventScroll: true });
+    if (!shown) return;
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key !== "Tab" || !overlayRef.current) return;
+      e.preventDefault();
+      const inside = overlayRef.current.contains(document.activeElement);
+      (inside && document.activeElement === buttonRef.current ? skipRef.current : buttonRef.current)?.focus();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [shown]);
 
   if (!shown) return null;
@@ -181,15 +190,8 @@ export function IntroGate({ lang }: { lang: Lang }) {
     finish();
   }
 
-  // Focus stays inside the gate while it covers the page.
-  function onKeyDown(e: KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== "Tab") return;
-    e.preventDefault();
-    (document.activeElement === skipRef.current ? buttonRef.current : skipRef.current)?.focus();
-  }
-
   return (
-    <div data-intro-overlay="" ref={overlayRef} onPointerDown={onPointerDown} onKeyDown={onKeyDown}>
+    <div data-intro-overlay="" ref={overlayRef} onPointerDown={onPointerDown}>
       <div className="intro-cover" ref={coverRef}>
         <span className="intro-ring" aria-hidden="true" />
         <span className="intro-ring" aria-hidden="true" />

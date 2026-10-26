@@ -509,8 +509,11 @@ html[data-intro="on"] .animate-start-rise {
   grid-area: 1 / 1;
 }
 
-.intro-cover {
+[data-intro-overlay] {
   --intro-logo: min(40vmin, 220px);
+}
+
+.intro-cover {
   display: grid;
   place-items: center;
   background: var(--bg);
@@ -545,7 +548,7 @@ html[data-intro="on"] .animate-start-rise {
 .intro-ring {
   width: var(--intro-logo);
   height: var(--intro-logo);
-  border: 2px solid var(--color-accent-fill);
+  border: 2px solid var(--accent-fill);
   border-radius: 24px;
   opacity: 0;
   pointer-events: none;
@@ -556,7 +559,7 @@ html[data-intro="on"] .animate-start-rise {
 }
 
 .intro-blue {
-  background: var(--color-accent-fill);
+  background: var(--accent-fill);
 }
 
 .intro-tiles {
@@ -566,18 +569,37 @@ html[data-intro="on"] .animate-start-rise {
 
 .intro-tile {
   position: absolute;
-  background: var(--color-accent-fill);
+  background: var(--accent-fill);
   backface-visibility: hidden;
   will-change: transform, opacity;
 }
 
 .intro-hit {
+  position: relative;
   width: 100%;
   height: 100%;
   background: transparent;
   cursor: pointer;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyboard focus: a ring around the logo tile, not around the whole screen (the hit area). */
+.intro-hit:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--intro-logo) + 16px);
+  height: calc(var(--intro-logo) + 16px);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ring);
+  border-radius: 30px;
+  pointer-events: none;
+}
+
+[data-intro-overlay][data-playing] .intro-hit::after {
+  display: none;
 }
 
 [data-intro-overlay][data-playing] .intro-hit {
