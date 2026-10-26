@@ -1,6 +1,6 @@
 # Landing: entrada interactiva, textos directos y footer completo
 
-Fecha: 2026-10-26 · Estado: borrador para aprobación · Rama prevista: `feature/landing-intro` desde `develop`
+Fecha: 2026-10-26 · Estado: aprobado por el dueño · Rama prevista: `feature/landing-intro` desde `develop`
 
 ## Por qué
 
@@ -73,27 +73,27 @@ Criterio para todos los **títulos** (encabezados, kickers, títulos de pestaña
 - Los títulos de pestaña siguen la plantilla actual de la web.
 - El contenido de ejemplo de las maquetas (hilos ficticios como «Tesis: liquidez en Base…») no se toca.
 
-### Propuesta para aprobar
+### Textos aprobados (los de la portada y /start los eligió el dueño el 2026-10-26)
 
 | Dónde | Ahora (ES) | Propuesta ES | Propuesta EN |
 |---|---|---|---|
-| landing.hero.kicker | Herramientas abiertas · sin custodia | Gratis y sin custodia | Free and non-custodial |
-| landing.hero.title | Herramientas cripto honestas, verificables y gratis. | Herramientas cripto que puedes comprobar | Crypto tools you can verify |
+| landing.hero.kicker | Herramientas abiertas · sin custodia | En Base y Arbitrum | On Base and Arbitrum |
+| landing.hero.title | Herramientas cripto honestas, verificables y gratis. | Herramientas cripto gratis y seguras | Free and safe crypto tools |
 | landing.hero.lead | Empieza por los sorteos: misma probabilidad para todos y un azar público que nadie puede manipular. | Sorteos con la misma probabilidad para todos y un azar público que nadie puede manipular. | Giveaways with equal odds for everyone and public randomness nobody can rig. |
-| landing.demo.title | Un sorteo que puedes comprobar | Así sale el ganador | How the winner is drawn |
-| landing.demo.lead | Así sale el ganador. Nadie, ni siquiera quien organiza, puede cambiar el resultado. | Nadie, ni siquiera quien organiza, puede cambiar el resultado. | Nobody, not even the host, can change the result. |
-| landing.networks.title | Construido en Base · también en Arbitrum | En Base y Arbitrum | On Base and Arbitrum |
+| landing.demo.title | Un sorteo que puedes comprobar | Un sorteo en la blockchain | An on-chain giveaway |
+| landing.demo.lead | (sin cambios) | Así sale el ganador. Nadie, ni siquiera quien organiza, puede cambiar el resultado. | This is how the winner comes out. Nobody, not even the host, can change the result. |
+| landing.networks.title | Construido en Base · también en Arbitrum | Construido en Base y Arbitrum | Built on Base and Arbitrum |
 | landing.networks.lead | Premios y pagos en USDC en cualquiera de las dos redes, con comisiones de céntimos. | Premios y pagos en USDC en las dos redes, con comisiones de céntimos. | Prizes and payments in USDC on both networks, with fees of cents. |
 | landing.club.title | Lo mejor está dentro: un foro privado por invitación | Un foro privado por invitación | A private, invite-only forum |
-| landing.final.title | Empieza con un sorteo. | Crea tu primer sorteo | Create your first giveaway |
-| landing.metaTitle | ElClub. · Herramientas cripto honestas, verificables y gratis | Herramientas cripto que puedes comprobar | Crypto tools you can verify |
+| landing.final.title | Empieza con un sorteo. | Empieza gratis | Start for free |
+| landing.metaTitle | ElClub. · Herramientas cripto honestas, verificables y gratis | ElClub. · Herramientas cripto gratis y seguras | ElClub. · Free and safe crypto tools |
 | landing.ogKicker | HERRAMIENTAS ABIERTAS · BASE Y ARBITRUM | EN BASE Y ARBITRUM | ON BASE AND ARBITRUM |
 | landing.ogFooter | Sorteos verificables. Gratis. | Gratis y sin custodia | Free and non-custodial |
 | connect.builtOn | Construido en Base · también en Arbitrum | En Base y Arbitrum | On Base and Arbitrum |
 | giveaways (OG) kicker | SORTEO VERIFICABLE · BASE Y ARBITRUM | SORTEO VERIFICABLE | VERIFIABLE GIVEAWAY |
-| start.metaTitle | ElClub. · El foro privado para quien se toma cripto en serio | El foro cripto sin ruido | The crypto forum without the noise |
+| start.metaTitle | ElClub. · El foro privado para quien se toma cripto en serio | ElClub. · Foro cripto privado para todos los niveles | ElClub. · A private crypto forum for every level |
 | start.hero.kicker | Foro privado · Base y Arbitrum | Foro privado por invitación | Private, invite-only forum |
-| start.hero.tagline / ogTagline | El foro privado para quien se toma cripto en serio. | El foro cripto sin ruido | The crypto forum without the noise |
+| start.hero.tagline / ogTagline | El foro privado para quien se toma cripto en serio. | Foro cripto privado para todos los niveles | A private crypto forum for every level |
 | start.hero.sub | Solo con invitación. Sin ruido. Construido en Base y Arbitrum. | Solo con invitación, en Base y Arbitrum. | Invitation only, on Base and Arbitrum. |
 | start.ogKicker | FORO PRIVADO · BASE Y ARBITRUM | FORO PRIVADO | PRIVATE FORUM |
 | start.ogFoot | Solo con invitación. Sin ruido. | Solo con invitación | Invitation only |
@@ -151,7 +151,7 @@ Llamadas mías: los iconos de marca de X, YouTube y Discord van como SVG en lín
 
 1. **Títulos de pestaña.** No hay plantilla de título: cada página fija el suyo.
    - La portada y `/start` mantienen la marca delante, «ElClub. · …», para que la marca no desaparezca de la pestaña. Es la única excepción al criterio de símbolos y el test la permite solo como prefijo exacto «ElClub. · ».
-   - Pestañas: ES «ElClub. · Herramientas cripto que puedes comprobar» y «ElClub. · El foro cripto sin ruido»; EN «ElClub. · Crypto tools you can verify» y «ElClub. · The crypto forum without the noise».
+   - Pestañas: ES «ElClub. · Herramientas cripto gratis y seguras» y «ElClub. · Foro cripto privado para todos los niveles»; EN «ElClub. · Free and safe crypto tools» y «ElClub. · A private crypto forum for every level».
    - Las demás páginas usan su título sin prefijo, como ahora.
 2. **Idioma en el footer.** Se reutiliza el `switchLang` de la cabecera (`src/lib/i18n/routes.ts`), con el mismo comportamiento que ya tienen las páginas dinámicas y las de herramientas. No se crean rutas nuevas.
 3. **Marca de «ya visitada».** Va en `localStorage`, una clave compartida por `/` y `/en`: entrar por una portada cuenta para la otra.
