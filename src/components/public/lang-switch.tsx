@@ -31,8 +31,12 @@ export function subscribeLocation(onChange: () => void) {
 const focus =
   "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg rounded-control";
 
-/** ES / EN links to the same page; they keep the query (/herramientas/avales?address=… → /en/tools/vouches?address=…). */
-export function LangSwitch({ lang, className = "" }: { lang: Lang; className?: string }) {
+/**
+ * ES / EN links to the same page; they keep the query (/herramientas/avales?address=… → /en/tools/vouches?address=…).
+ * In the header it is the «Idioma» navigation landmark. Given `labelledBy` (the footer, under its own «Idioma» heading)
+ * it is a plain group named by that heading, so the page does not carry two landmarks with the same name.
+ */
+export function LangSwitch({ lang, className = "", labelledBy }: { lang: Lang; className?: string; labelledBy?: string }) {
   const t = getDictionary(lang);
   // On the server usePathname() is the INTERNAL path (/es/tools); in the browser it is the public one (/herramientas).
   // Normalise to the public path so server and client render the same links.
@@ -49,23 +53,29 @@ export function LangSwitch({ lang, className = "" }: { lang: Lang; className?: s
     router.push(`${base}${now}`);
   };
 
-  return (
-    <nav aria-label={t.connect.language} className={`flex items-center ${className}`}>
-      {LANGS.map((l) => (
-        <Link
-          key={l}
-          href={`${switchLang(pathname, l)}${search}`}
-          onClick={keepQuery(switchLang(pathname, l))}
-          hrefLang={l}
-          lang={l}
-          aria-current={l === lang ? "true" : undefined}
-          className={`inline-flex min-h-11 min-w-11 items-center justify-center font-mono text-[13px] uppercase ${
-            l === lang ? "font-bold text-accent" : "text-fg-muted hover:text-fg"
-          } ${focus}`}
-        >
-          {l}
-        </Link>
-      ))}
+  const links = LANGS.map((l) => (
+    <Link
+      key={l}
+      href={`${switchLang(pathname, l)}${search}`}
+      onClick={keepQuery(switchLang(pathname, l))}
+      hrefLang={l}
+      lang={l}
+      aria-current={l === lang ? "true" : undefined}
+      className={`inline-flex min-h-11 min-w-11 items-center justify-center font-mono text-[13px] uppercase ${
+        l === lang ? "font-bold text-accent" : "text-fg-muted hover:text-fg"
+      } ${focus}`}
+    >
+      {l}
+    </Link>
+  ));
+  const cls = `flex items-center ${className}`;
+  return labelledBy ? (
+    <div role="group" aria-labelledby={labelledBy} className={cls}>
+      {links}
+    </div>
+  ) : (
+    <nav aria-label={t.connect.language} className={cls}>
+      {links}
     </nav>
   );
 }

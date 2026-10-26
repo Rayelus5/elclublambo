@@ -95,8 +95,10 @@ export function PublicFooter({ lang }: { lang: Lang }) {
           <FooterNavLive lang={lang} />
         </Suspense>
         <div>
-          <h2 className={heading}>{t.footer.language}</h2>
-          <LangSwitch lang={lang} className="mt-2 -ml-3" />
+          <h2 id="footer-lang" className={heading}>
+            {t.footer.language}
+          </h2>
+          <LangSwitch lang={lang} labelledBy="footer-lang" className="mt-2 -ml-3" />
         </div>
       </div>
       <div className="border-t border-border">

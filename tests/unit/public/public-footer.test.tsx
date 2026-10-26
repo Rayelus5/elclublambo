@@ -46,6 +46,13 @@ describe("public footer", () => {
     }
   });
 
+  it("its language links are a group named by the column heading, not a second «Idioma» landmark", () => {
+    render(<PublicFooter lang="es" />);
+    expect(screen.queryByRole("navigation", { name: es.connect.language })).toBeNull();
+    const group = screen.getByRole("group", { name: es.footer.language });
+    expect(within(group).getAllByRole("link")).toHaveLength(2);
+  });
+
   it("carries the tagline, builtOn, legal line and rights", () => {
     render(<PublicFooter lang="es" />);
     expect(screen.getByText(es.footer.tagline)).toBeInTheDocument();
