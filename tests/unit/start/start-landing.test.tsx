@@ -47,8 +47,8 @@ describe("StartLanding with reduced motion", () => {
 
   it("shows the hero copy", () => {
     render(<StartLanding lang="es" t={es.start} />);
-    expect(screen.getByText("El foro privado para quien se toma cripto en serio.")).toBeInTheDocument();
-    expect(screen.getByText(/Solo con invitación\. Sin ruido\. Construido en Base y Arbitrum\./)).toBeInTheDocument();
+    expect(screen.getByText("Foro cripto privado para todos los niveles")).toBeInTheDocument();
+    expect(screen.getByText("Solo con invitación, en Base y Arbitrum.")).toBeInTheDocument();
   });
 
   it("says Base and Arbitrum, never Linea (P0)", () => {
@@ -81,7 +81,7 @@ describe("StartLanding with reduced motion", () => {
 
   it("links the open tools to the localized tools hub, above the disabled invitation request", () => {
     render(<StartLanding lang="es" t={es.start} />);
-    expect(screen.getByRole("heading", { level: 2, name: /¿Aún sin invitación\? Prueba las herramientas abiertas/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Prueba las herramientas abiertas" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver las herramientas" })).toHaveAttribute("href", "/herramientas");
   });
 
@@ -140,7 +140,7 @@ describe("StartLanding with reduced motion", () => {
 
   it("renders in English for /en: English headings, no Spanish copy, tools link under /en", () => {
     const { container } = render(<StartLanding lang="en" t={en.start} />);
-    expect(screen.getByText("The private forum for people serious about crypto.")).toBeInTheDocument();
+    expect(screen.getByText("A private crypto forum for every level")).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "What's inside" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "How to get in" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "See the tools" })).toHaveAttribute("href", "/en/tools");

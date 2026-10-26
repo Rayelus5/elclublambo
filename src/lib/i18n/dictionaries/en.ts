@@ -27,8 +27,6 @@ export const en = {
     mainNav: "Main navigation",
     home: "ElClub., home",
     notAdvice: "This is not financial advice.",
-    whatIs: "What is ElClub.",
-    builtOn: "Built on Base · also on Arbitrum",
   },
   giveaways: {
     home: {
@@ -95,7 +93,7 @@ export const en = {
       errMinTx: "Enter a whole number from 0 to 1000.",
     },
     og: {
-      kicker: "VERIFIABLE GIVEAWAY · BASE AND ARBITRUM",
+      kicker: "VERIFIABLE GIVEAWAY",
       genericTitle: "Giveaways anyone can verify",
       genericAlt: "ElClub. Verifiable giveaways with public drand randomness, no custody of funds.",
       prizeOne: "{n} prize",
@@ -261,23 +259,23 @@ export const en = {
     },
   },
   landing: {
-    metaTitle: "ElClub. · Honest, verifiable, free crypto tools",
+    metaTitle: "ElClub. · Free and safe crypto tools",
     metaDescription:
       "Verifiable giveaways with public drand randomness, free to run and free to enter. Payment links and a contract checker. On Base and Arbitrum.",
-    ogKicker: "OPEN TOOLS · BASE AND ARBITRUM",
-    ogFooter: "Verifiable giveaways. Free.",
+    ogKicker: "ON BASE AND ARBITRUM",
+    ogFooter: "Free and non-custodial",
     create: "Create giveaway",
     createPay: "Create payment link",
     whatIs: "What is ElClub.",
     sample: "Sample data",
     hero: {
-      kicker: "Open tools · no custody",
-      title: "Honest, verifiable, free crypto tools.",
-      lead: "Start with giveaways: the same odds for everyone and public randomness nobody can rig.",
+      kicker: "On Base and Arbitrum",
+      title: "Free and safe crypto tools",
+      lead: "Giveaways with equal odds for everyone and public randomness nobody can rig.",
       actions: "Get started",
     },
     demo: {
-      title: "A giveaway you can check",
+      title: "An on-chain giveaway",
       lead: "This is how the winner comes out. Nobody, not even the host, can change the result.",
       stepsLabel: "Giveaway steps",
       commitTitle: "Commitment",
@@ -319,17 +317,17 @@ export const en = {
       cta: "See tools",
     },
     networks: {
-      title: "Built on Base · also on Arbitrum",
-      lead: "Prizes and payments in USDC on either network, with fees of cents.",
+      title: "Built on Base and Arbitrum",
+      lead: "Prizes and payments in USDC on both networks, with fees of cents.",
       label: "Networks",
     },
     club: {
-      title: "The best part is inside: a private, invite-only forum",
+      title: "A private, invite-only forum",
       lead: "The tools are for everyone. The club is for whoever gets an invitation.",
       locked: "Members only",
     },
     final: {
-      title: "Start with a giveaway.",
+      title: "Start for free",
       lead: "Free, in two minutes, and checkable by anyone.",
     },
   },
@@ -351,12 +349,12 @@ export const en = {
     gas: { name: "Gas calculator", text: "What a transaction costs right now on Base and Arbitrum." },
   },
   start: {
-    metaTitle: "ElClub. · The private forum for people serious about crypto",
+    metaTitle: "ElClub. · A private crypto forum for every level",
     metaDescription:
       "An invitation-only, asynchronous private forum on Base and Arbitrum: channels and chat, alphas with verified contracts, bounties, tips, donations and verifiable giveaways.",
-    ogKicker: "PRIVATE FORUM · BASE AND ARBITRUM",
-    ogTagline: "The private forum for people serious about crypto.",
-    ogFoot: "Invitation only. No noise.",
+    ogKicker: "PRIVATE FORUM",
+    ogTagline: "A private crypto forum for every level",
+    ogFoot: "Invitation only",
     ticker: [
       "Alpha · verified contract",
       "Bounty · 150 USDC",
@@ -367,9 +365,9 @@ export const en = {
       "Networks · Base and Arbitrum",
     ],
     hero: {
-      kicker: "Private forum · Base and Arbitrum",
-      tagline: "The private forum for people serious about crypto.",
-      sub: "Invitation only. No noise. Built on Base and Arbitrum.",
+      kicker: "Private, invite-only forum",
+      tagline: "A private crypto forum for every level",
+      sub: "Invitation only, on Base and Arbitrum.",
       scroll: "Scroll",
     },
     noise: {
@@ -428,7 +426,7 @@ export const en = {
       },
       bounties: {
         label: "Bounties",
-        title: "Bounties: ask for help and pay for it",
+        title: "Paid bounties",
         body: "Post your question with a reward in ETH or USDC. When the good answer arrives, you pick the best one and pay whoever wrote it. No platform fee.",
         tags: ["ETH", "USDC", "Best answer"],
       },
@@ -446,7 +444,7 @@ export const en = {
       },
       sorteos: {
         label: "Giveaways and polls",
-        title: "Verifiable giveaways and secret polls",
+        title: "Giveaways and secret polls",
         body: "Giveaways are free, with role, object or USDC prizes, and the winner comes from a drand round: anyone can check it in their browser. In polls, one member, one vote, and nobody sees the results until it closes.",
         tags: ["drand", "Secret ballot", "One member, one vote"],
       },
@@ -529,12 +527,12 @@ export const en = {
       gas: "0 gas",
     },
     openTools: {
-      title: "No invitation yet? Try the open tools",
+      title: "Try the open tools",
       lead: "Verifiable giveaways and more, open to anyone. We never hold your funds.",
       cta: "See the tools",
     },
     final: {
-      title: "For now, the door is ajar.",
+      title: "Invitation requests coming soon",
       lead: "Right now only selected members get in. Soon you will be able to ask for your invitation from here.",
       request: "Request an invitation",
       soon: "Coming soon",
@@ -687,7 +685,7 @@ export const en = {
   },
   pay: {
     tool: {
-      metaTitle: "ElClub Pay · Get paid and pay in USDC",
+      metaTitle: "ElClub Pay",
       metaDescription: "Get paid and pay in USDC or ETH with a link, straight wallet to wallet and non-custodial.",
       title: "ElClub Pay",
       lead: "A link that turns into a payment card. Get paid in USDC or ETH, straight to your wallet.",
@@ -781,7 +779,7 @@ export const en = {
       cancelled: "You cancelled the payment in your wallet. Nothing was sent.",
       sendFailed: "The payment could not be sent. Try again.",
       noCustody: "ElClub. does not hold funds. The payment goes straight to this address.",
-      ogKicker: "ELCLUB PAY · NON-CUSTODIAL",
+      ogKicker: "NON-CUSTODIAL",
       ogLine: "Pay in USDC or ETH, straight to their wallet.",
       vouchesTitle: "Vouches",
       vouchesCta: "Vouch for this address",
@@ -1241,5 +1239,22 @@ export const en = {
     backHome: "Back to home",
     notFoundForoTitle: "This corner of the forum doesn't exist",
     backForo: "Back to the forum",
+  },
+  footer: {
+    tagline: "Crypto tools and a private forum",
+    builtOn: "On Base and Arbitrum",
+    toolsHeading: "Tools",
+    clubHeading: "ElClub.",
+    whatIs: "What is ElClub.?",
+    forum: "Forum",
+    donate: "Donate",
+    language: "Language",
+    social: "Social",
+    x: "ElClub. on X",
+    youtube: "ElClub. on YouTube",
+    discord: "ElClub. on Discord",
+    rights: "© 2026 ElClub.",
+    enter: "Enter ElClub.",
+    skip: "Skip",
   },
 } satisfies Dictionary;

@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Archivo, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { IntroPathGuard } from "@/components/landing/intro-path-guard";
 import { Providers } from "@/components/providers";
 import { UI_ZOOM_BOOT } from "@/lib/ui-zoom";
 import "./globals.css";
@@ -42,6 +44,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col bg-bg font-body text-fg">
         <Providers>{children}</Providers>
+        {/* Clears the home intro's html[data-intro] on any other path. In Suspense: usePathname suspends while
+            prerendering routes with params not known at build time (cacheComponents). */}
+        <Suspense fallback={null}>
+          <IntroPathGuard />
+        </Suspense>
       </body>
     </html>
   );

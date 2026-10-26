@@ -7,7 +7,7 @@ import { channelIds, createInvite, messageWith, send, service } from "./helpers/
 // and 3 (the club login ends in /foro).
 test.describe.configure({ mode: "serial" });
 
-const LANDING_H1 = "Herramientas cripto honestas, verificables y gratis.";
+const LANDING_H1 = "Herramientas cripto gratis y seguras";
 
 let admin: BrowserContext;
 let adminPage: Page;

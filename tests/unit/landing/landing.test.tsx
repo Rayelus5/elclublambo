@@ -53,16 +53,16 @@ describe("Landing (reduced motion)", () => {
     const { container } = render(<Landing lang="es" off={NONE} />);
     const h1s = screen.getAllByRole("heading", { level: 1 });
     expect(h1s).toHaveLength(1);
-    expect(h1s[0]).toHaveTextContent("Herramientas cripto honestas, verificables y gratis.");
+    expect(h1s[0]).toHaveTextContent("Herramientas cripto gratis y seguras");
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
-      "Un sorteo que puedes comprobar",
+      "Un sorteo en la blockchain",
       "ElClub Pay",
       "Comprobador",
       "Avales",
       "Más herramientas",
-      "Construido en Base · también en Arbitrum",
-      "Lo mejor está dentro: un foro privado por invitación",
-      "Empieza con un sorteo.",
+      "Construido en Base y Arbitrum",
+      "Un foro privado por invitación",
+      "Empieza gratis",
     ]);
     const levels = [...container.querySelectorAll("h1, h2, h3, h4, h5, h6")].map((h) => Number(h.tagName[1]));
     levels.forEach((level, i) => {
@@ -163,7 +163,7 @@ describe("Landing (reduced motion)", () => {
 
   it("the demo shows commit → drand round → winner, and the sample is internally consistent", () => {
     render(<Landing lang="es" off={NONE} />);
-    const demo = screen.getByRole("region", { name: "Un sorteo que puedes comprobar" });
+    const demo = screen.getByRole("region", { name: "Un sorteo en la blockchain" });
     expect(within(demo).getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
       "Compromiso",
       "Ronda de drand",
@@ -228,7 +228,7 @@ describe("Landing with tools switched off (A-R16)", () => {
   it("«giveaways» off: no create link, no demo and no brand fill left", () => {
     const { container } = render(<Landing lang="es" off={new Set<ToolKey>(["giveaways"])} />);
     expect(hrefs(container)).not.toContain("/herramientas/sorteos/nuevo");
-    expect(screen.queryByRole("region", { name: "Un sorteo que puedes comprobar" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Un sorteo en la blockchain" })).toBeNull();
     expect(container.querySelectorAll("a.bg-accent-fill")).toHaveLength(0);
     expect(screen.getAllByRole("link", { name: "Qué es ElClub." }).length).toBeGreaterThanOrEqual(2);
   });

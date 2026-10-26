@@ -38,7 +38,7 @@ test("a member at / sees the landing with «Ir al foro», which opens the forum 
   const page = await context.newPage();
   const res = await page.goto("/");
   expect(res?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1, name: "Herramientas cripto honestas, verificables y gratis." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Herramientas cripto gratis y seguras" })).toBeVisible();
   await page.getByRole("group", { name: "Tu cuenta" }).getByRole("link", { name: "Ir al foro" }).click();
   await page.waitForURL((u) => u.pathname === clubPath());
   await expect(page.getByRole("heading", { name: "Inicio" })).toBeVisible();

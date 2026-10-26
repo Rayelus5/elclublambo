@@ -76,7 +76,8 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   workers: 1,
   fullyParallel: false,
-  use: { baseURL: "http://localhost:3000" },
+  // The landing intro plays once per browser: every spec starts as a returning visitor (landing-intro.spec.ts opts out).
+  use: { baseURL: "http://localhost:3000", storageState: "e2e/intro-seen.json" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {

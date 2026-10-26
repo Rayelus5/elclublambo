@@ -48,7 +48,7 @@ describe("/start metadata in production", () => {
 
   it("the English page is English, en_US, and canonicalizes to /en/start", async () => {
     const { metadata } = await load("https://www.elclub.party", "en");
-    expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("private forum") });
+    expect(metadata.title).toMatchObject({ absolute: expect.stringContaining("private crypto forum") });
     expect(String(metadata.description)).toMatch(/invitation-only/);
     expect(metadata.alternates?.canonical).toBe("/en/start");
     expect(metadata.alternates?.languages).toMatchObject({ es: "/start", en: "/en/start" });

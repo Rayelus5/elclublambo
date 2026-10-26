@@ -14,8 +14,8 @@ function svgs(dir: string): string[] {
 const files = svgs(ROOT);
 
 describe("brand SVG assets", () => {
-  it("finds the four logos", () => {
-    expect(files).toHaveLength(4);
+  it("finds the six logos", () => {
+    expect(files).toHaveLength(6);
   });
 
   describe.each(files.map((f) => [f.slice(ROOT.length + 1), f]))("%s", (_name, file) => {

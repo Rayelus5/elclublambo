@@ -1,0 +1,20 @@
+"use client";
+
+/**
+ * An inline script that runs while the browser parses the server HTML, and is an inert data block when React renders it
+ * on the client (a client navigation into a layout that holds it). React never runs scripts it creates, and in
+ * development it logs «Encountered a script tag…» for an executable one; `text/plain` is a data block, so it does not.
+ * Pattern from the Next docs, «Preventing flash before hydration» → «Extracting a reusable component».
+ *
+ * A Client Component on purpose: rendered by a Server Component (the [lang] layout) the type would be decided once, on
+ * the server, and the RSC payload would carry `text/javascript` to the client too.
+ */
+export function InlineScript({ html }: { html: string }) {
+  return (
+    <script
+      type={typeof window === "undefined" ? "text/javascript" : "text/plain"}
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+}

@@ -27,8 +27,6 @@ export const es = {
     mainNav: "Navegación principal",
     home: "ElClub., inicio",
     notAdvice: "No es asesoramiento financiero.",
-    whatIs: "Qué es ElClub.",
-    builtOn: "Construido en Base · también en Arbitrum",
   },
   giveaways: {
     home: {
@@ -95,7 +93,7 @@ export const es = {
       errMinTx: "Escribe un número entero de 0 a 1000.",
     },
     og: {
-      kicker: "SORTEO VERIFICABLE · BASE Y ARBITRUM",
+      kicker: "SORTEO VERIFICABLE",
       genericTitle: "Sorteos que cualquiera puede comprobar",
       genericAlt: "ElClub. Sorteos verificables con azar público de drand, sin custodia de fondos.",
       prizeOne: "{n} premio",
@@ -261,23 +259,23 @@ export const es = {
     },
   },
   landing: {
-    metaTitle: "ElClub. · Herramientas cripto honestas, verificables y gratis",
+    metaTitle: "ElClub. · Herramientas cripto gratis y seguras",
     metaDescription:
       "Sorteos verificables con azar público de drand, gratis para organizar y para participar. Cobros con enlace de pago y un comprobador de contratos. En Base y Arbitrum.",
-    ogKicker: "HERRAMIENTAS ABIERTAS · BASE Y ARBITRUM",
-    ogFooter: "Sorteos verificables. Gratis.",
+    ogKicker: "EN BASE Y ARBITRUM",
+    ogFooter: "Gratis y sin custodia",
     create: "Crear sorteo",
     createPay: "Crear enlace de pago",
     whatIs: "Qué es ElClub.",
     sample: "Datos de ejemplo",
     hero: {
-      kicker: "Herramientas abiertas · sin custodia",
-      title: "Herramientas cripto honestas, verificables y gratis.",
-      lead: "Empieza por los sorteos: misma probabilidad para todos y un azar público que nadie puede manipular.",
+      kicker: "En Base y Arbitrum",
+      title: "Herramientas cripto gratis y seguras",
+      lead: "Sorteos con la misma probabilidad para todos y un azar público que nadie puede manipular.",
       actions: "Empezar",
     },
     demo: {
-      title: "Un sorteo que puedes comprobar",
+      title: "Un sorteo en la blockchain",
       lead: "Así sale el ganador. Nadie, ni siquiera quien organiza, puede cambiar el resultado.",
       stepsLabel: "Pasos del sorteo",
       commitTitle: "Compromiso",
@@ -319,17 +317,17 @@ export const es = {
       cta: "Ver herramientas",
     },
     networks: {
-      title: "Construido en Base · también en Arbitrum",
-      lead: "Premios y pagos en USDC en cualquiera de las dos redes, con comisiones de céntimos.",
+      title: "Construido en Base y Arbitrum",
+      lead: "Premios y pagos en USDC en las dos redes, con comisiones de céntimos.",
       label: "Redes",
     },
     club: {
-      title: "Lo mejor está dentro: un foro privado por invitación",
+      title: "Un foro privado por invitación",
       lead: "Las herramientas son para todos. El club es para quien recibe una invitación.",
       locked: "Solo miembros",
     },
     final: {
-      title: "Empieza con un sorteo.",
+      title: "Empieza gratis",
       lead: "Gratis, en dos minutos, y comprobable por cualquiera.",
     },
   },
@@ -351,12 +349,12 @@ export const es = {
     gas: { name: "Calculadora de gas", text: "Cuánto cuesta ahora una transacción en Base y Arbitrum." },
   },
   start: {
-    metaTitle: "ElClub. · El foro privado para quien se toma cripto en serio",
+    metaTitle: "ElClub. · Foro cripto privado para todos los niveles",
     metaDescription:
       "Foro privado y asíncrono en Base y Arbitrum, solo con invitación: canales y chat, alphas con contrato verificado, bounties, propinas, donaciones y sorteos verificables.",
-    ogKicker: "FORO PRIVADO · BASE Y ARBITRUM",
-    ogTagline: "El foro privado para quien se toma cripto en serio.",
-    ogFoot: "Solo con invitación. Sin ruido.",
+    ogKicker: "FORO PRIVADO",
+    ogTagline: "Foro cripto privado para todos los niveles",
+    ogFoot: "Solo con invitación",
     ticker: [
       "Alpha · contrato verificado",
       "Bounty · 150 USDC",
@@ -367,9 +365,9 @@ export const es = {
       "Redes · Base y Arbitrum",
     ],
     hero: {
-      kicker: "Foro privado · Base y Arbitrum",
-      tagline: "El foro privado para quien se toma cripto en serio.",
-      sub: "Solo con invitación. Sin ruido. Construido en Base y Arbitrum.",
+      kicker: "Foro privado por invitación",
+      tagline: "Foro cripto privado para todos los niveles",
+      sub: "Solo con invitación, en Base y Arbitrum.",
       scroll: "Desliza",
     },
     noise: {
@@ -428,7 +426,7 @@ export const es = {
       },
       bounties: {
         label: "Bounties",
-        title: "Bounties: pide ayuda y págala",
+        title: "Bounties con recompensa",
         body: "Publica tu pregunta con una recompensa en ETH o USDC. Cuando llegue la buena, eliges la mejor respuesta y le pagas a quien la escribió. Sin comisión de la plataforma.",
         tags: ["ETH", "USDC", "Mejor respuesta"],
       },
@@ -446,7 +444,7 @@ export const es = {
       },
       sorteos: {
         label: "Sorteos y encuestas",
-        title: "Sorteos verificables y encuestas secretas",
+        title: "Sorteos y votaciones secretas",
         body: "Los sorteos son gratis, con premios de rol, de objeto o en USDC, y el ganador sale de una ronda de drand: cualquiera puede comprobarlo en su navegador. En las encuestas, un miembro, un voto, y nadie ve los resultados hasta el cierre.",
         tags: ["drand", "Voto secreto", "Un miembro, un voto"],
       },
@@ -529,12 +527,12 @@ export const es = {
       gas: "0 gas",
     },
     openTools: {
-      title: "¿Aún sin invitación? Prueba las herramientas abiertas",
+      title: "Prueba las herramientas abiertas",
       lead: "Sorteos verificables y más, abiertos a cualquiera. Sin custodia de fondos.",
       cta: "Ver las herramientas",
     },
     final: {
-      title: "La puerta, de momento, está entornada.",
+      title: "Pronto podrás pedir invitación",
       lead: "Ahora mismo solo entran miembros seleccionados. Pronto podrás pedir tu invitación desde aquí.",
       request: "Solicitar invitación",
       soon: "Próximamente",
@@ -687,7 +685,7 @@ export const es = {
   },
   pay: {
     tool: {
-      metaTitle: "ElClub Pay · Cobra y paga en USDC",
+      metaTitle: "ElClub Pay",
       metaDescription: "Cobra y paga en USDC o ETH con un enlace, directo de wallet a wallet y sin custodia.",
       title: "ElClub Pay",
       lead: "Un enlace que se convierte en tarjeta de pago. Cobra en USDC o ETH, directo a tu wallet.",
@@ -781,7 +779,7 @@ export const es = {
       cancelled: "Has cancelado el pago en tu wallet. No se ha enviado nada.",
       sendFailed: "No se pudo enviar el pago. Inténtalo de nuevo.",
       noCustody: "ElClub. no custodia fondos. El pago va directo a esta dirección.",
-      ogKicker: "ELCLUB PAY · SIN CUSTODIA",
+      ogKicker: "SIN CUSTODIA",
       ogLine: "Paga en USDC o ETH, directo a su wallet.",
       vouchesTitle: "Avales",
       vouchesCta: "Avalar esta dirección",
@@ -1241,5 +1239,22 @@ export const es = {
     backHome: "Volver al inicio",
     notFoundForoTitle: "Este rincón del foro no existe",
     backForo: "Volver al foro",
+  },
+  footer: {
+    tagline: "Herramientas cripto y foro privado",
+    builtOn: "En Base y Arbitrum",
+    toolsHeading: "Herramientas",
+    clubHeading: "ElClub.",
+    whatIs: "¿Qué es ElClub.?",
+    forum: "Foro",
+    donate: "Donar",
+    language: "Idioma",
+    social: "Redes",
+    x: "ElClub. en X",
+    youtube: "ElClub. en YouTube",
+    discord: "ElClub. en Discord",
+    rights: "© 2026 ElClub.",
+    enter: "Entrar en ElClub.",
+    skip: "Saltar",
   },
 } as const;

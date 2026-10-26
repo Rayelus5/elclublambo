@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { IntroGate } from "@/components/landing/intro-gate";
 import { LandingLive } from "@/components/landing/landing-live";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE } from "@/lib/i18n/config";
@@ -38,8 +39,11 @@ export default async function PublicHome({ params }: PageProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLang(lang)) notFound();
   return (
-    <Suspense fallback={<main className="flex-1" aria-busy="true" />}>
-      <LandingLive lang={lang} />
-    </Suspense>
+    <>
+      <IntroGate lang={lang} />
+      <Suspense fallback={<main id="main" tabIndex={-1} className="flex-1 outline-none" aria-busy="true" />}>
+        <LandingLive lang={lang} />
+      </Suspense>
+    </>
   );
 }

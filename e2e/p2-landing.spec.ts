@@ -36,7 +36,7 @@ test("anonymous: / is the landing at 375, 768 and 1440 px, without horizontal sc
     const readCsp = await watchCsp(page);
     const res = await page.goto("/");
     expect(res?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1, name: "Herramientas cripto honestas, verificables y gratis." })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Herramientas cripto gratis y seguras" })).toBeVisible();
     expect(await horizontalOverflow(page), `overflow at ${width}`).toBe(0);
     await scrollThrough(page);
     expect(await horizontalOverflow(page), `overflow at ${width} after scrolling`).toBe(0);
@@ -49,7 +49,7 @@ test("anonymous: / is the landing at 375, 768 and 1440 px, without horizontal sc
 
 test("/en is the English landing with its own locale and share card", async ({ page, request }) => {
   await page.goto("/en");
-  await expect(page.getByRole("heading", { level: 1, name: "Honest, verifiable, free crypto tools." })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Free and safe crypto tools" })).toBeVisible();
   await expect(page.locator('meta[property="og:locale"]')).toHaveAttribute("content", "en_US");
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", "noindex, nofollow");
   const og = await page.locator('meta[property="og:image"]').getAttribute("content");
