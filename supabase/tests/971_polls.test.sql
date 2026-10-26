@@ -127,8 +127,9 @@ select ok(not exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
 select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
                                                 and p.oid not in ('private.rate_limit(text,text,int,interval)'::regprocedure,
                                                                   'private.chain_enabled(int)'::regprocedure,
-                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure)),
-  'schema private still holds no function but private.rate_limit, private.chain_enabled and private.giveaway_pick (F5 Task 2 / P0 Task 1 / P2 Task 5, executable by no API role: 990, 995, p2_03)');
+                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure,
+                                                                  'private.hold_registration()'::regprocedure)),
+  'schema private still holds no function but private.rate_limit, private.chain_enabled, private.giveaway_pick and private.hold_registration (F5 Task 2 / P0 Task 1 / P2 Task 5 / Administración Task 1, executable by no API role: 990, 995, p2_03, adm_01)');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select * from private.poll_votes$$, '42501', null, 'authenticated cannot read private.poll_votes');
 select throws_ok($$select * from private.poll_weight_snapshots$$, '42501', null,

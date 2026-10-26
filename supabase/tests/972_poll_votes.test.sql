@@ -148,8 +148,9 @@ select ok(not has_function_privilege('authenticated', 'public._push_build(bigint
 select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
                                                 and p.oid not in ('private.rate_limit(text,text,int,interval)'::regprocedure,
                                                                   'private.chain_enabled(int)'::regprocedure,
-                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure)),
-  'schema private still holds no function but private.rate_limit, private.chain_enabled and private.giveaway_pick (F5 Task 2 / P0 Task 1 / P2 Task 5, executable by no API role: 990, 995, p2_03)');
+                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure,
+                                                                  'private.hold_registration()'::regprocedure)),
+  'schema private still holds no function but private.rate_limit, private.chain_enabled, private.giveaway_pick and private.hold_registration (F5 Task 2 / P0 Task 1 / P2 Task 5 / Administración Task 1, executable by no API role: 990, 995, p2_03, adm_01)');
 
 -- ===== 2. carry: create_poll whitespace set (F4e-R1) and the VIEW-inclusive bit check =====
 select tests.login(current_setting('t.a'));
