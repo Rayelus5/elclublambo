@@ -172,6 +172,82 @@ describe("MaintenanceForm", () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  // Stored dates that have already passed (now = 2026-10-26T12:00Z): meaningless once past, and the RPC rejects a past
+  // «Vuelta estimada» or «Termina», so they are dropped from the draft instead of blocking every edit.
+  const ACTIVE_PAST_RETURN: MaintenanceConfig = {
+    ...OFF,
+    enabled: true,
+    mode: "custom",
+    messageEs: "a",
+    messageEn: "b",
+    returnAt: "2026-10-26T11:00:00.000Z",
+    startsAt: "2026-10-26T08:00:00.000Z",
+  };
+
+  it("a stored «Vuelta estimada» that has passed is left out: the input is empty and the save sends null", async () => {
+    const user = userEvent.setup();
+    render(<MaintenanceForm maintenance={ACTIVE_PAST_RETURN} passwordSet />);
+    expect(screen.getByLabelText("Vuelta estimada")).toHaveValue("");
+    // A past «Empieza» is still the schedule that keeps it on: it stays.
+    expect(screen.getByLabelText("Empieza")).toHaveValue("2026-10-26T09:00");
+    await user.type(screen.getByLabelText("Mensaje en español"), "!");
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() =>
+      expect(actions.setMaintenanceAction).toHaveBeenCalledWith({
+        enabled: true,
+        mode: "custom",
+        messageEs: "a!",
+        messageEn: "b",
+        returnAt: null,
+        startsAt: "2026-10-26T08:00:00.000Z",
+        endsAt: null,
+      }),
+    );
+  });
+
+  it("a stored «Termina» that has passed is left out too", async () => {
+    const user = userEvent.setup();
+    render(<MaintenanceForm maintenance={{ ...OFF, mode: "custom", messageEs: "a", messageEn: "b", endsAt: "2026-10-26T11:59:00.000Z" }} passwordSet />);
+    expect(screen.getByLabelText("Termina")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    await waitFor(() => expect(actions.setMaintenanceAction).toHaveBeenCalledWith(expect.objectContaining({ endsAt: null, returnAt: null })));
+  });
+
+  it("a future stored date is kept", async () => {
+    const user = userEvent.setup();
+    render(<MaintenanceForm maintenance={{ ...ACTIVE_PAST_RETURN, returnAt: "2026-10-26T13:00:00.000Z" }} passwordSet />);
+    expect(screen.getByLabelText("Vuelta estimada")).toHaveValue("2026-10-26T14:00");
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(actions.setMaintenanceAction).toHaveBeenCalledWith(expect.objectContaining({ returnAt: "2026-10-26T13:00:00.000Z" })));
+  });
+
+  it("if the RPC still rejects a past date, the error names it", async () => {
+    actions.setMaintenanceAction.mockResolvedValue({ ok: false, error: "maintenance_invalid" });
+    const user = userEvent.setup();
+    render(<MaintenanceForm maintenance={OFF} passwordSet />);
+    await chooseCustom(user);
+    fireEvent.change(screen.getByLabelText("Vuelta estimada"), { target: { value: "2026-10-26T10:00" } });
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^La vuelta estimada ya ha pasado \(26 oct.*10:00\)/);
+  });
+
+  it("names «Termina» when it has passed, or when it is not after «Empieza»", async () => {
+    actions.setMaintenanceAction.mockResolvedValue({ ok: false, error: "maintenance_invalid" });
+    const user = userEvent.setup();
+    render(<MaintenanceForm maintenance={OFF} passwordSet />);
+    await chooseCustom(user);
+    fireEvent.change(screen.getByLabelText("Termina"), { target: { value: "2026-10-26T12:30" } });
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^El fin ya ha pasado \(26 oct.*12:30\)/);
+    fireEvent.change(screen.getByLabelText("Empieza"), { target: { value: "2026-11-02T10:00" } });
+    fireEvent.change(screen.getByLabelText("Termina"), { target: { value: "2026-11-02T09:00" } });
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    await user.click(await screen.findByRole("button", { name: "Confirmar" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("«Termina» tiene que ir después de «Empieza»."));
+  });
+
   it("Review Focus 4: without a password it warns that only the SuperAdmin can get in", () => {
     render(<MaintenanceForm maintenance={OFF} passwordSet={false} />);
     expect(screen.getByText("Sin contraseña, solo tú podrás entrar.")).toBeInTheDocument();

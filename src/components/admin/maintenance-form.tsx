@@ -54,6 +54,30 @@ function toIso(local: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
+const DATE_FORMAT = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const passed = (iso: string | null, now: number) => iso !== null && new Date(iso).getTime() <= now;
+
+/**
+ * A stored «Vuelta estimada» or «Termina» that has already passed means nothing any more and the RPC rejects it, so it
+ * leaves the draft (an untouched past date would otherwise block every edit). A past «Empieza» stays: it is the schedule
+ * that keeps the maintenance on.
+ */
+function storedDate(m: MaintenanceConfig, key: DateField, now: number): string | null {
+  return key !== "startsAt" && passed(m[key], now) ? null : m[key];
+}
+
+/** maintenance_invalid, naming the date when that is what the RPC refused. */
+function invalidMessage(config: MaintenanceConfig, now: number): string {
+  if (passed(config.returnAt, now)) {
+    return `La vuelta estimada ya ha pasado (${DATE_FORMAT.format(new Date(config.returnAt!))}). Cámbiala o déjala vacía.`;
+  }
+  if (passed(config.endsAt, now)) return `El fin ya ha pasado (${DATE_FORMAT.format(new Date(config.endsAt!))}). Cámbialo o déjalo vacío.`;
+  if (config.startsAt !== null && config.endsAt !== null && new Date(config.endsAt).getTime() <= new Date(config.startsAt).getTime()) {
+    return "«Termina» tiene que ir después de «Empieza».";
+  }
+  return rpcErrorMessage("maintenance_invalid");
+}
+
 const noop = () => () => {};
 /** False on the server and during hydration, true after: local times only render in the browser's zone. */
 const useHydrated = () => useSyncExternalStore(noop, () => true, () => false);
@@ -110,13 +134,15 @@ export function MaintenanceForm({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaved, setPasswordSaved] = useState(false);
 
-  const status = statusOf(maintenance, useNow());
+  const now = useNow();
+  const status = statusOf(maintenance, now);
   const custom = mode === "custom";
 
-  const dateValue = (key: DateField) => dates[key] ?? (hydrated ? toLocalInput(maintenance[key]) : "");
-  const dateIso = (key: DateField) => (dates[key] === null ? maintenance[key] : toIso(dates[key]!));
+  const dateValue = (key: DateField) => dates[key] ?? (hydrated ? toLocalInput(storedDate(maintenance, key, now)) : "");
+  /** `at`: the time the draft is for (now when saving, the 15 s tick while rendering). */
+  const dateIso = (key: DateField, at: number) => (dates[key] === null ? storedDate(maintenance, key, at) : toIso(dates[key]!));
 
-  function draft(): MaintenanceConfig {
+  function draft(at: number): MaintenanceConfig {
     if (!custom) {
       return { enabled: enableNow, mode: "default", messageEs: null, messageEn: null, returnAt: null, startsAt: null, endsAt: null };
     }
@@ -125,13 +151,13 @@ export function MaintenanceForm({
       mode: "custom",
       messageEs,
       messageEn,
-      returnAt: dateIso("returnAt"),
-      startsAt: dateIso("startsAt"),
-      endsAt: dateIso("endsAt"),
+      returnAt: dateIso("returnAt", at),
+      startsAt: dateIso("startsAt", at),
+      endsAt: dateIso("endsAt", at),
     };
   }
 
-  const draftStartsLater = custom && dateIso("startsAt") === null;
+  const draftStartsLater = custom && dateIso("startsAt", now) === null;
 
   function send(config: MaintenanceConfig, kind: "save" | "off") {
     setError(null);
@@ -140,7 +166,7 @@ export function MaintenanceForm({
       const res = await setMaintenanceAction(config);
       setBusy(null);
       if (!res.ok) {
-        setError(rpcErrorMessage(res.error));
+        setError(res.error === "maintenance_invalid" ? invalidMessage(config, Date.now()) : rpcErrorMessage(res.error));
         return;
       }
       if (kind === "off") setEnableNow(false);
@@ -151,8 +177,9 @@ export function MaintenanceForm({
 
   function save(e: React.FormEvent) {
     e.preventDefault();
-    const config = draft();
-    const next = statusOf(config, Date.now());
+    const at = Date.now();
+    const config = draft(at);
+    const next = statusOf(config, at);
     if (next === "off") return send(config, "save");
     setConfirmTitle(next === "scheduled" ? "¿Programar el mantenimiento?" : "¿Activar el mantenimiento?");
     setConfirmOpen(true);
@@ -364,7 +391,7 @@ export function MaintenanceForm({
         onOpenChange={setConfirmOpen}
         title={confirmTitle}
         description={CONFIRM_TEXT}
-        onConfirm={() => send(draft(), "save")}
+        onConfirm={() => send(draft(Date.now()), "save")}
       />
     </div>
   );
