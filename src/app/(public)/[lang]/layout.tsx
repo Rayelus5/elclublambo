@@ -5,6 +5,7 @@ import { LANGS, isLang } from "@/lib/i18n/config";
 import { PublicHeader } from "@/components/public/public-header";
 import { PublicHeaderSlot } from "@/components/public/public-header-slot";
 import { PublicFooter } from "@/components/public/public-footer";
+import { InlineScript } from "@/components/landing/inline-script";
 import { introBootScript } from "@/lib/landing/intro";
 import { siteOrigin } from "@/lib/start/site";
 
@@ -29,8 +30,10 @@ export default async function PublicLangLayout({ children, params }: LayoutProps
   if (!isLang(lang)) notFound();
   return (
     <div lang={lang} className="flex min-h-full flex-col">
-      {/* Before anything paints: does the home's first-visit intro show? (sets html[data-intro], see IntroGate) */}
-      <script dangerouslySetInnerHTML={{ __html: introBootScript() }} />
+      {/* Before anything paints: does the home's first-visit intro show? (sets html[data-intro], see IntroGate). Here and
+          not in the root <head>: the maintenance page is served at / too and must never get the attribute. Inert when
+          this layout renders on the client (a client navigation into the public tree). */}
+      <InlineScript html={introBootScript()} />
       <Suspense fallback={<PublicHeader lang={lang} session="pending" />}>
         <PublicHeaderSlot lang={lang} />
       </Suspense>
