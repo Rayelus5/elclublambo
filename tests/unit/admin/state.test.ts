@@ -37,6 +37,15 @@ describe("retryAfterSeconds", () => {
     expect(retryAfterSeconds(m({ returnAt: iso(NOW + 2 * 86_400_000) }), NOW)).toBe(86400);
   });
   it("rounds up in range", () => expect(retryAfterSeconds(m({ returnAt: iso(NOW + 600_000) }), NOW)).toBe(600));
+  // M4: with no estimated return, a scheduled end is the next best guess (same clamp).
+  it("falls back to endsAt when there is no returnAt", () => {
+    expect(retryAfterSeconds(m({ endsAt: iso(NOW + 600_000) }), NOW)).toBe(600);
+    expect(retryAfterSeconds(m({ endsAt: iso(NOW + 10_000) }), NOW)).toBe(60);
+    expect(retryAfterSeconds(m({ endsAt: iso(NOW + 2 * 86_400_000) }), NOW)).toBe(86400);
+  });
+  it("prefers returnAt over endsAt", () => {
+    expect(retryAfterSeconds(m({ returnAt: iso(NOW + 300_000), endsAt: iso(NOW + 900_000) }), NOW)).toBe(300);
+  });
 });
 
 describe("parseSiteState", () => {

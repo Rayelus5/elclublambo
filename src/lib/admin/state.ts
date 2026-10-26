@@ -73,9 +73,10 @@ export function isMaintenanceActive(m: MaintenanceConfig, now: number): boolean 
   return on && (ends === null || now < ends);
 }
 
-/** A-R8: segundos para `Retry-After`. */
+/** A-R8: segundos para `Retry-After`: la vuelta estimada, si no el fin programado (M4), si no una hora. */
 export function retryAfterSeconds(m: MaintenanceConfig, now: number): number {
-  if (m.returnAt === null) return 3600;
-  const secs = Math.ceil((new Date(m.returnAt).getTime() - now) / 1000);
+  const back = m.returnAt ?? m.endsAt;
+  if (back === null) return 3600;
+  const secs = Math.ceil((new Date(back).getTime() - now) / 1000);
   return Math.min(86400, Math.max(60, secs));
 }

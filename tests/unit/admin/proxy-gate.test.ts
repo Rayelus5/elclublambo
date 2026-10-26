@@ -107,6 +107,12 @@ describe("proxy: maintenance", () => {
     expect(new URL(rewriteOf(res)).pathname).toBe("/status/en/maintenance");
   });
 
+  it("derives Retry-After from endsAt when there is no returnAt (M4)", async () => {
+    s.site = state({ maintenance: { enabled: true, endsAt: new Date(NOW.getTime() + 600_000).toISOString() } });
+    const res = await req("/");
+    expect(res.headers.get("retry-after")).toBe("600");
+  });
+
   it("derives Retry-After from returnAt", async () => {
     s.site = state({ maintenance: { enabled: true, returnAt: new Date(NOW.getTime() + 120_500).toISOString() } });
     const res = await req("/");
@@ -216,6 +222,15 @@ describe("proxy: tool switches", () => {
     expect(res.headers.get("retry-after")).toBeNull();
     expect(res.headers.get("cache-control")).toContain("no-store");
     expect(res.headers.get("x-robots-tag")).toBe("noindex");
+  });
+
+  it("cuts a percent-encoded URL of a switched-off tool too (M2)", async () => {
+    s.site = GAS_OFF;
+    for (const path of ["/en/tools/%67as", "/herramientas/%67as"]) {
+      const res = await req(path);
+      expect(res.status).toBe(503);
+      expect(new URL(rewriteOf(res)).pathname).toMatch(/^\/status\/(es|en)\/unavailable$/);
+    }
   });
 
   it("lets an in-app navigation (RSC: 1) through", async () => {
