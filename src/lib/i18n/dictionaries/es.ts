@@ -341,6 +341,7 @@ export const es = {
     listLabel: "Herramientas",
     comingSoon: "Próximamente",
     available: "Disponible",
+    unavailableNow: "No disponible ahora",
     giveaways: { name: "Sorteos verificables", text: "Sortea premios con azar público que todos pueden comprobar." },
     pay: { name: "ElClub Pay", text: "Cobra y paga en USDC con un enlace." },
     checker: { name: "Comprobador de tokens y enlaces", text: "Revisa un token o un enlace antes de firmar." },

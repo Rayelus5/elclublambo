@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Landing } from "@/components/landing/landing";
+import { Suspense } from "react";
+import { LandingLive } from "@/components/landing/landing-live";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE } from "@/lib/i18n/config";
 import { alternatesFor } from "@/lib/i18n/routes";
 import { isProductionSite, siteOrigin } from "@/lib/start/site";
 
-// Bloqueante a propósito (ver el layout): el idioma se lee antes de pintar. Sin sesión: la landing es estática.
+// Bloqueante a propósito (ver el layout): el idioma se lee antes de pintar. Sin sesión; los interruptores (A-R16) se
+// leen por petición dentro de <Suspense>, después de connection().
 export const instant = false;
 
 export async function generateMetadata({ params }: PageProps<"/[lang]">): Promise<Metadata> {
@@ -35,5 +37,9 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
 export default async function PublicHome({ params }: PageProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLang(lang)) notFound();
-  return <Landing lang={lang} />;
+  return (
+    <Suspense fallback={<main className="flex-1" aria-busy="true" />}>
+      <LandingLive lang={lang} />
+    </Suspense>
+  );
 }

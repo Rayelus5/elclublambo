@@ -341,6 +341,7 @@ export const en = {
     listLabel: "Tools",
     comingSoon: "Coming soon",
     available: "Available",
+    unavailableNow: "Not available right now",
     giveaways: { name: "Verifiable giveaways", text: "Draw prizes with public randomness anyone can check." },
     pay: { name: "ElClub Pay", text: "Get paid and pay in USDC with a link." },
     checker: { name: "Token and link checker", text: "Check a token or a link before you sign." },

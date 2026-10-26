@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { rise, Stage } from "@/components/start/motion";
 import type { Dictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
+import type { ToolKey } from "@/lib/admin/state";
 import { localizedPath } from "@/lib/i18n/routes";
 
 const focus = "outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg";
@@ -48,7 +49,7 @@ export function WhatIsLink({ lang, label }: { lang: Lang; label: string }) {
   );
 }
 
-export function FinalCta({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) {
+export function FinalCta({ lang, t, off }: { lang: Lang; t: Dictionary["landing"]; off: ReadonlySet<ToolKey> }) {
   return (
     <section aria-labelledby="landing-final" className="relative overflow-hidden border-t border-border">
       <div className="relative mx-auto flex w-full max-w-[1600px] flex-col px-4 py-24 sm:px-8 sm:py-36">
@@ -66,8 +67,8 @@ export function FinalCta({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) 
             {t.final.lead}
           </m.p>
           <m.div variants={rise} className="flex flex-wrap items-center gap-3">
-            <CreateLink lang={lang} label={t.create} />
-            <PayLink lang={lang} label={t.createPay} />
+            {off.has("giveaways") ? null : <CreateLink lang={lang} label={t.create} />}
+            {off.has("pay") ? null : <PayLink lang={lang} label={t.createPay} />}
             <WhatIsLink lang={lang} label={t.whatIs} />
           </m.div>
         </Stage>

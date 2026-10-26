@@ -6,32 +6,42 @@ interface Props {
   icon: LucideIcon;
   name: string;
   text: string;
-  /** Status label ("Available" / "Coming soon"). */
+  /** Status label ("Available" / "Coming soon" / "Not available right now"). */
   status: string;
-  /** Present: an active tool that links. Absent: a «coming soon» card, not a link. */
+  /** Present: an active tool that links. Absent: a card that is not a link («coming soon» or switched off). */
   href?: string;
+  /**
+   * A tool switched off from Administración (A-R16): no link, the icon and the description dimmed. The status label
+   * and the name keep full contrast, so the state reads in text (AA) and not only through the fade.
+   */
+  dimmed?: boolean;
 }
 
-/** A tool in the hub. Coming-soon cards are plain list items: no link, no hover affordance, status read with the name. */
-export function ToolCard({ icon: Icon, name, text, status, href }: Props) {
+/** A tool in the hub. Cards without a link are plain list items: no hover affordance, status read with the name. */
+export function ToolCard({ icon: Icon, name, text, status, href, dimmed = false }: Props) {
+  const fade = dimmed ? " opacity-60" : "";
   const body = (
     <>
       <span className="flex items-start justify-between gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-control border border-border-strong bg-surface-2 text-accent">
+        <span
+          className={`flex size-11 shrink-0 items-center justify-center rounded-control border border-border-strong bg-surface-2 ${dimmed ? "text-fg-muted" : "text-accent"}${fade}`}
+        >
           <Icon aria-hidden className="size-5" />
         </span>
         <span
           className={
             href
               ? "rounded-control border border-accent px-2 py-1 text-small font-bold text-accent"
-              : "rounded-control border border-border-strong px-2 py-1 text-small text-fg-muted"
+              : dimmed
+                ? "rounded-control border border-border-strong px-2 py-1 text-small font-bold text-fg"
+                : "rounded-control border border-border-strong px-2 py-1 text-small text-fg-muted"
           }
         >
           {status}
         </span>
       </span>
       <span className="font-display text-lg font-bold text-fg">{name}</span>
-      <span className="text-base text-fg-muted">{text}</span>
+      <span className={`text-base text-fg-muted${fade}`}>{text}</span>
       {href ? <ArrowRight aria-hidden className="mt-auto size-5 text-accent" /> : null}
     </>
   );
@@ -46,7 +56,7 @@ export function ToolCard({ icon: Icon, name, text, status, href }: Props) {
           {body}
         </Link>
       ) : (
-        <div className={`${base} opacity-80`}>{body}</div>
+        <div className={dimmed ? `${base} border-dashed` : `${base} opacity-80`}>{body}</div>
       )}
     </li>
   );
