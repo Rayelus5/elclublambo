@@ -123,7 +123,7 @@ Comportamiento de una herramienta apagada (decisión del dueño: aviso «No disp
 
 - **SuperAdmin = bit `ADMINISTRATOR`**, como «Economía».
 - **Si no se puede leer el estado** (fallo de base de datos): la web sigue abierta (fail-open) y se registra el error; un caché corto (segundos) evita leer en cada petición y hace que un cambio se note en pocos segundos.
-- **Sesión de acceso con contraseña**: dura hasta que acaba el mantenimiento y como mucho 12 horas; ligada a la wallet de la sesión (si cambia la wallet o se cierra sesión, se pierde). Cambiar la contraseña invalida los accesos concedidos con la anterior; quitar una wallet de la lista le corta el acceso.
+- **Sesión de acceso con contraseña**: dura hasta que acaba el mantenimiento y como mucho 12 horas; ligada a la cuenta y a la wallet de la sesión: sin sesión no hay acceso, pero volver a firmar con la misma wallet de la lista dentro de ese plazo entra sin volver a pedir la contraseña (ver «Riesgos residuales»). Cambiar la contraseña invalida los accesos concedidos con la anterior; quitar una wallet de la lista le corta el acceso.
 - **Intentos de contraseña limitados** por IP y wallet (reutilizando el rate limit en Postgres existente).
 - **Mantenimiento programado** se evalúa por hora en cada comprobación (no depende de un cron).
 - **Rutas siempre accesibles en mantenimiento**: recursos estáticos, crons (`/api/cron/*` con su secreto), webhooks, el flujo de login necesario para «Acceso del equipo», y la propia página de mantenimiento.
@@ -160,7 +160,7 @@ Construido en la rama `feature/administracion` (plan `docs/superpowers/plans/202
 - **A-R5** Cambiar la contraseña, quitar una wallet o apagar el mantenimiento borra los accesos; caducan a las 12 h o en `endsAt`.
 - **A-R6** El SuperAdmin pasa por `SUPER_ADMIN_WALLET` sin BD o por el bit 512, sin contraseña.
 - **A-R7** En mantenimiento pasan estáticos, crons, webhooks, `/api/team-access`, `robots.txt`, `sitemap.xml` y OG internas; `/foro/login` no; `/status/*` directo es 404.
-- **A-R8** 503 con `no-store` y `noindex`; `Retry-After` solo en mantenimiento (`returnAt` acotado a 60–86400 s, o 3600); JSON fuera de las páginas.
+- **A-R8** 503 con `no-store` y `noindex`; `Retry-After` solo en mantenimiento (`returnAt`, si no `endsAt`, acotado a 60–86400 s; si no hay ninguno, 3600); JSON fuera de las páginas.
 - **A-R9** Un interruptor corta solo cargas de documento GET/HEAD (y toda `/api/v1/check/*`); el SuperAdmin no se los salta.
 - **A-R10** scrypt N=2^15, r=8, p=1, 12–128 caracteres, `timingSafeEqual`, 20 intentos por IP y 5 por sesión cada 15 min.
 - **A-R11** Activo = (`enabled` o `startsAt` pasado) y `endsAt` futuro o nulo; validación en SQL (`maintenance_invalid`).
@@ -187,6 +187,8 @@ Construido en la rama `feature/administracion` (plan `docs/superpowers/plans/202
 - El panel del equipo no usa acciones de servidor ni RSC (darían 503): habla con Supabase desde el navegador, llama a `/api/team-access` y recarga.
 - Las páginas de estado son dinámicas (`connection()`), para que Next no cambie el `no-store` por un `s-maxage`.
 - Registro cerrado: `getPublicSession()` devuelve null para una cuenta retenida (cierre único para toda acción pública) y, en profundidad, `enter_public_giveaway`, `record_public_giveaway_payout` y `mark_public_prize_delivered` rechazan a los retenidos; `is_public_account()` exige que exista el usuario de auth. El SuperAdmin queda exento.
+- **404 sin sesión** (sustituye el ruling de P2 «un anónimo en una URL basura ve el login»): un único segmento desconocido (`/typo`, `/wp-admin`) es la 404 propia también sin sesión, antes de la redirección a `/foro/login`; las rutas del foro siguen pidiendo login.
+- **Cierre final**: `setMaintenancePasswordAction` comprueba el bit `ADMINISTRATOR` (`my_permissions`) antes de scrypt; el matcher del proxy deja fuera solo `_next/`, `favicon.ico`, `sw.js` y los SVG de `public/brand/` (una URL como `/foro/x.png` pasa por todas las puertas); los interruptores leen la ruta decodificada (`/en/tools/%67as` es Gas); el cuerpo de `/api/team-access` se corta a 4 KB (400 `invalid`); el formulario quita del borrador una «Vuelta estimada» o un «Termina» guardados que ya pasaron y, si la RPC rechaza una fecha, dice cuál; `?registration=closed` sale de la URL tras mostrar el aviso; la descripción de una herramienta apagada ya no se atenúa (AA).
 - En la landing, el botón de pago dibujado dentro de la demo de Pay es parte de la ilustración: el test de A-R16 cuenta los enlaces con relleno (`a.bg-accent-fill`), que llegan a cero con «Sorteos» apagado.
 
 ### Riesgos residuales
@@ -194,11 +196,14 @@ Construido en la rama `feature/administracion` (plan `docs/superpowers/plans/202
 - Con varias instancias cada una tiene su caché: un cambio tarda hasta 5 s en notarse, y un acceso revocado puede durar hasta 5 s más (caché de positivos).
 - Si el self-fetch de la página de estado falla, la respuesta es 200 con las cabeceras de mantenimiento (contenido correcto, código incorrecto) hasta que vuelva.
 - Una cuenta creada directamente contra GoTrue con el registro cerrado deja una fila huérfana sin acceso.
-- Pendiente del cierre final: límite de tamaño del cuerpo en `readPassword`, deduplicar la comprobación de `SUPER_ADMIN_WALLET` entre la ruta y `access.ts`, comprobar el permiso antes de scrypt en `setMaintenancePasswordAction`, y que el aviso de fecha pasada nombre la fecha.
+- **El mantenimiento no congela la base de datos**: cierra las páginas y las APIs de la app, pero un miembro con sesión puede seguir escribiendo directamente en Supabase (PostgREST) según sus políticas RLS. Si hiciera falta congelar escrituras (una migración delicada), haría falta una marca en la BD.
+- **Los accesos del equipo sobreviven al cierre de sesión**: sin sesión no hay acceso, pero la fila de `maintenance_grants` sigue ahí; volver a firmar con la misma wallet de la lista dentro del plazo (12 h o `endsAt`) entra sin volver a pedir la contraseña. Coste aceptado: con la clave de esa wallet robada, la contraseña no se vuelve a pedir dentro del plazo. Cambiar la contraseña o quitar la wallet lo corta.
+- La comprobación de `SUPER_ADMIN_WALLET` está en dos sitios (la ruta y `access.ts`) a propósito: necesitan salidas distintas.
 
 ### HACER A MANO
 
 - **En PRE**: fijar la contraseña de mantenimiento, añadir una wallet del equipo, activar el mantenimiento 5 minutos y comprobar que el cron de Vercel (`/api/cron/dao`) sigue respondiendo; apagar y encender una herramienta y ver el hub.
 - **En PRE**: durante ese mantenimiento, comprobar con `curl -I https://pre.elclub.party/` que el self-fetch devuelve un 503 de verdad detrás del túnel. Si diera 200, fijar `INTERNAL_ORIGIN=http://127.0.0.1:3000` en `web.env` (opcional en los demás casos).
+- **En PRO**: apagar «Gas» desde la pestaña, comprobar con `curl -I https://www.elclub.party/en/tools/gas` que responde **503** (el self-fetch funciona en Vercel, sin Firewall ni Bot protection por medio) y volver a encenderlo. No hace falta ventana de mantenimiento.
 - **En PRE y PRO**: comprobar que la migración `20261026100001_administracion.sql`, con el trigger `after insert on auth.users`, se aplica en el Supabase de cada entorno.
 - **Local**: hasta el próximo `pnpm db:reset` (o e2e), la BD local puede tener el miembro SuperAdmin de prueba del e2e.
