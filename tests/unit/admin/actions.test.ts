@@ -7,6 +7,11 @@ const rpc = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }));
 const invalidateSiteState = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/admin/site-state", () => ({ invalidateSiteState }));
+const hashSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/admin/password", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/admin/password")>();
+  return { ...real, hashPassword: (p: string) => (hashSpy(p), real.hashPassword(p)) };
+});
 
 import {
   addAccessWalletAction,
@@ -129,11 +134,32 @@ describe("setMaintenancePasswordAction", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  const asAdmin = (perms: string | number | null = "512") =>
+    rpc.mockImplementation(async (fn: string) => (fn === "my_permissions" ? { data: perms, error: null } : { error: null }));
+
+  it("a non-admin never reaches scrypt nor the RPC (I2)", async () => {
+    for (const perms of [null, "0", String(511), String(262143n & ~512n)]) {
+      vi.clearAllMocks();
+      asAdmin(perms);
+      expect(await setMaintenancePasswordAction("correct horse battery")).toEqual({ ok: false, error: "forbidden" });
+      expect(rpc.mock.calls.map((c) => c[0])).toEqual(["my_permissions"]);
+      expect(hashSpy).not.toHaveBeenCalled();
+    }
+  });
+
+  it("a failed permission read is forbidden too, without hashing", async () => {
+    rpc.mockImplementation(async (fn: string) => (fn === "my_permissions" ? { data: null, error: { message: "boom" } } : { error: null }));
+    expect(await setMaintenancePasswordAction("correct horse battery")).toEqual({ ok: false, error: "forbidden" });
+    expect(hashSpy).not.toHaveBeenCalled();
+  });
+
   it("hashes the password with scrypt and never sends it in clear", async () => {
+    asAdmin();
     const password = "correct horse battery";
     expect(await setMaintenancePasswordAction(password)).toEqual({ ok: true });
-    expect(rpc).toHaveBeenCalledTimes(1);
-    const [fn, args] = rpc.mock.calls[0]! as [string, { p_hash: string }];
+    expect(hashSpy).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls.map((c) => c[0])).toEqual(["my_permissions", "admin_set_maintenance_password"]);
+    const [fn, args] = rpc.mock.calls[1]! as [string, { p_hash: string }];
     expect(fn).toBe("admin_set_maintenance_password");
     expect(Object.keys(args)).toEqual(["p_hash"]);
     expect(args.p_hash.startsWith("scrypt$")).toBe(true);
@@ -142,7 +168,7 @@ describe("setMaintenancePasswordAction", () => {
   });
 
   it("maps forbidden from the RPC", async () => {
-    rpc.mockResolvedValue({ error: { message: "forbidden" } });
+    rpc.mockImplementation(async (fn: string) => (fn === "my_permissions" ? { data: "512", error: null } : { error: { message: "forbidden" } }));
     expect(await setMaintenancePasswordAction("correct horse battery")).toEqual({ ok: false, error: "forbidden" });
   });
 });

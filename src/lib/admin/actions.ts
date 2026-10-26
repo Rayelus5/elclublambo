@@ -8,6 +8,7 @@ import { rpcErrorCode } from "@/lib/errors";
 import { hashPassword, PASSWORD_MAX, PASSWORD_MIN } from "@/lib/admin/password";
 import { invalidateSiteState } from "@/lib/admin/site-state";
 import { SWITCH_KEYS, type SwitchKey } from "@/lib/admin/state";
+import { Perm } from "@/lib/permissions/bits";
 import { createServerClient } from "@/lib/supabase/server";
 
 type Result = { ok: true } | { ok: false; error: string };
@@ -73,12 +74,27 @@ export async function setMaintenanceAction(input: MaintenanceInput): Promise<Res
   });
 }
 
-/** La contraseña se hashea aquí (scrypt); a la RPC solo llega el hash. */
+/**
+ * La contraseña se hashea aquí (scrypt); a la RPC solo llega el hash. scrypt es caro (32 MiB, decenas de ms en el pool
+ * de libuv) y la acción es un endpoint público: el bit ADMINISTRATOR se comprueba antes de hashear, así que nadie más
+ * llega a scrypt. La RPC lo vuelve a comprobar.
+ */
 export async function setMaintenancePasswordAction(password: string): Promise<Result> {
   if (typeof password !== "string" || password.length < PASSWORD_MIN || password.length > PASSWORD_MAX) {
     return { ok: false, error: "password_invalid" };
   }
+  const supabase = await createServerClient();
+  const { data: rawPerms, error } = await supabase.rpc("my_permissions");
+  if (error || !isAdministrator(rawPerms)) return { ok: false, error: "forbidden" };
   return call("admin_set_maintenance_password", { p_hash: await hashPassword(password) });
+}
+
+function isAdministrator(raw: unknown): boolean {
+  try {
+    return (BigInt(String(raw ?? 0)) & Perm.ADMINISTRATOR) !== 0n;
+  } catch {
+    return false;
+  }
 }
 
 export async function addAccessWalletAction(wallet: string, note: string): Promise<Result> {
