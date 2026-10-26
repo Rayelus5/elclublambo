@@ -238,10 +238,10 @@ test("7. the share card is a PNG for the giveaway and the generic card for an un
 test("8. the ES/EN switcher keeps the giveaway (Review Focus 5); 375 px without horizontal scroll", async () => {
   const page = hostPage;
   await page.goto(esPath());
-  await page.getByRole("navigation", { name: "Idioma" }).getByRole("link", { name: "en" }).click();
+  await page.getByRole("navigation", { name: "Idioma" }).first().getByRole("link", { name: "en" }).click();
   await page.waitForURL((u) => u.pathname === `/en/tools/giveaways/${giveawayId}`);
   await expect(page.getByRole("heading", { level: 1, name: TITLE })).toBeVisible();
-  await page.getByRole("navigation", { name: "Language" }).getByRole("link", { name: "es" }).click();
+  await page.getByRole("navigation", { name: "Language" }).first().getByRole("link", { name: "es" }).click();
   await page.waitForURL((u) => u.pathname === esPath());
   await page.setViewportSize(phone);
   await noHorizontalScroll(page);

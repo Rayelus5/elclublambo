@@ -202,10 +202,10 @@ test("4. the badge answers an SVG with the alias", async () => {
 test("5. the ES/EN switcher keeps the pay page", async () => {
   const page = aPage;
   await page.goto(`/pay/${ALIAS}`);
-  await page.getByRole("navigation", { name: "Idioma" }).getByRole("link", { name: "en" }).click();
+  await page.getByRole("navigation", { name: "Idioma" }).first().getByRole("link", { name: "en" }).click();
   await page.waitForURL((u) => u.pathname === `/en/pay/${ALIAS}`);
   await expect(page.getByRole("heading", { level: 1, name: `Pay @${ALIAS}` })).toBeVisible();
-  await page.getByRole("navigation", { name: "Language" }).getByRole("link", { name: "es" }).click();
+  await page.getByRole("navigation", { name: "Language" }).first().getByRole("link", { name: "es" }).click();
   await page.waitForURL((u) => u.pathname === `/pay/${ALIAS}`);
   await expect(page.getByRole("heading", { level: 1, name: `Pagar a @${ALIAS}` })).toBeVisible();
 });
