@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { InlineScript } from "@/components/landing/inline-script";
@@ -16,5 +18,10 @@ describe("InlineScript", () => {
     expect(script).toHaveAttribute("type", "text/plain");
     expect(script?.innerHTML).toBe("window.__ran = true");
     expect(error).not.toHaveBeenCalled();
+  });
+
+  it("is a Client Component, so the client (not the server's RSC payload) decides its type", () => {
+    const src = readFileSync(join(process.cwd(), "src/components/landing/inline-script.tsx"), "utf8");
+    expect(src.trimStart().startsWith('"use client";')).toBe(true);
   });
 });
