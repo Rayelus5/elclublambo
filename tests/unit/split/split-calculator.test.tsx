@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -31,6 +32,25 @@ afterEach(() => {
 });
 
 describe("SplitCalculator", () => {
+  it("every added person gets its own labelled fields, also under StrictMode (unique row keys)", async () => {
+    const user = userEvent.setup();
+    render(
+      <StrictMode>
+        <SplitCalculator lang="es" />
+      </StrictMode>,
+    );
+    await user.click(screen.getByRole("button", { name: t.add }));
+    await user.click(screen.getByRole("button", { name: t.add }));
+    const rows = screen.getAllByRole("group", { name: /^Persona \d+$/ });
+    expect(rows).toHaveLength(4);
+    const ids = rows.map((r) => within(r).getByLabelText(t.name).id);
+    expect(new Set(ids).size).toBe(4);
+    for (const r of rows) {
+      expect(within(r).getByRole("textbox", { name: t.name })).toBeInTheDocument();
+      expect(within(r).getByRole("textbox", { name: t.paid })).toBeInTheDocument();
+    }
+  });
+
   it("opening with #gastos= restores the rows", async () => {
     await open({ v: 1, people: [{ n: "Ana", p: "30", t: "ana" }, { n: "Bea", p: "0" }, { n: "Cris", p: "12,5", t: C }] });
     const rows = screen.getAllByRole("group", { name: /^Persona \d+$/ });

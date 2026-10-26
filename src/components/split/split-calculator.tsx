@@ -19,9 +19,12 @@ import { decodeSplit, encodeSplit, MAX_NAME, MAX_PEOPLE, MAX_SPLIT_FRAGMENT, SPL
 
 type Row = { key: number; name: string; paid: string; target: string };
 
-let nextKey = 0;
-const newRow = (r: Partial<Omit<Row, "key">> = {}): Row => ({ key: nextKey++, name: "", paid: "", target: "", ...r });
-const emptyRows = () => [newRow(), newRow()];
+// Row keys also build the fields' ids (label ↔ input), so they come from the rows themselves, never from a module
+// counter: React may run initializers and updaters twice (StrictMode) or keep a result from another run, and a
+// counter then hands out a key that is already in use (two inputs with one id, one of them unlabelled).
+const newRow = (key: number, r: Partial<Omit<Row, "key">> = {}): Row => ({ key, name: "", paid: "", target: "", ...r });
+const emptyRows = () => [newRow(0), newRow(1)];
+const nextKeyOf = (rows: readonly Row[]) => rows.reduce((max, r) => Math.max(max, r.key), -1) + 1;
 
 /** What a target field means: null when empty; "@Ana" -> "ana"; an address stays as typed. */
 function cleanTarget(raw: string): string | null {
@@ -87,7 +90,7 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
       setBadLink(false);
       setTouched(false);
       setMe("");
-      setRows(state.people.map((p) => newRow({ name: p.n, paid: p.p, target: p.t ?? "" })));
+      setRows(state.people.map((p, i) => newRow(i, { name: p.n, paid: p.p, target: p.t ?? "" })));
       setShareUrl(window.location.href);
       if (sectionRef.current?.scrollIntoView) sectionRef.current.scrollIntoView({ block: "start" });
     };
@@ -138,7 +141,7 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
   };
   const add = () => {
     setTouched(true);
-    setRows((rs) => (rs.length >= MAX_PEOPLE ? rs : [...rs, newRow()]));
+    setRows((rs) => (rs.length >= MAX_PEOPLE ? rs : [...rs, newRow(nextKeyOf(rs))]));
   };
   const remove = (key: number) => {
     setTouched(true);
