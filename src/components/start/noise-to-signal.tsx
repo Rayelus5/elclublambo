@@ -72,7 +72,7 @@ export function NoiseToSignal({ t }: { t: StartDict }) {
       </div>
 
       <div ref={stage} className="relative motion-safe:h-[220svh]">
-        <div className="sticky top-0 flex h-svh min-h-[36rem] items-center justify-center overflow-hidden px-4 sm:px-8">
+        <div className="sticky top-(--mnt-banner-h) flex h-[calc(100svh-var(--mnt-banner-h))] min-h-[36rem] items-center justify-center overflow-hidden px-4 sm:px-8">
           <div aria-hidden className="relative h-[min(78svh,40rem)] w-full max-w-[64rem]">
             {NOISE.map((n, i) => (
               <NoiseItem key={n.who} n={n} text={t.noise.chatter[i] ?? ""} progress={blow} on={on} />

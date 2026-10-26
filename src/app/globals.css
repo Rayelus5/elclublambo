@@ -430,6 +430,46 @@
   padding: 0 0.3em;
 }
 
+/* Status pages (maintenance, unavailable tool, 404): the logo square walks a closed loop over a 3×3 grid of 1.5rem
+   cells with a 0.5rem gap, one 2rem step per eighth. StatusMark also carries motion-reduce:animate-none. */
+@keyframes status-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12.5% {
+    transform: translate(2rem, 0);
+  }
+  25% {
+    transform: translate(2rem, 2rem);
+  }
+  37.5% {
+    transform: translate(4rem, 2rem);
+  }
+  50% {
+    transform: translate(4rem, 4rem);
+  }
+  62.5% {
+    transform: translate(2rem, 4rem);
+  }
+  75% {
+    transform: translate(2rem, 2rem);
+  }
+  87.5% {
+    transform: translate(0, 2rem);
+  }
+}
+
+/* A-R15: while the «Mantenimiento activo» strip is shown (fixed, on top), MaintenanceBanner writes its height here; the
+   body makes room for it and the club shell's sticky header and rails sit below it. */
+:root {
+  --mnt-banner-h: 0px;
+}
+
+body {
+  padding-top: var(--mnt-banner-h);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

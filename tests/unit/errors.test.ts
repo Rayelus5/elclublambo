@@ -148,3 +148,17 @@ describe("rpcErrorCode", () => {
     expect(rpcErrorCode(undefined)).toBe("unknown");
   });
 });
+
+describe("administración (Task 4)", () => {
+  it.each(["switch_invalid", "maintenance_invalid", "wallet_invalid", "note_invalid", "password_invalid"])(
+    "%s is allowlisted with its own Spanish copy",
+    (code) => {
+      expect(rpcErrorCode({ message: code })).toBe(code);
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+    },
+  );
+  it("password_invalid states the 12–128 bounds", () => {
+    expect(rpcErrorMessage("password_invalid")).toMatch(/12/);
+    expect(rpcErrorMessage("password_invalid")).toMatch(/128/);
+  });
+});

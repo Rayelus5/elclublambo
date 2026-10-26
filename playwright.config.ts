@@ -59,6 +59,8 @@ const env = {
   // P4: the free API's limiter (api_free) keys on the first x-forwarded-for entry; Next keeps the one the spec sends.
   TRUSTED_IP_HEADER: "",
   X402_ENABLED: "",
+  // Administración (A-R3): the e2e reads the site state on every request, so a switch flipped in the tab shows at once.
+  SITE_STATE_TTL_MS: "0",
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);

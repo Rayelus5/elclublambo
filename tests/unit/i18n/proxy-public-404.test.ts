@@ -3,6 +3,11 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+// Administración: the site is open (no maintenance, every switch on) unless a test says otherwise.
+vi.mock("@/lib/admin/site-state", async () => {
+  const { OPEN_STATE } = await import("@/lib/admin/state");
+  return { getSiteState: async () => OPEN_STATE };
+});
 
 const state = vi.hoisted(() => ({
   user: { id: "u1" } as { id: string } | null,
@@ -67,10 +72,22 @@ describe("proxy · unknown top-level segment (item 1)", () => {
     expect(rewrittenTo(res)).toBe(NOT_FOUND_PATH);
   });
 
-  it("an anonymous visitor on /xx still goes to /foro/login", async () => {
+  it("an anonymous visitor on /xx gets the same 404, not the forum login (I1)", async () => {
     state.user = null;
-    const res = await call("/xx");
-    expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
+    for (const p of ["/xx", "/typo", "/wp-admin", "/manifest.json"]) {
+      const res = await call(p);
+      expect(res.status).toBe(404);
+      expect(rewrittenTo(res)).toBe(NOT_FOUND_PATH);
+      expect(res.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("anonymous visitors still go to /foro/login for the forum itself", async () => {
+    state.user = null;
+    for (const p of ["/foro", "/foro/perfil", "/foro/c/general"]) {
+      const res = await call(p);
+      expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
+    }
   });
 
   it("known top-level pages are not touched", async () => {

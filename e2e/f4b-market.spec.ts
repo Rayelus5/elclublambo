@@ -160,7 +160,8 @@ test("2. Bitcoin page: heading, range switch to 30 d updates URL and chart, fact
   await expect(page.getByRole("link", { name: "Datos de CoinGecko" })).toBeVisible();
 });
 
-const notFoundText = "This page could not be found.";
+// A-R14: the forum variant of the custom 404.
+const notFoundText = "Este rincón del foro no existe";
 
 test("3. unknown coin shows the not-found page and is not cached; an invalid id is a real 404", async () => {
   // notFound() runs inside the page's Suspense, so the document may already be a streamed 200 (ruling F4b-R3):

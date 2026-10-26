@@ -6,6 +6,7 @@ import { Check, ShieldAlert } from "lucide-react";
 import { useMotionOn } from "@/components/start/motion";
 import type { Dictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
+import type { ToolKey } from "@/lib/admin/state";
 import { DEMO } from "./giveaway-demo";
 import { CreateLink, WhatIsLink } from "./final-cta";
 
@@ -80,7 +81,7 @@ function ProofStack({ t }: { t: Dictionary["landing"] }) {
   );
 }
 
-export function Hero({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) {
+export function Hero({ lang, t, off }: { lang: Lang; t: Dictionary["landing"]; off: ReadonlySet<ToolKey> }) {
   return (
     <section aria-labelledby="landing-hero" className="relative overflow-hidden">
       {/* The grid: the same graph paper as /start, fading out downwards. */}
@@ -106,7 +107,7 @@ export function Hero({ lang, t }: { lang: Lang; t: Dictionary["landing"] }) {
             aria-label={t.hero.actions}
             className="flex animate-start-rise flex-wrap items-center gap-3 [animation-delay:120ms] motion-reduce:animate-none"
           >
-            <CreateLink lang={lang} label={t.create} />
+            {off.has("giveaways") ? null : <CreateLink lang={lang} label={t.create} />}
             <WhatIsLink lang={lang} label={t.whatIs} />
           </div>
         </div>

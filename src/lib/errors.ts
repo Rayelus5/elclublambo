@@ -103,6 +103,12 @@ const MESSAGES: Record<string, string> = {
   drand_unavailable: "No se pudo descargar la ronda de drand. Se reintentará.",
   drand_invalid: "La ronda descargada de drand no tiene una firma válida. Se reintentará.",
   giveaway_closes_at_invalid: "El cierre debe estar entre 10 minutos y 30 días desde ahora.",
+  switch_invalid: "Ese interruptor no existe.",
+  maintenance_invalid:
+    "El mantenimiento no es válido: revisa la modalidad, los mensajes (de 1 a 500 caracteres) y las fechas, que deben ser futuras y en orden.",
+  wallet_invalid: "La wallet no es válida: debe ser una dirección 0x de 40 caracteres.",
+  note_invalid: "La nota puede tener como máximo 80 caracteres.",
+  password_invalid: "La contraseña debe tener entre 12 y 128 caracteres.",
 };
 
 /** Allowlist untrusted input (e.g. a query param) to a known error code; never echo raw text. */

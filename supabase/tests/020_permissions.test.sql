@@ -69,13 +69,15 @@ select is(public.my_permissions() + (select count(*) from public.members), 0::bi
   'non-member: 0 perms and 0 members visible');
 select tests.clear_authentication();
 
--- anon has no execute on any public function
+-- anon has no execute on any public function, except site_state() (Administración A-R2/A-R3: the proxy reads it
+-- with the anon key)
 select is(
   (select count(*) from pg_proc p
     where p.pronamespace = 'public'::regnamespace
       and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+      and p.oid <> 'public.site_state()'::regprocedure
       and has_function_privilege('anon', p.oid, 'execute')),
-  0::bigint, 'anon has no EXECUTE on public functions');
+  0::bigint, 'anon has no EXECUTE on public functions but site_state()');
 
 select is(
   (select count(*) from pg_class c

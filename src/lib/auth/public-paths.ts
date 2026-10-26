@@ -4,7 +4,7 @@ import { clubPath, LEGACY_LOGIN_PATH } from "@/lib/club/paths";
 // proxy lets this prefix through without a session.
 // /api/v1/* is the public checker API (token and link reports, optionally x402-paid): it reads no session and exposes no
 // member data, and each handler rate-limits by hashed IP. Every other /api/* route stays gated (matching is boundary-aware:
-// "/api/v1x" is not public).
+// "/api/v1x" is not public). /api/team-access («Acceso del equipo» during maintenance) checks the session itself.
 // The club's gate pages (login, invite, no-access, banned) live under /foro (R1).
 // The public part is served the same with or without a session, and the welcome gate skips it too: /start, the English
 // tree (/en/*), the Spanish tools (/herramientas/*), ElClub Pay (/pay/*), /robots.txt and /sitemap.xml. "/" and "/donar"
@@ -18,6 +18,7 @@ const PUBLIC_PREFIXES = [
   clubPath("/banned"),
   "/api/cron",
   "/api/v1",
+  "/api/team-access",
   "/start",
   "/en",
   "/herramientas",

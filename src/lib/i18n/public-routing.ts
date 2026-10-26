@@ -27,7 +27,7 @@ export function isInternalImagePath(pathname: string): boolean {
  * los ficheros de metadata de la raíz y los ficheros de `public/` que el matcher del proxy no excluye. Un test los compara
  * con el árbol real.
  */
-export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set(["api", "favicon.ico", "foro", "out", "robots.txt", "sitemap.xml"]);
+export const APP_TOP_SEGMENTS: ReadonlySet<string> = new Set(["api", "favicon.ico", "foro", "out", "robots.txt", "sitemap.xml", "status"]);
 
 /**
  * Primeros segmentos que el club usaba antes de vivir bajo /foro (R1-R5). Ya no son rutas: el proxy los redirige (308)

@@ -37,6 +37,10 @@ describe("isPublicPath", () => {
     expect(isPublicPath("/api/cronx")).toBe(false);
     expect(isPublicPath("/api")).toBe(false);
   });
+  it("lets the team access endpoint through (signed on the maintenance page)", () => {
+    expect(isPublicPath("/api/team-access")).toBe(true);
+    expect(isPublicPath("/api/team-accessx")).toBe(false);
+  });
   it("lets the public checker API through, with a boundary", () => {
     expect(isPublicPath("/api/v1/check/token")).toBe(true);
     expect(isPublicPath("/api/v1")).toBe(true);

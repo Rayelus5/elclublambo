@@ -1,30 +1,30 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createBrowserClient } from "@/lib/supabase/browser";
+import { publicRegistrationGate } from "@/lib/admin/registration-actions";
 import { safeNextPath } from "@/lib/auth/public-paths";
+import { signInWithWallet } from "@/lib/auth/siwe-sign-in";
 import { clubPath } from "@/lib/club/paths";
 import { getDictionary } from "@/lib/i18n";
 import { hardNavigate } from "@/lib/navigation/hard-navigate";
+import { createBrowserClient } from "@/lib/supabase/browser";
 import type { Lang } from "@/lib/i18n/config";
-import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
-type Props = { lang: Lang; next: string | null; variant?: ComponentProps<typeof Button>["variant"] };
-
-function isUserRejection(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const e = err as { name?: string; code?: number; cause?: unknown };
-  if (e.name === "UserRejectedRequestError" || e.code === 4001) return true;
-  return e.cause ? isUserRejection(e.cause) : false;
-}
+type Props = {
+  lang: Lang;
+  next: string | null;
+  variant?: ComponentProps<typeof Button>["variant"];
+  /** A-R13 fallback: /foro/login/complete came back with ?registration=closed (the header reads it). */
+  registrationClosed?: boolean;
+};
 
 /** Connect + sign in from the public side: same SIWE login as the club, in the visitor's language, no membership needed. */
-export function PublicConnect({ lang, next, variant }: Props) {
+export function PublicConnect({ lang, next, variant, registrationClosed = false }: Props) {
   const t = getDictionary(lang);
   const c = t.connect;
   const { open } = useAppKit();
@@ -33,36 +33,49 @@ export function PublicConnect({ lang, next, variant }: Props) {
   const { switchChain, isPending: switching } = useSwitchChain();
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The ?registration=closed flag is shown once: latched when it appears (the header drops it once the URL is clean),
+  // cleared by a new attempt.
+  const [closedNotice, setClosedNotice] = useState(registrationClosed);
+  const [prevClosed, setPrevClosed] = useState(registrationClosed);
+  if (registrationClosed !== prevClosed) {
+    setPrevClosed(registrationClosed);
+    if (registrationClosed) setClosedNotice(true);
+  }
+  // Then it leaves the URL, so a reload or a shared link does not show it again.
+  useEffect(() => {
+    if (!registrationClosed) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("registration") !== "closed") return;
+    url.searchParams.delete("registration");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [registrationClosed]);
 
   const chains = appChainIds();
   const loginChain = chains.find((id) => id === chainId);
   const target = NETWORKS[chains[0] as ChainId];
   const wrongChain = isConnected && loginChain === undefined;
+  const shown = error ?? (closedNotice ? c.errRegistrationClosed : null);
 
   async function signIn() {
     if (!address || loginChain === undefined || signing) return;
     setError(null);
+    setClosedNotice(false);
     setSigning(true);
     let navigated = false;
     try {
-      const message = buildLoginMessage({
-        address,
-        chainId: loginChain,
-        nonce: generateNonce(),
-        domain: window.location.host,
-        uri: `${window.location.origin}${clubPath("/login")}`, // R1-R2: same SIWE uri as the club login
-        lang,
-      });
-      let signature: `0x${string}`;
-      try {
-        signature = await signMessageAsync({ message });
-      } catch (err) {
-        setError(isUserRejection(err) ? c.errCancelled : c.errVerify);
+      const result = await signInWithWallet({ address, chainId: loginChain, lang, sign: (message) => signMessageAsync({ message }) });
+      if (!result.ok) {
+        setError(result.error === "cancelled" ? c.errCancelled : c.errVerify);
         return;
       }
-      const { error: authError } = await createBrowserClient().auth.signInWithWeb3({ chain: "ethereum", message, signature });
-      if (authError) {
-        setError(c.errVerify);
+      // A-R13: a new account made while registration is closed is deleted on the server; drop the local session too and
+      // say so here, before navigating. If the action itself fails, /login/complete enforces the same rule.
+      const gate = await publicRegistrationGate().catch(() => ({ ok: true }) as const);
+      if (!gate.ok) {
+        await createBrowserClient()
+          .auth.signOut({ scope: "local" })
+          .catch(() => {});
+        setError(c.errRegistrationClosed);
         return;
       }
       // P2-R16 hand-off through /foro/login/complete (completeLogin in public mode), a full navigation rather than a server
@@ -102,9 +115,9 @@ export function PublicConnect({ lang, next, variant }: Props) {
           {signing ? c.signing : c.signIn}
         </Button>
       )}
-      {error ? (
+      {shown ? (
         <p role="alert" className="text-[13px] text-danger">
-          {error}
+          {shown}
         </p>
       ) : null}
     </div>

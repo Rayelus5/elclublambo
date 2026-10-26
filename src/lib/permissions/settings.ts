@@ -10,6 +10,9 @@ export function settingsSections(perms: bigint): SettingsSection[] {
   if (hasPerm(perms, Perm.MANAGE_ROLES)) out.push({ href: clubPath("/settings/roles"), label: "Roles" });
   if (hasPerm(perms, Perm.MANAGE_CHANNELS)) out.push({ href: clubPath("/settings/links"), label: "Enlaces" });
   // SuperAdmin only: the raw bit, not hasPerm's other-bit logic.
-  if ((perms & Perm.ADMINISTRATOR) !== 0n) out.push({ href: clubPath("/settings/economia"), label: "Economía" });
+  if ((perms & Perm.ADMINISTRATOR) !== 0n) {
+    out.push({ href: clubPath("/settings/economia"), label: "Economía" });
+    out.push({ href: clubPath("/settings/administracion"), label: "Administración" });
+  }
   return out;
 }

@@ -16,8 +16,18 @@ import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 import { isHttps } from "@/lib/security/headers";
 import { publicOrigin } from "@/lib/start/site";
 import { authCookieName, serverSupabaseUrl } from "@/lib/supabase/urls";
+import { getSiteState } from "@/lib/admin/site-state";
+import { isMaintenanceActive, retryAfterSeconds } from "@/lib/admin/state";
+import { gateDecision } from "@/lib/admin/gate";
+import { statusLang } from "@/lib/admin/paths";
+import { MAINTENANCE_BANNER_COOKIE, maintenanceAccess } from "@/lib/admin/access";
+import { fetchStatusPage, isInternalStatusRequest, statusFetchOrigin } from "@/lib/admin/status-page";
 
 export async function proxy(request: NextRequest) {
+  // The proxy's own fetch of a status page (x-elclub-status: 1, see below): served as it is, ungated, so it cannot loop.
+  // Without the header /status/* stays a 404; forging it only shows the status page, which opens nothing.
+  if (isInternalStatusRequest(request.nextUrl.pathname, request.method, request.headers)) return NextResponse.next();
+
   // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
   // the same path and query, before anything else: no session read, no gate. On the public origin (behind the tunnel
   // request.nextUrl is the bind address).
@@ -58,7 +68,20 @@ export async function proxy(request: NextRequest) {
   // behind the Cloudflare Tunnel the request reaches Next over plain http.
   let welcomedNow = false;
   const staleMemo = !user && request.cookies.has(WELCOMED_COOKIE);
+  // A-R15: the "maintenance on" strip for whoever the gate below lets through during maintenance; cleared once it no
+  // longer applies (and on every 503). Cosmetic only.
+  let bannerNow = false;
+  const staleBanner = request.cookies.has(MAINTENANCE_BANNER_COOKIE);
   const remember = <R extends NextResponse>(res: R): R => {
+    if (bannerNow) {
+      res.cookies.set(MAINTENANCE_BANNER_COOKIE, "1", {
+        sameSite: "lax",
+        secure: isHttps(process.env.NEXT_PUBLIC_SITE_URL),
+        path: "/",
+      });
+    } else if (staleBanner) {
+      res.cookies.delete(MAINTENANCE_BANNER_COOKIE);
+    }
     if (welcomedNow && user) {
       res.cookies.set(WELCOMED_COOKIE, user.id, {
         httpOnly: true,
@@ -90,6 +113,40 @@ export async function proxy(request: NextRequest) {
     return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   };
 
+  // Administración (A-R7-A-R9): maintenance closes the site and a switched-off tool answers 503, before the public
+  // routing and the session gates. A direct /es/* URL is not a tool URL: it 308s below to its canonical URL, and that
+  // request is gated here. /status/* is only reachable through the proxy itself.
+  const siteState = await getSiteState();
+  const now = Date.now();
+  const access = user && isMaintenanceActive(siteState.maintenance, now) ? await maintenanceAccess(supabase, user) : "none";
+  const gate = gateDecision({ pathname, method: request.method, rsc: request.headers.get("rsc") === "1", state: siteState, now, access });
+  if (gate.kind === "status404") return notFound();
+  if (gate.kind !== "pass") {
+    const maintenance = gate.kind === "maintenancePage" || gate.kind === "maintenanceJson";
+    const headers: Record<string, string> = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+    if (maintenance) headers["Retry-After"] = String(retryAfterSeconds(siteState.maintenance, now));
+    let res: NextResponse;
+    if (gate.kind === "maintenancePage" || gate.kind === "unavailablePage") {
+      // Next renders a rewritten page with 200 whatever status the rewrite asked for, so the proxy fetches the status
+      // page from its own origin and answers it with a real 503. If that fails, the rewrite still shows the page.
+      const lang = statusLang(pathname, request.headers.get("accept-language"));
+      const kind = maintenance ? "maintenance" : "unavailable";
+      const page = await fetchStatusPage({ origin: statusFetchOrigin(request.nextUrl), lang, kind, acceptLanguage: request.headers.get("accept-language") });
+      if (page) {
+        res = new NextResponse(request.method === "HEAD" ? null : page.body, { status: 503, headers: { ...headers, "Content-Type": page.contentType } });
+      } else {
+        const url = request.nextUrl.clone();
+        url.pathname = `/status/${lang}/${kind}`;
+        url.search = "";
+        res = NextResponse.rewrite(url, { status: 503, headers, request: { headers: request.headers } });
+      }
+    } else {
+      res = NextResponse.json({ error: maintenance ? "maintenance" : "unavailable" }, { status: 503, headers });
+    }
+    return remember(applySessionHeaders(res, sessionCookies, sessionHeaders));
+  }
+  bannerNow = gate.banner;
+
   // Public part (bilingual tree): "/" is always the landing and "/donar" the public donate page (the club lives under
   // /foro, R1-R3); Spanish public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their
   // canonical URL (308). Decided before the gates: it is served the same with or without a session.
@@ -105,6 +162,10 @@ export async function proxy(request: NextRequest) {
     url.pathname = route.to;
     return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   }
+
+  // A single unknown segment (/xx, /typo) is the custom 404 for everyone: an anonymous visitor is not invited to sign in
+  // to the forum (I1). Club routes, langs, the public ES map and the app's own top-level files are never "unknown".
+  if (!user && isUnknownTopSegment(pathname)) return notFound();
 
   if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
     const url = redirectUrl(clubPath("/login"), new URLSearchParams({ next: pathname }));
@@ -128,7 +189,7 @@ export async function proxy(request: NextRequest) {
   // one. The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot
   // open. /foro/mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
-  // went to /foro/login above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
+  // got the same 404 above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
   // Same for an alias nobody owns (/en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
   if (
     (await isMissingPublicGiveaway(pathname)) ||
@@ -149,6 +210,9 @@ export async function proxy(request: NextRequest) {
   return remember(response);
 }
 
+// Only Next's own assets and the files that really exist in public/ (the service worker and the brand SVGs) skip the
+// proxy. An extension is no exemption: /foro/x.png is a dynamic route like any other and goes through every gate (M1).
+// tests/unit/admin/proxy-matcher.test.ts checks this list against public/.
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|sw\\.js$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)"],
+  matcher: ["/((?!_next/|favicon\\.ico$|sw\\.js$|brand/[^/]+/[^/]+\\.svg$).*)"],
 };

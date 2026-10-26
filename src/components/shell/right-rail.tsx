@@ -283,7 +283,7 @@ export function RightRail() {
 
   if (collapsed) {
     return (
-      <aside aria-label="Panel lateral" className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-l border-border bg-surface lg:flex lg:justify-center lg:pt-3">
+      <aside aria-label="Panel lateral" className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] border-l border-border bg-surface lg:flex lg:justify-center lg:pt-3">
         <button
           type="button"
           aria-label="Mostrar panel lateral"
@@ -300,7 +300,7 @@ export function RightRail() {
   return (
     <aside
       aria-label="Panel lateral"
-      className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-4 lg:flex"
+      className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-4 lg:flex"
     >
       <div className="flex justify-end">
         <button

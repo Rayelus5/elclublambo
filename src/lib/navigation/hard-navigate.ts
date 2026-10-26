@@ -2,3 +2,8 @@
 export function hardNavigate(url: string): void {
   window.location.assign(url);
 }
+
+/** A full reload of the current URL (the proxy decides again with fresh cookies; never router.refresh). */
+export function hardReload(): void {
+  window.location.reload();
+}

@@ -52,6 +52,7 @@ describe("settingsSections gating", () => {
       "/foro/settings/roles",
       "/foro/settings/links",
       "/foro/settings/economia",
+      "/foro/settings/administracion",
     ]);
   });
   it("economía needs bit 512 itself, not just other management bits", () => {

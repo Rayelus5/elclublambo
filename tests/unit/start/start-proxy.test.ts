@@ -2,6 +2,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+// Administración: the site is open (no maintenance, every switch on) unless a test says otherwise.
+vi.mock("@/lib/admin/site-state", async () => {
+  const { OPEN_STATE } = await import("@/lib/admin/state");
+  return { getSiteState: async () => OPEN_STATE };
+});
 
 // /start is the public landing: served with and without a session, never redirected (login, welcome).
 const state = vi.hoisted(() => ({ user: null as { id: string } | null, membership: "active" as string, rpcs: [] as string[] }));
@@ -72,8 +77,14 @@ describe("proxy on /start", () => {
   });
 
   it("still sends an anonymous visitor of a private page to /foro/login", async () => {
-    const res = await call("/startx");
+    const res = await call("/foro/startx");
     expect(new URL(res.headers.get("location")!).pathname).toBe("/foro/login");
+  });
+
+  it("an unknown look-alike (/startx) is the custom 404, not the login (I1)", async () => {
+    const res = await call("/startx");
+    expect(res.status).toBe(404);
+    expect(res.headers.get("location")).toBeNull();
   });
 });
 

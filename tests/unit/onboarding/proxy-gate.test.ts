@@ -2,6 +2,11 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+// Administración: the site is open (no maintenance, every switch on) unless a test says otherwise.
+vi.mock("@/lib/admin/site-state", async () => {
+  const { OPEN_STATE } = await import("@/lib/admin/state");
+  return { getSiteState: async () => OPEN_STATE };
+});
 
 type Row = { data: { welcome_completed_at: string | null } | null; error: { message: string } | null };
 const state = vi.hoisted(() => ({

@@ -18,5 +18,12 @@ export const getPublicSession = cache(async function getPublicSession(): Promise
   if (!wallet) return null;
   const { data: status, error } = await supabase.rpc("my_membership_status");
   if (error || status === "banned") return null;
+  // A-R13: an account made while registration is closed (held, no members row) has no public account either. This is the
+  // one gate in front of every public action, including the service-role RPCs where `is_public_account()` never runs.
+  // Only status `none` can be held; a failed check fails closed, like the status read.
+  if (status === "none") {
+    const { data: blocked, error: blockErr } = await supabase.rpc("my_registration_blocked");
+    if (blockErr || blocked !== false) return null;
+  }
   return { userId: user.id, wallet, isMember: status === "active" };
 });

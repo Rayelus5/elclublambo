@@ -29,7 +29,7 @@ beforeAll(() => {
 
 describe("Landing with motion allowed", () => {
   it("keeps off-screen blocks waiting for their reveal (so the reduced-motion check has teeth)", async () => {
-    const { container } = render(<Landing lang="es" />);
+    const { container } = render(<Landing lang="es" off={new Set()} />);
     await waitFor(() => {
       const hidden = [...container.querySelectorAll<HTMLElement>("[style]")].filter((el) => el.style.opacity === "0");
       expect(hidden.length).toBeGreaterThan(0);

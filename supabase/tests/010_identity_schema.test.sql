@@ -37,7 +37,10 @@ select results_eq(
   'seed roles exact');
 select results_eq(
   $$select key, value from public.app_config order by key$$,
-  $$values ('active_chain_id'::text, '59141'::jsonb), ('donor_role_min_usd6', '1000000'::jsonb), ('legacy_dao_enabled', 'false'::jsonb), ('min_fee_bps', '0'::jsonb),
+  $$values ('active_chain_id'::text, '59141'::jsonb), ('donor_role_min_usd6', '1000000'::jsonb), ('legacy_dao_enabled', 'false'::jsonb),
+    ('maintenance', '{"enabled":false,"mode":"default","messageEs":null,"messageEn":null,"returnAt":null,"startsAt":null,"endsAt":null}'::jsonb),
+    ('min_fee_bps', '0'::jsonb),
+    ('site_switches', '{"giveaways":true,"pay":true,"checker":true,"vouches":true,"approvals":true,"multisend":true,"gas":true,"donate":true,"checkerApi":true,"registration":true}'::jsonb),
     ('weighted_raffles_enabled', 'false'::jsonb), ('withdrawals_enabled', 'false'::jsonb)$$,
   'app_config seed');
 
