@@ -360,7 +360,7 @@ test("8. ES/EN keeps each page (approvals with its query), no console errors, no
     await expect(page).toHaveURL((url) => `${url.pathname}${url.search}` === es);
   }
   await page.goto("/herramientas");
-  for (const name of [/Aprobaciones/, /Envío múltiple/, /Calculadora de gas/]) await expect(page.getByRole("link", { name })).toContainText("Disponible");
+  for (const name of [/Aprobaciones/, /Envío múltiple/, /Calculadora de gas/]) await expect(page.getByRole("main").getByRole("link", { name })).toContainText("Disponible");
   expect(await csp()).toEqual([]);
   expect(await cspA()).toEqual([]);
   expect(browserErrors).toEqual([]);
