@@ -27,6 +27,8 @@ const CRON_SECRET = "e2e-cron-secret";
 const BANNER = "Mantenimiento activo: la web está cerrada al público";
 const ADMIN_PATH = clubPath("/settings/administracion");
 const SHOTS = process.env.ADMIN_SHOTS_DIR;
+// Straight to the server, and as behind the PRE tunnel (cloudflared sends X-Forwarded-Proto: https).
+const VIA: Array<Record<string, string>> = [{}, { "X-Forwarded-Proto": "https" }];
 
 // A-R1 defaults: everything on, maintenance off.
 const SWITCHES_ON = {
@@ -240,7 +242,7 @@ test("1. a switched-off tool: history line, dimmed hub card, 503 page in ES and 
   await expect(anonPage.getByRole("heading", { name: "This tool isn't available right now" })).toBeVisible();
   await shot(anonPage, "unavailable-en");
 
-  for (const headers of [{}, { "X-Forwarded-Proto": "https" }]) {
+  for (const headers of VIA) {
     const page = await expectStatus(request, "/herramientas/gas", "unavailable", headers);
     expect(await page.text()).toContain("Esta herramienta no está disponible ahora");
   }
@@ -329,7 +331,7 @@ test("6. anonymous visitors get the 503 maintenance page (ES / EN) and the API i
   expect(en?.status()).toBe(503);
   await expect(anonPage.getByRole("heading", { name: "Back shortly" })).toBeVisible();
 
-  for (const headers of [{}, { "X-Forwarded-Proto": "https" }]) {
+  for (const headers of VIA) {
     for (const path of ["/", "/en", "/herramientas", clubPath()]) {
       const page = await expectStatus(request, path, "maintenance", headers);
       expect(page.headers()["retry-after"]).toBe("3600");
