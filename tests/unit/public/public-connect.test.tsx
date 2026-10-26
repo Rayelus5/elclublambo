@@ -116,6 +116,35 @@ describe("PublicConnect with registration closed (A-R13)", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Account registration is closed right now.");
   });
 
+  it("strips ?registration=closed from the URL once shown, and keeps the message (a reload does not show it again)", async () => {
+    account.isConnected = false;
+    account.address = undefined;
+    window.history.replaceState(null, "", "/en/tools?x=1&registration=closed#top");
+    const { rerender } = render(<PublicConnect lang="en" next={null} registrationClosed />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Account registration is closed right now.");
+    await waitFor(() => expect(window.location.pathname + window.location.search + window.location.hash).toBe("/en/tools?x=1#top"));
+    // The header re-reads the URL and drops the flag: the message stays.
+    rerender(<PublicConnect lang="en" next={null} registrationClosed={false} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Account registration is closed right now.");
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("leaves the URL alone without the flag", () => {
+    window.history.replaceState(null, "", "/en/tools?registration=open");
+    render(<PublicConnect lang="en" next={null} />);
+    expect(window.location.search).toBe("?registration=open");
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("a new sign-in attempt clears the shown flag message", async () => {
+    signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
+    render(<PublicConnect lang="en" next="/en/tools" registrationClosed />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Account registration is closed right now.");
+    await userEvent.click(screen.getByRole("button", { name: /Sign in/ }));
+    await waitFor(() => expect(screen.getByRole("alert")).not.toHaveTextContent("Account registration is closed right now."));
+    window.history.replaceState(null, "", "/");
+  });
+
   it("a failed sign-in never asks the gate", async () => {
     signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
     render(<PublicConnect lang="en" next="/en/tools" />);

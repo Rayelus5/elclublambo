@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useEffect, useState, type ComponentProps } from "react";
 import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
@@ -33,16 +33,33 @@ export function PublicConnect({ lang, next, variant, registrationClosed = false 
   const { switchChain, isPending: switching } = useSwitchChain();
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The ?registration=closed flag is shown once: latched when it appears (the header drops it once the URL is clean),
+  // cleared by a new attempt.
+  const [closedNotice, setClosedNotice] = useState(registrationClosed);
+  const [prevClosed, setPrevClosed] = useState(registrationClosed);
+  if (registrationClosed !== prevClosed) {
+    setPrevClosed(registrationClosed);
+    if (registrationClosed) setClosedNotice(true);
+  }
+  // Then it leaves the URL, so a reload or a shared link does not show it again.
+  useEffect(() => {
+    if (!registrationClosed) return;
+    const url = new URL(window.location.href);
+    if (url.searchParams.get("registration") !== "closed") return;
+    url.searchParams.delete("registration");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [registrationClosed]);
 
   const chains = appChainIds();
   const loginChain = chains.find((id) => id === chainId);
   const target = NETWORKS[chains[0] as ChainId];
   const wrongChain = isConnected && loginChain === undefined;
-  const shown = error ?? (registrationClosed ? c.errRegistrationClosed : null);
+  const shown = error ?? (closedNotice ? c.errRegistrationClosed : null);
 
   async function signIn() {
     if (!address || loginChain === undefined || signing) return;
     setError(null);
+    setClosedNotice(false);
     setSigning(true);
     let navigated = false;
     try {
