@@ -4,6 +4,7 @@ import {
   INTRO_PATHS,
   gridFor,
   introBootScript,
+  isIntroPath,
   markIntroSeen,
   shouldShowIntro,
   takeEarlyTap,
@@ -21,6 +22,13 @@ describe("shouldShowIntro", () => {
     expect(shouldShowIntro({ pathname: "/en", seen: true, reducedMotion: false })).toBe(false);
     expect(shouldShowIntro({ pathname: "/", seen: false, reducedMotion: true })).toBe(false);
     expect(shouldShowIntro({ pathname: "/herramientas", seen: false, reducedMotion: false })).toBe(false);
+  });
+});
+
+describe("isIntroPath", () => {
+  it("matches the homes with or without a trailing slash, and nothing else", () => {
+    for (const p of ["/", "/en", "/en/"]) expect(isIntroPath(p)).toBe(true);
+    for (const p of ["/es", "/herramientas", "/en/tools", "/foro", "/start"]) expect(isIntroPath(p)).toBe(false);
   });
 });
 

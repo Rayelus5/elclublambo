@@ -16,9 +16,14 @@ function normalise(pathname: string): string {
   return pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
 }
 
+/** Is this one of the homes where the intro lives (/, /en, with or without a trailing slash)? */
+export function isIntroPath(pathname: string): boolean {
+  return (INTRO_PATHS as readonly string[]).includes(normalise(pathname));
+}
+
 export function shouldShowIntro(i: { pathname: string; seen: boolean; reducedMotion: boolean }): boolean {
   if (i.seen || i.reducedMotion) return false;
-  return (INTRO_PATHS as readonly string[]).includes(normalise(i.pathname));
+  return isIntroPath(i.pathname);
 }
 
 declare global {
