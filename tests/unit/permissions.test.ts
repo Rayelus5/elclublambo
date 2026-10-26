@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ALL_PERMS, CHANNEL_MASK, GLOBAL_MASK, Perm, hasPerm } from "@/lib/permissions/bits";
+import { settingsSections } from "@/lib/permissions/settings";
 
 describe("Perm bits", () => {
   it("has exact values", () => {
@@ -52,5 +53,19 @@ describe("hasPerm", () => {
     expect(hasPerm(23n, 16n)).toBe(true);
     expect(hasPerm(7n, 16n)).toBe(false);
     expect(hasPerm(0n, 1n)).toBe(false);
+  });
+});
+
+describe("settingsSections: Administración", () => {
+  it("the raw 512 bit shows «Administración» right after «Economía»", () => {
+    const sections = settingsSections(512n);
+    expect(sections).toContainEqual({ href: "/foro/settings/administracion", label: "Administración" });
+    const hrefs = sections.map((s) => s.href);
+    expect(hrefs.indexOf("/foro/settings/administracion")).toBe(hrefs.indexOf("/foro/settings/economia") + 1);
+  });
+
+  it("other management bits do not show it", () => {
+    expect(settingsSections(Perm.MANAGE_ROLES).map((s) => s.label)).not.toContain("Administración");
+    expect(settingsSections(Perm.MANAGE_CHANNELS | Perm.MANAGE_ROLES | Perm.MANAGE_TREASURY).map((s) => s.label)).not.toContain("Administración");
   });
 });

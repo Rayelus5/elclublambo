@@ -48,6 +48,13 @@ describe("isHiddenSettingsPage", () => {
     }
   });
 
+  it("hides «Administración» from an active member without the raw 512 bit", async () => {
+    for (const perms of ["0", String(CHANNELS), "64", String(CHANNELS | 64n | 256n)]) {
+      expect(await isHiddenSettingsPage(client({ perms }) as never, "/foro/settings/administracion")).toBe(true);
+    }
+    expect(await isHiddenSettingsPage(client({ perms: String(SUPER) }) as never, "/foro/settings/administracion")).toBe(false);
+  });
+
   it("only active members get the 404 (the layout redirects everyone else)", async () => {
     expect(await isHiddenSettingsPage(client({ perms: "0", status: "banned" }) as never, "/foro/settings/economia")).toBe(false);
   });
