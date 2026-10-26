@@ -27,8 +27,6 @@ export const es = {
     mainNav: "Navegación principal",
     home: "ElClub., inicio",
     notAdvice: "No es asesoramiento financiero.",
-    whatIs: "Qué es ElClub.",
-    builtOn: "En Base y Arbitrum",
   },
   giveaways: {
     home: {

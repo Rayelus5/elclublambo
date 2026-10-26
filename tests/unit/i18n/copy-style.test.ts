@@ -11,8 +11,8 @@ const SECTIONS = [
   "connect", "giveaways", "landing", "tools", "start", "checker", "pay", "donate",
   "vouches", "approvals", "multisend", "gas", "footer",
 ];
-// Maquetas de ejemplo y nombres de alertas del comprobador.
-const SKIP = [/^start\.noise\.thread(\.|$)/, /^start\.noise\.chatter(\.|$)/, /^start\.ticker(\.|$)/, /^checker\.[^.]+\.flags(\.|$)/];
+// Maquetas de ejemplo de /start.
+const SKIP = [/^start\.noise\.thread(\.|$)/, /^start\.noise\.chatter(\.|$)/, /^start\.ticker(\.|$)/];
 
 function collect(node: unknown, path: string, out: [string, string][]) {
   if (SKIP.some((re) => re.test(path))) return;

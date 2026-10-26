@@ -27,8 +27,6 @@ export const en = {
     mainNav: "Main navigation",
     home: "ElClub., home",
     notAdvice: "This is not financial advice.",
-    whatIs: "What is ElClub.",
-    builtOn: "On Base and Arbitrum",
   },
   giveaways: {
     home: {

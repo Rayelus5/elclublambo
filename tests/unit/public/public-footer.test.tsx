@@ -51,6 +51,8 @@ describe("public footer", () => {
     expect(screen.getByText(es.footer.tagline)).toBeInTheDocument();
     expect(screen.getByText(es.footer.builtOn)).toBeInTheDocument();
     expect(screen.getByText(es.footer.rights)).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(es.common.noCustody.slice(0, 20)))).toBeInTheDocument();
+    const legal = screen.getByText(new RegExp(es.common.noCustody.slice(0, 20)));
+    expect(legal).toHaveTextContent(es.common.noCustody);
+    expect(legal).toHaveTextContent(es.connect.notAdvice);
   });
 });
