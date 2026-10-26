@@ -215,9 +215,16 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test.afterAll(async () => {
-  await restore();
-  await dropOurPublicAccounts();
-  await Promise.all([admin?.close(), anon?.close(), team?.close()]);
+  // try/finally: a failing restore() must not skip the account cleanup nor leave the contexts open.
+  try {
+    await restore();
+  } finally {
+    try {
+      await dropOurPublicAccounts();
+    } finally {
+      await Promise.all([admin?.close(), anon?.close(), team?.close()]);
+    }
+  }
 });
 
 test("1. a switched-off tool: history line, dimmed hub card, 503 page in ES and EN with real headers", async ({ request }) => {
@@ -384,6 +391,8 @@ test("9. L: wrong password is refused, the right one opens the site with the str
   await expect(teamPage.getByText(BANNER)).toBeVisible();
   expect((await teamPage.reload())?.status()).toBe(200);
   await expect(teamPage.getByText(BANNER)).toBeVisible();
+  // The content of /herramientas, not only its static shell: the grid streams under <Suspense>.
+  await expect(teamPage.getByRole("list", { name: "Herramientas" }).getByRole("link")).toHaveCount(7);
   await shot(teamPage, "banner-tools");
 });
 
@@ -396,6 +405,8 @@ test("10. the SuperAdmin, who only signed, gets in with the strip", async () => 
   await page.close();
   await adminPage.reload();
   await expect(adminPage.getByText(BANNER)).toBeVisible();
+  // The tab itself streams under <Suspense>: wait for it before the capture.
+  await expect(adminPage.getByRole("heading", { name: "Administración", level: 2 })).toBeVisible();
   await shot(adminPage, "admin-tab-maintenance", false);
 });
 
@@ -478,15 +489,14 @@ test("14. turning maintenance off lets everyone in and the strip goes", async ()
 });
 
 test("15. the custom 404 in ES, EN and the forum, with a 404 status and noindex", async () => {
-  // An unknown top-level segment answers 404 to a signed-in visitor; an anonymous one still goes to /foro/login there
-  // (R1, tests/unit/i18n/proxy-public-404.test.ts), so the ES case uses the SuperAdmin's context.
-  const page = await watchedPage(admin);
-  const es = await page.goto("/no-existe-nada");
+  // An unknown top-level segment is the custom 404 for an anonymous visitor too, not the forum login (I1).
+  const es = await anonPage.goto("/no-existe-nada");
   expect(es?.status()).toBe(404);
-  await expect(page.getByRole("heading", { name: "Aquí no hay nada" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Volver al inicio" })).toHaveAttribute("href", "/");
-  await expectNoindex(page);
-  await shot(page, "404-es");
+  expect(new URL(anonPage.url()).pathname).toBe("/no-existe-nada");
+  await expect(anonPage.getByRole("heading", { name: "Aquí no hay nada" })).toBeVisible();
+  await expect(anonPage.getByRole("link", { name: "Volver al inicio" })).toHaveAttribute("href", "/");
+  await expectNoindex(anonPage);
+  await shot(anonPage, "404-es");
 
   const en = await anonPage.goto("/en/nothing/here");
   expect(en?.status()).toBe(404);
@@ -494,6 +504,7 @@ test("15. the custom 404 in ES, EN and the forum, with a 404 status and noindex"
   await expectNoindex(anonPage);
   await shot(anonPage, "404-en");
 
+  const page = await watchedPage(admin);
   const foro = await page.goto(clubPath("/no-existe"));
   expect(foro?.status()).toBe(404);
   await expect(page.getByRole("heading", { name: "Este rincón del foro no existe" })).toBeVisible();
