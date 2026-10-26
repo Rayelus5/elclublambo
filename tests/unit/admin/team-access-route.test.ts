@@ -154,6 +154,56 @@ describe("POST /api/team-access — with password", () => {
     await expectJson(await call("{nope"), 400, { status: "invalid" });
   });
 
+  // The body is capped at 4 KB (a password is at most 128 characters): PRE buffers up to 100 MB behind the tunnel.
+  it("a body over 4 KB → 400 invalid, before any bucket or password check", async () => {
+    const big = JSON.stringify({ password: PASSWORD, pad: "x".repeat(5000) });
+    await expectJson(await call(big), 400, { status: "invalid" });
+    expect(m.verifyPassword).not.toHaveBeenCalled();
+    expect(m.hitRateLimit).not.toHaveBeenCalled();
+    expect(m.hitIpRateLimit).not.toHaveBeenCalled();
+  });
+
+  it("a declared content-length over 4 KB → 400 invalid without reading the body", async () => {
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/team-access", {
+        method: "POST",
+        headers: { "content-type": "application/json", "sec-fetch-site": "same-origin", "content-length": "100000000" },
+        body: JSON.stringify({ password: PASSWORD }),
+      }),
+    );
+    await expectJson(res, 400, { status: "invalid" });
+    expect(m.verifyPassword).not.toHaveBeenCalled();
+  });
+
+  it("a streamed body without content-length is cut at 4 KB too", async () => {
+    const chunk = new TextEncoder().encode("x".repeat(1024));
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent++;
+        if (sent > 1000) controller.close();
+        else controller.enqueue(chunk);
+      },
+    });
+    const res = await POST(
+      new NextRequest("http://localhost:3000/api/team-access", {
+        method: "POST",
+        headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
+        body,
+        duplex: "half",
+      } as RequestInit & { duplex: "half" }),
+    );
+    await expectJson(res, 400, { status: "invalid" });
+    expect(sent).toBeLessThan(10);
+  });
+
+  it("a body of exactly 4 KB is still read", async () => {
+    const base = JSON.stringify({ password: PASSWORD, pad: "" });
+    const body = JSON.stringify({ password: PASSWORD, pad: "x".repeat(4096 - base.length) });
+    expect(new TextEncoder().encode(body).length).toBe(4096);
+    await expectJson(await call(body), 200, { status: "granted" });
+  });
+
   it("charges both buckets before anything else", async () => {
     await call({ password: PASSWORD });
     expect(m.hitIpRateLimit).toHaveBeenCalledWith("maintenance_password", expect.any(Headers));
