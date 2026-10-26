@@ -16,6 +16,11 @@ import { isHiddenTreasuryPage } from "@/lib/treasury/guard";
 import { isHttps } from "@/lib/security/headers";
 import { publicOrigin } from "@/lib/start/site";
 import { authCookieName, serverSupabaseUrl } from "@/lib/supabase/urls";
+import { getSiteState } from "@/lib/admin/site-state";
+import { isMaintenanceActive, retryAfterSeconds } from "@/lib/admin/state";
+import { gateDecision } from "@/lib/admin/gate";
+import { statusLang } from "@/lib/admin/paths";
+import { MAINTENANCE_BANNER_COOKIE, maintenanceAccess } from "@/lib/admin/access";
 
 export async function proxy(request: NextRequest) {
   // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
@@ -58,7 +63,20 @@ export async function proxy(request: NextRequest) {
   // behind the Cloudflare Tunnel the request reaches Next over plain http.
   let welcomedNow = false;
   const staleMemo = !user && request.cookies.has(WELCOMED_COOKIE);
+  // A-R15: the "maintenance on" strip for whoever the gate below lets through during maintenance; cleared once it no
+  // longer applies (and on every 503). Cosmetic only.
+  let bannerNow = false;
+  const staleBanner = request.cookies.has(MAINTENANCE_BANNER_COOKIE);
   const remember = <R extends NextResponse>(res: R): R => {
+    if (bannerNow) {
+      res.cookies.set(MAINTENANCE_BANNER_COOKIE, "1", {
+        sameSite: "lax",
+        secure: isHttps(process.env.NEXT_PUBLIC_SITE_URL),
+        path: "/",
+      });
+    } else if (staleBanner) {
+      res.cookies.delete(MAINTENANCE_BANNER_COOKIE);
+    }
     if (welcomedNow && user) {
       res.cookies.set(WELCOMED_COOKIE, user.id, {
         httpOnly: true,
@@ -89,6 +107,31 @@ export async function proxy(request: NextRequest) {
     url.search = "";
     return remember(applySessionHeaders(NextResponse.rewrite(url, { status: 404, request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   };
+
+  // Administración (A-R7-A-R9): maintenance closes the site and a switched-off tool answers 503, before the public
+  // routing and the session gates. A direct /es/* URL is not a tool URL: it 308s below to its canonical URL, and that
+  // request is gated here. /status/* is only reachable through these rewrites.
+  const siteState = await getSiteState();
+  const now = Date.now();
+  const access = user && isMaintenanceActive(siteState.maintenance, now) ? await maintenanceAccess(supabase, user) : "none";
+  const gate = gateDecision({ pathname, method: request.method, rsc: request.headers.get("rsc") === "1", state: siteState, now, access });
+  if (gate.kind === "status404") return notFound();
+  if (gate.kind !== "pass") {
+    const maintenance = gate.kind === "maintenancePage" || gate.kind === "maintenanceJson";
+    const headers: Record<string, string> = { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" };
+    if (maintenance) headers["Retry-After"] = String(retryAfterSeconds(siteState.maintenance, now));
+    let res: NextResponse;
+    if (gate.kind === "maintenancePage" || gate.kind === "unavailablePage") {
+      const url = request.nextUrl.clone();
+      url.pathname = `/status/${statusLang(pathname, request.headers.get("accept-language"))}/${maintenance ? "maintenance" : "unavailable"}`;
+      url.search = "";
+      res = NextResponse.rewrite(url, { status: 503, headers, request: { headers: request.headers } });
+    } else {
+      res = NextResponse.json({ error: maintenance ? "maintenance" : "unavailable" }, { status: 503, headers });
+    }
+    return remember(applySessionHeaders(res, sessionCookies, sessionHeaders));
+  }
+  bannerNow = gate.banner;
 
   // Public part (bilingual tree): "/" is always the landing and "/donar" the public donate page (the club lives under
   // /foro, R1-R3); Spanish public URLs are rewritten to the internal /es tree and direct visits to /es/* go to their

@@ -2,6 +2,11 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
+// Administración: the site is open (no maintenance, every switch on) unless a test says otherwise.
+vi.mock("@/lib/admin/site-state", async () => {
+  const { OPEN_STATE } = await import("@/lib/admin/state");
+  return { getSiteState: async () => OPEN_STATE };
+});
 
 // Docker standalone on PRE: Next binds HOSTNAME=0.0.0.0:3000 behind the Cloudflare Tunnel, so request.nextUrl is the
 // bind address. The proxy's redirects must point at the public site (NEXT_PUBLIC_SITE_URL); rewrites stay internal.
