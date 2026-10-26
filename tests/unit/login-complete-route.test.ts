@@ -95,6 +95,14 @@ describe("GET /foro/login/complete", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/en/tools/giveaways");
   });
 
+  it("public mode with registration closed goes back to next flagged ?registration=closed, keeping its query (A-R13)", async () => {
+    completeLogin.mockResolvedValue({ redirectTo: "public", error: "registration_closed" });
+    expect((await call("?mode=public&next=" + encodeURIComponent("/herramientas/sorteos/x?join=1"))).headers.get("location")).toBe(
+      "http://localhost:3000/herramientas/sorteos/x?join=1&registration=closed",
+    );
+    expect((await call("?mode=public&next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/?registration=closed");
+  });
+
   it("public mode ignores an unsafe next (back to the landing)", async () => {
     completeLogin.mockResolvedValue({ redirectTo: "public" });
     expect((await call("?mode=public&next=//evil.com")).headers.get("location")).toBe("http://localhost:3000/");

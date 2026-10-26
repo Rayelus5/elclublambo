@@ -23,8 +23,27 @@ describe("getPublicSession", () => {
   });
   it("wallet without membership -> not a member", async () => {
     getUser.mockResolvedValue({ data: { user } });
-    rpc.mockResolvedValue({ data: "none", error: null });
+    rpc.mockImplementation(async (fn: string) => ({ data: fn === "my_membership_status" ? "none" : false, error: null }));
     expect(await getPublicSession()).toEqual({ userId: "u1", wallet: WALLET.toLowerCase(), isMember: false });
+    expect(rpc).toHaveBeenCalledWith("my_registration_blocked");
+  });
+  it("a held account (registration closed) -> null, the one gate for every public action (A-R13)", async () => {
+    getUser.mockResolvedValue({ data: { user } });
+    rpc.mockImplementation(async (fn: string) => ({ data: fn === "my_membership_status" ? "none" : true, error: null }));
+    expect(await getPublicSession()).toBeNull();
+  });
+  it("a failed hold check -> null (fails closed, like the status read)", async () => {
+    getUser.mockResolvedValue({ data: { user } });
+    rpc.mockImplementation(async (fn: string) =>
+      fn === "my_membership_status" ? { data: "none", error: null } : { data: null, error: { message: "boom" } },
+    );
+    expect(await getPublicSession()).toBeNull();
+  });
+  it.each(["active", "left"])("%s never asks for the hold (a members row is never held)", async (status) => {
+    getUser.mockResolvedValue({ data: { user } });
+    rpc.mockResolvedValue({ data: status, error: null });
+    expect(await getPublicSession()).not.toBeNull();
+    expect(rpc).not.toHaveBeenCalledWith("my_registration_blocked");
   });
   it("active member -> isMember", async () => {
     getUser.mockResolvedValue({ data: { user } });

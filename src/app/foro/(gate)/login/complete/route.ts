@@ -30,10 +30,13 @@ export async function GET(request: NextRequest) {
   // (by default the landing, R1-R4). A lost session (the club login) goes back to `next` too: the public page offers to
   // connect again (the club login does not).
   if (searchParams.get("mode") === "public") {
-    const { redirectTo } = await completeLogin(null, "public");
+    const { redirectTo, error } = await completeLogin(null, "public");
     const back = redirectTo === "public" || redirectTo === login;
-    const target = new URL(back ? safeNextPath(searchParams.get("next"), "/") : redirectTo, origin);
-    return NextResponse.redirect(target.origin === origin ? target : new URL("/", origin));
+    let target = new URL(back ? safeNextPath(searchParams.get("next"), "/") : redirectTo, origin);
+    if (target.origin !== origin) target = new URL("/", origin);
+    // A-R13: the new account was deleted; the public header reads the flag and says why the visitor is signed out.
+    if (error === "registration_closed") target.searchParams.set("registration", "closed");
+    return NextResponse.redirect(target);
   }
 
   const result = await completeLogin(searchParams.get("invite"));

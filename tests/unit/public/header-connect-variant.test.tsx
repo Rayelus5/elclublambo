@@ -16,4 +16,14 @@ describe("PublicHeader connect button", () => {
     expect(connect).toHaveBeenCalled();
     expect(connect.mock.calls[0]?.[0]).toMatchObject({ variant: "outline" });
   });
+
+  it("flags registrationClosed only when the URL carries ?registration=closed (the no-JS fallback, A-R13)", () => {
+    window.history.replaceState(null, "", "/?registration=closed");
+    render(<PublicHeader lang="es" session={null} />);
+    expect(connect.mock.calls.at(-1)?.[0]).toMatchObject({ registrationClosed: true });
+    window.history.replaceState(null, "", "/");
+    connect.mockClear();
+    render(<PublicHeader lang="es" session={null} />);
+    expect(connect.mock.calls.at(-1)?.[0]).toMatchObject({ registrationClosed: false });
+  });
 });

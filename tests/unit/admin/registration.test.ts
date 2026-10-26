@@ -14,7 +14,7 @@ const deleteUser = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ auth: { admin: { deleteUser } } }) }));
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ auth: { getUser, signOut }, rpc }) }));
 
-import { enforcePublicRegistration } from "@/lib/admin/registration";
+import { enforceNewPublicAccount, enforcePublicRegistration } from "@/lib/admin/registration";
 import { publicRegistrationGate } from "@/lib/admin/registration-actions";
 
 const supabase = { rpc, auth: { signOut } } as never;
@@ -61,6 +61,22 @@ describe("enforcePublicRegistration", () => {
     expect(await enforcePublicRegistration(supabase, "u1")).toBe("closed");
     expect(signOut).toHaveBeenCalledTimes(1);
     expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain("u1");
+  });
+});
+
+describe("enforceNewPublicAccount (the shared status / SuperAdmin / none check)", () => {
+  it("status none, not the SuperAdmin -> enforces", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    expect(await enforceNewPublicAccount(supabase, userOf(OTHER), "none")).toBe("closed");
+    expect(deleteUser).toHaveBeenCalledWith("u1");
+  });
+  it.each(["active", "left", "banned", null, undefined, 42])("status %s -> ok, no RPC", async (status) => {
+    expect(await enforceNewPublicAccount(supabase, userOf(OTHER), status)).toBe("ok");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+  it("the SuperAdmin wallet -> ok, no RPC", async () => {
+    expect(await enforceNewPublicAccount(supabase, userOf(WALLET), "none")).toBe("ok");
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
 

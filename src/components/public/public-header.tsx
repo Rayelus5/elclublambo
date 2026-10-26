@@ -97,7 +97,12 @@ export function PublicHeader({ lang, session }: { lang: Lang; session: PublicSes
           ) : session ? (
             <AccountChip lang={lang} wallet={session.wallet} isMember={session.isMember} />
           ) : (
-            <PublicConnectLazy lang={lang} next={pathname} variant="outline" />
+            <PublicConnectLazy
+              lang={lang}
+              next={pathname}
+              variant="outline"
+              registrationClosed={new URLSearchParams(search).get("registration") === "closed"}
+            />
           )}
         </div>
       </div>

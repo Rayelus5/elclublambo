@@ -8,7 +8,7 @@ import { hitRateLimit } from "@/lib/rate-limit";
 import { isSuperAdminWallet, walletFromUser } from "./wallet";
 import { resolvePostLogin, type MembershipStatus } from "./post-login";
 import { clubPath } from "@/lib/club/paths";
-import { enforcePublicRegistration } from "@/lib/admin/registration";
+import { enforceNewPublicAccount } from "@/lib/admin/registration";
 
 type Result = { redirectTo: string; error?: string };
 
@@ -49,7 +49,7 @@ export async function completeLogin(inviteCode: string | null, mode: "club" | "p
   // Public side: any non-banned wallet stays where it is; the client navigates to `next`. A-R13: a brand-new account
   // (status none) made while registration is closed is deleted and signed out; the SuperAdmin bootstrap is exempt.
   if (mode === "public" && status !== "banned") {
-    if (status === "none" && !isSuperAdmin && (await enforcePublicRegistration(supabase, user.id)) === "closed") {
+    if ((await enforceNewPublicAccount(supabase, user, status)) === "closed") {
       return { redirectTo: "public", error: "registration_closed" };
     }
     return { redirectTo: "public" };

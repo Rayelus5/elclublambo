@@ -109,6 +109,13 @@ describe("PublicConnect with registration closed (A-R13)", () => {
     expect(signOut).not.toHaveBeenCalled();
   });
 
+  it("registrationClosed (the fallback's ?registration=closed) shows the message before any click", () => {
+    account.isConnected = false;
+    account.address = undefined;
+    render(<PublicConnect lang="en" next={null} registrationClosed />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Account registration is closed right now.");
+  });
+
   it("a failed sign-in never asks the gate", async () => {
     signInWithWeb3.mockResolvedValue({ data: null, error: { message: "bad" } });
     render(<PublicConnect lang="en" next="/en/tools" />);

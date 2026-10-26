@@ -15,10 +15,16 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 import type { Lang } from "@/lib/i18n/config";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
-type Props = { lang: Lang; next: string | null; variant?: ComponentProps<typeof Button>["variant"] };
+type Props = {
+  lang: Lang;
+  next: string | null;
+  variant?: ComponentProps<typeof Button>["variant"];
+  /** A-R13 fallback: /foro/login/complete came back with ?registration=closed (the header reads it). */
+  registrationClosed?: boolean;
+};
 
 /** Connect + sign in from the public side: same SIWE login as the club, in the visitor's language, no membership needed. */
-export function PublicConnect({ lang, next, variant }: Props) {
+export function PublicConnect({ lang, next, variant, registrationClosed = false }: Props) {
   const t = getDictionary(lang);
   const c = t.connect;
   const { open } = useAppKit();
@@ -32,6 +38,7 @@ export function PublicConnect({ lang, next, variant }: Props) {
   const loginChain = chains.find((id) => id === chainId);
   const target = NETWORKS[chains[0] as ChainId];
   const wrongChain = isConnected && loginChain === undefined;
+  const shown = error ?? (registrationClosed ? c.errRegistrationClosed : null);
 
   async function signIn() {
     if (!address || loginChain === undefined || signing) return;
@@ -91,9 +98,9 @@ export function PublicConnect({ lang, next, variant }: Props) {
           {signing ? c.signing : c.signIn}
         </Button>
       )}
-      {error ? (
+      {shown ? (
         <p role="alert" className="text-[13px] text-danger">
-          {error}
+          {shown}
         </p>
       ) : null}
     </div>
