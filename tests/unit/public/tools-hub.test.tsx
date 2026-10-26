@@ -26,7 +26,24 @@ describe("tools hub", () => {
     expect(vouches.getAttribute("href")).toBe("/en/tools/vouches");
     expect(vouches).toHaveTextContent("Available");
     expect(screen.queryByText("Coming soon")).toBeNull();
-    expect(screen.getAllByText("Available")).toHaveLength(4);
+    expect(screen.getAllByText("Available")).toHaveLength(7);
+  });
+  it("EN: Approvals, Multisend and Gas are «Available» and link to their routes", async () => {
+    render(await ToolsPage({ params: Promise.resolve({ lang: "en" }) } as never));
+    for (const [name, href] of [[/Approvals/, "/en/tools/approvals"], [/Multisend/, "/en/tools/multisend"], [/Gas calculator/, "/en/tools/gas"]] as const) {
+      const link = screen.getByRole("link", { name });
+      expect(link.getAttribute("href")).toBe(href);
+      expect(link).toHaveTextContent("Available");
+    }
+  });
+  it("ES: Aprobaciones, Envío múltiple y Gas están «Disponible» y enlazan a sus rutas", async () => {
+    render(await ToolsPage({ params: Promise.resolve({ lang: "es" }) } as never));
+    for (const [name, href] of [[/Aprobaciones/, "/herramientas/aprobaciones"], [/Envío múltiple/, "/herramientas/envio-multiple"], [/Calculadora de gas/, "/herramientas/gas"]] as const) {
+      const link = screen.getByRole("link", { name });
+      expect(link.getAttribute("href")).toBe(href);
+      expect(link).toHaveTextContent("Disponible");
+    }
+    expect(screen.getAllByText("Disponible")).toHaveLength(7);
   });
   it("ES links to the Spanish URL", async () => {
     render(await ToolsPage({ params: Promise.resolve({ lang: "es" }) } as never));

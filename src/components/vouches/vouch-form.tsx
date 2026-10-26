@@ -15,20 +15,8 @@ import { VOUCH_KINDS, vouchKindKey, type VouchKind } from "@/lib/vouches/kinds";
 import type { GivenVouch } from "@/lib/vouches/types";
 import { useSessionWalletMatch } from "@/lib/vouches/use-session-wallet";
 import { useVouchWrite } from "@/lib/vouches/use-vouch-write";
-import {
-  clearSent,
-  isFinalVouchError,
-  noStored,
-  parseSent,
-  PENDING_DELAYS_MS,
-  readSentRaw,
-  recordUntilSettled,
-  sentAtNow,
-  subscribeStorage,
-  writeErrorText,
-  writeSent,
-  type Sent,
-} from "./vouch-flow";
+import { clearSent, noStored, parseSent, readSentRaw, recordUntilSettled, sentAtNow, subscribeStorage, writeSent, type Sent } from "@/lib/web3/signing";
+import { isFinalVouchError, PENDING_DELAYS_MS, writeErrorText } from "./vouch-flow";
 
 type Hash = `0x${string}`;
 

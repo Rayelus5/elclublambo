@@ -62,6 +62,9 @@ const rows: {
   { route: "checkerApi", es: "/herramientas/comprobador/api", en: "/en/tools/checker/api", internalEs: "/es/tools/checker/api", internalEn: "/en/tools/checker/api" },
   { route: "donate", es: "/donar", en: "/en/donate", internalEs: "/es/donate", internalEn: "/en/donate" },
   { route: "vouches", es: "/herramientas/avales", en: "/en/tools/vouches", internalEs: "/es/tools/vouches", internalEn: "/en/tools/vouches" },
+  { route: "approvals", es: "/herramientas/aprobaciones", en: "/en/tools/approvals", internalEs: "/es/tools/approvals", internalEn: "/en/tools/approvals" },
+  { route: "multisend", es: "/herramientas/envio-multiple", en: "/en/tools/multisend", internalEs: "/es/tools/multisend", internalEn: "/en/tools/multisend" },
+  { route: "gas", es: "/herramientas/gas", en: "/en/tools/gas", internalEs: "/es/tools/gas", internalEn: "/en/tools/gas" },
 ];
 
 describe("config", () => {
@@ -273,6 +276,40 @@ describe("vouches route (P5)", () => {
       const allow = best([all.allow ?? []].flat(), path);
       const disallow = best([all.disallow ?? []].flat(), path);
       expect(allow >= 0 && allow >= disallow, path).toBe(true);
+    }
+  });
+});
+
+describe("P6 tool routes", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("only the language's own segments, no suffixes", () => {
+    expect(toInternalPath("/en/herramientas/gas")).toBeNull();
+    expect(toInternalPath("/en/tools/aprobaciones")).toBeNull();
+    expect(toInternalPath("/herramientas/approvals")).toBeNull();
+    expect(toInternalPath("/herramientas/multisend")).toBeNull();
+    expect(toInternalPath("/en/tools/envio-multiple")).toBeNull();
+    expect(toInternalPath("/herramientas/gas/x")).toBeNull();
+    expect(toPublicPath("/es/tools/approvals/x")).toBeNull();
+    expect(switchLang("/herramientas/envio-multiple", "en")).toBe("/en/tools/multisend");
+    expect(switchLang("/en/tools/approvals", "es")).toBe("/herramientas/aprobaciones");
+    expect(switchLang("/herramientas/gas", "en")).toBe("/en/tools/gas");
+  });
+
+  it("the sitemap lists the three tools with their alternates", async () => {
+    vi.resetModules();
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://elclub.party");
+    const { default: sitemap } = (await import("@/app/sitemap")) as { default: () => MetadataRoute.Sitemap };
+    const urls = sitemap();
+    for (const [es, en] of [
+      ["/herramientas/aprobaciones", "/en/tools/approvals"],
+      ["/herramientas/envio-multiple", "/en/tools/multisend"],
+      ["/herramientas/gas", "/en/tools/gas"],
+    ]) {
+      const entry = urls.find((e) => e.url === `https://elclub.party${es}`);
+      expect(entry?.alternates?.languages, es).toEqual({ es: `https://elclub.party${es}`, en: `https://elclub.party${en}` });
     }
   });
 });

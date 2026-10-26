@@ -6,6 +6,10 @@
 //   GET /blockscout/84532/api/v2/smart-contracts/{usdc}   its ABI (has `mint`: the abi_privileged notice)
 //   GET /blockscout/84532/api/v2/transactions/{tx}        403 Cloudflare challenge → the age is «Desconocido»
 //   GET /sourcify/v2/contract/...                         404 (not verified there)
+//   GET /blockscout/{84532|421614}/api?module=logs&action=getLogs&topic0=…&topic1=…   the approvals page (P6-R2): the
+//                                                         node's own eth_getLogs (block 0 → latest, [topic0, topic1]) in
+//                                                         Blockscout's RPC format (four topic slots, null-padded)
+//   POST /__logs/fail, POST /__logs/ok                    getLogs answers a 403 Cloudflare challenge until /__logs/ok
 //   anything else                                         404
 //   GET /__health                                         readiness (Playwright webServer url)
 import { createServer } from "node:http";
@@ -34,10 +38,58 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+function challenge(res) {
+  res.writeHead(403, { "content-type": "text/html; charset=UTF-8", "cf-mitigated": "challenge" });
+  return res.end(CHALLENGE);
+}
+
+/** Toggled by POST /__logs/fail and /__logs/ok: Review Focus 1 (the list cannot be fetched). */
+let logsBlocked = false;
+
+/** Blockscout's getLogs (logs_view.ex) from the local node's eth_getLogs. */
+async function getLogs(res, chainId, query) {
+  if (logsBlocked) return challenge(res);
+  const topic0 = query.get("topic0");
+  const topic1 = query.get("topic1");
+  if (!topic0 || !topic1) return json(res, 200, { status: "0", message: "Required query parameters missing: topic0, topic1", result: null });
+  let logs;
+  try {
+    const r = await fetch(CHAINS[chainId].rpcUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getLogs", params: [{ fromBlock: "0x0", toBlock: "latest", topics: [topic0, topic1] }] }),
+    });
+    logs = (await r.json()).result;
+    if (!Array.isArray(logs)) throw new Error("no result");
+  } catch {
+    return json(res, 502, { message: "node unavailable" });
+  }
+  if (logs.length === 0) return json(res, 200, { status: "0", message: "No logs found", result: [] });
+  const result = logs.map((l) => ({
+    address: l.address,
+    topics: [0, 1, 2, 3].map((i) => l.topics[i] ?? null),
+    data: l.data,
+    blockNumber: l.blockNumber,
+    transactionHash: l.transactionHash,
+    logIndex: l.logIndex,
+  }));
+  return json(res, 200, { status: "1", message: "OK", result });
+}
+
 export function handle(req, res) {
-  const path = new URL(req.url ?? "/", MOCK_CHECKER_BASE).pathname.toLowerCase();
+  const url = new URL(req.url ?? "/", MOCK_CHECKER_BASE);
+  const path = url.pathname.toLowerCase();
   if (path === "/__health") return json(res, 200, { ok: true });
+  if (req.method === "POST" && (path === "/__logs/fail" || path === "/__logs/ok")) {
+    logsBlocked = path === "/__logs/fail";
+    return json(res, 200, { blocked: logsBlocked });
+  }
   if (req.method !== "GET") return json(res, 405, { message: "method not allowed" });
+
+  const logsRoute = /^\/blockscout\/(84532|421614)\/api$/.exec(path);
+  if (logsRoute && url.searchParams.get("module") === "logs" && url.searchParams.get("action") === "getLogs") {
+    return getLogs(res, Number(logsRoute[1]), url.searchParams);
+  }
 
   if (path === `/blockscout/84532/api/v2/addresses/${USDC}`) {
     return json(res, 200, {
@@ -51,10 +103,7 @@ export function handle(req, res) {
     });
   }
   if (path === `/blockscout/84532/api/v2/smart-contracts/${USDC}`) return json(res, 200, { abi: ABI });
-  if (path.startsWith("/blockscout/84532/api/v2/transactions/")) {
-    res.writeHead(403, { "content-type": "text/html; charset=UTF-8", "cf-mitigated": "challenge" });
-    return res.end(CHALLENGE);
-  }
+  if (path.startsWith("/blockscout/84532/api/v2/transactions/")) return challenge(res);
   return json(res, 404, { message: "Not found" });
 }
 

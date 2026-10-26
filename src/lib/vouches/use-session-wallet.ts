@@ -1,21 +1,12 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
-import { useAccount } from "wagmi";
-
-const noSubscribe = () => () => {};
+import { useWalletMatch } from "@/lib/web3/use-wallet-match";
 
 /**
- * Whether the connected wallet is the session's (the only one whose vouches the server accepts). `matches` gates signing;
- * `mismatch` is when to warn: another account, or none at all, once wagmi has finished (re)connecting. The server render
- * and the hydration pass count as still settling (no match, no warning): wagmi's state there is not the browser's, and a
- * different `disabled` or warning would be a hydration mismatch.
+ * P5's name for `useWalletMatch(sessionWallet)`: whether the connected wallet is the session's (the only one whose
+ * vouches the server accepts). Same hydration-safe states; it keeps P5's `{ matches, mismatch }` shape.
  */
 export function useSessionWalletMatch(sessionWallet: string): { matches: boolean; mismatch: boolean } {
-  const { address, isConnected, status } = useAccount();
-  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
-  if (!hydrated) return { matches: false, mismatch: false };
-  const matches = isConnected && !!address && address.toLowerCase() === sessionWallet.toLowerCase();
-  const settling = status === "connecting" || status === "reconnecting";
-  return { matches, mismatch: !matches && !settling };
+  const { matches, mismatch } = useWalletMatch(sessionWallet);
+  return { matches, mismatch };
 }

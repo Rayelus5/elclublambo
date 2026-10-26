@@ -17,6 +17,11 @@ export type TestWalletOptions = {
   onSent?: (n: number, hash: string) => void | Promise<void>;
   /** The network the wallet starts on (every page load starts there again); defaults to Base Sepolia. */
   chainId?: number;
+  /**
+   * Asked before every eth_sendTransaction, before anything reaches the node: true rejects it as a user would (EIP-1193
+   * 4001), so nothing is sent. Lets a spec reject exactly the n-th signature.
+   */
+  reject?: () => boolean | Promise<boolean>;
 };
 
 type PageConfig = { address: string; rpcUrls: Record<number, string>; chainId: number };
@@ -24,7 +29,10 @@ type PageConfig = { address: string; rpcUrls: Record<number, string>; chainId: n
 /** Runs in the page (serialised by Playwright): no closures over Node values. */
 function injected({ address, rpcUrls, chainId: initialChainId }: PageConfig) {
   type Req = { method: string; params?: unknown[] };
-  const w = window as unknown as Record<string, unknown> & { __walletSent?: (n: number, hash: string) => Promise<void> };
+  const w = window as unknown as Record<string, unknown> & {
+    __walletSent?: (n: number, hash: string) => Promise<void>;
+    __walletReject?: () => Promise<boolean>;
+  };
   const STORE = "__testwallet_permitted";
   const hex = (id: number) => "0x" + id.toString(16);
   // The wallet's current network, as in a real wallet: wallet_switchEthereumChain moves it, and eth_chainId and every
@@ -115,6 +123,7 @@ function injected({ address, rpcUrls, chainId: initialChainId }: PageConfig) {
           // Each node runs one chain, the current one; a request for another chain is refused like a real wallet does.
           if (tx.chainId !== undefined && Number(tx.chainId) !== chainId) throw err(4901, "The provider is not connected to the requested chain.");
           delete tx.chainId;
+          if (await w.__walletReject?.()) throw err(4001, "User rejected the request.");
           const hash = (await node("eth_sendTransaction", [tx])) as string;
           sentCount += 1;
           await w.__walletSent?.(sentCount, hash);
@@ -175,6 +184,7 @@ export async function installTestWallet(context: BrowserContext, opts: TestWalle
     const n = wallet.sent.push(hash);
     await opts.onSent?.(n, hash);
   });
+  await context.exposeFunction("__walletReject", async () => (await opts.reject?.()) ?? false);
   const rpcUrls = Object.fromEntries(Object.entries(CHAINS).map(([id, c]) => [Number(id), c.rpcUrl]));
   await context.addInitScript(injected, { address: opts.address, rpcUrls, chainId: opts.chainId ?? DEFAULT_CHAIN_ID });
   return wallet;

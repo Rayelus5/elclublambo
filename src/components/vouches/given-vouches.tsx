@@ -16,19 +16,17 @@ import { useVouchWrite } from "@/lib/vouches/use-vouch-write";
 import { RefreshButton } from "./refresh-button";
 import {
   clearSent,
-  isFinalVouchError,
   noStored,
   parseSent,
-  PENDING_DELAYS_MS,
   readSentRaw,
   recordUntilSettled,
   sentAtNow,
   subscribeStorage,
   writeErrorKind,
-  writeErrorText,
   writeSent,
   type Sent,
-} from "./vouch-flow";
+} from "@/lib/web3/signing";
+import { isFinalVouchError, PENDING_DELAYS_MS, writeErrorText } from "./vouch-flow";
 
 type Hash = `0x${string}`;
 

@@ -14,7 +14,10 @@ export type RouteKey =
   | "checker"
   | "checkerApi"
   | "donate"
-  | "vouches";
+  | "vouches"
+  | "approvals"
+  | "multisend"
+  | "gas";
 
 type Params = { id?: string; target?: string; chainId?: string | number; hash?: string };
 
@@ -24,6 +27,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_SUFFIXES = new Set(["opengraph-image", "twitter-image", "entries"]);
 // Tras `{target}` de ElClub Pay.
 const PAY_SUFFIXES = new Set(["opengraph-image", "twitter-image", "badge"]);
+// Herramientas de un solo segmento bajo `tools` (sin sufijos).
+const FLAT_TOOLS = new Set(["pay", "vouches", "approvals", "multisend", "gas"]);
 const ALIAS = /^[a-z0-9_]{3,20}$/;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
@@ -38,6 +43,9 @@ const SEGMENTS: Record<string, Record<Lang, string>> = {
   checker: { es: "comprobador", en: "checker" },
   api: { es: "api", en: "api" },
   vouches: { es: "avales", en: "vouches" },
+  approvals: { es: "aprobaciones", en: "approvals" },
+  multisend: { es: "envio-multiple", en: "multisend" },
+  gas: { es: "gas", en: "gas" },
 };
 
 const ROUTES: Record<RouteKey, string[]> = {
@@ -54,6 +62,9 @@ const ROUTES: Record<RouteKey, string[]> = {
   checker: ["tools", "checker"],
   checkerApi: ["tools", "checker", "api"],
   vouches: ["tools", "vouches"],
+  approvals: ["tools", "approvals"],
+  multisend: ["tools", "multisend"],
+  gas: ["tools", "gas"],
 };
 
 function split(pathname: string): string[] {
@@ -80,7 +91,7 @@ function isValidInternal(segs: string[], strictId = true): boolean {
   if (segs.length === 0) return true;
   if (segs[0] === "pay") return isValidPay(segs);
   if (segs.length === 1) return segs[0] === "start" || segs[0] === "tools" || segs[0] === "donate";
-  if (segs[0] === "tools" && (segs[1] === "pay" || segs[1] === "vouches")) return segs.length === 2;
+  if (segs[0] === "tools" && FLAT_TOOLS.has(segs[1] ?? "")) return segs.length === 2;
   if (segs[0] === "tools" && segs[1] === "checker") return segs.length === 2 || (segs.length === 3 && segs[2] === "api");
   if (segs[0] !== "tools" || segs[1] !== "giveaways") return false;
   if (segs.length === 2) return true;
