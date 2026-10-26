@@ -30,7 +30,7 @@ export function Landing({ lang, off }: { lang: Lang; off: ReadonlySet<ToolKey> }
   const moreTools = on("approvals") || on("multisend") || on("gas");
   return (
     <MotionRoot>
-      <main className="flex-1 overflow-x-clip">
+      <main id="main" tabIndex={-1} className="flex-1 overflow-x-clip outline-none">
         <Hero lang={lang} t={t} off={off} />
         {on("giveaways") ? <GiveawayDemo t={t.demo} sample={t.sample} /> : null}
         {/* Pay and the checker share one row: less weight than the giveaway. */}
