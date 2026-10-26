@@ -31,10 +31,11 @@ vi.mock("@supabase/ssr", () => ({
   }),
 }));
 
-vi.mock("@/lib/admin/site-state", () => ({ getSiteState: async () => s.site }));
+vi.mock("@/lib/admin/site-state", async (importOriginal) => ({ ...(await importOriginal<object>()), getSiteState: async () => s.site }));
 
 import { proxy } from "@/proxy";
 import { __resetAccessCache } from "@/lib/admin/access";
+import { __resetStatusPageCache } from "@/lib/admin/status-page";
 import { OPEN_STATE, type SiteState } from "@/lib/admin/state";
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "http://localhost:54321";
@@ -58,6 +59,12 @@ const member = (wallet: string) => ({
 
 const rewriteOf = (res: Response) => res.headers.get("x-middleware-rewrite") ?? "";
 
+// The proxy fetches the status page from its own origin. By default that fetch fails, so the tests above the
+// "real 503" block exercise the fallback (the rewrite); that block answers it.
+const fetchMock = vi.fn<typeof fetch>();
+const HTML = "<!DOCTYPE html><html><body><h1>Volvemos enseguida</h1></body></html>";
+const htmlOk = () => Promise.resolve(new Response(HTML, { status: 200, headers: { "content-type": "text/html; charset=utf-8" } }));
+
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(NOW);
@@ -66,6 +73,11 @@ beforeEach(() => {
   s.access = [];
   s.accessCalls = 0;
   __resetAccessCache();
+  __resetStatusPageCache();
+  fetchMock.mockReset();
+  fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+  vi.stubGlobal("fetch", fetchMock);
+  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://www.elclub.party");
   vi.stubEnv("SUPER_ADMIN_WALLET", SA);
   vi.stubEnv("SITE_STATE_TTL_MS", "0");
@@ -73,6 +85,8 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("proxy: maintenance", () => {
@@ -227,5 +241,102 @@ describe("proxy: tool switches", () => {
     const second = await req(location.pathname);
     expect(second.status).toBe(503);
     expect(new URL(rewriteOf(second)).pathname).toBe("/status/es/unavailable");
+  });
+});
+
+describe("proxy: real 503 status pages (self-fetch)", () => {
+  it("maintenance: fetches /status/es/maintenance from its own origin and answers it with 503 and the headers", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    const res = await req("/herramientas", { headers: { "accept-language": "es-ES,es;q=0.9", cookie: "elclub-mnt=1" } });
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe(HTML);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
+    expect(res.headers.get("retry-after")).toBe("3600");
+    expect(rewriteOf(res)).toBe("");
+    expect(res.headers.get("set-cookie")).toMatch(/elclub-mnt=;/);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toBe("http://localhost:3000/status/es/maintenance");
+    const headers = new Headers(init?.headers);
+    expect(headers.get("x-elclub-status")).toBe("1");
+    expect(headers.get("accept-language")).toBe("es-ES,es;q=0.9");
+    expect(init?.cache).toBe("no-store");
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("unavailable: 503 with the page, no-store, noindex and no Retry-After", async () => {
+    s.site = state({ switches: { gas: false } });
+    fetchMock.mockImplementation(htmlOk);
+    const res = await req("/en/tools/gas");
+    expect(res.status).toBe(503);
+    expect(await res.text()).toBe(HTML);
+    expect(res.headers.get("cache-control")).toBe("no-store");
+    expect(res.headers.get("x-robots-tag")).toBe("noindex");
+    expect(res.headers.get("retry-after")).toBeNull();
+    expect(String(fetchMock.mock.calls[0]![0])).toBe("http://localhost:3000/status/en/unavailable");
+  });
+
+  it("HEAD: same status and headers, no body", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    const res = await req("/herramientas", { method: "HEAD" });
+    expect(res.status).toBe(503);
+    expect(res.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(res.headers.get("retry-after")).toBe("3600");
+    expect(await res.text()).toBe("");
+  });
+
+  it("caches the page up to 5 s per language and kind", async () => {
+    vi.stubEnv("SITE_STATE_TTL_MS", "5000");
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    await req("/herramientas");
+    vi.setSystemTime(NOW.getTime() + 4000);
+    const cached = await req("/donar");
+    expect(cached.status).toBe(503);
+    expect(await cached.text()).toBe(HTML);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await req("/en");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    vi.setSystemTime(NOW.getTime() + 5000);
+    await req("/herramientas");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("never caches with SITE_STATE_TTL_MS=0 (e2e)", async () => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(htmlOk);
+    await req("/herramientas");
+    await req("/herramientas");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["a network failure", () => Promise.reject(new TypeError("fetch failed"))],
+    ["a non-2xx answer", () => Promise.resolve(new Response("nope", { status: 404 }))],
+  ])("falls back to the rewrite on %s, with one log", async (_label, impl) => {
+    s.site = MAINTENANCE;
+    fetchMock.mockImplementation(impl as () => Promise<Response>);
+    const res = await req("/herramientas");
+    expect(new URL(rewriteOf(res)).pathname).toBe("/status/es/maintenance");
+    expect(res.headers.get("cache-control")).toContain("no-store");
+    expect(console.error).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(console.error).mock.calls[0]![0])).toBe("[status-page] fetch failed");
+  });
+
+  it("lets its own /status fetch through, ungated, during maintenance", async () => {
+    s.site = MAINTENANCE;
+    const res = await req("/status/es/maintenance", { headers: { "x-elclub-status": "1" } });
+    expect(res.status).toBe(200);
+    expect(rewriteOf(res)).toBe("");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("still 404s /status without the internal header (or with another value)", async () => {
+    expect((await req("/status/en/unavailable")).status).toBe(404);
+    expect((await req("/status/en/unavailable", { headers: { "x-elclub-status": "yes" } })).status).toBe(404);
   });
 });

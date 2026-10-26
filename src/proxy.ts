@@ -21,8 +21,13 @@ import { isMaintenanceActive, retryAfterSeconds } from "@/lib/admin/state";
 import { gateDecision } from "@/lib/admin/gate";
 import { statusLang } from "@/lib/admin/paths";
 import { MAINTENANCE_BANNER_COOKIE, maintenanceAccess } from "@/lib/admin/access";
+import { fetchStatusPage, isInternalStatusRequest } from "@/lib/admin/status-page";
 
 export async function proxy(request: NextRequest) {
+  // The proxy's own fetch of a status page (x-elclub-status: 1, see below): served as it is, ungated, so it cannot loop.
+  // Without the header /status/* stays a 404; forging it only shows the status page, which opens nothing.
+  if (isInternalStatusRequest(request.nextUrl.pathname, request.headers)) return NextResponse.next();
+
   // R1: the club moved under /foro. Old club URLs (shared invites, bookmarks, delivered push notifications) 308 there with
   // the same path and query, before anything else: no session read, no gate. On the public origin (behind the tunnel
   // request.nextUrl is the bind address).
@@ -110,7 +115,7 @@ export async function proxy(request: NextRequest) {
 
   // Administración (A-R7-A-R9): maintenance closes the site and a switched-off tool answers 503, before the public
   // routing and the session gates. A direct /es/* URL is not a tool URL: it 308s below to its canonical URL, and that
-  // request is gated here. /status/* is only reachable through these rewrites.
+  // request is gated here. /status/* is only reachable through the proxy itself.
   const siteState = await getSiteState();
   const now = Date.now();
   const access = user && isMaintenanceActive(siteState.maintenance, now) ? await maintenanceAccess(supabase, user) : "none";
@@ -122,10 +127,19 @@ export async function proxy(request: NextRequest) {
     if (maintenance) headers["Retry-After"] = String(retryAfterSeconds(siteState.maintenance, now));
     let res: NextResponse;
     if (gate.kind === "maintenancePage" || gate.kind === "unavailablePage") {
-      const url = request.nextUrl.clone();
-      url.pathname = `/status/${statusLang(pathname, request.headers.get("accept-language"))}/${maintenance ? "maintenance" : "unavailable"}`;
-      url.search = "";
-      res = NextResponse.rewrite(url, { status: 503, headers, request: { headers: request.headers } });
+      // Next renders a rewritten page with 200 whatever status the rewrite asked for, so the proxy fetches the status
+      // page from its own origin and answers it with a real 503. If that fails, the rewrite still shows the page.
+      const lang = statusLang(pathname, request.headers.get("accept-language"));
+      const kind = maintenance ? "maintenance" : "unavailable";
+      const page = await fetchStatusPage({ origin: request.nextUrl.origin, lang, kind, acceptLanguage: request.headers.get("accept-language") });
+      if (page) {
+        res = new NextResponse(request.method === "HEAD" ? null : page.body, { status: 503, headers: { ...headers, "Content-Type": page.contentType } });
+      } else {
+        const url = request.nextUrl.clone();
+        url.pathname = `/status/${lang}/${kind}`;
+        url.search = "";
+        res = NextResponse.rewrite(url, { status: 503, headers, request: { headers: request.headers } });
+      }
     } else {
       res = NextResponse.json({ error: maintenance ? "maintenance" : "unavailable" }, { status: 503, headers });
     }
