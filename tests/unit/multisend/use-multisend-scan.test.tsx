@@ -13,7 +13,7 @@ const waitForTransactionReceipt = vi.hoisted(() => vi.fn());
 const waitForCallsStatus = vi.hoisted(() => vi.fn());
 const getBlockNumber = vi.hoisted(() => vi.fn());
 const getPublicClient = vi.hoisted(() => vi.fn());
-vi.mock("wagmi/actions", () => ({ waitForTransactionReceipt, waitForCallsStatus, getBlockNumber, getPublicClient }));
+vi.mock("wagmi/actions", () => ({ waitForTransactionReceipt, waitForCallsStatus, getBlockNumber, getPublicClient, getConnection: () => ({ chainId: 84532 }) }));
 const send = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/payments/use-ensure-chain", () => ({ useEnsureChain: () => ({ ensure: async () => true, switching: false, failedFor: null }) }));
 vi.mock("@/lib/payments/use-send-transfer", () => ({ useSendTransfer: () => ({ send }) }));

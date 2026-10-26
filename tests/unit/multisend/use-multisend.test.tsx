@@ -27,7 +27,10 @@ const waitForTransactionReceipt = vi.hoisted(() => vi.fn());
 const waitForCallsStatus = vi.hoisted(() => vi.fn());
 const getBlockNumber = vi.hoisted(() => vi.fn());
 const getPublicClient = vi.hoisted(() => vi.fn());
-vi.mock("wagmi/actions", () => ({ waitForTransactionReceipt, waitForCallsStatus, getBlockNumber, getPublicClient }));
+// The wallet's current chain: where the last ensure() moved it, unless a test switches it by hand (walletChain).
+const walletChain = vi.hoisted(() => ({ value: null as number | null }));
+const getConnection = vi.hoisted(() => vi.fn());
+vi.mock("wagmi/actions", () => ({ waitForTransactionReceipt, waitForCallsStatus, getBlockNumber, getPublicClient, getConnection }));
 const findTransfer = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/multisend/find-transfer", async (orig) => ({ ...(await orig<typeof import("@/lib/multisend/find-transfer")>()), findTransfer }));
 const ensure = vi.hoisted(() => vi.fn<(chainId: number) => Promise<boolean>>());
@@ -96,6 +99,8 @@ beforeEach(() => {
   vi.stubEnv("NEXT_PUBLIC_BASE_BUILDER_CODE", "bc_test");
   caps.value = { data: undefined, error: new Error("wallet_getCapabilities not supported"), fetchStatus: "idle" };
   ensure.mockResolvedValue(true);
+  walletChain.value = null;
+  getConnection.mockImplementation(() => ({ chainId: walletChain.value ?? ensure.mock.calls.at(-1)?.[0] }));
   readAssetBalance.mockResolvedValue(10n ** 12n);
   // The wallet returns h(n) for line n, and its receipt pays that line.
   send.mockImplementation(async ({ to }: { to: string }) => h(rows.findIndex((r) => r.to === to) + 1));
@@ -411,6 +416,39 @@ describe("useMultisend sequential", () => {
     const { result } = renderHook(() => useMultisend(84532));
     await act(() => result.current.send(rows, OWNER, KEY, ALL));
     expect(send).not.toHaveBeenCalled();
+    expect(result.current.error).toBe("switch");
+    expect(result.current.rows.every((r) => r.status === "todo" && !r.attempt)).toBe(true);
+  });
+
+  it("minor 11: the wallet switching network between prompts stops the run with «switch» before the next attempt is written", async () => {
+    send.mockImplementation(async ({ to }: { to: string }) => {
+      // The user moves the wallet to another network right after approving the first transfer.
+      walletChain.value = 421614;
+      return h(rows.findIndex((r) => r.to === to) + 1);
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBe("switch");
+    const [first, ...rest] = result.current.rows;
+    expect(first).toMatchObject({ status: "confirmed", hash: h(1) });
+    // No attempt marker: the lines are free to send again at once, not held for NOT_FOUND_GIVE_UP_MS.
+    expect(rest.every((r) => r.status === "todo" && !r.attempt)).toBe(true);
+    expect(loadProgress(OWNER, 84532, KEY)!.slice(1).every((r) => r.status === "todo" && !r.attempt)).toBe(true);
+    const attempted = recentAttempts(84532, OWNER, Date.now()).map((a) => a.to.toLowerCase());
+    expect(attempted).not.toContain(rows[1]!.to.toLowerCase());
+    expect(attempted).not.toContain(rows[2]!.to.toLowerCase());
+  });
+
+  it("minor 11: a wallet already on another network at the first prompt signs nothing and writes no attempt (atomic too)", async () => {
+    caps.value = { data: { atomic: { status: "supported" } }, error: null, fetchStatus: "idle" };
+    ensure.mockImplementation(async () => {
+      walletChain.value = 421614;
+      return true;
+    });
+    const { result } = renderHook(() => useMultisend(84532));
+    await act(() => result.current.send(rows, OWNER, KEY, ALL));
+    expect(sendCallsAsync).not.toHaveBeenCalled();
     expect(result.current.error).toBe("switch");
     expect(result.current.rows.every((r) => r.status === "todo" && !r.attempt)).toBe(true);
   });

@@ -64,6 +64,8 @@ export type Deps = {
   /** [USDC, ETH] of the owner on the chain, null when unknown. */
   balances(): Promise<[bigint, bigint] | null>;
   ensure(): Promise<boolean>;
+  /** Whether the wallet is on the run's chain right now (read synchronously, never prompts). */
+  onChain(): boolean;
   sendOne(row: RowState): Promise<Hash>;
   sendBatch(rows: readonly RowState[]): Promise<string>;
   /** The stored rows of this list, in its order; null when there are none or no storage. */
@@ -268,6 +270,8 @@ export class Run {
   /**
    * 5. Right before a wallet prompt: R1 again for the gated lines; then, with no await before the prompt:
    * - stops if this tab no longer runs for this wallet (NEW-3);
+   * - stops with «switch» if the wallet left the run's chain since the preflight (the user switched networks between
+   *   prompts): wagmi would refuse to send, and the line must not be marked as attempted for it;
    * - re-reads storage (the commit merges it) and stops if any of these lines moved since they were planned;
    * - re-reads the 24 h record and holds any line that another list attempted or confirmed since the run started
    *   (NEW-5): an attempt is inherited (the line becomes `unconfirmed`, scanned next time); a confirmation leaves it
@@ -278,6 +282,7 @@ export class Run {
   private async guard(planned: readonly RowState[]): Promise<RowState[]> {
     const going = await this.holdBack(planned);
     if (!this.deps.ownsRun()) throw new Stop("locked");
+    if (!this.deps.onChain()) throw new Stop("switch");
     this.commit(this.rows);
     const current = going.map((p) => this.row(p.id));
     if (current.some((r, i) => r.status !== going[i]!.status || r.attempt?.at !== going[i]!.attempt?.at)) throw new Stop("locked");

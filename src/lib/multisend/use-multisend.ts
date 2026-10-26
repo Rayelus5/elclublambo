@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { erc20Abi } from "viem";
 import { useCapabilities, useConfig, useSendCalls, type Config } from "wagmi";
-import { getBlockNumber, getPublicClient, waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
+import { getBlockNumber, getConnection, getPublicClient, waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
 import { assetsFor } from "@/lib/economy/assets";
 import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 import { readAssetBalance } from "@/lib/payments/balances";
@@ -73,6 +73,7 @@ function wagmiDeps(config: Config, chain: ChainId, owner: Address, lines: readon
         () => null,
       ),
     ensure: () => wallet.ensure(chain),
+    onChain: () => getConnection(config).chainId === chain,
     sendOne: (r) => wallet.sendTransfer({ chain, token: "USDC", to: r.to, amount: BigInt(r.amount), account: owner }),
     sendBatch: async (rs) => {
       const suffix = dataSuffixFor(chain);
