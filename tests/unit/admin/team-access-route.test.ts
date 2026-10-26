@@ -191,7 +191,7 @@ describe("POST /api/team-access — with password", () => {
         headers: { "content-type": "application/json", "sec-fetch-site": "same-origin" },
         body,
         duplex: "half",
-      } as RequestInit & { duplex: "half" }),
+      } as ConstructorParameters<typeof NextRequest>[1] & { duplex: "half" }),
     );
     await expectJson(res, 400, { status: "invalid" });
     expect(sent).toBeLessThan(10);
