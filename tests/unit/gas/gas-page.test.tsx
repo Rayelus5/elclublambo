@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
@@ -82,8 +83,11 @@ describe("GasContent", () => {
     expect(screen.getAllByText(/aprox\./).length).toBeGreaterThan(0);
     // ETH transfer on Base: 21000 × 1.1 gwei + 5000 gwei of L1 = 28100 gwei = 0.0000281 ETH ≈ 0.06 USD.
     expect(screen.getAllByText("28100").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("0.0000281").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("0.06").length).toBeGreaterThan(0);
+    // Spanish uses a decimal comma (as Multisend and Approvals do).
+    expect(screen.getAllByText("0,0000281").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("0,06").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("0.0000281")).toHaveLength(0);
+    expect(screen.getByText(/Precio del gas: 1,1 gwei \(base 1 \+ propina 0,1\)/)).toBeInTheDocument();
     // Arbitrum's L1 part could not be read: marked.
     expect(screen.getAllByText(es.gas.noL1).length).toBeGreaterThan(0);
     expect(screen.getByText(es.gas.ethereumTitle)).toBeInTheDocument();
@@ -131,5 +135,59 @@ describe("GasContent", () => {
     }
     expect(text).toContain(en.gas.networkUnavailable);
     expect(text).toContain(en.common.noCustody);
+  });
+
+  it("English keeps the decimal point", async () => {
+    render(await GasContent({ lang: "en" }));
+    expect(screen.getAllByText("0.0000281").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("0.06").length).toBeGreaterThan(0);
+    expect(screen.queryAllByText("0,0000281")).toHaveLength(0);
+    expect(screen.getByText(en.gas.converter.price.replace("{usd}", "2000.00"))).toBeInTheDocument();
+  });
+});
+
+describe("UnitConverter", () => {
+  it("Spanish shows the converted amounts and the price with a decimal comma, and still reads either separator", async () => {
+    const user = userEvent.setup();
+    render(await GasContent({ lang: "es" }));
+    const c = es.gas.converter;
+    expect(screen.getByText(c.price.replace("{usd}", "2000,00"))).toBeInTheDocument();
+    await user.type(screen.getByLabelText(c.gwei), "1,5");
+    expect(screen.getByLabelText(c.eth)).toHaveValue("0,0000000015");
+    expect(screen.getByLabelText(c.wei)).toHaveValue("1500000000");
+    await user.clear(screen.getByLabelText(c.eth));
+    await user.type(screen.getByLabelText(c.eth), "0.5");
+    expect(screen.getByLabelText(c.usd)).toHaveValue("1000,00");
+    expect(screen.getByLabelText(c.gwei)).toHaveValue("500000000");
+  });
+
+  it("English shows the converted amounts with a decimal point", async () => {
+    const user = userEvent.setup();
+    render(await GasContent({ lang: "en" }));
+    const c = en.gas.converter;
+    await user.type(screen.getByLabelText(c.gwei), "1.5");
+    expect(screen.getByLabelText(c.eth)).toHaveValue("0.0000000015");
+  });
+
+  it("every field has its live region in the DOM from the start (empty), filled when the entry is invalid", async () => {
+    const user = userEvent.setup();
+    render(await GasContent({ lang: "es" }));
+    const c = es.gas.converter;
+    const gwei = screen.getByLabelText(c.gwei);
+    const live = document.getElementById(`${gwei.id}-hint`);
+    expect(live).not.toBeNull();
+    expect(live).toHaveAttribute("aria-live", "polite");
+    expect(live).toBeEmptyDOMElement();
+    await user.type(gwei, "abc");
+    expect(document.getElementById(`${gwei.id}-hint`)).toBe(live);
+    expect(live).toHaveTextContent(c.invalid);
+    expect(gwei).toHaveAttribute("aria-describedby", live!.id);
+  });
+
+  it("the invalid copy accepts 0 and does not talk about wei on every field; gas.approx is gone", () => {
+    expect(es.gas.converter.invalid).toBe("Escribe un número (0 o más) con los decimales que admite esta unidad.");
+    expect(en.gas.converter.invalid).toBe("Type a number (0 or more) with no more decimals than this unit allows.");
+    expect("approx" in es.gas).toBe(false);
+    expect("approx" in en.gas).toBe(false);
   });
 });

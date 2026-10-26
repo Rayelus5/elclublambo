@@ -333,8 +333,8 @@ test("7. gas: both test networks in gwei, ETH and USD with the L1 part, the Ethe
   const ethereum = page.getByRole("region", { name: "Ethereum (solo tarifa base, referencia)" });
   await expect(ethereum.getByText(/Tarifa base de Ethereum según el oráculo de Base: 2 gwei/)).toBeVisible();
   await page.getByLabel("Cantidad en gwei").fill("1");
-  await expect(page.getByLabel("Cantidad en ETH")).toHaveValue("0.000000001");
-  await expect(page.getByText("Precio usado: 2000.00 USD por ETH (Chainlink).")).toBeVisible();
+  await expect(page.getByLabel("Cantidad en ETH")).toHaveValue("0,000000001");
+  await expect(page.getByText("Precio usado: 2000,00 USD por ETH (Chainlink).")).toBeVisible();
   await page.setViewportSize(phone);
   await noHorizontalScroll(page);
   expect(await csp()).toEqual([]);

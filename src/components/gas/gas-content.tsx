@@ -21,7 +21,7 @@ export async function GasContent({ lang }: { lang: Lang }) {
   return (
     <div className="flex flex-col gap-6">
       <GasTable lang={lang} snapshot={snapshot} />
-      <UnitConverter labels={t.converter} ethUsdE8={snapshot.ethUsdE8} />
+      <UnitConverter lang={lang} labels={t.converter} ethUsdE8={snapshot.ethUsdE8} />
       <p className="text-sm text-fg-muted">
         <time dateTime={snapshot.readAt}>{fill(t.readAt, { time: readTime(lang, snapshot.readAt) })}</time>
       </p>

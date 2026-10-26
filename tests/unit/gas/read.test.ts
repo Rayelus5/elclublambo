@@ -96,6 +96,18 @@ describe("readNetworkGas: Base (OP Stack)", () => {
     expect(await readNetworkGas(BASE, asClient(c))).toEqual({ status: "unavailable", chainId: BASE });
   });
 
+  it("a tip read that rejects makes the network unavailable (no silent 0 tip)", async () => {
+    const c = baseClient();
+    c.estimateMaxPriorityFeePerGas.mockRejectedValue(new Error("rpc down"));
+    expect(await readNetworkGas(BASE, asClient(c))).toEqual({ status: "unavailable", chainId: BASE });
+  });
+
+  it("a block with baseFeePerGas null (pre-London) makes the network unavailable", async () => {
+    const c = baseClient();
+    c.getBlock.mockResolvedValue({ baseFeePerGas: null });
+    expect(await readNetworkGas(BASE, asClient(c))).toEqual({ status: "unavailable", chainId: BASE });
+  });
+
   it("a client that cannot even be built is unavailable, never a throw", async () => {
     vi.mocked(chainClient).mockImplementation(() => {
       throw new Error("bad rpc url");
@@ -137,6 +149,30 @@ describe("readNetworkGas: Arbitrum (Nitro)", () => {
     expect(r.status === "ok" && r.l1Status).toBe("unavailable");
     if (r.status !== "ok") return;
     expect(r.rows.every((x) => x.l1Wei === null && x.totalWei === x.l2Wei)).toBe(true);
+  });
+
+  it("NodeInterface answering with no data counts as a failure: L2 only, marked without L1", async () => {
+    const c = arbClient();
+    c.call.mockResolvedValue({ data: undefined });
+    const r = await readNetworkGas(ARB, asClient(c));
+    expect(r.status === "ok" && r.l1Status).toBe("unavailable");
+    if (r.status !== "ok") return;
+    expect(r.rows.every((x) => x.l1Wei === null && x.totalWei === x.l2Wei)).toBe(true);
+  });
+
+  it("a non-zero tip on Arbitrum is added to the L2 price, for both the L2 and the L1 part", async () => {
+    const c = arbClient(1000n);
+    const tip = GWEI / 1000n;
+    c.estimateMaxPriorityFeePerGas.mockResolvedValue(tip);
+    const r = await readNetworkGas(ARB, asClient(c));
+    expect(r.status).toBe("ok");
+    if (r.status !== "ok") return;
+    const price = GWEI / 100n + tip;
+    expect(r.priorityWei).toBe(String(tip));
+    const erc20 = row(r.rows, "erc20Transfer") as (typeof r.rows)[number];
+    expect(erc20.l2Wei).toBe(String(65_000n * price));
+    expect(erc20.l1Wei).toBe(String(1000n * price));
+    expect(erc20.totalWei).toBe(String(66_000n * price));
   });
 });
 

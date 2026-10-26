@@ -5,7 +5,7 @@ import type { GasSnapshot, NetworkGas } from "@/lib/gas/read";
 import { formatWei, usdFromWei } from "@/lib/gas/units";
 import { getDictionary } from "@/lib/i18n";
 import type { Lang } from "@/lib/i18n/config";
-import { fill } from "@/lib/i18n/fill";
+import { fill, localDecimal } from "@/lib/i18n/fill";
 
 type T = ReturnType<typeof getDictionary>["gas"];
 type CostRow = { action: GasActionKey; totalWei: string; noL1?: boolean };
@@ -25,20 +25,21 @@ function Reason({ text }: { text: string }) {
   );
 }
 
-/** One action's three amounts, as strings ready to show. */
-function amounts(totalWei: string, price: bigint | null) {
+/** One action's three amounts, as strings ready to show in `lang` (a decimal comma in Spanish). */
+function amounts(totalWei: string, price: bigint | null, lang: Lang) {
   const wei = BigInt(totalWei);
-  return { gwei: formatWei(wei, "gwei", 2), eth: formatWei(wei, "eth", ETH_DECIMALS), usd: price === null ? DASH : usdFromWei(wei, price) };
+  const d = (text: string) => localDecimal(text, lang);
+  return { gwei: d(formatWei(wei, "gwei", 2)), eth: d(formatWei(wei, "eth", ETH_DECIMALS)), usd: price === null ? DASH : d(usdFromWei(wei, price)) };
 }
 
 /** Stacked cards on phones, a table from `sm` up: the same rows, never a horizontal scroll. */
-function CostRows({ t, rows, price, caption }: { t: T; rows: CostRow[]; price: bigint | null; caption: string }) {
+function CostRows({ t, lang, rows, price, caption }: { t: T; lang: Lang; rows: CostRow[]; price: bigint | null; caption: string }) {
   const noL1 = (r: CostRow) => (r.noL1 ? <span className="block text-xs font-normal text-fg-muted">{t.noL1}</span> : null);
   return (
     <>
       <ul className="flex flex-col gap-3 sm:hidden" aria-label={caption}>
         {rows.map((r) => {
-          const a = amounts(r.totalWei, price);
+          const a = amounts(r.totalWei, price, lang);
           return (
             <li key={r.action} className="rounded-control border border-border p-3">
               <p className="font-medium text-fg">
@@ -83,7 +84,7 @@ function CostRows({ t, rows, price, caption }: { t: T; rows: CostRow[]; price: b
         </thead>
         <tbody>
           {rows.map((r) => {
-            const a = amounts(r.totalWei, price);
+            const a = amounts(r.totalWei, price, lang);
             return (
               <tr key={r.action} className="border-b border-border last:border-b-0">
                 <th scope="row" className="py-3 pr-3 text-left font-medium text-fg">
@@ -102,7 +103,7 @@ function CostRows({ t, rows, price, caption }: { t: T; rows: CostRow[]; price: b
   );
 }
 
-function NetworkSection({ t, net, price }: { t: T; net: NetworkGas; price: bigint | null }) {
+function NetworkSection({ t, lang, net, price }: { t: T; lang: Lang; net: NetworkGas; price: bigint | null }) {
   const name = NETWORKS[net.chainId].name;
   const id = `gas-${net.chainId}`;
   return (
@@ -119,14 +120,15 @@ function NetworkSection({ t, net, price }: { t: T; net: NetworkGas; price: bigin
         <>
           <p className="text-sm text-fg-muted">
             {fill(t.gasPrice, {
-              total: formatWei(BigInt(net.baseFeeWei) + BigInt(net.priorityWei), "gwei", 4),
-              base: formatWei(BigInt(net.baseFeeWei), "gwei", 4),
-              tip: formatWei(BigInt(net.priorityWei), "gwei", 4),
+              total: localDecimal(formatWei(BigInt(net.baseFeeWei) + BigInt(net.priorityWei), "gwei", 4), lang),
+              base: localDecimal(formatWei(BigInt(net.baseFeeWei), "gwei", 4), lang),
+              tip: localDecimal(formatWei(BigInt(net.priorityWei), "gwei", 4), lang),
             })}
           </p>
           {net.l1Status === "unavailable" && <Reason text={t.l1Unavailable} />}
           <CostRows
             t={t}
+            lang={lang}
             price={price}
             caption={fill(t.caption, { network: name })}
             rows={net.rows.map((r) => ({ action: r.action, totalWei: r.totalWei, noL1: r.l1Wei === null }))}
@@ -145,7 +147,7 @@ export function GasTable({ lang, snapshot }: { lang: Lang; snapshot: GasSnapshot
     <div className="flex flex-col gap-6">
       {price === null && <Reason text={t.noPrice} />}
       {snapshot.networks.map((net) => (
-        <NetworkSection key={net.chainId} t={t} net={net} price={price} />
+        <NetworkSection key={net.chainId} t={t} lang={lang} net={net} price={price} />
       ))}
       <section aria-labelledby="gas-ethereum" className={SECTION}>
         <h2 id="gas-ethereum" className={H2}>
@@ -155,8 +157,8 @@ export function GasTable({ lang, snapshot }: { lang: Lang; snapshot: GasSnapshot
           <Reason text={t.ethereumUnavailable} />
         ) : (
           <>
-            <p className="text-sm text-fg-muted">{fill(t.ethereumLead, { gwei: formatWei(BigInt(snapshot.ethereum.l1BaseFeeWei), "gwei", 4) })}</p>
-            <CostRows t={t} price={price} caption={fill(t.caption, { network: "Ethereum" })} rows={snapshot.ethereum.rows} />
+            <p className="text-sm text-fg-muted">{fill(t.ethereumLead, { gwei: localDecimal(formatWei(BigInt(snapshot.ethereum.l1BaseFeeWei), "gwei", 4), lang) })}</p>
+            <CostRows t={t} lang={lang} price={price} caption={fill(t.caption, { network: "Ethereum" })} rows={snapshot.ethereum.rows} />
           </>
         )}
       </section>

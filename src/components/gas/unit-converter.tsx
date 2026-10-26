@@ -3,7 +3,8 @@
 import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { convert, usdFromWei, type Unit } from "@/lib/gas/units";
-import { fill } from "@/lib/i18n/fill";
+import type { Lang } from "@/lib/i18n/config";
+import { fill, localDecimal } from "@/lib/i18n/fill";
 
 type Labels = { title: string; lead: string; wei: string; gwei: string; eth: string; usd: string; invalid: string; usdDisabled: string; price: string };
 
@@ -13,9 +14,9 @@ const EMPTY: Record<Unit, string> = { wei: "", gwei: "", eth: "", usd: "" };
 /**
  * wei / gwei / ETH / USD, all four in sync, client-only with the price the server read (P6-R5). The field being typed in
  * keeps the user's text; an invalid entry leaves the others as they were and says why under the field. Without a price,
- * USD is disabled.
+ * USD is disabled. The other fields show `lang`'s decimal separator (a comma in Spanish); every field reads both.
  */
-export function UnitConverter({ labels, ethUsdE8 }: { labels: Labels; ethUsdE8: string | null }) {
+export function UnitConverter({ lang, labels, ethUsdE8 }: { lang: Lang; labels: Labels; ethUsdE8: string | null }) {
   const price = ethUsdE8 === null ? null : BigInt(ethUsdE8);
   const [values, setValues] = useState(EMPTY);
   const [invalid, setInvalid] = useState<Unit | null>(null);
@@ -29,7 +30,8 @@ export function UnitConverter({ labels, ethUsdE8 }: { labels: Labels; ethUsdE8: 
     }
     const next = convert(text, unit, price);
     if (next) {
-      setValues({ ...next, [unit]: text });
+      const shown = Object.fromEntries(UNITS.map((u) => [u, localDecimal(next[u], lang)])) as Record<Unit, string>;
+      setValues({ ...shown, [unit]: text });
       setInvalid(null);
     } else {
       setValues((v) => ({ ...v, [unit]: text }));
@@ -68,16 +70,15 @@ export function UnitConverter({ labels, ethUsdE8 }: { labels: Labels; ethUsdE8: 
                 aria-describedby={hint ? `${id}-hint` : undefined}
                 className="font-mono tabular-nums"
               />
-              {hint && (
-                <p id={`${id}-hint`} aria-live="polite" className={`text-sm ${disabled ? "text-fg-muted" : "text-danger"}`}>
-                  {hint}
-                </p>
-              )}
+              {/* Always in the DOM: a live region that appears together with its text is often not announced. */}
+              <p id={`${id}-hint`} aria-live="polite" className={`text-sm empty:hidden ${disabled ? "text-fg-muted" : "text-danger"}`}>
+                {hint}
+              </p>
             </div>
           );
         })}
       </div>
-      {price !== null && <p className="text-sm text-fg-muted">{fill(labels.price, { usd: usdFromWei(10n ** 18n, price) })}</p>}
+      {price !== null && <p className="text-sm text-fg-muted">{fill(labels.price, { usd: localDecimal(usdFromWei(10n ** 18n, price), lang) })}</p>}
     </section>
   );
 }
