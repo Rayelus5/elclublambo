@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { MultisendLazy } from "@/components/multisend/multisend-lazy";
+import { SplitCalculator } from "@/components/split/split-calculator";
 import { getPublicSession } from "@/lib/auth/public-session";
 import { appChainIds } from "@/lib/economy/networks";
 import { getDictionary } from "@/lib/i18n";
@@ -11,7 +12,7 @@ import { alternatesFor } from "@/lib/i18n/routes";
 import { isProductionSite } from "@/lib/start/site";
 
 // Bloqueante a propósito (ver el layout de [lang]). La sesión se lee dentro de <Suspense>, después de connection(),
-// nunca en el build; la lista (#envio=) vive en el fragmento y solo la lee el navegador.
+// nunca en el build; la lista (#envio=) y el reparto (#gastos=) viven en el fragmento y solo los lee el navegador.
 export const instant = false;
 
 type Props = PageProps<"/[lang]/tools/multisend">;
@@ -47,16 +48,20 @@ export default async function MultisendPage({ params }: Props) {
         <h1 className="font-display text-3xl font-bold text-fg">{t.title}</h1>
         <p className="text-base text-fg-muted">{t.lead}</p>
       </div>
-      <Suspense
-        fallback={
-          <div role="status" aria-live="polite" className="min-h-96">
-            <span className="sr-only">{t.loading}</span>
-            <div aria-hidden className="h-96 rounded-panel bg-surface-2 motion-safe:animate-pulse" />
-          </div>
-        }
-      >
-        <MultisendContent lang={lang} />
-      </Suspense>
+      {/* «Repartir gastos» lleva aquí (con foco) tras precargar la lista en #envio=. */}
+      <div id="envio" tabIndex={-1} className="scroll-mt-20 outline-none">
+        <Suspense
+          fallback={
+            <div role="status" aria-live="polite" className="min-h-96">
+              <span className="sr-only">{t.loading}</span>
+              <div aria-hidden className="h-96 rounded-panel bg-surface-2 motion-safe:animate-pulse" />
+            </div>
+          }
+        >
+          <MultisendContent lang={lang} />
+        </Suspense>
+      </div>
+      <SplitCalculator lang={lang} />
     </main>
   );
 }
