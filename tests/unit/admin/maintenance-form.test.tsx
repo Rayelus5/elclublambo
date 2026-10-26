@@ -214,6 +214,20 @@ describe("MaintenanceForm", () => {
     await waitFor(() => expect(actions.setMaintenanceAction).toHaveBeenCalledWith(expect.objectContaining({ endsAt: null, returnAt: null })));
   });
 
+  it("a window that has already ended starts with «Activar ahora» unticked, so re-saving does not reopen it", async () => {
+    const user = userEvent.setup();
+    render(
+      <MaintenanceForm
+        maintenance={{ ...OFF, enabled: true, mode: "custom", messageEs: "a", messageEn: "b", endsAt: "2026-10-26T11:00:00.000Z" }}
+        passwordSet
+      />,
+    );
+    expect(screen.getByRole("checkbox", { name: "Activar ahora" })).not.toBeChecked();
+    await user.click(screen.getByRole("button", { name: "Guardar mantenimiento" }));
+    expect(screen.queryByText(CONFIRM_TEXT)).not.toBeInTheDocument();
+    await waitFor(() => expect(actions.setMaintenanceAction).toHaveBeenCalledWith(expect.objectContaining({ enabled: false, endsAt: null })));
+  });
+
   it("a future stored date is kept", async () => {
     const user = userEvent.setup();
     render(<MaintenanceForm maintenance={{ ...ACTIVE_PAST_RETURN, returnAt: "2026-10-26T13:00:00.000Z" }} passwordSet />);

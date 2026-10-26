@@ -124,7 +124,8 @@ export function MaintenanceForm({
   const [messageEn, setMessageEn] = useState(maintenance.messageEn ?? "");
   // null = untouched: shows (and saves) what is stored. Typing replaces it with the local value of the input.
   const [dates, setDates] = useState<Record<DateField, string | null>>({ returnAt: null, startsAt: null, endsAt: null });
-  const [enableNow, setEnableNow] = useState(maintenance.enabled);
+  // A window whose «Termina» has passed is over: re-saving it only reopens the web if the admin ticks this again.
+  const [enableNow, setEnableNow] = useState(() => maintenance.enabled && !passed(maintenance.endsAt, Date.now()));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmTitle, setConfirmTitle] = useState("");
   const [busy, setBusy] = useState<"save" | "off" | "password" | null>(null);
