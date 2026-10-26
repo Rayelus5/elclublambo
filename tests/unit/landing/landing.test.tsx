@@ -56,6 +56,7 @@ describe("Landing (reduced motion)", () => {
       "ElClub Pay",
       "Comprobador",
       "Avales",
+      "Más herramientas",
       "Construido en Base · también en Arbitrum",
       "Lo mejor está dentro: un foro privado por invitación",
       "Empieza con un sorteo.",
@@ -115,6 +116,32 @@ describe("Landing (reduced motion)", () => {
       expect(block.querySelector(".bg-accent-fill")).toBeNull();
       unmount();
     }
+  });
+
+  it("one «More tools» block links to the hub, without the brand fill and without tool cards", () => {
+    for (const [lang, href, region, name, lead] of [
+      ["es", "/herramientas", "Más herramientas", /Ver herramientas/, "Revisa permisos, envía USDC a varios y calcula el gas."],
+      ["en", "/en/tools", "More tools", /See tools/, en.landing.moreTools.lead],
+    ] as const) {
+      const { unmount } = render(<Landing lang={lang} />);
+      const blocks = screen.getAllByRole("region", { name: region });
+      expect(blocks).toHaveLength(1);
+      const block = blocks[0]!;
+      expect(block).toHaveTextContent(lead);
+      const links = within(block).getAllByRole("link");
+      expect(links).toHaveLength(1);
+      expect(links[0]).toHaveAccessibleName(name);
+      expect(links[0]).toHaveAttribute("href", href);
+      expect(block.querySelector(".bg-accent-fill")).toBeNull();
+      expect(block.querySelectorAll("li, article")).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  it("the «More tools» block comes right after the vouches teaser", () => {
+    render(<Landing lang="es" />);
+    const vouches = screen.getByRole("region", { name: "Avales" });
+    expect(vouches.nextElementSibling).toBe(screen.getByRole("region", { name: "Más herramientas" }));
   });
 
   it("no tool on the landing is marked «Próximamente» / «Coming soon»", () => {

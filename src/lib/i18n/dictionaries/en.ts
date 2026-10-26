@@ -312,6 +312,11 @@ export const en = {
       lead: "See who backs an address on Base, or vouch for someone you know.",
       cta: "See vouches",
     },
+    moreTools: {
+      title: "More tools",
+      lead: "Review approvals, send USDC to many and work out gas.",
+      cta: "See tools",
+    },
     networks: {
       title: "Built on Base · also on Arbitrum",
       lead: "Prizes and payments in USDC on either network, with fees of cents.",
@@ -329,7 +334,7 @@ export const en = {
   },
   tools: {
     metaTitle: "Tools",
-    metaDescription: "Open crypto tools from ElClub.: verifiable giveaways, payment links, a token and link checker and vouches.",
+    metaDescription: "Open crypto tools from ElClub.: verifiable giveaways, payment links, a token and link checker, vouches, approvals, multisend and gas.",
     title: "Tools",
     lead: "Crypto utilities open to everyone. We never hold funds.",
     listLabel: "Tools",
@@ -339,6 +344,9 @@ export const en = {
     pay: { name: "ElClub Pay", text: "Get paid and pay in USDC with a link." },
     checker: { name: "Token and link checker", text: "Check a token or a link before you sign." },
     guarantees: { name: "Vouching", text: "Vouch for people you know with a public proof on Base." },
+    approvals: { name: "Approvals", text: "See which contracts can move your tokens and revoke them." },
+    multisend: { name: "Multisend", text: "Send USDC to several addresses and split group expenses." },
+    gas: { name: "Gas calculator", text: "What a transaction costs right now on Base and Arbitrum." },
   },
   start: {
     metaTitle: "ElClub. · The private forum for people serious about crypto",

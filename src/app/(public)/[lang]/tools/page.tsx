@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BadgeCheck, Gift, ScanSearch, Wallet } from "lucide-react";
+import { BadgeCheck, Fuel, Gift, ScanSearch, Send, ShieldOff, Wallet } from "lucide-react";
 import { ToolCard } from "@/components/public/tool-card";
 import { getDictionary } from "@/lib/i18n";
 import { isLang, OG_LOCALE } from "@/lib/i18n/config";
@@ -39,6 +39,9 @@ export default async function ToolsPage({ params }: PageProps<"/[lang]/tools">) 
         <ToolCard icon={Wallet} name={t.pay.name} text={t.pay.text} status={t.available} href={localizedPath(lang, "payTool")} />
         <ToolCard icon={ScanSearch} name={t.checker.name} text={t.checker.text} status={t.available} href={localizedPath(lang, "checker")} />
         <ToolCard icon={BadgeCheck} name={t.guarantees.name} text={t.guarantees.text} status={t.available} href={localizedPath(lang, "vouches")} />
+        <ToolCard icon={ShieldOff} name={t.approvals.name} text={t.approvals.text} status={t.available} href={localizedPath(lang, "approvals")} />
+        <ToolCard icon={Send} name={t.multisend.name} text={t.multisend.text} status={t.available} href={localizedPath(lang, "multisend")} />
+        <ToolCard icon={Fuel} name={t.gas.name} text={t.gas.text} status={t.available} href={localizedPath(lang, "gas")} />
       </ul>
     </main>
   );

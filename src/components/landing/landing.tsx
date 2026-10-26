@@ -8,6 +8,7 @@ import { ClubTeaser } from "./club-teaser";
 import { FinalCta } from "./final-cta";
 import { GiveawayDemo } from "./giveaway-demo";
 import { Hero } from "./hero";
+import { MoreToolsTeaser } from "./more-tools-teaser";
 import { Networks } from "./networks";
 import { PayDemo } from "./pay-demo";
 import { VouchTeaser } from "./vouch-teaser";
@@ -32,6 +33,7 @@ export function Landing({ lang }: { lang: Lang }) {
           </div>
         </div>
         <VouchTeaser lang={lang} t={t} />
+        <MoreToolsTeaser lang={lang} t={t} />
         <Networks t={t.networks} />
         <ClubTeaser lang={lang} t={t.club} whatIs={t.whatIs} />
         <FinalCta lang={lang} t={t} />

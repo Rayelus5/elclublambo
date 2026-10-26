@@ -312,6 +312,11 @@ export const es = {
       lead: "Mira quién respalda a una dirección en Base, o avala a quien conoces.",
       cta: "Ver avales",
     },
+    moreTools: {
+      title: "Más herramientas",
+      lead: "Revisa permisos, envía USDC a varios y calcula el gas.",
+      cta: "Ver herramientas",
+    },
     networks: {
       title: "Construido en Base · también en Arbitrum",
       lead: "Premios y pagos en USDC en cualquiera de las dos redes, con comisiones de céntimos.",
@@ -329,7 +334,7 @@ export const es = {
   },
   tools: {
     metaTitle: "Herramientas",
-    metaDescription: "Herramientas cripto abiertas de ElClub.: sorteos verificables, pagos con enlace, comprobador de tokens y enlaces y avales.",
+    metaDescription: "Herramientas cripto abiertas de ElClub.: sorteos verificables, pagos con enlace, comprobador de tokens y enlaces, avales, aprobaciones, envío múltiple y gas.",
     title: "Herramientas",
     lead: "Útiles para cripto, abiertos a cualquiera. Sin custodia de fondos.",
     listLabel: "Herramientas",
@@ -339,6 +344,9 @@ export const es = {
     pay: { name: "ElClub Pay", text: "Cobra y paga en USDC con un enlace." },
     checker: { name: "Comprobador de tokens y enlaces", text: "Revisa un token o un enlace antes de firmar." },
     guarantees: { name: "Avales", text: "Avala a quien conoces con una prueba pública en Base." },
+    approvals: { name: "Aprobaciones", text: "Mira qué contratos pueden mover tus tokens y retira los permisos." },
+    multisend: { name: "Envío múltiple", text: "Envía USDC a varias direcciones y reparte gastos de grupo." },
+    gas: { name: "Calculadora de gas", text: "Cuánto cuesta ahora una transacción en Base y Arbitrum." },
   },
   start: {
     metaTitle: "ElClub. · El foro privado para quien se toma cripto en serio",
