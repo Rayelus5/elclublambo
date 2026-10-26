@@ -43,7 +43,7 @@ export function getSiteState(opts: { fetcher?: typeof fetch; now?: number } = {}
   const now = opts.now ?? Date.now();
   const ttl = siteStateTtlMs();
   if (cache && ttl > 0 && now - cache.at < ttl) return cache.promise;
-  // TTL 0: sin caché (cada llamada lee), pero se deja la promesa por si la misma tanda de peticiones la comparte.
+  // Con TTL 0 cada llamada lee: no se comparte nada (la entrada de caché solo sirve si TTL > 0).
   const entry: Entry = { at: now, promise: read(opts.fetcher ?? fetch) };
   cache = entry;
   return entry.promise;
