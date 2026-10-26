@@ -36,10 +36,6 @@ const serverShown = () => true;
 
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-function token(name: string): string {
-  return getComputedStyle(html()).getPropertyValue(name).trim() || `var(${name})`;
-}
-
 /** Ends the intro: unlocks scroll (the attribute goes), unmounts the overlay and hands focus to the landing. */
 function finish() {
   delete html().dataset.intro;
@@ -137,8 +133,6 @@ export function IntroGate({ lang }: { lang: Lang }) {
     const th = vh / g.rows;
     const far = Math.max(...[0, vw].flatMap((x) => [0, vh].map((y) => Math.hypot(x - origin.x, y - origin.y))));
     const delays = waveDelays(g, { width: vw, height: vh }, origin, far > 0 ? Math.min(1.6, WAVE_SPAN_MS / far) : 1.6);
-    const blue = token("--accent-fill");
-    const cerulean = token("--accent");
     const runs: Promise<unknown>[] = [];
     for (let row = 0; row < g.rows; row++) {
       for (let col = 0; col < g.cols; col++) {
@@ -150,19 +144,31 @@ export function IntroGate({ lang }: { lang: Lang }) {
           width: `${Math.ceil(tw) + 1}px`,
           height: `${Math.ceil(th) + 1}px`,
         });
+        // The Cerulean face fades in over the Base Blue tile: the colour change stays on the compositor (opacity), no
+        // per-frame paint of a background colour on 72–96 tiles.
+        const face = document.createElement("span");
+        face.className = "intro-tile-face";
+        tile.appendChild(face);
         tiles.appendChild(tile);
         const cx = col * tw + tw / 2;
         const cy = row * th + th / 2;
         const axis = Math.abs(cx - origin.x) > Math.abs(cy - origin.y) ? "Y" : "X";
         const sign = (axis === "Y" ? cx > origin.x : cy < origin.y) ? 1 : -1;
+        const timing: KeyframeAnimationOptions = {
+          duration: 620,
+          delay: delays[row * g.cols + col],
+          easing: "cubic-bezier(.45,0,.3,1)",
+          fill: "forwards",
+        };
+        face.animate([{ opacity: 0 }, { opacity: 1, offset: 0.45 }, { opacity: 1 }], timing);
         runs.push(
           tile.animate(
             [
-              { transform: `perspective(500px) rotate${axis}(0deg)`, backgroundColor: blue },
-              { transform: `perspective(500px) rotate${axis}(${sign * 70}deg)`, backgroundColor: cerulean, offset: 0.45 },
-              { transform: `perspective(500px) rotate${axis}(${sign * 180}deg)`, backgroundColor: cerulean, opacity: 0 },
+              { transform: `perspective(500px) rotate${axis}(0deg)` },
+              { transform: `perspective(500px) rotate${axis}(${sign * 70}deg)`, offset: 0.45 },
+              { transform: `perspective(500px) rotate${axis}(${sign * 180}deg)`, opacity: 0 },
             ],
-            { duration: 620, delay: delays[row * g.cols + col], easing: "cubic-bezier(.45,0,.3,1)", fill: "forwards" },
+            timing,
           ).finished,
         );
       }

@@ -574,6 +574,15 @@ html[data-intro="on"] .animate-start-rise {
   will-change: transform, opacity;
 }
 
+/* The tile's Cerulean face: its opacity animates (blue → Cerulean mid-flip), never a background colour. */
+.intro-tile-face {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  will-change: opacity;
+}
+
 .intro-hit {
   position: relative;
   width: 100%;

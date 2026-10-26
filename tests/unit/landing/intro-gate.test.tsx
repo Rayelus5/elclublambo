@@ -86,6 +86,28 @@ describe("IntroGate", () => {
     expect(html.dataset.intro).toBe("on");
   });
 
+  it("the tile wave animates only transform and opacity (compositor-only, spec «Rendimiento»)", async () => {
+    render(<Page />);
+    const watch = watchIntro();
+    fireEvent.click(screen.getByRole("button", { name: "Entrar en ElClub." }));
+    await expectRevealed(watch);
+    const calls = vi.mocked(Element.prototype.animate).mock.calls as unknown as [Keyframe[], KeyframeAnimationOptions][];
+    const tiles = calls.filter((_, i) => {
+      const el = vi.mocked(Element.prototype.animate).mock.contexts[i] as Element;
+      return el.classList.contains("intro-tile") || el.classList.contains("intro-tile-face");
+    });
+    expect(tiles.length).toBeGreaterThan(0);
+    for (const [frames] of calls) {
+      for (const frame of frames) {
+        expect(Object.keys(frame).filter((k) => k !== "offset" && k !== "transform" && k !== "opacity")).toEqual([]);
+      }
+    }
+    // Every tile carries its Cerulean face, which fades in by mid-flip.
+    const faces = calls.filter((_, i) => (vi.mocked(Element.prototype.animate).mock.contexts[i] as Element).classList.contains("intro-tile-face"));
+    expect(faces.length).toBe(tiles.length / 2);
+    expect(faces[0]?.[0]).toEqual([{ opacity: 0 }, { opacity: 1, offset: 0.45 }, { opacity: 1 }]);
+  });
+
   it("names the full-screen button for assistive tech", () => {
     render(<Page />);
     expect(screen.getByRole("button", { name: "Entrar en ElClub." })).toBeInTheDocument();
