@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { decodeSplit, encodeSplit, MAX_SPLIT_FRAGMENT, type SplitState } from "@/lib/split/state";
+import { decodeSplit, encodeSplit, MAX_AMOUNT_INPUT, MAX_NAME, MAX_PEOPLE, MAX_SPLIT_FRAGMENT, validTarget, type SplitState } from "@/lib/split/state";
 
 const ADDR = "0x90F79bf6EB2c4f870365E785982E1f101E93b906";
 const STATE: SplitState = {
@@ -69,5 +69,26 @@ describe("split state in the fragment", () => {
   it("drops unknown keys and keeps only n, p and t", async () => {
     const got = await decodeSplit(plain({ v: 1, extra: true, people: [{ n: "A", p: "1", x: 1 }] }));
     expect(got).toEqual({ v: 1, people: [{ n: "A", p: "1" }] });
+  });
+
+  it("validTarget uses the multisend list's address check: a wrong EIP-55 checksum is rejected", () => {
+    expect(validTarget(ADDR)).toBe(true);
+    expect(validTarget(ADDR.toLowerCase())).toBe(true);
+    expect(validTarget(`0x${ADDR.slice(2).toUpperCase()}`)).toBe(true);
+    expect(validTarget("0x90f79bf6EB2c4f870365E785982E1f101E93b906")).toBe(false);
+    expect(validTarget("carlos")).toBe(true);
+  });
+
+  it("a maxed split (20 people, worst-case names, amounts at maxLength, full addresses) fits the fragment cap, even uncompressed", async () => {
+    vi.stubGlobal("CompressionStream", undefined);
+    // Control characters are the worst case for JSON: each one becomes \u00XX (6 bytes).
+    const name = "\u0001".repeat(MAX_NAME);
+    const paid = `${"9".repeat(MAX_AMOUNT_INPUT - 7)},999999`;
+    expect(paid).toHaveLength(MAX_AMOUNT_INPUT);
+    const state: SplitState = { v: 1, people: Array.from({ length: MAX_PEOPLE }, () => ({ n: name, p: paid, t: ADDR })) };
+    const enc = await encodeSplit(state);
+    expect(enc.startsWith("j1.")).toBe(true);
+    expect(enc.length).toBeLessThanOrEqual(MAX_SPLIT_FRAGMENT);
+    expect(await decodeSplit(enc)).toEqual(state);
   });
 });

@@ -23,7 +23,7 @@ const NUMBER_RE = /^\d+(?:[.,](\d+))?$/;
 const ZERO = `0x${"0".repeat(40)}`;
 
 /** All lower case, all upper case, or mixed case with a valid EIP-55 checksum (a wrong checksum is a typo). */
-function toAddress(text: string): Address | null {
+export function toAddress(text: string): Address | null {
   if (!HEX40.test(text)) return null;
   const hex = text.slice(2);
   const normalised = getAddress(text.toLowerCase());

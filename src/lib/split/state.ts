@@ -2,8 +2,8 @@
 // Referer, and leaves nothing stored on the device. `v1.` = base64url(deflate-raw(JSON)) with CompressionStream;
 // `j1.` = base64url(JSON) where the browser lacks it. Anything malformed or too big decodes to null.
 
+import { toAddress } from "@/lib/multisend/parse";
 import { normalizeAlias } from "@/lib/pay/alias";
-import { ADDRESS_RE } from "@/lib/pay/target";
 import { parseAmount } from "@/lib/payments/amounts";
 
 export type SplitState = { v: 1; people: Array<{ n: string; p: string; t?: string }> };
@@ -11,6 +11,12 @@ export type SplitState = { v: 1; people: Array<{ n: string; p: string; t?: strin
 export const SPLIT_PREFIX = "gastos=";
 export const MAX_PEOPLE = 20;
 export const MAX_NAME = 24;
+/**
+ * Input caps for «Pagó» and «Dirección o alias». With MAX_NAME they keep a maxed split (20 people, names of escaped
+ * control characters, full addresses) under MAX_SPLIT_FRAGMENT even uncompressed (pinned by state.test.ts).
+ */
+export const MAX_AMOUNT_INPUT = 20;
+export const MAX_TARGET_INPUT = 64;
 /** The longest payload accepted, in characters. */
 export const MAX_SPLIT_FRAGMENT = 8192;
 /** The most bytes a payload may inflate to (a deflate bomb stops here). */
@@ -86,10 +92,13 @@ export async function encodeSplit(s: SplitState): Promise<string> {
   return packed ? `v1.${toBase64Url(packed)}` : `j1.${toBase64Url(json)}`;
 }
 
-/** Where a person gets paid: a full address, or an ElClub Pay alias (normalized, not reserved). "0x…" must be a whole address. */
+/**
+ * Where a person gets paid: a full address, or an ElClub Pay alias (normalized, not reserved). "0x…" must be a whole
+ * address that the multisend list would accept too (a mixed-case address needs a valid EIP-55 checksum).
+ */
 export function validTarget(t: unknown): t is string {
   if (typeof t !== "string") return false;
-  if (/^0x/i.test(t)) return ADDRESS_RE.test(t);
+  if (/^0x/i.test(t)) return toAddress(t) !== null;
   const a = normalizeAlias(t);
   return a.ok && a.alias === t;
 }

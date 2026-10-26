@@ -15,7 +15,18 @@ import { buildPayUrl } from "@/lib/pay/link";
 import { ADDRESS_RE } from "@/lib/pay/target";
 import { formatAmount, parseAmount } from "@/lib/payments/amounts";
 import { settle, type Participant } from "@/lib/split/settle";
-import { decodeSplit, encodeSplit, MAX_NAME, MAX_PEOPLE, MAX_SPLIT_FRAGMENT, SPLIT_PREFIX, validTarget, type SplitState } from "@/lib/split/state";
+import {
+  decodeSplit,
+  encodeSplit,
+  MAX_AMOUNT_INPUT,
+  MAX_NAME,
+  MAX_PEOPLE,
+  MAX_SPLIT_FRAGMENT,
+  MAX_TARGET_INPUT,
+  SPLIT_PREFIX,
+  validTarget,
+  type SplitState,
+} from "@/lib/split/state";
 
 type Row = { key: number; name: string; paid: string; target: string };
 
@@ -37,8 +48,17 @@ const noSubscribe = () => () => {};
 const readOrigin = () => window.location.origin;
 const serverOrigin = () => "";
 
-/** Navigates to a fragment on this page (fires hashchange, which the multisend form listens to). */
+/**
+ * Navigates to a fragment on this page and always fires hashchange, which the multisend form listens to. Assigning the
+ * hash it already has fires nothing, so then the event is dispatched by hand: pressing «Enviar con envío múltiple»
+ * again with the same lines reloads the list (the form still ignores it while a run is in progress).
+ */
 function goToHash(hash: string) {
+  if (window.location.hash === hash) {
+    const url = window.location.href;
+    window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL: url, newURL: url }));
+    return;
+  }
   window.location.hash = hash;
 }
 
@@ -67,7 +87,11 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
   const [touched, setTouched] = useState(false);
   const [badLink, setBadLink] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [tooLong, setTooLong] = useState(false);
   const [me, setMe] = useState("");
+  // Decodes are async: only the newest one may land, and not over edits made after it began.
+  const decodeSeq = useRef(0);
+  const edits = useRef(0);
   const origin = useSyncExternalStore(noSubscribe, readOrigin, serverOrigin);
   const fmt = (units: bigint) => {
     const text = formatAmount(units, "USDC");
@@ -81,13 +105,17 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
     const read = async () => {
       const hash = window.location.hash;
       if (!hash.startsWith(`#${SPLIT_PREFIX}`)) return;
+      const seq = ++decodeSeq.current;
+      const editsAtStart = edits.current;
       const state = await decodeSplit(hash);
-      if (!live) return;
+      // Unmounted, overtaken by a newer link, or the user has typed since: this result is stale.
+      if (!live || seq !== decodeSeq.current || editsAtStart !== edits.current) return;
       if (state === null) {
         setBadLink(true);
         return;
       }
       setBadLink(false);
+      setTooLong(false);
       setTouched(false);
       setMe("");
       setRows(state.people.map((p, i) => newRow(i, { name: p.n, paid: p.p, target: p.t ?? "" })));
@@ -102,10 +130,17 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
     };
   }, []);
 
+  const baseLabels = rows.map((r, i) => r.name.trim() || fill(t.person, { n: i + 1 }));
+  const labelCount = new Map<string, number>();
+  for (const l of baseLabels) labelCount.set(l.toLowerCase(), (labelCount.get(l.toLowerCase()) ?? 0) + 1);
+  // A repeated name (trimmed, any case) gets the person's number, so «Ana paga X a Ana» never shows.
+  const dupNames = [...labelCount.values()].some((n) => n > 1);
   const parsed = rows.map((r, i) => {
     const units = r.paid.trim() === "" ? 0n : parseAmount(r.paid, "USDC");
     const target = cleanTarget(r.target);
-    return { row: r, label: r.name.trim() || fill(t.person, { n: i + 1 }), units, target, targetOk: target === null || validTarget(target) };
+    const base = baseLabels[i]!;
+    const label = (labelCount.get(base.toLowerCase()) ?? 0) > 1 ? `${base} (${i + 1})` : base;
+    return { row: r, label, units, target, targetOk: target === null || validTarget(target) };
   });
   const hasErrors = parsed.some((p) => p.units === null || !p.targetOk);
   const total = parsed.reduce((s, p) => s + (p.units ?? 0n), 0n);
@@ -124,10 +159,18 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
     let live = true;
     const timer = setTimeout(async () => {
       const encoded = await encodeSplit(JSON.parse(stateKey) as SplitState);
-      if (!live || encoded.length > MAX_SPLIT_FRAGMENT) return;
-      const { pathname, search } = window.location;
+      if (!live) return;
+      const { pathname, search, hash } = window.location;
+      if (encoded.length > MAX_SPLIT_FRAGMENT) {
+        // Too long for a link: say so, and leave no older split in the URL or behind «Copiar enlace».
+        if (hash.startsWith(`#${SPLIT_PREFIX}`)) window.history.replaceState(window.history.state, "", `${pathname}${search}`);
+        setShareUrl(null);
+        setTooLong(true);
+        return;
+      }
       window.history.replaceState(window.history.state, "", `${pathname}${search}#${SPLIT_PREFIX}${encoded}`);
       setShareUrl(window.location.href);
+      setTooLong(false);
     }, 200);
     return () => {
       live = false;
@@ -135,16 +178,22 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
     };
   }, [touched, stateKey]);
 
-  const edit = (key: number, patch: Partial<Omit<Row, "key">>) => {
+  // Any edit makes the split the user's own: the «enlace dañado» alert goes, and a decode still in flight is dropped.
+  const touch = () => {
+    edits.current += 1;
     setTouched(true);
+    setBadLink(false);
+  };
+  const edit = (key: number, patch: Partial<Omit<Row, "key">>) => {
+    touch();
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   };
   const add = () => {
-    setTouched(true);
+    touch();
     setRows((rs) => (rs.length >= MAX_PEOPLE ? rs : [...rs, newRow(nextKeyOf(rs))]));
   };
   const remove = (key: number) => {
-    setTouched(true);
+    touch();
     setRows((rs) => rs.filter((r) => r.key !== key));
     if (me === String(key)) setMe("");
   };
@@ -210,6 +259,7 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
                       <Input
                         id={`${base}-paid`}
                         value={p.row.paid}
+                        maxLength={MAX_AMOUNT_INPUT}
                         inputMode="decimal"
                         autoComplete="off"
                         placeholder="0"
@@ -232,6 +282,7 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
                     <Input
                       id={`${base}-target`}
                       value={p.row.target}
+                      maxLength={MAX_TARGET_INPUT}
                       autoComplete="off"
                       autoCapitalize="none"
                       spellCheck={false}
@@ -262,6 +313,7 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
             );
           })}
         </ol>
+        {dupNames ? <p className="text-sm text-fg-muted">{t.dupNames}</p> : null}
         <div className="flex flex-col gap-1">
           <Button type="button" variant="outline" className="self-start" disabled={rows.length >= MAX_PEOPLE} onClick={add}>
             <Plus aria-hidden />
@@ -271,17 +323,16 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3" aria-live="polite">
+      <div className="flex flex-col gap-3">
         <h3 id={`${id}-result`} className="text-sm font-bold text-fg">
           {t.result}
         </h3>
-        {hasErrors ? (
-          <p className="text-sm text-fg-muted">{t.fixErrors}</p>
-        ) : !ready ? (
-          <p className="text-sm text-fg-muted">{t.needTwo}</p>
-        ) : (
+        {/* The only live region of the result: one short line, so a keystroke never re-announces the whole list. */}
+        <p aria-live="polite" className="text-sm text-fg-muted tabular-nums">
+          {hasErrors ? t.fixErrors : !ready ? t.needTwo : fill(t.total, { total: fmt(total), n: rows.length, count: transfers.length })}
+        </p>
+        {ready ? (
           <>
-            <p className="text-sm text-fg-muted tabular-nums">{fill(t.total, { total: fmt(total), n: rows.length })}</p>
             {transfers.length === 0 ? (
               <p className="text-base text-fg">{t.even}</p>
             ) : (
@@ -347,9 +398,15 @@ export function SplitCalculator({ lang }: { lang: Lang }) {
               ) : null}
             </div>
           </>
-        )}
+        ) : null}
       </div>
 
+      {tooLong && !hasErrors ? (
+        <p className="flex items-start gap-2 text-sm text-danger">
+          <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+          {t.tooLong}
+        </p>
+      ) : null}
       <CopyButton text={shareUrl ?? ""} label={t.copy} doneText={t.copied} failedText={t.copyFailed} disabled={shareUrl === null || hasErrors} />
     </section>
   );

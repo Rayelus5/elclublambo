@@ -1156,7 +1156,7 @@ export const en = {
         target: "Enter a full 0x… address or an ElClub Pay alias.",
       },
       result: "Who pays whom",
-      total: "Total: {total} USDC among {n} people.",
+      total: "Total: {total} USDC among {n} people. Transfers: {count}.",
       pays: "{from} pays {amount} USDC to {to}",
       even: "Nobody has to pay anything: you are even.",
       needTwo: "Add at least two people and what each one paid.",
@@ -1175,6 +1175,8 @@ export const en = {
       copied: "Link copied.",
       copyFailed: "Could not copy. Copy the address from the browser bar.",
       badLink: "This split link is damaged or too long. Start a new one.",
+      dupNames: "Some names repeat: they show with their person number.",
+      tooLong: "This split is too long for a link: shorten names or amounts.",
     },
   },
   gas: {

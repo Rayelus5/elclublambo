@@ -1156,7 +1156,7 @@ export const es = {
         target: "Pon una dirección 0x… completa o un alias de ElClub Pay.",
       },
       result: "Quién paga a quién",
-      total: "Total: {total} USDC entre {n} personas.",
+      total: "Total: {total} USDC entre {n} personas. Transferencias: {count}.",
       pays: "{from} paga {amount} USDC a {to}",
       even: "Nadie tiene que pagar nada: estáis a la par.",
       needTwo: "Añade al menos dos personas y lo que pagó cada una.",
@@ -1175,6 +1175,8 @@ export const es = {
       copied: "Enlace copiado.",
       copyFailed: "No se pudo copiar. Copia la dirección de la barra del navegador.",
       badLink: "Este enlace de reparto está dañado o es demasiado largo. Empieza uno nuevo.",
+      dupNames: "Hay nombres repetidos: se muestran con su número de persona.",
+      tooLong: "Este reparto es demasiado largo para un enlace: acorta nombres o importes.",
     },
   },
   gas: {
