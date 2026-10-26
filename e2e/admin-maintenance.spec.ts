@@ -470,7 +470,8 @@ test("13. a scheduled window that already started keeps the site closed; an end 
   await maintenanceSection().getByLabel("Empieza").fill(localInput(now - 3 * 60_000));
   await maintenanceSection().getByLabel("Termina").fill(localInput(now - 2 * 60_000));
   await saveMaintenance(false, false);
-  await expect(maintenanceSection().getByRole("alert")).toContainText("El mantenimiento no es válido");
+  // The RPC refuses the past end and the form names the date it refused.
+  await expect(maintenanceSection().getByRole("alert")).toContainText("El fin ya ha pasado (");
   expect((await anonPage.goto("/"))?.status()).toBe(503);
 });
 
