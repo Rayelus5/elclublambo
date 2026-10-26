@@ -71,7 +71,7 @@ function DesktopBar(props: Props) {
   const tabs = all.filter((s) => !("staff" in s));
   const more = all.flatMap((s) => ("staff" in s ? [{ href: s.href, text: s.text, icon: <s.Icon className="size-4" aria-hidden /> }] : []));
   return (
-    <header className="sticky top-0 z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
+    <header className="sticky top-(--mnt-banner-h) z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
       <Link href={clubPath()} className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
         El Club.
       </Link>
@@ -166,7 +166,7 @@ export function Sidebar(props: Props) {
       <Topbar badge={<TestModeBadge compact className="mr-1" />}>
         <DrawerBody {...props} />
       </Topbar>
-      <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-r border-border bg-surface md:block">
+      <aside className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] border-r border-border bg-surface md:block">
         <nav aria-label="Canales" className="h-full overflow-y-auto py-4">
           <ChannelTree nodes={buildTree(props.channels ?? [])} />
         </nav>

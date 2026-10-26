@@ -5,23 +5,15 @@ import { useAccount, useSignMessage, useSwitchChain } from "wagmi";
 import { useAppKit } from "@reown/appkit/react";
 import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { createBrowserClient } from "@/lib/supabase/browser";
 import { safeNextPath } from "@/lib/auth/public-paths";
+import { signInWithWallet } from "@/lib/auth/siwe-sign-in";
 import { clubPath } from "@/lib/club/paths";
 import { getDictionary } from "@/lib/i18n";
 import { hardNavigate } from "@/lib/navigation/hard-navigate";
 import type { Lang } from "@/lib/i18n/config";
-import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
 import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
 type Props = { lang: Lang; next: string | null; variant?: ComponentProps<typeof Button>["variant"] };
-
-function isUserRejection(err: unknown): boolean {
-  if (typeof err !== "object" || err === null) return false;
-  const e = err as { name?: string; code?: number; cause?: unknown };
-  if (e.name === "UserRejectedRequestError" || e.code === 4001) return true;
-  return e.cause ? isUserRejection(e.cause) : false;
-}
 
 /** Connect + sign in from the public side: same SIWE login as the club, in the visitor's language, no membership needed. */
 export function PublicConnect({ lang, next, variant }: Props) {
@@ -45,24 +37,9 @@ export function PublicConnect({ lang, next, variant }: Props) {
     setSigning(true);
     let navigated = false;
     try {
-      const message = buildLoginMessage({
-        address,
-        chainId: loginChain,
-        nonce: generateNonce(),
-        domain: window.location.host,
-        uri: `${window.location.origin}${clubPath("/login")}`, // R1-R2: same SIWE uri as the club login
-        lang,
-      });
-      let signature: `0x${string}`;
-      try {
-        signature = await signMessageAsync({ message });
-      } catch (err) {
-        setError(isUserRejection(err) ? c.errCancelled : c.errVerify);
-        return;
-      }
-      const { error: authError } = await createBrowserClient().auth.signInWithWeb3({ chain: "ethereum", message, signature });
-      if (authError) {
-        setError(c.errVerify);
+      const result = await signInWithWallet({ address, chainId: loginChain, lang, sign: (message) => signMessageAsync({ message }) });
+      if (!result.ok) {
+        setError(result.error === "cancelled" ? c.errCancelled : c.errVerify);
         return;
       }
       // P2-R16 hand-off through /foro/login/complete (completeLogin in public mode), a full navigation rather than a server

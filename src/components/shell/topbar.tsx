@@ -13,7 +13,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, Dia
 export function Topbar({ children, badge }: { children: React.ReactNode; badge?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-bg px-4 md:hidden">
+    <header className="sticky top-(--mnt-banner-h) z-40 flex items-center justify-between border-b border-border bg-bg px-4 md:hidden">
       <Link
         href={clubPath()}
         className="inline-flex min-h-11 items-center font-display text-xl font-black tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
