@@ -20,6 +20,7 @@
 -- A-R13 Closed registration: an after-insert trigger on auth.users records a hold while site_switches.registration is
 --       false (never raises, so GoTrue never breaks). my_registration_blocked() = closed ∧ hold ∧ no members row;
 --       is_public_account() gains `and not my_registration_blocked()`. Reopening clears every hold.
+-- audit_log: admin.* rows are visible to SuperAdmin only (they carry the access list); other rows keep bit 32.
 
 -- ===== app_config seeds (A-R1) =====
 insert into public.app_config (key, value) values
@@ -318,6 +319,8 @@ $$;
 
 -- ===== grant_maintenance_access (service_role) =====
 -- Called by the server after the password check. The wallet is the user's first web3 identity (as auth_wallet_address).
+-- Returns 'not_listed', 'stale' (version mismatch or no password set), 'expired' (endsAt already past: no row is
+-- stored) or 'granted'.
 create function public.grant_maintenance_access(p_auth_user_id uuid, p_password_version int)
 returns text
 language plpgsql
@@ -328,6 +331,7 @@ declare
   v_wallet text;
   v_version int;
   v_ends timestamptz;
+  v_expires timestamptz;
 begin
   select lower(i.identity_data->'custom_claims'->>'address') into v_wallet
   from auth.identities i
@@ -345,9 +349,13 @@ begin
   end if;
 
   select (c.value->>'endsAt')::timestamptz into v_ends from public.app_config c where c.key = 'maintenance';
+  v_expires := least(now() + interval '12 hours', v_ends);
+  if v_expires <= now() then
+    return 'expired';
+  end if;
 
   insert into public.maintenance_grants as g (auth_user_id, wallet, password_version, expires_at)
-  values (p_auth_user_id, v_wallet, v_version, least(now() + interval '12 hours', v_ends))
+  values (p_auth_user_id, v_wallet, v_version, v_expires)
   on conflict (auth_user_id) do update
     set wallet = excluded.wallet, password_version = excluded.password_version, expires_at = excluded.expires_at;
   return 'granted';
@@ -411,6 +419,14 @@ as $$
     )
     and not public.my_registration_blocked()
 $$;
+
+-- ===== audit_log visibility =====
+-- admin.* rows carry the team access list (wallets and notes): only SuperAdmin reads them. Every other row keeps the
+-- 20261016000002_permissions.sql rule (bit 32).
+drop policy audit_log_select on public.audit_log;
+create policy audit_log_select on public.audit_log
+  for select to authenticated
+  using (public.has_global_perm(32) and (action not like 'admin.%' or public.has_global_perm(512)));
 
 -- ===== rate limit buckets (A-R10) =====
 -- rate_limit_hit: branches copied from 20261025500001_vouches.sql. ip_rate_limit_hit: branches copied from

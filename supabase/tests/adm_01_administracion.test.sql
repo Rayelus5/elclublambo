@@ -1,7 +1,7 @@
 -- Administración Task 1 (migration 20261026100001): site state, team access list, maintenance password, admin history
 -- and closable registration (A-R1, A-R2, A-R5, A-R10, A-R11, A-R13).
 begin;
-select plan(98);
+select plan(105);
 
 -- fixtures: admin (bootstrap, SuperAdmin), plain active member, outsider (wallet user without membership)
 select set_config('t.admin', tests.create_member('0xad01000000000000000000000000000000000001', null, true)::text, true);
@@ -9,6 +9,9 @@ select set_config('t.plain', tests.create_member('0xad01000000000000000000000000
 insert into public.member_roles (member_id, role_id)
   select current_setting('t.admin')::uuid, id from public.roles where name = 'SuperAdmin';
 select set_config('t.out', tests.create_wallet_user('0xbd01000000000000000000000000000000000001')::text, true);
+select set_config('t.mod', tests.create_member('0xad01000000000000000000000000000000000003', current_setting('t.admin')::uuid)::text, true);
+insert into public.member_roles (member_id, role_id)
+  select current_setting('t.mod')::uuid, id from public.roles where name = 'Moderador';
 
 create function pg_temp.uid(p_member text) returns uuid language sql security definer as
   $$ select auth_user_id from public.members where id = p_member::uuid $$;
@@ -240,6 +243,17 @@ select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
 select is(public.admin_overview()->'history'->0->>'actor', '@jefe', 'history: actor is @handle when set');
 select tests.clear_authentication();
 
+-- ===== audit_log visibility (review fix 1): the access list must not leak to bit-32 moderators =====
+select tests.authenticate_as(pg_temp.uid(current_setting('t.mod')));
+select ok(public.has_global_perm(32) and not public.has_global_perm(512), 'fixture: moderator has bit 32 but not 512');
+select is((select count(*)::int from public.audit_log where action like 'admin.%'), 0, 'moderator sees no admin.* audit rows');
+select ok((select count(*) from public.audit_log where action = 'economy.min_fee') > 0, 'moderator still sees non-admin audit rows');
+select tests.clear_authentication();
+select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
+select ok((select count(*) from public.audit_log where action = 'admin.access_add') > 0, 'SuperAdmin sees admin.* audit rows');
+select ok((select count(*) from public.audit_log where action = 'economy.min_fee') > 0, 'SuperAdmin sees non-admin audit rows');
+select tests.clear_authentication();
+
 -- ===== registration (A-R13) =====
 select set_config('t.open_user', tests.create_wallet_user('0xbd01000000000000000000000000000000000002')::text, true);
 select is((select count(*)::int from public.registration_holds where auth_user_id = current_setting('t.open_user')::uuid), 0,
@@ -263,6 +277,16 @@ select tests.authenticate_as(pg_temp.uid(current_setting('t.admin')));
 select public.admin_set_switch('registration', true);
 select tests.clear_authentication();
 select is((select count(*)::int from public.registration_holds), 0, 'reopening clears all holds');
+
+-- ===== grant whose expiry is already past (review fix 2) =====
+delete from public.maintenance_grants where true;
+update public.app_config set value = jsonb_set(value, '{endsAt}', to_jsonb(private_now.v))
+  from (select to_char((now() - interval '1 hour') at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as v) private_now
+  where key = 'maintenance';
+set local role service_role;
+select is(public.grant_maintenance_access(current_setting('t.out')::uuid, 2), 'expired', 'endsAt in the past -> expired');
+reset role;
+select is((select count(*)::int from public.maintenance_grants), 0, 'an expired grant is not stored');
 
 -- ===== rate limits =====
 set local role service_role;
