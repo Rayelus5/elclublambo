@@ -114,6 +114,15 @@ describe("IntroGate", () => {
     expect(document.activeElement).toBe(document.getElementById("main"));
   });
 
+  it("«Saltar» is a neutral outlined control, 44 px tall, with the focus ring: the logo stays the only blue fill", () => {
+    render(<Page />);
+    const cls = screen.getByRole("link", { name: "Saltar" }).className.split(/\s+/);
+    expect(cls.some((c) => c.includes("accent-fill"))).toBe(false);
+    for (const c of ["focus:min-h-11", "focus:border", "focus:border-border-strong", "focus:bg-bg", "focus:text-fg", "focus:ring-2", "focus:ring-accent"]) {
+      expect(cls).toContain(c);
+    }
+  });
+
   it("renders nothing interactive when data-intro is unset", () => {
     delete html.dataset.intro;
     render(<Page />);

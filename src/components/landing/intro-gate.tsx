@@ -210,7 +210,7 @@ export function IntroGate({ lang }: { lang: Lang }) {
         ref={skipRef}
         href="#main"
         onClick={onSkip}
-        className="sr-only z-10 self-start justify-self-start focus:not-sr-only focus:m-4 focus:rounded-[var(--radius-control)] focus:bg-accent-fill focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-accent-fill-fg focus:outline-none"
+        className="sr-only z-10 self-start justify-self-start focus:not-sr-only focus:m-4 focus:inline-flex focus:min-h-11 focus:items-center focus:rounded-control focus:border focus:border-border-strong focus:bg-bg focus:px-4 focus:text-sm focus:font-bold focus:text-fg focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2 focus:ring-offset-bg"
       >
         {t.skip}
       </a>

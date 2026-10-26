@@ -41,7 +41,7 @@ export default async function PublicHome({ params }: PageProps<"/[lang]">) {
   return (
     <>
       <IntroGate lang={lang} />
-      <Suspense fallback={<main className="flex-1" aria-busy="true" />}>
+      <Suspense fallback={<main id="main" tabIndex={-1} className="flex-1 outline-none" aria-busy="true" />}>
         <LandingLive lang={lang} />
       </Suspense>
     </>
