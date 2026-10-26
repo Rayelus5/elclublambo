@@ -163,6 +163,10 @@ export async function proxy(request: NextRequest) {
     return remember(applySessionHeaders(NextResponse.rewrite(url, { request: { headers: request.headers } }), sessionCookies, sessionHeaders));
   }
 
+  // A single unknown segment (/xx, /typo) is the custom 404 for everyone: an anonymous visitor is not invited to sign in
+  // to the forum (I1). Club routes, langs, the public ES map and the app's own top-level files are never "unknown".
+  if (!user && isUnknownTopSegment(pathname)) return notFound();
+
   if (!user && !isPublicPath(pathname) && !isInternalImagePath(pathname)) {
     const url = redirectUrl(clubPath("/login"), new URLSearchParams({ next: pathname }));
     return remember(applySessionHeaders(NextResponse.redirect(url), sessionCookies, sessionHeaders));
@@ -185,7 +189,7 @@ export async function proxy(request: NextRequest) {
   // one. The report queue does not exist either for a member who moderates no channel, nor a settings page they cannot
   // open. /foro/mercado/<id> with an id the page would reject (`../`, uppercase…) is a 404 too.
   // A single unknown segment (/xx) would reach the [lang] layout, whose notFound() streams a 200 too (anonymous visitors
-  // went to /foro/login above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
+  // got the same 404 above; the old club segments 308'd at the top). An unknown public giveaway id under /en is a 404 with or without a session.
   // Same for an alias nobody owns (/en/pay/<alias>) and for /pay URLs outside the route map (/pay, /pay/ab).
   if (
     (await isMissingPublicGiveaway(pathname)) ||
