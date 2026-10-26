@@ -12,8 +12,22 @@ const IMAGE_TAIL = /\/(?:opengraph|twitter)-image(?:-[a-z0-9]+)?$/;
 
 const hasPrefix = (pathname: string, prefix: string) => pathname === prefix || pathname.startsWith(prefix + "/");
 
+/**
+ * La ruta tal y como la enruta Next: sirve los ficheros estáticos por su ruta decodificada, así que `/en/tools/%67as`
+ * es `/en/tools/gas` (M2). Un escape roto no es ninguna herramienta (null).
+ */
+function decodedPath(pathname: string): string | null {
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+}
+
 /** A-R9. `null` si la URL no pertenece a ningún interruptor. */
-export function toolForPath(pathname: string): ToolKey | null {
+export function toolForPath(rawPathname: string): ToolKey | null {
+  const pathname = decodedPath(rawPathname);
+  if (pathname === null) return null;
   if (hasPrefix(pathname, "/api/v1/check")) return "checkerApi";
   const parsed = toInternalPath(pathname.replace(IMAGE_TAIL, "") || "/", false);
   if (!parsed) {

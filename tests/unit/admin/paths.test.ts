@@ -32,6 +32,21 @@ describe("toolForPath", () => {
     ["/foro/donar", null],
     ["/", null],
   ])("%s -> %s", (p, k) => expect(toolForPath(p)).toBe(k));
+
+  // M2: Next serves a static item by its decoded path, so a percent-encoded URL is the same tool.
+  it.each([
+    ["/en/tools/%67as", "gas"],
+    ["/en/tools/%67%61%73", "gas"],
+    ["/herramientas/%67as", "gas"],
+    ["/%68erramientas/gas", "gas"],
+    ["/en/%74ools/multisend", "multisend"],
+    ["/%64onar", "donate"],
+    ["/api/v1/%63heck/token", "checkerApi"],
+  ])("decodes %s -> %s", (p, k) => expect(toolForPath(p)).toBe(k));
+
+  it.each(["/en/tools/%E0%A4%A", "/herramientas/%zz", "/%"])("a malformed escape (%s) neither throws nor matches", (p) => {
+    expect(toolForPath(p)).toBeNull();
+  });
 });
 
 describe("isMaintenanceBypass", () => {
