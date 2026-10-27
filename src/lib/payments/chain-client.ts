@@ -1,14 +1,12 @@
 import "server-only";
 import { createPublicClient, http, type PublicClient } from "viem";
-import { linea, lineaSepolia } from "viem/chains";
-import type { ChainId } from "@/lib/economy/networks";
+import { NETWORKS, type ChainId } from "@/lib/economy/networks";
 
-/** Read-only client per chain. `LINEA_RPC_URL` / `LINEA_SEPOLIA_RPC_URL` override the public RPCs. */
-export function chainClient(chain: ChainId): PublicClient {
-  const mainnet = chain === 59144;
-  const url = (mainnet ? process.env.LINEA_RPC_URL : process.env.LINEA_SEPOLIA_RPC_URL) || undefined;
+/** Read-only client per chain. The network's server RPC env var (e.g. `BASE_SEPOLIA_RPC_URL`) overrides its public RPC. */
+export function chainClient(chain: ChainId, env: Record<string, string | undefined> = process.env): PublicClient {
+  const net = NETWORKS[chain];
   return createPublicClient({
-    chain: mainnet ? linea : lineaSepolia,
-    transport: http(url, { timeout: 8000, retryCount: 1 }),
+    chain: net.viemChain,
+    transport: http(env[net.serverRpcEnv] || undefined, { timeout: 8000, retryCount: 1 }),
   }) as PublicClient;
 }

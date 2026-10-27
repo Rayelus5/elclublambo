@@ -2,7 +2,7 @@
 // Prizes keep their token (USDC 6 decimals, WETH 18); amounts and weights are bigint (numeric(78,0) comes back as
 // text); never floats.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isChainId, type ChainId } from "@/lib/economy/networks";
+import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
 import { parseAmount } from "@/lib/payments/amounts";
 import { formatToken } from "@/lib/treasury/format";
 
@@ -58,7 +58,7 @@ export interface RaffleEntry {
 }
 
 export interface RaffleDetail extends RaffleCard {
-  chainId: ChainId;
+  chainId: LegacyChainId;
   drawBlockHash: string | null;
   drawBlockTime: string | null;
   /** The parent block's time: the verifier checks parent ≤ closesAt < draw block time. */
@@ -190,7 +190,7 @@ export function parseRaffleDetail(v: unknown): RaffleDetail | null {
   if (!card) return null;
   const r = v as Record<string, unknown>;
   const chainId = Number(r.chainId);
-  if (!isChainId(chainId)) return null;
+  if (!isLegacyChainId(chainId)) return null;
   return {
     ...card,
     chainId,

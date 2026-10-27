@@ -1,5 +1,6 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
-import { BookOpen, ChartCandlestick, Flag, Home, Landmark, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
+import { BookOpen, ChartCandlestick, Dices, Flag, HandHeart, Home, LifeBuoy, Settings, Ticket, User, Users } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { ChannelTree } from "@/components/shell/channel-tree";
 import { buildTree, type ChannelRow } from "@/lib/channels/tree";
@@ -10,8 +11,7 @@ import { SearchButton } from "@/components/search/search-button";
 import { Topbar } from "@/components/shell/topbar";
 import { shortAddress } from "@/lib/auth/wallet";
 import { hasPerm, Perm } from "@/lib/permissions/bits";
-import { NetworkBadge } from "@/components/economy/network-badge";
-import type { ChainId } from "@/lib/economy/networks";
+import { TestModeBadge } from "@/components/economy/test-mode-badge";
 
 type Props = {
   perms: bigint;
@@ -21,8 +21,6 @@ type Props = {
   canModerate?: boolean;
   /** Open tickets the member can read (their own, plus the ones they support): RLS decides which. */
   openTickets?: number;
-  /** Active network (economy_config): every member sees whether money moves on testnet. */
-  chainId?: ChainId;
 };
 
 const brandClass =
@@ -31,27 +29,28 @@ const brandClass =
 /** The sections the member may open, in order. Each entry is gated by the same rule as its page. */
 function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
   return [
-    { href: "/", text: "Inicio", Icon: Home },
+    { href: clubPath(), text: "Inicio", Icon: Home },
     {
-      href: "/tickets",
+      href: clubPath("/tickets"),
       text: "Tickets",
       Icon: LifeBuoy,
       label: openTickets > 0 ? `Tickets, ${openTickets} ${openTickets === 1 ? "abierto" : "abiertos"}` : undefined,
       badge: openTickets > 0 ? (openTickets > 9 ? "9+" : String(openTickets)) : undefined,
     },
-    { href: "/guia", text: "Guía", Icon: BookOpen },
-    { href: "/dao", text: "DAO", Icon: Landmark },
-    { href: "/mercado", text: "Mercado", Icon: ChartCandlestick },
-    hasPerm(perms, Perm.CREATE_INVITES) && { href: "/invites", text: "Invitaciones", Icon: Ticket },
+    { href: clubPath("/guia"), text: "Guía", Icon: BookOpen },
+    { href: clubPath("/donar"), text: "Donar", Icon: HandHeart },
+    { href: clubPath("/mercado"), text: "Mercado", Icon: ChartCandlestick },
+    { href: clubPath("/sorteos"), text: "Sorteos", Icon: Dices },
+    hasPerm(perms, Perm.CREATE_INVITES) && { href: clubPath("/invites"), text: "Invitaciones", Icon: Ticket },
     (hasPerm(perms, Perm.BAN_MEMBERS) || hasPerm(perms, Perm.VERIFY_MEMBERS)) && {
-      href: "/admin/members",
+      href: clubPath("/admin/members"),
       text: "Miembros",
       Icon: Users,
       staff: true,
     },
-    canModerate && { href: "/moderation/reports", text: "Reportes", Icon: Flag, staff: true },
+    canModerate && { href: clubPath("/moderation/reports"), text: "Reportes", Icon: Flag, staff: true },
     (hasPerm(perms, Perm.MANAGE_CHANNELS) || hasPerm(perms, Perm.MANAGE_ROLES)) && {
-      href: "/settings",
+      href: clubPath("/settings"),
       text: "Ajustes",
       Icon: Settings,
       staff: true,
@@ -62,7 +61,7 @@ function sections({ perms, canModerate = false, openTickets = 0 }: Props) {
 /**
  * ≥768px: brand, the sections as tabs, and search, notices, profile and sign out on the right.
  *
- * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 6) plus
+ * Fixed budget, so nothing can slide under the right-hand controls: the tabs are the member sections (at most 7) plus
  * one «Más» menu that holds the staff-only ones (Miembros, Reportes, Ajustes). The controls never shrink; the tabs do
  * (a label truncates before a tab overlaps anything). Below 1280px tabs are icon-only, the network badge and the
  * search are compact until 1536px, and the profile / sign-out lose their text below 1024px.
@@ -72,8 +71,8 @@ function DesktopBar(props: Props) {
   const tabs = all.filter((s) => !("staff" in s));
   const more = all.flatMap((s) => ("staff" in s ? [{ href: s.href, text: s.text, icon: <s.Icon className="size-4" aria-hidden /> }] : []));
   return (
-    <header className="sticky top-0 z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
-      <Link href="/" className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
+    <header className="sticky top-(--mnt-banner-h) z-40 hidden h-14 items-center gap-2 border-b border-border bg-bg pr-2 pl-4 md:col-span-2 md:flex lg:col-span-3">
+      <Link href={clubPath()} className={`mr-2 inline-flex min-h-11 items-center text-xl ${brandClass}`}>
         El Club.
       </Link>
       <nav aria-label="Principal" className="min-w-0 self-stretch overflow-hidden">
@@ -94,11 +93,11 @@ function DesktopBar(props: Props) {
         </ul>
       </nav>
       <div data-testid="bar-controls" className="ml-auto flex shrink-0 items-center gap-1">
-        {props.chainId ? <NetworkBadge chainId={props.chainId} responsive className="mr-1" /> : null}
+        <TestModeBadge responsive className="mr-1" />
         <SearchButton variant="bar" />
         <NotificationBell />
         <Link
-          href={`/u/${props.wallet}`}
+          href={clubPath(`/u/${props.wallet}`)}
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control px-2 font-mono text-[13px] text-fg-muted outline-none hover:bg-surface-2 hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <User className="size-4 lg:hidden" aria-hidden />
@@ -116,14 +115,10 @@ function DrawerBody(props: Props) {
   const tree = buildTree(props.channels ?? []);
   return (
     <div className="flex flex-col gap-4 py-6">
-      <Link href="/" className={`px-4 text-2xl ${brandClass}`}>
+      <Link href={clubPath()} className={`px-4 text-2xl ${brandClass}`}>
         El Club.
       </Link>
-      {props.chainId ? (
-        <div className="px-4">
-          <NetworkBadge chainId={props.chainId} />
-        </div>
-      ) : null}
+      <TestModeBadge className="mx-4 self-start" />
 
       <nav aria-label="Principal" className="flex flex-col gap-1">
         {sections(props).map(({ href, text, Icon, label, badge }, i) => (
@@ -148,7 +143,7 @@ function DrawerBody(props: Props) {
 
       <div className="flex flex-col gap-3 border-t border-border px-4 pt-4">
         <Link
-          href={`/u/${props.wallet}`}
+          href={clubPath(`/u/${props.wallet}`)}
           className="flex min-h-11 flex-col justify-center rounded-control outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <span className="text-sm font-bold text-fg">Mi perfil</span>
@@ -168,10 +163,10 @@ export function Sidebar(props: Props) {
   return (
     <>
       <DesktopBar {...props} />
-      <Topbar badge={props.chainId ? <NetworkBadge chainId={props.chainId} compact className="mr-1" /> : null}>
+      <Topbar badge={<TestModeBadge compact className="mr-1" />}>
         <DrawerBody {...props} />
       </Topbar>
-      <aside className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-r border-border bg-surface md:block">
+      <aside className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] border-r border-border bg-surface md:block">
         <nav aria-label="Canales" className="h-full overflow-y-auto py-4">
           <ChannelTree nodes={buildTree(props.channels ?? [])} />
         </nav>

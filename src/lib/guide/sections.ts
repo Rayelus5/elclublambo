@@ -1,10 +1,10 @@
 export const GUIDE_SECTIONS = [
   { slug: "propinas", title: "Propinas", summary: "Cómo premiar un mensaje o un perfil con ETH o USDC, sin intermediarios." },
   { slug: "bounties", title: "Bounties", summary: "Cómo pedir ayuda con una recompensa y cómo se paga a quien resuelve." },
-  { slug: "dao", title: "DAO y shares", summary: "Cómo aportar USDC a la tesorería común y qué significa tu porcentaje." },
-  { slug: "fondo", title: "El fondo común", summary: "Cómo se valora el fondo, qué es el Fondo del club y qué riesgo asumes al donar." },
-  { slug: "encuestas", title: "Encuestas", summary: "Cómo se vota en secreto, cuánto pesa tu voto y cuándo se ven los resultados." },
-  { slug: "candados", title: "Canales con candado", summary: "Qué requisitos piden algunos canales y dónde ves si los cumples." },
+  { slug: "donaciones", title: "Donaciones y Mecenas", summary: "Cómo donar a la Safe del club, qué recibes y cómo ver en qué se gasta." },
+  { slug: "sorteos", title: "Sorteos", summary: "Sorteos gratis con la misma probabilidad para todos, y cómo comprobar al ganador." },
+  { slug: "encuestas", title: "Encuestas", summary: "Cómo se vota en secreto, un miembro un voto, y cuándo se ven los resultados." },
+  { slug: "candados", title: "Canales con candado", summary: "Qué canales piden haber donado y cuáles abre el rol Mecenas." },
   { slug: "redes", title: "Redes y seguridad", summary: "Modo prueba o dinero real, y cómo reconocer un intento de estafa." },
 ] as const;
 

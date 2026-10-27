@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import { sparklineCoords, sparklineTone } from "@/components/market/sparkline";
 import { formatChange, formatCompactUsd, formatPrice } from "@/lib/market/format";
 import type { MarketCoin } from "@/lib/market/types";
@@ -38,7 +39,7 @@ export function toMarketRowData(c: MarketCoin, index: number): MarketRowData {
   const coords = sparklineCoords(c.sparkline7d, LIST_SPARKLINE_POINTS);
   return {
     id: c.id,
-    href: `/mercado/${c.id}`,
+    href: clubPath(`/mercado/${c.id}`),
     name: c.name,
     symbol: c.symbol,
     image: c.image,

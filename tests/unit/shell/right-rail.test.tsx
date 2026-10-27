@@ -2,7 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const h = vi.hoisted(() => ({ path: "/", rpc: vi.fn(), topic: vi.fn(), desktop: true }));
+const h = vi.hoisted(() => ({ path: "/foro", rpc: vi.fn(), topic: vi.fn(), desktop: true }));
 vi.mock("next/navigation", () => ({ usePathname: () => h.path }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc: h.rpc }) }));
 vi.mock("@/lib/realtime/private-topic", () => ({ usePrivateTopic: h.topic }));
@@ -49,7 +49,7 @@ const renderRail = () =>
 
 describe("RightRail", () => {
   it("inside a channel shows that channel: topic, members, pins and bounties", async () => {
-    h.path = `/c/${CH}`;
+    h.path = `/foro/c/${CH}`;
     renderRail();
     expect(await screen.findByText("#general")).toBeInTheDocument();
     expect(screen.getByText("Charla del club")).toBeInTheDocument();
@@ -58,20 +58,20 @@ describe("RightRail", () => {
     expect(screen.getByRole("list", { name: "Miembros desconectados" })).toHaveTextContent("@beto");
     expect(screen.getByText("En línea — 1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ver tarjeta de @ana" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Normas/ })).toHaveAttribute("href", `/c/${CH}?m=p1`);
+    expect(screen.getByRole("link", { name: /Normas/ })).toHaveAttribute("href", `/foro/c/${CH}?m=p1`);
     expect(screen.getByText("Ninguno abierto aquí.")).toBeInTheDocument();
     expect(h.rpc).toHaveBeenCalledWith("home_pinned", { p_limit: 5, p_channel: CH });
   });
 
   it("elsewhere shows the live club activity and listens on the activity topic", async () => {
-    h.path = "/dao";
+    h.path = "/foro/dao";
     renderRail();
-    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a la DAO/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a ElClub\./ })).toBeInTheDocument();
     expect(h.topic).toHaveBeenCalledWith("activity", "activity_changed", expect.any(Object));
   });
 
   it("can be folded and unfolded, and remembers it", async () => {
-    h.path = "/";
+    h.path = "/foro";
     renderRail();
     await userEvent.click(screen.getByRole("button", { name: "Ocultar panel lateral" }));
     expect(screen.getByRole("button", { name: "Mostrar panel lateral" })).toBeInTheDocument();
@@ -81,7 +81,7 @@ describe("RightRail", () => {
   });
 
   it("a channel it cannot read shows a short error, not someone else's data", async () => {
-    h.path = `/c/${CH}`;
+    h.path = `/foro/c/${CH}`;
     h.rpc.mockImplementation(async () => ({ data: null, error: { message: "not_found" } }));
     renderRail();
     expect(await screen.findByText("No se pudo cargar el canal.")).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe("RightRail", () => {
 
   it("below desktop width it neither fetches nor subscribes (the rail is not shown there)", () => {
     h.desktop = false;
-    h.path = "/";
+    h.path = "/foro";
     renderRail();
     expect(h.rpc).not.toHaveBeenCalled();
     expect(h.topic).not.toHaveBeenCalled();
@@ -99,7 +99,7 @@ describe("RightRail", () => {
     // The re-read is debounced 300 ms. Waiting for it in real time inside waitFor's 1 s budget was the full-suite flake
     // (under parallel load the timer plus the render overran it); fake timers make the 300 ms exact.
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.path = `/c/${CH}`;
+    h.path = `/foro/c/${CH}`;
     renderRail();
     await screen.findByText("#general");
     // every first read has landed (members, pins, bounties) before counting
@@ -117,7 +117,7 @@ describe("RightRail", () => {
 
   it("a presence event moves a member between the online and offline groups live (offline after a short grace)", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    h.path = `/c/${CH}`;
+    h.path = `/foro/c/${CH}`;
     renderRail();
     await screen.findByRole("list", { name: "Miembros en línea" });
     const handlers = h.topic.mock.calls.findLast((c) => c[0] === "presence")![2] as { onEvent: (p: unknown) => void };
@@ -129,11 +129,11 @@ describe("RightRail", () => {
   });
 
   it("a channel the member cannot view (DAO-locked) shows the club activity, without errors", async () => {
-    h.path = `/c/${CH}`;
+    h.path = `/foro/c/${CH}`;
     const base = h.rpc.getMockImplementation()!;
     h.rpc.mockImplementation(async (fn: string, args?: unknown) => (fn === "channel_overview" ? { data: null, error: null } : base(fn, args)));
     renderRail();
-    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a la DAO/ })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /@eva donó 10 USDC a ElClub\./ })).toBeInTheDocument();
     expect(screen.queryByText("No se pudo cargar el canal.")).not.toBeInTheDocument();
   });
 });

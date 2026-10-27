@@ -30,6 +30,13 @@ describe("docs/deploy/entornos.md", () => {
     for (const k of keys) expect(entornos, k).toContain(`\`${k}\``);
   });
 
+  it("does not tell anyone to switch the active chain or enable chains by hand (P0-R14)", () => {
+    for (const [name, doc] of [["produccion", produccion], ["entornos", entornos]] as const) {
+      expect(doc, name).not.toMatch(/active_chain_id|Cambiar a Linea|Red activa/);
+    }
+    expect(produccion).toContain("la migración habilita las cuatro redes");
+  });
+
   it("has the MCP section, with what stays manual", () => {
     for (const s of ["MCP", "Vercel MCP", "Supabase MCP", "Cloudflare", "GitHub", "Reown", "Safe", "confirmación"]) {
       expect(entornos, s).toContain(s);
@@ -61,12 +68,14 @@ describe("docs/deploy/produccion.md", () => {
       "2-de-3",
       "db dump",
       "check:rpc",
-      "--chain 59144",
+      "--chain 8453",
       "archive",
       "tx=rollback",
       "/settings/economia",
-      "Linea mainnet",
-      "NEXT_PUBLIC_LINEA_RPC_URL",
+      "Base y Arbitrum mainnet",
+      "NEXT_PUBLIC_NETWORK_SET",
+      "NEXT_PUBLIC_BASE_BUILDER_CODE",
+      "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL",
       "ENABLE_EXPERIMENTAL_COREPACK",
       "Production",
       "DNS only",
@@ -116,7 +125,13 @@ describe("docs/deploy/produccion.md", () => {
 
   it("explains every message the production readiness check can print", () => {
     const worst = productionEnvProblems({
-      NEXT_PUBLIC_CHAIN: "lineaSepolia",
+      NEXT_PUBLIC_NETWORK_SET: "testnet",
+      NEXT_PUBLIC_BASE_BUILDER_CODE: "no es un codigo",
+      NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: "x",
+      NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: "x",
+      NEXT_PUBLIC_CHAIN: "linea",
+      LINEA_RPC_URL: "x",
+      LINEA_SEPOLIA_RPC_URL: "x",
       NEXT_PUBLIC_LINEA_RPC_URL: "x",
       NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: "x",
       NEXT_PUBLIC_SITE_URL: "http://x",
@@ -188,7 +203,7 @@ describe("docs/deploy/preproduccion-homelab.md", () => {
       "select version()",
       "major_version",
       "check:rpc",
-      "--chain 59141",
+      "--chain 84532",
       "/settings/economia",
       "SUPER_ADMIN_WALLET",
       "/opt/elclub/pre/web.env",
@@ -197,7 +212,8 @@ describe("docs/deploy/preproduccion-homelab.md", () => {
       "ssh -L 8000:127.0.0.1:8000",
       "Reown",
       "elclub dev/pre",
-      "lineaSepolia",
+      "NEXT_PUBLIC_NETWORK_SET",
+      "Base Sepolia",
       "max-size",
       "unattended-upgrades",
       "Comprueba:",

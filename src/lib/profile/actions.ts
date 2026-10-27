@@ -1,9 +1,11 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { normalizeHandle } from "@/lib/members/handle";
+import { isNetworkKey, type NetworkKey } from "@/lib/economy/networks";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@/lib/supabase/server";
 
@@ -15,8 +17,9 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const AVATAR_OBJECT_RE = new RegExp(`^(${UUID})/${UUID}\\.(png|jpg|webp)$`);
 
 function refresh() {
-  revalidatePath("/u/[address]", "page");
-  revalidatePath("/perfil");
+  // A route pattern names the file path, route group included (revalidatePath docs).
+  revalidatePath(clubPath("/(forum)/u/[address]"), "page");
+  revalidatePath(clubPath("/perfil"));
 }
 
 export async function saveProfileAction(input: { displayName: string; bio: string; links: string[] }): Promise<ActionResult> {
@@ -87,6 +90,18 @@ export async function setAvatarAction(path: string | null): Promise<ActionResult
   }
 
   await deleteOldAvatar(memberId, previous, path);
+  refresh();
+  return { ok: true };
+}
+
+/** Networks the member accepts tips on. At least one, only known keys; the RPC enforces the same. */
+export async function setReceiveNetworksAction(networks: NetworkKey[]): Promise<ActionResult> {
+  if (!Array.isArray(networks) || networks.length === 0 || !networks.every(isNetworkKey)) {
+    return fail("invalid_input");
+  }
+  const supabase = await createServerClient();
+  const { error } = await supabase.rpc("set_receive_networks", { p_networks: [...new Set(networks)] });
+  if (error) return fail(rpcErrorCode(error));
   refresh();
   return { ok: true };
 }

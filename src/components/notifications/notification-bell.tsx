@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
@@ -13,7 +14,7 @@ import { cn } from "@/lib/utils";
 export function NotificationBell({ variant = "icon" }: { variant?: "icon" | "nav" }) {
   const { count } = useNotifications();
   const pathname = usePathname();
-  const active = pathname === "/notifications";
+  const active = pathname === clubPath("/notifications");
   const label = count > 0 ? `Notificaciones, ${count} sin leer` : "Notificaciones";
   const badge =
     count > 0 ? (
@@ -29,7 +30,7 @@ export function NotificationBell({ variant = "icon" }: { variant?: "icon" | "nav
   if (variant === "nav") {
     return (
       <Link
-        href="/notifications"
+        href={clubPath("/notifications")}
         aria-label={label}
         aria-current={active ? "page" : undefined}
         className={cn(
@@ -45,7 +46,7 @@ export function NotificationBell({ variant = "icon" }: { variant?: "icon" | "nav
   }
   return (
     <Link
-      href="/notifications"
+      href={clubPath("/notifications")}
       aria-label={label}
       className="relative inline-flex size-11 items-center justify-center rounded-control text-fg outline-none transition-colors duration-150 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg motion-reduce:transition-none"
     >

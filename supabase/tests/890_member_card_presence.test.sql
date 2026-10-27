@@ -62,14 +62,12 @@ select is((select online from public.members_online(array[current_setting('t.b')
 select is((select online from public.members_online(array[current_setting('t.a')::uuid])), false, 'and A offline');
 select tests.clear_authentication();
 
--- MC1: a hidden donor who passes a DAO gate is not singled out in a gated channel's list
+-- MC1: a hidden donor who passes a donation gate is not singled out in a gated channel's list
 select set_config('t.c', tests.create_member('0x' || lpad('f8902', 40, '0'), current_setting('t.a')::uuid)::text, true);
 select set_config('t.uc', (select auth_user_id::text from public.members where id = current_setting('t.c')::uuid), true);
 select set_config('t.gated', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't890gated')::text, true);
-update public.channels set gate_min_net_usdc = 5000000, gate_scope = 'view' where id = current_setting('t.gated')::uuid;
-insert into public.dao_positions (chain_id, member_id, shares, net_contributed_usdc)
-  values (public._active_chain(), current_setting('t.b')::uuid, 10, 9000000);
-update public.dao_state set total_shares = total_shares + 10, value_usdc = value_usdc + 9000000 where chain_id = public._active_chain();
+update public.channels set gate_min_donated_usd6 = 5000000, gate_scope = 'view' where id = current_setting('t.gated')::uuid;
+select tests.give(current_setting('t.b')::uuid, 9000000);
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is((select count(*)::int from public.channel_members(current_setting('t.gated')::uuid)
            where member_id in (current_setting('t.a')::uuid, current_setting('t.c')::uuid)), 2,

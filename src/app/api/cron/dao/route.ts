@@ -1,7 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { connection } from "next/server";
 import { safeError } from "@/lib/security/redact";
-import { CHAIN_IDS, type ChainId } from "@/lib/economy/networks";
+import { LEGACY_CHAIN_IDS, type LegacyChainId } from "@/lib/legacy/linea";
+import { runGiveawaySteps } from "@/lib/giveaways/cron";
 import { finalizeDuePolls } from "@/lib/polls/cron";
 import { pruneRateLimits } from "@/lib/rate-limit-cron";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +26,7 @@ function authorized(header: string | null, secret: string): boolean {
 }
 
 type ChainReport = {
-  chainId: ChainId;
+  chainId: LegacyChainId;
   snapshot?: Awaited<ReturnType<typeof takeSnapshot>> | "failed";
   scan?: Awaited<ReturnType<typeof scanSafeOperations>> | "failed";
   /** Withdrawal payouts: `awaitingFinality` counts the recorded ones still awaiting finality after the finalize step. */
@@ -43,7 +44,7 @@ type ChainReport = {
 
 /**
  * First, once per run and before anything else (ruling F4e-R4): finalize the polls whose close has passed (DB-only,
- * chain-independent), then sweep the expired rate-limit hits (F5, DB-only, isolated the same way). Then per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
+ * chain-independent), then close and draw the giveaways (P1-R12, also while the legacy DAO is paused), then sweep the expired rate-limit hits (F5, DB-only, isolated the same way). Then per chain, in order (ruling F4c-R7 c): Safe operations scan → withdrawal payouts (detect the scanned outflows, then
  * burn the recorded ones at finality) → raffles (F4d: close due raffles, draw at the finalized first block after the
  * close, detect and finalize prize payouts, unpaid notices) → NAV snapshot (hourly, throttled in SQL) → settlement of pending donations at
  * market NAV. The scan comes first so every payout already mined is linked before anything is valued (and the
@@ -72,6 +73,16 @@ async function handle(request: Request) {
     polls = "failed";
   }
 
+  // P1-R12: giveaways right after the polls and before the legacy flag is read, so they close and draw while the legacy
+  // DAO is paused. DB plus drand only (no chain RPC); a failure is isolated and reported like the polls.
+  let giveaways: Awaited<ReturnType<typeof runGiveawaySteps>> | "failed";
+  try {
+    giveaways = await runGiveawaySteps();
+  } catch (e) {
+    console.error("[cron/dao] giveaways failed", safeError(e));
+    giveaways = "failed";
+  }
+
   // F5: sweep the expired rate-limit hits, once per run, isolated like the polls step.
   let rateLimits: Awaited<ReturnType<typeof pruneRateLimits>> | "failed";
   try {
@@ -81,18 +92,26 @@ async function handle(request: Request) {
     rateLimits = "failed";
   }
 
+  // P0: while the legacy DAO is paused (anything but a stored `true`) no chain step runs and chain_config is not read.
+  const { data: flag, error: flagError } = await createAdminClient().from("app_config").select("value").eq("key", "legacy_dao_enabled").maybeSingle();
+  // A failed read fails closed (paused), but must not look like a deliberate pause in the logs.
+  if (flagError) console.error("[cron/dao] app_config read failed", safeError(flagError.message));
+  if ((flag as { value?: unknown } | null)?.value !== true) {
+    return Response.json({ polls, giveaways, rateLimits, chains: "legacy_paused" });
+  }
+
   const { data, error } = await createAdminClient().from("chain_config").select("chain_id, safe_address");
   if (error) {
     console.error("[cron/dao] chain_config read failed", safeError(error.message));
-    return Response.json({ error: "chain_config_unavailable", polls, rateLimits }, { status: 500 });
+    return Response.json({ error: "chain_config_unavailable", polls, giveaways, rateLimits }, { status: 500 });
   }
   const withSafe = new Set(
     ((data ?? []) as { chain_id: number; safe_address: string | null }[]).filter((c) => c.safe_address).map((c) => c.chain_id),
   );
 
   const chains: ChainReport[] = [];
-  const scannedThrough = new Map<ChainId, Date>();
-  for (const chainId of CHAIN_IDS) {
+  const scannedThrough = new Map<LegacyChainId, Date>();
+  for (const chainId of LEGACY_CHAIN_IDS) {
     const report: ChainReport = { chainId };
     if (withSafe.has(chainId)) {
       try {
@@ -161,7 +180,7 @@ async function handle(request: Request) {
       report.expiredApprovals = "failed";
     }
   }
-  return Response.json({ chains, polls, rateLimits });
+  return Response.json({ chains, polls, giveaways, rateLimits });
 }
 
 /** Vercel Cron runs this hourly; a run scans Safe operations, settles and finalizes per chain (F5-R14). */

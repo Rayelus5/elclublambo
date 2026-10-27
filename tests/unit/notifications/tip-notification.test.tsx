@@ -17,7 +17,7 @@ const view = (over: Partial<NotificationView>): NotificationView => ({
   excerpt: null,
   ticketSubject: null,
   ticketStatus: null,
-  href: "/c/x",
+  href: "/foro/c/x",
   ...over,
 });
 const text = (v: NotificationView) => render(<NotificationItem notification={v} />).container.querySelector("a")!.textContent;
@@ -54,8 +54,8 @@ describe("tip_received link", () => {
   };
 
   it("targets the tipped message, with its thread when it is a reply", async () => {
-    expect((await run(row({ messageId: MSG, threadRootId: ROOT }))).href).toBe(`/c/${CH}?m=${MSG}&thread=${ROOT}`);
-    expect((await run(row({ messageId: MSG, threadRootId: MSG }))).href).toBe(`/c/${CH}?m=${MSG}`);
+    expect((await run(row({ messageId: MSG, threadRootId: ROOT }))).href).toBe(`/foro/c/${CH}?m=${MSG}&thread=${ROOT}`);
+    expect((await run(row({ messageId: MSG, threadRootId: MSG }))).href).toBe(`/foro/c/${CH}?m=${MSG}`);
   });
 
   it("never shows the notice text as an excerpt", async () => {
@@ -63,7 +63,7 @@ describe("tip_received link", () => {
   });
 
   it("ignores malformed ids and falls back to the channel or the list", async () => {
-    expect((await run(row({ messageId: "nope" }))).href).toBe(`/c/${CH}`);
-    expect((await run(row({}, { channel_id: null }))).href).toBe("/notifications");
+    expect((await run(row({ messageId: "nope" }))).href).toBe(`/foro/c/${CH}`);
+    expect((await run(row({}, { channel_id: null }))).href).toBe("/foro/notifications");
   });
 });

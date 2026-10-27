@@ -83,6 +83,26 @@ begin
 end;
 $$;
 
+-- records a verified donation of p_usd6 (usd6) for a member, straight into public.donations (P1 gates read it)
+create or replace function tests.give(p_member uuid, p_usd6 numeric)
+returns void
+language plpgsql
+as $$
+declare
+  v_intent uuid := gen_random_uuid();
+  v_hash text := '0x' || md5(gen_random_uuid()::text) || md5(gen_random_uuid()::text);
+begin
+  insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount,
+    recipient_address, target_type, status, main_tx_hash)
+  values (v_intent, p_member, 'donation', 84532, 'USDC', greatest(p_usd6, 1), 0, 0, 0,
+    '0x' || repeat('a', 40), 'dao', 'confirmed', v_hash);
+  insert into public.donations (intent_id, chain_id, token, amount, usd6, price_source, member_id, donor_address,
+    tx_hash, log_index, block_number)
+  values (v_intent, 84532, 'USDC', greatest(p_usd6, 1), p_usd6, 'usdc', p_member,
+    '0x' || repeat('b', 40), v_hash, 1, 1);
+end;
+$$;
+
 grant usage on schema tests to public;
 grant execute on all functions in schema tests to public;
 

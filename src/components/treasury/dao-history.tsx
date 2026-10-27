@@ -1,11 +1,11 @@
-import { explorerTx, type ChainId } from "@/lib/economy/networks";
+import { legacyExplorerTx, type LegacyChainId } from "@/lib/legacy/linea";
 import { formatUsdc } from "@/lib/treasury/format";
 import type { HistoryEntry } from "@/lib/treasury/queries";
 
 const date = (iso: string) => new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(iso));
 
 /** Credited donations, newest first. The explorer link only exists when the server unmasked the hash for the viewer. */
-export function DaoHistory({ entries, chainId }: { entries: HistoryEntry[]; chainId: ChainId }) {
+export function DaoHistory({ entries, chainId }: { entries: HistoryEntry[]; chainId: LegacyChainId }) {
   if (entries.length === 0) return <p className="text-fg-muted">Todavía no hay donaciones acreditadas.</p>;
   return (
     <ul className="flex flex-col divide-y divide-border border-y border-border">
@@ -18,7 +18,7 @@ export function DaoHistory({ entries, chainId }: { entries: HistoryEntry[]; chai
           <span className="font-mono text-sm font-bold text-fg">{formatUsdc(e.amount)}</span>
           {e.txHash ? (
             <a
-              href={explorerTx(chainId, e.txHash)}
+              href={legacyExplorerTx(chainId, e.txHash)}
               target="_blank"
               rel="noopener noreferrer"
               aria-label={`Ver en el explorador: donación de ${e.label}`}

@@ -2,6 +2,7 @@
 // browser (realtime reconciliation). All of it goes through RLS: what the member cannot see simply is not returned.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { rpcErrorCode } from "@/lib/errors";
+import { publicSupabaseUrl } from "@/lib/supabase/urls";
 import { UUID_RE } from "@/lib/tickets/model";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import { getBountyDetails } from "@/lib/bounties/queries";
@@ -67,7 +68,7 @@ async function signPaths(supabase: SupabaseClient, paths: string[]): Promise<Map
   if (paths.length === 0) return out;
   const { data, error } = await supabase.storage.from("chat-images").createSignedUrls(paths, SIGNED_URL_SECONDS);
   if (error || !data) return out;
-  for (const item of data) if (item.path && item.signedUrl && !item.error) out.set(item.path, item.signedUrl);
+  for (const item of data) if (item.path && item.signedUrl && !item.error) out.set(item.path, publicSupabaseUrl(item.signedUrl));
   return out;
 }
 
@@ -100,7 +101,7 @@ export async function hydrateMessages(
       ? supabase.from("messages").select("id, author_id, body_text, deleted_at").in("id", quotedIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
     alphaIds.length > 0
-      ? supabase.from("alpha_details").select("message_id, contract_address").in("message_id", alphaIds)
+      ? supabase.from("alpha_details").select("message_id, contract_address, chain_id").in("message_id", alphaIds)
       : Promise.resolve({ data: [] as unknown[], error: null }),
     getTipSummaries(supabase, tippable),
     getTipNoticeLinks(supabase, tipIds),
@@ -108,7 +109,10 @@ export async function hydrateMessages(
     getPollDetails(supabase, pollIds),
   ]);
   const alphaByMessage = new Map(
-    ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string }>).map((a) => [a.message_id, a.contract_address]),
+    ((alphaRes.data ?? []) as Array<{ message_id: string; contract_address: string; chain_id: number }>).map((a) => [
+      a.message_id,
+      { address: a.contract_address, chainId: a.chain_id },
+    ]),
   );
 
   const attachmentRows = (attachmentsRes.data ?? []) as Array<{
@@ -188,7 +192,7 @@ export async function hydrateMessages(
       body: r.body,
       allowLinks: r.allow_links,
       kind: r.kind,
-      alphaAddress: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
+      alpha: r.kind === "alpha" ? (alphaByMessage.get(r.id) ?? null) : null,
       bounty: r.kind === "bounty" ? (bounties?.get(r.id) ?? null) : null,
       poll: r.kind === "poll" ? (polls.get(r.id) ?? null) : null,
       expanded: r.expanded,

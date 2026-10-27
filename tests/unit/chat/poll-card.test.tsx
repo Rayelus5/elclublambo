@@ -54,7 +54,7 @@ describe("PollCard: header", () => {
     expect(screen.getByText("2 votantes")).toBeInTheDocument();
     expect(screen.getByText("Voto secreto · resultados al cerrar")).toBeInTheDocument();
     expect(screen.getByText("Consultiva: el resultado no se aplica solo.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/guia/encuestas");
+    expect(screen.getByRole("link", { name: /¿Cómo funciona\?/ })).toHaveAttribute("href", "/foro/guia/encuestas");
   });
 
   it("announces the voter count politely", () => {
@@ -186,25 +186,12 @@ describe("PollCard: open, voted", () => {
   });
 });
 
-describe("PollCard: weighted", () => {
-  it("explains a zero-weight vote", () => {
+describe("PollCard: one member, one vote", () => {
+  it("shows no weight note, not even for a legacy weighted row", () => {
     render(<PollCard poll={poll({ weightMode: "linear", myHasWeight: false })} onChanged={() => {}} now={now} />);
-    expect(
-      screen.getByText(
-        "Tu voto pesa 0: en esta encuesta cuentan las participaciones sin bloquear que tenías al crearla, y no tenías. Puedes votar igualmente.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.getByText("Ponderada · lineal según participación")).toBeInTheDocument();
-  });
-
-  it("explains a weighted vote", () => {
-    render(<PollCard poll={poll({ weightMode: "quadratic", myHasWeight: true })} onChanged={() => {}} now={now} />);
-    expect(screen.getByText("Tu voto pesa según tus participaciones al crear la encuesta.")).toBeInTheDocument();
-  });
-
-  it("shows neither note in an equal poll", () => {
-    render(<PollCard poll={poll()} onChanged={() => {}} now={now} />);
     expect(screen.queryByText(/Tu voto pesa/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ponderada/)).not.toBeInTheDocument();
+    expect(screen.getByText("1 persona, 1 voto")).toBeInTheDocument();
   });
 });
 
@@ -259,7 +246,7 @@ describe("PollCard: published", () => {
     expect(screen.getByText("3 votantes · % de los votos")).toBeInTheDocument();
   });
 
-  it("weighted modes show whole percentages, never a 100 % total, and the weight footer", () => {
+  it("a legacy weighted row still reads % de los votos, never % del peso total", () => {
     const p = poll({
       weightMode: "quadratic",
       closed: true,
@@ -270,8 +257,8 @@ describe("PollCard: published", () => {
     render(<PollCard poll={p} onChanged={() => {}} now={now} />);
     expect(screen.getByText("58 %")).toBeInTheDocument();
     expect(screen.getByText("27 %")).toBeInTheDocument();
-    expect(screen.getByText("6 votantes · % del peso total")).toBeInTheDocument();
-    expect(screen.queryByText("100 %")).not.toBeInTheDocument();
+    expect(screen.getByText("6 votantes · % de los votos")).toBeInTheDocument();
+    expect(screen.queryByText(/del peso total/)).not.toBeInTheDocument();
   });
 
   it("copes with bars that add up to more than 100 %", () => {
@@ -299,11 +286,9 @@ describe("PollCard: insufficient", () => {
     expect(screen.queryByRole("list", { name: "Resultados" })).not.toBeInTheDocument();
   });
 
-  it("adds the weighted requirement (5 voters with participaciones, F4e-R3)", () => {
+  it("never mentions weights, even for a legacy weighted row", () => {
     render(<PollCard poll={insufficient({ weightMode: "linear", voterCount: 7 })} onChanged={() => {}} now={now} />);
-    expect(
-      screen.getByText("En una encuesta ponderada hacen falta al menos 5 votantes con participaciones."),
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/ponderada|participaciones/)).not.toBeInTheDocument();
   });
 });
 

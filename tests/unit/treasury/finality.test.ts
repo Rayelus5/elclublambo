@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBlock = vi.hoisted(() => vi.fn());
 vi.mock("server-only", () => ({}));
-vi.mock("@/lib/payments/chain-client", () => ({ chainClient: () => ({ getBlock }) }));
+vi.mock("@/lib/legacy/linea-client", () => ({ legacyChainClient: () => ({ getBlock }) }));
 
 import { finalityEta, formatEta } from "@/lib/treasury/eta";
 import { FINALITY_CACHE_MS, finalityLagSeconds, finalitySnapshot, resetFinalityCache } from "@/lib/treasury/finality";

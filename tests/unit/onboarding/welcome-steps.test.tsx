@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ replace, push: replace, 
 
 import { WelcomeSteps } from "@/components/onboarding/welcome-steps";
 
-const base = { initialHandle: null as string | null, next: "/c/abc", chainId: 59141 as const };
+const base = { initialHandle: null as string | null, next: "/c/abc", chainIds: [84532, 421614] as (84532 | 421614)[] };
 
 describe("WelcomeSteps", () => {
   beforeEach(() => {
@@ -79,13 +79,37 @@ describe("WelcomeSteps", () => {
     expect(completeWelcomeAction).toHaveBeenCalledTimes(1);
   });
 
+  it("P0: step 2 says tips and bounties go on Base or Arbitrum with no fee; step 3 explains donations and Mecenas", async () => {
+    const user = userEvent.setup();
+    render(<WelcomeSteps {...base} initialHandle="ana" />);
+    await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    let text = document.body.textContent ?? "";
+    expect(text).toMatch(/Base o Arbitrum/);
+    expect(text).toMatch(/ElClub\. no custodia fondos/);
+    expect(text).not.toMatch(/comisión/i);
+    await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    text = document.body.textContent ?? "";
+    expect(text).toMatch(/Donar no da derechos económicos/);
+    expect(text).toMatch(/Mecenas/);
+    expect(text).not.toMatch(/no se puede donar|se está rehaciendo/);
+    expect(screen.getByRole("link", { name: /Guía: Donaciones y Mecenas/ }).getAttribute("href")).toBe("/foro/guia/donaciones");
+  });
+
+  it("step 4 shows every network the club uses", async () => {
+    const user = userEvent.setup();
+    render(<WelcomeSteps {...base} initialHandle="ana" />);
+    for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
+    expect(screen.getByText("Base Sepolia")).toBeTruthy();
+    expect(screen.getByText("Arbitrum Sepolia")).toBeTruthy();
+  });
+
   it("'Empezar' on step 4 shows the network badge, completes and navigates; a failure stays put", async () => {
     const user = userEvent.setup();
     completeWelcomeAction.mockResolvedValueOnce({ ok: false, error: "Elige tu @handle para continuar." });
     render(<WelcomeSteps {...base} initialHandle="ana" />);
     for (let i = 0; i < 3; i++) await user.click(screen.getByRole("button", { name: "Siguiente" }));
-    expect(screen.getByText("MODO PRUEBA · Linea Sepolia")).toBeTruthy();
-    expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/guia/redes");
+    expect(screen.getByText("Base Sepolia")).toBeTruthy();
+    expect(screen.getByRole("link", { name: /guía/i }).getAttribute("href")).toBe("/foro/guia/redes");
     await user.click(screen.getByRole("button", { name: "Empezar" }));
     expect((await screen.findByRole("alert")).textContent).toContain("Elige tu @handle");
     expect(replace).not.toHaveBeenCalled();
@@ -100,6 +124,7 @@ describe("WelcomeSteps", () => {
     render(<WelcomeSteps {...base} initialHandle="ana" next="//evil.com" />);
     await user.click(screen.getByRole("button", { name: "Siguiente" }));
     await user.click(screen.getByRole("button", { name: "Saltar" }));
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    // R1-R4: the fallback is the club home.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/foro"));
   });
 });

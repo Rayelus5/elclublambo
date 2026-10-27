@@ -1,5 +1,6 @@
 "use client";
 
+import { CLUB_BASE } from "@/lib/club/paths";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,7 +29,7 @@ import { createBrowserClient } from "@/lib/supabase/browser";
 import { useMediaQuery } from "@/lib/use-media-query";
 import { cn } from "@/lib/utils";
 
-const CHANNEL_PATH = /^\/c\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:\/|$)/i;
+const CHANNEL_PATH = new RegExp(`^${CLUB_BASE}/c/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:/|$)`, "i");
 const ROW =
   "flex min-h-11 items-start gap-2 rounded-control px-2 py-2 text-sm outline-none hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-accent";
 
@@ -282,7 +283,7 @@ export function RightRail() {
 
   if (collapsed) {
     return (
-      <aside aria-label="Panel lateral" className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] border-l border-border bg-surface lg:flex lg:justify-center lg:pt-3">
+      <aside aria-label="Panel lateral" className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] border-l border-border bg-surface lg:flex lg:justify-center lg:pt-3">
         <button
           type="button"
           aria-label="Mostrar panel lateral"
@@ -299,7 +300,7 @@ export function RightRail() {
   return (
     <aside
       aria-label="Panel lateral"
-      className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-4 lg:flex"
+      className="sticky top-[calc(3.5rem+var(--mnt-banner-h))] hidden h-[calc(100dvh-3.5rem-var(--mnt-banner-h))] flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-4 lg:flex"
     >
       <div className="flex justify-end">
         <button

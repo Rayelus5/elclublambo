@@ -15,7 +15,7 @@ vi.mock("@/lib/notifications/realtime", () => ({
   },
 }));
 vi.mock("@/lib/supabase/browser", () => ({ createBrowserClient: () => ({ rpc: h.rpc }) }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/foro" }));
 
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { NotificationsProvider } from "@/components/notifications/notifications-provider";
@@ -37,7 +37,7 @@ beforeEach(() => {
 describe("NotificationBell", () => {
   it("links to /notifications and subscribes to the member topic", () => {
     setup(0);
-    expect(screen.getByRole("link", { name: "Notificaciones" })).toHaveAttribute("href", "/notifications");
+    expect(screen.getByRole("link", { name: "Notificaciones" })).toHaveAttribute("href", "/foro/notifications");
     expect(h.memberId).toBe(ME);
   });
 

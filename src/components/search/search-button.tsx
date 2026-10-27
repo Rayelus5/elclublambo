@@ -8,13 +8,22 @@ import { Button } from "@/components/ui/button";
 const noop = () => () => {};
 const isMac = () => /Mac|iPhone|iPad/i.test(navigator.platform);
 
+/** The shortcut hint, «⌘K» on Apple devices and «Ctrl K» elsewhere (the server and first paint say «Ctrl K»). */
+export function SearchShortcut({ className }: { className?: string }) {
+  const mac = useSyncExternalStore(noop, isMac, () => false);
+  return (
+    <kbd aria-hidden className={className}>
+      {mac ? "⌘K" : "Ctrl K"}
+    </kbd>
+  );
+}
+
 /**
  * "Buscar" opens the Cmd+K palette. `nav` is the labelled row of the mobile drawer; `bar` the search field look-alike
  * of the desktop top bar (icon only below 1536px); `icon` the 44px button of the mobile top bar.
  */
 export function SearchButton({ variant = "icon" }: { variant?: "icon" | "nav" | "bar" }) {
   const { open } = useSearch();
-  const mac = useSyncExternalStore(noop, isMac, () => false);
 
   if (variant === "nav") {
     return (
@@ -28,9 +37,7 @@ export function SearchButton({ variant = "icon" }: { variant?: "icon" | "nav" | 
         <Search className="size-4" aria-hidden />
         Buscar
         <span className="flex-1" />
-        <kbd aria-hidden className="font-mono text-[13px] font-normal text-fg-muted">
-          {mac ? "⌘K" : "Ctrl K"}
-        </kbd>
+        <SearchShortcut className="font-mono text-[13px] font-normal text-fg-muted" />
       </button>
     );
   }
@@ -48,9 +55,7 @@ export function SearchButton({ variant = "icon" }: { variant?: "icon" | "nav" | 
           Buscar
         </span>
         <span aria-hidden className="hidden flex-1 2xl:block" />
-        <kbd aria-hidden className="hidden font-mono text-[13px] text-fg-muted 2xl:inline">
-          {mac ? "⌘K" : "Ctrl K"}
-        </kbd>
+        <SearchShortcut className="hidden font-mono text-[13px] text-fg-muted 2xl:inline" />
       </button>
     );
   }

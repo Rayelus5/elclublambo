@@ -48,7 +48,7 @@ export function DensityToggle({ className, showLabels = true }: { className?: st
           onClick={() => setDensity(value)}
           className={cn(
             "inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-control px-2 text-[13px] font-bold outline-none focus-visible:ring-2 focus-visible:ring-accent",
-            density === value ? "bg-accent text-bg" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
+            density === value ? "bg-accent text-accent-foreground" : "text-fg-muted hover:bg-surface-2 hover:text-fg",
           )}
         >
           <Icon aria-hidden className="size-4" />

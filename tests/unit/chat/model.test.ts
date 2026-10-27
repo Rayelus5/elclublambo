@@ -17,7 +17,7 @@ const msg = (over: Partial<ChatMessage> & { id: string }): ChatMessage => ({
   body: { type: "doc", content: [] },
   allowLinks: true,
   kind: "text",
-  alphaAddress: null,
+  alpha: null,
   expanded: false,
   quotedId: null,
   quote: null,

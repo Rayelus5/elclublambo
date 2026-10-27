@@ -2,7 +2,8 @@ import { mkdirSync } from "node:fs";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CHAINS } from "./chain/shared.mjs";
+import { clubPath, addressOf, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Acceptance of F2b beyond the live-view scenarios in f2b-chat-view.spec.ts: roles and read-only channels,
 // slowmode, the link guard, visibility of realtime events, Alpha and the CSP. The DB is reset by global-setup;
@@ -91,7 +92,7 @@ async function privateJoinStatus(ctx: BrowserContext, channelId: string): Promis
 }
 
 async function createInvite(page: Page): Promise<string> {
-  await page.goto("/invites");
+  await page.goto(clubPath("/invites"));
   await page.getByRole("button", { name: "Crear invitación" }).click();
   const url = await page.getByLabel("Tu enlace de invitación").inputValue();
   return url.split("/invite/")[1]!;
@@ -138,7 +139,7 @@ test.beforeAll(async ({ browser }) => {
   ]);
   expect(ow.error).toBeNull();
 
-  for (const p of [adminPage, bPage, modPage]) await p.goto("/");
+  for (const p of [adminPage, bPage, modPage]) await p.goto(clubPath());
 });
 
 test.afterAll(async () => {
@@ -200,7 +201,7 @@ test("3. Reglas es de solo lectura para B (sin compositor) y el moderador sí pu
 });
 
 test("4. slowmode de 5 s: el segundo mensaje de B muestra la cuenta atrás y luego se envía", async () => {
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
   await openChannel(bPage, "Lento");
   await send(bPage, "uno");
   await expect(messageWith(bPage, "uno")).toBeVisible();
@@ -255,12 +256,12 @@ test("6. un canal sin VIEW: B no puede unirse a su tema realtime y nada aparece 
 
   // The UI side: B has General open; the admin posts in the hidden channel and then in General.
   await openChannel(bPage, "General");
-  await adminPage.goto(`/c/${ids["Secreto"]}`);
+  await adminPage.goto(clubPath(`/c/${ids["Secreto"]}`));
   await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await send(adminPage, "contenido secreto");
   await expect(messageWith(adminPage, "contenido secreto")).toBeVisible();
 
-  await adminPage.goto("/");
+  await adminPage.goto(clubPath());
   await openChannel(adminPage, "General");
   await send(adminPage, "centinela general");
   // B's live view keeps working (the General message arrives); the hidden one shows up nowhere. Different topics have
@@ -270,12 +271,12 @@ test("6. un canal sin VIEW: B no puede unirse a su tema realtime y nada aparece 
   await expect(channelsNav(bPage).getByRole("link", { name: /Secreto/ })).toHaveCount(0);
 
   // not readable by any other path either
-  const response = await bPage.goto(`/c/${ids["Secreto"]}`);
+  const response = await bPage.goto(clubPath(`/c/${ids["Secreto"]}`));
   expect(response?.status()).toBe(404);
   await expect(bPage.getByText("contenido secreto")).toHaveCount(0);
   const leak = await service().from("messages").select("id").eq("channel_id", ids["Secreto"]);
   expect(leak.data).toHaveLength(1); // it exists, B just cannot see it
-  await bPage.goto("/");
+  await bPage.goto(clubPath());
 });
 
 test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y valida la dirección", async () => {
@@ -298,17 +299,17 @@ test("7. Alpha: /alpha abre el diálogo solo con alpha_enabled + EMBED_LINKS y v
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel(/Tu tesis/)).toHaveValue(/mi tesis/);
 
-  await dialog.getByLabel("Contrato en Linea").fill("0x123");
+  await dialog.getByLabel("Contrato").fill("0x123");
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog.getByRole("alert")).toContainText("dirección de contrato válida");
   await dialog.getByRole("button", { name: "Cancelar" }).click();
   await expect(dialog).toHaveCount(0);
 });
 
-// Alpha end to end needs the real Linea RPC (getCode). Wrapped USDC-like token contract on Linea mainnet.
-const LINEA_CONTRACT = "0x176211869cA2b568f2A7D4EE941E073a821EE1ff";
-test("7b. Alpha de extremo a extremo con RPC de Linea real", async () => {
-  test.skip(process.env.LINEA_RPC_REACHABLE !== "1", "needs network access to a Linea mainnet RPC: set LINEA_RPC_REACHABLE=1");
+// Alpha end to end against the local Hardhat node of Base Sepolia (84532): the mock USDC sits at Circle's address there,
+// so it is a real contract; no public network is needed (BASE_SEPOLIA_RPC_URL points at the node in the e2e env).
+const BASE_SEPOLIA_CONTRACT = CHAINS[84532].usdc;
+test("7b. alpha con contrato verificado en Base Sepolia", async () => {
   await modPage.reload();
   await expect(modPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
   await composer(modPage).click();
@@ -317,28 +318,28 @@ test("7b. Alpha de extremo a extremo con RPC de Linea real", async () => {
   const dialog = modPage.getByRole("dialog", { name: "Publicar alpha" });
 
   // an EOA-looking address: not a contract
-  await dialog.getByLabel("Contrato en Linea").fill("0x000000000000000000000000000000000000dEaD");
+  await dialog.getByLabel("Contrato").fill("0x000000000000000000000000000000000000dEaD");
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog.getByRole("alert")).toContainText("no es un contrato");
 
-  await dialog.getByLabel("Contrato en Linea").fill(LINEA_CONTRACT);
+  await dialog.getByLabel("Contrato").fill(BASE_SEPOLIA_CONTRACT);
   await dialog.getByRole("button", { name: "Publicar alpha" }).click();
   await expect(dialog).toHaveCount(0);
   const card = messageWith(modPage, "tesis real");
   await expect(card.getByText("Alpha · Tesis")).toBeVisible();
-  await expect(card.getByRole("link", { name: /Lineascan/ })).toHaveAttribute(
+  await expect(card.getByRole("link", { name: /Ver en el explorador/ })).toHaveAttribute(
     "href",
-    `https://lineascan.build/address/${LINEA_CONTRACT.toLowerCase()}`,
+    `https://sepolia.basescan.org/address/${BASE_SEPOLIA_CONTRACT.toLowerCase()}`,
   );
   await card.scrollIntoViewIfNeeded();
-  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/linea\/0x/);
+  await expect(card.locator("iframe")).toHaveAttribute("src", /^https:\/\/dexscreener\.com\/base\/0x/);
 });
 
 test("8. CSP: frame-ancestors none y frame-src acotado; el login renderiza sin errores", async ({ browser }) => {
   const anon = await browser.newContext();
   trackErrors(anon);
   const page = await anon.newPage();
-  const response = await page.goto("/login");
+  const response = await page.goto(clubPath("/login"));
   const csp = response?.headers()["content-security-policy"] ?? "";
   expect(csp).toContain("frame-ancestors 'none'");
   expect(csp).toContain("frame-src https://dexscreener.com");
@@ -351,7 +352,7 @@ test("9. sin errores de consola", async () => {
   // Reown AppKit re-fetches the page URL to check its COOP header; on a deliberate 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   // The browser's own "Failed to load resource ... 404" line for the hidden channel B was sent to on purpose.
-  const hidden404 = (e: string) => /status of 404/.test(e) && e.endsWith(`@ http://localhost:3000/c/${ids["Secreto"]}`);
+  const hidden404 = (e: string) => /status of 404/.test(e) && e.endsWith(`@ http://localhost:3000${clubPath(`/c/${ids["Secreto"]}`)}`);
   expect(browserErrors.filter((e) => !coopOn404(e) && !hidden404(e))).toEqual([]);
 });
 
@@ -362,7 +363,7 @@ test("@screens capturas de F2b a 375 y 1440", async () => {
   await openChannel(adminPage, "General");
   for (const width of [375, 1440] as const) {
     for (const p of [adminPage, bPage]) await p.setViewportSize({ width, height: 900 });
-    await adminPage.goto(`/c/${ids["General"]}`);
+    await adminPage.goto(clubPath(`/c/${ids["General"]}`));
     await expect(adminPage.getByRole("log", { name: "Mensajes del canal" })).toBeVisible();
     await adminPage.waitForLoadState("networkidle");
     await adminPage.screenshot({ path: `${OUT}/general-${width}.png`, fullPage: true });

@@ -41,21 +41,22 @@ describe("permission labels", () => {
 describe("settingsSections gating", () => {
   const hrefs = (p: bigint) => settingsSections(p).map((s) => s.href);
   it("MANAGE_CHANNELS gives channels and links", () => {
-    expect(hrefs(Perm.MANAGE_CHANNELS)).toEqual(["/settings/channels", "/settings/links"]);
+    expect(hrefs(Perm.MANAGE_CHANNELS)).toEqual(["/foro/settings/channels", "/foro/settings/links"]);
   });
   it("MANAGE_ROLES gives roles", () => {
-    expect(hrefs(Perm.MANAGE_ROLES)).toEqual(["/settings/roles"]);
+    expect(hrefs(Perm.MANAGE_ROLES)).toEqual(["/foro/settings/roles"]);
   });
   it("ADMINISTRATOR gives everything", () => {
     expect(hrefs(Perm.ADMINISTRATOR)).toEqual([
-      "/settings/channels",
-      "/settings/roles",
-      "/settings/links",
-      "/settings/economia",
+      "/foro/settings/channels",
+      "/foro/settings/roles",
+      "/foro/settings/links",
+      "/foro/settings/economia",
+      "/foro/settings/administracion",
     ]);
   });
   it("economía needs bit 512 itself, not just other management bits", () => {
-    expect(hrefs(Perm.MANAGE_CHANNELS | Perm.MANAGE_ROLES | Perm.MANAGE_TREASURY)).not.toContain("/settings/economia");
+    expect(hrefs(Perm.MANAGE_CHANNELS | Perm.MANAGE_ROLES | Perm.MANAGE_TREASURY)).not.toContain("/foro/settings/economia");
   });
   it("nothing gives nothing", () => {
     expect(hrefs(0n)).toEqual([]);

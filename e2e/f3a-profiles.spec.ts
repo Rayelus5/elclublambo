@@ -1,7 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { CLUB_BASE, clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 import { channelIds, createInvite, messageWith, openChannel, rpcAs, sendMention, service } from "./helpers/f2c";
-import { privateKeyToAccount } from "viem/accounts";
 
 // F3a acceptance: mandatory-handle welcome, profile editing, mentions by @handle, SuperAdmin economy settings,
 // non-admin protection and the guide. Generated test wallets only. The DB is reset by global-setup; scenarios share
@@ -22,7 +21,7 @@ function trackErrors(context: BrowserContext) {
 }
 test.afterEach(() => {
   // Test 5 requests /settings/economia as a non-admin on purpose: the browser logs the deliberate 404 document.
-  const expected404 = (e: string) => /status of 404/.test(e) && e.includes("@ http://localhost:3000/settings/economia ");
+  const expected404 = (e: string) => /status of 404/.test(e) && e.includes(`@ http://localhost:3000${clubPath("/settings/economia")} `);
   // Reown AppKit re-fetches the page URL to check its COOP header; on a real 404 document it logs this line.
   const coopOn404 = (e: string) => /^console: Error checking Cross-Origin-Opener-Policy: HTTP error! status: 404 @/.test(e);
   const errors = browserErrors.filter((e) => !expected404(e) && !coopOn404(e));
@@ -31,7 +30,8 @@ test.afterEach(() => {
 });
 
 const HANDLE = "ray_test1";
-const BADGE = "MODO PRUEBA · Linea Sepolia";
+/** P0-R12: a property of the build (NEXT_PUBLIC_NETWORK_SET=testnet in playwright.config.ts), not of a network. */
+const BADGE = "MODO PRUEBA";
 const desktop = { width: 1280, height: 900 };
 
 let admin: BrowserContext;
@@ -66,9 +66,9 @@ test.afterAll(async () => {
 
 test("1. newcomer without a handle is sent to the welcome, must pick a handle and returns to where they were going", async () => {
   const p = memberPage;
-  await p.goto(`/c/${generalId}`);
+  await p.goto(clubPath(`/c/${generalId}`));
   await expect(p).toHaveURL(new RegExp(`/bienvenida\\?next=`));
-  expect(decodeURIComponent(new URL(p.url()).searchParams.get("next") ?? "")).toBe(`/c/${generalId}`);
+  expect(decodeURIComponent(new URL(p.url()).searchParams.get("next") ?? "")).toBe(clubPath(`/c/${generalId}`));
 
   await expect(p.getByRole("heading", { level: 2, name: "Elige tu @handle" })).toBeVisible();
   await expect(p.getByRole("button", { name: "Saltar" })).toHaveCount(0);
@@ -87,13 +87,13 @@ test("1. newcomer without a handle is sent to the welcome, must pick a handle an
   await expect(p.getByRole("heading", { level: 2, name: "Propinas y bounties" })).toBeVisible();
   await p.getByRole("button", { name: "Saltar" }).click();
 
-  await expect(p).toHaveURL(new RegExp(`/c/${generalId}$`));
+  await expect(p).toHaveURL(new RegExp(`${CLUB_BASE}/c/${generalId}$`));
   await expect(p.getByRole("heading", { level: 1, name: "General" })).toBeVisible();
 });
 
 test("2. profile: bio, links and avatar show on the public page, hostile domains go through /out", async () => {
   const p = memberPage;
-  await p.goto("/perfil");
+  await p.goto(clubPath("/perfil"));
   await expect(p.getByRole("heading", { level: 1, name: "Editar perfil" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 
@@ -108,7 +108,7 @@ test("2. profile: bio, links and avatar show on the public page, hostile domains
   await p.getByRole("button", { name: "Guardar perfil" }).click();
   await expect(p.getByText("Perfil guardado.")).toBeVisible();
 
-  await p.goto(`/u/${HANDLE}`);
+  await p.goto(clubPath(`/u/${HANDLE}`));
   await expect(p.locator('main img[src*="/avatars/"]').first()).toBeVisible();
   await expect(p.getByText("Construyo cosas en la red de pruebas.")).toBeVisible();
   const github = p.locator('main a[href="https://github.com/x"]');
@@ -120,7 +120,7 @@ test("2. profile: bio, links and avatar show on the public page, hostile domains
 
 test("3. a mention of the member renders @handle", async () => {
   const p = adminPage;
-  await p.goto(`/c/${generalId}`);
+  await p.goto(clubPath(`/c/${generalId}`));
   await openChannel(p, "General");
   await sendMention(p, HANDLE, " bienvenido al club");
   const msg = messageWith(p, "bienvenido al club");
@@ -128,73 +128,60 @@ test("3. a mention of the member renders @handle", async () => {
   await expect(msg.getByText(`@${HANDLE}`).first()).toBeVisible();
 });
 
-test("4. SuperAdmin sets fee and addresses, switches network and members see the badge change", async () => {
+test("4. SuperAdmin sees the build's two test networks, disables and re-enables one; members see MODO PRUEBA", async () => {
   const p = adminPage;
-  await p.goto("/settings/economia");
+  await p.goto(clubPath("/settings/economia"));
   await expect(p.getByRole("heading", { level: 2, name: "Economía" })).toBeVisible();
   await p.waitForLoadState("networkidle");
 
-  await p.getByLabel("Comisión mínima (%)").fill("2,6");
-  await p.getByRole("button", { name: "Guardar comisión" }).click();
-  await expect(p.getByText("Comisión guardada.")).toBeVisible();
+  // The testnet set: Base Sepolia and Arbitrum Sepolia, both enabled; no fee and no Linea anywhere (P0-R5).
+  const baseSwitch = p.getByRole("switch", { name: "Habilitar Base Sepolia" });
+  const arbSwitch = p.getByRole("switch", { name: "Habilitar Arbitrum Sepolia" });
+  await expect(baseSwitch).toHaveAttribute("aria-checked", "true");
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "true");
+  await expect(p.getByRole("switch")).toHaveCount(2);
+  await expect(p.getByRole("main").getByText(/Linea|Comisión/)).toHaveCount(0);
 
-  await p.getByLabel("Safe (Linea Sepolia)", { exact: true }).fill(privateKeyToAccount(newWalletKey()).address);
-  await p.getByLabel("Wallet de la plataforma (Linea Sepolia)", { exact: true }).fill(privateKeyToAccount(newWalletKey()).address);
-  await p.getByRole("button", { name: "Guardar direcciones de Linea Sepolia" }).click();
-  await expect(p.getByText("Direcciones guardadas.")).toBeVisible();
-
-  // Members see the test-mode badge while Sepolia is active.
-  await memberPage.goto("/");
+  // Members see the test-mode badge on a testnet build.
+  await memberPage.goto(clubPath());
   // T-007: below 1536 px the top bar shows the compact «PRUEBA» badge, named in full for screen readers.
-  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
+  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE, exact: true })).toBeVisible();
 
-  await p.getByRole("button", { name: "Cambiar a Linea", exact: true }).click();
-  const dialog = p.getByRole("alertdialog");
-  await expect(dialog.getByText("Los envíos de dinero pasarán a Linea. ¿Continuar?")).toBeVisible();
-  await dialog.getByRole("button", { name: "Continuar" }).click();
-  await expect(p.getByRole("button", { name: "Cambiar a Linea Sepolia" })).toBeVisible();
-
-  await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner")).toBeVisible();
-  await expect(memberPage.getByText("MODO PRUEBA")).toHaveCount(0);
-  await expect(memberPage.getByRole("img", { name: /MODO PRUEBA/ })).toHaveCount(0);
-
-  // Switch back.
-  await p.getByRole("button", { name: "Cambiar a Linea Sepolia" }).click();
-  await p.getByRole("alertdialog").getByRole("button", { name: "Continuar" }).click();
-  await expect(p.getByRole("button", { name: "Cambiar a Linea", exact: true })).toBeVisible();
-  await memberPage.goto("/");
-  await expect(memberPage.getByRole("banner").getByRole("img", { name: BADGE })).toBeVisible();
-
-  // The fee persisted as 260 bps.
-  const { data } = await service().from("app_config").select("*");
-  expect(JSON.stringify(data)).toContain("260");
+  const enabled = async (chainId: number) =>
+    (await service().from("chains").select("enabled").eq("chain_id", chainId).single<{ enabled: boolean }>()).data?.enabled;
+  await arbSwitch.click();
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "false");
+  expect(await enabled(421614)).toBe(false);
+  // Switch back (later specs pay on Arbitrum Sepolia).
+  await arbSwitch.click();
+  await expect(arbSwitch).toHaveAttribute("aria-checked", "true");
+  expect(await enabled(421614)).toBe(true);
 });
 
 test("5. a non-admin gets 404 on the economy settings and forbidden from the RPCs", async () => {
   const page = await plain.newPage();
-  const res = await page.goto("/settings/economia");
+  const res = await page.goto(clubPath("/settings/economia"));
   expect(res?.status()).toBe(404);
   await page.close();
 
-  const { error } = await rpcAs(plain, "set_min_fee_bps", { p_bps: 0 });
+  const { error } = await rpcAs(plain, "set_chain_enabled", { p_chain: 421614, p_enabled: false });
   expect(error?.message).toContain("forbidden");
 });
 
 test("6. the guide lists 7 sections and the palette offers them", async () => {
   const p = memberPage;
-  await p.goto("/guia");
+  await p.goto(clubPath("/guia"));
   await expect(p.getByRole("heading", { level: 1, name: "Guía" })).toBeVisible();
   // propinas, bounties, dao, fondo (F4a), encuestas (F4e), candados, redes
-  await expect(p.locator('main a[href^="/guia/"]')).toHaveCount(7);
+  await expect(p.locator(`main a[href^="${clubPath("/guia/")}"]`)).toHaveCount(7);
 
-  await p.goto("/");
+  await p.goto(clubPath());
   await p.waitForLoadState("networkidle");
   const dialog = p.getByRole("dialog", { name: "Buscar" });
   await expect(async () => {
     await p.keyboard.press("Control+K");
     await expect(dialog).toBeVisible({ timeout: 1_500 });
   }).toPass({ timeout: 15_000 });
-  await dialog.getByRole("combobox").fill("dao");
-  await expect(dialog.getByRole("option", { name: /Guía: DAO y shares/ })).toBeVisible();
+  await dialog.getByRole("combobox").fill("donaciones");
+  await expect(dialog.getByRole("option", { name: /Guía: Donaciones y Mecenas/ })).toBeVisible();
 });

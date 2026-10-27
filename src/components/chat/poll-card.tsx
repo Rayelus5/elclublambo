@@ -6,7 +6,7 @@ import { HowItWorksLink } from "@/components/guide/how-it-works-link";
 import { Button } from "@/components/ui/button";
 import { rpcErrorMessage } from "@/lib/errors";
 import { votePollAction } from "@/lib/polls/actions";
-import { formatTenths, pollModeLabel, pollTimeLeft, voterCountLabel, type PollDetail } from "@/lib/polls/polls";
+import { formatTenths, pollTimeLeft, voterCountLabel, type PollDetail } from "@/lib/polls/polls";
 import { formatWhen } from "@/lib/treasury/panel";
 import { cn } from "@/lib/utils";
 
@@ -22,8 +22,8 @@ const serverSnapshot = () => false;
 /**
  * The card of a poll message, under its question. It renders only what poll_details returned for the caller: the own
  * option while the poll is open, never anyone else's. After the close it says "Votaste" without the option, and shows
- * bars only when the server published them (they are percentages of weight and may add up to something other than
- * 100 %, so no total is ever shown). `readOnly` (pinned list) renders no vote controls.
+ * bars only when the server published them (each one a percentage of the votes, rounded, so they may not add up to exactly
+ * 100 %). `readOnly` (pinned list) renders no vote controls.
  */
 export function PollCard({
   poll,
@@ -120,7 +120,6 @@ export function PollCard({
   const hasVote = mine !== null;
   const myLabel = poll.options.find((o) => o.id === mine)?.label ?? null;
   const canSubmit = effective !== null && effective !== mine && !busy;
-  const weighted = poll.weightMode !== "equal";
 
   const submit = async () => {
     if (!effective || sending.current) return;
@@ -160,7 +159,7 @@ export function PollCard({
           <Vote aria-hidden className="size-3.5" />
           Encuesta
         </span>
-        <span className="text-sm text-fg-muted">{pollModeLabel(poll.weightMode)}</span>
+        <span className="text-sm text-fg-muted">1 persona, 1 voto</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
@@ -223,14 +222,6 @@ export function PollCard({
 
           <p className="text-sm text-fg">{hasVote ? `Tu voto: ${myLabel ?? ""}` : "Aún no has votado."}</p>
           {hasVote ? <p className="text-sm text-fg-muted">Puedes cambiarlo hasta el cierre.</p> : null}
-          {weighted && poll.myHasWeight !== null ? (
-            <p className="text-sm text-fg-muted">
-              {poll.myHasWeight
-                ? "Tu voto pesa según tus participaciones al crear la encuesta."
-                : "Tu voto pesa 0: en esta encuesta cuentan las participaciones sin bloquear que tenías al crearla, y no tenías. Puedes votar igualmente."}
-            </p>
-          ) : null}
-
           {error ? (
             <p role="alert" className="text-sm text-danger">
               {error}
@@ -252,9 +243,6 @@ export function PollCard({
           {results.status === "insufficient" ? (
             <div className="flex flex-col gap-1">
               <p className="text-sm text-fg">Muy pocos votos para mostrar los resultados sin revelar quién votó qué.</p>
-              {weighted ? (
-                <p className="text-sm text-fg-muted">En una encuesta ponderada hacen falta al menos 5 votantes con participaciones.</p>
-              ) : null}
             </div>
           ) : null}
           {results.status === "published" ? (
@@ -275,7 +263,7 @@ export function PollCard({
                   );
                 })}
               </ul>
-              <p className="text-sm text-fg-muted">{`${voterCountLabel(poll.voterCount)} · ${weighted ? "% del peso total" : "% de los votos"}`}</p>
+              <p className="text-sm text-fg-muted">{`${voterCountLabel(poll.voterCount)} · % de los votos`}</p>
             </>
           ) : null}
           <HowItWorksLink section="encuestas" className="self-start" />

@@ -2,7 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const pathname = vi.hoisted(() => ({ value: "/" }));
+const pathname = vi.hoisted(() => ({ value: "/foro" }));
 vi.mock("next/navigation", () => ({
   usePathname: () => pathname.value,
   useRouter: () => ({ replace: vi.fn() }),
@@ -35,7 +35,7 @@ const ROWS: ChannelRow[] = [
 const nodes = buildTree(ROWS);
 
 beforeEach(() => {
-  pathname.value = "/";
+  pathname.value = "/foro";
   window.localStorage.clear();
 });
 
@@ -43,8 +43,8 @@ describe("ChannelTree", () => {
   it("renders categories as buttons and text channels as /c/<id> links", () => {
     render(<ChannelTree nodes={nodes} />);
     expect(screen.getByRole("button", { name: /Comunidad/ })).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "General" })).toHaveAttribute("href", "/c/gen");
-    expect(screen.getByRole("link", { name: "Trading" })).toHaveAttribute("href", "/c/tr");
+    expect(screen.getByRole("link", { name: "General" })).toHaveAttribute("href", "/foro/c/gen");
+    expect(screen.getByRole("link", { name: "Trading" })).toHaveAttribute("href", "/foro/c/tr");
     expect(screen.getByRole("link", { name: "General" })).toHaveClass("min-h-11");
   });
 
@@ -57,7 +57,7 @@ describe("ChannelTree", () => {
     forum.focus();
     await user.keyboard("{Enter}");
     expect(forum).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("link", { name: "L1" })).toHaveAttribute("href", "/c/l1");
+    expect(screen.getByRole("link", { name: "L1" })).toHaveAttribute("href", "/foro/c/l1");
     await user.keyboard(" ");
     expect(forum).toHaveAttribute("aria-expanded", "false");
   });
@@ -93,7 +93,7 @@ describe("ChannelTree", () => {
   });
 
   it("marks only the active channel with aria-current", () => {
-    pathname.value = "/c/rul";
+    pathname.value = "/foro/c/rul";
     render(<ChannelTree nodes={nodes} />);
     expect(screen.getByRole("link", { name: "Reglas" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "General" })).not.toHaveAttribute("aria-current");
@@ -101,7 +101,7 @@ describe("ChannelTree", () => {
 
   it("auto-expands the ancestors of the active channel, even if persisted as collapsed", () => {
     window.localStorage.setItem("elclub:collapsed", JSON.stringify(["cat2"]));
-    pathname.value = "/c/l1";
+    pathname.value = "/foro/c/l1";
     render(<ChannelTree nodes={nodes} />);
     expect(screen.getByRole("button", { name: /Mercado/ })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: /Airdrops/ })).toHaveAttribute("aria-expanded", "true");
@@ -110,7 +110,7 @@ describe("ChannelTree", () => {
 
   it("keeps the stored preference of a revealed ancestor when toggling another category", () => {
     window.localStorage.setItem("elclub:collapsed", JSON.stringify(["cat2"]));
-    pathname.value = "/c/l1";
+    pathname.value = "/foro/c/l1";
     render(<ChannelTree nodes={nodes} />);
     fireEvent.click(screen.getByRole("button", { name: /Comunidad/ }));
     expect(new Set(JSON.parse(window.localStorage.getItem("elclub:collapsed") ?? "[]"))).toEqual(
@@ -142,7 +142,7 @@ describe("Sidebar with channels", () => {
     render(<Sidebar perms={7n} wallet="0xd590d5d858d5b61c357e7a40ee6b6a72d938b82d" channels={ROWS} />);
     const aside = screen.getByRole("complementary");
     expect(within(aside).getByRole("navigation", { name: "Canales" })).toBeInTheDocument();
-    expect(within(aside).getByRole("link", { name: "General" })).toHaveAttribute("href", "/c/gen");
+    expect(within(aside).getByRole("link", { name: "General" })).toHaveAttribute("href", "/foro/c/gen");
   });
 
   it.each([[128n], [64n], [512n]])("shows the Ajustes link for perms %s", async (perms) => {
@@ -150,7 +150,7 @@ describe("Sidebar with channels", () => {
     const desktopBar = screen.getAllByRole("banner")[0]!;
     // Staff sections live in the «Más» menu of the top bar.
     await userEvent.setup().click(within(desktopBar).getByRole("button", { name: "Más" }));
-    expect(await screen.findByRole("menuitem", { name: "Ajustes" })).toHaveAttribute("href", "/settings");
+    expect(await screen.findByRole("menuitem", { name: "Ajustes" })).toHaveAttribute("href", "/foro/settings");
   });
 
   it("hides the Ajustes link without manage permissions", () => {
@@ -168,7 +168,7 @@ describe("ChannelTree locked rows", () => {
   it("a locked text channel keeps its link, shows the lock and is labelled 'bloqueado'", () => {
     render(<ChannelTree nodes={withLock} />);
     const link = screen.getByRole("link", { name: "VIP, bloqueado" });
-    expect(link).toHaveAttribute("href", "/c/vip");
+    expect(link).toHaveAttribute("href", "/foro/c/vip");
     expect(link.querySelector("svg.lucide-lock")).not.toBeNull();
     expect(screen.getByRole("link", { name: "General" }).querySelector("svg.lucide-lock")).toBeNull();
   });

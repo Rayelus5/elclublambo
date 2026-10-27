@@ -8,21 +8,26 @@ import type { PaletteAction } from "@/lib/search/actions-list";
 interface SearchContextValue {
   /** Opens the palette (the "Buscar" buttons). */
   open: () => void;
+  /** What the forum layout loaded: the Inicio search field reuses it with the same engine as the palette. */
+  channels: readonly ChannelRow[];
+  actions: readonly PaletteAction[];
 }
 
-const SearchContext = createContext<SearchContextValue>({ open: () => {} });
+const SearchContext = createContext<SearchContextValue>({ open: () => {}, channels: [], actions: [] });
 
 export const useSearch = () => useContext(SearchContext);
 
 /**
  * True while a composer suggestion popup (@ mentions, / commands) is on screen, or the event comes from an expanded
- * combobox: Mod+K must not steal the keyboard in the middle of a mention.
+ * combobox: Mod+K must not steal the keyboard in the middle of a mention. The Inicio search field (`data-home-search`)
+ * is the exception: there Mod+K always opens the palette (P1-R16).
  */
 function suggestionOpen(target: EventTarget | null): boolean {
   if (typeof document === "undefined") return false;
   if (document.querySelector("[data-suggestion-popup]")) return true;
   // Only comboboxes: an expanded disclosure (sidebar category, popover trigger) must not block the shortcut.
-  return target instanceof Element && target.closest('[role="combobox"][aria-expanded="true"]') !== null;
+  if (!(target instanceof Element)) return false;
+  return target.closest('[role="combobox"][aria-expanded="true"]') !== null && target.closest("[data-home-search]") === null;
 }
 
 /** Layout-level provider: global Mod+K shortcut + the palette itself. Data comes from what the forum layout loaded. */
@@ -62,7 +67,7 @@ export function SearchProvider({
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [isOpen, open]);
 
-  const value = useMemo(() => ({ open }), [open]);
+  const value = useMemo(() => ({ open, channels, actions }), [open, channels, actions]);
 
   return (
     <SearchContext.Provider value={value}>

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { CircleAlert, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { explorerTx, type ChainId } from "@/lib/economy/networks";
+import { legacyExplorerTx, type LegacyChainId } from "@/lib/legacy/linea";
 import { formatParticipaciones, formatUsdc } from "@/lib/treasury/format";
 import { cancelWithdrawalAction } from "@/lib/treasury/withdrawal-actions";
 import { withdrawalLabel, type MyWithdrawal } from "@/lib/treasury/withdrawals";
@@ -15,7 +15,7 @@ const dateTime = (iso: string) =>
   new Intl.DateTimeFormat("es-ES", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(iso)) + " UTC";
 
 /** The viewer's latest withdrawal request in words: the status is always text (never only color), with what they can do next. */
-export function WithdrawalStatus({ withdrawal: w, chainId }: { withdrawal: MyWithdrawal; chainId: ChainId }) {
+export function WithdrawalStatus({ withdrawal: w, chainId }: { withdrawal: MyWithdrawal; chainId: LegacyChainId }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const inFlight = useRef(false);
@@ -61,7 +61,7 @@ export function WithdrawalStatus({ withdrawal: w, chainId }: { withdrawal: MyWit
       {w.status === "paid" && w.amountUsdc !== null ? <p className="text-[13px] text-fg-muted">{`Importe fijado: ${formatUsdc(w.amountUsdc)}`}</p> : null}
       {w.payoutTxHash && (w.status === "paid" || w.status === "approved") ? (
         <a
-          href={explorerTx(chainId, w.payoutTxHash)}
+          href={legacyExplorerTx(chainId, w.payoutTxHash)}
           target="_blank"
           rel="noopener noreferrer"
           className={`${linkClass} self-start`}

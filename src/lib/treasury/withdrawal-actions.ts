@@ -1,8 +1,9 @@
 "use server";
 
+import { clubPath } from "@/lib/club/paths";
 import { safeError } from "@/lib/security/redact";
 import { revalidatePath } from "next/cache";
-import { isChainId, type ChainId } from "@/lib/economy/networks";
+import { isLegacyChainId, type LegacyChainId } from "@/lib/legacy/linea";
 import { rpcErrorCode, rpcErrorMessage } from "@/lib/errors";
 import { hitRateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -23,8 +24,8 @@ const SHARES = /^[1-9]\d{0,77}$/;
 const isId = (v: unknown): v is string => typeof v === "string" && UUID.test(v);
 
 function revalidate() {
-  revalidatePath("/dao");
-  revalidatePath("/dao/tesoreria");
+  revalidatePath(clubPath("/dao"));
+  revalidatePath(clubPath("/dao/tesoreria"));
 }
 
 type Db = ReturnType<typeof createAdminClient>;
@@ -55,7 +56,7 @@ async function readRequest(db: Db, id: string): Promise<RequestRow | Fail> {
 const isFail = (v: object): v is Fail => (v as { ok?: unknown }).ok === false;
 const DIGITS = /^\d{1,78}$/;
 
-async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
+async function safeValuation(chain: LegacyChainId): Promise<SafeValuation | null> {
   try {
     return await valueSafe(chain);
   } catch (e) {
@@ -69,7 +70,7 @@ async function safeValuation(chain: ChainId): Promise<SafeValuation | null> {
  * scan is brought up to the tip first (every payout already mined is then linked, and the read is recent). A failing
  * cap read or scan is only logged: the valuation still runs and SQL's guard decides (assets_stale).
  */
-async function catchUpScan(chain: ChainId): Promise<void> {
+async function catchUpScan(chain: LegacyChainId): Promise<void> {
   try {
     if ((await valuationCap(chain)).capped) await scanSafeOperations(chain);
   } catch (e) {
@@ -83,7 +84,7 @@ async function catchUpScan(chain: ChainId): Promise<void> {
  * read, or the read is past the scan cursor).
  */
 async function withValuation<T>(
-  chain: ChainId,
+  chain: LegacyChainId,
   call: (v: SafeValuation) => PromiseLike<{ data: unknown; error: { message?: string; code?: string } | null }>,
   done: (data: unknown, v: SafeValuation) => T,
 ): Promise<T | Fail> {
@@ -136,7 +137,7 @@ export async function quoteWithdrawalAction(id: string): Promise<
   const db = createAdminClient();
   const req = await readRequest(db, id);
   if (isFail(req)) return req;
-  if (!isChainId(req.chain_id)) return fail("invalid_state");
+  if (!isLegacyChainId(req.chain_id)) return fail("invalid_state");
   const { data: member, error: memberError } = await db
     .from("members")
     .select("wallet_address")
@@ -193,7 +194,7 @@ export async function approveWithdrawalAction(id: string): Promise<{ ok: true; a
   const db = createAdminClient();
   const req = await readRequest(db, id);
   if (isFail(req)) return req;
-  if (!isChainId(req.chain_id)) return fail("invalid_state");
+  if (!isLegacyChainId(req.chain_id)) return fail("invalid_state");
 
   const r = await withValuation(
     req.chain_id,
@@ -235,7 +236,7 @@ export async function markWithdrawalPaidAction(id: string, txHash: string): Prom
   const db = createAdminClient();
   const req = await readRequest(db, id);
   if (isFail(req)) return req;
-  if (!isChainId(req.chain_id)) return fail("invalid_state");
+  if (!isLegacyChainId(req.chain_id)) return fail("invalid_state");
   if (req.status !== "approved" || !req.amount_usdc_locked || !req.approved_at || !req.destination_address) {
     return fail(req.status === "pending" && req.last_expired_at ? "approval_expired" : "invalid_state");
   }
@@ -272,7 +273,7 @@ export async function markWithdrawalPaidAction(id: string, txHash: string): Prom
 
 /** SuperAdmin (ADMINISTRATOR, re-checked in SQL): the per-network withdrawals switch. */
 export async function setWithdrawalsEnabledAction(chain: number, enabled: boolean): Promise<{ ok: true } | Fail> {
-  if (!isChainId(chain) || typeof enabled !== "boolean") return fail("invalid_input");
+  if (!isLegacyChainId(chain) || typeof enabled !== "boolean") return fail("invalid_input");
   const supabase = await createServerClient();
   const { error } = await supabase.rpc("set_withdrawals_enabled", { p_chain: chain, p_enabled: enabled });
   if (error) return fail(rpcErrorCode(error));

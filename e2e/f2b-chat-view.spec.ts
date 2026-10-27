@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs, newWalletKey } from "./helpers/auth";
 
 // Realtime chat view (F2b Task 9): live delivery, reactions, threads, soft delete and unread dots, with two
 // members in two browser contexts. The DB is reset by global-setup; scenarios share state, so run serially.
@@ -46,12 +46,12 @@ const messageWith = (page: Page, text: string) => page.locator("li[data-message-
 
 test.beforeAll(async ({ browser }) => {
   ({ context: admin, page: adminPage } = await actor(browser, E2E_SUPER_ADMIN_PK));
-  await adminPage.goto("/invites");
+  await adminPage.goto(clubPath("/invites"));
   await adminPage.getByRole("button", { name: "Crear invitación" }).click();
   const url = await adminPage.getByLabel("Tu enlace de invitación").inputValue();
   ({ context: member, page: memberPage } = await actor(browser, newWalletKey(), url.split("/invite/")[1]!));
-  await adminPage.goto("/");
-  await memberPage.goto("/");
+  await adminPage.goto(clubPath());
+  await memberPage.goto(clubPath());
   await openChannel(adminPage, "General");
   await openChannel(memberPage, "General");
 });
@@ -110,12 +110,12 @@ test("4. el canal con mensajes nuevos aparece sin leer y se limpia al abrirlo", 
   await send(adminPage, "mensaje mientras estabas fuera");
   await expect(messageWith(adminPage, "mensaje mientras estabas fuera")).toBeVisible();
   // navigating re-checks the unread channels
-  await memberPage.goto("/");
+  await memberPage.goto(clubPath());
   await expect(channelsNav(memberPage).getByRole("link", { name: /General/ }).getByLabel("sin leer")).toBeVisible();
   await openChannel(memberPage, "General");
   await expect(memberPage.getByRole("separator", { name: "Nuevos mensajes" })).toBeVisible();
   await expect(messageWith(memberPage, "mensaje mientras estabas fuera")).toBeVisible();
-  await memberPage.goto("/");
+  await memberPage.goto(clubPath());
   await expect(channelsNav(memberPage).getByRole("link", { name: /General/ }).getByLabel("sin leer")).toHaveCount(0);
 });
 

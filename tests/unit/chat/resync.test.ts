@@ -22,6 +22,13 @@ describe("replaceNewest (resync)", () => {
     expect(replaceNewest([a, b], [], false)).toEqual([]);
   });
 
+  it("never keeps an older copy of a message the fresh page brings again (defensive dedupe by id)", () => {
+    const staleCopy = makeMessage({ id: b.id, createdAt: at(8) });
+    const out = replaceNewest([staleCopy, a], [b, c], true);
+    expect(out.map((m) => m.id)).toEqual([a.id, b.id, c.id]);
+    expect(out.find((m) => m.id === b.id)).toBe(b);
+  });
+
   it("adds messages that appeared meanwhile", () => {
     expect(replaceNewest([a], [b, c], true).map((m) => m.id)).toEqual([a.id, b.id, c.id]);
   });

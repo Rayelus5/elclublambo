@@ -2,7 +2,7 @@ import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import type { AppKitNetwork } from "@reown/appkit/networks";
 import { colors } from "@/styles/tokens";
-import { APP_CHAINS } from "./chains";
+import { appChains } from "./chains";
 
 // IDs del explorer de Reown (WalletGuide).
 export const METAMASK_WALLET_ID =
@@ -17,13 +17,13 @@ if (!projectId) {
   );
 }
 
-const networks = [...APP_CHAINS] as [AppKitNetwork, ...AppKitNetwork[]];
+const networks = [...appChains()] as [AppKitNetwork, ...AppKitNetwork[]];
 
 // Browser-side RPC overrides (tests/local chains only; empty in production = the public RPC). The literal references
 // are required: Next inlines NEXT_PUBLIC_* by name. They drive the wallet-balance reads before a payment is signed.
 const customRpcUrls: Record<string, { url: string }[]> = {};
-if (process.env.NEXT_PUBLIC_LINEA_RPC_URL) customRpcUrls["eip155:59144"] = [{ url: process.env.NEXT_PUBLIC_LINEA_RPC_URL }];
-if (process.env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL) customRpcUrls["eip155:59141"] = [{ url: process.env.NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL }];
+if (process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL) customRpcUrls["eip155:84532"] = [{ url: process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL }];
+if (process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL) customRpcUrls["eip155:421614"] = [{ url: process.env.NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL }];
 
 export const wagmiAdapter = new WagmiAdapter({
   networks,
@@ -45,9 +45,10 @@ export const appKit =
     : createAppKit({
         adapters: [wagmiAdapter],
         networks,
+        defaultNetwork: networks[0],
         projectId,
         metadata: {
-          name: "El Club Lambo",
+          name: "ElClub.",
           description: "Foro privado de la comunidad",
           url: origin,
           icons: [],
@@ -68,6 +69,11 @@ export const appKit =
         // MetaMask and OKX only. AppKit otherwise adds the Coinbase Wallet / Base Account connectors, and creating the
         // Coinbase one loads its telemetry script (cca-lite.coinbase.com), outside the CSP (src/lib/security/headers.ts).
         enableCoinbase: false,
+        // D5 / P0-R11, checked 2026-10-24 against supabase/auth master (internal/utilities/siwe/parser.go,
+        // VerifySignature, last changed c3005a4 2026-07-14): GoTrue's signInWithWeb3 verifies an Ethereum signature
+        // with ecrecover only. It requires a 65-byte signature and compares the recovered address; there is no
+        // ERC-1271 (isValidSignature) call and no ERC-6492 unwrapping. A Base Account (smart wallet) signature would
+        // therefore fail login, so P0 accepts EOAs only and this stays off.
         enableBaseAccount: false,
         featuredWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],
         includeWalletIds: [METAMASK_WALLET_ID, OKX_WALLET_ID],

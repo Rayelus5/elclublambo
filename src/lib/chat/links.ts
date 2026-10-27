@@ -45,7 +45,7 @@ function asciiHost(domain: string): string | null {
 }
 
 /** Exact host or dot-boundary subdomain of an allowed domain, on the ASCII (punycode) hostname. */
-function isAllowedHost(host: string, allowedDomains: readonly string[]): boolean {
+export function isAllowedHost(host: string, allowedDomains: readonly string[]): boolean {
   for (const raw of allowedDomains) {
     const d = asciiHost(raw);
     if (d && (host === d || host.endsWith(`.${d}`))) return true;
@@ -137,4 +137,9 @@ export function parseExternalUrl(raw: unknown): ExternalUrl | null {
   const url = parseHttpUrl(raw);
   if (!url) return null;
   return { href: url.href, host: url.hostname, unicodeHost: hostToUnicode(url.hostname) };
+}
+
+/** Fail closed: any punycode label warns, even one the decoder could not turn into Unicode. */
+export function needsHomographWarning(host: string, unicodeHost: string): boolean {
+  return /(^|\.)xn--/i.test(host) || unicodeHost !== host;
 }

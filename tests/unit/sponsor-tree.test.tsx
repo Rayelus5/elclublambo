@@ -23,7 +23,7 @@ describe("SponsorTree", () => {
 
   it("links the sponsor to their profile", () => {
     render(<SponsorTree sponsor={m({ walletAddress: A, displayName: "Ana" })} invitees={[]} />);
-    expect(screen.getByRole("link", { name: /Ana/ })).toHaveAttribute("href", `/u/${A}`);
+    expect(screen.getByRole("link", { name: /Ana/ })).toHaveAttribute("href", `/foro/u/${A}`);
   });
 
   it("lists invitees linked to /u/<address>", () => {
@@ -33,9 +33,9 @@ describe("SponsorTree", () => {
         invitees={[m({ walletAddress: B, displayName: "Beto" }), m({ walletAddress: C })]}
       />,
     );
-    expect(screen.getByRole("link", { name: /Beto/ })).toHaveAttribute("href", `/u/${B}`);
+    expect(screen.getByRole("link", { name: /Beto/ })).toHaveAttribute("href", `/foro/u/${B}`);
     const short = screen.getByRole("link", { name: "0x3333…3333" });
-    expect(short).toHaveAttribute("href", `/u/${C}`);
+    expect(short).toHaveAttribute("href", `/foro/u/${C}`);
   });
 
   it("shows Baneado badge for banned invitees", () => {

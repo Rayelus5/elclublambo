@@ -1,25 +1,4 @@
-import { Suspense } from "react";
-import { getEconomyConfig } from "@/lib/economy/config";
-import { bpsToPercentText } from "@/lib/economy/networks";
 import type { GuideSlug } from "@/lib/guide/sections";
-
-/** The minimum fee, read live. Dynamic (cookies via supabase), so it lives in its own Suspense. */
-async function MinFeeValue() {
-  const text = await getEconomyConfig().then(
-    (c) => bpsToPercentText(c.minFeeBps),
-    () => null,
-  );
-  if (text === null) return <span className="text-fg-muted">(ahora mismo no se puede leer)</span>;
-  return <strong className="font-mono text-fg">{text}</strong>;
-}
-
-function MinFee() {
-  return (
-    <Suspense fallback={<span className="text-fg-muted">…</span>}>
-      <MinFeeValue />
-    </Suspense>
-  );
-}
 
 function Sub({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -51,22 +30,19 @@ function Propinas() {
       <Sub title="Cómo se hace">
         <Steps>
           <li>Pulsa el botón de propina en un mensaje, en una publicación Alpha o en un perfil.</li>
-          <li>Mira la etiqueta de la red activa antes de seguir. Si es MODO PRUEBA, el dinero no es real.</li>
-          <li>Elige el token (ETH o USDC) y el importe.</li>
-          <li>Revisa el total que vas a firmar y firma en tu wallet.</li>
+          <li>
+            Elige con qué pagar: USDC o ETH, en Base o en Arbitrum. Solo aparecen las redes en las que esa persona acepta
+            pagos. Si ves MODO PRUEBA, el dinero no es real.
+          </li>
+          <li>Escribe el importe y pulsa Continuar. Si tu wallet está en otra red, el foro le pide cambiarla y sigue solo.</li>
+          <li>Revisa a quién y cuánto envías, y firma en tu wallet.</li>
           <li>Espera a que el foro verifique la transacción. Mientras tanto verás «Verificando…».</li>
         </Steps>
       </Sub>
       <Sub title="Qué cuesta">
         <p>
-          El destinatario recibe íntegro el importe anunciado. La comisión de la plataforma se suma encima: tú pagas importe
-          más comisión. El mínimo ahora mismo es <MinFee />. Puedes subirla si quieres apoyar el proyecto, pero nunca
-          bajarla de ese mínimo.
-        </p>
-        <p>
-          Si hay comisión, firmas dos transferencias normales: primero la comisión a la wallet de la plataforma y después el
-          importe al destinatario. Si la comisión es del 0 %, es una sola firma. Además de esto, tu wallet cobra el gas de la
-          red como en cualquier transferencia.
+          El destinatario recibe íntegro el importe. El club no cobra nada: firmas una sola transferencia normal, directa a
+          su wallet. Tu wallet cobra el gas de la red, como en cualquier transferencia.
         </p>
       </Sub>
       <Sub title="Propina anónima">
@@ -99,8 +75,8 @@ function Bounties() {
     <>
       <Sub title="Qué es">
         <p>
-          Un bounty es un mensaje que pide ayuda y ofrece una recompensa en ETH o USDC. Quien lo publica fija el importe, el
-          token y la descripción. Las soluciones se responden en el hilo del bounty.
+          Un bounty es un mensaje que pide ayuda y ofrece una recompensa en ETH o USDC, en Base o en Arbitrum. Quien lo
+          publica fija el importe, el token, la red y la descripción. Las soluciones se responden en el hilo del bounty.
         </p>
       </Sub>
       <Sub title="Cómo se hace">
@@ -111,7 +87,10 @@ function Bounties() {
           </li>
           <li>Los demás responden en el hilo.</li>
           <li>Cuando una respuesta te sirve, la marcas como solución.</li>
-          <li>Pagas esa respuesta con el mismo flujo de una propina: red, importe, comisión y firma.</li>
+          <li>
+            Pagas esa respuesta con el mismo flujo de una propina: importe y una sola firma. Se propone la red del bounty,
+            pero puedes pagar con el mismo token en otra red que acepte quien lo resolvió.
+          </li>
         </Steps>
         <p>
           Un bounty se paga una sola vez, a una sola respuesta, con el mismo token y al menos el importe anunciado. Mientras
@@ -120,8 +99,8 @@ function Bounties() {
       </Sub>
       <Sub title="Qué cuesta">
         <p>
-          Quien resuelve recibe íntegro el importe anunciado. La comisión va aparte y se suma a lo que pagas tú. El mínimo
-          ahora mismo es <MinFee />. Con comisión, firmas dos transferencias.
+          Quien resuelve recibe íntegro el importe anunciado. El club no cobra nada: es una sola transferencia, más el gas
+          de la red.
         </p>
       </Sub>
       <Sub title="Plazos">
@@ -148,166 +127,99 @@ function Bounties() {
   );
 }
 
-function Dao() {
+function Donaciones() {
   return (
     <>
       <Sub title="Qué es">
         <p>
-          La DAO es una tesorería común del club, guardada en una Safe, una cuenta multifirma en la que ningún miembro
-          mueve fondos por su cuenta. Cada red tiene su propia Safe y su propio registro. Al aportar, recibes shares: una
-          participación en la tesorería.
+          Puedes donar al club en USDC o ETH, en Base o en Arbitrum. El dinero va directo a la Safe del club, una cuenta
+          multifirma que gestionan los tesoreros. ElClub. no custodia fondos: la Safe es del club y cada movimiento se puede
+          ver en la blockchain.
+        </p>
+        <p>
+          Donar no da derechos económicos: no es una inversión, no hay porcentaje, retorno ni promesa de rentabilidad, y una
+          donación no se devuelve.
         </p>
       </Sub>
-      <Sub title="Cómo se hace">
+      <Sub title="Cómo donar">
         <Steps>
-          <li>Abre el diálogo de donación y mira la etiqueta de la red activa.</li>
-          <li>Elige el importe en USDC. La donación mínima es de 1 USDC. Solo se aporta USDC.</li>
-          <li>Firma las transferencias en tu wallet.</li>
+          <li>Abre Donar en el menú y elige la red y la moneda. Si ves MODO PRUEBA, el dinero no es real.</li>
+          <li>Escribe el importe y pulsa Continuar. Si tu wallet está en otra red, el foro le pide cambiarla.</li>
+          <li>Revisa la dirección de la Safe y firma una transferencia normal en tu wallet.</li>
           <li>
-            Espera a la finalización. Hasta entonces tu aportación aparece como «pendiente de finalización» y todavía no
-            tienes shares.
+            Espera a que el foro verifique la transacción. Las donaciones en ETH se cuentan en USD con el precio de ese
+            momento; si el precio no está disponible, la donación queda «Esperando precio» y se acredita más tarde.
           </li>
         </Steps>
+        <p>En una red donde la Safe aún no está desplegada no se puede donar, y el foro no ofrece esa red.</p>
       </Sub>
-      <Sub title="Shares y porcentaje">
-        <p>
-          Tus shares dependen de cuánto aportas respecto al valor que el registro de la DAO ya tenía. Tu porcentaje es tus
-          shares entre el total de shares. Las shares se calculan sobre lo que llega a la Safe, sin contar la comisión. En
-          el ranking público puedes elegir salir con tu nombre o como «Anónimo»; tu porcentaje cuenta igualmente para abrir
-          canales con candado.
-        </p>
-      </Sub>
-      <Sub title="Qué cuesta">
-        <p>
-          La comisión de la plataforma se suma encima del importe: tú pagas importe más comisión, y a la Safe llega el
-          importe completo. El mínimo ahora mismo es <MinFee />. Si hay comisión, firmas dos transferencias.
-        </p>
-      </Sub>
-      <Sub title="Riesgos y límites">
+      <Sub title="Qué recibes">
         <Bullets>
+          <li>El rol Mecenas, desde 1 USD donado en total. Se suman todas tus donaciones verificadas.</li>
           <li>
-            La finalización en Linea puede tardar horas. Es normal. Así una reorganización de la red nunca crea shares que
-            no existen.
+            Tu nombre en la lista de donantes, que solo ven los miembros. Puedes ocultarte desde tu perfil cuando quieras.
           </li>
           <li>
-            Una transferencia directa a la Safe, hecha fuera del diálogo, no cuenta nunca: no da shares.
-            Dona siempre desde el diálogo.
+            Quien dona desde la parte pública sin ser miembro aparece como «Donante externo» con su dirección abreviada, solo
+            si lo elige. Si después entra en el club, sus donaciones pasan a su nombre y cuentan para Mecenas.
           </li>
-          <li>Las aportaciones se pueden retirar solo donde SuperAdmin haya activado las retiradas, y siempre con la decisión del tesorero. Cómo se pide, en la sección «El fondo común».</li>
+          <li>Acceso a los canales que el rol Mecenas permite y a los que piden haber donado cierta cantidad.</li>
         </Bullets>
+      </Sub>
+      <Sub title="Transparencia">
+        <p>
+          En la página Donar ves los saldos de la Safe por red, las donaciones recientes y los gastos. Cada gasto lo anota un
+          tesorero con su transacción y una nota que explica para qué fue, y puedes abrirlo en el explorador de bloques para
+          comprobarlo.
+        </p>
       </Sub>
     </>
   );
 }
 
-function Fondo() {
+function Sorteos() {
   return (
     <>
-      <Sub title="Cómo se valora el fondo">
+      <Sub title="Qué es">
         <p>
-          El fondo se valora a precio de mercado, en USD: el USDC, el ETH y el WETH que hay en la Safe, al precio del ETH en
-          ese momento, menos lo que el registro ya sabe que debe (por ejemplo, donaciones aún pendientes de finalización).
-          Ese total es el NAV (el valor neto del fondo). Se actualiza cada hora y lo ves en la página de la DAO.
-        </p>
-        <p>
-          El valor de una participación es el NAV entre el total de participaciones. Cuando donas, recibes participaciones al
-          valor del momento en que se acredita tu donación, no del momento en que firmas: por eso la estimación del diálogo
-          es orientativa y el número exacto se fija al acreditar.
+          Un sorteo es gratis: apuntarse no cuesta nada ni exige donar. Todos los apuntados tienen la misma probabilidad,
+          sin boletos ni pesos. Cada miembro puede apuntarse una vez hasta la hora de cierre.
         </p>
       </Sub>
-      <Sub title="Fondo del club">
-        <p>
-          Si la Safe ya tenía dinero antes de que nadie tuviera participaciones, ese dinero pertenece a una posición aparte
-          llamada «Fondo del club». Lo mismo ocurre con cualquier valor que la Safe ya tuviera en la primera valoración y que
-          el registro no atribuía a nadie. Cuenta en el total de participaciones, pero no se puede retirar, no vota, no
-          entra en sorteos y no abre canales con candado.
-        </p>
-      </Sub>
-      <Sub title="Riesgo">
-        <p>Antes de donar tienes que aceptar esto:</p>
-        <blockquote className="border-l-2 border-border-strong pl-4 text-fg">
-          Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas
-          dependen de la disponibilidad y de la decisión del tesorero.
-        </blockquote>
-        <p>
-          El valor de tu parte sube y baja con el mercado y puede ser menor que lo que aportaste. Las participaciones son un
-          registro interno de la comunidad, no un producto financiero.
-        </p>
-      </Sub>
-      <Sub title="Cómo pedir una retirada">
-        <p>
-          Las retiradas empiezan desactivadas y SuperAdmin las activa por red. Mientras estén desactivadas en tu red, no verás
-          el botón «Retirar» en la página de la DAO.
-        </p>
-        <Steps>
-          <li>Pulsa «Retirar», elige un porcentaje de tus participaciones y confirma. Solo puedes tener una solicitud en curso.</li>
-          <li>
-            Tus participaciones quedan bloqueadas desde que pides: dejan de contar para los canales con candado hasta que se
-            resuelva. Puedes cancelar la solicitud mientras esté pendiente.
-          </li>
-          <li>
-            El tesorero la aprueba o la rechaza. Al aprobar se fija el importe al valor de mercado de ese momento: se paga en
-            USDC desde la Safe a la wallet con la que entras al club. Mínimo 1 USDC, salvo que retires todo. El pago es una
-            sola transferencia de al menos el importe fijado: un pago repartido en varias transferencias no cuenta.
-          </li>
-          <li>
-            Si no llega el pago en 14 días, la aprobación caduca: la solicitud vuelve a pendiente, con las participaciones
-            aún bloqueadas, y el tesorero tiene que aprobarla de nuevo a precio actual.
-          </li>
-          <li>
-            Cuando el pago se confirma en la red y Linea lo finaliza, las participaciones se queman y el importe pagado se resta
-            de tu aportación neta.
-          </li>
-        </Steps>
-        <p>
-          Si sale USDC de la Safe hacia la wallet de una retirada aprobada (o del ganador de un premio sin pagar) y el foro no puede
-          reconocerlo como el pago, las donaciones, las aprobaciones y la valoración del fondo se ponen en pausa: ese dinero ya
-          no está en la Safe y el fondo se valoraría por debajo de lo que vale. Si fue un pago parcial o repartido, el tesorero
-          pide al miembro que lo devuelva, o completa el pago con una sola transferencia de al menos el importe fijado y añade una
-          nota a las salidas parciales. Si la salida no tiene nada que ver, basta con añadirle una nota. Si una sola transferencia
-          pagó a la vez la retirada y el premio de un mismo miembro, el tesorero usa «Marcar como pagado» en el premio con el
-          mismo hash: vale si llegó a su wallet en USDC por al menos la suma de los dos importes. Todo vuelve a la normalidad en
-          cuanto la salida queda explicada o registrada.
-        </p>
-        <p>
-          El importe que ves al pedir es solo una estimación en USDC. Las retiradas dependen de la disponibilidad de la Safe y de
-          la decisión del tesorero.
-        </p>
-      </Sub>
-      <Sub title="Cómo funcionan los sorteos">
-        <p>
-          Un tesorero crea un sorteo con un premio en USDC o en WETH, una fecha de cierre y un modo. El premio sale del fondo y baja su valor sin cambiar el
-          porcentaje de nadie. Se paga en WETH en lugar de ETH porque un envío de ETH nativo desde la Safe no deja un registro que el foro pueda comprobar.
-        </p>
-        <p>
-          Un premio en WETH se valora al crear el sorteo, cuando puede valer como mucho el 50 % del fondo. Si el ETH sube mucho antes del pago, el
-          premio pesa más de lo previsto y las donaciones pueden esperar a la siguiente valoración; el tesorero puede cancelarlo antes del sorteo.
-        </p>
+      <Sub title="Premios">
+        <p>Un sorteo puede tener hasta 10 premios, de tres tipos:</p>
         <Bullets>
-          <li>En el modo igualitario todos los miembros activos que se apuntan pesan lo mismo.</li>
-          <li>
-            En el modo ponderado pesan tus participaciones sin bloquear. SuperAdmin lo activa por red; mientras no lo active, solo se crean sorteos
-            igualitarios.
-          </li>
-          <li>Puedes apuntarte y salir hasta la hora de cierre. Un miembro sin participaciones puede apuntarse a uno ponderado, pero pesaría 0 y no podría ganar.</li>
+          <li>USDC, que paga un tesorero desde la Safe del club y se puede comprobar en la blockchain.</li>
+          <li>Un rol del foro, que se asigna al ganador.</li>
+          <li>Otra cosa, descrita en texto.</li>
         </Bullets>
         <p>
-          Al crear el sorteo se publica un compromiso: el hash de una semilla secreta que guarda la base de datos. Ni los miembros ni los tesoreros
-          pueden verla antes del sorteo (técnicamente, solo quien opera la base de datos podría leerla; la comprobación detecta un sorteo hecho con otra
-          semilla o con otro bloque). Los pesos se toman
-          en la primera ejecución del proceso automático tras la hora de cierre, no a la hora exacta. El ganador sale de la semilla y del hash del primer bloque
-          de Linea posterior al cierre, cuando ese bloque está finalizado (puede tardar unas horas). Entonces se revela la semilla y cualquiera puede comprobar
-          el resultado en su navegador desde la página del sorteo.
+          Cada persona gana como mucho un premio. Si hay menos apuntados que premios, los que sobran quedan sin adjudicar.
+          ElClub. no custodia fondos: los premios en USDC los envía el tesorero, no el foro.
         </p>
+      </Sub>
+      <Sub title="Cómo se elige al ganador">
+        <Steps>
+          <li>
+            Al crear el sorteo se publica un compromiso: la huella de una semilla secreta que solo conoce el servidor. Así no
+            se puede cambiar después.
+          </li>
+          <li>
+            Se fija una ronda de drand posterior al cierre. drand es una red pública que emite un número aleatorio cada 3
+            segundos, que nadie conoce de antemano.
+          </li>
+          <li>
+            Cuando esa ronda existe, se revela la semilla y se combina con el número de drand. Ese resultado, con el orden de
+            los apuntados, decide quién gana cada premio.
+          </li>
+        </Steps>
+        <p>Si drand no responde, el sorteo espera y se reintenta. No se elige nada sin esa ronda.</p>
+      </Sub>
+      <Sub title="Cómo comprobarlo">
         <p>
-          En la lista de participantes, quien no sale en el ranking aparece como «Anónimo #» seguido de un número. En un sorteo ponderado la lista muestra
-          participaciones desbloqueadas: en un club pequeño puede deducirse quién es un miembro oculto. Además, el premio sale de la Safe, que es
-          pública: aunque en el foro el ganador aparezca como «Anónimo», la wallet que recibe el premio se ve en la red, en las transferencias de la Safe.
-        </p>
-        <p>
-          El premio se paga desde la Safe a la wallet con la que entras al club y el foro lo comprueba en la red. Si no se paga, el sorteo se marca como
-          impagado a los 14 días; el premio sigue siendo del ganador. Si nadie con peso se apunta, no hay ganador y el premio vuelve al fondo. Un tesorero puede
-          cancelar un sorteo antes de que se resuelva, con un motivo público.
+          En la página de cada sorteo terminado, el verificador repite el cálculo en tu navegador: descarga la ronda de drand,
+          comprueba su firma, comprueba que la semilla coincide con el compromiso y calcula los ganadores. Si no se puede
+          descargar la ronda, te lo dice, pero eso no quiere decir que el sorteo sea inválido.
         </p>
       </Sub>
     </>
@@ -319,32 +231,30 @@ function Candados() {
     <>
       <Sub title="Qué es">
         <p>
-          Algunos canales piden una aportación a la DAO para entrar. Los ves en la barra lateral con un candado. El contenido
-          y los mensajes no se ven hasta que cumples el requisito.
+          Algunos canales piden haber donado al club para entrar. Los ves en la barra lateral con un candado. El contenido y
+          los mensajes no se ven hasta que cumples el requisito.
         </p>
       </Sub>
-      <Sub title="Las reglas">
-        <p>Un canal puede pedir una de estas reglas, o las dos unidas con «o»:</p>
-        <Bullets>
-          <li>Un porcentaje mínimo de la DAO.</li>
-          <li>Una aportación neta mínima en USDC.</li>
-        </Bullets>
+      <Sub title="La regla">
         <p>
-          Con las dos, basta con cumplir una. Por ejemplo: «1 % de la DAO o 100 USDC aportados». Si el canal cuelga de un
-          foro o una categoría con requisitos, también tienes que cumplir los de arriba.
+          Un canal pide un total donado mínimo, en USD. Cuenta la suma de todas tus donaciones verificadas, en cualquier red y
+          moneda. Por ejemplo: «10 USD donados». Si el canal cuelga de un foro o una categoría con requisitos, también tienes
+          que cumplir los de arriba.
+        </p>
+        <p>
+          Otros canales son solo para el rol Mecenas, que se gana donando 1 USD o más. Ese permiso lo decide el canal, no un
+          candado de cantidad.
         </p>
       </Sub>
       <Sub title="Dónde ves tu situación">
         <p>
-          Al abrir un canal con candado verás el requisito, tu situación actual y un botón para donar. El cálculo usa la
-          red activa. Mientras la red activa sea de prueba, el ledger de prueba abre estos canales, así que puedes
-          probarlo todo con USDC de faucet.
+          Al abrir un canal con candado verás el requisito y lo que llevas donado. Desde ahí puedes ir a Donar para cumplirlo.
         </p>
       </Sub>
       <Sub title="Riesgos">
         <Bullets>
-          <li>Tu porcentaje baja si entran nuevas aportaciones. Un canal puede cerrarse para ti sin que hayas retirado nada.</li>
-          <li>Las aportaciones aún en «pendiente de finalización» no cuentan hasta que se finalizan.</li>
+          <li>Las donaciones aún en «Verificando» o «Esperando precio» no cuentan hasta que se acreditan.</li>
+          <li>Donar no da derechos económicos: es un regalo al club, no una compra.</li>
         </Bullets>
       </Sub>
     </>
@@ -356,16 +266,15 @@ function Redes() {
     <>
       <Sub title="MODO PRUEBA y dinero real">
         <p>
-          El club funciona en dos redes: Linea (dinero real) y Linea Sepolia (de prueba). Cuando la red activa es la de
-          prueba, todos ven la etiqueta «MODO PRUEBA · Linea Sepolia» arriba. Con ella puedes probar todo con fondos de
-          faucet, que no valen nada. Cada red tiene su propia tesorería, shares y ranking: lo que pasa en prueba no cuenta
-          en Linea.
+          El club funciona en Base y en Arbitrum. En el modo de prueba usa Base Sepolia y Arbitrum Sepolia, y todos ven la
+          etiqueta «MODO PRUEBA» arriba. Con ella puedes probarlo todo con fondos de faucet, que no valen nada. Lo que pasa
+          en prueba no cuenta con dinero real.
         </p>
       </Sub>
       <Sub title="Comprueba siempre la red">
         <Bullets>
-          <li>Antes de enviar dinero, lee la etiqueta de la red en el diálogo.</li>
-          <li>Si tu wallet está en otra red, el foro te pedirá cambiarla antes de firmar.</li>
+          <li>Antes de enviar dinero, mira en el diálogo la red de la moneda que eliges: Base o Arbitrum.</li>
+          <li>Si tu wallet está en otra red, el foro le pide cambiarla antes de firmar.</li>
           <li>Si la etiqueta no es la que esperas, cancela.</li>
         </Bullets>
       </Sub>
@@ -379,7 +288,7 @@ function Redes() {
           <li>Aprobaciones de gasto, firmas de mensajes que no entiendas ni transacciones con datos opacos.</li>
         </Bullets>
         <p>
-          El club no custodia fondos. Si alguien, en un mensaje, un ticket o un mensaje privado, te pide algo distinto de
+          ElClub. no custodia fondos. Si alguien, en un mensaje, un ticket o un mensaje privado, te pide algo distinto de
           esto, es una estafa. Repórtalo.
         </p>
       </Sub>
@@ -422,23 +331,8 @@ function Encuestas() {
           </li>
         </Steps>
         <p>
-          El cierre va de 1 hora a 30 días desde que se crea. A partir de la hora de cierre ya no se aceptan votos.
-        </p>
-      </Sub>
-      <Sub title="Cuánto pesa tu voto">
-        <p>Quien crea la encuesta elige entre tres modos:</p>
-        <Bullets>
-          <li>1 persona, 1 voto: todos los votos pesan lo mismo.</li>
-          <li>Lineal según participación: tu voto pesa lo que sumaban tus participaciones sin bloquear al crear la encuesta.</li>
-          <li>
-            Cuadrática según participación: tu voto pesa la raíz cuadrada de esas participaciones, así que quien más aportó
-            pesa más, pero menos que en el modo lineal.
-          </li>
-        </Bullets>
-        <p>
-          Los pesos se fijan cuando se crea la encuesta, con las participaciones sin bloquear de ese momento: si después
-          donas o pides una retirada, no cambian. Quien no tenía participaciones en ese momento pesa 0 en los modos
-          ponderados. El Fondo del club no es un miembro y nunca vota.
+          1 miembro = 1 voto: todos los votos pesan lo mismo, se haya donado o no. El cierre va de 1 hora a 30 días desde que
+          se crea. A partir de la hora de cierre ya no se aceptan votos.
         </p>
       </Sub>
       <Sub title="Voto secreto">
@@ -449,20 +343,18 @@ function Encuestas() {
         </p>
         <p>
           Hay un límite que ninguna encuesta puede evitar: si todos menos uno de los votantes comparten entre ellos lo que
-          votaron, pueden deducir el voto del que falta. Y en los modos ponderados, con pocos votantes un voto puede dar una
-          pista sobre la participación de alguien; por eso piden más votantes para publicar resultados.
+          votaron, pueden deducir el voto del que falta.
         </p>
       </Sub>
       <Sub title="Resultados">
         <p>
-          Los resultados no se ven hasta el cierre. Entonces la tarjeta muestra, para cada opción, el % del peso que ha
-          recibido, y cuántas personas han votado. En el modo 1 persona, 1 voto el porcentaje lleva un decimal; en los
-          ponderados se redondea al entero. Los porcentajes redondeados pueden no sumar exactamente 100 %.
+          Los resultados no se ven hasta el cierre. Entonces la tarjeta muestra, para cada opción, el porcentaje de votos que
+          ha recibido, con un decimal, y cuántas personas han votado. Los porcentajes redondeados pueden no sumar exactamente
+          100 %.
         </p>
         <p>
-          Para publicar resultados hacen falta al menos 3 votantes en el modo 1 persona, 1 voto, y al menos 5 votantes con
-          participaciones en los modos ponderados. Si no se llega, la encuesta se cierra sin resultados y no se publica ningún
-          porcentaje. Quienes votaron reciben un aviso cuando la encuesta se cierra.
+          Para publicar resultados hacen falta al menos 3 votantes. Si no se llega, la encuesta se cierra sin resultados y no
+          se publica ningún porcentaje. Quienes votaron reciben un aviso cuando la encuesta se cierra.
         </p>
       </Sub>
     </>
@@ -472,14 +364,14 @@ function Encuestas() {
 const CONTENT: Record<GuideSlug, () => React.ReactNode> = {
   propinas: Propinas,
   bounties: Bounties,
-  dao: Dao,
-  fondo: Fondo,
+  donaciones: Donaciones,
+  sorteos: Sorteos,
   encuestas: Encuestas,
   candados: Candados,
   redes: Redes,
 };
 
-/** Sections whose feature is not shipped yet: the guide says what will exist. Empty since F3d shipped the DAO. */
+/** Sections whose feature is not shipped yet: the guide says what will exist. Empty: every section describes what is live. */
 const COMING_SOON: ReadonlySet<GuideSlug> = new Set<GuideSlug>();
 
 export function isComingSoon(slug: GuideSlug): boolean {

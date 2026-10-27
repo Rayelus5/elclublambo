@@ -40,28 +40,35 @@ select set_config('t.m1', public.post_message(current_setting('t.ch')::uuid, tes
 select set_config('t.m2', public.post_message(current_setting('t.hid')::uuid, tests.td('hidden'), 'x', false, null, null, '[]'::jsonb)::text, true);
 select tests.clear_authentication();
 
--- 150 USDC tips of 1 on chain 59141 (profile tips), more than the 100-row cap of member_tips
-select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 59141, 'USDC', 1000000, null, n)
+-- 150 USDC tips of 1 on chain 84532 (profile tips), more than the 100-row cap of member_tips
+select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 84532, 'USDC', 1000000, null, n)
   from generate_series(1, 150) n;
--- other chain, other token, one visible message tip and one in the hidden channel
-select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 59144, 'USDC', 7000000, null, 1000);
-select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 59141, 'ETH', 12345678901234567890, current_setting('t.m1')::uuid, 1001);
-select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 59141, 'USDC', 5000000, current_setting('t.m2')::uuid, 1002);
+-- the other enabled network, a disabled one, other token, one visible message tip and one in the hidden channel
+select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 421614, 'USDC', 7000000, null, 1000);
+select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 8453, 'USDC', 9000000, null, 1003);
+update public.chains set enabled = false where chain_id = 8453;
+select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 84532, 'ETH', 12345678901234567890, current_setting('t.m1')::uuid, 1001);
+select tests.seed_tip(current_setting('t.a')::uuid, current_setting('t.b')::uuid, 84532, 'USDC', 5000000, current_setting('t.m2')::uuid, 1002);
 
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select is((select t.total_text || '/' || t.tip_count::text from public.member_tips_totals(current_setting('t.b')::uuid, 59141) t where t.token = 'USDC'),
-  '155000000/151', 'sums every tip on the chain beyond 100 (150 profile tips + 1 message tip)');
-select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid, 59141) t where t.token = 'ETH'),
+select is((select t.total_text || '/' || t.tip_count::text from public.member_tips_totals(current_setting('t.b')::uuid) t where t.token = 'USDC'),
+  '162000000/152', 'sums every tip on the enabled networks beyond 100 (150 + 1 profile tips on two networks + 1 message tip)');
+select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid) t where t.token = 'ETH'),
   '12345678901234567890', 'exact big amounts as text');
-select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid, 59144) t where t.token = 'USDC'),
-  '7000000', 'filters by chain');
-select is((select count(*)::int from public.member_tips_totals(current_setting('t.b')::uuid, 59144)), 1, 'no other tokens on the other chain');
-select tests.authenticate_as(current_setting('t.uh')::uuid);
-select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid, 59141) t where t.token = 'USDC'),
-  '150000000', 'a viewer without access to the channel does not count its message tips');
+select is((select count(*)::int from public.member_tips_totals(current_setting('t.b')::uuid)), 2, 'one row per token');
 select tests.clear_authentication();
-select ok(not has_function_privilege('anon', 'public.member_tips_totals(uuid,int)', 'execute'), 'anon cannot read totals');
-select ok(has_function_privilege('authenticated', 'public.member_tips_totals(uuid,int)', 'execute'), 'authenticated can');
+update public.chains set enabled = true where chain_id = 8453;
+select tests.authenticate_as(current_setting('t.ua')::uuid);
+select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid) t where t.token = 'USDC'),
+  '171000000', 'a network counts only while it is enabled');
+select tests.clear_authentication();
+update public.chains set enabled = false where chain_id = 8453;
+select tests.authenticate_as(current_setting('t.uh')::uuid);
+select is((select t.total_text from public.member_tips_totals(current_setting('t.b')::uuid) t where t.token = 'USDC'),
+  '157000000', 'a viewer without access to the channel does not count its message tips');
+select tests.clear_authentication();
+select ok(not has_function_privilege('anon', 'public.member_tips_totals(uuid)', 'execute'), 'anon cannot read totals');
+select ok(has_function_privilege('authenticated', 'public.member_tips_totals(uuid)', 'execute'), 'authenticated can');
 
 select * from finish();
 rollback;

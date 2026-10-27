@@ -50,8 +50,8 @@ select is(public.channel_permissions(current_setting('t.a')::uuid, current_setti
 select is(public.channel_permissions(current_setting('t.b')::uuid, current_setting('t.txt2')::uuid), 8207::bigint, 'b: channel bits only (global 128 not returned)');
 select is(public.channel_permissions(current_setting('t.c')::uuid, current_setting('t.txt2')::uuid), 0::bigint, 'VIEW-deny penalty hides the channel');
 
--- a gated ancestor exercises the gate branch; a 0 bps rule always passes so nothing changes
-update public.channels set gate_min_share_bps = 0, gate_scope = 'view' where id = current_setting('t.cat2')::uuid;
+-- a gated ancestor exercises the gate branch; a 0 USD rule always passes so nothing changes
+update public.channels set gate_min_donated_usd6 = 0, gate_scope = 'view' where id = current_setting('t.cat2')::uuid;
 select is(public.channel_permissions(current_setting('t.a')::uuid, current_setting('t.txt2')::uuid), 8207::bigint, 'passing gated ancestor changes nothing');
 select is(public.channel_permissions(current_setting('t.a')::uuid, gen_random_uuid()), 0::bigint, 'missing channel -> 0');
 

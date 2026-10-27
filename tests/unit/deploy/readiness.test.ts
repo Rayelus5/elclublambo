@@ -3,10 +3,12 @@ import { assertProductionReady, productionEnvProblems } from "@/lib/deploy/readi
 
 // F5 Task 7 (F5-R10): the production build refuses a misconfigured environment. Problems name variables, never values.
 const valid = {
-  NEXT_PUBLIC_CHAIN: "linea",
+  NEXT_PUBLIC_NETWORK_SET: "mainnet",
+  NEXT_PUBLIC_BASE_BUILDER_CODE: "bc_ttxulybv",
   NEXT_PUBLIC_SITE_URL: "https://elclub.party",
   NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
-  LINEA_RPC_URL: "https://linea-mainnet.example/v3/KEY",
+  BASE_RPC_URL: "https://base-mainnet.example/v3/KEY",
+  ARBITRUM_RPC_URL: "https://arbitrum-mainnet.example/v3/KEY",
   CRON_SECRET: "a".repeat(32),
   SUPER_ADMIN_WALLET: "0x" + "ab".repeat(20),
   NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon",
@@ -18,15 +20,20 @@ describe("productionEnvProblems", () => {
   it("accepts a complete valid environment", () => {
     expect(productionEnvProblems(valid)).toEqual([]);
     expect(productionEnvProblems({ ...valid, TIP_CONFIRMATIONS: "3" })).toEqual([]);
-    expect(productionEnvProblems({ ...valid, TIP_CONFIRMATIONS: "12", NEXT_PUBLIC_LINEA_RPC_URL: "" })).toEqual([]);
+    expect(productionEnvProblems({ ...valid, TIP_CONFIRMATIONS: "12", NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: "" })).toEqual([]);
   });
 
   const cases: [string, Record<string, string | undefined>, string][] = [
-    ["wrong chain", { NEXT_PUBLIC_CHAIN: "lineaSepolia" }, "NEXT_PUBLIC_CHAIN must be linea"],
-    ["missing chain", { NEXT_PUBLIC_CHAIN: undefined }, "NEXT_PUBLIC_CHAIN must be linea"],
-    ["public mainnet rpc", { NEXT_PUBLIC_LINEA_RPC_URL: "https://pub/x" }, "NEXT_PUBLIC_LINEA_RPC_URL must be empty"],
-    ["public sepolia rpc", { NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: "https://pub/x" }, "NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL must be empty"],
-    ["missing server rpc", { LINEA_RPC_URL: "" }, "LINEA_RPC_URL is required"],
+    ["testnet set", { NEXT_PUBLIC_NETWORK_SET: "testnet" }, "NEXT_PUBLIC_NETWORK_SET must be mainnet"],
+    ["missing set", { NEXT_PUBLIC_NETWORK_SET: undefined }, "NEXT_PUBLIC_NETWORK_SET must be mainnet"],
+    ["empty set", { NEXT_PUBLIC_NETWORK_SET: "" }, "NEXT_PUBLIC_NETWORK_SET must be mainnet"],
+    ["public base sepolia rpc", { NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: "https://pub/x" }, "NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL must be empty"],
+    ["public arbitrum sepolia rpc", { NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: "https://pub/x" }, "NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL must be empty"],
+    ["missing base rpc", { BASE_RPC_URL: "" }, "BASE_RPC_URL is required"],
+    ["missing arbitrum rpc", { ARBITRUM_RPC_URL: undefined }, "ARBITRUM_RPC_URL is required"],
+    ["missing builder code", { NEXT_PUBLIC_BASE_BUILDER_CODE: "" }, "NEXT_PUBLIC_BASE_BUILDER_CODE must be a builder code"],
+    ["malformed builder code", { NEXT_PUBLIC_BASE_BUILDER_CODE: "bc ttx!" }, "NEXT_PUBLIC_BASE_BUILDER_CODE must be a builder code"],
+    ["33-char builder code", { NEXT_PUBLIC_BASE_BUILDER_CODE: "a".repeat(33) }, "NEXT_PUBLIC_BASE_BUILDER_CODE must be a builder code"],
     ["http site url", { NEXT_PUBLIC_SITE_URL: "http://elclub.party" }, "NEXT_PUBLIC_SITE_URL must be https"],
     ["missing site url", { NEXT_PUBLIC_SITE_URL: undefined }, "NEXT_PUBLIC_SITE_URL must be https"],
     ["http supabase url", { NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321" }, "NEXT_PUBLIC_SUPABASE_URL must be https"],
@@ -51,6 +58,11 @@ describe("productionEnvProblems", () => {
       "WETH_ADDRESS_59144",
       "COINGECKO_DISABLED",
       "COINGECKO_API_BASE",
+      "NEXT_PUBLIC_CHAIN",
+      "LINEA_RPC_URL",
+      "LINEA_SEPOLIA_RPC_URL",
+      "NEXT_PUBLIC_LINEA_RPC_URL",
+      "NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL",
     ].map((n): [string, Record<string, string | undefined>, string] => [`${n} set`, { [n]: "x" }, `${n} must be unset in production`]),
   ];
 
@@ -60,7 +72,7 @@ describe("productionEnvProblems", () => {
 });
 
 describe("assertProductionReady", () => {
-  const bad = { ...valid, LINEA_RPC_URL: "https://x/v3/TOPSECRET", NEXT_PUBLIC_LINEA_RPC_URL: "https://pub/KEY2", CRON_SECRET: "SHORTSECRET" };
+  const bad = { ...valid, BASE_RPC_URL: "https://x/v3/TOPSECRET", NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: "https://pub/KEY2", CRON_SECRET: "SHORTSECRET" };
 
   it("is a no-op outside production, however bad the env", () => {
     expect(() => assertProductionReady({ ...bad, VERCEL_ENV: "preview" })).not.toThrow();
@@ -87,7 +99,7 @@ describe("assertProductionReady", () => {
       message = (e as Error).message;
     }
     expect(message).toMatch(/^Configuración de producción inválida: /);
-    expect(message).toContain("NEXT_PUBLIC_LINEA_RPC_URL");
+    expect(message).toContain("NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL");
     expect(message).toContain("CRON_SECRET");
     for (const secret of ["TOPSECRET", "KEY2", "SHORTSECRET", "pub/"]) expect(message).not.toContain(secret);
   });

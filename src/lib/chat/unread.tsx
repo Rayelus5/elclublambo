@@ -10,17 +10,20 @@ const EMPTY: ReadonlySet<string> = new Set();
 interface UnreadContextValue {
   /** Ids of the visible text channels with messages newer than the member's read mark. */
   unread: ReadonlySet<string>;
+  /** True once my_unread_channels answered at least once: until then `unread` is only the empty default. */
+  loaded: boolean;
   /** Asks the server again (coalesced: overlapping requests collapse into one trailing call). */
   refresh: () => void;
 }
 
-const UnreadContext = createContext<UnreadContextValue>({ unread: EMPTY, refresh: () => {} });
+const UnreadContext = createContext<UnreadContextValue>({ unread: EMPTY, loaded: false, refresh: () => {} });
 
 export const useUnread = () => useContext(UnreadContext);
 
 /** Source of the sidebar's unread dots: `my_unread_channels`, refreshed on events, on demand and every 60 s. */
 export function UnreadProvider({ children }: { children: ReactNode }) {
   const [unread, setUnread] = useState<ReadonlySet<string>>(EMPTY);
+  const [loaded, setLoaded] = useState(false);
   const inflight = useRef(false);
   const queued = useRef(false);
   const alive = useRef(true);
@@ -36,6 +39,7 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
         const { data, error } = await createBrowserClient().rpc("my_unread_channels");
         if (!error && Array.isArray(data) && alive.current) {
           setUnread(new Set(data.filter((v): v is string => typeof v === "string")));
+          setLoaded(true);
         }
       } catch {
         // keep the previous dots; the next tick tries again
@@ -71,6 +75,6 @@ export function UnreadProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  const value = useMemo(() => ({ unread, refresh }), [unread, refresh]);
+  const value = useMemo(() => ({ unread, loaded, refresh }), [unread, loaded, refresh]);
   return <UnreadContext.Provider value={value}>{children}</UnreadContext.Provider>;
 }

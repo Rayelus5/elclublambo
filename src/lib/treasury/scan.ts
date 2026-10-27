@@ -1,8 +1,8 @@
 import "server-only";
 import { erc20Abi, parseAbiItem, type Address } from "viem";
 import { safeError } from "@/lib/security/redact";
-import type { ChainId } from "@/lib/economy/networks";
-import { chainClient } from "@/lib/payments/chain-client";
+import type { LegacyChainId } from "@/lib/legacy/linea";
+import { legacyChainClient } from "@/lib/legacy/linea-client";
 import { defaultConfirmations } from "@/lib/payments/verify";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { safeAddressOf } from "@/lib/treasury/snapshot";
@@ -32,7 +32,7 @@ const WITHDRAWAL = parseAbiItem("event Withdrawal(address indexed src, uint256 w
 /** Snapshot pairs diffed per run (about a day of hourly snapshots). */
 const ETH_PAIRS_PER_RUN = 24;
 
-type Client = ReturnType<typeof chainClient>;
+type Client = ReturnType<typeof legacyChainClient>;
 type Token = "USDC" | "WETH";
 /** Token balances of the Safe, as decimal strings (record_safe_scan's p_balances). */
 type Balances = Partial<Record<Token, string>>;
@@ -59,16 +59,16 @@ function chunks(from: bigint, to: bigint): [bigint, bigint][] {
  * get the Safe that was read: if chain_config changed meanwhile, SQL refuses (safe_changed) and nothing is stored.
  */
 export async function scanSafeOperations(
-  chain: ChainId,
+  chain: LegacyChainId,
   opts: { cron?: boolean } = {},
 ): Promise<{ inserted: number; alerts: number } | "scan_gap" | null> {
   const db = createAdminClient();
   const safe = await safeAddressOf(db, chain);
   if (!safe) return null;
-  const client = chainClient(chain);
+  const client = legacyChainClient(chain);
 
   const latest = await client.getBlockNumber();
-  const confirmations = BigInt(defaultConfirmations());
+  const confirmations = BigInt(defaultConfirmations(chain));
   const tip = latest > confirmations ? latest - confirmations : 0n;
 
   const { data: cursorRaw, error: cursorError } = await db.rpc("dao_scan_from", { p_chain: chain });
@@ -161,7 +161,7 @@ async function balancesAt(client: Client, safe: Address, tokens: [Token, Address
 async function continuity(
   db: Db,
   client: Client,
-  chain: ChainId,
+  chain: LegacyChainId,
   safe: Address,
   tokens: [Token, Address][],
   weth: Address | null,
@@ -276,11 +276,11 @@ async function transferOps(client: Client, safe: Address, tokens: [Token, Addres
 
 const SNAPSHOT_COLUMNS = "block_number:block_number::text, eth_wei:eth_wei::text, taken_at";
 
-function snapshots(db: Db, chain: ChainId) {
+function snapshots(db: Db, chain: LegacyChainId) {
   return db.from("dao_nav_snapshots").select(SNAPSHOT_COLUMNS).eq("chain_id", chain);
 }
 
-async function newestSnapshotBlock(db: Db, chain: ChainId): Promise<bigint | null> {
+async function newestSnapshotBlock(db: Db, chain: LegacyChainId): Promise<bigint | null> {
   const { data, error } = await snapshots(db, chain).order("block_number", { ascending: false }).limit(1).maybeSingle<SnapshotRow>();
   if (error) throw new Error(`dao_nav_snapshots read failed: ${error.message}`);
   return data ? BigInt(data.block_number) : null;
@@ -296,7 +296,7 @@ async function newestSnapshotBlock(db: Db, chain: ChainId): Promise<bigint | nul
 async function nativeEthOps(
   db: Db,
   client: Client,
-  chain: ChainId,
+  chain: LegacyChainId,
   safe: Address,
   weth: Address | null,
   scanStart: bigint,

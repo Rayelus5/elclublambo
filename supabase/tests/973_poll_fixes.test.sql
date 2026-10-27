@@ -47,7 +47,7 @@ update public.app_config set value = '59141'::jsonb where key = 'active_chain_id
 
 select tests.login(current_setting('t.a'));
 select set_config('t.p', public.create_poll(current_setting('t.ch')::uuid, '¿Té o café?', array['Té', 'Café'],
-                                             now() + interval '1 day', 'equal')::text, true);
+                                             now() + interval '1 day')::text, true);
 select tests.clear_authentication();
 select tests.vote_as(current_setting('t.m'), current_setting('t.p'), 1);
 select tests.vote_as(current_setting('t.v1'), current_setting('t.p'), 1);
@@ -80,7 +80,7 @@ select is((select jsonb_build_object('title', title, 'body', body, 'url', url, '
            from public._push_build(current_setting('t.n1')::bigint)),
   jsonb_build_object('title', 'Encuesta cerrada',
                      'body', 'Se ha cerrado la encuesta en la que votaste en #t973: «¿Té o café?»',
-                     'url', '/c/' || current_setting('t.ch') || '?m=' || current_setting('t.p') || '&h=n' || current_setting('t.n1'),
+                     'url', '/foro/c/' || current_setting('t.ch') || '?m=' || current_setting('t.p') || '&h=n' || current_setting('t.n1'),
                      'tag', 'poll_closed:' || current_setting('t.p')),
   'F4e-R5: the poll_closed push uses the impersonal copy; title, URL and tag unchanged');
 select ok((select position('Ha cerrado la encuesta' in p.prosrc) = 0

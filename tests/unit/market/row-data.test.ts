@@ -27,7 +27,7 @@ describe("toMarketRowData", () => {
     const row = toMarketRowData(btc, 0);
     expect(row).toMatchObject({
       id: "bitcoin",
-      href: "/mercado/bitcoin",
+      href: "/foro/mercado/bitcoin",
       name: "Bitcoin",
       symbol: "btc",
       rank: 1,

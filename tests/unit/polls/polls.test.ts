@@ -7,7 +7,6 @@ import {
   formatTenths,
   normalizePollText,
   parsePollRow,
-  pollModeLabel,
   pollTimeLeft,
   validatePollDraft,
   voterCountLabel,
@@ -24,16 +23,11 @@ describe("formatTenths", () => {
   ])("%i -> %s", (t, s) => expect(formatTenths(t)).toBe(s));
 });
 
-describe("voterCountLabel / pollModeLabel", () => {
+describe("voterCountLabel", () => {
   it("pluralizes", () => {
     expect(voterCountLabel(1)).toBe("1 votante");
     expect(voterCountLabel(0)).toBe("0 votantes");
     expect(voterCountLabel(12)).toBe("12 votantes");
-  });
-  it("labels the modes exactly", () => {
-    expect(pollModeLabel("equal")).toBe("1 persona, 1 voto");
-    expect(pollModeLabel("linear")).toBe("Ponderada · lineal según participación");
-    expect(pollModeLabel("quadratic")).toBe("Ponderada · cuadrática según participación");
   });
 });
 

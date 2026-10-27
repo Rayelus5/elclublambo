@@ -25,7 +25,7 @@ describe("poll_closed", () => {
     const text = render(<NotificationItem notification={n} />).container.querySelector("a")!.textContent;
     expect(text).toContain("Se ha cerrado la encuesta en la que votaste en #general");
     expect(text).not.toMatch(/(^|[^e] )Ha cerrado/);
-    expect(n.href).toBe(`/c/${CH}?m=${MSG}&h=n9`);
+    expect(n.href).toBe(`/foro/c/${CH}?m=${MSG}&h=n9`);
   });
 
   it("uses the question as the excerpt", async () => {
@@ -35,6 +35,6 @@ describe("poll_closed", () => {
   it("has no excerpt when the poll message was deleted, and falls back to the channel without a message", async () => {
     const gone = await view({ message: { body_text: "x", deleted_at: "2026-10-19T09:00:00Z" } });
     expect(gone.excerpt).toBeNull();
-    expect((await view({ message_id: null })).href).toBe(`/c/${CH}`);
+    expect((await view({ message_id: null })).href).toBe(`/foro/c/${CH}`);
   });
 });

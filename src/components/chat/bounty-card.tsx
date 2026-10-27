@@ -1,9 +1,10 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, Network, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
-import { NetworkBadge } from "@/components/economy/network-badge";
+import { Ban, CircleAlert, CircleCheck, CircleDot, Clock, Hourglass, ShieldX, Trophy, UserX, type LucideIcon } from "lucide-react";
+import { NetworkLogo } from "@/components/economy/network-logo";
 import { useOptionalEconomy } from "@/components/payments/economy-provider";
 import { TipDialog, type TipRecipient } from "@/components/payments/tip-dialog";
 import {
@@ -21,7 +22,7 @@ import { cancelBountyAction } from "@/lib/bounties/actions";
 import type { BountyDetail, BountyStatus } from "@/lib/bounties/queries";
 import { rpcErrorMessage } from "@/lib/errors";
 import { formatAmount } from "@/lib/payments/amounts";
-import { findInFlight, findResumable } from "@/lib/payments/pending-sends";
+import { findInFlight } from "@/lib/payments/pending-sends";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 86_400_000;
@@ -31,10 +32,9 @@ function subscribeStorage(onChange: () => void): () => void {
   return () => window.removeEventListener("storage", onChange);
 }
 
-/** What the local ledger holds for this bounty: a signature still pending, a fee paid awaiting its main transfer, or nothing. */
-function ledgerState(memberId: string, bountyId: string): "inflight" | "resume" | null {
-  if (findInFlight(memberId, "bounty", bountyId)) return "inflight";
-  return findResumable(memberId, "bounty", bountyId) ? "resume" : null;
+/** What the local ledger holds for this bounty: a signature still pending in the wallet, or nothing. */
+function ledgerState(memberId: string, bountyId: string): "inflight" | null {
+  return findInFlight(memberId, "bounty", bountyId) ? "inflight" : null;
 }
 
 const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
@@ -48,7 +48,6 @@ const CHIP: Record<BountyStatus, { icon: LucideIcon; tone: string }> = {
   // payment impossible: neutral, never the danger tone of an unpaid mark (F3-R1)
   removed: { icon: ShieldX, tone: "border-border text-fg-muted" },
   solver_unavailable: { icon: UserX, tone: "border-border text-fg-muted" },
-  other_chain: { icon: Network, tone: "border-border text-fg-muted" },
 };
 
 /** Exact chip copy per status; "solution_marked" counts the days left to pay (rounded up, at least one). */
@@ -75,8 +74,6 @@ export function statusLabel(bounty: Pick<BountyDetail, "status" | "payDeadline">
       return "Retirado por moderación";
     case "solver_unavailable":
       return "Solucionador no disponible";
-    case "other_chain":
-      return "En otra red";
   }
 }
 
@@ -112,9 +109,9 @@ export function BountyCard({
   const chip = CHIP[bounty.status];
   const Icon = chip.icon;
   const canCancel = isAuthor && bounty.status === "open";
-  // F3c-R7 / N1: a payment already under way (fee paid, or a signature waiting in the wallet) must stay reachable
-  // whatever the status became (other_chain, solver_unavailable...): the dialog resumes it on the intent's own chain.
-  // Paid bounties are excluded (a resumed transfer could no longer be credited). The ledger lives in localStorage:
+  // F3c-R7 / N1: a payment already under way (a signature waiting in the wallet) must stay reachable
+  // whatever the status became (solver_unavailable...): the dialog shows the pending signature.
+  // Paid bounties are excluded (the transfer could no longer be credited). The ledger lives in localStorage:
   // null on the server and during hydration, re-read on every render and on storage events.
   const economy = useOptionalEconomy();
   const memberId = economy?.memberId ?? null;
@@ -147,7 +144,7 @@ export function BountyCard({
           <Trophy aria-hidden className="size-3.5" />
           Bounty
         </span>
-        <NetworkBadge chainId={bounty.chainId} />
+        <NetworkLogo chainId={bounty.chainId} withName />
       </div>
 
       <p className="font-mono text-2xl font-bold break-all text-fg">{`${formatAmount(bounty.amount, bounty.token)} ${bounty.token}`}</p>
@@ -163,7 +160,7 @@ export function BountyCard({
         </span>
         {bounty.solutionMessageId ? (
           <Link
-            href={`/c/${channelId}?m=${bounty.solutionMessageId}&thread=${messageId}`}
+            href={clubPath(`/c/${channelId}?m=${bounty.solutionMessageId}&thread=${messageId}`)}
             className="inline-flex min-h-11 items-center rounded-control px-1 text-sm font-bold text-accent underline underline-offset-4 outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent"
           >
             Ver solución
@@ -176,7 +173,7 @@ export function BountyCard({
           {canPay ? (
             <Button type="button" onClick={() => setPaying(true)}>
               <Trophy aria-hidden />
-              {ongoing === "resume" ? "Completar el pago" : "Pagar bounty"}
+              Pagar bounty
             </Button>
           ) : null}
           {canCancel ? (
@@ -189,7 +186,7 @@ export function BountyCard({
 
       {paying && solver ? (
         <TipDialog
-          mode={{ kind: "bounty", bountyId: messageId, token: bounty.token, minAmount: bounty.amount, chainId: bounty.chainId }}
+          mode={{ kind: "bounty", bountyId: messageId, token: bounty.token, minAmount: bounty.amount, chainId: bounty.chainId, solverId: solver.id }}
           recipient={solver}
           open={paying}
           onOpenChange={(open) => {

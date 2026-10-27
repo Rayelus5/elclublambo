@@ -43,7 +43,7 @@ export async function newUser(db: SupabaseClient): Promise<Who> {
   const account = privateKeyToAccount(generatePrivateKey());
   const message = buildLoginMessage({
     address: account.address,
-    chainId: 59141,
+    chainId: 84532, // Base Sepolia: login only accepts the build's chains (P0, D5)
     nonce: generateNonce(),
     domain: "localhost:3000",
     uri: "http://localhost:3000/login",

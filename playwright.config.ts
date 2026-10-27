@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
-import { ETH_USD_FEED_ADDRESS, READY_URL, RPC_URL, WETH_ADDRESS } from "./e2e/chain/shared.mjs";
+import { CHAINS, ETH_USD_FEED, READY_URL } from "./e2e/chain/shared.mjs";
 import { E2E_SUPER_ADMIN_ADDRESS } from "./e2e/helpers/auth";
+import { MOCK_CHECKER_BASE, MOCK_CHECKER_PORT } from "./e2e/mock/checker.mjs";
 import { MOCK_PORT as MOCK_COINGECKO_PORT } from "./e2e/mock/coingecko.mjs";
+import { MOCK_DRAND_PORT, MOCK_PUBLIC_KEY as MOCK_DRAND_PUBLIC_KEY } from "./e2e/mock/drand.mjs";
 
 // Supabase keys come from .env.local (git-ignored); already-set process env wins.
 try {
@@ -20,30 +22,53 @@ const env = {
   NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? "",
   NEXT_PUBLIC_REOWN_PROJECT_ID: process.env.NEXT_PUBLIC_REOWN_PROJECT_ID ?? "",
-  NEXT_PUBLIC_CHAIN: "lineaSepolia",
+  // P0-R1: the testnet set (Base Sepolia 84532 and Arbitrum Sepolia 421614), the one PRE and local use.
+  NEXT_PUBLIC_NETWORK_SET: "testnet",
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: E2E_VAPID_PUBLIC_KEY,
   // TEST-ONLY wallet (e2e/helpers/auth.ts), never the real SuperAdmin.
   SUPER_ADMIN_WALLET: E2E_SUPER_ADMIN_ADDRESS,
-  // On-chain tips (e2e/f3b-tips.spec.ts): the server verifies against the local Hardhat chain (chain id 59141) and
-  // credits after one confirmation. start-chain.mjs below serves it.
-  LINEA_SEPOLIA_RPC_URL: RPC_URL,
-  // The raffle verifier reads the draw block in the browser: the same local chain (public var, baked at build time).
-  NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: RPC_URL,
+  // On-chain tips and bounties (e2e/f3b-tips.spec.ts, e2e/f3c-bounties.spec.ts): the server verifies against the two
+  // local Hardhat nodes (start-chain.mjs below) and credits after one confirmation.
+  BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
+  ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
+  // The browser reads balances from the same nodes (public vars, baked at build time; empty in production).
+  NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: CHAINS[84532].rpcUrl,
+  NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: CHAINS[421614].rpcUrl,
   TIP_CONFIRMATIONS: "1",
+  // P1: ETH donations are valued with the mock Chainlink feed start-chain.mjs puts on both nodes (2000 USD); the
+  // override is honoured on the testnet set only (src/lib/economy/eth-price.ts).
+  ETH_USD_FEED_ADDRESS_84532: ETH_USD_FEED,
+  ETH_USD_FEED_ADDRESS_421614: ETH_USD_FEED,
+  // P0-R6: TEST-ONLY Builder Code; f3b checks the ERC-8021 suffix it puts on Base transfers.
+  NEXT_PUBLIC_BASE_BUILDER_CODE: "bc_e2etest",
   // F3d: bearer secret the e2e sends to /api/cron/dao (donation settlement and reconciliation).
   CRON_SECRET: "e2e-cron-secret",
-  // F4a: the fund is valued with the local mock Chainlink feed and mock WETH (start-chain.mjs), never a live price.
-  ETH_USD_FEED_ADDRESS_59141: ETH_USD_FEED_ADDRESS,
-  WETH_ADDRESS_59141: WETH_ADDRESS,
-  COINGECKO_DISABLED: "1",
   // F4b: the Mercado pages read the local mock CoinGecko (e2e/mock/coingecko.mjs), never the real API.
   COINGECKO_API_BASE: `http://127.0.0.1:${MOCK_COINGECKO_PORT}/api/v3`,
+  // P1-R11: giveaways draw against the local drand (e2e/mock/drand.mjs, its own TEST-ONLY BLS key); honoured on the
+  // testnet set only (src/lib/giveaways/drand.ts). The public base is baked into the browser verifier and the CSP.
+  DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
+  NEXT_PUBLIC_DRAND_API_BASE: `http://127.0.0.1:${MOCK_DRAND_PORT}`,
+  NEXT_PUBLIC_DRAND_PUBLIC_KEY: MOCK_DRAND_PUBLIC_KEY,
+  // P4 (ruling R-A): the token checker asks the local mock (e2e/mock/checker.mjs) instead of Blockscout and Sourcify;
+  // honoured on the testnet set only (src/lib/checker/token/sources.ts). DexScreener is never asked on testnets.
+  CHECKER_BLOCKSCOUT_BASE_84532: `${MOCK_CHECKER_BASE}/blockscout/84532`,
+  CHECKER_BLOCKSCOUT_BASE_421614: `${MOCK_CHECKER_BASE}/blockscout/421614`,
+  CHECKER_SOURCIFY_BASE: `${MOCK_CHECKER_BASE}/sourcify`,
+  CHECKER_DEXSCREENER_BASE: `${MOCK_CHECKER_BASE}/dexscreener`,
+  // P4: the free API's limiter (api_free) keys on the first x-forwarded-for entry; Next keeps the one the spec sends.
+  TRUSTED_IP_HEADER: "",
+  X402_ENABLED: "",
+  // Administración (A-R3): the e2e reads the site state on every request, so a switch flipped in the tab shows at once.
+  SITE_STATE_TTL_MS: "0",
 };
 // Make the same values visible to the specs (service-role client, cookie client).
 Object.assign(process.env, env);
 
 export default defineConfig({
   testDir: "e2e",
+  // P0-R2: se reescriben en P1. The legacy DAO / raffle / poll specs still target Linea and the paused DAO.
+  testIgnore: ["legacy/**"],
   globalSetup: "./e2e/global-setup.ts",
   timeout: 120_000,
   expect: { timeout: 15_000 },
@@ -51,12 +76,14 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   workers: 1,
   fullyParallel: false,
-  use: { baseURL: "http://localhost:3000" },
+  // The landing intro plays once per browser: every spec starts as a returning visitor (landing-intro.spec.ts opts out).
+  use: { baseURL: "http://localhost:3000", storageState: "e2e/intro-seen.json" },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      // Local Hardhat node (chain 59141, mock USDC at Linea Sepolia's USDC address). Plain `node`: no shell syntax, so it
-      // runs the same from PowerShell, cmd and bash. Ready when it answers on READY_URL (after the mock is deployed).
+      // Two local Hardhat nodes (P0-R13): 84532 on :8545 and 421614 on :8546, each with a mock USDC at Circle's address for
+      // that testnet. Plain `node`: no shell syntax, so it runs the same from PowerShell, cmd and bash. Ready when it
+      // answers on READY_URL (after both mocks are deployed).
       command: "node e2e/chain/start-chain.mjs",
       url: READY_URL,
       reuseExistingServer: false,
@@ -66,6 +93,20 @@ export default defineConfig({
       // F4b: local mock CoinGecko (deterministic fixtures, POST /__fail and /__ok toggle a 503 outage).
       command: "node e2e/mock/coingecko.mjs",
       url: `http://127.0.0.1:${MOCK_COINGECKO_PORT}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      // P1-R11: local drand (quicknet's genesis and period, TEST-ONLY key; 425 for future rounds, POST /__fail and /__ok).
+      command: "node e2e/mock/drand.mjs",
+      url: `http://127.0.0.1:${MOCK_DRAND_PORT}/__health`,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      // P4: local Blockscout/Sourcify (fixtures for the local USDC; a Cloudflare-style 403 for transactions).
+      command: "node e2e/mock/checker.mjs",
+      url: `http://127.0.0.1:${MOCK_CHECKER_PORT}/__health`,
       reuseExistingServer: false,
       timeout: 30_000,
     },

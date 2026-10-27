@@ -2,10 +2,10 @@
 
 import { useRef } from "react";
 import { m, useScroll, useTransform } from "motion/react";
-import { TREASURY_NOTICE } from "./features";
+import type { StartDict } from "./dict";
 import { rise, Stage, useMotionOn } from "./motion";
 
-export function FinalCta() {
+export function FinalCta({ t }: { t: StartDict }) {
   const on = useMotionOn();
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end end"] });
@@ -32,10 +32,10 @@ export function FinalCta() {
       <div className="relative mx-auto flex w-full max-w-[1600px] flex-col gap-10 px-4 pt-28 pb-[clamp(10rem,28vw,24rem)] sm:px-8 sm:pt-40">
         <Stage className="flex max-w-[52rem] flex-col gap-8">
           <m.h2 variants={rise} id="start-puerta" className="text-[clamp(3rem,9vw,8rem)] leading-[0.85] font-black tracking-[-0.045em]">
-            La puerta, de momento, está entornada.
+            {t.final.title}
           </m.h2>
           <m.p variants={rise} className="max-w-[36rem] text-[1.125rem] text-fg-muted">
-            Ahora mismo solo entran miembros seleccionados. Pronto podrás pedir tu invitación desde aquí.
+            {t.final.lead}
           </m.p>
           <m.div variants={rise}>
             <button
@@ -43,15 +43,14 @@ export function FinalCta() {
               aria-disabled="true"
               className="inline-flex min-h-12 cursor-not-allowed items-center gap-3 border border-border-strong bg-surface px-5 py-3 font-bold text-fg-muted rounded-control"
             >
-              Solicitar invitación
+              {t.final.request}
               <span className="border border-accent px-2 py-0.5 font-mono text-[0.75rem] font-normal tracking-wide text-accent uppercase rounded-control">
-                Próximamente
+                {t.final.soon}
               </span>
             </button>
           </m.div>
           <m.p variants={rise} className="max-w-[36rem] border-l-2 border-accent bg-bg pl-4">
-            <strong className="font-bold text-fg">¿Ya tienes invitación?</strong> Abre el enlace que te pasaron en tu navegador de
-            preferencia (con tu wallet instalada) y desde ahí inicia sesión.
+            <strong className="font-bold text-fg">{t.final.invitedStrong}</strong> {t.final.invitedRest}
           </m.p>
         </Stage>
       </div>
@@ -59,21 +58,13 @@ export function FinalCta() {
   );
 }
 
-/** Page footer: the short treasury notice. */
-export function StartFooter() {
+/** The treasury notice, kept on /start (the shared PublicFooter only carries the no-custody line). */
+export function DonationsNote({ t }: { t: StartDict }) {
   return (
-    <footer className="border-t border-border bg-bg">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-4 py-10 text-small text-fg-muted sm:px-8 lg:flex-row lg:items-start lg:justify-between">
-        <p className="shrink-0 font-display text-lg leading-none font-black whitespace-nowrap text-fg wide">
-          ElClub
-          <span className="sr-only">.</span>
-          <span aria-hidden className="ml-[0.06em] inline-block size-[0.22em] bg-accent" />
-        </p>
-        <p className="max-w-[44rem]">
-          Tesorería: fondo común en una Safe multifirma 2-de-3 en Linea. {TREASURY_NOTICE}
-        </p>
-        <p className="font-mono text-[0.75rem]">Construido en Linea</p>
-      </div>
-    </footer>
+    <div className="border-t border-border bg-bg">
+      <p className="mx-auto w-full max-w-[1600px] px-4 py-6 text-small text-fg-muted sm:px-8">
+        {t.donationsNote} {t.features.treasuryNotice}
+      </p>
+    </div>
   );
 }

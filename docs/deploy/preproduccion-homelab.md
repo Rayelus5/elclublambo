@@ -26,14 +26,14 @@ Salvo que se diga otra cosa, los comandos se ejecutan **como root dentro de la V
 ### Qué es elclublambo
 
 Un foro asíncrono Web3, solo con invitación. Los miembros entran firmando con su wallet (SIWE), escriben en canales,
-se dan propinas en USDC, abren bounties, votan y comparten una tesorería (una Safe) en la red **Linea**. Es una app
+se dan propinas en USDC, abren bounties, votan y comparten una tesorería (una Safe) en las redes **Base** y **Arbitrum**. Es una app
 Next.js 16 sobre Supabase (Postgres con RLS y funciones `security definer`, Auth, Storage y Realtime con canales
 privados).
 
 ### Para qué sirve la preproducción
 
 Es una copia 24/7 de la app, en `https://pre.elclub.party`, que se despliega sola desde la rama `develop`. Sirve para
-probar con wallets y dinero **de prueba** (Linea Sepolia, chain id 59141) antes de que el código llegue a `main` y a
+probar con wallets y dinero **de prueba** (Base Sepolia, chain id 84532, y Arbitrum Sepolia, chain id 421614) antes de que el código llegue a `main` y a
 producción. Sus datos son desechables.
 
 ```
@@ -98,7 +98,7 @@ Pídeselo con tiempo; lo demás lo haces tú:
 |---|---|
 | 1.1 | IP fija para la VM, gateway, DNS, y su clave SSH pública |
 | 7.2 | Si el repo es privado: añadir una deploy key de solo lectura |
-| 7.4 | `SUPER_ADMIN_WALLET` (una wallet **de pruebas**), el Project ID de Reown "elclub dev/pre", la URL de Infura de Linea Sepolia, el correo para `VAPID_SUBJECT` y, opcional, `COINGECKO_API_KEY` |
+| 7.4 | `SUPER_ADMIN_WALLET` (una wallet **de pruebas**), el Project ID de Reown "elclub dev/pre", las RPC de Base Sepolia y Arbitrum Sepolia (opcional), el correo para `VAPID_SUBJECT` y, opcional, `COINGECKO_API_KEY` |
 | 8.3 | Autorizar `cloudflared tunnel login` en su navegador |
 | 8.7 | Permiso para crear los dos registros DNS |
 | 8.8 | Crear la regla de WAF en Cloudflare (o darte un token de API para hacerlo) |
@@ -106,7 +106,7 @@ Pídeselo con tiempo; lo demás lo haces tú:
 | 9.4 | Ajustes de Actions y el Environment `preproduction` con sus dos secretos |
 | 10.1 | El push a `develop` (o lanzar el workflow a mano) |
 | 10.3 | Primer login con la wallet de pruebas (SuperAdmin) |
-| 10.4 | Crear la Safe de Linea Sepolia y guardarla en `/settings/economia` |
+| 10.4 | Nada: las redes de Sepolia ya vienen habilitadas |
 | 11.4 | Elegir dónde guarda Proxmox las copias de la VM |
 
 ---
@@ -711,14 +711,18 @@ Usa la función `setkv` del paso 3.3 (si abriste otra shell, vuelve a definirla)
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://pre-api.elclub.party` (ya viene en la plantilla) | nada |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `ANON_KEY` de `/opt/supabase/docker/.env` | tú |
 | `SUPABASE_SERVICE_ROLE_KEY` | `SERVICE_ROLE_KEY` de `/opt/supabase/docker/.env` | tú |
+| `SUPABASE_INTERNAL_URL` | `http://kong:8000` (ya viene): el servidor habla con Supabase por la red Docker, sin pasar por Cloudflare | nada |
 | `SUPER_ADMIN_WALLET` | una wallet **de pruebas** del humano (`0x` + 40 hex). Nunca su wallet de SuperAdmin de producción | humano |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | Project ID del proyecto de Reown **"elclub dev/pre"**, con `pre.elclub.party` en su allowlist | humano |
-| `NEXT_PUBLIC_CHAIN` | `lineaSepolia` (ya viene) | nada |
+| `NEXT_PUBLIC_NETWORK_SET` | `testnet` (ya viene): Base Sepolia y Arbitrum Sepolia | nada |
+| `NEXT_PUBLIC_BASE_BUILDER_CODE` | vacía (opcional en preproducción) | nada |
 | `NEXT_PUBLIC_SITE_URL` | `https://pre.elclub.party` (ya viene) | nada |
-| `LINEA_RPC_URL` | vacía (la preproducción no usa mainnet) | nada |
-| `LINEA_SEPOLIA_RPC_URL` | `https://linea-sepolia.infura.io/v3/<clave>`, la de Infura del humano para Sepolia | humano |
-| `NEXT_PUBLIC_LINEA_RPC_URL` | vacía. Nunca una clave aquí: va al navegador | nada |
-| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` | vacía. Nunca una clave aquí: va al navegador | nada |
+| `BASE_RPC_URL` | vacía (la preproducción no usa mainnet) | nada |
+| `ARBITRUM_RPC_URL` | vacía (la preproducción no usa mainnet) | nada |
+| `BASE_SEPOLIA_RPC_URL` | opcional: la RPC de Base Sepolia del humano; vacía usa la RPC pública | humano |
+| `ARBITRUM_SEPOLIA_RPC_URL` | opcional: la RPC de Arbitrum Sepolia del humano; vacía usa la RPC pública | humano |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | vacía. Nunca una clave aquí: va al navegador | nada |
+| `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` | vacía. Nunca una clave aquí: va al navegador | nada |
 | `TIP_CONFIRMATIONS` | `3` (ya viene) | nada |
 | `ETH_USD_FEED_ADDRESS_59141` | vacía (solo tests) | nada |
 | `WETH_ADDRESS_59141` | vacía (solo tests) | nada |
@@ -730,6 +734,10 @@ Usa la función `setkv` del paso 3.3 (si abriste otra shell, vuelve a definirla)
 | `VAPID_SUBJECT` | `mailto:<correo del humano>` | humano |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | el mismo valor que `VAPID_PUBLIC_KEY` | tú |
 | `CRON_SECRET` | `openssl rand -hex 32`, propio de preproducción | tú |
+| `TRUSTED_IP_HEADER` | `cf-connecting-ip` (ya viene): la IP real detrás del túnel, para los límites del comprobador | nada |
+| `X402_ENABLED` | vacía (x402 apagado). `true` solo para probar el pago por consulta en Base Sepolia | nada |
+| `X402_NETWORK`, `X402_PRICE`, `X402_PAY_TO`, `X402_FACILITATOR_URL` | vacías (= Base Sepolia, `$0.01`, la Safe del club, el facilitador público) | nada |
+| `CDP_API_KEY_ID`, `CDP_API_KEY_SECRET` | vacías (solo mainnet) | nada |
 
 Todas las `NEXT_PUBLIC_*` quedan **fijadas en la imagen al construir** (son build args del compose) y las URLs tienen
 que ser `https://`: el `Dockerfile` rechaza construir si `NEXT_PUBLIC_SUPABASE_URL` o `NEXT_PUBLIC_SITE_URL` no lo
@@ -763,27 +771,29 @@ grep -c -E '^NEXT_PUBLIC_(SUPABASE|SITE)_URL=https://' /opt/elclub/pre/web.env
 stat -c '%a %U' /opt/elclub/pre/web.env
 ```
 
-- Puestas: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
-  `SUPER_ADMIN_WALLET`, `NEXT_PUBLIC_REOWN_PROJECT_ID`, `NEXT_PUBLIC_CHAIN`, `NEXT_PUBLIC_SITE_URL`,
-  `LINEA_SEPOLIA_RPC_URL`, `TIP_CONFIRMATIONS`, las cuatro VAPID y `CRON_SECRET` (y `COINGECKO_API_KEY` si la dio).
+- Puestas: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_INTERNAL_URL`,
+  `SUPER_ADMIN_WALLET`, `NEXT_PUBLIC_REOWN_PROJECT_ID`, `NEXT_PUBLIC_NETWORK_SET`, `NEXT_PUBLIC_SITE_URL`,
+  `BASE_SEPOLIA_RPC_URL` y `ARBITRUM_SEPOLIA_RPC_URL` (si las dio), `TIP_CONFIRMATIONS`, las cuatro VAPID, `CRON_SECRET` y `TRUSTED_IP_HEADER` (y `COINGECKO_API_KEY` si la dio).
 - Vacías: el resto.
 - El segundo comando da `2` y el tercero `600 gh-runner`.
 
-### 7.5 Comprobar la RPC de Sepolia
+### 7.5 Comprobar las RPC de Sepolia
 
 La app necesita una RPC con estado de archivo y `eth_getLogs` de al menos 2000 bloques. El script no imprime la
-clave, solo `origen/***`. Desde un checkout con dependencias sería `pnpm check:rpc -- --chain 59141`; aquí no hace
+clave, solo `origen/***`. Desde un checkout con dependencias sería `pnpm check:rpc -- --chain 84532` (y `--chain 421614`); aquí no hace
 falta instalar Node, basta con la forma `node --env-file` dentro de un contenedor:
 
 ```
-docker run --rm -v /opt/elclub/pre/web.env:/web.env:ro -v /opt/elclub/src/scripts/check-rpc.mjs:/check-rpc.mjs:ro node:22-bookworm-slim node --env-file=/web.env /check-rpc.mjs --chain 59141; echo "exit $?"
+docker run --rm -v /opt/elclub/pre/web.env:/web.env:ro -v /opt/elclub/src/scripts/check-rpc.mjs:/check-rpc.mjs:ro node:22-bookworm-slim node --env-file=/web.env /check-rpc.mjs --chain 84532; echo "exit $?"
 ```
+
+Repítelo con `--chain 421614` para Arbitrum Sepolia.
 
 **Comprueba:** la salida es
 
 ```
-Comprobando https://linea-sepolia.infura.io/*** en Linea Sepolia (59141)
-OK eth_chainId 59141
+Comprobando https://base-sepolia.infura.io/*** en Base Sepolia (84532)
+OK eth_chainId 84532
 OK eth_blockNumber <número>
 OK archive state at block <número>
 OK eth_getLogs over 2001 blocks
@@ -791,7 +801,7 @@ exit 0
 ```
 
 Cuatro `OK` y `exit 0`. Un `FAIL archive` o `FAIL eth_getLogs` quiere decir que el plan de Infura no sirve: díselo al
-humano. `Falta la variable LINEA_SEPOLIA_RPC_URL` quiere decir que no está en `web.env`.
+humano. `Falta la variable BASE_SEPOLIA_RPC_URL` quiere decir que no está en `web.env`.
 
 ---
 
@@ -883,7 +893,7 @@ cloudflared tunnel ingress validate --config $C
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/project/default
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/pg/tables
 cloudflared tunnel ingress rule --config $C https://pre-api.elclub.party/rest/v1/
-cloudflared tunnel ingress rule --config $C https://pre.elclub.party/login
+cloudflared tunnel ingress rule --config $C https://pre.elclub.party/foro/login
 ```
 
 **Comprueba:** `validate` dice `OK`. Cada `cloudflared tunnel ingress rule` imprime la regla que casa:
@@ -891,7 +901,7 @@ cloudflared tunnel ingress rule --config $C https://pre.elclub.party/login
 - `/project/default` (Studio) → `service: http_status:404`
 - `/pg/tables` (pg-meta) → `service: http_status:404`
 - `/rest/v1/` → `service: http://kong:8000`
-- `pre.elclub.party/login` → `service: http://web:3000`
+- `pre.elclub.party/foro/login` → `service: http://web:3000`
 
 ### 8.7 DNS
 
@@ -1066,9 +1076,9 @@ journalctl -u 'actions.runner.*' -f
 
 ```
 docker compose -p elclub-pre ps --format '{{.Service}} {{.Status}}'
-curl -s -o /dev/null -w '%{http_code}\n' https://pre.elclub.party/login
+curl -s -o /dev/null -w '%{http_code}\n' https://pre.elclub.party/foro/login
 curl -s -o /dev/null -w '%{http_code}\n' https://pre-api.elclub.party/
-curl -sI https://pre.elclub.party/login | grep -i -E '^(content-security-policy|strict-transport-security)' | grep -o -E "connect-src [^;]*|max-age=[0-9]+[^;]*"
+curl -sI https://pre.elclub.party/foro/login | grep -i -E '^(content-security-policy|strict-transport-security)' | grep -o -E "connect-src [^;]*|max-age=[0-9]+[^;]*"
 docker exec supabase-db psql -U postgres -d postgres -tAc "select count(*) from supabase_migrations.schema_migrations"
 ls /home/gh-runner/actions-runner/_work/elclublambo/elclublambo/supabase/migrations/*.sql | wc -l
 ```
@@ -1076,7 +1086,7 @@ ls /home/gh-runner/actions-runner/_work/elclublambo/elclublambo/supabase/migrati
 **Comprueba:**
 
 - `web Up (healthy)`, `cron Up`, `cloudflared Up`.
-- `200` para `/login` y `404` para la raíz de `pre-api`.
+- `200` para `/foro/login` y `404` para la raíz de `pre-api`.
 - `connect-src` contiene `https://pre-api.elclub.party` y `wss://pre-api.elclub.party`, y HSTS `max-age=63072000`.
 - Los dos últimos números son iguales (todas las migraciones aplicadas).
 
@@ -1090,17 +1100,13 @@ La base de datos está vacía. El primer login con la wallet de `SUPER_ADMIN_WAL
 **Comprueba:** entra al foro sin invitación, y
 `docker exec supabase-db psql -U postgres -d postgres -tAc "select count(*) from auth.users"` → `1`.
 
-### 10.4 Red y Safe de Sepolia
+### 10.4 Redes de Sepolia
 
-La red activa arranca en **Linea Sepolia (59141)**, que es la correcta para preproducción: **no la cambies**.
+No hay nada que activar a mano: la migración habilita las cuatro redes y el build decide cuáles se usan
+(`NEXT_PUBLIC_NETWORK_SET=testnet`: Base Sepolia y Arbitrum Sepolia).
 
-**Necesita al humano:**
-
-1. Crear una Safe en Linea Sepolia (app.safe.global) con su wallet de pruebas.
-2. Ir a `https://pre.elclub.party/settings/economia`, tarjeta **Linea Sepolia**: rellenar **Safe (Linea Sepolia)** y
-   **Wallet de la plataforma (Linea Sepolia)**, y pulsar **Guardar direcciones**.
-
-**Comprueba:** en `/settings/economia`, **Red activa** es Linea Sepolia y las dos direcciones aparecen guardadas.
+**Comprueba:** en `https://pre.elclub.party/settings/economia` aparecen Base Sepolia y Arbitrum Sepolia, y ninguna
+red de mainnet.
 
 ### 10.5 Cron
 
@@ -1236,7 +1242,7 @@ Nunca reutilices un secreto de producción. Tras cada rotación, repite 10.2.
 | Secreto | Cómo |
 |---|---|
 | `CRON_SECRET` | `setkv` con `openssl rand -hex 32` en `web.env`, y recrea `web` y `cron` juntos (11.1). Si solo recreas uno, el cron recibe 401 |
-| `LINEA_SEPOLIA_RPC_URL`, `COINGECKO_API_KEY`, `VAPID_PRIVATE_KEY` | nuevo valor en `web.env` y recrea `web` (11.1). Las VAPID van en pareja: una pareja nueva cambia también `VAPID_PUBLIC_KEY` y `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, lo que obliga a reconstruir, y las suscripciones push existentes dejan de funcionar |
+| `BASE_SEPOLIA_RPC_URL`, `ARBITRUM_SEPOLIA_RPC_URL`, `COINGECKO_API_KEY`, `VAPID_PRIVATE_KEY` | nuevo valor en `web.env` y recrea `web` (11.1). Las VAPID van en pareja: una pareja nueva cambia también `VAPID_PUBLIC_KEY` y `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, lo que obliga a reconstruir, y las suscripciones push existentes dejan de funcionar |
 | `JWT_SECRET`, `ANON_KEY`, `SERVICE_ROLE_KEY` | van juntos: nuevo `JWT_SECRET`, firma de nuevo las dos claves (3.3), `docker compose up -d` en `/opt/supabase/docker`, copia las dos claves a `web.env` y relanza el workflow (la anon es `NEXT_PUBLIC_*`). Todos los miembros tienen que volver a entrar |
 | `POSTGRES_PASSWORD` | cambiarlo en `.env` **no** cambia la contraseña de una base de datos ya creada. Pregunta al humano y sigue el procedimiento oficial de self-hosting de tu versión; después actualiza `PREPROD_DB_PASSWORD` en GitHub |
 | `DASHBOARD_PASSWORD` | nuevo valor en `.env` y `docker compose up -d` en `/opt/supabase/docker` |
@@ -1245,8 +1251,8 @@ Nunca reutilices un secreto de producción. Tras cada rotación, repite 10.2.
 
 ### 11.7 Después de vaciar la base de datos
 
-La red activa vuelve a Linea Sepolia (59141), que es la correcta. Repite 10.3 (SuperAdmin) y 10.4 (Safe y wallet de
-la plataforma de Sepolia), y 5 (Realtime) si recreaste Supabase entero.
+Las redes de Sepolia vuelven a estar habilitadas por la migración (10.4). Repite 10.3 (SuperAdmin), y 5 (Realtime)
+si recreaste Supabase entero.
 
 ---
 
@@ -1284,7 +1290,7 @@ Policy directive: "connect-src …"`. La imagen se construyó con otra `NEXT_PUB
 de Supabase se fijan al construir.
 
 ```
-curl -sI https://pre.elclub.party/login | grep -i content-security-policy | grep -o "connect-src [^;]*"
+curl -sI https://pre.elclub.party/foro/login | grep -i content-security-policy | grep -o "connect-src [^;]*"
 grep '^NEXT_PUBLIC_SUPABASE_URL=' /opt/elclub/pre/web.env
 ```
 
@@ -1366,7 +1372,7 @@ informe.
 - [ ] Environment `preproduction` con `PREPROD_DB_URL` (sin contraseña) y `PREPROD_DB_PASSWORD`, limitado a `develop`.
 - [ ] Primer run verde (enlace al run) y comprobaciones de 10.2 (los cuatro resultados).
 - [ ] SuperAdmin de preproducción creado con la wallet de pruebas.
-- [ ] Safe y wallet de la plataforma de Sepolia guardadas en `/settings/economia`; red activa Linea Sepolia.
+- [ ] `/settings/economia` muestra Base Sepolia y Arbitrum Sepolia.
 - [ ] Cron: `cron dao ok` a la hora en punto.
 - [ ] Copia nocturna con `pg_dump` funcionando (tamaño del primer `.dump`) y copia de la VM en Proxmox programada.
 - [ ] Desviaciones de esta guía y lo que queda pendiente del humano.

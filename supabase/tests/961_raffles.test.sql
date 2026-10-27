@@ -217,8 +217,12 @@ select ok(not exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
                         and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole)),
   'no default privilege hands a future object in private (or anywhere, globally) to an API role');
 select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
-                                                and p.oid <> 'private.rate_limit(text,text,int,interval)'::regprocedure),
-  'schema private holds no function but private.rate_limit (F5 Task 2, executable by no API role: 990)');
+                                                and p.oid not in ('private.rate_limit(text,text,int,interval)'::regprocedure,
+                                                                  'private.chain_enabled(int)'::regprocedure,
+                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure,
+                                                                  'private.hold_registration()'::regprocedure,
+                                                                  'private.registration_blocked_for(uuid)'::regprocedure)),
+  'schema private holds no function but private.rate_limit, private.chain_enabled, private.giveaway_pick, private.hold_registration and private.registration_blocked_for (F5 Task 2 / P0 Task 1 / P2 Task 5 / Administración Tasks 1 and 7, executable by no API role: 990, 995, p2_03, adm_01, adm_02)');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select * from private.raffle_seeds$$, '42501', null, 'authenticated cannot read private.raffle_seeds');
 select tests.clear_authentication();

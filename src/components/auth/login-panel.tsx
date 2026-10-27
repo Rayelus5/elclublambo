@@ -8,10 +8,11 @@ import { PenLine, Plug, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createBrowserClient } from "@/lib/supabase/browser";
 import { completeLogin } from "@/lib/auth/actions";
-import { safeNextPath } from "@/lib/auth/public-paths";
+import { safeClubNextPath } from "@/lib/auth/public-paths";
+import { clubPath } from "@/lib/club/paths";
 import { shortAddress } from "@/lib/auth/wallet";
 import { buildLoginMessage, generateNonce } from "@/lib/web3/siwe";
-import { getAppChain } from "@/lib/web3/chains";
+import { NETWORKS, appChainIds, type ChainId } from "@/lib/economy/networks";
 
 type Props = { inviteCode?: string | null; next?: string | null };
 
@@ -36,21 +37,24 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
   const [signing, setSigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const target = getAppChain();
-  const wrongChain = isConnected && chainId !== target.id;
+  // The wallet signs on whichever of the build's chains it is on; any other chain is switched to the first (Base).
+  const chains = appChainIds();
+  const loginChain = chains.find((c) => c === chainId);
+  const target = NETWORKS[chains[0] as ChainId];
+  const wrongChain = isConnected && loginChain === undefined;
 
   async function signIn() {
-    if (!address || signing) return;
+    if (!address || loginChain === undefined || signing) return;
     setError(null);
     setSigning(true);
     let navigated = false;
     try {
       const message = buildLoginMessage({
         address,
-        chainId: target.id,
+        chainId: loginChain,
         nonce: generateNonce(),
         domain: window.location.host,
-        uri: `${window.location.origin}/login`,
+        uri: `${window.location.origin}${clubPath("/login")}`,
       });
 
       let signature: `0x${string}`;
@@ -73,12 +77,12 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
 
       const { redirectTo, error: loginError } = await completeLogin(inviteCode);
       // Éxito: se mantiene `signing` activo mientras navega para evitar un doble envío.
-      // /invite/<code>?error=… ya presenta su error; /no-access lo recibe por ?error=.
+      // /foro/invite/<code>?error=… ya presenta su error; /foro/no-access lo recibe por ?error=.
       navigated = true;
-      if (loginError && redirectTo === "/no-access") {
-        router.replace(`/no-access?error=${encodeURIComponent(loginError)}`);
+      if (loginError && redirectTo === clubPath("/no-access")) {
+        router.replace(`${clubPath("/no-access")}?error=${encodeURIComponent(loginError)}`);
       } else {
-        router.replace(redirectTo === "/" ? safeNextPath(next) : redirectTo);
+        router.replace(redirectTo === clubPath() ? safeClubNextPath(next) : redirectTo);
       }
     } catch {
       setError(MSG_VERIFY);
@@ -110,8 +114,7 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
           {/* AppKit pide conexión y cambio de red seguidos si la wallet está en
               otra red, y la ventana de MetaMask falla ("reading 'origin'"). */}
           <p id="wallet-network-hint" className="text-[13px] text-fg-muted">
-            Antes de conectar, selecciona la red{" "}
-            {target.testnet ? "Linea Sepolia" : "Linea"} en tu wallet.
+            Usa tu wallet en Base o Arbitrum.
           </p>
         </>
       ) : wrongChain ? (
@@ -125,7 +128,7 @@ export function LoginPanel({ inviteCode = null, next = null }: Props) {
           }}
         >
           <Repeat aria-hidden />
-          {switching ? "Cambiando…" : "Cambiar a Linea"}
+          {switching ? "Cambiando…" : `Cambiar a ${target.name}`}
         </Button>
       ) : (
         <Button type="button" size="lg" disabled={signing} onClick={signIn}>

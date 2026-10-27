@@ -39,7 +39,7 @@ describe("MemberCardTrigger", () => {
     expect(card).toHaveTextContent("Moderador");
     expect(card).toHaveTextContent("Trader de Linea");
     expect(card).toHaveTextContent(/Miembro desde/);
-    expect(screen.getByRole("link", { name: "Ver perfil completo" })).toHaveAttribute("href", `/u/${CARD.walletAddress}`);
+    expect(screen.getByRole("link", { name: "Ver perfil completo" })).toHaveAttribute("href", `/foro/u/${CARD.walletAddress}`);
   });
 
   it("shows an offline member and a banned badge", async () => {

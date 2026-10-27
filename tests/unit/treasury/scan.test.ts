@@ -43,8 +43,8 @@ const readContract = vi.fn(async (a: { address: string; functionName: string; ar
   }
   return bal;
 });
-vi.mock("@/lib/payments/chain-client", () => ({
-  chainClient: () => ({
+vi.mock("@/lib/legacy/linea-client", () => ({
+  legacyChainClient: () => ({
     getLogs: (a: GetLogsArgs) => getLogs(a),
     getBlock: (a: { blockNumber: bigint }) => getBlock(a),
     getBlockNumber: () => getBlockNumber(),
@@ -91,7 +91,7 @@ function builder(table: string) {
 }
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ from: (t: string) => builder(t), rpc: (n: string, a?: unknown) => rpc(n, a) }) }));
 
-import { NETWORKS } from "@/lib/economy/networks";
+import { LEGACY_NETWORKS as NETWORKS } from "@/lib/legacy/linea";
 import { scanSafeOperations } from "@/lib/treasury/scan";
 
 const SAFE = "0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc";

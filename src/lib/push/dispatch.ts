@@ -16,9 +16,8 @@ type ClaimedRow = {
   tag: string | null;
   picked: number;
 };
-
-// Internal route only (the SQL builds one of /c/.., /tickets/.., /u/.., /moderation/reports, /admin/members,
-// /notifications); anything else is refused here too.
+// Internal route only (the SQL builds one of /foro/c/.., /foro/tickets/.., /foro/u/.., /foro/moderation/reports,
+// /foro/admin/members, /foro/notifications, /foro/donar, /foro/sorteos[/..]); anything else is refused here too.
 const INTERNAL_URL_RE = /^\/(?!\/)[A-Za-z0-9._~!$&'()*+,;=:@%/?#-]*$/;
 
 const BATCH = 200;

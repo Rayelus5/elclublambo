@@ -1,15 +1,13 @@
+import { appChainIds } from "@/lib/economy/networks";
 import type { TipIntent } from "@/lib/payments/tip-actions";
 
 /**
  * Local ledger of in-flight sends (F3b-R4). A hash is written here as soon as the wallet returns it, before the server
- * is told, so a closed tab, a failed attach or a rejected second signature never costs the member a second payment.
+ * is told, so a closed tab or a failed attach never costs the member a second payment.
  * Every access is wrapped: the flow must keep working when storage is unavailable.
  */
-/**
- * What a send pays for: a message or profile tip, a bounty (targetId is the bounty message id) or a DAO donation
- * (targetId is the constant "dao": a fee paid on one chain stays resumable even if the active chain changes).
- */
-export type LedgerTargetType = "message" | "profile" | "bounty" | "dao";
+/** What a send pays for: a message or profile tip, a bounty (targetId is the bounty message id) or a donation (targetId is the chain id). */
+export type LedgerTargetType = "message" | "profile" | "bounty" | "donation";
 
 export type PendingSend = {
   intentId: string;
@@ -17,10 +15,9 @@ export type PendingSend = {
   token: "ETH" | "USDC";
   targetType: LedgerTargetType;
   targetId: string;
+  /** Always false since P0-R5 (one transfer, no fee); true only on entries left by the fee era, which are pruned. */
   feeRequired: boolean;
-  feeHash?: string;
   mainHash?: string;
-  feeAttached?: boolean;
   mainAttached?: boolean;
   createdAt: number;
   /** Timestamp set while a wallet signature request is pending; cleared when it settles (F3b-R5). */
@@ -86,9 +83,18 @@ export function remainingMs(intent: Pick<TipIntent, "expiresAt">, now = Date.now
   return Number.isNaN(t) ? -1 : t - now;
 }
 
-/** A fee already paid whose main transfer was never signed, for this target. The caller checks the expiry margin. */
-export function findResumable(memberId: string, targetType: LedgerTargetType, targetId: string, now = Date.now()): PendingSend | undefined {
-  return loadSends(memberId, now).find((e) => e.targetType === targetType && e.targetId === targetId && e.feeRequired && !!e.feeHash && !e.mainHash);
+/**
+ * Drops leftovers that can never complete here (Review Focus 4): unsigned entries of the fee era (two transfers) and
+ * unsigned entries on a chain outside the build's set (a legacy chain). The DB network switch is deliberately not
+ * consulted, and an entry with a main hash is never dropped: that payment may already be on chain, and only a definitive
+ * attach/verify answer may forget it. Returns how many were dropped.
+ */
+export function pruneUnsupportedSends(memberId: string): number {
+  const build = appChainIds() as readonly number[];
+  const list = loadSends(memberId);
+  const keep = list.filter((e) => !!e.mainHash || (e.feeRequired !== true && build.includes(e.chainId)));
+  if (keep.length !== list.length) write(memberId, keep);
+  return list.length - keep.length;
 }
 
 /** A signature request for this target that may still be waiting in the wallet. */

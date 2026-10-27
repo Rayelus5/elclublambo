@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { ArrowLeft, Lock, RotateCcw } from "lucide-react";
@@ -112,7 +113,7 @@ export function TicketView({ ticket, initialMessages, viewer, allowedDomains }: 
     <div className="flex max-w-3xl flex-col gap-6">
       <header className="flex flex-col gap-3">
         <Link
-          href="/tickets"
+          href={clubPath("/tickets")}
           className="inline-flex min-h-11 w-fit items-center gap-2 rounded-control text-sm font-bold text-fg-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
         >
           <ArrowLeft className="size-4" aria-hidden />

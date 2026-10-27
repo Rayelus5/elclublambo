@@ -5,7 +5,7 @@
 --   only, positive only; the club fund has no member row and never weighs.
 -- Setup: 59141 active; A 9e18 shares (1e18 locked), B 4e18, C 0, D 1e18 but banned; club_shares 5e18.
 begin;
-select plan(111);
+select plan(101);
 
 -- ===== helpers (rolled back with the test) =====
 create function tests.td(p_text text) returns jsonb language sql as $$
@@ -13,10 +13,32 @@ create function tests.td(p_text text) returns jsonb language sql as $$
     'type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', p_text)))))
 $$;
 create function tests.cfg(p_key text) returns text language sql as $$ select current_setting(p_key) $$;
+-- P1 Task 1: create_poll no longer takes a weight mode. A legacy weighted row (kept for the delete cases) is seeded
+-- by hand: an equal poll turned linear / quadratic with the old creation snapshot, definer so it works in a session.
+create function tests.legacy_weights(p_poll uuid, p_mode text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  update public.polls set weight_mode = p_mode, chain_id = 59141 where message_id = p_poll;
+  insert into private.poll_weight_snapshots (poll_id, member_id, weight)
+  select p_poll, w.member_id, w.weight
+  from (select p.member_id,
+               case when p_mode = 'linear' then greatest(p.shares - p.locked_shares, 0)
+                    else public._isqrt(greatest(p.shares - p.locked_shares, 0)) end as weight
+        from public.dao_positions p
+        join public.members m on m.id = p.member_id and m.status = 'active'
+        where p.chain_id = 59141) w
+  where w.weight > 0;
+end;
+$$;
 create function tests.poll(p_ch text, p_question text, p_options text[], p_mode text default 'equal',
                            p_closes timestamptz default now() + interval '1 day')
-returns uuid language sql as $$
-  select public.create_poll(p_ch::uuid, p_question, p_options, p_closes, p_mode)
+returns uuid language plpgsql as $$
+declare v uuid;
+begin
+  v := public.create_poll(p_ch::uuid, p_question, p_options, p_closes);
+  if p_mode in ('linear', 'quadratic') then perform tests.legacy_weights(v, p_mode); end if;
+  return v;
+end;
 $$;
 create function tests.snap(p_poll uuid) returns jsonb language sql as $$
   select coalesce(jsonb_object_agg(s.member_id::text, s.weight::text), '{}'::jsonb)
@@ -64,9 +86,9 @@ update public.dao_state set club_shares = 5000000000000000000, total_shares = 19
 update public.members set status = 'banned' where id = current_setting('t.d')::uuid;
 
 -- ===== 1. grants, schema, privacy =====
-select ok(not has_function_privilege('anon', 'public.create_poll(uuid,text,text[],timestamptz,text)', 'execute'),
+select ok(not has_function_privilege('anon', 'public.create_poll(uuid,text,text[],timestamptz)', 'execute'),
   'anon cannot create_poll');
-select ok(has_function_privilege('authenticated', 'public.create_poll(uuid,text,text[],timestamptz,text)', 'execute'),
+select ok(has_function_privilege('authenticated', 'public.create_poll(uuid,text,text[],timestamptz)', 'execute'),
   'members can call create_poll (the bits are checked inside)');
 select ok(not has_function_privilege('anon', 'public._isqrt(numeric)', 'execute')
       and not has_function_privilege('authenticated', 'public._isqrt(numeric)', 'execute')
@@ -78,7 +100,7 @@ select ok(not exists (select 1 from pg_proc p, aclexplode(coalesce(p.proacl, acl
   '_isqrt is executable by its owner only (no PUBLIC grant either)');
 select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'])
            from pg_proc p
-           where p.oid in ('public.create_poll(uuid,text,text[],timestamptz,text)'::regprocedure,
+           where p.oid in ('public.create_poll(uuid,text,text[],timestamptz)'::regprocedure,
                            'public._isqrt(numeric)'::regprocedure,
                            'public.edit_message(uuid,jsonb,text)'::regprocedure,
                            'public.delete_message(uuid)'::regprocedure)),
@@ -103,8 +125,12 @@ select ok(not exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
                         and a.grantee in ('anon'::regrole, 'authenticated'::regrole, 'service_role'::regrole)),
   'no default privilege hands a future object in private to an API role');
 select ok(not exists (select 1 from pg_proc p where p.pronamespace = 'private'::regnamespace
-                                                and p.oid <> 'private.rate_limit(text,text,int,interval)'::regprocedure),
-  'schema private still holds no function but private.rate_limit (F5 Task 2, executable by no API role: 990)');
+                                                and p.oid not in ('private.rate_limit(text,text,int,interval)'::regprocedure,
+                                                                  'private.chain_enabled(int)'::regprocedure,
+                                                                  'private.giveaway_pick(bytea,bytea,int,int)'::regprocedure,
+                                                                  'private.hold_registration()'::regprocedure,
+                                                                  'private.registration_blocked_for(uuid)'::regprocedure)),
+  'schema private still holds no function but private.rate_limit, private.chain_enabled, private.giveaway_pick, private.hold_registration and private.registration_blocked_for (F5 Task 2 / P0 Task 1 / P2 Task 5 / Administración Tasks 1 and 7, executable by no API role: 990, 995, p2_03, adm_01, adm_02)');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select * from private.poll_votes$$, '42501', null, 'authenticated cannot read private.poll_votes');
 select throws_ok($$select * from private.poll_weight_snapshots$$, '42501', null,
@@ -168,7 +194,7 @@ select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}')$$, 'P00
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select tests.poll(tests.cfg('t.ch2'), 'Q', '{Sí,No}')$$, 'P0001', 'forbidden',
   'CREATE_POLLS but SEND_MESSAGES denied on the channel -> forbidden');
-select throws_ok($$select public.create_poll(null, 'Q', '{Sí,No}', now() + interval '1 day', 'equal')$$, 'P0001', 'forbidden',
+select throws_ok($$select public.create_poll(null, 'Q', '{Sí,No}', now() + interval '1 day')$$, 'P0001', 'forbidden',
   'a null channel -> forbidden');
 select tests.authenticate_as(current_setting('t.ud')::uuid);
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}')$$, 'P0001', 'forbidden', 'a banned member -> forbidden');
@@ -181,8 +207,8 @@ select throws_ok($$select tests.poll(tests.cfg('t.ch'), null, '{Sí,No}')$$, 'P0
   'a null question -> question_required');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), repeat('a', 301), '{Sí,No}')$$, 'P0001', 'question_required',
   '301 characters -> question_required');
-select throws_ok($$select tests.poll(tests.cfg('t.ch'), '  ', '{Sí}', 'majority', now())$$, 'P0001', 'question_required',
-  'the question is checked before the options, the mode and the close');
+select throws_ok($$select tests.poll(tests.cfg('t.ch'), '  ', '{Sí}', 'equal', now())$$, 'P0001', 'question_required',
+  'the question is checked before the options and the close');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí}')$$, 'P0001', 'poll_options_invalid', 'one option');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{1,2,3,4,5,6,7,8,9,10,11}')$$, 'P0001', 'poll_options_invalid',
   'eleven options');
@@ -195,10 +221,6 @@ select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,"   "}')$$, '
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', null)$$, 'P0001', 'poll_options_invalid', 'a null array');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{{a,b},{c,d}}')$$, 'P0001', 'poll_options_invalid',
   'a two-dimensional array');
-select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', 'majority')$$, 'P0001', 'invalid_input',
-  'an unknown weight mode -> invalid_input');
-select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', null)$$, 'P0001', 'invalid_input',
-  'a null weight mode -> invalid_input');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', 'equal', now() + interval '59 minutes')$$,
   'P0001', 'closes_at_invalid', 'closing in 59 minutes -> closes_at_invalid');
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', 'equal', now() + interval '30 days 1 minute')$$,
@@ -206,12 +228,6 @@ select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', 'equal'
 select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}', 'equal', null)$$,
   'P0001', 'closes_at_invalid', 'a null close -> closes_at_invalid');
 select tests.clear_authentication();
-update public.app_config set value = 'null'::jsonb where key = 'active_chain_id';
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select throws_ok($$select tests.poll(tests.cfg('t.ch'), 'Q', '{Sí,No}')$$, 'P0001', 'chain_invalid',
-  'an unreadable active chain -> chain_invalid');
-select tests.clear_authentication();
-update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
 select is((select count(*)::int from public.messages where channel_id in (current_setting('t.ch')::uuid, current_setting('t.ch2')::uuid)),
   0, 'no refused call left a message behind');
 
@@ -241,9 +257,9 @@ select is((select jsonb_build_object('ch', channel_id, 'author', author_id, 'cha
                                      'closes', closes_at = now() + interval '2 days', 'fin', finalized_at,
                                      'vc', voter_count, 'wvc', weighted_voter_count, 'pub', results_published)
            from public.polls where message_id = current_setting('t.pe')::uuid),
-  jsonb_build_object('ch', current_setting('t.ch')::uuid, 'author', current_setting('t.a')::uuid, 'chain', 59141,
+  jsonb_build_object('ch', current_setting('t.ch')::uuid, 'author', current_setting('t.a')::uuid, 'chain', null,
                      'mode', 'equal', 'closes', true, 'fin', null, 'vc', null, 'wvc', null, 'pub', null),
-  'the polls row: channel, author, chain 59141, equal, the close, nothing finalized');
+  'the polls row: channel, author, no chain, equal, the close, nothing finalized');
 select is(tests.snap(current_setting('t.pe')::uuid), '{}'::jsonb, 'an equal poll stores no snapshot');
 select throws_ok($$update public.messages set kind = 'nope' where id = tests.cfg('t.pe')::uuid$$,
   '23514', null, 'messages_kind_check still refuses an unknown kind');
@@ -268,45 +284,12 @@ select throws_ok($$insert into public.poll_options (poll_id, position, label) va
 select throws_ok($$update public.polls set finalized_at = now() where message_id = tests.cfg('t.pe')::uuid$$,
   '23514', null, 'the finalize columns are all null or all set');
 
--- ===== 5. create, linear and quadratic (Review Focus 4) =====
+-- ===== 5. legacy weighted rows (setup for the delete cases) =====
+-- create_poll no longer makes them; they are seeded by hand as the rows F4e left behind.
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select set_config('t.pl', tests.poll(current_setting('t.ch'), 'Lineal', '{Sí,No}', 'linear')::text, true);
 select set_config('t.pq', tests.poll(current_setting('t.ch'), 'Cuadrática', '{Sí,No}', 'quadratic')::text, true);
 select tests.clear_authentication();
-select is(tests.snap(current_setting('t.pl')::uuid),
-  jsonb_build_object(current_setting('t.a'), '8000000000000000000', current_setting('t.b'), '4000000000000000000'),
-  'linear: A weighs its unlocked 8e18, B 4e18; C (0), D (banned) and the club have no row');
-select is(tests.snap(current_setting('t.pq')::uuid),
-  jsonb_build_object(current_setting('t.a'), public._isqrt(8000000000000000000)::text, current_setting('t.b'), '2000000000'),
-  'quadratic: A isqrt(8e18), B 2e9');
-select is((select weight_mode || '/' || chain_id from public.polls where message_id = current_setting('t.pq')::uuid),
-  'quadratic/59141', 'the mode and the chain are stored');
-update public.dao_positions set shares = shares + 3000000000000000000
-  where chain_id = 59141 and member_id = current_setting('t.b')::uuid;
-update public.dao_positions set locked_shares = locked_shares + 4000000000000000000
-  where chain_id = 59141 and member_id = current_setting('t.a')::uuid;
-update public.dao_positions set shares = 2000000000000000000
-  where chain_id = 59141 and member_id = current_setting('t.c')::uuid;
-select is(tests.snap(current_setting('t.pl')::uuid),
-  jsonb_build_object(current_setting('t.a'), '8000000000000000000', current_setting('t.b'), '4000000000000000000'),
-  'a later donation or a later lock leaves the linear snapshot unchanged');
-select is(tests.snap(current_setting('t.pq')::uuid),
-  jsonb_build_object(current_setting('t.a'), '2828427124', current_setting('t.b'), '2000000000'),
-  'and the quadratic snapshot unchanged');
--- a poll created now sees the new unlocked shares
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.pl2', tests.poll(current_setting('t.ch'), 'Lineal 2', '{Sí,No}', 'linear')::text, true);
-select tests.clear_authentication();
-select is(tests.snap(current_setting('t.pl2')::uuid),
-  jsonb_build_object(current_setting('t.a'), '4000000000000000000', current_setting('t.b'), '7000000000000000000',
-                     current_setting('t.c'), '2000000000000000000'),
-  'a new poll snapshots the unlocked shares at its own creation');
--- every unlocked share locked: no row at all
-update public.dao_positions set locked_shares = shares where chain_id = 59141;
-select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.pl3', tests.poll(current_setting('t.ch'), 'Lineal 3', '{Sí,No}', 'linear')::text, true);
-select tests.clear_authentication();
-select is(tests.snap(current_setting('t.pl3')::uuid), '{}'::jsonb, 'fully locked positions store no weight row');
 
 -- ===== 6. edit =====
 select tests.authenticate_as(current_setting('t.ua')::uuid);

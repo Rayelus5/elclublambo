@@ -48,7 +48,7 @@ async function login(chainId: number, account = privateKeyToAccount(generatePriv
 
 describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipReason})`}`, () => {
   it("signs_in_and_records_web3_identity", async () => {
-    const { account, res } = await login(59141);
+    const { account, res } = await login(84532);
     expect(res.error).toBeNull();
     expect(res.data.session).not.toBeNull();
     const identity = res.data.user!.identities![0]!;
@@ -60,22 +60,22 @@ describe.skipIf(!up)(`supabase native web3 auth ${up ? "" : `(skipped: ${skipRea
     const claims = data.custom_claims as Record<string, string>;
     expect(claims.address).toBe(account.address);
     expect(claims.chain).toBe("ethereum");
-    expect(claims.network).toBe("59141");
+    expect(claims.network).toBe("84532");
     expect(claims.domain).toBe("localhost:3000");
     expect(identity.id).toBe(`web3:ethereum:${account.address}`);
   });
 
   it("same_account_returns_same_user_id", async () => {
     const account = privateKeyToAccount(generatePrivateKey());
-    const a = await login(59141, account);
-    const b = await login(59141, account);
+    const a = await login(84532, account);
+    const b = await login(84532, account);
     expect(a.res.error).toBeNull();
     expect(b.res.error).toBeNull();
     expect(b.res.data.user!.id).toBe(a.res.data.user!.id);
   });
 
-  it("accepts_mainnet_linea_chain_id", async () => {
-    const { res } = await login(59144);
+  it("accepts_arbitrum_sepolia_chain_id", async () => {
+    const { res } = await login(421614);
     expect(res.error).toBeNull();
   });
 

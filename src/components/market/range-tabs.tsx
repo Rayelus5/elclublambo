@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { CHART_RANGES, type ChartRange } from "@/lib/market/types";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ export function RangeTabs({ id, active }: { id: string; active: ChartRange }) {
       {CHART_RANGES.map((r) => (
         <Link
           key={r}
-          href={`/mercado/${id}?r=${r}`}
+          href={clubPath(`/mercado/${id}?r=${r}`)}
           scroll={false}
           aria-current={r === active ? "page" : undefined}
           className={cn(

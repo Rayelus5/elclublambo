@@ -19,7 +19,7 @@ const actor = (over = {}) => ({ isAdmin: false, perms: "16", top: 600, ...over }
 const role = (over = {}) => ({
   id: "6f1c1c5e-0000-4000-8000-0000000000a1",
   name: "VIP",
-  color: "#3DDC84",
+  color: "#66C800",
   position: 10,
   permissions: "16",
   isEveryone: false,
@@ -62,11 +62,11 @@ describe("RoleForm", () => {
     const user = userEvent.setup();
     render(<RoleForm role={null} actor={actor()} />);
     await user.type(screen.getByLabelText("Nombre"), "VIP");
-    await user.click(screen.getByRole("radio", { name: "#FFB020" }));
+    await user.click(screen.getByRole("radio", { name: "#FFD12F" }));
     await user.click(screen.getByLabelText("Crear invitaciones"));
     await user.click(screen.getByRole("button", { name: "Crear rol" }));
     await waitFor(() =>
-      expect(createRoleAction).toHaveBeenCalledWith({ name: "VIP", color: "#FFB020", permissions: "16" }),
+      expect(createRoleAction).toHaveBeenCalledWith({ name: "VIP", color: "#FFD12F", permissions: "16" }),
     );
   });
 

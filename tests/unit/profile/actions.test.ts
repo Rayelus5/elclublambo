@@ -21,7 +21,7 @@ vi.mock("next/cache", () => ({ revalidatePath }));
 vi.mock("@/lib/supabase/server", () => ({ createServerClient: async () => ({ rpc, from }) }));
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: () => ({ storage: { from: storageFrom } }) }));
 
-import { saveProfileAction, setAvatarAction, setHandleAction } from "@/lib/profile/actions";
+import { saveProfileAction, setAvatarAction, setHandleAction, setReceiveNetworksAction } from "@/lib/profile/actions";
 import { rpcErrorMessage } from "@/lib/errors";
 
 const input = { displayName: "Ana", bio: "hola", links: ["https://a.com"] };
@@ -45,6 +45,8 @@ describe("saveProfileAction", () => {
     expect(await saveProfileAction(input)).toEqual({ ok: true });
     expect(rpc).toHaveBeenCalledWith("update_profile", { p_display_name: "Ana", p_bio: "hola", p_links: ["https://a.com"] });
     expect(revalidatePath).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/(forum)/u/[address]", "page");
+    expect(revalidatePath).toHaveBeenCalledWith("/foro/perfil");
   });
 
   it.each(["bio_too_long", "links_invalid", "invalid_input", "forbidden"])("maps %s to its Spanish copy", async (code) => {
@@ -133,5 +135,24 @@ describe("setAvatarAction", () => {
     expect(await setAvatarAction(NEW)).toEqual({ ok: true });
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+describe("setReceiveNetworksAction", () => {
+  it("calls set_receive_networks and revalidates", async () => {
+    expect(await setReceiveNetworksAction(["arbitrum", "base"])).toEqual({ ok: true });
+    expect(rpc).toHaveBeenCalledWith("set_receive_networks", { p_networks: ["arbitrum", "base"] });
+    expect(revalidatePath).toHaveBeenCalled();
+  });
+
+  it.each([[[]], [["linea"]], [["base", "linea"]]])("rejects %j without calling the db", async (list) => {
+    // @ts-expect-error hostile input
+    expect(await setReceiveNetworksAction(list)).toEqual({ ok: false, error: rpcErrorMessage("invalid_input") });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("maps a db error", async () => {
+    failWith("rate_limited");
+    expect(await setReceiveNetworksAction(["base"])).toEqual({ ok: false, error: rpcErrorMessage("rate_limited") });
   });
 });

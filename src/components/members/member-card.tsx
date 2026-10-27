@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { MemberAvatar } from "@/components/members/member-avatar";
@@ -75,8 +76,8 @@ function CardBody({ state }: { state: Load }) {
       {c.bio ? <p className="line-clamp-4 text-sm break-words whitespace-pre-line text-fg">{c.bio}</p> : null}
       {c.joinedAt ? <p className="text-[13px] text-fg-muted">Miembro desde {JOINED.format(new Date(c.joinedAt))}</p> : null}
       <Link
-        href={`/u/${c.walletAddress}`}
-        className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent px-4 text-sm font-bold text-bg outline-none hover:bg-accent/85 focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
+        href={clubPath(`/u/${c.walletAddress}`)}
+        className="inline-flex min-h-11 items-center justify-center rounded-control bg-accent-fill px-4 text-sm font-bold text-accent-fill-fg outline-none hover:bg-accent-fill-hover focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg"
       >
         Ver perfil completo
       </Link>

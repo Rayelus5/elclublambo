@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { leavePresence } from "@/lib/members/card";
 import { presenceDeviceId } from "@/lib/members/presence";
 import { createBrowserClient } from "@/lib/supabase/browser";
+import { clubPath } from "@/lib/club/paths";
 
 /** `collapse`: below 1024px only the icon is drawn (the text stays for screen readers). */
 export function SignOutButton({ label, collapse = false }: { label: string; collapse?: boolean }) {
@@ -21,7 +22,7 @@ export function SignOutButton({ label, collapse = false }: { label: string; coll
       await leavePresence(supabase, presenceDeviceId()).catch(() => undefined);
       await supabase.auth.signOut();
     } finally {
-      router.replace("/login");
+      router.replace(clubPath("/login"));
       setBusy(false);
     }
   }

@@ -4,9 +4,9 @@ Hay tres entornos:
 
 | Entorno | Dónde | Red | Supabase | Se despliega |
 |---|---|---|---|---|
-| Desarrollo | tu PC, `http://localhost:3000` | Linea Sepolia (o la cadena Hardhat local de los e2e) | local (`pnpm db:start`) | `pnpm dev` |
-| Preproducción | Proxmox de casa, `https://pre.elclub.party` | Linea Sepolia | self-hosted, `https://pre-api.elclub.party` | push a `develop` |
-| Producción | Vercel, `https://elclub.party` | Linea mainnet | Supabase Cloud, `https://<ref>.supabase.co` | push a `main` |
+| Desarrollo | tu PC, `http://localhost:3000` | Base Sepolia y Arbitrum Sepolia (o la cadena Hardhat local de los e2e) | local (`pnpm db:start`) | `pnpm dev` |
+| Preproducción | Proxmox de casa, `https://pre.elclub.party` | Base Sepolia y Arbitrum Sepolia | self-hosted, `https://pre-api.elclub.party` | push a `develop` |
+| Producción | Vercel, `https://elclub.party` | Base y Arbitrum mainnet | Supabase Cloud, `https://<ref>.supabase.co` | push a `main` |
 
 Dónde se ponen las variables:
 
@@ -36,37 +36,67 @@ Cómo leer las celdas:
 | `NEXT_PUBLIC_SUPABASE_URL` | `http://127.0.0.1:54321` | `https://pre-api.elclub.party` | `https://<ref>.supabase.co` | no | sí |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | \<tu valor\> (`pnpm exec supabase status`) | \<tu valor\> (`ANON_KEY` del Supabase self-hosted) | \<tu valor\> (publishable o anon) | no | sí |
 | `SUPABASE_SERVICE_ROLE_KEY` | \<tu valor\> (`pnpm exec supabase status`) | \<tu valor\> (`SERVICE_ROLE_KEY` del self-hosted) | \<tu valor\> (secret o service_role) | **sí** | no |
+| `SUPABASE_INTERNAL_URL` | vacía | `http://kong:8000` (la red Docker de Supabase: el servidor no sale por Cloudflare, que los operadores bloquean en partidos de LaLiga) | vacía | no | no |
 | `SUPER_ADMIN_WALLET` | \<tu valor\> (tu wallet de pruebas) | \<tu valor\> | \<tu valor\> (tu wallet de SuperAdmin) | no | no |
 | `NEXT_PUBLIC_REOWN_PROJECT_ID` | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub dev/pre") | \<tu valor\> ("elclub prod") | no | sí |
-| `NEXT_PUBLIC_CHAIN` | `lineaSepolia` | `lineaSepolia` | `linea` | no | sí |
+| `NEXT_PUBLIC_NETWORK_SET` | `testnet` | `testnet` | `mainnet` | no | sí |
+| `NEXT_PUBLIC_BASE_BUILDER_CODE` | vacía | vacía | \<tu valor\> (tu Builder Code de base.dev, obligatoria: el build falla si no) | no | sí |
 | `NEXT_PUBLIC_SITE_URL` | `http://localhost:3000` | `https://pre.elclub.party` | `https://elclub.party` | no | sí |
-| `LINEA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | \<tu valor\> (Infura mainnet, obligatoria) | **sí** | no |
-| `LINEA_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> (Infura Sepolia) | vacía, o \<tu valor\> si algún día cambias la red activa a Sepolia | **sí** | no |
-| `NEXT_PUBLIC_LINEA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
-| `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
+| `BASE_RPC_URL` | vacía (RPC pública) | vacía | \<tu valor\> (RPC de Base mainnet, obligatoria) | **sí** | no |
+| `ARBITRUM_RPC_URL` | vacía (RPC pública) | vacía | \<tu valor\> (RPC de Arbitrum One, obligatoria) | **sí** | no |
+| `BASE_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | vacía (el build de mainnet no la usa) | **sí** | no |
+| `ARBITRUM_SEPOLIA_RPC_URL` | \<tu valor\> o vacía (RPC pública) | \<tu valor\> o vacía | vacía (el build de mainnet no la usa) | **sí** | no |
+| `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
+| `NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL` | vacía (solo la fijan los e2e) | vacía | vacía (el build falla si no) | no, pero nunca pongas una clave aquí | sí |
 | `TIP_CONFIRMATIONS` | vacía (= 3) | `3` | `3` | no | no |
 | `ETH_USD_FEED_ADDRESS_59141` | vacía (solo e2e / cadena local) | vacía | vacía (el build falla si no) | no | no |
 | `WETH_ADDRESS_59141` | vacía (solo e2e / cadena local) | vacía | vacía (el build falla si no) | no | no |
 | `COINGECKO_DISABLED` | vacía (solo e2e) | vacía | vacía (el build falla si no) | no | no |
 | `COINGECKO_API_BASE` | vacía (los e2e la apuntan a un mock) | vacía | vacía (el build falla si no) | no | no |
+| `DRAND_API_BASE` | vacía (los e2e la apuntan al drand simulado) | vacía (drand real) | vacía (se ignora en `mainnet`) | no | no |
+| `NEXT_PUBLIC_DRAND_API_BASE` | vacía (los e2e la apuntan al drand simulado) | vacía (drand real) | vacía (se ignora en `mainnet`) | no | sí |
+| `NEXT_PUBLIC_DRAND_PUBLIC_KEY` | vacía (los e2e ponen la clave de prueba) | vacía (clave real de quicknet) | vacía (se ignora en `mainnet`) | no | sí |
 | `COINGECKO_API_KEY` | \<tu valor\> o vacía | \<tu valor\> o vacía | \<tu valor\> o vacía | **sí** | no |
 | `VAPID_PUBLIC_KEY` | \<tu valor\> o vacía (push apagado) | \<tu valor\> | \<tu valor\> | no | no |
 | `VAPID_PRIVATE_KEY` | \<tu valor\> o vacía | \<tu valor\> | \<tu valor\> | **sí** | no |
 | `VAPID_SUBJECT` | `mailto:<tu correo>` o vacía | `mailto:<tu correo>` | `mailto:<tu correo>` | no | no |
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | igual que `VAPID_PUBLIC_KEY` | no | sí |
 | `CRON_SECRET` | \<tu valor\> o vacía (la ruta responde 503) | \<tu valor\> (`openssl rand -hex 32`) | \<tu valor\> (`openssl rand -hex 32`, mínimo 32 caracteres) | **sí** | no |
+| `TRUSTED_IP_HEADER` | vacía (primera entrada de `x-forwarded-for`) | `cf-connecting-ip` (detrás del túnel de Cloudflare) | vacía (Vercel sobrescribe `x-forwarded-for`) | no | no |
+| `X402_ENABLED` | vacía (API gratis, limitada por IP) | vacía; `true` solo para probar el pago en Base Sepolia | vacía hasta el alta fiscal (D17) | no | no |
+| `X402_NETWORK` | vacía (= `eip155:84532`) | vacía (= `eip155:84532`, Base Sepolia) | vacía; `eip155:8453` cuando se active | no | no |
+| `X402_PRICE` | vacía (= `$0.01`) | vacía (= `$0.01`) | vacía (= `$0.01`) | no | no |
+| `X402_PAY_TO` | vacía (= la Safe del club) | vacía (= la Safe del club) | vacía (= la Safe del club) | no | no |
+| `X402_FACILITATOR_URL` | vacía (= `https://x402.org/facilitator`) | vacía (= `https://x402.org/facilitator`) | vacía (en mainnet se usa el facilitador de CDP) | no | no |
+| `CDP_API_KEY_ID` | vacía | vacía | \<tu valor\> cuando se active x402 en mainnet (portal.cdp.coinbase.com) | **sí** | no |
+| `CDP_API_KEY_SECRET` | vacía | vacía | \<tu valor\> cuando se active x402 en mainnet | **sí** | no |
 | `NEXT_OUTPUT` | vacía | `standalone` (lo fija el `Dockerfile`) | vacía | no | sí |
 | `ENABLE_EXPERIMENTAL_COREPACK` | vacía | vacía | `1` (para que Vercel use `pnpm@12.11.2`) | no | sí |
 
 Notas:
 
-- `ETH_USD_FEED_ADDRESS_59144` y `WETH_ADDRESS_59144` no existen como override: Linea mainnet usa siempre las
-  direcciones verificadas de `src/lib/economy/networks.ts`. Si alguien las crea en Vercel, el build de producción
-  falla.
+- `ETH_USD_FEED_ADDRESS_59144` y `WETH_ADDRESS_59144` no existen como override: la red heredada usa siempre las
+  direcciones verificadas del código. Si alguien las crea en Vercel, el build de producción falla.
+- `NEXT_PUBLIC_NETWORK_SET` decide qué redes usa el build. Vacía o ausente significa `testnet`; cualquier otro valor
+  que no sea `mainnet` o `testnet` rompe el build. La migración de la base de datos habilita las cuatro redes: el
+  build decide cuáles se usan, así que no hay nada que activar a mano en `/settings/economia`.
+- Las variables de la configuración anterior (`NEXT_PUBLIC_CHAIN`, `LINEA_RPC_URL`, `LINEA_SEPOLIA_RPC_URL`,
+  `NEXT_PUBLIC_LINEA_RPC_URL`, `NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL`) ya no las lee nada. Si siguen en Vercel, el build
+  de producción falla hasta que las borres.
 - `VERCEL_ENV` la pone Vercel sola. Cuando vale `production`, el build ejecuta la comprobación de
   `src/lib/deploy/readiness.ts` (mensajes explicados en `produccion.md`, paso 3.4). Si el ajuste de Vercel
   **Automatically expose System Environment Variables** se desactiva, `VERCEL_ENV` no llega al build y la
   comprobación se salta en silencio: déjalo activado.
+- x402 (pago por consulta de la API del comprobador, `/api/v1/check/*`) está **apagado en todos los entornos**: no
+  hay cobro real sin el alta fiscal. Con `X402_ENABLED` vacía la API es gratis y limitada a 60 consultas por hora e
+  IP. Con `X402_ENABLED=true` y `X402_NETWORK=eip155:8453` pero sin las dos claves de CDP, la API sigue gratis y lo
+  deja en los logs (`[x402] ... missing_cdp_keys`). Un error del análisis nunca se cobra (solo se liquida si la
+  respuesta es < 400).
+- Con x402 encendido, cada petición que trae `PAYMENT-SIGNATURE` (o la antigua `X-PAYMENT`, que @x402/next también acepta) gasta antes un golpe del cubo `api_paid_attempt`
+  (300 por hora e IP, sujeto con hash como el resto): así una cabecera inventada no puede martillear al facilitador.
+  Una firma válida **reenviada** pasa la verificación y ejecuta el análisis, pero la liquidación falla (el nonce ya
+  se usó) y no se entrega el informe cobrado. Su coste queda acotado: el informe de token se reutiliza 10 min de la
+  caché (P4-R7), el análisis de enlaces es local y el cubo limita los intentos por IP.
 - Las claves VAPID se generan con `pnpm exec web-push generate-vapid-keys --json`, una pareja por entorno.
 
 ## Secretos de GitHub

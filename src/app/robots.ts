@@ -1,11 +1,15 @@
 import type { MetadataRoute } from "next";
-import { isProductionSite } from "@/lib/start/site";
+import { isProductionSite, siteOrigin } from "@/lib/start/site";
 
-// Production: only the public landing is indexable (the rest of the forum sits behind the login); /_next/ stays crawlable
-// so a crawler can render /start. Any other host (preproduction, local) is never indexed.
+// Production: only the public part is indexable (landing, /start, tools, ES and EN); the rest of the forum sits behind
+// the login. /_next/ stays crawlable so a crawler can render the pages. The Spanish pages point their OG/Twitter images at
+// the internal /es tree (the only /es URLs served as they are). "/en$" + "/en/" so /english is not allowed. Any other
+// host (preproduction, local) is never indexed. ElClub Pay pages (/pay/*, receipts) are noindex and not crawlable; "/donar$" is
+// the public donate page ("/donar/..." stays private; "/en/donate" is under "/en/").
 export default function robots(): MetadataRoute.Robots {
   if (!isProductionSite()) return { rules: { userAgent: "*", disallow: "/" } };
   return {
-    rules: { userAgent: "*", allow: ["/start", "/_next/"], disallow: "/" },
+    rules: { userAgent: "*", allow: ["/$", "/en$", "/en/", "/start", "/herramientas", "/donar$", "/es/*opengraph-image", "/es/*twitter-image", "/_next/"], disallow: ["/", "/en/pay"] },
+    sitemap: `${siteOrigin().origin}/sitemap.xml`,
   };
 }

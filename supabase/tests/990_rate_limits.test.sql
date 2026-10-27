@@ -45,7 +45,7 @@ create function tests.tips(p_member text, p_to text, p_n int) returns void langu
 begin
   for i in 1..p_n loop
     perform tests.login(p_member);
-    perform public.create_tip_intent('profile', p_to::uuid, 'USDC', 10000, 0, false);
+    perform public.create_tip_intent('profile', p_to::uuid, 84532, 'USDC', 10000, false);
     perform tests.clear_authentication();
     update public.payment_intents set status = 'expired' where member_id = p_member::uuid and status = 'pending';
   end loop;
@@ -167,7 +167,7 @@ select tests.clear_authentication();
 delete from private.rate_limit_hits;
 set local role service_role;
 select lives_ok($$select public.post_message_as(current_setting('t.a')::uuid, current_setting('t.alpha')::uuid, tests.doc('alpha'),
-                                                'alpha', false, null, null, '[]'::jsonb, '0x' || lpad('a990', 40, '0'))$$, 'post_message_as posts for A');
+                                                'alpha', false, null, null, '[]'::jsonb, '0x' || lpad('a990', 40, '0'), 84532)$$, 'post_message_as posts for A');
 reset role;
 select is(tests.hits(current_setting('t.a'), 'message_min') || ':' || tests.hits(current_setting('t.a'), 'message_hour'), '1:1',
   'post_message_as is charged to A (both buckets)');
@@ -189,13 +189,13 @@ select tests.clear_authentication();
 
 select lives_ok(format($$select tests.tips(%L, %L, 30)$$, current_setting('t.a'), current_setting('t.b')), '30 tip intents pass');
 select tests.login(current_setting('t.a'));
-select throws_ok(format($$select public.create_tip_intent('profile', %L::uuid, 'USDC', 10000, 0, false)$$, current_setting('t.b')),
+select throws_ok(format($$select public.create_tip_intent('profile', %L::uuid, 84532, 'USDC', 10000, false)$$, current_setting('t.b')),
   'P0001', 'rate_limited', 'payment_intent 31st raises');
 select tests.clear_authentication();
 
 select tests.login(current_setting('t.c'));
 select set_config('t.poll', public.create_poll(current_setting('t.ch')::uuid, '¿Sí o no?', array['Sí', 'No'],
-                                               now() + interval '1 day', 'equal')::text, true);
+                                               now() + interval '1 day')::text, true);
 select tests.clear_authentication();
 select set_config('t.o1', (select id::text from public.poll_options where poll_id = current_setting('t.poll')::uuid and position = 1), true);
 select set_config('t.o2', (select id::text from public.poll_options where poll_id = current_setting('t.poll')::uuid and position = 2), true);

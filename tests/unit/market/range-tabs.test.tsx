@@ -12,7 +12,7 @@ describe("RangeTabs", () => {
       ["1 a", "?r=365"],
     ];
     for (const [name, href] of expected) {
-      expect(screen.getByRole("link", { name })).toHaveAttribute("href", `/mercado/bitcoin${href}`);
+      expect(screen.getByRole("link", { name })).toHaveAttribute("href", `/foro/mercado/bitcoin${href}`);
     }
     expect(screen.getByRole("link", { name: "30 d" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "7 d" })).not.toHaveAttribute("aria-current");

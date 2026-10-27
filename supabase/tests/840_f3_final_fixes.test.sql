@@ -1,5 +1,6 @@
--- F3 final fixes: bounty statuses that never mark an author who cannot pay (F3-R1), bounty record scoped to the active
--- chain (F3-R2), tips on deleted messages on the profile (M3), safe <> platform (M6), dead helper dropped (M5).
+-- F3 final fixes: bounty statuses that never mark an author who cannot pay (F3-R1), bounty record scoped to the enabled
+-- networks (F3-R2, P0: was the active chain; other_chain is gone), tips on deleted messages on the profile (M3),
+-- safe <> platform (M6), dead helper dropped (M5).
 begin;
 select plan(43);
 
@@ -23,7 +24,7 @@ declare
   v_r uuid;
 begin
   perform tests.authenticate_as(p_author_user::uuid);
-  v_b := public.create_bounty(current_setting('t.ch')::uuid, tests.td('bounty'), 'USDC', 10000000);
+  v_b := public.create_bounty(current_setting('t.ch')::uuid, tests.td('bounty'), 84532, 'USDC', 10000000);
   if p_solver_user is not null then
     perform tests.authenticate_as(p_solver_user::uuid);
     v_r := tests.post(current_setting('t.ch')::uuid, tests.td('answer'), v_b);
@@ -58,23 +59,22 @@ select set_config('t.cat', tests.create_channel(null, 'category', 'T840cat')::te
 select set_config('t.ch', tests.create_channel(current_setting('t.cat')::uuid, 'text', 't840')::text, true);
 insert into public.permission_overwrites (channel_id, target_type, target_id, allow, deny)
   values (current_setting('t.ch')::uuid, 'member', current_setting('t.h')::uuid, 0, 1);
-update public.chain_config set platform_wallet = '0x' || lpad('f00', 40, '0') where chain_id = 59141;
 
 select set_config('t.x1', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- unpaid
 select set_config('t.x2', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- moderator-deleted
 select set_config('t.x3', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- author-deleted
 select set_config('t.x4', tests.marked_bounty(current_setting('t.ua'), current_setting('t.uc'))::text, true);  -- solver banned
-select set_config('t.x5', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- other chain
+select set_config('t.x5', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- other network
 select set_config('t.x6', tests.marked_bounty(current_setting('t.ua'), null)::text, true);                     -- open, moderator-deleted
 select set_config('t.x7', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true);  -- paid, then moderator-deleted
-select set_config('t.x8', tests.marked_bounty(current_setting('t.ua'), current_setting('t.uc'))::text, true);  -- other chain + solver banned
-select set_config('t.x9', tests.marked_bounty(current_setting('t.ua'), null)::text, true);                     -- open, other chain
-select set_config('t.x10', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true); -- paid on the other chain
-select set_config('t.x11', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true); -- moderator-deleted, other chain
+select set_config('t.x8', tests.marked_bounty(current_setting('t.ua'), current_setting('t.uc'))::text, true);  -- other network + solver banned
+select set_config('t.x9', tests.marked_bounty(current_setting('t.ua'), null)::text, true);                     -- open, other network
+select set_config('t.x10', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true); -- paid on the other network
+select set_config('t.x11', tests.marked_bounty(current_setting('t.ua'), current_setting('t.ub'))::text, true); -- moderator-deleted, other network
 
 update public.bounties set paid_at = solution_marked_at + interval '1 day'
   where message_id in (current_setting('t.x7')::uuid, current_setting('t.x10')::uuid);
-update public.bounties set chain_id = 59144
+update public.bounties set chain_id = 421614
   where message_id in (current_setting('t.x5')::uuid, current_setting('t.x8')::uuid, current_setting('t.x9')::uuid,
                        current_setting('t.x10')::uuid, current_setting('t.x11')::uuid);
 select tests.authenticate_as(current_setting('t.um')::uuid);
@@ -92,13 +92,13 @@ select is(tests.st('t.x1'), 'unpaid', 'baseline: marked over 7 days ago, payable
 select is(tests.st('t.x2'), 'removed', 'a bounty soft-deleted by a moderator is removed, not unpaid');
 select is(tests.st('t.x3'), 'unpaid', 'a bounty the author deleted keeps its normal status');
 select is(tests.st('t.x4'), 'solver_unavailable', 'a banned solver makes the payment impossible: solver_unavailable');
-select is(tests.st('t.x5'), 'other_chain', 'a bounty on a chain that is not active is other_chain');
+select is(tests.st('t.x5'), 'unpaid', 'a bounty on the other network keeps its lifecycle status');
 select is(tests.st('t.x6'), 'removed', 'an open bounty removed by a moderator is removed');
 select is(tests.st('t.x7'), 'paid', 'paid wins over removed');
-select is(tests.st('t.x8'), 'other_chain', 'other_chain wins over solver_unavailable');
-select is(tests.st('t.x9'), 'other_chain', 'an open bounty on another chain is other_chain');
-select is(tests.st('t.x10'), 'paid', 'paid wins over other_chain');
-select is(tests.st('t.x11'), 'removed', 'removed wins over other_chain');
+select is(tests.st('t.x8'), 'solver_unavailable', 'solver_unavailable on the other network too');
+select is(tests.st('t.x9'), 'open', 'an open bounty on the other network is open');
+select is(tests.st('t.x10'), 'paid', 'paid on the other network');
+select is(tests.st('t.x11'), 'removed', 'removed on the other network');
 update public.bounties set cancelled_at = now(), solution_message_id = null, solver_id = null, solution_marked_at = null, paid_at = null
   where message_id = current_setting('t.x9')::uuid;
 select is(tests.st('t.x9'), 'cancelled', 'cancelled wins over everything');
@@ -109,15 +109,15 @@ update public.bounties set solution_marked_at = now() - interval '2 days' where 
 select is(tests.st('t.x4'), 'solver_unavailable', 'the status applies before the 7 days too (no clock while unpayable)');
 update public.bounties set solution_marked_at = now() - interval '8 days' where message_id = current_setting('t.x4')::uuid;
 
--- other_chain does not reopen an expired bounty: marking and cancelling still see the lifecycle
+-- a leftover Linea bounty that expired: marking and cancelling still see the lifecycle
 select set_config('t.x12', tests.marked_bounty(current_setting('t.ua'), null)::text, true);
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.r12', tests.post(current_setting('t.ch')::uuid, tests.td('late answer'), current_setting('t.x12')::uuid)::text, true);
 select tests.clear_authentication();
-update public.bounties set chain_id = 59144, created_at = now() - interval '31 days' where message_id = current_setting('t.x12')::uuid;
+update public.bounties set chain_id = 59141, created_at = now() - interval '31 days' where message_id = current_setting('t.x12')::uuid;
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select throws_ok($$select public.mark_bounty_solution(tests.cfg('t.x12')::uuid, tests.cfg('t.r12')::uuid)$$,
-  'P0001', 'bounty_closed', 'an expired bounty on another chain still cannot get a solution');
+  'P0001', 'bounty_closed', 'an expired bounty on a disabled network still cannot get a solution');
 select throws_ok($$select public.cancel_bounty(tests.cfg('t.x12')::uuid)$$, 'P0001', 'bounty_closed',
   'nor be cancelled');
 select tests.clear_authentication();
@@ -125,25 +125,25 @@ select tests.clear_authentication();
 -- bounty_details carries the new statuses (as the author)
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select status from public.bounty_details(array[current_setting('t.x4')::uuid])), 'solver_unavailable', 'bounty_details: solver_unavailable');
-select is((select status from public.bounty_details(array[current_setting('t.x5')::uuid])), 'other_chain', 'bounty_details: other_chain');
+select is((select status from public.bounty_details(array[current_setting('t.x5')::uuid])), 'unpaid', 'bounty_details: no other_chain');
 
--- ===== F3-R2: the record counts the active chain only =====
+-- ===== F3-R2 / P0: the record counts the enabled networks only =====
 select tests.authenticate_as(current_setting('t.uv')::uuid);
-select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).unpaid), 2,
-  'record: only x1 and x3 are unpaid (removed, unavailable and other-chain ones are not)');
-select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).paid), 1, 'record: the paid bounty of the other chain is not counted');
-select is((select count(*)::int from public.member_unpaid_bounties(current_setting('t.a')::uuid)), 2, 'unpaid list: two entries');
-select ok((select bool_and(chain_id = 59141) from public.member_unpaid_bounties(current_setting('t.a')::uuid)), 'unpaid list carries the chain');
+select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).unpaid), 3,
+  'record: x1, x3 and x5 are unpaid on the two enabled networks (removed and unavailable ones are not)');
+select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).paid), 2, 'record: x7 and x10 are paid');
+select is((select count(*)::int from public.member_unpaid_bounties(current_setting('t.a')::uuid)), 3, 'unpaid list: three entries');
+select ok((select bool_and(chain_id in (84532, 421614)) from public.member_unpaid_bounties(current_setting('t.a')::uuid)), 'unpaid list carries the chain');
 select tests.clear_authentication();
-update public.app_config set value = '59144'::jsonb where key = 'active_chain_id';
+update public.chains set enabled = false where chain_id = 421614;
 select tests.authenticate_as(current_setting('t.uv')::uuid);
-select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).unpaid), 1, 'after the switch only x5 is unpaid');
-select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).paid), 1, 'and only x10 is paid');
-select is((select message_id::text || '/' || chain_id::text from public.member_unpaid_bounties(current_setting('t.a')::uuid)),
-  current_setting('t.x5') || '/59144', 'unpaid list on the new chain');
+select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).unpaid), 2, 'with the other network disabled only x1 and x3 are unpaid');
+select is((select (public.member_bounty_record(current_setting('t.a')::uuid)).paid), 1, 'and only x7 is paid');
+select is((select count(*)::int from public.member_unpaid_bounties(current_setting('t.a')::uuid) where chain_id = 421614), 0,
+  'the unpaid list leaves out the disabled network');
 select tests.clear_authentication();
-select is(tests.st('t.x1'), 'other_chain', 'the old network''s unpaid bounty is other_chain after the switch');
-update public.app_config set value = '59141'::jsonb where key = 'active_chain_id';
+select is(tests.st('t.x5'), 'unpaid', 'a bounty on a disabled network keeps its status (no other_chain)');
+update public.chains set enabled = true where chain_id = 421614;
 update public.members set status = 'active' where id = current_setting('t.c')::uuid;
 select is(tests.st('t.x4'), 'unpaid', 'a reinstated solver makes it payable, and unpaid, again');
 update public.members set status = 'banned' where id = current_setting('t.c')::uuid;
@@ -153,13 +153,13 @@ select tests.authenticate_as(current_setting('t.ub')::uuid);
 select set_config('t.mt1', tests.post(current_setting('t.ch')::uuid, tests.td('tip me, hard'))::text, true);
 select set_config('t.mt2', tests.post(current_setting('t.ch')::uuid, tests.td('tip me, soft'))::text, true);
 select tests.authenticate_as(current_setting('t.ua')::uuid);
-select set_config('t.ti1', (public.create_tip_intent('message', current_setting('t.mt1')::uuid, 'USDC', 1000000, 0, false) ->> 'id'), true);
-select set_config('t.ti2', (public.create_tip_intent('message', current_setting('t.mt2')::uuid, 'USDC', 2000000, 0, false) ->> 'id'), true);
+select set_config('t.ti1', (public.create_tip_intent('message', current_setting('t.mt1')::uuid, 84532, 'USDC', 1000000, false) ->> 'id'), true);
+select set_config('t.ti2', (public.create_tip_intent('message', current_setting('t.mt2')::uuid, 84532, 'USDC', 2000000, false) ->> 'id'), true);
 select tests.clear_authentication();
 insert into public.tips (intent_id, chain_id, from_member, to_member, target_type, message_id, token, amount, fee_amount, anonymous, main_tx_hash, block_number)
-values (current_setting('t.ti1')::uuid, 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', current_setting('t.mt1')::uuid,
+values (current_setting('t.ti1')::uuid, 84532, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', current_setting('t.mt1')::uuid,
         'USDC', 1000000, 0, false, '0x' || lpad('8401', 64, '0'), 1),
-       (current_setting('t.ti2')::uuid, 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', current_setting('t.mt2')::uuid,
+       (current_setting('t.ti2')::uuid, 84532, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message', current_setting('t.mt2')::uuid,
         'USDC', 2000000, 0, false, '0x' || lpad('8402', 64, '0'), 1);
 update public.payment_intents set status = 'confirmed' where id in (current_setting('t.ti1')::uuid, current_setting('t.ti2')::uuid);
 select tests.authenticate_as(current_setting('t.uv')::uuid);
@@ -173,7 +173,7 @@ select is((select message_id from public.tips where intent_id = current_setting(
 select tests.authenticate_as(current_setting('t.ub')::uuid);
 select is((select count(*)::int from public.member_tips(current_setting('t.b')::uuid) where message_deleted), 2,
   'the recipient still sees both tips, flagged as deleted messages');
-select is((select total_text from public.member_tips_totals(current_setting('t.b')::uuid, 59141) where token = 'USDC'), '3000000',
+select is((select total_text from public.member_tips_totals(current_setting('t.b')::uuid) where token = 'USDC'), '3000000',
   'and both count in the recipient''s totals');
 select tests.authenticate_as(current_setting('t.ua')::uuid);
 select is((select count(*)::int from public.member_tips(current_setting('t.b')::uuid) where message_deleted), 2,
@@ -181,7 +181,7 @@ select is((select count(*)::int from public.member_tips(current_setting('t.b')::
 select tests.authenticate_as(current_setting('t.uv')::uuid);
 select is((select array_agg(amount_text order by amount_text) from public.member_tips(current_setting('t.b')::uuid) where message_deleted),
   array['2000000'], 'another viewer sees the soft-deleted one (its channel is visible) but not the hard-deleted one (channel unknown)');
-select is((select total_text from public.member_tips_totals(current_setting('t.b')::uuid, 59141) where token = 'USDC'), '2000000',
+select is((select total_text from public.member_tips_totals(current_setting('t.b')::uuid) where token = 'USDC'), '2000000',
   'nor counts it');
 select tests.authenticate_as(current_setting('t.uh')::uuid);
 select is((select count(*)::int from public.member_tips(current_setting('t.b')::uuid)), 0,

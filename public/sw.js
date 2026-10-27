@@ -10,12 +10,12 @@ self.addEventListener("activate", (event) => {
 });
 
 function safeUrl(raw) {
-  // Same origin only: anything else (other origin, javascript:, data:) falls back to the home page.
+  // Same origin only: anything else (other origin, javascript:, data:) falls back to the club home.
   try {
-    const target = new URL(typeof raw === "string" ? raw : "/", self.location.origin);
-    return target.origin === self.location.origin ? target : new URL("/", self.location.origin);
+    const target = new URL(typeof raw === "string" ? raw : "/foro", self.location.origin);
+    return target.origin === self.location.origin ? target : new URL("/foro", self.location.origin);
   } catch {
-    return new URL("/", self.location.origin);
+    return new URL("/foro", self.location.origin);
   }
 }
 
@@ -28,7 +28,7 @@ self.addEventListener("push", (event) => {
   }
   // JSON `null`, numbers, strings and booleans parse fine but are not a payload object.
   if (!payload || typeof payload !== "object") payload = {};
-  const title = typeof payload.title === "string" && payload.title ? payload.title : "El Club Lambo";
+  const title = typeof payload.title === "string" && payload.title ? payload.title : "ElClub.";
   const options = {
     body: typeof payload.body === "string" ? payload.body : "",
     tag: typeof payload.tag === "string" ? payload.tag : undefined,

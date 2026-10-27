@@ -27,16 +27,16 @@ values ('8700a000-0000-4000-8000-000000000001', current_setting('t.open')::uuid,
        ('8700a000-0000-4000-8000-000000000005', current_setting('t.open')::uuid, current_setting('t.b')::uuid, '{"type":"doc","content":[]}', 'mensaje propinado', true, null, null);
 update public.messages set kind = 'bounty' where id in ('8700a000-0000-4000-8000-000000000003', '8700a000-0000-4000-8000-000000000004');
 insert into public.bounties (message_id, channel_id, author_id, chain_id, token, amount)
-values ('8700a000-0000-4000-8000-000000000003', current_setting('t.open')::uuid, current_setting('t.a')::uuid, 59141, 'USDC', 5000000),
-       ('8700a000-0000-4000-8000-000000000004', current_setting('t.hid')::uuid, current_setting('t.a')::uuid, 59141, 'USDC', 7000000);
+values ('8700a000-0000-4000-8000-000000000003', current_setting('t.open')::uuid, current_setting('t.a')::uuid, 84532, 'USDC', 5000000),
+       ('8700a000-0000-4000-8000-000000000004', current_setting('t.hid')::uuid, current_setting('t.a')::uuid, 421614, 'USDC', 7000000);
 
 -- an anonymous tip from A to B's message, and a hidden-ranking donation from A
 insert into public.payment_intents (id, member_id, purpose, chain_id, token, amount, fee_bps, min_fee_bps, fee_amount, recipient_member_id,
   recipient_address, target_type, target_id, status)
-values ('8700b000-0000-4000-8000-000000000001', current_setting('t.a')::uuid, 'tip', 59141, 'USDC', 3000000, 0, 0, 0, current_setting('t.b')::uuid,
+values ('8700b000-0000-4000-8000-000000000001', current_setting('t.a')::uuid, 'tip', 84532, 'USDC', 3000000, 0, 0, 0, current_setting('t.b')::uuid,
   '0x00000000000000000000000000000000000000bb', 'message', '8700a000-0000-4000-8000-000000000005', 'confirmed');
 insert into public.tips (intent_id, chain_id, from_member, to_member, target_type, message_id, token, amount, fee_amount, anonymous, main_tx_hash, block_number)
-values ('8700b000-0000-4000-8000-000000000001', 59141, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message',
+values ('8700b000-0000-4000-8000-000000000001', 84532, current_setting('t.a')::uuid, current_setting('t.b')::uuid, 'message',
   '8700a000-0000-4000-8000-000000000005', 'USDC', 3000000, 0, true, '0x' || repeat('7', 64), 1);
 
 

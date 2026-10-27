@@ -40,8 +40,8 @@ export interface ChatMessage {
   body: unknown;
   allowLinks: boolean;
   kind: "text" | "alpha" | "system" | "bounty" | "poll";
-  /** Linea contract of an Alpha message (lowercase); null for ordinary messages. */
-  alphaAddress: string | null;
+  /** Contract of an Alpha message (lowercase address) and its network; null for ordinary messages. */
+  alpha: { address: string; chainId: number } | null;
   /** Details of a bounty message; null when unreadable or not a bounty. Absent on view models built before bounties. */
   bounty?: BountyDetail | null;
   /** Details of a poll message; null when unreadable or not a poll. Absent on view models built before polls. */
@@ -183,12 +183,16 @@ export function firstUnreadIndex(list: readonly ChatMessage[], lastReadAt: strin
   return list.findIndex((m) => m.authorId !== meId && !m.deletedAt && cmpTime(m.createdAt, lastReadAt) > 0);
 }
 
-/** Resync: the fresh newest page replaces the newest slice of the window (hard-deleted messages disappear). */
+/**
+ * Resync: the fresh newest page replaces the newest slice of the window (hard-deleted messages disappear). An older
+ * kept message whose id the fresh page brings again is dropped too (defensive: one row per id, the fresh one wins).
+ */
 export function replaceNewest(list: readonly ChatMessage[], fresh: readonly ChatMessage[], freshHasMore: boolean): ChatMessage[] {
   const first = fresh[0];
   // The fresh page is the whole history when nothing older exists: it is the window.
   if (!first || !freshHasMore) return [...fresh];
-  return [...list.filter((m) => cmpMessages(m, first) < 0), ...fresh];
+  const freshIds = new Set(fresh.map((m) => m.id));
+  return [...list.filter((m) => cmpMessages(m, first) < 0 && !freshIds.has(m.id)), ...fresh];
 }
 
 /** A signed URL lasts one hour; reuse it for 50 minutes at most so a long-open tab never shows a dead image. */

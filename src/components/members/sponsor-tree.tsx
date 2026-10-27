@@ -1,3 +1,4 @@
+import { clubPath } from "@/lib/club/paths";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { MemberAvatar } from "@/components/members/member-avatar";
@@ -22,7 +23,7 @@ export function StatusBadge({ status }: { status: MemberSummary["status"] }) {
 function MemberLink({ member }: { member: MemberSummary }) {
   return (
     <Link
-      href={`/u/${member.walletAddress}`}
+      href={clubPath(`/u/${member.walletAddress}`)}
       className="flex min-h-11 items-center gap-3 px-4 py-2 hover:bg-surface-2"
     >
       <MemberAvatar member={member} size={32} />

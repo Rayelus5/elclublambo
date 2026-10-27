@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
+import { clubPath, E2E_SUPER_ADMIN_PK, loginAs } from "./helpers/auth";
 
 // T-002 (ronda 1): while a navigation is slow, the content area shows the Diamond loader and the shell stays put; the
 // clicked sidebar link shows a small hint while the navigation has not committed.
@@ -29,7 +29,7 @@ async function homeWithPrefetch(page: Page, linkName: RegExp, nav: string) {
   page.on("response", (res) => {
     if (isPrefetch(res.request().headers())) prefetched.push(new URL(res.url()).pathname);
   });
-  await page.goto("/");
+  await page.goto(clubPath());
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   const link = page.getByRole("navigation", { name: nav }).first().getByRole("link", { name: linkName });
   const href = (await link.getAttribute("href"))!;
@@ -72,21 +72,22 @@ test("al cambiar de canal se ve el esqueleto del historial y la barra lateral si
   await expect(loader).toBeHidden();
 });
 
+// Tickets: a dynamic section whose prerendered shell falls back to the diamond (PageLoader), like the paused DAO did.
 test("al cambiar de sección se ve el diamante en el contenido", async ({ page }) => {
   prodOnly();
   await slowRsc(page, "navigations");
-  const link = await homeWithPrefetch(page, /^DAO/, "Principal");
+  const link = await homeWithPrefetch(page, /^Tickets/, "Principal");
   await link.click();
   const loader = main(page).getByRole("status").filter({ hasText: /Cargando/ });
   await expect(loader.locator("svg")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Canales" })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "DAO" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Tickets" })).toBeVisible({ timeout: 20_000 });
   await expect(loader).toBeHidden();
 });
 
 test("el enlace pulsado muestra el indicador mientras la navegación no termina", async ({ page }) => {
   await slowRsc(page, "everything");
-  await page.goto("/");
+  await page.goto(clubPath());
   await expect(page.getByRole("heading", { level: 1, name: "Inicio" })).toBeVisible();
   const link = page.getByRole("navigation", { name: "Canales" }).getByRole("link", { name: GENERAL });
   await link.click();
@@ -99,14 +100,14 @@ test("con «reducir movimiento» el diamante aparece quieto", async ({ page }) =
   prodOnly();
   await page.emulateMedia({ reducedMotion: "reduce" });
   await slowRsc(page, "navigations");
-  const link = await homeWithPrefetch(page, /^DAO/, "Principal");
+  const link = await homeWithPrefetch(page, /^Tickets/, "Principal");
   await link.click();
   const loader = main(page).getByRole("status").filter({ hasText: /Cargando/ });
   await expect(loader.locator("svg")).toBeVisible();
   const pixels = loader.locator("svg rect");
   await expect(pixels).toHaveCount(8);
   for (let i = 0; i < 8; i++) await expect(pixels.nth(i)).toHaveCSS("animation-iteration-count", "1");
-  await expect(page.getByRole("heading", { level: 1, name: "DAO" })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("heading", { level: 1, name: "Tickets" })).toBeVisible({ timeout: 20_000 });
 });
 
 test("con «reducir movimiento» el esqueleto del canal no late", async ({ page }) => {

@@ -8,7 +8,7 @@ import { useId, useState } from "react";
 import { Check, Copy, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { shortAddress } from "@/lib/auth/wallet";
-import { explorerTx, type ChainId } from "@/lib/economy/networks";
+import { legacyExplorerTx, type LegacyChainId } from "@/lib/legacy/linea";
 import { formatBps, formatUsd, formatUsdc } from "@/lib/treasury/format";
 import { formatDay, formatWhen, payoutRecorded } from "@/lib/treasury/panel";
 import { withdrawalLabel, type TreasuryWithdrawal } from "@/lib/treasury/withdrawals";
@@ -52,7 +52,7 @@ export function WithdrawalsTable({
   /** Members banned after requesting (ruling F4c-R2: they can still be approved and paid). */
   bannedIds: string[];
   /** For the explorer link of a paid request. */
-  chainId?: ChainId;
+  chainId?: LegacyChainId;
 }) {
   const [active, setActive] = useState<{
     id: string;
@@ -124,7 +124,7 @@ function Row({
   labelId: string;
   own: boolean;
   banned: boolean;
-  chainId?: ChainId;
+  chainId?: LegacyChainId;
   onAction: (a: "approve" | "reject" | "paid") => void;
 }) {
   const recorded = payoutRecorded(w);
@@ -179,7 +179,7 @@ function Row({
 
       {kind === "pending" ? (
         <div className="flex flex-wrap gap-2 md:shrink-0">
-          <Button size="sm" aria-describedby={labelId} onClick={() => onAction("approve")}>
+          <Button size="sm" variant="outline" aria-describedby={labelId} onClick={() => onAction("approve")}>
             Aprobar
           </Button>
           <Button size="sm" variant="secondary" aria-describedby={labelId} onClick={() => onAction("reject")}>
@@ -191,7 +191,7 @@ function Row({
         <div className="flex flex-col gap-2 md:shrink-0 md:items-end">
           <div className="flex flex-wrap gap-2">
             {!recorded ? (
-              <Button size="sm" aria-describedby={labelId} onClick={() => onAction("paid")}>
+              <Button size="sm" variant="outline" aria-describedby={labelId} onClick={() => onAction("paid")}>
                 Marcar como pagada
               </Button>
             ) : null}
@@ -213,7 +213,7 @@ function Row({
   );
 }
 
-function RecentDetails({ w, chainId }: { w: TreasuryWithdrawal; chainId?: ChainId }) {
+function RecentDetails({ w, chainId }: { w: TreasuryWithdrawal; chainId?: LegacyChainId }) {
   const closedAt = w.paidAt ?? w.createdAt;
   // F4c minor #3: "≥ pays", so an overpayment is valid but lowers everyone else's NAV; the excess is shown.
   const overpaid =
@@ -242,7 +242,7 @@ function RecentDetails({ w, chainId }: { w: TreasuryWithdrawal; chainId?: ChainI
               : `Solicitada el ${formatWhen(w.createdAt)}`}
       </p>
       {w.status === "paid" && w.payoutTxHash && chainId ? (
-        <a href={explorerTx(chainId, w.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
+        <a href={legacyExplorerTx(chainId, w.payoutTxHash)} target="_blank" rel="noopener noreferrer" className={`${linkClass} self-start`}>
           Ver el pago en el explorador
         </a>
       ) : null}

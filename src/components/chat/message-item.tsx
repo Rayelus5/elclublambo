@@ -1,5 +1,6 @@
 "use client";
 
+import { clubPath } from "@/lib/club/paths";
 import { useRef, useState } from "react";
 import {
   CircleAlert,
@@ -50,11 +51,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { ChatMessage, Directory, ViewerPermissions } from "@/lib/chat/model";
 import { rpcErrorMessage } from "@/lib/errors";
 import type { MemberIdentity } from "@/lib/members/name";
-import { contrastRatio } from "@/styles/tokens";
+import { colors, contrastRatio } from "@/styles/tokens";
 import { cn } from "@/lib/utils";
 
 const HEX = /^#[0-9a-f]{6}$/i;
-const BG = "#0A0A0A";
+const BG = colors.bg;
 
 function readableNameColor(color: string | null): string | null {
   if (!color || !HEX.test(color)) return null;
@@ -262,7 +263,7 @@ export function MessageItem({
             <DropdownMenuContent aria-label="Acciones del mensaje">
               <DropdownMenuItem
                 onSelect={() => {
-                  const url = `${window.location.origin}/c/${message.channelId}?m=${message.id}`;
+                  const url = `${window.location.origin}${clubPath(`/c/${message.channelId}?m=${message.id}`)}`;
                   void navigator.clipboard?.writeText(url).catch(() => undefined);
                 }}
               >
@@ -386,7 +387,7 @@ export function MessageItem({
                 )}
               </blockquote>
             ) : null}
-            {message.kind === "alpha" && message.alphaAddress ? <AlphaCard address={message.alphaAddress} /> : null}
+            {message.kind === "alpha" && message.alpha ? <AlphaCard address={message.alpha.address} chainId={message.alpha.chainId} /> : null}
             {bounty ? (
               <BountyCard
                 messageId={message.id}

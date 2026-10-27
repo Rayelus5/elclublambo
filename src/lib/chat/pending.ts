@@ -60,7 +60,7 @@ export function pendingToMessage(p: PendingMessage, meId: string, channelId: str
     body: p.doc,
     allowLinks: true,
     kind: "text",
-    alphaAddress: null,
+    alpha: null,
     expanded: p.expanded,
     quotedId: p.quotedId,
     quote: p.quote,

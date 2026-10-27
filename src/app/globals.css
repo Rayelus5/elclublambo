@@ -8,23 +8,30 @@
  * Solo tema oscuro. Ningún componente usa hex sueltos: todo pasa por estas variables.
  */
 :root {
-  --bg: #0a0a0a;
-  --surface: #111111;
-  --surface-2: #171717;
-  --border: #262626;
-  --border-strong: #3a3a3a;
-  --fg: #ededed;
-  --fg-muted: #a3a3a3;
-  --accent: #61dfff;
-  --success: #3ddc84;
-  --warning: #ffb020;
-  --danger: #ff5a5a;
-  --chart-1: #61dfff;
-  --chart-2: #a594ff;
-  --chart-3: #ff7ab8;
-  --chart-4: #c6f36b;
-  --chart-5: #ffa066;
-  --chart-rest: #6b6b6b;
+  --bg: #0a0b0d;
+  --surface: #121418;
+  --surface-2: #1a1d22;
+  --border: #24272d;
+  --border-strong: #32353d;
+  --fg: #eef0f3;
+  --fg-muted: #b1b7c3;
+  --accent: #3c8aff;
+  /* Relleno de botones/chips: Base Blue con texto blanco (8,6:1). Nunca como texto, borde o anillo sobre oscuro (2,3:1). */
+  --accent-fill: #0000ff;
+  --accent-fill-fg: #ffffff;
+  /* Hover del relleno: Base Blue oscurecido, sólido (blanco 11,2:1). */
+  --accent-fill-hover: #0000cc;
+  --success: #66c800;
+  --warning: #ffd12f;
+  --danger: #fc401f;
+  /* Hover sólido del botón destructivo (rojo aclarado); texto oscuro encima 6,4:1. */
+  --danger-hover: #ff5a3d;
+  --chart-1: #3c8aff;
+  --chart-2: #66c800;
+  --chart-3: #ffd12f;
+  --chart-4: #fea8cd;
+  --chart-5: #b8a581;
+  --chart-rest: #717886;
 
   --radius-control: 2px;
   --radius-panel: 4px;
@@ -39,8 +46,8 @@
   --card-foreground: var(--fg);
   --popover: var(--surface);
   --popover-foreground: var(--fg);
-  --primary: var(--accent);
-  --primary-foreground: var(--bg);
+  --primary: var(--accent-fill);
+  --primary-foreground: var(--accent-fill-fg);
   --secondary: var(--surface-2);
   --secondary-foreground: var(--fg);
   --muted: var(--surface-2);
@@ -63,9 +70,13 @@
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
   --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-fill-fg: var(--accent-fill-fg);
+  --color-accent-fill-hover: var(--accent-fill-hover);
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
 
   /* shadcn/ui */
   --color-background: var(--background);
@@ -419,6 +430,46 @@
   padding: 0 0.3em;
 }
 
+/* Status pages (maintenance, unavailable tool, 404): the logo square walks a closed loop over a 3×3 grid of 1.5rem
+   cells with a 0.5rem gap, one 2rem step per eighth. StatusMark also carries motion-reduce:animate-none. */
+@keyframes status-drift {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  12.5% {
+    transform: translate(2rem, 0);
+  }
+  25% {
+    transform: translate(2rem, 2rem);
+  }
+  37.5% {
+    transform: translate(4rem, 2rem);
+  }
+  50% {
+    transform: translate(4rem, 4rem);
+  }
+  62.5% {
+    transform: translate(2rem, 4rem);
+  }
+  75% {
+    transform: translate(2rem, 2rem);
+  }
+  87.5% {
+    transform: translate(0, 2rem);
+  }
+}
+
+/* A-R15: while the «Mantenimiento activo» strip is shown (fixed, on top), MaintenanceBanner writes its height here; the
+   body makes room for it and the club shell's sticky header and rails sit below it. */
+:root {
+  --mnt-banner-h: 0px;
+}
+
+body {
+  padding-top: var(--mnt-banner-h);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -427,5 +478,164 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* First-visit intro of the public home (components/landing/intro-gate.tsx, lib/landing/intro.ts). The overlay is always
+   in the server HTML but only shows while the inline boot script (or the intro itself) sets html[data-intro]: "on" while
+   it waits, "revealing" while the tile wave uncovers the landing. Scroll stays locked until the attribute goes. */
+[data-intro-overlay] {
+  display: none;
+}
+
+html[data-intro] [data-intro-overlay] {
+  display: grid;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+}
+
+html[data-intro] {
+  overflow: hidden;
+  scrollbar-gutter: stable;
+}
+
+/* The hero's CSS rises wait behind the overlay and play as the wave uncovers them. */
+html[data-intro="on"] .animate-start-rise {
+  animation-play-state: paused;
+}
+
+[data-intro-overlay] > * {
+  grid-area: 1 / 1;
+}
+
+[data-intro-overlay] {
+  --intro-logo: min(40vmin, 220px);
+}
+
+.intro-cover {
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  perspective: 900px;
+}
+
+.intro-cover > * {
+  grid-area: 1 / 1;
+}
+
+.intro-flip {
+  position: relative;
+  width: var(--intro-logo);
+  height: var(--intro-logo);
+  transform-style: preserve-3d;
+}
+
+.intro-face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 24px;
+  backface-visibility: hidden;
+  user-select: none;
+}
+
+.intro-back {
+  transform: rotateY(180deg);
+}
+
+.intro-ring {
+  width: var(--intro-logo);
+  height: var(--intro-logo);
+  border: 2px solid var(--accent-fill);
+  border-radius: 24px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+[data-intro-overlay][data-playing] .intro-ring {
+  display: none;
+}
+
+.intro-blue {
+  background: var(--accent-fill);
+}
+
+.intro-tiles {
+  position: relative;
+  pointer-events: none;
+}
+
+.intro-tile {
+  position: absolute;
+  background: var(--accent-fill);
+  backface-visibility: hidden;
+  will-change: transform, opacity;
+}
+
+/* The tile's Cerulean face: its opacity animates (blue → Cerulean mid-flip), never a background colour. */
+.intro-tile-face {
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  will-change: opacity;
+}
+
+.intro-hit {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Keyboard focus: a ring around the logo tile, not around the whole screen (the hit area). */
+.intro-hit:focus-visible::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(var(--intro-logo) + 16px);
+  height: calc(var(--intro-logo) + 16px);
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--ring);
+  border-radius: 30px;
+  pointer-events: none;
+}
+
+[data-intro-overlay][data-playing] .intro-hit::after {
+  display: none;
+}
+
+[data-intro-overlay][data-playing] .intro-hit {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .intro-ring {
+    animation: intro-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  }
+
+  .intro-ring:nth-child(2) {
+    animation-delay: 0.8s;
+  }
+
+  .intro-ring:nth-child(3) {
+    animation-delay: 1.6s;
+  }
+
+  @keyframes intro-ring {
+    0% {
+      opacity: 0.7;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(2.6);
+    }
   }
 }

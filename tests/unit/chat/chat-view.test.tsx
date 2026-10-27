@@ -302,7 +302,7 @@ describe("ChatView", () => {
       await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
       await waitFor(() => expect(screen.queryByRole("dialog", { name: "Hilo" })).not.toBeInTheDocument());
       expect(h.replace).toHaveBeenCalledTimes(1);
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/foro/c/${CHANNEL}`, { scroll: false });
     });
 
     it("closing a thread opened from the list does not touch the URL", async () => {
@@ -519,7 +519,7 @@ describe("ChatView", () => {
       const msgs = anchored();
       setup({ initialAnchorId: msgs[1]!.id, initial: { messages: msgs, hasMore: false, hasNewer: true, directory, pinned: [], lastReadAt: null } }, msgs);
       await userEvent.click(screen.getByRole("button", { name: "Ir a lo más reciente" }));
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/foro/c/${CHANNEL}`, { scroll: false });
     });
 
     it("keeps loading older messages from the anchored view", async () => {
@@ -607,7 +607,7 @@ describe("ChatView", () => {
       setup(anchoredProps(msgs), msgs);
       const onPosted = h.composer.at(-1)!.onPosted as (id: string) => void;
       act(() => onPosted("11111111-1111-4111-8111-111111111111"));
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/foro/c/${CHANNEL}`, { scroll: false });
     });
 
     it("shows an inline error with a retry when 'Ir a lo más reciente' never completes", () => {
@@ -634,7 +634,7 @@ describe("ChatView", () => {
       setup({ initialThreadId: r.id, initialAnchorId: r.id, initialAnchorNonce: "n1" }, [r]);
       const panel = await screen.findByRole("dialog", { name: "Hilo" });
       await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}?m=${r.id}&h=n1`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/foro/c/${CHANNEL}?m=${r.id}&h=n1`, { scroll: false });
     });
 
     it("a reply anchor opens its thread and highlights the reply there", async () => {
@@ -652,7 +652,7 @@ describe("ChatView", () => {
       expect(scrolls.some((s) => s.id === r.id)).toBe(true);
       // closing the thread drops the reply anchor but keeps the reading position at the thread root
       await userEvent.click(within(panel).getByRole("button", { name: "Cerrar hilo" }));
-      expect(h.replace).toHaveBeenCalledWith(`/c/${CHANNEL}?m=${r.id}`, { scroll: false });
+      expect(h.replace).toHaveBeenCalledWith(`/foro/c/${CHANNEL}?m=${r.id}`, { scroll: false });
     });
   });
 

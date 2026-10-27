@@ -1,16 +1,17 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
-
-vi.mock("@/lib/economy/config", () => ({ getEconomyConfig: async () => ({ minFeeBps: 100 }) }));
-
+import { describe, expect, it } from "vitest";
 import { GuideContent, isComingSoon } from "@/components/guide/guide-content";
+import { GUIDE_SECTIONS } from "@/lib/guide/sections";
+
+const SLUGS = GUIDE_SECTIONS.map((s) => s.slug);
+
+function headings() {
+  return screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+}
 
 describe("guide: propinas", () => {
   it("is no longer marked as coming soon", () => {
-    expect(isComingSoon("propinas")).toBe(false);
-    expect(isComingSoon("bounties")).toBe(false);
-    expect(isComingSoon("dao")).toBe(false);
-    expect(isComingSoon("candados")).toBe(false);
+    for (const slug of SLUGS) expect(isComingSoon(slug)).toBe(false);
   });
   it("warns that ETH tips need a plain wallet", () => {
     render(<GuideContent slug="propinas" />);
@@ -29,119 +30,82 @@ describe("guide: bounties", () => {
   });
 });
 
-describe("guide: fondo", () => {
-  it("is not coming soon", () => {
-    expect(isComingSoon("fondo")).toBe(false);
-  });
-  it("explains the NAV, the club fund, the risk notice and what arrives later", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(screen.getByRole("heading", { name: "Cómo se valora el fondo" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Fondo del club" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Riesgo" })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Entiendo que es una donación sin esperar nada a cambio, que el fondo se invierte con riesgo y que las retiradas dependen de la disponibilidad y de la decisión del tesorero\./,
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Los sorteos, si llegan/i)).toBeNull();
-    expect(screen.queryByText(/llegarán/)).not.toBeInTheDocument();
-    expect(screen.getAllByText(/NAV/).length).toBeGreaterThan(0);
-    expect(screen.queryByText(/liquidativo/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/empezarán desactivadas/)).toBeNull();
-    expect(screen.getByText(/primera valoración/)).toBeInTheDocument();
-  });
-});
-
-describe("guide: retiradas", () => {
-  it("explains how to ask for a withdrawal", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(screen.getByRole("heading", { name: "Cómo pedir una retirada" })).toBeInTheDocument();
-    expect(screen.getAllByText(/SuperAdmin/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/14 días/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/bloqueadas desde que pides/)).toBeInTheDocument();
-    expect(screen.getByText(/se paga en USDC/)).toBeInTheDocument();
-    expect(screen.queryByText(/Hoy no se puede retirar nada/)).toBeNull();
-  });
-  it("says the payout is one transfer of at least the fixed amount, never split", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(screen.getAllByText(/una sola transferencia de al menos el importe fijado/).length).toBeGreaterThan(0);
-  });
-  it("F4-R2: explains why credits pause after a non-conforming payout and how the treasurer resolves it", () => {
-    render(<GuideContent slug="fondo" />);
-    const p = screen.getByText(/las donaciones, las aprobaciones y la valoración del fondo se ponen en pausa/);
-    expect(p).toHaveTextContent(/pago parcial o repartido/);
-    expect(p).toHaveTextContent(/pide al miembro que lo devuelva/);
-    expect(p).toHaveTextContent(/completa el pago con una sola transferencia de al menos el importe fijado/);
-    expect(p).toHaveTextContent(/añade una nota a las salidas parciales/);
-    expect(p).toHaveTextContent(/Si la salida no tiene nada que ver, basta con añadirle una nota/);
-    // F4-R3
-    expect(p).toHaveTextContent(
-      /Si una sola transferencia pagó a la vez la retirada y el premio de un mismo miembro, el tesorero usa «Marcar como pagado» en el premio con el mismo hash/,
-    );
-  });
-  it("no longer says contributions cannot be withdrawn", () => {
-    render(<GuideContent slug="dao" />);
-    expect(screen.queryByText(/Hoy las aportaciones no se pueden retirar/)).toBeNull();
+describe("guide: donaciones", () => {
+  it("has its subsections and the money reminders", () => {
+    render(<GuideContent slug="donaciones" />);
+    expect(headings()).toEqual(["Qué es", "Cómo donar", "Qué recibes", "Transparencia"]);
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("ElClub. no custodia fondos");
+    expect(text).toContain("Donar no da derechos económicos");
+    expect(text).toContain("Base");
+    expect(text).toContain("Arbitrum");
+    expect(text).toContain("Mecenas");
+    expect(text).toContain("1 USD");
+    expect(text).toMatch(/ocultarte/);
+    expect(text).toMatch(/saldos de la Safe/);
+    expect(text).toMatch(/nota/);
   });
 });
 
 describe("guide: sorteos", () => {
-  it("explains how raffles work", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(screen.getByRole("heading", { name: "Cómo funcionan los sorteos" })).toBeInTheDocument();
-    expect(screen.getByText(/sale del fondo y baja su valor sin cambiar el porcentaje de nadie/)).toBeInTheDocument();
-    expect(screen.getAllByText(/igualitario/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/SuperAdmin lo activa por red/)).toBeInTheDocument();
-    expect(screen.getByText(/compromiso/)).toBeInTheDocument();
-    expect(screen.getByText(/primer bloque de Linea posterior al cierre/)).toBeInTheDocument();
-    expect(screen.getByText(/Anónimo #/)).toBeInTheDocument();
-    expect(screen.getByText(/WETH en lugar de ETH/)).toBeInTheDocument();
-    expect(screen.getByText(/se marca como impagado a los 14 días/)).toBeInTheDocument();
-    expect(screen.getByText(/primera ejecución del proceso automático tras la hora de cierre/)).toBeInTheDocument();
-    expect(screen.getByText(/en un club pequeño puede deducirse quién es un miembro oculto/)).toBeInTheDocument();
+  it("has its subsections and explains drand", () => {
+    render(<GuideContent slug="sorteos" />);
+    expect(headings()).toEqual(["Qué es", "Premios", "Cómo se elige al ganador", "Cómo comprobarlo"]);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/gratis/);
+    expect(text).toMatch(/misma probabilidad/);
+    expect(text).toContain("USDC");
+    expect(text).toContain("drand");
+    expect(text).toMatch(/semilla/);
+    expect(text).toContain("ElClub. no custodia fondos");
   });
+});
 
-  it("warns that a WETH prize is valued at creation and can weigh more if ETH rises before payment", () => {
-    render(<GuideContent slug="fondo" />);
-    const p = screen.getByText(/Un premio en WETH se valora al crear el sorteo/);
-    expect(p).toHaveTextContent(/50 %/);
-    expect(p).toHaveTextContent(/si el ETH sube mucho antes del pago/i);
-    expect(p).toHaveTextContent(/donaciones pueden esperar a la siguiente valoración/);
-    expect(p).toHaveTextContent(/cancelarlo antes del sorteo/);
+describe("guide: candados", () => {
+  it("is about the total donated in USD and the Mecenas role", () => {
+    render(<GuideContent slug="candados" />);
+    const text = document.body.textContent ?? "";
+    expect(text).toMatch(/donado/);
+    expect(text).toContain("USD");
+    expect(text).toContain("Mecenas");
+    expect(text).not.toMatch(/porcentaje|DAO|aportaci/i);
   });
+});
 
-  it("does not overclaim the seed's secrecy and says the winner's wallet is visible on-chain", () => {
-    render(<GuideContent slug="fondo" />);
-    expect(screen.queryByText(/nadie puede ver antes/)).toBeNull();
-    expect(screen.getByText(/Ni los miembros ni los tesoreros pueden verla antes del sorteo/)).toBeInTheDocument();
-    expect(screen.getByText(/la wallet que recibe el premio se ve en la red/)).toBeInTheDocument();
+describe("guide: redes", () => {
+  it("explains the test mode on Base Sepolia and Arbitrum Sepolia, and that the club holds no funds", () => {
+    render(<GuideContent slug="redes" />);
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("Base Sepolia");
+    expect(text).toContain("Arbitrum Sepolia");
+    expect(text).toContain("MODO PRUEBA");
+    expect(text).toMatch(/ElClub\. no custodia fondos/);
+  });
+});
+
+describe("guide: Base and Arbitrum, no fee, no legacy economy", () => {
+  it.each(["propinas", "bounties", "donaciones", "redes"] as const)("%s names Base and Arbitrum", (slug) => {
+    render(<GuideContent slug={slug} />);
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("Base");
+    expect(text).toContain("Arbitrum");
+  });
+  it.each(SLUGS)("%s mentions neither a fee, shares, withdrawals nor Linea", (slug) => {
+    render(<GuideContent slug={slug} />);
+    const text = document.body.textContent ?? "";
+    expect(text).not.toMatch(/comisión/i);
+    expect(text).not.toMatch(/\bLinea\b/);
+    expect(text).not.toMatch(/participaciones|retirada|Lineal|Cuadrática/i);
+    expect(text).not.toMatch(/se está rehaciendo|se rehace/);
   });
 });
 
 describe("guide: encuestas", () => {
-  it("has its subsections and the key explanations", () => {
-    expect(isComingSoon("encuestas")).toBe(false);
+  it("has its subsections: 1 member = 1 vote, secret, results from 3 votes", () => {
     render(<GuideContent slug="encuestas" />);
-    for (const h of ["Qué es", "Cómo se vota", "Cuánto pesa tu voto", "Voto secreto", "Resultados"]) {
-      expect(screen.getByRole("heading", { name: h })).toBeInTheDocument();
-    }
+    expect(headings()).toEqual(["Qué es", "Cómo se vota", "Voto secreto", "Resultados"]);
     const text = document.body.textContent ?? "";
-    for (const t of [
-      "/encuesta",
-      "Crear encuestas",
-      "1 persona, 1 voto",
-      "Lineal",
-      "Cuadrática",
-      "participaciones sin bloquear",
-      "Fondo del club",
-      "hasta el cierre",
-      "al menos 3",
-      "al menos 5",
-      "% del peso",
-      "consultiva",
-      "a nivel de la aplicación",
-      "moderadores ni tesoreros",
-    ]) {
+    for (const t of ["/encuesta", "Crear encuestas", "1 miembro = 1 voto", "hasta el cierre", "al menos 3", "consultiva", "a nivel de la aplicación", "moderadores ni tesoreros"]) {
       expect(text, t).toContain(t);
     }
     expect(text).not.toMatch(/imposible para nadie/i);

@@ -99,7 +99,7 @@ Copia este bloque en la sección que toque, cambia el número y rellena lo que s
 - **Qué quiero:** feedback inmediato con el loader **Diamond** de loading-ui
   (`pnpm dlx shadcn@latest add @loading-ui/diamond`, uso `<Diamond className="size-10" />`), en el **azul de la web**.
   Decisiones a respetar:
-  - **Color:** el azul de la web es el token `--accent` (`#61DFFF`). Se usa la clase `text-accent`, no un
+  - **Color:** el azul de la web es el token `--accent` (`#61DFFF`; sustituido por R2 (2026-10-25): Base Blue + Cerulean). Se usa la clase `text-accent`, no un
     `text-[#…]` suelto: el sistema de diseño prohíbe hex sueltos en componentes y así el loader sigue el tema si el
     acento cambia algún día.
   - **Dónde:**

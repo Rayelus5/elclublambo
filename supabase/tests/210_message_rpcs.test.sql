@@ -36,11 +36,11 @@ $$;
 -- privileges
 select ok(not has_function_privilege('anon', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'anon cannot post_message');
 select ok(has_function_privilege('authenticated', 'public.post_message(uuid,jsonb,text,boolean,uuid,uuid,jsonb,uuid)', 'execute'), 'authenticated can post_message');
-select ok(not has_function_privilege('authenticated', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'authenticated cannot post_message_as');
-select ok(not has_function_privilege('anon', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'anon cannot post_message_as');
-select ok(has_function_privilege('service_role', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text)', 'execute'), 'service_role can post_message_as');
-select ok(not has_function_privilege('authenticated', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid)', 'execute'), 'authenticated cannot core');
-select ok(not has_function_privilege('service_role', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid)', 'execute'), 'service_role cannot core');
+select ok(not has_function_privilege('authenticated', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,int)', 'execute'), 'authenticated cannot post_message_as');
+select ok(not has_function_privilege('anon', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,int)', 'execute'), 'anon cannot post_message_as');
+select ok(has_function_privilege('service_role', 'public.post_message_as(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,int)', 'execute'), 'service_role can post_message_as');
+select ok(not has_function_privilege('authenticated', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid,int)', 'execute'), 'authenticated cannot core');
+select ok(not has_function_privilege('service_role', 'public._post_message_core(uuid,uuid,jsonb,text,boolean,uuid,uuid,jsonb,text,uuid,int)', 'execute'), 'service_role cannot core');
 select ok(not has_function_privilege('anon', 'public.edit_message(uuid,jsonb,text)', 'execute'), 'anon cannot edit_message');
 select ok(not has_function_privilege('anon', 'public.delete_message(uuid)', 'execute'), 'anon cannot delete_message');
 select ok(has_function_privilege('authenticated', 'public.my_slowmode_remaining(uuid)', 'execute'), 'authenticated can my_slowmode_remaining');
@@ -343,18 +343,18 @@ insert into public.member_roles (member_id, role_id) values (current_setting('t.
 select set_config('t.addr', '0xAbCdEf0123456789aBcDeF0123456789AbCdEf01', true);
 set local role service_role;
 select set_config('t.alphamsg', public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid,
-  tests.td('mira este contrato'), 'mira este contrato', false, null, null, '[]', current_setting('t.addr'))::text, true);
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
+  tests.td('mira este contrato'), 'mira este contrato', false, null, null, '[]', current_setting('t.addr'), 84532)::text, true);
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L, 84532)$q$,
   current_setting('t.e'), current_setting('t.txt'), current_setting('t.addr')), 'P0001', 'forbidden', 'alpha in a channel without alpha_enabled: forbidden');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L, 84532)$q$,
   current_setting('t.u'), current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'alpha without EMBED_LINKS: forbidden');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', '0x123')$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', '0x123', 84532)$q$,
   current_setting('t.e'), current_setting('t.alpha')), 'P0001', 'invalid_input', 'alpha with a malformed address: invalid_input');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', null)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', null, 84532)$q$,
   current_setting('t.e'), current_setting('t.alpha')), 'P0001', 'invalid_input', 'post_message_as without address: invalid_input');
-select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(%L::uuid, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L, 84532)$q$,
   current_setting('t.ban'), current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'banned member: forbidden');
-select throws_ok(format($q$select public.post_message_as(null, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L)$q$,
+select throws_ok(format($q$select public.post_message_as(null, %L::uuid, tests.td('x'), 'x', false, null, null, '[]', %L, 84532)$q$,
   current_setting('t.alpha'), current_setting('t.addr')), 'P0001', 'forbidden', 'null member: forbidden');
 reset role;
 select is((select kind from public.messages where id = current_setting('t.alphamsg')::uuid), 'alpha', 'alpha message has kind alpha');
@@ -363,7 +363,7 @@ select is((select allow_links from public.messages where id = current_setting('t
 select is((select contract_address from public.alpha_details where message_id = current_setting('t.alphamsg')::uuid), lower(current_setting('t.addr')), 'alpha address stored lowercase');
 select tests.authenticate_as(current_setting('t.ue')::uuid);
 select lives_ok(format($q$select public.edit_message(%L::uuid, tests.td('contrato editado'), 'contrato editado')$q$, current_setting('t.alphamsg')), 'alpha author edits');
-select throws_ok($$select public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid, tests.td('x'), 'x', false, null, null, '[]', current_setting('t.addr'))$$,
+select throws_ok($$select public.post_message_as(current_setting('t.e')::uuid, current_setting('t.alpha')::uuid, tests.td('x'), 'x', false, null, null, '[]', current_setting('t.addr'), 84532)$$,
   '42501', null, 'authenticated cannot call post_message_as');
 select lives_ok($$select tests.post(current_setting('t.alpha')::uuid, 'texto normal')$$, 'regular post in an alpha channel ok');
 select tests.clear_authentication();

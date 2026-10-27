@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
-import { buildCsp, headerEnvFromProcess, securityHeaders, type HeaderEnv } from "../../src/lib/security/headers";
+import { chainsForSet, NETWORKS } from "../../src/lib/economy/networks";
+import { DRAND_API_BASES } from "../../src/lib/giveaways/drand";
+import { buildCsp, DRAND_ORIGINS, headerEnvFromProcess, PUBLIC_RPCS, securityHeaders, type HeaderEnv } from "../../src/lib/security/headers";
 
 // F5 Task 3 (F5-R3/R4, closes security finding S11): a full, static CSP plus the other security headers.
 
-const PROD: HeaderEnv = { supabaseUrl: "https://abc.supabase.co", siteUrl: "https://elclub.party", publicRpcUrls: [], dev: false };
-const LOCAL: HeaderEnv = { supabaseUrl: "http://127.0.0.1:54321", siteUrl: "http://localhost:3000", publicRpcUrls: [], dev: false };
+const PROD: HeaderEnv = { supabaseUrl: "https://abc.supabase.co", siteUrl: "https://elclub.party", publicRpcUrls: [], networkSet: "mainnet", dev: false };
+const LOCAL: HeaderEnv = { supabaseUrl: "http://127.0.0.1:54321", siteUrl: "http://localhost:3000", publicRpcUrls: [], networkSet: "testnet", dev: false };
 
 function directives(csp: string): Map<string, string[]> {
   const out = new Map<string, string[]>();
@@ -54,14 +56,14 @@ describe("buildCsp", () => {
     ]);
   });
 
-  it("connect-src: Supabase (https + wss), the public Linea RPCs and Reown/WalletConnect", () => {
+  it("connect-src: Supabase (https + wss), the public RPCs of the mainnet set and Reown/WalletConnect", () => {
     const c = sourcesOf(buildCsp(PROD), "connect-src");
     for (const s of [
       "'self'",
       "https://abc.supabase.co",
       "wss://abc.supabase.co",
-      "https://rpc.linea.build",
-      "https://rpc.sepolia.linea.build",
+      "https://mainnet.base.org",
+      "https://arb1.arbitrum.io",
       "wss://relay.walletconnect.org",
       "wss://relay.walletconnect.com",
       "https://rpc.walletconnect.org",
@@ -73,6 +75,50 @@ describe("buildCsp", () => {
     ]) {
       expect(c).toContain(s);
     }
+  });
+
+  it("connect-src follows the network set: testnet has the Sepolia RPCs, mainnet only its own, never Linea", () => {
+    const test = sourcesOf(buildCsp({ ...PROD, networkSet: "testnet" }), "connect-src");
+    expect(test).toContain("https://sepolia.base.org");
+    expect(test).toContain("https://sepolia-rollup.arbitrum.io");
+    expect(test).not.toContain("https://mainnet.base.org");
+    expect(test).not.toContain("https://arb1.arbitrum.io");
+    expect(test.join(" ")).not.toMatch(/linea/i);
+    const main = sourcesOf(buildCsp({ ...PROD, networkSet: "mainnet" }), "connect-src");
+    expect(main).toContain("https://mainnet.base.org");
+    expect(main).toContain("https://arb1.arbitrum.io");
+    expect(main).not.toContain("https://sepolia.base.org");
+    expect(main).not.toContain("https://sepolia-rollup.arbitrum.io");
+    expect(main.join(" ")).not.toMatch(/linea/i);
+  });
+
+  it("PUBLIC_RPCS stays in step with the viem chains of NETWORKS (headers.ts does not import networks.ts)", () => {
+    for (const set of ["mainnet", "testnet"] as const) {
+      const expected = chainsForSet(set).map((c) => new URL(NETWORKS[c].viemChain.rpcUrls.default.http[0]!).origin);
+      expect([...PUBLIC_RPCS[set]].sort()).toEqual(expected.sort());
+    }
+  });
+
+  it("connect-src: the four drand quicknet origins on both sets (P1)", () => {
+    for (const set of ["mainnet", "testnet"] as const) {
+      const c = sourcesOf(buildCsp({ ...PROD, networkSet: set }), "connect-src");
+      for (const s of ["https://api.drand.sh", "https://api2.drand.sh", "https://api3.drand.sh", "https://drand.cloudflare.com"]) {
+        expect(c).toContain(s);
+      }
+    }
+  });
+
+  it("DRAND_ORIGINS stays in step with the bases the verifier fetches (headers.ts does not import drand.ts)", () => {
+    expect([...DRAND_ORIGINS]).toEqual([...DRAND_API_BASES]);
+  });
+
+  it("connect-src adds the origin of NEXT_PUBLIC_DRAND_API_BASE on testnet only (P1-R11)", () => {
+    const test = sourcesOf(buildCsp({ ...LOCAL, drandApiBase: "http://127.0.0.1:8551/x" }), "connect-src");
+    expect(test).toContain("http://127.0.0.1:8551");
+    expect(test.some((s) => s.includes("/x"))).toBe(false);
+    const main = sourcesOf(buildCsp({ ...PROD, drandApiBase: "https://drand.example" }), "connect-src");
+    expect(main).not.toContain("https://drand.example");
+    expect(() => buildCsp({ ...LOCAL, drandApiBase: "not a url" })).not.toThrow();
   });
 
   it("img-src: Supabase Storage, DiceBear, CoinGecko image hosts, Reown wallet images, data: and blob:", () => {
@@ -151,7 +197,7 @@ describe("buildCsp", () => {
   });
 
   it("skips malformed, empty and undefined URLs without throwing", () => {
-    const env: HeaderEnv = { supabaseUrl: "not a url", siteUrl: undefined, publicRpcUrls: ["not a url", undefined, ""], dev: false };
+    const env: HeaderEnv = { supabaseUrl: "not a url", siteUrl: undefined, publicRpcUrls: ["not a url", undefined, ""], networkSet: "testnet", dev: false };
     let csp = "";
     expect(() => (csp = buildCsp(env))).not.toThrow();
     expect(csp).not.toContain("not a url");
@@ -162,9 +208,9 @@ describe("buildCsp", () => {
   });
 
   it("does not duplicate a source", () => {
-    const csp = buildCsp({ ...PROD, publicRpcUrls: ["https://rpc.linea.build/", "https://rpc.linea.build"] });
+    const csp = buildCsp({ ...PROD, publicRpcUrls: ["https://mainnet.base.org/", "https://mainnet.base.org"] });
     const c = sourcesOf(csp, "connect-src");
-    expect(c.filter((s) => s === "https://rpc.linea.build")).toHaveLength(1);
+    expect(c.filter((s) => s === "https://mainnet.base.org")).toHaveLength(1);
   });
 });
 
@@ -185,16 +231,26 @@ describe("headerEnvFromProcess", () => {
       NODE_ENV: "development",
       NEXT_PUBLIC_SUPABASE_URL: "https://abc.supabase.co",
       NEXT_PUBLIC_SITE_URL: "https://elclub.party",
-      NEXT_PUBLIC_LINEA_RPC_URL: "https://a.example",
-      NEXT_PUBLIC_LINEA_SEPOLIA_RPC_URL: "https://b.example",
+      NEXT_PUBLIC_NETWORK_SET: "mainnet",
+      NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL: "https://a.example",
+      NEXT_PUBLIC_ARBITRUM_SEPOLIA_RPC_URL: "https://b.example",
+      NEXT_PUBLIC_DRAND_API_BASE: "https://drand.example",
     } as NodeJS.ProcessEnv);
     expect(env).toEqual({
       supabaseUrl: "https://abc.supabase.co",
       siteUrl: "https://elclub.party",
       publicRpcUrls: ["https://a.example", "https://b.example"],
+      drandApiBase: "https://drand.example",
+      networkSet: "mainnet",
       dev: true,
     });
     expect(headerEnvFromProcess({ NODE_ENV: "production" } as NodeJS.ProcessEnv).dev).toBe(false);
+  });
+
+  it("treats an unset or empty NEXT_PUBLIC_NETWORK_SET as testnet and rejects anything else", () => {
+    expect(headerEnvFromProcess({} as NodeJS.ProcessEnv).networkSet).toBe("testnet");
+    expect(headerEnvFromProcess({ NODE_ENV: "test", NEXT_PUBLIC_NETWORK_SET: "" } as NodeJS.ProcessEnv).networkSet).toBe("testnet");
+    expect(() => headerEnvFromProcess({ NODE_ENV: "test", NEXT_PUBLIC_NETWORK_SET: "linea" } as NodeJS.ProcessEnv)).toThrow();
   });
 });
 

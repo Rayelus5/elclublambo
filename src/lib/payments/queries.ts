@@ -3,7 +3,7 @@
 // caller's own. Amounts are read from the `*_text` columns because numeric(78,0) travels as a JSON number and loses
 // digits past 2^53 in JavaScript.
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { isChainId, type ChainId } from "@/lib/economy/networks";
+import { isChainId, isNetworkKey, NETWORK_KEYS, type ChainId, type NetworkKey } from "@/lib/economy/networks";
 import { identityFromRow, memberName, MEMBER_IDENTITY_COLUMNS, type MemberIdentityRow } from "@/lib/members/name";
 import type { Token } from "@/lib/payments/amounts";
 
@@ -72,13 +72,33 @@ export async function getTipSummaries(supabase: SupabaseClient, messageIds: read
   return out;
 }
 
-/** Exact totals per token of the tips a member received on one chain (server-side sum, no cap). USDC then ETH. */
-export async function getMemberTipTotals(supabase: SupabaseClient, memberId: string, chainId: ChainId): Promise<TipTotal[]> {
-  const { data, error } = await supabase.rpc("member_tips_totals", { p_member: memberId, p_chain: chainId });
+/**
+ * Exact totals per token of the tips a member received on the enabled networks, all networks summed per token
+ * (server-side, no cap). USDC then ETH.
+ */
+export async function getMemberTipTotals(supabase: SupabaseClient, memberId: string): Promise<TipTotal[]> {
+  const { data, error } = await supabase.rpc("member_tips_totals", { p_member: memberId });
   if (error) throw error;
   return ((data ?? []) as Array<{ token: unknown; total_text: unknown; tip_count: number }>)
     .flatMap((r): TipTotal[] => (isToken(r.token) ? [{ token: r.token, total: units(r.total_text, null), count: Number(r.tip_count) }] : []))
     .sort((a, b) => TOKEN_ORDER[a.token] - TOKEN_ORDER[b.token]);
+}
+
+/**
+ * The networks a member receives payments on (D22), valid keys only, in their stored order. Never throws: a failed
+ * read or an odd value means both networks (the server still refuses a network the member does not accept).
+ */
+export async function getReceiveNetworks(supabase: SupabaseClient, memberId: string): Promise<NetworkKey[]> {
+  try {
+    const { data, error } = await supabase.rpc("receive_networks_of", { p_member: memberId });
+    if (!error && Array.isArray(data)) {
+      const keys = [...new Set(data)].filter(isNetworkKey);
+      if (keys.length > 0) return keys;
+    }
+  } catch {
+    // fall through
+  }
+  return [...NETWORK_KEYS];
 }
 
 interface TipRow {

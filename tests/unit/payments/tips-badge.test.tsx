@@ -17,7 +17,7 @@ const entry = (over: Partial<TipEntry> = {}): TipEntry => ({
   anonymous: false,
   token: "USDC",
   amount: 12_500_000n,
-  chainId: 59141,
+  chainId: 84532,
   txHash: HASH,
   createdAt: new Date(Date.now() - 3 * 60_000).toISOString(),
   ...over,
@@ -55,7 +55,7 @@ describe("TipsBadge", () => {
     expect(within(dialog).getByText("12,5 USDC")).toBeInTheDocument();
     expect(within(dialog).getByText(/hace 3 minutos/)).toBeInTheDocument();
     const link = within(dialog).getByRole("link", { name: /ver transacción/i });
-    expect(link).toHaveAttribute("href", `https://sepolia.lineascan.build/tx/${HASH}`);
+    expect(link).toHaveAttribute("href", `https://sepolia.basescan.org/tx/${HASH}`);
     expect(getMessageTips).toHaveBeenCalledWith(expect.anything(), "m1");
   });
 

@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { getClubActivity, getOpenBounties, getUnreadSummary, messageHref } from "@/lib/home/queries";
+import {
+  getClubActivity,
+  getHomeHighlights,
+  getHomeUnreadChannels,
+  getOpenBounties,
+  getUnreadSummary,
+  messageHref,
+} from "@/lib/home/queries";
 
 const rpcClient = (data: unknown, error: unknown = null) => ({ rpc: vi.fn(async () => ({ data, error })), from: vi.fn() });
 
@@ -50,6 +57,54 @@ describe("home queries", () => {
   });
 
   it("links a message in its channel", () => {
-    expect(messageHref("c1", "m1")).toBe("/c/c1?m=m1");
+    expect(messageHref("c1", "m1")).toBe("/foro/c/c1?m=m1");
+  });
+  it("maps unread channels from home_unread_channels", async () => {
+    const c = rpcClient([
+      { channel_id: "c1", channel_name: "general", unread_count: 99, last_excerpt: "hola", last_author: "@ana", last_at: "2026-10-24T10:00:00Z" },
+      { channel_id: "c2", channel_name: "ideas", unread_count: null, last_excerpt: null, last_author: null, last_at: "2026-10-24T09:00:00Z" },
+    ]);
+    const list = await getHomeUnreadChannels(c as never, 4);
+    expect(c.rpc).toHaveBeenCalledWith("home_unread_channels", { p_limit: 4 });
+    expect(list).toEqual([
+      { channelId: "c1", channelName: "general", unreadCount: 99, lastExcerpt: "hola", lastAuthor: "@ana", lastAt: "2026-10-24T10:00:00Z" },
+      { channelId: "c2", channelName: "ideas", unreadCount: 0, lastExcerpt: "", lastAuthor: "", lastAt: "2026-10-24T09:00:00Z" },
+    ]);
+  });
+
+  it("throws when home_unread_channels fails", async () => {
+    await expect(getHomeUnreadChannels(rpcClient(null, { message: "boom" }) as never, 6)).rejects.toThrow("boom");
+  });
+
+  it("maps home_highlights with poll and giveaway", async () => {
+    const c = rpcClient({
+      openBounties: 3,
+      poll: { messageId: "m1", channelId: "c1", question: "¿Sí?", closesAt: "2026-10-25T10:00:00+00:00" },
+      giveaway: { id: "g1", title: "Sorteo", closesAt: "2026-10-26T10:00:00+00:00", iEntered: true },
+      donor: { isMecenas: true },
+    });
+    expect(await getHomeHighlights(c as never)).toEqual({
+      openBounties: 3,
+      poll: { messageId: "m1", channelId: "c1", question: "¿Sí?", closesAt: "2026-10-25T10:00:00+00:00" },
+      giveaway: { id: "g1", title: "Sorteo", closesAt: "2026-10-26T10:00:00+00:00", iEntered: true },
+      donor: { isMecenas: true },
+    });
+    expect(c.rpc).toHaveBeenCalledWith("home_highlights");
+  });
+
+  it("reads null poll and giveaway, and defends against a malformed payload", async () => {
+    expect(await getHomeHighlights(rpcClient({ openBounties: 0, poll: null, giveaway: null, donor: { isMecenas: false } }) as never)).toEqual({
+      openBounties: 0,
+      poll: null,
+      giveaway: null,
+      donor: { isMecenas: false },
+    });
+    expect(await getHomeHighlights(rpcClient(null) as never)).toEqual({
+      openBounties: 0,
+      poll: null,
+      giveaway: null,
+      donor: { isMecenas: false },
+    });
+    await expect(getHomeHighlights(rpcClient(null, { message: "forbidden" }) as never)).rejects.toThrow("forbidden");
   });
 });

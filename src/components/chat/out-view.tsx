@@ -1,13 +1,11 @@
 import { ShieldAlert, TriangleAlert } from "lucide-react";
 import { OutBackButton } from "@/components/chat/out-back-button";
 import { buttonVariants } from "@/components/ui/button";
-import { parseExternalUrl } from "@/lib/chat/links";
+import { needsHomographWarning, parseExternalUrl } from "@/lib/chat/links";
 import { cn } from "@/lib/utils";
 
-/** Fail closed: any punycode label warns, even one the decoder could not turn into Unicode. */
-export function needsHomographWarning(host: string, unicodeHost: string): boolean {
-  return /(^|\.)xn--/i.test(host) || unicodeHost !== host;
-}
+// Lives in the shared pure module (the link checker uses it too); re-exported so existing imports keep working.
+export { needsHomographWarning };
 
 /** Interstitial shown before leaving the forum through a link that is not on the allowed list. */
 export function OutView({ u }: { u: string | undefined }) {

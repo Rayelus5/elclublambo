@@ -3,7 +3,11 @@ import { createClient } from "@supabase/supabase-js";
 import type { BrowserContext } from "@playwright/test";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import type { Hex } from "viem";
+import { clubPath } from "../../src/lib/club/paths";
 import { buildLoginMessage, generateNonce } from "../../src/lib/web3/siwe";
+
+// R1: the club lives under /foro. Specs build club URLs with clubPath (re-exported here), never "/foro/..." by hand.
+export { CLUB_BASE, clubPath } from "../../src/lib/club/paths";
 
 /**
  * TEST-ONLY key. Its address is injected as SUPER_ADMIN_WALLET into the E2E dev server
@@ -18,13 +22,13 @@ export const addressOf = (pk: Hex) => privateKeyToAccount(pk).address.toLowerCas
 export const handleOf = (pk: Hex) => "@u_" + addressOf(pk).slice(2, 12);
 
 const ORIGIN = "http://localhost:3000";
-const CHAIN_ID = 59141; // linea sepolia
+const CHAIN_ID = 84532; // Base Sepolia (the testnet set's first network)
 
 type Jar = { name: string; value: string };
 
 /**
  * Signs in with Supabase Web3 Auth in Node (no browser wallet), injects the session cookies
- * into the Playwright context and runs the app's /login/complete handler.
+ * into the Playwright context and runs the app's /foro/login/complete handler.
  */
 export async function loginAs(
   context: BrowserContext,
@@ -38,7 +42,7 @@ export async function loginAs(
     chainId: CHAIN_ID,
     nonce: generateNonce(),
     domain: "localhost:3000",
-    uri: `${ORIGIN}/login`,
+    uri: `${ORIGIN}${clubPath("/login")}`, // R1-R2
   });
   const signature = await account.signMessage({ message });
 
@@ -60,7 +64,7 @@ export async function loginAs(
   await context.addCookies([...jar.values()].map((c) => ({ ...c, domain: "localhost", path: "/" })));
 
   const page = await context.newPage();
-  await page.goto("/login/complete" + (opts.invite ? `?invite=${encodeURIComponent(opts.invite)}` : ""));
+  await page.goto(clubPath("/login/complete") + (opts.invite ? `?invite=${encodeURIComponent(opts.invite)}` : ""));
   await page.waitForLoadState("domcontentloaded");
   let landed = page.url();
   if (onboard) {
@@ -82,7 +86,7 @@ export async function loginAs(
         .update({ handle: member.handle ?? "u_" + wallet.slice(2, 12), welcome_completed_at: new Date().toISOString() })
         .eq("id", member.id);
       if (updateError) throw new Error(`onboarding update failed: ${updateError.message}`);
-      await page.goto("/");
+      await page.goto(clubPath());
       await page.waitForLoadState("domcontentloaded");
       landed = page.url();
     }

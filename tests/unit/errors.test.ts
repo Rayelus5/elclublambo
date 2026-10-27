@@ -107,7 +107,32 @@ describe("rpcErrorMessage", () => {
     expect(rpcErrorCode({ message: code })).toBe(code);
     expect(rpcErrorMessage(code)).toBe(copy);
   });
+  it.each([
+    ["round_not_ready", "La ronda de drand de este sorteo aún no existe. Espera unos segundos."],
+    ["giveaway_closed", "Este sorteo ya está cerrado."],
+    ["role_not_allowed", "Ese rol no se puede sortear: debe ser un rol sin permisos de gestión y por debajo del tuyo."],
+    ["drand_unavailable", "No se pudo descargar la ronda de drand. Se reintentará."],
+    ["drand_invalid", "La ronda descargada de drand no tiene una firma válida. Se reintentará."],
+    ["giveaway_closes_at_invalid", "El cierre debe estar entre 10 minutos y 30 días desde ahora."],
+  ])("P1 giveaway error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
   it("falls back for unknown", () => expect(rpcErrorMessage("zzz")).toBe(FALLBACK));
+  it.each([
+    ["network_not_accepted", "Esta persona no recibe pagos en esa red."],
+    ["chain_disabled", "Esa red ya no está disponible."],
+  ])("P0 multi-network error %s has its exact copy", (code, copy) => {
+    expect(rpcErrorCode({ message: code })).toBe(code);
+    expect(rpcErrorMessage(code)).toBe(copy);
+  });
+  it.each(["bounty_chain_inactive", "fee_below_minimum", "platform_not_configured"])(
+    "the fee and single-chain code %s is gone (P0-R4, P0-R5)",
+    (code) => {
+      expect(knownErrorCode(code)).toBeNull();
+      expect(rpcErrorMessage(code)).toBe(FALLBACK);
+    },
+  );
 });
 
 describe("rpcErrorCode", () => {
@@ -121,5 +146,19 @@ describe("rpcErrorCode", () => {
     expect(rpcErrorCode({ message: "boom" })).toBe("unknown");
     expect(rpcErrorCode(null)).toBe("unknown");
     expect(rpcErrorCode(undefined)).toBe("unknown");
+  });
+});
+
+describe("administración (Task 4)", () => {
+  it.each(["switch_invalid", "maintenance_invalid", "wallet_invalid", "note_invalid", "password_invalid"])(
+    "%s is allowlisted with its own Spanish copy",
+    (code) => {
+      expect(rpcErrorCode({ message: code })).toBe(code);
+      expect(rpcErrorMessage(code)).not.toBe(FALLBACK);
+    },
+  );
+  it("password_invalid states the 12–128 bounds", () => {
+    expect(rpcErrorMessage("password_invalid")).toMatch(/12/);
+    expect(rpcErrorMessage("password_invalid")).toMatch(/128/);
   });
 });

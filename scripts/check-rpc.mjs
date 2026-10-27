@@ -1,5 +1,6 @@
 // RPC readiness checker (F5-R9). Run before pointing the app at an RPC:
-//   pnpm check:rpc --chain 59144      (reads .env.local, then .env, from the current folder; real env vars win)
+//   pnpm check:rpc --chain 8453       (reads .env.local, then .env, from the current folder; real env vars win)
+//   pnpm check:rpc                    (every network of NEXT_PUBLIC_NETWORK_SET)
 // Checks the chain id, archive state (eth_call ~1M blocks back) and eth_getLogs over a 2001-block range
 // (the app scans in 2000-block chunks). The RPC URL holds the provider key, so it is never printed:
 // only `origin/***`, and every output line passes through `sanitize`.
@@ -23,9 +24,13 @@ export function loadLocalEnv(cwd, exists = existsSync, load = (p) => process.loa
 
 /** Same addresses as `NETWORKS[...].usdc` in src/lib/economy/networks.ts (a unit test pins them equal). */
 export const CHAINS = {
-  59144: { name: "Linea", usdc: "0x176211869cA2b568f2A7D4EE941E073a821EE1ff", rpcEnv: "LINEA_RPC_URL" },
-  59141: { name: "Linea Sepolia", usdc: "0xFEce4462D57bD51A6A552365A011b95f0E16d9B7", rpcEnv: "LINEA_SEPOLIA_RPC_URL" },
+  8453: { name: "Base", usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", rpcEnv: "BASE_RPC_URL" },
+  42161: { name: "Arbitrum", usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831", rpcEnv: "ARBITRUM_RPC_URL" },
+  84532: { name: "Base Sepolia", usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e", rpcEnv: "BASE_SEPOLIA_RPC_URL" },
+  421614: { name: "Arbitrum Sepolia", usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d", rpcEnv: "ARBITRUM_SEPOLIA_RPC_URL" },
 };
+
+/** @typedef {8453 | 42161 | 84532 | 421614} ChainId */
 
 const TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const TOTAL_SUPPLY = "0x18160ddd";
@@ -33,20 +38,22 @@ const ARCHIVE_DEPTH = 1_000_000n;
 const TIMEOUT_MS = 15_000;
 
 /**
+ * `--chain <id>` gives that one network; without it, every network of NEXT_PUBLIC_NETWORK_SET (unset or empty is
+ * testnet, same rule as networkSet() in src/lib/economy/networks.ts).
  * @param {string[]} argv
  * @param {Record<string, string | undefined>} env
- * @returns {59144 | 59141}
+ * @returns {ChainId[]}
  */
-export function resolveChain(argv, env) {
+export function resolveChains(argv, env) {
   const i = argv.indexOf("--chain");
   if (i !== -1) {
     const id = Number(argv[i + 1]);
-    if (id === 59144 || id === 59141) return id;
+    if (id === 8453 || id === 42161 || id === 84532 || id === 421614) return [id];
     throw new Error("chain_invalid");
   }
-  const c = env.NEXT_PUBLIC_CHAIN;
-  if (c === "linea") return 59144;
-  if (c === undefined || c === "" || c === "lineaSepolia") return 59141;
+  const set = env.NEXT_PUBLIC_NETWORK_SET;
+  if (set === "mainnet") return [8453, 42161];
+  if (set === undefined || set === "" || set === "testnet") return [84532, 421614];
   throw new Error("chain_invalid");
 }
 
@@ -120,7 +127,7 @@ const hex = (n) => "0x" + n.toString(16);
 
 /**
  * @param {string} url
- * @param {59144 | 59141} chainId
+ * @param {ChainId} chainId
  * @param {typeof fetch} [fetchImpl]
  * @returns {Promise<{ ok: boolean; lines: string[] }>}
  */
@@ -170,23 +177,28 @@ export async function checkRpc(url, chainId, fetchImpl = fetch) {
 
 export async function main() {
   loadLocalEnv(process.cwd());
-  let chainId;
+  let chains;
   try {
-    chainId = resolveChain(process.argv.slice(2), process.env);
+    chains = resolveChains(process.argv.slice(2), process.env);
   } catch {
-    console.log("Cadena no valida: usa --chain 59144 o --chain 59141, o NEXT_PUBLIC_CHAIN=linea|lineaSepolia");
+    console.log("Cadena no valida: usa --chain 8453|42161|84532|421614, o NEXT_PUBLIC_NETWORK_SET=mainnet|testnet");
     return 2;
   }
-  const { name, rpcEnv } = CHAINS[chainId];
-  const url = process.env[rpcEnv];
-  if (!url) {
-    console.log(`Falta la variable ${rpcEnv}`);
-    return 2;
+  let code = 0;
+  for (const chainId of chains) {
+    const { name, rpcEnv } = CHAINS[chainId];
+    const url = process.env[rpcEnv];
+    if (!url) {
+      console.log(`Falta la variable ${rpcEnv}`);
+      code = Math.max(code, 2);
+      continue;
+    }
+    console.log(`Comprobando ${redactUrl(url)} en ${name} (${chainId})`);
+    const { ok, lines } = await checkRpc(url, chainId);
+    for (const l of lines) console.log(l);
+    if (!ok) code = Math.max(code, 1);
   }
-  console.log(`Comprobando ${redactUrl(url)} en ${name} (${chainId})`);
-  const { ok, lines } = await checkRpc(url, chainId);
-  for (const l of lines) console.log(l);
-  return ok ? 0 : 1;
+  return code;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
