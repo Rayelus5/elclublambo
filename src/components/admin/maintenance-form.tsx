@@ -54,7 +54,9 @@ function toIso(local: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const DATE_FORMAT = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+/** Built per call, not at import: it must use the zone in force when the error is shown. */
+const formatDate = (iso: string) =>
+  new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
 const passed = (iso: string | null, now: number) => iso !== null && new Date(iso).getTime() <= now;
 
 /**
@@ -69,9 +71,9 @@ function storedDate(m: MaintenanceConfig, key: DateField, now: number): string |
 /** maintenance_invalid, naming the date when that is what the RPC refused. */
 function invalidMessage(config: MaintenanceConfig, now: number): string {
   if (passed(config.returnAt, now)) {
-    return `La vuelta estimada ya ha pasado (${DATE_FORMAT.format(new Date(config.returnAt!))}). Cámbiala o déjala vacía.`;
+    return `La vuelta estimada ya ha pasado (${formatDate(config.returnAt!)}). Cámbiala o déjala vacía.`;
   }
-  if (passed(config.endsAt, now)) return `El fin ya ha pasado (${DATE_FORMAT.format(new Date(config.endsAt!))}). Cámbialo o déjalo vacío.`;
+  if (passed(config.endsAt, now)) return `El fin ya ha pasado (${formatDate(config.endsAt!)}). Cámbialo o déjalo vacío.`;
   if (config.startsAt !== null && config.endsAt !== null && new Date(config.endsAt).getTime() <= new Date(config.startsAt).getTime()) {
     return "«Termina» tiene que ir después de «Empieza».";
   }
