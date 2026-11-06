@@ -14,6 +14,7 @@ import { registerMaintenanceGate } from './maintenance';
 import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
 import { registerOriginGuard } from './security/origin';
+import { registerStatic, sendSpaShell, wantsSpaShell } from './static';
 
 export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date; config?: ConfigService };
 
@@ -47,7 +48,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     req.log.error({ err: { name: (err as Error).name, code: (err as { code?: unknown }).code } }, 'unhandled');
     return reply.code(500).send({ error: 'internal' });
   });
-  app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
+  const hasWeb = await registerStatic(app, deps.env.WEB_DIST);
+  app.setNotFoundHandler((req, reply) => {
+    if (hasWeb && wantsSpaShell(req)) return sendSpaShell(reply);
+    return reply.code(404).send({ error: 'not_found' });
+  });
 
   const now = deps.now ?? (() => new Date());
   const config =
