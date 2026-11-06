@@ -129,7 +129,8 @@ describe("preproduction compose", () => {
 
   it("publishes only 127.0.0.1 ports and never Kong, Postgres or Studio", () => {
     const ports = [...compose.matchAll(/^\s+-\s+"?([\d.:]+)"?\s*$/gm)].map((m) => m[1]!).filter((p) => p.includes(":"));
-    expect(ports).toEqual(["127.0.0.1:3000:3000"]);
+    // web (Next) and galaxy (Galaxy Survivor, games/galaxy): both bound to 127.0.0.1 only.
+    expect(ports).toEqual(["127.0.0.1:3000:3000", "127.0.0.1:8080:8080"]);
     for (const p of ["8000", "5432", "54323", "6543"]) expect(compose).not.toMatch(new RegExp(`:${p}\\b`));
     expect(service("cron")).not.toContain("ports:");
     expect(service("cloudflared")).not.toContain("ports:");
@@ -207,7 +208,9 @@ describe("preproduction compose", () => {
 describe("tunnel ingress", () => {
   it("serves the app on pre.elclub.party keeping the original Host (server actions CSRF check, S14)", () => {
     const rules = ingressRules();
-    expect(rules[0]).toEqual({ hostname: "pre.elclub.party", service: "http://web:3000" });
+    // Galaxy Survivor's own container takes /galaxy first (outside Next: no login proxy, no forum CSP); the rest is web.
+    expect(rules[0]).toEqual({ hostname: "pre.elclub.party", path: "^/galaxy(/|$)", service: "http://galaxy:8080" });
+    expect(rules[1]).toEqual({ hostname: "pre.elclub.party", service: "http://web:3000" });
     expect(code(tunnel)).not.toMatch(/httpHostHeader|originServerName/);
   });
 
@@ -262,7 +265,7 @@ describe("preproduction workflow", () => {
     const s = steps();
     const build = s.indexOf("$COMPOSE build web");
     const push = s.indexOf("supabase db push");
-    const up = s.indexOf("$COMPOSE up -d --no-build web cron cloudflared");
+    const up = s.indexOf("$COMPOSE up -d --no-build web galaxy cron cloudflared");
     // Bind-mounted single files (crontab, tunnel config) can stay stale after `up -d`: cron and cloudflared are always recreated.
     const recreate = s.indexOf("$COMPOSE up -d --no-build --force-recreate cron cloudflared");
     const smoke = s.indexOf("http://127.0.0.1:3000/foro/login");

@@ -4,7 +4,8 @@ name: preproduction
 # -> restart -> smoke. Building first means a broken build never migrates; restarting after migrating means new code
 # never runs against the old schema. Runs on the self-hosted runner labelled elclub-pre, so there is no pull_request
 # trigger: a self-hosted runner must never run fork code.
-# Host files (not in the repo): /opt/elclub/pre/web.env (from deploy/preprod/web.env.example) and
+# Host files (not in the repo): /opt/elclub/pre/web.env (from deploy/preprod/web.env.example),
+# /opt/elclub/pre/galaxy.env (from deploy/preprod/galaxy.env.example; games/galaxy/docs/DEPLOY_PRE.md) and
 # /opt/elclub/pre/cloudflared/credentials.json. GitHub secrets needed (environment preproduction): PREPROD_DB_URL
 # (without the password) and PREPROD_DB_PASSWORD.
 on:
@@ -30,7 +31,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build
-        run: $COMPOSE build web
+        run: $COMPOSE build web galaxy
 
       - uses: supabase/setup-cli@v1
         with:
@@ -46,18 +47,24 @@ jobs:
 
       - name: Restart
         run: |
-          $COMPOSE up -d --no-build web cron cloudflared
+          $COMPOSE up -d --no-build web galaxy cron cloudflared
           # Bind-mounted single files (crontab, tunnel config) keep the old inode/content: always recreate these two.
           $COMPOSE up -d --no-build --force-recreate cron cloudflared
 
       - name: Smoke
         run: |
+          web_ok=0
+          galaxy_ok=0
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
-            if curl -fsS -o /dev/null http://127.0.0.1:3000/foro/login; then
+            [ "$web_ok" = 1 ] || { curl -fsS -o /dev/null http://127.0.0.1:3000/foro/login && web_ok=1; }
+            # Galaxy Survivor: health answers {"ok":true,"db":"up"} only when the server reaches Postgres as galaxy_api.
+            [ "$galaxy_ok" = 1 ] || { curl -fsS http://127.0.0.1:8080/galaxy/api/health | grep -q '"ok":true' && galaxy_ok=1; }
+            if [ "$web_ok" = 1 ] && [ "$galaxy_ok" = 1 ]; then
               exit 0
             fi
             sleep 3
           done
+          echo "smoke: web_ok=$web_ok galaxy_ok=$galaxy_ok" >&2
           $COMPOSE ps
           exit 1
 

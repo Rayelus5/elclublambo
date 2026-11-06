@@ -1,0 +1,9 @@
+# Build context of the galaxy image (games/galaxy). Secrets never enter it.
+node_modules
+**/node_modules
+**/dist
+**/test-results
+**/playwright-report
+apps/web/e2e/.state
+.env*
+*.tsbuildinfo

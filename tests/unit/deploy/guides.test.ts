@@ -227,12 +227,16 @@ describe("docs/deploy/preproduccion-homelab.md", () => {
   it("names every key of the preproduction env templates", () => {
     const dir = join(root, "deploy/preprod");
     const templates = readdirSync(dir).filter((f) => f.endsWith(".env.example"));
-    expect(templates.length).toBeGreaterThan(0);
+    // Each template is documented by its own guide: the site's in the homelab guide, the game's in its deploy guide.
+    const guides: Record<string, string> = { "web.env.example": homelab, "galaxy.env.example": read("games/galaxy/docs/DEPLOY_PRE.md") };
+    expect(templates.sort()).toEqual(Object.keys(guides).sort());
+    expect(envKeys("deploy/preprod/web.env.example").length).toBeGreaterThan(20);
     for (const t of templates) {
       const keys = envKeys(`deploy/preprod/${t}`);
-      expect(keys.length).toBeGreaterThan(20);
-      for (const k of keys) expect(homelab, `${t}: ${k}`).toContain(`\`${k}\``);
+      expect(keys.length).toBeGreaterThan(0);
+      for (const k of keys) expect(guides[t], `${t}: ${k}`).toContain(`\`${k}\``);
     }
+    expect(homelab).toContain("games/galaxy/docs/DEPLOY_PRE.md");
   });
 
   it("names every secret and the runner labels of the preproduction workflow, and no deploy hook", () => {

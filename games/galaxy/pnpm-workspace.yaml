@@ -1,0 +1,7 @@
+# Galaxy Survivor: workspace independiente del de la raíz (GDD §18.1), con su propio lockfile.
+packages:
+  - apps/*
+  - packages/*
+# Install scripts allowed (pnpm blocks the rest): esbuild verifies its platform binary (tsup and Vite need it).
+allowBuilds:
+  esbuild: true

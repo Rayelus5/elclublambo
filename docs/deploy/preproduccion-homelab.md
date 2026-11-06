@@ -805,6 +805,10 @@ humano. `Falta la variable BASE_SEPOLIA_RPC_URL` quiere decir que no está en `w
 
 ---
 
+### 7.6 Galaxy Survivor (`galaxy.env`)
+
+El juego (`pre.elclub.party/galaxy`) es otro contenedor del mismo compose y tiene su propio archivo de entorno, `/opt/elclub/pre/galaxy.env`, y su rol de Postgres, `galaxy_api`. Se preparan **antes** del primer despliegue que lo incluya (sin `galaxy.env` el compose no arranca nada): sigue `games/galaxy/docs/DEPLOY_PRE.md`.
+
 ## 8. Cloudflare Tunnel
 
 Un túnel **gestionado localmente**: el ingress vive en el repo (`deploy/preprod/cloudflared/config.yml`), el túnel

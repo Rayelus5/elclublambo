@@ -6,6 +6,11 @@
 tunnel: elclub-pre
 credentials-file: /etc/cloudflared/credentials.json
 ingress:
+  # Galaxy Survivor (games/galaxy): its own container, outside Next (no login proxy, no forum CSP, no wallets).
+  # Must stay BEFORE the catch-all pre.elclub.party rule.
+  - hostname: pre.elclub.party
+    path: ^/galaxy(/|$)
+    service: http://galaxy:8080
   - hostname: pre.elclub.party
     service: http://web:3000
   - hostname: pre-api.elclub.party
