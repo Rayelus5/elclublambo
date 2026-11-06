@@ -19,7 +19,7 @@ export interface RarityCalibration {
   bands: [number, number, number, number];
 }
 
-const data = calibration as RarityCalibration;
+const data = calibration as unknown as RarityCalibration;
 export const RARITY_BANDS = data.bands;
 
 const info = new Map<string, number>();
