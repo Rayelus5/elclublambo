@@ -156,9 +156,14 @@ Iconos: SVG de trazo redondeado (2,2 px), nunca emojis. Los decorativos con `ari
 
 ## 8. Fondo vivo
 
-- Lienzo pixel art a baja resolución (400×225) escalado con `image-rendering: pixelated`: cielo con nebulosa tramada con matriz Bayer (la misma técnica que el braille del motor), planeta con borde iluminado y la estación con su haz de escaneo hacia la galaxia.
-- La galaxia braille es texto Unicode calculado en cada fotograma (núcleo en Solar, brazos en `--ice`). En M1 es decorativa; desde M2a la dibuja el motor portado.
-- Una viñeta oscura une escena e interfaz.
+Desde M2a el fondo de acceso son **galaxias reales del motor** (`packages/engine`), sin estación ni planeta: una cada vez, que aparece, se queda y se funde con la siguiente. Lo dibuja `GalaxyBackdrop` con la secuencia pura de `backdrop-schedule.ts`.
+
+- **Cielo:** negro profundo con un leve azul (`#0a0d22` → `#020309`) y un polvo tramado casi imperceptible (ruido de valor con umbral Bayer 4×4 y algo de azar, al 40 %).
+- **Galaxias:** semilla nueva en cada una (`crypto.getRandomValues`), fondo `deep_void` o `starfield`. Se descartan Antimatter (papel claro) y Anomaly (parecería un fallo). 96 columnas, o 192 si `devicePixelRatio × ancho ≥ 2400`. Se calculan en el Worker del motor, se guardan en la caché (memoria e IndexedDB) y se componen con WebGL2 (o en 2D sin brillo si no hay WebGL2).
+- **Composición:** la galaxia a la derecha del panel (centro en 64 % × 50 %, lado `min(80vw, 124vh)`), con máscara radial y fusión `screen` para que el lienzo no tenga bordes. La viñeta oscurece el lado del panel y sus bordes toman un 24 % del color de la galaxia, que cambia en 5 s.
+- **Secuencia:** escaneo 3,2 s → se ve 14 s → fundido 5 s con la siguiente, que entra con su propio escaneo. El escaneo es una línea braille del color de acento que resuelve los puntos de arriba abajo. Nunca hay más de dos galaxias montadas.
+- **Movimiento:** solo transformaciones rígidas de la imagen compuesta, así que la forma no cambia: gira 7° y se acerca un 4,5 % a lo largo de toda su vida, y el brillo respira ±6 % cada 7 s. Con la pestaña oculta el reloj se para.
+- **Movimiento reducido:** una sola galaxia, quieta, sin escaneo ni fundido.
 
 ## 9. Copy
 
