@@ -2,6 +2,9 @@ import cookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { ZodError } from 'zod';
+import { clearSessionCookie, registerSessionReader } from './auth/guards';
+import { registerAuthRoutes } from './auth/routes';
+import { type ConfigReader, defaultConfigReader } from './config/reader';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
@@ -10,7 +13,7 @@ import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
 import { registerOriginGuard } from './security/origin';
 
-export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date };
+export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date; config?: ConfigReader };
 
 /**
  * The game server. Logs carry codes and request lines only: bodies (passwords), cookies and tokens are never logged.
@@ -29,7 +32,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerOriginGuard(app, deps.env.GALAXY_PUBLIC_ORIGINS);
 
   app.setErrorHandler((err, req, reply) => {
-    if (err instanceof HttpError) return reply.code(err.status).send({ error: err.code });
+    if (err instanceof HttpError) {
+      if (err.code === 'unauthenticated') clearSessionCookie(reply);
+      return reply.code(err.status).send({ error: err.code });
+    }
     if (err instanceof ZodError) return reply.code(400).send({ error: 'invalid_input' });
     if (err instanceof RateLimitedError) return reply.code(429).send({ error: 'rate_limited' });
     const status = (err as { statusCode?: number }).statusCode;
@@ -41,6 +47,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
 
+  const now = deps.now ?? (() => new Date());
+  const config = deps.config ?? defaultConfigReader;
+  registerSessionReader(app, deps.db, now);
   registerHealth(app, deps.db);
+  registerAuthRoutes(app, { env: deps.env, db: deps.db, config, now });
   return app;
 }

@@ -32,6 +32,39 @@ export function uniqueName(prefix: string): string {
 
 export const ORIGIN = 'http://localhost:5173';
 
+/**
+ * A random address per test: rate-limit counters live in the shared DB with 10 min / 1 h windows, so tests that
+ * reused 127.0.0.1 would trip each other across runs.
+ */
+export function randomIp(): string {
+  const b = randomBytes(3);
+  return `10.${b[0]}.${b[1]}.${b[2]}`;
+}
+
+type InjectOpts = { cookie?: string; ip?: string; origin?: string | null };
+
+function headers(opts: InjectOpts): Record<string, string> {
+  const h: Record<string, string> = { 'cf-connecting-ip': opts.ip ?? randomIp() };
+  if (opts.origin !== null) h.origin = opts.origin ?? ORIGIN;
+  if (opts.cookie) h.cookie = `gs_sid=${opts.cookie}`;
+  return h;
+}
+
+export function post(app: FastifyInstance, url: string, body?: unknown, opts: InjectOpts = {}) {
+  return app.inject({ method: 'POST', url, payload: body as object | undefined, headers: headers(opts) });
+}
+
+export function get(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
+  return app.inject({ method: 'GET', url, headers: headers(opts) });
+}
+
+/** Value of the gs_sid cookie set by a response (throws if absent). */
+export function sessionCookie(res: { cookies: Array<{ name: string; value: string }> }): string {
+  const c = res.cookies.find((k) => k.name === 'gs_sid');
+  if (!c) throw new Error('no gs_sid cookie');
+  return c.value;
+}
+
 export async function testApp(
   opts: { env?: Partial<Env>; beforeReady?: (app: FastifyInstance) => void } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
