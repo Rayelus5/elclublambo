@@ -1,0 +1,116 @@
+# Configuración general de ElClub Nebula.
+# Cualquier cambio en este archivo cambia el resultado. Después de la generación final, no tocar sin regenerar.
+
+collection:
+  name: "ElClub Nebula"
+  symbol: "ECN"
+  supply: 1000
+  first_token_id: 1
+  reserved: 0
+  metadata_language: "en"
+  license: "CC0-1.0"
+
+seeds:
+  master: 20261104          # semilla maestra: define toda la colección
+  shuffle: 1104202611       # semilla del barajado final. Se fija antes de publicar el provenance (Fase 4)
+
+catalog:
+  designation_format: "GX-{id:04d}"
+  token_name_format: "{collection} #{id} · {designation} {proper_name}"
+  name_blocklist: []        # nombres propios que no deben salir nunca (en minúsculas)
+
+chain:
+  network: "base"
+  standard: "ERC-721"
+  marketplace: "opensea"
+  storage: "ipfs"
+  # Ruta de lanzamiento (Fase 6): drop de OpenSea Studio con CSV. OpenSea sube imágenes y metadatos a IPFS al
+  # revelar. La alternativa «own_ipfs_json» (JSON propios + baseURI en el contrato) sigue disponible.
+  launch_route: "opensea_studio_csv"
+
+render:
+  width: 2048
+  height: 2048
+  format: "png"
+  background_color: "05060A"
+  blackbody_mix: 0.3        # tinte de cuerpo negro de las estrellas (cada paleta puede cambiarlo)
+  density_gain: 1.55        # contraste del campo de densidad: t = 1 − exp(−gain · densidad)
+  # Todas las piezas se dibujan en braille: cada carácter es una celda de 2×4 puntos.
+  # Los puntos se dibujan directamente (con antialiasing), sin depender de ninguna fuente.
+  braille:
+    columns: 192            # fijado por el usuario: 192 caracteres × 2 = 384 puntos de ancho
+    dot_radius: 0.19        # radio del punto, relativo al ancho de la celda
+    glint_radius: 0.23      # radio de los puntos de las estrellas brillantes
+    dither: "bayer4"        # tramado ordenado 4×4 para encender o apagar cada punto
+    dither_jitter: 0.25     # mezcla de azar en el umbral (0 = Bayer puro) para romper patrones regulares
+    min_density: 0.035      # por debajo de esta densidad no se enciende ningún punto
+
+postfx:
+  glow: { enabled: true, strength: 1.0, radii: [6, 18, 48], weights: [0.45, 0.30, 0.22] }
+  vignette: 0.35
+  grain: 0.0               # sin grano (Fase 5): el fondo comprime bien y cada PNG pesa un tercio
+  # Desactivados en general: el efecto CRT es exclusivo de la paleta Amber CRT (palettes.yaml → postfx).
+  scanlines: false          # o { period: px entre líneas, depth: oscurecimiento 0–1 }
+  chromatic_aberration: 0   # desplazamiento de los canales rojo y azul, en px
+
+pfp:
+  safe_circle: 0.86         # el cuerpo de la galaxia cabe en un círculo de este diámetro relativo
+  thumbnail_check_px: 96    # control de calidad: legibilidad como avatar
+
+rarity:
+  method: "information_content"   # score = Σ −log2(frecuencia de cada valor)
+  include_numeric: false
+  tolerance: 0.20                 # desviación relativa máxima entre la frecuencia real y la esperada
+  quotas:                         # valores ultra-raros con un número exacto de piezas
+    phenomenon:
+      from: none                  # se asignan, al azar con semilla, a piezas que sacaron este valor
+      values: { einstein_ring: 12, anomaly: 3 }
+  tiers:                          # proporción de la colección, de más común a más rara
+    - { key: common,    name: "Common",    share: 0.50 }
+    - { key: uncommon,  name: "Uncommon",  share: 0.25 }
+    - { key: rare,      name: "Rare",      share: 0.15 }
+    - { key: epic,      name: "Epic",      share: 0.07 }
+    - { key: legendary, name: "Legendary", share: 0.03 }
+
+animation:                  # vídeos de las Legendary para la web y las redes (Fase 7); no van dentro del NFT
+  tiers: [legendary]
+  format: "mp4"
+  size: 1080                # px por lado
+  fps: 30
+  duration_s: 8
+  loop: true                # rotación diferencial en bucle perfecto
+
+shuffle:
+  enabled: true
+
+reveal:
+  mode: "delayed"
+  placeholder_image: "assets/placeholder/placeholder.png"
+  placeholder_palette: "andromeda_blue"   # paleta de la imagen de pre-revelado
+  placeholder_text: "scanning"            # se escribe en braille de verdad (letras a-z y espacios)
+
+metadata:
+  image_base_uri: "ipfs://<CID_IMAGENES>"
+  animation_base_uri: "ipfs://<CID_ANIMACIONES>"
+  external_url_template: ""       # p. ej. "https://tu-web/nebula/{id}". Si está vacío, no se incluye
+  background_color: "05060A"
+  include_rarity_tier: true
+  include_animation_url: false    # false: los drops de Studio solo admiten imágenes (decisión de la Fase 6)
+  write_extensionless: false      # true si la plataforma pide «1» en vez de «1.json»
+
+collection_metadata:
+  image: "ipfs://<CID_COLECCION>/logo.png"
+  banner_image: "ipfs://<CID_COLECCION>/banner.png"
+  external_link: ""
+  seller_fee_basis_points: 500    # 5 %
+  fee_recipient: "0x9F202eb556F95308de0268f60b5757d83744De02"   # dirección PÚBLICA que cobra las royalties (EIP-55 comprobada)
+
+validation:
+  determinism_samples: 5          # tokens al azar que se vuelven a dibujar y se comparan byte a byte
+  max_image_mb: 10                # aviso por encima (comprobar los límites vigentes de la plataforma)
+  min_lit_fraction: 0.01          # aviso si menos del 1 % de la imagen tiene luz (imagen vacía)
+  max_burnt_fraction: 0.03        # aviso si más del 3 % está al blanco (imagen quemada)
+  near_duplicate_bits: 12         # aviso si dos imágenes se parecen tanto (dHash de 256 bits)
+
+output:
+  dir: "output"

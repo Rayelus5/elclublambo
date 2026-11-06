@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
@@ -60,7 +60,8 @@ test('el Dockerfile copia el package.json de cada paquete del workspace (si no, 
   const manifests = ['apps', 'packages'].flatMap((dir) =>
     readdirSync(galaxy + dir, { withFileTypes: true })
       .filter((d) => d.isDirectory())
-      .map((d) => `${dir}/${d.name}/package.json`),
+      .map((d) => `${dir}/${d.name}/package.json`)
+      .filter((m) => existsSync(galaxy + m)), // pnpm only treats folders with a manifest as workspace projects
   );
   expect(manifests.length).toBeGreaterThan(0);
   for (const m of manifests) {

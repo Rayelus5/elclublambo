@@ -1,0 +1,89 @@
+# Parámetros visuales de cada valor de rasgo.
+# Aquí se ajusta la estética sin tocar el código. Los rangos [min, max] se sortean con la semilla de cada token.
+
+size:            # radio de la galaxia en pantalla (1 = toca el borde del lienzo)
+  compact:  [0.56, 0.63]
+  medium:   [0.70, 0.78]
+  large:    [0.84, 0.92]
+  colossal: [0.98, 1.08]
+
+inclination:     # relación de ejes del disco (1 = vista de frente)
+  face_on: [0.82, 1.00]
+  tilted:  [0.45, 0.68]
+  edge_on: [0.13, 0.20]
+
+shape:           # relación de ejes de los tipos sin rasgo Inclination (no cuenta para la rareza)
+  elliptical: [0.45, 1.00]
+  irregular:  [0.60, 1.00]
+  dwarf:      [0.60, 1.00]
+  merger:     [0.55, 0.95]   # inclinación de la galaxia principal; la secundaria lleva la suya
+
+core:
+  faint:          { amplitude: 0.55, radius: 0.060 }
+  bright:         { amplitude: 1.35, radius: 0.075 }
+  quasar:         { amplitude: 1.10, radius: 0.060, point: 6.0, spikes: 0.30 }
+  double_nucleus: { amplitude: 1.15, radius: 0.050, separation: 0.090 }
+
+# Intensidad del núcleo según el tipo (las irregulares y enanas apenas tienen bulbo).
+core_scale:
+  spiral: 1.0
+  barred_spiral: 1.0
+  elliptical: 0.6
+  lenticular: 0.9
+  irregular: 0.45
+  ring: 0.9
+  dwarf: 0.5
+  merger: 0.9
+
+star_density:    # gain: brillo del disco · stars: probabilidad de estrella resuelta · glints: estrellas brillantes en cruz
+  sparse:    { gain: 0.80, stars: 0.010, glints: 6 }
+  normal:    { gain: 1.00, stars: 0.020, glints: 10 }
+  dense:     { gain: 1.20, stars: 0.035, glints: 15 }
+  saturated: { gain: 1.45, stars: 0.055, glints: 22 }
+
+# stars: probabilidad de estrella por punto
+# level: densidad máxima de puntos de la textura · brightness: brillo de esos puntos
+# (las texturas usan muchos puntos tenues en vez de pocos brillantes: así se leen como una nube suave)
+background:
+  deep_void:    { stars: 0.0010, level: 0.00, brightness: 0.0 }
+  starfield:    { stars: 0.0045, level: 0.00, brightness: 0.0, distant_galaxies: 4 }
+  nebular_dust: { stars: 0.0025, level: 0.50, brightness: 0.17 }
+  cosmic_web:   { stars: 0.0020, level: 0.55, brightness: 0.22, distant_galaxies: 10 }
+  cmb:          { stars: 0.0015, level: 0.34, brightness: 0.11 }
+
+# Fenómenos (rasgo Phenomenon). Distancias en unidades de pantalla (1 = borde del lienzo),
+# salvo donde se indica «× tamaño» (relativas al tamaño de la galaxia).
+phenomenon:
+  supernova:
+    distance: [0.25, 0.60]        # radio en el disco, × tamaño
+    spike_length: [0.38, 0.52]
+    shell_radius: [0.070, 0.095]
+    brightness: 8.0
+  satellite_galaxy:
+    distance: [0.60, 0.74]
+    size: [0.17, 0.24]
+    spiral_share: 0.5             # proporción de satélites con brazos (el resto, esferoidales)
+    amplitude: 1.0
+  globular_cluster:
+    count: [5, 10]
+    distance: [0.45, 1.05]        # × tamaño
+    radius: [0.008, 0.013]
+  comet:
+    distance: [0.40, 0.58]
+    length: [0.50, 0.70]
+  relativistic_jets:
+    length: [0.55, 0.80]
+    lobe_radius: [0.05, 0.08]
+  pulsar:
+    distance: [0.50, 0.72]
+    beam_length: [0.30, 0.42]
+    ring_spacing: [0.045, 0.060]
+    rings: [3, 5]
+  einstein_ring:
+    radius: [0.40, 0.55]          # × tamaño
+    width: 0.010
+    arcs: [2, 4]
+  anomaly:
+    bands: [3, 6]                 # bandas de celdas desplazadas
+    blocks: [2, 4]                # bloques de celdas corruptas
+    postfx: { chromatic_aberration: 6 }
