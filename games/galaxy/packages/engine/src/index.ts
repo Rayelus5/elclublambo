@@ -6,3 +6,21 @@ export { Generator, subRng } from './rng/generator';
 export { MASTER_SEED, PALETTES, POSTFX, RENDER, TRAITS, VISUALS } from './config/generated';
 export type * from './config/types';
 export { dna, drawTraits, violations } from './traits';
+export {
+  blackbodyLinear,
+  cyclicIndex,
+  gradientLut,
+  hexToLinear,
+  hexToSrgb,
+  linearToOklab,
+  linearToSrgb,
+  loadPalette,
+  luminance,
+  LUT_SIZE,
+  lutIndex,
+  oklabToLinear,
+  Palette,
+  rint,
+  srgbToLinear,
+  type Rgb,
+} from './color';
