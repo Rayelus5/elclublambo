@@ -108,7 +108,8 @@ describe("Dockerfile", () => {
   it("is LF and .dockerignore keeps env files and dev clutter out of the context", () => {
     expect(dockerfile).not.toContain("\r");
     const ignored = dockerignore.split("\n").map((l) => l.trim());
-    for (const p of [".env*", "node_modules", ".next", ".git", "e2e", "tests/*", ".claude", "docs"]) {
+    // .github too: a CI-only change (e.g. the game workflow) must not rebuild the web image on PRE.
+    for (const p of [".env*", "node_modules", ".next", ".git", ".github", "e2e", "tests/*", ".claude", "docs"]) {
       expect(ignored).toContain(p);
     }
     // src/lib/members/handle.ts imports tests/fixtures/handles.json: the build needs it, nothing else from tests/.
