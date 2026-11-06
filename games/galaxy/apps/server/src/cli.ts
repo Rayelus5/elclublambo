@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto';
-import { ROLES, type Role, usernameSchema } from '@galaxy/shared';
+import { currencySchema, ROLES, type Role, usernameSchema } from '@galaxy/shared';
 import type { Kysely } from 'kysely';
 import { writeAudit } from './audit';
 import { UsernameTakenError, findAccountByUsername, registerAccount } from './auth/accounts';
@@ -8,6 +8,8 @@ import { revokeAllSessions, rolesOf } from './auth/sessions';
 import { encryptSecret, newTotpSecret } from './auth/totp';
 import type { DB } from './db/schema';
 import { inTransaction } from './db/tx';
+import { credit, debit } from './economy/wallet';
+import { HttpError } from './errors';
 import type { Env } from './env';
 
 export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void };
@@ -152,11 +154,60 @@ async function resetTotp(args: string[], deps: CliDeps): Promise<number> {
   return 0;
 }
 
+/**
+ * `grant <usuario> <moneda> <cantidad> --reason <texto>`: credits (or, with a negative amount, debits) a currency.
+ * Until incursions pay (M3) this is how PRE testers get coins and signals. Audited; never below 0.
+ */
+async function grant(args: string[], deps: CliDeps): Promise<number> {
+  const reasonAt = args.indexOf('--reason');
+  const reason = reasonAt >= 0 ? args[reasonAt + 1]?.trim() : undefined;
+  const [name, currency, amountText] = args.filter((a, i) => !a.startsWith('--') && i !== reasonAt + 1);
+  const amount = Number(amountText);
+  if (!name || !currency || !reason || !Number.isSafeInteger(amount) || amount === 0) {
+    return usage(deps.out, 'Uso: grant <usuario> <moneda> <cantidad entera distinta de 0> --reason <motivo>');
+  }
+  if (!currencySchema.safeParse(currency).success) {
+    deps.out(`Moneda desconocida: ${currency} (coins, dust, signal o signal:<grupo>)`);
+    return 1;
+  }
+  const account = await findAccountByUsername(deps.db, name);
+  if (!account) {
+    deps.out(`No existe la cuenta ${name}`);
+    return 1;
+  }
+  try {
+    const balance = await inTransaction(deps.db, async (trx) => {
+      const after =
+        amount > 0
+          ? await credit(trx, account.id, currency, amount, 'grant', { by: 'cli' })
+          : await debit(trx, account.id, currency, -amount, 'grant', { by: 'cli' });
+      await writeAudit(trx, {
+        actor: CLI_ACTOR,
+        action: 'wallet.grant',
+        targetType: 'account',
+        targetId: account.id,
+        after: { currency, amount, balance: after },
+        reason,
+      });
+      return after;
+    });
+    deps.out(`${account.username}: ${amount > 0 ? '+' : ''}${amount} ${currency} (saldo ${balance})`);
+    return 0;
+  } catch (err) {
+    if (err instanceof HttpError && err.code === 'insufficient_funds') {
+      deps.out(`${account.username} no tiene bastante ${currency} para restar ${-amount}`);
+      return 1;
+    }
+    throw err;
+  }
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
   if (command === 'create-admin') return createAdmin(args, deps);
   if (command === 'issue-reset-code') return issueCode(args, deps);
   if (command === 'reset-totp') return resetTotp(args, deps);
+  if (command === 'grant') return grant(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }
