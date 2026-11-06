@@ -77,6 +77,25 @@ export interface AdminAuditLogTable {
   ip: string | null;
 }
 
+export interface GameConfigVersionsTable {
+  id: Generated<string>;
+  key: string;
+  version: number;
+  data: unknown;
+  created_at: Timestamp;
+  created_by: string | null;
+  note: string;
+}
+
+export interface GameConfigActiveView {
+  key: string;
+  version: number;
+  data: unknown;
+  created_at: Date;
+  created_by: string | null;
+  note: string;
+}
+
 export interface DB {
   'galaxy.accounts': AccountsTable;
   'galaxy.account_roles': AccountRolesTable;
@@ -86,4 +105,6 @@ export interface DB {
   'galaxy.admin_totp': AdminTotpTable;
   'galaxy.reset_codes': ResetCodesTable;
   'galaxy.admin_audit_log': AdminAuditLogTable;
+  'galaxy.game_config_versions': GameConfigVersionsTable;
+  'galaxy.game_config_active': GameConfigActiveView;
 }

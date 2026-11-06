@@ -49,6 +49,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
 
   app.post('/galaxy/api/auth/register', async (req, reply) => {
     const input = registerInput.parse(req.body);
+    if (!(await deps.config.get('features')).registrationOpen) throw new HttpError(403, 'registration_closed');
     const auth = await deps.config.get('auth');
     await hitRateLimit(db, `ip:${clientIp(req, deps.env.TRUST_CF_IP)}`, 'register', auth.registerPerIpHour, HOUR);
     let id: string;

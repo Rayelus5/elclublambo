@@ -4,16 +4,18 @@ import type { Kysely } from 'kysely';
 import { ZodError } from 'zod';
 import { clearSessionCookie, registerSessionReader } from './auth/guards';
 import { registerAuthRoutes } from './auth/routes';
-import { type ConfigReader, defaultConfigReader } from './config/reader';
+import { registerConfigRoutes } from './config/routes';
+import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
 import { HttpError } from './errors';
 import { registerHealth } from './health';
+import { registerMaintenanceGate } from './maintenance';
 import { RateLimitedError } from './ratelimit';
 import { registerSecurityHeaders } from './security/headers';
 import { registerOriginGuard } from './security/origin';
 
-export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date; config?: ConfigReader };
+export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date; config?: ConfigService };
 
 /**
  * The game server. Logs carry codes and request lines only: bodies (passwords), cookies and tokens are never logged.
@@ -48,9 +50,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setNotFoundHandler((_req, reply) => reply.code(404).send({ error: 'not_found' }));
 
   const now = deps.now ?? (() => new Date());
-  const config = deps.config ?? defaultConfigReader;
+  const config =
+    deps.config ??
+    createConfigService(deps.db, {
+      onInvalid: (key, err) => app.log.error({ key, err: (err as Error).name }, 'config_invalid_stored_row'),
+    });
+  // Hook order matters: the session must be known before the maintenance gate decides.
   registerSessionReader(app, deps.db, now);
+  registerMaintenanceGate(app, config);
   registerHealth(app, deps.db);
   registerAuthRoutes(app, { env: deps.env, db: deps.db, config, now });
+  registerConfigRoutes(app, { env: deps.env, config });
   return app;
 }
