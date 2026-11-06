@@ -35,3 +35,4 @@ export { BAYER4, dither, toText } from './raster';
 export { backgroundStars, galaxyStars, glintCenters, type Glint, type StarLayer } from './stars';
 export { galaxyColor, postfxFor, renderBraille, renderFromSeed, type BrailleRender, type Lod, type RenderOptions } from './render';
 export { corePoint, diskPoint, galaxyMatter, glitch, lightLayer, type LightLayer } from './phenomena';
+export { composeFallback, composeWebGL, gaussianWeights } from './gpu/compose';
