@@ -44,6 +44,8 @@ export default defineConfig({
           environment: 'node',
           include: ['apps/server/test/integration/**/*.test.ts'],
           fileParallelism: false,
+          // argon2 and the real database: a CI runner shared with the browser project is 3–4× slower than a laptop.
+          testTimeout: 20_000,
         },
       },
       {
