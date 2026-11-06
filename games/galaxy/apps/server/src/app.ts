@@ -5,6 +5,7 @@ import { ZodError } from 'zod';
 import { clearSessionCookie, registerSessionReader } from './auth/guards';
 import { registerAuthRoutes } from './auth/routes';
 import { registerConfigRoutes } from './config/routes';
+import { registerGachaRoutes } from './gacha/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -69,6 +70,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerHealth(api, deps.db);
     registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now });
     registerConfigRoutes(api, { env: deps.env, config });
+    registerGachaRoutes(api, { db: deps.db, config, now });
   });
   return app;
 }
