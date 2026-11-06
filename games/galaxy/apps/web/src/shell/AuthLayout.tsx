@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import { copy } from '../copy/es';
-import { AuthBackdrop } from '../scene/AuthBackdrop';
+import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
 
@@ -37,7 +37,7 @@ export function AuthLayout() {
   const loginSide = pathname !== '/crear-cuenta';
   return (
     <div className="screen-root">
-      <AuthBackdrop />
+      <GalaxyBackdrop />
       <div className="ui">
         <Logo />
         <main className="lip panel auth enter" style={{ '--d': '.8s' } as CSSProperties}>

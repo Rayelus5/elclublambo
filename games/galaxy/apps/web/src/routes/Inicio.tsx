@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import { ME_KEY, isAdmin } from '../auth/useMe';
 import { copy } from '../copy/es';
-import { AuthBackdrop } from '../scene/AuthBackdrop';
+import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
 import { Logo, MaintenanceNotice } from '../shell/AuthLayout';
 import { Icon } from '../ui/Icon';
 
@@ -22,7 +22,7 @@ export function Inicio({ me }: { me: MeResponse }) {
   });
   return (
     <div className="screen-root">
-      <AuthBackdrop />
+      <GalaxyBackdrop />
       <div className="ui">
         <Logo />
         <main className="lip panel auth home enter" style={{ '--d': '.8s' } as CSSProperties}>
