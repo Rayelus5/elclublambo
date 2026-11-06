@@ -1,4 +1,4 @@
-import { type ConfigKey, type ConfigValue, parseConfig } from '@galaxy/shared';
+import { type ConfigKey, type ConfigValue, configSchemas, parseConfig } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { DB } from '../db/schema';
@@ -71,7 +71,9 @@ export function createConfigService(
     },
 
     async publish(key, data, actor, reason) {
-      const value = parseConfig(key, data);
+      // Fail fast on a typo or a wrong type before taking the lock.
+      parseConfig(key, data);
+      let value: ConfigValue<typeof key> | undefined;
       const version = await inTransaction(db, async (trx) => {
         // One publisher per key at a time: version + 1 never collides.
         await sql`select pg_advisory_xact_lock(hashtext(${`galaxy.config:${key}`}))`.execute(trx);
@@ -80,6 +82,13 @@ export function createConfigService(
           .select(['version', 'data'])
           .where('key', '=', key)
           .executeTakeFirst();
+        // A publish changes only the fields it names: merge onto the active value (known fields only, so a field
+        // removed from the schema never blocks a publish).
+        const known = new Set(Object.keys(configSchemas[key].shape));
+        const base = Object.fromEntries(
+          Object.entries((current?.data ?? {}) as Record<string, unknown>).filter(([k]) => known.has(k)),
+        );
+        value = parseConfig(key, { ...base, ...(data as Record<string, unknown>) });
         const next = (current?.version ?? 0) + 1;
         await trx
           .insertInto('galaxy.game_config_versions')

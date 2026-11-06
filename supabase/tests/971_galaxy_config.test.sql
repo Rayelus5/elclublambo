@@ -1,4 +1,4 @@
--- Galaxy Survivor M1 Task 6 (migration 20261107100002_galaxy_config): live configuration, append-only and versioned
+-- Galaxy Survivor M1 Task 6 (migration 20261106150002_galaxy_config): live configuration, append-only and versioned
 -- per key; game_config_active exposes the latest version of each key; v1 of `features` and `auth` is seeded.
 begin;
 select plan(12);

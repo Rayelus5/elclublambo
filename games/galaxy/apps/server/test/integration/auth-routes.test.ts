@@ -112,14 +112,25 @@ test('cuenta baneada → 403 banned, y su sesión abierta deja de valer', async 
   expect((await get(ctx.app, ME, { cookie })).statusCode).toBe(401);
 });
 
-test('el 11.º login del mismo usuario en 10 min → 429, aunque cambie la IP', async () => {
+test('el 11.º intento del mismo usuario desde la misma IP → 429, pero el dueño entra desde otra IP (revisión final M9)', async () => {
   const { username } = await registered('fuerza');
+  const attacker = randomIp();
   for (let i = 0; i < 10; i++) {
-    expect((await post(ctx.app, LOGIN, { username, password: 'mala-clave-larga' })).statusCode).toBe(401);
+    expect((await post(ctx.app, LOGIN, { username, password: 'mala-clave-larga' }, { ip: attacker })).statusCode).toBe(401);
   }
-  const res = await post(ctx.app, LOGIN, { username: username.toUpperCase(), password: PASS });
+  const res = await post(ctx.app, LOGIN, { username: username.toUpperCase(), password: PASS }, { ip: attacker });
   expect(res.statusCode).toBe(429);
   expect(res.json()).toEqual({ error: 'rate_limited' });
+  // The real owner, from their own address, is not locked out by someone else's attempts.
+  expect((await post(ctx.app, LOGIN, { username, password: PASS }, { ip: randomIp() })).statusCode).toBe(200);
+});
+
+test('un ataque repartido entre muchas IPs topa con el techo por usuario: 10 × el límite por usuario e IP', async () => {
+  const { username } = await registered('reparto');
+  for (let i = 0; i < 100; i++) {
+    expect((await post(ctx.app, LOGIN, { username, password: 'mala-clave-larga' }, { ip: randomIp() })).statusCode).toBe(401);
+  }
+  expect((await post(ctx.app, LOGIN, { username, password: PASS }, { ip: randomIp() })).statusCode).toBe(429);
 });
 
 test('el 31.º login desde la misma IP en 10 min → 429', async () => {

@@ -3,4 +3,4 @@ dist/
 test-results/
 playwright-report/
 *.tsbuildinfo
-e2e/.state/
+apps/web/e2e/.state/

@@ -17,14 +17,13 @@ function isAdmin(req: FastifyRequest): boolean {
 }
 
 /**
- * features.maintenance on → every other API call from a non-admin answers 503 { error: 'maintenance' }. Static files
- * keep loading so the web can show its maintenance screen. Must run after the session reader.
+ * features.maintenance on → every other API call from a non-admin answers 503 { error: 'maintenance' }. Register it in
+ * the API plugin only (static files keep loading so the web can show its maintenance screen), after the session
+ * reader. It decides by the MATCHED route pattern, never by the raw URL (which may be %-encoded).
  */
 export function registerMaintenanceGate(app: FastifyInstance, config: ConfigReader): void {
   app.addHook('preHandler', async (req) => {
-    const path = req.url.split('?')[0] ?? '';
-    if (!path.startsWith('/galaxy/api/')) return;
-    if (ALWAYS_OPEN.has(`${req.method} ${req.routeOptions.url ?? path}`)) return;
+    if (ALWAYS_OPEN.has(`${req.method} ${req.routeOptions.url}`)) return;
     if (!(await config.get('features')).maintenance) return;
     if (isAdmin(req)) return;
     throw new HttpError(503, 'maintenance');

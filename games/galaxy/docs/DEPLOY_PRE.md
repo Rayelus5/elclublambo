@@ -6,10 +6,30 @@ Cómo dejar el juego en `https://pre.elclub.party/galaxy` sobre el homelab de PR
 
 Hay que hacerlo **antes de fusionar** el PR que trae el juego: el compose exige `/opt/elclub/pre/galaxy.env` (sin él falla todo el despliegue, también el de la web) y el smoke del juego necesita que `galaxy_api` pueda entrar en Postgres.
 
-### 1. El archivo de entorno
+### 1. El rol `galaxy_api` con contraseña
+
+La migración `20261106150001_galaxy_foundation.sql` crea el rol sin contraseña y sin `login`, y lo respeta si ya existe. Por eso se puede crear ahora, antes de que llegue la migración:
 
 ```bash
 ssh root@192.168.1.103
+GALAXY_DB_PASS="$(openssl rand -hex 24)"
+export PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' /opt/supabase/docker/.env | cut -d= -f2-)"
+# Heredoc SIN comillas: bash expande $GALAXY_DB_PASS dentro de la entrada estándar de psql, nunca en sus argumentos.
+docker exec -i -e PGPASSWORD supabase-db psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1 <<SQL
+do \$\$ begin
+  if not exists (select 1 from pg_roles where rolname = 'galaxy_api') then create role galaxy_api nologin; end if;
+end \$\$;
+alter role galaxy_api login password '$GALAXY_DB_PASS';
+SQL
+printf 'Contraseña de galaxy_api (cópiala en el paso 2): %s\n' "$GALAXY_DB_PASS"   # printf es interno de bash: no sale en ps
+unset PGPASSWORD GALAXY_DB_PASS
+```
+
+La contraseña solo viaja por variables de entorno (`-e PGPASSWORD` pasa el nombre, no el valor) y por la entrada estándar: nunca aparece en los argumentos de un proceso (`ps`) ni en el historial. Es hexadecimal, así que no necesita escaparse en SQL ni en la URL.
+
+### 2. El archivo de entorno
+
+```bash
 git -C /opt/elclub/src pull --ff-only   # la copia del repo de la guía del homelab (§7.2), con la rama que trae el juego
 install -m 600 -o gh-runner -g gh-runner /opt/elclub/src/deploy/preprod/galaxy.env.example /opt/elclub/pre/galaxy.env
 nano /opt/elclub/pre/galaxy.env
@@ -17,28 +37,10 @@ nano /opt/elclub/pre/galaxy.env
 
 | Clave | Valor en PRE |
 |---|---|
-| `DATABASE_URL` | `postgresql://galaxy_api:<contraseña del paso 2>@db:5432/postgres?sslmode=disable` |
+| `DATABASE_URL` | `postgresql://galaxy_api:<contraseña del paso 1>@db:5432/postgres?sslmode=disable` |
 | `GALAXY_PUBLIC_ORIGINS` | `https://pre.elclub.party` |
 | `GALAXY_TOTP_KEY` | la salida de `openssl rand -base64 32` (guárdala también en tu gestor de contraseñas) |
 | `NODE_ENV` | `production` |
-
-### 2. El rol `galaxy_api` con contraseña
-
-La migración `20261107100001_galaxy_foundation.sql` crea el rol sin contraseña y sin `login`, y lo respeta si ya existe. Por eso se puede crear ahora, antes de que llegue la migración:
-
-```bash
-GALAXY_DB_PASS="$(openssl rand -hex 24)"   # cópiala en DATABASE_URL de galaxy.env
-export PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' /opt/supabase/docker/.env | cut -d= -f2-)"
-docker exec -i -e PGPASSWORD supabase-db psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1 -v pass="$GALAXY_DB_PASS" <<'SQL'
-do $$ begin
-  if not exists (select 1 from pg_roles where rolname = 'galaxy_api') then create role galaxy_api nologin; end if;
-end $$;
-alter role galaxy_api login password :'pass';
-SQL
-unset PGPASSWORD GALAXY_DB_PASS
-```
-
-La contraseña entra por variable y la entrada estándar: nunca aparece en el historial ni en `ps`.
 
 ### 3. Comprobar que la API de Supabase no ve el esquema
 
@@ -72,5 +74,6 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 | Código de recuperación para un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js issue-reset-code <usuario>` (24 h, un uso; queda auditado). El panel de admin lo hará en M6 |
 | Logs | `docker compose … logs -f galaxy` (JSON de pino; nunca llevan contraseñas, cookies ni tokens) |
 | Reiniciar | `docker compose … up -d --no-build galaxy` |
-| Rotar `GALAXY_TOTP_KEY` | Invalida todos los TOTP: solo si la clave se ha filtrado; después hay que volver a enrolar a los admins |
-| Rotar la contraseña de `galaxy_api` | Paso 2 con otra contraseña, actualizar `galaxy.env` y `up -d galaxy` |
+| Un admin ha perdido su app de autenticación | `docker exec -it elclub-pre-galaxy-1 node dist/cli.js reset-totp <usuario>`: secreto nuevo, sesiones cerradas, queda auditado |
+| Rotar `GALAXY_TOTP_KEY` | Invalida todos los TOTP: solo si la clave se ha filtrado; después, `reset-totp` para cada admin |
+| Rotar la contraseña de `galaxy_api` | Paso 1 con otra contraseña, actualizar `galaxy.env` y `up -d galaxy` |

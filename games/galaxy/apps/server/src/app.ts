@@ -60,11 +60,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     createConfigService(deps.db, {
       onInvalid: (key, err) => app.log.error({ key, err: (err as Error).name }, 'config_invalid_stored_row'),
     });
-  // Hook order matters: the session must be known before the maintenance gate decides.
-  registerSessionReader(app, deps.db, now);
-  registerMaintenanceGate(app, config);
-  registerHealth(app, deps.db);
-  registerAuthRoutes(app, { env: deps.env, db: deps.db, config, now });
-  registerConfigRoutes(app, { env: deps.env, config });
+  // The API lives in its own encapsulated plugin: its hooks (session, maintenance) run only for MATCHED API routes,
+  // whatever the raw URL spelling (%-encoded paths included), and static files never touch the database.
+  await app.register(async (api) => {
+    // Hook order matters: the session must be known before the maintenance gate decides.
+    registerSessionReader(api, deps.db, now);
+    registerMaintenanceGate(api, config);
+    registerHealth(api, deps.db);
+    registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now });
+    registerConfigRoutes(api, { env: deps.env, config });
+  });
   return app;
 }

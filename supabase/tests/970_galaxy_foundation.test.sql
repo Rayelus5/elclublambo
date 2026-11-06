@@ -1,4 +1,4 @@
--- Galaxy Survivor M1 Task 2 (migration 20261107100001_galaxy_foundation): schema galaxy, invisible to the API roles,
+-- Galaxy Survivor M1 Task 2 (migration 20261106150001_galaxy_foundation): schema galaxy, invisible to the API roles,
 -- reachable only by galaxy_api with per-table grants; append-only audit log; galaxy.rate_limit like private.rate_limit.
 begin;
 select plan(30);

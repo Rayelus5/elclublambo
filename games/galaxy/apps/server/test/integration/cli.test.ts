@@ -3,7 +3,7 @@ import { decryptSecret } from '../../src/auth/totp';
 import { verifyPassword } from '../../src/auth/password';
 import { findAccountByUsername } from '../../src/auth/accounts';
 import { runCli } from '../../src/cli';
-import { TEST_TOTP_KEY, testApp, testEnv, uniqueName } from '../helpers';
+import { TEST_TOTP_KEY, createAdminViaCli, get, post, sessionCookie, testApp, testEnv, totpNow, uniqueName } from '../helpers';
 
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
@@ -94,4 +94,38 @@ test('issue-reset-code imprime un código para una cuenta existente y falla para
   expect(await runCli(['issue-reset-code', name], { db: ctx.db, env: testEnv(), out: (s) => lines.push(s) })).toBe(0);
   expect(lines.join('\n')).toMatch(/[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/);
   expect(await runCli(['issue-reset-code', uniqueName('nadie')], { db: ctx.db, env: testEnv(), out: () => {} })).toBe(1);
+});
+
+test('reset-totp: nuevo secreto, el viejo deja de valer, sesiones cerradas y auditado (revisión final M8)', async () => {
+  const { app } = ctx;
+  const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'admin');
+  const login = await post(app, '/galaxy/api/auth/login', { username, password });
+  const first = await post(app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) });
+  expect(first.statusCode).toBe(200);
+  const oldCookie = sessionCookie(first);
+
+  const lines: string[] = [];
+  expect(await runCli(['reset-totp', username, '--json'], { db: ctx.db, env: testEnv(), out: (s) => lines.push(s) })).toBe(0);
+  const out = JSON.parse(lines.join('\n')) as { username: string; totpSecret: string; totpUri: string };
+  expect(out.totpSecret).not.toBe(totpSecret);
+  expect((await get(app, '/galaxy/api/auth/me', { cookie: oldCookie })).statusCode).toBe(401);
+
+  const next = 30_000;
+  const relogin = await post(app, '/galaxy/api/auth/login', { username, password });
+  const viejo = await post(app, '/galaxy/api/auth/totp', { challenge: relogin.json().challenge, code: totpNow(totpSecret, new Date(Date.now() + next)) });
+  expect(viejo.statusCode).toBe(401);
+  const nuevo = await post(app, '/galaxy/api/auth/totp', { challenge: relogin.json().challenge, code: totpNow(out.totpSecret) });
+  expect(nuevo.statusCode).toBe(200);
+  const audit = await ctx.db.selectFrom('galaxy.admin_audit_log').selectAll().where('action', '=', 'account.totp_reset').orderBy('id', 'desc').executeTakeFirstOrThrow();
+  expect(audit).toMatchObject({ actor_label: 'cli', target_type: 'account' });
+  expect(JSON.stringify(audit)).not.toContain(out.totpSecret);
+});
+
+test('reset-totp de una cuenta sin rol o inexistente → código 1', async () => {
+  const name = uniqueName('jugador');
+  await post(ctx.app, '/galaxy/api/auth/register', { username: name, password: 'una-clave-larga' });
+  const lines: string[] = [];
+  expect(await runCli(['reset-totp', name], { db: ctx.db, env: testEnv(), out: (s) => lines.push(s) })).toBe(1);
+  expect(lines.join('\n')).toMatch(/no tiene ningún rol/);
+  expect(await runCli(['reset-totp', uniqueName('nadie')], { db: ctx.db, env: testEnv(), out: () => {} })).toBe(1);
 });

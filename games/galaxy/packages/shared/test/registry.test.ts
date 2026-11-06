@@ -30,3 +30,8 @@ test('features rechaza tipos incorrectos y conserva los valores dados', () => {
 test('una clave desconocida lanza', () => {
   expect(() => parseConfig('nada' as never, {})).toThrow();
 });
+
+test('una clave mal escrita o desconocida no se acepta (revisión final I3)', () => {
+  expect(() => parseConfig('features', { maintenance: true, regstrationOpen: false })).toThrow();
+  expect(() => parseConfig('auth', { sesionDays: 31 })).toThrow();
+});

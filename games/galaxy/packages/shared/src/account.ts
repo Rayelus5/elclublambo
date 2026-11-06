@@ -21,11 +21,13 @@ export const totpInput = z.object({
   code: z.string().regex(/^\d{6}$/),
 });
 
-export const resetRedeemInput = z.object({
-  username: usernameSchema,
-  code: z.string().min(1).max(64),
-  newPassword: passwordSchema,
-});
+export const resetRedeemInput = z
+  .object({
+    username: usernameSchema,
+    code: z.string().min(1).max(64),
+    newPassword: passwordSchema,
+  })
+  .refine((v) => v.newPassword.toLowerCase() !== v.username, { path: ['newPassword'], message: 'password_equals_username' });
 
 export type Role = 'superadmin' | 'admin' | 'moderator';
 export const ROLES: readonly Role[] = ['superadmin', 'admin', 'moderator'];

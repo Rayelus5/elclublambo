@@ -2,8 +2,9 @@ import { randomInt } from 'node:crypto';
 import { ROLES, type Role, usernameSchema } from '@galaxy/shared';
 import type { Kysely } from 'kysely';
 import { writeAudit } from './audit';
-import { UsernameTakenError, registerAccount } from './auth/accounts';
+import { UsernameTakenError, findAccountByUsername, registerAccount } from './auth/accounts';
 import { AccountNotFoundError, issueResetCode } from './auth/recovery';
+import { revokeAllSessions, rolesOf } from './auth/sessions';
 import { encryptSecret, newTotpSecret } from './auth/totp';
 import type { DB } from './db/schema';
 import { inTransaction } from './db/tx';
@@ -15,6 +16,7 @@ const USAGE = [
   'Uso:',
   '  create-admin <usuario> [--role superadmin|admin|moderator] [--json]',
   '  issue-reset-code <usuario>',
+  '  reset-totp <usuario> [--json]',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -75,7 +77,7 @@ async function createAdmin(args: string[], deps: CliDeps): Promise<number> {
     deps.out(
       [
         `Cuenta ${role} creada: ${username}`,
-        `Contraseña (cámbiala al entrar): ${password}`,
+        `Contraseña (guárdala en tu gestor de contraseñas): ${password}`,
         `Secreto TOTP: ${totp.base32}`,
         `URI para tu app de autenticación: ${result.totpUri}`,
         'Esta es la única vez que se muestran.',
@@ -101,10 +103,60 @@ async function issueCode(args: string[], deps: CliDeps): Promise<number> {
   }
 }
 
+/**
+ * New TOTP secret for a role holder who lost their authenticator (or after rotating GALAXY_TOTP_KEY): replaces the
+ * secret, resets the used step, closes every session of the account and audits it. The secret is printed once.
+ */
+async function resetTotp(args: string[], deps: CliDeps): Promise<number> {
+  const json = args.includes('--json');
+  const name = args.find((a) => !a.startsWith('--'));
+  if (!name) return usage(deps.out, 'Falta el usuario');
+  const account = await findAccountByUsername(deps.db, name);
+  if (!account) {
+    deps.out(`No existe la cuenta ${name}`);
+    return 1;
+  }
+  if ((await rolesOf(deps.db, account.id)).length === 0) {
+    deps.out(`La cuenta ${account.username} no tiene ningún rol: no usa TOTP`);
+    return 1;
+  }
+  const totp = newTotpSecret();
+  await inTransaction(deps.db, async (trx) => {
+    const secret_enc = encryptSecret(deps.env.GALAXY_TOTP_KEY, totp.base32);
+    await trx
+      .insertInto('galaxy.admin_totp')
+      .values({ account_id: account.id, secret_enc, last_used_step: 0 })
+      .onConflict((oc) => oc.column('account_id').doUpdateSet({ secret_enc, last_used_step: 0 }))
+      .execute();
+    await revokeAllSessions(trx, account.id);
+    await writeAudit(trx, {
+      actor: CLI_ACTOR,
+      action: 'account.totp_reset',
+      targetType: 'account',
+      targetId: account.id,
+      after: { username: account.username },
+      reason: 'reset-totp desde el contenedor',
+    });
+  });
+  const result = { username: account.username, totpSecret: totp.base32, totpUri: totp.uri(account.username) };
+  if (json) deps.out(JSON.stringify(result));
+  else
+    deps.out(
+      [
+        `TOTP renovado para ${account.username}. Sus sesiones abiertas se han cerrado`,
+        `Secreto TOTP: ${totp.base32}`,
+        `URI para tu app de autenticación: ${result.totpUri}`,
+        'Esta es la única vez que se muestra.',
+      ].join('\n'),
+    );
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
   if (command === 'create-admin') return createAdmin(args, deps);
   if (command === 'issue-reset-code') return issueCode(args, deps);
+  if (command === 'reset-totp') return resetTotp(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

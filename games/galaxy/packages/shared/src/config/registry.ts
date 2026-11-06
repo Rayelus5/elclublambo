@@ -3,14 +3,17 @@ import { z } from 'zod';
 /**
  * Registro de la configuración viva (GDD §16.3). Cada clave tiene su esquema; la base guarda versiones de solo
  * añadir en galaxy.game_config_versions y el servidor valida con estos esquemas al leer y al publicar.
+ * Los esquemas son estrictos: una clave mal escrita es un error, nunca se ignora en silencio.
  */
 const limit = (def: number) => z.number().int().min(1).max(1000).default(def);
 
 export const configSchemas = {
-  features: z.object({
-    registrationOpen: z.boolean().default(true),
-    maintenance: z.boolean().default(false),
-  }),
+  features: z
+    .object({
+      registrationOpen: z.boolean().default(true),
+      maintenance: z.boolean().default(false),
+    })
+    .strict(),
   auth: z.object({
     sessionDays: z.number().int().min(1).max(90).default(30),
     adminSessionHours: z.number().int().min(1).max(72).default(12),
@@ -19,7 +22,7 @@ export const configSchemas = {
     loginPerUserTenMin: limit(10),
     totpPerAccountTenMin: limit(10),
     resetRedeemPerIpHour: limit(10),
-  }),
+  }).strict(),
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;

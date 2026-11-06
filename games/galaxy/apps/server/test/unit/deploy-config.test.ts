@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
@@ -33,6 +33,15 @@ test('el servicio galaxy de compose está endurecido y en la red de Supabase', (
   expect(g.security_opt).toEqual(expect.arrayContaining(['no-new-privileges:true']));
   expect(g.restart).toBe('unless-stopped');
   expect(compose.services.cloudflared.depends_on).toEqual(expect.arrayContaining(['web', 'galaxy']));
+});
+
+test('las migraciones de galaxy no están fechadas en el futuro', () => {
+  // `supabase db push` (PRE and production) refuses local migrations older than the newest applied one: a galaxy
+  // migration dated ahead would break the deploy of any ElClub migration created before that date but merged later.
+  const now = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+  const galaxy = readdirSync(root + 'supabase/migrations').filter((f) => /_galaxy_/.test(f));
+  expect(galaxy.length).toBeGreaterThan(0);
+  for (const f of galaxy) expect(f.slice(0, 14) <= now, f).toBe(true);
 });
 
 test('el pipeline de PRE construye, reinicia y comprueba galaxy', () => {

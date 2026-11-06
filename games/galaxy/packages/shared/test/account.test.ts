@@ -41,3 +41,7 @@ test('resetRedeemInput valida la contraseña nueva', () => {
   expect(resetRedeemInput.safeParse({ username: 'sonda', code: 'ABCD-EFGH-JKMN-PQRS', newPassword: 'corta' }).success).toBe(false);
   expect(resetRedeemInput.safeParse({ username: 'Sonda', code: 'ABCD-EFGH-JKMN-PQRS', newPassword: 'una-clave-larga' }).data?.username).toBe('sonda');
 });
+
+test('resetRedeemInput rechaza una contraseña nueva igual al usuario (revisión final M4)', () => {
+  expect(resetRedeemInput.safeParse({ username: 'Piloto_0123', code: 'ABCD-EFGH-JKMN-PQRS', newPassword: 'piloto_0123' }).success).toBe(false);
+});

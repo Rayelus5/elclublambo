@@ -70,8 +70,12 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
   app.post('/galaxy/api/auth/login', async (req, reply): Promise<LoginResponse> => {
     const { username, password } = loginInput.parse(req.body);
     const auth = await deps.config.get('auth');
-    await hitRateLimit(db, `ip:${clientIp(req, deps.env.TRUST_CF_IP)}`, 'login_ip', auth.loginPerIpTenMin, TEN_MIN);
-    await hitRateLimit(db, `u:${username}`, 'login_user', auth.loginPerUserTenMin, TEN_MIN);
+    const ip = clientIp(req, deps.env.TRUST_CF_IP);
+    await hitRateLimit(db, `ip:${ip}`, 'login_ip', auth.loginPerIpTenMin, TEN_MIN);
+    // Per (user, IP): attempts against an account only lock the attacker's own address out, never the owner.
+    await hitRateLimit(db, `u:${username}|ip:${ip}`, 'login_user_ip', auth.loginPerUserTenMin, TEN_MIN);
+    // Per user, any IP: a ceiling of 10× for distributed guessing (argon2 + TOTP for staff do the rest).
+    await hitRateLimit(db, `u:${username}`, 'login_user', auth.loginPerUserTenMin * 10, TEN_MIN);
 
     const account = await findAccountByUsername(db, username);
     // Always pay for one argon2 verification, so an unknown username costs as much as a wrong password.

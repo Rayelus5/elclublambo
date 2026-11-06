@@ -79,6 +79,18 @@ test('/galaxy redirige con 308 a /galaxy/', async () => {
   expect(res.headers.location).toBe('/galaxy/');
 });
 
+test('con la BD caída y una cookie de sesión, la web se sigue sirviendo (la sesión solo se lee en la API)', async () => {
+  const down = await testApp({ env: { WEB_DIST: dir, DATABASE_URL: 'postgresql://galaxy_api:x@127.0.0.1:1/postgres' } });
+  try {
+    for (const url of ['/galaxy/entrar', '/galaxy/assets/a-1234.js']) {
+      const res = await down.app.inject({ method: 'GET', url, headers: { cookie: 'gs_sid=cualquiera' } });
+      expect(res.statusCode, url).toBe(200);
+    }
+  } finally {
+    await down.close();
+  }
+});
+
 test('fuera de /galaxy no se sirve nada', async () => {
   expect((await get('/')).statusCode).toBe(404);
   expect((await get('/index.html')).statusCode).toBe(404);

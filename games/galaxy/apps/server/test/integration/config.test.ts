@@ -18,7 +18,8 @@ afterEach(async () => {
   const fresh = createConfigService(ctx.db);
   for (const key of ['features', 'auth'] as ConfigKey[]) {
     if (JSON.stringify(await fresh.get(key)) !== JSON.stringify(parseConfig(key, {}))) {
-      await fresh.publish(key, {}, actor, 'restaurar tras un test');
+      // Publishing merges onto the active value: restore with the full default object.
+      await fresh.publish(key, parseConfig(key, {}), actor, 'restaurar tras un test');
     }
   }
 });
@@ -66,6 +67,27 @@ test('publicar valida, versiona y audita con el antes y el después', async () =
   });
   expect((await lastAudit()).before).toMatchObject({ sessionDays: 30 });
   expect((await lastAudit()).after).toMatchObject({ sessionDays: 31 });
+});
+
+test('publicar un solo campo conserva los demás: cerrar el registro y luego tocar el mantenimiento no lo reabre (revisión final I3)', async () => {
+  await config.publish('features', { registrationOpen: false }, actor, 'cerrar registro');
+  await config.publish('features', { maintenance: true }, actor, 'mantenimiento');
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: true });
+  await config.publish('features', { maintenance: false }, actor, 'fin');
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: false });
+  await config.publish('auth', { sessionDays: 31 }, actor, 'sesiones');
+  expect((await config.get('auth')).registerPerIpHour).toBe(5);
+  await config.publish('auth', { registerPerIpHour: 9 }, actor, 'límite');
+  expect(await config.get('auth')).toMatchObject({ sessionDays: 31, registerPerIpHour: 9 });
+});
+
+test('una clave mal escrita en la API → 400 config_invalid y no se publica nada', async () => {
+  const admin = await adminSession();
+  const before = (await config.versions('features')).length;
+  const res = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false, regstrationOpen: true }, reason: 'errata' }, { cookie: admin });
+  expect(res.statusCode).toBe(400);
+  expect(res.json()).toEqual({ error: 'config_invalid' });
+  expect(await config.versions('features')).toHaveLength(before);
 });
 
 test('dos publicaciones a la vez dan dos versiones seguidas, sin choque', async () => {
@@ -142,6 +164,20 @@ test('mantenimiento: jugadores 503, los admins siguen entrando y lo apagan (Revi
   const off = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false }, reason: 'fin' }, { cookie: admin2 });
   expect(off.statusCode).toBe(201);
   expect((await post(ctx.app, '/galaxy/api/auth/register', { username: uniqueName('mant'), password: 'una-clave-larga' })).statusCode).toBe(201);
+});
+
+test('mantenimiento: una ruta codificada (/galaxy/%61pi/…) no se salta el bloqueo (revisión final I1)', async () => {
+  await config.publish('features', { maintenance: true }, actor, 'mantenimiento');
+  const app = await testApp();
+  try {
+    for (const url of ['/galaxy/%61pi/auth/register', '/galaxy/api/auth/%72egister']) {
+      const res = await post(app.app, url, { username: uniqueName('cod'), password: 'una-clave-larga' });
+      expect(res.statusCode, url).toBe(503);
+      expect(res.json()).toEqual({ error: 'maintenance' });
+    }
+  } finally {
+    await app.close();
+  }
 });
 
 test('registro cerrado → 403 registration_closed; el login sigue funcionando', async () => {

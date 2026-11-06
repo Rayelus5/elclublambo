@@ -808,7 +808,7 @@ Se mantiene la arquitectura de `BRIEF.md` §4, validada. Resumen y cambios:
 ### 18.5 Base de datos [U+D]
 
 - **Esquema `galaxy`:**
-  - migraciones `supabase/migrations/2026111x…_galaxy_*.sql`;
+  - migraciones `supabase/migrations/<fecha de creación>_galaxy_*.sql`, nunca con fecha futura (`supabase db push` rechaza las anteriores a la última aplicada);
   - pgTAP en `supabase/tests/9xx_galaxy_*`.
 - **Tablas del brief:** cuentas, monedas, galaxias y gacha, reliquias y estación, aventuras y temporadas, comercio y `admin_audit_log`.
 - **Añadidas [D]:**
