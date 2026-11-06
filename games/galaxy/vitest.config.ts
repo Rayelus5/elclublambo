@@ -13,6 +13,8 @@ export default defineConfig({
           environment: 'node',
           include: ['packages/*/test/**/*.test.ts', 'apps/server/test/unit/**/*.test.ts'],
           exclude: [...configDefaults.exclude, 'packages/*/test/browser/**'],
+          // The engine's golden tests render whole galaxies (a 192-column merger takes ~1 s here, 3–4× more on CI).
+          testTimeout: 30_000,
         },
       },
       {
