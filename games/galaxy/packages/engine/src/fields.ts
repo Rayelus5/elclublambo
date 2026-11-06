@@ -1,6 +1,9 @@
 import { VISUALS } from './config/generated';
-import type { Range, Traits } from './config/types';
-import { galaxyParams, type Burst, type GalaxyParams, type Knot } from './geometry/common';
+import type { CoreVisual, Range, Traits } from './config/types';
+import { galaxyParams, makeFrame, type Burst, type Frame, type GalaxyParams, type Knot } from './geometry/common';
+import { diskGeometry } from './geometry/index';
+import { merger } from './geometry/merger';
+import { smoothstep } from './noise';
 import { subRng } from './rng/generator';
 import { subSeed32 } from './rng/seed';
 
@@ -103,4 +106,114 @@ export function buildParams(traits: Traits, seed: bigint, center: readonly [numb
     };
   }
   return p;
+}
+
+const DISK_TYPES = new Set(['spiral', 'barred_spiral', 'lenticular']);
+
+export interface GalaxyField {
+  /** Toned density in [0, 1]. */
+  t: Float64Array;
+  /** 0 = old population (reddish stars), 1 = young (bluish). */
+  young: Float64Array;
+  /** Angle and radius in the disk of the main galaxy. */
+  theta: Float64Array;
+  radius: Float64Array;
+}
+
+/** Density of the core (Core trait) at each dot, added in place to `d`. */
+export function addCoreDensity(d: Float64Array, f: Frame, p: GalaxyParams): void {
+  const c = p.core as CoreVisual;
+  const amp = c.amplitude * p.core_scale;
+  const rad = c.radius;
+  const rad2 = rad * rad; // Python `rad ** 2` (UCRT pow) equals rad*rad for the YAML radii (ENGINE_PORT §8)
+  const [ox, oy] = p.core_offset;
+  const double = p.core_kind === 'double_nucleus';
+  const quasar = p.core_kind === 'quasar';
+  const half = double ? c.separation! / 2 : 0;
+  const dx = half * Math.cos(p.core_dir);
+  const dy = half * Math.sin(p.core_dir);
+  for (let k = 0; k < d.length; k++) {
+    const x = f.x[k]! - ox;
+    const yb = f.yb[k]! - oy;
+    let core: number;
+    if (double) {
+      const ax = x - dx;
+      const ay = yb - dy;
+      const bx = x + dx;
+      const by = yb + dy;
+      core = amp * (Math.exp(-(ax * ax + ay * ay) / rad2) + 0.85 * Math.exp(-(bx * bx + by * by) / rad2));
+    } else {
+      const rb = Math.sqrt(x * x + yb * yb);
+      const q = rb / rad;
+      core = amp * Math.exp(-(q * q)) + 0.35 * amp * Math.exp(-rb / (rad * 2.5));
+    }
+    if (quasar) {
+      const q = Math.sqrt(x * x + yb * yb) / 0.012;
+      core += c.point! * Math.exp(-(q * q));
+    }
+    d[k] = d[k]! + core;
+  }
+}
+
+/** Diffraction spikes: four one-dot-wide lines out of the core, centred on (cx, cy) even for mergers. */
+export function quasarSpike(u: number, v: number, p: GalaxyParams, length: number, width: number): number {
+  const du = u - p.cx;
+  const dv = v - p.cy;
+  const a = dv / width;
+  const b = du / width;
+  return 2.0 * (Math.exp((-3 * Math.abs(du)) / length) * Math.exp(-(a * a)) + Math.exp((-3 * Math.abs(dv)) / length) * Math.exp(-(b * b)));
+}
+
+/**
+ * Density field of the galaxy at each dot (u[k], v[k]). `extra` is (density, young) of matter a phenomenon adds
+ * (satellite galaxy, globular clusters).
+ */
+export function galaxyField(
+  u: Float64Array,
+  v: Float64Array,
+  p: GalaxyParams,
+  densityGain: number,
+  dotStep: number,
+  extra?: { d: Float64Array; young: Float64Array } | null,
+): GalaxyField {
+  const seed = p.noise_seed;
+  const n = u.length;
+  let d: Float64Array;
+  let young: Float64Array;
+  let f: Frame;
+  if (p.type === 'merger') {
+    ({ d, young, frame: f } = merger(u, v, p, seed));
+  } else {
+    f = makeFrame(u, v, p.cx, p.cy, p.size, p.angle, p.tilt);
+    ({ d, young } = diskGeometry(p.type)(f, p, seed));
+    if (DISK_TYPES.has(p.type) && p.tilt < 0.3) {
+      // Edge-on galaxy: a dark dust lane along the disk.
+      const laneWidth = 0.03 + 0.04 * p.tilt;
+      for (let k = 0; k < n; k++) {
+        const q = f.ys[k]! / laneWidth;
+        const lane = Math.exp(-(q * q));
+        d[k] = d[k]! * (1 - 0.75 * lane * (0.4 + 0.6 * smoothstep(0.0, 0.12, Math.abs(f.x[k]!))));
+      }
+    }
+  }
+  addCoreDensity(d, f, p);
+  const t = new Float64Array(n);
+  const quasar = p.core_kind === 'quasar';
+  const spikeLength = quasar ? (p.core as CoreVisual).spikes! * p.size : 0;
+  const spikeWidth = dotStep * 0.65;
+  for (let k = 0; k < n; k++) {
+    let dk = d[k]!;
+    if (extra) {
+      dk = dk + extra.d[k]!;
+      young[k] = young[k]! + extra.young[k]!;
+    }
+    if (quasar) dk += quasarSpike(u[k]!, v[k]!, p, spikeLength, spikeWidth);
+    dk *= p.gain;
+    const uk = u[k]!;
+    const vk = v[k]!;
+    dk *= 1 - smoothstep(0.9, 1.05, Math.sqrt(uk * uk + vk * vk)); // nothing touches the edge of the canvas
+    t[k] = 1 - Math.exp(-densityGain * dk);
+    young[k] = Math.min(Math.max(young[k]!, 0), 1);
+  }
+  return { t, young, theta: f.th, radius: f.r };
 }

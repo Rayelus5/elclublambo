@@ -28,3 +28,6 @@ export * from './noise';
 export { BrailleGrid } from './raster';
 export * from './geometry/index';
 export { buildParams } from './fields';
+export { addCoreDensity, galaxyField, quasarSpike, type GalaxyField } from './fields';
+export { componentCenters, merger } from './geometry/merger';
+export { backgroundField, type BackgroundField } from './background';
