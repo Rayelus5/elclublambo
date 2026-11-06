@@ -1,6 +1,6 @@
 import type { Lod } from '@galaxy/engine';
 import type { PulledGalaxy } from '@galaxy/shared';
-import { useEffect, useId, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
+import { useId, useLayoutEffect, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { useGalaxyImage } from './useGalaxyImage';
@@ -54,7 +54,8 @@ export function GalaxyCard({
   const { ref, canvas, state } = useGalaxyImage(galaxy.seed, columns, size);
   const art = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // In the same commit as data-image="ready", so the card never says ready without its image.
+  useLayoutEffect(() => {
     const host = art.current;
     if (!host || !canvas) return;
     host.prepend(canvas);

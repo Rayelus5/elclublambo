@@ -1,5 +1,5 @@
 import { TIERS, type PulledGalaxy } from '@galaxy/shared';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { composeInto } from '../galaxy/compose';
@@ -72,7 +72,7 @@ function Static({ still }: { still: boolean }) {
 
 function Scan({ canvas, step }: { canvas: HTMLCanvasElement | null | undefined; step: Step }) {
   const host = useRef<HTMLDivElement>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = host.current;
     if (!el || !canvas) return;
     el.prepend(canvas);
