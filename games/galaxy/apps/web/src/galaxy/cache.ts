@@ -1,12 +1,14 @@
 import { ENGINE_VERSION, type BrailleRender, type Traits } from '@galaxy/engine';
 
-// Galaxy renders cached in memory (LRU) and in IndexedDB, keyed by engine version: a new visual version never reuses
-// an old render. IndexedDB is best effort — private windows, blocked storage or jsdom fall back to memory only.
+// Galaxy renders cached in memory (LRU) and in IndexedDB, keyed by the stored shape (`r1`) and the engine version: a
+// new visual version or a new stored shape never reuses an old render. IndexedDB is best effort — private windows, blocked storage or jsdom fall back to memory only.
 const DB_NAME = 'galaxy-cache';
 const STORE = 'renders';
 const MEMORY_ENTRIES = 12;
 const DISK_ENTRIES = 48; // a 192-column render weighs ~2.4 MB
 const OPEN_TIMEOUT_MS = 1500; // some WebKit builds never answer indexedDB.open
+/** The shape of a stored render: bump it whenever what is stored changes. */
+const SCHEMA = 'r1';
 
 export function galaxyKey(seed: bigint, columns: number, fixed?: Partial<Traits>, version: string = ENGINE_VERSION): string {
   const pinned = Object.entries(fixed ?? {})
@@ -14,7 +16,7 @@ export function galaxyKey(seed: bigint, columns: number, fixed?: Partial<Traits>
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([k, v]) => `${k}=${v}`)
     .join(',');
-  return `${version}:${seed}:${columns}:${pinned || '-'}`;
+  return `${SCHEMA}:${version}:${seed}:${columns}:${pinned || '-'}`;
 }
 
 type Stored = { key: string; render: BrailleRender; at: number };
