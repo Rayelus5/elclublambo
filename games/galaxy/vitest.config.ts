@@ -50,6 +50,8 @@ export default defineConfig({
         // The app's own plugins, so components render with their real styles (cards, tokens).
         plugins: [react(), tailwindcss()],
         resolve: { alias: webReact },
+        // three.js is only imported dynamically (the inspector): declare it so Vite does not reload the page mid-test.
+        optimizeDeps: { include: ['three'] },
         test: {
           name: 'browser',
           include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],

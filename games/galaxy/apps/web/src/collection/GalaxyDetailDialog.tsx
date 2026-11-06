@@ -5,6 +5,7 @@ import { errorText } from '../auth/useMe';
 import { CardBack } from '../cards/CardBack';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
+import { Inspector } from '../inspector/Inspector';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 
@@ -41,6 +42,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
   const detail = useGalaxyDetail(id);
   const disintegrate = useDisintegrate();
   const [confirming, setConfirming] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const g = detail.data;
 
   if (!g) {
@@ -82,6 +84,10 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
               </>
             ) : null}
             <div className="detail-actions">
+              <button type="button" className="lip pill pill-solar" onClick={() => setInspecting(true)}>
+                <Icon name="cube" />
+                <span>{copy.inspector.open}</span>
+              </button>
               <button type="button" className="lip pill danger" onClick={() => setConfirming(true)}>
                 <Icon name="dust" />
                 <span>{copy.collection.disintegrate}</span>
@@ -90,6 +96,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
           </div>
         </div>
       </Dialog>
+      {inspecting ? <Inspector galaxy={g} onClose={() => setInspecting(false)} /> : null}
       {confirming ? (
         <Dialog role="alertdialog" title={copy.collection.disintegrateTitle(g.name)} onClose={() => setConfirming(false)} className="confirm">
           <p>{copy.collection.disintegrateBody(g.dust)}</p>
