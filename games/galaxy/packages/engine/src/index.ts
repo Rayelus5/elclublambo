@@ -36,3 +36,5 @@ export { backgroundStars, galaxyStars, glintCenters, type Glint, type StarLayer 
 export { galaxyColor, postfxFor, renderBraille, renderFromSeed, type BrailleRender, type Lod, type RenderOptions } from './render';
 export { corePoint, diskPoint, galaxyMatter, glitch, lightLayer, type LightLayer } from './phenomena';
 export { composeFallback, composeWebGL, gaussianWeights } from './gpu/compose';
+export { galaxyName, properName, SYLLABLES } from './naming';
+export { ABSENT, calibrateRarity, RARITY_BANDS, scoreTraits, TIER_QUANTILES, tierOfScore, type RarityCalibration } from './rarity/score';

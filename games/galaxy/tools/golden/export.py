@@ -43,6 +43,7 @@ from galaxy_nft import noise  # noqa: E402
 from galaxy_nft.color import LUT_SIZE, blackbody_linear, load_palette  # noqa: E402
 from galaxy_nft.config import Config  # noqa: E402
 from galaxy_nft.fields import build_params  # noqa: E402
+from galaxy_nft.naming import proper_name  # noqa: E402
 from galaxy_nft.plan import find_token, plan_collection  # noqa: E402
 from galaxy_nft.render.braille import BrailleGrid  # noqa: E402
 from galaxy_nft.rng import derive_seed, sub_rng, sub_seed32, token_seed  # noqa: E402
@@ -497,6 +498,15 @@ def export_colors(out: Path, cfg: Config) -> None:
                indent=1)
 
 
+# ------------------------------------------------------------------------------------------------------------ names
+
+def export_names(out: Path) -> None:
+    """proper_name(sub_rng(seed, "name")) for 300 seeds (M2b: galaxy names on the cards)."""
+    names = [{"index": i, "seed": big(token_seed(MASTER, i)), "name": proper_name(sub_rng(token_seed(MASTER, i), "name"))}
+             for i in range(1, 301)]
+    write_json(out / "names.json", {"names": names})
+
+
 # ----------------------------------------------------------------------------------------------------------- config
 
 def export_config(out: Path, cfg: Config) -> None:
@@ -556,6 +566,7 @@ def main() -> None:
             export_params(out, cfg)
             export_colors(out, cfg)
             export_config(out, cfg)
+            export_names(out)
             cases = export_cases(out, cfg, sampler, cap)
             write_json(out / "meta.json", {
                 "format": 1,
