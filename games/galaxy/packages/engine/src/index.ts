@@ -31,3 +31,6 @@ export { buildParams } from './fields';
 export { addCoreDensity, galaxyField, quasarSpike, type GalaxyField } from './fields';
 export { componentCenters, merger } from './geometry/merger';
 export { backgroundField, type BackgroundField } from './background';
+export { BAYER4, dither, toText } from './raster';
+export { backgroundStars, galaxyStars, glintCenters, type Glint, type StarLayer } from './stars';
+export { galaxyColor, postfxFor, renderBraille, renderFromSeed, type BrailleRender, type Lod, type RenderOptions } from './render';
