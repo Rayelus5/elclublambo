@@ -86,3 +86,4 @@ Final: Ruling (declined-to-judge): cf-connecting-ip trust, pgTAP 971 local pollu
 Final: Ruling (declined-to-judge): GET /gacha writes the welcome — idempotent, only ever gives, same-origin API — stands
 Final: Ruling (declined-to-judge): unbounded growth of operations/ledger — no retention in the spec; a beta never reaches problematic sizes; a retention job belongs with the ops milestone — cost if wrong: table growth over months
 Final: Ruling (declined-to-judge): three.js bundle size (529 kB, lazy) and the chord timbres — no budget/taste rule in the spec — stands
+Task 12: Ruling: pgTAP 971 #5 compared the ACTIVE features row with the seed; the integration tests (which run first in CI) publish features defaults that since M2b include gacha=true, so it failed in CI — and that, not 'M1 local pollution', is why it always failed locally. It now reads version 1 (the seed it names); pgTAP 4818/4818 locally — cost if wrong: none
