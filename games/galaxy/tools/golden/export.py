@@ -482,6 +482,19 @@ def export_colors(out: Path, cfg: Config) -> None:
                indent=1)
 
 
+# ----------------------------------------------------------------------------------------------------------- config
+
+def export_config(out: Path, cfg: Config) -> None:
+    """PyYAML's parse of the four YAML files (YAML 1.1 rules), with every key order the engine depends on."""
+    traits = {k: v for k, v in cfg.traits.items() if k in ("draw_order", "traits", "rules")}
+    orders = {"traits": list(cfg.traits["traits"]), "palettes": list(cfg.palettes)}
+    for key, spec in cfg.traits["traits"].items():
+        orders[f"traits.{key}.values"] = list(spec["values"])
+    write_json(out / "config.json", {"traits": traits, "palettes": cfg.palettes, "visuals": cfg.visuals,
+                                     "render": cfg.render, "postfx": cfg.postfx, "master_seed": cfg.master_seed,
+                                     "orders": orders}, indent=1)
+
+
 # ------------------------------------------------------------------------------------------------------------ check
 
 def check(cap: Capture) -> None:
@@ -527,6 +540,7 @@ def main() -> None:
             export_traits(out, sampler)
             export_params(out, cfg)
             export_colors(out, cfg)
+            export_config(out, cfg)
             cases = export_cases(out, cfg, sampler, cap)
             write_json(out / "meta.json", {
                 "format": 1,
