@@ -76,7 +76,8 @@ function compile(gl: WebGL2RenderingContext, fs: string): WebGLProgram {
 
 function programsFor(gl: WebGL2RenderingContext): Programs {
   let p = programs.get(gl);
-  if (!p) {
+  // After a context loss and restore, objects of the old context are dead: isProgram tells them apart.
+  if (!p || !gl.isProgram(p.final) || !gl.isProgram(p.blur) || !gl.isProgram(p.combine)) {
     p = { blur: compile(gl, BLUR_FS), combine: compile(gl, COMBINE_FS), final: compile(gl, FINAL_FS), vao: gl.createVertexArray() };
     programs.set(gl, p);
   }
@@ -109,7 +110,14 @@ export function composeWebGL(canvas: Canvas, render: BrailleRender, size: number
   try {
     if (canvas.width !== size) canvas.width = size;
     if (canvas.height !== size) canvas.height = size;
-    gl = canvas.getContext('webgl2', { alpha: false, antialias: false, premultipliedAlpha: false, preserveDrawingBuffer: true }) as WebGL2RenderingContext | null;
+    gl = canvas.getContext('webgl2', {
+      alpha: false,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: false,
+      preserveDrawingBuffer: true,
+    }) as WebGL2RenderingContext | null;
     if (!gl || gl.isContextLost() || !gl.getExtension('EXT_color_buffer_float')) return false;
     const p = programsFor(gl);
     const { nx, ny } = render;
@@ -209,9 +217,11 @@ export function composeWebGL(canvas: Canvas, render: BrailleRender, size: number
     for (const fb of framebuffers) gl.deleteFramebuffer(fb);
     for (const t of created) gl.deleteTexture(t);
     return !gl.isContextLost();
-  } catch (error) {
-    if (gl?.isContextLost()) return false;
-    throw error;
+  } catch {
+    // A lost context, a shader that does not compile on this driver, an allocation failure…: the caller draws the
+    // 2D fallback. Forget the programs so a later attempt (e.g. after a restore) starts clean.
+    if (gl) programs.delete(gl);
+    return false;
   }
 }
 
@@ -251,7 +261,9 @@ export function composeFallback(ctx: CanvasRenderingContext2D | OffscreenCanvasR
       const ix = Math.min(Math.max(Math.floor(X / step), 0), nx - 1);
       const dx = X - (ix + 0.5) * step;
       const k = iy * nx + ix;
-      const cov = valid ? Math.min(Math.max((render.dotRadius[k]! - Math.sqrt(dx * dx + dy * dy)) * scale + 0.5, 0), 1) : 0;
+      // An off dot (radius < 0) covers nothing at any scale: the 1-px ramp alone would give it coverage below 1024 px.
+      const radius = render.dotRadius[k]!;
+      const cov = valid && radius > 0 ? Math.min(Math.max((radius - Math.sqrt(dx * dx + dy * dy)) * scale + 0.5, 0), 1) : 0;
       const cx = (X / width) * 2 - 1;
       const cy = (Y / height) * 2 - 1;
       const v = 1 - vignette * smoothstep(0.5, 1.35, Math.sqrt(cx * cx + cy * cy));

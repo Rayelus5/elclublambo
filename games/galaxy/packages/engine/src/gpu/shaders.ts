@@ -124,7 +124,8 @@ vec3 linAt(float X, float Y) {
   float dy = Y - uOy - (float(iy) + 0.5) * uStep;
   float dist = sqrt(dx * dx + dy * dy);
   float radius = texelFetch(uRadius, ivec2(ix, iy), 0).r;
-  float cov = valid ? clamp((radius - dist) * uScale + 0.5, 0.0, 1.0) : 0.0;
+  // An off dot (radius < 0) covers nothing at any scale.
+  float cov = (valid && radius > 0.0) ? clamp((radius - dist) * uScale + 0.5, 0.0, 1.0) : 0.0;
   vec3 color = texelFetch(uColor, ivec2(ix, iy), 0).rgb;
   vec3 lin;
   if (uInverted) {

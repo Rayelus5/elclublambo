@@ -6,6 +6,7 @@ const DB_NAME = 'galaxy-cache';
 const STORE = 'renders';
 const MEMORY_ENTRIES = 12;
 const DISK_ENTRIES = 48; // a 192-column render weighs ~2.4 MB
+const OPEN_TIMEOUT_MS = 1500; // some WebKit builds never answer indexedDB.open
 
 export function galaxyKey(seed: bigint, columns: number, fixed?: Partial<Traits>, version: string = ENGINE_VERSION): string {
   const pinned = Object.entries(fixed ?? {})
@@ -29,20 +30,22 @@ export class GalaxyCache {
   private readonly capacity: number;
   private db: Promise<IDBDatabase | null>;
 
-  constructor(opts: { capacity?: number; indexedDB?: IDBFactory | null } = {}) {
+  constructor(opts: { capacity?: number; indexedDB?: IDBFactory | null; openTimeoutMs?: number } = {}) {
     this.capacity = opts.capacity ?? MEMORY_ENTRIES;
     const factory = opts.indexedDB === undefined ? globalThis.indexedDB : opts.indexedDB;
-    this.db = factory ? this.open(factory) : Promise.resolve(null);
+    this.db = factory ? this.open(factory, opts.openTimeoutMs ?? OPEN_TIMEOUT_MS) : Promise.resolve(null);
   }
 
-  private open(factory: IDBFactory): Promise<IDBDatabase | null> {
+  /** The database, or null if it fails or does not answer in time (then the cache is memory only). */
+  private open(factory: IDBFactory, timeoutMs: number): Promise<IDBDatabase | null> {
     try {
       const req = factory.open(DB_NAME, 1);
       req.onupgradeneeded = () => {
         const store = req.result.createObjectStore(STORE, { keyPath: 'key' });
         store.createIndex('at', 'at');
       };
-      return request(req).catch(() => null);
+      const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs));
+      return Promise.race([request(req).catch(() => null), timeout]);
     } catch {
       return Promise.resolve(null);
     }

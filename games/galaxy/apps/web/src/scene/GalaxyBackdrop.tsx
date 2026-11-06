@@ -1,13 +1,15 @@
 import { composeFallback, composeWebGL, drawTraits, fbmAt, hash2, linearToSrgb, loadPalette, subRng, type Lod, type Traits } from '@galaxy/engine';
 import { useEffect, useRef } from 'react';
-import { GalaxyCache, galaxyKey } from '../galaxy/cache';
 import { requestGalaxy, type GalaxyRender } from '../galaxy/client';
 import { galaxyReady, initialState, layerStyles, nextPhase } from './backdrop-schedule';
 
 // The access backdrop (DESIGN_SYSTEM §8): real galaxies from the engine on deep black, one at a time. Each one is
 // scanned in by a braille scan line, turns and approaches very slowly (a rigid transform of the composed image, so
 // its shape never changes) and cross-fades into the next. Two layers at most; one still galaxy with reduced motion.
-const cache = new GalaxyCache();
+// Every galaxy has a fresh random seed, so renders are never reused: nothing is cached. All of them are composed in
+// ONE WebGL2 canvas kept off the page (GDD §18.3) and copied into the layer's plain 2D canvas.
+let gpuCanvas: HTMLCanvasElement | null = null;
+let gpuBroken = false;
 
 function randomSeed(): bigint {
   const words = new BigUint64Array(1);
@@ -22,15 +24,6 @@ function pickGalaxy(): { seed: bigint; fixed: Partial<Traits> } {
     const fixed: Partial<Traits> = { background: seed & 1n ? 'starfield' : 'deep_void' };
     const traits = drawTraits(subRng(seed, 'traits'), fixed);
     if (traits.palette !== 'antimatter' && traits.phenomenon !== 'anomaly') return { seed, fixed };
-  }
-}
-
-function gpuAvailable(): boolean {
-  try {
-    const gl = document.createElement('canvas').getContext('webgl2');
-    return !!gl && !!gl.getExtension('EXT_color_buffer_float');
-  } catch {
-    return false;
   }
 }
 
@@ -78,7 +71,6 @@ export function GalaxyBackdrop() {
     if (!host || layers.length === 0 || typeof Worker === 'undefined' || typeof requestAnimationFrame === 'undefined') return;
     host.style.setProperty('--dust', dustImage());
     const controller = new AbortController();
-    const gpu = gpuAvailable();
     const tints = new Map<number, string>();
     let state = initialState(reduced);
     let clock = 0;
@@ -91,23 +83,29 @@ export function GalaxyBackdrop() {
     const slot = (id: number) => layers[id % layers.length]!;
 
     function draw(layer: HTMLDivElement, render: GalaxyRender): void {
-      const size = Math.min(2048, Math.max(256, Math.round(layer.getBoundingClientRect().width * devicePixelRatio)));
-      let canvas = document.createElement('canvas');
-      const previous = layer.querySelector('canvas');
-      if (previous) previous.replaceWith(canvas);
-      else layer.prepend(canvas);
-      if (gpu && composeWebGL(canvas, render, size)) {
-        canvas.dataset['drawn'] = 'webgl';
-        return;
+      // clientWidth: the layout size, without the rotate/scale the slot still carries from its previous galaxy.
+      const size = Math.min(2048, Math.max(256, Math.round(layer.clientWidth * devicePixelRatio)));
+      let canvas = layer.querySelector('canvas');
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        layer.prepend(canvas);
       }
-      // The context may already belong to WebGL: the 2D fallback needs a canvas of its own.
-      const flat = document.createElement('canvas');
-      canvas.replaceWith(flat);
-      canvas = flat;
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
-      if (ctx) composeFallback(ctx, render, size);
+      if (!ctx) return;
+      if (!gpuBroken) {
+        gpuCanvas ??= document.createElement('canvas');
+        if (composeWebGL(gpuCanvas, render, size)) {
+          ctx.drawImage(gpuCanvas, 0, 0);
+          canvas.dataset['drawn'] = 'webgl';
+          return;
+        }
+        // A lost context gets a fresh canvas next time; no WebGL2, no float targets or a broken driver: 2D from now on.
+        if (gpuCanvas.getContext('webgl2')?.isContextLost()) gpuCanvas = null;
+        else gpuBroken = true;
+      }
+      composeFallback(ctx, render, size);
       canvas.dataset['drawn'] = '2d';
     }
 
@@ -115,13 +113,8 @@ export function GalaxyBackdrop() {
       requested = id;
       const { seed, fixed } = pickGalaxy();
       const columns: Lod = devicePixelRatio * innerWidth >= 2400 ? 192 : 96;
-      const key = galaxyKey(seed, columns, fixed);
       try {
-        let render = (await cache.get(key)) as GalaxyRender | undefined;
-        if (!render) {
-          render = await requestGalaxy(seed, columns, fixed, controller.signal);
-          void cache.put(key, render);
-        }
+        const render = await requestGalaxy(seed, columns, fixed, controller.signal);
         if (controller.signal.aborted) return;
         const layer = slot(id);
         draw(layer, render);

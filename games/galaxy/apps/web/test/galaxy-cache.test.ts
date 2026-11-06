@@ -42,4 +42,14 @@ describe('GalaxyCache', () => {
     await cache.put('a', fake(1));
     expect((await cache.get('a'))?.text).toBe('galaxy 1');
   });
+
+  test('si IndexedDB no responde al abrirse, no bloquea: la caché sigue en memoria', async () => {
+    const hung = { open: () => ({}) as IDBOpenDBRequest } as unknown as IDBFactory; // a request that never fires
+    const cache = new GalaxyCache({ indexedDB: hung, openTimeoutMs: 50 });
+    const started = Date.now();
+    expect(await cache.get('missing')).toBeUndefined();
+    await cache.put('a', fake(1));
+    expect((await cache.get('a'))?.text).toBe('galaxy 1');
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
 });

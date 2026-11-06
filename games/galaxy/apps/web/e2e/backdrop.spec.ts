@@ -39,6 +39,33 @@ test('el fondo de acceso dibuja una galaxia del motor en dos capas y sin violar 
   expect(csp).toEqual([]);
 });
 
+test('el fondo usa un solo contexto WebGL compartido y no guarda galaxias en el disco', async ({ page }) => {
+  // Count the WebGL2 contexts the page creates (the backdrop composes every galaxy in one shared canvas).
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    const contexts = new Set<unknown>();
+    (window as unknown as { webglContexts: () => number }).webglContexts = () => contexts.size;
+    HTMLCanvasElement.prototype.getContext = function (this: HTMLCanvasElement, type: string, ...rest: unknown[]) {
+      const ctx = (original as (...a: unknown[]) => unknown).call(this, type, ...rest);
+      if (type === 'webgl2' && ctx) contexts.add(ctx);
+      return ctx;
+    } as typeof original;
+  });
+  await page.goto('/galaxy/entrar');
+  // The second galaxy is prepared as soon as the first is shown, into the other layer.
+  await expect(page.locator('.backdrop canvas[data-drawn]')).toHaveCount(2, { timeout: 25_000 });
+  const layers = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLCanvasElement>('.backdrop canvas')].map((c) => c.getContext('2d') !== null),
+  );
+  expect(layers).toEqual([true, true]); // plain 2D layers, fed from the shared WebGL canvas
+  expect(await page.evaluate(() => (window as unknown as { webglContexts: () => number }).webglContexts())).toBe(1);
+  const stored = await page.evaluate(async () => {
+    const dbs = (await indexedDB.databases?.()) ?? [];
+    return dbs.map((d) => d.name);
+  });
+  expect(stored).not.toContain('galaxy-cache');
+});
+
 test.describe('con movimiento reducido', () => {
   test.use({ reducedMotion: 'reduce' });
 

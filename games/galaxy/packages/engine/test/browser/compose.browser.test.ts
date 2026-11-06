@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
-import { composeFallback, composeWebGL, renderBraille, type Traits } from '../../src/index';
+import { composeFallback, composeWebGL, renderBraille, type BrailleRender, type Traits } from '../../src/index';
 import meta from '../golden/v1/meta.json';
 
 // ENGINE_PORT §7 in real Chromium: the WebGL2 compose against the Python PNGs (2048 px, reduced to 256 px). The two
@@ -73,4 +73,44 @@ test('el respaldo 2D dibuja los puntos sobre el fondo (Review Focus 4)', async (
   for (let i = 0; i < got.length; i += 4) if (got[i]! + got[i + 1]! + got[i + 2]! > 120) lit++;
   expect(lit).toBeGreaterThan(200);
   expect(error(got, want).mean).toBeLessThan(30);
+});
+
+test('tras perder y recuperar el contexto vuelve a dibujar (no reutiliza programas muertos)', async () => {
+  const c = cases[0]!;
+  const render = renderBraille(c.traits, BigInt(c.seed), { columns: 48 });
+  const canvas = document.createElement('canvas');
+  canvas.addEventListener('webglcontextlost', (e) => e.preventDefault());
+  expect(composeWebGL(canvas, render, 256)).toBe(true);
+  const gl = canvas.getContext('webgl2')!;
+  const lose = gl.getExtension('WEBGL_lose_context')!;
+  const lost = new Promise((resolve) => canvas.addEventListener('webglcontextlost', resolve, { once: true }));
+  lose.loseContext();
+  await lost; // restoring only works once the (default-prevented) lost event has been dispatched
+  expect(composeWebGL(canvas, render, 256)).toBe(false);
+  const restored = new Promise((resolve) => canvas.addEventListener('webglcontextrestored', resolve, { once: true }));
+  await new Promise((resolve) => setTimeout(resolve, 200)); // Chrome restores only after the loss has settled
+  lose.restoreContext();
+  await restored;
+  expect(composeWebGL(canvas, render, 256)).toBe(true);
+  const p = pixels(canvas);
+  let lit = 0;
+  for (let i = 0; i < p.length; i += 4) if (p[i]! + p[i + 1]! + p[i + 2]! > 90) lit++;
+  expect(lit).toBeGreaterThan(50);
+});
+
+test('un punto apagado no oscurece el papel de Antimatter al componer pequeño', async () => {
+  const c = JSON.parse(await read('cases/07_elliptical_supernova_antimatter.json')) as Case;
+  const r = renderBraille(c.traits, BigInt(c.seed), { columns: 192 });
+  const off: BrailleRender = { ...r, dotRadius: new Float32Array(r.dotRadius.length).fill(-1), dotColor: new Float32Array(r.dotColor.length) };
+  const centre = (size: number) => {
+    const canvas = document.createElement('canvas');
+    expect(composeWebGL(canvas, off, size)).toBe(true);
+    const p = pixels(canvas, size);
+    const o = 4 * ((size / 2) * size + size / 2);
+    return [p[o]!, p[o + 1]!, p[o + 2]!];
+  };
+  const big = centre(1024);
+  for (const size of [256, 512]) {
+    centre(size).forEach((v, ch) => expect(Math.abs(v - big[ch]!), `${size} px`).toBeLessThanOrEqual(1));
+  }
 });
