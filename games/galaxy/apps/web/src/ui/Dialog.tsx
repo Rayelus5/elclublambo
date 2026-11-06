@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, type KeyboardEvent, type ReactNode } from 're
 import { createPortal } from 'react-dom';
 
 // A modal panel (DESIGN_SYSTEM §7): named by its title, focus moves in (to [data-autofocus] or the first control),
-// Tab stays inside, Escape or a click on the backdrop closes it, and focus goes back where it was.
+// Tab stays inside, Escape or a click on the backdrop closes it (unless the dialog says otherwise), and focus goes
+// back where it was.
 const FOCUSABLE = 'a[href], button:not(:disabled), select:not(:disabled), input:not(:disabled), [tabindex]:not([tabindex="-1"])';
 
 export function Dialog({
@@ -12,6 +13,8 @@ export function Dialog({
   role = 'dialog',
   className = '',
   hideTitle = false,
+  closeOnVeil = true,
+  onEscape,
 }: {
   title: string;
   onClose: () => void;
@@ -20,6 +23,10 @@ export function Dialog({
   role?: 'dialog' | 'alertdialog';
   className?: string;
   hideTitle?: boolean;
+  /** False where a stray click must not lose anything (the reveal). */
+  closeOnVeil?: boolean;
+  /** What Escape does, when it is not simply closing. */
+  onEscape?: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -34,7 +41,7 @@ export function Dialog({
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>): void {
     if (e.key === 'Escape') {
       e.stopPropagation();
-      onClose();
+      (onEscape ?? onClose)();
       return;
     }
     if (e.key !== 'Tab') return;
@@ -52,7 +59,7 @@ export function Dialog({
   }
 
   return createPortal(
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="overlay" onMouseDown={(e) => closeOnVeil && e.target === e.currentTarget && onClose()}>
       <div ref={ref} role={role} aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={`lip panel modal ${className}`} onKeyDown={onKeyDown}>
         <h2 id={titleId} className={hideTitle ? 'sr-only' : 'modal-title'}>
           {title}

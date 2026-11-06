@@ -125,12 +125,25 @@ export function RevealStage({
   }, [step]);
 
   const summary = step.kind === 'summary';
+  // Saltar (which had the focus) disappears with the summary: the focus moves to Cerrar instead of the page body.
+  const closeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (summary) closeButton.current?.focus();
+  }, [summary]);
   const sorted = useMemo(() => [...pulls].sort((a, b) => TIERS.indexOf(b.tier) - TIERS.indexOf(a.tier)), [pulls]);
   const go = () => setAt((i) => advance(steps, i));
   const cardSize = Math.min(300, Math.round((globalThis.innerHeight || 800) * 0.42));
 
   return (
-    <Dialog title={title} onClose={onClose} className="reveal-stage" hideTitle>
+    // Players click fast to advance: the veil never closes the reveal, and Escape skips to the summary first.
+    <Dialog
+      title={title}
+      onClose={onClose}
+      className="reveal-stage"
+      hideTitle
+      closeOnVeil={false}
+      onEscape={() => (summary ? onClose() : setAt(skipToSummary(steps)))}
+    >
       <div className="stage-top">
         {summary ? <span /> : <span className="stage-progress">{copy.scanner.progress(step.index + 1, pulls.length)}</span>}
         <div className="stage-tools">
@@ -165,7 +178,7 @@ export function RevealStage({
           </div>
           <div className="summary-actions">
             {actions}
-            <button type="button" className="lip pill" data-autofocus onClick={onClose}>
+            <button ref={closeButton} type="button" className="lip pill" onClick={onClose}>
               {copy.scanner.close}
             </button>
           </div>

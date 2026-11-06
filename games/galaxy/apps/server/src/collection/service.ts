@@ -9,6 +9,8 @@ import {
   validateFusion,
   type CollectionPage,
   type Finish,
+  type GachaConfig,
+  type GalaxiesConfig,
   type GalaxyDetail,
   type GalaxySummary,
   type Tier,
@@ -139,14 +141,15 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
   return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrateYield(r.tier, r.finish as Finish, cfg) };
 }
 
+// Disintegrate and fuse run inside an operation's transaction: the config they need is read by the route BEFORE it
+// (reading it through the pool inside would take a second connection).
 export async function disintegrate(
-  deps: CollectionDeps,
+  cfg: GalaxiesConfig,
   trx: Kysely<DB>,
   ownerId: string,
   id: string,
   opKey: string,
 ): Promise<{ dust: number; wallet: Wallet }> {
-  const cfg = await deps.config.get('galaxies');
   const gone = await trx
     .updateTable('galaxy.galaxies')
     .set({ disintegrated_at: new Date() })
@@ -162,13 +165,12 @@ export async function disintegrate(
 }
 
 export async function fuse(
-  deps: CollectionDeps,
+  { cfg, gacha }: { cfg: GalaxiesConfig; gacha: GachaConfig },
   trx: Kysely<DB>,
   ownerId: string,
   ids: string[],
   opKey: string,
 ): Promise<{ galaxy: GalaxySummary; wallet: Wallet }> {
-  const [cfg, gacha] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha')]);
   // Lock the parents in a fixed order so concurrent operations on the same galaxies cannot deadlock.
   const parents = await trx
     .selectFrom('galaxy.galaxies')

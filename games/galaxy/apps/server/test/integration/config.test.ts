@@ -191,3 +191,24 @@ test('registro cerrado → 403 registration_closed; el login sigue funcionando',
     await app.close();
   }
 });
+
+test('los banners de evento no se pueden publicar todavía: 400 config_invalid y nada cambia (revisión final M2b)', async () => {
+  // Events are finished in a later milestone (event signals in the wallet, combined odds, featured checks). Until then
+  // the live config refuses them, so no admin can expose half of a feature to players.
+  const admin = await adminSession();
+  const versions = createConfigService(ctx.db);
+  const before = (await versions.versions('gacha')).length;
+  const event = {
+    id: 'nova',
+    kind: 'event',
+    name: 'Lluvia de cometas',
+    pityGroup: 'event-nova',
+    currency: 'signal:nova',
+    featured: { trait: 'phenomenon', value: 'comet' },
+  };
+  const standard = { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' };
+  const res = await post(ctx.app, '/galaxy/api/admin/config/gacha', { data: { banners: [standard, event] }, reason: 'evento de prueba' }, { cookie: admin });
+  expect(res.statusCode).toBe(400);
+  expect(res.json()).toEqual({ error: 'config_invalid' });
+  expect((await versions.versions('gacha')).length).toBe(before);
+});

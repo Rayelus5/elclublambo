@@ -5,7 +5,7 @@ import type { Kysely } from 'kysely';
 import { Secret, TOTP } from 'otpauth';
 import { buildApp } from '../src/app';
 import { runCli } from '../src/cli';
-import type { ConfigService } from '../src/config/service';
+import { type ConfigService, createConfigService } from '../src/config/service';
 import { createDb } from '../src/db';
 import type { DB } from '../src/db/schema';
 import type { Env } from '../src/env';
@@ -95,11 +95,16 @@ export async function testApp(
     beforeReady?: (app: FastifyInstance) => void;
     now?: () => Date;
     config?: ConfigService;
+    /** A small pool (and a short wait for a connection) to catch code that needs two at once. */
+    pool?: { max: number; timeoutMs: number };
+    /** Live config cache lifetime; 0 reads the database every time. */
+    configTtlMs?: number;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
-  const db = createDb(env.DATABASE_URL);
-  const app = await buildApp({ env, db, now: opts.now, config: opts.config });
+  const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
+  const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
+  const app = await buildApp({ env, db, now: opts.now, config });
   opts.beforeReady?.(app);
   await app.ready();
   return {
@@ -119,6 +124,7 @@ export async function testApp(
 export function fixedConfig(overrides: Partial<Record<ConfigKey, unknown>>): ConfigService {
   return {
     get: async (key) => parseConfig(key, overrides[key] ?? {}),
+    getVersioned: async (key) => ({ value: parseConfig(key, overrides[key] ?? {}), version: 0 }),
     versions: async () => [],
     active: async () => [],
     publish: async () => ({ version: 0 }),

@@ -98,8 +98,17 @@ export async function gachaView(db: Kysely<DB>, cfg: GachaConfig, accountId: str
 }
 
 async function requireEnabled(config: ConfigReader): Promise<GachaConfig> {
+  return (await enabledGacha(config)).cfg;
+}
+
+/**
+ * The gacha config a pull will use and its version, read BEFORE the operation's transaction: an economy operation holds
+ * one pooled connection, and reading the config through the pool inside it would need a second one.
+ */
+export async function enabledGacha(config: ConfigReader): Promise<{ cfg: GachaConfig; version: number }> {
   if (!(await config.get('features')).gacha) throw new HttpError(503, 'gacha_disabled');
-  return config.get('gacha');
+  const { value, version } = await config.getVersioned('gacha');
+  return { cfg: value, version };
 }
 
 /** GET /gacha: the first visit also gives the welcome. */
@@ -112,8 +121,15 @@ export async function visit(deps: GachaDeps, accountId: string): Promise<GachaVi
 const randomSeed = () => randomBytes(8).readBigUInt64BE();
 
 /** The pull itself, inside the caller's operation transaction. */
-export async function pull(deps: GachaDeps, trx: Kysely<DB>, accountId: string, req: PullRequest, opKey: string): Promise<PullResponse> {
-  const cfg = await requireEnabled(deps.config);
+export async function pull(
+  deps: GachaDeps,
+  trx: Kysely<DB>,
+  accountId: string,
+  req: PullRequest,
+  opKey: string,
+  gacha: { cfg: GachaConfig; version: number },
+): Promise<PullResponse> {
+  const { cfg } = gacha;
   const now = deps.now();
   const banner = openBanners(cfg, now).find((b) => b.id === req.banner);
   if (!banner) throw new HttpError(409, 'banner_closed');
@@ -139,7 +155,6 @@ export async function pull(deps: GachaDeps, trx: Kysely<DB>, accountId: string, 
   }
 
   let state = await readState(trx, accountId, banner.pityGroup, true);
-  const version = await trx.selectFrom('galaxy.game_config_active').select('version').where('key', '=', 'gacha').executeTakeFirst();
   const pulls: PulledGalaxy[] = [];
   for (let i = 0; i < req.count; i++) {
     const pullSeed = randomSeed();
@@ -174,7 +189,7 @@ export async function pull(deps: GachaDeps, trx: Kysely<DB>, accountId: string, 
         featured: outcome.featured,
         finish: outcome.finish,
         pity_before: state.sinceLegendary,
-        config_version: version?.version ?? 0,
+        config_version: gacha.version,
         engine_version: ENGINE_VERSION,
         galaxy_id: row.id,
         operation_key: opKey,

@@ -1,5 +1,5 @@
 import type { GachaView, PulledGalaxy, PullResponse, Tier } from '@galaxy/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
@@ -110,4 +110,71 @@ test('un error del servidor se dice con su texto', async () => {
   renderAt('/escaner', { '/escaner': <ScannerScreen /> });
   await user.click(await screen.findByRole('button', { name: new RegExp(copy.scanner.free) }));
   expect(await screen.findByRole('alert')).toHaveTextContent(copy.errors.free_pull_used);
+});
+
+test('si se pierde la respuesta, reintentar usa la misma clave y no cobra dos veces (revisión final)', async () => {
+  let posts = 0;
+  const response: PullResponse = { pulls: [pulled(1)], wallet: { coins: 250, dust: 0, signal: 9 }, view: view({ wallet: { coins: 250, dust: 0, signal: 9 } }) };
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => {
+      // The first answer never arrives (the server may well have charged it); the retry gets it.
+      if (++posts === 1) throw new TypeError('Failed to fetch');
+      return jsonResponse(200, response);
+    },
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  const scan1 = await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) });
+  await user.click(scan1);
+  expect(await screen.findByRole('alert')).toHaveTextContent(copy.errors.internal);
+  // After a failure the balances are read again, in case the server did charge.
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha')).toHaveLength(2));
+  await user.click(scan1);
+  await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  const keys = fetch.mock.calls
+    .filter(([url]) => url === '/galaxy/api/gacha/pull')
+    .map(([, init]) => (init?.headers as Record<string, string>)['idempotency-key']);
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).toBe(keys[0]);
+});
+
+test('una tirada nueva tras una que salió bien lleva una clave nueva', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => jsonResponse(200, { pulls: [pulled(1)], wallet: { coins: 250, dust: 0, signal: 9 }, view: view() }),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  const scan1 = () => screen.getByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) });
+  await screen.findByRole('table', { name: copy.scanner.odds });
+  await user.click(scan1());
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  await user.click(await within(stage).findByRole('button', { name: copy.scanner.close }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  await user.click(scan1());
+  await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  const keys = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull').map(([, init]) => (init?.headers as Record<string, string>)['idempotency-key']);
+  expect(keys).toHaveLength(2);
+  expect(keys[1]).not.toBe(keys[0]);
+});
+
+test('un clic fuera del terminal no cierra el revelado y Escape primero salta al resumen (revisión final)', async () => {
+  const response: PullResponse = { pulls: [pulled(1), pulled(2)], wallet: { coins: 250, dust: 0, signal: 0 }, view: view() };
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => jsonResponse(200, response),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  // Players click fast to advance: a click on the veil around the terminal must not lose what they paid for.
+  fireEvent.mouseDown(document.querySelector('.overlay')!);
+  expect(screen.getByRole('dialog', { name: copy.scanner.revealTitle })).toBeInTheDocument();
+  await user.keyboard('{Escape}');
+  expect(await within(stage).findByRole('heading', { name: copy.scanner.summaryTitle(2) })).toBeInTheDocument();
+  await user.keyboard('{Escape}');
+  await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
 });

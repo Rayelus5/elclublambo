@@ -25,8 +25,9 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const key = idempotencyKey(req);
     const { id } = idParam.parse(req.params);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
+    const cfg = await deps.config.get('galaxies');
     return runOperation(deps.db, s.accountId, key, 'galaxy.disintegrate', requestHash({ id }), (trx) =>
-      disintegrate(deps, trx, s.accountId, id, key),
+      disintegrate(cfg, trx, s.accountId, id, key),
     );
   });
 
@@ -35,6 +36,7 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const key = idempotencyKey(req);
     const body = fuseRequestSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
-    return runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), (trx) => fuse(deps, trx, s.accountId, body.ids, key));
+    const [cfg, gacha] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha')]);
+    return runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), (trx) => fuse({ cfg, gacha }, trx, s.accountId, body.ids, key));
   });
 }
