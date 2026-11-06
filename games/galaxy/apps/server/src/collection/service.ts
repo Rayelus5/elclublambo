@@ -69,7 +69,8 @@ function decode(raw: string): Cursor {
   }
 }
 
-export async function listGalaxies(db: Kysely<DB>, ownerId: string, q: ListQuery): Promise<CollectionPage> {
+export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: ListQuery): Promise<CollectionPage> {
+  const { db } = deps;
   let query = db
     .selectFrom('galaxy.galaxies')
     .select(SUMMARY)
@@ -106,10 +107,12 @@ export async function listGalaxies(db: Kysely<DB>, ownerId: string, q: ListQuery
     .execute();
   const counts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
   for (const c of counted) counts[TIERS[c.tier]!] = c.n;
-  return { items: page.map(summary), ...(next ? { next } : {}), counts };
+  const { fusion } = await deps.config.get('galaxies');
+  return { items: page.map(summary), ...(next ? { next } : {}), counts, fusion: { count: fusion.count, dust: [...fusion.dust] } };
 }
 
-export async function galaxyDetail(db: Kysely<DB>, ownerId: string, id: string): Promise<GalaxyDetail> {
+export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: string): Promise<GalaxyDetail> {
+  const { db } = deps;
   const r = await db
     .selectFrom('galaxy.galaxies')
     .select([...SUMMARY, 'origin', 'lineage', 'dna'])
@@ -118,7 +121,22 @@ export async function galaxyDetail(db: Kysely<DB>, ownerId: string, id: string):
     .where('disintegrated_at', 'is', null)
     .executeTakeFirst();
   if (!r) throw new HttpError(404, 'galaxy_not_found');
-  return { ...summary(r), origin: r.origin, lineage: r.lineage, dna: r.dna };
+  // Parents were consumed by the fusion (disintegrated), so they are read regardless of that, but only the owner's.
+  const parents = r.lineage.length
+    ? await db
+        .selectFrom('galaxy.galaxies')
+        .select(['id', 'name', 'designation', 'tier'])
+        .where('id', 'in', r.lineage)
+        .where('owner_id', '=', ownerId)
+        .execute()
+    : [];
+  const byId = new Map(parents.map((p) => [p.id, p]));
+  const lineage = r.lineage.flatMap((pid) => {
+    const p = byId.get(pid);
+    return p ? [{ id: p.id, name: p.name, designation: p.designation, tier: TIERS[p.tier]! }] : [];
+  });
+  const cfg = await deps.config.get('galaxies');
+  return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrateYield(r.tier, r.finish as Finish, cfg) };
 }
 
 export async function disintegrate(

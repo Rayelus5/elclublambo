@@ -2,21 +2,13 @@ import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isAdmin } from '../auth/useMe';
-import { copy, fmt } from '../copy/es';
-import { Icon, type IconName } from '../ui/Icon';
+import { copy } from '../copy/es';
+import { Icon } from '../ui/Icon';
 import { Avatar } from './Avatar';
 import { Soon } from './Soon';
+import { WalletBar } from './WalletBar';
 
 const delay = (d: string) => ({ '--d': d }) as CSSProperties;
-
-function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName; amount: number; label: string }) {
-  return (
-    <span className={`res ${kind}`} role="img" aria-label={label} title={label}>
-      <Icon name={icon} />
-      <b aria-hidden="true">{fmt(amount)}</b>
-    </span>
-  );
-}
 
 /**
  * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
@@ -63,17 +55,7 @@ export function TopBar({
               {isAdmin(me) ? <span className="badge-admin">{copy.hub.admin}</span> : null}
             </div>
           </div>
-          {wallet ? (
-            <>
-              <Resource kind="dust" icon="dust" amount={wallet.dust} label={copy.hub.resource.dust(wallet.dust)} />
-              <Resource kind="coins" icon="coin" amount={wallet.coins} label={copy.hub.resource.coins(wallet.coins)} />
-              <Resource kind="signal" icon="ticket" amount={wallet.signal} label={copy.hub.resource.signal(wallet.signal)} />
-            </>
-          ) : (
-            <span className="res pending" role="status" aria-label={copy.loading}>
-              ⠋⠙⠹
-            </span>
-          )}
+          <WalletBar wallet={wallet} />
         </div>
         <button
           type="button"

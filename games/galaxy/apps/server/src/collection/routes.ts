@@ -12,12 +12,12 @@ const idParam = z.object({ id: z.uuid() }).strict();
 export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionDeps): void {
   api.get('/galaxy/api/galaxies', async (req): Promise<CollectionPage> => {
     const s = requireSession(req);
-    return listGalaxies(deps.db, s.accountId, listQuerySchema.parse(req.query));
+    return listGalaxies(deps, s.accountId, listQuerySchema.parse(req.query));
   });
 
   api.get('/galaxy/api/galaxies/:id', async (req): Promise<GalaxyDetail> => {
     const s = requireSession(req);
-    return galaxyDetail(deps.db, s.accountId, idParam.parse(req.params).id);
+    return galaxyDetail(deps, s.accountId, idParam.parse(req.params).id);
   });
 
   api.post('/galaxy/api/galaxies/:id/disintegrate', async (req) => {

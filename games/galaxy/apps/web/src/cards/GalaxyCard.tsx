@@ -1,6 +1,6 @@
 import type { Lod } from '@galaxy/engine';
 import type { PulledGalaxy } from '@galaxy/shared';
-import { useEffect, useId, useRef, type CSSProperties, type PointerEvent } from 'react';
+import { useEffect, useId, useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { useGalaxyImage } from './useGalaxyImage';
@@ -39,8 +39,11 @@ export function GalaxyCard({
   size = 200,
   interactive = false,
   columns = 96,
+  children,
 }: {
   galaxy: CardGalaxy;
+  /** An action laid over the whole card (a link or a toggle): inside the tilt, so the card still follows the pointer. */
+  children?: ReactNode;
   /** Card width in CSS pixels (the height follows at 7:5). */
   size?: number;
   interactive?: boolean;
@@ -101,6 +104,7 @@ export function GalaxyCard({
           <div className="gcard-fx" aria-hidden="true" />
           <div className="gcard-glare" aria-hidden="true" />
         </div>
+        {children}
       </div>
     </article>
   );

@@ -39,10 +39,20 @@ export interface GalaxySummary extends PulledGalaxy {
   createdAt: string;
 }
 
+/** A parent of a fused galaxy: it no longer exists, but its name stays in the lineage. */
+export interface LineageEntry {
+  id: string;
+  name: string;
+  designation: string;
+  tier: Tier;
+}
+
 export interface GalaxyDetail extends GalaxySummary {
   origin: 'pull' | 'fusion' | 'grant';
-  lineage: string[];
+  lineage: LineageEntry[];
   dna: string;
+  /** Dust that disintegrating it pays right now (live config). */
+  dust: number;
 }
 
 export interface BannerView {
@@ -79,4 +89,6 @@ export interface CollectionPage {
   items: GalaxySummary[];
   next?: string;
   counts: Record<Tier, number>;
+  /** The live fusion recipe: `count` of one tier → the next, for `dust[tier]` (common → epic). */
+  fusion: { count: number; dust: number[] };
 }

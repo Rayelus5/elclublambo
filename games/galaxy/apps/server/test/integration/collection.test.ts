@@ -123,9 +123,22 @@ test('fusionar cinco del mismo nivel da una del siguiente con su linaje y cuesta
   expect(body.wallet.dust).toBe(5);
   const detail = (await get(ctx.app, `/galaxy/api/galaxies/${body.galaxy.id}`, { cookie })).json() as GalaxyDetail;
   expect(detail.origin).toBe('fusion');
-  expect([...detail.lineage].sort()).toEqual([...ids].sort());
+  // The parents are gone from the collection, but the lineage still names them.
+  expect(detail.lineage.map((p) => p.id).sort()).toEqual([...ids].sort());
+  expect(detail.lineage.every((p) => p.tier === 'common' && p.name.length > 0 && /^GX-/.test(p.designation))).toBe(true);
   const page = await list(cookie);
   expect(page.items.map((g) => g.id)).toEqual([body.galaxy.id]);
+});
+
+test('el detalle dice el polvo que daría y la colección trae la receta de fusión', async () => {
+  const { cookie, id } = await player();
+  const [epic] = await own(id, 3, 1, 'holo');
+  const detail = (await get(ctx.app, `/galaxy/api/galaxies/${epic}`, { cookie })).json() as GalaxyDetail;
+  expect(detail.dust).toBe(113); // 75 × 1,5 rounded, exactly what disintegrating it pays
+  expect(detail.lineage).toEqual([]);
+  expect((await list(cookie)).fusion).toEqual({ count: 5, dust: [20, 50, 120, 300] });
+  const res = await act(cookie, `/galaxy/api/galaxies/${epic}/disintegrate`);
+  expect((res.json() as { dust: number }).dust).toBe(detail.dust);
 });
 
 test('una fusión no válida no cambia nada (Review Focus 4)', async () => {

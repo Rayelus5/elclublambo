@@ -170,6 +170,22 @@ const PATHS = {
       <path d="M12 10.5V6.5l3.5-3" />
     </>
   ),
+  back: (
+    <>
+      <path d="M14.5 5.5L8 12l6.5 6.5" />
+    </>
+  ),
+  close: (
+    <>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </>
+  ),
+  fuse: (
+    <>
+      <path d="M5 5l5.5 5.5M19 5l-5.5 5.5M12 13v7" />
+      <circle cx="12" cy="11" r="2.4" fill="currentColor" stroke="none" />
+    </>
+  ),
   lock: (
     <>
       <rect x="5" y="10.5" width="14" height="10" rx="2.6" />
