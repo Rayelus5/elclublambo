@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
-import { composeFallback, composeWebGL, renderBraille, type BrailleRender } from '../src/index';
+import { composeFallback, composeWebGL } from '../src/gpu/index';
+import { renderBraille, type BrailleRender } from '../src/index';
 import { loadCases } from './golden';
 
 // The compositor's failure and scaling paths that real Chromium does not reach easily (final review M2a).

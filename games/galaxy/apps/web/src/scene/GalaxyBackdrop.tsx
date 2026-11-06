@@ -1,4 +1,5 @@
-import { composeFallback, composeWebGL, drawTraits, fbmAt, hash2, linearToSrgb, loadPalette, subRng, type Lod, type Traits } from '@galaxy/engine';
+import { drawTraits, fbmAt, hash2, linearToSrgb, loadPalette, subRng, type Lod, type Traits } from '@galaxy/engine';
+import { composeFallback, composeWebGL } from '@galaxy/engine/gpu';
 import { useEffect, useRef } from 'react';
 import { requestGalaxy, type GalaxyRender } from '../galaxy/client';
 import { galaxyReady, initialState, layerStyles, nextPhase } from './backdrop-schedule';

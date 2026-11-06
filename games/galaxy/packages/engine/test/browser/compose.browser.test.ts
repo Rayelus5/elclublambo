@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { commands } from 'vitest/browser';
-import { composeFallback, composeWebGL, renderBraille, type BrailleRender, type Traits } from '../../src/index';
+import { composeFallback, composeWebGL } from '../../src/gpu/index';
+import { renderBraille, type BrailleRender, type Traits } from '../../src/index';
 import meta from '../golden/v1/meta.json';
 
 // ENGINE_PORT §7 in real Chromium: the WebGL2 compose against the Python PNGs (2048 px, reduced to 256 px). The two

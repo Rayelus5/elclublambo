@@ -1,4 +1,5 @@
 // @galaxy/engine: TypeScript port of the galaxy-nft engine (docs/ENGINE_PORT.md). Isomorphic: no DOM, no Node APIs.
+// The WebGL2 compositor lives in @galaxy/engine/gpu.
 export { ENGINE_VERSION } from './version';
 export { sha256Hex } from './rng/sha256';
 export { deriveSeed, subSeed32, tokenSeed, type SeedPart } from './rng/seed';
@@ -35,6 +36,5 @@ export { BAYER4, dither, toText } from './raster';
 export { backgroundStars, galaxyStars, glintCenters, type Glint, type StarLayer } from './stars';
 export { galaxyColor, postfxFor, renderBraille, renderFromSeed, type BrailleRender, type Lod, type RenderOptions } from './render';
 export { corePoint, diskPoint, galaxyMatter, glitch, lightLayer, type LightLayer } from './phenomena';
-export { composeFallback, composeWebGL, gaussianWeights } from './gpu/compose';
 export { galaxyName, properName, SYLLABLES } from './naming';
 export { ABSENT, calibrateRarity, RARITY_BANDS, scoreTraits, TIER_QUANTILES, tierOfScore, type RarityCalibration } from './rarity/score';

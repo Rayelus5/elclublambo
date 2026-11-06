@@ -3,3 +3,5 @@ export * from './errors';
 export * from './config/registry';
 export * from './gacha/types';
 export * from './api/economy';
+export * from './gacha/rules';
+export * from './gacha/generate';
