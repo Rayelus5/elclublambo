@@ -1,0 +1,873 @@
+{
+ "traits": {
+  "draw_order": [
+   "galaxy_type",
+   "arms",
+   "size",
+   "inclination",
+   "core",
+   "star_density",
+   "palette",
+   "background",
+   "phenomenon"
+  ],
+  "traits": {
+   "galaxy_type": {
+    "label": "Galaxy Type",
+    "values": {
+     "spiral": {
+      "name": "Spiral",
+      "weight": 30
+     },
+     "barred_spiral": {
+      "name": "Barred Spiral",
+      "weight": 22
+     },
+     "elliptical": {
+      "name": "Elliptical",
+      "weight": 16
+     },
+     "lenticular": {
+      "name": "Lenticular",
+      "weight": 10
+     },
+     "irregular": {
+      "name": "Irregular",
+      "weight": 10
+     },
+     "ring": {
+      "name": "Ring",
+      "weight": 6
+     },
+     "dwarf": {
+      "name": "Dwarf",
+      "weight": 4
+     },
+     "merger": {
+      "name": "Merger",
+      "weight": 2
+     }
+    }
+   },
+   "arms": {
+    "label": "Arms",
+    "requires": {
+     "galaxy_type": [
+      "spiral",
+      "barred_spiral"
+     ]
+    },
+    "values": {
+     "2": {
+      "name": "2",
+      "weight": 40
+     },
+     "3": {
+      "name": "3",
+      "weight": 25
+     },
+     "4": {
+      "name": "4",
+      "weight": 20
+     },
+     "5": {
+      "name": "5",
+      "weight": 10
+     },
+     "6": {
+      "name": "6",
+      "weight": 5
+     }
+    }
+   },
+   "size": {
+    "label": "Size",
+    "values": {
+     "compact": {
+      "name": "Compact",
+      "weight": 20
+     },
+     "medium": {
+      "name": "Medium",
+      "weight": 40
+     },
+     "large": {
+      "name": "Large",
+      "weight": 28
+     },
+     "colossal": {
+      "name": "Colossal",
+      "weight": 12
+     }
+    }
+   },
+   "inclination": {
+    "label": "Inclination",
+    "requires": {
+     "galaxy_type": [
+      "spiral",
+      "barred_spiral",
+      "lenticular",
+      "ring"
+     ]
+    },
+    "values": {
+     "face_on": {
+      "name": "Face-On",
+      "weight": 50
+     },
+     "tilted": {
+      "name": "Tilted",
+      "weight": 38
+     },
+     "edge_on": {
+      "name": "Edge-On",
+      "weight": 12
+     }
+    }
+   },
+   "core": {
+    "label": "Core",
+    "values": {
+     "faint": {
+      "name": "Faint",
+      "weight": 28
+     },
+     "bright": {
+      "name": "Bright",
+      "weight": 47
+     },
+     "quasar": {
+      "name": "Quasar",
+      "weight": 18
+     },
+     "double_nucleus": {
+      "name": "Double Nucleus",
+      "weight": 7
+     }
+    }
+   },
+   "star_density": {
+    "label": "Star Density",
+    "values": {
+     "sparse": {
+      "name": "Sparse",
+      "weight": 20
+     },
+     "normal": {
+      "name": "Normal",
+      "weight": 45
+     },
+     "dense": {
+      "name": "Dense",
+      "weight": 25
+     },
+     "saturated": {
+      "name": "Saturated",
+      "weight": 10
+     }
+    }
+   },
+   "palette": {
+    "label": "Palette",
+    "values": {
+     "andromeda_blue": {
+      "name": "Andromeda Blue",
+      "weight": 16
+     },
+     "terminal_green": {
+      "name": "Terminal Green",
+      "weight": 14
+     },
+     "solar_gold": {
+      "name": "Solar Gold",
+      "weight": 13
+     },
+     "crimson_nebula": {
+      "name": "Crimson Nebula",
+      "weight": 11
+     },
+     "emerald_void": {
+      "name": "Emerald Void",
+      "weight": 10
+     },
+     "amber_crt": {
+      "name": "Amber CRT",
+      "weight": 9
+     },
+     "ultraviolet": {
+      "name": "Ultraviolet",
+      "weight": 8
+     },
+     "neon_synapse": {
+      "name": "Neon Synapse",
+      "weight": 7
+     },
+     "monochrome": {
+      "name": "Monochrome",
+      "weight": 6
+     },
+     "prismatic": {
+      "name": "Prismatic",
+      "weight": 4
+     },
+     "antimatter": {
+      "name": "Antimatter",
+      "weight": 2
+     }
+    }
+   },
+   "background": {
+    "label": "Background",
+    "values": {
+     "deep_void": {
+      "name": "Deep Void",
+      "weight": 30
+     },
+     "starfield": {
+      "name": "Starfield",
+      "weight": 35
+     },
+     "nebular_dust": {
+      "name": "Nebular Dust",
+      "weight": 18
+     },
+     "cosmic_web": {
+      "name": "Cosmic Web",
+      "weight": 12
+     },
+     "cmb": {
+      "name": "Microwave Background",
+      "weight": 5
+     }
+    }
+   },
+   "phenomenon": {
+    "label": "Phenomenon",
+    "values": {
+     "none": {
+      "name": "None",
+      "weight": 740
+     },
+     "supernova": {
+      "name": "Supernova",
+      "weight": 55
+     },
+     "satellite_galaxy": {
+      "name": "Satellite Galaxy",
+      "weight": 55
+     },
+     "globular_cluster": {
+      "name": "Globular Cluster",
+      "weight": 50
+     },
+     "comet": {
+      "name": "Comet",
+      "weight": 35
+     },
+     "relativistic_jets": {
+      "name": "Relativistic Jets",
+      "weight": 90,
+      "requires": {
+       "core": [
+        "quasar"
+       ]
+      }
+     },
+     "pulsar": {
+      "name": "Pulsar",
+      "weight": 20
+     },
+     "einstein_ring": {
+      "name": "Einstein Ring",
+      "weight": 12
+     },
+     "anomaly": {
+      "name": "Anomaly",
+      "weight": 3
+     }
+    }
+   }
+  },
+  "rules": [
+   {
+    "forbid": {
+     "galaxy_type": [
+      "dwarf"
+     ],
+     "size": [
+      "large",
+      "colossal"
+     ]
+    }
+   },
+   {
+    "forbid": {
+     "galaxy_type": [
+      "dwarf"
+     ],
+     "core": [
+      "quasar",
+      "double_nucleus"
+     ]
+    }
+   },
+   {
+    "forbid": {
+     "galaxy_type": [
+      "merger"
+     ],
+     "size": [
+      "compact"
+     ]
+    }
+   },
+   {
+    "forbid": {
+     "galaxy_type": [
+      "merger"
+     ],
+     "phenomenon": [
+      "satellite_galaxy"
+     ]
+    }
+   },
+   {
+    "forbid": {
+     "galaxy_type": [
+      "ring"
+     ],
+     "inclination": [
+      "edge_on"
+     ]
+    }
+   },
+   {
+    "forbid": {
+     "galaxy_type": [
+      "dwarf"
+     ],
+     "phenomenon": [
+      "einstein_ring"
+     ]
+    }
+   },
+   {
+    "force": {
+     "when": {
+      "palette": "antimatter"
+     },
+     "set": {
+      "background": "deep_void"
+     }
+    }
+   }
+  ]
+ },
+ "palettes": {
+  "andromeda_blue": {
+   "stops": [
+    "0A1633",
+    "1B4A8A",
+    "3A8BDB",
+    "9DD2FF",
+    "F3FBFF"
+   ],
+   "accent": "FFD59E"
+  },
+  "terminal_green": {
+   "stops": [
+    "021407",
+    "06501B",
+    "12A23A",
+    "59F57A",
+    "E4FFE9"
+   ],
+   "accent": "F2FFF4",
+   "blackbody_mix": 0.0
+  },
+  "solar_gold": {
+   "stops": [
+    "1E1204",
+    "6A460A",
+    "D9A11C",
+    "FFD447",
+    "FFF7D6"
+   ],
+   "accent": "8FE3FF"
+  },
+  "crimson_nebula": {
+   "stops": [
+    "22050D",
+    "661030",
+    "C2244B",
+    "FF6B7A",
+    "FFE4E7"
+   ],
+   "accent": "FFF0C2"
+  },
+  "emerald_void": {
+   "stops": [
+    "02191A",
+    "0A5246",
+    "179C78",
+    "6CF0C0",
+    "E8FFF7"
+   ],
+   "accent": "D6B4FF"
+  },
+  "amber_crt": {
+   "stops": [
+    "160A1E",
+    "4A1630",
+    "B3440A",
+    "FF9A1A",
+    "FFE0A0"
+   ],
+   "accent": "7FF4FF",
+   "blackbody_mix": 0.0,
+   "detail": {
+    "color": "2FE0CF",
+    "regions": 0.8,
+    "halo": 0.6,
+    "stars": 0.3
+   },
+   "postfx": {
+    "chromatic_aberration": 2,
+    "scanlines": {
+     "period": 2,
+     "depth": 0.18
+    }
+   }
+  },
+  "ultraviolet": {
+   "stops": [
+    "12082A",
+    "431A85",
+    "8538F5",
+    "C79CFF",
+    "F6EEFF"
+   ],
+   "accent": "7DF9FF"
+  },
+  "neon_synapse": {
+   "stops": [
+    "12031F",
+    "6A0F5C",
+    "FF2E97",
+    "2EE6FF",
+    "EFFFFF"
+   ],
+   "accent": "FFF35C"
+  },
+  "monochrome": {
+   "stops": [
+    "101215",
+    "383D45",
+    "7B838E",
+    "C4CAD2",
+    "FFFFFF"
+   ],
+   "accent": "FFFFFF",
+   "blackbody_mix": 0.0
+  },
+  "prismatic": {
+   "stops": [
+    "FF3D7F",
+    "FF9F1C",
+    "F7F052",
+    "2EC4B6",
+    "5B5FEF",
+    "B14AED"
+   ],
+   "accent": "FFFFFF",
+   "mode": "angular"
+  },
+  "antimatter": {
+   "stops": [
+    "C9C3B8",
+    "8A8296",
+    "4B3F6B",
+    "1E1338",
+    "07030F"
+   ],
+   "accent": "D4004C",
+   "mode": "inverted",
+   "background": "ECE8DF",
+   "blackbody_mix": 0.0
+  }
+ },
+ "visuals": {
+  "size": {
+   "compact": [
+    0.56,
+    0.63
+   ],
+   "medium": [
+    0.7,
+    0.78
+   ],
+   "large": [
+    0.84,
+    0.92
+   ],
+   "colossal": [
+    0.98,
+    1.08
+   ]
+  },
+  "inclination": {
+   "face_on": [
+    0.82,
+    1.0
+   ],
+   "tilted": [
+    0.45,
+    0.68
+   ],
+   "edge_on": [
+    0.13,
+    0.2
+   ]
+  },
+  "shape": {
+   "elliptical": [
+    0.45,
+    1.0
+   ],
+   "irregular": [
+    0.6,
+    1.0
+   ],
+   "dwarf": [
+    0.6,
+    1.0
+   ],
+   "merger": [
+    0.55,
+    0.95
+   ]
+  },
+  "core": {
+   "faint": {
+    "amplitude": 0.55,
+    "radius": 0.06
+   },
+   "bright": {
+    "amplitude": 1.35,
+    "radius": 0.075
+   },
+   "quasar": {
+    "amplitude": 1.1,
+    "radius": 0.06,
+    "point": 6.0,
+    "spikes": 0.3
+   },
+   "double_nucleus": {
+    "amplitude": 1.15,
+    "radius": 0.05,
+    "separation": 0.09
+   }
+  },
+  "core_scale": {
+   "spiral": 1.0,
+   "barred_spiral": 1.0,
+   "elliptical": 0.6,
+   "lenticular": 0.9,
+   "irregular": 0.45,
+   "ring": 0.9,
+   "dwarf": 0.5,
+   "merger": 0.9
+  },
+  "star_density": {
+   "sparse": {
+    "gain": 0.8,
+    "stars": 0.01,
+    "glints": 6
+   },
+   "normal": {
+    "gain": 1.0,
+    "stars": 0.02,
+    "glints": 10
+   },
+   "dense": {
+    "gain": 1.2,
+    "stars": 0.035,
+    "glints": 15
+   },
+   "saturated": {
+    "gain": 1.45,
+    "stars": 0.055,
+    "glints": 22
+   }
+  },
+  "background": {
+   "deep_void": {
+    "stars": 0.001,
+    "level": 0.0,
+    "brightness": 0.0
+   },
+   "starfield": {
+    "stars": 0.0045,
+    "level": 0.0,
+    "brightness": 0.0,
+    "distant_galaxies": 4
+   },
+   "nebular_dust": {
+    "stars": 0.0025,
+    "level": 0.5,
+    "brightness": 0.17
+   },
+   "cosmic_web": {
+    "stars": 0.002,
+    "level": 0.55,
+    "brightness": 0.22,
+    "distant_galaxies": 10
+   },
+   "cmb": {
+    "stars": 0.0015,
+    "level": 0.34,
+    "brightness": 0.11
+   }
+  },
+  "phenomenon": {
+   "supernova": {
+    "distance": [
+     0.25,
+     0.6
+    ],
+    "spike_length": [
+     0.38,
+     0.52
+    ],
+    "shell_radius": [
+     0.07,
+     0.095
+    ],
+    "brightness": 8.0
+   },
+   "satellite_galaxy": {
+    "distance": [
+     0.6,
+     0.74
+    ],
+    "size": [
+     0.17,
+     0.24
+    ],
+    "spiral_share": 0.5,
+    "amplitude": 1.0
+   },
+   "globular_cluster": {
+    "count": [
+     5,
+     10
+    ],
+    "distance": [
+     0.45,
+     1.05
+    ],
+    "radius": [
+     0.008,
+     0.013
+    ]
+   },
+   "comet": {
+    "distance": [
+     0.4,
+     0.58
+    ],
+    "length": [
+     0.5,
+     0.7
+    ]
+   },
+   "relativistic_jets": {
+    "length": [
+     0.55,
+     0.8
+    ],
+    "lobe_radius": [
+     0.05,
+     0.08
+    ]
+   },
+   "pulsar": {
+    "distance": [
+     0.5,
+     0.72
+    ],
+    "beam_length": [
+     0.3,
+     0.42
+    ],
+    "ring_spacing": [
+     0.045,
+     0.06
+    ],
+    "rings": [
+     3,
+     5
+    ]
+   },
+   "einstein_ring": {
+    "radius": [
+     0.4,
+     0.55
+    ],
+    "width": 0.01,
+    "arcs": [
+     2,
+     4
+    ]
+   },
+   "anomaly": {
+    "bands": [
+     3,
+     6
+    ],
+    "blocks": [
+     2,
+     4
+    ],
+    "postfx": {
+     "chromatic_aberration": 6
+    }
+   }
+  }
+ },
+ "render": {
+  "width": 2048,
+  "height": 2048,
+  "format": "png",
+  "background_color": "05060A",
+  "blackbody_mix": 0.3,
+  "density_gain": 1.55,
+  "braille": {
+   "columns": 192,
+   "dot_radius": 0.19,
+   "glint_radius": 0.23,
+   "dither": "bayer4",
+   "dither_jitter": 0.25,
+   "min_density": 0.035
+  }
+ },
+ "postfx": {
+  "glow": {
+   "enabled": true,
+   "strength": 1.0,
+   "radii": [
+    6,
+    18,
+    48
+   ],
+   "weights": [
+    0.45,
+    0.3,
+    0.22
+   ]
+  },
+  "vignette": 0.35,
+  "grain": 0.0,
+  "scanlines": false,
+  "chromatic_aberration": 0
+ },
+ "master_seed": 20261104,
+ "orders": {
+  "traits": [
+   "galaxy_type",
+   "arms",
+   "size",
+   "inclination",
+   "core",
+   "star_density",
+   "palette",
+   "background",
+   "phenomenon"
+  ],
+  "palettes": [
+   "andromeda_blue",
+   "terminal_green",
+   "solar_gold",
+   "crimson_nebula",
+   "emerald_void",
+   "amber_crt",
+   "ultraviolet",
+   "neon_synapse",
+   "monochrome",
+   "prismatic",
+   "antimatter"
+  ],
+  "traits.galaxy_type.values": [
+   "spiral",
+   "barred_spiral",
+   "elliptical",
+   "lenticular",
+   "irregular",
+   "ring",
+   "dwarf",
+   "merger"
+  ],
+  "traits.arms.values": [
+   "2",
+   "3",
+   "4",
+   "5",
+   "6"
+  ],
+  "traits.size.values": [
+   "compact",
+   "medium",
+   "large",
+   "colossal"
+  ],
+  "traits.inclination.values": [
+   "face_on",
+   "tilted",
+   "edge_on"
+  ],
+  "traits.core.values": [
+   "faint",
+   "bright",
+   "quasar",
+   "double_nucleus"
+  ],
+  "traits.star_density.values": [
+   "sparse",
+   "normal",
+   "dense",
+   "saturated"
+  ],
+  "traits.palette.values": [
+   "andromeda_blue",
+   "terminal_green",
+   "solar_gold",
+   "crimson_nebula",
+   "emerald_void",
+   "amber_crt",
+   "ultraviolet",
+   "neon_synapse",
+   "monochrome",
+   "prismatic",
+   "antimatter"
+  ],
+  "traits.background.values": [
+   "deep_void",
+   "starfield",
+   "nebular_dust",
+   "cosmic_web",
+   "cmb"
+  ],
+  "traits.phenomenon.values": [
+   "none",
+   "supernova",
+   "satellite_galaxy",
+   "globular_cluster",
+   "comet",
+   "relativistic_jets",
+   "pulsar",
+   "einstein_ring",
+   "anomaly"
+  ]
+ }
+}

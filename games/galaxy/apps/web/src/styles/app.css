@@ -41,6 +41,8 @@
   --ease-bounce: cubic-bezier(.34, 1.56, .64, 1);
 }
 
+@property --tint { syntax: '<color>'; inherits: true; initial-value: rgb(60 80 160); }
+
 @layer base {
   html, body, #root { height: 100%; }
   body { margin: 0; background: var(--color-void); color: var(--color-ink); font-family: var(--font-sans); font-size: 16px; -webkit-font-smoothing: antialiased; }
@@ -50,18 +52,25 @@
 @layer components {
   .ico { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
-  /* ---------- Living backdrop ---------- */
+  /* ---------- Living backdrop: engine galaxies on deep black (DESIGN_SYSTEM §8) ---------- */
   .screen-root { position: fixed; inset: 0; overflow: hidden; }
-  .backdrop { position: absolute; inset: 0; overflow: hidden; }
-  .backdrop .scene { position: absolute; left: 50%; top: 50%; width: 1600px; height: 900px; transform: translate(-50%, -50%) scale(var(--scene-scale, 1)); }
-  .backdrop canvas { position: absolute; inset: 0; width: 1600px; height: 900px; image-rendering: pixelated; }
-  .backdrop .galaxy { position: absolute; left: 1010px; top: 300px; transform: translate(-50%, -50%); pointer-events: none; }
-  .backdrop pre { margin: 0; position: absolute; left: 0; top: 0; font: 11px/9px var(--font-braille); white-space: pre; }
-  .backdrop .arms { position: relative; color: var(--color-ice); text-shadow: 0 0 6px rgb(150 205 255 / .85), 0 0 18px rgb(110 170 255 / .45); }
-  .backdrop .core { color: #ffe3a0; text-shadow: 0 0 6px rgb(255 210 120 / .95), 0 0 22px rgb(255 170 80 / .6); }
-  .backdrop .glitch { color: var(--color-static); opacity: 0; text-shadow: 0 0 8px rgb(255 77 109 / .8); }
-  .backdrop .scan { color: var(--color-solar); text-shadow: 0 0 10px rgb(255 201 74); }
-  .backdrop .vignette { position: absolute; inset: 0; background: radial-gradient(110% 90% at 62% 40%, transparent 50%, rgb(4 5 18 / .8) 100%), linear-gradient(90deg, rgb(4 5 18 / .55), transparent 45%); }
+  .backdrop { position: absolute; inset: 0; overflow: hidden; --tint: rgb(60 80 160); transition: --tint 5s ease;
+    background: radial-gradient(85% 85% at 64% 48%, #0a0d22 0%, #05060f 62%, #020309 100%); }
+  .backdrop .dust { position: absolute; inset: 0; background: var(--dust) center / cover; image-rendering: pixelated; opacity: .4; }
+  /* The galaxy sits right of the panel. `translate` centres it; the JS-driven `transform` only turns and approaches. */
+  .backdrop .layer { position: absolute; left: 64%; top: 50%; width: var(--g); height: var(--g); --g: min(80vw, 124vh);
+    translate: -50% -50%; opacity: 0; mix-blend-mode: screen; will-change: transform, opacity, filter;
+    mask-image: radial-gradient(closest-side, #000 56%, transparent 97%); }
+  .backdrop .layer canvas { position: absolute; inset: 0; width: 100%; height: 100%; clip-path: inset(0 0 calc(100% - var(--reveal, 100%)) 0); }
+  /* The braille scan line that resolves the dots of a new galaxy, from the top. */
+  .backdrop .scan { position: absolute; left: 0; right: 0; top: var(--reveal, 100%); height: 2px; opacity: 0; transition: opacity .6s ease;
+    background: linear-gradient(90deg, transparent, var(--scan, var(--color-ice)) 30%, var(--scan, var(--color-ice)) 70%, transparent);
+    box-shadow: 0 0 14px 2px var(--scan, var(--color-ice)); }
+  .backdrop .layer[data-scanning='true'] .scan { opacity: 1; }
+  /* The edges of the vignette take a hint of the galaxy's colour; the left side stays dark under the panel. */
+  .backdrop .vignette { position: absolute; inset: 0;
+    background: radial-gradient(115% 95% at 64% 46%, transparent 46%, color-mix(in oklab, var(--tint) 24%, rgb(2 3 10 / .92)) 100%),
+      linear-gradient(90deg, rgb(2 3 10 / .66), rgb(2 3 10 / .2) 38%, transparent 52%); }
 
   /* ---------- Anchored UI (DESIGN_SYSTEM §6) ---------- */
   /* Centered when it fits, scrollable from the top when it does not (auto margins, not justify-content: center). */

@@ -1,0 +1,173 @@
+# Rasgos de ElClub Nebula: categorías, valores, pesos y reglas.
+#
+# - Las claves (spiral, face_on…) son internas y estables. `name` es lo que aparece en los metadatos (en inglés).
+# - `weight` es un peso relativo dentro de su categoría (no hace falta que sumen 100).
+# - Los rasgos se sortean en el orden de `draw_order`. Un `requires` solo puede depender de rasgos ya sorteados.
+# - Las frecuencias reales se miden en la Fase 3 con una simulación de la colección completa.
+
+draw_order:
+  - galaxy_type
+  - arms
+  - size
+  - inclination
+  - core
+  - star_density
+  - palette
+  - background
+  - phenomenon
+
+traits:
+  galaxy_type:
+    label: "Galaxy Type"
+    values:
+      spiral:        { name: "Spiral",        weight: 30 }
+      barred_spiral: { name: "Barred Spiral", weight: 22 }
+      elliptical:    { name: "Elliptical",    weight: 16 }
+      lenticular:    { name: "Lenticular",    weight: 10 }
+      irregular:     { name: "Irregular",     weight: 10 }
+      ring:          { name: "Ring",          weight: 6 }
+      dwarf:         { name: "Dwarf",         weight: 4 }
+      merger:        { name: "Merger",        weight: 2 }
+
+  arms:
+    label: "Arms"
+    # Solo existe en las espirales. En el resto de tipos, el atributo se omite de los metadatos.
+    requires: { galaxy_type: [spiral, barred_spiral] }
+    values:
+      "2": { name: "2", weight: 40 }
+      "3": { name: "3", weight: 25 }
+      "4": { name: "4", weight: 20 }
+      "5": { name: "5", weight: 10 }
+      "6": { name: "6", weight: 5 }
+
+  size:
+    label: "Size"
+    values:
+      compact:  { name: "Compact",  weight: 20 }
+      medium:   { name: "Medium",   weight: 40 }
+      large:    { name: "Large",    weight: 28 }
+      colossal: { name: "Colossal", weight: 12 }
+
+  inclination:
+    label: "Inclination"
+    # Solo en galaxias con un disco único. En elípticas, irregulares y enanas la orientación apenas se nota,
+    # y en una fusión cada galaxia tiene la suya: en esos tipos no es rasgo y la forma se sortea
+    # en visuals.yaml → shape.
+    requires: { galaxy_type: [spiral, barred_spiral, lenticular, ring] }
+    values:
+      face_on: { name: "Face-On", weight: 50 }
+      tilted:  { name: "Tilted",  weight: 38 }
+      edge_on: { name: "Edge-On", weight: 12 }   # peso bajo: como PFP luce menos
+
+  core:
+    label: "Core"
+    values:
+      faint:          { name: "Faint",          weight: 28 }
+      bright:         { name: "Bright",         weight: 47 }
+      quasar:         { name: "Quasar",         weight: 18 }
+      double_nucleus: { name: "Double Nucleus", weight: 7 }
+
+  star_density:
+    label: "Star Density"
+    values:
+      sparse:    { name: "Sparse",    weight: 20 }
+      normal:    { name: "Normal",    weight: 45 }
+      dense:     { name: "Dense",     weight: 25 }
+      saturated: { name: "Saturated", weight: 10 }
+
+  palette:
+    label: "Palette"
+    # Los colores de cada paleta están en palettes.yaml.
+    values:
+      andromeda_blue: { name: "Andromeda Blue", weight: 16 }
+      terminal_green: { name: "Terminal Green", weight: 14 }
+      solar_gold:     { name: "Solar Gold",     weight: 13 }
+      crimson_nebula: { name: "Crimson Nebula", weight: 11 }
+      emerald_void:   { name: "Emerald Void",   weight: 10 }
+      amber_crt:      { name: "Amber CRT",      weight: 9 }
+      ultraviolet:    { name: "Ultraviolet",    weight: 8 }
+      neon_synapse:   { name: "Neon Synapse",   weight: 7 }
+      monochrome:     { name: "Monochrome",     weight: 6 }
+      prismatic:      { name: "Prismatic",      weight: 4 }
+      antimatter:     { name: "Antimatter",     weight: 2 }
+
+  background:
+    label: "Background"
+    values:
+      deep_void:    { name: "Deep Void",            weight: 30 }
+      starfield:    { name: "Starfield",            weight: 35 }
+      nebular_dust: { name: "Nebular Dust",         weight: 18 }
+      cosmic_web:   { name: "Cosmic Web",           weight: 12 }
+      cmb:          { name: "Microwave Background", weight: 5 }
+
+  # No hay rasgo «Render Style»: todas las piezas se dibujan en braille (collection.yaml → render.braille).
+
+  phenomenon:
+    label: "Phenomenon"
+    values:
+      none:              { name: "None",              weight: 740 }
+      supernova:         { name: "Supernova",         weight: 55 }
+      satellite_galaxy:  { name: "Satellite Galaxy",  weight: 55 }
+      globular_cluster:  { name: "Globular Cluster",  weight: 50 }
+      comet:             { name: "Comet",             weight: 35 }
+      relativistic_jets: { name: "Relativistic Jets", weight: 90, requires: { core: [quasar] } }
+      pulsar:            { name: "Pulsar",            weight: 20 }
+      einstein_ring:     { name: "Einstein Ring",     weight: 12 }
+      anomaly:           { name: "Anomaly",           weight: 3 }
+
+# Reglas de compatibilidad.
+#   forbid: se prohíbe la combinación de todos los valores indicados. Si aparece, se vuelve a sortear
+#           el último rasgo implicado (según draw_order), solo entre los valores permitidos.
+#   force:  cuando se cumple `when`, los rasgos de `set` toman ese valor fijo, sin sortearse.
+rules:
+  # Una enana no puede ser grande ni tener un núcleo extremo.
+  - forbid: { galaxy_type: [dwarf], size: [large, colossal] }
+  - forbid: { galaxy_type: [dwarf], core: [quasar, double_nucleus] }
+  # Una fusión necesita espacio para dos galaxias y sus colas de marea.
+  - forbid: { galaxy_type: [merger], size: [compact] }
+  # En una fusión, la segunda galaxia ya hace de satélite.
+  - forbid: { galaxy_type: [merger], phenomenon: [satellite_galaxy] }
+  # Un anillo visto de canto queda reducido a una línea y pierde su forma.
+  - forbid: { galaxy_type: [ring], inclination: [edge_on] }
+  # Una enana no tiene masa suficiente para hacer de lente gravitacional.
+  - forbid: { galaxy_type: [dwarf], phenomenon: [einstein_ring] }
+  # Antimatter invierte la imagen (fondo claro): los fondos con textura no se leen bien invertidos.
+  - force: { when: { palette: antimatter }, set: { background: deep_void } }
+
+# Atributos numéricos «científicos» (display_type: number). No cuentan para la rareza.
+# Se generan con su propia sub-semilla y de forma coherente con los rasgos.
+numeric:
+  distance_mly:
+    label: "Distance (Mly)"
+    distribution: log_uniform
+    range: [8, 4200]
+    decimals: 0
+  age_gyr:
+    label: "Age (Gyr)"
+    decimals: 1
+    by: galaxy_type
+    ranges:
+      spiral:        [4.0, 11.0]
+      barred_spiral: [5.0, 12.0]
+      elliptical:    [9.0, 13.4]
+      lenticular:    [8.0, 13.0]
+      irregular:     [0.8, 6.0]
+      ring:          [3.0, 9.0]
+      dwarf:         [1.0, 10.0]
+      merger:        [2.0, 12.0]
+  star_count_billions:
+    label: "Star Count (Billions)"
+    decimals: 1
+    by: size
+    ranges:
+      compact:  [1, 40]
+      medium:   [40, 200]
+      large:    [200, 600]
+      colossal: [600, 2000]
+    overrides:
+      - { when: { galaxy_type: dwarf }, range: [0.01, 5] }
+  apparent_magnitude:
+    label: "Apparent Magnitude"
+    decimals: 1
+    # Se calcula a partir del tamaño y la distancia: cuanto más grande y cercana, más brillante (magnitud menor).
+    derived: true

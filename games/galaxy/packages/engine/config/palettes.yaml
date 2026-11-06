@@ -1,0 +1,67 @@
+# Paletas de ElClub Nebula. Los pesos (rareza) están en traits.yaml → palette.
+#
+# stops:          gradiente de densidad baja → alta (de los brazos exteriores al núcleo). Se interpola en OKLab.
+# accent:         color de las estrellas brillantes (pequeñas cruces de puntos braille) y de los fenómenos.
+# mode:           normal (por defecto) · angular (el color gira con el ángulo) · inverted (fondo claro, tinta oscura).
+# background:     fondo propio de la paleta. Si falta, se usa render.background_color de collection.yaml.
+# blackbody_mix:  cuánto tiñe cada estrella su color de cuerpo negro (0 = nada). Si falta, se usa render.blackbody_mix.
+# detail:         color secundario opcional. regions: en las zonas de formación estelar · halo: en las afueras
+#                 de la galaxia · stars: proporción de estrellas resueltas que lo toman (todo de 0 a 1).
+# postfx:         ajustes de post-procesado propios de la paleta; sustituyen a los de collection.yaml → postfx.
+# Los colores van en hex sin «#».
+
+palettes:
+  andromeda_blue:
+    stops: ["0A1633", "1B4A8A", "3A8BDB", "9DD2FF", "F3FBFF"]
+    accent: "FFD59E"
+
+  terminal_green:            # fósforo verde (P1) de monitor antiguo
+    stops: ["021407", "06501B", "12A23A", "59F57A", "E4FFE9"]
+    accent: "F2FFF4"
+    blackbody_mix: 0.0
+
+  solar_gold:                # oro amarillo de luz solar, con estrellas azules
+    stops: ["1E1204", "6A460A", "D9A11C", "FFD447", "FFF7D6"]
+    accent: "8FE3FF"
+
+  crimson_nebula:
+    stops: ["22050D", "661030", "C2244B", "FF6B7A", "FFE4E7"]
+    accent: "FFF0C2"
+
+  emerald_void:
+    stops: ["02191A", "0A5246", "179C78", "6CF0C0", "E8FFF7"]
+    accent: "D6B4FF"
+
+  amber_crt:                 # monitor ámbar de terminal: sombras ciruela, detalles cian y efecto CRT
+    stops: ["160A1E", "4A1630", "B3440A", "FF9A1A", "FFE0A0"]
+    accent: "7FF4FF"
+    blackbody_mix: 0.0
+    detail: { color: "2FE0CF", regions: 0.8, halo: 0.6, stars: 0.3 }
+    postfx:
+      chromatic_aberration: 2                    # desconvergencia RGB de un CRT (px)
+      scanlines: { period: 2, depth: 0.18 }      # líneas de barrido finas
+
+  ultraviolet:
+    stops: ["12082A", "431A85", "8538F5", "C79CFF", "F6EEFF"]
+    accent: "7DF9FF"
+
+  neon_synapse:              # propuesta nueva: dúo magenta-cian ciberpunk
+    stops: ["12031F", "6A0F5C", "FF2E97", "2EE6FF", "EFFFFF"]
+    accent: "FFF35C"
+
+  monochrome:
+    stops: ["101215", "383D45", "7B838E", "C4CAD2", "FFFFFF"]
+    accent: "FFFFFF"
+    blackbody_mix: 0.0
+
+  prismatic:                 # rara: el color recorre el espectro según el ángulo
+    stops: ["FF3D7F", "FF9F1C", "F7F052", "2EC4B6", "5B5FEF", "B14AED"]
+    accent: "FFFFFF"
+    mode: angular
+
+  antimatter:                # la más rara: imagen invertida sobre fondo papel
+    stops: ["C9C3B8", "8A8296", "4B3F6B", "1E1338", "07030F"]
+    accent: "D4004C"
+    mode: inverted
+    background: "ECE8DF"
+    blackbody_mix: 0.0

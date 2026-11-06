@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, test } from 'vitest';
 import { parse } from 'yaml';
@@ -42,6 +42,32 @@ test('las migraciones de galaxy no están fechadas en el futuro', () => {
   const galaxy = readdirSync(root + 'supabase/migrations').filter((f) => /_galaxy_/.test(f));
   expect(galaxy.length).toBeGreaterThan(0);
   for (const f of galaxy) expect(f.slice(0, 14) <= now, f).toBe(true);
+});
+
+test('la imagen instala las dependencias de producción con el lockfile y la caché de pnpm, sin pnpm deploy', () => {
+  // M1 deploy: `pnpm deploy --legacy` re-resolved 91 packages online, ~10 s each from the homelab (17 min).
+  const dockerfile = readFileSync(root + 'games/galaxy/Dockerfile', 'utf8');
+  expect(dockerfile).not.toMatch(/^RUN [^\n]*pnpm[^\n]* deploy /m);
+  expect(dockerfile).toMatch(/pnpm install --prod --frozen-lockfile[^\n]*--filter @galaxy\/server/);
+  const pnpmRuns = dockerfile.split('\n').filter((l) => /^RUN .*pnpm install/.test(l));
+  expect(pnpmRuns.length).toBeGreaterThanOrEqual(2);
+  for (const line of pnpmRuns) expect(line, line).toMatch(/--mount=type=cache/);
+});
+
+test('el Dockerfile copia el package.json de cada paquete del workspace (si no, --frozen-lockfile falla en PRE)', () => {
+  const dockerfile = readFileSync(root + 'games/galaxy/Dockerfile', 'utf8');
+  const galaxy = root + 'games/galaxy/';
+  const manifests = ['apps', 'packages'].flatMap((dir) =>
+    readdirSync(galaxy + dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => `${dir}/${d.name}/package.json`)
+      .filter((m) => existsSync(galaxy + m)), // pnpm only treats folders with a manifest as workspace projects
+  );
+  expect(manifests.length).toBeGreaterThan(0);
+  for (const m of manifests) {
+    const copies = dockerfile.split('\n').filter((l) => l.startsWith('COPY ') && l.includes(m));
+    expect(copies.length, m).toBeGreaterThanOrEqual(1); // in the base stage both installs start from
+  }
 });
 
 test('el pipeline de PRE construye, reinicia y comprueba galaxy', () => {

@@ -1,0 +1,53 @@
+{
+ "format": 1,
+ "engine": "galaxy-nft 0.4.0",
+ "python": "3.13.14",
+ "numpy": "2.5.4",
+ "scipy": "1.18.1",
+ "pillow": "13.0.0",
+ "master_seed": 20261104,
+ "lods": [
+  192,
+  96,
+  48
+ ],
+ "cases": [
+  "01_spiral_none_andromeda",
+  "02_spiral_anomaly_amber",
+  "03_spiral_einstein_edge_on",
+  "04_barred_quasar_jets",
+  "05_barred_pulsar",
+  "06_elliptical_shells",
+  "07_elliptical_supernova_antimatter",
+  "08_lenticular_comet",
+  "09_lenticular_globular",
+  "10_irregular_cosmic_web",
+  "11_irregular_cmb",
+  "12_ring_satellite",
+  "13_ring_prismatic",
+  "14_dwarf_spheroidal",
+  "15_dwarf_irregular",
+  "16_merger_supernova",
+  "17_merger_spiral_b",
+  "18_galaxy_type_barred_spiral",
+  "19_galaxy_type_lenticular",
+  "20_palette_crimson_nebula",
+  "21_palette_ultraviolet",
+  "22_palette_neon_synapse",
+  "23_palette_monochrome",
+  "24_size_large",
+  "25_arms_4",
+  "26_arms_6"
+ ],
+ "images": [
+  "01_spiral_none_andromeda",
+  "02_spiral_anomaly_amber",
+  "04_barred_quasar_jets",
+  "07_elliptical_supernova_antimatter",
+  "11_irregular_cmb",
+  "13_ring_prismatic",
+  "14_dwarf_spheroidal",
+  "16_merger_supernova"
+ ],
+ "image_resample": "PIL.Image.LANCZOS 2048 -> 256"
+}
