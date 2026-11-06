@@ -1,6 +1,7 @@
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
-// Proyectos (plan M1, Tarea 1). El proyecto `web` (jsdom) se añade con la web en la Tarea 9.
+// Proyectos (plan M1): unit (node), web (jsdom + React) e integration (node, contra la BD local).
 export default defineConfig({
   test: {
     projects: [
@@ -9,6 +10,15 @@ export default defineConfig({
           name: 'unit',
           environment: 'node',
           include: ['packages/*/test/**/*.test.ts', 'apps/server/test/unit/**/*.test.ts'],
+        },
+      },
+      {
+        plugins: [react()],
+        test: {
+          name: 'web',
+          environment: 'jsdom',
+          include: ['apps/web/test/**/*.test.{ts,tsx}'],
+          setupFiles: ['apps/web/test/setup.ts'],
         },
       },
       {

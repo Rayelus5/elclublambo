@@ -66,3 +66,8 @@ jobs:
 
       - name: pgTAP
         run: supabase test db
+
+      - name: E2E (real server + local Postgres)
+        run: |
+          pnpm -C games/galaxy/apps/web exec playwright install --with-deps chromium
+          pnpm -C games/galaxy/apps/web exec playwright test
