@@ -50,7 +50,7 @@ export function drawPull(pullSeed: bigint, state: PityState, banner: Banner, cfg
   const featured =
     banner.kind === 'event' && subRng(pullSeed, 'featured').random() < legendaryChance(state.sinceFeatured + 1, cfg.featured);
   const tier = featured ? 4 : subRng(pullSeed, 'tier').choiceP(tierWeights(state, cfg));
-  const finish = FINISHES[subRng(pullSeed, 'finish').choiceP(cfg.finishes)]!;
+  const finish = drawFinish(pullSeed, cfg);
   return {
     tier,
     featured,
@@ -61,6 +61,11 @@ export function drawPull(pullSeed: bigint, state: PityState, banner: Banner, cfg
       welcome: state.welcome && tier !== 4,
     },
   };
+}
+
+/** The card finish of a pull or a fusion (stream "finish"): purely cosmetic (GDD §7). */
+export function drawFinish(seed: bigint, cfg: GachaConfig): Finish {
+  return FINISHES[subRng(seed, 'finish').choiceP(cfg.finishes)]!;
 }
 
 /** What the scanner shows before a pull: next rates and the counters to the guarantees (GDD §9 transparency). */
