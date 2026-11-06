@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@galaxy/engine": "workspace:*",
     "@galaxy/shared": "workspace:*",
     "@tanstack/react-query": "^5.106.1",
     "react": "19.3.0",

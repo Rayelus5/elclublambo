@@ -245,6 +245,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@galaxy/engine':
+        specifier: workspace:*
+        version: link:../../packages/engine
       '@galaxy/shared':
         specifier: workspace:*
         version: link:../../packages/shared

@@ -21,6 +21,7 @@ export default defineConfig({
           name: 'web',
           environment: 'jsdom',
           include: ['apps/web/test/**/*.test.{ts,tsx}'],
+          exclude: [...configDefaults.exclude, 'apps/web/test/browser/**'],
           setupFiles: ['apps/web/test/setup.ts'],
         },
       },
@@ -35,7 +36,7 @@ export default defineConfig({
       {
         test: {
           name: 'browser',
-          include: ['packages/*/test/browser/**/*.browser.test.ts'],
+          include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],
           browser: {
             enabled: true,
             // Software WebGL (SwiftShader) everywhere: CI runners have no GPU, and the same renderer locally keeps
