@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // The deep scan against the real server (GDD §9): a new account gets its welcome signals, sees the odds and the
 // guarantee before paying, scans ten, watches the reveal begin, skips to the summary and finds the ten galaxies in

@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from './fixtures';
 import { Secret, TOTP } from 'otpauth';
 import { ADMIN_FILE } from './state';
 

@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from './fixtures';
 
 // The title screen against the real server (GDD §4): a new account gets the welcome signals, sees them in the top
 // bar with the free pull, and after scanning finds its galaxies in the collection panel. Writes e2e_* accounts only.

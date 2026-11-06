@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { type Page, expect, test } from '@playwright/test';
+import { type Page, expect, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
 // The collection against the real server (GDD §8.5): cards drawn by the engine, the detail, disintegrating for the

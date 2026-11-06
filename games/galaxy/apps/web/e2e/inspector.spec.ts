@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 // The 3D inspector in the production build with the real CSP (GDD §8.1, §18.1): its chunk (three.js) is requested only
 // when it opens, it draws, it turns to the back, and nothing violates the Content Security Policy.
