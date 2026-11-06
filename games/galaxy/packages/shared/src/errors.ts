@@ -17,6 +17,14 @@ export const API_ERROR_CODES = [
   'config_invalid',
   'not_found',
   'internal',
+  'insufficient_funds',
+  'gacha_disabled',
+  'banner_closed',
+  'free_pull_used',
+  'invalid_fusion',
+  'galaxy_not_found',
+  'idempotency_conflict',
+  'idempotency_required',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

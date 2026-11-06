@@ -16,7 +16,8 @@ select ok(has_table_privilege('galaxy_api', 'galaxy.game_config_active', 'select
       and not has_table_privilege('authenticated', 'galaxy.game_config_active', 'select'),
   'only galaxy_api reads the configuration');
 
-select is((select data from galaxy.game_config_active where key = 'features'),
+-- Version 1 is the seed. The active row is whatever was published last (tests publish too), so read v1 itself.
+select is((select data from galaxy.game_config_versions where key = 'features' and version = 1),
   '{"registrationOpen": true, "maintenance": false}'::jsonb, 'features v1 seeded with the schema defaults');
 select is((select data from galaxy.game_config_active where key = 'auth'),
   '{"sessionDays": 30, "adminSessionHours": 12, "registerPerIpHour": 5, "loginPerIpTenMin": 30, "loginPerUserTenMin": 10, "totpPerAccountTenMin": 10, "resetRedeemPerIpHour": 10}'::jsonb,

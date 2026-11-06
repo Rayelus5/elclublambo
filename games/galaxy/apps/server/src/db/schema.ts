@@ -96,6 +96,89 @@ export interface GameConfigActiveView {
   note: string;
 }
 
+/** Numeric columns (bigint, numeric) come back from pg as strings; they are written as numbers or strings. */
+type BigNum = ColumnType<string, string | number | bigint, string | number | bigint>;
+
+export interface BalancesTable {
+  account_id: string;
+  currency: string;
+  amount: BigNum;
+}
+
+export interface LedgerTable {
+  id: Generated<string>;
+  account_id: string;
+  currency: string;
+  delta: BigNum;
+  balance_after: BigNum;
+  reason: string;
+  ref: ColumnType<unknown, string | undefined, never>;
+  operation_key: string | null;
+  created_at: Timestamp;
+}
+
+export interface OperationsTable {
+  account_id: string;
+  key: string;
+  kind: string;
+  request_hash: string;
+  result: ColumnType<unknown, string, never>;
+  created_at: Timestamp;
+}
+
+export interface GalaxiesTable {
+  id: Generated<string>;
+  owner_id: string;
+  seed: BigNum;
+  engine_version: string;
+  traits: ColumnType<Record<string, string>, string, string>;
+  dna: string;
+  name: string;
+  designation: string;
+  tier: number;
+  score: number;
+  finish: string;
+  featured: Generated<boolean>;
+  level: Generated<number>;
+  season: string | null;
+  origin: 'pull' | 'fusion' | 'grant';
+  lineage: ColumnType<string[], string[] | undefined, string[]>;
+  created_at: Timestamp;
+  disintegrated_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface GachaAccountsTable {
+  account_id: string;
+  welcome_granted_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  last_free_day: ColumnType<string | null, string | null | undefined, string | null>;
+}
+
+export interface GachaStateTable {
+  account_id: string;
+  pity_group: string;
+  since_legendary: Generated<number>;
+  since_featured: Generated<number>;
+  welcome: Generated<boolean>;
+  total_pulls: Generated<number>;
+}
+
+export interface GachaPullsTable {
+  id: Generated<string>;
+  account_id: string;
+  banner: string;
+  pity_group: string;
+  seed: BigNum;
+  tier: number;
+  featured: boolean;
+  finish: string;
+  pity_before: number;
+  config_version: number;
+  engine_version: string;
+  galaxy_id: string;
+  operation_key: string;
+  created_at: Timestamp;
+}
+
 export interface DB {
   'galaxy.accounts': AccountsTable;
   'galaxy.account_roles': AccountRolesTable;
@@ -107,4 +190,11 @@ export interface DB {
   'galaxy.admin_audit_log': AdminAuditLogTable;
   'galaxy.game_config_versions': GameConfigVersionsTable;
   'galaxy.game_config_active': GameConfigActiveView;
+  'galaxy.balances': BalancesTable;
+  'galaxy.ledger': LedgerTable;
+  'galaxy.operations': OperationsTable;
+  'galaxy.galaxies': GalaxiesTable;
+  'galaxy.gacha_accounts': GachaAccountsTable;
+  'galaxy.gacha_state': GachaStateTable;
+  'galaxy.gacha_pulls': GachaPullsTable;
 }

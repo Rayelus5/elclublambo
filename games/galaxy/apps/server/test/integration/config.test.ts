@@ -43,7 +43,7 @@ async function lastAudit() {
 }
 
 test('el servicio lee la versión activa ya validada', async () => {
-  expect(await config.get('features')).toEqual({ registrationOpen: true, maintenance: false });
+  expect(await config.get('features')).toEqual({ registrationOpen: true, maintenance: false, gacha: true });
   expect((await config.get('auth')).sessionDays).toBe(30);
 });
 
@@ -72,9 +72,9 @@ test('publicar valida, versiona y audita con el antes y el después', async () =
 test('publicar un solo campo conserva los demás: cerrar el registro y luego tocar el mantenimiento no lo reabre (revisión final I3)', async () => {
   await config.publish('features', { registrationOpen: false }, actor, 'cerrar registro');
   await config.publish('features', { maintenance: true }, actor, 'mantenimiento');
-  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: true });
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: true, gacha: true });
   await config.publish('features', { maintenance: false }, actor, 'fin');
-  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: false });
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: false, gacha: true });
   await config.publish('auth', { sessionDays: 31 }, actor, 'sesiones');
   expect((await config.get('auth')).registerPerIpHour).toBe(5);
   await config.publish('auth', { registerPerIpHour: 9 }, actor, 'límite');
@@ -120,7 +120,7 @@ test('rutas de admin: sin sesión 401, jugador 403, admin con TOTP 200', async (
   expect(list.statusCode).toBe(200);
   expect(list.json()).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ key: 'features', data: { registrationOpen: true, maintenance: false } }),
+      expect.objectContaining({ key: 'features', data: { registrationOpen: true, maintenance: false, gacha: true } }),
       expect.objectContaining({ key: 'auth' }),
     ]),
   );
@@ -190,4 +190,25 @@ test('registro cerrado → 403 registration_closed; el login sigue funcionando',
   } finally {
     await app.close();
   }
+});
+
+test('los banners de evento no se pueden publicar todavía: 400 config_invalid y nada cambia (revisión final M2b)', async () => {
+  // Events are finished in a later milestone (event signals in the wallet, combined odds, featured checks). Until then
+  // the live config refuses them, so no admin can expose half of a feature to players.
+  const admin = await adminSession();
+  const versions = createConfigService(ctx.db);
+  const before = (await versions.versions('gacha')).length;
+  const event = {
+    id: 'nova',
+    kind: 'event',
+    name: 'Lluvia de cometas',
+    pityGroup: 'event-nova',
+    currency: 'signal:nova',
+    featured: { trait: 'phenomenon', value: 'comet' },
+  };
+  const standard = { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' };
+  const res = await post(ctx.app, '/galaxy/api/admin/config/gacha', { data: { banners: [standard, event] }, reason: 'evento de prueba' }, { cookie: admin });
+  expect(res.statusCode).toBe(400);
+  expect(res.json()).toEqual({ error: 'config_invalid' });
+  expect((await versions.versions('gacha')).length).toBe(before);
 });

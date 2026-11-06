@@ -16,9 +16,10 @@ describe('GalaxyCache', () => {
     expect((await cache.get('k13'))?.text).toBe('galaxy 13');
   });
 
-  test('la clave lleva la versión del motor, la semilla, las columnas y los rasgos fijados', async () => {
-    expect(galaxyKey(42n, 96)).toBe(`${ENGINE_VERSION}:42:96:-`);
-    expect(galaxyKey(42n, 96, { phenomenon: 'none', galaxy_type: 'ring' })).toBe(`${ENGINE_VERSION}:42:96:galaxy_type=ring,phenomenon=none`);
+  test('la clave lleva el esquema, la versión del motor, la semilla, las columnas y los rasgos fijados', async () => {
+    // r1: the shape of a stored render. A change to what is stored bumps it, so old entries are never read back.
+    expect(galaxyKey(42n, 96)).toBe(`r1:${ENGINE_VERSION}:42:96:-`);
+    expect(galaxyKey(42n, 96, { phenomenon: 'none', galaxy_type: 'ring' })).toBe(`r1:${ENGINE_VERSION}:42:96:galaxy_type=ring,phenomenon=none`);
     const cache = new GalaxyCache({ indexedDB: null });
     await cache.put(galaxyKey(42n, 96, undefined, '1.0.0'), fake(1));
     expect(await cache.get(galaxyKey(42n, 96, undefined, '2.0.0'))).toBeUndefined();

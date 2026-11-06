@@ -1,5 +1,6 @@
 import { type ConfigKey, type ConfigValue, configSchemas, parseConfig } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
+import { ZodError } from 'zod';
 import { type AuditActor, writeAudit } from '../audit';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
@@ -18,6 +19,19 @@ export interface ConfigService extends ConfigReader {
  * from another process shows up within that time; a publish from this process invalidates the cache at once.
  * A stored row that no longer passes its schema is logged and replaced by the schema defaults.
  */
+/**
+ * Configuration the game cannot serve yet. Event banners (GDD §9) have their rules and their server tests, but not
+ * their event signals in the wallet, combined odds on screen or featured checks: until the events milestone the live
+ * config refuses them, so no one can publish half of a feature to players.
+ */
+function refuseUnfinished(key: ConfigKey, value: unknown): void {
+  if (key !== 'gacha') return;
+  const banners = (value as ConfigValue<'gacha'>).banners;
+  if (banners.some((b) => b.kind === 'event')) {
+    throw new ZodError([{ code: 'custom', message: 'events_not_ready', path: ['banners'], input: banners }]);
+  }
+}
+
 export function createConfigService(
   db: Kysely<DB>,
   opts: { ttlMs?: number; now?: () => number; onInvalid?: (key: ConfigKey, err: unknown) => void } = {},
@@ -25,29 +39,35 @@ export function createConfigService(
   const ttlMs = opts.ttlMs ?? 10_000;
   const now = opts.now ?? Date.now;
   const onInvalid = opts.onInvalid ?? (() => {});
-  const cache = new Map<ConfigKey, { value: unknown; at: number }>();
+  // Value and version are cached together, from the same row, so whoever records a version records the one it used.
+  const cache = new Map<ConfigKey, { value: unknown; version: number; at: number }>();
 
-  async function load<K extends ConfigKey>(key: K): Promise<ConfigValue<K>> {
+  async function load<K extends ConfigKey>(key: K): Promise<{ value: ConfigValue<K>; version: number }> {
     const row = await db
       .selectFrom('galaxy.game_config_active')
-      .select('data')
+      .select(['data', 'version'])
       .where('key', '=', key)
       .executeTakeFirst();
     try {
-      return parseConfig(key, row?.data ?? {});
+      return { value: parseConfig(key, row?.data ?? {}), version: row?.version ?? 0 };
     } catch (err) {
       onInvalid(key, err);
-      return parseConfig(key, {});
+      return { value: parseConfig(key, {}), version: 0 };
     }
   }
 
+  async function getVersioned<K extends ConfigKey>(key: K): Promise<{ value: ConfigValue<K>; version: number }> {
+    const hit = cache.get(key);
+    if (hit && now() - hit.at < ttlMs) return { value: hit.value as ConfigValue<K>, version: hit.version };
+    const loaded = await load(key);
+    cache.set(key, { ...loaded, at: now() });
+    return loaded;
+  }
+
   return {
+    getVersioned,
     async get(key) {
-      const hit = cache.get(key);
-      if (hit && now() - hit.at < ttlMs) return hit.value as ConfigValue<typeof key>;
-      const value = await load(key);
-      cache.set(key, { value, at: now() });
-      return value;
+      return (await getVersioned(key)).value;
     },
 
     async versions(key) {
@@ -89,6 +109,7 @@ export function createConfigService(
           Object.entries((current?.data ?? {}) as Record<string, unknown>).filter(([k]) => known.has(k)),
         );
         value = parseConfig(key, { ...base, ...(data as Record<string, unknown>) });
+        refuseUnfinished(key, value);
         const next = (current?.version ?? 0) + 1;
         await trx
           .insertInto('galaxy.game_config_versions')

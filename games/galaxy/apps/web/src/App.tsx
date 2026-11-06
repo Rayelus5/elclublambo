@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useMe } from './auth/useMe';
+import { CollectionScreen } from './collection/CollectionScreen';
+import { ScannerScreen } from './scanner/ScannerScreen';
 import { copy } from './copy/es';
+import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
 import { Entrar } from './routes/Entrar';
-import { Inicio } from './routes/Inicio';
 import { Recuperar } from './routes/Recuperar';
 import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
@@ -24,16 +26,26 @@ function GuestOnly({ children }: { children: ReactNode }) {
   return me.data ? <Navigate to="/" replace /> : <>{children}</>;
 }
 
+/** Signed-in only: without a session, Entrar. */
+function SignedIn({ children }: { children: ReactNode }) {
+  const me = useMe();
+  if (me.isPending) return <Splash />;
+  return me.data ? <>{children}</> : <Navigate to="/entrar" replace />;
+}
+
 function Home() {
   const me = useMe();
   if (me.isPending) return <Splash />;
-  return me.data ? <Inicio me={me.data} /> : <Navigate to="/entrar" replace />;
+  return me.data ? <TitleScreen me={me.data} /> : <Navigate to="/entrar" replace />;
 }
 
 export function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />
+      <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
+      <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>
         <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
         <Route path="/crear-cuenta" element={<GuestOnly><CrearCuenta /></GuestOnly>} />

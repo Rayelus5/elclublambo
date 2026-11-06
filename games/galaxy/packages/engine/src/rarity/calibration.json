@@ -1,0 +1,84 @@
+{
+ "samples": 200000,
+ "counts": {
+  "galaxy_type": {
+   "spiral": 59944,
+   "barred_spiral": 44280,
+   "elliptical": 32025,
+   "merger": 4032,
+   "ring": 11999,
+   "irregular": 19950,
+   "lenticular": 19903,
+   "dwarf": 7867
+  },
+  "arms": {
+   "2": 41844,
+   "3": 25932,
+   "4": 20762,
+   "5": 10453,
+   "6": 5233,
+   "—": 95776
+  },
+  "size": {
+   "medium": 82484,
+   "compact": 40454,
+   "large": 53926,
+   "colossal": 23136
+  },
+  "inclination": {
+   "face_on": 68798,
+   "edge_on": 14864,
+   "—": 63874,
+   "tilted": 52464
+  },
+  "core": {
+   "faint": 56670,
+   "quasar": 34665,
+   "bright": 95257,
+   "double_nucleus": 13408
+  },
+  "star_density": {
+   "normal": 90032,
+   "dense": 49892,
+   "saturated": 20036,
+   "sparse": 40040
+  },
+  "palette": {
+   "andromeda_blue": 31841,
+   "emerald_void": 19649,
+   "neon_synapse": 14161,
+   "amber_crt": 18064,
+   "solar_gold": 26077,
+   "monochrome": 12160,
+   "terminal_green": 28128,
+   "ultraviolet": 15905,
+   "prismatic": 7995,
+   "crimson_nebula": 22074,
+   "antimatter": 3946
+  },
+  "background": {
+   "starfield": 68287,
+   "deep_void": 63108,
+   "cosmic_web": 23577,
+   "nebular_dust": 35286,
+   "cmb": 9742
+  },
+  "phenomenon": {
+   "none": 150395,
+   "globular_cluster": 10110,
+   "supernova": 11243,
+   "comet": 7194,
+   "satellite_galaxy": 11045,
+   "einstein_ring": 2319,
+   "relativistic_jets": 2996,
+   "pulsar": 4083,
+   "anomaly": 615
+  }
+ },
+ "bands": [
+  18.34255262203089,
+  20.7826041515702,
+  22.729017258705888,
+  24.515436718738307
+ ]
+}

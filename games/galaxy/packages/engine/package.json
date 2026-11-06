@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./gpu": "./src/gpu/index.ts"
   },
   "scripts": {
     "gen:config": "node scripts/gen-config.mjs",

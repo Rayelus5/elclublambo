@@ -1,10 +1,11 @@
 import { randomBytes } from 'node:crypto';
-import type { Role } from '@galaxy/shared';
+import { type ConfigKey, parseConfig, type Role } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { Secret, TOTP } from 'otpauth';
 import { buildApp } from '../src/app';
 import { runCli } from '../src/cli';
+import { type ConfigService, createConfigService } from '../src/config/service';
 import { createDb } from '../src/db';
 import type { DB } from '../src/db/schema';
 import type { Env } from '../src/env';
@@ -44,13 +45,13 @@ export function randomIp(): string {
   return `10.${b[0]}.${b[1]}.${b[2]}`;
 }
 
-type InjectOpts = { cookie?: string; ip?: string; origin?: string | null };
+type InjectOpts = { cookie?: string; ip?: string; origin?: string | null; headers?: Record<string, string> };
 
 function headers(opts: InjectOpts): Record<string, string> {
   const h: Record<string, string> = { 'cf-connecting-ip': opts.ip ?? randomIp() };
   if (opts.origin !== null) h.origin = opts.origin ?? ORIGIN;
   if (opts.cookie) h.cookie = `gs_sid=${opts.cookie}`;
-  return h;
+  return { ...h, ...opts.headers };
 }
 
 export function post(app: FastifyInstance, url: string, body?: unknown, opts: InjectOpts = {}) {
@@ -89,11 +90,21 @@ export function sessionCookie(res: { cookies: Array<{ name: string; value: strin
 }
 
 export async function testApp(
-  opts: { env?: Partial<Env>; beforeReady?: (app: FastifyInstance) => void } = {},
+  opts: {
+    env?: Partial<Env>;
+    beforeReady?: (app: FastifyInstance) => void;
+    now?: () => Date;
+    config?: ConfigService;
+    /** A small pool (and a short wait for a connection) to catch code that needs two at once. */
+    pool?: { max: number; timeoutMs: number };
+    /** Live config cache lifetime; 0 reads the database every time. */
+    configTtlMs?: number;
+  } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
-  const db = createDb(env.DATABASE_URL);
-  const app = await buildApp({ env, db });
+  const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
+  const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
+  const app = await buildApp({ env, db, now: opts.now, config });
   opts.beforeReady?.(app);
   await app.ready();
   return {
@@ -104,4 +115,18 @@ export async function testApp(
       await db.destroy();
     },
   };
+}
+
+/**
+ * A ConfigService that serves fixed values (schema defaults merged with `overrides`) without touching the shared DB,
+ * so a test can close a banner or switch the gacha off without affecting other tests.
+ */
+export function fixedConfig(overrides: Partial<Record<ConfigKey, unknown>>): ConfigService {
+  return {
+    get: async (key) => parseConfig(key, overrides[key] ?? {}),
+    getVersioned: async (key) => ({ value: parseConfig(key, overrides[key] ?? {}), version: 0 }),
+    versions: async () => [],
+    active: async () => [],
+    publish: async () => ({ version: 0 }),
+  } as ConfigService;
 }
