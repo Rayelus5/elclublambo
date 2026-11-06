@@ -55,6 +55,13 @@ test('fallback de SPA: una ruta de la web devuelve index.html con 200', async ()
   }
 });
 
+test('HEAD de una ruta de la web responde como GET (200, html, sin cuerpo)', async () => {
+  const res = await ctx.app.inject({ method: 'HEAD', url: '/galaxy/entrar' });
+  expect(res.statusCode).toBe(200);
+  expect(res.headers['content-type']).toMatch(/text\/html/);
+  expect(res.body).toBe('');
+});
+
 test('un asset que no existe es 404, no el index', async () => {
   const res = await get('/galaxy/assets/no-existe.js');
   expect(res.statusCode).toBe(404);

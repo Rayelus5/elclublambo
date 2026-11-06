@@ -5,11 +5,11 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 const LONG_CACHE = 'public, max-age=31536000, immutable';
 
-/** True when this request should get the SPA shell: a GET under /galaxy/ that is neither API nor an asset file. */
+/** True when this request should get the SPA shell: a GET/HEAD under /galaxy/ that is neither API nor an asset file. */
 export function wantsSpaShell(req: FastifyRequest): boolean {
   const path = req.url.split('?')[0] ?? '';
   return (
-    req.method === 'GET' &&
+    (req.method === 'GET' || req.method === 'HEAD') &&
     path.startsWith('/galaxy/') &&
     !path.startsWith('/galaxy/api/') &&
     !path.startsWith('/galaxy/assets/')

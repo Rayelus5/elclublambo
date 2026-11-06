@@ -37,6 +37,30 @@ services:
       - ALL
     restart: unless-stopped
 
+  # Galaxy Survivor (games/galaxy, GDD §18.1): Fastify serves /galaxy/api/* and the Vite build under /galaxy/*. It
+  # reaches Postgres straight at the `db` service on supabase_default as the galaxy_api role (only schema galaxy). Its secrets
+  # (DATABASE_URL with the galaxy_api password, GALAXY_TOTP_KEY) live in /opt/elclub/pre/galaxy.env, never in the image.
+  # read_only: the server writes nothing but /tmp. `up -d` recreates it only when its image changes.
+  galaxy:
+    image: elclub-galaxy:pre
+    build:
+      context: ../../games/galaxy
+      dockerfile: Dockerfile
+    env_file: ${GALAXY_ENV_FILE:-/opt/elclub/pre/galaxy.env}
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - default
+      - supabase_default
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
   # Hourly GET /api/cron/dao (Vercel Cron's job in production). busybox crond does not hand the container env to its
   # jobs, so the bearer header is written once to a 0600 file and read by curl with -H @file: the secret never appears
   # on a command line (ps) or in the logs. crond itself then runs with an empty environment. The container gets only
@@ -76,6 +100,7 @@ services:
     command: tunnel --config /etc/cloudflared/config.yml run
     depends_on:
       - web
+      - galaxy
     volumes:
       - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
       - /opt/elclub/pre/cloudflared/credentials.json:/etc/cloudflared/credentials.json:ro
