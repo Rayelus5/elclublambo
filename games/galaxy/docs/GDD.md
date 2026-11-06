@@ -789,7 +789,7 @@ Se mantiene la arquitectura de `BRIEF.md` §4, validada. Resumen y cambios:
   - estrellas;
   - fenómenos.
 
-  Trabajan a 192, 96 y 48 columnas.
+  Trabajan a 192, 96 y 48 columnas. Cada LOD es un render propio, como en el motor de Python (`columns` distinto): no se obtiene reduciendo el de 192, así que las tres coinciden carácter a carácter con Python, pero no entre sí.
 - **Un único canvas WebGL2** fuera de pantalla aplica glow, viñeta, CRT y tonemap.
 - **Caché** en memoria y en IndexedDB.
 - **Comparación con el motor de Python** de `C:\Users\rayel\Desktop\galaxy-nft` mediante referencias doradas (`tools/golden/export.py`).

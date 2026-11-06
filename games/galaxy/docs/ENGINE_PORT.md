@@ -7,6 +7,15 @@
 
 ---
 
+## Versionado (M2a)
+
+- `ENGINE_VERSION = '1.0.0'` (`packages/engine/src/version.ts`). Las galaxias que tienen los jugadores no cambian nunca: una semilla da siempre los mismos rasgos y el mismo braille en la versión con que se creó.
+- `test/golden/v1` congela los visuales v1: 26 casos × 3 LOD exportados de Python con `tools/golden/export.py` (determinista: dos exportaciones dan los mismos bytes). `test/version.test.ts` fija el SHA-256 de todo ese braille junto a la versión.
+- Si un cambio del motor altera cualquier galaxia: exportar a `golden/v2`, subir `ENGINE_VERSION` y fijar el hash nuevo. La versión forma parte de la clave de la caché del navegador y el servidor la guardará con cada galaxia (M2b), para renderizar cada una con su versión.
+- Lo que el port reproduce: rasgos, DNA, parámetros, ruido, campos (error relativo ≤ 1e-12 por ulps de libm), `t_bg` y `light.t` en float32 exactos, braille y colores y radios de los puntos idénticos. El posprocesado en WebGL2 es equivalente a la vista (error medio ≤ 6/255, percentil 99 ≤ 40/255; medido 0,5–2,1 y 7–14).
+
+---
+
 
 Source: `C:\Users\rayel\Desktop\galaxy-nft` (engine v0.4.0, `src/galaxy_nft/`, not a git repo). Read 2026-11-06, read-only.
 Environment that produced the collection: Windows 11, CPython 3.13.14 (MSC v.1944, AMD64), numpy 2.5.4, scipy 1.18.1, Pillow 13.0.0, PyYAML 6.0.3, pytest 9.2.0; CPU AMD Ryzen 7 5700G (numpy SIMD: baseline X86_V2, found X86_V3 = AVX2/FMA, no AVX-512).
