@@ -1,7 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import type { Role } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
+import { Secret, TOTP } from 'otpauth';
 import { buildApp } from '../src/app';
+import { runCli } from '../src/cli';
 import { createDb } from '../src/db';
 import type { DB } from '../src/db/schema';
 import type { Env } from '../src/env';
@@ -56,6 +59,26 @@ export function post(app: FastifyInstance, url: string, body?: unknown, opts: In
 
 export function get(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
   return app.inject({ method: 'GET', url, headers: headers(opts) });
+}
+
+/** Current TOTP code for a base32 secret (SHA1, 6 digits, 30 s), computed independently with otpauth. */
+export function totpNow(base32: string, at: Date = new Date()): string {
+  return TOTP.generate({ secret: Secret.fromBase32(base32), algorithm: 'SHA1', digits: 6, period: 30, timestamp: at.getTime() });
+}
+
+/** Creates a committed admin account through the real CLI (`--json`) and returns its one-time credentials. */
+export async function createAdminViaCli(
+  db: Kysely<DB>,
+  role: Role,
+): Promise<{ username: string; password: string; totpSecret: string; totpUri: string }> {
+  const lines: string[] = [];
+  const code = await runCli(['create-admin', uniqueName('adm'), '--role', role, '--json'], {
+    db,
+    env: testEnv(),
+    out: (s) => lines.push(s),
+  });
+  if (code !== 0) throw new Error(`create-admin failed: ${lines.join('\n')}`);
+  return JSON.parse(lines.join('\n'));
 }
 
 /** Value of the gs_sid cookie set by a response (throws if absent). */

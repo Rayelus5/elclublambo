@@ -1,4 +1,4 @@
-import { type LoginResponse, type MeResponse, loginInput, registerInput } from '@galaxy/shared';
+import { type LoginResponse, type MeResponse, loginInput, registerInput, resetRedeemInput, totpInput } from '@galaxy/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import type { ConfigReader } from '../config/reader';
@@ -8,9 +8,12 @@ import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
 import { UsernameReservedError, UsernameTakenError, findAccountByUsername, registerAccount } from './accounts';
+import { consumeChallenge, createChallenge, peekChallenge } from './challenges';
 import { clearSessionCookie, requireSession, setSessionCookie } from './guards';
 import { DUMMY_HASH, verifyPassword } from './password';
+import { InvalidResetCodeError, redeemResetCode } from './recovery';
 import { createSession, revokeSession, rolesOf } from './sessions';
+import { verifyTotp } from './totp';
 
 export type AuthDeps = { env: Env; db: Kysely<DB>; config: ConfigReader; now: () => Date };
 
@@ -75,8 +78,43 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
     if (!account || !ok) throw new HttpError(401, 'invalid_credentials');
     if (account.banned_until && account.banned_until > deps.now()) throw new HttpError(403, 'banned');
 
+    // Any role (superadmin, admin, moderator) needs the second factor before getting a session.
+    if ((await rolesOf(db, account.id)).length > 0) {
+      return { status: 'totp_required', challenge: await createChallenge(db, account.id) };
+    }
     const me = await startSession(deps, req, reply, account, { mfa: false, ttlSec: auth.sessionDays * DAY });
     return { status: 'ok', me };
+  });
+
+  app.post('/galaxy/api/auth/totp', async (req, reply): Promise<MeResponse> => {
+    const { challenge, code } = totpInput.parse(req.body);
+    const auth = await deps.config.get('auth');
+    const now = deps.now();
+    const accountId = await peekChallenge(db, challenge, now);
+    if (!accountId) throw new HttpError(401, 'challenge_expired');
+    await hitRateLimit(db, `a:${accountId}`, 'totp', auth.totpPerAccountTenMin, TEN_MIN);
+    if (!(await verifyTotp(db, deps.env.GALAXY_TOTP_KEY, accountId, code, now))) throw new HttpError(401, 'invalid_totp');
+    if ((await consumeChallenge(db, challenge, now)) !== accountId) throw new HttpError(401, 'challenge_expired');
+    const account = await db
+      .selectFrom('galaxy.accounts')
+      .select(['id', 'username', 'banned_until'])
+      .where('id', '=', accountId)
+      .executeTakeFirstOrThrow();
+    if (account.banned_until && account.banned_until > now) throw new HttpError(403, 'banned');
+    return startSession(deps, req, reply, account, { mfa: true, ttlSec: auth.adminSessionHours * HOUR });
+  });
+
+  app.post('/galaxy/api/auth/reset/redeem', async (req, reply) => {
+    const input = resetRedeemInput.parse(req.body);
+    const auth = await deps.config.get('auth');
+    await hitRateLimit(db, `ip:${clientIp(req, deps.env.TRUST_CF_IP)}`, 'reset_redeem', auth.resetRedeemPerIpHour, HOUR);
+    try {
+      await redeemResetCode(db, input, deps.now());
+    } catch (err) {
+      if (err instanceof InvalidResetCodeError) throw new HttpError(400, 'invalid_reset_code');
+      throw err;
+    }
+    return reply.code(204).send();
   });
 
   app.post('/galaxy/api/auth/logout', async (req, reply) => {
