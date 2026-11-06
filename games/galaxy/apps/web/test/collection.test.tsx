@@ -141,8 +141,10 @@ test('fusionar exige cinco del mismo nivel, enseña el coste y revela la nueva',
   await user.click(screen.getByRole('button', { name: copy.collection.select('Gal c5') }));
   expect(bar).toHaveTextContent(copy.collection.fuseCost(20));
   await user.click(within(bar).getByRole('button', { name: copy.collection.fuseConfirm }));
+  // The fused galaxy gets the Scanner's own reveal.
   const reveal = await screen.findByRole('dialog', { name: copy.collection.revealTitle });
-  expect(within(reveal).getByRole('article', { name: 'Zenveae' })).toBeInTheDocument();
+  await user.click(within(reveal).getByRole('button', { name: copy.scanner.skip }));
+  expect(await within(reveal).findByRole('article', { name: 'Zenveae' })).toBeInTheDocument();
   const post = fetch.mock.calls.find(([url]) => url === '/galaxy/api/galaxies/fuse')!;
   expect(JSON.parse(String(post[1]?.body))).toEqual({ ids: ['c1', 'c2', 'c3', 'c4', 'c5'] });
   expect(screen.getByLabelText(copy.hub.resource.dust(20))).toBeInTheDocument();

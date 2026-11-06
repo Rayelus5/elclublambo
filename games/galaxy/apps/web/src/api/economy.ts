@@ -1,4 +1,4 @@
-import type { CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, Tier, Wallet } from '@galaxy/shared';
+import type { CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -71,6 +71,18 @@ export function useDisintegrate() {
     onSuccess: (res, id) => {
       settle(qc, res.wallet);
       qc.removeQueries({ queryKey: [GALAXY_KEY, id] });
+    },
+  });
+}
+
+/** A scan: the server rolls, charges and stores; the answer carries the galaxies, the wallet and the new odds. */
+export function usePull() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: PullRequest) => api<PullResponse>('/gacha/pull', { method: 'POST', body: req, headers: idempotent() }),
+    onSuccess: (res) => {
+      qc.setQueryData<GachaView>(GACHA_KEY, res.view);
+      void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
     },
   });
 }

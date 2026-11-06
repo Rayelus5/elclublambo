@@ -65,8 +65,10 @@ test('fusionar cinco comunes da una poco común y la revela', async ({ page, bas
   const bar = page.getByRole('region', { name: 'Fusionar' });
   await expect(bar).toContainText('Cuesta 20 de polvo estelar');
   await bar.getByRole('button', { name: 'Fusionar ahora' }).click();
+  // The new galaxy gets the Scanner's reveal: its scan, then its card, then the summary.
   const reveal = page.getByRole('dialog', { name: 'Nueva galaxia' });
-  await expect(reveal.getByRole('article')).toContainText('Poco común');
-  await reveal.getByRole('button', { name: 'Ver en la colección' }).click();
+  await expect(reveal.getByRole('article')).toContainText('Poco común', { timeout: 20_000 });
+  await reveal.getByRole('button', { name: 'Seguir' }).click();
+  await reveal.getByRole('button', { name: 'Cerrar' }).click();
   await expect(page.getByRole('article')).toHaveCount(before - 5);
 });

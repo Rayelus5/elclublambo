@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
+import { ScannerScreen } from './scanner/ScannerScreen';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
@@ -42,6 +43,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
+      <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />
       <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
       <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>

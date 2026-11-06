@@ -3,6 +3,8 @@ import type { ApiErrorCode } from '@galaxy/shared';
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
 
+const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
+
 /** Every text of the web (DESIGN_SYSTEM §9): short, direct, no trailing period in titles. */
 export const copy = {
   brand: 'Galaxy Survivor',
@@ -134,7 +136,38 @@ export const copy = {
     notEnoughDust: 'No tienes bastante polvo estelar',
     fuseConfirm: 'Fusionar ahora',
     revealTitle: 'Nueva galaxia',
-    revealDone: 'Ver en la colección',
+  },
+  scanner: {
+    title: 'Escáner profundo',
+    ready: 'Listo para escanear',
+    welcome: 'Suerte de bienvenida',
+    odds: 'Probabilidades del próximo escaneo',
+    rate: (p: number) => percent.format(p),
+    untilGuarantee: (n: number) => (n <= 1 ? 'La próxima es Legendaria segura' : `Legendaria segura en ${fmt(n)} escaneos`),
+    sinceLegendary: (n: number) => (n === 1 ? '1 escaneo sin Legendaria' : `${fmt(n)} escaneos sin Legendaria`),
+    featured: (trait: string, value: string) => `Destacada: ${trait} ${value}`,
+    untilFeatured: (n: number) => (n <= 1 ? 'La próxima es la destacada' : `Destacada segura en ${fmt(n)} escaneos`),
+    endsAt: (when: string) => `Termina el ${when}`,
+    free: 'Escaneo gratis de hoy',
+    freeHint: 'Uno al día. Vuelve a medianoche',
+    withSignals: 'Con señales',
+    withCoins: 'Con monedas',
+    pull: (n: number) => (n === 1 ? 'Escanear 1' : `Escanear ${n}`),
+    costSignals: (n: number) => (n === 1 ? '1 señal' : `${fmt(n)} señales`),
+    costCoins: (n: number) => `${fmt(n)} monedas`,
+    revealTitle: 'Escaneo de campo profundo',
+    skip: 'Saltar',
+    next: 'Seguir',
+    progress: (i: number, n: number) => `${i} de ${n}`,
+    signal: 'Señal',
+    phenomenon: 'Fenómeno detectado',
+    summaryTitle: (n: number) => (n === 1 ? 'Galaxia nueva' : `${fmt(n)} galaxias nuevas`),
+    again: 'Escanear otra vez',
+    toCollection: 'Ver en la colección',
+    close: 'Cerrar',
+    mute: 'Silenciar',
+    unmute: 'Activar sonido',
+    found: (tier: string, name: string) => `${tier}: ${name}`,
   },
   card: {
     level: (n: number) => `Nivel ${n}`,

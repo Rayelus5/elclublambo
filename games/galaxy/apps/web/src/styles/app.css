@@ -222,7 +222,7 @@
   .me > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me b { max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 600; line-height: 1.1; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-panel-lip); box-shadow: 0 0 0 3px var(--color-solar); }
-  .res { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px 0 10px; border-radius: 99px; background: rgb(0 0 0 / .28); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .res { display: inline-flex; align-items: center; gap: 7px; height: 38px; white-space: nowrap; padding: 0 14px 0 10px; border-radius: 99px; background: rgb(0 0 0 / .28); font-weight: 600; font-size: 17px; font-variant-numeric: tabular-nums; }
   .res .ico { font-size: 20px; }
   .res.dust { color: var(--color-ice); }
   .res.coins { color: var(--color-solar); }
@@ -399,7 +399,8 @@
   .collection { position: relative; height: 100%; overflow-y: auto; padding: 20px 40px 140px 56px; display: flex; flex-direction: column; gap: 18px; }
   @media (min-width: 2560px) { .collection { zoom: 1.25; } }
   .collection-bar { display: flex; align-items: center; gap: 18px; margin-left: -16px; }
-  .collection-bar h1 { flex: 1; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .02em; }
+  .collection-bar .hud { flex: none; }
+  .collection-bar h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .02em; }
   .collection-tools { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -446,9 +447,104 @@
   .toast { position: fixed; left: 50%; top: 20px; translate: -50% 0; z-index: 30; margin: 0; padding: 12px 18px; border-radius: 14px; background: rgb(12 40 32 / .92); border: 2px solid rgb(69 227 166 / .5); color: #c9f7e4; font-weight: 600; }
   .toast:empty { padding: 0; border: 0; }
 
+  /* ---------- Deep scanner (DESIGN_SYSTEM §8 bis) ---------- */
+  .scanner-main { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: start; gap: 28px; }
+  .scanner-terminal { --r: 30px; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .scanner-terminal .crt { align-self: center; width: min(100%, calc((100vh - 290px) * 4 / 3)); aspect-ratio: 4 / 3; }
+  .banner-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .banner-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; }
+  .banner-ends { font-size: 14px; color: var(--color-ink-mute); }
+  .banners { align-self: flex-start; }
+  .scanner-side { --r: 26px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .scanner-side > .summary { margin: 0; }
+  .odds table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
+  .odds caption { text-align: left; font-size: 14px; font-weight: 600; color: var(--color-ink-soft); padding-bottom: 4px; }
+  .odds th, .odds td { padding: 6px 12px; background: rgb(255 255 255 / .035); font-size: 15px; }
+  .odds th { text-align: left; font-weight: 600; border-radius: 12px 0 0 12px; }
+  .odds td { text-align: right; font-weight: 700; color: var(--tc); font-variant-numeric: tabular-nums; border-radius: 0 12px 12px 0; }
+  .odds th i { display: inline-block; width: 10px; height: 10px; margin-right: 10px; border-radius: 3px; transform: rotate(45deg); background: var(--tc); }
+  .pity { margin-top: 10px; padding: 12px 14px; border-radius: 14px; background: rgb(255 201 74 / .08); border: 2px solid rgb(255 201 74 / .25); }
+  .pity-head b { display: block; font-size: 16px; color: var(--color-solar); }
+  .pity-head span { font-size: 13.5px; color: var(--color-ink-mute); }
+  .pity-bar { height: 10px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgb(0 0 0 / .3); }
+  .pity-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+  .pity-featured { margin: 8px 0 0; font-size: 14px; color: var(--color-ink-soft); display: flex; flex-direction: column; }
+  .pull-free { --r: 20px; --lip-c: var(--color-terminal-lip); display: flex; align-items: center; gap: 14px; padding: 12px 16px; text-align: left; color: var(--color-on-terminal); background: linear-gradient(160deg, var(--color-terminal), var(--color-terminal-2)); }
+  .pull-free .ico { font-size: 30px; }
+  .pull-free b { display: block; font-size: 18px; }
+  .pull-free span span { font-size: 13.5px; font-weight: 500; }
+  .pull-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .pull-label { grid-column: 1 / -1; font-size: 13.5px; font-weight: 600; color: var(--color-ink-mute); }
+  .pull-btn { --r: 18px; --lip-h: 5px; height: 62px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--color-panel-2); color: var(--color-ink); }
+  .pull-btn b { font-size: 17px; }
+  .pull-btn span { font-size: 13.5px; color: var(--color-ink-soft); }
+  .pull-btn.solar { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
+  .pull-btn.solar span { color: var(--color-on-solar); opacity: .8; }
+  .pull-btn:disabled, .pull-free:disabled { opacity: .45; box-shadow: none; filter: saturate(.5); }
+  @media (max-height: 820px) {
+    .odds th, .odds td { padding: 4px 12px; }
+    .pull-btn { height: 54px; }
+  }
+
+  /* The CRT terminal: a bezel with relief, a curved dark screen with scan lines and a vignette. */
+  .crt { position: relative; padding: 16px; border-radius: 28px; background: linear-gradient(160deg, #2a2d5e, #14163a);
+    box-shadow: inset 0 3px 0 rgb(255 255 255 / .18), inset 0 -6px 0 rgb(0 0 0 / .35), 0 8px 0 var(--color-panel-lip), 0 18px 40px rgb(0 0 0 / .5); }
+  .crt-screen { position: relative; width: 100%; height: 100%; overflow: hidden; display: grid; place-items: center; border-radius: 22px / 26px;
+    background: radial-gradient(120% 120% at 50% 50%, #0b1024 0%, #03040c 70%); box-shadow: inset 0 0 40px rgb(0 0 0 / .9), inset 0 0 0 2px rgb(255 255 255 / .05); }
+  .crt-screen::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgb(0 0 0 / .22) 0 1px, transparent 1px 3px), radial-gradient(120% 100% at 50% 50%, transparent 58%, rgb(0 0 0 / .6)); }
+  .crt.idle .crt-screen { gap: 10px; align-content: center; }
+  .idle-braille { font: 64px/1 var(--font-braille); color: var(--color-ice); text-shadow: 0 0 18px rgb(150 205 255 / .7); animation: idle-breathe 3.2s ease-in-out infinite; }
+  .idle-text { font-size: 16px; font-weight: 600; color: var(--color-ink-soft); }
+  @keyframes idle-breathe { 50% { opacity: .55; } }
+  .crt-static { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; opacity: .5; }
+
+  .reveal-stage { width: min(100%, 980px); padding: 18px 22px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: #0b0d26; }
+  .stage-top { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+  .stage-progress { font-size: 18px; font-weight: 700; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .stage-tools { display: flex; gap: 10px; }
+  .reveal-stage .crt { width: min(620px, 64vh); aspect-ratio: 5 / 4; cursor: pointer; }
+  .signal-step { display: grid; justify-items: center; gap: 14px; }
+  .signal-bars { display: flex; align-items: flex-end; gap: 10px; height: 120px; }
+  .signal-bars i { width: 26px; height: calc(24px + var(--b) * 22px); border-radius: 6px; background: rgb(255 255 255 / .08); }
+  .signal-bars i[data-on] { background: var(--tc); box-shadow: 0 0 18px color-mix(in oklab, var(--tc) 70%, transparent); animation: bar-rise .35s var(--ease-bounce) both; animation-delay: calc(var(--b) * 120ms); }
+  @keyframes bar-rise { from { transform: scaleY(.1); transform-origin: bottom; opacity: .3; } }
+  .signal-label { font-size: 15px; font-weight: 700; letter-spacing: .08em; color: var(--tc); }
+  /* The scan: the engine image resolves top to bottom behind a line in the rarity's colour (once the image exists). */
+  .crt-image { position: absolute; inset: 5%; }
+  .crt-image canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .crt-image[data-kind='scan'] canvas { animation: crt-reveal var(--scan-ms) linear both; }
+  @keyframes crt-reveal { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0); } }
+  .crt-scanline { position: absolute; left: -4%; right: -4%; top: 0; height: 3px; background: linear-gradient(90deg, transparent, var(--tc) 20%, var(--tc) 80%, transparent); box-shadow: 0 0 18px 4px var(--tc); }
+  .crt-image[data-ready='true'] .crt-scanline { animation: crt-line var(--scan-ms) linear both; }
+  .crt-image[data-ready='false'] .crt-scanline { opacity: .6; }
+  @keyframes crt-line { to { top: 100%; } }
+  .phenomenon { position: absolute; left: 0; right: 0; bottom: 8%; display: grid; justify-items: center; gap: 2px; animation: rise-in .4s var(--ease-bounce) both; }
+  .phenomenon b { padding: 4px 12px; border-radius: 8px; background: rgb(2 3 10 / .7); color: var(--tc); font-size: 18px; letter-spacing: .04em; }
+  .phenomenon span { padding: 2px 10px; border-radius: 8px; background: rgb(2 3 10 / .6); color: var(--color-ink); font-weight: 600; }
+  @keyframes rise-in { from { opacity: 0; transform: translateY(12px); } }
+  /* A Legendary makes the screen fail: two jolts in 900 ms (never more than 3 flashes a second). */
+  .crt[data-step='glitch'] .crt-screen { animation: crt-glitch .9s steps(1) both; }
+  @keyframes crt-glitch {
+    0%, 30%, 60%, 100% { transform: none; filter: none; }
+    12% { transform: translate(-7px, 1px) skewX(-3deg); filter: brightness(1.55) drop-shadow(5px 0 0 rgb(255 0 90 / .7)) drop-shadow(-5px 0 0 rgb(0 235 255 / .6)); }
+    44% { transform: translate(8px, -2px) skewX(2deg); filter: brightness(1.45) hue-rotate(40deg) drop-shadow(-6px 0 0 rgb(255 0 90 / .7)); }
+  }
+  .crt[data-step='card'] .crt-screen { background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--tc) 38%, transparent), #03040c 66%); }
+  .stage-card { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+  .stage-card .gcard { pointer-events: auto; animation: card-in .6s var(--ease-bounce) both; }
+  @keyframes card-in { from { opacity: 0; transform: perspective(900px) rotateY(80deg) scale(.82); } }
+  .stage-summary { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 18px; }
+  .stage-summary h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; }
+  .summary-cards { max-width: 940px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
+  .summary-cards .gcard { animation: card-in .5s var(--ease-bounce) both; }
+  .summary-actions { display: flex; gap: 12px; }
+
   /* ---------- Modal (DESIGN_SYSTEM §7) ---------- */
-  .overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgb(2 3 10 / .74); backdrop-filter: blur(3px); animation: fade .2s ease; }
+  /* No backdrop blur: it is recomputed on every frame behind animated content and stalls weak or software GPUs. */
+  .overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px; background: rgb(2 3 10 / .84); animation: fade .2s ease; }
   @keyframes fade { from { opacity: 0; } }
+  @keyframes crt-fade { from { opacity: 0; } }
   .modal { --r: 28px; --lip-h: 8px; position: relative; max-width: min(100%, 1060px); max-height: 100%; overflow: auto; padding: 24px 28px 26px; outline: none; }
   .modal-title { margin: 0 0 16px; padding-right: 56px; font-size: 26px; font-weight: 700; line-height: 1.15; }
   .modal-close { position: absolute; top: 16px; right: 16px; }
@@ -494,6 +590,9 @@
     button.primary::after, .play::after { display: none; }
     .gcard-tilt { transform: none !important; transition: none; }
     .overlay { animation: none; }
+    .idle-braille, .signal-bars i[data-on], .phenomenon, .stage-card .gcard, .summary-cards .gcard { animation: none; }
+    .crt-scanline { display: none; }
+    .crt[data-reduced] .crt-image canvas { animation: crt-fade var(--scan-ms) ease both; }
     .gcard[data-finish='corrupt'] .gcard-art { animation: none !important; }
     .lip, .otp .cells span { transition: none; }
   }

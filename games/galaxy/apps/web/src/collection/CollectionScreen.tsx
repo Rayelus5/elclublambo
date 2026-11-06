@@ -5,11 +5,11 @@ import { useCollectionPages, useFuse, useGacha } from '../api/economy';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
+import { RevealStage } from '../scanner/RevealStage';
 import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
 import { FuseBar } from './FuseBar';
 import { GalaxyDetailDialog } from './GalaxyDetailDialog';
-import { RevealDialog } from './RevealDialog';
 
 // The collection (GDD §8.5): every galaxy the player owns as cards, 30 at a time, filtered and ordered from the URL.
 // A card opens its detail (/coleccion/:id). «Fusionar» turns the cards into toggles to choose `fusion.count` of one
@@ -158,7 +158,7 @@ export function CollectionScreen() {
           }}
         />
       ) : null}
-      {revealed ? <RevealDialog galaxies={revealed} onClose={() => setRevealed(null)} /> : null}
+      {revealed ? <RevealStage pulls={revealed} title={copy.collection.revealTitle} onClose={() => setRevealed(null)} /> : null}
     </div>
   );
 }
