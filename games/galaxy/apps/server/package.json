@@ -1,0 +1,23 @@
+{
+  "name": "@galaxy/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@galaxy/shared": "workspace:*",
+    "@node-rs/argon2": "^2.2.2",
+    "fastify": "^5.12.8",
+    "kysely": "^0.29.8",
+    "pg": "^8.23.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "tsup": "^9.0.0"
+  }
+}
