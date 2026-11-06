@@ -24,3 +24,7 @@ export {
   srgbToLinear,
   type Rgb,
 } from './color';
+export * from './noise';
+export { BrailleGrid } from './raster';
+export * from './geometry/index';
+export { buildParams } from './fields';

@@ -37,6 +37,7 @@ import scipy  # noqa: E402
 from PIL import Image  # noqa: E402
 
 import galaxy_nft  # noqa: E402
+import galaxy_nft.fields as fields  # noqa: E402
 import galaxy_nft.pipeline as pipeline  # noqa: E402
 from galaxy_nft import noise  # noqa: E402
 from galaxy_nft.color import LUT_SIZE, blackbody_linear, load_palette  # noqa: E402
@@ -99,6 +100,10 @@ class Capture:
 
     def __init__(self):
         self.originals = {n: getattr(pipeline, n) for n in self.NAMES + ("compose",)}
+        # Inside galaxy_field: the frame of the main galaxy and the raw output of its disk geometry (before the
+        # edge-on dust lane, the core and the gain), so the geometries can be tested on their own.
+        self.make_frame = fields.make_frame
+        self.disks = dict(fields.DISK_GEOMETRIES)
         self.values: dict = {}
         self.want_image = False
 
@@ -106,16 +111,22 @@ class Capture:
         for name in self.NAMES:
             setattr(pipeline, name, self._spy(name, self.originals[name]))
         setattr(pipeline, "compose", self._compose)
+        fields.make_frame = self._spy("frame", self.make_frame)
+        for kind, fn in self.disks.items():
+            fields.DISK_GEOMETRIES[kind] = self._spy("disk", fn)
         return self
 
     def __exit__(self, *exc):
         for name, fn in self.originals.items():
             setattr(pipeline, name, fn)
+        fields.make_frame = self.make_frame
+        fields.DISK_GEOMETRIES.update(self.disks)
 
     def _spy(self, name, fn):
         def wrapper(*args, **kwargs):
             result = fn(*args, **kwargs)
-            self.values[name] = result
+            # galaxy_field edits the disk density in place (edge-on dust lane): keep a copy of what the geometry returned.
+            self.values[name] = tuple(np.array(a, copy=True) for a in result) if name == "disk" else result
             return result
         return wrapper
 
@@ -179,6 +190,10 @@ def lod_record(columns: int, traits: dict, seed: int, cap: Capture, want_image: 
             "light_t": None if light is None else light.t[js, iss],
             "dot_color": dot_color[js, iss],
             "dot_radius": dot_radius[js, iss],
+            "frame_r": None if "frame" not in v else v["frame"].r[js, iss],
+            "frame_th": None if "frame" not in v else v["frame"].th[js, iss],
+            "disk_d": None if "disk" not in v else v["disk"][0][js, iss],
+            "disk_young": None if "disk" not in v else v["disk"][1][js, iss],
         },
     }
     return record, image
