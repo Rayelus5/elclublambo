@@ -15,6 +15,8 @@ const eslintConfig = defineConfig([
     // Playwright artifacts.
     "test-results/**",
     "playwright-report/**",
+    // Galaxy Survivor: workspace independiente con su propio ESLint (games/galaxy/eslint.config.mjs).
+    "games/**",
   ]),
 ]);
 

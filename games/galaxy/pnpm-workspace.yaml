@@ -1,0 +1,4 @@
+# Galaxy Survivor: workspace independiente del de la raíz (GDD §18.1), con su propio lockfile.
+packages:
+  - apps/*
+  - packages/*

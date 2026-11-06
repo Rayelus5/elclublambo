@@ -1,0 +1,68 @@
+name: galaxy-ci
+
+# Galaxy Survivor (games/galaxy): typecheck, lint, unit + integration tests and pgTAP on GitHub-hosted runners.
+# Never runs on the self-hosted PRE runner (fork code must not reach the homelab). The local Supabase stack from
+# `supabase db start` applies every migration (after install: scripts/dev-db-role.mjs needs pg), so the galaxy schema and its pgTAP tests run against the real history.
+on:
+  pull_request:
+    paths:
+      - games/**
+      - supabase/migrations/*_galaxy_*.sql
+      - supabase/tests/97*_galaxy_*.test.sql
+      - .github/workflows/galaxy-ci.yml
+  push:
+    branches: [develop, main]
+    paths:
+      - games/**
+      - supabase/migrations/*_galaxy_*.sql
+      - supabase/tests/97*_galaxy_*.test.sql
+      - .github/workflows/galaxy-ci.yml
+  workflow_dispatch:
+
+concurrency:
+  group: galaxy-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GALAXY_TEST_DATABASE_URL: postgresql://galaxy_api:galaxy_dev@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install
+        run: |
+          corepack enable
+          pnpm -C games/galaxy install --frozen-lockfile
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+
+      - name: Start Postgres with all migrations
+        run: supabase db start
+
+      - name: Dev password for galaxy_api
+        if: hashFiles('games/galaxy/scripts/dev-db-role.mjs') != ''
+        run: node games/galaxy/scripts/dev-db-role.mjs
+
+      - name: Typecheck
+        run: pnpm -C games/galaxy typecheck
+
+      - name: Lint
+        run: pnpm -C games/galaxy lint
+
+      - name: Tests
+        run: pnpm -C games/galaxy test
+
+      - name: pgTAP
+        run: supabase test db
