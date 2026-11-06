@@ -1,5 +1,8 @@
 import type { ApiErrorCode } from '@galaxy/shared';
 
+/** Numbers as players read them in Spanish (12.480). */
+export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
+
 /** Every text of the web (DESIGN_SYSTEM §9): short, direct, no trailing period in titles. */
 export const copy = {
   brand: 'Galaxy Survivor',
@@ -48,16 +51,53 @@ export const copy = {
     submit: 'Cambiar contraseña',
     back: 'Volver a entrar',
   },
-  inicio: {
-    hello: (name: string) => `Hola, ${name}`,
-    adminBadge: 'Admin',
-    lead: 'Tu estación está en obras. La pantalla de título y la primera incursión llegan en los próximos hitos.',
-    logout: 'Salir',
-  },
   desktop: {
     title: 'Galaxy Survivor se juega en ordenador',
     body: 'Abre el juego en una pantalla de al menos 1280×720 con ratón o trackpad.',
   },
+  hub: {
+    shortcuts: 'Accesos',
+    menu: 'Menú principal',
+    admin: 'Admin',
+    scanner: 'Escáner profundo',
+    freePull: 'Tirada gratis',
+    market: 'Mercado',
+    community: 'Comunidad',
+    mailbox: 'Buzón',
+    logout: 'Salir',
+    play: 'Jugar',
+    playHint: 'Incursiones contra la Estática',
+    survival: 'Supervivencia',
+    survivalHint: 'Elige sector y despega',
+    home: 'Hogar',
+    homeHint: 'Tu estación y sus lotes',
+    soon: 'En desarrollo',
+    event: 'Eventos',
+    eventHint: 'Galaxias destacadas por tiempo limitado',
+    missions: 'Misiones de hoy',
+    collection: 'Colección',
+    galaxies: (n: number) => (n === 1 ? '1 galaxia' : `${fmt(n)} galaxias`),
+    probes: 'Sondas',
+    achievements: 'Logros',
+    clan: 'Clan',
+    ranking: 'Ranking',
+    codex: 'Códice',
+    settings: 'Ajustes',
+    guide: 'Guía',
+    summaryTitle: 'Tu colección',
+    summaryEmpty: 'Aún no tienes galaxias. Escanea el cielo y encuentra la primera',
+    summaryBest: 'Las más raras',
+    byTier: 'Galaxias por rareza',
+    scanNow: 'Escanear el cielo',
+    openCollection: 'Abrir colección',
+    resource: {
+      coins: (n: number) => `${fmt(n)} monedas`,
+      dust: (n: number) => `${fmt(n)} de polvo estelar`,
+      signal: (n: number) => (n === 1 ? '1 señal de galaxia' : `${fmt(n)} señales de galaxia`),
+    },
+  },
+  tiers: { common: 'Común', uncommon: 'Poco común', rare: 'Rara', epic: 'Épica', legendary: 'Legendaria' },
+  finishes: { normal: 'Normal', holo: 'Holo', prismatic: 'Prismático', braille: 'Relieve braille', corrupt: 'Corrupto' },
   maintenance: 'El juego está en mantenimiento. Vuelve en un rato',
   loading: 'Cargando',
   errors: {

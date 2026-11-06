@@ -2,9 +2,9 @@ import type { ReactNode } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { useMe } from './auth/useMe';
 import { copy } from './copy/es';
+import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
 import { Entrar } from './routes/Entrar';
-import { Inicio } from './routes/Inicio';
 import { Recuperar } from './routes/Recuperar';
 import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
@@ -27,7 +27,7 @@ function GuestOnly({ children }: { children: ReactNode }) {
 function Home() {
   const me = useMe();
   if (me.isPending) return <Splash />;
-  return me.data ? <Inicio me={me.data} /> : <Navigate to="/entrar" replace />;
+  return me.data ? <TitleScreen me={me.data} /> : <Navigate to="/entrar" replace />;
 }
 
 export function App() {

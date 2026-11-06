@@ -3,12 +3,14 @@ import { composeFallback, composeWebGL } from '@galaxy/engine/gpu';
 import { useEffect, useRef } from 'react';
 import { requestGalaxy, type GalaxyRender } from '../galaxy/client';
 import { galaxyReady, initialState, layerStyles, nextPhase } from './backdrop-schedule';
+import { seedFor } from './backdrop-seeds';
 
 // The access backdrop (DESIGN_SYSTEM §8): real galaxies from the engine on deep black, one at a time. Each one is
 // scanned in by a braille scan line, turns and approaches very slowly (a rigid transform of the composed image, so
 // its shape never changes) and cross-fades into the next. Two layers at most; one still galaxy with reduced motion.
 // Every galaxy has a fresh random seed, so renders are never reused: nothing is cached. All of them are composed in
-// ONE WebGL2 canvas kept off the page (GDD §18.3) and copied into the layer's plain 2D canvas.
+// ONE WebGL2 canvas kept off the page (GDD §18.3) and copied into the layer's plain 2D canvas. On the title screen
+// `seeds` are the player's own galaxies, shown exactly as they are (no trait fixed) and taking turns.
 let gpuCanvas: HTMLCanvasElement | null = null;
 let gpuBroken = false;
 
@@ -59,8 +61,13 @@ function dustImage(): string {
   return `url(${canvas.toDataURL('image/png')})`;
 }
 
-export function GalaxyBackdrop() {
+export function GalaxyBackdrop({ seeds = [] }: { seeds?: readonly string[] }) {
   const root = useRef<HTMLDivElement>(null);
+  // Read when each galaxy is prepared, so new seeds apply from the next galaxy without restarting the sequence.
+  const seedsRef = useRef(seeds);
+  useEffect(() => {
+    seedsRef.current = seeds;
+  }, [seeds]);
   const layerA = useRef<HTMLDivElement>(null);
   const layerB = useRef<HTMLDivElement>(null);
   const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -112,7 +119,8 @@ export function GalaxyBackdrop() {
 
     async function prepare(id: number): Promise<void> {
       requested = id;
-      const { seed, fixed } = pickGalaxy();
+      const own = seedFor(seedsRef.current, id);
+      const { seed, fixed } = own === null ? pickGalaxy() : { seed: own, fixed: undefined };
       const columns: Lod = devicePixelRatio * innerWidth >= 2400 ? 192 : 96;
       try {
         const render = await requestGalaxy(seed, columns, fixed, controller.signal);

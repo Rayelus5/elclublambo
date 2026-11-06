@@ -16,7 +16,7 @@ function watchCsp(page: Page): string[] {
   return violations;
 }
 
-test('crear cuenta, saludo, salir y volver a entrar con el nombre en mayúsculas', async ({ page }) => {
+test('crear cuenta, pantalla de título, salir y volver a entrar con el nombre en mayúsculas', async ({ page }) => {
   const csp = watchCsp(page);
   const username = `e2e_${randomBytes(4).toString('hex')}`;
   await page.goto('/galaxy/crear-cuenta');
@@ -25,7 +25,7 @@ test('crear cuenta, saludo, salir y volver a entrar con el nombre en mayúsculas
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
-  await expect(page.getByRole('heading', { name: `Hola, ${username}` })).toBeVisible();
+  await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   // The router writes home as /galaxy; the server redirects that to /galaxy/ on reload. Both are home.
   await expect(page).toHaveURL(/\/galaxy\/?$/);
 
@@ -34,7 +34,7 @@ test('crear cuenta, saludo, salir y volver a entrar con el nombre en mayúsculas
   await page.getByLabel('Usuario').fill(username.toUpperCase());
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await entrarButton(page).click();
-  await expect(page.getByRole('heading', { name: `Hola, ${username}` })).toBeVisible();
+  await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   expect(csp).toEqual([]);
 });
 
@@ -49,7 +49,7 @@ test('un admin entra con contraseña y código TOTP y ve su insignia', async ({ 
   const code = TOTP.generate({ secret: Secret.fromBase32(admin.totpSecret), algorithm: 'SHA1', digits: 6, period: 30 });
   await page.getByLabel('Código').fill(code);
   await page.getByRole('button', { name: 'Verificar' }).click();
-  await expect(page.getByRole('heading', { name: `Hola, ${admin.username}` })).toBeVisible();
+  await expect(page.locator('.hud').getByText(admin.username, { exact: true })).toBeVisible();
   await expect(page.getByText('Admin', { exact: true })).toBeVisible();
 });
 

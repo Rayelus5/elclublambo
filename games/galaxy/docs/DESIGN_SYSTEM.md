@@ -36,6 +36,8 @@ Es distinta de la web de ElClub a propósito: nada de Base Blue, Cerulean ni Arc
 | `--sky` / `--sky-2` / `--sky-lip` | `#4767f2` / `#3a58e0` / `#26389a` | Acciones secundarias de navegación («Ver clasificación completa») |
 | `--ice` | `#bfe3ff` | Galaxia braille, foco, polvo estelar |
 | `--static` | `#ff4d6d` | Errores, la Estática |
+| `--uv-soft` | `#9b86ff` | Iconos UV sobre paneles oscuros (el UV de superficie es demasiado oscuro ahí) |
+| `--tier-common` / `--tier-uncommon` / `--tier-rare` / `--tier-epic` / `--tier-legendary` | `#c9d0ea` / `#45e3a6` / `#6fb7ff` / `#b39dff` / `#ffc94a` | Rarezas de las galaxias. Cualquier elemento con `data-tier` recibe su color en `--tc` |
 
 **Regla de tinta:** las superficies brillantes (Solar, Nova, Terminal) llevan **tinta oscura** (`--on-*`); las profundas (UV, Sky) llevan **blanco**. Ningún componente usa hex sueltos: solo tokens.
 
@@ -152,7 +154,14 @@ Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con a
 | **Toast** | info, éxito, error | Región `aria-live="polite"`; errores críticos con `role="alert"` |
 | **Error de formulario** | resumen arriba + errores en línea | Tras enviar con errores, el foco va al resumen; cada error enlaza a su campo |
 
+| **Bloqueado** (en desarrollo) | `mini` (candado en la esquina), `tag` (candado y texto), `text` (solo texto) | Lo que llega en otro hito se ve pero no se pulsa: su color con `saturate(.6) brightness(.84)`, sin labio ni hover, `disabled` y el texto «En desarrollo» siempre presente (en `mini`, solo para lectores de pantalla y en el `title`) |
+| **Barra superior** | accesos (izquierda), operador y saldo (derecha) | Escáner en píldora Solar con la insignia «Tirada gratis» cuando toca. Saldo: polvo (`--ice`), monedas (`--solar`) y señales (`--nova`), cada uno con `role="img"` y un `aria-label` que dice la frase entera («1250 monedas»). Por debajo de 1600 px los accesos bloqueados se quedan en icono |
+| **Menú principal** | Jugar (héroe Solar), modos (Nova, Terminal), evento (UV), misiones (panel), seis losas y pie | Las losas llevan un icono del color de su sección y una línea debajo (dato o «En desarrollo») |
+| **Panel de colección** | con galaxias, vacío | Cabecera Sky. Recuento por rareza con rombos (`data-tier`; hueco si no hay ninguna), las más raras (6, o 4 por debajo de 820 px de alto y 3 por debajo de 680) con la primera resaltada, y botón Sky «Abrir colección» o, sin galaxias, «Escanear el cielo» |
+
 Iconos: SVG de trazo redondeado (2,2 px), nunca emojis. Los decorativos con `aria-hidden`.
+
+**Pantalla de título.** Barra superior arriba; debajo, el menú anclado a la izquierda (56 px, hasta 660 px de ancho) y el panel de colección a la derecha (40 px, 340–400 px). El bloque se coloca un poco por encima del centro del alto libre y escala con el alto de la ventana (`clamp()` en `vh`: logo 44–100 px, Jugar 128–230 px, losas 84–120 px); si no cabe, se desplaza. En el centro, el cielo muestra las galaxias del propio jugador (§8).
 
 ## 8. Fondo vivo
 
@@ -164,6 +173,7 @@ Desde M2a el fondo de acceso son **galaxias reales del motor** (`packages/engine
 - **Secuencia:** escaneo 3,2 s → se ve 14 s → fundido 5 s con la siguiente, que entra con su propio escaneo. El escaneo es una línea braille del color de acento que resuelve los puntos de arriba abajo. Nunca hay más de dos galaxias montadas.
 - **Movimiento:** solo transformaciones rígidas de la imagen compuesta, así que la forma no cambia: gira 7° y se acerca un 4,5 % a lo largo de toda su vida, y el brillo respira ±6 % cada 7 s. Con la pestaña oculta el reloj se para.
 - **Movimiento reducido:** una sola galaxia, quieta, sin escaneo ni fundido.
+- **En la pantalla de título** el cielo muestra las galaxias del jugador, de la más rara a la menos, tal como son (sin fijar el fondo), y se turnan; se descartan igual Antimatter y Anomaly. Sin galaxias, semillas al azar. La galaxia va más al centro (57 % × 46 %, lado `min(66vw, 110vh)`) y la viñeta oscurece los dos lados.
 
 ## 9. Copy
 
