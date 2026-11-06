@@ -78,5 +78,13 @@ export const copy = {
     config_invalid: 'La configuración no es válida',
     not_found: 'No existe',
     internal: 'Algo ha fallado. Prueba otra vez',
+    insufficient_funds: 'No tienes bastante para esto',
+    gacha_disabled: 'El escáner está apagado ahora mismo. Vuelve en un rato',
+    banner_closed: 'Esta señal ya no se puede escanear',
+    free_pull_used: 'Ya has usado el escaneo gratis de hoy. Vuelve mañana',
+    invalid_fusion: 'Para fusionar necesitas cinco galaxias distintas del mismo nivel',
+    galaxy_not_found: 'Esa galaxia ya no está en tu colección',
+    idempotency_conflict: 'Esa acción ya se hizo con otros datos. Recarga la página',
+    idempotency_required: 'Falta el identificador de la acción. Recarga la página',
   } satisfies Record<ApiErrorCode, string>,
 } as const;
