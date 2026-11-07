@@ -55,6 +55,8 @@ export const API_ERROR_CODES = [
   'nothing_to_collect',
   'galaxy_exhibited',
   'planetarium_not_found',
+  'profile_not_found',
+  'season_closed',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

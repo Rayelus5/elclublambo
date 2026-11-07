@@ -3,6 +3,9 @@ import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import { TRAIT_KEYS } from '../gacha/types';
 
+/** Levels 2–30: the first nine by hand, then 1000 more each (GDD §12.1; M5a). */
+const DEFAULT_ACCOUNT_LEVELS = [100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, ...Array.from({ length: 20 }, (_, i) => 5500 + i * 1000)];
+
 /**
  * Registro de la configuración viva (GDD §16.3). Cada clave tiene su esquema; la base guarda versiones de solo
  * añadir en galaxy.game_config_versions y el servidor valida con estos esquemas al leer y al publicar.
@@ -356,6 +359,58 @@ export const configSchemas = {
         .default({ levels: [{ cost: { components: 50, coins: 500 } }] }),
     })
     .strict(),
+  /**
+   * The account level (GDD §12.1; M5a): the experience a run that is not suspicious gives (per whole minute, per
+   * layer, per Core and for extracting; never cut by the daily yield) and the experience needed to reach each level
+   * from 2, growing.
+   */
+  account: z
+    .object({
+      xp: z
+        .object({
+          perMinute: z.number().int().min(0).max(10_000).default(10),
+          perLayer: z.number().int().min(0).max(10_000).default(15),
+          perCore: z.number().int().min(0).max(10_000).default(40),
+          extraction: z.number().int().min(0).max(10_000).default(30),
+        })
+        .strict()
+        .default({ perMinute: 10, perLayer: 15, perCore: 40, extraction: 30 }),
+      levels: z
+        .array(z.number().int().min(1).max(100_000_000))
+        .min(1)
+        .max(99)
+        .refine((ls) => ls.every((l, i) => i === 0 || l > ls[i - 1]!), 'account_levels_increasing')
+        .default(DEFAULT_ACCOUNT_LEVELS),
+    })
+    .strict(),
+  /**
+   * The season (GDD §13.1, §14.1; M5a): its id, name and dates (open from `startsAt`, closed from `endsAt`), the points
+   * each run adds (per layer, per Core, for extracting), the score of each tier (Bronce to Estelar) and how many rows
+   * the leaderboard shows.
+   */
+  season: z
+    .object({
+      id: z.string().regex(/^[a-z0-9-]{1,32}$/).default('season-1'),
+      name: z.string().min(1).max(40).default('Temporada 1'),
+      startsAt: z.iso.datetime().default('2026-11-01T00:00:00.000Z'),
+      endsAt: z.iso.datetime().default('2026-12-13T00:00:00.000Z'),
+      points: z
+        .object({
+          layer: z.number().int().min(0).max(100_000).default(10),
+          core: z.number().int().min(0).max(100_000).default(50),
+          extraction: z.number().int().min(0).max(100_000).default(25),
+        })
+        .strict()
+        .default({ layer: 10, core: 50, extraction: 25 }),
+      tiers: z
+        .array(z.number().int().min(1).max(100_000_000))
+        .length(5)
+        .refine((ts) => ts.every((t, i) => i === 0 || t > ts[i - 1]!), 'season_tiers_increasing')
+        .default([500, 2000, 6000, 15000, 30000]),
+      top: z.number().int().min(3).max(500).default(100),
+    })
+    .strict()
+    .refine((s) => Date.parse(s.startsAt) < Date.parse(s.endsAt), 'season_dates'),
   /**
    * The planetarium (GDD §10.5; M4c-2): its pedestals, the prestige each exhibited galaxy adds by tier (common to
    * legendary) plus one for a finish that is not normal, the experience bonus per point with its cap (never above 5 %),

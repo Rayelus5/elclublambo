@@ -743,5 +743,7 @@ export const copy = {
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',
     galaxy_exhibited: 'Esa galaxia está expuesta en tu planetario. Retírala primero',
     planetarium_not_found: 'No hay ningún planetario con ese nombre',
+    profile_not_found: 'No hay ningún jugador con ese nombre',
+    season_closed: 'No hay ninguna temporada abierta',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

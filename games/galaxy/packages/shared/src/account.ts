@@ -32,6 +32,7 @@ export const resetRedeemInput = z
 export type Role = 'superadmin' | 'admin' | 'moderator';
 export const ROLES: readonly Role[] = ['superadmin', 'admin', 'moderator'];
 
-export type MeResponse = { id: string; username: string; roles: Role[]; mfa: boolean };
+/** `level`: the account level (M5a), sent by `/auth/me`; the sign-in answers leave it out. */
+export type MeResponse = { id: string; username: string; roles: Role[]; mfa: boolean; level?: number };
 
 export type LoginResponse = { status: 'ok'; me: MeResponse } | { status: 'totp_required'; challenge: string };
