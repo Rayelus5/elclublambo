@@ -1,8 +1,8 @@
 import type { WeaponDef, WeaponLevel } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
-import type { ProbeState, Sim } from '../types';
+import type { HitSource, ProbeState, Sim } from '../types';
 import { ticks } from '../version';
-import { dealDamage } from './combat';
+import { combatHooks, dealDamage } from './combat';
 import { elementCode, elementOf as elementOfCode } from './elements';
 import {
   AREA,
@@ -38,6 +38,17 @@ const MINE_ARM = ticks(0.5);
 const MINE_SPREAD = 16;
 /** A returning disc is caught this close to its probe. */
 const DISC_CATCH = 10;
+/** `vortex` areas pull at this speed (units per second). */
+const VORTEX_PULL = 70;
+/** `split`: three fragments fanned 25° apart, at half damage, for 0.4 s. */
+const SPLIT_FAN = degToSteps(25);
+const SPLIT_SHARE = 0.5;
+const SPLIT_TICKS = ticks(0.4);
+const SPLIT_MIN_SPEED = 200;
+/** `chain`: each hit jumps to 2 neighbours within 80 units at half damage. */
+const CHAIN_TARGETS = 2;
+const CHAIN_RANGE = 80;
+const CHAIN_SHARE = 0.5;
 
 function elementOf(def: WeaponDef): number {
   return elementCode(def.element ?? null);
@@ -84,6 +95,7 @@ function fire(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLe
         follow: true,
         angle: p.aim,
         arc: degToSteps(lvl.area),
+        pull: def.special === 'vortex' ? VORTEX_PULL : 0,
         srcIdx: wi,
         element: elementOf(def),
       });
@@ -167,7 +179,7 @@ function fire(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLe
         ttl: Math.max(1, ticks(lvl.duration * s.duration)),
         damage,
         interval: Math.max(1, ticks(lvl.interval)),
-        knockback: lvl.knockback,
+        pull: lvl.knockback,
         srcIdx: wi,
         element: elementOf(def),
       });
@@ -249,6 +261,7 @@ function blast(sim: Sim, i: number): void {
   const y = s.y[i]!;
   const p = sim.probes[s.owner[i]!];
   hitArea(sim, x, y, s.reach[i]!, s.damage[i]!, { ...shotHooks.source(sim, i), x, y });
+  splitAt(sim, i, -1, x, y);
   if (p) spawnArea(sim, p, AREA.blast, x, y, s.reach[i]!, { ttl: BLAST_SHOW_TICKS, srcIdx: s.srcIdx[i]! });
   s.kill(i);
 }
@@ -328,7 +341,7 @@ function updateTurret(sim: Sim, i: number): void {
 function pull(sim: Sim, i: number): void {
   const a = sim.areas;
   const en = sim.enemies;
-  const step = a.knockback[i]! / 60;
+  const step = a.pull[i]! / 60;
   if (!(step > 0)) return;
   const n = sim.grid.query(a.x[i]!, a.y[i]!, a.radius[i]! + QUERY_PAD, near);
   for (let k = 0; k < n; k++) {
@@ -450,6 +463,37 @@ function update(sim: Sim, i: number): boolean {
 }
 
 weaponHooks.fire = fire;
+/** `split`: a shot's first hit (or blast) throws three fragments, once; fragments never split. */
+function splitAt(sim: Sim, i: number, hitEnemy: number, x: number, y: number): void {
+  const s = sim.shots;
+  if (s.kind[i] === SHOT.split || (s.flags[i]! & 1) !== 0) return;
+  const sw = shotWeapon(sim, i);
+  if (!sw || sw.def.special !== 'split') return;
+  s.flags[i] = s.flags[i]! | 1;
+  const speed = Math.max(SPLIT_MIN_SPEED, Math.sqrt(s.vx[i]! * s.vx[i]! + s.vy[i]! * s.vy[i]!) * 60);
+  for (const turn of [-SPLIT_FAN, 0, SPLIT_FAN]) {
+    const f = spawnShot(sim, sw.p, SHOT.split, x, y, s.angle[i]! + turn, speed, s.damage[i]! * SPLIT_SHARE, {
+      ttl: SPLIT_TICKS,
+      pierce: sw.p.stats.pierce,
+      srcIdx: s.srcIdx[i]!,
+      element: s.element[i]!,
+    });
+    if (f < 0) return;
+    if (hitEnemy >= 0) remember(sim, f, hitEnemy);
+  }
+}
+
+/** `chain`: a weapon hit jumps to two neighbours at half damage; the jumps carry no weapon, so they never jump again. */
+function chainFrom(sim: Sim, e: number, dealt: number, x: number, y: number, src: HitSource): void {
+  if (!src.weapon || !(dealt > 0)) return;
+  const def = sim.content.weapons.find((w) => w.id === src.weapon);
+  if (def?.special !== 'chain') return;
+  const next = nearestEnemies(sim, x, y, CHAIN_RANGE, CHAIN_TARGETS + 1, (o) => o === e);
+  for (const o of next.slice(0, CHAIN_TARGETS)) dealDamage(sim, o, dealt * CHAIN_SHARE, { ...src, weapon: null, element: null, x, y });
+}
+
 weaponHooks.update = update;
+weaponHooks.afterHit = (sim, i, e, x, y) => splitAt(sim, i, e, x, y);
+combatHooks.afterHit = chainFrom;
 weaponHooks.expire = expire;
 weaponHooks.pull = pull;

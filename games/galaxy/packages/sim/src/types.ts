@@ -79,13 +79,16 @@ export interface Stats {
   curse: number;
 }
 
-export type Offer = { kind: 'weapon' | 'passive' | 'heal'; id: string; level: number };
+/** A level-up card. `evolve`: the evolution `id` replaces its base weapon (GDD §5.3). */
+export type Offer = { kind: 'weapon' | 'passive' | 'heal' | 'evolve'; id: string; level: number };
 
 export interface OwnedWeapon {
   id: string;
   level: number;
   /** Ticks until it fires again. */
   t: number;
+  /** `echo` weapons: ticks until the repeat of the last volley (0 / absent: none pending). */
+  echo?: number;
 }
 
 export interface ProbeState {

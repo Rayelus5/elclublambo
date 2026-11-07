@@ -12,6 +12,9 @@ import { dropPickup } from './pickups';
 
 export const FLASH_TICKS = 6;
 
+/** After a hit has landed (systems/arsenal.ts: `chain` evolutions). */
+export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: number, y: number, src: HitSource) => void } = { afterHit: () => {} };
+
 /** Deals `amount` to enemy `e`; returns the damage done (shield included). Kills it at 0 life. */
 export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource): number {
   const en = sim.enemies;
@@ -48,6 +51,7 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
       dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
     });
   }
+  combatHooks.afterHit(sim, e, dmg, x, y, src);
   return dmg;
 }
 

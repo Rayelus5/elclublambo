@@ -73,6 +73,8 @@ export const SHOT_FIELDS = {
   /** Bounce reach (ricochet) or the enemy it is locked on (−1 none). */
   reach: 'f64',
   target: 'i32',
+  /** Bit 1: already split (evolutions with `split` split once per shot). */
+  flags: 'u8',
 } as const;
 
 export const FOE_SHOT_FIELDS = {
@@ -114,6 +116,8 @@ export const AREA_FIELDS = {
   knockback: 'f64',
   /** Slow factor for slowing fields (0: none). */
   slow: 'f64',
+  /** Pull towards the centre in units per second (gravity wells, `vortex` areas; 0: none). */
+  pull: 'f64',
 } as const;
 
 export const PICKUP_FIELDS = {

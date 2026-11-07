@@ -516,3 +516,93 @@ describe('Persistentes con la piscina llena', () => {
     expect(persistentFor(sim, sim.probes[0]!, 0)).toEqual(slotsOf(sim, SHOT.orb));
   });
 });
+
+// ── M3b-1, Tarea 5: especiales de las evoluciones ────────────────────────────────────────────────────────────────
+
+describe('especiales de las evoluciones', () => {
+  test('split: cada disparo se parte una sola vez en 3 fragmentos al 50 %, y los fragmentos no se parten', () => {
+    const sim = armed('pulse-storm', 1, (c) => {
+      c.weapons.find((w) => w.id === 'pulse-storm')!.levels[0]!.count = 1;
+    });
+    target(sim, 100, 0);
+    const behind = target(sim, 140, 0);
+    let most = 0;
+    for (let t = 0; t < 30; t++) {
+      step(sim, [IDLE]);
+      most = Math.max(most, kindCount(sim, SHOT.split));
+    }
+    expect(most).toBe(3);
+    expect(lost(sim, behind)).toBe(13);
+  });
+
+  test('echo: repite el disparo 9 ticks después, sin adelantar el enfriamiento', () => {
+    const sim = armed('crystal-crown');
+    target(sim, 100, 0);
+    expect(fires(sim, 12)).toBe(2);
+    expect(fires(sim, 50)).toBe(0);
+    const drones = armed('sentinel-swarm');
+    target(drones, 60, 0);
+    expect(fires(drones, 20)).toBe(8);
+  });
+
+  test('vortex: la onda y el cono atraen en vez de empujar', () => {
+    const plain = armed('nova');
+    const pushed = target(plain, 50, 0);
+    run(plain, 10);
+    expect(plain.enemies.x[pushed]).toBeGreaterThan(50);
+    const sim = armed('stellar-collapse');
+    const drawn = target(sim, 80, 0);
+    run(sim, 10);
+    expect(sim.enemies.x[drawn]).toBeLessThan(80);
+    const breath = armed('solar-breath');
+    const fuel = target(breath, 100, 0);
+    for (let i = 0; i < 30; i++) step(breath, [aimEast]);
+    expect(breath.enemies.x[fuel]).toBeLessThan(100);
+  });
+
+  test('pierceAll: la lanza atraviesa la fila entera', () => {
+    // Targets that give no data fragments: a level-up would freeze the world mid-flight.
+    const sim = armed('neutron-lance', 1, (c) => (c.enemies.find((e) => e.id === 'dummy')!.xp = 0));
+    const row = Array.from({ length: 12 }, (_, k) => target(sim, 30 + k * 28, 0));
+    for (let i = 0; i < 60; i++) step(sim, [aimEast]);
+    for (const e of row) expect(lost(sim, e)).toBeGreaterThanOrEqual(44);
+  });
+
+  test('chain: cada golpe salta a 2 vecinos al 50 %, y los saltos no vuelven a saltar', () => {
+    const sim = armed('ion-ray', 1, (c) => {
+      c.weapons.find((w) => w.id === 'ion-ray')!.levels[0]!.count = 1;
+      c.weapons.find((w) => w.id === 'ion-ray')!.element = null;
+    });
+    target(sim, 60, 0);
+    const side = target(sim, 60, 60);
+    const far = target(sim, 60, 130);
+    step(sim, [IDLE]);
+    expect(lost(sim, side)).toBeCloseTo(7.5, 9);
+    expect(lost(sim, far)).toBe(0);
+  });
+
+  test('el elemento propio de una evolución va en cada golpe', () => {
+    const sim = armed('neutron-lance');
+    target(sim, 60, 0);
+    const seen: string[] = [];
+    for (let i = 0; i < 20; i++) {
+      step(sim, [aimEast]);
+      for (const ev of sim.events) if (ev.t === 'element') seen.push(ev.element);
+    }
+    expect(seen).toContain('breach');
+  });
+
+  test('al evolucionar, los persistentes del hueco se rehacen una vez y sin huérfanos', () => {
+    const sim = armed('orbit', 5);
+    const p = sim.probes[0]!;
+    p.passives.push({ id: 'armor', level: 1 });
+    step(sim, [IDLE]);
+    expect(kindCount(sim, SHOT.orb)).toBe(4);
+    applyOffer(sim, p, { kind: 'evolve', id: 'asteroid-belt', level: 1 });
+    expect(persistentFor(sim, p, 0)).toEqual([]);
+    step(sim, [IDLE]);
+    expect(kindCount(sim, SHOT.orb)).toBe(6);
+    run(sim, 30);
+    expect(kindCount(sim, SHOT.orb)).toBe(6);
+  });
+});

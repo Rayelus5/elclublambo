@@ -104,6 +104,7 @@ describe('el arsenal', () => {
   });
   const withWeapons = (...extra: Content['weapons']) => {
     const c = clone();
+    c.weapons = c.weapons.filter((w) => !w.evolution);
     c.weapons.push(...extra);
     return c;
   };
