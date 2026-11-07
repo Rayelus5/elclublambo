@@ -159,6 +159,20 @@ export const configSchemas = {
       startPerHour: limit(30),
     })
     .strict(),
+  /** Probes (GDD §6): the three starters the test chooses from, and what earns every other probe. */
+  probes: z
+    .object({
+      starters: z.array(z.string().regex(/^[a-z0-9-]{1,32}$/)).length(3).default(['lumen', 'bastion', 'spark']),
+      starterUnlock: z.object({ stat: z.enum(['runs', 'bossKills', 'maxDepth', 'extractions', 'kills']), value: z.number().int().min(1).max(1_000_000) }).strict().default({ stat: 'runs', value: 3 }),
+      unlocks: z.record(z.string().regex(/^[a-z0-9-]{1,32}$/), z.object({ stat: z.enum(['runs', 'bossKills', 'maxDepth', 'extractions', 'kills']), value: z.number().int().min(1).max(1_000_000) }).strict()).default({
+        sentinel: { stat: 'bossKills', value: 3 },
+        anchor: { stat: 'maxDepth', value: 4 },
+        prism: { stat: 'extractions', value: 5 },
+        comet: { stat: 'kills', value: 2000 },
+        echo: { stat: 'runs', value: 15 },
+      }),
+    })
+    .strict(),
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;
