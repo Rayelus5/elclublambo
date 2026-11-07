@@ -171,6 +171,27 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Abrir la ranura necesita cinco incursiones de un minuto o más: se prueba en integración y en el e2e.
 
+13. **Desde M4c-2 (el planetario):** la migración `20261107222320_galaxy_planetarium` crea dos tablas:
+   - `galaxy.exhibits`: la galaxia de cada pedestal de cada cuenta;
+   - `galaxy.planetarium_visits`: una fila por visitante, dueño y día UTC, nunca la propia.
+
+   Llegan además:
+   - la clave viva `planetarium`, que se ajusta sin desplegar:
+     - `slots`: los pedestales, 6 como mucho, los que tiene la cúpula;
+     - `points`: el prestigio de cada rareza, de común a legendaria (1, 2, 4, 7 y 12), y 1 más si el acabado no es normal;
+     - `xpPerPoint`: la experiencia por punto (0,001);
+     - `cap`: el tope del bonus, 0,05 como mucho;
+     - `featured`: cuántos destacados se ven (8);
+   - la sala Planetario de la estación lleva ahora a `/galaxy/planetario`, y una visita a `/galaxy/planetario/<nombre>`;
+   - una galaxia expuesta no se desintegra ni se fusiona (`409 galaxy_exhibited`);
+   - cada incursión guarda el bonus de experiencia de lo expuesto al empezar.
+
+   Comprueba con dos cuentas de prueba nuevas:
+   - la primera escanea con su señal de bienvenida y expone dos galaxias desde los pedestales. Ve su prestigio y «+N % de experiencia en las incursiones». En su colección las dos llevan «Expuesta» y su Desintegrar está desactivado;
+   - la segunda la visita por su nombre desde «Visitar un planetario». Ve las dos cartas, sin botones, y «1 visita». Al volver a entrar sigue en 1;
+   - un nombre que no existe dice «No hay ningún planetario con ese nombre»;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -399,6 +399,36 @@ Consulta de ui-ux-pro-max: se aplicaron dos guías, «enseñar el progreso de lo
 - **Errores:** debajo del botón, en rojo y con `role="alert"`. Una vista vieja vuelve a leer y lo dice («Esa galaxia ya había cambiado de nivel. Mírala y vuelve a intentarlo»).
 - **Lectores de pantalla:** «Te faltan…» es la descripción del botón desactivado (`aria-describedby`), y la barra de la ranura se nombra con su hito y dice «2 de 5» (`aria-valuetext`).
 
+## 8 decies. Planetario
+
+Cada jugador expone hasta seis galaxias en la cúpula de su estación, y cualquiera puede visitarla por su nombre o desde los destacados (GDD §10.5 y §14.2, M4c-2). La sala Planetario de la estación lleva a `/planetario`, y una visita a `/planetario/<nombre>`.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- «un estado vacío guía con un mensaje y una acción»: el planetario vacío invita a exponer y cada pedestal vacío es un botón;
+- «una búsqueda sin resultados no es un callejón sin salida»: un nombre sin planetario lo dice y ofrece buscar otra vez;
+- «navegación completa con el teclado y el foco visible».
+
+El autocompletado de nombres no se hizo: listaría usuarios a cualquiera.
+
+- **La cúpula:**
+  - Es una escena de Aseprite de 192×96 en ocho fotogramas (`art/planetarium/paint-planetarium.lua`). Contiene la retícula de la cúpula, nebulosas y constelaciones que giran, el proyector de estrellas, las luces del borde y seis pedestales con su haz holográfico.
+  - Se pinta a escala entera: ×5 hasta 1559 px de ancho, ×6 desde 1560 y ×7 desde 1880 con al menos 1000 de alto.
+  - Con `steps(8)` se mueve y con movimiento reducido se queda quieta.
+- **Los pedestales** son una lista («Pedestales»):
+  - Cada carta flota sobre el suyo, centrada en su pedestal, con un brillo cian, y mide 24 píxeles de arte de ancho.
+  - Un pedestal vacío es un hueco discontinuo cian con «Exponer galaxia». Su nombre accesible dice cuál es («Exponer galaxia en el pedestal 2»).
+  - Uno lleno tiene su carta, que se pulsa para cambiarla, y «Retirar» sobre la cara del pedestal.
+  - Elegir usa el mismo diálogo que las reliquias del Hangar: la colección por rareza, y las que ya están en otro pedestal llevan «Expuesta» y no se eligen dos veces.
+- **Al lado:**
+  - **El prestigio:** el número grande en Solar, el bonus en Terminal («+2,9 % de experiencia en las incursiones»), cómo se suma y su tope, y las visitas con el icono del ojo.
+  - **El campo «Visitar un planetario»** (`role="search"`). Con la columna estrecha su botón baja debajo.
+- **Debajo, los destacados:** cartas pequeñas con la portada (la galaxia de más prestigio), el dueño y su prestigio. Enlazan a su planetario.
+- **La visita:**
+  - «Planetario de vega», sus cartas sin acciones, su prestigio y sus visitas, y el campo para visitar otro.
+  - Sin nada expuesto dice «Todavía no ha expuesto ninguna galaxia».
+  - Un nombre sin planetario dice «No hay ningún planetario con ese nombre».
+- **En la colección:** una galaxia expuesta lleva «Expuesta». No se desintegra (el botón está desactivado y su descripción dice por qué) ni se elige para fusionar.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

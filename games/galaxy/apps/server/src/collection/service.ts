@@ -51,8 +51,10 @@ const SUMMARY = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation'
 
 /** `equipped`: whether a galaxy sits in a hangar slot (as a selectable column). */
 const equippedColumn = sql<boolean>`exists (select 1 from galaxy.loadouts l where l.galaxy_id = galaxy.galaxies.id)`.as('equipped');
+/** `exhibited`: whether a galaxy stands on a pedestal of its owner's planetarium (M4c-2). */
+const exhibitedColumn = sql<boolean>`exists (select 1 from galaxy.exhibits e where e.galaxy_id = galaxy.galaxies.id)`.as('exhibited');
 
-export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean }): GalaxySummary {
+export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean; exhibited?: boolean }): GalaxySummary {
   return {
     id: r.id,
     seed: String(r.seed),
@@ -65,6 +67,7 @@ export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: bo
     level: r.level,
     createdAt: new Date(r.created_at).toISOString(),
     equipped: r.equipped === true,
+    ...(r.exhibited === true ? { exhibited: true as const } : {}),
   };
 }
 
@@ -84,7 +87,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   const { db } = deps;
   let query = db
     .selectFrom('galaxy.galaxies')
-    .select([...SUMMARY, equippedColumn])
+    .select([...SUMMARY, equippedColumn, exhibitedColumn])
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null);
   if (q.tier) query = query.where('tier', '=', TIERS.indexOf(q.tier));
@@ -138,7 +141,7 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
 async function detailOf(db: Kysely<DB>, ownerId: string, id: string, cfgs: DetailConfigs): Promise<GalaxyDetail> {
   const r = await db
     .selectFrom('galaxy.galaxies')
-    .select([...SUMMARY, equippedColumn, 'origin', 'lineage', 'dna', 'level_dust'])
+    .select([...SUMMARY, equippedColumn, exhibitedColumn, 'origin', 'lineage', 'dna', 'level_dust'])
     .where('id', '=', id)
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null)
@@ -208,6 +211,11 @@ async function isEquipped(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
   return row !== undefined;
 }
 
+async function isExhibited(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
+  const row = await trx.selectFrom('galaxy.exhibits').select('slot').where('galaxy_id', 'in', ids).limit(1).executeTakeFirst();
+  return row !== undefined;
+}
+
 // Disintegrate and fuse run inside an operation's transaction: the config they need is read by the route BEFORE it
 // (reading it through the pool inside would take a second connection).
 export async function disintegrate(
@@ -226,8 +234,10 @@ export async function disintegrate(
     .returning(['tier', 'finish', 'level_dust'])
     .executeTakeFirst();
   if (!gone) throw new HttpError(404, 'galaxy_not_found');
-  // Checked after taking the row (a fresh statement sees a loadout committed meanwhile): equipped relics stay.
+  // Checked after taking the row (a fresh statement sees a loadout or an exhibit committed meanwhile): equipped and
+  // exhibited galaxies stay.
   if (await isEquipped(trx, [id])) throw new HttpError(409, 'galaxy_equipped');
+  if (await isExhibited(trx, [id])) throw new HttpError(409, 'galaxy_exhibited');
   const dust = disintegrationDust(disintegrateYield(gone.tier, gone.finish as Finish, cfg), (await accountLabEffects(trx, ownerId, lab)).disintegrate);
   if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxy: id }, opKey);
   // Half the dust put into its levels comes back (GDD §8.4 bis).
@@ -255,6 +265,7 @@ export async function fuse(
     .execute();
   if (parents.length !== ids.length) throw new HttpError(409, 'invalid_fusion');
   if (await isEquipped(trx, ids)) throw new HttpError(409, 'galaxy_equipped');
+  if (await isExhibited(trx, ids)) throw new HttpError(409, 'galaxy_exhibited');
   const recipe = validateFusion(parents, cfg);
   if ('error' in recipe) throw new HttpError(409, 'invalid_fusion');
   const dust = fusionDust(recipe.dust, (await accountLabEffects(trx, ownerId, lab)).fusion);

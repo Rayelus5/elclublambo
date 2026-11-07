@@ -109,9 +109,10 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const sectors = await deps.config.get('sectors');
     const probes = await deps.config.get('probes');
     const lab = await deps.config.get('lab');
+    const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium }),
     );
   });
 

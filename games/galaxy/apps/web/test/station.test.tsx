@@ -50,7 +50,7 @@ test('las diez salas: las que funcionan llevan a su pantalla y las de más adela
   expect(within(deck).getAllByRole('listitem')).toHaveLength(10);
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.hangar) })).toHaveAttribute('href', '/incursion');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.scanner) })).toHaveAttribute('href', '/escaner');
-  expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.planetarium) })).toHaveAttribute('href', '/coleccion');
+  expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.planetarium) })).toHaveAttribute('href', '/planetario');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.collider) })).toHaveAttribute('href', '/coleccion');
   for (const id of ['lab', 'comms', 'archive', 'trophies'] as const) {
     const item = within(deck).getByText(t.rooms[id]).closest('li')!;

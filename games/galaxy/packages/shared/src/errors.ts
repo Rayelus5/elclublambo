@@ -53,6 +53,8 @@ export const API_ERROR_CODES = [
   'lab_changed',
   'room_unavailable',
   'nothing_to_collect',
+  'galaxy_exhibited',
+  'planetarium_not_found',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

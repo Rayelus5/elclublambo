@@ -357,6 +357,27 @@ export const configSchemas = {
     })
     .strict(),
   /**
+   * The planetarium (GDD §10.5; M4c-2): its pedestals, the prestige each exhibited galaxy adds by tier (common to
+   * legendary) plus one for a finish that is not normal, the experience bonus per point with its cap (never above 5 %),
+   * and how many planetariums the featured list shows.
+   */
+  planetarium: z
+    .object({
+      // The dome's art has six pedestals: more need new art.
+      slots: z.number().int().min(1).max(6).default(6),
+      points: z
+        .object({
+          tiers: z.array(z.number().int().min(0).max(100)).length(5).default([1, 2, 4, 7, 12]),
+          finish: z.number().int().min(0).max(100).default(1),
+        })
+        .strict()
+        .default({ tiers: [1, 2, 4, 7, 12], finish: 1 }),
+      xpPerPoint: z.number().min(0).max(0.05).default(0.001),
+      cap: z.number().min(0).max(0.05).default(0.05),
+      featured: z.number().int().min(1).max(24).default(8),
+    })
+    .strict(),
+  /**
    * Sectors (GDD §5.5, §13.1): what opens each sector but the first (stats in the sector the condition names), and the
    * season sector open to everyone now (null: no season open).
    */
