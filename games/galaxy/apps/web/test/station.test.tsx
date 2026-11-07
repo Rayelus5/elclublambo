@@ -50,6 +50,10 @@ test('las diez salas: las que funcionan llevan a su pantalla y las de más adela
     expect(within(item).queryByRole('button')).toBeNull();
     expect(within(item).queryByRole('link')).toBeNull();
   }
+  // Each room plays its Aseprite strip: the antenna broken, the refinery at its level.
+  expect(within(deck).getByText(t.rooms.antenna).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'antenna-broken');
+  expect(within(deck).getByText(t.rooms.refinery).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'refinery-1');
+  expect(within(deck).getByText(t.rooms.lab).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'lab-broken');
   // Raw material and components in the bar, read as sentences.
   expect(screen.getByRole('img', { name: t.resource.material(45) })).toBeInTheDocument();
   expect(screen.getByRole('img', { name: t.resource.components(12) })).toBeInTheDocument();

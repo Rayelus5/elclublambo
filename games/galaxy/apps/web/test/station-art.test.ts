@@ -1,34 +1,50 @@
-import { ROOM_IDS } from '@galaxy/shared';
+import { ROOM_IDS, type RoomId } from '@galaxy/shared';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { expect, test } from 'vitest';
-import { SPRITES } from '../src/arena/sprites';
-import { roomSprite } from '../src/station/art';
+import { ROOM_FRAMES, roomSheet, roomSheetUrl } from '../src/station/art';
 
-// The station's art (GDD §10, DESIGN_SYSTEM §8 septies): every room has its scene working and broken, and the refinery
-// and the antenna show their level (more tanks, more dishes), so the base grows in sight.
+// The station's art (GDD §10, DESIGN_SYSTEM §8 septies): rooms painted in Aseprite (art/station/paint-rooms.lua),
+// exported as strips of four 64×44 frames. Every room has its scene working and broken, and the refinery and the
+// antenna show their level, so the base grows in sight.
 
-test('cada sala tiene su escena funcionando y rota, con dos fotogramas y del mismo tamaño', () => {
+// Vitest runs from games/galaxy (jsdom's import.meta.url is not a file URL).
+const dir = join(process.cwd(), 'apps/web/src/station/rooms');
+/** Width and height from the PNG header. */
+const size = (name: string) => {
+  const b = readFileSync(join(dir, `${name}.png`));
+  return [b.readUInt32BE(16), b.readUInt32BE(20)];
+};
+const LEVELS = [1, 2, 3, 4, 5];
+
+test('cada sala tiene su tira funcionando y rota: cuatro fotogramas de 64×44', () => {
   for (const id of ROOM_IDS) {
     for (const state of ['working', 'broken'] as const) {
-      const sprite = SPRITES[roomSprite(id, state, 1)];
-      expect(sprite, `${id} ${state}`).toBeDefined();
-      expect(sprite!.frames.length, `${id} ${state}`).toBeGreaterThanOrEqual(2);
-      expect([sprite!.w, sprite!.h]).toEqual([40, 28]);
+      const name = roomSheet(id, state, 1);
+      expect(roomSheetUrl(id, state, 1), name).toBeTruthy();
+      expect(size(name), name).toEqual([64 * ROOM_FRAMES, 44]);
     }
   }
+  expect(roomSheet('antenna', 'broken', 0)).toBe('antenna-broken');
 });
 
-test('la refinería y la antena se ven distintas en cada nivel', () => {
+test('la refinería y la antena tienen una tira por nivel', () => {
   for (const id of ['refinery', 'antenna'] as const) {
-    const ids = [1, 2, 3, 4, 5].map((level) => roomSprite(id, 'working', level));
-    expect(new Set(ids).size, id).toBe(5);
-    for (const s of ids) expect(SPRITES[s], s).toBeDefined();
+    const names = LEVELS.map((level) => roomSheet(id, 'working', level));
+    expect(new Set(names).size, id).toBe(5);
+    for (const name of names) expect(size(name), name).toEqual([256, 44]);
   }
+  expect(roomSheet('refinery', 'working', 9)).toBe('refinery-5');
+  expect(roomSheet('scanner', 'working', 3)).toBe('scanner');
 });
 
-test('una sala rota no se parece a la que funciona', () => {
-  for (const id of ROOM_IDS) {
-    const on = SPRITES[roomSprite(id, 'working', 1)]!.frames[0]!.join('');
-    const off = SPRITES[roomSprite(id, 'broken', 1)]!.frames[0]!.join('');
-    expect(on, id).not.toBe(off);
-  }
+test('no sobra ninguna tira: cada png de las salas es una variante que se usa', () => {
+  const used = new Set([
+    ...ROOM_IDS.flatMap((id) => [roomSheet(id, 'working', 1), roomSheet(id, 'broken', 1)]),
+    ...(['refinery', 'antenna'] as RoomId[]).flatMap((id) => LEVELS.map((level) => roomSheet(id, 'working', level))),
+  ]);
+  const files = readdirSync(dir)
+    .filter((f) => f.endsWith('.png'))
+    .map((f) => f.slice(0, -4));
+  expect(new Set(files)).toEqual(used);
 });

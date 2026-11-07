@@ -1,13 +1,12 @@
 import type { RoomId, StationRoomView, StationView } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { spriteDataUrl } from '../arena/sprites';
 import { useCollectAntenna, useCollectRefinery, useLoadRefinery, useStation, useUpgradeRoom } from '../api/station';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
-import { roomSprite } from './art';
+import { roomSheet, roomSheetUrl } from './art';
 
 // The station (GDD §10, DESIGN_SYSTEM §8 septies): the base is the menu. Two decks of five rooms in a side cut; a
 // working tool opens its screen, the refinery and the antenna open their panels, a broken room shows what repairing it
@@ -27,9 +26,11 @@ function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName;
   );
 }
 
+/** The room's Aseprite strip, played by CSS (still on its first frame with reduced motion). */
 function Art({ room }: { room: StationRoomView }) {
   const state = room.state === 'working' ? 'working' : 'broken';
-  return <img className="room-art" src={spriteDataUrl(roomSprite(room.id, state, room.level), 4)} alt="" width={160} height={112} />;
+  const url = roomSheetUrl(room.id, state, room.level);
+  return <span className="room-art" aria-hidden="true" data-sheet={roomSheet(room.id, state, room.level)} style={url ? { backgroundImage: `url(${url})` } : undefined} />;
 }
 
 function Plate({ room }: { room: StationRoomView }) {

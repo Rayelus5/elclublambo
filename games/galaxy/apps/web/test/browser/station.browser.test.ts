@@ -1,16 +1,15 @@
-import { ROOM_IDS, type StationView } from '@galaxy/shared';
+import type { StationView } from '@galaxy/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { rasterize, SPRITES } from '../../src/arena/sprites';
-import { roomSprite } from '../../src/station/art';
 import { StationScreen } from '../../src/station/StationScreen';
 import '../../src/styles/app.css';
 
-// The station's art and screen in a real browser, for review screenshots (VITE_ARENA_SHOTS=1).
+// The station's screen in a real browser, with the rooms' Aseprite strips playing, for review screenshots
+// (VITE_ARENA_SHOTS=1).
 
 const view: StationView = {
   rooms: [
@@ -50,23 +49,6 @@ function mount(): void {
   root = createRoot(host);
   root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, createElement(StationScreen))));
 }
-
-test.skipIf(!import.meta.env['VITE_ARENA_SHOTS'])('hoja de las salas a 4×: funcionando, rotas y por nivel', async () => {
-  await page.viewport(1400, 1300);
-  const sheet = document.createElement('div');
-  sheet.style.cssText = 'display:flex;flex-wrap:wrap;gap:12px;padding:12px;background:#070a1c;width:1376px';
-  const add = (id: string) => {
-    const c = rasterize(SPRITES[id]!, 0, 4);
-    c.title = id;
-    sheet.appendChild(c);
-  };
-  for (const id of ROOM_IDS) add(roomSprite(id, 'working', 1));
-  for (const id of ROOM_IDS) add(roomSprite(id, 'broken', 1));
-  for (const level of [2, 3, 4, 5]) add(roomSprite('refinery', 'working', level));
-  for (const level of [2, 3, 4, 5]) add(roomSprite('antenna', 'working', level));
-  document.body.appendChild(sheet);
-  await page.screenshot({ path: '__shots__/station-rooms.png', element: sheet });
-});
 
 for (const [w, h] of [
   [1280, 720],

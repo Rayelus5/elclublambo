@@ -331,7 +331,11 @@ Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2).
 El Hogar de la portada lleva a la estación (GDD §10): la base es el menú. Consulta de ui-ux-pro-max: cada sala responde al pasar el ratón, el foco se ve siempre, un botón sin recursos está desactivado y dice cuánto falta, y los números de un campo no se confunden con el texto.
 
 - **Corte lateral:** dos cubiertas de cinco salas dentro de un casco de acero remachado (degradado de `#1d2148` a `#12153a`, borde de `--panel-lip`, una fila de remaches arriba y abajo). Por debajo de 1100 px, tres salas por fila.
-- **Sala:** su escena pixel art de 40×28 a ×4 (`station/art.ts`, dos fotogramas: una luz que parpadea, un haz que barre) y una placa con el nombre en negrita y una línea debajo.
+- **Sala:** su escena pixel art pintada en Aseprite y una placa con el nombre en negrita y una línea debajo.
+  - **La escena:** 64×44, cuatro fotogramas a 0,18 s. Las reproduce el CSS con `steps(4)`, a ×3, ×4 o ×5 en píxeles enteros, y queda quieta en el primero con movimiento reducido.
+  - **El pintor:** `art/station/paint-rooms.lua` deja cada sala en `art/station/<variante>.aseprite`, con las capas casco, maquina, efectos y averia, y exporta la tira a `apps/web/src/station/rooms/`.
+  - **Lo que se ve:** cada sala es una celda del casco, con techo y tubería, una lámpara con su cono de luz tramado, paneles biselados con remaches, ventana al espacio con estrellas que titilan, suelo de rejilla y mamparos. La máquina tiñe la pared con su luz.
+  - **Rota:** la luz apagada, la máquina quieta y más oscura, una luz de emergencia roja que parpadea, una grieta, un cable suelto que echa chispas y la Estática en ráfagas.
   - **Herramienta** (Escáner, Planetario, Hangar, Colisionador): enlace a su pantalla; la línea dice para qué sirve.
   - **Máquina** (Refinería, Antena): botón que abre su panel; la línea dice el nivel en Terminal.
   - **Rota** (la Antena al empezar): la escena oscurecida, cruzada por una grieta y el ruido de la Estática, que se mueve; borde rojo tenue y «Rota» en rojo.
