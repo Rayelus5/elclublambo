@@ -179,6 +179,61 @@ export interface GachaPullsTable {
   created_at: Timestamp;
 }
 
+/** Hangar (GDD §5.1, §8.4): chosen probe and open relic slots. */
+export interface HangarsTable {
+  account_id: string;
+  probe: ColumnType<string, string | undefined, string>;
+  relic_slots: ColumnType<number, number | undefined, number>;
+  updated_at: Timestamp;
+}
+
+export interface LoadoutsTable {
+  account_id: string;
+  slot: number;
+  galaxy_id: string;
+}
+
+type Maybe<T> = ColumnType<T | null, T | null | undefined, T | null>;
+
+/** A run: started with the server's seed and relic snapshot, finished once (GDD §14.7). */
+export interface RunsTable {
+  id: Generated<string>;
+  account_id: string;
+  seed: BigNum;
+  sector: string;
+  probe: string;
+  relics: ColumnType<unknown, string, never>;
+  content_version: number;
+  sim_version: string;
+  start_key: string;
+  started_at: Timestamp;
+  finished_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  outcome: Maybe<'extracted' | 'died' | 'abandoned'>;
+  ticks: Maybe<number>;
+  depth: Maybe<number>;
+  kills: Maybe<number>;
+  boss_kills: Maybe<number>;
+  level: Maybe<number>;
+  seconds: Maybe<number>;
+  hash: Maybe<string>;
+  payout: ColumnType<unknown, string | null | undefined, string | null>;
+  runs_version: Maybe<number>;
+  flags: ColumnType<string[], string[] | undefined, string[]>;
+  suspicious: ColumnType<boolean, boolean | undefined, boolean>;
+}
+
+export interface RunInputsTable {
+  run_id: string;
+  inputs: Buffer;
+  created_at: Timestamp;
+}
+
+export interface RunDaysTable {
+  account_id: string;
+  day: ColumnType<string, string, string>;
+  seconds: ColumnType<number, number | undefined, number>;
+}
+
 export interface DB {
   'galaxy.accounts': AccountsTable;
   'galaxy.account_roles': AccountRolesTable;
@@ -197,4 +252,9 @@ export interface DB {
   'galaxy.gacha_accounts': GachaAccountsTable;
   'galaxy.gacha_state': GachaStateTable;
   'galaxy.gacha_pulls': GachaPullsTable;
+  'galaxy.hangars': HangarsTable;
+  'galaxy.loadouts': LoadoutsTable;
+  'galaxy.runs': RunsTable;
+  'galaxy.run_inputs': RunInputsTable;
+  'galaxy.run_days': RunDaysTable;
 }
