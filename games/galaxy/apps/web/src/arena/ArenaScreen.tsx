@@ -129,7 +129,7 @@ export function ArenaScreen({
   useEffect(() => {
     let disposed = false;
     const onEvents = (events: readonly SimEvent[]) => {
-      stageRef.current?.feed(events);
+      stageRef.current?.feed(events, sim.tick);
       playEvents(events);
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);

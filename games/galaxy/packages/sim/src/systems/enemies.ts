@@ -392,6 +392,16 @@ function tend(sim: Sim, e: number, effect: 'heal' | 'shield', amount: number, ra
   sim.events.push({ t: 'support', x, y, range, effect });
 }
 
+/**
+ * A frozen or hacked enemy drops the strike it was winding up: its warning ran on and is gone, so the strike has to be
+ * warned again (GDD §5.5, §17.3: nothing hits without a warning on screen).
+ */
+function dropWindup(en: Sim['enemies'], e: number): void {
+  if (en.state[e] === STATE.move) return;
+  en.state[e] = STATE.move;
+  en.timer[e] = 0;
+}
+
 /** Moves every non-boss enemy one tick (bosses: systems/boss.ts). */
 export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void): void {
   const en = sim.enemies;
@@ -412,9 +422,14 @@ export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void)
     }
     if (en.freezeT[e]! > 0) {
       en.freezeT[e] = en.freezeT[e]! - 1;
+      dropWindup(en, e);
       continue;
     }
-    if (en.hackT[e]! > 0) continue; // hacked: systems/elements.ts drives it
+    if (en.hackT[e]! > 0) {
+      // Hacked: systems/elements.ts drives it.
+      dropWindup(en, e);
+      continue;
+    }
     const target = nearestProbe(sim, en.x[e]!, en.y[e]!);
     if (!target) continue;
     const ddx = target.x - en.x[e]!;

@@ -224,6 +224,45 @@ describe('lancer', () => {
   });
 });
 
+describe('avisos y estados', () => {
+  /** Steps `n` ticks and tells whether a bullet ever appeared before a lance warning of this run of ticks. */
+  const shotsAfterWarning = (sim: Sim, n: number) => {
+    let warned = false;
+    let unwarned = false;
+    for (let k = 0; k < n; k++) {
+      const before = liveShots(sim);
+      step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
+      if (sim.events.some((v) => v.t === 'telegraph' && v.kind === 'lance')) warned = true;
+      if (liveShots(sim) > before && !warned) unwarned = true;
+    }
+    return { warned, unwarned };
+  };
+
+  test('un lancero congelado a mitad de su aviso lo cancela, y no dispara sin un aviso nuevo', () => {
+    const sim = world();
+    const e = spawnEnemy(sim, def(sim, 'lancer'), 150, 0);
+    run(sim, 20);
+    expect(sim.enemies.state[e]).toBe(STATE.aim);
+    sim.enemies.freezeT[e] = 60;
+    run(sim, 1);
+    expect(sim.enemies.state[e]).toBe(STATE.move);
+    // From the freeze on: its shot only after a fresh warning.
+    const after = shotsAfterWarning(sim, 60 + ticks(3));
+    expect(after.unwarned).toBe(false);
+    expect(after.warned).toBe(true);
+  });
+
+  test('un saltador hackeado a mitad de su aviso lo cancela y no salta a la marca vieja', () => {
+    const sim = world();
+    const e = spawnEnemy(sim, def(sim, 'blinker'), 150, 0);
+    run(sim, 2);
+    expect(sim.enemies.state[e]).toBe(STATE.aim);
+    sim.enemies.hackT[e] = 30;
+    run(sim, 1);
+    expect(sim.enemies.state[e]).toBe(STATE.move);
+  });
+});
+
 describe('armored con debilidad', () => {
   test('el elemento débil atraviesa el blindaje de frente; sin elemento, no', () => {
     const sim = world();

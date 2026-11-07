@@ -197,6 +197,8 @@ export function updateBoss(sim: Sim): void {
   // Stunned (a reaction): no movement, no patterns, the clocks stand still.
   if (en.freezeT[e]! > 0) {
     en.freezeT[e] = en.freezeT[e]! - 1;
+    // A charge being wound up is dropped: its warning runs on without it (a blink, already away, is never stunned).
+    if (b.active?.kind === 'windup') b.active = null;
     return;
   }
 

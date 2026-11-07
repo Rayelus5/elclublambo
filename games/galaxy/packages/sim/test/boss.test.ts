@@ -202,6 +202,16 @@ describe('patrones nuevos', () => {
   });
 });
 
+test('un Núcleo aturdido durante el aviso de su embestida la cancela: no embiste sin un aviso nuevo', () => {
+  const sim = withPattern({ kind: 'charge', windup: 0.9, dashSpeed: 300, dashTime: 0.6, damage: 24 });
+  const b = sim.boss!;
+  untilFired(sim, (s) => s.events.some((e) => e.t === 'telegraph' && e.kind === 'charge'));
+  expect(sim.boss!.active?.kind).toBe('windup');
+  sim.enemies.freezeT[b.index] = 15;
+  step(sim, [IDLE]);
+  expect(sim.boss!.active).toBeNull();
+});
+
 describe('Núcleo profundo', () => {
   const deep = (c: Content) => {
     c.bosses.push({ ...structuredClone(c.bosses[0]!), id: 'deep', name: 'El Eco Profundo', title: 'Núcleo abisal' });

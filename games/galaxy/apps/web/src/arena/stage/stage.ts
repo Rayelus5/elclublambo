@@ -6,6 +6,7 @@ import { type Camera, cameraFor } from './camera';
 import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
+import { type Warning, warningFrom, warningProgress } from './warnings';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
@@ -28,8 +29,8 @@ export interface StageOptions {
 export interface Stage {
   readonly app: Application;
   render(sim: Sim, alpha: number): void;
-  /** The events of one simulation step (call once per step, in order). */
-  feed(events: readonly SimEvent[]): void;
+  /** The events of one simulation step (call once per step, in order), with its tick (default: the last drawn). */
+  feed(events: readonly SimEvent[], tick?: number): void;
   resize(w: number, h: number): void;
   camera(): Camera | null;
   destroy(): void;
@@ -56,16 +57,6 @@ const STEP_RAD = (Math.PI * 2) / 4096;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
-
-interface Warning {
-  kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink';
-  x: number;
-  y: number;
-  angle: number;
-  radius: number;
-  left: number;
-  total: number;
-}
 
 /** Sprites kept per slot of a pool, made on demand and hidden when the slot is free. */
 class SpritePool {
@@ -195,6 +186,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   const fx = createFx(opts.reduced);
   const warns: Warning[] = [];
+  /** The simulation tick of the last frame drawn (feeds without a tick use it). */
+  let lastTick = 0;
   let hurtAlpha = 0;
   let last = performance.now();
   let clock = 0;
@@ -339,16 +332,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
-  function drawWarnings(dt: number): void {
+  /** `now`: simulation time in ticks, with the frame's fraction (warnings wait while the simulation stops). */
+  function drawWarnings(now: number): void {
     warnings.clear();
     for (let i = warns.length - 1; i >= 0; i--) {
       const wv = warns[i]!;
-      wv.left -= dt;
-      if (wv.left <= 0) {
+      const k = warningProgress(wv, now);
+      if (k === null) {
         warns.splice(i, 1);
         continue;
       }
-      const k = 1 - wv.left / wv.total;
       const pulse = opts.reduced ? 0.4 : 0.3 + 0.2 * Math.sin(clock * 18);
       // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands.
       if (wv.kind === 'charge' || wv.kind === 'lance') {
@@ -622,7 +615,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   return {
     app,
-    feed(events) {
+    feed(events, tick = lastTick) {
       for (const e of events) {
         switch (e.t) {
           case 'hit':
@@ -637,7 +630,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             hurtAlpha = opts.reduced ? 0.25 : 0.45;
             break;
           case 'telegraph':
-            warns.push({ kind: e.kind, x: e.x, y: e.y, angle: e.angle, radius: e.radius, left: e.ticks / 60, total: e.ticks / 60 });
+            warns.push(warningFrom(e, tick));
             break;
           case 'support':
             // A healer's pulse in Terminal green, a corruptor's in lilac.
@@ -701,7 +694,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       syncChunks(c);
       drawAreas(sim);
-      drawWarnings(dt);
+      lastTick = sim.tick;
+      drawWarnings(sim.tick + alpha);
       drawEnemies(sim, alpha);
       drawPickups(sim, alpha);
       drawShots(sim, alpha);
