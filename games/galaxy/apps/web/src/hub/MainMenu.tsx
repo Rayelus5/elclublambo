@@ -102,7 +102,11 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
         <Tile icon="probe" title={copy.hub.probes} color="var(--color-terminal)" d="1.14s" />
         <Tile icon="trophy" title={copy.hub.achievements} color="var(--color-solar)" d="1.18s" />
         <Tile icon="clan" title={copy.hub.clan} color="var(--color-uv-soft)" d="1.22s" />
-        <Tile icon="podium" title={copy.hub.ranking} color="var(--color-nova)" d="1.26s" />
+        <Link to="/clasificacion" className="lip panel tile enter" style={style({ '--d': '1.26s', '--c': 'var(--color-nova)' })}>
+          <Icon name="podium" />
+          <b>{copy.hub.ranking}</b>
+          <span className="sub">{copy.social.rankingTile}</span>
+        </Link>
         <Tile icon="book" title={copy.hub.codex} color="var(--color-solar-2)" d="1.3s" />
       </div>
 

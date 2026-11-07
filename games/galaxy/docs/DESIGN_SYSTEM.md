@@ -429,6 +429,58 @@ El autocompletado de nombres no se hizo: listaría usuarios a cualquiera.
   - Un nombre sin planetario dice «No hay ningún planetario con ese nombre».
 - **En la colección:** una galaxia expuesta lleva «Expuesta». No se desintegra (el botón está desactivado y su descripción dice por qué) ni se elige para fusionar.
 
+## 8 undecies. Temporada, clasificación y perfiles
+
+La temporada se ve desde el inicio y tiene su clasificación. Cada jugador tiene un perfil público con su colección (GDD §4, §12.1, §14.1 y §14.2; M5a).
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Enlaces profundos:** la pestaña va en la dirección (`/clasificacion?pestana=profundidad`), así que una vista se puede compartir.
+- **Estado activo visible:** la pestaña actual, tu fila y tu tramo se marcan.
+- **Teclado completo con el foco visible.** Las pestañas son enlaces del patrón `.tabs` (`aria-current="page"`), no un `tablist`: no hay flechas que aprender.
+
+**Los emblemas de los tramos:**
+- Son cinco escenas de Aseprite de 32×32 en cuatro fotogramas (`art/seasons/paint-tiers.lua`), cada una más rica que la anterior:
+  - **Bronce:** un escudo heráldico con su borde y un chevrón;
+  - **Plata:** el escudo con alas y un chevrón doble;
+  - **Oro:** una estrella biselada con una gema;
+  - **Platino:** un cristal tallado que destella;
+  - **Estelar:** un medallón coronado con una galaxia espiral que gira.
+- Un brillo recorre cada uno. Se pintan a ×1,5 o ×2 y se quedan quietos con movimiento reducido.
+- Son decorativos: el nombre del tramo va siempre al lado.
+
+**El inicio:** la columna derecha es la temporada (§7), con cabecera Nova y el nombre de la temporada y los días que quedan. Debajo:
+- el podio con los tres primeros;
+- «Tu puesto», con el emblema y el nombre de tu tramo y «Te faltan 1395 puntos para Plata»;
+- los jugadores;
+- «Ver clasificación completa».
+
+Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ranking» lleva a la clasificación, y el avatar de la barra superior lleva a tu perfil y dice tu nivel en Terminal.
+
+**La clasificación:**
+- **Pestañas:** General (puntos), Profundidad (la capa más honda de la temporada) y Purgas (los Núcleos). Clanes está desactivada con «Llega con los clanes».
+- **El podio:** el primero en el medio y más alto, el segundo a la izquierda y el tercero a la derecha. Cada escalón va en su metal (oro, plata, bronce) y cada nombre lleva a su perfil. En el código el orden es 1, 2, 3, para los lectores de pantalla.
+- **La tabla** sigue desde el cuarto, con puesto, jugador con su avatar, nivel y valor (las cifras alineadas a la derecha).
+  - Tu fila va resaltada en Hielo con «Tú».
+  - Fuera de la tabla, tu fila se fija debajo con el borde Hielo («Tu puesto»).
+  - Los empates comparten puesto.
+- **Al lado:** la temporada (nombre, «Quedan 36 días» en Nova y los jugadores) y los tramos con su emblema y desde cuántos puntos. El tuyo lleva «Tu tramo».
+
+**El perfil** (`/perfil/<nombre>`):
+- avatar grande, nombre, nivel y «Miembro desde noviembre de 2026»;
+- cuatro paneles:
+  - **Esta temporada:** el tramo con su emblema, puntos, puesto, capa, Núcleos y extracciones;
+  - **Récords;**
+  - **Colección:** el recuento por rareza y «Ver su colección»;
+  - **Planetario:** la portada, el prestigio y «Visitar su planetario».
+- Un nombre sin jugador dice «No hay ningún jugador con ese nombre».
+
+**La colección pública** (`/perfil/<nombre>/coleccion`): las cartas sin acciones, con los filtros por rareza (con su recuento) y «Cargar más».
+
+**Los resultados de una incursión:** una franja con:
+- «+200 de experiencia» en Terminal;
+- el nivel, con «Subes de nivel» en Solar si sube (con un pequeño salto que se queda quieto con movimiento reducido);
+- «+95 puntos de temporada» en Nova, si los hay.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

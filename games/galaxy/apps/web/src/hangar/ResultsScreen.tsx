@@ -69,6 +69,14 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
           <dd>{copy.arena.levelShort(r.level)}</dd>
         </div>
       </dl>
+      <section className="lip panel results-progress" aria-label={copy.social.progressTitle}>
+        <span className="results-xp">{copy.social.xp(r.progress.xp)}</span>
+        <span className={`results-level${r.progress.levelUp ? ' up' : ''}`}>
+          {copy.social.level(r.progress.level)}
+          {r.progress.levelUp ? <b>{copy.social.levelUp}</b> : null}
+        </span>
+        {r.progress.points > 0 ? <span className="results-points">{copy.social.points(r.progress.points)}</span> : null}
+      </section>
       <section className="lip panel results-loot" aria-label={copy.results.loot}>
         <h2>{copy.results.loot}</h2>
         <table>

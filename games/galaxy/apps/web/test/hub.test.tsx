@@ -1,4 +1,4 @@
-import type { CollectionPage, GachaView, MeResponse } from '@galaxy/shared';
+import type { CollectionPage, GachaView, Leaderboard, MeResponse } from '@galaxy/shared';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -10,7 +10,7 @@ import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 // that does not exist yet visible but locked («En desarrollo»).
 afterEach(() => vi.unstubAllGlobals());
 
-const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false };
+const me: MeResponse = { id: 'a1', username: 'sonda_rayo', roles: [], mfa: false, level: 3 };
 const view = (free: boolean): GachaView => ({
   banners: [
     {
@@ -46,10 +46,24 @@ const page: CollectionPage = {
   fusion: { count: 5, dust: [20, 50, 120, 300] },
 };
 
-function api(free = true) {
+const board: Leaderboard = {
+  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-01T00:00:00.000Z', endsAt: new Date(Date.now() + 5 * 86_400_000 + 3_600_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
+  tab: 'general',
+  rows: [
+    { rank: 1, username: 'vega', level: 12, value: 9000 },
+    { rank: 2, username: 'lyra', level: 8, value: 4100 },
+    { rank: 3, username: 'deneb', level: 6, value: 2400 },
+    { rank: 4, username: 'rigel', level: 4, value: 900 },
+  ],
+  me: { rank: 9, username: 'sonda_rayo', level: 3, value: 640 },
+  total: 40,
+};
+
+function api(free = true, season: Leaderboard = board) {
   return mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(free)),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, season),
     'POST /galaxy/api/auth/logout': () => jsonResponse(204),
   });
 }
@@ -80,7 +94,7 @@ test('lo que aún no existe se ve bloqueado con «En desarrollo»', async () => 
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex]) {
+  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex, copy.hub.clan]) {
     const button = screen.getByRole('button', { name: new RegExp(name) });
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent(copy.hub.soon);
@@ -92,7 +106,6 @@ test('la colección muestra cuántas galaxias tienes y lleva a /coleccion', asyn
   renderAt('/', { '/': <TitleScreen me={me} /> });
   const tile = await screen.findByRole('link', { name: new RegExp(copy.hub.collection) });
   expect(await within(tile).findByText(copy.hub.galaxies(6))).toBeInTheDocument();
-  expect(screen.getByRole('complementary', { name: copy.hub.summaryTitle })).toHaveTextContent('Kathra');
   await userEvent.setup().click(tile);
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/coleccion');
 });
@@ -123,4 +136,38 @@ test('Jugar y Supervivencia llevan al hangar de las incursiones', async () => {
     expect(link).toHaveAttribute('href', '/incursion');
     expect(link).not.toHaveTextContent(copy.hub.soon);
   }
+});
+
+test('la columna derecha es la temporada: los tres primeros, tu puesto, tu tramo y la clasificación completa (M5a)', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const season = await screen.findByRole('complementary', { name: 'Temporada 1' });
+  const top = await within(season).findByRole('list', { name: copy.social.podium });
+  expect(within(top).getAllByRole('listitem')).toHaveLength(3);
+  expect(within(top).getByRole('link', { name: /vega/ })).toHaveAttribute('href', '/perfil/vega');
+  expect(season).toHaveTextContent(copy.social.endsIn(6));
+  const mine = within(season).getByRole('region', { name: copy.social.yourRow });
+  expect(mine).toHaveTextContent('9');
+  expect(mine).toHaveTextContent(copy.social.value.general(640));
+  expect(mine).toHaveTextContent(copy.social.tier.bronze);
+  expect(mine).toHaveTextContent(copy.social.toNext(1360, copy.social.tier.silver));
+  expect(within(season).getByRole('link', { name: copy.social.seeAll })).toHaveAttribute('href', '/clasificacion');
+});
+
+test('sin temporada abierta la columna lo dice', async () => {
+  api(true, { season: null, tab: 'general', rows: [], me: null, total: 0 });
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  expect(await screen.findByText(copy.errors.season_closed)).toBeInTheDocument();
+});
+
+test('el mosaico Ranking lleva a la clasificación y tu avatar a tu perfil con tu nivel (M5a)', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  await screen.findByLabelText(copy.hub.resource.coins(1250));
+  const ranking = screen.getByRole('link', { name: new RegExp(copy.hub.ranking) });
+  expect(ranking).toHaveAttribute('href', '/clasificacion');
+  expect(ranking).not.toHaveTextContent(copy.hub.soon);
+  const profile = screen.getByRole('link', { name: copy.social.myProfile(3) });
+  expect(profile).toHaveAttribute('href', '/perfil/sonda_rayo');
+  expect(profile).toHaveTextContent(copy.social.level(3));
 });

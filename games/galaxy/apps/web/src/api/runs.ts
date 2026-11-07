@@ -3,6 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
 import { clearPending, type PendingRun } from './pending-run';
+import { ME_KEY } from '../auth/useMe';
+import { LEADERBOARD_KEY, PROFILE_KEY } from './social';
 
 // The hangar and the runs as the client sees them (GDD §5.1, §11.3 bis). Starting a run is one intent (one key until
 // it is answered); finishing one carries the key saved with the pending result, so a retry is always the same request.
@@ -123,6 +125,10 @@ export function useFinishRun() {
       qc.setQueryData<GachaView>(GACHA_KEY, (old) => (old ? { ...old, wallet: r.wallet } : old));
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
       void qc.invalidateQueries({ queryKey: HANGAR_KEY });
+      // The account level (top bar) and the season (leaderboard, profiles) move with every run (M5a).
+      void qc.invalidateQueries({ queryKey: ME_KEY });
+      void qc.invalidateQueries({ queryKey: LEADERBOARD_KEY });
+      void qc.invalidateQueries({ queryKey: PROFILE_KEY });
     },
   });
 }
