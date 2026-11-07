@@ -47,3 +47,13 @@ test('grant rechaza monedas desconocidas, cantidades no enteras, cuentas que no 
   expect((await cli(['grant', 'nadie_existe_x', 'coins', '10', '--reason', 'x'])).code).toBe(1);
   expect((await cli(['grant', username, 'coins', '10'])).code).toBe(1);
 });
+
+test('grant también abona material en bruto y componentes (M4a), para probar la estación en PRE', async () => {
+  const username = uniqueName('grant');
+  const { id } = await registerAccount(ctx.db, { username, password: 'una-clave-larga' });
+  expect((await cli(['grant', username, 'material', '60', '--reason', 'estación'])).code).toBe(0);
+  expect((await cli(['grant', username, 'components', '30', '--reason', 'estación'])).code).toBe(0);
+  const wallet = await getWallet(ctx.db, id);
+  expect(wallet['material']).toBe(60);
+  expect(wallet['components']).toBe(30);
+});

@@ -21,10 +21,13 @@ export const TRAIT_KEYS = [
 ] as const;
 export type FeaturedTrait = (typeof TRAIT_KEYS)[number];
 
-/** Coins, star dust, galaxy signals (tickets) and event signals (`signal:<group>`, only valid on their banners). */
+/**
+ * Coins, star dust, galaxy signals (tickets), event signals (`signal:<group>`, only valid on their banners), and the
+ * station's raw material and components (M4a).
+ */
 export type Currency = 'coins' | 'dust' | 'signal' | `signal:${string}` | 'material' | 'components';
 export const currencySchema = z.union([
-  z.enum(['coins', 'dust', 'signal']),
+  z.enum(['coins', 'dust', 'signal', 'material', 'components']),
   z.string().regex(/^signal:[a-z0-9-]{1,32}$/) as z.ZodType<`signal:${string}`>,
 ]);
 

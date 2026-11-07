@@ -167,7 +167,7 @@ async function grant(args: string[], deps: CliDeps): Promise<number> {
     return usage(deps.out, 'Uso: grant <usuario> <moneda> <cantidad entera distinta de 0> --reason <motivo>');
   }
   if (!currencySchema.safeParse(currency).success) {
-    deps.out(`Moneda desconocida: ${currency} (coins, dust, signal o signal:<grupo>)`);
+    deps.out(`Moneda desconocida: ${currency} (coins, dust, signal, signal:<grupo>, material o components)`);
     return 1;
   }
   const account = await findAccountByUsername(deps.db, name);
