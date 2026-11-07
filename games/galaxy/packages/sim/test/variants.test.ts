@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
-import { applyOffer, baseOf, contentSchema, createSim, DEFAULT_CONTENT, offerFor, type WeaponDef } from '../src/index';
+import { applyOffer, baseOf, contentSchema, createSim, DEFAULT_CONTENT, offerFor } from '../src/index';
 import { options, quietSim } from './fixtures';
+import { crowd, proving } from './proving';
 
 // Starting-weapon variants and level bonuses (GDD §6, M4b-1): each probe's weapon has two variants that open at levels 4
 // and 8, sidegrades of their base; the probe starts the run with the one chosen, and its level's bonuses are one more
@@ -8,11 +9,6 @@ import { options, quietSim } from './fixtures';
 
 const C = DEFAULT_CONTENT;
 const byId = (id: string) => C.weapons.find((w) => w.id === id)!;
-/** Nominal damage per second at the weapon's last level. */
-const dps = (w: WeaponDef) => {
-  const l = w.levels[w.levels.length - 1]!;
-  return (l.damage * Math.max(l.count, 1)) / l.cooldown;
-};
 
 describe('el catálogo', () => {
   test('cada arma inicial tiene dos variantes, en los niveles 4 y 8', () => {
@@ -23,12 +19,24 @@ describe('el catálogo', () => {
     expect(C.weapons.filter((w) => w.variant)).toHaveLength(16);
   });
 
-  test('una variante rinde parecido a su base', () => {
+  test('una variante rinde parecido a su base, medido en la simulación (anillos y multitud)', () => {
+    // Measured, not nominal (M4b-1 final review): what a field does with its cooldown (turrets) or with a wider area
+    // (more enemies caught) only shows when the weapon plays. Each at its last level on both proving grounds.
+    const top = (id: string) => ({ weapons: [{ id, level: byId(id).levels.length }], passives: [], relics: [] });
     for (const v of C.weapons.filter((w) => w.variant)) {
-      const ratio = dps(v) / dps(byId(v.variant!.of));
-      expect(ratio, v.id).toBeGreaterThanOrEqual(0.75);
-      expect(ratio, v.id).toBeLessThanOrEqual(1.15);
+      const base = v.variant!.of;
+      const rings = proving(C, top(v.id), 20) / proving(C, top(base), 20);
+      const many = crowd(C, top(v.id), 20) / crowd(C, top(base), 20);
+      for (const [ground, ratio] of [['anillos', rings], ['multitud', many]] as const) {
+        expect(ratio, `${v.id} ${ground}`).toBeGreaterThanOrEqual(0.75);
+        expect(ratio, `${v.id} ${ground}`).toBeLessThanOrEqual(1.25);
+      }
     }
+  }, 120_000);
+
+  test('una variante no cambia lo que su tipo de arma no usa (los discos no perforan)', () => {
+    const breach = byId('boomerang-breach');
+    breach.levels.forEach((l, i) => expect(l.pierce, `nivel ${i + 1}`).toBe(byId('boomerang').levels[i]!.pierce));
   });
 
   test('baseOf lleva de la variante a su base y deja igual lo demás', () => {

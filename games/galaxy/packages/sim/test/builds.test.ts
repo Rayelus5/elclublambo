@@ -1,6 +1,7 @@
 import { drawTraits, subRng } from '@galaxy/engine';
 import { describe, expect, test } from 'vitest';
-import { baseOf, botPick, type Content, createSim, DEFAULT_CONTENT, deriveStats, type Offer, refreshStats, type RelicInput, Rng, spawnEnemy, type StatBonus, step } from '../src/index';
+import { baseOf, createSim, DEFAULT_CONTENT, deriveStats, Rng } from '../src/index';
+import { type Build, crowd, proving, VETERAN } from './proving';
 
 // The build simulation of GDD §8.6: before each version, thousands of random builds plus the extreme ones are played
 // on a proving ground; none may pass the damage ceiling or break a cap. The brakes stop a build from breaking the
@@ -22,25 +23,10 @@ const RANDOM_SPREAD = 12;
  */
 const CROWD_DPS_CEILING = 1_750_000;
 
-export interface Build {
-  weapons: { id: string; level: number }[];
-  passives: { id: string; level: number }[];
-  relics: RelicInput[];
-}
-
 const base = DEFAULT_CONTENT.weapons.filter((w) => !w.evolution);
 const evolutions = DEFAULT_CONTENT.weapons.filter((w) => w.evolution);
 /** A weapon's root: an evolution's base, a variant's base (M4b-1), or itself — one weapon per root in a build. */
 const rootOf = (id: string) => baseOf(DEFAULT_CONTENT, DEFAULT_CONTENT.weapons.find((d) => d.id === id)?.evolution?.from ?? id);
-
-/**
- * Every build plays with a level-10 probe (M4b-1): the default bonuses of `probes.levels` in @galaxy/shared (its tests
- * pin that they are these), so the ceilings hold for the strongest probe the player can have.
- */
-export const VETERAN: StatBonus[] = [
-  { stat: 'maxHp', value: 0.27 },
-  { stat: 'damage', value: 0.18 },
-];
 
 /** Random builds from a seeded stream: 1–6 weapons (a quarter of them evolved), 0–6 passives, 2 random relics. */
 export function randomBuild(k: number): Build {
@@ -83,57 +69,6 @@ export function extremeBuilds(): Build[] {
       traits: { galaxy_type: type, arms: '6', size: 'colossal', core: 'quasar', star_density: 'saturated', palette: 'solar_gold', background: 'cmb', phenomenon: 'supernova', inclination: 'face_on' },
     })),
   }));
-}
-
-/** Damage per second of a build on the proving ground: rings of sturdy, still posts around a probe that never dies. */
-export function proving(content: Content, build: Build, seconds: number): number {
-  const c = structuredClone(content);
-  const s = c.sectors[0]!;
-  s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
-  s.waves = [];
-  s.layerSeconds = 100_000;
-  c.enemies.push({ ...c.enemies[0]!, id: 'post', hp: 1e9, speed: 0, xp: 0 });
-  const post = c.enemies[c.enemies.length - 1]!;
-  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
-  const p = sim.probes[0]!;
-  p.weapons = build.weapons.map((w) => ({ ...w, t: 0 }));
-  p.passives = build.passives.map((x) => ({ ...x }));
-  refreshStats(sim, p);
-  for (let r = 1; r <= 4; r++) for (let k = 0; k < 8; k++) spawnEnemy(sim, post, Math.cos((k * Math.PI) / 4) * r * 45, Math.sin((k * Math.PI) / 4) * r * 45);
-  p.hp = 1e12;
-  let dealt = 0;
-  for (let t = 0; t < seconds * 60; t++) {
-    step(sim, [{ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer as Offer[]) : -1 }]);
-    for (const e of sim.events) if (e.t === 'hit') dealt += e.amount;
-  }
-  return dealt / seconds;
-}
-
-/**
- * Damage per second against a dense crowd: a 9 × 9 block of sturdy posts 18 units apart in front of the probe. It
- * shows what the rings miss: lines and areas over many enemies, reactions and chains spreading through a crowd.
- */
-export function crowd(content: Content, build: Build, seconds: number): number {
-  const c = structuredClone(content);
-  const s = c.sectors[0]!;
-  s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
-  s.waves = [];
-  s.layerSeconds = 100_000;
-  c.enemies.push({ ...c.enemies[0]!, id: 'post', hp: 1e9, speed: 0, xp: 0 });
-  const post = c.enemies[c.enemies.length - 1]!;
-  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
-  const p = sim.probes[0]!;
-  p.weapons = build.weapons.map((w) => ({ ...w, t: 0 }));
-  p.passives = build.passives.map((x) => ({ ...x }));
-  refreshStats(sim, p);
-  for (let gx = 0; gx < 9; gx++) for (let gy = 0; gy < 9; gy++) spawnEnemy(sim, post, 40 + gx * 18, (gy - 4) * 18);
-  p.hp = 1e12;
-  let dealt = 0;
-  for (let t = 0; t < seconds * 60; t++) {
-    step(sim, [{ mx: 0, my: 0, aim: 0, pick: p.offer ? botPick(p.offer as Offer[]) : -1 }]);
-    for (const e of sim.events) if (e.t === 'hit') dealt += e.amount;
-  }
-  return dealt / seconds;
 }
 
 function capsHold(build: Build): void {

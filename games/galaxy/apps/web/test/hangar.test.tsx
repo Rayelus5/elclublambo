@@ -489,6 +489,23 @@ describe('el nivel de la sonda y su arma inicial (M4b-1)', () => {
     expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  test('una subida rechazada (otra pestaña ya subió) dice el error y refresca el Hangar con el nivel de verdad', async () => {
+    const { gacha } = at(3);
+    let views = 0;
+    mockApi({
+      // The first view is stale (level 3); the server already has level 4.
+      'GET /galaxy/api/hangar': () => jsonResponse(200, (views++ === 0 ? at(3) : at(4)).hangar),
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'POST /galaxy/api/hangar/probes/lumen/level-up': () => jsonResponse(409, { error: 'probe_changed' }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
+    await waitFor(() => expect(up).toBeEnabled());
+    fireEvent.click(up);
+    expect(await screen.findByText(copy.errors.probe_changed)).toBeInTheDocument();
+    expect(await screen.findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
+  });
+
   test('al nivel 10 dice Nivel máximo y no ofrece subir', async () => {
     const { hangar, gacha } = at(10);
     mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });

@@ -137,6 +137,8 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Las cuentas de antes no tienen filas: salen en el nivel 1 con su arma base.
 
+   Si alguien hubiera guardado la clave `content` con el esquema de M4a, sigue validando (`variant` es opcional), pero no traería las 16 variantes: los niveles 4 y 8 no abrirían nada y no saldría ningún aviso. Mira si `galaxy.game_config_active` tiene una versión de `content` y, si la tiene, vuelve a publicarla desde el valor por defecto.
+
 ## Operación
 
 | Tarea | Cómo |

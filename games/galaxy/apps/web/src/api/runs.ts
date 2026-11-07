@@ -56,6 +56,11 @@ export function useLevelUpProbe() {
       qc.setQueryData(HANGAR_KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
     },
+    // A refusal (another tab levelled it, the wallet changed) brings the real level and balance, so the next click is right.
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: HANGAR_KEY });
+      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+    },
     onSettled: (_r, error, v) => endIntent(intent(v), error),
   });
 }
@@ -66,6 +71,7 @@ export function useChooseVariant() {
   return useMutation({
     mutationFn: (v: { probe: string; variant: string }) => api<HangarView>(`/hangar/probes/${v.probe}/variant`, { method: 'PUT', body: { variant: v.variant } }),
     onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+    onError: () => void qc.invalidateQueries({ queryKey: HANGAR_KEY }),
   });
 }
 

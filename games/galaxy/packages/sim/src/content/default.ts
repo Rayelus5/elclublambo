@@ -1384,6 +1384,8 @@ interface VariantSpec {
   element?: ElementId;
   damage?: number;
   cooldown?: number;
+  /** The fire interval of what a weapon places (turrets fire every `interval`; their cooldown only re-places them). */
+  interval?: number;
   area?: number;
   bounces?: number;
   pierce?: number;
@@ -1397,6 +1399,7 @@ function variantOf(base: WeaponDef, s: VariantSpec): WeaponDef {
       ...l,
       damage: l.damage * twin * (s.damage ?? 1),
       cooldown: l.cooldown * (s.cooldown ?? 1),
+      interval: l.interval * (s.interval ?? 1),
       count: s.twin ? count + 1 : l.count,
       area: l.area * (s.area ?? 1),
       bounces: l.bounces + (s.bounces ?? 0),
@@ -1419,7 +1422,7 @@ function variantOf(base: WeaponDef, s: VariantSpec): WeaponDef {
 const VARIANTS: [string, VariantSpec][] = [
   ['pulse', { id: 'pulse-twin', name: 'Pulso doble', description: 'Dos rayos a la vez, cada uno más flojo', unlockAt: 4, twin: true }],
   ['pulse', { id: 'pulse-frost', name: 'Pulso gélido', description: 'Cada rayo ralentiza lo que toca', unlockAt: 8, element: 'slow', damage: 0.85 }],
-  ['nova', { id: 'nova-wide', name: 'Onda amplia', description: 'Llega más lejos y tarda más en volver', unlockAt: 4, area: 1.35, cooldown: 1.2 }],
+  ['nova', { id: 'nova-wide', name: 'Onda amplia', description: 'Llega más lejos, más flojo y más despacio', unlockAt: 4, area: 1.35, cooldown: 1.2, damage: 0.7 }],
   ['nova', { id: 'nova-ember', name: 'Onda ígnea', description: 'La onda deja ardiendo a quien alcanza', unlockAt: 8, element: 'burn', damage: 0.85 }],
   ['arc', { id: 'arc-chain', name: 'Arco encadenado', description: 'Salta a dos enemigos más, con menos fuerza', unlockAt: 4, bounces: 2, damage: 0.75 }],
   ['arc', { id: 'arc-shock', name: 'Arco eléctrico', description: 'Cada salto electrocuta', unlockAt: 8, element: 'shock', damage: 0.85 }],
@@ -1427,11 +1430,11 @@ const VARIANTS: [string, VariantSpec][] = [
   ['drone', { id: 'drone-leech', name: 'Dron vampiro', description: 'Sus disparos te devuelven vida', unlockAt: 8, element: 'leech', damage: 0.85 }],
   ['field', { id: 'field-wide', name: 'Pozo amplio', description: 'Atrapa una zona mayor, con menos fuerza', unlockAt: 4, area: 1.3, damage: 0.8 }],
   ['field', { id: 'field-corrosion', name: 'Pozo corrosivo', description: 'Corroe el blindaje de lo que atrapa', unlockAt: 8, element: 'corrosion', damage: 0.85 }],
-  ['beam', { id: 'beam-split', name: 'Rayo partido', description: 'Dos rayos que se reparten el daño', unlockAt: 4, twin: true }],
+  ['beam', { id: 'beam-split', name: 'Rayo partido', description: 'Dos rayos a dos enemigos distintos, cada uno más flojo', unlockAt: 4, twin: true }],
   ['beam', { id: 'beam-prism', name: 'Rayo prismático', description: 'Cambia de elemento a cada golpe', unlockAt: 8, element: 'prism', damage: 0.85 }],
   ['boomerang', { id: 'boomerang-twin', name: 'Disco gemelo', description: 'Dos discos que se reparten el daño', unlockAt: 4, twin: true }],
-  ['boomerang', { id: 'boomerang-breach', name: 'Disco perforante', description: 'Atraviesa a dos enemigos más y abre brechas', unlockAt: 8, element: 'breach', pierce: 2, damage: 0.8 }],
-  ['turret', { id: 'turret-rapid', name: 'Torreta rápida', description: 'Dispara más a menudo, más flojo', unlockAt: 4, cooldown: 0.65, damage: 0.65 }],
+  ['boomerang', { id: 'boomerang-breach', name: 'Disco de brecha', description: 'Cada corte abre brechas en el blindaje', unlockAt: 8, element: 'breach', damage: 0.85 }],
+  ['turret', { id: 'turret-rapid', name: 'Torreta rápida', description: 'Dispara más a menudo, más flojo', unlockAt: 4, interval: 0.65, damage: 0.65 }],
   ['turret', { id: 'turret-hack', name: 'Torreta pirata', description: 'Sus disparos hackean a los enemigos', unlockAt: 8, element: 'hack', damage: 0.85 }],
 ];
 
