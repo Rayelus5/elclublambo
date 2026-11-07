@@ -122,8 +122,8 @@ describe('evoluciones', () => {
     }
   });
 
-  test('el contenido trae 16 armas y una evolución para cada una', () => {
-    const base = sim0().content.weapons.filter((w) => !w.evolution && w.id !== 'dud');
+  test('el contenido trae 16 armas y una evolución para cada una (las variantes de M4b-1 aparte)', () => {
+    const base = sim0().content.weapons.filter((w) => !w.evolution && !w.variant && w.id !== 'dud');
     const evos = sim0().content.weapons.filter((w) => w.evolution);
     expect(base).toHaveLength(16);
     expect(evos).toHaveLength(16);

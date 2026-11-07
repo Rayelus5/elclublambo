@@ -1,6 +1,6 @@
 import { drawTraits, subRng } from '@galaxy/engine';
 import { describe, expect, test } from 'vitest';
-import { botPick, type Content, createSim, DEFAULT_CONTENT, deriveStats, type Offer, refreshStats, type RelicInput, Rng, spawnEnemy, step } from '../src/index';
+import { baseOf, botPick, type Content, createSim, DEFAULT_CONTENT, deriveStats, type Offer, refreshStats, type RelicInput, Rng, spawnEnemy, type StatBonus, step } from '../src/index';
 
 // The build simulation of GDD §8.6: before each version, thousands of random builds plus the extreme ones are played
 // on a proving ground; none may pass the damage ceiling or break a cap. The brakes stop a build from breaking the
@@ -30,6 +30,17 @@ export interface Build {
 
 const base = DEFAULT_CONTENT.weapons.filter((w) => !w.evolution);
 const evolutions = DEFAULT_CONTENT.weapons.filter((w) => w.evolution);
+/** A weapon's root: an evolution's base, a variant's base (M4b-1), or itself — one weapon per root in a build. */
+const rootOf = (id: string) => baseOf(DEFAULT_CONTENT, DEFAULT_CONTENT.weapons.find((d) => d.id === id)?.evolution?.from ?? id);
+
+/**
+ * Every build plays with a level-10 probe (M4b-1): the default bonuses of `probes.levels` in @galaxy/shared (its tests
+ * pin that they are these), so the ceilings hold for the strongest probe the player can have.
+ */
+export const VETERAN: StatBonus[] = [
+  { stat: 'maxHp', value: 0.27 },
+  { stat: 'damage', value: 0.18 },
+];
 
 /** Random builds from a seeded stream: 1–6 weapons (a quarter of them evolved), 0–6 passives, 2 random relics. */
 export function randomBuild(k: number): Build {
@@ -40,8 +51,7 @@ export function randomBuild(k: number): Build {
   while (weapons.length < nw) {
     const evo = rng.chance(0.25);
     const def = evo ? pick(evolutions) : pick(base);
-    const root = def.evolution?.from ?? def.id;
-    if (weapons.some((w) => w.id === root || DEFAULT_CONTENT.weapons.find((d) => d.id === w.id)?.evolution?.from === root)) continue;
+    if (weapons.some((w) => rootOf(w.id) === rootOf(def.id))) continue;
     weapons.push({ id: def.id, level: evo ? 1 : 1 + rng.int(def.levels.length) });
   }
   const passives: Build['passives'] = [];
@@ -84,7 +94,7 @@ export function proving(content: Content, build: Build, seconds: number): number
   s.layerSeconds = 100_000;
   c.enemies.push({ ...c.enemies[0]!, id: 'post', hp: 1e9, speed: 0, xp: 0 });
   const post = c.enemies[c.enemies.length - 1]!;
-  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics }] });
+  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
   const p = sim.probes[0]!;
   p.weapons = build.weapons.map((w) => ({ ...w, t: 0 }));
   p.passives = build.passives.map((x) => ({ ...x }));
@@ -111,7 +121,7 @@ export function crowd(content: Content, build: Build, seconds: number): number {
   s.layerSeconds = 100_000;
   c.enemies.push({ ...c.enemies[0]!, id: 'post', hp: 1e9, speed: 0, xp: 0 });
   const post = c.enemies[c.enemies.length - 1]!;
-  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics }] });
+  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
   const p = sim.probes[0]!;
   p.weapons = build.weapons.map((w) => ({ ...w, t: 0 }));
   p.passives = build.passives.map((x) => ({ ...x }));
@@ -127,7 +137,7 @@ export function crowd(content: Content, build: Build, seconds: number): number {
 }
 
 function capsHold(build: Build): void {
-  const sim = createSim({ seed: '1', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: build.relics }] });
+  const sim = createSim({ seed: '1', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: build.relics, bonuses: VETERAN }] });
   const p = sim.probes[0]!;
   p.passives = build.passives.map((x) => ({ ...x }));
   const s = deriveStats(sim, p);

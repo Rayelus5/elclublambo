@@ -57,6 +57,10 @@ const weapon = z
       })
       .strict()
       .optional(),
+    variant: z
+      .object({ of: id, unlockAt: z.union([z.literal(4), z.literal(8)]) })
+      .strict()
+      .optional(),
   })
   .strict();
 
@@ -393,6 +397,23 @@ function evolutions(c: Shape, ctx: Ctx): void {
   });
 }
 
+/** Variants: of a base weapon of the same kind (not an evolution, not a variant), at most one per base and level. */
+function variants(c: Shape, ctx: Ctx): void {
+  const byId = new Map(c.weapons.map((w) => [w.id, w]));
+  const taken = new Set<string>();
+  c.weapons.forEach((w, i) => {
+    if (!w.variant) return;
+    const bad = () => ctx.addIssue({ code: 'custom', message: `content_variant:weapons.${i}`, path: ['weapons', i, 'variant'] });
+    const base = byId.get(w.variant.of);
+    if (!base) ref(ctx, new Set(), w.variant.of, ['weapons', i, 'variant', 'of']);
+    else if (base.evolution || base.variant || base.kind !== w.kind) bad();
+    if (w.evolution) bad();
+    const slot = `${w.variant.of}@${w.variant.unlockAt}`;
+    if (taken.has(slot)) bad();
+    taken.add(slot);
+  });
+}
+
 /** Reactions: two different elements, one reaction per pair whatever the order. */
 function reactions(c: Shape, ctx: Ctx): void {
   unique(ctx, 'reactions', c.elements.reactions.map((r) => r.id));
@@ -446,6 +467,7 @@ export const contentSchema = shape.superRefine((c, ctx) => {
     if (!ordered) ctx.addIssue({ code: 'custom', message: `content_phases:bosses.${i}`, path: ['bosses', i, 'phases'] });
   });
   evolutions(c, ctx);
+  variants(c, ctx);
   reactions(c, ctx);
   sets(c, ctx);
   c.sectors.forEach((s, i) => {

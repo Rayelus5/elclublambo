@@ -1,4 +1,4 @@
-import type { WeaponDef } from '../content/types';
+import type { Content, WeaponDef } from '../content/types';
 import type { Offer, ProbeState, Sim } from '../types';
 import { relicElement } from './elements';
 import { refreshStats } from './stats';
@@ -12,14 +12,19 @@ import { persistentFor } from './weapons';
 const HEAL: Offer = { kind: 'heal', id: 'heal', level: 0 };
 const HEAL_SHARE = 0.3;
 
+/** The base of a starting-weapon variant, or the weapon itself (evolutions and offers treat a variant as its base). */
+export function baseOf(content: Content, weaponId: string): string {
+  return content.weapons.find((w) => w.id === weaponId)?.variant?.of ?? weaponId;
+}
+
 /** The evolutions this probe can take now: base at its max level, requirement met, not taken yet (content order). */
 export function evolutionsFor(sim: Sim, p: ProbeState): WeaponDef[] {
   const out: WeaponDef[] = [];
   for (const evo of sim.content.weapons) {
     const e = evo.evolution;
     if (!e || p.weapons.some((w) => w.id === evo.id)) continue;
-    const base = p.weapons.find((w) => w.id === e.from);
-    const baseDef = sim.content.weapons.find((w) => w.id === e.from);
+    const base = p.weapons.find((w) => baseOf(sim.content, w.id) === e.from);
+    const baseDef = base && sim.content.weapons.find((w) => w.id === base.id);
     if (!base || !baseDef || base.level < baseDef.levels.length) continue;
     const req = e.requires;
     const met =
@@ -43,9 +48,12 @@ export function offerFor(sim: Sim, p: ProbeState): Offer[] {
   const { weapons, passives, limits } = sim.content;
   const pool: { offer: Offer; weight: number }[] = [];
   const evolved = evolvedBases(sim, p);
+  // A variant is only levelled up, never offered new; a base is not offered new beside its own variant.
+  const bases = new Set(p.weapons.map((x) => baseOf(sim.content, x.id)));
   for (const w of weapons) {
     if (w.evolution || evolved.has(w.id)) continue;
     const owned = p.weapons.find((x) => x.id === w.id);
+    if (!owned && (w.variant || bases.has(w.id))) continue;
     if (owned) {
       if (owned.level < w.levels.length) pool.push({ offer: { kind: 'weapon', id: w.id, level: owned.level + 1 }, weight: 1.2 });
     } else if (p.weapons.length < limits.weapons) {
@@ -84,7 +92,7 @@ export function applyOffer(sim: Sim, p: ProbeState, offer: Offer): void {
   }
   if (offer.kind === 'evolve') {
     const from = sim.content.weapons.find((w) => w.id === offer.id)?.evolution?.from;
-    const wi = p.weapons.findIndex((w) => w.id === from);
+    const wi = p.weapons.findIndex((w) => baseOf(sim.content, w.id) === from);
     if (!from || wi < 0) return;
     // The slot's persistent shots (orbs, drones, beams, turrets…) are rebuilt once for the evolved weapon.
     for (const i of persistentFor(sim, p, wi)) sim.shots.kill(i);
