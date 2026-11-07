@@ -23,6 +23,14 @@ describe('contenido por defecto', () => {
     expect(DEFAULT_CONTENT.passives).toHaveLength(20);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo']);
   });
+
+  test('cada inicial destaca en su estadística fuerte: Lumen recoge de lejos, Bastión aguanta, Chispa corre', () => {
+    // GDD §6: every probe has «una estadística fuerte», and what the test reveals («rápida», «no se mueve») is true.
+    const [lumen, bastion, spark] = ['lumen', 'bastion', 'spark'].map((id) => DEFAULT_CONTENT.probes.find((p) => p.id === id)!);
+    expect(lumen!.pickup).toBeGreaterThanOrEqual(1.1 * Math.max(bastion!.pickup, spark!.pickup));
+    expect(bastion!.hp).toBeGreaterThanOrEqual(1.2 * Math.max(lumen!.hp, spark!.hp));
+    expect(spark!.speed).toBeGreaterThanOrEqual(1.1 * Math.max(lumen!.speed, bastion!.speed));
+  });
 });
 
 describe('referencias rotas', () => {
