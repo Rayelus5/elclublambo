@@ -646,6 +646,18 @@
   .hud-kit-row:empty { display: none; }
   .hud-kit-item { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: rgb(24 26 61 / .92); border: 2px solid rgb(255 255 255 / .07); box-shadow: 0 3px 0 var(--color-panel-lip); }
   .hud-kit-row.passive .hud-kit-item { width: 36px; height: 36px; border-radius: 10px; }
+  /* Relic sets in the Hangar (DESIGN_SYSTEM §8 ter). */
+  .hangar-sets { display: grid; gap: 10px; margin-top: 16px; }
+  .hangar-sets h3 { margin: 0; font: 400 18px var(--font-display); }
+  .set-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+  .set-item { display: grid; gap: 4px; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); border: 2px solid rgb(255 255 255 / .06); }
+  .set-item b { font-size: 15px; }
+  .set-item .set-desc { color: var(--color-ink-soft); font-size: 14px; line-height: 1.35; }
+  .set-item.active { border-color: var(--color-solar); box-shadow: 0 0 14px rgb(255 201 74 / .18); }
+  .set-bonus { color: var(--color-solar); font-size: 14px; font-weight: 700; }
+  .set-next { color: var(--color-ink-mute); font-size: 13px; }
+  .set-item.possible { background: transparent; border-style: dashed; border-color: rgb(255 255 255 / .16); }
+  .set-item.possible b, .set-item.possible .set-desc { color: var(--color-ink-mute); }
   .hud-kit-item.evolved { border-color: var(--color-solar); box-shadow: 0 3px 0 var(--color-solar-lip), 0 0 12px rgb(255 201 74 / .35); }
   .hud-kit-item img { image-rendering: pixelated; width: 36px; height: 36px; }
   .hud-kit-row.passive .hud-kit-item img { width: 28px; height: 28px; }

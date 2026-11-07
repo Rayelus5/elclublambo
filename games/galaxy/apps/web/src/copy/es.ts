@@ -264,6 +264,31 @@ export const copy = {
     weapon: 'Arma inicial',
     relics: 'Reliquias',
     relicsHelp: 'Las galaxias equipadas te dan sus poderes en la incursión',
+    sets: 'Conjuntos',
+    setsEmpty: 'Equipa galaxias con la misma paleta, tipo, fondo o núcleo, o un tipo con su fenómeno, y activarás un conjunto',
+    setBonus: {
+      stat: (stat: string, value: number) => {
+        const pct = `${Math.round(value * 100)} %`;
+        const say: Record<string, string> = {
+          elemental: `Potencia elemental +${pct}`,
+          crit: `Crítico +${pct}`,
+          critDamage: `Daño crítico +${pct}`,
+          cooldown: `Las armas se recargan un ${pct} antes`,
+          maxHp: `Vida máxima +${pct}`,
+          luck: `Suerte +${pct}`,
+          projectiles: value === 1 ? 'Un proyectil más' : `${value} proyectiles más`,
+        };
+        return say[stat] ?? `${stat} +${pct}`;
+      },
+      magnitude: (f: number) => `Pasivas de sus galaxias ×${fmt(f)}`,
+      background: (f: number) => `Bonus de entorno de sus galaxias ×${fmt(f)}`,
+    },
+    setMissing: (trait: string, value: string) =>
+      trait === 'phenomenon'
+        ? `Falta una galaxia con ${value}`
+        : trait === 'galaxy_type'
+          ? `Falta una galaxia de tipo ${value}`
+          : `Con una tercera galaxia de ${value}`,
     slot: (n: number) => `Ranura ${n}`,
     chooseRelic: 'Elegir reliquia',
     lockedSlot: 'Se abre más adelante',

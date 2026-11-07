@@ -14,6 +14,7 @@ import { WalletBar } from '../hub/WalletBar';
 import { errorText } from '../auth/useMe';
 import { Icon } from '../ui/Icon';
 import { RelicPicker } from './RelicPicker';
+import { SetsPanel } from './SetsPanel';
 import { ResultsScreen } from './ResultsScreen';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe and relics before a run, and the daily yield. Launching opens
@@ -64,7 +65,7 @@ function Splash({ label }: { label: string }) {
   );
 }
 
-function RelicSlots({ view, onChoose, onRemove }: { view: HangarView; onChoose: (slot: number) => void; onRemove: (slot: number) => void }) {
+function RelicSlots({ view, onChoose, onRemove, error }: { view: HangarView; onChoose: (slot: number) => void; onRemove: (slot: number) => void; error: unknown }) {
   const all = view.loadout.filter((g): g is GalaxySummary => g !== null).map(relicInput);
   return (
     <section className="lip panel hangar-relics" aria-labelledby="hangar-relics">
@@ -110,6 +111,12 @@ function RelicSlots({ view, onChoose, onRemove }: { view: HangarView; onChoose: 
           );
         })}
       </ol>
+      {error ? (
+        <p className="field-error" role="alert">
+          {errorText(error, copy.errors)}
+        </p>
+      ) : null}
+      <SetsPanel relics={all} />
     </section>
   );
 }
@@ -191,6 +198,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
       )}
       <RelicSlots
         view={view}
+        error={setLoadout.error}
         onChoose={setPicking}
         onRemove={(slot) => {
           const next = [...ids];
