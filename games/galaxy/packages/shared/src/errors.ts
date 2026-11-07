@@ -35,6 +35,7 @@ export const API_ERROR_CODES = [
   'tiebreak_required',
   'probe_locked',
   'probe_test_required',
+  'sector_locked',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

@@ -10,3 +10,4 @@ export * from './runs/rewards';
 export * from './runs/plausibility';
 export * from './probes/test';
 export * from './probes/unlocks';
+export * from './sectors/unlocks';

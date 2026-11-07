@@ -522,5 +522,6 @@ export const copy = {
     tiebreak_required: 'Hay un empate: contesta la última pregunta',
     probe_locked: 'Esa sonda todavía no es tuya. Mira qué hace falta para conseguirla',
     probe_test_required: 'Antes de salir, haz el test de la sonda',
+    sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',
   } satisfies Record<ApiErrorCode, string>,
 } as const;
