@@ -97,6 +97,19 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si alguien hubiera guardado la clave `content` en la configuración viva con el esquema de M3b-1, dejaría de validar porque falta `quirk` en las sondas. Hay que volver a publicarla desde el valor por defecto.
 
+8. **Desde M3b-3 (sectores):** la migración `20261107102627_galaxy_sectors` añade `galaxy.hangars.sector`, el sector elegido (por defecto, `outer-nebula`). Llegan además:
+   - cuatro sectores nuevos: Anillos de Escarcha, Arrecife Hueco, Forja Rota y la Fisura de la Señal (temporada 1). Traen 19 especies, 5 Núcleos y el Núcleo profundo cada 4 capas en los sectores normales (`SIM_VERSION` 1.3.0);
+   - la clave `sectors` de la configuración viva, que se ajusta sin desplegar. Trae qué abre cada sector (por defecto, vencer al Núcleo del anterior una vez) y `season`, el sector de temporada abierto ahora (`signal-rift`; `null` lo cierra).
+
+   Comprueba con una cuenta de prueba:
+   - el Hangar enseña los 5 sectores: la Nebulosa elegida, la Escarcha, el Arrecife y la Forja cerrados con «Derrota a…», y la Fisura abierta con su insignia «Temporada»;
+   - una incursión en la Fisura dibuja su bioma violeta, su fauna y sus avisos (marcas de salto, minas, líneas);
+   - sin violaciones de CSP.
+
+   Si se cierra la temporada (`season: null`), quien la tuviera elegida vuelve a la Nebulosa, y empezar en la Fisura da 409 `sector_locked`.
+
+   Si alguien hubiera guardado la clave `content` con el esquema de M3b-2, sigue validando: los campos nuevos de los sectores tienen valor por defecto. Pero no traería los sectores nuevos; hay que volver a publicarla desde el valor por defecto.
+
 ## Operación
 
 | Tarea | Cómo |

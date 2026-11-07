@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { expect, test } from './fixtures';
 
 // A run against the real server (GDD §5.1): a new account takes the probe test (GDD §6, §12.2) and gets Bastión,
-// scans its welcome galaxies, equips one as a relic in the hangar, launches a run in the Outer Nebula with Bastión,
+// scans its welcome galaxies, equips one as a relic in the hangar, picks the season's rift (M3b-3) and launches there,
 // plays a few seconds with the keyboard, abandons from the pause menu and is paid half; the equipped galaxy cannot
 // be disintegrated. Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
@@ -53,6 +53,13 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await expect(probes.getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'true');
   await expect(probes.getByRole('progressbar', { name: 'Lumen' })).toHaveAttribute('aria-valuenow', '0');
   await expect(probes.getByText('Juega 3 incursiones')).toHaveCount(2);
+  // Sectors (M3b-3): five, the chain closed behind each Core, and the season open. The run goes to the rift.
+  const sectors = page.getByRole('list', { name: 'Sectores' });
+  await expect(sectors.getByRole('listitem')).toHaveCount(5);
+  await expect(sectors.getByText(/^Derrota a /)).toHaveCount(3);
+  await sectors.getByRole('button', { name: 'Fisura de la Señal' }).click();
+  await expect(page.getByRole('heading', { name: 'Fisura de la Señal' })).toBeVisible();
+  await expect(sectors.getByRole('button', { name: 'Fisura de la Señal' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/Premio completo: te quedan 3 h 0 min hoy/)).toBeVisible();
 
   // Equip the rarest galaxy in the first slot.
