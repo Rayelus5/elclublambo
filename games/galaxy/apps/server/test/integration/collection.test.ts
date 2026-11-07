@@ -210,3 +210,24 @@ test('una galaxia equipada como reliquia no se desintegra ni se fusiona, y la co
   expect(page.items.find((g) => g.id === rest[0])?.equipped).toBe(false);
   expect(((await get(ctx.app, `/galaxy/api/galaxies/${equipped}`, { cookie })).json() as GalaxyDetail).equipped).toBe(true);
 });
+
+test('el laboratorio (M4b-2): Reciclaje da más polvo al desintegrar y Fusión estable cobra menos al fusionar', async () => {
+  const { cookie, id } = await player();
+  await ctx.db
+    .insertInto('galaxy.lab_nodes')
+    .values([
+      { account_id: id, node: 'recycling', level: 5 },
+      { account_id: id, node: 'stable-fusion', level: 1 },
+    ])
+    .execute();
+  const [epic] = await own(id, 3, 1, 'holo');
+  const detail = (await get(ctx.app, `/galaxy/api/galaxies/${epic}`, { cookie })).json() as GalaxyDetail;
+  expect(detail.dust).toBe(135); // 113 × 1,2, rounded down
+  expect((await list(cookie)).fusion).toEqual({ count: 5, dust: [20, 48, 116, 288] }); // × 0,96, rounded up
+  const res = await act(cookie, `/galaxy/api/galaxies/${epic}/disintegrate`);
+  expect((res.json() as { dust: number }).dust).toBe(135);
+  const five = await own(id, 1, 5);
+  const fused = await act(cookie, '/galaxy/api/galaxies/fuse', { ids: five });
+  expect(fused.statusCode).toBe(200);
+  expect((fused.json() as { wallet: { dust: number } }).wallet.dust).toBe(135 - 48);
+});

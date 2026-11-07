@@ -15,6 +15,7 @@ import {
   type GalaxySummary,
   type Tier,
   type Wallet,
+  type LabConfig,
 } from '@galaxy/shared';
 import { type Kysely, type Selectable, sql } from 'kysely';
 import { z } from 'zod';
@@ -22,6 +23,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB, GalaxiesTable } from '../db/schema';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { accountLabEffects } from '../lab/levels';
 
 // The collection (GDD §8.5): owned galaxies, paged with a keyset cursor; disintegration into dust and fusion of
 // `fusion.count` same-tier galaxies into one of the next tier. Both are idempotent operations (routes.ts) and lock
@@ -114,7 +116,8 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   const counts = Object.fromEntries(TIERS.map((t) => [t, 0])) as Record<Tier, number>;
   for (const c of counted) counts[TIERS[c.tier]!] = c.n;
   const { fusion } = await deps.config.get('galaxies');
-  return { items: page.map(summary), ...(next ? { next } : {}), counts, fusion: { count: fusion.count, dust: [...fusion.dust] } };
+  const lab = await accountLabEffects(db, ownerId, await deps.config.get('lab'));
+  return { items: page.map(summary), ...(next ? { next } : {}), counts, fusion: { count: fusion.count, dust: fusion.dust.map((d) => fusionDust(d, lab.fusion)) } };
 }
 
 export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: string): Promise<GalaxyDetail> {
@@ -142,8 +145,14 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
     return p ? [{ id: p.id, name: p.name, designation: p.designation, tier: TIERS[p.tier]! }] : [];
   });
   const cfg = await deps.config.get('galaxies');
-  return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrateYield(r.tier, r.finish as Finish, cfg) };
+  const lab = await accountLabEffects(db, ownerId, await deps.config.get('lab'));
+  return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrationDust(disintegrateYield(r.tier, r.finish as Finish, cfg), lab.disintegrate) };
 }
+
+/** The Laboratorio's Reciclaje (M4b-2): more dust for disintegrating, rounded down. */
+const disintegrationDust = (base: number, push: number) => Math.floor(base * (1 + push) + 1e-9);
+/** The Laboratorio's Fusión estable (M4b-2): less dust for fusing, rounded up. */
+const fusionDust = (base: number, discount: number) => Math.ceil(base * (1 - discount) - 1e-9);
 
 async function isEquipped(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
   const row = await trx.selectFrom('galaxy.loadouts').select('slot').where('galaxy_id', 'in', ids).limit(1).executeTakeFirst();
@@ -153,7 +162,7 @@ async function isEquipped(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
 // Disintegrate and fuse run inside an operation's transaction: the config they need is read by the route BEFORE it
 // (reading it through the pool inside would take a second connection).
 export async function disintegrate(
-  cfg: GalaxiesConfig,
+  { cfg, lab }: { cfg: GalaxiesConfig; lab: LabConfig },
   trx: Kysely<DB>,
   ownerId: string,
   id: string,
@@ -170,13 +179,13 @@ export async function disintegrate(
   if (!gone) throw new HttpError(404, 'galaxy_not_found');
   // Checked after taking the row (a fresh statement sees a loadout committed meanwhile): equipped relics stay.
   if (await isEquipped(trx, [id])) throw new HttpError(409, 'galaxy_equipped');
-  const dust = disintegrateYield(gone.tier, gone.finish as Finish, cfg);
+  const dust = disintegrationDust(disintegrateYield(gone.tier, gone.finish as Finish, cfg), (await accountLabEffects(trx, ownerId, lab)).disintegrate);
   if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxy: id }, opKey);
   return { dust, wallet: await getWallet(trx, ownerId) };
 }
 
 export async function fuse(
-  { cfg, gacha }: { cfg: GalaxiesConfig; gacha: GachaConfig },
+  { cfg, gacha, lab }: { cfg: GalaxiesConfig; gacha: GachaConfig; lab: LabConfig },
   trx: Kysely<DB>,
   ownerId: string,
   ids: string[],
@@ -196,7 +205,8 @@ export async function fuse(
   if (await isEquipped(trx, ids)) throw new HttpError(409, 'galaxy_equipped');
   const recipe = validateFusion(parents, cfg);
   if ('error' in recipe) throw new HttpError(409, 'invalid_fusion');
-  if (recipe.dust > 0) await debit(trx, ownerId, 'dust', recipe.dust, 'fusion', { parents: ids }, opKey);
+  const dust = fusionDust(recipe.dust, (await accountLabEffects(trx, ownerId, lab)).fusion);
+  if (dust > 0) await debit(trx, ownerId, 'dust', dust, 'fusion', { parents: ids }, opKey);
   await trx.updateTable('galaxy.galaxies').set({ disintegrated_at: new Date() }).where('id', 'in', ids).execute();
   const fusionSeed = randomBytes(8).readBigUInt64BE();
   const g = generateGalaxy(fusionSeed, recipe.tier);

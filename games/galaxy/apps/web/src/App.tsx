@@ -5,6 +5,7 @@ import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
 import { ProbeTestScreen } from './probe-test/ProbeTest';
 import { StationScreen } from './station/StationScreen';
+import { LabScreen } from './lab/LabScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
@@ -55,6 +56,7 @@ export function App() {
       <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
       <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
       <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
+      <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>
         <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
         <Route path="/crear-cuenta" element={<GuestOnly to="/sonda"><CrearCuenta /></GuestOnly>} />

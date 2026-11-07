@@ -139,6 +139,23 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si alguien hubiera guardado la clave `content` con el esquema de M4a, sigue validando (`variant` es opcional), pero no traería las 16 variantes: los niveles 4 y 8 no abrirían nada y no saldría ningún aviso. Mira si `galaxy.game_config_active` tiene una versión de `content` y, si la tiene, vuelve a publicarla desde el valor por defecto.
 
+11. **Desde M4b-2 (el laboratorio):** la migración `20261107165822_galaxy_lab` crea `galaxy.lab_nodes`, con el nivel de cada nodo comprado por cada cuenta. Llegan además:
+   - el Laboratorio de la estación empieza roto y se repara con 50 componentes y 500 monedas (`station.lab`). Arreglado, abre `/galaxy/laboratorio`;
+   - el árbol, que es la clave viva `lab` y se ajusta sin desplegar. Tiene cuatro ramas de cuatro nodos de hasta 5 niveles, pagados con polvo y componentes (de 40 de polvo y 15 componentes en adelante, ×1,6 por nivel):
+     - **Sonda:** vida, velocidad, daño y recarga;
+     - **Reliquias:** potencia elemental, suerte, polvo al desintegrar y fusión más barata;
+     - **Estación:** ritmo y cola de la refinería, ritmo de la antena y material de las incursiones;
+     - **Extracción:** recogida, monedas y polvo de las incursiones, y experiencia;
+   - cada incursión guarda los bonos del laboratorio con los del nivel de la sonda y el empuje a lo cobrado, que se aplica antes de los topes.
+
+   Comprueba con una cuenta de prueba nueva:
+   - la estación enseña el Laboratorio roto. Con `grant <usuario> components 65`, `grant <usuario> coins 500` y `grant <usuario> dust 40` (cada uno con `--reason "probar el laboratorio"`), «Reparar» lo arregla y su sala lleva a `/galaxy/laboratorio`;
+   - el laboratorio enseña las cuatro ramas con sus iconos. «Mejorar a nivel 1» en Blindaje reforzado lo compra y abre Propulsores;
+   - una incursión sale con +2 % de vida;
+   - sin violaciones de CSP.
+
+   Si alguien hubiera guardado la clave `station` con el esquema de M4a, sigue validando (`lab` tiene valor por defecto). Pero si se guardó con `lab` ya dentro y luego se publica una versión de M4a, el Laboratorio se quedaría sin su reparación. Revisa `galaxy.game_config_active` para `station` y `lab`, y vuelve a publicarlas desde el valor por defecto si hiciera falta.
+
 ## Operación
 
 | Tarea | Cómo |

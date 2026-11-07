@@ -179,3 +179,20 @@ test('la Antena llena dice que ya está llena, y si se llena otro día dice cuá
   dialog = screen.getByRole('dialog', { name: t.rooms.antenna });
   expect(dialog).toHaveTextContent(t.antenna.fullAt('06:30', 'tomorrow'));
 });
+
+test('el Laboratorio roto abre su panel con Reparar y su coste; arreglado, lleva a su pantalla (M4b-2)', async () => {
+  const broken = view({
+    rooms: view().rooms.map((r) => (r.id === 'lab' ? { id: 'lab', state: 'broken', level: 0, maxLevel: 1, next: { cost: { components: 50, coins: 500 } } } : r)),
+  });
+  open(broken);
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.lab) }));
+  const dialog = screen.getByRole('dialog', { name: t.rooms.lab });
+  expect(dialog).toHaveTextContent(t.labLead);
+  expect(within(dialog).getByRole('button', { name: new RegExp(t.repair) })).toHaveTextContent(t.cost(50, 500));
+});
+
+test('el Laboratorio arreglado es un enlace a /laboratorio', async () => {
+  open(view({ rooms: view().rooms.map((r) => (r.id === 'lab' ? { id: 'lab', state: 'working', level: 1, maxLevel: 1, next: null } : r)) }));
+  const deck = await screen.findByRole('list', { name: t.title });
+  expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.lab) })).toHaveAttribute('href', '/laboratorio');
+});

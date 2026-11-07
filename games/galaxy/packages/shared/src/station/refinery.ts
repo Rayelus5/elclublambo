@@ -16,16 +16,20 @@ export interface RefineryRow {
 
 const HOUR = 3_600_000;
 
-export function refineryLevel(level: number, cfg: StationConfig): { rate: number; queue: number } {
+/** The Laboratorio's push on the refinery (M4b-2): fractions added to its rate and its queue. */
+export type RefineryBoost = { rate: number; queue: number };
+const NO_BOOST: RefineryBoost = { rate: 0, queue: 0 };
+
+export function refineryLevel(level: number, cfg: StationConfig, boost: RefineryBoost = NO_BOOST): { rate: number; queue: number } {
   const l = cfg.refinery[Math.max(1, Math.min(level, cfg.refinery.length)) - 1]!;
-  return { rate: l.rate, queue: l.queue };
+  return { rate: l.rate * (1 + boost.rate), queue: Math.floor(l.queue * (1 + boost.queue) + 1e-9) };
 }
 
-export function advanceRefinery(row: RefineryRow, level: number, cfg: StationConfig, now: Date): RefineryRow {
+export function advanceRefinery(row: RefineryRow, level: number, cfg: StationConfig, now: Date, boost: RefineryBoost = NO_BOOST): RefineryRow {
   const elapsed = now.getTime() - row.clock.getTime();
   if (elapsed <= 0) return row;
   if (row.queue <= 0) return { queue: 0, ready: row.ready, clock: now };
-  const { rate } = refineryLevel(level, cfg);
+  const { rate } = refineryLevel(level, cfg, boost);
   const processed = Math.min(row.queue, Math.floor((rate * elapsed) / HOUR + 1e-9));
   const queue = row.queue - processed;
   // Done: nothing left to carry. Otherwise the clock moves by the time those units took, keeping the fraction.
@@ -34,7 +38,7 @@ export function advanceRefinery(row: RefineryRow, level: number, cfg: StationCon
 }
 
 /** When the next unit will be ready (null with an empty queue). */
-export function nextRefined(row: RefineryRow, level: number, cfg: StationConfig): Date | null {
+export function nextRefined(row: RefineryRow, level: number, cfg: StationConfig, boost: RefineryBoost = NO_BOOST): Date | null {
   if (row.queue <= 0) return null;
-  return new Date(row.clock.getTime() + Math.ceil(HOUR / refineryLevel(level, cfg).rate));
+  return new Date(row.clock.getTime() + Math.ceil(HOUR / refineryLevel(level, cfg, boost).rate));
 }

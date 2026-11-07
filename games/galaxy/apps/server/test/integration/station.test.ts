@@ -25,7 +25,7 @@ const view = async (cookie: string) => (await get(ctx.app, '/galaxy/api/station'
 const act = (cookie: string, path: string, body: unknown = {}, key = randomUUID()) => post(ctx.app, `/galaxy/api/station/${path}`, body, { cookie, headers: { 'idempotency-key': key } });
 const give = (id: string, currency: string, n: number) => credit(ctx.db, id, currency, n, 'test');
 
-test('una cuenta nueva: cinco salas funcionan, la Antena está rota, cuatro en reparación, la refinería 1 vacía', async () => {
+test('una cuenta nueva: cinco salas funcionan, la Antena y el Laboratorio están rotos, tres en reparación, la refinería 1 vacía', async () => {
   const { cookie } = await player();
   const [a, b] = await Promise.all([get(ctx.app, '/galaxy/api/station', { cookie }), get(ctx.app, '/galaxy/api/station', { cookie })]);
   expect(a.statusCode).toBe(200);
@@ -35,7 +35,7 @@ test('una cuenta nueva: cinco salas funcionan, la Antena está rota, cuatro en r
   expect(state).toEqual({
     scanner: 'working',
     planetarium: 'working',
-    lab: 'future',
+    lab: 'broken',
     hangar: 'working',
     collider: 'working',
     comms: 'future',
@@ -114,9 +114,9 @@ test('mejorar: la refinería sube de nivel pagando; al máximo, 409; lo que lleg
   const max = await act(cookie, 'rooms/refinery/upgrade', { level: 6 });
   expect(max.statusCode).toBe(409);
   expect(max.json()).toEqual({ error: 'room_maxed' });
-  const lab = await act(cookie, 'rooms/lab/upgrade', { level: 1 });
-  expect(lab.statusCode).toBe(409);
-  expect(lab.json()).toEqual({ error: 'room_unavailable' });
+  const comms = await act(cookie, 'rooms/comms/upgrade', { level: 1 });
+  expect(comms.statusCode).toBe(409);
+  expect(comms.json()).toEqual({ error: 'room_unavailable' });
   expect((await act(cookie, 'rooms/nope/upgrade', { level: 1 })).statusCode).toBe(400);
   // What it cost: 40 + 90 + 180 + 320 components and 500 + 1200 + 2500 + 5000 coins.
   const w = (await view(cookie)).wallet;

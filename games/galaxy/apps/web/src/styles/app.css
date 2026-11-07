@@ -726,6 +726,48 @@
   .res.components .ico { color: var(--color-terminal); }
   @media (max-width: 1100px) { .station-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (prefers-reduced-motion: reduce) { :is(a, button).room { transition: none; } .room-art { animation: none; } }
+  /* The Laboratorio (DESIGN_SYSTEM §8 octies): a lab blueprint, four branches in dark glass over a grid, each node
+     indented under the one that opens it with a connector in its branch's colour. */
+  .lab-root { overflow: auto; }
+  .lab { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
+  .lab-closed { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
+  .lab-closed p { margin: 0; color: var(--color-ink-soft); font-size: 17px; }
+  .lab-tree { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .lab-branch { --branch: var(--color-ice); padding: 16px 14px 18px; border-radius: 18px; border: 2px solid color-mix(in srgb, var(--branch) 40%, transparent); background: linear-gradient(rgb(111 183 255 / .06) 1px, transparent 1px) 0 0 / 16px 16px, linear-gradient(90deg, rgb(111 183 255 / .06) 1px, transparent 1px) 0 0 / 16px 16px, rgb(10 14 40 / .88); box-shadow: inset 0 0 40px color-mix(in srgb, var(--branch) 10%, transparent), 0 14px 30px rgb(0 0 0 / .35); }
+  .lab-branch.b-relics { --branch: var(--color-uv-soft); }
+  .lab-branch.b-station { --branch: var(--color-solar); }
+  .lab-branch.b-extraction { --branch: var(--color-terminal); }
+  .lab-branch h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font: 400 22px var(--font-display); color: var(--color-ink); }
+  .lab-branch h2 .ico { color: var(--branch); font-size: 22px; }
+  .lab-branch ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  /* The nodes a node opens hang from it: a vertical line in the branch's colour and a short arm to each card. */
+  .lab-branch ul.lab-children { margin: 12px 0 0 22px; padding-left: 16px; border-left: 2px solid color-mix(in srgb, var(--branch) 45%, transparent); }
+  .lab-children > li { position: relative; }
+  .lab-children > li::before { content: ''; position: absolute; left: -16px; top: 30px; width: 14px; border-top: 2px solid color-mix(in srgb, var(--branch) 45%, transparent); }
+  .lab-node { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px 12px 10px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); box-shadow: inset 0 2px 0 rgb(255 255 255 / .1), 0 4px 0 var(--color-panel-lip); }
+  .lab-node.locked { background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .12); box-shadow: none; }
+  .lab-node.locked .lab-node-icon, .lab-node.locked .lab-node-art { filter: grayscale(1) brightness(.55); }
+  .lab-node.maxed { border-color: color-mix(in srgb, var(--branch) 70%, transparent); box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 4px 0 var(--color-panel-lip), 0 0 18px color-mix(in srgb, var(--branch) 25%, transparent); }
+  .lab-node-icon { display: grid; place-items: center; inline-size: 48px; block-size: 48px; border-radius: 12px; background: rgb(0 0 0 / .35); color: var(--branch); font-size: 24px; }
+  /* The node's Aseprite strip (two 24×24 frames) at ×2, glowing with steps(2). */
+  .lab-node-art { display: block; inline-size: 48px; block-size: 48px; border-radius: 12px; background: var(--color-void) no-repeat 0 0 / 200% 100%; image-rendering: pixelated; animation: lab-glow 1.2s steps(2) infinite; }
+  @keyframes lab-glow { to { background-position-x: 200%; } }
+  .lab-node-body { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+  .lab-node-body b { font-size: 15px; line-height: 1.2; }
+  .lab-node-body > small { font-size: 13px; line-height: 1.3; color: var(--color-ink-soft); }
+  .lab-node-body .lab-node-now { color: var(--branch); font-weight: 700; }
+  .lab-node-level { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }
+  .lab-node .level-pips i { inline-size: 12px; }
+  .lab-node .level-pips i.on { background: var(--branch); box-shadow: inset 0 -2px 0 rgb(0 0 0 / .25), 0 0 6px color-mix(in srgb, var(--branch) 40%, transparent); }
+  /* The node's buy button: full width, its cost on a second line in the button's own ink (readable on Solar). */
+  .lab-node .lab-buy { margin-top: 4px; inline-size: 100%; height: auto; min-height: 48px; padding: 6px 14px 6px 12px; justify-content: flex-start; white-space: normal; text-align: left; font-size: 15px; }
+  .lab-buy-text { display: grid; gap: 1px; min-width: 0; }
+  .lab-buy-text small { font-size: 12px; font-weight: 700; opacity: .85; }
+  .lab-node .panel-note { margin: 2px 0 0; }
+  .lab-node-max { color: var(--branch); font-weight: 700; }
+  @media (max-width: 1300px) { .lab-tree { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 700px) { .lab-tree { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .lab-node-art { animation: none; } }
   /* The sector panel's title, season badge and tiles (DESIGN_SYSTEM §8 ter): the same tiles as the probes'. */
   .hangar-sector-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
   .season-badge { padding: 4px 10px; border-radius: 999px; background: var(--color-uv); color: #fff; font-weight: 700; font-size: 13px; line-height: 1.2; box-shadow: 0 0 14px rgb(114 89 238 / .45); }
@@ -770,7 +812,8 @@
   .probe-level .panel-note { margin: 0; }
   .weapon-picker { margin: 0; padding: 0; border: 0; min-inline-size: 0; display: grid; gap: 8px; }
   .weapon-picker legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }
-  .weapon-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+  /* One card per row when the probe panel is narrow (seen on PRE at 1600 px with the display font), two when it fits. */
+  .weapon-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); gap: 10px; }
   .weapon-card { position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 30px 10px 10px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); cursor: pointer; box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 4px 0 var(--color-panel-lip); transition: transform .18s var(--ease-bounce), border-color .18s ease; }
   .weapon-card input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: inherit; }
   .weapon-card:hover:not(.locked) { transform: translateY(-2px); border-color: rgb(255 255 255 / .2); }

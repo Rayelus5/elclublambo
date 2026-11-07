@@ -7,6 +7,56 @@ export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
 const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
 
 /** Every text of the web (DESIGN_SYSTEM §9): short, direct, no trailing period in titles. */
+/** «Te falta 1 componente» / «Te faltan 30 de polvo y 15 componentes»: the verb agrees with what is missing. */
+function missingLine(parts: [number, string][]): string {
+  const left = parts.filter(([n]) => n > 0);
+  const verb = left.length === 1 && left[0]![0] === 1 ? 'falta' : 'faltan';
+  return `Te ${verb} ${left.map(([, text]) => text).join(' y ')}`;
+}
+
+/** A Laboratorio effect as the copy needs it (the shared LabEffect, structurally). */
+type LabEffectCopy =
+  | { kind: 'stat'; stat: string }
+  | { kind: 'payout'; currency: 'coins' | 'dust' | 'material' }
+  | { kind: 'refinery'; field: 'rate' | 'queue' }
+  | { kind: 'antenna' }
+  | { kind: 'disintegrate' }
+  | { kind: 'fusion' };
+
+const LAB_STATS: Record<string, string> = {
+  maxHp: 'vida',
+  damage: 'daño',
+  speed: 'velocidad',
+  area: 'área',
+  pickup: 'alcance de recogida',
+  armor: 'blindaje',
+  regen: 'regeneración',
+  crit: 'crítico',
+  xp: 'experiencia',
+  luck: 'suerte',
+  elemental: 'potencia elemental',
+};
+
+/** «+2 % de vida por nivel» or «Ahora +4 %» style lines for each kind of effect. */
+function labLine(e: LabEffectCopy, value: number, mode: 'per' | 'now'): string {
+  const pct = `${fmt(Math.round(value * 1000) / 10)} %`;
+  if (mode === 'now') return e.kind === 'fusion' ? `Ahora −${pct}` : `Ahora +${pct}`;
+  switch (e.kind) {
+    case 'stat':
+      return e.stat === 'cooldown' ? `Recarga un ${pct} más rápida por nivel` : `+${pct} de ${LAB_STATS[e.stat] ?? e.stat} por nivel`;
+    case 'payout':
+      return `+${pct} de ${e.currency === 'coins' ? 'monedas' : e.currency === 'dust' ? 'polvo' : 'material'} de las incursiones por nivel`;
+    case 'refinery':
+      return e.field === 'rate' ? `La refinería va un ${pct} más rápida por nivel` : `+${pct} de cola en la refinería por nivel`;
+    case 'antenna':
+      return `La antena capta un ${pct} más por nivel`;
+    case 'disintegrate':
+      return `+${pct} de polvo al desintegrar por nivel`;
+    case 'fusion':
+      return `Fusionar cuesta un ${pct} menos de polvo por nivel`;
+  }
+}
+
 export const copy = {
   brand: 'Galaxy Survivor',
   brailleBrand: '⠛⠁⠇⠁⠭⠽ ⠎⠥⠗⠧⠊⠧⠕⠗',
@@ -58,6 +108,27 @@ export const copy = {
     title: 'Galaxy Survivor se juega en ordenador',
     body: 'Abre el juego en una pantalla de al menos 1280×720 con ratón o trackpad.',
   },
+  // The Laboratorio (GDD §10.6, M4b-2).
+  lab: {
+    title: 'Laboratorio',
+    back: 'Volver a la estación',
+    goStation: 'Ir a la estación',
+    branches: { probe: 'Sonda', relics: 'Reliquias', station: 'Estación', extraction: 'Extracción' },
+    level: (n: number, max: number) => `Nivel ${n} de ${max}`,
+    upgrade: (n: number) => `Mejorar a nivel ${n}`,
+    cost: (dust: number, components: number) => `${fmt(dust)} de polvo y ${fmt(components)} componentes`,
+    missing: (dust: number, components: number) =>
+      missingLine([
+        [dust, dust === 1 ? '1 de polvo' : `${fmt(dust)} de polvo`],
+        [components, components === 1 ? '1 componente' : `${fmt(components)} componentes`],
+      ]),
+    needs: (name: string) => `Necesita ${name}`,
+    maxed: 'Al máximo',
+    /** What a node adds per level, from its effect. */
+    effect: (e: LabEffectCopy, per: number) => labLine(e, per, 'per'),
+    /** What it adds now (its level × per). */
+    now: (e: LabEffectCopy, total: number) => labLine(e, total, 'now'),
+  },
   station: {
     title: 'Estación',
     back: 'Volver al inicio',
@@ -86,6 +157,7 @@ export const copy = {
       trophies: 'Premios',
     },
     repairing: 'En reparación',
+    labLead: 'Mejoras permanentes para tus sondas, tus reliquias, la estación y las incursiones. Repáralo para empezar a investigar',
     broken: 'Rota',
     level: (n: number) => `Nivel ${n}`,
     levelLabel: 'Nivel',
@@ -94,7 +166,10 @@ export const copy = {
     cost: (components: number, coins: number) => (coins > 0 ? `${fmt(components)} componentes y ${fmt(coins)} monedas` : `${fmt(components)} componentes`),
     maxed: 'Al máximo',
     missing: (components: number, coins: number) =>
-      `Te faltan ${[components > 0 ? `${fmt(components)} ${components === 1 ? 'componente' : 'componentes'}` : '', coins > 0 ? `${fmt(coins)} ${coins === 1 ? 'moneda' : 'monedas'}` : ''].filter(Boolean).join(' y ')}`,
+      missingLine([
+        [components, components === 1 ? '1 componente' : `${fmt(components)} componentes`],
+        [coins, coins === 1 ? '1 moneda' : `${fmt(coins)} monedas`],
+      ]),
     resource: {
       material: (n: number) => `${fmt(n)} de material en bruto`,
       components: (n: number) => `${fmt(n)} componentes`,
@@ -615,6 +690,10 @@ export const copy = {
     refinery_full: 'La refinería no tiene sitio para tanto. Recoge o mejórala',
     room_maxed: 'Esa sala ya está al máximo',
     room_changed: 'Esa sala ya había cambiado. Mira su nivel y vuelve a intentarlo',
+    lab_closed: 'Repara el laboratorio en la estación para usarlo',
+    lab_locked: 'Mejora antes el nodo que lo abre',
+    lab_maxed: 'Ese nodo ya está al máximo',
+    lab_changed: 'Ese nodo ya había cambiado. Míralo y vuelve a intentarlo',
     room_unavailable: 'Esa sala aún no se puede reparar',
     nothing_to_collect: 'Aún no hay nada que recoger',
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',

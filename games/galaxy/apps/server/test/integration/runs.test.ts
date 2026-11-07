@@ -284,3 +284,31 @@ test('con las incursiones apagadas: 503 runs_disabled', async () => {
     await off.close();
   }
 });
+
+test('el laboratorio (M4b-2): la partida sale con sus bonos y cobra más monedas, polvo y material', async () => {
+  const { cookie, id } = await player();
+  // Lab nodes straight in the table (the lab's own tests buy them through the API).
+  await ctx.db
+    .insertInto('galaxy.lab_nodes')
+    .values([
+      { account_id: id, node: 'hull', level: 2 },
+      { account_id: id, node: 'magnet', level: 1 },
+      { account_id: id, node: 'ledger', level: 5 },
+      { account_id: id, node: 'sieve', level: 5 },
+      { account_id: id, node: 'salvage', level: 5 },
+    ])
+    .execute();
+  const run = await played(cookie, 14);
+  expect(run.bonuses).toEqual(
+    expect.arrayContaining([
+      { stat: 'maxHp', value: expect.closeTo(0.04, 9) },
+      { stat: 'pickup', value: expect.closeTo(0.04, 9) },
+    ]),
+  );
+  const row = await ctx.db.selectFrom('galaxy.runs').select('upgrades').where('id', '=', run.id).executeTakeFirstOrThrow();
+  expect(row.upgrades).toMatchObject({ payout: { coins: expect.closeTo(0.1, 9), dust: expect.closeTo(0.1, 9), material: expect.closeTo(0.2, 9) } });
+  const res = await finish(cookie, run.id, body({ ticks: 13 * 3600, depth: 2, bossKills: 2, kills: 1200, loot: [{ coins: 40, dust: 12 }, { coins: 20, dust: 6 }] }));
+  expect(res.statusCode).toBe(200);
+  // The same claim as «extraer paga…» (70 coins, 21 dust, 56 material), with +10 %, +10 % and +20 %.
+  expect((res.json() as RunResult).payout).toMatchObject({ coins: 77, dust: 23, material: 67 });
+});

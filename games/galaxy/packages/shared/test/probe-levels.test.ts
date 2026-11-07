@@ -24,7 +24,7 @@ describe('los niveles', () => {
     expect(probeLevelBonuses(1, cfg)).toEqual([]);
     const top = probeLevelBonuses(10, cfg);
     expect(top.map((b) => b.stat)).toEqual(['maxHp', 'damage']);
-    // The same numbers the sim's proving ground plays with (packages/sim/test/builds.test.ts, VETERAN).
+    // Part of what the sim's proving ground plays with (packages/sim/test/proving.ts VETERAN; lab.test.ts pins the sum).
     expect(top[0]!.value).toBeCloseTo(0.27, 9);
     expect(top[1]!.value).toBeCloseTo(0.18, 9);
     expect(probeLevelBonuses(4, cfg).map((b) => b.value)).toEqual([expect.closeTo(0.09, 9), expect.closeTo(0.06, 9)]);

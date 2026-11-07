@@ -10,12 +10,20 @@ export interface Build {
 }
 
 /**
- * Every build plays with a level-10 probe (M4b-1): the default bonuses of `probes.levels` in @galaxy/shared (its tests
- * pin that they are these), so the ceilings hold for the strongest probe the player can have.
+ * Every build plays with a level-10 probe (M4b-1) and the whole Laboratorio (M4b-2): the default bonuses of
+ * `probes.levels` and `lab` in @galaxy/shared (its tests pin that they are these), so the ceilings hold for the
+ * strongest probe the player can have.
  */
 export const VETERAN: StatBonus[] = [
-  { stat: 'maxHp', value: 0.27 },
-  { stat: 'damage', value: 0.18 },
+  // Probe level 10 plus the whole Laboratorio (M4b-2): @galaxy/shared's lab tests pin that these are the totals.
+  { stat: 'maxHp', value: 0.37 },
+  { stat: 'damage', value: 0.28 },
+  { stat: 'speed', value: 0.05 },
+  { stat: 'cooldown', value: 0.05 },
+  { stat: 'elemental', value: 0.15 },
+  { stat: 'luck', value: 0.15 },
+  { stat: 'pickup', value: 0.2 },
+  { stat: 'xp', value: 0.1 },
 ];
 
 /** Damage per second of a build on the proving ground: rings of sturdy, still posts around a probe that never dies. */

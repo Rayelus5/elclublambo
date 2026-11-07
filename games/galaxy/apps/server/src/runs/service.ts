@@ -6,6 +6,7 @@ import {
   runMaterial,
   runPayout,
   type FinishRunRequest,
+  type LabConfig,
   probeLevelBonuses,
   probeMaxLevel,
   type ProbesConfig,
@@ -25,6 +26,7 @@ import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
 import { probeLevels } from './levels';
+import { accountLabEffects } from '../lab/levels';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -34,6 +36,7 @@ export interface StartContext {
   content: Content;
   sectors: SectorsConfig;
   probes: ProbesConfig;
+  lab: LabConfig;
   contentVersion: number;
   now: Date;
 }
@@ -53,7 +56,9 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   const probeDef = ctx.content.probes.find((p) => p.id === req.probe)!;
   const saved = (await probeLevels(trx, accountId))[req.probe];
   const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
-  const bonuses = probeLevelBonuses(level, ctx.probes);
+  // The Laboratorio (M4b-2): its stat bonuses join the level's, and its push on the pay is kept for the finish.
+  const lab = await accountLabEffects(trx, accountId, ctx.lab);
+  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses];
   const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
   const variant = weapon === probeDef.weapon ? null : weapon;
   const seed = randomBytes(8).readBigUInt64BE().toString();
@@ -65,7 +70,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sector: req.sector,
       probe: req.probe,
       relics: JSON.stringify(relics),
-      upgrades: JSON.stringify({ bonuses, variant }),
+      upgrades: JSON.stringify({ bonuses, variant, payout: lab.payout }),
       content_version: ctx.contentVersion,
       sim_version: req.simVersion,
       start_key: key,
@@ -85,6 +90,13 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
     contentVersion: ctx.contentVersion,
     startedAt: new Date(row.started_at).toISOString(),
   };
+}
+
+/** The Laboratorio's push on a run's pay, as snapshotted at its start (none for runs started before M4b-2). */
+function payoutBoost(upgrades: unknown): { coins: number; dust: number; material: number } {
+  const p = (upgrades as { payout?: Partial<Record<'coins' | 'dust' | 'material', unknown>> } | null)?.payout ?? {};
+  const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.min(v, 1) : 0);
+  return { coins: n(p.coins), dust: n(p.dust), material: n(p.material) };
 }
 
 export interface FinishContext {
@@ -113,7 +125,7 @@ function inputsOf(b64: string, probes: number): { bytes: Uint8Array; lastTick: n
 export async function finishRun(trx: Kysely<DB>, accountId: string, runId: string, req: FinishRunRequest, key: string, ctx: FinishContext): Promise<RunResult> {
   const run = await trx
     .selectFrom('galaxy.runs')
-    .select(['id', 'sector', 'started_at', 'finished_at'])
+    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades'])
     .where('id', '=', runId)
     .where('account_id', '=', accountId)
     .forUpdate()
@@ -153,7 +165,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .where('day', '=', day)
     .execute();
 
-  const pay = runPayout(claim, ctx.runs, factor, check.penalized);
+  const boost = payoutBoost(run.upgrades);
+  const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost);
   const flags = pay.capped ? [...check.flags, 'payout_cap' as const] : check.flags;
   let signals = 0;
   const chance = ctx.runs.signalChancePerBoss * factor;
@@ -163,7 +176,7 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   if (pay.dust > 0) await credit(trx, accountId, 'dust', pay.dust, 'run', ref, key);
   if (signals > 0) await credit(trx, accountId, 'signal', signals, 'run', ref, key);
   // Raw material for the station's refinery (GDD §10.3), paid like the loot.
-  const material = runMaterial(claim, ctx.runs, factor, check.penalized);
+  const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material);
   if (material > 0) await credit(trx, accountId, 'material', material, 'run', ref, key);
 
   const payout = { coins: pay.coins, dust: pay.dust, signals, material };
