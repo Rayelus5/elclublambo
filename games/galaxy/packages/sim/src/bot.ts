@@ -113,8 +113,31 @@ export function botInput(sim: Sim, probe: number, extractFrom = 1): ProbeInput {
   return input;
 }
 
-const WEAPON_ORDER = ['nova', 'orbit', 'arc', 'lance', 'drone', 'trail', 'pulse'];
-const PASSIVE_ORDER = ['armor', 'regen', 'amplifier', 'capacitor', 'thrusters', 'magnet', 'lens', 'splitter'];
+const WEAPON_ORDER = ['nova', 'orbit', 'arc', 'lance', 'drone', 'field', 'boomerang', 'homing', 'beam', 'cone', 'mine', 'shards', 'strike', 'turret', 'trail', 'pulse'];
+const PASSIVE_ORDER = [
+  'armor',
+  'regen',
+  'amplifier',
+  'capacitor',
+  'thrusters',
+  'magnet',
+  'lens',
+  'splitter',
+  'plating',
+  'deflector',
+  'siphon',
+  'scope',
+  'overcharge',
+  'catalyst',
+  'accelerator',
+  'stabilizer',
+  'memory',
+  'clover',
+  'drill',
+  'static-signal',
+];
+/** Unknown ids go last (a new catalog entry never jumps the queue). */
+const rank = (order: readonly string[], id: string) => (order.includes(id) ? order.indexOf(id) : order.length);
 
 /**
  * The bot's choice, like a normal player: level up what it has, take a few weapons, and keep some armour and repair
@@ -125,8 +148,9 @@ export function botPick(offer: readonly Offer[]): number {
   let bestScore = -Infinity;
   offer.forEach((o, i) => {
     let score = 0;
-    if (o.kind === 'weapon') score = (o.level > 1 ? 30 : 22) - WEAPON_ORDER.indexOf(o.id);
-    else if (o.kind === 'passive') score = (o.level > 1 ? 20 : 22) - PASSIVE_ORDER.indexOf(o.id) * 2;
+    if (o.kind === 'evolve') score = 100;
+    else if (o.kind === 'weapon') score = (o.level > 1 ? 30 : 22) - rank(WEAPON_ORDER, o.id);
+    else if (o.kind === 'passive') score = (o.level > 1 ? 20 : 22) - rank(PASSIVE_ORDER, o.id) * 2;
     if (score > bestScore) {
       bestScore = score;
       best = i;

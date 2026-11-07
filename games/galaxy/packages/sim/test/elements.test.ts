@@ -247,3 +247,21 @@ describe('Catalizador (potencia elemental)', () => {
     expect(lasting(strong)).toEqual(base.map((t) => Math.round(t * 1.5)));
   });
 });
+
+describe('puro dentro de los topes (GDD §8.6)', () => {
+  test('el bonus de puro no lleva el crítico por encima de su tope', () => {
+    const sim = world();
+    const p = sim.probes[0]!;
+    p.stats = { ...p.stats, crit: sim.content.caps.crit, critDamage: sim.content.crit.damage + sim.content.caps.critDamage };
+    const asked: number[] = [];
+    force(sim, (q) => {
+      asked.push(q);
+      return true;
+    });
+    const e = at(sim, 300, 0);
+    sim.events.length = 0;
+    hit(sim, e, 10, 'pure');
+    expect(asked[0]).toBe(sim.content.caps.crit);
+    expect(lost(sim, e)).toBeCloseTo(10 * (sim.content.crit.damage + sim.content.caps.critDamage), 9);
+  });
+});

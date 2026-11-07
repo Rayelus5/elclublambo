@@ -264,7 +264,7 @@ export const DEFAULT_CONTENT: Content = {
       kind: 'beam',
       icon: 'icon-beam-evo',
       description: 'Tres rayos que electrocutan y saltan a los vecinos',
-      levels: levels({ damage: 15, cooldown: 1.8, count: 3, range: 220, area: 9, duration: 2.6, interval: 0.12 }, 1),
+      levels: levels({ damage: 12, cooldown: 2, count: 3, range: 220, area: 9, duration: 2.2, interval: 0.15 }, 1),
       special: 'chain',
       element: 'shock',
       evolution: { from: 'beam', requires: { passive: 'amplifier' } },
@@ -512,7 +512,7 @@ export const DEFAULT_CONTENT: Content = {
       density: { base: 0.3, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5 },
       scaling: {
         hpPerMinute: 0.06,
-        damagePerMinute: 0.04,
+        damagePerMinute: 0.06,
         hpPerLayer: 0.35,
         damagePerLayer: 0.15,
         speedPerLayer: 0.05,

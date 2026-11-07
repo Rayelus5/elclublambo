@@ -570,7 +570,9 @@ describe('especiales de las evoluciones', () => {
 
   test('chain: cada golpe salta a 2 vecinos al 50 %, y los saltos no vuelven a saltar', () => {
     const sim = armed('ion-ray', 1, (c) => {
+      // Pinned numbers: mechanics tests do not follow calibration.
       c.weapons.find((w) => w.id === 'ion-ray')!.levels[0]!.count = 1;
+      c.weapons.find((w) => w.id === 'ion-ray')!.levels[0]!.damage = 15;
       c.weapons.find((w) => w.id === 'ion-ray')!.element = null;
     });
     target(sim, 60, 0);

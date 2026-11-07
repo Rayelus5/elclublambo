@@ -32,10 +32,12 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   dmg *= damageFactor(sim, e, element);
   let crit = false;
   if (p) {
+    // Pure damage adds to the critical stats, still within their caps (GDD §8.6).
     const bonus = critBonus(sim, element);
-    if (sim.rng.combat.chance(p.stats.crit + bonus.chance)) {
+    const caps = sim.content.caps;
+    if (sim.rng.combat.chance(Math.min(p.stats.crit + bonus.chance, Math.max(p.stats.crit, caps.crit)))) {
       crit = true;
-      dmg *= p.stats.critDamage + bonus.damage;
+      dmg *= Math.min(p.stats.critDamage + bonus.damage, Math.max(p.stats.critDamage, sim.content.crit.damage + caps.critDamage));
     }
   }
   const absorbed = Math.min(en.shield[e]!, dmg);
