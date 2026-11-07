@@ -39,7 +39,7 @@ function enemyKey(sim: Sim, e: number): number {
 }
 
 /** The tick enemy `e` was last hit by shot `i`, or −1. */
-function lastHit(sim: Sim, i: number, e: number): number {
+export function lastHit(sim: Sim, i: number, e: number): number {
   const m = memOf(sim);
   const key = enemyKey(sim, e);
   const base = i * MEM * 2;
@@ -47,7 +47,7 @@ function lastHit(sim: Sim, i: number, e: number): number {
   return -1;
 }
 
-function remember(sim: Sim, i: number, e: number): void {
+export function remember(sim: Sim, i: number, e: number): void {
   const m = memOf(sim);
   const key = enemyKey(sim, e);
   const base = i * MEM * 2;
@@ -449,9 +449,10 @@ export function updateShots(sim: Sim): void {
   for (let i = 0; i < s.top; i++) {
     if (!s.alive[i]) continue;
     const kind = s.kind[i]!;
+    if (s.srcKind[i] === 1 && shotHooks.persistent(sim, i)) continue;
     if (kind === SHOT.orb) updateOrb(sim, i);
     else if (kind === SHOT.drone) updateDrone(sim, i);
-    else if (!shotHooks.persistent(sim, i)) updateFlying(sim, i);
+    else updateFlying(sim, i);
   }
 }
 
@@ -479,6 +480,11 @@ export function updateAreas(sim: Sim, areaHit: (sim: Sim, i: number) => void = d
 
 function defaultAreaHit(sim: Sim, i: number): void {
   const a = sim.areas;
+  const en = sim.enemies;
+  if (a.slow[i]! > 0) {
+    // Slowing fields keep everything inside slowed until the next field tick.
+    for (const e of nearestEnemies(sim, a.x[i]!, a.y[i]!, a.radius[i]!, 400)) en.slowT[e] = Math.max(en.slowT[e]!, a.interval[i]! + 1);
+  }
   if (!(a.damage[i]! > 0)) return;
   const p = sim.probes[a.owner[i]!];
   hitArea(
@@ -487,7 +493,14 @@ function defaultAreaHit(sim: Sim, i: number): void {
     a.y[i]!,
     a.radius[i]!,
     a.damage[i]!,
-    { probe: a.owner[i]!, weapon: a.srcKind[i] === 0 && p ? (p.weapons[a.srcIdx[i]!]?.id ?? null) : null, relic: a.srcKind[i] === 1 ? a.srcIdx[i]! : null, element: null, x: a.x[i]!, y: a.y[i]! },
+    {
+      probe: a.owner[i]!,
+      weapon: a.srcKind[i] === 0 && p ? (p.weapons[a.srcIdx[i]!]?.id ?? null) : null,
+      relic: a.srcKind[i] === 1 ? a.srcIdx[i]! : null,
+      element: elementOf(a.element[i]!),
+      x: a.x[i]!,
+      y: a.y[i]!,
+    },
     { angle: a.angle[i]!, arc: a.arc[i]!, knockback: a.knockback[i]! },
   );
 }

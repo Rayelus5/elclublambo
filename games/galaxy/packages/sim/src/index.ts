@@ -58,3 +58,4 @@ export {
   resolveElement,
   tickStatuses,
 } from './systems/elements';
+export { describeRelic, relicBonuses, relicSkill, relicVision, updateRelics, type RelicSkill } from './systems/relics';

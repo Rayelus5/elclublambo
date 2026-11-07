@@ -4,6 +4,7 @@ import { updateEnemies, updateFoeShots } from './systems/enemies';
 import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
+import { updateRelics } from './systems/relics';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
 import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
@@ -166,7 +167,10 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickStatuses(sim);
   updateFoeShots(sim);
   rebuildGrid(sim);
-  for (const p of sim.probes) fireWeapons(sim, p);
+  for (const p of sim.probes) {
+    fireWeapons(sim, p);
+    updateRelics(sim, p);
+  }
   updateShots(sim);
   updateAreas(sim);
   contactDamage(sim, maxEnemyRadius(sim));
