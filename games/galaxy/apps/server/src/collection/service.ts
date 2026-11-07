@@ -44,7 +44,10 @@ export type ListQuery = z.infer<typeof listQuerySchema>;
 type Row = Selectable<GalaxiesTable>;
 const SUMMARY = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'] as const;
 
-function summary(r: Pick<Row, (typeof SUMMARY)[number]>): GalaxySummary {
+/** `equipped`: whether a galaxy sits in a hangar slot (as a selectable column). */
+const equippedColumn = sql<boolean>`exists (select 1 from galaxy.loadouts l where l.galaxy_id = galaxy.galaxies.id)`.as('equipped');
+
+export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean }): GalaxySummary {
   return {
     id: r.id,
     seed: String(r.seed),
@@ -56,6 +59,7 @@ function summary(r: Pick<Row, (typeof SUMMARY)[number]>): GalaxySummary {
     featured: r.featured,
     level: r.level,
     createdAt: new Date(r.created_at).toISOString(),
+    equipped: r.equipped === true,
   };
 }
 
@@ -75,7 +79,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   const { db } = deps;
   let query = db
     .selectFrom('galaxy.galaxies')
-    .select(SUMMARY)
+    .select([...SUMMARY, equippedColumn])
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null);
   if (q.tier) query = query.where('tier', '=', TIERS.indexOf(q.tier));
@@ -117,7 +121,7 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
   const { db } = deps;
   const r = await db
     .selectFrom('galaxy.galaxies')
-    .select([...SUMMARY, 'origin', 'lineage', 'dna'])
+    .select([...SUMMARY, equippedColumn, 'origin', 'lineage', 'dna'])
     .where('id', '=', id)
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null)
@@ -141,6 +145,11 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
   return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrateYield(r.tier, r.finish as Finish, cfg) };
 }
 
+async function isEquipped(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
+  const row = await trx.selectFrom('galaxy.loadouts').select('slot').where('galaxy_id', 'in', ids).limit(1).executeTakeFirst();
+  return row !== undefined;
+}
+
 // Disintegrate and fuse run inside an operation's transaction: the config they need is read by the route BEFORE it
 // (reading it through the pool inside would take a second connection).
 export async function disintegrate(
@@ -159,6 +168,8 @@ export async function disintegrate(
     .returning(['tier', 'finish'])
     .executeTakeFirst();
   if (!gone) throw new HttpError(404, 'galaxy_not_found');
+  // Checked after taking the row (a fresh statement sees a loadout committed meanwhile): equipped relics stay.
+  if (await isEquipped(trx, [id])) throw new HttpError(409, 'galaxy_equipped');
   const dust = disintegrateYield(gone.tier, gone.finish as Finish, cfg);
   if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxy: id }, opKey);
   return { dust, wallet: await getWallet(trx, ownerId) };
@@ -182,6 +193,7 @@ export async function fuse(
     .forUpdate()
     .execute();
   if (parents.length !== ids.length) throw new HttpError(409, 'invalid_fusion');
+  if (await isEquipped(trx, ids)) throw new HttpError(409, 'galaxy_equipped');
   const recipe = validateFusion(parents, cfg);
   if ('error' in recipe) throw new HttpError(409, 'invalid_fusion');
   if (recipe.dust > 0) await debit(trx, ownerId, 'dust', recipe.dust, 'fusion', { parents: ids }, opKey);

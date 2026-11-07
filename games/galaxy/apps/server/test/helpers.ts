@@ -58,6 +58,10 @@ export function post(app: FastifyInstance, url: string, body?: unknown, opts: In
   return app.inject({ method: 'POST', url, payload: body as object | undefined, headers: headers(opts) });
 }
 
+export function put(app: FastifyInstance, url: string, body?: unknown, opts: InjectOpts = {}) {
+  return app.inject({ method: 'PUT', url, payload: body as object | undefined, headers: headers(opts) });
+}
+
 export function get(app: FastifyInstance, url: string, opts: InjectOpts = {}) {
   return app.inject({ method: 'GET', url, headers: headers(opts) });
 }
