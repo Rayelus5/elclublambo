@@ -38,6 +38,7 @@ export {
   fireWeapons,
   hitArea,
   nearestEnemies,
+  persistentFor,
   SHOT,
   shotHooks,
   spawnArea,

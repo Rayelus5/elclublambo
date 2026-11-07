@@ -214,11 +214,15 @@ export function weaponDef(sim: Sim, id: string): WeaponDef | undefined {
   return sim.content.weapons.find((w) => w.id === id);
 }
 
-/** Kinds beyond M3a's live in systems/arsenal.ts, which fills these hooks (null: not one of its kinds). */
+/** Kinds beyond M3a's live in systems/arsenal.ts, which fills these hooks (null / false: not one of its kinds). */
 export const weaponHooks: {
   fire: (sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLevel) => boolean | null;
   update: (sim: Sim, i: number) => boolean;
-} = { fire: () => null, update: () => false };
+  /** An area at the end of its life (orbital strikes blow up here). */
+  expire: (sim: Sim, i: number) => void;
+  /** An area's pull on the enemies inside (gravity wells). */
+  pull: (sim: Sim, i: number) => void;
+} = { fire: () => null, update: () => false, expire: () => {}, pull: () => {} };
 
 export function levelOf(def: WeaponDef, level: number): WeaponLevel {
   return def.levels[Math.max(1, Math.min(level, def.levels.length)) - 1]!;
@@ -300,6 +304,41 @@ function fireOnce(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: Weap
   }
 }
 
+/**
+ * Keeps `count` persistent shots out of `mine` (their slots, in slot order): extras go, missing ones are added, and
+ * the ring is spaced evenly from the first one's angle only when something changed. With a full pool the ones that
+ * exist keep turning and remembering their hits (never respawned every tick).
+ */
+export function keepRing(sim: Sim, mine: number[], count: number, spawn: () => number): void {
+  const s = sim.shots;
+  if (mine.length === count) return;
+  const had = mine.length;
+  while (mine.length > count) s.kill(mine.pop()!);
+  const base = mine.length > 0 ? s.reach[mine[0]!]! : 0;
+  while (mine.length < count) {
+    const i = spawn();
+    if (i < 0) break;
+    s.target[i] = 0; // drones: ticks until the next shot
+    mine.push(i);
+  }
+  if (mine.length === had) return;
+  mine.forEach((i, k) => {
+    s.reach[i] = (base + (k * ANGLE_STEPS) / Math.max(1, mine.length)) % ANGLE_STEPS; // orbit angle in steps (fractional)
+  });
+}
+
+/** The persistent shots (orbs, drones, beams, turrets) a probe's weapon slot keeps alive, in slot order. */
+export function persistentFor(sim: Sim, p: ProbeState, wi: number): number[] {
+  const s = sim.shots;
+  const out: number[] = [];
+  for (let i = 0; i < s.top; i++) {
+    if (s.alive[i] && s.owner[i] === p.index && s.srcKind[i] === 0 && s.srcIdx[i] === wi && PERSISTENT.has(s.kind[i]!)) out.push(i);
+  }
+  return out;
+}
+
+const PERSISTENT = new Set<number>([SHOT.orb, SHOT.drone, SHOT.beam, SHOT.turret, SHOT.mine, SHOT.disc]);
+
 /** Keeps exactly `count` persistent shots of `kind` for weapon `wi` (orbs, drones). */
 function keepPersistent(sim: Sim, p: ProbeState, wi: number, kind: number, count: number): void {
   const s = sim.shots;
@@ -307,14 +346,7 @@ function keepPersistent(sim: Sim, p: ProbeState, wi: number, kind: number, count
   for (let i = 0; i < s.top; i++) {
     if (s.alive[i] && s.kind[i] === kind && s.owner[i] === p.index && s.srcKind[i] === 0 && s.srcIdx[i] === wi) mine.push(i);
   }
-  if (mine.length === count) return;
-  for (const i of mine) s.kill(i);
-  for (let k = 0; k < count; k++) {
-    const i = spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcIdx: wi });
-    if (i < 0) return;
-    s.reach[i] = (k * ANGLE_STEPS) / count; // orbit angle in steps (fractional)
-    s.target[i] = 0; // drones: ticks until the next shot
-  }
+  keepRing(sim, mine, count, () => spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcIdx: wi }));
 }
 
 /** Fires or maintains every weapon of a probe for one tick. */
@@ -511,8 +543,12 @@ export function updateAreas(sim: Sim, areaHit: (sim: Sim, i: number) => void = d
         areaHit(sim, i);
       }
     }
+    if (a.kind[i] === AREA.field) weaponHooks.pull(sim, i);
     a.ttl[i] = a.ttl[i]! - 1;
-    if (a.ttl[i]! <= 0) a.kill(i);
+    if (a.ttl[i]! <= 0) {
+      weaponHooks.expire(sim, i);
+      a.kill(i);
+    }
   }
 }
 
@@ -539,6 +575,7 @@ function defaultAreaHit(sim: Sim, i: number): void {
       x: a.x[i]!,
       y: a.y[i]!,
     },
-    { angle: a.angle[i]!, arc: a.arc[i]!, knockback: a.knockback[i]! },
+    // A gravity well pulls (its `knockback` is the pull), it never pushes.
+    { angle: a.angle[i]!, arc: a.arc[i]!, knockback: a.kind[i] === AREA.field ? 0 : a.knockback[i]! },
   );
 }

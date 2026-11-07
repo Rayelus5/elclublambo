@@ -3,7 +3,7 @@ import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { ProbeState, Sim } from '../types';
 import { ticks } from '../version';
 import { dealDamage } from './combat';
-import { elementCode } from './elements';
+import { elementCode, elementOf as elementOfCode } from './elements';
 import {
   AREA,
   hitArea,
@@ -17,6 +17,7 @@ import {
   spawnShot,
   ttlFor,
   weaponHooks,
+  weaponSource,
 } from './weapons';
 
 // The M3b-1 arsenal (GDD §5.3): weapon kinds beyond M3a's, each with its own role — a beam that locks on and burns a
@@ -31,6 +32,12 @@ const MISSILE_TURN = Math.round(degToSteps(240) / 60);
 /** A missile whose target is gone looks for another this close to it. */
 const MISSILE_SEEK = 150;
 const QUERY_PAD = 40;
+/** Mines arm half a second after they are dropped. */
+const MINE_ARM = ticks(0.5);
+/** Where the extra mines of a volley go, around the probe. */
+const MINE_SPREAD = 16;
+/** A returning disc is caught this close to its probe. */
+const DISC_CATCH = 10;
 
 function elementOf(def: WeaponDef): number {
   return elementCode(def.element ?? null);
@@ -117,9 +124,238 @@ function fire(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLe
       }
       return n > 0;
     }
+    case 'mine': {
+      const n = lvl.count + s.projectiles;
+      for (let k = 0; k < n; k++) {
+        const a = Math.round((k * ANGLE_STEPS) / Math.max(1, n - 1)) + p.facing;
+        const x = k === 0 ? p.x : p.x + cosA(a) * MINE_SPREAD;
+        const y = k === 0 ? p.y : p.y + sinA(a) * MINE_SPREAD;
+        const i = spawnShot(sim, p, SHOT.mine, x, y, 0, 0, damage, {
+          ttl: Math.max(1, ticks(lvl.duration * s.duration)),
+          reach: lvl.area * s.area,
+          srcIdx: wi,
+          element: elementOf(def),
+        });
+        if (i < 0) break;
+        sim.shots.target[i] = MINE_ARM;
+      }
+      return n > 0;
+    }
+    case 'boomerang': {
+      const n = lvl.count + s.projectiles;
+      const targets = nearestEnemies(sim, p.x, p.y, lvl.range * s.velocity, n);
+      if (targets.length === 0 || n <= 0) return false;
+      for (let k = 0; k < n; k++) {
+        const e = targets[k % targets.length]!;
+        const round = Math.floor(k / targets.length);
+        const a = angleTo(sim.enemies.x[e]! - p.x, sim.enemies.y[e]! - p.y) + round * degToSteps(25);
+        const i = spawnShot(sim, p, SHOT.disc, p.x, p.y, a, lvl.speed * s.velocity, damage, {
+          ttl: ttlFor(lvl.range * s.velocity * 4, lvl.speed * s.velocity),
+          reach: lvl.range * s.velocity,
+          srcIdx: wi,
+          element: elementOf(def),
+        });
+        if (i < 0) break;
+        sim.shots.target[i] = 0; // 0 outward, 1 coming back
+      }
+      return true;
+    }
+    case 'field': {
+      const [e] = nearestEnemies(sim, p.x, p.y, lvl.range, 1);
+      if (e === undefined) return false;
+      spawnArea(sim, p, AREA.field, sim.enemies.x[e]!, sim.enemies.y[e]!, lvl.area * s.area, {
+        ttl: Math.max(1, ticks(lvl.duration * s.duration)),
+        damage,
+        interval: Math.max(1, ticks(lvl.interval)),
+        knockback: lvl.knockback,
+        srcIdx: wi,
+        element: elementOf(def),
+      });
+      return true;
+    }
+    case 'strike': {
+      const pool = nearestEnemies(sim, p.x, p.y, lvl.range, 64);
+      if (pool.length === 0) return false;
+      pool.sort((a, b) => a - b);
+      const n = Math.min(pool.length, lvl.count + s.projectiles);
+      // A partial Fisher–Yates on the slot-ordered candidates: n distinct marks, the same for the same seed.
+      for (let k = 0; k < n; k++) {
+        const j = k + sim.rng.combat.int(pool.length - k);
+        const e = pool[j]!;
+        pool[j] = pool[k]!;
+        pool[k] = e;
+        spawnArea(sim, p, AREA.strike, sim.enemies.x[e]!, sim.enemies.y[e]!, lvl.area * s.area, {
+          ttl: Math.max(1, ticks(lvl.interval)),
+          knockback: damage, // the blast's damage, dealt when the warning ends
+          srcIdx: wi,
+          element: elementOf(def),
+        });
+      }
+      return true;
+    }
+    case 'turret': {
+      const max = Math.max(1, lvl.count + s.projectiles);
+      const mine: number[] = [];
+      const sh = sim.shots;
+      for (let i = 0; i < sh.top; i++) if (sh.alive[i] && sh.kind[i] === SHOT.turret && sh.owner[i] === p.index && sh.srcKind[i] === 0 && sh.srcIdx[i] === wi) mine.push(i);
+      // The oldest (least time left) goes first.
+      mine.sort((a, b) => sh.ttl[a]! - sh.ttl[b]! || a - b);
+      while (mine.length >= max) sh.kill(mine.shift()!);
+      const i = spawnShot(sim, p, SHOT.turret, p.x, p.y, 0, 0, damage, {
+        ttl: Math.max(1, ticks(lvl.duration * s.duration)),
+        srcIdx: wi,
+        element: elementOf(def),
+      });
+      if (i >= 0) sh.target[i] = 0;
+      return i >= 0;
+    }
     default:
       return null;
   }
+}
+
+/** A mine: arms, then blows up when an enemy comes within its trigger radius; it expires on its own. */
+function updateMine(sim: Sim, i: number): void {
+  const s = sim.shots;
+  const en = sim.enemies;
+  s.ttl[i] = s.ttl[i]! - 1;
+  if (s.ttl[i]! <= 0) {
+    s.kill(i);
+    return;
+  }
+  if (s.target[i]! > 0) {
+    s.target[i] = s.target[i]! - 1;
+    return;
+  }
+  const sw = shotWeapon(sim, i);
+  const trigger = sw ? sw.lvl.range : 18;
+  const n = sim.grid.query(s.x[i]!, s.y[i]!, trigger + QUERY_PAD, near);
+  for (let k = 0; k < n; k++) {
+    const e = near[k]!;
+    if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
+    const r = trigger + en.radius[e]!;
+    const dx = en.x[e]! - s.x[i]!;
+    const dy = en.y[e]! - s.y[i]!;
+    if (dx * dx + dy * dy > r * r) continue;
+    blast(sim, i);
+    return;
+  }
+}
+
+/** A shot blows up where it is: damage in `reach`, a blast on screen, gone. */
+function blast(sim: Sim, i: number): void {
+  const s = sim.shots;
+  const x = s.x[i]!;
+  const y = s.y[i]!;
+  const p = sim.probes[s.owner[i]!];
+  hitArea(sim, x, y, s.reach[i]!, s.damage[i]!, { ...shotHooks.source(sim, i), x, y });
+  if (p) spawnArea(sim, p, AREA.blast, x, y, s.reach[i]!, { ttl: BLAST_SHOW_TICKS, srcIdx: s.srcIdx[i]! });
+  s.kill(i);
+}
+
+/** A disc: flies out to its reach, comes back to its probe, and cuts everything on the way (once per interval). */
+function updateDisc(sim: Sim, i: number): void {
+  const s = sim.shots;
+  const en = sim.enemies;
+  const sw = shotWeapon(sim, i);
+  const p = sim.probes[s.owner[i]!];
+  s.ttl[i] = s.ttl[i]! - 1;
+  if (!p || !p.alive || s.ttl[i]! <= 0) {
+    s.kill(i);
+    return;
+  }
+  const speed = Math.sqrt(s.vx[i]! * s.vx[i]! + s.vy[i]! * s.vy[i]!);
+  if (s.target[i] === 0) {
+    s.reach[i] = s.reach[i]! - speed;
+    if (s.reach[i]! <= 0) s.target[i] = 1;
+  }
+  if (s.target[i] === 1) {
+    const dx = p.x - s.x[i]!;
+    const dy = p.y - s.y[i]!;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d <= DISC_CATCH + speed) {
+      s.kill(i);
+      return;
+    }
+    s.vx[i] = (dx / d) * speed;
+    s.vy[i] = (dy / d) * speed;
+    s.angle[i] = angleTo(dx, dy);
+  }
+  s.x[i] = s.x[i]! + s.vx[i]!;
+  s.y[i] = s.y[i]! + s.vy[i]!;
+  const interval = Math.max(1, ticks(sw ? sw.lvl.interval || 0.3 : 0.3));
+  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
+  for (let k = 0; k < n; k++) {
+    const e = near[k]!;
+    if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
+    const r = s.radius[i]! + en.radius[e]!;
+    const ex = en.x[e]! - s.x[i]!;
+    const ey = en.y[e]! - s.y[i]!;
+    if (ex * ex + ey * ey > r * r) continue;
+    const last = lastHit(sim, i, e);
+    if (last >= 0 && sim.tick - last < interval) continue;
+    remember(sim, i, e);
+    dealDamage(sim, e, s.damage[i]!, shotHooks.source(sim, i));
+  }
+}
+
+/** A turret: stays put, fires at the nearest enemy at its rate, and expires. */
+function updateTurret(sim: Sim, i: number): void {
+  const s = sim.shots;
+  const sw = shotWeapon(sim, i);
+  s.ttl[i] = s.ttl[i]! - 1;
+  if (!sw || s.ttl[i]! <= 0) {
+    s.kill(i);
+    return;
+  }
+  const { p, def, lvl } = sw;
+  if (s.target[i]! > 0) s.target[i] = s.target[i]! - 1;
+  if (s.target[i]! > 0) return;
+  const [e] = nearestEnemies(sim, s.x[i]!, s.y[i]!, lvl.range, 1);
+  if (e === undefined) return;
+  const a = angleTo(sim.enemies.x[e]! - s.x[i]!, sim.enemies.y[e]! - s.y[i]!);
+  s.angle[i] = a;
+  spawnShot(sim, p, SHOT.droneBolt, s.x[i]!, s.y[i]!, a, lvl.speed * p.stats.velocity, s.damage[i]!, {
+    ttl: ttlFor(lvl.range * 1.3, lvl.speed * p.stats.velocity),
+    srcIdx: s.srcIdx[i]!,
+    element: s.element[i]!,
+  });
+  s.target[i] = Math.max(1, ticks(lvl.interval * p.stats.cooldown));
+  sim.events.push({ t: 'fire', weapon: def.id, x: s.x[i]!, y: s.y[i]! });
+}
+
+/** A gravity well pulls every enemy inside (bosses stay) towards its centre, never past it. */
+function pull(sim: Sim, i: number): void {
+  const a = sim.areas;
+  const en = sim.enemies;
+  const step = a.knockback[i]! / 60;
+  if (!(step > 0)) return;
+  const n = sim.grid.query(a.x[i]!, a.y[i]!, a.radius[i]! + QUERY_PAD, near);
+  for (let k = 0; k < n; k++) {
+    const e = near[k]!;
+    if (!en.alive[e] || en.boss[e] || en.fuseT[e]! > 0) continue;
+    const dx = a.x[i]! - en.x[e]!;
+    const dy = a.y[i]! - en.y[e]!;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > a.radius[i]! + en.radius[e]! || d < 1e-9) continue;
+    const move = Math.min(step, d);
+    en.x[e] = en.x[e]! + (dx / d) * move;
+    en.y[e] = en.y[e]! + (dy / d) * move;
+  }
+}
+
+/** An orbital strike blows up when its warning ends. */
+function expire(sim: Sim, i: number): void {
+  const a = sim.areas;
+  if (a.kind[i] !== AREA.strike) return;
+  const p = sim.probes[a.owner[i]!];
+  if (!p) return;
+  const x = a.x[i]!;
+  const y = a.y[i]!;
+  const def = p.weapons[a.srcIdx[i]!] ? sim.content.weapons.find((w) => w.id === p.weapons[a.srcIdx[i]!]!.id) : undefined;
+  const src = def ? weaponSource(p, def, x, y) : { probe: p.index, weapon: null, relic: null, element: null, x, y };
+  hitArea(sim, x, y, a.radius[i]!, a.knockback[i]!, { ...src, element: elementOfCode(a.element[i]!) });
+  spawnArea(sim, p, AREA.blast, x, y, a.radius[i]!, { ttl: BLAST_SHOW_TICKS, srcIdx: a.srcIdx[i]! });
 }
 
 /** A beam: follows its probe, keeps aiming at its target (or the next one) and burns its whole line. */
@@ -197,12 +433,7 @@ function updateMissile(sim: Sim, i: number): void {
     const dx = en.x[e]! - s.x[i]!;
     const dy = en.y[e]! - s.y[i]!;
     if (dx * dx + dy * dy > r * r) continue;
-    const x = s.x[i]!;
-    const y = s.y[i]!;
-    const p = sim.probes[s.owner[i]!];
-    hitArea(sim, x, y, s.reach[i]!, s.damage[i]!, { ...shotHooks.source(sim, i), x, y });
-    if (p) spawnArea(sim, p, AREA.blast, x, y, s.reach[i]!, { ttl: BLAST_SHOW_TICKS, srcIdx: s.srcIdx[i]! });
-    s.kill(i);
+    blast(sim, i);
     return;
   }
 }
@@ -211,9 +442,14 @@ function update(sim: Sim, i: number): boolean {
   const kind = sim.shots.kind[i]!;
   if (kind === SHOT.beam) updateBeam(sim, i);
   else if (kind === SHOT.missile) updateMissile(sim, i);
+  else if (kind === SHOT.mine) updateMine(sim, i);
+  else if (kind === SHOT.disc) updateDisc(sim, i);
+  else if (kind === SHOT.turret) updateTurret(sim, i);
   else return false;
   return true;
 }
 
 weaponHooks.fire = fire;
 weaponHooks.update = update;
+weaponHooks.expire = expire;
+weaponHooks.pull = pull;

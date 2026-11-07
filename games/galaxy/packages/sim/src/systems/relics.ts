@@ -6,7 +6,7 @@ import { ticks } from '../version';
 import { dealDamage } from './combat';
 import { elementCode, invertNearby } from './elements';
 import { refreshStats, relicHooks, type StatBonus } from './stats';
-import { AREA, hitArea, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
+import { AREA, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
 
 // Galaxies as relics (GDD §8.2–8.4 bis, §8.6). The galaxy type picks the family; arms give the count; rarity, size,
 // core and level give the magnitude; density the frequency; inclination the shape; palette the element; background a
@@ -152,15 +152,8 @@ function keepShots(sim: Sim, p: ProbeState, ri: number, kind: number, count: num
   const s = sim.shots;
   const mine: number[] = [];
   for (let i = 0; i < s.top; i++) if (s.alive[i] && s.kind[i] === kind && s.owner[i] === p.index && s.srcKind[i] === 1 && s.srcIdx[i] === ri) mine.push(i);
-  if (mine.length === count) return;
-  for (const i of mine) s.kill(i);
   const element = elementCode(skillsOf(sim, p)[ri]?.skill.element ?? null);
-  for (let k = 0; k < count; k++) {
-    const i = spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcKind: 1, srcIdx: ri, element });
-    if (i < 0) return;
-    s.reach[i] = (k * ANGLE_STEPS) / count;
-    s.target[i] = 0;
-  }
+  keepRing(sim, mine, count, () => spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcKind: 1, srcIdx: ri, element }));
 }
 
 function fireRays(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {

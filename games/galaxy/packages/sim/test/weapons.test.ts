@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyOffer, AREA, type Content, IDLE, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { applyOffer, AREA, type Content, IDLE, persistentFor, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // The probe's weapons (GDD §5.3): each one has its own role — the nearest target, a ring around you, a piercing line,
@@ -370,5 +370,149 @@ describe('Modificadores del arsenal', () => {
       }
     }).not.toThrow();
     expect(most).toBe(3);
+  });
+});
+
+// ── M3b-1, Tarea 3: minas, disco, pozo gravitatorio, bombardeo y torreta ─────────────────────────────────────────
+
+const slotsOf = (sim: Sim, kind: number) => {
+  const out: number[] = [];
+  for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i] && sim.shots.kind[i] === kind) out.push(i);
+  return out;
+};
+
+describe('Minas de proximidad (mine)', () => {
+  test('no estallan antes de armarse y estallan cuando alguien entra en su radio de disparo', () => {
+    const sim = armed('mine');
+    const victim = target(sim, 10, 0);
+    run(sim, 28);
+    expect(lost(sim, victim)).toBe(0);
+    run(sim, 5);
+    expect(lost(sim, victim)).toBe(30);
+  });
+
+  test('caducan sin nadie cerca', () => {
+    const sim = armed('mine');
+    step(sim, [IDLE]);
+    const [first] = slotsOf(sim, SHOT.mine);
+    expect(first).toBeDefined();
+    run(sim, 470);
+    expect(sim.shots.alive[first!]).toBe(1);
+    run(sim, 20);
+    expect(sim.shots.alive[first!]).toBe(0);
+  });
+
+  test('a nivel 3 deja 2 minas alrededor de la sonda', () => {
+    const sim = armed('mine', 3);
+    step(sim, [IDLE]);
+    const mines = slotsOf(sim, SHOT.mine);
+    expect(mines).toHaveLength(2);
+    expect(sim.shots.x[mines[0]!]).not.toBeCloseTo(sim.shots.x[mines[1]!]!, 3);
+  });
+});
+
+describe('Disco de retorno (boomerang)', () => {
+  test('va hasta su alcance y vuelve a la sonda, atravesándolo todo a la ida y a la vuelta', () => {
+    const sim = armed('boomerang');
+    const a = target(sim, 50, 0);
+    const b = target(sim, 80, 0);
+    run(sim, 75);
+    expect(lost(sim, a)).toBe(24);
+    expect(lost(sim, b)).toBe(24);
+    expect(slotsOf(sim, SHOT.disc)).toHaveLength(0);
+  });
+
+  test('no golpea al mismo enemigo dos veces dentro de su intervalo', () => {
+    const sim = armed('boomerang');
+    const turn = target(sim, 125, 0);
+    run(sim, 75);
+    expect(lost(sim, turn)).toBe(12);
+  });
+});
+
+describe('Pozo gravitatorio (field)', () => {
+  test('aparece en el enemigo más cercano, lo daña cada intervalo y atrae a los demás hacia su centro', () => {
+    const sim = armed('field');
+    const core = target(sim, 100, 0);
+    const pulled = target(sim, 130, 20);
+    const anchored = target(sim, 115, -25);
+    sim.enemies.boss[anchored] = 1;
+    const dist = () => Math.hypot(sim.enemies.x[pulled]! - 100, sim.enemies.y[pulled]! - 0);
+    const before = dist();
+    run(sim, 31);
+    expect(lost(sim, core)).toBe(15);
+    expect(dist()).toBeLessThan(before - 15);
+    expect(sim.enemies.x[anchored]).toBe(115);
+    expect(sim.enemies.y[anchored]).toBe(-25);
+  });
+
+  test('sin nadie a su alcance no aparece', () => {
+    const sim = armed('field');
+    target(sim, 400, 0);
+    expect(fires(sim, 60)).toBe(0);
+    target(sim, 100, 0);
+    expect(fires(sim, 2)).toBe(1);
+  });
+});
+
+describe('Bombardeo orbital (strike)', () => {
+  test('marca enemigos distintos, no daña durante el aviso y estalla al acabarlo', () => {
+    const sim = armed('strike');
+    const ts = [target(sim, 100, 0), target(sim, 0, 100), target(sim, -100, 0)];
+    run(sim, 30);
+    expect(ts.map((e) => lost(sim, e))).toEqual([0, 0, 0]);
+    run(sim, 10);
+    const hits = ts.map((e) => lost(sim, e));
+    expect(hits.filter((h) => h === 26)).toHaveLength(2);
+    expect(hits.filter((h) => h === 0)).toHaveLength(1);
+  });
+});
+
+describe('Torreta (turret)', () => {
+  test('se queda donde la sonda la deja y dispara al más cercano con su cadencia', () => {
+    const sim = armed('turret');
+    const prey = target(sim, 0, 100);
+    step(sim, [IDLE]);
+    const [turret] = slotsOf(sim, SHOT.turret);
+    expect(turret).toBeDefined();
+    for (let i = 0; i < 100; i++) step(sim, [move(127, 0)]);
+    expect(sim.shots.x[turret!]).toBe(0);
+    expect(sim.shots.y[turret!]).toBe(0);
+    expect(lost(sim, prey)).toBeGreaterThanOrEqual(14);
+    expect(lost(sim, prey) % 7).toBe(0);
+  });
+
+  test('con su cantidad máxima, la nueva sustituye a la más vieja', () => {
+    const sim = armed('turret');
+    target(sim, 0, 100);
+    step(sim, [IDLE]);
+    for (let i = 0; i < 299; i++) step(sim, [i < 60 ? move(127, 0) : IDLE]);
+    expect(slotsOf(sim, SHOT.turret)).toHaveLength(1);
+    run(sim, 5);
+    const now = slotsOf(sim, SHOT.turret);
+    expect(now).toHaveLength(1);
+    expect(sim.shots.x[now[0]!]).toBeCloseTo(sim.probes[0]!.x, 6);
+  });
+});
+
+describe('Persistentes con la piscina llena', () => {
+  test('si no caben todos, se reponen los que faltan sin reiniciar los que ya giran', () => {
+    const sim = armed('orbit', 5, (c) => {
+      c.limits.shots = 2;
+    });
+    step(sim, [IDLE]);
+    const orbs = slotsOf(sim, SHOT.orb);
+    expect(orbs).toHaveLength(2);
+    const start = sim.shots.reach[orbs[0]!]!;
+    run(sim, 10);
+    const turned = (((sim.shots.reach[orbs[0]!]! - start) % 4096) + 4096) % 4096;
+    // 230 °/s at level 5: about 26 angle steps per tick.
+    expect(turned).toBeGreaterThan(200);
+  });
+
+  test('persistentFor da los disparos persistentes de un hueco', () => {
+    const sim = armed('orbit', 3);
+    step(sim, [IDLE]);
+    expect(persistentFor(sim, sim.probes[0]!, 0)).toEqual(slotsOf(sim, SHOT.orb));
   });
 });
