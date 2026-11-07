@@ -224,6 +224,24 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
 - **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
 - **Movimiento reducido:** sin sacudida ni glitch (un tinte fijo marca élites y jefe), mitad de partículas, números sin desplazamiento (solo fundido).
 
+## 8 quinquies. HUD, mejoras, pausa y radio
+
+React encima de la arena, sin capturar el ratón salvo en sus botones. Se lee de la simulación 10 veces por segundo, nunca a cada fotograma.
+
+- **Experiencia:** barra de 10 px de lado a lado arriba, de Terminal a hielo.
+- **Fila superior** (anclada a los bordes, también en ultrapanorámicas):
+  - **Izquierda:** nivel («Nv 13» en Solar) y vida (barra Nova con «101/130»; el escudo, en hielo encima; late en rojo por debajo del 30 %).
+  - **Centro:** tiempo (Bungee), capa (píldora UV) y fase («Núcleo en 0:59», «Núcleo de la Estática» en rojo, «Cierra en 42 s» en Terminal).
+  - **Derecha:** botín (monedas, polvo) y bajas, cada uno con `role="img"` y la frase entera, y el botón de pausa de 44 px.
+- **Equipo:** abajo a la izquierda, armas (44 px) y pasivas (36 px) con su icono pixel y su nivel en una chapa hielo.
+- **Jefe:** debajo del centro, «Núcleo de la Estática» en rojo, el nombre en Bungee y una barra roja.
+- **Baliza:** etiqueta Terminal sobre ella, o en el borde de la pantalla con una flecha si está fuera; «Llega a la baliza · Cierra en 42 s · 380 u» o «Extrayendo 60 %».
+- **Radio de PERKINS:** abajo al centro, una o dos líneas, «PERKINS» en Terminal. Se cierra sola a los 7 s o con su botón, y cada mensaje sale una vez por jugador.
+- **Mejora:** diálogo con tres cartas (número, icono pixel de 64 px, nombre en Bungee, «Nueva» en Solar o «Nivel 3», qué hace). Las cartas son un `radiogroup`: 1–3 eligen, las flechas mueven, Enter o un clic confirman. El mundo espera congelado y Escape no hace nada.
+- **Pausa:** Escape, P o Start, y sola al ocultar la pestaña o perder el foco. Ofrece Continuar (Solar), apuntado manual, sonido y «Abandonar incursión» (Nova), que confirma en un `alertdialog` con «Se cobra la mitad del botín. No se puede deshacer» y el foco en «Seguir jugando».
+- **Final:** «Extracción completada» (Terminal) o «Sonda perdida» (rojo) en grande sobre un velo durante 1,5 s, y después los resultados.
+- **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
