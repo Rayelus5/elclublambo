@@ -24,7 +24,13 @@ export function tickQuirk(sim: Sim, p: ProbeState): void {
     if (t <= 0) {
       p.fx['quirkMagnetT'] = ticks(magnet.every);
       const pk = sim.pickups;
-      for (let i = 0; i < pk.top; i++) if (pk.alive[i] && pk.kind[i] === PICKUP.xp) pk.magnet[i] = 1;
+      const r2 = magnet.radius * magnet.radius;
+      for (let i = 0; i < pk.top; i++) {
+        if (!pk.alive[i] || pk.kind[i] !== PICKUP.xp) continue;
+        const dx = pk.x[i]! - p.x;
+        const dy = pk.y[i]! - p.y;
+        if (dx * dx + dy * dy <= r2) pk.magnet[i] = 1;
+      }
       sim.events.push({ t: 'quirk', probe: p.index, kind: 'magnet' });
     }
   }

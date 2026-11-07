@@ -64,7 +64,7 @@ const passive = z
   .strict();
 
 const quirk = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('magnet'), every: pos }).strict(),
+  z.object({ kind: z.literal('magnet'), every: pos, radius: pos }).strict(),
   z.object({ kind: z.literal('thorns'), share: n }).strict(),
   z.object({ kind: z.literal('dash'), every: pos, distance: n, invuln: n }).strict(),
   z.object({ kind: z.literal('overwatch'), drones: z.number().int().min(0).max(8) }).strict(),

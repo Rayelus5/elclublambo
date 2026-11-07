@@ -38,13 +38,17 @@ const pickupsOf = (sim: Sim, kind: number) => {
 };
 
 describe('peculiaridades', () => {
-  test('imán: cada 30 s atrae todos los fragmentos, también los lejanos', () => {
-    const sim = withQuirk({ kind: 'magnet', every: 30 });
-    for (let k = 0; k < 3; k++) dropPickup(sim, 0, 1, 400 + k * 20, 0);
+  test('imán: cada 30 s atrae los fragmentos a su alcance, y no los de más allá', () => {
+    const sim = withQuirk({ kind: 'magnet', every: 30, radius: 240 });
+    for (let k = 0; k < 3; k++) dropPickup(sim, 0, 1, 150 + k * 20, 0);
+    dropPickup(sim, 0, 1, 600, 0);
+    const near = pickupsOf(sim, 0).slice(0, 3);
+    const far = pickupsOf(sim, 0)[3]!;
     run(sim, 30 * 60 - 10);
-    expect(pickupsOf(sim, 0).every((i) => sim.pickups.magnet[i] === 0)).toBe(true);
+    expect(near.every((i) => sim.pickups.magnet[i] === 0)).toBe(true);
     run(sim, 20);
-    expect(pickupsOf(sim, 0).every((i) => sim.pickups.magnet[i] === 1)).toBe(true);
+    expect(near.every((i) => sim.pickups.magnet[i] === 1)).toBe(true);
+    expect(sim.pickups.magnet[far]).toBe(0);
   });
 
   test('espinas: devuelve parte del daño de contacto a quien toca', () => {

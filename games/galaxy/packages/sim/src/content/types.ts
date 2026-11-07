@@ -131,7 +131,7 @@ export interface ProbeDef {
 }
 
 export type Quirk =
-  | { kind: 'magnet'; every: number }
+  | { kind: 'magnet'; every: number; radius: number }
   | { kind: 'thorns'; share: number }
   | { kind: 'dash'; every: number; distance: number; invuln: number }
   | { kind: 'overwatch'; drones: number }
