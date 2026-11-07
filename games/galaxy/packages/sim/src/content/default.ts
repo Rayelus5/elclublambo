@@ -1108,6 +1108,8 @@ export const DEFAULT_CONTENT: Content = {
       ...SECTOR_BASE,
       id: 'frost-rings',
       name: 'Anillos de Escarcha',
+      // The same loot per minute as the Nebulosa (plan ruling 3; calibration test, ±15 %): its fauna dies at its own pace.
+      drops: { ...SECTOR_BASE.drops, coin: 0.027, dust: 0.014 },
       // Calibration (GDD §5.6): its fauna feeds more experience, so the Static grows faster here.
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.09 },
       density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
@@ -1132,6 +1134,8 @@ export const DEFAULT_CONTENT: Content = {
       ...SECTOR_BASE,
       id: 'hollow-reef',
       name: 'Arrecife Hueco',
+      // The same loot per minute as the Nebulosa (plan ruling 3; calibration test, ±15 %): its fauna dies at its own pace.
+      drops: { ...SECTOR_BASE.drops, coin: 0.047, dust: 0.022 },
       description: 'Un arrecife que brilla en el vacío. Lo que parece vivo cura a lo que no debería',
       biome: 'reef',
       boss: 'anemone',
@@ -1153,6 +1157,8 @@ export const DEFAULT_CONTENT: Content = {
       ...SECTOR_BASE,
       id: 'broken-forge',
       name: 'Forja Rota',
+      // The same loot per minute as the Nebulosa (plan ruling 3; calibration test, ±15 %): its fauna dies at its own pace.
+      drops: { ...SECTOR_BASE.drops, coin: 0.041, dust: 0.0195 },
       description: 'Los talleres de una estación que nadie apagó. Todo aquí embiste o dispara',
       biome: 'forge',
       boss: 'anvil',
@@ -1175,9 +1181,13 @@ export const DEFAULT_CONTENT: Content = {
       ...SECTOR_BASE,
       id: 'signal-rift',
       name: 'Fisura de la Señal',
+      // The same loot per minute as the Nebulosa (plan ruling 3; calibration test, ±15 %): its fauna dies at its own pace.
+      drops: { ...SECTOR_BASE.drops, coin: 0.024, dust: 0.01 },
+      // Dense, so it kills more elites: each one pays less here (values, not chances: the loot rolls stay the same).
+      elite: { ...SECTOR_BASE.elite, coins: 2, dust: 0.7 },
       // Calibration (GDD §5.6): no deep Core here, so its layers bite harder instead.
       scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.09, hpPerLayer: 0.45, damagePerLayer: 0.3 },
-      density: { ...SECTOR_BASE.density, perMinute: 0.27, max: 4.5 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
       description: 'Una grieta por la que la Estática habla. Solo se abre esta temporada',
       biome: 'rift',
       boss: 'signal',
