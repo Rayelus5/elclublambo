@@ -22,7 +22,11 @@ export function useSetExhibits() {
       void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
       void qc.invalidateQueries({ queryKey: ['galaxy'] });
     },
-    onError: () => void qc.invalidateQueries({ queryKey: PLANETARIUM_KEY }),
+    // A refusal brings the real pedestals back, and the collection too (the galaxy may be gone).
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: PLANETARIUM_KEY });
+      void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
+    },
   });
 }
 

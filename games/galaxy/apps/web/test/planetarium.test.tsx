@@ -95,6 +95,53 @@ test('elegir una galaxia en el diálogo envía los seis pedestales en su orden',
   expect(await screen.findByRole('button', { name: t.removeNamed('Nimbus') })).toBeInTheDocument();
 });
 
+test('si exponer falla, el diálogo se cierra, el error se ve y la colección se vuelve a leer', async () => {
+  const page: CollectionPage = {
+    items: [mine({ id: 'g3', name: 'Nimbus', tier: 'epic', exhibited: undefined })],
+    counts: { common: 0, uncommon: 0, rare: 0, epic: 1, legendary: 0 },
+    fusion: { count: 5, dust: [20, 50, 120, 300] },
+  };
+  const fetch = mockApi({
+    'GET /galaxy/api/planetarium': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+    'PUT /galaxy/api/planetarium/exhibits': () => jsonResponse(404, { error: 'galaxy_not_found' }),
+  });
+  const user = userEvent.setup();
+  renderAt('/planetario', screens);
+  await user.click(await screen.findByRole('button', { name: t.exhibitAt(2) }));
+  const dialog = await screen.findByRole('dialog', { name: t.pickerTitle });
+  await user.click(within(dialog).getByRole('button', { name: t.pick('Nimbus') }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(await screen.findByRole('alert')).toHaveTextContent(copy.errors.galaxy_not_found);
+  // Opening the picker again reads the collection again, so it no longer offers what is gone.
+  const reads = () => fetch.mock.calls.filter(([url]) => url === '/galaxy/api/galaxies?sort=rarity&limit=30').length;
+  expect(reads()).toBe(1);
+  await user.click(screen.getByRole('button', { name: t.exhibitAt(2) }));
+  await screen.findByRole('dialog', { name: t.pickerTitle });
+  await waitFor(() => expect(reads()).toBe(2));
+});
+
+test('mientras se guarda, los pedestales no envían otra fila', async () => {
+  let release: (r: Response) => void = () => undefined;
+  const fetch = mockApi({
+    'GET /galaxy/api/planetarium': () => jsonResponse(200, view()),
+    'PUT /galaxy/api/planetarium/exhibits': () => new Promise<Response>((r) => (release = r)) as unknown as Response,
+  });
+  const user = userEvent.setup();
+  renderAt('/planetario', screens);
+  await user.click(await screen.findByRole('button', { name: t.removeNamed('Kathra') }));
+  await waitFor(() => expect(screen.getByRole('button', { name: t.exhibitAt(2) })).toBeDisabled());
+  expect(screen.getByRole('button', { name: t.change('Orvel') })).toBeDisabled();
+  expect(screen.getByRole('button', { name: t.removeNamed('Orvel') })).toBeDisabled();
+  release(jsonResponse(200, view({ exhibits: [null, null, mine({ id: 'g2', name: 'Orvel' }), null, null, null] })));
+  await waitFor(() => expect(screen.getByRole('button', { name: t.exhibitAt(2) })).toBeEnabled());
+  expect(puts(fetch)).toHaveLength(1);
+});
+
+test('el prestigio explica que el acabado suma un punto más', () => {
+  expect(t.prestigeHint).toBe('Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +5 %');
+});
+
 test('retirar deja su pedestal vacío y los demás donde estaban', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/planetarium': () => jsonResponse(200, view()),

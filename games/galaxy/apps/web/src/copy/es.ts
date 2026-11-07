@@ -128,7 +128,7 @@ export const copy = {
     exhibitedReason: 'Está expuesta en tu planetario. Retírala allí para desintegrarla o fusionarla',
     prestige: 'Prestigio',
     bonus: (fraction: number) => `+${fmt(Math.round(fraction * 1000) / 10)} % de experiencia en las incursiones`,
-    prestigeHint: 'Cada galaxia expuesta suma según su rareza, y una más si su acabado no es normal. Como mucho +5 %',
+    prestigeHint: 'Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +5 %',
     visits: (n: number) => (n === 1 ? '1 visita' : `${fmt(n)} visitas`),
     emptyMine: 'Expón tus mejores galaxias en los pedestales. Cuanto más raras, más prestigio',
     emptyVisit: 'Todavía no ha expuesto ninguna galaxia',

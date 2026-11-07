@@ -1030,6 +1030,7 @@
   .pedestal-empty { box-sizing: border-box; inline-size: var(--card); aspect-ratio: 5 / 7; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 10px; border-radius: 14px; border: 2px dashed rgb(111 227 255 / .5); background: rgb(6 9 28 / .72); color: var(--color-ice); font: 700 14px var(--font-sans); text-align: center; cursor: pointer; transition: background .15s, border-color .15s; }
   .pedestal-empty .ico { font-size: 26px; color: #6fe3ff; }
   .pedestal-empty:hover { background: rgb(14 24 60 / .82); border-color: rgb(111 227 255 / .8); }
+  .pedestal-empty:disabled { cursor: progress; opacity: .6; }
   .pedestal-empty:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
   .pedestal-vacant { display: block; inline-size: var(--card); aspect-ratio: 5 / 7; }
   .prestige-panel { display: grid; gap: 6px; padding: 18px 20px 20px; }

@@ -47,7 +47,9 @@ export function PlanetariumScreen() {
   const [picking, setPicking] = useState<number | null>(null);
   const v = planet.data;
   const ids = v ? Array.from({ length: v.slots }, (_, i) => v.exhibits[i]?.id ?? null) : [];
-  const save = (next: (string | null)[]) => set.mutate(next, { onSuccess: () => setPicking(null) });
+  // One row at a time: while it saves, the pedestals send nothing else (a second row would be built from the old one).
+  const save = (next: (string | null)[]) => set.mutate(next);
+  const busy = set.isPending;
   const error = errorText(set.error ?? planet.error, copy.errors);
 
   return (
@@ -75,20 +77,20 @@ export function PlanetariumScreen() {
                   return g ? (
                     <>
                       <ShownCard galaxy={g}>
-                        <button type="button" className="gcard-hit" aria-label={t.change(g.name)} onClick={() => setPicking(i)} />
+                        <button type="button" className="gcard-hit" aria-label={t.change(g.name)} disabled={busy} onClick={() => setPicking(i)} />
                       </ShownCard>
                       <button
                         type="button"
                         className="lip pill pedestal-remove"
                         aria-label={t.removeNamed(g.name)}
-                        disabled={set.isPending}
+                        disabled={busy}
                         onClick={() => save(ids.map((id, k) => (k === i ? null : id)))}
                       >
                         {t.remove}
                       </button>
                     </>
                   ) : (
-                    <button type="button" className="pedestal-empty" aria-label={t.exhibitAt(i + 1)} onClick={() => setPicking(i)}>
+                    <button type="button" className="pedestal-empty" aria-label={t.exhibitAt(i + 1)} disabled={busy} onClick={() => setPicking(i)}>
                       <Icon name="cards" />
                       <span>{t.exhibit}</span>
                     </button>
@@ -114,8 +116,10 @@ export function PlanetariumScreen() {
             taken={new Set(ids.filter((id): id is string => id !== null && id !== ids[picking]))}
             onClose={() => setPicking(null)}
             onPick={(g) => {
+              // Closed on pick, like the Hangar's: a refusal shows on the screen, not behind the dialog.
               const next = ids.map((id) => (id === g.id ? null : id));
               next[picking] = g.id;
+              setPicking(null);
               save(next);
             }}
           />
