@@ -14,6 +14,7 @@ import { DUMMY_HASH, verifyPassword } from './password';
 import { InvalidResetCodeError, redeemResetCode } from './recovery';
 import { createSession, revokeSession, rolesOf } from './sessions';
 import { verifyTotp } from './totp';
+import { accountLevel } from '../social/progress';
 
 export type AuthDeps = { env: Env; db: Kysely<DB>; config: ConfigReader; now: () => Date };
 
@@ -130,6 +131,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
 
   app.get('/galaxy/api/auth/me', async (req): Promise<MeResponse> => {
     const s = requireSession(req);
-    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa };
+    // The account level (M5a) for the top bar.
+    const level = await accountLevel(deps.db, s.accountId, await deps.config.get('account'));
+    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, level };
   });
 }

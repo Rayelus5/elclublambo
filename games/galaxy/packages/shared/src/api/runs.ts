@@ -191,4 +191,9 @@ export interface RunResult {
   payout: { coins: number; dust: number; signals: number; material: number };
   breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[] };
   wallet: Wallet;
+  /**
+   * What the run gave the account (M5a): experience, the level after it and whether it went up, and the season points
+   * (0 when it is suspicious or no season is open).
+   */
+  progress: { xp: number; level: number; levelUp: boolean; points: number };
 }

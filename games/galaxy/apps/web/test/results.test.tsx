@@ -28,6 +28,7 @@ const died: RunResult = {
     ],
   },
   wallet: { coins: 152, dust: 30, signal: 10 },
+  progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
 function show(r: RunResult) {

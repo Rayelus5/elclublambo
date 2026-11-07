@@ -46,8 +46,14 @@ export async function planetariumXp(db: Kysely<DB>, accountId: string, cfg: Plan
 }
 
 /** A galaxy as a visitor sees it: the card and its level, nothing about the owner's account. */
-function publicGalaxy(g: GalaxySummary): PublicGalaxy {
+export function publicGalaxy(g: GalaxySummary): PublicGalaxy {
   return { id: g.id, seed: g.seed, tier: g.tier, finish: g.finish, traits: g.traits, name: g.name, designation: g.designation, featured: g.featured, level: g.level };
+}
+
+/** The most prestigious galaxy on display (the first one among equals), as anyone may see it. */
+export function coverOf(shown: GalaxySummary[], cfg: PlanetariumConfig): PublicGalaxy | null {
+  const best = shown.reduce<GalaxySummary | null>((b, g) => (b === null || prestige([g], cfg) > prestige([b], cfg) ? g : b), null);
+  return best && publicGalaxy(best);
 }
 
 async function visitsOf(db: Kysely<DB>, ownerId: string): Promise<number> {
@@ -80,8 +86,7 @@ async function featuredFor(db: Kysely<DB>, viewerId: string, cfg: PlanetariumCon
   return Promise.all(
     top.map(async (t) => {
       const shown = (await exhibitsOf(db, t.id, cfg.slots)).filter((g): g is GalaxySummary => g !== null);
-      const best = shown.reduce<GalaxySummary | null>((b, g) => (b === null || prestige([g], cfg) > prestige([b], cfg) ? g : b), null);
-      return { owner: t.username, prestige: t.prestige, exhibits: t.exhibits, cover: best && publicGalaxy(best) };
+      return { owner: t.username, prestige: t.prestige, exhibits: t.exhibits, cover: coverOf(shown, cfg) };
     }),
   );
 }
