@@ -711,6 +711,8 @@
   .probe-tile-sub { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; line-height: 1.25; color: var(--color-ink-soft); }
   .probe-tile.chosen .probe-tile-sub { color: var(--color-solar); font-weight: 700; }
   .probe-tile-check { position: absolute; top: 8px; right: 10px; font-size: 18px; color: var(--color-solar); }
+  /* The chosen tile's text leaves room for its check, also when a long name wraps. */
+  .probe-tile.chosen .probe-tile-text { padding-right: 18px; }
   .probe-tile.locked { background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .1); }
   .probe-tile.locked .probe-tile-art { filter: grayscale(1) brightness(.5); }
   .probe-tile.locked b { color: var(--color-ink-soft); }
