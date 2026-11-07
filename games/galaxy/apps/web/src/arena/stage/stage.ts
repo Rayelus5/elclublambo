@@ -159,7 +159,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   beams.blendMode = 'add';
   const warnings = new Graphics();
   const marks = new Graphics();
-  const enemies = new Container();
+  const enemies = new Container({ label: 'enemies' });
   const probes = new Container();
   const shots = new Container();
   const particles = new Container();
@@ -412,6 +412,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     enemyPool.hideFrom(en.alive, en.top);
     glitchA.hideFrom(en.alive, en.top);
     glitchB.hideFrom(en.alive, en.top);
+    // A dead enemy's mark and stun stars go with it (they would linger until the slot is reused).
+    pipPool.hideFrom(en.alive, en.top);
+    starA.hideFrom(en.alive, en.top);
+    starB.hideFrom(en.alive, en.top);
   }
 
   /** An enemy's element mark (a tinted drop), stun (twinkling stars) and shatter (cracks around it). */

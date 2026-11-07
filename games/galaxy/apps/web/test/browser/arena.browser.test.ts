@@ -1,4 +1,4 @@
-import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, step } from '@galaxy/sim';
+import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnEnemy, step } from '@galaxy/sim';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -140,3 +140,23 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
   expect(warn.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => m.includes('gs-dmg') || m.includes('gs-react'))).toEqual([]);
   warn.mockRestore();
 }, 120_000);
+
+test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas', async () => {
+  const sim = createSim({ seed: '3', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const dummy = DEFAULT_CONTENT.enemies[0]!;
+  const ids = [0, 1, 2, 3].map((k) => spawnEnemy(sim, dummy, 40 + k * 20, 0));
+  for (const e of ids) {
+    sim.enemies.mark[e] = 1;
+    sim.enemies.markT[e] = 120;
+    sim.enemies.freezeT[e] = 120;
+  }
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '3', preserve: true });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const layer = stage.app.stage.getChildByLabel('enemies', true)!;
+  expect(layer.children.filter((c) => c.visible).length).toBeGreaterThan(4);
+  for (const e of ids) sim.enemies.kill(e);
+  stage.render(sim, 1);
+  expect(layer.children.filter((c) => c.visible)).toHaveLength(0);
+}, 60_000);
