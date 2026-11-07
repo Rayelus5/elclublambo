@@ -526,3 +526,65 @@ for (const id of EVOLVING) {
   const base = ICONS[id];
   if (base) ICONS[`${id}-evo`] = evolvedIcon(base);
 }
+
+/**
+ * The starting-weapon variants' icons (M4b-1): an elemental variant is its base's drawing dyed with its element's two
+ * inks; the others keep the drawing and carry a 4×4 mark in the lower right corner, dark with a light glyph: two bars
+ * for a double, a ring for a wider reach, dots for a chain, a chevron for a faster one.
+ */
+type VariantMark = 'twin' | 'wide' | 'chain' | 'rapid';
+const MARKS: Record<VariantMark, string[]> = {
+  twin: ['kkkk', 'kwwk', 'kkkk', 'kwwk'],
+  wide: ['kwwk', 'wkkw', 'wkkw', 'kwwk'],
+  chain: ['wkwk', 'kkkk', 'kwkw', 'kkkk'],
+  rapid: ['kwkk', 'kkwk', 'kwkk', 'kkkk'],
+};
+const INKS: Record<string, [string, string]> = {
+  slow: ['#3a78c8', '#cff4ff'],
+  burn: ['#d2401c', '#ffc94a'],
+  shock: ['#a08a1c', '#fff7a8'],
+  leech: ['#8a1430', '#ff7a8a'],
+  corrosion: ['#2a7a22', '#c4ff7a'],
+  prism: ['#b04ae8', '#6fe3ff'],
+  breach: ['#6a2a9a', '#e09cff'],
+  hack: ['#0b7352', '#45e3a6'],
+};
+
+/** The base drawing with a mark in its corner. */
+function markedIcon(base: SpriteDef, mark: VariantMark): SpriteDef {
+  const glyph = MARKS[mark];
+  const frames = base.frames.map((rows) => rows.map((row, y) => (y >= 8 ? row.slice(0, 8) + glyph[y - 8]! : row)));
+  return { ...base, frames };
+}
+
+/** The base drawing dyed: its two most used colours (not the outline, not white) take the element's inks. */
+function inkedIcon(base: SpriteDef, element: string): SpriteDef {
+  const count = new Map<string, number>();
+  for (const row of base.frames[0]!) for (const k of row) if (k !== '.' && k !== 'k' && k !== 'w') count.set(k, (count.get(k) ?? 0) + 1);
+  const [main, second] = [...count.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const [dark, light] = INKS[element]!;
+  return { ...base, palette: { ...base.palette, ...(main ? { [main]: dark } : {}), ...(second ? { [second]: light } : {}) } };
+}
+
+const VARIANTS: [string, string, { mark?: VariantMark; element?: string }][] = [
+  ['pulse-twin', 'icon-pulse', { mark: 'twin' }],
+  ['pulse-frost', 'icon-pulse', { element: 'slow' }],
+  ['nova-wide', 'icon-nova', { mark: 'wide' }],
+  ['nova-ember', 'icon-nova', { element: 'burn' }],
+  ['arc-chain', 'icon-arc', { mark: 'chain' }],
+  ['arc-shock', 'icon-arc', { element: 'shock' }],
+  ['drone-pair', 'icon-drone', { mark: 'twin' }],
+  ['drone-leech', 'icon-drone', { element: 'leech' }],
+  ['field-wide', 'icon-field', { mark: 'wide' }],
+  ['field-corrosion', 'icon-field', { element: 'corrosion' }],
+  ['beam-split', 'icon-beam', { mark: 'twin' }],
+  ['beam-prism', 'icon-beam', { element: 'prism' }],
+  ['boomerang-twin', 'icon-boomerang', { mark: 'twin' }],
+  ['boomerang-breach', 'icon-boomerang', { element: 'breach' }],
+  ['turret-rapid', 'icon-turret', { mark: 'rapid' }],
+  ['turret-hack', 'icon-turret', { element: 'hack' }],
+];
+for (const [id, from, how] of VARIANTS) {
+  const base = ICONS[from];
+  if (base) ICONS[`icon-${id}`] = how.element ? inkedIcon(base, how.element) : markedIcon(base, how.mark!);
+}

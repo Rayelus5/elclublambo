@@ -15,6 +15,7 @@ import { errorText } from '../auth/useMe';
 import { Icon } from '../ui/Icon';
 import { RelicPicker } from './RelicPicker';
 import { SetsPanel } from './SetsPanel';
+import { weaponArtUrl } from './weapons';
 import { ResultsScreen } from './ResultsScreen';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe and relics before a run, and the daily yield. Launching opens
@@ -292,6 +293,13 @@ function ProbeLevel({ probe }: { probe: ProbeCard }) {
   );
 }
 
+/** A weapon's animated scene (painted in Aseprite), or its icon if it has none. */
+function WeaponArt({ id, icon }: { id: string; icon: string }) {
+  const url = weaponArtUrl(id);
+  if (!url) return <img className="weapon-card-icon" src={spriteDataUrl(icon, 3)} alt="" width={36} height={36} />;
+  return <span className="weapon-card-art" aria-hidden="true" data-art={id} style={{ backgroundImage: `url(${url})` }} />;
+}
+
 /** The starting weapon: the base and its variants as radio cards; a closed one says the level that opens it. */
 function WeaponPicker({ probe }: { probe: ProbeCard }) {
   const choose = useChooseVariant();
@@ -313,7 +321,7 @@ function WeaponPicker({ probe }: { probe: ProbeCard }) {
                 if (w.id !== probe.variant) choose.mutate({ probe: probe.id, variant: w.id });
               }}
             />
-            <img className="weapon-card-icon" src={spriteDataUrl(w.icon, 3)} alt="" width={36} height={36} />
+            <WeaponArt id={w.id} icon={w.icon} />
             <span className="weapon-card-text">
               <b>{w.name}</b>
               <small>{w.unlocked ? w.description : copy.hangar.variantLocked(w.unlockAt)}</small>

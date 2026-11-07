@@ -1373,7 +1373,7 @@ export const DEFAULT_CONTENT: Content = {
  * Starting-weapon variants (GDD §6, M4b-1 plan Task 1): sidegrades of each probe's weapon, unlocked at probe levels 4
  * and 8. They copy their base's levels and change one thing: one more shot carrying the same total damage less 5 %
  * (`twin`), a wider reach for a slower or softer hit, more bounces or pierce, or an element for a softer hit. Until the
- * M4b-1 art task each variant shows its base's icon.
+ * M4b-1 art task each variant showed its base's icon; now each has its own `icon-<id>` (apps/web arena/sprites/icons.ts).
  */
 interface VariantSpec {
   id: string;
@@ -1407,7 +1407,7 @@ function variantOf(base: WeaponDef, s: VariantSpec): WeaponDef {
     id: s.id,
     name: s.name,
     kind: base.kind,
-    icon: base.icon,
+    icon: `icon-${s.id}`,
     description: s.description,
     levels,
     element: s.element ?? base.element ?? null,

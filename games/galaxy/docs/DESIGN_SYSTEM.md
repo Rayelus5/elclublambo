@@ -215,7 +215,12 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
       - Una losa con «Nivel 3 de 10» y diez pips: los conseguidos en Terminal con brillo y los que faltan en `--panel-lip`.
       - Debajo, lo que da el nivel en Terminal («+6 % de vida y +4 % de daño»).
       - El botón Solar «Subir a nivel 4», con su coste («60 componentes y 1000 monedas»). Sin fondos está desactivado y dice «Te faltan…»; al 10 dice «Nivel máximo».
-    - **Arma inicial:** un grupo de tarjetas de radio (la base y sus dos variantes), con icono, nombre y qué hace.
+    - **Arma inicial:** un grupo de tarjetas de radio (la base y sus dos variantes), con nombre y qué hace.
+      - Cada tarjeta lleva la escena del arma en acción, pintada en Aseprite: 32×32 a ×2, cuatro fotogramas con `steps(4)`, quieta con movimiento reducido. Las fuentes están en `art/weapons` y las genera `paint-weapons.lua`.
+      - Las variantes de doble, amplia o cadena enseñan su diferencia. Las de elemento usan la rampa de su elemento y sus partículas (copos, llamas, chispas, gotas, burbujas, prisma, grietas o glifos).
+      - En la incursión, el icono de 12×12 de una variante es el de su base:
+        - teñido con las dos tintas de su elemento;
+        - o con una marca de 4×4 en la esquina: dos barras para la doble, un anillo para la amplia, puntos para la cadena y un galón para la rápida.
       - La elegida lleva borde y brillo Solar y una marca.
       - Una cerrada lleva borde discontinuo, el icono en gris, un candado y «Se abre en el nivel 8».
       - El foco es un anillo hielo alrededor de la tarjeta.
