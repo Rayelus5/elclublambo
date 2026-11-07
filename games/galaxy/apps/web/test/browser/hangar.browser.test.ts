@@ -37,8 +37,9 @@ const view: HangarView = {
       layerSeconds: 300,
     },
   ],
-  probes: [{ id: 'lumen', name: 'Lumen', description: DEFAULT_CONTENT.probes[0]!.description, sprite: 'probe-lumen', hp: 100, speed: 90, weapon: { id: 'pulse', name: 'Pulso láser', icon: 'icon-pulse' }, unlocked: true }],
+  probes: [{ id: 'lumen', name: 'Lumen', description: DEFAULT_CONTENT.probes[0]!.description, sprite: 'probe-lumen', hp: 100, speed: 90, weapon: { id: 'pulse', name: 'Pulso láser', icon: 'icon-pulse' }, unlocked: true, condition: null, progress: 1 }],
   probe: 'lumen',
+  test: { taken: true, probe: 'lumen' },
   slots: 2,
   maxSlots: 6,
   loadout: [

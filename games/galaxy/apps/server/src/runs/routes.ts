@@ -1,4 +1,14 @@
-import { finishRunRequestSchema, loadoutRequestSchema, startRunRequestSchema, type HangarView, type RunResult, type RunStart } from '@galaxy/shared';
+import {
+  finishRunRequestSchema,
+  loadoutRequestSchema,
+  probeChoiceSchema,
+  probeTestRequestSchema,
+  startRunRequestSchema,
+  type HangarView,
+  type ProbeTestResult,
+  type RunResult,
+  type RunStart,
+} from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
@@ -7,6 +17,7 @@ import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { hangarView, type RunsDeps, setLoadout } from './hangar';
+import { chooseProbe, takeProbeTest } from './probes';
 import { finishRun, startRun } from './service';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -28,6 +39,20 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = loadoutRequestSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_loadout', 60, 60);
     return setLoadout(deps, s.accountId, body);
+  });
+
+  api.post('/galaxy/api/probe-test', async (req): Promise<ProbeTestResult> => {
+    const s = requireSession(req);
+    const body = probeTestRequestSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'probe_test', 20, 3600);
+    return takeProbeTest(deps, s.accountId, body);
+  });
+
+  api.put('/galaxy/api/hangar/probe', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const body = probeChoiceSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_probe', 60, 60);
+    return chooseProbe(deps, s.accountId, body);
   });
 
   api.post('/galaxy/api/runs', async (req): Promise<RunStart> => {

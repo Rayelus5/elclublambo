@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
-import { generateGalaxy, type FinishRunRequest, type RunResult, type RunStart, type Wallet } from '@galaxy/shared';
+import { generateGalaxy, type FinishRunRequest, PROBE_TEST, type RunResult, type RunStart, type Wallet } from '@galaxy/shared';
 import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
@@ -17,9 +17,12 @@ beforeAll(async () => {
 });
 afterAll(() => ctx.close());
 
+/** A new account that has taken the probe test (M3b-2: no run without it) and got Lumen. */
 async function player() {
   const res = await post(ctx.app, '/galaxy/api/auth/register', { username: uniqueName('run'), password: 'una-clave-larga' });
-  return { cookie: sessionCookie(res), id: (res.json() as { id: string }).id };
+  const cookie = sessionCookie(res);
+  await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('lumen')) }, { cookie });
+  return { cookie, id: (res.json() as { id: string }).id };
 }
 
 let seedCounter = 1n;

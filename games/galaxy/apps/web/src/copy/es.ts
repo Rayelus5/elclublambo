@@ -447,5 +447,8 @@ export const copy = {
     run_expired: 'Esa incursión caducó y ya no se puede cobrar',
     runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
     bad_inputs: 'La grabación de la incursión llegó dañada',
+    tiebreak_required: 'Hay un empate: contesta la última pregunta',
+    probe_locked: 'Esa sonda todavía no es tuya. Mira qué hace falta para conseguirla',
+    probe_test_required: 'Antes de salir, haz el test de la sonda',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

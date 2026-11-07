@@ -16,7 +16,7 @@ import type { DB } from '../db/schema';
 import { madridDay } from '../economy/day';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { ensureHangar, relicSnapshot } from './hangar';
+import { ensureHangar, relicSnapshot, testedProbe } from './hangar';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -31,6 +31,8 @@ export interface StartContext {
 export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRunRequest, key: string, ctx: StartContext): Promise<RunStart> {
   if (!ctx.content.sectors.some((s) => s.id === req.sector)) throw new HttpError(400, 'invalid_input');
   const hangar = await ensureHangar(trx, accountId);
+  // The probe test comes first (GDD §12.2): no run without the starting probe it gives.
+  if ((await testedProbe(trx, accountId)) === null) throw new HttpError(409, 'probe_test_required');
   if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   const relics = await relicSnapshot(trx, accountId, hangar.slots);
   const seed = randomBytes(8).readBigUInt64BE().toString();

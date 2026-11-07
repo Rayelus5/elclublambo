@@ -1,6 +1,7 @@
 import type { Content, RelicInput } from '@galaxy/sim';
 import { z } from 'zod';
 import type { GalaxySummary } from './economy';
+import type { ProbeCondition } from '../probes/unlocks';
 import type { Wallet } from '../gacha/types';
 
 // Requests and responses of the hangar and the runs (GDD §5.1, §11.3 bis, §14.7). Mutating calls carry an
@@ -16,6 +17,17 @@ export const loadoutRequestSchema = z
     return new Set(ids).size === ids.length;
   }, 'duplicate_ids');
 export type LoadoutRequest = z.infer<typeof loadoutRequestSchema>;
+
+/** The probe test (GDD §6): five answers, plus the tiebreak when the five tie. */
+export const probeTestRequestSchema = z.object({ answers: z.array(z.number().int().min(0).max(2)).min(5).max(6) }).strict();
+export type ProbeTestRequest = z.infer<typeof probeTestRequestSchema>;
+export interface ProbeTestResult {
+  probe: string;
+}
+
+/** The probe for the next run (one the account has unlocked). */
+export const probeChoiceSchema = z.object({ probe: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
+export type ProbeChoice = z.infer<typeof probeChoiceSchema>;
 
 export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
@@ -62,6 +74,10 @@ export interface ProbeCard {
   speed: number;
   weapon: { id: string; name: string; icon: string };
   unlocked: boolean;
+  /** What earns it (null: the test's probe, or one that cannot be earned yet). */
+  condition: ProbeCondition | null;
+  /** 0–1 towards the condition. */
+  progress: number;
 }
 
 export interface DailyView {
@@ -78,6 +94,8 @@ export interface HangarView {
   sectors: SectorCard[];
   probes: ProbeCard[];
   probe: string;
+  /** The probe test: taken or not, and the probe it gave. */
+  test: { taken: boolean; probe: string | null };
   slots: number;
   maxSlots: 6;
   /** One entry per open slot. */
