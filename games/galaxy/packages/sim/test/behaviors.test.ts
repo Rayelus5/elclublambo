@@ -55,7 +55,7 @@ const LANCER: EnemyDef = {
   behavior: { kind: 'lancer', range: 200, windup: 0.8, cooldown: 3, bulletSpeed: 300, bulletDamage: 12 },
 };
 const FLOE: EnemyDef = {
-  id: 'floe',
+  id: 'test-floe',
   name: 'Témpano',
   family: 'armored',
   sprite: 'shell',
@@ -228,7 +228,7 @@ describe('armored con debilidad', () => {
   test('el elemento débil atraviesa el blindaje de frente; sin elemento, no', () => {
     const sim = world();
     const hit = (y: number, x: number, element: 'burn' | null) => {
-      const e = spawnEnemy(sim, def(sim, 'floe'), x, y);
+      const e = spawnEnemy(sim, def(sim, 'test-floe'), x, y);
       // Facing the probe (at the origin).
       const before = sim.enemies.hp[e]!;
       dealDamage(sim, e, 100, { ...src, element, x: 0, y: 0 });
@@ -268,7 +268,7 @@ test('la misma semilla y las mismas entradas dan el mismo hash', () => {
       ['warden', 150, -50],
       ['blinker', -150, 0],
       ['lancer', 0, 180],
-      ['floe', 0, -120],
+      ['test-floe', 0, -120],
     ] as const)
       spawnEnemy(sim, def(sim, id), x, y);
     for (let k = 0; k < 600; k++) step(sim, [{ mx: k % 120 < 60 ? 1 : -1, my: 0, aim: -1, pick: -1 }]);

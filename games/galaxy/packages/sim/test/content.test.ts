@@ -16,12 +16,47 @@ describe('contenido por defecto', () => {
   });
 
   test('trae el sector, la fauna, el jefe, las armas, las pasivas y la sonda de M3a', () => {
-    expect(DEFAULT_CONTENT.sectors.map((s) => s.id)).toEqual(['outer-nebula']);
-    expect(DEFAULT_CONTENT.enemies.map((e) => e.id).sort()).toEqual(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']);
-    expect(DEFAULT_CONTENT.bosses.map((b) => b.id)).toEqual(['hive']);
+    expect(DEFAULT_CONTENT.sectors[0]!.id).toBe('outer-nebula');
+    expect(DEFAULT_CONTENT.enemies.map((e) => e.id)).toEqual(expect.arrayContaining(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']));
+    expect(DEFAULT_CONTENT.bosses[0]!.id).toBe('hive');
     expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(expect.arrayContaining(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']));
     expect(DEFAULT_CONTENT.passives).toHaveLength(20);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen', 'bastion', 'spark', 'sentinel', 'anchor', 'prism', 'comet', 'echo']);
+  });
+
+  test('M3b-3: cinco sectores con sus biomas, 25 especies y 6 Núcleos', () => {
+    expect(DEFAULT_CONTENT.sectors.map((s) => [s.id, s.biome])).toEqual([
+      ['outer-nebula', 'nebula'],
+      ['frost-rings', 'ice'],
+      ['hollow-reef', 'reef'],
+      ['broken-forge', 'forge'],
+      ['signal-rift', 'rift'],
+    ]);
+    expect(DEFAULT_CONTENT.enemies).toHaveLength(25);
+    expect(DEFAULT_CONTENT.bosses.map((b) => b.id).sort()).toEqual(['anemone', 'anvil', 'echo-core', 'glacier', 'hive', 'signal']);
+  });
+
+  test('cada sector normal: al menos 5 familias, su propio Núcleo y el Núcleo profundo cada 4 capas; solo la Fisura es de temporada', () => {
+    const normal = DEFAULT_CONTENT.sectors.filter((s) => !s.season);
+    expect(DEFAULT_CONTENT.sectors.filter((s) => s.season).map((s) => s.id)).toEqual(['signal-rift']);
+    expect(new Set(DEFAULT_CONTENT.sectors.map((s) => s.boss)).size).toBe(5);
+    for (const s of normal) {
+      const families = new Set(s.spawns.map((sp) => DEFAULT_CONTENT.enemies.find((e) => e.id === sp.enemy)!.family));
+      expect(families.size, s.id).toBeGreaterThanOrEqual(5);
+      expect(s.deepBoss, s.id).toEqual({ boss: 'echo-core', every: 4 });
+    }
+    const rift = DEFAULT_CONTENT.sectors.find((s) => s.season)!;
+    expect(rift.deepBoss).toBeNull();
+    expect(rift.boss).toBe('signal');
+  });
+
+  test('aparecen las 7 familias, cada comportamiento nuevo y cada patrón de jefe nuevo', () => {
+    expect(new Set(DEFAULT_CONTENT.enemies.map((e) => e.family))).toEqual(new Set(['swarm', 'charger', 'shooter', 'splitter', 'armored', 'healer', 'summoner']));
+    const kinds = new Set(DEFAULT_CONTENT.enemies.map((e) => e.behavior.kind));
+    for (const k of ['orbit', 'support', 'blink', 'lancer']) expect(kinds.has(k as never), k).toBe(true);
+    expect(DEFAULT_CONTENT.enemies.some((e) => e.behavior.kind === 'armored' && e.behavior.weakTo)).toBe(true);
+    const patterns = new Set(DEFAULT_CONTENT.bosses.flatMap((b) => b.phases.flatMap((p) => p.patterns.map((x) => x.kind))));
+    for (const k of ['wall', 'mines', 'blink']) expect(patterns.has(k as never), k).toBe(true);
   });
 
   test('cada inicial destaca en su estadística fuerte: Lumen recoge de lejos, Bastión aguanta, Chispa corre', () => {
