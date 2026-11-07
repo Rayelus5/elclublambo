@@ -26,6 +26,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { madridDay, nextMadridMidnight } from '../economy/day';
+import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 
 // The hangar (GDD §5.1, §8.4): the probe and sector for the next run, and the galaxies equipped as relics in the open
@@ -199,6 +200,23 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
     runsEnabled: features.runs,
     nextSlot: nextSlot(h.slots, stats, relics),
   };
+}
+
+/**
+ * Opens the next relic slot (GDD §8.4, M4c-1) under the account's hangar lock, naming it: 409 slot_maxed with six,
+ * slot_changed with a stale view and slot_locked without its milestone; then its dust.
+ */
+export async function unlockSlot(deps: RunsDeps, trx: Kysely<DB>, accountId: string, slot: number, key: string): Promise<HangarView> {
+  const [relics, probes] = await Promise.all([deps.config.get('relics'), deps.config.get('probes')]);
+  await sql`select pg_advisory_xact_lock(hashtextextended(${`hangar:${accountId}`}, 0))`.execute(trx);
+  const h = await ensureHangar(trx, accountId);
+  const next = nextSlot(h.slots, await runStats(trx, accountId, probes.minRunSeconds), relics);
+  if (!next) throw new HttpError(409, 'slot_maxed');
+  if (slot !== next.slot) throw new HttpError(409, 'slot_changed');
+  if (!next.ready) throw new HttpError(409, 'slot_locked');
+  if (next.dust > 0) await debit(trx, accountId, 'dust', next.dust, 'relic_slot', { slot }, key);
+  await trx.updateTable('galaxy.hangars').set({ relic_slots: slot, updated_at: new Date() }).where('account_id', '=', accountId).execute();
+  return hangarView(deps, accountId, trx);
 }
 
 /** Replaces the whole loadout: own live galaxies only, no more than the open slots. */
