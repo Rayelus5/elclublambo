@@ -2,7 +2,7 @@ import type { RunStart } from '@galaxy/shared';
 import { botInput, botPick, DEFAULT_CONTENT, offerFor, type Sim, step } from '@galaxy/sim';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { afterEach, expect, test } from 'vitest';
+import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { ArenaScreen } from '../../src/arena/ArenaScreen';
 import '../../src/styles/app.css';
@@ -63,15 +63,16 @@ async function show(width: number, height: number, ticks: number, then?: (sim: S
 
 test('el HUD sobre la arena: vida, nivel, tiempo, capa, botín y equipo', async () => {
   const sim = await show(1280, 720, 4 * 3600);
+  // The fast-forward blocks the page for a while under load: wait for the HUD's next read, not a fixed time.
+  await vi.waitFor(() => expect(document.querySelectorAll('.hud-kit-item').length).toBeGreaterThan(1), { timeout: 30_000 });
   expect(document.querySelector('.hud-hp')).not.toBeNull();
-  expect(document.querySelectorAll('.hud-kit-item').length).toBeGreaterThan(1);
   expect(sim.tick).toBeGreaterThan(4 * 3600 - 10);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/hud-1280.png' });
 }, 120_000);
 
 test('en una ultrapanorámica el HUD se ancla a los bordes y la arena lleva bandas', async () => {
   await show(3440, 1440, 5 * 3600 + 120);
-  expect(document.querySelector('.hud-boss')).not.toBeNull();
+  await vi.waitFor(() => expect(document.querySelector('.hud-boss')).not.toBeNull(), { timeout: 30_000 });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/hud-3440.png' });
 }, 120_000);
 
@@ -82,6 +83,6 @@ test('la elección de mejora con sus tres cartas', async () => {
     p.offer = offerFor(s, p);
     s.status = 'choosing';
   });
-  expect(document.querySelectorAll('.levelup-card')).toHaveLength(3);
+  await vi.waitFor(() => expect(document.querySelectorAll('.levelup-card')).toHaveLength(3), { timeout: 30_000 });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/levelup-1280.png' });
 }, 120_000);
