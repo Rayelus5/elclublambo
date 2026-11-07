@@ -16,6 +16,11 @@ const LONG = process.env['GALAXY_CALIBRATE'] === '1';
 const BUILD_DPS_CEILING = 175_000;
 /** Random builds spread at most this much above their median (measured: 9×). */
 const RANDOM_SPREAD = 12;
+/**
+ * The same against a dense crowd (M3b-1 final review: lines, areas, chains and reactions scale with crowds, and the
+ * rings never show it). 1.5× the strongest measured (2026-11-07: the lenticular extreme, 1 164 654 per second).
+ */
+const CROWD_DPS_CEILING = 1_750_000;
 
 export interface Build {
   weapons: { id: string; level: number }[];
@@ -94,6 +99,33 @@ export function proving(content: Content, build: Build, seconds: number): number
   return dealt / seconds;
 }
 
+/**
+ * Damage per second against a dense crowd: a 9 × 9 block of sturdy posts 18 units apart in front of the probe. It
+ * shows what the rings miss: lines and areas over many enemies, reactions and chains spreading through a crowd.
+ */
+export function crowd(content: Content, build: Build, seconds: number): number {
+  const c = structuredClone(content);
+  const s = c.sectors[0]!;
+  s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
+  s.waves = [];
+  s.layerSeconds = 100_000;
+  c.enemies.push({ ...c.enemies[0]!, id: 'post', hp: 1e9, speed: 0, xp: 0 });
+  const post = c.enemies[c.enemies.length - 1]!;
+  const sim = createSim({ seed: '5', content: c, sector: s.id, probes: [{ probe: 'lumen', relics: build.relics }] });
+  const p = sim.probes[0]!;
+  p.weapons = build.weapons.map((w) => ({ ...w, t: 0 }));
+  p.passives = build.passives.map((x) => ({ ...x }));
+  refreshStats(sim, p);
+  for (let gx = 0; gx < 9; gx++) for (let gy = 0; gy < 9; gy++) spawnEnemy(sim, post, 40 + gx * 18, (gy - 4) * 18);
+  p.hp = 1e12;
+  let dealt = 0;
+  for (let t = 0; t < seconds * 60; t++) {
+    step(sim, [{ mx: 0, my: 0, aim: 0, pick: p.offer ? botPick(p.offer as Offer[]) : -1 }]);
+    for (const e of sim.events) if (e.t === 'hit') dealt += e.amount;
+  }
+  return dealt / seconds;
+}
+
 function capsHold(build: Build): void {
   const sim = createSim({ seed: '1', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: build.relics }] });
   const p = sim.probes[0]!;
@@ -120,6 +152,30 @@ describe('simulación de combinaciones (CI)', () => {
     for (const d of dps) expect(d).toBeLessThanOrEqual(RANDOM_SPREAD * median);
     for (const d of [...dps, ...top]) expect(d).toBeLessThanOrEqual(BUILD_DPS_CEILING);
     for (const b of [...random, ...extremes]) capsHold(b);
+  }, 300_000);
+});
+
+describe('combinaciones en una multitud (CI)', () => {
+  test('40 al azar y 6 extremas contra una multitud: ninguna pasa del techo y las al azar no pasan de 12× su mediana', () => {
+    const dps = Array.from({ length: 40 }, (_, k) => crowd(DEFAULT_CONTENT, randomBuild(k), 30));
+    const top = extremeBuilds().map((b) => crowd(DEFAULT_CONTENT, b, 30));
+    const median = [...dps].sort((a, b) => a - b)[Math.floor(dps.length / 2)]!;
+    for (const d of dps) expect(d).toBeLessThanOrEqual(RANDOM_SPREAD * median);
+    for (const d of [...dps, ...top]) expect(d).toBeLessThanOrEqual(CROWD_DPS_CEILING);
+  }, 300_000);
+});
+
+describe('evoluciones en una multitud (CI)', () => {
+  test('ninguna evolución, sola, rinde menos que su arma base al máximo', () => {
+    const C = DEFAULT_CONTENT;
+    for (const evo of C.weapons.filter((w) => w.evolution)) {
+      const base = C.weapons.find((w) => w.id === evo.evolution!.from)!;
+      const b = crowd(C, { weapons: [{ id: base.id, level: base.levels.length }], passives: [], relics: [] }, 20);
+      // Weapons that need the probe to move (trails) deal nothing on a still ground: nothing to compare.
+      if (b === 0) continue;
+      const e = crowd(C, { weapons: [{ id: evo.id, level: 1 }], passives: [], relics: [] }, 20);
+      expect(e, `${evo.id} frente a ${base.id}`).toBeGreaterThanOrEqual(b);
+    }
   }, 300_000);
 });
 

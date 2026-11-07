@@ -43,7 +43,7 @@ const QUERY_PAD = 40;
 // Hit memory per shot: 8 (enemy key, tick) pairs, so a piercing shot never hits the same enemy twice and an orb
 // waits its interval. Kept beside the sim (same lifetime) to keep the pools plain.
 const memory = new WeakMap<Sim, Int32Array>();
-const MEM = 8;
+const MEM = 16;
 
 function memOf(sim: Sim): Int32Array {
   let m = memory.get(sim);
@@ -177,6 +177,15 @@ export function spawnArea(
 const near: number[] = [];
 const ranked: number[] = [];
 
+/**
+ * The enemies in the grid cells around (x, y), as a fresh list. A loop that deals damage must use this, not the shared
+ * buffer: a hit can set off a reaction or a chain that queries the grid again mid-loop (M3b-1 final review).
+ */
+export function enemiesNear(sim: Sim, x: number, y: number, reach: number): number[] {
+  const n = sim.grid.query(x, y, reach, near);
+  return near.slice(0, n);
+}
+
 /** Up to `n` distinct targets within `range` of (x, y), nearest first (ties: lower slot). */
 export function nearestEnemies(sim: Sim, x: number, y: number, range: number, n: number, skip?: (e: number) => boolean): number[] {
   const en = sim.enemies;
@@ -198,10 +207,9 @@ export function nearestEnemies(sim: Sim, x: number, y: number, range: number, n:
 /** Damages every enemy within `radius` (and inside the cone when `arc` > 0); returns how many it hit. */
 export function hitArea(sim: Sim, x: number, y: number, radius: number, damage: number, src: HitSource, opts: { knockback?: number; angle?: number; arc?: number } = {}): number {
   const en = sim.enemies;
-  const n = sim.grid.query(x, y, radius + QUERY_PAD, near);
+  const list = enemiesNear(sim, x, y, radius + QUERY_PAD);
   let hits = 0;
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of list) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const dx = en.x[e]! - x;
     const dy = en.y[e]! - y;
@@ -452,9 +460,7 @@ function updateOrb(sim: Sim, i: number): void {
   if (!p.alive) return;
   const interval = Math.max(1, Math.round(lvl.interval * 60));
   const en = sim.enemies;
-  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of enemiesNear(sim, s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const r = s.radius[i]! + en.radius[e]!;
     const dx = en.x[e]! - s.x[i]!;
@@ -520,9 +526,7 @@ function updateFlying(sim: Sim, i: number): void {
     s.kill(i);
     return;
   }
-  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of enemiesNear(sim, s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const r = s.radius[i]! + en.radius[e]!;
     const dx = en.x[e]! - s.x[i]!;

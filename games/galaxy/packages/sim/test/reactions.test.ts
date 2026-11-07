@@ -246,3 +246,36 @@ describe('repetición', () => {
     expect(stateHash(again)).toBe(stateHash(sim));
   });
 });
+
+describe('jefes y reacciones (revisión final)', () => {
+  test('un jefe se aturde como mucho una vez cada 6 s', () => {
+    const sim = world();
+    spawnBoss(sim);
+    const b = sim.boss!.index;
+    const stun = () => {
+      hit(sim, b, 1, 'shock');
+      hit(sim, b, 1, 'slow');
+    };
+    stun();
+    expect(sim.enemies.freezeT[b]).toBe(18);
+    run(sim, 70);
+    expect(sim.enemies.freezeT[b]).toBe(0);
+    stun();
+    expect(sim.enemies.freezeT[b]).toBe(0);
+    run(sim, 6 * 60);
+    stun();
+    expect(sim.enemies.freezeT[b]).toBe(18);
+  });
+
+  test('el hackeo no marca a jefes ni élites (no se les puede hackear)', () => {
+    const sim = world();
+    spawnBoss(sim);
+    const b = sim.boss!.index;
+    hit(sim, b, 1, 'hack');
+    expect(sim.enemies.mark[b]).toBe(0);
+    const elite = at(sim, 300, 0);
+    sim.enemies.elite[elite] = 1;
+    hit(sim, elite, 1, 'hack');
+    expect(sim.enemies.mark[elite]).toBe(0);
+  });
+});

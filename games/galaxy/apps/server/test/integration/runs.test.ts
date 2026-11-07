@@ -176,7 +176,7 @@ test('una reclamación imposible se recorta a su tiempo real: capa 1, sin botín
   expect(r).toMatchObject({ depth: 1, payout: { coins: 0, dust: 0 } });
   expect(r.payout.signals).toBeLessThanOrEqual(1);
   const row = await ctx.db.selectFrom('galaxy.runs').select(['depth', 'kills', 'boss_kills', 'flags']).where('id', '=', run.id).executeTakeFirstOrThrow();
-  expect(row).toMatchObject({ depth: 1, kills: 650, boss_kills: 1 });
+  expect(row).toMatchObject({ depth: 1, kills: 950, boss_kills: 1 });
   expect(row.flags).toEqual(expect.arrayContaining(['depth_vs_time', 'kills_rate']));
 });
 

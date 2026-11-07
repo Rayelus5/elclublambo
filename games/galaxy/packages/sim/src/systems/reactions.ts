@@ -22,6 +22,8 @@ function reactionFor(sim: Sim, a: ElementId, b: ElementId): ReactionDef | undefi
 export function react(sim: Sim, e: number, element: ElementId, dealt: number, x: number, y: number, src: HitSource): void {
   const en = sim.enemies;
   if (NO_MARK.includes(element) || !en.alive[e] || en.fuseT[e]! > 0) return;
+  // Bosses and elites cannot be hacked, so hacking neither marks them nor reacts on them.
+  if (element === 'hack' && (en.boss[e] || en.elite[e]! > 0)) return;
   const tuning = sim.content.elements.marks;
   const marked = en.markT[e]! > 0 ? elementOf(en.mark[e]!) : null;
   if (marked && marked !== element && en.reactT[e] === 0) {
@@ -59,7 +61,13 @@ function apply(sim: Sim, r: ReactionDef, e: number, power: number, x: number, y:
       }
       break;
     case 'stun':
-      if (en.alive[e]) en.freezeT[e] = Math.max(en.freezeT[e]!, ticks(fx.seconds * (en.boss[e] ? t.marks.bossStun : 1)));
+      if (!en.alive[e]) break;
+      if (en.boss[e]) {
+        // A boss is stunned shorter and at most once every few seconds: never stun-locked (§8.6).
+        if (sim.tick < (sim.clocks['bossStunReady'] ?? 0)) break;
+        sim.clocks['bossStunReady'] = sim.tick + ticks(t.marks.bossStunEvery);
+        en.freezeT[e] = Math.max(en.freezeT[e]!, ticks(fx.seconds * t.marks.bossStun));
+      } else en.freezeT[e] = Math.max(en.freezeT[e]!, ticks(fx.seconds));
       break;
     case 'spread':
       for (const o of nearestEnemies(sim, x, y, fx.range, fx.targets + 1, (o) => o === e).slice(0, fx.targets)) {

@@ -6,6 +6,7 @@ import { combatHooks, dealDamage } from './combat';
 import { elementCode, elementOf as elementOfCode } from './elements';
 import {
   AREA,
+  enemiesNear,
   hitArea,
   lastHit,
   nearestEnemies,
@@ -40,6 +41,8 @@ const MINE_SPREAD = 16;
 const DISC_CATCH = 10;
 /** `vortex` areas pull at this speed (units per second). */
 const VORTEX_PULL = 70;
+/** A pulling cone gathers its catch at this fraction of its reach in front of the probe. */
+const CONE_FOCUS = 0.35;
 /** `split`: three fragments fanned 25° apart, at half damage, for 0.4 s. */
 const SPLIT_FAN = degToSteps(25);
 const SPLIT_SHARE = 0.5;
@@ -297,9 +300,7 @@ function updateDisc(sim: Sim, i: number): void {
   s.x[i] = s.x[i]! + s.vx[i]!;
   s.y[i] = s.y[i]! + s.vy[i]!;
   const interval = Math.max(1, ticks(sw ? sw.lvl.interval || 0.3 : 0.3));
-  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of enemiesNear(sim, s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const r = s.radius[i]! + en.radius[e]!;
     const ex = en.x[e]! - s.x[i]!;
@@ -343,14 +344,23 @@ function pull(sim: Sim, i: number): void {
   const en = sim.enemies;
   const step = a.pull[i]! / 60;
   if (!(step > 0)) return;
-  const n = sim.grid.query(a.x[i]!, a.y[i]!, a.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  const cone = a.arc[i]! > 0;
+  // A well pulls to its centre; a cone to a point in front of the probe, so what it draws in stays in the fire
+  // (pulled onto the probe, crowding would push it out behind, where the cone neither burns nor pulls).
+  const fx = cone ? a.x[i]! + cosA(a.angle[i]!) * a.radius[i]! * CONE_FOCUS : a.x[i]!;
+  const fy = cone ? a.y[i]! + sinA(a.angle[i]!) * a.radius[i]! * CONE_FOCUS : a.y[i]!;
+  for (const e of enemiesNear(sim, a.x[i]!, a.y[i]!, a.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.boss[e] || en.fuseT[e]! > 0) continue;
-    const dx = a.x[i]! - en.x[e]!;
-    const dy = a.y[i]! - en.y[e]!;
+    const ox = en.x[e]! - a.x[i]!;
+    const oy = en.y[e]! - a.y[i]!;
+    const od = Math.sqrt(ox * ox + oy * oy);
+    if (od > a.radius[i]! + en.radius[e]!) continue;
+    // A cone pulls only what is inside it, never what is behind the probe.
+    if (cone && od > 1e-9 && Math.abs(wrapDiff(angleTo(ox, oy) - a.angle[i]!)) > a.arc[i]! / 2) continue;
+    const dx = fx - en.x[e]!;
+    const dy = fy - en.y[e]!;
     const d = Math.sqrt(dx * dx + dy * dy);
-    if (d > a.radius[i]! + en.radius[e]! || d < 1e-9) continue;
+    if (d < 1e-9) continue;
     const move = Math.min(step, d);
     en.x[e] = en.x[e]! + (dx / d) * move;
     en.y[e] = en.y[e]! + (dy / d) * move;
@@ -394,10 +404,14 @@ function updateBeam(sim: Sim, i: number): void {
   const len = s.reach[i]!;
   const dx = cosA(s.angle[i]!);
   const dy = sinA(s.angle[i]!);
-  const interval = Math.max(1, ticks(lvl.interval));
-  const n = sim.grid.query(p.x + (dx * len) / 2, p.y + (dy * len) / 2, len / 2 + s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  // A pulse clock (in the pierce field: beams never pierce): the whole line burns once per interval, whatever the
+  // crowd (a per-enemy memory would overflow with more than a handful of enemies on the line).
+  if (s.pierce[i]! > 0) {
+    s.pierce[i] = s.pierce[i]! - 1;
+    return;
+  }
+  s.pierce[i] = Math.max(1, ticks(lvl.interval)) - 1;
+  for (const e of enemiesNear(sim, p.x + (dx * len) / 2, p.y + (dy * len) / 2, len / 2 + s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const ex = en.x[e]! - p.x;
     const ey = en.y[e]! - p.y;
@@ -406,9 +420,6 @@ function updateBeam(sim: Sim, i: number): void {
     const oy = ey - dy * along;
     const r = s.radius[i]! + en.radius[e]!;
     if (ox * ox + oy * oy > r * r) continue;
-    const last = lastHit(sim, i, e);
-    if (last >= 0 && sim.tick - last < interval) continue;
-    remember(sim, i, e);
     dealDamage(sim, e, s.damage[i]!, { ...shotHooks.source(sim, i), x: p.x, y: p.y });
   }
 }

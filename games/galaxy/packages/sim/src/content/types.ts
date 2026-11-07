@@ -249,7 +249,7 @@ export interface ElementTuning {
   prism: { cycle: ElementId[] };
   invert: { radius: number; chance: number; power: number };
   /** Element marks (plan ruling 4): how long a mark lasts, the per-enemy wait between reactions, stun on bosses. */
-  marks: { seconds: number; cooldown: number; bossStun: number };
+  marks: { seconds: number; cooldown: number; bossStun: number; bossStunEvery: number };
   reactions: ReactionDef[];
 }
 

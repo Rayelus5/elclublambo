@@ -549,7 +549,7 @@ export const DEFAULT_CONTENT: Content = {
     pure: { crit: 0.15, critDamage: 0.5 },
     prism: { cycle: ['burn', 'slow', 'corrosion', 'shock'] },
     invert: { radius: 50, chance: 0.4, power: 2 },
-    marks: { seconds: 3, cooldown: 1, bossStun: 0.25 },
+    marks: { seconds: 3, cooldown: 1, bossStun: 0.25, bossStunEvery: 6 },
     reactions: [
       { id: 'short-circuit', name: 'Cortocircuito', pair: ['corrosion', 'shock'], effect: { kind: 'chain', targets: 5, range: 120, share: 0.8 } },
       { id: 'storm', name: 'Tormenta', pair: ['chain', 'shock'], effect: { kind: 'chain', targets: 8, range: 140, share: 0.5 } },

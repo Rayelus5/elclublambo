@@ -208,7 +208,7 @@ const elements = z
     pure: z.object({ crit: unit, critDamage: n }).strict(),
     prism: z.object({ cycle: z.array(element).min(1).max(11) }).strict(),
     invert: z.object({ radius: n, chance: unit, power: n }).strict(),
-    marks: z.object({ seconds: n, cooldown: n, bossStun: unit }).strict(),
+    marks: z.object({ seconds: n, cooldown: n, bossStun: unit, bossStunEvery: n }).strict(),
     reactions: z.array(reaction).max(64),
   })
   .strict();

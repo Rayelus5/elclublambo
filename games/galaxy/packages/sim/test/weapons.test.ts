@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyOffer, AREA, type Content, IDLE, persistentFor, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { applyOffer, AREA, type Content, ELEMENT_IDS, hitArea, IDLE, persistentFor, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // The probe's weapons (GDD §5.3): each one has its own role — the nearest target, a ring around you, a piercing line,
@@ -606,5 +606,47 @@ describe('especiales de las evoluciones', () => {
     expect(kindCount(sim, SHOT.orb)).toBe(6);
     run(sim, 30);
     expect(kindCount(sim, SHOT.orb)).toBe(6);
+  });
+});
+
+// ── Revisión final de M3b-1 ──────────────────────────────────────────────────────────────────────────────────────
+
+describe('revisión final', () => {
+  test('un rayo con más de 8 enemigos en su línea golpea a cada uno una vez por intervalo, no a cada tick', () => {
+    const sim = armed('beam');
+    const row = Array.from({ length: 11 }, (_, k) => target(sim, 15 + k * 15, 0));
+    run(sim, 18);
+    for (const e of row) expect(lost(sim, e)).toBe(10);
+  });
+
+  test('un área golpea una vez a cada enemigo aunque una reacción busque vecinos a mitad del recorrido', () => {
+    const sim = armed('dud', 1, (c) => (c.enemies.find((e) => e.id === 'dummy')!.hp = 1000));
+    const ids = [
+      [30, 0],
+      [60, 30],
+      [-50, 0],
+      [0, 60],
+      [-40, -40],
+      [70, -20],
+      [-70, 30],
+      [10, -70],
+    ].map(([x, y]) => target(sim, x!, y!));
+    run(sim, 1);
+    // A breach mark on one of them: the area's burn sets off an Implosion (it looks for neighbours) mid-loop.
+    sim.enemies.mark[ids[5]!] = ELEMENT_IDS.indexOf('breach') + 1;
+    sim.enemies.markT[ids[5]!] = 100;
+    sim.events.length = 0;
+    hitArea(sim, 0, 0, 90, 10, { probe: 0, weapon: null, relic: 0, element: 'burn', x: 0, y: 0 });
+    const direct = ids.map((e) => sim.events.filter((ev) => ev.t === 'hit' && ev.element === 'burn' && ev.x === sim.enemies.x[e] && ev.y === sim.enemies.y[e]).length);
+    expect(direct).toEqual([1, 1, 1, 1, 1, 1, 1, 1]);
+  });
+
+  test('el cono que atrae solo arrastra lo que tiene delante, no lo de detrás', () => {
+    const sim = armed('solar-breath');
+    const front = target(sim, 100, 0);
+    const back = target(sim, -60, 0);
+    for (let i = 0; i < 30; i++) step(sim, [aimEast]);
+    expect(sim.enemies.x[front]).toBeLessThan(100);
+    expect(sim.enemies.x[back]).toBe(-60);
   });
 });
