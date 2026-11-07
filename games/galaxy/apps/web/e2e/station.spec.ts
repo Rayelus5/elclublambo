@@ -36,7 +36,9 @@ test('la estación: entrar desde el Hogar, cargar la refinería y reparar la ant
   await expect(deck.getByRole('listitem')).toHaveCount(10);
   await expect(deck.getByRole('button', { name: /Antena/ })).toContainText('Rota');
   await expect(deck.getByRole('link', { name: /Hangar/ })).toHaveAttribute('href', '/galaxy/incursion');
-  await expect(deck.getByRole('listitem').filter({ hasText: 'Laboratorio' })).toContainText('En reparación');
+  // M4b-2: the Laboratorio is repairable (broken until then); Comunicaciones still arrives later.
+  await expect(deck.getByRole('button', { name: /Laboratorio/ })).toContainText('Rota');
+  await expect(deck.getByRole('listitem').filter({ hasText: 'Comunicaciones' })).toContainText('En reparación');
 
   // Raw material from the CLI (as if from incursions) goes into the refinery's queue.
   grant(username, 'material', 60);
