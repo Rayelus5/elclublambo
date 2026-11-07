@@ -683,6 +683,48 @@
   .probe-test-card .launch { text-decoration: none; }
   @media (max-width: 900px) { .probe-answers { grid-template-columns: 1fr; } .probe-answer { min-height: 96px; } }
   @media (prefers-reduced-motion: reduce) { .probe-reveal-art { animation: none; } .probe-test-dots li { transition: none; } }
+  /* The station (DESIGN_SYSTEM §8 septies): two decks of five rooms in a side cut, the hull a riveted steel frame. */
+  .station-root { overflow: auto; }
+  .station { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
+  /* The hull sits in the middle of the height the header leaves. */
+  .station-hull { margin-block: auto; }
+  .station-hull { position: relative; padding: 22px; border-radius: 26px; background: linear-gradient(180deg, #1d2148, #12153a); border: 3px solid var(--color-panel-lip); box-shadow: inset 0 3px 0 rgb(255 255 255 / .08), inset 0 -6px 0 rgb(0 0 0 / .3), 0 18px 40px rgb(0 0 0 / .45); }
+  .station-hull::before { content: ''; position: absolute; inset: 9px; border-radius: 18px; pointer-events: none; background: radial-gradient(circle, rgb(185 191 230 / .35) 1.2px, transparent 1.6px) 0 0 / 24px 24px; mask: linear-gradient(#000 0 0) top / 100% 3px no-repeat, linear-gradient(#000 0 0) bottom / 100% 3px no-repeat; }
+  .station-decks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px 12px; }
+  .station-decks > li { display: grid; }
+  .room { display: grid; justify-items: center; gap: 8px; padding: 10px 10px 12px; border-radius: 16px; border: 2px solid transparent; background: rgb(8 10 30 / .55); color: var(--color-ink); text-decoration: none; font: inherit; text-align: center; }
+  /* Whole pixels: the 40 px scene at ×5, ×6 or ×7, whatever fits. */
+  .room-art { width: 100%; width: round(down, 100%, 40px); max-width: 280px; height: auto; aspect-ratio: 40 / 28; image-rendering: pixelated; border-radius: 6px; box-shadow: 0 4px 0 rgb(0 0 0 / .4); }
+  .room-plate { display: grid; gap: 2px; }
+  .room-plate b { font-size: 16px; }
+  .room-plate small { font-size: 13px; color: var(--color-ink-soft); }
+  :is(a, button).room { cursor: pointer; transition: transform .18s var(--ease-bounce), border-color .18s ease, box-shadow .18s ease; }
+  :is(a, button).room:hover { transform: translateY(-3px); border-color: rgb(69 227 166 / .55); box-shadow: 0 0 22px rgb(69 227 166 / .18); }
+  :is(a, button).room:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .room.is-machine .room-plate small { color: var(--color-terminal); font-weight: 700; }
+  .room.is-broken { border-color: rgb(255 77 109 / .35); }
+  .room.is-broken .room-plate small { color: var(--color-static); font-weight: 700; }
+  .room.is-future { opacity: .62; }
+  .room.is-future .room-plate small { color: var(--color-ink-mute); }
+  .station-panel { width: min(92vw, 520px); }
+  .station-panel .panel-lead { margin: 0 0 14px; color: var(--color-ink-soft); line-height: 1.5; }
+  .panel-stats { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0 0 14px; }
+  .panel-stats dt { font-size: 13px; color: var(--color-ink-mute); }
+  .panel-stats dd { margin: 2px 0 0; font-weight: 700; font-size: 17px; }
+  .panel-bar-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .panel-bar { display: block; height: 10px; border-radius: 999px; background: rgb(0 0 0 / .4); overflow: hidden; margin-bottom: 14px; }
+  .panel-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+  .panel-row { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-bottom: 12px; }
+  .panel-field { display: grid; gap: 4px; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }
+  .panel-field input { width: 120px; height: 44px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--color-panel-lip); background: var(--color-void); color: var(--color-ink); font: 700 17px var(--font-sans); }
+  .panel-field input:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .panel-note { margin: 0 0 12px; font-size: 14px; color: var(--color-ink-mute); }
+  .station-panel .lip.pill { margin: 0 8px 10px 0; }
+  .station-upgrade small { margin-left: 6px; font-weight: 600; opacity: .85; }
+  .res.material .ico { color: #ff9a3c; }
+  .res.components .ico { color: var(--color-terminal); }
+  @media (max-width: 1100px) { .station-decks { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (prefers-reduced-motion: reduce) { :is(a, button).room { transition: none; } }
   /* The sector panel's title, season badge and tiles (DESIGN_SYSTEM §8 ter): the same tiles as the probes'. */
   .hangar-sector-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
   .season-badge { padding: 4px 10px; border-radius: 999px; background: var(--color-uv); color: #fff; font-weight: 700; font-size: 13px; line-height: 1.2; box-shadow: 0 0 14px rgb(114 89 238 / .45); }

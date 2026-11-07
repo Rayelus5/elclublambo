@@ -326,6 +326,22 @@ Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2).
   - la peculiaridad en una losa;
   - «Ir al hangar» (Solar).
 
+## 8 septies. Estación
+
+El Hogar de la portada lleva a la estación (GDD §10): la base es el menú. Consulta de ui-ux-pro-max: cada sala responde al pasar el ratón, el foco se ve siempre, un botón sin recursos está desactivado y dice cuánto falta, y los números de un campo no se confunden con el texto.
+
+- **Corte lateral:** dos cubiertas de cinco salas dentro de un casco de acero remachado (degradado de `#1d2148` a `#12153a`, borde de `--panel-lip`, una fila de remaches arriba y abajo). Por debajo de 1100 px, tres salas por fila.
+- **Sala:** su escena pixel art de 40×28 a ×4 (`station/art.ts`, dos fotogramas: una luz que parpadea, un haz que barre) y una placa con el nombre en negrita y una línea debajo.
+  - **Herramienta** (Escáner, Planetario, Hangar, Colisionador): enlace a su pantalla; la línea dice para qué sirve.
+  - **Máquina** (Refinería, Antena): botón que abre su panel; la línea dice el nivel en Terminal.
+  - **Rota** (la Antena al empezar): la escena oscurecida, cruzada por una grieta y el ruido de la Estática, que se mueve; borde rojo tenue y «Rota» en rojo.
+  - **De más adelante** (Laboratorio, Comunicaciones, Archivo, Trofeos): la escena rota al 62 % de opacidad, sin botón ni enlace, y «En reparación».
+  - Al pasar el ratón la sala sube 3 px con un borde y un brillo Terminal; el foco es un anillo hielo de 3 px. Con movimiento reducido no sube.
+- **Barra:** material en bruto (cubo naranja), componentes (llave Terminal), monedas y señales, leídos como frases.
+- **Panel de la Refinería:** diálogo con qué hace, nivel, ritmo («20 por hora») y listos; la cola como barra Solar con «En cola · 30/100»; el campo «Cantidad» (por defecto todo lo que cabe, y nunca más de lo que cabe), «Cargar», «Recoger 20 componentes» (Solar) y la mejora.
+- **Panel de la Antena:** rota, «La Estática la tiene muda» y «Reparar». Funcionando: nivel, ritmo («Una señal cada 8 h»), lo que espera y a qué hora se llena, y «Recoger».
+- **Mejora:** botón Solar con la llave, «Reparar» o «Mejorar a nivel 2» y su coste («40 componentes y 500 monedas»); desactivado sin recursos, con «Te faltan 8 componentes» debajo, y «Al máximo» al final. Cada error de la API sale en el panel con su texto.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
