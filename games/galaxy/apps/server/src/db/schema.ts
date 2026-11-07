@@ -140,6 +140,8 @@ export interface GalaxiesTable {
   finish: string;
   featured: Generated<boolean>;
   level: Generated<number>;
+  /** M4c-1: the dust put into its levels (partly returned when fused or disintegrated). */
+  level_dust: Generated<number>;
   season: string | null;
   origin: 'pull' | 'fusion' | 'grant';
   lineage: ColumnType<string[], string[] | undefined, string[]>;
