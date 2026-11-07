@@ -115,6 +115,13 @@ describe('la experiencia de una incursión', () => {
     expect(Number(row.xp)).toBe(145);
   });
 
+  test('terminar una incursión refresca la clasificación al momento, sin esperar a la caché', async () => {
+    const p = await player(ctx);
+    expect((await board(ctx, p.cookie)).me).toBeNull();
+    await play(p.cookie, body());
+    expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: 85 });
+  });
+
   test('una incursión sospechosa no da experiencia ni puntos', async () => {
     const p = await player(ctx);
     const loot = Array.from({ length: 999 }, () => ({ coins: 40, dust: 12 }));

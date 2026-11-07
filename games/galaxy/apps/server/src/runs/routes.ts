@@ -25,6 +25,7 @@ import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
+import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
 /** A finished run carries its recorded inputs (≤ 2 MB of bytes, ~2.7 MB in base64). */
@@ -130,8 +131,11 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
       deps.config.get('season'),
     ]);
     const now = deps.now();
-    return runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
+    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
       finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, now }),
     );
+    // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
+    invalidateLeaderboard();
+    return result;
   });
 }
