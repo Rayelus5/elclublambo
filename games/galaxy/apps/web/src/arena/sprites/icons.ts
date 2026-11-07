@@ -517,9 +517,9 @@ export const ICONS: Record<string, SpriteDef> = {
 /** The weapons that evolve (GDD §5.3): their icons get a gold twin, `<icon>-evo`. */
 const EVOLVING = ['icon-pulse', 'icon-nova', 'icon-lance', 'icon-orbit', 'icon-trail', 'icon-arc', 'icon-drone', 'icon-beam', 'icon-cone', 'icon-shards', 'icon-homing', 'icon-mine', 'icon-boomerang', 'icon-field', 'icon-strike', 'icon-turret'];
 
-/** An evolved weapon's icon: the same drawing with a deep gold outline instead of the night one. */
+/** An evolved weapon's icon: the same drawing outlined in gold instead of night blue, so it shines in the kit. */
 export function evolvedIcon(base: SpriteDef): SpriteDef {
-  return { ...base, palette: { ...base.palette, k: '#8a4a12' } };
+  return { ...base, palette: { ...base.palette, k: '#e0a12a' } };
 }
 
 for (const id of EVOLVING) {
