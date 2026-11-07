@@ -606,7 +606,57 @@ export const DEFAULT_CONTENT: Content = {
       cosmic_web: { stat: 'xp', value: 0.1 },
       cmb: { stat: 'luck', value: 0.15 },
     },
-    sets: [],
+    sets: [
+      {
+        id: 'resonance',
+        name: 'Resonancia cromática',
+        description: 'Galaxias de la misma paleta: sus elementos prenden más',
+        kind: 'same',
+        trait: 'palette',
+        tiers: [
+          { count: 2, bonus: { stats: [{ stat: 'elemental', value: 0.25 }] } },
+          { count: 3, bonus: { stats: [{ stat: 'elemental', value: 0.5 }] } },
+        ],
+      },
+      {
+        id: 'lineage',
+        name: 'Linaje',
+        description: 'Galaxias del mismo tipo: sus pasivas son más fuertes',
+        kind: 'same',
+        trait: 'galaxy_type',
+        tiers: [
+          { count: 2, bonus: { magnitude: 1.15 } },
+          { count: 3, bonus: { magnitude: 1.3 } },
+        ],
+      },
+      {
+        id: 'same-sky',
+        name: 'Mismo cielo',
+        description: 'Galaxias del mismo fondo: su bonus de entorno crece',
+        kind: 'same',
+        trait: 'background',
+        tiers: [
+          { count: 2, bonus: { background: 1.5 } },
+          { count: 3, bonus: { background: 2 } },
+        ],
+      },
+      {
+        id: 'twin-cores',
+        name: 'Núcleos gemelos',
+        description: 'Galaxias del mismo núcleo: más golpes críticos',
+        kind: 'same',
+        trait: 'core',
+        tiers: [
+          { count: 2, bonus: { stats: [{ stat: 'crit', value: 0.04 }] } },
+          { count: 3, bonus: { stats: [{ stat: 'crit', value: 0.08 }] } },
+        ],
+      },
+      { id: 'satellite-arm', name: 'Brazo satélite', description: 'Una espiral y una galaxia satélite: un proyectil más', kind: 'combo', type: 'spiral', phenomenon: 'satellite_galaxy', bonus: { stats: [{ stat: 'projectiles', value: 1 }] } },
+      { id: 'lighthouse', name: 'Faro', description: 'Una espiral barrada y un púlsar: las armas se recargan antes', kind: 'combo', type: 'barred_spiral', phenomenon: 'pulsar', bonus: { stats: [{ stat: 'cooldown', value: 0.08 }] } },
+      { id: 'einstein-lens', name: 'Lente de Einstein', description: 'Una lenticular y un anillo de Einstein: críticos más fuertes', kind: 'combo', type: 'lenticular', phenomenon: 'einstein_ring', bonus: { stats: [{ stat: 'critDamage', value: 0.3 }] } },
+      { id: 'stellar-heart', name: 'Corazón estelar', description: 'Una elíptica y una supernova: más vida máxima', kind: 'combo', type: 'elliptical', phenomenon: 'supernova', bonus: { stats: [{ stat: 'maxHp', value: 0.2 }] } },
+      { id: 'chaos-engine', name: 'Motor del caos', description: 'Una irregular y una anomalía: más botín', kind: 'combo', type: 'irregular', phenomenon: 'anomaly', bonus: { stats: [{ stat: 'luck', value: 0.25 }] } },
+    ],
   },
   xp: { base: 5, linear: 6, quad: 0.5 },
   caps: {

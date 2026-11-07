@@ -5,6 +5,7 @@ import type { HitSource, ProbeState, RelicInput, Sim } from '../types';
 import { ticks } from '../version';
 import { dealDamage } from './combat';
 import { elementCode, invertNearby } from './elements';
+import { activeSets } from './sets';
 import { refreshStats, relicHooks, type StatBonus } from './stats';
 import { AREA, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
 
@@ -53,7 +54,11 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
   const arms = Number.parseInt(t['arms'] ?? '', 10);
   const level = Math.max(1, Math.min(10, Math.floor(relic.level) || 1));
   const levelBonus = diminish(Array.from({ length: level - 1 }, () => R.level.step), R.level.cap);
-  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus);
+  // Sets (GDD §8.3): the Lineage-like ones raise their members' magnitude, the sky-like ones their background.
+  const mine = activeSets(all, content).filter((s) => s.members.includes(relic.id));
+  const setMagnitude = mine.reduce((f, s) => f * (s.bonus.magnitude ?? 1), 1);
+  const setBackground = mine.reduce((f, s) => f * (s.bonus.background ?? 1), 1);
+  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude;
   let copies: FamilyId | null = null;
   if (family === 'echo') {
     const me = Math.max(0, all.indexOf(relic));
@@ -79,8 +84,12 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
     shape: SHAPE[t['inclination'] ?? ''] ?? 'circle',
     quasar: t['core'] === 'quasar',
     double: t['core'] === 'double_nucleus',
-    background: R.backgrounds[t['background'] ?? ''] ?? null,
+    background: background(R.backgrounds[t['background'] ?? ''] ?? null, setBackground),
   };
+}
+
+function background(bg: RelicSkill['background'], factor: number): RelicSkill['background'] {
+  return bg && factor !== 1 ? { stat: bg.stat, value: bg.value * factor } : bg;
 }
 
 /** Same as relicSkill, named for the Hangar's description of a relic. */
@@ -138,6 +147,7 @@ export function relicBonuses(sim: Sim, p: ProbeState): StatBonus[] {
     if (r.skill.phenomenon === 'einstein_ring') out.push({ stat: 'projectiles', value: sim.content.relics.phenomena.einstein_ring.projectiles });
   }
   if ((p.fx['hasteT'] ?? 0) > 0) out.push({ stat: 'speed', value: F.chaos.haste.bonus });
+  for (const s of activeSets(p.relics, sim.content)) for (const b of s.bonus.stats ?? []) out.push({ stat: b.stat, value: b.value });
   return out;
 }
 

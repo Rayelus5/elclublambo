@@ -33,6 +33,7 @@ export {
 export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
+export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {
   AREA,
   fireWeapons,

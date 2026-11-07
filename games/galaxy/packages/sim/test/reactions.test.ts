@@ -225,12 +225,13 @@ describe('frenos', () => {
 
 describe('repetición', () => {
   test('una partida con reacciones se repite con el mismo hash', () => {
-    const relic = (palette: string, n: number): RelicInput => ({ id: 'r' + n, seed: String(n), tier: 4, level: 1, traits: { galaxy_type: 'ring', palette, size: 'large' } });
+    // Two galaxy types (no Lineage set): stronger relics would kill before a second element lands.
+    const relic = (palette: string, n: number, type: string): RelicInput => ({ id: 'r' + n, seed: String(n), tier: 4, level: 1, traits: { galaxy_type: type, palette, size: 'large' } });
     const opts: SimOptions = {
       seed: '9090',
       content: DEFAULT_CONTENT,
       sector: 'outer-nebula',
-      probes: [{ probe: 'lumen', relics: [relic('solar_gold', 1), relic('ultraviolet', 2)] }],
+      probes: [{ probe: 'lumen', relics: [relic('solar_gold', 1, 'ring'), relic('ultraviolet', 2, 'spiral')] }],
       record: true,
     };
     const sim = createSim(opts);
