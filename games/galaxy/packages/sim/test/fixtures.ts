@@ -15,7 +15,7 @@ export function tinyContent(over?: (c: Content) => void): Content {
     description: 'No dispara',
     levels: [{ damage: 0, cooldown: 1000, count: 0, pierce: 0, speed: 0, area: 0, duration: 0, range: 0, bounces: 0, knockback: 0, interval: 0 }],
   });
-  c.probes = [{ ...c.probes[0]!, hp: 100, speed: 60, pickup: 30, armor: 0, regen: 0, weapon: 'dud', bonus: {} }];
+  c.probes = [{ ...c.probes[0]!, hp: 100, speed: 60, pickup: 30, armor: 0, regen: 0, weapon: 'dud', bonus: {}, quirk: null }];
   c.enemies.push({ id: 'dummy', name: 'Diana', family: 'swarm', sprite: 'mite', hp: 10, speed: 0, damage: 10, radius: 6, xp: 20, behavior: { kind: 'chase' } });
   const s = c.sectors[0]!;
   s.layerSeconds = 100_000;

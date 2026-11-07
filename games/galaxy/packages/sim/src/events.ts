@@ -22,4 +22,5 @@ export type SimEvent =
   | { t: 'extracted' }
   | { t: 'probeDown'; probe: number }
   | { t: 'element'; x: number; y: number; element: ElementId }
-  | { t: 'reaction'; id: string; x: number; y: number };
+  | { t: 'reaction'; id: string; x: number; y: number }
+  | { t: 'quirk'; probe: number; kind: string };

@@ -63,6 +63,17 @@ const passive = z
   .object({ id, name, icon: sprite, description: text, stat: z.enum(STAT_KEYS), levels: z.array(n).min(1).max(8) })
   .strict();
 
+const quirk = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('magnet'), every: pos }).strict(),
+  z.object({ kind: z.literal('thorns'), share: n }).strict(),
+  z.object({ kind: z.literal('dash'), every: pos, distance: n, invuln: n }).strict(),
+  z.object({ kind: z.literal('overwatch'), drones: z.number().int().min(0).max(8) }).strict(),
+  z.object({ kind: z.literal('second-wind'), hp: unit }).strict(),
+  z.object({ kind: z.literal('prism-touch'), chance: unit, cycle: z.array(elementId).min(1).max(11) }).strict(),
+  z.object({ kind: z.literal('afterburner'), bonus: n, seconds: pos }).strict(),
+  z.object({ kind: z.literal('salvage'), kills: z.number().int().min(1).max(10_000) }).strict(),
+]);
+
 const probe = z
   .object({
     id,
@@ -76,6 +87,7 @@ const probe = z
     regen: n,
     weapon: id,
     bonus: z.partialRecord(z.enum(STAT_KEYS), z.number().min(-10).max(10)),
+    quirk: quirk.nullable(),
   })
   .strict();
 

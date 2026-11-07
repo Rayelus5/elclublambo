@@ -227,9 +227,12 @@ describe('repetición', () => {
   test('una partida con reacciones se repite con el mismo hash', () => {
     // Two galaxy types (no Lineage set): stronger relics would kill before a second element lands.
     const relic = (palette: string, n: number, type: string): RelicInput => ({ id: 'r' + n, seed: String(n), tier: 4, level: 1, traits: { galaxy_type: type, palette, size: 'large' } });
+    // Tough fauna (×10 life): enemies live long enough to take a second element, so reactions are sure to happen.
+    const content = structuredClone(DEFAULT_CONTENT);
+    for (const e of content.enemies) e.hp *= 10;
     const opts: SimOptions = {
       seed: '9090',
-      content: DEFAULT_CONTENT,
+      content,
       sector: 'outer-nebula',
       probes: [{ probe: 'lumen', relics: [relic('solar_gold', 1, 'ring'), relic('ultraviolet', 2, 'spiral')] }],
       record: true,
