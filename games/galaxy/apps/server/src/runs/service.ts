@@ -6,12 +6,16 @@ import {
   runMaterial,
   runPayout,
   type FinishRunRequest,
+  probeLevelBonuses,
+  probeMaxLevel,
+  type ProbesConfig,
   type RunResult,
   type RunsConfig,
   type RunStart,
   type SectorsConfig,
   sectorStatus,
   type StartRunRequest,
+  startingWeapon,
 } from '@galaxy/shared';
 import { type Content, decodeLog, fromBase64, logTicks } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -20,6 +24,7 @@ import { madridDay } from '../economy/day';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
+import { probeLevels } from './levels';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -28,6 +33,7 @@ import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar'
 export interface StartContext {
   content: Content;
   sectors: SectorsConfig;
+  probes: ProbesConfig;
   contentVersion: number;
   now: Date;
 }
@@ -42,6 +48,14 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
   if (!sectorStatus(sector, await sectorStats(trx, accountId), ctx.sectors).unlocked) throw new HttpError(409, 'sector_locked');
   const relics = await relicSnapshot(trx, accountId, hangar.slots);
+  // The probe's level and starting weapon (GDD §6, M4b-1), snapshotted like the relics: a variant its level no longer
+  // opens (or no longer of its weapon) starts as the base weapon.
+  const probeDef = ctx.content.probes.find((p) => p.id === req.probe)!;
+  const saved = (await probeLevels(trx, accountId))[req.probe];
+  const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
+  const bonuses = probeLevelBonuses(level, ctx.probes);
+  const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
+  const variant = weapon === probeDef.weapon ? null : weapon;
   const seed = randomBytes(8).readBigUInt64BE().toString();
   const row = await trx
     .insertInto('galaxy.runs')
@@ -51,6 +65,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sector: req.sector,
       probe: req.probe,
       relics: JSON.stringify(relics),
+      upgrades: JSON.stringify({ bonuses, variant }),
       content_version: ctx.contentVersion,
       sim_version: req.simVersion,
       start_key: key,
@@ -64,9 +79,8 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
     sector: req.sector,
     probe: req.probe,
     relics,
-    // Level 1 with the base weapon until the probe levels arrive (M4b-1 Task 4).
-    bonuses: [],
-    variant: null,
+    bonuses,
+    variant,
     content: ctx.content,
     contentVersion: ctx.contentVersion,
     startedAt: new Date(row.started_at).toISOString(),
