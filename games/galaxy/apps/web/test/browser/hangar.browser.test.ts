@@ -1,4 +1,4 @@
-import type { GalaxySummary, HangarView, RunResult } from '@galaxy/shared';
+import type { GalaxySummary, HangarView, ProbeCard, RunResult } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
@@ -26,6 +26,12 @@ const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record
   equipped: true,
 });
 
+const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
+  const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
+  const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
+  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...over };
+};
+
 const view: HangarView = {
   sectors: [
     {
@@ -37,8 +43,18 @@ const view: HangarView = {
       layerSeconds: 300,
     },
   ],
-  probes: [{ id: 'lumen', name: 'Lumen', description: DEFAULT_CONTENT.probes[0]!.description, sprite: 'probe-lumen', hp: 100, speed: 90, weapon: { id: 'pulse', name: 'Pulso láser', icon: 'icon-pulse' }, unlocked: true }],
+  probes: [
+    card('lumen', { unlocked: true, progress: 1 }),
+    card('bastion', { unlocked: true, condition: { stat: 'runs', value: 3 }, progress: 1 }),
+    card('spark', { condition: { stat: 'runs', value: 3 }, progress: 1 / 3 }),
+    card('sentinel', { condition: { stat: 'bossKills', value: 3 }, progress: 0 }),
+    card('anchor', { condition: { stat: 'maxDepth', value: 4 }, progress: 2 / 4 }),
+    card('prism', { condition: { stat: 'extractions', value: 5 }, progress: 1 / 5 }),
+    card('comet', { condition: { stat: 'kills', value: 2000 }, progress: 1240 / 2000 }),
+    card('echo', { condition: { stat: 'runs', value: 15 }, progress: 3 / 15 }),
+  ],
   probe: 'lumen',
+  test: { taken: true, probe: 'lumen' },
   slots: 2,
   maxSlots: 6,
   loadout: [

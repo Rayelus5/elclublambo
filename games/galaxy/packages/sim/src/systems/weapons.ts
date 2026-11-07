@@ -3,6 +3,7 @@ import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { HitSource, ProbeState, Sim } from '../types';
 import { dealDamage } from './combat';
 import { elementCode, elementOf } from './elements';
+import { extraDrones } from './quirks';
 
 // The probe's weapons (GDD §5.3) and everything they put in the world: bullets, piercing lances, bouncing arcs,
 // orbiting orbs, drones and damaging areas. Damage, cooldown, area and extra projectiles come from the probe's stats.
@@ -393,7 +394,7 @@ export function fireWeapons(sim: Sim, p: ProbeState): void {
       return;
     }
     if (def.kind === 'drone') {
-      keepPersistent(sim, p, wi, SHOT.drone, lvl.count + p.stats.projectiles, elementCode(def.element ?? null));
+      keepPersistent(sim, p, wi, SHOT.drone, lvl.count + p.stats.projectiles + extraDrones(p), elementCode(def.element ?? null));
       return;
     }
     if (w.echo && w.echo > 0) {

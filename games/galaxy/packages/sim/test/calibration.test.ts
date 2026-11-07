@@ -8,8 +8,8 @@ import { botInput, botPick, createSim, DEFAULT_CONTENT, deriveStats, type RelicI
 const LONG = process.env['GALAXY_CALIBRATE'] === '1';
 
 /** Bot run until death or `maxTicks` (it never extracts: calibration measures how deep a run gets). */
-function botRun(seed: string, maxTicks: number, relics: RelicInput[] = []): Sim {
-  const sim = createSim({ seed, content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics }] });
+function botRun(seed: string, maxTicks: number, relics: RelicInput[] = [], probe = 'lumen'): Sim {
+  const sim = createSim({ seed, content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe, relics }] });
   while (sim.tick < maxTicks && (sim.status === 'running' || sim.status === 'choosing')) {
     const p = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer) : -1 }]);
@@ -47,9 +47,9 @@ function fieldDps(relics: RelicInput[], seconds: number): number {
 }
 
 describe('calibración corta (CI)', () => {
-  test('con la sonda inicial y sin reliquias, el bot aguanta 3 minutos de la capa 1', () => {
+  test.each(['lumen', 'bastion', 'spark'])('con %s y sin reliquias, el bot aguanta 3 minutos de la capa 1', (probe) => {
     for (const seed of ['1', '2', '3']) {
-      const sim = botRun(seed, 3 * 3600);
+      const sim = botRun(seed, 3 * 3600, [], probe);
       expect(sim.status, `semilla ${seed}`).not.toBe('dead');
     }
   });
@@ -100,6 +100,34 @@ describe.skipIf(!LONG)('calibración larga (GALAXY_CALIBRATE=1)', () => {
     expect(avgLayer).toBeGreaterThanOrEqual(2);
     expect(avgLayer).toBeLessThanOrEqual(4);
   }, 600_000);
+
+  test('las tres sondas iniciales llegan a la capa 2–4 en 5–20 minutos (mediana de 8) y quedan a menos del 25 % entre sí', () => {
+    const typical = (seed: string): RelicInput[] =>
+      [4, 1].map((tier, j) => {
+        const s = BigInt(seed) * 31n + BigInt(j);
+        return { id: `${seed}-${j}`, seed: s.toString(), tier, level: 1, traits: drawTraits(subRng(s, 'traits')) as unknown as Record<string, string> };
+      });
+    // The median of 8 seeds: a bot run is chaotic and one run in a few survives to the 40-minute cap.
+    const median = (xs: number[]) => {
+      const s = [...xs].sort((a, b) => a - b);
+      return (s[3]! + s[4]!) / 2;
+    };
+    const medians: number[] = [];
+    for (const probe of ['lumen', 'bastion', 'spark']) {
+      const runs = ['11', '12', '13', '14', '15', '16', '17', '18'].map((seed) => botRun(seed, 40 * 3600, typical(seed), probe));
+      const minutes = runs.map((s) => s.tick / 3600);
+      const layers = runs.map((s) => s.layer);
+      console.log(`calibración ${probe}:`, runs.map((s, i) => `capa ${layers[i]} a los ${minutes[i]!.toFixed(1)} min`).join(' · '));
+      const m = median(minutes);
+      const l = median(layers);
+      expect(m, probe).toBeGreaterThanOrEqual(5);
+      expect(m, probe).toBeLessThanOrEqual(20);
+      expect(l, probe).toBeGreaterThanOrEqual(2);
+      expect(l, probe).toBeLessThanOrEqual(4);
+      medians.push(m);
+    }
+    expect(Math.max(...medians) / Math.min(...medians)).toBeLessThanOrEqual(1.25);
+  }, 1_800_000);
 
   test('200 combinaciones al azar en 20 s tampoco pasan de 10× la mediana', () => {
     // 10×, not M3a's 8×: relic sets (M3b-1) add legitimate spread to random combinations.

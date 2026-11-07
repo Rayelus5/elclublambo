@@ -7,6 +7,7 @@ import { applyElement, critBonus, damageFactor, resolveElement } from './element
 import { onBossDown } from './layers';
 import { react } from './reactions';
 import { dropPickup } from './pickups';
+import { onKill } from './quirks';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
@@ -72,7 +73,10 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   const elite = en.elite[e]! > 0;
   const p = sim.probes[src.probe];
   sim.kills++;
-  if (p) p.kills++;
+  if (p) {
+    p.kills++;
+    onKill(sim, p, x, y);
+  }
   sim.events.push({ t: 'kill', x, y, enemy: def.id, elite });
   const sector = sim.sector;
   dropPickup(sim, PICKUP.xp, def.xp * (elite ? sector.elite.xp : 1), x, y);

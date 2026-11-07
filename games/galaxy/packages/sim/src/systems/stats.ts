@@ -1,6 +1,7 @@
 import { type StatKey, STAT_KEYS } from '../content/types';
 import { diminish } from '../math/stack';
 import type { ProbeState, Sim, Stats } from '../types';
+import { quirkSpeed } from './quirks';
 
 // Probe stats (GDD §8.6): every source adds to its category; each category has diminishing returns and a cap
 // (content.caps). Projectiles, pierce and regeneration have hard caps instead (a plain sum, clipped).
@@ -23,6 +24,8 @@ function contributions(sim: Sim, p: ProbeState): Record<StatKey, number[]> {
     if (v !== undefined) c[def.stat].push(v);
   }
   for (const b of relicHooks.bonuses(sim, p)) c[b.stat].push(b.value);
+  const burn = quirkSpeed(p);
+  if (burn > 0) c.speed.push(burn);
   return c;
 }
 

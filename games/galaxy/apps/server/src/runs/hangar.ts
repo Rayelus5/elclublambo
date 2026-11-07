@@ -1,4 +1,14 @@
-import { dailyStatus, type GalaxySummary, type HangarView, type LoadoutRequest, type ProbeCard, type SectorCard } from '@galaxy/shared';
+import {
+  dailyStatus,
+  type GalaxySummary,
+  type HangarView,
+  type LoadoutRequest,
+  type ProbeCard,
+  type ProbesConfig,
+  probeStatus,
+  type RunStats,
+  type SectorCard,
+} from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import { summary } from '../collection/service';
@@ -64,9 +74,35 @@ function sectorCards(content: Content): SectorCard[] {
   });
 }
 
-function probeCards(content: Content, chosen: string): ProbeCard[] {
+/** The account's stats from finished, non-suspicious runs of `minSeconds` or more (what unlocks probes). */
+export async function runStats(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<RunStats> {
+  const row = await db
+    .selectFrom('galaxy.runs')
+    .select((eb) => [
+      eb.fn.countAll<string>().as('runs'),
+      eb.fn.coalesce(eb.fn.sum<string>('boss_kills'), sql<string>`0`).as('bossKills'),
+      eb.fn.coalesce(eb.fn.max('depth'), sql<number>`0`).as('maxDepth'),
+      sql<string>`count(*) filter (where outcome = 'extracted')`.as('extractions'),
+      eb.fn.coalesce(eb.fn.sum<string>('kills'), sql<string>`0`).as('kills'),
+    ])
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where('suspicious', '=', false)
+    .where('seconds', '>=', minSeconds)
+    .executeTakeFirstOrThrow();
+  return { runs: Number(row.runs), bossKills: Number(row.bossKills), maxDepth: Number(row.maxDepth), extractions: Number(row.extractions), kills: Number(row.kills) };
+}
+
+/** The probe the account's test gave, or null before the test. */
+export async function testedProbe(db: Kysely<DB>, accountId: string): Promise<string | null> {
+  const row = await db.selectFrom('galaxy.probe_tests').select('probe').where('account_id', '=', accountId).executeTakeFirst();
+  return row?.probe ?? null;
+}
+
+function probeCards(content: Content, assigned: string | null, stats: RunStats, cfg: ProbesConfig): ProbeCard[] {
   return content.probes.map((p) => {
     const w = content.weapons.find((x) => x.id === p.weapon);
+    const status = assigned ? probeStatus(p.id, assigned, stats, cfg) : { unlocked: false, condition: null, progress: 0 };
     return {
       id: p.id,
       name: p.name,
@@ -75,7 +111,8 @@ function probeCards(content: Content, chosen: string): ProbeCard[] {
       hp: p.hp,
       speed: p.speed,
       weapon: { id: p.weapon, name: w?.name ?? p.weapon, icon: w?.icon ?? '' },
-      unlocked: p.id === chosen,
+      quirk: p.quirk?.kind ?? null,
+      ...status,
     };
   });
 }
@@ -87,13 +124,20 @@ export async function playedToday(db: Kysely<DB>, accountId: string, now: Date):
 }
 
 export async function hangarView(deps: RunsDeps, accountId: string): Promise<HangarView> {
-  const [content, runs, features] = await Promise.all([deps.config.get('content'), deps.config.get('runs'), deps.config.get('features')]);
+  const [content, runs, features, probes] = await Promise.all([
+    deps.config.get('content'),
+    deps.config.get('runs'),
+    deps.config.get('features'),
+    deps.config.get('probes'),
+  ]);
   const h = await ensureHangar(deps.db, accountId);
   const now = deps.now();
+  const assigned = await testedProbe(deps.db, accountId);
   return {
     sectors: sectorCards(content),
-    probes: probeCards(content, h.probe),
+    probes: probeCards(content, assigned, await runStats(deps.db, accountId, probes.minRunSeconds), probes),
     probe: h.probe,
+    test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,
     maxSlots: 6,
     loadout: await loadoutOf(deps.db, accountId, h.slots),

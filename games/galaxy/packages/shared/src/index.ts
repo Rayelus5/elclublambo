@@ -8,3 +8,5 @@ export * from './gacha/generate';
 export * from './api/runs';
 export * from './runs/rewards';
 export * from './runs/plausibility';
+export * from './probes/test';
+export * from './probes/unlocks';

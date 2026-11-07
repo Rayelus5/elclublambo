@@ -126,7 +126,19 @@ export interface ProbeDef {
   regen: number;
   weapon: string;
   bonus: Partial<Record<StatKey, number>>;
+  /** Its quirk (GDD §6, «una peculiaridad»): what it does is code (systems/quirks.ts), the numbers are data. */
+  quirk: Quirk | null;
 }
+
+export type Quirk =
+  | { kind: 'magnet'; every: number; radius: number }
+  | { kind: 'thorns'; share: number }
+  | { kind: 'dash'; every: number; distance: number; invuln: number }
+  | { kind: 'overwatch'; drones: number }
+  | { kind: 'second-wind'; hp: number }
+  | { kind: 'prism-touch'; chance: number; cycle: ElementId[] }
+  | { kind: 'afterburner'; bonus: number; seconds: number }
+  | { kind: 'salvage'; kills: number };
 
 export type Behavior =
   | { kind: 'chase' }

@@ -42,14 +42,19 @@ async function own(owner: string, tier = 2): Promise<string> {
 const hangar = async (cookie: string) => (await get(ctx.app, '/galaxy/api/hangar', { cookie })).json() as HangarView;
 const equip = (cookie: string, relics: (string | null)[]) => put(ctx.app, '/galaxy/api/hangar/loadout', { relics }, { cookie });
 
-test('un hangar nuevo: la Nebulosa Exterior, la sonda Lumen y 2 ranuras vacías con el día a premio completo', async () => {
+test('un hangar nuevo: la Nebulosa Exterior, las 8 sondas aún bloqueadas y 2 ranuras vacías con el día a premio completo', async () => {
   const { cookie } = await player();
   const h = await hangar(cookie);
   expect(h.sectors.map((s) => s.id)).toEqual(['outer-nebula']);
   expect(h.sectors[0]!.boss).toMatchObject({ name: 'La Colmena Rota', title: 'Núcleo de la Estática' });
   expect(h.sectors[0]!.fauna.map((f) => f.id)).toEqual(['mite', 'cell', 'ray', 'spitter', 'shell']);
   expect(h.probe).toBe('lumen');
-  expect(h.probes).toEqual([expect.objectContaining({ id: 'lumen', unlocked: true, weapon: expect.objectContaining({ id: 'pulse' }) })]);
+  // Before the probe test (M3b-2) all eight probes are locked: the test gives the first one.
+  expect(h.test).toEqual({ taken: false, probe: null });
+  expect(h.probes).toHaveLength(8);
+  expect(h.probes[0]).toMatchObject({ id: 'lumen', unlocked: false, quirk: 'magnet', weapon: expect.objectContaining({ id: 'pulse' }) });
+  expect(h.probes.find((p) => p.id === 'bastion')?.quirk).toBe('thorns');
+  expect(h.probes.every((p) => !p.unlocked)).toBe(true);
   expect(h.slots).toBe(2);
   expect(h.maxSlots).toBe(6);
   expect(h.loadout).toEqual([null, null]);

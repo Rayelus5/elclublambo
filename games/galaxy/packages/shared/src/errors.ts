@@ -32,6 +32,9 @@ export const API_ERROR_CODES = [
   'run_expired',
   'runs_disabled',
   'bad_inputs',
+  'tiebreak_required',
+  'probe_locked',
+  'probe_test_required',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

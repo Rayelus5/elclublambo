@@ -205,7 +205,12 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
 
 - **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
   - **Sector:** nombre, descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción». Debajo, con candado, «Más sectores en desarrollo».
-  - **Sonda:** su sprite a 8×, vida, velocidad y arma inicial con su icono. Debajo, con candado, «Más sondas en desarrollo».
+  - **Sonda** (M3b-2, GDD §6). Consulta de ui-ux-pro-max: el estado elegido no se marca solo con color, y el progreso se muestra con una barra.
+    - **Arriba, la elegida:** su sprite a 7× a la izquierda y, a la derecha, el nombre, la descripción, vida, velocidad, el arma inicial con su icono y su peculiaridad en una losa.
+    - **Debajo, las ocho sondas** en losas horizontales: sprite a 3×, nombre y una línea. Van en columnas automáticas de 220 px como mínimo.
+    - **Desbloqueadas:** son botones con relieve, cuya línea es el arma inicial. La elegida lleva borde y brillo Solar, «Elegida» en Solar y una marca. Al pulsar otra, su borde late en Solar mientras se guarda.
+    - **Bloqueadas:** borde discontinuo, el sprite en gris oscuro con un candado y lo que la gana («Juega 3 incursiones», «Derrota 3 Núcleos», «Llega a la capa 4», «Extrae 5 veces», «Elimina 2000 enemigos»). Debajo, una barra Terminal con el conteo «1/3» al lado. Sin condición, «Llega pronto».
+    - El panel de la sonda es algo más ancho que el del sector (1,15 fr frente a 1 fr) para que quepan dos columnas de losas.
   - **Reliquias:** seis ranuras en 3 × 2, con estos estados:
     - **Abiertas:** borde discontinuo y «Elegir reliquia».
     - **Cerradas:** candado y «Se abre más adelante».
@@ -282,6 +287,29 @@ React encima de la arena, sin capturar el ratón salvo en sus botones. Se lee de
 - **Pausa:** Escape, P o Start, y sola al ocultar la pestaña o perder el foco. Ofrece Continuar (Solar), apuntado manual, sonido y «Abandonar incursión» (Nova), que confirma en un `alertdialog` con «Se cobra la mitad del botín. No se puede deshacer» y el foco en «Seguir jugando».
 - **Final:** «Extracción completada» (Terminal) o «Sonda perdida» (rojo) en grande sobre un velo durante 1,5 s, y después los resultados.
 - **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja, cada evolución y la primera vez de cada reacción en la partida), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
+
+## 8 sexies. Test de la sonda
+
+Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2). PERKINS pregunta; tú no eliges la sonda, la descubres. Consulta de ui-ux-pro-max: indicar el progreso en cada paso, dejar volver atrás y dejar saltar el test.
+
+- **Fondo:** `--void` con un resplandor UV arriba, a pantalla completa y centrado, como un momento aparte del juego.
+- **Entrada:** «Test de la sonda» en Bungee, el mensaje de PERKINS en una losa con borde Terminal, «Empezar» (botón Solar grande, con el foco) y «Saltar el test» como enlace discreto, que responde al azar y revela igualmente la sonda.
+- **Pregunta:**
+  - «Pregunta 2 de 5» y cinco barras de progreso: hechas en Terminal, la actual en Solar.
+  - La pregunta en Bungee (24–34 px, como mucho 30 caracteres por línea).
+  - Tres cartas de respuesta con relieve (texto de 20 px y su número 1–3 en una chapa). 1–3 o un clic eligen y pasan a la siguiente. Una tecla mantenida, una tecla con modificador o el segundo clic de un doble clic no responden.
+  - El foco va al título de cada pregunta (sin anillo), nunca a una respuesta: así un Enter mantenido no recorre el test.
+  - Abajo, «Atrás» y «Saltar el test».
+- **Desempate:** solo si las cinco empatan. Encima, «Hay un empate», y la sexta pregunta igual que las demás.
+- **Confirmar:** al terminar no se envía nada todavía. «Listo, ya sé con quién viajo» y el aviso de PERKINS de que no hay vuelta atrás, con «Descubrir mi sonda» (Solar grande) y «Atrás», que vuelve a la última pregunta. «Saltar el test» lleva a la misma pantalla con «¿Saltar el test?» y «Volver al test», que deja las respuestas como estaban.
+- **Envío:** «Calibrando tu sonda». Si falla, «No se pudo enviar el test» y «Reintentar» con las mismas respuestas. Nada se guarda antes de enviar: recargar empieza de nuevo.
+- **Revelado:** el fondo toma el color de la sonda (hielo, Solar o lila) y la sonda sube y crece desde el resplandor (0,9 s, quieta con movimiento reducido). Debajo van:
+  - «Tu sonda»;
+  - el nombre en Bungee;
+  - el perfil («Eres de los que…»);
+  - vida, velocidad y arma inicial;
+  - la peculiaridad en una losa;
+  - «Ir al hangar» (Solar).
 
 ## 9. Copy
 

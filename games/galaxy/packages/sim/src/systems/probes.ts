@@ -1,6 +1,7 @@
 import { angleTo } from '../math/trig';
 import { IDLE, type ProbeInput, type ProbeState, type Sim } from '../types';
 import { ticks } from '../version';
+import { dodge, onContact, rescue, tickQuirk } from './quirks';
 
 // Probes (GDD §5.2, §6): movement from per-tick inputs, contact damage with half a second of invulnerability, shield,
 // regeneration, and death. The run ends when every probe is down.
@@ -52,6 +53,7 @@ export function moveProbes(sim: Sim, inputs: readonly ProbeInput[]): void {
 /** Damage to a probe: armor first, then the shield, then life. Starts the invulnerability window. */
 export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   if (!p.alive || p.invulnT > 0 || amount <= 0) return;
+  if (dodge(sim, p)) return;
   let dmg = amount * (1 - p.stats.armor);
   const absorbed = Math.min(p.shield, dmg);
   p.shield -= absorbed;
@@ -60,6 +62,7 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   p.invulnT = ticks(INVULN_SECONDS);
   p.fx['lastHurt'] = sim.tick;
   sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
+  if (p.hp <= 0 && rescue(sim, p)) return;
   if (p.hp <= 0) {
     p.hp = 0;
     p.alive = false;
@@ -82,7 +85,9 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;
       if (dx * dx + dy * dy < r * r) {
+        const before = p.hp + p.shield;
         hurtProbe(sim, p, en.damage[e]!);
+        if (p.hp + p.shield < before) onContact(sim, p, e, en.damage[e]!);
         break;
       }
     }
@@ -93,6 +98,7 @@ export function tickProbes(sim: Sim): void {
   for (const p of sim.probes) {
     if (!p.alive) continue;
     if (p.invulnT > 0) p.invulnT--;
+    tickQuirk(sim, p);
     if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen / 60);
     rechargeShield(sim, p);
   }

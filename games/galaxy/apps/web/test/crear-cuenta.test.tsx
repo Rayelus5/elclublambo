@@ -44,7 +44,7 @@ test('no envía si algo no vale: usuario, contraseña corta, igual al usuario o 
   expect(fetch).not.toHaveBeenCalled();
 });
 
-test('con todo válido crea la cuenta y va a la portada', async () => {
+test('con todo válido crea la cuenta y va al test de la sonda', async () => {
   const fetch = mockApi({
     'POST /galaxy/api/auth/register': () => jsonResponse(201, { id: '1', username: 'piloto_0123', roles: [], mfa: false }),
   });
@@ -55,7 +55,7 @@ test('con todo válido crea la cuenta y va a la portada', async () => {
   await user.type(f.pass, 'una-clave-larga');
   await user.type(f.pass2, 'una-clave-larga');
   await user.click(f.submit);
-  expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/');
+  expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/sonda');
   expect(JSON.parse(String(fetch.mock.calls[0]![1]!.body))).toEqual({ username: 'Piloto_0123', password: 'una-clave-larga' });
 });
 

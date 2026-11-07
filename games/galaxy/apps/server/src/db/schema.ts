@@ -228,6 +228,14 @@ export interface RunInputsTable {
   created_at: Timestamp;
 }
 
+/** The probe test, answered once per account (GDD §6). */
+export interface ProbeTestsTable {
+  account_id: string;
+  answers: ColumnType<number[], number[], never>;
+  probe: string;
+  created_at: Timestamp;
+}
+
 export interface RunDaysTable {
   account_id: string;
   day: ColumnType<string, string, string>;
@@ -257,4 +265,5 @@ export interface DB {
   'galaxy.runs': RunsTable;
   'galaxy.run_inputs': RunInputsTable;
   'galaxy.run_days': RunDaysTable;
+  'galaxy.probe_tests': ProbeTestsTable;
 }

@@ -3,6 +3,7 @@ import { angleTo } from '../math/trig';
 import type { HitSource, ProbeState, Sim } from '../types';
 import { ticks } from '../version';
 import { killEnemy } from './combat';
+import { prismTouch } from './quirks';
 import { PROBE_RADIUS } from './probes';
 import { SHOT, spawnShot } from './weapons';
 
@@ -27,6 +28,8 @@ export function relicElement(sim: Sim, traits: Record<string, string>): ElementI
 export function resolveElement(sim: Sim, src: HitSource): ElementId | null {
   let element = src.element;
   const p = sim.probes[src.probe];
+  // Prism touch (a probe quirk): a weapon hit with no element may take the next of the probe's cycle.
+  if (!element && src.weapon !== null && p) element = prismTouch(sim, p);
   if (!element && src.weapon !== null && p && p.relics.length > 0) {
     const own = p.relics.map((r) => relicElement(sim, r.traits)).filter((x): x is ElementId => x !== null);
     if (own.length > 0 && sim.rng.combat.chance(sim.content.relics.weaponProc * p.stats.elemental)) {

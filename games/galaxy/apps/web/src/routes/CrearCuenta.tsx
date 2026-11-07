@@ -39,7 +39,8 @@ export function CrearCuenta() {
     mutationFn: (body: { username: string; password: string }) => api<MeResponse>('/auth/register', { method: 'POST', body }),
     onSuccess: (me) => {
       qc.setQueryData(ME_KEY, me);
-      navigate('/', { replace: true });
+      // Onboarding (GDD §12.2): the probe test comes right after the account.
+      navigate('/sonda', { replace: true });
     },
   });
 

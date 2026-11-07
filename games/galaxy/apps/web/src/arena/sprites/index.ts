@@ -1,5 +1,6 @@
 import { CELL, CELLET, HIVE, MITE, PROBE_LUMEN, RAY, SHELL, SPITTER } from './fauna';
 import { ICONS } from './icons';
+import { PROBES } from './probes';
 import { ITEMS } from './items';
 import { rasterize, type SpriteDef } from './types';
 
@@ -15,6 +16,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   spitter: SPITTER,
   shell: SHELL,
   hive: HIVE,
+  ...PROBES,
   ...ITEMS,
   ...ICONS,
 };

@@ -1,9 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { expect, test } from './fixtures';
 
-// A run against the real server (GDD §5.1): a new account scans its welcome galaxies, equips one as a relic in the
-// hangar, launches a run in the Outer Nebula, plays a few seconds with the keyboard, abandons from the pause menu
-// and is paid half; the equipped galaxy cannot be disintegrated. Writes e2e_* accounts only.
+// A run against the real server (GDD §5.1): a new account takes the probe test (GDD §6, §12.2) and gets Bastión,
+// scans its welcome galaxies, equips one as a relic in the hangar, launches a run in the Outer Nebula with Bastión,
+// plays a few seconds with the keyboard, abandons from the pause menu and is paid half; the equipped galaxy cannot
+// be disintegrated. Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
 
 test('del hangar a la arena y a los resultados, con una reliquia equipada', async ({ page }) => {
@@ -19,6 +20,19 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
 
+  // The probe test comes right after the account: five questions with the number keys, all for Bastión.
+  await expect(page).toHaveURL(/\/galaxy\/sonda$/);
+  await page.getByRole('button', { name: 'Empezar' }).click();
+  for (const [i, key] of ['2', '3', '1', '3', '1'].entries()) {
+    await expect(page.getByText(`Pregunta ${i + 1} de 5`)).toBeVisible();
+    await page.keyboard.press(key);
+  }
+  // Nothing is sent until it is confirmed.
+  await page.getByRole('button', { name: 'Descubrir mi sonda' }).click();
+  await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Tu sonda')).toBeVisible();
+  await page.goto('/galaxy/');
+
   // Ten welcome scans, so there are galaxies to equip.
   await page.getByRole('link', { name: /Escáner profundo/ }).click();
   await page.getByRole('button', { name: /Escanear 10.*10 señales/ }).click();
@@ -32,6 +46,13 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.getByRole('link', { name: /Jugar/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/incursion$/);
   await expect(page.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeVisible();
+  // The test's probe is chosen; the other starters wait for three runs, and the five others for theirs.
+  await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible();
+  const probes = page.getByRole('list', { name: 'Sondas' });
+  await expect(probes.getByRole('listitem')).toHaveCount(8);
+  await expect(probes.getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(probes.getByRole('progressbar', { name: 'Lumen' })).toHaveAttribute('aria-valuenow', '0');
+  await expect(probes.getByText('Juega 3 incursiones')).toHaveCount(2);
   await expect(page.getByText(/Premio completo: te quedan 3 h 0 min hoy/)).toBeVisible();
 
   // Equip the rarest galaxy in the first slot.

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
+import { ProbeTestScreen } from './probe-test/ProbeTest';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
@@ -20,11 +21,14 @@ function Splash() {
   );
 }
 
-/** Signed-out only: a live session goes straight home. */
-function GuestOnly({ children }: { children: ReactNode }) {
+/**
+ * Signed-out only: a live session goes to `to` (home by default). The screen that signs in also navigates; both must
+ * aim at the same place, because the router's navigation is a transition and this guard re-renders before it lands.
+ */
+function GuestOnly({ children, to = '/' }: { children: ReactNode; to?: string }) {
   const me = useMe();
   if (me.isPending) return <Splash />;
-  return me.data ? <Navigate to="/" replace /> : <>{children}</>;
+  return me.data ? <Navigate to={to} replace /> : <>{children}</>;
 }
 
 /** Signed-in only: without a session, Entrar. */
@@ -48,9 +52,10 @@ export function App() {
       <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
       <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
       <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
+      <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>
         <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
-        <Route path="/crear-cuenta" element={<GuestOnly><CrearCuenta /></GuestOnly>} />
+        <Route path="/crear-cuenta" element={<GuestOnly to="/sonda"><CrearCuenta /></GuestOnly>} />
         <Route path="/verificar" element={<Verificar />} />
         <Route path="/recuperar" element={<Recuperar />} />
       </Route>
