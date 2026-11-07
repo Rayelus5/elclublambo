@@ -210,6 +210,11 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
     - **Abiertas:** borde discontinuo y «Elegir reliquia».
     - **Cerradas:** candado y «Se abre más adelante».
     - **Ocupadas:** la carta, el nombre, la familia (hielo), el elemento (chip de su color), el fenómeno y la potencia, con un botón para quitarla.
+  - **Conjuntos** (M3b-1, GDD §8.3), bajo las ranuras, en columnas automáticas de 260 px como mínimo:
+    - **Activos:** losa con borde Solar y un leve brillo, con el nombre, la condición («Dos o tres galaxias de la misma paleta») y el bonus en Solar («Potencia elemental +25 %»). Si hay un escalón mayor, una pista apagada dentro («Con una tercera galaxia de Oro solar»).
+    - **A una galaxia:** losa con borde discontinuo y texto apagado (color, no opacidad, para no bajar el contraste): «Falta una galaxia con Galaxia satélite».
+    - **Ninguno:** una línea que explica cómo se consiguen.
+    - Un cambio de equipo rechazado (409) se dice debajo de las ranuras, en rojo y con `role="alert"`.
 - **Elegir reliquia:** un diálogo con la colección por rareza. Las galaxias de otra ranura muestran «Equipada» y no se eligen.
 - **Barra de lanzamiento:** fija abajo para que se vea siempre, también a 1280×720. A la izquierda va el rendimiento del día, en Terminal con «Premio completo: te quedan 2 h 40 min hoy» o en Solar con el tramo actual, y su explicación. A la derecha, «Lanzar incursión»: Solar, de 76 px, con relieve y `aria-busy` mientras se prepara.
 - **Resultados:**
@@ -244,7 +249,20 @@ La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la 
   - **Ráfaga del jefe:** anillo que se cierra.
   - **Explosión de Inestable:** círculo rojo que se llena.
 - **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
-- **Movimiento reducido:** sin sacudida ni glitch (un tinte fijo marca élites y jefe), mitad de partículas, números sin desplazamiento (solo fundido).
+- **Arsenal (M3b-1):**
+  - **Luz aditiva:** rayos, llamas y estallidos van en una capa que suma luz, para que brillen sobre el fondo oscuro en vez de enturbiarlo.
+  - **Rayo continuo:** línea con núcleo blanco de 2 px y halo del color de su elemento (violeta sin elemento), con un leve parpadeo.
+  - **Lanzallamas:** abanico naranja muy tenue, cinco lenguas de fuego que se alargan y encogen desfasadas, y un núcleo Solar y crema junto a la boquilla.
+  - **Pozo gravitatorio:** disco violeta oscuro con tres arcos lila que giran hacia el centro.
+  - **Bombardeo orbital:** retícula roja que late durante el aviso y estallido Solar al acabar; minas y misiles estallan igual.
+  - **Sprites:** misil con estela, esquirla de cristal, fragmento Solar, mina con luz roja que parpadea, disco cian que gira, torreta acero que apunta, y la evolución dorada de cada icono.
+- **Reacciones y estados:**
+  - **Reacción:** su nombre (Fredoka 700 de 15 px con contorno oscuro) sube sobre el enemigo y se apaga en 0,9 s, con un destello. El color va por efecto: cadena cian, explosión naranja, rotura hielo, aturdimiento Solar, contagio Terminal y drenaje rojo. Nunca solo color: siempre lleva el nombre. Como mucho 6 a la vez.
+  - **Marca de elemento:** una gota de 3 px del color del elemento sobre la cabeza.
+  - **Aturdido:** dos estrellas Solar que giran sobre la cabeza.
+  - **Roto:** cuatro grietas hielo alrededor.
+  - **Evolución:** un anillo dorado que crece desde la sonda y una lluvia de chispas Solar.
+- **Movimiento reducido:** sin sacudida ni glitch (un tinte fijo marca élites y jefe), mitad de partículas, números y nombres de reacción sin desplazamiento (solo fundido), y lenguas, remolinos y discos quietos.
 
 ## 8 quinquies. HUD, mejoras, pausa y radio
 
@@ -255,14 +273,15 @@ React encima de la arena, sin capturar el ratón salvo en sus botones. Se lee de
   - **Izquierda:** nivel («Nv 13» en Solar) y vida (barra Nova con «101/130»; el escudo, en hielo encima; late en rojo por debajo del 30 %).
   - **Centro:** tiempo (Bungee), capa (píldora UV) y fase («Núcleo en 0:59», «Núcleo de la Estática» en rojo, «Cierra en 42 s» en Terminal).
   - **Derecha:** botín (monedas, polvo) y bajas, cada uno con `role="img"` y la frase entera, y el botón de pausa de 44 px.
-- **Equipo:** abajo a la izquierda, armas (44 px) y pasivas (36 px) con su icono pixel y su nivel en una chapa hielo.
+- **Equipo:** abajo a la izquierda, armas (44 px) y pasivas (36 px) con su icono pixel y su nivel en una chapa hielo. Un arma evolucionada lleva borde Solar con un leve brillo y su icono de contorno dorado.
 - **Jefe:** debajo del centro, «Núcleo de la Estática» en rojo, el nombre en Bungee y una barra roja.
 - **Baliza:** etiqueta Terminal sobre ella, o en el borde de la pantalla con una flecha si está fuera; «Llega a la baliza · Cierra en 42 s · 380 u» o «Extrayendo 60 %».
 - **Radio de PERKINS:** abajo al centro, una o dos líneas, «PERKINS» en Terminal. Se cierra sola a los 7 s o con su botón, y cada mensaje sale una vez por jugador.
-- **Mejora:** diálogo con tres cartas (número, icono pixel de 64 px, nombre en Bungee, «Nueva» en Solar o «Nivel 3», qué hace). Las cartas son un `radiogroup`: 1–3 eligen, las flechas mueven, Enter o un clic confirman. El mundo espera congelado y Escape no hace nada.
+- **Mejora:** diálogo con tres cartas (número, icono pixel de 64 px, nombre en Bungee, «Nueva» en Solar o «Nivel 3», qué hace). Las cartas son un `radiogroup`: 1–3 eligen, las flechas mueven, Enter o un clic confirman; con mando, la cruceta o el stick mueven y A confirma. El mundo espera congelado y Escape no hace nada. Una elección solo vale para la oferta que estaba en pantalla.
+- **Evolución:** cuando un arma puede evolucionar, su carta sale primera: borde Solar, un lavado cálido desde arriba y un brillo, la etiqueta «Evolución» y «Evoluciona tu Pulso láser» antes de lo que hace.
 - **Pausa:** Escape, P o Start, y sola al ocultar la pestaña o perder el foco. Ofrece Continuar (Solar), apuntado manual, sonido y «Abandonar incursión» (Nova), que confirma en un `alertdialog` con «Se cobra la mitad del botín. No se puede deshacer» y el foco en «Seguir jugando».
 - **Final:** «Extracción completada» (Terminal) o «Sonda perdida» (rojo) en grande sobre un velo durante 1,5 s, y después los resultados.
-- **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
+- **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja, cada evolución y la primera vez de cada reacción en la partida), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
 
 ## 9. Copy
 
