@@ -10,6 +10,7 @@ import { registerGachaRoutes } from './gacha/routes';
 import { registerRunRoutes } from './runs/routes';
 import { registerStationRoutes } from './station/routes';
 import { registerLabRoutes } from './lab/routes';
+import { registerPlanetariumRoutes } from './planetarium/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -79,6 +80,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerRunRoutes(api, { db: deps.db, config, now });
     registerStationRoutes(api, { db: deps.db, config, now });
     registerLabRoutes(api, { db: deps.db, config, now });
+    registerPlanetariumRoutes(api, { db: deps.db, config });
   });
   return app;
 }

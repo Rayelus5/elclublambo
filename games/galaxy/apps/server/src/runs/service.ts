@@ -7,6 +7,7 @@ import {
   runPayout,
   type FinishRunRequest,
   type LabConfig,
+  type PlanetariumConfig,
   probeLevelBonuses,
   probeMaxLevel,
   type ProbesConfig,
@@ -27,6 +28,7 @@ import { HttpError } from '../errors';
 import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
 import { probeLevels } from './levels';
 import { accountLabEffects } from '../lab/levels';
+import { planetariumXp } from '../planetarium/service';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -37,6 +39,7 @@ export interface StartContext {
   sectors: SectorsConfig;
   probes: ProbesConfig;
   lab: LabConfig;
+  planetarium: PlanetariumConfig;
   contentVersion: number;
   now: Date;
 }
@@ -58,7 +61,9 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
   // The Laboratorio (M4b-2): its stat bonuses join the level's, and its push on the pay is kept for the finish.
   const lab = await accountLabEffects(trx, accountId, ctx.lab);
-  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses];
+  // The planetarium (M4c-2): the experience bonus of what is on display now; changing it later leaves this run alone.
+  const xp = await planetariumXp(trx, accountId, ctx.planetarium);
+  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : [])];
   const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
   const variant = weapon === probeDef.weapon ? null : weapon;
   const seed = randomBytes(8).readBigUInt64BE().toString();

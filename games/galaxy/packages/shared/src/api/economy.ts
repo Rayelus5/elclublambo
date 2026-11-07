@@ -39,6 +39,8 @@ export interface GalaxySummary extends PulledGalaxy {
   createdAt: string;
   /** Equipped as a relic in the hangar (it cannot be disintegrated or fused until removed). Absent: not equipped. */
   equipped?: boolean;
+  /** On a pedestal of the planetarium (it cannot be disintegrated or fused until taken down; M4c-2). Absent: not exhibited. */
+  exhibited?: true;
 }
 
 /** A parent of a fused galaxy: it no longer exists, but its name stays in the lineage. */
