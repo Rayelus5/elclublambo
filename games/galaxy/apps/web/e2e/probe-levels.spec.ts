@@ -53,7 +53,8 @@ test('subir de nivel la sonda, elegir la variante del nivel 4 y salir con ella',
   const weapons = page.getByRole('radiogroup', { name: 'Arma inicial' });
   const radio = weapons.getByRole('radio', { name: new RegExp(variant.name) });
   await expect(radio).toBeEnabled();
-  await radio.check();
+  // A controlled radio settles after React re-renders: click and wait for the state (check() reads it at once).
+  await radio.click();
   await expect(radio).toBeChecked();
 
   // Launching starts the run with the level's bonuses and the variant.
