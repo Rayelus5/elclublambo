@@ -19,7 +19,7 @@ describe('contenido por defecto', () => {
     expect(DEFAULT_CONTENT.sectors.map((s) => s.id)).toEqual(['outer-nebula']);
     expect(DEFAULT_CONTENT.enemies.map((e) => e.id).sort()).toEqual(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']);
     expect(DEFAULT_CONTENT.bosses.map((b) => b.id)).toEqual(['hive']);
-    expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']);
+    expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(expect.arrayContaining(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']));
     expect(DEFAULT_CONTENT.passives).toHaveLength(20);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen']);
   });

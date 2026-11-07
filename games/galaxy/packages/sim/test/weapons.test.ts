@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyOffer, type Content, IDLE, refreshStats, type Sim, spawnEnemy, step } from '../src/index';
+import { applyOffer, AREA, type Content, IDLE, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // The probe's weapons (GDD §5.3): each one has its own role — the nearest target, a ring around you, a piercing line,
@@ -180,5 +180,195 @@ describe('Dron centinela (drone)', () => {
     const e = target(sim, p.x + 150, p.y);
     run(sim, 90);
     expect(lost(sim, e)).toBeGreaterThanOrEqual(7);
+  });
+});
+
+// ── M3b-1, Tarea 2: rayo continuo, lanzallamas, esquirlas y misiles ──────────────────────────────────────────────
+
+const aimEast = { ...IDLE, aim: 0 };
+const kindCount = (sim: Sim, kind: number) => {
+  let n = 0;
+  for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i] && sim.shots.kind[i] === kind) n++;
+  return n;
+};
+const areaCount = (sim: Sim, kind: number) => {
+  let n = 0;
+  for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === kind) n++;
+  return n;
+};
+
+describe('Rayo continuo (beam)', () => {
+  test('se fija en el más cercano y daña todo lo que cruza su línea cada intervalo', () => {
+    const sim = armed('beam');
+    const near = target(sim, 60, 0);
+    const behind = target(sim, 120, 0);
+    const off = target(sim, 0, 100);
+    run(sim, 10);
+    expect(lost(sim, near)).toBe(10);
+    expect(lost(sim, behind)).toBe(10);
+    expect(lost(sim, off)).toBe(0);
+  });
+
+  test('si su objetivo muere, salta al siguiente', () => {
+    const sim = armed('beam');
+    const first = target(sim, 50, 0);
+    sim.enemies.hp[first] = 4;
+    const next = target(sim, 0, 80);
+    run(sim, 30);
+    expect(sim.enemies.alive[first]).toBe(0);
+    expect(lost(sim, next)).toBeGreaterThan(0);
+  });
+
+  test('dura su duración y luego espera su enfriamiento; el Estabilizador la alarga', () => {
+    const sim = armed('beam');
+    target(sim, 60, 0);
+    run(sim, 60);
+    expect(kindCount(sim, SHOT.beam)).toBe(1);
+    run(sim, 20);
+    expect(kindCount(sim, SHOT.beam)).toBe(0);
+    const long = armed('beam');
+    target(long, 60, 0);
+    applyOffer(long, long.probes[0]!, { kind: 'passive', id: 'stabilizer', level: 5 });
+    run(long, 100);
+    expect(kindCount(long, SHOT.beam)).toBe(1);
+  });
+});
+
+describe('Lanzallamas (cone)', () => {
+  test('daña dentro de su arco hacia donde apuntas, no detrás ni al lado', () => {
+    const sim = armed('cone');
+    const front = target(sim, 40, 0);
+    const back = target(sim, -40, 0);
+    const side = target(sim, 30, 30);
+    for (let i = 0; i < 13; i++) step(sim, [aimEast]);
+    expect(lost(sim, front)).toBe(12);
+    expect(lost(sim, back)).toBe(0);
+    expect(lost(sim, side)).toBe(0);
+  });
+
+  test('sigue a la sonda mientras dura', () => {
+    const sim = armed('cone');
+    target(sim, 40, 0);
+    step(sim, [aimEast]);
+    for (let i = 0; i < 20; i++) step(sim, [{ ...move(0, 127), aim: 0 }]);
+    let found = false;
+    for (let i = 0; i < sim.areas.top; i++) {
+      if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.cone) {
+        expect(sim.areas.x[i]).toBeCloseTo(sim.probes[0]!.x, 9);
+        expect(sim.areas.y[i]).toBeCloseTo(sim.probes[0]!.y, 9);
+        found = true;
+      }
+    }
+    expect(found).toBe(true);
+    expect(areaCount(sim, AREA.cone)).toBe(1);
+  });
+});
+
+describe('Esquirlas (radial)', () => {
+  test('lanza su cantidad de proyectiles repartidos en 360°', () => {
+    const sim = armed('shards');
+    target(sim, 100, 0);
+    step(sim, [IDLE]);
+    expect(kindCount(sim, SHOT.shard)).toBe(6);
+    const angles: number[] = [];
+    for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i] && sim.shots.kind[i] === SHOT.shard) angles.push(sim.shots.angle[i]!);
+    angles.sort((a, b) => a - b);
+    for (let k = 1; k < angles.length; k++) expect(Math.abs(angles[k]! - angles[k - 1]! - 4096 / 6)).toBeLessThanOrEqual(1);
+  });
+
+  test('sin nadie a su alcance no dispara', () => {
+    const sim = armed('shards');
+    target(sim, 400, 0);
+    expect(fires(sim, 120)).toBe(0);
+    target(sim, 100, 0);
+    expect(fires(sim, 2)).toBe(1);
+  });
+
+  test('perforan según su nivel y la Punta de taladro suma', () => {
+    const sim = armed('shards', 3);
+    target(sim, 100, 0);
+    step(sim, [IDLE]);
+    expect(kindCount(sim, SHOT.shard)).toBe(8);
+    for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i]) expect(sim.shots.pierce[i]).toBe(1);
+    const drilled = armed('shards', 3);
+    target(drilled, 100, 0);
+    applyOffer(drilled, drilled.probes[0]!, { kind: 'passive', id: 'drill', level: 1 });
+    step(drilled, [IDLE]);
+    for (let i = 0; i < drilled.shots.top; i++) if (drilled.shots.alive[i]) expect(drilled.shots.pierce[i]).toBe(2);
+  });
+});
+
+describe('Misiles buscadores (homing)', () => {
+  test('giran como mucho 240 °/s hacia el más cercano y estallan en su radio', () => {
+    const sim = armed('homing');
+    const prey = target(sim, 0, 120);
+    const neighbour = target(sim, 16, 130);
+    step(sim, [aimEast]);
+    let missile = -1;
+    for (let i = 0; i < sim.shots.top; i++) if (sim.shots.alive[i] && sim.shots.kind[i] === SHOT.missile) missile = i;
+    expect(missile).toBeGreaterThanOrEqual(0);
+    // Launched east (its aim); it already turns on the tick it is launched, by one turn at most.
+    expect(Math.min(sim.shots.angle[missile]!, 4096 - sim.shots.angle[missile]!)).toBeLessThanOrEqual(46);
+    let prev = sim.shots.angle[missile]!;
+    for (let t = 0; t < 10; t++) {
+      step(sim, [aimEast]);
+      const now = sim.shots.angle[missile]!;
+      let d = Math.abs(now - prev) % 4096;
+      if (d > 2048) d = 4096 - d;
+      expect(d).toBeLessThanOrEqual(Math.ceil((240 * 4096) / 360 / 60));
+      prev = now;
+    }
+    run(sim, 120);
+    expect(lost(sim, prey)).toBe(14);
+    expect(lost(sim, neighbour)).toBe(14);
+  });
+
+  test('si su objetivo desaparece, sigue recto y caduca al agotar su alcance', () => {
+    const sim = armed('homing');
+    const prey = target(sim, 250, 0);
+    step(sim, [IDLE]);
+    sim.enemies.kill(prey);
+    run(sim, 85);
+    expect(kindCount(sim, SHOT.missile)).toBe(1);
+    run(sim, 10);
+    expect(kindCount(sim, SHOT.missile)).toBe(0);
+  });
+});
+
+describe('Modificadores del arsenal', () => {
+  test('el Acelerador lleva los proyectiles más lejos', () => {
+    const plain = armed('pulse');
+    target(plain, 350, 0);
+    expect(fires(plain, 60)).toBe(0);
+    const fast = armed('pulse');
+    const far = target(fast, 350, 0);
+    applyOffer(fast, fast.probes[0]!, { kind: 'passive', id: 'accelerator', level: 5 });
+    run(fast, 60);
+    expect(lost(fast, far)).toBe(10);
+  });
+
+  test('la Punta de taladro hace que el pulso atraviese a un enemigo más', () => {
+    const sim = armed('pulse');
+    const first = target(sim, 60, 0);
+    const second = target(sim, 90, 0);
+    applyOffer(sim, sim.probes[0]!, { kind: 'passive', id: 'drill', level: 1 });
+    run(sim, 30);
+    expect(lost(sim, first)).toBe(10);
+    expect(lost(sim, second)).toBe(10);
+  });
+
+  test('con la piscina de disparos llena, disparar no lanza nada de más ni rompe', () => {
+    const sim = armed('shards', 5, (c) => {
+      c.limits.shots = 3;
+    });
+    for (let k = 0; k < 6; k++) target(sim, 60 + k * 10, 0);
+    let most = 0;
+    expect(() => {
+      for (let t = 0; t < 300; t++) {
+        step(sim, [IDLE]);
+        most = Math.max(most, sim.shots.count);
+      }
+    }).not.toThrow();
+    expect(most).toBe(3);
   });
 });
