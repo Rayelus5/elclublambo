@@ -75,6 +75,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Las claves `content` (el catálogo de la incursión) y `runs` (la economía) de la configuración viva se ajustan sin desplegar, y `features.runs` apaga las incursiones (503 `runs_disabled`). Las partidas sospechosas quedan en `galaxy.runs` con `suspicious = true` y sus banderas. Hasta que el servidor reproduzca las partidas (M5), un final se recorta a lo que cabe en su tiempo real antes de pagar, una bandera de trampa cobra solo la parte de morir y ninguna partida cobra más de `runs.caps.runCoins` / `runs.caps.runDust` (20 000 / 10 000 de partida; las que llegan al techo quedan marcadas `payout_cap`).
 
+6. **Desde M3b-1 (arsenal):** sin migraciones. El contenido de la incursión trae 16 armas, 20 pasivas, una evolución por arma, 11 reacciones entre elementos y 9 conjuntos de reliquias (`SIM_VERSION` 1.1.0). Comprueba con una cuenta de prueba:
+   - el Hangar enseña el panel «Conjuntos» bajo las reliquias;
+   - en la incursión salen armas y pasivas nuevas en las mejoras, y al subir un arma a su nivel máximo con su pasiva aparece su carta de evolución, dorada y primera;
+   - con dos galaxias de elementos distintos equipadas, las reacciones escriben su nombre sobre los enemigos;
+   - sin violaciones de CSP.
+
+   Si alguien hubiera guardado la clave `content` en la configuración viva con el esquema de M3a, dejaría de validar (faltan los campos nuevos): hay que volver a publicarla desde el valor por defecto.
+
 ## Operación
 
 | Tarea | Cómo |

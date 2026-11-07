@@ -23,13 +23,21 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   };
 }
 
+/** The Static signal (curse) of the run: the highest among living probes. */
+export function curseOf(sim: Sim): number {
+  let c = 0;
+  for (const p of sim.probes) if (p.alive && p.stats.curse > c) c = p.stats.curse;
+  return c;
+}
+
 function aliveFauna(sim: Sim): number {
   return sim.enemies.count - (sim.boss ? 1 : 0);
 }
 
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  if (aliveFauna(sim) >= sector.density.cap) return;
+  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * (1 + curseOf(sim))));
+  if (aliveFauna(sim) >= cap) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
   if (open.length === 0) return;
@@ -88,6 +96,7 @@ export function direct(sim: Sim): void {
   const d = sim.sector.density;
   let rate = Math.min(d.max, d.base + (d.perMinute * sim.tick) / 3600);
   if (sim.phase === 'boss') rate *= d.bossFactor;
+  rate *= 1 + curseOf(sim);
   let acc = (sim.clocks['spawnAcc'] ?? 0) + rate / 60;
   while (acc >= 1) {
     acc -= 1;

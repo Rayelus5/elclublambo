@@ -12,7 +12,7 @@ export { SpatialGrid } from './world/grid';
 export { createPool, type Pool } from './world/pool';
 export * from './world/pools';
 export { deriveStats, refreshStats, relicHooks, type StatBonus } from './systems/stats';
-export { applyOffer, offerFor } from './systems/upgrades';
+export { applyOffer, evolutionsFor, offerFor } from './systems/upgrades';
 export { gainXp, xpFor } from './systems/xp';
 export { dealDamage, killEnemy } from './systems/combat';
 export {
@@ -30,14 +30,16 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { direct, layerSeconds, relocate, scaleAt } from './systems/director';
+export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
-export { hurtProbe, PROBE_RADIUS } from './systems/probes';
+export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
+export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {
   AREA,
   fireWeapons,
   hitArea,
   nearestEnemies,
+  persistentFor,
   SHOT,
   shotHooks,
   spawnArea,

@@ -15,7 +15,7 @@ export function clockText(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-function Kit({ items, content, kind }: { items: { id: string; level: number }[]; content: Content; kind: 'weapon' | 'passive' }) {
+function Kit({ items, content, kind }: { items: { id: string; level: number; evolved?: boolean }[]; content: Content; kind: 'weapon' | 'passive' }) {
   const label = kind === 'weapon' ? copy.arena.weapons : copy.arena.passives;
   return (
     <ul className={`hud-kit-row ${kind}`} aria-label={label}>
@@ -23,7 +23,7 @@ function Kit({ items, content, kind }: { items: { id: string; level: number }[];
         const def = kind === 'weapon' ? content.weapons.find((w) => w.id === it.id) : content.passives.find((p) => p.id === it.id);
         if (!def) return null;
         return (
-          <li key={it.id} className="hud-kit-item" title={`${def.name} · ${copy.arena.level(it.level)}`}>
+          <li key={it.id} className={`hud-kit-item${it.evolved ? ' evolved' : ''}`} title={`${def.name} · ${copy.arena.level(it.level)}`}>
             <img src={spriteDataUrl(def.icon, 3)} alt="" width={36} height={36} />
             <span className="sr-only">{`${def.name}, ${copy.arena.level(it.level).toLowerCase()}`}</span>
             <b aria-hidden="true">{it.level}</b>

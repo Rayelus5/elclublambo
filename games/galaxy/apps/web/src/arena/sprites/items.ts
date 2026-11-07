@@ -36,6 +36,42 @@ export const ITEMS: Record<string, SpriteDef> = {
   quasar: still(grid('..kkkkkkkkkk..', '.kssssssswwwk.', 'kssswwwwwwwwwk', '.kssssssswwwk.', '..kkkkkkkkkk..')),
   chaos: loop(10, grid('.kkk.', 'kcmck', 'kmwmk', 'kcmck', '.kkk.'), grid('.kkk.', 'kmcmk', 'kcwck', 'kmcmk', '.kkk.')),
   reflected: still(grid('.kkk.', 'kuwuk', 'kwwwk', 'kuwuk', '.kkk.')),
+  // M3b-1: the arsenal's shots and the enemies' states.
+  'missile': loop(
+    12,
+    grid('...kkkk..', 'okkTTTmk.', 'sokTYYmmk', 'okkTTTmk.', '...kkkk..'),
+    grid('...kkkk..', 'skkTTTmk.', 'oskTYYmmk', 'skkTTTmk.', '...kkkk..'),
+  ),
+  'shard': still(grid('..k..', '.kck.', 'kciwk', '.kck.', '..k..')),
+  'split-shard': still(grid('.k.', 'ksk', '.k.')),
+  'mine': loop(
+    4,
+    grid('...kkk...', '..kTTTk..', '.kTYmYTk.', 'kTYmwmYTk', 'kTYYmYYTk', 'kTTYYYTTk', '.kTTTTTk.', '..kkkkk..', '.k.....k.'),
+    grid('...kkk...', '..kTTTk..', '.kTYxYTk.', 'kTYxexYTk', 'kTYYxYYTk', 'kTTYYYTTk', '.kTTTTTk.', '..kkkkk..', '.k.....k.'),
+  ),
+  'disc': loop(
+    16,
+    grid('..kkkkk..', '.kccwcck.', 'kcikkkick', 'kckk.kkck', 'kck...kck', 'kckk.kkck', 'kcikkkick', '.kcciick.', '..kkkkk..'),
+    grid('..kkkkk..', '.kcciick.', 'kcikkkick', 'kckk.kkck', 'kwk...kck', 'kckk.kkck', 'kcikkkick', '.kcciick.', '..kkkkk..'),
+    grid('..kkkkk..', '.kcciick.', 'kcikkkick', 'kckk.kkck', 'kck...kck', 'kckk.kkck', 'kcikkkick', '.kccwcck.', '..kkkkk..'),
+    grid('..kkkkk..', '.kcciick.', 'kcikkkick', 'kckk.kkck', 'kck...kwk', 'kckk.kkck', 'kcikkkick', '.kcciick.', '..kkkkk..'),
+  ),
+  'turret': loop(
+    0,
+    grid('..kkkkk....', '.kTTTTTk...', 'kTYYYYYTk..', 'kTYkkkYTkkk', 'kTYkcwkTTTk', 'kTYkkkYTkkk', 'kTYYYYYTk..', '.kTTTTTk...', '..kkkkk....'),
+    grid('..kkkkk....', '.kTTTTTk...', 'kTYYYYYTk..', 'kTYkkkYTkks', 'kTYkcwkTTTw', 'kTYkkkYTkks', 'kTYYYYYTk..', '.kTTTTTk...', '..kkkkk....'),
+  ),
+  'strike-mark': loop(
+    6,
+    grid('....kmk....', '....kmk....', '...........', '..k.....k..', 'kk.......kk', 'mm...w...mm', 'kk.......kk', '..k.....k..', '...........', '....kmk....', '....kmk....'),
+    grid('...........', '....kmk....', '....kmk....', '..k.....k..', '.kk.....kk.', '.mm..w..mm.', '.kk.....kk.', '..k.....k..', '....kmk....', '....kmk....', '...........'),
+  ),
+  'stun-star': loop(
+    8,
+    grid('..k..', '.ksk.', 'kswsk', '.ksk.', '..k..'),
+    grid('.....', '..k..', '.kwk.', '..k..', '.....'),
+  ),
+  'mark-pip': still(grid('.w.', 'www', '.w.')),
   'foe-bullet': loop(
     8,
     grid('..kkk..', '.kmmmk.', 'kmnwnmk', 'kmwwwmk', 'kmnwnmk', '.kmmmk.', '..kkk..'),

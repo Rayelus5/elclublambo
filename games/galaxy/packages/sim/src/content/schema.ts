@@ -4,6 +4,7 @@ import {
   type Content,
   ELEMENT_IDS,
   ENEMY_FAMILIES,
+  SPECIALS,
   STAT_KEYS,
   WEAPON_KINDS,
 } from './types';
@@ -36,8 +37,26 @@ const weaponLevel = z
   })
   .strict();
 
+const elementId = z.enum(ELEMENT_IDS);
+
 const weapon = z
-  .object({ id, name, kind: z.enum(WEAPON_KINDS), icon: sprite, description: text, levels: z.array(weaponLevel).min(1).max(8) })
+  .object({
+    id,
+    name,
+    kind: z.enum(WEAPON_KINDS),
+    icon: sprite,
+    description: text,
+    levels: z.array(weaponLevel).min(1).max(8),
+    element: elementId.nullable().optional(),
+    special: z.enum(SPECIALS).nullable().optional(),
+    evolution: z
+      .object({
+        from: id,
+        requires: z.union([z.object({ passive: id }).strict(), z.object({ element: elementId }).strict()]),
+      })
+      .strict()
+      .optional(),
+  })
   .strict();
 
 const passive = z
@@ -162,7 +181,19 @@ const sector = z
   })
   .strict();
 
-const element = z.enum(ELEMENT_IDS);
+const element = elementId;
+const count = (max: number) => z.number().int().min(1).max(max);
+const reactionEffect = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('chain'), targets: count(32), range: n, share: n }).strict(),
+  z.object({ kind: z.literal('explode'), radius: n, share: n }).strict(),
+  z.object({ kind: z.literal('shatter'), bonus: n, seconds: n, share: n }).strict(),
+  z.object({ kind: z.literal('stun'), seconds: n }).strict(),
+  z
+    .object({ kind: z.literal('spread'), range: n, targets: count(32), statuses: z.array(z.enum(['burn', 'corrosion', 'hack'])).min(1).max(3) })
+    .strict(),
+  z.object({ kind: z.literal('drain'), share: n, heal: unit }).strict(),
+]);
+const reaction = z.object({ id, name, pair: z.tuple([element, element]), effect: reactionEffect }).strict();
 const elements = z
   .object({
     palettes: z.record(z.string().regex(/^[a-z0-9_]{1,40}$/), element),
@@ -177,8 +208,38 @@ const elements = z
     pure: z.object({ crit: unit, critDamage: n }).strict(),
     prism: z.object({ cycle: z.array(element).min(1).max(11) }).strict(),
     invert: z.object({ radius: n, chance: unit, power: n }).strict(),
+    marks: z.object({ seconds: n, cooldown: n, bossStun: unit, bossStunEvery: n }).strict(),
+    reactions: z.array(reaction).max(64),
   })
   .strict();
+
+const setBonus = z
+  .object({
+    stats: z
+      .array(z.object({ stat: z.enum(STAT_KEYS), value: z.number().min(-10).max(10) }).strict())
+      .max(8)
+      .optional(),
+    magnitude: z.number().min(0).max(10).optional(),
+    background: z.number().min(0).max(10).optional(),
+  })
+  .strict();
+const traitValue = z.string().regex(/^[a-z0-9_]{1,40}$/);
+const relicSet = z.discriminatedUnion('kind', [
+  z
+    .object({
+      id,
+      name,
+      description: text,
+      kind: z.literal('same'),
+      trait: z.enum(['palette', 'galaxy_type', 'background', 'core']),
+      tiers: z
+        .array(z.object({ count: z.union([z.literal(2), z.literal(3)]), bonus: setBonus }).strict())
+        .min(1)
+        .max(2),
+    })
+    .strict(),
+  z.object({ id, name, description: text, kind: z.literal('combo'), type: traitValue, phenomenon: traitValue, bonus: setBonus }).strict(),
+]);
 
 const factors = z.record(z.string().regex(/^[a-z0-9_]{1,40}$/), z.number().min(0).max(100));
 const relics = z
@@ -236,6 +297,7 @@ const relics = z
       z.string().regex(/^[a-z0-9_]{1,40}$/),
       z.object({ stat: z.union([z.enum(STAT_KEYS), z.literal('vision')]), value: z.number().min(-10).max(10) }).strict(),
     ),
+    sets: z.array(relicSet).max(64),
   })
   .strict();
 
@@ -253,7 +315,8 @@ const shape = z
     sectors: z.array(sector).min(1).max(32).default(D.sectors),
     elements: elements.default(D.elements),
     relics: relics.default(D.relics),
-    xp: z.object({ base: n, linear: n, quad: n }).strict().default(D.xp),
+    // A level always costs something: with base 0 the run would level up forever in one tick.
+    xp: z.object({ base: z.number().min(1).max(1_000_000), linear: n, quad: n }).strict().default(D.xp),
     caps: z.record(z.enum(STAT_KEYS), z.number().min(0).max(1000)).default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
@@ -280,6 +343,48 @@ function unique(ctx: Ctx, catalog: string, ids: readonly string[]): void {
 
 function ref(ctx: Ctx, known: ReadonlySet<string>, value: string, path: (string | number)[]): void {
   if (!known.has(value)) ctx.addIssue({ code: 'custom', message: `content_ref:${path.join('.')}`, path });
+}
+
+type Shape = z.output<typeof shape>;
+
+/** Evolutions: from an existing base weapon of the same kind, one per weapon, one level, a known passive. */
+function evolutions(c: Shape, ctx: Ctx): void {
+  const passives = new Set(c.passives.map((p) => p.id));
+  const byId = new Map(c.weapons.map((w) => [w.id, w]));
+  const taken = new Set<string>();
+  c.weapons.forEach((w, i) => {
+    if (!w.evolution) return;
+    const bad = () => ctx.addIssue({ code: 'custom', message: `content_evolution:weapons.${i}`, path: ['weapons', i, 'evolution'] });
+    const base = byId.get(w.evolution.from);
+    if (!base) ref(ctx, new Set(), w.evolution.from, ['weapons', i, 'evolution', 'from']);
+    else if (base.evolution || base.kind !== w.kind || taken.has(base.id)) bad();
+    if (w.levels.length !== 1) bad();
+    taken.add(w.evolution.from);
+    const req = w.evolution.requires;
+    if ('passive' in req) ref(ctx, passives, req.passive, ['weapons', i, 'evolution', 'requires', 'passive']);
+  });
+}
+
+/** Reactions: two different elements, one reaction per pair whatever the order. */
+function reactions(c: Shape, ctx: Ctx): void {
+  unique(ctx, 'reactions', c.elements.reactions.map((r) => r.id));
+  const pairs = new Set<string>();
+  c.elements.reactions.forEach((r, i) => {
+    const [a, b] = r.pair;
+    const key = a < b ? `${a}+${b}` : `${b}+${a}`;
+    if (a === b || pairs.has(key)) ctx.addIssue({ code: 'custom', message: `content_reaction:elements.reactions.${i}`, path: ['elements', 'reactions', i] });
+    pairs.add(key);
+  });
+}
+
+/** Relic sets: unique ids, ascending tiers. */
+function sets(c: Shape, ctx: Ctx): void {
+  unique(ctx, 'sets', c.relics.sets.map((s) => s.id));
+  c.relics.sets.forEach((s, i) => {
+    if (s.kind === 'same' && !s.tiers.every((t, k) => k === 0 || t.count > s.tiers[k - 1]!.count)) {
+      ctx.addIssue({ code: 'custom', message: `content_set:relics.sets.${i}`, path: ['relics', 'sets', i, 'tiers'] });
+    }
+  });
 }
 
 /** The live-config schema of `content`; `contentSchema.parse({})` is DEFAULT_CONTENT. */
@@ -312,6 +417,9 @@ export const contentSchema = shape.superRefine((c, ctx) => {
     const ordered = b.phases[0]?.below === 1 && b.phases.every((ph, j) => j === 0 || ph.below < b.phases[j - 1]!.below);
     if (!ordered) ctx.addIssue({ code: 'custom', message: `content_phases:bosses.${i}`, path: ['bosses', i, 'phases'] });
   });
+  evolutions(c, ctx);
+  reactions(c, ctx);
+  sets(c, ctx);
   c.sectors.forEach((s, i) => {
     ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
     s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));

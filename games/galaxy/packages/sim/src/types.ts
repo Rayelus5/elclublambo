@@ -65,15 +65,30 @@ export interface Stats {
   luck: number;
   /** Fraction of damage dealt that heals. */
   lifesteal: number;
+  /** Multiplier on projectile speed and reach. */
+  velocity: number;
+  /** Multiplier on how long areas, mines, turrets, beams and puddles last. */
+  duration: number;
+  /** Extra pierce (whole). */
+  pierce: number;
+  /** Multiplier on element chance, status time and reaction damage. */
+  elemental: number;
+  /** Recharging shield, as a fraction of max life. */
+  barrier: number;
+  /** More enemies and more loot (fraction). */
+  curse: number;
 }
 
-export type Offer = { kind: 'weapon' | 'passive' | 'heal'; id: string; level: number };
+/** A level-up card. `evolve`: the evolution `id` replaces its base weapon (GDD §5.3). */
+export type Offer = { kind: 'weapon' | 'passive' | 'heal' | 'evolve'; id: string; level: number };
 
 export interface OwnedWeapon {
   id: string;
   level: number;
   /** Ticks until it fires again. */
   t: number;
+  /** `echo` weapons: ticks until the repeat of the last volley (0 / absent: none pending). */
+  echo?: number;
 }
 
 export interface ProbeState {

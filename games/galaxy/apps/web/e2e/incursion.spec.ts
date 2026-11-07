@@ -41,6 +41,8 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   const slot = page.getByRole('group', { name: 'Ranura 1' });
   await expect(slot).toBeVisible();
   const relicName = (await slot.locator('.relic-info b').textContent())!.trim();
+  // Relic sets (M3b-1): the panel is there under the slots, whatever this galaxy can make.
+  await expect(page.getByRole('region', { name: 'Conjuntos' })).toBeVisible();
 
   // Launch: the arena draws, the clock runs and the probe moves with the keyboard.
   await page.getByRole('button', { name: 'Lanzar incursión' }).click();

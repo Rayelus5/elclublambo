@@ -3,7 +3,7 @@ import { diminish } from '../math/stack';
 import type { ProbeState, Sim, Stats } from '../types';
 
 // Probe stats (GDD §8.6): every source adds to its category; each category has diminishing returns and a cap
-// (content.caps). Projectiles and regeneration have hard caps instead (a plain sum, clipped).
+// (content.caps). Projectiles, pierce and regeneration have hard caps instead (a plain sum, clipped).
 
 export type StatBonus = { stat: StatKey; value: number };
 
@@ -47,6 +47,12 @@ export function deriveStats(sim: Sim, p: ProbeState): Stats {
     xp: 1 + d('xp'),
     luck: 1 + d('luck'),
     lifesteal: d('lifesteal'),
+    velocity: 1 + d('velocity'),
+    duration: 1 + d('duration'),
+    pierce: Math.floor(Math.min(Math.max(sum(c.pierce), 0), caps.pierce)),
+    elemental: 1 + d('elemental'),
+    barrier: d('barrier'),
+    curse: d('curse'),
   };
 }
 

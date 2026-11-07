@@ -11,6 +11,7 @@ import { updateRelics } from './systems/relics';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
 import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
+import './systems/arsenal';
 import { xpFor } from './systems/xp';
 import { IDLE, type ProbeInput, type ProbeState, type Sim, type SimOptions } from './types';
 import { SpatialGrid } from './world/grid';

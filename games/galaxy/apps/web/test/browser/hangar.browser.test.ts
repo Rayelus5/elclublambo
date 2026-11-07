@@ -43,7 +43,8 @@ const view: HangarView = {
   maxSlots: 6,
   loadout: [
     g('a', 'Kathra', 'legendary', { galaxy_type: 'spiral', arms: '4', size: 'large', inclination: 'tilted', core: 'quasar', star_density: 'dense', palette: 'solar_gold', background: 'starfield', phenomenon: 'pulsar' }),
-    null,
+    // A second galaxy that makes sets with the first: the same palette, and the phenomenon its spiral wants.
+    g('b', 'Orvel', 'rare', { galaxy_type: 'barred_spiral', arms: '2', size: 'medium', inclination: 'face_on', core: 'bright', star_density: 'normal', palette: 'solar_gold', background: 'cmb', phenomenon: 'satellite_galaxy' }),
   ],
   daily: { playedSeconds: 1200, fullSecondsLeft: 3 * 3600 - 1200, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,

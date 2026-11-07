@@ -46,6 +46,14 @@ export const ENEMY_FIELDS = {
   fuseT: 'i32',
   /** Generic per-enemy cooldown (hacked contact hits). */
   hitT: 'i32',
+  /** Element mark (GDD §5.4 reactions): 1 + index in ELEMENT_IDS, and ticks left. */
+  mark: 'u8',
+  markT: 'i32',
+  /** Ticks until this enemy can react again. */
+  reactT: 'i32',
+  /** Shattered: extra damage taken (fraction) and ticks left; the armoured front is broken meanwhile. */
+  vulnT: 'i32',
+  vulnBonus: 'f64',
 } as const;
 
 export const SHOT_FIELDS = {
@@ -73,6 +81,8 @@ export const SHOT_FIELDS = {
   /** Bounce reach (ricochet) or the enemy it is locked on (−1 none). */
   reach: 'f64',
   target: 'i32',
+  /** Bit 1: already split (evolutions with `split` split once per shot). */
+  flags: 'u8',
 } as const;
 
 export const FOE_SHOT_FIELDS = {
@@ -114,6 +124,8 @@ export const AREA_FIELDS = {
   knockback: 'f64',
   /** Slow factor for slowing fields (0: none). */
   slow: 'f64',
+  /** Pull towards the centre in units per second (gravity wells, `vortex` areas; 0: none). */
+  pull: 'f64',
 } as const;
 
 export const PICKUP_FIELDS = {

@@ -19,8 +19,8 @@ describe('contenido por defecto', () => {
     expect(DEFAULT_CONTENT.sectors.map((s) => s.id)).toEqual(['outer-nebula']);
     expect(DEFAULT_CONTENT.enemies.map((e) => e.id).sort()).toEqual(['cell', 'cellet', 'mite', 'ray', 'shell', 'spitter']);
     expect(DEFAULT_CONTENT.bosses.map((b) => b.id)).toEqual(['hive']);
-    expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']);
-    expect(DEFAULT_CONTENT.passives).toHaveLength(8);
+    expect(DEFAULT_CONTENT.weapons.map((w) => w.id)).toEqual(expect.arrayContaining(['pulse', 'nova', 'lance', 'orbit', 'trail', 'arc', 'drone']));
+    expect(DEFAULT_CONTENT.passives).toHaveLength(20);
     expect(DEFAULT_CONTENT.probes.map((p) => p.id)).toEqual(['lumen']);
   });
 });
@@ -85,5 +85,114 @@ describe('referencias rotas', () => {
 
   test('una clave desconocida no se acepta', () => {
     expect(() => contentSchema.parse({ ...clone(), extra: 1 })).toThrow(/extra/);
+  });
+});
+
+describe('el arsenal', () => {
+  const level = { damage: 26, cooldown: 0.32, count: 4, pierce: 0, speed: 380, area: 0, duration: 0, range: 300, bounces: 0, knockback: 0, interval: 0 };
+  const evo = (over: Partial<Content['weapons'][number]> = {}): Content['weapons'][number] => ({
+    id: 'pulse-storm',
+    name: 'Tormenta de pulsos',
+    kind: 'bolt',
+    icon: 'icon-pulse',
+    description: 'Ráfagas que se parten al golpear',
+    levels: [level],
+    special: 'split',
+    element: null,
+    evolution: { from: 'pulse', requires: { passive: 'capacitor' } },
+    ...over,
+  });
+  const withWeapons = (...extra: Content['weapons']) => {
+    const c = clone();
+    c.weapons = c.weapons.filter((w) => !w.evolution);
+    c.weapons.push(...extra);
+    return c;
+  };
+
+  test('trae las 20 pasivas, con las 6 estadísticas nuevas', () => {
+    const stats = new Set(DEFAULT_CONTENT.passives.map((p) => p.stat));
+    for (const s of ['velocity', 'duration', 'pierce', 'elemental', 'barrier', 'curse']) expect(stats.has(s as never)).toBe(true);
+    expect(DEFAULT_CONTENT.caps).toMatchObject({ velocity: 1, duration: 1, pierce: 5, elemental: 1, barrier: 0.3, curse: 0.5 });
+  });
+
+  test('una evolución válida pasa', () => {
+    expect(() => contentSchema.parse(withWeapons(evo()))).not.toThrow();
+  });
+
+  test('una evolución de un arma que no existe', () => {
+    expect(() => contentSchema.parse(withWeapons(evo({ evolution: { from: 'nope', requires: { passive: 'capacitor' } } })))).toThrow(/content_ref:weapons\.\d+\.evolution\.from/);
+  });
+
+  test('una evolución que pide una pasiva que no existe', () => {
+    expect(() => contentSchema.parse(withWeapons(evo({ evolution: { from: 'pulse', requires: { passive: 'nope' } } })))).toThrow(
+      /content_ref:weapons\.\d+\.evolution\.requires\.passive/,
+    );
+  });
+
+  test('evoluciones imposibles: de otra evolución, de otro tipo, dos del mismo arma o con más de un nivel', () => {
+    const chained = evo({ id: 'storm-2', evolution: { from: 'pulse-storm', requires: { passive: 'capacitor' } } });
+    expect(() => contentSchema.parse(withWeapons(evo(), chained))).toThrow(/content_evolution/);
+    expect(() => contentSchema.parse(withWeapons(evo({ kind: 'nova' })))).toThrow(/content_evolution/);
+    expect(() => contentSchema.parse(withWeapons(evo(), evo({ id: 'pulse-storm-b' })))).toThrow(/content_evolution/);
+    expect(() => contentSchema.parse(withWeapons(evo({ levels: [level, level] })))).toThrow(/content_evolution/);
+  });
+
+  test('un especial desconocido no se acepta', () => {
+    expect(() => contentSchema.parse(withWeapons(evo({ special: 'laser' as never })))).toThrow();
+  });
+
+  const reaction = (over: Partial<Content['elements']['reactions'][number]> = {}): Content['elements']['reactions'][number] => ({
+    id: 'short-circuit',
+    name: 'Cortocircuito',
+    pair: ['corrosion', 'shock'],
+    effect: { kind: 'chain', targets: 5, range: 120, share: 0.8 },
+    ...over,
+  });
+
+  test('reacciones: una válida pasa; un elemento inexistente, una pareja igual o repetida no', () => {
+    const ok = clone();
+    ok.elements.reactions = [reaction()];
+    expect(() => contentSchema.parse(ok)).not.toThrow();
+    const unknown = clone();
+    unknown.elements.reactions = [reaction({ pair: ['corrosion', 'plasma' as never] })];
+    expect(() => contentSchema.parse(unknown)).toThrow(/reactions/);
+    const same = clone();
+    same.elements.reactions = [reaction({ pair: ['shock', 'shock'] })];
+    expect(() => contentSchema.parse(same)).toThrow(/content_reaction/);
+    const twice = clone();
+    twice.elements.reactions = [reaction(), reaction({ id: 'other', pair: ['shock', 'corrosion'] })];
+    expect(() => contentSchema.parse(twice)).toThrow(/content_reaction/);
+  });
+
+  const set = (over: Partial<Content['relics']['sets'][number]> = {}): Content['relics']['sets'][number] =>
+    ({
+      id: 'resonance',
+      name: 'Resonancia cromática',
+      description: 'Dos galaxias de la misma paleta',
+      kind: 'same',
+      trait: 'palette',
+      tiers: [
+        { count: 2, bonus: { stats: [{ stat: 'elemental', value: 0.25 }] } },
+        { count: 3, bonus: { stats: [{ stat: 'elemental', value: 0.5 }] } },
+      ],
+      ...over,
+    }) as Content['relics']['sets'][number];
+
+  test('conjuntos: uno válido pasa; un rasgo desconocido o umbrales que no crecen no', () => {
+    const ok = clone();
+    ok.relics.sets = [set(), { id: 'satellite-arm', name: 'Brazo satélite', description: 'Espiral y galaxia satélite', kind: 'combo', type: 'spiral', phenomenon: 'satellite_galaxy', bonus: { stats: [{ stat: 'projectiles', value: 1 }] } }];
+    expect(() => contentSchema.parse(ok)).not.toThrow();
+    const trait = clone();
+    trait.relics.sets = [set({ trait: 'arms' as never })];
+    expect(() => contentSchema.parse(trait)).toThrow(/sets/);
+    const order = clone();
+    order.relics.sets = [set({ tiers: [{ count: 3, bonus: {} }, { count: 2, bonus: {} }] } as never)];
+    expect(() => contentSchema.parse(order)).toThrow(/content_set/);
+  });
+
+  test('una experiencia que no crece congelaría la partida: base 0 no se acepta', () => {
+    const c = clone();
+    c.xp = { base: 0, linear: 0, quad: 0 };
+    expect(() => contentSchema.parse(c)).toThrow();
   });
 });

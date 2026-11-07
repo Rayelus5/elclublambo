@@ -1,16 +1,20 @@
 import { PICKUP } from '../world/pools';
 import type { HitSource, Sim } from '../types';
 import { ticks } from '../version';
-import { scaleAt } from './director';
+import { curseOf, scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { onBossDown } from './layers';
+import { react } from './reactions';
 import { dropPickup } from './pickups';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
 
 export const FLASH_TICKS = 6;
+
+/** After a hit has landed (systems/arsenal.ts: `chain` evolutions). */
+export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: number, y: number, src: HitSource) => void } = { afterHit: () => {} };
 
 /** Deals `amount` to enemy `e`; returns the damage done (shield included). Kills it at 0 life. */
 export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource): number {
@@ -20,7 +24,7 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const element = resolveElement(sim, src);
   let dmg = amount;
   const def = sim.content.enemies[en.type[e]!];
-  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0) {
+  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0) {
     const ox = src.x ?? (p ? p.x : en.x[e]!);
     const oy = src.y ?? (p ? p.y : en.y[e]!);
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
@@ -28,10 +32,12 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   dmg *= damageFactor(sim, e, element);
   let crit = false;
   if (p) {
+    // Pure damage adds to the critical stats, still within their caps (GDD §8.6).
     const bonus = critBonus(sim, element);
-    if (sim.rng.combat.chance(p.stats.crit + bonus.chance)) {
+    const caps = sim.content.caps;
+    if (sim.rng.combat.chance(Math.min(p.stats.crit + bonus.chance, Math.max(p.stats.crit, caps.crit)))) {
       crit = true;
-      dmg *= p.stats.critDamage + bonus.damage;
+      dmg *= Math.min(p.stats.critDamage + bonus.damage, Math.max(p.stats.critDamage, sim.content.crit.damage + caps.critDamage));
     }
   }
   const absorbed = Math.min(en.shield[e]!, dmg);
@@ -47,7 +53,9 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     applyElement(sim, e, element, dmg, x, y, src, (o, amt) => {
       dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
     });
+    react(sim, e, element, dmg, x, y, src);
   }
+  combatHooks.afterHit(sim, e, dmg, x, y, src);
   return dmg;
 }
 
@@ -68,7 +76,7 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   sim.events.push({ t: 'kill', x, y, enemy: def.id, elite });
   const sector = sim.sector;
   dropPickup(sim, PICKUP.xp, def.xp * (elite ? sector.elite.xp : 1), x, y);
-  const luck = p ? p.stats.luck : 1;
+  const luck = (p ? p.stats.luck : 1) * (1 + curseOf(sim));
   if (elite) {
     dropPickup(sim, PICKUP.coin, sector.elite.coins, x + 4, y);
     dropPickup(sim, PICKUP.dust, sector.elite.dust, x - 4, y);
@@ -76,7 +84,7 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   } else {
     if (sim.rng.loot.chance(sector.drops.coin * luck)) dropPickup(sim, PICKUP.coin, 1, x + 3, y);
     if (sim.rng.loot.chance(sector.drops.dust * luck)) dropPickup(sim, PICKUP.dust, 1, x - 3, y);
-    if (sim.rng.loot.chance(sector.drops.repair)) dropPickup(sim, PICKUP.repair, 1, x, y + 3);
+    if (sim.rng.loot.chance(sector.drops.repair * (1 + curseOf(sim)))) dropPickup(sim, PICKUP.repair, 1, x, y + 3);
   }
   if (def.split) {
     const child = sim.content.enemies.find((c) => c.id === def.split!.into);

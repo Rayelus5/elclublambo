@@ -2,17 +2,37 @@ import type { WeaponDef, WeaponLevel } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { HitSource, ProbeState, Sim } from '../types';
 import { dealDamage } from './combat';
-import { elementOf } from './elements';
+import { elementCode, elementOf } from './elements';
 
 // The probe's weapons (GDD §5.3) and everything they put in the world: bullets, piercing lances, bouncing arcs,
 // orbiting orbs, drones and damaging areas. Damage, cooldown, area and extra projectiles come from the probe's stats.
 
 /** Shot kinds (sim.shots.kind): what the renderer draws and how the shot behaves. */
-export const SHOT = { bolt: 0, lance: 1, arc: 2, droneBolt: 3, orb: 4, drone: 5, ray: 6, jet: 7, quasar: 8, chaos: 9, reflected: 10, blade: 11 } as const;
+export const SHOT = {
+  bolt: 0,
+  lance: 1,
+  arc: 2,
+  droneBolt: 3,
+  orb: 4,
+  drone: 5,
+  ray: 6,
+  jet: 7,
+  quasar: 8,
+  chaos: 9,
+  reflected: 10,
+  blade: 11,
+  beam: 12,
+  missile: 13,
+  shard: 14,
+  mine: 15,
+  disc: 16,
+  turret: 17,
+  split: 18,
+} as const;
 /** Area kinds (sim.areas.kind). */
-export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6 } as const;
+export const AREA = { nova: 0, trail: 1, aura: 2, slowField: 3, blast: 4, supernova: 5, pulsar: 6, cone: 7, field: 8, strike: 9 } as const;
 
-const RADIUS: Record<number, number> = { 0: 3, 1: 4, 2: 3, 3: 2.5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5, 9: 3, 10: 4, 11: 5 };
+const RADIUS: Record<number, number> = { 0: 3, 1: 4, 2: 3, 3: 2.5, 4: 5, 5: 4, 6: 4, 7: 4, 8: 5, 9: 3, 10: 4, 11: 5, 12: 6, 13: 4, 14: 3, 15: 5, 16: 7, 17: 6, 18: 2.5 };
 /** Reach to pick the first target of an arc. */
 const ARC_ACQUIRE = 260;
 const DRONE_ORBIT = 26;
@@ -23,7 +43,7 @@ const QUERY_PAD = 40;
 // Hit memory per shot: 8 (enemy key, tick) pairs, so a piercing shot never hits the same enemy twice and an orb
 // waits its interval. Kept beside the sim (same lifetime) to keep the pools plain.
 const memory = new WeakMap<Sim, Int32Array>();
-const MEM = 8;
+const MEM = 16;
 
 function memOf(sim: Sim): Int32Array {
   let m = memory.get(sim);
@@ -101,6 +121,7 @@ export function spawnShot(
   s.srcIdx[i] = opts.srcIdx ?? 0;
   s.element[i] = opts.element ?? 0;
   s.target[i] = -1;
+  s.flags[i] = 0;
   memOf(sim).fill(-1, i * MEM * 2, (i + 1) * MEM * 2);
   return i;
 }
@@ -112,7 +133,20 @@ export function spawnArea(
   x: number,
   y: number,
   radius: number,
-  opts: { ttl: number; damage?: number; interval?: number; follow?: boolean; angle?: number; arc?: number; knockback?: number; slow?: number; srcKind?: number; srcIdx?: number; element?: number },
+  opts: {
+    ttl: number;
+    damage?: number;
+    interval?: number;
+    follow?: boolean;
+    angle?: number;
+    arc?: number;
+    knockback?: number;
+    slow?: number;
+    pull?: number;
+    srcKind?: number;
+    srcIdx?: number;
+    element?: number;
+  },
 ): number {
   const a = sim.areas;
   const i = a.spawn();
@@ -133,6 +167,7 @@ export function spawnArea(
   a.arc[i] = opts.arc ?? 0;
   a.knockback[i] = opts.knockback ?? 0;
   a.slow[i] = opts.slow ?? 0;
+  a.pull[i] = opts.pull ?? 0;
   a.srcKind[i] = opts.srcKind ?? 0;
   a.srcIdx[i] = opts.srcIdx ?? 0;
   a.element[i] = opts.element ?? 0;
@@ -141,6 +176,15 @@ export function spawnArea(
 
 const near: number[] = [];
 const ranked: number[] = [];
+
+/**
+ * The enemies in the grid cells around (x, y), as a fresh list. A loop that deals damage must use this, not the shared
+ * buffer: a hit can set off a reaction or a chain that queries the grid again mid-loop (M3b-1 final review).
+ */
+export function enemiesNear(sim: Sim, x: number, y: number, reach: number): number[] {
+  const n = sim.grid.query(x, y, reach, near);
+  return near.slice(0, n);
+}
 
 /** Up to `n` distinct targets within `range` of (x, y), nearest first (ties: lower slot). */
 export function nearestEnemies(sim: Sim, x: number, y: number, range: number, n: number, skip?: (e: number) => boolean): number[] {
@@ -163,10 +207,9 @@ export function nearestEnemies(sim: Sim, x: number, y: number, range: number, n:
 /** Damages every enemy within `radius` (and inside the cone when `arc` > 0); returns how many it hit. */
 export function hitArea(sim: Sim, x: number, y: number, radius: number, damage: number, src: HitSource, opts: { knockback?: number; angle?: number; arc?: number } = {}): number {
   const en = sim.enemies;
-  const n = sim.grid.query(x, y, radius + QUERY_PAD, near);
+  const list = enemiesNear(sim, x, y, radius + QUERY_PAD);
   let hits = 0;
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of list) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const dx = en.x[e]! - x;
     const dy = en.y[e]! - y;
@@ -194,15 +237,32 @@ export function weaponDef(sim: Sim, id: string): WeaponDef | undefined {
   return sim.content.weapons.find((w) => w.id === id);
 }
 
-function levelOf(def: WeaponDef, level: number): WeaponLevel {
+/** Kinds beyond M3a's live in systems/arsenal.ts, which fills these hooks (null / false: not one of its kinds). */
+export const weaponHooks: {
+  fire: (sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLevel) => boolean | null;
+  update: (sim: Sim, i: number) => boolean;
+  /** An area at the end of its life (orbital strikes blow up here). */
+  expire: (sim: Sim, i: number) => void;
+  /** An area's pull on the enemies inside (gravity wells, `vortex` areas). */
+  pull: (sim: Sim, i: number) => void;
+  /** A flying shot just hit enemy `e` at (x, y) (`split` evolutions). */
+  afterHit: (sim: Sim, i: number, e: number, x: number, y: number) => void;
+} = { fire: () => null, update: () => false, expire: () => {}, pull: () => {}, afterHit: () => {} };
+
+/** `echo` weapons repeat their volley this many ticks later. */
+export const ECHO_TICKS = 9;
+/** `pierceAll`: a pierce no run can use up. */
+export const PIERCE_ALL = 1_000_000;
+
+export function levelOf(def: WeaponDef, level: number): WeaponLevel {
   return def.levels[Math.max(1, Math.min(level, def.levels.length)) - 1]!;
 }
 
-function src(p: ProbeState, def: WeaponDef, x: number, y: number): HitSource {
+export function weaponSource(p: ProbeState, def: WeaponDef, x: number, y: number): HitSource {
   return { probe: p.index, weapon: def.id, relic: null, element: null, x, y };
 }
 
-function ttlFor(range: number, speed: number): number {
+export function ttlFor(range: number, speed: number): number {
   return speed > 0 ? Math.max(1, Math.ceil((range / speed) * 60)) : 1;
 }
 
@@ -213,20 +273,24 @@ function fireOnce(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: Weap
   switch (def.kind) {
     case 'bolt': {
       const n = lvl.count + s.projectiles;
-      const targets = nearestEnemies(sim, p.x, p.y, lvl.range, n);
+      const range = lvl.range * s.velocity;
+      const speed = lvl.speed * s.velocity;
+      const targets = nearestEnemies(sim, p.x, p.y, range, n);
       if (targets.length === 0 || n <= 0) return false;
       for (let k = 0; k < n; k++) {
         const e = targets[k % targets.length]!;
         const round = Math.floor(k / targets.length);
         const spread = round === 0 ? 0 : (round % 2 === 1 ? 1 : -1) * Math.ceil(round / 2) * degToSteps(6);
         const a = angleTo(sim.enemies.x[e]! - p.x, sim.enemies.y[e]! - p.y) + spread;
-        spawnShot(sim, p, SHOT.bolt, p.x, p.y, a, lvl.speed, damage, { ttl: ttlFor(lvl.range * 1.3, lvl.speed), srcIdx: wi });
+        spawnShot(sim, p, SHOT.bolt, p.x, p.y, a, speed, damage, { ttl: ttlFor(range * 1.3, speed), pierce: lvl.pierce + s.pierce, srcIdx: wi, element: elementCode(def.element ?? null) });
       }
       return true;
     }
     case 'nova': {
       const radius = lvl.area * s.area;
-      hitArea(sim, p.x, p.y, radius, damage, src(p, def, p.x, p.y), { knockback: lvl.knockback });
+      // A `vortex` nova draws everything in instead of pushing it away.
+      const knockback = def.special === 'vortex' ? -lvl.knockback : lvl.knockback;
+      hitArea(sim, p.x, p.y, radius, damage, { ...weaponSource(p, def, p.x, p.y), element: def.element ?? null }, { knockback });
       spawnArea(sim, p, AREA.nova, p.x, p.y, radius, { ttl: NOVA_SHOW_TICKS, follow: true, srcIdx: wi });
       return true;
     }
@@ -234,14 +298,20 @@ function fireOnce(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: Weap
       const n = lvl.count + s.projectiles;
       for (let k = 0; k < n; k++) {
         const a = p.aim + Math.round((k - (n - 1) / 2) * degToSteps(8));
-        spawnShot(sim, p, SHOT.lance, p.x, p.y, a, lvl.speed, damage, { ttl: ttlFor(lvl.range, lvl.speed), pierce: lvl.pierce, srcIdx: wi });
+        spawnShot(sim, p, SHOT.lance, p.x, p.y, a, lvl.speed * s.velocity, damage, {
+          ttl: ttlFor(lvl.range * s.velocity, lvl.speed * s.velocity),
+          pierce: def.special === 'pierceAll' ? PIERCE_ALL : lvl.pierce + s.pierce,
+          srcIdx: wi,
+          element: elementCode(def.element ?? null),
+        });
       }
       return n > 0;
     }
     case 'trail': {
       if (!p.moving) return false;
       spawnArea(sim, p, AREA.trail, p.x, p.y, lvl.area * s.area, {
-        ttl: Math.max(1, Math.round(lvl.duration * 60)),
+        ttl: Math.max(1, Math.round(lvl.duration * s.duration * 60)),
+        element: elementCode(def.element ?? null),
         damage,
         interval: Math.max(1, Math.round(lvl.interval * 60)),
         srcIdx: wi,
@@ -252,8 +322,9 @@ function fireOnce(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: Weap
       const [e] = nearestEnemies(sim, p.x, p.y, ARC_ACQUIRE, 1);
       if (e === undefined) return false;
       const a = angleTo(sim.enemies.x[e]! - p.x, sim.enemies.y[e]! - p.y);
-      spawnShot(sim, p, SHOT.arc, p.x, p.y, a, lvl.speed, damage, {
-        ttl: ttlFor(ARC_ACQUIRE * 1.5, lvl.speed),
+      spawnShot(sim, p, SHOT.arc, p.x, p.y, a, lvl.speed * s.velocity, damage, {
+        ttl: ttlFor(ARC_ACQUIRE * 1.5, lvl.speed * s.velocity),
+        element: elementCode(def.element ?? null),
         bounces: lvl.bounces,
         reach: lvl.range,
         srcIdx: wi,
@@ -261,25 +332,53 @@ function fireOnce(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: Weap
       return true;
     }
     default:
-      return false;
+      return weaponHooks.fire(sim, p, wi, def, lvl) ?? false;
   }
 }
 
+/**
+ * Keeps `count` persistent shots out of `mine` (their slots, in slot order): extras go, missing ones are added, and
+ * the ring is spaced evenly from the first one's angle only when something changed. With a full pool the ones that
+ * exist keep turning and remembering their hits (never respawned every tick).
+ */
+export function keepRing(sim: Sim, mine: number[], count: number, spawn: () => number): void {
+  const s = sim.shots;
+  if (mine.length === count) return;
+  const had = mine.length;
+  while (mine.length > count) s.kill(mine.pop()!);
+  const base = mine.length > 0 ? s.reach[mine[0]!]! : 0;
+  while (mine.length < count) {
+    const i = spawn();
+    if (i < 0) break;
+    s.target[i] = 0; // drones: ticks until the next shot
+    mine.push(i);
+  }
+  if (mine.length === had) return;
+  mine.forEach((i, k) => {
+    s.reach[i] = (base + (k * ANGLE_STEPS) / Math.max(1, mine.length)) % ANGLE_STEPS; // orbit angle in steps (fractional)
+  });
+}
+
+/** The persistent shots (orbs, drones, beams, turrets) a probe's weapon slot keeps alive, in slot order. */
+export function persistentFor(sim: Sim, p: ProbeState, wi: number): number[] {
+  const s = sim.shots;
+  const out: number[] = [];
+  for (let i = 0; i < s.top; i++) {
+    if (s.alive[i] && s.owner[i] === p.index && s.srcKind[i] === 0 && s.srcIdx[i] === wi && PERSISTENT.has(s.kind[i]!)) out.push(i);
+  }
+  return out;
+}
+
+const PERSISTENT = new Set<number>([SHOT.orb, SHOT.drone, SHOT.beam, SHOT.turret, SHOT.mine, SHOT.disc]);
+
 /** Keeps exactly `count` persistent shots of `kind` for weapon `wi` (orbs, drones). */
-function keepPersistent(sim: Sim, p: ProbeState, wi: number, kind: number, count: number): void {
+function keepPersistent(sim: Sim, p: ProbeState, wi: number, kind: number, count: number, element: number): void {
   const s = sim.shots;
   const mine: number[] = [];
   for (let i = 0; i < s.top; i++) {
     if (s.alive[i] && s.kind[i] === kind && s.owner[i] === p.index && s.srcKind[i] === 0 && s.srcIdx[i] === wi) mine.push(i);
   }
-  if (mine.length === count) return;
-  for (const i of mine) s.kill(i);
-  for (let k = 0; k < count; k++) {
-    const i = spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcIdx: wi });
-    if (i < 0) return;
-    s.reach[i] = (k * ANGLE_STEPS) / count; // orbit angle in steps (fractional)
-    s.target[i] = 0; // drones: ticks until the next shot
-  }
+  keepRing(sim, mine, count, () => spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcIdx: wi, element }));
 }
 
 /** Fires or maintains every weapon of a probe for one tick. */
@@ -290,12 +389,16 @@ export function fireWeapons(sim: Sim, p: ProbeState): void {
     if (!def) return;
     const lvl = levelOf(def, w.level);
     if (def.kind === 'orbit') {
-      keepPersistent(sim, p, wi, SHOT.orb, lvl.count);
+      keepPersistent(sim, p, wi, SHOT.orb, lvl.count, elementCode(def.element ?? null));
       return;
     }
     if (def.kind === 'drone') {
-      keepPersistent(sim, p, wi, SHOT.drone, lvl.count + p.stats.projectiles);
+      keepPersistent(sim, p, wi, SHOT.drone, lvl.count + p.stats.projectiles, elementCode(def.element ?? null));
       return;
+    }
+    if (w.echo && w.echo > 0) {
+      w.echo--;
+      if (w.echo === 0 && fireOnce(sim, p, wi, def, lvl)) sim.events.push({ t: 'fire', weapon: def.id, x: p.x, y: p.y });
     }
     if (w.t > 0) {
       w.t--;
@@ -303,13 +406,14 @@ export function fireWeapons(sim: Sim, p: ProbeState): void {
     }
     if (fireOnce(sim, p, wi, def, lvl)) {
       w.t = Math.max(1, Math.round(lvl.cooldown * 60 * p.stats.cooldown));
+      if (def.special === 'echo') w.echo = ECHO_TICKS;
       sim.events.push({ t: 'fire', weapon: def.id, x: p.x, y: p.y });
     }
   });
 }
 
 /** Weapon level for a shot fired by a weapon (orbs and drones read it live, so level-ups apply at once). */
-function shotWeapon(sim: Sim, i: number): { p: ProbeState; def: WeaponDef; lvl: WeaponLevel } | null {
+export function shotWeapon(sim: Sim, i: number): { p: ProbeState; def: WeaponDef; lvl: WeaponLevel } | null {
   const s = sim.shots;
   const p = sim.probes[s.owner[i]!];
   if (!p || s.srcKind[i] !== 0) return null;
@@ -356,9 +460,7 @@ function updateOrb(sim: Sim, i: number): void {
   if (!p.alive) return;
   const interval = Math.max(1, Math.round(lvl.interval * 60));
   const en = sim.enemies;
-  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of enemiesNear(sim, s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const r = s.radius[i]! + en.radius[e]!;
     const dx = en.x[e]! - s.x[i]!;
@@ -386,17 +488,31 @@ function updateDrone(sim: Sim, i: number): void {
   s.x[i] = s.x[i]! + (tx - s.x[i]!) * 0.2;
   s.y[i] = s.y[i]! + (ty - s.y[i]!) * 0.2;
   if (!p.alive) return;
+  // An `echo` drone repeats its shot (its pierce field counts the echo down: drones never pierce).
+  if (s.pierce[i]! > 0) {
+    s.pierce[i] = s.pierce[i]! - 1;
+    if (s.pierce[i] === 0) droneShoot(sim, i, p, def, lvl);
+  }
   if (s.target[i]! > 0) s.target[i] = s.target[i]! - 1;
   if (s.target[i]! > 0) return;
+  if (!droneShoot(sim, i, p, def, lvl)) return;
+  s.target[i] = Math.max(1, Math.round(lvl.cooldown * 60 * p.stats.cooldown));
+  if (def.special === 'echo') s.pierce[i] = ECHO_TICKS;
+}
+
+/** A drone fires at the nearest enemy in its range; false when there is none. */
+function droneShoot(sim: Sim, i: number, p: ProbeState, def: WeaponDef, lvl: WeaponLevel): boolean {
+  const s = sim.shots;
   const [e] = nearestEnemies(sim, s.x[i]!, s.y[i]!, lvl.range, 1);
-  if (e === undefined) return;
+  if (e === undefined) return false;
   const ang = angleTo(sim.enemies.x[e]! - s.x[i]!, sim.enemies.y[e]! - s.y[i]!);
-  spawnShot(sim, p, SHOT.droneBolt, s.x[i]!, s.y[i]!, ang, lvl.speed, lvl.damage * p.stats.damage, {
-    ttl: ttlFor(lvl.range * 1.3, lvl.speed),
+  spawnShot(sim, p, SHOT.droneBolt, s.x[i]!, s.y[i]!, ang, lvl.speed * p.stats.velocity, lvl.damage * p.stats.damage, {
+    ttl: ttlFor(lvl.range * 1.3, lvl.speed * p.stats.velocity),
+    element: elementCode(def.element ?? null),
     srcIdx: s.srcIdx[i]!,
   });
-  s.target[i] = Math.max(1, Math.round(lvl.cooldown * 60 * p.stats.cooldown));
   sim.events.push({ t: 'fire', weapon: def.id, x: s.x[i]!, y: s.y[i]! });
+  return true;
 }
 
 /** Moves a flying shot and resolves its hits: pierce, bounce or vanish. */
@@ -410,9 +526,7 @@ function updateFlying(sim: Sim, i: number): void {
     s.kill(i);
     return;
   }
-  const n = sim.grid.query(s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD, near);
-  for (let k = 0; k < n; k++) {
-    const e = near[k]!;
+  for (const e of enemiesNear(sim, s.x[i]!, s.y[i]!, s.radius[i]! + QUERY_PAD)) {
     if (!en.alive[e] || en.fuseT[e]! > 0 || en.hackT[e]! > 0) continue;
     const r = s.radius[i]! + en.radius[e]!;
     const dx = en.x[e]! - s.x[i]!;
@@ -422,6 +536,7 @@ function updateFlying(sim: Sim, i: number): void {
     const hx = en.x[e]!;
     const hy = en.y[e]!;
     dealDamage(sim, e, s.damage[i]!, shotHooks.source(sim, i));
+    weaponHooks.afterHit(sim, i, e, hx, hy);
     if (s.pierce[i]! > 0) {
       s.pierce[i] = s.pierce[i]! - 1;
       continue;
@@ -452,7 +567,7 @@ export function updateShots(sim: Sim): void {
     if (s.srcKind[i] === 1 && shotHooks.persistent(sim, i)) continue;
     if (kind === SHOT.orb) updateOrb(sim, i);
     else if (kind === SHOT.drone) updateDrone(sim, i);
-    else updateFlying(sim, i);
+    else if (!weaponHooks.update(sim, i)) updateFlying(sim, i);
   }
 }
 
@@ -462,9 +577,12 @@ export function updateAreas(sim: Sim, areaHit: (sim: Sim, i: number) => void = d
   for (let i = 0; i < a.top; i++) {
     if (!a.alive[i]) continue;
     const p = sim.probes[a.owner[i]!];
+    if (a.pull[i]! > 0) weaponHooks.pull(sim, i);
     if (a.follow[i] && p) {
       a.x[i] = p.x;
       a.y[i] = p.y;
+      // A flamethrower turns with its probe's aim.
+      if (a.kind[i] === AREA.cone) a.angle[i] = p.aim;
     }
     if (a.damage[i]! > 0 || a.slow[i]! > 0) {
       if (a.tickT[i]! > 0) a.tickT[i] = a.tickT[i]! - 1;
@@ -474,7 +592,10 @@ export function updateAreas(sim: Sim, areaHit: (sim: Sim, i: number) => void = d
       }
     }
     a.ttl[i] = a.ttl[i]! - 1;
-    if (a.ttl[i]! <= 0) a.kill(i);
+    if (a.ttl[i]! <= 0) {
+      weaponHooks.expire(sim, i);
+      a.kill(i);
+    }
   }
 }
 

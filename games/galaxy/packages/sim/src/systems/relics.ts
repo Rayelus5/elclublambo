@@ -5,8 +5,9 @@ import type { HitSource, ProbeState, RelicInput, Sim } from '../types';
 import { ticks } from '../version';
 import { dealDamage } from './combat';
 import { elementCode, invertNearby } from './elements';
+import { activeSets } from './sets';
 import { refreshStats, relicHooks, type StatBonus } from './stats';
-import { AREA, hitArea, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
+import { AREA, hitArea, keepRing, lastHit, nearestEnemies, remember, SHOT, shotHooks, spawnArea, spawnShot } from './weapons';
 
 // Galaxies as relics (GDD §8.2–8.4 bis, §8.6). The galaxy type picks the family; arms give the count; rarity, size,
 // core and level give the magnitude; density the frequency; inclination the shape; palette the element; background a
@@ -53,7 +54,11 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
   const arms = Number.parseInt(t['arms'] ?? '', 10);
   const level = Math.max(1, Math.min(10, Math.floor(relic.level) || 1));
   const levelBonus = diminish(Array.from({ length: level - 1 }, () => R.level.step), R.level.cap);
-  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus);
+  // Sets (GDD §8.3): the Lineage-like ones raise their members' magnitude, the sky-like ones their background.
+  const mine = activeSets(all, content).filter((s) => s.members.includes(relic.id));
+  const setMagnitude = mine.reduce((f, s) => f * (s.bonus.magnitude ?? 1), 1);
+  const setBackground = mine.reduce((f, s) => f * (s.bonus.background ?? 1), 1);
+  const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude;
   let copies: FamilyId | null = null;
   if (family === 'echo') {
     const me = Math.max(0, all.indexOf(relic));
@@ -79,8 +84,12 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
     shape: SHAPE[t['inclination'] ?? ''] ?? 'circle',
     quasar: t['core'] === 'quasar',
     double: t['core'] === 'double_nucleus',
-    background: R.backgrounds[t['background'] ?? ''] ?? null,
+    background: background(R.backgrounds[t['background'] ?? ''] ?? null, setBackground),
   };
+}
+
+function background(bg: RelicSkill['background'], factor: number): RelicSkill['background'] {
+  return bg && factor !== 1 ? { stat: bg.stat, value: bg.value * factor } : bg;
 }
 
 /** Same as relicSkill, named for the Hangar's description of a relic. */
@@ -138,6 +147,7 @@ export function relicBonuses(sim: Sim, p: ProbeState): StatBonus[] {
     if (r.skill.phenomenon === 'einstein_ring') out.push({ stat: 'projectiles', value: sim.content.relics.phenomena.einstein_ring.projectiles });
   }
   if ((p.fx['hasteT'] ?? 0) > 0) out.push({ stat: 'speed', value: F.chaos.haste.bonus });
+  for (const s of activeSets(p.relics, sim.content)) for (const b of s.bonus.stats ?? []) out.push({ stat: b.stat, value: b.value });
   return out;
 }
 
@@ -152,15 +162,8 @@ function keepShots(sim: Sim, p: ProbeState, ri: number, kind: number, count: num
   const s = sim.shots;
   const mine: number[] = [];
   for (let i = 0; i < s.top; i++) if (s.alive[i] && s.kind[i] === kind && s.owner[i] === p.index && s.srcKind[i] === 1 && s.srcIdx[i] === ri) mine.push(i);
-  if (mine.length === count) return;
-  for (const i of mine) s.kill(i);
   const element = elementCode(skillsOf(sim, p)[ri]?.skill.element ?? null);
-  for (let k = 0; k < count; k++) {
-    const i = spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcKind: 1, srcIdx: ri, element });
-    if (i < 0) return;
-    s.reach[i] = (k * ANGLE_STEPS) / count;
-    s.target[i] = 0;
-  }
+  keepRing(sim, mine, count, () => spawnShot(sim, p, kind, p.x, p.y, 0, 0, 0, { ttl: 1, srcKind: 1, srcIdx: ri, element }));
 }
 
 function fireRays(sim: Sim, p: ProbeState, ri: number, r: Runtime, m: number): void {
@@ -245,14 +248,11 @@ function runFamily(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
     case 'shield': {
       const max = F.shield.shield * m;
       const key = 'shieldMax' + ri;
+      // The capacity is registered once (and filled); recharging lives in systems/probes.ts with the barrier's.
       if (p.fx[key] === undefined) {
         p.fx[key] = max;
         p.shield += max;
-        return;
       }
-      const since = sim.tick - (p.fx['lastHurt'] ?? -1e9);
-      const total = skillsOf(sim, p).reduce((sum, x, k) => sum + (p.fx['shieldMax' + k] ?? 0), 0);
-      if (since >= ticks(F.shield.recharge) && p.shield < total) p.shield = Math.min(total, p.shield + max / 60);
       return;
     }
     case 'aura':

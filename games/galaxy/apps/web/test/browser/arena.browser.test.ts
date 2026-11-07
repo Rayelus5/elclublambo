@@ -1,5 +1,5 @@
-import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, step } from '@galaxy/sim';
-import { afterEach, expect, test } from 'vitest';
+import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnEnemy, step } from '@galaxy/sim';
+import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
 
@@ -87,3 +87,76 @@ test.skipIf(!import.meta.env['VITE_ARENA_SHOTS'])('hoja de sprites a 4× para re
   document.body.appendChild(sheet);
   await page.screenshot({ path: '__shots__/sprites.png', element: sheet });
 });
+
+test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una reacción, sin avisos', async () => {
+  const warn = vi.spyOn(console, 'warn');
+  const content = structuredClone(DEFAULT_CONTENT);
+  const sim = createSim({ seed: '7', content, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const p = sim.probes[0]!;
+  p.weapons = ['beam', 'cone', 'shards', 'homing', 'mine', 'boomerang'].map((id) => ({ id, level: 5, t: 0 }));
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, content, { reduced: false, vision: 0, probe: 0, seed: '7', preserve: true });
+  stage.resize(1280, 720);
+  /** Marks, stun and shatter on a few enemies, so the states are on screen. */
+  const states = () => {
+    const en = sim.enemies;
+    for (let i = 0, k = 0; i < en.top && k < 9; i++) {
+      if (!en.alive[i] || en.boss[i]) continue;
+      if (k % 3 === 0) en.freezeT[i] = 60;
+      if (k % 3 === 1) {
+        en.vulnT[i] = 60;
+        en.vulnBonus[i] = 0.4;
+      }
+      en.mark[i] = 1 + (k % 4);
+      en.markT[i] = 60;
+      k++;
+    }
+  };
+  for (let t = 0; t < 40 * 60 && sim.status !== 'dead'; t++) {
+    if (t === 20 * 60) {
+      states();
+      stage.render(sim, 1);
+      expect(distinctColours(canvas)).toBeGreaterThan(12);
+      if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-a.png', element: canvas });
+      p.weapons = ['field', 'strike', 'turret', 'ion-ray', 'solar-breath', 'pulse-storm'].map((id) => ({ id, level: 1, t: 0 }));
+    }
+    if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
+    else step(sim, [botInput(sim, 0, 99)]);
+    stage.feed(sim.events);
+  }
+  states();
+  stage.feed([{ t: 'reaction', id: 'short-circuit', x: p.x + 40, y: p.y }]);
+  stage.feed([{ t: 'evolve', probe: 0, from: 'beam', to: 'ion-ray' }]);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arsenal-b.png', element: canvas });
+  // Destroy and create again: the fonts are uninstalled, so PixiJS has nothing to warn about.
+  stage.destroy();
+  stage = null;
+  document.body.innerHTML = '';
+  const again = await mount(1280, 720);
+  stage = await createStage(again, content, { reduced: false, vision: 0, probe: 0, seed: '7', preserve: true });
+  stage.render(sim, 1);
+  expect(warn.mock.calls.map((c) => c.map(String).join(' ')).filter((m) => m.includes('gs-dmg') || m.includes('gs-react'))).toEqual([]);
+  warn.mockRestore();
+}, 120_000);
+
+test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas', async () => {
+  const sim = createSim({ seed: '3', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  const dummy = DEFAULT_CONTENT.enemies[0]!;
+  const ids = [0, 1, 2, 3].map((k) => spawnEnemy(sim, dummy, 40 + k * 20, 0));
+  for (const e of ids) {
+    sim.enemies.mark[e] = 1;
+    sim.enemies.markT[e] = 120;
+    sim.enemies.freezeT[e] = 120;
+  }
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '3', preserve: true });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const layer = stage.app.stage.getChildByLabel('enemies', true)!;
+  expect(layer.children.filter((c) => c.visible).length).toBeGreaterThan(4);
+  for (const e of ids) sim.enemies.kill(e);
+  stage.render(sim, 1);
+  expect(layer.children.filter((c) => c.visible)).toHaveLength(0);
+}, 60_000);

@@ -10,6 +10,16 @@ import { spriteDataUrl } from '../sprites';
 
 function describe(content: Content, o: Offer): { name: string; icon: string; tag: string; text: string } {
   if (o.kind === 'heal') return { name: copy.arena.heal, icon: 'repair', tag: '', text: copy.arena.healDescription };
+  if (o.kind === 'evolve') {
+    const evo = content.weapons.find((w) => w.id === o.id);
+    const base = content.weapons.find((w) => w.id === evo?.evolution?.from);
+    return {
+      name: evo?.name ?? o.id,
+      icon: evo?.icon ?? 'repair',
+      tag: copy.arena.evolution,
+      text: base ? `${copy.arena.evolves(base.name)}. ${evo?.description ?? ''}` : (evo?.description ?? ''),
+    };
+  }
   const def = o.kind === 'weapon' ? content.weapons.find((w) => w.id === o.id) : content.passives.find((p) => p.id === o.id);
   return {
     name: def?.name ?? o.id,
@@ -88,7 +98,7 @@ export function LevelUp({ offer, content, onPick }: { offer: Offer[]; content: C
               type="button"
               role="radio"
               aria-checked={sel === i}
-              className={`lip panel levelup-card${sel === i ? ' selected' : ''}${o.level === 1 && o.kind !== 'heal' ? ' fresh' : ''}`}
+              className={`lip panel levelup-card${sel === i ? ' selected' : ''}${o.kind === 'evolve' ? ' evolve' : o.level === 1 && o.kind !== 'heal' ? ' fresh' : ''}`}
               onClick={() => onPick(i)}
               onFocus={() => setSel(i)}
               data-autofocus={i === 0 ? true : undefined}

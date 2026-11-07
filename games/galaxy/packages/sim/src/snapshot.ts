@@ -16,7 +16,7 @@ export interface HudSnapshot {
   phaseLeft: number;
   kills: number;
   loot: { coins: number; dust: number };
-  weapons: { id: string; level: number }[];
+  weapons: { id: string; level: number; evolved: boolean }[];
   passives: { id: string; level: number }[];
   boss: { name: string; title: string; hp: number; maxHp: number; phase: number } | null;
   /** The beacon relative to the probe (dx, dy), how long it has been held and how long is left (seconds). */
@@ -50,7 +50,7 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     phaseLeft,
     kills: sim.kills,
     loot: sim.loot.reduce((a, l) => ({ coins: a.coins + l.coins, dust: a.dust + l.dust }), { coins: 0, dust: 0 }),
-    weapons: p.weapons.map((w) => ({ id: w.id, level: w.level })),
+    weapons: p.weapons.map((w) => ({ id: w.id, level: w.level, evolved: !!sim.content.weapons.find((d) => d.id === w.id)?.evolution })),
     passives: p.passives.map((s) => ({ id: s.id, level: s.level })),
     boss,
     beacon: b ? { x: b.x, y: b.y, dx: b.x - p.x, dy: b.y - p.y, hold: b.hold / 60, holdNeeded: b.holdNeeded / 60, left: b.t / 60 } : null,

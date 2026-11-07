@@ -40,7 +40,7 @@ describe('banderas', () => {
   });
 
   test('demasiadas bajas por minuto', () => {
-    expect(checkRun(claim({ kills: 6 * 600 + 51 }), ctx).flags).toContain('kills_rate');
+    expect(checkRun(claim({ kills: 6 * cfg.caps.killsPerMinute + 51 }), ctx).flags).toContain('kills_rate');
   });
 
   test('jefes que no cuadran con la capa o con la extracción', () => {
@@ -96,7 +96,7 @@ describe('una reclamación imposible se recorta a lo que pudo pasar', () => {
     expect(r.claim.depth).toBe(1);
     expect(r.claim.loot).toEqual([{ coins: 0, dust: 0 }]);
     expect(r.claim.bossKills).toBe(1);
-    expect(r.claim.kills).toBe(650);
+    expect(r.claim.kills).toBe(cfg.caps.killsPerMinute + 50);
     expect(r.penalized).toBe(true);
   });
 
@@ -135,5 +135,14 @@ describe('una reclamación imposible se recorta a lo que pudo pasar', () => {
       ),
       { numRuns: 400 },
     );
+  });
+});
+
+describe('maldición y ritmo de bajas (revisión final de M3b-1)', () => {
+  test('una partida honrada con la Señal de la Estática al máximo (unas 750 bajas por minuto) no se marca como trampa', () => {
+    const minutes = 30;
+    const c = claim({ ticks: minutes * 3600, kills: 750 * minutes, depth: 6, bossKills: 6, loot: Array.from({ length: 6 }, () => ({ coins: 10, dust: 5 })) });
+    const r = checkRun(c, { ...ctx, wallSeconds: minutes * 60 + 30, logTicks: null });
+    expect(r.flags).not.toContain('kills_rate');
   });
 });

@@ -101,9 +101,10 @@ describe.skipIf(!LONG)('calibración larga (GALAXY_CALIBRATE=1)', () => {
     expect(avgLayer).toBeLessThanOrEqual(4);
   }, 600_000);
 
-  test('200 combinaciones al azar en 20 s tampoco pasan de 8× la mediana', () => {
+  test('200 combinaciones al azar en 20 s tampoco pasan de 10× la mediana', () => {
+    // 10×, not M3a's 8×: relic sets (M3b-1) add legitimate spread to random combinations.
     const dps = Array.from({ length: 200 }, (_, k) => fieldDps(randomRelics(k + 1000, 2 + (k % 5)), 20));
     const sorted = [...dps].sort((a, b) => a - b);
-    expect(Math.max(...dps)).toBeLessThanOrEqual(8 * sorted[100]!);
+    expect(Math.max(...dps)).toBeLessThanOrEqual(10 * sorted[100]!);
   }, 600_000);
 });

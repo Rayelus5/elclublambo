@@ -1,7 +1,7 @@
 import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, RunResult } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { beforeEach, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
 import type { RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
@@ -222,4 +222,57 @@ test('si la arena no carga, se dice y se ofrece recargar en vez de dejar la pant
   } finally {
     quiet.mockRestore();
   }
+});
+
+describe('conjuntos de reliquias', () => {
+  const traits = (over: Record<string, string>) => ({ galaxy_type: 'dwarf', arms: '0', size: 'medium', inclination: 'face_on', core: 'faint', star_density: 'normal', palette: 'monochrome', background: 'deep_void', phenomenon: 'none', ...over });
+  const show = (a: Record<string, string>, b?: Record<string, string>) => {
+    mockApi({
+      'GET /galaxy/api/hangar': () =>
+        jsonResponse(200, view({ loadout: [galaxy({ id: 'a', name: 'Kathra', traits: traits(a) }), b ? galaxy({ id: 'b', name: 'Orvel', traits: traits(b) }) : null] })),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  };
+
+  test('dos galaxias de la misma paleta activan la Resonancia cromática y dicen su bonus', async () => {
+    show({ palette: 'solar_gold', galaxy_type: 'spiral', core: 'bright', background: 'cmb' }, { palette: 'solar_gold', galaxy_type: 'ring', core: 'quasar', background: 'starfield' });
+    const panel = await screen.findByRole('region', { name: copy.hangar.sets });
+    expect(within(panel).getByText('Resonancia cromática')).toBeInTheDocument();
+    expect(within(panel).getByText(copy.hangar.setBonus.stat('elemental', 0.25))).toBeInTheDocument();
+  });
+
+  test('una espiral con una galaxia satélite activa el Brazo satélite', async () => {
+    show({ galaxy_type: 'spiral', palette: 'solar_gold' }, { phenomenon: 'satellite_galaxy', palette: 'ultraviolet', background: 'cmb', core: 'bright' });
+    const panel = await screen.findByRole('region', { name: copy.hangar.sets });
+    expect(within(panel).getByText('Brazo satélite')).toBeInTheDocument();
+    expect(within(panel).getByText(copy.hangar.setBonus.stat('projectiles', 1))).toBeInTheDocument();
+  });
+
+  test('a medio hacer, dice qué galaxia falta', async () => {
+    show({ galaxy_type: 'spiral' });
+    const panel = await screen.findByRole('region', { name: copy.hangar.sets });
+    expect(within(panel).getByText('Brazo satélite')).toBeInTheDocument();
+    expect(within(panel).getByText(copy.hangar.setMissing('phenomenon', 'Galaxia satélite'))).toBeInTheDocument();
+  });
+
+  test('sin galaxias que encajen, explica cómo se consiguen', async () => {
+    show({ galaxy_type: 'dwarf' });
+    const panel = await screen.findByRole('region', { name: copy.hangar.sets });
+    expect(within(panel).getByText(copy.hangar.setsEmpty)).toBeInTheDocument();
+  });
+});
+
+test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+    'PUT /galaxy/api/hangar/loadout': () => jsonResponse(409, { error: 'invalid_loadout' }),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
+  const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
+  fireEvent.click((await within(picker).findAllByRole('button', { name: /^Equipar / }))[0]!);
+  const relics = screen.getByRole('region', { name: copy.hangar.relics });
+  expect(await within(relics).findByText(copy.errors.invalid_loadout)).toBeInTheDocument();
 });

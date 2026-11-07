@@ -128,3 +128,34 @@ describe('repetición', () => {
     expect(encodeLog(sim.log!).length).toBeLessThan(20_000);
   });
 });
+
+describe('repetición con evoluciones', () => {
+  /** Pulse already at its max level, so the bot (taking the Capacitor, then the evolution) evolves early. */
+  function evolving(small: boolean): SimOptions {
+    const content = structuredClone(DEFAULT_CONTENT);
+    const pulse = content.weapons.find((w) => w.id === 'pulse')!;
+    pulse.levels = [pulse.levels[0]!];
+    if (small) content.limits = { ...content.limits, enemies: 25, shots: 12, areas: 4 };
+    return { ...opts(1, '31337'), content };
+  }
+  const pick = (offer: readonly { kind: string; id: string }[]) => {
+    const evo = offer.findIndex((o) => o.kind === 'evolve');
+    if (evo >= 0) return evo;
+    const cap = offer.findIndex((o) => o.id === 'capacitor');
+    return cap >= 0 ? cap : botPick(offer as never);
+  };
+  function playEvolving(sim: Sim, ticks: number): void {
+    while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
+      if (sim.status === 'choosing') step(sim, sim.probes.map((p) => ({ mx: 0, my: 0, aim: -1, pick: p.offer ? pick(p.offer) : -1 })));
+      else step(sim, sim.probes.map((p) => botInput(sim, p.index)));
+    }
+  }
+
+  test.each([false, true])('una partida que evoluciona a mitad se repite con el mismo hash (piscinas pequeñas: %s)', (small) => {
+    const sim = createSim(evolving(small));
+    playEvolving(sim, 7000);
+    expect(sim.probes[0]!.weapons.map((w) => w.id)).toContain('pulse-storm');
+    const again = replay({ ...evolving(small), record: false }, decodeLog(encodeLog(sim.log!)), sim.tick);
+    expect(stateHash(again)).toBe(stateHash(sim));
+  });
+});
