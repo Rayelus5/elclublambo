@@ -512,7 +512,7 @@ export const DEFAULT_CONTENT: Content = {
       density: { base: 0.3, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5 },
       scaling: {
         hpPerMinute: 0.06,
-        damagePerMinute: 0.06,
+        damagePerMinute: 0.065,
         hpPerLayer: 0.35,
         damagePerLayer: 0.15,
         speedPerLayer: 0.05,
