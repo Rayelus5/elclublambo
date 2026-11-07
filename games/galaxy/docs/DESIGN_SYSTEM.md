@@ -199,6 +199,28 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
 
+## 8 ter. Hangar y resultados
+
+Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de ui-ux-pro-max: indicador de carga accesible en la acción principal, números con formato español, tablas estrechas y conteos que desaceleran al llegar.
+
+- **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
+  - **Sector:** nombre, descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción». Debajo, con candado, «Más sectores en desarrollo».
+  - **Sonda:** su sprite a 8×, vida, velocidad y arma inicial con su icono. Debajo, con candado, «Más sondas en desarrollo».
+  - **Reliquias:** seis ranuras en 3 × 2, con estos estados:
+    - **Abiertas:** borde discontinuo y «Elegir reliquia».
+    - **Cerradas:** candado y «Se abre más adelante».
+    - **Ocupadas:** la carta, el nombre, la familia (hielo), el elemento (chip de su color), el fenómeno y la potencia, con un botón para quitarla.
+- **Elegir reliquia:** un diálogo con la colección por rareza. Las galaxias de otra ranura muestran «Equipada» y no se eligen.
+- **Barra de lanzamiento:** fija abajo para que se vea siempre, también a 1280×720. A la izquierda va el rendimiento del día, en Terminal con «Premio completo: te quedan 2 h 40 min hoy» o en Solar con el tramo actual, y su explicación. A la derecha, «Lanzar incursión»: Solar, de 76 px, con relieve y `aria-busy` mientras se prepara.
+- **Resultados:**
+  - **Título:** «Extracción completada» en Terminal, «Sonda perdida» en rojo o «Incursión abandonada» en Solar.
+  - **Datos de la partida:** cuatro datos (profundidad, tiempo, bajas y nivel).
+  - **Botín:** una tabla con una fila por capa y su multiplicador, «Sin extracción se cobra la mitad» en rojo cuando toca, y los tramos del día como píldoras (las recortadas, en Solar).
+  - **Cobrado:** grande, con contadores que suben (fijos con movimiento reducido).
+  - **Acciones:** «Volver al inicio» y «Otra incursión», que tiene el foco.
+- **Resultado sin enviar:** «Enviando el resultado». Si no llega, «No se pudo enviar el resultado. Se guarda hasta que llegue» con «Reintentar».
+- **Colección:** una galaxia equipada lleva la chapa Terminal «Equipada». En su detalle, Desintegrar está deshabilitado y debajo se explica por qué. En la fusión no se puede elegir.
+
 ## 8 quater. Arena de las incursiones
 
 La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la simulación; el HUD es React encima (§8 quinquies). Consulta de ui-ux-pro-max: estilo *pixel art* (nitidez sin suavizado, paleta limitada, animación por fotogramas), contraste ≥ 4,5:1 en todo texto, poco movimiento a la vez y respeto de `prefers-reduced-motion`.

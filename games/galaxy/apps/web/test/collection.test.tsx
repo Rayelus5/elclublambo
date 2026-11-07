@@ -179,3 +179,22 @@ test('los errores del servidor se muestran con su texto', async () => {
   await user.click(within(screen.getByRole('region', { name: copy.collection.fuse })).getByRole('button', { name: copy.collection.fuseConfirm }));
   await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(copy.errors.invalid_fusion));
 });
+
+test('una galaxia equipada como reliquia no se puede desintegrar ni elegir para fusionar, y dice por qué', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([{ ...g('c1'), equipped: true }, g('c2'), g('c3')])),
+    'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ equipped: true })),
+  });
+  const user = userEvent.setup();
+  const detailView = renderAt('/coleccion/g9', screens);
+  const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+  expect(within(dialog).getByRole('button', { name: copy.collection.disintegrate })).toBeDisabled();
+  expect(dialog).toHaveTextContent(copy.collection.equippedReason);
+  detailView.unmount();
+  renderAt('/coleccion', screens);
+  expect(await screen.findByRole('article', { name: 'Gal c1' })).toHaveTextContent(copy.collection.equipped);
+  await user.click(screen.getByRole('button', { name: copy.collection.fuse }));
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal c1') })).toBeDisabled();
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal c2') })).toBeEnabled();
+});

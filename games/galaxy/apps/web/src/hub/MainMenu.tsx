@@ -9,7 +9,20 @@ import { Soon } from './Soon';
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
-function Mode({ kind, icon, title, hint, d }: { kind: string; icon: IconName; title: string; hint: string; d: string }) {
+function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string }) {
+  if (to) {
+    return (
+      <Link to={to} className={`lip mode ${kind} enter`} style={style({ '--d': d })}>
+        <span className="chip">
+          <Icon name={icon} />
+        </span>
+        <span className="text">
+          <b>{title}</b>
+          <span>{hint}</span>
+        </span>
+      </Link>
+    );
+  }
   return (
     <button type="button" className={`lip mode ${kind} locked enter`} style={style({ '--d': d })} disabled title={copy.hub.soon}>
       <span className="chip">
@@ -38,7 +51,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
-        <button type="button" className="lip play locked enter" style={style({ '--d': '.8s' })} disabled>
+        <Link to="/incursion" className="lip play enter" style={style({ '--d': '.8s' })}>
           <span className="play-ring">
             <Icon name="play" />
           </span>
@@ -46,10 +59,9 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
             <span className="title">{copy.hub.play}</span>
             <span className="hint">{copy.hub.playHint}</span>
           </span>
-          <Soon variant="tag" />
-        </button>
+        </Link>
         <div className="modes">
-          <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" />
+          <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" to="/incursion" />
           <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" />
         </div>
       </div>

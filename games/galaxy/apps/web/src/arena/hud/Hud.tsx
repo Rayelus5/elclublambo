@@ -40,7 +40,7 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
   const low = hud.hp <= hud.maxHp * 0.3;
   const phaseText = hud.phase === 'waves' ? copy.arena.coreIn(clockText(hud.phaseLeft)) : hud.phase === 'boss' ? copy.arena.core : copy.arena.beaconLeft(Math.ceil(hud.phaseLeft));
   return (
-    <div className="hud">
+    <div className="arena-hud">
       <div className="hud-xp" role="progressbar" aria-label={copy.arena.xp} aria-valuemin={0} aria-valuemax={hud.xpNext} aria-valuenow={Math.floor(hud.xp)} style={pct(hud.xp, hud.xpNext)}>
         <i />
       </div>

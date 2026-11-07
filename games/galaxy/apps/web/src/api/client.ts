@@ -19,7 +19,7 @@ const KNOWN = new Set<string>(API_ERROR_CODES);
  */
 export async function api<T>(
   path: string,
-  init: { method?: 'GET' | 'POST'; body?: unknown; headers?: Record<string, string> } = {},
+  init: { method?: 'GET' | 'POST' | 'PUT'; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const method = init.method ?? 'GET';
   let res: Response;
