@@ -258,7 +258,17 @@ export const copy = {
     layers: (min: number) => `Capas de ${fmt(min)} min, con su Núcleo y su extracción`,
     moreSectors: 'Más sectores en desarrollo',
     probe: 'Sonda',
-    moreProbes: 'Más sondas en desarrollo',
+    probePicker: 'Sondas',
+    chosen: 'Elegida',
+    // What earns each probe (live config `probes`): every finished run counts, extracted or not.
+    unlock: {
+      runs: (n: number) => `Juega ${n} incursiones`,
+      bossKills: (n: number) => `Derrota ${n} Núcleos`,
+      maxDepth: (n: number) => `Llega a la capa ${n}`,
+      extractions: (n: number) => `Extrae ${n} veces`,
+      kills: (n: number) => `Elimina ${n} enemigos`,
+    },
+    unlockSoon: 'Llega pronto',
     hp: 'Vida',
     speed: 'Velocidad',
     weapon: 'Arma inicial',

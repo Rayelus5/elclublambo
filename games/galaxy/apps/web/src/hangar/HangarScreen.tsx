@@ -1,4 +1,4 @@
-import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type RunResult, type RunStart } from '@galaxy/shared';
+import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type ProbeCard, type RunResult, type RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router';
@@ -7,7 +7,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
-import { useFinishRun, useHangar, useSetLoadout, useStartRun } from '../api/runs';
+import { useChooseProbe, useFinishRun, useHangar, useSetLoadout, useStartRun } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -131,12 +131,119 @@ function DailyYield({ daily }: { daily: HangarView['daily'] }) {
   );
 }
 
+/** Where a locked probe stands: its condition and how far the account is (GDD §6). */
+function Unlock({ card }: { card: ProbeCard }) {
+  if (!card.condition) return <small className="probe-tile-sub">{copy.hangar.unlockSoon}</small>;
+  const { stat, value } = card.condition;
+  // The server sends stat / value; rounding gives the stat back (1999 of 2000 stays 1999, never a full bar).
+  const now = Math.min(value - 1, Math.round(card.progress * value));
+  return (
+    <>
+      <small className="probe-tile-sub">{copy.hangar.unlock[stat](value)}</small>
+      <span className="probe-tile-progress">
+        <span className="probe-tile-bar" role="progressbar" aria-label={card.name} aria-valuemin={0} aria-valuemax={value} aria-valuenow={now}>
+          <i style={{ inlineSize: `${(now / value) * 100}%` }} />
+        </span>
+        <small className="probe-tile-count">
+          {now}/{value}
+        </small>
+      </span>
+    </>
+  );
+}
+
+/** The probe for the next runs and the eight to pick from: the unlocked are chosen, the locked say what earns them. */
+function ProbePanel({ view }: { view: HangarView }) {
+  const choose = useChooseProbe();
+  const probe = view.probes.find((p) => p.id === view.probe) ?? view.probes[0];
+  if (!probe) return null;
+  return (
+    <section className="lip panel hangar-probe" aria-labelledby="hangar-probe">
+      <span className="hangar-kicker">{copy.hangar.probe}</span>
+      <div className="hangar-probe-detail">
+        <img className="hangar-probe-art" src={spriteDataUrl(probe.sprite, 8)} alt="" width={128} height={128} />
+        <div className="hangar-probe-info">
+          <h2 id="hangar-probe">{probe.name}</h2>
+          <p>{probe.description}</p>
+          <dl className="hangar-stats">
+            <div>
+              <dt>{copy.hangar.hp}</dt>
+              <dd>{probe.hp}</dd>
+            </div>
+            <div>
+              <dt>{copy.hangar.speed}</dt>
+              <dd>{probe.speed}</dd>
+            </div>
+            <div>
+              <dt>{copy.hangar.weapon}</dt>
+              <dd>
+                <img src={spriteDataUrl(probe.weapon.icon, 2)} alt="" width={24} height={24} />
+                {probe.weapon.name}
+              </dd>
+            </div>
+          </dl>
+          {probe.quirk && (
+            <p className="probe-quirk">
+              <b>{copy.probeTest.quirk}</b>
+              <span>{copy.probeTest.quirks[probe.quirk]}</span>
+            </p>
+          )}
+        </div>
+      </div>
+      <ul className="probe-picker" aria-label={copy.hangar.probePicker}>
+        {view.probes.map((p) => {
+          const chosen = p.id === view.probe;
+          const art = <img className="probe-tile-art" src={spriteDataUrl(p.sprite, 3)} alt="" width={48} height={48} />;
+          return (
+            <li key={p.id}>
+              {p.unlocked ? (
+                <button
+                  type="button"
+                  className={`probe-tile${chosen ? ' chosen' : ''}`}
+                  aria-label={p.name}
+                  aria-pressed={chosen}
+                  aria-busy={(choose.isPending && choose.variables === p.id) || undefined}
+                  onClick={() => {
+                    if (!chosen && !choose.isPending) choose.mutate(p.id);
+                  }}
+                >
+                  {art}
+                  <span className="probe-tile-text">
+                    <b>{p.name}</b>
+                    <small className="probe-tile-sub">{chosen ? copy.hangar.chosen : p.weapon.name}</small>
+                  </span>
+                  {chosen && <Icon name="check" className="ico probe-tile-check" />}
+                </button>
+              ) : (
+                <div className="probe-tile locked">
+                  <span className="probe-tile-lock">
+                    {art}
+                    <Icon name="lock" />
+                  </span>
+                  <span className="probe-tile-text">
+                    <b>{p.name}</b>
+                    <Unlock card={p} />
+                  </span>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {choose.error ? (
+        <p className="field-error" role="alert">
+          {errorText(choose.error, copy.errors)}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaunch: () => void; launching: boolean; error: unknown }) {
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
   const ids = view.loadout.map((g) => g?.id ?? null);
   const sector = view.sectors[0];
-  const probe = view.probes.find((p) => p.id === view.probe) ?? view.probes[0];
   const save = (next: (string | null)[]) => setLoadout.mutate(next);
   return (
     <div className="hangar-grid">
@@ -167,35 +274,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
           </p>
         </section>
       )}
-      {probe && (
-        <section className="lip panel hangar-probe" aria-labelledby="hangar-probe">
-          <span className="hangar-kicker">{copy.hangar.probe}</span>
-          <img className="hangar-probe-art" src={spriteDataUrl(probe.sprite, 8)} alt="" width={128} height={128} />
-          <h2 id="hangar-probe">{probe.name}</h2>
-          <p>{probe.description}</p>
-          <dl className="hangar-stats">
-            <div>
-              <dt>{copy.hangar.hp}</dt>
-              <dd>{probe.hp}</dd>
-            </div>
-            <div>
-              <dt>{copy.hangar.speed}</dt>
-              <dd>{probe.speed}</dd>
-            </div>
-            <div>
-              <dt>{copy.hangar.weapon}</dt>
-              <dd>
-                <img src={spriteDataUrl(probe.weapon.icon, 2)} alt="" width={24} height={24} />
-                {probe.weapon.name}
-              </dd>
-            </div>
-          </dl>
-          <p className="hangar-more">
-            <Icon name="lock" />
-            <span>{copy.hangar.moreProbes}</span>
-          </p>
-        </section>
-      )}
+      <ProbePanel view={view} />
       <RelicSlots
         view={view}
         error={setLoadout.error}

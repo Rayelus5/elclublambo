@@ -205,7 +205,12 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
 
 - **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
   - **Sector:** nombre, descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción». Debajo, con candado, «Más sectores en desarrollo».
-  - **Sonda:** su sprite a 8×, vida, velocidad y arma inicial con su icono. Debajo, con candado, «Más sondas en desarrollo».
+  - **Sonda** (M3b-2, GDD §6). Consulta de ui-ux-pro-max: el estado elegido no se marca solo con color, y el progreso se muestra con una barra.
+    - **Arriba, la elegida:** su sprite a 7× a la izquierda y, a la derecha, el nombre, la descripción, vida, velocidad, el arma inicial con su icono y su peculiaridad en una losa.
+    - **Debajo, las ocho sondas** en losas horizontales: sprite a 3×, nombre y una línea. Van en columnas automáticas de 220 px como mínimo.
+    - **Desbloqueadas:** son botones con relieve, cuya línea es el arma inicial. La elegida lleva borde y brillo Solar, «Elegida» en Solar y una marca. Al pulsar otra, su borde late en Solar mientras se guarda.
+    - **Bloqueadas:** borde discontinuo, el sprite en gris oscuro con un candado y lo que la gana («Juega 3 incursiones», «Derrota 3 Núcleos», «Llega a la capa 4», «Extrae 5 veces», «Elimina 2000 enemigos»). Debajo, una barra Terminal con el conteo «1/3» al lado. Sin condición, «Llega pronto».
+    - El panel de la sonda es algo más ancho que el del sector (1,15 fr frente a 1 fr) para que quepan dos columnas de losas.
   - **Reliquias:** seis ranuras en 3 × 2, con estos estados:
     - **Abiertas:** borde discontinuo y «Elegir reliquia».
     - **Cerradas:** candado y «Se abre más adelante».

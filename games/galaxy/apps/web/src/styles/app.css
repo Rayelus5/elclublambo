@@ -681,6 +681,38 @@
   .probe-test-card .launch { text-decoration: none; }
   @media (max-width: 900px) { .probe-answers { grid-template-columns: 1fr; } .probe-answer { min-height: 96px; } }
   @media (prefers-reduced-motion: reduce) { .probe-reveal-art { animation: none; } .probe-test-dots li { transition: none; } }
+  /* The probe panel and its picker (DESIGN_SYSTEM §8 ter). */
+  .hangar-probe-detail { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; }
+  .hangar-probe-detail .hangar-probe-art { width: 112px; height: 112px; }
+  .hangar-probe-info { display: grid; gap: 8px; justify-items: start; }
+  .hangar-probe-info .hangar-stats { display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  .hangar-probe-info .hangar-stats dd { justify-content: flex-start; }
+  .hangar-probe-info .probe-quirk { justify-content: flex-start; padding: 8px 12px; background: var(--color-panel-2); font-size: 15px; line-height: 1.35; }
+  .probe-picker { list-style: none; margin: 6px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .probe-tile { position: relative; inline-size: 100%; min-height: 68px; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; padding: 8px 14px 8px 10px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); text-align: left; font: inherit; }
+  button.probe-tile { cursor: pointer; box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 4px 0 var(--color-panel-lip); transition: transform .18s var(--ease-bounce), border-color .18s ease, box-shadow .18s ease; }
+  button.probe-tile:hover { transform: translateY(-2px); border-color: rgb(255 255 255 / .2); }
+  button.probe-tile:active { transform: translateY(3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 1px 0 var(--color-panel-lip); transition-duration: .06s; }
+  button.probe-tile:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  button.probe-tile[aria-busy] { animation: probe-tile-busy .9s ease-in-out infinite alternate; }
+  @keyframes probe-tile-busy { to { border-color: var(--color-solar); } }
+  .probe-tile.chosen { border-color: var(--color-solar); background: linear-gradient(180deg, rgb(255 201 74 / .16), transparent 75%), var(--color-panel-2); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 4px 0 var(--color-solar-lip), 0 0 20px rgb(255 201 74 / .2); }
+  .probe-tile-art { width: 48px; height: 48px; image-rendering: pixelated; }
+  .probe-tile-text { display: grid; gap: 4px; min-width: 0; }
+  .probe-tile-text b { font-size: 16px; line-height: 1.15; }
+  .probe-tile-sub { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px; line-height: 1.25; color: var(--color-ink-soft); }
+  .probe-tile.chosen .probe-tile-sub { color: var(--color-solar); font-weight: 700; }
+  .probe-tile-check { position: absolute; top: 8px; right: 10px; font-size: 18px; color: var(--color-solar); }
+  .probe-tile.locked { background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .1); }
+  .probe-tile.locked .probe-tile-art { filter: grayscale(1) brightness(.5); }
+  .probe-tile.locked b { color: var(--color-ink-soft); }
+  .probe-tile-lock { position: relative; display: grid; place-items: center; }
+  .probe-tile-lock .ico { position: absolute; right: -6px; bottom: -6px; padding: 3px; border-radius: 8px; background: var(--color-panel-lip); color: var(--color-ink-soft); font-size: 16px; }
+  .probe-tile-progress { display: flex; align-items: center; gap: 8px; }
+  .probe-tile-count { flex: none; font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--color-ink-soft); }
+  .probe-tile-bar { flex: 1; display: block; height: 6px; border-radius: 999px; background: rgb(0 0 0 / .4); overflow: hidden; }
+  .probe-tile-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color-terminal-2), var(--color-terminal)); }
+  @media (prefers-reduced-motion: reduce) { button.probe-tile { transition: none; } button.probe-tile[aria-busy] { animation: none; opacity: .7; } }
   /* Relic sets in the Hangar (DESIGN_SYSTEM §8 ter). */
   .hangar-sets { display: grid; gap: 10px; margin-top: 16px; }
   .hangar-sets h3 { margin: 0; font: 400 18px var(--font-display); }
@@ -744,7 +776,7 @@
   .hangar-root { overflow: auto; }
   .hangar { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: 24px clamp(20px, 3vw, 48px) 40px; display: grid; align-content: start; gap: 22px; }
   .hangar .collection-bar h1 { font: 400 clamp(28px, 3vw, 40px) var(--font-display); margin: 0; }
-  .hangar-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(260px, .85fr) minmax(440px, 1.6fr); gap: 22px; align-items: stretch; }
+  .hangar-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(360px, 1.15fr) minmax(440px, 1.5fr); gap: 22px; align-items: stretch; }
   .hangar-grid > .panel { --r: 22px; --lip-h: 6px; padding: 20px 22px 22px; display: grid; align-content: start; gap: 12px; }
   .hangar-grid h2 { margin: 0; font: 400 26px var(--font-display); }
   .hangar-grid p { margin: 0; color: var(--color-ink-soft); line-height: 1.5; }
@@ -758,8 +790,6 @@
   .hangar-fauna li { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 14px; background: var(--color-panel-2); }
   .hangar-fauna img { max-width: 48px; max-height: 48px; }
   .hangar-grid .hangar-more { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--color-ink-mute); font-size: 14px; }
-  .hangar-probe { justify-items: center; text-align: center; }
-  .hangar-probe .hangar-kicker { justify-self: start; }
   .hangar-probe-art { width: 128px; height: 128px; filter: drop-shadow(0 8px 0 rgb(0 0 0 / .35)); }
   .hangar-stats { display: grid; grid-template-columns: repeat(3, auto); gap: 6px 18px; margin: 4px 0 0; }
   .hangar-stats dt { font-size: 13px; color: var(--color-ink-mute); }
@@ -826,6 +856,6 @@
   .result-paid.coins .ico { color: var(--color-solar); } .result-paid.dust .ico { color: var(--color-ice); } .result-paid.signal .ico { color: var(--color-nova); }
   .results-actions { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .results.sending { padding-top: 12vh; }
-  @media (max-height: 820px) { .relic-slot { min-height: 250px; } .relic-slot.locked, .relic-slot.empty { min-height: 120px; } .hangar-probe-art { width: 96px; height: 96px; } }
+  @media (max-height: 820px) { .relic-slot { min-height: 250px; } .relic-slot.locked, .relic-slot.empty { min-height: 120px; } .hangar-probe-detail .hangar-probe-art { width: 96px; height: 96px; } }
   @media (max-width: 1400px) { .hangar-grid { grid-template-columns: 1fr 1fr; } .hangar-relics { grid-column: 1 / -1; } }
 }

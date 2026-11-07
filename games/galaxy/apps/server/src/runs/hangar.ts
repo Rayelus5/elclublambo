@@ -110,6 +110,7 @@ function probeCards(content: Content, assigned: string | null, stats: RunStats, 
       hp: p.hp,
       speed: p.speed,
       weapon: { id: p.weapon, name: w?.name ?? p.weapon, icon: w?.icon ?? '' },
+      quirk: p.quirk?.kind ?? null,
       ...status,
     };
   });

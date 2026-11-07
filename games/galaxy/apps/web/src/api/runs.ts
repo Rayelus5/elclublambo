@@ -24,6 +24,15 @@ export function useSetLoadout() {
   });
 }
 
+/** Picks one of the unlocked probes for the next runs; the hangar comes back with it. */
+export function useChooseProbe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (probe: string) => api<HangarView>('/hangar/probe', { method: 'PUT', body: { probe } }),
+    onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+  });
+}
+
 /** The probe test, sent once at the end (GDD §6). The hangar is refreshed: it now has its probe. */
 export function useProbeTest() {
   const qc = useQueryClient();

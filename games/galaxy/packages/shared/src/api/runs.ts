@@ -1,4 +1,4 @@
-import type { Content, RelicInput } from '@galaxy/sim';
+import type { Content, Quirk, RelicInput } from '@galaxy/sim';
 import { z } from 'zod';
 import type { GalaxySummary } from './economy';
 import type { ProbeCondition } from '../probes/unlocks';
@@ -73,6 +73,8 @@ export interface ProbeCard {
   hp: number;
   speed: number;
   weapon: { id: string; name: string; icon: string };
+  /** Its quirk's kind (what it does is told by the client's copy). */
+  quirk: Quirk['kind'] | null;
   unlocked: boolean;
   /** What earns it (null: the test's probe, or one that cannot be earned yet). */
   condition: ProbeCondition | null;
