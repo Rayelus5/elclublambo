@@ -19,12 +19,18 @@ const BUILD_DPS_CEILING = 175_000;
 const RANDOM_SPREAD = 12;
 /**
  * The same against a dense crowd (M3b-1 final review: lines, areas, chains and reactions scale with crowds, and the
- * rings never show it). 1.5× the strongest measured. Re-measured for M4c-1, when the six relic slots opened: the
- * lenticular extreme with six Legendary galaxies of level 10, a level-10 probe and the whole Laboratorio deals
- * 1 923 192 per second in a crowd (its crit and crit damage stay within their caps; the same family stacks with
- * diminishing magnitude from the third relic, §8.6). With two slots the same build dealt 1 509 878.
+ * rings never show it). 1.5× the strongest measured (2026-11-07: the lenticular extreme, 1 164 654 per second; with a
+ * level-10 probe and the whole Laboratorio since M4b, 1 509 878).
  */
-const CROWD_DPS_CEILING = 2_900_000;
+const CROWD_DPS_CEILING = 1_750_000;
+/**
+ * Builds with every relic slot open (M4c-1 final review): their own ceilings, so the two-relic ones above keep theirs
+ * and a regression there cannot hide under the six-slot headroom. 1.5× the strongest measured (2026-11-07): on the
+ * rings, two Legendary lenticulars, two barred spirals and two mergers (174 673 per second, no family stacked); in a
+ * crowd, six Legendary lenticulars (1 923 192, the family stacked from the third, §8.6).
+ */
+const SIX_SLOT_DPS_CEILING = 262_000;
+const SIX_SLOT_CROWD_CEILING = 2_885_000;
 
 const base = DEFAULT_CONTENT.weapons.filter((w) => !w.evolution);
 const evolutions = DEFAULT_CONTENT.weapons.filter((w) => w.evolution);
@@ -57,24 +63,51 @@ export function randomBuild(k: number): Build {
   return { weapons, passives, relics };
 }
 
-/**
- * The strongest evolutions with every damage passive at its max and six Legendary galaxies of level 10 (every slot open,
- * M4c-1) of one type and palette.
- */
+const TOP = ['pulse-storm', 'neutron-lance', 'orbital-lance', 'ion-ray', 'crystal-crown', 'missile-swarm'];
+const MAXED = ['amplifier', 'overcharge', 'scope', 'capacitor', 'splitter', 'catalyst'];
+/** A Legendary galaxy of level 10 with the strongest traits, of one type. */
+const legend = (type: string, id: string): Build['relics'][number] => ({
+  id,
+  seed: '9',
+  tier: 4,
+  level: 10,
+  traits: { galaxy_type: type, arms: '6', size: 'colossal', core: 'quasar', star_density: 'saturated', palette: 'solar_gold', background: 'cmb', phenomenon: 'supernova', inclination: 'face_on' },
+});
+/** The strongest evolutions with every damage passive at its max and the given relics. */
+const extreme = (relics: Build['relics']): Build => ({
+  weapons: TOP.map((id) => ({ id, level: 1 })),
+  passives: MAXED.map((id) => ({ id, level: DEFAULT_CONTENT.passives.find((p) => p.id === id)!.levels.length })),
+  relics,
+});
+const TYPES = ['spiral', 'barred_spiral', 'ring', 'irregular', 'lenticular', 'merger'];
+
+/** The strongest evolutions with every damage passive at its max and two Legendary galaxies of level 10 of one type. */
 export function extremeBuilds(): Build[] {
-  const top = ['pulse-storm', 'neutron-lance', 'orbital-lance', 'ion-ray', 'crystal-crown', 'missile-swarm'];
-  const passives = ['amplifier', 'overcharge', 'scope', 'capacitor', 'splitter', 'catalyst'].map((id) => ({ id, level: DEFAULT_CONTENT.passives.find((p) => p.id === id)!.levels.length }));
-  return ['spiral', 'barred_spiral', 'ring', 'irregular', 'lenticular', 'merger'].map((type, k) => ({
-    weapons: top.map((id) => ({ id, level: 1 })),
-    passives,
-    relics: [0, 1, 2, 3, 4, 5].map((j) => ({
-      id: `x${k}${j}`,
-      seed: '9',
-      tier: 4,
-      level: 10,
-      traits: { galaxy_type: type, arms: '6', size: 'colossal', core: 'quasar', star_density: 'saturated', palette: 'solar_gold', background: 'cmb', phenomenon: 'supernova', inclination: 'face_on' },
-    })),
-  }));
+  return TYPES.map((type, k) => extreme([0, 1].map((j) => legend(type, `x${k}${j}`))));
+}
+
+/**
+ * Every relic slot open (M4c-1): six Legendaries of level 10 of one type (the family stacked from the third), mixed
+ * ones (two of each of three types, which stack nothing; three and three; six different), and random six-relic builds.
+ */
+export function sixSlotBuilds(): Build[] {
+  const single = TYPES.map((type, k) => extreme([0, 1, 2, 3, 4, 5].map((j) => legend(type, `s${k}${j}`))));
+  const mixes = [
+    ['lenticular', 'lenticular', 'ring', 'ring', 'spiral', 'spiral'],
+    ['lenticular', 'lenticular', 'barred_spiral', 'barred_spiral', 'merger', 'merger'],
+    ['irregular', 'irregular', 'ring', 'ring', 'merger', 'merger'],
+    ['lenticular', 'lenticular', 'lenticular', 'ring', 'ring', 'ring'],
+    ['lenticular', 'ring', 'spiral', 'barred_spiral', 'merger', 'irregular'],
+  ].map((types, k) => extreme(types.map((t, j) => legend(t, `m${k}${j}`))));
+  const random = Array.from({ length: 8 }, (_, k) => {
+    const b = randomBuild(k);
+    const relics = [0, 1, 2, 3, 4, 5].map((j) => {
+      const seed = BigInt(k * 131 + j * 17 + 5);
+      return { id: `${k}-${j}`, seed: seed.toString(), tier: Number(seed % 5n), level: 1 + Number(seed % 10n), traits: drawTraits(subRng(seed, 'traits')) as unknown as Record<string, string> };
+    });
+    return { ...b, relics };
+  });
+  return [...single, ...mixes, ...random];
 }
 
 function capsHold(build: Build): void {
@@ -113,6 +146,17 @@ describe('combinaciones en una multitud (CI)', () => {
     const median = [...dps].sort((a, b) => a - b)[Math.floor(dps.length / 2)]!;
     for (const d of dps) expect(d).toBeLessThanOrEqual(RANDOM_SPREAD * median);
     for (const d of [...dps, ...top]) expect(d).toBeLessThanOrEqual(CROWD_DPS_CEILING);
+  }, 300_000);
+});
+
+describe('todas las ranuras abiertas (CI, M4c-1)', () => {
+  test('seis reliquias, de una familia, mezcladas o al azar: bajo su techo en los anillos y en la multitud, y nadie rompe un tope', () => {
+    const builds = sixSlotBuilds();
+    for (const b of builds) {
+      expect(proving(DEFAULT_CONTENT, b, 60)).toBeLessThanOrEqual(SIX_SLOT_DPS_CEILING);
+      expect(crowd(DEFAULT_CONTENT, b, 30)).toBeLessThanOrEqual(SIX_SLOT_CROWD_CEILING);
+      capsHold(b);
+    }
   }, 300_000);
 });
 
