@@ -5,6 +5,7 @@ import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
+import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
 import { xpFor } from './systems/xp';
 import { IDLE, type ProbeInput, type ProbeState, type Sim, type SimOptions } from './types';
 import { SpatialGrid } from './world/grid';
@@ -163,6 +164,9 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   updateEnemies(sim, relocate);
   updateFoeShots(sim);
   rebuildGrid(sim);
+  for (const p of sim.probes) fireWeapons(sim, p);
+  updateShots(sim);
+  updateAreas(sim);
   contactDamage(sim, maxEnemyRadius(sim));
   updatePickups(sim);
   if (sim.status === 'running') openChoices(sim);

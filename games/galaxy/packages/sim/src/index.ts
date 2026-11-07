@@ -33,3 +33,16 @@ export {
 export { direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { hurtProbe, PROBE_RADIUS } from './systems/probes';
+export {
+  AREA,
+  fireWeapons,
+  hitArea,
+  nearestEnemies,
+  SHOT,
+  shotHooks,
+  spawnArea,
+  spawnShot,
+  updateAreas,
+  updateShots,
+  weaponDef,
+} from './systems/weapons';
