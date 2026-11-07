@@ -1,4 +1,4 @@
-import type { Content, SectorDef, WeaponLevel } from './types';
+import type { Content, ElementId, SectorDef, WeaponDef, WeaponLevel } from './types';
 
 // The default run content of M3a (plan «Valores de partida»): the Outer Nebula sector, its fauna and boss, the Lumen
 // probe, 7 weapons, 8 passives, the 11 elements and the relic tuning. Every number is a starting value, calibrated by
@@ -1368,3 +1368,74 @@ export const DEFAULT_CONTENT: Content = {
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300 },
 };
+
+/**
+ * Starting-weapon variants (GDD §6, M4b-1 plan Task 1): sidegrades of each probe's weapon, unlocked at probe levels 4
+ * and 8. They copy their base's levels and change one thing: one more shot carrying the same total damage less 5 %
+ * (`twin`), a wider reach for a slower or softer hit, more bounces or pierce, or an element for a softer hit. Until the
+ * M4b-1 art task each variant showed its base's icon; now each has its own `icon-<id>` (apps/web arena/sprites/icons.ts).
+ */
+interface VariantSpec {
+  id: string;
+  name: string;
+  description: string;
+  unlockAt: 4 | 8;
+  twin?: true;
+  element?: ElementId;
+  damage?: number;
+  cooldown?: number;
+  /** The fire interval of what a weapon places (turrets fire every `interval`; their cooldown only re-places them). */
+  interval?: number;
+  area?: number;
+  bounces?: number;
+  pierce?: number;
+}
+
+function variantOf(base: WeaponDef, s: VariantSpec): WeaponDef {
+  const levels = base.levels.map((l) => {
+    const count = Math.max(l.count, 1);
+    const twin = s.twin ? (count / (count + 1)) * 0.95 : 1;
+    return {
+      ...l,
+      damage: l.damage * twin * (s.damage ?? 1),
+      cooldown: l.cooldown * (s.cooldown ?? 1),
+      interval: l.interval * (s.interval ?? 1),
+      count: s.twin ? count + 1 : l.count,
+      area: l.area * (s.area ?? 1),
+      bounces: l.bounces + (s.bounces ?? 0),
+      pierce: l.pierce + (s.pierce ?? 0),
+    };
+  });
+  return {
+    id: s.id,
+    name: s.name,
+    kind: base.kind,
+    icon: `icon-${s.id}`,
+    description: s.description,
+    levels,
+    element: s.element ?? base.element ?? null,
+    special: base.special ?? null,
+    variant: { of: base.id, unlockAt: s.unlockAt },
+  };
+}
+
+const VARIANTS: [string, VariantSpec][] = [
+  ['pulse', { id: 'pulse-twin', name: 'Pulso doble', description: 'Dos rayos a la vez, cada uno más flojo', unlockAt: 4, twin: true }],
+  ['pulse', { id: 'pulse-frost', name: 'Pulso gélido', description: 'Cada rayo ralentiza lo que toca', unlockAt: 8, element: 'slow', damage: 0.85 }],
+  ['nova', { id: 'nova-wide', name: 'Onda amplia', description: 'Llega más lejos, más flojo y más despacio', unlockAt: 4, area: 1.35, cooldown: 1.2, damage: 0.7 }],
+  ['nova', { id: 'nova-ember', name: 'Onda ígnea', description: 'La onda deja ardiendo a quien alcanza', unlockAt: 8, element: 'burn', damage: 0.85 }],
+  ['arc', { id: 'arc-chain', name: 'Arco encadenado', description: 'Salta a dos enemigos más, con menos fuerza', unlockAt: 4, bounces: 2, damage: 0.75 }],
+  ['arc', { id: 'arc-shock', name: 'Arco eléctrico', description: 'Cada salto electrocuta', unlockAt: 8, element: 'shock', damage: 0.85 }],
+  ['drone', { id: 'drone-pair', name: 'Dron doble', description: 'Dos drones que se reparten el daño', unlockAt: 4, twin: true }],
+  ['drone', { id: 'drone-leech', name: 'Dron vampiro', description: 'Sus disparos te devuelven vida', unlockAt: 8, element: 'leech', damage: 0.85 }],
+  ['field', { id: 'field-wide', name: 'Pozo amplio', description: 'Atrapa una zona mayor, con menos fuerza', unlockAt: 4, area: 1.3, damage: 0.8 }],
+  ['field', { id: 'field-corrosion', name: 'Pozo corrosivo', description: 'Corroe el blindaje de lo que atrapa', unlockAt: 8, element: 'corrosion', damage: 0.85 }],
+  ['beam', { id: 'beam-split', name: 'Rayo partido', description: 'Dos rayos a dos enemigos distintos, cada uno más flojo', unlockAt: 4, twin: true }],
+  ['beam', { id: 'beam-prism', name: 'Rayo prismático', description: 'Cambia de elemento a cada golpe', unlockAt: 8, element: 'prism', damage: 0.85 }],
+  ['boomerang', { id: 'boomerang-twin', name: 'Disco gemelo', description: 'Dos discos que se reparten el daño', unlockAt: 4, twin: true }],
+  ['boomerang', { id: 'boomerang-breach', name: 'Disco de brecha', description: 'Cada corte abre brechas en el blindaje', unlockAt: 8, element: 'breach', damage: 0.85 }],
+  ['turret', { id: 'turret-rapid', name: 'Torreta rápida', description: 'Dispara más a menudo, más flojo', unlockAt: 4, interval: 0.65, damage: 0.65 }],
+  ['turret', { id: 'turret-hack', name: 'Torreta pirata', description: 'Sus disparos hackean a los enemigos', unlockAt: 8, element: 'hack', damage: 0.85 }],
+];
+
+DEFAULT_CONTENT.weapons.push(...VARIANTS.map(([of, s]) => variantOf(DEFAULT_CONTENT.weapons.find((w) => w.id === of)!, s)));

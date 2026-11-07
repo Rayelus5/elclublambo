@@ -2,6 +2,8 @@ import {
   finishRunRequestSchema,
   loadoutRequestSchema,
   probeChoiceSchema,
+  probeLevelUpSchema,
+  probeVariantSchema,
   probeTestRequestSchema,
   sectorChoiceSchema,
   startRunRequestSchema,
@@ -18,6 +20,7 @@ import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { hangarView, type RunsDeps, setLoadout } from './hangar';
+import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
@@ -29,6 +32,8 @@ const FINISH_BODY_LIMIT = 3 * 1024 * 1024;
 async function requireRuns(deps: RunsDeps): Promise<void> {
   if (!(await deps.config.get('features')).runs) throw new HttpError(503, 'runs_disabled');
 }
+
+const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 
 export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
@@ -64,6 +69,25 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     return chooseProbe(deps, s.accountId, body);
   });
 
+  // Probe levels and starting weapons (M4b-1): the session first, then the body; buying a level is an idempotent
+  // operation, choosing the weapon a plain update.
+  api.post('/galaxy/api/hangar/probes/:id/level-up', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const { id } = probeParam.parse(req.params);
+    const body = probeLevelUpSchema.parse(req.body);
+    const key = idempotencyKey(req);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_level', 60, 60);
+    return runOperation(deps.db, s.accountId, key, 'hangar.level', requestHash({ id, ...body }), (trx) => levelUpProbe(deps, trx, s.accountId, id, body.level, key));
+  });
+
+  api.put('/galaxy/api/hangar/probes/:id/variant', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const { id } = probeParam.parse(req.params);
+    const body = probeVariantSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_variant', 60, 60);
+    return chooseVariant(deps, s.accountId, id, body.variant);
+  });
+
   api.post('/galaxy/api/runs', async (req): Promise<RunStart> => {
     const s = requireSession(req);
     const key = idempotencyKey(req);
@@ -73,9 +97,10 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_start', runs.startPerHour, 3600);
     const { value: content, version: contentVersion } = await deps.config.getVersioned('content');
     const sectors = await deps.config.get('sectors');
+    const probes = await deps.config.get('probes');
     const now = deps.now();
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes }),
     );
   });
 

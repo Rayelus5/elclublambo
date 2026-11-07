@@ -42,6 +42,39 @@ export function useChooseProbe() {
   });
 }
 
+/**
+ * Buys the probe's next level (GDD §6, M4b-1), naming it: the intent's key travels with the level, so a retry of a lost
+ * answer reuses it and a stale view never buys the one after. The wallet (components, coins) is refreshed.
+ */
+export function useLevelUpProbe() {
+  const qc = useQueryClient();
+  const intent = (v: { probe: string; level: number }) => `hangar:level:${v.probe}:${v.level}`;
+  return useMutation({
+    mutationFn: (v: { probe: string; level: number }) =>
+      api<HangarView>(`/hangar/probes/${v.probe}/level-up`, { method: 'POST', body: { level: v.level }, headers: keyFor(intent(v)) }),
+    onSuccess: (view) => {
+      qc.setQueryData(HANGAR_KEY, view);
+      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+    },
+    // A refusal (another tab levelled it, the wallet changed) brings the real level and balance, so the next click is right.
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: HANGAR_KEY });
+      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+    },
+    onSettled: (_r, error, v) => endIntent(intent(v), error),
+  });
+}
+
+/** The probe's starting weapon: its base or a variant its level opens. */
+export function useChooseVariant() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { probe: string; variant: string }) => api<HangarView>(`/hangar/probes/${v.probe}/variant`, { method: 'PUT', body: { variant: v.variant } }),
+    onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+    onError: () => void qc.invalidateQueries({ queryKey: HANGAR_KEY }),
+  });
+}
+
 /** The probe test, sent once at the end (GDD §6). The hangar is refreshed: it now has its probe. */
 export function useProbeTest() {
   const qc = useQueryClient();

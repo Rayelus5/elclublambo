@@ -347,6 +347,17 @@ export const copy = {
     hp: 'Vida',
     speed: 'Velocidad',
     weapon: 'Arma inicial',
+    // Probe levels and the starting weapon (GDD §6, M4b-1).
+    level: (n: number, max: number) => `Nivel ${n} de ${max}`,
+    levelUp: (n: number) => `Subir a nivel ${n}`,
+    levelMax: 'Nivel máximo',
+    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
+    bonuses: (list: readonly { stat: string; value: number }[]) => {
+      const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
+      return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
+    },
+    startingWeapon: 'Arma inicial',
+    variantLocked: (n: number) => `Se abre en el nivel ${n}`,
     relics: 'Reliquias',
     relicsHelp: 'Las galaxias equipadas te dan sus poderes en la incursión',
     sets: 'Conjuntos',
@@ -597,6 +608,9 @@ export const copy = {
     bad_inputs: 'La grabación de la incursión llegó dañada',
     tiebreak_required: 'Hay un empate: contesta la última pregunta',
     probe_locked: 'Esa sonda todavía no es tuya. Mira qué hace falta para conseguirla',
+    probe_changed: 'Esa sonda ya había cambiado de nivel. Míralo y vuelve a intentarlo',
+    probe_maxed: 'Esa sonda ya está al nivel máximo',
+    variant_locked: 'Esa variante se abre en un nivel más alto',
     probe_test_required: 'Antes de salir, haz el test de la sonda',
     refinery_full: 'La refinería no tiene sitio para tanto. Recoge o mejórala',
     room_maxed: 'Esa sala ya está al máximo',

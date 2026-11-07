@@ -1,3 +1,4 @@
+import type { StatBonus } from './systems/stats';
 import type { Content, ElementId, ProbeDef, SectorDef } from './content/types';
 import type { SimEvent } from './events';
 import type { Rng } from './math/rng';
@@ -33,7 +34,11 @@ export interface SimOptions {
   seed: string;
   content: Content;
   sector: string;
-  probes: { probe: string; relics: RelicInput[] }[];
+  /**
+   * Each probe with its relics, its level's bonuses (one more stat source, GDD §6) and the starting-weapon variant it
+   * chose (null or absent: the base weapon). The server snapshots all three at the start of the run.
+   */
+  probes: { probe: string; relics: RelicInput[]; bonuses?: StatBonus[]; variant?: string | null }[];
   /** Keep the input log for replays (GDD §5.7). */
   record?: boolean;
 }
@@ -112,6 +117,8 @@ export interface ProbeState {
   weapons: OwnedWeapon[];
   passives: { id: string; level: number }[];
   relics: RelicInput[];
+  /** Bonuses from outside the run (probe level, later the lab): one more stat source. */
+  upgrades: StatBonus[];
   offer: Offer[] | null;
   pendingLevels: number;
   stats: Stats;

@@ -1,3 +1,4 @@
+import { simOptions } from './sim-options';
 import type { RunStart } from '@galaxy/shared';
 import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSummary, type RunSummary, type Sim, type SimEvent, step, toBase64 } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -52,9 +53,7 @@ export function ArenaScreen({
   clock?: Clock;
   onSim?: (sim: Sim) => void;
 }) {
-  const [sim] = useState(() =>
-    createSim({ seed: run.seed, content: run.content, sector: run.sector, probes: [{ probe: run.probe, relics: run.relics }], record: true }),
-  );
+  const [sim] = useState(() => createSim(simOptions(run)));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const loopRef = useRef<Loop | null>(null);

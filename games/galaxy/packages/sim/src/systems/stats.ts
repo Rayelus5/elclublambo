@@ -24,6 +24,7 @@ function contributions(sim: Sim, p: ProbeState): Record<StatKey, number[]> {
     if (v !== undefined) c[def.stat].push(v);
   }
   for (const b of relicHooks.bonuses(sim, p)) c[b.stat].push(b.value);
+  for (const b of p.upgrades) c[b.stat].push(b.value);
   const burn = quirkSpeed(p);
   if (burn > 0) c.speed.push(burn);
   return c;

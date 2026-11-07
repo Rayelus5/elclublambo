@@ -1,5 +1,6 @@
 import type { GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { levelOne } from '../probe-cards';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -29,7 +30,7 @@ const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record
 const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
   const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
   const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
-  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...over };
+  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
 };
 
 const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
@@ -64,7 +65,8 @@ const view: HangarView = {
   // The season chosen: its long name wraps beside the check (seen on PRE).
   sector: 'signal-rift',
   probes: [
-    card('lumen', { unlocked: true, progress: 1 }),
+    // Lumen at level 4 with the double pulse chosen (M4b-1).
+    card('lumen', { unlocked: true, progress: 1, ...levelOne(DEFAULT_CONTENT.probes.find((x) => x.id === 'lumen')!, 4, 'pulse-twin') }),
     card('bastion', { unlocked: true, condition: { stat: 'runs', value: 3 }, progress: 1 }),
     card('spark', { condition: { stat: 'runs', value: 3 }, progress: 1 / 3 }),
     card('sentinel', { condition: { stat: 'bossKills', value: 3 }, progress: 0 }),
@@ -117,7 +119,7 @@ function mount(el: ReturnType<typeof createElement>): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
-      const body = url.endsWith('/hangar') ? view : url.endsWith('/gacha') ? { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11 } } : {};
+      const body = url.endsWith('/hangar') ? view : url.endsWith('/gacha') ? { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } } : {};
       return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
     }),
   );

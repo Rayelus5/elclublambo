@@ -12,7 +12,7 @@ export { SpatialGrid } from './world/grid';
 export { createPool, type Pool } from './world/pool';
 export * from './world/pools';
 export { deriveStats, refreshStats, relicHooks, type StatBonus } from './systems/stats';
-export { applyOffer, evolutionsFor, offerFor } from './systems/upgrades';
+export { applyOffer, baseOf, evolutionsFor, offerFor } from './systems/upgrades';
 export { gainXp, xpFor } from './systems/xp';
 export { dealDamage, killEnemy } from './systems/combat';
 export {

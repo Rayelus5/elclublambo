@@ -64,6 +64,9 @@ export function createSim(opts: SimOptions): Sim {
   sim.probes = opts.probes.map((setup, index) => {
     const def = content.probes.find((p) => p.id === setup.probe);
     if (!def) throw new RangeError('unknown_probe:' + setup.probe);
+    // The starting weapon: the base, or one of its variants (the server checked the level that unlocks it).
+    const variant = setup.variant ?? null;
+    if (variant !== null && content.weapons.find((w) => w.id === variant)?.variant?.of !== def.weapon) throw new RangeError('bad_variant:' + variant);
     const x = (index - (n - 1) / 2) * SPACING;
     const p: ProbeState = {
       index,
@@ -81,9 +84,10 @@ export function createSim(opts: SimOptions): Sim {
       level: 1,
       xp: 0,
       xpNext: xpFor(sim, 1),
-      weapons: [{ id: def.weapon, level: 1, t: 0 }],
+      weapons: [{ id: variant ?? def.weapon, level: 1, t: 0 }],
       passives: [],
       relics: setup.relics,
+      upgrades: setup.bonuses ?? [],
       offer: null,
       pendingLevels: 0,
       stats: { maxHp: def.hp } as ProbeState['stats'],

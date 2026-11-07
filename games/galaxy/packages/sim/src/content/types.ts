@@ -106,6 +106,11 @@ export interface WeaponDef {
    * relic with the element. It takes the base weapon's slot and is never offered as a new weapon.
    */
   evolution?: { from: string; requires: { passive: string } | { element: ElementId } };
+  /**
+   * A starting-weapon variant (GDD §6, M4b-1): a sidegrade of a base weapon that its probe unlocks at level 4 or 8 and
+   * may start the run with. Never offered as a new weapon; it evolves into its base's evolution.
+   */
+  variant?: { of: string; unlockAt: 4 | 8 };
 }
 
 export interface PassiveDef {

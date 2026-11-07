@@ -1,4 +1,4 @@
-import type { Content, Quirk, RelicInput } from '@galaxy/sim';
+import type { Content, Quirk, RelicInput, StatBonus } from '@galaxy/sim';
 import { z } from 'zod';
 import type { GalaxySummary } from './economy';
 import type { ProbeCondition } from '../probes/unlocks';
@@ -92,7 +92,36 @@ export interface ProbeCard {
   condition: ProbeCondition | null;
   /** 0–1 towards the condition. */
   progress: number;
+  /** Its level (GDD §6, M4b-1), 1–maxLevel, and what reaching the next costs (null at the top). */
+  level: number;
+  maxLevel: number;
+  next: { components: number; coins: number } | null;
+  /** What its level adds to its stats. */
+  bonuses: StatBonus[];
+  /** The weapon it would start with: its base or the chosen variant (if its level still opens it). */
+  variant: string;
+  /** The base weapon first, then its variants. */
+  variants: ProbeVariantCard[];
 }
+
+/** One starting weapon in the Hangar's picker. */
+export interface ProbeVariantCard {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  /** The probe level that opens it (1 for the base). */
+  unlockAt: number;
+  unlocked: boolean;
+  element: string | null;
+}
+
+/** A probe's next level, named so a stale view never buys the one after (M4b-1). */
+export const probeLevelUpSchema = z.object({ level: z.number().int().min(2).max(20) }).strict();
+export type ProbeLevelUp = z.infer<typeof probeLevelUpSchema>;
+/** The starting weapon: the base or one of its variants. */
+export const probeVariantSchema = z.object({ variant: contentId }).strict();
+export type ProbeVariantChoice = z.infer<typeof probeVariantSchema>;
 
 export interface DailyView {
   playedSeconds: number;
@@ -126,6 +155,9 @@ export interface RunStart {
   sector: string;
   probe: string;
   relics: RelicInput[];
+  /** The probe level's stat bonuses and the starting-weapon variant (null: the base), snapshotted at the start. */
+  bonuses: StatBonus[];
+  variant: string | null;
   content: Content;
   contentVersion: number;
   startedAt: string;

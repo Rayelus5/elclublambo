@@ -124,6 +124,21 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    La Refinería y la Antena avanzan solas en el tiempo del servidor (se calculan al pedir la vista), así que no hay nada que programar.
 
+10. **Desde M4b-1 (niveles de sonda y variantes):** la migración `20261107151557_galaxy_probe_levels` crea `galaxy.probe_levels`, con el nivel y el arma inicial elegida de cada sonda de cada cuenta, y `galaxy.runs.upgrades`, con la foto de bonos y variante con la que sale cada incursión. Llegan además:
+   - cada sonda sube del nivel 1 al 10 en el Hangar con componentes y monedas (20 y 300 para el nivel 2, … 400 y 8000 para el 10). Cada nivel da +3 % de vida y +2 % de daño, con rendimiento decreciente y topes;
+   - en los niveles 4 y 8 se abren dos variantes de su arma inicial (doble, amplia, en cadena, rápida o con elemento), con su escena pintada en Aseprite en el Hangar y su icono en la incursión (`SIM_VERSION` 1.4.0);
+   - la clave `probes.levels` de la configuración viva (`perLevel` y `costs`), que se ajusta sin desplegar.
+
+   Comprueba con una cuenta de prueba nueva:
+   - el Hangar enseña «Nivel 1 de 10», «Subir a nivel 2» con su coste y los componentes en el saldo;
+   - con `grant <usuario> components 115 --reason "probar niveles"` y `grant <usuario> coins 1900 --reason "probar niveles"` sube al 4, y «Arma inicial» deja elegir la variante del nivel 4 (la del 8 dice «Se abre en el nivel 8»);
+   - la incursión sale con esa arma;
+   - sin violaciones de CSP.
+
+   Las cuentas de antes no tienen filas: salen en el nivel 1 con su arma base.
+
+   Si alguien hubiera guardado la clave `content` con el esquema de M4a, sigue validando (`variant` es opcional), pero no traería las 16 variantes: los niveles 4 y 8 no abrirían nada y no saldría ningún aviso. Mira si `galaxy.game_config_active` tiene una versión de `content` y, si la tiene, vuelve a publicarla desde el valor por defecto.
+
 ## Operación
 
 | Tarea | Cómo |
