@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DEFAULT_CONTENT } from './default';
 import {
+  BIOMES,
   type Content,
   ELEMENT_IDS,
   ENEMY_FAMILIES,
@@ -139,6 +140,11 @@ const bossPattern = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('spiral'), duration: pos, every: pos, step: n, speed: n, damage: n }).strict(),
   z.object({ kind: z.literal('summon'), enemy: id, count: z.number().int().min(1).max(64) }).strict(),
   z.object({ kind: z.literal('charge'), windup: n, dashSpeed: n, dashTime: n, damage: n }).strict(),
+  z.object({ kind: z.literal('wall'), count: z.number().int().min(1).max(128), gap: z.number().min(0).max(300), speed: n, damage: n }).strict(),
+  z
+    .object({ kind: z.literal('mines'), count: z.number().int().min(1).max(16), spread: n, radius: pos, delay: pos, damage: n })
+    .strict(),
+  z.object({ kind: z.literal('blink'), offset: n, windup: pos, count: z.number().int().min(0).max(128), speed: n, damage: n }).strict(),
 ]);
 
 const boss = z
@@ -165,8 +171,11 @@ const sector = z
     id,
     name,
     description: text,
-    biome: z.literal('nebula'),
+    biome: z.enum(BIOMES),
     boss: id,
+    // Defaults keep a content published before M3b-3 valid.
+    deepBoss: z.object({ boss: id, every: z.number().int().min(2).max(100) }).strict().nullable().default(null),
+    season: z.boolean().default(false),
     layerSeconds: pos,
     beacon: z.object({ seconds: pos, hold: pos, radius: pos, distance: n }).strict(),
     spawns: z
@@ -440,6 +449,7 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   sets(c, ctx);
   c.sectors.forEach((s, i) => {
     ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
+    if (s.deepBoss) ref(ctx, bosses, s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
     s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
     s.waves.forEach((w, j) => ref(ctx, enemies, w.enemy, ['sectors', i, 'waves', j, 'enemy']));
   });

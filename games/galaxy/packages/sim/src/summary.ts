@@ -82,6 +82,11 @@ export function stateHash(sim: Sim): string {
     h.num(l.coins);
     h.num(l.dust);
   }
+  for (const b of sim.blasts) {
+    h.num(b.x);
+    h.num(b.y);
+    h.num(b.at);
+  }
   if (sim.beacon) {
     h.num(sim.beacon.t);
     h.num(sim.beacon.hold);

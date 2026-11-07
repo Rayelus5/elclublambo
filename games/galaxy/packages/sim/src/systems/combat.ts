@@ -5,6 +5,7 @@ import { curseOf, scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { onBossDown } from './layers';
+import { bossAway } from './boss';
 import { react } from './reactions';
 import { dropPickup } from './pickups';
 import { onKill } from './quirks';
@@ -20,7 +21,7 @@ export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: nu
 /** Deals `amount` to enemy `e`; returns the damage done (shield included). Kills it at 0 life. */
 export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource): number {
   const en = sim.enemies;
-  if (!en.alive[e] || en.fuseT[e]! > 0 || !(amount > 0)) return 0;
+  if (!en.alive[e] || en.fuseT[e]! > 0 || !(amount > 0) || bossAway(sim, e)) return 0;
   const p = sim.probes[src.probe];
   const element = resolveElement(sim, src);
   let dmg = amount;

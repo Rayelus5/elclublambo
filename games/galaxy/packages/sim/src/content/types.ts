@@ -69,6 +69,10 @@ export const PHENOMENON_IDS = [
 export type PhenomenonId = (typeof PHENOMENON_IDS)[number];
 
 export const ENEMY_FAMILIES = ['swarm', 'charger', 'shooter', 'splitter', 'armored', 'healer', 'summoner'] as const;
+
+/** The look of a sector's ground (GDD §5.5): drawn by the arena, no collision. */
+export const BIOMES = ['nebula', 'ice', 'reef', 'forge', 'rift'] as const;
+export type BiomeId = (typeof BIOMES)[number];
 export type EnemyFamily = (typeof ENEMY_FAMILIES)[number];
 
 /** One level of a weapon. Fields a weapon kind does not use are 0. */
@@ -184,7 +188,13 @@ export type BossPattern =
   | { kind: 'aimed'; count: number; spread: number; speed: number; damage: number }
   | { kind: 'spiral'; duration: number; every: number; step: number; speed: number; damage: number }
   | { kind: 'summon'; enemy: string; count: number }
-  | { kind: 'charge'; windup: number; dashSpeed: number; dashTime: number; damage: number };
+  | { kind: 'charge'; windup: number; dashSpeed: number; dashTime: number; damage: number }
+  /** A ring of `count` with a `gap` ° hole in a random direction. */
+  | { kind: 'wall'; count: number; gap: number; speed: number; damage: number }
+  /** `count` warned blasts within `spread` u of the probe, exploding after `delay` s. */
+  | { kind: 'mines'; count: number; spread: number; radius: number; delay: number; damage: number }
+  /** Vanishes for `windup` s and comes back `offset` u from the probe with a ring of `count`. */
+  | { kind: 'blink'; offset: number; windup: number; count: number; speed: number; damage: number };
 
 export interface BossPhase {
   /** The phase starts when life falls to this fraction (the first phase: 1). */
@@ -213,8 +223,12 @@ export interface SectorDef {
   id: string;
   name: string;
   description: string;
-  biome: 'nebula';
+  biome: BiomeId;
   boss: string;
+  /** Every `every` layers (4, 8…) this Core comes instead of `boss` (null: never). */
+  deepBoss: { boss: string; every: number } | null;
+  /** A season sector (GDD §13.1): open only while it is the live config's season. */
+  season: boolean;
   layerSeconds: number;
   beacon: { seconds: number; hold: number; radius: number; distance: number };
   /** `from`: second of layer 1 from which the species appears (from layer 2 on, all appear from the start). */

@@ -595,6 +595,8 @@ export const DEFAULT_CONTENT: Content = {
       description: 'El borde de la Nebulosa ElClub, el primero que devoró la Estática. Fauna rápida y en enjambre',
       biome: 'nebula',
       boss: 'hive',
+      deepBoss: null,
+      season: false,
       layerSeconds: 300,
       beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
       spawns: [

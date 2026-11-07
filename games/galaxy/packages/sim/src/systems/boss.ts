@@ -3,7 +3,7 @@ import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { Sim } from '../types';
 import { ticks } from '../version';
 import { scaleAt } from './director';
-import { fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
+import { angleDiff, fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
 import { hurtProbe, PROBE_RADIUS } from './probes';
 
 // The Static Core (GDD §5.5): a boss with phases that change with its life, and a cycle of patterns that are always
@@ -11,8 +11,16 @@ import { hurtProbe, PROBE_RADIUS } from './probes';
 
 const SPAWN_DISTANCE = 260;
 
+/** The Core of the current layer: the sector's, or its deep Core every `every` layers (GDD §5.5). */
 export function bossDef(sim: Sim): BossDef | undefined {
-  return sim.content.bosses.find((b) => b.id === sim.sector.boss);
+  const deep = sim.sector.deepBoss;
+  const id = deep && sim.layer % deep.every === 0 ? deep.boss : sim.sector.boss;
+  return sim.content.bosses.find((b) => b.id === id);
+}
+
+/** True while the Core is away in a blink: it neither takes nor deals damage. */
+export function bossAway(sim: Sim, e: number): boolean {
+  return sim.boss !== null && sim.boss.index === e && sim.boss.active?.kind === 'blink';
 }
 
 /** Damage multiplier of the boss in the current layer. */
@@ -87,6 +95,40 @@ function fire(sim: Sim, def: BossDef, p: BossPattern): void {
       b.active = { kind: 'windup', t: ticks(p.windup), a: aim };
       sim.events.push({ t: 'telegraph', kind: 'charge', x, y, angle: aim, ticks: ticks(p.windup), radius: p.dashSpeed * p.dashTime });
       return;
+    case 'wall': {
+      // A ring with a hole somewhere: the way out is there, not behind.
+      const hole = sim.rng.ai.int(ANGLE_STEPS);
+      const half = degToSteps(p.gap) / 2;
+      for (let k = 0; k < p.count; k++) {
+        const a = aim + Math.round((k * ANGLE_STEPS) / p.count);
+        if (Math.abs(angleDiff(a, hole)) <= half) continue;
+        fireFoeBullet(sim, x, y, a, p.speed, p.damage * dmg);
+      }
+      return;
+    }
+    case 'mines': {
+      if (!target) return;
+      const at = sim.tick + ticks(p.delay);
+      for (let k = 0; k < p.count; k++) {
+        const a = sim.rng.ai.int(ANGLE_STEPS);
+        // Uniform over the disc: the square root keeps them from crowding the centre.
+        const r = p.spread * Math.sqrt(sim.rng.ai.float());
+        const mx = target.x + cosA(a) * r;
+        const my = target.y + sinA(a) * r;
+        sim.blasts.push({ x: mx, y: my, radius: p.radius, damage: p.damage * dmg, at });
+        sim.events.push({ t: 'telegraph', kind: 'explode', x: mx, y: my, angle: 0, ticks: ticks(p.delay), radius: p.radius });
+      }
+      return;
+    }
+    case 'blink': {
+      const centre = target ?? { x, y };
+      const a = sim.rng.ai.int(ANGLE_STEPS);
+      en.tx[b.index] = centre.x + cosA(a) * p.offset;
+      en.ty[b.index] = centre.y + sinA(a) * p.offset;
+      b.active = { kind: 'blink', t: ticks(p.windup), a };
+      sim.events.push({ t: 'telegraph', kind: 'blink', x: en.tx[b.index]!, y: en.ty[b.index]!, angle: a, ticks: ticks(p.windup), radius: en.radius[b.index]! });
+      return;
+    }
   }
 }
 
@@ -108,6 +150,20 @@ function runActive(sim: Sim, def: BossDef): boolean {
     }
     if (act.t <= 0) b.active = null;
     return false;
+  }
+  if (act.kind === 'blink' && p.kind === 'blink') {
+    if (act.t > 0) return true;
+    const fx = en.x[e]!;
+    const fy = en.y[e]!;
+    en.x[e] = en.tx[e]!;
+    en.y[e] = en.ty[e]!;
+    en.px[e] = en.x[e]!;
+    en.py[e] = en.y[e]!;
+    b.active = null;
+    sim.events.push({ t: 'blink', fx, fy, tx: en.x[e]!, ty: en.y[e]! });
+    const dmg = layerDamage(sim, def);
+    for (let k = 0; k < p.count; k++) fireFoeBullet(sim, en.x[e]!, en.y[e]!, act.a + Math.round((k * ANGLE_STEPS) / p.count), p.speed, p.damage * dmg);
+    return true;
   }
   if (act.kind === 'windup' && p.kind === 'charge') {
     if (act.t <= 0) b.active = { kind: 'dash', t: ticks(p.dashTime), a: act.a };

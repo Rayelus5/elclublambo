@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { angleTo, dealDamage, IDLE, type Sim, step } from '../src/index';
+import { angleTo, type BossPattern, type Content, contentSchema, dealDamage, DEFAULT_CONTENT, degToSteps, IDLE, nextLayer, type Sim, stateHash, step, ticks } from '../src/index';
 import { quietSim } from './fixtures';
 
 // The Static Core (GDD §5.5): phases that change with its life and patterns that are always announced first.
@@ -114,4 +114,158 @@ describe('patrones', () => {
     expect(shots).toBeGreaterThanOrEqual(30);
     expect(shots).toBeLessThanOrEqual(33);
   });
+});
+
+/** A boss whose only phase repeats `pattern` every second (telegraph 0.5 s), almost still; spawned and returned. */
+function withPattern(pattern: BossPattern, over?: (c: Content) => void): Sim {
+  const sim = quietSim((c) => {
+    c.sectors[0]!.layerSeconds = 1;
+    c.bosses[0]!.phases = [{ below: 1, interval: 1, telegraph: 0.5, speed: 0.01, patterns: [pattern] }];
+    over?.(c);
+  });
+  sim.probes[0]!.hp = 1e9;
+  sim.rng.combat.chance = () => false;
+  for (let i = 0; i < 70 && !sim.boss; i++) step(sim, [IDLE]);
+  return sim;
+}
+/** Steps until the boss fires its pattern once (or 3 s). */
+function untilFired(sim: Sim, fired: (s: Sim) => boolean): void {
+  for (let t = 0; t < 3 * 60 && !fired(sim); t++) step(sim, [IDLE]);
+}
+
+describe('patrones nuevos', () => {
+  test('wall: un anillo con un hueco sin balas de al menos `gap` grados', () => {
+    const sim = withPattern({ kind: 'wall', count: 24, gap: 60, speed: 100, damage: 8 });
+    untilFired(sim, (s) => bullets(s).length > 0);
+    const angles = bullets(sim)
+      .map((i) => angleTo(sim.foeShots.vx[i]!, sim.foeShots.vy[i]!))
+      .sort((a, b) => a - b);
+    expect(angles.length).toBeLessThan(24);
+    expect(angles.length).toBeGreaterThanOrEqual(18);
+    const gaps = angles.map((a, k) => (k === 0 ? a + 4096 - angles[angles.length - 1]! : a - angles[k - 1]!));
+    expect(Math.max(...gaps)).toBeGreaterThanOrEqual(degToSteps(60) * 0.95);
+  });
+
+  test('mines: avisa con círculos cerca de la sonda y no hace daño antes de su retardo', () => {
+    const sim = withPattern({ kind: 'mines', count: 3, spread: 60, radius: 30, delay: 1, damage: 20 });
+    untilFired(sim, (s) => s.blasts.length > 0);
+    expect(sim.blasts).toHaveLength(3);
+    expect(sim.events.filter((e) => e.t === 'telegraph' && e.kind === 'explode')).toHaveLength(3);
+    const p = sim.probes[0]!;
+    for (const m of sim.blasts) expect(Math.hypot(m.x - p.x, m.y - p.y)).toBeLessThanOrEqual(60 + 1e-6);
+    const hp = p.hp;
+    for (let t = 0; t < ticks(1) - 2; t++) step(sim, [IDLE]);
+    expect(p.hp).toBe(hp);
+  });
+
+  test('mines: al explotar hiere dentro de su radio, no fuera, y desaparecen', () => {
+    // Delay 0.5 s: they go off before the boss lays the next ones (every 1 s).
+    const inside = withPattern({ kind: 'mines', count: 2, spread: 0, radius: 30, delay: 0.5, damage: 20 });
+    untilFired(inside, (s) => s.blasts.length > 0);
+    const hp = inside.probes[0]!.hp;
+    let blasted = false;
+    for (let t = 0; t < ticks(0.5) + 2; t++) {
+      step(inside, [IDLE]);
+      blasted ||= inside.events.some((e) => e.t === 'blast');
+    }
+    expect(blasted).toBe(true);
+    expect(inside.probes[0]!.hp).toBeLessThan(hp);
+    expect(inside.blasts).toHaveLength(0);
+
+    const outside = withPattern({ kind: 'mines', count: 2, spread: 0, radius: 30, delay: 0.5, damage: 20 });
+    untilFired(outside, (s) => s.blasts.length > 0);
+    const p = outside.probes[0]!;
+    p.x += 500;
+    const before = p.hp;
+    for (let t = 0; t < ticks(0.5) + 2; t++) step(outside, [IDLE]);
+    expect(p.hp).toBe(before);
+  });
+
+  test('blink: desaparece sin recibir daño, reaparece junto a la sonda y suelta un anillo', () => {
+    const sim = withPattern({ kind: 'blink', offset: 100, windup: 0.5, count: 12, speed: 100, damage: 8 });
+    const b = sim.boss!;
+    untilFired(sim, (s) => s.events.some((e) => e.t === 'telegraph' && e.kind === 'blink'));
+    expect(sim.boss!.active?.kind).toBe('blink');
+    const hp = sim.enemies.hp[b.index]!;
+    expect(dealDamage(sim, b.index, 100, src)).toBe(0);
+    expect(sim.enemies.hp[b.index]).toBe(hp);
+    let landed = false;
+    for (let t = 0; t < ticks(0.5) + 2 && !landed; t++) {
+      step(sim, [IDLE]);
+      landed = sim.events.some((e) => e.t === 'blink');
+    }
+    expect(landed).toBe(true);
+    const p = sim.probes[0]!;
+    expect(Math.hypot(sim.enemies.x[b.index]! - p.x, sim.enemies.y[b.index]! - p.y)).toBeCloseTo(100, 0);
+    expect(bullets(sim)).toHaveLength(12);
+    expect(dealDamage(sim, b.index, 100, src)).toBeGreaterThan(0);
+  });
+});
+
+describe('Núcleo profundo', () => {
+  const deep = (c: Content) => {
+    c.bosses.push({ ...structuredClone(c.bosses[0]!), id: 'deep', name: 'El Eco Profundo', title: 'Núcleo abisal' });
+    c.sectors[0]!.deepBoss = { boss: 'deep', every: 2 };
+  };
+  const reachBoss = (sim: Sim) => {
+    for (let i = 0; i < 200 && !sim.boss; i++) step(sim, [IDLE]);
+    return sim.boss!;
+  };
+  const killBoss = (sim: Sim) => dealDamage(sim, sim.boss!.index, 1e9, src);
+
+  test('cada `every` capas aparece en vez del jefe del sector, y cuenta igual al caer', () => {
+    const sim = withPattern({ kind: 'radial', count: 4, speed: 100, damage: 1 }, deep);
+    expect(sim.boss!.def).toBe('hive');
+    killBoss(sim);
+    nextLayer(sim);
+    const events: string[] = [];
+    for (let i = 0; i < 200 && !sim.boss; i++) {
+      step(sim, [IDLE]);
+      for (const e of sim.events) if (e.t === 'bossSpawn') events.push(e.boss);
+    }
+    expect(sim.layer).toBe(2);
+    expect(sim.boss!.def).toBe('deep');
+    expect(events).toEqual(['deep']);
+    const pickups = sim.pickups.count;
+    killBoss(sim);
+    expect(sim.bossKills).toBe(2);
+    expect(sim.beacon).not.toBeNull();
+    expect(sim.pickups.count).toBeGreaterThan(pickups);
+    nextLayer(sim);
+    expect(reachBoss(sim).def).toBe('hive');
+  });
+
+  test('un sector sin Núcleo profundo nunca lo trae', () => {
+    const sim = withPattern({ kind: 'radial', count: 4, speed: 100, damage: 1 }, (c) => {
+      c.bosses.push({ ...structuredClone(c.bosses[0]!), id: 'deep' });
+    });
+    killBoss(sim);
+    nextLayer(sim);
+    expect(reachBoss(sim).def).toBe('hive');
+  });
+});
+
+describe('el esquema de los sectores', () => {
+  const bad = (edit: (c: Content) => void) => {
+    const c = structuredClone(DEFAULT_CONTENT);
+    edit(c);
+    return contentSchema.safeParse(c).success;
+  };
+  test('rechaza un Núcleo profundo inexistente, `every` < 2 y un bioma desconocido', () => {
+    expect(bad((c) => (c.sectors[0]!.deepBoss = { boss: 'nope', every: 4 }))).toBe(false);
+    expect(bad((c) => (c.sectors[0]!.deepBoss = { boss: 'hive', every: 1 }))).toBe(false);
+    expect(bad((c) => ((c.sectors[0] as { biome: string }).biome = 'lava'))).toBe(false);
+    expect(bad(() => {})).toBe(true);
+  });
+});
+
+test('minas y saltos son deterministas: la misma semilla da el mismo hash', () => {
+  const play = () => {
+    const sim = withPattern({ kind: 'mines', count: 3, spread: 80, radius: 30, delay: 0.5, damage: 5 }, (c) => {
+      c.bosses[0]!.phases[0]!.patterns.push({ kind: 'blink', offset: 90, windup: 0.4, count: 8, speed: 120, damage: 5 });
+    });
+    for (let t = 0; t < 600; t++) step(sim, [{ mx: t % 90 < 45 ? 1 : -1, my: t % 60 < 30 ? 1 : 0, aim: -1, pick: -1 }]);
+    return stateHash(sim);
+  };
+  expect(play()).toBe(play());
 });
