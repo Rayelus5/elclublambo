@@ -6,7 +6,7 @@ import { clearPending, loadPending, savePending } from '../src/api/pending-run';
 import type { RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
-import { jsonResponse, mockApi, renderAt } from './render';
+import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe, relic slots and the daily yield before launching; and a run
 // whose result never reached the server is sent again with the same key (Review Focus 2).
@@ -276,4 +276,10 @@ test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
   fireEvent.click((await within(picker).findAllByRole('button', { name: /^Equipar / }))[0]!);
   const relics = screen.getByRole('region', { name: copy.hangar.relics });
   expect(await within(relics).findByText(copy.errors.invalid_loadout)).toBeInTheDocument();
+});
+
+test('sin el test de la sonda, el Hangar lleva al test', async () => {
+  mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ test: { taken: false, probe: null } })) });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/sonda');
 });

@@ -1,7 +1,7 @@
 import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type RunResult, type RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import type { RunEnd } from '../arena/ArenaScreen';
 import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
@@ -340,6 +340,9 @@ export function HangarScreen() {
     );
   } else if (!hangar.data) {
     body = <Splash label={copy.loading} />;
+  } else if (!hangar.data.test.taken) {
+    // No run without the probe the test gives (GDD §12.2).
+    return <Navigate to="/sonda" replace />;
   } else {
     body = (
       <Hangar

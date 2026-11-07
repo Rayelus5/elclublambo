@@ -1,4 +1,4 @@
-import type { GachaView, HangarView, RunResult, RunStart, StartRunRequest } from '@galaxy/shared';
+import type { GachaView, HangarView, ProbeTestRequest, ProbeTestResult, RunResult, RunStart, StartRunRequest } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { COLLECTION_KEY, endIntent, GACHA_KEY, keyFor } from './economy';
@@ -21,6 +21,15 @@ export function useSetLoadout() {
       qc.setQueryData(HANGAR_KEY, view);
       void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
     },
+  });
+}
+
+/** The probe test, sent once at the end (GDD §6). The hangar is refreshed: it now has its probe. */
+export function useProbeTest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: ProbeTestRequest) => api<ProbeTestResult>('/probe-test', { method: 'POST', body: req }),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: HANGAR_KEY }),
   });
 }
 

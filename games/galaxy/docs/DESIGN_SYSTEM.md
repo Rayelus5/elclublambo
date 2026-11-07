@@ -283,6 +283,27 @@ React encima de la arena, sin capturar el ratón salvo en sus botones. Se lee de
 - **Final:** «Extracción completada» (Terminal) o «Sonda perdida» (rojo) en grande sobre un velo durante 1,5 s, y después los resultados.
 - **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja, cada evolución y la primera vez de cada reacción en la partida), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
 
+## 8 sexies. Test de la sonda
+
+Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2). PERKINS pregunta; tú no eliges la sonda, la descubres. Consulta de ui-ux-pro-max: indicar el progreso en cada paso, dejar volver atrás y dejar saltar el test.
+
+- **Fondo:** `--void` con un resplandor UV arriba, a pantalla completa y centrado, como un momento aparte del juego.
+- **Entrada:** «Test de la sonda» en Bungee, el mensaje de PERKINS en una losa con borde Terminal, «Empezar» (botón Solar grande, con el foco) y «Saltar el test» como enlace discreto, que responde al azar y revela igualmente la sonda.
+- **Pregunta:**
+  - «Pregunta 2 de 5» y cinco barras de progreso: hechas en Terminal, la actual en Solar.
+  - La pregunta en Bungee (24–34 px, como mucho 30 caracteres por línea).
+  - Tres cartas de respuesta con relieve (texto de 20 px y su número 1–3 en una chapa). 1–3 o un clic eligen y pasan a la siguiente.
+  - Abajo, «Atrás» y «Saltar el test».
+- **Desempate:** solo si las cinco empatan. Encima, «Hay un empate», y la sexta pregunta igual que las demás.
+- **Envío:** «Calibrando tu sonda». Si falla, «No se pudo enviar el test» y «Reintentar» con las mismas respuestas. Nada se guarda antes de enviar: recargar empieza de nuevo.
+- **Revelado:** el fondo toma el color de la sonda (hielo, Solar o lila) y la sonda sube y crece desde el resplandor (0,9 s, quieta con movimiento reducido). Debajo van:
+  - «Tu sonda»;
+  - el nombre en Bungee;
+  - el perfil («Eres de los que…»);
+  - vida, velocidad y arma inicial;
+  - la peculiaridad en una losa;
+  - «Ir al hangar» (Solar).
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
