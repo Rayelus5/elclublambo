@@ -19,3 +19,5 @@ export * from './station/rooms';
 export * from './station/refinery';
 export * from './station/antenna';
 export * from './api/station';
+export * from './planetarium/prestige';
+export * from './api/planetarium';

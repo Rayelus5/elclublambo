@@ -708,5 +708,7 @@ export const copy = {
     room_unavailable: 'Esa sala aún no se puede reparar',
     nothing_to_collect: 'Aún no hay nada que recoger',
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',
+    galaxy_exhibited: 'Esa galaxia está expuesta en tu planetario. Retírala primero',
+    planetarium_not_found: 'No hay ningún planetario con ese nombre',
   } satisfies Record<ApiErrorCode, string>,
 } as const;
