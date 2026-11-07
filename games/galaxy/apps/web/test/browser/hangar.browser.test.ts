@@ -93,7 +93,7 @@ const result: RunResult = {
   depth: 2,
   kills: 1412,
   level: 22,
-  payout: { coins: 132, dust: 41, signals: 1 },
+  payout: { coins: 132, dust: 41, signals: 1, material: 28 },
   breakdown: {
     layers: [
       { layer: 1, coins: 52, dust: 17, multiplier: 1 },

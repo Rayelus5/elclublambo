@@ -103,15 +103,18 @@ test('extraer paga el botín por la profundidad de cada capa, en el libro', asyn
   const res = await finish(cookie, run.id, body({ ticks: 13 * 3600, depth: 2, bossKills: 2, kills: 1200, loot: [{ coins: 40, dust: 12 }, { coins: 20, dust: 6 }] }));
   expect(res.statusCode).toBe(200);
   const r = res.json() as RunResult;
-  expect(r.payout).toMatchObject({ coins: 40 + 30, dust: 12 + 9 });
+  // Raw material (M4a): 2 layers × 6 + 2 Cores × 10 + 1200 kills / 100 × 2.
+  expect(r.payout).toMatchObject({ coins: 40 + 30, dust: 12 + 9, material: 12 + 20 + 24 });
   expect(r.breakdown.share).toBe(1);
   expect(r.breakdown.daily).toEqual([{ seconds: 13 * 60, multiplier: 1 }]);
   expect(r.wallet.coins).toBe(before.coins + 70);
   expect(r.wallet.dust).toBe(before.dust + 21);
+  expect(r.wallet['material']).toBe((before['material'] ?? 0) + 56);
   const ledger = await sql<{ reason: string; currency: string }>`select reason, currency from galaxy.ledger where ref @> ${JSON.stringify({ run: run.id })}::jsonb order by id`.execute(ctx.db);
   expect(ledger.rows.filter((l) => l.currency !== 'signal')).toEqual([
     { reason: 'run', currency: 'coins' },
     { reason: 'run', currency: 'dust' },
+    { reason: 'run', currency: 'material' },
   ]);
 });
 
@@ -119,7 +122,8 @@ test('morir o abandonar paga la mitad', async () => {
   const { cookie } = await player();
   const run = await played(cookie, 7);
   const r = (await finish(cookie, run.id, body({ outcome: 'died', bossKills: 1, loot: [{ coins: 41, dust: 13 }] }))).json() as RunResult;
-  expect(r.payout).toMatchObject({ coins: 20, dust: 6 });
+  // Material at the death share too: (6 + 10 + 12) × 0.5.
+  expect(r.payout).toMatchObject({ coins: 20, dust: 6, material: 14 });
   expect(r.breakdown.share).toBe(0.5);
 });
 
@@ -132,6 +136,7 @@ test('la misma clave dos veces da el mismo resultado y paga una vez; otra clave,
   expect(second.statusCode).toBe(200);
   expect(second.json()).toEqual(first.json());
   expect((await wallet(cookie)).coins).toBe((first.json() as RunResult).wallet.coins);
+  expect((await wallet(cookie))['material']).toBe((first.json() as RunResult).wallet['material']);
   const other = await finish(cookie, run.id, body());
   expect(other.statusCode).toBe(409);
   expect(other.json()).toEqual({ error: 'run_finished' });
@@ -187,8 +192,8 @@ test('una partida con banderas de trampa cobra solo la parte de morir', async ()
   const { cookie } = await player();
   const run = await played(cookie, 1);
   const r = (await finish(cookie, run.id, body())).json() as RunResult;
-  // 6 min de juego en 1 min real: too_fast. 40 monedas y 12 de polvo a ×0,5.
-  expect(r.payout).toMatchObject({ coins: 20, dust: 6 });
+  // 6 min de juego en 1 min real: too_fast. 40 monedas y 12 de polvo a ×0,5, y el material también.
+  expect(r.payout).toMatchObject({ coins: 20, dust: 6, material: 14 });
   expect(r.ticks).toBe((60 + 20) * 60);
 });
 

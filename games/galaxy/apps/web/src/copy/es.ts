@@ -374,6 +374,7 @@ export const copy = {
     daily: (minutes: number, mult: number) => `${fmt(minutes)} min a ×${fmt(mult)}`,
     paid: 'Cobrado',
     signals: (n: number) => (n === 1 ? '1 señal' : `${fmt(n)} señales`),
+    material: (n: number) => `${fmt(n)} de material en bruto`,
     again: 'Otra incursión',
     home: 'Volver al inicio',
     retry: 'Reintentar',

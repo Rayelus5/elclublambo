@@ -145,7 +145,8 @@ export interface RunResult {
   depth: number;
   kills: number;
   level: number;
-  payout: { coins: number; dust: number; signals: number };
+  /** `material`: raw material for the station's refinery (M4a). */
+  payout: { coins: number; dust: number; signals: number; material: number };
   breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[] };
   wallet: Wallet;
 }

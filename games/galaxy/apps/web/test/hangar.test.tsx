@@ -106,7 +106,7 @@ const result: RunResult = {
   depth: 1,
   kills: 640,
   level: 15,
-  payout: { coins: 40, dust: 12, signals: 1 },
+  payout: { coins: 40, dust: 12, signals: 1, material: 28 },
   breakdown: { layers: [{ layer: 1, coins: 40, dust: 12, multiplier: 1 }], share: 1, daily: [{ seconds: 360, multiplier: 1 }] },
   wallet: { coins: 140, dust: 12, signal: 11 },
 };
