@@ -156,6 +156,21 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si alguien hubiera guardado la clave `station` con el esquema de M4a, sigue validando (`lab` tiene valor por defecto). Pero si se guardó con `lab` ya dentro y luego se publica una versión de M4a, el Laboratorio se quedaría sin su reparación. Revisa `galaxy.game_config_active` para `station` y `lab`, y vuelve a publicarlas desde el valor por defecto si hiciera falta.
 
+12. **Desde M4c-1 (niveles y ranuras de las reliquias):** la migración `20261107183527_galaxy_relic_levels` añade `galaxy.galaxies.level_dust`, el polvo invertido en los niveles de cada galaxia. Llegan además:
+   - la clave viva `relics`, que se ajusta sin desplegar:
+     - `levels`: lo que cuesta cada nivel, del 2 al 10 (20, 35, 55, 80, 110, 150, 200, 260 y 330 de polvo);
+     - `refund`: la parte que devuelve al desintegrarla o fusionarla (0,5);
+     - `slots`: lo que abre las ranuras 3 a 6 (5 incursiones y 100 de polvo, 3 Núcleos y 300, capa 4 y 600, 10 extracciones y 1000);
+   - el detalle de cada galaxia enseña su nivel y «Subir a nivel N» con su coste, y el Hangar enseña la siguiente ranura con su hito y su barra;
+   - desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior (`SIM_VERSION` 1.5.0).
+
+   Comprueba con una cuenta de prueba nueva:
+   - con `grant <usuario> dust 55 --reason "probar las reliquias"`, una galaxia de su colección sube a nivel 3 desde su detalle, que dice «Al desintegrarla o fusionarla devuelve 27 de polvo de sus niveles». Al desintegrarla cobra ese polvo además del suyo;
+   - el Hangar enseña «Ranura 3» con «Juega 5 incursiones» y su barra, sin botón;
+   - sin violaciones de CSP.
+
+   Abrir la ranura necesita cinco incursiones de un minuto o más: se prueba en integración y en el e2e.
+
 ## Operación
 
 | Tarea | Cómo |
