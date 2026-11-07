@@ -297,9 +297,11 @@ Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2).
 - **Pregunta:**
   - «Pregunta 2 de 5» y cinco barras de progreso: hechas en Terminal, la actual en Solar.
   - La pregunta en Bungee (24–34 px, como mucho 30 caracteres por línea).
-  - Tres cartas de respuesta con relieve (texto de 20 px y su número 1–3 en una chapa). 1–3 o un clic eligen y pasan a la siguiente.
+  - Tres cartas de respuesta con relieve (texto de 20 px y su número 1–3 en una chapa). 1–3 o un clic eligen y pasan a la siguiente. Una tecla mantenida, una tecla con modificador o el segundo clic de un doble clic no responden.
+  - El foco va al título de cada pregunta (sin anillo), nunca a una respuesta: así un Enter mantenido no recorre el test.
   - Abajo, «Atrás» y «Saltar el test».
 - **Desempate:** solo si las cinco empatan. Encima, «Hay un empate», y la sexta pregunta igual que las demás.
+- **Confirmar:** al terminar no se envía nada todavía. «Listo, ya sé con quién viajo» y el aviso de PERKINS de que no hay vuelta atrás, con «Descubrir mi sonda» (Solar grande) y «Atrás», que vuelve a la última pregunta. «Saltar el test» lleva a la misma pantalla con «¿Saltar el test?» y «Volver al test», que deja las respuestas como estaban.
 - **Envío:** «Calibrando tu sonda». Si falla, «No se pudo enviar el test» y «Reintentar» con las mismas respuestas. Nada se guarda antes de enviar: recargar empieza de nuevo.
 - **Revelado:** el fondo toma el color de la sonda (hielo, Solar o lila) y la sonda sube y crece desde el resplandor (0,9 s, quieta con movimiento reducido). Debajo van:
   - «Tu sonda»;

@@ -8,8 +8,9 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
 // The probe test (GDD §6, §12.2; DESIGN_SYSTEM §8 sexies): PERKINS asks five questions, one at a time; a sixth only
-// when the five tie. The answers are sent once at the end (nothing is kept before: a reload starts again), and the
-// probe they give is revealed with its profile. «Saltar el test» answers at random: you still discover the probe.
+// when the five tie. The answers are sent once, after a last step to confirm (nothing is kept before: a reload starts
+// again), and the probe they give is revealed with its profile. «Saltar el test» answers at random, also after a
+// confirm: you still discover the probe. The result is for good, so a held key or a double click never answers twice.
 
 const t = copy.probeTest;
 const N = PROBE_TEST.questions.length;
@@ -21,23 +22,28 @@ function randomAnswers(): number[] {
   return 'tie' in scoreTest(five) ? [...five, bytes[N]! % 3] : five;
 }
 
-type Stage = 'intro' | 'questions' | 'sending' | 'failed' | 'reveal';
+type Stage = 'intro' | 'questions' | 'confirm' | 'sending' | 'failed' | 'reveal';
+
+/** Five answers with no tie, or five and the tiebreak. */
+const complete = (list: number[]) => list.length === N + 1 || (list.length === N && !('tie' in scoreTest(list)));
 
 export function ProbeTestScreen() {
   const [stage, setStage] = useState<Stage>('intro');
   const [answers, setAnswers] = useState<number[]>([]);
+  /** «Saltar el test»: the random answers waiting for the confirm, and the step to go back to. */
+  const [skipped, setSkipped] = useState<{ answers: number[]; from: Stage } | null>(null);
   const [probe, setProbe] = useState<Starter | null>(null);
   const send = useProbeTest();
   const hangar = useHangar();
-  const first = useRef<HTMLButtonElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
 
   const tied = answers.length === N && 'tie' in scoreTest(answers);
   const question = answers.length < N ? t.questions[answers.length]! : tied ? t.tiebreak : null;
 
-  function submit(list: number[]): void {
+  function submit(): void {
     setStage('sending');
     send.mutate(
-      { answers: list },
+      { answers: skipped?.answers ?? answers },
       {
         onSuccess: (r) => {
           setProbe(r.probe as Starter);
@@ -48,23 +54,38 @@ export function ProbeTestScreen() {
     );
   }
 
-  /** Skipping answers at random: the probe is still discovered, never chosen. */
+  /** Skipping answers at random: the probe is still discovered, never chosen. The answers given so far are kept. */
   function skip(): void {
-    const list = randomAnswers();
-    setAnswers(list);
-    submit(list);
+    setSkipped({ answers: randomAnswers(), from: stage });
+    setStage('confirm');
+  }
+
+  function back(): void {
+    if (stage === 'confirm' && skipped) {
+      setStage(skipped.from);
+      setSkipped(null);
+      return;
+    }
+    setAnswers((a) => a.slice(0, -1));
+    setStage('questions');
   }
 
   function choose(i: number): void {
     const next = [...answers, i];
     setAnswers(next);
-    if (next.length === N + 1 || (next.length === N && !('tie' in scoreTest(next)))) submit(next);
+    if (complete(next)) setStage('confirm');
   }
+
+  // Focus goes to each step's title, never to an answer: a held Enter cannot click its way through the test.
+  useEffect(() => {
+    if (stage !== 'intro') heading.current?.focus();
+  }, [stage, answers.length]);
 
   useEffect(() => {
     if (stage !== 'questions') return;
-    first.current?.focus();
     const onKey = (e: KeyboardEvent) => {
+      // A held key repeats, and a shortcut is not an answer.
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       const n = Number.parseInt(e.key, 10);
       if (n >= 1 && n <= 3) {
         e.preventDefault();
@@ -108,7 +129,9 @@ export function ProbeTestScreen() {
         <div className="probe-test-card reveal" role="status">
           <span className="probe-test-kicker">{t.yourProbe}</span>
           <img className="probe-reveal-art" src={spriteDataUrl(def.sprite, 10)} alt="" width={160} height={160} />
-          <h1>{def.name}</h1>
+          <h1 ref={heading} tabIndex={-1}>
+            {def.name}
+          </h1>
           <p className="probe-profile">{t.profiles[probe]}</p>
           <dl className="hangar-stats">
             <div>
@@ -151,11 +174,36 @@ export function ProbeTestScreen() {
           ) : (
             <>
               <p className="field-error">{t.failed}</p>
-              <button type="button" className="lip pill pill-solar" onClick={() => submit(answers)}>
+              <button type="button" className="lip pill pill-solar" onClick={submit}>
                 {t.retry}
               </button>
             </>
           )}
+        </div>
+      </main>
+    );
+  }
+
+  if (stage === 'confirm') {
+    const c = skipped ? t.skipConfirm : t.confirm;
+    return (
+      <main className="screen-root probe-test">
+        <div className="probe-test-card">
+          <h2 ref={heading} tabIndex={-1}>
+            {c.title}
+          </h2>
+          <p className="probe-test-radio">
+            <b>PERKINS</b>
+            <span>{c.text}</span>
+          </p>
+          <button type="button" className="lip launch" onClick={submit}>
+            <Icon name="play" />
+            <span>{t.discover}</span>
+          </button>
+          <button type="button" className="lip pill" onClick={back}>
+            <Icon name="back" />
+            <span>{skipped ? t.skipConfirm.cancel : t.back}</span>
+          </button>
         </div>
       </main>
     );
@@ -175,10 +223,20 @@ export function ProbeTestScreen() {
         </ol>
         {question && (
           <>
-            <h2 id="probe-q">{question.q}</h2>
+            <h2 id="probe-q" ref={heading} tabIndex={-1}>
+              {question.q}
+            </h2>
             <div className="probe-answers" role="group" aria-label={question.q}>
               {question.answers.map((a, i) => (
-                <button key={a} ref={i === 0 ? first : undefined} type="button" className="lip panel probe-answer" onClick={() => choose(i)}>
+                <button
+                  key={a}
+                  type="button"
+                  className="lip panel probe-answer"
+                  // The second click of a double click would land on the next question's answer.
+                  onClick={(e) => {
+                    if (e.detail <= 1) choose(i);
+                  }}
+                >
                   <span className="levelup-key" aria-hidden="true">
                     {i + 1}
                   </span>
@@ -189,7 +247,7 @@ export function ProbeTestScreen() {
           </>
         )}
         <div className="probe-test-footer">
-          <button type="button" className="lip pill" onClick={() => setAnswers((a) => a.slice(0, -1))} disabled={answers.length === 0}>
+          <button type="button" className="lip pill" onClick={back} disabled={answers.length === 0}>
             <Icon name="back" />
             <span>{t.back}</span>
           </button>

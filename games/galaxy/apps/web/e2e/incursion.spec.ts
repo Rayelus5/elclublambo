@@ -27,6 +27,8 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
     await expect(page.getByText(`Pregunta ${i + 1} de 5`)).toBeVisible();
     await page.keyboard.press(key);
   }
+  // Nothing is sent until it is confirmed.
+  await page.getByRole('button', { name: 'Descubrir mi sonda' }).click();
   await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Tu sonda')).toBeVisible();
   await page.goto('/galaxy/');

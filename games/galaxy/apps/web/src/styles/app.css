@@ -667,6 +667,8 @@
   .probe-test-skip { min-height: 44px; padding: 0 8px; border: 0; background: none; color: var(--color-ink-mute); font: inherit; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
   .probe-test-skip:hover, .probe-test-skip:focus-visible { color: var(--color-ink); }
   .probe-test-sending { margin: 0; font: 400 26px var(--font-display); }
+  /* Titles take the focus on each step (for screen readers and so a held Enter clicks nothing): no ring on them. */
+  .probe-test-card :is(h1, h2)[tabindex='-1']:focus { outline: none; }
   /* The reveal: the probe rises out of a glow of its colour. */
   .probe-test.reveal { background: radial-gradient(42% 42% at 50% 30%, var(--glow) 0%, transparent 70%), radial-gradient(80% 60% at 50% 18%, rgb(114 89 238 / .16) 0%, var(--color-void) 62%); }
   .probe-test.p-lumen { --glow: rgb(191 227 255 / .3); }

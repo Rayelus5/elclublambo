@@ -18,6 +18,7 @@ export const test = base.extend<{ freshIp: void }>({
 export async function skipProbeTest(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/galaxy\/sonda$/);
   await page.getByRole('button', { name: 'Saltar el test' }).click();
+  await page.getByRole('button', { name: 'Descubrir mi sonda' }).click();
   await expect(page.getByText('Tu sonda')).toBeVisible();
   await page.goto('/galaxy/');
 }

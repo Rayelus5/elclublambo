@@ -386,6 +386,16 @@ export const copy = {
       { q: 'Un enjambre de la Estática se acerca. ¿Qué haces?', answers: ['Planto los pies y resisto', 'Busco un hueco entre ellos', 'Me lanzo antes de que se junten'] },
     ],
     tiebreak: { kicker: 'Hay un empate', q: 'Última pregunta: ¿qué es lo mejor de una incursión?', answers: ['Descubrir', 'Volver entero', 'La velocidad'] },
+    confirm: {
+      title: 'Listo, ya sé con quién viajo',
+      text: 'Cuando la calibre no hay vuelta atrás: las demás sondas se ganan jugando. Aún puedes volver y cambiar respuestas',
+    },
+    skipConfirm: {
+      title: '¿Saltar el test?',
+      text: 'Tu sonda saldrá al azar entre las tres iniciales y no hay vuelta atrás: las demás se ganan jugando',
+      cancel: 'Volver al test',
+    },
+    discover: 'Descubrir mi sonda',
     sending: 'Calibrando tu sonda',
     failed: 'No se pudo enviar el test',
     retry: 'Reintentar',
@@ -399,7 +409,7 @@ export const copy = {
     quirks: {
       magnet: 'Cada minuto atrae los fragmentos cercanos',
       thorns: 'Devuelve la mitad del daño a quien la toca',
-      dash: 'Esquiva un golpe con un salto, cada 20 s',
+      dash: 'Esquiva un golpe con un salto, cada 30 s',
       overwatch: 'Siempre lleva un dron de más',
       'second-wind': 'Cuando cae, se levanta una vez más',
       'prism-touch': 'Sus golpes prenden elementos que rotan',

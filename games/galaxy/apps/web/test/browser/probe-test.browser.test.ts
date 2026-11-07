@@ -44,6 +44,10 @@ test('la pregunta y el revelado del test de la sonda', async () => {
     (document.querySelectorAll('.probe-answer')[i] as HTMLButtonElement).click();
     await new Promise((r) => setTimeout(r, 30));
   }
+  // The last step asks to confirm before sending.
+  await vi.waitFor(() => expect(document.querySelector('.probe-test .launch')).not.toBeNull());
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/probe-test-confirm.png' });
+  (document.querySelector('.probe-test .launch') as HTMLButtonElement).click();
   await vi.waitFor(() => expect(document.querySelector('.probe-reveal-art')).not.toBeNull(), { timeout: 10_000 });
   await new Promise((r) => setTimeout(r, 1200));
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/probe-test-reveal.png' });
