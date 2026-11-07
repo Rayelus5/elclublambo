@@ -3,7 +3,7 @@ import type { ConfigValue } from '../config/registry';
 // The station's rooms (GDD §10; M4a plan rulings 2–3). Each room is a tool that opens its screen. The tools that the
 // game already has work from the start; the refinery works at level 1 (without it there are no components to repair
 // anything with); the antenna starts broken and is repaired with components; the rooms of later milestones stay «en
-// reparación». Only the refinery and the antenna have levels in M4a.
+// reparación». Only the refinery and the antenna have levels in M4a; the Laboratorio (M4b-2) is repaired once.
 
 export const ROOM_IDS = ['scanner', 'planetarium', 'lab', 'hangar', 'collider', 'comms', 'refinery', 'antenna', 'archive', 'trophies'] as const;
 export type RoomId = (typeof ROOM_IDS)[number];
@@ -14,7 +14,7 @@ export type StationConfig = ConfigValue<'station'>;
 export const ROOMS: Record<RoomId, { kind: 'tool' | 'machine' | 'future'; initial: number }> = {
   scanner: { kind: 'tool', initial: 1 },
   planetarium: { kind: 'tool', initial: 1 },
-  lab: { kind: 'future', initial: 0 },
+  lab: { kind: 'machine', initial: 0 },
   hangar: { kind: 'tool', initial: 1 },
   collider: { kind: 'tool', initial: 1 },
   comms: { kind: 'future', initial: 0 },
@@ -40,7 +40,7 @@ export interface RoomStatus {
 
 /** The levels of a machine: index i is level i + 1 and its cost is what reaching it costs. */
 function machineLevels(id: RoomId, cfg: StationConfig): readonly { cost: RoomCost }[] {
-  return id === 'refinery' ? cfg.refinery : id === 'antenna' ? cfg.antenna.levels : [];
+  return id === 'refinery' ? cfg.refinery : id === 'antenna' ? cfg.antenna.levels : id === 'lab' ? cfg.lab.levels : [];
 }
 
 export function roomStatus(id: RoomId, level: number, cfg: StationConfig): RoomStatus {

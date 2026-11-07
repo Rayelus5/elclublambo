@@ -1,4 +1,5 @@
 import { contentSchema, STAT_KEYS } from '@galaxy/sim';
+import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import { TRAIT_KEYS } from '../gacha/types';
 
@@ -210,6 +211,66 @@ export const configSchemas = {
     })
     .strict(),
   /**
+   * The Laboratorio (GDD §10.6, M4b-2): the upgrade tree. Each node has a branch, an effect, what each level adds
+   * (`per`), its levels (`max`), the node it needs (`requires`, at level 1) and a base cost growing by `growth` per level.
+   * Brakes: no cycles, and fusion discounts and run pay bonuses add up to at most half.
+   */
+  lab: z
+    .object({
+      nodes: z
+        .array(
+          z
+            .object({
+              id: z.string().regex(/^[a-z0-9-]{1,32}$/),
+              branch: z.enum(['probe', 'relics', 'station', 'extraction']),
+              name: z.string().min(1).max(40),
+              effect: z.discriminatedUnion('kind', [
+                z.object({ kind: z.literal('stat'), stat: z.enum(STAT_KEYS) }).strict(),
+                z.object({ kind: z.literal('payout'), currency: z.enum(['coins', 'dust', 'material']) }).strict(),
+                z.object({ kind: z.literal('refinery'), field: z.enum(['rate', 'queue']) }).strict(),
+                z.object({ kind: z.literal('antenna') }).strict(),
+                z.object({ kind: z.literal('disintegrate') }).strict(),
+                z.object({ kind: z.literal('fusion') }).strict(),
+              ]),
+              per: z.number().gt(0).max(0.2),
+              max: z.number().int().min(1).max(10),
+              requires: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
+              cost: z.object({ dust: z.number().int().min(0).max(10_000_000), components: z.number().int().min(0).max(1_000_000) }).strict(),
+              growth: z.number().min(1).max(3),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(200)
+        .superRefine((nodes, ctx) => {
+          const ids = new Set<string>();
+          for (const n of nodes) {
+            if (ids.has(n.id)) ctx.addIssue({ code: 'custom', message: `lab_duplicate:${n.id}` });
+            ids.add(n.id);
+          }
+          const byId = new Map(nodes.map((n) => [n.id, n]));
+          for (const n of nodes) {
+            if (n.requires !== null && !byId.has(n.requires)) ctx.addIssue({ code: 'custom', message: `lab_requires:${n.id}` });
+            // Follow the chain of requirements: a node seen twice is a cycle.
+            const seen = new Set<string>([n.id]);
+            for (let at = n.requires; at !== null; at = byId.get(at)?.requires ?? null) {
+              if (seen.has(at)) {
+                ctx.addIssue({ code: 'custom', message: `lab_cycle:${n.id}` });
+                break;
+              }
+              seen.add(at);
+            }
+          }
+          const sum = (pick: (n: (typeof nodes)[number]) => boolean) => nodes.filter(pick).reduce((a, n) => a + n.per * n.max, 0);
+          if (sum((n) => n.effect.kind === 'fusion') > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: 'lab_fusion_cap' });
+          for (const c of ['coins', 'dust', 'material'] as const) {
+            if (sum((n) => n.effect.kind === 'payout' && n.effect.currency === c) > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_payout_cap:${c}` });
+          }
+        })
+        .default(DEFAULT_LAB_NODES),
+    })
+    .strict(),
+  /**
    * The station (GDD §10): the refinery's levels (material per hour, queue, cost of reaching the level) and the
    * antenna's (signals per hour, cost; level 1's cost is the repair), with its cap in hours.
    */
@@ -254,6 +315,16 @@ export const configSchemas = {
             { rate: 0.25, cost: { components: 260, coins: 3500 } },
           ],
         }),
+      /** The Laboratorio's repair (M4b-2): one level, from broken to working. */
+      lab: z
+        .object({
+          levels: z
+            .array(z.object({ cost: z.object({ components: z.number().int().min(0).max(1_000_000), coins: z.number().int().min(0).max(100_000_000) }).strict() }).strict())
+            .min(1)
+            .max(1),
+        })
+        .strict()
+        .default({ levels: [{ cost: { components: 50, coins: 500 } }] }),
     })
     .strict(),
   /**

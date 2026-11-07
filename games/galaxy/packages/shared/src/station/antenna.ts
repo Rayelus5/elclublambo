@@ -6,13 +6,14 @@ import type { StationConfig } from './rooms';
 
 const HOUR = 3_600_000;
 
-export function antennaRate(level: number, cfg: StationConfig): number {
-  return level <= 0 ? 0 : cfg.antenna.levels[Math.min(level, cfg.antenna.levels.length) - 1]!.rate;
+/** Its level's rate per hour, pushed by the Laboratorio (`boost`, a fraction added; M4b-2). */
+export function antennaRate(level: number, cfg: StationConfig, boost = 0): number {
+  return level <= 0 ? 0 : cfg.antenna.levels[Math.min(level, cfg.antenna.levels.length) - 1]!.rate * (1 + boost);
 }
 
 /** What collecting now would pay, and the clock afterwards. */
-export function antennaAccrued(clock: Date, level: number, cfg: StationConfig, now: Date): { signals: number; clock: Date } {
-  const rate = antennaRate(level, cfg);
+export function antennaAccrued(clock: Date, level: number, cfg: StationConfig, now: Date, boost = 0): { signals: number; clock: Date } {
+  const rate = antennaRate(level, cfg, boost);
   const cap = cfg.antenna.capHours * HOUR;
   const elapsed = Math.max(0, Math.min(cap, now.getTime() - clock.getTime()));
   if (rate <= 0 || elapsed <= 0) return { signals: 0, clock: elapsed <= 0 ? clock : now };

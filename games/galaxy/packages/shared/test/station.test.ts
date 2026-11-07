@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { advanceRefinery, antennaAccrued, parseConfig, ROOM_IDS, roomStatus, runMaterial } from '../src/index';
+import { advanceRefinery, antennaAccrued, antennaRate, parseConfig, refineryLevel, ROOM_IDS, roomStatus, runMaterial } from '../src/index';
 
 // The station (GDD §10, §11): the machines process, they do not generate. The refinery turns queued raw material into
 // components at its rate, in server time and lazily; the antenna drips a few signals, capped at 8 h; the runs bring the
@@ -75,10 +75,11 @@ describe('la antena', () => {
 });
 
 describe('las salas', () => {
-  test('diez salas: cinco funcionan, la Antena está rota y cuatro llegan más adelante', () => {
+  test('diez salas: cinco funcionan, la Antena y el Laboratorio (M4b-2) están rotos y tres llegan más adelante', () => {
     expect(ROOM_IDS).toHaveLength(10);
     expect(roomStatus('hangar', 1, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 1, next: null });
-    expect(roomStatus('lab', 0, cfg)).toMatchObject({ state: 'future', next: null });
+    expect(roomStatus('comms', 0, cfg)).toMatchObject({ state: 'future', next: null });
+    expect(roomStatus('lab', 0, cfg)).toMatchObject({ state: 'broken' });
     expect(roomStatus('antenna', 0, cfg)).toEqual({ state: 'broken', level: 0, maxLevel: 5, next: { cost: { components: 30, coins: 0 } } });
     expect(roomStatus('refinery', 1, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 5, next: { cost: { components: 40, coins: 500 } } });
     expect(roomStatus('refinery', 5, cfg).next).toBeNull();
@@ -107,5 +108,20 @@ describe('el material de las incursiones', () => {
     expect(runMaterial(claim, runs, 0.5, false)).toBe(25);
     expect(runMaterial(claim, runs, 1, true)).toBe(25);
     expect(runMaterial({ ...claim, depth: 400, bossKills: 400 }, runs, 1, false)).toBe(500);
+  });
+});
+
+describe('el laboratorio y los empujes del laboratorio (M4b-2)', () => {
+  test('el laboratorio empieza roto, con su reparación, y funciona en el nivel 1', () => {
+    expect(roomStatus('lab', 0, cfg)).toEqual({ state: 'broken', level: 0, maxLevel: 1, next: { cost: { components: 50, coins: 500 } } });
+    expect(roomStatus('lab', 1, cfg)).toMatchObject({ state: 'working', level: 1, maxLevel: 1, next: null });
+  });
+
+  test('la refinería y la antena aceptan un empuje', () => {
+    expect(refineryLevel(1, cfg)).toEqual({ rate: 20, queue: 100 });
+    expect(refineryLevel(1, cfg, { rate: 0.5, queue: 0.1 })).toEqual({ rate: 30, queue: 110 });
+    expect(antennaRate(1, cfg, 0.2)).toBeCloseTo(0.15, 9);
+    expect(advanceRefinery({ queue: 50, ready: 0, clock: t0 }, 1, cfg, at(1), { rate: 0.5, queue: 0 })).toEqual({ queue: 20, ready: 30, clock: at(1) });
+    expect(antennaAccrued(t0, 1, cfg, at(8), 1).signals).toBe(2);
   });
 });

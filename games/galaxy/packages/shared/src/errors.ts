@@ -42,6 +42,10 @@ export const API_ERROR_CODES = [
   'refinery_full',
   'room_maxed',
   'room_changed',
+  'lab_closed',
+  'lab_locked',
+  'lab_maxed',
+  'lab_changed',
   'room_unavailable',
   'nothing_to_collect',
 ] as const;
