@@ -83,6 +83,20 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si alguien hubiera guardado la clave `content` en la configuración viva con el esquema de M3a, dejaría de validar (faltan los campos nuevos): hay que volver a publicarla desde el valor por defecto.
 
+7. **Desde M3b-2 (sondas):** la migración `20261107063639_galaxy_probes` crea `galaxy.probe_tests`: un test por cuenta, que no se puede cambiar. Llegan además:
+   - ocho sondas, cada una con su peculiaridad (`SIM_VERSION` 1.2.0);
+   - la clave `probes` de la configuración viva: las tres iniciales, «3 incursiones» para las otras dos y la condición de cada una de las cinco restantes. Se ajusta sin desplegar.
+
+   Comprueba con una cuenta de prueba nueva:
+   - al crear la cuenta se abre el test de la sonda (cinco preguntas, desempate si hace falta, y el revelado). «Saltar el test» también da una sonda;
+   - el Hangar enseña la sonda del test elegida, y las otras siete bloqueadas con lo que las gana y su barra;
+   - la incursión sale con la sonda elegida y su peculiaridad funciona (Lumen atrae los fragmentos cada minuto);
+   - sin violaciones de CSP.
+
+   Las cuentas de PRE de antes de M3b-2 no tienen test: al entrar en el Hangar van primero al test, y hasta hacerlo no pueden lanzar incursiones (409 `probe_test_required`). Sus partidas ya terminadas cuentan para los desbloqueos.
+
+   Si alguien hubiera guardado la clave `content` en la configuración viva con el esquema de M3b-1, dejaría de validar porque falta `quirk` en las sondas. Hay que volver a publicarla desde el valor por defecto.
+
 ## Operación
 
 | Tarea | Cómo |
