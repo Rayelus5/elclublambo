@@ -1,10 +1,12 @@
 import 'pixi.js/unsafe-eval';
-import { AREA, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
+import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { type Camera, cameraFor } from './camera';
 import { createFx, reactionLabel } from './fx';
+import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
+import { type Warning, warningFrom, warningProgress } from './warnings';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
 // ticks, follows the probe with a pixel-snapped camera capped at 21:9, and adds the juice: hit flashes, numbers,
@@ -20,13 +22,15 @@ export interface StageOptions {
   seed: string;
   /** Keep the drawing buffer (screenshots in tests). */
   preserve?: boolean;
+  /** The sector's biome: its nebula, stars, dust and rocks (default: the M3a nebula). */
+  biome?: BiomeId;
 }
 
 export interface Stage {
   readonly app: Application;
   render(sim: Sim, alpha: number): void;
-  /** The events of one simulation step (call once per step, in order). */
-  feed(events: readonly SimEvent[]): void;
+  /** The events of one simulation step (call once per step, in order), with its tick (default: the last drawn). */
+  feed(events: readonly SimEvent[], tick?: number): void;
   resize(w: number, h: number): void;
   camera(): Camera | null;
   destroy(): void;
@@ -53,16 +57,6 @@ const STEP_RAD = (Math.PI * 2) / 4096;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
-
-interface Warning {
-  kind: 'charge' | 'burst' | 'explode';
-  x: number;
-  y: number;
-  angle: number;
-  radius: number;
-  left: number;
-  total: number;
-}
 
 /** Sprites kept per slot of a pool, made on demand and hidden when the slot is free. */
 class SpritePool {
@@ -125,6 +119,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   });
 
   const atlas = buildAtlas();
+  const look = BIOME_LOOK[opts.biome ?? 'nebula'];
   let w = app.renderer.width;
   let h = app.renderer.height;
 
@@ -132,9 +127,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   // nebula of seamless noise, dithered in deep violet and blue at very low contrast so sprites always pop.
   const starTex = ditherTexture(256, 256, (x, y) => {
     const r = ((Math.imul(x, 73856093) ^ Math.imul(y, 19349663)) >>> 0) % 10000;
-    if (r < 6) return '#bfe3ff';
-    if (r < 20) return '#8890c4';
-    if (r < 46) return '#2a2f5e';
+    if (r < 6) return look.stars[0];
+    if (r < 20) return look.stars[1];
+    if (r < 46) return look.stars[2];
     return null;
   });
   const nebulaTex = ditherTexture(512, 512, (x, y) => {
@@ -143,9 +138,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     const wy = y + (fbm(x + 37, y + 11, 512, 92) - 0.5) * 140;
     const n = fbm(wx, wy, 512, 7);
     const t = BAYER[(y % 4) * 4 + (x % 4)]! / 16;
-    if (n > 0.66 && t < (n - 0.66) * 4) return '#251d5a';
-    if (n > 0.56 && t < (n - 0.56) * 3) return '#171845';
-    if (n < 0.3 && t < (0.3 - n) * 2) return '#0d1534';
+    if (n > 0.66 && t < (n - 0.66) * 4) return look.nebula[0];
+    if (n > 0.56 && t < (n - 0.56) * 3) return look.nebula[1];
+    if (n < 0.3 && t < (0.3 - n) * 2) return look.nebula[2];
     return null;
   });
   const ground = new TilingSprite({ texture: starTex, width: w, height: h });
@@ -185,12 +180,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   let lastProbe = { x: 0, y: 0 };
 
   const dustDots = [0, 1, 2, 3, 4, 5].map((v) =>
-    ditherTexture(3, 4, (x, y) => (((v + 1) >> (x + y * 2)) & 1 && (x === 0 || x === 2) ? '#8890c4' : null)),
+    ditherTexture(3, 4, (x, y) => (((v + 1) >> (x + y * 2)) & 1 && (x === 0 || x === 2) ? look.dust : null)),
   );
   const chunks = new Map<string, Container>();
 
   const fx = createFx(opts.reduced);
   const warns: Warning[] = [];
+  /** The simulation tick of the last frame drawn (feeds without a tick use it). */
+  let lastTick = 0;
   let hurtAlpha = 0;
   let last = performance.now();
   let clock = 0;
@@ -219,10 +216,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         keep.add(key);
         if (chunks.has(key)) continue;
         const box = new Container();
-        for (const d of terrainAt(cx, cy, opts.seed)) {
+        for (const d of terrainAt(cx, cy, opts.seed, opts.biome)) {
           // Clouds live in the nebula layer; the chunks carry the rocks and the braille dust.
           if (d.kind === 'cloud') continue;
-          const tex = d.kind === 'rock' ? atlas.frames['rock-' + (d.variant + 1)]![0]! : dustDots[d.variant]!;
+          const tex = d.kind === 'rock' ? atlas.frames[d.sprite ?? 'rock-' + (d.variant + 1)]![0]! : dustDots[d.variant]!;
           const s = new Sprite(tex);
           s.anchor.set(0.5);
           s.position.set(Math.round(d.x), Math.round(d.y));
@@ -335,18 +332,19 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
-  function drawWarnings(dt: number): void {
+  /** `now`: simulation time in ticks, with the frame's fraction (warnings wait while the simulation stops). */
+  function drawWarnings(now: number): void {
     warnings.clear();
     for (let i = warns.length - 1; i >= 0; i--) {
       const wv = warns[i]!;
-      wv.left -= dt;
-      if (wv.left <= 0) {
+      const k = warningProgress(wv, now);
+      if (k === null) {
         warns.splice(i, 1);
         continue;
       }
-      const k = 1 - wv.left / wv.total;
       const pulse = opts.reduced ? 0.4 : 0.3 + 0.2 * Math.sin(clock * 18);
-      if (wv.kind === 'charge') {
+      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands.
+      if (wv.kind === 'charge' || wv.kind === 'lance') {
         const a = wv.angle * STEP_RAD;
         const ex = wv.x + Math.cos(a) * wv.radius;
         const ey = wv.y + Math.sin(a) * wv.radius;
@@ -380,13 +378,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const facingLeft = Math.cos(en.facing[i]! * STEP_RAD) < 0;
       s.scale.set(en.boss[i] ? 1 : facingLeft ? -1 : 1, 1);
       if (en.elite[i] && !en.boss[i]) s.scale.set((facingLeft ? -1 : 1) * 1.25, 1.25);
-      s.alpha = en.fuseT[i]! > 0 ? 0.5 + 0.5 * Math.sin(clock * 30) : en.hackT[i]! > 0 ? 0.75 : 1;
+      // A Core away in its blink is a faint ghost until it lands (its mark is on the ground).
+      const away = en.boss[i] === 1 && sim.boss?.active?.kind === 'blink';
+      s.alpha = away ? 0.2 : en.fuseT[i]! > 0 ? 0.5 + 0.5 * Math.sin(clock * 30) : en.hackT[i]! > 0 ? 0.75 : 1;
       s.tint = en.hackT[i]! > 0 ? 0xffc94a : opts.reduced && (en.elite[i] || en.boss[i]) ? 0xffd0dc : 0xffffff;
       const special = en.elite[i]! > 0 || en.boss[i] === 1;
-      if (special) {
-        marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: 0xff4d6d, alpha: 0.55 });
-        if (en.shield[i]! > 0) marks.circle(x, y, en.radius[i]! + 4).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.8 });
-      }
+      if (special) marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: 0xff4d6d, alpha: 0.55 });
+      // Any shield shows: elites' own and the one a corruptor lends.
+      if (en.shield[i]! > 0) marks.circle(x, y, en.radius[i]! + 4).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.8 });
       drawStates(sim, i, x, y);
       if (def && !en.boss[i] && def.behavior.kind === 'armored') {
         const mid = en.facing[i]! * STEP_RAD;
@@ -616,7 +615,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   return {
     app,
-    feed(events) {
+    feed(events, tick = lastTick) {
       for (const e of events) {
         switch (e.t) {
           case 'hit':
@@ -631,7 +630,19 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             hurtAlpha = opts.reduced ? 0.25 : 0.45;
             break;
           case 'telegraph':
-            warns.push({ kind: e.kind, x: e.x, y: e.y, angle: e.angle, radius: e.radius, left: e.ticks / 60, total: e.ticks / 60 });
+            warns.push(warningFrom(e, tick));
+            break;
+          case 'support':
+            // A healer's pulse in Terminal green, a corruptor's in lilac.
+            fx.ring(e.x, e.y, e.effect === 'heal' ? 0x45e3a6 : 0xb39dff);
+            break;
+          case 'blink':
+            fx.burst(e.fx, e.fy, 0xb39dff, 8, 50);
+            fx.burst(e.tx, e.ty, 0xe05cff, 12, 80);
+            break;
+          case 'blast':
+            fx.burst(e.x, e.y, 0xff4d6d, 16, 100);
+            fx.shake(3);
             break;
           case 'bossDown':
             fx.burst(e.x, e.y, 0xffc94a, 40, 140);
@@ -683,7 +694,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       syncChunks(c);
       drawAreas(sim);
-      drawWarnings(dt);
+      lastTick = sim.tick;
+      drawWarnings(sim.tick + alpha);
       drawEnemies(sim, alpha);
       drawPickups(sim, alpha);
       drawShots(sim, alpha);

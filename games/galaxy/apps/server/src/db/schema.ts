@@ -183,6 +183,7 @@ export interface GachaPullsTable {
 export interface HangarsTable {
   account_id: string;
   probe: ColumnType<string, string | undefined, string>;
+  sector: ColumnType<string, string | undefined, string>;
   relic_slots: ColumnType<number, number | undefined, number>;
   updated_at: Timestamp;
 }

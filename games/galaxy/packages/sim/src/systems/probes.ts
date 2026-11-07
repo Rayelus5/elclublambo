@@ -80,7 +80,8 @@ export function contactDamage(sim: Sim, maxRadius: number): void {
     const n = sim.grid.query(p.x, p.y, PROBE_RADIUS + maxRadius, near);
     for (let k = 0; k < n; k++) {
       const e = near[k]!;
-      if (!en.alive[e] || en.hackT[e]! > 0 || en.fuseT[e]! > 0) continue;
+      // A Core away in its blink touches nothing (systems/boss.ts `bossAway`, inline: boss.ts imports this file).
+      if (!en.alive[e] || en.hackT[e]! > 0 || en.fuseT[e]! > 0 || (sim.boss?.index === e && sim.boss.active?.kind === 'blink')) continue;
       const dx = en.x[e]! - p.x;
       const dy = en.y[e]! - p.y;
       const r = PROBE_RADIUS + en.radius[e]!;

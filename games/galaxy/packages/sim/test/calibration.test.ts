@@ -8,8 +8,8 @@ import { botInput, botPick, createSim, DEFAULT_CONTENT, deriveStats, type RelicI
 const LONG = process.env['GALAXY_CALIBRATE'] === '1';
 
 /** Bot run until death or `maxTicks` (it never extracts: calibration measures how deep a run gets). */
-function botRun(seed: string, maxTicks: number, relics: RelicInput[] = [], probe = 'lumen'): Sim {
-  const sim = createSim({ seed, content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe, relics }] });
+function botRun(seed: string, maxTicks: number, relics: RelicInput[] = [], probe = 'lumen', sector = 'outer-nebula'): Sim {
+  const sim = createSim({ seed, content: DEFAULT_CONTENT, sector, probes: [{ probe, relics }] });
   while (sim.tick < maxTicks && (sim.status === 'running' || sim.status === 'choosing')) {
     const p = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: p.offer ? botPick(p.offer) : -1 }]);
@@ -100,6 +100,65 @@ describe.skipIf(!LONG)('calibración larga (GALAXY_CALIBRATE=1)', () => {
     expect(avgLayer).toBeGreaterThanOrEqual(2);
     expect(avgLayer).toBeLessThanOrEqual(4);
   }, 600_000);
+
+  test('cada sector llega a la capa 2–4 en 5–20 minutos (mediana de 8, Lumen y build típica)', () => {
+    const typical = (seed: string): RelicInput[] =>
+      [4, 1].map((tier, j) => {
+        const s = BigInt(seed) * 31n + BigInt(j);
+        return { id: `${seed}-${j}`, seed: s.toString(), tier, level: 1, traits: drawTraits(subRng(s, 'traits')) as unknown as Record<string, string> };
+      });
+    const median = (xs: number[]) => {
+      const s = [...xs].sort((a, b) => a - b);
+      return (s[3]! + s[4]!) / 2;
+    };
+    // GALAXY_SECTOR=<id> calibrates one sector (several can run in parallel while tuning).
+    const only = process.env['GALAXY_SECTOR'];
+    for (const sector of DEFAULT_CONTENT.sectors.map((s) => s.id).filter((id) => !only || id === only)) {
+      const runs = ['11', '12', '13', '14', '15', '16', '17', '18'].map((seed) => botRun(seed, 40 * 3600, typical(seed), 'lumen', sector));
+      const minutes = runs.map((s) => s.tick / 3600);
+      const layers = runs.map((s) => s.layer);
+      console.log(`calibración ${sector}:`, runs.map((s, i) => `capa ${layers[i]} a los ${minutes[i]!.toFixed(1)} min`).join(' · '));
+      expect(median(minutes), sector).toBeGreaterThanOrEqual(5);
+      expect(median(minutes), sector).toBeLessThanOrEqual(20);
+      expect(median(layers), sector).toBeGreaterThanOrEqual(2);
+      expect(median(layers), sector).toBeLessThanOrEqual(4);
+    }
+  }, 3_600_000);
+
+  test('cada sector paga por minuto lo mismo que la Nebulosa, a ±15 % (monedas y polvo; Lumen, build típica, 8 semillas, los 10 primeros minutos)', () => {
+    // M3b-3 plan ruling 3: the sectors differ in how they play, not in what they pay (the economy is tuned on one). The
+    // same window for all (the first 10 minutes, which most runs live through): density grows with the minutes, so a
+    // longer run pays more per minute, and comparing whole runs would compare how long the bot lasts.
+    const typical = (seed: string): RelicInput[] =>
+      [4, 1].map((tier, j) => {
+        const s = BigInt(seed) * 31n + BigInt(j);
+        return { id: `${seed}-${j}`, seed: s.toString(), tier, level: 1, traits: drawTraits(subRng(s, 'traits')) as unknown as Record<string, string> };
+      });
+    const rate = (sector: string) => {
+      let coins = 0;
+      let dust = 0;
+      let minutes = 0;
+      for (const seed of ['11', '12', '13', '14', '15', '16', '17', '18']) {
+        const sim = botRun(seed, 10 * 3600, typical(seed), 'lumen', sector);
+        for (const l of sim.loot) {
+          coins += l.coins;
+          dust += l.dust;
+        }
+        minutes += sim.tick / 3600;
+      }
+      return { coins: coins / minutes, dust: dust / minutes };
+    };
+    const base = rate('outer-nebula');
+    const only = process.env['GALAXY_SECTOR'];
+    for (const sector of DEFAULT_CONTENT.sectors.map((s) => s.id).filter((id) => id !== 'outer-nebula' && (!only || id === only))) {
+      const r = rate(sector);
+      console.log(`botín ${sector}: ${r.coins.toFixed(1)} monedas/min (${((r.coins / base.coins - 1) * 100).toFixed(0)} %), ${r.dust.toFixed(1)} polvo/min (${((r.dust / base.dust - 1) * 100).toFixed(0)} %)`);
+      expect(r.coins / base.coins, `${sector} monedas`).toBeGreaterThanOrEqual(0.85);
+      expect(r.coins / base.coins, `${sector} monedas`).toBeLessThanOrEqual(1.15);
+      expect(r.dust / base.dust, `${sector} polvo`).toBeGreaterThanOrEqual(0.85);
+      expect(r.dust / base.dust, `${sector} polvo`).toBeLessThanOrEqual(1.15);
+    }
+  }, 3_600_000);
 
   test('las tres sondas iniciales llegan a la capa 2–4 en 5–20 minutos (mediana de 8) y quedan a menos del 25 % entre sí', () => {
     const typical = (seed: string): RelicInput[] =>

@@ -147,6 +147,16 @@ export interface BossState {
   active: { kind: string; t: number; a: number } | null;
 }
 
+/** A warned blast waiting to go off (systems/blasts.ts). */
+export interface Blast {
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;
+  /** The tick it goes off. */
+  at: number;
+}
+
 export interface BeaconState {
   x: number;
   y: number;
@@ -182,6 +192,8 @@ export interface Sim {
   grid: SpatialGrid;
   boss: BossState | null;
   beacon: BeaconState | null;
+  /** Warned blasts in the order they were laid. */
+  blasts: Blast[];
   /** Coins and star dust picked up in each layer (index = layer − 1). */
   loot: { coins: number; dust: number }[];
   kills: number;

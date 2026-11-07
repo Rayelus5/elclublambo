@@ -3,6 +3,7 @@ import { DEFAULT_CONTENT, offerFor, type Sim } from '@galaxy/sim';
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type RunEnd } from '../src/arena/ArenaScreen';
+import { markRadioSeen } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
 
 // The run in the browser (GDD §5.1–5.2, §15): the level-up choice, pause (also when the tab hides), abandoning with
@@ -56,11 +57,11 @@ let ended: RunEnd | null;
 let saved: RunEnd | null;
 let clock: ReturnType<typeof manualClock>;
 
-async function mount() {
+async function mount(r: RunStart = run) {
   ended = null;
   saved = null;
   clock = manualClock();
-  const view = render(<ArenaScreen run={run} onEnd={(e) => (ended = e)} onSave={(e) => (saved = e)} clock={clock} onSim={(s) => (sim = s)} />);
+  const view = render(<ArenaScreen run={r} onEnd={(e) => (ended = e)} onSave={(e) => (saved = e)} clock={clock} onSim={(s) => (sim = s)} />);
   await act(async () => {
     await Promise.resolve();
   });
@@ -139,6 +140,27 @@ test('PERKINS habla por radio una sola vez por mensaje y se puede cerrar', async
   first.unmount();
   await mount();
   expect(screen.queryByRole('status', { name: 'PERKINS' })).toBeNull();
+});
+
+test('en un sector nuevo PERKINS lo presenta la primera vez, y no la segunda', async () => {
+  markRadioSeen('start');
+  const first = await mount({ ...run, sector: 'frost-rings' });
+  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.arena.radio.sectors['frost-rings']!);
+  first.unmount();
+  await mount({ ...run, sector: 'frost-rings' });
+  expect(screen.queryByRole('status', { name: 'PERKINS' })).toBeNull();
+});
+
+test('la primera vez de cada Núcleo nuevo, PERKINS dice su línea', async () => {
+  markRadioSeen('start');
+  markRadioSeen('sector:frost-rings');
+  await mount({ ...run, sector: 'frost-rings' });
+  clock.frames(2);
+  // The layer is over: the next tick brings its Core.
+  sim.clocks['layerStart'] = sim.tick - 300 * 60;
+  clock.frames(3);
+  expect(sim.boss?.def).toBe('glacier');
+  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.arena.radio.bosses['glacier']!);
 });
 
 test('el HUD muestra la vida y el nivel, y anuncia las subidas sin inundar la región viva', async () => {

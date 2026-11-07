@@ -8,6 +8,8 @@ import {
   type RunResult,
   type RunsConfig,
   type RunStart,
+  type SectorsConfig,
+  sectorStatus,
   type StartRunRequest,
 } from '@galaxy/shared';
 import { type Content, decodeLog, fromBase64, logTicks } from '@galaxy/sim';
@@ -16,7 +18,7 @@ import type { DB } from '../db/schema';
 import { madridDay } from '../economy/day';
 import { credit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { ensureHangar, relicSnapshot, testedProbe } from './hangar';
+import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -24,16 +26,20 @@ import { ensureHangar, relicSnapshot, testedProbe } from './hangar';
 
 export interface StartContext {
   content: Content;
+  sectors: SectorsConfig;
   contentVersion: number;
   now: Date;
 }
 
 export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRunRequest, key: string, ctx: StartContext): Promise<RunStart> {
-  if (!ctx.content.sectors.some((s) => s.id === req.sector)) throw new HttpError(400, 'invalid_input');
+  const sector = ctx.content.sectors.find((s) => s.id === req.sector);
+  if (!sector) throw new HttpError(400, 'invalid_input');
   const hangar = await ensureHangar(trx, accountId);
   // The probe test comes first (GDD §12.2): no run without the starting probe it gives.
   if ((await testedProbe(trx, accountId)) === null) throw new HttpError(409, 'probe_test_required');
   if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
+  // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
+  if (!sectorStatus(sector, await sectorStats(trx, accountId), ctx.sectors).unlocked) throw new HttpError(409, 'sector_locked');
   const relics = await relicSnapshot(trx, accountId, hangar.slots);
   const seed = randomBytes(8).readBigUInt64BE().toString();
   const row = await trx

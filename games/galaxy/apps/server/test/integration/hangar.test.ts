@@ -45,7 +45,7 @@ const equip = (cookie: string, relics: (string | null)[]) => put(ctx.app, '/gala
 test('un hangar nuevo: la Nebulosa Exterior, las 8 sondas aún bloqueadas y 2 ranuras vacías con el día a premio completo', async () => {
   const { cookie } = await player();
   const h = await hangar(cookie);
-  expect(h.sectors.map((s) => s.id)).toEqual(['outer-nebula']);
+  expect(h.sectors.map((s) => s.id)).toEqual(['outer-nebula', 'frost-rings', 'hollow-reef', 'broken-forge', 'signal-rift']);
   expect(h.sectors[0]!.boss).toMatchObject({ name: 'La Colmena Rota', title: 'Núcleo de la Estática' });
   expect(h.sectors[0]!.fauna.map((f) => f.id)).toEqual(['mite', 'cell', 'ray', 'spitter', 'shell']);
   expect(h.probe).toBe('lumen');

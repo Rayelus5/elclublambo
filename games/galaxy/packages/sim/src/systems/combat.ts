@@ -5,6 +5,7 @@ import { curseOf, scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { onBossDown } from './layers';
+import { bossAway } from './boss';
 import { react } from './reactions';
 import { dropPickup } from './pickups';
 import { onKill } from './quirks';
@@ -20,12 +21,13 @@ export const combatHooks: { afterHit: (sim: Sim, e: number, dealt: number, x: nu
 /** Deals `amount` to enemy `e`; returns the damage done (shield included). Kills it at 0 life. */
 export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource): number {
   const en = sim.enemies;
-  if (!en.alive[e] || en.fuseT[e]! > 0 || !(amount > 0)) return 0;
+  if (!en.alive[e] || en.fuseT[e]! > 0 || !(amount > 0) || bossAway(sim, e)) return 0;
   const p = sim.probes[src.probe];
   const element = resolveElement(sim, src);
   let dmg = amount;
   const def = sim.content.enemies[en.type[e]!];
-  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0) {
+  // Armour gives from behind, to corrosion or breach, and to the one element it is weak to (GDD §5.5).
+  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0 && element !== def.behavior.weakTo) {
     const ox = src.x ?? (p ? p.x : en.x[e]!);
     const oy = src.y ?? (p ? p.y : en.y[e]!);
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;

@@ -3,6 +3,7 @@ import { Rng } from './math/rng';
 import { direct, relocate } from './systems/director';
 import { updateBoss } from './systems/boss';
 import { updateEnemies, updateFoeShots } from './systems/enemies';
+import { updateBlasts } from './systems/blasts';
 import { updateLayer } from './systems/layers';
 import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
@@ -50,6 +51,7 @@ export function createSim(opts: SimOptions): Sim {
     ...createPools(content.limits),
     grid: new SpatialGrid(48),
     boss: null,
+    blasts: [],
     beacon: null,
     loot: [{ coins: 0, dust: 0 }],
     kills: 0,
@@ -170,6 +172,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   direct(sim);
   updateEnemies(sim, relocate);
   updateBoss(sim);
+  updateBlasts(sim);
   tickStatuses(sim);
   updateFoeShots(sim);
   rebuildGrid(sim);

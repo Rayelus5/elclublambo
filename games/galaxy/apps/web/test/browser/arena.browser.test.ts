@@ -1,4 +1,4 @@
-import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnEnemy, step } from '@galaxy/sim';
+import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -15,14 +15,14 @@ afterEach(() => {
 
 function played(ticks: number): { sim: Sim; feed: (s: Stage) => void } {
   const sim = createSim({ seed: '20261107', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
-  const tail: Sim['events'][] = [];
+  const tail: { ev: Sim['events']; tick: number }[] = [];
   while (sim.tick < ticks && (sim.status === 'running' || sim.status === 'choosing')) {
     const p = sim.probes[0]!;
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
     else step(sim, [botInput(sim, 0, 99)]);
-    if (sim.tick > ticks - 20) tail.push([...sim.events]);
+    if (sim.tick > ticks - 20) tail.push({ ev: [...sim.events], tick: sim.tick });
   }
-  return { sim, feed: (s) => tail.forEach((ev) => s.feed(ev)) };
+  return { sim, feed: (s) => tail.forEach(({ ev, tick }) => s.feed(ev, tick)) };
 }
 
 async function mount(width: number, height: number): Promise<HTMLCanvasElement> {
@@ -122,7 +122,7 @@ test('dibuja el arsenal: las 9 armas nuevas, marcas, aturdimiento, rotura y una 
     }
     if (sim.status === 'choosing') step(sim, [{ mx: 0, my: 0, aim: -1, pick: botPick(p.offer!) }]);
     else step(sim, [botInput(sim, 0, 99)]);
-    stage.feed(sim.events);
+    stage.feed(sim.events, sim.tick);
   }
   states();
   stage.feed([{ t: 'reaction', id: 'short-circuit', x: p.x + 40, y: p.y }]);
@@ -160,3 +160,33 @@ test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas'
   stage.render(sim, 1);
   expect(layer.children.filter((c) => c.visible)).toHaveLength(0);
 }, 60_000);
+
+// M3b-3: every sector's ground, with its fauna around the probe and its Core firing, so the biome and the new warnings
+// (lances, blink marks, mines, support pulses) are on screen.
+for (const sector of DEFAULT_CONTENT.sectors) {
+  test(`el bioma de ${sector.name}: su suelo, su fauna, su Núcleo y sus avisos`, async () => {
+    const sim = createSim({ seed: '3', content: DEFAULT_CONTENT, sector: sector.id, probes: [{ probe: 'lumen', relics: [] }] });
+    sim.probes[0]!.hp = 1e9;
+    const species = [...new Set(sector.spawns.map((sp) => sp.enemy))];
+    species.forEach((id, k) => {
+      const def = DEFAULT_CONTENT.enemies.find((e) => e.id === id)!;
+      for (let j = 0; j < 2; j++) {
+        const a = ((k * 2 + j) / (species.length * 2)) * Math.PI * 2;
+        spawnEnemy(sim, def, Math.cos(a) * 150, Math.sin(a) * 110);
+      }
+    });
+    spawnBoss(sim);
+    const tail: { ev: Sim['events']; tick: number }[] = [];
+    for (let t = 0; t < 4 * 60; t++) {
+      step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
+      if (t > 3 * 60) tail.push({ ev: [...sim.events], tick: sim.tick });
+    }
+    const canvas = await mount(1280, 720);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '3', preserve: true, biome: sector.biome });
+    stage.resize(1280, 720);
+    tail.forEach(({ ev, tick }) => stage!.feed(ev, tick));
+    stage.render(sim, 1);
+    expect(distinctColours(canvas)).toBeGreaterThan(20);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/biome-${sector.id}.png`, element: canvas });
+  }, 90_000);
+}

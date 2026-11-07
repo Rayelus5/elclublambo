@@ -12,7 +12,13 @@ export type SimEvent =
   | { t: 'levelUp'; probe: number; level: number }
   | { t: 'evolve'; probe: number; from: string; to: string }
   | { t: 'fire'; weapon: string; x: number; y: number }
-  | { t: 'telegraph'; kind: 'charge' | 'burst' | 'explode'; x: number; y: number; angle: number; ticks: number; radius: number }
+  | { t: 'telegraph'; kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink'; x: number; y: number; angle: number; ticks: number; radius: number }
+  /** A healer's or corruptor's pulse (GDD §5.5). */
+  | { t: 'support'; x: number; y: number; range: number; effect: 'heal' | 'shield' }
+  /** A warned teleport has landed (fauna or a Core). */
+  | { t: 'blink'; fx: number; fy: number; tx: number; ty: number }
+  /** A warned blast (a Core's mines) has gone off. */
+  | { t: 'blast'; x: number; y: number; radius: number }
   | { t: 'bossSpawn'; boss: string; layer: number }
   | { t: 'bossPhase'; phase: number }
   | { t: 'bossDown'; x: number; y: number }

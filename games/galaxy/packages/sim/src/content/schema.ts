@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DEFAULT_CONTENT } from './default';
 import {
+  BIOMES,
   type Content,
   ELEMENT_IDS,
   ENEMY_FAMILIES,
@@ -97,8 +98,14 @@ const behavior = z.discriminatedUnion('kind', [
   z
     .object({ kind: z.literal('shooter'), range: n, cooldown: pos, count: z.number().int().min(1).max(64), spread: n, bulletSpeed: n, bulletDamage: n })
     .strict(),
-  z.object({ kind: z.literal('armored'), arc: z.number().min(0).max(360), reduction: unit, turnRate: n }).strict(),
+  z.object({ kind: z.literal('armored'), arc: z.number().min(0).max(360), reduction: unit, turnRate: n, weakTo: elementId.optional() }).strict(),
   z.object({ kind: z.literal('summoner'), cooldown: pos, minion: id, count: z.number().int().min(1).max(64) }).strict(),
+  z.object({ kind: z.literal('orbit'), radius: pos, turn: n, every: pos, diveSpeed: n, diveTime: n }).strict(),
+  z
+    .object({ kind: z.literal('support'), effect: z.enum(['heal', 'shield']), amount: z.number().gt(0).max(1), range: pos, cooldown: pos, keep: n })
+    .strict(),
+  z.object({ kind: z.literal('blink'), range: pos, offset: n, windup: n, cooldown: pos }).strict(),
+  z.object({ kind: z.literal('lancer'), range: pos, windup: n, cooldown: pos, bulletSpeed: pos, bulletDamage: n }).strict(),
 ]);
 
 const enemy = z
@@ -133,6 +140,11 @@ const bossPattern = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('spiral'), duration: pos, every: pos, step: n, speed: n, damage: n }).strict(),
   z.object({ kind: z.literal('summon'), enemy: id, count: z.number().int().min(1).max(64) }).strict(),
   z.object({ kind: z.literal('charge'), windup: n, dashSpeed: n, dashTime: n, damage: n }).strict(),
+  z.object({ kind: z.literal('wall'), count: z.number().int().min(1).max(128), gap: z.number().min(0).max(300), speed: n, damage: n }).strict(),
+  z
+    .object({ kind: z.literal('mines'), count: z.number().int().min(1).max(16), spread: n, radius: pos, delay: pos, damage: n })
+    .strict(),
+  z.object({ kind: z.literal('blink'), offset: n, windup: pos, count: z.number().int().min(0).max(128), speed: n, damage: n }).strict(),
 ]);
 
 const boss = z
@@ -159,8 +171,11 @@ const sector = z
     id,
     name,
     description: text,
-    biome: z.literal('nebula'),
+    biome: z.enum(BIOMES),
     boss: id,
+    // Defaults keep a content published before M3b-3 valid.
+    deepBoss: z.object({ boss: id, every: z.number().int().min(2).max(100) }).strict().nullable().default(null),
+    season: z.boolean().default(false),
     layerSeconds: pos,
     beacon: z.object({ seconds: pos, hold: pos, radius: pos, distance: n }).strict(),
     spawns: z
@@ -186,7 +201,8 @@ const sector = z
         eliteMax: unit,
       })
       .strict(),
-    elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().int().min(0).max(1000), dust: z.number().int().min(0).max(1000) }).strict(),
+    // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
+    elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().min(0).max(1000), dust: z.number().min(0).max(1000) }).strict(),
     drops: z
       .object({ coin: unit, dust: unit, repair: unit, repairHeal: unit, bossCoins: z.number().int().min(0).max(1000), bossDust: z.number().int().min(0).max(1000) })
       .strict(),
@@ -434,6 +450,7 @@ export const contentSchema = shape.superRefine((c, ctx) => {
   sets(c, ctx);
   c.sectors.forEach((s, i) => {
     ref(ctx, bosses, s.boss, ['sectors', i, 'boss']);
+    if (s.deepBoss) ref(ctx, bosses, s.deepBoss.boss, ['sectors', i, 'deepBoss', 'boss']);
     s.spawns.forEach((sp, j) => ref(ctx, enemies, sp.enemy, ['sectors', i, 'spawns', j, 'enemy']));
     s.waves.forEach((w, j) => ref(ctx, enemies, w.enemy, ['sectors', i, 'waves', j, 'enemy']));
   });

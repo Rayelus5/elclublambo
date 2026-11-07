@@ -683,6 +683,12 @@
   .probe-test-card .launch { text-decoration: none; }
   @media (max-width: 900px) { .probe-answers { grid-template-columns: 1fr; } .probe-answer { min-height: 96px; } }
   @media (prefers-reduced-motion: reduce) { .probe-reveal-art { animation: none; } .probe-test-dots li { transition: none; } }
+  /* The sector panel's title, season badge and tiles (DESIGN_SYSTEM §8 ter): the same tiles as the probes'. */
+  .hangar-sector-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .season-badge { padding: 4px 10px; border-radius: 999px; background: var(--color-uv); color: #fff; font-weight: 700; font-size: 13px; line-height: 1.2; box-shadow: 0 0 14px rgb(114 89 238 / .45); }
+  .probe-tile-sub.season { color: var(--color-uv-soft); font-weight: 700; }
+  .sector-tile-art { width: 40px; height: 40px; justify-self: center; image-rendering: pixelated; }
+  .probe-tile.locked .sector-tile-art { filter: grayscale(1) brightness(.5); }
   /* The probe panel and its picker (DESIGN_SYSTEM §8 ter). */
   .hangar-probe-detail { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; }
   .hangar-probe-detail .hangar-probe-art { width: 112px; height: 112px; }
@@ -791,7 +797,6 @@
   .hangar-fauna { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
   .hangar-fauna li { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 14px; background: var(--color-panel-2); }
   .hangar-fauna img { max-width: 48px; max-height: 48px; }
-  .hangar-grid .hangar-more { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--color-ink-mute); font-size: 14px; }
   .hangar-probe-art { width: 128px; height: 128px; filter: drop-shadow(0 8px 0 rgb(0 0 0 / .35)); }
   .hangar-stats { display: grid; grid-template-columns: repeat(3, auto); gap: 6px 18px; margin: 4px 0 0; }
   .hangar-stats dt { font-size: 13px; color: var(--color-ink-mute); }

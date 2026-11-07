@@ -8,6 +8,9 @@ import {
   probeStatus,
   type RunStats,
   type SectorCard,
+  type SectorsConfig,
+  type SectorStats,
+  sectorStatus,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -26,10 +29,10 @@ export type RunsDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date }
 const LIVE = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'] as const;
 
 /** The account's hangar row, created with defaults on the first visit. */
-export async function ensureHangar(db: Kysely<DB>, accountId: string): Promise<{ probe: string; slots: number }> {
+export async function ensureHangar(db: Kysely<DB>, accountId: string): Promise<{ probe: string; sector: string; slots: number }> {
   await db.insertInto('galaxy.hangars').values({ account_id: accountId }).onConflict((oc) => oc.column('account_id').doNothing()).execute();
-  const row = await db.selectFrom('galaxy.hangars').select(['probe', 'relic_slots']).where('account_id', '=', accountId).executeTakeFirstOrThrow();
-  return { probe: row.probe, slots: row.relic_slots };
+  const row = await db.selectFrom('galaxy.hangars').select(['probe', 'sector', 'relic_slots']).where('account_id', '=', accountId).executeTakeFirstOrThrow();
+  return { probe: row.probe, sector: row.sector, slots: row.relic_slots };
 }
 
 /** Equipped live galaxies by slot (only the open slots). */
@@ -55,7 +58,27 @@ export async function relicSnapshot(db: Kysely<DB>, accountId: string, slots: nu
     .map((g) => ({ id: g.id, seed: g.seed, tier: ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(g.tier), level: g.level, traits: g.traits }));
 }
 
-function sectorCards(content: Content): SectorCard[] {
+/** The account's stats in each sector from finished, non-suspicious runs (what opens the next sectors). */
+export async function sectorStats(db: Kysely<DB>, accountId: string): Promise<Record<string, SectorStats>> {
+  const rows = await db
+    .selectFrom('galaxy.runs')
+    .select((eb) => [
+      'sector',
+      eb.fn.coalesce(eb.fn.sum<string>('boss_kills'), sql<string>`0`).as('bossKills'),
+      eb.fn.coalesce(eb.fn.max('depth'), sql<number>`0`).as('maxDepth'),
+      sql<string>`count(*) filter (where outcome = 'extracted')`.as('extractions'),
+    ])
+    .where('account_id', '=', accountId)
+    .where('finished_at', 'is not', null)
+    .where('suspicious', '=', false)
+    .groupBy('sector')
+    .execute();
+  const out: Record<string, SectorStats> = {};
+  for (const r of rows) out[r.sector] = { bossKills: Number(r.bossKills), maxDepth: Number(r.maxDepth), extractions: Number(r.extractions) };
+  return out;
+}
+
+function sectorCards(content: Content, stats: Record<string, SectorStats>, cfg: SectorsConfig): SectorCard[] {
   return content.sectors.map((s) => {
     const boss = content.bosses.find((b) => b.id === s.boss);
     const fauna: SectorCard['fauna'] = [];
@@ -70,6 +93,8 @@ function sectorCards(content: Content): SectorCard[] {
       boss: { name: boss?.name ?? '', title: boss?.title ?? '', sprite: boss?.sprite ?? '' },
       fauna,
       layerSeconds: s.layerSeconds,
+      biome: s.biome,
+      ...sectorStatus(s, stats, cfg),
     };
   });
 }
@@ -124,17 +149,22 @@ export async function playedToday(db: Kysely<DB>, accountId: string, now: Date):
 }
 
 export async function hangarView(deps: RunsDeps, accountId: string): Promise<HangarView> {
-  const [content, runs, features, probes] = await Promise.all([
+  const [content, runs, features, probes, sectorsCfg] = await Promise.all([
     deps.config.get('content'),
     deps.config.get('runs'),
     deps.config.get('features'),
     deps.config.get('probes'),
+    deps.config.get('sectors'),
   ]);
   const h = await ensureHangar(deps.db, accountId);
   const now = deps.now();
   const assigned = await testedProbe(deps.db, accountId);
+  const sectors = sectorCards(content, await sectorStats(deps.db, accountId), sectorsCfg);
+  // A chosen sector that closed (the season ended, a condition was raised) falls back to the first open one.
+  const chosen = sectors.find((s) => s.id === h.sector && s.unlocked) ?? sectors.find((s) => s.unlocked);
   return {
-    sectors: sectorCards(content),
+    sectors,
+    sector: chosen?.id ?? h.sector,
     probes: probeCards(content, assigned, await runStats(deps.db, accountId, probes.minRunSeconds), probes),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },

@@ -2,6 +2,7 @@ import type { Content, Quirk, RelicInput } from '@galaxy/sim';
 import { z } from 'zod';
 import type { GalaxySummary } from './economy';
 import type { ProbeCondition } from '../probes/unlocks';
+import type { SectorCondition } from '../sectors/unlocks';
 import type { Wallet } from '../gacha/types';
 
 // Requests and responses of the hangar and the runs (GDD §5.1, §11.3 bis, §14.7). Mutating calls carry an
@@ -28,6 +29,9 @@ export interface ProbeTestResult {
 /** The probe for the next run (one the account has unlocked). */
 export const probeChoiceSchema = z.object({ probe: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 export type ProbeChoice = z.infer<typeof probeChoiceSchema>;
+
+export const sectorChoiceSchema = z.object({ sector: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
+export type SectorChoice = z.infer<typeof sectorChoiceSchema>;
 
 export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
@@ -63,6 +67,14 @@ export interface SectorCard {
   boss: { name: string; title: string; sprite: string };
   fauna: { id: string; name: string; sprite: string }[];
   layerSeconds: number;
+  biome: string;
+  unlocked: boolean;
+  /** What opens it (null: open from the start, or a season sector). The client names the condition's Core. */
+  condition: SectorCondition | null;
+  /** 0–1 towards the condition. */
+  progress: number;
+  /** A season sector (GDD §13.1): open only while its season lasts. */
+  season: boolean;
 }
 
 export interface ProbeCard {
@@ -94,6 +106,8 @@ export interface DailyView {
 
 export interface HangarView {
   sectors: SectorCard[];
+  /** The sector for the next run: the one chosen, or the Nebulosa if it is no longer open. */
+  sector: string;
   probes: ProbeCard[];
   probe: string;
   /** The probe test: taken or not, and the probe it gave. */

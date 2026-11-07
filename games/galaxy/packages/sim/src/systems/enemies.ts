@@ -5,8 +5,9 @@ import type { ProbeState, Sim } from '../types';
 import { ticks } from '../version';
 import { hurtProbe, PROBE_RADIUS } from './probes';
 
-// Fauna of the Static (GDD §5.5): spawning, behaviours (chase, warned charge, shooter, armour, summoner), separation,
-// knockback, the volatile elite's delayed blast, relocation of stragglers and the enemies' bullets.
+// Fauna of the Static (GDD §5.5): spawning, behaviours (chase, warned charge, shooter, armour, summoner, orbit, support,
+// warned blink and lance), separation, knockback, the volatile elite's delayed blast, relocation of stragglers and the
+// enemies' bullets.
 
 /** Multipliers from the minute and the layer (systems/director.ts). */
 export interface Scale {
@@ -19,8 +20,8 @@ export const NO_SCALE: Scale = Object.freeze({ hp: 1, damage: 1, speed: 1 });
 
 export const ELITE_CODE = { shielded: 1, swift: 2, volatile: 3 } as const;
 
-/** Behaviour states. */
-export const STATE = { move: 0, windup: 1, dash: 2 } as const;
+/** Behaviour states (aim: a lancer's line or a blink's mark is shown, at `tx, ty` for the blink). */
+export const STATE = { move: 0, windup: 1, dash: 2, aim: 3 } as const;
 
 const FOE_BULLET_RADIUS = 4;
 const FOE_BULLET_SECONDS = 6;
@@ -283,7 +284,122 @@ function behave(sim: Sim, e: number, def: EnemyDef, target: ProbeState): void {
       }
       return;
     }
+    case 'orbit': {
+      if (en.state[e] === STATE.dash) {
+        const a = en.angle[e]!;
+        en.x[e] = en.x[e]! + (cosA(a) * b.diveSpeed) / 60;
+        en.y[e] = en.y[e]! + (sinA(a) * b.diveSpeed) / 60;
+        if (en.timer[e] === 0) {
+          en.state[e] = STATE.move;
+          en.timer[e] = ticks(b.every);
+        }
+        return;
+      }
+      if (en.timer[e] === 0 && d <= b.radius * 1.3) {
+        const a = angleTo(dx, dy);
+        en.state[e] = STATE.dash;
+        en.timer[e] = ticks(b.diveTime);
+        en.angle[e] = a;
+        en.facing[e] = a;
+        return;
+      }
+      // Towards the point of the ring a little ahead of where it is now: far away that is an approach, on the ring a turn.
+      const around = angleTo(en.x[e]! - target.x, en.y[e]! - target.y) + degToSteps(b.turn) / 60;
+      moveToward(sim, e, target.x + cosA(around) * b.radius, target.y + sinA(around) * b.radius, speed);
+      return;
+    }
+    case 'support': {
+      if (d > b.keep * 1.1) moveToward(sim, e, target.x, target.y, speed);
+      else if (d < b.keep * 0.9) moveToward(sim, e, en.x[e]! - dx, en.y[e]! - dy, speed);
+      else en.facing[e] = angleTo(dx, dy);
+      if (en.timer[e] === 0) {
+        en.timer[e] = ticks(b.cooldown);
+        tend(sim, e, b.effect, b.amount, b.range);
+      }
+      return;
+    }
+    case 'blink': {
+      if (en.state[e] === STATE.aim) {
+        if (en.timer[e] === 0) {
+          const fx = en.x[e]!;
+          const fy = en.y[e]!;
+          en.x[e] = en.tx[e]!;
+          en.y[e] = en.ty[e]!;
+          // No interpolation streak across the jump.
+          en.px[e] = en.x[e]!;
+          en.py[e] = en.y[e]!;
+          en.state[e] = STATE.move;
+          en.timer[e] = ticks(b.cooldown);
+          sim.events.push({ t: 'blink', fx, fy, tx: en.x[e]!, ty: en.y[e]! });
+        }
+        return;
+      }
+      if (en.timer[e] === 0 && d <= b.range) {
+        // Behind the probe, as seen from the enemy: the probe dodges by moving, not by standing still.
+        const a = angleTo(dx, dy);
+        en.tx[e] = target.x + cosA(a) * b.offset;
+        en.ty[e] = target.y + sinA(a) * b.offset;
+        en.state[e] = STATE.aim;
+        en.timer[e] = ticks(b.windup);
+        en.facing[e] = a;
+        sim.events.push({ t: 'telegraph', kind: 'blink', x: en.tx[e]!, y: en.ty[e]!, angle: a, ticks: ticks(b.windup), radius: en.radius[e]! });
+        return;
+      }
+      moveToward(sim, e, target.x, target.y, speed);
+      return;
+    }
+    case 'lancer': {
+      if (en.state[e] === STATE.aim) {
+        if (en.timer[e] === 0) {
+          fireFoeBullet(sim, en.x[e]!, en.y[e]!, en.angle[e]!, b.bulletSpeed, b.bulletDamage * damageScale(sim, e));
+          en.state[e] = STATE.move;
+          en.timer[e] = ticks(b.cooldown);
+        }
+        return;
+      }
+      if (d > b.range) moveToward(sim, e, target.x, target.y, speed);
+      else if (d < b.range * 0.75) moveToward(sim, e, en.x[e]! - dx, en.y[e]! - dy, speed);
+      else en.facing[e] = angleTo(dx, dy);
+      if (en.timer[e] === 0 && d <= b.range) {
+        const a = angleTo(dx, dy);
+        en.angle[e] = a;
+        en.facing[e] = a;
+        en.state[e] = STATE.aim;
+        en.timer[e] = ticks(b.windup);
+        sim.events.push({ t: 'telegraph', kind: 'lance', x: en.x[e]!, y: en.y[e]!, angle: a, ticks: ticks(b.windup), radius: b.range * 1.5 });
+      }
+      return;
+    }
   }
+}
+
+/** A support pulse: heals or shields (× max life, a shield of at most one life) the living, non-boss allies in range. */
+function tend(sim: Sim, e: number, effect: 'heal' | 'shield', amount: number, range: number): void {
+  const en = sim.enemies;
+  const x = en.x[e]!;
+  const y = en.y[e]!;
+  // A copy: separate() reuses the shared buffer.
+  const allies = near.slice(0, sim.grid.query(x, y, range, near));
+  for (const o of allies) {
+    if (o === e || !en.alive[o] || en.boss[o] || en.fuseT[o]! > 0) continue;
+    const ox = en.x[o]! - x;
+    const oy = en.y[o]! - y;
+    if (ox * ox + oy * oy > range * range) continue;
+    const max = en.maxHp[o]!;
+    if (effect === 'heal') en.hp[o] = Math.min(max, en.hp[o]! + amount * max);
+    else en.shield[o] = Math.min(max, en.shield[o]! + amount * max);
+  }
+  sim.events.push({ t: 'support', x, y, range, effect });
+}
+
+/**
+ * A frozen or hacked enemy drops the strike it was winding up: its warning ran on and is gone, so the strike has to be
+ * warned again (GDD §5.5, §17.3: nothing hits without a warning on screen).
+ */
+function dropWindup(en: Sim['enemies'], e: number): void {
+  if (en.state[e] === STATE.move) return;
+  en.state[e] = STATE.move;
+  en.timer[e] = 0;
 }
 
 /** Moves every non-boss enemy one tick (bosses: systems/boss.ts). */
@@ -306,9 +422,14 @@ export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void)
     }
     if (en.freezeT[e]! > 0) {
       en.freezeT[e] = en.freezeT[e]! - 1;
+      dropWindup(en, e);
       continue;
     }
-    if (en.hackT[e]! > 0) continue; // hacked: systems/elements.ts drives it
+    if (en.hackT[e]! > 0) {
+      // Hacked: systems/elements.ts drives it.
+      dropWindup(en, e);
+      continue;
+    }
     const target = nearestProbe(sim, en.x[e]!, en.y[e]!);
     if (!target) continue;
     const ddx = target.x - en.x[e]!;

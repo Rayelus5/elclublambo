@@ -176,6 +176,31 @@ export const configSchemas = {
       }),
     })
     .strict(),
+  /**
+   * Sectors (GDD §5.5, §13.1): what opens each sector but the first (stats in the sector the condition names), and the
+   * season sector open to everyone now (null: no season open).
+   */
+  sectors: z
+    .object({
+      unlocks: z
+        .record(
+          z.string().regex(/^[a-z0-9-]{1,32}$/),
+          z
+            .object({
+              sector: z.string().regex(/^[a-z0-9-]{1,32}$/),
+              stat: z.enum(['bossKills', 'maxDepth', 'extractions']),
+              value: z.number().int().min(1).max(1_000_000),
+            })
+            .strict(),
+        )
+        .default({
+          'frost-rings': { sector: 'outer-nebula', stat: 'bossKills', value: 1 },
+          'hollow-reef': { sector: 'frost-rings', stat: 'bossKills', value: 1 },
+          'broken-forge': { sector: 'hollow-reef', stat: 'bossKills', value: 1 },
+        }),
+      season: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('signal-rift'),
+    })
+    .strict(),
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;

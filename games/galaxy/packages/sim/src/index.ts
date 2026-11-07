@@ -61,7 +61,8 @@ export {
   tickStatuses,
 } from './systems/elements';
 export { describeRelic, relicBonuses, relicSkill, relicVision, updateRelics, type RelicSkill } from './systems/relics';
-export { bossDef, spawnBoss, updateBoss } from './systems/boss';
+export { bossAway, bossDef, spawnBoss, updateBoss } from './systems/boss';
+export { updateBlasts } from './systems/blasts';
 export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
 export { decodeLog, encodeLog, fromBase64, logTicks, replay, toBase64 } from './recording';
