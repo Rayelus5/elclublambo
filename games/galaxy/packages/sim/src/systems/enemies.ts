@@ -1,8 +1,12 @@
 import type { EliteDef, EnemyDef } from '../content/types';
-import { angleTo } from '../math/trig';
-import type { Sim } from '../types';
+import type { Rng } from '../math/rng';
+import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
+import type { ProbeState, Sim } from '../types';
+import { ticks } from '../version';
+import { hurtProbe, PROBE_RADIUS } from './probes';
 
-// Spawning fauna (GDD §5.5). Behaviours live in updateEnemies (systems/enemies.ts, Task 4).
+// Fauna of the Static (GDD §5.5): spawning, behaviours (chase, warned charge, shooter, armour, summoner), separation,
+// knockback, the volatile elite's delayed blast, relocation of stragglers and the enemies' bullets.
 
 /** Multipliers from the minute and the layer (systems/director.ts). */
 export interface Scale {
@@ -13,7 +17,14 @@ export interface Scale {
 
 export const NO_SCALE: Scale = Object.freeze({ hp: 1, damage: 1, speed: 1 });
 
-const ELITE_CODE = { shielded: 1, swift: 2, volatile: 3 } as const;
+export const ELITE_CODE = { shielded: 1, swift: 2, volatile: 3 } as const;
+
+/** Behaviour states. */
+export const STATE = { move: 0, windup: 1, dash: 2 } as const;
+
+const FOE_BULLET_RADIUS = 4;
+const FOE_BULLET_SECONDS = 6;
+const KNOCK_DECAY = 0.85;
 
 /** Puts a species in the world; returns its slot, or −1 with the pool full. */
 export function spawnEnemy(sim: Sim, def: EnemyDef, x: number, y: number, opts: { elite?: EliteDef; scale?: Scale } = {}): number {
@@ -41,8 +52,8 @@ export function spawnEnemy(sim: Sim, def: EnemyDef, x: number, y: number, opts: 
   return i;
 }
 
-export function nearestProbe(sim: Sim, x: number, y: number) {
-  let best = null;
+export function nearestProbe(sim: Sim, x: number, y: number): ProbeState | null {
+  let best: ProbeState | null = null;
   let bestD2 = Infinity;
   for (const p of sim.probes) {
     if (!p.alive) continue;
@@ -53,4 +64,284 @@ export function nearestProbe(sim: Sim, x: number, y: number) {
     }
   }
   return best;
+}
+
+/** Centre of the living probes (or of all of them once they are down). */
+export function probesCentre(sim: Sim): { x: number; y: number } {
+  let x = 0;
+  let y = 0;
+  let n = 0;
+  for (const p of sim.probes) {
+    if (!p.alive) continue;
+    x += p.x;
+    y += p.y;
+    n++;
+  }
+  if (n === 0) return { x: sim.probes[0]!.x, y: sim.probes[0]!.y };
+  return { x: x / n, y: y / n };
+}
+
+/**
+ * A point just outside the largest view any player can have (content.arena), on the rectangle around the probes'
+ * centre: spawns never pop up on screen, whatever the player's monitor.
+ */
+export function spawnPoint(sim: Sim, rng: Rng): { x: number; y: number } {
+  const { viewW, viewH, margin } = sim.content.arena;
+  const hw = viewW / 2 + margin;
+  const hh = viewH / 2 + margin;
+  const c = probesCentre(sim);
+  let t = rng.float() * 4 * (hw + hh);
+  if (t < 2 * hw) return { x: c.x - hw + t, y: c.y - hh };
+  t -= 2 * hw;
+  if (t < 2 * hh) return { x: c.x + hw, y: c.y - hh + t };
+  t -= 2 * hh;
+  if (t < 2 * hw) return { x: c.x + hw - t, y: c.y + hh };
+  t -= 2 * hw;
+  return { x: c.x - hw, y: c.y + hh - t };
+}
+
+/** Fires one enemy bullet (speed in units per second). */
+export function fireFoeBullet(sim: Sim, x: number, y: number, angle: number, speed: number, damage: number): void {
+  const fs = sim.foeShots;
+  const i = fs.spawn();
+  if (i < 0) return;
+  fs.x[i] = x;
+  fs.y[i] = y;
+  fs.px[i] = x;
+  fs.py[i] = y;
+  fs.vx[i] = (cosA(angle) * speed) / 60;
+  fs.vy[i] = (sinA(angle) * speed) / 60;
+  fs.damage[i] = damage;
+  fs.radius[i] = FOE_BULLET_RADIUS;
+  fs.ttl[i] = ticks(FOE_BULLET_SECONDS);
+}
+
+/** Smallest signed difference b − a between two angle steps, in (−2048, 2048]. */
+export function angleDiff(a: number, b: number): number {
+  let d = (((b - a) % ANGLE_STEPS) + ANGLE_STEPS) % ANGLE_STEPS;
+  if (d > ANGLE_STEPS / 2) d -= ANGLE_STEPS;
+  return d;
+}
+
+/** True when a hit coming from (ox, oy) lands on the armoured front of enemy `e`. */
+export function hitsFront(sim: Sim, e: number, ox: number, oy: number): boolean {
+  const def = sim.content.enemies[sim.enemies.type[e]!];
+  if (!def || def.behavior.kind !== 'armored' || sim.enemies.boss[e]) return false;
+  const dir = angleTo(ox - sim.enemies.x[e]!, oy - sim.enemies.y[e]!);
+  return Math.abs(angleDiff(sim.enemies.facing[e]!, dir)) <= degToSteps(def.behavior.arc / 2);
+}
+
+/** Speed after statuses (slow; Task 6 fills the factor). */
+export const statusHooks: { speedFactor: (sim: Sim, e: number) => number } = { speedFactor: () => 1 };
+
+function moveToward(sim: Sim, e: number, tx: number, ty: number, speed: number): void {
+  const en = sim.enemies;
+  const dx = tx - en.x[e]!;
+  const dy = ty - en.y[e]!;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  if (d < 1e-9) return;
+  const stepLen = Math.min(speed / 60, d);
+  en.x[e] = en.x[e]! + (dx / d) * stepLen;
+  en.y[e] = en.y[e]! + (dy / d) * stepLen;
+  en.facing[e] = angleTo(dx, dy);
+}
+
+function explode(sim: Sim, e: number): void {
+  const en = sim.enemies;
+  const blast = sim.content.elites.find((x) => x.id === 'volatile')?.explode;
+  if (blast) {
+    for (const p of sim.probes) {
+      if (!p.alive) continue;
+      const r = blast.radius + PROBE_RADIUS;
+      const dx = p.x - en.x[e]!;
+      const dy = p.y - en.y[e]!;
+      if (dx * dx + dy * dy <= r * r) hurtProbe(sim, p, blast.damage * damageScale(sim, e));
+    }
+  }
+  en.kill(e);
+}
+
+/** The minute/layer multiplier an enemy was spawned with (its damage over the species' base). */
+function damageScale(sim: Sim, e: number): number {
+  const def = sim.content.enemies[sim.enemies.type[e]!]!;
+  return def.damage > 0 ? sim.enemies.damage[e]! / def.damage : 1;
+}
+
+const near: number[] = [];
+
+function separate(sim: Sim, e: number): void {
+  const en = sim.enemies;
+  const r = en.radius[e]!;
+  const n = sim.grid.query(en.x[e]!, en.y[e]!, r * 2 + 8, near);
+  for (let k = 0; k < n; k++) {
+    const o = near[k]!;
+    if (o === e || !en.alive[o] || en.fuseT[o]! > 0) continue;
+    const dx = en.x[e]! - en.x[o]!;
+    const dy = en.y[e]! - en.y[o]!;
+    const min = r + en.radius[o]!;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= min * min) continue;
+    const d = Math.sqrt(d2);
+    if (d < 1e-6) {
+      // Exactly on top of each other: part along a direction that depends only on the slots.
+      const a = ((e * 977 + o * 131) % ANGLE_STEPS + ANGLE_STEPS) % ANGLE_STEPS;
+      en.x[e] = en.x[e]! + cosA(a) * min * 0.5;
+      en.y[e] = en.y[e]! + sinA(a) * min * 0.5;
+      continue;
+    }
+    const push = (min - d) * 0.5;
+    en.x[e] = en.x[e]! + (dx / d) * push;
+    en.y[e] = en.y[e]! + (dy / d) * push;
+  }
+}
+
+function behave(sim: Sim, e: number, def: EnemyDef, target: ProbeState): void {
+  const en = sim.enemies;
+  const speed = en.speed[e]! * statusHooks.speedFactor(sim, e);
+  const dx = target.x - en.x[e]!;
+  const dy = target.y - en.y[e]!;
+  const d = Math.sqrt(dx * dx + dy * dy);
+  const b = def.behavior;
+  if (en.timer[e]! > 0) en.timer[e] = en.timer[e]! - 1;
+  switch (b.kind) {
+    case 'chase':
+      moveToward(sim, e, target.x, target.y, speed);
+      return;
+    case 'charge': {
+      const state = en.state[e]!;
+      if (state === STATE.windup) {
+        if (en.timer[e] === 0) {
+          en.state[e] = STATE.dash;
+          en.timer[e] = ticks(b.dashTime);
+        }
+        return;
+      }
+      if (state === STATE.dash) {
+        const a = en.angle[e]!;
+        en.x[e] = en.x[e]! + (cosA(a) * b.dashSpeed) / 60;
+        en.y[e] = en.y[e]! + (sinA(a) * b.dashSpeed) / 60;
+        if (en.timer[e] === 0) {
+          en.state[e] = STATE.move;
+          en.timer[e] = ticks(b.cooldown);
+        }
+        return;
+      }
+      if (en.timer[e] === 0 && d <= b.range) {
+        en.state[e] = STATE.windup;
+        en.timer[e] = ticks(b.windup);
+        const a = angleTo(dx, dy);
+        en.angle[e] = a;
+        en.facing[e] = a;
+        en.tx[e] = target.x;
+        en.ty[e] = target.y;
+        sim.events.push({ t: 'telegraph', kind: 'charge', x: en.x[e]!, y: en.y[e]!, angle: a, ticks: ticks(b.windup), radius: b.dashSpeed * b.dashTime });
+        return;
+      }
+      moveToward(sim, e, target.x, target.y, speed);
+      return;
+    }
+    case 'shooter': {
+      if (d > b.range) moveToward(sim, e, target.x, target.y, speed);
+      else if (d < b.range * 0.75) moveToward(sim, e, en.x[e]! - dx, en.y[e]! - dy, speed);
+      else en.facing[e] = angleTo(dx, dy);
+      if (en.timer[e] === 0 && d <= b.range) {
+        en.timer[e] = ticks(b.cooldown);
+        const centre = angleTo(dx, dy);
+        const step = degToSteps(b.spread);
+        const bulletDamage = b.bulletDamage * damageScale(sim, e);
+        for (let k = 0; k < b.count; k++) {
+          const a = centre + Math.round((k - (b.count - 1) / 2) * step);
+          fireFoeBullet(sim, en.x[e]!, en.y[e]!, a, b.bulletSpeed, bulletDamage);
+        }
+      }
+      return;
+    }
+    case 'armored': {
+      const want = angleTo(dx, dy);
+      const turn = Math.max(1, Math.round(degToSteps(b.turnRate) / 60));
+      const diff = angleDiff(en.facing[e]!, want);
+      const delta = Math.abs(diff) <= turn ? diff : diff >= 0 ? turn : -turn;
+      const f = (((en.facing[e]! + delta) % ANGLE_STEPS) + ANGLE_STEPS) % ANGLE_STEPS;
+      en.facing[e] = f;
+      en.x[e] = en.x[e]! + (cosA(f) * speed) / 60;
+      en.y[e] = en.y[e]! + (sinA(f) * speed) / 60;
+      return;
+    }
+    case 'summoner': {
+      moveToward(sim, e, target.x, target.y, speed);
+      if (en.timer[e] === 0) {
+        en.timer[e] = ticks(b.cooldown);
+        const minion = sim.content.enemies.find((x) => x.id === b.minion);
+        if (minion) {
+          for (let k = 0; k < b.count; k++) {
+            const a = sim.rng.ai.int(ANGLE_STEPS);
+            spawnEnemy(sim, minion, en.x[e]! + cosA(a) * 18, en.y[e]! + sinA(a) * 18);
+          }
+        }
+      }
+      return;
+    }
+  }
+}
+
+/** Moves every non-boss enemy one tick (bosses: systems/boss.ts). */
+export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void): void {
+  const en = sim.enemies;
+  const despawn = sim.content.arena.despawn;
+  for (let e = 0; e < en.top; e++) {
+    if (!en.alive[e] || en.boss[e]) continue;
+    if (en.fuseT[e]! > 0) {
+      en.fuseT[e] = en.fuseT[e]! - 1;
+      if (en.fuseT[e] === 0) explode(sim, e);
+      continue;
+    }
+    // Knockback
+    if (en.kx[e] !== 0 || en.ky[e] !== 0) {
+      en.x[e] = en.x[e]! + en.kx[e]!;
+      en.y[e] = en.y[e]! + en.ky[e]!;
+      en.kx[e] = Math.abs(en.kx[e]!) < 0.01 ? 0 : en.kx[e]! * KNOCK_DECAY;
+      en.ky[e] = Math.abs(en.ky[e]!) < 0.01 ? 0 : en.ky[e]! * KNOCK_DECAY;
+    }
+    if (en.freezeT[e]! > 0) {
+      en.freezeT[e] = en.freezeT[e]! - 1;
+      continue;
+    }
+    if (en.hackT[e]! > 0) continue; // hacked: systems/elements.ts drives it
+    const target = nearestProbe(sim, en.x[e]!, en.y[e]!);
+    if (!target) continue;
+    const ddx = target.x - en.x[e]!;
+    const ddy = target.y - en.y[e]!;
+    if (ddx * ddx + ddy * ddy > despawn * despawn) {
+      relocate(sim, e);
+      continue;
+    }
+    behave(sim, e, sim.content.enemies[en.type[e]!]!, target);
+    separate(sim, e);
+  }
+}
+
+/** Enemy bullets: fly, expire, and hit the first probe they touch. */
+export function updateFoeShots(sim: Sim): void {
+  const fs = sim.foeShots;
+  for (let i = 0; i < fs.top; i++) {
+    if (!fs.alive[i]) continue;
+    fs.x[i] = fs.x[i]! + fs.vx[i]!;
+    fs.y[i] = fs.y[i]! + fs.vy[i]!;
+    fs.ttl[i] = fs.ttl[i]! - 1;
+    if (fs.ttl[i]! <= 0) {
+      fs.kill(i);
+      continue;
+    }
+    for (const p of sim.probes) {
+      if (!p.alive) continue;
+      const r = PROBE_RADIUS + fs.radius[i]!;
+      const dx = p.x - fs.x[i]!;
+      const dy = p.y - fs.y[i]!;
+      if (dx * dx + dy * dy <= r * r) {
+        hurtProbe(sim, p, fs.damage[i]!);
+        fs.kill(i);
+        break;
+      }
+    }
+  }
 }

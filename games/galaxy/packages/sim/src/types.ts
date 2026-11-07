@@ -113,6 +113,9 @@ export interface HitSource {
   weapon: string | null;
   relic: number | null;
   element: ElementId | null;
+  /** Where the hit comes from (armoured fronts); the probe's position when absent. */
+  x?: number;
+  y?: number;
 }
 
 export type SimStatus = 'running' | 'choosing' | 'extracted' | 'dead';

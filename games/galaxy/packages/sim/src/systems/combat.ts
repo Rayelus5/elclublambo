@@ -1,5 +1,8 @@
 import { PICKUP } from '../world/pools';
 import type { HitSource, Sim } from '../types';
+import { ticks } from '../version';
+import { scaleAt } from './director';
+import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { dropPickup } from './pickups';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
@@ -14,6 +17,12 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const p = sim.probes[src.probe];
   let dmg = amount;
   let crit = false;
+  const def = sim.content.enemies[en.type[e]!];
+  if (def && def.behavior.kind === 'armored' && !en.boss[e]) {
+    const ox = src.x ?? (p ? p.x : en.x[e]!);
+    const oy = src.y ?? (p ? p.y : en.y[e]!);
+    if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
+  }
   if (p && sim.rng.combat.chance(p.stats.crit)) {
     crit = true;
     dmg *= p.stats.critDamage;
@@ -48,6 +57,23 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   } else {
     if (sim.rng.loot.chance(sector.drops.coin * luck)) dropPickup(sim, PICKUP.coin, 1, x + 3, y);
     if (sim.rng.loot.chance(sector.drops.dust * luck)) dropPickup(sim, PICKUP.dust, 1, x - 3, y);
+  }
+  if (def.split) {
+    const child = sim.content.enemies.find((c) => c.id === def.split!.into);
+    if (child) {
+      const scale = scaleAt(sim);
+      for (let k = 0; k < def.split.count; k++) spawnEnemy(sim, child, x + (k - (def.split.count - 1) / 2) * 8, y + (k % 2 === 0 ? -3 : 3), { scale });
+    }
+  }
+  if (en.elite[e] === ELITE_CODE.volatile) {
+    // The corpse lingers as a warning, then blows up (systems/enemies.ts).
+    const blast = sim.content.elites.find((x) => x.id === 'volatile')?.explode;
+    if (blast) {
+      en.fuseT[e] = Math.max(1, ticks(blast.delay));
+      en.hp[e] = 0;
+      sim.events.push({ t: 'telegraph', kind: 'explode', x, y, angle: 0, ticks: en.fuseT[e]!, radius: blast.radius });
+      return;
+    }
   }
   en.kill(e);
 }

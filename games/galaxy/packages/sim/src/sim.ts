@@ -1,4 +1,6 @@
 import { Rng } from './math/rng';
+import { direct, relocate } from './systems/director';
+import { updateEnemies, updateFoeShots } from './systems/enemies';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
 import { refreshStats } from './systems/stats';
@@ -157,6 +159,9 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickProbes(sim);
   moveProbes(sim, inputs);
   tickFlashes(sim);
+  direct(sim);
+  updateEnemies(sim, relocate);
+  updateFoeShots(sim);
   rebuildGrid(sim);
   contactDamage(sim, maxEnemyRadius(sim));
   updatePickups(sim);

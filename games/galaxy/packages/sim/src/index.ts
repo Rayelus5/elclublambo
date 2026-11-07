@@ -15,6 +15,21 @@ export { deriveStats, refreshStats, relicHooks, type StatBonus } from './systems
 export { applyOffer, offerFor } from './systems/upgrades';
 export { gainXp, xpFor } from './systems/xp';
 export { dealDamage, killEnemy } from './systems/combat';
-export { nearestProbe, NO_SCALE, spawnEnemy, type Scale } from './systems/enemies';
+export {
+  angleDiff,
+  ELITE_CODE,
+  fireFoeBullet,
+  hitsFront,
+  nearestProbe,
+  NO_SCALE,
+  probesCentre,
+  spawnEnemy,
+  spawnPoint,
+  STATE,
+  statusHooks,
+  updateEnemies,
+  type Scale,
+} from './systems/enemies';
+export { direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { hurtProbe, PROBE_RADIUS } from './systems/probes';
