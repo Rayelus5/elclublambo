@@ -38,10 +38,22 @@ test('los píxeles: transparente donde hay un punto y el color de la paleta dond
   expect([...pixels(def, 0)]).toEqual([0, 0, 0, 0, 0x10, 0x20, 0x30, 255]);
 });
 
+// M3b-3 (plan table): the fauna and Cores of the four new sectors, and three rocks per new biome.
+const M3B3_FAUNA = ['splinter', 'narwhal', 'beacon', 'geode', 'floe', 'polyp', 'jelly', 'urchin', 'eel', 'colony', 'ember', 'ram', 'sentry', 'golem', 'welder', 'crucible', 'glitch', 'wraith', 'cantor'];
+const M3B3_CORES = ['glacier', 'anemone', 'anvil', 'echo-core', 'signal'];
+const M3B3_ROCKS = ['ice', 'coral', 'slag', 'rift'].flatMap((b) => [1, 2, 3].map((k) => `${b}-${k}`));
+
+test('M3b-3: cada especie y cada Núcleo de los sectores nuevos, y 3 rocas por bioma, tienen sprite', () => {
+  for (const id of [...M3B3_FAUNA, ...M3B3_CORES, ...M3B3_ROCKS]) expect(SPRITES[id], id).toBeDefined();
+  // Fauna reads at a glance: two frames at least, and the Cores at the size of the first one.
+  for (const id of M3B3_FAUNA) expect(SPRITES[id]!.frames.length, id).toBeGreaterThanOrEqual(2);
+  for (const id of M3B3_CORES) expect([SPRITES[id]!.w, SPRITES[id]!.h], id).toEqual([40, 40]);
+});
+
 test('ningún sprite de botín, disparo o icono pisa a uno de la fauna o de la sonda', async () => {
   const { ITEMS } = await import('../src/arena/sprites/items');
   const { ICONS } = await import('../src/arena/sprites/icons');
-  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive'];
+  const fauna = ['probe-lumen', 'mite', 'cell', 'cellet', 'ray', 'spitter', 'shell', 'hive', ...M3B3_FAUNA, ...M3B3_CORES];
   for (const id of [...Object.keys(ITEMS), ...Object.keys(ICONS)]) expect(fauna, id).not.toContain(id);
 });
 

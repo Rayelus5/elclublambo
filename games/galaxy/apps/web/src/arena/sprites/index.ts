@@ -1,4 +1,7 @@
 import { CELL, CELLET, HIVE, MITE, PROBE_LUMEN, RAY, SHELL, SPITTER } from './fauna';
+import { BOSSES } from './bosses';
+import { DECOR } from './decor';
+import { FAUNA2 } from './fauna2';
 import { ICONS } from './icons';
 import { PROBES } from './probes';
 import { ITEMS } from './items';
@@ -17,6 +20,9 @@ export const SPRITES: Record<string, SpriteDef> = {
   shell: SHELL,
   hive: HIVE,
   ...PROBES,
+  ...FAUNA2,
+  ...BOSSES,
+  ...DECOR,
   ...ITEMS,
   ...ICONS,
 };

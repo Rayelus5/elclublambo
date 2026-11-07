@@ -27,4 +27,13 @@ export const P: Record<string, string> = {
   Y: '#b9bfe6', // light grey
   t: '#2a2f5e', // steel dark
   T: '#4b5390', // steel
+  // M3b-3 biomes: the reef's coral and teal, the forge's lava, the rift's glitch violet.
+  q: '#ff8fb3', // coral
+  Q: '#c94f7c', // coral 2
+  j: '#3fe0d0', // teal
+  J: '#13867f', // deep teal
+  l: '#ff5a1f', // lava
+  L: '#5a1d10', // slag crust
+  v: '#e05cff', // glitch violet
+  V: '#8e2bb3', // glitch violet 2
 };
