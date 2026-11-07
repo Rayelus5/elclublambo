@@ -61,7 +61,8 @@ const view: HangarView = {
     sectorCard('broken-forge', { condition: { sector: 'hollow-reef', stat: 'bossKills', value: 1 } }),
     sectorCard('signal-rift', { unlocked: true, progress: 1 }),
   ],
-  sector: 'outer-nebula',
+  // The season chosen: its long name wraps beside the check (seen on PRE).
+  sector: 'signal-rift',
   probes: [
     card('lumen', { unlocked: true, progress: 1 }),
     card('bastion', { unlocked: true, condition: { stat: 'runs', value: 3 }, progress: 1 }),
