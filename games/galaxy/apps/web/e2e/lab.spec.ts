@@ -47,11 +47,13 @@ test('el laboratorio: repararlo, comprar Blindaje reforzado y salir con su vida'
   await expect(page).toHaveURL(/\/galaxy\/laboratorio$/);
 
   const probe = page.getByRole('list', { name: 'Sonda' });
-  const hull = probe.getByRole('listitem').filter({ hasText: 'Blindaje reforzado' });
+  // A node's card (its list item also holds the nodes it opens).
+  const node = (name: string) => probe.locator('.lab-node').filter({ has: page.getByText(name, { exact: true }) });
+  const hull = node('Blindaje reforzado');
   await hull.getByRole('button', { name: /Mejorar a nivel 1/ }).click();
   await expect(hull).toContainText('Nivel 1 de 5');
   // Propulsores opens (it needs Blindaje reforzado); the wallet is empty now, so its button waits.
-  await expect(probe.getByRole('listitem').filter({ hasText: 'Propulsores' }).getByRole('button', { name: /Mejorar a nivel 1/ })).toBeDisabled();
+  await expect(node('Propulsores').getByRole('button', { name: /Mejorar a nivel 1/ })).toBeDisabled();
 
   await page.goto('/galaxy/incursion');
   const started = page.waitForResponse((r) => r.url().endsWith('/galaxy/api/runs') && r.request().method() === 'POST');

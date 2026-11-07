@@ -740,13 +740,13 @@
   .lab-branch h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font: 400 22px var(--font-display); color: var(--color-ink); }
   .lab-branch h2 .ico { color: var(--branch); font-size: 22px; }
   .lab-branch ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  /* The nodes a node opens hang from it: a vertical line in the branch's colour and a short arm to each card. */
+  .lab-branch ul.lab-children { margin: 12px 0 0 22px; padding-left: 16px; border-left: 2px solid color-mix(in srgb, var(--branch) 45%, transparent); }
+  .lab-children > li { position: relative; }
+  .lab-children > li::before { content: ''; position: absolute; left: -16px; top: 30px; width: 14px; border-top: 2px solid color-mix(in srgb, var(--branch) 45%, transparent); }
   .lab-node { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px 12px 12px 10px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); box-shadow: inset 0 2px 0 rgb(255 255 255 / .1), 0 4px 0 var(--color-panel-lip); }
-  .lab-node[data-depth="1"] { margin-left: 16px; }
-  .lab-node[data-depth="2"], .lab-node[data-depth="3"] { margin-left: 32px; }
-  .lab-node:not([data-depth="0"])::before { content: ''; position: absolute; left: -12px; top: -14px; width: 10px; height: 36px; border-left: 2px solid var(--branch); border-bottom: 2px solid var(--branch); border-bottom-left-radius: 6px; opacity: .7; }
   .lab-node.locked { background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .12); box-shadow: none; }
   .lab-node.locked .lab-node-icon, .lab-node.locked .lab-node-art { filter: grayscale(1) brightness(.55); }
-  .lab-node.locked:not([data-depth="0"])::before { border-color: rgb(255 255 255 / .2); }
   .lab-node.maxed { border-color: color-mix(in srgb, var(--branch) 70%, transparent); box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 4px 0 var(--color-panel-lip), 0 0 18px color-mix(in srgb, var(--branch) 25%, transparent); }
   .lab-node-icon { display: grid; place-items: center; inline-size: 48px; block-size: 48px; border-radius: 12px; background: rgb(0 0 0 / .35); color: var(--branch); font-size: 24px; }
   /* The node's Aseprite strip (two 24×24 frames) at ×2, glowing with steps(2). */

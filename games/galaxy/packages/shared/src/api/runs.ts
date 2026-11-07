@@ -155,7 +155,10 @@ export interface RunStart {
   sector: string;
   probe: string;
   relics: RelicInput[];
-  /** The probe level's stat bonuses and the starting-weapon variant (null: the base), snapshotted at the start. */
+  /**
+   * The stat bonuses of the probe's level and of the Laboratorio (M4b-2), and the starting-weapon variant (null: the
+   * base), snapshotted at the start.
+   */
   bonuses: StatBonus[];
   variant: string | null;
   content: Content;

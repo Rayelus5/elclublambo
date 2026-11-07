@@ -6,7 +6,8 @@ import { copy, fmt } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { labIconUrl } from './icons';
 
-// The Laboratorio (GDD §10.6, DESIGN_SYSTEM §8 octies): a lab blueprint with four branches of nodes. Each node says
+// The Laboratorio (GDD §10.6, DESIGN_SYSTEM §8 octies): a lab blueprint with four branches, each a tree: a node's item
+// holds the list of the nodes it opens. Each node says
 // what it adds per level and now, shows its pips and offers its next level with the cost; a closed one says which node
 // opens it. Closed until the room is repaired in the station.
 
@@ -23,15 +24,16 @@ function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName;
   );
 }
 
-/** Root first, then each node after the one it needs (depth by its chain of requirements). */
-function ordered(nodes: LabNodeView[]): { node: LabNodeView; depth: number }[] {
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const depth = (n: LabNodeView): number => {
-    let d = 0;
-    for (let at = n.requires; at && byId.has(at) && d < nodes.length; at = byId.get(at)!.requires) d++;
-    return d;
-  };
-  return nodes.map((node, i) => ({ node, depth: depth(node), i })).sort((a, b) => a.depth - b.depth || a.i - b.i);
+/** The nodes each node opens, in config order (a node whose requirement is not in the branch is a root). */
+function childrenOf(nodes: LabNodeView[]): { roots: LabNodeView[]; kids: Map<string, LabNodeView[]> } {
+  const ids = new Set(nodes.map((n) => n.id));
+  const kids = new Map<string, LabNodeView[]>();
+  const roots: LabNodeView[] = [];
+  for (const n of nodes) {
+    if (n.requires && ids.has(n.requires)) kids.set(n.requires, [...(kids.get(n.requires) ?? []), n]);
+    else roots.push(n);
+  }
+  return { roots, kids };
 }
 
 function NodeIcon({ node }: { node: LabNodeView }) {
@@ -46,12 +48,12 @@ function NodeIcon({ node }: { node: LabNodeView }) {
   return <span className="lab-node-art" aria-hidden="true" data-art={node.id} style={{ backgroundImage: `url(${url})` }} />;
 }
 
-function NodeCard({ node, depth, view, names, upgrade }: { node: LabNodeView; depth: number; view: LabView; names: Map<string, string>; upgrade: ReturnType<typeof useUpgradeLabNode> }) {
+function NodeCard({ node, view, names, upgrade }: { node: LabNodeView; view: LabView; names: Map<string, string>; upgrade: ReturnType<typeof useUpgradeLabNode> }) {
   const next = node.next;
   const short = next ? { dust: Math.max(0, next.dust - view.wallet.dust), components: Math.max(0, next.components - (view.wallet['components'] ?? 0)) } : null;
   const affordable = short !== null && short.dust === 0 && short.components === 0;
   return (
-    <li className={`lab-node${node.unlocked ? '' : ' locked'}${next ? '' : ' maxed'}`} data-depth={Math.min(depth, 3)}>
+    <div className={`lab-node${node.unlocked ? '' : ' locked'}${next ? '' : ' maxed'}`}>
       <NodeIcon node={node} />
       <div className="lab-node-body">
         <b>{node.name}</b>
@@ -88,6 +90,24 @@ function NodeCard({ node, depth, view, names, upgrade }: { node: LabNodeView; de
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/** A node and, inside its item, the list of the nodes it opens (a tree the connectors follow). */
+function NodeItem(props: { node: LabNodeView; kids: Map<string, LabNodeView[]>; view: LabView; names: Map<string, string>; upgrade: ReturnType<typeof useUpgradeLabNode>; depth: number }) {
+  const { node, kids, depth } = props;
+  const children = depth < 8 ? (kids.get(node.id) ?? []) : [];
+  return (
+    <li>
+      <NodeCard node={node} view={props.view} names={props.names} upgrade={props.upgrade} />
+      {children.length > 0 ? (
+        <ul className="lab-children">
+          {children.map((c) => (
+            <NodeItem key={c.id} {...props} node={c} depth={depth + 1} />
+          ))}
+        </ul>
+      ) : null}
     </li>
   );
 }
@@ -141,11 +161,16 @@ export function LabScreen() {
                   <Icon name={BRANCH_ICON[branch]} />
                   {t.branches[branch]}
                 </h2>
-                <ul aria-label={t.branches[branch]}>
-                  {ordered(v.nodes.filter((n) => n.branch === branch)).map(({ node, depth }) => (
-                    <NodeCard key={node.id} node={node} depth={depth} view={v} names={names} upgrade={upgrade} />
-                  ))}
-                </ul>
+                {(() => {
+                  const tree = childrenOf(v.nodes.filter((n) => n.branch === branch));
+                  return (
+                    <ul aria-label={t.branches[branch]} className="lab-roots">
+                      {tree.roots.map((node) => (
+                        <NodeItem key={node.id} node={node} kids={tree.kids} view={v} names={names} upgrade={upgrade} depth={0} />
+                      ))}
+                    </ul>
+                  );
+                })()}
               </section>
             ))}
           </div>

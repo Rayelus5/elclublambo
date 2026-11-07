@@ -133,3 +133,16 @@ test('sin sesión, 401 antes que validar el cuerpo', async () => {
   expect(res.statusCode).toBe(401);
   expect((await get(ctx.app, '/galaxy/api/lab')).statusCode).toBe(401);
 });
+
+test('una mejora cobra los componentes antes que el polvo, en el mismo orden que el resto de la economía', async () => {
+  const { cookie, id } = await withLab();
+  expect((await buy(cookie, 'hull', 1)).statusCode).toBe(200);
+  const rows = await ctx.db
+    .selectFrom('galaxy.ledger')
+    .select(['currency'])
+    .where('account_id', '=', id)
+    .where('reason', '=', 'lab')
+    .orderBy('id')
+    .execute();
+  expect(rows.map((r) => r.currency)).toEqual(['components', 'dust']);
+});

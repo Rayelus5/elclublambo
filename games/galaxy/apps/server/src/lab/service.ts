@@ -42,8 +42,9 @@ export async function upgradeLabNode(deps: RunsDeps, trx: Db, accountId: string,
   if (level !== status.level + 1) throw new HttpError(409, 'lab_changed');
   if (node.effect.kind === 'refinery' || node.effect.kind === 'antenna') await settleStation(deps, trx, accountId);
   const ref = { node: node.id, level };
-  if (status.next.dust > 0) await debit(trx, accountId, 'dust', status.next.dust, 'lab', ref, key);
+  // Components before dust: every multi-currency debit takes its balance rows in the same order (no deadlocks).
   if (status.next.components > 0) await debit(trx, accountId, 'components', status.next.components, 'lab', ref, key);
+  if (status.next.dust > 0) await debit(trx, accountId, 'dust', status.next.dust, 'lab', ref, key);
   const now = deps.now();
   await trx
     .insertInto('galaxy.lab_nodes')

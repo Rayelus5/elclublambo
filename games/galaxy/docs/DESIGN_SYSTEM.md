@@ -351,9 +351,9 @@ El Hogar de la portada lleva a la estación (GDD §10): la base es el menú. Con
   - **Lo que se ve:** cada sala es una celda del casco, con techo y tubería, una lámpara con su cono de luz tramado, paneles biselados con remaches, ventana al espacio con estrellas que titilan, suelo de rejilla y mamparos. La máquina tiñe la pared con su luz.
   - **Rota:** la luz apagada, la máquina quieta y más oscura, una luz de emergencia roja que parpadea, una grieta, un cable suelto que echa chispas y la Estática en ráfagas.
   - **Herramienta** (Escáner, Planetario, Hangar, Colisionador): enlace a su pantalla; la línea dice para qué sirve.
-  - **Máquina** (Refinería, Antena): botón que abre su panel; la línea dice el nivel en Terminal.
+  - **Máquina** (Refinería, Antena): botón que abre su panel; la línea dice el nivel en Terminal. El Laboratorio (M4b-2) se repara así y, arreglado, es una herramienta que enlaza a `/laboratorio`.
   - **Rota** (la Antena al empezar): la escena oscurecida, cruzada por una grieta y el ruido de la Estática, que se mueve; borde rojo tenue y «Rota» en rojo.
-  - **De más adelante** (Laboratorio, Comunicaciones, Archivo, Trofeos): la escena rota al 62 % de opacidad, sin botón ni enlace, y «En reparación».
+  - **De más adelante** (Comunicaciones, Archivo, Trofeos): la escena rota al 62 % de opacidad, sin botón ni enlace, y «En reparación».
   - Al pasar el ratón la sala sube 3 px con un borde y un brillo Terminal; el foco es un anillo hielo de 3 px. Con movimiento reducido no sube.
 - **Barra:** material en bruto (cubo naranja), componentes (llave Terminal), monedas y señales, leídos como frases.
 - **Panel de la Refinería:** diálogo con qué hace, nivel, ritmo («20 por hora») y listos; la cola como barra Solar con «En cola · 30/100»; el campo «Cantidad» (por defecto todo lo que cabe, y nunca más de lo que cabe), «Cargar», «Recoger 20 componentes» (Solar) y la mejora.
@@ -369,7 +369,7 @@ Consulta de ui-ux-pro-max: no hubo resultado para «árbol de mejoras». Se apli
 - **El plano:** cuatro ramas en columnas (dos por debajo de 1300 px y una en el móvil).
   - Cada rama es un panel de vidrio oscuro con la retícula de un plano y un borde del color de su rama: Sonda hielo, Reliquias ultravioleta, Estación Solar y Extracción Terminal.
   - Encima va su nombre en la tipografía de títulos con su icono.
-- **Nodos:** la raíz arriba. Los demás, sangrados bajo el que los abre, con un conector en escuadra del color de la rama.
+- **Nodos:** un árbol de verdad. Cada nodo lleva dentro la lista de los que abre, sangrada bajo él, con una línea vertical del color de la rama y un brazo corto hasta cada tarjeta.
 - **Cada nodo:**
   - su icono de 48 px;
   - el nombre;

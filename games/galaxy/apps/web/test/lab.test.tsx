@@ -96,3 +96,16 @@ test('lo que falta concuerda en número', () => {
   expect(copy.station.missing(0, 1)).toBe('Te falta 1 moneda');
   expect(copy.station.missing(18, 0)).toBe('Te faltan 18 componentes');
 });
+
+test('cada nodo cuelga del que lo abre, también cuando su padre no es el último de la rama', async () => {
+  open(view());
+  const station = await screen.findByRole('list', { name: t.branches.station });
+  const names = within(station).getAllByRole('listitem').map((li) => li.querySelector('b')!.textContent);
+  expect(names).toEqual(['Caudal', 'Silos', 'Chatarrería', 'Receptor']);
+  // Chatarrería (needs Silos) is inside Silos's item, Receptor (needs Caudal) is not.
+  const silos = card('Silos');
+  expect(within(silos).getByText('Chatarrería', { selector: 'b' })).toBeInTheDocument();
+  expect(within(silos).queryByText('Receptor', { selector: 'b' })).toBeNull();
+  const ledger = card('Contabilidad');
+  expect(within(ledger).getByText('Estudio', { selector: 'b' })).toBeInTheDocument();
+});
