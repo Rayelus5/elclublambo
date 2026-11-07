@@ -141,6 +141,11 @@ export const configSchemas = {
         .refine((d) => d.multipliers.every((m, i) => i === 0 || m <= d.multipliers[i - 1]!), 'daily_multipliers_decreasing')
         .default({ hours: [3, 4, 5], multipliers: [1, 0.75, 0.5, 0.25] }),
       signalChancePerBoss: probability.default(0.1),
+      /** Raw material a run brings (GDD §10.3): per layer reached, per Core beaten and per hundred kills; paid like the loot. */
+      material: z
+        .object({ perLayer: z.number().min(0).max(10_000), perBoss: z.number().min(0).max(10_000), perHundredKills: z.number().min(0).max(10_000) })
+        .strict()
+        .default({ perLayer: 6, perBoss: 10, perHundredKills: 2 }),
       caps: z
         .object({
           killsPerMinute: z.number().int().min(1).max(100_000),
@@ -152,9 +157,10 @@ export const configSchemas = {
           /** The most one run pays, whatever it claims (until replays verify runs, M5). */
           runCoins: z.number().int().min(0).max(10_000_000).default(20_000),
           runDust: z.number().int().min(0).max(10_000_000).default(10_000),
+          runMaterial: z.number().int().min(0).max(10_000_000).default(500),
         })
         .strict()
-        .default({ killsPerMinute: 900, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000 }),
+        .default({ killsPerMinute: 900, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000, runMaterial: 500 }),
       expireHours: z.number().int().min(1).max(168).default(24),
       startPerHour: limit(30),
     })
@@ -174,6 +180,53 @@ export const configSchemas = {
         comet: { stat: 'kills', value: 2000 },
         echo: { stat: 'runs', value: 15 },
       }),
+    })
+    .strict(),
+  /**
+   * The station (GDD §10): the refinery's levels (material per hour, queue, cost of reaching the level) and the
+   * antenna's (signals per hour, cost; level 1's cost is the repair), with its cap in hours.
+   */
+  station: z
+    .object({
+      refinery: z
+        .array(z.object({ rate: z.number().gt(0).max(100_000), queue: z.number().int().min(1).max(10_000_000), cost: z.object({ components: z.number().int().min(0).max(1_000_000), coins: z.number().int().min(0).max(100_000_000) }).strict() }).strict())
+        .min(1)
+        .max(10)
+        .refine((ls) => ls.every((l, i) => i === 0 || (l.rate >= ls[i - 1]!.rate && l.queue >= ls[i - 1]!.queue)), 'refinery_levels_increasing')
+        .default([
+          { rate: 20, queue: 100, cost: { components: 0, coins: 0 } },
+          { rate: 30, queue: 150, cost: { components: 40, coins: 500 } },
+          { rate: 45, queue: 250, cost: { components: 90, coins: 1200 } },
+          { rate: 65, queue: 400, cost: { components: 180, coins: 2500 } },
+          { rate: 90, queue: 600, cost: { components: 320, coins: 5000 } },
+        ]),
+      antenna: z
+        .object({
+          capHours: z.number().gt(0).max(72).default(8),
+          levels: z
+            .array(z.object({ rate: z.number().gt(0).max(100), cost: z.object({ components: z.number().int().min(0).max(1_000_000), coins: z.number().int().min(0).max(100_000_000) }).strict() }).strict())
+            .min(1)
+            .max(10)
+            .refine((ls) => ls.every((l, i) => i === 0 || l.rate >= ls[i - 1]!.rate), 'antenna_levels_increasing')
+            .default([
+              { rate: 0.125, cost: { components: 30, coins: 0 } },
+              { rate: 0.15, cost: { components: 40, coins: 400 } },
+              { rate: 0.175, cost: { components: 80, coins: 900 } },
+              { rate: 0.2, cost: { components: 150, coins: 1800 } },
+              { rate: 0.25, cost: { components: 260, coins: 3500 } },
+            ]),
+        })
+        .strict()
+        .default({
+          capHours: 8,
+          levels: [
+            { rate: 0.125, cost: { components: 30, coins: 0 } },
+            { rate: 0.15, cost: { components: 40, coins: 400 } },
+            { rate: 0.175, cost: { components: 80, coins: 900 } },
+            { rate: 0.2, cost: { components: 150, coins: 1800 } },
+            { rate: 0.25, cost: { components: 260, coins: 3500 } },
+          ],
+        }),
     })
     .strict(),
   /**

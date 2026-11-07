@@ -180,6 +180,26 @@ export interface GachaPullsTable {
 }
 
 /** Hangar (GDD §5.1, §8.4): chosen probe and open relic slots. */
+/** The station (M4a, GDD §10): the level of each room, the refinery's queue and the antenna's clock. */
+export interface StationRoomsTable {
+  account_id: string;
+  room: string;
+  level: number;
+  updated_at: ColumnType<Date, Date | undefined, Date>;
+}
+
+export interface RefineryTable {
+  account_id: string;
+  queue: ColumnType<number, number | undefined, number>;
+  ready: ColumnType<number, number | undefined, number>;
+  clock: ColumnType<Date, Date | undefined, Date>;
+}
+
+export interface AntennaTable {
+  account_id: string;
+  clock: ColumnType<Date, Date | undefined, Date>;
+}
+
 export interface HangarsTable {
   account_id: string;
   probe: ColumnType<string, string | undefined, string>;
@@ -267,4 +287,7 @@ export interface DB {
   'galaxy.run_inputs': RunInputsTable;
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
+  'galaxy.station_rooms': StationRoomsTable;
+  'galaxy.refinery': RefineryTable;
+  'galaxy.antenna': AntennaTable;
 }

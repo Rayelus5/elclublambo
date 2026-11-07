@@ -15,7 +15,7 @@ const died: RunResult = {
   depth: 2,
   kills: 1404,
   level: 21,
-  payout: { coins: 52, dust: 18, signals: 0 },
+  payout: { coins: 52, dust: 18, signals: 0, material: 21 },
   breakdown: {
     layers: [
       { layer: 1, coins: 40, dust: 12, multiplier: 1 },
@@ -64,4 +64,14 @@ test('ofrece otra incursión y volver al inicio', () => {
   expect(screen.queryByText(copy.results.half)).toBeNull();
   expect(screen.getByRole('button', { name: copy.results.again })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: copy.results.home })).toHaveAttribute('href', '/');
+});
+
+test('enseña el material en bruto traído para la refinería (M4a)', () => {
+  show(died);
+  expect(screen.getByRole('img', { name: copy.results.material(21) })).toBeInTheDocument();
+});
+
+test('sin material no lo enseña', () => {
+  show({ ...died, payout: { ...died.payout, material: 0 } });
+  expect(screen.queryByRole('img', { name: copy.results.material(0) })).toBeNull();
 });

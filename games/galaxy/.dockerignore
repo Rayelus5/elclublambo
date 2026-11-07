@@ -7,3 +7,5 @@ node_modules
 apps/web/e2e/.state
 .env*
 *.tsbuildinfo
+# The station rooms' Aseprite sources: the web bundles the exported strips (apps/web/src/station/rooms).
+art

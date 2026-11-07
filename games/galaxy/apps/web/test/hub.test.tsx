@@ -80,7 +80,7 @@ test('lo que aún no existe se ve bloqueado con «En desarrollo»', async () => 
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.home, copy.hub.market, copy.hub.probes, copy.hub.codex]) {
+  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex]) {
     const button = screen.getByRole('button', { name: new RegExp(name) });
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent(copy.hub.soon);
@@ -103,6 +103,15 @@ test('Salir cierra la sesión y vuelve a Entrar', async () => {
   await userEvent.setup().click(await screen.findByRole('button', { name: copy.hub.logout }));
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/entrar');
   expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/auth/logout' && init?.method === 'POST')).toBe(true);
+});
+
+test('el Hogar lleva a la estación (M4a)', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  await screen.findByLabelText(copy.hub.resource.coins(1250));
+  const link = screen.getByRole('link', { name: new RegExp(copy.hub.home) });
+  expect(link).toHaveAttribute('href', '/estacion');
+  expect(link).not.toHaveTextContent(copy.hub.soon);
 });
 
 test('Jugar y Supervivencia llevan al hangar de las incursiones', async () => {

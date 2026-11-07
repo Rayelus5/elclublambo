@@ -31,12 +31,15 @@ function useCountUp(target: number, ms = 900): number {
   return shown;
 }
 
-function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal'; value: number }) {
+const PAID_ICON = { coins: 'coin', dust: 'dust', signal: 'ticket', material: 'cube' } as const;
+
+function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal' | 'material'; value: number }) {
   const shown = useCountUp(value);
-  const label = kind === 'coins' ? copy.hub.resource.coins(value) : kind === 'dust' ? copy.hub.resource.dust(value) : copy.results.signals(value);
+  const label =
+    kind === 'coins' ? copy.hub.resource.coins(value) : kind === 'dust' ? copy.hub.resource.dust(value) : kind === 'material' ? copy.results.material(value) : copy.results.signals(value);
   return (
     <span className={`result-paid ${kind}`} role="img" aria-label={label}>
-      <Icon name={kind === 'coins' ? 'coin' : kind === 'dust' ? 'dust' : 'ticket'} />
+      <Icon name={PAID_ICON[kind]} />
       <b aria-hidden="true">{fmt(shown)}</b>
     </span>
   );
@@ -106,6 +109,7 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
           <Paid kind="coins" value={r.payout.coins} />
           <Paid kind="dust" value={r.payout.dust} />
           {r.payout.signals > 0 && <Paid kind="signal" value={r.payout.signals} />}
+          {r.payout.material > 0 && <Paid kind="material" value={r.payout.material} />}
         </div>
       </section>
       <div className="results-actions">

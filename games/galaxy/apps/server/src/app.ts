@@ -8,6 +8,7 @@ import { registerConfigRoutes } from './config/routes';
 import { registerCollectionRoutes } from './collection/routes';
 import { registerGachaRoutes } from './gacha/routes';
 import { registerRunRoutes } from './runs/routes';
+import { registerStationRoutes } from './station/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -75,6 +76,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerGachaRoutes(api, { db: deps.db, config, now });
     registerCollectionRoutes(api, { db: deps.db, config });
     registerRunRoutes(api, { db: deps.db, config, now });
+    registerStationRoutes(api, { db: deps.db, config, now });
   });
   return app;
 }

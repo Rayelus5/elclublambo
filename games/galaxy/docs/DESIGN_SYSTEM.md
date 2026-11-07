@@ -326,6 +326,26 @@ Justo después de crear la cuenta, y desde el Hangar si falta (GDD §6, §12.2).
   - la peculiaridad en una losa;
   - «Ir al hangar» (Solar).
 
+## 8 septies. Estación
+
+El Hogar de la portada lleva a la estación (GDD §10): la base es el menú. Consulta de ui-ux-pro-max: cada sala responde al pasar el ratón, el foco se ve siempre, un botón sin recursos está desactivado y dice cuánto falta, y los números de un campo no se confunden con el texto.
+
+- **Corte lateral:** dos cubiertas de cinco salas dentro de un casco de acero remachado (degradado de `#1d2148` a `#12153a`, borde de `--panel-lip`, una fila de remaches arriba y abajo). Por debajo de 1100 px, tres salas por fila.
+- **Sala:** su escena pixel art pintada en Aseprite y una placa con el nombre en negrita y una línea debajo.
+  - **La escena:** 64×44, cuatro fotogramas a 0,18 s. Las reproduce el CSS con `steps(4)`, a ×3, ×4 o ×5 en píxeles enteros, y queda quieta en el primero con movimiento reducido.
+  - **El pintor:** `art/station/paint-rooms.lua` deja cada sala en `art/station/<variante>.aseprite`, con las capas casco, maquina, efectos y averia, y exporta la tira a `apps/web/src/station/rooms/`.
+  - **Lo que se ve:** cada sala es una celda del casco, con techo y tubería, una lámpara con su cono de luz tramado, paneles biselados con remaches, ventana al espacio con estrellas que titilan, suelo de rejilla y mamparos. La máquina tiñe la pared con su luz.
+  - **Rota:** la luz apagada, la máquina quieta y más oscura, una luz de emergencia roja que parpadea, una grieta, un cable suelto que echa chispas y la Estática en ráfagas.
+  - **Herramienta** (Escáner, Planetario, Hangar, Colisionador): enlace a su pantalla; la línea dice para qué sirve.
+  - **Máquina** (Refinería, Antena): botón que abre su panel; la línea dice el nivel en Terminal.
+  - **Rota** (la Antena al empezar): la escena oscurecida, cruzada por una grieta y el ruido de la Estática, que se mueve; borde rojo tenue y «Rota» en rojo.
+  - **De más adelante** (Laboratorio, Comunicaciones, Archivo, Trofeos): la escena rota al 62 % de opacidad, sin botón ni enlace, y «En reparación».
+  - Al pasar el ratón la sala sube 3 px con un borde y un brillo Terminal; el foco es un anillo hielo de 3 px. Con movimiento reducido no sube.
+- **Barra:** material en bruto (cubo naranja), componentes (llave Terminal), monedas y señales, leídos como frases.
+- **Panel de la Refinería:** diálogo con qué hace, nivel, ritmo («20 por hora») y listos; la cola como barra Solar con «En cola · 30/100»; el campo «Cantidad» (por defecto todo lo que cabe, y nunca más de lo que cabe), «Cargar», «Recoger 20 componentes» (Solar) y la mejora.
+- **Panel de la Antena:** rota, «La Estática la tiene muda» y «Reparar». Funcionando: nivel, ritmo («Una señal cada 8 h»), lo que espera y a qué hora se llena, y «Recoger».
+- **Mejora:** botón Solar con la llave, «Reparar» o «Mejorar a nivel 2» y su coste («40 componentes y 500 monedas»); desactivado sin recursos, con «Te faltan 8 componentes» debajo, y «Al máximo» al final. Cada error de la API sale en el panel con su texto.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

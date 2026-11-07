@@ -3,6 +3,7 @@ import {
   checkRun,
   dailyFactor,
   dailySegments,
+  runMaterial,
   runPayout,
   type FinishRunRequest,
   type RunResult,
@@ -144,8 +145,11 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   if (pay.coins > 0) await credit(trx, accountId, 'coins', pay.coins, 'run', ref, key);
   if (pay.dust > 0) await credit(trx, accountId, 'dust', pay.dust, 'run', ref, key);
   if (signals > 0) await credit(trx, accountId, 'signal', signals, 'run', ref, key);
+  // Raw material for the station's refinery (GDD §10.3), paid like the loot.
+  const material = runMaterial(claim, ctx.runs, factor, check.penalized);
+  if (material > 0) await credit(trx, accountId, 'material', material, 'run', ref, key);
 
-  const payout = { coins: pay.coins, dust: pay.dust, signals };
+  const payout = { coins: pay.coins, dust: pay.dust, signals, material };
   await trx
     .updateTable('galaxy.runs')
     .set({

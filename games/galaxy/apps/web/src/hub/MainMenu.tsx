@@ -62,7 +62,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
         </Link>
         <div className="modes">
           <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" to="/incursion" />
-          <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" />
+          <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" />
         </div>
       </div>
 
