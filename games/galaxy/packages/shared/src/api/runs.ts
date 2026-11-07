@@ -1,0 +1,117 @@
+import type { Content, RelicInput } from '@galaxy/sim';
+import { z } from 'zod';
+import type { GalaxySummary } from './economy';
+import type { Wallet } from '../gacha/types';
+
+// Requests and responses of the hangar and the runs (GDD §5.1, §11.3 bis, §14.7). Mutating calls carry an
+// `Idempotency-Key`; a run's result is sent once, with its recorded inputs.
+
+const contentId = z.string().regex(/^[a-z0-9-]{1,32}$/);
+
+export const loadoutRequestSchema = z
+  .object({ relics: z.array(z.uuid().nullable()).max(6) })
+  .strict()
+  .refine((r) => {
+    const ids = r.relics.filter((x): x is string => x !== null);
+    return new Set(ids).size === ids.length;
+  }, 'duplicate_ids');
+export type LoadoutRequest = z.infer<typeof loadoutRequestSchema>;
+
+export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
+export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
+
+const count = (max: number) => z.number().int().min(0).max(max);
+
+export const finishRunRequestSchema = z
+  .object({
+    outcome: z.enum(['extracted', 'died', 'abandoned']),
+    /** World ticks played (60 per second); at most 6 hours. */
+    ticks: count(1_296_000),
+    depth: z.number().int().min(1).max(999),
+    kills: count(10_000_000),
+    bossKills: count(999),
+    level: z.number().int().min(1).max(999),
+    /** Coins and star dust picked up in each layer (length = depth). */
+    loot: z.array(z.object({ coins: count(10_000_000), dust: count(10_000_000) }).strict()).min(1).max(999),
+    /** The simulation's final state hash. */
+    hash: z.string().regex(/^[0-9a-f]{16}$/),
+    /** The recorded inputs (packages/sim encodeLog) in base64. */
+    inputs: z.string().max(2_800_000).regex(/^[A-Za-z0-9+/]*={0,2}$/),
+  })
+  .strict()
+  .refine((r) => r.loot.length === r.depth, 'loot_depth');
+export type FinishRunRequest = z.infer<typeof finishRunRequestSchema>;
+/** A finished run as the rules see it (everything but the inputs). */
+export type RunClaim = Omit<FinishRunRequest, 'inputs'>;
+
+export interface SectorCard {
+  id: string;
+  name: string;
+  description: string;
+  boss: { name: string; title: string; sprite: string };
+  fauna: { id: string; name: string; sprite: string }[];
+  layerSeconds: number;
+}
+
+export interface ProbeCard {
+  id: string;
+  name: string;
+  description: string;
+  sprite: string;
+  hp: number;
+  speed: number;
+  weapon: { id: string; name: string; icon: string };
+  unlocked: boolean;
+}
+
+export interface DailyView {
+  playedSeconds: number;
+  /** Seconds of play left today at the full rate. */
+  fullSecondsLeft: number;
+  /** The rate the next minute would pay. */
+  multiplier: number;
+  /** When the day restarts (Madrid midnight), ISO. */
+  resetsAt: string;
+}
+
+export interface HangarView {
+  sectors: SectorCard[];
+  probes: ProbeCard[];
+  probe: string;
+  slots: number;
+  maxSlots: 6;
+  /** One entry per open slot. */
+  loadout: (GalaxySummary | null)[];
+  daily: DailyView;
+  runsEnabled: boolean;
+}
+
+export interface RunStart {
+  id: string;
+  seed: string;
+  sector: string;
+  probe: string;
+  relics: RelicInput[];
+  content: Content;
+  contentVersion: number;
+  startedAt: string;
+}
+
+export interface RunLayerPay {
+  layer: number;
+  coins: number;
+  dust: number;
+  multiplier: number;
+}
+
+export interface RunResult {
+  id: string;
+  outcome: 'extracted' | 'died' | 'abandoned';
+  ticks: number;
+  depth: number;
+  kills: number;
+  level: number;
+  payout: { coins: number; dust: number; signals: number };
+  breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[] };
+  wallet: Wallet;
+}

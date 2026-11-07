@@ -187,3 +187,26 @@ test('desintegrar y fusionar la misma galaxia a la vez: solo gana una operación
   if (dis.statusCode === 200) expect(live).toHaveLength(4);
   else expect(live).toHaveLength(1);
 });
+
+test('una galaxia equipada como reliquia no se desintegra ni se fusiona, y la colección lo dice', async () => {
+  const { cookie, id } = await player();
+  const [equipped, ...rest] = await own(id, 0, 5);
+  const ok = await ctx.app.inject({
+    method: 'PUT',
+    url: '/galaxy/api/hangar/loadout',
+    payload: { relics: [equipped] },
+    headers: { cookie: `gs_sid=${cookie}`, origin: 'http://localhost:5173', 'cf-connecting-ip': '10.9.9.9' },
+  });
+  expect(ok.statusCode).toBe(200);
+  const gone = await act(cookie, `/galaxy/api/galaxies/${equipped}/disintegrate`);
+  expect(gone.statusCode).toBe(409);
+  expect(gone.json()).toEqual({ error: 'galaxy_equipped' });
+  await ctx.db.insertInto('galaxy.balances').values({ account_id: id, currency: 'dust', amount: 1000 }).onConflict((oc) => oc.columns(['account_id', 'currency']).doUpdateSet({ amount: 1000 })).execute();
+  const fused = await act(cookie, '/galaxy/api/galaxies/fuse', { ids: [equipped!, ...rest.slice(0, 4)] });
+  expect(fused.statusCode).toBe(409);
+  expect(fused.json()).toEqual({ error: 'galaxy_equipped' });
+  const page = await list(cookie);
+  expect(page.items.find((g) => g.id === equipped)?.equipped).toBe(true);
+  expect(page.items.find((g) => g.id === rest[0])?.equipped).toBe(false);
+  expect(((await get(ctx.app, `/galaxy/api/galaxies/${equipped}`, { cookie })).json() as GalaxyDetail).equipped).toBe(true);
+});

@@ -51,9 +51,10 @@ export default defineConfig({
       {
         // The app's own plugins, so components render with their real styles (cards, tokens).
         plugins: [react(), tailwindcss()],
-        resolve: { alias: webReact },
+        resolve: { alias: webReact, dedupe: ['react', 'react-dom'] },
         // three.js is only imported dynamically (the inspector): declare it so Vite does not reload the page mid-test.
-        optimizeDeps: { include: ['three'] },
+        // React Query and React Router are pre-bundled with the same React as the components (one copy of React).
+        optimizeDeps: { include: ['three', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
         test: {
           name: 'browser',
           include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],

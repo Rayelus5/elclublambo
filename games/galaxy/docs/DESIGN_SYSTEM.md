@@ -199,6 +199,71 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
 
+## 8 ter. Hangar y resultados
+
+Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de ui-ux-pro-max: indicador de carga accesible en la acción principal, números con formato español, tablas estrechas y conteos que desaceleran al llegar.
+
+- **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
+  - **Sector:** nombre, descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción». Debajo, con candado, «Más sectores en desarrollo».
+  - **Sonda:** su sprite a 8×, vida, velocidad y arma inicial con su icono. Debajo, con candado, «Más sondas en desarrollo».
+  - **Reliquias:** seis ranuras en 3 × 2, con estos estados:
+    - **Abiertas:** borde discontinuo y «Elegir reliquia».
+    - **Cerradas:** candado y «Se abre más adelante».
+    - **Ocupadas:** la carta, el nombre, la familia (hielo), el elemento (chip de su color), el fenómeno y la potencia, con un botón para quitarla.
+- **Elegir reliquia:** un diálogo con la colección por rareza. Las galaxias de otra ranura muestran «Equipada» y no se eligen.
+- **Barra de lanzamiento:** fija abajo para que se vea siempre, también a 1280×720. A la izquierda va el rendimiento del día, en Terminal con «Premio completo: te quedan 2 h 40 min hoy» o en Solar con el tramo actual, y su explicación. A la derecha, «Lanzar incursión»: Solar, de 76 px, con relieve y `aria-busy` mientras se prepara.
+- **Resultados:**
+  - **Título:** «Extracción completada» en Terminal, «Sonda perdida» en rojo o «Incursión abandonada» en Solar.
+  - **Datos de la partida:** cuatro datos (profundidad, tiempo, bajas y nivel).
+  - **Botín:** una tabla con una fila por capa y su multiplicador, «Sin extracción se cobra la mitad» en rojo cuando toca, y los tramos del día como píldoras (las recortadas, en Solar).
+  - **Cobrado:** grande, con contadores que suben (fijos con movimiento reducido).
+  - **Acciones:** «Volver al inicio» y «Otra incursión», que tiene el foco.
+- **Resultado sin enviar:** «Enviando el resultado». Si no llega, «No se pudo enviar el resultado. Se guarda hasta que llegue» con «Reintentar».
+- **Colección:** una galaxia equipada lleva la chapa Terminal «Equipada». En su detalle, Desintegrar está deshabilitado y debajo se explica por qué. En la fusión no se puede elegir.
+
+## 8 quater. Arena de las incursiones
+
+La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la simulación; el HUD es React encima (§8 quinquies). Consulta de ui-ux-pro-max: estilo *pixel art* (nitidez sin suavizado, paleta limitada, animación por fotogramas), contraste ≥ 4,5:1 en todo texto, poco movimiento a la vez y respeto de `prefers-reduced-motion`.
+
+- **Escala:** zoom entero (`round(alto / 340)`, mínimo 1) con muestreo `nearest`; la cámara se redondea a píxeles de pantalla. Se ve una altura de mundo de ~340 u (300–400 según el monitor) y como mucho **21:9** de ancho; lo que sobra son **bandas laterales** con estática tramada oscura y un filete `--panel-lip`, sin ventaja de visión.
+- **Suelo:** `--void` con nubes de nebulosa tramadas (Bayer 4×4) en violeta y azul muy apagados (contraste ≤ 1,6:1 con el fondo), rocas oscuras y motas braille. Todo es decoración sin colisión, determinista por trozos de 256 u, con un leve paralaje de estrellas al 50 %.
+- **Sprites (pixel art en código, contorno de 1 px `#0b0c24`, luz arriba a la izquierda):**
+  - **Sonda Lumen:** cuerpo hielo y blanco con visor cian y propulsor Solar que parpadea; mira hacia donde se mueve (volteo horizontal).
+  - **Fauna de la Estática:** cada especie con su tono para reconocerla al vuelo, con acentos magenta y cian de la Estática. Ácaro: magenta. Célula: violeta. Manta: azul tinta con bordes magenta. Coral: coral y naranja. Caparazón: placas acero con núcleo magenta, y su frente blindado es un arco claro visible. Jefe: colmena de 40 px con celdas, grietas y núcleo que late.
+  - **Proyectiles:** los propios son claros y fríos (hielo, Solar, violeta del arco); los enemigos son círculos `--static` con centro blanco y contorno, siempre distinguibles por forma y color de los propios.
+  - **Botín:** fragmentos de datos como gemas braille (hielo 1, verde 5, Solar 25), monedas Solar, polvo hielo centelleante y kit de reparación verde con cruz.
+- **Capas:** suelo → decoración → recogidas → áreas (charcos, novas, auras, campo lento) → avisos → enemigos → sondas → disparos → efectos y números.
+- ***Juice*:**
+  - **Golpe:** destello blanco de 6 ticks y número de daño (Fredoka 700 blanco con contorno oscuro; crítico Solar y más grande) que sube 18 px y se apaga en 0,6 s. Como mucho 60 números a la vez; los demás se suman al último.
+  - **Bajas:** explosión de 6–10 partículas del color de la especie.
+  - **Elementos:** partículas de su color (quemadura naranja, ralentización azul, corrosión verde, descarga violeta, hackeo ámbar, robo de vida rojo, escudo esmeralda, rebote neón).
+  - **Daño recibido:** sacudida de 3 a 6 px que decae al 85 % por fotograma, más un borde rojo en la pantalla (HUD).
+  - **Élites y jefe:** cada 0,8 s, durante 80 ms, glitch de la Estática con copias desplazadas 1 px en rojo y cian.
+- **Avisos (siempre antes del golpe):**
+  - **Embestida:** banda roja translúcida que late, con flecha.
+  - **Ráfaga del jefe:** anillo que se cierra.
+  - **Explosión de Inestable:** círculo rojo que se llena.
+- **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
+- **Movimiento reducido:** sin sacudida ni glitch (un tinte fijo marca élites y jefe), mitad de partículas, números sin desplazamiento (solo fundido).
+
+## 8 quinquies. HUD, mejoras, pausa y radio
+
+React encima de la arena, sin capturar el ratón salvo en sus botones. Se lee de la simulación 10 veces por segundo, nunca a cada fotograma.
+
+- **Experiencia:** barra de 10 px de lado a lado arriba, de Terminal a hielo.
+- **Fila superior** (anclada a los bordes, también en ultrapanorámicas):
+  - **Izquierda:** nivel («Nv 13» en Solar) y vida (barra Nova con «101/130»; el escudo, en hielo encima; late en rojo por debajo del 30 %).
+  - **Centro:** tiempo (Bungee), capa (píldora UV) y fase («Núcleo en 0:59», «Núcleo de la Estática» en rojo, «Cierra en 42 s» en Terminal).
+  - **Derecha:** botín (monedas, polvo) y bajas, cada uno con `role="img"` y la frase entera, y el botón de pausa de 44 px.
+- **Equipo:** abajo a la izquierda, armas (44 px) y pasivas (36 px) con su icono pixel y su nivel en una chapa hielo.
+- **Jefe:** debajo del centro, «Núcleo de la Estática» en rojo, el nombre en Bungee y una barra roja.
+- **Baliza:** etiqueta Terminal sobre ella, o en el borde de la pantalla con una flecha si está fuera; «Llega a la baliza · Cierra en 42 s · 380 u» o «Extrayendo 60 %».
+- **Radio de PERKINS:** abajo al centro, una o dos líneas, «PERKINS» en Terminal. Se cierra sola a los 7 s o con su botón, y cada mensaje sale una vez por jugador.
+- **Mejora:** diálogo con tres cartas (número, icono pixel de 64 px, nombre en Bungee, «Nueva» en Solar o «Nivel 3», qué hace). Las cartas son un `radiogroup`: 1–3 eligen, las flechas mueven, Enter o un clic confirman. El mundo espera congelado y Escape no hace nada.
+- **Pausa:** Escape, P o Start, y sola al ocultar la pestaña o perder el foco. Ofrece Continuar (Solar), apuntado manual, sonido y «Abandonar incursión» (Nova), que confirma en un `alertdialog` con «Se cobra la mitad del botín. No se puede deshacer» y el foco en «Seguir jugando».
+- **Final:** «Extracción completada» (Terminal) o «Sonda perdida» (rojo) en grande sobre un velo durante 1,5 s, y después los resultados.
+- **Accesibilidad:** vida y experiencia son `progressbar` con su valor. Una región educada anuncia solo lo importante (nivel, jefe, baliza, capa, vida baja), nunca cada golpe. Con movimiento reducido no hay latidos ni entradas animadas.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

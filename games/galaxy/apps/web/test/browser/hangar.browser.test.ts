@@ -1,0 +1,115 @@
+import type { GalaxySummary, HangarView, RunResult } from '@galaxy/shared';
+import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { MemoryRouter } from 'react-router';
+import { afterEach, expect, test, vi } from 'vitest';
+import { page } from 'vitest/browser';
+import { HangarScreen } from '../../src/hangar/HangarScreen';
+import { ResultsScreen } from '../../src/hangar/ResultsScreen';
+import '../../src/styles/app.css';
+
+// The hangar and the results with the app's real styles, for review screenshots (VITE_ARENA_SHOTS=1).
+
+const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record<string, string>): GalaxySummary => ({
+  id,
+  seed: String(9000 + id.length * 31 + id.charCodeAt(0)),
+  tier,
+  finish: tier === 'legendary' ? 'holo' : 'normal',
+  traits,
+  name,
+  designation: 'GX-1A2B3C',
+  featured: false,
+  level: 1,
+  createdAt: '2026-11-06T20:00:00Z',
+  equipped: true,
+});
+
+const view: HangarView = {
+  sectors: [
+    {
+      id: 'outer-nebula',
+      name: 'Nebulosa Exterior',
+      description: DEFAULT_CONTENT.sectors[0]!.description,
+      boss: { name: 'La Colmena Rota', title: 'Núcleo de la Estática', sprite: 'hive' },
+      fauna: DEFAULT_CONTENT.enemies.filter((e) => e.id !== 'cellet').map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })),
+      layerSeconds: 300,
+    },
+  ],
+  probes: [{ id: 'lumen', name: 'Lumen', description: DEFAULT_CONTENT.probes[0]!.description, sprite: 'probe-lumen', hp: 100, speed: 90, weapon: { id: 'pulse', name: 'Pulso láser', icon: 'icon-pulse' }, unlocked: true }],
+  probe: 'lumen',
+  slots: 2,
+  maxSlots: 6,
+  loadout: [
+    g('a', 'Kathra', 'legendary', { galaxy_type: 'spiral', arms: '4', size: 'large', inclination: 'tilted', core: 'quasar', star_density: 'dense', palette: 'solar_gold', background: 'starfield', phenomenon: 'pulsar' }),
+    null,
+  ],
+  daily: { playedSeconds: 1200, fullSecondsLeft: 3 * 3600 - 1200, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
+  runsEnabled: true,
+};
+
+const result: RunResult = {
+  id: 'r1',
+  outcome: 'extracted',
+  ticks: 13 * 3600 + 12 * 60,
+  depth: 2,
+  kills: 1412,
+  level: 22,
+  payout: { coins: 132, dust: 41, signals: 1 },
+  breakdown: {
+    layers: [
+      { layer: 1, coins: 52, dust: 17, multiplier: 1 },
+      { layer: 2, coins: 40, dust: 12, multiplier: 1.5 },
+    ],
+    share: 1,
+    daily: [{ seconds: 792, multiplier: 1 }],
+  },
+  wallet: { coins: 232, dust: 53, signal: 11 },
+};
+
+let root: Root | null = null;
+afterEach(() => {
+  root?.unmount();
+  root = null;
+  document.body.innerHTML = '';
+  vi.unstubAllGlobals();
+});
+
+function mount(el: ReturnType<typeof createElement>): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (url: string) => {
+      const body = url.endsWith('/hangar') ? view : url.endsWith('/gacha') ? { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11 } } : {};
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+    }),
+  );
+  const host = document.createElement('div');
+  document.body.style.margin = '0';
+  document.body.appendChild(host);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  root = createRoot(host);
+  root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, null, el)));
+}
+
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+  [3440, 1440],
+] as const) {
+  test(`hangar a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(HangarScreen));
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(document.querySelector('.hangar-grid')).not.toBeNull();
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-${w}.png` });
+  }, 60_000);
+}
+
+test('resultados a 1280×720', async () => {
+  await page.viewport(1280, 720);
+  mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {} }))));
+  await new Promise((r) => setTimeout(r, 1500));
+  expect(document.querySelector('.results')).not.toBeNull();
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-1280.png' });
+}, 60_000);

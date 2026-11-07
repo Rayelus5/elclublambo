@@ -1,0 +1,111 @@
+import { ANGLE_STEPS, cosA, sinA } from '../math/trig';
+import type { Sim } from '../types';
+import { probesCentre, type Scale, spawnEnemy, spawnPoint, STATE } from './enemies';
+
+// The spawn director (GDD §5.5–5.6): density grows with the run's minutes, species join over the first layer (from
+// layer 2 on, all from the start), fixed waves arrive on schedule in every layer, and life, damage, speed and the
+// elite chance scale with the minute and the layer.
+
+/** Seconds since the current layer began. */
+export function layerSeconds(sim: Sim): number {
+  return (sim.tick - (sim.clocks['layerStart'] ?? 0)) / 60;
+}
+
+export function scaleAt(sim: Sim): Scale & { elite: number } {
+  const s = sim.sector.scaling;
+  const minutes = sim.tick / 3600;
+  const deeper = sim.layer - 1;
+  return {
+    hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper),
+    damage: (1 + s.damagePerMinute * minutes) * (1 + s.damagePerLayer * deeper),
+    speed: 1 + s.speedPerLayer * deeper,
+    elite: Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes),
+  };
+}
+
+function aliveFauna(sim: Sim): number {
+  return sim.enemies.count - (sim.boss ? 1 : 0);
+}
+
+function spawnGroup(sim: Sim): void {
+  const sector = sim.sector;
+  if (aliveFauna(sim) >= sector.density.cap) return;
+  const now = layerSeconds(sim);
+  const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
+  if (open.length === 0) return;
+  const rng = sim.rng.spawn;
+  const total = open.reduce((a, s) => a + s.weight, 0);
+  let r = rng.float() * total;
+  let entry = open[open.length - 1]!;
+  for (const s of open) {
+    r -= s.weight;
+    if (r < 0) {
+      entry = s;
+      break;
+    }
+  }
+  const def = sim.content.enemies.find((e) => e.id === entry.enemy);
+  if (!def) return;
+  const [min, max] = entry.group;
+  const size = min + rng.int(max - min + 1);
+  const origin = spawnPoint(sim, rng);
+  const scale = scaleAt(sim);
+  for (let k = 0; k < size; k++) {
+    const elite = sim.content.elites.length > 0 && rng.chance(scale.elite) ? rng.pick(sim.content.elites) : undefined;
+    spawnEnemy(sim, def, origin.x + rng.range(-16, 16), origin.y + rng.range(-16, 16), { elite, scale });
+  }
+}
+
+function fireWaves(sim: Sim): void {
+  const now = layerSeconds(sim);
+  const { viewW, viewH, margin } = sim.content.arena;
+  sim.sector.waves.forEach((w, i) => {
+    const key = 'wave' + i;
+    if ((sim.clocks[key] ?? 0) >= sim.layer || now < w.at) return;
+    sim.clocks[key] = sim.layer;
+    const def = sim.content.enemies.find((e) => e.id === w.enemy);
+    if (!def) return;
+    const rng = sim.rng.spawn;
+    const scale = scaleAt(sim);
+    const c = probesCentre(sim);
+    const radius = Math.max(viewW, viewH) / 2 + margin;
+    const start = rng.int(ANGLE_STEPS);
+    for (let k = 0; k < w.count; k++) {
+      if (w.kind === 'ring') {
+        const a = start + Math.floor((k * ANGLE_STEPS) / w.count);
+        spawnEnemy(sim, def, c.x + cosA(a) * radius, c.y + sinA(a) * radius, { scale });
+      } else {
+        const bx = c.x + cosA(start) * radius;
+        const by = c.y + sinA(start) * radius;
+        spawnEnemy(sim, def, bx + rng.range(-40, 40), by + rng.range(-40, 40), { scale });
+      }
+    }
+  });
+}
+
+/** One tick of the director. */
+export function direct(sim: Sim): void {
+  const d = sim.sector.density;
+  let rate = Math.min(d.max, d.base + (d.perMinute * sim.tick) / 3600);
+  if (sim.phase === 'boss') rate *= d.bossFactor;
+  let acc = (sim.clocks['spawnAcc'] ?? 0) + rate / 60;
+  while (acc >= 1) {
+    acc -= 1;
+    spawnGroup(sim);
+  }
+  sim.clocks['spawnAcc'] = acc;
+  fireWaves(sim);
+}
+
+/** A straggler too far from every probe goes back to the edge of the view. */
+export function relocate(sim: Sim, e: number): void {
+  const en = sim.enemies;
+  const p = spawnPoint(sim, sim.rng.spawn);
+  en.x[e] = p.x;
+  en.y[e] = p.y;
+  en.px[e] = p.x;
+  en.py[e] = p.y;
+  en.kx[e] = 0;
+  en.ky[e] = 0;
+  en.state[e] = STATE.move;
+}

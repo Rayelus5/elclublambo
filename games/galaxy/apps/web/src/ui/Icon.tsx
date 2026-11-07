@@ -221,6 +221,11 @@ const PATHS = {
       <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none" />
     </>
   ),
+  pause: (
+    <>
+      <path d="M8.5 6v12M15.5 6v12" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

@@ -88,11 +88,16 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 <Icon name="cube" />
                 <span>{copy.inspector.open}</span>
               </button>
-              <button type="button" className="lip pill danger" onClick={() => setConfirming(true)}>
+              <button type="button" className="lip pill danger" onClick={() => setConfirming(true)} disabled={g.equipped === true} aria-describedby={g.equipped ? 'equipped-reason' : undefined}>
                 <Icon name="dust" />
                 <span>{copy.collection.disintegrate}</span>
               </button>
             </div>
+            {g.equipped ? (
+              <p id="equipped-reason" className="detail-note">
+                {copy.collection.equippedReason}
+              </p>
+            ) : null}
           </div>
         </div>
       </Dialog>

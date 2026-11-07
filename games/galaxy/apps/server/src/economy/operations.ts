@@ -37,3 +37,9 @@ export async function runOperation<T>(
     return result;
   });
 }
+
+/** Whether the account already stored an operation under this key (a resend). */
+export async function operationExists(db: Kysely<DB>, accountId: string, key: string): Promise<boolean> {
+  const row = await db.selectFrom('galaxy.operations').select('key').where('account_id', '=', accountId).where('key', '=', key).executeTakeFirst();
+  return row !== undefined;
+}

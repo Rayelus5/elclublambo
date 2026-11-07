@@ -25,6 +25,13 @@ export const API_ERROR_CODES = [
   'galaxy_not_found',
   'idempotency_conflict',
   'idempotency_required',
+  'galaxy_equipped',
+  'invalid_loadout',
+  'run_not_found',
+  'run_finished',
+  'run_expired',
+  'runs_disabled',
+  'bad_inputs',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

@@ -60,7 +60,7 @@ export function useGalaxyDetail(id: string | undefined) {
 
 const intents = new Map<string, string>();
 
-function keyFor(intent: string): Record<string, string> {
+export function keyFor(intent: string): Record<string, string> {
   let key = intents.get(intent);
   if (!key) {
     key = crypto.randomUUID();
@@ -70,7 +70,7 @@ function keyFor(intent: string): Record<string, string> {
 }
 
 /** The intent ends with a real answer; a lost one (no response, 5xx) keeps its key for the retry. */
-function endIntent(intent: string, error: unknown): void {
+export function endIntent(intent: string, error: unknown): void {
   const lost = error instanceof ApiError ? error.status === 0 || error.status >= 500 : !!error;
   if (!lost) intents.delete(intent);
 }
