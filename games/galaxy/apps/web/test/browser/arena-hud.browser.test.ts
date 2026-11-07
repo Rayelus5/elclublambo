@@ -86,3 +86,16 @@ test('la elección de mejora con sus tres cartas', async () => {
   await vi.waitFor(() => expect(document.querySelectorAll('.levelup-card')).toHaveLength(3), { timeout: 30_000 });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/levelup-1280.png' });
 }, 120_000);
+
+test('la carta de evolución, dorada y primera, y el arma evolucionada en el kit', async () => {
+  await show(1280, 720, 60 * 60, (s) => {
+    const p = s.probes[0]!;
+    p.weapons = [{ id: 'pulse', level: 5, t: 0 }, { id: 'orbit', level: 5, t: 0 }];
+    p.passives = [{ id: 'capacitor', level: 1 }, { id: 'armor', level: 2 }];
+    p.pendingLevels = 1;
+    p.offer = offerFor(s, p);
+    s.status = 'choosing';
+  });
+  await vi.waitFor(() => expect(document.querySelector('.levelup-card.evolve')).not.toBeNull(), { timeout: 30_000 });
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/evolve-1280.png' });
+}, 120_000);

@@ -234,3 +234,53 @@ test('con mando: la cruceta y el stick mueven la selección de mejora y A la eli
     delete (navigator as { getGamepads?: unknown }).getGamepads;
   }
 });
+
+test('la carta de evolución sale primera, dorada, y deja el arma evolucionada en el kit', async () => {
+  await mount();
+  clock.frames(2);
+  const p = sim.probes[0]!;
+  p.weapons = [{ id: 'pulse', level: 5, t: 0 }];
+  p.passives = [{ id: 'capacitor', level: 1 }];
+  p.pendingLevels = 1;
+  p.offer = offerFor(sim, p);
+  sim.status = 'choosing';
+  tick(150);
+  const dialog = screen.getByRole('dialog', { name: copy.arena.levelUp });
+  const first = within(dialog).getAllByRole('radio')[0]!;
+  expect(first).toHaveClass('evolve');
+  expect(first).toHaveTextContent(copy.arena.evolution);
+  expect(first).toHaveTextContent('Tormenta de pulsos');
+  expect(first).toHaveTextContent(copy.arena.evolves('Pulso láser'));
+  fireEvent.keyDown(window, { key: '1', code: 'Digit1' });
+  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+  clock.frames(2);
+  tick(150);
+  const kit = screen.getByRole('list', { name: copy.arena.weapons });
+  const item = within(kit).getByText(/Tormenta de pulsos/).closest('li')!;
+  expect(item).toHaveClass('evolved');
+});
+
+test('un Enter rápido en dos subidas seguidas elige de la oferta que está en pantalla, no de la siguiente', async () => {
+  await mount();
+  clock.frames(2);
+  const p = sim.probes[0]!;
+  p.pendingLevels = 2;
+  p.offer = offerFor(sim, p);
+  sim.status = 'choosing';
+  tick(150);
+  const shown = p.offer;
+  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+  clock.frames(2);
+  const next = p.offer;
+  expect(sim.status).toBe('choosing');
+  expect(next).not.toBe(shown);
+  // The dialog still shows the first offer: this Enter belongs to it, so it must not take from the next one.
+  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+  clock.frames(2);
+  expect(sim.status).toBe('choosing');
+  expect(p.offer).toBe(next);
+  tick(150);
+  fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+  clock.frames(2);
+  expect(sim.status).toBe('running');
+});

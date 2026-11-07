@@ -3,6 +3,7 @@ import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSu
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
+import { announceFor } from './announce';
 import { playEvents } from './arena-sfx';
 import { BeaconMarker, BossBar, Radio } from './hud/Overlays';
 import { Hud } from './hud/Hud';
@@ -58,7 +59,10 @@ export function ArenaScreen({
   const stageRef = useRef<Stage | null>(null);
   const loopRef = useRef<Loop | null>(null);
   const input = useRef(emptyInput());
-  const pick = useRef(-1);
+  /** A level-up pick, with the offer it was made on: it only counts while that offer is still the open one. */
+  const pick = useRef<{ index: number; offer: HudSnapshot['offer'] } | null>(null);
+  const shownOffer = useRef<HudSnapshot['offer']>(null);
+  const seenReactions = useRef(new Set<string>());
   const ended = useRef(false);
   const reduced = useReducedMotion();
   const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(sim, 0));
@@ -78,6 +82,10 @@ export function ArenaScreen({
     onSim?.(sim);
   }, [onSim, sim]);
 
+  useEffect(() => {
+    shownOffer.current = hud.offer;
+  }, [hud.offer]);
+
   const handlers = useRef({ onEnd, onSave });
   useEffect(() => {
     handlers.current = { onEnd, onSave };
@@ -93,7 +101,7 @@ export function ArenaScreen({
     [sim],
   );
   const choose = useCallback((i: number) => {
-    pick.current = i;
+    pick.current = { index: i, offer: shownOffer.current };
   }, []);
 
   const say = useCallback((id: string, text: string) => {
@@ -118,6 +126,8 @@ export function ArenaScreen({
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events);
       playEvents(events);
+      const said = announceFor(events, run.content, seenReactions.current);
+      if (said) setAnnounce(said);
       for (const e of events) {
         if (e.t === 'bossSpawn') say('boss', copy.arena.radio.boss);
         else if (e.t === 'beaconOpen') say('beacon', copy.arena.radio.beacon);
@@ -132,9 +142,10 @@ export function ArenaScreen({
         const rect = canvasRef.current?.getBoundingClientRect();
         const aimFrom = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
         const i = readInput(input.current, { manualAim: aimRef.current }, aimFrom);
-        if (pick.current >= 0) {
-          i.pick = pick.current;
-          pick.current = -1;
+        if (pick.current) {
+          // A quick second Enter belongs to the offer on screen; once the simulation has moved on, it is dropped.
+          if (pick.current.offer === sim.probes[0]?.offer) i.pick = pick.current.index;
+          pick.current = null;
         }
         step(sim, [i]);
         if (sim.events.length) onEvents(sim.events);
