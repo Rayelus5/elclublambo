@@ -1,3 +1,4 @@
+import { contentSchema } from '@galaxy/sim';
 import { z } from 'zod';
 import { TRAIT_KEYS } from '../gacha/types';
 
@@ -59,6 +60,7 @@ export const configSchemas = {
       registrationOpen: z.boolean().default(true),
       maintenance: z.boolean().default(false),
       gacha: z.boolean().default(true),
+      runs: z.boolean().default(true),
     })
     .strict(),
   auth: z.object({
@@ -119,6 +121,39 @@ export const configSchemas = {
         })
         .strict()
         .default({ count: 5, dust: [20, 50, 120, 300] }),
+    })
+    .strict(),
+  /** Run content as data (GDD §13.1 bis): sectors, fauna, bosses, weapons, passives, elements and relic tuning. */
+  content: contentSchema,
+  /** Run economy (GDD §5.1, §11.3 bis, §14.7): depth multipliers, death share, daily yield and plausibility caps. */
+  runs: z
+    .object({
+      depth: z
+        .object({ table: z.array(z.number().min(0).max(100)).min(1).max(10), step: z.number().min(0).max(100) })
+        .strict()
+        .default({ table: [1, 1.5, 2.2, 3], step: 0.8 }),
+      deathShare: probability.default(0.5),
+      daily: z
+        .object({ hours: z.array(z.number().gt(0).max(24)).min(1).max(6), multipliers: z.array(probability).min(2).max(7) })
+        .strict()
+        .refine((d) => d.multipliers.length === d.hours.length + 1, 'daily_shape')
+        .refine((d) => d.hours.every((h, i) => i === 0 || h > d.hours[i - 1]!), 'daily_hours_increasing')
+        .refine((d) => d.multipliers.every((m, i) => i === 0 || m <= d.multipliers[i - 1]!), 'daily_multipliers_decreasing')
+        .default({ hours: [3, 4, 5], multipliers: [1, 0.75, 0.5, 0.25] }),
+      signalChancePerBoss: probability.default(0.1),
+      caps: z
+        .object({
+          killsPerMinute: z.number().int().min(1).max(100_000),
+          coinsPerKill: z.number().min(0).max(1000),
+          dustPerKill: z.number().min(0).max(1000),
+          bossCoins: z.number().int().min(0).max(100_000),
+          bossDust: z.number().int().min(0).max(100_000),
+          slackSeconds: z.number().int().min(0).max(3600),
+        })
+        .strict()
+        .default({ killsPerMinute: 600, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20 }),
+      expireHours: z.number().int().min(1).max(168).default(24),
+      startPerHour: limit(30),
     })
     .strict(),
 } as const;

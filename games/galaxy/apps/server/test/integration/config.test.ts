@@ -43,7 +43,7 @@ async function lastAudit() {
 }
 
 test('el servicio lee la versión activa ya validada', async () => {
-  expect(await config.get('features')).toEqual({ registrationOpen: true, maintenance: false, gacha: true });
+  expect(await config.get('features')).toEqual({ registrationOpen: true, maintenance: false, gacha: true, runs: true });
   expect((await config.get('auth')).sessionDays).toBe(30);
 });
 
@@ -72,9 +72,9 @@ test('publicar valida, versiona y audita con el antes y el después', async () =
 test('publicar un solo campo conserva los demás: cerrar el registro y luego tocar el mantenimiento no lo reabre (revisión final I3)', async () => {
   await config.publish('features', { registrationOpen: false }, actor, 'cerrar registro');
   await config.publish('features', { maintenance: true }, actor, 'mantenimiento');
-  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: true, gacha: true });
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: true, gacha: true, runs: true });
   await config.publish('features', { maintenance: false }, actor, 'fin');
-  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: false, gacha: true });
+  expect(await config.get('features')).toEqual({ registrationOpen: false, maintenance: false, gacha: true, runs: true });
   await config.publish('auth', { sessionDays: 31 }, actor, 'sesiones');
   expect((await config.get('auth')).registerPerIpHour).toBe(5);
   await config.publish('auth', { registerPerIpHour: 9 }, actor, 'límite');
@@ -120,7 +120,8 @@ test('rutas de admin: sin sesión 401, jugador 403, admin con TOTP 200', async (
   expect(list.statusCode).toBe(200);
   expect(list.json()).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ key: 'features', data: { registrationOpen: true, maintenance: false, gacha: true } }),
+      // Earlier publishes store the full parsed value (with every flag added since), so only the seeded ones are named.
+      expect.objectContaining({ key: 'features', data: expect.objectContaining({ registrationOpen: true, maintenance: false, gacha: true }) }),
       expect.objectContaining({ key: 'auth' }),
     ]),
   );

@@ -3,3 +3,4 @@ export { SIM_VERSION, TICK_HZ, ticks } from './version';
 export { Rng } from './math/rng';
 export { ANGLE_STEPS, angleTo, cosA, degToSteps, sinA } from './math/trig';
 export { diminish } from './math/stack';
+export * from './content/index';
