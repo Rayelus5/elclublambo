@@ -256,7 +256,17 @@ export const copy = {
     sector: 'Sector',
     fauna: 'Fauna',
     layers: (min: number) => `Capas de ${fmt(min)} min, con su Núcleo y su extracción`,
-    moreSectors: 'Más sectores en desarrollo',
+    sectorPicker: 'Sectores',
+    sectorChosen: 'Elegido',
+    species: (n: number) => `${n} especies`,
+    seasonBadge: 'Temporada',
+    offSeason: 'Fuera de temporada',
+    // What opens each sector (live config `sectors`): its Core is named from the sector the condition is about.
+    sectorUnlock: {
+      bossKills: (n: number, boss: string, _sector: string) => (n === 1 ? `Derrota a ${boss}` : `Derrota ${n} veces a ${boss}`),
+      maxDepth: (n: number, _boss: string, sector: string) => `Llega a la capa ${n} en ${sector}`,
+      extractions: (n: number, _boss: string, sector: string) => `Extrae ${n} veces en ${sector}`,
+    },
     probe: 'Sonda',
     probePicker: 'Sondas',
     chosen: 'Elegida',

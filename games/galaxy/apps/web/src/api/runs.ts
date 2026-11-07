@@ -24,6 +24,15 @@ export function useSetLoadout() {
   });
 }
 
+/** Picks one of the open sectors for the next runs; the hangar comes back with it. */
+export function useChooseSector() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sector: string) => api<HangarView>('/hangar/sector', { method: 'PUT', body: { sector } }),
+    onSuccess: (view) => qc.setQueryData(HANGAR_KEY, view),
+  });
+}
+
 /** Picks one of the unlocked probes for the next runs; the hangar comes back with it. */
 export function useChooseProbe() {
   const qc = useQueryClient();

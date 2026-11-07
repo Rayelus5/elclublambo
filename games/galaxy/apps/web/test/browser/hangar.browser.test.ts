@@ -1,4 +1,4 @@
-import type { GalaxySummary, HangarView, ProbeCard, RunResult } from '@galaxy/shared';
+import type { GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
@@ -32,21 +32,34 @@ const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
   return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...over };
 };
 
+const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
+  const sec = DEFAULT_CONTENT.sectors.find((x) => x.id === id)!;
+  const boss = DEFAULT_CONTENT.bosses.find((b) => b.id === sec.boss)!;
+  const fauna = [...new Set(sec.spawns.map((sp) => sp.enemy))].map((e) => DEFAULT_CONTENT.enemies.find((x) => x.id === e)!);
+  return {
+    id,
+    name: sec.name,
+    description: sec.description,
+    boss: { name: boss.name, title: boss.title, sprite: boss.sprite },
+    fauna: fauna.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })),
+    layerSeconds: sec.layerSeconds,
+    biome: sec.biome,
+    unlocked: false,
+    condition: null,
+    progress: 0,
+    season: sec.season,
+    ...over,
+  };
+};
+
 const view: HangarView = {
+  // A player who beat the Nebulosa's Core: the Escarcha open, the rest of the chain closed, the season open.
   sectors: [
-    {
-      id: 'outer-nebula',
-      name: 'Nebulosa Exterior',
-      description: DEFAULT_CONTENT.sectors[0]!.description,
-      boss: { name: 'La Colmena Rota', title: 'Núcleo de la Estática', sprite: 'hive' },
-      fauna: DEFAULT_CONTENT.enemies.filter((e) => e.id !== 'cellet').map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })),
-      layerSeconds: 300,
-      biome: 'nebula',
-      unlocked: true,
-      condition: null,
-      progress: 1,
-      season: false,
-    },
+    sectorCard('outer-nebula', { unlocked: true, progress: 1 }),
+    sectorCard('frost-rings', { unlocked: true, condition: { sector: 'outer-nebula', stat: 'bossKills', value: 1 }, progress: 1 }),
+    sectorCard('hollow-reef', { condition: { sector: 'frost-rings', stat: 'bossKills', value: 1 } }),
+    sectorCard('broken-forge', { condition: { sector: 'hollow-reef', stat: 'bossKills', value: 1 } }),
+    sectorCard('signal-rift', { unlocked: true, progress: 1 }),
   ],
   sector: 'outer-nebula',
   probes: [

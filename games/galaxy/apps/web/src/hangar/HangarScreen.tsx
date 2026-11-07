@@ -1,4 +1,4 @@
-import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type ProbeCard, type RunResult, type RunStart } from '@galaxy/shared';
+import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type ProbeCard, type RunResult, type RunStart, type SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router';
@@ -7,7 +7,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
-import { useChooseProbe, useFinishRun, useHangar, useSetLoadout, useStartRun } from '../api/runs';
+import { useChooseProbe, useChooseSector, useFinishRun, useHangar, useSetLoadout, useStartRun } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -131,17 +131,15 @@ function DailyYield({ daily }: { daily: HangarView['daily'] }) {
   );
 }
 
-/** Where a locked probe stands: its condition and how far the account is (GDD §6). */
-function Unlock({ card }: { card: ProbeCard }) {
-  if (!card.condition) return <small className="probe-tile-sub">{copy.hangar.unlockSoon}</small>;
-  const { stat, value } = card.condition;
+/** What earns a locked tile and how far the account is: its line, a bar and the count. */
+function Progress({ name, text, value, progress }: { name: string; text: string; value: number; progress: number }) {
   // The server sends stat / value; rounding gives the stat back (1999 of 2000 stays 1999, never a full bar).
-  const now = Math.min(value - 1, Math.round(card.progress * value));
+  const now = Math.min(value - 1, Math.round(progress * value));
   return (
     <>
-      <small className="probe-tile-sub">{copy.hangar.unlock[stat](value)}</small>
+      <small className="probe-tile-sub">{text}</small>
       <span className="probe-tile-progress">
-        <span className="probe-tile-bar" role="progressbar" aria-label={card.name} aria-valuemin={0} aria-valuemax={value} aria-valuenow={now}>
+        <span className="probe-tile-bar" role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={value} aria-valuenow={now}>
           <i style={{ inlineSize: `${(now / value) * 100}%` }} />
         </span>
         <small className="probe-tile-count">
@@ -149,6 +147,102 @@ function Unlock({ card }: { card: ProbeCard }) {
         </small>
       </span>
     </>
+  );
+}
+
+/** Where a locked probe stands: its condition and how far the account is (GDD §6). */
+function Unlock({ card }: { card: ProbeCard }) {
+  if (!card.condition) return <small className="probe-tile-sub">{copy.hangar.unlockSoon}</small>;
+  return <Progress name={card.name} text={copy.hangar.unlock[card.condition.stat](card.condition.value)} value={card.condition.value} progress={card.progress} />;
+}
+
+/** The sector for the next runs and the five to pick from: open ones are chosen, closed ones say what opens them. */
+function SectorPanel({ view }: { view: HangarView }) {
+  const choose = useChooseSector();
+  const sector = view.sectors.find((s) => s.id === view.sector) ?? view.sectors[0];
+  if (!sector) return null;
+  /** A closed sector's line: the Core to beat (named from the sector the condition is about), or the season. */
+  const closedLine = (s: SectorCard) => {
+    if (!s.condition) return s.season ? copy.hangar.offSeason : copy.hangar.unlockSoon;
+    const from = view.sectors.find((x) => x.id === s.condition!.sector);
+    return copy.hangar.sectorUnlock[s.condition.stat](s.condition.value, from?.boss.name ?? '', from?.name ?? s.condition.sector);
+  };
+  return (
+    <section className="lip panel hangar-sector" aria-labelledby="hangar-sector">
+      <span className="hangar-kicker">{copy.hangar.sector}</span>
+      <div className="hangar-sector-title">
+        <h2 id="hangar-sector">{sector.name}</h2>
+        {sector.season && <span className="season-badge">{copy.hangar.seasonBadge}</span>}
+      </div>
+      <p>{sector.description}</p>
+      <div className="hangar-boss">
+        <img src={spriteDataUrl(sector.boss.sprite, 2)} alt="" width={80} height={80} />
+        <span>
+          <small>{sector.boss.title}</small>
+          <b>{sector.boss.name}</b>
+        </span>
+      </div>
+      <span className="hangar-kicker">{copy.hangar.fauna}</span>
+      <ul className="hangar-fauna">
+        {sector.fauna.map((f) => (
+          <li key={f.id} title={f.name}>
+            <img src={spriteDataUrl(f.sprite, 3)} alt={f.name} />
+          </li>
+        ))}
+      </ul>
+      <p className="hangar-help">{copy.hangar.layers(Math.round(sector.layerSeconds / 60))}</p>
+      <ul className="probe-picker sector-picker" aria-label={copy.hangar.sectorPicker}>
+        {view.sectors.map((s) => {
+          const chosen = s.id === view.sector;
+          const art = <img className="sector-tile-art" src={spriteDataUrl(s.boss.sprite, 1)} alt="" width={40} height={40} />;
+          return (
+            <li key={s.id}>
+              {s.unlocked ? (
+                <button
+                  type="button"
+                  className={`probe-tile${chosen ? ' chosen' : ''}`}
+                  aria-label={s.name}
+                  aria-pressed={chosen}
+                  aria-busy={(choose.isPending && choose.variables === s.id) || undefined}
+                  onClick={() => {
+                    if (!chosen && !choose.isPending) choose.mutate(s.id);
+                  }}
+                >
+                  {art}
+                  <span className="probe-tile-text">
+                    <b>{s.name}</b>
+                    <small className={`probe-tile-sub${s.season && !chosen ? ' season' : ''}`}>
+                      {chosen ? copy.hangar.sectorChosen : s.season ? copy.hangar.seasonBadge : copy.hangar.species(s.fauna.length)}
+                    </small>
+                  </span>
+                  {chosen && <Icon name="check" className="ico probe-tile-check" />}
+                </button>
+              ) : (
+                <div className="probe-tile locked">
+                  <span className="probe-tile-lock">
+                    {art}
+                    <Icon name="lock" />
+                  </span>
+                  <span className="probe-tile-text">
+                    <b>{s.name}</b>
+                    {s.condition ? (
+                      <Progress name={s.name} text={closedLine(s)} value={s.condition.value} progress={s.progress} />
+                    ) : (
+                      <small className="probe-tile-sub">{closedLine(s)}</small>
+                    )}
+                  </span>
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {choose.error ? (
+        <p className="field-error" role="alert">
+          {errorText(choose.error, copy.errors)}
+        </p>
+      ) : null}
+    </section>
   );
 }
 
@@ -243,37 +337,10 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
   const ids = view.loadout.map((g) => g?.id ?? null);
-  const sector = view.sectors[0];
   const save = (next: (string | null)[]) => setLoadout.mutate(next);
   return (
     <div className="hangar-grid">
-      {sector && (
-        <section className="lip panel hangar-sector" aria-labelledby="hangar-sector">
-          <span className="hangar-kicker">{copy.hangar.sector}</span>
-          <h2 id="hangar-sector">{sector.name}</h2>
-          <p>{sector.description}</p>
-          <div className="hangar-boss">
-            <img src={spriteDataUrl(sector.boss.sprite, 2)} alt="" width={80} height={80} />
-            <span>
-              <small>{sector.boss.title}</small>
-              <b>{sector.boss.name}</b>
-            </span>
-          </div>
-          <span className="hangar-kicker">{copy.hangar.fauna}</span>
-          <ul className="hangar-fauna">
-            {sector.fauna.map((f) => (
-              <li key={f.id} title={f.name}>
-                <img src={spriteDataUrl(f.sprite, 3)} alt={f.name} />
-              </li>
-            ))}
-          </ul>
-          <p className="hangar-help">{copy.hangar.layers(Math.round(sector.layerSeconds / 60))}</p>
-          <p className="hangar-more">
-            <Icon name="lock" />
-            <span>{copy.hangar.moreSectors}</span>
-          </p>
-        </section>
-      )}
+      <SectorPanel view={view} />
       <ProbePanel view={view} />
       <RelicSlots
         view={view}
@@ -430,7 +497,7 @@ export function HangarScreen() {
         error={start.error ?? sendError}
         onLaunch={() => {
           setSendError(null);
-          start.mutate({ sector: hangar.data.sectors[0]!.id, probe: hangar.data.probe, simVersion: SIM_VERSION }, { onSuccess: (r) => setRun(r) });
+          start.mutate({ sector: hangar.data.sector, probe: hangar.data.probe, simVersion: SIM_VERSION }, { onSuccess: (r) => setRun(r) });
         }}
       />
     );

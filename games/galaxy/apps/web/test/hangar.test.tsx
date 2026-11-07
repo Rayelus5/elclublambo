@@ -1,4 +1,4 @@
-import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, ProbeCard, RunResult } from '@galaxy/shared';
+import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -55,25 +55,38 @@ const PROBES: ProbeCard[] = [
   card('echo', { condition: { stat: 'runs', value: 15 }, progress: 1 / 15 }),
 ];
 
+/** A sector card from the default content: locked with no condition unless told otherwise. */
+const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
+  const sec = DEFAULT_CONTENT.sectors.find((x) => x.id === id)!;
+  const boss = DEFAULT_CONTENT.bosses.find((b) => b.id === sec.boss)!;
+  const fauna = [...new Set(sec.spawns.map((sp) => sp.enemy))].map((e) => DEFAULT_CONTENT.enemies.find((x) => x.id === e)!);
+  return {
+    id,
+    name: sec.name,
+    description: sec.description,
+    boss: { name: boss.name, title: boss.title, sprite: boss.sprite },
+    fauna: fauna.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })),
+    layerSeconds: sec.layerSeconds,
+    biome: sec.biome,
+    unlocked: false,
+    condition: null,
+    progress: 0,
+    season: sec.season,
+    ...over,
+  };
+};
+
+// A new account: the Nebulosa open, the chain closed, the season open.
+const SECTORS: SectorCard[] = [
+  sectorCard('outer-nebula', { unlocked: true, progress: 1 }),
+  sectorCard('frost-rings', { condition: { sector: 'outer-nebula', stat: 'bossKills', value: 1 } }),
+  sectorCard('hollow-reef', { condition: { sector: 'frost-rings', stat: 'bossKills', value: 1 } }),
+  sectorCard('broken-forge', { condition: { sector: 'hollow-reef', stat: 'bossKills', value: 1 } }),
+  sectorCard('signal-rift', { unlocked: true, progress: 1 }),
+];
+
 const view = (over: Partial<HangarView> = {}): HangarView => ({
-  sectors: [
-    {
-      id: 'outer-nebula',
-      name: 'Nebulosa Exterior',
-      description: DEFAULT_CONTENT.sectors[0]!.description,
-      boss: { name: 'La Colmena Rota', title: 'Núcleo de la Estática', sprite: 'hive' },
-      fauna: [
-        { id: 'mite', name: 'Ácaro de estática', sprite: 'mite' },
-        { id: 'ray', name: 'Manta de vacío', sprite: 'ray' },
-      ],
-      layerSeconds: 300,
-      biome: 'nebula',
-      unlocked: true,
-      condition: null,
-      progress: 1,
-      season: false,
-    },
-  ],
+  sectors: SECTORS,
   sector: 'outer-nebula',
   probes: PROBES,
   probe: 'lumen',
@@ -141,6 +154,67 @@ test('elegir una reliquia la equipa y dice qué hará; también se puede quitar'
   expect(JSON.parse(String(put[1]!.body))).toEqual({ relics: ['g1', null] });
   fireEvent.click(within(slot).getByRole('button', { name: copy.hangar.unequip('Kathra') }));
   await waitFor(() => expect(screen.getAllByRole('button', { name: copy.hangar.chooseRelic })).toHaveLength(2));
+});
+
+describe('el selector de sectores', () => {
+  test('muestra los 5: el elegido marcado, los cerrados con lo que los abre, y la temporada abierta', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).getAllByRole('listitem')).toHaveLength(5);
+    expect(within(picker).getByRole('button', { name: 'Nebulosa Exterior' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(picker).queryByRole('button', { name: 'Anillos de Escarcha' })).toBeNull();
+    expect(within(picker).getByText(copy.hangar.sectorUnlock.bossKills(1, 'La Colmena Rota', 'Nebulosa Exterior'))).toBeInTheDocument();
+    expect(within(picker).getByText(copy.hangar.sectorUnlock.bossKills(1, 'La Madre Glaciar', 'Anillos de Escarcha'))).toBeInTheDocument();
+    const frost = within(picker).getByRole('progressbar', { name: 'Anillos de Escarcha' });
+    expect(frost).toHaveAttribute('aria-valuenow', '0');
+    expect(frost).toHaveAttribute('aria-valuemax', '1');
+    const rift = within(picker).getByRole('button', { name: 'Fisura de la Señal' });
+    expect(rift).toHaveAttribute('aria-pressed', 'false');
+    expect(rift).toHaveTextContent(copy.hangar.seasonBadge);
+    expect(screen.queryByText('Más sectores en desarrollo')).toBeNull();
+  });
+
+  test('elegir otro abierto lo envía y lo muestra, con su insignia de temporada, y Lanzar sale con él', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'PUT /galaxy/api/hangar/sector': (b) => jsonResponse(200, view({ sector: (b as { sector: string }).sector })),
+      'POST /galaxy/api/runs': () => jsonResponse(200, { ...started, sector: 'signal-rift' }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Fisura de la Señal' }));
+    expect(await screen.findByRole('heading', { name: 'Fisura de la Señal' })).toBeInTheDocument();
+    expect(within(picker).getByRole('button', { name: 'Fisura de la Señal' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('La Señal')).toBeInTheDocument();
+    const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/sector' && init?.method === 'PUT')!;
+    expect(JSON.parse(String(put[1]!.body))).toEqual({ sector: 'signal-rift' });
+    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
+    await screen.findByTestId('arena');
+    const run = fetch.mock.calls.find(([url]) => url === '/galaxy/api/runs')!;
+    expect(JSON.parse(String(run[1]!.body)).sector).toBe('signal-rift');
+  });
+
+  test('si el servidor no lo deja elegir lo dice y sigue el de antes', async () => {
+    mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'PUT /galaxy/api/hangar/sector': () => jsonResponse(409, { error: 'sector_locked' }),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    fireEvent.click(within(picker).getByRole('button', { name: 'Fisura de la Señal' }));
+    expect(await screen.findByText(copy.errors.sector_locked)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeInTheDocument();
+  });
+
+  test('con la temporada cerrada, la Fisura dice «Fuera de temporada» y no se elige', async () => {
+    const sectors = SECTORS.map((x) => (x.id === 'signal-rift' ? { ...x, unlocked: false, progress: 0 } : x));
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ sectors })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const picker = await screen.findByRole('list', { name: copy.hangar.sectorPicker });
+    expect(within(picker).queryByRole('button', { name: 'Fisura de la Señal' })).toBeNull();
+    expect(within(picker).getByText(copy.hangar.offSeason)).toBeInTheDocument();
+  });
 });
 
 describe('el selector de sondas', () => {

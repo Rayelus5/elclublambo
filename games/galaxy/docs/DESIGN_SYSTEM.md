@@ -204,7 +204,11 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de ui-ux-pro-max: indicador de carga accesible en la acción principal, números con formato español, tablas estrechas y conteos que desaceleran al llegar.
 
 - **Hangar:** la misma cabecera que la colección (volver, título y saldo) y tres paneles (en dos columnas por debajo de 1400 px, con las reliquias debajo):
-  - **Sector:** nombre, descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción». Debajo, con candado, «Más sectores en desarrollo».
+  - **Sector** (M3b-3, GDD §5.5).
+    - **Arriba, el elegido:** nombre, la insignia «Temporada» en Ultravioleta si lo es, la descripción, el Núcleo con su sprite en una caja roja suave, la fauna en losas de 56 px y «Capas de 5 min, con su Núcleo y su extracción».
+    - **Debajo, las losas de los 5 sectores:** las mismas que las de las sondas, con el sprite de su Núcleo a 1× (40 px).
+      - **Abiertos:** su línea es «Elegido» (Solar), «Temporada» (Ultravioleta suave) o «N especies».
+      - **Cerrados:** lo que los abre, «Derrota a <Núcleo del sector anterior>», con su barra 0/1. Una temporada cerrada dice «Fuera de temporada», sin barra.
   - **Sonda** (M3b-2, GDD §6). Consulta de ui-ux-pro-max: el estado elegido no se marca solo con color, y el progreso se muestra con una barra.
     - **Arriba, la elegida:** su sprite a 7× a la izquierda y, a la derecha, el nombre, la descripción, vida, velocidad, el arma inicial con su icono y su peculiaridad en una losa.
     - **Debajo, las ocho sondas** en losas horizontales: sprite a 3×, nombre y una línea. Van en columnas automáticas de 168 px como mínimo, para que haya dos también con tres paneles en portátiles de 1440–1600 px; el texto pasa a dos líneas si no cabe.
