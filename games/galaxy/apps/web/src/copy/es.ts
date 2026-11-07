@@ -533,6 +533,10 @@ export const copy = {
     tiebreak_required: 'Hay un empate: contesta la última pregunta',
     probe_locked: 'Esa sonda todavía no es tuya. Mira qué hace falta para conseguirla',
     probe_test_required: 'Antes de salir, haz el test de la sonda',
+    refinery_full: 'La refinería no tiene sitio para tanto. Recoge o mejórala',
+    room_maxed: 'Esa sala ya está al máximo',
+    room_unavailable: 'Esa sala aún no se puede reparar',
+    nothing_to_collect: 'Aún no hay nada que recoger',
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

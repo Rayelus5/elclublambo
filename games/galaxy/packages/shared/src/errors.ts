@@ -36,6 +36,10 @@ export const API_ERROR_CODES = [
   'probe_locked',
   'probe_test_required',
   'sector_locked',
+  'refinery_full',
+  'room_maxed',
+  'room_unavailable',
+  'nothing_to_collect',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
