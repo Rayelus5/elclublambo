@@ -233,6 +233,20 @@ export interface LoadoutsTable {
   galaxy_id: string;
 }
 
+/** The galaxies an account exhibits in its planetarium, one per pedestal (M4c-2). */
+export interface ExhibitsTable {
+  account_id: string;
+  slot: number;
+  galaxy_id: string;
+}
+
+/** A visit to someone's planetarium: one per visitor, owner and UTC day, never one's own (M4c-2). */
+export interface PlanetariumVisitsTable {
+  owner_id: string;
+  visitor_id: string;
+  day: ColumnType<string, string | undefined, never>;
+}
+
 type Maybe<T> = ColumnType<T | null, T | null | undefined, T | null>;
 
 /** A run: started with the server's seed and relic snapshot, finished once (GDD §14.7). */
@@ -310,6 +324,8 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.exhibits': ExhibitsTable;
+  'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
   'galaxy.antenna': AntennaTable;
