@@ -82,3 +82,16 @@ describe('rendimiento diario', () => {
     expect(dailyStatus(4.5 * 3600, cfg)).toEqual({ playedSeconds: 16200, fullSecondsLeft: 0, multiplier: 0.5 });
   });
 });
+
+describe('frenos del pago', () => {
+  test('una partida castigada cobra la parte de morir aunque extraiga', () => {
+    expect(runPayout(claim(), cfg, 1, true)).toMatchObject({ coins: 50, dust: 5, share: 0.5 });
+  });
+
+  test('ninguna partida cobra más que el techo por partida', () => {
+    const deep = claim({ depth: 40, bossKills: 40, loot: Array.from({ length: 40 }, () => ({ coins: 5_000, dust: 5_000 })) });
+    const r = runPayout(deep, cfg, 1);
+    expect(r).toMatchObject({ coins: cfg.caps.runCoins, dust: cfg.caps.runDust, capped: true });
+    expect(runPayout(claim(), cfg, 1).capped).toBe(false);
+  });
+});

@@ -21,7 +21,7 @@ const claim = (over: Partial<RunClaim> = {}): RunClaim => ({
 
 describe('una partida normal', () => {
   test('no lleva banderas y conserva su botín', () => {
-    expect(checkRun(claim(), ctx)).toEqual({ flags: [], claim: claim() });
+    expect(checkRun(claim(), ctx)).toEqual({ flags: [], claim: claim(), penalized: false });
   });
 
   test('morir en la capa 2 antes de su jefe es normal', () => {
@@ -75,6 +75,65 @@ describe('banderas', () => {
         },
       ),
       { numRuns: 300 },
+    );
+  });
+});
+
+describe('una reclamación imposible se recorta a lo que pudo pasar', () => {
+  // The review's forged finish: one minute after the start, layer 999, ten million kills and all loot in the last layer.
+  const forged = (): RunClaim =>
+    claim({
+      ticks: 60 * 60,
+      depth: 999,
+      kills: 10_000_000,
+      bossKills: 999,
+      loot: Array.from({ length: 999 }, (_, i) => (i === 998 ? { coins: 10_000_000, dust: 10_000_000 } : { coins: 0, dust: 0 })),
+    });
+
+  test('la profundidad, las bajas y los jefes se recortan al tiempo real y el botín de capas de más se pierde', () => {
+    const r = checkRun(forged(), { ...ctx, wallSeconds: 60, logTicks: 0 });
+    expect(r.flags).toEqual(expect.arrayContaining(['depth_vs_time', 'kills_rate']));
+    expect(r.claim.depth).toBe(1);
+    expect(r.claim.loot).toEqual([{ coins: 0, dust: 0 }]);
+    expect(r.claim.bossKills).toBe(1);
+    expect(r.claim.kills).toBe(650);
+    expect(r.penalized).toBe(true);
+  });
+
+  test('el tiempo de juego se recorta al tiempo real con su margen', () => {
+    const r = checkRun(claim({ ticks: 60 * 3600, depth: 1 }), { ...ctx, wallSeconds: 100 });
+    expect(r.flags).toContain('too_fast');
+    expect(r.claim.ticks).toBe((100 + cfg.caps.slackSeconds) * 60);
+  });
+
+  test('solo las banderas de trampa castigan: un botín recortado a su tope no', () => {
+    expect(checkRun(claim(), ctx).penalized).toBe(false);
+    expect(checkRun(claim({ kills: 100, loot: [{ coins: 10_000, dust: 9_000 }] }), ctx).penalized).toBe(false);
+    expect(checkRun(claim(), { ...ctx, logTicks: 6 * 3600 + 1 }).penalized).toBe(true);
+  });
+
+  test('ninguna reclamación pasa de lo que cabe en su tiempo real', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 1, max: 999 }),
+        fc.integer({ min: 0, max: 60 * 3600 * 24 }),
+        fc.integer({ min: 0, max: 10_000_000 }),
+        fc.integer({ min: 0, max: 999 }),
+        fc.integer({ min: 0, max: 24 * 3600 }),
+        (depth, ticks, kills, bossKills, wall) => {
+          const loot = Array.from({ length: depth }, () => ({ coins: 1000, dust: 1000 }));
+          const r = checkRun(claim({ depth, ticks, kills, bossKills, loot }), { ...ctx, wallSeconds: wall, logTicks: null });
+          const real = Math.min(ticks, (wall + cfg.caps.slackSeconds) * 60);
+          return (
+            r.claim.ticks <= real &&
+            r.claim.depth <= 1 + Math.floor(real / (300 * 60)) &&
+            r.claim.loot.length === r.claim.depth &&
+            r.claim.kills <= cfg.caps.killsPerMinute * (real / 3600) + 50 &&
+            r.claim.bossKills <= r.claim.depth
+          );
+        },
+      ),
+      { numRuns: 400 },
     );
   });
 });

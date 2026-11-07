@@ -2,7 +2,8 @@ import type { RunClaim, RunLayerPay } from '../api/runs';
 import type { ConfigValue } from '../config/registry';
 
 // What a run pays (GDD §5.1, §11.3 bis). Loot counts by the depth of the layer it was picked up in; a run that ends
-// without extraction keeps `deathShare`; the daily yield prorates the run's minutes over the day's thresholds. The
+// without extraction (or flagged as forged) keeps `deathShare`; the daily yield prorates the run's minutes over the
+// day's thresholds, and no run pays more than `caps.runCoins` / `caps.runDust` until replays verify runs (M5). The
 // server applies all of it; the client only shows it.
 
 export type RunsConfig = ConfigValue<'runs'>;
@@ -63,11 +64,13 @@ export interface RunPayout {
   dust: number;
   layers: RunLayerPay[];
   share: number;
+  /** The run hit the per-run ceiling. */
+  capped: boolean;
 }
 
-/** Coins and dust a run pays, given the daily factor of its minutes. */
-export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number): RunPayout {
-  const share = claim.outcome === 'extracted' ? 1 : cfg.deathShare;
+/** Coins and dust a run pays, given the daily factor of its minutes; `penalized` pays the death share. */
+export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false): RunPayout {
+  const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   let coins = 0;
   let dust = 0;
   const layers = claim.loot.map((l, i) => {
@@ -77,5 +80,13 @@ export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number): Run
     return { layer: i + 1, coins: l.coins, dust: l.dust, multiplier };
   });
   const k = share * factor;
-  return { coins: Math.floor(coins * k + 1e-9), dust: Math.floor(dust * k + 1e-9), layers, share };
+  const paidCoins = Math.floor(coins * k + 1e-9);
+  const paidDust = Math.floor(dust * k + 1e-9);
+  return {
+    coins: Math.min(paidCoins, cfg.caps.runCoins),
+    dust: Math.min(paidDust, cfg.caps.runDust),
+    layers,
+    share,
+    capped: paidCoins > cfg.caps.runCoins || paidDust > cfg.caps.runDust,
+  };
 }

@@ -2,7 +2,7 @@ import { finishRunRequestSchema, loadoutRequestSchema, startRunRequestSchema, ty
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
-import { runOperation } from '../economy/operations';
+import { operationExists, runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
@@ -49,7 +49,8 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const key = idempotencyKey(req);
     const { id } = idParam.parse(req.params);
     const body = finishRunRequestSchema.parse(req.body);
-    await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_finish', 60, 3600);
+    // A resend of a stored result (same key) answers from the operation without using up the limit.
+    if (!(await operationExists(deps.db, s.accountId, key))) await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_finish', 60, 3600);
     const [{ value: runs, version: runsVersion }, content] = await Promise.all([deps.config.getVersioned('runs'), deps.config.get('content')]);
     const now = deps.now();
     return runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>

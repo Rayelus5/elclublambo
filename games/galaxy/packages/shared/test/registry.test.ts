@@ -47,7 +47,7 @@ test('runs tiene los valores de partida de la economía de las incursiones', () 
     deathShare: 0.5,
     daily: { hours: [3, 4, 5], multipliers: [1, 0.75, 0.5, 0.25] },
     signalChancePerBoss: 0.1,
-    caps: { killsPerMinute: 600, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20 },
+    caps: { killsPerMinute: 600, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000 },
     expireHours: 24,
     startPerHour: 30,
   });

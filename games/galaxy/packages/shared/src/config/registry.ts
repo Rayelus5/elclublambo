@@ -149,9 +149,12 @@ export const configSchemas = {
           bossCoins: z.number().int().min(0).max(100_000),
           bossDust: z.number().int().min(0).max(100_000),
           slackSeconds: z.number().int().min(0).max(3600),
+          /** The most one run pays, whatever it claims (until replays verify runs, M5). */
+          runCoins: z.number().int().min(0).max(10_000_000).default(20_000),
+          runDust: z.number().int().min(0).max(10_000_000).default(10_000),
         })
         .strict()
-        .default({ killsPerMinute: 600, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20 }),
+        .default({ killsPerMinute: 600, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000 }),
       expireHours: z.number().int().min(1).max(168).default(24),
       startPerHour: limit(30),
     })

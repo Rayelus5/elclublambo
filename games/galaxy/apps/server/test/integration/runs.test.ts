@@ -166,6 +166,77 @@ test('botín imposible: se paga recortado y la partida queda como sospechosa', a
   expect(row.flags).toContain('loot_cap');
 });
 
+test('una reclamación imposible se recorta a su tiempo real: capa 1, sin botín de capas de más', async () => {
+  const { cookie } = await player();
+  const run = await played(cookie, 1);
+  const loot = Array.from({ length: 999 }, (_, i) => (i === 998 ? { coins: 10_000_000, dust: 10_000_000 } : { coins: 0, dust: 0 }));
+  const res = await finish(cookie, run.id, body({ ticks: 60 * 60, depth: 999, kills: 10_000_000, bossKills: 999, loot, inputs: toBase64(encodeLog({ probes: 1, events: [] })) }));
+  expect(res.statusCode).toBe(200);
+  const r = res.json() as RunResult;
+  expect(r).toMatchObject({ depth: 1, payout: { coins: 0, dust: 0 } });
+  expect(r.payout.signals).toBeLessThanOrEqual(1);
+  const row = await ctx.db.selectFrom('galaxy.runs').select(['depth', 'kills', 'boss_kills', 'flags']).where('id', '=', run.id).executeTakeFirstOrThrow();
+  expect(row).toMatchObject({ depth: 1, kills: 650, boss_kills: 1 });
+  expect(row.flags).toEqual(expect.arrayContaining(['depth_vs_time', 'kills_rate']));
+});
+
+test('una partida con banderas de trampa cobra solo la parte de morir', async () => {
+  const { cookie } = await player();
+  const run = await played(cookie, 1);
+  const r = (await finish(cookie, run.id, body())).json() as RunResult;
+  // 6 min de juego en 1 min real: too_fast. 40 monedas y 12 de polvo a ×0,5.
+  expect(r.payout).toMatchObject({ coins: 20, dust: 6 });
+  expect(r.ticks).toBe((60 + 20) * 60);
+});
+
+test('dos partidas a la vez no cobran dos veces el mismo tiempo real', async () => {
+  const { cookie } = await player();
+  const a = (await start(cookie)).json() as RunStart;
+  const b = (await start(cookie)).json() as RunStart;
+  clock = new Date(clock.getTime() + 21 * 60_000);
+  const claim = body({ outcome: 'died', ticks: 20 * 3600, bossKills: 0, kills: 1200 });
+  expect((await finish(cookie, a.id, claim)).json()).toMatchObject({ ticks: 20 * 3600 });
+  clock = new Date(clock.getTime() + 60_000);
+  const second = (await finish(cookie, b.id, claim)).json() as RunResult;
+  expect(second.ticks).toBe((60 + 20) * 60);
+  const row = await ctx.db.selectFrom('galaxy.runs').select('flags').where('id', '=', b.id).executeTakeFirstOrThrow();
+  expect(row.flags).toContain('too_fast');
+});
+
+test('ninguna partida cobra más que el techo por partida, y queda marcada', async () => {
+  const { cookie } = await player();
+  const run = await played(cookie, 61);
+  const loot = Array.from({ length: 13 }, (_, i) => (i === 12 ? { coins: 9_000, dust: 4_000 } : { coins: 0, dust: 0 }));
+  const r = (await finish(cookie, run.id, body({ ticks: 60 * 3600, depth: 13, bossKills: 13, kills: 36_000, loot }))).json() as RunResult;
+  expect(r.payout).toMatchObject({ coins: 20_000, dust: 10_000 });
+  const row = await ctx.db.selectFrom('galaxy.runs').select(['flags', 'suspicious']).where('id', '=', run.id).executeTakeFirstOrThrow();
+  expect(row).toMatchObject({ flags: ['payout_cap'], suspicious: true });
+});
+
+test('entradas válidas de más de 2 MB → 400 bad_inputs, nunca 500', async () => {
+  const { cookie } = await player();
+  const run = await played(cookie, 7);
+  const events: number[] = [];
+  for (let t = 1; t <= 341_700; t++) events.push(t, 0, 0, t % 2 === 0 ? 1 : -1, 0, -1);
+  const bytes = encodeLog({ probes: 1, events });
+  expect(bytes.length).toBeGreaterThan(2_000_000);
+  const res = await finish(cookie, run.id, body({ inputs: toBase64(bytes) }));
+  expect(res.statusCode).toBe(400);
+  expect(res.json()).toEqual({ error: 'bad_inputs' });
+});
+
+test('reenviar un resultado ya cobrado no gasta el límite de envíos', async () => {
+  const { cookie } = await player();
+  const run = await played(cookie, 7);
+  const key = randomUUID();
+  const first = await finish(cookie, run.id, body(), key);
+  expect(first.statusCode).toBe(200);
+  for (let k = 0; k < 61; k++) {
+    const again = await finish(cookie, run.id, body(), key);
+    expect(again.statusCode, `reenvío ${k + 1}`).toBe(200);
+  }
+});
+
 test('con 2 h 50 min ya jugadas hoy, una partida de 20 min cobra 10 min a ×1 y 10 a ×0,75', async () => {
   const { cookie, id } = await player();
   await ctx.db.insertInto('galaxy.run_days').values({ account_id: id, day: madridDay(clock), seconds: 2 * 3600 + 50 * 60 }).execute();

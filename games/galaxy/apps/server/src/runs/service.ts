@@ -68,10 +68,14 @@ export interface FinishContext {
   now: Date;
 }
 
+/** The most bytes of recorded inputs a run keeps (galaxy.run_inputs checks the same). */
+export const MAX_INPUT_BYTES = 2_000_000;
+
 /** The decoded log's last tick, or 400 bad_inputs. */
 function inputsOf(b64: string, probes: number): { bytes: Uint8Array; lastTick: number } {
   try {
     const bytes = fromBase64(b64);
+    if (bytes.length > MAX_INPUT_BYTES) throw new RangeError('bad_log');
     const log = decodeLog(bytes);
     if (log.probes !== probes) throw new RangeError('bad_log');
     return { bytes, lastTick: logTicks(log) };
@@ -90,8 +94,18 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .executeTakeFirst();
   if (!run) throw new HttpError(404, 'run_not_found');
   if (run.finished_at) throw new HttpError(409, 'run_finished');
-  const wallSeconds = (ctx.now.getTime() - new Date(run.started_at).getTime()) / 1000;
-  if (wallSeconds > ctx.runs.expireHours * 3600) throw new HttpError(410, 'run_expired');
+  const startedAt = new Date(run.started_at).getTime();
+  if ((ctx.now.getTime() - startedAt) / 1000 > ctx.runs.expireHours * 3600) throw new HttpError(410, 'run_expired');
+  // Real time is counted once: a run that overlaps another finished one only has the time since that finish.
+  const overlap = await trx
+    .selectFrom('galaxy.runs')
+    .select((eb) => eb.fn.max('finished_at').as('last'))
+    .where('account_id', '=', accountId)
+    .where('id', '<>', run.id)
+    .where('finished_at', '>', new Date(startedAt))
+    .executeTakeFirst();
+  const from = overlap?.last ? Math.max(startedAt, new Date(overlap.last).getTime()) : startedAt;
+  const wallSeconds = Math.max(0, (ctx.now.getTime() - from) / 1000);
   const { bytes, lastTick } = inputsOf(req.inputs, 1);
 
   const { inputs: _inputs, ...claimed } = req;
@@ -113,7 +127,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .where('day', '=', day)
     .execute();
 
-  const pay = runPayout(claim, ctx.runs, factor);
+  const pay = runPayout(claim, ctx.runs, factor, check.penalized);
+  const flags = pay.capped ? [...check.flags, 'payout_cap' as const] : check.flags;
   let signals = 0;
   const chance = ctx.runs.signalChancePerBoss * factor;
   for (let k = 0; k < claim.bossKills; k++) if (randomInt(1_000_000) < chance * 1_000_000) signals++;
@@ -137,8 +152,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
       hash: claim.hash,
       payout: JSON.stringify({ ...payout, layers: pay.layers, share: pay.share, daily: segments, claimed: claimed.loot }),
       runs_version: ctx.runsVersion,
-      flags: check.flags,
-      suspicious: check.flags.length > 0,
+      flags,
+      suspicious: flags.length > 0,
     })
     .where('id', '=', run.id)
     .execute();
