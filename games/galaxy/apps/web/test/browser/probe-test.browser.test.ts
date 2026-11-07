@@ -27,7 +27,9 @@ function mount() {
 }
 
 test('la pregunta y el revelado del test de la sonda', async () => {
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ probe: 'spark' }), { status: 200, headers: { 'content-type': 'application/json' } })));
+  // The hangar says the test is still to take; the test gives Chispa.
+  const answer = (url: string) => (url.endsWith('/hangar') ? { test: { taken: false, probe: null } } : { probe: 'spark' });
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => new Response(JSON.stringify(answer(url)), { status: 200, headers: { 'content-type': 'application/json' } })));
   await page.viewport(1440, 900);
   mount();
   await vi.waitFor(() => expect(document.querySelector('.probe-test .launch')).not.toBeNull());

@@ -15,6 +15,9 @@ function open() {
   renderAt('/sonda', { '/sonda': <ProbeTestScreen /> });
   fireEvent.click(screen.getByRole('button', { name: t.start }));
 }
+/** The bodies of the test sent (the screen also asks the hangar whether it was taken). */
+const sentBodies = (fetch: ReturnType<typeof mockApi>) =>
+  fetch.mock.calls.filter(([url, init]) => url === '/galaxy/api/probe-test' && init?.method === 'POST').map(([, init]) => JSON.parse(String(init!.body)) as { answers: number[] });
 /** Picks answer `i` (0–2) of the question on screen with its number key. */
 const press = (i: number) => fireEvent.keyDown(window, { key: String(i + 1), code: `Digit${i + 1}` });
 
@@ -40,7 +43,7 @@ test('sin empate envía las cinco respuestas y revela la sonda con su perfil', a
   expect(await screen.findByRole('heading', { name: 'Bastión' })).toBeInTheDocument();
   expect(screen.getByText(t.profiles.bastion)).toBeInTheDocument();
   expect(screen.getByRole('link', { name: t.toHangar })).toHaveAttribute('href', '/incursion');
-  const sent = JSON.parse(String(fetch.mock.calls[0]![1]!.body));
+  const sent = sentBodies(fetch)[0];
   expect(sent).toEqual({ answers: [0, 1, 2, 3, 4].map((q) => answerFor(q, 'bastion')) });
 });
 
@@ -56,10 +59,10 @@ test('con empate pregunta el desempate y lo envía con las otras cinco', async (
   ] as const)
     press(answerFor(q, p));
   expect(screen.getByRole('heading', { name: t.tiebreak.q })).toBeInTheDocument();
-  expect(fetch).not.toHaveBeenCalled();
+  expect(sentBodies(fetch)).toHaveLength(0);
   press(PROBE_TEST.tiebreak.answers.indexOf('spark'));
   expect(await screen.findByRole('heading', { name: 'Chispa' })).toBeInTheDocument();
-  expect(JSON.parse(String(fetch.mock.calls[0]![1]!.body)).answers).toHaveLength(6);
+  expect(sentBodies(fetch)[0]!.answers).toHaveLength(6);
 });
 
 test('si el envío falla se puede reintentar, con las mismas respuestas', async () => {
@@ -71,7 +74,7 @@ test('si el envío falla se puede reintentar, con las mismas respuestas', async 
   fail = false;
   fireEvent.click(retry);
   expect(await screen.findByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
-  const bodies = fetch.mock.calls.map(([, init]) => JSON.parse(String(init!.body)));
+  const bodies = sentBodies(fetch);
   expect(bodies[0]).toEqual(bodies[1]);
 });
 
@@ -80,7 +83,7 @@ test('saltar el test responde al azar y revela igualmente una de las tres', asyn
   open();
   fireEvent.click(screen.getByRole('button', { name: t.skip }));
   expect(await screen.findByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
-  const sent = JSON.parse(String(fetch.mock.calls[0]![1]!.body)).answers as number[];
+  const sent = sentBodies(fetch)[0]!.answers;
   expect(sent.length === 5 || sent.length === 6).toBe(true);
   expect(sent.every((a) => a >= 0 && a <= 2)).toBe(true);
 });
@@ -95,6 +98,12 @@ test('recargar a mitad empieza de nuevo: no se guarda nada antes de enviar', () 
   renderAt('/sonda', { '/sonda': <ProbeTestScreen /> });
   expect(screen.getByRole('button', { name: t.start })).toBeInTheDocument();
   expect(localStorage.length).toBe(0);
+});
+
+test('con el test ya hecho, /sonda lleva al hangar: no se repite', async () => {
+  mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, { test: { taken: true, probe: 'lumen' } }) });
+  renderAt('/sonda', { '/sonda': <ProbeTestScreen /> });
+  expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/incursion');
 });
 
 test('Ir al hangar lleva al hangar', async () => {

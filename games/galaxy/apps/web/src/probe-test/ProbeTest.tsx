@@ -1,9 +1,9 @@
 import { PROBE_TEST, scoreTest, type Starter } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { spriteDataUrl } from '../arena/sprites';
-import { useProbeTest } from '../api/runs';
+import { useHangar, useProbeTest } from '../api/runs';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -28,6 +28,7 @@ export function ProbeTestScreen() {
   const [answers, setAnswers] = useState<number[]>([]);
   const [probe, setProbe] = useState<Starter | null>(null);
   const send = useProbeTest();
+  const hangar = useHangar();
   const first = useRef<HTMLButtonElement>(null);
 
   const tied = answers.length === N && 'tie' in scoreTest(answers);
@@ -77,6 +78,8 @@ export function ProbeTestScreen() {
   }, [stage, answers]);
 
   if (stage === 'intro') {
+    // Taken already (Back after the reveal, or /crear-cuenta with a session): the test is once, so to the hangar.
+    if (hangar.data?.test.taken) return <Navigate to="/incursion" replace />;
     return (
       <main className="screen-root probe-test">
         <div className="probe-test-card intro">
