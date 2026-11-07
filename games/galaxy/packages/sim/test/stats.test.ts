@@ -23,6 +23,12 @@ test('sin mejoras: los valores de la sonda, crítico base del 5 % y ×1,5', () =
     xp: 1,
     luck: 1,
     lifesteal: 0,
+    velocity: 1,
+    duration: 1,
+    pierce: 0,
+    elemental: 1,
+    barrier: 0,
+    curse: 0,
   });
 });
 
@@ -63,4 +69,47 @@ test('la sonda inicial real recoge desde más lejos y aprende un 10 % más rápi
   const s = deriveStats(sim, sim.probes[0]!);
   expect(s.pickup).toBeCloseTo(30 * (1 + 3 * (1 - (1 - 0.3 / 3))), 9);
   expect(s.xp).toBeCloseTo(1 + 1 * (1 - (1 - 0.1)), 9);
+});
+
+test.each([
+  ['plating', 'armor', 0.03],
+  ['scope', 'crit', 0.6 * (1 - (1 - 0.05 / 0.6) * (1 - 0.03 / 0.6))],
+  ['overcharge', 'critDamage', 1.65],
+  ['memory', 'xp', 1.08],
+  ['clover', 'luck', 1.1],
+  ['siphon', 'lifesteal', 0.01],
+  ['accelerator', 'velocity', 1.1],
+  ['stabilizer', 'duration', 1.1],
+  ['catalyst', 'elemental', 1.1],
+  ['deflector', 'barrier', 0.06],
+  ['static-signal', 'curse', 0.1],
+  ['drill', 'pierce', 1],
+] as const)('la pasiva %s a nivel 1 mueve %s', (id, stat, value) => {
+  const sim = quietSim();
+  const p = sim.probes[0]!;
+  applyOffer(sim, p, { kind: 'passive', id, level: 1 });
+  expect(p.stats[stat]).toBeCloseTo(value, 9);
+});
+
+test('la perforación extra es entera y con tope 5', () => {
+  const sim = quietSim((c) => (c.probes[0]!.bonus = { pierce: 9 }));
+  expect(deriveStats(sim, sim.probes[0]!).pierce).toBe(5);
+  const half = quietSim((c) => (c.probes[0]!.bonus = { pierce: 2.5 }));
+  expect(deriveStats(half, half.probes[0]!).pierce).toBe(2);
+});
+
+test('la barrera y la maldición rinden menos al acumularse y no pasan de su tope', () => {
+  const sim = quietSim((c) => (c.probes[0]!.bonus = { barrier: 0.3, curse: 0.5 }));
+  const p = sim.probes[0]!;
+  p.passives.push({ id: 'deflector', level: 5 }, { id: 'static-signal', level: 5 });
+  const s = deriveStats(sim, p);
+  expect(s.barrier).toBeLessThanOrEqual(0.3);
+  expect(s.barrier).toBeCloseTo(0.3, 9);
+  expect(s.curse).toBeLessThanOrEqual(0.5);
+  expect(s.curse).toBeCloseTo(0.5, 9);
+  const one = quietSim();
+  one.probes[0]!.passives.push({ id: 'deflector', level: 2 }, { id: 'catalyst', level: 3 });
+  const t = deriveStats(one, one.probes[0]!);
+  expect(t.barrier).toBeCloseTo(0.12, 9);
+  expect(t.elemental).toBeCloseTo(1.3, 9);
 });

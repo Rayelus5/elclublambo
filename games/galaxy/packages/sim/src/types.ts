@@ -65,6 +65,18 @@ export interface Stats {
   luck: number;
   /** Fraction of damage dealt that heals. */
   lifesteal: number;
+  /** Multiplier on projectile speed and reach. */
+  velocity: number;
+  /** Multiplier on how long areas, mines, turrets, beams and puddles last. */
+  duration: number;
+  /** Extra pierce (whole). */
+  pierce: number;
+  /** Multiplier on element chance, status time and reaction damage. */
+  elemental: number;
+  /** Recharging shield, as a fraction of max life. */
+  barrier: number;
+  /** More enemies and more loot (fraction). */
+  curse: number;
 }
 
 export type Offer = { kind: 'weapon' | 'passive' | 'heal'; id: string; level: number };

@@ -5,7 +5,24 @@
 export const ELEMENT_IDS = ['burn', 'slow', 'corrosion', 'shock', 'hack', 'leech', 'breach', 'chain', 'pure', 'prism', 'invert'] as const;
 export type ElementId = (typeof ELEMENT_IDS)[number];
 
-export const WEAPON_KINDS = ['bolt', 'nova', 'lance', 'orbit', 'trail', 'ricochet', 'drone'] as const;
+export const WEAPON_KINDS = [
+  'bolt',
+  'nova',
+  'lance',
+  'orbit',
+  'trail',
+  'ricochet',
+  'drone',
+  'beam',
+  'cone',
+  'radial',
+  'homing',
+  'mine',
+  'boomerang',
+  'field',
+  'strike',
+  'turret',
+] as const;
 export type WeaponKind = (typeof WEAPON_KINDS)[number];
 
 export const STAT_KEYS = [
@@ -23,8 +40,18 @@ export const STAT_KEYS = [
   'xp',
   'luck',
   'lifesteal',
+  'velocity',
+  'duration',
+  'pierce',
+  'elemental',
+  'barrier',
+  'curse',
 ] as const;
 export type StatKey = (typeof STAT_KEYS)[number];
+
+/** What an evolved weapon adds to its kind (plan ruling 3): one generic trait each. */
+export const SPECIALS = ['split', 'echo', 'vortex', 'pierceAll', 'chain'] as const;
+export type Special = (typeof SPECIALS)[number];
 
 export const FAMILY_IDS = ['blades', 'ray', 'shield', 'lens', 'chaos', 'aura', 'scout', 'echo'] as const;
 export type FamilyId = (typeof FAMILY_IDS)[number];
@@ -65,8 +92,16 @@ export interface WeaponDef {
   kind: WeaponKind;
   icon: string;
   description: string;
-  /** Max level = levels.length (1–8). */
+  /** Max level = levels.length (1–8); an evolution has exactly one. */
   levels: WeaponLevel[];
+  /** An element every hit of the weapon carries. */
+  element?: ElementId | null;
+  special?: Special | null;
+  /**
+   * An evolution (GDD §5.3): offered once `from` is at its max level and the probe has the passive (any level) or a
+   * relic with the element. It takes the base weapon's slot and is never offered as a new weapon.
+   */
+  evolution?: { from: string; requires: { passive: string } | { element: ElementId } };
 }
 
 export interface PassiveDef {
@@ -182,6 +217,23 @@ export interface SectorDef {
   drops: { coin: number; dust: number; repair: number; repairHeal: number; bossCoins: number; bossDust: number };
 }
 
+/** What a reaction does (GDD §5.4); shares are of the hit that triggered it, × (1 + elemental). */
+export type ReactionEffect =
+  | { kind: 'chain'; targets: number; range: number; share: number }
+  | { kind: 'explode'; radius: number; share: number }
+  | { kind: 'shatter'; bonus: number; seconds: number; share: number }
+  | { kind: 'stun'; seconds: number }
+  | { kind: 'spread'; range: number; targets: number; statuses: ('burn' | 'corrosion' | 'hack')[] }
+  | { kind: 'drain'; share: number; heal: number };
+
+export interface ReactionDef {
+  id: string;
+  name: string;
+  /** The two elements, in any order (one reaction per pair). */
+  pair: [ElementId, ElementId];
+  effect: ReactionEffect;
+}
+
 export interface ElementTuning {
   /** Palette trait value → element (GDD §8.3). */
   palettes: Record<string, ElementId>;
@@ -196,6 +248,9 @@ export interface ElementTuning {
   pure: { crit: number; critDamage: number };
   prism: { cycle: ElementId[] };
   invert: { radius: number; chance: number; power: number };
+  /** Element marks (plan ruling 4): how long a mark lasts, the per-enemy wait between reactions, stun on bosses. */
+  marks: { seconds: number; cooldown: number; bossStun: number };
+  reactions: ReactionDef[];
 }
 
 export interface FamilyTuning {
@@ -226,6 +281,26 @@ export interface PhenomenonTuning {
   anomaly: { cooldown: number; blink: number; freezeRadius: number; freezeSeconds: number; strikeDamage: number; strikeCount: number };
 }
 
+/** A relic set's bonus: stat bonuses for the probe, a magnitude factor and a background factor for its members. */
+export interface SetBonus {
+  stats?: { stat: StatKey; value: number }[];
+  magnitude?: number;
+  background?: number;
+}
+
+/** Relic sets (GDD §8.3, «Conjunto»): the same trait on 2–3 relics, or a galaxy type with a phenomenon. */
+export type RelicSetDef =
+  | {
+      id: string;
+      name: string;
+      description: string;
+      kind: 'same';
+      trait: 'palette' | 'galaxy_type' | 'background' | 'core';
+      /** Ascending counts; the highest reached applies. */
+      tiers: { count: 2 | 3; bonus: SetBonus }[];
+    }
+  | { id: string; name: string; description: string; kind: 'combo'; type: string; phenomenon: string; bonus: SetBonus };
+
 export interface RelicTuning {
   /** Magnitude by rarity tier (common → legendary). */
   tier: number[];
@@ -240,6 +315,7 @@ export interface RelicTuning {
   quasar: { cooldown: number; damage: number; pierce: number; speed: number };
   double: { delay: number };
   backgrounds: Record<string, { stat: StatKey | 'vision'; value: number }>;
+  sets: RelicSetDef[];
 }
 
 export interface Content {
