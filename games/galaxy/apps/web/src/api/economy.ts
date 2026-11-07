@@ -114,6 +114,8 @@ export function useLevelUpGalaxy() {
     onSuccess: (res, v) => {
       qc.setQueryData([GALAXY_KEY, v.id], res.galaxy);
       settle(qc, res.wallet);
+      // An equipped galaxy changes its power in the Hangar (runs.ts HANGAR_KEY; runs.ts imports this module).
+      void qc.invalidateQueries({ queryKey: ['hangar'] });
     },
     onError: (_e, v) => {
       refresh(qc);

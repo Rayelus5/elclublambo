@@ -58,14 +58,16 @@ export function relicSkill(relic: RelicInput, all: readonly RelicInput[], conten
   const mine = activeSets(all, content).filter((s) => s.members.includes(relic.id));
   const setMagnitude = mine.reduce((f, s) => f * (s.bonus.magnitude ?? 1), 1);
   const setBackground = mine.reduce((f, s) => f * (s.bonus.background ?? 1), 1);
+  // Its place in slot order, by id: the Hangar describes copies of the run's relics, not the same objects.
+  const at = all.findIndex((r) => r.id === relic.id);
   // The same family stacked (GDD §8.6): from the `from`-th of its family in slot order, each yields `decay` × the last.
-  const rank = all.slice(0, all.indexOf(relic) + 1).filter((r) => baseFamily(r.traits) === family).length;
+  const rank = all.slice(0, at + 1).filter((r) => baseFamily(r.traits) === family).length;
   let stacking = 1;
   for (let k = R.stacking.from; k <= rank; k++) stacking *= R.stacking.decay;
   const magnitude = (R.tier[relic.tier] ?? 1) * (R.size[t['size'] ?? ''] ?? 1) * (R.core[t['core'] ?? ''] ?? 1) * (1 + levelBonus) * setMagnitude * stacking;
   let copies: FamilyId | null = null;
   if (family === 'echo') {
-    const me = Math.max(0, all.indexOf(relic));
+    const me = Math.max(0, at);
     copies = 'chaos';
     for (let k = 1; k < all.length; k++) {
       const other = baseFamily(all[(me + k) % all.length]!.traits);

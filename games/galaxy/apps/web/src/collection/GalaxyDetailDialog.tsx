@@ -1,5 +1,5 @@
 import type { GalaxyDetail } from '@galaxy/shared';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useDisintegrate, useGacha, useGalaxyDetail, useLevelUpGalaxy } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { CardBack } from '../cards/CardBack';
@@ -44,6 +44,7 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
   const dust = useGacha().data?.wallet.dust;
   const next = g.levelUp;
   const short = next && dust !== undefined ? Math.max(0, next.dust - dust) : null;
+  const missing = useId();
   return (
     <div className="relic-level">
       <div className="probe-level-head">
@@ -61,13 +62,18 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
             className="lip pill pill-solar station-upgrade"
             disabled={short === null || short > 0 || up.isPending}
             aria-busy={up.isPending || undefined}
+            aria-describedby={short !== null && short > 0 ? missing : undefined}
             onClick={() => up.mutate({ id: g.id, level: g.level + 1 })}
           >
             <Icon name="dust" />
             <span>{copy.hangar.levelUp(g.level + 1)}</span>
             <small>{copy.collection.levelCost(next.dust)}</small>
           </button>
-          {short !== null && short > 0 ? <p className="panel-note">{copy.lab.missing(short, 0)}</p> : null}
+          {short !== null && short > 0 ? (
+            <p className="panel-note" id={missing}>
+              {copy.lab.missing(short, 0)}
+            </p>
+          ) : null}
         </>
       ) : (
         <p className="panel-note">{copy.hangar.levelMax}</p>

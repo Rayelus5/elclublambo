@@ -234,6 +234,7 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
     - **Cerradas:** candado y «Se abre más adelante».
     - **La siguiente** (M4c-1): borde discontinuo Solar, candado Solar, lo que la abre («Juega 5 incursiones»), una barra Solar y «2/5». Con el hito cumplido el borde pasa a continuo y late despacio (quieto con movimiento reducido), y aparece «Abrir ranura» con su polvo. Ver §8 nonies.
     - **Ocupadas:** la carta, el nombre, la familia (hielo), el elemento (chip de su color), el fenómeno y la potencia, con un botón para quitarla.
+    - **La misma familia apilada** (M4c-1, §8.6): la potencia de cada carta ya cuenta la regla, y si una familia llega a tres se explica debajo de las ranuras, en tinta apagada: «Desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior».
   - **Conjuntos** (M3b-1, GDD §8.3), bajo las ranuras, en columnas automáticas de 260 px como mínimo:
     - **Activos:** losa con borde Solar y un leve brillo, con el nombre, la condición («Dos o tres galaxias de la misma paleta») y el bonus en Solar («Potencia elemental +25 %»). Si hay un escalón mayor, una pista apagada dentro («Con una tercera galaxia de Oro solar»).
     - **A una galaxia:** losa con borde discontinuo y texto apagado (color, no opacidad, para no bajar el contraste): «Falta una galaxia con Galaxia satélite».
@@ -396,6 +397,7 @@ Consulta de ui-ux-pro-max: se aplicaron dos guías, «enseñar el progreso de lo
   - si ya tiene niveles, lo que devuelve: «Al desintegrarla o fusionarla devuelve 27 de polvo de sus niveles».
 - **En el Hangar:** la ranura que sigue a las abiertas enseña su hito y su barra (§8 ter). Las demás siguen con su candado.
 - **Errores:** debajo del botón, en rojo y con `role="alert"`. Una vista vieja vuelve a leer y lo dice («Esa galaxia ya había cambiado de nivel. Mírala y vuelve a intentarlo»).
+- **Lectores de pantalla:** «Te faltan…» es la descripción del botón desactivado (`aria-describedby`), y la barra de la ranura se nombra con su hito y dice «2 de 5» (`aria-valuetext`).
 
 ## 9. Copy
 

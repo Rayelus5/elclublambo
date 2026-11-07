@@ -1,7 +1,10 @@
 import type { CollectionPage, GachaView, GalaxyDetail, GalaxySummary, Tier } from '@galaxy/shared';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, test, vi } from 'vitest';
+import { useLevelUpGalaxy } from '../src/api/economy';
+import { HANGAR_KEY } from '../src/api/runs';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -225,16 +228,40 @@ describe('el nivel de una galaxia (M4c-1)', () => {
     expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  test('sin polvo, la subida está desactivada y dice cuánto falta; en el 10, Nivel máximo', async () => {
+  test('sin polvo, la subida está desactivada y dice cuánto falta', async () => {
     mockApi({
       'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
       'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
       'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ level: 3, levelUp: { dust: 80 } })),
-      'GET /galaxy/api/galaxies/g8': () => jsonResponse(200, detail({ id: 'g8', name: 'Vega', level: 10, levelUp: null })),
     });
     renderAt('/coleccion/g9', screens);
     const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
     await waitFor(() => expect(dialog).toHaveTextContent(copy.lab.missing(40, 0)));
-    expect(within(dialog).getByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) })).toBeDisabled();
+    const up = within(dialog).getByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
+    expect(up).toBeDisabled();
+    expect(up).toHaveAccessibleDescription(copy.lab.missing(40, 0));
+  });
+
+  test('en el 10, Nivel máximo y ningún botón para subir', async () => {
+    mockApi({
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g8', 'epic', 'Vega')])),
+      'GET /galaxy/api/galaxies/g8': () => jsonResponse(200, detail({ id: 'g8', name: 'Vega', level: 10, levelUp: null, refund: 590 })),
+    });
+    renderAt('/coleccion/g8', screens);
+    const dialog = await screen.findByRole('dialog', { name: 'Vega' });
+    expect(await within(dialog).findByText(copy.hangar.level(10, 10))).toBeInTheDocument();
+    expect(dialog).toHaveTextContent(copy.hangar.levelMax);
+    expect(within(dialog).queryByRole('button', { name: /Subir a nivel/ })).toBeNull();
+    expect(dialog).toHaveTextContent(copy.collection.refund(590));
+  });
+
+  test('subir de nivel marca el Hangar para leerlo de nuevo (una reliquia equipada cambia de potencia)', async () => {
+    mockApi({ 'POST /galaxy/api/galaxies/g9/level-up': () => jsonResponse(200, { galaxy: detail({ level: 4, levelUp: { dust: 110 } }), wallet: { ...rich.wallet, dust: 120 } }) });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
+    client.setQueryData(HANGAR_KEY, { slots: 2 });
+    const { result } = renderHook(() => useLevelUpGalaxy(), { wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider> });
+    result.current.mutate({ id: 'g9', level: 4 });
+    await waitFor(() => expect(client.getQueryState(HANGAR_KEY)?.isInvalidated).toBe(true));
   });
 });

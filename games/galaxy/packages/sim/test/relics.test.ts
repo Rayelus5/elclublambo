@@ -325,4 +325,11 @@ describe('reliquias de la misma familia (M4c-1, §8.6: el mismo efecto rinde men
     const all = [a('s1'), b, a('s2')];
     expect(skill(all[2]!, all).magnitude).toBeCloseTo(skill(all[0]!, all).magnitude, 9);
   });
+
+  test('la reliquia se reconoce por su id, no por ser el mismo objeto: el Hangar describe copias (revisión final de M4c-1)', () => {
+    const same = [0, 1, 2].map((k) => ({ ...relic({ galaxy_type: 'lenticular', palette: 'solar_gold' }, 4, 10), id: `l${k}` }));
+    const copyOfThird = { ...same[2]! };
+    expect(skill(copyOfThird, same).magnitude).toBeCloseTo(skill(same[2]!, same).magnitude, 9);
+    expect(skill(copyOfThird, same).magnitude / skill(same[0]!, same).magnitude).toBeCloseTo(0.5, 9);
+  });
 });

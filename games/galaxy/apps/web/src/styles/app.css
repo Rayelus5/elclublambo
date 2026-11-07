@@ -944,6 +944,7 @@
   .relic-slot.next-slot .lip.pill { margin-top: 4px; inline-size: 100%; height: auto; min-height: 52px; padding: 6px 12px; flex-wrap: wrap; justify-content: center; gap: 0 8px; white-space: normal; }
   .relic-slot.next-slot .lip.pill small { flex-basis: 100%; margin-left: 0; text-align: center; }
   .relic-slot.next-slot .panel-note { margin: 0; font-size: 13px; }
+  .relic-stacking { margin: 12px 0 0; }
   @keyframes slot-ready { 50% { box-shadow: 0 0 28px color-mix(in srgb, var(--color-solar) 30%, transparent), inset 0 0 28px color-mix(in srgb, var(--color-solar) 10%, transparent); } }
   @media (prefers-reduced-motion: reduce) { .relic-slot.next-slot.ready { animation: none; } }
   .relic-info { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; text-align: center; min-width: 0; }

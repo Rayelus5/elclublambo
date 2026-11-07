@@ -1,5 +1,5 @@
 import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { levelOne } from './probe-cards';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -544,7 +544,9 @@ describe('la siguiente ranura de reliquia (M4c-1)', () => {
     renderAt('/incursion', { '/incursion': <HangarScreen /> });
     const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
     expect(slot).toHaveTextContent(copy.hangar.unlock.runs(5));
-    expect(within(slot).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    const bar = within(slot).getByRole('progressbar', { name: copy.hangar.unlock.runs(5) });
+    expect(bar).toHaveAttribute('aria-valuenow', '2');
+    expect(bar).toHaveAttribute('aria-valuetext', copy.hangar.slotProgress(2, 5));
     expect(within(slot).queryByRole('button')).toBeNull();
     expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
   });
@@ -574,6 +576,30 @@ describe('la siguiente ranura de reliquia (M4c-1)', () => {
     renderAt('/incursion', { '/incursion': <HangarScreen /> });
     const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
     await waitFor(() => expect(slot).toHaveTextContent(copy.lab.missing(70, 0)));
-    expect(within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) })).toBeDisabled();
+    const open = within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) });
+    expect(open).toBeDisabled();
+    // What is missing is the disabled button's description, for a screen reader too.
+    expect(open).toHaveAccessibleDescription(copy.lab.missing(70, 0));
+  });
+});
+
+describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
+  test('la tercera reliquia de una familia dice la mitad de potencia que la anterior y el Hangar explica la regla', async () => {
+    const spiral = (id: string) => galaxy({ id, name: `Espiral ${id}` });
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ slots: 3, loadout: [spiral('s1'), spiral('s2'), spiral('s3')], nextSlot: { slot: 4, condition: { stat: 'bossKills', value: 3 }, progress: 0, dust: 300, ready: false } })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const power = async (n: number) => (await screen.findByRole('group', { name: copy.hangar.slot(n) })).querySelector('.relic-power')!.textContent;
+    const inputs = ['s1', 's2', 's3'].map((id) => ({ id, seed: '12345', tier: 4, level: 1, traits: spiral(id).traits }));
+    const second = describeRelic(inputs[1]!, inputs, DEFAULT_CONTENT).magnitude;
+    expect(await power(2)).toBe(copy.hangar.power(second));
+    expect(await power(3)).toBe(copy.hangar.power(second * DEFAULT_CONTENT.relics.stacking.decay));
+    expect(screen.getByText(copy.hangar.stacking)).toBeInTheDocument();
+  });
+
+  test('con dos de cada familia no hay regla que explicar', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy({ id: 'a' }), galaxy({ id: 'b' })] })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await screen.findByRole('group', { name: copy.hangar.slot(2) });
+    expect(screen.queryByText(copy.hangar.stacking)).toBeNull();
   });
 });

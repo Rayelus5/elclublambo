@@ -430,6 +430,8 @@ export const copy = {
     levelUp: (n: number) => `Subir a nivel ${n}`,
     levelMax: 'Nivel máximo',
     openSlot: 'Abrir ranura',
+    slotProgress: (n: number, of: number) => `${n} de ${of}`,
+    stacking: 'Desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior',
     statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
     bonuses: (list: readonly { stat: string; value: number }[]) => {
       const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
