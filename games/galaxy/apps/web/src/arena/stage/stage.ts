@@ -1,9 +1,9 @@
 import 'pixi.js/unsafe-eval';
-import { AREA, type Content, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
+import { AREA, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { type Camera, cameraFor } from './camera';
-import { createFx } from './fx';
+import { createFx, reactionLabel } from './fx';
 import { CHUNK, terrainAt } from './terrain';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
@@ -32,8 +32,9 @@ export interface Stage {
   destroy(): void;
 }
 
-const SHOT_SPRITE = ['bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'blade'];
-const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar]);
+/** Sprite per shot kind (systems/weapons.ts SHOT; the beam is drawn as a line, not a sprite). */
+const SHOT_SPRITE = ['bolt', 'lance', 'arc', 'drone-bolt', 'orb', 'drone', 'relic-ray', 'jet', 'quasar', 'chaos', 'reflected', 'blade', 'bolt', 'missile', 'shard', 'mine', 'disc', 'turret', 'split-shard'];
+const ROTATES = new Set<number>([SHOT.bolt, SHOT.lance, SHOT.ray, SHOT.jet, SHOT.quasar, SHOT.missile, SHOT.shard, SHOT.split, SHOT.turret]);
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
 const ELEMENT_COLOR: Record<string, number> = {
   burn: 0xff9a3c,
@@ -50,6 +51,8 @@ const ELEMENT_COLOR: Record<string, number> = {
 };
 const STEP_RAD = (Math.PI * 2) / 4096;
 const FONT = 'gs-dmg';
+/** Reaction names: letters with Spanish accents. */
+const LABEL_FONT = 'gs-react';
 
 interface Warning {
   kind: 'charge' | 'burst' | 'explode';
@@ -114,6 +117,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     chars: [['0', '9']],
     resolution: 1,
   });
+  BitmapFont.install({
+    name: LABEL_FONT,
+    style: { fontFamily: 'Fredoka, system-ui, sans-serif', fontSize: 15, fontWeight: '700', fill: '#ffffff', stroke: { color: '#0b0c24', width: 4 } },
+    chars: [['a', 'z'], ['A', 'Z'], 'áéíóúÁÉÍÓÚñÑüÜ '],
+    resolution: 1,
+  });
 
   const atlas = buildAtlas();
   let w = app.renderer.width;
@@ -145,13 +154,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const decor = new Container();
   const pickups = new Container();
   const areas = new Graphics();
+  // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
+  const beams = new Graphics();
+  beams.blendMode = 'add';
   const warnings = new Graphics();
   const marks = new Graphics();
   const enemies = new Container();
   const probes = new Container();
   const shots = new Container();
   const particles = new Container();
-  world.addChild(decor, pickups, areas, warnings, marks, enemies, probes, shots, particles);
+  world.addChild(decor, pickups, areas, warnings, marks, enemies, probes, beams, shots, particles);
   const numbers = new Container();
   const bars = new Graphics();
   const hurtFlash = new Graphics();
@@ -166,6 +178,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const probePool = new SpritePool(probes);
   const particleSprites: Sprite[] = [];
   const numberTexts: BitmapText[] = [];
+  const labelTexts: BitmapText[] = [];
+  const pipPool = new SpritePool(enemies);
+  const starA = new SpritePool(enemies);
+  const starB = new SpritePool(enemies);
+  let lastProbe = { x: 0, y: 0 };
 
   const dustDots = [0, 1, 2, 3, 4, 5].map((v) =>
     ditherTexture(3, 4, (x, y) => (((v + 1) >> (x + y * 2)) & 1 && (x === 0 || x === 2) ? '#8890c4' : null)),
@@ -228,6 +245,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   function drawAreas(sim: Sim): void {
     const a = sim.areas;
     areas.clear();
+    beams.clear();
     for (let i = 0; i < a.top; i++) {
       if (!a.alive[i]) continue;
       const x = a.x[i]!;
@@ -248,6 +266,45 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       } else if (kind === AREA.trail) {
         const fade = Math.min(1, t / 30);
         areas.circle(x, y, r).fill({ color: 0x7259ee, alpha: 0.12 * fade }).stroke({ width: 1, color: 0xb39dff, alpha: 0.3 * fade });
+      } else if (kind === AREA.cone) {
+        // A flamethrower: a warm wedge with a hotter, flickering tongue inside.
+        const mid = a.angle[i]! * STEP_RAD;
+        const half = (a.arc[i]! * STEP_RAD) / 2;
+        const flick = opts.reduced ? 0.75 : 0.65 + 0.2 * Math.sin(clock * 40 + i);
+        beams.moveTo(x, y).arc(x, y, r, mid - half, mid + half).closePath().fill({ color: 0xff6a1a, alpha: 0.06 }).stroke({ width: 1, color: 0xff9a3c, alpha: 0.35 });
+        // Tongues of flame of different lengths, flickering out of phase.
+        for (let k = -2; k <= 2; k++) {
+          const ta = mid + k * half * 0.38;
+          const len = r * (opts.reduced ? 0.8 : 0.5 + 0.45 * Math.abs(Math.sin(clock * 9 + k * 1.7 + i)));
+          const tw = half * 0.22;
+          beams.moveTo(x, y).arc(x, y, len, ta - tw, ta + tw).closePath().fill({ color: 0xff9a3c, alpha: 0.2 });
+        }
+        beams.moveTo(x, y).arc(x, y, r * flick * 0.6, mid - half * 0.45, mid + half * 0.45).closePath().fill({ color: 0xffc94a, alpha: 0.26 });
+        beams.moveTo(x, y).arc(x, y, r * flick * 0.3, mid - half * 0.25, mid + half * 0.25).closePath().fill({ color: 0xfff0c0, alpha: 0.3 });
+      } else if (kind === AREA.field) {
+        // A gravity well: a deep violet disc with arcs spiralling in.
+        areas.circle(x, y, r).fill({ color: 0x3a2a9a, alpha: 0.2 }).stroke({ width: 1, color: 0x7259ee, alpha: 0.6 });
+        for (let k = 0; k < 3; k++) {
+          const a0 = (opts.reduced ? 0 : clock * 2.4) + (k * Math.PI * 2) / 3;
+          areas.arc(x, y, r * (0.35 + 0.2 * k), a0, a0 + 1.6).stroke({ width: 2, color: 0xb39dff, alpha: 0.55 });
+        }
+        areas.circle(x, y, 3).fill({ color: 0x0b0c24, alpha: 0.9 });
+      } else if (kind === AREA.strike) {
+        // The orbital strike's warning: a red reticle that tightens until the blast.
+        const k = opts.reduced ? 1 : 0.85 + 0.15 * Math.sin(clock * 20);
+        areas.circle(x, y, r * k).stroke({ width: 1, color: 0xff4d6d, alpha: 0.9 });
+        areas.circle(x, y, r * 0.35).fill({ color: 0xff4d6d, alpha: 0.18 });
+        for (const [dx, dy] of [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ] as const) {
+          areas.moveTo(x + dx * r * 0.55, y + dy * r * 0.55).lineTo(x + dx * r * 1.15, y + dy * r * 1.15).stroke({ width: 2, color: 0xff6b7a, alpha: 0.9 });
+        }
+      } else if (kind === AREA.blast) {
+        const k = Math.max(0, Math.min(1, t / 12));
+        beams.circle(x, y, r * (1.1 - 0.4 * k)).fill({ color: 0xffc94a, alpha: 0.18 * k }).stroke({ width: 2, color: 0xff9a3c, alpha: k });
       } else if (kind === AREA.slowField) {
         areas.circle(x, y, r).fill({ color: 0x6fb7ff, alpha: 0.12 }).stroke({ width: 1, color: 0x6fb7ff, alpha: 0.5 });
       } else if (kind === AREA.aura) {
@@ -261,6 +318,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         }
       }
     }
+    // Evolution rings around the probe.
+    for (const ring of fx.rings) areas.circle(ring.x, ring.y, ring.radius).stroke({ width: 3, color: ring.color, alpha: ring.alpha });
     // The beacon: a Terminal ring with turning braille dots, its hold arc and a beam of light.
     const b = sim.beacon;
     if (b) {
@@ -328,6 +387,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: 0xff4d6d, alpha: 0.55 });
         if (en.shield[i]! > 0) marks.circle(x, y, en.radius[i]! + 4).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.8 });
       }
+      drawStates(sim, i, x, y);
       if (def && !en.boss[i] && def.behavior.kind === 'armored') {
         const mid = en.facing[i]! * STEP_RAD;
         const half = ((def.behavior.arc / 360) * Math.PI * 2) / 2;
@@ -354,6 +414,41 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     glitchB.hideFrom(en.alive, en.top);
   }
 
+  /** An enemy's element mark (a tinted drop), stun (twinkling stars) and shatter (cracks around it). */
+  function drawStates(sim: Sim, i: number, x: number, y: number): void {
+    const en = sim.enemies;
+    const top = y - en.radius[i]! - 5;
+    if (en.markT[i]! > 0 && en.mark[i]! > 0) {
+      const pip = pipPool.at(i);
+      pip.texture = atlas.frames['mark-pip']![0]!;
+      pip.anchor.set(0.5);
+      pip.position.set(x, top);
+      pip.tint = ELEMENT_COLOR[ELEMENT_IDS[en.mark[i]! - 1] ?? ''] ?? 0xffffff;
+      pip.alpha = Math.min(1, en.markT[i]! / 30);
+    } else if (pipPool.list[i]) pipPool.list[i]!.visible = false;
+    for (const [pool, phase] of [
+      [starA, 0],
+      [starB, Math.PI],
+    ] as const) {
+      if (en.freezeT[i]! > 0) {
+        const s = pool.at(i);
+        const a = (opts.reduced ? 0 : clock * 5) + phase;
+        s.texture = atlas.frames['stun-star']![frameOf('stun-star', i + phase)]!;
+        s.anchor.set(0.5);
+        s.position.set(Math.round(x + Math.cos(a) * (en.radius[i]! + 2)), Math.round(top - 2 + Math.sin(a) * 2));
+      } else if (pool.list[i]) pool.list[i]!.visible = false;
+    }
+    if (en.vulnT[i]! > 0) {
+      const r = en.radius[i]! + 3;
+      for (let k = 0; k < 4; k++) {
+        const a = (k * Math.PI) / 2 + 0.6;
+        const cx = x + Math.cos(a) * r;
+        const cy = y + Math.sin(a) * r;
+        marks.moveTo(cx, cy).lineTo(cx + Math.cos(a + 0.9) * 3, cy + Math.sin(a + 0.9) * 3).lineTo(cx + Math.cos(a) * 3, cy + Math.sin(a) * 3).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.9 });
+      }
+    }
+  }
+
   function drawPickups(sim: Sim, alpha: number): void {
     const pk = sim.pickups;
     for (let i = 0; i < pk.top; i++) {
@@ -375,12 +470,32 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     for (let i = 0; i < s.top; i++) {
       if (!s.alive[i]) continue;
       const kind = s.kind[i]!;
+      if (kind === SHOT.beam) {
+        // A beam: a white core inside a halo of its element's colour, from the probe along its aim.
+        if (shotPool.list[i]) shotPool.list[i]!.visible = false;
+        const a = s.angle[i]! * STEP_RAD;
+        const x0 = lerp(s.px[i]!, s.x[i]!, alpha);
+        const y0 = lerp(s.py[i]!, s.y[i]!, alpha);
+        const x1 = x0 + Math.cos(a) * s.reach[i]!;
+        const y1 = y0 + Math.sin(a) * s.reach[i]!;
+        const color = ELEMENT_COLOR[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? 0xb39dff;
+        const flick = opts.reduced ? 0.35 : 0.28 + 0.12 * Math.sin(clock * 50 + i);
+        beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: s.radius[i]! * 2 + 2, color, alpha: flick });
+        beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
+        continue;
+      }
       const id = SHOT_SPRITE[kind] ?? 'bolt';
       const sp = shotPool.at(i);
       sp.texture = atlas.frames[id]![frameOf(id, i)]!;
       sp.anchor.set(0.5);
       sp.position.set(Math.round(lerp(s.px[i]!, s.x[i]!, alpha)), Math.round(lerp(s.py[i]!, s.y[i]!, alpha)));
-      sp.rotation = ROTATES.has(kind) ? s.angle[i]! * STEP_RAD : kind === SHOT.blade ? s.reach[i]! * STEP_RAD + Math.PI / 2 : 0;
+      sp.rotation = ROTATES.has(kind)
+        ? s.angle[i]! * STEP_RAD
+        : kind === SHOT.blade
+          ? s.reach[i]! * STEP_RAD + Math.PI / 2
+          : kind === SHOT.disc && !opts.reduced
+            ? clock * 14
+            : 0;
     }
     shotPool.hideFrom(s.alive, s.top);
     const f = sim.foeShots;
@@ -409,6 +524,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       s.scale.set(Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1, 1);
       s.alpha = p.invulnT > 0 && !opts.reduced && Math.floor(clock * 20) % 2 === 0 ? 0.45 : 1;
       if (p.shield > 0) marks.circle(x, y, 11).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
+      if (i === opts.probe) lastProbe = { x, y };
     });
     probePool.hideFrom(flags, flags.length);
   }
@@ -451,6 +567,23 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       k++;
     }
     for (; k < numberTexts.length; k++) numberTexts[k]!.visible = false;
+    let j = 0;
+    for (const l of fx.labels) {
+      let t = labelTexts[j];
+      if (!t) {
+        t = new BitmapText({ text: ' ', style: { fontFamily: LABEL_FONT, fontSize: 15 } });
+        t.anchor.set(0.5);
+        labelTexts.push(t);
+        numbers.addChild(t);
+      }
+      t.visible = true;
+      t.text = l.text;
+      t.tint = l.color;
+      t.alpha = l.alpha;
+      t.position.set(Math.round(originX + (l.x - c.x) * c.zoom), Math.round(originY + (l.y - c.y) * c.zoom));
+      j++;
+    }
+    for (; j < labelTexts.length; j++) labelTexts[j]!.visible = false;
   }
 
   function drawBars(c: Camera): void {
@@ -504,6 +637,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
           case 'element':
             fx.burst(e.x, e.y, ELEMENT_COLOR[e.element] ?? 0xffffff, 2, 30);
             break;
+          case 'reaction': {
+            const l = reactionLabel(content, e.id);
+            fx.label(e.x, e.y - 12, l.text, l.color);
+            fx.burst(e.x, e.y, l.color, 12, 80);
+            break;
+          }
+          case 'evolve':
+            fx.ring(lastProbe.x, lastProbe.y, 0xffc94a);
+            fx.burst(lastProbe.x, lastProbe.y, 0xffc94a, 24, 90);
+            break;
           default:
             break;
         }
@@ -556,6 +699,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       for (const box of chunks.values()) box.destroy({ children: true });
       chunks.clear();
       atlas.destroy();
+      // Fonts are global to PixiJS: a second run would otherwise warn and keep the old pages (M3a minor 4).
+      BitmapFont.uninstall(FONT);
+      BitmapFont.uninstall(LABEL_FONT);
       starTex.destroy(true);
       nebulaTex.destroy(true);
       for (const t of dustDots) t.destroy(true);

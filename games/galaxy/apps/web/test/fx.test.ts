@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { createFx } from '../src/arena/stage/fx';
+import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { createFx, reactionLabel } from '../src/arena/stage/fx';
 
 // Combat juice that is pure state (DESIGN_SYSTEM §8 quater): the shake decays to rest, damage numbers rise and fade
 // with a cap, particles age out, and reduced motion removes the shake and halves the particles.
@@ -45,4 +46,38 @@ test('las partículas envejecen y desaparecen', () => {
   fx.burst(0, 0, 0xff00ff, 8);
   for (let i = 0; i < 120; i++) fx.update(1 / 60);
   expect(fx.particles).toHaveLength(0);
+});
+
+test('cada reacción tiene su nombre y un color según lo que hace', () => {
+  for (const r of DEFAULT_CONTENT.elements.reactions) {
+    const l = reactionLabel(DEFAULT_CONTENT, r.id);
+    expect(l.text).toBe(r.name);
+    expect(l.color).toBeGreaterThan(0);
+  }
+  expect(reactionLabel(DEFAULT_CONTENT, 'short-circuit').color).toBe(reactionLabel(DEFAULT_CONTENT, 'storm').color);
+  expect(reactionLabel(DEFAULT_CONTENT, 'nope')).toEqual({ text: '', color: 0xffffff });
+});
+
+test('las etiquetas de reacción suben, se apagan y nunca pasan de 6 a la vez', () => {
+  const fx = createFx(false);
+  for (let k = 0; k < 8; k++) fx.label(k * 10, 0, `R${k}`, 0xffffff);
+  expect(fx.labels).toHaveLength(6);
+  expect(fx.labels[0]!.text).toBe('R2');
+  fx.update(0.3);
+  expect(fx.labels[0]!.y).toBeLessThan(0);
+  fx.update(1);
+  expect(fx.labels).toHaveLength(0);
+  const still = createFx(true);
+  still.label(0, 0, 'R', 0xffffff);
+  still.update(0.3);
+  expect(still.labels[0]!.y).toBe(0);
+});
+
+test('un anillo de evolución crece y se apaga', () => {
+  const fx = createFx(false);
+  fx.ring(5, 5, 0xffc94a);
+  fx.update(0.2);
+  expect(fx.rings[0]!.radius).toBeGreaterThan(0);
+  fx.update(1);
+  expect(fx.rings).toHaveLength(0);
 });
