@@ -238,14 +238,11 @@ function runFamily(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
     case 'shield': {
       const max = F.shield.shield * m;
       const key = 'shieldMax' + ri;
+      // The capacity is registered once (and filled); recharging lives in systems/probes.ts with the barrier's.
       if (p.fx[key] === undefined) {
         p.fx[key] = max;
         p.shield += max;
-        return;
       }
-      const since = sim.tick - (p.fx['lastHurt'] ?? -1e9);
-      const total = skillsOf(sim, p).reduce((sum, x, k) => sum + (p.fx['shieldMax' + k] ?? 0), 0);
-      if (since >= ticks(F.shield.recharge) && p.shield < total) p.shield = Math.min(total, p.shield + max / 60);
       return;
     }
     case 'aura':

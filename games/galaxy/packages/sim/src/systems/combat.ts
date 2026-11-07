@@ -1,7 +1,7 @@
 import { PICKUP } from '../world/pools';
 import type { HitSource, Sim } from '../types';
 import { ticks } from '../version';
-import { scaleAt } from './director';
+import { curseOf, scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { onBossDown } from './layers';
@@ -68,7 +68,7 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   sim.events.push({ t: 'kill', x, y, enemy: def.id, elite });
   const sector = sim.sector;
   dropPickup(sim, PICKUP.xp, def.xp * (elite ? sector.elite.xp : 1), x, y);
-  const luck = p ? p.stats.luck : 1;
+  const luck = (p ? p.stats.luck : 1) * (1 + curseOf(sim));
   if (elite) {
     dropPickup(sim, PICKUP.coin, sector.elite.coins, x + 4, y);
     dropPickup(sim, PICKUP.dust, sector.elite.dust, x - 4, y);
@@ -76,7 +76,7 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   } else {
     if (sim.rng.loot.chance(sector.drops.coin * luck)) dropPickup(sim, PICKUP.coin, 1, x + 3, y);
     if (sim.rng.loot.chance(sector.drops.dust * luck)) dropPickup(sim, PICKUP.dust, 1, x - 3, y);
-    if (sim.rng.loot.chance(sector.drops.repair)) dropPickup(sim, PICKUP.repair, 1, x, y + 3);
+    if (sim.rng.loot.chance(sector.drops.repair * (1 + curseOf(sim)))) dropPickup(sim, PICKUP.repair, 1, x, y + 3);
   }
   if (def.split) {
     const child = sim.content.enemies.find((c) => c.id === def.split!.into);

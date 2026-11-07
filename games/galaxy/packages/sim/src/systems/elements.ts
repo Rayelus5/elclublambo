@@ -29,7 +29,7 @@ export function resolveElement(sim: Sim, src: HitSource): ElementId | null {
   const p = sim.probes[src.probe];
   if (!element && src.weapon !== null && p && p.relics.length > 0) {
     const own = p.relics.map((r) => relicElement(sim, r.traits)).filter((x): x is ElementId => x !== null);
-    if (own.length > 0 && sim.rng.combat.chance(sim.content.relics.weaponProc)) {
+    if (own.length > 0 && sim.rng.combat.chance(sim.content.relics.weaponProc * p.stats.elemental)) {
       const turn = p.fx['proc'] ?? 0;
       element = own[turn % own.length]!;
       p.fx['proc'] = turn + 1;
@@ -101,18 +101,20 @@ export function applyElement(sim: Sim, e: number, element: ElementId, dealt: num
   const en = sim.enemies;
   const t = sim.content.elements;
   const alive = en.alive[e] === 1 && en.fuseT[e] === 0;
+  // The Catalyst makes statuses last longer.
+  const last = (seconds: number) => ticks(seconds * (sim.probes[src.probe]?.stats.elemental ?? 1));
   switch (element) {
     case 'burn':
       if (!alive) return;
       en.burnStacks[e] = Math.min(t.burn.stacks, en.burnStacks[e]! + 1);
       en.burnDps[e] = Math.max(en.burnDps[e]!, dealt * t.burn.share);
-      en.burnT[e] = ticks(t.burn.seconds);
+      en.burnT[e] = last(t.burn.seconds);
       break;
     case 'slow':
-      if (alive) en.slowT[e] = ticks(t.slow.seconds);
+      if (alive) en.slowT[e] = last(t.slow.seconds);
       break;
     case 'corrosion':
-      if (alive) en.corrT[e] = ticks(t.corrosion.seconds);
+      if (alive) en.corrT[e] = last(t.corrosion.seconds);
       break;
     case 'shock':
       if (!sim.rng.combat.chance(t.shock.chance)) return;
@@ -120,7 +122,7 @@ export function applyElement(sim: Sim, e: number, element: ElementId, dealt: num
       break;
     case 'hack':
       if (!alive || en.boss[e] || en.elite[e]! > 0) return;
-      if (sim.rng.combat.chance(t.hack.chance)) en.hackT[e] = ticks(t.hack.seconds);
+      if (sim.rng.combat.chance(t.hack.chance)) en.hackT[e] = last(t.hack.seconds);
       break;
     case 'leech': {
       const p = sim.probes[src.probe];

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_CONTENT, IDLE, type RelicInput, relicSkill, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { DEFAULT_CONTENT, hurtProbe, IDLE, refreshStats, type RelicInput, relicSkill, shieldCapacity, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // Galaxies as relics (GDD §8.2–8.4 bis): the galaxy type picks the family, the other traits shape it (arms → count,
@@ -271,5 +271,41 @@ describe('fenómenos en partida', () => {
     expect(seen).toBe(true);
     // A returned bullet hits the coral that fired it: 9 × 2.
     expect(lost(sim, spitter)).toBeGreaterThanOrEqual(18);
+  });
+});
+
+describe('barrera (Deflector) y escudo en una sola reserva', () => {
+  const shielded = (barrier: number, ...relics: RelicInput[]) => {
+    const sim = equipped(...relics);
+    const p = sim.probes[0]!;
+    p.passives.push({ id: 'deflector', level: 1 });
+    sim.content.passives.find((x) => x.id === 'deflector')!.levels[0] = barrier;
+    refreshStats(sim, p);
+    return { sim, p };
+  };
+
+  test('se recarga al 10 % por segundo tras 3 s sin daño y absorbe antes que la vida', () => {
+    const { sim, p } = shielded(0.2);
+    expect(shieldCapacity(sim, p)).toBeCloseTo(20, 9);
+    // Never hurt yet: it charges from the start, 2 per second.
+    run(sim, 60);
+    expect(p.shield).toBeCloseTo(2, 6);
+    run(sim, 600);
+    expect(p.shield).toBeCloseTo(20, 6);
+    hurtProbe(sim, p, 15);
+    expect(p.hp).toBe(100);
+    expect(p.shield).toBeCloseTo(5, 6);
+    run(sim, 175);
+    expect(p.shield).toBeCloseTo(5, 6);
+    run(sim, 65);
+    expect(p.shield).toBeGreaterThan(5.5);
+  });
+
+  test('se suma al escudo elíptico y ninguna recarga recorta a la otra', () => {
+    const { sim, p } = shielded(0.2, relic({ galaxy_type: 'elliptical' }));
+    run(sim, 2);
+    expect(shieldCapacity(sim, p)).toBeCloseTo(44, 9);
+    run(sim, 1500);
+    expect(p.shield).toBeCloseTo(44, 6);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { dealDamage, type ElementId, fireFoeBullet, IDLE, invertNearby, type RelicInput, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { dealDamage, type ElementId, fireFoeBullet, IDLE, invertNearby, refreshStats, type RelicInput, SHOT, type Sim, spawnEnemy, step } from '../src/index';
 import { quietSim, run } from './fixtures';
 
 // Elements (GDD §5.4, §8.3): each relic palette gives an element. Its hits apply it, and weapon hits apply the relics'
@@ -190,5 +190,57 @@ describe('elementos en los golpes de las armas', () => {
     const last = sim.events.filter((x) => x.t === 'hit').at(-1);
     expect(last && last.t === 'hit' ? last.element : 'x').toBeNull();
     step(sim, [IDLE]);
+  });
+});
+
+describe('Catalizador (potencia elemental)', () => {
+  const catalysed = (level: number) => {
+    const sim = world();
+    const p = sim.probes[0]!;
+    if (level > 0) {
+      p.passives.push({ id: 'catalyst', level });
+      refreshStats(sim, p);
+    }
+    return sim;
+  };
+
+  test('sube la probabilidad de aplicar el elemento de las reliquias a los golpes de arma', () => {
+    const asked: number[] = [];
+    const sim = quietSim((c) => (c.enemies.find((e) => e.id === 'dummy')!.hp = 1e6), {
+      probes: [{ probe: 'lumen', relics: [{ id: 'r', seed: '1', tier: 0, level: 1, traits: { galaxy_type: 'dwarf', palette: 'solar_gold' } }] }],
+    });
+    const p = sim.probes[0]!;
+    p.passives.push({ id: 'catalyst', level: 5 });
+    refreshStats(sim, p);
+    force(sim, (q) => {
+      asked.push(q);
+      return false;
+    });
+    hit(sim, at(sim, 300, 0), 10, null, { weapon: 'pulse' });
+    expect(asked).toContain(0.15 * 1.5);
+  });
+
+  test('alarga la quemadura, la ralentización, la corrosión y el hackeo', () => {
+    const plain = catalysed(0);
+    const strong = catalysed(5);
+    for (const sim of [plain, strong]) {
+      force(sim, () => true);
+      sim.content.elements.hack.chance = 1;
+    }
+    const lasting = (sim: Sim) => {
+      const out: number[] = [];
+      for (const el of ['burn', 'slow', 'corrosion'] as const) {
+        const e = at(sim, 300, 0);
+        hit(sim, e, 10, el);
+        out.push(el === 'burn' ? sim.enemies.burnT[e]! : el === 'slow' ? sim.enemies.slowT[e]! : sim.enemies.corrT[e]!);
+      }
+      const h = at(sim, 300, 0);
+      hit(sim, h, 10, 'hack');
+      out.push(sim.enemies.hackT[h]!);
+      return out;
+    };
+    const base = lasting(plain);
+    expect(base).toEqual([180, 120, 240, 300]);
+    expect(lasting(strong)).toEqual(base.map((t) => Math.round(t * 1.5)));
   });
 });

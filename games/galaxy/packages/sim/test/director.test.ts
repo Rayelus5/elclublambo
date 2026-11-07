@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { DEFAULT_CONTENT, scaleAt, spawnPoint, type Sim } from '../src/index';
+import { curseOf, dealDamage, DEFAULT_CONTENT, refreshStats, scaleAt, spawnEnemy, spawnPoint, type Sim } from '../src/index';
 import { quietSim, run } from './fixtures';
 
 // The spawn director (GDD §5.5–5.6): species join the sector over the first layer, density grows with time, waves
@@ -122,5 +122,66 @@ describe('escalado', () => {
     expect(scaleAt(sim).elite).toBeCloseTo(0.06, 12);
     sim.tick = 60 * 3600;
     expect(scaleAt(sim).elite).toBe(0.08);
+  });
+});
+
+describe('Señal de la Estática (maldición)', () => {
+  /** Dummies that never move, one per group, at a steady 2 groups per second. */
+  function cursed(curse: number, over: { cap?: number; enemies?: number } = {}) {
+    const sim = quietSim((c) => {
+      const s = c.sectors[0]!;
+      s.spawns = [{ enemy: 'dummy', from: 0, weight: 1, group: [1, 1] }];
+      s.density = { base: 2, perMinute: 0, max: 2, cap: over.cap ?? 10, bossFactor: 0.5 };
+      if (over.enemies) c.limits.enemies = over.enemies;
+      c.probes[0]!.bonus = { curse };
+    });
+    return sim;
+  }
+
+  test('llegan más enemigos y caben más vivos', () => {
+    const plain = cursed(0);
+    const hexed = cursed(0.5);
+    run(plain, 600);
+    run(hexed, 600);
+    expect(plain.enemies.count).toBe(10);
+    expect(hexed.enemies.count).toBe(15);
+    const early = cursed(0.5, { cap: 100 });
+    const calm = cursed(0, { cap: 100 });
+    run(early, 300);
+    run(calm, 300);
+    expect(early.enemies.count).toBeGreaterThan(calm.enemies.count * 1.4);
+  });
+
+  test('nunca pasa del tope de la piscina de enemigos', () => {
+    const sim = cursed(0.5, { cap: 40, enemies: 12 });
+    run(sim, 1200);
+    expect(sim.enemies.count).toBeLessThanOrEqual(12);
+  });
+
+  test('con 2 sondas cuenta la mayor de las vivas', () => {
+    const sim = quietSim((c) => (c.probes[0]!.bonus = {}), { probes: [{ probe: 'lumen', relics: [] }, { probe: 'lumen', relics: [] }] });
+    const [a, b] = sim.probes;
+    b!.passives.push({ id: 'static-signal', level: 5 });
+    refreshStats(sim, b!);
+    a!.passives.push({ id: 'static-signal', level: 2 });
+    refreshStats(sim, a!);
+    expect(curseOf(sim)).toBeCloseTo(0.5, 9);
+    b!.alive = false;
+    expect(curseOf(sim)).toBeCloseTo(0.2, 9);
+  });
+
+  test('sueltan más botín', () => {
+    const drops = (curse: number) => {
+      const sim = quietSim((c) => {
+        c.sectors[0]!.drops = { ...c.sectors[0]!.drops, coin: 0.4 };
+        c.probes[0]!.bonus = { curse };
+      });
+      const dummy = sim.content.enemies.find((e) => e.id === 'dummy')!;
+      for (let k = 0; k < 300; k++) dealDamage(sim, spawnEnemy(sim, dummy, 200, 0), 1e6, { probe: 0, weapon: null, relic: null, element: null });
+      let coins = 0;
+      for (let i = 0; i < sim.pickups.top; i++) if (sim.pickups.alive[i] && sim.pickups.kind[i] === 1) coins++;
+      return coins;
+    };
+    expect(drops(0.5)).toBeGreaterThan(drops(0) + 30);
   });
 });

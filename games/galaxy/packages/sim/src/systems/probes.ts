@@ -7,6 +7,20 @@ import { ticks } from '../version';
 
 export const PROBE_RADIUS = 7;
 export const INVULN_SECONDS = 0.5;
+/** The Deflector's barrier recharges 3 s after the last hit, 10 % of its capacity per second. */
+const BARRIER_DELAY = 3;
+const BARRIER_RATE = 0.1;
+
+/** Relic shields (elliptical) registered in `fx` plus the barrier: one pool, one cap. */
+function relicShield(p: ProbeState): number {
+  let c = 0;
+  for (let k = 0; k < p.relics.length; k++) c += p.fx['shieldMax' + k] ?? 0;
+  return c;
+}
+
+export function shieldCapacity(_sim: Sim, p: ProbeState): number {
+  return relicShield(p) + p.stats.barrier * p.stats.maxHp;
+}
 
 function clampAxis(v: number): number {
   if (!Number.isFinite(v)) return 0;
@@ -80,5 +94,19 @@ export function tickProbes(sim: Sim): void {
     if (!p.alive) continue;
     if (p.invulnT > 0) p.invulnT--;
     if (p.stats.regen > 0) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen / 60);
+    rechargeShield(sim, p);
   }
+}
+
+/** Each part of the shield recharges on its own clock (relics after their delay, the barrier after 3 s). */
+function rechargeShield(sim: Sim, p: ProbeState): void {
+  const relic = relicShield(p);
+  const barrier = p.stats.barrier * p.stats.maxHp;
+  const cap = relic + barrier;
+  if (!(cap > 0) || p.shield >= cap) return;
+  const since = sim.tick - (p.fx['lastHurt'] ?? -1e9);
+  let gain = 0;
+  if (relic > 0 && since >= ticks(sim.content.relics.families.shield.recharge)) gain += relic / 60;
+  if (barrier > 0 && since >= ticks(BARRIER_DELAY)) gain += (barrier * BARRIER_RATE) / 60;
+  if (gain > 0) p.shield = Math.min(cap, p.shield + gain);
 }

@@ -30,9 +30,9 @@ export {
   updateEnemies,
   type Scale,
 } from './systems/enemies';
-export { direct, layerSeconds, relocate, scaleAt } from './systems/director';
+export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
-export { hurtProbe, PROBE_RADIUS } from './systems/probes';
+export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
 export {
   AREA,
   fireWeapons,
