@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
-import { dailyFactor, dailySegments, dailyStatus, depthMultiplier, parseConfig, runPayout, type RunClaim } from '../src/index';
+import { dailyFactor, dailySegments, dailyStatus, depthMultiplier, parseConfig, runMaterial, runPayout, type RunClaim } from '../src/index';
 
 // What a run pays (GDD §5.1, §11.3 bis): loot × the depth of the layer it was picked up in, half without extraction,
 // and the daily yield prorated over the minutes played past each threshold.
@@ -93,5 +93,24 @@ describe('frenos del pago', () => {
     const r = runPayout(deep, cfg, 1);
     expect(r).toMatchObject({ coins: cfg.caps.runCoins, dust: cfg.caps.runDust, capped: true });
     expect(runPayout(claim(), cfg, 1).capped).toBe(false);
+  });
+});
+
+describe('el laboratorio en lo cobrado (M4b-2)', () => {
+  test('sube monedas y polvo antes de los topes, y una partida sin extraer cobra su parte', () => {
+    expect(runPayout(claim(), cfg, 1, false, { coins: 0.1, dust: 0.2 })).toMatchObject({ coins: 110, dust: 12 });
+    expect(runPayout(claim({ outcome: 'died' }), cfg, 1, false, { coins: 0.1, dust: 0 })).toMatchObject({ coins: 55, dust: 5 });
+    expect(runPayout(claim(), cfg, 1, true, { coins: 0.1, dust: 0 })).toMatchObject({ coins: 55, share: 0.5 });
+    // Never past the per-run caps.
+    const rich = runPayout(claim({ loot: [{ coins: cfg.caps.runCoins, dust: cfg.caps.runDust }] }), cfg, 1, false, { coins: 0.1, dust: 0.1 });
+    expect(rich).toMatchObject({ coins: cfg.caps.runCoins, dust: cfg.caps.runDust, capped: true });
+    expect(runPayout(claim(), cfg, 1)).toMatchObject({ coins: 100, dust: 10 });
+  });
+
+  test('sube el material antes de su tope', () => {
+    // 1 layer × 6 + 1 Core × 10 + 3 × 2 per hundred kills = 22.
+    expect(runMaterial(claim(), cfg, 1)).toBe(22);
+    expect(runMaterial(claim(), cfg, 1, false, 0.2)).toBe(26);
+    expect(runMaterial(claim({ depth: 1000 }), cfg, 1, false, 0.2)).toBe(cfg.caps.runMaterial);
   });
 });

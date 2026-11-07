@@ -70,14 +70,18 @@ export interface RunPayout {
 
 /** Coins and dust a run pays, given the daily factor of its minutes; `penalized` pays the death share. */
 /** Raw material a run brings (GDD §10.3): from its depth, Cores and kills, paid like the loot (share, daily yield, cap). */
-export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false): number {
+/** The run's raw material; the Laboratorio's `boost` (a fraction added, M4b-2) applies before the cap. */
+export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost = 0): number {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   const m = cfg.material;
   const raw = claim.depth * m.perLayer + claim.bossKills * m.perBoss + (claim.kills / 100) * m.perHundredKills;
-  return Math.min(Math.floor(raw * share * factor + 1e-9), cfg.caps.runMaterial);
+  return Math.min(Math.floor(raw * share * factor * (1 + boost) + 1e-9), cfg.caps.runMaterial);
 }
 
-export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false): RunPayout {
+/** The Laboratorio's push on a run's coins and dust (fractions added, M4b-2), applied before the per-run caps. */
+export type PayoutBoost = { coins: number; dust: number };
+
+export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost: PayoutBoost = { coins: 0, dust: 0 }): RunPayout {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   let coins = 0;
   let dust = 0;
@@ -88,8 +92,8 @@ export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, pena
     return { layer: i + 1, coins: l.coins, dust: l.dust, multiplier };
   });
   const k = share * factor;
-  const paidCoins = Math.floor(coins * k + 1e-9);
-  const paidDust = Math.floor(dust * k + 1e-9);
+  const paidCoins = Math.floor(coins * k * (1 + boost.coins) + 1e-9);
+  const paidDust = Math.floor(dust * k * (1 + boost.dust) + 1e-9);
   return {
     coins: Math.min(paidCoins, cfg.caps.runCoins),
     dust: Math.min(paidDust, cfg.caps.runDust),

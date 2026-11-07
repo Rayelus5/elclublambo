@@ -152,7 +152,8 @@ test('la incursión sale con los bonos del nivel y la variante elegida, y los gu
   expect(run.bonuses).toEqual(probeLevelBonuses(4, cfg));
   expect(run.variant).toBe('pulse-twin');
   const row = await ctx.db.selectFrom('galaxy.runs').select('upgrades').where('id', '=', run.id).executeTakeFirstOrThrow();
-  expect(row.upgrades).toEqual({ bonuses: probeLevelBonuses(4, cfg), variant: 'pulse-twin' });
+  // Without a Laboratorio (M4b-2), the pay push is zero.
+  expect(row.upgrades).toEqual({ bonuses: probeLevelBonuses(4, cfg), variant: 'pulse-twin', payout: { coins: 0, dust: 0, material: 0 } });
 });
 
 test('una variante guardada que ya no vale sale como la base', async () => {
