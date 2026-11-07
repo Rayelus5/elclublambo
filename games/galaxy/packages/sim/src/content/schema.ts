@@ -278,6 +278,8 @@ const relics = z
   .object({
     tier: z.array(z.number().min(0).max(100)).length(5),
     level: z.object({ step: n, cap: n }).strict(),
+    // Older published content has no stacking: the default keeps it valid.
+    stacking: z.object({ from: z.number().int().min(1).max(6), decay: unit }).strict().default({ from: 3, decay: 0.5 }),
     size: factors,
     core: factors,
     density: factors,

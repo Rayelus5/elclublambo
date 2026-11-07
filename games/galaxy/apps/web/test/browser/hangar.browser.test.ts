@@ -86,6 +86,7 @@ const view: HangarView = {
   ],
   daily: { playedSeconds: 1200, fullSecondsLeft: 3 * 3600 - 1200, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,
+  nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true },
 };
 
 const result: RunResult = {

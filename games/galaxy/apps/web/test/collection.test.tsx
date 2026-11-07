@@ -40,6 +40,8 @@ const detail = (over: Partial<GalaxyDetail> = {}): GalaxyDetail => ({
   ],
   dna: 'ab'.repeat(32),
   dust: 113,
+  levelUp: { dust: 20 },
+  refund: 0,
   ...over,
 });
 

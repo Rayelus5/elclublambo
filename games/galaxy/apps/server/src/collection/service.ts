@@ -16,6 +16,7 @@ import {
   type Tier,
   type Wallet,
   type LabConfig,
+  relicLevelCost,
 } from '@galaxy/shared';
 import { type Kysely, type Selectable, sql } from 'kysely';
 import { z } from 'zod';
@@ -146,7 +147,19 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
   });
   const cfg = await deps.config.get('galaxies');
   const lab = await accountLabEffects(db, ownerId, await deps.config.get('lab'));
-  return { ...summary(r), origin: r.origin, lineage, dna: r.dna, dust: disintegrationDust(disintegrateYield(r.tier, r.finish as Finish, cfg), lab.disintegrate) };
+  const relics = await deps.config.get('relics');
+  const next = relicLevelCost(r.level, relics);
+  // M4c-1: the refund of its levels arrives with level_dust (Task 2).
+  const refund = 0;
+  return {
+    ...summary(r),
+    origin: r.origin,
+    lineage,
+    dna: r.dna,
+    dust: disintegrationDust(disintegrateYield(r.tier, r.finish as Finish, cfg), lab.disintegrate) + refund,
+    levelUp: next === null ? null : { dust: next },
+    refund,
+  };
 }
 
 /** The Laboratorio's Reciclaje (M4b-2): more dust for disintegrating, rounded down. */

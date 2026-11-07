@@ -53,9 +53,17 @@ export interface GalaxyDetail extends GalaxySummary {
   origin: 'pull' | 'fusion' | 'grant';
   lineage: LineageEntry[];
   dna: string;
-  /** Dust that disintegrating it pays right now (live config). */
+  /** Dust that disintegrating it pays right now (live config), the refund of its levels included. */
   dust: number;
+  /** Its next level's dust (M4c-1), or null at level 10. */
+  levelUp: { dust: number } | null;
+  /** What fusing or disintegrating it returns of the dust put into its levels. */
+  refund: number;
 }
+
+/** A galaxy's next level, named so a stale view never buys the one after (M4c-1). */
+export const relicLevelUpSchema = z.object({ level: z.number().int().min(2).max(10) }).strict();
+export type RelicLevelUp = z.infer<typeof relicLevelUpSchema>;
 
 export interface BannerView {
   id: string;

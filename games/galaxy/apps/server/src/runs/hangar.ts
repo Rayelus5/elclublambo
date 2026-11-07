@@ -16,6 +16,7 @@ import {
   probeMaxLevel,
   probeVariantCards,
   startingWeapon,
+  nextSlot,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -170,12 +171,13 @@ export async function playedToday(db: Kysely<DB>, accountId: string, now: Date):
 
 /** The Hangar; `db` is the transaction when an action returns it (so it sees its own change). */
 export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<DB> = deps.db): Promise<HangarView> {
-  const [content, runs, features, probes, sectorsCfg] = await Promise.all([
+  const [content, runs, features, probes, sectorsCfg, relics] = await Promise.all([
     deps.config.get('content'),
     deps.config.get('runs'),
     deps.config.get('features'),
     deps.config.get('probes'),
     deps.config.get('sectors'),
+    deps.config.get('relics'),
   ]);
   const h = await ensureHangar(db, accountId);
   const now = deps.now();
@@ -183,10 +185,11 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
   const sectors = sectorCards(content, await sectorStats(db, accountId), sectorsCfg);
   // A chosen sector that closed (the season ended, a condition was raised) falls back to the first open one.
   const chosen = sectors.find((s) => s.id === h.sector && s.unlocked) ?? sectors.find((s) => s.unlocked);
+  const stats = await runStats(db, accountId, probes.minRunSeconds);
   return {
     sectors,
     sector: chosen?.id ?? h.sector,
-    probes: probeCards(content, assigned, await runStats(db, accountId, probes.minRunSeconds), probes, await probeLevels(db, accountId)),
+    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId)),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,
@@ -194,6 +197,7 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
     loadout: await loadoutOf(db, accountId, h.slots),
     daily: { ...dailyStatus(await playedToday(db, accountId, now), runs), resetsAt: nextMadridMidnight(now).toISOString() },
     runsEnabled: features.runs,
+    nextSlot: nextSlot(h.slots, stats, relics),
   };
 }
 

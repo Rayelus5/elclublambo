@@ -97,6 +97,7 @@ const view = (over: Partial<HangarView> = {}): HangarView => ({
   loadout: [null, null],
   daily: { playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,
+  nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 0.4, dust: 100, ready: false },
   ...over,
 });
 

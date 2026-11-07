@@ -309,3 +309,20 @@ describe('barrera (Deflector) y escudo en una sola reserva', () => {
     expect(p.shield).toBeCloseTo(44, 6);
   });
 });
+
+describe('reliquias de la misma familia (M4c-1, §8.6: el mismo efecto rinde menos cuanto más se acumula)', () => {
+  test('a partir de la tercera de la misma familia, cada una rinde la mitad que la anterior; las dos primeras, enteras', () => {
+    const same = [0, 1, 2, 3].map((k) => ({ ...relic({ galaxy_type: 'lenticular', palette: 'solar_gold' }, 4, 10), id: `l${k}` }));
+    const m = same.map((r) => skill(r, same).magnitude);
+    expect(m[1]).toBeCloseTo(m[0]!, 9);
+    expect(m[2]! / m[0]!).toBeCloseTo(0.5, 9);
+    expect(m[3]! / m[0]!).toBeCloseTo(0.25, 9);
+  });
+
+  test('otra familia en medio no cuenta: la tercera de una familia es la tercera de las suyas', () => {
+    const a = (id: string) => ({ ...relic({ galaxy_type: 'spiral' }, 2, 5), id });
+    const b = { ...relic({ galaxy_type: 'ring' }, 2, 5), id: 'r' };
+    const all = [a('s1'), b, a('s2')];
+    expect(skill(all[2]!, all).magnitude).toBeCloseTo(skill(all[0]!, all).magnitude, 9);
+  });
+});

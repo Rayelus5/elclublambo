@@ -19,9 +19,12 @@ const BUILD_DPS_CEILING = 175_000;
 const RANDOM_SPREAD = 12;
 /**
  * The same against a dense crowd (M3b-1 final review: lines, areas, chains and reactions scale with crowds, and the
- * rings never show it). 1.5× the strongest measured (2026-11-07: the lenticular extreme, 1 164 654 per second).
+ * rings never show it). 1.5× the strongest measured. Re-measured for M4c-1, when the six relic slots opened: the
+ * lenticular extreme with six Legendary galaxies of level 10, a level-10 probe and the whole Laboratorio deals
+ * 1 923 192 per second in a crowd (its crit and crit damage stay within their caps; the same family stacks with
+ * diminishing magnitude from the third relic, §8.6). With two slots the same build dealt 1 509 878.
  */
-const CROWD_DPS_CEILING = 1_750_000;
+const CROWD_DPS_CEILING = 2_900_000;
 
 const base = DEFAULT_CONTENT.weapons.filter((w) => !w.evolution);
 const evolutions = DEFAULT_CONTENT.weapons.filter((w) => w.evolution);
@@ -54,14 +57,17 @@ export function randomBuild(k: number): Build {
   return { weapons, passives, relics };
 }
 
-/** The strongest evolutions with every damage passive at its max and two Legendary galaxies of one type and palette. */
+/**
+ * The strongest evolutions with every damage passive at its max and six Legendary galaxies of level 10 (every slot open,
+ * M4c-1) of one type and palette.
+ */
 export function extremeBuilds(): Build[] {
   const top = ['pulse-storm', 'neutron-lance', 'orbital-lance', 'ion-ray', 'crystal-crown', 'missile-swarm'];
   const passives = ['amplifier', 'overcharge', 'scope', 'capacitor', 'splitter', 'catalyst'].map((id) => ({ id, level: DEFAULT_CONTENT.passives.find((p) => p.id === id)!.levels.length }));
   return ['spiral', 'barred_spiral', 'ring', 'irregular', 'lenticular', 'merger'].map((type, k) => ({
     weapons: top.map((id) => ({ id, level: 1 })),
     passives,
-    relics: [0, 1].map((j) => ({
+    relics: [0, 1, 2, 3, 4, 5].map((j) => ({
       id: `x${k}${j}`,
       seed: '9',
       tier: 4,
