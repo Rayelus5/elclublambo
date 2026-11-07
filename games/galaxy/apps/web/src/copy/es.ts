@@ -243,6 +243,9 @@ export const copy = {
   finishLabel: 'Acabado',
   finishes: { normal: 'Normal', holo: 'Holo', prismatic: 'Prismático', braille: 'Relieve braille', corrupt: 'Corrupto' },
   collection: {
+    // Relic levels (GDD §8.4 bis, M4c-1).
+    levelCost: (dust: number) => `${fmt(dust)} de polvo`,
+    refund: (dust: number) => `Al desintegrarla o fusionarla devuelve ${fmt(dust)} de polvo de sus niveles`,
     title: 'Colección',
     back: 'Volver',
     all: 'Todas',
@@ -426,6 +429,7 @@ export const copy = {
     level: (n: number, max: number) => `Nivel ${n} de ${max}`,
     levelUp: (n: number) => `Subir a nivel ${n}`,
     levelMax: 'Nivel máximo',
+    openSlot: 'Abrir ranura',
     statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
     bonuses: (list: readonly { stat: string; value: number }[]) => {
       const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);

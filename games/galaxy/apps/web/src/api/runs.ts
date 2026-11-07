@@ -65,6 +65,24 @@ export function useLevelUpProbe() {
   });
 }
 
+/** Opens the next relic slot (GDD §8.4, M4c-1), naming it; the Hangar and the wallet follow the answer. */
+export function useUnlockSlot() {
+  const qc = useQueryClient();
+  const intent = (slot: number) => `hangar:slot:${slot}`;
+  return useMutation({
+    mutationFn: (slot: number) => api<HangarView>('/hangar/slots/unlock', { method: 'POST', body: { slot }, headers: keyFor(intent(slot)) }),
+    onSuccess: (view) => {
+      qc.setQueryData(HANGAR_KEY, view);
+      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+    },
+    onError: () => {
+      void qc.invalidateQueries({ queryKey: HANGAR_KEY });
+      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+    },
+    onSettled: (_r, error, slot) => endIntent(intent(slot), error),
+  });
+}
+
 /** The probe's starting weapon: its base or a variant its level opens. */
 export function useChooseVariant() {
   const qc = useQueryClient();

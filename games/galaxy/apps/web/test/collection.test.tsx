@@ -1,7 +1,7 @@
 import type { CollectionPage, GachaView, GalaxyDetail, GalaxySummary, Tier } from '@galaxy/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -199,4 +199,42 @@ test('una galaxia equipada como reliquia no se puede desintegrar ni elegir para 
   await user.click(screen.getByRole('button', { name: copy.collection.fuse }));
   expect(screen.getByRole('button', { name: copy.collection.select('Gal c1') })).toBeDisabled();
   expect(screen.getByRole('button', { name: copy.collection.select('Gal c2') })).toBeEnabled();
+});
+
+describe('el nivel de una galaxia (M4c-1)', () => {
+  const rich = { ...gacha, wallet: { ...gacha.wallet, dust: 200 } };
+
+  test('el detalle dice su nivel y sube al siguiente con su polvo, enviando el nivel con su clave', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/gacha': () => jsonResponse(200, rich),
+      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+      'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ level: 3, levelUp: { dust: 80 }, refund: 27 })),
+      'POST /galaxy/api/galaxies/g9/level-up': () => jsonResponse(200, { galaxy: detail({ level: 4, levelUp: { dust: 110 }, refund: 67 }), wallet: { ...rich.wallet, dust: 120 } }),
+    });
+    renderAt('/coleccion/g9', screens);
+    const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+    expect(dialog).toHaveTextContent(copy.hangar.level(3, 10));
+    expect(dialog).toHaveTextContent(copy.collection.refund(27));
+    const up = await within(dialog).findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
+    await waitFor(() => expect(up).toBeEnabled());
+    expect(up).toHaveTextContent(copy.collection.levelCost(80));
+    fireEvent.click(up);
+    expect(await within(dialog).findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
+    const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/galaxies/g9/level-up' && init?.method === 'POST')!;
+    expect(JSON.parse(String(call[1]!.body))).toEqual({ level: 4 });
+    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('sin polvo, la subida está desactivada y dice cuánto falta; en el 10, Nivel máximo', async () => {
+    mockApi({
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+      'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ level: 3, levelUp: { dust: 80 } })),
+      'GET /galaxy/api/galaxies/g8': () => jsonResponse(200, detail({ id: 'g8', name: 'Vega', level: 10, levelUp: null })),
+    });
+    renderAt('/coleccion/g9', screens);
+    const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+    await waitFor(() => expect(dialog).toHaveTextContent(copy.lab.missing(40, 0)));
+    expect(within(dialog).getByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) })).toBeDisabled();
+  });
 });

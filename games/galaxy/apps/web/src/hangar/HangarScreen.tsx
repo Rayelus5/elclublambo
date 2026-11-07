@@ -7,7 +7,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
-import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun } from '../api/runs';
+import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun, useUnlockSlot } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -66,6 +66,47 @@ function Splash({ label }: { label: string }) {
   );
 }
 
+/** The next relic slot (GDD §8.4, M4c-1): what opens it with its bar, then «Abrir ranura» with its dust. */
+function NextSlotItem({ next }: { next: NonNullable<HangarView['nextSlot']> }) {
+  const unlock = useUnlockSlot();
+  const dust = useGacha().data?.wallet.dust;
+  const short = dust === undefined ? null : Math.max(0, next.dust - dust);
+  const have = Math.min(next.condition.value, Math.round(next.progress * next.condition.value));
+  return (
+    <li className={`relic-slot next-slot${next.ready ? ' ready' : ''}`} role="group" aria-label={copy.hangar.slot(next.slot)}>
+      <Icon name="lock" />
+      <span className="next-slot-condition">{copy.hangar.unlock[next.condition.stat](next.condition.value)}</span>
+      <span className="next-slot-bar" role="progressbar" aria-label={copy.hangar.slot(next.slot)} aria-valuemin={0} aria-valuemax={next.condition.value} aria-valuenow={have}>
+        <i style={{ inlineSize: `${next.progress * 100}%` }} />
+      </span>
+      <small className="next-slot-count">
+        {have}/{next.condition.value}
+      </small>
+      {next.ready ? (
+        <>
+          <button
+            type="button"
+            className="lip pill pill-solar station-upgrade"
+            disabled={short === null || short > 0 || unlock.isPending}
+            aria-busy={unlock.isPending || undefined}
+            onClick={() => unlock.mutate(next.slot)}
+          >
+            <Icon name="cards" />
+            <span>{copy.hangar.openSlot}</span>
+            <small>{copy.collection.levelCost(next.dust)}</small>
+          </button>
+          {short !== null && short > 0 ? <p className="panel-note">{copy.lab.missing(short, 0)}</p> : null}
+        </>
+      ) : null}
+      {unlock.error ? (
+        <p className="field-error" role="alert">
+          {errorText(unlock.error, copy.errors)}
+        </p>
+      ) : null}
+    </li>
+  );
+}
+
 function RelicSlots({ view, onChoose, onRemove, error }: { view: HangarView; onChoose: (slot: number) => void; onRemove: (slot: number) => void; error: unknown }) {
   const all = view.loadout.filter((g): g is GalaxySummary => g !== null).map(relicInput);
   return (
@@ -74,6 +115,7 @@ function RelicSlots({ view, onChoose, onRemove, error }: { view: HangarView; onC
       <p className="hangar-help">{copy.hangar.relicsHelp}</p>
       <ol className="relic-slots">
         {Array.from({ length: view.maxSlots }, (_, i) => {
+          if (i === view.slots && view.nextSlot) return <NextSlotItem key={i} next={view.nextSlot} />;
           if (i >= view.slots) {
             return (
               <li key={i} className="relic-slot locked">

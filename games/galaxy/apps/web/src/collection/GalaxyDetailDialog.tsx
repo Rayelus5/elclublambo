@@ -1,6 +1,6 @@
 import type { GalaxyDetail } from '@galaxy/shared';
 import { useState } from 'react';
-import { useDisintegrate, useGalaxyDetail } from '../api/economy';
+import { useDisintegrate, useGacha, useGalaxyDetail, useLevelUpGalaxy } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { CardBack } from '../cards/CardBack';
 import { GalaxyCard } from '../cards/GalaxyCard';
@@ -38,6 +38,50 @@ function Info({ g }: { g: GalaxyDetail }) {
   );
 }
 
+/** Its level (GDD §8.4 bis, M4c-1): «Nivel 3 de 10» with its pips, the next level with its dust and what is missing. */
+function RelicLevel({ g }: { g: GalaxyDetail }) {
+  const up = useLevelUpGalaxy();
+  const dust = useGacha().data?.wallet.dust;
+  const next = g.levelUp;
+  const short = next && dust !== undefined ? Math.max(0, next.dust - dust) : null;
+  return (
+    <div className="relic-level">
+      <div className="probe-level-head">
+        <b>{copy.hangar.level(g.level, 10)}</b>
+        <span className="level-pips" aria-hidden="true">
+          {Array.from({ length: 10 }, (_, i) => (
+            <i key={i} className={i < g.level ? 'on' : undefined} />
+          ))}
+        </span>
+      </div>
+      {next ? (
+        <>
+          <button
+            type="button"
+            className="lip pill pill-solar station-upgrade"
+            disabled={short === null || short > 0 || up.isPending}
+            aria-busy={up.isPending || undefined}
+            onClick={() => up.mutate({ id: g.id, level: g.level + 1 })}
+          >
+            <Icon name="dust" />
+            <span>{copy.hangar.levelUp(g.level + 1)}</span>
+            <small>{copy.collection.levelCost(next.dust)}</small>
+          </button>
+          {short !== null && short > 0 ? <p className="panel-note">{copy.lab.missing(short, 0)}</p> : null}
+        </>
+      ) : (
+        <p className="panel-note">{copy.hangar.levelMax}</p>
+      )}
+      {g.refund > 0 ? <p className="panel-note">{copy.collection.refund(g.refund)}</p> : null}
+      {up.error ? (
+        <p className="field-error" role="alert">
+          {errorText(up.error, copy.errors)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (name: string, dust: number) => void }) {
   const detail = useGalaxyDetail(id);
   const disintegrate = useDisintegrate();
@@ -69,6 +113,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
           <div className="detail-side">
             <p className="detail-desig">{g.designation}</p>
             <Info g={g} />
+            <RelicLevel g={g} />
             {g.lineage.length > 0 ? (
               <>
                 <h3>{copy.collection.lineage}</h3>

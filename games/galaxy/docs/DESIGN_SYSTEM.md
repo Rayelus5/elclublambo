@@ -232,6 +232,7 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
   - **Reliquias:** seis ranuras en 3 × 2, con estos estados:
     - **Abiertas:** borde discontinuo y «Elegir reliquia».
     - **Cerradas:** candado y «Se abre más adelante».
+    - **La siguiente** (M4c-1): borde discontinuo Solar, candado Solar, lo que la abre («Juega 5 incursiones»), una barra Solar y «2/5». Con el hito cumplido el borde pasa a continuo y late despacio (quieto con movimiento reducido), y aparece «Abrir ranura» con su polvo. Ver §8 nonies.
     - **Ocupadas:** la carta, el nombre, la familia (hielo), el elemento (chip de su color), el fenómeno y la potencia, con un botón para quitarla.
   - **Conjuntos** (M3b-1, GDD §8.3), bajo las ranuras, en columnas automáticas de 260 px como mínimo:
     - **Activos:** losa con borde Solar y un leve brillo, con el nombre, la condición («Dos o tres galaxias de la misma paleta») y el bonus en Solar («Potencia elemental +25 %»). Si hay un escalón mayor, una pista apagada dentro («Con una tercera galaxia de Oro solar»).
@@ -382,6 +383,19 @@ Consulta de ui-ux-pro-max: no hubo resultado para «árbol de mejoras». Se apli
   - **Al máximo:** borde y brillo del color de la rama, y «Al máximo».
 - **Cabecera:** «Volver a la estación», el título y el saldo de polvo y componentes.
 - **Sin reparar:** «Repara el laboratorio en la estación para usarlo» y «Ir a la estación».
+
+## 8 nonies. Niveles de las reliquias
+
+Una galaxia sube de nivel con polvo estelar desde su detalle, y la siguiente ranura de reliquia se abre desde el Hangar (GDD §8.4 y §8.4 bis, M4c-1).
+
+Consulta de ui-ux-pro-max: se aplicaron dos guías, «enseñar el progreso de lo que tiene varios pasos» (barra con su conteo) y «un estado desactivado nunca se parece al normal». Cada botón sin fondos dice además cuánto falta.
+
+- **En el detalle de una galaxia:** un bloque bajo sus datos con:
+  - «Nivel 3 de 10» y diez pips Terminal;
+  - «Subir a nivel 4», Solar, con su coste debajo («55 de polvo»). Sin polvo está desactivado y dice «Te faltan 20 de polvo». En el 10, «Nivel máximo»;
+  - si ya tiene niveles, lo que devuelve: «Al desintegrarla o fusionarla devuelve 27 de polvo de sus niveles».
+- **En el Hangar:** la ranura que sigue a las abiertas enseña su hito y su barra (§8 ter). Las demás siguen con su candado.
+- **Errores:** debajo del botón, en rojo y con `role="alert"`. Una vista vieja vuelve a leer y lo dice («Esa galaxia ya había cambiado de nivel. Mírala y vuelve a intentarlo»).
 
 ## 9. Copy
 

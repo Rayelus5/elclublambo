@@ -121,14 +121,16 @@ beforeEach(() => {
   arena.fail = false;
 });
 
-test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas y 4 cerradas, y el premio del día', async () => {
+test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente con su hito y 3 cerradas, y el premio del día', async () => {
   mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   expect(await screen.findByRole('heading', { name: 'Nebulosa Exterior' })).toBeInTheDocument();
   expect(screen.getByText('La Colmena Rota')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: copy.hangar.chooseRelic })).toHaveLength(2);
-  expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(4);
+  // Slot 3 shows what opens it (M4c-1); the other three stay closed.
+  expect(screen.getByRole('group', { name: copy.hangar.slot(3) })).toBeInTheDocument();
+  expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
   expect(screen.getByText(copy.hangar.dailyFull('3 h 0 min'))).toBeInTheDocument();
   expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled();
 });
@@ -531,5 +533,47 @@ describe('el nivel de la sonda y su arma inicial (M4b-1)', () => {
     await waitFor(() => expect(within(group).getByRole('radio', { name: /Pulso doble/ })).toBeChecked());
     const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/variant' && init?.method === 'PUT')!;
     expect(JSON.parse(String(put[1]!.body))).toEqual({ variant: 'pulse-twin' });
+  });
+});
+
+describe('la siguiente ranura de reliquia (M4c-1)', () => {
+  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
+
+  test('sin el hito, la ranura 3 enseña lo que la abre con su barra; las demás siguen cerradas', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    expect(slot).toHaveTextContent(copy.hangar.unlock.runs(5));
+    expect(within(slot).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    expect(within(slot).queryByRole('button')).toBeNull();
+    expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
+  });
+
+  test('con el hito, Abrir ranura con su polvo envía la ranura con su clave', async () => {
+    const ready = view({ nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true } });
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, ready),
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)),
+      'POST /galaxy/api/hangar/slots/unlock': () => jsonResponse(200, view({ slots: 3, loadout: [null, null, null], nextSlot: { slot: 4, condition: { stat: 'bossKills', value: 3 }, progress: 0, dust: 300, ready: false } })),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    const open = within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) });
+    await waitFor(() => expect(open).toBeEnabled());
+    expect(open).toHaveTextContent(copy.collection.levelCost(100));
+    fireEvent.click(open);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: copy.hangar.chooseRelic })).toHaveLength(3));
+    const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/slots/unlock' && init?.method === 'POST')!;
+    expect(JSON.parse(String(call[1]!.body))).toEqual({ slot: 3 });
+    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('sin polvo, Abrir ranura está desactivado y dice cuánto falta', async () => {
+    const ready = view({ nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true } });
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, ready), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(30)) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    await waitFor(() => expect(slot).toHaveTextContent(copy.lab.missing(70, 0)));
+    expect(within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) })).toBeDisabled();
   });
 });

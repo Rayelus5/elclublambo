@@ -101,6 +101,28 @@ export function useDisintegrate() {
   });
 }
 
+/**
+ * A galaxy's next level (GDD §8.4 bis, M4c-1), naming it: the intent's key travels with the level, so a retry reuses
+ * it and a stale view never buys the one after. The detail and the wallet follow the answer; a refusal reads again.
+ */
+export function useLevelUpGalaxy() {
+  const qc = useQueryClient();
+  const intent = (v: { id: string; level: number }) => `galaxy:level:${v.id}:${v.level}`;
+  return useMutation({
+    mutationFn: (v: { id: string; level: number }) =>
+      api<{ galaxy: GalaxyDetail; wallet: Wallet }>(`/galaxies/${v.id}/level-up`, { method: 'POST', body: { level: v.level }, headers: keyFor(intent(v)) }),
+    onSuccess: (res, v) => {
+      qc.setQueryData([GALAXY_KEY, v.id], res.galaxy);
+      settle(qc, res.wallet);
+    },
+    onError: (_e, v) => {
+      refresh(qc);
+      void qc.invalidateQueries({ queryKey: [GALAXY_KEY, v.id] });
+    },
+    onSettled: (_r, error, v) => endIntent(intent(v), error),
+  });
+}
+
 const pullIntent = (req: PullRequest) => `pull:${req.banner}:${req.count}:${req.pay}`;
 const fuseIntent = (ids: string[]) => `fuse:${[...ids].sort().join(',')}`;
 
