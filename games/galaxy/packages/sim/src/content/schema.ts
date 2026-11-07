@@ -201,7 +201,8 @@ const sector = z
         eliteMax: unit,
       })
       .strict(),
-    elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().int().min(0).max(1000), dust: z.number().int().min(0).max(1000) }).strict(),
+    // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
+    elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().min(0).max(1000), dust: z.number().min(0).max(1000) }).strict(),
     drops: z
       .object({ coin: unit, dust: unit, repair: unit, repairHeal: unit, bossCoins: z.number().int().min(0).max(1000), bossDust: z.number().int().min(0).max(1000) })
       .strict(),
