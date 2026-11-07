@@ -110,12 +110,26 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si alguien hubiera guardado la clave `content` con el esquema de M3b-2, sigue validando: los campos nuevos de los sectores tienen valor por defecto. Pero no traería los sectores nuevos; hay que volver a publicarla desde el valor por defecto.
 
+9. **Desde M4a (la estación):** la migración `20261107134328_galaxy_station` crea `galaxy.station_rooms`, `galaxy.refinery` y `galaxy.antenna`, y deja apuntar `material` y `components` en el libro de movimientos. Llegan además:
+   - el Hogar de la portada abre la estación: diez salas en dos cubiertas, pintadas en Aseprite (los fuentes editables están en `art/station`);
+   - las incursiones pagan material en bruto: 6 por capa, 10 por Núcleo y 2 por cada 100 bajas, con un tope de 500 por partida (la clave `runs.material` y `caps.runMaterial` de la configuración viva);
+   - la Refinería convierte material en componentes con el tiempo (nivel 1: 20 por hora y 100 en cola) y la Antena, rota al empezar, capta señales hasta llenarse en 8 h. Ambas se reparan y mejoran con componentes y monedas. Sus ritmos y costes son la clave `station` de la configuración viva, que se ajusta sin desplegar.
+
+   Comprueba con una cuenta de prueba nueva:
+   - el Hogar lleva a `/galaxy/estacion`. Funcionan el Escáner, el Planetario, el Hangar, el Colisionador y la Refinería; la Antena está rota y las otras cuatro dicen «En reparación»;
+   - con `grant <usuario> material 60 --reason "probar la estación"`, la Refinería carga 60 y la barra «En cola» lo enseña;
+   - con `grant <usuario> components 30 --reason "probar la estación"`, la Antena se repara y dice «Una señal cada 8 h»;
+   - una incursión terminada enseña el material en los resultados;
+   - sin violaciones de CSP.
+
+   La Refinería y la Antena avanzan solas en el tiempo del servidor (se calculan al pedir la vista), así que no hay nada que programar.
+
 ## Operación
 
 | Tarea | Cómo |
 |---|---|
 | Código de recuperación para un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js issue-reset-code <usuario>` (24 h, un uso; queda auditado). El panel de admin lo hará en M6 |
-| Dar o quitar moneda a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js grant <usuario> <coins\|dust\|signal> <cantidad> --reason "<motivo>"` (una cantidad negativa la quita, nunca por debajo de 0). Queda en el libro de movimientos y auditado como `wallet.grant` |
+| Dar o quitar moneda a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js grant <usuario> <coins\|dust\|signal\|material\|components> <cantidad> --reason "<motivo>"` (una cantidad negativa la quita, nunca por debajo de 0). Queda en el libro de movimientos y auditado como `wallet.grant` |
 | Logs | `docker compose … logs -f galaxy` (JSON de pino; nunca llevan contraseñas, cookies ni tokens) |
 | Reiniciar | `docker compose … up -d --no-build galaxy` |
 | Un admin ha perdido su app de autenticación | `docker exec -it elclub-pre-galaxy-1 node dist/cli.js reset-totp <usuario>`: secreto nuevo, sesiones cerradas, queda auditado |
