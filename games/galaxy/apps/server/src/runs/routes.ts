@@ -3,6 +3,7 @@ import {
   loadoutRequestSchema,
   probeChoiceSchema,
   probeTestRequestSchema,
+  sectorChoiceSchema,
   startRunRequestSchema,
   type HangarView,
   type ProbeTestResult,
@@ -18,6 +19,7 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { hangarView, type RunsDeps, setLoadout } from './hangar';
 import { chooseProbe, takeProbeTest } from './probes';
+import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -48,6 +50,13 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     return takeProbeTest(deps, s.accountId, body);
   });
 
+  api.put('/galaxy/api/hangar/sector', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const body = sectorChoiceSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_sector', 60, 60);
+    return chooseSector(deps, s.accountId, body);
+  });
+
   api.put('/galaxy/api/hangar/probe', async (req): Promise<HangarView> => {
     const s = requireSession(req);
     const body = probeChoiceSchema.parse(req.body);
@@ -63,9 +72,10 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const runs = await deps.config.get('runs');
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_start', runs.startPerHour, 3600);
     const { value: content, version: contentVersion } = await deps.config.getVersioned('content');
+    const sectors = await deps.config.get('sectors');
     const now = deps.now();
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors }),
     );
   });
 
