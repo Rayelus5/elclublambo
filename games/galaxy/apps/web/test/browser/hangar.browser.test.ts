@@ -111,6 +111,8 @@ function mount(el: ReturnType<typeof createElement>): void {
 
 for (const [w, h] of [
   [1280, 720],
+  [1440, 900],
+  [1600, 900],
   [1920, 1080],
   [3440, 1440],
 ] as const) {
