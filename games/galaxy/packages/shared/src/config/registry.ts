@@ -271,6 +271,35 @@ export const configSchemas = {
     })
     .strict(),
   /**
+   * Relic levels and slots (GDD §8.4, §8.4 bis; M4c-1): the dust of reaching each level from 2 to 10, the share of it
+   * returned when a galaxy is fused or disintegrated, and the milestone and dust of each slot from the third to the sixth.
+   */
+  relics: z
+    .object({
+      levels: z
+        .array(z.number().int().min(0).max(1_000_000))
+        .length(9)
+        .default([20, 35, 55, 80, 110, 150, 200, 260, 330]),
+      refund: z.number().min(0).max(1).default(0.5),
+      slots: z
+        .array(
+          z
+            .object({
+              condition: z.object({ stat: z.enum(['runs', 'bossKills', 'maxDepth', 'extractions', 'kills']), value: z.number().int().min(1).max(1_000_000) }).strict(),
+              dust: z.number().int().min(0).max(10_000_000),
+            })
+            .strict(),
+        )
+        .max(4)
+        .default([
+          { condition: { stat: 'runs', value: 5 }, dust: 100 },
+          { condition: { stat: 'bossKills', value: 3 }, dust: 300 },
+          { condition: { stat: 'maxDepth', value: 4 }, dust: 600 },
+          { condition: { stat: 'extractions', value: 10 }, dust: 1000 },
+        ]),
+    })
+    .strict(),
+  /**
    * The station (GDD §10): the refinery's levels (material per hour, queue, cost of reaching the level) and the
    * antenna's (signals per hour, cost; level 1's cost is the repair), with its cap in hours.
    */

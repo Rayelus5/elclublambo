@@ -344,6 +344,11 @@ export interface RelicTuning {
   /** Magnitude by rarity tier (common → legendary). */
   tier: number[];
   level: { step: number; cap: number };
+  /**
+   * Stacking (GDD §8.6, M4c-1): from the `from`-th relic of the same family on (in slot order), each one's magnitude is
+   * `decay` times the one before; the first ones are whole.
+   */
+  stacking: { from: number; decay: number };
   size: Record<string, number>;
   core: Record<string, number>;
   density: Record<string, number>;

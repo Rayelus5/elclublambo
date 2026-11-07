@@ -1,3 +1,4 @@
+import type { NextSlot } from '../relics/progress';
 import type { Content, Quirk, RelicInput, StatBonus } from '@galaxy/sim';
 import { z } from 'zod';
 import type { GalaxySummary } from './economy';
@@ -147,7 +148,13 @@ export interface HangarView {
   loadout: (GalaxySummary | null)[];
   daily: DailyView;
   runsEnabled: boolean;
+  /** The next relic slot to open (M4c-1): its milestone, progress and dust; null when all six are open. */
+  nextSlot: NextSlot | null;
 }
+
+/** The relic slot to open, named so a stale view never buys the one after (M4c-1). */
+export const slotUnlockSchema = z.object({ slot: z.number().int().min(3).max(6) }).strict();
+export type SlotUnlock = z.infer<typeof slotUnlockSchema>;
 
 export interface RunStart {
   id: string;

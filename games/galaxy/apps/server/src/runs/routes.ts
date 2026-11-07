@@ -4,6 +4,7 @@ import {
   probeChoiceSchema,
   probeLevelUpSchema,
   probeVariantSchema,
+  slotUnlockSchema,
   probeTestRequestSchema,
   sectorChoiceSchema,
   startRunRequestSchema,
@@ -19,7 +20,7 @@ import { operationExists, runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
-import { hangarView, type RunsDeps, setLoadout } from './hangar';
+import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
 import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
@@ -67,6 +68,15 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = probeChoiceSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_probe', 60, 60);
     return chooseProbe(deps, s.accountId, body);
+  });
+
+  // The next relic slot (M4c-1): an idempotent operation naming the slot it opens.
+  api.post('/galaxy/api/hangar/slots/unlock', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const body = slotUnlockSchema.parse(req.body);
+    const key = idempotencyKey(req);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_slot', 30, 60);
+    return runOperation(deps.db, s.accountId, key, 'hangar.slot', requestHash(body), (trx) => unlockSlot(deps, trx, s.accountId, body.slot, key));
   });
 
   // Probe levels and starting weapons (M4b-1): the session first, then the body; buying a level is an idempotent

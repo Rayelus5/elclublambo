@@ -1,5 +1,5 @@
 import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
-import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
 import { levelOne } from './probe-cards';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -97,6 +97,7 @@ const view = (over: Partial<HangarView> = {}): HangarView => ({
   loadout: [null, null],
   daily: { playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,
+  nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 0.4, dust: 100, ready: false },
   ...over,
 });
 
@@ -120,14 +121,16 @@ beforeEach(() => {
   arena.fail = false;
 });
 
-test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas y 4 cerradas, y el premio del día', async () => {
+test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente con su hito y 3 cerradas, y el premio del día', async () => {
   mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   expect(await screen.findByRole('heading', { name: 'Nebulosa Exterior' })).toBeInTheDocument();
   expect(screen.getByText('La Colmena Rota')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
   expect(screen.getAllByRole('button', { name: copy.hangar.chooseRelic })).toHaveLength(2);
-  expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(4);
+  // Slot 3 shows what opens it (M4c-1); the other three stay closed.
+  expect(screen.getByRole('group', { name: copy.hangar.slot(3) })).toBeInTheDocument();
+  expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
   expect(screen.getByText(copy.hangar.dailyFull('3 h 0 min'))).toBeInTheDocument();
   expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled();
 });
@@ -530,5 +533,73 @@ describe('el nivel de la sonda y su arma inicial (M4b-1)', () => {
     await waitFor(() => expect(within(group).getByRole('radio', { name: /Pulso doble/ })).toBeChecked());
     const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/variant' && init?.method === 'PUT')!;
     expect(JSON.parse(String(put[1]!.body))).toEqual({ variant: 'pulse-twin' });
+  });
+});
+
+describe('la siguiente ranura de reliquia (M4c-1)', () => {
+  const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });
+
+  test('sin el hito, la ranura 3 enseña lo que la abre con su barra; las demás siguen cerradas', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    expect(slot).toHaveTextContent(copy.hangar.unlock.runs(5));
+    const bar = within(slot).getByRole('progressbar', { name: copy.hangar.unlock.runs(5) });
+    expect(bar).toHaveAttribute('aria-valuenow', '2');
+    expect(bar).toHaveAttribute('aria-valuetext', copy.hangar.slotProgress(2, 5));
+    expect(within(slot).queryByRole('button')).toBeNull();
+    expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
+  });
+
+  test('con el hito, Abrir ranura con su polvo envía la ranura con su clave', async () => {
+    const ready = view({ nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true } });
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, ready),
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(500)),
+      'POST /galaxy/api/hangar/slots/unlock': () => jsonResponse(200, view({ slots: 3, loadout: [null, null, null], nextSlot: { slot: 4, condition: { stat: 'bossKills', value: 3 }, progress: 0, dust: 300, ready: false } })),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    const open = within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) });
+    await waitFor(() => expect(open).toBeEnabled());
+    expect(open).toHaveTextContent(copy.collection.levelCost(100));
+    fireEvent.click(open);
+    await waitFor(() => expect(screen.getAllByRole('button', { name: copy.hangar.chooseRelic })).toHaveLength(3));
+    const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/slots/unlock' && init?.method === 'POST')!;
+    expect(JSON.parse(String(call[1]!.body))).toEqual({ slot: 3 });
+    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('sin polvo, Abrir ranura está desactivado y dice cuánto falta', async () => {
+    const ready = view({ nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true } });
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, ready), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha(30)) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const slot = await screen.findByRole('group', { name: copy.hangar.slot(3) });
+    await waitFor(() => expect(slot).toHaveTextContent(copy.lab.missing(70, 0)));
+    const open = within(slot).getByRole('button', { name: new RegExp(copy.hangar.openSlot) });
+    expect(open).toBeDisabled();
+    // What is missing is the disabled button's description, for a screen reader too.
+    expect(open).toHaveAccessibleDescription(copy.lab.missing(70, 0));
+  });
+});
+
+describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
+  test('la tercera reliquia de una familia dice la mitad de potencia que la anterior y el Hangar explica la regla', async () => {
+    const spiral = (id: string) => galaxy({ id, name: `Espiral ${id}` });
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ slots: 3, loadout: [spiral('s1'), spiral('s2'), spiral('s3')], nextSlot: { slot: 4, condition: { stat: 'bossKills', value: 3 }, progress: 0, dust: 300, ready: false } })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const power = async (n: number) => (await screen.findByRole('group', { name: copy.hangar.slot(n) })).querySelector('.relic-power')!.textContent;
+    const inputs = ['s1', 's2', 's3'].map((id) => ({ id, seed: '12345', tier: 4, level: 1, traits: spiral(id).traits }));
+    const second = describeRelic(inputs[1]!, inputs, DEFAULT_CONTENT).magnitude;
+    expect(await power(2)).toBe(copy.hangar.power(second));
+    expect(await power(3)).toBe(copy.hangar.power(second * DEFAULT_CONTENT.relics.stacking.decay));
+    expect(screen.getByText(copy.hangar.stacking)).toBeInTheDocument();
+  });
+
+  test('con dos de cada familia no hay regla que explicar', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy({ id: 'a' }), galaxy({ id: 'b' })] })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    await screen.findByRole('group', { name: copy.hangar.slot(2) });
+    expect(screen.queryByText(copy.hangar.stacking)).toBeNull();
   });
 });

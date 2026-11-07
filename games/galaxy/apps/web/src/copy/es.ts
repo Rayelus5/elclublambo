@@ -243,6 +243,9 @@ export const copy = {
   finishLabel: 'Acabado',
   finishes: { normal: 'Normal', holo: 'Holo', prismatic: 'Prismático', braille: 'Relieve braille', corrupt: 'Corrupto' },
   collection: {
+    // Relic levels (GDD §8.4 bis, M4c-1).
+    levelCost: (dust: number) => `${fmt(dust)} de polvo`,
+    refund: (dust: number) => `Al desintegrarla o fusionarla devuelve ${fmt(dust)} de polvo de sus niveles`,
     title: 'Colección',
     back: 'Volver',
     all: 'Todas',
@@ -426,6 +429,9 @@ export const copy = {
     level: (n: number, max: number) => `Nivel ${n} de ${max}`,
     levelUp: (n: number) => `Subir a nivel ${n}`,
     levelMax: 'Nivel máximo',
+    openSlot: 'Abrir ranura',
+    slotProgress: (n: number, of: number) => `${n} de ${of}`,
+    stacking: 'Desde la tercera reliquia de la misma familia, cada una rinde la mitad que la anterior',
     statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
     bonuses: (list: readonly { stat: string; value: number }[]) => {
       const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
@@ -686,6 +692,11 @@ export const copy = {
     probe_changed: 'Esa sonda ya había cambiado de nivel. Míralo y vuelve a intentarlo',
     probe_maxed: 'Esa sonda ya está al nivel máximo',
     variant_locked: 'Esa variante se abre en un nivel más alto',
+    relic_maxed: 'Esa galaxia ya está al nivel máximo',
+    relic_changed: 'Esa galaxia ya había cambiado de nivel. Mírala y vuelve a intentarlo',
+    slot_locked: 'Todavía no has cumplido lo que abre esa ranura',
+    slot_changed: 'Esa ranura ya estaba abierta. Mira tus ranuras y vuelve a intentarlo',
+    slot_maxed: 'Ya tienes las seis ranuras abiertas',
     probe_test_required: 'Antes de salir, haz el test de la sonda',
     refinery_full: 'La refinería no tiene sitio para tanto. Recoge o mejórala',
     room_maxed: 'Esa sala ya está al máximo',

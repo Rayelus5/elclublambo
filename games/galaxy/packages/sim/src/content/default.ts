@@ -1250,6 +1250,7 @@ export const DEFAULT_CONTENT: Content = {
   relics: {
     tier: [1, 1.15, 1.35, 1.6, 2],
     level: { step: 0.04, cap: 0.5 },
+    stacking: { from: 3, decay: 0.5 },
     size: { compact: 0.85, medium: 1, large: 1.15, colossal: 1.3 },
     core: { faint: 0.85, bright: 1, quasar: 1.15, double_nucleus: 1 },
     density: { sparse: 0.85, normal: 1, dense: 1.15, saturated: 1.3 },

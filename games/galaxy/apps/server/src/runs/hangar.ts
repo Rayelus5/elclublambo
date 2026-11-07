@@ -16,6 +16,7 @@ import {
   probeMaxLevel,
   probeVariantCards,
   startingWeapon,
+  nextSlot,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -25,6 +26,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { madridDay, nextMadridMidnight } from '../economy/day';
+import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 
 // The hangar (GDD §5.1, §8.4): the probe and sector for the next run, and the galaxies equipped as relics in the open
@@ -170,12 +172,13 @@ export async function playedToday(db: Kysely<DB>, accountId: string, now: Date):
 
 /** The Hangar; `db` is the transaction when an action returns it (so it sees its own change). */
 export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<DB> = deps.db): Promise<HangarView> {
-  const [content, runs, features, probes, sectorsCfg] = await Promise.all([
+  const [content, runs, features, probes, sectorsCfg, relics] = await Promise.all([
     deps.config.get('content'),
     deps.config.get('runs'),
     deps.config.get('features'),
     deps.config.get('probes'),
     deps.config.get('sectors'),
+    deps.config.get('relics'),
   ]);
   const h = await ensureHangar(db, accountId);
   const now = deps.now();
@@ -183,10 +186,11 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
   const sectors = sectorCards(content, await sectorStats(db, accountId), sectorsCfg);
   // A chosen sector that closed (the season ended, a condition was raised) falls back to the first open one.
   const chosen = sectors.find((s) => s.id === h.sector && s.unlocked) ?? sectors.find((s) => s.unlocked);
+  const stats = await runStats(db, accountId, probes.minRunSeconds);
   return {
     sectors,
     sector: chosen?.id ?? h.sector,
-    probes: probeCards(content, assigned, await runStats(db, accountId, probes.minRunSeconds), probes, await probeLevels(db, accountId)),
+    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId)),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,
@@ -194,7 +198,25 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
     loadout: await loadoutOf(db, accountId, h.slots),
     daily: { ...dailyStatus(await playedToday(db, accountId, now), runs), resetsAt: nextMadridMidnight(now).toISOString() },
     runsEnabled: features.runs,
+    nextSlot: nextSlot(h.slots, stats, relics),
   };
+}
+
+/**
+ * Opens the next relic slot (GDD §8.4, M4c-1) under the account's hangar lock, naming it: 409 slot_maxed with six,
+ * slot_changed with a stale view and slot_locked without its milestone; then its dust.
+ */
+export async function unlockSlot(deps: RunsDeps, trx: Kysely<DB>, accountId: string, slot: number, key: string): Promise<HangarView> {
+  const [relics, probes] = await Promise.all([deps.config.get('relics'), deps.config.get('probes')]);
+  await sql`select pg_advisory_xact_lock(hashtextextended(${`hangar:${accountId}`}, 0))`.execute(trx);
+  const h = await ensureHangar(trx, accountId);
+  const next = nextSlot(h.slots, await runStats(trx, accountId, probes.minRunSeconds), relics);
+  if (!next) throw new HttpError(409, 'slot_maxed');
+  if (slot !== next.slot) throw new HttpError(409, 'slot_changed');
+  if (!next.ready) throw new HttpError(409, 'slot_locked');
+  if (next.dust > 0) await debit(trx, accountId, 'dust', next.dust, 'relic_slot', { slot }, key);
+  await trx.updateTable('galaxy.hangars').set({ relic_slots: slot, updated_at: new Date() }).where('account_id', '=', accountId).execute();
+  return hangarView(deps, accountId, trx);
 }
 
 /** Replaces the whole loadout: own live galaxies only, no more than the open slots. */
