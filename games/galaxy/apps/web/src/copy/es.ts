@@ -136,7 +136,7 @@ export const copy = {
     survival: 'Supervivencia',
     survivalHint: 'Elige sector y despega',
     home: 'Hogar',
-    homeHint: 'Tu estación y sus lotes',
+    homeHint: 'Tu estación y sus salas',
     soon: 'En desarrollo',
     event: 'Eventos',
     eventHint: 'Galaxias destacadas por tiempo limitado',
