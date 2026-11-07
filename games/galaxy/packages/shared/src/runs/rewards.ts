@@ -69,6 +69,14 @@ export interface RunPayout {
 }
 
 /** Coins and dust a run pays, given the daily factor of its minutes; `penalized` pays the death share. */
+/** Raw material a run brings (GDD §10.3): from its depth, Cores and kills, paid like the loot (share, daily yield, cap). */
+export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false): number {
+  const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
+  const m = cfg.material;
+  const raw = claim.depth * m.perLayer + claim.bossKills * m.perBoss + (claim.kills / 100) * m.perHundredKills;
+  return Math.min(Math.floor(raw * share * factor + 1e-9), cfg.caps.runMaterial);
+}
+
 export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false): RunPayout {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   let coins = 0;

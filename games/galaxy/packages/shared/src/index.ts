@@ -11,3 +11,6 @@ export * from './runs/plausibility';
 export * from './probes/test';
 export * from './probes/unlocks';
 export * from './sectors/unlocks';
+export * from './station/rooms';
+export * from './station/refinery';
+export * from './station/antenna';
