@@ -49,6 +49,7 @@ export function damageFactor(sim: Sim, e: number, element: ElementId | null): nu
   const en = sim.enemies;
   let f = 1;
   if (en.corrT[e]! > 0) f *= 1 + sim.content.elements.corrosion.bonus;
+  if (en.vulnT[e]! > 0) f *= 1 + en.vulnBonus[e]!;
   if (element === 'breach') {
     const b = sim.content.elements.breach;
     if (en.shield[e]! > 0) f *= b.shield;
@@ -182,6 +183,15 @@ export function tickStatuses(sim: Sim): void {
     }
     if (en.slowT[e]! > 0) en.slowT[e] = en.slowT[e]! - 1;
     if (en.corrT[e]! > 0) en.corrT[e] = en.corrT[e]! - 1;
+    if (en.markT[e]! > 0) {
+      en.markT[e] = en.markT[e]! - 1;
+      if (en.markT[e] === 0) en.mark[e] = 0;
+    }
+    if (en.reactT[e]! > 0) en.reactT[e] = en.reactT[e]! - 1;
+    if (en.vulnT[e]! > 0) {
+      en.vulnT[e] = en.vulnT[e]! - 1;
+      if (en.vulnT[e] === 0) en.vulnBonus[e] = 0;
+    }
     if (en.hackT[e]! > 0) {
       en.hackT[e] = en.hackT[e]! - 1;
       hackedTurn(sim, e);

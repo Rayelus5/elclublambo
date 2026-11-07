@@ -138,7 +138,8 @@ describe('estados', () => {
     const seen: (ElementId | null)[] = [];
     for (let k = 0; k < 5; k++) {
       hit(sim, e, 1, 'prism');
-      const ev = sim.events.filter((x) => x.t === 'hit').at(-1);
+      // The hit's own event comes first; a reaction may add its own hits after it.
+      const ev = sim.events.find((x) => x.t === 'hit');
       seen.push(ev && ev.t === 'hit' ? ev.element : null);
       sim.events.length = 0;
     }
@@ -180,8 +181,10 @@ describe('elementos en los golpes de las armas', () => {
     const e = at(sim, 300, 0);
     const seen: (ElementId | null)[] = [];
     for (let k = 0; k < 4; k++) {
+      sim.events.length = 0;
       hit(sim, e, 1, null, { weapon: 'pulse' });
-      const ev = sim.events.filter((x) => x.t === 'hit').at(-1);
+      // The hit's own event comes first; a reaction may add its own hits after it.
+      const ev = sim.events.find((x) => x.t === 'hit');
       seen.push(ev && ev.t === 'hit' ? ev.element : null);
     }
     expect(seen).toEqual(['burn', 'slow', 'burn', 'slow']);

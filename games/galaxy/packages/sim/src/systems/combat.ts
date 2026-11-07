@@ -5,6 +5,7 @@ import { curseOf, scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { onBossDown } from './layers';
+import { react } from './reactions';
 import { dropPickup } from './pickups';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
@@ -23,7 +24,7 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const element = resolveElement(sim, src);
   let dmg = amount;
   const def = sim.content.enemies[en.type[e]!];
-  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0) {
+  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0) {
     const ox = src.x ?? (p ? p.x : en.x[e]!);
     const oy = src.y ?? (p ? p.y : en.y[e]!);
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
@@ -50,6 +51,7 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
     applyElement(sim, e, element, dmg, x, y, src, (o, amt) => {
       dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
     });
+    react(sim, e, element, dmg, x, y, src);
   }
   combatHooks.afterHit(sim, e, dmg, x, y, src);
   return dmg;

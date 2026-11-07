@@ -138,6 +138,11 @@ export function updateBoss(sim: Sim): void {
   const en = sim.enemies;
   if (!def || !en.alive[b.index] || !en.boss[b.index]) return;
   const e = b.index;
+  // Stunned (a reaction): no movement, no patterns, the clocks stand still.
+  if (en.freezeT[e]! > 0) {
+    en.freezeT[e] = en.freezeT[e]! - 1;
+    return;
+  }
 
   const frac = en.hp[e]! / en.maxHp[e]!;
   let changed = false;

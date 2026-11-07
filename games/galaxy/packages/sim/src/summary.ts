@@ -64,6 +64,11 @@ export function stateHash(sim: Sim): string {
     h.num(en.x[i]!);
     h.num(en.y[i]!);
     h.num(en.hp[i]!);
+    h.num(en.mark[i]!);
+    h.num(en.markT[i]!);
+    h.num(en.reactT[i]!);
+    h.num(en.vulnT[i]!);
+    h.num(en.freezeT[i]!);
   }
   for (const pool of [sim.shots, sim.foeShots, sim.pickups, sim.areas]) {
     h.num(pool.count);

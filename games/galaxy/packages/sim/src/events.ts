@@ -21,4 +21,5 @@ export type SimEvent =
   | { t: 'layer'; layer: number }
   | { t: 'extracted' }
   | { t: 'probeDown'; probe: number }
-  | { t: 'element'; x: number; y: number; element: ElementId };
+  | { t: 'element'; x: number; y: number; element: ElementId }
+  | { t: 'reaction'; id: string; x: number; y: number };
