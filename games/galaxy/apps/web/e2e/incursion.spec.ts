@@ -1,0 +1,81 @@
+import { randomBytes } from 'node:crypto';
+import { expect, test } from './fixtures';
+
+// A run against the real server (GDD §5.1): a new account scans its welcome galaxies, equips one as a relic in the
+// hangar, launches a run in the Outer Nebula, plays a few seconds with the keyboard, abandons from the pause menu
+// and is paid half; the equipped galaxy cannot be disintegrated. Writes e2e_* accounts only.
+const PASS = 'una-clave-larga-e2e';
+
+test('del hangar a la arena y a los resultados, con una reliquia equipada', async ({ page }) => {
+  test.setTimeout(120_000);
+  const csp: string[] = [];
+  page.on('console', (msg) => {
+    if (/Content Security Policy/i.test(msg.text())) csp.push(msg.text());
+  });
+  const username = `e2e_${randomBytes(4).toString('hex')}`;
+  await page.goto('/galaxy/crear-cuenta');
+  await page.getByLabel('Usuario').fill(username);
+  await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
+  await page.getByLabel('Repite la contraseña').fill(PASS);
+  await page.getByRole('button', { name: 'Crear cuenta' }).click();
+
+  // Ten welcome scans, so there are galaxies to equip.
+  await page.getByRole('link', { name: /Escáner profundo/ }).click();
+  await page.getByRole('button', { name: /Escanear 10.*10 señales/ }).click();
+  const stage = page.getByRole('dialog', { name: 'Escaneo de campo profundo' });
+  await expect(stage.locator('.crt-image[data-ready="true"]')).toBeAttached({ timeout: 20_000 });
+  await stage.getByRole('button', { name: 'Saltar' }).click();
+  await expect(stage.getByRole('article')).toHaveCount(10);
+  await page.goto('/galaxy/');
+
+  // Jugar opens the hangar.
+  await page.getByRole('link', { name: /Jugar/ }).click();
+  await expect(page).toHaveURL(/\/galaxy\/incursion$/);
+  await expect(page.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeVisible();
+  await expect(page.getByText(/Premio completo: te quedan 3 h 0 min hoy/)).toBeVisible();
+
+  // Equip the rarest galaxy in the first slot.
+  await page.getByRole('button', { name: 'Elegir reliquia' }).first().click();
+  const picker = page.getByRole('dialog', { name: 'Elige una reliquia' });
+  await picker.getByRole('button', { name: /^Equipar / }).first().click();
+  const slot = page.getByRole('group', { name: 'Ranura 1' });
+  await expect(slot).toBeVisible();
+  const relicName = (await slot.locator('.relic-info b').textContent())!.trim();
+
+  // Launch: the arena draws, the clock runs and the probe moves with the keyboard.
+  await page.getByRole('button', { name: 'Lanzar incursión' }).click();
+  await expect(page.locator('.arena-canvas')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('progressbar', { name: 'Vida' })).toBeVisible();
+  await page.keyboard.down('KeyD');
+  await page.waitForTimeout(1500);
+  await page.keyboard.up('KeyD');
+  await page.keyboard.down('KeyS');
+  await page.waitForTimeout(1000);
+  await page.keyboard.up('KeyS');
+  await expect(page.locator('.hud-time')).not.toHaveText('0:00');
+
+  // Pause, abandon (it asks first), and the results pay half.
+  await page.keyboard.press('Escape');
+  const pause = page.getByRole('dialog', { name: 'Pausa' });
+  await expect(pause).toBeVisible();
+  await pause.getByRole('button', { name: 'Abandonar incursión' }).click();
+  const confirm = page.getByRole('alertdialog', { name: 'Abandonar incursión' });
+  await expect(confirm).toContainText('Se cobra la mitad del botín');
+  await confirm.getByRole('button', { name: 'Abandonar', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Incursión abandonada' })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('Sin extracción se cobra la mitad')).toBeVisible();
+
+  // Another run starts from the hangar, which keeps the relic.
+  await page.getByRole('button', { name: 'Otra incursión' }).click();
+  await expect(page.getByRole('group', { name: 'Ranura 1' })).toContainText(relicName);
+
+  // In the collection the equipped galaxy says so and cannot be disintegrated.
+  await page.goto('/galaxy/coleccion');
+  const card = page.getByRole('article', { name: relicName });
+  await expect(card).toContainText('Equipada');
+  await card.getByRole('link').click();
+  const detail = page.getByRole('dialog', { name: relicName });
+  await expect(detail.getByRole('button', { name: 'Desintegrar' })).toBeDisabled();
+  await expect(detail).toContainText('Está equipada como reliquia en el hangar');
+  expect(csp).toEqual([]);
+});
