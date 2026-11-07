@@ -3,6 +3,7 @@ import type { HitSource, Sim } from '../types';
 import { ticks } from '../version';
 import { scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
+import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
 import { dropPickup } from './pickups';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
@@ -15,25 +16,37 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const en = sim.enemies;
   if (!en.alive[e] || en.fuseT[e]! > 0 || !(amount > 0)) return 0;
   const p = sim.probes[src.probe];
+  const element = resolveElement(sim, src);
   let dmg = amount;
-  let crit = false;
   const def = sim.content.enemies[en.type[e]!];
-  if (def && def.behavior.kind === 'armored' && !en.boss[e]) {
+  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0) {
     const ox = src.x ?? (p ? p.x : en.x[e]!);
     const oy = src.y ?? (p ? p.y : en.y[e]!);
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;
   }
-  if (p && sim.rng.combat.chance(p.stats.crit)) {
-    crit = true;
-    dmg *= p.stats.critDamage;
+  dmg *= damageFactor(sim, e, element);
+  let crit = false;
+  if (p) {
+    const bonus = critBonus(sim, element);
+    if (sim.rng.combat.chance(p.stats.crit + bonus.chance)) {
+      crit = true;
+      dmg *= p.stats.critDamage + bonus.damage;
+    }
   }
   const absorbed = Math.min(en.shield[e]!, dmg);
   en.shield[e] = en.shield[e]! - absorbed;
   en.hp[e] = en.hp[e]! - (dmg - absorbed);
   en.flashT[e] = FLASH_TICKS;
-  sim.events.push({ t: 'hit', x: en.x[e]!, y: en.y[e]!, amount: dmg, crit, element: src.element });
+  const x = en.x[e]!;
+  const y = en.y[e]!;
+  sim.events.push({ t: 'hit', x, y, amount: dmg, crit, element });
   if (p && p.alive && p.stats.lifesteal > 0) p.hp = Math.min(p.stats.maxHp, p.hp + dmg * p.stats.lifesteal);
   if (en.hp[e]! <= 0) killEnemy(sim, e, src);
+  if (element) {
+    applyElement(sim, e, element, dmg, x, y, src, (o, amt) => {
+      dealDamage(sim, o, amt, { probe: src.probe, weapon: null, relic: src.relic, element: null, x, y });
+    });
+  }
   return dmg;
 }
 

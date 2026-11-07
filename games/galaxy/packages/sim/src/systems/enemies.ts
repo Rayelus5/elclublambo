@@ -131,8 +131,10 @@ export function hitsFront(sim: Sim, e: number, ox: number, oy: number): boolean 
   return Math.abs(angleDiff(sim.enemies.facing[e]!, dir)) <= degToSteps(def.behavior.arc / 2);
 }
 
-/** Speed after statuses (slow; Task 6 fills the factor). */
-export const statusHooks: { speedFactor: (sim: Sim, e: number) => number } = { speedFactor: () => 1 };
+/** Speed after statuses: a slowed enemy (element slow) moves at 1 − factor. */
+export const statusHooks: { speedFactor: (sim: Sim, e: number) => number } = {
+  speedFactor: (sim, e) => (sim.enemies.slowT[e]! > 0 ? 1 - sim.content.elements.slow.factor : 1),
+};
 
 function moveToward(sim: Sim, e: number, tx: number, ty: number, speed: number): void {
   const en = sim.enemies;

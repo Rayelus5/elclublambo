@@ -1,6 +1,7 @@
 import { Rng } from './math/rng';
 import { direct, relocate } from './systems/director';
 import { updateEnemies, updateFoeShots } from './systems/enemies';
+import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
 import { refreshStats } from './systems/stats';
@@ -162,6 +163,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickFlashes(sim);
   direct(sim);
   updateEnemies(sim, relocate);
+  tickStatuses(sim);
   updateFoeShots(sim);
   rebuildGrid(sim);
   for (const p of sim.probes) fireWeapons(sim, p);

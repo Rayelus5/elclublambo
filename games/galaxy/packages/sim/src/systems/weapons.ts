@@ -2,6 +2,7 @@ import type { WeaponDef, WeaponLevel } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { HitSource, ProbeState, Sim } from '../types';
 import { dealDamage } from './combat';
+import { elementOf } from './elements';
 
 // The probe's weapons (GDD §5.3) and everything they put in the world: bullets, piercing lances, bouncing arcs,
 // orbiting orbs, drones and damaging areas. Damage, cooldown, area and extra projectiles come from the probe's stats.
@@ -328,7 +329,14 @@ export const shotHooks: {
   source: (sim, i) => {
     const s = sim.shots;
     const sw = shotWeapon(sim, i);
-    return { probe: s.owner[i]!, weapon: sw ? sw.def.id : null, relic: s.srcKind[i] === 1 ? s.srcIdx[i]! : null, element: null, x: s.x[i]! - s.vx[i]!, y: s.y[i]! - s.vy[i]! };
+    return {
+      probe: s.owner[i]!,
+      weapon: sw ? sw.def.id : null,
+      relic: s.srcKind[i] === 1 ? s.srcIdx[i]! : null,
+      element: elementOf(s.element[i]!),
+      x: s.x[i]! - s.vx[i]!,
+      y: s.y[i]! - s.vy[i]!,
+    };
   },
 };
 

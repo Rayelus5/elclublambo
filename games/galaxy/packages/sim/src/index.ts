@@ -46,3 +46,15 @@ export {
   updateShots,
   weaponDef,
 } from './systems/weapons';
+export {
+  applyElement,
+  critBonus,
+  damageFactor,
+  elementCode,
+  elementOf,
+  invertNearby,
+  plainDamage,
+  relicElement,
+  resolveElement,
+  tickStatuses,
+} from './systems/elements';
