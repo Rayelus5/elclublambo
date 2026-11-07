@@ -23,7 +23,12 @@ export function tinyContent(over?: (c: Content) => void): Content {
   s.waves = [];
   s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
   s.scaling = { ...s.scaling, eliteBase: 0, elitePerMinute: 0, eliteMax: 0 };
-  s.drops = { coin: 0, dust: 0, bossCoins: 0, bossDust: 0 };
+  s.drops = { ...s.drops, coin: 0, dust: 0, repair: 0, bossCoins: 0, bossDust: 0 };
+  // Pinned: mechanics tests do not follow calibration.
+  c.bosses[0]!.hp = 1800;
+  c.bosses[0]!.scaling = { hpPerLayer: 0.7, damagePerLayer: 0.25 };
+  s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05 };
+  c.weapons.find((w) => w.id === 'pulse')!.levels.forEach((l) => (l.cooldown = 0.9));
   over?.(c);
   return contentSchema.parse(c);
 }

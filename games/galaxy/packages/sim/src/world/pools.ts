@@ -121,7 +121,7 @@ export const PICKUP_FIELDS = {
   y: 'f64',
   px: 'f64',
   py: 'f64',
-  /** 0 data fragment (XP), 1 coin, 2 star dust. */
+  /** 0 data fragment (XP), 1 coin, 2 star dust, 3 repair kit. */
   kind: 'u8',
   value: 'f64',
   /** Pulled towards a probe. */
@@ -129,7 +129,7 @@ export const PICKUP_FIELDS = {
   mt: 'i32',
 } as const;
 
-export const PICKUP = { xp: 0, coin: 1, dust: 2 } as const;
+export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3 } as const;
 
 export type EnemyPool = Pool<typeof ENEMY_FIELDS>;
 export type ShotPool = Pool<typeof SHOT_FIELDS>;

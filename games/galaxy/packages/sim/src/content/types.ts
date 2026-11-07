@@ -178,7 +178,8 @@ export interface SectorDef {
     eliteMax: number;
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
-  drops: { coin: number; dust: number; bossCoins: number; bossDust: number };
+  /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */
+  drops: { coin: number; dust: number; repair: number; repairHeal: number; bossCoins: number; bossDust: number };
 }
 
 export interface ElementTuning {

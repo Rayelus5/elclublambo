@@ -156,7 +156,9 @@ const sector = z
       })
       .strict(),
     elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().int().min(0).max(1000), dust: z.number().int().min(0).max(1000) }).strict(),
-    drops: z.object({ coin: unit, dust: unit, bossCoins: z.number().int().min(0).max(1000), bossDust: z.number().int().min(0).max(1000) }).strict(),
+    drops: z
+      .object({ coin: unit, dust: unit, repair: unit, repairHeal: unit, bossCoins: z.number().int().min(0).max(1000), bossDust: z.number().int().min(0).max(1000) })
+      .strict(),
   })
   .strict();
 

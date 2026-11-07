@@ -104,7 +104,7 @@ describe('escalado', () => {
   test('la vida y el daño suben con el minuto y la capa; la velocidad, con la capa', () => {
     const sim = quietSim();
     sim.tick = 5 * 3600;
-    // Hand-checked from the sector's starting values: +8 %/min and +50 %/layer of life, +4 %/min and +20 %/layer
+    // Hand-checked from the test world's pinned scaling: +8 %/min and +50 %/layer of life, +4 %/min and +20 %/layer
     // of damage, +5 %/layer of speed.
     expect(scaleAt(sim)).toEqual({ hp: 1.4, damage: 1.2, speed: 1, elite: 0 });
     sim.layer = 2;
@@ -116,7 +116,7 @@ describe('escalado', () => {
 
   test('la probabilidad de élite sube con los minutos sin pasar de su tope', () => {
     const sim = quietSim((c) => {
-      c.sectors[0]!.scaling = { ...sector.scaling };
+      c.sectors[0]!.scaling = { ...c.sectors[0]!.scaling, eliteBase: 0, elitePerMinute: 0.006, eliteMax: 0.08 };
     });
     sim.tick = 10 * 3600;
     expect(scaleAt(sim).elite).toBeCloseTo(0.06, 12);

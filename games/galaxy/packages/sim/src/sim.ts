@@ -1,3 +1,4 @@
+import { recordMoves } from './log';
 import { Rng } from './math/rng';
 import { direct, relocate } from './systems/director';
 import { updateBoss } from './systems/boss';
@@ -163,6 +164,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   settle(sim);
   tickProbes(sim);
   moveProbes(sim, inputs);
+  recordMoves(sim, inputs);
   tickFlashes(sim);
   direct(sim);
   updateEnemies(sim, relocate);

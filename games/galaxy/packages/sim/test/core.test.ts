@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { createSim, dealDamage, IDLE, runSummary, spawnEnemy, SpatialGrid, stateHash, step, type Sim } from '../src/index';
+import { createSim, dealDamage, dropPickup, IDLE, PICKUP, runSummary, spawnEnemy, SpatialGrid, stateHash, step, type Sim } from '../src/index';
 import { move, options, pick, quietSim, run, tinyContent } from './fixtures';
 
 // The core of the run simulation (GDD §5.1, §5.7, §18.4): probes driven by per-tick inputs, contact damage, data
@@ -184,5 +184,40 @@ describe('rejilla espacial', () => {
     expect(again.slice(0, n)).toEqual([3, 9, 7]);
     g.clear();
     expect(g.query(50, 50, 80, out)).toBe(0);
+  });
+});
+
+describe('kits de reparación', () => {
+  test('curan el 25 % de la vida máxima sin pasarse', () => {
+    const sim = quietSim();
+    const p = sim.probes[0]!;
+    p.hp = 40;
+    dropPickup(sim, PICKUP.repair, 1, 10, 0);
+    run(sim, 30);
+    expect(p.hp).toBe(65);
+    p.hp = 90;
+    dropPickup(sim, PICKUP.repair, 1, 10, 0);
+    run(sim, 30);
+    expect(p.hp).toBe(100);
+  });
+
+  test('las élites siempre sueltan uno y los demás, rara vez', () => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.drops.repair = 1;
+    });
+    dealDamage(sim, spawnEnemy(sim, sim.content.enemies.find((e) => e.id === 'dummy')!, 300, 0), 1e9, { probe: 0, weapon: null, relic: null, element: null });
+    let repairs = 0;
+    for (let i = 0; i < sim.pickups.top; i++) if (sim.pickups.alive[i] && sim.pickups.kind[i] === PICKUP.repair) repairs++;
+    expect(repairs).toBe(1);
+    const elite = quietSim();
+    dealDamage(elite, spawnEnemy(elite, elite.content.enemies.find((e) => e.id === 'dummy')!, 300, 0, { elite: elite.content.elites[1]! }), 1e9, {
+      probe: 0,
+      weapon: null,
+      relic: null,
+      element: null,
+    });
+    repairs = 0;
+    for (let i = 0; i < elite.pickups.top; i++) if (elite.pickups.alive[i] && elite.pickups.kind[i] === PICKUP.repair) repairs++;
+    expect(repairs).toBe(1);
   });
 });

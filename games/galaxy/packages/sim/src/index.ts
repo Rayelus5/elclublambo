@@ -62,3 +62,5 @@ export { describeRelic, relicBonuses, relicSkill, relicVision, updateRelics, typ
 export { bossDef, spawnBoss, updateBoss } from './systems/boss';
 export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
+export { decodeLog, encodeLog, fromBase64, logTicks, replay, toBase64 } from './recording';
+export { botInput, botPick } from './bot';

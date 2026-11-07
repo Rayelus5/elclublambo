@@ -13,6 +13,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@galaxy/engine": "workspace:*",
     "fast-check": "^4.10.2"
   }
 }

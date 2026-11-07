@@ -6,7 +6,7 @@ import { gainXp } from './xp';
 // Data fragments (XP), coins and star dust on the ground (GDD §5.1). Within a probe's pickup radius they are pulled in,
 // faster and faster, and collected on touch. Coins and dust count for the layer they are picked up in.
 
-const KIND_NAMES = ['xp', 'coin', 'dust'] as const;
+const KIND_NAMES = ['xp', 'coin', 'dust', 'repair'] as const;
 
 /** Drops a pickup; with the pool full, its value joins the first pickup of the same kind (nothing is created). */
 export function dropPickup(sim: Sim, kind: number, value: number, x: number, y: number): void {
@@ -71,6 +71,7 @@ function collect(sim: Sim, i: number, probe: number): void {
   const value = pk.value[i]!;
   pk.kill(i);
   if (kind === PICKUP.xp) gainXp(sim, p, value * p.stats.xp);
+  else if (kind === PICKUP.repair) p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.maxHp * sim.sector.drops.repairHeal * value);
   else {
     const bag = sim.loot[sim.layer - 1]!;
     if (kind === PICKUP.coin) bag.coins += value;
