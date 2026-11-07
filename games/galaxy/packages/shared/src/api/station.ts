@@ -37,3 +37,7 @@ export interface StationView {
 
 export const refineryLoadSchema = z.object({ amount: z.number().int().min(1).max(1_000_000) }).strict();
 export type RefineryLoad = z.infer<typeof refineryLoadSchema>;
+
+/** An upgrade names the level it buys, so a stale view (another tab) never buys the next one. */
+export const roomUpgradeSchema = z.object({ level: z.number().int().min(1).max(10) }).strict();
+export type RoomUpgrade = z.infer<typeof roomUpgradeSchema>;

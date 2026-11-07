@@ -31,4 +31,6 @@ function useStationAction<T>(intent: (v: T) => string, request: (v: T) => { path
 export const useLoadRefinery = () => useStationAction<number>((n) => `station:load:${n}`, (amount) => ({ path: 'refinery/load', body: { amount } }));
 export const useCollectRefinery = () => useStationAction<void>(() => 'station:refinery', () => ({ path: 'refinery/collect' }));
 export const useCollectAntenna = () => useStationAction<void>(() => 'station:antenna', () => ({ path: 'antenna/collect' }));
-export const useUpgradeRoom = () => useStationAction<string>((id) => `station:upgrade:${id}`, (id) => ({ path: `rooms/${id}/upgrade` }));
+/** The level it buys travels with the request and its key, so a stale view never buys the next one. */
+export const useUpgradeRoom = () =>
+  useStationAction<{ id: string; level: number }>(({ id, level }) => `station:upgrade:${id}:${level}`, ({ id, level }) => ({ path: `rooms/${id}/upgrade`, body: { level } }));

@@ -123,13 +123,15 @@ export function collectAntenna(deps: RunsDeps, trx: Db, accountId: string, key: 
   });
 }
 
-export function upgradeRoom(deps: RunsDeps, trx: Db, accountId: string, room: string, key: string): Promise<StationView> {
+/** Buys `level` for a room; 409 `room_changed` when the room is no longer one below it (a stale view, another tab). */
+export function upgradeRoom(deps: RunsDeps, trx: Db, accountId: string, room: string, level: number, key: string): Promise<StationView> {
   if (!(ROOM_IDS as readonly string[]).includes(room)) throw new HttpError(400, 'invalid_input');
   const id = room as RoomId;
   return change(deps, trx, accountId, async (state, cfg, now) => {
     const status = roomStatus(id, state.levels[id], cfg);
     if (status.state === 'future') throw new HttpError(409, 'room_unavailable');
     if (!status.next) throw new HttpError(409, 'room_maxed');
+    if (state.levels[id] + 1 !== level) throw new HttpError(409, 'room_changed');
     const { components, coins } = status.next.cost;
     const ref = { room: id, level: state.levels[id] + 1 };
     if (components > 0) await debit(trx, accountId, 'components', components, 'room_upgrade', ref, key);

@@ -79,7 +79,7 @@ function Upgrade({ room, view }: { room: StationRoomView; view: StationView }) {
   const label = room.level === 0 ? t.repair : t.upgrade(room.level + 1);
   return (
     <>
-      <button type="button" className="lip pill pill-solar station-upgrade" disabled={!affordable || upgrade.isPending} onClick={() => upgrade.mutate(room.id)}>
+      <button type="button" className="lip pill pill-solar station-upgrade" disabled={!affordable || upgrade.isPending} onClick={() => upgrade.mutate({ id: room.id, level: room.level + 1 })}>
         <Icon name="wrench" />
         <span>{label}</span>
         <small>{t.cost(components, coins)}</small>
@@ -153,7 +153,15 @@ function RefineryPanel({ view, onClose }: { view: StationView; onClose: () => vo
   );
 }
 
-const time = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+/** «Se llena a las 14:00», «mañana a las…» or «el sábado a las…» (capHours is live config), or «Ya está llena». */
+function fillsAt(iso: string): string {
+  const at = new Date(iso);
+  const now = new Date();
+  if (at.getTime() <= now.getTime()) return t.antenna.full;
+  const time = at.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  const days = Math.round((new Date(at).setHours(0, 0, 0, 0) - new Date(now).setHours(0, 0, 0, 0)) / 86_400_000);
+  return t.antenna.fullAt(time, days === 0 ? 'today' : days === 1 ? 'tomorrow' : at.toLocaleDateString('es-ES', { weekday: 'long' }));
+}
 
 function AntennaPanel({ view, onClose }: { view: StationView; onClose: () => void }) {
   const a = view.antenna;
@@ -165,7 +173,7 @@ function AntennaPanel({ view, onClose }: { view: StationView; onClose: () => voi
         <p className="panel-lead">{t.antenna.broken}</p>
       ) : (
         <>
-          <p className="panel-lead">{t.antenna.lead}</p>
+          <p className="panel-lead">{t.antenna.lead(a.capHours)}</p>
           <dl className="panel-stats">
             <div>
               <dt>{t.levelLabel}</dt>
@@ -180,7 +188,7 @@ function AntennaPanel({ view, onClose }: { view: StationView; onClose: () => voi
               <dd>{t.antenna.accrued(a.accrued)}</dd>
             </div>
           </dl>
-          {a.fullAt ? <p className="panel-note">{t.antenna.fullAt(time(a.fullAt))}</p> : null}
+          {a.fullAt ? <p className="panel-note">{fillsAt(a.fullAt)}</p> : null}
           <button type="button" className="lip pill pill-solar" disabled={a.accrued < 1 || collect.isPending} onClick={() => collect.mutate()}>
             <Icon name="ticket" />
             <span>{t.antenna.collect}</span>

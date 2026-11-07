@@ -1,4 +1,4 @@
-import { refineryLoadSchema, type StationView } from '@galaxy/shared';
+import { refineryLoadSchema, roomUpgradeSchema, type StationView } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Kysely } from 'kysely';
 import { z } from 'zod';
@@ -48,7 +48,7 @@ export function registerStationRoutes(api: FastifyInstance, deps: RunsDeps): voi
   });
   api.post('/galaxy/api/station/rooms/:id/upgrade', async (req) => {
     const { id } = roomParam.parse(req.params);
-    empty.parse(req.body ?? undefined);
-    return action(req, 'room.upgrade', id, (account, key, trx) => upgradeRoom(deps, trx, account, id, key));
+    const { level } = roomUpgradeSchema.parse(req.body);
+    return action(req, 'room.upgrade', { id, level }, (account, key, trx) => upgradeRoom(deps, trx, account, id, level, key));
   });
 }

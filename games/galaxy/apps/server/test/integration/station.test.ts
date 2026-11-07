@@ -83,10 +83,10 @@ test('sin material no carga nada: 402, y la cola sigue igual', async () => {
 
 test('reparar la antena cuesta 30 componentes; después da una señal cada 8 h, con su tope', async () => {
   const { cookie, id } = await player();
-  const poor = await act(cookie, 'rooms/antenna/upgrade');
+  const poor = await act(cookie, 'rooms/antenna/upgrade', { level: 1 });
   expect(poor.statusCode).toBe(402);
   await give(id, 'components', 30);
-  const fixed = await act(cookie, 'rooms/antenna/upgrade');
+  const fixed = await act(cookie, 'rooms/antenna/upgrade', { level: 1 });
   expect(fixed.statusCode).toBe(200);
   const v = fixed.json() as StationView;
   expect(v.rooms.find((r) => r.id === 'antenna')).toMatchObject({ state: 'working', level: 1 });
@@ -107,34 +107,68 @@ test('mejorar: la refinería sube de nivel pagando; al máximo, 409; lo que lleg
   const { cookie, id } = await player();
   await give(id, 'components', 2000);
   await give(id, 'coins', 20_000);
-  const up = await act(cookie, 'rooms/refinery/upgrade');
+  const up = await act(cookie, 'rooms/refinery/upgrade', { level: 2 });
   expect(up.statusCode).toBe(200);
   expect((up.json() as StationView).refinery).toMatchObject({ level: 2, rate: 30, capacity: 150 });
-  for (let k = 0; k < 3; k++) expect((await act(cookie, 'rooms/refinery/upgrade')).statusCode).toBe(200);
-  const max = await act(cookie, 'rooms/refinery/upgrade');
+  for (let k = 0; k < 3; k++) expect((await act(cookie, 'rooms/refinery/upgrade', { level: 3 + k })).statusCode).toBe(200);
+  const max = await act(cookie, 'rooms/refinery/upgrade', { level: 6 });
   expect(max.statusCode).toBe(409);
   expect(max.json()).toEqual({ error: 'room_maxed' });
-  const lab = await act(cookie, 'rooms/lab/upgrade');
+  const lab = await act(cookie, 'rooms/lab/upgrade', { level: 1 });
   expect(lab.statusCode).toBe(409);
   expect(lab.json()).toEqual({ error: 'room_unavailable' });
-  expect((await act(cookie, 'rooms/nope/upgrade')).statusCode).toBe(400);
+  expect((await act(cookie, 'rooms/nope/upgrade', { level: 1 })).statusCode).toBe(400);
   // What it cost: 40 + 90 + 180 + 320 components and 500 + 1200 + 2500 + 5000 coins.
   const w = (await view(cookie)).wallet;
   expect(w['components']).toBe(2000 - 630);
   expect(w.coins).toBe(20_000 - 9200);
 });
 
-test('dos cargas a la vez con claves distintas y 100 de material: una pasa y la otra no, sin saldos negativos', async () => {
+test('dos cargas a la vez con material de sobra pero sitio para una: una pasa, la otra da refinery_full', async () => {
   const { cookie, id } = await player();
-  await give(id, 'material', 100);
+  await give(id, 'material', 200);
   const [a, b] = await Promise.all([act(cookie, 'refinery/load', { amount: 60 }), act(cookie, 'refinery/load', { amount: 60 })]);
-  // One goes through; the other is refused (the queue, 60 + 60 > 100, is checked before the wallet).
-  const codes = [a.statusCode, b.statusCode].sort();
-  expect(codes[0]).toBe(200);
-  expect([402, 409]).toContain(codes[1]);
+  expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
+  expect([a, b].find((r) => r.statusCode === 409)!.json()).toEqual({ error: 'refinery_full' });
   const v = await view(cookie);
-  expect(v.wallet['material']).toBe(40);
   expect(v.refinery.queue).toBe(60);
+  expect(v.wallet['material']).toBe(140);
+});
+
+test('dos recogidas a la vez con claves distintas pagan una sola vez, en la refinería y en la antena', async () => {
+  const { cookie, id } = await player();
+  await give(id, 'material', 50);
+  await give(id, 'components', 30);
+  expect((await act(cookie, 'refinery/load', { amount: 50 })).statusCode).toBe(200);
+  expect((await act(cookie, 'rooms/antenna/upgrade', { level: 1 })).statusCode).toBe(200);
+  later(8);
+  const before = await view(cookie);
+  expect(before.refinery.ready).toBe(50);
+  expect(before.antenna.accrued).toBe(1);
+  const refinery = await Promise.all([act(cookie, 'refinery/collect'), act(cookie, 'refinery/collect')]);
+  expect(refinery.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+  const antenna = await Promise.all([act(cookie, 'antenna/collect'), act(cookie, 'antenna/collect')]);
+  expect(antenna.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+  const after = await view(cookie);
+  expect(after.wallet['components']).toBe(50);
+  expect(after.wallet.signal).toBe(before.wallet.signal + 1);
+});
+
+test('mejorar con una vista vieja no compra el nivel siguiente: 409 room_changed y nada cobrado', async () => {
+  const { cookie, id } = await player();
+  await give(id, 'components', 200);
+  await give(id, 'coins', 1000);
+  expect((await act(cookie, 'rooms/antenna/upgrade', { level: 1 })).statusCode).toBe(200);
+  const before = await view(cookie);
+  // Another tab still shows «Reparar»: a new key, the same expected level.
+  const stale = await act(cookie, 'rooms/antenna/upgrade', { level: 1 });
+  expect(stale.statusCode).toBe(409);
+  expect(stale.json()).toEqual({ error: 'room_changed' });
+  const after = await view(cookie);
+  expect(after.wallet).toEqual(before.wallet);
+  expect(after.rooms.find((r) => r.id === 'antenna')!.level).toBe(1);
+  // The level the player expects is required.
+  expect((await act(cookie, 'rooms/antenna/upgrade', {})).statusCode).toBe(400);
 });
 
 test('sin sesión: 401', async () => {

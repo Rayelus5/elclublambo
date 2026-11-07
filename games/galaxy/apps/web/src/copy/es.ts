@@ -111,14 +111,16 @@ export const copy = {
       empty: 'Trae material de las incursiones para refinarlo',
     },
     antenna: {
-      lead: 'Capta señales de galaxia poco a poco. Se llena en 8 h, así que pásate de vez en cuando',
+      lead: (hours: number) => `Capta señales de galaxia poco a poco. Se llena en ${fmt(hours)} h, así que pásate de vez en cuando`,
       broken: 'La Estática la tiene muda. Repárala para captar señales',
       rateLabel: 'Ritmo',
       rate: (perHour: number) => `Una señal cada ${fmt(Math.round((10 / perHour)) / 10)} h`,
       waiting: 'Esperando',
       accrued: (n: number) => (n === 1 ? '1 señal' : `${fmt(n)} señales`),
       collect: 'Recoger',
-      fullAt: (time: string) => `Se llena a las ${time}`,
+      full: 'Ya está llena',
+      fullAt: (time: string, day: string) =>
+        day === 'today' ? `Se llena a las ${time}` : day === 'tomorrow' ? `Se llena mañana a las ${time}` : `Se llena el ${day} a las ${time}`,
     },
   },
   hub: {
@@ -598,6 +600,7 @@ export const copy = {
     probe_test_required: 'Antes de salir, haz el test de la sonda',
     refinery_full: 'La refinería no tiene sitio para tanto. Recoge o mejórala',
     room_maxed: 'Esa sala ya está al máximo',
+    room_changed: 'Esa sala ya había cambiado. Mira su nivel y vuelve a intentarlo',
     room_unavailable: 'Esa sala aún no se puede reparar',
     nothing_to_collect: 'Aún no hay nada que recoger',
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',

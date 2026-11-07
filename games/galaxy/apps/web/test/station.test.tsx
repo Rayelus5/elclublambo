@@ -1,6 +1,6 @@
 import type { StationView } from '@galaxy/shared';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { expect, test } from 'vitest';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { StationScreen } from '../src/station/StationScreen';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -34,6 +34,14 @@ function open(v = view(), routes: Record<string, (b: unknown) => Response> = {})
   renderAt('/estacion', { '/estacion': <StationScreen /> });
   return fetch;
 }
+afterEach(() => {
+  vi.useRealTimers();
+});
+/** Pins the browser clock (local time) without faking timers, so queries and waits still run. */
+const at = (local: string) => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(local));
+};
 const sent = (fetch: ReturnType<typeof mockApi>, path: string) => fetch.mock.calls.filter(([url, init]) => url === `/galaxy/api/station/${path}` && init?.method === 'POST');
 
 test('las diez salas: las que funcionan llevan a su pantalla y las de más adelante dicen «En reparación»', async () => {
@@ -82,6 +90,8 @@ test('reparar la Antena envía la mejora con su clave y enseña la vista nueva',
   expect(await screen.findByText(t.antenna.accrued(0))).toBeInTheDocument();
   const call = sent(fetch, 'rooms/antenna/upgrade')[0]!;
   expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  // It says which level it expects, so a stale view never buys the next one.
+  expect(JSON.parse(String(call[1]!.body))).toEqual({ level: 1 });
 });
 
 test('la refinería: su ritmo, su cola, cargar lo que cabe, recoger lo listo y mejorar con su coste', async () => {
@@ -114,7 +124,8 @@ test('un error del servidor se dice en el panel', async () => {
 });
 
 test('la Antena funcionando: lo que espera, su ritmo, cuándo se llena y recoger', async () => {
-  const fullAt = '2026-11-07T18:00:00.000Z';
+  at('2026-11-07T12:00:00');
+  const fullAt = new Date('2026-11-07T18:00:00').toISOString();
   const working = view({
     rooms: view().rooms.map((r) => (r.id === 'antenna' ? { ...r, state: 'working', level: 1, next: { cost: { components: 40, coins: 400 } } } : r)),
     antenna: { level: 1, rate: 0.125, capHours: 8, accrued: 3, fullAt },
@@ -126,7 +137,7 @@ test('la Antena funcionando: lo que espera, su ritmo, cuándo se llena y recoger
   const dialog = screen.getByRole('dialog', { name: t.rooms.antenna });
   expect(dialog).toHaveTextContent(t.antenna.accrued(3));
   expect(dialog).toHaveTextContent(t.antenna.rate(0.125));
-  expect(dialog).toHaveTextContent(t.antenna.fullAt(new Date(fullAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })));
+  expect(dialog).toHaveTextContent(t.antenna.fullAt('18:00', 'today'));
   fireEvent.click(within(dialog).getByRole('button', { name: t.antenna.collect }));
   expect(await screen.findByRole('img', { name: copy.hub.resource.signal(7) })).toBeInTheDocument();
   expect(sent(fetch, 'antenna/collect')).toHaveLength(1);
@@ -142,4 +153,29 @@ test('el panel se lleva el foco, Escape lo cierra y el foco vuelve a la sala', a
   fireEvent.keyDown(dialog, { key: 'Escape' });
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(room).toHaveFocus();
+});
+
+test('la Antena llena dice que ya está llena, y si se llena otro día dice cuál', async () => {
+  const working = (fullAt: string, accrued: number) =>
+    view({
+      rooms: view().rooms.map((r) => (r.id === 'antenna' ? { ...r, state: 'working', level: 1, next: { cost: { components: 40, coins: 400 } } } : r)),
+      antenna: { level: 1, rate: 0.125, capHours: 24, accrued, fullAt: new Date(fullAt).toISOString() },
+    });
+  // Came back the next evening: it filled up this morning.
+  at('2026-11-08T20:00:00');
+  open(working('2026-11-08T06:00:00', 3));
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.antenna) }));
+  let dialog = screen.getByRole('dialog', { name: t.rooms.antenna });
+  expect(dialog).toHaveTextContent(t.antenna.full);
+  expect(dialog).not.toHaveTextContent(/Se llena (a las|mañana|el )/);
+  // How long it takes to fill is live config.
+  expect(dialog).toHaveTextContent(t.antenna.lead(24));
+  fireEvent.keyDown(dialog, { key: 'Escape' });
+  cleanup();
+  // Collected late at night: it fills tomorrow.
+  at('2026-11-08T22:00:00');
+  open(working('2026-11-09T06:30:00', 0));
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.antenna) }));
+  dialog = screen.getByRole('dialog', { name: t.rooms.antenna });
+  expect(dialog).toHaveTextContent(t.antenna.fullAt('06:30', 'tomorrow'));
 });
