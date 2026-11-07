@@ -1,8 +1,9 @@
 import type { ConfigValue } from '../config/registry';
+import { STARTERS } from './test';
 
 // Probe unlocks (GDD §6: «el resto de sondas se ganan jugando… nunca salen del gachapón»). The test gives one starter;
 // the other two starters and the five others are earned with the stats of the account's finished, non-suspicious
-// runs. The conditions are live config (`probes`).
+// runs of at least a minute (an instant abandon is not playing). The conditions are live config (`probes`).
 
 export interface RunStats {
   /** Finished runs. */
@@ -27,7 +28,7 @@ export interface ProbeStatus {
 
 export function probeStatus(probe: string, assigned: string, stats: RunStats, cfg: ProbesConfig): ProbeStatus {
   if (probe === assigned) return { unlocked: true, condition: null, progress: 1 };
-  const condition: ProbeCondition | undefined = (cfg.starters as readonly string[]).includes(probe) ? cfg.starterUnlock : cfg.unlocks[probe];
+  const condition: ProbeCondition | undefined = (STARTERS as readonly string[]).includes(probe) ? cfg.starterUnlock : cfg.unlocks[probe];
   if (!condition) return { unlocked: false, condition: null, progress: 0 };
   const have = stats[condition.stat];
   return { unlocked: have >= condition.value, condition, progress: Math.max(0, Math.min(1, have / condition.value)) };

@@ -33,7 +33,7 @@ export async function chooseProbe(deps: RunsDeps, accountId: string, req: ProbeC
   if (!content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   const assigned = await testedProbe(deps.db, accountId);
   if (assigned === null) throw new HttpError(409, 'probe_test_required');
-  if (!probeStatus(req.probe, assigned, await runStats(deps.db, accountId), cfg).unlocked) throw new HttpError(409, 'probe_locked');
+  if (!probeStatus(req.probe, assigned, await runStats(deps.db, accountId, cfg.minRunSeconds), cfg).unlocked) throw new HttpError(409, 'probe_locked');
   await ensureHangar(deps.db, accountId);
   await deps.db.updateTable('galaxy.hangars').set({ probe: req.probe, updated_at: new Date() }).where('account_id', '=', accountId).execute();
   return hangarView(deps, accountId);

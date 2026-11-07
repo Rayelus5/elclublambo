@@ -74,8 +74,8 @@ function sectorCards(content: Content): SectorCard[] {
   });
 }
 
-/** The account's stats from finished, non-suspicious runs (what unlocks probes). */
-export async function runStats(db: Kysely<DB>, accountId: string): Promise<RunStats> {
+/** The account's stats from finished, non-suspicious runs of `minSeconds` or more (what unlocks probes). */
+export async function runStats(db: Kysely<DB>, accountId: string, minSeconds: number): Promise<RunStats> {
   const row = await db
     .selectFrom('galaxy.runs')
     .select((eb) => [
@@ -88,6 +88,7 @@ export async function runStats(db: Kysely<DB>, accountId: string): Promise<RunSt
     .where('account_id', '=', accountId)
     .where('finished_at', 'is not', null)
     .where('suspicious', '=', false)
+    .where('seconds', '>=', minSeconds)
     .executeTakeFirstOrThrow();
   return { runs: Number(row.runs), bossKills: Number(row.bossKills), maxDepth: Number(row.maxDepth), extractions: Number(row.extractions), kills: Number(row.kills) };
 }
@@ -134,7 +135,7 @@ export async function hangarView(deps: RunsDeps, accountId: string): Promise<Han
   const assigned = await testedProbe(deps.db, accountId);
   return {
     sectors: sectorCards(content),
-    probes: probeCards(content, assigned, await runStats(deps.db, accountId), probes),
+    probes: probeCards(content, assigned, await runStats(deps.db, accountId, probes.minRunSeconds), probes),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,

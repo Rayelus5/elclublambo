@@ -23,7 +23,12 @@ const hangar = async (cookie: string) => (await get(ctx.app, '/galaxy/api/hangar
 const choose = (cookie: string, probe: string) => put(ctx.app, '/galaxy/api/hangar/probe', { probe }, { cookie });
 
 /** Finished runs straight in the table (what finishRun would leave). */
-async function finishedRuns(account: string, n: number, over: { boss_kills?: number; depth?: number; outcome?: 'extracted' | 'died'; kills?: number; suspicious?: boolean } = {}) {
+async function finishedRuns(
+  account: string,
+  n: number,
+  over: { boss_kills?: number; depth?: number; outcome?: 'extracted' | 'died'; kills?: number; suspicious?: boolean; seconds?: number; finished?: boolean } = {},
+) {
+  const done = over.finished ?? true;
   for (let k = 0; k < n; k++) {
     await ctx.db
       .insertInto('galaxy.runs')
@@ -37,14 +42,14 @@ async function finishedRuns(account: string, n: number, over: { boss_kills?: num
         sim_version: SIM_VERSION,
         start_key: randomUUID(),
         started_at: new Date(),
-        finished_at: new Date(),
-        outcome: over.outcome ?? 'died',
+        finished_at: done ? new Date() : null,
+        outcome: done ? (over.outcome ?? 'died') : null,
         ticks: 600,
         depth: over.depth ?? 1,
         kills: over.kills ?? 10,
         boss_kills: over.boss_kills ?? 0,
         level: 3,
-        seconds: 10,
+        seconds: over.seconds ?? 120,
         hash: '0123456789abcdef',
         payout: '{}',
         runs_version: 0,
@@ -54,6 +59,17 @@ async function finishedRuns(account: string, n: number, over: { boss_kills?: num
       .execute();
   }
 }
+
+test('las partidas de menos de un minuto o sin terminar no cuentan para los desbloqueos', async () => {
+  const { cookie, id } = await player();
+  await takeTest(cookie, answersFor('lumen'));
+  // Three runs abandoned in seconds, and three never finished: none of them is playing.
+  await finishedRuns(id, 3, { seconds: 30 });
+  await finishedRuns(id, 3, { finished: false });
+  expect((await hangar(cookie)).probes.find((p) => p.id === 'bastion')).toMatchObject({ unlocked: false, progress: 0 });
+  await finishedRuns(id, 3, { seconds: 60 });
+  expect((await hangar(cookie)).probes.find((p) => p.id === 'bastion')).toMatchObject({ unlocked: true });
+});
 
 test('el test asigna la sonda, la guarda y la elige en el Hangar', async () => {
   const { cookie } = await player();

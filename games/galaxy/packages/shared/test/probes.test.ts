@@ -73,6 +73,18 @@ describe('desbloqueos', () => {
     }
   });
 
+  test('las iniciales son las del test, no un ajuste: la configuración no las cambia', () => {
+    expect(() => parseConfig('probes', { starters: ['lumen', 'bastion', 'comet'] })).toThrow();
+    const zero: RunStats = { runs: 0, bossKills: 0, maxDepth: 0, extractions: 0, kills: 0 };
+    for (const probe of STARTERS.filter((p) => p !== 'lumen')) expect(probeStatus(probe, 'lumen', zero, cfg).condition).toEqual(cfg.starterUnlock);
+  });
+
+  test('solo cuentan las partidas de al menos un minuto (ajustable)', () => {
+    expect(cfg.minRunSeconds).toBe(60);
+    expect(parseConfig('probes', { minRunSeconds: 0 }).minRunSeconds).toBe(0);
+    expect(() => parseConfig('probes', { minRunSeconds: -1 })).toThrow();
+  });
+
   test('una sonda sin condición en la configuración no se puede conseguir', () => {
     expect(probeStatus('nope', 'lumen', { ...none, runs: 999 }, cfg)).toEqual({ unlocked: false, condition: null, progress: 0 });
   });

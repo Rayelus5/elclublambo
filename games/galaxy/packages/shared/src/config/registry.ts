@@ -159,10 +159,13 @@ export const configSchemas = {
       startPerHour: limit(30),
     })
     .strict(),
-  /** Probes (GDD §6): the three starters the test chooses from, and what earns every other probe. */
+  /**
+   * Probes (GDD §6): what earns every probe but the test's one. The three starters are the test's (STARTERS), not a
+   * setting: the questions, profiles and reveal are written for them. Only runs of `minRunSeconds` or more count.
+   */
   probes: z
     .object({
-      starters: z.array(z.string().regex(/^[a-z0-9-]{1,32}$/)).length(3).default(['lumen', 'bastion', 'spark']),
+      minRunSeconds: z.number().int().min(0).max(3600).default(60),
       starterUnlock: z.object({ stat: z.enum(['runs', 'bossKills', 'maxDepth', 'extractions', 'kills']), value: z.number().int().min(1).max(1_000_000) }).strict().default({ stat: 'runs', value: 3 }),
       unlocks: z.record(z.string().regex(/^[a-z0-9-]{1,32}$/), z.object({ stat: z.enum(['runs', 'bossKills', 'maxDepth', 'extractions', 'kills']), value: z.number().int().min(1).max(1_000_000) }).strict()).default({
         sentinel: { stat: 'bossKills', value: 3 },
