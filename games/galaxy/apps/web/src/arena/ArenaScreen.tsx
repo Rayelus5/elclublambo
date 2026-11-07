@@ -72,7 +72,12 @@ export function ArenaScreen({
   const [manualAim, setAim] = useState(storedAim);
   const aimRef = useRef(manualAim);
   // PERKINS's first line, unless this player has heard it (marked as heard once shown, below).
-  const [radio, setRadio] = useState<string | null>(() => (radioSeen('start') ? null : copy.arena.radio.start));
+  // The first run ever explains the controls; after that, a new sector introduces itself once.
+  const [radio, setRadio] = useState<string | null>(() => {
+    if (!radioSeen('start')) return copy.arena.radio.start;
+    const intro = copy.arena.radio.sectors[run.sector];
+    return intro && !radioSeen(`sector:${run.sector}`) ? intro : null;
+  });
   const [over, setOver] = useState(false);
   const [announce, setAnnounce] = useState('');
   const [ending, setEnding] = useState<'extracted' | 'died' | null>(null);
@@ -129,7 +134,11 @@ export function ArenaScreen({
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);
       for (const e of events) {
-        if (e.t === 'bossSpawn') say('boss', copy.arena.radio.boss);
+        if (e.t === 'bossSpawn') {
+          const line = copy.arena.radio.bosses[e.boss];
+          if (line) say(`boss:${e.boss}`, line);
+          else say('boss', copy.arena.radio.boss);
+        }
         else if (e.t === 'beaconOpen') say('beacon', copy.arena.radio.beacon);
         else if (e.t === 'layer') say('layer', copy.arena.radio.layer(e.layer));
       }
@@ -169,7 +178,8 @@ export function ArenaScreen({
       stageRef.current?.resize(w, h);
       setSize({ w, h });
     };
-    void createStage(canvas, run.content, { reduced, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed }).then((stage) => {
+    const biome = run.content.sectors.find((s) => s.id === run.sector)?.biome ?? 'nebula';
+    void createStage(canvas, run.content, { reduced, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -210,7 +220,8 @@ export function ArenaScreen({
 
   useEffect(() => {
     if (radio === copy.arena.radio.start) markRadioSeen('start');
-  }, [radio]);
+    else if (radio && radio === copy.arena.radio.sectors[run.sector]) markRadioSeen(`sector:${run.sector}`);
+  }, [radio, run.sector]);
 
   useEffect(() => {
     if (!radio) return;

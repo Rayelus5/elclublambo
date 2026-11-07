@@ -458,6 +458,20 @@ export const copy = {
       boss: 'PERKINS: Núcleo de la Estática en el radar. Es grande. Tú también, más o menos',
       beacon: 'PERKINS: Baliza abierta. Tienes un minuto para llegar o bajamos una capa',
       layer: (n: number) => `PERKINS: Capa ${n}. Aquí la Estática muerde más fuerte, y el botín también`,
+      // The first run in each new sector, and the first time each new Core shows up (GDD §15: one line, skippable).
+      sectors: {
+        'frost-rings': 'PERKINS: Anillos de Escarcha. Si oyes cantar al hielo, apártate: la Estática lo afila',
+        'hollow-reef': 'PERKINS: El Arrecife Hueco. Las medusas curan a las demás. Empieza por ellas',
+        'broken-forge': 'PERKINS: La Forja Rota. Una línea roja es un disparo que viene. No te quedes en ella',
+        'signal-rift': 'PERKINS: La Fisura. La Estática habla por aquí y no entiendo lo que dice. Eso me preocupa',
+      } as Record<string, string>,
+      bosses: {
+        glacier: 'PERKINS: La Madre Glaciar. Sus muros siempre tienen un hueco. Búscalo antes de que llegue',
+        anemone: 'PERKINS: La Anémona Rey. Los círculos del suelo explotan. Sal de ellos',
+        anvil: 'PERKINS: El Yunque. Embiste en línea recta y deja minas. Muévete de lado',
+        'echo-core': 'PERKINS: Esto es más hondo que un Núcleo. Lo llamo el Eco. No me gusta cómo me mira',
+        signal: 'PERKINS: La Señal. Desaparece y vuelve donde menos quieres. Mira dónde parpadea el suelo',
+      } as Record<string, string>,
     },
     announce: {
       level: (n: number) => `Nivel ${n}`,

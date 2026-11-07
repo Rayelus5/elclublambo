@@ -1,4 +1,4 @@
-import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnEnemy, step } from '@galaxy/sim';
+import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -160,3 +160,33 @@ test('al morir un enemigo marcado o aturdido no quedan su gota ni sus estrellas'
   stage.render(sim, 1);
   expect(layer.children.filter((c) => c.visible)).toHaveLength(0);
 }, 60_000);
+
+// M3b-3: every sector's ground, with its fauna around the probe and its Core firing, so the biome and the new warnings
+// (lances, blink marks, mines, support pulses) are on screen.
+for (const sector of DEFAULT_CONTENT.sectors) {
+  test(`el bioma de ${sector.name}: su suelo, su fauna, su Núcleo y sus avisos`, async () => {
+    const sim = createSim({ seed: '3', content: DEFAULT_CONTENT, sector: sector.id, probes: [{ probe: 'lumen', relics: [] }] });
+    sim.probes[0]!.hp = 1e9;
+    const species = [...new Set(sector.spawns.map((sp) => sp.enemy))];
+    species.forEach((id, k) => {
+      const def = DEFAULT_CONTENT.enemies.find((e) => e.id === id)!;
+      for (let j = 0; j < 2; j++) {
+        const a = ((k * 2 + j) / (species.length * 2)) * Math.PI * 2;
+        spawnEnemy(sim, def, Math.cos(a) * 150, Math.sin(a) * 110);
+      }
+    });
+    spawnBoss(sim);
+    const tail: Sim['events'][] = [];
+    for (let t = 0; t < 4 * 60; t++) {
+      step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
+      if (t > 3 * 60) tail.push([...sim.events]);
+    }
+    const canvas = await mount(1280, 720);
+    stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '3', preserve: true, biome: sector.biome });
+    stage.resize(1280, 720);
+    tail.forEach((ev) => stage!.feed(ev));
+    stage.render(sim, 1);
+    expect(distinctColours(canvas)).toBeGreaterThan(20);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/biome-${sector.id}.png`, element: canvas });
+  }, 90_000);
+}
