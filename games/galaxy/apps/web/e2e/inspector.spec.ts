@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { expect, test } from './fixtures';
+import { expect, skipProbeTest, test } from './fixtures';
 
 // The 3D inspector in the production build with the real CSP (GDD §8.1, §18.1): its chunk (three.js) is requested only
 // when it opens, it draws, it turns to the back, and nothing violates the Content Security Policy.
@@ -21,6 +21,7 @@ test('el inspector 3D carga three.js al abrirse, se dibuja y no viola la CSP', a
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await skipProbeTest(page);
   await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   const res = await page.request.post('/galaxy/api/gacha/pull', {
     headers: { origin: baseURL!, 'idempotency-key': randomUUID() },

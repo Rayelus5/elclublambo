@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { type Page, expect, test } from './fixtures';
+import { type Page, expect, skipProbeTest, test } from './fixtures';
 import { Secret, TOTP } from 'otpauth';
 import { ADMIN_FILE } from './state';
 
@@ -25,6 +25,7 @@ test('crear cuenta, pantalla de título, salir y volver a entrar con el nombre e
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await skipProbeTest(page);
   await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   // The router writes home as /galaxy; the server redirects that to /galaxy/ on reload. Both are home.
   await expect(page).toHaveURL(/\/galaxy\/?$/);

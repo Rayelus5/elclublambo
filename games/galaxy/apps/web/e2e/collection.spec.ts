@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { type Page, expect, test } from './fixtures';
+import { type Page, expect, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
 // The collection against the real server (GDD §8.5): cards drawn by the engine, the detail, disintegrating for the
@@ -16,6 +16,7 @@ async function playerWithGalaxies(page: Page, baseURL: string, extraPulls: numbe
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await skipProbeTest(page);
   await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   if (extraPulls > 0) {
     const env = { ...process.env, ...E2E_ENV };

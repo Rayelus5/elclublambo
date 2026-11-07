@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { type Page, expect, test } from './fixtures';
+import { type Page, expect, skipProbeTest, test } from './fixtures';
 
 // The title screen against the real server (GDD §4): a new account gets the welcome signals, sees them in the top
 // bar with the free pull, and after scanning finds its galaxies in the collection panel. Writes e2e_* accounts only.
@@ -12,6 +12,7 @@ async function newAccount(page: Page): Promise<string> {
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await skipProbeTest(page);
   await expect(page.locator('.hud').getByText(username, { exact: true })).toBeVisible();
   return username;
 }

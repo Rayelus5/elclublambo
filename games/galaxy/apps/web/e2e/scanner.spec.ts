@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { expect, test } from './fixtures';
+import { expect, skipProbeTest, test } from './fixtures';
 
 // The deep scan against the real server (GDD §9): a new account gets its welcome signals, sees the odds and the
 // guarantee before paying, scans ten, watches the reveal begin, skips to the summary and finds the ten galaxies in
@@ -17,6 +17,7 @@ test('una cuenta nueva recibe la bienvenida, escanea 10, ve el resumen y las enc
   await page.getByLabel('Contraseña', { exact: true }).fill(PASS);
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
+  await skipProbeTest(page);
   await page.getByRole('link', { name: /Escáner profundo/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/escaner$/);
 
