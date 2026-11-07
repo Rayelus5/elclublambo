@@ -199,6 +199,31 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
 
+## 8 quater. Arena de las incursiones
+
+La pantalla del juego en sí (GDD §5, §17.2–17.3). PixiJS v8 solo dibuja la simulación; el HUD es React encima (§8 quinquies). Consulta de ui-ux-pro-max: estilo *pixel art* (nitidez sin suavizado, paleta limitada, animación por fotogramas), contraste ≥ 4,5:1 en todo texto, poco movimiento a la vez y respeto de `prefers-reduced-motion`.
+
+- **Escala:** zoom entero (`round(alto / 340)`, mínimo 1) con muestreo `nearest`; la cámara se redondea a píxeles de pantalla. Se ve una altura de mundo de ~340 u (300–400 según el monitor) y como mucho **21:9** de ancho; lo que sobra son **bandas laterales** con estática tramada oscura y un filete `--panel-lip`, sin ventaja de visión.
+- **Suelo:** `--void` con nubes de nebulosa tramadas (Bayer 4×4) en violeta y azul muy apagados (contraste ≤ 1,6:1 con el fondo), rocas oscuras y motas braille. Todo es decoración sin colisión, determinista por trozos de 256 u, con un leve paralaje de estrellas al 50 %.
+- **Sprites (pixel art en código, contorno de 1 px `#0b0c24`, luz arriba a la izquierda):**
+  - **Sonda Lumen:** cuerpo hielo y blanco con visor cian y propulsor Solar que parpadea; mira hacia donde se mueve (volteo horizontal).
+  - **Fauna de la Estática:** cada especie con su tono para reconocerla al vuelo, con acentos magenta y cian de la Estática. Ácaro: magenta. Célula: violeta. Manta: azul tinta con bordes magenta. Coral: coral y naranja. Caparazón: placas acero con núcleo magenta, y su frente blindado es un arco claro visible. Jefe: colmena de 40 px con celdas, grietas y núcleo que late.
+  - **Proyectiles:** los propios son claros y fríos (hielo, Solar, violeta del arco); los enemigos son círculos `--static` con centro blanco y contorno, siempre distinguibles por forma y color de los propios.
+  - **Botín:** fragmentos de datos como gemas braille (hielo 1, verde 5, Solar 25), monedas Solar, polvo hielo centelleante y kit de reparación verde con cruz.
+- **Capas:** suelo → decoración → recogidas → áreas (charcos, novas, auras, campo lento) → avisos → enemigos → sondas → disparos → efectos y números.
+- ***Juice*:**
+  - **Golpe:** destello blanco de 6 ticks y número de daño (Fredoka 700 blanco con contorno oscuro; crítico Solar y más grande) que sube 18 px y se apaga en 0,6 s. Como mucho 60 números a la vez; los demás se suman al último.
+  - **Bajas:** explosión de 6–10 partículas del color de la especie.
+  - **Elementos:** partículas de su color (quemadura naranja, ralentización azul, corrosión verde, descarga violeta, hackeo ámbar, robo de vida rojo, escudo esmeralda, rebote neón).
+  - **Daño recibido:** sacudida de 3 a 6 px que decae al 85 % por fotograma, más un borde rojo en la pantalla (HUD).
+  - **Élites y jefe:** cada 0,8 s, durante 80 ms, glitch de la Estática con copias desplazadas 1 px en rojo y cian.
+- **Avisos (siempre antes del golpe):**
+  - **Embestida:** banda roja translúcida que late, con flecha.
+  - **Ráfaga del jefe:** anillo que se cierra.
+  - **Explosión de Inestable:** círculo rojo que se llena.
+- **Baliza de extracción:** anillo Terminal con puntos braille que giran, haz vertical y arco de progreso mientras estás dentro.
+- **Movimiento reducido:** sin sacudida ni glitch (un tinte fijo marca élites y jefe), mitad de partículas, números sin desplazamiento (solo fundido).
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
