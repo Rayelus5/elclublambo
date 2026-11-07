@@ -11,6 +11,11 @@ import {
   type SectorsConfig,
   type SectorStats,
   sectorStatus,
+  probeLevelBonuses,
+  probeLevelNext,
+  probeMaxLevel,
+  probeVariantCards,
+  startingWeapon,
 } from '@galaxy/shared';
 import type { Content, RelicInput } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -124,10 +129,18 @@ export async function testedProbe(db: Kysely<DB>, accountId: string): Promise<st
   return row?.probe ?? null;
 }
 
-function probeCards(content: Content, assigned: string | null, stats: RunStats, cfg: ProbesConfig): ProbeCard[] {
+/** Each probe's card; `levels` holds the probes the account has levelled (the rest are level 1 with their base weapon). */
+export function probeCards(
+  content: Content,
+  assigned: string | null,
+  stats: RunStats,
+  cfg: ProbesConfig,
+  levels: Record<string, { level: number; variant: string | null }> = {},
+): ProbeCard[] {
   return content.probes.map((p) => {
     const w = content.weapons.find((x) => x.id === p.weapon);
     const status = assigned ? probeStatus(p.id, assigned, stats, cfg) : { unlocked: false, condition: null, progress: 0 };
+    const level = Math.min(levels[p.id]?.level ?? 1, probeMaxLevel(cfg));
     return {
       id: p.id,
       name: p.name,
@@ -138,6 +151,12 @@ function probeCards(content: Content, assigned: string | null, stats: RunStats, 
       weapon: { id: p.weapon, name: w?.name ?? p.weapon, icon: w?.icon ?? '' },
       quirk: p.quirk?.kind ?? null,
       ...status,
+      level,
+      maxLevel: probeMaxLevel(cfg),
+      next: probeLevelNext(level, cfg),
+      bonuses: probeLevelBonuses(level, cfg),
+      variant: startingWeapon(p, level, levels[p.id]?.variant ?? null, content),
+      variants: probeVariantCards(p, level, content),
     };
   });
 }

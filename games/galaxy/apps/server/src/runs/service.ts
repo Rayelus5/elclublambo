@@ -64,6 +64,9 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
     sector: req.sector,
     probe: req.probe,
     relics,
+    // Level 1 with the base weapon until the probe levels arrive (M4b-1 Task 4).
+    bonuses: [],
+    variant: null,
     content: ctx.content,
     contentVersion: ctx.contentVersion,
     startedAt: new Date(row.started_at).toISOString(),

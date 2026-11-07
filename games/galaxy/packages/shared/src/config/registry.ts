@@ -1,4 +1,4 @@
-import { contentSchema } from '@galaxy/sim';
+import { contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { z } from 'zod';
 import { TRAIT_KEYS } from '../gacha/types';
 
@@ -180,6 +180,33 @@ export const configSchemas = {
         comet: { stat: 'kills', value: 2000 },
         echo: { stat: 'runs', value: 15 },
       }),
+      /**
+       * Probe levels (GDD §6, M4b-1): what each level above 1 adds to the probe's stats (a sim stat source, so it goes
+       * through the diminishing returns and caps of §8.6) and what reaching each level costs (costs[i] → level i + 2).
+       */
+      levels: z
+        .object({
+          perLevel: z.partialRecord(z.enum(STAT_KEYS), z.number().min(0).max(0.2)),
+          costs: z
+            .array(z.object({ components: z.number().int().min(0).max(1_000_000), coins: z.number().int().min(0).max(100_000_000) }).strict())
+            .min(1)
+            .max(19),
+        })
+        .strict()
+        .default({
+          perLevel: { maxHp: 0.03, damage: 0.02 },
+          costs: [
+            { components: 20, coins: 300 },
+            { components: 35, coins: 600 },
+            { components: 60, coins: 1000 },
+            { components: 90, coins: 1600 },
+            { components: 130, coins: 2400 },
+            { components: 180, coins: 3400 },
+            { components: 240, coins: 4600 },
+            { components: 310, coins: 6000 },
+            { components: 400, coins: 8000 },
+          ],
+        }),
     })
     .strict(),
   /**

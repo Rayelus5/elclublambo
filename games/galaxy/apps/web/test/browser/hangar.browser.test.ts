@@ -1,5 +1,6 @@
 import type { GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { levelOne } from '../probe-cards';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -29,7 +30,7 @@ const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record
 const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
   const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
   const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
-  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...over };
+  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
 };
 
 const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
