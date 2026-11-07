@@ -181,6 +181,14 @@ export interface GachaPullsTable {
 
 /** Hangar (GDD §5.1, §8.4): chosen probe and open relic slots. */
 /** The station (M4a, GDD §10): the level of each room, the refinery's queue and the antenna's clock. */
+/** M4b-2: a Laboratorio node an account has bought, and its level (no row: level 0). */
+export interface LabNodesTable {
+  account_id: string;
+  node: string;
+  level: number;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 /** M4b-1: a probe's level and chosen starting weapon (no row: level 1, base weapon). */
 export interface ProbeLevelsTable {
   account_id: string;
@@ -299,6 +307,7 @@ export interface DB {
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
+  'galaxy.lab_nodes': LabNodesTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
   'galaxy.antenna': AntennaTable;
