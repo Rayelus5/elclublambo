@@ -250,6 +250,8 @@ export const copy = {
   loading: 'Cargando',
   hangar: {
     title: 'Hangar',
+    arenaFailed: 'No se pudo cargar la arena. Recarga la página para volver al hangar',
+    reload: 'Recargar',
     back: 'Volver al inicio',
     sector: 'Sector',
     fauna: 'Fauna',

@@ -51,7 +51,7 @@ export function createLoop(deps: LoopDeps): Loop {
     start() {
       if (running) return;
       running = true;
-      paused = false;
+      // A pause asked for while the stage was loading stays: start never unpauses.
       acc = 0;
       last = deps.now();
       deps.schedule(frame);

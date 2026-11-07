@@ -1,8 +1,9 @@
 import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, RunResult } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
+import type { RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
 import { jsonResponse, mockApi, renderAt } from './render';
@@ -10,7 +11,16 @@ import { jsonResponse, mockApi, renderAt } from './render';
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe, relic slots and the daily yield before launching; and a run
 // whose result never reached the server is sent again with the same key (Review Focus 2).
 
-vi.mock('../src/arena/ArenaScreen', () => ({ ArenaScreen: () => <div data-testid="arena" />, default: () => <div data-testid="arena" /> }));
+// The arena is replaced by a stub that keeps its props (to end a run by hand) and can fail like a chunk that did not load.
+const arena = vi.hoisted(() => ({ props: null as null | { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }, fail: false }));
+vi.mock('../src/arena/ArenaScreen', () => {
+  const Stub = (p: { onEnd: (e: RunEnd) => void; onSave?: (e: RunEnd) => void }) => {
+    if (arena.fail) throw new Error('Failed to fetch dynamically imported module');
+    arena.props = p;
+    return <div data-testid="arena" />;
+  };
+  return { ArenaScreen: Stub, default: Stub };
+});
 
 const galaxy = (over: Partial<GalaxySummary> = {}): GalaxySummary => ({
   id: 'g1',
@@ -66,6 +76,8 @@ const body: FinishRunRequest = { outcome: 'extracted', ticks: 21600, depth: 1, k
 
 beforeEach(() => {
   localStorage.clear();
+  arena.props = null;
+  arena.fail = false;
 });
 
 test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas y 4 cerradas, y el premio del día', async () => {
@@ -152,4 +164,62 @@ test('con las incursiones cerradas no se puede lanzar y se dice por qué', async
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   expect(await screen.findByRole('button', { name: copy.hangar.launch })).toBeDisabled();
   expect(screen.getByText(copy.errors.runs_disabled)).toBeInTheDocument();
+});
+
+const started = { id: 'r1', seed: '1', sector: 'outer-nebula', probe: 'lumen', relics: [], content: DEFAULT_CONTENT, contentVersion: 0, startedAt: '2026-11-07T10:00:00Z' };
+const end: RunEnd = {
+  outcome: 'died',
+  summary: { ticks: 21600, outcome: 'dead', depth: 1, kills: 640, bossKills: 0, level: 15, loot: [{ coins: 40.6, dust: 12.2 }], hash: '0123456789abcdef' },
+  inputs: 'AQEA',
+};
+
+test('el resultado se guarda en cuanto acaba la partida y luego se envía con esa misma clave', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'POST /galaxy/api/runs': () => jsonResponse(200, started),
+    'POST /galaxy/api/runs/r1/finish': () => jsonResponse(200, { ...result, outcome: 'died' }),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  fireEvent.click(await screen.findByRole('button', { name: copy.hangar.launch }));
+  await screen.findByTestId('arena');
+  act(() => arena.props!.onSave!(end));
+  const kept = loadPending();
+  expect(kept).toMatchObject({ runId: 'r1', body: { outcome: 'died', loot: [{ coins: 40, dust: 12 }] } });
+  act(() => arena.props!.onEnd(end));
+  expect(await screen.findByRole('heading', { name: copy.results.died })).toBeInTheDocument();
+  const keys = fetch.mock.calls.filter(([url]) => url === '/galaxy/api/runs/r1/finish').map(([, init]) => (init!.headers as Record<string, string>)['idempotency-key']);
+  expect(keys).toEqual([kept!.key]);
+});
+
+test.each([
+  [401, 'unauthorized'],
+  [403, 'forbidden'],
+  [429, 'rate_limited'],
+])('un %i al enviar el final no lo borra: se conserva y se ofrece Reintentar', async (status, error) => {
+  savePending({ runId: 'r1', key: 'k-12345678', body });
+  mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'POST /galaxy/api/runs/r1/finish': () => jsonResponse(status, { error }),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  expect(await screen.findByRole('button', { name: copy.results.retry })).toBeInTheDocument();
+  expect(loadPending()).toMatchObject({ runId: 'r1', key: 'k-12345678' });
+  clearPending();
+});
+
+test('si la arena no carga, se dice y se ofrece recargar en vez de dejar la pantalla en blanco', async () => {
+  arena.fail = true;
+  const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'POST /galaxy/api/runs': () => jsonResponse(200, started),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    fireEvent.click(await screen.findByRole('button', { name: copy.hangar.launch }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(copy.hangar.arenaFailed);
+    expect(screen.getByRole('button', { name: copy.hangar.reload })).toBeInTheDocument();
+  } finally {
+    quiet.mockRestore();
+  }
 });

@@ -16,7 +16,8 @@ import { createStage, type Stage } from './stage/stage';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
-// window loses focus. When the run ends the recorded inputs go back with the result.
+// window loses focus. When the run ends the result (with the recorded inputs) is handed over at once to be kept
+// (onSave), and the screen changes a moment later (onEnd).
 
 export interface RunEnd {
   outcome: 'extracted' | 'died' | 'abandoned';
@@ -36,7 +37,20 @@ const RADIO_MS = 7000;
 
 const browserClock: Clock = { now: () => performance.now(), schedule: (cb) => requestAnimationFrame(cb) };
 
-export function ArenaScreen({ run, onEnd, clock = browserClock, onSim }: { run: RunStart; onEnd: (end: RunEnd) => void; clock?: Clock; onSim?: (sim: Sim) => void }) {
+export function ArenaScreen({
+  run,
+  onEnd,
+  onSave,
+  clock = browserClock,
+  onSim,
+}: {
+  run: RunStart;
+  onEnd: (end: RunEnd) => void;
+  /** Called the moment the run ends, before the ending screen: keep the result so a reload never loses it. */
+  onSave?: (end: RunEnd) => void;
+  clock?: Clock;
+  onSim?: (sim: Sim) => void;
+}) {
   const [sim] = useState(() =>
     createSim({ seed: run.seed, content: run.content, sector: run.sector, probes: [{ probe: run.probe, relics: run.relics }], record: true }),
   );
@@ -64,12 +78,23 @@ export function ArenaScreen({ run, onEnd, clock = browserClock, onSim }: { run: 
     onSim?.(sim);
   }, [onSim, sim]);
 
+  const handlers = useRef({ onEnd, onSave });
+  useEffect(() => {
+    handlers.current = { onEnd, onSave };
+  });
+  /** Builds the result, hands it over to be kept, and ends the screen now or after `delay` ms. */
   const finish = useCallback(
-    (outcome: RunEnd['outcome']) => {
-      onEnd({ outcome, summary: runSummary(sim), inputs: toBase64(encodeLog(sim.log ?? { probes: 1, events: [] })) });
+    (outcome: RunEnd['outcome'], delay = 0) => {
+      const end: RunEnd = { outcome, summary: runSummary(sim), inputs: toBase64(encodeLog(sim.log ?? { probes: 1, events: [] })) };
+      handlers.current.onSave?.(end);
+      if (delay > 0) setTimeout(() => handlers.current.onEnd(end), delay);
+      else handlers.current.onEnd(end);
     },
-    [onEnd, sim],
+    [sim],
   );
+  const choose = useCallback((i: number) => {
+    pick.current = i;
+  }, []);
 
   const say = useCallback((id: string, text: string) => {
     if (radioSeen(id)) return;
@@ -117,7 +142,7 @@ export function ArenaScreen({ run, onEnd, clock = browserClock, onSim }: { run: 
           ended.current = true;
           const outcome = sim.status === 'extracted' ? 'extracted' : 'died';
           setEnding(outcome);
-          setTimeout(() => finish(outcome), END_DELAY_MS);
+          finish(outcome, END_DELAY_MS);
         }
       },
       render: (alpha) => stageRef.current?.render(sim, sim.status === 'running' ? alpha : 1),
@@ -259,13 +284,7 @@ export function ArenaScreen({ run, onEnd, clock = browserClock, onSim }: { run: 
         </div>
       )}
       {choosing && (
-        <LevelUp
-          offer={hud.offer!}
-          content={run.content}
-          onPick={(i) => {
-            pick.current = i;
-          }}
-        />
+        <LevelUp offer={hud.offer!} content={run.content} onPick={choose} />
       )}
       {paused && !over && !ending && (
         <PauseMenu

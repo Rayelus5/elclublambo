@@ -1,6 +1,6 @@
 import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type RunResult, type RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Component, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import type { RunEnd } from '../arena/ArenaScreen';
 import { spriteDataUrl } from '../arena/sprites';
@@ -22,8 +22,34 @@ import { ResultsScreen } from './ResultsScreen';
 
 const ArenaScreen = lazy(() => import('../arena/ArenaScreen'));
 
+/** Errors after which the result is kept to send again: no answer, the server, a session to renew or a rate limit. */
 function lost(e: unknown): boolean {
-  return !(e instanceof ApiError) || e.status === 0 || e.status >= 500;
+  return !(e instanceof ApiError) || e.status === 0 || e.status >= 500 || e.status === 401 || e.status === 403 || e.status === 429;
+}
+
+/** A chunk that did not load (a network blip, a deploy) says so instead of blanking the app. */
+class ArenaBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override render(): ReactNode {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <div className="screen-root hangar-root">
+        <div className="hangar">
+          <div className="results sending" role="alert">
+            <p>{copy.hangar.arenaFailed}</p>
+            <button type="button" className="lip pill pill-solar" onClick={() => window.location.reload()}>
+              {copy.hangar.reload}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 }
 
 function relicInput(g: GalaxySummary): RelicInput {
@@ -235,8 +261,12 @@ export function HangarScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function ended(end: RunEnd): void {
-    if (!run) return;
+  const kept = useRef<PendingRun | null>(null);
+
+  /** Keeps the result (with its key) the moment the run ends; the same run is kept once. */
+  function keep(end: RunEnd): PendingRun | null {
+    if (!run) return null;
+    if (kept.current?.runId === run.id) return kept.current;
     const s = end.summary;
     const body: FinishRunRequest = {
       outcome: end.outcome,
@@ -251,6 +281,13 @@ export function HangarScreen() {
     };
     const p: PendingRun = { runId: run.id, key: crypto.randomUUID(), body };
     savePending(p);
+    kept.current = p;
+    return p;
+  }
+
+  function ended(end: RunEnd): void {
+    const p = keep(end);
+    if (!p) return;
     setPending(p);
     setRun(null);
     send(p);
@@ -258,9 +295,11 @@ export function HangarScreen() {
 
   if (run) {
     return (
-      <Suspense fallback={<Splash label={copy.arena.loading} />}>
-        <ArenaScreen run={run} onEnd={ended} />
-      </Suspense>
+      <ArenaBoundary>
+        <Suspense fallback={<Splash label={copy.arena.loading} />}>
+          <ArenaScreen run={run} onEnd={ended} onSave={keep} />
+        </Suspense>
+      </ArenaBoundary>
     );
   }
 

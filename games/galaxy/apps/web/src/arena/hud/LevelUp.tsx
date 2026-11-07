@@ -5,6 +5,7 @@ import { Dialog } from '../../ui/Dialog';
 import { spriteDataUrl } from '../sprites';
 
 // The level-up choice (GDD §5.1): 1 of 3. Number keys pick, the arrows move, Enter confirms; a click confirms at once.
+// With a gamepad the D-pad or the left stick moves and A confirms (on the press, not while held).
 // The world is frozen until the choice is made (the simulation waits), so Escape does nothing here.
 
 function describe(content: Content, o: Offer): { name: string; icon: string; tag: string; text: string } {
@@ -46,6 +47,34 @@ export function LevelUp({ offer, content, onPick }: { offer: Offer[]; content: C
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [offer, onPick]);
+
+  const count = offer.length;
+  useEffect(() => {
+    if (typeof navigator.getGamepads !== 'function' || typeof requestAnimationFrame !== 'function') return;
+    const read = () => {
+      const pad = navigator.getGamepads()[0];
+      if (!pad) return null;
+      const on = (i: number) => pad.buttons[i]?.pressed ?? false;
+      const x = pad.axes[0] ?? 0;
+      const y = pad.axes[1] ?? 0;
+      return { next: on(15) || on(13) || x > 0.5 || y > 0.5, prev: on(14) || on(12) || x < -0.5 || y < -0.5, pick: on(0) };
+    };
+    // What is already held when the dialog opens does not count.
+    let was = read() ?? { next: false, prev: false, pick: false };
+    let raf = 0;
+    const poll = () => {
+      const now = read();
+      if (now) {
+        if (now.next && !was.next) setSel((s) => (s + 1) % count);
+        if (now.prev && !was.prev) setSel((s) => (s + count - 1) % count);
+        if (now.pick && !was.pick) onPick(selRef.current);
+        was = now;
+      }
+      raf = requestAnimationFrame(poll);
+    };
+    raf = requestAnimationFrame(poll);
+    return () => cancelAnimationFrame(raf);
+  }, [count, onPick]);
 
   return (
     <Dialog title={copy.arena.levelUp} onClose={() => {}} onEscape={() => {}} closeOnVeil={false} className="levelup">

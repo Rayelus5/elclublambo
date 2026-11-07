@@ -53,12 +53,14 @@ function manualClock() {
 
 let sim: Sim;
 let ended: RunEnd | null;
+let saved: RunEnd | null;
 let clock: ReturnType<typeof manualClock>;
 
 async function mount() {
   ended = null;
+  saved = null;
   clock = manualClock();
-  const view = render(<ArenaScreen run={run} onEnd={(e) => (ended = e)} clock={clock} onSim={(s) => (sim = s)} />);
+  const view = render(<ArenaScreen run={run} onEnd={(e) => (ended = e)} onSave={(e) => (saved = e)} clock={clock} onSim={(s) => (sim = s)} />);
   await act(async () => {
     await Promise.resolve();
   });
@@ -166,4 +168,69 @@ test('al caer la sonda, la partida termina como muerta tras un momento', async (
   expect(ended).toBeNull();
   tick(2000);
   expect(ended).toMatchObject({ outcome: 'died' });
+});
+
+test('al terminar, el resultado sale al momento para guardarlo, antes de cambiar de pantalla', async () => {
+  await mount();
+  clock.frames(3);
+  const p = sim.probes[0]!;
+  p.hp = 0;
+  p.alive = false;
+  sim.status = 'dead';
+  clock.frames(1);
+  expect(saved).toMatchObject({ outcome: 'died' });
+  expect(ended).toBeNull();
+  tick(2000);
+  expect(ended).toEqual(saved);
+});
+
+test('perder el foco mientras carga la arena la deja en pausa al terminar de cargar', async () => {
+  ended = null;
+  clock = manualClock();
+  render(<ArenaScreen run={run} onEnd={(e) => (ended = e)} clock={clock} onSim={(s) => (sim = s)} />);
+  act(() => {
+    window.dispatchEvent(new Event('blur'));
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+  clock.frames(30);
+  expect(sim.tick).toBe(0);
+  expect(screen.getByRole('dialog', { name: copy.arena.pause })).toBeInTheDocument();
+});
+
+test('con mando: la cruceta y el stick mueven la selección de mejora y A la elige', async () => {
+  const pad = { axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false })) };
+  Object.defineProperty(navigator, 'getGamepads', { value: () => [pad], configurable: true });
+  try {
+    await mount();
+    clock.frames(2);
+    const p = sim.probes[0]!;
+    p.pendingLevels = 1;
+    p.offer = offerFor(sim, p);
+    sim.status = 'choosing';
+    tick(150);
+    const options = within(screen.getByRole('dialog', { name: copy.arena.levelUp })).getAllByRole('radio');
+    pad.buttons[15]!.pressed = true;
+    tick(50);
+    pad.buttons[15]!.pressed = false;
+    tick(50);
+    expect(options[1]).toHaveAttribute('aria-checked', 'true');
+    pad.axes[0] = 0.9;
+    tick(50);
+    pad.axes[0] = 0;
+    tick(50);
+    expect(options[2]).toHaveAttribute('aria-checked', 'true');
+    const wanted = p.offer[2]!;
+    pad.buttons[0]!.pressed = true;
+    tick(50);
+    pad.buttons[0]!.pressed = false;
+    clock.frames(2);
+    tick(150);
+    expect(sim.status).toBe('running');
+    const owned = wanted.kind === 'weapon' ? p.weapons : p.passives;
+    expect(owned).toContainEqual(expect.objectContaining({ id: wanted.id, level: wanted.level }));
+  } finally {
+    delete (navigator as { getGamepads?: unknown }).getGamepads;
+  }
 });

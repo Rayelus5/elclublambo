@@ -76,3 +76,17 @@ test('stop deja de pedir fotogramas', () => {
   h.frame(100);
   expect(h.steps()).toBe(before);
 });
+
+test('una pausa antes de arrancar se respeta: la partida no corre detrás del menú', () => {
+  const h = harness();
+  h.loop.pause();
+  h.loop.start();
+  expect(h.loop.paused).toBe(true);
+  h.frame(100);
+  h.frame(100);
+  expect(h.steps()).toBe(0);
+  h.loop.resume();
+  h.frame(1000 / 60);
+  h.frame(1000 / 60);
+  expect(h.steps()).toBeGreaterThan(0);
+});
