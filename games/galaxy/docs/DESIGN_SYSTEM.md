@@ -215,7 +215,7 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
       - Una losa con «Nivel 3 de 10» y diez pips: los conseguidos en Terminal con brillo y los que faltan en `--panel-lip`.
       - Debajo, lo que da el nivel en Terminal («+6 % de vida y +4 % de daño»).
       - El botón Solar «Subir a nivel 4», con su coste («60 componentes y 1000 monedas»). Sin fondos está desactivado y dice «Te faltan…»; al 10 dice «Nivel máximo».
-    - **Arma inicial:** un grupo de tarjetas de radio (la base y sus dos variantes), con nombre y qué hace.
+    - **Arma inicial:** un grupo de tarjetas de radio (la base y sus dos variantes), con nombre y qué hace. Las tarjetas van en columnas de 260 px como mínimo: una por fila cuando el panel es estrecho.
       - Cada tarjeta lleva la escena del arma en acción, pintada en Aseprite: 32×32 a ×2, cuatro fotogramas con `steps(4)`, quieta con movimiento reducido. Las fuentes están en `art/weapons` y las genera `paint-weapons.lua`.
       - Las variantes de doble, amplia o cadena enseñan su diferencia. Las de elemento usan la rampa de su elemento y sus partículas (copos, llamas, chispas, gotas, burbujas, prisma, grietas o glifos).
       - En la incursión, el icono de 12×12 de una variante es el de su base:
@@ -359,6 +359,29 @@ El Hogar de la portada lleva a la estación (GDD §10): la base es el menú. Con
 - **Panel de la Refinería:** diálogo con qué hace, nivel, ritmo («20 por hora») y listos; la cola como barra Solar con «En cola · 30/100»; el campo «Cantidad» (por defecto todo lo que cabe, y nunca más de lo que cabe), «Cargar», «Recoger 20 componentes» (Solar) y la mejora.
 - **Panel de la Antena:** rota, «La Estática la tiene muda» y «Reparar». Funcionando: nivel, ritmo («Una señal cada 8 h»), lo que espera y a qué hora se llena, y «Recoger».
 - **Mejora:** botón Solar con la llave, «Reparar» o «Mejorar a nivel 2» y su coste («40 componentes y 500 monedas»); desactivado sin recursos, con «Te faltan 8 componentes» debajo, y «Al máximo» al final. Cada error de la API sale en el panel con su texto.
+
+## 8 octies. Laboratorio
+
+Se entra desde su sala en la estación (GDD §10.6, M4b-2). Rota, abre un panel con qué es y «Reparar» con su coste. Arreglada, enlaza a `/laboratorio`.
+
+Consulta de ui-ux-pro-max: no hubo resultado para «árbol de mejoras». Se aplicó la guía de estados desactivados (menos opacidad, otro cursor, y nunca parecerse al estado normal) y cada nodo cerrado dice qué le falta.
+
+- **El plano:** cuatro ramas en columnas (dos por debajo de 1300 px y una en el móvil).
+  - Cada rama es un panel de vidrio oscuro con la retícula de un plano y un borde del color de su rama: Sonda hielo, Reliquias ultravioleta, Estación Solar y Extracción Terminal.
+  - Encima va su nombre en la tipografía de títulos con su icono.
+- **Nodos:** la raíz arriba. Los demás, sangrados bajo el que los abre, con un conector en escuadra del color de la rama.
+- **Cada nodo:**
+  - su icono de 48 px;
+  - el nombre;
+  - qué da por nivel («+2 % de vida por nivel», «La refinería va un 5 % más rápida por nivel»);
+  - «Nivel 2 de 5» con sus pips, del color de la rama;
+  - lo que da ahora («Ahora +4 %»).
+- **El botón:** Solar a todo lo ancho, con «Mejorar a nivel 3» y debajo su coste («102 de polvo y 38 componentes») en la tinta del botón. Sin fondos está desactivado y dice «Te faltan…».
+- **Estados:**
+  - **Cerrado:** borde discontinuo, el icono en gris y «Necesita Blindaje reforzado», sin botón.
+  - **Al máximo:** borde y brillo del color de la rama, y «Al máximo».
+- **Cabecera:** «Volver a la estación», el título y el saldo de polvo y componentes.
+- **Sin reparar:** «Repara el laboratorio en la estación para usarlo» y «Ir a la estación».
 
 ## 9. Copy
 

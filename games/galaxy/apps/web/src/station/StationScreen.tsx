@@ -15,7 +15,7 @@ import { roomSheet, roomSheetUrl } from './art';
 const t = copy.station;
 
 /** Where each working tool leads. */
-const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/coleccion', hangar: '/incursion', collider: '/coleccion' };
+const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/coleccion', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio' };
 
 function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName; amount: number; label: string }) {
   return (
@@ -163,6 +163,18 @@ function fillsAt(iso: string): string {
   return t.antenna.fullAt(time, days === 0 ? 'today' : days === 1 ? 'tomorrow' : at.toLocaleDateString('es-ES', { weekday: 'long' }));
 }
 
+/** A broken room that opens a screen once repaired (the Laboratorio, M4b-2): what it is for, and its repair. */
+function RepairPanel({ id, view, onClose }: { id: RoomId; view: StationView; onClose: () => void }) {
+  const room = view.rooms.find((x) => x.id === id);
+  if (!room) return null;
+  return (
+    <Dialog title={t.rooms[id]} onClose={onClose} className="station-panel">
+      <p className="panel-lead">{id === 'lab' ? t.labLead : t.hints[id]}</p>
+      <Upgrade room={room} view={view} />
+    </Dialog>
+  );
+}
+
 function AntennaPanel({ view, onClose }: { view: StationView; onClose: () => void }) {
   const a = view.antenna;
   const room = view.rooms.find((x) => x.id === 'antenna')!;
@@ -251,6 +263,7 @@ export function StationScreen() {
         ) : null}
         {view && open === 'refinery' ? <RefineryPanel view={view} onClose={() => setOpen(null)} /> : null}
         {view && open === 'antenna' ? <AntennaPanel view={view} onClose={() => setOpen(null)} /> : null}
+        {view && open && open !== 'refinery' && open !== 'antenna' ? <RepairPanel id={open} view={view} onClose={() => setOpen(null)} /> : null}
       </div>
     </div>
   );
