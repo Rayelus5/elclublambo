@@ -239,6 +239,9 @@ importers:
       '@galaxy/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@galaxy/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
       '@types/pg':
         specifier: ^8.23.1
         version: 8.23.1
@@ -257,6 +260,9 @@ importers:
       '@galaxy/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@galaxy/sim':
+        specifier: workspace:*
+        version: link:../../packages/sim
       '@tanstack/react-query':
         specifier: ^5.106.1
         version: 5.106.1(@types/react@19.3.0)(react@19.3.0)
@@ -331,9 +337,18 @@ importers:
       '@galaxy/engine':
         specifier: workspace:*
         version: link:../engine
+      '@galaxy/sim':
+        specifier: workspace:*
+        version: link:../sim
       zod:
         specifier: ^4.6.7
         version: 4.6.7
+    devDependencies:
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
+
+  packages/sim:
     devDependencies:
       fast-check:
         specifier: ^4.10.2
