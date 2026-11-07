@@ -144,8 +144,16 @@ export type Behavior =
   | { kind: 'chase' }
   | { kind: 'charge'; range: number; windup: number; dashSpeed: number; dashTime: number; cooldown: number }
   | { kind: 'shooter'; range: number; cooldown: number; count: number; spread: number; bulletSpeed: number; bulletDamage: number }
-  | { kind: 'armored'; arc: number; reduction: number; turnRate: number }
-  | { kind: 'summoner'; cooldown: number; minion: string; count: number };
+  | { kind: 'armored'; arc: number; reduction: number; turnRate: number; weakTo?: ElementId }
+  | { kind: 'summoner'; cooldown: number; minion: string; count: number }
+  /** Circles the probe at `radius`, turning `turn` °/s; every `every` s dives straight for `diveTime`. */
+  | { kind: 'orbit'; radius: number; turn: number; every: number; diveSpeed: number; diveTime: number }
+  /** Keeps `keep` u from the probe and every `cooldown` s heals or shields (× max life) the allies in `range`. */
+  | { kind: 'support'; effect: 'heal' | 'shield'; amount: number; range: number; cooldown: number; keep: number }
+  /** Within `range`, marks a point `offset` u behind the probe, waits `windup` s and jumps there. */
+  | { kind: 'blink'; range: number; offset: number; windup: number; cooldown: number }
+  /** Stays at `range`, aims a warned line for `windup` s and fires one fast bullet along it. */
+  | { kind: 'lancer'; range: number; windup: number; cooldown: number; bulletSpeed: number; bulletDamage: number };
 
 export interface EnemyDef {
   id: string;

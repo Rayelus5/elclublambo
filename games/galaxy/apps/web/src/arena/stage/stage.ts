@@ -55,7 +55,7 @@ const FONT = 'gs-dmg';
 const LABEL_FONT = 'gs-react';
 
 interface Warning {
-  kind: 'charge' | 'burst' | 'explode';
+  kind: 'charge' | 'burst' | 'explode' | 'lance' | 'blink';
   x: number;
   y: number;
   angle: number;
@@ -346,7 +346,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       const k = 1 - wv.left / wv.total;
       const pulse = opts.reduced ? 0.4 : 0.3 + 0.2 * Math.sin(clock * 18);
-      if (wv.kind === 'charge') {
+      // A charge and a lance warn with their line; a blink, like a blast, with the circle where it lands.
+      if (wv.kind === 'charge' || wv.kind === 'lance') {
         const a = wv.angle * STEP_RAD;
         const ex = wv.x + Math.cos(a) * wv.radius;
         const ey = wv.y + Math.sin(a) * wv.radius;

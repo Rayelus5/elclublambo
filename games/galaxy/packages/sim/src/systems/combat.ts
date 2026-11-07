@@ -25,7 +25,8 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
   const element = resolveElement(sim, src);
   let dmg = amount;
   const def = sim.content.enemies[en.type[e]!];
-  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0) {
+  // Armour gives from behind, to corrosion or breach, and to the one element it is weak to (GDD §5.5).
+  if (def && def.behavior.kind === 'armored' && !en.boss[e] && en.corrT[e] === 0 && en.vulnT[e] === 0 && element !== def.behavior.weakTo) {
     const ox = src.x ?? (p ? p.x : en.x[e]!);
     const oy = src.y ?? (p ? p.y : en.y[e]!);
     if (hitsFront(sim, e, ox, oy)) dmg *= 1 - def.behavior.reduction;

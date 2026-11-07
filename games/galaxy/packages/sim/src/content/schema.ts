@@ -97,8 +97,14 @@ const behavior = z.discriminatedUnion('kind', [
   z
     .object({ kind: z.literal('shooter'), range: n, cooldown: pos, count: z.number().int().min(1).max(64), spread: n, bulletSpeed: n, bulletDamage: n })
     .strict(),
-  z.object({ kind: z.literal('armored'), arc: z.number().min(0).max(360), reduction: unit, turnRate: n }).strict(),
+  z.object({ kind: z.literal('armored'), arc: z.number().min(0).max(360), reduction: unit, turnRate: n, weakTo: elementId.optional() }).strict(),
   z.object({ kind: z.literal('summoner'), cooldown: pos, minion: id, count: z.number().int().min(1).max(64) }).strict(),
+  z.object({ kind: z.literal('orbit'), radius: pos, turn: n, every: pos, diveSpeed: n, diveTime: n }).strict(),
+  z
+    .object({ kind: z.literal('support'), effect: z.enum(['heal', 'shield']), amount: z.number().gt(0).max(1), range: pos, cooldown: pos, keep: n })
+    .strict(),
+  z.object({ kind: z.literal('blink'), range: pos, offset: n, windup: n, cooldown: pos }).strict(),
+  z.object({ kind: z.literal('lancer'), range: pos, windup: n, cooldown: pos, bulletSpeed: pos, bulletDamage: n }).strict(),
 ]);
 
 const enemy = z
