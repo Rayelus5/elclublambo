@@ -271,5 +271,12 @@ export const copy = {
     galaxy_not_found: 'Esa galaxia ya no está en tu colección',
     idempotency_conflict: 'Esa acción ya se hizo con otros datos. Recarga la página',
     idempotency_required: 'Falta el identificador de la acción. Recarga la página',
+    galaxy_equipped: 'Esa galaxia está equipada como reliquia. Quítala del hangar primero',
+    invalid_loadout: 'Ese equipo no vale: elige galaxias tuyas, sin repetir y sin pasar de tus ranuras',
+    run_not_found: 'Esa incursión no existe',
+    run_finished: 'Esa incursión ya terminó',
+    run_expired: 'Esa incursión caducó y ya no se puede cobrar',
+    runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
+    bad_inputs: 'La grabación de la incursión llegó dañada',
   } satisfies Record<ApiErrorCode, string>,
 } as const;
