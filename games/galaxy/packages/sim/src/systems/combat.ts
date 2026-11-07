@@ -4,6 +4,7 @@ import { ticks } from '../version';
 import { scaleAt } from './director';
 import { ELITE_CODE, hitsFront, spawnEnemy } from './enemies';
 import { applyElement, critBonus, damageFactor, resolveElement } from './elements';
+import { onBossDown } from './layers';
 import { dropPickup } from './pickups';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
@@ -53,6 +54,10 @@ export function dealDamage(sim: Sim, e: number, amount: number, src: HitSource):
 /** Death: credit, data fragments and loot; the slot is freed. */
 export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   const en = sim.enemies;
+  if (en.boss[e]) {
+    onBossDown(sim, e, src);
+    return;
+  }
   const def = sim.content.enemies[en.type[e]!]!;
   const x = en.x[e]!;
   const y = en.y[e]!;

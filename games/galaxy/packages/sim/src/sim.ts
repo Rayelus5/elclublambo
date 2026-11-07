@@ -1,6 +1,8 @@
 import { Rng } from './math/rng';
 import { direct, relocate } from './systems/director';
+import { updateBoss } from './systems/boss';
 import { updateEnemies, updateFoeShots } from './systems/enemies';
+import { updateLayer } from './systems/layers';
 import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
@@ -164,6 +166,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickFlashes(sim);
   direct(sim);
   updateEnemies(sim, relocate);
+  updateBoss(sim);
   tickStatuses(sim);
   updateFoeShots(sim);
   rebuildGrid(sim);
@@ -175,5 +178,6 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   updateAreas(sim);
   contactDamage(sim, maxEnemyRadius(sim));
   updatePickups(sim);
+  updateLayer(sim);
   if (sim.status === 'running') openChoices(sim);
 }
