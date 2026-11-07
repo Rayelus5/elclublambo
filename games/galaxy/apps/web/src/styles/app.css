@@ -758,6 +758,34 @@
   .probe-tile.chosen .probe-tile-text { padding-right: 18px; }
   .probe-tile.locked { background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .1); }
   .probe-tile.locked .probe-tile-art { filter: grayscale(1) brightness(.5); }
+  /* The probe's level and starting weapon (DESIGN_SYSTEM §8 ter, M4b-1): pips, the level-up and the weapon cards. */
+  .probe-level { display: grid; gap: 8px; justify-items: start; padding: 12px 14px; border-radius: 14px; background: var(--color-panel-2); }
+  .probe-level-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .probe-level-head b { font-size: 17px; }
+  .level-pips { display: flex; gap: 4px; }
+  .level-pips i { inline-size: 14px; block-size: 8px; border-radius: 3px; background: var(--color-panel-lip); box-shadow: inset 0 -2px 0 rgb(0 0 0 / .3); }
+  .level-pips i.on { background: var(--color-terminal); box-shadow: inset 0 -2px 0 var(--color-terminal-2, #17b07e), 0 0 6px rgb(69 227 166 / .35); }
+  .probe-level-bonus { margin: 0; color: var(--color-terminal); font-weight: 700; font-size: 15px; }
+  .probe-level .lip.pill { margin: 2px 0 0; }
+  .probe-level .panel-note { margin: 0; }
+  .weapon-picker { margin: 0; padding: 0; border: 0; min-inline-size: 0; display: grid; gap: 8px; }
+  .weapon-picker legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 700; color: var(--color-ink-soft); }
+  .weapon-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+  .weapon-card { position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr); align-items: center; gap: 10px; padding: 10px 30px 10px 10px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); cursor: pointer; box-shadow: inset 0 2px 0 rgb(255 255 255 / .12), 0 4px 0 var(--color-panel-lip); transition: transform .18s var(--ease-bounce), border-color .18s ease; }
+  .weapon-card input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: inherit; }
+  .weapon-card:hover:not(.locked) { transform: translateY(-2px); border-color: rgb(255 255 255 / .2); }
+  .weapon-card:has(input:focus-visible) { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .weapon-card:has(input:checked) { border-color: var(--color-solar); background: linear-gradient(180deg, rgb(255 201 74 / .16), transparent 75%), var(--color-panel-2); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 4px 0 var(--color-solar-lip), 0 0 20px rgb(255 201 74 / .2); }
+  .weapon-card.locked { cursor: not-allowed; background: rgb(255 255 255 / .025); border: 2px dashed rgb(255 255 255 / .1); box-shadow: none; }
+  .weapon-card.locked .weapon-card-icon { filter: grayscale(1) brightness(.5); }
+  .weapon-card-icon { width: 36px; height: 36px; image-rendering: pixelated; }
+  .weapon-card-text { display: grid; gap: 3px; min-width: 0; }
+  .weapon-card-text b { font-size: 15px; line-height: 1.15; }
+  .weapon-card-text small { font-size: 13px; line-height: 1.3; color: var(--color-ink-soft); }
+  .weapon-card.locked .weapon-card-text small { color: var(--color-ink-mute); }
+  .weapon-card-check { position: absolute; top: 8px; right: 10px; font-size: 16px; color: var(--color-solar); }
+  .weapon-card.locked .weapon-card-check { color: var(--color-ink-mute); }
+  @media (prefers-reduced-motion: reduce) { .weapon-card { transition: none; } .weapon-card:hover:not(.locked) { transform: none; } }
   .probe-tile.locked b { color: var(--color-ink-soft); }
   .probe-tile-lock { position: relative; display: grid; place-items: center; }
   .probe-tile-lock .ico { position: absolute; right: -6px; bottom: -6px; padding: 3px; border-radius: 8px; background: var(--color-panel-lip); color: var(--color-ink-soft); font-size: 16px; }

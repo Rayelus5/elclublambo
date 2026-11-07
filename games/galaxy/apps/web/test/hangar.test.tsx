@@ -438,3 +438,80 @@ test('sin el test de la sonda, el Hangar lleva al test', async () => {
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/sonda');
 });
+
+describe('el nivel de la sonda y su arma inicial (M4b-1)', () => {
+  const lumenDef = DEFAULT_CONTENT.probes.find((p) => p.id === 'lumen')!;
+  /** The Hangar with Lumen at `level` (and its chosen weapon), and a wallet. */
+  const at = (level: number, variant: string | null = null, wallet = { coins: 2000, dust: 0, signal: 0, components: 100 }) => {
+    const probes = PROBES.map((p) => (p.id === 'lumen' ? { ...p, ...levelOne(lumenDef, level, variant) } : p));
+    return {
+      hangar: view({ probes }),
+      gacha: { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet },
+    };
+  };
+
+  test('dice su nivel, lo que le da y cuánto cuesta subir', async () => {
+    const { hangar, gacha } = at(3);
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(await screen.findByText(copy.hangar.level(3, 10))).toBeInTheDocument();
+    expect(screen.getByText(copy.hangar.bonuses(hangar.probes[0]!.bonuses))).toBeInTheDocument();
+    expect(copy.hangar.bonuses(hangar.probes[0]!.bonuses)).toBe('+6 % de vida y +4 % de daño');
+    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
+    await waitFor(() => expect(up).toBeEnabled());
+    expect(up).toHaveTextContent(copy.station.cost(60, 1000));
+    // The components a level costs are in the Hangar's balance.
+    expect(screen.getByRole('img', { name: copy.station.resource.components(100) })).toBeInTheDocument();
+  });
+
+  test('sin fondos la subida está desactivada y dice cuánto falta', async () => {
+    const { hangar, gacha } = at(3, null, { coins: 0, dust: 0, signal: 0, components: 10 });
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(await screen.findByText(copy.station.missing(50, 1000))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) })).toBeDisabled();
+  });
+
+  test('subir envía el nivel con su clave y enseña la vista nueva', async () => {
+    const { hangar, gacha } = at(3);
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, hangar),
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'POST /galaxy/api/hangar/probes/lumen/level-up': () => jsonResponse(200, at(4).hangar),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
+    await waitFor(() => expect(up).toBeEnabled());
+    fireEvent.click(up);
+    expect(await screen.findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
+    const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/level-up' && init?.method === 'POST')!;
+    expect(JSON.parse(String(call[1]!.body))).toEqual({ level: 4 });
+    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('al nivel 10 dice Nivel máximo y no ofrece subir', async () => {
+    const { hangar, gacha } = at(10);
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(await screen.findByText(copy.hangar.levelMax)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Subir a nivel/ })).toBeNull();
+  });
+
+  test('el arma inicial: la base y sus dos variantes, la del 8 cerrada; elegir la del 4 la envía y la marca', async () => {
+    const { hangar, gacha } = at(4);
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, hangar),
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'PUT /galaxy/api/hangar/probes/lumen/variant': () => jsonResponse(200, at(4, 'pulse-twin').hangar),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const group = await screen.findByRole('radiogroup', { name: copy.hangar.startingWeapon });
+    expect(within(group).getByRole('radio', { name: /Pulso láser/ })).toBeChecked();
+    expect(within(group).getByRole('radio', { name: /Pulso gélido/ })).toBeDisabled();
+    expect(group).toHaveTextContent(copy.hangar.variantLocked(8));
+    fireEvent.click(within(group).getByRole('radio', { name: /Pulso doble/ }));
+    await waitFor(() => expect(within(group).getByRole('radio', { name: /Pulso doble/ })).toBeChecked());
+    const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/variant' && init?.method === 'PUT')!;
+    expect(JSON.parse(String(put[1]!.body))).toEqual({ variant: 'pulse-twin' });
+  });
+});

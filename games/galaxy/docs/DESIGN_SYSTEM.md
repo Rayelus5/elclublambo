@@ -210,7 +210,16 @@ Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de 
       - **Abiertos:** su línea es «Elegido» (Solar), «Temporada» (Ultravioleta suave) o «N especies».
       - **Cerrados:** lo que los abre, «Derrota a <Núcleo del sector anterior>», con su barra 0/1. Una temporada cerrada dice «Fuera de temporada», sin barra.
   - **Sonda** (M3b-2, GDD §6). Consulta de ui-ux-pro-max: el estado elegido no se marca solo con color, y el progreso se muestra con una barra.
-    - **Arriba, la elegida:** su sprite a 7× a la izquierda y, a la derecha, el nombre, la descripción, vida, velocidad, el arma inicial con su icono y su peculiaridad en una losa.
+    - **Arriba, la elegida:** su sprite a 7× a la izquierda y, a la derecha, el nombre, la descripción, vida, velocidad y su peculiaridad en una losa.
+    - **Nivel** (M4b-1, GDD §6). Consulta de ui-ux-pro-max: el estado activo se marca con color y borde, el estado final no depende de una animación, y los botones desactivados dicen por qué.
+      - Una losa con «Nivel 3 de 10» y diez pips: los conseguidos en Terminal con brillo y los que faltan en `--panel-lip`.
+      - Debajo, lo que da el nivel en Terminal («+6 % de vida y +4 % de daño»).
+      - El botón Solar «Subir a nivel 4», con su coste («60 componentes y 1000 monedas»). Sin fondos está desactivado y dice «Te faltan…»; al 10 dice «Nivel máximo».
+    - **Arma inicial:** un grupo de tarjetas de radio (la base y sus dos variantes), con icono, nombre y qué hace.
+      - La elegida lleva borde y brillo Solar y una marca.
+      - Una cerrada lleva borde discontinuo, el icono en gris, un candado y «Se abre en el nivel 8».
+      - El foco es un anillo hielo alrededor de la tarjeta.
+      - Elegir otra se ve al instante, y si el servidor la rechaza vuelve la anterior con su error.
     - **Debajo, las ocho sondas** en losas horizontales: sprite a 3×, nombre y una línea. Van en columnas automáticas de 168 px como mínimo, para que haya dos también con tres paneles en portátiles de 1440–1600 px; el texto pasa a dos líneas si no cabe.
     - **Desbloqueadas:** son botones con relieve, cuya línea es el arma inicial. La elegida lleva borde y brillo Solar, «Elegida» en Solar y una marca. Al pulsar otra, su borde late en Solar mientras se guarda.
     - **Bloqueadas:** borde discontinuo, el sprite en gris oscuro con un candado y lo que la gana («Juega 3 incursiones», «Derrota 3 Núcleos», «Llega a la capa 4», «Extrae 5 veces», «Elimina 2000 enemigos»). Debajo, una barra Terminal con el conteo «1/3» al lado. Sin condición, «Llega pronto».

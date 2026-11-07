@@ -7,7 +7,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
-import { useChooseProbe, useChooseSector, useFinishRun, useHangar, useSetLoadout, useStartRun } from '../api/runs';
+import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -246,6 +246,92 @@ function SectorPanel({ view }: { view: HangarView }) {
   );
 }
 
+/** The probe's level (GDD §6, M4b-1): its pips, what it adds and the next level with its cost and what is missing. */
+function ProbeLevel({ probe }: { probe: ProbeCard }) {
+  const up = useLevelUpProbe();
+  const wallet = useGacha().data?.wallet;
+  const pips = Array.from({ length: probe.maxLevel }, (_, i) => i < probe.level);
+  const next = probe.next;
+  const short = next && wallet ? { components: Math.max(0, next.components - (wallet['components'] ?? 0)), coins: Math.max(0, next.coins - wallet.coins) } : null;
+  const affordable = short !== null && short.components === 0 && short.coins === 0;
+  return (
+    <div className="probe-level">
+      <div className="probe-level-head">
+        <b>{copy.hangar.level(probe.level, probe.maxLevel)}</b>
+        <span className="level-pips" aria-hidden="true">
+          {pips.map((on, i) => (
+            <i key={i} className={on ? 'on' : undefined} />
+          ))}
+        </span>
+      </div>
+      {probe.bonuses.length > 0 ? <p className="probe-level-bonus">{copy.hangar.bonuses(probe.bonuses)}</p> : null}
+      {next ? (
+        <>
+          <button
+            type="button"
+            className="lip pill pill-solar station-upgrade"
+            disabled={!affordable || up.isPending}
+            aria-busy={up.isPending || undefined}
+            onClick={() => up.mutate({ probe: probe.id, level: probe.level + 1 })}
+          >
+            <Icon name="wrench" />
+            <span>{copy.hangar.levelUp(probe.level + 1)}</span>
+            <small>{copy.station.cost(next.components, next.coins)}</small>
+          </button>
+          {short && !affordable ? <p className="panel-note">{copy.station.missing(short.components, short.coins)}</p> : null}
+        </>
+      ) : (
+        <p className="panel-note">{copy.hangar.levelMax}</p>
+      )}
+      {up.error ? (
+        <p className="field-error" role="alert">
+          {errorText(up.error, copy.errors)}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** The starting weapon: the base and its variants as radio cards; a closed one says the level that opens it. */
+function WeaponPicker({ probe }: { probe: ProbeCard }) {
+  const choose = useChooseVariant();
+  // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
+  const chosen = choose.isPending ? choose.variables.variant : probe.variant;
+  return (
+    <fieldset className="weapon-picker">
+      <legend>{copy.hangar.startingWeapon}</legend>
+      <div role="radiogroup" aria-label={copy.hangar.startingWeapon} className="weapon-cards">
+        {probe.variants.map((w) => (
+          <label key={w.id} className={`weapon-card${w.unlocked ? '' : ' locked'}`}>
+            <input
+              type="radio"
+              name={`weapon-${probe.id}`}
+              value={w.id}
+              checked={chosen === w.id}
+              disabled={!w.unlocked}
+              onChange={() => {
+                if (w.id !== probe.variant) choose.mutate({ probe: probe.id, variant: w.id });
+              }}
+            />
+            <img className="weapon-card-icon" src={spriteDataUrl(w.icon, 3)} alt="" width={36} height={36} />
+            <span className="weapon-card-text">
+              <b>{w.name}</b>
+              <small>{w.unlocked ? w.description : copy.hangar.variantLocked(w.unlockAt)}</small>
+            </span>
+            {chosen === w.id ? <Icon name="check" className="ico weapon-card-check" /> : null}
+            {!w.unlocked ? <Icon name="lock" className="ico weapon-card-check" /> : null}
+          </label>
+        ))}
+      </div>
+      {choose.error ? (
+        <p className="field-error" role="alert">
+          {errorText(choose.error, copy.errors)}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
 /** The probe for the next runs and the eight to pick from: the unlocked are chosen, the locked say what earns them. */
 function ProbePanel({ view }: { view: HangarView }) {
   const choose = useChooseProbe();
@@ -268,13 +354,6 @@ function ProbePanel({ view }: { view: HangarView }) {
               <dt>{copy.hangar.speed}</dt>
               <dd>{probe.speed}</dd>
             </div>
-            <div>
-              <dt>{copy.hangar.weapon}</dt>
-              <dd>
-                <img src={spriteDataUrl(probe.weapon.icon, 2)} alt="" width={24} height={24} />
-                {probe.weapon.name}
-              </dd>
-            </div>
           </dl>
           {probe.quirk && (
             <p className="probe-quirk">
@@ -284,6 +363,8 @@ function ProbePanel({ view }: { view: HangarView }) {
           )}
         </div>
       </div>
+      <ProbeLevel probe={probe} />
+      <WeaponPicker probe={probe} />
       <ul className="probe-picker" aria-label={copy.hangar.probePicker}>
         {view.probes.map((p) => {
           const chosen = p.id === view.probe;
@@ -513,7 +594,7 @@ export function HangarScreen() {
           </Link>
           <h1>{copy.hangar.title}</h1>
           <div className="lip panel hud">
-            <WalletBar wallet={gacha.data?.wallet} />
+            <WalletBar wallet={gacha.data?.wallet} components />
           </div>
         </header>
         {body}

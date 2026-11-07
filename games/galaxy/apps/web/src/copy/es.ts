@@ -347,6 +347,17 @@ export const copy = {
     hp: 'Vida',
     speed: 'Velocidad',
     weapon: 'Arma inicial',
+    // Probe levels and the starting weapon (GDD §6, M4b-1).
+    level: (n: number, max: number) => `Nivel ${n} de ${max}`,
+    levelUp: (n: number) => `Subir a nivel ${n}`,
+    levelMax: 'Nivel máximo',
+    statNames: { maxHp: 'vida', damage: 'daño', speed: 'velocidad', cooldown: 'recarga', area: 'área', pickup: 'alcance de recogida', armor: 'blindaje', regen: 'regeneración', crit: 'crítico', xp: 'experiencia', luck: 'suerte' } as Record<string, string>,
+    bonuses: (list: readonly { stat: string; value: number }[]) => {
+      const parts = list.map((b) => `+${fmt(Math.round(b.value * 100))} % de ${copy.hangar.statNames[b.stat] ?? b.stat}`);
+      return parts.length < 2 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
+    },
+    startingWeapon: 'Arma inicial',
+    variantLocked: (n: number) => `Se abre en el nivel ${n}`,
     relics: 'Reliquias',
     relicsHelp: 'Las galaxias equipadas te dan sus poderes en la incursión',
     sets: 'Conjuntos',
