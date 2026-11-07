@@ -1005,4 +1005,58 @@
   .results.sending { padding-top: 12vh; }
   @media (max-height: 820px) { .relic-slot { min-height: 250px; } .relic-slot.locked, .relic-slot.empty, .relic-slot.next-slot { min-height: 120px; } .hangar-probe-detail .hangar-probe-art { width: 96px; height: 96px; } }
   @media (max-width: 1400px) { .hangar-grid { grid-template-columns: 1fr 1fr; } .hangar-relics { grid-column: 1 / -1; } }
+
+  /* ---------- Planetario (DESIGN_SYSTEM §8 decies) ---------- */
+  /* The dome is the Aseprite strip at an integer scale (--px: ×5, ×6 on wide screens, ×7 on very wide and tall
+     ones); the cards float over its six pedestals, each placed by its pedestal's centre in art pixels (--x). */
+  .planetarium-root { overflow: auto; background: radial-gradient(80% 60% at 40% 0%, #121a46 0%, var(--color-void) 65%); }
+  .planetarium { --px: 5; box-sizing: border-box; width: min(100%, 1760px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.2vw, 40px) 40px; display: flex; flex-direction: column; gap: 20px; }
+  .planetarium .collection-bar { margin-left: 0; }
+  .planetarium-body { display: flex; align-items: flex-start; gap: 20px; }
+  .planetarium-side { flex: 1; min-width: 232px; max-width: 380px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .planetarium-wait { margin: 40px auto; color: var(--color-ink-mute); }
+  .planetarium-missing { display: grid; gap: 16px; max-width: 560px; }
+  .planetarium-missing > .panel { display: grid; gap: 8px; padding: 22px; }
+  .planetarium-missing p { margin: 0; font-size: 17px; }
+  .dome { position: relative; flex: none; inline-size: calc(192px * var(--px)); block-size: calc(96px * var(--px)); border-radius: 20px; overflow: hidden; background: #04050f; box-shadow: 0 0 0 2px rgb(111 183 255 / .16), 0 0 60px rgb(90 67 214 / .18), 0 18px 40px rgb(0 0 0 / .5); }
+  .dome-art { position: absolute; inset: 0; background: no-repeat 0 0 / 800% 100%; image-rendering: pixelated; animation: dome-frames 1.6s steps(8) infinite; }
+  @keyframes dome-frames { to { background-position-x: 114.2857%; } }
+  .dome-empty { position: absolute; inset-inline: 0; top: calc(26px * var(--px)); margin: 0 auto; inline-size: fit-content; max-inline-size: 70%; padding: 10px 18px; border-radius: 14px; background: rgb(4 5 15 / .78); border: 2px solid rgb(111 183 255 / .22); color: var(--color-ink); font-weight: 600; font-size: 16px; text-align: center; }
+  .dome-pedestals { list-style: none; margin: 0; padding: 0; position: absolute; inset: 0; }
+  /* A pedestal's card floats two art pixels over its top (y = 84); «Retirar» sits on the pedestal's face. */
+  .pedestal { --card: calc(24px * var(--px)); position: absolute; left: calc(var(--x) * var(--px) * 1px); bottom: calc(14px * var(--px)); inline-size: var(--card); translate: -50% 0; display: grid; justify-items: center; }
+  .pedestal .gcard { --w: var(--card) !important; filter: drop-shadow(0 0 calc(3px * var(--px)) rgb(111 227 255 / .35)); }
+  .pedestal-remove.lip.pill { position: absolute; top: calc(100% + 2px * var(--px) + 6px); height: 34px; padding: 0 14px; font-size: 14px; }
+  .pedestal-empty { box-sizing: border-box; inline-size: var(--card); aspect-ratio: 5 / 7; display: grid; place-content: center; justify-items: center; gap: 8px; padding: 10px; border-radius: 14px; border: 2px dashed rgb(111 227 255 / .5); background: rgb(6 9 28 / .72); color: var(--color-ice); font: 700 14px var(--font-sans); text-align: center; cursor: pointer; transition: background .15s, border-color .15s; }
+  .pedestal-empty .ico { font-size: 26px; color: #6fe3ff; }
+  .pedestal-empty:hover { background: rgb(14 24 60 / .82); border-color: rgb(111 227 255 / .8); }
+  .pedestal-empty:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .pedestal-vacant { display: block; inline-size: var(--card); aspect-ratio: 5 / 7; }
+  .prestige-panel { display: grid; gap: 6px; padding: 18px 20px 20px; }
+  .prestige-panel h2 { margin: 0; font: 600 15px var(--font-sans); color: var(--color-ink-soft); }
+  .prestige-value { margin: 0; font: 400 52px/1 var(--font-display); color: var(--color-solar); font-variant-numeric: tabular-nums; }
+  .prestige-bonus { margin: 2px 0 0; font-weight: 700; font-size: 16px; color: var(--color-terminal); }
+  .prestige-hint { margin: 0; font-size: 14px; line-height: 1.45; color: var(--color-ink-mute); }
+  .prestige-visits { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; font-weight: 700; color: var(--color-ink); }
+  .prestige-visits .ico { color: var(--color-uv-soft); font-size: 20px; }
+  .visit-form { display: grid; gap: 8px; padding: 18px 20px 20px; }
+  .visit-form h2 { margin: 0 0 4px; font: 400 20px var(--font-display); }
+  .visit-form label { font-size: 14px; color: var(--color-ink-soft); }
+  /* The button drops under the field when the column is narrow (1280 px). */
+  .visit-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .visit-row input { flex: 999 1 140px; width: 0; min-width: 0; height: 46px; padding: 0 14px; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .visit-row input:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .visit-row .lip.pill { flex: 1 0 auto; height: 46px; justify-content: center; }
+  .featured { display: grid; gap: 12px; }
+  .featured h2 { margin: 0; font: 400 24px var(--font-display); }
+  .featured-empty { margin: 0; color: var(--color-ink-mute); }
+  .featured-list { list-style: none; margin: 0; padding: 0 0 6px; display: flex; gap: 16px; overflow-x: auto; }
+  .featured-card { display: grid; justify-items: center; gap: 4px; padding: 10px 10px 12px; border-radius: 16px; background: var(--color-panel-2); color: var(--color-ink); text-decoration: none; box-shadow: inset 0 2px 0 rgb(255 255 255 / .08), 0 4px 0 var(--color-panel-lip); transition: translate .15s, box-shadow .15s; }
+  .featured-card b { max-inline-size: 112px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+  .featured-card span { font-size: 13px; font-weight: 700; color: var(--color-solar); }
+  .featured-card:hover { translate: 0 -2px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .1), 0 6px 0 var(--color-panel-lip); }
+  .featured-card:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  @media (min-width: 1560px) { .planetarium { --px: 6; } }
+  @media (min-width: 1880px) and (min-height: 1000px) { .planetarium { --px: 7; } }
+  @media (prefers-reduced-motion: reduce) { .dome-art { animation: none; } .featured-card { transition: none; } .featured-card:hover { translate: none; } }
 }

@@ -363,7 +363,8 @@ export const configSchemas = {
    */
   planetarium: z
     .object({
-      slots: z.number().int().min(1).max(8).default(6),
+      // The dome's art has six pedestals: more need new art.
+      slots: z.number().int().min(1).max(6).default(6),
       points: z
         .object({
           tiers: z.array(z.number().int().min(0).max(100)).length(5).default([1, 2, 4, 7, 12]),

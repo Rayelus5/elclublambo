@@ -15,7 +15,7 @@ import { roomSheet, roomSheetUrl } from './art';
 const t = copy.station;
 
 /** Where each working tool leads. */
-const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/coleccion', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio' };
+const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/planetario', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio' };
 
 function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName; amount: number; label: string }) {
   return (

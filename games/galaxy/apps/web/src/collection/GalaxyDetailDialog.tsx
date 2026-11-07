@@ -104,6 +104,8 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
       </Dialog>
     );
   }
+  // Why it cannot be disintegrated now: equipped in the hangar or on a pedestal of the planetarium.
+  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : null;
 
   return (
     <>
@@ -139,14 +141,14 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 <Icon name="cube" />
                 <span>{copy.inspector.open}</span>
               </button>
-              <button type="button" className="lip pill danger" onClick={() => setConfirming(true)} disabled={g.equipped === true} aria-describedby={g.equipped ? 'equipped-reason' : undefined}>
+              <button type="button" className="lip pill danger" onClick={() => setConfirming(true)} disabled={held !== null} aria-describedby={held ? 'held-reason' : undefined}>
                 <Icon name="dust" />
                 <span>{copy.collection.disintegrate}</span>
               </button>
             </div>
-            {g.equipped ? (
-              <p id="equipped-reason" className="detail-note">
-                {copy.collection.equippedReason}
+            {held ? (
+              <p id="held-reason" className="detail-note">
+                {held}
               </p>
             ) : null}
           </div>

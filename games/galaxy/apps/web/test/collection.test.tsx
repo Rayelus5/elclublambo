@@ -204,6 +204,27 @@ test('una galaxia equipada como reliquia no se puede desintegrar ni elegir para 
   expect(screen.getByRole('button', { name: copy.collection.select('Gal c2') })).toBeEnabled();
 });
 
+test('una galaxia expuesta en el planetario no se puede desintegrar ni elegir para fusionar, y dice por qué (M4c-2)', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([{ ...g('c1'), exhibited: true }, g('c2'), g('c3')])),
+    'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail({ exhibited: true })),
+  });
+  const user = userEvent.setup();
+  const detailView = renderAt('/coleccion/g9', screens);
+  const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+  const disintegrate = within(dialog).getByRole('button', { name: copy.collection.disintegrate });
+  expect(disintegrate).toBeDisabled();
+  expect(disintegrate).toHaveAccessibleDescription(copy.planetarium.exhibitedReason);
+  expect(copy.planetarium.exhibitedReason).toBe('Está expuesta en tu planetario. Retírala allí para desintegrarla o fusionarla');
+  detailView.unmount();
+  renderAt('/coleccion', screens);
+  expect(await screen.findByRole('article', { name: 'Gal c1' })).toHaveTextContent(copy.planetarium.exhibited);
+  await user.click(screen.getByRole('button', { name: copy.collection.fuse }));
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal c1') })).toBeDisabled();
+  expect(screen.getByRole('button', { name: copy.collection.select('Gal c2') })).toBeEnabled();
+});
+
 describe('el nivel de una galaxia (M4c-1)', () => {
   const rich = { ...gacha, wallet: { ...gacha.wallet, dust: 200 } };
 
