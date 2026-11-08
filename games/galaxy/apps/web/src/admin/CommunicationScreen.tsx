@@ -1,4 +1,4 @@
-import { type AdminMailRow, type AdminNoticeRow, MAIL_GIFTS, type MailAudience, type MailGifts } from '@galaxy/shared';
+import { type AdminMailRow, type AdminNoticeRow, MAIL_GIFTS, type MailAudience, mailAudienceSchema, type MailGifts } from '@galaxy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { ADMIN_KEY } from '../api/admin';
@@ -16,17 +16,26 @@ const giftLabel = { coins: copy.hub.resource.coins, dust: copy.hub.resource.dust
 type AudienceKind = 'all' | 'names' | 'segment';
 type Open = { url: string; title: string; submit: string } | null;
 
-/** The audience the form describes, or null while it is not complete (a list with no names, a segment with nothing). */
-function audienceOf(kind: AudienceKind, f: Record<string, string>): MailAudience | null {
-  if (kind === 'all') return { kind: 'all' };
+/**
+ * The audience the form describes, checked with the server's own schema: null while it is not complete (a list with no
+ * names, a segment with nothing), with what to fix when it is wrong (so the form never just keeps counting).
+ */
+function audienceOf(kind: AudienceKind, f: Record<string, string>): { audience: MailAudience | null; problem?: string } {
+  if (kind === 'all') return { audience: { kind: 'all' } };
   if (kind === 'names') {
     const usernames = [...new Set((f['usernames'] ?? '').toLowerCase().split(/[\s,;]+/).filter(Boolean))];
-    return usernames.length > 0 && usernames.length <= 200 && usernames.every((u) => /^[a-z0-9_]{3,20}$/.test(u)) ? { kind: 'segment', usernames } : null;
+    const bad = usernames.filter((u) => !/^[a-z0-9_]{3,20}$/.test(u));
+    if (bad.length) return { audience: null, problem: t.badNames(bad.join(', ')) };
+    if (usernames.length === 0) return { audience: null };
+    if (usernames.length > 200) return { audience: null, problem: t.usernamesHint };
+    return { audience: { kind: 'segment', usernames } };
   }
   const num = (k: string) => (f[k] ? Number(f[k]) : undefined);
   const seg = { kind: 'segment' as const, minLevel: num('minLevel'), maxLevel: num('maxLevel'), joinedFrom: f['joinedFrom'] || undefined, joinedTo: f['joinedTo'] || undefined };
-  const clean = Object.fromEntries(Object.entries(seg).filter(([, v]) => v !== undefined)) as MailAudience;
-  return Object.keys(clean).length > 1 ? clean : null;
+  const clean = Object.fromEntries(Object.entries(seg).filter(([, v]) => v !== undefined));
+  if (Object.keys(clean).length <= 1) return { audience: null };
+  const parsed = mailAudienceSchema.safeParse(clean);
+  return parsed.success ? { audience: parsed.data } : { audience: null, problem: t.audienceInvalid };
 }
 
 function audienceText(a: MailAudience): string {
@@ -64,7 +73,7 @@ function Compose() {
   const [kind, setKind] = useState<AudienceKind>('all');
   const [done, setDone] = useState<number | null>(null);
   const set = (k: string, v: string) => setF((x) => ({ ...x, [k]: v }));
-  const audience = audienceOf(kind, f);
+  const { audience, problem } = audienceOf(kind, f);
   const settled = useSettled(audience ? JSON.stringify(audience) : '', 400);
   const preview = useMailPreview(settled ? (JSON.parse(settled) as MailAudience) : null);
   const recipients = settled && settled === JSON.stringify(audience) ? preview.data?.recipients : undefined;
@@ -159,8 +168,8 @@ function Compose() {
           <p className="hint comms-wide">{t.segmentHint}</p>
         </div>
       ) : null}
-      <p className="comms-reach" aria-live="polite">
-        {audience ? (recipients === undefined ? t.counting : t.reach(recipients)) : null}
+      <p className={`comms-reach${problem ? ' bad' : ''}`} aria-live="polite">
+        {problem ?? (audience ? (recipients === undefined ? t.counting : t.reach(recipients)) : null)}
       </p>
       <fieldset className="comms-gifts">
         <legend>{t.giftsTitle}</legend>

@@ -175,3 +175,61 @@ describe('avisos', () => {
     expect((await audits(live.id)).map((r) => r.action)).toEqual(['notice.create', 'notice.end']);
   });
 });
+
+describe('revisión final', () => {
+  test('los destinatarios se fijan al enviar: subir de nivel no saca a nadie ni mete a nadie', async () => {
+    const [low, high] = await Promise.all([player({ xp: 1000 }), player()]);
+    const { id, recipients } = (await send([low.username, high.username], { audience: { kind: 'segment', usernames: [low.username, high.username], maxLevel: 5 }, gifts: { coins: 10 }, password: admin.password })).json() as { id: string; recipients: number };
+    expect(recipients).toBe(2);
+    await ctx.db.updateTable('galaxy.account_xp').set({ xp: 100_000 }).where('account_id', '=', low.id).execute();
+    expect((await mailbox(low)).messages.some((m) => m.id === id)).toBe(true);
+    expect((await claim(low, id)).statusCode).toBe(200);
+    const late = await send([high.username], { audience: { kind: 'segment', usernames: [high.username], minLevel: 20 } });
+    expect((late.json() as { recipients: number }).recipients).toBe(0);
+    await ctx.db.insertInto('galaxy.account_xp').values({ account_id: high.id, xp: 100_000 }).execute();
+    expect((await mailbox(high)).messages.some((m) => m.id === (late.json() as { id: string }).id)).toBe(false);
+  });
+
+  test('cien mensajes nuevos para otros no esconden el de un jugador', async () => {
+    const a = await player();
+    const { id } = (await send([a.username])).json() as { id: string };
+    const others = Array.from({ length: 101 }, (_, i) => ({ title: `Para otro ${i}`, body: 'x', gifts: '{}', audience: JSON.stringify({ kind: 'segment', usernames: ['nadie_aqui'] }), expires_at: new Date(Date.now() + 86_400_000) }));
+    await ctx.db.insertInto('galaxy.mailbox_messages').values(others).execute();
+    expect((await mailbox(a)).messages.some((m) => m.id === id)).toBe(true);
+  });
+
+  test('un admin no recoge un regalo que se envió a sí mismo', async () => {
+    const { id } = (await send([admin.username], { gifts: { coins: 1000 }, password: admin.password })).json() as { id: string };
+    const self = { cookie: admin.cookie, id: '', username: admin.username };
+    expect((await claim(self, id)).json()).toEqual({ error: 'self_target' });
+  });
+
+  test('una contraseña equivocada al enviar regalos cuenta para el bloqueo de M6a', async () => {
+    const other = await staff('admin');
+    const a = await player();
+    const wrong = () => act('/mail', { title: 'x', body: 'x', audience: { kind: 'segment', usernames: [a.username] }, gifts: { coins: 1 }, reason: 'Prueba', password: 'no-es-esta' }, other.cookie);
+    for (let i = 0; i < 10; i++) expect((await wrong()).statusCode).toBe(401);
+    expect((await wrong()).statusCode).toBe(429);
+    expect((await get(ctx.app, A('/mail'), { cookie: other.cookie })).statusCode).toBe(401);
+    expect((await mailbox(a)).messages).toHaveLength(0);
+  });
+
+  test('recoger a la vez después de haberlo leído también da un solo crédito', async () => {
+    const a = await player();
+    const { id } = (await send([a.username], { gifts: { coins: 40 }, password: admin.password })).json() as { id: string };
+    await post(ctx.app, `/galaxy/api/mailbox/${id}/read`, undefined, { cookie: a.cookie });
+    const [x, y] = await Promise.all([claim(a, id), claim(a, id)]);
+    expect([x.statusCode, y.statusCode].sort()).toEqual([200, 409]);
+    expect(Number((await getWallet(ctx.db, a.id)).coins)).toBe(40);
+  });
+
+  test('retirar queda en la auditoría', async () => {
+    const a = await player();
+    const { id } = (await send([a.username])).json() as { id: string };
+    await act(`/mail/${id}/withdraw`, { reason: 'Error de texto' });
+    expect((await audits(id)).map((r) => [r.action, r.reason])).toEqual([
+      ['mail.send', 'Prueba del buzón'],
+      ['mail.withdraw', 'Error de texto'],
+    ]);
+  });
+});

@@ -1611,6 +1611,7 @@
   .comms-gifts { margin: 4px 0 8px; padding: 12px 14px 4px; border: 2px solid rgb(255 255 255 / .06); border-radius: 14px; }
   .comms-gifts legend { padding: 0 6px; font-weight: 700; color: var(--color-ink-soft); }
   .comms-reach { margin: 0 0 6px; min-block-size: 1.4em; font-weight: 700; color: var(--color-ice); }
+  .comms-reach.bad { color: var(--color-nova); }
   .comms-compose > .pill { justify-self: start; margin-top: 6px; }
   .comms-block { display: grid; gap: 10px; }
   @media (max-width: 760px) { .mailbox-body { grid-template-columns: minmax(0, 1fr); } .mailbox-detail { padding: 12px 0 0; border-inline-start: 0; border-block-start: 2px solid rgb(255 255 255 / .06); } }

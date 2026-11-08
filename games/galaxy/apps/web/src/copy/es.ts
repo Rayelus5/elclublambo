@@ -183,6 +183,8 @@ export const copy = {
       },
       usernamesHint: 'Nombres separados por comas o espacios, hasta 200',
       segmentHint: 'Rellena al menos una condición. Solo llega a las cuentas que ya existían al enviarlo',
+      audienceInvalid: 'Revisa las condiciones: el nivel va de 1 a 99 y el nivel y la fecha de alta, de menor a mayor',
+      badNames: (names: string) => `No son nombres válidos: ${names}`,
       audiences: { all: 'Todas las cuentas', names: 'Una lista de cuentas', segment: 'Por nivel y fecha de alta' } as Record<string, string>,
       giftsTitle: 'Regalos',
       gifts: { coins: 'Monedas', dust: 'Polvo estelar', signal: 'Señales' },
@@ -853,6 +855,7 @@ export const copy = {
     claimed: 'Recogido',
     expires: (d: string) => `Caduca el ${d}`,
     closeNotice: 'Cerrar aviso',
+    close: 'Cerrar',
     noticesLabel: 'Avisos',
   },
   hub: {

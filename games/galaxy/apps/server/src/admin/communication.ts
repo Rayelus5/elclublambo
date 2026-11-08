@@ -9,30 +9,30 @@ import { HttpError } from '../errors';
 import { confirmPassword } from './players';
 
 // Communication for admins (GDD §16.5; M6d-1): sending news with gifts to everyone or a segment (with the password when
-// it gives anything, since that creates currency), withdrawing it, and the notices of the title screen. How many
-// accounts a message reaches is counted over the accounts that existed when it was sent; the beta has few accounts, so
-// the audience is evaluated here with the same `inAudience` the mailbox uses.
+// it gives anything, since that creates currency), withdrawing it, and the notices of the title screen. The audience is
+// evaluated once, when the message is sent (with `inAudience`, over the accounts that exist then; the beta has few), and
+// fixed as one receipt per recipient: what the preview and the audit say is what reaches the mailboxes.
 
 export type CommunicationDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
 
 const iso = (d: Date | string) => new Date(d).toISOString();
 
-type Account = { level: number; createdAt: Date; username: string };
+type Account = { id: string; level: number; createdAt: Date; username: string };
 
 async function accounts(deps: CommunicationDeps): Promise<Account[]> {
   const cfg = await deps.config.get('account');
   const rows = await deps.db
     .selectFrom('galaxy.accounts as a')
     .leftJoin('galaxy.account_xp as x', 'x.account_id', 'a.id')
-    .select(['a.username', 'a.created_at', 'x.xp'])
+    .select(['a.id', 'a.username', 'a.created_at', 'x.xp'])
     .execute();
-  return rows.map((r) => ({ username: r.username, createdAt: new Date(r.created_at), level: levelOf(Number(r.xp ?? 0), cfg).level }));
+  return rows.map((r) => ({ id: r.id, username: r.username, createdAt: new Date(r.created_at), level: levelOf(Number(r.xp ?? 0), cfg).level }));
 }
 
-const reach = (all: Account[], audience: MailAudience, at: Date) => all.filter((a) => inAudience(audience, a, at)).length;
+const reached = (all: Account[], audience: MailAudience, at: Date) => all.filter((a) => inAudience(audience, a, at));
 
 export async function previewMail(deps: CommunicationDeps, audience: MailAudience): Promise<{ recipients: number }> {
-  return { recipients: reach(await accounts(deps), audience, deps.now()) };
+  return { recipients: reached(await accounts(deps), audience, deps.now()).length };
 }
 
 /** Sends a message (the password first when it gives anything), audited with how many it reaches. */
@@ -42,7 +42,8 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
     await confirmPassword(deps.db, s, req.password);
   }
   const now = deps.now();
-  const recipients = reach(await accounts(deps), req.audience, now);
+  const to = reached(await accounts(deps), req.audience, now);
+  const recipients = to.length;
   const expiresAt = new Date(now.getTime() + req.expiresInDays * 86_400_000);
   return inTransaction(deps.db, async (trx) => {
     const row = await trx
@@ -50,6 +51,12 @@ export async function sendMail(deps: CommunicationDeps, actor: AuditActor, s: Se
       .values({ title: req.title, body: req.body, gifts: JSON.stringify(req.gifts), audience: JSON.stringify(req.audience), created_by: actor.id, created_at: now, expires_at: expiresAt })
       .returning('id')
       .executeTakeFirstOrThrow();
+    for (let i = 0; i < to.length; i += 1000) {
+      await trx
+        .insertInto('galaxy.mailbox_receipts')
+        .values(to.slice(i, i + 1000).map((a) => ({ message_id: row.id, account_id: a.id })))
+        .execute();
+    }
     await writeAudit(trx, {
       actor,
       action: 'mail.send',
@@ -73,7 +80,7 @@ export async function withdrawMail(deps: CommunicationDeps, actor: AuditActor, i
   });
 }
 
-/** The latest 50 messages with how many they reach, read and claimed. */
+/** The latest 50 messages with how many they reached (their receipts), read and claimed. */
 export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]> {
   const rows = await deps.db
     .selectFrom('galaxy.mailbox_messages as m')
@@ -88,13 +95,13 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
       'm.expires_at',
       'm.withdrawn_at',
       'b.username as by',
+      eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').as('recipients'),
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.read_at', 'is not', null).as('read'),
       eb.selectFrom('galaxy.mailbox_receipts as r').select(eb.fn.countAll<number>().as('n')).whereRef('r.message_id', '=', 'm.id').where('r.claimed_at', 'is not', null).as('claimed'),
     ])
     .orderBy('m.created_at', 'desc')
     .limit(50)
     .execute();
-  const all = await accounts(deps);
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -105,7 +112,7 @@ export async function adminMail(deps: CommunicationDeps): Promise<AdminMailRow[]
     at: iso(r.created_at),
     expiresAt: iso(r.expires_at),
     withdrawnAt: r.withdrawn_at ? iso(r.withdrawn_at) : null,
-    recipients: reach(all, r.audience as MailAudience, new Date(r.created_at)),
+    recipients: Number(r.recipients ?? 0),
     read: Number(r.read ?? 0),
     claimed: Number(r.claimed ?? 0),
   }));

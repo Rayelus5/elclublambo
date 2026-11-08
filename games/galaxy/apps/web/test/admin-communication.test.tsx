@@ -114,3 +114,17 @@ test('un aviso se publica con sus fechas y uno en curso se termina con motivo', 
   await userEvent.click(within(dialog).getByRole('button', { name: t.end }));
   await waitFor(() => expect(posted(fetch, '/galaxy/api/admin/notices/n1/end')).toEqual([{ reason: 'Ya terminó' }]));
 });
+
+test('un segmento con los niveles al revés o nombres no válidos dice qué corregir en lugar de quedarse contando', async () => {
+  mockApi(routes());
+  renderAt('/admin/comunicacion', { '/admin/comunicacion': <CommunicationScreen /> });
+  const form = await screen.findByRole('form', { name: t.composeTitle });
+  await userEvent.selectOptions(within(form).getByLabelText(t.fields.audience), 'segment');
+  await userEvent.type(within(form).getByLabelText(t.fields.minLevel), '10');
+  await userEvent.type(within(form).getByLabelText(t.fields.maxLevel), '5');
+  expect(await within(form).findByText(t.audienceInvalid)).toBeInTheDocument();
+  expect(within(form).queryByText(t.counting)).toBeNull();
+  await userEvent.selectOptions(within(form).getByLabelText(t.fields.audience), 'names');
+  await userEvent.type(within(form).getByLabelText(t.fields.usernames), 'vega, x!');
+  expect(await within(form).findByText(t.badNames('x!'))).toBeInTheDocument();
+});

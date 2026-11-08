@@ -50,6 +50,9 @@ export function MailboxDialog({ onClose }: { onClose: () => void }) {
   };
   return (
     <Dialog title={t.title} onClose={onClose} className="mailbox">
+      <button type="button" className="lip iconbtn modal-close" aria-label={t.close} title={t.close} onClick={onClose}>
+        <Icon name="close" />
+      </button>
       {box.error ? (
         <p className="field-error" role="alert">
           {errorText(box.error, copy.errors)}

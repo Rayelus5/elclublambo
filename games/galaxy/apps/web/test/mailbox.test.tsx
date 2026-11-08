@@ -88,3 +88,12 @@ test('los avisos en curso salen en la pantalla de título y se cierran para siem
   expect(await screen.findByText('Nueva temporada el lunes')).toBeInTheDocument();
   expect(screen.queryByText('Mantenimiento el domingo a las 10')).toBeNull();
 });
+
+test('el buzón se cierra con su botón Cerrar', async () => {
+  mockApi({ 'GET /galaxy/api/mailbox': () => jsonResponse(200, box) });
+  renderAt('/', { '/': bar() });
+  await userEvent.click(await screen.findByRole('button', { name: t.unread(2) }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  await userEvent.click(within(dialog).getByRole('button', { name: t.close }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: t.title })).toBeNull());
+});
