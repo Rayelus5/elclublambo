@@ -67,6 +67,14 @@ export function createPlayback(opts: SimOptions, log: InputLog, until: number): 
   };
 }
 
+/** The tick a replay plays to: the one the client sent (the kept one may be clipped to real time), else the kept one. */
+export function replayUntil(run: AdminRunReplay['run']): number {
+  return run.claimed?.ticks ?? run.ticks ?? 0;
+}
+
+/** Flags that mean the server clipped what it kept (ticks, depth, kills or boss kills) below what the client sent. */
+export const CLIPPING_FLAGS = ['too_fast', 'depth_vs_time', 'kills_rate', 'boss_kills'] as const;
+
 export type CheckKey = 'hash' | 'ticks' | 'kills' | 'depth' | 'level';
 export interface CheckRow {
   key: CheckKey;
@@ -75,16 +83,20 @@ export interface CheckRow {
   same: boolean;
 }
 
-/** The replay's end against what the server kept: the state's hash decides, the rest says where it parted. */
+/**
+ * The replay's end against what the client sent at the finish (the hash always was kept as sent; the other figures as
+ * sent since M6d-3, clipped before): every figure must match, a right hash with an inflated count is not the same run.
+ */
 export function checkReplay(sim: Sim, run: AdminRunReplay['run']): { matches: boolean; rows: CheckRow[] } {
   const s = runSummary(sim);
+  const sent = run.claimed ?? run;
   const rows: CheckRow[] = (
     [
       ['hash', run.hash, s.hash],
-      ['ticks', run.ticks, s.ticks],
-      ['kills', run.kills, s.kills],
-      ['depth', run.depth, s.depth],
-      ['level', run.level, s.level],
+      ['ticks', sent.ticks, s.ticks],
+      ['kills', sent.kills, s.kills],
+      ['depth', sent.depth, s.depth],
+      ['level', sent.level, s.level],
     ] as const
   ).map(([key, saved, replayed]) => ({ key, saved, replayed, same: saved === replayed }));
   return { matches: rows.every((r) => r.same), rows };

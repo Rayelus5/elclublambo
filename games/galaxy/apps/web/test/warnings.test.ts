@@ -25,3 +25,9 @@ test('con la simulación parada no avanza, pase el tiempo real que pase', () => 
   const after = warningProgress(mine, 130);
   expect(after).toBe(before);
 });
+
+test('tras volver atrás en una repetición, un aviso que aún no había salido desaparece', () => {
+  // The panel's replayer (M6d-3) rebuilds from tick 0: a warning raised later in the run is not on screen before it.
+  expect(warningProgress(mine, 99.5)).toBeNull();
+  expect(warningProgress(mine, 0)).toBeNull();
+});

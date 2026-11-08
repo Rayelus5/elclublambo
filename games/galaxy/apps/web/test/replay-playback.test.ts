@@ -1,6 +1,6 @@
 import { decodeLog, fromBase64, stateHash } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { checkReplay, createPlayback, replayOptionsOf } from '../src/admin/replay/playback';
+import { checkReplay, createPlayback, replayOptionsOf, replayUntil } from '../src/admin/replay/playback';
 import { playedRun } from './replay-fixture';
 
 // The panel's replayer (GDD §16.2, §16.6; M6d-3): a recorded run played forwards, sought backwards (rebuilt from tick
@@ -49,7 +49,21 @@ test('checkReplay dice qué coincide y qué no', () => {
   expect(ok.matches).toBe(true);
   expect(ok.rows.map((r) => r.key)).toEqual(['hash', 'ticks', 'kills', 'depth', 'level']);
   expect(ok.rows.every((r) => r.same)).toBe(true);
-  const bad = checkReplay(p.sim, { ...run.run, hash: '0000000000000000', kills: (run.run.kills ?? 0) + 1 });
+  // A hash that holds but a figure the client inflated is not the same run either.
+  const bad = checkReplay(p.sim, { ...run.run, hash: '0000000000000000', claimed: { ...run.run.claimed!, kills: run.run.claimed!.kills + 1 } });
   expect(bad.matches).toBe(false);
   expect(bad.rows.filter((r) => !r.same).map((r) => r.key)).toEqual(['hash', 'kills']);
+});
+
+test('una partida que el servidor recortó se repite y se compara con lo que envió', () => {
+  // The server keeps the claim clipped to real time (fewer ticks and kills) but the hash as sent.
+  const clipped = { ...run.run, ticks: 300, kills: 0 };
+  expect(replayUntil(clipped)).toBe(run.run.ticks);
+  const p = createPlayback(replayOptionsOf(run.start), log(), replayUntil(clipped));
+  p.advance(Number.MAX_SAFE_INTEGER);
+  const c = checkReplay(p.sim, clipped);
+  expect(c.matches).toBe(true);
+  expect(c.rows.find((r) => r.key === 'ticks')!.saved).toBe(run.run.ticks);
+  // Without what it sent (runs finished before M6d-3), the kept figures are all there is.
+  expect(replayUntil({ ...clipped, claimed: null })).toBe(300);
 });

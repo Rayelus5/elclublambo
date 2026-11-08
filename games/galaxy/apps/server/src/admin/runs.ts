@@ -1,4 +1,4 @@
-import { ADMIN_RUNS_PAGE, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig } from '@galaxy/shared';
+import { ADMIN_RUNS_PAGE, type AdminRunClaim, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig } from '@galaxy/shared';
 import type { RelicInput, StatBonus } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
@@ -94,6 +94,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       'r.seed',
       'r.relics',
       'r.upgrades',
+      'r.claim',
       'i.inputs',
     ])
     .where('r.id', '=', id)
@@ -103,6 +104,16 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
     ? await db.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', r.content_version).executeTakeFirst()
     : undefined;
   const upgrades = (r.upgrades ?? {}) as { bonuses?: StatBonus[]; variant?: string | null };
+  // A version gone from the history, or one today's schema no longer reads, replays with the defaults, and says so.
+  let content = parseConfig('content', {});
+  let contentFallback = r.content_version > 0 && !stored;
+  if (stored) {
+    try {
+      content = parseConfig('content', stored.data);
+    } catch {
+      contentFallback = true;
+    }
+  }
   return {
     run: {
       ...rowOf(r),
@@ -113,7 +124,9 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       hash: r.hash ?? null,
       simVersion: r.sim_version,
       contentVersion: r.content_version,
+      claimed: claimOf(r.claim),
     },
+    contentFallback,
     start: {
       seed: String(r.seed),
       sector: r.sector,
@@ -121,10 +134,19 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       relics: r.relics as RelicInput[],
       bonuses: Array.isArray(upgrades.bonuses) ? upgrades.bonuses : [],
       variant: typeof upgrades.variant === 'string' ? upgrades.variant : null,
-      content: parseConfig('content', stored?.data ?? {}),
+      content,
     },
     inputs: r.inputs ? Buffer.from(r.inputs).toString('base64') : null,
   };
+}
+
+/** The claim kept at the finish, when it has every figure (runs finished before M6d-3 have none). */
+function claimOf(v: unknown): AdminRunClaim | null {
+  const c = v as Partial<Record<keyof AdminRunClaim, unknown>> | null;
+  const n = (x: unknown) => (typeof x === 'number' && Number.isFinite(x) ? x : null);
+  if (!c) return null;
+  const out = { ticks: n(c.ticks), depth: n(c.depth), kills: n(c.kills), bossKills: n(c.bossKills), level: n(c.level) };
+  return Object.values(out).every((x) => x !== null) ? (out as AdminRunClaim) : null;
 }
 
 /**

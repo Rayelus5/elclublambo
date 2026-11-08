@@ -20,9 +20,12 @@ export function warningFrom(e: Extract<SimEvent, { t: 'telegraph' }>, tick: numb
   return { kind: e.kind, x: e.x, y: e.y, angle: e.angle, radius: e.radius, start: tick, total: e.ticks };
 }
 
-/** How far a warning is (0–1) at simulation time `now` (ticks, with the frame's fraction); null once it has struck. */
+/**
+ * How far a warning is (0–1) at simulation time `now` (ticks, with the frame's fraction); null once it has struck, and
+ * null before it was raised (the panel's replayer went back in the run: the warning is not there yet, M6d-3 review).
+ */
 export function warningProgress(w: Warning, now: number): number | null {
-  if (w.total <= 0) return null;
+  if (w.total <= 0 || now < w.start) return null;
   const k = (now - w.start) / w.total;
-  return k >= 1 ? null : Math.max(0, k);
+  return k >= 1 ? null : k;
 }

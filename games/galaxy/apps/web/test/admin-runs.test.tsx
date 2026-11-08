@@ -1,8 +1,10 @@
 import type { AdminPlayer, AdminRunList, AdminRunReplay, AdminSection, MeResponse } from '@galaxy/shared';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { StrictMode } from 'react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { AdminLayout } from '../src/admin/AdminLayout';
+import { clockText } from '../src/arena/hud/Hud';
 import { PlayerScreen } from '../src/admin/PlayerScreen';
 import { ReplayScreen } from '../src/admin/ReplayScreen';
 import { RunsScreen } from '../src/admin/RunsScreen';
@@ -111,7 +113,8 @@ test('Comprobar dice si coincide con lo guardado, y si no, qué cambia', async (
   await user.click(await screen.findByRole('button', { name: t.check }));
   expect(await screen.findByText(t.matches)).toBeInTheDocument();
   unmount();
-  const forged: AdminRunReplay = { ...played, run: { ...row, kills: (row.kills ?? 0) + 50 } };
+  // The client sent more kills than its own run had (with the right hash).
+  const forged: AdminRunReplay = { ...played, run: { ...row, claimed: { ...row.claimed!, kills: row.claimed!.kills + 50 } } };
   mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, forged) });
   replayAt(forged);
   await user.click(await screen.findByRole('button', { name: t.check }));
@@ -149,4 +152,75 @@ test('en la ficha del jugador cada partida lleva a su repetición', async () => 
   const user = userEvent.setup();
   await user.click(await screen.findByRole('tab', { name: copy.admin.tabs.runs }));
   expect(await screen.findByRole('link', { name: t.viewOf('vega') })).toHaveAttribute('href', `/admin/partidas/${row.id}`);
+});
+
+describe('revisión final', () => {
+  test('Comprobar termina también en StrictMode', async () => {
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, played) });
+    renderAt(`/admin/partidas/${row.id}`, { '/admin/partidas/:id': <StrictMode><ReplayScreen /></StrictMode> });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: t.check }));
+    expect(await screen.findByText(t.matches)).toBeInTheDocument();
+  });
+
+  test('con la línea de tiempo enfocada, espacio reproduce y las flechas mueven 5 segundos', async () => {
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, played) });
+    replayAt(played);
+    const timeline = await screen.findByRole('slider', { name: t.timeline });
+    timeline.focus();
+    fireEvent.keyDown(timeline, { code: 'ArrowRight', key: 'ArrowRight' });
+    await waitFor(() => expect(timeline).toHaveAttribute('aria-valuetext', t.timeAt('0:05', '0:15')));
+    fireEvent.keyDown(timeline, { code: 'Space', key: ' ' });
+    expect(screen.getByRole('button', { name: t.pause })).toBeInTheDocument();
+  });
+
+  test('dos flechas seguidas durante una búsqueda larga cuentan desde su destino', async () => {
+    const long = playedRun(7200);
+    const end = long.run.ticks!;
+    expect(end).toBeGreaterThan(3600);
+    mockApi({ [`GET ${R}/${long.run.id}`]: () => jsonResponse(200, long) });
+    replayAt(long);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: t.toEnd }));
+    const timeline = screen.getByRole('slider', { name: t.timeline });
+    const at = (tick: number) => t.timeAt(clockText(tick / 60), clockText(end / 60));
+    await waitFor(() => expect(timeline).toHaveAttribute('aria-valuetext', at(end)));
+    fireEvent.keyDown(window, { code: 'ArrowLeft', key: 'ArrowLeft' });
+    fireEvent.keyDown(window, { code: 'ArrowLeft', key: 'ArrowLeft' });
+    await waitFor(() => expect(timeline).toHaveAttribute('aria-valuetext', at(end - 600)), { timeout: 4000 });
+  });
+
+  test('una partida que el servidor recortó se comprueba con lo que envió', async () => {
+    const clipped: AdminRunReplay = { ...played, run: { ...row, ticks: 300, kills: 0, flags: ['too_fast'] } };
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, clipped) });
+    replayAt(clipped);
+    expect(await screen.findByRole('slider', { name: t.timeline })).toHaveAttribute('aria-valuetext', t.timeAt('0:00', '0:15'));
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: t.check }));
+    expect(await screen.findByText(t.matches)).toBeInTheDocument();
+    expect(screen.queryByText(t.clipped)).toBeNull();
+  });
+
+  test('una partida recortada de antes, sin lo que envió, avisa de que puede no coincidir', async () => {
+    const old: AdminRunReplay = { ...played, run: { ...row, ticks: 300, kills: 0, flags: ['too_fast'], claimed: null } };
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, old) });
+    replayAt(old);
+    expect(await screen.findByText(t.clipped)).toBeInTheDocument();
+  });
+
+  test('una repetición que no se puede construir lo dice y deja marcar', async () => {
+    const broken: AdminRunReplay = { ...played, inputs: 'AAAA' };
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, broken) });
+    replayAt(broken);
+    expect(await screen.findByText(t.cannotReplay)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.mark })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: t.detailsTitle })).toBeInTheDocument();
+  });
+
+  test('si el contenido de su versión ya no está, lo dice', async () => {
+    const gone: AdminRunReplay = { ...played, run: { ...row, contentVersion: 7 }, contentFallback: true };
+    mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, gone) });
+    replayAt(gone);
+    expect(await screen.findByText(t.contentFallback(7))).toBeInTheDocument();
+  });
 });

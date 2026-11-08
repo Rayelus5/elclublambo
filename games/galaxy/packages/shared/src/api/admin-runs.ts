@@ -33,6 +33,14 @@ export interface AdminRunRow {
   flags: string[];
 }
 
+export interface AdminRunClaim {
+  ticks: number;
+  depth: number;
+  kills: number;
+  bossKills: number;
+  level: number;
+}
+
 export interface AdminRunList {
   runs: AdminRunRow[];
   total: number;
@@ -49,7 +57,11 @@ export interface AdminRunReplay {
     hash: string | null;
     simVersion: string;
     contentVersion: number;
+    /** The figures the client sent at the finish (the kept ones may be clipped to real time); null before M6d-3. */
+    claimed: AdminRunClaim | null;
   };
+  /** The run's content version is no longer in the history (or no longer parses): `start.content` is the defaults. */
+  contentFallback: boolean;
   /** The run's start as the server snapshotted it, with the content of the version it started with. */
   start: { seed: string; sector: string; probe: string; relics: RelicInput[]; bonuses: StatBonus[]; variant: string | null; content: Content };
   /** The recorded inputs (packages/sim encodeLog, base64); null for a run that never finished. */

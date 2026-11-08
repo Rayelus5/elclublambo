@@ -207,6 +207,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
       runs_version: ctx.runsVersion,
       flags,
       suspicious: flags.length > 0,
+      // What the client sent, next to what was kept: the replayer plays to these ticks and compares against them.
+      claim: JSON.stringify({ ticks: claimed.ticks, depth: claimed.depth, kills: claimed.kills, bossKills: claimed.bossKills, level: claimed.level }),
     })
     .where('id', '=', run.id)
     .execute();

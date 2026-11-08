@@ -1,7 +1,7 @@
 -- Galaxy Survivor M6d-3 (migration *_galaxy_run_marks): an admin marks or unmarks a finished run (GDD §16.2). Only
 -- `suspicious` and `flags` may change once a run is finished; every other column stays as it was kept.
 begin;
-select plan(5);
+select plan(7);
 
 insert into galaxy.accounts (id, username, password_hash) values
   ('00000000-0000-4000-8000-0000000009d1', 'pgtap_marks', 'x');
@@ -22,6 +22,10 @@ select throws_ok($$update galaxy.runs set hash = '0000000000000000' where id = '
   'P0001', 'run_finished', 'the rest of a finished run cannot be rewritten');
 select lives_ok($$update galaxy.runs set ticks = 5, kills = 1 where id = '00000000-0000-4000-8000-0000000009d3'$$,
   'a run not finished yet still updates');
+-- What the client sent, kept at the finish next to what the server clipped (M6d-3 review), and fixed after it.
+select has_column('galaxy', 'runs', 'claim', 'runs keep the claim as sent');
+select throws_ok($$update galaxy.runs set claim = '{"ticks": 1}' where id = '00000000-0000-4000-8000-0000000009d2'$$,
+  'P0001', 'run_finished', 'the claim of a finished run cannot be rewritten');
 
 select * from finish();
 rollback;

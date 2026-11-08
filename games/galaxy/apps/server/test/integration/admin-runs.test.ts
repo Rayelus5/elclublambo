@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type AdminRunList, type AdminRunReplay, PROBE_TEST, type Role, type RunStart } from '@galaxy/shared';
-import { botInput, botPick, createSim, decodeLog, encodeLog, fromBase64, replay, runSummary, SIM_VERSION, type SimOptions, stateHash, step, toBase64 } from '@galaxy/sim';
+import { botInput, botPick, createSim, decodeLog, DEFAULT_CONTENT, encodeLog, fromBase64, replay, runSummary, SIM_VERSION, type SimOptions, stateHash, step, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { createAdminViaCli, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
@@ -129,6 +129,44 @@ describe('la repetición', () => {
     expect(r.start).toEqual({ seed: start.seed, sector: start.sector, probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant, content: start.content });
     const again = replay({ ...r.start, probes: [{ probe: r.start.probe, relics: r.start.relics, bonuses: r.start.bonuses, variant: r.start.variant }], record: false }, decodeLog(fromBase64(r.inputs!)), r.run.ticks!);
     expect(stateHash(again)).toBe(r.run.hash);
+  });
+
+  test('una partida que el servidor recortó guarda lo que envió y se repite hasta ahí', async () => {
+    const p = await player();
+    const res = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    const start = res.json() as RunStart;
+    const sim = createSim({ seed: start.seed, content: start.content, sector: start.sector, probes: [{ probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant }], record: true });
+    while (sim.tick < 3000 && (sim.status === 'running' || sim.status === 'choosing')) {
+      if (sim.status === 'choosing') step(sim, sim.probes.map((q) => ({ mx: 0, my: 0, aim: -1, pick: q.offer ? botPick(q.offer) : -1 })));
+      else step(sim, sim.probes.map((q) => botInput(sim, q.index)));
+    }
+    const s = runSummary(sim);
+    // Ten seconds of real time for fifty of play: the server clips the ticks it keeps (too_fast).
+    clock = new Date(clock.getTime() + 10_000);
+    const done = await post(
+      ctx.app,
+      `/galaxy/api/runs/${start.id}/finish`,
+      { outcome: sim.status === 'dead' ? 'died' : 'abandoned', ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level, loot: s.loot, hash: s.hash, inputs: toBase64(encodeLog(sim.log!)) },
+      { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } },
+    );
+    expect(done.statusCode).toBe(200);
+    const r = await detail(start.id);
+    expect(r.run.flags).toContain('too_fast');
+    expect(r.run.ticks).toBeLessThan(s.ticks);
+    expect(r.run.claimed).toEqual({ ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level });
+    const again = replay({ ...r.start, probes: [{ probe: r.start.probe, relics: r.start.relics, bonuses: r.start.bonuses, variant: r.start.variant }], record: false }, decodeLog(fromBase64(r.inputs!)), r.run.claimed!.ticks);
+    expect(stateHash(again)).toBe(r.run.hash);
+  });
+
+  test('si la versión de su contenido ya no está, se repite con el de por defecto y lo dice', async () => {
+    const p = await player();
+    const run = await finishedRun(p.id);
+    const open = await finishedRun(p.id, { outcome: null });
+    await ctx.db.updateTable('galaxy.runs').set({ content_version: 987_654 }).where('id', '=', open).execute();
+    const r = await detail(open);
+    expect(r.contentFallback).toBe(true);
+    expect(r.start.content).toEqual(DEFAULT_CONTENT);
+    expect((await detail(run)).contentFallback).toBe(false);
   });
 
   test('una partida sin terminar sale sin entradas', async () => {

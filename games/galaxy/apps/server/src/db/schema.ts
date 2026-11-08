@@ -455,6 +455,8 @@ export interface RunsTable {
   seconds: Maybe<number>;
   hash: Maybe<string>;
   payout: ColumnType<unknown, string | null | undefined, string | null>;
+  /** The figures the client sent at the finish, before the server clipped them (M6d-3 review); null before that. */
+  claim: ColumnType<unknown, string | null | undefined, string | null>;
   runs_version: Maybe<number>;
   flags: ColumnType<string[], string[] | undefined, string[]>;
   suspicious: ColumnType<boolean, boolean | undefined, boolean>;

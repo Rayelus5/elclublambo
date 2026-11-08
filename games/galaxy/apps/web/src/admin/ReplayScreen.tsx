@@ -1,5 +1,5 @@
 import type { AdminRunReplay } from '@galaxy/shared';
-import { createReplayer, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, SIM_VERSION } from '@galaxy/sim';
+import { createReplayer, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, type InputLog, relicVision, SIM_VERSION, type SimOptions } from '@galaxy/sim';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { useAdminRun } from '../api/admin-runs';
@@ -14,7 +14,7 @@ import { Icon } from '../ui/Icon';
 import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
 import { ActionDialog } from './ActionDialog';
-import { checkReplay, type CheckRow, createPlayback, type Playback, replayOptionsOf } from './replay/playback';
+import { checkReplay, type CheckRow, CLIPPING_FLAGS, createPlayback, type Playback, replayOptionsOf, replayUntil } from './replay/playback';
 import { outcomeText } from './RunsScreen';
 
 // A run's replay in the panel (GDD §16.2, §16.6; M6d-3, DESIGN_SYSTEM §8 duovicies): the arena drawn from the run's own
@@ -42,6 +42,13 @@ const browserClock: Clock = {
 };
 const yieldToPage = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
+/** What a replay is built from, checked once: its options, its decoded log and the tick it plays to. */
+interface Replayable {
+  opts: SimOptions;
+  log: InputLog;
+  until: number;
+}
+
 export function ReplayScreen({ clock = browserClock }: { clock?: Clock }) {
   const { id = '' } = useParams();
   const run = useAdminRun(id);
@@ -68,7 +75,24 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
   const [notice, setNotice] = useState('');
   const sector = start.content.sectors.find((s) => s.id === start.sector)?.name ?? start.sector;
   const probe = start.content.probes.find((p) => p.id === start.probe)?.name ?? start.probe;
-  const playable = data.inputs !== null && run.ticks !== null;
+  const hasLog = data.inputs !== null && (run.claimed?.ticks ?? run.ticks) !== null;
+  // Built once: a log that does not decode, or a sector or probe its content lacks, says so instead of breaking the page.
+  const replayable = useMemo<Replayable | null>(() => {
+    if (!hasLog) return null;
+    try {
+      const until = replayUntil(run);
+      const opts = replayOptionsOf(start);
+      const log = decodeLog(fromBase64(data.inputs!));
+      createReplayer(opts, log, until);
+      return { opts, log, until };
+    } catch {
+      return null;
+    }
+    // The run's start, inputs and claim never change; a refetch after a mark keeps the same replay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasLog, run.id]);
+  // Runs finished before M6d-3 kept only the clipped figures: a clean run may still differ from them.
+  const clipped = hasLog && !run.claimed && run.flags.some((f) => (CLIPPING_FLAGS as readonly string[]).includes(f));
   return (
     <section className="admin-page replay">
       <Link to="/admin/partidas" className="lip pill small replay-back">
@@ -103,10 +127,26 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
           {t.otherVersion(run.simVersion, SIM_VERSION)}
         </p>
       ) : null}
+      {data.contentFallback ? (
+        <p className="replay-warning" role="note">
+          <Icon name="alert" />
+          {t.contentFallback(run.contentVersion)}
+        </p>
+      ) : null}
+      {clipped ? (
+        <p className="replay-warning" role="note">
+          <Icon name="alert" />
+          {t.clipped}
+        </p>
+      ) : null}
       <div className="replay-grid">
-        {playable ? <Player data={data} clock={clock} /> : <p className="panel-note replay-none">{run.finishedAt ? t.noLog : t.noInputs}</p>}
+        {replayable ? (
+          <Player replayable={replayable} data={data} clock={clock} />
+        ) : (
+          <p className="panel-note replay-none">{hasLog ? t.cannotReplay : run.finishedAt ? t.noLog : t.noInputs}</p>
+        )}
         <aside className="replay-side">
-          {playable ? <Check data={data} /> : null}
+          {replayable ? <Check replayable={replayable} data={data} /> : null}
           <Details data={data} />
         </aside>
       </div>
@@ -130,9 +170,9 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
 }
 
 /** The arena, its HUD and the transport under it. */
-function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
-  const until = data.run.ticks!;
-  const playback = useMemo<Playback>(() => createPlayback(replayOptionsOf(data.start), decodeLog(fromBase64(data.inputs!)), until), [data.start, data.inputs, until]);
+function Player({ replayable, data, clock }: { replayable: Replayable; data: AdminRunReplay; clock: Clock }) {
+  const { until } = replayable;
+  const playback = useMemo<Playback>(() => createPlayback(replayable.opts, replayable.log, replayable.until), [replayable]);
   const reduced = useReducedMotion();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
@@ -140,6 +180,8 @@ function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
   const speed = useRef<Speed>(1);
   const seeking = useRef(false);
   const pending = useRef<number | null>(null);
+  /** The tick the seek under way is heading to (null when none is). */
+  const heading = useRef<number | null>(null);
   const [isPlaying, setPlaying] = useState(false);
   const [rate, setRate] = useState<Speed>(1);
   const [tick, setTick] = useState(0);
@@ -170,6 +212,7 @@ function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
       while (pending.current !== null) {
         const goal = pending.current;
         pending.current = null;
+        heading.current = goal;
         if (goal < playback.tick) playback.rewind();
         while (playback.tick < goal && !playback.ended) {
           playback.advance(Math.min(CHUNK, goal - playback.tick));
@@ -181,6 +224,7 @@ function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
         }
       }
       seeking.current = false;
+      heading.current = null;
       setSeekPct(null);
       sync();
     },
@@ -264,17 +308,20 @@ function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
     };
   }, [isPlaying, sync]);
 
-  // Space plays or pauses, the arrows move 5 s (the timeline keeps its own arrows while it has the focus).
+  // Space plays or pauses and the arrows move 5 s, also on the timeline (its own arrows would move one tick). A second
+  // arrow during a long seek counts from where the first one is going, not from where the rebuild has got to.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (typing(e) || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
       const onSlider = e.target instanceof HTMLInputElement && e.target.type === 'range';
+      if (!onSlider && typing(e)) return;
       if (e.code === 'Space' && !(e.target instanceof HTMLButtonElement)) {
         e.preventDefault();
         toggle();
-      } else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight') && !onSlider) {
+      } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         e.preventDefault();
-        void seekTo(playback.tick + (e.code === 'ArrowRight' ? JUMP : -JUMP));
+        const from = pending.current ?? heading.current ?? playback.tick;
+        void seekTo(from + (e.code === 'ArrowRight' ? JUMP : -JUMP));
       }
     };
     window.addEventListener('keydown', down);
@@ -344,20 +391,21 @@ function Player({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
 }
 
 /** «Comprobar»: the run replayed on the side to its last tick, its end against what the server kept. */
-function Check({ data }: { data: AdminRunReplay }) {
+function Check({ replayable, data }: { replayable: Replayable; data: AdminRunReplay }) {
   const [pct, setPct] = useState<number | null>(null);
   const [result, setResult] = useState<{ matches: boolean; rows: CheckRow[] } | null>(null);
   const alive = useRef(true);
-  useEffect(
-    () => () => {
+  // Set on every mount: StrictMode mounts, unmounts and mounts again in development, and the ref outlives that.
+  useEffect(() => {
+    alive.current = true;
+    return () => {
       alive.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
   const run = async () => {
-    const until = data.run.ticks!;
+    const { until } = replayable;
     // Exactly what the server's `replay` does (every step the log allows, up to the last tick), in slices.
-    const r = createReplayer(replayOptionsOf(data.start), decodeLog(fromBase64(data.inputs!)), until);
+    const r = createReplayer(replayable.opts, replayable.log, until);
     setResult(null);
     setPct(0);
     let more = true;
