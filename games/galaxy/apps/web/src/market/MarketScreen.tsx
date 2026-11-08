@@ -14,6 +14,7 @@ import { BuyDialog } from './BuyDialog';
 import { ListingCard } from './ListingCard';
 import { MyListings } from './MyListings';
 import { SellPanel } from './SellPanel';
+import { BackLink } from '../ui/BackLink';
 
 // The market (GDD §14.6, §14.7; DESIGN_SYSTEM §8 quattuordecies): Comprar, Vender, Mis anuncios and Trueques (M5c-2),
 // each its own URL (?pestana=vender|mios|trueques). Everyone sees the listings; buying and selling need the trade gates, and a notice says why.
@@ -154,10 +155,10 @@ export function MarketScreen() {
     <div className="screen-root market-root">
       <div className="market">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{t.back}</span>
-          </Link>
+          </BackLink>
           <h1>{t.title}</h1>
           {mine.data ? <p className="market-commission">{t.commission(Math.round(mine.data.rules.commission * 100))}</p> : null}
         </header>

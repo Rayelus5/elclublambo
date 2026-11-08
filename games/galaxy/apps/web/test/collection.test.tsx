@@ -286,3 +286,14 @@ describe('el nivel de una galaxia (M4c-1)', () => {
     await waitFor(() => expect(client.getQueryState(HANGAR_KEY)?.isInvalidated).toBe(true));
   });
 });
+
+test('llegando desde el Colisionador del Hogar, Fusionar ya está activado', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
+  });
+  renderAt('/coleccion', screens, { fuse: true });
+  await screen.findByRole('article', { name: 'Gal a' });
+  const toggle = screen.getAllByRole('button', { name: copy.collection.cancel }).find((b) => b.hasAttribute('aria-pressed'));
+  expect(toggle).toHaveAttribute('aria-pressed', 'true');
+});

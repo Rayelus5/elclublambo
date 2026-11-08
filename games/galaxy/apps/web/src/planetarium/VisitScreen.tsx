@@ -5,6 +5,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { Dome, PrestigePanel, ShownCard, VisitForm } from './Dome';
+import { BackLink } from '../ui/BackLink';
 
 // A visit to someone's planetarium (GDD §10.5, §14.2; DESIGN_SYSTEM §8 decies): the owner's name, their cards on the
 // pedestals without any action, their prestige and visits. A name without a planetarium says so and leads back.
@@ -21,10 +22,10 @@ export function VisitScreen() {
     <div className="screen-root planetarium-root">
       <div className="planetarium">
         <header className="collection-bar">
-          <Link to="/planetario" className="lip pill">
+          <BackLink fallback="/planetario">
             <Icon name="back" />
             <span>{t.backToMine}</span>
-          </Link>
+          </BackLink>
           <h1>{v ? t.of(v.owner) : t.title}</h1>
         </header>
         {missing ? (

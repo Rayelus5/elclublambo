@@ -12,6 +12,7 @@ import { ClanEmblem } from '../clans/ClanEmblem';
 import { TierEmblem } from './parts';
 import { useTrades } from '../api/trades';
 import { TradeComposer } from '../trades/TradeComposer';
+import { BackLink } from '../ui/BackLink';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
@@ -126,10 +127,10 @@ export function ProfileScreen() {
     <div className="screen-root profile-root">
       <div className="profile">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{t.back}</span>
-          </Link>
+          </BackLink>
         </header>
         {missing ? (
           <div className="lip panel lb-empty">

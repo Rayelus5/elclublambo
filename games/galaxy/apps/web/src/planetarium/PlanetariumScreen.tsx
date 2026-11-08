@@ -8,6 +8,7 @@ import { GalaxyPicker } from '../cards/GalaxyPicker';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { Dome, PrestigePanel, ShownCard, VisitForm } from './Dome';
+import { BackLink } from '../ui/BackLink';
 
 // The player's planetarium (GDD §10.5, §8.5; DESIGN_SYSTEM §8 decies): six pedestals under the dome; an empty one
 // offers to exhibit a galaxy and a full one holds its card (pick it to change it) with «Retirar». Beside it, the
@@ -56,10 +57,10 @@ export function PlanetariumScreen() {
     <div className="screen-root planetarium-root">
       <div className="planetarium">
         <header className="collection-bar">
-          <Link to="/estacion" className="lip pill">
+          <BackLink fallback="/estacion">
             <Icon name="back" />
             <span>{t.back}</span>
-          </Link>
+          </BackLink>
           <h1>{t.title}</h1>
         </header>
         {error ? (

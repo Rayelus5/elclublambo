@@ -11,6 +11,7 @@ import { VisitScreen } from './planetarium/VisitScreen';
 import { LeaderboardScreen } from './social/LeaderboardScreen';
 import { MarketScreen } from './market/MarketScreen';
 import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
+import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
 import { CommunicationScreen } from './admin/CommunicationScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
@@ -116,6 +117,7 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ChatHost />
+      <TrailTracker />
     </>
   );
 }
