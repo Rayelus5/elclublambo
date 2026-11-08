@@ -37,7 +37,9 @@ test('la ruta deja recoger lo alcanzado, la tienda compra lo que da la moneda y 
   expect(await screen.findByRole('heading', { level: 1, name: 'Temporada 1' })).toBeInTheDocument();
   expect(screen.getByText(copy.season.toNext(200))).toBeInTheDocument();
   expect(screen.getByText('30 Esquirlas, el título Pionero')).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: copy.season.claimOf(800) })).toBeDisabled();
+  // A step not reached yet says what it lacks instead of offering a dead button.
+  expect(screen.queryByRole('button', { name: copy.season.claimOf(800) })).toBeNull();
+  expect(screen.getByText(copy.season.left(200))).toBeInTheDocument();
   expect(screen.getByRole('button', { name: copy.season.buyOf('Saco de polvo estelar', 40, 'Esquirlas') })).toBeEnabled();
   expect(screen.getByRole('button', { name: copy.season.buyOf('Marco Abismo', 900, 'Esquirlas') })).toBeDisabled();
   expect(screen.getByText(copy.season.convertNote('Esquirlas'))).toBeInTheDocument();

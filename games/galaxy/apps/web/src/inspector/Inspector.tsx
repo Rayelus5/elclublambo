@@ -1,3 +1,4 @@
+import { PALETTES } from '@galaxy/engine';
 import type { PulledGalaxy } from '@galaxy/shared';
 import { useEffect, useRef, useState } from 'react';
 import { CardBack } from '../cards/CardBack';
@@ -69,7 +70,8 @@ export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?
         flat(copy.inspector.reasons.render);
         return;
       }
-      const common = { front: drawFront(galaxy), back: drawBack(galaxy, braille.text), starfield: drawStarfield(galaxy.seed), mask: drawMask(), finish: galaxy.finish, reduced };
+      const inverted = PALETTES.get(galaxy.traits['palette'] ?? '')?.mode === 'inverted';
+      const common = { front: drawFront(galaxy), back: drawBack(galaxy, braille.text), starfield: drawStarfield(galaxy.seed), mask: drawMask(), finish: galaxy.finish, reduced, inverted };
       // A drag that leaves the other face showing turns the button with it.
       const events = { onFace: (face: 'front' | 'back') => setBack(face === 'back') };
       let why: string;
@@ -83,7 +85,8 @@ export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?
       }
       if (controller.signal.aborted) return;
       try {
-        scene.current = module.createInspectorScene(el, { ...common, galaxy: image }, events, 'classic');
+        // An inverted galaxy is an image, not light: feathered, or its square would show (InspectorFaces.inverted).
+        scene.current = module.createInspectorScene(el, { ...common, galaxy: inverted ? featherGalaxy(image) : image }, events, 'classic');
         setVariant('classic');
         setReason(why);
         setMode('ready');

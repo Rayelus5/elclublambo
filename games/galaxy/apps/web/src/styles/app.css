@@ -59,6 +59,8 @@
   .ico { width: 1em; height: 1em; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
   /* ---------- Living backdrop: engine galaxies on deep black (DESIGN_SYSTEM §8) ---------- */
+  /* A screen scrolls only downwards: anything wider (a track, a table, a list of cards) scrolls inside its own module, so the
+     page never grows sideways (the owner's rule, 2026-11-08). */
   .screen-root { position: fixed; inset: 0; overflow: hidden; }
   .backdrop { position: absolute; inset: 0; overflow: hidden; --tint: rgb(60 80 160); transition: --tint 5s ease;
     background: radial-gradient(85% 85% at 64% 48%, #0a0d22 0%, #05060f 62%, #020309 100%); }
@@ -690,7 +692,7 @@
   @media (max-width: 900px) { .probe-answers { grid-template-columns: 1fr; } .probe-answer { min-height: 96px; } }
   @media (prefers-reduced-motion: reduce) { .probe-reveal-art { animation: none; } .probe-test-dots li { transition: none; } }
   /* The station (DESIGN_SYSTEM §8 septies): two decks of five rooms in a side cut, the hull a riveted steel frame. */
-  .station-root { overflow: auto; }
+  .station-root { overflow-x: hidden; overflow-y: auto; }
   .station { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
   /* The hull sits in the middle of the height the header leaves. */
   .station-hull { margin-block: auto; }
@@ -734,7 +736,7 @@
   @media (prefers-reduced-motion: reduce) { :is(a, button).room { transition: none; } .room-art { animation: none; } }
   /* The Laboratorio (DESIGN_SYSTEM §8 octies): a lab blueprint, four branches in dark glass over a grid, each node
      indented under the one that opens it with a connector in its branch's colour. */
-  .lab-root { overflow: auto; }
+  .lab-root { overflow-x: hidden; overflow-y: auto; }
   .lab { box-sizing: border-box; width: min(100%, 1720px); min-height: 100%; margin: 0 auto; padding: 28px clamp(16px, 3vw, 40px) 40px; display: flex; flex-direction: column; gap: 22px; }
   .lab-closed { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
   .lab-closed p { margin: 0; color: var(--color-ink-soft); font-size: 17px; }
@@ -906,7 +908,7 @@
   .arena.reduced .hud-hp.low, .arena.reduced .hud-radio, .arena.reduced .arena-ending { animation: none; }
 
   /* §8 ter: the hangar and the results. */
-  .hangar-root { overflow: auto; }
+  .hangar-root { overflow-x: hidden; overflow-y: auto; }
   .hangar { box-sizing: border-box; min-height: 100%; max-width: min(2200px, 100%); margin: 0 auto; padding: 24px clamp(20px, 3vw, 48px) 40px; display: grid; align-content: start; gap: 22px; }
   .hangar .collection-bar h1 { font: 400 clamp(28px, 3vw, 40px) var(--font-display); margin: 0; }
   .hangar-grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(360px, 1.15fr) minmax(440px, 1.5fr); gap: 22px; align-items: stretch; }
@@ -1010,7 +1012,7 @@
   /* ---------- Planetario (DESIGN_SYSTEM §8 decies) ---------- */
   /* The dome is the Aseprite strip at an integer scale (--px: ×5, ×6 on wide screens, ×7 on very wide and tall
      ones); the cards float over its six pedestals, each placed by its pedestal's centre in art pixels (--x). */
-  .planetarium-root { overflow: auto; background: radial-gradient(80% 60% at 40% 0%, #121a46 0%, var(--color-void) 65%); }
+  .planetarium-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 40% 0%, #121a46 0%, var(--color-void) 65%); }
   .planetarium { --px: 5; box-sizing: border-box; width: min(100%, 1760px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.2vw, 40px) 40px; display: flex; flex-direction: column; gap: 20px; }
   .planetarium .collection-bar { margin-left: 0; }
   .planetarium-body { display: flex; align-items: flex-start; gap: 20px; }
@@ -1096,7 +1098,7 @@
   .podium li.place-2 .podium-step { block-size: 44px; }
   .podium li[aria-current="true"] .podium-avatar { box-shadow: 0 0 0 3px var(--metal), 0 0 0 6px var(--color-ice), 0 0 22px color-mix(in srgb, var(--metal) 50%, transparent); }
   /* The leaderboard screen. */
-  .leaderboard-root, .profile-root { overflow: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
+  .leaderboard-root, .profile-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
   .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
   .lb-tabs { margin: 0; max-width: 720px; }
@@ -1183,7 +1185,7 @@
   /* ---------- Clanes (DESIGN_SYSTEM §8 duodecies) ---------- */
   /* A clan's emblem: the Aseprite strip of its six colours (32×32 each) at ×1 or ×2; the colour is the x position. */
   .clan-emblem { display: inline-block; flex: none; inline-size: var(--size, 64px); block-size: var(--size, 64px); background: no-repeat 0 0 / 600% 100%; image-rendering: pixelated; }
-  .clans-root { overflow: auto; background: radial-gradient(80% 60% at 70% 0%, #1d1450 0%, var(--color-void) 62%); }
+  .clans-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 70% 0%, #1d1450 0%, var(--color-void) 62%); }
   .clans { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .clans .collection-bar { margin-left: 0; }
   .clan-tag { display: inline-block; padding: 1px 7px; border-radius: 6px; background: rgb(0 0 0 / .35); color: var(--color-ink-soft); font: 700 12px var(--font-sans); letter-spacing: .06em; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -1321,7 +1323,7 @@
     .chat-msg, .chat-msg-actions, .chat-tabs button, .chat-compose textarea { transition: none; }
   }
   /* The market (M5c-1): the trading post at ×3 (×4 on large screens), the gate, the filters, the listings, selling and one's own. */
-  .market-root { overflow: auto; background: radial-gradient(80% 60% at 50% 0%, #2a1a0c 0%, var(--color-void) 62%); }
+  .market-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 50% 0%, #2a1a0c 0%, var(--color-void) 62%); }
   .market { box-sizing: border-box; width: min(100%, 1480px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .market .collection-bar { margin-left: 0; }
   .market-commission { margin: 0; color: var(--color-ink-mute); font-size: 14px; }
@@ -1405,7 +1407,7 @@
   .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
   .trade-closed-g { font-size: 14px; color: var(--color-ink-soft); }
   /* The admin area (M6a): sober and dense, on the game's tokens; tables scroll on their own. */
-  .admin-root { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100%; overflow: auto; background: var(--color-void); }
+  .admin-root { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100%; overflow-x: hidden; overflow-y: auto; background: var(--color-void); }
   .admin-side { position: sticky; top: 0; align-self: start; min-height: 100vh; box-sizing: border-box; padding: 22px 16px; display: grid; align-content: start; gap: 18px; background: var(--color-panel); border-right: 2px solid rgb(255 255 255 / .05); }
   .admin-brand { margin: 0; font: 400 20px var(--font-display); color: var(--color-solar); }
   .admin-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
@@ -1663,45 +1665,70 @@
   .lb-hall { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; }
   .lb-hall .ico { inline-size: 18px; block-size: 18px; color: var(--color-solar); }
   .profile-avatar.frame-crown { box-shadow: 0 0 0 4px var(--color-solar), 0 0 0 7px var(--color-uv), 0 0 22px 6px rgb(255 201 74 / .45); border-radius: 18px; }
-  /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). */
+  /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). Wider than the other lists: the route is a track. */
   .more-season { display: flex; gap: 8px; margin-bottom: 0; --lip-c: var(--color-uv-lip); background: linear-gradient(180deg, var(--color-uv-soft), var(--color-uv)); }
   .more-season .ico { inline-size: 20px; block-size: 20px; }
-  .season-screen { gap: 18px; }
+  .missions.season-screen { inline-size: min(100% - 48px, 1240px); gap: 20px; }
   .season-left { margin-inline-start: auto; color: var(--color-ink-soft); font-weight: 600; }
-  .season-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
-  .season-score, .season-wallet { --r: 20px; display: flex; align-items: center; gap: 16px; padding: 16px 20px; }
-  .season-score > div, .season-wallet > div { display: grid; gap: 2px; }
-  .season-score b { font: 400 34px/1 var(--font-display); }
+  .season-hero, .season-route, .season-shop, .season-track { min-inline-size: 0; }
+  .season-hero { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 14px; }
+  .season-score, .season-wallet { --r: 20px; display: flex; align-items: center; gap: 18px; padding: 18px 22px; }
+  .season-score > div, .season-wallet > div { display: grid; gap: 4px; min-inline-size: 0; flex: 1; }
+  .season-score b { font: 400 36px/1 var(--font-display); }
   .season-score span { color: var(--color-ink-soft); font-weight: 600; }
-  .season-score .season-next { color: var(--color-solar); }
-  .season-notier { inline-size: 64px; block-size: 64px; border-radius: 16px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
-  .season-wallet { flex-wrap: wrap; }
-  .season-wallet > .ico { inline-size: 44px; block-size: 44px; color: var(--color-uv-soft); filter: drop-shadow(0 0 10px color-mix(in oklab, var(--color-uv-soft) 60%, transparent)); }
-  .season-wallet b { font: 400 30px/1 var(--font-display); }
+  .season-tier-next { opacity: .35; filter: grayscale(.6); }
+  .season-tier-bar { display: block; block-size: 10px; border-radius: 99px; background: rgb(255 255 255 / .08); overflow: hidden; margin-block: 4px 2px; }
+  .season-tier-bar i { display: block; block-size: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
+  .season-score .season-next { color: var(--color-ink); font-size: 14px; }
+  .season-score .season-next-step { color: var(--color-solar); font-size: 14px; }
+  .season-wallet { flex-wrap: wrap; background-image: radial-gradient(circle at 12% 30%, color-mix(in oklab, var(--color-uv) 30%, transparent), transparent 60%); }
+  .season-wallet > .ico { inline-size: 48px; block-size: 48px; color: var(--color-uv-soft); filter: drop-shadow(0 0 10px color-mix(in oklab, var(--color-uv-soft) 60%, transparent)); }
+  .season-wallet b { font: 400 34px/1 var(--font-display); }
   .season-wallet span { color: var(--color-ink-soft); font-weight: 600; }
   .season-wallet p { margin: 0; flex-basis: 100%; font-size: 14px; color: var(--color-ink-mute); }
-  .season-route h2, .season-shop h2 { margin: 0 0 10px; font: 400 22px var(--font-display); }
-  .season-track { position: relative; }
-  .season-track ol { position: relative; list-style: none; margin: 0; padding: 34px 6px 12px; display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 12px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: thin; }
-  .season-track li { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 30px 10px 12px; border-radius: 16px; background: var(--color-panel); text-align: center; }
-  .season-track li::before { content: ''; position: absolute; top: -16px; inset-inline: -6px; block-size: 6px; background: rgb(255 255 255 / .08); }
+  .season-route h2, .season-shop h2 { margin: 0; font: 400 24px var(--font-display); }
+  .season-shop h2 { margin-block-end: 12px; }
+  .season-route-head { display: flex; align-items: center; gap: 10px; margin-block-end: 6px; }
+  .season-route-head > span { margin-inline-end: auto; color: var(--color-ink-mute); font-weight: 600; }
+  .season-route-head .iconbtn { --lip-h: 3px; width: 40px; height: 40px; }
+  .season-route-head .iconbtn.flip .ico { transform: scaleX(-1); }
+  .season-route-head .iconbtn:disabled { opacity: .35; cursor: default; }
+  /* The track scrolls inside itself; its edges fade where there is more to see. */
+  .season-track { position: relative; max-inline-size: 100%; --fs: #000; --fe: #000; mask-image: linear-gradient(90deg, var(--fs), #000 48px, #000 calc(100% - 48px), var(--fe)); }
+  .season-track.fade-start { --fs: transparent; }
+  .season-track.fade-end { --fe: transparent; }
+  .season-track ol { position: relative; list-style: none; margin: 0; padding: 30px 4px 10px; display: grid; grid-auto-flow: column; grid-auto-columns: 172px; gap: 12px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: none; }
+  .season-track ol::-webkit-scrollbar { display: none; }
+  .season-track li { position: relative; display: grid; justify-items: center; align-content: start; gap: 8px; padding: 26px 12px 14px; border-radius: 18px; background: linear-gradient(170deg, var(--color-panel-2), var(--color-panel)); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .05); text-align: center; }
+  .season-track li::before { content: ''; position: absolute; top: -14px; inset-inline: -7px; block-size: 6px; background: rgb(255 255 255 / .08); }
   .season-track li.ready::before, .season-track li.claimed::before { background: linear-gradient(90deg, var(--color-solar), var(--color-solar-2)); }
-  .season-node { position: absolute; top: -34px; display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 50%; background: var(--color-panel-2); color: var(--color-ink-mute); box-shadow: 0 0 0 4px var(--color-void); }
-  .season-node .ico { inline-size: 20px; block-size: 20px; }
+  .season-track li.ready { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 18px rgb(255 201 74 / .25); }
+  .season-track li.claimed { opacity: .7; }
+  .season-node { position: absolute; top: -30px; display: grid; place-items: center; inline-size: 36px; block-size: 36px; border-radius: 50%; background: var(--color-panel-2); color: var(--color-ink-mute); font-weight: 700; font-size: 14px; box-shadow: 0 0 0 4px var(--color-void); }
+  .season-node .ico { inline-size: 18px; block-size: 18px; }
   .season-track li.ready .season-node { background: var(--color-solar); color: var(--color-on-solar); animation: season-ready 1.6s ease-in-out infinite; }
   .season-track li.claimed .season-node { background: var(--color-terminal); color: var(--color-on-terminal); }
-  .season-track li b { font-weight: 700; }
-  .season-track li.locked { color: var(--color-ink-soft); }
-  .season-reward { min-block-size: 2.6em; font-size: 14px; line-height: 1.3; }
   @keyframes season-ready { 50% { box-shadow: 0 0 0 4px var(--color-void), 0 0 18px var(--color-solar); } }
-  .season-shop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-  .season-shop li { --r: 18px; display: grid; gap: 6px; align-content: start; padding: 14px 16px; }
-  .season-shop li b { font-size: 16px; }
+  .season-reward-icon { display: grid; place-items: center; inline-size: 48px; block-size: 48px; border-radius: 14px; --k: var(--color-solar); background: color-mix(in oklab, var(--k) 18%, transparent); color: var(--k); }
+  .season-reward-icon .ico { inline-size: 28px; block-size: 28px; filter: drop-shadow(0 0 6px color-mix(in oklab, var(--k) 55%, transparent)); }
+  .season-reward-icon.k-dust { --k: var(--color-ice); }
+  .season-reward-icon.k-signal { --k: var(--color-nova); }
+  .season-reward-icon.k-shards { --k: var(--color-uv-soft); }
+  .season-reward-icon.k-cosmetic { --k: var(--color-terminal); }
+  .season-reward { min-block-size: 2.6em; font-size: 14px; font-weight: 600; line-height: 1.3; }
+  .season-at { color: var(--color-ink-soft); font-size: 13px; font-weight: 700; }
+  .season-step-state { display: inline-flex; align-items: center; gap: 6px; min-block-size: 32px; font-size: 13px; font-weight: 700; color: var(--color-terminal); }
+  .season-step-state .ico { inline-size: 16px; block-size: 16px; }
+  .season-step-state.locked { color: var(--color-ink-mute); }
+  .season-shop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .season-shop li { --r: 18px; display: flex; flex-direction: column; gap: 6px; padding: 16px; }
+  .season-shop li b { font-size: 16px; margin-block-start: 4px; }
   .season-shop li > span { color: var(--color-ink-soft); font-size: 14px; }
-  .season-shop li.sold { opacity: .6; }
-  .season-shop .season-stock { color: var(--color-ink-mute); }
-  .season-shop button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+  .season-shop li.sold { opacity: .55; }
+  .season-shop .season-stock { color: var(--color-ink-mute); font-size: 13px; }
+  .season-shop button { margin-block-start: auto; align-self: stretch; justify-content: center; display: inline-flex; align-items: center; gap: 6px; }
   .season-shop button .ico { inline-size: 16px; block-size: 16px; }
+  .season-shop button:disabled { opacity: .45; filter: grayscale(.5); cursor: default; }
   .results-points .ico { inline-size: 16px; block-size: 16px; vertical-align: -3px; margin-inline-end: 4px; }
   @media (prefers-reduced-motion: reduce) { .season-track li.ready .season-node { animation: none; } .season-track ol { scroll-behavior: auto; } }
   @media (max-width: 900px) { .season-hero { grid-template-columns: minmax(0, 1fr); } }
@@ -1764,7 +1791,7 @@
   .catalog-grid li.found .ico { color: var(--color-terminal); }
   .catalog-grid li.missing { justify-content: center; color: var(--color-ink-mute); font: 400 20px var(--font-display); }
   /* Missions and achievements (DESIGN_SYSTEM §8 quinvicies). */
-  .missions-root { overflow: auto; }
+  .missions-root { overflow-x: hidden; overflow-y: auto; }
   /* One column that never grows past the screen: a wide child (the season's track) scrolls inside it. */
   .missions { inline-size: min(100% - 32px, 980px); margin: 0 auto; padding: 28px 0 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .missions h1 { margin: 0; font: 400 34px var(--font-display); }
