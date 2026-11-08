@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { PROBE_TEST, type SeasonView, type Wallet } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { invalidateLeaderboard } from '../../src/social/leaderboard';
@@ -6,8 +6,12 @@ import { fixedConfig, get, post, sessionCookie, testApp, uniqueName } from '../h
 
 // The season route and shop (GDD §11.1, §13.1; M7d-1): steps by score, once each; the shop up to each limit with the
 // season currency; once the season closes, what is left becomes dust. Its own season (a random id) so the score is ours.
+// A random three-day window long past, with the app's clock inside it: no run other tests leave can reach it, and
+// closing it (moving the clock past its end) ranks only this account.
 const season = `t-${randomBytes(4).toString('hex')}`;
-const open = { id: season, name: 'Prueba', startsAt: new Date(Date.now() - 3_600_000).toISOString(), endsAt: new Date(Date.now() + 3_600_000).toISOString() };
+const start = Date.UTC(1990, 0, 1) + randomInt(30 * 365 * 24 * 60) * 60_000;
+const open = { id: season, name: 'Prueba', startsAt: new Date(start).toISOString(), endsAt: new Date(start + 3 * 86_400_000).toISOString() };
+let clock = new Date(start + 86_400_000);
 const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, ...x });
 const overrides: Record<string, unknown> = {
   season: open,
@@ -22,7 +26,7 @@ const overrides: Record<string, unknown> = {
 };
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
-  ctx = await testApp({ config: fixedConfig(overrides) });
+  ctx = await testApp({ now: () => clock, config: fixedConfig(overrides) });
 });
 afterAll(() => ctx.close());
 
@@ -59,11 +63,13 @@ test('los escalones se recogen una vez con la puntuación, la tienda vende hasta
   expect(Object.keys(wallet).some((c) => c.startsWith('season:'))).toBe(false);
 
   // The season closes: the 10 left become 20 dust, once.
-  overrides.season = { ...open, startsAt: new Date(Date.now() - 7_200_000).toISOString(), endsAt: new Date(Date.now() - 60_000).toISOString() };
+  clock = new Date(start + 4 * 86_400_000);
   const closed = (await get(ctx.app, '/galaxy/api/season', { cookie })).json() as SeasonView;
   expect(closed).toMatchObject({ season: null, steps: [], shop: [] });
+  // Its close ranked this account alone: first, so on the podium (300 points reach no tier).
+  expect(closed.closing).toMatchObject({ season, rank: 1, score: 300, tier: null, podium: true, claimed: false });
+  expect(await ctx.db.selectFrom('galaxy.season_results').select(['rank', 'score']).where('season', '=', season).execute()).toEqual([{ rank: 1, score: 300 }]);
   await get(ctx.app, '/galaxy/api/season', { cookie });
   expect(((await get(ctx.app, '/galaxy/api/gacha', { cookie })).json() as { wallet: Wallet }).wallet.dust).toBe(dust0 + 120);
   expect((await post(ctx.app, '/galaxy/api/season/shop/bag/buy', undefined, k())).json()).toEqual({ error: 'season_closed' });
-  overrides.season = open;
 });

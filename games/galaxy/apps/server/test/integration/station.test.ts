@@ -42,7 +42,7 @@ test('una cuenta nueva: seis salas funcionan (el Archivo abre el Códice, M7b-2)
     refinery: 'working',
     antenna: 'broken',
     archive: 'working',
-    trophies: 'future',
+    trophies: 'working',
   });
   expect(v.refinery).toMatchObject({ level: 1, rate: 20, capacity: 100, queue: 0, ready: 0, nextAt: null });
   expect(v.antenna).toMatchObject({ level: 0, accrued: 0 });

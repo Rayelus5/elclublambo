@@ -39,6 +39,7 @@ export const API_ERROR_CODES = [
   'season_item_not_found',
   'season_step_not_found',
   'season_item_sold_out',
+  'season_result_not_found',
   'cosmetic_locked',
   'catalog_reward_not_found',
   'runs_disabled',

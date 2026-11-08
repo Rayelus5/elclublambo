@@ -2,8 +2,9 @@ import type { SeasonView } from '@galaxy/shared';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
-import { copy } from '../src/copy/es';
+import { copy, fmt } from '../src/copy/es';
 import { SeasonScreen } from '../src/season/SeasonScreen';
+import { TrophiesScreen } from '../src/season/TrophiesScreen';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // The season route and shop (GDD §13.1; M7d-1).
@@ -24,6 +25,7 @@ const view: SeasonView = {
     { id: 'dust-bag', name: 'Saco de polvo estelar', price: 40, limit: 10, bought: 0, reward: r({ dust: 500 }) },
     { id: 'frame-abyss', name: 'Marco Abismo', price: 900, limit: 1, bought: 0, reward: r({ frame: 'abyss' }) },
   ],
+  closing: null,
 };
 
 test('la ruta deja recoger lo alcanzado, la tienda compra lo que da la moneda y avisa de la conversión', async () => {
@@ -48,4 +50,33 @@ test('fuera de temporada lo dice', async () => {
   mockApi({ 'GET /galaxy/api/season': () => jsonResponse(200, { ...view, season: null, steps: [], shop: [] }) });
   renderAt('/temporada', { '/temporada': <SeasonScreen /> });
   expect(await screen.findByText(copy.errors.season_closed)).toBeInTheDocument();
+});
+
+test('al cerrar una temporada enseña el puesto y sus premios para recogerlos una vez (M7d-2)', async () => {
+  const closing = { season: 'season-0', name: 'Temporada 0', endsAt: '2026-10-31T00:00:00.000Z', rank: 2, score: 7000, tier: 'gold' as const, podium: true, rewards: [r({ coins: 3000 }), r({ title: 'Podio de temporada', frame: 'crown' })], claimed: false };
+  const fetch = mockApi({
+    'GET /galaxy/api/season': () => jsonResponse(200, { ...view, season: null, steps: [], shop: [], closing }),
+    'POST /galaxy/api/season/results/season-0/claim': () => jsonResponse(200, { ...view, season: null, steps: [], shop: [], closing: null }),
+  });
+  renderAt('/temporada', { '/temporada': <SeasonScreen /> });
+  expect(await screen.findByRole('heading', { name: copy.season.closingTitle('Temporada 0') })).toBeInTheDocument();
+  expect(screen.getByText(copy.season.closingPlace(2, 7000))).toBeInTheDocument();
+  expect(screen.getByText(`${fmt(3000)} monedas; el título Podio de temporada, el marco Corona`)).toBeInTheDocument();
+  expect(screen.getByText(copy.season.closingTrophy)).toBeInTheDocument();
+  await userEvent.click(screen.getByRole('button', { name: copy.season.closingClaim }));
+  await vi.waitFor(() => expect(screen.queryByRole('button', { name: copy.season.closingClaim })).toBeNull());
+  expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/season/results/season-0/claim')).toBe(true);
+});
+
+test('los trofeos enseñan tus temporadas y el salón de la fama con su podio (M7d-2)', async () => {
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, { id: 'u1', username: 'piloto', roles: [], mfa: false }),
+    'GET /galaxy/api/profiles/piloto/seasons': () => jsonResponse(200, { seasons: [{ season: 'season-0', name: 'Temporada 0', endsAt: '2026-10-31T00:00:00.000Z', rank: 1, score: 9000, tier: 'gold', podium: true }] }),
+    'GET /galaxy/api/hall-of-fame': () =>
+      jsonResponse(200, { seasons: [{ season: 'season-0', name: 'Temporada 0', endsAt: '2026-10-31T00:00:00.000Z', players: 40, podium: [{ username: 'piloto', rank: 1, score: 9000 }, { username: 'otra', rank: 2, score: 8000 }] }] }),
+  });
+  renderAt('/trofeos', { '/trofeos': <TrophiesScreen /> });
+  expect(await screen.findByText(copy.trophies.podiumPlace(1))).toBeInTheDocument();
+  expect(await screen.findByText(copy.trophies.players(40))).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'otra' })).toHaveAttribute('href', '/perfil/otra');
 });

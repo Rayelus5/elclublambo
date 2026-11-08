@@ -5,6 +5,7 @@ import type { DB } from '../db/schema';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { ranking } from '../social/leaderboard';
+import { pendingResult } from './close';
 
 // The season route and shop (GDD §11.1, §13.1; M7d-1). The score is the General leaderboard's (runs that count plus
 // the points of missions, achievements and admins), read before any transaction: the ranking reads with its own
@@ -42,7 +43,8 @@ async function payReward(trx: Kysely<DB>, accountId: string, seasonId: string, r
 
 export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: string, score: number, now: Date): Promise<SeasonView> {
   const name = c.route.currency.name;
-  if (!seasonOpen(c.season, now)) return { season: null, score: 0, tier: null, currency: { name, balance: 0 }, steps: [], shop: [] };
+  const closing = await pendingResult(db, accountId);
+  if (!seasonOpen(c.season, now)) return { season: null, score: 0, tier: null, currency: { name, balance: 0 }, steps: [], shop: [], closing };
   const id = c.season.id;
   const [claims, bought, balance] = await Promise.all([
     db.selectFrom('galaxy.season_route_claims').select('step').where('account_id', '=', accountId).where('season', '=', id).execute(),
@@ -58,6 +60,7 @@ export async function seasonView(db: Kysely<DB>, c: SeasonConfigs, accountId: st
     currency: { name, balance: Number(balance?.amount ?? 0) },
     steps: c.route.steps.map((s) => ({ at: s.at, reward: s.reward, reached: score >= s.at, claimed: claimed.has(s.at) })),
     shop: c.route.shop.map((i) => ({ id: i.id, name: i.name, price: i.price, limit: i.limit, bought: count.get(i.id) ?? 0, reward: i.reward })),
+    closing,
   };
 }
 

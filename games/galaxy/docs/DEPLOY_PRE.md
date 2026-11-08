@@ -559,7 +559,7 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba con una cuenta nueva que el inicio enseñe 1 de 5 tras el test de la sonda, y que no haya violaciones de CSP.
 
-32. **Desde M7d-1 (ruta y tienda de temporada):** la migración `20261108203624_galaxy_season_route.sql`:
+32. **Desde M7d-1 y M7d-2 (ruta, tienda y cierre de temporada):** la migración `20261108203624_galaxy_season_route.sql`:
    - deja que la moneda de temporada viva en su propio saldo, `season:<id>`, para que cada temporada empiece de cero;
    - crea `galaxy.season_route_claims` (escalones recogidos) y `galaxy.season_purchases` (compras por artículo).
 
@@ -570,9 +570,18 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    **Dónde:** **`/galaxy/temporada`**, desde «Ruta y tienda de temporada» en la columna de la temporada del inicio. El resultado de una incursión enseña la moneda ganada. La puntuación es la de la clasificación General.
 
+   **Cierre de temporada (M7d-2):** la migración `20261108204602_galaxy_season_close.sql` crea `galaxy.season_archive` (el salón de la fama) y `galaxy.season_results` (puesto, puntos, tramo y premios de cada jugador).
+   - **Cuándo:** la primera lectura tras `season.endsAt` archiva la temporada con la clasificación General final. Esa lectura es `/season` o `/hall-of-fame`.
+   - **Premios:** cada tramo paga lo suyo (`seasonRoute.closing.tiers`, de Bronce a Estelar). Los 3 primeros reciben además el premio del podio: el título «Podio de temporada», el marco nuevo **Corona** y su trofeo. Se recogen una vez desde `/galaxy/temporada`, y se guardan al cerrar, así que cambiar la configuración después no los cambia.
+   - **Trofeos:** la sala de la estación deja de estar «en reparación» y abre **`/galaxy/trofeos`**, con tus temporadas y el salón de la fama.
+   - **Perfil:** enseña el historial de temporadas (`GET /galaxy/api/profiles/:usuario/seasons`).
+   - **Clasificación:** tiene un enlace al salón de la fama.
+
+   **Antes de abrir otra temporada** (cambiar `season.id`), deja que la anterior se archive: abre `/galaxy/temporada` una vez pasado su `endsAt`. M7d-3 lo hará solo desde el panel.
+
    Comprueba con una cuenta de prueba:
-   - `GET /galaxy/api/season` responde 401 sin sesión y la ruta con sesión;
-   - la pantalla carga sin violaciones de CSP.
+   - `GET /galaxy/api/season` y `GET /galaxy/api/hall-of-fame` responden 401 sin sesión y su vista con sesión;
+   - `/temporada` y `/trofeos` (desde la sala Trofeos) cargan sin violaciones de CSP.
 
 ## Operación
 

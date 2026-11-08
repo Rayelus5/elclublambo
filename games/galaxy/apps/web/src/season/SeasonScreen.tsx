@@ -1,4 +1,4 @@
-import type { SeasonView } from '@galaxy/shared';
+import type { SeasonResult, SeasonView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useRef } from 'react';
 import { api } from '../api/client';
@@ -18,14 +18,35 @@ export const SEASON_KEY = ['season'] as const;
 function useSeasonAction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { kind: 'step'; at: number } | { kind: 'item'; id: string }) =>
-      api<SeasonView>(v.kind === 'step' ? `/season/route/${v.at}/claim` : `/season/shop/${v.id}/buy`, { method: 'POST', headers: { 'idempotency-key': crypto.randomUUID() } }),
+    mutationFn: (v: { kind: 'step'; at: number } | { kind: 'item'; id: string } | { kind: 'result'; season: string }) =>
+      api<SeasonView>(v.kind === 'step' ? `/season/route/${v.at}/claim` : v.kind === 'item' ? `/season/shop/${v.id}/buy` : `/season/results/${v.season}/claim`, {
+        method: 'POST',
+        headers: { 'idempotency-key': crypto.randomUUID() },
+      }),
     onSuccess: (view) => {
       qc.setQueryData(SEASON_KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
       void qc.invalidateQueries({ queryKey: ['me'] });
     },
   });
+}
+
+/** The last closed season's place and its rewards, to collect once (M7d-2). */
+function Closing({ r, onClaim, pending }: { r: SeasonResult; onClaim: () => void; pending: boolean }) {
+  return (
+    <section className={`lip panel season-closing${r.podium ? ' podium' : ''}`} aria-labelledby="season-closing-title">
+      {r.tier ? <TierEmblem tier={r.tier} scale={2} /> : <Icon name="trophy" />}
+      <div>
+        <h2 id="season-closing-title">{t.closingTitle(r.name)}</h2>
+        <p>{t.closingPlace(r.rank, r.score)}</p>
+        <p className="season-closing-reward">{r.rewards.map((x) => t.reward(x, '')).filter(Boolean).join('; ')}</p>
+        {r.podium ? <p className="season-closing-trophy">{t.closingTrophy}</p> : null}
+      </div>
+      <button type="button" className="lip pill pill-solar" disabled={pending} onClick={onClaim}>
+        {t.closingClaim}
+      </button>
+    </section>
+  );
 }
 
 export function SeasonScreen() {
@@ -64,9 +85,13 @@ export function SeasonScreen() {
             </p>
           )
         ) : !v.season ? (
-          <p className="lip panel empty">{copy.errors.season_closed}</p>
+          <>
+            {v.closing ? <Closing r={v.closing} pending={act.isPending} onClaim={() => act.mutate({ kind: 'result', season: v.closing!.season })} /> : null}
+            <p className="lip panel empty">{copy.errors.season_closed}</p>
+          </>
         ) : (
           <>
+            {v.closing ? <Closing r={v.closing} pending={act.isPending} onClaim={() => act.mutate({ kind: 'result', season: v.closing!.season })} /> : null}
             <section className="season-hero" aria-label={t.scoreTitle}>
               <div className="lip panel season-score">
                 {v.tier ? <TierEmblem tier={v.tier} scale={2} /> : <span className="season-notier" aria-hidden="true" />}

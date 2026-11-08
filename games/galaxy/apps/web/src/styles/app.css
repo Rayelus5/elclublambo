@@ -1624,6 +1624,41 @@
   .codex-entry p { margin: 0; max-inline-size: 62ch; line-height: 1.6; color: var(--color-ink); }
   .codex-fight { color: var(--color-terminal) !important; }
   @media (max-width: 760px) { .codex-body { grid-template-columns: minmax(0, 1fr); } }
+  /* A season's close, the trophy room and the hall of fame (DESIGN_SYSTEM §8 tricies). */
+  :root { --place-gold: var(--color-solar); --place-silver: #c9d0ea; --place-bronze: #e0915a; --place-none: var(--color-ink-mute); }
+  .season-closing { --r: 22px; display: flex; align-items: center; gap: 18px; padding: 18px 22px; background-image: radial-gradient(circle at 12% 50%, color-mix(in oklab, var(--color-solar) 22%, transparent), transparent 55%); }
+  .season-closing > .ico { inline-size: 56px; block-size: 56px; color: var(--color-solar); }
+  .season-closing > div { display: grid; gap: 4px; flex: 1; }
+  .season-closing h2 { margin: 0; font: 400 24px var(--font-display); }
+  .season-closing p { margin: 0; color: var(--color-ink-soft); }
+  .season-closing .season-closing-reward { color: var(--color-ink); font-weight: 600; }
+  .season-closing .season-closing-trophy { color: var(--color-solar); }
+  .season-closing.podium { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 60%, transparent); }
+  .trophies { gap: 18px; }
+  .trophies h2 { margin: 0 0 10px; font: 400 22px var(--font-display); }
+  .trophies-mine { --r: 20px; padding: 16px 20px; }
+  .season-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .season-history li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: var(--color-panel-2); }
+  .season-history li.podium { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--place) 55%, transparent); }
+  .season-history-text { display: grid; gap: 2px; }
+  .season-history-text span, .season-history-tier { color: var(--color-ink-soft); font-size: 14px; }
+  .season-history li.podium .season-history-tier { color: var(--place); font-weight: 700; }
+  .trophy { display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 12px; color: var(--place); background: color-mix(in oklab, var(--place) 16%, transparent); }
+  .trophy .ico { inline-size: 24px; block-size: 24px; filter: drop-shadow(0 0 6px color-mix(in oklab, var(--place) 60%, transparent)); }
+  .trophy.none { background: rgb(255 255 255 / .05); }
+  .trophies-hall > ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .trophies-hall > ul > li { --r: 18px; display: grid; gap: 10px; padding: 14px 16px; }
+  .hall-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .hall-head b { font-size: 17px; }
+  .hall-head span { color: var(--color-ink-mute); font-size: 14px; }
+  .hall-podium { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .hall-podium li { display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; }
+  .hall-podium .trophy { grid-row: span 2; }
+  .hall-podium a { color: var(--color-ink); font-weight: 700; }
+  .hall-podium li > span:last-child { color: var(--color-ink-soft); font-size: 14px; }
+  .lb-hall { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .lb-hall .ico { inline-size: 18px; block-size: 18px; color: var(--color-solar); }
+  .profile-avatar.frame-crown { box-shadow: 0 0 0 4px var(--color-solar), 0 0 0 7px var(--color-uv), 0 0 22px 6px rgb(255 201 74 / .45); border-radius: 18px; }
   /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). */
   .more-season { display: flex; gap: 8px; margin-bottom: 0; --lip-c: var(--color-uv-lip); background: linear-gradient(180deg, var(--color-uv-soft), var(--color-uv)); }
   .more-season .ico { inline-size: 20px; block-size: 20px; }

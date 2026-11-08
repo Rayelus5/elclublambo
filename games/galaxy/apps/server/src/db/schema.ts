@@ -251,6 +251,28 @@ export interface SeasonPurchasesTable {
   updated_at: Timestamp;
 }
 
+/** M7d-2: a closed season (the hall of fame). */
+export interface SeasonArchiveTable {
+  season: string;
+  name: string;
+  starts_at: ColumnType<Date, Date | string, Date | string>;
+  ends_at: ColumnType<Date, Date | string, Date | string>;
+  players: Generated<number>;
+  closed_at: Timestamp;
+}
+
+/** M7d-2: an account's final place in a closed season, with the rewards kept from that close. */
+export interface SeasonResultsTable {
+  season: string;
+  account_id: string;
+  rank: number;
+  score: number;
+  tier: string | null;
+  podium: Generated<boolean>;
+  rewards: ColumnType<unknown, string, string>;
+  claimed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
@@ -589,6 +611,8 @@ export interface DB {
   'galaxy.catalog_claims': CatalogClaimsTable;
   'galaxy.season_route_claims': SeasonRouteClaimsTable;
   'galaxy.season_purchases': SeasonPurchasesTable;
+  'galaxy.season_archive': SeasonArchiveTable;
+  'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;

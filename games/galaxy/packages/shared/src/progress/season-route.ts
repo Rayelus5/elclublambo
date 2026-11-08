@@ -54,6 +54,16 @@ export const DEFAULT_SHOP = [
   { id: 'frame-abyss', name: 'Marco Abismo', price: 900, limit: 1, reward: r({ frame: 'abyss' }) },
 ];
 
+/** What each tier pays when the season closes (Bronce to Estelar), and the podium's extra (GDD §13.1). */
+export const DEFAULT_CLOSING_TIERS = [
+  r({ coins: 500, signal: 1 }),
+  r({ coins: 1500, dust: 300, signal: 2 }),
+  r({ coins: 3000, dust: 800, signal: 4, frame: 'bronze' }),
+  r({ coins: 5000, dust: 1500, signal: 6, title: 'Platino de temporada' }),
+  r({ coins: 8000, dust: 3000, signal: 10, title: 'Estelar de temporada', frame: 'nebula' }),
+];
+export const DEFAULT_PODIUM = r({ signal: 10, title: 'Podio de temporada', frame: 'crown' });
+
 const stepSchema = z.object({ at: z.number().int().min(1).max(100_000_000), reward: seasonRewardSchema }).strict();
 const itemSchema = z
   .object({ id, name: z.string().trim().min(1).max(40), price: z.number().int().min(1).max(1_000_000), limit: z.number().int().min(1).max(1000), reward: seasonRewardSchema })
@@ -81,6 +91,15 @@ export const seasonRouteSchema = z
       .max(30)
       .refine((l) => new Set(l.map((x) => x.id)).size === l.length, 'Hay dos artículos con el mismo id')
       .prefault(DEFAULT_SHOP),
+    /** What the season's close pays: by tier, and the podium's extra (the first `podiumSize` places, with a trophy). */
+    closing: z
+      .object({
+        tiers: z.array(seasonRewardSchema).length(5).prefault(DEFAULT_CLOSING_TIERS),
+        podium: seasonRewardSchema.prefault(DEFAULT_PODIUM),
+        podiumSize: z.number().int().min(0).max(10).default(3),
+      })
+      .strict()
+      .prefault({}),
   })
   .strict();
 
@@ -92,6 +111,30 @@ export function shardsFor(points: number, perPoint: number): number {
   return Math.max(0, Math.floor(points * perPoint));
 }
 
+/** An account's place when a season closed (M7d-2): its rewards, kept from that close, are collected once. */
+export interface SeasonResult {
+  season: string;
+  name: string;
+  endsAt: string;
+  rank: number;
+  score: number;
+  tier: SeasonTier | null;
+  /** On the podium: a trophy for the station. */
+  podium: boolean;
+  rewards: SeasonReward[];
+  claimed: boolean;
+}
+
+/** The hall of fame (M7d-2): every closed season, newest first, with its podium. */
+export interface HallOfFame {
+  seasons: { season: string; name: string; endsAt: string; players: number; podium: { username: string; rank: number; score: number }[] }[];
+}
+
+/** A player's past seasons (M7d-2), newest first: public, like the profile. */
+export interface SeasonHistory {
+  seasons: Omit<SeasonResult, 'rewards' | 'claimed'>[];
+}
+
 export interface SeasonView {
   /** Null while no season is open (then the rest is empty). */
   season: { id: string; name: string; endsAt: string; tiers: number[] } | null;
@@ -100,7 +143,10 @@ export interface SeasonView {
   currency: { name: string; balance: number };
   steps: { at: number; reward: SeasonReward; reached: boolean; claimed: boolean }[];
   shop: { id: string; name: string; price: number; limit: number; bought: number; reward: SeasonReward }[];
+  /** The last closed season's result while its rewards are still to collect (M7d-2). */
+  closing: SeasonResult | null;
 }
 
 export const seasonStepParamsSchema = z.object({ at: z.coerce.number().int().min(1).max(100_000_000) }).strict();
 export const seasonItemParamsSchema = z.object({ id }).strict();
+export const seasonResultParamsSchema = z.object({ season: id }).strict();
