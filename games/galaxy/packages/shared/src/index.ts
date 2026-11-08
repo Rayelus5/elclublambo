@@ -28,3 +28,5 @@ export * from './clans/rules';
 export * from './api/clans';
 export * from './chat/rules';
 export * from './api/chat';
+export * from './market/rules';
+export * from './api/market';

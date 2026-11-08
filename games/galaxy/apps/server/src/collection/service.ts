@@ -27,6 +27,7 @@ import type { DB, GalaxiesTable } from '../db/schema';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { accountLabEffects } from '../lab/levels';
+import { isEquipped, isExhibited, isListed, listedColumn } from '../market/escrow';
 
 // The collection (GDD §8.5): owned galaxies, paged with a keyset cursor; disintegration into dust and fusion of
 // `fusion.count` same-tier galaxies into one of the next tier. Both are idempotent operations (routes.ts) and lock
@@ -54,7 +55,7 @@ const equippedColumn = sql<boolean>`exists (select 1 from galaxy.loadouts l wher
 /** `exhibited`: whether a galaxy stands on a pedestal of its owner's planetarium (M4c-2). */
 const exhibitedColumn = sql<boolean>`exists (select 1 from galaxy.exhibits e where e.galaxy_id = galaxy.galaxies.id)`.as('exhibited');
 
-export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean; exhibited?: boolean }): GalaxySummary {
+export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean; exhibited?: boolean; listed?: boolean }): GalaxySummary {
   return {
     id: r.id,
     seed: String(r.seed),
@@ -68,6 +69,7 @@ export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: bo
     createdAt: new Date(r.created_at).toISOString(),
     equipped: r.equipped === true,
     ...(r.exhibited === true ? { exhibited: true as const } : {}),
+    ...(r.listed === true ? { listed: true as const } : {}),
   };
 }
 
@@ -87,7 +89,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   const { db } = deps;
   let query = db
     .selectFrom('galaxy.galaxies')
-    .select([...SUMMARY, equippedColumn, exhibitedColumn])
+    .select([...SUMMARY, equippedColumn, exhibitedColumn, listedColumn])
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null);
   if (q.tier) query = query.where('tier', '=', TIERS.indexOf(q.tier));
@@ -141,7 +143,7 @@ export async function galaxyDetail(deps: CollectionDeps, ownerId: string, id: st
 async function detailOf(db: Kysely<DB>, ownerId: string, id: string, cfgs: DetailConfigs): Promise<GalaxyDetail> {
   const r = await db
     .selectFrom('galaxy.galaxies')
-    .select([...SUMMARY, equippedColumn, exhibitedColumn, 'origin', 'lineage', 'dna', 'level_dust'])
+    .select([...SUMMARY, equippedColumn, exhibitedColumn, listedColumn, 'origin', 'lineage', 'dna', 'level_dust'])
     .where('id', '=', id)
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null)
@@ -189,6 +191,8 @@ export async function levelUpGalaxy(cfgs: DetailConfigs, trx: Kysely<DB>, ownerI
     .forUpdate()
     .executeTakeFirst();
   if (!row) throw new HttpError(404, 'galaxy_not_found');
+  // In escrow for the market (M5c-1): what the buyer sees is what it gets.
+  if (await isListed(trx, [id])) throw new HttpError(409, 'galaxy_listed');
   const cost = relicLevelCost(row.level, cfgs.relics);
   if (cost === null) throw new HttpError(409, 'relic_maxed');
   if (level !== row.level + 1) throw new HttpError(409, 'relic_changed');
@@ -205,16 +209,6 @@ export async function levelUpGalaxy(cfgs: DetailConfigs, trx: Kysely<DB>, ownerI
 const disintegrationDust = (base: number, push: number) => Math.floor(base * (1 + push) + 1e-9);
 /** The Laboratorio's Fusión estable (M4b-2): less dust for fusing, rounded up. */
 const fusionDust = (base: number, discount: number) => Math.ceil(base * (1 - discount) - 1e-9);
-
-async function isEquipped(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
-  const row = await trx.selectFrom('galaxy.loadouts').select('slot').where('galaxy_id', 'in', ids).limit(1).executeTakeFirst();
-  return row !== undefined;
-}
-
-async function isExhibited(trx: Kysely<DB>, ids: string[]): Promise<boolean> {
-  const row = await trx.selectFrom('galaxy.exhibits').select('slot').where('galaxy_id', 'in', ids).limit(1).executeTakeFirst();
-  return row !== undefined;
-}
 
 // Disintegrate and fuse run inside an operation's transaction: the config they need is read by the route BEFORE it
 // (reading it through the pool inside would take a second connection).
@@ -238,6 +232,7 @@ export async function disintegrate(
   // exhibited galaxies stay.
   if (await isEquipped(trx, [id])) throw new HttpError(409, 'galaxy_equipped');
   if (await isExhibited(trx, [id])) throw new HttpError(409, 'galaxy_exhibited');
+  if (await isListed(trx, [id])) throw new HttpError(409, 'galaxy_listed');
   const dust = disintegrationDust(disintegrateYield(gone.tier, gone.finish as Finish, cfg), (await accountLabEffects(trx, ownerId, lab)).disintegrate);
   if (dust > 0) await credit(trx, ownerId, 'dust', dust, 'disintegrate', { galaxy: id }, opKey);
   // Half the dust put into its levels comes back (GDD §8.4 bis).
@@ -266,6 +261,7 @@ export async function fuse(
   if (parents.length !== ids.length) throw new HttpError(409, 'invalid_fusion');
   if (await isEquipped(trx, ids)) throw new HttpError(409, 'galaxy_equipped');
   if (await isExhibited(trx, ids)) throw new HttpError(409, 'galaxy_exhibited');
+  if (await isListed(trx, ids)) throw new HttpError(409, 'galaxy_listed');
   const recipe = validateFusion(parents, cfg);
   if ('error' in recipe) throw new HttpError(409, 'invalid_fusion');
   const dust = fusionDust(recipe.dust, (await accountLabEffects(trx, ownerId, lab)).fusion);

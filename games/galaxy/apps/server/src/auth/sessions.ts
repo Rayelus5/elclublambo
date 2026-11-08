@@ -30,6 +30,14 @@ export async function createSession(
       user_agent: opts.userAgent.slice(0, 400),
     })
     .execute();
+  // The IPs an account signed in from stay after its sessions go (the market's alerts read them; M5c-1 review).
+  if (opts.ip !== 'unknown') {
+    await db
+      .insertInto('galaxy.account_ips')
+      .values({ account_id: accountId, ip: opts.ip })
+      .onConflict((oc) => oc.columns(['account_id', 'ip']).doUpdateSet({ last_seen: sql<Date>`now()` }))
+      .execute();
+  }
   return token;
 }
 

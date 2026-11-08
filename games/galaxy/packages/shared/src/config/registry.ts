@@ -404,6 +404,38 @@ export const configSchemas = {
         .default([]),
     })
     .strict(),
+  /**
+   * The market (GDD §14.6, §14.7; M5c-1): the lowest price per rarity (growing with it; a trigger enforces it), the
+   * highest price, the share kept of each sale, how long a listing stays up, today's caps, who may trade (level and
+   * days of account), and when a sale warns the admin (a price this many times the floor, an IP shared in these days).
+   */
+  market: z
+    .object({
+      minPrice: z
+        .object({
+          common: z.number().int().min(1).default(50),
+          uncommon: z.number().int().min(1).default(120),
+          rare: z.number().int().min(1).default(400),
+          epic: z.number().int().min(1).default(1500),
+          legendary: z.number().int().min(1).default(6000),
+        })
+        .strict()
+        .refine((m) => m.common <= m.uncommon && m.uncommon <= m.rare && m.rare <= m.epic && m.epic <= m.legendary, 'minPrice grows with the tier')
+        .default({ common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 }),
+      maxPrice: z.number().int().min(1).max(1_000_000_000).default(10_000_000),
+      commission: z.number().min(0).max(0.5).default(0.07),
+      days: z.number().int().min(1).max(60).default(7),
+      perDay: z
+        .object({ listings: z.number().int().min(1).max(1000).default(10), purchases: z.number().int().min(1).max(1000).default(10) })
+        .strict()
+        .default({ listings: 10, purchases: 10 }),
+      minLevel: z.number().int().min(1).max(99).default(10),
+      minAccountDays: z.number().int().min(0).max(365).default(3),
+      alertMultiple: z.number().min(2).max(1000).default(20),
+      sharedIpDays: z.number().int().min(1).max(365).default(30),
+    })
+    .strict()
+    .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
   clans: z
     .object({

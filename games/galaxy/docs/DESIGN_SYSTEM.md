@@ -555,6 +555,44 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **Si no puedes escribir:** en su lugar, en Solar, «Necesitas nivel 5 para escribir» o «Te han silenciado hasta las 14:05».
 - **Si vas muy deprisa:** «Vas muy deprisa. Espera un poco», sin borrar lo escrito.
 
+## 8 quattuordecies. Mercado
+
+El mercado de galaxias (GDD §14.6 y §14.7, M5c-1). El botón «Mercado» de la barra de arriba lleva a `/mercado`, y «Vender» en el detalle de una galaxia lleva a vender esa misma.
+
+Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
+- **Confirmar lo que no se deshace:** comprar pide confirmación con el precio y el saldo que deja; retirar un anuncio, también;
+- **Éxito visible:** «Es tuya» al comprar, y «… está en venta durante 7 días» al vender;
+- **Validar al salir del campo:** el precio dice el mínimo de su rareza y, al salir, qué está mal;
+- **Teclado numérico:** el precio usa `inputmode="numeric"`.
+
+**El puesto orbital:**
+- Es una tira de Aseprite de 256×48 en cuatro fotogramas (`art/market/paint-market.lua`, capas en `post.aseprite`).
+- Se ve a ×3, o a ×4 en pantallas de al menos 1500×860.
+- Muestra la pared de la estación, un ojo de buey con un planeta anillado, el cartel con una moneda y dos mostradores cuyos emisores proyectan cartas de galaxia. Las cartas flotan y giran, y las luces de la viga se persiguen.
+- Es decorativo, y sin animación con movimiento reducido.
+
+**Las pestañas:** Comprar, Vender y Mis anuncios, cada una con su URL (`?pestana=vender|mios`).
+
+**Quién puede comerciar:** sin nivel 10 o sin 3 días de cuenta, un aviso con candado y borde Solar dice qué falta. Todo se ve, pero los botones de comprar y vender se desactivan y su descripción es ese aviso.
+
+**Comprar:**
+- **Filtros:** rareza, orden (Más recientes, Más baratas, Más caras) y búsqueda por nombre, que espera a que dejes de escribir.
+- **Cada carta:** la galaxia con su nombre, la rareza (Solar si es legendaria), el precio en Solar con moneda y el vendedor enlazado.
+- **El botón «Comprar»** dice en su nombre qué compra. Sin monedas, debajo dice cuántas faltan. En lo tuyo pone «Tuya».
+- **El diálogo** confirma con el precio y el saldo que deja. Después dice «Es tuya», con «Verla en tu colección». Si alguien se adelantó, lo dice y el escaparate se vuelve a leer.
+
+**Vender:**
+- **«Elegir galaxia»** abre el selector de la colección. Las equipadas, expuestas o ya en venta salen marcadas como «No disponible».
+- **El precio** empieza en el mínimo de su rareza. Debajo, «Recibirás N monedas después de la comisión» en Terminal y los anuncios que quedan hoy.
+
+**Mis anuncios:**
+- **En venta:** cada anuncio con hasta cuándo y «Retirar», que se confirma.
+- **Vendidas:** cada venta con el comprador enlazado, el precio y «Cobraste N monedas».
+
+**En la colección:**
+- una galaxia en venta lleva la insignia «En venta»;
+- no se desintegra, fusiona ni mejora, y su detalle dice por qué.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

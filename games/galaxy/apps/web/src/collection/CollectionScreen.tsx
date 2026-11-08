@@ -53,7 +53,7 @@ export function CollectionScreen() {
   }
 
   const pickable = (g: GalaxySummary) =>
-    !g.equipped && !g.exhibited && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+    !g.equipped && !g.exhibited && !g.listed && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
 
   return (
     <div className="screen-root collection-root">
@@ -99,7 +99,13 @@ export function CollectionScreen() {
                 return (
                   <li key={g.id} className={on ? 'picked' : undefined}>
                     <GalaxyCard galaxy={g} size={200} interactive>
-                      {g.equipped ? <span className="gcard-badge">{copy.collection.equipped}</span> : g.exhibited ? <span className="gcard-badge">{copy.planetarium.exhibited}</span> : null}
+                      {g.equipped ? (
+                        <span className="gcard-badge">{copy.collection.equipped}</span>
+                      ) : g.exhibited ? (
+                        <span className="gcard-badge">{copy.planetarium.exhibited}</span>
+                      ) : g.listed ? (
+                        <span className="gcard-badge">{copy.market.onSale}</span>
+                      ) : null}
                       {fusing ? (
                         <button type="button" className="gcard-hit" aria-pressed={on} aria-label={copy.collection.select(g.name)} disabled={!pickable(g)} onClick={() => toggle(g)}>
                           {on ? <Icon name="check" className="ico gcard-check" /> : null}

@@ -11,8 +11,9 @@ export const COLLECTION_KEY = ['galaxies'] as const;
 const GALAXY_KEY = 'galaxy';
 
 /** Banners, costs, the daily free pull and the wallet. The first read of a new account also gives the welcome. */
-export function useGacha() {
-  return useQuery({ queryKey: GACHA_KEY, queryFn: () => api<GachaView>('/gacha'), staleTime: 30_000 });
+export function useGacha(opts: { fresh?: boolean } = {}) {
+  // `fresh`: read again on mount (the market gates «Comprar» on the balance, which may have changed elsewhere).
+  return useQuery({ queryKey: GACHA_KEY, queryFn: () => api<GachaView>('/gacha'), staleTime: opts.fresh ? 0 : 30_000 });
 }
 
 export interface CollectionQuery {

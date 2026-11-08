@@ -1,5 +1,5 @@
 import type { ClanCard } from '@galaxy/shared';
-import { useEffect, useId, useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useClanAction, useClans, useMyClan } from '../api/clans';
 import { useGacha } from '../api/economy';
@@ -8,22 +8,13 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { ClanEmblem } from './ClanEmblem';
 import { CreateClanDialog } from './CreateClanDialog';
+import { useSettled } from '../ui/useSettled';
 
 // The clans (GDD §14.3; DESIGN_SYSTEM §8 duodecies): one's own clan first, a search, «Crear clan» with its cost (off,
 // with the reason, without the level or the coins), and every clan with its emblem, members and points, to join
 // (open) or to ask to (closed).
 
 const t = copy.clans;
-
-/** The value after it stops changing for `ms`. */
-function useSettled<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value);
-  useEffect(() => {
-    const id = setTimeout(() => setSettled(value), ms);
-    return () => clearTimeout(id);
-  }, [value, ms]);
-  return settled;
-}
 
 function Card({ c, inClan, onJoin, busy }: { c: ClanCard; inClan: boolean; onJoin: (c: ClanCard) => void; busy: boolean }) {
   const full = c.members >= c.maxMembers;

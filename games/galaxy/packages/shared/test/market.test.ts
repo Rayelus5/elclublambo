@@ -1,0 +1,73 @@
+import { describe, expect, test } from 'vitest';
+import { API_ERROR_CODES, commissionOf, marketListSchema, marketQuerySchema, minPriceFor, parseConfig, tradeBlock } from '../src/index';
+
+// The market (GDD §14.6, §14.7; M5c-1): galaxies only, a minimum price per rarity, a commission that sinks coins, and
+// who may trade (level 10, an account 3 days old).
+
+const market = parseConfig('market', {});
+const DAY = 86_400_000;
+
+describe('la configuración', () => {
+  test('los valores de partida son los del GDD', () => {
+    expect(market).toEqual({
+      minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 6000 },
+      maxPrice: 10_000_000,
+      commission: 0.07,
+      days: 7,
+      perDay: { listings: 10, purchases: 10 },
+      minLevel: 10,
+      minAccountDays: 3,
+      alertMultiple: 20,
+      sharedIpDays: 30,
+    });
+  });
+
+  test('el mínimo crece con la rareza y nunca pasa del máximo', () => {
+    expect(() => parseConfig('market', { minPrice: { common: 50, uncommon: 120, rare: 400, epic: 1500, legendary: 1000 } })).toThrow();
+    expect(() => parseConfig('market', { maxPrice: 1000 })).toThrow();
+    expect(() => parseConfig('market', { commission: 0.6 })).toThrow();
+  });
+});
+
+describe('precios y comisión', () => {
+  test('el mínimo de cada rareza', () => {
+    expect(minPriceFor('common', market)).toBe(50);
+    expect(minPriceFor('legendary', market)).toBe(6000);
+  });
+
+  test('la comisión redondea hacia abajo y es al menos una moneda', () => {
+    expect(commissionOf(50, 0.07)).toBe(3);
+    expect(commissionOf(10, 0.07)).toBe(1);
+    expect(commissionOf(6000, 0.07)).toBe(420);
+    expect(commissionOf(1, 0)).toBe(0);
+  });
+});
+
+describe('quién puede comerciar', () => {
+  const now = new Date('2026-11-08T12:00:00Z');
+  test('primero el nivel, luego los días de cuenta', () => {
+    expect(tradeBlock(9, new Date(now.getTime() - 10 * DAY), now, market)).toBe('level');
+    expect(tradeBlock(9, now, now, market)).toBe('level');
+    expect(tradeBlock(10, new Date(now.getTime() - 3 * DAY + 1000), now, market)).toBe('age');
+    expect(tradeBlock(10, new Date(now.getTime() - 3 * DAY), now, market)).toBeNull();
+  });
+});
+
+describe('lo que se envía', () => {
+  test('un precio es un entero positivo', () => {
+    const galaxyId = '00000000-0000-4000-8000-000000000001';
+    expect(marketListSchema.parse({ galaxyId, price: 50 })).toEqual({ galaxyId, price: 50 });
+    for (const price of [0, 1.5, '50', -3]) expect(() => marketListSchema.parse({ galaxyId, price })).toThrow();
+  });
+
+  test('la búsqueda tiene orden, rareza y página', () => {
+    expect(marketQuerySchema.parse({})).toEqual({ sort: 'new', page: 1 });
+    expect(marketQuerySchema.parse({ tier: 'rare', sort: 'cheap', q: 'Vega', page: '2' })).toEqual({ tier: 'rare', sort: 'cheap', q: 'Vega', page: 2 });
+    expect(() => marketQuerySchema.parse({ sort: 'random' })).toThrow();
+  });
+
+  test('los errores del comercio existen', () => {
+    for (const code of ['trade_level', 'trade_age', 'trade_daily_cap', 'price_too_low', 'price_too_high', 'listing_gone', 'own_listing', 'galaxy_listed'])
+      expect(API_ERROR_CODES).toContain(code);
+  });
+});

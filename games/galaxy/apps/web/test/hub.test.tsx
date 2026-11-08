@@ -94,11 +94,19 @@ test('lo que aún no existe se ve bloqueado con «En desarrollo»', async () => 
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex]) {
+  for (const name of [copy.hub.probes, copy.hub.codex]) {
     const button = screen.getByRole('button', { name: new RegExp(name) });
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent(copy.hub.soon);
   }
+});
+
+test('Mercado lleva al mercado', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const link = await screen.findByRole('link', { name: copy.hub.market });
+  expect(link).toHaveAttribute('href', '/mercado');
+  expect(link).not.toHaveTextContent(copy.hub.soon);
 });
 
 test('la colección muestra cuántas galaxias tienes y lleva a /coleccion', async () => {

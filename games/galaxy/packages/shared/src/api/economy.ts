@@ -41,6 +41,8 @@ export interface GalaxySummary extends PulledGalaxy {
   equipped?: boolean;
   /** On a pedestal of the planetarium (it cannot be disintegrated or fused until taken down; M4c-2). Absent: not exhibited. */
   exhibited?: true;
+  /** For sale in the market (in escrow until sold, withdrawn or expired; M5c-1). Absent: not listed. */
+  listed?: true;
 }
 
 /** A parent of a fused galaxy: it no longer exists, but its name stays in the lineage. */
