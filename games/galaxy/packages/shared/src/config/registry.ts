@@ -3,6 +3,7 @@ import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
+import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, missionSchema } from '../progress/missions';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -537,6 +538,27 @@ export const configSchemas = {
           'broken-forge': { sector: 'hollow-reef', stat: 'bossKills', value: 1 },
         }),
       season: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('signal-rift'),
+    })
+    .strict(),
+  /**
+   * Missions (GDD §12.3; M7a): how many of each pool are drawn for the day and the week (the same for everyone), and the
+   * season's fixed list.
+   */
+  missions: z
+    .object({
+      daily: z.object({ count: z.number().int().min(0).max(5).default(3), pool: z.array(missionSchema).max(30).prefault(DEFAULT_DAILY) }).strict().prefault({}),
+      weekly: z.object({ count: z.number().int().min(0).max(5).default(3), pool: z.array(missionSchema).max(30).prefault(DEFAULT_WEEKLY) }).strict().prefault({}),
+      season: z.array(missionSchema).max(30).prefault(DEFAULT_SEASON),
+    })
+    .strict(),
+  /** Achievements (GDD §12.3; M7a): lifetime goals that give signals, titles, frames and season points. */
+  achievements: z
+    .object({
+      list: z
+        .array(achievementSchema)
+        .max(60)
+        .refine((l) => new Set(l.map((x) => x.id)).size === l.length, 'Hay dos logros con el mismo id')
+        .prefault(DEFAULT_ACHIEVEMENTS),
     })
     .strict(),
   /**

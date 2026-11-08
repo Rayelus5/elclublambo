@@ -66,6 +66,9 @@ export interface Profile {
   planetarium: { prestige: number; exhibits: number; cover: PublicGalaxy | null };
   /** Their clan (M5b-1), or null. */
   clan: { tag: string; name: string; emblem: ClanEmblem; color: ClanColor } | null;
+  /** The title and the frame they chose (M7a), null when none. */
+  title?: string | null;
+  frame?: string | null;
 }
 
 export interface PublicCollectionPage {

@@ -11,10 +11,10 @@ import { accountXp } from './progress';
 // records, collection by rarity and planetarium, and can browse their galaxies. Nothing private: no balances,
 // loadout, probe or session.
 
-async function accountNamed(db: Kysely<DB>, username: string): Promise<{ id: string; username: string; created_at: Date }> {
-  const row = await db.selectFrom('galaxy.accounts').select(['id', 'username', 'created_at']).where('username', '=', username).executeTakeFirst();
+async function accountNamed(db: Kysely<DB>, username: string): Promise<{ id: string; username: string; created_at: Date; title: string | null; frame: string | null }> {
+  const row = await db.selectFrom('galaxy.accounts').select(['id', 'username', 'created_at', 'title', 'frame']).where('username', '=', username).executeTakeFirst();
   if (!row) throw new HttpError(404, 'profile_not_found');
-  return { id: row.id, username: row.username, created_at: new Date(row.created_at) };
+  return { id: row.id, username: row.username, created_at: new Date(row.created_at), title: row.title, frame: row.frame };
 }
 
 export async function profileOf(deps: SocialDeps, username: string): Promise<Profile> {
@@ -78,6 +78,8 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
     collection: { total: Object.values(counts).reduce((a, b) => a + b, 0), counts },
     planetarium: { prestige: prestige(shown, planetarium), exhibits: shown.length, cover: coverOf(shown, planetarium) },
     clan: clan ? { tag: clan.tag, name: clan.name, emblem: clan.emblem as ClanEmblem, color: clan.color as ClanColor } : null,
+    title: owner.title,
+    frame: owner.frame,
   };
 }
 

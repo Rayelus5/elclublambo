@@ -19,6 +19,7 @@ import type { DB } from '../db/schema';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { accountLabEffects } from '../lab/levels';
+import { countStats } from '../missions/service';
 import type { RunsDeps } from '../runs/hangar';
 
 // The station on the server (GDD §10, §11.3). Its rows are created lazily with the initial state on the first visit.
@@ -125,6 +126,8 @@ export function collectRefinery(deps: RunsDeps, trx: Db, accountId: string, key:
     const ready = state.refinery.ready;
     if (ready <= 0) throw new HttpError(409, 'nothing_to_collect');
     await credit(trx, accountId, 'components', ready, 'refinery_collect', { ready }, key);
+    // Missions and achievements (M7a).
+    await countStats(trx, deps.config, accountId, { components: ready }, deps.now());
     await saveRefinery(trx, accountId, { ...state.refinery, ready: 0 });
   });
 }
