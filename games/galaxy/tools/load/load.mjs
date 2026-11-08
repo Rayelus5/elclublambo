@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global process, URL, fetch, performance, console */
 // Galaxy Survivor load test (GDD §19 M8): many virtual players reading what the game reads most, against one server,
 // with the latency of each route (p50, p95, p99), its errors and the requests per second. No dependencies: Node 22's
 // fetch. Registering is limited per IP (`auth.registerPerIpHour`, 5 by default), so the sessions are few and shared;
