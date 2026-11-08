@@ -233,6 +233,33 @@ export interface LoadoutsTable {
   galaxy_id: string;
 }
 
+/** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
+export interface ClansTable {
+  id: Generated<string>;
+  name: string;
+  tag: string;
+  description: ColumnType<string, string | undefined, string>;
+  emblem: string;
+  color: string;
+  open: ColumnType<boolean, boolean | undefined, boolean>;
+  created_at: Timestamp;
+}
+
+/** A clan's members: one clan per account, one leader per clan (M5b-1). */
+export interface ClanMembersTable {
+  account_id: string;
+  clan_id: string;
+  role: 'leader' | 'officer' | 'member';
+  joined_at: Timestamp;
+}
+
+/** Requests to join a closed clan (M5b-1). */
+export interface ClanRequestsTable {
+  clan_id: string;
+  account_id: string;
+  created_at: Timestamp;
+}
+
 /** The experience each account's runs gave (bigint, read as a decimal string; M5a). */
 export interface AccountXpTable {
   account_id: string;
@@ -333,6 +360,9 @@ export interface DB {
   'galaxy.lab_nodes': LabNodesTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
+  'galaxy.clans': ClansTable;
+  'galaxy.clan_members': ClanMembersTable;
+  'galaxy.clan_requests': ClanRequestsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
