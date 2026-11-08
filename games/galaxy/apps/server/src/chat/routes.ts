@@ -8,17 +8,22 @@ import {
   chatReportSchema,
   chatSendSchema,
 } from '@galaxy/shared';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { AuditActor } from '../audit';
 import { requireSession } from '../auth/guards';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
+import { clientIp } from '../security/client-ip';
 import { isAllowedOrigin } from '../security/origin';
 import { type ChatDeps, chatHistory, hideMessage, muteAccount, reportMessage, sendMessage } from './service';
 
 // The chats' routes (GDD §14.4; M5b-2). Reading and sending are plain HTTP; the socket only pushes. It opens with the
 // session cookie from one of our own origins, or closes at once: 4401 without a session, 4403 from another origin.
 
-export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { origins: string[] }): void {
+export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { origins: string[]; trustCfIp: boolean }): void {
+  /** Who acts, for the audit of a moderator's hide or mute. */
+  const actorOf = (req: FastifyRequest, s: { accountId: string; username: string }): AuditActor => ({ id: s.accountId, label: s.username, ip: clientIp(req, deps.trustCfIp) });
+
   api.get('/galaxy/api/chat/ws', { websocket: true }, (socket, req) => {
     if (!isAllowedOrigin(req.headers.origin, deps.origins)) return socket.close(4403, 'origin');
     if (!req.session) return socket.close(4401, 'session');
@@ -51,12 +56,12 @@ export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { orig
   api.post('/galaxy/api/chat/messages/:id/hide', async (req): Promise<{ hidden: true }> => {
     const s = requireSession(req);
     const { id } = chatMessageParamSchema.parse(req.params);
-    return hideMessage(deps, s, id);
+    return hideMessage(deps, s, actorOf(req, s), id);
   });
 
   api.post('/galaxy/api/chat/mutes', async (req): Promise<{ until: string }> => {
     const s = requireSession(req);
     const body = chatMuteSchema.parse(req.body);
-    return muteAccount(deps, s, body);
+    return muteAccount(deps, s, actorOf(req, s), body);
   });
 }

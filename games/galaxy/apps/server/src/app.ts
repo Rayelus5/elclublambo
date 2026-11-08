@@ -19,6 +19,7 @@ import { registerChatRoutes } from './chat/routes';
 import { registerMarketRoutes } from './market/routes';
 import { registerTradeRoutes } from './market/trade-routes';
 import { registerAdminRoutes } from './admin/routes';
+import { registerModerationRoutes } from './admin/moderation-routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -95,10 +96,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerClanRoutes(api, { db: deps.db, config, now });
     const hub = new ChatHub(deps.db);
     api.addHook('onClose', async () => hub.close());
-    registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
+    registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
     registerMarketRoutes(api, { db: deps.db, config, now });
     registerTradeRoutes(api, { db: deps.db, config, now });
     registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub });
+    registerModerationRoutes(api, { db: deps.db, config, env: deps.env, hub, now });
   });
   return app;
 }
