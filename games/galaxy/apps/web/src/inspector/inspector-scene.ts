@@ -1,11 +1,13 @@
 import type { Finish } from '@galaxy/shared';
 import {
   AdditiveBlending,
+  type Blending,
   CanvasTexture,
   FrontSide,
   Group,
   Mesh,
   MeshBasicMaterial,
+  NormalBlending,
   PerspectiveCamera,
   Plane,
   PlaneGeometry,
@@ -36,6 +38,11 @@ export interface InspectorFaces {
   mask: HTMLCanvasElement;
   finish: Finish;
   reduced: boolean;
+  /**
+   * An inverted palette (Antimateria): dark structure on a light field. Light adds nothing to it, so it is drawn as an
+   * image (normal blending, its edges feathered) and without the additive glow, as the card shows it.
+   */
+  inverted?: boolean;
 }
 
 export interface InspectorScene {
@@ -158,15 +165,17 @@ function build(renderer: WebGLRenderer, canvas: HTMLCanvasElement, faces: Inspec
     new Plane(new Vector3(0, -1, 0), 1.0 + 2.25),
   ];
   const clip = local.map((p) => p.clone());
+  // Additive lets the galaxy's black vanish and its stars glow; an inverted one is drawn as it is (see InspectorFaces).
+  const galaxyBlend: Blending = faces.inverted ? NormalBlending : AdditiveBlending;
   if (variant === 'pro') {
     // Further apart (M6d-1): the starfield deep behind, the galaxy in the middle, its glow just under the glass.
     plane(7, 7, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.72, 1.0);
-    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.34, 1.0);
-    if (faces.glow) plane(5.3, 5.3, new MeshBasicMaterial({ map: tex(faces.glow), blending: AdditiveBlending, transparent: true, opacity: 0.42, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.08, 1.0);
+    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: galaxyBlend, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.34, 1.0);
+    if (faces.glow && !faces.inverted) plane(5.3, 5.3, new MeshBasicMaterial({ map: tex(faces.glow), blending: AdditiveBlending, transparent: true, opacity: 0.42, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.08, 1.0);
   } else {
     // As it was before M6d-1: the starfield behind and the galaxy (additive, its whole square) in front of it.
     plane(6, 6, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.42, 1.0);
-    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.16, 1.0);
+    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: galaxyBlend, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.16, 1.0);
   }
   plane(5, 7, new MeshBasicMaterial({ map: tex(faces.front), transparent: true, alphaTest: 0.02, side: FrontSide }), 0);
   const foil = new ShaderMaterial({
