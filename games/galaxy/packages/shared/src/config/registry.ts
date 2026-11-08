@@ -426,13 +426,22 @@ export const configSchemas = {
       commission: z.number().min(0).max(0.5).default(0.07),
       days: z.number().int().min(1).max(60).default(7),
       perDay: z
-        .object({ listings: z.number().int().min(1).max(1000).default(10), purchases: z.number().int().min(1).max(1000).default(10) })
+        .object({
+          listings: z.number().int().min(1).max(1000).default(10),
+          purchases: z.number().int().min(1).max(1000).default(10),
+          /** Swaps proposed a day (M5c-2). */
+          trades: z.number().int().min(1).max(1000).default(10),
+        })
         .strict()
-        .default({ listings: 10, purchases: 10 }),
+        .default({ listings: 10, purchases: 10, trades: 10 }),
       minLevel: z.number().int().min(1).max(99).default(10),
       minAccountDays: z.number().int().min(0).max(365).default(3),
       alertMultiple: z.number().min(2).max(1000).default(20),
       sharedIpDays: z.number().int().min(1).max(365).default(30),
+      /** Swaps (M5c-2): how long one stays open, how many an account keeps open, and the tier gap that warns the admin. */
+      tradeDays: z.number().int().min(1).max(30).default(3),
+      openTrades: z.number().int().min(1).max(50).default(5),
+      tradeAlertTierGap: z.number().int().min(1).max(4).default(3),
     })
     .strict()
     .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),

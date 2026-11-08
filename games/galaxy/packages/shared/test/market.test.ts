@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { API_ERROR_CODES, commissionOf, marketListSchema, marketQuerySchema, minPriceFor, parseConfig, tradeBlock } from '../src/index';
+import { API_ERROR_CODES, commissionOf, marketListSchema, marketQuerySchema, minPriceFor, parseConfig, tradeBlock, tradeConfirmSchema, tradeOfferSchema, tradeProposeSchema } from '../src/index';
 
 // The market (GDD §14.6, §14.7; M5c-1): galaxies only, a minimum price per rarity, a commission that sinks coins, and
 // who may trade (level 10, an account 3 days old).
@@ -14,11 +14,14 @@ describe('la configuración', () => {
       maxPrice: 10_000_000,
       commission: 0.07,
       days: 7,
-      perDay: { listings: 10, purchases: 10 },
+      perDay: { listings: 10, purchases: 10, trades: 10 },
       minLevel: 10,
       minAccountDays: 3,
       alertMultiple: 20,
       sharedIpDays: 30,
+      tradeDays: 3,
+      openTrades: 5,
+      tradeAlertTierGap: 3,
     });
   });
 
@@ -69,5 +72,26 @@ describe('lo que se envía', () => {
   test('los errores del comercio existen', () => {
     for (const code of ['trade_level', 'trade_age', 'trade_daily_cap', 'price_too_low', 'price_too_high', 'listing_gone', 'own_listing', 'galaxy_listed'])
       expect(API_ERROR_CODES).toContain(code);
+  });
+});
+
+describe('el trueque', () => {
+  const a = '00000000-0000-4000-8000-000000000001';
+  const b = '00000000-0000-4000-8000-000000000002';
+  test('proponer da una galaxia y puede pedir una del otro', () => {
+    expect(tradeProposeSchema.parse({ username: 'vega_9', give: a })).toEqual({ username: 'vega_9', give: a });
+    expect(tradeProposeSchema.parse({ username: 'vega_9', give: a, want: b })).toEqual({ username: 'vega_9', give: a, want: b });
+    expect(() => tradeProposeSchema.parse({ username: 'vega_9' })).toThrow();
+  });
+
+  test('cambiar o confirmar nombran la versión que se ve', () => {
+    expect(tradeOfferSchema.parse({ give: a, want: null, version: 2 })).toEqual({ give: a, want: null, version: 2 });
+    expect(() => tradeOfferSchema.parse({ give: a, want: b })).toThrow();
+    expect(tradeConfirmSchema.parse({ version: 3 })).toEqual({ version: 3 });
+    expect(() => tradeConfirmSchema.parse({ version: 0 })).toThrow();
+  });
+
+  test('sus errores existen', () => {
+    for (const code of ['galaxy_in_trade', 'trade_changed', 'trade_gone', 'trade_self', 'trade_limit', 'trade_incomplete']) expect(API_ERROR_CODES).toContain(code);
   });
 });
