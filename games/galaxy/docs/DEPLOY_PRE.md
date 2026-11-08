@@ -296,11 +296,13 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Además añade `trade_id` a `galaxy.trade_alerts`.
 
+   La migración `20261108042617_galaxy_trades_pair` permite un solo trueque abierto por pareja de cuentas. Si ya hubiera parejas con varios abiertos, se queda el más reciente y los demás se cancelan.
+
    Llegan además:
    - en la clave viva `market`:
      - `perDay.trades`: los trueques propuestos al día (10);
      - `tradeDays`: los días que sigue abierto un trueque (3);
-     - `openTrades`: los abiertos por cuenta (5), contando los que recibe;
+     - `openTrades`: los abiertos por cuenta (5), contados aparte los propuestos y los recibidos;
      - `tradeAlertTierGap`: la diferencia de rareza que avisa al admin (3; por ejemplo, Común por Legendaria);
    - «Proponer trueque» en el perfil de otro jugador, y la pestaña «Trueques» del mercado (`/galaxy/mercado?pestana=trueques`);
    - para el trueque hacen falta los mismos requisitos que para el mercado: nivel 10 y 3 días de cuenta.
