@@ -1349,6 +1349,14 @@ export const copy = {
     duration: (seconds: number) => `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`,
     launch: 'Lanzar incursión',
   },
+  codex: {
+    title: 'Códice',
+    back: 'Volver a la estación',
+    count: (n: number, total: number) => `${n} de ${total} registros descifrados`,
+    sections: { chronicle: 'Crónica', sectors: 'Sectores', cores: 'Núcleos', bestiary: 'Bestiario', fragments: 'Fragmentos' },
+    locked: 'Sin descifrar',
+    fight: 'Cómo combatirlo.',
+  },
   catalog: {
     title: 'Catálogo ECN',
     back: 'Volver',

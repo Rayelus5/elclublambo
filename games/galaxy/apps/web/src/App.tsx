@@ -38,6 +38,7 @@ import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
 import { MissionsScreen } from './missions/MissionsScreen';
 import { CatalogScreen } from './collection/CatalogScreen';
+import { CodexScreen } from './codex/CodexScreen';
 
 function Splash() {
   return (
@@ -90,6 +91,7 @@ export function App() {
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
         <Route path="/misiones" element={<SignedIn><MissionsScreen /></SignedIn>} />
         <Route path="/catalogo" element={<SignedIn><CatalogScreen /></SignedIn>} />
+        <Route path="/codice" element={<SignedIn><CodexScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>

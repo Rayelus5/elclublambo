@@ -25,7 +25,7 @@ const view = async (cookie: string) => (await get(ctx.app, '/galaxy/api/station'
 const act = (cookie: string, path: string, body: unknown = {}, key = randomUUID()) => post(ctx.app, `/galaxy/api/station/${path}`, body, { cookie, headers: { 'idempotency-key': key } });
 const give = (id: string, currency: string, n: number) => credit(ctx.db, id, currency, n, 'test');
 
-test('una cuenta nueva: cinco salas funcionan, la Antena y el Laboratorio están rotos, tres en reparación, la refinería 1 vacía', async () => {
+test('una cuenta nueva: seis salas funcionan (el Archivo abre el Códice, M7b-2), la Antena y el Laboratorio están rotos, dos en reparación, la refinería 1 vacía', async () => {
   const { cookie } = await player();
   const [a, b] = await Promise.all([get(ctx.app, '/galaxy/api/station', { cookie }), get(ctx.app, '/galaxy/api/station', { cookie })]);
   expect(a.statusCode).toBe(200);
@@ -41,7 +41,7 @@ test('una cuenta nueva: cinco salas funcionan, la Antena y el Laboratorio están
     comms: 'future',
     refinery: 'working',
     antenna: 'broken',
-    archive: 'future',
+    archive: 'working',
     trophies: 'future',
   });
   expect(v.refinery).toMatchObject({ level: 1, rate: 20, capacity: 100, queue: 0, ready: 0, nextAt: null });
