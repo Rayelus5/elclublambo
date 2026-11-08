@@ -15,6 +15,7 @@ export const API_ERROR_CODES = [
   'maintenance',
   'invalid_reset_code',
   'config_invalid',
+  'config_conflict',
   'not_found',
   'internal',
   'insufficient_funds',

@@ -34,7 +34,7 @@ export function useConfigVersions(key: string) {
 export function usePublishConfig(key: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { data: unknown; reason: string; password: string }) => api<{ version: number }>(`/admin/config/${key}`, { method: 'POST', body: v }),
+    mutationFn: (v: { data: unknown; baseVersion?: number; reason: string; password: string }) => api<{ version: number }>(`/admin/config/${key}`, { method: 'POST', body: v }),
     onSettled: () => void qc.invalidateQueries({ queryKey: CONFIG_ADMIN_KEY }),
   });
 }

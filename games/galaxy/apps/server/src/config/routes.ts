@@ -1,7 +1,7 @@
-import { CONFIG_KEYS, configIssues, isConfigKey } from '@galaxy/shared';
+import { CONFIG_KEYS, configIssues, isConfigKey, mergeDraft } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
-import { ZodError, z } from 'zod';
+import { z } from 'zod';
 import { confirmPassword } from '../admin/players';
 import { requireAdmin } from '../auth/guards';
 import type { DB } from '../db/schema';
@@ -11,7 +11,7 @@ import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
 import type { ConfigService } from './service';
 
-const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200) });
+const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200), baseVersion: z.number().int().min(0).optional() });
 const validateBody = z.object({ data: z.unknown() });
 
 /**
@@ -56,26 +56,20 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
 
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/validate', async (req) => {
     requireAdmin(req);
-    const issues = configIssues(keyOf(req.params.key), validateBody.parse(req.body).data);
+    const key = keyOf(req.params.key);
+    // The draft over what is live, exactly as a publish would see it.
+    const { data: active } = (await deps.config.active()).find((r) => r.key === key) ?? { data: {} };
+    const issues = configIssues(key, mergeDraft(key, active, validateBody.parse(req.body).data));
     return { ok: issues.length === 0, issues };
   });
 
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', async (req, reply) => {
     const admin = requireAdmin(req);
     const key = keyOf(req.params.key);
-    const { data, reason, password } = publishBody.parse(req.body);
+    const { data, reason, password, baseVersion } = publishBody.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     await confirmPassword(deps.db, admin, password);
-    try {
-      const { version } = await deps.config.publish(key, data, { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) }, reason);
-      return reply.code(201).send({ version });
-    } catch (err) {
-      if (err instanceof ZodError) {
-        const current = await deps.config.get(key);
-        const merged = data && typeof data === 'object' && !Array.isArray(data) ? { ...(current as object), ...(data as object) } : data;
-        throw new HttpError(400, 'config_invalid', { issues: configIssues(key, merged) });
-      }
-      throw err;
-    }
+    const { version } = await deps.config.publish(key, data, { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) }, reason, { baseVersion });
+    return reply.code(201).send({ version });
   });
 }

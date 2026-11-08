@@ -1,45 +1,48 @@
 import { randomUUID } from 'node:crypto';
-import { CONFIG_KEYS, type ConfigKey, PROBE_TEST, parseConfig } from '@galaxy/shared';
+import { CONFIG_KEYS, PROBE_TEST, parseConfig } from '@galaxy/shared';
+import type { ControlledTransaction, Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
-import type { ConfigService } from '../../src/config/service';
-import { createAdminViaCli, get, post, randomIp, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import { createConfigService } from '../../src/config/service';
+import { createDb } from '../../src/db';
+import type { DB } from '../../src/db/schema';
+import { createAdminViaCli, get, post, randomIp, sessionCookie, testApp, testEnv, totpNow, uniqueName } from '../helpers';
 
 // The live config from the admin panel (GDD §16.3; M6b): every key with what is live (or its default), a draft checked
 // against its schema with each issue at its path, publishing with a reason and the admin's password (an invalid draft
 // is refused with its issues), and the switches that close the market, the swaps and the chat at once.
-// The local DB is the user's and its live config is never published from tests: the app runs on an in-memory config
-// service that keeps versions like the real one (merging onto what is live, validated by the registry schema).
+// The local DB is the user's and its live config is never published from tests: the app runs the real config service
+// on one transaction that is rolled back when the file ends, so every publish here is seen by this file only and none
+// is ever committed (accounts and sessions go through the app's own pool, like every integration test).
 
-function memoryConfig(): ConfigService {
-  const store = new Map<ConfigKey, { version: number; data: unknown; createdAt: string; createdBy: string | null; note: string }[]>();
-  const current = (key: ConfigKey) => store.get(key)?.at(-1)?.data ?? {};
-  return {
-    get: async (key) => parseConfig(key, current(key)),
-    getVersioned: async (key) => ({ value: parseConfig(key, current(key)), version: store.get(key)?.at(-1)?.version ?? 0 }),
-    versions: async (key) => [...(store.get(key) ?? [])],
-    active: async () => [...store.entries()].map(([key, v]) => ({ key, version: v.at(-1)!.version, data: v.at(-1)!.data })),
-    publish: async (key, data, who, reason) => {
-      const merged = parseConfig(key, { ...(current(key) as object), ...(data as object) });
-      const list = store.get(key) ?? [];
-      const version = (list.at(-1)?.version ?? 0) + 1;
-      list.push({ version, data: merged, createdAt: new Date().toISOString(), createdBy: who.id, note: reason });
-      store.set(key, list);
-      return { version };
-    },
-  } as ConfigService;
-}
+let configDb: Kysely<DB>;
+let trx: ControlledTransaction<DB>;
 
 type Ctx = Awaited<ReturnType<typeof testApp>>;
 let ctx: Ctx;
 let admin: { cookie: string; password: string; username: string };
-beforeAll(async () => {
-  ctx = await testApp({ config: memoryConfig() });
+
+async function adminSession() {
   const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'admin');
   const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
   const res = await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) });
-  admin = { cookie: sessionCookie(res), password, username };
+  return { cookie: sessionCookie(res), password, username };
+}
+
+beforeAll(async () => {
+  configDb = createDb(testEnv().DATABASE_URL, { max: 1 });
+  trx = await configDb.startTransaction().execute();
+  ctx = await testApp({ config: createConfigService(trx) });
+  admin = await adminSession();
 });
-afterAll(() => ctx.close());
+afterAll(async () => {
+  await ctx.close();
+  await trx.rollback().execute();
+  await configDb.destroy();
+});
+
+const versionsOf = async (key: string) => (await trx.selectFrom('galaxy.game_config_versions').select('version').where('key', '=', key).execute()).length;
+const lastVersion = async (key: string) =>
+  (await trx.selectFrom('galaxy.game_config_versions').select('version').where('key', '=', key).orderBy('version', 'desc').executeTakeFirst())?.version ?? 0;
 
 const A = (p: string) => `/galaxy/api/admin/config${p}`;
 const publish = (key: string, body: object) => post(ctx.app, A(`/${key}`), body, { cookie: admin.cookie });
@@ -78,6 +81,49 @@ describe('publicar', () => {
     const keys = (await get(ctx.app, A('/keys'), { cookie: admin.cookie })).json() as { key: string; version: number; author: string | null; note: string | null; data: { maxLength: number } }[];
     expect(keys.find((k) => k.key === 'chat')).toMatchObject({ version: (ok.json() as { version: number }).version, author: admin.username, note: 'Más largo', data: { maxLength: 300 } });
   });
+
+  test('una contraseña equivocada da 401 y no publica; diez seguidas cierran las sesiones de ese admin (Review Focus 3)', async () => {
+    const other = await adminSession();
+    const before = await versionsOf('chat');
+    const wrong = () => post(ctx.app, A('/chat'), { data: { maxLength: 250 }, reason: 'Prueba', password: 'mal' }, { cookie: other.cookie });
+    const first = await wrong();
+    expect(first.statusCode).toBe(401);
+    expect(first.json()).toEqual({ error: 'password_wrong' });
+    expect(await versionsOf('chat')).toBe(before);
+    for (let i = 0; i < 9; i++) expect((await wrong()).statusCode).toBe(401);
+    expect((await wrong()).statusCode).toBe(429);
+    expect((await get(ctx.app, A('/keys'), { cookie: other.cookie })).statusCode).toBe(401);
+    expect(await versionsOf('chat')).toBe(before);
+  });
+
+  test('un borrador parcial se junta con lo publicado: lo que el panel da por bueno, el servidor lo publica', async () => {
+    const season = { startsAt: '2027-01-01T00:00:00.000Z', endsAt: '2027-02-15T00:00:00.000Z' };
+    expect((await publish('season', { data: season, reason: 'Temporada 2', password: admin.password })).statusCode).toBe(201);
+    const later = await publish('season', { data: { startsAt: '2027-01-15T00:00:00.000Z' }, reason: 'Empieza más tarde', password: admin.password });
+    expect(later.statusCode).toBe(201);
+    const keys = (await get(ctx.app, A('/keys'), { cookie: admin.cookie })).json() as { key: string; data: { startsAt: string; endsAt: string } }[];
+    expect(keys.find((k) => k.key === 'season')!.data).toMatchObject({ startsAt: '2027-01-15T00:00:00.000Z', endsAt: '2027-02-15T00:00:00.000Z' });
+  });
+
+  test('lo que no se puede publicar se rechaza con sus problemas, también los escáneres de evento (Review Focus 1)', async () => {
+    const gacha = parseConfig('gacha', {});
+    const event = { id: 'nova', kind: 'event', name: 'Lluvia de cometas', pityGroup: 'event-nova', currency: 'signal:nova', featured: { trait: 'phenomenon', value: 'comet' } };
+    const before = await versionsOf('gacha');
+    const res = await publish('gacha', { data: { banners: [...gacha.banners, event] }, reason: 'Evento', password: admin.password });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toEqual({ error: 'config_invalid', issues: [{ path: 'banners', message: expect.any(String) }] });
+    expect(await versionsOf('gacha')).toBe(before);
+  });
+
+  test('publicar sobre una versión que ya no es la viva da 409 y no pisa lo que otro publicó', async () => {
+    const first = await publish('chat', { data: { history: 40 }, reason: 'Primero', password: admin.password });
+    const base = (first.json() as { version: number }).version;
+    expect((await publish('chat', { data: { hideAfter: 4 }, baseVersion: base, reason: 'Otro admin', password: admin.password })).statusCode).toBe(201);
+    const stale = await publish('chat', { data: { history: 60 }, baseVersion: base, reason: 'Tarde', password: admin.password });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toEqual({ error: 'config_conflict' });
+    expect(await lastVersion('chat')).toBe(base + 1);
+  });
 });
 
 describe('los interruptores', () => {
@@ -90,6 +136,8 @@ describe('los interruptores', () => {
     expect((await post(ctx.app, '/galaxy/api/chat/global/messages', { body: 'hola' }, { cookie })).json()).toEqual({ error: 'chat_disabled' });
     expect((await get(ctx.app, '/galaxy/api/chat/global', { cookie })).statusCode).toBe(200);
     expect((await publish('features', { data: { market: true, trades: true, chat: true }, reason: 'Vuelve', password: admin.password })).statusCode).toBe(201);
+    expect((await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: randomUUID(), price: 50 }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).not.toEqual({ error: 'market_disabled' });
+    expect((await post(ctx.app, '/galaxy/api/trades', { username: 'alguien', give: randomUUID() }, { cookie, headers: { 'idempotency-key': randomUUID() } })).json()).not.toEqual({ error: 'trades_disabled' });
     expect((await post(ctx.app, '/galaxy/api/chat/global/messages', { body: 'hola' }, { cookie })).json()).toEqual({ error: 'chat_level' });
   });
 });

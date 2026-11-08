@@ -1485,6 +1485,10 @@
   .admin-changes li { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--color-solar) 10%, transparent); overflow-wrap: anywhere; }
   .admin-publish { display: grid; gap: 4px; padding-top: 12px; border-top: 2px solid rgb(255 255 255 / .05); }
   .admin-publish .pill { justify-self: start; margin-top: 4px; }
+  .admin-publish .field-error { display: grid; gap: 8px; }
+  .admin-publish .field-error p { margin: 0; }
+  .admin-moved { display: grid; gap: 8px; justify-items: start; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-solar) 14%, transparent); color: var(--color-ink); font-weight: 600; }
+  .admin-moved p { margin: 0; }
   .admin-sim select { height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
   .admin-sim p { margin: 0; }
   .admin-sim .admin-table-wrap { max-width: 640px; }

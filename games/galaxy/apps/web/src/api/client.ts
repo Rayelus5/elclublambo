@@ -5,6 +5,8 @@ export class ApiError extends Error {
   constructor(
     readonly code: ApiErrorCode,
     readonly status: number,
+    /** The rest of the error body (e.g. `issues` for config_invalid). */
+    readonly details: Record<string, unknown> = {},
   ) {
     super(code);
     this.name = 'ApiError';
@@ -43,5 +45,6 @@ export async function api<T>(
   const raw = typeof body === 'object' && body !== null ? (body as { error?: unknown }).error : undefined;
   const code = typeof raw === 'string' && KNOWN.has(raw) ? (raw as ApiErrorCode) : 'internal';
   if (code === 'maintenance') useUi.getState().setMaintenance(true);
-  throw new ApiError(code, res.status);
+  const { error: _error, ...details } = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+  throw new ApiError(code, res.status, details);
 }

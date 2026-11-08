@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { API_ERROR_CODES, configIssues, expectedTierRates, parseConfig, simulateGacha } from '../src/index';
+import { API_ERROR_CODES, configIssues, expectedTierRates, mergeDraft, parseConfig, simulateGacha } from '../src/index';
 
 // The admin's config tools (GDD §16.3, §16.6; M6b): a gacha simulator that runs a config before it is published, the
 // rates it should give, the issues of a draft by path, and the new feature switches.
@@ -36,6 +36,28 @@ describe('los problemas de un borrador', () => {
     expect(configIssues('chat', { maxLength: 5, words: ['ok', 'x'] }).map((i) => i.path).sort()).toEqual(['maxLength', 'words.1']);
     expect(configIssues('chat', { maxLength: 300 })).toEqual([]);
     expect(configIssues('chat', 'no es un objeto').length).toBeGreaterThan(0);
+  });
+
+  test('un borrador parcial se junta con lo publicado antes de comprobarse, como hace el servidor', () => {
+    const live = parseConfig('season', { startsAt: '2027-01-01T00:00:00.000Z', endsAt: '2027-02-15T00:00:00.000Z' });
+    const merged = mergeDraft('season', live, { startsAt: '2027-01-15T00:00:00.000Z' });
+    expect(configIssues('season', merged)).toEqual([]);
+    expect(parseConfig('season', merged)).toMatchObject({ startsAt: '2027-01-15T00:00:00.000Z', endsAt: '2027-02-15T00:00:00.000Z' });
+    // A field the schema no longer knows is dropped from what is live, never blocks; a typo in the draft is an issue.
+    expect(configIssues('season', mergeDraft('season', { ...live, gone: 1 }, { top: 50 }))).toEqual([]);
+    expect(configIssues('season', mergeDraft('season', live, { tpo: 50 })).length).toBe(1);
+    // A whole field replaces what is live: removing an entry of a record removes it.
+    const probes = parseConfig('probes', {});
+    const [first, ...rest] = Object.keys(probes.unlocks);
+    const less = parseConfig('probes', mergeDraft('probes', probes, { unlocks: Object.fromEntries(rest.map((k) => [k, probes.unlocks[k]])) }));
+    expect(Object.keys(less.unlocks)).not.toContain(first);
+    expect(mergeDraft('chat', {}, 'no es un objeto')).toBe('no es un objeto');
+  });
+
+  test('los banners de evento son un problema hasta que lleguen los eventos', () => {
+    const gacha = parseConfig('gacha', {});
+    const event = { id: 'nova', kind: 'event', name: 'Lluvia de cometas', pityGroup: 'event-nova', currency: 'signal:nova', featured: { trait: 'phenomenon', value: 'comet' } };
+    expect(configIssues('gacha', { ...gacha, banners: [...gacha.banners, event] })).toEqual([{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }]);
   });
 
   test('los problemas se dicen en español, para quien edita el panel', () => {

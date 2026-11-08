@@ -1,6 +1,7 @@
-import { type ConfigKey, configIssues, expectedTierRates, FINISHES, type GachaSimulation, isConfigKey, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
+import { type ConfigKey, configIssues, expectedTierRates, FINISHES, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { ApiError } from '../api/client';
 import { type ConfigKeyRow, useConfigKeys, useConfigVersions, usePublishConfig } from '../api/config';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -13,6 +14,12 @@ const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 
 const pctFmt = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (x: number) => `${pctFmt.format(x * 100)} %`;
 const oneDecimal = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+/** The issues the server found in a publish it refused (config_invalid), if any. */
+function serverIssues(error: unknown): { path: string; message: string }[] {
+  const issues = error instanceof ApiError ? error.details.issues : undefined;
+  return Array.isArray(issues) ? (issues as { path: string; message: string }[]) : [];
+}
 
 /** Reason and the admin's password, then publish (DESIGN_SYSTEM §8 septendecies). */
 function PublishFields({ busy, disabled, error, label = t.publish, onPublish }: { busy: boolean; disabled: boolean; error: unknown; label?: string; onPublish: (reason: string, password: string) => void }) {
@@ -41,9 +48,18 @@ function PublishFields({ busy, disabled, error, label = t.publish, onPublish }: 
         </div>
       </div>
       {error ? (
-        <p className="field-error" role="alert">
-          {errorText(error, copy.errors)}
-        </p>
+        <div className="field-error" role="alert">
+          <p>{errorText(error, copy.errors)}</p>
+          {serverIssues(error).length ? (
+            <ul className="admin-issues">
+              {serverIssues(error).map((i) => (
+                <li key={`${i.path}:${i.message}`}>
+                  <code>{i.path || '·'}</code> {i.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
       <button type="submit" className="lip pill danger" disabled={!ready} aria-busy={busy || undefined}>
         {label}
@@ -123,17 +139,32 @@ export function ConfigScreen() {
   );
 }
 
-/** The leaves of an object as path → JSON text, to say what a draft changes. */
-function leaves(v: unknown, path = '', out = new Map<string, string>()): Map<string, string> {
-  if (v && typeof v === 'object' && !Array.isArray(v)) for (const [k, x] of Object.entries(v)) leaves(x, path ? `${path}.${k}` : k, out);
-  else out.set(path, JSON.stringify(v));
-  return out;
+const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * What a draft changes against what is live, by path: a value that changes, an entry that is added, and an entry that
+ * is removed (said once for the whole entry). Arrays are compared whole.
+ */
+function diff(before: unknown, after: unknown, path = ''): string[] {
+  if (!isObject(before) || !isObject(after)) {
+    const [a, b] = [JSON.stringify(before), JSON.stringify(after)];
+    return a === b ? [] : [t.changed(path, a ?? '—', b ?? '—')];
+  }
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].flatMap((k) => {
+    const p = path ? `${path}.${k}` : k;
+    if (!(k in after)) return [t.removed(p)];
+    if (!(k in before)) return [t.changed(p, '—', JSON.stringify(after[k]))];
+    return diff(before[k], after[k], p);
+  });
 }
 
 function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
   const id = useId();
   const [banner, setBanner] = useState(cfg.banners[0]?.id ?? '');
-  const [run, setRun] = useState<GachaSimulation | null>(null);
+  const [drawn, setDrawn] = useState<{ of: string; run: GachaSimulation } | null>(null);
+  const of = JSON.stringify(cfg);
+  // A run belongs to the draft it was drawn with: another draft clears it, so «Salió» always matches «Esperado».
+  const run = drawn?.of === of ? drawn.run : null;
   const expected = expectedTierRates(cfg);
   return (
     <section className="lip panel admin-sim" aria-label={t.sim.title}>
@@ -151,7 +182,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
           </select>
         </label>
         {[1000, 10_000, 100_000].map((n) => (
-          <button key={n} type="button" className="lip pill small" onClick={() => setRun(simulateGacha(cfg, banner, n, 20261108n))}>
+          <button key={n} type="button" className="lip pill small" onClick={() => setDrawn({ of, run: simulateGacha(cfg, banner, n, 20261108n) })}>
             {t.sim.run(n)}
           </button>
         ))}
@@ -195,6 +226,9 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
 
 function Editor({ row }: { row: ConfigKeyRow }) {
   const id = useId();
+  // What the draft is made on: the version that was live when editing began (or was last published from here). If
+  // someone else publishes meanwhile, the server refuses the draft (409) and this says so.
+  const [base, setBase] = useState({ version: row.version, data: row.data });
   const [text, setText] = useState(() => JSON.stringify(row.data, null, 2));
   const [done, setDone] = useState<number | null>(null);
   const versions = useConfigVersions(row.key);
@@ -206,11 +240,19 @@ function Editor({ row }: { row: ConfigKeyRow }) {
   } catch {
     jsonOk = false;
   }
-  const merged = jsonOk && parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? { ...row.data, ...(parsed as object) } : parsed;
+  const merged = jsonOk ? mergeDraft(row.key, base.data, parsed) : undefined;
   const issues = jsonOk ? configIssues(row.key, merged) : [];
-  const next = jsonOk && issues.length === 0 ? (parseConfig(row.key, merged) as unknown) : null;
-  const before = leaves(row.data);
-  const changes = next ? [...leaves(next)].filter(([p, v]) => before.get(p) !== v).map(([p, v]) => t.changed(p, before.get(p) ?? '—', v)) : [];
+  const next = jsonOk && issues.length === 0 ? (parseConfig(row.key, merged) as Record<string, unknown>) : null;
+  const changes = next ? diff(base.data, next) : [];
+  // Only the fields that change are sent, so nothing else published meanwhile is undone.
+  const fields = next ? Object.fromEntries(Object.entries(next).filter(([k, v]) => JSON.stringify(base.data[k]) !== JSON.stringify(v))) : {};
+  const moved = row.version !== base.version && !publish.isPending;
+  const reloadLive = () => {
+    setBase({ version: row.version, data: row.data });
+    setText(JSON.stringify(row.data, null, 2));
+    setDone(null);
+    publish.reset();
+  };
   return (
     <>
       <div className="admin-editor">
@@ -256,6 +298,14 @@ function Editor({ row }: { row: ConfigKeyRow }) {
               )}
             </section>
           )}
+          {moved ? (
+            <div className="admin-moved" role="status">
+              <p>{t.moved(row.version)}</p>
+              <button type="button" className="lip pill small" onClick={reloadLive}>
+                {t.reloadLive}
+              </button>
+            </div>
+          ) : null}
           {done ? (
             <p className="admin-done" role="status">
               {t.published(done)}
@@ -265,11 +315,21 @@ function Editor({ row }: { row: ConfigKeyRow }) {
             busy={publish.isPending}
             disabled={!next || changes.length === 0}
             error={publish.error}
-            onPublish={(reason, password) => publish.mutate({ data: parsed, reason, password }, { onSuccess: (r) => setDone(r.version) })}
+            onPublish={(reason, password) =>
+              publish.mutate(
+                { data: fields, baseVersion: base.version, reason, password },
+                {
+                  onSuccess: (r) => {
+                    setDone(r.version);
+                    if (next) setBase({ version: r.version, data: next });
+                  },
+                },
+              )
+            }
           />
         </div>
       </div>
-      {row.key === 'gacha' && next ? <Simulator cfg={next as ReturnType<typeof parseConfig<'gacha'>>} /> : null}
+      {row.key === 'gacha' && next ? <Simulator cfg={next as unknown as ReturnType<typeof parseConfig<'gacha'>>} /> : null}
       <section className="lip panel admin-history" aria-label={t.history}>
         <h2>{t.history}</h2>
         {versions.data && versions.data.length === 0 ? <p className="panel-note">{t.noHistory}</p> : null}
@@ -304,7 +364,7 @@ export function ConfigKeyScreen() {
       <h1>{key}</h1>
       {row ? <p className="panel-note">{t.version(row.version)}</p> : null}
       {keys.error ? <p className="field-error">{errorText(keys.error, copy.errors)}</p> : null}
-      {row ? <Editor key={`${row.key}:${row.version}`} row={row} /> : null}
+      {row ? <Editor key={row.key} row={row} /> : null}
     </section>
   );
 }

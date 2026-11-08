@@ -549,11 +549,35 @@ export function isConfigKey(key: string): key is ConfigKey {
   return Object.hasOwn(configSchemas, key);
 }
 
-/** What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). */
+/**
+ * A draft of `key` over what is live (M6b): the fields it names replace theirs whole, the rest stay as published. Only
+ * fields the schema knows are kept from what is live, so one removed from the schema never blocks a publish. The
+ * server publishes this and the panel checks it, so both always agree. A draft that is not an object stays as it is
+ * (and fails its check).
+ */
+export function mergeDraft(key: ConfigKey, active: unknown, draft: unknown): unknown {
+  if (!isPlainObject(draft)) return draft;
+  const known = new Set(Object.keys(configSchemas[key].shape));
+  const base = isPlainObject(active) ? Object.fromEntries(Object.entries(active).filter(([k]) => known.has(k))) : {};
+  return { ...base, ...draft };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). It also
+ * refuses what the game cannot serve yet: event banners (GDD §9) have their rules, but not their event signals in the
+ * wallet, combined odds on screen or featured checks, so until the events milestone no one can publish half a feature.
+ */
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
-  if (result.success) return [];
-  return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+  if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+  if (key === 'gacha' && (result.data as ConfigValue<'gacha'>).banners.some((b) => b.kind === 'event')) {
+    return [{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }];
+  }
+  return [];
 }
 
 /** Valida `data` con el esquema de `key` y devuelve el valor con los valores por defecto aplicados. Lanza si no vale. */
