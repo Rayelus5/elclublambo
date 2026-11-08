@@ -72,8 +72,9 @@ test('la lista: cada clan con su emblema, miembros y puntos, y unirse o solicita
   expect(within(gx).getByRole('link', { name: /Galácticos/ })).toHaveAttribute('href', '/clanes/GX');
   const ndu = within(cards).getByText('Los Ñandúes').closest('li')!;
   expect(ndu).toHaveTextContent(t.closed);
-  expect(within(ndu).getByRole('button', { name: t.request })).toBeInTheDocument();
-  await user.click(within(gx).getByRole('button', { name: t.join }));
+  // Each card's button says which clan it acts on (review M5b-1).
+  expect(within(ndu).getByRole('button', { name: t.requestTo('Los Ñandúes') })).toHaveTextContent(t.request);
+  await user.click(within(gx).getByRole('button', { name: t.joinTo('Galácticos') }));
   await waitFor(() => expect(sent(fetch, '/GX/join')).toHaveLength(1));
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/clanes/GX');
 });
@@ -113,6 +114,7 @@ test('el diálogo de crear: nombre, etiqueta, descripción, emblema y color eleg
   await user.click(await screen.findByRole('button', { name: new RegExp(t.create) }));
   const dialog = await screen.findByRole('dialog', { name: t.createTitle });
   expect(dialog).toHaveTextContent(t.cost(2000));
+  expect(within(dialog).getByLabelText(t.name)).toHaveAccessibleDescription(t.nameHint);
   await user.type(within(dialog).getByLabelText(t.name), 'Halcones');
   await user.type(within(dialog).getByLabelText(t.tag), 'hal');
   await user.type(within(dialog).getByLabelText(t.description), 'Rápidos');
@@ -254,4 +256,21 @@ test('la pestaña Clanes de la clasificación enseña los clanes con su emblema,
   mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile) });
   renderAt('/perfil/vega', { '/perfil/:username': <ProfileScreen /> });
   expect(await screen.findByRole('link', { name: /Galácticos/ })).toHaveAttribute('href', '/clanes/GX');
+});
+
+test('quien ya está en otro clan no puede unirse y ve por qué (revisión M5b-1)', async () => {
+  mockApi({
+    'GET /galaxy/api/clans/GX': () => jsonResponse(200, clan({ me: null, requests: undefined, open: true })),
+    'GET /galaxy/api/clans/mine': () => jsonResponse(200, clan({ tag: 'NDU', name: 'Los Ñandúes' })),
+  });
+  renderAt('/clanes/GX', clanScreen);
+  const join = await screen.findByRole('button', { name: t.join });
+  await waitFor(() => expect(join).toBeDisabled());
+  expect(join).toHaveAccessibleDescription(t.inOtherClan);
+});
+
+test('los textos de expulsar y de salir dicen lo que pasa', () => {
+  expect(t.kickBody).toBe('No podrá volver a entrar ni pedirlo hasta pasadas 24 horas');
+  expect(t.leaderLeaveBody).toBe('El liderazgo pasará al oficial más antiguo o, si no hay, al miembro más antiguo');
+  expect(copy.errors.clan_closed).toBe('Ese clan está cerrado. Pide entrar y espera a que te acepten');
 });

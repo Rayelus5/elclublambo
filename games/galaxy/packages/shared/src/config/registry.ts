@@ -393,6 +393,8 @@ export const configSchemas = {
       maxMembers: z.number().int().min(5).max(100).default(30),
       createCost: z.object({ coins: z.number().int().min(0).max(100_000_000).default(2000) }).strict().default({ coins: 2000 }),
       minLevel: z.number().int().min(1).max(99).default(5),
+      /** How long a kicked account waits to join that clan again or to ask to (M5b-1 review). */
+      kickHours: z.number().int().min(0).max(720).default(24),
     })
     .strict(),
   /**

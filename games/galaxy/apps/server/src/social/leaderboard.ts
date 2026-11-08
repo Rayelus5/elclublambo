@@ -48,12 +48,12 @@ export function cachedRanking(key: string, compute: () => Promise<Ranked[]>): Pr
   return entry.rows;
 }
 
-export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: LeaderTab, minRunSeconds: number): Promise<Ranked[]> {
+export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
   const key = JSON.stringify([cfg.id, cfg.startsAt, cfg.endsAt, cfg.points, cfg.capPerMinute, minRunSeconds, tab]);
   return cachedRanking(key, () => computeRanking(db, cfg, tab, minRunSeconds));
 }
 
-async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: LeaderTab, minRunSeconds: number): Promise<Ranked[]> {
+async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
   const points = sql`least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)`;
   const value =

@@ -40,7 +40,8 @@ function useRefreshClans() {
 export function useCreateClan() {
   const qc = useQueryClient();
   const refresh = useRefreshClans();
-  const intent = (req: ClanCreate) => `clan:create:${req.tag}:${req.name}`;
+  // The whole request: a retry after a lost answer reuses the key only if nothing changed.
+  const intent = (req: ClanCreate) => `clan:create:${JSON.stringify(req)}`;
   return useMutation({
     mutationFn: (req: ClanCreate) => api<ClanView>('/clans', { method: 'POST', body: req, headers: keyFor(intent(req)) }),
     onSuccess: (view) => {
@@ -66,5 +67,6 @@ export function useEditClan() {
   return useMutation({
     mutationFn: (v: { tag: string; edit: ClanEdit }) => api<ClanView>(`/clans/${encodeURIComponent(v.tag)}`, { method: 'PATCH', body: v.edit }),
     onSuccess: (view, v) => refresh(view, v.tag),
+    onError: (_e, v) => refresh(null, v.tag),
   });
 }

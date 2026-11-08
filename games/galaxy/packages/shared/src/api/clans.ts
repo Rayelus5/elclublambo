@@ -5,12 +5,14 @@ import { CLAN_COLORS, CLAN_EMBLEMS, type ClanColor, type ClanEmblem, type ClanRo
 // The clans' API (GDD §14.3; M5b-1). A clan's public view shows its members' names, roles, levels and season points,
 // nothing else about them; the requests to join are seen only by the leader and the officers.
 
-/** 3–24: letters (accents and ñ included) and digits, words separated by single spaces. */
+/**
+ * 3–24 characters (counted as characters, as the database does): Latin letters (accents and ñ included, no look-alikes
+ * from other scripts) and digits, words separated by single spaces.
+ */
 const clanName = z
   .string()
-  .min(3)
-  .max(24)
-  .regex(/^[\p{L}\p{N}]+(?: [\p{L}\p{N}]+)*$/u);
+  .refine((s) => [...s].length >= 3 && [...s].length <= 24, 'clan_name_length')
+  .pipe(z.string().regex(/^[\p{Script=Latin}0-9]+(?: [\p{Script=Latin}0-9]+)*$/u));
 /** 2–4 letters or digits, kept in capitals. */
 const clanTag = z
   .string()

@@ -253,6 +253,13 @@ export interface ClanMembersTable {
   joined_at: Timestamp;
 }
 
+/** A kicked account waits until `until` before joining that clan again or asking to (M5b-1 review). */
+export interface ClanKicksTable {
+  clan_id: string;
+  account_id: string;
+  until: ColumnType<Date, Date | string, Date | string>;
+}
+
 /** Requests to join a closed clan (M5b-1). */
 export interface ClanRequestsTable {
   clan_id: string;
@@ -363,6 +370,7 @@ export interface DB {
   'galaxy.clans': ClansTable;
   'galaxy.clan_members': ClanMembersTable;
   'galaxy.clan_requests': ClanRequestsTable;
+  'galaxy.clan_kicks': ClanKicksTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;

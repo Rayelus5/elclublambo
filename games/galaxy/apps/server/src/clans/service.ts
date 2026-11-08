@@ -42,6 +42,14 @@ export async function clanConfigs(deps: SocialDeps): Promise<ClanConfigs> {
   return { clans, account, season };
 }
 
+/** Lower case without accents (ñ to n), for a search that does not care how a name is written. */
+const fold = (s: string) =>
+  s
+    .trim()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase();
+
 const lock = (trx: Kysely<DB>, key: string) => sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`.execute(trx);
 const ROLE_ORDER: Record<ClanRole, number> = { leader: 0, officer: 1, member: 2 };
 
@@ -53,6 +61,20 @@ async function clanByTag(db: Kysely<DB>, tag: string): Promise<ClanRowDb> {
   return { ...c, created_at: new Date(c.created_at) };
 }
 
+/** The clan's lock, and the clan as it is under it: disbanded or closed meanwhile shows here (404 when gone). */
+async function lockClan(trx: Kysely<DB>, clanId: string): Promise<{ open: boolean }> {
+  await lock(trx, `clan:${clanId}`);
+  const c = await trx.selectFrom('galaxy.clans').select('open').where('id', '=', clanId).executeTakeFirst();
+  if (!c) throw new HttpError(404, 'clan_not_found');
+  return c;
+}
+
+/** A kicked account waits `clans.kickHours` before joining that clan again or asking to. */
+async function kickedFrom(trx: Kysely<DB>, clanId: string, accountId: string): Promise<boolean> {
+  const k = await trx.selectFrom('galaxy.clan_kicks').select('until').where('clan_id', '=', clanId).where('account_id', '=', accountId).where('until', '>', sql<Date>`now()`).executeTakeFirst();
+  return k !== undefined;
+}
+
 async function membership(db: Kysely<DB>, accountId: string): Promise<{ clan_id: string; role: ClanRole; joined_at: Date } | undefined> {
   const m = await db.selectFrom('galaxy.clan_members').select(['clan_id', 'role', 'joined_at']).where('account_id', '=', accountId).executeTakeFirst();
   return m ? { clan_id: m.clan_id, role: m.role, joined_at: new Date(m.joined_at) } : undefined;
@@ -60,7 +82,7 @@ async function membership(db: Kysely<DB>, accountId: string): Promise<{ clan_id:
 
 async function accountNamed(db: Kysely<DB>, username: string): Promise<string> {
   const a = await db.selectFrom('galaxy.accounts').select('id').where('username', '=', username).executeTakeFirst();
-  if (!a) throw new HttpError(404, 'not_in_clan');
+  if (!a) throw new HttpError(409, 'not_in_clan');
   return a.id;
 }
 
@@ -133,9 +155,9 @@ export async function myClan(deps: SocialDeps, viewerId: string): Promise<MyClan
 /** Clans by score (up to 30), filtered by a piece of the name or the start of the tag. */
 export async function listClans(deps: SocialDeps, q: string | undefined): Promise<ClanList> {
   const cfgs = await clanConfigs(deps);
-  const needle = (q ?? '').trim().toLocaleLowerCase('es');
+  const needle = fold(q ?? '');
   const clans: ClanCard[] = (await clanRanking(deps.db, cfgs.season, cfgs.account, deps.now()))
-    .filter((c) => !needle || c.name.toLocaleLowerCase('es').includes(needle) || c.tag.toLowerCase().startsWith(needle))
+    .filter((c) => !needle || fold(c.name).includes(needle) || c.tag.toLowerCase().startsWith(needle))
     .slice(0, 30)
     .map((c) => ({ tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, open: c.open, members: c.members, maxMembers: cfgs.clans.maxMembers, score: c.value }));
   return { clans, rules: { maxMembers: cfgs.clans.maxMembers, createCost: { coins: cfgs.clans.createCost.coins }, minLevel: cfgs.clans.minLevel } };
@@ -186,9 +208,10 @@ export async function joinClan(deps: SocialDeps, accountId: string, tag: string,
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
-    await lock(trx, `clan:${c.id}`);
+    const { open } = await lockClan(trx, c.id);
     await lock(trx, `clan-account:${accountId}`);
-    if (c.open) return admit(trx, c.id, accountId, cfgs);
+    if (await kickedFrom(trx, c.id, accountId)) throw new HttpError(409, 'clan_kicked');
+    if (open) return admit(trx, c.id, accountId, cfgs);
     if (!asRequest) throw new HttpError(409, 'clan_closed');
     if (await membership(trx, accountId)) throw new HttpError(409, 'already_in_clan');
     await trx.insertInto('galaxy.clan_requests').values({ clan_id: c.id, account_id: accountId }).onConflict((oc) => oc.columns(['clan_id', 'account_id']).doNothing()).execute();
@@ -214,7 +237,7 @@ export async function answerRequest(deps: SocialDeps, actorId: string, tag: stri
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
-    await lock(trx, `clan:${c.id}`);
+    await lockClan(trx, c.id);
     if (!canManage(await actorRole(trx, c.id, actorId), 'member', 'accept')) throw new HttpError(403, 'clan_forbidden');
     const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', username).executeTakeFirst();
     const request = target && (await trx.selectFrom('galaxy.clan_requests').select('account_id').where('clan_id', '=', c.id).where('account_id', '=', target.id).executeTakeFirst());
@@ -233,13 +256,22 @@ export async function manageMember(deps: SocialDeps, actorId: string, tag: strin
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
-    await lock(trx, `clan:${c.id}`);
+    await lockClan(trx, c.id);
     const role = await actorRole(trx, c.id, actorId);
     const targetId = await accountNamed(trx, username);
     const target = await membership(trx, targetId);
-    if (!target || target.clan_id !== c.id) throw new HttpError(404, 'not_in_clan');
+    if (!target || target.clan_id !== c.id) throw new HttpError(409, 'not_in_clan');
     if (!canManage(role, target.role, action)) throw new HttpError(403, 'clan_forbidden');
-    if (action === 'kick') await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', targetId).execute();
+    if (action === 'kick') {
+      await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', targetId).execute();
+      // Kept out for a while: an open clan would otherwise take them straight back.
+      const until = sql<Date>`now() + make_interval(hours => ${cfgs.clans.kickHours}::int)`;
+      await trx
+        .insertInto('galaxy.clan_kicks')
+        .values({ clan_id: c.id, account_id: targetId, until })
+        .onConflict((oc) => oc.columns(['clan_id', 'account_id']).doUpdateSet({ until }))
+        .execute();
+    }
     if (action === 'promote') await trx.updateTable('galaxy.clan_members').set({ role: 'officer' }).where('account_id', '=', targetId).execute();
     if (action === 'demote') await trx.updateTable('galaxy.clan_members').set({ role: 'member' }).where('account_id', '=', targetId).execute();
     if (action === 'transfer') {
@@ -255,7 +287,7 @@ export async function manageMember(deps: SocialDeps, actorId: string, tag: strin
 export async function leaveClan(deps: SocialDeps, accountId: string, tag: string): Promise<MyClan> {
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
-    await lock(trx, `clan:${c.id}`);
+    await lockClan(trx, c.id);
     const me = await membership(trx, accountId);
     if (!me || me.clan_id !== c.id) throw new HttpError(409, 'not_in_clan');
     await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', accountId).execute();
@@ -272,7 +304,7 @@ export async function editClan(deps: SocialDeps, actorId: string, tag: string, r
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
-    await lock(trx, `clan:${c.id}`);
+    await lockClan(trx, c.id);
     if (!canManage(await actorRole(trx, c.id, actorId), 'member', 'edit')) throw new HttpError(403, 'clan_forbidden');
     if (Object.keys(req).length > 0) await trx.updateTable('galaxy.clans').set(req).where('id', '=', c.id).execute();
   });

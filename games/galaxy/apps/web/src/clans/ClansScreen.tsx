@@ -42,7 +42,7 @@ function Card({ c, inClan, onJoin, busy }: { c: ClanCard; inClan: boolean; onJoi
         <span className="clan-card-score">{t.score(c.score)}</span>
       </p>
       {inClan ? null : (
-        <button type="button" className="lip pill" disabled={busy || full} onClick={() => onJoin(c)}>
+        <button type="button" className="lip pill" aria-label={full ? undefined : c.open ? t.joinTo(c.name) : t.requestTo(c.name)} disabled={busy || full} onClick={() => onJoin(c)}>
           {full ? t.full : c.open ? t.join : t.request}
         </button>
       )}

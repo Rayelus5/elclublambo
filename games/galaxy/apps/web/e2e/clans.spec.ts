@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomInt } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { type Page, expect, skipProbeTest, test } from './fixtures';
@@ -66,8 +66,9 @@ test('crear un clan cerrado, aceptar una solicitud, ascender, salir y verlo en l
   await expect(create).toBeEnabled();
   await create.click();
   const dialog = page.getByRole('dialog', { name: 'Crear un clan' });
-  const name = `Halcones ${randomBytes(2).toString('hex')}`;
-  const tag = `E${randomBytes(1).toString('hex').toUpperCase()}`;
+  const name = `Halcones ${Array.from({ length: 6 }, () => String.fromCharCode(97 + randomInt(26))).join('')}`;
+  // Four random base-36 characters: the clans earlier runs left in the database are never met.
+  const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
   await dialog.getByLabel('Nombre').fill(name);
   await dialog.getByLabel('Etiqueta').fill(tag.toLowerCase());
   await dialog.getByRole('radio', { name: 'Corona' }).check();
@@ -107,6 +108,8 @@ test('crear un clan cerrado, aceptar una solicitud, ascender, salir y verlo en l
   await page.goto('/galaxy/clasificacion');
   await page.getByRole('navigation', { name: 'Pestañas de la clasificación' }).getByRole('link', { name: 'Clanes' }).click();
   await expect(page).toHaveURL(/pestana=clanes/);
+  // A new clan without points is not listed: either the clans with points or the empty state shows.
+  await expect(page.getByRole('table', { name: 'Clanes' }).or(page.getByText('Ningún clan ha puntuado todavía esta temporada'))).toBeVisible();
   expect(csp).toEqual([]);
   expect(memberCsp).toEqual([]);
 });

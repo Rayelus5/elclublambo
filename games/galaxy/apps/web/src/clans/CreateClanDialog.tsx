@@ -54,7 +54,7 @@ export function CreateClanDialog({ cost, onClose }: { cost: number; onClose: () 
   const [emblem, setEmblem] = useState<Emblem>('shield');
   const [color, setColor] = useState<ClanColor>('solar');
   const [open, setOpen] = useState(true);
-  const ids = { name: useId(), tag: useId(), tagHint: useId(), description: useId(), access: useId() };
+  const ids = { name: useId(), nameHint: useId(), tag: useId(), tagHint: useId(), description: useId(), count: useId(), access: useId() };
 
   function submit(e: FormEvent): void {
     e.preventDefault();
@@ -69,7 +69,8 @@ export function CreateClanDialog({ cost, onClose }: { cost: number; onClose: () 
       <form className="clan-form" onSubmit={submit}>
         <div className="clan-form-row">
           <label htmlFor={ids.name}>{t.name}</label>
-          <input id={ids.name} value={name} onChange={(e) => setName(e.target.value)} maxLength={24} required autoComplete="off" />
+          <input id={ids.name} value={name} onChange={(e) => setName(e.target.value)} minLength={3} maxLength={24} required autoComplete="off" aria-describedby={ids.nameHint} />
+          <small id={ids.nameHint}>{t.nameHint}</small>
         </div>
         <div className="clan-form-row">
           <label htmlFor={ids.tag}>{t.tag}</label>
@@ -78,8 +79,8 @@ export function CreateClanDialog({ cost, onClose }: { cost: number; onClose: () 
         </div>
         <div className="clan-form-row">
           <label htmlFor={ids.description}>{t.description}</label>
-          <textarea id={ids.description} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={140} rows={2} />
-          <small aria-live="polite">{t.count(description.length, 140)}</small>
+          <textarea id={ids.description} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={140} rows={2} aria-describedby={ids.count} />
+          <small id={ids.count}>{t.count(description.length, 140)}</small>
         </div>
         <EmblemPicker emblem={emblem} color={color} onEmblem={setEmblem} onColor={setColor} />
         <div className="clan-pick" role="radiogroup" aria-labelledby={ids.access}>

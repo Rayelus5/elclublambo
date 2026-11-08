@@ -14,6 +14,10 @@ describe('crear un clan', () => {
     expect(clanCreateSchema.safeParse({ ...valid, name: 'ab' }).success).toBe(false);
     expect(clanCreateSchema.safeParse({ ...valid, name: 'a'.repeat(25) }).success).toBe(false);
     expect(clanCreateSchema.safeParse({ ...valid, name: 'Clan<script>' }).success).toBe(false);
+    // Latin letters only (no look-alikes from other scripts) and 24 characters counted as characters.
+    expect(clanCreateSchema.safeParse({ ...valid, name: 'Lоs Halcones' }).success).toBe(false);
+    expect(clanCreateSchema.safeParse({ ...valid, name: '𠀀𠀀𠀀' }).success).toBe(false);
+    expect(clanCreateSchema.safeParse({ ...valid, name: 'Ça Ñandú Øre 99' }).success).toBe(true);
   });
 
   test('la etiqueta es de 2 a 4 letras o cifras y se guarda en mayúsculas', () => {
@@ -37,7 +41,7 @@ describe('crear un clan', () => {
   });
 
   test('la configuración trae 30 miembros, 2000 monedas y el nivel 5', () => {
-    expect(parseConfig('clans', {})).toEqual({ maxMembers: 30, createCost: { coins: 2000 }, minLevel: 5 });
+    expect(parseConfig('clans', {})).toEqual({ maxMembers: 30, createCost: { coins: 2000 }, minLevel: 5, kickHours: 24 });
     expect(() => parseConfig('clans', { maxMembers: 2 })).toThrow();
   });
 });
@@ -79,6 +83,6 @@ describe('los roles', () => {
 });
 
 test('los errores nuevos existen', () => {
-  for (const code of ['clan_full', 'clan_name_taken', 'clan_tag_taken', 'already_in_clan', 'not_in_clan', 'clan_not_found', 'clan_forbidden', 'clan_closed', 'request_not_found', 'leader_must_transfer', 'level_too_low'])
+  for (const code of ['clan_full', 'clan_name_taken', 'clan_tag_taken', 'already_in_clan', 'not_in_clan', 'clan_not_found', 'clan_forbidden', 'clan_closed', 'request_not_found', 'clan_kicked', 'level_too_low'])
     expect(API_ERROR_CODES, code).toContain(code);
 });

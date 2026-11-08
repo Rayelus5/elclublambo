@@ -1,7 +1,7 @@
 -- Galaxy Survivor M5b-1 Task 2 (migration *_galaxy_clans): clans, their members (one clan per account, one leader per
 -- clan) and the requests to join closed ones.
 begin;
-select plan(15);
+select plan(18);
 
 select has_table('galaxy', 'clans', 'clans');
 select has_table('galaxy', 'clan_members', 'clan_members');
@@ -43,6 +43,13 @@ insert into galaxy.clan_requests (clan_id, account_id) values ('00000000-0000-40
 delete from galaxy.clans where id = '00000000-0000-4000-8000-00000000c1a0';
 select is((select count(*)::int from galaxy.clan_members where clan_id = '00000000-0000-4000-8000-00000000c1a0'), 0, 'members go with their clan');
 select is((select count(*)::int from galaxy.clan_requests where clan_id = '00000000-0000-4000-8000-00000000c1a0'), 0, 'requests go with their clan');
+
+-- A kicked account waits before coming back (M5b-1 review).
+select has_table('galaxy', 'clan_kicks', 'clan_kicks');
+select col_is_pk('galaxy', 'clan_kicks', array['clan_id', 'account_id'], 'one cooldown per account and clan');
+select ok(has_table_privilege('galaxy_api', 'galaxy.clan_kicks', 'select, insert, update')
+      and not has_table_privilege('anon', 'galaxy.clan_kicks', 'select'),
+  'only galaxy_api reaches the kicks');
 
 select * from finish();
 rollback;

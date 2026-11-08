@@ -66,7 +66,7 @@ export const API_ERROR_CODES = [
   'clan_forbidden',
   'clan_closed',
   'request_not_found',
-  'leader_must_transfer',
+  'clan_kicked',
   'level_too_low',
 ] as const;
 

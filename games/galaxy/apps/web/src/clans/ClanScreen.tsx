@@ -2,7 +2,7 @@ import { type ClanAction, type ClanMember, type ClanRole, type ClanView, canMana
 import { useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
-import { useClan, useClanAction, useEditClan } from '../api/clans';
+import { useClan, useClanAction, useEditClan, useMyClan } from '../api/clans';
 import { errorText, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { Avatar } from '../hub/Avatar';
@@ -53,6 +53,7 @@ function EditDialog({ view, onClose }: { view: ClanView; onClose: () => void }) 
   const [color, setColor] = useState(view.color);
   const [open, setOpen] = useState(view.open);
   const descriptionId = useId();
+  const countId = useId();
   return (
     <Dialog title={t.editTitle} onClose={onClose} className="clan-create">
       <form
@@ -64,8 +65,8 @@ function EditDialog({ view, onClose }: { view: ClanView; onClose: () => void }) 
       >
         <div className="clan-form-row">
           <label htmlFor={descriptionId}>{t.description}</label>
-          <textarea id={descriptionId} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={140} rows={2} />
-          <small aria-live="polite">{t.count(description.length, 140)}</small>
+          <textarea id={descriptionId} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={140} rows={2} aria-describedby={countId} />
+          <small id={countId}>{t.count(description.length, 140)}</small>
         </div>
         <EmblemPicker emblem={emblem} color={color} onEmblem={setEmblem} onColor={setColor} />
         <label className="clan-access">
@@ -122,6 +123,8 @@ export function ClanScreen() {
   const { tag = '' } = useParams();
   const clan = useClan(tag.toUpperCase());
   const viewer = useMe().data?.username;
+  const mine = useMyClan();
+  const blockedId = useId();
   const act = useClanAction();
   const navigate = useNavigate();
   const [pending, setPending] = useState<Pending>(null);
@@ -131,6 +134,22 @@ export function ClanScreen() {
   const missing = clan.error instanceof ApiError && (clan.error.status === 404 || clan.error.status === 400);
   const myRole = v?.me && 'role' in v.me ? v.me.role : null;
   const requested = Boolean(v?.me && 'requested' in v.me);
+  // Already in another clan: joining this one would fail, so it says why instead.
+  const elsewhere = Boolean(v && !myRole && mine.data && mine.data.tag !== v.tag);
+  const full = Boolean(v && v.members.length >= v.maxMembers);
+  const joinButton = (label: string) =>
+    v ? (
+      <>
+        <button type="button" className="lip pill pill-solar" disabled={act.isPending || full || elsewhere} aria-describedby={elsewhere ? blockedId : undefined} onClick={() => send(v.open ? 'join' : 'request')}>
+          {label}
+        </button>
+        {elsewhere ? (
+          <span id={blockedId} className="panel-note">
+            {t.inOtherClan}
+          </span>
+        ) : null}
+      </>
+    ) : null;
   const send = (path: string, after?: () => void) => v && act.mutate({ tag: v.tag, path }, { onSuccess: () => after?.() });
 
   function confirm(): void {
@@ -194,11 +213,11 @@ export function ClanScreen() {
                     <button type="button" className="lip pill" disabled={act.isPending} onClick={() => send('request/cancel')}>
                       {t.cancelRequest}
                     </button>
+                    {/* The clan opened since: joining needs no answer now. */}
+                    {v.open ? joinButton(t.join) : null}
                   </>
                 ) : (
-                  <button type="button" className="lip pill pill-solar" disabled={act.isPending || v.members.length >= v.maxMembers} onClick={() => send(v.open ? 'join' : 'request')}>
-                    {v.members.length >= v.maxMembers ? t.full : v.open ? t.join : t.request}
-                  </button>
+                  joinButton(full ? t.full : v.open ? t.join : t.request)
                 )}
               </div>
             </section>

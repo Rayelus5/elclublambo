@@ -36,8 +36,10 @@ async function player(level = 5, coins = 5000) {
 }
 type P = Awaited<ReturnType<typeof player>>;
 
-let tagSeq = randomInt(100, 900);
-const freshTag = () => `${String.fromCharCode(65 + randomInt(26))}${tagSeq++}`.slice(0, 4);
+/** Four random base-36 characters: an earlier run's clans (they stay in the shared database) are never met. */
+const freshTag = () => randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
+/** A word of eight random letters, to find one clan among the earlier runs' ones. */
+const freshWord = () => Array.from({ length: 8 }, () => String.fromCharCode(97 + randomInt(26))).join('');
 const create = (p: P, over: Record<string, unknown> = {}) =>
   post(ctx.app, '/galaxy/api/clans', { name: `Clan ${randomInt(1_000_000)}`, tag: freshTag(), description: 'Exploradores', emblem: 'comet', color: 'uv', open: true, ...over }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
 const act = (p: P, path: string, body?: object) => post(ctx.app, `/galaxy/api/clans/${path}`, body, { cookie: p.cookie });
@@ -54,8 +56,9 @@ describe('crear', () => {
   test('cobra su coste, deja al creador de líder y la vista pública trae solo lo público', async () => {
     const a = await player();
     const before = (await getWallet(ctx.db, a.id)).coins;
-    const c = await clanOf(a, { tag: 'gx' + randomInt(10, 99), name: `Los Ñandúes ${randomInt(1000)}` });
-    expect(c.tag).toMatch(/^GX\d\d$/);
+    const tag = freshTag();
+    const c = await clanOf(a, { tag: tag.toLowerCase(), name: `Los Ñandúes ${randomInt(1_000_000)}` });
+    expect(c.tag).toBe(tag);
     expect((await getWallet(ctx.db, a.id)).coins).toBe(before - 2000);
     expect(c.members).toEqual([{ username: a.username, role: 'leader', level: 5, points: 0, joinedAt: expect.any(String) }]);
     expect(c.me).toEqual({ role: 'leader' });
@@ -167,7 +170,6 @@ describe('roles y salidas', () => {
     expect((await act(o1, `${c.tag}/members/${lead.username}/kick`)).json()).toEqual({ error: 'clan_forbidden' });
     expect((await act(m, `${c.tag}/members/${o1.username}/demote`)).json()).toEqual({ error: 'clan_forbidden' });
     expect((await act(lead, `${c.tag}/members/${lead.username}/kick`)).json()).toEqual({ error: 'clan_forbidden' });
-    expect((await post(ctx.app, `/galaxy/api/clans/${c.tag}`, undefined, { cookie: o1.cookie })).statusCode).toBe(404);
     const stranger = await clanOf(await player());
     expect((await act(lead, `${stranger.tag}/members/${stranger.members[0]!.username}/kick`)).json()).toEqual({ error: 'clan_forbidden' });
     expect((await act(o1, `${c.tag}/members/${m.username}/kick`)).statusCode).toBe(200);
@@ -207,8 +209,9 @@ describe('roles y salidas', () => {
 describe('buscar, la pestaña de clanes y el perfil', () => {
   test('la búsqueda encuentra por nombre o etiqueta', async () => {
     const a = await player();
-    const c = await clanOf(a, { name: `Halcones Rojos ${randomInt(1000)}` });
-    const byName = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent('halcones rojos')}`, { cookie: a.cookie })).json() as ClanList;
+    const word = freshWord();
+    const c = await clanOf(a, { name: `Halcones ${word}` });
+    const byName = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent(`halcones ${word}`)}`, { cookie: a.cookie })).json() as ClanList;
     expect(byName.clans.map((x) => x.tag)).toContain(c.tag);
     // The rules a screen needs to offer «Crear clan» come with the list.
     expect(byName.rules).toEqual({ maxMembers: 5, createCost: { coins: 2000 }, minLevel: 5 });
@@ -246,5 +249,92 @@ describe('buscar, la pestaña de clanes y el perfil', () => {
     const res = await get(ctx.app, '/galaxy/api/clans/ZZZZ', { cookie: a.cookie });
     expect(res.statusCode).toBe(404);
     expect(res.json()).toEqual({ error: 'clan_not_found' });
+  });
+});
+
+describe('revisión final de M5b-1', () => {
+  test('crear dos veces con la misma clave, seguidas o a la vez, cobra una sola vez y crea un solo clan', async () => {
+    const a = await player();
+    const before = (await getWallet(ctx.db, a.id)).coins;
+    const body = { name: `Clan ${freshWord()}`, tag: freshTag(), description: '', emblem: 'star', color: 'nova', open: true };
+    const key = randomUUID();
+    const send = () => post(ctx.app, '/galaxy/api/clans', body, { cookie: a.cookie, headers: { 'idempotency-key': key } });
+    const [x, y] = await Promise.all([send(), send()]);
+    const z = await send();
+    expect([x.statusCode, y.statusCode, z.statusCode]).toEqual([200, 200, 200]);
+    expect((await getWallet(ctx.db, a.id)).coins).toBe(before - 2000);
+    const count = await ctx.db.selectFrom('galaxy.clans').select(ctx.db.fn.countAll<number>().as('n')).where('tag', '=', body.tag).executeTakeFirstOrThrow();
+    expect(Number(count.n)).toBe(1);
+  });
+
+  test('dos aceptaciones a la vez por el último hueco: entra una', async () => {
+    const lead = await player();
+    const c = await clanOf(lead, { open: false });
+    for (let i = 0; i < 3; i++) {
+      const p = await player(1);
+      await act(p, `${c.tag}/request`);
+      await act(lead, `${c.tag}/requests/${p.username}/accept`);
+    }
+    const [x, y] = [await player(1), await player(1)];
+    await act(x, `${c.tag}/request`);
+    await act(y, `${c.tag}/request`);
+    const both = await Promise.all([act(lead, `${c.tag}/requests/${x.username}/accept`), act(lead, `${c.tag}/requests/${y.username}/accept`)]);
+    expect(both.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(both.find((r) => r.statusCode === 409)!.json()).toEqual({ error: 'clan_full' });
+    expect((await view(lead, c.tag)).members).toHaveLength(5);
+  });
+
+  test('si se va un líder sin oficiales, manda el miembro más antiguo', async () => {
+    const lead = await player();
+    const c = await clanOf(lead);
+    const [first, second] = [await player(1), await player(1)];
+    await act(first, `${c.tag}/join`);
+    await act(second, `${c.tag}/join`);
+    await act(lead, `${c.tag}/leave`);
+    const after = await view(first, c.tag);
+    expect(after.me).toEqual({ role: 'leader' });
+    expect(after.members.find((m) => m.username === second.username)!.role).toBe('member');
+  });
+
+  test('el líder no se degrada, y un miembro no expulsa ni edita', async () => {
+    const lead = await player();
+    const c = await clanOf(lead);
+    const [m, n] = [await player(1), await player(1)];
+    await act(m, `${c.tag}/join`);
+    await act(n, `${c.tag}/join`);
+    expect((await act(lead, `${c.tag}/members/${lead.username}/demote`)).json()).toEqual({ error: 'clan_forbidden' });
+    expect((await act(m, `${c.tag}/members/${n.username}/kick`)).json()).toEqual({ error: 'clan_forbidden' });
+    const edit = await ctx.app.inject({ method: 'PATCH', url: `/galaxy/api/clans/${c.tag}`, payload: { open: false }, headers: { cookie: `gs_sid=${m.cookie}`, origin: 'http://localhost:5173' } });
+    expect(edit.statusCode).toBe(403);
+    expect(edit.json()).toEqual({ error: 'clan_forbidden' });
+  });
+
+  test('un expulsado no vuelve a entrar ni a pedirlo durante 24 horas', async () => {
+    const lead = await player();
+    const c = await clanOf(lead);
+    const troll = await player(1);
+    await act(troll, `${c.tag}/join`);
+    expect((await act(lead, `${c.tag}/members/${troll.username}/kick`)).statusCode).toBe(200);
+    const back = await act(troll, `${c.tag}/join`);
+    expect(back.statusCode).toBe(409);
+    expect(back.json()).toEqual({ error: 'clan_kicked' });
+    expect((await act(troll, `${c.tag}/request`)).json()).toEqual({ error: 'clan_kicked' });
+    // Another clan takes them at once.
+    expect((await act(troll, `${(await clanOf(await player())).tag}/join`)).statusCode).toBe(200);
+  });
+
+  test('un nombre con letras de otra escritura o que mide más de 24 caracteres de verdad no vale', async () => {
+    const a = await player();
+    expect((await create(a, { name: 'Lоs Halcones' })).statusCode).toBe(400);
+    expect((await create(a, { name: '𠀀𠀀𠀀' })).statusCode).toBe(400);
+    expect((await create(a, { name: 'ñ'.repeat(25) })).statusCode).toBe(400);
+  });
+
+  test('la búsqueda no distingue tildes ni eñes', async () => {
+    const a = await player();
+    const word = freshWord();
+    const c = await clanOf(a, { name: `Ñandúes ${word}` });
+    const found = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent(`nandues ${word}`)}`, { cookie: a.cookie })).json() as ClanList;
+    expect(found.clans.map((x) => x.tag)).toContain(c.tag);
   });
 });
