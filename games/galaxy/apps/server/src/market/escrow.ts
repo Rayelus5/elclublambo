@@ -41,6 +41,28 @@ export async function isTraded(trx: Kysely<DB>, ids: string[], except: string | 
   return (await q.limit(1).executeTakeFirst()) !== undefined;
 }
 
+export type Hold = 'equipped' | 'exhibited' | 'listed' | 'traded';
+
+/**
+ * Frees a galaxy from every hold (M6a revoke, M6c-2 revert): out of the loadout and the planetarium, its active listing
+ * cancelled and any open trade that names it cancelled. Says which holds it had. The caller has locked the galaxy.
+ */
+export async function releaseHolds(trx: Kysely<DB>, galaxyId: string): Promise<Hold[]> {
+  const held: Hold[] = [];
+  if (Number((await trx.deleteFrom('galaxy.loadouts').where('galaxy_id', '=', galaxyId).executeTakeFirst()).numDeletedRows) > 0) held.push('equipped');
+  if (Number((await trx.deleteFrom('galaxy.exhibits').where('galaxy_id', '=', galaxyId).executeTakeFirst()).numDeletedRows) > 0) held.push('exhibited');
+  const listed = await trx.updateTable('galaxy.market_listings').set({ status: 'cancelled' }).where('galaxy_id', '=', galaxyId).where('status', '=', 'active').executeTakeFirst();
+  if (Number(listed.numUpdatedRows) > 0) held.push('listed');
+  const traded = await trx
+    .updateTable('galaxy.trades')
+    .set({ status: 'cancelled', closed_at: sql<Date>`now()` })
+    .where('status', '=', 'open')
+    .where((eb) => eb.or([eb('a_galaxy', '=', galaxyId), eb('b_galaxy', '=', galaxyId)]))
+    .executeTakeFirst();
+  if (Number(traded.numUpdatedRows) > 0) held.push('traded');
+  return held;
+}
+
 /** `traded`, as a selectable column of galaxy.galaxies. */
 export const tradedColumn = sql<boolean>`exists (select 1 from galaxy.trades t where t.status = 'open' and t.expires_at > now() and ((t.a_galaxy = galaxy.galaxies.id and t.a_offered) or (t.b_galaxy = galaxy.galaxies.id and t.b_offered)))`.as(
   'traded',

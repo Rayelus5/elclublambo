@@ -1298,6 +1298,9 @@ export const copy = {
     message_visible: 'Ese mensaje ya está a la vista',
     report_reviewed: 'Otra persona del equipo ya revisó esa denuncia',
     mute_not_found: 'Esa cuenta ya no está silenciada',
+    revert_blocked: 'No se puede revertir: alguna galaxia ya no está con quien la recibió',
+    already_reverted: 'Ese trato ya está revertido',
+    alert_reviewed: 'Esa alerta ya está revisada',
     level_too_low: 'Todavía no tienes el nivel que hace falta',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

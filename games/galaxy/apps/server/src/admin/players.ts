@@ -23,6 +23,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { credit, debit } from '../economy/wallet';
+import { releaseHolds } from '../market/escrow';
 import { HttpError } from '../errors';
 import { hitRateLimit, RateLimitedError } from '../ratelimit';
 import { invalidateLeaderboard } from '../social/leaderboard';
@@ -295,18 +296,7 @@ export async function revokeGalaxy(deps: AdminDeps, actor: AuditActor, username:
   return inTransaction(deps.db, async (trx) => {
     const g = await trx.selectFrom('galaxy.galaxies').select(['id', 'name']).where('id', '=', galaxyId).where('owner_id', '=', a.id).where('disintegrated_at', 'is', null).forUpdate().executeTakeFirst();
     if (!g) throw new HttpError(404, 'galaxy_not_found');
-    const held: string[] = [];
-    if (Number((await trx.deleteFrom('galaxy.loadouts').where('galaxy_id', '=', g.id).executeTakeFirst()).numDeletedRows) > 0) held.push('equipped');
-    if (Number((await trx.deleteFrom('galaxy.exhibits').where('galaxy_id', '=', g.id).executeTakeFirst()).numDeletedRows) > 0) held.push('exhibited');
-    const listed = await trx.updateTable('galaxy.market_listings').set({ status: 'cancelled' }).where('galaxy_id', '=', g.id).where('status', '=', 'active').executeTakeFirst();
-    if (Number(listed.numUpdatedRows) > 0) held.push('listed');
-    const traded = await trx
-      .updateTable('galaxy.trades')
-      .set({ status: 'cancelled', closed_at: sql<Date>`now()` })
-      .where('status', '=', 'open')
-      .where((eb) => eb.or([eb('a_galaxy', '=', g.id), eb('b_galaxy', '=', g.id)]))
-      .executeTakeFirst();
-    if (Number(traded.numUpdatedRows) > 0) held.push('traded');
+    const held = await releaseHolds(trx, g.id);
     await trx.updateTable('galaxy.galaxies').set({ disintegrated_at: sql<Date>`now()` }).where('id', '=', g.id).execute();
     await writeAudit(trx, { actor, action: 'player.galaxy_revoke', ...target(a.id), before: { galaxy: g.id, name: g.name, held }, reason });
     return { revoked: true };

@@ -99,6 +99,9 @@ export const API_ERROR_CODES = [
   'message_visible',
   'report_reviewed',
   'mute_not_found',
+  'revert_blocked',
+  'already_reverted',
+  'alert_reviewed',
   'level_too_low',
 ] as const;
 
