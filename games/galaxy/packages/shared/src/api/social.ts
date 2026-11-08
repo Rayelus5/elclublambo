@@ -1,12 +1,13 @@
 import { z } from 'zod';
 import { type Tier, TIERS } from '../gacha/types';
+import type { ClanColor, ClanEmblem } from '../clans/rules';
 import type { SeasonTier } from '../progress/season';
 import type { PublicGalaxy } from './planetarium';
 
 // The social API (GDD §14.1, §14.2, §12.1; M5a): the season leaderboard with its tabs, public profiles and public
 // collections. Nothing private travels: no balances, loadout, probe or session.
 
-export const LEADER_TABS = ['general', 'depth', 'purges'] as const;
+export const LEADER_TABS = ['general', 'depth', 'purges', 'clans'] as const;
 export type LeaderTab = (typeof LEADER_TABS)[number];
 
 export interface LeaderRow {
@@ -15,6 +16,17 @@ export interface LeaderRow {
   username: string;
   level: number;
   /** The tab's value: the score, the deepest layer or the Cores purged in the season. */
+  value: number;
+}
+
+/** A clan in the Clanes tab (M5b-1): the season points of its current members, added up. */
+export interface ClanRow {
+  rank: number;
+  tag: string;
+  name: string;
+  emblem: ClanEmblem;
+  color: ClanColor;
+  members: number;
   value: number;
 }
 
@@ -34,8 +46,11 @@ export interface Leaderboard {
   rows: LeaderRow[];
   /** The viewer's row, also outside the top; null without points. */
   me: LeaderRow | null;
-  /** How many players have points in the season. */
+  /** How many players (clans, in the Clanes tab) have points in the season. */
   total: number;
+  /** The Clanes tab (M5b-1): the clans instead of `rows`, and the viewer's clan (null when not in one with points). */
+  clans?: ClanRow[];
+  myClan?: ClanRow | null;
 }
 
 export interface Profile {
@@ -49,6 +64,8 @@ export interface Profile {
   records: { maxDepth: number; purges: number; runs: number };
   collection: { total: number; counts: Record<Tier, number> };
   planetarium: { prestige: number; exhibits: number; cover: PublicGalaxy | null };
+  /** Their clan (M5b-1), or null. */
+  clan: { tag: string; name: string; emblem: ClanEmblem; color: ClanColor } | null;
 }
 
 export interface PublicCollectionPage {

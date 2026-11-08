@@ -111,10 +111,11 @@ describe('la temporada', () => {
 });
 
 describe('la API', () => {
-  test('la clasificación tiene tres pestañas y la general por defecto', () => {
+  test('la clasificación tiene cuatro pestañas (Clanes desde M5b-1) y la general por defecto', () => {
     expect(leaderboardQuerySchema.parse({})).toEqual({ tab: 'general' });
     expect(leaderboardQuerySchema.parse({ tab: 'purges' })).toEqual({ tab: 'purges' });
-    expect(leaderboardQuerySchema.safeParse({ tab: 'clans' }).success).toBe(false);
+    expect(leaderboardQuerySchema.parse({ tab: 'clans' })).toEqual({ tab: 'clans' });
+    expect(leaderboardQuerySchema.safeParse({ tab: 'amigos' }).success).toBe(false);
   });
 
   test('la colección pública se ordena y se filtra como la propia', () => {

@@ -24,3 +24,5 @@ export * from './api/planetarium';
 export * from './progress/account';
 export * from './progress/season';
 export * from './api/social';
+export * from './clans/rules';
+export * from './api/clans';

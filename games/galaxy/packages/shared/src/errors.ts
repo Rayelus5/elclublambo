@@ -57,6 +57,17 @@ export const API_ERROR_CODES = [
   'planetarium_not_found',
   'profile_not_found',
   'season_closed',
+  'clan_full',
+  'clan_name_taken',
+  'clan_tag_taken',
+  'already_in_clan',
+  'not_in_clan',
+  'clan_not_found',
+  'clan_forbidden',
+  'clan_closed',
+  'request_not_found',
+  'clan_kicked',
+  'level_too_low',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

@@ -12,6 +12,7 @@ import { registerStationRoutes } from './station/routes';
 import { registerLabRoutes } from './lab/routes';
 import { registerPlanetariumRoutes } from './planetarium/routes';
 import { registerSocialRoutes } from './social/routes';
+import { registerClanRoutes } from './clans/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -83,6 +84,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerLabRoutes(api, { db: deps.db, config, now });
     registerPlanetariumRoutes(api, { db: deps.db, config });
     registerSocialRoutes(api, { db: deps.db, config, now });
+    registerClanRoutes(api, { db: deps.db, config, now });
   });
   return app;
 }

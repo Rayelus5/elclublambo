@@ -1,8 +1,9 @@
-import { type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
+import { type ClanRow, type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
 import { Link, useSearchParams } from 'react-router';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { ClanEmblem } from '../clans/ClanEmblem';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
 import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
@@ -12,8 +13,8 @@ import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
 // when it is out of the top; beside them, the season's name, the days left, the players and the tiers with yours.
 
 const t = copy.social;
-const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas' };
-const tabOf = (slug: string | null): LeaderTab => (slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : 'general');
+const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes' };
+const tabOf = (slug: string | null): LeaderTab => (slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : slug === 'clanes' ? 'clans' : 'general');
 
 function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) {
   return (
@@ -27,6 +28,49 @@ function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) 
       <td className="lb-level">{fmt(r.level)}</td>
       <td className="lb-value">{t.value[tab](r.value)}</td>
     </tr>
+  );
+}
+
+/** The Clanes tab (M5b-1): clans by their members' season points, the viewer's clan marked or pinned below. */
+function ClanTable({ clans, mine }: { clans: ClanRow[]; mine: ClanRow | null }) {
+  const row = (c: ClanRow) => (
+    <tr key={c.tag} aria-current={mine?.tag === c.tag ? 'true' : undefined} className={mine?.tag === c.tag ? 'mine' : undefined}>
+      <td className="lb-rank">{fmt(c.rank)}</td>
+      <th scope="row" className="lb-who">
+        <ClanEmblem emblem={c.emblem} color={c.color} scale={1} />
+        <Link to={`/clanes/${c.tag}`}>{c.name}</Link>
+        <span className="clan-tag">{c.tag}</span>
+      </th>
+      <td className="lb-level">{fmt(c.members)}</td>
+      <td className="lb-value">{copy.clans.score(c.value)}</td>
+    </tr>
+  );
+  const head = (
+    <thead>
+      <tr>
+        <th scope="col">{t.columns.rank}</th>
+        <th scope="col">{t.tabs.clans}</th>
+        <th scope="col">{copy.clans.membersTitle}</th>
+        <th scope="col">{t.columns.value.clans}</th>
+      </tr>
+    </thead>
+  );
+  if (clans.length === 0) return <p className="lip panel lb-empty">{copy.clans.noClanPoints}</p>;
+  return (
+    <>
+      <table className="lip panel lb-table" aria-label={t.tabs.clans}>
+        {head}
+        <tbody>{clans.map(row)}</tbody>
+      </table>
+      {mine && !clans.some((c) => c.tag === mine.tag) ? (
+        <section className="lip panel lb-pinned" aria-label={copy.clans.yourClan}>
+          <table>
+            {head}
+            <tbody>{row(mine)}</tbody>
+          </table>
+        </section>
+      ) : null}
+    </>
   );
 }
 
@@ -76,15 +120,11 @@ export function LeaderboardScreen() {
           <h1>{t.leaderboard}</h1>
         </header>
         <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>
-          {(['general', 'depth', 'purges'] as const).map((k) => (
+          {(['general', 'depth', 'purges', 'clans'] as const).map((k) => (
             <Link key={k} to={SLUG[k] ? `/clasificacion?pestana=${SLUG[k]}` : '/clasificacion'} aria-current={k === tab ? 'page' : undefined}>
               {t.tabs[k]}
             </Link>
           ))}
-          <button type="button" className="lb-tab-soon" disabled>
-            {t.tabs.clans}
-            <small>{t.clansSoon}</small>
-          </button>
         </nav>
         {error ? (
           <p className="field-error" role="alert">
@@ -104,7 +144,9 @@ export function LeaderboardScreen() {
         ) : (
           <div className="lb-body">
             <main className="lb-main">
-              {v.rows.length === 0 ? (
+              {tab === 'clans' ? (
+                <ClanTable clans={v.clans ?? []} mine={v.myClan ?? null} />
+              ) : v.rows.length === 0 ? (
                 <div className="lip panel lb-empty">
                   <p>{t.noPoints}</p>
                   <Link to="/incursion" className="lip pill pill-solar">

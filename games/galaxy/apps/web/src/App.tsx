@@ -9,6 +9,8 @@ import { LabScreen } from './lab/LabScreen';
 import { PlanetariumScreen } from './planetarium/PlanetariumScreen';
 import { VisitScreen } from './planetarium/VisitScreen';
 import { LeaderboardScreen } from './social/LeaderboardScreen';
+import { ClanScreen } from './clans/ClanScreen';
+import { ClansScreen } from './clans/ClansScreen';
 import { ProfileScreen } from './social/ProfileScreen';
 import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
@@ -65,6 +67,8 @@ export function App() {
       <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
       <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
       <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
+      <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
+      <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
       <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />
       <Route path="/perfil/:username/coleccion" element={<SignedIn><PublicCollectionScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>

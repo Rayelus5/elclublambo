@@ -1,4 +1,4 @@
-import { type AccountConfig, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, seasonOpen } from '@galaxy/shared';
+import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, seasonOpen } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -48,12 +48,12 @@ export function cachedRanking(key: string, compute: () => Promise<Ranked[]>): Pr
   return entry.rows;
 }
 
-export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: LeaderTab, minRunSeconds: number): Promise<Ranked[]> {
+export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
   const key = JSON.stringify([cfg.id, cfg.startsAt, cfg.endsAt, cfg.points, cfg.capPerMinute, minRunSeconds, tab]);
   return cachedRanking(key, () => computeRanking(db, cfg, tab, minRunSeconds));
 }
 
-async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: LeaderTab, minRunSeconds: number): Promise<Ranked[]> {
+async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
   const points = sql`least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)`;
   const value =
@@ -86,15 +86,68 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: LeaderTab,
   return out;
 }
 
+/** A clan with its current members' season points added up (rank null without points). */
+export interface RankedClan {
+  id: string;
+  tag: string;
+  name: string;
+  emblem: ClanEmblem;
+  color: ClanColor;
+  open: boolean;
+  members: number;
+  value: number;
+  rank: number | null;
+  createdAt: Date;
+}
+
+/**
+ * Every clan, ranked by the season points of its current members (GDD §14.1; M5b-1): read from the General ranking
+ * (cached), so a clan's score moves with its members' runs and with who is in it now. Equal scores share a rank; the
+ * older clan comes first.
+ */
+export async function clanRanking(db: Kysely<DB>, season: SeasonConfig, account: AccountConfig, now: Date): Promise<RankedClan[]> {
+  const points = seasonOpen(season, now) ? new Map((await ranking(db, season, 'general', account.minRunSeconds)).map((r) => [r.accountId, r.value])) : new Map<string, number>();
+  const rows = await db
+    .selectFrom('galaxy.clans as c')
+    .leftJoin('galaxy.clan_members as m', 'm.clan_id', 'c.id')
+    .select(['c.id', 'c.tag', 'c.name', 'c.emblem', 'c.color', 'c.open', 'c.created_at', 'm.account_id'])
+    .execute();
+  const byId = new Map<string, RankedClan>();
+  for (const r of rows) {
+    const c = byId.get(r.id) ?? { id: r.id, tag: r.tag, name: r.name, emblem: r.emblem as ClanEmblem, color: r.color as ClanColor, open: r.open, members: 0, value: 0, rank: null, createdAt: new Date(r.created_at) };
+    if (r.account_id) {
+      c.members++;
+      c.value += points.get(r.account_id) ?? 0;
+    }
+    byId.set(r.id, c);
+  }
+  const out = [...byId.values()].sort((a, b) => b.value - a.value || a.createdAt.getTime() - b.createdAt.getTime() || a.tag.localeCompare(b.tag));
+  out.forEach((c, i) => {
+    if (c.value <= 0) return;
+    const prev = out[i - 1];
+    c.rank = prev && prev.value === c.value && prev.rank !== null ? prev.rank : i + 1;
+  });
+  return out;
+}
+
+export const clanRow = (c: RankedClan): ClanRow => ({ rank: c.rank ?? 0, tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, members: c.members, value: c.value });
+
 const row = (r: Ranked, account: AccountConfig): LeaderRow => ({ rank: r.rank, username: r.username, level: levelOf(r.xp, account).level, value: r.value });
 
 export async function leaderboard(deps: SocialDeps, viewerId: string, tab: LeaderTab): Promise<Leaderboard> {
   const [cfg, account] = await Promise.all([deps.config.get('season'), deps.config.get('account')]);
   if (!seasonOpen(cfg, deps.now())) return { season: null, tab, rows: [], me: null, total: 0 };
+  const info = { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers] };
+  if (tab === 'clans') {
+    const clans = (await clanRanking(deps.db, cfg, account, deps.now())).filter((c) => c.rank !== null);
+    const own = await deps.db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', viewerId).executeTakeFirst();
+    const mine = own ? clans.find((c) => c.id === own.clan_id) : undefined;
+    return { season: info, tab, rows: [], me: null, total: clans.length, clans: clans.slice(0, cfg.top).map(clanRow), myClan: mine ? clanRow(mine) : null };
+  }
   const ranked = await ranking(deps.db, cfg, tab, account.minRunSeconds);
   const mine = ranked.find((r) => r.accountId === viewerId);
   return {
-    season: { id: cfg.id, name: cfg.name, startsAt: cfg.startsAt, endsAt: cfg.endsAt, tiers: [...cfg.tiers] },
+    season: info,
     tab,
     rows: ranked.slice(0, cfg.top).map((r) => row(r, account)),
     me: mine ? row(mine, account) : null,

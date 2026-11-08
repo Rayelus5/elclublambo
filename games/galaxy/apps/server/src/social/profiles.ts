@@ -1,4 +1,4 @@
-import { type GalaxySummary, levelOf, prestige, type Profile, type PublicCollectionPage, type PublicCollectionQuery, seasonOpen, seasonTier, type Tier, TIERS } from '@galaxy/shared';
+import { type ClanColor, type ClanEmblem, type GalaxySummary, levelOf, prestige, type Profile, type PublicCollectionPage, type PublicCollectionQuery, seasonOpen, seasonTier, type Tier, TIERS } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { listGalaxies } from '../collection/service';
 import type { DB } from '../db/schema';
@@ -63,6 +63,12 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
   for (const c of counted) counts[TIERS[c.tier]!] = c.n;
 
   const shown = (await exhibitsOf(db, owner.id, planetarium.slots)).filter((g): g is GalaxySummary => g !== null);
+  const clan = await db
+    .selectFrom('galaxy.clan_members as m')
+    .innerJoin('galaxy.clans as c', 'c.id', 'm.clan_id')
+    .select(['c.tag', 'c.name', 'c.emblem', 'c.color'])
+    .where('m.account_id', '=', owner.id)
+    .executeTakeFirst();
   return {
     username: owner.username,
     since: owner.created_at.toISOString(),
@@ -71,6 +77,7 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
     records,
     collection: { total: Object.values(counts).reduce((a, b) => a + b, 0), counts },
     planetarium: { prestige: prestige(shown, planetarium), exhibits: shown.length, cover: coverOf(shown, planetarium) },
+    clan: clan ? { tag: clan.tag, name: clan.name, emblem: clan.emblem as ClanEmblem, color: clan.color as ClanColor } : null,
   };
 }
 
