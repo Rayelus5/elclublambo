@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { type ClanCard, type ClanView, type Leaderboard, type MyClan, PROBE_TEST, type Profile } from '@galaxy/shared';
+import { type ClanList, type ClanView, type Leaderboard, type MyClan, PROBE_TEST, type Profile } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
@@ -208,10 +208,12 @@ describe('buscar, la pestaña de clanes y el perfil', () => {
   test('la búsqueda encuentra por nombre o etiqueta', async () => {
     const a = await player();
     const c = await clanOf(a, { name: `Halcones Rojos ${randomInt(1000)}` });
-    const byName = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent('halcones rojos')}`, { cookie: a.cookie })).json() as ClanCard[];
-    expect(byName.map((x) => x.tag)).toContain(c.tag);
-    const byTag = (await get(ctx.app, `/galaxy/api/clans?q=${c.tag.toLowerCase()}`, { cookie: a.cookie })).json() as ClanCard[];
-    expect(byTag[0]).toEqual({ tag: c.tag, name: c.name, emblem: 'comet', color: 'uv', open: true, members: 1, maxMembers: 5, score: 0 });
+    const byName = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent('halcones rojos')}`, { cookie: a.cookie })).json() as ClanList;
+    expect(byName.clans.map((x) => x.tag)).toContain(c.tag);
+    // The rules a screen needs to offer «Crear clan» come with the list.
+    expect(byName.rules).toEqual({ maxMembers: 5, createCost: { coins: 2000 }, minLevel: 5 });
+    const byTag = (await get(ctx.app, `/galaxy/api/clans?q=${c.tag.toLowerCase()}`, { cookie: a.cookie })).json() as ClanList;
+    expect(byTag.clans[0]).toEqual({ tag: c.tag, name: c.name, emblem: 'comet', color: 'uv', open: true, members: 1, maxMembers: 5, score: 0 });
     expect((await get(ctx.app, '/galaxy/api/clans?q=%25', { cookie: a.cookie })).statusCode).toBe(200);
   });
 

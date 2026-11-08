@@ -94,7 +94,7 @@ test('lo que aún no existe se ve bloqueado con «En desarrollo»', async () => 
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex, copy.hub.clan]) {
+  for (const name of [copy.hub.market, copy.hub.probes, copy.hub.codex]) {
     const button = screen.getByRole('button', { name: new RegExp(name) });
     expect(button).toBeDisabled();
     expect(button).toHaveTextContent(copy.hub.soon);
@@ -181,4 +181,13 @@ test('si la temporada no llega, la columna lo dice en vez de quedarse cargando (
   });
   renderAt('/', { '/': <TitleScreen me={me} /> });
   expect(await screen.findByText(copy.errors.internal, {}, { timeout: 4000 })).toBeInTheDocument();
+});
+
+test('el mosaico Clan lleva a los clanes (M5b-1)', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  await screen.findByLabelText(copy.hub.resource.coins(1250));
+  const clan = screen.getByRole('link', { name: new RegExp(copy.hub.clan) });
+  expect(clan).toHaveAttribute('href', '/clanes');
+  expect(clan).not.toHaveTextContent(copy.hub.soon);
 });

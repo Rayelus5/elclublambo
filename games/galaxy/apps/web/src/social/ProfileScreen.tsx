@@ -8,6 +8,7 @@ import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, fmt } from '../copy/es';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
+import { ClanEmblem } from '../clans/ClanEmblem';
 import { TierEmblem } from './parts';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
@@ -147,6 +148,13 @@ export function ProfileScreen() {
                 <h1>{p.username}</h1>
                 <p className="profile-level">{t.level(p.level)}</p>
                 <p className="profile-since">{t.since(p.since)}</p>
+                {p.clan ? (
+                  <Link to={`/clanes/${p.clan.tag}`} className="profile-clan">
+                    <ClanEmblem emblem={p.clan.emblem} color={p.clan.color} scale={1} />
+                    <span>{p.clan.name}</span>
+                    <span className="clan-tag">{p.clan.tag}</span>
+                  </Link>
+                ) : null}
               </div>
             </section>
             <Body p={p} />

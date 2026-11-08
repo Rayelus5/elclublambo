@@ -84,3 +84,9 @@ export interface ClanView {
 }
 
 export type MyClan = ClanView | null;
+
+/** The clans list, with the rules a screen needs to offer «Crear clan» (live config `clans`). */
+export interface ClanList {
+  clans: ClanCard[];
+  rules: { maxMembers: number; createCost: { coins: number }; minLevel: number };
+}

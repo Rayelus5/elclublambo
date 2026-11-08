@@ -1,4 +1,4 @@
-import { type ClanCard, clanCreateSchema, clanEditSchema, clanMemberParamSchema, clanSearchSchema, clanTagParamSchema, type ClanView, type MyClan } from '@galaxy/shared';
+import { clanCreateSchema, clanEditSchema, clanMemberParamSchema, clanSearchSchema, clanTagParamSchema, type ClanList, type ClanView, type MyClan } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
@@ -13,7 +13,7 @@ import { answerRequest, cancelRequest, clanConfigs, createClan, editClan, joinCl
 export function registerClanRoutes(api: FastifyInstance, deps: SocialDeps): void {
   const limited = (accountId: string) => hitRateLimit(deps.db, `a:${accountId}`, 'clans', 60, 60);
 
-  api.get('/galaxy/api/clans', async (req): Promise<ClanCard[]> => {
+  api.get('/galaxy/api/clans', async (req): Promise<ClanList> => {
     requireSession(req);
     const { q } = clanSearchSchema.parse(req.query);
     return listClans(deps, q);

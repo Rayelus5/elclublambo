@@ -2,6 +2,7 @@ import {
   type AccountConfig,
   type ClanAction,
   type ClanCard,
+  type ClanList,
   type ClanColor,
   type ClanCreate,
   type ClanEdit,
@@ -130,13 +131,14 @@ export async function myClan(deps: SocialDeps, viewerId: string): Promise<MyClan
 }
 
 /** Clans by score (up to 30), filtered by a piece of the name or the start of the tag. */
-export async function listClans(deps: SocialDeps, q: string | undefined): Promise<ClanCard[]> {
+export async function listClans(deps: SocialDeps, q: string | undefined): Promise<ClanList> {
   const cfgs = await clanConfigs(deps);
   const needle = (q ?? '').trim().toLocaleLowerCase('es');
-  return (await clanRanking(deps.db, cfgs.season, cfgs.account, deps.now()))
+  const clans: ClanCard[] = (await clanRanking(deps.db, cfgs.season, cfgs.account, deps.now()))
     .filter((c) => !needle || c.name.toLocaleLowerCase('es').includes(needle) || c.tag.toLowerCase().startsWith(needle))
     .slice(0, 30)
     .map((c) => ({ tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, open: c.open, members: c.members, maxMembers: cfgs.clans.maxMembers, score: c.value }));
+  return { clans, rules: { maxMembers: cfgs.clans.maxMembers, createCost: { coins: cfgs.clans.createCost.coins }, minLevel: cfgs.clans.minLevel } };
 }
 
 /** Creating a clan: the level it needs, a free name and tag, its cost; the creator leads it. */

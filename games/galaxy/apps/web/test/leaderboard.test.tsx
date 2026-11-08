@@ -20,7 +20,7 @@ const ROWS = [r(1, 'vega', 9000, 12), r(2, 'lyra', 4100), r(2, 'altair', 4100), 
 const board = (over: Partial<Leaderboard> = {}): Leaderboard => ({ season, tab: 'general', rows: ROWS, me: ROWS[3]!, total: 5, ...over });
 const screens = { '/clasificacion': <LeaderboardScreen /> };
 
-test('las pestañas son enlaces con la pestaña en la dirección, y la de clanes espera a los clanes', async () => {
+test('las pestañas son enlaces con la pestaña en la dirección, Clanes incluida (M5b-1)', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()),
     'GET /galaxy/api/leaderboard?tab=depth': () => jsonResponse(200, board({ tab: 'depth', rows: [r(1, 'vega', 7), r(2, 'deneb', 5)], me: r(2, 'deneb', 5), total: 2 })),
@@ -31,9 +31,7 @@ test('las pestañas son enlaces con la pestaña en la dirección, y la de clanes
   expect(within(tabs).getByRole('link', { name: t.tabs.general })).toHaveAttribute('aria-current', 'page');
   expect(within(tabs).getByRole('link', { name: t.tabs.depth })).toHaveAttribute('href', '/clasificacion?pestana=profundidad');
   expect(within(tabs).getByRole('link', { name: t.tabs.purges })).toHaveAttribute('href', '/clasificacion?pestana=purgas');
-  const clans = within(tabs).getByRole('button', { name: new RegExp(t.tabs.clans) });
-  expect(clans).toBeDisabled();
-  expect(clans).toHaveTextContent(t.clansSoon);
+  expect(within(tabs).getByRole('link', { name: t.tabs.clans })).toHaveAttribute('href', '/clasificacion?pestana=clanes');
   await user.click(within(tabs).getByRole('link', { name: t.tabs.depth }));
   expect(await screen.findByText(t.value.depth(7))).toBeInTheDocument();
   expect(within(tabs).getByRole('link', { name: t.tabs.depth })).toHaveAttribute('aria-current', 'page');

@@ -481,6 +481,46 @@ Sin temporada abierta dice «No hay ninguna temporada abierta». El mosaico «Ra
 - el nivel, con «Subes de nivel» en Solar si sube (con un pequeño salto que se queda quieto con movimiento reducido);
 - «+95 puntos de temporada» en Nova, si los hay.
 
+## 8 duodecies. Clanes
+
+Los jugadores crean clanes, se unen a ellos (abiertos, o pidiéndolo si son cerrados) y los gestionan por roles. La clasificación estrena su pestaña de Clanes (GDD §14.3 y §14.1, M5b-1). El mosaico «Clan» del inicio lleva a `/clanes`.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Confirmar lo que no se deshace:** expulsar, pasar el liderazgo y salir (o disolver, si eres el último) piden confirmación en un diálogo de alerta;
+- **Estado al pasar el ratón:** cada tarjeta y cada opción cambian;
+- **Etiquetas en una línea:** los nombres largos se cortan con puntos suspensivos.
+
+**Los emblemas:**
+- Son ocho figuras de Aseprite a 32×32 (`art/clans/paint-emblems.lua`), cada una sobre una insignia biselada de su color:
+  - escudo, cometa, nebulosa en espiral, estrella, planeta con anillos, corona, ojo y rayo;
+- Cada emblema es una tira con sus seis colores: Solar, Nova, Terminal, Hielo, Ultravioleta y Coral. El color se elige con la posición del fondo.
+- Se pintan a ×1 (listas, clasificación, perfil, selector), ×2 (tarjetas, tu clan) o ×3 (la cabecera del clan), siempre a escala entera.
+- Son decorativos: el nombre del clan va siempre al lado.
+
+**La lista** (`/clanes`):
+- tu clan arriba, si tienes uno;
+- la búsqueda por nombre o etiqueta, que espera a que dejes de escribir;
+- «Crear clan» en Solar, con su coste. Sin nivel o sin monedas está desactivado y su descripción dice qué falta;
+- las tarjetas, cada una con su emblema, nombre, etiqueta, «Abierto» (Terminal) o «Cerrado» (Solar), los miembros y los puntos, más «Unirse», «Solicitar» o «Lleno».
+
+**El diálogo de crear:**
+- nombre, etiqueta (en mayúsculas mientras escribes) y descripción con su contador;
+- el emblema y el color en rejillas de radios con nombre. Cada opción enseña el emblema en el color elegido;
+- la entrada: abierta o cerrada, explicada;
+- el coste junto a «Crear clan».
+
+**La página del clan** (`/clanes/<etiqueta>`):
+- **La cabecera:** el emblema a ×3, el nombre, la etiqueta, abierto o cerrado, los miembros, la descripción, y los puntos con el puesto de la temporada;
+- **Las acciones del visitante:** «Unirse» o «Solicitar», o «Solicitud enviada» con «Cancelar solicitud». Un miembro ve «Salir del clan», y el líder también «Editar»;
+- **Las solicitudes**, para el líder y los oficiales, cada una con «Aceptar» y «Rechazar»;
+- **Los miembros**, en una tabla con avatar, nombre y su enlace, el rol (Líder en Solar, Oficial en Hielo), el nivel y los puntos.
+  - Cada fila lleva lo que tu rol puede hacerle: «Ascender», «Degradar», «Liderazgo» o «Expulsar» (en Nova). Cada botón dice en su nombre accesible a quién se lo hace.
+  - Tu fila va marcada con «Tú».
+
+**En la clasificación**, la pestaña Clanes lista los clanes por los puntos de sus miembros con su emblema, y el tuyo marcado (o fijado debajo).
+
+**En el perfil**, el clan va bajo el nombre como una cápsula con su emblema y su etiqueta, enlazada al clan.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
