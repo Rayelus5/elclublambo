@@ -61,6 +61,8 @@ test('la cola de denuncias enseña el mensaje y sus motivos, y se resuelve con u
   expect(screen.getByText(t.waiting(51))).toBeInTheDocument();
   expect(within(card).getByText('esto molesta')).toBeInTheDocument();
   expect(within(card).getByText(t.pending(3))).toBeInTheDocument();
+  // The total says nothing more while every report is still pending.
+  expect(within(card).queryByText(t.reports(3))).toBeNull();
   expect(within(card).getByText(t.hiddenByReports)).toBeInTheDocument();
   expect(within(card).getByText('Spam')).toBeInTheDocument();
   expect(within(card).getByText('Comunidad')).toBeInTheDocument();

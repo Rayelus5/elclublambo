@@ -91,8 +91,9 @@ function hiddenText(m: ModMessage): string | null {
 }
 
 /** A message as moderation shows it: who, where, when, what, and whether it is hidden (in words, not only dimmed). */
-function MessageCard({ m, channel, extra, children }: { m: ModMessage; channel?: string; extra?: ReactNode; children: ReactNode }) {
+function MessageCard({ m, channel, extra, total = true, children }: { m: ModMessage; channel?: string; extra?: ReactNode; total?: boolean; children: ReactNode }) {
   const hidden = hiddenText(m);
+  const count = total && m.reports > 0;
   return (
     <article className={`mod-message${m.hidden ? ' is-hidden' : ''}`} aria-label={t.messageOf(m.author)}>
       <header>
@@ -101,10 +102,10 @@ function MessageCard({ m, channel, extra, children }: { m: ModMessage; channel?:
         <time dateTime={m.at}>{when(m.at)}</time>
       </header>
       <p className="mod-body">{m.body}</p>
-      {hidden || m.reports > 0 ? (
+      {hidden || count ? (
         <p className="admin-chips">
           {hidden ? <span className="admin-chip bad">{hidden}</span> : null}
-          {m.reports > 0 ? <span className="admin-chip warn">{t.reports(m.reports)}</span> : null}
+          {count ? <span className="admin-chip warn">{t.reports(m.reports)}</span> : null}
         </p>
       ) : null}
       {extra}
@@ -141,6 +142,8 @@ export function Reports() {
               key={m.id}
               m={m}
               channel={label(m.channel)}
+              // The total adds something only when some reports were already reviewed.
+              total={m.reports !== r.pending}
               extra={
                 <div className="mod-report">
                   <p className="mod-pending">{t.pending(r.pending)}</p>
