@@ -2,7 +2,7 @@
 -- A galaxy is held only when its owner offers it (the proposer's from the start; the other's once its owner agrees),
 -- and an offered galaxy is in one open trade at most. A done trade had both galaxies and both confirmations.
 begin;
-select plan(12);
+select plan(13);
 
 select has_table('galaxy', 'trades', 'trades');
 select ok((select c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -46,6 +46,10 @@ select lives_ok($$update galaxy.trades set b_offered = true, b_confirmed = true,
 select lives_ok($$insert into galaxy.trades (a_id, b_id, a_galaxy, a_offered, expires_at)
                   values ('00000000-0000-4000-8000-0000000001a1', '00000000-0000-4000-8000-0000000001c1', '00000000-0000-4000-8000-00000000b0a1', true, now() + interval '3 days')$$,
   'once that trade closed, the galaxy can be offered again');
+
+select throws_ok($$insert into galaxy.trades (a_id, b_id, a_galaxy, a_offered, expires_at)
+                   values ('00000000-0000-4000-8000-0000000001c1', '00000000-0000-4000-8000-0000000001a1', null, false, now() + interval '3 days')$$,
+  '23505', null, 'one open trade per pair of accounts, whoever proposed it');
 
 select * from finish();
 rollback;

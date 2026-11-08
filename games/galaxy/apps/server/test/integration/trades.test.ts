@@ -100,6 +100,41 @@ describe('proponer', () => {
     expect((await propose(low, b.username, await own(low.id))).json()).toEqual({ error: 'trade_level' });
   });
 
+  test('un trueque abierto por pareja, en cualquier sentido', async () => {
+    const { a, b, ga, gb } = await pair();
+    expect((await propose(a, b.username, ga)).statusCode).toBe(200);
+    expect((await propose(a, b.username, await own(a.id))).json()).toEqual({ error: 'trade_exists' });
+    expect((await propose(b, a.username, gb)).json()).toEqual({ error: 'trade_exists' });
+  });
+
+  test('las propuestas que recibes no te impiden proponer; las que puedes recibir tienen su límite', async () => {
+    const victim = await player();
+    const [x, y, z] = [await player(), await player(), await player()];
+    expect((await propose(x, victim.username, await own(x.id))).statusCode).toBe(200);
+    expect((await propose(y, victim.username, await own(y.id))).statusCode).toBe(200);
+    expect((await propose(z, victim.username, await own(z.id))).json()).toEqual({ error: 'trade_limit_them' });
+    expect((await propose(victim, z.username, await own(victim.id))).statusCode).toBe(200);
+  });
+
+  test('la misma galaxia en dos trueques a la vez: solo uno', async () => {
+    const a = await player();
+    const [b, c] = [await player(), await player()];
+    const g = await own(a.id);
+    const answers = await Promise.all([propose(a, b.username, g), propose(a, c.username, g)]);
+    expect(answers.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(answers.find((r) => r.statusCode === 409)!.json()).toEqual({ error: 'galaxy_in_trade' });
+  });
+
+  test('proponer y poner en venta la misma galaxia a la vez: solo una de las dos', async () => {
+    const { a, b } = await pair();
+    const g = await own(a.id);
+    const [t, l] = await Promise.all([
+      propose(a, b.username, g),
+      post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g, price: 50 }, { cookie: a.cookie, headers: { 'idempotency-key': randomUUID() } }),
+    ]);
+    expect([t.statusCode, l.statusCode].sort()).toEqual([200, 409]);
+  });
+
   test('los abiertos y los del día tienen límite', async () => {
     const a = await player();
     const [b1, b2, b3] = [await player(), await player(), await player()];
@@ -130,6 +165,23 @@ describe('cambiar y confirmar', () => {
     expect((await mine(a)).closed.map((x) => x.id)).toContain(t.id);
     // Free again in their new hands.
     expect((await equip(b, ga)).statusCode).toBe(200);
+  });
+
+  test('dos confirmaciones a la vez: un solo intercambio', async () => {
+    const { a, b, ga, gb } = await pair();
+    const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
+    const answers = await Promise.all([confirm(b, t.id, 1), confirm(b, t.id, 1)]);
+    expect(answers.map((r) => r.statusCode).sort()).toEqual([200, 409]);
+    expect(await ownerOf(ga)).toBe(b.id);
+    expect(await ownerOf(gb)).toBe(a.id);
+  });
+
+  test('guardar el trato tal cual lo acepta: con las dos partes conformes, se intercambian', async () => {
+    const { a, b, ga, gb } = await pair();
+    const t = (await propose(a, b.username, ga, gb)).json() as TradeView;
+    const same = (await offer(b, t.id, { give: gb, want: ga, version: 1 })).json() as TradeView;
+    expect(same.status).toBe('done');
+    expect(await ownerOf(ga)).toBe(b.id);
   });
 
   test('un cambio es otra versión: la confirmación vieja no vale y quien cambia confirma la nueva', async () => {

@@ -9,6 +9,7 @@ import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 
 const t = copy.trades;
+const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' }).format(new Date(iso));
 /** A galaxy already held somewhere else (equipped, exhibited, for sale or in another trade). */
 const heldElsewhere = (g: GalaxySummary, current: string | null) => g.id !== current && (g.equipped === true || g.exhibited === true || g.listed === true || g.traded === true);
 
@@ -66,6 +67,10 @@ export function TradeComposer({
 }) {
   const [give, setGive] = useState<Slot>(trade?.me.galaxy ?? null);
   const [want, setWant] = useState<Slot>(trade?.them.galaxy ?? null);
+  // The version and the deal as they were when this opened: a newer version that arrives meanwhile is answered with
+  // trade_changed instead of being overwritten (M5c-2 review).
+  const [seen] = useState(() => (trade ? { version: trade.version, give: trade.me.galaxy?.id ?? null, want: trade.them.galaxy?.id ?? null, until: trade.expiresAt } : null));
+  const unchanged = seen !== null && (give?.id ?? null) === seen.give && (want?.id ?? null) === seen.want;
   const [picking, setPicking] = useState<'mine' | 'theirs' | null>(null);
   const propose = useProposeTrade();
   const change = useChangeTrade();
@@ -75,7 +80,7 @@ export function TradeComposer({
 
   function submit(): void {
     if (!give) return;
-    if (trade) change.mutate({ id: trade.id, give: give.id, want: want?.id ?? null, version: trade.version }, { onSuccess: onDone });
+    if (trade && seen) change.mutate({ id: trade.id, give: give.id, want: want?.id ?? null, version: seen.version }, { onSuccess: onDone });
     else propose.mutate({ username, give: give.id, ...(want ? { want: want.id } : {}) }, { onSuccess: onDone });
   }
 
@@ -96,7 +101,7 @@ export function TradeComposer({
         <span className="trade-arrows" aria-hidden="true" />
         {slot(t.want, want, t.chooseTheirs, () => setPicking('theirs'))}
       </div>
-      <p className="panel-note">{t.held(days)}</p>
+      <p className="panel-note">{seen ? t.heldUntil(day(seen.until)) : t.held(days)}</p>
       {error ? (
         <p className="field-error" role="alert">
           {errorText(error, copy.errors)}
@@ -106,7 +111,7 @@ export function TradeComposer({
         <button type="button" className="lip pill" onClick={onClose}>
           {t.keep}
         </button>
-        <button type="button" className="lip pill pill-solar" disabled={!give || busy} aria-busy={busy || undefined} onClick={submit}>
+        <button type="button" className="lip pill pill-solar" disabled={!give || busy || unchanged} aria-busy={busy || undefined} onClick={submit}>
           {trade ? t.save : t.send}
         </button>
       </div>

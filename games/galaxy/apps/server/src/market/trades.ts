@@ -73,14 +73,14 @@ async function viewOf(db: Kysely<DB>, accountId: string, id: string, now: Date):
   return (await viewsOf(db, accountId, [t], now))[0]!;
 }
 
-/** Open trades of an account (not expired), for the limit. */
-async function openCount(db: Kysely<DB>, accountId: string, now: Date): Promise<number> {
+/** Open trades (not expired) an account proposed ('a') or received ('b'), for the limits. */
+async function openCount(db: Kysely<DB>, accountId: string, now: Date, as: Side): Promise<number> {
   const { n } = await db
     .selectFrom('galaxy.trades')
     .select(sql<number>`count(*)::int`.as('n'))
     .where('status', '=', 'open')
     .where('expires_at', '>', now)
-    .where((eb) => eb.or([eb('a_id', '=', accountId), eb('b_id', '=', accountId)]))
+    .where(as === 'a' ? 'a_id' : 'b_id', '=', accountId)
     .executeTakeFirstOrThrow();
   return n;
 }
@@ -128,7 +128,7 @@ export async function myTrades(deps: MarketDeps, accountId: string): Promise<MyT
     .execute();
   const views = await viewsOf(deps.db, accountId, rows, now);
   const rules = await rulesFor(deps.db, accountId, cfgs, now);
-  const open = await openCount(deps.db, accountId, now);
+  const open = await openCount(deps.db, accountId, now, 'a');
   const today = await proposalsToday(deps.db, accountId, now);
   return {
     open: views.filter((v) => v.status === 'open'),
@@ -139,12 +139,30 @@ export async function myTrades(deps: MarketDeps, accountId: string): Promise<MyT
 
 /** Proposes a swap (inside its operation): the gates, the limits, my galaxy in escrow and, if named, the one I want. */
 export async function proposeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, req: TradePropose, now: Date): Promise<TradeView> {
-  await lockTrader(trx, accountId);
-  refuse(await rulesFor(trx, accountId, cfgs, now));
   const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', req.username).executeTakeFirst();
   if (!target) throw new HttpError(404, 'profile_not_found');
   if (target.id === accountId) throw new HttpError(409, 'trade_self');
-  if ((await openCount(trx, accountId, now)) >= cfgs.market.openTrades || (await openCount(trx, target.id, now)) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit');
+  // Both traders, in id order: their counts hold under concurrent proposals (M5c-2 review).
+  for (const who of [accountId, target.id].sort()) await lockTrader(trx, who);
+  refuse(await rulesFor(trx, accountId, cfgs, now));
+  // One open trade per pair of accounts (an expired one still holds the pair's slot: it ends now).
+  await trx
+    .updateTable('galaxy.trades')
+    .set({ status: 'expired', closed_at: sql<Date>`now()` })
+    .where('status', '=', 'open')
+    .where('expires_at', '<=', sql<Date>`now()`)
+    .where((eb) => eb.or([eb.and([eb('a_id', '=', accountId), eb('b_id', '=', target.id)]), eb.and([eb('a_id', '=', target.id), eb('b_id', '=', accountId)])]))
+    .execute();
+  const between = await trx
+    .selectFrom('galaxy.trades')
+    .select('id')
+    .where('status', '=', 'open')
+    .where((eb) => eb.or([eb.and([eb('a_id', '=', accountId), eb('b_id', '=', target.id)]), eb.and([eb('a_id', '=', target.id), eb('b_id', '=', accountId)])]))
+    .executeTakeFirst();
+  if (between) throw new HttpError(409, 'trade_exists');
+  // What I proposed counts against me; what someone receives, against them: proposals sent to me never stop mine.
+  if ((await openCount(trx, accountId, now, 'a')) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit');
+  if ((await openCount(trx, target.id, now, 'b')) >= cfgs.market.openTrades) throw new HttpError(409, 'trade_limit_them');
   if ((await proposalsToday(trx, accountId, now)) >= cfgs.market.perDay.trades) throw new HttpError(429, 'trade_daily_cap');
   await holdable(trx, req.give, accountId, null);
   if (req.want) await askable(trx, req.want, target.id);
@@ -210,24 +228,20 @@ export async function changeTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountI
     })
     .where('id', '=', t.id)
     .execute();
+  // Saving the deal as it stands, after the other side confirmed it, is accepting it.
+  if (complete && mine.offered && !changed && then0.confirmed) await swap(trx, cfgs, t.id, now);
   return viewOf(trx, accountId, t.id, now);
 }
 
-/** Confirms the version I saw; when the other side confirmed it too, the galaxies change hands. */
-export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, version: number, now: Date): Promise<TradeView> {
-  const { t, side } = await lockOpen(trx, accountId, id, now);
-  if (version !== t.version) throw new HttpError(409, 'trade_changed');
-  refuse(await rulesFor(trx, accountId, cfgs, now));
-  if (!t.a_galaxy || !t.b_galaxy) throw new HttpError(409, 'trade_incomplete');
-  // Both galaxies locked in id order before anything else, so two swaps never wait on each other in a circle.
+/**
+ * The swap of a trade both sides confirmed (its row locked by the caller): both sides still allowed, both galaxies still
+ * theirs, alive and held by nothing else; the galaxies locked in id order; then they change hands and the trade is done.
+ */
+async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, now: Date): Promise<void> {
+  const t = await trx.selectFrom('galaxy.trades').selectAll().where('id', '=', id).executeTakeFirstOrThrow();
+  if (!t.a_galaxy || !t.b_galaxy || !t.a_confirmed || !t.b_confirmed) return;
   const pair = [t.a_galaxy, t.b_galaxy].sort();
   await trx.selectFrom('galaxy.galaxies').select('id').where('id', 'in', pair).orderBy('id').forUpdate().execute();
-  const me = sideOf2(t, side);
-  if (!me.offered) await holdable(trx, me.galaxy!, accountId, t.id);
-  if (!sideOf2(t, other(side)).confirmed) {
-    await trx.updateTable('galaxy.trades').set(sideSet(side, { offered: true, confirmed: true })).where('id', '=', t.id).execute();
-    return viewOf(trx, accountId, t.id, now);
-  }
   // The swap: both sides still allowed, both galaxies still theirs, alive and held by nothing else.
   const banned = await trx
     .selectFrom('galaxy.accounts')
@@ -250,13 +264,28 @@ export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, account
   if (await isTraded(trx, pair, t.id)) throw new HttpError(409, 'galaxy_in_trade');
   await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id }).where('id', '=', t.a_galaxy).execute();
   await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id }).where('id', '=', t.b_galaxy).execute();
-  await trx
-    .updateTable('galaxy.trades')
-    .set({ ...sideSet(side, { offered: true, confirmed: true }), status: 'done', closed_at: now })
-    .where('id', '=', t.id)
-    .execute();
+  await trx.updateTable('galaxy.trades').set({ status: 'done', closed_at: now }).where('id', '=', t.id).execute();
   const tierOf = (g: string) => live.find((x) => x.id === g)!.tier;
   await alertIfSuspicious(trx, cfgs, { trade: t.id, a: t.a_id, b: t.b_id, gap: Math.abs(tierOf(t.a_galaxy) - tierOf(t.b_galaxy)) }, now);
+}
+
+/** Confirms the version I saw; when the other side confirmed it too, the galaxies change hands. */
+export async function confirmTrade(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, id: string, version: number, now: Date): Promise<TradeView> {
+  const { t, side } = await lockOpen(trx, accountId, id, now);
+  if (version !== t.version) throw new HttpError(409, 'trade_changed');
+  refuse(await rulesFor(trx, accountId, cfgs, now));
+  if (!t.a_galaxy || !t.b_galaxy) throw new HttpError(409, 'trade_incomplete');
+  // Both galaxies locked in id order before anything else, so two swaps never wait on each other in a circle.
+  const pair = [t.a_galaxy, t.b_galaxy].sort();
+  await trx.selectFrom('galaxy.galaxies').select('id').where('id', 'in', pair).orderBy('id').forUpdate().execute();
+  const me = sideOf2(t, side);
+  if (!me.offered) await holdable(trx, me.galaxy!, accountId, t.id);
+  if (!sideOf2(t, other(side)).confirmed) {
+    await trx.updateTable('galaxy.trades').set(sideSet(side, { offered: true, confirmed: true })).where('id', '=', t.id).execute();
+    return viewOf(trx, accountId, t.id, now);
+  }
+  await trx.updateTable('galaxy.trades').set(sideSet(side, { offered: true, confirmed: true })).where('id', '=', t.id).execute();
+  await swap(trx, cfgs, t.id, now);
   return viewOf(trx, accountId, t.id, now);
 }
 

@@ -234,9 +234,9 @@ export async function buyListing(
     .forUpdate()
     .executeTakeFirst();
   if (!g) throw new HttpError(409, 'listing_gone');
-  // Fresh statements after the galaxy's lock: a seller who equipped or exhibited it the instant its listing expired
+  // Fresh statements after the galaxy's lock: a seller who equipped, exhibited or offered it in a swap the instant its listing expired
   // (while this purchase waited) keeps it.
-  if ((await isEquipped(trx, [g.id])) || (await isExhibited(trx, [g.id]))) throw new HttpError(409, 'listing_gone');
+  if ((await isEquipped(trx, [g.id])) || (await isExhibited(trx, [g.id])) || (await isTraded(trx, [g.id]))) throw new HttpError(409, 'listing_gone');
   const price = Number(l.price);
   const commission = commissionOf(price, cfgs.market.commission);
   const ref = { listing: l.id, galaxy: g.id };

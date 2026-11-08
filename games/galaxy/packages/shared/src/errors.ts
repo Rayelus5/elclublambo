@@ -81,6 +81,8 @@ export const API_ERROR_CODES = [
   'trade_self',
   'trade_limit',
   'trade_incomplete',
+  'trade_exists',
+  'trade_limit_them',
   'chat_level',
   'chat_muted',
   'chat_empty',

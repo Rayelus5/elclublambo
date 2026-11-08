@@ -212,6 +212,17 @@ describe('comprar', () => {
     expect(await ownerOf(galaxyId)).toBe(s.id);
   });
 
+  test('una galaxia que acabó ofrecida en un trueque no se vende', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const other = await player();
+    const { galaxyId, listingId } = await listed(s);
+    // As if the seller offered it in a swap the instant its listing expired, while this purchase waited.
+    await ctx.db.insertInto('galaxy.trades').values({ a_id: s.id, b_id: other.id, a_galaxy: galaxyId, a_offered: true, expires_at: new Date(Date.now() + DAY) }).execute();
+    expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
+    expect(await ownerOf(galaxyId)).toBe(s.id);
+  });
+
   test('lo de un vendedor baneado ni se ve ni se compra', async () => {
     const s = await player();
     const b = await player({ coins: 1000 });

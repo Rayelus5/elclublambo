@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { MarketScreen } from '../src/market/MarketScreen';
+import { TradeComposer } from '../src/trades/TradeComposer';
+import { useState } from 'react';
 import { ProfileScreen } from '../src/social/ProfileScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
@@ -178,4 +180,33 @@ test('en mi propio perfil no hay «Proponer trueque»', async () => {
   renderAt('/perfil/sonda_rayo', { '/perfil/:username': <ProfileScreen /> });
   expect(await screen.findByRole('heading', { level: 1, name: 'sonda_rayo' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: t.propose })).not.toBeInTheDocument();
+});
+
+test('el compositor cambia la versión que viste, no la que llegue mientras tanto; sin cambios no se guarda', async () => {
+  const fetch = marketApi({
+    'GET /galaxy/api/profiles/vega/galaxies?sort=rarity&limit=30': () => jsonResponse(200, { items: [pub('v1', 'Suya'), pub('v2', 'Otra suya')], counts: {} }),
+    [`POST /galaxy/api/trades/${TID}/offer`]: () => jsonResponse(409, { error: 'trade_changed' }),
+  });
+  function Harness() {
+    const [v, setV] = useState(trade({ id: TID, version: 2 }));
+    return (
+      <>
+        <button type="button" onClick={() => setV({ ...v, version: 3 })}>
+          llega otra versión
+        </button>
+        <TradeComposer username="vega" trade={v} days={3} onDone={() => {}} onClose={() => {}} />
+      </>
+    );
+  }
+  renderAt('/', { '/': <Harness /> });
+  const user = userEvent.setup();
+  const dialog = await screen.findByRole('dialog', { name: t.changeTitle('vega') });
+  expect(within(dialog).getByRole('button', { name: t.save })).toBeDisabled();
+  expect(within(dialog).getByText(t.heldUntil('11 de noviembre'))).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'llega otra versión' }));
+  await user.click(within(dialog).getByRole('button', { name: t.chooseTheirs }));
+  await user.click(within(await screen.findByRole('dialog', { name: t.pickTheirs('vega') })).getByRole('button', { name: t.askOne('Otra suya') }));
+  await user.click(within(dialog).getByRole('button', { name: t.save }));
+  await waitFor(() => expect(posted(fetch, `/${TID}/offer`)).toEqual([{ give: 'm1', want: 'v2', version: 2 }]));
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(copy.errors.trade_changed);
 });
