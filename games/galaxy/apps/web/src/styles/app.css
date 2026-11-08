@@ -1609,6 +1609,21 @@
   .economy-controls .field { margin: 0; min-width: 200px; }
   .economy-table .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .economy-table th[scope='row'] { position: static; text-align: start; background: none; font-size: 14px; color: var(--color-ink); border-top: 1px solid rgb(255 255 255 / .05); }
+  /* The ECN Catalogue (DESIGN_SYSTEM §8 sexvicies). */
+  .catalog-progress { --r: 18px; display: grid; gap: 14px; padding: 16px 18px; }
+  .catalog-rewards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .catalog-rewards li { display: grid; gap: 6px; align-content: start; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); }
+  .catalog-rewards li.ready { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 60%, transparent); }
+  .catalog-rewards li.claimed { opacity: .7; }
+  .catalog-rewards span { font-size: 14px; color: var(--color-ink-soft); }
+  .catalog-rewards .pill { justify-self: start; }
+  .catalog-kind h2 { margin: 6px 0 10px; font: 400 22px var(--font-display); }
+  .catalog-kind h2 small { font: 600 14px var(--font-sans); color: var(--color-ink-mute); margin-inline-start: 8px; }
+  .catalog-grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; }
+  .catalog-grid li { display: flex; align-items: center; gap: 8px; min-block-size: 44px; padding: 8px 12px; border-radius: 12px; background: var(--color-panel); font-weight: 600; }
+  .catalog-grid li.found { color: var(--color-ink); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-terminal) 40%, transparent); }
+  .catalog-grid li.found .ico { color: var(--color-terminal); }
+  .catalog-grid li.missing { justify-content: center; color: var(--color-ink-mute); font: 400 20px var(--font-display); }
   /* Missions and achievements (DESIGN_SYSTEM §8 quinvicies). */
   .missions-root { overflow: auto; }
   .missions { inline-size: min(100% - 32px, 980px); margin: 0 auto; padding: 28px 0 48px; display: grid; gap: 16px; }

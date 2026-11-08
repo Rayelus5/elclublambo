@@ -27,6 +27,7 @@ import { registerAdminRunRoutes } from './admin/runs-routes';
 import { registerAdminProgressRoutes } from './admin/progress-routes';
 import { registerMailRoutes } from './mail/routes';
 import { registerMissionRoutes } from './missions/routes';
+import { registerCatalogRoutes } from './catalog/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -111,6 +112,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });
     registerMailRoutes(api, { db: deps.db, config, now });
     registerMissionRoutes(api, { db: deps.db, config, now });
+    registerCatalogRoutes(api, { db: deps.db, config });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub, now });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });

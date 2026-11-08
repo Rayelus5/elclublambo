@@ -4,6 +4,7 @@ import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, missionSchema } from '../progress/missions';
+import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -549,6 +550,16 @@ export const configSchemas = {
       daily: z.object({ count: z.number().int().min(0).max(5).default(3), pool: z.array(missionSchema).max(30).prefault(DEFAULT_DAILY) }).strict().prefault({}),
       weekly: z.object({ count: z.number().int().min(0).max(5).default(3), pool: z.array(missionSchema).max(30).prefault(DEFAULT_WEEKLY) }).strict().prefault({}),
       season: z.array(missionSchema).max(30).prefault(DEFAULT_SEASON),
+    })
+    .strict(),
+  /** The ECN Catalogue's rewards (GDD §12.3; M7b): what completing each share of the album gives, collected once. */
+  catalog: z
+    .object({
+      rewards: z
+        .array(catalogRewardSchema)
+        .max(10)
+        .refine((l) => new Set(l.map((r) => r.percent)).size === l.length, 'Hay dos premios con el mismo porcentaje')
+        .prefault(DEFAULT_CATALOG_REWARDS),
     })
     .strict(),
   /** Achievements (GDD §12.3; M7a): lifetime goals that give signals, titles, frames and season points. */

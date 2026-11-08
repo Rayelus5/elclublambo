@@ -525,6 +525,23 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - con ese título elegido, sale en el perfil;
    - sin violaciones de CSP.
 
+29. **Desde M7b (Catálogo ECN):** una migración, `*_galaxy_catalog` (`catalog_claims`), y una clave nueva de configuración, **`catalog`**, con los premios por porcentaje.
+   - **El álbum:** 32 entradas (8 tipos, 11 paletas, 8 fenómenos y 5 acabados). Se descubre con las galaxias que tienes y con las que sacaste en el escáner, aunque ya no las tengas.
+   - **Los premios por defecto:**
+     - al 10 %, 300 de polvo;
+     - al 25 %, 2 señales;
+     - al 50 %, 5 señales y el título «Cartógrafo»;
+     - al 75 %, 1.500 de polvo y el título «Archivista»;
+     - al 100 %, 10 señales, el título «Guardián del cielo» y el marco Oro.
+     
+     Cada premio se recoge una vez.
+   - **Dónde:** `/galaxy/catalogo`, desde «Catálogo ECN» en la colección.
+
+   Comprueba con una cuenta de prueba que haga sus 10 tiradas de bienvenida:
+   - el catálogo marca lo descubierto;
+   - el premio del 10 % se recoge si llega al 10 %;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
