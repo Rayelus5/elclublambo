@@ -5,6 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { Inspector } from '../../src/inspector/Inspector';
+import { featherGalaxy } from '../../src/inspector/textures';
 import '../../src/styles/app.css';
 
 // The 3D inspector (GDD §8.1) in a real Chromium: three.js arrives only when it opens, the card is drawn with every
@@ -106,4 +107,41 @@ test('sin WebGL2 el inspector enseña la carta plana por las dos caras', { timeo
   const inspector = document.querySelector('.inspector')!;
   expect(inspector.querySelectorAll('article')).toHaveLength(2);
   expect(inspector.querySelector('canvas.inspector-gl')).toBeNull();
+});
+
+test('arrastrar la carta a un lado la gira, y el botón dice qué cara se ve', { timeout: 90_000 }, async () => {
+  await page.viewport(1280, 800);
+  open(galaxy('holo'));
+  await until(() => state() === 'ready');
+  const gl = document.querySelector<HTMLCanvasElement>('.inspector canvas')!;
+  const button = () => document.querySelector<HTMLButtonElement>('.inspector-actions button[aria-pressed]')!;
+  const drag = (from: number, to: number) => {
+    const r = gl.getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    gl.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, clientX: r.left + r.width * from, clientY: y, button: 0, buttons: 1, bubbles: true }));
+    for (let i = 1; i <= 8; i++) gl.dispatchEvent(new PointerEvent('pointermove', { pointerId: 7, clientX: r.left + r.width * (from + ((to - from) * i) / 8), clientY: y, buttons: 1, bubbles: true }));
+    gl.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: r.left + r.width * to, clientY: y, button: 0, bubbles: true }));
+  };
+  expect(button().getAttribute('aria-pressed')).toBe('false');
+  drag(0.15, 0.85);
+  await until(() => button().getAttribute('aria-pressed') === 'true', 5_000);
+  expect(button().textContent).toContain('Ver el anverso');
+  drag(0.85, 0.15);
+  await until(() => button().getAttribute('aria-pressed') === 'false', 5_000);
+  // A small drag settles back on the face it started from.
+  drag(0.5, 0.6);
+  await new Promise((r) => setTimeout(r, 300));
+  expect(button().getAttribute('aria-pressed')).toBe('false');
+});
+
+test('la galaxia de la ventana se desvanece hacia los bordes: no se ve su cuadrado', async () => {
+  const square = document.createElement('canvas');
+  square.width = square.height = 256;
+  const ctx = square.getContext('2d')!;
+  ctx.fillStyle = '#334466';
+  ctx.fillRect(0, 0, 256, 256);
+  const soft = featherGalaxy(square);
+  const px = (x: number, y: number) => soft.getContext('2d')!.getImageData(x, y, 1, 1).data;
+  expect(px(128, 128)[3]).toBe(255);
+  for (const [x, y] of [[0, 0], [255, 0], [0, 255], [255, 255], [128, 1], [1, 128]] as const) expect(px(x, y)[3], `${x},${y}`).toBe(0);
 });

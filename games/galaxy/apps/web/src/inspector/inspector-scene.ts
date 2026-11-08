@@ -19,15 +19,19 @@ import {
   type Texture,
 } from 'three';
 import { FINISHES } from '@galaxy/shared';
+import { dragSpin, type Face, faceOf, settle, toFace } from './spin';
 
 // The 3D inspector's scene (GDD §8.1), in its own chunk so three.js only downloads when the inspector opens. The card
-// is layers in depth — a starfield far behind, the galaxy (additive, so the starfield shows through its dark), the
-// frame with its window, and the finish's light on top — so tilting it with the pointer gives real parallax. The back
-// is its own plane, turned with Girar. Units: the card is 5 × 7.
+// is layers in depth — a starfield far behind, the galaxy (additive, so the starfield shows through its dark, and faded
+// before its square's edges), its soft glow nearer the glass, the frame with its window, and the finish's light on top —
+// so tilting it with the pointer gives real parallax. The back is its own plane: the card turns with the button or by
+// dragging it sideways, and settles on the nearest face when let go (M6d-1). Units: the card is 5 × 7.
 export interface InspectorFaces {
   front: HTMLCanvasElement;
   back: HTMLCanvasElement;
   galaxy: HTMLCanvasElement;
+  /** The galaxy's blurred glow (textures.ts glowGalaxy). */
+  glow: HTMLCanvasElement;
   starfield: HTMLCanvasElement;
   mask: HTMLCanvasElement;
   finish: Finish;
@@ -37,6 +41,11 @@ export interface InspectorFaces {
 export interface InspectorScene {
   flip(back: boolean): void;
   dispose(): void;
+}
+
+/** What the scene tells the inspector: the face a drag left showing. */
+export interface InspectorEvents {
+  onFace?: (face: Face) => void;
 }
 
 const VERTEX = /* glsl */ `
@@ -95,7 +104,7 @@ function texture(c: HTMLCanvasElement): CanvasTexture {
   return t;
 }
 
-export function createInspectorScene(canvas: HTMLCanvasElement, faces: InspectorFaces): InspectorScene {
+export function createInspectorScene(canvas: HTMLCanvasElement, faces: InspectorFaces, events: InspectorEvents = {}): InspectorScene {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
   renderer.localClippingEnabled = true;
@@ -133,8 +142,10 @@ export function createInspectorScene(canvas: HTMLCanvasElement, faces: Inspector
     new Plane(new Vector3(0, -1, 0), 1.0 + 2.25),
   ];
   const clip = local.map((p) => p.clone());
-  plane(6, 6, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.42, 1.0);
-  plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.16, 1.0);
+  // Further apart than before (M6d-1): the starfield deep behind, the galaxy in the middle, its glow just under the glass.
+  plane(7, 7, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.72, 1.0);
+  plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.34, 1.0);
+  plane(5.3, 5.3, new MeshBasicMaterial({ map: tex(faces.glow), blending: AdditiveBlending, transparent: true, opacity: 0.42, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.08, 1.0);
   plane(5, 7, new MeshBasicMaterial({ map: tex(faces.front), transparent: true, alphaTest: 0.02, side: FrontSide }), 0);
   const foil = new ShaderMaterial({
     vertexShader: VERTEX,
@@ -160,7 +171,9 @@ export function createInspectorScene(canvas: HTMLCanvasElement, faces: Inspector
   const pointer = new Vector2(0.5, 0.5);
   let active = 0;
   let wantActive = 0;
-  let flipTarget = 0;
+  // The card's yaw, by the button or by hand (spin.ts): free while dragging, on a face once let go.
+  let spin = 0;
+  let drag: { x0: number; spin0: number; id: number } | null = null;
   let raf = 0;
   const start = performance.now();
 
@@ -186,20 +199,47 @@ export function createInspectorScene(canvas: HTMLCanvasElement, faces: Inspector
     wantActive = 1;
   }
   function onLeave(): void {
+    if (drag) return;
     target.set(0, 0);
     wantActive = 0;
   }
+  function onDown(e: PointerEvent): void {
+    if (e.button !== 0) return;
+    drag = { x0: e.clientX, spin0: spin, id: e.pointerId };
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {
+      // A synthetic or already-gone pointer: the drag still follows the canvas's own events.
+    }
+    canvas.classList.add('dragging');
+  }
+  function onDrag(e: PointerEvent): void {
+    if (!drag || e.pointerId !== drag.id) return;
+    spin = dragSpin(drag.spin0, e.clientX - drag.x0, canvas.getBoundingClientRect().width);
+  }
+  function onUp(e: PointerEvent): void {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    spin = settle(spin);
+    canvas.classList.remove('dragging');
+    events.onFace?.(faceOf(spin));
+  }
   canvas.addEventListener('pointermove', onMove);
+  canvas.addEventListener('pointermove', onDrag);
   canvas.addEventListener('pointerleave', onLeave);
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointercancel', onUp);
 
   const frame = (now: number) => {
     const t = (now - start) / 1000;
-    const ease = faces.reduced ? 0.3 : 0.1;
+    // Under the hand the card follows at once; on its own it eases (snappier with reduced motion).
+    const ease = drag ? 0.45 : faces.reduced ? 0.3 : 0.1;
     // A slow idle sway invites a closer look; none with reduced motion.
-    const swayX = faces.reduced || wantActive ? 0 : Math.sin(t * 0.6) * 0.05;
-    const swayY = faces.reduced || wantActive ? 0 : Math.sin(t * 0.45) * 0.09;
+    const swayX = faces.reduced || wantActive || drag ? 0 : Math.sin(t * 0.6) * 0.05;
+    const swayY = faces.reduced || wantActive || drag ? 0 : Math.sin(t * 0.45) * 0.09;
     card.rotation.x += (target.x + swayX - card.rotation.x) * ease;
-    card.rotation.y += (target.y + swayY + flipTarget - card.rotation.y) * ease;
+    card.rotation.y += ((drag ? 0 : target.y) + swayY + spin - card.rotation.y) * ease;
     active += (wantActive - active) * 0.08;
     card.updateMatrixWorld();
     local.forEach((p, i) => clip[i]!.copy(p).applyMatrix4(card.matrixWorld));
@@ -215,13 +255,17 @@ export function createInspectorScene(canvas: HTMLCanvasElement, faces: Inspector
 
   return {
     flip(showBack) {
-      flipTarget = showBack ? Math.PI : 0;
+      if (!drag) spin = toFace(spin, showBack ? 'back' : 'front');
     },
     dispose() {
       cancelAnimationFrame(raf);
       observer.disconnect();
       canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointermove', onDrag);
       canvas.removeEventListener('pointerleave', onLeave);
+      canvas.removeEventListener('pointerdown', onDown);
+      canvas.removeEventListener('pointerup', onUp);
+      canvas.removeEventListener('pointercancel', onUp);
       for (const g of geometries) g.dispose();
       for (const m of materials) m.dispose();
       for (const t of textures) t.dispose();

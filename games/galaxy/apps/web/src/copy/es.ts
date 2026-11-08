@@ -980,7 +980,7 @@ export const copy = {
     open: 'Inspeccionar en 3D',
     title: (name: string) => `${name} en 3D`,
     canvas: (name: string) => `Carta de ${name} en 3D`,
-    hint: 'Mueve el ratón para inclinarla',
+    hint: 'Mueve el ratón para inclinarla y arrástrala a los lados para girarla',
     back: 'Ver el reverso',
     front: 'Ver el anverso',
     flat: 'Este equipo no puede mostrar la vista 3D. Aquí tienes la carta por las dos caras',
