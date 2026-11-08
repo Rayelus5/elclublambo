@@ -74,8 +74,9 @@ test('un admin encuentra a un jugador, le da monedas, lo banea y lo ve en la aud
   // The audit lists both, and exports them.
   await page.getByRole('navigation', { name: 'Secciones del panel' }).getByRole('link', { name: 'Auditoría' }).click();
   await page.getByLabel('Quién').fill(creds.username);
-  await expect(page.getByRole('cell', { name: 'player.ban' })).toBeVisible();
-  await expect(page.getByRole('cell', { name: 'player.wallet' })).toBeVisible();
+  // Rows of other admins stay on screen until the filtered page arrives: wait for exactly this admin's two.
+  await expect(page.getByRole('cell', { name: 'player.ban' })).toHaveCount(1);
+  await expect(page.getByRole('cell', { name: 'player.wallet' })).toHaveCount(1);
   const download = page.waitForEvent('download');
   await page.getByRole('link', { name: 'Exportar CSV' }).click();
   expect((await download).suggestedFilename()).toMatch(/^auditoria-.*\.csv$/);
