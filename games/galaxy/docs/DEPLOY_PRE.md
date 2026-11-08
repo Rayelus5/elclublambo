@@ -237,6 +237,31 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - la pestaña Clanes de la clasificación lista los clanes con puntos;
    - sin violaciones de CSP.
 
+16. **Desde M5b-2 (los chats):** la migración `20261108015244_galaxy_chat` crea tres tablas:
+   - `galaxy.chat_messages`, con el canal `global` o `clan:<id>`. Los mensajes se ocultan, nunca se borran: `hidden_reason` dice si fue un moderador o las denuncias;
+   - `galaxy.chat_reports`, una denuncia por cuenta y mensaje;
+   - `galaxy.chat_mutes`, un silencio por cuenta, con su fin, su motivo y quién lo puso.
+
+   Llegan además:
+   - la clave viva `chat`:
+     - `minLevel`, el nivel para escribir (5);
+     - `perMinute`, los mensajes por minuto (6);
+     - `maxLength`, los caracteres por mensaje (280);
+     - `history`, los mensajes que trae cada canal (50);
+     - `hideAfter`, las denuncias de cuentas distintas que ocultan un mensaje (3);
+     - `words`, el filtro, que tapa esas palabras enteras con asteriscos sin distinguir tildes ni mayúsculas. Empieza vacío y admite 500 palabras;
+   - el botón «Comunidad» de la barra de arriba abre el chat, y «Chat del clan» en la página de tu clan lo abre en su canal;
+   - el socket `wss://pre.elclub.party/galaxy/api/chat/ws` solo empuja los mensajes. Se escribe y se lee por HTTP, y el socket se cierra sin sesión (4401) o desde otro origen (4403);
+   - los moderadores (rol `moderator`, `admin` o `superadmin`, entrando con TOTP) ven «Ocultar» y «Silenciar 1 hora» en cada mensaje.
+
+   **El WebSocket por el túnel:** `cloudflared` reenvía la cabecera `Upgrade` a `galaxy:8080` sin configurar nada, y la CSP `connect-src 'self'` ya cubre el `wss:` del mismo origen. Si el chat se queda en «Reconectando», mira en el panel de Cloudflare (Network) que WebSockets esté activado para `elclub.party`.
+
+   Comprueba con dos cuentas de prueba nuevas, de nivel 5 (experiencia en `galaxy.account_xp`):
+   - las dos abren «Comunidad»; la primera escribe y la segunda lo ve llegar sin recargar (eso prueba el socket a través del túnel);
+   - la segunda denuncia el mensaje y queda «Denunciado»;
+   - una tercera cuenta, de nivel 1, ve el campo desactivado con «Necesitas nivel 5 para escribir»;
+   - sin violaciones de CSP, tampoco del socket.
+
 ## Operación
 
 | Tarea | Cómo |

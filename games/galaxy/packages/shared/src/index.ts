@@ -26,3 +26,5 @@ export * from './progress/season';
 export * from './api/social';
 export * from './clans/rules';
 export * from './api/clans';
+export * from './chat/rules';
+export * from './api/chat';

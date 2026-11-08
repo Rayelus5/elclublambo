@@ -521,6 +521,40 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 
 **En el perfil**, el clan va bajo el nombre como una cápsula con su emblema y su etiqueta, enlazada al clan.
 
+## 8 terdecies. Chat
+
+El chat de la comunidad y el de cada clan (GDD §14.4, M5b-2). Lo abre «Comunidad» en la barra de arriba, o «Chat del clan» en la página de tu clan.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Un solo aviso en vivo:** la lista es un registro (`role="log"`) y el estado de la conexión, un `status`;
+- **El foco siempre visible:** contorno Hielo en pestañas, enlaces, acciones y el campo;
+- **Desactivado con su porqué:** si no puedes escribir, el campo se apaga y dice por qué.
+
+**La hoja** se abre a la derecha y no bloquea la pantalla (es un diálogo no modal):
+- **Medidas:** 420 px de ancho y fondo opaco, pegada al borde derecho con 16 px de margen y bajo la barra de arriba (que sigue a la vista). Queda por debajo de los diálogos modales.
+- **«Comunidad»:** se tiñe de Hielo mientras la hoja está abierta, y vuelve a pulsarse para cerrarla.
+- **Al abrir:** entra deslizándose 28 px en 0,24 s (sin animación con movimiento reducido). El foco va al campo, o a las pestañas si no puedes escribir.
+- **Al cerrar:** con Escape o con la X; el foco vuelve a quien la abrió.
+- **El socket:** solo escucha mientras la hoja está abierta, y cada vez que conecta vuelve a leer el canal sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **En una incursión** la hoja se cierra: el teclado es del juego.
+
+**Las pestañas:** Comunidad y, si tienes clan, Clan. Las flechas cambian de una a otra.
+
+**Cada mensaje:**
+- el avatar a 28 px, el nombre enlazado a su perfil (en Solar si es tuyo), «Nivel N», la etiqueta del clan (solo en Comunidad) y la hora;
+- el texto conserva sus saltos de línea;
+- tus mensajes llevan un fondo Solar muy tenue;
+- al pasar el ratón o con el foco aparece «Denunciar» y, para moderadores, «Ocultar» y «Silenciar 1 hora» (en Nova). Cada acción dice en su nombre accesible a quién se hace;
+- «Denunciar» pide confirmación en un diálogo de alerta, que cita el mensaje. Después queda «Denunciado» en Terminal;
+- «Silenciar 1 hora» pide el motivo;
+- sin el nivel para escribir no aparece «Denunciar»: las denuncias solo cuentan desde ese nivel.
+
+**Escribir:**
+- **El campo:** dos líneas (52 px) que se estiran arrastrando hasta 140 px, con «Enviar» en Solar.
+- **Debajo:** la ayuda «Enter envía y Mayúsculas con Enter salta de línea» y el contador «12 de 280», que se pone en Nova al pasarse.
+- **Si no puedes escribir:** en su lugar, en Solar, «Necesitas nivel 5 para escribir» o «Te han silenciado hasta las 14:05».
+- **Si vas muy deprisa:** «Vas muy deprisa. Espera un poco», sin borrar lo escrito.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

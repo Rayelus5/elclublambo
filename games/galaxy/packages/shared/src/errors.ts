@@ -67,6 +67,10 @@ export const API_ERROR_CODES = [
   'clan_closed',
   'request_not_found',
   'clan_kicked',
+  'chat_level',
+  'chat_muted',
+  'chat_empty',
+  'message_not_found',
   'level_too_low',
 ] as const;
 

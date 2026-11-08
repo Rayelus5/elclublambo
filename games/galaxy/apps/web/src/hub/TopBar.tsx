@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isAdmin } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
 import { Avatar } from './Avatar';
 import { Soon } from './Soon';
@@ -12,7 +13,7 @@ const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
  * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
- * the operator and their balances on the right, then the mailbox and Salir. Balances are read as whole sentences.
+ * the operator and their balances on the right, then the mailbox and Salir. Comunidad opens the chat sheet (M5b-2). Balances are read as whole sentences.
  */
 export function TopBar({
   me,
@@ -27,6 +28,9 @@ export function TopBar({
   onLogout: () => void;
   leaving: boolean;
 }) {
+  const chatOpen = useUi((s) => s.chat !== null);
+  const openChat = useUi((s) => s.openChat);
+  const closeChat = useUi((s) => s.closeChat);
   return (
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
@@ -40,10 +44,16 @@ export function TopBar({
           <span className="label">{copy.hub.market}</span>
           <Soon />
         </button>
-        <button type="button" className="lip pill locked fold enter" style={delay('1.05s')} disabled title={copy.hub.soon}>
+        <button
+          type="button"
+          className="lip pill fold enter"
+          style={delay('1.05s')}
+          aria-haspopup="dialog"
+          aria-expanded={chatOpen}
+          onClick={() => (chatOpen ? closeChat() : openChat('global'))}
+        >
           <Icon name="chat" />
           <span className="label">{copy.hub.community}</span>
-          <Soon />
         </button>
       </nav>
       <div className="group">

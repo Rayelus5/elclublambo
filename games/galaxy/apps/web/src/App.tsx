@@ -14,6 +14,7 @@ import { ClansScreen } from './clans/ClansScreen';
 import { ProfileScreen } from './social/ProfileScreen';
 import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
+import { ChatHost } from './chat/ChatPanel';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
@@ -54,30 +55,34 @@ function Home() {
 }
 
 export function App() {
+  // The chat sheet sits above every screen (M5b-2).
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />
-      <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
-      <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
-      <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
-      <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
-      <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
-      <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
-      <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
-      <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
-      <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
-      <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
-      <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
-      <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />
-      <Route path="/perfil/:username/coleccion" element={<SignedIn><PublicCollectionScreen /></SignedIn>} />
-      <Route element={<AuthLayout />}>
-        <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
-        <Route path="/crear-cuenta" element={<GuestOnly to="/sonda"><CrearCuenta /></GuestOnly>} />
-        <Route path="/verificar" element={<Verificar />} />
-        <Route path="/recuperar" element={<Recuperar />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />
+        <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
+        <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
+        <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
+        <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
+        <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
+        <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
+        <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
+        <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
+        <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
+        <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
+        <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
+        <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />
+        <Route path="/perfil/:username/coleccion" element={<SignedIn><PublicCollectionScreen /></SignedIn>} />
+        <Route element={<AuthLayout />}>
+          <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
+          <Route path="/crear-cuenta" element={<GuestOnly to="/sonda"><CrearCuenta /></GuestOnly>} />
+          <Route path="/verificar" element={<Verificar />} />
+          <Route path="/recuperar" element={<Recuperar />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <ChatHost />
+    </>
   );
 }
