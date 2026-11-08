@@ -180,7 +180,7 @@ test('el campo «Visitar un planetario» lleva a su planetario, y los destacados
   expect(await screen.findByRole('heading', { level: 1, name: t.of('vega') })).toBeInTheDocument();
 });
 
-test('la visita enseña al dueño, sus cartas sin acciones, su prestigio y sus visitas', async () => {
+test('la visita enseña al dueño, sus cartas para verlas en 3D, su prestigio y sus visitas', async () => {
   const visit: PlanetariumVisit = { owner: 'vega', exhibits: [pub({ name: 'Antares' }), null, null, pub({ id: 'g4', name: 'Bellatrix', tier: 'uncommon', finish: 'normal' }), null, null], prestige: 15, visits: 3 };
   mockApi({ 'GET /galaxy/api/planetarium/visit/vega': () => jsonResponse(200, visit) });
   renderAt('/planetario/vega', screens);
@@ -189,7 +189,8 @@ test('la visita enseña al dueño, sus cartas sin acciones, su prestigio y sus v
   expect(within(pedestals).getAllByRole('listitem')).toHaveLength(6);
   expect(within(pedestals).getByRole('article', { name: 'Antares' })).toBeInTheDocument();
   expect(within(pedestals).getByRole('article', { name: 'Bellatrix' })).toBeInTheDocument();
-  expect(within(pedestals).queryAllByRole('button')).toHaveLength(0);
+  // No actions on someone else's cards, only a look in 3D (the owner's request).
+  expect(within(pedestals).getAllByRole('button').map((b) => b.getAttribute('aria-label'))).toEqual([copy.inspector.openOf('Antares'), copy.inspector.openOf('Bellatrix')]);
   const panel = screen.getByRole('region', { name: t.prestige });
   expect(panel).toHaveTextContent('15');
   expect(panel).toHaveTextContent('3 visitas');

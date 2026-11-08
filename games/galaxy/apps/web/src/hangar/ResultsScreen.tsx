@@ -103,6 +103,16 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
           </tbody>
         </table>
         {r.breakdown.share < 1 && <p className="results-note static">{copy.results.half}</p>}
+        {(r.breakdown.boosts ?? []).length > 0 && (
+          <div className="results-daily results-boosts">
+            <h3>{copy.boosts.resultsTitle}</h3>
+            <ul>
+              {(r.breakdown.boosts ?? []).map((b) => (
+                <li key={b.id}>{copy.boosts.paid(b.name, copy.boosts.currencies[b.currency] ?? b.currency, b.factor)}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {r.breakdown.daily.length > 0 && (
           <div className="results-daily">
             <h3>{copy.results.dailyTitle}</h3>

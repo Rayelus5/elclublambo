@@ -475,6 +475,33 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - bajar un nivel pide tu contraseña;
    - sin violaciones de CSP.
 
+27. **Desde M6d-5 (economía viva):** sin migraciones. Además llegan dos peticiones del dueño sobre la vista 3D.
+
+   **Multiplicadores globales temporales.** La configuración tiene una clave nueva, **`boosts`**, que se edita en Configuración como las demás. Cada multiplicador lleva:
+   - `id` y `name`;
+   - `currency`: `coins`, `dust`, `material` o `signal`;
+   - `factor`, de 1 a 5;
+   - `startsAt` y `endsAt`, con una ventana de 14 días como mucho.
+
+   Una partida que termina dentro de la ventana cobra multiplicado: monedas, polvo y material antes de los topes por partida, y la probabilidad de señal por Núcleo. El resultado de la partida dice qué multiplicador pagó. Varios sobre la misma moneda se multiplican, hasta 5. Los jugadores ven los que están en marcha en la pantalla de título y en el hangar.
+
+   Ejemplo, «doble polvo el fin de semana»:
+   ```json
+   { "list": [{ "id": "polvo-finde", "name": "Doble polvo", "currency": "dust", "factor": 2, "startsAt": "2026-11-14T00:00:00.000Z", "endsAt": "2026-11-16T00:00:00.000Z" }] }
+   ```
+
+   **Simulador de la economía.** En Configuración, bajo `runs` y `boosts`, juega tres partidas con el bot en el sector y la duración elegidos. Después compara lo publicado con el borrador, por partida y en un día de juego. Es una estimación y no publica nada.
+
+   **Inspector 3D.**
+   - Si el equipo no puede generar la vista 3D pro, sale la vista 3D clásica (la de antes de M6d-1) con un aviso y el motivo. Sin WebGL2, la carta plana, también con el motivo.
+   - Las cartas del planetario de otro jugador se abren en 3D al hacer clic en ellas.
+
+   Comprueba con `rayelus`:
+   - en `boosts`, un multiplicador de polvo que empiece ahora: sale en la pantalla de título;
+   - el simulador de `runs` da su tabla;
+   - una carta de un planetario visitado se abre en 3D;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -542,7 +542,8 @@
   .inspector-gl.dragging { cursor: grabbing; }
   .inspector-wait { position: absolute; inset: 0; display: grid; place-items: center; font: 40px/1 var(--font-braille); color: var(--color-ice); }
   .inspector-flat { height: 100%; overflow: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 18px; }
-  .inspector-flat p { margin: 0; max-width: 52ch; text-align: center; color: var(--color-ink-soft); }
+  .inspector-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-solar) 12%, transparent); color: var(--color-solar); font-weight: 600; line-height: 1.45; }
+  .inspector-notice .ico { flex: none; margin-top: 2px; }
   .inspector-flat > div { display: flex; gap: 22px; }
   .inspector-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .inspector-hint { margin-right: auto; color: var(--color-ink-mute); font-size: 14.5px; }
@@ -1600,6 +1601,20 @@
   .gift-item.signal .ico { color: var(--color-nova); }
   .gift > .pill, .gift-done, .gift .field-error { grid-area: action; }
   .gift-done { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 800; color: var(--color-terminal); }
+  /* The economy simulator (DESIGN_SYSTEM §8 quatervicies). */
+  .economy-sim { --r: 18px; display: grid; gap: 12px; padding: 16px 18px; }
+  .economy-sim h2 { margin: 0; font: 400 20px var(--font-display); }
+  .economy-sim .panel-note { margin: 0; }
+  .economy-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
+  .economy-controls .field { margin: 0; min-width: 200px; }
+  .economy-table .num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .economy-table th[scope='row'] { position: static; text-align: start; background: none; font-size: 14px; color: var(--color-ink); border-top: 1px solid rgb(255 255 255 / .05); }
+  /* The global multipliers running now (DESIGN_SYSTEM §8 quatervicies). */
+  .boost-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+  .boost-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--color-terminal) 14%, var(--color-panel)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-terminal) 45%, transparent); color: var(--color-ink); font-weight: 700; font-size: 14px; }
+  .boost-chip .ico { color: var(--color-terminal); }
+  .boost-chip.coins .ico { color: var(--color-solar); }
+  .boost-chip.dust .ico { color: var(--color-ice); }
   .title-notices { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; inline-size: min(560px, 100%); }
   .title-notice { margin: 0; }
   .title-notice.info { background: color-mix(in srgb, var(--color-ice) 12%, transparent); border-color: color-mix(in srgb, var(--color-ice) 40%, transparent); color: #d6e6ff; }

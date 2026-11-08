@@ -189,7 +189,11 @@ export interface RunResult {
   level: number;
   /** `material`: raw material for the station's refinery (M4a). */
   payout: { coins: number; dust: number; signals: number; material: number };
-  breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[] };
+  /**
+   * `boosts`: the global multipliers that paid this run (M6d-5), empty when none ran at its finish; absent from results
+   * kept before M6d-5 (a resent finish answers what was stored).
+   */
+  breakdown: { layers: RunLayerPay[]; share: number; daily: { seconds: number; multiplier: number }[]; boosts?: { id: string; name: string; currency: 'coins' | 'dust' | 'material' | 'signal'; factor: number }[] };
   wallet: Wallet;
   /**
    * What the run gave the account (M5a): experience, the level after it and whether it went up, and the season points

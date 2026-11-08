@@ -880,6 +880,19 @@ Las dos columnas pasan a una sola cuando no caben (mínimo 380 px cada una).
 
 **Los encabezados de fila** son `th scope="row"` sin el fondo de los de columna, y las celdas van centradas en vertical con sus botones.
 
+## 8 quatervicies. Multiplicadores y simulador de economía
+
+**Multiplicadores en marcha:** una píldora por multiplicador, con el icono de su moneda, en la pantalla de título bajo los avisos y en el hangar bajo el rendimiento diario. El texto es «Doble polvo, polvo x2 hasta el domingo 23:59». Va en Terminal suave y no sale nada si no hay ninguno.
+
+**Simulador de la economía:** un panel bajo el editor de `runs` y `boosts`:
+- arriba, sus selectores: sector, duración de cada partida y juego al día;
+- «Simular» y «Parar», con el progreso escrito;
+- debajo, una tabla con lo publicado, el borrador y la diferencia (con su porcentaje), por partida y al día. Es una tabla y no un gráfico porque la tarea es comparar cifras exactas.
+
+**Inspector 3D:**
+- el aviso «no puede generar la vista 3D pro» y el de la carta plana van en una nota Solar con su motivo, encima del lienzo;
+- en un planetario visitado, toda la carta es el botón que la abre en 3D.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

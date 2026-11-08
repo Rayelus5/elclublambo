@@ -20,6 +20,10 @@ import {
   sectorStatus,
   type StartRunRequest,
   startingWeapon,
+  activeBoosts,
+  boostFactor,
+  type BoostCurrency,
+  type BoostsConfig,
 } from '@galaxy/shared';
 import { type Content, decodeLog, fromBase64, logTicks } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -114,6 +118,8 @@ export interface FinishContext {
   /** The account level and the season (M5a): experience and points for a run that is not suspicious. */
   account: AccountConfig;
   season: SeasonConfig;
+  /** The temporary global multipliers (M6d-5): those running at the finish pay this run. */
+  boosts: BoostsConfig;
   now: Date;
 }
 
@@ -177,17 +183,20 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .execute();
 
   const boost = payoutBoost(run.upgrades);
-  const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost);
+  // The global multipliers running now (M6d-5), before the per-run caps; the signal chance never above 1.
+  const boosted = activeBoosts(ctx.boosts, ctx.now).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor }));
+  const global = (c: BoostCurrency) => boostFactor(ctx.boosts, c, ctx.now);
+  const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost, { coins: global('coins'), dust: global('dust') });
   const flags = pay.capped ? [...check.flags, 'payout_cap' as const] : check.flags;
   let signals = 0;
-  const chance = ctx.runs.signalChancePerBoss * factor;
+  const chance = Math.min(1, ctx.runs.signalChancePerBoss * factor * global('signal'));
   for (let k = 0; k < claim.bossKills; k++) if (randomInt(1_000_000) < chance * 1_000_000) signals++;
   const ref = { run: run.id };
   if (pay.coins > 0) await credit(trx, accountId, 'coins', pay.coins, 'run', ref, key);
   if (pay.dust > 0) await credit(trx, accountId, 'dust', pay.dust, 'run', ref, key);
   if (signals > 0) await credit(trx, accountId, 'signal', signals, 'run', ref, key);
   // Raw material for the station's refinery (GDD §10.3), paid like the loot.
-  const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material);
+  const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material, global('material'));
   if (material > 0) await credit(trx, accountId, 'material', material, 'run', ref, key);
 
   const payout = { coins: pay.coins, dust: pay.dust, signals, material };
@@ -203,7 +212,7 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
       level: claim.level,
       seconds,
       hash: claim.hash,
-      payout: JSON.stringify({ ...payout, layers: pay.layers, share: pay.share, daily: segments, claimed: claimed.loot }),
+      payout: JSON.stringify({ ...payout, layers: pay.layers, share: pay.share, daily: segments, claimed: claimed.loot, boosts: boosted }),
       runs_version: ctx.runsVersion,
       flags,
       suspicious: flags.length > 0,
@@ -229,7 +238,7 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     kills: claim.kills,
     level: claim.level,
     payout,
-    breakdown: { layers: pay.layers, share: pay.share, daily: segments },
+    breakdown: { layers: pay.layers, share: pay.share, daily: segments, boosts: boosted },
     wallet: await getWallet(trx, accountId),
     progress,
   };

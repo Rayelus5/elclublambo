@@ -1,5 +1,6 @@
 import type { MeResponse } from '@galaxy/shared';
 import { TitleNotices } from './TitleNotices';
+import { BoostChips } from './Boosts';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -48,6 +49,7 @@ export function TitleScreen({ me }: { me: MeResponse }) {
         <main className="hub-main">
           <MaintenanceNotice />
           <TitleNotices />
+          <BoostChips />
           <Logo />
           <MainMenu galaxies={total} />
         </main>

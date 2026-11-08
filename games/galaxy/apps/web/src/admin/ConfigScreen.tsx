@@ -7,6 +7,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { EconomySimulator } from './EconomySimulator';
 import { cellText } from './DataTable';
 
 const t = copy.admin.config;
@@ -330,6 +331,7 @@ function Editor({ row }: { row: ConfigKeyRow }) {
         </div>
       </div>
       {row.key === 'gacha' && next ? <Simulator cfg={next as unknown as ReturnType<typeof parseConfig<'gacha'>>} /> : null}
+      {(row.key === 'runs' || row.key === 'boosts') && next ? <EconomySimulator editing={row.key} draft={next} /> : null}
       <section className="lip panel admin-history" aria-label={t.history}>
         <h2>{t.history}</h2>
         {versions.data && versions.data.length === 0 ? <p className="panel-note">{t.noHistory}</p> : null}
