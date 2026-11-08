@@ -2,6 +2,7 @@ import { simOptions } from './sim-options';
 import type { RunStart } from '@galaxy/shared';
 import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSummary, type RunSummary, type Sim, type SimEvent, step, toBase64 } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { setIntensity, startMusic } from '../audio/music';
 import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { announceFor } from './announce';
@@ -217,8 +218,14 @@ export function ArenaScreen({
       seen.current = { level: h.level, boss: !!h.boss, beacon: !!h.beacon, layer: h.layer, low: h.hp <= h.maxHp * 0.3 };
       // The first level-up ever (M7c): PERKINS says what it is, once.
       if (h.offer) say('levelup', copy.arena.radio.levelup);
+      // The music follows the fight (M8a): a boss or little life is the most, the beacon or a deeper layer more.
+      setIntensity(h.boss || h.hp <= h.maxHp * 0.3 ? 3 : h.phase === 'beacon' || h.layer >= 2 ? 2 : 1);
     }, HUD_EVERY_MS);
-    return () => clearInterval(id);
+    startMusic();
+    return () => {
+      clearInterval(id);
+      setIntensity(0);
+    };
   }, [sim, say]);
 
   useEffect(() => {

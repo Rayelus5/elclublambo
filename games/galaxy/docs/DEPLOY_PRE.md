@@ -625,6 +625,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba que `GET /galaxy/api/redshift` responde 401 sin sesión y su vista con sesión.
 
+36. **Desde M8a (audio y Ajustes):** sin migraciones ni claves.
+   - **Música adaptativa:** synthwave en La menor a 104 bpm, sintetizada con WebAudio y un planificador anticipado. Empieza con el primer clic o tecla y nunca suena en el panel de admin.
+   - **Capas:** el pad siempre; el bajo, el arpegio y la batería entran según la intensidad. En la incursión la intensidad sube con la capa o la baliza, y es máxima con un jefe o con poca vida.
+   - **Mezclador:** los efectos del escáner y del combate pasan por un solo mezclador con dos buses.
+   - **Ajustes (`/galaxy/ajustes`):** el botón del pie del menú, que deja de estar «En desarrollo», lleva a la música, los efectos, silenciar todo, apuntar con el ratón, volver a oír a PERKINS y enseñar otra vez los primeros pasos. Se guarda en el navegador. El silencio de antes del escáner se respeta.
+
+   Comprueba que suena tras el primer clic, que el volumen de la música la baja y que «Silenciar todo» lo calla todo.
+
 ## Operación
 
 | Tarea | Cómo |

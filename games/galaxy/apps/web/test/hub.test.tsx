@@ -90,22 +90,12 @@ test('el escáner avisa de la tirada gratis solo cuando toca', async () => {
   expect(screen.queryByText(copy.hub.freePull)).not.toBeInTheDocument();
 });
 
-test('lo que aún no existe se ve bloqueado con «En desarrollo»', async () => {
-  api();
-  renderAt('/', { '/': <TitleScreen me={me} /> });
-  await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.settings]) {
-    const button = screen.getByRole('button', { name: new RegExp(name) });
-    expect(button).toBeDisabled();
-    expect(button).toHaveTextContent(copy.hub.soon);
-  }
-});
 
 test('Guía, Misiones de hoy, Logros y Sondas llevan a su sitio (M7c)', async () => {
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const [name, href] of [[copy.hub.guide, '/guia'], [copy.hub.missions, '/misiones'], [copy.hub.achievements, '/misiones?pestana=logros'], [copy.hub.probes, '/incursion'], [copy.hub.codex, '/codice']]) {
+  for (const [name, href] of [[copy.hub.guide, '/guia'], [copy.hub.missions, '/misiones'], [copy.hub.achievements, '/misiones?pestana=logros'], [copy.hub.probes, '/incursion'], [copy.hub.codex, '/codice'], [copy.hub.settings, '/ajustes']]) {
     const link = screen.getByRole('link', { name: new RegExp(name!) });
     expect(link).toHaveAttribute('href', href);
     expect(link).not.toHaveTextContent(copy.hub.soon);

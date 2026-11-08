@@ -1,9 +1,9 @@
 import { TIERS, type Tier } from '@galaxy/shared';
+import { getSettings, setSettings, sfxOut } from '../audio/mixer';
 
 // The scanner's sounds (GDD §9), synthesised with WebAudio: no audio files, so the CSP stays as it is. The clack is a
 // Perkins braille machine's key (a filtered noise burst with a low thud); the chord brightens with the rarity and the
 // Legendary one is a rising arpeggio. Short sounds only, always after the player's own click; muting is remembered.
-const MUTE_KEY = 'galaxy.sfx.muted';
 // Chord notes (Hz) per tier: a fifth for common, a triad, a seventh, a ninth, and an arpeggio for legendary.
 const CHORDS: Record<Tier, number[]> = {
   common: [261.63, 392],
@@ -20,35 +20,17 @@ export interface Sfx {
   setMuted(on: boolean): void;
 }
 
-function readMuted(): boolean {
-  try {
-    return localStorage.getItem(MUTE_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 export function createSfx(): Sfx {
-  let ctx: AudioContext | null = null;
-  let muted = readMuted();
-
-  function audio(): AudioContext | null {
-    if (muted) return null;
-    const Ctor = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext;
-    if (!Ctor) return null;
-    try {
-      ctx ??= new Ctor();
-      if (ctx.state === 'suspended') void ctx.resume();
-      return ctx;
-    } catch {
-      return null;
-    }
+  // The mixer's effects bus (M8a): its volume and the mute for all come from the settings.
+  function audio(): { ctx: AudioContext; out: GainNode } | null {
+    return sfxOut();
   }
 
   return {
     clack() {
-      const a = audio();
-      if (!a) return;
+      const bus = audio();
+      if (!bus) return;
+      const a = bus.ctx;
       const t = a.currentTime;
       const length = Math.floor(a.sampleRate * 0.05);
       const buffer = a.createBuffer(1, length, a.sampleRate);
@@ -62,7 +44,7 @@ export function createSfx(): Sfx {
       band.Q.value = 1.4;
       const gain = a.createGain();
       gain.gain.setValueAtTime(0.32, t);
-      noise.connect(band).connect(gain).connect(a.destination);
+      noise.connect(band).connect(gain).connect(bus.out);
       noise.start(t);
       // The key bottoming out: a short low thud under the click.
       const thud = a.createOscillator();
@@ -72,13 +54,14 @@ export function createSfx(): Sfx {
       const thudGain = a.createGain();
       thudGain.gain.setValueAtTime(0.22, t);
       thudGain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-      thud.connect(thudGain).connect(a.destination);
+      thud.connect(thudGain).connect(bus.out);
       thud.start(t);
       thud.stop(t + 0.1);
     },
     chord(tier) {
-      const a = audio();
-      if (!a) return;
+      const bus = audio();
+      if (!bus) return;
+      const a = bus.ctx;
       const t0 = a.currentTime;
       const arpeggio = tier === 'legendary';
       const notes = CHORDS[tier];
@@ -92,19 +75,14 @@ export function createSfx(): Sfx {
         gain.gain.setValueAtTime(0.0001, t);
         gain.gain.linearRampToValueAtTime(0.16 / Math.sqrt(notes.length), t + 0.03);
         gain.gain.exponentialRampToValueAtTime(0.0001, t + 1.1 + bright * 0.25);
-        osc.connect(gain).connect(a.destination);
+        osc.connect(gain).connect(bus.out);
         osc.start(t);
         osc.stop(t + 1.4 + bright * 0.25);
       });
     },
-    muted: () => muted,
+    muted: () => getSettings().muted,
     setMuted(on) {
-      muted = on;
-      try {
-        localStorage.setItem(MUTE_KEY, on ? '1' : '0');
-      } catch {
-        // Private windows: the choice lasts for this page only.
-      }
+      setSettings({ muted: on });
     },
   };
 }

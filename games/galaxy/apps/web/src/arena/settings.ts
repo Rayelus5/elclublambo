@@ -27,6 +27,15 @@ export function radioSeen(id: string): boolean {
   }
 }
 
+/** Forgets every line heard, so PERKINS says them again (Ajustes, M8a). */
+export function resetRadio(): void {
+  try {
+    localStorage.removeItem(RADIO_KEY);
+  } catch {
+    // Private windows: nothing kept anyway.
+  }
+}
+
 export function markRadioSeen(id: string): void {
   try {
     const list = (localStorage.getItem(RADIO_KEY) ?? '').split(',').filter(Boolean);

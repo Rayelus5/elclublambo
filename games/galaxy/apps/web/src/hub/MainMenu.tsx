@@ -145,11 +145,10 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
       </div>
 
       <div className="hub-foot">
-        <button type="button" className="lip pill locked enter" style={style({ '--d': '1.34s' })} disabled title={copy.hub.soon}>
+        <Link to="/ajustes" className="lip pill enter" style={style({ '--d': '1.34s' })}>
           <Icon name="gear" />
           <span>{copy.hub.settings}</span>
-          <Soon />
-        </button>
+        </Link>
         <Link to="/guia" className="lip pill enter" style={style({ '--d': '1.38s' })}>
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>

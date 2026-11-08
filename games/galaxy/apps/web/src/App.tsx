@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
-import { Navigate, Route, Routes } from 'react-router';
+import { type ReactNode, useEffect } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { startMusic, stopMusic } from './audio/music';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
@@ -42,6 +43,7 @@ import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
 import { TrophiesScreen } from './season/TrophiesScreen';
+import { SettingsScreen } from './hub/SettingsScreen';
 
 function Splash() {
   return (
@@ -74,10 +76,30 @@ function Home() {
   return me.data ? <TitleScreen me={me.data} /> : <Navigate to="/entrar" replace />;
 }
 
+/** The music (M8a) starts with the first gesture anywhere in the game, and never plays in the admin panel. */
+function MusicStarter() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    if (pathname.startsWith('/admin')) {
+      stopMusic();
+      return;
+    }
+    const go = () => startMusic();
+    window.addEventListener('pointerdown', go, { once: true });
+    window.addEventListener('keydown', go, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', go);
+      window.removeEventListener('keydown', go);
+    };
+  }, [pathname]);
+  return null;
+}
+
 export function App() {
   // The chat sheet sits above every screen (M5b-2).
   return (
     <>
+      <MusicStarter />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />
@@ -98,6 +120,7 @@ export function App() {
         <Route path="/guia" element={<SignedIn><GuideScreen /></SignedIn>} />
         <Route path="/temporada" element={<SignedIn><SeasonScreen /></SignedIn>} />
         <Route path="/trofeos" element={<SignedIn><TrophiesScreen /></SignedIn>} />
+        <Route path="/ajustes" element={<SignedIn><SettingsScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>
