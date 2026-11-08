@@ -387,6 +387,14 @@ export const configSchemas = {
         .default(DEFAULT_ACCOUNT_LEVELS),
     })
     .strict(),
+  /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
+  clans: z
+    .object({
+      maxMembers: z.number().int().min(5).max(100).default(30),
+      createCost: z.object({ coins: z.number().int().min(0).max(100_000_000).default(2000) }).strict().default({ coins: 2000 }),
+      minLevel: z.number().int().min(1).max(99).default(5),
+    })
+    .strict(),
   /**
    * The season (GDD §13.1, §14.1; M5a): its id, name and dates (open from `startsAt`, closed from `endsAt`), the points
    * each run adds (per layer, per Core, for extracting), the score of each tier (Bronce to Estelar) and how many rows
