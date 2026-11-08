@@ -54,10 +54,12 @@ describe('los problemas de un borrador', () => {
     expect(mergeDraft('chat', {}, 'no es un objeto')).toBe('no es un objeto');
   });
 
-  test('los banners de evento son un problema hasta que lleguen los eventos', () => {
+  test('con los eventos (M7e-1) un escáner de evento se publica si trae su destacada y sus propias señales', () => {
     const gacha = parseConfig('gacha', {});
     const event = { id: 'nova', kind: 'event', name: 'Lluvia de cometas', pityGroup: 'event-nova', currency: 'signal:nova', featured: { trait: 'phenomenon', value: 'comet' } };
-    expect(configIssues('gacha', { ...gacha, banners: [...gacha.banners, event] })).toEqual([{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }]);
+    expect(configIssues('gacha', { ...gacha, banners: [...gacha.banners, event] })).toEqual([]);
+    const { featured: _f, ...plain } = event;
+    expect(configIssues('gacha', { ...gacha, banners: [...gacha.banners, plain] })).toEqual([{ path: 'banners.1', message: 'event_needs_featured_and_own_signals' }]);
   });
 
   test('los problemas se dicen en español, para quien edita el panel', () => {

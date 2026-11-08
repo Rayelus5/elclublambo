@@ -105,13 +105,14 @@ describe('publicar', () => {
     expect(keys.find((k) => k.key === 'season')!.data).toMatchObject({ startsAt: '2027-01-15T00:00:00.000Z', endsAt: '2027-02-15T00:00:00.000Z' });
   });
 
-  test('lo que no se puede publicar se rechaza con sus problemas, también los escáneres de evento (Review Focus 1)', async () => {
+  test('lo que no se puede publicar se rechaza con sus problemas, también un escáner de evento sin destacada (Review Focus 1)', async () => {
     const gacha = parseConfig('gacha', {});
-    const event = { id: 'nova', kind: 'event', name: 'Lluvia de cometas', pityGroup: 'event-nova', currency: 'signal:nova', featured: { trait: 'phenomenon', value: 'comet' } };
+    // Since M7e-1 event scanners are published, but one without its featured trait is still refused.
+    const event = { id: 'nova', kind: 'event', name: 'Lluvia de cometas', pityGroup: 'event-nova', currency: 'signal:nova' };
     const before = await versionsOf('gacha');
     const res = await publish('gacha', { data: { banners: [...gacha.banners, event] }, reason: 'Evento', password: admin.password });
     expect(res.statusCode).toBe(400);
-    expect(res.json()).toEqual({ error: 'config_invalid', issues: [{ path: 'banners', message: expect.any(String) }] });
+    expect(res.json()).toEqual({ error: 'config_invalid', issues: [{ path: 'banners.1', message: expect.any(String) }] });
     expect(await versionsOf('gacha')).toBe(before);
   });
 

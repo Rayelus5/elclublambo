@@ -1,6 +1,9 @@
 import {
   type Achievement,
+  activeEvents,
+  type EventView,
   type Frame,
+  type GameEvent,
   isoWeekOf,
   type Mission,
   type MissionCounts,
@@ -22,13 +25,19 @@ import { invalidateLeaderboard } from '../social/leaderboard';
 // refinery does is counted where it happens (countStats, in the same transaction); the day's and the week's missions are
 // drawn the same for everyone; collecting pays once (a guarded update), in the ledger, and adds its season points.
 
-type Periods = { daily: { period: string; list: Mission[]; endsAt: Date }; weekly: { period: string; list: Mission[]; endsAt: Date }; season: { period: string; list: Mission[] } | null };
+type Periods = {
+  daily: { period: string; list: Mission[]; endsAt: Date };
+  weekly: { period: string; list: Mission[]; endsAt: Date };
+  season: { period: string; list: Mission[] } | null;
+  /** The events running now (M7e-1), each with its period `e:<id>`. */
+  events: { period: string; event: GameEvent }[];
+};
 
 /** What counting and collecting read from the live config: read it before a transaction, never inside one. */
 export type MissionConfigs = Awaited<ReturnType<typeof missionConfigs>>;
 export async function missionConfigs(config: ConfigReader) {
-  const [missions, achievements, season] = await Promise.all([config.get('missions'), config.get('achievements'), config.get('season')]);
-  return { missions, achievements: achievements.list as Achievement[], season };
+  const [missions, achievements, season, events] = await Promise.all([config.get('missions'), config.get('achievements'), config.get('season'), config.get('events')]);
+  return { missions, achievements: achievements.list as Achievement[], season, events: events.list as GameEvent[] };
 }
 
 function periodsOf(c: MissionConfigs, now: Date): Periods {
@@ -42,10 +51,16 @@ function periodsOf(c: MissionConfigs, now: Date): Periods {
     daily: { period: `d:${day}`, list: pickMissions(c.missions.daily.pool as Mission[], c.missions.daily.count, `d:${day}`), endsAt: midnight },
     weekly: { period: `w:${week}`, list: pickMissions(c.missions.weekly.pool as Mission[], c.missions.weekly.count, `w:${week}`), endsAt: weekEnd },
     season: seasonOpen(c.season, now) ? { period: `s:${c.season.id}`, list: c.missions.season as Mission[] } : null,
+    events: activeEvents(c.events, now).map((event) => ({ period: `e:${event.id}`, event })),
   };
 }
 
-const grow = (stat: MissionStat, table: 'galaxy.mission_progress' | 'galaxy.achievement_progress', amount: number) =>
+/** The account's clan now (null without one): clan goals count for it. */
+async function clanOf(db: Kysely<DB>, accountId: string): Promise<string | null> {
+  return (await db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', accountId).executeTakeFirst())?.clan_id ?? null;
+}
+
+const grow = (stat: MissionStat, table: 'galaxy.mission_progress' | 'galaxy.achievement_progress' | 'galaxy.clan_event_progress', amount: number) =>
   stat === 'depth' ? sql<number>`greatest(${sql.ref(`${table}.progress`)}, ${amount})` : sql<number>`${sql.ref(`${table}.progress`)} + ${amount}`;
 
 /** Adds what just happened to the account's missions of now and its achievements (in the caller's transaction). */
@@ -63,6 +78,27 @@ export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: 
         .values({ account_id: accountId, period: period.period, mission: m.id, progress: amount, updated_at: now })
         .onConflict((oc) => oc.columns(['account_id', 'period', 'mission']).doUpdateSet({ progress: grow(m.stat, 'galaxy.mission_progress', amount), updated_at: now }))
         .execute();
+    }
+  }
+  // Events (M7e-1): personal goals like missions; clan goals add up for the clan the account is in now.
+  const clan = p.events.some((e) => e.event.goals.some((g) => g.scope === 'clan')) ? await clanOf(trx, accountId) : null;
+  for (const { period, event } of p.events) {
+    for (const g of event.goals) {
+      const amount = counts[g.stat];
+      if (!amount || amount <= 0) continue;
+      if (g.scope === 'personal') {
+        await trx
+          .insertInto('galaxy.mission_progress')
+          .values({ account_id: accountId, period, mission: g.id, progress: amount, updated_at: now })
+          .onConflict((oc) => oc.columns(['account_id', 'period', 'mission']).doUpdateSet({ progress: grow(g.stat, 'galaxy.mission_progress', amount), updated_at: now }))
+          .execute();
+      } else if (clan) {
+        await trx
+          .insertInto('galaxy.clan_event_progress')
+          .values({ clan_id: clan, event: event.id, goal: g.id, progress: amount, updated_at: now })
+          .onConflict((oc) => oc.columns(['clan_id', 'event', 'goal']).doUpdateSet({ progress: grow(g.stat, 'galaxy.clan_event_progress', amount), updated_at: now }))
+          .execute();
+      }
     }
   }
   for (const a of c.achievements) {
@@ -86,7 +122,11 @@ export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: 
 
 export async function missionsView(db: Kysely<DB>, c: MissionConfigs, accountId: string, now: Date): Promise<MissionsView> {
   const p = periodsOf(c, now);
-  const periods = [p.daily.period, p.weekly.period, ...(p.season ? [p.season.period] : [])];
+  const periods = [p.daily.period, p.weekly.period, ...(p.season ? [p.season.period] : []), ...p.events.map((e) => e.period)];
+  const clan = p.events.length > 0 ? await clanOf(db, accountId) : null;
+  const clanRows = clan
+    ? await db.selectFrom('galaxy.clan_event_progress').select(['event', 'goal', 'progress']).where('clan_id', '=', clan).where('event', 'in', p.events.map((e) => e.event.id)).execute()
+    : [];
   const [rows, achievements, cosmetics, account] = await Promise.all([
     db.selectFrom('galaxy.mission_progress').select(['period', 'mission', 'progress', 'claimed_at']).where('account_id', '=', accountId).where('period', 'in', periods).execute(),
     db.selectFrom('galaxy.achievement_progress').select(['achievement', 'progress', 'unlocked_at', 'claimed_at']).where('account_id', '=', accountId).execute(),
@@ -108,10 +148,26 @@ export async function missionsView(db: Kysely<DB>, c: MissionConfigs, accountId:
   const daily = view(p.daily.period, p.daily.list, p.daily.endsAt);
   const weekly = view(p.weekly.period, p.weekly.list, p.weekly.endsAt);
   const season = p.season ? view(p.season.period, p.season.list, null) : null;
+  const events: EventView[] = p.events.map(({ period, event }) => ({
+    id: event.id,
+    name: event.name,
+    description: event.description,
+    endsAt: new Date(event.endsAt).toISOString(),
+    period,
+    inClan: clan !== null,
+    goals: event.goals.map((g) => {
+      const mine = rows.find((x) => x.period === period && x.mission === g.id);
+      const progress = g.scope === 'personal' ? Number(mine?.progress ?? 0) : Number(clanRows.find((x) => x.event === event.id && x.goal === g.id)?.progress ?? 0);
+      const claimed = !!mine?.claimed_at;
+      if (!claimed && progress >= g.target && (g.scope === 'personal' || clan)) ready++;
+      return { id: g.id, name: g.name, stat: g.stat, target: g.target, scope: g.scope, progress: Math.min(progress, g.target), claimed, reward: g.reward };
+    }),
+  }));
   return {
     daily,
     weekly,
     season,
+    events,
     achievements: c.achievements.map((a) => {
       const r = achievements.find((x) => x.achievement === a.id);
       const unlocked = !!r?.unlocked_at;
@@ -129,11 +185,23 @@ export async function missionsView(db: Kysely<DB>, c: MissionConfigs, accountId:
   };
 }
 
-async function pay(trx: Kysely<DB>, accountId: string, reward: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number }, reason: 'mission' | 'achievement', ref: unknown, key: string, season: { id: string; open: boolean }, now: Date) {
+async function pay(
+  trx: Kysely<DB>,
+  accountId: string,
+  reward: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; eventSignals?: number },
+  reason: 'mission' | 'achievement' | 'event',
+  ref: unknown,
+  key: string,
+  season: { id: string; open: boolean },
+  now: Date,
+  eventId: string | null = null,
+) {
   for (const cur of ['coins', 'dust', 'signal'] as const) {
     const n = reward[cur] ?? 0;
     if (n > 0) await credit(trx, accountId, cur, n, reason, ref, key);
   }
+  // The event's own signals (M7e-1), for its event scanner.
+  if (eventId && (reward.eventSignals ?? 0) > 0) await credit(trx, accountId, `signal:${eventId}`, reward.eventSignals!, reason, ref, key);
   if ((reward.xp ?? 0) > 0) {
     await trx
       .insertInto('galaxy.account_xp')
@@ -142,13 +210,18 @@ async function pay(trx: Kysely<DB>, accountId: string, reward: { coins?: number;
       .execute();
   }
   if ((reward.points ?? 0) > 0 && season.open) {
-    await trx.insertInto('galaxy.season_adjustments').values({ account_id: accountId, season: season.id, points: reward.points!, source: reason }).execute();
+    await trx.insertInto('galaxy.season_adjustments').values({ account_id: accountId, season: season.id, points: reward.points!, source: reason === 'event' ? 'mission' : reason }).execute();
   }
 }
 
 /** Collects a mission of now (once) whose goal is reached. */
 export async function claimMission(trx: Kysely<DB>, c: MissionConfigs, accountId: string, period: string, id: string, key: string, now: Date): Promise<void> {
   const p = periodsOf(c, now);
+  const ev = p.events.find((e) => e.period === period);
+  if (ev) {
+    await claimEventGoal(trx, c, accountId, ev, id, key, now);
+    return;
+  }
   const found = [p.daily, p.weekly, p.season].find((x) => x?.period === period);
   const mission = found?.list.find((m) => m.id === id);
   if (!found || !mission) throw new HttpError(404, 'mission_not_found');
@@ -158,6 +231,25 @@ export async function claimMission(trx: Kysely<DB>, c: MissionConfigs, accountId
   await trx.updateTable('galaxy.mission_progress').set({ claimed_at: now }).where('account_id', '=', accountId).where('period', '=', period).where('mission', '=', id).where('claimed_at', 'is', null).execute();
   await pay(trx, accountId, mission.reward, 'mission', { period, mission: id }, key, { id: c.season.id, open: seasonOpen(c.season, now) }, now);
   if (mission.reward.points > 0) invalidateLeaderboard();
+}
+
+/** Collects an event goal (M7e-1), once: a personal one by its own progress, a clan one by the clan's (as a member now). */
+async function claimEventGoal(trx: Kysely<DB>, c: MissionConfigs, accountId: string, ev: { period: string; event: GameEvent }, id: string, key: string, now: Date): Promise<void> {
+  const goal = ev.event.goals.find((g) => g.id === id);
+  if (!goal) throw new HttpError(404, 'mission_not_found');
+  await trx.insertInto('galaxy.mission_progress').values({ account_id: accountId, period: ev.period, mission: id, progress: 0, updated_at: now }).onConflict((oc) => oc.doNothing()).execute();
+  const row = await trx.selectFrom('galaxy.mission_progress').select(['progress', 'claimed_at']).where('account_id', '=', accountId).where('period', '=', ev.period).where('mission', '=', id).forUpdate().executeTakeFirstOrThrow();
+  if (row.claimed_at) throw new HttpError(409, 'already_claimed');
+  let progress = Number(row.progress);
+  if (goal.scope === 'clan') {
+    const clan = await clanOf(trx, accountId);
+    if (!clan) throw new HttpError(409, 'not_in_clan');
+    progress = Number((await trx.selectFrom('galaxy.clan_event_progress').select('progress').where('clan_id', '=', clan).where('event', '=', ev.event.id).where('goal', '=', id).executeTakeFirst())?.progress ?? 0);
+  }
+  if (progress < goal.target) throw new HttpError(409, 'mission_not_ready');
+  await trx.updateTable('galaxy.mission_progress').set({ claimed_at: now }).where('account_id', '=', accountId).where('period', '=', ev.period).where('mission', '=', id).where('claimed_at', 'is', null).execute();
+  await pay(trx, accountId, goal.reward, 'event', { event: ev.event.id, goal: id }, key, { id: c.season.id, open: seasonOpen(c.season, now) }, now, ev.event.id);
+  if (goal.reward.points > 0) invalidateLeaderboard();
 }
 
 /** Collects a reached achievement (once): its signals and points, and its title or frame to choose. */

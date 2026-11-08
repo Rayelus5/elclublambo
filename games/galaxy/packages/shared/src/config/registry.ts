@@ -3,7 +3,7 @@ import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
-import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, missionSchema } from '../progress/missions';
+import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
 
@@ -560,6 +560,19 @@ export const configSchemas = {
    * currency (its name, what a run pays per point and the dust each one left is worth at the close) and what it buys.
    */
   seasonRoute: seasonRouteSchema,
+  /**
+   * Events (GDD §13.2; M7e-1): goals for a limited time, personal or of the clan, with their rewards (also the event's
+   * own signals for its event scanner, in `gacha.banners` with currency `signal:<event id>`). Programmed from the panel.
+   */
+  events: z
+    .object({
+      list: z
+        .array(eventSchema)
+        .max(10)
+        .refine((l) => new Set(l.map((e) => e.id)).size === l.length, 'Hay dos eventos con el mismo id')
+        .default([]),
+    })
+    .strict(),
   /** The ECN Catalogue's rewards (GDD §12.3; M7b): what completing each share of the album gives, collected once. */
   catalog: z
     .object({
@@ -641,9 +654,6 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
   if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
-  if (key === 'gacha' && (result.data as ConfigValue<'gacha'>).banners.some((b) => b.kind === 'event')) {
-    return [{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }];
-  }
   return [];
 }
 

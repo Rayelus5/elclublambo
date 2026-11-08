@@ -77,7 +77,8 @@ export function ScannerScreen() {
   }
 
   const busy = pull.isPending;
-  const signals = banner?.currency === 'signal' ? (wallet?.signal ?? 0) : 0;
+  // The standard signals, or an event scanner's own (M7e-1).
+  const signals = banner ? (wallet?.[banner.currency] ?? 0) : 0;
   return (
     <div className="screen-root collection-root scanner-root">
       <div className="collection scanner">
@@ -135,9 +136,9 @@ export function ScannerScreen() {
                   </span>
                 </button>
               ) : null}
-              {banner.currency === 'signal' ? (
+              {banner.currency === 'signal' || banner.currency.startsWith('signal:') ? (
                 <div className="pull-row">
-                  <span className="pull-label">{copy.scanner.withSignals}</span>
+                  <span className="pull-label">{banner.currency === 'signal' ? copy.scanner.withSignals : copy.scanner.withEventSignals(signals)}</span>
                   <PullButton count={1} cost={copy.scanner.costSignals(view.costs.signals)} disabled={busy || signals < view.costs.signals} onClick={() => scan(1, 'signal')} solar />
                   <PullButton count={10} cost={copy.scanner.costSignals(view.costs.signals * 10)} disabled={busy || signals < view.costs.signals * 10} onClick={() => scan(10, 'signal')} solar />
                 </div>

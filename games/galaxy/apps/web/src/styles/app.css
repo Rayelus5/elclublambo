@@ -1624,6 +1624,16 @@
   .codex-entry p { margin: 0; max-inline-size: 62ch; line-height: 1.6; color: var(--color-ink); }
   .codex-fight { color: var(--color-terminal) !important; }
   @media (max-width: 760px) { .codex-body { grid-template-columns: minmax(0, 1fr); } }
+  /* Events: their goals, personal and of the clan (DESIGN_SYSTEM §8 untricies). */
+  .event-block { display: grid; gap: 12px; margin-block-end: 18px; }
+  .event-head { --r: 20px; display: flex; align-items: center; gap: 16px; padding: 16px 20px; background-image: linear-gradient(120deg, color-mix(in oklab, var(--color-uv) 35%, transparent), transparent 70%); }
+  .event-head > .ico { inline-size: 40px; block-size: 40px; color: var(--color-uv-soft); flex: none; }
+  .event-head > div { flex: 1; display: grid; gap: 2px; }
+  .event-head h2 { margin: 0; font: 400 24px var(--font-display); }
+  .event-head p { margin: 0; color: var(--color-ink-soft); }
+  .event-ends { color: var(--color-ink-mute); font-weight: 600; white-space: nowrap; }
+  .clan-tag { display: inline-block; margin-inline-end: 8px; padding: 1px 8px; border-radius: 999px; background: color-mix(in oklab, var(--color-uv-soft) 25%, transparent); color: var(--color-uv-soft); font-size: 12px; font-weight: 700; vertical-align: 2px; }
+  .mission-card.clan-goal { box-shadow: inset 3px 0 0 var(--color-uv-soft); }
   /* A season's close, the trophy room and the hall of fame (DESIGN_SYSTEM §8 tricies). */
   :root { --place-gold: var(--color-solar); --place-silver: #c9d0ea; --place-bronze: #e0915a; --place-none: var(--color-ink-mute); }
   .season-closing { --r: 22px; display: flex; align-items: center; gap: 18px; padding: 18px 22px; background-image: radial-gradient(circle at 12% 50%, color-mix(in oklab, var(--color-solar) 22%, transparent), transparent 55%); }

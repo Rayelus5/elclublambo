@@ -591,6 +591,29 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba con una cuenta de prueba que el inicio enseñe el chip de la anomalía y que una incursión arranque sin errores.
 
+34. **Desde M7e-1 (eventos):** la migración `20261108210841_galaxy_events.sql`:
+   - deja que las misiones usen también el periodo `e:<evento>`;
+   - crea `galaxy.clan_event_progress` (lo que suma cada clan en sus metas).
+
+   Clave nueva, **`events`**, vacía por defecto. Cada evento tiene nombre, descripción y fechas (hasta 31 días), y hasta 12 metas.
+   - **Metas personales:** se cuentan como misiones.
+   - **Metas de clan:** suman lo que hacen sus miembros mientras lo son, y cada miembro recoge el premio una vez.
+   - **Premios:** pueden incluir `eventSignals`, las señales propias del evento (`signal:<id del evento>`).
+
+   **Escáner de evento:** ya se publica. Se añade en `gacha.banners` con `kind: "event"`, su destacada, `currency: "signal:<id del evento>"` y las mismas fechas. El escáner lo paga con esas señales.
+
+   **Dónde se ve:** el inicio enseña el evento en marcha y lleva a su pestaña en `/misiones`.
+
+   Ejemplo para probarlo desde el panel (cambia las fechas):
+   ```json
+   { "list": [{ "id": "cometas", "name": "Lluvia de cometas", "description": "Escanea el cielo mientras pasan los cometas",
+     "startsAt": "2026-11-10T00:00:00.000Z", "endsAt": "2026-11-17T00:00:00.000Z",
+     "goals": [
+       { "id": "scan", "name": "Haz 20 tiradas", "stat": "pulls", "target": 20, "reward": { "eventSignals": 5 } },
+       { "id": "purge", "name": "Purga 3 Núcleos", "stat": "bossKills", "target": 3, "reward": { "coins": 1500, "eventSignals": 5 } },
+       { "id": "clan-runs", "name": "Entre todo el clan, 50 incursiones", "stat": "runs", "target": 50, "scope": "clan", "reward": { "signal": 3 } } ] }] }
+   ```
+
 ## Operación
 
 | Tarea | Cómo |
