@@ -30,7 +30,6 @@ export async function missionConfigs(config: ConfigReader) {
   const [missions, achievements, season] = await Promise.all([config.get('missions'), config.get('achievements'), config.get('season')]);
   return { missions, achievements: achievements.list as Achievement[], season };
 }
-const configs = missionConfigs;
 
 function periodsOf(c: MissionConfigs, now: Date): Periods {
   const day = madridDay(now);
