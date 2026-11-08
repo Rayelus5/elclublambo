@@ -165,9 +165,10 @@ test('escribir: el contador, Mayúsculas con Enter salta de línea y Enter enví
   expect(field).toHaveValue('');
 });
 
-test('sin nivel el campo está desactivado y dice el nivel que hace falta', async () => {
+test('sin nivel el campo está desactivado y dice el nivel que hace falta, y no hay Denunciar', async () => {
   mount({ 'GET /galaxy/api/chat/global': () => jsonResponse(200, history({ canWrite: false, reason: 'level' })) });
-  const { panel } = await open();
+  const { panel, log } = await open();
+  expect(within(log).queryByRole('button', { name: t.reportOf('vega') })).not.toBeInTheDocument();
   expect(within(panel).getByRole('textbox', { name: t.field })).toBeDisabled();
   expect(within(panel).getByRole('button', { name: t.send })).toBeDisabled();
   expect(within(panel).getByText(t.needLevel(5))).toBeInTheDocument();
@@ -202,6 +203,46 @@ test('lo que llega por el socket se añade una sola vez, y lo borrado desaparece
   expect(within(log).queryByText('solo del clan')).not.toBeInTheDocument();
   await s.push({ type: 'deleted', channel: 'global', id: '10' });
   expect(within(log).queryByText('hola a todos')).not.toBeInTheDocument();
+});
+
+test('al conectar el socket se relee el canal, y lo que llega mientras tanto no se pierde', async () => {
+  let release: (h: ChatHistory) => void = () => {};
+  let calls = 0;
+  const fetch = mount({
+    'GET /galaxy/api/chat/global': () => {
+      calls += 1;
+      if (calls === 1) return jsonResponse(200, history());
+      return new Promise<Response>((r) => {
+        release = (h) => r(jsonResponse(200, h));
+      }) as unknown as Response;
+    },
+  });
+  const { log } = await open();
+  await lastSocket().open();
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/chat/global')).toHaveLength(2));
+  // The read is under way when a message comes in through the socket; the answer does not have it.
+  await lastSocket().push({ type: 'message', message: msg('12', { body: 'en pleno camino' }) });
+  await act(async () => release(history()));
+  expect(await within(log).findByText('en pleno camino')).toBeInTheDocument();
+  expect(within(log).getByText('hola a todos')).toBeInTheDocument();
+});
+
+test('un mensaje que llega antes del primer historial tampoco se pierde', async () => {
+  let release: (h: ChatHistory) => void = () => {};
+  mount({
+    'GET /galaxy/api/chat/global': () =>
+      new Promise<Response>((r) => {
+        release = (h) => r(jsonResponse(200, h));
+      }) as unknown as Response,
+  });
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: copy.hub.community }));
+  const panel = await screen.findByRole('dialog', { name: t.title });
+  await waitFor(() => expect(FakeSocket.all).toHaveLength(1));
+  await lastSocket().push({ type: 'message', message: msg('12', { body: 'llegó primero' }) });
+  await act(async () => release(history()));
+  const log = await within(panel).findByRole('log');
+  expect(await within(log).findByText('llegó primero')).toBeInTheDocument();
 });
 
 test('si el socket se cae vuelve a conectar y relee el canal; sin sesión no insiste', async () => {

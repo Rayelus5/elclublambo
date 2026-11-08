@@ -17,6 +17,7 @@ export function ChatMessageItem({
   own,
   showClan,
   moderator,
+  canReport,
   reported,
   busy,
   onReport,
@@ -27,6 +28,8 @@ export function ChatMessageItem({
   own: boolean;
   showClan: boolean;
   moderator: boolean;
+  /** Reports count from accounts with the level that writing needs: below it there is no «Denunciar». */
+  canReport: boolean;
   reported: boolean;
   busy: boolean;
   onReport: () => void;
@@ -49,9 +52,9 @@ export function ChatMessageItem({
         </p>
         <p className="chat-body">{m.body}</p>
       </div>
-      {own || (reported && !moderator) ? null : (
+      {own || ((reported || !canReport) && !moderator) ? null : (
         <div className="chat-msg-actions">
-          {reported ? null : (
+          {reported || !canReport ? null : (
             <button type="button" className="chat-action" aria-label={t.reportOf(u)} onClick={onReport}>
               {t.report}
             </button>

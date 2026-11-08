@@ -1,10 +1,11 @@
 import type { RunStart } from '@galaxy/shared';
 import { DEFAULT_CONTENT, offerFor, type Sim } from '@galaxy/sim';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type RunEnd } from '../src/arena/ArenaScreen';
 import { markRadioSeen } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
+import { useUi } from '../src/state/ui';
 
 // The run in the browser (GDD §5.1–5.2, §15): the level-up choice, pause (also when the tab hides), abandoning with
 // a confirmation, PERKINS on the radio once, an accessible HUD, and the end of the run. The PixiJS stage is replaced:
@@ -119,6 +120,21 @@ test('Escape abre la pausa, Continuar la cierra, y ocultar la pestaña también 
   act(() => document.dispatchEvent(new Event('visibilitychange')));
   expect(screen.getByRole('dialog', { name: copy.arena.pause })).toBeInTheDocument();
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+});
+
+test('al entrar en la incursión se cierra el chat, y una tecla escrita en un campo no pausa ni se queda la sonda sin espacios', async () => {
+  useUi.getState().openChat('global');
+  await mount();
+  expect(useUi.getState().chat).toBeNull();
+  clock.frames(5);
+  const field = document.createElement('textarea');
+  document.body.appendChild(field);
+  fireEvent.keyDown(field, { key: 'p', code: 'KeyP' });
+  expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+  const space = createEvent.keyDown(field, { key: ' ', code: 'Space' });
+  fireEvent(field, space);
+  expect(space.defaultPrevented).toBe(false);
+  field.remove();
 });
 
 test('Abandonar incursión pide confirmación y termina como abandonada, con la grabación', async () => {

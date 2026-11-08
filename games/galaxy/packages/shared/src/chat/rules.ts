@@ -15,15 +15,23 @@ export function maskWords(body: string, words: readonly string[]): string {
   return body.replace(/[\p{L}\p{N}]+/gu, (word) => (banned.has(fold(word)) ? '*'.repeat([...word].length) : word));
 }
 
+// Format characters that join emoji and some scripts stay: ZWNJ and ZWJ (Persian, Indic, 🧑‍🚀) and the tag characters
+// of flags like 🏴󠁧󠁢󠁥󠁮󠁧󠁿. The rest (direction controls, zero-width spaces, the BOM) only hide or reorder text.
+const keepFormat = (c: string) => c === '\u200C' || c === '\u200D' || (c.codePointAt(0)! >= 0xe0020 && c.codePointAt(0)! <= 0xe007f);
+
 /**
- * The message as it is kept: line breaks normalised, control and invisible characters gone, spaces joined, at most one
- * blank line in a row, trimmed. Null when nothing is left or it is longer than `max` characters.
+ * The message as it is kept: composed (NFC), line breaks normalised, control and invisible characters gone, spaces
+ * joined, at most one blank line in a row, at most four marks on a letter (no towers of accents over other messages),
+ * trimmed. Null when nothing is left or it is longer than `max` characters.
  */
 export function cleanBody(raw: string, max: number): string | null {
   const text = raw
+    .normalize('NFC')
     .replace(/\r\n?/g, '\n')
+    .replace(/\p{Cf}/gu, (c) => (keepFormat(c) ? c : ''))
     .replace(/[^\S\n]+/g, ' ')
-    .replace(/[\p{Cc}\p{Cf}]/gu, (c) => (c === '\n' ? c : ''))
+    .replace(/\p{Cc}/gu, (c) => (c === '\n' ? c : ''))
+    .replace(/(\p{M}{4})\p{M}+/gu, '$1')
     .replace(/ *\n */g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();

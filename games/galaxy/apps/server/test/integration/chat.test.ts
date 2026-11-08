@@ -131,6 +131,19 @@ describe('el socket', () => {
     for (const s of [sLead, sMember, sOut]) s.ws.terminate();
   });
 
+  test('una cuenta tiene tres sockets como mucho: el cuarto cierra el más antiguo', async () => {
+    const a = await player();
+    const s = [await socket(a), await socket(a), await socket(a), await socket(a)];
+    await settle();
+    expect(s[0]!.closed()).toBe(4008);
+    expect(s.slice(1).map((x) => x.closed())).toEqual([null, null, null]);
+    const text = `cuatro pestañas ${randomUUID().slice(0, 6)}`;
+    await send(a, text);
+    await settle();
+    for (const x of s.slice(1)) expect(x.events).toContainEqual(expect.objectContaining({ type: 'message', message: expect.objectContaining({ body: text }) }));
+    for (const x of s) x.ws.terminate();
+  });
+
   test('sin sesión o desde otro origen, se cierra', async () => {
     const anon = await socket(null);
     const a = await player();
@@ -148,11 +161,14 @@ describe('denuncias y moderación', () => {
     const watcher = await socket(await player());
     const report = (p: P) => post(ctx.app, `/galaxy/api/chat/messages/${m.id}/report`, {}, { cookie: p.cookie });
     expect((await report(author)).json()).toEqual({ hidden: false });
-    const r1 = await player(1);
+    const r1 = await player();
     expect((await report(r1)).json()).toEqual({ hidden: false });
     expect((await report(r1)).json()).toEqual({ hidden: false });
+    expect((await report(await player())).json()).toEqual({ hidden: false });
+    // Accounts below the level that writing needs do not count: throwaway accounts cannot take messages down.
     expect((await report(await player(1))).json()).toEqual({ hidden: false });
-    expect((await report(await player(1))).json()).toEqual({ hidden: true });
+    expect((await history(author)).messages.map((x) => x.id)).toContain(m.id);
+    expect((await report(await player())).json()).toEqual({ hidden: true });
     await settle();
     expect(watcher.events).toContainEqual({ type: 'deleted', channel: 'global', id: m.id });
     expect((await history(author)).messages.map((x) => x.id)).not.toContain(m.id);
@@ -167,7 +183,9 @@ describe('denuncias y moderación', () => {
     expect((await post(ctx.app, '/galaxy/api/chat/mutes', { username: a.username, minutes: 60, reason: 'Insultos' }, { cookie: b.cookie })).json()).toEqual({ error: 'forbidden' });
 
     const mod = await moderator();
-    expect((await history(mod)).moderator).toBe(true);
+    // A moderator writes whatever its level (a new staff account is level 1).
+    expect(await history(mod)).toMatchObject({ moderator: true, canWrite: true, reason: null });
+    expect((await send(mod, 'Recordad las normas')).statusCode).toBe(200);
     expect((await post(ctx.app, `/galaxy/api/chat/messages/${m.id}/hide`, undefined, { cookie: mod.cookie })).statusCode).toBe(200);
     expect((await history(a)).messages.map((x) => x.id)).not.toContain(m.id);
     expect((await post(ctx.app, '/galaxy/api/chat/mutes', { username: a.username, minutes: 1, reason: 'Insultos' }, { cookie: mod.cookie })).statusCode).toBe(200);

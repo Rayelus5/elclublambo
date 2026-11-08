@@ -535,7 +535,8 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **«Comunidad»:** se tiñe de Hielo mientras la hoja está abierta, y vuelve a pulsarse para cerrarla.
 - **Al abrir:** entra deslizándose 28 px en 0,24 s (sin animación con movimiento reducido). El foco va al campo, o a las pestañas si no puedes escribir.
 - **Al cerrar:** con Escape o con la X; el foco vuelve a quien la abrió.
-- **El socket:** solo escucha mientras la hoja está abierta. Si se cae, «Reconectando» y vuelve a leer el canal.
+- **El socket:** solo escucha mientras la hoja está abierta, y cada vez que conecta vuelve a leer el canal sin perder lo que llegue entretanto. Si se cae, «Reconectando».
+- **En una incursión** la hoja se cierra: el teclado es del juego.
 
 **Las pestañas:** Comunidad y, si tienes clan, Clan. Las flechas cambian de una a otra.
 
@@ -545,10 +546,11 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - tus mensajes llevan un fondo Solar muy tenue;
 - al pasar el ratón o con el foco aparece «Denunciar» y, para moderadores, «Ocultar» y «Silenciar 1 hora» (en Nova). Cada acción dice en su nombre accesible a quién se hace;
 - «Denunciar» pide confirmación en un diálogo de alerta, que cita el mensaje. Después queda «Denunciado» en Terminal;
-- «Silenciar 1 hora» pide el motivo.
+- «Silenciar 1 hora» pide el motivo;
+- sin el nivel para escribir no aparece «Denunciar»: las denuncias solo cuentan desde ese nivel.
 
 **Escribir:**
-- **El campo:** crece hasta 140 px, con «Enviar» en Solar.
+- **El campo:** dos líneas (52 px) que se estiran arrastrando hasta 140 px, con «Enviar» en Solar.
 - **Debajo:** la ayuda «Enter envía y Mayúsculas con Enter salta de línea» y el contador «12 de 280», que se pone en Nova al pasarse.
 - **Si no puedes escribir:** en su lugar, en Solar, «Necesitas nivel 5 para escribir» o «Te han silenciado hasta las 14:05».
 - **Si vas muy deprisa:** «Vas muy deprisa. Espera un poco», sin borrar lo escrito.

@@ -63,7 +63,8 @@ export async function chatHistory(deps: ChatDeps, s: SessionInfo, channel: ChatC
   const messages = await messagesWhere(deps.db, key, { before, limit: chat.history }, levels);
   const level = levels(await accountXp(deps.db, s.accountId));
   const muted = await muteOf(deps.db, s.accountId, deps.now());
-  const reason = level < chat.minLevel ? 'level' : muted ? 'muted' : null;
+  // Moderators write whatever their level (a new staff account is level 1).
+  const reason = level < chat.minLevel && !isModerator(s) ? 'level' : muted ? 'muted' : null;
   return {
     channel,
     messages,
@@ -79,7 +80,7 @@ export async function chatHistory(deps: ChatDeps, s: SessionInfo, channel: ChatC
 export async function sendMessage(deps: ChatDeps, s: SessionInfo, channel: ChatChannel, raw: string): Promise<ChatMessage> {
   const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
   const key = await channelKey(deps.db, s.accountId, channel);
-  if (levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) throw new HttpError(403, 'chat_level');
+  if (!isModerator(s) && levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) throw new HttpError(403, 'chat_level');
   if (await muteOf(deps.db, s.accountId, deps.now())) throw new HttpError(403, 'chat_muted');
   const body = cleanBody(raw, chat.maxLength);
   if (body === null) throw new HttpError(400, 'chat_empty');
@@ -111,13 +112,17 @@ async function hide(deps: ChatDeps, id: string, channel: string, reason: 'modera
   if (Number(done.numUpdatedRows) > 0) await deps.hub.broadcast(channel, { type: 'deleted', channel: asChannel(channel), id });
 }
 
-/** A report: one per account and message, never the author's own; at `chat.hideAfter` reports the message hides. */
+/**
+ * A report: one per account and message, never the author's own, and only from accounts with the level that writing
+ * needs (or moderators), so throwaway accounts cannot take messages down; at `chat.hideAfter` reports it hides.
+ */
 export async function reportMessage(deps: ChatDeps, s: SessionInfo, id: string, reason: string | undefined): Promise<{ hidden: boolean }> {
-  const chat = await deps.config.get('chat');
+  const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
   const m = await visibleMessage(deps.db, id);
   // A clan's message can only be reported by who can read it.
   if (m.channel !== 'global' && (await channelKey(deps.db, s.accountId, 'clan')) !== m.channel) throw new HttpError(404, 'message_not_found');
   if (m.author_id === s.accountId) return { hidden: false };
+  if (!isModerator(s) && levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) return { hidden: false };
   await deps.db
     .insertInto('galaxy.chat_reports')
     .values({ message_id: id, reporter_id: s.accountId, reason: reason?.trim() || null })

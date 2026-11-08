@@ -108,7 +108,7 @@ export const copy = {
     title: 'Galaxy Survivor se juega en ordenador',
     body: 'Abre el juego en una pantalla de al menos 1280×720 con ratón o trackpad.',
   },
-  // Clans (GDD §14.3; M5b-1).
+  // The chats (GDD §14.4; M5b-2).
   chat: {
     title: 'Chat',
     close: 'Cerrar el chat',
@@ -142,6 +142,7 @@ export const copy = {
     muteConfirm: 'Silenciar',
     mutedDone: (u: string) => `${u} no podrá escribir durante 1 hora`,
   },
+  // Clans (GDD §14.3; M5b-1).
   clans: {
     title: 'Clanes',
     back: 'Volver al inicio',

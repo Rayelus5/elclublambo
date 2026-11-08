@@ -15,6 +15,8 @@ import { createLoop, type Loop } from './loop';
 import { manualAim as storedAim, markRadioSeen, radioSeen, setManualAim } from './settings';
 import type { Camera } from './stage/camera';
 import { createStage, type Stage } from './stage/stage';
+import { useUi } from '../state/ui';
+import { typing } from '../ui/keys';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
@@ -228,9 +230,13 @@ export function ArenaScreen({
     return () => clearTimeout(id);
   }, [radio]);
 
+  // The chat sheet does not come into a run: it would take the keyboard and cover the playfield.
+  useEffect(() => useUi.getState().closeChat(), []);
+
   // Keyboard, mouse and the reasons to pause.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      if (typing(e)) return;
       if (e.code === 'Escape' || e.code === 'KeyP') {
         if (sim.status === 'choosing') return;
         if (loopRef.current?.paused) resume();

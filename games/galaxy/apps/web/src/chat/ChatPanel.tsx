@@ -250,6 +250,7 @@ function MessageLog({
           own={m.author.username === me}
           showClan={history.channel === 'global'}
           moderator={history.moderator}
+          canReport={history.reason !== 'level'}
           reported={reported.has(m.id)}
           busy={busy}
           onReport={() => onReport(m)}

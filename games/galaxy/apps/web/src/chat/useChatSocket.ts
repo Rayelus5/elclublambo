@@ -5,10 +5,11 @@ import { addMessage, CHAT_KEY, removeMessage } from '../api/chat';
 
 // The chats' socket (M5b-2) while the sheet is open: it only listens. Each new message lands in its channel's history
 // once (by id) and a message taken down leaves it. A dropped socket comes back after 1, 2, 4… seconds (30 at most) and
-// reads the channels again, for what came while it was away; without a session or from another origin it stops.
+// reads the channels again on every connection (the first included: what was sent between reading the history and
+// joining is not lost). Without a session, from another origin or replaced by a newer tab (4008) it stops.
 
 export const retryDelay = (attempt: number) => Math.min(30_000, 1000 * 2 ** attempt);
-const FINAL = new Set([4401, 4403]);
+const FINAL = new Set([4401, 4403, 4008]);
 
 /** True while the socket is down and coming back. */
 export function useChatSocket(): boolean {
@@ -19,15 +20,13 @@ export function useChatSocket(): boolean {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
     let stopped = false;
-    let first = true;
     const connect = () => {
       const s = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/galaxy/api/chat/ws`);
       socket = s;
       s.onopen = () => {
         attempt = 0;
         setDown(false);
-        if (!first) void qc.invalidateQueries({ queryKey: CHAT_KEY });
-        first = false;
+        void qc.invalidateQueries({ queryKey: CHAT_KEY });
       };
       s.onmessage = (e: MessageEvent) => {
         let event: ChatEvent;
@@ -42,7 +41,6 @@ export function useChatSocket(): boolean {
       s.onclose = (e: CloseEvent) => {
         socket = null;
         if (stopped || FINAL.has(e.code)) return;
-        first = false;
         setDown(true);
         timer = setTimeout(connect, retryDelay(attempt++));
       };

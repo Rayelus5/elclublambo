@@ -54,3 +54,20 @@ describe('la configuración y la API', () => {
     for (const code of ['chat_level', 'chat_muted', 'chat_empty', 'message_not_found']) expect(API_ERROR_CODES, code).toContain(code);
   });
 });
+
+describe('lo que se conserva y lo que no', () => {
+  test('los emojis compuestos y el ZWNJ de otras escrituras siguen enteros', () => {
+    const emoji = '\u{1F9D1}\u200D\u{1F680} \u{1F3F3}\uFE0F\u200D\u{1F308} \u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}';
+    expect(cleanBody(emoji, 280)).toBe(emoji);
+    expect(cleanBody('\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645', 280)).toBe('\u0645\u06CC\u200C\u062E\u0648\u0627\u0647\u0645');
+  });
+
+  test('los controles de dirección y los espacios invisibles se van', () => {
+    expect(cleanBody('a\u202Eb\u200Bc\uFEFFd\u2066e\u2060f', 280)).toBe('abcdef');
+  });
+
+  test('una torre de marcas (zalgo) se queda en cuatro, y lo escrito se compone', () => {
+    expect(cleanBody(`a${'\u0301'.repeat(50)}`, 280)).toBe(`\u00E1${'\u0301'.repeat(4)}`);
+    expect(cleanBody('to\u0301nto', 280)).toBe('t\u00F3nto');
+  });
+});
