@@ -135,7 +135,14 @@ function Section({ username, name, onRevoke }: { username: string; name: AdminSe
                     {t.actions.revoke}
                   </button>
                 )
-            : undefined
+            : name === 'runs'
+              ? (r) => (
+                  // Every run leads to its replay in the panel (M6d-3).
+                  <Link className="lip pill small" to={`/admin/partidas/${String(r['id'])}`} aria-label={copy.admin.runs.viewOf(username)}>
+                    {copy.admin.runs.view}
+                  </Link>
+                )
+              : undefined
         }
       />
       <Pager page={s.data.page} pages={s.data.pages} onPage={setPage} />

@@ -34,7 +34,8 @@ function Kit({ items, content, kind }: { items: { id: string; level: number; evo
   );
 }
 
-export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; content: Content; onPause: () => void; announce: string }) {
+/** The run's HUD; without `onPause` (the panel's replayer, M6d-3) it has no pause button of its own. */
+export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; content: Content; onPause?: () => void; announce: string }) {
   const hp = Math.max(0, Math.round(hud.hp));
   const maxHp = Math.round(hud.maxHp);
   const low = hud.hp <= hud.maxHp * 0.3;
@@ -76,9 +77,11 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
             <Icon name="target" />
             <b aria-hidden="true">{hud.kills}</b>
           </span>
-          <button type="button" className="lip pill icon hud-pause" onClick={onPause} aria-label={copy.arena.pauseButton}>
-            <Icon name="pause" />
-          </button>
+          {onPause ? (
+            <button type="button" className="lip pill icon hud-pause" onClick={onPause} aria-label={copy.arena.pauseButton}>
+              <Icon name="pause" />
+            </button>
+          ) : null}
         </div>
       </div>
       <div className="hud-kit">

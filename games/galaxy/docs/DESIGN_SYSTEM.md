@@ -835,6 +835,27 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 
 **La paleta:** azul y ámbar pasan las seis comprobaciones del validador sobre el Panel `#181a3d`, también con daltonismo. El verde y el rojo del juego fallaban la separación con deuteranopía y se descartaron.
 
+## 8 duovicies. Partidas y reproductor
+
+**La lista** (`/admin/partidas`): la tabla del panel con fecha, jugador, sector, sonda, final, duración, capa, bajas y si está marcada. Una fila sospechosa lleva un tinte Nova muy suave y la etiqueta «Sospechosa» en píldora. Filtros arriba (jugador exacto y «Solo sospechosas», con `aria-pressed`), guardados en la URL. «Ver» lleva a la repetición.
+
+**El reproductor** (`/admin/partidas/:id`):
+- **cabecera:** título con el jugador, los datos en píldoras (sector, sonda, final, duración, marca) y, a la derecha, «Marcar como sospechosa» (botón Nova, el peligroso) o «Quitar la marca»;
+- **escenario:** la arena de la partida en un marco 16:9 con bordes redondeados y labio, el HUD de la partida encima (sin su botón de pausa) y la barra del jefe. «Fin de la repetición» y «Avanzando» aparecen en una píldora abajo, en el centro;
+- **transporte**, debajo, en un panel con labio:
+  - «Reproducir» y «Pausar», con ancho fijo para que no salte;
+  - velocidades 1x, 2x, 4x y 8x, con `aria-pressed` y nombre completo para el lector;
+  - la línea de tiempo, un `range` con la parte jugada en Solar, el pulgar Solar con labio y el foco hielo, y `aria-valuetext` («0:12 de 0:20»);
+  - «Al principio» y «Al final»;
+- **teclado:** espacio reproduce o pausa y las flechas mueven 5 s; la línea de tiempo conserva sus propias flechas cuando tiene el foco;
+- **nunca empieza solo** (pauta de no reproducir automáticamente) y no suena.
+
+**Al lado** (debajo por debajo de 1560 px, en dos columnas):
+- **Comprobación:** «Comprobar» repite la partida aparte hasta su último tick, con el progreso escrito. El veredicto va en Terminal con su icono si coincide y en rosa `#ff8fa3` (7,7:1 sobre el Panel) si no. Debajo, la tabla dato, guardado, repetición y resultado, con la huella en dos grupos de 8 en monoespaciada y las filas distintas en rosa;
+- **Datos de la partida:** lista de definiciones (empezó, duración, semilla, versión de la simulación y del contenido, reliquias, marcas con su nombre) y el enlace a la ficha del jugador.
+
+**Sin entradas:** una partida sin terminar, o terminada sin entradas guardadas, dice por qué no se reproduce, en lugar del escenario.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
