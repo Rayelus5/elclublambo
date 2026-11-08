@@ -7,7 +7,7 @@ import { ClanEmblem } from '../clans/ClanEmblem';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
 import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
-import { BackLink } from '../ui/BackLink';
+import { HomeLink } from '../ui/BackLink';
 
 // The season leaderboard (GDD §14.1, §4; DESIGN_SYSTEM §8 undecies): the tabs live in the address (?pestana=) so a
 // view can be shared; the podium holds the top three and the table the rest; your row is marked, and pinned below
@@ -114,10 +114,10 @@ export function LeaderboardScreen() {
     <div className="screen-root leaderboard-root">
       <div className="leaderboard">
         <header className="collection-bar">
-          <BackLink fallback="/">
+          <HomeLink>
             <Icon name="back" />
             <span>{t.back}</span>
-          </BackLink>
+          </HomeLink>
           <h1>{t.leaderboard}</h1>
         </header>
         <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>

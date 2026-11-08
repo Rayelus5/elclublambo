@@ -1220,7 +1220,7 @@ export const copy = {
     title: 'Hangar',
     arenaFailed: 'No se pudo cargar la arena. Recarga la página para volver al hangar',
     reload: 'Recargar',
-    back: 'Volver al inicio',
+    back: 'Volver',
     sector: 'Sector',
     fauna: 'Fauna',
     layers: (min: number) => `Capas de ${fmt(min)} min, con su Núcleo y su extracción`,
