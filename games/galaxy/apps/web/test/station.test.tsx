@@ -17,7 +17,7 @@ const view = (over: Partial<StationView> = {}): StationView => ({
     { id: 'lab', state: 'future', level: 0, maxLevel: 0, next: null },
     { id: 'hangar', state: 'working', level: 1, maxLevel: 1, next: null },
     { id: 'collider', state: 'working', level: 1, maxLevel: 1, next: null },
-    { id: 'comms', state: 'future', level: 0, maxLevel: 0, next: null },
+    { id: 'comms', state: 'working', level: 1, maxLevel: 1, next: null },
     { id: 'refinery', state: 'working', level: 1, maxLevel: 5, next: { cost: { components: 40, coins: 500 } } },
     { id: 'antenna', state: 'broken', level: 0, maxLevel: 5, next: { cost: { components: 30, coins: 0 } } },
     { id: 'archive', state: 'future', level: 0, maxLevel: 0, next: null },
@@ -52,7 +52,7 @@ test('las diez salas: las que funcionan llevan a su pantalla y las de más adela
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.scanner) })).toHaveAttribute('href', '/escaner');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.planetarium) })).toHaveAttribute('href', '/planetario');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.collider) })).toHaveAttribute('href', '/coleccion');
-  for (const id of ['lab', 'comms', 'archive', 'trophies'] as const) {
+  for (const id of ['lab', 'archive', 'trophies'] as const) {
     const item = within(deck).getByText(t.rooms[id]).closest('li')!;
     expect(item).toHaveTextContent(t.repairing);
     expect(within(item).queryByRole('button')).toBeNull();
@@ -72,8 +72,8 @@ test('la Antena rota se repara con componentes: sin los suficientes, el botón e
   fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.antenna) }));
   const dialog = screen.getByRole('dialog', { name: t.rooms.antenna });
   expect(dialog).toHaveTextContent(t.antenna.broken);
-  expect(within(dialog).getByRole('button', { name: new RegExp(t.repair) })).toBeDisabled();
-  expect(dialog).toHaveTextContent(t.cost(30, 0));
+  // The repair says its cost in its name (the chips show it with icons).
+  expect(within(dialog).getByRole('button', { name: `${t.repair}: ${t.cost(30, 0)}` })).toBeDisabled();
   // And it says what is missing: 12 of 30 components.
   expect(dialog).toHaveTextContent(t.missing(18, 0));
 });
@@ -103,23 +103,27 @@ test('la refinería: su ritmo, su cola, cargar lo que cabe, recoger lo listo y m
   const dialog = screen.getByRole('dialog', { name: t.rooms.refinery });
   expect(dialog).toHaveTextContent(t.refinery.rate(20));
   expect(within(dialog).getByRole('progressbar', { name: t.refinery.queue })).toHaveAttribute('aria-valuenow', '30');
-  // By default all the material that fits: 45 in hand, 70 free in the queue.
-  expect(within(dialog).getByRole('spinbutton', { name: t.refinery.amount })).toHaveValue(45);
-  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.load }));
+  // By default all the material that fits: 45 in hand, 70 free in the queue; the presets pick a share of it.
+  const slider = within(dialog).getByRole('slider', { name: t.refinery.amount });
+  expect(slider).toHaveValue('45');
+  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.half }));
+  expect(slider).toHaveValue('22');
+  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.all }));
+  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.loadN(45) }));
   await waitFor(() => expect(within(dialog).getByRole('progressbar', { name: t.refinery.queue })).toHaveAttribute('aria-valuenow', '75'));
-  // The amount follows what fits after the load: nothing left in hand.
-  expect(within(dialog).getByRole('spinbutton', { name: t.refinery.amount })).toHaveValue(0);
+  // Nothing left in hand: the loader goes away.
+  expect(within(dialog).queryByRole('slider')).toBeNull();
   expect(JSON.parse(String(sent(fetch, 'refinery/load')[0]![1]!.body))).toEqual({ amount: 45 });
   fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.collect(20) }));
   expect(await screen.findByRole('img', { name: t.resource.components(32) })).toBeInTheDocument();
-  expect(within(dialog).getByRole('button', { name: new RegExp(t.upgrade(2)) })).toHaveTextContent(t.cost(40, 500));
+  expect(within(dialog).getByRole('button', { name: `${t.upgrade(2)}: ${t.cost(40, 500)}` })).toBeInTheDocument();
 });
 
 test('un error del servidor se dice en el panel', async () => {
   open(view(), { 'POST /galaxy/api/station/refinery/load': () => jsonResponse(409, { error: 'refinery_full' }) });
   fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.refinery) }));
   const dialog = screen.getByRole('dialog', { name: t.rooms.refinery });
-  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.load }));
+  fireEvent.click(within(dialog).getByRole('button', { name: t.refinery.loadN(45) }));
   expect(await within(dialog).findByText(copy.errors.refinery_full)).toBeInTheDocument();
 });
 
@@ -138,7 +142,8 @@ test('la Antena funcionando: lo que espera, su ritmo, cuándo se llena y recoger
   expect(dialog).toHaveTextContent(t.antenna.accrued(3));
   expect(dialog).toHaveTextContent(t.antenna.rate(0.125));
   expect(dialog).toHaveTextContent(t.antenna.fullAt('18:00', 'today'));
-  fireEvent.click(within(dialog).getByRole('button', { name: t.antenna.collect }));
+  expect(within(dialog).getByRole('progressbar', { name: t.antenna.fill })).toHaveAttribute('aria-valuenow', '1');
+  fireEvent.click(within(dialog).getByRole('button', { name: t.antenna.collectN(3) }));
   expect(await screen.findByRole('img', { name: copy.hub.resource.signal(7) })).toBeInTheDocument();
   expect(sent(fetch, 'antenna/collect')).toHaveLength(1);
 });
@@ -188,11 +193,38 @@ test('el Laboratorio roto abre su panel con Reparar y su coste; arreglado, lleva
   fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.lab) }));
   const dialog = screen.getByRole('dialog', { name: t.rooms.lab });
   expect(dialog).toHaveTextContent(t.labLead);
-  expect(within(dialog).getByRole('button', { name: new RegExp(t.repair) })).toHaveTextContent(t.cost(50, 500));
+  expect(within(dialog).getByRole('button', { name: `${t.repair}: ${t.cost(50, 500)}` })).toBeInTheDocument();
 });
 
 test('el Laboratorio arreglado es un enlace a /laboratorio', async () => {
   open(view({ rooms: view().rooms.map((r) => (r.id === 'lab' ? { id: 'lab', state: 'working', level: 1, maxLevel: 1, next: null } : r)) }));
   const deck = await screen.findByRole('list', { name: t.title });
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.lab) })).toHaveAttribute('href', '/laboratorio');
+});
+
+test('una máquina con algo que recoger lo dice en su placa (pulido de M8)', async () => {
+  open();
+  const deck = await screen.findByRole('list', { name: t.title });
+  expect(within(deck).getByText(t.rooms.refinery).closest('li')!).toHaveTextContent(t.ready);
+  expect(within(deck).getByText(t.rooms.antenna).closest('li')!).not.toHaveTextContent(t.ready);
+});
+
+test('la mejora compara lo de ahora con el siguiente nivel', async () => {
+  const withGives = view({ rooms: view().rooms.map((r) => (r.id === 'refinery' ? { ...r, next: { cost: { components: 40, coins: 500 }, gives: { rate: 30, capacity: 150 } } } : r)) });
+  open(withGives);
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.refinery) }));
+  const dialog = screen.getByRole('dialog', { name: t.rooms.refinery });
+  expect(dialog).toHaveTextContent(`${t.refinery.rateLabel}${t.refinery.rate(20)}${t.refinery.rate(30)}`);
+  expect(dialog).toHaveTextContent(`${t.refinery.capacityLabel}100150`);
+});
+
+test('Comunicaciones abre su panel con Mercado, Trueques, Buzón, Comunidad y Clanes', async () => {
+  open();
+  fireEvent.click(await screen.findByRole('button', { name: new RegExp(t.rooms.comms) }));
+  const dialog = screen.getByRole('dialog', { name: t.rooms.comms });
+  expect(within(dialog).getByRole('link', { name: new RegExp(t.comms.market) })).toHaveAttribute('href', '/mercado');
+  expect(within(dialog).getByRole('link', { name: new RegExp(t.comms.trades) })).toHaveAttribute('href', '/mercado?pestana=trueques');
+  expect(within(dialog).getByRole('button', { name: new RegExp(t.comms.mail) })).toBeInTheDocument();
+  expect(within(dialog).getByRole('button', { name: new RegExp(t.comms.community) })).toBeInTheDocument();
+  expect(within(dialog).getByRole('link', { name: new RegExp(t.comms.clans) })).toHaveAttribute('href', '/clanes');
 });

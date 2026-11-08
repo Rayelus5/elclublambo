@@ -38,7 +38,7 @@ test('una cuenta nueva: seis salas funcionan (el Archivo abre el Códice, M7b-2)
     lab: 'broken',
     hangar: 'working',
     collider: 'working',
-    comms: 'future',
+    comms: 'working',
     refinery: 'working',
     antenna: 'broken',
     archive: 'working',
@@ -114,9 +114,10 @@ test('mejorar: la refinería sube de nivel pagando; al máximo, 409; lo que lleg
   const max = await act(cookie, 'rooms/refinery/upgrade', { level: 6 });
   expect(max.statusCode).toBe(409);
   expect(max.json()).toEqual({ error: 'room_maxed' });
+  // A tool (Comunicaciones, working since the polish) has no levels to buy.
   const comms = await act(cookie, 'rooms/comms/upgrade', { level: 1 });
   expect(comms.statusCode).toBe(409);
-  expect(comms.json()).toEqual({ error: 'room_unavailable' });
+  expect(comms.json()).toEqual({ error: 'room_maxed' });
   expect((await act(cookie, 'rooms/nope/upgrade', { level: 1 })).statusCode).toBe(400);
   // What it cost: 40 + 90 + 180 + 320 components and 500 + 1200 + 2500 + 5000 coins.
   const w = (await view(cookie)).wallet;

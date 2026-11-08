@@ -17,6 +17,7 @@ import { RelicPicker } from './RelicPicker';
 import { SetsPanel } from './SetsPanel';
 import { weaponArtUrl } from './weapons';
 import { ResultsScreen } from './ResultsScreen';
+import { AnomalyTag } from '../hub/AnomalyTag';
 import { BoostChips } from '../hub/Boosts';
 import { BackLink } from '../ui/BackLink';
 
@@ -506,6 +507,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
       />
       <div className="hangar-launch">
         <DailyYield daily={view.daily} />
+        <AnomalyTag className="in-hangar" />
         <BoostChips />
         {!view.runsEnabled && <p className="field-error">{copy.errors.runs_disabled}</p>}
         {error ? <p className="field-error">{errorText(error, copy.errors)}</p> : null}

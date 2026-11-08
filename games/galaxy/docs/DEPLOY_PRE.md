@@ -645,6 +645,20 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Al desintegrarla:** rinde como Corrupto.
    - **Cómo se ve:** en la carta, estática violeta con esquirlas de cristal; en el inspector 3D, su luz propia.
 
+39. **Pulido, fase 1 (interfaz):** sin migraciones.
+   - **Inicio:**
+     - «Misiones de hoy» tiene clase propia (`hub-missions`), contador e insignia «Recoger»; se acaba el choque con `.missions` de las pantallas de lista;
+     - las seis fichas del menú tienen la misma forma, con subtítulos de una línea;
+     - «Tienda de temporada» va centrado y sin icono.
+   - **Anomalía:** pasa a una etiqueta con «Más información», que abre una ventana con lo que hace. Está en la columna de la temporada y en el Hangar.
+   - **Comunicaciones:** deja de estar «en reparación». Abre un panel con Mercado, Trueques, Buzón (con sus no leídos), Comunidad y Clanes.
+   - **Refinería y Antena:**
+     - el panel tiene el arte de la sala, datos con icono y barra (con el tiempo hasta acabar la cola, o hasta llenarse);
+     - se carga con un deslizador y atajos ¼, ½ y Todo;
+     - la mejora compara ahora con el siguiente nivel;
+     - una máquina con algo que recoger dice «Listo» en su placa.
+   - **Laboratorio:** cada rama tiene su progreso, y cada nodo su coste con iconos y su estado más claro.
+
 ## Operación
 
 | Tarea | Cómo |
