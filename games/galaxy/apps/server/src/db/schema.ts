@@ -12,6 +12,8 @@ export interface AccountsTable {
   created_at: Timestamp;
   banned_until: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
   ban_reason: string | null;
+  /** M6a: left out of the season leaderboard by an admin. */
+  leaderboard_excluded: Generated<boolean>;
 }
 
 export interface AccountRolesTable {
