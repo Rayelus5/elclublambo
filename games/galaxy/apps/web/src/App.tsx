@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { startMusic, stopMusic } from './audio/music';
+import { UiSounds } from './audio/UiSounds';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
@@ -100,6 +101,7 @@ export function App() {
   return (
     <>
       <MusicStarter />
+      <UiSounds />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/escaner" element={<SignedIn><ScannerScreen /></SignedIn>} />

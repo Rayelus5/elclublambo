@@ -10,18 +10,18 @@ import { renderAt } from './render';
 // still counts; PERKINS and the first steps can come back.
 afterEach(() => {
   localStorage.clear();
-  setSettings({ music: 0.5, sfx: 0.8, muted: false });
+  setSettings({ music: 0.5, sfx: 0.8, muted: false, ui: true });
   vi.unstubAllGlobals();
 });
 const t = copy.settings;
 
 test('los volúmenes y el silencio se guardan, se acotan y se leen al volver', () => {
   setSettings({ music: 0.3, sfx: 1.7, muted: true });
-  expect(getSettings()).toEqual({ music: 0.3, sfx: 1, muted: true });
-  expect(readSettings()).toEqual({ music: 0.3, sfx: 1, muted: true });
+  expect(getSettings()).toEqual({ music: 0.3, sfx: 1, muted: true, ui: true });
+  expect(readSettings()).toEqual({ music: 0.3, sfx: 1, muted: true, ui: true });
   localStorage.clear();
   localStorage.setItem('galaxy.sfx.muted', '1');
-  expect(readSettings()).toEqual({ music: 0.5, sfx: 0.8, muted: true });
+  expect(readSettings()).toEqual({ music: 0.5, sfx: 0.8, muted: true, ui: true });
 });
 
 test('la pantalla cambia la música, silencia todo y devuelve a PERKINS', async () => {
