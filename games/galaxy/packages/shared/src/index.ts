@@ -42,6 +42,7 @@ export * from './progress/missions';
 export * from './progress/catalog';
 export * from './progress/season-route';
 export * from './progress/redshift';
+export * from './progress/tutorial';
 export * from './api/mail';
 export * from './api/stats';
 export * from './gacha/simulate';

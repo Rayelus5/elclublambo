@@ -30,6 +30,7 @@ import { registerMissionRoutes } from './missions/routes';
 import { registerCatalogRoutes } from './catalog/routes';
 import { registerCodexRoutes } from './codex/routes';
 import { registerOnboardingRoutes } from './onboarding/routes';
+import { registerTutorialRoutes } from './onboarding/tutorial';
 import { registerSeasonRoutes } from './season/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
@@ -118,6 +119,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerCatalogRoutes(api, { db: deps.db, config });
     registerCodexRoutes(api, { db: deps.db, config });
     registerOnboardingRoutes(api, { db: deps.db });
+    registerTutorialRoutes(api, { db: deps.db, config });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now });
     registerStatsRoutes(api, { db: deps.db, config, hub, now });
