@@ -25,7 +25,7 @@ function remember(ids: string[]): void {
 }
 
 /**
- * The notices of the title screen (GDD §16.5; DESIGN_SYSTEM §8 vicies): the running ones under the logo, each in its
+ * The notices of the title screen (GDD §16.5; DESIGN_SYSTEM §8 vicies): the running ones above the logo, each in its
  * tone (an important one in Solar with the alert icon, information in Hielo) and closed for good in this browser.
  */
 export function TitleNotices() {

@@ -1559,7 +1559,7 @@
   .deal-reversal.short { color: var(--color-solar); }
   /* Communication (M6d-1). The mailbox: a Solar badge on the top bar's mail button; a two-pane letter tray (the list on
      the left with «Nuevo» in words, the open letter on the right) and the gift parcel, a 32×32 Aseprite strip at
-     integer scale whose ribbon glints. The title notices: one line each under the logo, Solar for important ones and
+     integer scale whose ribbon glints. The title notices: one line each above the logo, Solar for important ones and
      Hielo for information, with their own close button. */
   .mail-button { position: relative; }
   .mail-badge { position: absolute; inset-block-start: -6px; inset-inline-end: -6px; min-inline-size: 22px; block-size: 22px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 99px; background: var(--color-solar); color: var(--color-void); font: 800 12px/1 var(--font-sans); box-shadow: 0 0 0 3px var(--color-panel); }
