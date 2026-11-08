@@ -37,6 +37,10 @@ describe('los problemas de un borrador', () => {
     expect(configIssues('chat', { maxLength: 300 })).toEqual([]);
     expect(configIssues('chat', 'no es un objeto').length).toBeGreaterThan(0);
   });
+
+  test('los problemas se dicen en español, para quien edita el panel', () => {
+    expect(configIssues('chat', { maxLength: 5 })[0]!.message).toMatch(/^Demasiado pequeño/);
+  });
 });
 
 describe('los interruptores', () => {

@@ -1,7 +1,11 @@
 import { contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
+import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
+
+/** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
+const esIssues = es().localeError;
 
 /** Levels 2–30: the first nine by hand, then 1000 more each (GDD §12.1; M5a). */
 const DEFAULT_ACCOUNT_LEVELS = [100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, ...Array.from({ length: 20 }, (_, i) => 5500 + i * 1000)];
@@ -545,14 +549,14 @@ export function isConfigKey(key: string): key is ConfigKey {
   return Object.hasOwn(configSchemas, key);
 }
 
-/** Valida `data` con el esquema de `key` y devuelve el valor con los valores por defecto aplicados. Lanza si no vale. */
-/** What is wrong with a draft of `key`, each problem at its path (empty when it is valid; M6b). */
+/** What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). */
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
-  const result = configSchemas[key].safeParse(data);
+  const result = configSchemas[key].safeParse(data, { error: esIssues });
   if (result.success) return [];
   return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
 }
 
+/** Valida `data` con el esquema de `key` y devuelve el valor con los valores por defecto aplicados. Lanza si no vale. */
 export function parseConfig<K extends ConfigKey>(key: K, data: unknown): ConfigValue<K> {
   if (!isConfigKey(key)) throw new Error(`unknown_config_key:${String(key)}`);
   return configSchemas[key].parse(data) as ConfigValue<K>;

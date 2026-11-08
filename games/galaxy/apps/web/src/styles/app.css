@@ -1450,4 +1450,51 @@
   .admin-dialog select { width: 100%; height: 50px; padding: 0 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); }
   .admin-code { display: grid; gap: 10px; justify-items: start; margin-bottom: 14px; }
   .admin-code-value { margin: 0; font: 400 26px var(--font-display); letter-spacing: .06em; color: var(--color-solar); }
+  /* Live config (M6b, DESIGN_SYSTEM §8 septendecies): switches with their state in words, the keys, the draft editor beside
+     its checks and the publish form, the history and the gacha simulator. */
+  .admin-switches, .admin-keys, .admin-history, .admin-sim { --r: 18px; padding: 16px 18px; display: grid; gap: 12px; align-content: start; }
+  :is(.admin-switches, .admin-keys, .admin-history, .admin-sim, .admin-checks) h2 { margin: 0; font: 400 18px var(--font-display); }
+  :is(.admin-switches, .admin-keys, .admin-history) ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .admin-switches ul { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+  .admin-switches li { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--color-panel-2); }
+  .admin-switches li > span { font-weight: 600; }
+  .admin-switches li > small { grid-column: 2; font-size: 12.5px; font-weight: 700; color: var(--color-ink-mute); }
+  .admin-switch { grid-row: span 2; position: relative; inline-size: 52px; block-size: 30px; padding: 0; border: 0; border-radius: 99px; background: rgb(255 255 255 / .12); box-shadow: inset 0 2px 0 rgb(0 0 0 / .3); cursor: pointer; transition: background-color .18s; }
+  .admin-switch > span { position: absolute; inset-block-start: 4px; inset-inline-start: 4px; inline-size: 22px; block-size: 22px; border-radius: 50%; background: var(--color-ink-soft); box-shadow: 0 2px 0 rgb(0 0 0 / .35); transition: transform .18s ease-out, background-color .18s; }
+  .admin-switch.on { background: var(--color-terminal-2); }
+  .admin-switch.on > span { transform: translateX(22px); background: var(--color-ink); }
+  .admin-switch:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .admin-switches li:has(.admin-switch.on) > small { color: var(--color-terminal); }
+  .admin-keys li, .admin-history li { display: grid; grid-template-columns: minmax(120px, 200px) minmax(0, 1fr) auto; gap: 4px 14px; align-items: baseline; padding: 8px 10px; border-radius: 10px; }
+  .admin-keys li:hover { background: rgb(255 255 255 / .03); }
+  .admin-keys a { color: var(--color-ice); font-weight: 700; }
+  .admin-keys small { color: var(--color-ink-mute); }
+  .admin-history li { grid-template-columns: auto minmax(0, 1fr) auto; background: var(--color-panel-2); }
+  .admin-history li .panel-note { grid-column: 1 / 3; margin: 0; }
+  .admin-history li .pill { grid-row: 1 / 3; grid-column: 3; align-self: center; }
+  .admin-editor { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); gap: 16px; align-items: start; }
+  .admin-editor > .field { margin: 0; }
+  .admin-json { box-sizing: border-box; inline-size: 100%; min-block-size: 420px; padding: 14px 16px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel); color: var(--color-ink); font: 500 13.5px/1.55 ui-monospace, 'Cascadia Mono', Consolas, monospace; tab-size: 2; resize: vertical; box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); }
+  .admin-json:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .admin-json[aria-invalid="true"] { border-color: var(--color-static); }
+  .admin-checks { display: grid; gap: 12px; align-content: start; padding: 16px 18px; border-radius: 18px; background: var(--color-panel); }
+  .admin-checks section { display: grid; gap: 8px; }
+  .admin-issues, .admin-changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 14px; }
+  .admin-issues li { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--color-static) 12%, transparent); color: var(--color-ink); }
+  .admin-issues code { margin-right: 6px; padding: 1px 6px; border-radius: 6px; background: rgb(0 0 0 / .3); color: var(--color-nova); font: 600 12.5px ui-monospace, 'Cascadia Mono', Consolas, monospace; }
+  .admin-changes li { padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--color-solar) 10%, transparent); overflow-wrap: anywhere; }
+  .admin-publish { display: grid; gap: 4px; padding-top: 12px; border-top: 2px solid rgb(255 255 255 / .05); }
+  .admin-publish .pill { justify-self: start; margin-top: 4px; }
+  .admin-sim select { height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
+  .admin-sim p { margin: 0; }
+  .admin-sim .admin-table-wrap { max-width: 640px; }
+  .admin-sim .admin-table tbody th { position: static; background: none; border-top: 1px solid rgb(255 255 255 / .05); font-size: 14px; }
+  .admin-sim td { font-variant-numeric: tabular-nums; }
+  .admin-sim th.tier-common { color: var(--color-tier-common); }
+  .admin-sim th.tier-uncommon { color: var(--color-tier-uncommon); }
+  .admin-sim th.tier-rare { color: var(--color-tier-rare); }
+  .admin-sim th.tier-epic { color: var(--color-tier-epic); }
+  .admin-sim th.tier-legendary { color: var(--color-tier-legendary); }
+  @media (max-width: 1100px) { .admin-editor { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .admin-switch, .admin-switch > span { transition: none; } }
 }

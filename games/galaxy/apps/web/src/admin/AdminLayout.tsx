@@ -25,7 +25,10 @@ export function AdminLayout() {
             <li>
               <NavLink to="/admin/auditoria">{t.sections.audit}</NavLink>
             </li>
-            {(['config', 'moderation', 'communication', 'stats'] as const).map((k) => (
+            <li>
+              <NavLink to="/admin/configuracion">{t.sections.config}</NavLink>
+            </li>
+            {(['moderation', 'communication', 'stats'] as const).map((k) => (
               <li key={k} className="admin-soon">
                 <span>{t.sections[k]}</span>
                 <small>{t.soon}</small>
