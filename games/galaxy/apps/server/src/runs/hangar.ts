@@ -28,6 +28,7 @@ import { inTransaction } from '../db/tx';
 import { madridDay, nextMadridMidnight } from '../economy/day';
 import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { isListed } from '../market/escrow';
 
 // The hangar (GDD §5.1, §8.4): the probe and sector for the next run, and the galaxies equipped as relics in the open
 // slots. A loadout only ever shows live galaxies the player still owns.
@@ -237,6 +238,7 @@ export async function setLoadout(deps: RunsDeps, accountId: string, req: Loadout
         .forUpdate()
         .execute();
       if (live.length !== ids.length) throw new HttpError(409, 'invalid_loadout');
+      if (await isListed(trx, ids)) throw new HttpError(409, 'galaxy_listed');
     }
     await trx.deleteFrom('galaxy.loadouts').where('account_id', '=', accountId).execute();
     const rows = req.relics.flatMap((g, slot) => (g ? [{ account_id: accountId, slot, galaxy_id: g }] : []));
