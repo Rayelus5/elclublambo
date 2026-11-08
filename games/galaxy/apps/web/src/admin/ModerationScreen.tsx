@@ -121,6 +121,9 @@ export function Reports() {
   const label = useChannelLabel();
   const dialog = useModDialog();
   const rows = reports.data?.reports ?? [];
+  // Resolving the last card of the last page leaves that page past the end: go back to the last one there is (state
+  // adjusted while rendering, as React recommends over an effect).
+  if (reports.data && page > reports.data.pages) setPage(reports.data.pages);
   return (
     <div className="mod-pane">
       {dialog.view}

@@ -181,3 +181,49 @@ test('un moderador con TOTP tiene el escudo del panel en la barra y su etiqueta 
   expect(await screen.findByRole('link', { name: copy.admin.title })).toHaveAttribute('href', '/admin');
   expect(screen.getByText(copy.hub.moderator)).toBeInTheDocument();
 });
+
+test('expulsar al último miembro deja la página diciendo que el clan ya no existe', async () => {
+  let gone = false;
+  const solo: AdminClan = {
+    tag: 'SO',
+    name: 'Solitarios',
+    members: 1,
+    leader: 'vega',
+    createdAt: '2026-11-01T10:00:00.000Z',
+    description: '',
+    emblem: 'eye',
+    color: 'ice',
+    open: true,
+    roster: [{ username: 'vega', role: 'leader', joinedAt: '2026-11-01T10:00:00.000Z' }],
+  };
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    'GET /galaxy/api/admin/clans/SO': () => (gone ? jsonResponse(404, { error: 'clan_not_found' }) : jsonResponse(200, solo)),
+    'POST /galaxy/api/admin/clans/SO/kick': () => {
+      gone = true;
+      return jsonResponse(200, { dissolved: true });
+    },
+  });
+  renderAt('/admin/moderacion/clanes/SO', { '/admin/moderacion/clanes/:tag': <ClanPage /> });
+  await userEvent.click(await screen.findByRole('button', { name: t.clans.kickOf('vega') }));
+  const dialog = await screen.findByRole('dialog', { name: t.clans.kickOf('vega') });
+  await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Clan de spam');
+  await userEvent.click(within(dialog).getByRole('button', { name: t.clans.kick }));
+  expect(await screen.findByText(t.clans.gone)).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: '[SO] Solitarios' })).toBeNull();
+});
+
+test('si la página de la cola se queda vacía al resolver la última, vuelve a la última que queda', async () => {
+  const one: ModReport = { message: message({ id: '77', author: 'nova' }), reasons: [], pending: 1, firstAt: '2026-11-08T09:01:00.000Z', lastAt: '2026-11-08T09:01:00.000Z' };
+  const fetch = mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, mod),
+    [`GET ${M}/channels`]: () => jsonResponse(200, channels),
+    [`GET ${M}/reports?page=1`]: () => jsonResponse(200, { reports: [one], total: 51, page: 1, pages: 2 } satisfies ModReportPage),
+    [`GET ${M}/reports?page=2`]: () => jsonResponse(200, { reports: [], total: 50, page: 2, pages: 1 } satisfies ModReportPage),
+  });
+  renderAt('/admin/moderacion', { '/admin/moderacion': <Reports /> });
+  await screen.findByRole('article', { name: t.messageOf('nova') });
+  await userEvent.click(screen.getByRole('button', { name: copy.admin.next }));
+  await waitFor(() => expect(fetch.mock.calls.filter(([u]) => u === `${M}/reports?page=1`).length).toBeGreaterThanOrEqual(2));
+  expect(await screen.findByRole('article', { name: t.messageOf('nova') })).toBeInTheDocument();
+});

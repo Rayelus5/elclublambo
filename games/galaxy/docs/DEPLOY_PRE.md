@@ -372,7 +372,7 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - **Silencios:** los que siguen en curso, silenciar por nombre con su duración y levantarlos;
      - **Clanes** (solo admins): buscar, ver sus miembros, renombrar (nombre y etiqueta), borrar la descripción, expulsar, hacer líder y disolver, esto último con la contraseña del admin;
    - **Todo pide motivo y queda en la auditoría:** `chat.hide`, `chat.restore`, `chat.review`, `chat.mute`, `chat.unmute`, `clan.edit`, `clan.kick`, `clan.leader` y `clan.dissolve`. Ocultar y silenciar desde el propio chat del juego también se auditan;
-   - **Nadie silencia ni expulsa a quien no puede tocar:** ni a un superadmin, ni a otro miembro del equipo si no es superadmin, ni a sí mismo.
+   - **Nadie silencia ni expulsa a quien no puede tocar:** ni a un superadmin, ni a otro miembro del equipo si no es superadmin. Además, nadie se silencia a sí mismo (expulsarse de un clan desde el panel sí se puede).
 
    Comprueba, cuando exista tu cuenta `rayelus`:
    - crea un moderador por SSH, `docker exec -it elclub-pre-galaxy-1 node dist/cli.js create-admin <nombre> --role moderator`, y entra con su TOTP: el escudo lleva a Moderación y no ve Jugadores;

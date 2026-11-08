@@ -86,7 +86,10 @@ export function ClanPage() {
       <span>{t.back}</span>
     </Link>
   );
-  const c = clan.data;
+  // A clan dissolved meanwhile (its last member kicked here, or by someone else) answers 404 on the next read, while
+  // TanStack keeps the last good data: the 404 wins, so the page never shows a clan that is gone.
+  const gone = clan.error instanceof ApiError && clan.error.code === 'clan_not_found';
+  const c = gone ? undefined : clan.data;
   if (!c) {
     return (
       <div className="mod-pane">
