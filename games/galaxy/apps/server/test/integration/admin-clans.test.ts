@@ -45,9 +45,15 @@ const freeName = (word: string) => `${word} ${randomUUID().slice(0, 8).replace(/
 /** A clan led by `leader`, with `officers` promoted and `members` plain members, in that order of joining. */
 async function clan(leader: P, opts: { officers?: P[]; members?: P[]; name?: string } = {}) {
   await credit(ctx.db, leader.id, 'coins', 2000, 'test');
-  const tag = freeTag();
-  const name = opts.name ?? freeName('Clan');
-  const res = await post(ctx.app, '/galaxy/api/clans', { name, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } });
+  // A random tag can meet one another test made: try another (CI on develop, 2026-11-08).
+  let tag = freeTag();
+  let name = opts.name ?? freeName('Clan');
+  let res = await post(ctx.app, '/galaxy/api/clans', { name, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } });
+  for (let i = 0; i < 3 && res.statusCode === 409 && ['clan_tag_taken', 'clan_name_taken'].includes((res.json() as { error: string }).error); i++) {
+    tag = freeTag();
+    name = opts.name ?? freeName('Clan');
+    res = await post(ctx.app, '/galaxy/api/clans', { name, tag, emblem: 'eye', color: 'ice' }, { cookie: leader.cookie, headers: { 'idempotency-key': randomUUID() } });
+  }
   expect(res.statusCode).toBe(200);
   for (const m of [...(opts.officers ?? []), ...(opts.members ?? [])]) expect((await post(ctx.app, `/galaxy/api/clans/${tag}/join`, undefined, { cookie: m.cookie })).statusCode).toBe(200);
   for (const o of opts.officers ?? []) expect((await post(ctx.app, `/galaxy/api/clans/${tag}/members/${o.username}/promote`, undefined, { cookie: leader.cookie })).statusCode).toBe(200);
