@@ -626,6 +626,42 @@ Consulta de ui-ux-pro-max: se aplicaron dos guías:
 - una galaxia ofrecida lleva la insignia «En trueque»;
 - no se desintegra, fusiona, mejora ni vende, y su detalle dice por qué.
 
+## 8 sedecies. Panel de administración
+
+`/admin`, solo para admins y superadmins que entraron con TOTP (GDD §16, M6a). Se llega con el escudo de la barra de arriba. Quien no lo es, vuelve al inicio.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Tablas densas pero legibles:** 14 px y su propio desplazamiento horizontal;
+- **Contraste de 4,5:1;**
+- **Éxito visible tras cada cambio:** «Hecho. Queda en la auditoría».
+
+**Estilo:**
+- sobrio, con los tokens del juego;
+- fondo Void y paneles Panel;
+- el título en Bungee;
+- sin animaciones de entrada.
+
+**La barra lateral:**
+- Jugadores y Auditoría;
+- Configuración, Moderación, Comunicación y Estadísticas, en gris con «Próximamente» hasta M6b–M6d;
+- la sección activa, con una barra Solar a la izquierda.
+
+**Jugadores:**
+- **La búsqueda:** por nombre, IP o etiqueta de clan, con una tabla de resultados que enlaza a la ficha.
+- **La ficha:**
+  - el nombre y las etiquetas de estado: Activo (Terminal), Baneado (Nova), Silenciado y Fuera de la clasificación (Solar), Equipo (Hielo);
+  - las monedas en Solar;
+  - la fila de acciones;
+  - las pestañas Resumen, Galaxias, Movimientos, Tiradas, Partidas, Comercio, Chat y Sesiones e IPs. Cada historial es una tabla con sus páginas.
+- **Cada acción abre un diálogo** con sus campos y siempre un motivo:
+  - las que no se deshacen solas (quitar moneda, retirar una galaxia, experiencia, nombre, código de recuperación y baneo) piden además tu contraseña, y su botón «Aplicar» pasa a Nova;
+  - el código de recuperación se enseña una sola vez, grande en Solar, con «Copiar».
+
+**Auditoría:**
+- filtros por quién, qué, objetivo y fechas;
+- una tabla en la que cada cambio se despliega con su antes y su después;
+- «Exportar CSV» con los mismos filtros.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

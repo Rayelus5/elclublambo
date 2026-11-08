@@ -1392,4 +1392,62 @@
   .trade-status.done { background: color-mix(in srgb, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
   .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
   .trade-closed-g { font-size: 14px; color: var(--color-ink-soft); }
+  /* The admin area (M6a): sober and dense, on the game's tokens; tables scroll on their own. */
+  .admin-root { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100%; overflow: auto; background: var(--color-void); }
+  .admin-side { position: sticky; top: 0; align-self: start; min-height: 100vh; box-sizing: border-box; padding: 22px 16px; display: grid; align-content: start; gap: 18px; background: var(--color-panel); border-right: 2px solid rgb(255 255 255 / .05); }
+  .admin-brand { margin: 0; font: 400 20px var(--font-display); color: var(--color-solar); }
+  .admin-side ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+  .admin-side a:not(.pill) { display: block; padding: 10px 12px; border-radius: 10px; color: var(--color-ink-soft); font-weight: 600; text-decoration: none; }
+  .admin-side a:not(.pill):hover { background: rgb(255 255 255 / .05); color: var(--color-ink); }
+  .admin-side a.active { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 3px 0 0 var(--color-solar); }
+  .admin-side :is(a, .pill):focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .admin-soon { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 10px 12px; color: var(--color-ink-mute); font-weight: 600; }
+  .admin-soon small { font-size: 11px; font-weight: 700; color: var(--color-ink-mute); }
+  .admin-back { justify-self: start; }
+  .admin-main { min-width: 0; padding: 24px clamp(16px, 2.4vw, 40px) 48px; }
+  .admin-page { display: grid; gap: 16px; max-width: 1400px; }
+  .admin-page > .pill { justify-self: start; }
+  .admin-page h1 { margin: 0; font: 400 32px var(--font-display); }
+  .admin-search { max-width: 560px; margin: 0; }
+  .admin-table-wrap { overflow-x: auto; border-radius: 14px; border: 2px solid rgb(255 255 255 / .05); background: var(--color-panel); }
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .admin-table caption { padding: 12px 14px 4px; text-align: left; font-weight: 700; color: var(--color-ink-soft); }
+  .admin-table th { position: sticky; top: 0; padding: 10px 12px; text-align: left; white-space: nowrap; font-size: 12.5px; font-weight: 700; color: var(--color-ink-soft); background: var(--color-panel-2); }
+  .admin-table td { padding: 9px 12px; border-top: 1px solid rgb(255 255 255 / .05); color: var(--color-ink); vertical-align: top; max-width: 420px; overflow-wrap: anywhere; }
+  .admin-table tbody tr:hover td { background: rgb(255 255 255 / .03); }
+  .admin-table a { color: var(--color-ice); font-weight: 600; }
+  .admin-chip { display: inline-block; margin-left: 6px; padding: 2px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 700; background: rgb(255 255 255 / .06); color: var(--color-ink-soft); }
+  .admin-chip.bad { background: color-mix(in srgb, var(--color-nova) 20%, transparent); color: var(--color-nova); }
+  .admin-chip.warn { background: color-mix(in srgb, var(--color-solar) 18%, transparent); color: var(--color-solar); }
+  .admin-chip.ok { background: color-mix(in srgb, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
+  .admin-chip.staff { background: color-mix(in srgb, var(--color-ice) 16%, transparent); color: var(--color-ice); }
+  .admin-player-head h1 { display: inline; }
+  .admin-chips { display: inline; margin: 0 0 0 8px; }
+  .admin-dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 0; }
+  .admin-dl div { padding: 10px 12px; border-radius: 12px; background: var(--color-panel); }
+  .admin-dl dt { font-size: 12.5px; color: var(--color-ink-mute); }
+  .admin-dl dd { margin: 2px 0 0; font: 400 20px var(--font-display); color: var(--color-ink); }
+  .admin-wallet dd { color: var(--color-solar); }
+  .admin-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .admin-done { margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-terminal) 14%, transparent); color: var(--color-terminal); font-weight: 700; }
+  .admin-tabs { margin: 0; max-width: 100%; overflow-x: auto; }
+  .admin-tabs button { flex: none; height: 40px; padding: 0 16px; border: 0; border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 14px var(--font-sans); cursor: pointer; }
+  .admin-tabs button[aria-selected="true"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
+  .admin-tabs button:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .admin-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .admin-summary > .panel { --r: 18px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+  .admin-summary h2 { margin: 6px 0 0; font: 400 18px var(--font-display); }
+  .admin-summary p { margin: 0; color: var(--color-ink-soft); }
+  .admin-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--color-ink-soft); }
+  .admin-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
+  .admin-filters label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-soft); }
+  .admin-filters input { height: 40px; padding: 0 12px; border-radius: 10px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 14px var(--font-sans); }
+  .admin-filters input:focus-visible { outline: none; border-color: var(--color-ice); }
+  .admin-pre { margin: 6px 0 0; padding: 8px 10px; border-radius: 8px; background: rgb(0 0 0 / .3); font-size: 12px; white-space: pre-wrap; max-width: 520px; }
+  .admin-table details summary { cursor: pointer; color: var(--color-ice); font-weight: 600; }
+  .modal.admin-dialog { inline-size: min(520px, 100%); }
+  .admin-dialog .field { margin-bottom: 12px; }
+  .admin-dialog select { width: 100%; height: 50px; padding: 0 14px; border-radius: 14px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 16px var(--font-sans); }
+  .admin-code { display: grid; gap: 10px; justify-items: start; margin-bottom: 14px; }
+  .admin-code-value { margin: 0; font: 400 26px var(--font-display); letter-spacing: .06em; color: var(--color-solar); }
 }

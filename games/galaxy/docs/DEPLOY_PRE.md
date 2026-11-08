@@ -314,6 +314,31 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - las dos ven «Recibiste …» en los cerrados, y cada galaxia aparece en la colección de su nueva dueña;
    - sin violaciones de CSP.
 
+19. **Desde M6a (el panel de admin: jugadores y auditoría):** la migración `20261108045518_galaxy_leaderboard_excluded` añade `galaxy.accounts.leaderboard_excluded`. La clasificación, también la pestaña Clanes, deja fuera esas cuentas.
+
+   Llegan además:
+   - el panel `/galaxy/admin`, solo para admins y superadmins que entraron con TOTP; se abre con el escudo de la barra de arriba;
+   - **Jugadores:**
+     - buscar por nombre, IP o etiqueta de clan;
+     - la ficha con estado, monedas, acciones y el historial (galaxias, movimientos, tiradas, partidas, comercio, chat, sesiones e IPs);
+   - **Acciones** (cada una pide un motivo y queda en `galaxy.admin_audit_log`):
+     - dar o quitar moneda (como asientos compensatorios);
+     - conceder o retirar galaxias;
+     - experiencia y nombre;
+     - código de recuperación, que se enseña una vez;
+     - cerrar sesiones;
+     - banear o levantar el baneo: banear cierra las sesiones y cancela sus anuncios y trueques;
+     - sacar o volver a meter en la clasificación;
+   - **Lo destructivo** (quitar moneda, retirar galaxia, experiencia, nombre, código y baneo) pide además la contraseña del admin. Diez contraseñas equivocadas en diez minutos lo bloquean un rato;
+   - **Auditoría:** filtros, el antes y el después de cada cambio, y exportar a CSV.
+
+   Comprueba, cuando exista tu cuenta `rayelus` (la creas tú por SSH, como dice «Operación»):
+   - entras con tu código TOTP y el escudo lleva a `/galaxy/admin/jugadores`;
+   - buscas una cuenta de prueba `e2e_pre_…`, le das 100 monedas con un motivo y ves «Hecho. Queda en la auditoría»;
+   - en Auditoría aparece `player.wallet` con tu nombre;
+   - una cuenta sin rol que abra `/galaxy/admin` vuelve al inicio;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

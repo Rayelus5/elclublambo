@@ -35,7 +35,7 @@ function codeHash(code: string): Buffer {
 }
 
 /** Admin-issued one-time recovery code (no email in the game), valid for 24 h. Audited, never stored in clear. */
-export async function issueResetCode(db: Kysely<DB>, username: string, actor: AuditActor): Promise<string> {
+export async function issueResetCode(db: Kysely<DB>, username: string, actor: AuditActor, reason = 'recuperación de contraseña'): Promise<string> {
   const account = await findAccountByUsername(db, username);
   if (!account) throw new AccountNotFoundError();
   const raw = Array.from({ length: 16 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
@@ -56,7 +56,7 @@ export async function issueResetCode(db: Kysely<DB>, username: string, actor: Au
       targetType: 'account',
       targetId: account.id,
       after: { username: account.username },
-      reason: 'recuperación de contraseña',
+      reason,
     });
   });
   return code;

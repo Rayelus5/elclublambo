@@ -10,6 +10,10 @@ import { PlanetariumScreen } from './planetarium/PlanetariumScreen';
 import { VisitScreen } from './planetarium/VisitScreen';
 import { LeaderboardScreen } from './social/LeaderboardScreen';
 import { MarketScreen } from './market/MarketScreen';
+import { AdminLayout } from './admin/AdminLayout';
+import { AuditScreen } from './admin/AuditScreen';
+import { PlayerScreen } from './admin/PlayerScreen';
+import { PlayersScreen } from './admin/PlayersScreen';
 import { ClanScreen } from './clans/ClanScreen';
 import { ClansScreen } from './clans/ClansScreen';
 import { ProfileScreen } from './social/ProfileScreen';
@@ -73,6 +77,12 @@ export function App() {
         <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
         <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<Navigate to="jugadores" replace />} />
+          <Route path="jugadores" element={<PlayersScreen />} />
+          <Route path="jugadores/:username" element={<PlayerScreen />} />
+          <Route path="auditoria" element={<AuditScreen />} />
+        </Route>
         <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
         <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />
         <Route path="/perfil/:username/coleccion" element={<SignedIn><PublicCollectionScreen /></SignedIn>} />

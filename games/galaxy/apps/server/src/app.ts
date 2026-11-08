@@ -18,6 +18,7 @@ import { ChatHub } from './chat/hub';
 import { registerChatRoutes } from './chat/routes';
 import { registerMarketRoutes } from './market/routes';
 import { registerTradeRoutes } from './market/trade-routes';
+import { registerAdminRoutes } from './admin/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -97,6 +98,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerMarketRoutes(api, { db: deps.db, config, now });
     registerTradeRoutes(api, { db: deps.db, config, now });
+    registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub });
   });
   return app;
 }
