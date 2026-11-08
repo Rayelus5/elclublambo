@@ -545,7 +545,6 @@
   .inspector-notice { display: flex; align-items: flex-start; gap: 10px; margin: 0; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-solar) 12%, transparent); color: var(--color-solar); font-weight: 600; line-height: 1.45; }
   .inspector-notice .ico { flex: none; margin-top: 2px; }
   .inspector-flat > div { display: flex; gap: 22px; }
-  .exhibit-shown { display: grid; justify-items: center; gap: 8px; }
   .inspector-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
   .inspector-hint { margin-right: auto; color: var(--color-ink-mute); font-size: 14.5px; }
   .detail-actions { flex-wrap: wrap; }

@@ -52,13 +52,10 @@ export function VisitScreen() {
               empty={v.exhibits.every((g) => g === null) ? t.emptyVisit : undefined}
               items={v.exhibits.map((g) =>
                 g ? (
-                  <div className="exhibit-shown">
-                    <ShownCard galaxy={g} />
-                    <button type="button" className="lip pill small" aria-label={copy.inspector.openOf(g.name)} onClick={() => setInspecting(g)}>
-                      <Icon name="cube" />
-                      <span>{copy.inspector.open}</span>
-                    </button>
-                  </div>
+                  <ShownCard galaxy={g}>
+                    {/* A click on the card opens it in 3D (the owner's request). */}
+                    <button type="button" className="gcard-hit" aria-label={copy.inspector.openOf(g.name)} onClick={() => setInspecting(g)} />
+                  </ShownCard>
                 ) : (
                   <span className="pedestal-vacant" />
                 ),
