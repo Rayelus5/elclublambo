@@ -339,6 +339,29 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - una cuenta sin rol que abra `/galaxy/admin` vuelve al inicio;
    - sin violaciones de CSP.
 
+20. **Desde M6b (configuración viva):** sin migraciones. La clave `features` gana tres interruptores, `market`, `trades` y `chat`, encendidos por defecto: sin publicar nada, todo sigue igual.
+
+   Llegan además:
+   - **`/galaxy/admin/configuracion`:**
+     - los interruptores (Registro, Mantenimiento, Gachapón, Incursiones, Mercado, Trueque y Chat), cada uno con su estado en palabras;
+     - cada clave con su versión y quién la cambió por última vez;
+   - **Apagar el mercado, el trueque o el chat** cierra lo nuevo al momento (como mucho, en los 10 s de la caché de configuración):
+     - anunciar y comprar, proponer y confirmar trueques, y escribir en el chat responden 503;
+     - cancelar anuncios y trueques, leer y reportar siguen abiertos;
+   - **El editor de cada clave:**
+     - un borrador en JSON con sus problemas por ruta, en español;
+     - lo que cambia respecto a lo publicado;
+     - el historial, con «Cargar la versión N en el editor»;
+   - **Publicar** pide motivo y la contraseña del admin (la misma regla de bloqueo que M6a) y cada versión queda en la auditoría como `config.published`;
+   - **en `gacha`, el simulador:** tira el borrador en el navegador sin publicarlo, 1000, 10.000 o 100.000 veces, y lo compara con lo esperado.
+
+   Comprueba, cuando exista tu cuenta `rayelus`:
+   - Configuración lista las claves y los siete interruptores encendidos, salvo Mantenimiento;
+   - apagas Mercado con un motivo y tu contraseña, y una cuenta `e2e_pre_…` que intente anunciar ve que el mercado está cerrado; lo vuelves a encender;
+   - en `chat`, un `maxLength` de 5 enseña el problema en `maxLength` y no deja publicar;
+   - en `gacha`, «Tirar 100.000 veces» da una legendaria cada unas 10 tiradas;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
