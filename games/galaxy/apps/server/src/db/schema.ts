@@ -233,6 +233,35 @@ export interface LoadoutsTable {
   galaxy_id: string;
 }
 
+/** The chats' messages (M5b-2): hidden by a moderator or by reports, never deleted. */
+export interface ChatMessagesTable {
+  id: ColumnType<string, never, never>;
+  channel: string;
+  author_id: string;
+  body: string;
+  created_at: Timestamp;
+  hidden_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  hidden_by: string | null;
+  hidden_reason: 'moderator' | 'reports' | null;
+}
+
+/** One report per account and message (M5b-2). */
+export interface ChatReportsTable {
+  message_id: string | number;
+  reporter_id: string;
+  reason: string | null;
+  created_at: Timestamp;
+}
+
+/** An account that cannot write until `until` (M5b-2). */
+export interface ChatMutesTable {
+  account_id: string;
+  until: ColumnType<Date, Date | string, Date | string>;
+  reason: string;
+  by_id: string | null;
+  created_at: Timestamp;
+}
+
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
 export interface ClansTable {
   id: Generated<string>;
@@ -371,6 +400,9 @@ export interface DB {
   'galaxy.clan_members': ClanMembersTable;
   'galaxy.clan_requests': ClanRequestsTable;
   'galaxy.clan_kicks': ClanKicksTable;
+  'galaxy.chat_messages': ChatMessagesTable;
+  'galaxy.chat_reports': ChatReportsTable;
+  'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
