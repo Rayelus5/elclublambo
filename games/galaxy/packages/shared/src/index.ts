@@ -35,4 +35,5 @@ export * from './api/admin';
 export * from './api/moderation';
 export * from './api/admin-market';
 export * from './api/mail';
+export * from './api/stats';
 export * from './gacha/simulate';

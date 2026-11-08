@@ -425,6 +425,20 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - publicas un aviso de prueba de una hora, lo ves en la pantalla de título de esa cuenta y lo terminas;
    - sin violaciones de CSP.
 
+24. **Desde M6d-2 (estadísticas):** una migración, `*_galaxy_stats_indexes`, con índices por fecha para que las estadísticas no recorran las tablas enteras. Llega **`/galaxy/admin/estadisticas`** (solo admins). Solo lee, así que no deja nada en la auditoría. Las cifras son las de las últimas 24 horas (por horas) o de 7 o 30 días (por días UTC), y se leen otra vez cada 30 segundos:
+   - **arriba:** conectados ahora (cuentas con una sesión vista en los últimos 10 minutos; debajo, las conexiones abiertas al chat), cuentas nuevas y activas, partidas, tiradas, monedas en ventas y lo pendiente de revisar (alertas y denuncias);
+   - **partidas:** en barras por tramo, cada una con su número, y cómo terminaron (las que no terminaron, «en curso» mientras aún pueden acabar y «sin terminar» después);
+   - **monedas:** lo que entra y sale de cada moneda, con su desglose por motivo del libro de movimientos;
+   - **rarezas:** las de las tiradas, reales frente a las esperadas por la configuración del gachapón (la suerte de bienvenida de las cuentas nuevas sube las legendarias por encima de lo esperado, y la tabla lo dice);
+   - **mercado y trueques:** anuncios, ventas, monedas movidas, comisión y trueques;
+   - **«Exportar CSV»** en cada sección, con el periodo elegido.
+
+   Comprueba con `rayelus`:
+   - Estadísticas dice «Conectados ahora» 1 o más (tu propia sesión);
+   - las partidas tienen 24 barras y, con «Últimos 7 días», 7;
+   - «Exportar CSV» descarga `estadisticas-runs-7d-<fecha>.csv`;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

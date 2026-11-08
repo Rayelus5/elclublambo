@@ -47,6 +47,11 @@ export class ChatHub {
     socket.on('error', () => this.clients.delete(client));
   }
 
+  /** How many sockets are open now (the live statistics, M6d-2). */
+  size(): number {
+    return this.clients.size;
+  }
+
   /** Closes every socket of an account (4401: its sessions ended), so a ban or closed sessions stop the live chat. */
   dropAccount(accountId: string): void {
     for (const c of this.clients) {
