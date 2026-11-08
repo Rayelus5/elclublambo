@@ -13,3 +13,4 @@ Owner request: go faster to PRE — fewest tests, CI as the gate. Ruling: Tasks 
 Task 2: boost chips on the title screen and in the hangar; results list the boosts that paid (breakdown.boosts ?? []).
 Task 3: simulateEconomy (shared) + EconomySimulator under runs/boosts editors (3 bot runs in slices, stop, live vs draft table).
 Merged: PR #60 → develop (merge 72b3d51) on green CI (second run; the first failed on the planetarium e2e that expected no buttons on a visit), 2026-11-08.
+PRE check (2026-11-08, deploy 72b3d51 success) with e2e_pre_bd58a6: /api/boosts 401 without session and 200 {boosts:[]} to a player, admin config 403, title screen and hangar load, no CSP, no errors. M6 complete on PRE.
