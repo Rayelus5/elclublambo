@@ -56,7 +56,8 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
   const open = ((await (await page.request.get('/galaxy/api/leaderboard')).json()) as Leaderboard).season !== null;
   const result = await shortRun(page, baseURL!);
   // One whole minute (10) and a layer (15); 10 points while a season is open.
-  expect(result.progress).toEqual({ xp: 25, level: 1, levelUp: false, points: open ? 10 : 0 });
+  // While a season is open, half the points also come in its currency (M7d-1).
+  expect(result.progress).toEqual({ xp: 25, level: 1, levelUp: false, points: open ? 10 : 0, ...(open ? { shards: 5 } : {}) });
 
   if (!open) {
     await page.goto('/galaxy/');
