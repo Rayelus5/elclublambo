@@ -14,6 +14,8 @@ import {
   type PulledGalaxy,
   type PullRequest,
   type PullResponse,
+  type SeasonConfig,
+  seasonFinish,
 } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
@@ -128,6 +130,8 @@ export async function pull(
   req: PullRequest,
   opKey: string,
   gacha: { cfg: GachaConfig; version: number },
+  /** The season open now (M8c), read before the transaction: its exclusive finish and its origin seal. */
+  season: SeasonConfig | null = null,
 ): Promise<PullResponse> {
   const { cfg } = gacha;
   const now = deps.now();
@@ -158,7 +162,8 @@ export async function pull(
   const pulls: PulledGalaxy[] = [];
   for (let i = 0; i < req.count; i++) {
     const pullSeed = randomSeed();
-    const outcome = drawPull(pullSeed, state, banner, cfg);
+    const drawn = drawPull(pullSeed, state, banner, cfg);
+    const outcome = { ...drawn, finish: seasonFinish(pullSeed, season) ?? drawn.finish };
     const g = generateGalaxy(pullSeed, outcome.tier, outcome.featured ? banner.featured : undefined);
     const row = await trx
       .insertInto('galaxy.galaxies')
@@ -175,6 +180,8 @@ export async function pull(
         finish: outcome.finish,
         featured: outcome.featured,
         origin: 'pull',
+        // The origin seal (GDD §8.4): the season it was born in.
+        season: season?.id ?? null,
       })
       .returning('id')
       .executeTakeFirstOrThrow();

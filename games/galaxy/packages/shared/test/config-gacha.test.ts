@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
+import { DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSchema, TIERS } from '../src/index';
 
 // GDD §9, §8.5 and §16.3: every starting number of the gacha and the galaxies is live configuration.
 describe('configuración del gachapón', () => {
@@ -20,7 +20,9 @@ describe('configuración del gachapón', () => {
     expect(galaxies.fusion).toEqual({ count: 5, dust: [20, 50, 120, 300] });
     expect(parseConfig('features', {}).gacha).toBe(true);
     expect(TIERS).toEqual(['common', 'uncommon', 'rare', 'epic', 'legendary']);
-    expect(FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt']);
+    expect(FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt', 'rift']);
+    // The odds draw five; Fisura is season 1's exclusive finish (M8c).
+    expect(DRAWN_FINISHES).toEqual(['normal', 'holo', 'prismatic', 'braille', 'corrupt']);
   });
 
   test('rechaza probabilidades que no suman 1', () => {

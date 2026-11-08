@@ -63,6 +63,15 @@ export function drawPull(pullSeed: bigint, state: PityState, banner: Banner, cfg
   };
 }
 
+/**
+ * A season's exclusive finish (GDD §13.1; M8c), stream "season-finish": with the season's chance a pull in its open season
+ * carries it instead of the one drawn. Purely cosmetic, like every finish.
+ */
+export function seasonFinish(pullSeed: bigint, season: { finish: Finish | null; finishChance: number } | null): Finish | null {
+  if (!season?.finish || !(season.finishChance > 0)) return null;
+  return subRng(pullSeed, 'season-finish').random() < season.finishChance ? season.finish : null;
+}
+
 /** The card finish of a pull or a fusion (stream "finish"): purely cosmetic (GDD §7). */
 export function drawFinish(seed: bigint, cfg: GachaConfig): Finish {
   return FINISHES[subRng(seed, 'finish').choiceP(cfg.finishes)]!;
@@ -82,7 +91,9 @@ export function bannerOdds(state: PityState, banner: Banner, cfg: GachaConfig) {
 
 /** Star dust for disintegrating a galaxy: per tier × finish multiplier (GDD §8.5). */
 export function disintegrateYield(tier: number, finish: Finish, cfg: GalaxiesConfig): number {
-  return Math.round(cfg.disintegrate.tier[tier]! * cfg.disintegrate.finish[FINISHES.indexOf(finish)]!);
+  // A season's finish (M8c) has no weight of its own: it yields like the rarest drawn one.
+  const f = cfg.disintegrate.finish;
+  return Math.round(cfg.disintegrate.tier[tier]! * (f[FINISHES.indexOf(finish)] ?? f[f.length - 1]!));
 }
 
 /** Fusion: `fusion.count` distinct galaxies of the same tier (below legendary) → one of the next tier, for dust. */

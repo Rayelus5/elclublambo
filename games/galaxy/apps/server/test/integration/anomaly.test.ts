@@ -32,3 +32,16 @@ test('una incursión de la temporada empieza con su anomalía y el inicio la ens
   expect((await start()).anomaly).toBeNull();
   expect(((await get(ctx.app, '/galaxy/api/boosts', { cookie })).json() as BoostsView).anomaly).toBeNull();
 });
+
+test('las galaxias de una tirada en la temporada llevan su sello de origen (M8c)', async () => {
+  overrides.season = { id: 'sello-test', name: 'Prueba', startsAt: new Date(now - 3_600_000).toISOString(), endsAt: new Date(now + 3_600_000).toISOString() };
+  const res = await post(ctx.app, '/galaxy/api/auth/register', { username: uniqueName('sel'), password: 'una-clave-larga' });
+  const cookie = sessionCookie(res);
+  const id = (res.json() as { id: string }).id;
+  await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('lumen' as never)) }, { cookie });
+  await get(ctx.app, '/galaxy/api/gacha', { cookie });
+  expect((await post(ctx.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 10, pay: 'signal' }, { cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+  const seals = await ctx.db.selectFrom('galaxy.galaxies').select('season').where('owner_id', '=', id).where('origin', '=', 'pull').execute();
+  expect(seals.length).toBe(10);
+  expect(new Set(seals.map((s) => s.season))).toEqual(new Set(['sello-test']));
+});
