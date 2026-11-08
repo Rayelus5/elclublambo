@@ -281,13 +281,13 @@
   .hub-foot { display: flex; gap: 12px; }
   .hub-foot .pill { height: 44px; font-size: 16px; }
 
-  /* The collection panel, where the season ranking will go when seasons exist. */
-  .collection-summary { grid-column: 3; grid-row: 3; align-self: start; --r: 26px; overflow: hidden; }
-  .collection-summary .hd { padding: 14px 20px 12px; display: flex; align-items: center; gap: 14px; color: #fff;
-    background-color: var(--color-sky); background-image: radial-gradient(rgb(255 255 255 / .22) 1.3px, transparent 1.8px), linear-gradient(160deg, var(--color-sky), var(--color-sky-2)); background-size: 11px 11px, 100% 100%; box-shadow: inset 0 -4px 0 rgb(0 0 0 / .16); }
-  .collection-summary .hd > .ico { font-size: 32px; }
-  .collection-summary h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 23px; line-height: 1.05; }
-  .collection-summary .hd span { font-size: 14px; font-weight: 600; opacity: .85; }
+  /* The season panel (M5a, DESIGN_SYSTEM §8 undecies): the season, its podium and your place. */
+  .season-summary { grid-column: 3; grid-row: 3; align-self: start; --r: 26px; overflow: hidden; }
+  .season-summary .hd { padding: 14px 20px 12px; display: flex; align-items: center; gap: 14px; color: #fff;
+    background-color: var(--color-nova); background-image: radial-gradient(rgb(255 255 255 / .22) 1.3px, transparent 1.8px), linear-gradient(160deg, var(--color-nova), var(--color-nova-lip)); background-size: 11px 11px, 100% 100%; box-shadow: inset 0 -4px 0 rgb(0 0 0 / .16); }
+  .season-summary .hd > .ico { font-size: 32px; }
+  .season-summary h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 23px; line-height: 1.05; }
+  .season-summary .hd span { font-size: 14px; font-weight: 600; opacity: .85; }
   .tier-counts { list-style: none; margin: 14px 16px 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; text-align: center; }
   .tier-counts li { display: flex; flex-direction: column; align-items: center; gap: 3px; }
   .tier-counts i { display: block; width: 22px; height: 22px; margin: 2px 0 4px; border-radius: 6px; transform: rotate(45deg) scale(.82); background: var(--tc); box-shadow: 0 0 12px color-mix(in oklab, var(--tc) 55%, transparent); }
@@ -295,19 +295,8 @@
   .tier-counts span { font-size: 12px; font-weight: 600; color: var(--color-ink-mute); line-height: 1.1; }
   .tier-counts li.none i { background: transparent; box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--tc) 55%, transparent); }
   .tier-counts li.none b { color: var(--color-ink-mute); }
-  .collection-summary h3 { margin: clamp(10px, 2vh, 16px) 16px 8px; font-size: 14px; font-weight: 600; color: var(--color-ink-soft); }
-  .best { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 6px; }
-  .best li { display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 12px; padding: clamp(5px, 1vh, 8px) 12px; border-radius: 14px; background: rgb(255 255 255 / .035); }
-  .best li:first-child { border: 2px solid color-mix(in oklab, var(--tc) 70%, transparent); background: linear-gradient(90deg, color-mix(in oklab, var(--tc) 18%, transparent), rgb(255 255 255 / .03)); }
-  .best i { display: block; width: 12px; height: 12px; border-radius: 3px; transform: rotate(45deg); background: var(--tc); box-shadow: 0 0 10px color-mix(in oklab, var(--tc) 60%, transparent); }
-  .best .n { min-width: 0; }
-  .best .n b { display: block; font-size: 16px; font-weight: 600; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .best .n span { font-size: 12.5px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
-  .best .tag { font-size: 12px; font-weight: 700; color: var(--tc); }
-  .collection-summary .empty { margin: 16px 20px 4px; color: var(--color-ink-soft); font-size: 15px; line-height: 1.45; }
-  /* Short screens: fewer of the rarest galaxies, so the panel and its button always fit. */
-  @media (max-height: 820px) { .best li:nth-child(n + 5) { display: none; } }
-  @media (max-height: 680px) { .best li:nth-child(n + 4) { display: none; } }
+  .season-summary h3 { margin: clamp(10px, 2vh, 16px) 16px 8px; font-size: 14px; font-weight: 600; color: var(--color-ink-soft); }
+  .season-summary .empty { margin: 16px 20px 4px; color: var(--color-ink-soft); font-size: 15px; line-height: 1.45; }
   .more { --r: 18px; --lip-h: 5px; --lip-c: var(--color-sky-lip); display: grid; place-items: center; margin: clamp(12px, 2vh, 16px) 16px 18px; height: 48px; font-weight: 600; font-size: 17px; color: #fff; background: linear-gradient(180deg, #5a7cff, var(--color-sky)); }
 
 
@@ -1060,4 +1049,124 @@
   @media (min-width: 1560px) { .planetarium { --px: 6; } }
   @media (min-width: 1880px) and (min-height: 1000px) { .planetarium { --px: 7; } }
   @media (prefers-reduced-motion: reduce) { .dome-art { animation: none; } .featured-card { transition: none; } .featured-card:hover { translate: none; } }
+
+  /* ---------- Temporada, clasificación y perfiles (DESIGN_SYSTEM §8 undecies) ---------- */
+  /* A tier's emblem: the Aseprite strip (four 32×32 frames) at an integer scale, its shine played with steps(4). */
+  .tier-art { display: inline-block; flex: none; inline-size: var(--size, 64px); block-size: var(--size, 64px); background: no-repeat 0 0 / 400% 100%; image-rendering: pixelated; animation: tier-frames .72s steps(4) infinite; }
+  @keyframes tier-frames { to { background-position-x: 133.333%; } }
+  .season-summary .podium { margin: 14px 14px 4px; }
+  .season-me { margin: 10px 16px 0; padding: 12px 14px; border-radius: 16px; background: rgb(255 255 255 / .045); border: 2px solid rgb(255 255 255 / .06); }
+  .season-me h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
+  .season-me-row { display: flex; align-items: center; gap: 12px; }
+  .season-me-row > span { display: grid; gap: 1px; }
+  .season-me-row b { font-family: var(--font-display); font-weight: 400; font-size: 22px; line-height: 1.05; }
+  .season-me-row span span { font-size: 14px; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
+  .season-me-row .season-me-tier { font-weight: 700; color: var(--color-solar); }
+  .season-next { margin: 8px 0 0; font-size: 13px; color: var(--color-ink-mute); }
+  .season-players { margin: 10px 18px 0; font-size: 13px; color: var(--color-ink-mute); }
+  /* The podium: first in the middle and highest, second left, third right; each step in its metal. */
+  .podium { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 10px; }
+  .podium li { --metal: #c27a12; position: relative; display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
+  .podium li.place-1 { order: 2; --metal: var(--color-solar); }
+  .podium li.place-2 { order: 1; --metal: #c9d0ea; }
+  .podium li.place-3 { order: 3; --metal: #e8a35f; }
+  .podium-who { display: grid; justify-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--color-ink); text-decoration: none; }
+  .podium-who b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
+  .podium-who:hover b { text-decoration: underline; }
+  .podium-who:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; border-radius: 12px; }
+  .podium-avatar { display: grid; place-items: center; inline-size: 52px; block-size: 52px; border-radius: 16px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px var(--metal), 0 0 18px color-mix(in srgb, var(--metal) 40%, transparent); }
+  .podium li.place-1 .podium-avatar { inline-size: 64px; block-size: 64px; }
+  .podium-avatar .avatar { inline-size: 70%; block-size: 70%; }
+  .podium-level { font-size: 12px; color: var(--color-ink-mute); }
+  .podium-value { font-size: 13px; font-weight: 700; color: var(--metal); font-variant-numeric: tabular-nums; }
+  .podium-step { display: grid; place-items: center; inline-size: 100%; margin-top: 6px; border-radius: 12px 12px 4px 4px; font: 400 26px var(--font-display); color: var(--color-void); background: linear-gradient(180deg, var(--metal), color-mix(in srgb, var(--metal) 60%, #000)); box-shadow: inset 0 3px 0 rgb(255 255 255 / .35); block-size: 34px; }
+  .podium li.place-1 .podium-step { block-size: 56px; }
+  .podium li.place-2 .podium-step { block-size: 44px; }
+  .podium li[aria-current="true"] .podium-avatar { box-shadow: 0 0 0 3px var(--metal), 0 0 0 6px var(--color-ice), 0 0 22px color-mix(in srgb, var(--metal) 50%, transparent); }
+  /* The leaderboard screen. */
+  .leaderboard-root, .profile-root { overflow: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
+  .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
+  .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
+  .lb-tabs { margin: 0; max-width: 720px; }
+  .lb-tab-soon { flex: 1; display: grid; place-items: center; align-content: center; gap: 0; height: 44px; border: 0; border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 15px var(--font-sans); opacity: .7; cursor: not-allowed; }
+  .lb-tab-soon small { font-size: 11px; font-weight: 600; }
+  .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; align-items: start; }
+  .lb-main { display: grid; gap: 16px; min-width: 0; }
+  .lb-main > .podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .1), transparent 70%); }
+  .lb-main > .podium .podium-avatar { inline-size: 72px; block-size: 72px; border-radius: 20px; }
+  .lb-main > .podium li.place-1 .podium-avatar { inline-size: 88px; block-size: 88px; }
+  .lb-main > .podium .podium-who b { font-size: 18px; }
+  .lb-main > .podium .podium-value { font-size: 15px; }
+  .lb-main > .podium li.place-1 .podium-step { block-size: 84px; font-size: 40px; }
+  .lb-main > .podium li.place-2 .podium-step { block-size: 64px; font-size: 34px; }
+  .lb-main > .podium li.place-3 .podium-step { block-size: 50px; font-size: 30px; }
+  .lb-table, .lb-pinned table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .lb-table { padding: 6px 0; border-spacing: 0; }
+  .lb-table th, .lb-table td, .lb-pinned td, .lb-pinned th { padding: 10px 16px; text-align: left; font-size: 15px; }
+  .lb-table thead th { font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
+  .lb-table thead th:last-child { text-align: right; }
+  .lb-table tbody tr { border-top: 1px solid rgb(255 255 255 / .05); }
+  .lb-rank { inline-size: 70px; font-weight: 700; color: var(--color-ink-soft); }
+  .lb-who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .lb-who .avatar { inline-size: 26px; block-size: 26px; }
+  .lb-who a { color: var(--color-ink); text-decoration: none; }
+  .lb-who a:hover { text-decoration: underline; }
+  .lb-who a:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; border-radius: 6px; }
+  .lb-level { inline-size: 90px; color: var(--color-ink-mute); }
+  .lb-value { text-align: right !important; font-weight: 700; }
+  .lb-you { display: inline-block; padding: 2px 8px; border-radius: 99px; background: var(--color-ice); color: var(--color-void); font-size: 12px; font-weight: 700; }
+  tr.mine { background: color-mix(in srgb, var(--color-ice) 10%, transparent); box-shadow: inset 4px 0 0 var(--color-ice); }
+  .lb-pinned { padding: 4px 0; border: 2px solid color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  .lb-empty { display: grid; justify-items: start; gap: 14px; padding: 22px; max-width: 560px; }
+  .lb-empty p { margin: 0; font-size: 17px; color: var(--color-ink-soft); }
+  .lb-side { display: grid; gap: 16px; }
+  .lb-season { padding: 18px 20px; display: grid; gap: 4px; }
+  .lb-season h2 { margin: 0; font: 400 26px var(--font-display); }
+  .lb-season p { margin: 0; color: var(--color-ink-soft); }
+  .lb-ends { font-weight: 700; color: var(--color-nova) !important; }
+  .lb-tiers { padding: 18px 16px 12px; }
+  .lb-tiers h2 { margin: 0 4px 10px; font: 400 20px var(--font-display); }
+  .lb-tiers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .lb-tiers li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 10px 6px 6px; border-radius: 14px; }
+  .lb-tiers li span { display: grid; }
+  .lb-tiers li b { font-size: 16px; }
+  .lb-tiers li small { font-size: 13px; color: var(--color-ink-mute); }
+  .lb-tiers li[aria-current="true"] { background: rgb(255 255 255 / .06); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
+  /* The profile. */
+  .profile-head { display: flex; align-items: center; gap: 20px; }
+  .profile-avatar { display: grid; place-items: center; inline-size: 96px; block-size: 96px; border-radius: 26px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px rgb(255 255 255 / .1), 0 12px 30px rgb(0 0 0 / .4); }
+  .profile-avatar .avatar { inline-size: 64px; block-size: 64px; }
+  .profile-head h1 { margin: 0; font: 400 clamp(34px, 3.4vw, 48px)/1 var(--font-display); overflow-wrap: anywhere; }
+  .profile-head p { margin: 4px 0 0; }
+  .profile-level { font-weight: 700; color: var(--color-terminal); }
+  .profile-since { color: var(--color-ink-mute); }
+  .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .profile-panel { display: grid; gap: 12px; align-content: start; justify-items: start; padding: 18px 20px 20px; }
+  .profile-panel h2 { margin: 0; font: 400 22px var(--font-display); }
+  .profile-tier { display: flex; align-items: center; gap: 14px; }
+  .profile-tier b { font: 400 26px var(--font-display); color: var(--color-solar); }
+  .profile-facts { display: flex; flex-wrap: wrap; gap: 8px 26px; margin: 0; }
+  .profile-facts dt { font-size: 13px; color: var(--color-ink-mute); }
+  .profile-facts dd { margin: 2px 0 0; font: 700 22px var(--font-sans); font-variant-numeric: tabular-nums; }
+  .profile-empty { margin: 0; color: var(--color-ink-soft); }
+  .profile-total { margin: 0; font-weight: 700; }
+  .profile-collection .tier-counts { margin: 0; justify-self: stretch; }
+  .profile-cover { display: flex; align-items: center; gap: 16px; }
+  .profile-cover > span { display: grid; gap: 4px; }
+  .profile-cover b { font: 400 24px var(--font-display); color: var(--color-solar); }
+  .profile-cover span span { color: var(--color-ink-soft); }
+  /* Results: what the run gave the account. */
+  .results-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; padding: 14px 20px; }
+  .results-xp { font-weight: 700; color: var(--color-terminal); }
+  .results-level { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; }
+  .results-level b { padding: 3px 10px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font-size: 13px; }
+  .results-level.up b { animation: level-up 1.2s ease-out 1; }
+  @keyframes level-up { from { transform: scale(.6); opacity: 0; } 60% { transform: scale(1.12); opacity: 1; } to { transform: scale(1); } }
+  .results-points { font-weight: 700; color: var(--color-nova); }
+  .me { text-decoration: none; color: inherit; border-radius: 14px; }
+  .me:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .me:hover b { text-decoration: underline; }
+  .me-level { font-size: 12px; font-weight: 700; color: var(--color-terminal); }
+  @media (max-width: 1360px) { .lb-body { grid-template-columns: minmax(0, 1fr) 280px; } }
+  @media (prefers-reduced-motion: reduce) { .tier-art { animation: none; } .results-level.up b { animation: none; } }
 }

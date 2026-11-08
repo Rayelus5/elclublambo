@@ -28,6 +28,7 @@ const died: RunResult = {
     ],
   },
   wallet: { coins: 152, dust: 30, signal: 10 },
+  progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
 function show(r: RunResult) {
@@ -74,4 +75,27 @@ test('enseña el material en bruto traído para la refinería (M4a)', () => {
 test('sin material no lo enseña', () => {
   show({ ...died, payout: { ...died.payout, material: 0 } });
   expect(screen.queryByRole('img', { name: copy.results.material(0) })).toBeNull();
+});
+
+test('dice la experiencia de cuenta, el nivel, si subes y los puntos de temporada (M5a)', () => {
+  show({ ...died, progress: { xp: 200, level: 6, levelUp: true, points: 95 } });
+  const progress = screen.getByRole('region', { name: copy.social.progressTitle });
+  expect(progress).toHaveTextContent('+200 de experiencia');
+  expect(progress).toHaveTextContent(copy.social.level(6));
+  expect(progress).toHaveTextContent(copy.social.levelUp);
+  expect(progress).toHaveTextContent('+95 puntos de temporada');
+});
+
+test('sin subir de nivel ni puntos, no los menciona', () => {
+  show({ ...died, progress: { xp: 25, level: 2, levelUp: false, points: 0 } });
+  const progress = screen.getByRole('region', { name: copy.social.progressTitle });
+  expect(progress).not.toHaveTextContent(copy.social.levelUp);
+  expect(progress).not.toHaveTextContent('puntos de temporada');
+});
+
+test('un resultado guardado antes de M5a, sin progreso, se enseña sin la franja (revisión M5a)', () => {
+  const { progress: _progress, ...old } = died;
+  show(old as RunResult);
+  expect(screen.getByRole('heading', { name: copy.results.died })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: copy.social.progressTitle })).toBeNull();
 });

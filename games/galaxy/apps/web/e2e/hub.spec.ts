@@ -2,7 +2,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { type Page, expect, skipProbeTest, test } from './fixtures';
 
 // The title screen against the real server (GDD §4): a new account gets the welcome signals, sees them in the top
-// bar with the free pull, and after scanning finds its galaxies in the collection panel. Writes e2e_* accounts only.
+// bar with the free pull, the season in the right column (M5a) and, after scanning, its galaxies counted in the
+// collection's tile. Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
 
 async function newAccount(page: Page): Promise<string> {
@@ -29,11 +30,13 @@ test('una cuenta nueva ve sus señales de bienvenida, la tirada gratis y lo que 
   // M3a: Jugar opens the hangar; M4a: the Hogar opens the station.
   await expect(page.getByRole('link', { name: /Jugar/ })).toHaveAttribute('href', '/galaxy/incursion');
   await expect(page.getByRole('link', { name: /Hogar/ })).toHaveAttribute('href', '/galaxy/estacion');
-  await expect(page.getByRole('complementary', { name: 'Tu colección' })).toContainText('Aún no tienes galaxias');
+  // M5a: the right column is the season (closed or open, a new account has no place yet) and Ranking leads to it.
+  await expect(page.getByRole('complementary', { name: /Temporada|Clasificación/ })).toContainText(/Juega una incursión para entrar en la clasificación|No hay ninguna temporada abierta/);
+  await expect(page.getByRole('link', { name: /Ranking/ })).toHaveAttribute('href', '/galaxy/clasificacion');
   expect(csp).toEqual([]);
 });
 
-test('tras escanear, el panel de la colección muestra las galaxias más raras', async ({ page, baseURL }) => {
+test('tras escanear, el mosaico de la colección cuenta sus galaxias', async ({ page, baseURL }) => {
   await newAccount(page);
   const res = await page.request.post('/galaxy/api/gacha/pull', {
     headers: { origin: baseURL!, 'idempotency-key': randomUUID() },
@@ -41,8 +44,6 @@ test('tras escanear, el panel de la colección muestra las galaxias más raras',
   });
   expect(res.status()).toBe(200);
   await page.reload();
-  const summary = page.getByRole('complementary', { name: 'Tu colección' });
-  await expect(summary.getByRole('listitem').filter({ hasText: /GX-/ })).toHaveCount(6);
   await expect(page.getByRole('link', { name: /Colección/ })).toContainText('10 galaxias');
   await expect(page.getByRole('img', { name: '0 señales de galaxia' })).toBeVisible();
 });

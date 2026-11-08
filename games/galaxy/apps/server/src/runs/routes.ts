@@ -25,6 +25,7 @@ import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
+import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
 /** A finished run carries its recorded inputs (≤ 2 MB of bytes, ~2.7 MB in base64). */
@@ -123,10 +124,18 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = finishRunRequestSchema.parse(req.body);
     // A resend of a stored result (same key) answers from the operation without using up the limit.
     if (!(await operationExists(deps.db, s.accountId, key))) await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_finish', 60, 3600);
-    const [{ value: runs, version: runsVersion }, content] = await Promise.all([deps.config.getVersioned('runs'), deps.config.get('content')]);
+    const [{ value: runs, version: runsVersion }, content, account, season] = await Promise.all([
+      deps.config.getVersioned('runs'),
+      deps.config.get('content'),
+      deps.config.get('account'),
+      deps.config.get('season'),
+    ]);
     const now = deps.now();
-    return runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
-      finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, now }),
+    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
+      finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, now }),
     );
+    // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
+    invalidateLeaderboard();
+    return result;
   });
 }

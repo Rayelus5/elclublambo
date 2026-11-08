@@ -48,6 +48,10 @@ export function VisitScreen() {
             />
             <aside className="planetarium-side">
               <PrestigePanel prestige={v.prestige} visits={v.visits} />
+              <Link to={`/perfil/${encodeURIComponent(v.owner)}`} className="lip pill">
+                <Icon name="probe" />
+                <span>{copy.social.seeProfile}</span>
+              </Link>
               <VisitForm />
             </aside>
           </div>

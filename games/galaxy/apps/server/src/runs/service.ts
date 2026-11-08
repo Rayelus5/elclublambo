@@ -6,6 +6,7 @@ import {
   runMaterial,
   runPayout,
   type FinishRunRequest,
+  type AccountConfig,
   type LabConfig,
   type PlanetariumConfig,
   probeLevelBonuses,
@@ -14,6 +15,7 @@ import {
   type RunResult,
   type RunsConfig,
   type RunStart,
+  type SeasonConfig,
   type SectorsConfig,
   sectorStatus,
   type StartRunRequest,
@@ -29,6 +31,7 @@ import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar'
 import { probeLevels } from './levels';
 import { accountLabEffects } from '../lab/levels';
 import { planetariumXp } from '../planetarium/service';
+import { creditRunProgress } from '../social/progress';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -108,6 +111,9 @@ export interface FinishContext {
   runs: RunsConfig;
   runsVersion: number;
   content: Content;
+  /** The account level and the season (M5a): experience and points for a run that is not suspicious. */
+  account: AccountConfig;
+  season: SeasonConfig;
   now: Date;
 }
 
@@ -205,6 +211,13 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .where('id', '=', run.id)
     .execute();
   await trx.insertInto('galaxy.run_inputs').values({ run_id: run.id, inputs: Buffer.from(bytes) }).execute();
+  const progress = await creditRunProgress(
+    trx,
+    accountId,
+    { seconds, depth: claim.depth, bossKills: claim.bossKills, outcome: claim.outcome, suspicious: flags.length > 0 },
+    { account: ctx.account, season: ctx.season },
+    ctx.now,
+  );
 
   return {
     id: run.id,
@@ -216,5 +229,6 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     payout,
     breakdown: { layers: pay.layers, share: pay.share, daily: segments },
     wallet: await getWallet(trx, accountId),
+    progress,
   };
 }

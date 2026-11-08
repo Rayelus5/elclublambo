@@ -233,6 +233,13 @@ export interface LoadoutsTable {
   galaxy_id: string;
 }
 
+/** The experience each account's runs gave (bigint, read as a decimal string; M5a). */
+export interface AccountXpTable {
+  account_id: string;
+  xp: BigNum;
+  updated_at: Timestamp;
+}
+
 /** The galaxies an account exhibits in its planetarium, one per pedestal (M4c-2). */
 export interface ExhibitsTable {
   account_id: string;
@@ -325,6 +332,7 @@ export interface DB {
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
   'galaxy.exhibits': ExhibitsTable;
+  'galaxy.account_xp': AccountXpTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;

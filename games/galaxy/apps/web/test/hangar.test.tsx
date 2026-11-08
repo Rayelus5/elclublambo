@@ -111,6 +111,7 @@ const result: RunResult = {
   payout: { coins: 40, dust: 12, signals: 1, material: 28 },
   breakdown: { layers: [{ layer: 1, coins: 40, dust: 12, multiplier: 1 }], share: 1, daily: [{ seconds: 360, multiplier: 1 }] },
   wallet: { coins: 140, dust: 12, signal: 11 },
+  progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
 const body: FinishRunRequest = { outcome: 'extracted', ticks: 21600, depth: 1, kills: 640, bossKills: 1, level: 15, loot: [{ coins: 40, dust: 12 }], hash: '0123456789abcdef', inputs: 'AQEA' };

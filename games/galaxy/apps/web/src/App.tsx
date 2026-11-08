@@ -8,6 +8,9 @@ import { StationScreen } from './station/StationScreen';
 import { LabScreen } from './lab/LabScreen';
 import { PlanetariumScreen } from './planetarium/PlanetariumScreen';
 import { VisitScreen } from './planetarium/VisitScreen';
+import { LeaderboardScreen } from './social/LeaderboardScreen';
+import { ProfileScreen } from './social/ProfileScreen';
+import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
@@ -61,6 +64,9 @@ export function App() {
       <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
       <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />
       <Route path="/planetario/:username" element={<SignedIn><VisitScreen /></SignedIn>} />
+      <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
+      <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />
+      <Route path="/perfil/:username/coleccion" element={<SignedIn><PublicCollectionScreen /></SignedIn>} />
       <Route element={<AuthLayout />}>
         <Route path="/entrar" element={<GuestOnly><Entrar /></GuestOnly>} />
         <Route path="/crear-cuenta" element={<GuestOnly to="/sonda"><CrearCuenta /></GuestOnly>} />

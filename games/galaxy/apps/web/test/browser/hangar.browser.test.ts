@@ -106,6 +106,7 @@ const result: RunResult = {
     daily: [{ seconds: 792, multiplier: 1 }],
   },
   wallet: { coins: 232, dust: 53, signal: 11 },
+  progress: { xp: 0, level: 1, levelUp: false, points: 0 },
 };
 
 let root: Root | null = null;

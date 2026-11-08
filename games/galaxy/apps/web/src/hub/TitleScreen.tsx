@@ -8,7 +8,7 @@ import { ME_KEY } from '../auth/useMe';
 import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
 import { backdropSeeds } from '../scene/backdrop-seeds';
 import { Logo, MaintenanceNotice } from '../shell/AuthLayout';
-import { CollectionSummary } from './CollectionSummary';
+import { SeasonSummary } from '../social/SeasonSummary';
 import { MainMenu } from './MainMenu';
 import { TopBar } from './TopBar';
 
@@ -16,7 +16,7 @@ const BEST = { sort: 'rarity', limit: 6 } as const;
 
 /**
  * The title screen (GDD §4): the hub every session starts from. Top bar with balances, the main menu on the left,
- * the collection on the right and the player's own rarest galaxies drifting in the sky between them.
+ * the season on the right (M5a) and the player's own rarest galaxies drifting in the sky between them.
  */
 export function TitleScreen({ me }: { me: MeResponse }) {
   const navigate = useNavigate();
@@ -49,7 +49,7 @@ export function TitleScreen({ me }: { me: MeResponse }) {
           <Logo />
           <MainMenu galaxies={total} />
         </main>
-        <CollectionSummary page={best.data} />
+        <SeasonSummary />
       </div>
     </div>
   );
