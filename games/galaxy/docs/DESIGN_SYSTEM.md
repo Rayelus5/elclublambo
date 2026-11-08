@@ -932,12 +932,14 @@ Una tarjeta lista para recoger lleva un borde Solar, y una ya recogida se atenú
 
 ## 8 novovicies. Temporada: ruta y tienda
 
-**`/temporada`:**
+**`/temporada`** es más ancha que las otras listas (hasta 1240 px), porque la ruta es una pista.
 - **Arriba, dos tarjetas:**
-  - la puntuación, grande, con el emblema del tramo y lo que falta para el siguiente escalón;
-  - la moneda de temporada, con su esquirla violeta.
-- **La ruta:** una pista horizontal de escalones que se desplaza por dentro y abre en el siguiente por recoger. Cada escalón es un nodo sobre una línea: candado, trofeo Solar que late si está listo, o marca Terminal si ya se recogió. Debajo, sus puntos, su premio y «Recoger».
-- **La tienda:** una rejilla de artículos con su premio, «n de m» comprados y el botón con el precio en esquirlas. Al pie, el aviso de que lo que sobra pasa a polvo.
+  - la puntuación, grande, con el emblema de su tramo (o el del siguiente, atenuado), una barra Solar hasta el siguiente tramo y lo que falta para el siguiente escalón;
+  - la moneda de temporada, con su esquirla violeta y un halo.
+- **La ruta:** una pista horizontal que se desplaza dentro de su sección, nunca la página. Lleva botones de anterior y siguiente, sus bordes se difuminan donde queda más por ver, y abre en el siguiente escalón por recoger.
+  - Cada escalón es un nodo numerado sobre una línea que se pinta Solar hasta donde llega la puntuación. Debajo van el icono de su premio en su color (monedas Solar, polvo hielo, señales Nova, esquirlas violeta, cosméticos Terminal), el premio y sus puntos.
+  - El estado se lee: «Faltan N puntos», «Recoger» Solar con borde y halo si está listo, o «Recogido» Terminal, atenuado.
+- **La tienda:** una fila de artículos con su icono, su premio, «n de m» comprados y el botón con el precio en esquirlas. El botón está apagado si no llega o está agotado. Al pie, el aviso de que lo que sobra pasa a polvo.
 
 ## 8 tricies. Cierre de temporada, Trofeos y salón de la fama
 
