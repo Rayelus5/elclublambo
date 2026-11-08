@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
+import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { browseMarket, buyListing, cancelListing, listGalaxy, type MarketDeps, marketConfigs, myMarket } from './service';
 
@@ -22,6 +23,7 @@ export function registerMarketRoutes(api: FastifyInstance, deps: MarketDeps): vo
 
   api.post('/galaxy/api/market/listings', async (req) => {
     const s = requireSession(req);
+    await requireFeature(deps.config, 'market');
     const body = marketListSchema.parse(req.body);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'market', 60, 60);
@@ -38,6 +40,7 @@ export function registerMarketRoutes(api: FastifyInstance, deps: MarketDeps): vo
 
   api.post('/galaxy/api/market/listings/:id/buy', async (req) => {
     const s = requireSession(req);
+    await requireFeature(deps.config, 'market');
     const { id } = marketIdParamSchema.parse(req.params);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'market', 60, 60);

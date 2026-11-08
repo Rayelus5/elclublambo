@@ -643,7 +643,8 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 
 **La barra lateral:**
 - Jugadores y Auditoría;
-- Configuración, Moderación, Comunicación y Estadísticas, en gris con «Próximamente» hasta M6b–M6d;
+- Configuración (desde M6b);
+- Moderación, Comunicación y Estadísticas, en gris con «Próximamente» hasta M6c–M6d;
 - la sección activa, con una barra Solar a la izquierda.
 
 **Jugadores:**
@@ -661,6 +662,39 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - filtros por quién, qué, objetivo y fechas;
 - una tabla en la que cada cambio se despliega con su antes y su después;
 - «Exportar CSV» con los mismos filtros.
+
+## 8 septendecies. Configuración viva
+
+`/admin/configuracion` y `/admin/configuracion/<clave>`, dentro del panel (GDD §16.3 y §16.6, M6b). Nada se publica sin motivo y sin tu contraseña, y cada versión queda en la auditoría.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **El estado de un interruptor se dice en palabras** («Encendido», «Apagado»), no solo con el color;
+- **Validación en vivo junto al campo:** el editor se marca en rojo y sus problemas salen al lado, cada uno con su ruta;
+- **El botón dice lo que hace:** «Apagar Mercado», «Encender Chat», «Publicar».
+
+**Interruptores:**
+- uno por parte del juego: Registro, Mantenimiento, Gachapón, Incursiones, Mercado, Trueque y Chat;
+- cada uno es un interruptor de 52 × 30 px: Terminal cuando está encendido y gris cuando no, con la bola desplazada;
+- su estado va escrito debajo del nombre, en Terminal o en gris;
+- pulsarlo abre un diálogo con el motivo y la contraseña; no cambia nada hasta confirmar.
+
+**Claves:** cada clave con su versión («Valores por defecto» si nunca se publicó) y quién la cambió por última vez y cuándo; el nombre lleva a su editor.
+
+**El editor de una clave:**
+- a la izquierda, el borrador en JSON, en monoespaciada de 13,5 px. Lo que no se ponga se queda como está publicado;
+- a la derecha, en un panel:
+  - si el borrador está mal, «Problemas», con la ruta en una etiqueta Nova;
+  - si está bien, «Qué cambia», con una línea Solar por valor: «maxLength pasa de 280 a 300»;
+- debajo, el motivo, la contraseña y «Publicar» en Nova, que solo se activa si hay cambios válidos;
+- con menos de 1100 px de ancho, el panel baja debajo del editor.
+
+**El historial:** de la versión más nueva a la más vieja, con quién, cuándo y su nota. «Cargar la versión N en el editor» la carga para publicarla como una versión nueva.
+
+**El simulador del gachapón:**
+- solo en la clave `gacha`;
+- tira el borrador en el navegador sin publicarlo, 1000, 10.000 o 100.000 veces, con el escáner que se elija;
+- una tabla de 640 px como máximo, con la rareza en su color, lo que salió y lo que se esperaba (decimales con coma);
+- debajo, cada cuántas tiradas sale una legendaria, la racha más larga sin ella y el reparto de acabados.
 
 ## 9. Copy
 

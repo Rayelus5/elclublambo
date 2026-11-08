@@ -12,6 +12,7 @@ import { LeaderboardScreen } from './social/LeaderboardScreen';
 import { MarketScreen } from './market/MarketScreen';
 import { AdminLayout } from './admin/AdminLayout';
 import { AuditScreen } from './admin/AuditScreen';
+import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { PlayerScreen } from './admin/PlayerScreen';
 import { PlayersScreen } from './admin/PlayersScreen';
 import { ClanScreen } from './clans/ClanScreen';
@@ -82,6 +83,8 @@ export function App() {
           <Route path="jugadores" element={<PlayersScreen />} />
           <Route path="jugadores/:username" element={<PlayerScreen />} />
           <Route path="auditoria" element={<AuditScreen />} />
+          <Route path="configuracion" element={<ConfigScreen />} />
+          <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
         </Route>
         <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
         <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />

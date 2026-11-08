@@ -1,7 +1,11 @@
 import { contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
+import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
+
+/** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
+const esIssues = es().localeError;
 
 /** Levels 2–30: the first nine by hand, then 1000 more each (GDD §12.1; M5a). */
 const DEFAULT_ACCOUNT_LEVELS = [100, 300, 600, 1000, 1500, 2100, 2800, 3600, 4500, ...Array.from({ length: 20 }, (_, i) => 5500 + i * 1000)];
@@ -65,6 +69,10 @@ export const configSchemas = {
       maintenance: z.boolean().default(false),
       gacha: z.boolean().default(true),
       runs: z.boolean().default(true),
+      /** M6b: the market, the swaps and the chat can be switched off from the admin panel. */
+      market: z.boolean().default(true),
+      trades: z.boolean().default(true),
+      chat: z.boolean().default(true),
     })
     .strict(),
   auth: z.object({
@@ -539,6 +547,37 @@ export const CONFIG_KEYS = Object.keys(configSchemas) as ConfigKey[];
 
 export function isConfigKey(key: string): key is ConfigKey {
   return Object.hasOwn(configSchemas, key);
+}
+
+/**
+ * A draft of `key` over what is live (M6b): the fields it names replace theirs whole, the rest stay as published. Only
+ * fields the schema knows are kept from what is live, so one removed from the schema never blocks a publish. The
+ * server publishes this and the panel checks it, so both always agree. A draft that is not an object stays as it is
+ * (and fails its check).
+ */
+export function mergeDraft(key: ConfigKey, active: unknown, draft: unknown): unknown {
+  if (!isPlainObject(draft)) return draft;
+  const known = new Set(Object.keys(configSchemas[key].shape));
+  const base = isPlainObject(active) ? Object.fromEntries(Object.entries(active).filter(([k]) => known.has(k))) : {};
+  return { ...base, ...draft };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return !!v && typeof v === 'object' && !Array.isArray(v);
+}
+
+/**
+ * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). It also
+ * refuses what the game cannot serve yet: event banners (GDD §9) have their rules, but not their event signals in the
+ * wallet, combined odds on screen or featured checks, so until the events milestone no one can publish half a feature.
+ */
+export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
+  const result = configSchemas[key].safeParse(data, { error: esIssues });
+  if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+  if (key === 'gacha' && (result.data as ConfigValue<'gacha'>).banners.some((b) => b.kind === 'event')) {
+    return [{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }];
+  }
+  return [];
 }
 
 /** Valida `data` con el esquema de `key` y devuelve el valor con los valores por defecto aplicados. Lanza si no vale. */

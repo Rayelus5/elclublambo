@@ -1,11 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { PullResponse } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
-import { createConfigService } from '../../src/config/service';
-import { createDb } from '../../src/db';
+import { type ConfigService, createConfigService } from '../../src/config/service';
 import { inTransaction } from '../../src/db/tx';
 import { credit } from '../../src/economy/wallet';
-import { get, post, sessionCookie, testApp, testEnv, uniqueName } from '../helpers';
+import { get, post, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // Final review (M2b): an economy operation holds one pooled connection for its whole transaction. Anything it reads
 // through the pool meanwhile (the live config when its cache expires) needs a SECOND connection: under load the pool
@@ -38,24 +37,29 @@ test('escanear, desintegrar y fusionar no piden una segunda conexión al pool de
 });
 
 test('cada tirada guarda la versión de configuración con la que se sorteó', async () => {
-  // This process caches the gacha config; another process publishes a new version meanwhile.
-  const env = testEnv();
-  const other = createDb(env.DATABASE_URL);
-  const mine = createConfigService(ctx.db, { ttlMs: 60_000 });
+  // The config this process drew with is what each pull records, never what the database says when it records it.
+  // Without publishing anything (the local database is the user's): this process's service hands out a version the
+  // database has never had, so reading the version back from the database would record a different one.
+  const real = createConfigService(ctx.db, { ttlMs: 60_000 });
+  const live = await real.getVersioned('gacha');
+  const drawn = live.version + 1000;
+  const mine: ConfigService = {
+    ...real,
+    getVersioned: async (key) => {
+      const v = await real.getVersioned(key);
+      return key === 'gacha' ? { ...v, version: drawn } : v;
+    },
+  };
   const app = await testApp({ config: mine });
   try {
-    const used = await mine.getVersioned('gacha');
-    const current = await createConfigService(other).getVersioned('gacha');
-    await createConfigService(other).publish('gacha', current.value, { id: null, label: 'test' }, 'prueba de versión (M2b)');
     const res = await post(app.app, '/galaxy/api/auth/register', { username: uniqueName('ver'), password: 'una-clave-larga' });
     const cookie = sessionCookie(res);
     const pull = await post(app.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 1, pay: 'signal' }, { cookie, headers: { 'idempotency-key': randomUUID() } });
     expect(pull.statusCode).toBe(200);
     const galaxyId = (pull.json() as PullResponse).pulls[0]!.id;
     const row = await ctx.db.selectFrom('galaxy.gacha_pulls').select('config_version').where('galaxy_id', '=', galaxyId).executeTakeFirstOrThrow();
-    expect(row.config_version).toBe(used.version);
+    expect(row.config_version).toBe(drawn);
   } finally {
     await app.close();
-    await other.destroy();
   }
 });
