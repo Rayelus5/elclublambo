@@ -88,35 +88,58 @@ export function logTicks(log: InputLog): number {
   return log.events.length >= 6 ? log.events[log.events.length - 6]! : 0;
 }
 
+/** A recorded run stepped one `step()` at a time (the panel's replayer draws it as it goes, M6d-3). */
+export interface Replayer {
+  readonly sim: Sim;
+  /**
+   * One step: the level-up choice the log made while the world was frozen, or one world tick with the moves in effect.
+   * False once the run is over, the log disagrees at a choice (or ends there), or the world reached `until`.
+   */
+  next(): boolean;
+}
+
 /**
- * Replays a run from its options and log up to `untilTick` (or until it ends). The options must be the run's own
- * (seed, content, sector, probes and relics). Moves logged at tick T drive the step that simulates T; choices logged at
- * tick T were made while the world was frozen after T, so they come after T's moves in the log.
+ * Replays a run from its options and log, one step per `next()`, up to `until` (or until it ends). The options must be
+ * the run's own (seed, content, sector, probes and relics). Moves logged at tick T drive the step that simulates T;
+ * choices logged at tick T were made while the world was frozen after T, so they come after T's moves in the log.
  */
-export function replay(opts: SimOptions, log: InputLog, untilTick: number): Sim {
+export function createReplayer(opts: SimOptions, log: InputLog, until: number): Replayer {
   const sim = createSim({ ...opts, record: false });
   if (log.probes !== sim.probes.length) bad();
   const current: ProbeInput[] = sim.probes.map(() => ({ ...IDLE }));
   const ev = log.events;
   let i = 0;
-  while (sim.status === 'running' || sim.status === 'choosing') {
+  let stopped = false;
+  function next(): boolean {
+    if (stopped || (sim.status !== 'running' && sim.status !== 'choosing')) return false;
     if (sim.status === 'choosing') {
-      if (!(i + 5 < ev.length) || ev[i + 2] !== PICK || ev[i]! !== sim.tick) break; // the log ends (or disagrees) here
+      if (!(i + 5 < ev.length) || ev[i + 2] !== PICK || ev[i]! !== sim.tick) {
+        stopped = true; // the log ends (or disagrees) here
+        return false;
+      }
       const inputs = sim.probes.map(() => IDLE);
       inputs[ev[i + 1]!] = { ...IDLE, pick: ev[i + 3]! };
       i += 6;
       step(sim, inputs);
-      continue;
+      return true;
     }
-    if (sim.tick >= untilTick) break;
-    const next = sim.tick + 1;
-    while (i + 5 < ev.length && ev[i + 2] === MOVE && ev[i]! <= next) {
+    if (sim.tick >= until) return false;
+    const nextTick = sim.tick + 1;
+    while (i + 5 < ev.length && ev[i + 2] === MOVE && ev[i]! <= nextTick) {
       current[ev[i + 1]!] = { mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]!, pick: -1 };
       i += 6;
     }
     step(sim, current);
+    return true;
   }
-  return sim;
+  return { sim, next };
+}
+
+/** Replays a run from its options and log up to `untilTick` (or until it ends): `createReplayer` run to its end. */
+export function replay(opts: SimOptions, log: InputLog, untilTick: number): Sim {
+  const r = createReplayer(opts, log, untilTick);
+  while (r.next());
+  return r.sim;
 }
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';

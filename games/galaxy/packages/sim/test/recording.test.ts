@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   botInput,
   botPick,
+  createReplayer,
   createSim,
   DEFAULT_CONTENT,
   decodeLog,
@@ -157,5 +158,49 @@ describe('repetición con evoluciones', () => {
     expect(sim.probes[0]!.weapons.map((w) => w.id)).toContain('pulse-storm');
     const again = replay({ ...evolving(small), record: false }, decodeLog(encodeLog(sim.log!)), sim.tick);
     expect(stateHash(again)).toBe(stateHash(sim));
+  });
+});
+
+// The panel's replayer (M6d-3) steps a recorded run one step at a time, so the arena can draw it as it goes.
+describe('el reproductor paso a paso', () => {
+  const recorded = () => {
+    const sim = createSim(opts());
+    play(sim, 3000);
+    return { sim, log: decodeLog(encodeLog(sim.log!)) };
+  };
+
+  test('paso a paso llega al mismo estado que replay', () => {
+    const { sim, log } = recorded();
+    const r = createReplayer({ ...opts(), record: false }, log, sim.tick);
+    while (r.next());
+    expect(r.sim.tick).toBe(sim.tick);
+    expect(stateHash(r.sim)).toBe(stateHash(sim));
+    expect(stateHash(r.sim)).toBe(stateHash(replay({ ...opts(), record: false }, log, sim.tick)));
+  });
+
+  test('se para en until aunque el mundo siga', () => {
+    const { log } = recorded();
+    const r = createReplayer({ ...opts(), record: false }, log, 1200);
+    while (r.next());
+    expect(r.sim.tick).toBe(1200);
+    expect(r.next()).toBe(false);
+    expect(r.sim.tick).toBe(1200);
+  });
+
+  test('cada next es un solo step: un tick del mundo, o una elección sin tick', () => {
+    const { sim, log } = recorded();
+    expect(sim.probes[0]!.level).toBeGreaterThan(1);
+    const r = createReplayer({ ...opts(), record: false }, log, sim.tick);
+    let picks = 0;
+    for (;;) {
+      const before = r.sim.tick;
+      const choosing = r.sim.status === 'choosing';
+      if (!r.next()) break;
+      if (choosing) {
+        picks++;
+        expect(r.sim.tick).toBe(before);
+      } else expect(r.sim.tick).toBe(before + 1);
+    }
+    expect(picks).toBe(sim.probes[0]!.level - 1);
   });
 });
