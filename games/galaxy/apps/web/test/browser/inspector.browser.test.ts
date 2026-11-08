@@ -6,6 +6,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { Inspector } from '../../src/inspector/Inspector';
 import { featherGalaxy } from '../../src/inspector/textures';
+import { copy } from '../../src/copy/es';
 import '../../src/styles/app.css';
 
 // The 3D inspector (GDD §8.1) in a real Chromium: three.js arrives only when it opens, the card is drawn with every
@@ -107,6 +108,40 @@ test('sin WebGL2 el inspector enseña la carta plana por las dos caras', { timeo
   const inspector = document.querySelector('.inspector')!;
   expect(inspector.querySelectorAll('article')).toHaveLength(2);
   expect(inspector.querySelector('canvas.inspector-gl')).toBeNull();
+  // It says why, concretely (the owner's request).
+  expect(document.querySelector('.inspector-notice')?.textContent).toContain(copy.inspector.reasons.noWebgl2);
+});
+
+const variant = () => document.querySelector<HTMLElement>('.inspector')?.dataset['variant'];
+
+test('con todo en orden sale la vista 3D pro, sin aviso', { timeout: 90_000 }, async () => {
+  open(galaxy('normal'));
+  await until(() => state() === 'ready');
+  expect(variant()).toBe('pro');
+  expect(document.querySelector('.inspector-notice')).toBeNull();
+});
+
+test('si la vista pro falla, sale la 3D clásica de antes con el aviso y su motivo', { timeout: 90_000 }, async () => {
+  // Only the pro view blurs the galaxy for its glow: a canvas that cannot filter breaks it, not the classic one.
+  const desc = Object.getOwnPropertyDescriptor(CanvasRenderingContext2D.prototype, 'filter')!;
+  Object.defineProperty(CanvasRenderingContext2D.prototype, 'filter', {
+    configurable: true,
+    get: desc.get,
+    set() {
+      throw new Error('canvas filter unsupported');
+    },
+  });
+  try {
+    open(galaxy('holo'));
+    await until(() => state() === 'ready');
+    expect(variant()).toBe('classic');
+    expect(document.querySelector('canvas.inspector-gl')).not.toBeNull();
+    const notice = document.querySelector('.inspector-notice')!.textContent!;
+    expect(notice).toContain(copy.inspector.proUnavailable);
+    expect(notice).toContain('canvas filter unsupported');
+  } finally {
+    Object.defineProperty(CanvasRenderingContext2D.prototype, 'filter', desc);
+  }
 });
 
 test('arrastrar la carta a un lado la gira, y el botón dice qué cara se ve', { timeout: 90_000 }, async () => {

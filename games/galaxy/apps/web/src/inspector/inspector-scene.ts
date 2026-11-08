@@ -30,8 +30,8 @@ export interface InspectorFaces {
   front: HTMLCanvasElement;
   back: HTMLCanvasElement;
   galaxy: HTMLCanvasElement;
-  /** The galaxy's blurred glow (textures.ts glowGalaxy). */
-  glow: HTMLCanvasElement;
+  /** The galaxy's blurred glow (textures.ts glowGalaxy); the pro view only. */
+  glow?: HTMLCanvasElement;
   starfield: HTMLCanvasElement;
   mask: HTMLCanvasElement;
   finish: Finish;
@@ -104,8 +104,24 @@ function texture(c: HTMLCanvasElement): CanvasTexture {
   return t;
 }
 
-export function createInspectorScene(canvas: HTMLCanvasElement, faces: InspectorFaces, events: InspectorEvents = {}): InspectorScene {
+/**
+ * `pro`: the layers further apart, the galaxy faded before its edges and its glow under the glass (M6d-1). `classic`: the
+ * layers as they were before (M2b), for a computer that cannot make the pro view (the owner's request).
+ */
+export type InspectorVariant = 'pro' | 'classic';
+
+export function createInspectorScene(canvas: HTMLCanvasElement, faces: InspectorFaces, events: InspectorEvents = {}, variant: InspectorVariant = 'pro'): InspectorScene {
   const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  try {
+    return build(renderer, canvas, faces, events, variant);
+  } catch (err) {
+    // What was made goes, but the context stays: the classic view may still use this canvas.
+    renderer.dispose();
+    throw err;
+  }
+}
+
+function build(renderer: WebGLRenderer, canvas: HTMLCanvasElement, faces: InspectorFaces, events: InspectorEvents, variant: InspectorVariant): InspectorScene {
   renderer.setPixelRatio(Math.min(globalThis.devicePixelRatio || 1, 2));
   renderer.localClippingEnabled = true;
   const scene = new Scene();
@@ -142,10 +158,16 @@ export function createInspectorScene(canvas: HTMLCanvasElement, faces: Inspector
     new Plane(new Vector3(0, -1, 0), 1.0 + 2.25),
   ];
   const clip = local.map((p) => p.clone());
-  // Further apart than before (M6d-1): the starfield deep behind, the galaxy in the middle, its glow just under the glass.
-  plane(7, 7, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.72, 1.0);
-  plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.34, 1.0);
-  plane(5.3, 5.3, new MeshBasicMaterial({ map: tex(faces.glow), blending: AdditiveBlending, transparent: true, opacity: 0.42, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.08, 1.0);
+  if (variant === 'pro') {
+    // Further apart (M6d-1): the starfield deep behind, the galaxy in the middle, its glow just under the glass.
+    plane(7, 7, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.72, 1.0);
+    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.34, 1.0);
+    if (faces.glow) plane(5.3, 5.3, new MeshBasicMaterial({ map: tex(faces.glow), blending: AdditiveBlending, transparent: true, opacity: 0.42, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.08, 1.0);
+  } else {
+    // As it was before M6d-1: the starfield behind and the galaxy (additive, its whole square) in front of it.
+    plane(6, 6, new MeshBasicMaterial({ map: tex(faces.starfield), side: FrontSide, clippingPlanes: clip }), -0.42, 1.0);
+    plane(4.9, 4.9, new MeshBasicMaterial({ map: tex(faces.galaxy), blending: AdditiveBlending, transparent: true, depthWrite: false, side: FrontSide, clippingPlanes: clip }), -0.16, 1.0);
+  }
   plane(5, 7, new MeshBasicMaterial({ map: tex(faces.front), transparent: true, alphaTest: 0.02, side: FrontSide }), 0);
   const foil = new ShaderMaterial({
     vertexShader: VERTEX,

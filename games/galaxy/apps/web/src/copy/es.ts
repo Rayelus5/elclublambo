@@ -1120,6 +1120,14 @@ export const copy = {
     back: 'Ver el reverso',
     front: 'Ver el anverso',
     flat: 'Este equipo no puede mostrar la vista 3D. Aquí tienes la carta por las dos caras',
+    proUnavailable: 'Este equipo no puede generar la vista 3D pro, así que ves la vista 3D clásica',
+    reason: (why: string) => `Motivo: ${why}`,
+    reasons: {
+      noWebgl2: 'el navegador no da WebGL2. Puede que la aceleración por hardware esté desactivada o que la tarjeta gráfica esté bloqueada',
+      context: 'no se pudo crear el contexto gráfico. Si el navegador bloqueó WebGL tras un error, recargar la página suele arreglarlo',
+      render: 'no se pudo dibujar la galaxia en este equipo',
+      other: (detail: string) => `falló al preparar la escena (${detail})`,
+    },
   },
   card: {
     level: (n: number) => `Nivel ${n}`,
