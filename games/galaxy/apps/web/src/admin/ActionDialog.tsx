@@ -6,9 +6,10 @@ import { Dialog } from '../ui/Dialog';
 
 const t = copy.admin;
 
+/** A field of a change; `initial` puts the value it has now (M6d-4: a level, a counter). */
 export type FieldSpec =
-  | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean }
-  | { name: string; label: string; kind: 'select'; options: [string, string][] };
+  | { name: string; label: string; kind: 'text' | 'number'; hint?: string; optional?: boolean; initial?: string }
+  | { name: string; label: string; kind: 'select'; options: [string, string][]; initial?: string };
 
 /**
  * A change from the panel (DESIGN_SYSTEM §8 sedecies, §8 octodecies): its fields, always a reason, and the admin's own
@@ -47,7 +48,7 @@ export function ActionDialog({
 }) {
   const ids = useId();
   const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map((f) => [f.name, f.kind === 'select' ? f.options[0]![0] : ''])),
+    Object.fromEntries(fields.map((f) => [f.name, f.initial ?? (f.kind === 'select' ? f.options[0]![0] : '')])),
   );
   const [reason, setReason] = useState('');
   const [secret, setSecret] = useState('');

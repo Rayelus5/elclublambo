@@ -1,4 +1,4 @@
-import { ADMIN_CURRENCIES, ADMIN_SECTIONS, type AdminPlayer, type AdminSectionName, FINISHES, TIERS } from '@galaxy/shared';
+import { ADMIN_CURRENCIES, ADMIN_SECTIONS, type AdminPlayer, type AdminSectionName, FINISHES, GALAXY_TYPES, TIERS } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { useAdminPlayer, usePlayerSection } from '../api/admin';
@@ -8,11 +8,12 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { ActionDialog, type FieldSpec } from './ActionDialog';
 import { cellText, DataTable, Pager } from './DataTable';
+import { ProgressTab } from './ProgressTab';
 
 const t = copy.admin;
 const day = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));
-type Tab = 'summary' | AdminSectionName | 'sessions';
-const TABS: Tab[] = ['summary', ...ADMIN_SECTIONS, 'sessions'];
+type Tab = 'summary' | 'progress' | AdminSectionName | 'sessions';
+const TABS: Tab[] = ['summary', 'progress', ...ADMIN_SECTIONS, 'sessions'];
 const COLUMNS: Record<AdminSectionName, string[]> = {
   galaxies: ['name', 'designation', 'tier', 'finish', 'level', 'origin', 'at', 'gone'],
   ledger: ['at', 'currency', 'delta', 'balance', 'reason'],
@@ -46,10 +47,11 @@ function actionsFor(p: AdminPlayer): Action[] {
       fields: [
         { name: 'tier', label: t.fields.tier, kind: 'select', options: TIERS.map((x) => [x, copy.tiers[x]]) },
         { name: 'finish', label: t.fields.finish, kind: 'select', options: FINISHES.map((x) => [x, copy.finishes[x]]) },
+        { name: 'type', label: t.fields.type, kind: 'select', options: [['', t.anyType], ...GALAXY_TYPES.map((x): [string, string] => [x, copy.traitValues.galaxy_type[x as keyof typeof copy.traitValues.galaxy_type] ?? x])] },
         { name: 'seed', label: t.fields.seed, kind: 'text', optional: true },
       ],
       password: never,
-      build: (v) => ({ tier: v['tier'], finish: v['finish'], ...(v['seed']?.trim() ? { seed: v['seed'].trim() } : {}) }),
+      build: (v) => ({ tier: v['tier'], finish: v['finish'], ...(v['type'] ? { type: v['type'] } : {}), ...(v['seed']?.trim() ? { seed: v['seed'].trim() } : {}) }),
     },
     { key: 'xp', title: t.actions.xp, path: 'xp', fields: [{ name: 'xp', label: t.fields.xp, kind: 'number' }], password: always, build: (v) => ({ xp: Number(v['xp']) }) },
     { key: 'rename', title: t.actions.rename, path: 'rename', fields: [{ name: 'username', label: t.fields.username, kind: 'text' }], password: always, build: (v) => ({ username: v['username']?.trim() }) },
@@ -230,6 +232,8 @@ export function PlayerScreen() {
       <div role="tabpanel" aria-label={t.tabs[tab]}>
         {tab === 'summary' ? (
           <Summary p={p} />
+        ) : tab === 'progress' ? (
+          <ProgressTab username={p.username} />
         ) : tab === 'sessions' ? (
           <>
             <DataTable caption={t.sessionsTitle} rows={p.sessions} columns={['createdAt', 'expiresAt', 'ip', 'userAgent', 'mfa']} />
