@@ -43,6 +43,8 @@ export interface GalaxySummary extends PulledGalaxy {
   exhibited?: true;
   /** For sale in the market (in escrow until sold, withdrawn or expired; M5c-1). Absent: not listed. */
   listed?: true;
+  /** Offered in an open swap (in escrow until it closes; M5c-2). Absent: not offered. */
+  traded?: true;
 }
 
 /** A parent of a fused galaxy: it no longer exists, but its name stays in the lineage. */

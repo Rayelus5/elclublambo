@@ -15,7 +15,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
-import { isListed } from '../market/escrow';
+import { isListed, isTraded } from '../market/escrow';
 
 // The planetarium (GDD §10.5, §14.2; M4c-2): the galaxies a player exhibits, one per pedestal, add prestige and a small
 // experience bonus; anyone signed in visits a planetarium by name and sees only what it exhibits; a visit counts once
@@ -129,6 +129,7 @@ export async function setExhibits(deps: PlanetariumDeps, accountId: string, req:
         .execute();
       if (live.length !== ids.length) throw new HttpError(404, 'galaxy_not_found');
       if (await isListed(trx, ids)) throw new HttpError(409, 'galaxy_listed');
+      if (await isTraded(trx, ids)) throw new HttpError(409, 'galaxy_in_trade');
     }
     await trx.deleteFrom('galaxy.exhibits').where('account_id', '=', accountId).execute();
     const rows = req.galaxies.flatMap((g, i) => (g ? [{ account_id: accountId, slot: i + 1, galaxy_id: g }] : []));

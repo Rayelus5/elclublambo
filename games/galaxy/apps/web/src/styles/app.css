@@ -1365,4 +1365,31 @@
   .market-bought { display: inline-flex; align-items: center; gap: 8px; margin: 0; font: 400 26px var(--font-display); color: var(--color-terminal); }
   .market-filters :is(select, input), .market-card .pill { transition: border-color .15s; }
   @media (prefers-reduced-motion: reduce) { .market-banner { animation: none; } }
+  /* Swaps (M5c-2): each trade with what I give and what I get side by side; Solar marks whose turn it is. */
+  .trades { display: grid; gap: 16px; }
+  .trade-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 470px), 1fr)); gap: 18px; }
+  .trade-card { --r: 22px; --lip-h: 6px; padding: 18px 20px 20px; display: grid; gap: 14px; }
+  .trade-card.turn { border-color: color-mix(in srgb, var(--color-solar) 55%, transparent); }
+  .trade-card-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+  .trade-card-head h3 { margin: 0; font: 400 20px var(--font-display); }
+  .trade-card-head h3 a, .trade-closed a { color: var(--color-ink); }
+  .trade-card-head .panel-note { margin: 0; }
+  .trade-sides { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 14px; }
+  .trade-slot { display: grid; justify-items: center; gap: 8px; }
+  .trade-slot :is(h3, h4) { margin: 0; font-size: 14px; font-weight: 700; color: var(--color-ink-soft); }
+  .trade-empty { inline-size: 150px; block-size: 210px; display: grid; place-items: center; border: 2px dashed var(--color-panel-2); border-radius: 16px; background: rgb(0 0 0 / .18); color: var(--color-ink-mute); font-size: 14px; }
+  .trade-arrows::before { content: '⇄'; font-size: 30px; line-height: 1; color: var(--color-solar); }
+  .trade-state { margin: 0; font-weight: 600; color: var(--color-ink-soft); }
+  .trade-state.turn { color: var(--color-solar); }
+  .trade-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .modal.trade-composer { inline-size: min(640px, 100%); }
+  .trade-composer .trade-sides { margin-bottom: 14px; }
+  .trade-composer .trade-empty { inline-size: 170px; block-size: 238px; }
+  .trade-closed { --r: 20px; padding: 16px 18px; display: grid; gap: 10px; }
+  .trade-closed h2 { margin: 0; font: 400 20px var(--font-display); }
+  .trade-closed .market-rows li { grid-template-columns: auto auto minmax(0, 1fr) minmax(0, 1fr); }
+  .trade-status { padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: rgb(255 255 255 / .06); color: var(--color-ink-soft); }
+  .trade-status.done { background: color-mix(in srgb, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
+  .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .trade-closed-g { font-size: 14px; color: var(--color-ink-soft); }
 }

@@ -289,6 +289,31 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - La primera ve la venta en Mis anuncios, con lo cobrado.
    - **Sin violaciones de CSP.**
 
+18. **Desde M5c-2 (el trueque):** la migración `20261108035643_galaxy_trades` crea `galaxy.trades`, los trueques de galaxia por galaxia entre dos cuentas:
+   - lo que ofrece cada parte queda en depósito: una galaxia ofrecida no se equipa, expone, vende, fusiona, desintegra ni mejora;
+   - lo que solo se pide no queda bloqueado;
+   - cada cambio crea una versión nueva, y el intercambio ocurre cuando las dos partes confirman la misma.
+
+   Además añade `trade_id` a `galaxy.trade_alerts`.
+
+   La migración `20261108042617_galaxy_trades_pair` permite un solo trueque abierto por pareja de cuentas. Si ya hubiera parejas con varios abiertos, se queda el más reciente y los demás se cancelan.
+
+   Llegan además:
+   - en la clave viva `market`:
+     - `perDay.trades`: los trueques propuestos al día (10);
+     - `tradeDays`: los días que sigue abierto un trueque (3);
+     - `openTrades`: los abiertos por cuenta (5), contados aparte los propuestos y los recibidos;
+     - `tradeAlertTierGap`: la diferencia de rareza que avisa al admin (3; por ejemplo, Común por Legendaria);
+   - «Proponer trueque» en el perfil de otro jugador, y la pestaña «Trueques» del mercado (`/galaxy/mercado?pestana=trueques`);
+   - para el trueque hacen falta los mismos requisitos que para el mercado: nivel 10 y 3 días de cuenta.
+
+   Comprueba:
+   - una cuenta nueva (nivel 1) ve la pestaña Trueques con el aviso de los requisitos;
+   - con dos cuentas de nivel 10 y 3 días (ver el paso 17), la primera propone desde el perfil de la segunda;
+   - la segunda ve «… ha confirmado. Te toca» y confirma;
+   - las dos ven «Recibiste …» en los cerrados, y cada galaxia aparece en la colección de su nueva dueña;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

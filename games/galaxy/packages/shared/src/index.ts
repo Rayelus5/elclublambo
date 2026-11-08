@@ -30,3 +30,4 @@ export * from './chat/rules';
 export * from './api/chat';
 export * from './market/rules';
 export * from './api/market';
+export * from './api/trade';

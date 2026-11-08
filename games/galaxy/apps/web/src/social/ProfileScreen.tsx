@@ -1,15 +1,17 @@
 import { type Profile, TIERS } from '@galaxy/shared';
-import { useId } from 'react';
-import { Link, useParams } from 'react-router';
+import { useId, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useProfile } from '../api/social';
-import { errorText } from '../auth/useMe';
+import { errorText, useMe } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, fmt } from '../copy/es';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
 import { ClanEmblem } from '../clans/ClanEmblem';
 import { TierEmblem } from './parts';
+import { useTrades } from '../api/trades';
+import { TradeComposer } from '../trades/TradeComposer';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
@@ -114,6 +116,10 @@ function Body({ p }: { p: Profile }) {
 export function ProfileScreen() {
   const { username = '' } = useParams();
   const profile = useProfile(username);
+  const viewer = useMe().data?.username;
+  const navigate = useNavigate();
+  const [proposing, setProposing] = useState(false);
+  const trades = useTrades();
   const p = profile.data;
   const missing = profile.error instanceof ApiError && (profile.error.status === 404 || profile.error.status === 400);
   return (
@@ -157,6 +163,22 @@ export function ProfileScreen() {
                 ) : null}
               </div>
             </section>
+            {viewer && viewer !== p.username ? (
+              <div className="profile-actions">
+                <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setProposing(true)}>
+                  <Icon name="flip" />
+                  <span>{copy.trades.propose}</span>
+                </button>
+              </div>
+            ) : null}
+            {proposing ? (
+              <TradeComposer
+                username={p.username}
+                days={trades.data?.rules.tradeDays ?? 3}
+                onDone={() => navigate('/mercado?pestana=trueques')}
+                onClose={() => setProposing(false)}
+              />
+            ) : null}
             <Body p={p} />
           </>
         ) : profile.isPending ? (
