@@ -24,12 +24,15 @@ import { invalidateLeaderboard } from '../social/leaderboard';
 
 type Periods = { daily: { period: string; list: Mission[]; endsAt: Date }; weekly: { period: string; list: Mission[]; endsAt: Date }; season: { period: string; list: Mission[] } | null };
 
-async function configs(config: ConfigReader) {
+/** What counting and collecting read from the live config: read it before a transaction, never inside one. */
+export type MissionConfigs = Awaited<ReturnType<typeof missionConfigs>>;
+export async function missionConfigs(config: ConfigReader) {
   const [missions, achievements, season] = await Promise.all([config.get('missions'), config.get('achievements'), config.get('season')]);
   return { missions, achievements: achievements.list as Achievement[], season };
 }
+const configs = missionConfigs;
 
-function periodsOf(c: Awaited<ReturnType<typeof configs>>, now: Date): Periods {
+function periodsOf(c: MissionConfigs, now: Date): Periods {
   const day = madridDay(now);
   const week = isoWeekOf(day);
   const midnight = nextMadridMidnight(now);
@@ -47,10 +50,9 @@ const grow = (stat: MissionStat, table: 'galaxy.mission_progress' | 'galaxy.achi
   stat === 'depth' ? sql<number>`greatest(${sql.ref(`${table}.progress`)}, ${amount})` : sql<number>`${sql.ref(`${table}.progress`)} + ${amount}`;
 
 /** Adds what just happened to the account's missions of now and its achievements (in the caller's transaction). */
-export async function countStats(trx: Kysely<DB>, config: ConfigReader, accountId: string, counts: MissionCounts, now: Date): Promise<void> {
+export async function countStats(trx: Kysely<DB>, c: MissionConfigs, accountId: string, counts: MissionCounts, now: Date): Promise<void> {
   const stats = (Object.keys(counts) as MissionStat[]).filter((k) => (counts[k] ?? 0) > 0);
   if (stats.length === 0) return;
-  const c = await configs(config);
   const p = periodsOf(c, now);
   for (const period of [p.daily, p.weekly, p.season]) {
     if (!period) continue;
@@ -83,8 +85,7 @@ export async function countStats(trx: Kysely<DB>, config: ConfigReader, accountI
   }
 }
 
-export async function missionsView(db: Kysely<DB>, config: ConfigReader, accountId: string, now: Date): Promise<MissionsView> {
-  const c = await configs(config);
+export async function missionsView(db: Kysely<DB>, c: MissionConfigs, accountId: string, now: Date): Promise<MissionsView> {
   const p = periodsOf(c, now);
   const periods = [p.daily.period, p.weekly.period, ...(p.season ? [p.season.period] : [])];
   const [rows, achievements, cosmetics, account] = await Promise.all([
@@ -147,8 +148,7 @@ async function pay(trx: Kysely<DB>, accountId: string, reward: { coins?: number;
 }
 
 /** Collects a mission of now (once) whose goal is reached. */
-export async function claimMission(trx: Kysely<DB>, config: ConfigReader, accountId: string, period: string, id: string, key: string, now: Date): Promise<void> {
-  const c = await configs(config);
+export async function claimMission(trx: Kysely<DB>, c: MissionConfigs, accountId: string, period: string, id: string, key: string, now: Date): Promise<void> {
   const p = periodsOf(c, now);
   const found = [p.daily, p.weekly, p.season].find((x) => x?.period === period);
   const mission = found?.list.find((m) => m.id === id);
@@ -162,8 +162,7 @@ export async function claimMission(trx: Kysely<DB>, config: ConfigReader, accoun
 }
 
 /** Collects a reached achievement (once): its signals and points, and its title or frame to choose. */
-export async function claimAchievement(trx: Kysely<DB>, config: ConfigReader, accountId: string, id: string, key: string, now: Date): Promise<void> {
-  const c = await configs(config);
+export async function claimAchievement(trx: Kysely<DB>, c: MissionConfigs, accountId: string, id: string, key: string, now: Date): Promise<void> {
   const a = c.achievements.find((x) => x.id === id);
   if (!a) throw new HttpError(404, 'mission_not_found');
   const row = await trx.selectFrom('galaxy.achievement_progress').select(['unlocked_at', 'claimed_at']).where('account_id', '=', accountId).where('achievement', '=', id).forUpdate().executeTakeFirst();
