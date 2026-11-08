@@ -4,7 +4,7 @@ import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { hangarView, runStats, type RunsDeps, testedProbe } from './hangar';
+import { hangarView, probeGrants, runStats, type RunsDeps, testedProbe } from './hangar';
 
 // Probe levels and starting weapons (GDD §6, M4b-1). A level is bought with components and coins under a per-account
 // lock, naming the level it buys (a stale view gets 409 probe_changed and pays nothing); the variant is chosen once the
@@ -22,7 +22,8 @@ async function requireOwned(db: Kysely<DB>, accountId: string, probe: string, co
   if (!content.probes.some((p) => p.id === probe)) throw new HttpError(400, 'invalid_input');
   const assigned = await testedProbe(db, accountId);
   if (assigned === null) throw new HttpError(409, 'probe_test_required');
-  if (!probeStatus(probe, assigned, await runStats(db, accountId, cfg.minRunSeconds), cfg).unlocked) throw new HttpError(409, 'probe_locked');
+  const granted = (await probeGrants(db, accountId)).has(probe);
+  if (!probeStatus(probe, assigned, await runStats(db, accountId, cfg.minRunSeconds), cfg, granted).unlocked) throw new HttpError(409, 'probe_locked');
 }
 
 export async function levelUpProbe(deps: RunsDeps, trx: Kysely<DB>, accountId: string, probe: string, level: number, key: string): Promise<HangarView> {

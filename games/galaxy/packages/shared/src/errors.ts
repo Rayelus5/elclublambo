@@ -32,6 +32,7 @@ export const API_ERROR_CODES = [
   'run_finished',
   'run_expired',
   'run_open',
+  'galaxy_type_not_found',
   'runs_disabled',
   'bad_inputs',
   'tiebreak_required',

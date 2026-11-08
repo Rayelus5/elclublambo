@@ -26,8 +26,9 @@ export interface ProbeStatus {
   progress: number;
 }
 
-export function probeStatus(probe: string, assigned: string, stats: RunStats, cfg: ProbesConfig): ProbeStatus {
-  if (probe === assigned) return { unlocked: true, condition: null, progress: 1 };
+/** `granted`: an admin unlocked it for the account (M6d-4), whatever its runs say. */
+export function probeStatus(probe: string, assigned: string, stats: RunStats, cfg: ProbesConfig, granted = false): ProbeStatus {
+  if (probe === assigned || granted) return { unlocked: true, condition: null, progress: 1 };
   const condition: ProbeCondition | undefined = (STARTERS as readonly string[]).includes(probe) ? cfg.starterUnlock : cfg.unlocks[probe];
   if (!condition) return { unlocked: false, condition: null, progress: 0 };
   const have = stats[condition.stat];

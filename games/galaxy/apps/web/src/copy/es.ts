@@ -1451,6 +1451,7 @@ export const copy = {
     run_finished: 'Esa incursión ya terminó',
     run_expired: 'Esa incursión caducó y ya no se puede cobrar',
     run_open: 'Esa partida no ha terminado: se marca cuando termine',
+    galaxy_type_not_found: 'No sale una galaxia de ese tipo con esa rareza. Prueba otra rareza o sin semilla',
     runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
     bad_inputs: 'La grabación de la incursión llegó dañada',
     tiebreak_required: 'Hay un empate: contesta la última pregunta',

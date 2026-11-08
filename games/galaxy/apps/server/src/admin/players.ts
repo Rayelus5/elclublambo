@@ -278,14 +278,21 @@ export async function grantGalaxy(deps: AdminDeps, actor: AuditActor, username: 
   const a = await accountOf(deps.db, username);
   const seed = req.seed ? BigInt(req.seed) : randomBytes(8).readBigUInt64BE() >> 1n;
   const tier = TIERS.indexOf(req.tier);
-  const g = generateGalaxy(seed, tier);
+  // A chosen type (M6d-4): candidates from the seed are tried until one of that type falls in the tier, as a
+  // featured pull does.
+  let g: ReturnType<typeof generateGalaxy>;
+  try {
+    g = generateGalaxy(seed, tier, req.type ? { trait: 'galaxy_type', value: req.type } : undefined);
+  } catch {
+    throw new HttpError(409, 'galaxy_type_not_found');
+  }
   return inTransaction(deps.db, async (trx) => {
     const row = await trx
       .insertInto('galaxy.galaxies')
       .values({ owner_id: a.id, seed: g.seed.toString(), engine_version: ENGINE_VERSION, traits: JSON.stringify(g.traits), dna: g.dna, name: g.name, designation: g.designation, tier, score: g.score, finish: req.finish, origin: 'grant' })
       .returning('id')
       .executeTakeFirstOrThrow();
-    await writeAudit(trx, { actor, action: 'player.galaxy_grant', ...target(a.id), after: { galaxy: row.id, name: g.name, tier: req.tier, finish: req.finish, seed: g.seed.toString() }, reason: req.reason });
+    await writeAudit(trx, { actor, action: 'player.galaxy_grant', ...target(a.id), after: { galaxy: row.id, name: g.name, tier: req.tier, finish: req.finish, type: g.traits.galaxy_type, seed: g.seed.toString() }, reason: req.reason });
     return { id: row.id };
   });
 }

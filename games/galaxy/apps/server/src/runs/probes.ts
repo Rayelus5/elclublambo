@@ -2,7 +2,7 @@ import { type HangarView, type ProbeChoice, probeStatus, type ProbeTestRequest, 
 import { sql } from 'kysely';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
-import { ensureHangar, hangarView, type RunsDeps, runStats, testedProbe } from './hangar';
+import { ensureHangar, hangarView, probeGrants, type RunsDeps, runStats, testedProbe } from './hangar';
 
 // The probe test and the choice of probe (GDD §6, §12.2). The test is scored here (the client uses the same rules
 // only to know whether to ask the tiebreak), kept once, and picks its probe in the hangar. A second answer gets the
@@ -33,7 +33,8 @@ export async function chooseProbe(deps: RunsDeps, accountId: string, req: ProbeC
   if (!content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   const assigned = await testedProbe(deps.db, accountId);
   if (assigned === null) throw new HttpError(409, 'probe_test_required');
-  if (!probeStatus(req.probe, assigned, await runStats(deps.db, accountId, cfg.minRunSeconds), cfg).unlocked) throw new HttpError(409, 'probe_locked');
+  const granted = (await probeGrants(deps.db, accountId)).has(req.probe);
+  if (!probeStatus(req.probe, assigned, await runStats(deps.db, accountId, cfg.minRunSeconds), cfg, granted).unlocked) throw new HttpError(409, 'probe_locked');
   await ensureHangar(deps.db, accountId);
   await deps.db.updateTable('galaxy.hangars').set({ probe: req.probe, updated_at: new Date() }).where('account_id', '=', accountId).execute();
   return hangarView(deps, accountId);
