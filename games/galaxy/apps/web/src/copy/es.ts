@@ -1055,6 +1055,7 @@ export const copy = {
     clan: 'Clan',
     ranking: 'Ranking',
     codex: 'Códice',
+    codexHint: 'Lo que sabe la ECN',
     settings: 'Ajustes',
     guide: 'Guía',
     summaryTitle: 'Tu colección',

@@ -551,6 +551,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Lo que aún no se ha descifrado dice cómo se abre. Cuentan solo las partidas que no son sospechosas.
 
+31. **Desde M7c (primeros pasos y Guía):** sin migraciones.
+   - **Primeros pasos:** el inicio enseña cinco pasos que se tachan solos (`GET /galaxy/api/onboarding`): el test de la sonda, la primera incursión, las tiradas de bienvenida, la primera sala reparada y la primera reliquia equipada. Cada uno lleva a donde se hace. Se pueden ocultar y desaparecen al acabarlos.
+   - **Guía:** **`/galaxy/guia`**, desde el pie del menú. Tiene seis capítulos cortos, cada uno con un ejemplo animado que queda quieto con movimiento reducido.
+   - **PERKINS:** la primera subida de nivel explica cómo elegir una mejora, una sola vez.
+   - **Menú:** Misiones de hoy (con su avance), Logros, Sondas y Códice llevan a su sitio. Solo Eventos y Ajustes siguen «En desarrollo».
+
+   Comprueba con una cuenta nueva que el inicio enseñe 1 de 5 tras el test de la sonda, y que no haya violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { useMissions } from '../api/missions';
 import { copy } from '../copy/es';
@@ -34,16 +34,6 @@ function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName
         <span>{hint}</span>
       </span>
       <Soon />
-    </button>
-  );
-}
-
-function Tile({ icon, title, color, d, children }: { icon: IconName; title: string; color: string; d: string; children?: ReactNode }) {
-  return (
-    <button type="button" className="lip panel tile locked enter" style={style({ '--d': d, '--c': color })} disabled>
-      <Icon name={icon} />
-      <b>{title}</b>
-      {children ?? <Soon variant="text" />}
     </button>
   );
 }
@@ -127,7 +117,11 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <b>{copy.hub.ranking}</b>
           <span className="sub">{copy.social.rankingTile}</span>
         </Link>
-        <Tile icon="book" title={copy.hub.codex} color="var(--color-solar-2)" d="1.3s" />
+        <Link to="/codice" className="lip panel tile enter" style={style({ '--d': '1.3s', '--c': 'var(--color-solar-2)' })}>
+          <Icon name="book" />
+          <b>{copy.hub.codex}</b>
+          <span className="sub">{copy.hub.codexHint}</span>
+        </Link>
       </div>
 
       <div className="hub-foot">
