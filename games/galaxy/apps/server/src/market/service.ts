@@ -23,7 +23,7 @@ import { nextMadridMidnight } from '../economy/day';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { accountXp } from '../social/progress';
-import { isEquipped, isExhibited, isListed } from './escrow';
+import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 
 // The market (GDD §14.6, §14.7; M5c-1). Listing puts a galaxy in escrow until it is sold, withdrawn or expires. Buying
 // locks the listing first, so two buyers (or a buyer and the seller withdrawing) never both win; the buyer pays the
@@ -43,14 +43,14 @@ export async function marketConfigs(deps: MarketDeps): Promise<MarketConfigs> {
 }
 
 /** One account's market actions, one at a time: today's caps are counted and used under it (M5c-1 review). */
-async function lockTrader(trx: Kysely<DB>, accountId: string): Promise<void> {
+export async function lockTrader(trx: Kysely<DB>, accountId: string): Promise<void> {
   await sql`select pg_advisory_xact_lock(hashtextextended(${`market-cap:${accountId}`}, 0))`.execute(trx);
 }
 
 /** Midnight of today in Madrid, where the daily limits restart. */
-const todayStart = (now: Date) => new Date(nextMadridMidnight(new Date(now.getTime() - DAY_MS)).getTime());
+export const todayStart = (now: Date) => new Date(nextMadridMidnight(new Date(now.getTime() - DAY_MS)).getTime());
 
-async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketConfigs, now: Date): Promise<MarketRules> {
+export async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketConfigs, now: Date): Promise<MarketRules> {
   const { market } = cfgs;
   const [account, xp, listed, bought] = await Promise.all([
     db.selectFrom('galaxy.accounts').select('created_at').where('id', '=', accountId).executeTakeFirstOrThrow(),
@@ -73,7 +73,7 @@ async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketConfigs, 
   };
 }
 
-function refuse(rules: MarketRules): void {
+export function refuse(rules: MarketRules): void {
   if (rules.reason === 'level') throw new HttpError(403, 'trade_level');
   if (rules.reason === 'age') throw new HttpError(403, 'trade_age');
 }
@@ -178,6 +178,7 @@ export async function listGalaxy(cfgs: MarketConfigs, trx: Kysely<DB>, accountId
     .where('expires_at', '<=', sql<Date>`now()`)
     .execute();
   if (await isListed(trx, [g.id])) throw new HttpError(409, 'galaxy_listed');
+  if (await isTraded(trx, [g.id])) throw new HttpError(409, 'galaxy_in_trade');
   if (req.price < minPriceFor(TIERS[g.tier]!, cfgs.market)) throw new HttpError(400, 'price_too_low');
   if (req.price > cfgs.market.maxPrice) throw new HttpError(400, 'price_too_high');
   const row = await trx
