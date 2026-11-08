@@ -51,7 +51,7 @@ test('quien no es admin con TOTP vuelve al inicio', async () => {
   await waitFor(() => expect(locationOf(screen.getByTestId('location')).pathname).toBe('/'));
 });
 
-test('la barra lateral lleva a Jugadores, Auditoría, Configuración y Moderación, y lo que llega después se dice', async () => {
+test('la barra lateral lleva a todas las secciones del panel, ya sin nada en «Próximamente»', async () => {
   api();
   renderAt('/admin', { '/admin': <AdminLayout /> });
   const nav = await screen.findByRole('navigation', { name: t.nav });
@@ -59,7 +59,9 @@ test('la barra lateral lleva a Jugadores, Auditoría, Configuración y Moderaci�
   expect(within(nav).getByRole('link', { name: t.sections.audit })).toHaveAttribute('href', '/admin/auditoria');
   expect(within(nav).getByRole('link', { name: t.sections.config })).toHaveAttribute('href', '/admin/configuracion');
   expect(within(nav).getByRole('link', { name: t.sections.moderation })).toHaveAttribute('href', '/admin/moderacion');
-  expect(within(nav).getByText(t.sections.stats).closest('li')).toHaveTextContent(t.soon);
+  expect(within(nav).getByRole('link', { name: t.sections.stats })).toHaveAttribute('href', '/admin/estadisticas');
+  // Every section of the panel works now: nothing is left «Próximamente».
+  expect(within(nav).queryByText(t.soon)).toBeNull();
 });
 
 test('buscar enseña los jugadores y lleva a su ficha', async () => {
