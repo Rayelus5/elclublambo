@@ -43,3 +43,4 @@ Final: minor (deferred): the leaderboard cache invalidation on a mark is unteste
 Final: minor (deferred): «Ticks» is jargon; noInputs says «no terminó» also for a run still in progress; details.state is unused; replayOptionsOf duplicates arena simOptions.
 Final: suites after the fix pass: unit+web 1362 passed (TZ=UTC), integration 343 passed (config.test excluded locally), pgTAP PASS, typecheck 0, lint 0; e2e admin-replay.spec rerun: 2 passed.
 Merged: PR #58 → develop (merge f0415fe) on green CI, 2026-11-08. PRE deploy success; PRE unreachable right after (Cloudflare IP timeouts) — check pending.
+PRE check (2026-11-08, once the tunnel was back) with e2e_pre_bb5cde: admin runs APIs 401 without session and 403 to a player, /admin/partidas → /galaxy, title screen loads, no CSP, no errors.
