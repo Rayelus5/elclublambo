@@ -63,7 +63,8 @@ export function ReplayScreen({ clock = browserClock }: { clock?: Clock }) {
 
 function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
   const { run, start } = data;
-  const [open, setOpen] = useState(false);
+  /** The open mark dialog, with the state it sets (fixed when it opens, so a refetch never turns it around). */
+  const [open, setOpen] = useState<{ suspicious: boolean } | null>(null);
   const [notice, setNotice] = useState('');
   const sector = start.content.sectors.find((s) => s.id === start.sector)?.name ?? start.sector;
   const probe = start.content.probes.find((p) => p.id === start.probe)?.name ?? start.probe;
@@ -86,7 +87,7 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
           </ul>
         </div>
         {run.finishedAt ? (
-          <button type="button" className={`lip pill${run.suspicious ? '' : ' danger'}`} onClick={() => setOpen(true)}>
+          <button type="button" className={`lip pill${run.suspicious ? '' : ' danger'}`} onClick={() => setOpen({ suspicious: !run.suspicious })}>
             {run.suspicious ? t.unmark : t.mark}
           </button>
         ) : null}
@@ -112,13 +113,16 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
       {open ? (
         <ActionDialog
           url={`/admin/runs/${run.id}/mark`}
-          title={run.suspicious ? t.unmark : t.mark}
-          submit={run.suspicious ? t.unmark : t.mark}
-          intro={<p>{run.suspicious ? t.unmarkIntro : t.markIntro}</p>}
+          title={open.suspicious ? t.mark : t.unmark}
+          submit={open.suspicious ? t.mark : t.unmark}
+          intro={<p>{open.suspicious ? t.markIntro : t.unmarkIntro}</p>}
           password={() => false}
-          build={() => ({ suspicious: !run.suspicious })}
-          onDone={() => setNotice(run.suspicious ? t.unmarkedDone : t.markedDone)}
-          onClose={() => setOpen(false)}
+          build={() => ({ suspicious: open.suspicious })}
+          onDone={() => {
+            setNotice(open.suspicious ? t.markedDone : t.unmarkedDone);
+            setOpen(null);
+          }}
+          onClose={() => setOpen(null)}
         />
       ) : null}
     </section>

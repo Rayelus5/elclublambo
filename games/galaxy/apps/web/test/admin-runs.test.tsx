@@ -136,6 +136,9 @@ test('marcar pide un motivo y avisa de que la paga no cambia', async () => {
     const call = fetch.mock.calls.find(([u, init]) => u === `${R}/${row.id}/mark` && init?.method === 'POST');
     expect(JSON.parse(String(call?.[1]?.body))).toEqual({ suspicious: true, reason: 'Movimientos imposibles' });
   });
+  // Done: the dialog closes (it never turns into the opposite action) and the page says so.
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.getByRole('status')).toHaveTextContent(t.markedDone);
 });
 
 test('en la ficha del jugador cada partida lleva a su repetición', async () => {

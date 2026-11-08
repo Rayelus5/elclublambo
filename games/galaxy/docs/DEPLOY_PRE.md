@@ -439,6 +439,20 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - «Exportar CSV» descarga `estadisticas-runs-7d-<fecha>.csv`;
    - sin violaciones de CSP.
 
+25. **Desde M6d-3 (reproductor de partidas):** una migración, `*_galaxy_run_marks`. Deja que una partida terminada cambie solo `suspicious` y `flags`; el resto sigue sin poder reescribirse. Llega **`/galaxy/admin/partidas`** (solo admins):
+   - **la lista:** todas las partidas, de la más nueva a la más vieja, por jugador (nombre exacto) y «Solo sospechosas». Cada una se abre con «Ver», también desde la pestaña «Partidas» de la ficha del jugador;
+   - **la repetición:** la arena de la partida con su semilla, su contenido y sus entradas grabadas. Se reproduce de 1x a 8x y se mueve por la línea de tiempo. Espacio reproduce o pausa y las flechas mueven 5 segundos. Nunca empieza sola ni suena;
+   - **«Comprobar»:** repite la partida aparte hasta su último tick y compara con lo guardado al terminarla: huella del estado, ticks, bajas, capa y nivel. Una partida que no coincide se jugó con trampas o con otra versión de la simulación, y la página avisa si la versión es otra;
+   - **«Marcar como sospechosa»** o **«Quitar la marca»**, con motivo y en la auditoría (`run.mark`, `run.unmark`):
+     - una partida marcada deja de contar para la temporada, los desbloqueos de sectores y sondas, y el perfil;
+     - la experiencia y la paga que ya dio no cambian. Para corregirlas están la cartera y la experiencia de la ficha del jugador.
+
+   Comprueba con `rayelus` y una cuenta de prueba que juegue unos segundos y abandone:
+   - en Partidas, filtrando por esa cuenta, sale su partida «Abandonada»;
+   - «Ver» la reproduce, y «Comprobar» dice «Coincide con lo guardado»;
+   - marcarla con un motivo la deja «Sospechosa», y sale en la auditoría;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
