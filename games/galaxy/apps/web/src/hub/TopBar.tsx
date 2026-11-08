@@ -69,6 +69,11 @@ export function TopBar({
           </Link>
           <WalletBar wallet={wallet} />
         </div>
+        {isAdmin(me) && me.mfa ? (
+          <Link to="/admin" className="lip iconbtn enter" style={delay('1.05s')} aria-label={copy.admin.title} title={copy.admin.title}>
+            <Icon name="shield" />
+          </Link>
+        ) : null}
         <button
           type="button"
           className="lip iconbtn locked enter"
