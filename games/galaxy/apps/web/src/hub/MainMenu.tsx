@@ -1,5 +1,6 @@
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
+import { useMissions } from '../api/missions';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { Soon } from './Soon';
@@ -37,13 +38,23 @@ function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName
   );
 }
 
-function Tile({ icon, title, color, d, children }: { icon: IconName; title: string; color: string; d: string; children?: ReactNode }) {
+/** Today's missions: one pip per mission, lit when done; leads to the missions. */
+function TodayMissions() {
+  const daily = useMissions().data?.daily.missions;
+  const done = daily?.filter((m) => m.progress >= m.target).length ?? 0;
   return (
-    <button type="button" className="lip panel tile locked enter" style={style({ '--d': d, '--c': color })} disabled>
-      <Icon name={icon} />
-      <b>{title}</b>
-      {children ?? <Soon variant="text" />}
-    </button>
+    <Link to="/misiones" className="lip panel missions enter" style={style({ '--d': '1.05s' })}>
+      <span className="head">
+        <Icon name="list" />
+        <b>{copy.hub.missions}</b>
+      </span>
+      <span className="pips" aria-hidden="true">
+        {(daily ?? [0, 1, 2]).map((m, i) => (
+          <i key={typeof m === 'number' ? m : m.id} className={i < done ? 'on' : undefined} />
+        ))}
+      </span>
+      <span className="sub">{daily ? copy.hub.missionsDone(done, daily.length) : '⠋⠙⠹'}</span>
+    </Link>
   );
 }
 
@@ -77,20 +88,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           </span>
           <Soon />
         </button>
-        <button type="button" className="lip panel missions locked enter" style={style({ '--d': '1.05s' })} disabled title={copy.hub.soon}>
-          <span className="head">
-            <Icon name="list" />
-            <b>{copy.hub.missions}</b>
-          </span>
-          <span className="pips" aria-hidden="true">
-            <i />
-            <i />
-            <i />
-            <i />
-            <i />
-          </span>
-          <Soon />
-        </button>
+        <TodayMissions />
       </div>
 
       <div className="tiles">
@@ -99,8 +97,16 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <b>{copy.hub.collection}</b>
           <span className="sub">{galaxies === undefined ? '⠋⠙⠹' : copy.hub.galaxies(galaxies)}</span>
         </Link>
-        <Tile icon="probe" title={copy.hub.probes} color="var(--color-terminal)" d="1.14s" />
-        <Tile icon="trophy" title={copy.hub.achievements} color="var(--color-solar)" d="1.18s" />
+        <Link to="/incursion" className="lip panel tile enter" style={style({ '--d': '1.14s', '--c': 'var(--color-terminal)' })}>
+          <Icon name="probe" />
+          <b>{copy.hub.probes}</b>
+          <span className="sub">{copy.hub.probesHint}</span>
+        </Link>
+        <Link to="/misiones?pestana=logros" className="lip panel tile enter" style={style({ '--d': '1.18s', '--c': 'var(--color-solar)' })}>
+          <Icon name="trophy" />
+          <b>{copy.hub.achievements}</b>
+          <span className="sub">{copy.hub.achievementsHint}</span>
+        </Link>
         <Link to="/clanes" className="lip panel tile enter" style={style({ '--d': '1.22s', '--c': 'var(--color-uv-soft)' })}>
           <Icon name="clan" />
           <b>{copy.hub.clan}</b>
@@ -111,7 +117,11 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <b>{copy.hub.ranking}</b>
           <span className="sub">{copy.social.rankingTile}</span>
         </Link>
-        <Tile icon="book" title={copy.hub.codex} color="var(--color-solar-2)" d="1.3s" />
+        <Link to="/codice" className="lip panel tile enter" style={style({ '--d': '1.3s', '--c': 'var(--color-solar-2)' })}>
+          <Icon name="book" />
+          <b>{copy.hub.codex}</b>
+          <span className="sub">{copy.hub.codexHint}</span>
+        </Link>
       </div>
 
       <div className="hub-foot">
@@ -120,11 +130,10 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <span>{copy.hub.settings}</span>
           <Soon />
         </button>
-        <button type="button" className="lip pill locked enter" style={style({ '--d': '1.38s' })} disabled title={copy.hub.soon}>
+        <Link to="/guia" className="lip pill enter" style={style({ '--d': '1.38s' })}>
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>
-          <Soon />
-        </button>
+        </Link>
       </div>
     </nav>
   );

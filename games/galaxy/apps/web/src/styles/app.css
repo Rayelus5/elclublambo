@@ -271,6 +271,8 @@
   .missions b { font-size: 18px; font-weight: 700; }
   .pips { display: flex; gap: 6px; }
   .pips i { flex: 1; height: 10px; border-radius: 99px; background: rgb(255 255 255 / .1); }
+  .pips i.on { background: var(--color-solar); box-shadow: 0 0 8px color-mix(in oklab, var(--color-solar) 60%, transparent); }
+  .missions .sub { font-size: 13px; font-weight: 500; color: var(--color-ink-soft); }
 
   .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
   .tile { --r: 18px; --lip-h: 5px; height: clamp(84px, 11.5vh, 120px); padding: 10px 4px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; text-align: center; color: var(--color-ink); overflow: hidden; }
@@ -1622,6 +1624,49 @@
   .codex-entry p { margin: 0; max-inline-size: 62ch; line-height: 1.6; color: var(--color-ink); }
   .codex-fight { color: var(--color-terminal) !important; }
   @media (max-width: 760px) { .codex-body { grid-template-columns: minmax(0, 1fr); } }
+  /* First steps and the Guía (DESIGN_SYSTEM §8 octovicies). */
+  .first-steps { --r: 18px; display: grid; gap: 10px; padding: 14px 18px; inline-size: min(560px, 100%); }
+  .first-steps-head { display: flex; align-items: center; gap: 12px; }
+  .first-steps-head h2 { margin: 0; font: 400 20px var(--font-display); }
+  .first-steps-count { margin-inline-end: auto; color: var(--color-ink-mute); font-weight: 700; }
+  .first-steps-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .first-steps-list li { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+  .first-steps-list li.done { color: var(--color-ink-mute); text-decoration: line-through; }
+  .first-steps-list li.done .ico { color: var(--color-terminal); }
+  .first-steps-list li.next a { color: var(--color-solar); }
+  .first-steps-list a, .first-steps-guide { color: var(--color-ice); }
+  .guide-body { display: grid; grid-template-columns: minmax(200px, 280px) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .guide-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .guide-item { inline-size: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: var(--color-panel); color: var(--color-ink); font: 600 15px var(--font-sans); text-align: start; cursor: pointer; }
+  .guide-item[aria-pressed='true'] { box-shadow: inset 0 0 0 2px var(--color-ice); }
+  .guide-item:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .guide-entry { --r: 18px; display: grid; gap: 14px; padding: 20px 22px; }
+  .guide-entry h2 { margin: 0; font: 400 24px var(--font-display); }
+  .guide-points { margin: 0; padding-inline-start: 20px; display: grid; gap: 8px; line-height: 1.55; }
+  .guide-demo { position: relative; block-size: 180px; border-radius: 16px; overflow: hidden; background: radial-gradient(circle at 50% 50%, rgb(114 89 238 / .25), var(--color-void) 70%); }
+  .guide-demo i { position: absolute; display: block; }
+  .demo-run .probe, .demo-layers .probe { left: calc(50% - 9px); top: calc(50% - 9px); inline-size: 18px; block-size: 18px; border-radius: 50%; background: var(--color-ice); box-shadow: 0 0 12px var(--color-ice); }
+  .demo-run .foe { inline-size: 10px; block-size: 10px; border-radius: 3px; background: var(--color-nova); left: 50%; top: 50%; transform: rotate(calc(var(--n) * 60deg)) translateX(140px); animation: guide-foe 3s ease-in calc(var(--n) * .5s) infinite; }
+  .demo-run .ring { left: calc(50% - 40px); top: calc(50% - 40px); inline-size: 80px; block-size: 80px; border-radius: 50%; border: 2px solid var(--color-terminal); animation: guide-ring 1s ease-out infinite; }
+  @keyframes guide-foe { to { transform: rotate(calc(var(--n) * 60deg)) translateX(30px); opacity: 0; } }
+  @keyframes guide-ring { from { transform: scale(.3); opacity: .9; } to { transform: scale(1.4); opacity: 0; } }
+  .demo-upgrades .pick { top: 40px; inline-size: 90px; block-size: 100px; left: calc(50% - 150px + var(--n) * 105px); border-radius: 12px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08); animation: guide-pick 3s ease infinite; }
+  .demo-upgrades .pick:nth-child(2) { animation-name: guide-picked; }
+  @keyframes guide-pick { 50%, 100% { opacity: .5; } }
+  @keyframes guide-picked { 40% { transform: none; } 60%, 100% { transform: translateY(-8px); box-shadow: inset 0 0 0 3px var(--color-solar); } }
+  .demo-layers .beacon { left: calc(50% - 60px); top: calc(50% - 60px); inline-size: 120px; block-size: 120px; border-radius: 50%; border: 3px dashed var(--color-terminal); }
+  .demo-layers .beacon-fill { left: calc(50% - 60px); top: calc(50% - 60px); inline-size: 120px; block-size: 120px; border-radius: 50%; background: var(--color-terminal); opacity: .3; animation: guide-grow 4s linear infinite; }
+  @keyframes guide-grow { from { transform: scale(0); } to { transform: scale(1); } }
+  .demo-galaxies .card { left: calc(50% - 50px); top: 20px; inline-size: 100px; block-size: 140px; border-radius: 12px; background: linear-gradient(140deg, var(--color-uv), var(--color-ice)); animation: guide-flip 3s ease-in-out infinite; }
+  @keyframes guide-flip { 0%, 30% { transform: perspective(400px) rotateY(0); } 50%, 80% { transform: perspective(400px) rotateY(180deg); } 100% { transform: perspective(400px) rotateY(360deg); } }
+  .demo-station .bar { left: 15%; right: 15%; top: calc(50% - 12px); block-size: 24px; border-radius: 999px; background: var(--color-panel-2); }
+  .demo-station .bar-fill { left: 15%; top: calc(50% - 12px); block-size: 24px; inline-size: 0; border-radius: 999px; background: var(--color-terminal); animation: guide-bar 4s ease-in-out infinite; }
+  @keyframes guide-bar { to { inline-size: 70%; } }
+  .demo-social .bubble { left: 20%; inline-size: 50%; block-size: 34px; border-radius: 14px; background: var(--color-panel-2); top: calc(20px + var(--n) * 46px); opacity: 0; animation: guide-bubble 4s ease infinite calc(var(--n) * .8s); }
+  .demo-social .bubble:nth-child(2) { left: 30%; background: color-mix(in srgb, var(--color-uv) 40%, var(--color-panel-2)); }
+  @keyframes guide-bubble { 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .guide-demo i { animation: none !important; } }
+  @media (max-width: 760px) { .guide-body { grid-template-columns: minmax(0, 1fr); } }
   /* The ECN Catalogue (DESIGN_SYSTEM §8 sexvicies). */
   .catalog-progress { --r: 18px; display: grid; gap: 14px; padding: 16px 18px; }
   .catalog-rewards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
