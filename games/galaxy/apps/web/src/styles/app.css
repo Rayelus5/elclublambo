@@ -1796,6 +1796,78 @@
   /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). Wider than the other lists: the route is a track. */
   /* «Tienda de temporada»: centred like «Ver clasificación completa», violet, no icon. */
   .more-season { margin-bottom: 0; --lip-c: var(--color-uv-lip); background: linear-gradient(180deg, var(--color-uv-soft), var(--color-uv)); }
+  /* The guided tour (polish phase 3): a veil with a hole, a beating ring and a bouncing arrow on what matters, PERKINS's
+     card, a pill that brings the player back, and a burst of stars when a chapter is done. Above everything. */
+  .tour { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+  .tour-veil { position: fixed; background: rgb(4 6 22 / .72); pointer-events: auto; }
+  .tour-block { position: fixed; pointer-events: auto; }
+  .tour-ring { position: fixed; border-radius: 18px; box-shadow: 0 0 0 3px var(--color-solar), 0 0 26px 4px rgb(255 201 74 / .55); animation: tour-ring 1.4s ease-in-out infinite; pointer-events: none; }
+  @keyframes tour-ring { 50% { box-shadow: 0 0 0 6px rgb(255 201 74 / .35), 0 0 34px 8px rgb(255 201 74 / .3); } }
+  .tour-pointer { position: fixed; inline-size: 32px; block-size: 32px; fill: var(--color-solar); filter: drop-shadow(0 0 8px rgb(255 201 74 / .7)); transform: rotate(180deg); animation: tour-bob-down .9s ease-in-out infinite; }
+  .tour-pointer.up { transform: none; animation-name: tour-bob-up; }
+  .tour-pointer.left { transform: rotate(-90deg); animation-name: tour-bob-left; }
+  .tour-pointer.right { transform: rotate(90deg); animation-name: tour-bob-right; }
+  @keyframes tour-bob-up { 50% { translate: 0 8px; } }
+  @keyframes tour-bob-down { 50% { translate: 0 -8px; } }
+  @keyframes tour-bob-left { 50% { translate: 8px 0; } }
+  @keyframes tour-bob-right { 50% { translate: -8px 0; } }
+  .tour-card { position: fixed; display: flex; gap: 14px; inline-size: min(380px, calc(100vw - 32px)); padding: 16px 18px; border-radius: 20px; background: linear-gradient(170deg, #23286a, #161a46); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08), 0 18px 44px rgb(0 0 0 / .55), 0 0 0 1px rgb(114 89 238 / .5); color: var(--color-ink); pointer-events: auto; animation: tour-in .28s var(--ease-bounce) both; }
+  .tour.docked .tour-card { inline-size: min(340px, calc(100vw - 32px)); }
+  @keyframes tour-in { from { opacity: 0; translate: 0 10px; } }
+  .tour-avatar { flex: none; display: grid; place-items: center; inline-size: 46px; block-size: 46px; border-radius: 14px; background: radial-gradient(circle at 35% 35%, #7cf0c4, var(--color-terminal) 55%, #0b7352); color: var(--color-on-terminal); box-shadow: 0 0 16px rgb(69 227 166 / .45); }
+  .tour-avatar .ico { font-size: 26px; animation: tour-scan 3s linear infinite; }
+  @keyframes tour-scan { to { transform: rotate(360deg); } }
+  .tour-body { display: grid; gap: 8px; min-inline-size: 0; }
+  .tour-who { margin: 0; color: var(--color-terminal); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+  .tour-text { margin: 0; font-size: 16px; line-height: 1.45; }
+  .tour-hint { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--color-solar); font-weight: 700; font-size: 14px; }
+  .tour-hand { display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; background: rgb(255 201 74 / .18); animation: tour-tap 1.2s ease-in-out infinite; }
+  .tour-hand .ico { font-size: 15px; }
+  @keyframes tour-tap { 40% { transform: scale(.82); } 60% { transform: scale(1.08); } }
+  .tour-foot { display: flex; align-items: center; gap: 10px; }
+  .tour-count { color: var(--color-ink-mute); font-size: 12px; font-weight: 800; white-space: nowrap; }
+  .tour-dots { display: flex; flex: 1; min-inline-size: 0; gap: 3px; }
+  .tour-dots i { flex: 0 1 6px; min-inline-size: 3px; block-size: 6px; border-radius: 3px; background: rgb(255 255 255 / .14); }
+  .tour-dots i.on { background: var(--color-terminal); }
+  .tour-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .tour-skip-btn { opacity: .85; }
+  .tour-pill { position: fixed; z-index: 85; left: 50%; bottom: 22px; translate: -50% 0; display: inline-flex; align-items: center; gap: 8px; --lip-c: var(--color-uv-lip); background: linear-gradient(180deg, var(--color-uv-soft), var(--color-uv)); color: #fff; box-shadow: 0 10px 28px rgb(0 0 0 / .45); animation: tour-in .3s ease both; }
+  .tour-toast { position: fixed; z-index: 95; left: 50%; top: 22px; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; background: var(--color-terminal); color: var(--color-on-terminal); font-weight: 800; box-shadow: 0 10px 30px rgb(0 0 0 / .45), 0 0 24px rgb(69 227 166 / .5); animation: tour-in .3s var(--ease-bounce) both; }
+  .tour-burst { position: absolute; left: 50%; top: 50%; pointer-events: none; }
+  .tour-burst i { position: absolute; inline-size: 8px; block-size: 8px; background: var(--color-solar); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); animation: tour-star .9s ease-out both; }
+  @keyframes tour-star { from { transform: rotate(calc(var(--i) * 36deg)) translateY(0) scale(.4); opacity: 1; } to { transform: rotate(calc(var(--i) * 36deg)) translateY(-70px) scale(1.2); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .tour-ring, .tour-pointer, .tour-hand, .tour-avatar .ico, .tour-burst i { animation: none; } .tour-card, .tour-pill, .tour-toast { animation: none; } }
+  /* The tutorial run's briefing: three tips shown in motion, over the waiting arena. */
+  .briefing { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgb(4 6 22 / .7); }
+  .briefing-card { display: grid; gap: 18px; inline-size: min(760px, 100%); padding: 24px 26px; border-radius: 24px; background: linear-gradient(170deg, #23286a, #161a46); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08), 0 22px 50px rgb(0 0 0 / .55); color: var(--color-ink); animation: tour-in .3s var(--ease-bounce) both; }
+  .briefing-card h2 { margin: 0; font: 400 30px var(--font-display); }
+  .briefing-tips { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .briefing-tips li { display: grid; justify-items: center; gap: 6px; padding: 16px 12px; border-radius: 18px; background: rgb(0 0 0 / .25); text-align: center; }
+  .briefing-tips b { font-size: 16px; }
+  .briefing-tips small { color: var(--color-ink-soft); font-size: 13px; }
+  .briefing-keys { display: grid; justify-items: center; gap: 4px; block-size: 76px; align-content: center; }
+  .briefing-keys > span { display: flex; gap: 4px; }
+  .briefing-keys i { display: grid; place-items: center; inline-size: 30px; block-size: 30px; border-radius: 8px; background: var(--color-panel-2); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .35); font-style: normal; font-weight: 800; font-size: 13px; animation: brief-key 2.4s steps(1) infinite; }
+  .briefing-keys .k-a { animation-delay: .6s; }
+  .briefing-keys .k-s { animation-delay: 1.2s; }
+  .briefing-keys .k-d { animation-delay: 1.8s; }
+  @keyframes brief-key { 0%, 24% { background: var(--color-solar); color: var(--color-on-solar); transform: translateY(2px); } 25%, 100% { background: var(--color-panel-2); color: var(--color-ink); transform: none; } }
+  .briefing-probe { position: relative; inline-size: 120px; block-size: 76px; }
+  .briefing-probe i { position: absolute; display: block; }
+  .briefing-probe .core { left: calc(50% - 10px); top: calc(50% - 10px); inline-size: 20px; block-size: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, var(--color-ice) 55%, #2a6bd6); box-shadow: 0 0 12px var(--color-ice); }
+  .briefing-probe .shot { left: 50%; top: calc(50% - 2px); inline-size: 12px; block-size: 4px; border-radius: 2px; background: var(--color-solar); box-shadow: 0 0 6px var(--color-solar); animation: brief-shot 1s linear infinite; }
+  .briefing-probe .s2 { rotate: 120deg; animation-delay: .33s; }
+  .briefing-probe .s3 { rotate: 240deg; animation-delay: .66s; }
+  @keyframes brief-shot { from { translate: 6px 0; opacity: 1; } to { translate: 56px 0; opacity: 0; } }
+  .briefing-gems { display: flex; align-items: center; gap: 10px; block-size: 76px; }
+  .briefing-gems i { inline-size: 14px; block-size: 14px; rotate: 45deg; background: var(--color-terminal); box-shadow: 0 0 10px var(--color-terminal); animation: brief-gem 1.6s ease-in-out infinite; }
+  .briefing-gems i:nth-child(2) { animation-delay: .2s; }
+  .briefing-gems i:nth-child(3) { animation-delay: .4s; }
+  @keyframes brief-gem { 50% { translate: 0 -8px; filter: brightness(1.4); } }
+  .briefing-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .briefing-go { height: 52px; font-size: 18px; padding-inline: 26px; display: inline-flex; align-items: center; gap: 8px; }
+  @media (max-width: 760px) { .briefing-tips { grid-template-columns: minmax(0, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { .briefing-keys i, .briefing-probe .shot, .briefing-gems i, .briefing-card { animation: none; } }
   /* The season's anomaly: a tag with its name, and «Más información» opening what it does. */
   .anomaly-tag { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
   .anomaly-tag.in-season { margin: 2px 16px 0; }

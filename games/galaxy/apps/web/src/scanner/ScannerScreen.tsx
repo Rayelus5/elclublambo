@@ -8,6 +8,7 @@ import { WalletBar } from '../hub/WalletBar';
 import { Icon } from '../ui/Icon';
 import { RevealStage } from './RevealStage';
 import { BackLink } from '../ui/BackLink';
+import { emitTour } from '../tour/bus';
 
 // The deep scan (GDD §9): everything the player needs to decide is visible BEFORE paying — the odds of each tier on
 // the next scan (rising luck included), how far the guaranteed Legendary is, the welcome luck — then scan with the
@@ -19,7 +20,7 @@ const traitValues = copy.traitValues as Record<string, Record<string, string>>;
 function Odds({ banner }: { banner: BannerView }) {
   const total = banner.sinceLegendary + banner.untilGuarantee;
   return (
-    <div className="odds">
+    <div className="odds" data-tour="odds">
       <table aria-label={copy.scanner.odds}>
         <caption>{copy.scanner.odds}</caption>
         <tbody>
@@ -34,7 +35,7 @@ function Odds({ banner }: { banner: BannerView }) {
           ))}
         </tbody>
       </table>
-      <div className="pity">
+      <div className="pity" data-tour="pity">
         <div className="pity-head">
           <b>{copy.scanner.untilGuarantee(banner.untilGuarantee)}</b>
           <span>{copy.scanner.sinceLegendary(banner.sinceLegendary)}</span>
@@ -53,9 +54,9 @@ function Odds({ banner }: { banner: BannerView }) {
   );
 }
 
-function PullButton({ count, cost, disabled, onClick, solar }: { count: 1 | 10; cost: string; disabled: boolean; onClick: () => void; solar?: boolean }) {
+function PullButton({ count, cost, disabled, onClick, solar, tour }: { count: 1 | 10; cost: string; disabled: boolean; onClick: () => void; solar?: boolean; tour?: string }) {
   return (
-    <button type="button" className={`lip pull-btn ${solar ? 'solar' : ''}`} disabled={disabled} onClick={onClick}>
+    <button type="button" className={`lip pull-btn ${solar ? 'solar' : ''}`} disabled={disabled} onClick={onClick} data-tour={tour}>
       <b>{copy.scanner.pull(count)}</b>
       <span>{cost}</span>
     </button>
@@ -73,7 +74,15 @@ export function ScannerScreen() {
 
   function scan(count: 1 | 10, pay: PullRequest['pay']): void {
     if (!banner) return;
-    pull.mutate({ banner: banner.id, count, pay }, { onSuccess: (res) => setRevealed(res.pulls) });
+    pull.mutate(
+      { banner: banner.id, count, pay },
+      {
+        onSuccess: (res) => {
+          setRevealed(res.pulls);
+          emitTour('scanner:pulled');
+        },
+      },
+    );
   }
 
   const busy = pull.isPending;
@@ -140,7 +149,7 @@ export function ScannerScreen() {
                 <div className="pull-row">
                   <span className="pull-label">{banner.currency === 'signal' ? copy.scanner.withSignals : copy.scanner.withEventSignals(signals)}</span>
                   <PullButton count={1} cost={copy.scanner.costSignals(view.costs.signals)} disabled={busy || signals < view.costs.signals} onClick={() => scan(1, 'signal')} solar />
-                  <PullButton count={10} cost={copy.scanner.costSignals(view.costs.signals * 10)} disabled={busy || signals < view.costs.signals * 10} onClick={() => scan(10, 'signal')} solar />
+                  <PullButton count={10} cost={copy.scanner.costSignals(view.costs.signals * 10)} disabled={busy || signals < view.costs.signals * 10} onClick={() => scan(10, 'signal')} solar tour="pull10" />
                 </div>
               ) : null}
               <div className="pull-row">
@@ -165,7 +174,10 @@ export function ScannerScreen() {
       {revealed ? (
         <RevealStage
           pulls={revealed}
-          onClose={() => setRevealed(null)}
+          onClose={() => {
+            setRevealed(null);
+            emitTour('scanner:revealClosed');
+          }}
           actions={
             <Link to="/coleccion" className="lip pill pill-solar">
               <Icon name="cards" />

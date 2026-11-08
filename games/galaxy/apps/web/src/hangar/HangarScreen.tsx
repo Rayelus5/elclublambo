@@ -20,6 +20,8 @@ import { ResultsScreen } from './ResultsScreen';
 import { AnomalyTag } from '../hub/AnomalyTag';
 import { BoostChips } from '../hub/Boosts';
 import { BackLink } from '../ui/BackLink';
+import { tourActive, useTutorial, useTutorialUpdate } from '../api/tutorial';
+import { emitTour } from '../tour/bus';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe and relics before a run, and the daily yield. Launching opens
 // the arena (its own chunk with PixiJS); its end goes to the server once, and a result that did not arrive is kept
@@ -148,7 +150,7 @@ function RelicSlots({ view, onChoose, onRemove, error }: { view: HangarView; onC
           const g = view.loadout[i];
           if (!g) {
             return (
-              <li key={i} className="relic-slot empty">
+              <li key={i} className="relic-slot empty" data-tour={view.loadout.findIndex((x) => !x) === i ? 'relic-slot' : undefined}>
                 <button type="button" className="lip pill" onClick={() => onChoose(i)}>
                   <Icon name="cards" />
                   <span>{copy.hangar.chooseRelic}</span>
@@ -233,7 +235,7 @@ function SectorPanel({ view }: { view: HangarView }) {
     return copy.hangar.sectorUnlock[s.condition.stat](s.condition.value, from?.boss.name ?? '', from?.name ?? s.condition.sector);
   };
   return (
-    <section className="lip panel hangar-sector" aria-labelledby="hangar-sector">
+    <section className="lip panel hangar-sector" aria-labelledby="hangar-sector" data-tour="sector">
       <span className="hangar-kicker">{copy.hangar.sector}</span>
       <div className="hangar-sector-title">
         <h2 id="hangar-sector">{sector.name}</h2>
@@ -410,7 +412,7 @@ function ProbePanel({ view }: { view: HangarView }) {
   const probe = view.probes.find((p) => p.id === view.probe) ?? view.probes[0];
   if (!probe) return null;
   return (
-    <section className="lip panel hangar-probe" aria-labelledby="hangar-probe">
+    <section className="lip panel hangar-probe" aria-labelledby="hangar-probe" data-tour="probe">
       <span className="hangar-kicker">{copy.hangar.probe}</span>
       <div className="hangar-probe-detail">
         <img className="hangar-probe-art" src={spriteDataUrl(probe.sprite, 8)} alt="" width={128} height={128} />
@@ -490,7 +492,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
   const ids = view.loadout.map((g) => g?.id ?? null);
-  const save = (next: (string | null)[]) => setLoadout.mutate(next);
+  const save = (next: (string | null)[]) => setLoadout.mutate(next, { onSuccess: () => (next.some((x) => x !== null) ? emitTour('hangar:relicEquipped') : undefined) });
   return (
     <div className="hangar-grid">
       <SectorPanel view={view} />
@@ -511,7 +513,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
         <BoostChips />
         {!view.runsEnabled && <p className="field-error">{copy.errors.runs_disabled}</p>}
         {error ? <p className="field-error">{errorText(error, copy.errors)}</p> : null}
-        <button type="button" className="lip launch" disabled={!view.runsEnabled || launching} aria-busy={launching || undefined} onClick={onLaunch}>
+        <button type="button" className="lip launch" disabled={!view.runsEnabled || launching} aria-busy={launching || undefined} onClick={onLaunch} data-tour="launch">
           <Icon name="play" />
           <span>{copy.hangar.launch}</span>
         </button>
@@ -536,6 +538,10 @@ export function HangarScreen() {
   const hangar = useHangar();
   const gacha = useGacha();
   const start = useStartRun();
+  // The tutorial's first run is coached (polish phase 3).
+  const tutorial = useTutorial().data;
+  const tutorialUpdate = useTutorialUpdate();
+  const coached = tourActive(tutorial) && (tutorial?.chapter === 'hangar' || tutorial?.chapter === 'run');
   const finish = useFinishRun();
   const [run, setRun] = useState<RunStart | null>(null);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -606,7 +612,7 @@ export function HangarScreen() {
     return (
       <ArenaBoundary>
         <Suspense fallback={<Splash label={copy.arena.loading} />}>
-          <ArenaScreen run={run} onEnd={ended} onSave={keep} />
+          <ArenaScreen run={run} onEnd={ended} onSave={keep} coached={coached} onSkipTutorial={() => tutorialUpdate.mutate({ action: 'skip' })} />
         </Suspense>
       </ArenaBoundary>
     );

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { expect, test } from './fixtures';
+import { expect, skipTutorial, test } from './fixtures';
 
 // A run against the real server (GDD §5.1): a new account takes the probe test (GDD §6, §12.2) and gets Bastión,
 // scans its welcome galaxies, equips one as a relic in the hangar, picks the season's rift (M3b-3) and launches there,
@@ -31,6 +31,8 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.getByRole('button', { name: 'Descubrir mi sonda' }).click();
   await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText('Tu sonda')).toBeVisible();
+  // The guided tour has its own test (tour.spec.ts).
+  await skipTutorial(page);
   await page.goto('/galaxy/');
 
   // Ten welcome scans, so there are galaxies to equip.

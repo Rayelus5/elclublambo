@@ -325,3 +325,30 @@ test('un Enter rápido en dos subidas seguidas elige de la oferta que está en p
   clock.frames(2);
   expect(sim.status).toBe('running');
 });
+
+test('la primera incursión del tutorial espera tras la tarjeta de controles y PERKINS la guía', async () => {
+  markRadioSeen('start');
+  let skipped = 0;
+  clock = manualClock();
+  render(<ArenaScreen run={run} onEnd={(e) => (ended = e)} onSave={(e) => (saved = e)} clock={clock} onSim={(s) => (sim = s)} coached onSkipTutorial={() => skipped++} />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  const briefing = screen.getByRole('dialog', { name: copy.tour.run.briefingTitle });
+  const t = sim.tick;
+  clock.frames(30);
+  expect(sim.tick).toBe(t);
+  fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+  expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+  fireEvent.click(within(briefing).getByRole('button', { name: copy.tour.run.launch }));
+  expect(screen.queryByRole('dialog', { name: copy.tour.run.briefingTitle })).toBeNull();
+  clock.frames(5);
+  tick(150);
+  expect(sim.tick).toBeGreaterThan(t);
+  expect(screen.getByRole('status', { name: 'PERKINS' })).toHaveTextContent(copy.tour.coach.move);
+  // The pause offers to leave the tutorial and keep playing.
+  fireEvent.keyDown(window, { key: 'Escape', code: 'Escape' });
+  fireEvent.click(screen.getByRole('button', { name: copy.tour.skip }));
+  expect(skipped).toBe(1);
+  expect(screen.queryByRole('dialog', { name: copy.arena.pause })).toBeNull();
+});

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
+import { tourActive, useTutorial } from '../api/tutorial';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -22,10 +23,12 @@ function hiddenNow(): boolean {
 }
 
 export function FirstSteps() {
+  const touring = tourActive(useTutorial().data);
   const steps = useQuery({ queryKey: ['onboarding'], queryFn: () => api<OnboardingView>('/onboarding'), staleTime: 30_000 });
   const [hidden, setHidden] = useState(hiddenNow);
   const v = steps.data;
-  if (!v || hidden || ONBOARDING_STEPS.every((s) => v[s])) return null;
+  // While the guided tour runs, it is the guide (polish phase 3).
+  if (!v || hidden || touring || ONBOARDING_STEPS.every((s) => v[s])) return null;
   const done = ONBOARDING_STEPS.filter((s) => v[s]).length;
   const next = ONBOARDING_STEPS.find((s) => !v[s]);
   return (

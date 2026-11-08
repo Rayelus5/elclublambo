@@ -1,4 +1,6 @@
 import { useEffect, useId, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { useTutorialUpdate } from '../api/tutorial';
 import { type AudioSettings, getSettings, onSettings, setSettings } from '../audio/mixer';
 import { startMusic } from '../audio/music';
 import { manualAim, resetRadio, setManualAim } from '../arena/settings';
@@ -27,6 +29,8 @@ export function SettingsScreen() {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   const [aim, setAim] = useState(manualAim);
   const [done, setDone] = useState<string | null>(null);
+  const restart = useTutorialUpdate();
+  const navigate = useNavigate();
   useEffect(() => onSettings(setAudio), []);
   return (
     <div className="screen-root missions-root">
@@ -104,6 +108,23 @@ export function SettingsScreen() {
               }}
             >
               {t.firstSteps}
+            </button>
+            <button
+              type="button"
+              className="lip pill small"
+              onClick={() =>
+                restart.mutate(
+                  { action: 'restart' },
+                  {
+                    onSuccess: () => {
+                      resetRadio();
+                      navigate('/');
+                    },
+                  },
+                )
+              }
+            >
+              {t.tutorial}
             </button>
           </div>
           {done ? (

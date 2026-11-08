@@ -14,12 +14,19 @@ export const test = base.extend<{ freshIp: void }>({
   ],
 });
 
+/** A new account gets the guided tour (polish phase 3); a test about something else leaves it, as a player can. */
+export async function skipTutorial(page: Page): Promise<void> {
+  const res = await page.request.put('/galaxy/api/tutorial', { data: { action: 'skip' }, headers: { origin: new URL(page.url()).origin } });
+  expect(res.status()).toBe(200);
+}
+
 /** After «Crear cuenta» the probe test comes first (GDD §12.2). Skipping it still gives a probe; then home. */
 export async function skipProbeTest(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/galaxy\/sonda$/);
   await page.getByRole('button', { name: 'Saltar el test' }).click();
   await page.getByRole('button', { name: 'Descubrir mi sonda' }).click();
   await expect(page.getByText('Tu sonda')).toBeVisible();
+  await skipTutorial(page);
   await page.goto('/galaxy/');
 }
 

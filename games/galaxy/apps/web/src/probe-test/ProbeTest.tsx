@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router';
 import { spriteDataUrl } from '../arena/sprites';
 import { useHangar, useProbeTest } from '../api/runs';
+import { tourActive, useTutorial } from '../api/tutorial';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -35,6 +36,7 @@ export function ProbeTestScreen() {
   const [probe, setProbe] = useState<Starter | null>(null);
   const send = useProbeTest();
   const hangar = useHangar();
+  const touring = tourActive(useTutorial().data);
   const heading = useRef<HTMLHeadingElement>(null);
 
   const tied = answers.length === N && 'tie' in scoreTest(answers);
@@ -100,7 +102,7 @@ export function ProbeTestScreen() {
 
   if (stage === 'intro') {
     // Taken already (Back after the reveal, or /crear-cuenta with a session): the test is once, so to the hangar.
-    if (hangar.data?.test.taken) return <Navigate to="/incursion" replace />;
+    if (hangar.data?.test.taken) return <Navigate to={touring ? '/' : '/incursion'} replace />;
     return (
       <main className="screen-root probe-test">
         <div className="probe-test-card intro">
@@ -156,9 +158,10 @@ export function ProbeTestScreen() {
               <span>{t.quirks[def.quirk.kind]}</span>
             </p>
           )}
-          <Link to="/incursion" className="lip launch">
+          {/* A new player's guided tour starts at the title screen (polish phase 3). */}
+          <Link to={touring ? '/' : '/incursion'} className="lip launch">
             <Icon name="play" />
-            <span>{t.toHangar}</span>
+            <span>{touring ? t.toTour : t.toHangar}</span>
           </Link>
         </div>
       </main>

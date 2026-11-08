@@ -55,6 +55,8 @@ async function createAdmin(args: string[], deps: CliDeps): Promise<number> {
         .insertInto('galaxy.admin_totp')
         .values({ account_id: id, secret_enc: encryptSecret(deps.env.GALAXY_TOTP_KEY, totp.base32) })
         .execute();
+      // Staff start without the guided tour (polish phase 3); Ajustes can still repeat it.
+      await trx.insertInto('galaxy.tutorial').values({ account_id: id, chapter: 'hub', skipped_at: new Date() }).execute();
       await writeAudit(trx, {
         actor: CLI_ACTOR,
         action: 'account.admin_created',
