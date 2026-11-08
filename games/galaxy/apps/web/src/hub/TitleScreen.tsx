@@ -1,6 +1,7 @@
 import type { MeResponse } from '@galaxy/shared';
 import { TitleNotices } from './TitleNotices';
 import { BoostChips } from './Boosts';
+import { FirstSteps } from './FirstSteps';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -50,6 +51,7 @@ export function TitleScreen({ me }: { me: MeResponse }) {
           <MaintenanceNotice />
           <TitleNotices />
           <BoostChips />
+          <FirstSteps />
           <Logo />
           <MainMenu galaxies={total} />
         </main>

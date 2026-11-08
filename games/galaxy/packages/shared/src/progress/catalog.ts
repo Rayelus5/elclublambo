@@ -56,3 +56,8 @@ export interface CodexProgress {
   maxDepth: number;
   level: number;
 }
+
+/** The first steps (GDD §12.2; M7c): each one is done or not, in order. */
+export const ONBOARDING_STEPS = ['probeTest', 'firstRun', 'welcomePulls', 'repairRoom', 'equipRelic'] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+export type OnboardingView = Record<OnboardingStep, boolean>;

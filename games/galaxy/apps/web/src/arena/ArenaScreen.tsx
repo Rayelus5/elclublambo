@@ -215,9 +215,11 @@ export function ArenaScreen({
       else if (h.layer > s.layer) setAnnounce(copy.arena.announce.layer(h.layer));
       else if (h.hp <= h.maxHp * 0.3 && !s.low) setAnnounce(copy.arena.announce.lowHp);
       seen.current = { level: h.level, boss: !!h.boss, beacon: !!h.beacon, layer: h.layer, low: h.hp <= h.maxHp * 0.3 };
+      // The first level-up ever (M7c): PERKINS says what it is, once.
+      if (h.offer) say('levelup', copy.arena.radio.levelup);
     }, HUD_EVERY_MS);
     return () => clearInterval(id);
-  }, [sim]);
+  }, [sim, say]);
 
   useEffect(() => {
     if (radio === copy.arena.radio.start) markRadioSeen('start');
