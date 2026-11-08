@@ -1319,6 +1319,13 @@ export const copy = {
     duration: (seconds: number) => `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`,
     launch: 'Lanzar incursión',
   },
+  boosts: {
+    title: 'Multiplicadores en marcha',
+    currencies: { coins: 'monedas', dust: 'polvo', material: 'material', signal: 'señales' } as Record<string, string>,
+    chip: (name: string, currency: string, factor: number, until: string) => `${name}, ${currency} x${factor} hasta el ${until}`,
+    paid: (name: string, currency: string, factor: number) => `${name}: ${currency} x${factor}`,
+    resultsTitle: 'Multiplicadores',
+  },
   results: {
     extracted: 'Extracción completada',
     died: 'Sonda perdida',

@@ -17,6 +17,7 @@ import { RelicPicker } from './RelicPicker';
 import { SetsPanel } from './SetsPanel';
 import { weaponArtUrl } from './weapons';
 import { ResultsScreen } from './ResultsScreen';
+import { BoostChips } from '../hub/Boosts';
 import { BackLink } from '../ui/BackLink';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe and relics before a run, and the daily yield. Launching opens
@@ -505,6 +506,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
       />
       <div className="hangar-launch">
         <DailyYield daily={view.daily} />
+        <BoostChips />
         {!view.runsEnabled && <p className="field-error">{copy.errors.runs_disabled}</p>}
         {error ? <p className="field-error">{errorText(error, copy.errors)}</p> : null}
         <button type="button" className="lip launch" disabled={!view.runsEnabled || launching} aria-busy={launching || undefined} onClick={onLaunch}>
