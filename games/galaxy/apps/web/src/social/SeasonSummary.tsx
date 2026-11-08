@@ -1,6 +1,7 @@
 import { type CSSProperties, useId } from 'react';
 import { Link } from 'react-router';
 import { useLeaderboard } from '../api/social';
+import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { daysLeft, nextTier, Podium, TierEmblem, tierOf } from './parts';
@@ -24,10 +25,14 @@ export function SeasonSummary() {
         <Icon name="podium" />
         <div>
           <h2 id={title}>{v?.season?.name ?? t.leaderboard}</h2>
-          <span>{v?.season ? t.endsIn(daysLeft(v.season.endsAt)) : v ? '' : copy.loading}</span>
+          <span>{v?.season ? t.endsIn(daysLeft(v.season.endsAt)) : v || board.error ? '' : copy.loading}</span>
         </div>
       </div>
-      {!v ? (
+      {!v && board.error ? (
+        <p className="empty" role="alert">
+          {errorText(board.error, copy.errors)}
+        </p>
+      ) : !v ? (
         <p className="empty" role="status">
           {copy.loading}
         </p>
@@ -40,7 +45,7 @@ export function SeasonSummary() {
             <section className="season-me" aria-labelledby={mine}>
               <h3 id={mine}>{t.yourRow}</h3>
               <div className="season-me-row">
-                {tier ? <TierEmblem tier={tier} size={48} /> : null}
+                {tier ? <TierEmblem tier={tier} scale={2} /> : null}
                 <span>
                   <b>{t.rank(me.rank)}</b>
                   <span>{t.value.general(me.value)}</span>

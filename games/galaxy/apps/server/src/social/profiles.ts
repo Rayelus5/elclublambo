@@ -24,7 +24,7 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
 
   let standing: Profile['season'] = null;
   if (seasonOpen(season, deps.now())) {
-    const mine = (await ranking(db, season, 'general')).find((r) => r.accountId === owner.id);
+    const mine = (await ranking(db, season, 'general', account.minRunSeconds)).find((r) => r.accountId === owner.id);
     if (mine) {
       const s = await db
         .selectFrom('galaxy.runs')
@@ -37,6 +37,7 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
         .where('finished_at', '>=', new Date(season.startsAt))
         .where('finished_at', '<', new Date(season.endsAt))
         .where('suspicious', '=', false)
+        .where('seconds', '>=', account.minRunSeconds)
         .executeTakeFirstOrThrow();
       standing = { score: mine.value, rank: mine.rank, tier: seasonTier(mine.value, season), ...s };
     }
@@ -48,6 +49,7 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
     .where('account_id', '=', owner.id)
     .where('finished_at', 'is not', null)
     .where('suspicious', '=', false)
+    .where('seconds', '>=', account.minRunSeconds)
     .executeTakeFirstOrThrow();
 
   const counted = await db

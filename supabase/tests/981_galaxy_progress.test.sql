@@ -1,7 +1,7 @@
 -- Galaxy Survivor M5a Task 2 (migration *_galaxy_progress): the account experience kept per account, filled from the
 -- runs already finished with the default formula, and the index the season leaderboard reads.
 begin;
-select plan(12);
+select plan(14);
 
 select has_table('galaxy', 'account_xp', 'account_xp');
 select col_is_pk('galaxy', 'account_xp', 'account_id', 'one row per account');
@@ -21,6 +21,9 @@ select ok(not has_table_privilege('anon', 'galaxy.account_xp', 'select')
 select is(galaxy.run_xp(600, 2, 1, 'extracted'), 200::bigint, 'ten minutes, two layers, a Core and the extraction');
 select is(galaxy.run_xp(600, 2, 1, 'abandoned'), 170::bigint, 'abandoning keeps everything but the extraction');
 select is(galaxy.run_xp(119, 1, 0, 'died'), 25::bigint, 'only whole minutes count');
+-- A run counts from a minute, and never gives more than 30 per minute it lasted (M5a review).
+select is(galaxy.run_xp(59, 1, 1, 'extracted'), 0::bigint, 'less than a minute gives nothing');
+select is(galaxy.run_xp(60, 1, 1, 'extracted'), 30::bigint, 'one minute gives 30 at most, whatever it claims');
 select ok(not has_function_privilege('anon', 'galaxy.run_xp(integer, integer, integer, text)', 'execute'),
   'the formula is not exposed');
 

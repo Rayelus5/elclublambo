@@ -47,7 +47,7 @@ function Body({ p }: { p: Profile }) {
         {p.season ? (
           <>
             <div className="profile-tier">
-              {p.season.tier ? <TierEmblem tier={p.season.tier} size={64} /> : null}
+              {p.season.tier ? <TierEmblem tier={p.season.tier} scale={2} /> : null}
               <b>{p.season.tier ? t.tier[p.season.tier] : t.noTier}</b>
             </div>
             <Facts

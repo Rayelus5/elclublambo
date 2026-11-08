@@ -145,7 +145,7 @@ test('la columna derecha es la temporada: los tres primeros, tu puesto, tu tramo
   const top = await within(season).findByRole('list', { name: copy.social.podium });
   expect(within(top).getAllByRole('listitem')).toHaveLength(3);
   expect(within(top).getByRole('link', { name: /vega/ })).toHaveAttribute('href', '/perfil/vega');
-  expect(season).toHaveTextContent(copy.social.endsIn(6));
+  expect(season).toHaveTextContent(copy.social.endsIn(5));
   const mine = within(season).getByRole('region', { name: copy.social.yourRow });
   expect(mine).toHaveTextContent('9');
   expect(mine).toHaveTextContent(copy.social.value.general(640));
@@ -167,7 +167,18 @@ test('el mosaico Ranking lleva a la clasificación y tu avatar a tu perfil con t
   const ranking = screen.getByRole('link', { name: new RegExp(copy.hub.ranking) });
   expect(ranking).toHaveAttribute('href', '/clasificacion');
   expect(ranking).not.toHaveTextContent(copy.hub.soon);
-  const profile = screen.getByRole('link', { name: copy.social.myProfile(3) });
+  // Its name keeps what it shows, the username and the level (M5a review: label in name).
+  const profile = screen.getByRole('link', { name: /sonda_rayo.*Nivel 3.*tu perfil/ });
   expect(profile).toHaveAttribute('href', '/perfil/sonda_rayo');
   expect(profile).toHaveTextContent(copy.social.level(3));
+});
+
+test('si la temporada no llega, la columna lo dice en vez de quedarse cargando (revisión M5a)', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view(true)),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(500, { error: 'internal' }),
+  });
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  expect(await screen.findByText(copy.errors.internal, {}, { timeout: 4000 })).toBeInTheDocument();
 });

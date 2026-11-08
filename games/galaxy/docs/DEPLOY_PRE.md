@@ -192,18 +192,19 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - un nombre que no existe dice «No hay ningún planetario con ese nombre»;
    - sin violaciones de CSP.
 
-14. **Desde M5a (perfiles, nivel de cuenta y clasificación):** la migración `20261107233125_galaxy_progress` crea:
-   - `galaxy.account_xp`, la experiencia de cada cuenta, rellenada con las incursiones ya terminadas y no sospechosas con la fórmula por defecto (10 por minuto entero, 15 por capa, 40 por Núcleo y 30 por extraer);
+14. **Desde M5a (perfiles, nivel de cuenta y clasificación):** las migraciones `20261107233125_galaxy_progress` y `20261108001508_galaxy_progress_min_run` crean:
+   - `galaxy.account_xp`, la experiencia de cada cuenta, rellenada con las incursiones ya terminadas y no sospechosas con la fórmula por defecto: 10 por minuto entero, 15 por capa, 40 por Núcleo y 30 por extraer. Una incursión cuenta desde un minuto, y nunca da más de 30 por minuto jugado;
    - la función `galaxy.run_xp`, con esa fórmula;
    - el índice `runs_season`.
 
    Llegan además:
-   - la clave viva `account`: la experiencia por incursión (`xp`) y los umbrales de nivel del 2 al 30 (`levels`);
+   - la clave viva `account`: la experiencia por incursión (`xp`, con su tope por minuto `capPerMinute`), el mínimo para contar (`minRunSeconds`, 60) y los umbrales de nivel del 2 al 30 (`levels`);
    - la clave viva `season`:
      - `id`, `name`, `startsAt` y `endsAt`; la temporada 1 va del 1 de noviembre al 13 de diciembre de 2026;
      - `points`: 10 por capa, 50 por Núcleo y 25 por extraer;
      - `tiers`: los tramos Bronce, Plata, Oro, Platino y Estelar, desde 500, 2000, 6000, 15 000 y 30 000;
      - `top`: las filas de la clasificación, 100;
+     - `capPerMinute`: los puntos que una incursión puede dar como mucho por minuto jugado, 20. Empezar y morir, o una incursión corta inventada, no puntúan más que una de verdad;
 
      Cambiar los puntos o las fechas recalcula la clasificación sin migrar nada, porque se lee de las incursiones;
    - el inicio enseña la temporada en la columna derecha, el mosaico «Ranking» lleva a `/galaxy/clasificacion` y el avatar a tu perfil con tu nivel;
@@ -212,7 +213,7 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba con dos cuentas de prueba nuevas:
    - el inicio enseña la temporada con los días que quedan y «Ver clasificación completa». El avatar dice «Nivel 1» y lleva al perfil;
-   - una incursión corta (morir en la capa 1) da «+15 de experiencia» y «+10 puntos de temporada». Después, la cuenta sale en la clasificación con su fila marcada;
+   - una incursión de un minuto (morir en la capa 1) da «+25 de experiencia» y «+10 puntos de temporada». Después, la cuenta sale en la clasificación con su fila marcada. Una de menos de un minuto no da nada;
    - la segunda cuenta abre `/galaxy/perfil/<nombre>` de la primera y ve su nivel, su temporada, «Ver su colección» y «Visitar su planetario»;
    - sin violaciones de CSP.
 

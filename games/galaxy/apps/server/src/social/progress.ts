@@ -40,6 +40,6 @@ export async function creditRunProgress(
     xp: gained,
     level,
     levelUp: level > levelOf(total - gained, cfg.account).level,
-    points: !run.suspicious && seasonOpen(cfg.season, now) ? seasonPoints(run, cfg.season) : 0,
+    points: !run.suspicious && seasonOpen(cfg.season, now) ? seasonPoints(run, cfg.season, cfg.account.minRunSeconds) : 0,
   };
 }

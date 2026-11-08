@@ -40,7 +40,7 @@ function Tiers({ tiers, score }: { tiers: number[]; score: number | null }) {
           const at = tiers[SEASON_TIERS.indexOf(tier)] ?? 0;
           return (
             <li key={tier} data-tier={tier} aria-current={tier === mine ? 'true' : undefined}>
-              <TierEmblem tier={tier} size={48} />
+              <TierEmblem tier={tier} scale={1} />
               <span>
                 <b>{t.tier[tier]}</b>
                 <small>{t.tierFrom(at)}</small>
@@ -135,6 +135,14 @@ export function LeaderboardScreen() {
                   {me && !inTable ? (
                     <section className="lip panel lb-pinned" aria-label={t.yourRow}>
                       <table>
+                        <thead className="sr-only">
+                          <tr>
+                            <th scope="col">{t.columns.rank}</th>
+                            <th scope="col">{t.columns.player}</th>
+                            <th scope="col">{t.columns.level}</th>
+                            <th scope="col">{t.columns.value[tab]}</th>
+                          </tr>
+                        </thead>
                         <tbody>
                           <Row r={me} tab={tab} mine />
                         </tbody>
@@ -148,7 +156,8 @@ export function LeaderboardScreen() {
               <section className="lip panel lb-season" aria-labelledby="lb-season-title">
                 <h2 id="lb-season-title">{v.season.name}</h2>
                 <p className="lb-ends">{t.endsIn(daysLeft(v.season.endsAt))}</p>
-                <p className="lb-players">{t.players(v.total)}</p>
+                {/* The season's players, whatever the tab (Purgas only counts those with a Core). */}
+                <p className="lb-players">{t.players(general.data?.total ?? v.total)}</p>
               </section>
               <Tiers tiers={v.season.tiers} score={general.data?.me?.value ?? null} />
             </aside>

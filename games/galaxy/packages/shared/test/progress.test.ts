@@ -55,6 +55,31 @@ describe('la experiencia de cuenta', () => {
   });
 });
 
+describe('una incursión cuenta desde un minuto y no da más de lo que dura (revisión M5a)', () => {
+  test('menos de un minuto no da experiencia ni puntos: empezar y morir no suma', () => {
+    expect(runXp(run({ seconds: 59, depth: 1, bossKills: 0, outcome: 'died' }), account)).toBe(0);
+    expect(seasonPoints(run({ seconds: 1, depth: 1, bossKills: 1, outcome: 'extracted' }), season)).toBe(0);
+    expect(account.minRunSeconds).toBe(60);
+  });
+
+  test('un minuto da como mucho 30 de experiencia y 20 puntos, aunque diga que extrajo y venció un Núcleo', () => {
+    const forged = run({ seconds: 60, depth: 1, bossKills: 1, outcome: 'extracted' });
+    expect(runXp(forged, account)).toBe(30);
+    expect(seasonPoints(forged, season)).toBe(20);
+    expect(account.xp.capPerMinute).toBe(30);
+    expect(season.capPerMinute).toBe(20);
+  });
+
+  test('una incursión de verdad nunca llega al tope', () => {
+    // Five minutes, the Core at the end of the layer and the extraction.
+    const layer = run({ seconds: 280, depth: 1, bossKills: 1, outcome: 'extracted' });
+    expect(runXp(layer, account)).toBe(4 * 10 + 15 + 40 + 30);
+    expect(seasonPoints(layer, season)).toBe(10 + 50 + 25);
+    const deep = run({ seconds: 900, depth: 3, bossKills: 3, outcome: 'extracted' });
+    expect(seasonPoints(deep, season)).toBe(30 + 150 + 25);
+  });
+});
+
 describe('la temporada', () => {
   test('cada incursión suma puntos por capa, por Núcleo y por extraer', () => {
     expect(seasonPoints(run(), season)).toBe(95);

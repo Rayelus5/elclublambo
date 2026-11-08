@@ -372,9 +372,13 @@ export const configSchemas = {
           perLayer: z.number().int().min(0).max(10_000).default(15),
           perCore: z.number().int().min(0).max(10_000).default(40),
           extraction: z.number().int().min(0).max(10_000).default(30),
+          /** A run never gives more than this per minute it lasted (a forged short run is worth what a real one is). */
+          capPerMinute: z.number().int().min(1).max(10_000).default(30),
         })
         .strict()
-        .default({ perMinute: 10, perLayer: 15, perCore: 40, extraction: 30 }),
+        .default({ perMinute: 10, perLayer: 15, perCore: 40, extraction: 30, capPerMinute: 30 }),
+      /** A run counts for experience and season points from this long (like probe unlocks and slot milestones). */
+      minRunSeconds: z.number().int().min(0).max(3600).default(60),
       levels: z
         .array(z.number().int().min(1).max(100_000_000))
         .min(1)
@@ -408,6 +412,8 @@ export const configSchemas = {
         .refine((ts) => ts.every((t, i) => i === 0 || t > ts[i - 1]!), 'season_tiers_increasing')
         .default([500, 2000, 6000, 15000, 30000]),
       top: z.number().int().min(3).max(500).default(100),
+      /** A run never adds more points than this per minute it lasted. */
+      capPerMinute: z.number().int().min(1).max(100_000).default(20),
     })
     .strict()
     .refine((s) => Date.parse(s.startsAt) < Date.parse(s.endsAt), 'season_dates'),

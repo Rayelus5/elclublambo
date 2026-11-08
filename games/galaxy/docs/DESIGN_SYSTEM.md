@@ -445,7 +445,7 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
   - **Oro:** una estrella biselada con una gema;
   - **Platino:** un cristal tallado que destella;
   - **Estelar:** un medallón coronado con una galaxia espiral que gira.
-- Un brillo recorre cada uno. Se pintan a ×1,5 o ×2 y se quedan quietos con movimiento reducido.
+- Un brillo recorre cada uno. Se pintan siempre a escala entera, ×1 en la lista de tramos y ×2 en el inicio y el perfil, y se quedan quietos con movimiento reducido.
 - Son decorativos: el nombre del tramo va siempre al lado.
 
 **El inicio:** la columna derecha es la temporada (§7), con cabecera Nova y el nombre de la temporada y los días que quedan. Debajo:

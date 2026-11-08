@@ -1,12 +1,14 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import type { HangarView, RunResult, RunStart } from '@galaxy/shared';
+import type { HangarView, Leaderboard, RunResult, RunStart } from '@galaxy/shared';
 import { encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
 import { type Page, expect, skipProbeTest, test } from './fixtures';
 
 // The season, the leaderboard and the profiles against the real server (GDD §14.1, §14.2, §12.1; M5a): a new account
-// plays a short run (started and finished through the API, one layer: plausible and worth 10 points and 15
-// experience), finds itself in the leaderboard marked as its own row, and a second account opens its profile from
-// there, sees its level and season, and goes into its collection and its planetarium. Writes e2e_* accounts only.
+// plays a one-minute run (started and finished through the API, one layer: a run counts from a minute; 25 experience
+// and 10 points), finds itself in the leaderboard marked as its own row, and a second account opens its profile, sees
+// its level and season, and goes into its collection and its planetarium. The live season has dates: when none is open
+// (the default season 1 ends on 2026-12-13), the same run gives its experience but no points, and the screens say the
+// season is closed. Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
 
 async function newAccount(page: Page): Promise<string> {
@@ -29,7 +31,7 @@ function watchCsp(page: Page): string[] {
   return csp;
 }
 
-/** A one-second run in the first layer, through the API: what a player who dies at once sends. */
+/** A one-minute run in the first layer, through the API: what a player who dies at the minute sends. */
 async function shortRun(page: Page, origin: string): Promise<RunResult> {
   const hangar = (await (await page.request.get('/galaxy/api/hangar')).json()) as HangarView;
   const start = await page.request.post('/galaxy/api/runs', {
@@ -38,20 +40,34 @@ async function shortRun(page: Page, origin: string): Promise<RunResult> {
   });
   expect(start.status()).toBe(200);
   const run = (await start.json()) as RunStart;
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(61_500);
   const finish = await page.request.post(`/galaxy/api/runs/${run.id}/finish`, {
     headers: { origin, 'idempotency-key': randomUUID() },
-    data: { outcome: 'died', ticks: 60, depth: 1, kills: 0, bossKills: 0, level: 1, loot: [{ coins: 0, dust: 0 }], hash: '0123456789abcdef', inputs: toBase64(encodeLog({ probes: 1, events: [] })) },
+    data: { outcome: 'died', ticks: 61 * 60, depth: 1, kills: 0, bossKills: 0, level: 1, loot: [{ coins: 0, dust: 0 }], hash: '0123456789abcdef', inputs: toBase64(encodeLog({ probes: 1, events: [] })) },
   });
   expect(finish.status()).toBe(200);
   return (await finish.json()) as RunResult;
 }
 
 test('jugar una incursión, verse en la clasificación y que otro abra tu perfil', async ({ page, baseURL, browser }) => {
+  test.setTimeout(180_000);
   const csp = watchCsp(page);
   const player = await newAccount(page);
+  const open = ((await (await page.request.get('/galaxy/api/leaderboard')).json()) as Leaderboard).season !== null;
   const result = await shortRun(page, baseURL!);
-  expect(result.progress).toEqual({ xp: 15, level: 1, levelUp: false, points: 10 });
+  // One whole minute (10) and a layer (15); 10 points while a season is open.
+  expect(result.progress).toEqual({ xp: 25, level: 1, levelUp: false, points: open ? 10 : 0 });
+
+  if (!open) {
+    await page.goto('/galaxy/');
+    await expect(page.getByRole('complementary', { name: 'Clasificación' })).toContainText('No hay ninguna temporada abierta');
+    await page.goto('/galaxy/clasificacion');
+    await expect(page.getByText('No hay ninguna temporada abierta')).toBeVisible();
+    await page.goto(`/galaxy/perfil/${player}`);
+    await expect(page.getByText('Todavía no ha puntuado esta temporada')).toBeVisible();
+    expect(csp).toEqual([]);
+    return;
+  }
 
   // The title screen's season column has your place; the leaderboard marks your row.
   await page.goto('/galaxy/');
@@ -89,7 +105,7 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
 
   // The avatar leads to one's own profile.
   await page.goto('/galaxy/');
-  await page.getByRole('link', { name: /^Tu perfil/ }).click();
+  await page.getByRole('link', { name: /tu perfil/ }).click();
   await expect(page.getByRole('heading', { level: 1, name: player })).toBeVisible();
   expect(csp).toEqual([]);
   expect(visitorCsp).toEqual([]);

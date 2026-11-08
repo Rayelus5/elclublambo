@@ -1127,7 +1127,7 @@
   .lb-tiers { padding: 18px 16px 12px; }
   .lb-tiers h2 { margin: 0 4px 10px; font: 400 20px var(--font-display); }
   .lb-tiers ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-  .lb-tiers li { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 10px 6px 6px; border-radius: 14px; }
+  .lb-tiers li { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 6px 10px 6px 6px; border-radius: 14px; }
   .lb-tiers li span { display: grid; }
   .lb-tiers li b { font-size: 16px; }
   .lb-tiers li small { font-size: 13px; color: var(--color-ink-mute); }

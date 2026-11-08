@@ -48,13 +48,15 @@ export function TopBar({
       </nav>
       <div className="group">
         <div className="lip panel hud enter" style={delay('1s')}>
-          <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me" aria-label={me.level ? copy.social.myProfile(me.level) : copy.social.seeProfile}>
+          <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
             <Avatar name={me.username} />
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}
               {isAdmin(me) ? <span className="badge-admin">{copy.hub.admin}</span> : null}
             </div>
+            {/* Its name keeps what it shows (label in name) and says where it leads. */}
+            <span className="sr-only">{copy.social.yourProfile}</span>
           </Link>
           <WalletBar wallet={wallet} />
         </div>

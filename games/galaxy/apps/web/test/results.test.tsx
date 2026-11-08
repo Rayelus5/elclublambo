@@ -92,3 +92,10 @@ test('sin subir de nivel ni puntos, no los menciona', () => {
   expect(progress).not.toHaveTextContent(copy.social.levelUp);
   expect(progress).not.toHaveTextContent('puntos de temporada');
 });
+
+test('un resultado guardado antes de M5a, sin progreso, se enseña sin la franja (revisión M5a)', () => {
+  const { progress: _progress, ...old } = died;
+  show(old as RunResult);
+  expect(screen.getByRole('heading', { name: copy.results.died })).toBeInTheDocument();
+  expect(screen.queryByRole('region', { name: copy.social.progressTitle })).toBeNull();
+});

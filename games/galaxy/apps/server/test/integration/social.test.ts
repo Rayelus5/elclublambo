@@ -9,14 +9,16 @@ import { fixedConfig, get, post, put, sessionCookie, testApp, uniqueName } from 
 // The social side on the server (GDD §12.1, §14.1, §14.2; M5a): a finished run that is not suspicious gives account
 // experience and, in an open season, points; the season leaderboard ranks players by score, depth and Cores; profiles
 // and collections are public to anyone signed in and carry nothing private. Each block runs in its own season, on a
-// random month long past, so the runs other tests leave in the shared database never reach it.
+// random minute long past, so the runs other tests leave in the shared database never reach it.
 
 type Ctx = Awaited<ReturnType<typeof testApp>>;
 
 function season(extra: Record<string, unknown> = {}) {
-  // In the past: sessions are read against the app's clock but expire by the database's, so a future clock signs out.
-  const startsAt = new Date(Date.UTC(1990 + randomInt(30), randomInt(12), 1));
-  const endsAt = new Date(startsAt.getTime() + 20 * 86_400_000);
+  // In the past (sessions are read against the app's clock but expire by the database's, so a future clock signs out),
+  // on a random minute of 30 years with a three-day window: a season never meets the runs an earlier run of this file
+  // left in the shared database.
+  const startsAt = new Date(Date.UTC(1990, 0, 1) + randomInt(30 * 365 * 24 * 60) * 60_000);
+  const endsAt = new Date(startsAt.getTime() + 3 * 86_400_000);
   return { id: `test-${randomInt(1_000_000)}`, name: 'Temporada de prueba', startsAt: startsAt.toISOString(), endsAt: endsAt.toISOString(), ...extra };
 }
 const at = (s: { startsAt: string }, hours: number) => new Date(Date.parse(s.startsAt) + hours * 3_600_000);
@@ -122,6 +124,21 @@ describe('la experiencia de una incursión', () => {
     expect((await board(ctx, p.cookie)).me).toMatchObject({ username: p.username, value: 85 });
   });
 
+  test('empezar y morir enseguida no da experiencia ni puntos (revisión M5a)', async () => {
+    const p = await player(ctx);
+    const quick = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+    clock = new Date(clock.getTime() + 2000);
+    const res = await post(
+      ctx.app,
+      `/galaxy/api/runs/${(quick.json() as RunStart).id}/finish`,
+      body({ outcome: 'died', ticks: 60, depth: 1, kills: 0, bossKills: 0, loot: [{ coins: 0, dust: 0 }], inputs: toBase64(encodeLog({ probes: 1, events: [] })) }),
+      { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } },
+    );
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as RunResult).progress).toEqual({ xp: 0, level: 1, levelUp: false, points: 0 });
+    expect((await board(ctx, p.cookie)).me).toBeNull();
+  });
+
   test('una incursión sospechosa no da experiencia ni puntos', async () => {
     const p = await player(ctx);
     const loot = Array.from({ length: 999 }, () => ({ coins: 40, dust: 12 }));
@@ -134,7 +151,7 @@ describe('la experiencia de una incursión', () => {
 
 describe('la clasificación de la temporada', () => {
   const s = season({ top: 3 });
-  const clock = at(s, 24 * 10);
+  const clock = at(s, 40);
   let ctx: Ctx;
   let a: Awaited<ReturnType<typeof player>>;
   let b: typeof a;

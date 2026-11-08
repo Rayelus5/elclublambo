@@ -23,7 +23,7 @@ const screens = { '/clasificacion': <LeaderboardScreen /> };
 test('las pestañas son enlaces con la pestaña en la dirección, y la de clanes espera a los clanes', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()),
-    'GET /galaxy/api/leaderboard?tab=depth': () => jsonResponse(200, board({ tab: 'depth', rows: [r(1, 'vega', 7), r(2, 'deneb', 5)], me: r(2, 'deneb', 5) })),
+    'GET /galaxy/api/leaderboard?tab=depth': () => jsonResponse(200, board({ tab: 'depth', rows: [r(1, 'vega', 7), r(2, 'deneb', 5)], me: r(2, 'deneb', 5), total: 2 })),
   });
   const user = userEvent.setup();
   renderAt('/clasificacion', screens);
@@ -38,6 +38,8 @@ test('las pestañas son enlaces con la pestaña en la dirección, y la de clanes
   expect(await screen.findByText(t.value.depth(7))).toBeInTheDocument();
   expect(within(tabs).getByRole('link', { name: t.tabs.depth })).toHaveAttribute('aria-current', 'page');
   expect(fetch.mock.calls.map(([url]) => url)).toContain('/galaxy/api/leaderboard?tab=depth');
+  // The season's players do not change with the tab (M5a review).
+  expect(screen.getByText(t.players(5))).toBeInTheDocument();
 });
 
 test('el podio con los tres primeros y la tabla con el resto, cada nombre lleva a su perfil', async () => {
@@ -49,6 +51,9 @@ test('el podio con los tres primeros y la tabla con el resto, cada nombre lleva 
   expect(within(podium).getByRole('link', { name: /vega/ })).toHaveAttribute('href', '/perfil/vega');
   expect(podium).toHaveTextContent(t.value.general(9000));
   expect(podium).toHaveTextContent(t.level(12));
+  // Screen readers hear each place's rank, ties included (M5a review).
+  expect(within(podium).getByText(t.rank(1))).toBeInTheDocument();
+  expect(within(podium).getAllByText(t.rank(2))).toHaveLength(2);
   const table = screen.getByRole('table', { name: t.leaderboard });
   const lines = within(table).getAllByRole('row').slice(1);
   expect(lines.map((l) => l.textContent)).toEqual([expect.stringContaining('deneb'), expect.stringContaining('rigel')]);
@@ -69,14 +74,16 @@ test('tu fila se marca, y fuera del top se fija debajo', async () => {
   expect(pinned).toHaveTextContent('140');
   expect(pinned).toHaveTextContent('sonda_rayo');
   expect(pinned).toHaveTextContent(t.value.general(120));
+  expect(within(pinned).getAllByRole('columnheader')).toHaveLength(4);
 });
 
 test('la temporada dice su nombre, los días que quedan y sus tramos, con el tuyo marcado', async () => {
   mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()) });
   renderAt('/clasificacion', screens);
   expect(await screen.findByRole('heading', { level: 2, name: season.name })).toBeInTheDocument();
-  expect(screen.getByText(t.endsIn(11))).toBeInTheDocument();
+  expect(screen.getByText(t.endsIn(10))).toBeInTheDocument();
   expect(t.endsIn(1)).toBe('Termina mañana');
+  expect(t.endsIn(0)).toBe('Termina hoy');
   expect(screen.getByText(t.players(5))).toBeInTheDocument();
   const tiers = screen.getByRole('list', { name: t.tiersTitle });
   expect(within(tiers).getAllByRole('listitem')).toHaveLength(5);
@@ -96,4 +103,13 @@ test('sin puntos invita a jugar, y sin temporada lo dice', async () => {
   renderAt('/clasificacion', screens);
   expect(await screen.findByText(copy.errors.season_closed)).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByRole('table')).toBeNull());
+});
+
+test('los emblemas van a escala entera: 32 o 64 píxeles para un arte de 32 (revisión M5a)', async () => {
+  mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()) });
+  renderAt('/clasificacion', screens);
+  await screen.findByRole('list', { name: t.tiersTitle });
+  const sizes = [...document.querySelectorAll<HTMLElement>('.tier-art')].map((e) => e.style.getPropertyValue('--size'));
+  expect(sizes.length).toBeGreaterThan(0);
+  for (const size of sizes) expect(['32px', '64px']).toContain(size);
 });
