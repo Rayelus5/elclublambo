@@ -42,6 +42,11 @@ export async function marketConfigs(deps: MarketDeps): Promise<MarketConfigs> {
   return { market, account };
 }
 
+/** One account's market actions, one at a time: today's caps are counted and used under it (M5c-1 review). */
+async function lockTrader(trx: Kysely<DB>, accountId: string): Promise<void> {
+  await sql`select pg_advisory_xact_lock(hashtextextended(${`market-cap:${accountId}`}, 0))`.execute(trx);
+}
+
 /** Midnight of today in Madrid, where the daily limits restart. */
 const todayStart = (now: Date) => new Date(nextMadridMidnight(new Date(now.getTime() - DAY_MS)).getTime());
 
@@ -99,7 +104,9 @@ function listingOf(r: ListingRow): MarketListing {
 export async function browseMarket(deps: MarketDeps, accountId: string, q: MarketQuery): Promise<MarketPage> {
   const cfgs = await marketConfigs(deps);
   const now = deps.now();
-  let query = listingsQuery(deps.db).where('m.status', '=', 'active').where('m.expires_at', '>', now);
+  let query = listingsQuery(deps.db).where('m.status', '=', 'active').where('m.expires_at', '>', now)
+    // Sellers banned right now are hidden (a banned trader is not paid; M5c-1 review).
+    .where((eb) => eb.or([eb('s.banned_until', 'is', null), eb('s.banned_until', '<=', sql<Date>`now()`)]));
   if (q.tier) query = query.where('g.tier', '=', TIERS.indexOf(q.tier));
   if (q.q) {
     const like = `%${q.q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -147,6 +154,7 @@ export async function myMarket(deps: MarketDeps, accountId: string): Promise<MyM
 
 /** Puts a galaxy on sale (inside its operation): the gates, today's cap, the escrow, then the price. */
 export async function listGalaxy(cfgs: MarketConfigs, trx: Kysely<DB>, accountId: string, req: { galaxyId: string; price: number }, now: Date): Promise<MarketListing> {
+  await lockTrader(trx, accountId);
   const rules = await rulesFor(trx, accountId, cfgs, now);
   refuse(rules);
   if (rules.listingsLeft <= 0) throw new HttpError(429, 'trade_daily_cap');
@@ -202,6 +210,7 @@ export async function buyListing(
   now: Date,
   opKey: string,
 ): Promise<{ galaxy: GalaxySummary; wallet: Wallet }> {
+  await lockTrader(trx, buyerId);
   const rules = await rulesFor(trx, buyerId, cfgs, now);
   refuse(rules);
   if (rules.purchasesLeft <= 0) throw new HttpError(429, 'trade_daily_cap');
@@ -213,6 +222,8 @@ export async function buyListing(
     .executeTakeFirst();
   if (!l || l.status !== 'active' || new Date(l.expires_at) <= now) throw new HttpError(409, 'listing_gone');
   if (l.seller_id === buyerId) throw new HttpError(409, 'own_listing');
+  const seller = await trx.selectFrom('galaxy.accounts').select('banned_until').where('id', '=', l.seller_id).executeTakeFirst();
+  if (!seller || (seller.banned_until && new Date(seller.banned_until) > now)) throw new HttpError(409, 'listing_gone');
   const g = await trx
     .selectFrom('galaxy.galaxies')
     .select(['id', 'tier'])
@@ -222,12 +233,15 @@ export async function buyListing(
     .forUpdate()
     .executeTakeFirst();
   if (!g) throw new HttpError(409, 'listing_gone');
+  // Fresh statements after the galaxy's lock: a seller who equipped or exhibited it the instant its listing expired
+  // (while this purchase waited) keeps it.
+  if ((await isEquipped(trx, [g.id])) || (await isExhibited(trx, [g.id]))) throw new HttpError(409, 'listing_gone');
   const price = Number(l.price);
   const commission = commissionOf(price, cfgs.market.commission);
   const ref = { listing: l.id, galaxy: g.id };
   await debit(trx, buyerId, 'coins', price, 'market_buy', ref, opKey);
   if (price - commission > 0) await credit(trx, l.seller_id, 'coins', price - commission, 'market_sale', ref, opKey);
-  await trx.updateTable('galaxy.galaxies').set({ owner_id: buyerId, featured: false }).where('id', '=', g.id).execute();
+  await trx.updateTable('galaxy.galaxies').set({ owner_id: buyerId }).where('id', '=', g.id).execute();
   await trx.updateTable('galaxy.market_listings').set({ status: 'sold', buyer_id: buyerId, sold_at: now, commission }).where('id', '=', l.id).execute();
   await alertIfSuspicious(trx, cfgs.market, { listing: l.id, seller: l.seller_id, buyer: buyerId, price, floor: minPriceFor(TIERS[g.tier]!, cfgs.market) }, now);
   const bought = await trx
@@ -247,14 +261,13 @@ async function alertIfSuspicious(
 ): Promise<void> {
   const since = new Date(now.getTime() - cfg.sharedIpDays * DAY_MS);
   const shared = await trx
-    .selectFrom('galaxy.sessions as a')
-    .innerJoin('galaxy.sessions as b', 'b.ip', 'a.ip')
+    .selectFrom('galaxy.account_ips as a')
+    .innerJoin('galaxy.account_ips as b', 'b.ip', 'a.ip')
     .select('a.ip')
     .where('a.account_id', '=', sale.seller)
     .where('b.account_id', '=', sale.buyer)
-    .where('a.ip', 'is not', null)
-    .where('a.created_at', '>=', since)
-    .where('b.created_at', '>=', since)
+    .where('a.last_seen', '>=', since)
+    .where('b.last_seen', '>=', since)
     .limit(1)
     .executeTakeFirst();
   const alerts: { kind: 'shared_ip' | 'unbalanced'; details: Record<string, unknown> }[] = [];

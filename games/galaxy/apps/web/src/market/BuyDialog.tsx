@@ -1,4 +1,5 @@
 import type { MarketListing } from '@galaxy/shared';
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useBuyListing } from '../api/market';
 import { errorText } from '../auth/useMe';
@@ -13,6 +14,8 @@ const t = copy.market;
 export function BuyDialog({ l, coins, onClose }: { l: MarketListing; coins: number; onClose: () => void }) {
   const buy = useBuyListing();
   const done = buy.data;
+  // The balance when the dialog opened: after buying, the cached wallet is already the new one.
+  const [before] = useState(coins);
   return (
     <Dialog role="alertdialog" title={t.buyTitle(l.galaxy.name)} onClose={onClose} className="confirm market-buy">
       <div className="market-buy-body">
@@ -24,7 +27,7 @@ export function BuyDialog({ l, coins, onClose }: { l: MarketListing; coins: numb
                 <Icon name="check" />
                 <span>{t.bought}</span>
               </p>
-              <p className="panel-note">{t.balanceAfter(coins, done.wallet.coins)}</p>
+              <p className="panel-note">{t.balanceAfter(before, done.wallet.coins)}</p>
             </>
           ) : (
             <>
@@ -32,7 +35,7 @@ export function BuyDialog({ l, coins, onClose }: { l: MarketListing; coins: numb
                 <Icon name="coin" />
                 <span>{t.price(l.price)}</span>
               </p>
-              <p className="panel-note">{t.balanceAfter(coins, coins - l.price)}</p>
+              <p className="panel-note">{t.balanceAfter(before, before - l.price)}</p>
             </>
           )}
           {buy.error ? (

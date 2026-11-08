@@ -1,7 +1,7 @@
 -- Galaxy Survivor M5c-1 Task 2 (migration *_galaxy_market): the market's listings (one active per galaxy, a price
 -- never under the floor of its rarity) and the alerts for the admin.
 begin;
-select plan(14);
+select plan(16);
 
 select has_table('galaxy', 'market_listings', 'market_listings');
 select has_table('galaxy', 'trade_alerts', 'trade_alerts');
@@ -54,6 +54,12 @@ select lives_ok($$insert into galaxy.market_listings (galaxy_id, seller_id, pric
                   values ('00000000-0000-4000-8000-00000000a001', '00000000-0000-4000-8000-0000000000f1', 90, now() + interval '7 days')$$,
   'once sold, the galaxy can be listed again (at the new floor)');
 select throws_ok($$insert into galaxy.trade_alerts (kind) values ('gossip')$$, '23514', null, 'an alert is a shared IP or an unbalanced price');
+
+select has_table('galaxy', 'account_ips', 'the IPs an account signed in from');
+select ok(has_table_privilege('galaxy_api', 'galaxy.account_ips', 'select, insert, update')
+      and not has_table_privilege('galaxy_api', 'galaxy.account_ips', 'delete')
+      and not has_table_privilege('anon', 'galaxy.account_ips', 'select'),
+  'galaxy_api keeps the IPs and never deletes them; nobody else reads them');
 
 select * from finish();
 rollback;

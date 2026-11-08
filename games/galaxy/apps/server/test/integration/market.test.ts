@@ -116,6 +116,13 @@ describe('poner en venta', () => {
     expect(fourth.json()).toEqual({ error: 'trade_daily_cap' });
     expect((await browse(s)).rules.listingsLeft).toBe(0);
   });
+
+  test('el límite del día aguanta peticiones a la vez', async () => {
+    const s = await player();
+    const galaxies = await Promise.all([1, 2, 3, 4, 5].map(() => own(s.id)));
+    const answers = await Promise.all(galaxies.map((g) => list(s, g, 50)));
+    expect(answers.map((r) => r.statusCode).sort()).toEqual([200, 200, 200, 429, 429]);
+  });
 });
 
 describe('el escaparate', () => {
@@ -186,6 +193,36 @@ describe('comprar', () => {
     }
   });
 
+  test('una galaxia destacada sigue destacada en manos del comprador', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { galaxyId, listingId } = await listed(s);
+    await ctx.db.updateTable('galaxy.galaxies').set({ featured: true }).where('id', '=', galaxyId).execute();
+    expect((await buy(b, listingId)).json()).toMatchObject({ galaxy: { id: galaxyId, featured: true } });
+  });
+
+  test('una galaxia que acabó equipada o expuesta no se vende', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { galaxyId, listingId } = await listed(s);
+    // As if the seller equipped it in the instant its listing expired, while this purchase waited for its locks.
+    await ctx.db.insertInto('galaxy.loadouts').values({ account_id: s.id, slot: 0, galaxy_id: galaxyId }).execute();
+    expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
+    expect(await coins(b)).toBe(1000);
+    expect(await ownerOf(galaxyId)).toBe(s.id);
+  });
+
+  test('lo de un vendedor baneado ni se ve ni se compra', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const word = `Bn${randomBytes(4).toString('hex')}`;
+    const { listingId } = await listed(s, 'common', 50, `${word} Uno`);
+    await ctx.db.updateTable('galaxy.accounts').set({ banned_until: new Date(Date.now() + DAY) }).where('id', '=', s.id).execute();
+    expect((await browse(b, `?q=${word}`)).listings).toEqual([]);
+    expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
+    expect(await coins(b)).toBe(1000);
+  });
+
   test('ni lo propio, ni sin monedas, ni sin las reglas del comercio', async () => {
     const s = await player({ coins: 500 });
     const { listingId } = await listed(s, 'common', 300);
@@ -216,6 +253,15 @@ describe('avisos al admin', () => {
     const { listingId } = await listed(s, 'common', 1000);
     expect((await buy(b, listingId)).statusCode).toBe(200);
     expect((await alerts(listingId)).map((a) => a.kind).sort()).toEqual(['shared_ip', 'unbalanced']);
+
+    // Logging out (its session row goes) does not hide the IP it came from.
+    const ip2 = randomIp();
+    const s3 = await player({ ip: ip2 });
+    const shared = await listed(s3, 'common', 60);
+    expect((await post(ctx.app, '/galaxy/api/auth/logout', undefined, { cookie: s3.cookie })).statusCode).toBeLessThan(300);
+    const b3 = await player({ ip: ip2, coins: 100 });
+    expect((await buy(b3, shared.listingId)).statusCode).toBe(200);
+    expect((await alerts(shared.listingId)).map((a) => a.kind)).toEqual(['shared_ip']);
 
     const s2 = await player();
     const b2 = await player({ coins: 100 });

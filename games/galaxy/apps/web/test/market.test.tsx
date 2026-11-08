@@ -109,6 +109,8 @@ test('comprar pide confirmación con el precio y el saldo, y después lleva a la
   await waitFor(() => expect(posted(fetch, '/listings/1/buy')).toHaveLength(1));
   expect(fetch.mock.calls.find(([url]) => url === '/galaxy/api/market/listings/1/buy')![1]!.headers).toHaveProperty('idempotency-key');
   expect(await within(dialog).findByText(t.bought)).toBeInTheDocument();
+  // What it cost: from the balance it had when the dialog opened to what is left.
+  expect(within(dialog).getByText(t.balanceAfter(1000, 400))).toBeInTheDocument();
   await user.click(within(dialog).getByRole('link', { name: t.seeIt }));
   expect(await screen.findByText('colección')).toBeInTheDocument();
 });

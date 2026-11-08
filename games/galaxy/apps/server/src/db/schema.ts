@@ -276,6 +276,14 @@ export interface MarketListingsTable {
   commission: ColumnType<string | null, number | null | undefined, number | null>;
 }
 
+/** The IPs an account signed in from, kept after its sessions end (M5c-1 review: the market's shared-IP alerts). */
+export interface AccountIpsTable {
+  account_id: string;
+  ip: string;
+  first_seen: Timestamp;
+  last_seen: Timestamp;
+}
+
 /** A sale the admin should look at (M5c-1): an IP shared by buyer and seller, or a price far above the floor. */
 export interface TradeAlertsTable {
   id: ColumnType<string, never, never>;
@@ -430,6 +438,7 @@ export interface DB {
   'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
+  'galaxy.account_ips': AccountIpsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
