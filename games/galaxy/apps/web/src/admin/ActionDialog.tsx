@@ -1,5 +1,5 @@
 import { type ReactNode, useId, useState } from 'react';
-import { useAdminAction } from '../api/admin';
+import { useAdminPost } from '../api/admin';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
@@ -11,14 +11,14 @@ export type FieldSpec =
   | { name: string; label: string; kind: 'select'; options: [string, string][] };
 
 /**
- * A change to a player (DESIGN_SYSTEM §8 sedecies): its fields, always a reason, and the admin's own password when the
- * change is destructive. A change with a result (the reset code) shows it here, once; the others close and the page
- * says it is done.
+ * A change from the panel (DESIGN_SYSTEM §8 sedecies, §8 octodecies): its fields, always a reason, and the admin's own
+ * password when the change is destructive. A change with a result (the reset code) shows it here, once; the others
+ * close and the page says it is done. The button says what it does when the change has a name for it.
  */
 export function ActionDialog({
-  username,
+  url,
   title,
-  path,
+  submit = t.apply,
   fields = [],
   password,
   build = () => ({}),
@@ -26,9 +26,11 @@ export function ActionDialog({
   onDone,
   onClose,
 }: {
-  username: string;
+  /** Where it posts, after `/galaxy/api`. */
+  url: string;
   title: string;
-  path: string;
+  /** The submit button's text (Aplicar by default). */
+  submit?: string;
   fields?: FieldSpec[];
   /** Whether this change, with these values, asks for the password. */
   password: (values: Record<string, string>) => boolean;
@@ -43,7 +45,7 @@ export function ActionDialog({
   );
   const [reason, setReason] = useState('');
   const [secret, setSecret] = useState('');
-  const action = useAdminAction(username);
+  const action = useAdminPost();
   const needsPassword = password(values);
   const filled = fields.every((f) => f.kind === 'select' || ('optional' in f && f.optional) || values[f.name]!.trim() !== '');
   const ready = filled && reason.trim().length >= 3 && (!needsPassword || secret.length > 0) && !action.isPending;
@@ -66,7 +68,7 @@ export function ActionDialog({
             e.preventDefault();
             if (!ready) return;
             const body = { ...build(values), reason: reason.trim(), ...(needsPassword ? { password: secret } : {}) };
-            action.mutate({ path, body }, { onSuccess: () => (result ? undefined : onDone(values)) });
+            action.mutate({ url, body }, { onSuccess: () => (result ? undefined : onDone(values)) });
           }}
         >
           {fields.map((f) => (
@@ -120,7 +122,7 @@ export function ActionDialog({
               {t.cancel}
             </button>
             <button type="submit" className={`lip pill ${needsPassword ? 'danger' : 'pill-solar'}`} disabled={!ready} aria-busy={action.isPending || undefined}>
-              {t.apply}
+              {submit}
             </button>
           </div>
         </form>

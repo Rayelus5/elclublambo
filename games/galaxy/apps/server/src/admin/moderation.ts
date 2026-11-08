@@ -1,4 +1,4 @@
-import type { ModChannel, ModMessage, ModMute, ModOutcome, ModReport } from '@galaxy/shared';
+import { MOD_PAGE_SIZE, type ModChannel, type ModMessage, type ModMute, type ModOutcome, type ModReport } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { SessionInfo } from '../auth/sessions';
@@ -14,7 +14,6 @@ import { guardTarget } from './players';
 // so only reports after it count toward hiding it again.
 
 const iso = (d: Date | string) => new Date(d).toISOString();
-const PAGE = 100;
 
 /** The global chat first, then the clans with messages in the last 30 days, the busiest lately first (50 at most). */
 export async function modChannels(db: Kysely<DB>): Promise<ModChannel[]> {
@@ -63,7 +62,7 @@ const toMessage = (r: MessageRow): ModMessage => ({
 export async function modMessages(db: Kysely<DB>, channel: string, before: string | undefined): Promise<ModMessage[]> {
   let q = messageRows(db).where('m.channel', '=', channel);
   if (before) q = q.where('m.id', '<', before);
-  return (await q.orderBy('m.id', 'desc').limit(PAGE).execute()).map(toMessage);
+  return (await q.orderBy('m.id', 'desc').limit(MOD_PAGE_SIZE).execute()).map(toMessage);
 }
 
 /** Restores a hidden message (it shows on the next history load; nothing is pushed), audited. 409 if it is visible. */

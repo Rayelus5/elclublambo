@@ -7,6 +7,9 @@ import { clanName, clanTag, clanTagParamSchema } from './clans';
 // restore messages, work the report queue and mute accounts; admins also rename, empty and dissolve clans. Every
 // change carries a reason for the audit; dissolving a clan also carries the admin's password.
 
+/** How many messages a page of the live view holds. */
+export const MOD_PAGE_SIZE = 100;
+
 const reason = z.string().trim().min(3).max(300);
 const password = z.string().min(1).max(200);
 
