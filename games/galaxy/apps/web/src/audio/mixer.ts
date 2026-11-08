@@ -40,12 +40,17 @@ let musicBus: GainNode | null = null;
 let sfxBus: GainNode | null = null;
 const listeners = new Set<(s: AudioSettings) => void>();
 
+/** A volume change, eased over a few milliseconds where the browser can (straight where it cannot). */
+function setGain(node: GainNode, value: number): void {
+  if (typeof node.gain.setTargetAtTime === 'function' && ctx) node.gain.setTargetAtTime(value, ctx.currentTime, 0.05);
+  else node.gain.value = value;
+}
+
 function apply(): void {
-  if (!ctx || !master || !musicBus || !sfxBus) return;
-  const t = ctx.currentTime;
-  master.gain.setTargetAtTime(settings.muted ? 0 : 1, t, 0.05);
-  musicBus.gain.setTargetAtTime(settings.music * 0.6, t, 0.05);
-  sfxBus.gain.setTargetAtTime(settings.sfx, t, 0.05);
+  if (!master || !musicBus || !sfxBus) return;
+  setGain(master, settings.muted ? 0 : 1);
+  setGain(musicBus, settings.music * 0.6);
+  setGain(sfxBus, settings.sfx);
 }
 
 /** The shared context and its buses, created on first use (null where WebAudio is missing). */
