@@ -24,6 +24,11 @@ export function isAdmin(me: MeResponse | null | undefined): boolean {
   return !!me && me.roles.some((r) => r === 'admin' || r === 'superadmin');
 }
 
+/** Staff: admins, superadmins and moderators (who reach only the panel's Moderación). */
+export function isStaff(me: MeResponse | null | undefined): boolean {
+  return !!me && me.roles.some((r) => r === 'moderator' || r === 'admin' || r === 'superadmin');
+}
+
 export function errorText(err: unknown, errors: Record<string, string>): string | null {
   if (!err) return null;
   return err instanceof ApiError ? (errors[err.code] ?? errors.internal ?? null) : (errors.internal ?? null);

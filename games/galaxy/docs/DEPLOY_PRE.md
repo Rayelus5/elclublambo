@@ -362,6 +362,26 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - en `gacha`, «Tirar 100.000 veces» da una legendaria cada unas 10 tiradas;
    - sin violaciones de CSP.
 
+21. **Desde M6c-1 (moderación de chats y clanes):** una migración, `*_galaxy_chat_report_reviews`. Guarda la última revisión de cada mensaje denunciado: solo las denuncias posteriores a ella vuelven a la cola y cuentan para ocultarlo.
+
+   Llegan además:
+   - **El rol moderador entra al panel** (con su TOTP), pero solo a **Moderación**. Jugadores, Auditoría, Configuración y Clanes siguen siendo de admins;
+   - **`/galaxy/admin/moderacion`:**
+     - **Denuncias:** la cola, con lo denunciado más recientemente primero y de 50 en 50, cuántos mensajes esperan, y en cada uno el mensaje, quién y dónde, cuántas denuncias y lo que dijeron. Se resuelve ocultando o dejándolo visible (si las denuncias lo habían ocultado, vuelve);
+     - **Chat en vivo:** el global y el de cada clan con mensajes en los últimos 30 días, ocultos incluidos, actualizado cada 5 s y con pausa. Cada mensaje se oculta o se restaura;
+     - **Silencios:** los que siguen en curso, silenciar por nombre con su duración y levantarlos;
+     - **Clanes** (solo admins): buscar, ver sus miembros, renombrar (nombre y etiqueta), borrar la descripción, expulsar, hacer líder y disolver, esto último con la contraseña del admin;
+   - **Todo pide motivo y queda en la auditoría:** `chat.hide`, `chat.restore`, `chat.review`, `chat.mute`, `chat.unmute`, `clan.edit`, `clan.kick`, `clan.leader` y `clan.dissolve`. Ocultar y silenciar desde el propio chat del juego también se auditan;
+   - **Nadie silencia ni expulsa a quien no puede tocar:** ni a un superadmin, ni a otro miembro del equipo si no es superadmin. Además, nadie se silencia a sí mismo (expulsarse de un clan desde el panel sí se puede).
+
+   Comprueba, cuando exista tu cuenta `rayelus`:
+   - crea un moderador por SSH, `docker exec -it elclub-pre-galaxy-1 node dist/cli.js create-admin <nombre> --role moderator`, y entra con su TOTP: el escudo lleva a Moderación y no ve Jugadores;
+   - una cuenta `e2e_pre_…` de nivel 5 escribe en Comunidad y otra la denuncia: el mensaje aparece en Denuncias y «Dejar visible» lo saca de la cola;
+   - en Chat en vivo, ocultas un mensaje y la otra cuenta deja de verlo; lo restauras;
+   - silencias a la cuenta 10 minutos, no puede escribir, y levantas el silencio;
+   - con `rayelus`, en Clanes, buscas un clan de prueba y lo renombras; aparece `clan.edit` en Auditoría;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

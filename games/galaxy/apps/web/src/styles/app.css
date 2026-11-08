@@ -1501,4 +1501,40 @@
   .admin-sim th.tier-legendary { color: var(--color-tier-legendary); }
   @media (max-width: 1100px) { .admin-editor { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { .admin-switch, .admin-switch > span { transition: none; } }
+  /* Moderation (M6c-1): the sub-nav, messages as cards (hidden ones dimmed, with a Nova bar and the reason in words),
+     the live chat's toolbar with its pause, and a clan's page. */
+  .admin-subnav { display: flex; flex-wrap: wrap; gap: 6px; }
+  .admin-subnav a { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 99px; color: var(--color-ink-mute); font: 600 14px var(--font-sans); text-decoration: none; }
+  .admin-subnav a:hover { color: var(--color-ink); background: rgb(255 255 255 / .04); }
+  .admin-subnav a.active { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
+  .admin-subnav a:focus-visible, .mod-words:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .mod-pane { display: grid; gap: 14px; align-content: start; }
+  .mod-pane > .pill { justify-self: start; }
+  .mod-list { display: grid; gap: 10px; max-width: 920px; }
+  .mod-message { display: grid; gap: 8px; padding: 14px 16px; border-radius: 14px; background: var(--color-panel); border: 2px solid rgb(255 255 255 / .05); }
+  .mod-message header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; font-size: 14px; }
+  .mod-message header b { color: var(--color-ink); }
+  .mod-channel { padding: 1px 8px; border-radius: 99px; font-size: 12.5px; font-weight: 700; background: color-mix(in srgb, var(--color-ice) 14%, transparent); color: var(--color-ice); }
+  .mod-message time { color: var(--color-ink-mute); font-size: 13px; }
+  .mod-body { margin: 0; color: var(--color-ink); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .mod-message.is-hidden { box-shadow: inset 3px 0 0 var(--color-nova); }
+  .mod-message.is-hidden .mod-body { color: var(--color-ink-soft); }
+  .mod-message .admin-chips { margin: 0; }
+  .mod-message .admin-chip:first-child { margin-left: 0; }
+  .mod-report { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgb(255 255 255 / .03); }
+  .mod-pending { margin: 0; font-size: 14px; font-weight: 700; color: var(--color-solar); }
+  .mod-waiting { margin: 0; font-weight: 600; color: var(--color-ink-soft); }
+  .mod-report ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; color: var(--color-ink-soft); }
+  .mod-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
+  .mod-toolbar .field { margin: 0; min-width: 260px; }
+  .mod-live { margin: 0; min-height: 40px; display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--color-ink-mute); }
+  .mod-live.on { color: var(--color-terminal); }
+  .mod-live.on::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; animation: mod-live 2s ease-in-out infinite; }
+  @keyframes mod-live { 50% { opacity: .35; } }
+  .mod-words { align-self: center; margin-left: auto; color: var(--color-ice); font-weight: 600; }
+  .mod-older { justify-self: start; }
+  .admin-clan h2 { margin: 0; font: 400 26px var(--font-display); }
+  .admin-clan-desc { margin: 0; max-width: 70ch; color: var(--color-ink-soft); }
+  .admin-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  @media (prefers-reduced-motion: reduce) { .mod-live.on::before { animation: none; } }
 }

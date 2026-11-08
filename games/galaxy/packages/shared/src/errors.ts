@@ -95,6 +95,10 @@ export const API_ERROR_CODES = [
   'chat_muted',
   'chat_empty',
   'message_not_found',
+  'message_hidden',
+  'message_visible',
+  'report_reviewed',
+  'mute_not_found',
   'level_too_low',
 ] as const;
 

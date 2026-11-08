@@ -1,7 +1,7 @@
 import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
-import { isAdmin } from '../auth/useMe';
+import { isAdmin, isStaff } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
@@ -62,14 +62,14 @@ export function TopBar({
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}
-              {isAdmin(me) ? <span className="badge-admin">{copy.hub.admin}</span> : null}
+              {isStaff(me) ? <span className="badge-admin">{isAdmin(me) ? copy.hub.admin : copy.hub.moderator}</span> : null}
             </div>
             {/* Its name keeps what it shows (label in name) and says where it leads. */}
             <span className="sr-only">{copy.social.yourProfile}</span>
           </Link>
           <WalletBar wallet={wallet} />
         </div>
-        {isAdmin(me) && me.mfa ? (
+        {isStaff(me) && me.mfa ? (
           <Link to="/admin" className="lip iconbtn enter" style={delay('1.05s')} aria-label={copy.admin.title} title={copy.admin.title}>
             <Icon name="shield" />
           </Link>

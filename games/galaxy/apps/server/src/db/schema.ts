@@ -264,6 +264,15 @@ export interface ChatMutesTable {
   created_at: Timestamp;
 }
 
+/** The last review of a reported message (M6c-1): hidden or kept visible; only reports after it count. */
+export interface ChatReportReviewsTable {
+  message_id: string | number;
+  outcome: 'hidden' | 'kept';
+  by_id: string | null;
+  reason: string;
+  reviewed_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 /** A galaxy for sale (M5c-1): in escrow while active; sold once, withdrawn or expired. Never deleted. */
 export interface MarketListingsTable {
   id: Generated<string>;
@@ -458,6 +467,7 @@ export interface DB {
   'galaxy.chat_messages': ChatMessagesTable;
   'galaxy.chat_reports': ChatReportsTable;
   'galaxy.chat_mutes': ChatMutesTable;
+  'galaxy.chat_report_reviews': ChatReportReviewsTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;

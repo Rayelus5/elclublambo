@@ -43,7 +43,7 @@ export async function clanConfigs(deps: SocialDeps): Promise<ClanConfigs> {
 }
 
 /** Lower case without accents (ñ to n), for a search that does not care how a name is written. */
-const fold = (s: string) =>
+export const fold = (s: string) =>
   s
     .trim()
     .normalize('NFD')
@@ -62,7 +62,7 @@ async function clanByTag(db: Kysely<DB>, tag: string): Promise<ClanRowDb> {
 }
 
 /** The clan's lock, and the clan as it is under it: disbanded or closed meanwhile shows here (404 when gone). */
-async function lockClan(trx: Kysely<DB>, clanId: string): Promise<{ open: boolean }> {
+export async function lockClan(trx: Kysely<DB>, clanId: string): Promise<{ open: boolean }> {
   await lock(trx, `clan:${clanId}`);
   const c = await trx.selectFrom('galaxy.clans').select('open').where('id', '=', clanId).executeTakeFirst();
   if (!c) throw new HttpError(404, 'clan_not_found');
@@ -283,19 +283,31 @@ export async function manageMember(deps: SocialDeps, actorId: string, tag: strin
   return clanView(deps.db, c.id, actorId, cfgs, deps.now());
 }
 
-/** Leaving: a leader's place goes to the oldest officer, else the oldest member; the last one out disbands the clan. */
+/**
+ * Takes an account out of its clan (under the clan's lock): a leader's place goes to the oldest officer, else the
+ * oldest member; the last one out disbands the clan. Says whether it did.
+ */
+export async function removeMember(trx: Kysely<DB>, clanId: string, accountId: string, role: ClanRole): Promise<{ dissolved: boolean }> {
+  await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', accountId).execute();
+  if (role !== 'leader') return { dissolved: false };
+  const rest = await trx.selectFrom('galaxy.clan_members').select(['account_id', 'role', 'joined_at']).where('clan_id', '=', clanId).execute();
+  const next = successor(rest.map((r) => ({ role: r.role, joinedAt: new Date(r.joined_at).toISOString() })));
+  if (next === null) {
+    await trx.deleteFrom('galaxy.clans').where('id', '=', clanId).execute();
+    return { dissolved: true };
+  }
+  await trx.updateTable('galaxy.clan_members').set({ role: 'leader' }).where('account_id', '=', rest[next]!.account_id).execute();
+  return { dissolved: false };
+}
+
+/** Leaving (see `removeMember`). */
 export async function leaveClan(deps: SocialDeps, accountId: string, tag: string): Promise<MyClan> {
   const c = await clanByTag(deps.db, tag);
   await inTransaction(deps.db, async (trx) => {
     await lockClan(trx, c.id);
     const me = await membership(trx, accountId);
     if (!me || me.clan_id !== c.id) throw new HttpError(409, 'not_in_clan');
-    await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', accountId).execute();
-    if (me.role !== 'leader') return;
-    const rest = await trx.selectFrom('galaxy.clan_members').select(['account_id', 'role', 'joined_at']).where('clan_id', '=', c.id).execute();
-    const next = successor(rest.map((r) => ({ role: r.role, joinedAt: new Date(r.joined_at).toISOString() })));
-    if (next === null) await trx.deleteFrom('galaxy.clans').where('id', '=', c.id).execute();
-    else await trx.updateTable('galaxy.clan_members').set({ role: 'leader' }).where('account_id', '=', rest[next]!.account_id).execute();
+    await removeMember(trx, c.id, accountId, me.role);
   });
   return null;
 }

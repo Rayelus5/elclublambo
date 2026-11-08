@@ -10,9 +10,11 @@ import { PlanetariumScreen } from './planetarium/PlanetariumScreen';
 import { VisitScreen } from './planetarium/VisitScreen';
 import { LeaderboardScreen } from './social/LeaderboardScreen';
 import { MarketScreen } from './market/MarketScreen';
-import { AdminLayout } from './admin/AdminLayout';
+import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
 import { AuditScreen } from './admin/AuditScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
+import { ClanList, ClanPage } from './admin/ModClans';
+import { LiveChat, ModerationLayout, Mutes, Reports } from './admin/ModerationScreen';
 import { PlayerScreen } from './admin/PlayerScreen';
 import { PlayersScreen } from './admin/PlayersScreen';
 import { ClanScreen } from './clans/ClanScreen';
@@ -79,12 +81,23 @@ export function App() {
         <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
-          <Route index element={<Navigate to="jugadores" replace />} />
-          <Route path="jugadores" element={<PlayersScreen />} />
-          <Route path="jugadores/:username" element={<PlayerScreen />} />
-          <Route path="auditoria" element={<AuditScreen />} />
-          <Route path="configuracion" element={<ConfigScreen />} />
-          <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
+          <Route index element={<AdminHome />} />
+          <Route element={<AdminOnly />}>
+            <Route path="jugadores" element={<PlayersScreen />} />
+            <Route path="jugadores/:username" element={<PlayerScreen />} />
+            <Route path="auditoria" element={<AuditScreen />} />
+            <Route path="configuracion" element={<ConfigScreen />} />
+            <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
+          </Route>
+          <Route path="moderacion" element={<ModerationLayout />}>
+            <Route index element={<Reports />} />
+            <Route path="chat" element={<LiveChat />} />
+            <Route path="silencios" element={<Mutes />} />
+            <Route element={<AdminOnly />}>
+              <Route path="clanes" element={<ClanList />} />
+              <Route path="clanes/:tag" element={<ClanPage />} />
+            </Route>
+          </Route>
         </Route>
         <Route path="/clanes/:tag" element={<SignedIn><ClanScreen /></SignedIn>} />
         <Route path="/perfil/:username" element={<SignedIn><ProfileScreen /></SignedIn>} />

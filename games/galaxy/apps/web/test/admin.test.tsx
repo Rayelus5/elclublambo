@@ -51,14 +51,15 @@ test('quien no es admin con TOTP vuelve al inicio', async () => {
   await waitFor(() => expect(locationOf(screen.getByTestId('location')).pathname).toBe('/'));
 });
 
-test('la barra lateral lleva a Jugadores, Auditoría y Configuración, y lo que llega después se dice', async () => {
+test('la barra lateral lleva a Jugadores, Auditoría, Configuración y Moderación, y lo que llega después se dice', async () => {
   api();
   renderAt('/admin', { '/admin': <AdminLayout /> });
   const nav = await screen.findByRole('navigation', { name: t.nav });
   expect(within(nav).getByRole('link', { name: t.sections.players })).toHaveAttribute('href', '/admin/jugadores');
   expect(within(nav).getByRole('link', { name: t.sections.audit })).toHaveAttribute('href', '/admin/auditoria');
   expect(within(nav).getByRole('link', { name: t.sections.config })).toHaveAttribute('href', '/admin/configuracion');
-  expect(within(nav).getByText(t.sections.moderation).closest('li')).toHaveTextContent(t.soon);
+  expect(within(nav).getByRole('link', { name: t.sections.moderation })).toHaveAttribute('href', '/admin/moderacion');
+  expect(within(nav).getByText(t.sections.communication).closest('li')).toHaveTextContent(t.soon);
 });
 
 test('buscar enseña los jugadores y lleva a su ficha', async () => {

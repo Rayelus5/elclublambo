@@ -234,9 +234,8 @@ export function PlayerScreen() {
       </div>
       {open ? (
         <ActionDialog
-          username={p.username}
+          url={`/admin/players/${encodeURIComponent(p.username)}/${open.path}`}
           title={open.title}
-          path={open.path}
           fields={open.fields}
           password={open.password}
           build={open.build}
