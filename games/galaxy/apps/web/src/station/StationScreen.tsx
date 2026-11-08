@@ -7,7 +7,7 @@ import { copy, fmt } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 import { roomSheet, roomSheetUrl } from './art';
-import { BackLink } from '../ui/BackLink';
+import { HomeLink } from '../ui/BackLink';
 
 // The station (GDD §10, DESIGN_SYSTEM §8 septies): the base is the menu. Two decks of five rooms in a side cut; a
 // working tool opens its screen, the refinery and the antenna open their panels, a broken room shows what repairing it
@@ -226,10 +226,10 @@ export function StationScreen() {
     <div className="screen-root station-root">
       <div className="station">
         <header className="collection-bar">
-          <BackLink fallback="/">
+          <HomeLink>
             <Icon name="back" />
             <span>{t.back}</span>
-          </BackLink>
+          </HomeLink>
           <h1>{t.title}</h1>
           <div className="lip panel hud">
             {view ? (

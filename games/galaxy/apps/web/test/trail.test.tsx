@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Link, Route, Routes } from 'react-router';
 import { beforeEach, expect, test } from 'vitest';
-import { BackLink } from '../src/ui/BackLink';
+import { BackLink, HomeLink } from '../src/ui/BackLink';
 import { nextTrail, resetTrail, screenOf, TrailTracker } from '../src/ui/trail';
 import { LocationProbe, locationOf } from './render';
 
@@ -73,4 +73,19 @@ test('Hogar, Escáner y Volver lleva al Hogar; y desde el Hogar, Volver lleva al
 test('entrando directamente por la dirección, Volver va a donde siempre', async () => {
   app('/escaner');
   expect(screen.getByRole('link', { name: 'Volver' })).toHaveAttribute('href', '/');
+});
+
+test('«Volver al inicio» lleva siempre al inicio, venga de donde venga (el aviso del dueño)', async () => {
+  render(
+    <MemoryRouter initialEntries={['/clasificacion']}>
+      <TrailTracker />
+      <Routes>
+        <Route path="/clasificacion" element={<Link to="/perfil/vega">Vega</Link>} />
+        <Route path="/perfil/:u" element={<HomeLink>Volver al inicio</HomeLink>} />
+      </Routes>
+      <LocationProbe />
+    </MemoryRouter>,
+  );
+  await userEvent.click(screen.getByRole('link', { name: 'Vega' }));
+  expect(screen.getByRole('link', { name: 'Volver al inicio' })).toHaveAttribute('href', '/');
 });
