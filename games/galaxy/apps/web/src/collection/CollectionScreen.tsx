@@ -67,6 +67,10 @@ export function CollectionScreen() {
             <span>{copy.collection.back}</span>
           </BackLink>
           <h1>{copy.collection.title}</h1>
+          <Link to="/catalogo" className="lip pill">
+            <Icon name="book" />
+            <span>{copy.catalog.open}</span>
+          </Link>
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />
           </div>

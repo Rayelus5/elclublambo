@@ -227,6 +227,13 @@ export interface AchievementProgressTable {
   updated_at: Timestamp;
 }
 
+/** M7b: the ECN Catalogue's rewards an account has collected. */
+export interface CatalogClaimsTable {
+  account_id: string;
+  percent: number;
+  claimed_at: Timestamp;
+}
+
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
@@ -562,6 +569,7 @@ export interface DB {
   'galaxy.mission_progress': MissionProgressTable;
   'galaxy.achievement_progress': AchievementProgressTable;
   'galaxy.cosmetics': CosmeticsTable;
+  'galaxy.catalog_claims': CatalogClaimsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;

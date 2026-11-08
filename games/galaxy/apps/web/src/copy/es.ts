@@ -57,6 +57,17 @@ function labLine(e: LabEffectCopy, value: number, mode: 'per' | 'now'): string {
   }
 }
 
+/** A Catalogue reward in words (M7b). */
+function catalogReward(r: { coins: number; dust: number; signal: number; title: string | null; frame: string | null }): string {
+  const parts: string[] = [];
+  if (r.coins) parts.push(`${fmt(r.coins)} monedas`);
+  if (r.dust) parts.push(`${fmt(r.dust)} de polvo`);
+  if (r.signal) parts.push(r.signal === 1 ? '1 señal' : `${fmt(r.signal)} señales`);
+  if (r.title) parts.push(`el título ${r.title}`);
+  if (r.frame) parts.push(`el marco ${({ bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo' } as Record<string, string>)[r.frame] ?? r.frame}`);
+  return parts.join(', ');
+}
+
 export const copy = {
   brand: 'Galaxy Survivor',
   brailleBrand: '⠛⠁⠇⠁⠭⠽ ⠎⠥⠗⠧⠊⠧⠕⠗',
@@ -1338,6 +1349,19 @@ export const copy = {
     duration: (seconds: number) => `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`,
     launch: 'Lanzar incursión',
   },
+  catalog: {
+    title: 'Catálogo ECN',
+    back: 'Volver',
+    open: 'Catálogo ECN',
+    progressTitle: 'Álbum completado',
+    progress: (n: number, total: number, pct: number) => `${fmt(n)} de ${fmt(total)}, ${pct} %`,
+    at: (pct: number) => `Al ${pct} %`,
+    reward: (r: { coins: number; dust: number; signal: number; title: string | null; frame: string | null }) => catalogReward(r),
+    claimOf: (pct: number) => `Recoger el premio del ${pct} %`,
+    kinds: { galaxy_type: 'Tipos', palette: 'Paletas', phenomenon: 'Fenómenos', finish: 'Acabados' },
+    count: (n: number, total: number) => `${n} de ${total}`,
+    missing: 'Sin descubrir',
+  },
   missions: {
     title: 'Misiones y logros',
     back: 'Volver',
@@ -1556,6 +1580,7 @@ export const copy = {
     mission_not_ready: 'Todavía no has completado esa misión',
     already_claimed: 'Ya recogiste esa recompensa',
     cosmetic_locked: 'Todavía no tienes ese título o ese marco',
+    catalog_reward_not_found: 'Ese premio del catálogo no existe',
     runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
     bad_inputs: 'La grabación de la incursión llegó dañada',
     tiebreak_required: 'Hay un empate: contesta la última pregunta',

@@ -37,6 +37,7 @@ export const API_ERROR_CODES = [
   'mission_not_ready',
   'already_claimed',
   'cosmetic_locked',
+  'catalog_reward_not_found',
   'runs_disabled',
   'bad_inputs',
   'tiebreak_required',
