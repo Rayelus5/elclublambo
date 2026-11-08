@@ -9,12 +9,12 @@ import { CLAN_COLORS, CLAN_EMBLEMS, type ClanColor, type ClanEmblem, type ClanRo
  * 3–24 characters (counted as characters, as the database does): Latin letters (accents and ñ included, no look-alikes
  * from other scripts) and digits, words separated by single spaces.
  */
-const clanName = z
+export const clanName = z
   .string()
   .refine((s) => [...s].length >= 3 && [...s].length <= 24, 'clan_name_length')
   .pipe(z.string().regex(/^[\p{Script=Latin}0-9]+(?: [\p{Script=Latin}0-9]+)*$/u));
 /** 2–4 letters or digits, kept in capitals. */
-const clanTag = z
+export const clanTag = z
   .string()
   .transform((s) => s.toUpperCase())
   .pipe(z.string().regex(/^[A-Z0-9]{2,4}$/));

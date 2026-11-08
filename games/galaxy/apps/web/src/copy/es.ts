@@ -1234,6 +1234,10 @@ export const copy = {
     chat_muted: 'Un moderador te ha silenciado por un tiempo',
     chat_empty: 'Escribe algo antes de enviar, sin pasarte del máximo',
     message_not_found: 'Ese mensaje ya no está',
+    message_hidden: 'Ese mensaje ya está oculto',
+    message_visible: 'Ese mensaje ya está a la vista',
+    report_reviewed: 'Otra persona del equipo ya revisó esa denuncia',
+    mute_not_found: 'Esa cuenta ya no está silenciada',
     level_too_low: 'Todavía no tienes el nivel que hace falta',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

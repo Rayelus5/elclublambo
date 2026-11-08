@@ -1,5 +1,6 @@
 import { type ChatChannel, type ChatHistory, type ChatMessage, cleanBody, levelOf, maskWords } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
+import { isStaff } from '../auth/guards';
 import type { SessionInfo } from '../auth/sessions';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -15,9 +16,8 @@ import type { ChatHub } from './hub';
 
 export type ChatDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; hub: ChatHub };
 
-export function isModerator(s: SessionInfo): boolean {
-  return s.mfa && s.roles.some((r) => r === 'moderator' || r === 'admin' || r === 'superadmin');
-}
+/** Staff signed in with TOTP moderate the chats (the panel's rule, `isStaff`). */
+export const isModerator = isStaff;
 
 /** The channel's key in the table: 'global', or 'clan:<id>' of the viewer's clan (403 when they have none). */
 async function channelKey(db: Kysely<DB>, accountId: string, channel: ChatChannel): Promise<string> {

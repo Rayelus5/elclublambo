@@ -48,3 +48,14 @@ export function requireAdmin(req: FastifyRequest): SessionInfo {
   if (!s.mfa || !s.roles.some((r) => r === 'admin' || r === 'superadmin')) throw new HttpError(403, 'forbidden');
   return s;
 }
+
+/** Moderation needs a staff role (moderator, admin or superadmin) and a session opened with TOTP (GDD §16.1). */
+export function isStaff(s: SessionInfo): boolean {
+  return s.mfa && s.roles.some((r) => r === 'moderator' || r === 'admin' || r === 'superadmin');
+}
+
+export function requireStaff(req: FastifyRequest): SessionInfo {
+  const s = requireSession(req);
+  if (!isStaff(s)) throw new HttpError(403, 'forbidden');
+  return s;
+}
