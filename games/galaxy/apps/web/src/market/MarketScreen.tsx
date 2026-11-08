@@ -36,7 +36,7 @@ function Gate({ rules, id }: { rules: MarketRules; id: string }) {
 
 function Shop({ gateId }: { gateId: string }) {
   const me = useMe().data;
-  const coins = useGacha().data?.wallet.coins;
+  const coins = useGacha({ fresh: true }).data?.wallet.coins;
   const [tier, setTier] = useState<Tier | ''>('');
   const [sort, setSort] = useState<MarketSort>('new');
   const [search, setSearch] = useState('');

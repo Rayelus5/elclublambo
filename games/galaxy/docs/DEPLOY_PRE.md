@@ -262,6 +262,32 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - una tercera cuenta, de nivel 1, ve el campo desactivado con «Necesitas nivel 5 para escribir»;
    - sin violaciones de CSP, tampoco del socket.
 
+17. **Desde M5c-1 (el mercado):** la migración `20261108025826_galaxy_market` crea:
+   - `galaxy.market_listings`: una galaxia en venta, en depósito mientras está activa, y una sola venta activa por galaxia. Los anuncios no se borran: quedan vendidos, retirados o caducados;
+   - el trigger `market_min_price`: ningún precio baja del mínimo de su rareza. Lo lee de la clave viva `market` o, si no se ha publicado, de los valores del GDD;
+   - `galaxy.trade_alerts`: los avisos para el admin, que enseñará el panel de M6.
+
+   Llegan además:
+   - la clave viva `market`:
+     - `minPrice`, el mínimo por rareza: Común 50, Poco común 120, Rara 400, Épica 1500 y Legendaria 6000;
+     - `maxPrice`, el precio máximo (10 000 000);
+     - `commission`, la comisión (0,07): se queda en el mercado, como sumidero, y es al menos 1 moneda;
+     - `days`, los días que dura un anuncio (7);
+     - `perDay`, los anuncios y compras por día de Madrid (10 y 10);
+     - `minLevel` (10) y `minAccountDays` (3), lo que hace falta para comerciar;
+     - `alertMultiple` (20) y `sharedIpDays` (30), cuándo avisar: un precio de 20 veces el mínimo o más, o una IP que comprador y vendedor compartieron en los últimos 30 días. La venta sigue igualmente;
+   - el botón «Mercado» de la barra de arriba lleva a `/galaxy/mercado`, con las pestañas Comprar, Vender y Mis anuncios;
+   - «Vender» en el detalle de una galaxia lleva a venderla;
+   - una galaxia en venta no se equipa, expone, fusiona, desintegra ni mejora.
+
+   Comprueba con dos cuentas de prueba nuevas:
+   - **Sin requisitos:** una cuenta nueva (nivel 1) abre «Mercado» y ve el aviso «Necesitas nivel 10 y 3 días de cuenta para comerciar»; los botones de comprar están desactivados.
+   - **Con requisitos:** para vender y comprar hacen falta cuentas de nivel 10 y 3 días. El nivel se gana jugando o, en una cuenta de prueba, con experiencia en `galaxy.account_xp`; los días, con `created_at` en `galaxy.accounts`. Monedas: `grant <usuario> coins 2000 --reason "probar el mercado"`.
+     - La primera vende una galaxia desde el detalle de su colección.
+     - La segunda la compra desde Comprar.
+     - La primera ve la venta en Mis anuncios, con lo cobrado.
+   - **Sin violaciones de CSP.**
+
 ## Operación
 
 | Tarea | Cómo |
