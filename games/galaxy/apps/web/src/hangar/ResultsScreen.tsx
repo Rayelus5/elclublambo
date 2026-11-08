@@ -78,6 +78,12 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
           {r.progress.levelUp ? <b>{copy.social.levelUp}</b> : null}
         </span>
         {r.progress.points > 0 ? <span className="results-points">{copy.social.points(r.progress.points)}</span> : null}
+        {r.progress.shards ? (
+          <span className="results-points">
+            <Icon name="shard" />
+            {copy.social.shards(r.progress.shards)}
+          </span>
+        ) : null}
       </section>
       ) : null}
       <section className="lip panel results-loot" aria-label={copy.results.loot}>

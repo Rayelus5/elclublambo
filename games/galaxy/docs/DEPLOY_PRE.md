@@ -559,6 +559,21 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba con una cuenta nueva que el inicio enseñe 1 de 5 tras el test de la sonda, y que no haya violaciones de CSP.
 
+32. **Desde M7d-1 (ruta y tienda de temporada):** la migración `20261108203624_galaxy_season_route.sql`:
+   - deja que la moneda de temporada viva en su propio saldo, `season:<id>`, para que cada temporada empiece de cero;
+   - crea `galaxy.season_route_claims` (escalones recogidos) y `galaxy.season_purchases` (compras por artículo).
+
+   Clave de configuración nueva, **`seasonRoute`**:
+   - **Moneda:** «Esquirlas». Cada incursión que cuenta paga la mitad de sus puntos de temporada. Al cerrar la temporada, cada esquirla que sobra vale 2 de polvo.
+   - **Ruta:** 20 escalones hasta los 30 000 puntos, con monedas, polvo, señales, esquirlas, tres títulos y el marco Nebulosa.
+   - **Tienda:** señales, polvo, monedas, un título y el marco Abismo, cada uno con su límite.
+
+   **Dónde:** **`/galaxy/temporada`**, desde «Ruta y tienda de temporada» en la columna de la temporada del inicio. El resultado de una incursión enseña la moneda ganada. La puntuación es la de la clasificación General.
+
+   Comprueba con una cuenta de prueba:
+   - `GET /galaxy/api/season` responde 401 sin sesión y la ruta con sesión;
+   - la pantalla carga sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

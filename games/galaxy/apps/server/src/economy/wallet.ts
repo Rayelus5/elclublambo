@@ -8,7 +8,8 @@ import { HttpError } from '../errors';
 // conditional UPDATE (amount ≥ n), which row-locks and never lets two concurrent debits overdraw.
 
 export async function getWallet(db: Kysely<DB>, accountId: string): Promise<Wallet> {
-  const rows = await db.selectFrom('galaxy.balances').select(['currency', 'amount']).where('account_id', '=', accountId).execute();
+  // A season's currency (M7d-1) is shown on the season screen, never in the wallet.
+  const rows = await db.selectFrom('galaxy.balances').select(['currency', 'amount']).where('account_id', '=', accountId).where('currency', 'not like', 'season:%').execute();
   const wallet: Wallet = { coins: 0, dust: 0, signal: 0 };
   for (const r of rows) wallet[r.currency] = Number(r.amount);
   return wallet;

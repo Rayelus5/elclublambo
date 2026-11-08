@@ -234,6 +234,23 @@ export interface CatalogClaimsTable {
   claimed_at: Timestamp;
 }
 
+/** M7d-1: a season route step an account has collected (by the step's points). */
+export interface SeasonRouteClaimsTable {
+  account_id: string;
+  season: string;
+  step: number;
+  claimed_at: Timestamp;
+}
+
+/** M7d-1: how many of a season shop item an account has bought. */
+export interface SeasonPurchasesTable {
+  account_id: string;
+  season: string;
+  item: string;
+  bought: Generated<number>;
+  updated_at: Timestamp;
+}
+
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
@@ -570,6 +587,8 @@ export interface DB {
   'galaxy.achievement_progress': AchievementProgressTable;
   'galaxy.cosmetics': CosmeticsTable;
   'galaxy.catalog_claims': CatalogClaimsTable;
+  'galaxy.season_route_claims': SeasonRouteClaimsTable;
+  'galaxy.season_purchases': SeasonPurchasesTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;

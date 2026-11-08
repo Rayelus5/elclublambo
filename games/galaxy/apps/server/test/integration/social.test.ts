@@ -111,7 +111,8 @@ describe('la experiencia de una incursión', () => {
     expect(((await get(ctx.app, '/galaxy/api/auth/me', { cookie: p.cookie })).json() as MeResponse).level).toBe(1);
     const result = await play(p.cookie, body());
     // Six minutes of ticks (60), a layer (15), a Core (40) and the extraction (30); 10 + 50 + 25 points.
-    expect(result.progress).toEqual({ xp: 145, level: 2, levelUp: true, points: 85 });
+    // Half the points in the season currency (M7d-1, perPoint 0.5 by default).
+    expect(result.progress).toEqual({ xp: 145, level: 2, levelUp: true, points: 85, shards: 42 });
     expect(((await get(ctx.app, '/galaxy/api/auth/me', { cookie: p.cookie })).json() as MeResponse).level).toBe(2);
     const row = await ctx.db.selectFrom('galaxy.account_xp').select('xp').where('account_id', '=', p.id).executeTakeFirstOrThrow();
     expect(Number(row.xp)).toBe(145);

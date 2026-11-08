@@ -40,6 +40,7 @@ export * from './economy/boosts';
 export * from './economy/simulate';
 export * from './progress/missions';
 export * from './progress/catalog';
+export * from './progress/season-route';
 export * from './api/mail';
 export * from './api/stats';
 export * from './gacha/simulate';
