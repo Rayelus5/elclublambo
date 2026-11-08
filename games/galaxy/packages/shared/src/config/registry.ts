@@ -387,6 +387,23 @@ export const configSchemas = {
         .default(DEFAULT_ACCOUNT_LEVELS),
     })
     .strict(),
+  /**
+   * The chats (GDD §14.4; M5b-2): the account level writing needs, the messages a minute, the most characters a
+   * message keeps, how many the history shows, how many reports hide one, and the words the filter covers.
+   */
+  chat: z
+    .object({
+      minLevel: z.number().int().min(1).max(99).default(5),
+      perMinute: z.number().int().min(1).max(60).default(6),
+      maxLength: z.number().int().min(20).max(1000).default(280),
+      history: z.number().int().min(10).max(200).default(50),
+      hideAfter: z.number().int().min(1).max(20).default(3),
+      words: z
+        .array(z.string().regex(/^[\p{L}\p{N}]{2,40}$/u))
+        .max(500)
+        .default([]),
+    })
+    .strict(),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
   clans: z
     .object({

@@ -893,6 +893,10 @@ export const copy = {
     clan_closed: 'Ese clan está cerrado. Pide entrar y espera a que te acepten',
     request_not_found: 'Esa solicitud ya no está',
     clan_kicked: 'Te expulsaron de ese clan hace poco. Podrás volver a entrar pasadas 24 horas',
+    chat_level: 'Todavía no tienes el nivel que hace falta para escribir',
+    chat_muted: 'Un moderador te ha silenciado por un tiempo',
+    chat_empty: 'Escribe algo antes de enviar, sin pasarte del máximo',
+    message_not_found: 'Ese mensaje ya no está',
     level_too_low: 'Todavía no tienes el nivel que hace falta',
   } satisfies Record<ApiErrorCode, string>,
 } as const;
