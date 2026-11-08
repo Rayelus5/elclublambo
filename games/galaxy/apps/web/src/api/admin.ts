@@ -1,4 +1,4 @@
-import type { AdminPlayer, AdminPlayerList, AdminSection, AdminSectionName, AuditPage, AuditQuery } from '@galaxy/shared';
+import type { AdminPlayer, AdminPlayerList, AdminProgress, AdminSection, AdminSectionName, AuditPage, AuditQuery } from '@galaxy/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -14,6 +14,11 @@ export function usePlayerSearch(q: string) {
     enabled: q.length > 0,
     placeholderData: keepPreviousData,
   });
+}
+
+/** The «Progreso» tab (M6d-4): luck, probes, machines, Laboratorio and season. */
+export function useAdminProgress(username: string) {
+  return useQuery({ queryKey: [...ADMIN_KEY, 'progress', username], queryFn: () => api<AdminProgress>(`/admin/players/${encodeURIComponent(username)}/progress`), retry: false });
 }
 
 export function useAdminPlayer(username: string) {

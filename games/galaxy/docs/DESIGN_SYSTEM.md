@@ -856,6 +856,30 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 
 **Sin entradas:** una partida sin terminar, o terminada sin entradas guardadas, dice por qué no se reproduce, en lugar del escenario.
 
+## 8 tervicies. Pestaña Progreso
+
+La pestaña «Progreso» de la ficha del jugador, la segunda tras «Resumen». Son tablas del panel con un título cada una:
+- **Suerte del gachapón:** una fila por grupo.
+- **Sondas:** cada sonda con su nivel «n de máx», su arma inicial y su estado en píldora:
+  - «Desbloqueada», en Terminal;
+  - «Desbloqueada por un admin», en Terminal;
+  - «Bloqueada», en Solar.
+- **Máquinas de la estación**, con la **Temporada** debajo, en la columna izquierda.
+- **Laboratorio**, en la columna derecha.
+
+Las dos columnas pasan a una sola cuando no caben (mínimo 380 px cada una).
+
+**Cada fila tiene su cambio:**
+- un botón «Cambiar», que el lector de pantalla oye con su nombre completo («Cambiar el nivel de Refinería»);
+- en las sondas, además, «Desbloquear» o «Bloquear». «Bloquear» va en Nova, porque quita.
+
+**El diálogo** es el `ActionDialog` de siempre:
+- los campos llegan con el valor de ahora ya puesto;
+- la ayuda dice el rango;
+- la contraseña aparece en cuanto el valor baja: un nivel menor, puntos en negativo o bloquear una sonda.
+
+**Los encabezados de fila** son `th scope="row"` sin el fondo de los de columna, y las celdas van centradas en vertical con sus botones.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

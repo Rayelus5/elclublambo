@@ -57,7 +57,12 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<Le
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
   const points = sql`least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)`;
   const value =
-    tab === 'general' ? sql`sum(${points})` : tab === 'depth' ? sql`max(r.depth)` : sql`sum(r.boss_kills)`;
+    tab === 'general' ? sql`sum(r.pts)` : tab === 'depth' ? sql`max(r.depth)` : sql`sum(r.boss_kills)`;
+  // The season's runs, and in General the points an admin added or took away this season (M6d-4; depth 0, no cores).
+  const adjustments =
+    tab === 'general'
+      ? sql`union all select s.account_id, s.points, 0, 0, s.created_at from galaxy.season_adjustments s where s.season = ${cfg.id}`
+      : sql``;
   const reached =
     tab === 'general'
       ? sql`max(r.finished_at)`
@@ -67,13 +72,17 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<Le
   const { rows } = await sql<{ id: string; username: string; value: number; xp: string }>`
     select t.id, t.username, t.value, t.xp from (
       select a.id, a.username, (${value})::int as value, ${reached} as reached, coalesce(max(x.xp), 0) as xp
-      from galaxy.runs r
+      from (
+        select r.account_id, ${points} as pts, r.depth, r.boss_kills, r.finished_at
+        from galaxy.runs r
+        where r.finished_at >= ${new Date(cfg.startsAt)} and r.finished_at < ${new Date(cfg.endsAt)}
+          and not r.suspicious
+          and r.seconds >= ${minRunSeconds}::int
+        ${adjustments}
+      ) r
       join galaxy.accounts a on a.id = r.account_id
       left join galaxy.account_xp x on x.account_id = a.id
-      where r.finished_at >= ${new Date(cfg.startsAt)} and r.finished_at < ${new Date(cfg.endsAt)}
-        and not r.suspicious
-        and r.seconds >= ${minRunSeconds}::int
-        and (a.banned_until is null or a.banned_until <= now())
+      where (a.banned_until is null or a.banned_until <= now())
         and not a.leaderboard_excluded
       group by a.id, a.username
     ) t

@@ -127,6 +127,12 @@ export async function runStats(db: Kysely<DB>, accountId: string, minSeconds: nu
   return { runs: Number(row.runs), bossKills: Number(row.bossKills), maxDepth: Number(row.maxDepth), extractions: Number(row.extractions), kills: Number(row.kills) };
 }
 
+/** The probes an admin unlocked for the account (M6d-4), on top of what its runs unlock. */
+export async function probeGrants(db: Kysely<DB>, accountId: string): Promise<Set<string>> {
+  const rows = await db.selectFrom('galaxy.probe_grants').select('probe').where('account_id', '=', accountId).execute();
+  return new Set(rows.map((r) => r.probe));
+}
+
 /** The probe the account's test gave, or null before the test. */
 export async function testedProbe(db: Kysely<DB>, accountId: string): Promise<string | null> {
   const row = await db.selectFrom('galaxy.probe_tests').select('probe').where('account_id', '=', accountId).executeTakeFirst();
@@ -140,10 +146,11 @@ export function probeCards(
   stats: RunStats,
   cfg: ProbesConfig,
   levels: Record<string, { level: number; variant: string | null }> = {},
+  grants: ReadonlySet<string> = new Set(),
 ): ProbeCard[] {
   return content.probes.map((p) => {
     const w = content.weapons.find((x) => x.id === p.weapon);
-    const status = assigned ? probeStatus(p.id, assigned, stats, cfg) : { unlocked: false, condition: null, progress: 0 };
+    const status = assigned ? probeStatus(p.id, assigned, stats, cfg, grants.has(p.id)) : { unlocked: false, condition: null, progress: 0 };
     const level = Math.min(levels[p.id]?.level ?? 1, probeMaxLevel(cfg));
     return {
       id: p.id,
@@ -191,7 +198,7 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
   return {
     sectors,
     sector: chosen?.id ?? h.sector,
-    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId)),
+    probes: probeCards(content, assigned, stats, probes, await probeLevels(db, accountId), await probeGrants(db, accountId)),
     probe: h.probe,
     test: { taken: assigned !== null, probe: assigned },
     slots: h.slots,

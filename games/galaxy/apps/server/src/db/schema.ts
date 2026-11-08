@@ -186,6 +186,22 @@ export interface GachaPullsTable {
 /** Hangar (GDD §5.1, §8.4): chosen probe and open relic slots. */
 /** The station (M4a, GDD §10): the level of each room, the refinery's queue and the antenna's clock. */
 /** M4b-2: a Laboratorio node an account has bought, and its level (no row: level 0). */
+/** Probes an admin unlocked for an account (M6d-4). */
+export interface ProbeGrantsTable {
+  account_id: string;
+  probe: string;
+  created_at: Timestamp;
+}
+
+/** Season points an admin added or took away (M6d-4); rows are only added. */
+export interface SeasonAdjustmentsTable {
+  id: Generated<string>;
+  account_id: string;
+  season: string;
+  points: number;
+  created_at: Timestamp;
+}
+
 export interface LabNodesTable {
   account_id: string;
   node: string;
@@ -508,6 +524,8 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.probe_grants': ProbeGrantsTable;
+  'galaxy.season_adjustments': SeasonAdjustmentsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;

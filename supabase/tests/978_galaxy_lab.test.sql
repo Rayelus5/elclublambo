@@ -7,9 +7,8 @@ select col_is_pk('galaxy', 'lab_nodes', array['account_id', 'node'], 'one row pe
 select ok((select c.relrowsecurity from pg_class c join pg_namespace n on n.oid = c.relnamespace
            where n.nspname = 'galaxy' and c.relname = 'lab_nodes'),
   'row level security on lab_nodes');
-select ok(has_table_privilege('galaxy_api', 'galaxy.lab_nodes', 'select, insert, update')
-      and not has_table_privilege('galaxy_api', 'galaxy.lab_nodes', 'delete'),
-  'galaxy_api reads, adds and updates nodes, and never deletes them');
+select ok(has_table_privilege('galaxy_api', 'galaxy.lab_nodes', 'select, insert, update'),
+  'galaxy_api reads, adds and updates nodes (since M6d-4 it also deletes one an admin takes back to 0)');
 select ok(not has_table_privilege('anon', 'galaxy.lab_nodes', 'select')
       and not has_table_privilege('authenticated', 'galaxy.lab_nodes', 'select')
       and not has_table_privilege('service_role', 'galaxy.lab_nodes', 'select'),

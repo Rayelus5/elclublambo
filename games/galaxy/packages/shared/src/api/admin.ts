@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { type Role, usernameSchema } from '../account';
+import { GALAXY_TYPES } from './admin-progress';
 import { FINISHES, TIERS } from '../gacha/types';
 
 // The admin panel's players and audit (GDD §16.1, §16.2; M6a). Every change carries a reason; the destructive ones
@@ -26,7 +27,7 @@ export const adminWalletSchema = z
 export type AdminWallet = z.infer<typeof adminWalletSchema>;
 
 export const adminGalaxyGrantSchema = z
-  .object({ tier: z.enum(TIERS), finish: z.enum(FINISHES), seed: z.string().regex(/^\d{1,20}$/).optional(), reason })
+  .object({ tier: z.enum(TIERS), finish: z.enum(FINISHES), seed: z.string().regex(/^\d{1,20}$/).optional(), type: z.enum(GALAXY_TYPES).optional(), reason })
   .strict();
 export type AdminGalaxyGrant = z.infer<typeof adminGalaxyGrantSchema>;
 
