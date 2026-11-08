@@ -1,3 +1,5 @@
+import type { PublicGalaxy } from '@galaxy/shared';
+import { useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useVisit } from '../api/planetarium';
@@ -6,9 +8,11 @@ import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { Dome, PrestigePanel, ShownCard, VisitForm } from './Dome';
 import { BackLink } from '../ui/BackLink';
+import { Inspector } from '../inspector/Inspector';
 
 // A visit to someone's planetarium (GDD §10.5, §14.2; DESIGN_SYSTEM §8 decies): the owner's name, their cards on the
-// pedestals without any action, their prestige and visits. A name without a planetarium says so and leads back.
+// pedestals, each one inspectable in 3D (the owner's request), their prestige and visits. A name without a planetarium
+// says so and leads back.
 
 const t = copy.planetarium;
 
@@ -16,6 +20,7 @@ export function VisitScreen() {
   const { username = '' } = useParams();
   const visit = useVisit(username);
   const v = visit.data;
+  const [inspecting, setInspecting] = useState<PublicGalaxy | null>(null);
   // A name that cannot exist (400) is as missing as one that does not (404).
   const missing = visit.error instanceof ApiError && (visit.error.status === 404 || visit.error.status === 400);
   return (
@@ -45,7 +50,19 @@ export function VisitScreen() {
           <div className="planetarium-body">
             <Dome
               empty={v.exhibits.every((g) => g === null) ? t.emptyVisit : undefined}
-              items={v.exhibits.map((g) => (g ? <ShownCard galaxy={g} /> : <span className="pedestal-vacant" />))}
+              items={v.exhibits.map((g) =>
+                g ? (
+                  <div className="exhibit-shown">
+                    <ShownCard galaxy={g} />
+                    <button type="button" className="lip pill small" aria-label={copy.inspector.openOf(g.name)} onClick={() => setInspecting(g)}>
+                      <Icon name="cube" />
+                      <span>{copy.inspector.open}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <span className="pedestal-vacant" />
+                ),
+              )}
             />
             <aside className="planetarium-side">
               <PrestigePanel prestige={v.prestige} visits={v.visits} />
@@ -62,6 +79,7 @@ export function VisitScreen() {
           </p>
         ) : null}
       </div>
+      {inspecting ? <Inspector galaxy={inspecting} onClose={() => setInspecting(null)} /> : null}
     </div>
   );
 }

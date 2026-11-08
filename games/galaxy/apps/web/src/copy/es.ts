@@ -1114,6 +1114,7 @@ export const copy = {
   },
   inspector: {
     open: 'Inspeccionar en 3D',
+    openOf: (name: string) => `Inspeccionar ${name} en 3D`,
     title: (name: string) => `${name} en 3D`,
     canvas: (name: string) => `Carta de ${name} en 3D`,
     hint: 'Mueve el ratón para inclinarla y arrástrala a los lados para girarla',
