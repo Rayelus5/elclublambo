@@ -233,6 +233,10 @@ test('Denunciar pide confirmación y deja el mensaje como denunciado; lo propio 
   await waitFor(() => expect(posts(fetch, '/messages/10/report')).toHaveLength(1));
   expect(await within(log).findByText(t.reported)).toBeInTheDocument();
   expect(within(log).queryByRole('button', { name: t.reportOf('vega') })).not.toBeInTheDocument();
+  // The button it was on is gone: the focus stays in the sheet (on the list), so Escape still closes it.
+  await waitFor(() => expect(log).toHaveFocus());
+  await user.keyboard('{Escape}');
+  expect(screen.queryByRole('dialog', { name: t.title })).not.toBeInTheDocument();
 });
 
 test('un moderador oculta un mensaje y silencia 1 hora con su motivo', async () => {
@@ -245,6 +249,7 @@ test('un moderador oculta un mensaje y silencia 1 hora con su motivo', async () 
   await user.click(within(log).getByRole('button', { name: t.hideOf('vega') }));
   await waitFor(() => expect(within(log).queryByText('hola a todos')).not.toBeInTheDocument());
   expect(posts(fetch, '/messages/10/hide')).toHaveLength(1);
+  await waitFor(() => expect(log).toHaveFocus());
 
   await user.click(within(log).getByRole('button', { name: t.muteOf('lyra') }));
   const dialog = await screen.findByRole('dialog', { name: t.muteOf('lyra') });

@@ -65,6 +65,17 @@ function ChatPanel({ me, channel, onClose }: { me: MeResponse; channel: ChatChan
     (node.querySelector<HTMLElement>('textarea:not(:disabled)') ?? node.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]'))?.focus();
   }, [loaded]);
 
+  // A message taken away with the focus on one of its buttons (reported, hidden): the focus stays in the sheet, on the
+  // list, instead of falling to the page. A click elsewhere leaves that element in place, so it never pulls focus back.
+  const lastFocus = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const gone = lastFocus.current !== null && !lastFocus.current.isConnected;
+    if (!gone || (document.activeElement && document.activeElement !== document.body)) return;
+    const log = sheet.current?.querySelector<HTMLElement>('[role="log"]') ?? sheet.current;
+    lastFocus.current = log ?? null;
+    log?.focus();
+  });
+
   function onKeyDown(e: KeyboardEvent<HTMLDivElement>): void {
     if (e.key !== 'Escape') return;
     e.stopPropagation();
@@ -87,7 +98,17 @@ function ChatPanel({ me, channel, onClose }: { me: MeResponse; channel: ChatChan
   }
 
   return createPortal(
-    <div ref={sheet} role="dialog" aria-labelledby={titleId} tabIndex={-1} className="lip panel chat-sheet" onKeyDown={onKeyDown}>
+    <div
+      ref={sheet}
+      role="dialog"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      className="lip panel chat-sheet"
+      onKeyDown={onKeyDown}
+      onFocus={(e) => {
+        lastFocus.current = e.target;
+      }}
+    >
       <header className="chat-top">
         <h2 id={titleId}>{t.title}</h2>
         <span className="chat-status" role="status">
