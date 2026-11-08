@@ -1,4 +1,5 @@
 import cookie from '@fastify/cookie';
+import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { ZodError } from 'zod';
@@ -13,6 +14,8 @@ import { registerLabRoutes } from './lab/routes';
 import { registerPlanetariumRoutes } from './planetarium/routes';
 import { registerSocialRoutes } from './social/routes';
 import { registerClanRoutes } from './clans/routes';
+import { ChatHub } from './chat/hub';
+import { registerChatRoutes } from './chat/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -39,6 +42,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   await app.register(cookie);
+  // The chats' socket (M5b-2): small frames only (it pushes; clients send nothing but pongs).
+  await app.register(websocket, { options: { maxPayload: 4096 } });
   registerSecurityHeaders(app);
   registerOriginGuard(app, deps.env.GALAXY_PUBLIC_ORIGINS);
 
@@ -85,6 +90,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerPlanetariumRoutes(api, { db: deps.db, config });
     registerSocialRoutes(api, { db: deps.db, config, now });
     registerClanRoutes(api, { db: deps.db, config, now });
+    const hub = new ChatHub(deps.db);
+    api.addHook('onClose', async () => hub.close());
+    registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
   });
   return app;
 }
