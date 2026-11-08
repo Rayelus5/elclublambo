@@ -9,6 +9,8 @@ export type BoostCurrency = Boost['currency'];
 /** The boosts running now, as players see them (GET /galaxy/api/boosts). */
 export interface BoostsView {
   boosts: { id: string; name: string; currency: BoostCurrency; factor: number; endsAt: string }[];
+  /** The season's anomaly changing every run now (M7d-3), or null. */
+  anomaly: { id: string; name: string; description: string } | null;
 }
 
 /** The most boosts on one currency multiply to, together. */

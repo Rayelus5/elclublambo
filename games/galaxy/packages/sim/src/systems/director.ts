@@ -15,12 +15,22 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
   const s = sim.sector.scaling;
   const minutes = sim.tick / 3600;
   const deeper = sim.layer - 1;
-  return {
+  const elite = Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes);
+  const scale = {
     hp: (1 + s.hpPerMinute * minutes) * (1 + s.hpPerLayer * deeper),
     damage: (1 + s.damagePerMinute * minutes) * (1 + s.damagePerLayer * deeper),
     speed: 1 + s.speedPerLayer * deeper,
-    elite: Math.min(s.eliteMax, s.eliteBase + s.elitePerMinute * minutes),
+    elite,
   };
+  // The season's anomaly (M7d-3) multiplies on top; without one nothing changes.
+  const a = sim.anomaly;
+  if (a) {
+    scale.hp *= a.enemyHp;
+    scale.damage *= a.enemyDamage;
+    scale.speed *= a.enemySpeed;
+    scale.elite = Math.min(1, elite * a.elite);
+  }
+  return scale;
 }
 
 /** The Static signal (curse) of the run: the highest among living probes. */
@@ -97,6 +107,7 @@ export function direct(sim: Sim): void {
   let rate = Math.min(d.max, d.base + (d.perMinute * sim.tick) / 3600);
   if (sim.phase === 'boss') rate *= d.bossFactor;
   rate *= 1 + curseOf(sim);
+  if (sim.anomaly) rate *= sim.anomaly.spawn;
   let acc = (sim.clocks['spawnAcc'] ?? 0) + rate / 60;
   while (acc >= 1) {
     acc -= 1;

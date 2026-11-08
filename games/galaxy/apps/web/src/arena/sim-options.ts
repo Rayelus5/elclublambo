@@ -11,6 +11,7 @@ export function simOptions(run: RunStart): SimOptions {
     content: run.content,
     sector: run.sector,
     probes: [{ probe: run.probe, relics: run.relics, bonuses: run.bonuses, variant: run.variant }],
+    anomaly: run.anomaly ?? null,
     record: true,
   };
 }

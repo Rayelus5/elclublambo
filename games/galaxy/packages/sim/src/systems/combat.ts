@@ -9,6 +9,7 @@ import { bossAway } from './boss';
 import { react } from './reactions';
 import { dropPickup } from './pickups';
 import { onKill } from './quirks';
+import { enemiesNear } from './weapons';
 
 // The damage pipeline (GDD §5.3–5.5): critical hits, elite shields, life, the hit flash, lifesteal and death with its
 // drops. Elements (Task 6) and bosses (Task 8) hook in here.
@@ -81,7 +82,15 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
   }
   sim.events.push({ t: 'kill', x, y, enemy: def.id, elite });
   const sector = sim.sector;
-  dropPickup(sim, PICKUP.xp, def.xp * (elite ? sector.elite.xp : 1), x, y);
+  dropPickup(sim, PICKUP.xp, def.xp * (elite ? sector.elite.xp : 1) * (sim.anomaly ? sim.anomaly.xp : 1), x, y);
+  // Contagion (M7d-3): an enemy that dies corroded corrodes the others near it.
+  const spread = sim.anomaly?.contagion;
+  if (spread && sim.enemies.corrT[e]! > 0) {
+    const t = ticks(spread.seconds);
+    for (const o of enemiesNear(sim, x, y, spread.radius)) {
+      if (o !== e && sim.enemies.alive[o] && sim.enemies.corrT[o]! < t) sim.enemies.corrT[o] = t;
+    }
+  }
   const luck = (p ? p.stats.luck : 1) * (1 + curseOf(sim));
   if (elite) {
     dropPickup(sim, PICKUP.coin, sector.elite.coins, x + 4, y);

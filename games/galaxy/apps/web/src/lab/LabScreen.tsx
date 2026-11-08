@@ -6,6 +6,7 @@ import { copy, fmt } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { labIconUrl } from './icons';
 import { BackLink } from '../ui/BackLink';
+import { Redshift } from './Redshift';
 
 // The Laboratorio (GDD §10.6, DESIGN_SYSTEM §8 octies): a lab blueprint with four branches, each a tree: a node's item
 // holds the list of the nodes it opens. Each node says
@@ -176,6 +177,7 @@ export function LabScreen() {
             ))}
           </div>
         ) : null}
+        <Redshift />
       </div>
     </div>
   );

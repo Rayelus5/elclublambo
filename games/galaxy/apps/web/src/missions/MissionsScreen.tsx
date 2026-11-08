@@ -1,4 +1,4 @@
-import type { AchievementView, Frame, MissionPeriodView, MissionView } from '@galaxy/shared';
+import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useClaim, useCosmetics, useMissions } from '../api/missions';
@@ -12,11 +12,12 @@ import { Icon } from '../ui/Icon';
 // frame shown on the profile, among the earned ones.
 
 const t = copy.missions;
-type Tab = 'daily' | 'weekly' | 'season' | 'achievements';
-const TABS: Tab[] = ['daily', 'weekly', 'season', 'achievements'];
+type Tab = 'daily' | 'weekly' | 'season' | 'events' | 'achievements';
+const TABS: Tab[] = ['daily', 'weekly', 'season', 'events', 'achievements'];
 
-function rewardText(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | null }): string {
+function rewardText(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | null; eventSignals?: number }): string {
   const parts: string[] = [];
+  if (r.eventSignals) parts.push(t.reward.eventSignals(r.eventSignals));
   if (r.coins) parts.push(t.reward.coins(r.coins));
   if (r.dust) parts.push(t.reward.dust(r.dust));
   if (r.signal) parts.push(t.reward.signal(r.signal));
@@ -36,11 +37,59 @@ function Progress({ label, progress, target }: { label: string; progress: number
   );
 }
 
+/** The events running now (M7e-1): each with its personal goals and its clan goals. */
+function Events({ events, pending, onClaim }: { events: EventView[]; pending: boolean; onClaim: (period: string, id: string) => void }) {
+  if (events.length === 0) return <p className="panel-note">{t.noEvent}</p>;
+  return (
+    <>
+      {events.map((e) => (
+        <section key={e.id} className="event-block" aria-labelledby={`event-${e.id}`}>
+          <header className="lip panel event-head">
+            <Icon name="comet" />
+            <div>
+              <h2 id={`event-${e.id}`}>{e.name}</h2>
+              <p>{e.description}</p>
+            </div>
+            <span className="event-ends">{t.eventEnds(new Date(e.endsAt))}</span>
+          </header>
+          <ul className="mission-list">
+            {e.goals.map((g) => {
+              const done = g.progress >= g.target && (g.scope === 'personal' || e.inClan);
+              return (
+                <li key={g.id} className={`lip panel mission-card${g.claimed ? ' claimed' : done ? ' ready' : ''}${g.scope === 'clan' ? ' clan-goal' : ''}`}>
+                  <div className="mission-text">
+                    <b>
+                      {g.scope === 'clan' ? <span className="clan-tag">{t.clanGoal}</span> : null}
+                      {g.name}
+                    </b>
+                    <span>{g.scope === 'clan' && !e.inClan ? t.clanNeeded : rewardText(g.reward)}</span>
+                  </div>
+                  <Progress label={g.name} progress={g.progress} target={g.target} />
+                  {g.claimed ? (
+                    <span className="mission-done">
+                      <Icon name="check" />
+                      {t.claimed}
+                    </span>
+                  ) : (
+                    <button type="button" className="lip pill" disabled={!done || pending} aria-label={t.claimOf(g.name)} onClick={() => onClaim(e.period, g.id)}>
+                      {t.claim}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </>
+  );
+}
+
 export function MissionsScreen() {
   const missions = useMissions();
   const claim = useClaim();
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(params.get('pestana') === 'logros' ? 'achievements' : 'daily');
+  const [tab, setTab] = useState<Tab>(params.get('pestana') === 'logros' ? 'achievements' : params.get('pestana') === 'evento' ? 'events' : 'daily');
   const v = missions.data;
   const period: MissionPeriodView | null = v ? (tab === 'daily' ? v.daily : tab === 'weekly' ? v.weekly : tab === 'season' ? v.season : null) : null;
   return (
@@ -54,7 +103,7 @@ export function MissionsScreen() {
           <h1>{t.title}</h1>
         </header>
         <div className="tabs missions-tabs" role="tablist" aria-label={t.title}>
-          {TABS.map((k) => (
+          {TABS.filter((k) => k !== 'events' || (v?.events.length ?? 0) > 0).map((k) => (
             <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
               {t.tabs[k]}
             </button>
@@ -71,7 +120,8 @@ export function MissionsScreen() {
           </p>
         ) : null}
         <div role="tabpanel" aria-label={t.tabs[tab]}>
-          {v && tab !== 'achievements' ? (
+          {v && tab === 'events' ? <Events events={v.events} pending={claim.isPending} onClaim={(period, id) => claim.mutate({ kind: 'mission', period, id })} /> : null}
+          {v && tab !== 'achievements' && tab !== 'events' ? (
             period ? (
               <>
                 <p className="panel-note">{tab === 'daily' ? t.dailyEnds : tab === 'weekly' ? t.weeklyEnds : t.seasonEnds}</p>

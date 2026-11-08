@@ -1,32 +1,21 @@
 import type { SimEvent } from '@galaxy/sim';
-import { sfx } from '../scanner/sfx';
+import { sfxOut } from '../audio/mixer';
 
 // Combat sounds (GDD §17.4), synthesised like the scanner's: short, quiet, rate-limited so a swarm never turns into
-// noise, and silenced with the same mute switch. Music is M8.
+// noise, and silenced with the same mute switch; through the mixer's effects bus (M8a).
 
-let ctx: AudioContext | null = null;
 const lastAt: Record<string, number> = {};
 
-function audio(): AudioContext | null {
-  if (sfx.muted()) return null;
-  const Ctor = (globalThis as { AudioContext?: typeof AudioContext }).AudioContext;
-  if (!Ctor) return null;
-  try {
-    ctx ??= new Ctor();
-    if (ctx.state === 'suspended') void ctx.resume();
-    return ctx;
-  } catch {
-    return null;
-  }
-}
+let out: AudioNode | null = null;
 
 function tone(kind: string, gap: number, play: (a: AudioContext, t: number) => void): void {
-  const a = audio();
-  if (!a) return;
-  const t = a.currentTime;
+  const bus = sfxOut();
+  if (!bus) return;
+  out = bus.out;
+  const t = bus.ctx.currentTime;
   if (t - (lastAt[kind] ?? -1) < gap) return;
   lastAt[kind] = t;
-  play(a, t);
+  play(bus.ctx, t);
 }
 
 function blip(a: AudioContext, t: number, from: number, to: number, dur: number, vol: number, type: OscillatorType = 'square'): void {
@@ -37,7 +26,7 @@ function blip(a: AudioContext, t: number, from: number, to: number, dur: number,
   const g = a.createGain();
   g.gain.setValueAtTime(vol, t);
   g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(a.destination);
+  o.connect(g).connect(out ?? a.destination);
   o.start(t);
   o.stop(t + dur + 0.02);
 }

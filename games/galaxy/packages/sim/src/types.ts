@@ -1,5 +1,5 @@
 import type { StatBonus } from './systems/stats';
-import type { Content, ElementId, ProbeDef, SectorDef } from './content/types';
+import type { AnomalyDef, Content, ElementId, ProbeDef, SectorDef } from './content/types';
 import type { SimEvent } from './events';
 import type { Rng } from './math/rng';
 import type { SpatialGrid } from './world/grid';
@@ -41,6 +41,8 @@ export interface SimOptions {
   probes: { probe: string; relics: RelicInput[]; bonuses?: StatBonus[]; variant?: string | null }[];
   /** Keep the input log for replays (GDD §5.7). */
   record?: boolean;
+  /** The season's anomaly (M7d-3): an id of `content.anomalies`, snapshotted at the start; absent or null, none. */
+  anomaly?: string | null;
 }
 
 /** Final values after every source, cap and diminishing return (GDD §8.6). */
@@ -184,6 +186,8 @@ export interface Sim {
   readonly opts: SimOptions;
   readonly content: Content;
   readonly sector: SectorDef;
+  /** The season's anomaly for this run (M7d-3), or null. */
+  readonly anomaly: AnomalyDef | null;
   tick: number;
   status: SimStatus;
   layer: number;

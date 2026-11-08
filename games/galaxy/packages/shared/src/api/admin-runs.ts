@@ -63,7 +63,7 @@ export interface AdminRunReplay {
   /** The run's content version is no longer in the history (or no longer parses): `start.content` is the defaults. */
   contentFallback: boolean;
   /** The run's start as the server snapshotted it, with the content of the version it started with. */
-  start: { seed: string; sector: string; probe: string; relics: RelicInput[]; bonuses: StatBonus[]; variant: string | null; content: Content };
+  start: { seed: string; sector: string; probe: string; relics: RelicInput[]; bonuses: StatBonus[]; variant: string | null; anomaly: string | null; content: Content };
   /** The recorded inputs (packages/sim encodeLog, base64); null for a run that never finished. */
   inputs: string | null;
 }

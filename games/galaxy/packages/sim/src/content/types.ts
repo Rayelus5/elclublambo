@@ -362,6 +362,24 @@ export interface RelicTuning {
   sets: RelicSetDef[];
 }
 
+/**
+ * A season's global anomaly (GDD §13.1; M7d-3): a rule that changes every run while its season is open. Multipliers on
+ * the enemies' life, damage and speed, on how many arrive, on elite chance and on data fragments; and, optionally,
+ * contagion: an enemy that dies corroded corrodes the others near it.
+ */
+export interface AnomalyDef {
+  id: string;
+  name: string;
+  description: string;
+  enemyHp: number;
+  enemyDamage: number;
+  enemySpeed: number;
+  spawn: number;
+  elite: number;
+  xp: number;
+  contagion: { radius: number; seconds: number } | null;
+}
+
 export interface Content {
   probes: ProbeDef[];
   weapons: WeaponDef[];
@@ -377,4 +395,5 @@ export interface Content {
   crit: { chance: number; damage: number };
   arena: { viewW: number; viewH: number; margin: number; despawn: number };
   limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number };
+  anomalies: AnomalyDef[];
 }

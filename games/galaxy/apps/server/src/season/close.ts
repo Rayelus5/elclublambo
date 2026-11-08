@@ -21,10 +21,13 @@ export function rewardsFor(rank: number, tier: SeasonTier | null, closing: Seaso
   return out;
 }
 
-/** Archives the configured season if it has ended and nobody has yet (safe to call from any read). */
-export async function closeDue(db: Kysely<DB>, c: SeasonConfigs, now: Date): Promise<void> {
+/**
+ * Archives the configured season if it has ended and nobody has yet (safe to call from any read). `force` archives it
+ * even before its end: an admin replaced it with another season (M7d-3), so it will never be read again.
+ */
+export async function closeDue(db: Kysely<DB>, c: SeasonConfigs, now: Date, opts: { force?: boolean } = {}): Promise<void> {
   const s = c.season;
-  if (now.getTime() < Date.parse(s.endsAt) || archived.has(s.id)) return;
+  if ((!opts.force && now.getTime() < Date.parse(s.endsAt)) || archived.has(s.id)) return;
   if (await db.selectFrom('galaxy.season_archive').select('season').where('season', '=', s.id).executeTakeFirst()) {
     archived.add(s.id);
     return;

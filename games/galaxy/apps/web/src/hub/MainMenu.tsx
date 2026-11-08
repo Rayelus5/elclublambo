@@ -38,6 +38,35 @@ function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName
   );
 }
 
+/** The event running now (M7e-1): it leads to its goals; without one, the place stays, quiet. */
+function EventButton() {
+  const event = useMissions().data?.events[0];
+  if (!event) {
+    return (
+      <button type="button" className="lip event locked enter" style={style({ '--d': '1s' })} disabled>
+        <span className="chip">
+          <Icon name="comet" />
+        </span>
+        <span className="text">
+          <b>{copy.hub.event}</b>
+          <span>{copy.hub.noEvent}</span>
+        </span>
+      </button>
+    );
+  }
+  return (
+    <Link to="/misiones?pestana=evento" className="lip event enter" style={style({ '--d': '1s' })}>
+      <span className="chip">
+        <Icon name="comet" />
+      </span>
+      <span className="text">
+        <b>{event.name}</b>
+        <span>{event.description}</span>
+      </span>
+    </Link>
+  );
+}
+
 /** Today's missions: one pip per mission, lit when done; leads to the missions. */
 function TodayMissions() {
   const daily = useMissions().data?.daily.missions;
@@ -78,16 +107,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
       </div>
 
       <div className="row2">
-        <button type="button" className="lip event locked enter" style={style({ '--d': '1s' })} disabled title={copy.hub.soon}>
-          <span className="chip">
-            <Icon name="comet" />
-          </span>
-          <span className="text">
-            <b>{copy.hub.event}</b>
-            <span>{copy.hub.eventHint}</span>
-          </span>
-          <Soon />
-        </button>
+        <EventButton />
         <TodayMissions />
       </div>
 
@@ -125,11 +145,10 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
       </div>
 
       <div className="hub-foot">
-        <button type="button" className="lip pill locked enter" style={style({ '--d': '1.34s' })} disabled title={copy.hub.soon}>
+        <Link to="/ajustes" className="lip pill enter" style={style({ '--d': '1.34s' })}>
           <Icon name="gear" />
           <span>{copy.hub.settings}</span>
-          <Soon />
-        </button>
+        </Link>
         <Link to="/guia" className="lip pill enter" style={style({ '--d': '1.38s' })}>
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>

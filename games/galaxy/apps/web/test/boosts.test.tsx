@@ -20,3 +20,11 @@ test('sin multiplicadores no sale nada', async () => {
   await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
   expect(screen.queryByRole('list', { name: copy.boosts.title })).toBeNull();
 });
+
+test('la anomalía de la temporada sale con su nombre y lo que cambia, aunque no haya multiplicadores (M7d-3)', async () => {
+  const anomaly = { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca' };
+  mockApi({ 'GET /galaxy/api/boosts': () => jsonResponse(200, { boosts: [], anomaly }) });
+  renderAt('/', { '/': <BoostChips /> });
+  const list = await screen.findByRole('list', { name: copy.boosts.title });
+  expect(list).toHaveTextContent(copy.boosts.anomaly(anomaly.name, anomaly.description));
+});

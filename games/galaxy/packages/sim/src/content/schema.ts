@@ -338,6 +338,22 @@ const relics = z
 const limitInt = (max: number) => z.number().int().min(1).max(max);
 
 const D = DEFAULT_CONTENT;
+const mult = z.number().min(0.25).max(4).default(1);
+const anomaly = z
+  .object({
+    id,
+    name,
+    description: z.string().min(1).max(160),
+    enemyHp: mult,
+    enemyDamage: mult,
+    enemySpeed: mult,
+    spawn: mult,
+    elite: mult,
+    xp: mult,
+    contagion: z.object({ radius: z.number().min(1).max(400), seconds: z.number().min(0.1).max(30) }).strict().nullable().default(null),
+  })
+  .strict();
+
 const shape = z
   .object({
     probes: z.array(probe).min(1).max(32).default(D.probes),
@@ -354,6 +370,7 @@ const shape = z
     caps: z.record(z.enum(STAT_KEYS), z.number().min(0).max(1000)).default(D.caps),
     crit: z.object({ chance: unit, damage: z.number().min(1).max(10) }).strict().default(D.crit),
     arena: z.object({ viewW: pos, viewH: pos, margin: n, despawn: pos }).strict().default(D.arena),
+    anomalies: z.array(anomaly).max(20).default(D.anomalies),
     limits: z
       .object({
         weapons: limitInt(12),

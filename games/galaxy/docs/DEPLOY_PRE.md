@@ -583,6 +583,61 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - `GET /galaxy/api/season` y `GET /galaxy/api/hall-of-fame` responden 401 sin sesión y su vista con sesión;
    - `/temporada` y `/trofeos` (desde la sala Trofeos) cargan sin violaciones de CSP.
 
+33. **Desde M7d-3 (anomalía de temporada):** sin migraciones. La simulación pasa a **SIM_VERSION 1.6.0**: un cliente con la web vieja en caché tiene que recargar.
+   - **Anomalías:** el contenido trae cuatro en `content.anomalies`: Corrosión contagiosa, Enjambre, Estática férrea y Marea veloz. Multiplican la vida, el daño, la velocidad, la aparición y las élites de los enemigos, y los datos que sueltan. La primera hace además que un enemigo corroído que cae corroa a los que tiene cerca.
+   - **La temporada elige una:** `season.anomaly`, por defecto `contagion`; `null` para ninguna. Mientras la temporada está abierta, cada incursión empieza con ella y la guarda en `upgrades.anomaly`, así que la repetición del panel la juega igual.
+   - **Inicio y hangar:** la enseñan en un chip junto a los multiplicadores (`GET /galaxy/api/boosts` trae `anomaly`).
+   - **Abrir otra temporada desde el panel:** al publicar `season` con otro `id`, la temporada que sustituye se archiva sola con su clasificación final, haya terminado o no.
+
+   Comprueba con una cuenta de prueba que el inicio enseñe el chip de la anomalía y que una incursión arranque sin errores.
+
+34. **Desde M7e-1 (eventos):** la migración `20261108210841_galaxy_events.sql`:
+   - deja que las misiones usen también el periodo `e:<evento>`;
+   - crea `galaxy.clan_event_progress` (lo que suma cada clan en sus metas).
+
+   Clave nueva, **`events`**, vacía por defecto. Cada evento tiene nombre, descripción y fechas (hasta 31 días), y hasta 12 metas.
+   - **Metas personales:** se cuentan como misiones.
+   - **Metas de clan:** suman lo que hacen sus miembros mientras lo son, y cada miembro recoge el premio una vez.
+   - **Premios:** pueden incluir `eventSignals`, las señales propias del evento (`signal:<id del evento>`).
+
+   **Escáner de evento:** ya se publica. Se añade en `gacha.banners` con `kind: "event"`, su destacada, `currency: "signal:<id del evento>"` y las mismas fechas. El escáner lo paga con esas señales.
+
+   **Dónde se ve:** el inicio enseña el evento en marcha y lleva a su pestaña en `/misiones`.
+
+   Ejemplo para probarlo desde el panel (cambia las fechas):
+   ```json
+   { "list": [{ "id": "cometas", "name": "Lluvia de cometas", "description": "Escanea el cielo mientras pasan los cometas",
+     "startsAt": "2026-11-10T00:00:00.000Z", "endsAt": "2026-11-17T00:00:00.000Z",
+     "goals": [
+       { "id": "scan", "name": "Haz 20 tiradas", "stat": "pulls", "target": 20, "reward": { "eventSignals": 5 } },
+       { "id": "purge", "name": "Purga 3 Núcleos", "stat": "bossKills", "target": 3, "reward": { "coins": 1500, "eventSignals": 5 } },
+       { "id": "clan-runs", "name": "Entre todo el clan, 50 incursiones", "stat": "runs", "target": 50, "scope": "clan", "reward": { "signal": 3 } } ] }] }
+   ```
+
+35. **Desde M7e-2 (prestigio «Corrimiento al rojo»):** la migración `20261108211407_galaxy_redshift.sql` crea `galaxy.redshift` (el rango de cada cuenta). Clave nueva, **`redshift`**:
+   - **Requisitos:** nivel de cuenta 25 y niveles de Laboratorio comprados en total: 10, 15, 20, 25 y 30 para cada rango.
+   - **Rangos:** como mucho 5.
+   - **Bonus:** cada rango suma +3 % de experiencia y +2 % de suerte en cada incursión (dentro de los topes).
+   - **Títulos:** uno por rango, «Corrimiento I» a «Corrimiento V».
+   - **Qué reinicia:** los nodos del Laboratorio y su sala, que hay que reparar otra vez. Nunca la colección, ni las monedas, el polvo, las sondas o el resto de la estación.
+
+   **Dónde:** al pie de **`/galaxy/laboratorio`**, a partir del nivel en que se abre. Pide confirmación diciendo qué vuelve a cero.
+
+   Comprueba que `GET /galaxy/api/redshift` responde 401 sin sesión y su vista con sesión.
+
+36. **Desde M8a (audio y Ajustes):** sin migraciones ni claves.
+   - **Música adaptativa:** synthwave en La menor a 104 bpm, sintetizada con WebAudio y un planificador anticipado. Empieza con el primer clic o tecla y nunca suena en el panel de admin.
+   - **Capas:** el pad siempre; el bajo, el arpegio y la batería entran según la intensidad. En la incursión la intensidad sube con la capa o la baliza, y es máxima con un jefe o con poca vida.
+   - **Mezclador:** los efectos del escáner y del combate pasan por un solo mezclador con dos buses.
+   - **Ajustes (`/galaxy/ajustes`):** el botón del pie del menú, que deja de estar «En desarrollo», lleva a la música, los efectos, silenciar todo, apuntar con el ratón, volver a oír a PERKINS y enseñar otra vez los primeros pasos. Se guarda en el navegador. El silencio de antes del escáner se respeta.
+
+   Comprueba que suena tras el primer clic, que el volumen de la música la baja y que «Silenciar todo» lo calla todo.
+
+37. **Desde M8b (retención):** la migración `20261108212600_galaxy_retention.sql` crea `galaxy.prune_retention()`, la única vía para borrar lo caducado. El servidor la ejecuta un minuto después de arrancar y luego cada hora; el log dice `retention pruned` cuando borra algo.
+   - **Entradas grabadas:** las de partidas normales se van a los 30 días. Las de partidas sospechosas, las que purgaron un Núcleo y las que llegaron a la capa 3 se quedan siempre.
+   - **Chat:** los mensajes se van a los 90 días, salvo los denunciados.
+   - `run_inputs` sigue siendo de solo añadir para todo lo demás.
+
 ## Operación
 
 | Tarea | Cómo |

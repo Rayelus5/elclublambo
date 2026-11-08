@@ -41,7 +41,7 @@ export function playedRun(ticks = 900): AdminRunReplay {
       claimed: { ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level },
     },
     contentFallback: false,
-    start: { seed: '20261108', sector: 'outer-nebula', probe: 'lumen', relics: [], bonuses: [], variant: null, content: DEFAULT_CONTENT },
+    start: { seed: '20261108', sector: 'outer-nebula', probe: 'lumen', relics: [], bonuses: [], variant: null, anomaly: null, content: DEFAULT_CONTENT },
     inputs: toBase64(encodeLog(sim.log!)),
   };
 }

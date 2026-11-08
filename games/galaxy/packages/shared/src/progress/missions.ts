@@ -30,6 +30,41 @@ export const achievementSchema = z
   })
   .strict();
 export type Mission = z.infer<typeof missionSchema>;
+
+/**
+ * Events (GDD §13.2, §14.3; M7e-1): goals for a limited time, each one personal or of the clan (its members' runs add
+ * up, and each member collects its reward once). They can pay the event's own signals, `signal:<event id>`, that buy
+ * pulls on its event scanner.
+ */
+export const eventRewardSchema = missionRewardSchema.extend({ eventSignals: z.number().int().min(0).max(100).default(0) }).strict();
+export type EventReward = z.output<typeof eventRewardSchema>;
+export const eventGoalSchema = z
+  .object({ id, name: z.string().trim().min(1).max(60), stat: z.enum(MISSION_STATS), target: z.number().int().min(1).max(10_000_000), scope: z.enum(['personal', 'clan']).default('personal'), reward: eventRewardSchema })
+  .strict();
+export type EventGoal = z.output<typeof eventGoalSchema>;
+export const eventSchema = z
+  .object({
+    id,
+    name: z.string().trim().min(1).max(40),
+    description: z.string().trim().min(1).max(200),
+    startsAt: z.iso.datetime(),
+    endsAt: z.iso.datetime(),
+    goals: z
+      .array(eventGoalSchema)
+      .min(1)
+      .max(12)
+      .refine((l) => new Set(l.map((g) => g.id)).size === l.length, 'Hay dos metas con el mismo id'),
+  })
+  .strict()
+  .refine((e) => Date.parse(e.endsAt) > Date.parse(e.startsAt), 'Termina antes de empezar')
+  .refine((e) => Date.parse(e.endsAt) - Date.parse(e.startsAt) <= 31 * 86_400_000, 'Dura más de 31 días');
+export type GameEvent = z.output<typeof eventSchema>;
+
+/** The events running at `now` (start included, end not). */
+export function activeEvents(list: readonly GameEvent[], now: Date): GameEvent[] {
+  const t = now.getTime();
+  return list.filter((e) => t >= Date.parse(e.startsAt) && t < Date.parse(e.endsAt));
+}
 export type Achievement = z.infer<typeof achievementSchema>;
 
 const m = (mid: string, name: string, stat: MissionStat, target: number, reward: Partial<z.input<typeof missionRewardSchema>>) => ({ id: mid, name, stat, target, reward });
@@ -128,15 +163,39 @@ export interface AchievementView {
   claimed: boolean;
   reward: Achievement['reward'];
 }
+export interface EventGoalView {
+  id: string;
+  name: string;
+  stat: MissionStat;
+  target: number;
+  scope: 'personal' | 'clan';
+  /** Yours, or your clan's for a clan goal (0 without a clan). */
+  progress: number;
+  claimed: boolean;
+  reward: EventReward;
+}
+export interface EventView {
+  id: string;
+  name: string;
+  description: string;
+  endsAt: string;
+  /** `e:<id>`: what a claim names. */
+  period: string;
+  goals: EventGoalView[];
+  /** In a clan now (clan goals count only then). */
+  inClan: boolean;
+}
 export interface MissionsView {
   daily: MissionPeriodView;
   weekly: MissionPeriodView;
   season: MissionPeriodView | null;
+  /** The events running now (M7e-1). */
+  events: EventView[];
   achievements: AchievementView[];
   /** How many missions and achievements are ready to collect. */
   ready: number;
   cosmetics: { titles: string[]; frames: Frame[]; title: string | null; frame: Frame | null };
 }
 export const cosmeticsSchema = z.object({ title: z.string().trim().min(1).max(30).nullable(), frame: z.enum(FRAMES).nullable() }).strict();
-export const missionClaimParamsSchema = z.object({ period: z.string().regex(/^(d|w|s):[A-Za-z0-9-]{1,32}$/), id }).strict();
+export const missionClaimParamsSchema = z.object({ period: z.string().regex(/^(d|w|s|e):[A-Za-z0-9-]{1,32}$/), id }).strict();
 export const achievementClaimParamsSchema = z.object({ id }).strict();

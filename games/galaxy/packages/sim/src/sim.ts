@@ -29,6 +29,8 @@ export function createSim(opts: SimOptions): Sim {
   const sector = content.sectors.find((s) => s.id === opts.sector);
   if (!sector) throw new RangeError('unknown_sector:' + opts.sector);
   if (opts.probes.length === 0) throw new RangeError('no_probes');
+  const anomaly = opts.anomaly ? (content.anomalies.find((a) => a.id === opts.anomaly) ?? null) : null;
+  if (opts.anomaly && !anomaly) throw new RangeError('unknown_anomaly:' + opts.anomaly);
   const rng = {
     spawn: Rng.fromSeed(opts.seed, 'spawn'),
     combat: Rng.fromSeed(opts.seed, 'combat'),
@@ -41,6 +43,7 @@ export function createSim(opts: SimOptions): Sim {
     opts,
     content,
     sector,
+    anomaly,
     tick: 0,
     status: 'running',
     layer: 1,

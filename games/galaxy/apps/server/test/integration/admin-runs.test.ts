@@ -108,7 +108,7 @@ describe('la repetición', () => {
     const res = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
     expect(res.statusCode).toBe(200);
     const start = res.json() as RunStart;
-    const opts: SimOptions = { seed: start.seed, content: start.content, sector: start.sector, probes: [{ probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant }], record: true };
+    const opts: SimOptions = { seed: start.seed, content: start.content, sector: start.sector, probes: [{ probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant }], anomaly: start.anomaly, record: true };
     const sim = createSim(opts);
     while (sim.tick < 1200 && (sim.status === 'running' || sim.status === 'choosing')) {
       if (sim.status === 'choosing') step(sim, sim.probes.map((q) => ({ mx: 0, my: 0, aim: -1, pick: q.offer ? botPick(q.offer) : -1 })));
@@ -126,8 +126,8 @@ describe('la repetición', () => {
 
     const r = await detail(start.id);
     expect(r.run).toMatchObject({ id: start.id, player: p.username, ticks: s.ticks, hash: s.hash, simVersion: SIM_VERSION, kills: s.kills, level: s.level });
-    expect(r.start).toEqual({ seed: start.seed, sector: start.sector, probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant, content: start.content });
-    const again = replay({ ...r.start, probes: [{ probe: r.start.probe, relics: r.start.relics, bonuses: r.start.bonuses, variant: r.start.variant }], record: false }, decodeLog(fromBase64(r.inputs!)), r.run.ticks!);
+    expect(r.start).toEqual({ seed: start.seed, sector: start.sector, probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant, anomaly: start.anomaly, content: start.content });
+    const again = replay({ ...r.start, probes: [{ probe: r.start.probe, relics: r.start.relics, bonuses: r.start.bonuses, variant: r.start.variant }], anomaly: r.start.anomaly, record: false }, decodeLog(fromBase64(r.inputs!)), r.run.ticks!);
     expect(stateHash(again)).toBe(r.run.hash);
   });
 

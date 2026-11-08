@@ -1368,6 +1368,13 @@ export const DEFAULT_CONTENT: Content = {
   crit: { chance: 0.05, damage: 1.5 },
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300 },
+  // Season anomalies (GDD §13.1; M7d-3): the season chooses one (or none) in the live config `season`.
+  anomalies: [
+    { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca', enemyHp: 1, enemyDamage: 1, enemySpeed: 1, spawn: 1, elite: 1, xp: 1, contagion: { radius: 70, seconds: 3 } },
+    { id: 'swarm', name: 'Enjambre', description: 'Llegan más enemigos, pero aguantan menos', enemyHp: 0.8, enemyDamage: 1, enemySpeed: 1, spawn: 1.35, elite: 1, xp: 1, contagion: null },
+    { id: 'iron-static', name: 'Estática férrea', description: 'Los enemigos aguantan más y sueltan más datos', enemyHp: 1.25, enemyDamage: 1, enemySpeed: 1, spawn: 1, elite: 1, xp: 1.2, contagion: null },
+    { id: 'rush', name: 'Marea veloz', description: 'Los enemigos corren más y salen más élites, pero pegan menos', enemyHp: 1, enemyDamage: 0.85, enemySpeed: 1.2, spawn: 1, elite: 1.5, xp: 1, contagion: null },
+  ],
 };
 
 /**

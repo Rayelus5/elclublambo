@@ -3,9 +3,10 @@ import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
-import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, missionSchema } from '../progress/missions';
+import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
+import { redshiftSchema } from '../progress/redshift';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -493,6 +494,8 @@ export const configSchemas = {
       top: z.number().int().min(3).max(500).default(100),
       /** A run never adds more points than this per minute it lasted. */
       capPerMinute: z.number().int().min(1).max(100_000).default(20),
+      /** The season's anomaly (M7d-3): an id of `content.anomalies` that changes every run while the season is open; null, none. */
+      anomaly: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('contagion'),
     })
     .strict()
     .refine((s) => Date.parse(s.startsAt) < Date.parse(s.endsAt), 'season_dates'),
@@ -558,6 +561,21 @@ export const configSchemas = {
    * currency (its name, what a run pays per point and the dust each one left is worth at the close) and what it buys.
    */
   seasonRoute: seasonRouteSchema,
+  /** The optional prestige «Corrimiento al rojo» (GDD §12.5; M7e-2): from what level, how many ranks, what each asks and gives. */
+  redshift: redshiftSchema,
+  /**
+   * Events (GDD §13.2; M7e-1): goals for a limited time, personal or of the clan, with their rewards (also the event's
+   * own signals for its event scanner, in `gacha.banners` with currency `signal:<event id>`). Programmed from the panel.
+   */
+  events: z
+    .object({
+      list: z
+        .array(eventSchema)
+        .max(10)
+        .refine((l) => new Set(l.map((e) => e.id)).size === l.length, 'Hay dos eventos con el mismo id')
+        .default([]),
+    })
+    .strict(),
   /** The ECN Catalogue's rewards (GDD §12.3; M7b): what completing each share of the album gives, collected once. */
   catalog: z
     .object({
@@ -639,9 +657,6 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
   if (!result.success) return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
-  if (key === 'gacha' && (result.data as ConfigValue<'gacha'>).banners.some((b) => b.kind === 'event')) {
-    return [{ path: 'banners', message: 'Los escáneres de evento todavía no se pueden publicar' }];
-  }
   return [];
 }
 
