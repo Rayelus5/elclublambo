@@ -37,6 +37,7 @@ export * from './api/admin-market';
 export * from './api/admin-runs';
 export * from './api/admin-progress';
 export * from './economy/boosts';
+export * from './economy/simulate';
 export * from './api/mail';
 export * from './api/stats';
 export * from './gacha/simulate';
