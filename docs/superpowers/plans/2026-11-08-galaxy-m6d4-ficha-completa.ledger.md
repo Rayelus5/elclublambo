@@ -38,3 +38,4 @@ Final: minor (deferred): no shared unit test for probeStatus(…, granted) (cove
 Final: minor (deferred): grantGalaxy's catch relabels every failure as galaxy_type_not_found.
 Final: suites after the fix pass: unit+web 1369 passed (TZ=UTC), integration 355 passed (config.test excluded locally), pgTAP PASS, typecheck 0, lint 0; e2e admin-progress.spec rerun: 2 passed.
 Merged: PR #59 → develop (merge ee87c3e) on green CI, 2026-11-08. PRE check pending (the owner turned the Cloudflare tunnel off).
+PRE check (2026-11-08, tunnel back, deploy ee87c3e success) with e2e_pre_3e9567: progress API 401 without session and 403 to a player, /admin/jugadores → /galaxy, title screen loads, no CSP, no errors.
