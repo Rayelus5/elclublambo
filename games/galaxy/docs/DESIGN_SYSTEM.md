@@ -707,7 +707,7 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - **Cada acción se confirma y se ve hecha:** cada una abre un diálogo con motivo y termina con «Hecho. Queda en la auditoría»;
 - **Un vacío orienta:** «No hay denuncias pendientes. Las nuevas aparecen aquí», «Nadie está silenciado ahora».
 
-**Apartados:** una fila de pastillas bajo el título, con nombre de navegación «Apartados de moderación»: Denuncias, Chat en vivo, Silencios y, solo para admins, Clanes. La activa, en Panel 2 con su labio, como las pestañas de la ficha.
+**Apartados:** una fila de pastillas bajo el título, con nombre de navegación «Apartados de moderación»: Denuncias, Chat en vivo, Silencios y, solo para admins, Clanes, Comercio y Alertas (§8 novodecies). La activa, en Panel 2 con su labio, como las pestañas de la ficha.
 
 **Un mensaje** es una tarjeta Panel de 920 px como mucho:
 - arriba, el autor en negrita, el canal en una etiqueta Hielo y la hora en gris;
@@ -725,6 +725,38 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - la búsqueda por etiqueta o nombre (sin texto, los más nuevos) en una tabla que lleva a cada clan;
 - la página de un clan: «[GX] Galácticos» en Bungee, abierto o cerrado, su descripción y «Renombrar», «Borrar la descripción» y «Disolver» (Nova, con contraseña);
 - la tabla de miembros con su rango y «Hacer líder» y «Expulsar» en cada fila.
+
+## 8 novodecies. Comercio y alertas
+
+Dos apartados más de Moderación, solo para admins (GDD §16.4, M6c-2): `/admin/moderacion/comercio` y `/admin/moderacion/alertas`.
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Las tablas anchas se desplazan solas**, sin romper la página;
+- **Los filtros viven en la dirección** (`tipo`, `cuenta`, `estado`, `pagina`), así que «atrás» los conserva y una alerta puede enlazar a Comercio ya filtrado;
+- **Un botón apagado dice por qué:** «Revertir» se apaga cuando alguna galaxia no puede volver, y el diálogo lo explica en palabras.
+
+Las acciones en bloque sobre alertas quedan fuera, porque en la beta habrá pocas.
+
+**Comercio:**
+- arriba, dos pastillas para elegir Anuncios o Trueques (la elegida, con borde Solar), el campo Cuenta y el selector Estado;
+- **la tabla de anuncios:** fecha, galaxia (en el color de su rareza), quién vende, quién compra, precio, estado (con «Revertido» en Solar si lo está) y acciones;
+- **la de trueques:** fecha, quién propone y qué da, quién recibe la propuesta y qué da, estado y acciones;
+- **las acciones dicen lo que hacen:**
+  - «Retirar» un anuncio activo;
+  - «Anular» un trueque abierto («Cancelar» ya es cerrar el diálogo);
+  - «Revertir» (Nova) una venta o un trueque cerrado.
+
+**El diálogo de revertir:**
+- un recuadro «Qué pasa con cada galaxia» con una línea por galaxia:
+  - en Terminal, «Nebulosa Vega vuelve de nova a vega»;
+  - si no puede, el porqué: «nova la pasó a orion el 8 nov», «se fusionó en …», «ya no existe»;
+- si alguna no puede, «No se puede revertir. Corrígelo a mano desde la ficha de cada jugador» en Nova, y el botón apagado;
+- debajo, el motivo y la contraseña;
+- en una venta, una nota recuerda que el comprador recupera el precio y el vendedor devuelve lo cobrado hasta donde le lleguen las monedas.
+
+**Alertas:**
+- Pendientes o Revisadas, con dos pastillas;
+- **la tabla:** fecha, tipo (IP compartida o Desequilibrado), las dos cuentas, el detalle en palabras (la IP, el precio frente al mínimo o la diferencia de rarezas), «Ver en Comercio» y «Marcar revisada». Las revisadas dicen quién y por qué.
 
 ## 9. Copy
 
