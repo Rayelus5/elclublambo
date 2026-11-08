@@ -1054,6 +1054,8 @@ export const copy = {
     trade_limit: 'Has propuesto demasiados trueques que siguen abiertos. Cierra alguno primero',
     trade_exists: 'Ya tienes un trueque abierto con esa persona',
     trade_limit_them: 'Esa persona tiene demasiados trueques abiertos. Prueba más tarde',
+    password_wrong: 'Esa no es tu contraseña',
+    player_not_found: 'No hay ningún jugador con ese nombre',
     trade_incomplete: 'Las dos partes tienen que ofrecer una galaxia',
     chat_level: 'Todavía no tienes el nivel que hace falta para escribir',
     chat_muted: 'Un moderador te ha silenciado por un tiempo',
