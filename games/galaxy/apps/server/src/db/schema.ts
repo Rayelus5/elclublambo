@@ -324,6 +324,21 @@ export interface TradeAlertsTable {
   buyer_id: string | null;
   details: ColumnType<unknown, string | undefined, never>;
   created_at: Timestamp;
+  /** M6c-2: reviewed by an admin, with a reason (the reviewer may be gone). */
+  reviewed_at: ColumnType<Date | null, never, Date | string>;
+  reviewed_by: ColumnType<string | null, never, string | null>;
+  review_reason: ColumnType<string | null, never, string>;
+}
+
+/** A sale or a done trade reverted by an admin (M6c-2): one per deal; the deal keeps its status. */
+export interface DealReversalsTable {
+  id: ColumnType<string, never, never>;
+  listing_id: string | null;
+  trade_id: string | null;
+  by_id: string | null;
+  reason: string;
+  details: ColumnType<unknown, string | undefined, never>;
+  created_at: Timestamp;
 }
 
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
@@ -468,6 +483,7 @@ export interface DB {
   'galaxy.chat_reports': ChatReportsTable;
   'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.chat_report_reviews': ChatReportReviewsTable;
+  'galaxy.deal_reversals': DealReversalsTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;

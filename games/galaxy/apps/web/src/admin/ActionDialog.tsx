@@ -20,6 +20,8 @@ export function ActionDialog({
   title,
   submit = t.apply,
   fields = [],
+  intro,
+  blocked = false,
   password,
   build = () => ({}),
   result,
@@ -32,6 +34,10 @@ export function ActionDialog({
   /** The submit button's text (Aplicar by default). */
   submit?: string;
   fields?: FieldSpec[];
+  /** What the dialog says before its fields (e.g. where each galaxy of a deal is). */
+  intro?: ReactNode;
+  /** The change cannot be made now (the intro says why). */
+  blocked?: boolean;
   /** Whether this change, with these values, asks for the password. */
   password: (values: Record<string, string>) => boolean;
   build?: (values: Record<string, string>) => Record<string, unknown>;
@@ -48,7 +54,7 @@ export function ActionDialog({
   const action = useAdminPost();
   const needsPassword = password(values);
   const filled = fields.every((f) => f.kind === 'select' || ('optional' in f && f.optional) || values[f.name]!.trim() !== '');
-  const ready = filled && reason.trim().length >= 3 && (!needsPassword || secret.length > 0) && !action.isPending;
+  const ready = !blocked && filled && reason.trim().length >= 3 && (!needsPassword || secret.length > 0) && !action.isPending;
   const set = (name: string, v: string) => setValues((x) => ({ ...x, [name]: v }));
 
   return (
@@ -71,6 +77,7 @@ export function ActionDialog({
             action.mutate({ url, body }, { onSuccess: () => (result ? undefined : onDone(values)) });
           }}
         >
+          {intro}
           {fields.map((f) => (
             <div key={f.name} className="field">
               <label htmlFor={`${ids}-${f.name}`}>{f.label}</label>

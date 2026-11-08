@@ -1537,4 +1537,24 @@
   .admin-clan-desc { margin: 0; max-width: 70ch; color: var(--color-ink-soft); }
   .admin-row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
   @media (prefers-reduced-motion: reduce) { .mod-live.on::before { animation: none; } }
+  /* Trade moderation (M6c-2): a pair of pressed pills to choose what to list, the galaxy in its rarity's colour, and the
+     lineage in the revert dialog (each galaxy's fate in words; a blocked deal says so in Nova). */
+  .deal-kinds { display: flex; gap: 6px; align-self: center; }
+  .deal-kinds .pill[aria-pressed="true"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--color-solar); }
+  .deal-galaxy { font-weight: 600; }
+  .deal-galaxy.tier-common { color: var(--color-tier-common); }
+  .deal-galaxy.tier-uncommon { color: var(--color-tier-uncommon); }
+  .deal-galaxy.tier-rare { color: var(--color-tier-rare); }
+  .deal-galaxy.tier-epic { color: var(--color-tier-epic); }
+  .deal-galaxy.tier-legendary { color: var(--color-tier-legendary); }
+  .deal-lineage { display: grid; gap: 8px; padding: 12px 14px; border-radius: 12px; background: rgb(255 255 255 / .04); }
+  .deal-lineage-title { margin: 0; font-weight: 700; color: var(--color-ink-soft); font-size: 14px; }
+  .deal-lineage ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+  .deal-lineage li.ok { color: var(--color-terminal); }
+  .deal-lineage li.no { color: var(--color-ink); }
+  .deal-lineage .panel-note { margin: 0; }
+  .deal-blocked { margin: 0; font-weight: 700; color: var(--color-nova); }
+  .deal-short { margin: 0; font-weight: 700; color: var(--color-solar); }
+  .deal-reversal { display: block; margin-top: 4px; font-size: 12.5px; color: var(--color-ink-soft); }
+  .deal-reversal.short { color: var(--color-solar); }
 }

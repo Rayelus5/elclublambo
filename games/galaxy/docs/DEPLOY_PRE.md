@@ -382,6 +382,25 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - con `rayelus`, en Clanes, buscas un clan de prueba y lo renombras; aparece `clan.edit` en Auditoría;
    - sin violaciones de CSP.
 
+22. **Desde M6c-2 (moderación del comercio):** una migración, `*_galaxy_market_moderation`:
+   - `deal_reversals`: una reversión como mucho por venta o por trueque. La venta sigue «vendida» y el trueque «cerrado», porque la historia no se reescribe;
+   - `trade_alerts` gana la revisión de cada alerta: cuándo, quién y por qué.
+
+   Llegan además, solo para admins, dos apartados de Moderación:
+   - **Comercio:**
+     - el historial de anuncios o de trueques, filtrado por cuenta y estado (los filtros van en la dirección);
+     - **«Retirar»** un anuncio activo y **«Anular»** un trueque abierto, con motivo;
+     - **«Revertir»** una venta o un trueque cerrado. Antes enseña a dónde vuelve cada galaxia, o por qué no puede: la revendieron o la cambiaron, se fusionó o ya no existe. En ese caso el botón queda apagado y la corrección se hace a mano desde la ficha de cada jugador. Revertir pide la contraseña;
+     - **revertir una venta** devuelve la galaxia (soltándola de donde la tuviera el comprador), todo el precio al comprador y lo cobrado por el vendedor hasta donde le lleguen las monedas. Lo que falte queda apuntado; ningún saldo baja de 0;
+   - **Alertas:** las de comercio sospechoso (IP compartida, venta o trueque desequilibrados), pendientes y revisadas. Cada una enlaza a su trato en Comercio y se marca revisada con un motivo;
+   - **todo queda en la auditoría:** `market.cancel`, `trade.cancel`, `market.revert`, `trade.revert` y `alert.review`; los movimientos de monedas, con el motivo `market_revert`.
+
+   Comprueba con `rayelus`:
+   - dos cuentas `e2e_pre_…` con nivel de comercio hacen un trueque; en Comercio, «Revertir» dice a dónde vuelve cada galaxia y, con tu contraseña, el trueque sale como «Revertido» y cada galaxia vuelve a su dueño;
+   - una de ellas anuncia una galaxia y tú la retiras desde Comercio;
+   - en Alertas, si aparece alguna, la marcas revisada con un motivo;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
