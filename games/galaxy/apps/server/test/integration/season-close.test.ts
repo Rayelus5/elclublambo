@@ -1,6 +1,8 @@
 import { randomBytes, randomUUID } from 'node:crypto';
 import { type HallOfFame, PROBE_TEST, type SeasonHistory, type SeasonView, type Wallet } from '@galaxy/shared';
 import { afterAll, beforeAll, expect, test } from 'vitest';
+import { closeDue } from '../../src/season/close';
+import { seasonConfigs } from '../../src/season/service';
 import { fixedConfig, get, post, sessionCookie, testApp, uniqueName } from '../helpers';
 
 // Closing a season (GDD §13.1; M7d-2): once it has ended, the first read archives it; each place keeps its tier's reward
@@ -51,4 +53,17 @@ test('al cerrar, cada puesto guarda su premio por tramo y el podio el suyo; se r
   expect(mine.podium.map((p) => [p.rank, p.username])).toEqual([[1, first.username], [2, second.username], [3, third.username]]);
   const history = (await get(ctx.app, `/galaxy/api/profiles/${second.username}/seasons`, { cookie: fourth.cookie })).json() as SeasonHistory;
   expect(history.seasons).toEqual([{ season: id, name: 'Temporada de prueba', endsAt: season.endsAt, rank: 2, score: 3000, tier: 'silver', podium: true }]);
+});
+
+test('si un admin abre otra temporada antes de tiempo, la que sustituye se archiva igual con lo que llevaba (M7d-3)', async () => {
+  const future = Date.UTC(2099, 0, 1) + Math.floor(Math.random() * 300 * 86_400_000);
+  // A window in the future: no run reaches it, only the points given here rank.
+  const replaced = { ...season, id: `f-${randomBytes(4).toString('hex')}`, startsAt: new Date(future).toISOString(), endsAt: new Date(future + 86_400_000).toISOString() };
+  const c = await seasonConfigs(fixedConfig({ season: replaced }));
+  const p = await player(1);
+  await ctx.db.insertInto('galaxy.season_adjustments').values({ account_id: p.accountId, season: replaced.id, points: 2500 }).execute();
+  await closeDue(ctx.db, c, new Date());
+  expect(await ctx.db.selectFrom('galaxy.season_archive').select('season').where('season', '=', replaced.id).executeTakeFirst()).toBeUndefined();
+  await closeDue(ctx.db, c, new Date(), { force: true });
+  expect(await ctx.db.selectFrom('galaxy.season_results').select(['rank', 'score', 'tier']).where('season', '=', replaced.id).execute()).toEqual([{ rank: 1, score: 2500, tier: 'silver' }]);
 });

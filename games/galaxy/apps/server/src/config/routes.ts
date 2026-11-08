@@ -9,6 +9,8 @@ import type { Env } from '../env';
 import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
+import { closeDue } from '../season/close';
+import { seasonConfigs } from '../season/service';
 import type { ConfigService } from './service';
 
 const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200), baseVersion: z.number().int().min(0).optional() });
@@ -69,7 +71,10 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
     const { data, reason, password, baseVersion } = publishBody.parse(req.body);
     await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
     await confirmPassword(deps.db, admin, password);
+    // Opening another season (M7d-3): the one it replaces is archived with its final ranking, ended or not.
+    const before = key === 'season' ? await seasonConfigs(deps.config) : null;
     const { version } = await deps.config.publish(key, data, { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) }, reason, { baseVersion });
+    if (before && (await deps.config.get('season')).id !== before.season.id) await closeDue(deps.db, before, new Date(), { force: true });
     return reply.code(201).send({ version });
   });
 }

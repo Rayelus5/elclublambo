@@ -48,6 +48,8 @@ export interface StartContext {
   lab: LabConfig;
   planetarium: PlanetariumConfig;
   contentVersion: number;
+  /** The season's anomaly now (M7d-3), already checked against the content; null, none. */
+  anomaly: string | null;
   now: Date;
 }
 
@@ -82,7 +84,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sector: req.sector,
       probe: req.probe,
       relics: JSON.stringify(relics),
-      upgrades: JSON.stringify({ bonuses, variant, payout: lab.payout }),
+      upgrades: JSON.stringify({ bonuses, variant, payout: lab.payout, anomaly: ctx.anomaly }),
       content_version: ctx.contentVersion,
       sim_version: req.simVersion,
       start_key: key,
@@ -98,6 +100,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
     relics,
     bonuses,
     variant,
+    anomaly: ctx.anomaly,
     content: ctx.content,
     contentVersion: ctx.contentVersion,
     startedAt: new Date(row.started_at).toISOString(),

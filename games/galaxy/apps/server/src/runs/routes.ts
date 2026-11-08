@@ -14,6 +14,7 @@ import {
   type ProbeTestResult,
   type RunResult,
   type RunStart,
+  activeAnomaly,
   seasonCurrency,
   shardsFor,
 } from '@galaxy/shared';
@@ -118,16 +119,22 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const lab = await deps.config.get('lab');
     const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
+    const anomaly = activeAnomaly(await deps.config.get('season'), content, now)?.id ?? null;
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly }),
     );
   });
 
   // The global multipliers running now (GDD §16.3; M6d-5), for the hub and the hangar.
   api.get('/galaxy/api/boosts', async (req): Promise<BoostsView> => {
     requireSession(req);
-    const cfg = await deps.config.get('boosts');
-    return { boosts: activeBoosts(cfg, deps.now()).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor, endsAt: b.endsAt })) };
+    const [cfg, season, content] = await Promise.all([deps.config.get('boosts'), deps.config.get('season'), deps.config.get('content')]);
+    const now = deps.now();
+    const a = activeAnomaly(season, content, now);
+    return {
+      boosts: activeBoosts(cfg, now).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor, endsAt: b.endsAt })),
+      anomaly: a ? { id: a.id, name: a.name, description: a.description } : null,
+    };
   });
 
   api.post('/galaxy/api/runs/:id/finish', { bodyLimit: FINISH_BODY_LIMIT }, async (req): Promise<RunResult> => {

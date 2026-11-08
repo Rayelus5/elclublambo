@@ -168,6 +168,8 @@ export interface RunStart {
    */
   bonuses: StatBonus[];
   variant: string | null;
+  /** The season's anomaly at the start (M7d-3), or null. */
+  anomaly: string | null;
   content: Content;
   contentVersion: number;
   startedAt: string;

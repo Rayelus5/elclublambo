@@ -493,6 +493,8 @@ export const configSchemas = {
       top: z.number().int().min(3).max(500).default(100),
       /** A run never adds more points than this per minute it lasted. */
       capPerMinute: z.number().int().min(1).max(100_000).default(20),
+      /** The season's anomaly (M7d-3): an id of `content.anomalies` that changes every run while the season is open; null, none. */
+      anomaly: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('contagion'),
     })
     .strict()
     .refine((s) => Date.parse(s.startsAt) < Date.parse(s.endsAt), 'season_dates'),

@@ -1796,6 +1796,9 @@
   .boost-chip .ico { color: var(--color-terminal); }
   .boost-chip.coins .ico { color: var(--color-solar); }
   .boost-chip.dust .ico { color: var(--color-ice); }
+  /* The season's anomaly (M7d-3): the Static's violet, apart from the multipliers' green. */
+  .boost-chip.anomaly { background: color-mix(in srgb, var(--color-uv) 18%, var(--color-panel)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-uv-soft) 55%, transparent); max-inline-size: 640px; }
+  .boost-chip.anomaly .ico { color: var(--color-uv-soft); }
   .title-notices { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; inline-size: min(560px, 100%); }
   .title-notice { margin: 0; }
   .title-notice.info { background: color-mix(in srgb, var(--color-ice) 12%, transparent); border-color: color-mix(in srgb, var(--color-ice) 40%, transparent); color: #d6e6ff; }

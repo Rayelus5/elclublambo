@@ -583,6 +583,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - `GET /galaxy/api/season` y `GET /galaxy/api/hall-of-fame` responden 401 sin sesión y su vista con sesión;
    - `/temporada` y `/trofeos` (desde la sala Trofeos) cargan sin violaciones de CSP.
 
+33. **Desde M7d-3 (anomalía de temporada):** sin migraciones. La simulación pasa a **SIM_VERSION 1.6.0**: un cliente con la web vieja en caché tiene que recargar.
+   - **Anomalías:** el contenido trae cuatro en `content.anomalies`: Corrosión contagiosa, Enjambre, Estática férrea y Marea veloz. Multiplican la vida, el daño, la velocidad, la aparición y las élites de los enemigos, y los datos que sueltan. La primera hace además que un enemigo corroído que cae corroa a los que tiene cerca.
+   - **La temporada elige una:** `season.anomaly`, por defecto `contagion`; `null` para ninguna. Mientras la temporada está abierta, cada incursión empieza con ella y la guarda en `upgrades.anomaly`, así que la repetición del panel la juega igual.
+   - **Inicio y hangar:** la enseñan en un chip junto a los multiplicadores (`GET /galaxy/api/boosts` trae `anomaly`).
+   - **Abrir otra temporada desde el panel:** al publicar `season` con otro `id`, la temporada que sustituye se archiva sola con su clasificación final, haya terminado o no.
+
+   Comprueba con una cuenta de prueba que el inicio enseñe el chip de la anomalía y que una incursión arranque sin errores.
+
 ## Operación
 
 | Tarea | Cómo |

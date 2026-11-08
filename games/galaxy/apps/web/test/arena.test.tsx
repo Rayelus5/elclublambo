@@ -30,6 +30,7 @@ const run: RunStart = {
   relics: [],
   bonuses: [],
   variant: null,
+  anomaly: null,
   content: DEFAULT_CONTENT,
   contentVersion: 0,
   startedAt: '2026-11-07T10:00:00.000Z',

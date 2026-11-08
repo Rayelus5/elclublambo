@@ -31,6 +31,12 @@ export function seasonTier(score: number, cfg: SeasonConfig): SeasonTier | null 
   return tier;
 }
 
+/** The season's anomaly changing every run now (M7d-3): only while the season is open and if the content has it. */
+export function activeAnomaly(cfg: SeasonConfig, content: { anomalies: { id: string; name: string; description: string }[] }, now: Date) {
+  if (!cfg.anomaly || !seasonOpen(cfg, now)) return null;
+  return content.anomalies.find((a) => a.id === cfg.anomaly) ?? null;
+}
+
 /** Open from its start (included) to its end (excluded). */
 export function seasonOpen(cfg: SeasonConfig, now: Date): boolean {
   const t = now.getTime();

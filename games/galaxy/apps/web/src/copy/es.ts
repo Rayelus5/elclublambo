@@ -1477,6 +1477,7 @@ export const copy = {
     chip: (name: string, currency: string, factor: number, until: string) => `${name}, ${currency} x${factor} hasta el ${until}`,
     paid: (name: string, currency: string, factor: number) => `${name}: ${currency} x${factor}`,
     resultsTitle: 'Multiplicadores',
+    anomaly: (name: string, description: string) => `Anomalía de temporada: ${name}. ${description}`,
   },
   results: {
     extracted: 'Extracción completada',

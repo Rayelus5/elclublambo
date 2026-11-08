@@ -65,6 +65,7 @@ test('GET /boosts da los que corren ahora', async () => {
   const cookie = await player();
   const res = await get(ctx.app, '/galaxy/api/boosts', { cookie });
   expect(res.statusCode).toBe(200);
-  expect(res.json()).toEqual({ boosts: [{ id: 'polvo', name: 'Doble polvo', currency: 'dust', factor: 2, endsAt: BOOSTS.list[0]!.endsAt }] });
+  // The season's anomaly rides along (M7d-3, its own test).
+  expect((res.json() as { boosts: unknown }).boosts).toEqual([{ id: 'polvo', name: 'Doble polvo', currency: 'dust', factor: 2, endsAt: BOOSTS.list[0]!.endsAt }]);
   expect((await get(ctx.app, '/galaxy/api/boosts')).statusCode).toBe(401);
 });

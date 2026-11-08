@@ -12,6 +12,7 @@ export function replayOptionsOf(start: AdminRunReplay['start']): SimOptions {
     content: start.content,
     sector: start.sector,
     probes: [{ probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant }],
+    anomaly: start.anomaly ?? null,
     record: false,
   };
 }
