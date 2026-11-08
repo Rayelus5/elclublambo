@@ -266,6 +266,7 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - `galaxy.market_listings`: una galaxia en venta, en depósito mientras está activa, y una sola venta activa por galaxia. Los anuncios no se borran: quedan vendidos, retirados o caducados;
    - el trigger `market_min_price`: ningún precio baja del mínimo de su rareza. Lo lee de la clave viva `market` o, si no se ha publicado, de los valores del GDD;
    - `galaxy.trade_alerts`: los avisos para el admin, que enseñará el panel de M6.
+   - y la migración `20261108033607_galaxy_account_ips` crea `galaxy.account_ips`: las IPs desde las que entra cada cuenta, que no se borran al salir. Se rellena con las sesiones vivas, y los avisos de IP compartida la leen.
 
    Llegan además:
    - la clave viva `market`:
