@@ -89,7 +89,7 @@ test('un admin revierte un trueque viendo a dónde vuelve cada galaxia y retira 
   // The admin finds it in Comercio and reverts it.
   await page.goto(`/galaxy/admin/moderacion/comercio?tipo=trueques&cuenta=${a.username}`);
   const trades = page.getByRole('table', { name: 'Trueques' });
-  await expect(trades.getByText('Cerrado')).toBeVisible();
+  await expect(trades.getByText('Cerrado', { exact: true })).toBeVisible();
   await trades.getByRole('button', { name: `Revertir el trueque de ${a.username} y ${b.username}` }).click();
   const dialog = page.getByRole('dialog', { name: `Revertir el trueque de ${a.username} y ${b.username}` });
   await expect(dialog.getByText(`vuelve de ${b.username} a ${a.username}`, { exact: false })).toBeVisible();
@@ -98,21 +98,21 @@ test('un admin revierte un trueque viendo a dónde vuelve cada galaxia y retira 
   await dialog.getByLabel('Tu contraseña').fill(creds.password);
   await dialog.getByRole('button', { name: 'Revertir' }).click();
   await expect(page.getByRole('status')).toHaveText('Hecho. Queda en la auditoría');
-  await expect(trades.getByText('Revertido')).toBeVisible();
+  await expect(trades.getByText('Revertido', { exact: true })).toBeVisible();
 
   // A's galaxy is A's again: listed, then withdrawn by the admin.
   const listed = await a.page.request.post('/galaxy/api/market/listings', { data: { galaxyId: ga, price: 500 }, headers: { origin, 'idempotency-key': randomUUID() } });
   expect(listed.status()).toBe(200);
   await page.getByRole('button', { name: 'Anuncios' }).click();
   const listings = page.getByRole('table', { name: 'Anuncios del mercado' });
-  await expect(listings.getByText('Activo')).toBeVisible();
+  await expect(listings.getByText('Activo', { exact: true })).toBeVisible();
   await listings.getByRole('button', { name: /^Retirar el anuncio de / }).click();
   const withdraw = page.getByRole('dialog', { name: /^Retirar el anuncio de / });
   await expect(withdraw.getByLabel('Tu contraseña')).toHaveCount(0);
   await withdraw.getByLabel('Motivo').fill('Anuncio de prueba retirado');
   await withdraw.getByRole('button', { name: 'Retirar' }).click();
   await expect(page.getByRole('status')).toHaveText('Hecho. Queda en la auditoría');
-  await expect(listings.getByText('Cancelado')).toBeVisible();
+  await expect(listings.getByText('Cancelado', { exact: true })).toBeVisible();
 
   expect(csp).toEqual([]);
   await Promise.all([a.page.context().close(), b.page.context().close()]);
