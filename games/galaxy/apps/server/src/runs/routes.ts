@@ -120,8 +120,9 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
     const anomaly = activeAnomaly(await deps.config.get('season'), content, now)?.id ?? null;
+    const redshift = await deps.config.get('redshift');
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift }),
     );
   });
 

@@ -614,6 +614,17 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
        { "id": "clan-runs", "name": "Entre todo el clan, 50 incursiones", "stat": "runs", "target": 50, "scope": "clan", "reward": { "signal": 3 } } ] }] }
    ```
 
+35. **Desde M7e-2 (prestigio «Corrimiento al rojo»):** la migración `20261108211407_galaxy_redshift.sql` crea `galaxy.redshift` (el rango de cada cuenta). Clave nueva, **`redshift`**:
+   - **Requisitos:** nivel de cuenta 25 y niveles de Laboratorio comprados en total: 10, 15, 20, 25 y 30 para cada rango.
+   - **Rangos:** como mucho 5.
+   - **Bonus:** cada rango suma +3 % de experiencia y +2 % de suerte en cada incursión (dentro de los topes).
+   - **Títulos:** uno por rango, «Corrimiento I» a «Corrimiento V».
+   - **Qué reinicia:** los nodos del Laboratorio y su sala, que hay que reparar otra vez. Nunca la colección, ni las monedas, el polvo, las sondas o el resto de la estación.
+
+   **Dónde:** al pie de **`/galaxy/laboratorio`**, a partir del nivel en que se abre. Pide confirmación diciendo qué vuelve a cero.
+
+   Comprueba que `GET /galaxy/api/redshift` responde 401 sin sesión y su vista con sesión.
+
 ## Operación
 
 | Tarea | Cómo |

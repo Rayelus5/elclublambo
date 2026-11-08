@@ -6,6 +6,7 @@ import { TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
+import { redshiftSchema } from '../progress/redshift';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -560,6 +561,8 @@ export const configSchemas = {
    * currency (its name, what a run pays per point and the dust each one left is worth at the close) and what it buys.
    */
   seasonRoute: seasonRouteSchema,
+  /** The optional prestige «Corrimiento al rojo» (GDD §12.5; M7e-2): from what level, how many ranks, what each asks and gives. */
+  redshift: redshiftSchema,
   /**
    * Events (GDD §13.2; M7e-1): goals for a limited time, personal or of the clan, with their rewards (also the event's
    * own signals for its event scanner, in `gacha.banners` with currency `signal:<event id>`). Programmed from the panel.

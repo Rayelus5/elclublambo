@@ -282,6 +282,13 @@ export interface ClanEventProgressTable {
   updated_at: Timestamp;
 }
 
+/** M7e-2: an account's rank in the prestige «Corrimiento al rojo». */
+export interface RedshiftTable {
+  account_id: string;
+  rank: number;
+  updated_at: Timestamp;
+}
+
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
@@ -622,6 +629,7 @@ export interface DB {
   'galaxy.season_purchases': SeasonPurchasesTable;
   'galaxy.season_archive': SeasonArchiveTable;
   'galaxy.clan_event_progress': ClanEventProgressTable;
+  'galaxy.redshift': RedshiftTable;
   'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;

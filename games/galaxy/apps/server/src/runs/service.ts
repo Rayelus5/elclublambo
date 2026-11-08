@@ -22,6 +22,8 @@ import {
   startingWeapon,
   activeBoosts,
   boostFactor,
+  type RedshiftConfig,
+  redshiftBonuses,
   type BoostCurrency,
   type BoostsConfig,
 } from '@galaxy/shared';
@@ -34,6 +36,7 @@ import { HttpError } from '../errors';
 import { ensureHangar, relicSnapshot, sectorStats, testedProbe } from './hangar';
 import { probeLevels } from './levels';
 import { accountLabEffects } from '../lab/levels';
+import { redshiftRank } from '../lab/redshift';
 import { planetariumXp } from '../planetarium/service';
 import { creditRunProgress } from '../social/progress';
 
@@ -50,6 +53,8 @@ export interface StartContext {
   contentVersion: number;
   /** The season's anomaly now (M7d-3), already checked against the content; null, none. */
   anomaly: string | null;
+  /** The prestige's config (M7e-2): each rank adds its bonus to the run. */
+  redshift: RedshiftConfig;
   now: Date;
 }
 
@@ -72,7 +77,9 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   const lab = await accountLabEffects(trx, accountId, ctx.lab);
   // The planetarium (M4c-2): the experience bonus of what is on display now; changing it later leaves this run alone.
   const xp = await planetariumXp(trx, accountId, ctx.planetarium);
-  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : [])];
+  // The prestige (M7e-2): its rank's small bonus, like the Laboratorio's.
+  const prestige = redshiftBonuses(await redshiftRank(trx, accountId), ctx.redshift);
+  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : []), ...prestige];
   const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
   const variant = weapon === probeDef.weapon ? null : weapon;
   const seed = randomBytes(8).readBigUInt64BE().toString();
