@@ -15,6 +15,8 @@ import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
 import { CommunicationScreen } from './admin/CommunicationScreen';
 import { StatsScreen } from './admin/StatsScreen';
+import { RunsScreen } from './admin/RunsScreen';
+import { ReplayScreen } from './admin/ReplayScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { ClanList, ClanPage } from './admin/ModClans';
 import { Alerts, Commerce } from './admin/ModMarket';
@@ -94,6 +96,8 @@ export function App() {
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
+            <Route path="partidas" element={<RunsScreen />} />
+            <Route path="partidas/:id" element={<ReplayScreen />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />

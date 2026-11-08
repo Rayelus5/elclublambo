@@ -65,5 +65,5 @@ export { bossAway, bossDef, spawnBoss, updateBoss } from './systems/boss';
 export { updateBlasts } from './systems/blasts';
 export { nextLayer, onBossDown, updateLayer } from './systems/layers';
 export { hudSnapshot, type HudSnapshot } from './snapshot';
-export { decodeLog, encodeLog, fromBase64, logTicks, replay, toBase64 } from './recording';
+export { createReplayer, decodeLog, encodeLog, fromBase64, logTicks, replay, type Replayer, toBase64 } from './recording';
 export { botInput, botPick } from './bot';
