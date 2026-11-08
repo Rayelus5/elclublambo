@@ -11,7 +11,9 @@ import { VisitScreen } from './planetarium/VisitScreen';
 import { LeaderboardScreen } from './social/LeaderboardScreen';
 import { MarketScreen } from './market/MarketScreen';
 import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
+import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
+import { CommunicationScreen } from './admin/CommunicationScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { ClanList, ClanPage } from './admin/ModClans';
 import { Alerts, Commerce } from './admin/ModMarket';
@@ -89,6 +91,7 @@ export function App() {
             <Route path="auditoria" element={<AuditScreen />} />
             <Route path="configuracion" element={<ConfigScreen />} />
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
+            <Route path="comunicacion" element={<CommunicationScreen />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />
@@ -114,6 +117,7 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ChatHost />
+      <TrailTracker />
     </>
   );
 }

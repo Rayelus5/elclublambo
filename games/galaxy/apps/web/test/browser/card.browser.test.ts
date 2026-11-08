@@ -87,3 +87,21 @@ test('las cartas componen su galaxia, llevan el color de su rareza y el reverso 
     await page.screenshot({ path: '__shots__/cards-active.png', element: host });
   }
 });
+
+test('en la fila del detalle la carta y su reverso guardan su 5:7 aunque la fila sea más alta', { timeout: 60_000 }, async () => {
+  await page.viewport(1280, 1000);
+  const host = document.createElement('div');
+  host.className = 'detail-cards';
+  host.style.height = '900px';
+  document.body.append(host);
+  const g = galaxy(0, 'normal', 'common');
+  flushSync(() => createRoot(host).render([createElement(GalaxyCard, { key: 'f', galaxy: g, size: 250, interactive: true }), createElement(CardBack, { key: 'b', galaxy: g, size: 250 })]));
+  const cards = host.querySelectorAll<HTMLElement>('.gcard');
+  expect(cards).toHaveLength(2);
+  for (const card of cards) {
+    const box = card.getBoundingClientRect();
+    expect(box.width).toBeCloseTo(250, 0);
+    expect(box.height).toBeCloseTo(350, 0);
+  }
+  host.remove();
+});

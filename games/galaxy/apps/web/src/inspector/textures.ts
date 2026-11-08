@@ -235,3 +235,35 @@ export function drawStarfield(seed: string): HTMLCanvasElement {
   }
   return c;
 }
+
+/**
+ * The galaxy for the inspector's window, faded to nothing before the edges of its square (a radial fall-off from 62 % to
+ * 98 % of its half-size), so tilting never shows a square behind the frame (M6d-1, the owner's request).
+ */
+export function featherGalaxy(src: HTMLCanvasElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext('2d')!;
+  ctx.drawImage(src, 0, 0);
+  const r = c.width / 2;
+  const fade = ctx.createRadialGradient(r, c.height / 2, r * 0.62, r, c.height / 2, r * 0.98);
+  fade.addColorStop(0, 'rgba(0,0,0,1)');
+  fade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = fade;
+  ctx.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+/** A blurred, faded copy of the galaxy: its glow, a layer nearer the glass than the galaxy itself, for depth. */
+export function glowGalaxy(src: HTMLCanvasElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext('2d')!;
+  ctx.filter = `blur(${Math.round(src.width / 40)}px)`;
+  ctx.drawImage(src, 0, 0);
+  ctx.filter = 'none';
+  return featherGalaxy(c);
+}

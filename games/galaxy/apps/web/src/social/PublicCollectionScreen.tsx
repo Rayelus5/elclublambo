@@ -1,12 +1,13 @@
 import { type Tier, TIERS } from '@galaxy/shared';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { usePublicCollection } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
+import { BackLink } from '../ui/BackLink';
 
 // A player's collection as anyone may see it (GDD §14.2; DESIGN_SYSTEM §8 undecies): their cards by rarity, without
 // any action, filtered by rarity and paged like one's own.
@@ -25,10 +26,10 @@ export function PublicCollectionScreen() {
     <div className="screen-root collection-root">
       <div className="collection">
         <header className="collection-bar">
-          <Link to={`/perfil/${encodeURIComponent(username)}`} className="lip pill">
+          <BackLink fallback={`/perfil/${encodeURIComponent(username)}`}>
             <Icon name="back" />
             <span>{t.backToProfile}</span>
-          </Link>
+          </BackLink>
           <h1>{title}</h1>
         </header>
         {missing ? (

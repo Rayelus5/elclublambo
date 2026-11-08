@@ -1,4 +1,5 @@
 import type { MeResponse } from '@galaxy/shared';
+import { TitleNotices } from './TitleNotices';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
@@ -46,6 +47,7 @@ export function TitleScreen({ me }: { me: MeResponse }) {
         />
         <main className="hub-main">
           <MaintenanceNotice />
+          <TitleNotices />
           <Logo />
           <MainMenu galaxies={total} />
         </main>

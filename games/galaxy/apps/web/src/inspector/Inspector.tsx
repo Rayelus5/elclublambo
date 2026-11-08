@@ -9,10 +9,10 @@ import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import type { InspectorScene } from './inspector-scene';
-import { drawBack, drawFront, drawMask, drawStarfield } from './textures';
+import { drawBack, drawFront, drawMask, drawStarfield, featherGalaxy, glowGalaxy } from './textures';
 
 // The 3D inspector (GDD §8.1): the card up close in three.js — layers in depth, parallax with the pointer, the
-// finish's own light and a turn to see the back. three.js is imported only here, when it opens (its own chunk), and
+// finish's own light and a turn to see the back, with the button or by dragging the card sideways (M6d-1). three.js is imported only here, when it opens (its own chunk), and
 // closing gives the WebGL context back. Without WebGL2 (or if anything fails) the flat card shows, front and back.
 type Mode = 'loading' | 'ready' | 'flat';
 
@@ -50,15 +50,21 @@ export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?
         if (controller.signal.aborted) return;
         const image = document.createElement('canvas');
         if (!composeInto(image, front, 1024)) throw new Error('compose');
-        scene.current = module.createInspectorScene(el, {
-          front: drawFront(galaxy),
-          back: drawBack(galaxy, braille.text),
-          galaxy: image,
-          starfield: drawStarfield(galaxy.seed),
-          mask: drawMask(),
-          finish: galaxy.finish,
-          reduced,
-        });
+        scene.current = module.createInspectorScene(
+          el,
+          {
+            front: drawFront(galaxy),
+            back: drawBack(galaxy, braille.text),
+            galaxy: featherGalaxy(image),
+            glow: glowGalaxy(image),
+            starfield: drawStarfield(galaxy.seed),
+            mask: drawMask(),
+            finish: galaxy.finish,
+            reduced,
+          },
+          // A drag that leaves the other face showing turns the button with it.
+          { onFace: (face) => setBack(face === 'back') },
+        );
         setMode('ready');
       } catch {
         if (!controller.signal.aborted) setMode('flat');

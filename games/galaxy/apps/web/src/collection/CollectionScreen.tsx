@@ -1,6 +1,6 @@
 import type { GalaxySummary, PulledGalaxy, Tier } from '@galaxy/shared';
 import { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 import { useCollectionPages, useFuse, useGacha } from '../api/economy';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
@@ -10,6 +10,7 @@ import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
 import { FuseBar } from './FuseBar';
 import { GalaxyDetailDialog } from './GalaxyDetailDialog';
+import { BackLink } from '../ui/BackLink';
 
 // The collection (GDD §8.5): every galaxy the player owns as cards, 30 at a time, filtered and ordered from the URL.
 // A card opens its detail (/coleccion/:id). «Fusionar» turns the cards into toggles to choose `fusion.count` of one
@@ -25,7 +26,9 @@ export function CollectionScreen() {
   const gacha = useGacha();
   const pages = useCollectionPages({ ...filters, limit: PAGE });
   const fuse = useFuse();
-  const [fusing, setFusing] = useState(false);
+  const location = useLocation();
+  // Arriving from the station's Colisionador, the collection opens ready to fuse (M6d-1).
+  const [fusing, setFusing] = useState(() => !!(location.state as { fuse?: boolean } | null)?.fuse);
   const [selected, setSelected] = useState<GalaxySummary[]>([]);
   const [revealed, setRevealed] = useState<PulledGalaxy[] | null>(null);
   const [message, setMessage] = useState('');
@@ -59,10 +62,10 @@ export function CollectionScreen() {
     <div className="screen-root collection-root">
       <div className="collection">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{copy.collection.back}</span>
-          </Link>
+          </BackLink>
           <h1>{copy.collection.title}</h1>
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />

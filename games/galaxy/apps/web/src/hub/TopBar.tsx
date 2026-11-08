@@ -2,11 +2,11 @@ import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isAdmin, isStaff } from '../auth/useMe';
+import { MailButton } from '../mail/Mailbox';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
 import { Avatar } from './Avatar';
-import { Soon } from './Soon';
 import { WalletBar } from './WalletBar';
 
 const delay = (d: string) => ({ '--d': d }) as CSSProperties;
@@ -74,17 +74,7 @@ export function TopBar({
             <Icon name="shield" />
           </Link>
         ) : null}
-        <button
-          type="button"
-          className="lip iconbtn locked enter"
-          style={delay('1.05s')}
-          disabled
-          aria-label={`${copy.hub.mailbox}, ${copy.hub.soon.toLowerCase()}`}
-          title={`${copy.hub.mailbox}, ${copy.hub.soon.toLowerCase()}`}
-        >
-          <Icon name="mail" />
-          <Soon />
-        </button>
+        <MailButton style={delay('1.05s')} />
         <button
           type="button"
           className="lip iconbtn enter"

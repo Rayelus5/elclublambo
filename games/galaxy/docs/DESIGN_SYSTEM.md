@@ -644,8 +644,9 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 **La barra lateral:**
 - Jugadores y Auditoría;
 - Configuración (desde M6b);
+- Comunicación (desde M6d-1);
 - Moderación (desde M6c-1);
-- Comunicación y Estadísticas, en gris con «Próximamente» hasta M6d;
+- Estadísticas, en gris con «Próximamente» hasta M6d-2;
 - la sección activa, con una barra Solar a la izquierda.
 
 **Jugadores:**
@@ -757,6 +758,43 @@ Las acciones en bloque sobre alertas quedan fuera, porque en la beta habrá poca
 **Alertas:**
 - Pendientes o Revisadas, con dos pastillas;
 - **la tabla:** fecha, tipo (IP compartida o Desequilibrado), las dos cuentas, el detalle en palabras (la IP, el precio frente al mínimo o la diferencia de rarezas), «Ver en Comercio» y «Marcar revisada». Las revisadas dicen quién y por qué.
+
+## 8 vicies. Buzón y avisos
+
+El buzón de la barra de arriba, los avisos de la pantalla de título y `/admin/comunicacion` (GDD §4 y §16.5, M6d-1).
+
+Consulta de ui-ux-pro-max: se aplicaron tres guías:
+- **Un contador se dice en una sola etiqueta:** el botón se llama «Buzón, 2 sin leer», y la insignia es solo visual, sin una región en vivo que compita;
+- **Cada acción se ve hecha:** «Recoger» pasa a «Recogido» con su marca Terminal, y el monedero de arriba suma al momento;
+- **Un aviso se puede cerrar,** con su propio botón «Cerrar aviso».
+
+**El botón del buzón:**
+- el icono de carta;
+- con mensajes sin leer, una insignia Solar de 22 px en su esquina con el número (9+ desde 10).
+
+**El buzón** es un diálogo de 880 px como mucho:
+- **a la izquierda, la lista:** cada mensaje con su título, su fecha y, en palabras, «Nuevo» (Solar, con una barra Solar a su izquierda) y «Con regalo» (Terminal);
+- **a la derecha, la carta abierta:** el título en Bungee, la fecha y cuándo caduca, y el texto tal cual se escribió;
+- **un regalo es un recuadro con un brillo Solar:**
+  - el paquete pintado en Aseprite: 32×32 a ×3, una caja Hielo con cinta y lazo Solar, un destello que baja por la cinta y una chispa que parpadea; quieto con movimiento reducido;
+  - lo que da, en pastillas con el icono y el color de cada moneda (monedas en Solar, polvo en Hielo, señales en Nova);
+  - «Recoger»;
+  - una vez recogido, el paquete se apaga y dice «Recogido»;
+- vacío: «Tu buzón está vacío. Aquí llegan las noticias y los regalos del equipo»;
+- con menos de 760 px de ancho, la carta baja bajo la lista.
+
+**Los avisos de la pantalla de título:** sobre el logo, una línea cada uno, como el aviso de mantenimiento:
+- los importantes en Solar con el icono de alerta;
+- los informativos en Hielo con un cometa;
+- cada uno con su botón de cerrar.
+
+**Comunicación (panel):**
+- **«Enviar un mensaje»:** título, mensaje, Para (todas, una lista de cuentas, o por nivel y fecha de alta), «Llega a N cuentas» en Hielo, los regalos en su recuadro, la caducidad y el motivo;
+  - con regalo, la contraseña y el botón en Nova;
+  - el botón dice a cuántas cuentas envía: «Enviar a 2 cuentas»;
+- **la tabla de enviados:** para quién, regalos, llega a, leído, recogido, estado y «Retirar»;
+- **«Publicar un aviso»:** texto, tono, empieza y termina;
+- **la tabla de avisos:** «En curso» (Terminal), «Programado» (Hielo) o «Terminado», y «Terminar».
 
 ## 9. Copy
 

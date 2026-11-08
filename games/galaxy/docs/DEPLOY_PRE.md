@@ -401,6 +401,30 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - en Alertas, si aparece alguna, la marcas revisada con un motivo;
    - sin violaciones de CSP.
 
+23. **Desde M6d-1 (comunicación):** una migración, `*_galaxy_mailbox`:
+   - `mailbox_messages`: título, texto, regalos, audiencia y caducidad. Se retiran, nunca se editan ni se borran;
+   - `mailbox_receipts`: leído y recogido, uno por mensaje y cuenta;
+   - `title_notices`: los avisos de la pantalla de título, con su tono y sus fechas.
+
+   Llegan además:
+   - **El buzón** de la barra de arriba deja de estar «En desarrollo»:
+     - su nombre dice cuántos hay sin leer y una insignia Solar los cuenta;
+     - abre una bandeja con los mensajes y la carta abierta;
+     - un regalo se recoge una vez y suma al monedero (asientos `mail_gift`);
+   - **Los avisos** en curso salen sobre el logo de la pantalla de título, como mucho 3, y cada jugador los cierra en su navegador;
+   - **`/galaxy/admin/comunicacion`** (solo admins):
+     - enviar un mensaje a todas las cuentas, a una lista de nombres o a un segmento por nivel y fecha de alta, viendo a cuántas cuentas llega antes de enviarlo;
+     - **los regalos** (monedas, polvo y señales) piden tu contraseña;
+     - un mensaje solo llega a las cuentas que ya existían al enviarse;
+     - la lista de enviados dice a cuántas llega, cuántas lo leyeron y cuántas recogieron, y se retira con motivo;
+     - los avisos se publican con sus fechas y se terminan antes con motivo;
+     - todo queda en la auditoría: `mail.send`, `mail.withdraw`, `notice.create` y `notice.end`.
+
+   Comprueba con `rayelus`:
+   - envías a una cuenta `e2e_pre_…` (por su nombre) un mensaje con 100 monedas; en esa cuenta el buzón dice «1 sin leer», la carta se abre y «Recoger» suma las 100 monedas;
+   - publicas un aviso de prueba de una hora, lo ves en la pantalla de título de esa cuenta y lo terminas;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

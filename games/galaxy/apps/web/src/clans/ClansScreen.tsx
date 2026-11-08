@@ -9,6 +9,7 @@ import { Icon } from '../ui/Icon';
 import { ClanEmblem } from './ClanEmblem';
 import { CreateClanDialog } from './CreateClanDialog';
 import { useSettled } from '../ui/useSettled';
+import { BackLink } from '../ui/BackLink';
 
 // The clans (GDD §14.3; DESIGN_SYSTEM §8 duodecies): one's own clan first, a search, «Crear clan» with its cost (off,
 // with the reason, without the level or the coins), and every clan with its emblem, members and points, to join
@@ -66,10 +67,10 @@ export function ClansScreen() {
     <div className="screen-root clans-root">
       <div className="clans">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{t.back}</span>
-          </Link>
+          </BackLink>
           <h1>{t.title}</h1>
         </header>
         {mine.data ? (

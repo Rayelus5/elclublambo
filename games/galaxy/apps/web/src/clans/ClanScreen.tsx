@@ -11,6 +11,7 @@ import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { ClanEmblem } from './ClanEmblem';
 import { EmblemPicker } from './CreateClanDialog';
+import { BackLink } from '../ui/BackLink';
 
 // A clan's page (GDD §14.3; DESIGN_SYSTEM §8 duodecies): its emblem, name, tag and description, its season standing,
 // its members with what the viewer's role lets them do to each, the requests for the leader and the officers, and
@@ -165,10 +166,10 @@ export function ClanScreen() {
     <div className="screen-root clans-root">
       <div className="clans">
         <header className="collection-bar">
-          <Link to="/clanes" className="lip pill">
+          <BackLink fallback="/clanes">
             <Icon name="back" />
             <span>{t.backToList}</span>
-          </Link>
+          </BackLink>
         </header>
         {missing ? (
           <div className="lip panel lb-empty">

@@ -7,6 +7,7 @@ import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { Icon } from '../ui/Icon';
 import { RevealStage } from './RevealStage';
+import { BackLink } from '../ui/BackLink';
 
 // The deep scan (GDD §9): everything the player needs to decide is visible BEFORE paying — the odds of each tier on
 // the next scan (rising luck included), how far the guaranteed Legendary is, the welcome luck — then scan with the
@@ -81,10 +82,10 @@ export function ScannerScreen() {
     <div className="screen-root collection-root scanner-root">
       <div className="collection scanner">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{copy.collection.back}</span>
-          </Link>
+          </BackLink>
           <h1>{copy.scanner.title}</h1>
           <div className="lip panel hud">
             <WalletBar wallet={wallet} />

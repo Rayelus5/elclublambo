@@ -1,7 +1,7 @@
 import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type ProbeCard, type RunResult, type RunStart, type SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Link, Navigate } from 'react-router';
+import { Navigate } from 'react-router';
 import type { RunEnd } from '../arena/ArenaScreen';
 import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
@@ -17,6 +17,7 @@ import { RelicPicker } from './RelicPicker';
 import { SetsPanel } from './SetsPanel';
 import { weaponArtUrl } from './weapons';
 import { ResultsScreen } from './ResultsScreen';
+import { BackLink } from '../ui/BackLink';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe and relics before a run, and the daily yield. Launching opens
 // the arena (its own chunk with PixiJS); its end goes to the server once, and a result that did not arrive is kept
@@ -657,10 +658,10 @@ export function HangarScreen() {
     <div className="screen-root hangar-root">
       <div className="hangar">
         <header className="collection-bar">
-          <Link to="/" className="lip pill">
+          <BackLink fallback="/">
             <Icon name="back" />
             <span>{copy.hangar.back}</span>
-          </Link>
+          </BackLink>
           <h1>{copy.hangar.title}</h1>
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} components />
