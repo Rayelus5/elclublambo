@@ -453,6 +453,28 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - marcarla con un motivo la deja «Sospechosa», y sale en la auditoría;
    - sin violaciones de CSP.
 
+26. **Desde M6d-4 (ficha completa):** dos migraciones. `*_galaxy_admin_progress` crea dos tablas:
+   - `probe_grants`: las sondas que un admin desbloquea a una cuenta;
+   - `season_adjustments`: los puntos de temporada que un admin suma o quita, en filas que nunca se borran ni se editan.
+
+   `*_galaxy_lab_nodes_delete` deja borrar un nodo del laboratorio que un admin devuelve a 0.
+
+   La ficha del jugador estrena la pestaña **«Progreso»**. Cada cambio pide motivo y queda en la auditoría:
+   - **suerte del gachapón**, por grupo: tiradas desde la última legendaria y desde la última destacada, y la suerte de bienvenida. Nunca pide contraseña;
+   - **sondas:** su nivel y su arma inicial (solo las variantes que ese nivel abre), y «Desbloquear» o «Bloquear». Una sonda bloqueada que estaba elegida devuelve el hangar a la sonda del test;
+   - **máquinas de la estación** (laboratorio, refinería y antena): su nivel. Antes se guarda lo que la refinería llevaba refinado a su ritmo de antes;
+   - **laboratorio:** el nivel de cada nodo, y a 0 desaparece;
+   - **temporada:** puntos que se suman en la clasificación General de la temporada abierta y solo en esa;
+   - **«Conceder galaxia»** deja elegir también el tipo.
+
+   **Pide tu contraseña** lo que quita algo: bajar un nivel, bloquear una sonda o quitar puntos.
+
+   Comprueba con `rayelus` y una cuenta de prueba:
+   - en su «Progreso», «Desbloquear» una sonda que no tenga: sale «Desbloqueada por un admin» y la cuenta la puede elegir en el hangar;
+   - «Ajustar puntos de temporada» con 100: la cuenta sale en la clasificación General con esos puntos;
+   - bajar un nivel pide tu contraseña;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
