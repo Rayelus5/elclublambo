@@ -78,7 +78,13 @@ test('exponer dos galaxias, verlas expuestas en la colección y recibir una visi
   await expect(visitor.getByRole('heading', { level: 1, name: `Planetario de ${owner}` })).toBeVisible();
   const theirs = visitor.getByRole('list', { name: 'Pedestales' });
   await expect(theirs.getByRole('article')).toHaveCount(2);
-  await expect(theirs.getByRole('button')).toHaveCount(0);
+  // No actions on someone else's cards: each card only opens in 3D (M6d-5, the owner's request).
+  await expect(theirs.getByRole('button')).toHaveCount(2);
+  await expect(theirs.getByRole('button', { name: /^Inspeccionar .+ en 3D$/ })).toHaveCount(2);
+  await theirs.getByRole('button', { name: /^Inspeccionar .+ en 3D$/ }).first().click();
+  const inspector = visitor.getByRole('dialog', { name: / en 3D$/ });
+  await expect(inspector).toBeVisible();
+  await inspector.getByRole('button', { name: 'Cerrar' }).last().click();
   await expect(visitor.getByRole('region', { name: 'Prestigio' })).toContainText('1 visita');
   // Coming back the same day does not count again.
   await visitor.reload();
