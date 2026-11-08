@@ -219,6 +219,24 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Si PRE ya tiene cuentas con incursiones, el relleno les da su nivel al desplegar. Compara `select count(*) from galaxy.account_xp` con las cuentas que tienen incursiones terminadas y no sospechosas.
 
+15. **Desde M5b-1 (los clanes):** la migración `20261108004913_galaxy_clans` crea tres tablas:
+   - `galaxy.clans`: el nombre es único sin distinguir mayúsculas y la etiqueta, única y en mayúsculas;
+   - `galaxy.clan_members`: una cuenta está en un clan como mucho, y un clan tiene un solo líder;
+   - `galaxy.clan_requests`.
+
+   Llegan además:
+   - la clave viva `clans`: `maxMembers` (30), `createCost.coins` (2000) y `minLevel` para crear (5);
+   - el mosaico «Clan» del inicio lleva a `/galaxy/clanes`, y cada clan tiene su página en `/galaxy/clanes/<etiqueta>`;
+   - la clasificación estrena la pestaña Clanes: los puntos de temporada de sus miembros actuales;
+   - el perfil enseña el clan.
+
+   Comprueba con dos cuentas de prueba nuevas:
+   - la primera, con nivel 5 o más y 2000 monedas (`grant <usuario> coins 2000 --reason "probar los clanes"`; el nivel se gana jugando o, en una cuenta de prueba, con experiencia en `galaxy.account_xp`), crea un clan cerrado desde «Crear clan». El coste se descuenta y la página del clan la tiene de líder;
+   - la segunda pide entrar («Solicitud enviada»). La primera la acepta desde «Solicitudes» y la asciende a oficial;
+   - la segunda sale confirmándolo;
+   - la pestaña Clanes de la clasificación lista los clanes con puntos;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |
