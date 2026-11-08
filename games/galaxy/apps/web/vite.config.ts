@@ -6,6 +6,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   base: '/galaxy/',
   plugins: [react(), tailwindcss()],
-  server: { port: 5173, strictPort: true, proxy: { '/galaxy/api': 'http://localhost:8080' } },
+  server: { port: 5173, strictPort: true, proxy: { '/galaxy/api': { target: 'http://localhost:8080', ws: true } } },
   build: { outDir: 'dist', assetsDir: 'assets', sourcemap: true },
 });

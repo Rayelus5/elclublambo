@@ -5,6 +5,7 @@ import { ApiError } from '../api/client';
 import { useClan, useClanAction, useEditClan, useMyClan } from '../api/clans';
 import { errorText, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { useUi } from '../state/ui';
 import { Avatar } from '../hub/Avatar';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
@@ -13,7 +14,7 @@ import { EmblemPicker } from './CreateClanDialog';
 
 // A clan's page (GDD §14.3; DESIGN_SYSTEM §8 duodecies): its emblem, name, tag and description, its season standing,
 // its members with what the viewer's role lets them do to each, the requests for the leader and the officers, and
-// joining, asking, cancelling or leaving. Expelling, handing over the leadership and leaving are confirmed first.
+// joining, asking, cancelling or leaving; members open the clan's chat (M5b-2). Expelling, handing over the leadership and leaving are confirmed first.
 
 const t = copy.clans;
 type MemberAction = Exclude<ClanAction, 'accept' | 'edit'>;
@@ -127,6 +128,7 @@ export function ClanScreen() {
   const blockedId = useId();
   const act = useClanAction();
   const navigate = useNavigate();
+  const openChat = useUi((s) => s.openChat);
   const [pending, setPending] = useState<Pending>(null);
   const [editing, setEditing] = useState(false);
   const requestsTitle = useId();
@@ -196,6 +198,12 @@ export function ClanScreen() {
                 </p>
               </div>
               <div className="clan-head-actions">
+                {myRole ? (
+                  <button type="button" className="lip pill" aria-haspopup="dialog" onClick={() => openChat('clan')}>
+                    <Icon name="chat" />
+                    <span>{t.chat}</span>
+                  </button>
+                ) : null}
                 {myRole === 'leader' ? (
                   <button type="button" className="lip pill" onClick={() => setEditing(true)}>
                     <Icon name="gear" />
