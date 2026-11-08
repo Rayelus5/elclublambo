@@ -38,9 +38,9 @@ export function registerAdminProgressRoutes(api: FastifyInstance, deps: Progress
   });
 
   api.post('/galaxy/api/admin/players/:username/gacha-luck', async (req) => {
-    const { id, actor } = await acting(req);
+    const { s, id, actor } = await acting(req);
     const body = adminGachaLuckSchema.parse(req.body);
-    return setGachaLuck(deps, actor, id, body);
+    return setGachaLuck(deps, actor, s, id, body);
   });
 
   api.post('/galaxy/api/admin/players/:username/probe', async (req) => {

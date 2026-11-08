@@ -47,7 +47,7 @@ export async function progressOf(deps: ProgressDeps, accountId: string): Promise
     deps.config.get('season'),
     deps.config.get('account'),
   ]);
-  const [gacha, levels, grants, assigned, stats, rooms, nodes] = await Promise.all([
+  const [gacha, levels, grants, assigned, stats, rooms, nodes, welcomeGranted] = await Promise.all([
     db.selectFrom('galaxy.gacha_state').select(['pity_group', 'since_legendary', 'since_featured', 'welcome', 'total_pulls']).where('account_id', '=', accountId).orderBy('pity_group').execute(),
     db.selectFrom('galaxy.probe_levels').select(['probe', 'level', 'variant']).where('account_id', '=', accountId).execute(),
     probeGrants(db, accountId),
@@ -55,9 +55,11 @@ export async function progressOf(deps: ProgressDeps, accountId: string): Promise
     runStats(db, accountId, probesCfg.minRunSeconds),
     db.selectFrom('galaxy.station_rooms').select(['room', 'level']).where('account_id', '=', accountId).execute(),
     db.selectFrom('galaxy.lab_nodes').select(['node', 'level']).where('account_id', '=', accountId).execute(),
+    welcomeGiven(db, accountId),
   ]);
   const groups = gacha.map((g) => ({ group: g.pity_group, sinceLegendary: g.since_legendary, sinceFeatured: g.since_featured, welcome: g.welcome, totalPulls: g.total_pulls }));
-  if (!groups.some((g) => g.group === 'standard')) groups.unshift({ group: 'standard', sinceLegendary: 0, sinceFeatured: 0, welcome: false, totalPulls: 0 });
+  // Before the first visit to the Escáner the welcome luck is still to come (M6d-4 review): shown on, so a change keeps it.
+  if (!groups.some((g) => g.group === 'standard')) groups.unshift({ group: 'standard', sinceLegendary: 0, sinceFeatured: 0, welcome: !welcomeGranted, totalPulls: 0 });
   const max = probeMaxLevel(probesCfg);
   const now = new Date();
   let seasonView: AdminProgress['season'] = null;
@@ -93,12 +95,23 @@ export async function progressOf(deps: ProgressDeps, accountId: string): Promise
   };
 }
 
-/** The gacha luck of one pity group (tuning, not an asset: no password). */
-export async function setGachaLuck(deps: ProgressDeps, actor: AuditActor, accountId: string, req: AdminGachaLuck): Promise<AdminProgress> {
+/** Whether the account already had its welcome (signals and the welcome luck), on its first visit to the Escáner. */
+async function welcomeGiven(db: Kysely<DB>, accountId: string): Promise<boolean> {
+  const row = await db.selectFrom('galaxy.gacha_accounts').select('welcome_granted_at').where('account_id', '=', accountId).executeTakeFirst();
+  return !!row?.welcome_granted_at;
+}
+
+/**
+ * The gacha luck of one pity group. Lowering a counter or turning the welcome luck off takes away what the player paid
+ * for (M6d-4 review): the password, decided against the row read under its lock.
+ */
+export async function setGachaLuck(deps: ProgressDeps, actor: AuditActor, s: SessionInfo, accountId: string, req: AdminGachaLuck): Promise<AdminProgress> {
   const cfg = await deps.config.get('gacha');
   if (!new Set(['standard', ...cfg.banners.map((b) => b.pityGroup)]).has(req.group)) throw new HttpError(400, 'invalid_input');
   await inTransaction(deps.db, async (trx) => {
-    await trx.insertInto('galaxy.gacha_state').values({ account_id: accountId, pity_group: req.group }).onConflict((oc) => oc.doNothing()).execute();
+    // A standard row made here, before the first visit, starts with the welcome luck still to come.
+    const welcome = req.group === 'standard' && !(await welcomeGiven(trx, accountId));
+    await trx.insertInto('galaxy.gacha_state').values({ account_id: accountId, pity_group: req.group, welcome }).onConflict((oc) => oc.doNothing()).execute();
     const before = await trx
       .selectFrom('galaxy.gacha_state')
       .select(['since_legendary', 'since_featured', 'welcome'])
@@ -106,6 +119,9 @@ export async function setGachaLuck(deps: ProgressDeps, actor: AuditActor, accoun
       .where('pity_group', '=', req.group)
       .forUpdate()
       .executeTakeFirstOrThrow();
+    if (req.sinceLegendary < before.since_legendary || req.sinceFeatured < before.since_featured || (before.welcome && !req.welcome)) {
+      await confirmPassword(deps.db, s, req.password);
+    }
     await trx
       .updateTable('galaxy.gacha_state')
       .set({ since_legendary: req.sinceLegendary, since_featured: req.sinceFeatured, welcome: req.welcome })

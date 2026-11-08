@@ -36,6 +36,7 @@ const progress: AdminProgress = {
   gacha: [{ group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: true, totalPulls: 12 }],
   probes: [
     { probe: 'lumen', name: 'Lumen', level: 4, maxLevel: 10, variant: null, variants: [{ id: 'pulse-wide', name: 'Pulso ancho', unlockAt: 4 }], unlocked: true, granted: false },
+    { probe: 'spark', name: 'Chispa', level: 6, maxLevel: 10, variant: 'spark-fan', variants: [{ id: 'spark-fan', name: 'Abanico', unlockAt: 4 }], unlocked: true, granted: false },
     { probe: 'vela', name: 'Vela', level: 1, maxLevel: 10, variant: null, variants: [], unlocked: true, granted: true },
     { probe: 'nox', name: 'Nox', level: 1, maxLevel: 10, variant: null, variants: [], unlocked: false, granted: false },
   ],
@@ -133,10 +134,15 @@ test('la suerte del gachapón se cambia con los valores de ahora ya puestos', as
   await user.click(within(row).getByRole('button', { name: g.luckOf('standard') }));
   const dialog = await screen.findByRole('dialog', { name: g.luckOf('standard') });
   expect(within(dialog).getByLabelText(g.fields.sinceLegendary)).toHaveValue('7');
+  // Raising asks only for a reason; turning the welcome luck off takes it away: the password.
+  await user.clear(within(dialog).getByLabelText(g.fields.sinceLegendary));
+  await user.type(within(dialog).getByLabelText(g.fields.sinceLegendary), '9');
+  expect(within(dialog).queryByLabelText(t.fields.password)).toBeNull();
   await user.selectOptions(within(dialog).getByLabelText(g.fields.welcome), 'false');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Fin de la bienvenida');
+  await user.type(within(dialog).getByLabelText(t.fields.password), 'secreta');
   await user.click(within(dialog).getByRole('button', { name: t.apply }));
-  await waitFor(() => expect(posted(fetch, 'gacha-luck')).toEqual([{ group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: false, reason: 'Fin de la bienvenida' }]));
+  await waitFor(() => expect(posted(fetch, 'gacha-luck')).toEqual([{ group: 'standard', sinceLegendary: 9, sinceFeatured: 0, welcome: false, reason: 'Fin de la bienvenida', password: 'secreta' }]));
 });
 
 test('dar una galaxia deja elegir el tipo', async () => {
@@ -148,4 +154,19 @@ test('dar una galaxia deja elegir el tipo', async () => {
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Premio de un evento');
   await user.click(within(dialog).getByRole('button', { name: t.apply }));
   await waitFor(() => expect(posted(fetch, 'galaxies')[0]).toMatchObject({ type: 'ring' }));
+});
+
+test('bajar una sonda por debajo de su arma elegida la devuelve al arma base', async () => {
+  const fetch = open({ [`POST ${P}/probe`]: () => jsonResponse(200, progress) });
+  const user = await tab();
+  const row = within(await screen.findByRole('table', { name: g.probesTitle })).getByRole('row', { name: /Chispa/ });
+  await user.click(within(row).getByRole('button', { name: g.levelOfProbe('Chispa') }));
+  const dialog = await screen.findByRole('dialog', { name: g.levelOfProbe('Chispa') });
+  expect(within(dialog).getByLabelText(g.fields.variant)).toHaveValue('spark-fan');
+  await user.clear(within(dialog).getByLabelText(g.fields.level));
+  await user.type(within(dialog).getByLabelText(g.fields.level), '2');
+  await user.type(within(dialog).getByLabelText(t.fields.reason), 'Corrección');
+  await user.type(within(dialog).getByLabelText(t.fields.password), 'secreta');
+  await user.click(within(dialog).getByRole('button', { name: t.apply }));
+  await waitFor(() => expect(posted(fetch, 'probe')).toEqual([{ probe: 'spark', level: 2, variant: null, reason: 'Corrección', password: 'secreta' }]));
 });

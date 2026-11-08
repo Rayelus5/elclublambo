@@ -42,7 +42,7 @@ beforeAll(async () => {
 const P = '/galaxy/api/admin/players';
 const edit = (username: string, what: string, body: Record<string, unknown>, cookie = admin.cookie) => post(ctx.app, `${P}/${username}/${what}`, { reason: 'Ajuste de prueba', ...body }, { cookie });
 const progress = async (username: string) => (await get(ctx.app, `${P}/${username}/progress`, { cookie: admin.cookie })).json() as AdminProgress;
-const audits = (target: string, action: string) => ctx.db.selectFrom('galaxy.admin_audit_log').select(['action', 'before', 'after']).where('target_id', '=', target).where('action', '=', action).execute();
+const audits = (target: string, action: string) => ctx.db.selectFrom('galaxy.admin_audit_log').select(['action', 'before', 'after']).where('target_id', '=', target).where('action', '=', action).orderBy('id').execute();
 const hangar = async (cookie: string) => (await get(ctx.app, '/galaxy/api/hangar', { cookie })).json() as HangarView;
 
 describe('la suerte del gachapón', () => {
@@ -50,7 +50,7 @@ describe('la suerte del gachapón', () => {
     const p = await player();
     await get(ctx.app, '/galaxy/api/gacha', { cookie: p.cookie });
     const hard = parseConfig('gacha', {}).standard.hard;
-    const res = await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: hard - 1, sinceFeatured: 0, welcome: false });
+    const res = await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: hard - 1, sinceFeatured: 0, welcome: false, password: admin.password });
     expect(res.statusCode).toBe(200);
     expect((await progress(p.username)).gacha.find((g) => g.group === 'standard')).toMatchObject({ sinceLegendary: hard - 1, welcome: false });
     const pull = await post(ctx.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 1, pay: 'signal' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
@@ -62,11 +62,32 @@ describe('la suerte del gachapón', () => {
     const p = await player();
     const other = await staff('admin');
     await Promise.all([
-      edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 3, sinceFeatured: 0, welcome: false }),
-      edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: false }, other.cookie),
+      edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 3, sinceFeatured: 0, welcome: false, password: admin.password }),
+      edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: false, password: other.password }, other.cookie),
     ]);
     expect([3, 7]).toContain((await progress(p.username)).gacha.find((g) => g.group === 'standard')!.sinceLegendary);
     expect(await audits(p.id, 'player.gacha_luck')).toHaveLength(2);
+  });
+});
+
+describe('la suerte del gachapón, revisión final', () => {
+  test('una cuenta que aún no ha escaneado conserva su suerte de bienvenida tras un cambio', async () => {
+    const p = await player();
+    // Before its first visit to the Escáner the welcome luck is still to come: the panel shows it on.
+    expect((await progress(p.username)).gacha.find((g) => g.group === 'standard')).toMatchObject({ welcome: true });
+    expect((await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 5, sinceFeatured: 0, welcome: true })).statusCode).toBe(200);
+    await get(ctx.app, '/galaxy/api/gacha', { cookie: p.cookie });
+    const row = await ctx.db.selectFrom('galaxy.gacha_state').select(['welcome', 'since_legendary']).where('account_id', '=', p.id).where('pity_group', '=', 'standard').executeTakeFirstOrThrow();
+    expect(row).toEqual({ welcome: true, since_legendary: 5 });
+  });
+
+  test('bajar la suerte o quitar la de bienvenida pide la contraseña', async () => {
+    const p = await player();
+    await get(ctx.app, '/galaxy/api/gacha', { cookie: p.cookie });
+    expect((await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: true })).statusCode).toBe(200);
+    expect((await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 3, sinceFeatured: 0, welcome: true })).statusCode).toBe(401);
+    expect((await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 7, sinceFeatured: 0, welcome: false })).statusCode).toBe(401);
+    expect((await edit(p.username, 'gacha-luck', { group: 'standard', sinceLegendary: 3, sinceFeatured: 0, welcome: false, password: admin.password })).statusCode).toBe(200);
   });
 });
 

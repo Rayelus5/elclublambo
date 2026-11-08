@@ -458,7 +458,7 @@ export const copy = {
       fields: { level: 'Nivel', variant: 'Arma inicial', sinceLegendary: 'Tiradas desde la última legendaria', sinceFeatured: 'Tiradas desde la última destacada', welcome: 'Suerte de bienvenida', points: 'Puntos' },
       pointsHint: 'En negativo para quitar. Queda como un ajuste más, no borra los anteriores',
       levelHint: (max: number) => `De 0 a ${max}. Bajar pide tu contraseña`,
-      probeLevelHint: (max: number) => `De 1 a ${max}. Bajar pide tu contraseña`,
+      probeLevelHint: (max: number) => `De 1 a ${max}. Bajar pide tu contraseña, y un arma que el nivel no abre vuelve a la base`,
       loading: 'Cargando el progreso',
     },
     passwordHint: 'Esta acción es delicada: confírmala con tu contraseña',
