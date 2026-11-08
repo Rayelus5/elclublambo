@@ -8,6 +8,7 @@ import { copy } from '../copy/es';
 import { Inspector } from '../inspector/Inspector';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Link } from 'react-router';
 
 // A galaxy up close (GDD §8.1, §8.5): front and back side by side, where it came from, what it is worth in dust, its
 // lineage if it was fused, and Desintegrar — always behind a confirmation that says what it pays.
@@ -60,7 +61,7 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
           <button
             type="button"
             className="lip pill pill-solar station-upgrade"
-            disabled={short === null || short > 0 || up.isPending}
+            disabled={short === null || short > 0 || up.isPending || g.listed === true}
             aria-busy={up.isPending || undefined}
             aria-describedby={short !== null && short > 0 ? missing : undefined}
             onClick={() => up.mutate({ id: g.id, level: g.level + 1 })}
@@ -104,8 +105,8 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
       </Dialog>
     );
   }
-  // Why it cannot be disintegrated now: equipped in the hangar or on a pedestal of the planetarium.
-  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : null;
+  // Why it cannot be disintegrated now: equipped in the hangar, on a pedestal of the planetarium or for sale (M5c-1).
+  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : g.listed ? copy.market.listedReason : null;
 
   return (
     <>
@@ -141,6 +142,12 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 <Icon name="cube" />
                 <span>{copy.inspector.open}</span>
               </button>
+              {held === null ? (
+                <Link to={`/mercado?pestana=vender&galaxia=${g.id}`} className="lip pill">
+                  <Icon name="store" />
+                  <span>{copy.market.sellIt}</span>
+                </Link>
+              ) : null}
               <button type="button" className="lip pill danger" onClick={() => setConfirming(true)} disabled={held !== null} aria-describedby={held ? 'held-reason' : undefined}>
                 <Icon name="dust" />
                 <span>{copy.collection.disintegrate}</span>

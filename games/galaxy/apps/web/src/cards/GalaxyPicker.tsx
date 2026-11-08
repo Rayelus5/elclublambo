@@ -18,12 +18,15 @@ export interface GalaxyPickerCopy {
 export function GalaxyPicker({
   text,
   taken,
+  isTaken,
   onPick,
   onClose,
   className,
 }: {
   text: GalaxyPickerCopy;
   taken: ReadonlySet<string>;
+  /** Galaxies that cannot be picked for their own state (equipped, exhibited, for sale). */
+  isTaken?: (g: GalaxySummary) => boolean;
   onPick: (g: GalaxySummary) => void;
   onClose: () => void;
   className: string;
@@ -41,7 +44,7 @@ export function GalaxyPicker({
       ) : (
         <ul className="relic-grid">
           {items.map((g) => {
-            const busy = taken.has(g.id);
+            const busy = taken.has(g.id) || isTaken?.(g) === true;
             return (
               <li key={g.id}>
                 <GalaxyCard galaxy={g} size={150}>

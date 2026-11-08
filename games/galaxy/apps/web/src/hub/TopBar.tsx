@@ -13,7 +13,7 @@ const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
  * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
- * the operator and their balances on the right, then the mailbox and Salir. Comunidad opens the chat sheet (M5b-2). Balances are read as whole sentences.
+ * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1) and Comunidad opens the chat sheet (M5b-2). Balances are read as whole sentences.
  */
 export function TopBar({
   me,
@@ -39,11 +39,10 @@ export function TopBar({
           <span>{copy.hub.scanner}</span>
           {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
         </Link>
-        <button type="button" className="lip pill locked fold enter" style={delay('1s')} disabled title={copy.hub.soon}>
+        <Link to="/mercado" className="lip pill fold enter" style={delay('1s')}>
           <Icon name="store" />
           <span className="label">{copy.hub.market}</span>
-          <Soon />
-        </button>
+        </Link>
         <button
           type="button"
           className="lip pill fold enter"
