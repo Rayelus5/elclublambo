@@ -13,6 +13,7 @@ import { TierEmblem } from './parts';
 import { useTrades } from '../api/trades';
 import { TradeComposer } from '../trades/TradeComposer';
 import { HomeLink } from '../ui/BackLink';
+import { SeasonHistoryList } from '../season/TrophiesScreen';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
@@ -67,6 +68,9 @@ function Body({ p }: { p: Profile }) {
         ) : (
           <p className="profile-empty">{t.noSeason}</p>
         )}
+      </Panel>
+      <Panel title={copy.trophies.seasonsTitle} className="profile-history">
+        <SeasonHistoryList username={p.username} />
       </Panel>
       <Panel title={t.records} className="profile-records">
         <Facts

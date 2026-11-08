@@ -58,6 +58,10 @@ export function SeasonSummary() {
             <p className="empty">{t.noPoints}</p>
           )}
           <p className="season-players">{t.players(v.total)}</p>
+          <Link to="/temporada" className="lip more more-season">
+            <Icon name="shard" />
+            {t.route}
+          </Link>
           <Link to="/clasificacion" className="lip more">
             {t.seeAll}
           </Link>

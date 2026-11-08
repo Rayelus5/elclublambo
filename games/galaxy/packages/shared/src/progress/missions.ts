@@ -9,7 +9,7 @@ export type MissionStat = (typeof MISSION_STATS)[number];
 export type MissionCounts = Partial<Record<MissionStat, number>>;
 
 /** The frames an achievement can give (a ring round the avatar). */
-export const FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss'] as const;
+export const FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown'] as const;
 export type Frame = (typeof FRAMES)[number];
 
 const id = z.string().regex(/^[a-z0-9-]{1,32}$/);

@@ -5,6 +5,7 @@ import es from 'zod/v4/locales/es.js';
 import { TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
+import { seasonRouteSchema } from '../progress/season-route';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -552,6 +553,11 @@ export const configSchemas = {
       season: z.array(missionSchema).max(30).prefault(DEFAULT_SEASON),
     })
     .strict(),
+  /**
+   * The season route and shop (GDD §11.1, §13.1; M7d-1): the free ladder climbed with the season score, the season
+   * currency (its name, what a run pays per point and the dust each one left is worth at the close) and what it buys.
+   */
+  seasonRoute: seasonRouteSchema,
   /** The ECN Catalogue's rewards (GDD §12.3; M7b): what completing each share of the album gives, collected once. */
   catalog: z
     .object({

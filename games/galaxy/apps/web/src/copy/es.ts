@@ -64,8 +64,14 @@ function catalogReward(r: { coins: number; dust: number; signal: number; title: 
   if (r.dust) parts.push(`${fmt(r.dust)} de polvo`);
   if (r.signal) parts.push(r.signal === 1 ? '1 señal' : `${fmt(r.signal)} señales`);
   if (r.title) parts.push(`el título ${r.title}`);
-  if (r.frame) parts.push(`el marco ${({ bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo' } as Record<string, string>)[r.frame] ?? r.frame}`);
+  if (r.frame) parts.push(`el marco ${({ bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo', crown: 'Corona' } as Record<string, string>)[r.frame] ?? r.frame}`);
   return parts.join(', ');
+}
+
+/** A season route step's or shop item's reward in words (M7d-1): the season currency first, then the rest. */
+function seasonReward(r: { coins: number; dust: number; signal: number; shards: number; title: string | null; frame: string | null }, currency: string): string {
+  const rest = catalogReward(r);
+  return [r.shards ? `${fmt(r.shards)} ${currency}` : '', rest].filter(Boolean).join(', ');
 }
 
 export const copy = {
@@ -882,7 +888,9 @@ export const copy = {
     xp: (n: number) => `+${fmt(n)} de experiencia`,
     levelUp: 'Subes de nivel',
     points: (n: number) => `+${fmt(n)} puntos de temporada`,
+    shards: (n: number) => `+${fmt(n)} de moneda de temporada`,
     rankingTile: 'Temporada',
+    route: 'Ruta y tienda de temporada',
   },
   // The planetarium (GDD §10.5, §14.2; M4c-2).
   planetarium: {
@@ -1361,6 +1369,42 @@ export const copy = {
     locked: 'Sin descifrar',
     fight: 'Cómo combatirlo.',
   },
+  season: {
+    title: 'Temporada',
+    back: 'Volver',
+    scoreTitle: 'Tu temporada',
+    score: (n: number) => `${fmt(n)} puntos`,
+    toNext: (n: number) => `Te faltan ${fmt(n)} para el siguiente escalón`,
+    allReached: 'Has llegado al final de la ruta',
+    balanceOf: (name: string) => `Tus ${name}`,
+    currencyHint: 'Las ganas con cada incursión que cuenta y en la ruta',
+    routeTitle: 'Ruta de temporada',
+    at: (n: number) => `${fmt(n)} puntos`,
+    reward: (r: { coins: number; dust: number; signal: number; shards: number; title: string | null; frame: string | null }, currency: string) => seasonReward(r, currency),
+    claimOf: (n: number) => `Recoger el escalón de ${fmt(n)} puntos`,
+    shopTitle: 'Tienda de temporada',
+    stock: (n: number, limit: number) => `${n} de ${limit}`,
+    soldOut: 'Agotado',
+    buyOf: (name: string, price: number, currency: string) => `Comprar ${name} por ${fmt(price)} ${currency}`,
+    convertNote: (name: string) => `Al cerrar la temporada, las ${name} que te queden se convierten en polvo estelar`,
+    closingTitle: (name: string) => `${name} ha terminado`,
+    closingPlace: (rank: number, score: number) => `Quedaste en el puesto ${fmt(rank)} con ${fmt(score)} puntos`,
+    closingTrophy: 'Subiste al podio: tu trofeo ya está en la sala de Trofeos de la estación',
+    closingClaim: 'Recoger los premios',
+  },
+  trophies: {
+    title: 'Trofeos',
+    back: 'Volver',
+    mine: 'Tus temporadas',
+    hall: 'Salón de la fama',
+    noHistory: 'Todavía no ha terminado ninguna temporada en la que hayas puntuado',
+    noHall: 'Aún no ha terminado ninguna temporada',
+    place: (rank: number, score: number) => `Puesto ${fmt(rank)}, ${fmt(score)} puntos`,
+    podiumPlace: (rank: number) => (rank === 1 ? 'Campeón' : rank === 2 ? 'Segundo puesto' : rank === 3 ? 'Tercer puesto' : `Puesto ${rank}`),
+    players: (n: number) => (n === 1 ? '1 jugador' : `${fmt(n)} jugadores`),
+    seasonsTitle: 'Historial de temporadas',
+    open: 'Salón de la fama',
+  },
   firstSteps: {
     title: 'Primeros pasos',
     count: (n: number, total: number) => `${n} de ${total}`,
@@ -1418,7 +1462,7 @@ export const copy = {
       frame: (name: string) => `el marco ${name}`,
     },
     tiers: { bronze: 'Bronce', silver: 'Plata', gold: 'Oro' },
-    frames: { bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo' } as Record<string, string>,
+    frames: { bronze: 'Bronce', silver: 'Plata', gold: 'Oro', nebula: 'Nebulosa', abyss: 'Abismo', crown: 'Corona' } as Record<string, string>,
     customize: 'Tu título y tu marco',
     noCosmetics: 'Los logros dan títulos y marcos. Aún no tienes ninguno',
     titleLabel: 'Título',
@@ -1615,6 +1659,10 @@ export const copy = {
     already_claimed: 'Ya recogiste esa recompensa',
     cosmetic_locked: 'Todavía no tienes ese título o ese marco',
     catalog_reward_not_found: 'Ese premio del catálogo no existe',
+    season_step_not_found: 'Ese escalón de la ruta no existe',
+    season_item_not_found: 'Ese artículo ya no está en la tienda',
+    season_item_sold_out: 'Ya has comprado todos los que se pueden',
+    season_result_not_found: 'No quedaste en esa temporada',
     runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
     bad_inputs: 'La grabación de la incursión llegó dañada',
     tiebreak_required: 'Hay un empate: contesta la última pregunta',

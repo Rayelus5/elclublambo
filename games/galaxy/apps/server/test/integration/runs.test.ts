@@ -111,7 +111,8 @@ test('extraer paga el botín por la profundidad de cada capa, en el libro', asyn
   expect(r.wallet.dust).toBe(before.dust + 21);
   expect(r.wallet['material']).toBe((before['material'] ?? 0) + 56);
   const ledger = await sql<{ reason: string; currency: string }>`select reason, currency from galaxy.ledger where ref @> ${JSON.stringify({ run: run.id })}::jsonb order by id`.execute(ctx.db);
-  expect(ledger.rows.filter((l) => l.currency !== 'signal')).toEqual([
+  // Signals are luck, and the season currency depends on the season open (M7d-1, its own test).
+  expect(ledger.rows.filter((l) => l.currency !== 'signal' && !l.currency.startsWith('season:'))).toEqual([
     { reason: 'run', currency: 'coins' },
     { reason: 'run', currency: 'dust' },
     { reason: 'run', currency: 'material' },

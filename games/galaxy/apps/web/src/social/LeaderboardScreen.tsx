@@ -119,6 +119,10 @@ export function LeaderboardScreen() {
             <span>{t.back}</span>
           </HomeLink>
           <h1>{t.leaderboard}</h1>
+          <Link to="/trofeos#salon" className="lip pill small lb-hall">
+            <Icon name="trophy" />
+            <span>{copy.trophies.open}</span>
+          </Link>
         </header>
         <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>
           {(['general', 'depth', 'purges', 'clans'] as const).map((k) => (

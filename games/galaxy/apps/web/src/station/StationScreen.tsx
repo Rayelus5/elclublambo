@@ -16,7 +16,7 @@ import { HomeLink } from '../ui/BackLink';
 const t = copy.station;
 
 /** Where each working tool leads. */
-const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/planetario', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio', archive: '/codice' };
+const SCREEN: Partial<Record<RoomId, string>> = { scanner: '/escaner', planetarium: '/planetario', hangar: '/incursion', collider: '/coleccion', lab: '/laboratorio', archive: '/codice', trophies: '/trofeos' };
 
 function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName; amount: number; label: string }) {
   return (

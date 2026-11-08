@@ -1624,6 +1624,83 @@
   .codex-entry p { margin: 0; max-inline-size: 62ch; line-height: 1.6; color: var(--color-ink); }
   .codex-fight { color: var(--color-terminal) !important; }
   @media (max-width: 760px) { .codex-body { grid-template-columns: minmax(0, 1fr); } }
+  /* A season's close, the trophy room and the hall of fame (DESIGN_SYSTEM §8 tricies). */
+  :root { --place-gold: var(--color-solar); --place-silver: #c9d0ea; --place-bronze: #e0915a; --place-none: var(--color-ink-mute); }
+  .season-closing { --r: 22px; display: flex; align-items: center; gap: 18px; padding: 18px 22px; background-image: radial-gradient(circle at 12% 50%, color-mix(in oklab, var(--color-solar) 22%, transparent), transparent 55%); }
+  .season-closing > .ico { inline-size: 56px; block-size: 56px; color: var(--color-solar); }
+  .season-closing > div { display: grid; gap: 4px; flex: 1; }
+  .season-closing h2 { margin: 0; font: 400 24px var(--font-display); }
+  .season-closing p { margin: 0; color: var(--color-ink-soft); }
+  .season-closing .season-closing-reward { color: var(--color-ink); font-weight: 600; }
+  .season-closing .season-closing-trophy { color: var(--color-solar); }
+  .season-closing.podium { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 60%, transparent); }
+  .trophies { gap: 18px; }
+  .trophies h2 { margin: 0 0 10px; font: 400 22px var(--font-display); }
+  .trophies-mine { --r: 20px; padding: 16px 20px; }
+  .season-history { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .season-history li { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 14px; background: var(--color-panel-2); }
+  .season-history li.podium { box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--place) 55%, transparent); }
+  .season-history-text { display: grid; gap: 2px; }
+  .season-history-text span, .season-history-tier { color: var(--color-ink-soft); font-size: 14px; }
+  .season-history li.podium .season-history-tier { color: var(--place); font-weight: 700; }
+  .trophy { display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 12px; color: var(--place); background: color-mix(in oklab, var(--place) 16%, transparent); }
+  .trophy .ico { inline-size: 24px; block-size: 24px; filter: drop-shadow(0 0 6px color-mix(in oklab, var(--place) 60%, transparent)); }
+  .trophy.none { background: rgb(255 255 255 / .05); }
+  .trophies-hall > ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .trophies-hall > ul > li { --r: 18px; display: grid; gap: 10px; padding: 14px 16px; }
+  .hall-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .hall-head b { font-size: 17px; }
+  .hall-head span { color: var(--color-ink-mute); font-size: 14px; }
+  .hall-podium { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .hall-podium li { display: grid; grid-template-columns: 40px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 10px; align-items: center; }
+  .hall-podium .trophy { grid-row: span 2; }
+  .hall-podium a { color: var(--color-ink); font-weight: 700; }
+  .hall-podium li > span:last-child { color: var(--color-ink-soft); font-size: 14px; }
+  .lb-hall { margin-inline-start: auto; display: inline-flex; align-items: center; gap: 6px; }
+  .lb-hall .ico { inline-size: 18px; block-size: 18px; color: var(--color-solar); }
+  .profile-avatar.frame-crown { box-shadow: 0 0 0 4px var(--color-solar), 0 0 0 7px var(--color-uv), 0 0 22px 6px rgb(255 201 74 / .45); border-radius: 18px; }
+  /* The season: score, route and shop (DESIGN_SYSTEM §8 novovicies). */
+  .more-season { display: flex; gap: 8px; margin-bottom: 0; --lip-c: var(--color-uv-lip); background: linear-gradient(180deg, var(--color-uv-soft), var(--color-uv)); }
+  .more-season .ico { inline-size: 20px; block-size: 20px; }
+  .season-screen { gap: 18px; }
+  .season-left { margin-inline-start: auto; color: var(--color-ink-soft); font-weight: 600; }
+  .season-hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; }
+  .season-score, .season-wallet { --r: 20px; display: flex; align-items: center; gap: 16px; padding: 16px 20px; }
+  .season-score > div, .season-wallet > div { display: grid; gap: 2px; }
+  .season-score b { font: 400 34px/1 var(--font-display); }
+  .season-score span { color: var(--color-ink-soft); font-weight: 600; }
+  .season-score .season-next { color: var(--color-solar); }
+  .season-notier { inline-size: 64px; block-size: 64px; border-radius: 16px; background: var(--color-panel-2); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); }
+  .season-wallet { flex-wrap: wrap; }
+  .season-wallet > .ico { inline-size: 44px; block-size: 44px; color: var(--color-uv-soft); filter: drop-shadow(0 0 10px color-mix(in oklab, var(--color-uv-soft) 60%, transparent)); }
+  .season-wallet b { font: 400 30px/1 var(--font-display); }
+  .season-wallet span { color: var(--color-ink-soft); font-weight: 600; }
+  .season-wallet p { margin: 0; flex-basis: 100%; font-size: 14px; color: var(--color-ink-mute); }
+  .season-route h2, .season-shop h2 { margin: 0 0 10px; font: 400 22px var(--font-display); }
+  .season-track { position: relative; }
+  .season-track ol { position: relative; list-style: none; margin: 0; padding: 34px 6px 12px; display: grid; grid-auto-flow: column; grid-auto-columns: 168px; gap: 12px; overflow-x: auto; scroll-behavior: smooth; scrollbar-width: thin; }
+  .season-track li { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; padding: 30px 10px 12px; border-radius: 16px; background: var(--color-panel); text-align: center; }
+  .season-track li::before { content: ''; position: absolute; top: -16px; inset-inline: -6px; block-size: 6px; background: rgb(255 255 255 / .08); }
+  .season-track li.ready::before, .season-track li.claimed::before { background: linear-gradient(90deg, var(--color-solar), var(--color-solar-2)); }
+  .season-node { position: absolute; top: -34px; display: grid; place-items: center; inline-size: 40px; block-size: 40px; border-radius: 50%; background: var(--color-panel-2); color: var(--color-ink-mute); box-shadow: 0 0 0 4px var(--color-void); }
+  .season-node .ico { inline-size: 20px; block-size: 20px; }
+  .season-track li.ready .season-node { background: var(--color-solar); color: var(--color-on-solar); animation: season-ready 1.6s ease-in-out infinite; }
+  .season-track li.claimed .season-node { background: var(--color-terminal); color: var(--color-on-terminal); }
+  .season-track li b { font-weight: 700; }
+  .season-track li.locked { color: var(--color-ink-soft); }
+  .season-reward { min-block-size: 2.6em; font-size: 14px; line-height: 1.3; }
+  @keyframes season-ready { 50% { box-shadow: 0 0 0 4px var(--color-void), 0 0 18px var(--color-solar); } }
+  .season-shop ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .season-shop li { --r: 18px; display: grid; gap: 6px; align-content: start; padding: 14px 16px; }
+  .season-shop li b { font-size: 16px; }
+  .season-shop li > span { color: var(--color-ink-soft); font-size: 14px; }
+  .season-shop li.sold { opacity: .6; }
+  .season-shop .season-stock { color: var(--color-ink-mute); }
+  .season-shop button { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+  .season-shop button .ico { inline-size: 16px; block-size: 16px; }
+  .results-points .ico { inline-size: 16px; block-size: 16px; vertical-align: -3px; margin-inline-end: 4px; }
+  @media (prefers-reduced-motion: reduce) { .season-track li.ready .season-node { animation: none; } .season-track ol { scroll-behavior: auto; } }
+  @media (max-width: 900px) { .season-hero { grid-template-columns: minmax(0, 1fr); } }
   /* First steps and the Guía (DESIGN_SYSTEM §8 octovicies). */
   .first-steps { --r: 18px; display: grid; gap: 10px; padding: 14px 18px; inline-size: min(560px, 100%); }
   .first-steps-head { display: flex; align-items: center; gap: 12px; }

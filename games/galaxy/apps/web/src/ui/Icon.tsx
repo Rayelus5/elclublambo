@@ -76,6 +76,13 @@ const PATHS = {
       <path d="M19 3v4M17 5h4" />
     </>
   ),
+  /** The season currency (M7d-1): a crystal shard of the Fisura. */
+  shard: (
+    <>
+      <path d="M12 2.5l5 6.5-5 12.5-5-12.5z" fill="currentColor" stroke="none" opacity=".25" />
+      <path d="M12 2.5l5 6.5-5 12.5-5-12.5zM7 9h10M12 2.5v19" />
+    </>
+  ),
   coin: (
     <>
       <circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" opacity=".22" />

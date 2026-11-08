@@ -14,11 +14,14 @@ import {
   type ProbeTestResult,
   type RunResult,
   type RunStart,
+  seasonCurrency,
+  shardsFor,
 } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
 import { operationExists, runOperation } from '../economy/operations';
+import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
@@ -134,17 +137,24 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = finishRunRequestSchema.parse(req.body);
     // A resend of a stored result (same key) answers from the operation without using up the limit.
     if (!(await operationExists(deps.db, s.accountId, key))) await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_finish', 60, 3600);
-    const [{ value: runs, version: runsVersion }, content, account, season, boosts] = await Promise.all([
+    const [{ value: runs, version: runsVersion }, content, account, season, boosts, route] = await Promise.all([
       deps.config.getVersioned('runs'),
       deps.config.get('content'),
       deps.config.get('account'),
       deps.config.get('season'),
       deps.config.get('boosts'),
+      deps.config.get('seasonRoute'),
     ]);
     const now = deps.now();
     const mcfg = await missionConfigs(deps.config);
     const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
       const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
+      // The season currency (M7d-1): a share of the points a run that counts adds.
+      const shards = shardsFor(r.progress.points, route.currency.perPoint);
+      if (shards > 0) {
+        await credit(trx, s.accountId, seasonCurrency(season.id), shards, 'season_run', { run: id }, key);
+        r.progress.shards = shards;
+      }
       // Missions and achievements (M7a): what a run that is not suspicious did, as kept.
       const kept = await trx.selectFrom('galaxy.runs').select(['suspicious', 'seconds', 'kills', 'boss_kills', 'depth', 'outcome']).where('id', '=', id).executeTakeFirstOrThrow();
       if (!kept.suspicious) {

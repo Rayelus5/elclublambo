@@ -40,6 +40,8 @@ import { MissionsScreen } from './missions/MissionsScreen';
 import { CatalogScreen } from './collection/CatalogScreen';
 import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
+import { SeasonScreen } from './season/SeasonScreen';
+import { TrophiesScreen } from './season/TrophiesScreen';
 
 function Splash() {
   return (
@@ -94,6 +96,8 @@ export function App() {
         <Route path="/catalogo" element={<SignedIn><CatalogScreen /></SignedIn>} />
         <Route path="/codice" element={<SignedIn><CodexScreen /></SignedIn>} />
         <Route path="/guia" element={<SignedIn><GuideScreen /></SignedIn>} />
+        <Route path="/temporada" element={<SignedIn><SeasonScreen /></SignedIn>} />
+        <Route path="/trofeos" element={<SignedIn><TrophiesScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>

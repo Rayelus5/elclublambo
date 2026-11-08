@@ -199,5 +199,6 @@ export interface RunResult {
    * What the run gave the account (M5a): experience, the level after it and whether it went up, and the season points
    * (0 when it is suspicious or no season is open).
    */
-  progress: { xp: number; level: number; levelUp: boolean; points: number };
+  /** `shards`: the season currency the run paid (M7d-1; absent when none). */
+  progress: { xp: number; level: number; levelUp: boolean; points: number; shards?: number };
 }
