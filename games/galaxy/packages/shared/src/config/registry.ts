@@ -65,6 +65,10 @@ export const configSchemas = {
       maintenance: z.boolean().default(false),
       gacha: z.boolean().default(true),
       runs: z.boolean().default(true),
+      /** M6b: the market, the swaps and the chat can be switched off from the admin panel. */
+      market: z.boolean().default(true),
+      trades: z.boolean().default(true),
+      chat: z.boolean().default(true),
     })
     .strict(),
   auth: z.object({
@@ -542,6 +546,13 @@ export function isConfigKey(key: string): key is ConfigKey {
 }
 
 /** Valida `data` con el esquema de `key` y devuelve el valor con los valores por defecto aplicados. Lanza si no vale. */
+/** What is wrong with a draft of `key`, each problem at its path (empty when it is valid; M6b). */
+export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
+  const result = configSchemas[key].safeParse(data);
+  if (result.success) return [];
+  return result.error.issues.map((i) => ({ path: i.path.map(String).join('.'), message: i.message }));
+}
+
 export function parseConfig<K extends ConfigKey>(key: K, data: unknown): ConfigValue<K> {
   if (!isConfigKey(key)) throw new Error(`unknown_config_key:${String(key)}`);
   return configSchemas[key].parse(data) as ConfigValue<K>;

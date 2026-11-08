@@ -32,3 +32,4 @@ export * from './market/rules';
 export * from './api/market';
 export * from './api/trade';
 export * from './api/admin';
+export * from './gacha/simulate';
