@@ -262,6 +262,31 @@ export interface ChatMutesTable {
   created_at: Timestamp;
 }
 
+/** A galaxy for sale (M5c-1): in escrow while active; sold once, withdrawn or expired. Never deleted. */
+export interface MarketListingsTable {
+  id: Generated<string>;
+  galaxy_id: string;
+  seller_id: string;
+  price: BigNum;
+  listed_at: Timestamp;
+  expires_at: TimestampRequired;
+  status: ColumnType<'active' | 'sold' | 'cancelled' | 'expired', 'active' | undefined, 'sold' | 'cancelled' | 'expired'>;
+  buyer_id: string | null;
+  sold_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  commission: ColumnType<string | null, number | null | undefined, number | null>;
+}
+
+/** A sale the admin should look at (M5c-1): an IP shared by buyer and seller, or a price far above the floor. */
+export interface TradeAlertsTable {
+  id: ColumnType<string, never, never>;
+  kind: 'shared_ip' | 'unbalanced';
+  listing_id: string | null;
+  seller_id: string | null;
+  buyer_id: string | null;
+  details: ColumnType<unknown, string | undefined, never>;
+  created_at: Timestamp;
+}
+
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
 export interface ClansTable {
   id: Generated<string>;
@@ -403,6 +428,8 @@ export interface DB {
   'galaxy.chat_messages': ChatMessagesTable;
   'galaxy.chat_reports': ChatReportsTable;
   'galaxy.chat_mutes': ChatMutesTable;
+  'galaxy.market_listings': MarketListingsTable;
+  'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
