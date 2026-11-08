@@ -1,4 +1,4 @@
-import { type ConfigKey, configIssues, expectedTierRates, FINISHES, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
+import { type ConfigKey, configIssues, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ApiError } from '../api/client';
@@ -217,7 +217,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
           </p>
           <p>{t.sim.longest(run.longestWithout)}</p>
           <p className="panel-note">
-            {t.sim.finishes}: {FINISHES.map((f) => `${copy.finishes[f]} ${pct(run.finishes[f] / run.pulls)}`).join(', ')}
+            {t.sim.finishes}: {DRAWN_FINISHES.map((f) => `${copy.finishes[f]} ${pct(run.finishes[f] / run.pulls)}`).join(', ')}
           </p>
         </>
       ) : null}

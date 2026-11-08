@@ -4,7 +4,13 @@ import { z } from 'zod';
 export const TIERS = ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const;
 export type Tier = (typeof TIERS)[number];
 
-export const FINISHES = ['normal', 'holo', 'prismatic', 'braille', 'corrupt'] as const;
+export const FINISHES = ['normal', 'holo', 'prismatic', 'braille', 'corrupt', 'rift'] as const;
+/**
+ * The finishes the deep scan's odds draw (config `gacha.finishes`, one weight each). The rest are a season's exclusive
+ * finish (M8c): only a pull in that open season can carry it.
+ */
+export const DRAWN_FINISHES = ['normal', 'holo', 'prismatic', 'braille', 'corrupt'] as const;
+export const SEASON_FINISHES = ['rift'] as const;
 export type Finish = (typeof FINISHES)[number];
 
 /** Engine traits a banner can feature (packages/engine draw order). */

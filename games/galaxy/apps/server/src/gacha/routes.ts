@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { pullRequestSchema, type GachaView, type PullResponse } from '@galaxy/shared';
+import { pullRequestSchema, seasonOpen, type GachaView, type PullResponse } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
@@ -32,9 +32,11 @@ export function registerGachaRoutes(api: FastifyInstance, deps: GachaDeps): void
     const body = pullRequestSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'gacha_pull', 30, 60);
     const gacha = await enabledGacha(deps.config);
+    const seasonCfg = await deps.config.get('season');
+    const season = seasonOpen(seasonCfg, deps.now()) ? seasonCfg : null;
     const mcfg = await missionConfigs(deps.config);
     return runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
-      const r = await pull(deps, trx, s.accountId, body, key, gacha);
+      const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
       await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now());
       return r;
     });

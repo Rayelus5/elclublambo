@@ -359,6 +359,19 @@
     background: radial-gradient(circle at 38% 38%, rgb(255 255 255 / .16) 0 .45cqw, rgb(0 0 0 / .4) .7cqw, transparent .95cqw) 0 0 / 3.4cqw 3.4cqw, linear-gradient(180deg, var(--color-panel-2), var(--color-panel)); }
   .gcard[data-finish='braille'] .gcard-fx { background: linear-gradient(135deg, rgb(255 255 255 / .22), transparent 40%, rgb(0 0 0 / .18)); mix-blend-mode: soft-light; }
   /* Corrupt: the Static got into it — scan lines, a red bleed, and a glitch while the pointer is on it. */
+  /* Fisura, the season 1 finish (M8c): the rift's violet static with crystal shards drifting across the card. */
+  .gcard[data-finish='rift'] .gcard-fx {
+    background:
+      linear-gradient(115deg, transparent 0 30%, rgb(200 170 255 / .55) 31%, transparent 33% 58%, rgb(150 120 255 / .45) 59%, transparent 61%),
+      linear-gradient(65deg, transparent 0 44%, rgb(230 210 255 / .5) 45%, transparent 47%),
+      radial-gradient(circle at 50% 120%, color-mix(in oklab, var(--color-uv) 70%, transparent), transparent 70%);
+    background-size: 220% 220%, 260% 260%, 100% 100%;
+    mix-blend-mode: screen; opacity: .8; animation: rift-drift 7s linear infinite; }
+  .gcard[data-finish='rift'] .gcard-art canvas { filter: hue-rotate(-12deg) saturate(1.2); }
+  .gcard[data-finish='rift'] .gcard-finish { background: linear-gradient(100deg, var(--color-uv-2), var(--color-uv-soft)); color: #fff; }
+  .gcard[data-finish='rift'] .gcard-tilt[data-active] .gcard-fx { opacity: 1; }
+  @keyframes rift-drift { from { background-position: 0% 0%, 100% 0%, 0 0; } to { background-position: 100% 100%, 0% 100%, 0 0; } }
+  @media (prefers-reduced-motion: reduce) { .gcard[data-finish='rift'] .gcard-fx { animation: none; } }
   .gcard[data-finish='corrupt'] .gcard-fx {
     background: repeating-linear-gradient(0deg, rgb(0 0 0 / .26) 0 .6cqw, transparent .6cqw 1.8cqw),
       linear-gradient(90deg, color-mix(in oklab, var(--color-static) 55%, transparent) 0 1.4cqw, transparent 1.4cqw calc(100% - 1.4cqw), rgb(80 240 255 / .4) calc(100% - 1.4cqw));

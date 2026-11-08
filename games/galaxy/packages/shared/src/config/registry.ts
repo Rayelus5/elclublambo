@@ -2,7 +2,7 @@ import { contentSchema, STAT_KEYS } from '@galaxy/sim';
 import { DEFAULT_LAB_NODES } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
-import { TRAIT_KEYS } from '../gacha/types';
+import { SEASON_FINISHES, TRAIT_KEYS } from '../gacha/types';
 import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON, DEFAULT_WEEKLY, eventSchema, missionSchema } from '../progress/missions';
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
@@ -496,6 +496,9 @@ export const configSchemas = {
       capPerMinute: z.number().int().min(1).max(100_000).default(20),
       /** The season's anomaly (M7d-3): an id of `content.anomalies` that changes every run while the season is open; null, none. */
       anomaly: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('contagion'),
+      /** The season's exclusive finish (M8c) and the chance a pull in the open season carries it; null, none. */
+      finish: z.enum(SEASON_FINISHES).nullable().default('rift'),
+      finishChance: z.number().min(0).max(0.2).default(0.02),
     })
     .strict()
     .refine((s) => Date.parse(s.startsAt) < Date.parse(s.endsAt), 'season_dates'),

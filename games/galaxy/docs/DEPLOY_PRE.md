@@ -638,6 +638,13 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Chat:** los mensajes se van a los 90 días, salvo los denunciados.
    - `run_inputs` sigue siendo de solo añadir para todo lo demás.
 
+38. **Desde M8c (acabado exclusivo de temporada):** la migración `20261108213407_galaxy_season_finish.sql` admite el acabado nuevo **Fisura** (`rift`) en `galaxy.galaxies`.
+   - **Cómo sale:** `season.finish` (por defecto `rift`) y `season.finishChance` (por defecto 2 %, como mucho 20 %). Mientras la temporada está abierta, cada tirada tiene esa probabilidad de llevarlo, con su propio flujo de azar. Las probabilidades del escáner (`gacha.finishes`, cinco pesos) no cambian.
+   - **Sello de origen:** cada galaxia de una tirada en la temporada guarda su `season`.
+   - **Catálogo:** la Fisura queda fuera, para que el 100 % siga siendo alcanzable.
+   - **Al desintegrarla:** rinde como Corrupto.
+   - **Cómo se ve:** en la carta, estática violeta con esquirlas de cristal; en el inspector 3D, su luz propia.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -56,7 +56,7 @@ void main() {
 }`;
 
 // The finish's light: a glare that follows the pointer, plus holo bands, a prismatic spectrum with sparkles, the
-// braille dots catching the light, or the Static's scan lines and glitch rows.
+// braille dots catching the light, the Static's scan lines and glitch rows, or the rift's violet shards (M8c).
 const FRAGMENT = /* glsl */ `
 uniform int uFinish;
 uniform vec2 uPointer;
@@ -93,6 +93,13 @@ void main() {
     float row = floor(vUv.y * 48.0);
     float glitch = step(0.94, hash(vec2(row, floor(uTime * 2.5)))) * uActive;
     col += vec3(1.0, 0.18, 0.36) * (scan + glitch * 0.35) + vec3(0.2, 0.9, 1.0) * glitch * 0.15;
+  } else if (uFinish == 5) {
+    // Fisura (M8c): violet static, and crystal shards that catch the light where the pointer is.
+    float s1 = smoothstep(0.012, 0.0, abs(fract(vUv.x * 0.9 + vUv.y * 1.7 + uTime * 0.05) - 0.5));
+    float s2 = smoothstep(0.01, 0.0, abs(fract(vUv.x * 1.6 - vUv.y * 0.6 - uTime * 0.04) - 0.5));
+    float near = smoothstep(0.7, 0.0, length(p));
+    col += vec3(0.55, 0.42, 1.0) * (0.08 + (s1 + s2) * (0.25 + 0.5 * near * uActive));
+    col += vec3(0.75, 0.6, 1.0) * step(0.985, hash(floor(vUv * vec2(40.0, 56.0)) + floor(uTime * 1.5))) * 0.4;
   }
   gl_FragColor = vec4(col * m, 1.0);
 }`;

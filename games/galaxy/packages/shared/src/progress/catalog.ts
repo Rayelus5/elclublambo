@@ -1,6 +1,6 @@
 import { TRAITS } from '@galaxy/engine';
 import { z } from 'zod';
-import { FINISHES } from '../gacha/types';
+import { DRAWN_FINISHES } from '../gacha/types';
 import { FRAMES } from './missions';
 
 // The ECN Catalogue (GDD §12.3, §3; M7b): the album of galaxy types, palettes, phenomena and finishes an account has
@@ -17,7 +17,8 @@ export function catalogEntries(): { kind: CatalogKind; value: string }[] {
     ...valuesOf('galaxy_type').map((value) => ({ kind: 'galaxy_type' as const, value })),
     ...valuesOf('palette').map((value) => ({ kind: 'palette' as const, value })),
     ...valuesOf('phenomenon').map((value) => ({ kind: 'phenomenon' as const, value })),
-    ...FINISHES.map((value) => ({ kind: 'finish' as const, value })),
+    // A season's exclusive finish stays out: whoever joins later can still complete the album (M8c).
+    ...DRAWN_FINISHES.map((value) => ({ kind: 'finish' as const, value })),
   ];
 }
 

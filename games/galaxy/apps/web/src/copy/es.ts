@@ -1081,7 +1081,7 @@ export const copy = {
   },
   tiers: { common: 'Común', uncommon: 'Poco común', rare: 'Rara', epic: 'Épica', legendary: 'Legendaria' },
   finishLabel: 'Acabado',
-  finishes: { normal: 'Normal', holo: 'Holo', prismatic: 'Prismático', braille: 'Relieve braille', corrupt: 'Corrupto' },
+  finishes: { normal: 'Normal', holo: 'Holo', prismatic: 'Prismático', braille: 'Relieve braille', corrupt: 'Corrupto', rift: 'Fisura' },
   collection: {
     // Relic levels (GDD §8.4 bis, M4c-1).
     levelCost: (dust: number) => `${fmt(dust)} de polvo`,
