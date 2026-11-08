@@ -539,6 +539,32 @@ export const configSchemas = {
       season: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable().default('signal-rift'),
     })
     .strict(),
+  /**
+   * Temporary global multipliers (GDD §16.3; M6d-5), «doble polvo el fin de semana»: what a run pays in one currency is
+   * multiplied while the window is open (start included, end not). Boosts on one currency multiply, up to ×5 in all.
+   */
+  boosts: z
+    .object({
+      list: z
+        .array(
+          z
+            .object({
+              id: z.string().regex(/^[a-z0-9-]{1,32}$/),
+              name: z.string().trim().min(1).max(40),
+              currency: z.enum(['coins', 'dust', 'material', 'signal']),
+              factor: z.number().min(1).max(5),
+              startsAt: z.iso.datetime(),
+              endsAt: z.iso.datetime(),
+            })
+            .strict()
+            .refine((b) => Date.parse(b.endsAt) > Date.parse(b.startsAt), 'Termina antes de empezar')
+            .refine((b) => Date.parse(b.endsAt) - Date.parse(b.startsAt) <= 14 * 86_400_000, 'Dura más de 14 días'),
+        )
+        .max(10)
+        .refine((list) => new Set(list.map((b) => b.id)).size === list.length, 'Hay dos multiplicadores con el mismo id')
+        .default([]),
+    })
+    .strict(),
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;

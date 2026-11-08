@@ -1,4 +1,6 @@
 import {
+  activeBoosts,
+  type BoostsView,
   finishRunRequestSchema,
   loadoutRequestSchema,
   probeChoiceSchema,
@@ -117,6 +119,13 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     );
   });
 
+  // The global multipliers running now (GDD §16.3; M6d-5), for the hub and the hangar.
+  api.get('/galaxy/api/boosts', async (req): Promise<BoostsView> => {
+    requireSession(req);
+    const cfg = await deps.config.get('boosts');
+    return { boosts: activeBoosts(cfg, deps.now()).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor, endsAt: b.endsAt })) };
+  });
+
   api.post('/galaxy/api/runs/:id/finish', { bodyLimit: FINISH_BODY_LIMIT }, async (req): Promise<RunResult> => {
     const s = requireSession(req);
     const key = idempotencyKey(req);
@@ -124,15 +133,16 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = finishRunRequestSchema.parse(req.body);
     // A resend of a stored result (same key) answers from the operation without using up the limit.
     if (!(await operationExists(deps.db, s.accountId, key))) await hitRateLimit(deps.db, `a:${s.accountId}`, 'run_finish', 60, 3600);
-    const [{ value: runs, version: runsVersion }, content, account, season] = await Promise.all([
+    const [{ value: runs, version: runsVersion }, content, account, season, boosts] = await Promise.all([
       deps.config.getVersioned('runs'),
       deps.config.get('content'),
       deps.config.get('account'),
       deps.config.get('season'),
+      deps.config.get('boosts'),
     ]);
     const now = deps.now();
     const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
-      finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, now }),
+      finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now }),
     );
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();

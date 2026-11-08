@@ -71,17 +71,26 @@ export interface RunPayout {
 /** Coins and dust a run pays, given the daily factor of its minutes; `penalized` pays the death share. */
 /** Raw material a run brings (GDD §10.3): from its depth, Cores and kills, paid like the loot (share, daily yield, cap). */
 /** The run's raw material; the Laboratorio's `boost` (a fraction added, M4b-2) applies before the cap. */
-export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost = 0): number {
+/** `global`: the boosts' multiplier on material (M6d-5), applied before the per-run cap like the Laboratorio's push. */
+export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost = 0, global = 1): number {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   const m = cfg.material;
   const raw = claim.depth * m.perLayer + claim.bossKills * m.perBoss + (claim.kills / 100) * m.perHundredKills;
-  return Math.min(Math.floor(raw * share * factor * (1 + boost) + 1e-9), cfg.caps.runMaterial);
+  return Math.min(Math.floor(raw * share * factor * (1 + boost) * global + 1e-9), cfg.caps.runMaterial);
 }
 
 /** The Laboratorio's push on a run's coins and dust (fractions added, M4b-2), applied before the per-run caps. */
 export type PayoutBoost = { coins: number; dust: number };
 
-export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, boost: PayoutBoost = { coins: 0, dust: 0 }): RunPayout {
+/** `global`: the boosts' multipliers (M6d-5), applied before the per-run caps. */
+export function runPayout(
+  claim: RunClaim,
+  cfg: RunsConfig,
+  factor: number,
+  penalized = false,
+  boost: PayoutBoost = { coins: 0, dust: 0 },
+  global: { coins: number; dust: number } = { coins: 1, dust: 1 },
+): RunPayout {
   const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
   let coins = 0;
   let dust = 0;
@@ -92,8 +101,8 @@ export function runPayout(claim: RunClaim, cfg: RunsConfig, factor: number, pena
     return { layer: i + 1, coins: l.coins, dust: l.dust, multiplier };
   });
   const k = share * factor;
-  const paidCoins = Math.floor(coins * k * (1 + boost.coins) + 1e-9);
-  const paidDust = Math.floor(dust * k * (1 + boost.dust) + 1e-9);
+  const paidCoins = Math.floor(coins * k * (1 + boost.coins) * global.coins + 1e-9);
+  const paidDust = Math.floor(dust * k * (1 + boost.dust) * global.dust + 1e-9);
   return {
     coins: Math.min(paidCoins, cfg.caps.runCoins),
     dust: Math.min(paidDust, cfg.caps.runDust),
