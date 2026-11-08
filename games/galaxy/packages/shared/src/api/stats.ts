@@ -23,8 +23,11 @@ export interface AdminStats {
   from: string;
   to: string;
   players: { online: number; sockets: number; newAccounts: number; activeAccounts: number };
-  /** Runs started in each bucket (an hour for 24h, a UTC day otherwise), oldest first, empty ones included. */
-  runs: { buckets: { at: string; count: number }[]; outcomes: { extracted: number; died: number; abandoned: number; open: number } };
+  /**
+   * Runs started in each bucket (an hour for 24h, a UTC day otherwise), oldest first, empty ones included; of the ones
+   * not finished, `open` can still finish (younger than runs.expireHours) and `unfinished` never will.
+   */
+  runs: { buckets: { at: string; count: number }[]; outcomes: { extracted: number; died: number; abandoned: number; open: number; unfinished: number } };
   currencies: { currency: string; in: number; out: number; byReason: StatsFlow[] }[];
   /** Pulls by tier (0 common … 4 legendary) with the expected share from the live gacha config. */
   pulls: { total: number; tiers: { tier: number; count: number; expected: number }[] };

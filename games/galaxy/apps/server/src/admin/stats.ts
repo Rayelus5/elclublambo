@@ -13,14 +13,16 @@ export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: ChatHub; no
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;
-const ONLINE_MS = 5 * 60_000;
+// Twice the sessions' touch interval (5 min): a player making requests never drops out between two touches.
+const ONLINE_MS = 10 * 60_000;
 const DAYS: Record<StatsPeriod, number> = { '24h': 1, '7d': 7, '30d': 30 };
 
 /** The period's start, and its buckets' starts (24 hours, or UTC days ending today). */
 function window(period: StatsPeriod, now: Date): { from: Date; buckets: Date[]; unit: 'hour' | 'day' } {
   if (period === '24h') {
     const top = Math.floor(now.getTime() / HOUR) * HOUR;
-    return { from: new Date(now.getTime() - DAY), buckets: Array.from({ length: 24 }, (_, i) => new Date(top - (23 - i) * HOUR)), unit: 'hour' };
+    // The window starts where its first hourly bar does, so every run counted is in a bar (M6d-2 review).
+    return { from: new Date(top - 23 * HOUR), buckets: Array.from({ length: 24 }, (_, i) => new Date(top - (23 - i) * HOUR)), unit: 'hour' };
   }
   const today = Math.floor(now.getTime() / DAY) * DAY;
   const n = DAYS[period];
@@ -46,8 +48,17 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
   const fmt = unit === 'hour' ? sql`to_char(date_trunc('hour', started_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24')` : sql`to_char(date_trunc('day', started_at at time zone 'UTC'), 'YYYY-MM-DD"T"HH24')`;
   const [byBucket, outcomes] = await Promise.all([
     sql<{ b: string; n: number }>`select ${fmt} as b, count(*)::int as n from galaxy.runs where started_at >= ${from} group by 1`.execute(db),
-    db.selectFrom('galaxy.runs').select(['outcome', sql<number>`count(*)::int`.as('n')]).where('started_at', '>=', from).groupBy('outcome').execute(),
+    db.selectFrom('galaxy.runs').select(['outcome', sql<number>`count(*)::int`.as('n')]).where('started_at', '>=', from).where('outcome', 'is not', null).groupBy('outcome').execute(),
   ]);
+  // Not finished: still open while it can finish (runs.expireHours), unfinished for good after that.
+  const { expireHours } = await deps.config.get('runs');
+  const expiry = new Date(now.getTime() - expireHours * HOUR);
+  const pending = await db
+    .selectFrom('galaxy.runs')
+    .select([sql<number>`count(*) filter (where started_at > ${expiry})::int`.as('open'), sql<number>`count(*) filter (where started_at <= ${expiry})::int`.as('unfinished')])
+    .where('started_at', '>=', from)
+    .where('outcome', 'is', null)
+    .executeTakeFirstOrThrow();
   const counts = new Map(byBucket.rows.map((r) => [r.b, r.n]));
   const outcome = (o: string | null) => outcomes.find((r) => r.outcome === o)?.n ?? 0;
 
@@ -98,7 +109,7 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
     players: { online: online.n, sockets: deps.hub.size(), newAccounts: newAccounts.n, activeAccounts: active.n },
     runs: {
       buckets: buckets.map((b) => ({ at: b.toISOString(), count: counts.get(b.toISOString().slice(0, 13)) ?? 0 })),
-      outcomes: { extracted: outcome('extracted'), died: outcome('died'), abandoned: outcome('abandoned'), open: outcome(null) },
+      outcomes: { extracted: outcome('extracted'), died: outcome('died'), abandoned: outcome('abandoned'), open: pending.open, unfinished: pending.unfinished },
     },
     currencies,
     pulls: { total: tiers.reduce((n, t) => n + t.count, 0), tiers },

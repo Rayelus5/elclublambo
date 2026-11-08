@@ -150,7 +150,7 @@ function Runs({ s }: { s: AdminStats }) {
         ) : null}
       </div>
       <ul className="stats-outcomes">
-        {(['extracted', 'died', 'abandoned', 'open'] as const).map((k) => (
+        {(['extracted', 'died', 'abandoned', 'open', 'unfinished'] as const).map((k) => (
           <li key={k}>{t.outcomes[k](s.runs.outcomes[k])}</li>
         ))}
       </ul>
@@ -288,6 +288,7 @@ function Pulls({ s }: { s: AdminStats }) {
           </tbody>
         </table>
       </div>
+      <p className="stats-sub">{t.expectedNote}</p>
     </section>
   );
 }

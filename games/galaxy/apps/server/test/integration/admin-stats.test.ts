@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { type AdminStats, PROBE_TEST, type Role } from '@galaxy/shared';
+import { type AdminStats, commissionOf, generateGalaxy, parseConfig, PROBE_TEST, type Role } from '@galaxy/shared';
+import { ENGINE_VERSION } from '@galaxy/engine';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, debit } from '../../src/economy/wallet';
@@ -103,7 +104,6 @@ describe('las cifras', () => {
     const s = await stats();
     expect(s.pending.alerts).toBeGreaterThanOrEqual(0);
     expect(s.pending.reports).toBeGreaterThanOrEqual(0);
-    expect(Date.parse(s.to) - Date.parse(s.from)).toBe(86_400_000);
   });
 });
 
@@ -121,7 +121,7 @@ describe('CSV', () => {
       from: '2026-11-07T12:00:00.000Z',
       to: '2026-11-08T12:00:00.000Z',
       players: { online: 0, sockets: 0, newAccounts: 0, activeAccounts: 0 },
-      runs: { buckets: [], outcomes: { extracted: 0, died: 0, abandoned: 0, open: 0 } },
+      runs: { buckets: [], outcomes: { extracted: 0, died: 0, abandoned: 0, open: 0, unfinished: 0 } },
       currencies: [{ currency: 'coins', in: 1_500_000, out: 20, byReason: [{ reason: 'a,b "c"', in: 1_500_000, out: 20 }] }],
       pulls: { total: 0, tiers: [0, 1, 2, 3, 4].map((tier) => ({ tier, count: 0, expected: 0.2 })) },
       market: { listed: 0, sold: 0, coins: 0, commission: 0, tradesDone: 0, tradesCancelled: 0 },
@@ -129,5 +129,62 @@ describe('CSV', () => {
     };
     expect(statsCsv(fake, 'currencies').trim().split('\n')).toEqual(['moneda,motivo,entra,sale', 'coins,"a,b ""c""",1500000,20']);
     expect(statsCsv(fake, 'pulls').trim().split('\n')[1]).toBe('comun,0,0.2');
+  });
+});
+
+describe('revisión final', () => {
+  test('la ventana de 24 horas empieza donde empieza su primera barra', async () => {
+    const s = await stats('24h');
+    expect(s.from).toBe(s.runs.buckets[0]!.at);
+    expect(Date.parse(s.to) - Date.parse(s.from)).toBeLessThanOrEqual(86_400_000);
+  });
+
+  test('un jugador cuya sesión se vio hace 7 minutos sigue contando como conectado', async () => {
+    const p = await player();
+    const at = (min: number) => ctx.db.updateTable('galaxy.sessions').set({ last_seen_at: new Date(Date.now() - min * 60_000) }).where('account_id', '=', p.id).execute();
+    await at(12);
+    const away = (await stats()).players.online;
+    await at(7);
+    expect((await stats()).players.online).toBeGreaterThan(away);
+  });
+
+  test('una partida sin terminar que ya caducó no cuenta como en curso', async () => {
+    const before = await stats('7d');
+    const p = await player();
+    await ctx.db
+      .insertInto('galaxy.runs')
+      .values({ account_id: p.id, seed: '1', sector: 'outer-nebula', probe: 'lumen', relics: '[]', content_version: 0, sim_version: SIM_VERSION, start_key: randomUUID(), started_at: new Date(Date.now() - 30 * 3_600_000), flags: [], suspicious: false })
+      .execute();
+    const after = await stats('7d');
+    expect(after.runs.outcomes.unfinished).toBeGreaterThan(before.runs.outcomes.unfinished);
+    expect(after.runs.outcomes.open).toBe(before.runs.outcomes.open);
+  });
+
+  test('una venta suma una venta, su precio y su comisión', async () => {
+    const DAY = 86_400_000;
+    const LEVEL_10 = parseConfig('account', {}).levels[8]!;
+    const trader = async () => {
+      const p = await player();
+      await ctx.db.insertInto('galaxy.account_xp').values({ account_id: p.id, xp: LEVEL_10 }).execute();
+      await ctx.db.updateTable('galaxy.accounts').set({ created_at: new Date(Date.now() - 4 * DAY) }).where('id', '=', p.id).execute();
+      return p;
+    };
+    const [seller, buyer] = await Promise.all([trader(), trader()]);
+    const g = generateGalaxy(BigInt(Date.now()) * 1000n + 4242n, 0);
+    const galaxy = await ctx.db
+      .insertInto('galaxy.galaxies')
+      .values({ owner_id: seller.id, seed: g.seed.toString(), engine_version: ENGINE_VERSION, traits: JSON.stringify(g.traits), dna: g.dna, name: g.name, designation: g.designation, tier: 0, score: g.score, finish: 'normal', origin: 'grant' })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const before = await stats();
+    const listed = await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: galaxy.id, price: 600 }, { cookie: seller.cookie, headers: { 'idempotency-key': randomUUID() } });
+    expect(listed.statusCode).toBe(200);
+    await credit(ctx.db, buyer.id, 'coins', 600, 'test');
+    expect((await post(ctx.app, `/galaxy/api/market/listings/${(listed.json() as { id: string }).id}/buy`, undefined, { cookie: buyer.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
+    const after = await stats();
+    expect(after.market.listed - before.market.listed).toBeGreaterThanOrEqual(1);
+    expect(after.market.sold - before.market.sold).toBeGreaterThanOrEqual(1);
+    expect(after.market.coins - before.market.coins).toBeGreaterThanOrEqual(600);
+    expect(after.market.commission - before.market.commission).toBeGreaterThanOrEqual(commissionOf(600, parseConfig('market', {}).commission));
   });
 });
