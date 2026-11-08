@@ -14,6 +14,7 @@ import { AdminHome, AdminLayout, AdminOnly } from './admin/AdminLayout';
 import { AuditScreen } from './admin/AuditScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { ClanList, ClanPage } from './admin/ModClans';
+import { Alerts, Commerce } from './admin/ModMarket';
 import { LiveChat, ModerationLayout, Mutes, Reports } from './admin/ModerationScreen';
 import { PlayerScreen } from './admin/PlayerScreen';
 import { PlayersScreen } from './admin/PlayersScreen';
@@ -96,6 +97,8 @@ export function App() {
             <Route element={<AdminOnly />}>
               <Route path="clanes" element={<ClanList />} />
               <Route path="clanes/:tag" element={<ClanPage />} />
+              <Route path="comercio" element={<Commerce />} />
+              <Route path="alertas" element={<Alerts />} />
             </Route>
           </Route>
         </Route>
