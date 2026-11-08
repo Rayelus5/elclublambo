@@ -341,6 +341,39 @@ export interface DealReversalsTable {
   created_at: Timestamp;
 }
 
+/** A mailbox message (M6d-1): news for everyone or a segment, with gifts; withdrawn, never edited or deleted. */
+export interface MailboxMessagesTable {
+  id: Generated<string>;
+  title: string;
+  body: string;
+  gifts: ColumnType<unknown, string, never>;
+  audience: ColumnType<unknown, string, never>;
+  created_by: string | null;
+  created_at: Timestamp;
+  expires_at: ColumnType<Date, Date | string, never>;
+  withdrawn_at: ColumnType<Date | null, never, Date | string>;
+}
+
+/** A message's receipt by an account (M6d-1): read, and its gift claimed once. */
+export interface MailboxReceiptsTable {
+  message_id: string;
+  account_id: string;
+  read_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+  claimed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string>;
+}
+
+/** A notice of the title screen (M6d-1), shown between two dates unless ended early. */
+export interface TitleNoticesTable {
+  id: Generated<string>;
+  text: string;
+  tone: 'info' | 'warning';
+  starts_at: ColumnType<Date, Date | string, never>;
+  ends_at: ColumnType<Date, Date | string, never>;
+  created_by: string | null;
+  created_at: Timestamp;
+  ended_at: ColumnType<Date | null, never, Date | string>;
+}
+
 /** Clans (M5b-1): a unique name (whatever the case), a unique tag in capitals, an emblem and a colour. */
 export interface ClansTable {
   id: Generated<string>;
@@ -484,6 +517,9 @@ export interface DB {
   'galaxy.chat_mutes': ChatMutesTable;
   'galaxy.chat_report_reviews': ChatReportReviewsTable;
   'galaxy.deal_reversals': DealReversalsTable;
+  'galaxy.mailbox_messages': MailboxMessagesTable;
+  'galaxy.mailbox_receipts': MailboxReceiptsTable;
+  'galaxy.title_notices': TitleNoticesTable;
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
