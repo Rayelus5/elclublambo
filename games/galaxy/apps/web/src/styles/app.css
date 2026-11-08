@@ -111,9 +111,12 @@
   /* ---------- Access panel ---------- */
   .auth { --r: 30px; --lip-h: 8px; width: 548px; padding: 24px 30px 26px; flex: none; }
   .tabs { display: flex; gap: 6px; padding: 5px; background: rgb(0 0 0 / .28); border-radius: 99px; margin-bottom: 20px; }
-  .tabs a { flex: 1; height: 44px; display: grid; place-items: center; border-radius: 99px; color: var(--color-ink-mute); font-weight: 600; font-size: 16px; text-decoration: none; transition: background .15s, color .15s; }
-  .tabs a:hover { color: var(--color-ink); }
-  .tabs a.active, .tabs a[aria-current="page"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
+  /* Tabs are links (a route each) or buttons (role="tab" in one screen, like Misiones or the Códice): the same look. */
+  .tabs :is(a, button) { flex: 1; height: 44px; display: grid; place-items: center; padding: 0 14px; border: 0; border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 16px var(--font-sans); text-decoration: none; cursor: pointer; transition: background .15s, color .15s; }
+  .tabs :is(a, button):hover { color: var(--color-ink); }
+  .tabs :is(a, button):focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .tabs a.active, .tabs a[aria-current="page"], .tabs button[aria-selected="true"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
+  @media (prefers-reduced-motion: reduce) { .tabs :is(a, button) { transition: none; } }
   .swap { animation: swap .38s var(--ease-bounce); }
   @keyframes swap { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
   .auth h2 { margin: 0 0 6px; font-size: 28px; font-weight: 700; line-height: 1.1; }
