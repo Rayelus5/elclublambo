@@ -893,6 +893,21 @@ Las dos columnas pasan a una sola cuando no caben (mínimo 380 px cada una).
 - el aviso «no puede generar la vista 3D pro» y el de la carta plana van en una nota Solar con su motivo, encima del lienzo;
 - en un planetario visitado, toda la carta es el botón que la abre en 3D.
 
+## 8 quinvicies. Misiones y logros
+
+**`/misiones`:** pestañas Diarias, Semanales, Temporada y Logros. Cada misión es una tarjeta con labio:
+- su nombre y lo que da;
+- una barra de progreso Terminal con «n de m» escrito, que es un `progressbar` con nombre;
+- «Recoger», que solo se activa al completarla.
+
+Una tarjeta lista para recoger lleva un borde Solar, y una ya recogida se atenúa y dice «Recogida».
+
+**Logros:** la píldora del rango (Bronce, Plata, Oro), la descripción y lo que dan en Terminal. Encima, «Tu título y tu marco» con dos selectores entre lo ganado.
+
+**Barra de arriba:** un trofeo con el número de recompensas por recoger, como el del buzón.
+
+**Perfil:** el título en Solar bajo el nombre, y el marco como un anillo alrededor del avatar (bronce, plata, oro, nebulosa o abismo; por ahora con CSS).
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

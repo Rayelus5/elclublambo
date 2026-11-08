@@ -14,6 +14,9 @@ export interface AccountsTable {
   ban_reason: string | null;
   /** M6a: left out of the season leaderboard by an admin. */
   leaderboard_excluded: Generated<boolean>;
+  /** M7a: the title and the frame the account shows (among its cosmetics). */
+  title: ColumnType<string | null, string | null | undefined, string | null>;
+  frame: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 export interface AccountRolesTable {
@@ -199,6 +202,36 @@ export interface SeasonAdjustmentsTable {
   account_id: string;
   season: string;
   points: number;
+  /** M7a: an admin's, a mission's or an achievement's. */
+  source: ColumnType<'admin' | 'mission' | 'achievement', 'admin' | 'mission' | 'achievement' | undefined, never>;
+  created_at: Timestamp;
+}
+
+/** M7a: what each mission of a period has counted, and when it was collected. */
+export interface MissionProgressTable {
+  account_id: string;
+  period: string;
+  mission: string;
+  progress: ColumnType<string | number, number, number>;
+  claimed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  updated_at: Timestamp;
+}
+
+/** M7a: what each achievement has counted, when it was reached and when it was collected. */
+export interface AchievementProgressTable {
+  account_id: string;
+  achievement: string;
+  progress: ColumnType<string | number, number, number>;
+  unlocked_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  claimed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  updated_at: Timestamp;
+}
+
+/** M7a: the titles and frames an account has earned. */
+export interface CosmeticsTable {
+  account_id: string;
+  kind: 'title' | 'frame';
+  value: string;
   created_at: Timestamp;
 }
 
@@ -526,6 +559,9 @@ export interface DB {
   'galaxy.lab_nodes': LabNodesTable;
   'galaxy.probe_grants': ProbeGrantsTable;
   'galaxy.season_adjustments': SeasonAdjustmentsTable;
+  'galaxy.mission_progress': MissionProgressTable;
+  'galaxy.achievement_progress': AchievementProgressTable;
+  'galaxy.cosmetics': CosmeticsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;

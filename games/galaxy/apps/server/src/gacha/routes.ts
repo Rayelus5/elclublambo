@@ -5,6 +5,7 @@ import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
+import { countStats, missionConfigs } from '../missions/service';
 import { enabledGacha, pull, visit, type GachaDeps } from './service';
 
 /** The client's `Idempotency-Key` header (a UUID): required on every economy action (GDD §11.3). */
@@ -31,6 +32,11 @@ export function registerGachaRoutes(api: FastifyInstance, deps: GachaDeps): void
     const body = pullRequestSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'gacha_pull', 30, 60);
     const gacha = await enabledGacha(deps.config);
-    return runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), (trx) => pull(deps, trx, s.accountId, body, key, gacha));
+    const mcfg = await missionConfigs(deps.config);
+    return runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
+      const r = await pull(deps, trx, s.accountId, body, key, gacha);
+      await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now());
+      return r;
+    });
   });
 }

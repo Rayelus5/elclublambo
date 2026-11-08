@@ -502,6 +502,29 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - una carta de un planetario visitado se abre en 3D;
    - sin violaciones de CSP.
 
+28. **Desde M7a (misiones y logros):** una migración, `*_galaxy_missions`. Crea:
+   - `mission_progress`, `achievement_progress` y `cosmetics`;
+   - las columnas `accounts.title` y `accounts.frame`;
+   - `season_adjustments.source`.
+
+   Dos claves nuevas de configuración se editan en Configuración y ya traen sus valores por defecto:
+   - **`missions`:** 3 diarias de un fondo de 7, 3 semanales de un fondo de 6, y 4 de temporada. Las del día y las de la semana son las mismas para todos.
+   - **`achievements`:** 10 logros que dan señales, títulos, marcos y puntos de temporada.
+
+   Cuentan las partidas que no son sospechosas (incursiones, minutos, bajas, Núcleos, extracciones y capa), las tiradas y las legendarias, las fusiones, las desintegraciones y los componentes recogidos.
+
+   El jugador lo ve así:
+   - un botón con trofeo en la barra de arriba, con el número de recompensas por recoger;
+   - **`/galaxy/misiones`**, con las pestañas Diarias, Semanales, Temporada y Logros;
+   - «Recoger» paga en el libro de movimientos y suma sus puntos a la clasificación General;
+   - en Logros elige su título y su marco, que se ven en su perfil.
+
+   Comprueba con una cuenta de prueba:
+   - juega una incursión;
+   - el logro «Primer despegue» se recoge y da el título «Cadete»;
+   - con ese título elegido, sale en el perfil;
+   - sin violaciones de CSP.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -27,6 +27,7 @@ import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
+import { countStats, missionConfigs } from '../missions/service';
 import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -141,9 +142,16 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
       deps.config.get('boosts'),
     ]);
     const now = deps.now();
-    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), (trx) =>
-      finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now }),
-    );
+    const mcfg = await missionConfigs(deps.config);
+    const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
+      const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
+      // Missions and achievements (M7a): what a run that is not suspicious did, as kept.
+      const kept = await trx.selectFrom('galaxy.runs').select(['suspicious', 'seconds', 'kills', 'boss_kills', 'depth', 'outcome']).where('id', '=', id).executeTakeFirstOrThrow();
+      if (!kept.suspicious) {
+        await countStats(trx, mcfg, s.accountId, { runs: 1, minutes: Math.floor((kept.seconds ?? 0) / 60), kills: kept.kills ?? 0, bossKills: kept.boss_kills ?? 0, extractions: kept.outcome === 'extracted' ? 1 : 0, depth: kept.depth ?? 0 }, now);
+      }
+      return r;
+    });
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.
     invalidateLeaderboard();
     return result;

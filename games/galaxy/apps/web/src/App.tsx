@@ -36,6 +36,7 @@ import { Entrar } from './routes/Entrar';
 import { Recuperar } from './routes/Recuperar';
 import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
+import { MissionsScreen } from './missions/MissionsScreen';
 
 function Splash() {
   return (
@@ -86,6 +87,7 @@ export function App() {
         <Route path="/clasificacion" element={<SignedIn><LeaderboardScreen /></SignedIn>} />
         <Route path="/clanes" element={<SignedIn><ClansScreen /></SignedIn>} />
         <Route path="/mercado" element={<SignedIn><MarketScreen /></SignedIn>} />
+        <Route path="/misiones" element={<SignedIn><MissionsScreen /></SignedIn>} />
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<AdminHome />} />
           <Route element={<AdminOnly />}>

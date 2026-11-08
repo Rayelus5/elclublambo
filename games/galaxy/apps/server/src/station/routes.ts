@@ -9,6 +9,7 @@ import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import type { RunsDeps } from '../runs/hangar';
 import { collectAntenna, collectRefinery, loadRefinery, stationView, upgradeRoom } from './service';
+import { missionConfigs } from '../missions/service';
 
 // The station's routes (GDD §10): the view, and four idempotent actions that answer with the new view.
 
@@ -40,7 +41,8 @@ export function registerStationRoutes(api: FastifyInstance, deps: RunsDeps): voi
   });
   api.post('/galaxy/api/station/refinery/collect', async (req) => {
     empty.parse(req.body ?? undefined);
-    return action(req, 'refinery.collect', null, (account, key, trx) => collectRefinery(deps, trx, account, key));
+    const mcfg = await missionConfigs(deps.config);
+    return action(req, 'refinery.collect', null, (account, key, trx) => collectRefinery(deps, trx, account, key, mcfg));
   });
   api.post('/galaxy/api/station/antenna/collect', async (req) => {
     empty.parse(req.body ?? undefined);

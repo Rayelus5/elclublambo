@@ -5,6 +5,7 @@ import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { countStats, missionConfigs } from '../missions/service';
 import { disintegrate, fuse, galaxyDetail, levelUpGalaxy, listGalaxies, listQuerySchema, type CollectionDeps } from './service';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -25,10 +26,12 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const key = idempotencyKey(req);
     const { id } = idParam.parse(req.params);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
-    const [cfg, lab, relics] = await Promise.all([deps.config.get('galaxies'), deps.config.get('lab'), deps.config.get('relics')]);
-    return runOperation(deps.db, s.accountId, key, 'galaxy.disintegrate', requestHash({ id }), (trx) =>
-      disintegrate({ cfg, lab, relics }, trx, s.accountId, id, key),
-    );
+    const [cfg, lab, relics, mcfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('lab'), deps.config.get('relics'), missionConfigs(deps.config)]);
+    return runOperation(deps.db, s.accountId, key, 'galaxy.disintegrate', requestHash({ id }), async (trx) => {
+      const r = await disintegrate({ cfg, lab, relics }, trx, s.accountId, id, key);
+      await countStats(trx, mcfg, s.accountId, { disintegrations: 1 }, new Date());
+      return r;
+    });
   });
 
   api.post('/galaxy/api/galaxies/fuse', async (req) => {
@@ -36,8 +39,12 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     const key = idempotencyKey(req);
     const body = fuseRequestSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
-    const [cfg, gacha, lab, relics] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha'), deps.config.get('lab'), deps.config.get('relics')]);
-    return runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), (trx) => fuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.ids, key));
+    const [cfg, gacha, lab, relics, mcfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha'), deps.config.get('lab'), deps.config.get('relics'), missionConfigs(deps.config)]);
+    return runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), async (trx) => {
+      const r = await fuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.ids, key);
+      await countStats(trx, mcfg, s.accountId, { fusions: 1, legendaries: r.galaxy.tier === 'legendary' ? 1 : 0 }, new Date());
+      return r;
+    });
   });
 
   // A galaxy's next level (M4c-1): the session first, then the body; an idempotent operation naming the level.
