@@ -148,11 +148,12 @@ export function ProfileScreen() {
         {p ? (
           <>
             <section className="profile-head">
-              <span className="profile-avatar">
+              <span className={`profile-avatar${p.frame ? ` frame-${p.frame}` : ''}`}>
                 <Avatar name={p.username} />
               </span>
               <div>
                 <h1>{p.username}</h1>
+                {p.title ? <p className="profile-title">{p.title}</p> : null}
                 <p className="profile-level">{t.level(p.level)}</p>
                 <p className="profile-since">{t.since(p.since)}</p>
                 {p.clan ? (

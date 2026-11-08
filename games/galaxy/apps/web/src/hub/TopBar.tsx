@@ -3,6 +3,7 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isAdmin, isStaff } from '../auth/useMe';
 import { MailButton } from '../mail/Mailbox';
+import { MissionsButton } from '../missions/MissionsScreen';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
@@ -74,6 +75,7 @@ export function TopBar({
             <Icon name="shield" />
           </Link>
         ) : null}
+        <MissionsButton style={delay('1.02s')} />
         <MailButton style={delay('1.05s')} />
         <button
           type="button"
