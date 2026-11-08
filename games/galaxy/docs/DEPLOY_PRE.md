@@ -542,6 +542,15 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - el premio del 10 % se recoge si llega al 10 %;
    - sin violaciones de CSP.
 
+30. **Desde M7b-2 (Códice):** sin migraciones. La sala **Archivo** de la estación deja de estar «en reparación» y abre **`/galaxy/codice`**. El Códice son los registros del ECN, con el lore aprobado como provisional (`docs/LORE.md`), y se descifran jugando:
+   - **Crónica:** se abre con el nivel de cuenta. El capítulo de la Temporada 1 se abre al purgar el Núcleo de la Fisura.
+   - **Sectores:** al jugar en cada uno.
+   - **Núcleos:** al purgarlos. El Eco Profundo, al llegar a la capa 4.
+   - **Bestiario:** al aguantar en un sector hasta el minuto en que aparece cada especie. Cada entrada dice cómo combatirla.
+   - **Fragmentos de transmisión:** tras 3, 10, 25, 50 y 100 Núcleos purgados.
+
+   Lo que aún no se ha descifrado dice cómo se abre. Cuentan solo las partidas que no son sospechosas.
+
 ## Operación
 
 | Tarea | Cómo |

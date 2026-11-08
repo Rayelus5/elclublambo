@@ -1,6 +1,7 @@
-# Galaxy Survivor · Lore (borrador para revisar)
+# Galaxy Survivor · Lore
 
-> Borrador v1 · 2026-11-08 · Lo escribe Claude y lo revisa el usuario antes de cargarlo en el Códice (GDD §15, §19).
+> v1 · 2026-11-08 · **Aprobado por el usuario como texto provisional** (2026-11-08) y cargado en el Códice (M7b-2,
+> `apps/web/src/codex/entries.ts`). Se puede reescribir más adelante.
 > Nada de esto sale en pantalla como muro de texto: vive en el Códice, que el jugador abre si quiere. En partida solo
 > hay radio de una o dos líneas.
 

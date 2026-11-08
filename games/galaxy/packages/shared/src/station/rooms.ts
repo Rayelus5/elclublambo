@@ -20,7 +20,7 @@ export const ROOMS: Record<RoomId, { kind: 'tool' | 'machine' | 'future'; initia
   comms: { kind: 'future', initial: 0 },
   refinery: { kind: 'machine', initial: 1 },
   antenna: { kind: 'machine', initial: 0 },
-  archive: { kind: 'future', initial: 0 },
+  archive: { kind: 'tool', initial: 1 },
   trophies: { kind: 'future', initial: 0 },
 };
 
