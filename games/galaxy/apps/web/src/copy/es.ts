@@ -1353,6 +1353,7 @@ export const copy = {
     alert_reviewed: 'Esa alerta ya está revisada',
     mail_claimed: 'Ese regalo ya está recogido',
     mail_gone: 'Ese mensaje ya no está en tu buzón',
+    notice_gone: 'Ese aviso ya terminó',
     level_too_low: 'Todavía no tienes el nivel que hace falta',
   } satisfies Record<ApiErrorCode, string>,
 } as const;

@@ -104,6 +104,7 @@ export const API_ERROR_CODES = [
   'alert_reviewed',
   'mail_claimed',
   'mail_gone',
+  'notice_gone',
   'level_too_low',
 ] as const;
 

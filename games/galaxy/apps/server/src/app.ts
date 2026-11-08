@@ -21,6 +21,8 @@ import { registerTradeRoutes } from './market/trade-routes';
 import { registerAdminRoutes } from './admin/routes';
 import { registerModerationRoutes } from './admin/moderation-routes';
 import { registerAdminMarketRoutes } from './admin/market-routes';
+import { registerCommunicationRoutes } from './admin/communication-routes';
+import { registerMailRoutes } from './mail/routes';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -103,6 +105,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub });
     registerModerationRoutes(api, { db: deps.db, config, env: deps.env, hub, now });
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });
+    registerMailRoutes(api, { db: deps.db, config, now });
+    registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now });
   });
   return app;
 }
