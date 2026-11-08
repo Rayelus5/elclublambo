@@ -134,6 +134,7 @@ export const copy = {
       pending: (n: number) => (n === 1 ? '1 denuncia sin revisar' : `${n} denuncias sin revisar`),
       reasonsTitle: 'Lo que dijeron',
       noReports: 'No hay denuncias pendientes. Las nuevas aparecen aquí',
+      waiting: (n: number) => (n === 1 ? '1 mensaje espera revisión' : `${n} mensajes esperan revisión`),
       hide: 'Ocultar',
       keepHidden: 'Dejar oculto',
       keep: 'Dejar visible',

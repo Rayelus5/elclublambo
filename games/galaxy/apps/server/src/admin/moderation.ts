@@ -1,4 +1,4 @@
-import { MOD_PAGE_SIZE, type ModChannel, type ModMessage, type ModMute, type ModOutcome, type ModReport } from '@galaxy/shared';
+import { MOD_PAGE_SIZE, MOD_REPORTS_PAGE_SIZE, type ModChannel, type ModMessage, type ModMute, type ModOutcome, type ModReport, type ModReportPage } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { SessionInfo } from '../auth/sessions';
@@ -83,27 +83,37 @@ export async function modHide(deps: ChatDeps, actor: AuditActor, id: string, rea
   return { hidden: true };
 }
 
-/** The queue: messages with reports since their last review, the longest waiting first (50). */
-export async function modReports(db: Kysely<DB>): Promise<ModReport[]> {
-  const pending = await sql<{ id: string; pending: number; first_at: Date; last_at: Date; reasons: string[] }>`
-    select r.message_id as id, count(*)::int as pending, min(r.created_at) as first_at, max(r.created_at) as last_at,
+/**
+ * The queue: messages with reports since their last review, the one reported most recently first (a message reported
+ * again rises to the top), 50 a page, with how many are waiting.
+ */
+export async function modReports(db: Kysely<DB>, page: number): Promise<ModReportPage> {
+  const pending = sql`
+    select r.message_id, count(*)::int as pending, min(r.created_at) as first_at, max(r.created_at) as last_at,
       (array_remove(array_agg(r.reason order by r.created_at desc), null))[1:5] as reasons
     from galaxy.chat_reports r left join galaxy.chat_report_reviews v on v.message_id = r.message_id
     where v.reviewed_at is null or r.created_at > v.reviewed_at
-    group by r.message_id order by min(r.created_at) limit 50`.execute(db);
-  if (pending.rows.length === 0) return [];
-  const rows = await messageRows(db)
+    group by r.message_id`;
+  const { rows: counted } = await sql<{ n: number }>`select count(*)::int as n from (${pending}) p`.execute(db);
+  const total = counted[0]?.n ?? 0;
+  const pages = Math.max(1, Math.ceil(total / MOD_REPORTS_PAGE_SIZE));
+  const { rows } = await sql<{ message_id: string; pending: number; first_at: Date; last_at: Date; reasons: string[] | null }>`
+    select * from (${pending}) p order by last_at desc, message_id desc
+    limit ${MOD_REPORTS_PAGE_SIZE} offset ${(page - 1) * MOD_REPORTS_PAGE_SIZE}`.execute(db);
+  if (rows.length === 0) return { reports: [], total, page, pages };
+  const messages = await messageRows(db)
     .where(
       'm.id',
       'in',
-      pending.rows.map((p) => String(p.id)),
+      rows.map((p) => String(p.message_id)),
     )
     .execute();
-  const byId = new Map(rows.map((r) => [String(r.id), toMessage(r)]));
-  return pending.rows.flatMap((p) => {
-    const message = byId.get(String(p.id));
+  const byId = new Map(messages.map((r) => [String(r.id), toMessage(r)]));
+  const reports: ModReport[] = rows.flatMap((p) => {
+    const message = byId.get(String(p.message_id));
     return message ? [{ message, reasons: p.reasons ?? [], pending: p.pending, firstAt: iso(p.first_at), lastAt: iso(p.last_at) }] : [];
   });
+  return { reports, total, page, pages };
 }
 
 /**

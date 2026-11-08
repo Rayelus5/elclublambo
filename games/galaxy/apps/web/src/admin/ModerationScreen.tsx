@@ -5,6 +5,7 @@ import { useModChannels, useModMessages, useModMutes, useModReports } from '../a
 import { errorText, isAdmin, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { ActionDialog, type FieldSpec } from './ActionDialog';
+import { Pager } from './DataTable';
 
 const t = copy.admin.moderation;
 const when = (iso: string) => new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
@@ -112,12 +113,13 @@ function MessageCard({ m, channel, extra, children }: { m: ModMessage; channel?:
   );
 }
 
-/** The report queue: the longest waiting first; each one is hidden or kept visible with a reason. */
+/** The report queue: the message reported most recently first, 50 a page; each one is hidden or kept visible with a reason. */
 export function Reports() {
-  const reports = useModReports();
+  const [page, setPage] = useState(1);
+  const reports = useModReports(page);
   const label = useChannelLabel();
   const dialog = useModDialog();
-  const rows = reports.data ?? [];
+  const rows = reports.data?.reports ?? [];
   return (
     <div className="mod-pane">
       {dialog.view}
@@ -126,7 +128,8 @@ export function Reports() {
           {errorText(reports.error, copy.errors)}
         </p>
       ) : null}
-      {reports.data && rows.length === 0 ? <p className="panel-note">{t.noReports}</p> : null}
+      {reports.data && reports.data.total === 0 ? <p className="panel-note">{t.noReports}</p> : null}
+      {reports.data && reports.data.total > 0 ? <p className="mod-waiting">{t.waiting(reports.data.total)}</p> : null}
       <div className="mod-list">
         {rows.map((r) => {
           const m = r.message;
@@ -164,6 +167,7 @@ export function Reports() {
           );
         })}
       </div>
+      {reports.data ? <Pager page={reports.data.page} pages={reports.data.pages} onPage={setPage} /> : null}
     </div>
   );
 }

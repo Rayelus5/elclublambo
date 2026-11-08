@@ -1523,6 +1523,7 @@
   .mod-message .admin-chip:first-child { margin-left: 0; }
   .mod-report { display: grid; gap: 6px; padding: 10px 12px; border-radius: 10px; background: rgb(255 255 255 / .03); }
   .mod-pending { margin: 0; font-size: 14px; font-weight: 700; color: var(--color-solar); }
+  .mod-waiting { margin: 0; font-weight: 600; color: var(--color-ink-soft); }
   .mod-report ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 14px; color: var(--color-ink-soft); }
   .mod-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 16px; }
   .mod-toolbar .field { margin: 0; min-width: 260px; }

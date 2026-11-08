@@ -628,7 +628,7 @@ Consulta de ui-ux-pro-max: se aplicaron dos guías:
 
 ## 8 sedecies. Panel de administración
 
-`/admin`, solo para admins y superadmins que entraron con TOTP (GDD §16, M6a). Se llega con el escudo de la barra de arriba. Quien no lo es, vuelve al inicio.
+`/admin`, para el equipo que entró con TOTP (GDD §16, M6a). Admins y superadmins ven todo; los moderadores, solo Moderación (§8 octodecies, desde M6c-1). Se llega con el escudo de la barra de arriba. Quien no es del equipo vuelve al inicio.
 
 Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **Tablas densas pero legibles:** 14 px y su propio desplazamiento horizontal;
@@ -644,7 +644,8 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 **La barra lateral:**
 - Jugadores y Auditoría;
 - Configuración (desde M6b);
-- Moderación, Comunicación y Estadísticas, en gris con «Próximamente» hasta M6c–M6d;
+- Moderación (desde M6c-1);
+- Comunicación y Estadísticas, en gris con «Próximamente» hasta M6d;
 - la sección activa, con una barra Solar a la izquierda.
 
 **Jugadores:**
@@ -695,6 +696,35 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - tira el borrador en el navegador sin publicarlo, 1000, 10.000 o 100.000 veces, con el escáner que se elija;
 - una tabla de 640 px como máximo, con la rareza en su color, lo que salió y lo que se esperaba (decimales con coma);
 - debajo, cada cuántas tiradas sale una legendaria, la racha más larga sin ella y el reparto de acabados.
+
+## 8 octodecies. Moderación
+
+`/admin/moderacion`, dentro del panel (GDD §16.1 y §16.4, M6c-1). Es lo único que ve un moderador: el escudo le lleva aquí, su barra lateral solo tiene Moderación y cualquier otra sección le devuelve aquí. En la barra de arriba, su etiqueta dice «Moderador».
+
+Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
+- **El estado no se dice solo con color:** un mensaje oculto se atenúa y lleva una barra Nova a la izquierda, pero sobre todo dice «Oculto por denuncias» u «Oculto por <nombre>»;
+- **Lo que se actualiza solo se puede parar:** el chat en vivo dice «Se actualiza cada 5 segundos», con un punto Terminal que late, y «Pausar» lo detiene («En pausa»);
+- **Cada acción se confirma y se ve hecha:** cada una abre un diálogo con motivo y termina con «Hecho. Queda en la auditoría»;
+- **Un vacío orienta:** «No hay denuncias pendientes. Las nuevas aparecen aquí», «Nadie está silenciado ahora».
+
+**Apartados:** una fila de pastillas bajo el título, con nombre de navegación «Apartados de moderación»: Denuncias, Chat en vivo, Silencios y, solo para admins, Clanes. La activa, en Panel 2 con su labio, como las pestañas de la ficha.
+
+**Un mensaje** es una tarjeta Panel de 920 px como mucho:
+- arriba, el autor en negrita, el canal en una etiqueta Hielo y la hora en gris;
+- el texto tal cual se escribió, a 15 px, saltos de línea incluidos;
+- sus etiquetas: oculto (Nova) y cuántas denuncias tiene (Solar);
+- sus botones, que dicen lo que hacen: «Ocultar» (Nova) o «Restaurar», y «Silenciar a <nombre>».
+
+**Denuncias:** arriba, cuántos mensajes esperan revisión; lo denunciado más recientemente va primero (una denuncia nueva lo sube) y la cola va de 50 en 50 con «Anterior» y «Siguiente». Cada tarjeta suma un recuadro con «N denuncias sin revisar» en Solar y lo que escribieron. Sus botones se nombran según el estado del mensaje: «Ocultar» y «Dejar visible» si está a la vista, «Dejar oculto» y «Restaurar» si las denuncias ya lo ocultaron.
+
+**Chat en vivo:** una barra con el selector de canal (Comunidad y los clanes con mensajes en los últimos 30 días, como «[GX] Galácticos»), el estado en vivo, «Pausar» y, para admins, el enlace «Filtro de palabras» a la clave `chat`. Debajo, lo más nuevo primero y «Ver anteriores».
+
+**Silencios:** «Silenciar una cuenta» (cuenta, duración de 10 minutos a 30 días y motivo) y la tabla de los que siguen en curso, cada uno con «Levantar».
+
+**Clanes:**
+- la búsqueda por etiqueta o nombre (sin texto, los más nuevos) en una tabla que lleva a cada clan;
+- la página de un clan: «[GX] Galácticos» en Bungee, abierto o cerrado, su descripción y «Renombrar», «Borrar la descripción» y «Disolver» (Nova, con contraseña);
+- la tabla de miembros con su rango y «Hacer líder» y «Expulsar» en cada fila.
 
 ## 9. Copy
 

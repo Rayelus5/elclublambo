@@ -18,6 +18,8 @@ const channelKey = z.union([z.literal('global'), z.string().regex(/^clan:[0-9a-f
 
 export const modChannelQuerySchema = z.object({ channel: channelKey, before: z.string().regex(/^\d{1,18}$/).optional() }).strict();
 export const modReasonSchema = z.object({ reason }).strict();
+export const MOD_REPORTS_PAGE_SIZE = 50;
+export const modReportsQuerySchema = z.object({ page: z.coerce.number().int().min(1).max(10_000).default(1) }).strict();
 export const modResolveSchema = z.object({ outcome: z.enum(['hidden', 'kept']), reason }).strict();
 export type ModOutcome = z.infer<typeof modResolveSchema>['outcome'];
 /** The chat_mutes table keeps 140 characters of reason. */
@@ -61,6 +63,15 @@ export interface ModReport {
   pending: number;
   firstAt: string;
   lastAt: string;
+}
+
+/** The queue a page at a time (50), the message reported most recently first. */
+export interface ModReportPage {
+  reports: ModReport[];
+  /** How many messages are waiting. */
+  total: number;
+  page: number;
+  pages: number;
 }
 
 export interface ModMute {

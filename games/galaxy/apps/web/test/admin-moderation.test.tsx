@@ -1,4 +1,4 @@
-import type { AdminClan, MeResponse, ModChannel, ModMessage, ModMute, ModReport } from '@galaxy/shared';
+import type { AdminClan, MeResponse, ModChannel, ModMessage, ModMute, ModReport, ModReportPage } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
@@ -51,12 +51,14 @@ test('la cola de denuncias enseña el mensaje y sus motivos, y se resuelve con u
   const queue: ModReport[] = [{ message: message({ hidden: { reason: 'reports', by: null, at: '2026-11-08T09:05:00.000Z' }, reports: 3 }), reasons: ['Spam', 'Me ofende'], pending: 3, firstAt: '2026-11-08T09:01:00.000Z', lastAt: '2026-11-08T09:05:00.000Z' }];
   const fetch = mockApi({
     'GET /galaxy/api/auth/me': () => jsonResponse(200, mod),
-    [`GET ${M}/reports`]: () => jsonResponse(200, queue),
+    [`GET ${M}/reports?page=1`]: () => jsonResponse(200, { reports: queue, total: 51, page: 1, pages: 2 } satisfies ModReportPage),
+    [`GET ${M}/reports?page=2`]: () => jsonResponse(200, { reports: [], total: 51, page: 2, pages: 2 } satisfies ModReportPage),
     [`GET ${M}/channels`]: () => jsonResponse(200, channels),
     [`POST ${M}/reports/41`]: () => jsonResponse(200, { outcome: 'kept' }),
   });
   renderAt('/admin/moderacion', { '/admin/moderacion': <Reports /> });
   const card = await screen.findByRole('article', { name: t.messageOf('vega') });
+  expect(screen.getByText(t.waiting(51))).toBeInTheDocument();
   expect(within(card).getByText('esto molesta')).toBeInTheDocument();
   expect(within(card).getByText(t.pending(3))).toBeInTheDocument();
   expect(within(card).getByText(t.hiddenByReports)).toBeInTheDocument();
@@ -68,10 +70,12 @@ test('la cola de denuncias enseña el mensaje y sus motivos, y se resuelve con u
   await userEvent.click(within(dialog).getByRole('button', { name: t.restore }));
   await waitFor(() => expect(posted(fetch, `${M}/reports/41`)).toEqual([{ outcome: 'kept', reason: 'No incumple las normas' }]));
   expect(await screen.findByRole('status')).toHaveTextContent(copy.admin.done);
+  await userEvent.click(screen.getByRole('button', { name: copy.admin.next }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${M}/reports?page=2`)).toBe(true));
 });
 
 test('sin denuncias pendientes lo dice', async () => {
-  mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, mod), [`GET ${M}/reports`]: () => jsonResponse(200, []), [`GET ${M}/channels`]: () => jsonResponse(200, channels) });
+  mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, mod), [`GET ${M}/reports?page=1`]: () => jsonResponse(200, { reports: [], total: 0, page: 1, pages: 1 }), [`GET ${M}/channels`]: () => jsonResponse(200, channels) });
   renderAt('/admin/moderacion', { '/admin/moderacion': <Reports /> });
   expect(await screen.findByText(t.noReports)).toBeInTheDocument();
 });

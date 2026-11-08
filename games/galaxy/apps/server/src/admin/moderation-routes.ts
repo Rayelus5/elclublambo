@@ -8,6 +8,7 @@ import {
   modChannelQuerySchema,
   modMuteSchema,
   modReasonSchema,
+  modReportsQuerySchema,
   modResolveSchema,
   modUsernameParamSchema,
 } from '@galaxy/shared';
@@ -58,7 +59,7 @@ export function registerModerationRoutes(api: FastifyInstance, deps: ChatDeps & 
 
   api.get('/galaxy/api/admin/moderation/reports', async (req) => {
     requireStaff(req);
-    return modReports(deps.db);
+    return modReports(deps.db, modReportsQuerySchema.parse(req.query).page);
   });
 
   api.post('/galaxy/api/admin/moderation/reports/:id', async (req) => {

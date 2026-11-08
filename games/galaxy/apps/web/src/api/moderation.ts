@@ -1,4 +1,4 @@
-import { type AdminClan, type AdminClanRow, MOD_PAGE_SIZE, type ModChannel, type ModMessage, type ModMute, type ModReport } from '@galaxy/shared';
+import { type AdminClan, type AdminClanRow, MOD_PAGE_SIZE, type ModChannel, type ModMessage, type ModMute, type ModReportPage } from '@galaxy/shared';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { ADMIN_KEY } from './admin';
 import { api } from './client';
@@ -28,8 +28,9 @@ export function useModMessages(channel: string, live: boolean) {
   });
 }
 
-export function useModReports() {
-  return useQuery({ queryKey: [...MOD_KEY, 'reports'], queryFn: () => api<ModReport[]>('/admin/moderation/reports') });
+/** The queue a page at a time (50), the message reported most recently first. */
+export function useModReports(page: number) {
+  return useQuery({ queryKey: [...MOD_KEY, 'reports', page], queryFn: () => api<ModReportPage>(`/admin/moderation/reports?page=${page}`), placeholderData: keepPreviousData });
 }
 
 export function useModMutes() {

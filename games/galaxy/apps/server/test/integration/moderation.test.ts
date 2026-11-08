@@ -1,5 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { type ChatHistory, type ModChannel, type ModMessage, type ModMute, type ModReport, PROBE_TEST, type Role } from '@galaxy/shared';
+import { type ChatHistory, type ModChannel, type ModMessage, type ModMute, type ModReportPage, PROBE_TEST, type Role } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit } from '../../src/economy/wallet';
 import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
@@ -52,7 +52,7 @@ const report = (p: P, id: string, reason?: string) => post(ctx.app, `/galaxy/api
 const seen = async (p: P, id: string) => ((await get(ctx.app, '/galaxy/api/chat/global', { cookie: p.cookie })).json() as ChatHistory).messages.some((m) => m.id === id);
 const audits = (target: string) =>
   ctx.db.selectFrom('galaxy.admin_audit_log').select(['action', 'actor_label', 'before', 'after', 'reason']).where('target_id', '=', target).orderBy('id').execute();
-const inQueue = async (id: string) => (await read<ModReport[]>('/reports')).find((r) => r.message.id === id);
+const inQueue = async (id: string) => (await read<ModReportPage>('/reports')).reports.find((r) => r.message.id === id);
 
 describe('quién entra', () => {
   test('sin sesión 401, un jugador 403, un moderador con TOTP lee los cuatro apartados', async () => {
@@ -112,6 +112,22 @@ describe('chat en vivo', () => {
 });
 
 describe('cola de denuncias', () => {
+  test('lo denunciado más recientemente va primero, con cuántos mensajes esperan y sus páginas de 50', async () => {
+    const [a, b] = await Promise.all([player(), player()]);
+    const first = await write(a, 'primero en llegar');
+    const second = await write(a, 'segundo en llegar');
+    await report(b, first);
+    await report(b, second);
+    const queue = await read<ModReportPage>('/reports');
+    expect(queue.reports.slice(0, 2).map((r) => r.message.id)).toEqual([second, first]);
+    expect(queue.reports.length).toBeLessThanOrEqual(50);
+    expect(queue.total).toBeGreaterThanOrEqual(2);
+    expect(queue).toMatchObject({ page: 1, pages: Math.max(1, Math.ceil(queue.total / 50)) });
+    const last = await read<ModReportPage>(`/reports?page=${queue.pages}`);
+    expect(last.page).toBe(queue.pages);
+    expect((await get(ctx.app, M('/reports?page=0'), { cookie: mod.cookie })).statusCode).toBe(400);
+  });
+
   test('dejar visible un mensaje ocultado por denuncias lo devuelve, y una denuncia más no lo vuelve a ocultar', async () => {
     const [a, b, c, d, e] = await Promise.all([player(), player(), player(), player(), player()]);
     const id = await write(a, 'opinión polémica');
