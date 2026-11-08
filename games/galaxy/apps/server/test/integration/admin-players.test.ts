@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomInt, randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { type AdminPlayer, type AdminPlayerList, type AdminSection, type AuditPage, generateGalaxy, type Leaderboard, PROBE_TEST, parseConfig, type Role } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
@@ -85,7 +85,7 @@ describe('buscar y ver', () => {
     expect(((await get(ctx.app, A(`/players?q=${p.username.slice(0, 8)}`), { cookie: admin.cookie })).json() as AdminPlayerList).players.map((x) => x.username)).toContain(p.username);
     expect(((await get(ctx.app, A(`/players?q=${ip}`), { cookie: admin.cookie })).json() as AdminPlayerList).players.map((x) => x.username)).toEqual([p.username]);
     await credit(ctx.db, p.id, 'coins', 2000, 'test');
-    const tag = `Q${randomUUID().slice(0, 3).toUpperCase().replace(/[^A-Z0-9]/g, 'Q')}`;
+    const tag = randomInt(36 ** 3, 36 ** 4).toString(36).toUpperCase();
     expect((await post(ctx.app, '/galaxy/api/clans', { name: `Admin ${randomUUID().slice(0, 6).replace(/[^a-z]/g, 'x')}`, tag, emblem: 'eye', color: 'ice' }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } })).statusCode).toBe(200);
     expect(((await get(ctx.app, A(`/players?q=${tag}`), { cookie: admin.cookie })).json() as AdminPlayerList).players.map((x) => x.username)).toContain(p.username);
 

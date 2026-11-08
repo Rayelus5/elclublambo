@@ -4,6 +4,7 @@ import { requireSession } from '../auth/guards';
 import { inTransaction } from '../db/tx';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
+import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { type MarketDeps, marketConfigs } from './service';
 import { cancelTrade, changeTrade, confirmTrade, myTrades, proposeTrade } from './trades';
@@ -19,6 +20,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
 
   api.post('/galaxy/api/trades', async (req): Promise<TradeView> => {
     const s = requireSession(req);
+    await requireFeature(deps.config, 'trades');
     const body = tradeProposeSchema.parse(req.body);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
@@ -29,6 +31,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
   api.post('/galaxy/api/trades/:id/offer', async (req): Promise<TradeView> => {
     const s = requireSession(req);
     const { id } = tradeIdParamSchema.parse(req.params);
+    await requireFeature(deps.config, 'trades');
     const body = tradeOfferSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);
@@ -38,6 +41,7 @@ export function registerTradeRoutes(api: FastifyInstance, deps: MarketDeps): voi
   api.post('/galaxy/api/trades/:id/confirm', async (req): Promise<TradeView> => {
     const s = requireSession(req);
     const { id } = tradeIdParamSchema.parse(req.params);
+    await requireFeature(deps.config, 'trades');
     const { version } = tradeConfirmSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'trade', 60, 60);
     const cfgs = await marketConfigs(deps);

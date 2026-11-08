@@ -10,6 +10,7 @@ import {
 } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireSession } from '../auth/guards';
+import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
 import { isAllowedOrigin } from '../security/origin';
 import { type ChatDeps, chatHistory, hideMessage, muteAccount, reportMessage, sendMessage } from './service';
@@ -33,6 +34,7 @@ export function registerChatRoutes(api: FastifyInstance, deps: ChatDeps & { orig
 
   api.post('/galaxy/api/chat/:channel/messages', async (req): Promise<ChatMessage> => {
     const s = requireSession(req);
+    await requireFeature(deps.config, 'chat');
     const { channel } = chatChannelParamSchema.parse(req.params);
     const { body } = chatSendSchema.parse(req.body);
     return sendMessage(deps, s, channel, body);

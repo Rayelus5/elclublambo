@@ -53,7 +53,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof HttpError) {
       if (err.code === 'unauthenticated') clearSessionCookie(reply);
-      return reply.code(err.status).send({ error: err.code });
+      return reply.code(err.status).send({ error: err.code, ...err.details });
     }
     if (err instanceof ZodError) return reply.code(400).send({ error: 'invalid_input' });
     if (err instanceof RateLimitedError) return reply.code(429).send({ error: 'rate_limited' });
@@ -84,7 +84,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerMaintenanceGate(api, config);
     registerHealth(api, deps.db);
     registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now });
-    registerConfigRoutes(api, { env: deps.env, config });
+    registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
     registerGachaRoutes(api, { db: deps.db, config, now });
     registerCollectionRoutes(api, { db: deps.db, config });
     registerRunRoutes(api, { db: deps.db, config, now });

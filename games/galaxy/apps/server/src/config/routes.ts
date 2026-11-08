@@ -1,41 +1,80 @@
-import { isConfigKey } from '@galaxy/shared';
+import { CONFIG_KEYS, configIssues, isConfigKey } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
+import type { Kysely } from 'kysely';
 import { ZodError, z } from 'zod';
+import { confirmPassword } from '../admin/players';
 import { requireAdmin } from '../auth/guards';
+import type { DB } from '../db/schema';
 import type { Env } from '../env';
 import { HttpError } from '../errors';
+import { hitRateLimit } from '../ratelimit';
 import { clientIp } from '../security/client-ip';
 import type { ConfigService } from './service';
 
-const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500) });
+const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200) });
+const validateBody = z.object({ data: z.unknown() });
 
-/** Admin API over the live configuration (GDD §16.3). Every route needs an admin session opened with TOTP. */
-export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; config: ConfigService }): void {
+/**
+ * Admin API over the live configuration (GDD §16.3; M6b). Every route needs an admin session opened with TOTP. Every
+ * key with what is live (or its default), a draft checked against its schema, the history, and publishing a new version
+ * with a reason and the admin's password (an invalid draft answers its issues).
+ */
+export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; config: ConfigService; db: Kysely<DB> }): void {
+  const keyOf = (raw: string) => {
+    if (!isConfigKey(raw)) throw new HttpError(404, 'not_found');
+    return raw;
+  };
+
   app.get('/galaxy/api/admin/config', async (req) => {
     requireAdmin(req);
     return deps.config.active();
   });
 
+  app.get('/galaxy/api/admin/config/keys', async (req) => {
+    requireAdmin(req);
+    const rows = await Promise.all(
+      CONFIG_KEYS.map(async (key) => {
+        const versions = await deps.config.versions(key);
+        const latest = versions.reduce<(typeof versions)[number] | undefined>((a, b) => (!a || b.version > a.version ? b : a), undefined);
+        return { key, version: latest?.version ?? 0, data: await deps.config.get(key), createdAt: latest?.createdAt ?? null, createdBy: latest?.createdBy ?? null, note: latest?.note ?? null };
+      }),
+    );
+    const ids = [...new Set(rows.flatMap((r) => (r.createdBy ? [r.createdBy] : [])))];
+    const names = ids.length ? await deps.db.selectFrom('galaxy.accounts').select(['id', 'username']).where('id', 'in', ids).execute() : [];
+    const nameOf = new Map(names.map((n) => [n.id, n.username]));
+    return rows.map(({ createdBy, ...r }) => ({ ...r, author: createdBy ? (nameOf.get(createdBy) ?? null) : null }));
+  });
+
   app.get<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/versions', async (req) => {
     requireAdmin(req);
-    if (!isConfigKey(req.params.key)) throw new HttpError(404, 'not_found');
-    return deps.config.versions(req.params.key);
+    const versions = await deps.config.versions(keyOf(req.params.key));
+    const ids = [...new Set(versions.flatMap((v) => (v.createdBy ? [v.createdBy] : [])))];
+    const names = ids.length ? await deps.db.selectFrom('galaxy.accounts').select(['id', 'username']).where('id', 'in', ids).execute() : [];
+    const nameOf = new Map(names.map((n) => [n.id, n.username]));
+    return versions.map((v) => ({ ...v, author: v.createdBy ? (nameOf.get(v.createdBy) ?? null) : null }));
+  });
+
+  app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key/validate', async (req) => {
+    requireAdmin(req);
+    const issues = configIssues(keyOf(req.params.key), validateBody.parse(req.body).data);
+    return { ok: issues.length === 0, issues };
   });
 
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', async (req, reply) => {
     const admin = requireAdmin(req);
-    if (!isConfigKey(req.params.key)) throw new HttpError(404, 'not_found');
-    const { data, reason } = publishBody.parse(req.body);
+    const key = keyOf(req.params.key);
+    const { data, reason, password } = publishBody.parse(req.body);
+    await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
+    await confirmPassword(deps.db, admin, password);
     try {
-      const { version } = await deps.config.publish(
-        req.params.key,
-        data,
-        { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) },
-        reason,
-      );
+      const { version } = await deps.config.publish(key, data, { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) }, reason);
       return reply.code(201).send({ version });
     } catch (err) {
-      if (err instanceof ZodError) throw new HttpError(400, 'config_invalid');
+      if (err instanceof ZodError) {
+        const current = await deps.config.get(key);
+        const merged = data && typeof data === 'object' && !Array.isArray(data) ? { ...(current as object), ...(data as object) } : data;
+        throw new HttpError(400, 'config_invalid', { issues: configIssues(key, merged) });
+      }
       throw err;
     }
   });

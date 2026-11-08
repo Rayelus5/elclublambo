@@ -24,11 +24,15 @@ afterEach(async () => {
   }
 });
 
+/** Each admin session's password: publishing asks for it (M6b). */
+const passwords = new Map<string, string>();
+
 async function adminSession(): Promise<string> {
   const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'admin');
   const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
   const res = await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) });
   expect(res.statusCode).toBe(200);
+  passwords.set(sessionCookie(res), password);
   return sessionCookie(res);
 }
 
@@ -84,9 +88,9 @@ test('publicar un solo campo conserva los demás: cerrar el registro y luego toc
 test('una clave mal escrita en la API → 400 config_invalid y no se publica nada', async () => {
   const admin = await adminSession();
   const before = (await config.versions('features')).length;
-  const res = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false, regstrationOpen: true }, reason: 'errata' }, { cookie: admin });
+  const res = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false, regstrationOpen: true }, reason: 'errata', password: passwords.get(admin) }, { cookie: admin });
   expect(res.statusCode).toBe(400);
-  expect(res.json()).toEqual({ error: 'config_invalid' });
+  expect(res.json()).toMatchObject({ error: 'config_invalid' });
   expect(await config.versions('features')).toHaveLength(before);
 });
 
@@ -133,14 +137,14 @@ test('rutas de admin: sin sesión 401, jugador 403, admin con TOTP 200', async (
 test('publicar por la API: clave desconocida 404, datos inválidos 400 config_invalid, motivo corto 400', async () => {
   const admin = await adminSession();
   const url = '/galaxy/api/admin/config/features';
-  expect((await post(ctx.app, '/galaxy/api/admin/config/nada', { data: {}, reason: 'prueba' }, { cookie: admin })).json()).toEqual({
+  expect((await post(ctx.app, '/galaxy/api/admin/config/nada', { data: {}, reason: 'prueba', password: passwords.get(admin) }, { cookie: admin })).json()).toEqual({
     error: 'not_found',
   });
-  const bad = await post(ctx.app, url, { data: { maintenance: 'sí' }, reason: 'prueba' }, { cookie: admin });
+  const bad = await post(ctx.app, url, { data: { maintenance: 'sí' }, reason: 'prueba', password: passwords.get(admin) }, { cookie: admin });
   expect(bad.statusCode).toBe(400);
-  expect(bad.json()).toEqual({ error: 'config_invalid' });
-  expect((await post(ctx.app, url, { data: {}, reason: 'no' }, { cookie: admin })).json()).toEqual({ error: 'invalid_input' });
-  const ok = await post(ctx.app, url, { data: { registrationOpen: true }, reason: 'prueba por la API' }, { cookie: admin });
+  expect(bad.json()).toMatchObject({ error: 'config_invalid' });
+  expect((await post(ctx.app, url, { data: {}, reason: 'no', password: passwords.get(admin) }, { cookie: admin })).json()).toEqual({ error: 'invalid_input' });
+  const ok = await post(ctx.app, url, { data: { registrationOpen: true }, reason: 'prueba por la API', password: passwords.get(admin) }, { cookie: admin });
   expect(ok.statusCode).toBe(201);
   expect(ok.json().version).toBeGreaterThan(1);
   const audit = await lastAudit();
@@ -151,7 +155,7 @@ test('publicar por la API: clave desconocida 404, datos inválidos 400 config_in
 test('mantenimiento: jugadores 503, los admins siguen entrando y lo apagan (Review Focus 5)', async () => {
   const player = await playerSession();
   const admin = await adminSession();
-  const on = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: true }, reason: 'mantenimiento' }, { cookie: admin });
+  const on = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: true }, reason: 'mantenimiento', password: passwords.get(admin) }, { cookie: admin });
   expect(on.statusCode).toBe(201);
 
   const reg = await post(ctx.app, '/galaxy/api/auth/register', { username: uniqueName('mant'), password: 'una-clave-larga' });
@@ -162,7 +166,7 @@ test('mantenimiento: jugadores 503, los admins siguen entrando y lo apagan (Revi
 
   // A second admin can still log in (login + totp are allowed) and switch maintenance off.
   const admin2 = await adminSession();
-  const off = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false }, reason: 'fin' }, { cookie: admin2 });
+  const off = await post(ctx.app, '/galaxy/api/admin/config/features', { data: { maintenance: false }, reason: 'fin', password: passwords.get(admin2) }, { cookie: admin2 });
   expect(off.statusCode).toBe(201);
   expect((await post(ctx.app, '/galaxy/api/auth/register', { username: uniqueName('mant'), password: 'una-clave-larga' })).statusCode).toBe(201);
 });
@@ -208,8 +212,8 @@ test('los banners de evento no se pueden publicar todavía: 400 config_invalid y
     featured: { trait: 'phenomenon', value: 'comet' },
   };
   const standard = { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' };
-  const res = await post(ctx.app, '/galaxy/api/admin/config/gacha', { data: { banners: [standard, event] }, reason: 'evento de prueba' }, { cookie: admin });
+  const res = await post(ctx.app, '/galaxy/api/admin/config/gacha', { data: { banners: [standard, event] }, reason: 'evento de prueba', password: passwords.get(admin) }, { cookie: admin });
   expect(res.statusCode).toBe(400);
-  expect(res.json()).toEqual({ error: 'config_invalid' });
+  expect(res.json()).toMatchObject({ error: 'config_invalid' });
   expect((await versions.versions('gacha')).length).toBe(before);
 });
