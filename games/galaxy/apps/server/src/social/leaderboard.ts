@@ -74,6 +74,7 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<Le
         and not r.suspicious
         and r.seconds >= ${minRunSeconds}::int
         and (a.banned_until is null or a.banned_until <= now())
+        and not a.leaderboard_excluded
       group by a.id, a.username
     ) t
     where t.value > 0
