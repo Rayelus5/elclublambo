@@ -36,9 +36,11 @@ test('la estación: entrar desde el Hogar, cargar la refinería y reparar la ant
   await expect(deck.getByRole('listitem')).toHaveCount(10);
   await expect(deck.getByRole('button', { name: /Antena/ })).toContainText('Rota');
   await expect(deck.getByRole('link', { name: /Hangar/ })).toHaveAttribute('href', '/galaxy/incursion');
-  // M4b-2: the Laboratorio is repairable (broken until then); Comunicaciones still arrives later.
+  // M4b-2: the Laboratorio is repairable (broken until then); Comunicaciones opens its panel (M8 polish).
   await expect(deck.getByRole('button', { name: /Laboratorio/ })).toContainText('Rota');
-  await expect(deck.getByRole('listitem').filter({ hasText: 'Comunicaciones' })).toContainText('En reparación');
+  await deck.getByRole('button', { name: /Comunicaciones/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Comunicaciones' }).getByRole('link', { name: /Mercado/ })).toHaveAttribute('href', '/galaxy/mercado');
+  await page.keyboard.press('Escape');
 
   // Raw material from the CLI (as if from incursions) goes into the refinery's queue.
   grant(username, 'material', 60);
@@ -46,8 +48,8 @@ test('la estación: entrar desde el Hogar, cargar la refinería y reparar la ant
   await deck.getByRole('button', { name: /Refinería/ }).click();
   const refinery = page.getByRole('dialog', { name: 'Refinería' });
   await expect(refinery).toContainText('20 por hora');
-  await expect(refinery.getByRole('spinbutton', { name: 'Cantidad' })).toHaveValue('60');
-  await refinery.getByRole('button', { name: 'Cargar' }).click();
+  await expect(refinery.getByRole('slider', { name: 'Cantidad' })).toHaveValue('60');
+  await refinery.getByRole('button', { name: 'Cargar 60' }).click();
   await expect(refinery.getByRole('progressbar', { name: 'En cola' })).toHaveAttribute('aria-valuenow', '60');
   await expect(page.getByRole('img', { name: '0 de material en bruto' })).toBeVisible();
   await page.keyboard.press('Escape');

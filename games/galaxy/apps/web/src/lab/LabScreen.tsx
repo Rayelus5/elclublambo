@@ -70,9 +70,15 @@ function NodeCard({ node, view, names, upgrade }: { node: LabNodeView; view: Lab
         </div>
         {node.level > 0 ? <small className="lab-node-now">{t.now(node.effect, node.per * node.level)}</small> : null}
         {!node.unlocked ? (
-          <p className="panel-note">{t.needs(names.get(node.requires ?? '') ?? node.requires ?? '')}</p>
+          <span className="lab-need">
+            <Icon name="lock" />
+            <span>{t.needs(names.get(node.requires ?? '') ?? node.requires ?? '')}</span>
+          </span>
         ) : !next ? (
-          <p className="panel-note lab-node-max">{t.maxed}</p>
+          <span className="lab-node-max">
+            <Icon name="check" />
+            <span>{t.maxed}</span>
+          </span>
         ) : (
           <>
             <button
@@ -82,11 +88,20 @@ function NodeCard({ node, view, names, upgrade }: { node: LabNodeView; view: Lab
               aria-busy={(upgrade.isPending && upgrade.variables?.node === node.id) || undefined}
               onClick={() => upgrade.mutate({ node: node.id, level: node.level + 1 })}
             >
-              <Icon name="wrench" />
-              <span className="lab-buy-text">
-                <span>{t.upgrade(node.level + 1)}</span>
-                <small>{t.cost(next.dust, next.components)}</small>
+              <span className="lab-buy-text">{t.upgrade(node.level + 1)}</span>
+              <span className="lab-cost" aria-hidden="true">
+                <span className={short && short.dust > 0 ? 'short' : undefined}>
+                  <Icon name="dust" />
+                  {fmt(next.dust)}
+                </span>
+                {next.components > 0 ? (
+                  <span className={short && short.components > 0 ? 'short' : undefined}>
+                    <Icon name="wrench" />
+                    {fmt(next.components)}
+                  </span>
+                ) : null}
               </span>
+              <span className="sr-only">{t.cost(next.dust, next.components)}</span>
             </button>
             {short && !affordable ? <p className="panel-note">{t.missing(short.dust, short.components)}</p> : null}
           </>
@@ -163,6 +178,19 @@ export function LabScreen() {
                   <Icon name={BRANCH_ICON[branch]} />
                   {t.branches[branch]}
                 </h2>
+                {(() => {
+                  const nodes = v.nodes.filter((n) => n.branch === branch);
+                  const have = nodes.reduce((a, n) => a + n.level, 0);
+                  const all = nodes.reduce((a, n) => a + n.max, 0);
+                  return (
+                    <div className="lab-progress">
+                      <span className="lab-progress-bar" role="progressbar" aria-label={t.branchProgress(t.branches[branch])} aria-valuemin={0} aria-valuemax={all} aria-valuenow={have}>
+                        <i style={{ inlineSize: `${all > 0 ? (have / all) * 100 : 0}%` }} />
+                      </span>
+                      <small>{t.levelsOf(have, all)}</small>
+                    </div>
+                  );
+                })()}
                 {(() => {
                   const tree = childrenOf(v.nodes.filter((n) => n.branch === branch));
                   return (

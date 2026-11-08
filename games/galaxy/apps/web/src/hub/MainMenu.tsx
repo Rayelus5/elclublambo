@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
+import { useMyClan } from '../api/clans';
 import { useMissions } from '../api/missions';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
@@ -67,27 +68,49 @@ function EventButton() {
   );
 }
 
-/** Today's missions: one pip per mission, lit when done; leads to the missions. */
+/**
+ * Today's missions: a segment per mission (lit, with a check, when done), the count, and a «Recoger» badge while a
+ * reward waits; leads to the missions. Its own class (hub-missions): the list screens use .missions as their frame.
+ */
 function TodayMissions() {
   const daily = useMissions().data?.daily.missions;
+  const total = daily?.length ?? 3;
   const done = daily?.filter((m) => m.progress >= m.target).length ?? 0;
+  const ready = daily?.filter((m) => !m.claimed && m.progress >= m.target).length ?? 0;
   return (
-    <Link to="/misiones" className="lip panel missions enter" style={style({ '--d': '1.05s' })}>
-      <span className="head">
-        <Icon name="list" />
+    <Link to="/misiones" className="lip panel hub-missions enter" data-sfx="hover" style={style({ '--d': '1.05s' })}>
+      <span className="hm-head">
+        <span className="hm-icon" aria-hidden="true">
+          <Icon name="list" />
+        </span>
         <b>{copy.hub.missions}</b>
+        {ready > 0 ? <span className="hm-ready">{copy.hub.missionsReady(ready)}</span> : daily ? <span className="hm-count">{copy.hub.missionsCount(done, total)}</span> : null}
       </span>
-      <span className="pips" aria-hidden="true">
-        {(daily ?? [0, 1, 2]).map((m, i) => (
-          <i key={typeof m === 'number' ? m : m.id} className={i < done ? 'on' : undefined} />
+      <span className="hm-bar" role="progressbar" aria-label={copy.hub.missions} aria-valuemin={0} aria-valuemax={total} aria-valuenow={done} aria-valuetext={copy.hub.missionsDone(done, total)}>
+        {Array.from({ length: total }, (_, i) => (
+          <i key={i} className={i < done ? 'on' : undefined}>
+            {i < done ? <Icon name="check" /> : null}
+          </i>
         ))}
       </span>
-      <span className="sub">{daily ? copy.hub.missionsDone(done, daily.length) : '⠋⠙⠹'}</span>
+      <span className="hm-sub">{!daily ? '⠋⠙⠹' : done >= total ? copy.hub.missionsAllDone : copy.hub.missionsDone(done, total)}</span>
+    </Link>
+  );
+}
+
+/** A section tile: the same three lines in all six (icon, title and a one-line note), whatever the note says. */
+function Tile({ to, icon, title, sub, color, d }: { to: string; icon: IconName; title: string; sub: string; color: string; d: string }) {
+  return (
+    <Link to={to} className="lip panel tile enter" data-sfx="hover" style={style({ '--d': d, '--c': color })}>
+      <Icon name={icon} />
+      <b>{title}</b>
+      <span className="sub">{sub}</span>
     </Link>
   );
 }
 
 export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
+  const clan = useMyClan().data;
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
@@ -112,36 +135,12 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
       </div>
 
       <div className="tiles">
-        <Link to="/coleccion" className="lip panel tile enter" style={style({ '--d': '1.1s', '--c': 'var(--color-ice)' })}>
-          <Icon name="cards" />
-          <b>{copy.hub.collection}</b>
-          <span className="sub">{galaxies === undefined ? '⠋⠙⠹' : copy.hub.galaxies(galaxies)}</span>
-        </Link>
-        <Link to="/incursion" className="lip panel tile enter" style={style({ '--d': '1.14s', '--c': 'var(--color-terminal)' })}>
-          <Icon name="probe" />
-          <b>{copy.hub.probes}</b>
-          <span className="sub">{copy.hub.probesHint}</span>
-        </Link>
-        <Link to="/misiones?pestana=logros" className="lip panel tile enter" style={style({ '--d': '1.18s', '--c': 'var(--color-solar)' })}>
-          <Icon name="trophy" />
-          <b>{copy.hub.achievements}</b>
-          <span className="sub">{copy.hub.achievementsHint}</span>
-        </Link>
-        <Link to="/clanes" className="lip panel tile enter" style={style({ '--d': '1.22s', '--c': 'var(--color-uv-soft)' })}>
-          <Icon name="clan" />
-          <b>{copy.hub.clan}</b>
-          <span className="sub">{copy.clans.tile}</span>
-        </Link>
-        <Link to="/clasificacion" className="lip panel tile enter" style={style({ '--d': '1.26s', '--c': 'var(--color-nova)' })}>
-          <Icon name="podium" />
-          <b>{copy.hub.ranking}</b>
-          <span className="sub">{copy.social.rankingTile}</span>
-        </Link>
-        <Link to="/codice" className="lip panel tile enter" style={style({ '--d': '1.3s', '--c': 'var(--color-solar-2)' })}>
-          <Icon name="book" />
-          <b>{copy.hub.codex}</b>
-          <span className="sub">{copy.hub.codexHint}</span>
-        </Link>
+        <Tile to="/coleccion" icon="cards" title={copy.hub.collection} sub={galaxies === undefined ? '⠋⠙⠹' : copy.hub.galaxies(galaxies)} color="var(--color-ice)" d="1.1s" />
+        <Tile to="/incursion" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
+        <Tile to="/misiones?pestana=logros" icon="trophy" title={copy.hub.achievements} sub={copy.hub.achievementsHint} color="var(--color-solar)" d="1.18s" />
+        <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="var(--color-uv-soft)" d="1.22s" />
+        <Tile to="/clasificacion" icon="podium" title={copy.hub.ranking} sub={copy.social.rankingTile} color="var(--color-nova)" d="1.26s" />
+        <Tile to="/codice" icon="book" title={copy.hub.codex} sub={copy.hub.codexHint} color="var(--color-solar-2)" d="1.3s" />
       </div>
 
       <div className="hub-foot">

@@ -17,7 +17,7 @@ export const ROOMS: Record<RoomId, { kind: 'tool' | 'machine' | 'future'; initia
   lab: { kind: 'machine', initial: 0 },
   hangar: { kind: 'tool', initial: 1 },
   collider: { kind: 'tool', initial: 1 },
-  comms: { kind: 'future', initial: 0 },
+  comms: { kind: 'tool', initial: 1 },
   refinery: { kind: 'machine', initial: 1 },
   antenna: { kind: 'machine', initial: 0 },
   archive: { kind: 'tool', initial: 1 },
@@ -34,8 +34,11 @@ export interface RoomStatus {
   state: 'working' | 'broken' | 'future';
   level: number;
   maxLevel: number;
-  /** The cost of the next level (the repair, from level 0), or null at the top or when it cannot be repaired yet. */
-  next: { cost: RoomCost } | null;
+  /**
+   * The cost of the next level (the repair, from level 0), or null at the top or when it cannot be repaired yet; and
+   * what that level gives a machine (its rate, and the refinery's queue), so the panel can compare it with now.
+   */
+  next: { cost: RoomCost; gives?: { rate: number; capacity?: number } } | null;
 }
 
 /** The levels of a machine: index i is level i + 1 and its cost is what reaching it costs. */
@@ -48,6 +51,8 @@ export function roomStatus(id: RoomId, level: number, cfg: StationConfig): RoomS
   if (room.kind === 'future') return { state: 'future', level: 0, maxLevel: 0, next: null };
   if (room.kind === 'tool') return { state: 'working', level: 1, maxLevel: 1, next: null };
   const levels = machineLevels(id, cfg);
-  const next = level < levels.length ? { cost: { ...levels[level]!.cost } } : null;
+  const at = levels[level] as { cost: RoomCost; rate?: number; queue?: number } | undefined;
+  const gives = at?.rate === undefined ? undefined : { rate: at.rate, ...(at.queue === undefined ? {} : { capacity: at.queue }) };
+  const next = at ? { cost: { ...at.cost }, ...(gives ? { gives } : {}) } : null;
   return { state: level === 0 ? 'broken' : 'working', level, maxLevel: levels.length, next };
 }

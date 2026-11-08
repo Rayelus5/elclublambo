@@ -75,13 +75,14 @@ describe('la antena', () => {
 });
 
 describe('las salas', () => {
-  test('diez salas: cinco funcionan, la Antena y el Laboratorio (M4b-2) están rotos y tres llegan más adelante', () => {
+  test('diez salas: las herramientas funcionan (también Comunicaciones), la Antena y el Laboratorio empiezan rotos', () => {
     expect(ROOM_IDS).toHaveLength(10);
     expect(roomStatus('hangar', 1, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 1, next: null });
-    expect(roomStatus('comms', 0, cfg)).toMatchObject({ state: 'future', next: null });
+    expect(roomStatus('comms', 0, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 1, next: null });
     expect(roomStatus('lab', 0, cfg)).toMatchObject({ state: 'broken' });
-    expect(roomStatus('antenna', 0, cfg)).toEqual({ state: 'broken', level: 0, maxLevel: 5, next: { cost: { components: 30, coins: 0 } } });
-    expect(roomStatus('refinery', 1, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 5, next: { cost: { components: 40, coins: 500 } } });
+    // The next level also says what it gives (its rate, and the refinery's queue), for the panel's comparison.
+    expect(roomStatus('antenna', 0, cfg)).toEqual({ state: 'broken', level: 0, maxLevel: 5, next: { cost: { components: 30, coins: 0 }, gives: { rate: 0.125 } } });
+    expect(roomStatus('refinery', 1, cfg)).toEqual({ state: 'working', level: 1, maxLevel: 5, next: { cost: { components: 40, coins: 500 }, gives: { rate: 30, capacity: 150 } } });
     expect(roomStatus('refinery', 5, cfg).next).toBeNull();
   });
 

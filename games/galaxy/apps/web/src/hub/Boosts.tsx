@@ -9,18 +9,10 @@ const t = copy.boosts;
 const until = new Intl.DateTimeFormat('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
 
 export function BoostChips() {
-  const data = useBoosts().data;
-  const boosts = data?.boosts ?? [];
-  const anomaly = data?.anomaly ?? null;
-  if (boosts.length === 0 && !anomaly) return null;
+  const boosts = useBoosts().data?.boosts ?? [];
+  if (boosts.length === 0) return null;
   return (
     <ul className="boost-chips" aria-label={t.title}>
-      {anomaly ? (
-        <li className="boost-chip anomaly" title={anomaly.description}>
-          <Icon name="alert" />
-          <span>{t.anomaly(anomaly.name, anomaly.description)}</span>
-        </li>
-      ) : null}
       {boosts.map((b) => (
         <li key={b.id} className={`boost-chip ${b.currency}`}>
           <Icon name={b.currency === 'coins' ? 'coin' : b.currency === 'dust' ? 'dust' : b.currency === 'signal' ? 'radar' : 'station'} />

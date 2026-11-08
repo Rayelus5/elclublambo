@@ -83,6 +83,14 @@ const PATHS = {
       <path d="M12 2.5l5 6.5-5 12.5-5-12.5zM7 9h10M12 2.5v19" />
     </>
   ),
+  /** More information (M8 polish): an «i» in a ring. */
+  info: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5.5" />
+      <circle cx="12" cy="7.6" r="1.2" fill="currentColor" stroke="none" />
+    </>
+  ),
   coin: (
     <>
       <circle cx="12" cy="12" r="9" fill="currentColor" stroke="none" opacity=".22" />
