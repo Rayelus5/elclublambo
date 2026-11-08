@@ -1,4 +1,4 @@
-import { type AdminAlertRow, type AdminListingRow, type AdminTradeRow, type GalaxyLineage, LISTING_STATUSES, TIERS, TRADE_STATUSES } from '@galaxy/shared';
+import { type AdminAlertRow, type AdminListingRow, type AdminTradeRow, type DealReversal, type GalaxyLineage, LISTING_STATUSES, TIERS, TRADE_STATUSES } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useAdminAlerts, useAdminDeals, useDealLineage } from '../api/admin-market';
@@ -22,6 +22,7 @@ function lineageLine(g: GalaxyLineage): string {
   if (g.fusedInto) return `${g.galaxy.name}: ${t.fused(g.fusedInto.galaxy.name, g.fusedInto.owner)}`;
   if (g.gone) return `${g.galaxy.name}: ${t.gone}`;
   if (move) return `${g.galaxy.name}: ${t.moved(move.from, move.to, day(move.at))}`;
+  if (g.leveledSince > 0) return `${g.galaxy.name}: ${t.leveled(g.leveledSince)}`;
   return `${g.galaxy.name}: ${t.notWith(g.owner ?? '—')}`;
 }
 
@@ -39,6 +40,9 @@ function RevertDialog({ open, onDone, onClose }: { open: NonNullable<Open>; onDo
         </p>
       ) : !data ? (
         <p className="panel-note">{t.loadingLineage}</p>
+      ) : data.reversal ? (
+        // Reverted meanwhile (another admin, a stale table): nothing to correct by hand.
+        <p className="deal-blocked">{t.alreadyReverted(data.reversal.by ?? '—', day(data.reversal.at))}</p>
       ) : (
         <>
           <ul>
@@ -48,7 +52,13 @@ function RevertDialog({ open, onDone, onClose }: { open: NonNullable<Open>; onDo
               </li>
             ))}
           </ul>
-          {data.returnable ? (kind === 'listing' ? <p className="panel-note">{t.refundNote}</p> : null) : <p className="deal-blocked">{t.blocked}</p>}
+          {data.returnable && data.money ? (
+            <>
+              <p className="panel-note">{t.money(data.money.price, data.money.recoverable, data.money.owed)}</p>
+              {data.money.owed > data.money.recoverable ? <p className="deal-short">{t.shortfallAhead(data.money.owed - data.money.recoverable)}</p> : null}
+            </>
+          ) : null}
+          {data.returnable ? null : <p className="deal-blocked">{t.blocked}</p>}
         </>
       )}
     </div>
@@ -61,17 +71,25 @@ function RevertDialog({ open, onDone, onClose }: { open: NonNullable<Open>; onDo
       intro={intro}
       blocked={!data?.returnable}
       password={() => true}
+      // A sale says what could not be taken back; a trade only closes.
+      result={kind === 'listing' ? (r) => <p className="admin-done">{t.revertedShort(Number(r['shortfall'] ?? 0))}</p> : undefined}
       onDone={onDone}
       onClose={onClose}
     />
   );
 }
 
-function StatusCell({ status, reverted }: { status: string; reverted: boolean }) {
+function StatusCell({ status, reversal }: { status: string; reversal: DealReversal | null }) {
   return (
     <td>
       <span className={`admin-chip${status === 'sold' || status === 'done' ? ' ok' : status === 'active' || status === 'open' ? ' staff' : ''}`}>{t.statuses[status]}</span>
-      {reverted ? <span className="admin-chip warn">{t.reverted}</span> : null}
+      {reversal ? (
+        <>
+          <span className="admin-chip warn">{t.reverted}</span>
+          <small className="deal-reversal">{t.revertedBy(reversal.by ?? '—', reversal.reason)}</small>
+          {reversal.shortfall ? <small className="deal-reversal short">{t.shortfallWas(reversal.shortfall)}</small> : null}
+        </>
+      ) : null}
     </td>
   );
 }
@@ -89,7 +107,9 @@ export function Commerce() {
   const status = params.get('estado') ?? '';
   const page = Math.max(1, Number(params.get('pagina') ?? '1') || 1);
   const [account, setAccount] = useState(params.get('cuenta') ?? '');
-  const user = useSettled((params.get('cuenta') ?? '').trim(), 300);
+  // Only a whole name is looked for (the server matches it exactly): half-typed ones wait instead of erroring.
+  const typed = (params.get('cuenta') ?? '').trim().toLowerCase();
+  const user = useSettled(/^[a-z0-9_]{3,20}$/.test(typed) ? typed : '', 300);
   const deals = useAdminDeals({ kind, user: user || undefined, status: status || undefined, page });
   const [open, setOpen] = useState<Open>(null);
   const [done, setDone] = useState(false);
@@ -215,7 +235,7 @@ function ListingsTable({ rows, onAction }: { rows: AdminListingRow[]; onAction: 
             <td>{r.seller}</td>
             <td>{r.buyer ?? '—'}</td>
             <td>{r.price}</td>
-            <StatusCell status={r.status} reverted={!!r.reversal} />
+            <StatusCell status={r.status} reversal={r.reversal} />
             <td>
               <div className="admin-row-actions">
                 {r.status === 'active' ? (
@@ -260,7 +280,7 @@ function TradesTable({ rows, onAction }: { rows: AdminTradeRow[]; onAction: (o: 
             {galaxyCell(r.aGalaxy)}
             <td>{r.b}</td>
             {galaxyCell(r.bGalaxy)}
-            <StatusCell status={r.status} reverted={!!r.reversal} />
+            <StatusCell status={r.status} reversal={r.reversal} />
             <td>
               <div className="admin-row-actions">
                 {r.status === 'open' ? (

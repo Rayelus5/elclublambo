@@ -38,9 +38,11 @@ const lineage = (returnable: boolean): DealLineage => ({
       gone: false,
       fusedInto: null,
       laterMoves: returnable ? [] : [{ kind: 'sale', id: 'l9', at: '2026-11-08T10:00:00.000Z', from: 'nova', to: 'orion' }],
+      leveledSince: 0,
       returnable,
     },
   ],
+  money: { price: 600, owed: 558, recoverable: 100 },
 });
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
@@ -70,18 +72,20 @@ test('revertir una venta enseña a dónde vuelve la galaxia y pide la contraseñ
     'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
     [`GET ${A}/deals?kind=listings&page=1`]: () => jsonResponse(200, listings),
     [`GET ${A}/lineage?kind=listing&id=l1`]: () => jsonResponse(200, lineage(true)),
-    [`POST ${A}/listings/l1/revert`]: () => jsonResponse(200, { reverted: true, shortfall: 0 }),
+    [`POST ${A}/listings/l1/revert`]: () => jsonResponse(200, { reverted: true, shortfall: 458 }),
   });
   renderAt('/admin/moderacion/comercio', { '/admin/moderacion/comercio': <Commerce /> });
   await userEvent.click(await screen.findByRole('button', { name: t.revertOf('Nebulosa Vega') }));
   const dialog = await screen.findByRole('dialog', { name: t.revertOf('Nebulosa Vega') });
   expect(await within(dialog).findByText(t.goesBack('Nebulosa Vega', 'nova', 'vega'))).toBeInTheDocument();
+  expect(within(dialog).getByText(t.money(600, 100, 558))).toBeInTheDocument();
+  expect(within(dialog).getByText(t.shortfallAhead(458))).toBeInTheDocument();
   await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.reason), 'Fraude entre cuentas');
   expect(within(dialog).getByRole('button', { name: t.revert })).toBeDisabled();
   await userEvent.type(within(dialog).getByLabelText(copy.admin.fields.password), 'mi-clave');
   await userEvent.click(within(dialog).getByRole('button', { name: t.revert }));
   await waitFor(() => expect(posted(fetch, `${A}/listings/l1/revert`)).toEqual([{ reason: 'Fraude entre cuentas', password: 'mi-clave' }]));
-  expect(await screen.findByRole('status')).toHaveTextContent(copy.admin.done);
+  expect(await within(dialog).findByText(t.revertedShort(458))).toBeInTheDocument();
 });
 
 test('si la galaxia ya pasó a otra cuenta, el diálogo dice por qué y no deja revertir', async () => {
@@ -147,4 +151,59 @@ test('un moderador no ve Comercio ni Alertas en los apartados', async () => {
   const nav = await screen.findByRole('navigation', { name: copy.admin.moderation.nav });
   await waitFor(() => expect(within(nav).getAllByRole('link')).toHaveLength(3));
   expect(within(nav).queryByRole('link', { name: copy.admin.moderation.tabs.commerce })).toBeNull();
+});
+
+test('una venta revertida dice en su fila quién, por qué y lo que faltó', async () => {
+  const reverted: AdminDealsPage = { ...listings, rows: [{ ...listings.rows[0]!, reversal: { at: '2026-11-08T11:00:00.000Z', by: 'rayelus', reason: 'Fraude', shortfall: 458 } }] };
+  mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, admin), [`GET ${A}/deals?kind=listings&page=1`]: () => jsonResponse(200, reverted) });
+  renderAt('/admin/moderacion/comercio', { '/admin/moderacion/comercio': <Commerce /> });
+  const table = await screen.findByRole('table', { name: t.listingsTitle });
+  expect(within(table).getByText(t.revertedBy('rayelus', 'Fraude'))).toBeInTheDocument();
+  expect(within(table).getByText(t.shortfallWas(458))).toBeInTheDocument();
+  expect(within(table).queryByRole('button', { name: t.revertOf('Nebulosa Vega') })).toBeNull();
+});
+
+test('si el comprador la subió de nivel o ya se revirtió, el diálogo lo dice', async () => {
+  const leveled = lineage(true);
+  leveled.returnable = false;
+  leveled.galaxies[0] = { ...leveled.galaxies[0]!, leveledSince: 120, returnable: false };
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    [`GET ${A}/deals?kind=listings&page=1`]: () => jsonResponse(200, listings),
+    [`GET ${A}/lineage?kind=listing&id=l1`]: () => jsonResponse(200, leveled),
+  });
+  renderAt('/admin/moderacion/comercio', { '/admin/moderacion/comercio': <Commerce /> });
+  await userEvent.click(await screen.findByRole('button', { name: t.revertOf('Nebulosa Vega') }));
+  const dialog = await screen.findByRole('dialog', { name: t.revertOf('Nebulosa Vega') });
+  expect(await within(dialog).findByText(t.leveled(120), { exact: false })).toBeInTheDocument();
+});
+
+test('un trato que otro admin ya revirtió no invita a corregirlo a mano', async () => {
+  const done = { ...lineage(false), reversal: { at: '2026-11-08T11:00:00.000Z', by: 'otro', reason: 'Fraude' } };
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    [`GET ${A}/deals?kind=listings&page=1`]: () => jsonResponse(200, listings),
+    [`GET ${A}/lineage?kind=listing&id=l1`]: () => jsonResponse(200, done),
+  });
+  renderAt('/admin/moderacion/comercio', { '/admin/moderacion/comercio': <Commerce /> });
+  await userEvent.click(await screen.findByRole('button', { name: t.revertOf('Nebulosa Vega') }));
+  const dialog = await screen.findByRole('dialog', { name: t.revertOf('Nebulosa Vega') });
+  expect(await within(dialog).findByText(t.alreadyReverted('otro', '8 nov'))).toBeInTheDocument();
+  expect(within(dialog).queryByText(t.blocked)).toBeNull();
+});
+
+test('el filtro de cuenta espera a un nombre completo antes de buscar', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    [`GET ${A}/deals?kind=listings&page=1`]: () => jsonResponse(200, listings),
+    [`GET ${A}/deals?kind=listings&user=veg&page=1`]: () => jsonResponse(200, listings),
+  });
+  renderAt('/admin/moderacion/comercio', { '/admin/moderacion/comercio': <Commerce /> });
+  await screen.findByRole('table', { name: t.listingsTitle });
+  await userEvent.type(screen.getByLabelText(t.account), 've');
+  await new Promise((r) => setTimeout(r, 450));
+  expect(fetch.mock.calls.some(([u]) => String(u).includes('user=ve&'))).toBe(false);
+  expect(screen.queryByRole('alert')).toBeNull();
+  await userEvent.type(screen.getByLabelText(t.account), 'g');
+  await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${A}/deals?kind=listings&user=veg&page=1`)).toBe(true));
 });

@@ -1554,4 +1554,7 @@
   .deal-lineage li.no { color: var(--color-ink); }
   .deal-lineage .panel-note { margin: 0; }
   .deal-blocked { margin: 0; font-weight: 700; color: var(--color-nova); }
+  .deal-short { margin: 0; font-weight: 700; color: var(--color-solar); }
+  .deal-reversal { display: block; margin-top: 4px; font-size: 12.5px; color: var(--color-ink-soft); }
+  .deal-reversal.short { color: var(--color-solar); }
 }

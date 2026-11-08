@@ -20,7 +20,7 @@ import { inTransaction } from '../db/tx';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { type Hold, releaseHolds } from '../market/escrow';
-import { confirmPassword } from './players';
+import { confirmPassword, guardTarget } from './players';
 
 // Trade moderation (GDD §16.2, §16.4; M6c-2), for admins: the history of listings and trades, cancelling what is
 // still open, reverting a sale or a done trade, and reviewing the suspicious-trade alerts. History is never rewritten:
@@ -42,6 +42,17 @@ async function accountId(db: Kysely<DB>, username: string): Promise<string | nul
 async function nameOf(db: Kysely<DB>, id: string | null): Promise<string | null> {
   if (!id) return null;
   return (await db.selectFrom('galaxy.accounts').select('username').where('id', '=', id).executeTakeFirst())?.username ?? null;
+}
+
+/**
+ * The panel's rule for whom an admin may act on (M6a `guardTarget`), for every party of a deal: never themselves (no
+ * reverting one's own purchase), never a superadmin, and other staff only as a superadmin.
+ */
+async function guardParties(db: Kysely<DB>, s: SessionInfo, ids: (string | null)[]): Promise<void> {
+  for (const id of ids) {
+    const name = await nameOf(db, id);
+    if (name) await guardTarget(db, s, name, { self: false });
+  }
 }
 
 const reversalOf = (r: { r_at: Date | null; r_by: string | null; r_reason: string | null; r_details: unknown }, withShortfall: boolean): DealReversal | null => {
@@ -160,7 +171,9 @@ export async function adminDeals(db: Kysely<DB>, q: AdminDealsQuery): Promise<Ad
 }
 
 /** Withdraws an active listing (the seller may list again), audited. 409 when it sold, expired or was withdrawn. */
-export async function adminCancelListing(deps: AdminMarketDeps, actor: AuditActor, id: string, reason: string): Promise<{ cancelled: true }> {
+export async function adminCancelListing(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string): Promise<{ cancelled: true }> {
+  const party = await deps.db.selectFrom('galaxy.market_listings').select('seller_id').where('id', '=', id).executeTakeFirst();
+  await guardParties(deps.db, s, [party?.seller_id ?? null]);
   return inTransaction(deps.db, async (trx) => {
     const l = await trx.selectFrom('galaxy.market_listings').select(['status', 'expires_at', 'seller_id', 'price', 'galaxy_id']).where('id', '=', id).forUpdate().executeTakeFirst();
     if (!l || l.status !== 'active' || new Date(l.expires_at) <= deps.now()) throw new HttpError(409, 'listing_gone');
@@ -171,7 +184,9 @@ export async function adminCancelListing(deps: AdminMarketDeps, actor: AuditActo
 }
 
 /** Cancels an open trade (what was offered is free again), audited. 409 when it closed or expired. */
-export async function adminCancelTrade(deps: AdminMarketDeps, actor: AuditActor, id: string, reason: string): Promise<{ cancelled: true }> {
+export async function adminCancelTrade(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string): Promise<{ cancelled: true }> {
+  const parties = await deps.db.selectFrom('galaxy.trades').select(['a_id', 'b_id']).where('id', '=', id).executeTakeFirst();
+  await guardParties(deps.db, s, [parties?.a_id ?? null, parties?.b_id ?? null]);
   return inTransaction(deps.db, async (trx) => {
     const t = await trx.selectFrom('galaxy.trades').select(['status', 'expires_at', 'a_id', 'b_id']).where('id', '=', id).forUpdate().executeTakeFirst();
     if (!t || t.status !== 'open' || new Date(t.expires_at) <= deps.now()) throw new HttpError(409, 'trade_gone');
@@ -236,6 +251,15 @@ async function galaxyLineage(db: Kysely<DB>, m: Move, deal: string): Promise<Gal
     ...sales.map((s) => ({ kind: 'sale' as const, id: s.id, at: iso(s.sold_at!), from: s.from, to: s.to })),
     ...trades.map((t) => ({ kind: 'trade' as const, id: t.id, at: iso(t.closed_at!), from: t.a_galaxy === m.galaxy ? t.a : t.b, to: t.a_galaxy === m.galaxy ? t.b : t.a })),
   ].sort((x, y) => x.at.localeCompare(y.at));
+  // Dust spent on its levels since the deal: reverting would hand it to the other side, so it blocks (the admin settles
+  // it by hand).
+  const { spent } = await db
+    .selectFrom('galaxy.ledger')
+    .select(sql<number>`coalesce(-sum(delta), 0)::int`.as('spent'))
+    .where('reason', '=', 'relic_level')
+    .where(sql<string>`ref->>'galaxy'`, '=', m.galaxy)
+    .where('created_at', '>', m.at)
+    .executeTakeFirstOrThrow();
   const gone = g.disintegrated_at !== null;
   return {
     galaxy: { id: g.id, name: g.name, tier: g.tier },
@@ -245,7 +269,8 @@ async function galaxyLineage(db: Kysely<DB>, m: Move, deal: string): Promise<Gal
     gone,
     fusedInto: child ? { galaxy: { id: child.id, name: child.name, tier: child.tier }, owner: child.username } : null,
     laterMoves,
-    returnable: !gone && g.owner_id === m.toId && laterMoves.length === 0,
+    leveledSince: spent,
+    returnable: !gone && g.owner_id === m.toId && laterMoves.length === 0 && spent === 0,
   };
 }
 
@@ -263,7 +288,17 @@ async function reversalRow(db: Kysely<DB>, kind: 'listing' | 'trade', id: string
 export async function dealLineage(db: Kysely<DB>, kind: 'listing' | 'trade', id: string): Promise<DealLineage> {
   const galaxies = await Promise.all((await movesOf(db, kind, id)).map((m) => galaxyLineage(db, m, id)));
   const reversal = await reversalRow(db, kind, id);
-  return { galaxies, returnable: reversal === null && galaxies.every((g) => g.returnable), reversal };
+  const money = kind === 'listing' ? await saleMoney(db, id) : undefined;
+  return { galaxies, returnable: reversal === null && galaxies.every((g) => g.returnable), reversal, ...(money ? { money } : {}) };
+}
+
+/** What reverting a sale moves: the whole price back to the buyer, and what the seller received, as far as their coins reach. */
+async function saleMoney(db: Kysely<DB>, id: string): Promise<{ price: number; owed: number; recoverable: number }> {
+  const l = await db.selectFrom('galaxy.market_listings').select(['seller_id', 'price', 'commission']).where('id', '=', id).executeTakeFirstOrThrow();
+  const bal = await db.selectFrom('galaxy.balances').select('amount').where('account_id', '=', l.seller_id).where('currency', '=', 'coins').executeTakeFirst();
+  const price = Number(l.price);
+  const owed = price - Number(l.commission ?? 0);
+  return { price, owed, recoverable: Math.min(owed, Number(bal?.amount ?? 0)) };
 }
 
 /** Under the deal's lock: not reverted yet, and every galaxy (locked in id order) able to go back; else 409. */
@@ -282,6 +317,8 @@ async function revertable(trx: Kysely<DB>, kind: 'listing' | 'trade', id: string
  * recorded, a balance never goes below 0. Once per sale, with the admin's password.
  */
 export async function revertSale(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string, password: string): Promise<{ reverted: true; shortfall: number }> {
+  const parties = await deps.db.selectFrom('galaxy.market_listings').select(['seller_id', 'buyer_id']).where('id', '=', id).executeTakeFirst();
+  await guardParties(deps.db, s, [parties?.seller_id ?? null, parties?.buyer_id ?? null]);
   await confirmPassword(deps.db, s, password);
   return inTransaction(deps.db, async (trx) => {
     const l = await trx.selectFrom('galaxy.market_listings').select(['status', 'galaxy_id', 'seller_id', 'buyer_id', 'price', 'commission']).where('id', '=', id).forUpdate().executeTakeFirst();
@@ -317,6 +354,8 @@ export async function revertSale(deps: AdminMarketDeps, actor: AuditActor, s: Se
 
 /** Reverts a done trade: each galaxy back to who gave it, freed from any hold. Once per trade, with the password. */
 export async function revertTrade(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string, password: string): Promise<{ reverted: true }> {
+  const parties = await deps.db.selectFrom('galaxy.trades').select(['a_id', 'b_id']).where('id', '=', id).executeTakeFirst();
+  await guardParties(deps.db, s, [parties?.a_id ?? null, parties?.b_id ?? null]);
   await confirmPassword(deps.db, s, password);
   return inTransaction(deps.db, async (trx) => {
     const t = await trx.selectFrom('galaxy.trades').select(['status', 'a_id', 'b_id', 'a_galaxy', 'b_galaxy']).where('id', '=', id).forUpdate().executeTakeFirst();
@@ -363,7 +402,9 @@ export async function adminAlerts(db: Kysely<DB>, q: { reviewed?: boolean; page:
 }
 
 /** Marks an alert reviewed with a reason, once, audited. */
-export async function reviewAlert(deps: AdminMarketDeps, actor: AuditActor, id: string, reason: string): Promise<{ reviewed: true }> {
+export async function reviewAlert(deps: AdminMarketDeps, actor: AuditActor, s: SessionInfo, id: string, reason: string): Promise<{ reviewed: true }> {
+  const parties = await deps.db.selectFrom('galaxy.trade_alerts').select(['seller_id', 'buyer_id']).where('id', '=', id).executeTakeFirst();
+  await guardParties(deps.db, s, [parties?.seller_id ?? null, parties?.buyer_id ?? null]);
   return inTransaction(deps.db, async (trx) => {
     const a = await trx.selectFrom('galaxy.trade_alerts').select(['kind', 'reviewed_at']).where('id', '=', id).forUpdate().executeTakeFirst();
     if (!a) throw new HttpError(404, 'not_found');

@@ -241,4 +241,91 @@ describe('alertas', () => {
   });
 });
 
+describe('a quién se puede tocar (revisión final)', () => {
+  test('un admin no revierte ni retira sus propios tratos, ni revisa sus propias alertas', async () => {
+    const s = await player();
+    const me = await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', admin.username).executeTakeFirstOrThrow();
+    await ctx.db.insertInto('galaxy.account_xp').values({ account_id: me.id, xp: LEVEL_10 }).onConflict((oc) => oc.column('account_id').doUpdateSet({ xp: LEVEL_10 })).execute();
+    await ctx.db.updateTable('galaxy.accounts').set({ created_at: new Date(Date.now() - 4 * DAY) }).where('id', '=', me.id).execute();
+    const galaxy = await own(s.id);
+    const listing = await list(s, galaxy);
+    await credit(ctx.db, me.id, 'coins', PRICE, 'test');
+    expect((await post(ctx.app, `/galaxy/api/market/listings/${listing}/buy`, undefined, { cookie: admin.cookie, headers: key() })).statusCode).toBe(200);
+    expect((await revert('listings', listing)).json()).toEqual({ error: 'self_target' });
+    expect(await ownerOf(galaxy)).toBe(me.id);
+    const mine = await list(s, await own(s.id));
+    await ctx.db.updateTable('galaxy.market_listings').set({ seller_id: me.id }).where('id', '=', mine).execute();
+    expect((await act(`/listings/${mine}/cancel`, { reason: 'Mío' })).json()).toEqual({ error: 'self_target' });
+    await ctx.db.insertInto('galaxy.trade_alerts').values({ kind: 'shared_ip', listing_id: listing, seller_id: s.id, buyer_id: me.id, details: JSON.stringify({ ip: '10.9.9.9' }) }).execute();
+    const alert = (await read<AdminAlertsPage>('/alerts?reviewed=false')).rows.find((r) => r.deal?.id === listing && r.buyer === admin.username)!;
+    expect((await act(`/alerts/${alert.id}/review`, { reason: 'Es mía' })).json()).toEqual({ error: 'self_target' });
+  });
 
+  test('un admin no revierte el trato de otro miembro del equipo (solo un superadmin)', async () => {
+    const b = await player();
+    const mod = await staff('moderator');
+    const modId = (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', mod.username).executeTakeFirstOrThrow()).id;
+    const galaxy = await own(modId);
+    const listing = (await ctx.db.insertInto('galaxy.market_listings').values({ galaxy_id: galaxy, seller_id: modId, price: PRICE, expires_at: new Date(Date.now() + DAY) }).returning('id').executeTakeFirstOrThrow()).id;
+    await buy(b, listing);
+    expect((await revert('listings', listing)).json()).toEqual({ error: 'staff_target' });
+  });
+});
+
+describe('lo que el admin ve antes de revertir (revisión final)', () => {
+  test('el linaje de una venta dice el precio, lo que debe el vendedor y lo que puede devolver', async () => {
+    const [s, b] = await Promise.all([player(), player()]);
+    const { listing } = await sale(s, b);
+    await debit(ctx.db, s.id, 'coins', (await coins(s)) - 100, 'test');
+    const lineage = await read<DealLineage>(`/lineage?kind=listing&id=${listing}`);
+    expect(lineage.money).toEqual({ price: PRICE, owed: PRICE - COMMISSION, recoverable: 100 });
+  });
+
+  test('si el comprador subió de nivel la galaxia no se revierte, y el linaje dice cuánto polvo gastó', async () => {
+    const [s, b] = await Promise.all([player(), player()]);
+    const { galaxy, listing } = await sale(s, b);
+    await credit(ctx.db, b.id, 'dust', 100_000, 'test');
+    expect((await post(ctx.app, `/galaxy/api/galaxies/${galaxy}/level-up`, { level: 2 }, { cookie: b.cookie, headers: key() })).statusCode).toBe(200);
+    const lineage = await read<DealLineage>(`/lineage?kind=listing&id=${listing}`);
+    expect(lineage.galaxies[0]!.leveledSince).toBeGreaterThan(0);
+    expect(lineage.galaxies[0]!.returnable).toBe(false);
+    expect((await revert('listings', listing)).json()).toMatchObject({ error: 'revert_blocked' });
+    expect(await ownerOf(galaxy)).toBe(b.id);
+  });
+});
+
+describe('huecos de pruebas (revisión final)', () => {
+  test('una venta posterior que ya se revirtió no impide revertir la anterior', async () => {
+    const [s, b, c] = await Promise.all([player(), player(), player()]);
+    const { galaxy, listing } = await sale(s, b);
+    const resale = await list(b, galaxy);
+    await buy(c, resale);
+    expect((await revert('listings', resale)).json()).toMatchObject({ reverted: true });
+    expect((await read<DealLineage>(`/lineage?kind=listing&id=${listing}`)).returnable).toBe(true);
+    expect((await revert('listings', listing)).json()).toMatchObject({ reverted: true });
+    expect(await ownerOf(galaxy)).toBe(s.id);
+  });
+
+  test('retirar un anuncio que se vendió entretanto responde que ya no está', async () => {
+    const [s, b] = await Promise.all([player(), player()]);
+    const { listing } = await sale(s, b);
+    expect((await act(`/listings/${listing}/cancel`, { reason: 'Tarde' })).json()).toEqual({ error: 'listing_gone' });
+  });
+
+  test('con el vendedor sin monedas, el comprador recupera igualmente todo el precio', async () => {
+    const [s, b] = await Promise.all([player(), player()]);
+    const { listing } = await sale(s, b);
+    await debit(ctx.db, s.id, 'coins', await coins(s), 'test');
+    const before = await coins(b);
+    expect((await revert('listings', listing)).json()).toEqual({ reverted: true, shortfall: PRICE - COMMISSION });
+    expect(await coins(b)).toBe(before + PRICE);
+  });
+
+  test('un moderador tampoco ve el linaje ni revierte', async () => {
+    const [s, b] = await Promise.all([player(), player()]);
+    const mod = await staff('moderator');
+    const { listing } = await sale(s, b);
+    expect((await get(ctx.app, A(`/lineage?kind=listing&id=${listing}`), { cookie: mod.cookie })).statusCode).toBe(403);
+    expect((await post(ctx.app, A(`/listings/${listing}/revert`), { reason: 'Fraude', password: mod.password }, { cookie: mod.cookie })).statusCode).toBe(403);
+  });
+});

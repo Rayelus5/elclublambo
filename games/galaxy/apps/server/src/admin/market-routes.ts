@@ -31,13 +31,13 @@ export function registerAdminMarketRoutes(api: FastifyInstance, deps: AdminMarke
   });
 
   api.post('/galaxy/api/admin/market/listings/:id/cancel', async (req) => {
-    const { actor } = await actorOf(req);
-    return adminCancelListing(deps, actor, dealId(req), adminReasonSchema.parse(req.body).reason);
+    const { actor, session } = await actorOf(req);
+    return adminCancelListing(deps, actor, session, dealId(req), adminReasonSchema.parse(req.body).reason);
   });
 
   api.post('/galaxy/api/admin/market/trades/:id/cancel', async (req) => {
-    const { actor } = await actorOf(req);
-    return adminCancelTrade(deps, actor, dealId(req), adminReasonSchema.parse(req.body).reason);
+    const { actor, session } = await actorOf(req);
+    return adminCancelTrade(deps, actor, session, dealId(req), adminReasonSchema.parse(req.body).reason);
   });
 
   api.post('/galaxy/api/admin/market/listings/:id/revert', async (req) => {
@@ -58,7 +58,7 @@ export function registerAdminMarketRoutes(api: FastifyInstance, deps: AdminMarke
   });
 
   api.post('/galaxy/api/admin/market/alerts/:id/review', async (req) => {
-    const { actor } = await actorOf(req);
-    return reviewAlert(deps, actor, adminAlertParamSchema.parse(req.params).id, adminReasonSchema.parse(req.body).reason);
+    const { actor, session } = await actorOf(req);
+    return reviewAlert(deps, actor, session, adminAlertParamSchema.parse(req.params).id, adminReasonSchema.parse(req.body).reason);
   });
 }

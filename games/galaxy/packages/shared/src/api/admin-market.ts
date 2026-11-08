@@ -92,13 +92,17 @@ export interface GalaxyLineage {
   /** The galaxy a fusion made from it, and its owner. */
   fusedInto: { galaxy: DealGalaxy; owner: string } | null;
   laterMoves: LaterMove[];
-  /** Alive, still with its receiver and never moved since. */
+  /** Dust its holders spent on its levels since the deal: it would go to the other side with the galaxy. */
+  leveledSince: number;
+  /** Alive, still with its receiver, never moved since and not levelled since. */
   returnable: boolean;
 }
 
 export interface DealLineage {
   galaxies: GalaxyLineage[];
   returnable: boolean;
+  /** A sale's money: the price the buyer gets back, what the seller received and how much of it their coins cover. */
+  money?: { price: number; owed: number; recoverable: number };
   /** Already reverted. */
   reversal: DealReversal | null;
 }
