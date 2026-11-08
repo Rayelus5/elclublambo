@@ -908,6 +908,78 @@ Una tarjeta lista para recoger lleva un borde Solar, y una ya recogida se atenú
 
 **Perfil:** el título en Solar bajo el nombre, y el marco como un anillo alrededor del avatar (bronce, plata, oro, nebulosa o abismo; por ahora con CSS).
 
+## 8 sexvicies. Catálogo ECN
+
+**`/catalogo`**, desde la colección.
+- Arriba, la barra del álbum completado y los premios de cada tramo («Al 10 %»), cada uno con «Recoger».
+- Debajo, cuatro rejillas: tipos, paletas, fenómenos y acabados. Lo descubierto lleva su nombre con una marca Terminal; lo que falta es un «?» atenuado.
+
+## 8 septvicies. Códice
+
+**`/codice`**, desde la sala Archivo.
+- A la izquierda, la lista por secciones: Crónica, Sectores, Núcleos, Bestiario y Fragmentos. Lo no descifrado sale atenuado y con candado.
+- A la derecha, el registro con su texto (62 caracteres por línea como mucho). En el Bestiario, «Cómo combatirlo» va en Terminal.
+
+## 8 octovicies. Primeros pasos y Guía
+
+**Primeros pasos:** una tarjeta en el inicio, encima del logo.
+- Cada paso lleva un compás o una marca. El siguiente va en Solar y enlaza a donde se hace; los hechos van tachados y atenuados.
+- Se puede ocultar y desaparece al completarlo todo.
+
+**`/guia`:** capítulos a la izquierda. A la derecha, el capítulo con un ejemplo animado en CSS (200 px de alto, con estrellas de fondo) y tres puntos cortos.
+- Cada ejemplo enseña la idea en movimiento: enemigos que estallan en fragmentos, la carta elegida que se eleva, la baliza que se llena, la carta que gira con su brillo, las salas que se llenan, los mensajes del clan.
+- Con movimiento reducido se quedan quietos.
+
+## 8 novovicies. Temporada: ruta y tienda
+
+**`/temporada`:**
+- **Arriba, dos tarjetas:**
+  - la puntuación, grande, con el emblema del tramo y lo que falta para el siguiente escalón;
+  - la moneda de temporada, con su esquirla violeta.
+- **La ruta:** una pista horizontal de escalones que se desplaza por dentro y abre en el siguiente por recoger. Cada escalón es un nodo sobre una línea: candado, trofeo Solar que late si está listo, o marca Terminal si ya se recogió. Debajo, sus puntos, su premio y «Recoger».
+- **La tienda:** una rejilla de artículos con su premio, «n de m» comprados y el botón con el precio en esquirlas. Al pie, el aviso de que lo que sobra pasa a polvo.
+
+## 8 tricies. Cierre de temporada, Trofeos y salón de la fama
+
+**Cierre:** una tarjeta en `/temporada` con un halo Solar. Lleva el emblema del tramo, «Temporada N ha terminado», el puesto y los puntos, los premios y «Recoger los premios». Si subiste al podio, lo dice y la tarjeta lleva un borde Solar.
+
+**`/trofeos`**, desde la sala Trofeos:
+- «Tus temporadas»: una fila por temporada, con un trofeo Oro, Plata o Bronce si subiste al podio, o el emblema del tramo si no.
+- «Salón de la fama»: una tarjeta por temporada con su podio enlazado al perfil.
+
+El perfil enseña el mismo historial. El marco **Corona** es un doble anillo Solar y violeta con brillo.
+
+## 8 untricies. Eventos
+
+**Pestaña «Evento»** en `/misiones`, solo con un evento en marcha.
+- **Cabecera:** un cometa violeta, el nombre, la descripción y cuándo termina.
+- **Metas:** tarjetas de misión. Las de clan llevan la etiqueta «De clan» y un filo violeta; sin clan dicen cómo sumarse.
+
+**Inicio:** el botón de evento lleva el nombre y la descripción del evento en marcha. Sin evento queda quieto con «Ningún evento en marcha ahora».
+
+**Anomalía de temporada:** una píldora violeta junto a los multiplicadores, con su nombre y lo que cambia.
+
+## 8 duotricies. Corrimiento al rojo
+
+Un panel al pie del Laboratorio, solo a partir del nivel en que se abre:
+- un orbe que va del blanco al rojo, el rango y el bonus;
+- los requisitos, con su marca o su candado;
+- lo que da el siguiente rango;
+- el botón rojo «Hacer el corrimiento».
+
+La confirmación es un `alertdialog` que dice qué vuelve a cero y qué se queda. Con movimiento reducido, el orbe no late.
+
+## 8 tertricies. Ajustes
+
+**`/ajustes`**, desde el pie del menú: tres grupos con labio.
+- **Sonido:** deslizadores de Música y Efectos con su porcentaje, «Silenciar todo» y «Probar un efecto».
+- **Incursión:** apuntar con el ratón.
+- **Ayuda:** volver a oír a PERKINS y enseñar otra vez los primeros pasos, con su confirmación escrita.
+
+Las casillas tienen 44 px de alto.
+
+**Acabado Fisura:** estática violeta con dos vetas de cristal que cruzan la carta despacio. En el inspector, vetas que brillan donde está el puntero y destellos sueltos.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).
