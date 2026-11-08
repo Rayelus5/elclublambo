@@ -1,17 +1,20 @@
 import { buildApp } from './app';
 import { createDb } from './db';
 import { loadEnv } from './env';
+import { startRetention } from './retention';
 
 // Production entry (`node dist/main.js`): env from the container, listen on 0.0.0.0:PORT, close cleanly on SIGTERM
 // (docker stop / compose recreate) so in-flight requests finish and the pool is released.
 const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
 const app = await buildApp({ env, db });
+const stopRetention = startRetention(db, app.log);
 
 let closing = false;
 async function shutdown(signal: string) {
   if (closing) return;
   closing = true;
+  stopRetention();
   app.log.info({ signal }, 'shutting down');
   await app.close();
   await db.destroy();

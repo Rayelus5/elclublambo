@@ -633,6 +633,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba que suena tras el primer clic, que el volumen de la música la baja y que «Silenciar todo» lo calla todo.
 
+37. **Desde M8b (retención):** la migración `20261108212600_galaxy_retention.sql` crea `galaxy.prune_retention()`, la única vía para borrar lo caducado. El servidor la ejecuta un minuto después de arrancar y luego cada hora; el log dice `retention pruned` cuando borra algo.
+   - **Entradas grabadas:** las de partidas normales se van a los 30 días. Las de partidas sospechosas, las que purgaron un Núcleo y las que llegaron a la capa 3 se quedan siempre.
+   - **Chat:** los mensajes se van a los 90 días, salvo los denunciados.
+   - `run_inputs` sigue siendo de solo añadir para todo lo demás.
+
 ## Operación
 
 | Tarea | Cómo |
