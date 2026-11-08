@@ -1394,6 +1394,7 @@ export const copy = {
     run_not_found: 'Esa incursión no existe',
     run_finished: 'Esa incursión ya terminó',
     run_expired: 'Esa incursión caducó y ya no se puede cobrar',
+    run_open: 'Esa partida no ha terminado: se marca cuando termine',
     runs_disabled: 'Las incursiones están cerradas ahora mismo. Vuelve en un rato',
     bad_inputs: 'La grabación de la incursión llegó dañada',
     tiebreak_required: 'Hay un empate: contesta la última pregunta',

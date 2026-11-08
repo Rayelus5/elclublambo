@@ -31,6 +31,7 @@ export const API_ERROR_CODES = [
   'run_not_found',
   'run_finished',
   'run_expired',
+  'run_open',
   'runs_disabled',
   'bad_inputs',
   'tiebreak_required',
