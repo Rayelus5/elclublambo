@@ -284,11 +284,31 @@ export interface AccountIpsTable {
   last_seen: Timestamp;
 }
 
+/** A swap of one galaxy for one galaxy (M5c-2): a_* proposed, b_* is the other side. Never deleted. */
+export interface TradesTable {
+  id: Generated<string>;
+  version: Generated<number>;
+  status: ColumnType<'open' | 'done' | 'cancelled' | 'expired', 'open' | undefined, 'done' | 'cancelled' | 'expired'>;
+  a_id: string;
+  b_id: string;
+  a_galaxy: string | null;
+  b_galaxy: string | null;
+  a_offered: Generated<boolean>;
+  b_offered: Generated<boolean>;
+  a_confirmed: Generated<boolean>;
+  b_confirmed: Generated<boolean>;
+  created_at: Timestamp;
+  expires_at: TimestampRequired;
+  closed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 /** A sale the admin should look at (M5c-1): an IP shared by buyer and seller, or a price far above the floor. */
 export interface TradeAlertsTable {
   id: ColumnType<string, never, never>;
   kind: 'shared_ip' | 'unbalanced';
   listing_id: string | null;
+  /** M5c-2: an alert about a swap. */
+  trade_id: string | null;
   seller_id: string | null;
   buyer_id: string | null;
   details: ColumnType<unknown, string | undefined, never>;
@@ -439,6 +459,7 @@ export interface DB {
   'galaxy.market_listings': MarketListingsTable;
   'galaxy.trade_alerts': TradeAlertsTable;
   'galaxy.account_ips': AccountIpsTable;
+  'galaxy.trades': TradesTable;
   'galaxy.planetarium_visits': PlanetariumVisitsTable;
   'galaxy.station_rooms': StationRoomsTable;
   'galaxy.refinery': RefineryTable;
