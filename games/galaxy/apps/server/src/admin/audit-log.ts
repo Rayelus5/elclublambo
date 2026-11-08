@@ -43,7 +43,9 @@ export async function auditPage(db: Kysely<DB>, q: AuditQuery): Promise<AuditPag
 }
 
 const cell = (v: unknown) => {
-  const s = v === null || v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v);
+  const raw = v === null || v === undefined ? '' : typeof v === 'string' ? v : JSON.stringify(v);
+  // Formula injection (M6a review): a cell that starts like a formula is written as text.
+  const s = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

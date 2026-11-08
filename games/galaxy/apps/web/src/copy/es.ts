@@ -1182,6 +1182,8 @@ export const copy = {
     trade_limit_them: 'Esa persona tiene demasiados trueques abiertos. Prueba más tarde',
     password_wrong: 'Esa no es tu contraseña',
     player_not_found: 'No hay ningún jugador con ese nombre',
+    staff_target: 'A esa cuenta del equipo solo la cambia un superadmin, y a un superadmin solo el CLI del servidor',
+    self_target: 'Eso no puedes hacértelo a ti mismo desde el panel',
     trade_incomplete: 'Las dos partes tienen que ofrecer una galaxia',
     chat_level: 'Todavía no tienes el nivel que hace falta para escribir',
     chat_muted: 'Un moderador te ha silenciado por un tiempo',

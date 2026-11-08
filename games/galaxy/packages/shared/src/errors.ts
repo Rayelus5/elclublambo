@@ -85,6 +85,8 @@ export const API_ERROR_CODES = [
   'trade_limit_them',
   'password_wrong',
   'player_not_found',
+  'staff_target',
+  'self_target',
   'chat_level',
   'chat_muted',
   'chat_empty',

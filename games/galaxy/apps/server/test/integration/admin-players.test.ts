@@ -153,11 +153,27 @@ describe('cambiar', () => {
     expect((await audits(p.id)).map((a) => a.action)).toEqual(['player.xp', 'player.rename']);
   });
 
-  test('la contraseña equivocada tiene límite de intentos', async () => {
+  test('diez contraseñas equivocadas cierran la sesión del admin: ni la buena sirve después', async () => {
     const p = await player();
-    let last = 0;
-    for (let i = 0; i < 11; i++) last = (await act(`/players/${p.username}/xp`, { xp: 1, reason: 'Probar', password: 'mal' })).statusCode;
-    expect(last).toBe(429);
+    const guesser = await staff('admin');
+    for (let i = 0; i < 10; i++) expect((await act(`/players/${p.username}/xp`, { xp: 1, reason: 'Probar', password: 'mal' }, guesser.cookie)).statusCode).toBe(401);
+    expect((await act(`/players/${p.username}/xp`, { xp: 1, reason: 'Probar', password: 'mal' }, guesser.cookie)).statusCode).toBe(429);
+    expect((await act(`/players/${p.username}/xp`, { xp: 1, reason: 'Probar', password: guesser.password }, guesser.cookie)).statusCode).toBe(401);
+    expect((await get(ctx.app, A('/audit'), { cookie: guesser.cookie })).statusCode).toBe(401);
+  });
+
+  test('al equipo solo lo toca un superadmin, a un superadmin nadie desde aquí, y a uno mismo tampoco', async () => {
+    const other = await staff('admin');
+    const otherId = (await ctx.db.selectFrom('galaxy.accounts').select('id').where('username', '=', other.username).executeTakeFirstOrThrow()).id;
+    expect((await act(`/players/${other.username}/ban`, { minutes: 60, reason: 'Abuso', password: admin.password })).json()).toEqual({ error: 'staff_target' });
+    expect((await act(`/players/${other.username}/sessions/close`, { reason: 'Abuso' })).json()).toEqual({ error: 'staff_target' });
+    expect((await act(`/players/${other.username}/reset-code`, { reason: 'Abuso', password: admin.password })).json()).toEqual({ error: 'staff_target' });
+    const boss = await staff('superadmin');
+    expect((await act(`/players/${boss.username}/rename`, { username: uniqueName('ren'), reason: 'Abuso', password: admin.password })).json()).toEqual({ error: 'staff_target' });
+    expect((await act(`/players/${boss.username}/sessions/close`, { reason: 'Prueba' }, other.cookie)).json()).toEqual({ error: 'staff_target' });
+    expect((await act(`/players/${other.username}/sessions/close`, { reason: 'Revisión' }, boss.cookie)).statusCode).toBe(200);
+    expect((await act(`/players/${admin.username}/wallet`, { currency: 'coins', amount: 1000, reason: 'Para mí' })).json()).toEqual({ error: 'self_target' });
+    expect((await getWallet(ctx.db, otherId)).coins).toBe(0);
   });
 });
 
@@ -174,6 +190,21 @@ describe('la cuenta', () => {
     const p = await player();
     expect((await act(`/players/${p.username}/sessions/close`, { reason: 'Sesión robada' })).statusCode).toBe(200);
     expect((await get(ctx.app, '/galaxy/api/auth/me', { cookie: p.cookie })).statusCode).toBe(401);
+  });
+
+  test('banear o cerrar sesiones corta también el chat en vivo', async () => {
+    for (const path of ['ban', 'sessions/close']) {
+      const p = await player();
+      const ws = await ctx.app.injectWS('/galaxy/api/chat/ws', { headers: { origin: 'http://localhost:5173', cookie: `gs_sid=${p.cookie}` } });
+      let closed: number | null = null;
+      ws.on('close', (code) => {
+        closed = code;
+      });
+      const body = path === 'ban' ? { minutes: 60, reason: 'Trampas', password: admin.password } : { reason: 'Sesión robada' };
+      expect((await act(`/players/${p.username}/${path}`, body)).statusCode).toBe(200);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(closed).toBe(4401);
+    }
   });
 
   test('banear cierra sesiones y cancela anuncios y trueques; desbanear lo levanta', async () => {
@@ -219,5 +250,10 @@ describe('la auditoría', () => {
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.body.replace(/^\uFEFF/, '').split('\n')[0]).toBe('fecha,quien,accion,tipo,objetivo,motivo,ip,antes,despues');
     expect(csv.body).toContain('Para el CSV');
+    // A reason that a spreadsheet would run as a formula is written as text.
+    const q = await player();
+    await act(`/players/${q.username}/wallet`, { currency: 'dust', amount: 1, reason: '=HYPERLINK("https://x.example","clic")' });
+    const evil = await get(ctx.app, A(`/audit?format=csv&target=${q.id}`), { cookie: admin.cookie });
+    expect(evil.body).toContain(`"'=HYPERLINK(""https://x.example"",""clic"")"`);
   });
 });

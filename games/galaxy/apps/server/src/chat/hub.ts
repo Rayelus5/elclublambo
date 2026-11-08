@@ -47,6 +47,15 @@ export class ChatHub {
     socket.on('error', () => this.clients.delete(client));
   }
 
+  /** Closes every socket of an account (4401: its sessions ended), so a ban or closed sessions stop the live chat. */
+  dropAccount(accountId: string): void {
+    for (const c of this.clients) {
+      if (c.accountId !== accountId) continue;
+      this.clients.delete(c);
+      c.socket.close(4401, 'session');
+    }
+  }
+
   /** Sends an event of `channelKey` ('global' or 'clan:<id>') to every socket allowed to read it. */
   async broadcast(channelKey: string, event: ChatEvent): Promise<void> {
     let allowed: Set<string> | null = null;

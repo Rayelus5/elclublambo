@@ -34,7 +34,7 @@ export function ActionDialog({
   password: (values: Record<string, string>) => boolean;
   build?: (values: Record<string, string>) => Record<string, unknown>;
   result?: (r: Record<string, unknown>) => ReactNode;
-  onDone: () => void;
+  onDone: (values: Record<string, string>) => void;
   onClose: () => void;
 }) {
   const ids = useId();
@@ -66,7 +66,7 @@ export function ActionDialog({
             e.preventDefault();
             if (!ready) return;
             const body = { ...build(values), reason: reason.trim(), ...(needsPassword ? { password: secret } : {}) };
-            action.mutate({ path, body }, { onSuccess: () => (result ? undefined : onDone()) });
+            action.mutate({ path, body }, { onSuccess: () => (result ? undefined : onDone(values)) });
           }}
         >
           {fields.map((f) => (

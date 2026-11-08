@@ -1,6 +1,6 @@
 import { ADMIN_CURRENCIES, ADMIN_SECTIONS, type AdminPlayer, type AdminSectionName, FINISHES, TIERS } from '@galaxy/shared';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { useAdminPlayer, usePlayerSection } from '../api/admin';
 import { ApiError } from '../api/client';
 import { errorText } from '../auth/useMe';
@@ -150,6 +150,7 @@ export function PlayerScreen() {
   const [tab, setTab] = useState<Tab>('summary');
   const [open, setOpen] = useState<Action | null>(null);
   const [done, setDone] = useState(false);
+  const navigate = useNavigate();
   const p = player.data;
   if (!p) {
     return (
@@ -252,9 +253,12 @@ export function PlayerScreen() {
                 )
               : undefined
           }
-          onDone={() => {
+          onDone={(values) => {
+            const renamed = open.key === 'rename' ? values['username']?.trim() : undefined;
             setOpen(null);
             setDone(true);
+            // The page follows the new name (the old one no longer exists).
+            if (renamed) navigate(`/admin/jugadores/${encodeURIComponent(renamed)}`, { replace: true });
           }}
           onClose={() => setOpen(null)}
         />

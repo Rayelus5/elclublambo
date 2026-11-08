@@ -24,7 +24,7 @@ import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { credit, debit } from '../economy/wallet';
 import { HttpError } from '../errors';
-import { hitRateLimit } from '../ratelimit';
+import { hitRateLimit, RateLimitedError } from '../ratelimit';
 import { invalidateLeaderboard } from '../social/leaderboard';
 import { accountXp } from '../social/progress';
 
@@ -37,12 +37,32 @@ const PAGE = 25;
 const FOREVER = new Date('9999-12-31T00:00:00.000Z');
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
 
-/** The acting admin's own password, checked; ten wrong ones in ten minutes and it waits. */
+/**
+ * The acting admin's own password, checked. Past ten wrong ones in ten minutes every session of that admin closes, so
+ * whoever is guessing from an unattended session has to pass TOTP again (M6a review).
+ */
 export async function confirmPassword(db: Kysely<DB>, s: SessionInfo, password: string | undefined): Promise<void> {
   const row = await db.selectFrom('galaxy.accounts').select('password_hash').where('id', '=', s.accountId).executeTakeFirstOrThrow();
   if (password !== undefined && (await verifyPassword(row.password_hash, password))) return;
-  await hitRateLimit(db, `a:${s.accountId}`, 'admin_password', 10, 600);
+  try {
+    await hitRateLimit(db, `a:${s.accountId}`, 'admin_password', 10, 600);
+  } catch (err) {
+    if (err instanceof RateLimitedError) await revokeAllSessions(db, s.accountId);
+    throw err;
+  }
   throw new HttpError(401, 'password_wrong');
+}
+
+/**
+ * Who an admin may act on (M6a review): nobody acts on a superadmin from the panel (only the container CLI does), only a
+ * superadmin acts on other staff, and nobody changes their own account here (no gifts or bans to oneself).
+ */
+export async function guardTarget(db: Kysely<DB>, s: SessionInfo, username: string, opts: { self: boolean }): Promise<{ id: string }> {
+  const a = await accountOf(db, username);
+  const roles = (await rolesOf(db, [a.id])).get(a.id) ?? [];
+  if (!opts.self && a.id === s.accountId) throw new HttpError(403, 'self_target');
+  if (roles.includes('superadmin') || (roles.length > 0 && !s.roles.includes('superadmin'))) throw new HttpError(403, 'staff_target');
+  return { id: a.id };
 }
 
 async function accountOf(db: Kysely<DB>, username: string): Promise<{ id: string; username: string }> {

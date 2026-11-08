@@ -111,6 +111,19 @@ test('banear elige la duración y pide la contraseña', async () => {
   await waitFor(() => expect(posted(fetch, '/vega/ban')).toEqual([{ minutes: 10080, reason: 'Trampas', password: 'mi-clave' }]));
 });
 
+test('cambiar el nombre lleva a la ficha con el nombre nuevo', async () => {
+  api({ [`POST ${P}/vega/rename`]: () => jsonResponse(200, { username: 'vega_nueva' }), [`GET ${P}/vega_nueva`]: () => jsonResponse(200, { ...player, username: 'vega_nueva' }) });
+  renderAt('/admin/jugadores/vega', { '/admin/jugadores/:username': <PlayerScreen /> });
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: t.actions.rename }));
+  const dialog = await screen.findByRole('dialog', { name: t.actions.rename });
+  await user.type(within(dialog).getByLabelText(t.fields.username), 'vega_nueva');
+  await user.type(within(dialog).getByLabelText(t.fields.reason), 'Nombre ofensivo');
+  await user.type(within(dialog).getByLabelText(t.fields.password), 'mi-clave');
+  await user.click(within(dialog).getByRole('button', { name: t.apply }));
+  expect(await screen.findByRole('heading', { level: 1, name: 'vega_nueva' })).toBeInTheDocument();
+});
+
 test('el código de recuperación se enseña una vez, para copiarlo', async () => {
   api({ [`POST ${P}/vega/reset-code`]: () => jsonResponse(200, { code: 'ABCD-EFGH-IJKL-MNOP' }) });
   playerPage();
