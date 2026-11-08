@@ -32,13 +32,16 @@ export function AdminLayout() {
                 <li>
                   <NavLink to="/admin/configuracion">{t.sections.config}</NavLink>
                 </li>
+                <li>
+                  <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
+                </li>
               </>
             ) : null}
             <li>
               <NavLink to="/admin/moderacion">{t.sections.moderation}</NavLink>
             </li>
             {admin
-              ? (['communication', 'stats'] as const).map((k) => (
+              ? (['stats'] as const).map((k) => (
                   <li key={k} className="admin-soon">
                     <span>{t.sections[k]}</span>
                     <small>{t.soon}</small>

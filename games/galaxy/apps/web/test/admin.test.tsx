@@ -59,7 +59,7 @@ test('la barra lateral lleva a Jugadores, Auditoría, Configuración y Moderaci�
   expect(within(nav).getByRole('link', { name: t.sections.audit })).toHaveAttribute('href', '/admin/auditoria');
   expect(within(nav).getByRole('link', { name: t.sections.config })).toHaveAttribute('href', '/admin/configuracion');
   expect(within(nav).getByRole('link', { name: t.sections.moderation })).toHaveAttribute('href', '/admin/moderacion');
-  expect(within(nav).getByText(t.sections.communication).closest('li')).toHaveTextContent(t.soon);
+  expect(within(nav).getByText(t.sections.stats).closest('li')).toHaveTextContent(t.soon);
 });
 
 test('buscar enseña los jugadores y lleva a su ficha', async () => {
