@@ -646,7 +646,7 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - Configuración (desde M6b);
 - Comunicación (desde M6d-1);
 - Moderación (desde M6c-1);
-- Estadísticas, en gris con «Próximamente» hasta M6d-2;
+- Estadísticas (desde M6d-2). Ya no queda nada en «Próximamente»;
 - la sección activa, con una barra Solar a la izquierda.
 
 **Jugadores:**
@@ -795,6 +795,45 @@ Consulta de ui-ux-pro-max: se aplicaron tres guías:
 - **la tabla de enviados:** para quién, regalos, llega a, leído, recogido, estado y «Retirar»;
 - **«Publicar un aviso»:** texto, tono, empieza y termina;
 - **la tabla de avisos:** «En curso» (Terminal), «Programado» (Hielo) o «Terminado», y «Terminar».
+
+## 8 unvicies. Estadísticas
+
+`/admin/estadisticas`, solo para admins (GDD §16.6, M6d-2). Lee cada 30 segundos y dice a qué hora se actualizó.
+
+**Método:**
+- se siguió la guía de visualización de datos (`dataviz`): primero la forma, luego el color y una paleta validada con su script;
+- y la consulta de ui-ux-pro-max: separadores de miles y abreviaturas («1,5 M»), fechas en formato local, y el número escrito junto a cada marca, nunca solo el color.
+
+**El periodo:** tres pastillas (Últimas 24 horas, Últimos 7 días, Últimos 30 días); la elegida, con borde Solar.
+
+**Las cifras de arriba** son recuadros Panel:
+- la etiqueta en tinta suave y el número en 30 px seminegrita;
+- a veces, un detalle debajo («5 conexiones al chat», «2 alertas y 3 denuncias»).
+
+**Partidas:**
+- **las barras:**
+  - una sola serie en azul `#3b86d4`, desde una base, de 24 px como mucho, con la punta redondeada 4 px y una rejilla de líneas finas;
+  - cada barra se puede enfocar y se llama con su número («13 h, 5 partidas»);
+  - al pasar o enfocar, un globo con el número en grande y el tramo debajo;
+- debajo, cómo terminaron;
+- y, para lectores de pantalla, una tabla con lo mismo.
+
+**Monedas que entran y salen:**
+- una tabla por moneda: entra (barra azul), sale (barra ámbar `#c98314`) y neto, cada barra con su número;
+- debajo, su desglose por motivo en letra más pequeña;
+- la leyenda junto al título.
+
+**Rarezas reales frente a las esperadas:**
+- una fila por rareza, con su rombo de color y su nombre;
+- lo real en una barra azul y lo esperado en una marca vertical del color de la tinta;
+- los dos porcentajes, escritos;
+- sin tiradas, lo esperado sigue a la vista y la fila lo dice.
+
+**Mercado y trueques:** recuadros pequeños.
+
+**«Exportar CSV»** a la derecha de cada título.
+
+**La paleta:** azul y ámbar pasan las seis comprobaciones del validador sobre el Panel `#181a3d`, también con daltonismo. El verde y el rojo del juego fallaban la separación con deuteranopía y se descartaron.
 
 ## 9. Copy
 

@@ -105,8 +105,10 @@ function Runs({ s }: { s: AdminStats }) {
   const max = Math.max(1, ...s.runs.buckets.map((b) => b.count));
   const W = 720;
   const H = 180;
+  // A gutter on the left for the axis labels, so no bar ever covers them.
+  const G = 36;
   const n = Math.max(1, s.runs.buckets.length);
-  const slot = W / n;
+  const slot = (W - G) / n;
   const bar = Math.min(24, slot - 2);
   const every = Math.ceil(n / 8);
   const ticks = [0, Math.ceil(max / 2), max].filter((v, i, a) => a.indexOf(v) === i);
@@ -118,21 +120,21 @@ function Runs({ s }: { s: AdminStats }) {
         <svg viewBox={`0 0 ${W} ${H + 22}`} role="img" aria-label={t.runsChart}>
           {ticks.map((v) => (
             <g key={v}>
-              <line x1={0} x2={W} y1={y(v)} y2={y(v)} className="stats-grid" />
-              <text x={W} y={y(v) - 4} className="stats-axis" textAnchor="end">
+              <line x1={G} x2={W} y1={y(v)} y2={y(v)} className="stats-grid" />
+              <text x={G - 6} y={y(v) + 4} className="stats-axis" textAnchor="end">
                 {whole.format(v)}
               </text>
             </g>
           ))}
           {s.runs.buckets.map((b, i) => {
             const h = H - y(b.count);
-            const x = i * slot + (slot - bar) / 2;
+            const x = G + i * slot + (slot - bar) / 2;
             return (
               <g key={b.at} data-bar tabIndex={0} aria-label={t.bar(label(b.at), b.count)} onPointerEnter={() => setHover(i)} onPointerLeave={() => setHover(null)} onFocus={() => setHover(i)} onBlur={() => setHover(null)}>
-                <rect x={i * slot} y={0} width={slot} height={H} fill="transparent" />
+                <rect x={G + i * slot} y={0} width={slot} height={H} fill="transparent" />
                 {b.count > 0 ? <path className={`stats-bar-mark${hover === i ? ' on' : ''}`} d={`M${x},${H} v${-Math.max(0, h - 4)} q0,-4 4,-4 h${bar - 8} q4,0 4,4 v${Math.max(0, h - 4)} z`} /> : null}
                 {i % every === 0 ? (
-                  <text x={i * slot + slot / 2} y={H + 16} className="stats-axis" textAnchor="middle">
+                  <text x={G + i * slot + slot / 2} y={H + 16} className="stats-axis" textAnchor="middle">
                     {label(b.at)}
                   </text>
                 ) : null}
@@ -141,7 +143,7 @@ function Runs({ s }: { s: AdminStats }) {
           })}
         </svg>
         {hover !== null && s.runs.buckets[hover] ? (
-          <p className="stats-tip" style={{ left: `${((hover + 0.5) / n) * 100}%` }} aria-hidden="true">
+          <p className="stats-tip" style={{ left: `${((G + (hover + 0.5) * slot) / W) * 100}%` }} aria-hidden="true">
             <b>{whole.format(s.runs.buckets[hover]!.count)}</b>
             <span>{label(s.runs.buckets[hover]!.at)}</span>
           </p>
@@ -226,11 +228,13 @@ function Currencies({ s }: { s: AdminStats }) {
 
 function FlowCell({ value, max, kind }: { value: number; max: number; kind: 'in' | 'out' }) {
   return (
-    <td className="stats-flow-cell">
-      <span className="stats-flow-bar" aria-hidden="true">
-        <i className={kind} style={{ inlineSize: `${(value / max) * 100}%` }} />
-      </span>
-      <span className="num">{whole.format(value)}</span>
+    <td>
+      <div className="stats-flow-cell">
+        <span className="stats-flow-bar" aria-hidden="true">
+          <i className={kind} style={{ inlineSize: `${(value / max) * 100}%` }} />
+        </span>
+        <span className="num">{whole.format(value)}</span>
+      </div>
     </td>
   );
 }
@@ -268,12 +272,14 @@ function Pulls({ s }: { s: AdminStats }) {
                     <i className="stats-tier" aria-hidden="true" />
                     {copy.tiers[TIERS[x.tier]!]}
                   </th>
-                  <td className="stats-pull-cell">
-                    <span className="stats-pull-bar" aria-hidden="true">
-                      {real !== null ? <i className="in" style={{ inlineSize: `${(real / max) * 100}%` }} /> : null}
-                      <b className="tick" style={{ insetInlineStart: `${(x.expected / max) * 100}%` }} />
-                    </span>
-                    <span className="num">{real !== null ? percent.format(real) : '—'}</span>
+                  <td>
+                    <div className="stats-pull-cell">
+                      <span className="stats-pull-bar" aria-hidden="true">
+                        {real !== null ? <i className="in" style={{ inlineSize: `${(real / max) * 100}%` }} /> : null}
+                        <b className="tick" style={{ insetInlineStart: `${(x.expected / max) * 100}%` }} />
+                      </span>
+                      <span className="num">{real !== null ? percent.format(real) : '—'}</span>
+                    </div>
                   </td>
                   <td className="num">{percent.format(x.expected)}</td>
                 </tr>
