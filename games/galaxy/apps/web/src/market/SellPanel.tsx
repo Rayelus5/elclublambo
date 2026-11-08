@@ -8,7 +8,7 @@ import { GalaxyPicker } from '../cards/GalaxyPicker';
 import { copy } from '../copy/es';
 
 const t = copy.market;
-const held = (g: GalaxySummary) => g.equipped === true || g.exhibited === true || g.listed === true;
+const held = (g: GalaxySummary) => g.equipped === true || g.exhibited === true || g.listed === true || g.traded === true;
 
 /**
  * Selling (DESIGN_SYSTEM §8 quattuordecies): a free galaxy (not equipped, exhibited or already for sale), then its

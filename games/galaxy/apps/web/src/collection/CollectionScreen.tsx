@@ -53,7 +53,7 @@ export function CollectionScreen() {
   }
 
   const pickable = (g: GalaxySummary) =>
-    !g.equipped && !g.exhibited && !g.listed && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+    !g.equipped && !g.exhibited && !g.listed && !g.traded && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
 
   return (
     <div className="screen-root collection-root">
@@ -105,6 +105,8 @@ export function CollectionScreen() {
                         <span className="gcard-badge">{copy.planetarium.exhibited}</span>
                       ) : g.listed ? (
                         <span className="gcard-badge">{copy.market.onSale}</span>
+                      ) : g.traded ? (
+                        <span className="gcard-badge">{copy.trades.inTrade}</span>
                       ) : null}
                       {fusing ? (
                         <button type="button" className="gcard-hit" aria-pressed={on} aria-label={copy.collection.select(g.name)} disabled={!pickable(g)} onClick={() => toggle(g)}>

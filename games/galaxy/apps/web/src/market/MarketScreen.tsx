@@ -3,6 +3,8 @@ import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
 import { useMarket, useMyMarket } from '../api/market';
+import { useTrades } from '../api/trades';
+import { TradesPanel } from '../trades/TradesPanel';
 import { errorText, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
@@ -13,13 +15,14 @@ import { ListingCard } from './ListingCard';
 import { MyListings } from './MyListings';
 import { SellPanel } from './SellPanel';
 
-// The market (GDD §14.6, §14.7; DESIGN_SYSTEM §8 quattuordecies): Comprar, Vender and Mis anuncios, each its own URL
-// (?pestana=vender|mios). Everyone sees the listings; buying and selling need the trade gates, and a notice says why.
+// The market (GDD §14.6, §14.7; DESIGN_SYSTEM §8 quattuordecies): Comprar, Vender, Mis anuncios and Trueques (M5c-2),
+// each its own URL (?pestana=vender|mios|trueques). Everyone sees the listings; buying and selling need the trade gates, and a notice says why.
 
 const t = copy.market;
-type Tab = 'buy' | 'sell' | 'mine';
-const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios' };
-const tabOf = (slug: string | null): Tab => (slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : 'buy');
+type Tab = 'buy' | 'sell' | 'mine' | 'trades';
+const SLUG: Record<Tab, string | null> = { buy: null, sell: 'vender', mine: 'mios', trades: 'trueques' };
+const tabOf = (slug: string | null): Tab => (slug === 'vender' ? 'sell' : slug === 'mios' ? 'mine' : slug === 'trueques' ? 'trades' : 'buy');
+const LABEL: Record<Tab, string> = { buy: t.tabs.buy, sell: t.tabs.sell, mine: t.tabs.mine, trades: copy.trades.tab };
 
 function Gate({ rules, id }: { rules: MarketRules; id: string }) {
   if (rules.canTrade) return null;
@@ -146,6 +149,7 @@ export function MarketScreen() {
   const tab = tabOf(params.get('pestana'));
   const gateId = useId();
   const mine = useMyMarket();
+  const trades = useTrades();
   return (
     <div className="screen-root market-root">
       <div className="market">
@@ -159,14 +163,29 @@ export function MarketScreen() {
         </header>
         <div className="market-banner" aria-hidden="true" style={postUrl ? { backgroundImage: `url(${postUrl})` } : undefined} />
         <nav className="tabs market-tabs" aria-label={t.tabsLabel}>
-          {(['buy', 'sell', 'mine'] as const).map((k) => (
+          {(['buy', 'sell', 'mine', 'trades'] as const).map((k) => (
             <Link key={k} to={SLUG[k] ? `/mercado?pestana=${SLUG[k]}` : '/mercado'} aria-current={k === tab ? 'page' : undefined}>
-              {t.tabs[k]}
+              {LABEL[k]}
             </Link>
           ))}
         </nav>
         {tab === 'buy' ? (
           <Shop gateId={gateId} />
+        ) : tab === 'trades' ? (
+          trades.data ? (
+            <>
+              <Gate rules={trades.data.rules} id={gateId} />
+              <TradesPanel trades={trades.data} gateId={trades.data.rules.canTrade ? undefined : gateId} />
+            </>
+          ) : trades.error ? (
+            <p className="field-error" role="alert">
+              {errorText(trades.error, copy.errors)}
+            </p>
+          ) : (
+            <p className="planetarium-wait" role="status" aria-label={copy.loading}>
+              ⠋⠙⠹
+            </p>
+          )
         ) : !mine.data ? (
           mine.error ? (
             <p className="field-error" role="alert">

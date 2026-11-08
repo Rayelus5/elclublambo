@@ -593,6 +593,39 @@ Consulta de ui-ux-pro-max: se aplicaron cuatro guías:
 - una galaxia en venta lleva la insignia «En venta»;
 - no se desintegra, fusiona ni mejora, y su detalle dice por qué.
 
+## 8 quindecies. Trueque
+
+Galaxia por galaxia entre dos jugadores (GDD §14.5, M5c-2). Se propone desde el perfil de otro jugador («Proponer trueque») y se sigue en la pestaña «Trueques» del mercado (`/mercado?pestana=trueques`).
+
+Consulta de ui-ux-pro-max: se aplicaron dos guías:
+- **Confirmar lo que no se deshace:** cancelar un trueque pide confirmación;
+- **El estado siempre a la vista:** cada trueque dice a quién le toca.
+
+**Componer el trueque** (proponer o «Cambiar»):
+- **Las casillas:** «Doy» y «Quiero», una junto a otra con ⇄ en Solar entre ambas. Cada una tiene su carta o un hueco punteado que dice «Nada todavía».
+- **Doy:** el selector de tu colección marca lo equipado, expuesto, en venta o en otro trueque como «No disponible».
+- **Quiero:** un selector con la colección pública del otro.
+- **El aviso:** «Lo que das queda reservado hasta que el trato se cierre o caduque en 3 días».
+- **Enviar:** «Proponer» o «Guardar cambios», desactivados mientras no des nada.
+
+**Cada trueque abierto:**
+- **La cabecera:** «Con» y el otro jugador enlazado a su perfil, y hasta cuándo sigue abierto.
+- **Las cartas:** «Tú das» y «Recibes», lado a lado.
+- **El estado:**
+  - «… ha confirmado. Te toca», en Solar y con el borde de la tarjeta en Solar;
+  - «Has confirmado. Esperando a …»;
+  - «Falta una galaxia en algún lado».
+- **Las acciones:**
+  - «Confirmar trato» confirma la versión que ves. Si el trato cambió entretanto, lo dice y se vuelve a leer;
+  - «Cambiar»;
+  - «Cancelar», en Nova, que pide confirmación.
+
+**Cerrados:** una lista con «Hecho» (en Terminal), «Cancelado» o «Caducado», el otro jugador y las dos galaxias.
+
+**En la colección:**
+- una galaxia ofrecida lleva la insignia «En trueque»;
+- no se desintegra, fusiona, mejora ni vende, y su detalle dice por qué.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

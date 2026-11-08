@@ -61,7 +61,7 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
           <button
             type="button"
             className="lip pill pill-solar station-upgrade"
-            disabled={short === null || short > 0 || up.isPending || g.listed === true}
+            disabled={short === null || short > 0 || up.isPending || g.listed === true || g.traded === true}
             aria-busy={up.isPending || undefined}
             aria-describedby={short !== null && short > 0 ? missing : undefined}
             onClick={() => up.mutate({ id: g.id, level: g.level + 1 })}
@@ -106,7 +106,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
     );
   }
   // Why it cannot be disintegrated now: equipped in the hangar, on a pedestal of the planetarium or for sale (M5c-1).
-  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : g.listed ? copy.market.listedReason : null;
+  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : g.listed ? copy.market.listedReason : g.traded ? copy.trades.inTradeReason : null;
 
   return (
     <>
