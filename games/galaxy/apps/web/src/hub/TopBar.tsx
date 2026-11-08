@@ -75,9 +75,6 @@ export function TopBar({
             <Icon name="shield" />
           </Link>
         ) : null}
-        <Link to="/guia" className="lip iconbtn enter" style={delay('1s')} aria-label={copy.guide.open} title={copy.guide.open}>
-          <Icon name="book" />
-        </Link>
         <MissionsButton style={delay('1.02s')} />
         <MailButton style={delay('1.05s')} />
         <button

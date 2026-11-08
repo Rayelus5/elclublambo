@@ -271,6 +271,8 @@
   .missions b { font-size: 18px; font-weight: 700; }
   .pips { display: flex; gap: 6px; }
   .pips i { flex: 1; height: 10px; border-radius: 99px; background: rgb(255 255 255 / .1); }
+  .pips i.on { background: var(--color-solar); box-shadow: 0 0 8px color-mix(in oklab, var(--color-solar) 60%, transparent); }
+  .missions .sub { font-size: 13px; font-weight: 500; color: var(--color-ink-soft); }
 
   .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
   .tile { --r: 18px; --lip-h: 5px; height: clamp(84px, 11.5vh, 120px); padding: 10px 4px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; text-align: center; color: var(--color-ink); overflow: hidden; }

@@ -1,6 +1,6 @@
 import type { AchievementView, Frame, MissionPeriodView, MissionView } from '@galaxy/shared';
 import { useId, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useClaim, useCosmetics, useMissions } from '../api/missions';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
@@ -39,7 +39,8 @@ function Progress({ label, progress, target }: { label: string; progress: number
 export function MissionsScreen() {
   const missions = useMissions();
   const claim = useClaim();
-  const [tab, setTab] = useState<Tab>('daily');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(params.get('pestana') === 'logros' ? 'achievements' : 'daily');
   const v = missions.data;
   const period: MissionPeriodView | null = v ? (tab === 'daily' ? v.daily : tab === 'weekly' ? v.weekly : tab === 'season' ? v.season : null) : null;
   return (
