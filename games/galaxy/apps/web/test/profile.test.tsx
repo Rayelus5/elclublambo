@@ -33,6 +33,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   records: { maxDepth: 9, purges: 12, runs: 40 },
   collection: { total: 23, counts: { common: 10, uncommon: 6, rare: 4, epic: 2, legendary: 1 } },
   planetarium: { prestige: 31, exhibits: 4, cover: pub() },
+  clan: null,
   ...over,
 });
 const screens = { '/perfil/:username': <ProfileScreen />, '/perfil/:username/coleccion': <PublicCollectionScreen /> };

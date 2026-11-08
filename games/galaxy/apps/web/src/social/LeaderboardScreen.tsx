@@ -12,7 +12,7 @@ import { daysLeft, Podium, TierEmblem, tierOf } from './parts';
 // when it is out of the top; beside them, the season's name, the days left, the players and the tiers with yours.
 
 const t = copy.social;
-const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas' };
+const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes' };
 const tabOf = (slug: string | null): LeaderTab => (slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : 'general');
 
 function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) {

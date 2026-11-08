@@ -213,7 +213,7 @@ describe('la clasificación de la temporada', () => {
   });
 
   test('una pestaña que no existe no vale y sin sesión no hay clasificación', async () => {
-    expect((await get(ctx.app, '/galaxy/api/leaderboard?tab=clans', { cookie: a.cookie })).statusCode).toBe(400);
+    expect((await get(ctx.app, '/galaxy/api/leaderboard?tab=amigos', { cookie: a.cookie })).statusCode).toBe(400);
     expect((await get(ctx.app, '/galaxy/api/leaderboard')).statusCode).toBe(401);
   });
 
@@ -227,7 +227,8 @@ describe('la clasificación de la temporada', () => {
     const res = await get(ctx.app, `/galaxy/api/profiles/${a.username.toUpperCase()}`, { cookie: b.cookie });
     expect(res.statusCode).toBe(200);
     const p = res.json() as Profile;
-    expect(Object.keys(p).sort()).toEqual(['collection', 'level', 'planetarium', 'records', 'season', 'since', 'username']);
+    expect(Object.keys(p).sort()).toEqual(['clan', 'collection', 'level', 'planetarium', 'records', 'season', 'since', 'username']);
+    expect(p.clan).toBeNull();
     expect(p.username).toBe(a.username);
     expect(p.level).toBe(5);
     expect(Date.parse(p.since)).not.toBeNaN();
