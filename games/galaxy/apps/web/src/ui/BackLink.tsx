@@ -9,7 +9,7 @@ import { usePreviousStep } from './trail';
 export function BackLink({ fallback, className = 'lip pill', children }: { fallback: string; className?: string; children: ReactNode }) {
   const previous = usePreviousStep();
   return (
-    <Link to={previous?.href ?? fallback} className={className}>
+    <Link to={previous?.href ?? fallback} className={className} data-sfx="back">
       {children}
     </Link>
   );
@@ -18,7 +18,7 @@ export function BackLink({ fallback, className = 'lip pill', children }: { fallb
 /** «Volver al inicio»: always the title screen, wherever the visit came from (the owner's report on M6d-1's «Volver»). */
 export function HomeLink({ className = 'lip pill', children }: { className?: string; children: ReactNode }) {
   return (
-    <Link to="/" className={className}>
+    <Link to="/" className={className} data-sfx="back">
       {children}
     </Link>
   );

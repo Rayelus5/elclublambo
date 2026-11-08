@@ -1447,6 +1447,7 @@ export const copy = {
     effects: 'Efectos',
     percent: (n: number) => `${n} %`,
     muteAll: 'Silenciar todo',
+    uiSounds: 'Sonidos de la interfaz',
     test: 'Probar un efecto',
     arena: 'Incursión',
     manualAim: 'Apuntar con el ratón',
@@ -1600,20 +1601,21 @@ export const copy = {
   },
   probeTest: {
     title: 'Test de la sonda',
-    intro: 'Antes de salir quiero saber con quién viajo. Cinco preguntas y ninguna respuesta mala: tu sonda sale de lo que contestes',
+    intro: 'Antes de darte una sonda quiero conocerte un poco. Cinco preguntas sobre ti y ninguna respuesta mala: tu sonda sale de lo que contestes',
     start: 'Empezar',
     skip: 'Saltar el test',
     back: 'Atrás',
     progress: (n: number, total: number) => `Pregunta ${n} de ${total}`,
-    // The answers follow PROBE_TEST's order in @galaxy/shared (it rotates between questions).
+    // The answers follow PROBE_TEST's order in @galaxy/shared (it rotates between questions): Lumen understands first,
+    // Bastión holds on and looks after others, Chispa moves fast and improvises.
     questions: [
-      { q: 'Suena una alarma en la estación. ¿Qué haces primero?', answers: ['Miro los sensores para entender qué pasa', 'Me pongo delante de la puerta', 'Corro hacia el ruido'] },
-      { q: 'Te ofrecen tres misiones. ¿Cuál eliges?', answers: ['Una entrega contrarreloj', 'Cartografiar un sector desconocido', 'Escoltar un convoy hasta casa'] },
-      { q: '¿Qué llevas siempre encima?', answers: ['Herramientas para arreglarlo todo', 'Lo mínimo, para ir ligero', 'Un cuaderno lleno de notas'] },
-      { q: 'PERKINS se equivoca de rumbo. ¿Qué haces?', answers: ['Le enseño los datos', 'Cojo los mandos', 'Aguanto, ya llegaremos'] },
-      { q: 'Un enjambre de la Estática se acerca. ¿Qué haces?', answers: ['Planto los pies y resisto', 'Busco un hueco entre ellos', 'Me lanzo antes de que se junten'] },
+      { q: 'Tienes una tarde libre por delante. ¿Cómo la pasas?', answers: ['Aprendiendo algo que no sabía', 'Con los de siempre', 'Improvisando un plan sobre la marcha'] },
+      { q: 'En un trabajo en equipo, ¿qué papel acabas haciendo?', answers: ['El que tira hacia delante', 'El que lo piensa y lo organiza', 'El que cuida de que nadie se quede atrás'] },
+      { q: 'Algo sale mal en el último momento. ¿Qué haces?', answers: ['Aguanto y lo arreglo poco a poco', 'Pruebo otra cosa al instante', 'Busco la causa con calma'] },
+      { q: '¿Qué juegos te enganchan más?', answers: ['Los de pensar y descubrir', 'Los rápidos y frenéticos', 'Los de resistir y mejorar poco a poco'] },
+      { q: 'Cuando aprendes algo nuevo, ¿cómo lo haces?', answers: ['Practico hasta que me sale perfecto', 'Primero entiendo cómo funciona', 'Me lanzo y aprendo sobre la marcha'] },
     ],
-    tiebreak: { kicker: 'Hay un empate', q: 'Última pregunta: ¿qué es lo mejor de una incursión?', answers: ['Descubrir', 'Volver entero', 'La velocidad'] },
+    tiebreak: { kicker: 'Hay un empate', q: 'Última pregunta: ¿qué frase va más contigo?', answers: ['Primero entender, luego actuar', 'Despacio, pero sin caerme', 'Mejor pedir perdón que permiso'] },
     confirm: {
       title: 'Listo, ya sé con quién viajo',
       text: 'Cuando la calibre no hay vuelta atrás: las demás sondas se ganan jugando. Aún puedes volver y cambiar respuestas',
@@ -1629,9 +1631,9 @@ export const copy = {
     retry: 'Reintentar',
     yourProbe: 'Tu sonda',
     profiles: {
-      lumen: 'Eres de los que miran el mapa entero antes de dar un paso. Lumen ve lejos y aprende rápido',
-      bastion: 'Eres de los que aguantan cuando todo tiembla. Bastión no se mueve y nada lo tumba',
-      spark: 'Eres de los que llegan antes de que empiece. Chispa es rápida, frágil y nunca está donde la buscan',
+      lumen: 'Te gusta entender las cosas antes de lanzarte. Lumen ve lejos y aprende rápido',
+      bastion: 'Eres constante y no te rindes cuando se complica. Bastión aguanta lo que le echen',
+      spark: 'Te mueves rápido y te encanta improvisar. Chispa es veloz, ágil y difícil de atrapar',
     },
     quirk: 'Peculiaridad',
     quirks: {

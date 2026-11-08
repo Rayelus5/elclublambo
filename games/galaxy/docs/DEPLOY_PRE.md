@@ -659,6 +659,15 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - una máquina con algo que recoger dice «Listo» en su placa.
    - **Laboratorio:** cada rama tiene su progreso, y cada nodo su coste con iconos y su estado más claro.
 
+40. **Pulido, fase 2 (sonidos y test de la sonda):** sin migraciones.
+   - **Sonidos:** todo lo interactivo suena al pulsar con un sonido corto y suave, sintetizado por el bus de efectos.
+     - Cada tipo de control tiene el suyo: toque, pestaña, interruptor, confirmar en las acciones principales y volver.
+     - Los botones grandes del menú dan un roce muy bajo al pasar el ratón.
+     - Hay una casilla nueva en Ajustes, «Sonidos de la interfaz». Usa el volumen de Efectos y respeta «Silenciar todo».
+   - **Test de la sonda:** preguntas cotidianas de personalidad, sin términos del juego, con la intro y los perfiles en lenguaje llano. Cada respuesta sigue dando la misma sonda que antes.
+
+   Comprueba de oído que los sonidos no cansan y que la casilla los apaga.
+
 ## Operación
 
 | Tarea | Cómo |

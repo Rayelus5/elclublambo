@@ -51,6 +51,10 @@ export function SettingsScreen() {
           />
           <Volume label={t.effects} value={audio.sfx} disabled={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
           <label className="setting-check">
+            <input type="checkbox" checked={audio.ui} disabled={audio.muted} onChange={(e) => setSettings({ ui: e.target.checked })} />
+            <span>{t.uiSounds}</span>
+          </label>
+          <label className="setting-check">
             <input type="checkbox" checked={audio.muted} onChange={(e) => setSettings({ muted: e.target.checked })} />
             <span>{t.muteAll}</span>
           </label>

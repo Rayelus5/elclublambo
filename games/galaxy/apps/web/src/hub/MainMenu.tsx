@@ -14,7 +14,7 @@ const style = (vars: Record<string, string>) => vars as CSSProperties;
 function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string }) {
   if (to) {
     return (
-      <Link to={to} className={`lip mode ${kind} enter`} style={style({ '--d': d })}>
+      <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" style={style({ '--d': d })}>
         <span className="chip">
           <Icon name={icon} />
         </span>
@@ -56,7 +56,7 @@ function EventButton() {
     );
   }
   return (
-    <Link to="/misiones?pestana=evento" className="lip event enter" style={style({ '--d': '1s' })}>
+    <Link to="/misiones?pestana=evento" className="lip event enter" data-sfx="hover" style={style({ '--d': '1s' })}>
       <span className="chip">
         <Icon name="comet" />
       </span>
@@ -114,7 +114,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
-        <Link to="/incursion" className="lip play enter" style={style({ '--d': '.8s' })}>
+        <Link to="/incursion" className="lip play enter" data-sfx="hover" style={style({ '--d': '.8s' })}>
           <span className="play-ring">
             <Icon name="play" />
           </span>

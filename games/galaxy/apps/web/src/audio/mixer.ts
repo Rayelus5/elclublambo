@@ -11,9 +11,11 @@ export interface AudioSettings {
   /** 0–1. */
   sfx: number;
   muted: boolean;
+  /** The interface's own sounds (presses, tabs, the menu's hover), on the effects bus (M8 polish). */
+  ui: boolean;
 }
 
-export const DEFAULT_AUDIO: AudioSettings = { music: 0.5, sfx: 0.8, muted: false };
+export const DEFAULT_AUDIO: AudioSettings = { music: 0.5, sfx: 0.8, muted: false, ui: true };
 
 function clamp(v: unknown, def: number): number {
   return typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : def;
@@ -24,7 +26,7 @@ export function readSettings(): AudioSettings {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const p = JSON.parse(raw) as Partial<AudioSettings>;
-      return { music: clamp(p.music, DEFAULT_AUDIO.music), sfx: clamp(p.sfx, DEFAULT_AUDIO.sfx), muted: p.muted === true };
+      return { music: clamp(p.music, DEFAULT_AUDIO.music), sfx: clamp(p.sfx, DEFAULT_AUDIO.sfx), muted: p.muted === true, ui: p.ui !== false };
     }
     // The scanner's mute from before M8a still counts.
     return { ...DEFAULT_AUDIO, muted: localStorage.getItem(OLD_MUTE_KEY) === '1' };
