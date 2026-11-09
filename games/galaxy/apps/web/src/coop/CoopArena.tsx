@@ -444,8 +444,7 @@ function CoopWorld({
   }, []);
 
   const pick = useCallback(
-    (i: number) => {
-      const seq = hudRef.current.coop?.offerSeq ?? 0;
+    (i: number, seq: number) => {
       setPicked(seq);
       send({ t: 'pick', i, seq });
     },
