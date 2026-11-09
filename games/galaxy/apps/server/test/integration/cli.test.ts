@@ -33,6 +33,10 @@ test('create-admin rayelus: superadmin con TOTP cifrado y auditoría, sin dejar 
       expect(roles.map((r) => r.role)).toEqual(['superadmin']);
       const totp = await trx.selectFrom('galaxy.admin_totp').selectAll().where('account_id', '=', account!.id).executeTakeFirstOrThrow();
       expect(decryptSecret(TEST_TOTP_KEY, totp.secret_enc)).toBe(out.totpSecret);
+      // Staff made over SSH start without the guided tour (polish phase 3); Ajustes can still repeat it.
+      const tour = await trx.selectFrom('galaxy.tutorial').selectAll().where('account_id', '=', account!.id).executeTakeFirstOrThrow();
+      expect(tour.chapter).toBe('hub');
+      expect(tour.skipped_at).not.toBeNull();
       const audit = await trx
         .selectFrom('galaxy.admin_audit_log')
         .selectAll()

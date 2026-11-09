@@ -668,6 +668,21 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba de oído que los sonidos no cansan y que la casilla los apaga.
 
+41. **Pulido, fase 3 (tutorial guiado):** migración `20261108232335_galaxy_tutorial.sql`, que se aplica sola al desplegar.
+   - **Tabla nueva `galaxy.tutorial`:** guarda el capítulo de cada cuenta. Las cuentas que ya habían terminado alguna incursión quedan con el tutorial hecho, así que solo lo hacen las nuevas.
+   - **Recorrido:** tras su sonda, un jugador nuevo hace el tour de PERKINS por el inicio, el Escáner (sus 10 tiradas de bienvenida), el Hangar (equipa una reliquia), la primera incursión, el botín y la estación.
+     - Cada paso es una tarjeta con un hueco alrededor de lo que importa, un anillo y una flecha.
+     - Con un panel abierto, la tarjeta se acopla en una esquina.
+     - Si el jugador se va a otra pantalla, una píldora le devuelve al tour.
+   - **Primera incursión:** espera tras una tarjeta de controles con «Despegar», y PERKINS da consejos por radio en el momento justo.
+   - **Regalo:** al llegar a la estación, el tour regala una vez los componentes que cuesta reparar la antena (motivo `tutorial` en el libro de movimientos). Así el jugador la repara en el último paso.
+   - **Saltar y repetir:**
+     - se puede saltar en cualquier momento, con «Saltar tutorial» o Escape;
+     - se repite desde Ajustes, con «Repetir el tutorial»;
+     - los admins creados con `create-admin` empiezan con el tutorial saltado.
+
+   Comprueba el tour completo con una cuenta nueva.
+
 ## Operación
 
 | Tarea | Cómo |

@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { clockText } from '../arena/hud/Hud';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
+import { emitTour } from '../tour/bus';
 import { useReducedMotion } from '../ui/motion';
 
 // The results of a run (GDD §5.1, §11.3 bis): how it ended, what each layer paid at its depth, the half without
@@ -46,6 +47,8 @@ function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal' | 'material';
 }
 
 export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain: () => void }) {
+  // The tour's first run ends here (polish phase 3).
+  useEffect(() => emitTour('run:ended'), []);
   const r = result;
   const title = r.outcome === 'extracted' ? copy.results.extracted : r.outcome === 'died' ? copy.results.died : copy.results.abandoned;
   return (
@@ -86,7 +89,7 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
         ) : null}
       </section>
       ) : null}
-      <section className="lip panel results-loot" aria-label={copy.results.loot}>
+      <section className="lip panel results-loot" aria-label={copy.results.loot} data-tour="loot">
         <h2>{copy.results.loot}</h2>
         <table>
           <thead>

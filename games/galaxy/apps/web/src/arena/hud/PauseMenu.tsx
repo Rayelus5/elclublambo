@@ -10,11 +10,14 @@ export function PauseMenu({
   onManualAim,
   onResume,
   onAbandon,
+  onSkipTutorial,
 }: {
   manualAim: boolean;
   onManualAim: (on: boolean) => void;
   onResume: () => void;
   onAbandon: () => void;
+  /** In the tutorial's run: leave the tutorial and keep playing (polish phase 3). */
+  onSkipTutorial?: () => void;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [muted, setMuted] = useState(sfx.muted());
@@ -54,6 +57,11 @@ export function PauseMenu({
           />
           <span>{copy.arena.sound}</span>
         </label>
+        {onSkipTutorial ? (
+          <button type="button" className="lip pill" onClick={onSkipTutorial}>
+            {copy.tour.skip}
+          </button>
+        ) : null}
         <button type="button" className="lip pill danger" onClick={() => setConfirming(true)}>
           {copy.arena.abandon}
         </button>

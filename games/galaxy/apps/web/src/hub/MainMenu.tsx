@@ -11,10 +11,10 @@ import { Soon } from './Soon';
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
-function Mode({ kind, icon, title, hint, d, to }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string }) {
+function Mode({ kind, icon, title, hint, d, to, tour }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string; tour?: string }) {
   if (to) {
     return (
-      <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" style={style({ '--d': d })}>
+      <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" data-tour={tour} style={style({ '--d': d })}>
         <span className="chip">
           <Icon name={icon} />
         </span>
@@ -114,7 +114,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
-        <Link to="/incursion" className="lip play enter" data-sfx="hover" style={style({ '--d': '.8s' })}>
+        <Link to="/incursion" className="lip play enter" data-sfx="hover" data-tour="play" style={style({ '--d': '.8s' })}>
           <span className="play-ring">
             <Icon name="play" />
           </span>
@@ -125,7 +125,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
         </Link>
         <div className="modes">
           <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" to="/incursion" />
-          <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" />
+          <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" tour="home" />
         </div>
       </div>
 

@@ -3,6 +3,8 @@ import type { RunStart } from '@galaxy/shared';
 import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSummary, type RunSummary, type Sim, type SimEvent, step, toBase64 } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { setIntensity, startMusic } from '../audio/music';
+import { emitTour } from '../tour/bus';
+import { Briefing } from './hud/Briefing';
 import { copy } from '../copy/es';
 import { useReducedMotion } from '../ui/motion';
 import { announceFor } from './announce';
@@ -48,6 +50,8 @@ export function ArenaScreen({
   onSave,
   clock = browserClock,
   onSim,
+  coached = false,
+  onSkipTutorial,
 }: {
   run: RunStart;
   onEnd: (end: RunEnd) => void;
@@ -55,6 +59,9 @@ export function ArenaScreen({
   onSave?: (end: RunEnd) => void;
   clock?: Clock;
   onSim?: (sim: Sim) => void;
+  /** The tutorial's first run (polish phase 3): it waits behind a briefing and PERKINS coaches it. */
+  coached?: boolean;
+  onSkipTutorial?: () => void;
 }) {
   const [sim] = useState(() => createSim(simOptions(run)));
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -84,6 +91,16 @@ export function ArenaScreen({
   const [announce, setAnnounce] = useState('');
   const [ending, setEnding] = useState<'extracted' | 'died' | null>(null);
   const seen = useRef({ level: 1, boss: false, beacon: false, layer: 1, low: false });
+  const [briefing, setBriefing] = useState(coached);
+  const coachRef = useRef(coached);
+  const [coaching, setCoaching] = useState(coached);
+  const briefingRef = useRef(coached);
+  const radioRef = useRef<string | null>(null);
+  useEffect(() => {
+    radioRef.current = radio;
+  }, [radio]);
+  // The tour's first run starts here (polish phase 3).
+  useEffect(() => emitTour('run:started'), []);
 
   useEffect(() => {
     onSim?.(sim);
@@ -189,6 +206,8 @@ export function ArenaScreen({
       stageRef.current = stage;
       fit();
       loop.start();
+      // The tutorial's run waits behind its briefing.
+      if (coachRef.current) loop.pause();
     });
     const ro = typeof ResizeObserver === 'function' ? new ResizeObserver(fit) : null;
     if (canvas.parentElement) ro?.observe(canvas.parentElement);
@@ -218,6 +237,18 @@ export function ArenaScreen({
       seen.current = { level: h.level, boss: !!h.boss, beacon: !!h.beacon, layer: h.layer, low: h.hp <= h.maxHp * 0.3 };
       // The first level-up ever (M7c): PERKINS says what it is, once.
       if (h.offer) say('levelup', copy.arena.radio.levelup);
+      // The tutorial's coaching (polish phase 3): one line at a time, never over another, each once.
+      if (coachRef.current && !radioRef.current) {
+        const c = copy.tour.coach;
+        const line: [string, string] | null =
+          h.hp <= h.maxHp * 0.3 && !radioSeen('coach:lowhp') ? ['coach:lowhp', c.lowHp]
+          : !radioSeen('coach:move') ? ['coach:move', c.move]
+          : h.kills >= 3 && !radioSeen('coach:gems') ? ['coach:gems', c.gems]
+          : h.kills >= 25 && !radioSeen('coach:loot') ? ['coach:loot', c.loot]
+          : h.phase === 'waves' && h.layer === 1 && h.phaseLeft <= 60 && !radioSeen('coach:boss') ? ['coach:boss', c.boss]
+          : null;
+        if (line) say(line[0], line[1]);
+      }
       // The music follows the fight (M8a): a boss or little life is the most, the beacon or a deeper layer more.
       setIntensity(h.boss || h.hp <= h.maxHp * 0.3 ? 3 : h.phase === 'beacon' || h.layer >= 2 ? 2 : 1);
     }, HUD_EVERY_MS);
@@ -229,8 +260,11 @@ export function ArenaScreen({
   }, [sim, say]);
 
   useEffect(() => {
-    if (radio === copy.arena.radio.start) markRadioSeen('start');
-    else if (radio && radio === copy.arena.radio.sectors[run.sector]) markRadioSeen(`sector:${run.sector}`);
+    if (radio === copy.arena.radio.start) {
+      markRadioSeen('start');
+      // It says what the tutorial's first coaching line would (polish phase 3).
+      markRadioSeen('coach:move');
+    } else if (radio && radio === copy.arena.radio.sectors[run.sector]) markRadioSeen(`sector:${run.sector}`);
   }, [radio, run.sector]);
 
   useEffect(() => {
@@ -247,7 +281,7 @@ export function ArenaScreen({
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
       if (e.code === 'Escape' || e.code === 'KeyP') {
-        if (sim.status === 'choosing') return;
+        if (sim.status === 'choosing' || briefingRef.current) return;
         if (loopRef.current?.paused) resume();
         else pause();
         return;
@@ -314,6 +348,23 @@ export function ArenaScreen({
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
       {radio && <Radio text={radio} onClose={() => setRadio(null)} />}
+      {briefing ? (
+        <Briefing
+          onLaunch={() => {
+            briefingRef.current = false;
+            setBriefing(false);
+            loopRef.current?.resume();
+          }}
+          onSkip={() => {
+            coachRef.current = false;
+            setCoaching(false);
+            briefingRef.current = false;
+            setBriefing(false);
+            loopRef.current?.resume();
+            onSkipTutorial?.();
+          }}
+        />
+      ) : null}
       {ending && (
         <div className={`arena-ending ${ending}`} role="status">
           <b>{copy.arena.ending[ending]}</b>
@@ -331,6 +382,16 @@ export function ArenaScreen({
             setAim(on);
           }}
           onResume={resume}
+          onSkipTutorial={
+            coaching && onSkipTutorial
+              ? () => {
+                  coachRef.current = false;
+                  setCoaching(false);
+                  onSkipTutorial();
+                  resume();
+                }
+              : undefined
+          }
           onAbandon={() => {
             ended.current = true;
             setOver(true);

@@ -12,6 +12,7 @@ import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 import { roomSheet, roomSheetUrl } from './art';
 import { HomeLink } from '../ui/BackLink';
+import { emitTour } from '../tour/bus';
 
 // The station (GDD §10, DESIGN_SYSTEM §8 septies): the base is the menu. Two decks of five rooms in a side cut; a
 // working tool opens its screen, the machines (refinery, antenna) and Comunicaciones open their panels, a broken room
@@ -62,14 +63,14 @@ function Room({ room, ready, onOpen }: { room: StationRoomView; ready: boolean; 
   }
   if (to && room.state === 'working') {
     return (
-      <Link to={to} className="room is-tool" state={room.id === 'collider' ? { fuse: true } : undefined}>
+      <Link to={to} className="room is-tool" state={room.id === 'collider' ? { fuse: true } : undefined} data-tour={`room-${room.id}`}>
         <Art room={room} />
         <Plate room={room} ready={false} />
       </Link>
     );
   }
   return (
-    <button type="button" className={`room ${room.state === 'broken' ? 'is-broken' : room.maxLevel > 1 ? 'is-machine' : 'is-tool'}${ready ? ' has-ready' : ''}`} onClick={() => onOpen(room.id)}>
+    <button type="button" className={`room ${room.state === 'broken' ? 'is-broken' : room.maxLevel > 1 ? 'is-machine' : 'is-tool'}${ready ? ' has-ready' : ''}`} onClick={() => onOpen(room.id)} data-tour={`room-${room.id}`}>
       <Art room={room} />
       <Plate room={room} ready={ready} />
     </button>
@@ -142,7 +143,7 @@ function Upgrade({ room, view }: { room: StationRoomView; view: StationView }) {
             {fmt(coins)}
           </span>
         ) : null}
-        <button type="button" className="lip pill pill-solar station-upgrade" disabled={!affordable || upgrade.isPending} aria-label={`${label}: ${t.cost(components, coins)}`} onClick={() => upgrade.mutate({ id: room.id, level: room.level + 1 })}>
+        <button type="button" className="lip pill pill-solar station-upgrade" disabled={!affordable || upgrade.isPending} aria-label={`${label}: ${t.cost(components, coins)}`} onClick={() => upgrade.mutate({ id: room.id, level: room.level + 1 }, { onSuccess: () => (room.level === 0 ? emitTour('station:repaired') : undefined) })}>
           <Icon name="wrench" />
           <span>{label}</span>
         </button>
@@ -404,7 +405,14 @@ export function StationScreen() {
             <ul className="station-decks" aria-label={t.title}>
               {view.rooms.map((room) => (
                 <li key={room.id}>
-                  <Room room={room} ready={ready(room.id)} onOpen={setOpen} />
+                  <Room
+                    room={room}
+                    ready={ready(room.id)}
+                    onOpen={(id) => {
+                      setOpen(id);
+                      if (id === 'antenna' || id === 'refinery') emitTour(`station:opened:${id}`);
+                    }}
+                  />
                 </li>
               ))}
             </ul>

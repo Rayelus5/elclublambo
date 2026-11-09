@@ -35,7 +35,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
-        <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')}>
+        <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
           <Icon name="radar" />
           <span>{copy.hub.scanner}</span>
           {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
@@ -57,7 +57,7 @@ export function TopBar({
         </button>
       </nav>
       <div className="group">
-        <div className="lip panel hud enter" style={delay('1s')}>
+        <div className="lip panel hud enter" style={delay('1s')} data-tour="wallet">
           <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
             <Avatar name={me.username} />
             <div>

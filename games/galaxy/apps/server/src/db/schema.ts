@@ -289,6 +289,17 @@ export interface RedshiftTable {
   updated_at: Timestamp;
 }
 
+/** Polish phase 3: an account's guided tutorial (chapter reached, skipped, done, and its one gift). */
+export interface TutorialTable {
+  account_id: string;
+  chapter: string;
+  started_at: Timestamp;
+  updated_at: Timestamp;
+  skipped_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  done_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  gift_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
@@ -630,6 +641,7 @@ export interface DB {
   'galaxy.season_archive': SeasonArchiveTable;
   'galaxy.clan_event_progress': ClanEventProgressTable;
   'galaxy.redshift': RedshiftTable;
+  'galaxy.tutorial': TutorialTable;
   'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;
