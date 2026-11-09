@@ -91,7 +91,8 @@ test('subir una galaxia al nivel 3 desde su detalle y recuperar la mitad al desi
   await expect.poll(async () => amount(await dustLabel(page))).toBe(0);
   await dialog.getByRole('button', { name: 'Desintegrar' }).click();
   await page.getByRole('alertdialog').getByRole('button', { name: 'Desintegrar' }).click();
-  await expect(page.getByRole('status')).toContainText('se ha convertido en');
+  // The collection's toast (the level-up celebration is a status of its own while it lasts).
+  await expect(page.getByRole('status').filter({ hasText: 'se ha convertido en' })).toBeVisible();
   await expect.poll(async () => amount(await dustLabel(page))).toBe(worth);
   expect(csp).toEqual([]);
 });
