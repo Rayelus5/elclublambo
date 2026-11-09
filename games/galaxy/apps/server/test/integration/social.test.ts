@@ -275,6 +275,72 @@ describe('la clasificación de la temporada', () => {
   });
 });
 
+/** A group run that ended at `when` (what the co-op relay leaves): the run of the group and each member's row. */
+async function grouped(ctx: Ctx, members: { id: string; username: string }[], run: { depth: number; cores: number; ticks: number; when: Date; outcome?: 'extracted' | 'died' }) {
+  const players = members.map((m) => ({ username: m.username, probe: 'lumen', relics: [], bonuses: [], variant: null }));
+  const c = await ctx.db
+    .insertInto('galaxy.coop_runs')
+    .values({ room_code: 'GRP234', kind: 'private', leader_id: members[0]!.id, sector: 'outer-nebula', seed: '9', anomaly: null, rules: '{}', players: JSON.stringify(players), content_version: 0, sim_version: SIM_VERSION })
+    .returning('id')
+    .executeTakeFirstOrThrow();
+  await ctx.db
+    .updateTable('galaxy.coop_runs')
+    .set({ state: 'ended', outcome: run.outcome ?? 'died', ticks: run.ticks, depth: run.depth, boss_kills: run.cores, hash: '0123456789abcdef', ended_at: run.when })
+    .where('id', '=', c.id)
+    .execute();
+  for (const [slot, m] of members.entries()) {
+    await ctx.db
+      .insertInto('galaxy.runs')
+      .values({ account_id: m.id, seed: '9', sector: 'outer-nebula', probe: 'lumen', relics: '[]', content_version: 0, sim_version: SIM_VERSION, start_key: randomUUID(), started_at: new Date(run.when.getTime() - 600_000), coop_run_id: c.id, slot, party_size: members.length })
+      .execute();
+  }
+}
+
+describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
+  const s = season({ top: 2 });
+  const clock = at(s, 40);
+  let ctx: Ctx;
+  let [a, b, c, d, x, solo]: Awaited<ReturnType<typeof player>>[] = [];
+  beforeAll(async () => {
+    ctx = await testApp({ now: () => clock, config: fixedConfig({ season: s }) });
+    [a, b, c, d, x, solo] = [await player(ctx, 'gra'), await player(ctx, 'grb'), await player(ctx, 'grc'), await player(ctx, 'grd'), await player(ctx, 'grx'), await player(ctx, 'grs')];
+    // A+B reach layer 6 with 3 Cores twice (the faster counts) and layer 4 once; C+D reach the same, faster still.
+    await grouped(ctx, [a!, b!], { depth: 6, cores: 3, ticks: 54_000, when: at(s, 10) });
+    await grouped(ctx, [a!, b!], { depth: 6, cores: 3, ticks: 50_000, when: at(s, 12), outcome: 'extracted' });
+    await grouped(ctx, [b!, a!], { depth: 4, cores: 1, ticks: 20_000, when: at(s, 14) });
+    await grouped(ctx, [c!, d!], { depth: 6, cores: 3, ticks: 40_000, when: at(s, 11) });
+    await grouped(ctx, [a!, c!], { depth: 2, cores: 0, ticks: 9_000, when: at(s, 15) });
+    // Left out: a group with an account out of the leaderboard, one before the season, one too short.
+    await grouped(ctx, [b!, x!], { depth: 9, cores: 9, ticks: 90_000, when: at(s, 16) });
+    await ctx.db.updateTable('galaxy.accounts').set({ leaderboard_excluded: true }).where('id', '=', x!.id).execute();
+    await grouped(ctx, [c!, b!], { depth: 8, cores: 8, ticks: 60_000, when: at(s, -2) });
+    await grouped(ctx, [d!, b!], { depth: 7, cores: 0, ticks: 60, when: at(s, 17) });
+    invalidateLeaderboard();
+  });
+  afterAll(() => ctx.close());
+
+  test('el mejor récord de cada equipo, por capa y núcleos; a igualdad comparten puesto y va antes el más rápido', async () => {
+    const v = await board(ctx, a!.cookie, 'groups');
+    expect(v.tab).toBe('groups');
+    expect(v.rows).toEqual([]);
+    expect(v.groups).toEqual([
+      { rank: 1, players: [{ username: c!.username, probe: 'lumen' }, { username: d!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
+      { rank: 1, players: [{ username: a!.username, probe: 'lumen' }, { username: b!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
+    ]);
+    expect(v.total).toBe(3);
+    expect(v.myGroup).toMatchObject({ rank: 1, depth: 6, seconds: 833 });
+  });
+
+  test('tu mejor grupo sale aunque esté fuera del top, y sin partidas en grupo no hay', async () => {
+    const mine = (await board(ctx, c!.cookie, 'groups')).myGroup;
+    expect(mine).toMatchObject({ rank: 1, depth: 6 });
+    // A+C, third, is not C's best; nobody plays alone in a group.
+    expect((await board(ctx, solo!.cookie, 'groups')).myGroup).toBeNull();
+    // The group records never reach the solo tabs.
+    expect((await board(ctx, a!.cookie, 'depth')).me).toBeNull();
+  });
+});
+
 test('sin temporada abierta, la clasificación lo dice y no tiene filas', async () => {
   const s = season();
   const ctx = await testApp({ now: () => at(s, -24), config: fixedConfig({ season: s }) });

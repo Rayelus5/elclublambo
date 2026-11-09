@@ -1232,7 +1232,7 @@
   .leaderboard-root, .profile-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
   .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
   .leaderboard .collection-bar, .profile .collection-bar { margin-left: 0; }
-  .lb-tabs { margin: 0; max-width: 720px; }
+  .lb-tabs { margin: 0; max-width: 860px; }
   .lb-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; align-items: start; }
   .lb-main { display: grid; gap: 16px; min-width: 0; }
   .lb-main > .podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .1), transparent 70%); }
@@ -1249,6 +1249,11 @@
   .lb-table thead th { font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
   .lb-table thead th:last-child { text-align: right; }
   .lb-table tbody tr { border-top: 1px solid rgb(255 255 255 / .05); }
+  /* En grupo (phase 7): the team as a row of probes with names, wrapping on narrow screens. */
+  .lb-groups .lb-team-list { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; }
+  .lb-groups .lb-team-list li { display: inline-flex; align-items: center; gap: 6px; }
+  .lb-groups .lb-team-list img { inline-size: 28px; block-size: 28px; image-rendering: pixelated; }
+  .lb-groups td:nth-child(n + 3), .lb-groups thead th:nth-child(n + 3) { text-align: right; white-space: nowrap; }
   .lb-rank { inline-size: 70px; font-weight: 700; color: var(--color-ink-soft); }
   .lb-who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
   .lb-who .avatar { inline-size: 26px; block-size: 26px; }

@@ -1,8 +1,11 @@
-import { type ClanRow, type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
+import { type ClanRow, type GroupRow, type LeaderRow, type LeaderTab, SEASON_TIERS } from '@galaxy/shared';
+import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { Link, useSearchParams } from 'react-router';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { clockText } from '../arena/hud/Hud';
+import { spriteDataUrl } from '../arena/sprites';
 import { ClanEmblem } from '../clans/ClanEmblem';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
@@ -14,8 +17,10 @@ import { HomeLink } from '../ui/BackLink';
 // when it is out of the top; beside them, the season's name, the days left, the players and the tiers with yours.
 
 const t = copy.social;
-const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes' };
-const tabOf = (slug: string | null): LeaderTab => (slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : slug === 'clanes' ? 'clans' : 'general');
+const SLUG: Record<LeaderTab, string | null> = { general: null, depth: 'profundidad', purges: 'purgas', clans: 'clanes', groups: 'grupo' };
+const tabOf = (slug: string | null): LeaderTab =>
+  slug === 'profundidad' ? 'depth' : slug === 'purgas' ? 'purges' : slug === 'clanes' ? 'clans' : slug === 'grupo' ? 'groups' : 'general';
+const probeSprite = (id: string) => DEFAULT_CONTENT.probes.find((p) => p.id === id)?.sprite ?? 'probe-lumen';
 
 function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) {
   return (
@@ -29,6 +34,70 @@ function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) 
       <td className="lb-level">{fmt(r.level)}</td>
       <td className="lb-value">{t.value[tab](r.value)}</td>
     </tr>
+  );
+}
+
+/**
+ * The En grupo tab (multiplayer plan, phase 7): each group's best run of the season, its players with their probes
+ * (each name to its profile), the layer, the Cores and the time; the viewer's best group marked, or pinned below.
+ */
+function GroupTable({ groups, mine }: { groups: GroupRow[]; mine: GroupRow | null }) {
+  const key = (g: GroupRow) => g.players.map((p) => p.username).join(',');
+  const own = mine ? key(mine) : null;
+  const row = (g: GroupRow) => (
+    <tr key={key(g)} aria-current={own === key(g) ? 'true' : undefined} className={own === key(g) ? 'mine' : undefined}>
+      <td className="lb-rank">{fmt(g.rank)}</td>
+      <th scope="row" className="lb-team">
+        <ul className="lb-team-list">
+          {g.players.map((p) => (
+            <li key={p.username}>
+              <img src={spriteDataUrl(probeSprite(p.probe), 2)} alt="" />
+              <Link to={`/perfil/${encodeURIComponent(p.username)}`}>{p.username}</Link>
+            </li>
+          ))}
+        </ul>
+      </th>
+      <td className="lb-value">{t.value.depth(g.depth)}</td>
+      <td className="lb-level">{t.value.purges(g.cores)}</td>
+      <td className="lb-level">{clockText(g.seconds)}</td>
+    </tr>
+  );
+  const head = (hidden = false) => (
+    <thead className={hidden ? 'sr-only' : undefined}>
+      <tr>
+        <th scope="col">{t.columns.rank}</th>
+        <th scope="col">{t.columns.team}</th>
+        <th scope="col">{t.columns.value.groups}</th>
+        <th scope="col">{t.columns.cores}</th>
+        <th scope="col">{t.columns.time}</th>
+      </tr>
+    </thead>
+  );
+  if (groups.length === 0)
+    return (
+      <div className="lip panel lb-empty">
+        <p>{t.noGroups}</p>
+        <Link to="/incursion?modo=grupo" className="lip pill pill-solar">
+          <Icon name="play" />
+          <span>{copy.hub.play}</span>
+        </Link>
+      </div>
+    );
+  return (
+    <>
+      <table className="lip panel lb-table lb-groups" aria-label={t.tabs.groups}>
+        {head()}
+        <tbody>{groups.map(row)}</tbody>
+      </table>
+      {mine && !groups.some((g) => key(g) === own) ? (
+        <section className="lip panel lb-pinned lb-groups" aria-label={t.yourGroup}>
+          <table>
+            {head(true)}
+            <tbody>{row(mine)}</tbody>
+          </table>
+        </section>
+      ) : null}
+    </>
   );
 }
 
@@ -125,7 +194,7 @@ export function LeaderboardScreen() {
           </Link>
         </header>
         <nav className="tabs lb-tabs" aria-label={t.tabsLabel}>
-          {(['general', 'depth', 'purges', 'clans'] as const).map((k) => (
+          {(['general', 'depth', 'purges', 'clans', 'groups'] as const).map((k) => (
             <Link key={k} to={SLUG[k] ? `/clasificacion?pestana=${SLUG[k]}` : '/clasificacion'} aria-current={k === tab ? 'page' : undefined}>
               {t.tabs[k]}
             </Link>
@@ -151,6 +220,8 @@ export function LeaderboardScreen() {
             <main className="lb-main">
               {tab === 'clans' ? (
                 <ClanTable clans={v.clans ?? []} mine={v.myClan ?? null} />
+              ) : tab === 'groups' ? (
+                <GroupTable groups={v.groups ?? []} mine={v.myGroup ?? null} />
               ) : v.rows.length === 0 ? (
                 <div className="lip panel lb-empty">
                   <p>{t.noPoints}</p>

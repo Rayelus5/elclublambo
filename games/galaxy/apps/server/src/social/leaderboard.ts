@@ -1,4 +1,4 @@
-import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, seasonOpen } from '@galaxy/shared';
+import { type AccountConfig, type ClanColor, type ClanEmblem, type ClanRow, type GroupRow, type Leaderboard, type LeaderRow, type LeaderTab, levelOf, type SeasonConfig, seasonOpen } from '@galaxy/shared';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
@@ -24,7 +24,7 @@ export interface Ranked {
 
 const TTL_MS = 30_000;
 /** The promise of each ranking (reads at once share one aggregate), with the generation it was asked in. */
-const cache = new Map<string, { at: number; generation: number; rows: Promise<Ranked[]> }>();
+const cache = new Map<string, { at: number; generation: number; rows: Promise<unknown> }>();
 let generation = 0;
 
 /** Forget every cached ranking: a run finished, so what was computed (or is being computed) before it is old. */
@@ -37,9 +37,9 @@ export function invalidateLeaderboard(): void {
  * The ranking under `key`, computed once per 30 s and shared by the reads that arrive meanwhile. An aggregate still in
  * flight when the cache is invalidated answers its own callers but is never kept; a failed one is forgotten.
  */
-export function cachedRanking(key: string, compute: () => Promise<Ranked[]>): Promise<Ranked[]> {
+export function cachedRanking<T = Ranked[]>(key: string, compute: () => Promise<T>): Promise<T> {
   const hit = cache.get(key);
-  if (hit && hit.generation === generation && Date.now() - hit.at < TTL_MS) return hit.rows;
+  if (hit && hit.generation === generation && Date.now() - hit.at < TTL_MS) return hit.rows as Promise<T>;
   const entry = { at: Date.now(), generation, rows: compute() };
   cache.set(key, entry);
   entry.rows.catch(() => {
@@ -48,12 +48,14 @@ export function cachedRanking(key: string, compute: () => Promise<Ranked[]>): Pr
   return entry.rows;
 }
 
-export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
+type SoloTab = Exclude<LeaderTab, 'clans' | 'groups'>;
+
+export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, minRunSeconds: number): Promise<Ranked[]> {
   const key = JSON.stringify([cfg.id, cfg.startsAt, cfg.endsAt, cfg.points, cfg.capPerMinute, minRunSeconds, tab]);
   return cachedRanking(key, () => computeRanking(db, cfg, tab, minRunSeconds));
 }
 
-async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
+async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: SoloTab, minRunSeconds: number): Promise<Ranked[]> {
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
   // A co-op run's points are scaled by the players it started with (multiplayer plan: runs.points_factor).
   const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60) * r.points_factor)::int`;
@@ -99,6 +101,55 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<Le
   });
   return out;
 }
+
+/** A group's best run of the season, with who played it (account ids, in slot order). */
+export interface RankedGroup extends GroupRow {
+  members: string[];
+}
+
+/**
+ * The En grupo tab (multiplayer plan, phase 7): every group run that ended in the season and lasted the minimum, its
+ * players all on the leaderboard (not banned nor excluded); each group (the same players, in any slots) keeps its best
+ * run: the deepest layer, then the most Cores, then the fastest, then the first. Equal layer and Cores share a rank.
+ */
+export function groupRanking(db: Kysely<DB>, cfg: SeasonConfig, minRunSeconds: number): Promise<RankedGroup[]> {
+  const key = JSON.stringify([cfg.id, cfg.startsAt, cfg.endsAt, minRunSeconds, 'groups']);
+  return cachedRanking(key, async () => {
+    const { rows } = await sql<{ id: string; players: unknown; depth: number; cores: number; ticks: number; outcome: GroupRow['outcome'] | null; members: string[]; names: string[] }>`
+      select c.id, c.players, c.depth, coalesce(c.boss_kills, 0)::int as cores, c.ticks, c.outcome,
+        array_agg(r.account_id::text order by r.slot) as members, array_agg(a.username order by r.slot) as names
+      from galaxy.coop_runs c
+      join galaxy.runs r on r.coop_run_id = c.id
+      join galaxy.accounts a on a.id = r.account_id
+      where c.state <> 'running' and c.depth > 0
+        and c.ended_at >= ${new Date(cfg.startsAt)} and c.ended_at < ${new Date(cfg.endsAt)}
+        and c.ticks >= ${minRunSeconds * 60}::int
+      group by c.id
+      having bool_and((a.banned_until is null or a.banned_until <= now()) and not a.leaderboard_excluded)
+      order by c.depth desc, cores desc, c.ticks asc, c.ended_at asc`.execute(db);
+    const seen = new Set<string>();
+    const out: RankedGroup[] = [];
+    for (const r of rows) {
+      const team = [...r.members].sort().join(',');
+      if (seen.has(team)) continue;
+      seen.add(team);
+      const probes = Array.isArray(r.players) ? (r.players as { probe?: unknown }[]) : [];
+      const prev = out[out.length - 1];
+      out.push({
+        rank: prev && prev.depth === r.depth && prev.cores === r.cores ? prev.rank : out.length + 1,
+        players: r.names.map((username, i) => ({ username, probe: typeof probes[i]?.probe === 'string' ? (probes[i]!.probe as string) : 'lumen' })),
+        depth: r.depth,
+        cores: r.cores,
+        seconds: Math.round(r.ticks / 60),
+        outcome: r.outcome ?? 'interrupted',
+        members: r.members,
+      });
+    }
+    return out;
+  });
+}
+
+const groupRow = ({ members: _members, ...g }: RankedGroup): GroupRow => g;
 
 /** A clan with its current members' season points added up (rank null without points). */
 export interface RankedClan {
@@ -157,6 +208,11 @@ export async function leaderboard(deps: SocialDeps, viewerId: string, tab: Leade
     const own = await deps.db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', viewerId).executeTakeFirst();
     const mine = own ? clans.find((c) => c.id === own.clan_id) : undefined;
     return { season: info, tab, rows: [], me: null, total: clans.length, clans: clans.slice(0, cfg.top).map(clanRow), myClan: mine ? clanRow(mine) : null };
+  }
+  if (tab === 'groups') {
+    const groups = await groupRanking(deps.db, cfg, account.minRunSeconds);
+    const mine = groups.find((g) => g.members.includes(viewerId));
+    return { season: info, tab, rows: [], me: null, total: groups.length, groups: groups.slice(0, cfg.top).map(groupRow), myGroup: mine ? groupRow(mine) : null };
   }
   const ranked = await ranking(deps.db, cfg, tab, account.minRunSeconds);
   const mine = ranked.find((r) => r.accountId === viewerId);

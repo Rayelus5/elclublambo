@@ -839,6 +839,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Qué se ve:** el lobby dice hasta qué hora espera.
    - **Ajustes:** los tres valores están en Admin › Configuración › Partidas en grupo; con el límite a 0 no hay espera.
    - **Comprobar:** abandonar tres partidas en grupo seguidas; la cuarta vez el lobby dice «Podrás volver a jugar en grupo a las HH:MM».
+60. **Clasificación «En grupo» (plan multijugador, fase 7):** sin migraciones.
+   - **Qué se ve:** en Clasificación hay una pestaña nueva, `?pestana=grupo`. Cada grupo aparece una vez, con su mejor partida en grupo de la temporada: la capa más honda, luego más Núcleos, luego la más rápida.
+   - **Qué muestra cada fila:** los jugadores con su sonda y enlace a su perfil, la capa, los Núcleos y el tiempo. Tu mejor grupo sale marcado, o fijado abajo si no entra en el top.
+   - **Qué no cuenta:** las partidas más cortas que `account.minRunSeconds` y los grupos con alguien baneado o excluido de la clasificación. Los récords en grupo siguen sin contar en Profundidad ni en Purgas.
+   - **Comprobar:** tras una partida en grupo, el grupo aparece en «En grupo» con su capa y su tiempo.
 
 ## Operación
 
