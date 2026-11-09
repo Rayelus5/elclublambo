@@ -145,12 +145,13 @@ test('las alertas pendientes se marcan revisadas con motivo, y las revisadas dic
   expect(await screen.findByText(t.reviewedBy('rayelus', 'Hermanos'))).toBeInTheDocument();
 });
 
-test('un moderador no ve Comercio ni Alertas en los apartados (sí las salas en vivo)', async () => {
+test('un moderador no ve Comercio ni Alertas en los apartados (sí las salas en vivo y las denuncias de jugadores)', async () => {
   mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, mod) });
   renderAt('/admin/moderacion', { '/admin/moderacion': <ModerationLayout /> });
   const nav = await screen.findByRole('navigation', { name: copy.admin.moderation.nav });
-  await waitFor(() => expect(within(nav).getAllByRole('link')).toHaveLength(4));
+  await waitFor(() => expect(within(nav).getAllByRole('link')).toHaveLength(5));
   expect(within(nav).getByRole('link', { name: copy.admin.moderation.tabs.rooms })).toBeInTheDocument();
+  expect(within(nav).getByRole('link', { name: copy.admin.moderation.tabs.players })).toBeInTheDocument();
   expect(within(nav).queryByRole('link', { name: copy.admin.moderation.tabs.commerce })).toBeNull();
 });
 
