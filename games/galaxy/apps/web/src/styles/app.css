@@ -2284,6 +2284,39 @@
   .mission-bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--color-terminal-2, #2fbf88), var(--color-terminal)); }
   .mission-bar span { position: relative; display: grid; place-items: center; block-size: 100%; font-size: 12.5px; font-weight: 700; color: var(--color-ink); text-shadow: 0 1px 0 rgb(0 0 0 / .5); }
   .mission-done { display: inline-flex; align-items: center; gap: 6px; color: var(--color-terminal); font-weight: 700; }
+  /* Collecting (open beta): what waits in each tab, «Recoger todo», what was collected, the stamp, the chips flying to
+     the wallet and the wallet counting up. */
+  .missions .collection-bar .missions-wallet { --r: 99px; --lip-h: 4px; margin-inline-start: auto; display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; }
+  .missions-tabs button { position: relative; gap: 8px; display: inline-flex; align-items: center; justify-content: center; }
+  .tab-badge { display: inline-grid; place-items: center; min-inline-size: 22px; block-size: 22px; padding: 0 6px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar, #2a1600); font: 800 12.5px var(--font-sans); box-shadow: 0 2px 0 var(--color-solar-lip, #b07a10); }
+  .missions-collect { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; min-block-size: 0; }
+  .missions-collect:empty { display: none; }
+  .missions-gained { margin: 0; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--color-terminal) 14%, transparent); color: var(--color-terminal); font-weight: 700; animation: gained-in .35s var(--ease-bounce, ease-out) both; }
+  @keyframes gained-in { from { transform: translateY(6px) scale(.96); opacity: 0; } }
+  .mission-card.ready:not(.claimed) .lip.pill:not(:disabled) { background: var(--color-solar); color: var(--color-on-solar, #2a1600); box-shadow: 0 4px 0 var(--color-solar-lip, #b07a10); }
+  .mission-card.just { animation: card-claimed .6s ease-out both; }
+  @keyframes card-claimed { 0% { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 26px 2px color-mix(in srgb, var(--color-solar) 55%, transparent); opacity: 1; } 100% { opacity: .72; } }
+  .mission-card.just .mission-done { animation: stamp-in .45s var(--ease-bounce, cubic-bezier(.34, 1.56, .64, 1)) both; }
+  @keyframes stamp-in { 0% { transform: scale(2.2) rotate(-14deg); opacity: 0; } 60% { opacity: 1; } 100% { transform: scale(1) rotate(-4deg); } }
+  .claim-fx { position: fixed; inset: 0; z-index: 70; pointer-events: none; }
+  .claim-chip { position: fixed; display: grid; place-items: center; inline-size: 26px; block-size: 26px; margin: -13px 0 0 -13px; border-radius: 50%; background: rgb(0 0 0 / .45); font-size: 16px; animation: chip-fly .9s cubic-bezier(.5, -0.35, .4, 1) both; }
+  .claim-chip.coins { color: var(--color-solar); box-shadow: 0 0 12px color-mix(in srgb, var(--color-solar) 60%, transparent); }
+  .claim-chip.dust { color: var(--color-uv-soft, #b39dff); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 60%, transparent); }
+  .claim-chip.signal { color: var(--color-nova); box-shadow: 0 0 12px color-mix(in srgb, var(--color-nova) 60%, transparent); }
+  @keyframes chip-fly {
+    0% { transform: translate(0, 0) scale(.4); opacity: 0; }
+    15% { transform: translate(0, -28px) scale(1.15); opacity: 1; }
+    85% { opacity: 1; }
+    100% { transform: translate(var(--dx), var(--dy)) scale(.6); opacity: 0; }
+  }
+  .claim-celebration { position: fixed; inset: 0; z-index: 65; pointer-events: none; }
+  .res.climbing { color: var(--color-solar); }
+  .res.climbing .ico { animation: res-bump .35s ease-out infinite alternate; }
+  @keyframes res-bump { to { transform: scale(1.25); } }
+  .event .event-ready { flex: none; margin-inline-start: auto; padding: 4px 10px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar, #2a1600); font: 800 12.5px var(--font-sans); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) {
+    .missions-gained, .mission-card.just, .mission-card.just .mission-done, .res.climbing .ico { animation: none; }
+  }
   .achievement-tier { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; }
   .achievement-tier.bronze { background: #6b4226; color: #f3c9a0; }
   .achievement-tier.silver { background: #4a5168; color: #e6ebff; }
