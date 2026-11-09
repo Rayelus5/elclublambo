@@ -162,8 +162,8 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 - Se graban las entradas de cada partida, lo que permite:
   - reproducir la partida;
   - verificarla contra trampas (§14.7);
-  - añadir más adelante el cooperativo por red sin rehacer la simulación.
-- El transporte de red del cooperativo queda fuera de la beta.
+  - añadir el cooperativo por red sin rehacer la simulación.
+- El cooperativo por red ya existe: las partidas en grupo (§14.8) usan esta misma simulación en *lockstep*.
 
 ---
 
@@ -511,7 +511,11 @@ Ver §15.
 
 - **Principal:** **puntuación general de la temporada**, la suma de los puntos de todas las estadísticas del jugador en la temporada **[U]**.
 - **Qué suma [D]:** profundidad, Núcleos purgados, extracciones, misiones, logros y entradas nuevas del catálogo. Comerciar y donar no suman.
-- **Pestañas [D]:** General, Profundidad, Purgas y Clanes.
+- **Pestañas [D]:** General, Profundidad, Purgas, Clanes y En grupo.
+- **En grupo [D]:**
+  - cada grupo (los mismos jugadores) sale una vez, con su mejor partida en grupo de la temporada;
+  - el orden es la capa, después los Núcleos y después la más rápida;
+  - los récords en grupo no cuentan en Profundidad ni en Purgas.
 
 ### 14.2 Perfiles y colecciones públicas [U]
 
@@ -529,6 +533,7 @@ Ver §15.
 ### 14.4 Chats [U+D]
 
 - **Canales [U]:** chat global («Comunidad») y chat de clan.
+- **Chat de sala [D]:** cada sala de partida en grupo tiene el suyo, con la misma moderación.
 - **Moderación [D]:**
   - límite de mensajes por minuto;
   - nivel de cuenta mínimo para escribir (*de partida*: 5);
@@ -559,6 +564,40 @@ Ver §15.
   - El resultado se envía una sola vez y pasa controles de plausibilidad.
   - Las partidas sospechosas se marcan y no puntúan.
   - Más adelante se verifican repitiendo la partida desde las entradas grabadas.
+
+### 14.8 Partidas en grupo [U+D]
+
+- **Quién [U]:**
+  - de 1 a 4 jugadores;
+  - se juega en grupo tras acabar o saltar el tutorial y con el nivel que fije el admin;
+  - solo se entra antes de despegar;
+  - basta con que el líder tenga abierto el sector.
+- **Salas [U+D]:**
+  - pública, solo amigos o privada, con código;
+  - «Entrar rápido» busca una pública o la crea;
+  - el líder despega cuando todos están listos.
+- **Cómo se juega [U]:**
+  - **Sin pausa:** 15 s para elegir carta; si no, sale una al azar.
+  - **Caídas:** quien cae tiene 30 s para que lo reanimen quedándose encima; si no, queda fuera hasta la siguiente capa.
+  - **Extracción:** se extrae cuando todos los que siguen en pie están en la baliza.
+  - **Dificultad:** sube con el número de jugadores.
+- **Botín y puntos [U]:**
+  - el botín del grupo es entero para cada uno, rebajado según cuántos sean;
+  - los puntos de temporada llevan su propio factor;
+  - las partidas en grupo cuentan para las misiones y para la clasificación En grupo.
+- **Red [D]:**
+  - *lockstep* con registro sellado por el servidor;
+  - un árbitro en el servidor simula la misma partida y decide el pago;
+  - cada 5 s los navegadores comparan su huella con la del árbitro y, si no coincide, rehacen el mundo desde el registro.
+- **En la partida [D]:**
+  - avisos rápidos («Aquí», «Ayuda», «Baliza», «Cuidado»);
+  - una cámara de espectador para quien queda fuera;
+  - resultados por jugador, con la mejor cifra marcada.
+- **Abandonos e inactividad [D]:**
+  - quien abandona cobra lo que llevaba cuando la partida acaba, y le llega el resultado aunque se haya ido;
+  - quien abandona a menudo espera antes de volver a jugar en grupo (límite, plazo y espera ajustables);
+  - quien pasa la partida casi sin moverse queda marcado `coop_idle`: cobra el botín, pero no gana experiencia, puntos ni misiones.
+- **Denuncias [D]:** desde los resultados, cada compañero se puede denunciar con un motivo y una nota (§16.4).
 
 ---
 
@@ -651,6 +690,10 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
   - silenciar;
   - filtro de palabras;
   - **cola de denuncias**.
+- **Partidas en grupo (§14.8):**
+  - salas en vivo, con cerrar una sala;
+  - **ver en directo** una partida, con selector de cámara;
+  - **denuncias de jugadores**: descartar o tomar medidas, siempre con motivo y auditado.
 - **Clanes:** renombrar, disolver, expulsar y traspasar el liderazgo.
 - **Mercado y tratos:**
   - cancelar anuncios;
@@ -671,9 +714,10 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
   - flujos de cada moneda (entra y sale);
   - tiradas y rarezas reales frente a las esperadas;
   - volumen del mercado;
+  - partidas en grupo: cuántas, jugadores por partida, cómo acabaron, capa media, abandonos e inactivos;
   - alertas.
 - **Herramientas:**
-  - reproductor de partidas;
+  - reproductor de partidas, también de las partidas en grupo, con la cámara en cualquiera de los jugadores;
   - simulador del gachapón y de la economía con la configuración en edición, **antes** de publicarla;
   - exportación a CSV.
 
