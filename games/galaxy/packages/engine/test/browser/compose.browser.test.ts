@@ -39,6 +39,12 @@ async function golden(c: Case): Promise<Uint8ClampedArray> {
   return pixels(bitmap);
 }
 
+/**
+ * Composing at 2048 px in software WebGL (SwiftShader) and sorting every pixel's difference is heavy: a shared CI
+ * runner has taken over the browser project's 15 s on some runs. These get room of their own.
+ */
+const HEAVY_MS = 45_000;
+
 describe.each(cases.map((c) => [c.name, c] as const))('%s', (_, c) => {
   test('la composición WebGL2 se parece a la imagen de Python', async () => {
     const render = renderBraille(c.traits, BigInt(c.seed), { columns: 192 });
@@ -48,7 +54,7 @@ describe.each(cases.map((c) => [c.name, c] as const))('%s', (_, c) => {
     console.log(`${c.name}: mean ${e.mean.toFixed(2)}, p99 ${e.p99}`);
     expect(e.mean).toBeLessThanOrEqual(MEAN_MAX);
     expect(e.p99).toBeLessThanOrEqual(P99_MAX);
-  });
+  }, HEAVY_MS);
 });
 
 test('sin contexto WebGL2 (perdido) devuelve false sin lanzar', () => {
@@ -114,4 +120,4 @@ test('un punto apagado no oscurece el papel de Antimatter al componer pequeño',
   for (const size of [256, 512]) {
     centre(size).forEach((v, ch) => expect(Math.abs(v - big[ch]!), `${size} px`).toBeLessThanOrEqual(1));
   }
-});
+}, HEAVY_MS);
