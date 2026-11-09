@@ -2430,6 +2430,8 @@
   /* A co-op run (multiplayer plan, phase 6): the team on the left under the HUD, the cards as a strip at the bottom
      (the world never stops), the notice of falling, and the link's state. */
   .coop-team { position: absolute; top: 88px; left: 20px; pointer-events: none; }
+  .coop-result-dialog { width: min(100%, 980px); }
+  .coop-result-dialog .results { padding: 0; }
   .coop-team-hint { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: var(--color-ink-mute); }
   /* Quick marks (phase 6c): a pin in its player's colour with the call and the name; at the edge, an arrow. The wheel
      opens where Q went down: four calls around the pointer, the one it points at lit. */

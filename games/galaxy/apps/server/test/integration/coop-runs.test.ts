@@ -1,4 +1,4 @@
-import { type CoopServerMessage, PROBE_TEST, type RoomView, type RoomsView } from '@galaxy/shared';
+import { type CoopServerMessage, type LiveEvent, PROBE_TEST, type RoomView, type RoomsView } from '@galaxy/shared';
 import { decodeLog, fromBase64, MOVE } from '@galaxy/sim';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -168,6 +168,36 @@ describe('despegar y jugar', () => {
     const mine = (await get(ctx.app, '/galaxy/api/rooms', { cookie: players[0]!.cookie })).json() as RoomsView;
     expect(mine.mine).toMatchObject({ state: 'lobby', run: null });
     expect(mine.mine?.members.every((m) => !m.ready)).toBe(true);
+  });
+});
+
+describe('quien abandona (fase 6c)', () => {
+  test('quien se fue recibe su resultado por el socket en vivo cuando la partida acaba; quien sigue, por el de juego', async () => {
+    const { players, room } = await launched(2);
+    const runId = room.run!.id;
+    const liveA: LiveEvent[] = [];
+    const liveB: LiveEvent[] = [];
+    const sockA: WebSocket = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin: ORIGIN, cookie: `gs_sid=${players[0]!.cookie}` } });
+    sockA.on('message', (d) => liveA.push(JSON.parse(String(d)) as LiveEvent));
+    const sockB: WebSocket = await ctx.app.injectWS('/galaxy/api/live/ws', { headers: { origin: ORIGIN, cookie: `gs_sid=${players[1]!.cookie}` } });
+    sockB.on('message', (d) => liveB.push(JSON.parse(String(d)) as LiveEvent));
+    const [a, b] = [await play(players[0]!, runId), await play(players[1]!, runId)];
+    await waitFor(() => a.got.some((m) => m.t === 'hello') && b.got.some((m) => m.t === 'hello'));
+    await settle(300);
+    // A abandons: says so and closes its play socket (the arena goes back to the lobby).
+    a.send({ t: 'leave' });
+    await settle(100);
+    a.ws.terminate();
+    await settle(200);
+    b.send({ t: 'leave' });
+    await waitFor(() => b.got.some((m) => m.t === 'end') && liveA.some((e) => e.type === 'coopResult'), 8000);
+    const mine = liveA.find((e) => e.type === 'coopResult')!;
+    if (mine.type !== 'coopResult') throw new Error('coopResult');
+    expect(mine.outcome).toBe('died');
+    expect(mine.result.outcome).toBe('abandoned');
+    expect(liveB.some((e) => e.type === 'coopResult')).toBe(false);
+    sockA.terminate();
+    sockB.terminate();
   });
 });
 

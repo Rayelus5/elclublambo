@@ -1,4 +1,4 @@
-import { activeAnomaly, type CoopClientMessage, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
+import { activeAnomaly, type CoopClientMessage, type CoopOutcome, type CoopPlayer, coopRulesOf, coopSimOptions, type LiveEvent, parseConfig } from '@galaxy/shared';
 import { createReplayer, decodeLog, type Content, SIM_VERSION } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import type { ConfigReader } from '../config/reader';
@@ -42,6 +42,8 @@ export class CoopService {
   private readonly now: () => Date;
   /** Told when a run ended, with its room (the room routes wait again and tell its members). */
   onRunEnded: (roomId: string, runId: string) => Promise<void> = async () => {};
+  /** Tells an account something on its live socket (phase 6c: the result of a run it had left). */
+  notify: (accountId: string, event: LiveEvent) => void = () => {};
 
   constructor(private readonly deps: CoopDeps) {
     this.now = deps.now ?? (() => new Date());
@@ -267,7 +269,12 @@ export class CoopService {
         { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log },
         { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome },
       );
-      for (let slot = 0; slot < run.slots.length; slot++) run.sendTo(slot, { t: 'end', outcome, result: results[slot] ?? null });
+      for (let slot = 0; slot < run.slots.length; slot++) {
+        const result = results[slot] ?? null;
+        // Who is still on the run hears it there; who went (or lost the link) hears it on the live socket.
+        if (run.hasSocket(slot)) run.sendTo(slot, { t: 'end', outcome, result });
+        else if (result) this.notify(run.slots[slot]!.accountId, { type: 'coopResult', outcome, result });
+      }
     } catch (err) {
       this.deps.log?.error({ err: (err as Error).name, run: run.id }, 'coop_settle_failed');
       run.broadcast({ t: 'end', outcome, result: null });
