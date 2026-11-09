@@ -411,6 +411,8 @@ export const VALUES: Record<string, string> = {
   fusions: 'Fusiones',
   disintegrations: 'Desintegraciones',
   components: 'Componentes refinados',
+  coopRuns: 'Partidas en grupo',
+  revives: 'Compañeros reanimados',
   // Currencies.
   coins: 'Monedas',
   dust: 'Polvo estelar',

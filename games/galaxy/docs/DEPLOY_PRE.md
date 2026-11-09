@@ -831,7 +831,7 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Comprobar:** tras una partida en grupo, `docker compose … logs galaxy | grep coop_desync` no debe devolver nada.
 58. **Marca `coop_idle` (fase 6c):** sin migraciones.
    - **Qué marca:** quien pasa al menos 60 s en pie en una partida en grupo sin moverse durante el 80 % de ese tiempo. Su fila queda con la marca «Inactivo en grupo» en Admin › Partidas.
-   - **Efecto:** cuenta como sospechosa para revisarla, pero cobra igual que los demás.
+   - **Efecto:** es una partida sospechosa. Cobra el botín igual que los demás, pero, como toda partida sospechosa, no da experiencia, puntos de temporada ni progreso de misiones.
    - **Comprobar:** en una partida de dos, una cuenta no se mueve durante más de un minuto. Su fila sale con la marca y la del compañero no.
 59. **Espera para quien abandona a menudo (fase 6c):** migración `20261109200000_galaxy_coop_left.sql`, que se aplica sola. Añade `runs.left_at` y un índice parcial.
    - **Qué se apunta:** quien deja una partida en grupo a propósito («Abandonar», o salir de la sala mientras se juega) deja anotada la hora en su fila. Perder la conexión o que cierren la sala para todos no cuenta.
@@ -844,6 +844,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Qué muestra cada fila:** los jugadores con su sonda y enlace a su perfil, la capa, los Núcleos y el tiempo. Tu mejor grupo sale marcado, o fijado abajo si no entra en el top.
    - **Qué no cuenta:** las partidas más cortas que `account.minRunSeconds` y los grupos con alguien baneado o excluido de la clasificación. Los récords en grupo siguen sin contar en Profundidad ni en Purgas.
    - **Comprobar:** tras una partida en grupo, el grupo aparece en «En grupo» con su capa y su tiempo.
+61. **Misiones y logros en grupo (fase 7):** sin migraciones.
+   - **Estadísticas nuevas:** las misiones, los eventos y los logros pueden contar «Partidas en grupo» (`coopRuns`) y «Compañeros reanimados» (`revives`). Las dos se eligen en los formularios del admin.
+   - **Valores por defecto nuevos:**
+     - la semanal «Juega 3 partidas en grupo» (700 monedas, 1 señal y 50 puntos);
+     - el logro «Escuadrón»: 10 partidas en grupo, bronce, título «Compañero»;
+     - el logro «Ángel de la guarda»: 25 reanimaciones, plata, con el título del mismo nombre.
+   - **Cuándo se aplican:** solo donde la configuración de misiones y logros no esté guardada desde el admin. Si lo está, se añaden desde allí.
+   - **Comprobar:** tras una partida en grupo, en Misiones › Logros, «Escuadrón» marca 1/10.
 
 ## Operación
 

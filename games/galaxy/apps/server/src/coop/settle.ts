@@ -92,7 +92,8 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
         `coop:${s.coopRunId}`,
         { runs, runsVersion, content, account, season, boosts, now },
       );
-      await creditRunExtras(trx, who.accountId, row.id, r, `coop:${s.coopRunId}`, { season, perPoint: route.currency.perPoint, missions, now });
+      // The teammates this player revived count for the group missions and achievements (phase 7).
+      await creditRunExtras(trx, who.accountId, row.id, r, `coop:${s.coopRunId}`, { season, perPoint: route.currency.perPoint, missions, now }, { revives: probe.revives });
       return r;
     }).catch((err: unknown) => {
       deps.log?.error({ err: (err as Error).name, run: s.coopRunId, slot }, 'coop_pay_failed');

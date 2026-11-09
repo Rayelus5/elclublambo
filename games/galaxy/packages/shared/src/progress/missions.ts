@@ -4,7 +4,7 @@ import { z } from 'zod';
 // achievements with their titles and frames, and what the missions screen shows.
 
 /** What missions and achievements count, where it happens (`depth` keeps the deepest, the rest add up). */
-export const MISSION_STATS = ['runs', 'minutes', 'kills', 'bossKills', 'extractions', 'depth', 'pulls', 'legendaries', 'fusions', 'disintegrations', 'components'] as const;
+export const MISSION_STATS = ['runs', 'minutes', 'kills', 'bossKills', 'extractions', 'depth', 'pulls', 'legendaries', 'fusions', 'disintegrations', 'components', 'coopRuns', 'revives'] as const;
 export type MissionStat = (typeof MISSION_STATS)[number];
 export type MissionCounts = Partial<Record<MissionStat, number>>;
 
@@ -84,6 +84,8 @@ export const DEFAULT_WEEKLY = [
   m('w-extract5', 'Extrae 5 veces', 'extractions', 5, { coins: 1000, signal: 1, points: 60 }),
   m('w-fuse2', 'Fusiona 2 veces', 'fusions', 2, { dust: 150, points: 30 }),
   m('w-components200', 'Recoge 200 componentes', 'components', 200, { coins: 600, points: 30 }),
+  // Multiplayer plan, phase 7: the group runs count too.
+  m('w-group3', 'Juega 3 partidas en grupo', 'coopRuns', 3, { coins: 700, signal: 1, points: 50 }),
 ];
 export const DEFAULT_SEASON = [
   m('s-runs100', 'Juega 100 incursiones', 'runs', 100, { signal: 5, points: 300 }),
@@ -111,6 +113,8 @@ export const DEFAULT_ACHIEVEMENTS = [
   a('a-depth5', 'Abismo', 'Llega a la capa 5', 'depth', 5, 'gold', { signal: 3, title: 'Abisal', frame: 'abyss' }),
   a('a-boss100', 'Azote de Núcleos', 'Purga 100 Núcleos', 'bossKills', 100, 'gold', { signal: 5, frame: 'nebula' }),
   a('a-runs500', 'Leyenda del ECN', 'Juega 500 incursiones', 'runs', 500, 'gold', { signal: 5, title: 'Leyenda del ECN', frame: 'gold' }),
+  a('a-group10', 'Escuadrón', 'Juega 10 partidas en grupo', 'coopRuns', 10, 'bronze', { signal: 1, title: 'Compañero' }),
+  a('a-revive25', 'Ángel de la guarda', 'Reanima a 25 compañeros', 'revives', 25, 'silver', { signal: 2, title: 'Ángel de la guarda' }),
 ];
 
 /** FNV-1a of a string, for a draw that is the same for everyone in a period. */
