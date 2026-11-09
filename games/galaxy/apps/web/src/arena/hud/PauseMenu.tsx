@@ -11,6 +11,8 @@ export function PauseMenu({
   onResume,
   onAbandon,
   onSkipTutorial,
+  title = copy.arena.pause,
+  abandonBody = copy.arena.abandonBody,
 }: {
   manualAim: boolean;
   onManualAim: (on: boolean) => void;
@@ -18,13 +20,16 @@ export function PauseMenu({
   onAbandon: () => void;
   /** In the tutorial's run: leave the tutorial and keep playing (polish phase 3). */
   onSkipTutorial?: () => void;
+  /** Co-op (multiplayer plan): the world does not stop, so it is a menu, and abandoning says what it means there. */
+  title?: string;
+  abandonBody?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [muted, setMuted] = useState(sfx.muted());
   if (confirming) {
     return (
       <Dialog title={copy.arena.abandon} role="alertdialog" onClose={() => setConfirming(false)} className="pause confirm">
-        <p>{copy.arena.abandonBody}</p>
+        <p>{abandonBody}</p>
         <div className="modal-actions">
           <button type="button" className="lip pill" onClick={() => setConfirming(false)} data-autofocus>
             {copy.arena.keepPlaying}
@@ -37,7 +42,7 @@ export function PauseMenu({
     );
   }
   return (
-    <Dialog title={copy.arena.pause} onClose={onResume} className="pause">
+    <Dialog title={title} onClose={onResume} className="pause">
       <div className="pause-actions">
         <button type="button" className="lip pill pill-solar pause-resume" onClick={onResume} data-autofocus>
           {copy.arena.resume}

@@ -1,7 +1,7 @@
 import type { Activity, LiveEvent, RoomInvite } from '@galaxy/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
-import { useLocation } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { create } from 'zustand';
 import { FRIENDS_KEY, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
@@ -60,6 +60,11 @@ export function LiveConnection() {
 function LiveSocket() {
   const qc = useQueryClient();
   const path = useLocation().pathname;
+  const navigate = useNavigate();
+  const go = useRef(navigate);
+  useEffect(() => {
+    go.current = navigate;
+  }, [navigate]);
   const run = useLive((s) => s.run);
   const socket = useRef<WebSocket | null>(null);
   const doing = run ? JSON.stringify({ type: 'activity', activity: 'run', layer: run.layer }) : JSON.stringify({ type: 'activity', activity: activityOf(path) });
@@ -92,6 +97,8 @@ function LiveSocket() {
           if (event.reason === 'request' || event.reason === 'accepted') pushToast({ kind: event.reason, username: event.username });
         } else if (event.type === 'room') {
           setMyRoom(qc, event.room);
+          // The leader launched: whoever is elsewhere (not in a run) goes to the room, which is the run now.
+          if (event.room?.run && !useLive.getState().run && !window.location.pathname.endsWith('/incursion/sala')) void go.current('/incursion/sala');
           if (!event.room && event.why) pushToast({ kind: event.why, username: '' });
         } else if (event.type === 'invite') pushToast({ kind: 'invite', username: event.invite.from, invite: event.invite });
       };

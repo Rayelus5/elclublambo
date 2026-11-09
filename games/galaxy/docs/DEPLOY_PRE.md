@@ -751,6 +751,28 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - clave nueva `coop` en Configuración › En grupo, con nivel mínimo, salas, invitaciones y las reglas de la partida por número de jugadores (las usa la fase 6);
      - Moderación › Salas en vivo: lista cada 5 segundos y cierra una sala con motivo (queda en la auditoría como `room.close`, y a sus jugadores se les avisa).
 
+47. **Multijugador, fase 6 (partidas en grupo):** migración `20261109122000_galaxy_coop.sql`, que se aplica sola al desplegar. Crea `coop_runs` y `coop_run_inputs`, y añade a `runs` `coop_run_id`, `slot`, `party_size` y `points_factor`.
+   - **Despegar** ya lanza la partida. Todos los de la sala pasan a la arena y juegan la misma incursión en tiempo real:
+     - el servidor cierra los ticks a 60 Hz y reparte las entradas por `/galaxy/api/coop/play/ws`, que pasa por el túnel como los otros sockets;
+     - las cartas no paran el mundo (1, 2 o 3, con 15 s);
+     - los caídos se reaniman quedándose encima;
+     - Escape abre un menú sin pausa con «Abandonar», que también saca de la sala.
+   - **Cobro:** cada jugador cobra al acabar, en su propia fila:
+     - botín del grupo × `coop.loot` por capa;
+     - puntos de temporada × `coop.points`;
+     - quien se fue cobra como abandono.
+
+     La sala vuelve a esperar, con nadie listo.
+   - **Desconexiones:** sin socket 10 s, la sonda queda ausente (intangible) y vuelve al reconectar. Si no queda nadie conectado en 120 s, la partida termina.
+   - **Despliegues a mitad de partida:** las partidas en curso se guardan cada 5 s. Al arrancar, el servidor paga las que quedaron a medias como extracción de lo que llevaban (`coop_runs.state = interrupted`).
+   - **Clasificación:** General suma los puntos de grupo con su factor. Profundidad y Purgas solo cuentan partidas en solitario, porque los récords de grupo tendrán su propia clasificación (fase 7).
+   - **Pendiente (fase 6c):**
+     - avisos rápidos;
+     - chat de sala;
+     - comparar los hashes de los clientes con el árbitro;
+     - cámara de espectador;
+     - desglose por jugador en los resultados.
+
 ## Operación
 
 | Tarea | Cómo |

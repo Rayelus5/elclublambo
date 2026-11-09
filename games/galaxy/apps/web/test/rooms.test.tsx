@@ -167,13 +167,16 @@ test('quien no lidera marca que está listo, y despegar con todos listos aún di
   expect(screen.queryByRole('button', { name: t.kick })).not.toBeInTheDocument();
 });
 
-test('el líder con todos listos pulsa Despegar y se le dice que las partidas en grupo llegan pronto', async () => {
+test('el líder con todos listos pulsa Despegar y la sala pasa a ser la partida', async () => {
+  vi.stubGlobal('WebSocket', FakeSocket);
   const ready = room({ canStart: true, members: room().members.map((m) => ({ ...m, ready: true, connected: true })) });
-  mockApi({ ...base(rooms({ mine: ready })), 'POST /galaxy/api/rooms/start': () => jsonResponse(409, { error: 'coop_soon' }) });
+  const fetch = mockApi({ ...base(rooms({ mine: ready })), 'POST /galaxy/api/rooms/start': () => jsonResponse(200, { ...ready, state: 'running', canStart: false, run: { id: 'run-1' } }) });
   const user = userEvent.setup();
   renderAt('/incursion/sala', { '/incursion/sala': <RoomScreen /> });
   await user.click(await screen.findByRole('button', { name: t.start }));
-  expect(await screen.findByRole('alert')).toHaveTextContent(copy.errors.coop_soon);
+  await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/rooms/start')).toBe(true));
+  expect(await screen.findByText(t.arena.connecting)).toBeInTheDocument();
+  expect(FakeSocket.last?.url).toContain('/galaxy/api/coop/play/ws?run=run-1');
 });
 
 class FakeSocket {

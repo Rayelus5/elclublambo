@@ -9,7 +9,7 @@ import { typing } from '../../ui/keys';
 // With a gamepad the D-pad or the left stick moves and A confirms (on the press, not while held).
 // The world is frozen until the choice is made (the simulation waits), so Escape does nothing here.
 
-function describe(content: Content, o: Offer): { name: string; icon: string; tag: string; text: string } {
+export function describeOffer(content: Content, o: Offer): { name: string; icon: string; tag: string; text: string } {
   if (o.kind === 'heal') return { name: copy.arena.heal, icon: 'repair', tag: '', text: copy.arena.healDescription };
   if (o.kind === 'evolve') {
     const evo = content.weapons.find((w) => w.id === o.id);
@@ -93,7 +93,7 @@ export function LevelUp({ offer, content, onPick }: { offer: Offer[]; content: C
       <p className="levelup-hint">{copy.arena.levelUpHint}</p>
       <div className="levelup-cards" role="radiogroup" aria-label={copy.arena.levelUp}>
         {offer.map((o, i) => {
-          const d = describe(content, o);
+          const d = describeOffer(content, o);
           return (
             <button
               key={`${o.kind}:${o.id}`}
