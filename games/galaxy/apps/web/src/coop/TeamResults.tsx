@@ -66,7 +66,8 @@ function Figure({ value, award }: { value: number; award: 'kills' | 'revives' | 
   );
 }
 
-export function TeamResults({ rows, me }: { rows: TeamRow[]; me: number }) {
+/** `onReport`: a «Denunciar» on each teammate (phase 7); none on the viewer's own row or without it. */
+export function TeamResults({ rows, me, onReport }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void }) {
   const kills = best(rows, 'kills');
   const revives = best(rows, 'revives');
   return (
@@ -94,6 +95,11 @@ export function TeamResults({ rows, me }: { rows: TeamRow[]; me: number }) {
                     <small>{r.probe}</small>
                   </span>
                 </span>
+                {onReport && r.slot !== me ? (
+                  <button type="button" className="team-report" aria-label={copy.coop.report.openOf(r.name)} onClick={() => onReport(r.name)}>
+                    {copy.coop.report.open}
+                  </button>
+                ) : null}
               </th>
               <td>{fmt(r.level)}</td>
               <Figure value={r.kills} award={r.slot === kills ? 'kills' : null} />

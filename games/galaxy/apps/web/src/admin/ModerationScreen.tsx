@@ -69,6 +69,7 @@ export function ModerationLayout() {
         <NavLink to="/admin/moderacion" end>
           {t.tabs.reports}
         </NavLink>
+        <NavLink to="/admin/moderacion/jugadores">{t.tabs.players}</NavLink>
         <NavLink to="/admin/moderacion/chat">{t.tabs.live}</NavLink>
         <NavLink to="/admin/moderacion/silencios">{t.tabs.mutes}</NavLink>
         <NavLink to="/admin/moderacion/salas">{t.tabs.rooms}</NavLink>

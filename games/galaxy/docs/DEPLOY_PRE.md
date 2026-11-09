@@ -866,6 +866,12 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Qué ve el personal:** la partida tal cual la ven los jugadores, con un selector de cámara (a quién sigue) y «Dejar de mirar». No manda nada a la partida, no cuenta como conectado y al final ve la tabla del equipo.
    - **Proxy:** en producción, el socket necesita el mismo paso de WebSockets que el de juego.
    - **Comprobar:** con una partida en grupo en marcha, un moderador la abre desde Salas en vivo y cambia de cámara.
+64. **Denuncias de jugadores en las partidas en grupo (fase 7):** migración `20261109213000_galaxy_player_reports.sql`, que se aplica sola. Añade la tabla `player_reports`.
+   - **Quién denuncia:** en los resultados de una partida en grupo, cada compañero tiene «Denunciar». Hay que elegir un motivo (no jugaba, jugaba en contra, trampas, insultos u otro) y se puede añadir una nota.
+   - **Límites:** una denuncia por compañero y partida, y como mucho 20 por hora. Solo se puede denunciar a alguien que jugó la misma partida, y nunca a uno mismo.
+   - **Dónde se revisan:** Moderación › Jugadores muestra las pendientes, cada una con un enlace a la partida del denunciado.
+   - **Revisión:** «Descartar» o «Tomar medidas», siempre con motivo; queda en la auditoría como `player_report.review`. Las sanciones siguen en Silencios y en la ficha del jugador.
+   - **Comprobar:** tras una partida en grupo, denunciar a un compañero y revisarlo desde Moderación › Jugadores.
 
 ## Operación
 
