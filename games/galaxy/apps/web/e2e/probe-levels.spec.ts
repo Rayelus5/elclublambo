@@ -37,7 +37,8 @@ test('subir de nivel la sonda, elegir la variante del nivel 4 y salir con ella',
 
   grant(username, 'components', 20);
   grant(username, 'coins', 300);
-  await page.goto('/galaxy/incursion');
+  // Levels and the starting weapon live in the probe workshop.
+  await page.goto('/galaxy/taller');
   await page.getByRole('button', { name: /Subir a nivel 2/ }).click();
   await expect(page.getByText('Nivel 2 de 10')).toBeVisible();
 
@@ -58,6 +59,7 @@ test('subir de nivel la sonda, elegir la variante del nivel 4 y salir con ella',
   await expect(radio).toBeChecked();
 
   // Launching starts the run with the level's bonuses and the variant.
+  await page.goto('/galaxy/incursion');
   const started = page.waitForResponse((r) => r.url().endsWith('/galaxy/api/runs') && r.request().method() === 'POST');
   await page.getByRole('button', { name: 'Lanzar incursión' }).click();
   const run = (await (await started).json()) as RunStart;

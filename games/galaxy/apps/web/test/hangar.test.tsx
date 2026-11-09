@@ -1,6 +1,5 @@
-import type { CollectionPage, FinishRunRequest, GalaxySummary, HangarView, ProbeCard, RunResult, SectorCard } from '@galaxy/shared';
+import type { CollectionPage, FinishRunRequest, RunResult } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic } from '@galaxy/sim';
-import { levelOne } from './probe-cards';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { clearPending, loadPending, savePending } from '../src/api/pending-run';
@@ -23,83 +22,7 @@ vi.mock('../src/arena/ArenaScreen', () => {
   return { ArenaScreen: Stub, default: Stub };
 });
 
-const galaxy = (over: Partial<GalaxySummary> = {}): GalaxySummary => ({
-  id: 'g1',
-  seed: '12345',
-  tier: 'legendary',
-  finish: 'holo',
-  traits: { galaxy_type: 'spiral', arms: '3', palette: 'solar_gold', phenomenon: 'pulsar', size: 'large', core: 'bright', star_density: 'normal', background: 'deep_void' },
-  name: 'Kathra',
-  designation: 'GX-ABCDEF',
-  featured: false,
-  level: 1,
-  createdAt: '2026-11-06T20:00:00Z',
-  ...over,
-});
-
-/** A probe card from the default content: locked with no condition unless told otherwise. */
-const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
-  const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
-  const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
-  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
-};
-
-// The test gave Lumen; Bastión is earned (3 runs), Chispa is one run in; the others have their conditions.
-const PROBES: ProbeCard[] = [
-  card('lumen', { unlocked: true, progress: 1 }),
-  card('bastion', { unlocked: true, condition: { stat: 'runs', value: 3 }, progress: 1 }),
-  card('spark', { condition: { stat: 'runs', value: 3 }, progress: 1 / 3 }),
-  card('sentinel', { condition: { stat: 'bossKills', value: 3 }, progress: 0 }),
-  card('anchor', { condition: { stat: 'maxDepth', value: 4 }, progress: 2 / 4 }),
-  card('prism', { condition: { stat: 'extractions', value: 5 }, progress: 1 / 5 }),
-  card('comet', { condition: { stat: 'kills', value: 2000 }, progress: 1999 / 2000 }),
-  card('echo', { condition: { stat: 'runs', value: 15 }, progress: 1 / 15 }),
-];
-
-/** A sector card from the default content: locked with no condition unless told otherwise. */
-const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
-  const sec = DEFAULT_CONTENT.sectors.find((x) => x.id === id)!;
-  const boss = DEFAULT_CONTENT.bosses.find((b) => b.id === sec.boss)!;
-  const fauna = [...new Set(sec.spawns.map((sp) => sp.enemy))].map((e) => DEFAULT_CONTENT.enemies.find((x) => x.id === e)!);
-  return {
-    id,
-    name: sec.name,
-    description: sec.description,
-    boss: { name: boss.name, title: boss.title, sprite: boss.sprite },
-    fauna: fauna.map((e) => ({ id: e.id, name: e.name, sprite: e.sprite })),
-    layerSeconds: sec.layerSeconds,
-    biome: sec.biome,
-    unlocked: false,
-    condition: null,
-    progress: 0,
-    season: sec.season,
-    ...over,
-  };
-};
-
-// A new account: the Nebulosa open, the chain closed, the season open.
-const SECTORS: SectorCard[] = [
-  sectorCard('outer-nebula', { unlocked: true, progress: 1 }),
-  sectorCard('frost-rings', { condition: { sector: 'outer-nebula', stat: 'bossKills', value: 1 } }),
-  sectorCard('hollow-reef', { condition: { sector: 'frost-rings', stat: 'bossKills', value: 1 } }),
-  sectorCard('broken-forge', { condition: { sector: 'hollow-reef', stat: 'bossKills', value: 1 } }),
-  sectorCard('signal-rift', { unlocked: true, progress: 1 }),
-];
-
-const view = (over: Partial<HangarView> = {}): HangarView => ({
-  sectors: SECTORS,
-  sector: 'outer-nebula',
-  probes: PROBES,
-  probe: 'lumen',
-  test: { taken: true, probe: 'lumen' },
-  slots: 2,
-  maxSlots: 6,
-  loadout: [null, null],
-  daily: { playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, fullHours: 3, resetsAt: '2026-11-07T23:00:00.000Z' },
-  runsEnabled: true,
-  nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 0.4, dust: 100, ready: false },
-  ...over,
-});
+import { galaxy, SECTORS, view } from './hangar-fixtures';
 
 const result: RunResult = {
   id: 'r1',
@@ -222,60 +145,6 @@ describe('el selector de sectores', () => {
   });
 });
 
-describe('el selector de sondas', () => {
-  test('muestra las 8: la elegida marcada y su peculiaridad, las bloqueadas con su condición y su progreso', async () => {
-    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const picker = await screen.findByRole('list', { name: copy.hangar.probePicker });
-    expect(within(picker).getAllByRole('listitem')).toHaveLength(8);
-    expect(within(picker).getByRole('button', { name: 'Lumen' })).toHaveAttribute('aria-pressed', 'true');
-    expect(within(picker).getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'false');
-    expect(within(picker).queryByRole('button', { name: 'Chispa' })).toBeNull();
-    expect(screen.getByText('Cada minuto atrae los fragmentos cercanos')).toBeInTheDocument();
-    const spark = within(picker).getByRole('progressbar', { name: 'Chispa' });
-    expect(spark).toHaveAttribute('aria-valuenow', '1');
-    expect(spark).toHaveAttribute('aria-valuemax', '3');
-    expect(within(picker).getByText(copy.hangar.unlock.bossKills(3))).toBeInTheDocument();
-    expect(within(picker).getByText(copy.hangar.unlock.maxDepth(4))).toBeInTheDocument();
-    expect(within(picker).getByText(copy.hangar.unlock.extractions(5))).toBeInTheDocument();
-    expect(within(picker).getByText(copy.hangar.unlock.kills(2000))).toBeInTheDocument();
-    expect(within(picker).getByText(copy.hangar.unlock.runs(15))).toBeInTheDocument();
-    // 1999 of 2000 is not rounded up to a full bar.
-    expect(within(picker).getByRole('progressbar', { name: 'Cometa' })).toHaveAttribute('aria-valuenow', '1999');
-  });
-
-  test('elegir una desbloqueada la envía y la muestra, y Lanzar sale con ella', async () => {
-    const fetch = mockApi({
-      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
-      'PUT /galaxy/api/hangar/probe': (b) => jsonResponse(200, view({ probe: (b as { probe: string }).probe })),
-      'POST /galaxy/api/runs': () => jsonResponse(200, { ...started, probe: 'bastion' }),
-    });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const picker = await screen.findByRole('list', { name: copy.hangar.probePicker });
-    fireEvent.click(within(picker).getByRole('button', { name: 'Bastión' }));
-    expect(await screen.findByRole('heading', { name: 'Bastión' })).toBeInTheDocument();
-    expect(within(picker).getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText('Devuelve la mitad del daño a quien la toca')).toBeInTheDocument();
-    const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probe' && init?.method === 'PUT')!;
-    expect(JSON.parse(String(put[1]!.body))).toEqual({ probe: 'bastion' });
-    fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
-    await screen.findByTestId('arena');
-    const run = fetch.mock.calls.find(([url]) => url === '/galaxy/api/runs')!;
-    expect(JSON.parse(String(run[1]!.body)).probe).toBe('bastion');
-  });
-
-  test('si el servidor no la deja elegir lo dice y sigue la de antes', async () => {
-    mockApi({
-      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
-      'PUT /galaxy/api/hangar/probe': () => jsonResponse(409, { error: 'probe_locked' }),
-    });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const picker = await screen.findByRole('list', { name: copy.hangar.probePicker });
-    fireEvent.click(within(picker).getByRole('button', { name: 'Bastión' }));
-    expect(await screen.findByText(copy.errors.probe_locked)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
-  });
-});
 
 test('lanzar pide la partida y abre la arena', async () => {
   mockApi({
@@ -443,99 +312,6 @@ test('sin el test de la sonda, el Hangar lleva al test', async () => {
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/sonda');
 });
 
-describe('el nivel de la sonda y su arma inicial (M4b-1)', () => {
-  const lumenDef = DEFAULT_CONTENT.probes.find((p) => p.id === 'lumen')!;
-  /** The Hangar with Lumen at `level` (and its chosen weapon), and a wallet. */
-  const at = (level: number, variant: string | null = null, wallet = { coins: 2000, dust: 0, signal: 0, components: 100 }) => {
-    const probes = PROBES.map((p) => (p.id === 'lumen' ? { ...p, ...levelOne(lumenDef, level, variant) } : p));
-    return {
-      hangar: view({ probes }),
-      gacha: { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet },
-    };
-  };
-
-  test('dice su nivel, lo que le da y cuánto cuesta subir', async () => {
-    const { hangar, gacha } = at(3);
-    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    expect(await screen.findByText(copy.hangar.level(3, 10))).toBeInTheDocument();
-    expect(screen.getByText(copy.hangar.bonuses(hangar.probes[0]!.bonuses))).toBeInTheDocument();
-    expect(copy.hangar.bonuses(hangar.probes[0]!.bonuses)).toBe('+6 % de vida y +4 % de daño');
-    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
-    await waitFor(() => expect(up).toBeEnabled());
-    expect(up).toHaveTextContent(copy.station.cost(60, 1000));
-    // The components a level costs are in the Hangar's balance.
-    expect(screen.getByRole('img', { name: copy.station.resource.components(100) })).toBeInTheDocument();
-  });
-
-  test('sin fondos la subida está desactivada y dice cuánto falta', async () => {
-    const { hangar, gacha } = at(3, null, { coins: 0, dust: 0, signal: 0, components: 10 });
-    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    expect(await screen.findByText(copy.station.missing(50, 1000))).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) })).toBeDisabled();
-  });
-
-  test('subir envía el nivel con su clave y enseña la vista nueva', async () => {
-    const { hangar, gacha } = at(3);
-    const fetch = mockApi({
-      'GET /galaxy/api/hangar': () => jsonResponse(200, hangar),
-      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'POST /galaxy/api/hangar/probes/lumen/level-up': () => jsonResponse(200, at(4).hangar),
-    });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
-    await waitFor(() => expect(up).toBeEnabled());
-    fireEvent.click(up);
-    expect(await screen.findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
-    const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/level-up' && init?.method === 'POST')!;
-    expect(JSON.parse(String(call[1]!.body))).toEqual({ level: 4 });
-    expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
-  });
-
-  test('una subida rechazada (otra pestaña ya subió) dice el error y refresca el Hangar con el nivel de verdad', async () => {
-    const { gacha } = at(3);
-    let views = 0;
-    mockApi({
-      // The first view is stale (level 3); the server already has level 4.
-      'GET /galaxy/api/hangar': () => jsonResponse(200, (views++ === 0 ? at(3) : at(4)).hangar),
-      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'POST /galaxy/api/hangar/probes/lumen/level-up': () => jsonResponse(409, { error: 'probe_changed' }),
-    });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const up = await screen.findByRole('button', { name: new RegExp(copy.hangar.levelUp(4)) });
-    await waitFor(() => expect(up).toBeEnabled());
-    fireEvent.click(up);
-    expect(await screen.findByText(copy.errors.probe_changed)).toBeInTheDocument();
-    expect(await screen.findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
-  });
-
-  test('al nivel 10 dice Nivel máximo y no ofrece subir', async () => {
-    const { hangar, gacha } = at(10);
-    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, hangar), 'GET /galaxy/api/gacha': () => jsonResponse(200, gacha) });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    expect(await screen.findByText(copy.hangar.levelMax)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Subir a nivel/ })).toBeNull();
-  });
-
-  test('el arma inicial: la base y sus dos variantes, la del 8 cerrada; elegir la del 4 la envía y la marca', async () => {
-    const { hangar, gacha } = at(4);
-    const fetch = mockApi({
-      'GET /galaxy/api/hangar': () => jsonResponse(200, hangar),
-      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
-      'PUT /galaxy/api/hangar/probes/lumen/variant': () => jsonResponse(200, at(4, 'pulse-twin').hangar),
-    });
-    renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const group = await screen.findByRole('radiogroup', { name: copy.hangar.startingWeapon });
-    expect(within(group).getByRole('radio', { name: /Pulso láser/ })).toBeChecked();
-    expect(within(group).getByRole('radio', { name: /Pulso gélido/ })).toBeDisabled();
-    expect(group).toHaveTextContent(copy.hangar.variantLocked(8));
-    fireEvent.click(within(group).getByRole('radio', { name: /Pulso doble/ }));
-    await waitFor(() => expect(within(group).getByRole('radio', { name: /Pulso doble/ })).toBeChecked());
-    const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probes/lumen/variant' && init?.method === 'PUT')!;
-    expect(JSON.parse(String(put[1]!.body))).toEqual({ variant: 'pulse-twin' });
-  });
-});
 
 describe('la siguiente ranura de reliquia (M4c-1)', () => {
   const gacha = (dust: number) => ({ banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 0, dust, signal: 0 } });

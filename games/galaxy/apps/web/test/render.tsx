@@ -14,7 +14,7 @@ export function renderAt(path: string, routes: Record<string, ReactElement>, sta
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[{ pathname: path, state }]}>
+      <MemoryRouter initialEntries={[{ pathname: path.split('?')[0]!, search: path.includes('?') ? `?${path.split('?')[1]}` : '', state }]}>
         <Routes>
           {Object.entries(routes).map(([p, el]) => (
             <Route key={p} path={p} element={el} />
