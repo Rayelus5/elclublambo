@@ -156,6 +156,15 @@ describe('despegar y jugar', () => {
     expect(rows.every((r) => r.finished_at !== null && Math.abs(r.points_factor - 0.85) < 1e-6)).toBe(true);
     const kept = await ctx.db.selectFrom('galaxy.coop_runs').select(['state', 'outcome']).where('id', '=', runId).executeTakeFirstOrThrow();
     expect(kept).toEqual({ state: 'ended', outcome: 'died' });
+    // A group run counts for the group missions and achievements (phase 7): «partidas en grupo» goes up for each one.
+    const grouped = await ctx.db
+      .selectFrom('galaxy.achievement_progress as p')
+      .innerJoin('galaxy.accounts as a', 'a.id', 'p.account_id')
+      .select(['a.username', 'p.progress'])
+      .where('p.achievement', '=', 'a-group10')
+      .where('a.username', 'in', players.map((p) => p.username))
+      .execute();
+    expect(grouped.map((g) => g.progress)).toEqual([1, 1]);
     const inputs = await ctx.db.selectFrom('galaxy.coop_run_inputs').select('ticks').where('coop_run_id', '=', runId).executeTakeFirstOrThrow();
     expect(inputs.ticks).toBeGreaterThan(0);
     // Paying again changes nothing.
