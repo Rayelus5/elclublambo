@@ -241,6 +241,33 @@ const PATHS = {
       <path d="M8.5 6v12M15.5 6v12" />
     </>
   ),
+  // The config forms' list actions (polish phase 4).
+  plus: (
+    <>
+      <path d="M12 5v14M5 12h14" />
+    </>
+  ),
+  trash: (
+    <>
+      <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2h9.2L17.5 7M10.2 10.5v5.5M13.8 10.5v5.5" />
+    </>
+  ),
+  copy: (
+    <>
+      <rect x="8.5" y="8.5" width="11" height="11" rx="2.4" />
+      <path d="M15.5 8.5V6.4a1.9 1.9 0 0 0-1.9-1.9H6.4a1.9 1.9 0 0 0-1.9 1.9v7.2a1.9 1.9 0 0 0 1.9 1.9h2.1" />
+    </>
+  ),
+  up: (
+    <>
+      <path d="M6.5 14.5L12 9l5.5 5.5" />
+    </>
+  ),
+  down: (
+    <>
+      <path d="M6.5 9.5L12 15l5.5-5.5" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;
