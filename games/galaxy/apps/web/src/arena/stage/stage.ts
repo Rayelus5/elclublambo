@@ -35,6 +35,8 @@ export interface Stage {
   feed(events: readonly SimEvent[], tick?: number): void;
   resize(w: number, h: number): void;
   camera(): Camera | null;
+  /** Follows another probe from now on (the admin's replay of a group run switches between players). */
+  follow(probe: number): void;
   destroy(): void;
 }
 
@@ -897,6 +899,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       app.renderer.resize(w, h);
     },
     camera: () => cam,
+    follow: (probe: number) => {
+      opts.probe = probe;
+    },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });
       chunks.clear();

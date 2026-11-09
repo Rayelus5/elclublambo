@@ -810,6 +810,12 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **De dónde sale:** de la simulación que corre igual en cada cliente, sin nada nuevo del servidor.
    - **Comprobar:** terminar una partida en grupo con dos cuentas y ver la tabla en las dos.
 
+55. **Repetir en el admin una partida en grupo:** sin migraciones.
+   - **Qué se ve:** en Admin › Partidas, una partida en grupo ya no dice «no guardó sus entradas». Se repite entera con todas sus sondas, a partir de las entradas compartidas de la partida (`coop_run_inputs`) y del arranque del grupo.
+   - **Cámara:** empieza en el jugador de la fila y se puede cambiar a cualquier otro.
+   - **«Comprobar»:** compara la huella, los ticks y la capa del grupo, y las bajas y el nivel del jugador si llegó al final.
+   - **Comprobar:** jugar una partida en grupo, abrir la de un jugador en el admin y pulsar «Comprobar»; debe decir «Coincide con lo guardado».
+
 ## Operación
 
 | Tarea | Cómo |

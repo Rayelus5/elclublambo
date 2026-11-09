@@ -1,6 +1,7 @@
-import type { Content, RelicInput, StatBonus } from '@galaxy/sim';
+import type { CoopRules, Content, RelicInput, StatBonus } from '@galaxy/sim';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
+import type { CoopPlayer } from './coop';
 
 // The panel's runs (GDD §16.2, §16.6; M6d-3), for admins: a list of every run, newest first, a run's replay (its start
 // rebuilt from what the server kept, and its recorded inputs) and marking it as suspicious or not.
@@ -64,6 +65,13 @@ export interface AdminRunReplay {
   contentFallback: boolean;
   /** The run's start as the server snapshotted it, with the content of the version it started with. */
   start: { seed: string; sector: string; probe: string; relics: RelicInput[]; bonuses: StatBonus[]; variant: string | null; anomaly: string | null; content: Content };
-  /** The recorded inputs (packages/sim encodeLog, base64); null for a run that never finished. */
+  /** The recorded inputs (packages/sim encodeLog, base64); null for a run that never finished. A group run's are the
+   * whole group's, kept once for the run. */
   inputs: string | null;
+  /**
+   * A group run (multiplayer plan, phase 6c): the group's start (`start.seed`, sector and anomaly are its) with every
+   * player, its rules, the slot of the player looked at, and the run's own end (ticks, depth, hash) to replay to and
+   * check against. Null for a solo run.
+   */
+  coop: { slot: number; players: CoopPlayer[]; rules: CoopRules; ticks: number | null; depth: number | null; hash: string | null } | null;
 }

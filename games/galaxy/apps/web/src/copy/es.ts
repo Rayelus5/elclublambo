@@ -369,6 +369,10 @@ export const copy = {
       heading: (player: string) => `Partida de ${player}`,
       noInputs: 'Esta partida no terminó, así que no hay entradas que reproducir',
       noLog: 'Esta partida no guardó sus entradas, así que no se puede reproducir',
+      // A group run (phase 6c): the whole group replays; the camera follows whoever the admin picks.
+      coopFact: (n: number) => `En grupo, ${n} jugadores`,
+      camera: 'Cámara',
+      cameraOf: (name: string) => `${name} (esta partida)`,
       cannotReplay: 'Esta partida no se puede reproducir con el contenido y las entradas que guardó',
       clipped: 'El servidor recortó lo que envió esta partida y no guardó lo original, así que la comprobación puede no coincidir aunque se jugara limpia',
       contentFallback: (v: number) => `La versión ${v} del contenido ya no está, así que se reproduce con el de por defecto. La repetición puede no coincidir`,

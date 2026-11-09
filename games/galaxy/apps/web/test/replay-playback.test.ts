@@ -1,4 +1,5 @@
-import { decodeLog, fromBase64, stateHash } from '@galaxy/sim';
+import { coopRulesOf, parseConfig } from '@galaxy/shared';
+import { decodeLog, encodeLog, fromBase64, stateHash } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { checkReplay, createPlayback, replayOptionsOf, replayUntil } from '../src/admin/replay/playback';
 import { playedRun } from './replay-fixture';
@@ -66,4 +67,23 @@ test('una partida que el servidor recortó se repite y se compara con lo que env
   expect(c.rows.find((r) => r.key === 'ticks')!.saved).toBe(run.run.ticks);
   // Without what it sent (runs finished before M6d-3), the kept figures are all there is.
   expect(replayUntil({ ...clipped, claimed: null })).toBe(300);
+});
+
+test('una partida en grupo (fase 6c) se repite entera con todas sus sondas y se comprueba con las cifras del grupo', () => {
+  const players = ['vega', 'lyra'].map((username) => ({ username, probe: 'lumen', relics: [], bonuses: [], variant: null }));
+  const coop = { slot: 1, players, rules: coopRulesOf(parseConfig('coop', {})), ticks: 300, depth: 1, hash: null as string | null };
+  expect(replayUntil(run.run, coop)).toBe(300);
+  const p = createPlayback(replayOptionsOf(run.start, coop), decodeLog(encodeLog({ probes: 2, events: [] })), 300);
+  p.advance(300);
+  expect(p.sim.probes).toHaveLength(2);
+  const kept = { ...coop, hash: stateHash(p.sim), depth: p.sim.layer };
+  const me = p.sim.probes[1]!;
+  // Who stayed to the end: the group's figures and their own.
+  const stayed = checkReplay(p.sim, { ...run.run, claimed: { ...run.run.claimed!, ticks: 300, kills: me.kills, level: me.level } }, kept);
+  expect(stayed.rows.map((r) => r.key)).toEqual(['hash', 'ticks', 'depth', 'kills', 'level']);
+  expect(stayed.matches).toBe(true);
+  // Who left before: only the group's (what they had when they went no longer shows at the end).
+  const left = checkReplay(p.sim, { ...run.run, claimed: { ...run.run.claimed!, ticks: 120 } }, kept);
+  expect(left.rows.map((r) => r.key)).toEqual(['hash', 'ticks', 'depth']);
+  expect(left.matches).toBe(true);
 });

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type AdminRunList, type AdminRunReplay, PROBE_TEST, type Role, type RunStart } from '@galaxy/shared';
+import { type AdminRunList, type AdminRunReplay, coopRulesOf, parseConfig, PROBE_TEST, type Role, type RunStart } from '@galaxy/shared';
 import { botInput, botPick, createSim, decodeLog, DEFAULT_CONTENT, encodeLog, fromBase64, replay, runSummary, SIM_VERSION, type SimOptions, stateHash, step, toBase64 } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { createAdminViaCli, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
@@ -219,5 +219,56 @@ describe('las marcas', () => {
     const open = await mark(await finishedRun(p.id, { outcome: null }), true);
     expect(open.statusCode).toBe(409);
     expect(open.json()).toMatchObject({ error: 'run_open' });
+  });
+});
+
+describe('una partida en grupo (fase 6c)', () => {
+  test('se repite entera: sus entradas compartidas, sus jugadores y el sitio del que se mira', async () => {
+    const [p, q] = [await player(), await player()];
+    const players = [p, q].map((x) => ({ username: x.username, probe: 'lumen', relics: [], bonuses: [], variant: null }));
+    const log = encodeLog({ probes: 2, events: [] });
+    const coop = await ctx.db
+      .insertInto('galaxy.coop_runs')
+      .values({ room_code: 'ABC234', kind: 'private', leader_id: p.id, sector: 'outer-nebula', seed: '777', anomaly: null, rules: JSON.stringify(coopRulesOf(parseConfig('coop', {}))), players: JSON.stringify(players), content_version: 0, sim_version: SIM_VERSION })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await ctx.db.updateTable('galaxy.coop_runs').set({ state: 'ended', outcome: 'died', ticks: 300, depth: 1, boss_kills: 0, hash: 'fedcba9876543210', ended_at: new Date() }).where('id', '=', coop.id).execute();
+    await ctx.db.insertInto('galaxy.coop_run_inputs').values({ coop_run_id: coop.id, inputs: Buffer.from(log), ticks: 300 }).execute();
+    const row = await ctx.db
+      .insertInto('galaxy.runs')
+      .values({
+        account_id: q.id,
+        seed: '777',
+        sector: 'outer-nebula',
+        probe: 'lumen',
+        relics: '[]',
+        content_version: 0,
+        sim_version: SIM_VERSION,
+        start_key: randomUUID(),
+        started_at: new Date(),
+        flags: [],
+        suspicious: false,
+        coop_run_id: coop.id,
+        slot: 1,
+        party_size: 2,
+        finished_at: new Date(),
+        outcome: 'died',
+        ticks: 300,
+        depth: 1,
+        kills: 0,
+        boss_kills: 0,
+        level: 1,
+        seconds: 5,
+        hash: 'fedcba9876543210',
+        payout: '{}',
+      })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const d = await detail(row.id);
+    expect(d.inputs).toBe(toBase64(log));
+    expect(d.start.seed).toBe('777');
+    expect(d.coop).toMatchObject({ slot: 1, ticks: 300, depth: 1, hash: 'fedcba9876543210' });
+    expect(d.coop?.players.map((x) => x.username)).toEqual([p.username, q.username]);
+    expect(d.coop?.rules).toEqual(coopRulesOf(parseConfig('coop', {})));
   });
 });
