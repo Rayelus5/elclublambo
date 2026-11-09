@@ -5,9 +5,10 @@ import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, ste
 // sealed at once, as log events, on the next tick not yet closed; the clock closes ticks at 60 Hz whatever the
 // players do, so a slow or hidden player never holds the others. Each closed tick steps the referee (the same
 // simulation, fed the same events), which decides how the run ends; the sockets get the sealed events in batches with
-// the tick they close up to (and a heartbeat every few ticks). A player without a socket for a while is sealed
-// «away» (intangible) and «back» when it returns; «left» is for good. When nobody has a socket for long, everyone is
-// sealed «left» and the run ends.
+// the tick they close up to (and a heartbeat every few ticks). A player without a socket for a while, while others
+// play, is sealed «away» (intangible) and «back» when it returns; «left» is for good; a player whose last socket
+// closes stops moving at once. With nobody connected the clock waits (a shared outage or a slow start never costs the
+// run); nobody for long, and everyone is sealed «left» and the run ends.
 
 export const TICK_MS = 1000 / 60;
 const BEAT_TICKS = 3;
@@ -38,6 +39,8 @@ export interface Gone {
   tick: number;
   kills: number;
   level: number;
+  /** The group's Cores until then (those killed after it went are not its own). */
+  bossKills: number;
   loot: { coins: number; dust: number; components: number }[];
 }
 
@@ -64,6 +67,12 @@ export class CoopRun {
   private readonly presence: number[];
   private readonly offlineSince: (number | null)[];
   private lastLayer = 0;
+  /** When the clock stopped because nobody was connected (null: running). */
+  private pausedSince: number | null = null;
+  /** Everyone was gone too long: the clock runs again to close their leaving. */
+  private abandoning = false;
+  /** The clock's origin, moved forward by every pause. */
+  private origin: number;
 
   constructor(
     readonly id: string,
@@ -81,6 +90,7 @@ export class CoopRun {
     this.presence = slots.map(() => PRESENCE_UP);
     // Nobody is connected yet: the grace starts now.
     this.offlineSince = slots.map(() => t0);
+    this.origin = t0;
     this.noteLayer();
   }
 
@@ -105,7 +115,10 @@ export class CoopRun {
   detach(slot: number, socket: PlaySocket, now: number): void {
     const set = this.sockets[slot]!;
     set.delete(socket);
-    if (set.size === 0 && this.offlineSince[slot] === null) this.offlineSince[slot] = now;
+    if (set.size > 0) return;
+    if (this.offlineSince[slot] === null) this.offlineSince[slot] = now;
+    // Its last socket closed: the probe stops where it is (it may be gone for a while).
+    this.input(slot, 0, 0, -1);
   }
 
   /** A player's movement and aim: sealed only when it changes what is in effect. */
@@ -132,6 +145,8 @@ export class CoopRun {
   leave(slot: number): void {
     if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
     this.seal(slot, PRESENCE, PRESENCE_LEFT, 0, 0);
+    // Everyone has gone: the clock runs (even with nobody connected) to close it, and the run ends.
+    if (this.presence.every((x) => x === PRESENCE_LEFT)) this.abandoning = true;
   }
 
   private seal(slot: number, kind: number, a: number, b: number, c: number): void {
@@ -156,20 +171,39 @@ export class CoopRun {
     }
   }
 
-  /** Presence the clock decides: away after a while without a socket; everyone gone for long → everyone left. */
+  /** Away after a while without a socket (only called while someone else plays). */
   private watchPresence(now: number): void {
-    let anyone = false;
     for (let slot = 0; slot < this.slots.length; slot++) {
-      if (this.presence[slot] === PRESENCE_LEFT) continue;
+      if (this.presence[slot] !== PRESENCE_UP) continue;
       const since = this.offlineSince[slot] ?? null;
-      if (since === null) {
-        anyone = true;
-        continue;
-      }
-      if (now - since < ALL_GONE_MS) anyone = true;
-      if (this.presence[slot] === PRESENCE_UP && now - since >= AWAY_AFTER_MS) this.seal(slot, PRESENCE, PRESENCE_AWAY, 0, 0);
+      if (since !== null && now - since >= AWAY_AFTER_MS) this.seal(slot, PRESENCE, PRESENCE_AWAY, 0, 0);
     }
-    if (!anyone) for (let slot = 0; slot < this.slots.length; slot++) if (this.presence[slot] !== PRESENCE_LEFT) this.leave(slot);
+  }
+
+  private online(): boolean {
+    return this.sockets.some((set) => set.size > 0);
+  }
+
+  /**
+   * The clock with nobody connected (once the run started): it waits; after ALL_GONE_MS everyone leaves and it runs
+   * again to close that. Returns false while it waits.
+   */
+  private clockRuns(now: number): boolean {
+    if (this.abandoning || now < this.origin) return true;
+    if (this.online()) {
+      if (this.pausedSince !== null) {
+        this.origin += now - this.pausedSince;
+        this.pausedSince = null;
+      }
+      return true;
+    }
+    this.pausedSince ??= now;
+    if (now - this.pausedSince < ALL_GONE_MS) return false;
+    this.origin += now - this.pausedSince;
+    this.pausedSince = null;
+    this.abandoning = true;
+    for (let slot = 0; slot < this.slots.length; slot++) this.leave(slot);
+    return true;
   }
 
   /**
@@ -178,8 +212,9 @@ export class CoopRun {
    */
   pump(now: number): boolean {
     if (this.ended) return false;
-    this.watchPresence(now);
-    const target = Math.min(Math.floor((now - this.t0) / TICK_MS), this.closed + MAX_TICKS_PER_PUMP);
+    if (!this.clockRuns(now)) return false;
+    if (!this.abandoning) this.watchPresence(now);
+    const target = Math.min(Math.floor((now - this.origin) / TICK_MS), this.closed + MAX_TICKS_PER_PUMP);
     const sim = this.referee;
     while (this.closed < target && !this.ended) {
       const tick = this.closed + 1;
@@ -194,7 +229,7 @@ export class CoopRun {
       for (const e of sim.events) {
         if (e.t === 'presence' && e.life === 'left') {
           const p = sim.probes[e.probe]!;
-          this.gone[e.probe] = { tick: sim.tick, kills: p.kills, level: p.level, loot: sim.loot.map((l) => ({ ...l })) };
+          this.gone[e.probe] = { tick: sim.tick, kills: p.kills, level: p.level, bossKills: sim.bossKills, loot: sim.loot.map((l) => ({ ...l })) };
         }
       }
       this.noteLayer();

@@ -108,9 +108,10 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
   }
 
   // A run ended: its room waits again (if it is still open) and its members learn it.
-  deps.coop.onRunEnded = async (roomId) => {
+  deps.coop.onRunEnded = async (roomId, runId) => {
     const room = rooms.byId(roomId);
-    if (!room) return;
+    // Only the room's own run sends it back to waiting (an older one ending late changes nothing).
+    if (!room || room.runId !== runId) return;
     rooms.backToLobby(room);
     await tell(room);
   };
@@ -296,9 +297,10 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     if (room.leader !== s.accountId) throw new HttpError(403, 'room_not_leader');
     if (room.state !== 'lobby') throw new HttpError(409, 'room_started');
     if (!rooms.view(room, online, true).canStart) throw new HttpError(409, 'room_not_ready');
-    await mustPlay(s.accountId);
+    // Marked before anything waits: a second press (or tab) meanwhile is refused, never launched twice.
     room.state = 'starting';
     try {
+      await mustPlay(s.accountId);
       if (!(await sectorOpenTo(s.accountId, room.sector))) throw new HttpError(409, 'sector_locked');
       const runId = await deps.coop.launch(room);
       rooms.launch(room, runId);

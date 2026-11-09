@@ -29,8 +29,9 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
       const s = await db
         .selectFrom('galaxy.runs')
         .select([
-          sql<number>`coalesce(max(depth), 0)::int`.as('maxDepth'),
-          sql<number>`coalesce(sum(boss_kills), 0)::int`.as('purges'),
+          // Records are solo (multiplayer plan): group runs have their own ranking.
+          sql<number>`coalesce(max(depth) filter (where coop_run_id is null), 0)::int`.as('maxDepth'),
+          sql<number>`coalesce(sum(boss_kills) filter (where coop_run_id is null), 0)::int`.as('purges'),
           sql<number>`(count(*) filter (where outcome = 'extracted'))::int`.as('extractions'),
         ])
         .where('account_id', '=', owner.id)
@@ -45,7 +46,11 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
 
   const records = await db
     .selectFrom('galaxy.runs')
-    .select([sql<number>`coalesce(max(depth), 0)::int`.as('maxDepth'), sql<number>`coalesce(sum(boss_kills), 0)::int`.as('purges'), sql<number>`count(*)::int`.as('runs')])
+    .select([
+      sql<number>`coalesce(max(depth) filter (where coop_run_id is null), 0)::int`.as('maxDepth'),
+      sql<number>`coalesce(sum(boss_kills) filter (where coop_run_id is null), 0)::int`.as('purges'),
+      sql<number>`count(*)::int`.as('runs'),
+    ])
     .where('account_id', '=', owner.id)
     .where('finished_at', 'is not', null)
     .where('suspicious', '=', false)

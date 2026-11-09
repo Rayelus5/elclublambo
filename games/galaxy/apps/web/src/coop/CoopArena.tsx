@@ -62,9 +62,14 @@ export function CoopArena({
   const closed = useRef(0);
   const socket = useRef<WebSocket | null>(null);
 
-  const send = useCallback((msg: unknown) => {
+  /** Bumped on every hello: what was sent before a reconnect may never have arrived, so it is sent again. */
+  const [epoch, setEpoch] = useState(0);
+  /** Sends if the socket is open; false when it is not (the caller keeps it pending). */
+  const send = useCallback((msg: unknown): boolean => {
     const s = socket.current;
-    if (s && s.readyState === WebSocket.OPEN) s.send(JSON.stringify(msg));
+    if (!s || s.readyState !== WebSocket.OPEN) return false;
+    s.send(JSON.stringify(msg));
+    return true;
   }, []);
 
   // The play socket: hello (the run, or what I missed), frames, the end.
@@ -94,6 +99,7 @@ export function CoopArena({
           known.current = Math.max(known.current, events.length);
           closed.current = Math.max(closed.current, msg.to);
           setLink('live');
+          setEpoch((e) => e + 1);
         } else if (msg.t === 'f') {
           worldRef.current?.feed.push(msg.ev);
           known.current += msg.ev.length;
@@ -149,6 +155,7 @@ export function CoopArena({
       feed={world.feed}
       closed={closed}
       link={link}
+      epoch={epoch}
       result={result}
       send={send}
       clock={clock}
@@ -167,6 +174,7 @@ function CoopWorld({
   feed,
   closed,
   link,
+  epoch,
   result,
   send,
   clock,
@@ -179,8 +187,9 @@ function CoopWorld({
   feed: CoopFeed;
   closed: { current: number };
   link: Link;
+  epoch: number;
   result: { result: RunResult | null } | null;
-  send: (msg: unknown) => void;
+  send: (msg: unknown) => boolean;
   onExit: () => void;
   onAbandon: () => void;
 }) {
@@ -206,18 +215,27 @@ function CoopWorld({
   const [picked, setPicked] = useState(-1);
   const hudRef = useRef(hud);
 
-  /** My input now, sent only when it changed (idle while the window has no focus). */
+  const sentAt = useRef(0);
+  // A new hello (a reconnect): the server may have missed my last input; it goes again.
+  useEffect(() => {
+    lastSent.current = '';
+  }, [epoch]);
+
+  /** My input now, sent only when it changed, at most once per tick (idle while the window has no focus). */
   const sendInput = useCallback(() => {
     if (sim.probes[slot]?.life === 'left') return;
+    const now = clock.now();
+    if (now - sentAt.current < 15) return;
     const cam = stageRef.current?.camera();
     const rect = canvasRef.current?.getBoundingClientRect();
     const aimFrom = cam && rect ? { x: rect.left + cam.bars + (cam.worldW * cam.zoom) / 2, y: rect.top + rect.height / 2 } : undefined;
     const i = readInput(input.current, { manualAim: aimRef.current }, aimFrom);
     const key = `${i.mx},${i.my},${i.aim}`;
     if (key === lastSent.current) return;
+    if (!send({ t: 'in', mx: i.mx, my: i.my, aim: i.aim })) return;
     lastSent.current = key;
-    send({ t: 'in', mx: i.mx, my: i.my, aim: i.aim });
-  }, [send, sim, slot]);
+    sentAt.current = now;
+  }, [send, sim, slot, clock]);
 
   // The world: stage and the lockstep loop.
   useEffect(() => {
@@ -369,6 +387,17 @@ function CoopWorld({
     [send],
   );
 
+  // The run ended or the server restarted while I was away: nothing more will come. Back to the room.
+  if (link === 'gone' && !result) {
+    return (
+      <div className="results sending" role="alert">
+        <p>{t.gone}</p>
+        <button type="button" className="lip pill pill-solar" onClick={onExit}>
+          {t.back}
+        </button>
+      </div>
+    );
+  }
   if (showResult && result) {
     return result.result ? (
       <ResultsScreen result={result.result} onAgain={onExit} />

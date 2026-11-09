@@ -169,6 +169,8 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades'])
     .where('id', '=', runId)
     .where('account_id', '=', accountId)
+    // A co-op player's row is paid by its run (coop/settle.ts), never through the solo finish.
+    .where('coop_run_id', 'is', null)
     .forUpdate()
     .executeTakeFirst();
   if (!run) throw new HttpError(404, 'run_not_found');

@@ -110,6 +110,18 @@ describe('despegar y jugar', () => {
     await coop.abandon(room.run!.id);
   });
 
+  test('dos «Despegar» a la vez lanzan una sola partida', async () => {
+    const players = await Promise.all([player(), player()]);
+    const room = (await act(players[0]!, '', { kind: 'private', sector: 'outer-nebula' })).json() as RoomView;
+    await act(players[1]!, '/join', { code: room.code });
+    await act(players[1]!, '/ready', { ready: true });
+    const [r1, r2] = await Promise.all([act(players[0]!, '/start'), act(players[0]!, '/start')]);
+    expect([r1.statusCode, r2.statusCode].sort()).toEqual([200, 409]);
+    const runs = await ctx.db.selectFrom('galaxy.coop_runs').select('id').where('room_code', '=', room.code).execute();
+    expect(runs).toHaveLength(1);
+    await coop.abandon(runs[0]!.id);
+  });
+
   test('quien no juega en la partida no entra en su socket', async () => {
     const { room } = await launched(1);
     const other = await player();

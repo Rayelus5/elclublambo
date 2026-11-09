@@ -10,6 +10,9 @@ const NUDGE = 0.08;
 const MIN_BUFFER = 2;
 const MAX_BUFFER = 8;
 const CATCH_UP_AT = 12;
+/** Frames between two growths of the buffer, and the window its slack is measured over to shrink it. */
+const GROW_EVERY = 30;
+const SHRINK_WINDOW = 300;
 
 export interface Lockstep {
   start(): void;
@@ -38,7 +41,10 @@ export function createLockstep(deps: LockstepDeps): Lockstep {
   let last = 0;
   let acc = 0;
   let buffer = deps.buffer ?? 3;
-  let early = 0;
+  let frames = 0;
+  let grewAt = -GROW_EVERY;
+  let slack = Infinity;
+  let window = 0;
   const maxSteps = deps.maxSteps ?? 240;
 
   function frame(t: number): void {
@@ -46,6 +52,7 @@ export function createLockstep(deps: LockstepDeps): Lockstep {
     deps.schedule(frame);
     const dt = Math.max(0, Math.min(0.25, (t - last) / 1000));
     last = t;
+    frames++;
     let ahead = deps.closed() - deps.current();
     if (ahead > buffer + CATCH_UP_AT) {
       // Far behind: catch up to the buffer at once, within the frame's budget.
@@ -62,9 +69,12 @@ export function createLockstep(deps: LockstepDeps): Lockstep {
       let n = 0;
       while (acc >= STEP && n < 5 && running) {
         if (ahead <= 0) {
-          // Ran dry: wait for the server, and keep a bigger margin from now on.
-          buffer = Math.min(MAX_BUFFER, buffer + 1);
-          early = 0;
+          // Ran dry: wait for the server, and keep a bigger margin from now on (not before the run started, and at
+          // most once in a while, so one hiccup does not set it at the top).
+          if (deps.closed() > 0 && frames - grewAt >= GROW_EVERY) {
+            buffer = Math.min(MAX_BUFFER, buffer + 1);
+            grewAt = frames;
+          }
           acc = Math.min(acc, STEP);
           break;
         }
@@ -73,12 +83,14 @@ export function createLockstep(deps: LockstepDeps): Lockstep {
         acc -= STEP;
         n++;
       }
-      // Ticks keep arriving well ahead: the margin can shrink, slowly.
-      if (ahead > buffer + 2) early++;
-      else early = 0;
-      if (early > 600 && buffer > MIN_BUFFER) {
-        buffer--;
-        early = 0;
+      // The margin shrinks when, over a few seconds, there were always ticks to spare.
+      if (deps.closed() > 0) {
+        slack = Math.min(slack, ahead);
+        if (++window >= SHRINK_WINDOW) {
+          if (slack >= 2 && buffer > MIN_BUFFER) buffer--;
+          slack = Infinity;
+          window = 0;
+        }
       }
     }
     deps.render(Math.min(1, acc / STEP));

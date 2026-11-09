@@ -41,7 +41,7 @@ export class CoopService {
   private recovery: NodeJS.Timeout | null = null;
   private readonly now: () => Date;
   /** Told when a run ended, with its room (the room routes wait again and tell its members). */
-  onRunEnded: (roomId: string) => Promise<void> = async () => {};
+  onRunEnded: (roomId: string, runId: string) => Promise<void> = async () => {};
 
   constructor(private readonly deps: CoopDeps) {
     this.now = deps.now ?? (() => new Date());
@@ -205,7 +205,10 @@ export class CoopService {
       try {
         ended = run.pump(now);
       } catch (err) {
+        // A run that cannot go on is taken out of the clock (its players are told); the next recovery pays it from
+        // its saved log, like one a restart left behind.
         this.deps.log?.error({ err: (err as Error).name, run: run.id }, 'coop_pump_failed');
+        void this.drop(run);
         continue;
       }
       if (ended) void this.finish(run);
@@ -234,13 +237,33 @@ export class CoopService {
     }
   }
 
+  /** Waits for a save in flight, then saves the log as it is now (the last write is always the fullest log). */
+  private async saveLast(run: CoopRun): Promise<void> {
+    while (this.saving.has(run.id)) await new Promise((r) => setTimeout(r, 10));
+    await this.save(run);
+  }
+
+  /** Takes a broken run out of the clock without paying it (recover() will). */
+  private async drop(run: CoopRun): Promise<void> {
+    this.runs.delete(run.id);
+    run.ended = true;
+    try {
+      await this.saveLast(run);
+    } finally {
+      run.closeAll(1011, 'error');
+      this.savedAt.delete(run.id);
+      await this.onRunEnded(run.roomId, run.id).catch(() => {});
+      this.ends.get(run.id)?.resolve();
+      this.ends.delete(run.id);
+    }
+  }
+
   private async finish(run: CoopRun): Promise<void> {
     const outcome: CoopOutcome = run.referee.status === 'extracted' ? 'extracted' : 'died';
     try {
-      this.saving.delete(run.id);
-      await this.save(run);
+      await this.saveLast(run);
       const results = await settleCoop(
-        { db: this.deps.db, config: this.deps.config, now: this.now },
+        { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log },
         { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome },
       );
       for (let slot = 0; slot < run.slots.length; slot++) run.sendTo(slot, { t: 'end', outcome, result: results[slot] ?? null });
@@ -251,7 +274,7 @@ export class CoopService {
       run.closeAll(1000, 'end');
       this.runs.delete(run.id);
       this.savedAt.delete(run.id);
-      await this.onRunEnded(run.roomId).catch(() => {});
+      await this.onRunEnded(run.roomId, run.id).catch(() => {});
       this.ends.get(run.id)?.resolve();
       this.ends.delete(run.id);
     }
@@ -322,18 +345,17 @@ export class CoopService {
       for (const e of sim.events) {
         if (e.t === 'presence' && e.life === 'left') {
           const p = sim.probes[e.probe]!;
-          gone[e.probe] = { tick: sim.tick, kills: p.kills, level: p.level, loot: sim.loot.map((l) => ({ ...l })) };
+          gone[e.probe] = { tick: sim.tick, kills: p.kills, level: p.level, bossKills: sim.bossKills, loot: sim.loot.map((l) => ({ ...l })) };
         }
       }
       playersByLayer[sim.layer - 1] ??= sim.players;
     }
     const runRows = await this.deps.db.selectFrom('galaxy.runs').select(['id', 'account_id', 'slot']).where('coop_run_id', '=', row.id).orderBy('slot').execute();
     const slots: CoopSlot[] = runRows.map((r, i) => ({ accountId: r.account_id, username: players[i]?.username ?? '', runRowId: r.id }));
+    // How it really ended, if its log reaches the end (a payment retried after a failure); otherwise interrupted.
     const status = replayer.sim.status;
-    await settleCoop(
-      { db: this.deps.db, config: this.deps.config, now: () => now },
-      { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: outcome === 'interrupted' && status === 'dead' ? 'died' : outcome },
-    );
+    const real: CoopOutcome = status === 'dead' ? 'died' : status === 'extracted' ? 'extracted' : outcome;
+    await settleCoop({ db: this.deps.db, config: this.deps.config, now: () => now, log: this.deps.log }, { coopRunId: row.id, slots, referee: replayer.sim, gone, playersByLayer, outcome: real });
   }
 
   private async contentOf(version: number): Promise<Content> {

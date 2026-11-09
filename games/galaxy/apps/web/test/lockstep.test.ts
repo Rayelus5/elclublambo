@@ -75,3 +75,14 @@ test('parado, no avanza ni debe nada al seguir', () => {
   h.frames(10);
   expect(h.state.tick).toBe(0);
 });
+
+test('esperando el primer tick (los segundos antes de empezar) el margen no crece: luego va a pocos ticks', () => {
+  const h = harness({ buffer: 3 });
+  h.loop.start();
+  h.frames(180);
+  for (let i = 0; i < 1200; i++) {
+    h.state.closed++;
+    h.frames(1);
+  }
+  expect(h.state.closed - h.state.tick).toBeLessThanOrEqual(4);
+});

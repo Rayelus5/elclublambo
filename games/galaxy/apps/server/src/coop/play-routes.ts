@@ -24,7 +24,7 @@ export function registerCoopPlayRoutes(api: FastifyInstance, deps: { coop: CoopS
     const { run, slot } = joined;
     let strikes = 0;
     socket.on('message', (data: Buffer) => {
-      if (!buckets.take(`play:${s.accountId}`, 90, 120)) {
+      if (!buckets.take(`play:${s.accountId}`, 120, 240)) {
         if (++strikes > 30) socket.close(4429, 'rate');
         return;
       }

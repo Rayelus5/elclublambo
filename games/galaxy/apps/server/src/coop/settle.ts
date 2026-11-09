@@ -18,7 +18,8 @@ import type { CoopSlot, Gone } from './relay';
 //     global boosts, signals, material, components, caps);
 //   - its season points × the factor for the players who launched (coop.points).
 // A player who left is paid as abandoned with the loot up to when it went. An interrupted run (a restart) pays as an
-// extraction of the loot so far.
+// extraction of the loot so far. If a player's pay fails, the run stays «running»: the next recovery pays the ones
+// still unpaid (the paid ones answer from their operation).
 
 export interface CoopSettlement {
   coopRunId: string;
@@ -33,6 +34,7 @@ export interface SettleDeps {
   db: Kysely<DB>;
   config: ConfigReader;
   now: () => Date;
+  log?: { error: (obj: object, msg: string) => void };
 }
 
 const scaled = (loot: { coins: number; dust: number; components: number }[], factorOf: (layer: number) => number) =>
@@ -73,7 +75,7 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
       ticks: gone ? gone.tick : summary.ticks,
       depth: gone ? Math.max(1, gone.loot.length) : summary.depth,
       kills: gone ? gone.kills : probe.kills,
-      bossKills: summary.bossKills,
+      bossKills: gone ? gone.bossKills : summary.bossKills,
       level: gone ? gone.level : probe.level,
       loot: scaled(gone ? gone.loot : summary.loot, lootFactor),
       hash: summary.hash,
@@ -90,9 +92,13 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
       );
       await creditRunExtras(trx, who.accountId, row.id, r, `coop:${s.coopRunId}`, { season, perPoint: route.currency.perPoint, missions, now });
       return r;
-    }).catch(() => null);
+    }).catch((err: unknown) => {
+      deps.log?.error({ err: (err as Error).name, run: s.coopRunId, slot }, 'coop_pay_failed');
+      return null;
+    });
     results.push(result);
   }
+  if (results.some((r) => r === null)) return results;
   await deps.db
     .updateTable('galaxy.coop_runs')
     .set({ state: s.outcome === 'interrupted' ? 'interrupted' : 'ended', outcome: s.outcome, ticks: summary.ticks, depth: summary.depth, boss_kills: summary.bossKills, hash: summary.hash, ended_at: now })
