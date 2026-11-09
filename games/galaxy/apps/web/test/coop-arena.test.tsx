@@ -9,6 +9,7 @@ import { copy } from '../src/copy/es';
 // only up to the tick the server closed, my input goes out only when it changes, the cards are picked with a number
 // key without pausing, and a run that is gone says so. The PixiJS stage is replaced (jsdom has no WebGL).
 
+const stageFollow = vi.hoisted(() => vi.fn());
 vi.mock('../src/arena/stage/stage', () => ({
   TEAM_TINT: [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a],
   createStage: vi.fn(async () => ({
@@ -18,6 +19,7 @@ vi.mock('../src/arena/stage/stage', () => ({
     resize: vi.fn(),
     camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
     destroy: vi.fn(),
+    follow: stageFollow,
   })),
 }));
 
@@ -172,6 +174,25 @@ describe('avisos rápidos', () => {
     ws.push({ t: 'mark', slot: 1, kind: 'danger', x: 40, y: 0 });
     expect(await screen.findByRole('img', { name: m.label('vega', m.kinds.danger) })).toBeInTheDocument();
   });
+});
+
+test('fuera hasta la siguiente capa, la cámara sigue a un compañero en pie (fase 6c), y vuelve al volver', async () => {
+  const { clock, ws, sim } = await mount();
+  ws.push({ t: 'f', to: 200, ev: [] });
+  clock.frames(3);
+  stageFollow.mockClear();
+  act(() => {
+    sim().probes[0]!.life = 'out';
+  });
+  clock.frames(3);
+  expect(await screen.findByText(t.watching('vega'))).toBeInTheDocument();
+  expect(stageFollow).toHaveBeenLastCalledWith(1);
+  act(() => {
+    sim().probes[0]!.life = 'up';
+  });
+  clock.frames(3);
+  await waitFor(() => expect(screen.queryByText(t.watching('vega'))).not.toBeInTheDocument());
+  expect(stageFollow).toHaveBeenLastCalledWith(0);
 });
 
 test('una partida que ya no está lo dice y deja volver a la sala', async () => {

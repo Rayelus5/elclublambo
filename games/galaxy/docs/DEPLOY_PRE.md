@@ -819,6 +819,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Cámara:** empieza en el jugador de la fila y se puede cambiar a cualquier otro.
    - **«Comprobar»:** compara la huella, los ticks y la capa del grupo, y las bajas y el nivel del jugador si llegó al final.
    - **Comprobar:** jugar una partida en grupo, abrir la de un jugador en el admin y pulsar «Comprobar»; debe decir «Coincide con lo guardado».
+56. **Cámara de espectador en las partidas en grupo (fase 6c):** sin migraciones.
+   - **Qué se ve:** quien queda fuera hasta la siguiente capa ya no mira su sonda parada. La cámara sigue a un compañero que sigue en juego (primero uno en pie) y aparece «Viendo a <nombre>» con su color.
+   - **Cambiar:** con más de un compañero en juego, las flechas ‹ › cambian de compañero. Si al que se mira cae del todo o se va, la cámara pasa a otro.
+   - **Volver:** al empezar la siguiente capa, la cámara vuelve a la sonda propia. El marcador y las cartas siguen siendo los propios.
+   - **Comprobar:** en una partida de dos, dejar que una sonda caiga y no reanimarla; al quedar fuera, su pantalla dice «Viendo a <compañero>» y sigue a esa sonda.
 
 ## Operación
 

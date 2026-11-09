@@ -18,7 +18,7 @@ import { useLive } from '../live/LiveConnection';
 import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
 import type { CoopMark } from '@galaxy/shared';
-import { CoopCards, LifeNotice, TeamPanel } from './CoopHud';
+import { CoopCards, LifeNotice, SpectateBar, spectateTarget, TeamPanel } from './CoopHud';
 import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld } from './Marks';
 import { playMark } from './sfx';
 import { TeamResults, teamRows } from './TeamResults';
@@ -236,6 +236,18 @@ function CoopWorld({
   /** The offer I already answered (its sequence): its strip hides until the next one opens. */
   const [picked, setPicked] = useState(-1);
   const hudRef = useRef(hud);
+  /** Out until the next layer (phase 6c): the teammate the camera follows; null follows my own probe. */
+  const [watching, setWatching] = useState<number | null>(null);
+  const watchingRef = useRef<number | null>(null);
+  const watch = useCallback(
+    (to: number | null) => {
+      if (to === watchingRef.current) return;
+      watchingRef.current = to;
+      setWatching(to);
+      stageRef.current?.follow(to ?? slot);
+    },
+    [slot],
+  );
   /** The quick-mark wheel while Q is held: where it opened, and the choice under the pointer. */
   const [wheel, setWheel] = useState<{ x: number; y: number; choice: CoopMark } | null>(null);
   const wheelRef = useRef(wheel);
@@ -336,11 +348,12 @@ function CoopWorld({
       const h = hudSnapshot(sim, slot);
       hudRef.current = h;
       setHud(h);
+      watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
     }, HUD_EVERY_MS);
     return () => clearInterval(id);
-  }, [sim, slot]);
+  }, [sim, slot, watch]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);
@@ -485,6 +498,7 @@ function CoopWorld({
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />
+      {watching !== null && !ending ? <SpectateBar hud={hud} players={start.players} me={slot} watching={watching} onWatch={watch} /> : null}
       {offer && !ending ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
       {link === 'lost' ? (
         <p className="coop-arena-status" role="status">

@@ -2488,6 +2488,13 @@
   .coop-card:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
   .coop-life { position: absolute; top: 96px; left: 50%; translate: -50% 0; padding: 10px 18px; border-radius: 14px; background: rgb(43 7 18 / .85); border: 2px solid rgb(255 77 109 / .55); color: #ffd3da; font-weight: 700; text-align: center; max-inline-size: min(560px, 70vw); }
   .coop-life.out { background: rgb(11 12 36 / .85); border-color: rgb(255 255 255 / .15); color: var(--color-ink-soft); }
+  /* Out until the next layer (phase 6c): whom the camera follows, in the teammate's colour, with arrows to switch. */
+  .coop-spectate { position: absolute; top: 154px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 999px; background: rgb(11 12 36 / .82); border: 2px solid color-mix(in srgb, var(--tint) 60%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--tint) 28%, transparent); color: var(--color-ink); font: 400 15px var(--font-display); white-space: nowrap; }
+  .coop-spectate > span { padding-inline: 12px; }
+  .coop-spectate > span::before { content: ''; display: inline-block; inline-size: 9px; block-size: 9px; margin-inline-end: 9px; border-radius: 50%; background: var(--tint); box-shadow: 0 0 8px var(--tint); vertical-align: 1px; }
+  .coop-spectate-arrow { display: grid; place-items: center; inline-size: 44px; block-size: 44px; border-radius: 50%; border: 0; background: rgb(255 255 255 / .08); color: var(--color-ink); font: 700 24px/1 var(--font-body, inherit); cursor: pointer; }
+  .coop-spectate-arrow:hover { background: color-mix(in srgb, var(--tint) 30%, transparent); }
+  .coop-spectate-arrow:focus-visible { outline: 3px solid var(--tint); outline-offset: 2px; }
   .coop-arena-status { position: absolute; top: 50%; left: 50%; translate: -50% -50%; margin: 0; padding: 14px 22px; border-radius: 16px; background: rgb(11 12 36 / .88); font-weight: 700; color: var(--color-ink); }
   .arena-ending small { display: block; margin-top: 8px; font-size: 15px; color: var(--color-ink-soft); text-align: center; }
   @media (prefers-reduced-motion: reduce) { .coop-cards { animation: none; } }

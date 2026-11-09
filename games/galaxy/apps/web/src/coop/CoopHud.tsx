@@ -94,6 +94,58 @@ export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: C
   );
 }
 
+/** The teammates the camera can follow while I am out: those still in play (up, or down and waiting for a revive). */
+export function spectatable(hud: HudSnapshot, me: number): number[] {
+  return (hud.coop?.team ?? []).filter((q) => q.index !== me && (q.life === 'up' || q.life === 'down')).map((q) => q.index);
+}
+
+/**
+ * Who the camera follows (phase 6c): nobody while I am in play (null: my own probe); out until the next layer, the
+ * teammate already followed while they are still in play, else the first one up (else the first one in play).
+ */
+export function spectateTarget(hud: HudSnapshot, me: number, current: number | null): number | null {
+  if (hud.coop?.life !== 'out') return null;
+  const can = spectatable(hud, me);
+  if (current !== null && can.includes(current)) return current;
+  const up = (hud.coop.team ?? []).find((q) => q.index !== me && q.life === 'up');
+  return up?.index ?? can[0] ?? null;
+}
+
+/** Out until the next layer: whom I am watching, and (with more than one in play) the arrows to switch. */
+export function SpectateBar({
+  hud,
+  players,
+  me,
+  watching,
+  onWatch,
+}: {
+  hud: HudSnapshot;
+  players: CoopPlayer[];
+  me: number;
+  watching: number;
+  onWatch: (slot: number) => void;
+}) {
+  const can = spectatable(hud, me);
+  const at = Math.max(0, can.indexOf(watching));
+  const step = (d: number) => onWatch(can[(at + d + can.length) % can.length]!);
+  const name = players[watching]?.username ?? '';
+  return (
+    <div className="coop-spectate" style={{ ['--tint' as string]: hex(TEAM_TINT[watching % TEAM_TINT.length]!) }}>
+      {can.length > 1 ? (
+        <button type="button" className="coop-spectate-arrow" aria-label={t.watchPrev} onClick={() => step(-1)}>
+          ‹
+        </button>
+      ) : null}
+      <span role="status">{t.watching(name)}</span>
+      {can.length > 1 ? (
+        <button type="button" className="coop-spectate-arrow" aria-label={t.watchNext} onClick={() => step(1)}>
+          ›
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 /** What happens to me: fallen (with the time left) or out until the next layer. */
 export function LifeNotice({ hud, downSeconds }: { hud: HudSnapshot; downSeconds: number }) {
   const c = hud.coop;
