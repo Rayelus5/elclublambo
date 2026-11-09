@@ -45,7 +45,12 @@ export interface GalaxySummary extends PulledGalaxy {
   listed?: true;
   /** Offered in an open swap (in escrow until it closes; M5c-2). Absent: not offered. */
   traded?: true;
+  /** Locked by its owner (multiplayer plan, phase 2): never fused nor disintegrated until unlocked. Absent: not locked. */
+  locked?: true;
 }
+
+/** Locks or unlocks a galaxy. */
+export const galaxyLockSchema = z.object({ locked: z.boolean() }).strict();
 
 /** A parent of a fused galaxy: it no longer exists, but its name stays in the lineage. */
 export interface LineageEntry {

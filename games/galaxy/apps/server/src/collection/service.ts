@@ -1,6 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import {
+  type AutoFusionCandidate,
+  type AutoFusionCriteria,
+  type AutoFusionPreview,
+  type AutoFusionResult,
+  AUTO_FUSION_CAP,
+  autoFusible,
+  fusionOrder,
+  planAutoFusion,
   disintegrateYield,
   drawFinish,
   FINISHES,
@@ -40,6 +48,8 @@ export const listQuerySchema = z
     type: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     palette: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     finish: z.enum(FINISHES).optional(),
+    /** Only locked galaxies (plan phase 2). */
+    locked: z.enum(['true']).optional(),
     sort: z.enum(['new', 'rarity']).default('new'),
     cursor: z.string().max(200).optional(),
     limit: z.coerce.number().int().min(1).max(60).default(30),
@@ -48,14 +58,16 @@ export const listQuerySchema = z
 export type ListQuery = z.infer<typeof listQuerySchema>;
 
 type Row = Selectable<GalaxiesTable>;
-const SUMMARY = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'] as const;
+const SUMMARY = ['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score', 'locked'] as const;
 
 /** `equipped`: whether a galaxy sits in a hangar slot (as a selectable column). */
 const equippedColumn = sql<boolean>`exists (select 1 from galaxy.loadouts l where l.galaxy_id = galaxy.galaxies.id)`.as('equipped');
 /** `exhibited`: whether a galaxy stands on a pedestal of its owner's planetarium (M4c-2). */
 const exhibitedColumn = sql<boolean>`exists (select 1 from galaxy.exhibits e where e.galaxy_id = galaxy.galaxies.id)`.as('exhibited');
 
-export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: boolean; exhibited?: boolean; listed?: boolean; traded?: boolean }): GalaxySummary {
+export function summary(
+  r: Pick<Row, Exclude<(typeof SUMMARY)[number], 'locked'>> & { locked?: boolean; equipped?: boolean; exhibited?: boolean; listed?: boolean; traded?: boolean },
+): GalaxySummary {
   return {
     id: r.id,
     seed: String(r.seed),
@@ -71,6 +83,7 @@ export function summary(r: Pick<Row, (typeof SUMMARY)[number]> & { equipped?: bo
     ...(r.exhibited === true ? { exhibited: true as const } : {}),
     ...(r.listed === true ? { listed: true as const } : {}),
     ...(r.traded === true ? { traded: true as const } : {}),
+    ...(r.locked === true ? { locked: true as const } : {}),
   };
 }
 
@@ -97,6 +110,7 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   if (q.finish) query = query.where('finish', '=', q.finish);
   if (q.type) query = query.where(sql<string>`traits->>'galaxy_type'`, '=', q.type);
   if (q.palette) query = query.where(sql<string>`traits->>'palette'`, '=', q.palette);
+  if (q.locked) query = query.where('locked', '=', true);
   if (q.cursor) {
     // The cursor is the last row's id: the boundary is that row's own stored values, compared in SQL. Exact for
     // REAL scores and microsecond timestamps, which do not survive a round trip through JSON text.
@@ -227,9 +241,11 @@ export async function disintegrate(
     .where('id', '=', id)
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null)
-    .returning(['tier', 'finish', 'level_dust'])
+    .returning(['tier', 'finish', 'level_dust', 'locked'])
     .executeTakeFirst();
   if (!gone) throw new HttpError(404, 'galaxy_not_found');
+  // A locked galaxy stays (the operation's transaction undoes the update).
+  if (gone.locked) throw new HttpError(409, 'galaxy_locked');
   // Checked after taking the row (a fresh statement sees a loadout or an exhibit committed meanwhile): equipped and
   // exhibited galaxies stay.
   if (await isEquipped(trx, [id])) throw new HttpError(409, 'galaxy_equipped');
@@ -254,7 +270,7 @@ export async function fuse(
   // Lock the parents in a fixed order so concurrent operations on the same galaxies cannot deadlock.
   const parents = await trx
     .selectFrom('galaxy.galaxies')
-    .select(['id', 'tier', 'level_dust'])
+    .select(['id', 'tier', 'level_dust', 'locked'])
     .where('id', 'in', ids)
     .where('owner_id', '=', ownerId)
     .where('disintegrated_at', 'is', null)
@@ -262,17 +278,37 @@ export async function fuse(
     .forUpdate()
     .execute();
   if (parents.length !== ids.length) throw new HttpError(409, 'invalid_fusion');
+  if (parents.some((p) => p.locked)) throw new HttpError(409, 'galaxy_locked');
   if (await isEquipped(trx, ids)) throw new HttpError(409, 'galaxy_equipped');
   if (await isExhibited(trx, ids)) throw new HttpError(409, 'galaxy_exhibited');
   if (await isListed(trx, ids)) throw new HttpError(409, 'galaxy_listed');
   if (await isTraded(trx, ids)) throw new HttpError(409, 'galaxy_in_trade');
+  const discount = (await accountLabEffects(trx, ownerId, lab)).fusion;
+  const { galaxy } = await fuseLocked({ cfg, gacha, relics }, trx, ownerId, parents, discount, opKey);
+  return { galaxy, wallet: await getWallet(trx, ownerId) };
+}
+
+/**
+ * One fusion of parents already locked and checked by the caller (manual fusion, automatic fusion): the recipe, the
+ * dust (with the Laboratorio's `discount`), the refund of their levels, and the new galaxy of the next tier.
+ */
+async function fuseLocked(
+  { cfg, gacha, relics }: { cfg: GalaxiesConfig; gacha: GachaConfig; relics: RelicsConfig },
+  trx: Kysely<DB>,
+  ownerId: string,
+  parents: { id: string; tier: number; level_dust: number }[],
+  discount: number,
+  opKey: string,
+  ref: Record<string, unknown> = {},
+): Promise<{ galaxy: GalaxySummary; score: number }> {
+  const ids = parents.map((p) => p.id);
   const recipe = validateFusion(parents, cfg);
   if ('error' in recipe) throw new HttpError(409, 'invalid_fusion');
-  const dust = fusionDust(recipe.dust, (await accountLabEffects(trx, ownerId, lab)).fusion);
-  if (dust > 0) await debit(trx, ownerId, 'dust', dust, 'fusion', { parents: ids }, opKey);
+  const dust = fusionDust(recipe.dust, discount);
+  if (dust > 0) await debit(trx, ownerId, 'dust', dust, 'fusion', { parents: ids, ...ref }, opKey);
   // Half the dust put into the parents' levels comes back (GDD §8.4 bis), each parent rounded down.
   const refund = parents.reduce((sum, p) => sum + relicRefund(p.level_dust, relics), 0);
-  if (refund > 0) await credit(trx, ownerId, 'dust', refund, 'relic_refund', { parents: ids }, opKey);
+  if (refund > 0) await credit(trx, ownerId, 'dust', refund, 'relic_refund', { parents: ids, ...ref }, opKey);
   await trx.updateTable('galaxy.galaxies').set({ disintegrated_at: new Date() }).where('id', 'in', ids).execute();
   const fusionSeed = randomBytes(8).readBigUInt64BE();
   const g = generateGalaxy(fusionSeed, recipe.tier);
@@ -293,7 +329,129 @@ export async function fuse(
       origin: 'fusion',
       lineage: ids,
     })
-    .returning(SUMMARY)
+    .returning([...SUMMARY])
     .executeTakeFirstOrThrow();
-  return { galaxy: summary(row), wallet: await getWallet(trx, ownerId) };
+  return { galaxy: summary(row), score: row.score };
+}
+
+/** The owner's live galaxies as the automatic fusion sees them (locked, rows first: `forUpdate` when it will fuse). */
+async function autoCandidates(trx: Kysely<DB>, ownerId: string, lock: boolean) {
+  let q = trx
+    .selectFrom('galaxy.galaxies')
+    .select(['id', 'tier', 'finish', 'level', 'level_dust', 'score', 'created_at', 'locked', 'traits', equippedColumn, exhibitedColumn, listedColumn, tradedColumn])
+    .where('owner_id', '=', ownerId)
+    .where('disintegrated_at', 'is', null)
+    .orderBy('id');
+  if (lock) q = q.forUpdate();
+  const rows = await q.execute();
+  return rows.map((r) => ({
+    candidate: {
+      id: r.id,
+      tier: r.tier,
+      finish: r.finish as Finish,
+      level: r.level,
+      score: r.score,
+      createdAt: new Date(r.created_at).toISOString(),
+      locked: r.locked,
+      busy: r.equipped === true || r.exhibited === true || r.listed === true || r.traded === true,
+      type: r.traits['galaxy_type'] ?? '',
+      palette: r.traits['palette'] ?? '',
+    } satisfies AutoFusionCandidate,
+    level_dust: r.level_dust,
+  }));
+}
+
+/**
+ * The automatic fusion (plan phase 2): its preview, or the fusions themselves in this operation's transaction. Every
+ * galaxy it may touch is locked first (in id order); then each tier from the lowest is spent in fusionOrder, groups of
+ * `fusion.count` at a time, while the dust lasts and up to AUTO_FUSION_CAP; a new galaxy joins the next tier's pool
+ * when the criteria let it (a special finish drawn is kept when finishes are kept).
+ */
+export async function autoFuse(
+  { cfg, gacha, lab, relics }: { cfg: GalaxiesConfig; gacha: GachaConfig; lab: LabConfig; relics: RelicsConfig },
+  trx: Kysely<DB>,
+  ownerId: string,
+  criteria: AutoFusionCriteria,
+  preview: boolean,
+  opKey: string,
+): Promise<AutoFusionPreview | AutoFusionResult> {
+  const discount = (await accountLabEffects(trx, ownerId, lab)).fusion;
+  const recipe = { count: cfg.fusion.count, dust: cfg.fusion.dust.map((d) => fusionDust(d, discount)) };
+  const wallet = await getWallet(trx, ownerId);
+  const rows = await autoCandidates(trx, ownerId, !preview);
+  if (preview) return planAutoFusion(rows.map((r) => r.candidate), criteria, recipe, wallet.dust);
+  const lo = TIERS.indexOf(criteria.from);
+  const hi = TIERS.indexOf(criteria.upTo);
+  const pools = TIERS.map(() => [] as (AutoFusionCandidate & { level_dust: number })[]);
+  for (const r of rows) if (autoFusible(r.candidate, criteria)) pools[r.candidate.tier]!.push({ ...r.candidate, level_dust: r.level_dust });
+  const made: GalaxySummary[] = [];
+  let fusions = 0;
+  let spent = 0;
+  let more = false;
+  let dust = wallet.dust;
+  for (let t = lo; t < hi; t++) {
+    const pool = fusionOrder(pools[t]!);
+    const cost = recipe.dust[t] ?? 0;
+    for (let k = 0; k + recipe.count <= pool.length; k += recipe.count) {
+      if (fusions >= AUTO_FUSION_CAP) {
+        more = true;
+        break;
+      }
+      if (cost > dust) break;
+      const group = pool.slice(k, k + recipe.count);
+      const { galaxy: g, score } = await fuseLocked({ cfg, gacha, relics }, trx, ownerId, group, discount, opKey, { auto: opKey });
+      fusions++;
+      spent += cost;
+      // Refunds of the parents' levels only add dust: counting the cost alone never overspends.
+      dust -= cost;
+      made.push(g);
+      const next: AutoFusionCandidate = {
+        id: g.id,
+        tier: TIERS.indexOf(g.tier),
+        finish: g.finish,
+        level: g.level,
+        score,
+        createdAt: g.createdAt,
+        locked: false,
+        busy: false,
+        type: g.traits['galaxy_type'] ?? '',
+        palette: g.traits['palette'] ?? '',
+      };
+      if (autoFusible(next, criteria)) pools[t + 1]!.push({ ...next, level_dust: 0 });
+    }
+    if (more) break;
+  }
+  const order = (x: GalaxySummary) => TIERS.indexOf(x.tier);
+  // What is left of them: the chain may have fused some again; the response lists the galaxies that still exist.
+  const alive = new Set(
+    made.length
+      ? (
+          await trx
+            .selectFrom('galaxy.galaxies')
+            .select('id')
+            .where(
+              'id',
+              'in',
+              made.map((m) => m.id),
+            )
+            .where('disintegrated_at', 'is', null)
+            .execute()
+        ).map((r) => r.id)
+      : [],
+  );
+  const galaxies = made.filter((m) => alive.has(m.id)).sort((a, b) => order(b) - order(a) || a.name.localeCompare(b.name));
+  return { galaxies, fusions, dust: spent, more, wallet: await getWallet(trx, ownerId) };
+}
+
+/** Locks or unlocks one of the owner's live galaxies; false when it is not theirs or is gone. */
+export async function setLock(db: Kysely<DB>, ownerId: string, id: string, locked: boolean): Promise<boolean> {
+  const r = await db
+    .updateTable('galaxy.galaxies')
+    .set({ locked })
+    .where('id', '=', id)
+    .where('owner_id', '=', ownerId)
+    .where('disintegrated_at', 'is', null)
+    .returning('id')
+    .executeTakeFirst();
+  return r !== undefined;
 }
