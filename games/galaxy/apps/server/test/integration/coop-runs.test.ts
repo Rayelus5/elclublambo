@@ -201,6 +201,25 @@ describe('quien abandona (fase 6c)', () => {
   });
 });
 
+describe('abandonos (fase 6c)', () => {
+  test('dejar la partida queda anotado en la fila del jugador; que la cierren por todos, no', async () => {
+    const { players, room } = await launched(2);
+    const runId = room.run!.id;
+    const [a, b] = [await play(players[0]!, runId), await play(players[1]!, runId)];
+    await waitFor(() => a.got.some((m) => m.t === 'hello') && b.got.some((m) => m.t === 'hello'));
+    await settle(300);
+    a.send({ t: 'leave' });
+    const leftAt = async () => (await ctx.db.selectFrom('galaxy.runs').select('left_at').where('coop_run_id', '=', runId).where('slot', '=', 0).executeTakeFirstOrThrow()).left_at;
+    for (let i = 0; i < 50 && (await leftAt()) === null; i++) await settle(100);
+    await coop.abandon(runId);
+    const rows = await ctx.db.selectFrom('galaxy.runs').select(['slot', 'left_at']).where('coop_run_id', '=', runId).orderBy('slot').execute();
+    expect(rows[0]!.left_at).not.toBeNull();
+    expect(rows[1]!.left_at).toBeNull();
+    a.ws.terminate();
+    b.ws.terminate();
+  });
+});
+
 describe('reinicios', () => {
   test('una partida que un reinicio dejó a medias se paga como extracción de lo que llevaba', async () => {
     const { players, room } = await launched(2);

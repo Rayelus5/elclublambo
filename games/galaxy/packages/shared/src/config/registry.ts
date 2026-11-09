@@ -503,6 +503,13 @@ export const configSchemas = {
       bossHp: z.array(z.number().min(0.25).max(10)).length(4).default([1, 1.8, 2.6, 3.4]),
       loot: z.array(z.number().min(0).max(2)).length(4).default([1, 0.75, 0.62, 0.55]),
       points: z.array(z.number().min(0).max(2)).length(4).default([1, 0.85, 0.75, 0.7]),
+      /**
+       * A wait for whoever leaves group runs often (phase 6c): this many left on purpose within the window (0: never)
+       * and they wait this long after the last one before playing in a group again.
+       */
+      abandonLimit: z.number().int().min(0).max(50).default(3),
+      abandonWindowMinutes: z.number().int().min(5).max(1440).default(60),
+      abandonWaitMinutes: z.number().int().min(1).max(1440).default(15),
     })
     .strict(),
   /** Friends (multiplayer plan, phase 3): how many an account may have, and how many requests it may send per hour. */

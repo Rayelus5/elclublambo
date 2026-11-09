@@ -72,8 +72,10 @@ export interface RoomsView {
   open: PublicRoom[];
   /** Co-op is open to me (the switch, and the tutorial done) and why not. */
   allowed: boolean;
-  reason: 'disabled' | 'tutorial' | 'level' | null;
+  reason: 'disabled' | 'tutorial' | 'level' | 'abandons' | null;
   minLevel: number;
+  /** Left too many group runs lately (phase 6c): when they may play in a group again (ISO), else null. */
+  waitUntil: string | null;
 }
 
 /** An invite to a room, pushed to the one invited. */

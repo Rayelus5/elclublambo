@@ -11,7 +11,7 @@ import {
   sectorStatus,
 } from '@galaxy/shared';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import { requireSession, requireStaff } from '../auth/guards';
 import type { ConfigReader } from '../config/reader';
@@ -57,21 +57,41 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
 
   const coopOpen = async () => (await deps.config.get('features')).coop;
 
+  /**
+   * Whoever left `abandonLimit` group runs on purpose within the window waits `abandonWaitMinutes` after the last one
+   * (phase 6c): until when, or null.
+   */
+  async function abandonWait(accountId: string, coop: { abandonLimit: number; abandonWindowMinutes: number; abandonWaitMinutes: number }): Promise<Date | null> {
+    if (coop.abandonLimit <= 0) return null;
+    const r = await db
+      .selectFrom('galaxy.runs')
+      .select([sql<number>`count(*)::int`.as('n'), sql<Date | null>`max(left_at)`.as('last')])
+      .where('account_id', '=', accountId)
+      .where('left_at', '>', sql<Date>`now() - make_interval(mins => ${coop.abandonWindowMinutes}::int)`)
+      .executeTakeFirst();
+    if (!r || r.n < coop.abandonLimit || !r.last) return null;
+    const until = new Date(new Date(r.last).getTime() + coop.abandonWaitMinutes * 60_000);
+    return until.getTime() > Date.now() ? until : null;
+  }
+
   /** Whether an account may play in a group, and why not. */
-  async function allowance(accountId: string): Promise<{ allowed: boolean; reason: RoomsView['reason']; minLevel: number }> {
+  async function allowance(accountId: string): Promise<{ allowed: boolean; reason: RoomsView['reason']; minLevel: number; waitUntil: string | null }> {
     const [features, coop, account] = await Promise.all([deps.config.get('features'), deps.config.get('coop'), deps.config.get('account')]);
-    if (!features.coop) return { allowed: false, reason: 'disabled', minLevel: coop.minLevel };
+    if (!features.coop) return { allowed: false, reason: 'disabled', minLevel: coop.minLevel, waitUntil: null };
     const t = await db.selectFrom('galaxy.tutorial').select(['done_at', 'skipped_at']).where('account_id', '=', accountId).executeTakeFirst();
     const played = t ? null : await db.selectFrom('galaxy.runs').select('id').where('account_id', '=', accountId).where('finished_at', 'is not', null).limit(1).executeTakeFirst();
     const tutorialDone = t ? t.done_at !== null || t.skipped_at !== null : played !== undefined;
-    if (!tutorialDone) return { allowed: false, reason: 'tutorial', minLevel: coop.minLevel };
-    if ((await accountLevel(db, accountId, account)) < coop.minLevel) return { allowed: false, reason: 'level', minLevel: coop.minLevel };
-    return { allowed: true, reason: null, minLevel: coop.minLevel };
+    if (!tutorialDone) return { allowed: false, reason: 'tutorial', minLevel: coop.minLevel, waitUntil: null };
+    if ((await accountLevel(db, accountId, account)) < coop.minLevel) return { allowed: false, reason: 'level', minLevel: coop.minLevel, waitUntil: null };
+    const wait = await abandonWait(accountId, coop);
+    if (wait) return { allowed: false, reason: 'abandons', minLevel: coop.minLevel, waitUntil: wait.toISOString() };
+    return { allowed: true, reason: null, minLevel: coop.minLevel, waitUntil: null };
   }
 
   async function mustPlay(accountId: string): Promise<void> {
     const a = await allowance(accountId);
     if (a.allowed) return;
+    if (a.reason === 'abandons') throw new HttpError(403, 'coop_wait', { until: a.waitUntil });
     throw new HttpError(403, a.reason === 'disabled' ? 'coop_disabled' : a.reason === 'tutorial' ? 'coop_tutorial' : 'coop_level', a.reason === 'level' ? { minLevel: a.minLevel } : {});
   }
 
@@ -148,7 +168,7 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
       if (await blockedWithRoom(s.accountId, room)) continue;
       open.push(rooms.publicView(room));
     }
-    return { mine: me, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel };
+    return { mine: me, open, allowed: a.allowed, reason: a.reason, minLevel: a.minLevel, waitUntil: a.waitUntil };
   });
 
   api.post('/galaxy/api/rooms', async (req): Promise<RoomView> => {

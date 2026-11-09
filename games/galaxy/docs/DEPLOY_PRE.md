@@ -829,6 +829,16 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Si no coincide:** el servidor avisa a ese jugador y su navegador rehace el mundo desde el principio con todo el registro sellado («Poniéndote al día»). Como mucho 2 veces por jugador y partida, para no entrar en bucle.
    - **Rastro:** cada diferencia queda en el log como `coop_desync` (partida, hueco y tick). Indica un fallo de determinismo que hay que mirar.
    - **Comprobar:** tras una partida en grupo, `docker compose … logs galaxy | grep coop_desync` no debe devolver nada.
+58. **Marca `coop_idle` (fase 6c):** sin migraciones.
+   - **Qué marca:** quien pasa al menos 60 s en pie en una partida en grupo sin moverse durante el 80 % de ese tiempo. Su fila queda con la marca «Inactivo en grupo» en Admin › Partidas.
+   - **Efecto:** cuenta como sospechosa para revisarla, pero cobra igual que los demás.
+   - **Comprobar:** en una partida de dos, una cuenta no se mueve durante más de un minuto. Su fila sale con la marca y la del compañero no.
+59. **Espera para quien abandona a menudo (fase 6c):** migración `20261109200000_galaxy_coop_left.sql`, que se aplica sola. Añade `runs.left_at` y un índice parcial.
+   - **Qué se apunta:** quien deja una partida en grupo a propósito («Abandonar», o salir de la sala mientras se juega) deja anotada la hora en su fila. Perder la conexión o que cierren la sala para todos no cuenta.
+   - **La espera:** con `coop.abandonLimit` abandonos (3) dentro de `coop.abandonWindowMinutes` (60), no puede crear, unirse ni usar «Entrar rápido» hasta `coop.abandonWaitMinutes` (15) después del último. El error es `coop_wait`, con la hora.
+   - **Qué se ve:** el lobby dice hasta qué hora espera.
+   - **Ajustes:** los tres valores están en Admin › Configuración › Partidas en grupo; con el límite a 0 no hay espera.
+   - **Comprobar:** abandonar tres partidas en grupo seguidas; la cuarta vez el lobby dice «Podrás volver a jugar en grupo a las HH:MM».
 
 ## Operación
 

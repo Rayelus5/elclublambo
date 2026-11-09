@@ -109,6 +109,7 @@ export const API_ERROR_CODES = [
   'coop_disabled',
   'coop_tutorial',
   'coop_level',
+  'coop_wait',
   'room_not_found',
   'room_full',
   'room_started',

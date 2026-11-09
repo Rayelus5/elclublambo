@@ -1,7 +1,7 @@
 import { COOP_SUM_EVERY, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
 import { CoopFeed, createSim, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, MARK_GAP_MS, MAX_RESYNCS, TICK_MS } from '../../src/coop/relay';
+import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, IDLE_MIN_TICKS, MARK_GAP_MS, MAX_RESYNCS, TICK_MS } from '../../src/coop/relay';
 
 // The relay's clock and presence (multiplayer plan, phase 6, review): with nobody connected the clock waits (a shared
 // outage never kills the run), «away» is only for one who is missing while others play, everyone gone for long ends
@@ -185,4 +185,29 @@ test('la huella de un cliente se compara con la del árbitro: igual, distinta (p
     expect(r.sum(1, k * COOP_SUM_EVERY, 'deadbeef')).toBe('desync');
   }
   expect(desyncs(b)).toHaveLength(MAX_RESYNCS);
+});
+
+test('quien pasa casi toda la partida sin moverse queda marcado como inactivo; quien se mueve, no', () => {
+  const r = run();
+  r.attach(0, socket());
+  r.attach(1, socket());
+  r.input(1, 127, 0, -1);
+  let t = T0;
+  // Player 1 keeps moving (zig-zag every second); player 0 never does. Both are kept standing (two idle probes at
+  // layer 1 would fall in about half a minute; falling is not what this measures).
+  for (let k = 1; r.closed < IDLE_MIN_TICKS + 120 && !r.ended; k++) {
+    t = pumpRange(r, t, T0 + k * 1000);
+    r.input(1, k % 2 ? -127 : 127, 0, -1);
+    for (const p of r.referee.probes) p.hp = p.stats.maxHp;
+  }
+  expect(r.ended).toBe(false);
+  expect(r.idle(0)).toBe(true);
+  expect(r.idle(1)).toBe(false);
+});
+
+test('una partida corta nunca marca a nadie como inactivo', () => {
+  const r = run();
+  r.attach(0, socket());
+  pumpRange(r, T0, T0 + 5000);
+  expect(r.idle(0)).toBe(false);
 });
