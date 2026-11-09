@@ -787,6 +787,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **La sonda:** pulsarla abre `/taller?sonda=<id>`; las flechas cambian la sonda equipada entre las que se tienen.
    - **Grupo dentro del lobby:** «En grupo» deja `?modo=grupo`; desde ahí se crea sala, se entra con código, con un amigo o en una pública, y «Entrar rápido» es el botón grande. En una sala, los compañeros salen en sus plataformas, el líder despega y los demás marcan «Estoy listo». `/incursion/grupo` y `/incursion/sala` llevan al lobby.
    - **Comprobar:** a 1280, 1600 y 2560 px nada se tapa ni se desborda; la barra de arriba y el raíl de zonas (Taller, Colección, Estación, Temporada, Clasificación, Clan) llevan a su sitio.
+50. **Colección más limpia, favoritas y celebraciones:** sin migraciones.
+   - **Lista:** una barra con los filtros (rarezas; tipo, paleta, acabado, favoritas y orden) y, juntos a la derecha, «Fusionar» y «Fusión automática». La rejilla ocupa todo el ancho.
+   - **Favoritas:** «Poner candado» pasa a ser «Añadir a favoritas», con estrella en la carta y el filtro «Favoritas» (`?favoritas=1`; `?candado=1` sigue valiendo). Protegen igual que el candado: no se fusionan ni se desintegran. Una galaxia que cambia de dueño (mercado, trueque o reversión del admin) deja de ser favorita.
+   - **Detalle:** la carta grande se gira para ver el dorso; la estrella y el nivel van arriba, los datos en dos columnas y Vender y Desintegrar al final.
+   - **Celebraciones:** subir de nivel una galaxia lanza chispas del color de su rareza, un destello, el nuevo nivel y un sonido. Fusionar a mano muestra las cartas girando hacia un núcleo antes de la revelación («Saltar» la adelanta). La fusión automática hace aparecer las nuevas una a una, con sonido.
 
 ## Operación
 

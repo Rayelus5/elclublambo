@@ -225,6 +225,16 @@ const PATHS = {
       <path d="M12 12l8-4.5M12 12v9M12 12L4 7.5" />
     </>
   ),
+  star: (
+    <>
+      <path d="M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.5l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" strokeLinejoin="round" />
+    </>
+  ),
+  starOn: (
+    <>
+      <path d="M12 3.6l2.5 5.2 5.7.8-4.1 4 1 5.6L12 16.5l-5.1 2.7 1-5.6-4.1-4 5.7-.8z" fill="currentColor" strokeLinejoin="round" />
+    </>
+  ),
   lock: (
     <>
       <rect x="5" y="10.5" width="14" height="10" rx="2.6" />

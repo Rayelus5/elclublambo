@@ -152,6 +152,8 @@ describe('comprar', () => {
     const s = await player();
     const b = await player({ coins: 1000 });
     const { galaxyId, listingId } = await listed(s, 'uncommon', 600);
+    // The seller's favourite is not the buyer's.
+    await ctx.db.updateTable('galaxy.galaxies').set({ locked: true }).where('id', '=', galaxyId).execute();
     const headers = key();
     const res = await buy(b, listingId, headers);
     expect(res.statusCode).toBe(200);
@@ -159,6 +161,7 @@ describe('comprar', () => {
     expect(await coins(b)).toBe(400);
     expect(await coins(s)).toBe(600 - 42);
     expect(await ownerOf(galaxyId)).toBe(b.id);
+    expect((await ctx.db.selectFrom('galaxy.galaxies').select('locked').where('id', '=', galaxyId).executeTakeFirstOrThrow()).locked).toBe(false);
     // A retry with the same key: the same answer, no second charge.
     expect((await buy(b, listingId, headers)).json()).toEqual(res.json());
     expect(await coins(b)).toBe(400);

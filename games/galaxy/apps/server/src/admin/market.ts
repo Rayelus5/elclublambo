@@ -325,7 +325,7 @@ export async function revertSale(deps: AdminMarketDeps, actor: AuditActor, s: Se
     if (!l || l.status !== 'sold' || !l.buyer_id) throw new HttpError(409, 'listing_gone');
     await revertable(trx, 'listing', id);
     const held = await releaseHolds(trx, l.galaxy_id);
-    await trx.updateTable('galaxy.galaxies').set({ owner_id: l.seller_id }).where('id', '=', l.galaxy_id).execute();
+    await trx.updateTable('galaxy.galaxies').set({ owner_id: l.seller_id, locked: false }).where('id', '=', l.galaxy_id).execute();
     const price = Number(l.price);
     const owed = price - Number(l.commission ?? 0);
     const ref = { listing: id, galaxy: l.galaxy_id };
@@ -362,8 +362,8 @@ export async function revertTrade(deps: AdminMarketDeps, actor: AuditActor, s: S
     if (!t || t.status !== 'done' || !t.a_galaxy || !t.b_galaxy) throw new HttpError(409, 'trade_gone');
     await revertable(trx, 'trade', id);
     const held: Record<string, Hold[]> = { [t.a_galaxy]: await releaseHolds(trx, t.a_galaxy), [t.b_galaxy]: await releaseHolds(trx, t.b_galaxy) };
-    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id }).where('id', '=', t.a_galaxy).execute();
-    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id }).where('id', '=', t.b_galaxy).execute();
+    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id, locked: false }).where('id', '=', t.a_galaxy).execute();
+    await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id, locked: false }).where('id', '=', t.b_galaxy).execute();
     await trx.insertInto('galaxy.deal_reversals').values({ trade_id: id, by_id: actor.id, reason, details: JSON.stringify({ held }) }).execute();
     const [a, b] = [await nameOf(trx, t.a_id), await nameOf(trx, t.b_id)];
     await writeAudit(trx, { actor, action: 'trade.revert', targetType: 'trade', targetId: id, before: { held }, after: { [t.a_galaxy]: a, [t.b_galaxy]: b }, reason });

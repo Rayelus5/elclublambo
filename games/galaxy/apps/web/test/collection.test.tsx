@@ -146,6 +146,11 @@ test('fusionar exige cinco del mismo nivel, enseña el coste y revela la nueva',
   await user.click(screen.getByRole('button', { name: copy.collection.select('Gal c5') }));
   expect(bar).toHaveTextContent(copy.collection.fuseCost(20));
   await user.click(within(bar).getByRole('button', { name: copy.collection.fuseConfirm }));
+  // The fusion plays out first; «Saltar» goes on to the reveal once the new galaxy is there.
+  expect(screen.getByRole('status', { name: copy.collection.fusionLabel })).toBeInTheDocument();
+  const skip = await screen.findByRole('button', { name: copy.collection.skipFusion });
+  await waitFor(() => expect(skip).toBeEnabled());
+  await user.click(skip);
   // The fused galaxy gets the Scanner's own reveal.
   const reveal = await screen.findByRole('dialog', { name: copy.collection.revealTitle });
   await user.click(within(reveal).getByRole('button', { name: copy.scanner.skip }));
@@ -244,6 +249,8 @@ describe('el nivel de una galaxia (M4c-1)', () => {
     expect(up).toHaveTextContent(copy.collection.levelCost(80));
     fireEvent.click(up);
     expect(await within(dialog).findByText(copy.hangar.level(4, 10))).toBeInTheDocument();
+    // Levelling up is celebrated over the card.
+    expect(within(dialog).getByText(copy.collection.levelDone)).toBeInTheDocument();
     const call = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/galaxies/g9/level-up' && init?.method === 'POST')!;
     expect(JSON.parse(String(call[1]!.body))).toEqual({ level: 4 });
     expect((call[1]!.headers as Record<string, string>)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
@@ -294,6 +301,33 @@ test('llegando desde el Colisionador del Hogar, Fusionar ya está activado', asy
   });
   renderAt('/coleccion', screens, { fuse: true });
   await screen.findByRole('article', { name: 'Gal a' });
-  const toggle = screen.getAllByRole('button', { name: copy.collection.cancel }).find((b) => b.hasAttribute('aria-pressed'));
+  const toggle = screen.getAllByRole('button', { name: copy.collection.fuse }).find((b) => b.hasAttribute('aria-pressed'));
   expect(toggle).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('la carta del detalle se gira para ver el dorso, y vuelve', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
+  });
+  renderAt('/coleccion/g9', screens);
+  const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+  const flip = within(dialog).getByRole('button', { name: copy.collection.flip });
+  expect(flip).toHaveAttribute('aria-pressed', 'false');
+  fireEvent.click(flip);
+  expect(within(dialog).getByRole('button', { name: copy.collection.flipBack })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('el filtro de favoritas va en la dirección, y la de antes (?candado=1) sigue valiendo', async () => {
+  for (const path of ['/coleccion?favoritas=1', '/coleccion?candado=1']) {
+    const fetch = mockApi({
+      'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+      'GET /galaxy/api/galaxies?locked=true&sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
+    });
+    const view = renderAt(path, screens);
+    expect(await screen.findByRole('button', { name: copy.collection.lockedFilter })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === '/galaxy/api/galaxies?locked=true&sort=new&limit=30')).toBe(true));
+    view.unmount();
+  }
 });

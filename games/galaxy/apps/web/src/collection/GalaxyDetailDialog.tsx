@@ -1,5 +1,5 @@
 import type { GalaxyDetail } from '@galaxy/shared';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useDisintegrate, useGacha, useGalaxyDetail, useLevelUpGalaxy, useLock } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { CardBack } from '../cards/CardBack';
@@ -7,11 +7,25 @@ import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { Inspector } from '../inspector/Inspector';
 import { Dialog } from '../ui/Dialog';
+import { Celebration } from '../ui/Celebration';
 import { Icon } from '../ui/Icon';
+import { useReducedMotion } from '../ui/motion';
 import { Link } from 'react-router';
+import { playGalaxyLevel } from './sfx';
 
-// A galaxy up close (GDD §8.1, §8.5): front and back side by side, where it came from, what it is worth in dust, its
-// lineage if it was fused, and Desintegrar — always behind a confirmation that says what it pays.
+// A galaxy up close (GDD §8.1, §8.5): the card big on the left (it turns over to show its back) with the 3D
+// inspector under it; on the right, in the order a player looks for them, the favourite star, its level (levelling
+// up is celebrated: sparks in its tier's colours, the card glows, the new level and a sound), where it came from and
+// what it is worth, its lineage if it was fused, and then selling or disintegrating — always behind a confirmation
+// that says what it pays.
+/** The sparks of a level up, in the tier's colours (bright, then deep). */
+const TIER_SPARKS: Record<string, [string, string]> = {
+  common: ['#ffffff', '#c9d0ea'],
+  uncommon: ['#d8fff0', '#45e3a6'],
+  rare: ['#e6f3ff', '#6fb7ff'],
+  epic: ['#f1ebff', '#b39dff'],
+  legendary: ['#fff8e0', '#ffc94a'],
+};
 const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Madrid' });
 
 function Info({ g }: { g: GalaxyDetail }) {
@@ -40,7 +54,7 @@ function Info({ g }: { g: GalaxyDetail }) {
 }
 
 /** Its level (GDD §8.4 bis, M4c-1): «Nivel 3 de 10» with its pips, the next level with its dust and what is missing. */
-function RelicLevel({ g }: { g: GalaxyDetail }) {
+function RelicLevel({ g, onLeveled }: { g: GalaxyDetail; onLeveled: (level: number) => void }) {
   const up = useLevelUpGalaxy();
   const dust = useGacha().data?.wallet.dust;
   const next = g.levelUp;
@@ -64,7 +78,7 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
             disabled={short === null || short > 0 || up.isPending || g.listed === true || g.traded === true}
             aria-busy={up.isPending || undefined}
             aria-describedby={short !== null && short > 0 ? missing : undefined}
-            onClick={() => up.mutate({ id: g.id, level: g.level + 1 })}
+            onClick={() => up.mutate({ id: g.id, level: g.level + 1 }, { onSuccess: (res) => onLeveled(res.galaxy.level) })}
           >
             <Icon name="dust" />
             <span>{copy.hangar.levelUp(g.level + 1)}</span>
@@ -95,6 +109,14 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
   const lock = useLock();
   const [confirming, setConfirming] = useState(false);
   const [inspecting, setInspecting] = useState(false);
+  const [back, setBack] = useState(false);
+  const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
+  const reduced = useReducedMotion();
+  useEffect(() => {
+    if (!celebrate) return;
+    const t = setTimeout(() => setCelebrate(null), 2600);
+    return () => clearTimeout(t);
+  }, [celebrate]);
   const g = detail.data;
 
   if (!g) {
@@ -126,14 +148,57 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
           <Icon name="close" />
         </button>
         <div className="detail-body">
-          <div className="detail-cards">
-            <GalaxyCard galaxy={g} size={250} interactive />
-            <CardBack galaxy={g} size={250} />
+          <div className="detail-stage">
+            <div className={`detail-flip${back ? ' back' : ''}${celebrate ? ' leveled' : ''}`} data-tier={g.tier}>
+              <div className="detail-face front">
+                <GalaxyCard galaxy={g} size={280} interactive />
+              </div>
+              <div className="detail-face rear">
+                <CardBack galaxy={g} size={280} />
+              </div>
+              {celebrate ? <Celebration key={celebrate.key} title={copy.collection.levelBanner(celebrate.level)} subtitle={copy.collection.levelDone} reduced={reduced} hot={TIER_SPARKS[g.tier] ?? TIER_SPARKS.common!} cold="#bfe3ff" /> : null}
+            </div>
+            <div className="detail-stage-actions">
+              <button type="button" className="lip pill" aria-pressed={back} onClick={() => setBack((b) => !b)}>
+                <Icon name="flip" />
+                <span>{back ? copy.collection.flipBack : copy.collection.flip}</span>
+              </button>
+              <button type="button" className="lip pill pill-solar" onClick={() => setInspecting(true)}>
+                <Icon name="cube" />
+                <span>{copy.inspector.open}</span>
+              </button>
+            </div>
           </div>
           <div className="detail-side">
-            <p className="detail-desig">{g.designation}</p>
+            <div className="detail-head">
+              <p className="detail-desig">{g.designation}</p>
+              <button
+                type="button"
+                className={g.locked ? 'lip pill fav-toggle on' : 'lip pill fav-toggle'}
+                aria-pressed={!!g.locked}
+                aria-describedby={g.locked ? undefined : 'fav-hint'}
+                disabled={lock.isPending}
+                onClick={() => lock.mutate({ id: g.id, locked: !g.locked })}
+              >
+                <Icon name={g.locked ? 'starOn' : 'star'} />
+                <span>{g.locked ? copy.collection.unlock : copy.collection.lock}</span>
+              </button>
+            </div>
+            {/* Once a favourite, the reason under the actions says the same. */}
+            {g.locked ? null : (
+              <p className="detail-fav-hint" id="fav-hint">
+                {copy.collection.favoriteHint}
+              </p>
+            )}
+            <RelicLevel
+              g={g}
+              onLeveled={(level) => {
+                playGalaxyLevel();
+                setBack(false);
+                setCelebrate({ level, key: Date.now() });
+              }}
+            />
             <Info g={g} />
-            <RelicLevel g={g} />
             {g.lineage.length > 0 ? (
               <>
                 <h3>{copy.collection.lineage}</h3>
@@ -149,20 +214,6 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
               </>
             ) : null}
             <div className="detail-actions">
-              <button type="button" className="lip pill pill-solar" onClick={() => setInspecting(true)}>
-                <Icon name="cube" />
-                <span>{copy.inspector.open}</span>
-              </button>
-              <button
-                type="button"
-                className={g.locked ? 'lip pill lock-toggle on' : 'lip pill lock-toggle'}
-                aria-pressed={!!g.locked}
-                disabled={lock.isPending}
-                onClick={() => lock.mutate({ id: g.id, locked: !g.locked })}
-              >
-                <Icon name="lock" />
-                <span>{g.locked ? copy.collection.unlock : copy.collection.lock}</span>
-              </button>
               {held === null || g.locked ? (
                 <Link to={`/mercado?pestana=vender&galaxia=${g.id}`} className="lip pill">
                   <Icon name="store" />
