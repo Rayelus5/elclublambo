@@ -195,6 +195,23 @@ test('fuera hasta la siguiente capa, la cámara sigue a un compañero en pie (fa
   expect(stageFollow).toHaveBeenLastCalledWith(0);
 });
 
+test('cada 5 s manda la huella de su mundo y, si el árbitro dice que no coincide, se reconstruye desde el registro', async () => {
+  const { clock, ws, sim } = await mount();
+  ws.push({ t: 'f', to: 400, ev: [3, 1, 0, 127, 0, -1] });
+  clock.frames(40);
+  expect(sim().tick).toBe(400);
+  const sums = ws.sent.filter((m) => (m as { t: string }).t === 'sum');
+  expect(sums).toEqual([{ t: 'sum', tick: 300, h: expect.stringMatching(/^[0-9a-f]+$/) }]);
+  const before = sim();
+  const x = before.probes[1]!.x;
+  ws.push({ t: 'desync', tick: 300 });
+  // A fresh world from the start and the whole sealed log, caught up to where it was.
+  await waitFor(() => expect(sim()).not.toBe(before));
+  clock.frames(40);
+  expect(sim().tick).toBe(400);
+  expect(sim().probes[1]!.x).toBe(x);
+});
+
 test('una partida que ya no está lo dice y deja volver a la sala', async () => {
   const onExit = vi.fn();
   render(<CoopArena runId={RUN} onExit={onExit} onAbandon={() => {}} />);

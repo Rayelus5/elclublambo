@@ -1,7 +1,7 @@
-import { coopRulesOf, parseConfig } from '@galaxy/shared';
-import { DEFAULT_CONTENT, MOVE, PRESENCE } from '@galaxy/sim';
+import { COOP_SUM_EVERY, coopRulesOf, coopSimOptions, parseConfig } from '@galaxy/shared';
+import { CoopFeed, createSim, DEFAULT_CONTENT, MOVE, PRESENCE, stateHash, step } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, MARK_GAP_MS, TICK_MS } from '../../src/coop/relay';
+import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, MARK_GAP_MS, MAX_RESYNCS, TICK_MS } from '../../src/coop/relay';
 
 // The relay's clock and presence (multiplayer plan, phase 6, review): with nobody connected the clock waits (a shared
 // outage never kills the run), «away» is only for one who is missing while others play, everyone gone for long ends
@@ -155,4 +155,34 @@ test('un aviso rápido llega a todo el grupo con quién lo puso, no se repite si
   r.leave(0);
   r.mark(0, 'here', 0, 0, T0 + 10_000);
   expect(marks(b)).toHaveLength(2);
+});
+
+test('la huella de un cliente se compara con la del árbitro: igual, distinta (pide reconstruir, pocas veces) u olvidada', () => {
+  const r = run();
+  const [a, b] = [socket(), socket()];
+  r.attach(0, a);
+  r.attach(1, b);
+  pumpRange(r, T0, T0 + (COOP_SUM_EVERY + 30) * TICK_MS);
+  expect(r.closed).toBeGreaterThan(COOP_SUM_EVERY);
+  // The same world, replayed on its own from the sealed log: its hash at the interval is the referee's.
+  const sim = createSim(coopSimOptions(r.base));
+  const feed = new CoopFeed(2);
+  feed.push(r.events);
+  while (sim.tick < COOP_SUM_EVERY) step(sim, feed.inputsFor(sim.tick + 1));
+  const desyncs = (s: ReturnType<typeof socket>) => s.sent.map((d) => JSON.parse(d) as { t: string }).filter((m) => m.t === 'desync');
+  expect(r.sum(0, COOP_SUM_EVERY, stateHash(sim))).toBe('ok');
+  expect(r.sum(1, COOP_SUM_EVERY, 'deadbeef')).toBe('desync');
+  expect(desyncs(b)).toEqual([{ t: 'desync', tick: COOP_SUM_EVERY }]);
+  expect(desyncs(a)).toEqual([]);
+  // The same tick twice, a tick off the interval, or one not closed yet: nothing to compare.
+  expect(r.sum(1, COOP_SUM_EVERY, 'deadbeef')).toBe('unknown');
+  expect(r.sum(0, COOP_SUM_EVERY + 1, 'deadbeef')).toBe('unknown');
+  expect(r.sum(0, COOP_SUM_EVERY * 50, 'deadbeef')).toBe('unknown');
+  // A client that keeps differing is asked to rebuild only a few times (it never loops).
+  let t = T0 + (COOP_SUM_EVERY + 30) * TICK_MS;
+  for (let k = 2; k <= MAX_RESYNCS + 2; k++) {
+    t = pumpRange(r, t, T0 + (k * COOP_SUM_EVERY + 30) * TICK_MS);
+    expect(r.sum(1, k * COOP_SUM_EVERY, 'deadbeef')).toBe('desync');
+  }
+  expect(desyncs(b)).toHaveLength(MAX_RESYNCS);
 });

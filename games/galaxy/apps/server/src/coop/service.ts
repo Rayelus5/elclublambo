@@ -178,6 +178,10 @@ export class CoopService {
     else if (msg.t === 'leave') run.leave(slot);
     else if (msg.t === 'ping') socket.send(JSON.stringify({ t: 'pong', at: msg.at }));
     else if (msg.t === 'mark') run.mark(slot, msg.kind, msg.x, msg.y, Date.now());
+    else if (msg.t === 'sum') {
+      // A world that went its own way: the client rebuilds it; the log says so (a determinism bug to look into).
+      if (run.sum(slot, msg.tick, msg.h) === 'desync') this.deps.log?.info({ run: run.id, slot, tick: msg.tick }, 'coop_desync');
+    }
   }
 
   /** A member left the room while its run plays: it leaves the run for good. */

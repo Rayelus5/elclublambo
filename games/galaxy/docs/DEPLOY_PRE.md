@@ -824,6 +824,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Cambiar:** con más de un compañero en juego, las flechas ‹ › cambian de compañero. Si al que se mira cae del todo o se va, la cámara pasa a otro.
    - **Volver:** al empezar la siguiente capa, la cámara vuelve a la sonda propia. El marcador y las cartas siguen siendo los propios.
    - **Comprobar:** en una partida de dos, dejar que una sonda caiga y no reanimarla; al quedar fuera, su pantalla dice «Viendo a <compañero>» y sigue a esa sonda.
+57. **Huellas de los clientes contra el árbitro (fase 6c):** sin migraciones.
+   - **Cómo va:** cada 5 s (300 ticks) cada navegador manda la huella de su mundo y el servidor la compara con la de su árbitro (guarda las últimas 8, 40 s).
+   - **Si no coincide:** el servidor avisa a ese jugador y su navegador rehace el mundo desde el principio con todo el registro sellado («Poniéndote al día»). Como mucho 2 veces por jugador y partida, para no entrar en bucle.
+   - **Rastro:** cada diferencia queda en el log como `coop_desync` (partida, hueco y tick). Indica un fallo de determinismo que hay que mirar.
+   - **Comprobar:** tras una partida en grupo, `docker compose … logs galaxy | grep coop_desync` no debe devolver nada.
 
 ## Operación
 
