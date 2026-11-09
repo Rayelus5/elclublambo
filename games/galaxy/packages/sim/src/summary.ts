@@ -55,6 +55,14 @@ export function stateHash(sim: Sim): string {
       h.str(s.id);
       h.num(s.level);
     }
+    // Co-op only (a solo hash is unchanged): where each probe stands and its open offer.
+    if (sim.coop) {
+      h.str(p.life);
+      h.num(p.downT);
+      h.num(p.reviveT);
+      h.num(p.offerSeq);
+      h.num(p.offerUntil);
+    }
   }
   const en = sim.enemies;
   for (let i = 0; i < en.top; i++) {

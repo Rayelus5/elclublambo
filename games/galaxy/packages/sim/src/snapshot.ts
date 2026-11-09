@@ -1,5 +1,5 @@
 import { layerSeconds } from './systems/director';
-import type { Offer, Phase, Sim, SimStatus } from './types';
+import type { Offer, Phase, ProbeState, Sim, SimStatus } from './types';
 
 /** What the HUD shows for one probe (GDD §5.1): read a few times per second, never every tick. */
 export interface HudSnapshot {
@@ -23,6 +23,16 @@ export interface HudSnapshot {
   beacon: { x: number; y: number; dx: number; dy: number; hold: number; holdNeeded: number; left: number } | null;
   offer: Offer[] | null;
   status: SimStatus;
+  /** Co-op (multiplayer plan): seconds left to pick, where this probe stands, its countdown and revive (0–1), and
+   * every probe of the team. Absent in solo. */
+  coop?: {
+    pickLeft: number | null;
+    offerSeq: number;
+    life: ProbeState['life'];
+    downLeft: number;
+    revive: number;
+    team: { index: number; hp: number; maxHp: number; life: ProbeState['life']; x: number; y: number; level: number }[];
+  };
 }
 
 export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
@@ -56,5 +66,17 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     beacon: b ? { x: b.x, y: b.y, dx: b.x - p.x, dy: b.y - p.y, hold: b.hold / 60, holdNeeded: b.holdNeeded / 60, left: b.t / 60 } : null,
     offer: p.offer,
     status: sim.status,
+    ...(sim.coop
+      ? {
+          coop: {
+            pickLeft: p.offer ? Math.max(0, (p.offerUntil - sim.tick) / 60) : null,
+            offerSeq: p.offerSeq & 255,
+            life: p.life,
+            downLeft: p.life === 'down' ? p.downT / 60 : 0,
+            revive: p.life === 'down' ? Math.min(1, p.reviveT / Math.max(1, sim.coop.reviveSeconds * 60)) : 0,
+            team: sim.probes.map((q) => ({ index: q.index, hp: q.hp, maxHp: q.stats.maxHp, life: q.life, x: q.x, y: q.y, level: q.level })),
+          },
+        }
+      : {}),
   };
 }

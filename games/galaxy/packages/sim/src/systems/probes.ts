@@ -1,6 +1,7 @@
 import { angleTo } from '../math/trig';
 import { IDLE, type ProbeInput, type ProbeState, type Sim } from '../types';
 import { ticks } from '../version';
+import { downProbe } from './coop';
 import { dodge, onContact, rescue, tickQuirk } from './quirks';
 
 // Probes (GDD §5.2, §6): movement from per-tick inputs, contact damage with half a second of invulnerability, shield,
@@ -63,6 +64,11 @@ export function hurtProbe(sim: Sim, p: ProbeState, amount: number): void {
   p.fx['lastHurt'] = sim.tick;
   sim.events.push({ t: 'hurt', probe: p.index, amount: dmg + absorbed });
   if (p.hp <= 0 && rescue(sim, p)) return;
+  // Co-op: it falls and waits for a teammate (systems/coop.ts).
+  if (p.hp <= 0 && sim.coop) {
+    downProbe(sim, p);
+    return;
+  }
   if (p.hp <= 0) {
     p.hp = 0;
     p.alive = false;

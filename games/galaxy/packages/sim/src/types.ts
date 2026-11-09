@@ -15,7 +15,51 @@ export interface ProbeInput {
   my: number;
   aim: number;
   pick: number;
+  /** Co-op: the offer the pick answers (its sequence number, mod 256); a pick for another offer is dropped. */
+  offer?: number;
+  /** Co-op: the player's presence (sticky): 0 here, 1 away (disconnected), 2 left the run for good. */
+  presence?: number;
 }
+
+/**
+ * The co-op rules of a run (multiplayer plan, phase 4), snapshotted by the server at its start like the anomaly. In
+ * co-op the world never pauses: each player has `pickSeconds` to take a card (then one is taken for them); a probe at
+ * 0 life falls and waits `downSeconds` to be revived by a teammate staying within `reviveRadius` for
+ * `reviveSeconds`; if nobody comes it is out until the next layer. The arrays scale by the players still in the run
+ * (index = players − 1), and `limits` multiplies the shared pools.
+ */
+export interface CoopRules {
+  pickSeconds: number;
+  downSeconds: number;
+  reviveSeconds: number;
+  reviveRadius: number;
+  /** Life (fraction of max) and invulnerability (seconds) on coming back. */
+  reviveHp: number;
+  reviveInvuln: number;
+  enemyHp: number[];
+  enemyDamage: number[];
+  density: number[];
+  bossHp: number[];
+  limits: { shots: number; areas: number; pickups: number };
+}
+
+export const DEFAULT_COOP_RULES: CoopRules = Object.freeze({
+  pickSeconds: 15,
+  downSeconds: 30,
+  reviveSeconds: 3,
+  reviveRadius: 28,
+  reviveHp: 0.5,
+  reviveInvuln: 2,
+  enemyHp: [1, 1.5, 2, 2.5],
+  enemyDamage: [1, 1.1, 1.15, 1.2],
+  density: [1, 1.4, 1.75, 2.1],
+  bossHp: [1, 1.8, 2.6, 3.4],
+  limits: { shots: 2, areas: 2, pickups: 1.5 },
+}) as CoopRules;
+
+/** Where a probe stands in a co-op run: up, fallen (waiting for a revive), out (until the next layer), away
+ * (disconnected) or left (gone for good). In solo it is always 'up' while alive. */
+export type ProbeLife = 'up' | 'down' | 'out' | 'away' | 'left';
 
 export const IDLE: ProbeInput = Object.freeze({ mx: 0, my: 0, aim: -1, pick: -1 });
 
@@ -43,6 +87,8 @@ export interface SimOptions {
   record?: boolean;
   /** The season's anomaly (M7d-3): an id of `content.anomalies`, snapshotted at the start; absent or null, none. */
   anomaly?: string | null;
+  /** A co-op run (multiplayer plan): its rules. Absent: solo, exactly as before. */
+  coop?: CoopRules;
 }
 
 /** Final values after every source, cap and diminishing return (GDD §8.6). */
@@ -123,6 +169,16 @@ export interface ProbeState {
   upgrades: StatBonus[];
   offer: Offer[] | null;
   pendingLevels: number;
+  /** Co-op: the open offer's sequence number and the tick it is taken for the player. */
+  offerSeq: number;
+  offerUntil: number;
+  /** Co-op: up, down, out, away or left; and while down, ticks left and the revive's progress (ticks). */
+  life: ProbeLife;
+  downT: number;
+  reviveT: number;
+  /** Co-op: teammates revived and times fallen (results). */
+  revives: number;
+  downs: number;
   stats: Stats;
   /** Damage absorbed before life (elliptical relics). */
   shield: number;
@@ -217,6 +273,9 @@ export interface Sim {
   log: InputLog | null;
   /** Running state of later systems (director clocks, wave cursors…). */
   clocks: Record<string, number>;
+  /** Co-op rules (absent in solo) and the players the current layer is scaled for. */
+  coop: CoopRules | null;
+  players: number;
 }
 
 export interface RunSummary {

@@ -31,6 +31,13 @@ export type SimEvent =
   | { t: 'layer'; layer: number }
   | { t: 'extracted' }
   | { t: 'probeDown'; probe: number }
+  /** Co-op: a fallen probe is back on its feet (`by`: who revived it), out until the next layer, back in, away. */
+  | { t: 'probeRevived'; probe: number; by: number }
+  | { t: 'probeOut'; probe: number }
+  | { t: 'probeBack'; probe: number }
+  | { t: 'presence'; probe: number; life: 'up' | 'away' | 'left' }
+  /** Co-op: the time to pick ran out and a card was taken for the player. */
+  | { t: 'offerAuto'; probe: number; index: number }
   | { t: 'element'; x: number; y: number; element: ElementId }
   | { t: 'reaction'; id: string; x: number; y: number }
   | { t: 'quirk'; probe: number; kind: string };

@@ -4,6 +4,9 @@ import { IDLE, type InputLog, type ProbeInput, type Sim } from './types';
 
 export const MOVE = 0;
 export const PICK = 1;
+/** Co-op (log version 2): a pick made while the world runs, with the offer it answers; a presence change. */
+export const PICK_SEQ = 2;
+export const PRESENCE = 3;
 
 const lastMove = new WeakMap<InputLog, number[]>();
 

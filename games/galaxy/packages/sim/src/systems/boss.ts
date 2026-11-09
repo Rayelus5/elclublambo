@@ -5,6 +5,7 @@ import { ticks } from '../version';
 import { scaleAt } from './director';
 import { angleDiff, fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
 import { hurtProbe, PROBE_RADIUS } from './probes';
+import { coopFactor } from './coop';
 
 // The Static Core (GDD §5.5): a boss with phases that change with its life, and a cycle of patterns that are always
 // announced before they hit (a burst warning, or the wind-up of a charge).
@@ -36,7 +37,7 @@ export function spawnBoss(sim: Sim): void {
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
-  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1));
+  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp');
   en.type[i] = sim.content.bosses.indexOf(def);
   en.boss[i] = 1;
   en.x[i] = c.x + cosA(a) * SPAWN_DISTANCE;

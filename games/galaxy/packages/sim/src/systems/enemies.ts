@@ -87,10 +87,15 @@ export function probesCentre(sim: Sim): { x: number; y: number } {
  * centre: spawns never pop up on screen, whatever the player's monitor.
  */
 export function spawnPoint(sim: Sim, rng: Rng): { x: number; y: number } {
+  if (sim.coop) return coopSpawnPoint(sim, rng);
+  return rectPoint(sim, rng, probesCentre(sim));
+}
+
+/** A point on the rectangle just outside a view centred on `c`. */
+function rectPoint(sim: Sim, rng: Rng, c: { x: number; y: number }): { x: number; y: number } {
   const { viewW, viewH, margin } = sim.content.arena;
   const hw = viewW / 2 + margin;
   const hh = viewH / 2 + margin;
-  const c = probesCentre(sim);
   let t = rng.float() * 4 * (hw + hh);
   if (t < 2 * hw) return { x: c.x - hw + t, y: c.y - hh };
   t -= 2 * hw;
@@ -99,6 +104,24 @@ export function spawnPoint(sim: Sim, rng: Rng): { x: number; y: number } {
   if (t < 2 * hw) return { x: c.x + hw - t, y: c.y + hh };
   t -= 2 * hw;
   return { x: c.x - hw, y: c.y + hh - t };
+}
+
+/**
+ * Co-op (multiplayer plan): players may spread out, so each spawn picks a standing probe and comes in just outside
+ * its view, never inside another standing probe's view (three tries, then the last one).
+ */
+function coopSpawnPoint(sim: Sim, rng: Rng): { x: number; y: number } {
+  const up = sim.probes.filter((p) => p.alive);
+  if (up.length === 0) return rectPoint(sim, rng, probesCentre(sim));
+  const { viewW, viewH } = sim.content.arena;
+  let point = { x: 0, y: 0 };
+  for (let tries = 0; tries < 3; tries++) {
+    const anchor = up[rng.int(up.length)]!;
+    point = rectPoint(sim, rng, anchor);
+    const seen = up.some((q) => Math.abs(q.x - point.x) < viewW / 2 && Math.abs(q.y - point.y) < viewH / 2);
+    if (!seen) return point;
+  }
+  return point;
 }
 
 /** Fires one enemy bullet (speed in units per second). */

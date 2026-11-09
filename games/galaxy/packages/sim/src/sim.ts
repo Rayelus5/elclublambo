@@ -9,6 +9,7 @@ import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
 import { updateRelics } from './systems/relics';
+import { applyCoopInputs, updateDowned, updateOffers } from './systems/coop';
 import { syncProps } from './systems/props';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
@@ -40,6 +41,16 @@ export function createSim(opts: SimOptions): Sim {
     ai: Rng.fromSeed(opts.seed, 'ai'),
     relic: Rng.fromSeed(opts.seed, 'relic'),
   };
+  const coop = opts.coop ?? null;
+  // Co-op pools are bigger: four builds share them (multiplayer plan).
+  const limits = coop
+    ? {
+        ...content.limits,
+        shots: Math.ceil(content.limits.shots * coop.limits.shots),
+        areas: Math.ceil(content.limits.areas * coop.limits.areas),
+        pickups: Math.ceil(content.limits.pickups * coop.limits.pickups),
+      }
+    : content.limits;
   const sim: Sim = {
     opts,
     content,
@@ -52,7 +63,7 @@ export function createSim(opts: SimOptions): Sim {
     phaseTick: 0,
     rng,
     probes: [],
-    ...createPools(content.limits),
+    ...createPools(limits),
     grid: new SpatialGrid(48),
     propGrid: new SpatialGrid(64),
     terrain: { live: [], broken: new Map() },
@@ -65,6 +76,8 @@ export function createSim(opts: SimOptions): Sim {
     events: [],
     log: opts.record ? { probes: opts.probes.length, events: [] } : null,
     clocks: {},
+    coop,
+    players: opts.probes.length,
   };
   const n = opts.probes.length;
   sim.probes = opts.probes.map((setup, index) => {
@@ -96,6 +109,13 @@ export function createSim(opts: SimOptions): Sim {
       upgrades: setup.bonuses ?? [],
       offer: null,
       pendingLevels: 0,
+      offerSeq: 0,
+      offerUntil: 0,
+      life: 'up',
+      downT: 0,
+      reviveT: 0,
+      revives: 0,
+      downs: 0,
       stats: { maxHp: def.hp } as ProbeState['stats'],
       shield: 0,
       kills: 0,
@@ -175,6 +195,11 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   sim.tick++;
   sim.phaseTick++;
   settle(sim);
+  // Co-op (multiplayer plan): presence and picks first; the world never stops for them.
+  if (sim.coop) {
+    applyCoopInputs(sim, inputs);
+    if (sim.status !== 'running') return;
+  }
   tickProbes(sim);
   moveProbes(sim, inputs);
   recordMoves(sim, inputs);
@@ -195,6 +220,9 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   updateAreas(sim);
   contactDamage(sim, maxEnemyRadius(sim));
   updatePickups(sim);
+  updateDowned(sim);
   updateLayer(sim);
-  if (sim.status === 'running') openChoices(sim);
+  if (sim.status !== 'running') return;
+  if (sim.coop) updateOffers(sim);
+  else openChoices(sim);
 }

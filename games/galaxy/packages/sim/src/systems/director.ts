@@ -1,6 +1,7 @@
 import { ANGLE_STEPS, cosA, sinA } from '../math/trig';
 import type { Sim } from '../types';
 import { probesCentre, type Scale, spawnEnemy, spawnPoint, STATE } from './enemies';
+import { coopFactor } from './coop';
 
 // The spawn director (GDD §5.5–5.6): density grows with the run's minutes, species join over the first layer (from
 // layer 2 on, all from the start), fixed waves arrive on schedule in every layer, and life, damage, speed and the
@@ -22,6 +23,9 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
     speed: 1 + s.speedPerLayer * deeper,
     elite,
   };
+  // Co-op (multiplayer plan): tougher by the players in the run; 1 in solo.
+  scale.hp *= coopFactor(sim, 'enemyHp');
+  scale.damage *= coopFactor(sim, 'enemyDamage');
   // The season's anomaly (M7d-3) multiplies on top; without one nothing changes.
   const a = sim.anomaly;
   if (a) {
@@ -46,7 +50,7 @@ function aliveFauna(sim: Sim): number {
 
 function spawnGroup(sim: Sim): void {
   const sector = sim.sector;
-  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * (1 + curseOf(sim))));
+  const cap = Math.min(sim.content.limits.enemies, Math.floor(sector.density.cap * (1 + curseOf(sim)) * coopFactor(sim, 'density')));
   if (aliveFauna(sim) >= cap) return;
   const now = layerSeconds(sim);
   const open = sector.spawns.filter((s) => sim.layer >= 2 || now >= s.from);
@@ -85,17 +89,22 @@ function fireWaves(sim: Sim): void {
     if (!def) return;
     const rng = sim.rng.spawn;
     const scale = scaleAt(sim);
-    const c = probesCentre(sim);
     const radius = Math.max(viewW, viewH) / 2 + margin;
-    const start = rng.int(ANGLE_STEPS);
-    for (let k = 0; k < w.count; k++) {
-      if (w.kind === 'ring') {
-        const a = start + Math.floor((k * ANGLE_STEPS) / w.count);
-        spawnEnemy(sim, def, c.x + cosA(a) * radius, c.y + sinA(a) * radius, { scale });
-      } else {
-        const bx = c.x + cosA(start) * radius;
-        const by = c.y + sinA(start) * radius;
-        spawnEnemy(sim, def, bx + rng.range(-40, 40), by + rng.range(-40, 40), { scale });
+    // Co-op: one ring (or group) per standing probe, the wave shared among them; solo: around the probe as before.
+    const anchors = sim.coop ? sim.probes.filter((p) => p.alive).map((p) => ({ x: p.x, y: p.y })) : [probesCentre(sim)];
+    if (anchors.length === 0) anchors.push(probesCentre(sim));
+    const count = sim.coop ? Math.ceil((w.count * coopFactor(sim, 'density')) / anchors.length) : w.count;
+    for (const c of anchors) {
+      const start = rng.int(ANGLE_STEPS);
+      for (let k = 0; k < count; k++) {
+        if (w.kind === 'ring') {
+          const a = start + Math.floor((k * ANGLE_STEPS) / count);
+          spawnEnemy(sim, def, c.x + cosA(a) * radius, c.y + sinA(a) * radius, { scale });
+        } else {
+          const bx = c.x + cosA(start) * radius;
+          const by = c.y + sinA(start) * radius;
+          spawnEnemy(sim, def, bx + rng.range(-40, 40), by + rng.range(-40, 40), { scale });
+        }
       }
     }
   });
@@ -108,6 +117,7 @@ export function direct(sim: Sim): void {
   if (sim.phase === 'boss') rate *= d.bossFactor;
   rate *= 1 + curseOf(sim);
   if (sim.anomaly) rate *= sim.anomaly.spawn;
+  rate *= coopFactor(sim, 'density');
   let acc = (sim.clocks['spawnAcc'] ?? 0) + rate / 60;
   while (acc >= 1) {
     acc -= 1;
