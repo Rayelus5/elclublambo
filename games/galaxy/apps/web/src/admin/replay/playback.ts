@@ -1,12 +1,16 @@
-import type { AdminRunReplay } from '@galaxy/shared';
+import { type AdminRunReplay, coopSimOptions } from '@galaxy/shared';
 import { createReplayer, type InputLog, type Replayer, runSummary, type Sim, type SimEvent, type SimOptions } from '@galaxy/sim';
 
 // The panel's replayer (GDD §16.2, §16.6; M6d-3): a recorded run played forwards a few ticks per frame, sought
 // backwards by rebuilding it from tick 0 (the simulation cannot run backwards, and a full run replays in a second or
 // two), never past the run's last tick, and compared at the end with what the server kept.
 
-/** A replay's start as simulation options: its seed, content and sector, and the probe with its snapshot. */
-export function replayOptionsOf(start: AdminRunReplay['start']): SimOptions {
+/**
+ * A replay's start as simulation options: its seed, content and sector, and the probe with its snapshot; a group run
+ * (phase 6c) is the group's, with every player's probe and the group's rules.
+ */
+export function replayOptionsOf(start: AdminRunReplay['start'], coop: AdminRunReplay['coop'] = null): SimOptions {
+  if (coop) return coopSimOptions({ seed: start.seed, content: start.content, sector: start.sector, anomaly: start.anomaly, rules: coop.rules, players: coop.players });
   return {
     seed: start.seed,
     content: start.content,
@@ -69,7 +73,9 @@ export function createPlayback(opts: SimOptions, log: InputLog, until: number): 
 }
 
 /** The tick a replay plays to: the one the client sent (the kept one may be clipped to real time), else the kept one. */
-export function replayUntil(run: AdminRunReplay['run']): number {
+export function replayUntil(run: AdminRunReplay['run'], coop: AdminRunReplay['coop'] = null): number {
+  // A group run plays to the group's end, whenever this player left it.
+  if (coop) return coop.ticks ?? 0;
   return run.claimed?.ticks ?? run.ticks ?? 0;
 }
 
@@ -88,9 +94,24 @@ export interface CheckRow {
  * The replay's end against what the client sent at the finish (the hash always was kept as sent; the other figures as
  * sent since M6d-3, clipped before): every figure must match, a right hash with an inflated count is not the same run.
  */
-export function checkReplay(sim: Sim, run: AdminRunReplay['run']): { matches: boolean; rows: CheckRow[] } {
+export function checkReplay(sim: Sim, run: AdminRunReplay['run'], coop: AdminRunReplay['coop'] = null): { matches: boolean; rows: CheckRow[] } {
   const s = runSummary(sim);
   const sent = run.claimed ?? run;
+  if (coop) {
+    // A group run: the group's end (hash, ticks, depth); the player's own kills and level when they stayed to the end
+    // (who left was paid what they had when they went, which the end of the run no longer shows).
+    const me = sim.probes[coop.slot];
+    const stayed = sent.ticks === coop.ticks;
+    const rows: CheckRow[] = (
+      [
+        ['hash', coop.hash, s.hash],
+        ['ticks', coop.ticks, s.ticks],
+        ['depth', coop.depth, s.depth],
+        ...(stayed ? ([['kills', sent.kills, me?.kills ?? 0], ['level', sent.level, me?.level ?? 1]] as const) : []),
+      ] as const
+    ).map(([key, saved, replayed]) => ({ key, saved, replayed, same: saved === replayed }));
+    return { matches: rows.every((r) => r.same), rows };
+  }
   const rows: CheckRow[] = (
     [
       ['hash', run.hash, s.hash],

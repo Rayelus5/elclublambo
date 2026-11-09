@@ -75,13 +75,14 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
   const [notice, setNotice] = useState('');
   const sector = start.content.sectors.find((s) => s.id === start.sector)?.name ?? start.sector;
   const probe = start.content.probes.find((p) => p.id === start.probe)?.name ?? start.probe;
-  const hasLog = data.inputs !== null && (run.claimed?.ticks ?? run.ticks) !== null;
+  // A group run plays to the group's end (phase 6c); a solo run to its own.
+  const hasLog = data.inputs !== null && (data.coop ? data.coop.ticks !== null : (run.claimed?.ticks ?? run.ticks) !== null);
   // Built once: a log that does not decode, or a sector or probe its content lacks, says so instead of breaking the page.
   const replayable = useMemo<Replayable | null>(() => {
     if (!hasLog) return null;
     try {
-      const until = replayUntil(run);
-      const opts = replayOptionsOf(start);
+      const until = replayUntil(run, data.coop);
+      const opts = replayOptionsOf(start, data.coop);
       const log = decodeLog(fromBase64(data.inputs!));
       createReplayer(opts, log, until);
       return { opts, log, until };
@@ -106,6 +107,7 @@ function Replay({ data, clock }: { data: AdminRunReplay; clock: Clock }) {
             <li>{sector}</li>
             <li>{probe}</li>
             <li>{outcomeText(run.outcome)}</li>
+            {data.coop ? <li>{t.coopFact(data.coop.players.length)}</li> : null}
             {run.seconds !== null ? <li>{clockText(run.seconds)}</li> : null}
             <li className={run.suspicious ? 'run-flag' : undefined}>{run.suspicious ? t.marked : t.notMarked}</li>
           </ul>
@@ -187,14 +189,17 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
   const [tick, setTick] = useState(0);
   const [ended, setEnded] = useState(false);
   const [seekPct, setSeekPct] = useState<number | null>(null);
-  const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(playback.sim, 0));
+  /** The probe the camera and the HUD follow: the player looked at, or (a group run) any of the group. */
+  const [follow, setFollow] = useState(data.coop?.slot ?? 0);
+  const followRef = useRef(follow);
+  const [hud, setHud] = useState<HudSnapshot>(() => hudSnapshot(playback.sim, follow));
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
 
   const sync = useCallback(() => {
     setTick(playback.tick);
     setEnded(playback.ended);
-    setHud(hudSnapshot(playback.sim, 0));
+    setHud(hudSnapshot(playback.sim, followRef.current));
     setCamera(stageRef.current?.camera() ?? null);
   }, [playback]);
 
@@ -276,7 +281,8 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
       setSize({ w, h });
     };
     const biome = data.start.content.sectors.find((s) => s.id === data.start.sector)?.biome ?? 'nebula';
-    void createStage(canvas, data.start.content, { reduced, vision: relicVision(playback.sim, playback.sim.probes[0]!), probe: 0, seed: data.start.seed, biome }).then((stage) => {
+    const first = followRef.current;
+    void createStage(canvas, data.start.content, { reduced, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
@@ -328,10 +334,26 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
     return () => window.removeEventListener('keydown', down);
   }, [toggle, seekTo, playback]);
 
+  const watch = (slot: number) => {
+    followRef.current = slot;
+    setFollow(slot);
+    stageRef.current?.follow(slot);
+    sync();
+  };
+
   const now = clockText(tick / TICKS_PER_SECOND);
   const total = clockText(until / TICKS_PER_SECOND);
   return (
     <div className="replay-player">
+      {data.coop ? (
+        <div className="segmented replay-cameras" role="radiogroup" aria-label={t.camera}>
+          {data.coop.players.map((pl, i) => (
+            <button key={pl.username} type="button" role="radio" aria-checked={follow === i} onClick={() => watch(i)}>
+              {i === data.coop!.slot ? t.cameraOf(pl.username) : pl.username}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className={`replay-stage${reduced ? ' reduced' : ''}`}>
         <canvas ref={canvasRef} className="arena-canvas" role="img" aria-label={t.stage} />
         <Hud hud={hud} content={data.start.content} announce="" />
@@ -417,7 +439,7 @@ function Check({ replayable, data }: { replayable: Replayable; data: AdminRunRep
     }
     if (!alive.current) return;
     setPct(null);
-    setResult(checkReplay(r.sim, data.run));
+    setResult(checkReplay(r.sim, data.run, data.coop));
   };
   // The hash in two groups of eight, one per line; the counts grouped the Spanish way.
   const shown = (r: CheckRow, v: string | number | null) => (v === null ? '—' : r.key === 'hash' ? String(v).replace(/^(.{8})/, '$1\n') : typeof v === 'number' ? fmt(v) : String(v));

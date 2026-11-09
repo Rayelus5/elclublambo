@@ -1,5 +1,5 @@
-import { ADMIN_RUNS_PAGE, type AdminRunClaim, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig } from '@galaxy/shared';
-import type { RelicInput, StatBonus } from '@galaxy/sim';
+import { ADMIN_RUNS_PAGE, type AdminRunClaim, type AdminRunList, type AdminRunMark, type AdminRunReplay, type AdminRunRow, parseConfig, type CoopPlayer } from '@galaxy/shared';
+import type { CoopRules, RelicInput, StatBonus } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import { type AuditActor, writeAudit } from '../audit';
 import type { SessionInfo } from '../auth/sessions';
@@ -95,11 +95,22 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       'r.relics',
       'r.upgrades',
       'r.claim',
+      'r.coop_run_id',
+      'r.slot',
       'i.inputs',
     ])
     .where('r.id', '=', id)
     .executeTakeFirst();
   if (!r) throw new HttpError(404, 'run_not_found');
+  // A group run (phase 6c): its inputs are the group's, kept once for the run; its start is the group's.
+  const coop = r.coop_run_id
+    ? await db
+        .selectFrom('galaxy.coop_runs as c')
+        .leftJoin('galaxy.coop_run_inputs as ci', 'ci.coop_run_id', 'c.id')
+        .select(['c.seed', 'c.sector', 'c.anomaly', 'c.rules', 'c.players', 'c.ticks', 'c.depth', 'c.hash', 'ci.inputs'])
+        .where('c.id', '=', r.coop_run_id)
+        .executeTakeFirst()
+    : undefined;
   const stored = r.content_version > 0
     ? await db.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', r.content_version).executeTakeFirst()
     : undefined;
@@ -128,16 +139,19 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
     },
     contentFallback,
     start: {
-      seed: String(r.seed),
-      sector: r.sector,
+      seed: String(coop ? coop.seed : r.seed),
+      sector: coop ? coop.sector : r.sector,
       probe: r.probe,
       relics: r.relics as RelicInput[],
       bonuses: Array.isArray(upgrades.bonuses) ? upgrades.bonuses : [],
       variant: typeof upgrades.variant === 'string' ? upgrades.variant : null,
-      anomaly: typeof upgrades.anomaly === 'string' ? upgrades.anomaly : null,
+      anomaly: coop ? coop.anomaly : typeof upgrades.anomaly === 'string' ? upgrades.anomaly : null,
       content,
     },
-    inputs: r.inputs ? Buffer.from(r.inputs).toString('base64') : null,
+    inputs: coop ? (coop.inputs ? Buffer.from(coop.inputs).toString('base64') : null) : r.inputs ? Buffer.from(r.inputs).toString('base64') : null,
+    coop: coop
+      ? { slot: r.slot ?? 0, players: coop.players as CoopPlayer[], rules: coop.rules as CoopRules, ticks: coop.ticks ?? null, depth: coop.depth ?? null, hash: coop.hash ?? null }
+      : null,
   };
 }
 
