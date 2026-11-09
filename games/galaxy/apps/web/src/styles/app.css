@@ -93,7 +93,7 @@
   .logo .l1 { color: var(--color-ink); }
   .logo .l2 { color: var(--color-solar); }
   .logo .braille { margin: 10px 0 0 4px; font: 18px/1 var(--font-braille); color: var(--color-ice); letter-spacing: .12em; text-shadow: 0 0 10px rgb(150 205 255 / .7); }
-  .logo .beta { position: absolute; left: 304px; top: 6px; transform: rotate(-6deg); font-weight: 700; font-size: 14px; background: var(--color-nova); color: var(--color-on-nova); padding: 4px 11px; border-radius: 10px; box-shadow: 0 4px 0 var(--color-nova-lip); }
+  .logo .beta { position: absolute; left: 304px; top: 6px; transform: rotate(-6deg); white-space: nowrap; font-weight: 700; font-size: 14px; background: var(--color-nova); color: var(--color-on-nova); padding: 4px 11px; border-radius: 10px; box-shadow: 0 4px 0 var(--color-nova-lip); }
   @media (max-height: 820px) {
     .logo .l1, .logo .l2 { font-size: 44px; }
     .logo .braille { display: none; }
