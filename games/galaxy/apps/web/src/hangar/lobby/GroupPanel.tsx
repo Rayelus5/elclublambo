@@ -44,7 +44,15 @@ export function GroupPanel({ view }: { view: HangarView }) {
       {v && !v.allowed ? (
         <p className="lobby-note" role="status">
           <Icon name="lock" />
-          <span>{v.reason === 'tutorial' ? t.lockedTutorial : v.reason === 'level' ? t.lockedLevel(v.minLevel) : t.lockedOff}</span>
+          <span>
+            {v.reason === 'tutorial'
+              ? t.lockedTutorial
+              : v.reason === 'level'
+                ? t.lockedLevel(v.minLevel)
+                : v.reason === 'abandons'
+                  ? t.lockedAbandons(v.waitUntil)
+                  : t.lockedOff}
+          </span>
         </p>
       ) : null}
       {action.isError ? (

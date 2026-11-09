@@ -51,6 +51,7 @@ const rooms = (over: Partial<RoomsView> = {}): RoomsView => ({
   allowed: true,
   reason: null,
   minLevel: 1,
+  waitUntil: null,
   ...over,
 });
 const base = (v: RoomsView) => ({
@@ -122,6 +123,16 @@ test('sin acabar el tutorial se explica por qué y no se puede entrar ni crear',
   mockApi(base(rooms({ allowed: false, reason: 'tutorial' })));
   lobby('/incursion?modo=grupo');
   expect(await screen.findByText(t.lockedTutorial)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: t.quick })).toBeDisabled();
+  expect(screen.getByRole('button', { name: t.create })).toBeDisabled();
+});
+
+test('quien ha dejado varias partidas en grupo hace poco ve hasta cuándo espera y no puede entrar ni crear', async () => {
+  const until = '2026-11-09T21:45:00.000Z';
+  mockApi(base(rooms({ allowed: false, reason: 'abandons', waitUntil: until })));
+  lobby('/incursion?modo=grupo');
+  expect(await screen.findByText(t.lockedAbandons(until))).toBeInTheDocument();
+  expect(t.lockedAbandons(until)).toContain(new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(until)));
   expect(screen.getByRole('button', { name: t.quick })).toBeDisabled();
   expect(screen.getByRole('button', { name: t.create })).toBeDisabled();
 });

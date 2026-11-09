@@ -249,6 +249,9 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     bossHp: { label: 'Vida del jefe', unit: 'factor', items: PLAYERS },
     loot: { label: 'Botín', unit: 'factor', items: PLAYERS, hint: 'Lo que cobra cada jugador del botín del grupo' },
     points: { label: 'Puntos de temporada', unit: 'factor', items: PLAYERS },
+    abandonLimit: { label: 'Abandonos antes de esperar', hint: 'Partidas en grupo dejadas a medias dentro del plazo de abajo. 0 desactiva la espera' },
+    abandonWindowMinutes: { label: 'Plazo en que se cuentan los abandonos', unit: 'minutes' },
+    abandonWaitMinutes: { label: 'Espera tras el último abandono', unit: 'minutes' },
   },
   social: {
     maxFriends: { label: 'Amigos como máximo' },

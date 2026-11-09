@@ -22,6 +22,12 @@ export const MARK_GAP_MS = 700;
 const SUMS_KEPT = 8;
 /** How many times a client whose world differs is told to rebuild it (one that keeps differing never loops). */
 export const MAX_RESYNCS = 2;
+/**
+ * Inactive (the `coop_idle` flag, phase 6c): standing in play this long at least (60 s) without moving for this share
+ * of it. Only a mark for the admin: the pay is the same.
+ */
+export const IDLE_MIN_TICKS = 3600;
+const IDLE_SHARE = 0.8;
 const OPEN = 1;
 
 export interface PlaySocket {
@@ -78,6 +84,9 @@ export class CoopRun {
   /** Each player's last compared tick, and how many times it was told to rebuild. */
   private readonly summed: number[];
   private readonly resyncs: number[];
+  /** Each player's ticks up and connected, and those of them without moving. */
+  private readonly upTicks: number[];
+  private readonly stillTicks: number[];
   private lastLayer = 0;
   /** When the clock stopped because nobody was connected (null: running). */
   private pausedSince: number | null = null;
@@ -104,6 +113,8 @@ export class CoopRun {
     this.offlineSince = slots.map(() => t0);
     this.summed = slots.map(() => 0);
     this.resyncs = slots.map(() => 0);
+    this.upTicks = slots.map(() => 0);
+    this.stillTicks = slots.map(() => 0);
     this.origin = t0;
     this.noteLayer();
   }
@@ -198,6 +209,22 @@ export class CoopRun {
     }
   }
 
+  /** Who stood in play this tick, and who of them did not move. */
+  private noteStill(): void {
+    for (let slot = 0; slot < this.slots.length; slot++) {
+      if (this.presence[slot] !== PRESENCE_UP || this.referee.probes[slot]?.life !== 'up') continue;
+      this.upTicks[slot]!++;
+      const [mx, my] = this.move[slot]!;
+      if (mx === 0 && my === 0) this.stillTicks[slot]!++;
+    }
+  }
+
+  /** Whether a player spent most of the run in play without moving (the `coop_idle` flag). */
+  idle(slot: number): boolean {
+    const up = this.upTicks[slot] ?? 0;
+    return up >= IDLE_MIN_TICKS && (this.stillTicks[slot] ?? 0) >= up * IDLE_SHARE;
+  }
+
   /** Away after a while without a socket (only called while someone else plays). */
   private watchPresence(now: number): void {
     for (let slot = 0; slot < this.slots.length; slot++) {
@@ -260,6 +287,7 @@ export class CoopRun {
         }
       }
       this.noteLayer();
+      this.noteStill();
       if (sim.tick % COOP_SUM_EVERY === 0) {
         this.sums.set(sim.tick, stateHash(sim));
         this.sums.delete(sim.tick - SUMS_KEPT * COOP_SUM_EVERY);

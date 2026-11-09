@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { type LiveEvent, type RoomsView, type RoomView } from '@galaxy/shared';
+import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
 import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
@@ -45,6 +47,29 @@ describe('quién puede', () => {
     const p = await player(false);
     expect((await rooms(p)).reason).toBe('tutorial');
     expect((await act(p, '', { kind: 'public', sector: 'outer-nebula' })).json()).toMatchObject({ error: 'coop_tutorial' });
+  });
+
+  test('quien ha dejado varias partidas en grupo hace poco espera antes de volver (coop.abandon*)', async () => {
+    const p = await player();
+    const left = async (minutesAgo: number) =>
+      ctx.db
+        .insertInto('galaxy.runs')
+        .values({ account_id: p.id, seed: '1', sector: 'outer-nebula', probe: 'lumen', relics: '[]', content_version: 0, sim_version: SIM_VERSION, start_key: randomUUID(), started_at: new Date(), left_at: new Date(Date.now() - minutesAgo * 60_000) })
+        .execute();
+    // Two in the last hour (the limit is 3), and an old one: still allowed.
+    await left(2);
+    await left(5);
+    await left(300);
+    expect((await rooms(p)).allowed).toBe(true);
+    await left(1);
+    const v = await rooms(p);
+    expect(v).toMatchObject({ allowed: false, reason: 'abandons' });
+    // 15 minutes after the last one.
+    expect(Math.abs(new Date(v.waitUntil!).getTime() - (Date.now() + 14 * 60_000))).toBeLessThan(10_000);
+    const res = await act(p, '', { kind: 'public', sector: 'outer-nebula' });
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ error: 'coop_wait', until: v.waitUntil });
+    expect((await act(p, '/quick')).json()).toMatchObject({ error: 'coop_wait' });
   });
 
   test('un sector que el líder no tiene → sector_locked', async () => {

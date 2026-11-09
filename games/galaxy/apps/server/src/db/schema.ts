@@ -612,6 +612,8 @@ export interface RunsTable {
   slot: ColumnType<number | null, number | null | undefined, never>;
   party_size: ColumnType<number, number | undefined, never>;
   points_factor: ColumnType<number, number | undefined, never>;
+  /** Phase 6c: when the player left this group run on purpose (null: stayed, or a solo run). */
+  left_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
 /** Plan phase 6: a co-op run and its sealed inputs. */

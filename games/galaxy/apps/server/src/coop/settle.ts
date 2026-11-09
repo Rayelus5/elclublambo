@@ -28,6 +28,8 @@ export interface CoopSettlement {
   gone: (Gone | null)[];
   playersByLayer: number[];
   outcome: CoopOutcome;
+  /** Who spent most of the run in play without moving (phase 6c): their row gets the `coop_idle` flag. */
+  idle?: boolean[];
 }
 
 export interface SettleDeps {
@@ -86,7 +88,7 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
       const r = await settleRun(
         trx,
         who.accountId,
-        { run: row, claim, claimed: claim, flags: [], penalized: false, wallSeconds, inputs: null, pointsFactor },
+        { run: row, claim, claimed: claim, flags: s.idle?.[slot] ? ['coop_idle'] : [], penalized: false, wallSeconds, inputs: null, pointsFactor },
         `coop:${s.coopRunId}`,
         { runs, runsVersion, content, account, season, boosts, now },
       );

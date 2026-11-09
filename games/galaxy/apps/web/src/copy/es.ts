@@ -406,7 +406,7 @@ export const copy = {
       contentVersionOf: (v: number) => (v === 0 ? 'Valores por defecto' : `Versión ${v}`),
       noFlags: 'Ninguna',
       playerPage: (player: string) => `Ficha de ${player}`,
-      flagNames: { admin: 'Marcada por un admin', too_fast: 'Demasiado rápida', depth_vs_time: 'Capa imposible para su duración', kills_rate: 'Demasiadas bajas por minuto', boss_kills: 'Demasiados jefes', log_mismatch: 'Entradas que no cuadran', loot_cap: 'Botín recortado', payout_cap: 'Paga recortada' } as Record<string, string>,
+      flagNames: { admin: 'Marcada por un admin', too_fast: 'Demasiado rápida', depth_vs_time: 'Capa imposible para su duración', kills_rate: 'Demasiadas bajas por minuto', boss_kills: 'Demasiados jefes', log_mismatch: 'Entradas que no cuadran', loot_cap: 'Botín recortado', payout_cap: 'Paga recortada', coop_idle: 'Inactivo en grupo' } as Record<string, string>,
       marked: 'Sospechosa',
       notMarked: 'Sin marcar',
       mark: 'Marcar como sospechosa',
@@ -1073,6 +1073,9 @@ export const copy = {
     lockedTutorial: 'Termina o salta el tutorial para jugar en grupo',
     lockedLevel: (n: number) => `Para jugar en grupo necesitas nivel ${n}`,
     lockedOff: 'Las partidas en grupo están paradas por mantenimiento. Vuelve en un rato',
+    // Left too many group runs lately (phase 6c): until when, as the server sends it.
+    lockedAbandons: (until: string | null) =>
+      `Has dejado varias partidas en grupo a medias. Podrás volver a jugar en grupo ${until ? `a las ${new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(until))}` : 'en un rato'}`,
     startTitle: 'Empezar',
     quick: 'Entrar rápido',
     quickHint: 'Te mete en la sala pública más llena que tenga hueco, o te crea una',
@@ -2336,6 +2339,8 @@ export const copy = {
     friends_disabled: 'Los amigos están parados por mantenimiento. Vuelve en un rato',
     coop_disabled: 'Las partidas en grupo están paradas por mantenimiento. Vuelve en un rato',
     coop_tutorial: 'Termina o salta el tutorial para jugar en grupo',
+    coop_wait: (d: Record<string, unknown>) =>
+      `Has dejado varias partidas en grupo a medias. Podrás volver a jugar en grupo ${typeof d.until === 'string' ? `a las ${new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(new Date(d.until))}` : 'en un rato'}`,
     coop_level: (d: Record<string, unknown>) => (typeof d.minLevel === 'number' ? `Para jugar en grupo necesitas nivel ${d.minLevel}` : 'Para jugar en grupo necesitas más nivel'),
     room_not_found: 'No hay ninguna sala abierta con ese código',
     room_full: 'Esa sala está llena',

@@ -175,7 +175,7 @@ export class CoopService {
   message(run: CoopRun, slot: number, msg: CoopClientMessage, socket: PlaySocket): void {
     if (msg.t === 'in') run.input(slot, msg.mx, msg.my, msg.aim);
     else if (msg.t === 'pick') run.pick(slot, msg.i, msg.seq);
-    else if (msg.t === 'leave') run.leave(slot);
+    else if (msg.t === 'leave') this.leaveOnPurpose(run, slot);
     else if (msg.t === 'ping') socket.send(JSON.stringify({ t: 'pong', at: msg.at }));
     else if (msg.t === 'mark') run.mark(slot, msg.kind, msg.x, msg.y, Date.now());
     else if (msg.t === 'sum') {
@@ -188,7 +188,24 @@ export class CoopService {
   leaveRun(runId: string, accountId: string): void {
     const run = this.runs.get(runId);
     const slot = run?.slotOf(accountId) ?? -1;
-    if (run && slot >= 0) run.leave(slot);
+    if (run && slot >= 0) this.leaveOnPurpose(run, slot);
+  }
+
+  /**
+   * A player leaves the run on purpose (phase 6c): out of it for good, and their row keeps when, for the wait of whoever
+   * leaves group runs often (rooms: coop.abandon*). Losing the connection, or a room closed for everyone, is not this.
+   */
+  private leaveOnPurpose(run: CoopRun, slot: number): void {
+    const first = !run.ended && !run.hasLeft(slot);
+    run.leave(slot);
+    if (!first) return;
+    void this.deps.db
+      .updateTable('galaxy.runs')
+      .set({ left_at: this.now() })
+      .where('id', '=', run.slots[slot]!.runRowId)
+      .where('left_at', 'is', null)
+      .execute()
+      .catch((err: unknown) => this.deps.log?.error({ err: (err as Error).name, run: run.id, slot }, 'coop_left_failed'));
   }
 
   /** Everyone leaves the run (a closed room, or a test): resolves once it ended and was paid. */
@@ -271,7 +288,7 @@ export class CoopService {
       await this.saveLast(run);
       const results = await settleCoop(
         { db: this.deps.db, config: this.deps.config, now: this.now, log: this.deps.log },
-        { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome },
+        { coopRunId: run.id, slots: run.slots, referee: run.referee, gone: run.gone, playersByLayer: run.playersByLayer, outcome, idle: run.slots.map((_, i) => run.idle(i)) },
       );
       for (let slot = 0; slot < run.slots.length; slot++) {
         const result = results[slot] ?? null;
