@@ -1,4 +1,4 @@
-import { fuseRequestSchema, relicLevelUpSchema, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
+import { autoFusionRequestSchema, fuseRequestSchema, galaxyLockSchema, relicLevelUpSchema, type AutoFusionPreview, type AutoFusionResult, type CollectionPage, type GalaxyDetail } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
@@ -6,7 +6,8 @@ import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { countStats, missionConfigs } from '../missions/service';
-import { disintegrate, fuse, galaxyDetail, levelUpGalaxy, listGalaxies, listQuerySchema, type CollectionDeps } from './service';
+import { autoFuse, disintegrate, fuse, galaxyDetail, levelUpGalaxy, listGalaxies, listQuerySchema, setLock, type CollectionDeps } from './service';
+import { HttpError } from '../errors';
 
 const idParam = z.object({ id: z.uuid() }).strict();
 
@@ -43,6 +44,32 @@ export function registerCollectionRoutes(api: FastifyInstance, deps: CollectionD
     return runOperation(deps.db, s.accountId, key, 'galaxy.fuse', requestHash(body), async (trx) => {
       const r = await fuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.ids, key);
       await countStats(trx, mcfg, s.accountId, { fusions: 1, legendaries: r.galaxy.tier === 'legendary' ? 1 : 0 }, new Date());
+      return r;
+    });
+  });
+
+  // The lock (plan phase 2): a locked galaxy is never fused nor disintegrated. Setting it twice is harmless.
+  api.put('/galaxy/api/galaxies/:id/lock', async (req): Promise<GalaxyDetail> => {
+    const s = requireSession(req);
+    const { id } = idParam.parse(req.params);
+    const { locked } = galaxyLockSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
+    if (!(await setLock(deps.db, s.accountId, id, locked))) throw new HttpError(404, 'galaxy_not_found');
+    return galaxyDetail(deps, s.accountId, id);
+  });
+
+  // The automatic fusion (plan phase 2): its preview (no key, nothing changes), or the fusions as one idempotent
+  // operation. Each fusion counts for the missions like a manual one.
+  api.post('/galaxy/api/galaxies/fuse-auto', async (req): Promise<AutoFusionPreview | AutoFusionResult> => {
+    const s = requireSession(req);
+    const body = autoFusionRequestSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'galaxy_action', 120, 60);
+    const [cfg, gacha, lab, relics, mcfg] = await Promise.all([deps.config.get('galaxies'), deps.config.get('gacha'), deps.config.get('lab'), deps.config.get('relics'), missionConfigs(deps.config)]);
+    if (body.preview) return deps.db.transaction().execute((trx) => autoFuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.criteria, true, ''));
+    const key = idempotencyKey(req);
+    return runOperation(deps.db, s.accountId, key, 'galaxy.fuse_auto', requestHash(body.criteria), async (trx) => {
+      const r = (await autoFuse({ cfg, gacha, lab, relics }, trx, s.accountId, body.criteria, false, key)) as AutoFusionResult;
+      if (r.fusions > 0) await countStats(trx, mcfg, s.accountId, { fusions: r.fusions, legendaries: r.galaxies.filter((g) => g.tier === 'legendary').length }, new Date());
       return r;
     });
   });

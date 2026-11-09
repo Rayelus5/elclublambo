@@ -5,6 +5,7 @@ export * from './config/form-schema';
 export * from './gacha/types';
 export * from './api/economy';
 export * from './gacha/rules';
+export * from './gacha/auto-fusion';
 export * from './gacha/generate';
 export * from './api/runs';
 export * from './runs/rewards';

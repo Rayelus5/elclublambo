@@ -147,6 +147,8 @@ export interface GalaxiesTable {
   level: Generated<number>;
   /** M4c-1: the dust put into its levels (partly returned when fused or disintegrated). */
   level_dust: Generated<number>;
+  /** Plan phase 2: locked by its owner (never fused nor disintegrated). */
+  locked: Generated<boolean>;
   season: string | null;
   origin: 'pull' | 'fusion' | 'grant';
   lineage: ColumnType<string[], string[] | undefined, string[]>;

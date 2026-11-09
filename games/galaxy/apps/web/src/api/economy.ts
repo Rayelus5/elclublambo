@@ -1,4 +1,7 @@
-import type { CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
+import type {
+  AutoFusionCriteria,
+  AutoFusionPreview,
+  AutoFusionResult, CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
 
@@ -21,6 +24,8 @@ export interface CollectionQuery {
   type?: string;
   palette?: string;
   finish?: Finish;
+  /** Only locked galaxies (plan phase 2). */
+  locked?: true;
   sort?: 'new' | 'rarity';
   cursor?: string;
   limit?: number;
@@ -29,7 +34,7 @@ export interface CollectionQuery {
 /** `/galaxies?…` with the parameters in a fixed order, so equal queries are equal URLs. */
 export function collectionPath(q: CollectionQuery): string {
   const params = new URLSearchParams();
-  for (const key of ['tier', 'type', 'palette', 'finish', 'sort', 'limit', 'cursor'] as const) {
+  for (const key of ['tier', 'type', 'palette', 'finish', 'locked', 'sort', 'limit', 'cursor'] as const) {
     const value = q[key];
     if (value !== undefined) params.set(key, String(value));
   }
@@ -151,5 +156,41 @@ export function useFuse() {
     onSuccess: (res) => settle(qc, res.wallet),
     onError: () => refresh(qc),
     onSettled: (_res, error, ids) => endIntent(fuseIntent(ids), error),
+  });
+}
+
+/** Locks or unlocks a galaxy (plan phase 2): its detail comes back, and the lists are read again. */
+export function useLock() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, locked }: { id: string; locked: boolean }) => api<GalaxyDetail>(`/galaxies/${id}/lock`, { method: 'PUT', body: { locked } }),
+    onSuccess: (detail) => {
+      qc.setQueryData([GALAXY_KEY, detail.id], detail);
+      void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
+    },
+  });
+}
+
+/** What the automatic fusion would do with these criteria (nothing changes); read again after every fusion. */
+export function useAutoFusionPreview(criteria: AutoFusionCriteria, enabled = true) {
+  return useQuery({
+    queryKey: [...COLLECTION_KEY, 'auto-preview', criteria],
+    queryFn: () => api<AutoFusionPreview>('/galaxies/fuse-auto', { method: 'POST', body: { criteria, preview: true } }),
+    enabled,
+    staleTime: 0,
+  });
+}
+
+const autoIntent = (c: AutoFusionCriteria) => `auto-fuse:${JSON.stringify(c)}`;
+
+/** The automatic fusion itself: one idempotent operation per press (a lost answer retries with the same key). */
+export function useAutoFuse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (criteria: AutoFusionCriteria) =>
+      api<AutoFusionResult>('/galaxies/fuse-auto', { method: 'POST', body: { criteria, preview: false }, headers: keyFor(autoIntent(criteria)) }),
+    onSuccess: (res) => settle(qc, res.wallet),
+    onError: () => refresh(qc),
+    onSettled: (_res, error, criteria) => endIntent(autoIntent(criteria), error),
   });
 }

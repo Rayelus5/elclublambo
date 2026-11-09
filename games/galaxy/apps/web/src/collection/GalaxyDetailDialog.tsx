@@ -1,6 +1,6 @@
 import type { GalaxyDetail } from '@galaxy/shared';
 import { useId, useState } from 'react';
-import { useDisintegrate, useGacha, useGalaxyDetail, useLevelUpGalaxy } from '../api/economy';
+import { useDisintegrate, useGacha, useGalaxyDetail, useLevelUpGalaxy, useLock } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { CardBack } from '../cards/CardBack';
 import { GalaxyCard } from '../cards/GalaxyCard';
@@ -92,6 +92,7 @@ function RelicLevel({ g }: { g: GalaxyDetail }) {
 export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: string; onClose: () => void; onDisintegrated: (name: string, dust: number) => void }) {
   const detail = useGalaxyDetail(id);
   const disintegrate = useDisintegrate();
+  const lock = useLock();
   const [confirming, setConfirming] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const g = detail.data;
@@ -106,7 +107,17 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
     );
   }
   // Why it cannot be disintegrated now: equipped in the hangar, on a pedestal of the planetarium or for sale (M5c-1).
-  const held = g.equipped ? copy.collection.equippedReason : g.exhibited ? copy.planetarium.exhibitedReason : g.listed ? copy.market.listedReason : g.traded ? copy.trades.inTradeReason : null;
+  const held = g.locked
+    ? copy.collection.lockedReason
+    : g.equipped
+      ? copy.collection.equippedReason
+      : g.exhibited
+        ? copy.planetarium.exhibitedReason
+        : g.listed
+          ? copy.market.listedReason
+          : g.traded
+            ? copy.trades.inTradeReason
+            : null;
 
   return (
     <>
@@ -142,7 +153,17 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
                 <Icon name="cube" />
                 <span>{copy.inspector.open}</span>
               </button>
-              {held === null ? (
+              <button
+                type="button"
+                className={g.locked ? 'lip pill lock-toggle on' : 'lip pill lock-toggle'}
+                aria-pressed={!!g.locked}
+                disabled={lock.isPending}
+                onClick={() => lock.mutate({ id: g.id, locked: !g.locked })}
+              >
+                <Icon name="lock" />
+                <span>{g.locked ? copy.collection.unlock : copy.collection.lock}</span>
+              </button>
+              {held === null || g.locked ? (
                 <Link to={`/mercado?pestana=vender&galaxia=${g.id}`} className="lip pill">
                   <Icon name="store" />
                   <span>{copy.market.sellIt}</span>

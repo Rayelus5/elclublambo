@@ -9,6 +9,7 @@ import { WalletBar } from '../hub/WalletBar';
 import { RevealStage } from '../scanner/RevealStage';
 import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
+import { AutoFusionDialog } from './AutoFusionDialog';
 import { FuseBar } from './FuseBar';
 import { GalaxyDetailDialog } from './GalaxyDetailDialog';
 import { BackLink } from '../ui/BackLink';
@@ -33,13 +34,14 @@ export function CollectionScreen() {
   const [selected, setSelected] = useState<GalaxySummary[]>([]);
   const [revealed, setRevealed] = useState<PulledGalaxy[] | null>(null);
   const [message, setMessage] = useState('');
+  const [auto, setAuto] = useState(false);
 
   const first = pages.data?.pages[0];
   const items = pages.data?.pages.flatMap((p) => p.items) ?? [];
   const recipe = first?.fusion;
   const count = recipe?.count ?? 5;
   const tier: Tier | undefined = selected[0]?.tier;
-  const filtered = !!(filters.tier || filters.type || filters.palette || filters.finish);
+  const filtered = !!(filters.tier || filters.type || filters.palette || filters.finish || filters.locked);
 
   function change(next: CollectionFilters): void {
     setSelected([]);
@@ -57,7 +59,7 @@ export function CollectionScreen() {
   }
 
   const pickable = (g: GalaxySummary) =>
-    !g.equipped && !g.exhibited && !g.listed && !g.traded && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
+    !g.equipped && !g.exhibited && !g.listed && !g.traded && !g.locked && g.tier !== 'legendary' && (!tier || g.tier === tier) && (selected.length < count || selected.some((s) => s.id === g.id));
 
   return (
     <div className="screen-root collection-root">
@@ -80,6 +82,12 @@ export function CollectionScreen() {
             <Icon name="fuse" />
             <span>{fusing ? copy.collection.cancel : copy.collection.fuse}</span>
           </button>
+          {fusing ? null : (
+            <button type="button" className="lip pill" onClick={() => setAuto(true)}>
+              <Icon name="cards" />
+              <span>{copy.collection.auto.open}</span>
+            </button>
+          )}
         </div>
 
         <main className="collection-main" aria-busy={pages.isPending || pages.isFetchingNextPage || undefined}>
@@ -104,6 +112,11 @@ export function CollectionScreen() {
                 return (
                   <li key={g.id} className={on ? 'picked' : undefined}>
                     <GalaxyCard galaxy={g} size={200} interactive>
+                      {g.locked ? (
+                        <span className="gcard-lock" role="img" aria-label={copy.collection.lockedBadge}>
+                          <Icon name="lock" />
+                        </span>
+                      ) : null}
                       {g.equipped ? (
                         <span className="gcard-badge">{copy.collection.equipped}</span>
                       ) : g.exhibited ? (
@@ -132,6 +145,8 @@ export function CollectionScreen() {
             </button>
           ) : null}
         </main>
+
+        {auto ? <AutoFusionDialog filters={filters} count={count} onClose={() => setAuto(false)} onDone={setMessage} /> : null}
 
         {fusing ? (
           <FuseBar

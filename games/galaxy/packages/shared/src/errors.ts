@@ -89,6 +89,7 @@ export const API_ERROR_CODES = [
   'own_listing',
   'galaxy_listed',
   'galaxy_in_trade',
+  'galaxy_locked',
   'trade_changed',
   'trade_gone',
   'trade_self',
