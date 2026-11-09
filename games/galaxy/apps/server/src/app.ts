@@ -117,11 +117,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerPlanetariumRoutes(api, { db: deps.db, config });
     registerSocialRoutes(api, { db: deps.db, config, now });
     registerClanRoutes(api, { db: deps.db, config, now });
-    const hub = new ChatHub(deps.db);
+    // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join), and
+    // (phase 6c) the room chat, which reaches who is in the room now.
+    const rooms = createRooms(config);
+    const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? []);
     api.addHook('onClose', async () => hub.close());
     // Plan phase 3: the live socket (friends, presence, later rooms), beside the chat's.
-    // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join).
-    const rooms = createRooms(config);
     const live = new LiveHub({
       friendsOf: (id) => friendIdsOf(deps.db, id),
       showsStatus: async (id) => (await prefsOf(deps.db, id)).showStatus,
@@ -136,7 +137,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerCoopPlayRoutes(api, { coop, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
-    registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
+    registerChatRoutes(api, { db: deps.db, config, now, hub, roomOf: (id) => rooms.manager.roomOf(id)?.id ?? null, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
     registerMarketRoutes(api, { db: deps.db, config, now });
     registerTradeRoutes(api, { db: deps.db, config, now });
     registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub: sockets });

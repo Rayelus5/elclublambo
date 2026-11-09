@@ -15,7 +15,10 @@ import { guardTarget } from './players';
 
 const iso = (d: Date | string) => new Date(d).toISOString();
 
-/** The global chat first, then the clans with messages in the last 30 days, the busiest lately first (50 at most). */
+/**
+ * The global chat first, then the clans with messages in the last 30 days, the busiest lately first (50 at most), then
+ * the rooms' chats of the last 7 days (rooms are short-lived: named by the start of their id, 30 at most).
+ */
 export async function modChannels(db: Kysely<DB>): Promise<ModChannel[]> {
   const g = await db.selectFrom('galaxy.chat_messages').select(sql<Date | null>`max(created_at)`.as('at')).where('channel', '=', 'global').executeTakeFirst();
   const clans = await sql<{ id: string; tag: string; name: string; last_at: Date }>`
@@ -23,9 +26,15 @@ export async function modChannels(db: Kysely<DB>): Promise<ModChannel[]> {
     from galaxy.chat_messages m join galaxy.clans c on m.channel = 'clan:' || c.id::text
     where m.created_at > now() - interval '30 days'
     group by c.id order by last_at desc limit 50`.execute(db);
+  const rooms = await sql<{ channel: string; last_at: Date }>`
+    select channel, max(created_at) as last_at
+    from galaxy.chat_messages
+    where channel like 'room:%' and created_at > now() - interval '7 days'
+    group by channel order by last_at desc limit 30`.execute(db);
   return [
     { key: 'global', label: 'Comunidad', lastAt: g?.at ? iso(g.at) : null },
     ...clans.rows.map((c) => ({ key: `clan:${c.id}`, label: `[${c.tag}] ${c.name}`, lastAt: iso(c.last_at) })),
+    ...rooms.rows.map((r) => ({ key: r.channel, label: `Sala ${r.channel.slice(5, 13)}`, lastAt: iso(r.last_at) })),
   ];
 }
 

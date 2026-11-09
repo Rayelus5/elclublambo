@@ -137,6 +137,21 @@ test('con clan, la pestaña Clan enseña sus mensajes', async () => {
   expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/chat/clan')).toBe(true);
 });
 
+test('en una sala sale la pestaña Sala (fase 6c), que lee el chat de la sala', async () => {
+  const rooms = { mine: { id: 'r1', code: 'ABC234', members: [] }, open: [], allowed: true, reason: null, minLevel: 1 };
+  const fetch = mount({
+    'GET /galaxy/api/rooms': () => jsonResponse(200, rooms),
+    'GET /galaxy/api/chat/room': () => jsonResponse(200, history({ channel: 'room', messages: [msg('30', { channel: 'room', body: 'voy por la izquierda' })] })),
+  });
+  const { user, panel } = await open();
+  const roomTab = await within(panel).findByRole('tab', { name: t.room });
+  await user.click(roomTab);
+  expect(roomTab).toHaveAttribute('aria-selected', 'true');
+  expect(await within(panel).findByText('voy por la izquierda')).toBeInTheDocument();
+  expect(within(panel).getByRole('textbox', { name: t.field })).toHaveAttribute('placeholder', t.placeholderRoom);
+  expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/chat/room')).toBe(true);
+});
+
 test('cada mensaje enseña su autor con enlace al perfil, su nivel, su clan y la hora', async () => {
   mount();
   const { log } = await open();

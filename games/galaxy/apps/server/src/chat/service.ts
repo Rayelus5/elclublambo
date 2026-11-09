@@ -18,20 +18,29 @@ import type { ChatHub } from './hub';
 // with TOTP) hide messages and mute accounts, audited (M6c-1). Messages are hidden, never deleted. Only the reports
 // after a message's last review count: a message a moderator kept visible needs new reports to be hidden again.
 
-export type ChatDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; hub: ChatHub };
+/** `roomOf`: the id of the room an account is in (rooms live in the server's memory); without it there is no room chat. */
+export type ChatDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date; hub: ChatHub; roomOf?: (accountId: string) => string | null };
 
 /** Staff signed in with TOTP moderate the chats (the panel's rule, `isStaff`). */
 export const isModerator = isStaff;
 
-/** The channel's key in the table: 'global', or 'clan:<id>' of the viewer's clan (403 when they have none). */
-async function channelKey(db: Kysely<DB>, accountId: string, channel: ChatChannel): Promise<string> {
+/**
+ * The channel's key in the table: 'global', 'clan:<id>' of the viewer's clan (403 when they have none), or 'room:<id>'
+ * of the room they are in (404 when they are in none: the room chat is only for its members, while they are).
+ */
+async function channelKey(deps: Pick<ChatDeps, 'db' | 'roomOf'>, accountId: string, channel: ChatChannel): Promise<string> {
   if (channel === 'global') return 'global';
-  const m = await db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', accountId).executeTakeFirst();
+  if (channel === 'room') {
+    const room = deps.roomOf?.(accountId) ?? null;
+    if (!room) throw new HttpError(404, 'room_not_found');
+    return `room:${room}`;
+  }
+  const m = await deps.db.selectFrom('galaxy.clan_members').select('clan_id').where('account_id', '=', accountId).executeTakeFirst();
   if (!m) throw new HttpError(403, 'clan_forbidden');
   return `clan:${m.clan_id}`;
 }
 
-export const asChannel = (key: string): ChatChannel => (key === 'global' ? 'global' : 'clan');
+export const asChannel = (key: string): ChatChannel => (key === 'global' ? 'global' : key.startsWith('room:') ? 'room' : 'clan');
 
 async function messagesWhere(db: Kysely<DB>, key: string, opts: { before?: string; id?: string; limit: number }, levels: (xp: number) => number): Promise<ChatMessage[]> {
   let q = db
@@ -62,7 +71,7 @@ async function muteOf(db: Kysely<DB>, accountId: string, now: Date): Promise<Dat
 
 export async function chatHistory(deps: ChatDeps, s: SessionInfo, channel: ChatChannel, before: string | undefined): Promise<ChatHistory> {
   const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
-  const key = await channelKey(deps.db, s.accountId, channel);
+  const key = await channelKey(deps, s.accountId, channel);
   const levels = (xp: number) => levelOf(xp, account).level;
   const messages = await messagesWhere(deps.db, key, { before, limit: chat.history }, levels);
   const level = levels(await accountXp(deps.db, s.accountId));
@@ -83,7 +92,7 @@ export async function chatHistory(deps: ChatDeps, s: SessionInfo, channel: ChatC
 
 export async function sendMessage(deps: ChatDeps, s: SessionInfo, channel: ChatChannel, raw: string): Promise<ChatMessage> {
   const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
-  const key = await channelKey(deps.db, s.accountId, channel);
+  const key = await channelKey(deps, s.accountId, channel);
   if (!isModerator(s) && levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) throw new HttpError(403, 'chat_level');
   if (await muteOf(deps.db, s.accountId, deps.now())) throw new HttpError(403, 'chat_muted');
   const body = cleanBody(raw, chat.maxLength);
@@ -185,8 +194,8 @@ export async function muteAudited(deps: ChatDeps, actor: AuditActor, s: SessionI
 export async function reportMessage(deps: ChatDeps, s: SessionInfo, id: string, reason: string | undefined): Promise<{ hidden: boolean }> {
   const [chat, account] = await Promise.all([deps.config.get('chat'), deps.config.get('account')]);
   const m = await visibleMessage(deps.db, id);
-  // A clan's message can only be reported by who can read it.
-  if (m.channel !== 'global' && (await channelKey(deps.db, s.accountId, 'clan')) !== m.channel) throw new HttpError(404, 'message_not_found');
+  // A clan's or a room's message can only be reported by who can read it.
+  if (m.channel !== 'global' && (await channelKey(deps, s.accountId, asChannel(m.channel)).catch(() => null)) !== m.channel) throw new HttpError(404, 'message_not_found');
   if (m.author_id === s.accountId) return { hidden: false };
   if (!isModerator(s) && levelOf(await accountXp(deps.db, s.accountId), account).level < chat.minLevel) return { hidden: false };
   await deps.db

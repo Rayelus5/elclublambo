@@ -799,6 +799,12 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Servidor:** reenvía el aviso por el socket de juego, fuera del registro sellado, así que la partida y las repeticiones no cambian. Como mucho admite un aviso cada 0,7 s por jugador, y quien ha abandonado ya no avisa.
    - **Comprobar** con dos cuentas en una sala: los dos ven los dos avisos.
 
+52. **Chat de sala (fase 6c):** migración `20261109190000_galaxy_room_chat.sql`, que se aplica sola al desplegar. Amplía el CHECK de `chat_messages.channel` con `room:<id>`.
+   - **Uso:** en una sala, el panel tiene «Chat de la sala» y el chat muestra una pestaña «Sala» mientras se está en ella.
+   - **Quién lo usa:** solo leen y escriben quienes están en la sala; al salir deja de llegar y su historial ya no se lee. Las reglas son las de siempre: nivel, silencios, límite por minuto, filtro y denuncias.
+   - **Moderación:** en «Chat en vivo» salen las salas con mensajes de los últimos 7 días.
+   - **Comprobar** con dos cuentas con nivel de chat en una sala: lo que escribe una lo lee la otra en «Sala».
+
 ## Operación
 
 | Tarea | Cómo |

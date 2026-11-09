@@ -13,8 +13,8 @@ export const MOD_PAGE_SIZE = 100;
 const reason = z.string().trim().min(3).max(300);
 const password = z.string().min(1).max(200);
 
-/** A chat as the tables key it: 'global' or 'clan:<id>'. */
-const channelKey = z.union([z.literal('global'), z.string().regex(/^clan:[0-9a-f-]{36}$/)]);
+/** A chat as the tables key it: 'global', 'clan:<id>' or 'room:<id>' (a group room's, phase 6c). */
+const channelKey = z.union([z.literal('global'), z.string().regex(/^(clan|room):[0-9a-f-]{36}$/)]);
 
 export const modChannelQuerySchema = z.object({ channel: channelKey, before: z.string().regex(/^\d{1,18}$/).optional() }).strict();
 export const modReasonSchema = z.object({ reason }).strict();

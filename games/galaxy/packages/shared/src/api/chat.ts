@@ -4,7 +4,7 @@ import { usernameSchema } from '../account';
 // The chats' API (GDD §14.4; M5b-2): the history of a channel and whether the viewer can write in it, sending,
 // reporting, and what the socket pushes (a new message or one taken down). Moderators hide messages and mute accounts.
 
-export const CHAT_CHANNELS = ['global', 'clan'] as const;
+export const CHAT_CHANNELS = ['global', 'clan', 'room'] as const;
 export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 
 export interface ChatMessage {

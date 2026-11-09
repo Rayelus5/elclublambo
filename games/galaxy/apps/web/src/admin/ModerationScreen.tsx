@@ -88,7 +88,7 @@ export function ModerationLayout() {
 /** A channel's name: the global chat, or a clan's tag and name (the live view's list of channels). */
 function useChannelLabel(): (key: string) => string {
   const channels = useModChannels();
-  return (key) => channels.data?.find((c) => c.key === key)?.label ?? (key === 'global' ? copy.hub.community : t.clanChannel);
+  return (key) => channels.data?.find((c) => c.key === key)?.label ?? (key === 'global' ? copy.hub.community : key.startsWith('room:') ? t.roomChannel : t.clanChannel);
 }
 
 function hiddenText(m: ModMessage): string | null {
