@@ -1412,6 +1412,40 @@
   .chat-top .iconbtn { --lip-h: 3px; width: 40px; height: 40px; }
   .chat-top .iconbtn:focus-visible, .chat-tabs button:focus-visible, .chat-log:focus-visible, .chat-action:focus-visible, .chat-author:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
   .chat-tabs { margin: 0; }
+  /* Friends (plan phase 3): the sheet shares the chat's frame. */
+  .chat-tabs.friends-tabs button { flex: 1 1 0; min-inline-size: 0; padding: 0 6px; font: 600 13px var(--font-sans); display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; }
+  .friends-count { display: inline-grid; place-items: center; min-inline-size: 20px; block-size: 20px; padding: 0 5px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font-size: 12px; font-weight: 800; }
+  .friends-body { min-block-size: 0; min-inline-size: 0; overflow: hidden auto; display: grid; grid-template-columns: minmax(0, 1fr); align-content: start; gap: 12px; padding-inline-end: 2px; }
+  .friends-body h3 { margin: 4px 0 6px; font-size: 14px; color: var(--color-ink-soft); }
+  .friends-add { display: grid; gap: 6px; }
+  .friends-add label { font-weight: 700; font-size: 14px; }
+  .friends-add > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .friends-add button { white-space: nowrap; }
+  .friends-add input { flex: 1; min-inline-size: 0; min-block-size: 40px; padding: 0 12px; border-radius: 12px; border: 2px solid var(--color-panel-lip); background: var(--color-panel-2); color: var(--color-ink); font: inherit; }
+  .friends-cap, .friends-empty { margin: 0; color: var(--color-ink-soft); font-size: 14px; }
+  .friends-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .friend { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--color-panel-2); }
+  .friend-dot { inline-size: 10px; block-size: 10px; border-radius: 50%; background: var(--color-ink-mute); }
+  .friend.on .friend-dot { background: var(--color-terminal); box-shadow: 0 0 8px color-mix(in oklab, var(--color-terminal) 70%, transparent); }
+  .friend-main { display: grid; min-inline-size: 0; }
+  .friend-name { font-weight: 800; color: var(--color-ink); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  a.friend-name:hover { text-decoration: underline; }
+  .friend-meta, .friend-status { font-size: 13px; color: var(--color-ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .friend.on .friend-status { color: var(--color-terminal); }
+  .friend-actions { display: flex; gap: 6px; }
+  .friends-privacy { display: grid; gap: 10px; }
+  .friends-privacy label:not(.check) { font-weight: 700; }
+  .friends-privacy select { min-block-size: 44px; border-radius: 12px; padding: 0 12px; background: var(--color-panel-2); color: var(--color-ink); border: 2px solid var(--color-panel-lip); font: inherit; }
+  .friends-privacy .check { display: flex; gap: 10px; align-items: center; }
+  .friends-privacy input[type='checkbox'] { inline-size: 20px; block-size: 20px; accent-color: var(--color-solar); }
+  .friends-button { position: relative; }
+  .friends-online { display: inline-grid; place-items: center; min-inline-size: 20px; block-size: 20px; padding: 0 5px; border-radius: 99px; background: var(--color-terminal); color: var(--color-on-terminal); font-size: 12px; font-weight: 800; }
+  .friends-request { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--color-solar); box-shadow: 0 0 0 2px var(--color-panel-lip); }
+  .live-toasts { position: fixed; z-index: 45; inset-inline-start: 16px; inset-block-end: 16px; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-inline-size: min(460px, calc(100vw - 32px)); }
+  .live-toast { --r: 18px; --lip-h: 4px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--color-panel); animation: chat-in .24s cubic-bezier(.2, .8, .2, 1) both; }
+  .live-toast > span { flex: 1; font-weight: 700; }
+  .live-toast > .ico { color: var(--color-terminal); }
+  @media (prefers-reduced-motion: reduce) { .live-toast { animation: none; } }
   .chat-tabs button { flex: 1; height: 40px; border: 0; border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 15px var(--font-sans); cursor: pointer; transition: background .15s, color .15s; }
   .chat-tabs button:hover { color: var(--color-ink); }
   .chat-tabs button[aria-selected="true"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }

@@ -16,7 +16,7 @@ import { createSession, revokeSession, rolesOf } from './sessions';
 import { verifyTotp } from './totp';
 import { accountLevel } from '../social/progress';
 
-export type AuthDeps = { env: Env; db: Kysely<DB>; config: ConfigReader; now: () => Date };
+export type AuthDeps = { env: Env; db: Kysely<DB>; config: ConfigReader; now: () => Date; onLogout?: (sessionId: string) => void };
 
 const DAY = 24 * 3600;
 const TEN_MIN = 600;
@@ -125,6 +125,8 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
 
   app.post('/galaxy/api/auth/logout', async (req, reply) => {
     if (req.sessionToken) await revokeSession(db, req.sessionToken);
+    // The live sockets of this session close too (plan phase 3).
+    if (req.session) deps.onLogout?.(req.session.sessionId);
     clearSessionCookie(reply);
     return reply.code(204).send();
   });

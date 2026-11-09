@@ -15,6 +15,9 @@ import { registerPlanetariumRoutes } from './planetarium/routes';
 import { registerSocialRoutes } from './social/routes';
 import { registerClanRoutes } from './clans/routes';
 import { ChatHub } from './chat/hub';
+import { LiveHub } from './realtime/live-hub';
+import { registerFriendRoutes } from './social/friend-routes';
+import { friendIdsOf, prefsOf } from './social/friends';
 import { registerChatRoutes } from './chat/routes';
 import { registerMarketRoutes } from './market/routes';
 import { registerTradeRoutes } from './market/trade-routes';
@@ -96,7 +99,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerSessionReader(api, deps.db, now);
     registerMaintenanceGate(api, config);
     registerHealth(api, deps.db);
-    registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now });
+    // The live hub is made further down; a logout only happens once the app is up.
+    registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now, onLogout: (id) => live.dropSession(id) });
     registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
     registerGachaRoutes(api, { db: deps.db, config, now });
     registerCollectionRoutes(api, { db: deps.db, config });
@@ -108,10 +112,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerClanRoutes(api, { db: deps.db, config, now });
     const hub = new ChatHub(deps.db);
     api.addHook('onClose', async () => hub.close());
+    // Plan phase 3: the live socket (friends, presence, later rooms), beside the chat's.
+    const live = new LiveHub({ friendsOf: (id) => friendIdsOf(deps.db, id), showsStatus: async (id) => (await prefsOf(deps.db, id)).showStatus });
+    api.addHook('onClose', async () => live.close());
+    registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
+    // A ban or closed sessions drop both kinds of socket; the statistics count both.
+    const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
     registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });
     registerMarketRoutes(api, { db: deps.db, config, now });
     registerTradeRoutes(api, { db: deps.db, config, now });
-    registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub });
+    registerAdminRoutes(api, { db: deps.db, config, env: deps.env, hub: sockets });
     registerModerationRoutes(api, { db: deps.db, config, env: deps.env, hub, now });
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });
     registerMailRoutes(api, { db: deps.db, config, now });
@@ -122,7 +132,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerTutorialRoutes(api, { db: deps.db, config });
     registerSeasonRoutes(api, { db: deps.db, config, now });
     registerCommunicationRoutes(api, { db: deps.db, config, env: deps.env, now });
-    registerStatsRoutes(api, { db: deps.db, config, hub, now });
+    registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
   });

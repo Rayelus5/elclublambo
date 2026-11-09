@@ -21,6 +21,7 @@ const COLUMNS: Record<AdminSectionName, string[]> = {
   runs: ['at', 'sector', 'probe', 'outcome', 'seconds', 'depth', 'kills', 'suspicious', 'flags'],
   market: ['at', 'kind', 'status', 'detail'],
   chat: ['at', 'channel', 'body', 'hidden'],
+  social: ['at', 'kind', 'username'],
 };
 
 type Action = { key: string; title: string; path: string; fields?: FieldSpec[]; password: (v: Record<string, string>) => boolean; build?: (v: Record<string, string>) => Record<string, unknown>; code?: boolean };
@@ -127,7 +128,7 @@ function Section({ username, name, onRevoke }: { username: string; name: AdminSe
   return (
     <>
       <DataTable
-        rows={s.data.rows}
+        rows={name === 'social' ? s.data.rows.map((r) => ({ ...r, kind: t.socialKinds[String(r['kind'])] ?? r['kind'] })) : s.data.rows}
         columns={COLUMNS[name]}
         action={
           name === 'galaxies'

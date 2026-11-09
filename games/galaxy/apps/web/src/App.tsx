@@ -34,6 +34,9 @@ import { ProfileScreen } from './social/ProfileScreen';
 import { PublicCollectionScreen } from './social/PublicCollectionScreen';
 import { ScannerScreen } from './scanner/ScannerScreen';
 import { ChatHost } from './chat/ChatPanel';
+import { LiveConnection } from './live/LiveConnection';
+import { FriendsHost } from './social/FriendsPanel';
+import { FriendToasts } from './social/FriendToasts';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
@@ -166,6 +169,9 @@ export function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <ChatHost />
+      <FriendsHost />
+      <FriendToasts />
+      <LiveConnection />
       <TrailTracker />
     </>
   );

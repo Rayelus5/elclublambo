@@ -16,7 +16,7 @@ import { ADVANCED_KEYS, CATEGORIES, JSON_ONLY, KEY_INFO } from './forms/labels';
 import { cellText } from './DataTable';
 
 const t = copy.admin.config;
-const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 'trades', 'chat'] as const;
+const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 'trades', 'chat', 'friends'] as const;
 const pctFmt = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (x: number) => `${pctFmt.format(x * 100)} %`;
 const oneDecimal = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });

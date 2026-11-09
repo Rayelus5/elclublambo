@@ -10,12 +10,19 @@ type UiState = {
   chat: ChatChannel | null;
   openChat: (channel: ChatChannel) => void;
   closeChat: () => void;
+  /** The friends sheet (plan phase 3); it and the chat share the right side, so opening one closes the other. */
+  friends: boolean;
+  openFriends: () => void;
+  closeFriends: () => void;
 };
 
 export const useUi = create<UiState>((set) => ({
   maintenance: false,
   setMaintenance: (on) => set({ maintenance: on }),
   chat: null,
-  openChat: (channel) => set({ chat: channel }),
+  openChat: (channel) => set({ chat: channel, friends: false }),
   closeChat: () => set({ chat: null }),
+  friends: false,
+  openFriends: () => set({ friends: true, chat: null }),
+  closeFriends: () => set({ friends: false }),
 }));

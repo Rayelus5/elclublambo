@@ -2,6 +2,7 @@ import type { MeResponse, Wallet } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { isAdmin, isStaff } from '../auth/useMe';
+import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
 import { copy } from '../copy/es';
@@ -32,6 +33,12 @@ export function TopBar({
   const chatOpen = useUi((s) => s.chat !== null);
   const openChat = useUi((s) => s.openChat);
   const closeChat = useUi((s) => s.closeChat);
+  const friendsOpen = useUi((s) => s.friends);
+  const openFriends = useUi((s) => s.openFriends);
+  const closeFriends = useUi((s) => s.closeFriends);
+  const friends = useFriends().data;
+  const online = friends?.friends.filter((f) => f.presence.status === 'online').length ?? 0;
+  const requests = friends?.incoming.length ?? 0;
   return (
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
@@ -54,6 +61,24 @@ export function TopBar({
         >
           <Icon name="chat" />
           <span className="label">{copy.hub.community}</span>
+        </button>
+        <button
+          type="button"
+          className="lip pill fold enter friends-button"
+          style={delay('1.08s')}
+          aria-haspopup="dialog"
+          aria-expanded={friendsOpen}
+          aria-label={copy.friends.buttonLabel(online, requests)}
+          onClick={() => (friendsOpen ? closeFriends() : openFriends())}
+        >
+          <Icon name="clan" />
+          <span className="label">{copy.friends.button}</span>
+          {online > 0 ? (
+            <span className="friends-online" aria-hidden="true">
+              {online}
+            </span>
+          ) : null}
+          {requests > 0 ? <span className="friends-request" aria-hidden="true" /> : null}
         </button>
       </nav>
       <div className="group">

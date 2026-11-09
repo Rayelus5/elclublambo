@@ -712,6 +712,22 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - Como mucho hace 100 fusiones por vez.
      - En el libro de movimientos quedan como `fusion` con `ref.auto`.
 
+45. **Multijugador, fase 3 (amigos, presencia e invitaciones):** migración `20261109160000_galaxy_friends.sql`, que se aplica sola al desplegar. Crea `friendships`, `blocks` y `social_prefs`.
+   - **El botón Amigos** de la barra superior abre una hoja con cuatro pestañas:
+     - Amigos: los conectados primero, con lo que hacen (en la estación, en el hangar o en una incursión con su capa);
+     - Solicitudes;
+     - Bloqueados;
+     - Privacidad: quién puede invitarte y si se ve tu estado.
+   - **Socket vivo** en `/galaxy/api/live/ws`: pasa por el túnel como el del chat. Si se queda sin conectar, revisa que Cloudflare tenga los WebSockets activos.
+     - Una solicitud llega al momento como aviso, que se puede aceptar ahí mismo.
+     - Al cerrar sesión, banear o cerrar sesiones, sus sockets se cierran.
+   - **Bloqueos:** un bloqueo vale en las dos direcciones y no se revela: para el bloqueado, la cuenta parece no existir.
+   - **El perfil** gana «Añadir amigo», «Aceptar», «Quitar amigo» y «Bloquear».
+   - **Admin:**
+     - clave nueva `social` (`maxFriends`, `requestsPerHour`) y el interruptor `features.friends` en Configuración;
+     - pestaña Social en la ficha del jugador, con amigos, solicitudes y bloqueos en los dos sentidos;
+     - las estadísticas cuentan los sockets de los dos tipos.
+
 ## Operación
 
 | Tarea | Cómo |
