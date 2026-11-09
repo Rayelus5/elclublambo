@@ -36,7 +36,7 @@ export const CATEGORIES: Category[] = [
   { id: 'events', title: 'Eventos y multiplicadores', description: 'Metas por tiempo limitado y pagos dobles de fin de semana. Los eventos se crean mejor desde Eventos', icon: 'target', keys: ['events', 'boosts'] },
   { id: 'missions', title: 'Misiones y logros', description: 'Lo que sale cada día y cada semana, los logros y el álbum', icon: 'list', keys: ['missions', 'achievements', 'catalog'] },
   { id: 'gacha', title: 'Escáner', description: 'Probabilidades, garantías, precios y escáneres activos', icon: 'radar', keys: ['gacha'] },
-  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'clans', 'market'] },
+  { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
   {
     id: 'advanced',
@@ -65,6 +65,7 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   station: { title: 'Estación', description: 'Niveles de la refinería, la antena y el laboratorio' },
   account: { title: 'Nivel de cuenta', description: 'Experiencia por incursión y lo que pide cada nivel' },
   chat: { title: 'Chat', description: 'Quién escribe, cuánto y qué palabras se filtran' },
+  social: { title: 'Amigos', description: 'Cuántos amigos puede tener cada jugador y cuántas solicitudes envía por hora' },
   market: { title: 'Mercado', description: 'Precios, comisión, límites diarios y avisos' },
   clans: { title: 'Clanes', description: 'Miembros, coste y requisitos' },
   season: { title: 'Temporada', description: 'Nombre, fechas, puntos, rangos, anomalía y acabado exclusivo' },
@@ -224,6 +225,10 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'xp.capPerMinute': { label: 'Tope por minuto' },
     minRunSeconds: { label: 'Duración mínima para contar', unit: 'seconds' },
     levels: { label: 'Experiencia para cada nivel', items: level(2) },
+  },
+  social: {
+    maxFriends: { label: 'Amigos como máximo' },
+    requestsPerHour: { label: 'Solicitudes por hora', hint: 'Cuántas solicitudes de amistad puede enviar un jugador cada hora' },
   },
   chat: {
     minLevel: { label: 'Nivel para escribir' },

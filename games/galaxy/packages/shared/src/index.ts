@@ -30,6 +30,7 @@ export * from './clans/rules';
 export * from './api/clans';
 export * from './chat/rules';
 export * from './api/chat';
+export * from './api/friends';
 export * from './market/rules';
 export * from './api/market';
 export * from './api/trade';

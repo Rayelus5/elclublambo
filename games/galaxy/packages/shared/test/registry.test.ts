@@ -3,7 +3,7 @@ import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { parseConfig } from '../src/index';
 
 test('features y auth tienen valores por defecto', () => {
-  expect(parseConfig('features', {})).toEqual({ registrationOpen: true, maintenance: false, gacha: true, runs: true, market: true, trades: true, chat: true });
+  expect(parseConfig('features', {})).toEqual({ registrationOpen: true, maintenance: false, gacha: true, runs: true, market: true, trades: true, chat: true, friends: true });
   expect(parseConfig('auth', {})).toEqual({
     sessionDays: 30,
     adminSessionHours: 12,
@@ -25,7 +25,7 @@ test('auth rechaza valores fuera de rango o no enteros', () => {
 
 test('features rechaza tipos incorrectos y conserva los valores dados', () => {
   expect(() => parseConfig('features', { maintenance: 'sí' })).toThrow();
-  expect(parseConfig('features', { maintenance: true })).toEqual({ registrationOpen: true, maintenance: true, gacha: true, runs: true, market: true, trades: true, chat: true });
+  expect(parseConfig('features', { maintenance: true })).toEqual({ registrationOpen: true, maintenance: true, gacha: true, runs: true, market: true, trades: true, chat: true, friends: true });
 });
 
 test('una clave desconocida lanza', () => {

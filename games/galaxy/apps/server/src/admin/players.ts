@@ -253,6 +253,37 @@ export async function playerSection(deps: AdminDeps, username: string, name: Adm
     ].sort((x, y) => (x.at! < y.at! ? 1 : -1));
     return { rows: all.slice(off, off + PAGE), page, pages: pages(all.length) };
   }
+  if (name === 'social') {
+    // Plan phase 3: friends, requests both ways and blocks both ways (who blocked whom).
+    const friends = await db
+      .selectFrom('galaxy.friendships as f')
+      .innerJoin('galaxy.accounts as o', (j) => j.on(sql<boolean>`o.id = case when f.a = ${a.id}::uuid then f.b else f.a end`))
+      .select(['o.username', 'f.status', 'f.requested_by', 'f.created_at', 'f.accepted_at'])
+      .where((eb) => eb.or([eb('f.a', '=', a.id), eb('f.b', '=', a.id)]))
+      .execute();
+    const blocks = await db
+      .selectFrom('galaxy.blocks as k')
+      .innerJoin('galaxy.accounts as x', 'x.id', 'k.blocker')
+      .innerJoin('galaxy.accounts as y', 'y.id', 'k.blocked')
+      .select(['x.username as blocker', 'y.username as blocked', 'k.created_at', 'k.blocker as blockerId'])
+      .where((eb) => eb.or([eb('k.blocker', '=', a.id), eb('k.blocked', '=', a.id)]))
+      .execute();
+    const all = [
+      ...friends.map((f) => ({
+        id: `f:${f.username}`,
+        at: iso(f.accepted_at ?? f.created_at),
+        kind: f.status === 'accepted' ? 'friend' : f.requested_by === a.id ? 'request_out' : 'request_in',
+        username: f.username,
+      })),
+      ...blocks.map((b) => ({
+        id: `b:${b.blocker}:${b.blocked}`,
+        at: iso(b.created_at),
+        kind: b.blockerId === a.id ? 'blocks' : 'blocked_by',
+        username: b.blockerId === a.id ? b.blocked : b.blocker,
+      })),
+    ].sort((x, y) => String(y.at).localeCompare(String(x.at)));
+    return { rows: all.slice(off, off + PAGE), page, pages: pages(all.length) };
+  }
   const total = await count(db, 'galaxy.chat_messages', 'author_id', a.id);
   const rows = await db.selectFrom('galaxy.chat_messages').select(['id', 'created_at', 'channel', 'body', 'hidden_at']).where('author_id', '=', a.id).orderBy('id', 'desc').limit(PAGE).offset(off).execute();
   return { rows: rows.map((r) => ({ id: String(r.id), at: iso(r.created_at), channel: r.channel, body: r.body, hidden: r.hidden_at !== null })), page, pages: pages(total.n) };

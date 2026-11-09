@@ -9,7 +9,7 @@ import type { DB } from '../db/schema';
 // (empty ones filled), the ledger's flows in and out by currency and reason, pulls by tier against the live gacha
 // config's expected shares, market and trade volume, and what waits for review. Each section also renders as CSV.
 
-export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: ChatHub; now: () => Date };
+export type StatsDeps = { db: Kysely<DB>; config: ConfigReader; hub: Pick<ChatHub, 'size'>; now: () => Date };
 
 const HOUR = 3_600_000;
 const DAY = 86_400_000;

@@ -89,7 +89,7 @@ export interface AdminPlayer {
   probes: { probe: string; level: number }[];
 }
 
-export const ADMIN_SECTIONS = ['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat'] as const;
+export const ADMIN_SECTIONS = ['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat', 'social'] as const;
 export type AdminSectionName = (typeof ADMIN_SECTIONS)[number];
 
 /** A page of one of a player's histories, as table rows with the same keys each (newest first). */

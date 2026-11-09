@@ -20,6 +20,7 @@ import type { Camera } from './stage/camera';
 import { createStage, type Stage } from './stage/stage';
 import { useUi } from '../state/ui';
 import { typing } from '../ui/keys';
+import { useLive } from '../live/LiveConnection';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
 // stage, with the React HUD on top. Pause with Escape, P or Start, and automatically when the tab hides or the
@@ -101,6 +102,11 @@ export function ArenaScreen({
   }, [radio]);
   // The tour's first run starts here (polish phase 3).
   useEffect(() => emitTour('run:started'), []);
+  // Friends see «in a run, layer N» while it lasts (plan phase 3).
+  useEffect(() => {
+    useLive.getState().setRun({ layer: hud.layer });
+  }, [hud.layer]);
+  useEffect(() => () => useLive.getState().setRun(null), []);
 
   useEffect(() => {
     onSim?.(sim);

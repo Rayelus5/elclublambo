@@ -533,6 +533,29 @@ export interface ClanRequestsTable {
 }
 
 /** The experience each account's runs gave (bigint, read as a decimal string; M5a). */
+/** Plan phase 3: friendships (one row per ordered pair), blocks and the social preferences. */
+export interface FriendshipsTable {
+  a: string;
+  b: string;
+  status: 'pending' | 'accepted';
+  requested_by: string;
+  created_at: Timestamp;
+  accepted_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface BlocksTable {
+  blocker: string;
+  blocked: string;
+  created_at: Timestamp;
+}
+
+export interface SocialPrefsTable {
+  account_id: string;
+  invites: string;
+  show_status: boolean;
+  updated_at: Timestamp;
+}
+
 export interface AccountXpTable {
   account_id: string;
   xp: BigNum;
@@ -644,6 +667,9 @@ export interface DB {
   'galaxy.clan_event_progress': ClanEventProgressTable;
   'galaxy.redshift': RedshiftTable;
   'galaxy.tutorial': TutorialTable;
+  'galaxy.friendships': FriendshipsTable;
+  'galaxy.blocks': BlocksTable;
+  'galaxy.social_prefs': SocialPrefsTable;
   'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
   'galaxy.account_xp': AccountXpTable;

@@ -10,6 +10,7 @@ import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
 import { ClanEmblem } from '../clans/ClanEmblem';
 import { TierEmblem } from './parts';
+import { useFriendAction, useRelation } from '../api/friends';
 import { useTrades } from '../api/trades';
 import { TradeComposer } from '../trades/TradeComposer';
 import { HomeLink } from '../ui/BackLink';
@@ -171,6 +172,7 @@ export function ProfileScreen() {
             </section>
             {viewer && viewer !== p.username ? (
               <div className="profile-actions">
+                <FriendButtons username={p.username} />
                 <button type="button" className="lip pill pill-solar" aria-haspopup="dialog" onClick={() => setProposing(true)}>
                   <Icon name="flip" />
                   <span>{copy.trades.propose}</span>
@@ -194,5 +196,59 @@ export function ProfileScreen() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * Friendship from a profile (plan phase 3): add, the request sent, accept theirs, already friends (remove), and block
+ * or unblock. A block by them reads as nothing between us, so it is never revealed.
+ */
+function FriendButtons({ username }: { username: string }) {
+  const relation = useRelation(username);
+  const action = useFriendAction();
+  const f = copy.friends.profile;
+  const r = relation.data?.relation;
+  if (!r) return null;
+  const run = (kind: 'request' | 'accept' | 'remove' | 'block' | 'unblock') => action.mutate({ username, action: kind });
+  return (
+    <>
+      {r === 'none' ? (
+        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('request')}>
+          <Icon name="plus" />
+          <span>{f.add}</span>
+        </button>
+      ) : r === 'outgoing' ? (
+        <button type="button" className="lip pill" disabled>
+          <Icon name="check" />
+          <span>{f.sent}</span>
+        </button>
+      ) : r === 'incoming' ? (
+        <button type="button" className="lip pill pill-solar" disabled={action.isPending} onClick={() => run('accept')}>
+          <Icon name="check" />
+          <span>{f.accept}</span>
+        </button>
+      ) : r === 'friends' ? (
+        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('remove')}>
+          <Icon name="clan" />
+          <span>{f.remove}</span>
+        </button>
+      ) : null}
+      {r === 'blocked' ? (
+        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('unblock')}>
+          <Icon name="lock" />
+          <span>{f.unblock}</span>
+        </button>
+      ) : (
+        <button type="button" className="lip pill" disabled={action.isPending} onClick={() => run('block')}>
+          <Icon name="lock" />
+          <span>{f.block}</span>
+        </button>
+      )}
+      {action.isError ? (
+        <p className="field-error" role="alert">
+          {errorText(action.error, copy.errors)}
+        </p>
+      ) : null}
+    </>
   );
 }

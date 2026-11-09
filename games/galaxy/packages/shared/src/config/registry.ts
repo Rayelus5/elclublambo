@@ -77,6 +77,8 @@ export const configSchemas = {
       market: z.boolean().default(true),
       trades: z.boolean().default(true),
       chat: z.boolean().default(true),
+      /** Plan phase 3: friends, presence and invites. */
+      friends: z.boolean().default(true),
     })
     .strict(),
   auth: z.object({
@@ -476,6 +478,13 @@ export const configSchemas = {
     .strict()
     .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
+  /** Friends (multiplayer plan, phase 3): how many an account may have, and how many requests it may send per hour. */
+  social: z
+    .object({
+      maxFriends: z.number().int().min(10).max(1000).default(200),
+      requestsPerHour: z.number().int().min(1).max(500).default(20),
+    })
+    .strict(),
   clans: z
     .object({
       maxMembers: z.number().int().min(5).max(100).default(30),
