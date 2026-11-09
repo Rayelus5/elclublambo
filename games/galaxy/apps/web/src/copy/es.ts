@@ -82,7 +82,7 @@ function seasonReward(r: { coins: number; dust: number; signal: number; shards: 
 export const copy = {
   brand: 'Galaxy Survivor',
   brailleBrand: '⠛⠁⠇⠁⠭⠽ ⠎⠥⠗⠧⠊⠧⠕⠗',
-  beta: 'Beta',
+  beta: 'Beta Abierta',
   tabs: { entrar: 'Entrar', crear: 'Crear cuenta' },
   fields: {
     username: 'Usuario',

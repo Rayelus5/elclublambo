@@ -23,6 +23,9 @@ export function scaleAt(sim: Sim): Scale & { elite: number } {
     speed: 1 + s.speedPerLayer * deeper,
     elite,
   };
+  // The sector's own toughness (open beta): 1 for content published before.
+  scale.hp *= sim.sector.enemyHp;
+  scale.damage *= sim.sector.enemyDamage;
   // Co-op (multiplayer plan): tougher by the players in the run; 1 in solo.
   scale.hp *= coopFactor(sim, 'enemyHp');
   scale.damage *= coopFactor(sim, 'enemyDamage');

@@ -19,6 +19,8 @@ export function tinyContent(over?: (c: Content) => void): Content {
   c.enemies.push({ id: 'dummy', name: 'Diana', family: 'swarm', sprite: 'mite', hp: 10, speed: 0, damage: 10, radius: 6, xp: 20, behavior: { kind: 'chase' } });
   const s = c.sectors[0]!;
   s.layerSeconds = 100_000;
+  s.enemyHp = 1;
+  s.enemyDamage = 1;
   s.spawns = s.spawns.map((sp) => ({ ...sp, from: 1_000_000 }));
   s.waves = [];
   s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };

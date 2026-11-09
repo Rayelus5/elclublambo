@@ -180,6 +180,9 @@ const sector = z
     // Defaults keep a content published before M3b-3 valid.
     deepBoss: z.object({ boss: id, every: z.number().int().min(2).max(100) }).strict().nullable().default(null),
     season: z.boolean().default(false),
+    // Open beta: the sector's own toughness, on top of its scaling (first sector easiest, the season's hardest).
+    enemyHp: z.number().min(0.25).max(4).default(1),
+    enemyDamage: z.number().min(0.25).max(4).default(1),
     layerSeconds: pos,
     beacon: z.object({ seconds: pos, hold: pos, radius: pos, distance: n }).strict(),
     spawns: z
