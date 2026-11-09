@@ -21,6 +21,8 @@ import { StatsScreen } from './admin/StatsScreen';
 import { RunsScreen } from './admin/RunsScreen';
 import { ReplayScreen } from './admin/ReplayScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
+import { EventsScreen } from './admin/events/EventsScreen';
+import { EventWizardScreen } from './admin/events/EventWizard';
 import { ClanList, ClanPage } from './admin/ModClans';
 import { Alerts, Commerce } from './admin/ModMarket';
 import { LiveChat, ModerationLayout, Mutes, Reports } from './admin/ModerationScreen';
@@ -133,6 +135,8 @@ export function App() {
             <Route path="auditoria" element={<AuditScreen />} />
             <Route path="configuracion" element={<ConfigScreen />} />
             <Route path="configuracion/:key" element={<ConfigKeyScreen />} />
+            <Route path="eventos" element={<EventsScreen />} />
+            <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
             <Route path="partidas" element={<RunsScreen />} />

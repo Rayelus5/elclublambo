@@ -683,6 +683,19 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Comprueba el tour completo con una cuenta nueva.
 
+42. **Pulido, fase 4 (admin sin código):** sin migraciones.
+   - **Configuración:** la portada agrupa las claves por categorías con su nombre y para qué sirven.
+     - Cada clave se edita con un formulario: números con su unidad y rango, porcentajes de 0 a 100, opciones con nombres, fechas en tu hora con su UTC, y listas de tarjetas.
+     - Cada campo dice su problema, y «Qué cambia» habla con los nombres del formulario.
+     - Avanzado avisa y conserva la pestaña JSON; el contenido de las incursiones solo se edita en JSON.
+   - **Eventos:** sección nueva del panel, con los eventos en marcha, próximos y terminados.
+     - Un asistente de cinco pasos crea o edita un evento: datos, metas, premios, escáner opcional y revisar, con la vista del jugador.
+     - El evento y su escáner se publican juntos, todo o nada, con `POST /galaxy/api/admin/config/batch`, que solo admite eventos, escáner, multiplicadores y misiones.
+     - Avisa sin bloquear de señales de evento sin escáner y de escáneres sin evento o con otras fechas.
+     - Desde la lista se puede terminar un evento ahora o quitarlo.
+
+   Lo comprueba el propietario con su admin. Las cuentas de admin se crean por SSH.
+
 ## Operación
 
 | Tarea | Cómo |

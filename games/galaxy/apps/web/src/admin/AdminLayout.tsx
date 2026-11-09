@@ -33,6 +33,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/configuracion">{t.sections.config}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/eventos">{t.sections.events}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/comunicacion">{t.sections.communication}</NavLink>
                 </li>
                 <li>

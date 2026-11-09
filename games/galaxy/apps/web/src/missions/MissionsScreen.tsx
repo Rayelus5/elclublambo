@@ -37,8 +37,8 @@ function Progress({ label, progress, target }: { label: string; progress: number
   );
 }
 
-/** The events running now (M7e-1): each with its personal goals and its clan goals. */
-function Events({ events, pending, onClaim }: { events: EventView[]; pending: boolean; onClaim: (period: string, id: string) => void }) {
+/** The events running now (M7e-1): each with its personal goals and its clan goals. The admin's wizard previews with it. */
+export function EventsList({ events, pending, onClaim }: { events: EventView[]; pending: boolean; onClaim: (period: string, id: string) => void }) {
   if (events.length === 0) return <p className="panel-note">{t.noEvent}</p>;
   return (
     <>
@@ -120,7 +120,7 @@ export function MissionsScreen() {
           </p>
         ) : null}
         <div role="tabpanel" aria-label={t.tabs[tab]}>
-          {v && tab === 'events' ? <Events events={v.events} pending={claim.isPending} onClaim={(period, id) => claim.mutate({ kind: 'mission', period, id })} /> : null}
+          {v && tab === 'events' ? <EventsList events={v.events} pending={claim.isPending} onClaim={(period, id) => claim.mutate({ kind: 'mission', period, id })} /> : null}
           {v && tab !== 'achievements' && tab !== 'events' ? (
             period ? (
               <>

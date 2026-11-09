@@ -127,6 +127,82 @@ describe('publicar', () => {
   });
 });
 
+describe('publicar varias claves a la vez (pulido, fase 4)', () => {
+  const batch = (body: object) => post(ctx.app, A('/batch'), body, { cookie: admin.cookie });
+  const event = (id: string) => ({
+    id,
+    name: 'Lluvia de cometas',
+    description: 'Una semana de cometas',
+    startsAt: '2027-03-01T00:00:00.000Z',
+    endsAt: '2027-03-08T00:00:00.000Z',
+    goals: [{ id: 'kills', name: 'Elimina 500', stat: 'kills', target: 500, reward: { eventSignals: 5 } }],
+  });
+  const banner = (id: string) => ({ id, kind: 'event', name: 'Escáner de cometas', pityGroup: `event-${id}`, currency: `signal:${id}`, featured: { trait: 'phenomenon', value: 'comet' } });
+
+  test('el evento y su escáner salen juntos: una versión y una auditoría por clave, con el mismo momento, autor y motivo', async () => {
+    const gacha = parseConfig('gacha', {});
+    const [ev, ga] = [await lastVersion('events'), await lastVersion('gacha')];
+    const res = await batch({
+      items: [
+        { key: 'events', data: { list: [event('cometas')] }, baseVersion: ev },
+        { key: 'gacha', data: { banners: [...gacha.banners, banner('cometas')] }, baseVersion: ga },
+      ],
+      reason: 'Evento de cometas',
+      password: admin.password,
+    });
+    expect(res.statusCode).toBe(201);
+    expect(res.json()).toEqual({ versions: { events: ev + 1, gacha: ga + 1 } });
+    const audit = await trx
+      .selectFrom('galaxy.admin_audit_log')
+      .select(['target_id', 'at', 'actor_label', 'reason'])
+      .where('action', '=', 'config.published')
+      .where('reason', '=', 'Evento de cometas')
+      .execute();
+    expect(audit.map((a) => a.target_id).sort()).toEqual(['events', 'gacha']);
+    expect(new Set(audit.map((a) => a.at.toISOString())).size).toBe(1);
+    expect(audit.every((a) => a.actor_label === admin.username)).toBe(true);
+  });
+
+  test('todo o nada: si una clave no vale, no se publica ninguna y cada problema dice su clave', async () => {
+    const [ev, ga] = [await lastVersion('events'), await lastVersion('gacha')];
+    const res = await batch({
+      items: [
+        { key: 'events', data: { list: [event('nada')] } },
+        { key: 'gacha', data: { banners: [{ ...banner('nada'), featured: undefined }] } },
+      ],
+      reason: 'Evento roto',
+      password: admin.password,
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({ error: 'config_invalid', issues: [expect.objectContaining({ key: 'gacha' })] });
+    expect([await lastVersion('events'), await lastVersion('gacha')]).toEqual([ev, ga]);
+  });
+
+  test('si una clave cambió mientras se editaba, 409 dice cuál y no se publica nada', async () => {
+    const [ev, ga] = [await lastVersion('events'), await lastVersion('gacha')];
+    const res = await batch({
+      items: [
+        { key: 'events', data: { list: [] }, baseVersion: ev },
+        { key: 'gacha', data: { dailyFree: false }, baseVersion: ga - 1 },
+      ],
+      reason: 'Tarde',
+      password: admin.password,
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json()).toEqual({ error: 'config_conflict', key: 'gacha' });
+    expect([await lastVersion('events'), await lastVersion('gacha')]).toEqual([ev, ga]);
+  });
+
+  test('solo eventos, escáner, multiplicadores y misiones; con motivo y la contraseña del admin', async () => {
+    const season = await batch({ items: [{ key: 'season', data: { name: 'Otra' } }], reason: 'No', password: admin.password });
+    expect(season.statusCode).toBe(400);
+    const twice = await batch({ items: [{ key: 'events', data: {} }, { key: 'events', data: {} }], reason: 'No', password: admin.password });
+    expect(twice.statusCode).toBe(400);
+    expect((await batch({ items: [{ key: 'boosts', data: { list: [] } }], reason: 'Sin clave', password: 'mal' })).json()).toEqual({ error: 'password_wrong' });
+    expect((await post(ctx.app, A('/batch'), { items: [{ key: 'boosts', data: { list: [] } }], reason: 'Jugador', password: 'x' }, { cookie: await player() })).statusCode).toBe(403);
+  });
+});
+
 describe('los interruptores', () => {
   test('apagar el mercado, el trueque y el chat cierra sus escrituras al momento; leer sigue funcionando', async () => {
     const cookie = await player();

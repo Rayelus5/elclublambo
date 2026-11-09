@@ -132,5 +132,6 @@ export function fixedConfig(overrides: Partial<Record<ConfigKey, unknown>>): Con
     versions: async () => [],
     active: async () => [],
     publish: async () => ({ version: 0 }),
+    publishMany: async () => ({ versions: {} }),
   } as ConfigService;
 }

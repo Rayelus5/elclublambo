@@ -33,7 +33,7 @@ export interface Category {
 
 export const CATEGORIES: Category[] = [
   { id: 'season', title: 'Temporada', description: 'Fechas, puntos, anomalía, ruta y tienda de la temporada', icon: 'podium', keys: ['season', 'seasonRoute'] },
-  { id: 'events', title: 'Eventos y multiplicadores', description: 'Metas por tiempo limitado y pagos dobles de fin de semana', icon: 'target', keys: ['events', 'boosts'] },
+  { id: 'events', title: 'Eventos y multiplicadores', description: 'Metas por tiempo limitado y pagos dobles de fin de semana. Los eventos se crean mejor desde Eventos', icon: 'target', keys: ['events', 'boosts'] },
   { id: 'missions', title: 'Misiones y logros', description: 'Lo que sale cada día y cada semana, los logros y el álbum', icon: 'list', keys: ['missions', 'achievements', 'catalog'] },
   { id: 'gacha', title: 'Escáner', description: 'Probabilidades, garantías, precios y escáneres activos', icon: 'radar', keys: ['gacha'] },
   { id: 'social', title: 'Comunidad y mercado', description: 'Chat, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'clans', 'market'] },

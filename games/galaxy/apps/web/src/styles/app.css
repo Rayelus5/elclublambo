@@ -1925,6 +1925,57 @@
   .cf-entry .cf-field > label { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); }
   .cf-add-entry { display: flex; gap: 8px; align-items: center; max-inline-size: 480px; }
   .cf-add-entry .lip { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+  /* Eventos (polish phase 4): the list by when, and the five-step wizard. */
+  .ev-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+  .ev-top .pill-solar { display: inline-flex; align-items: center; gap: 8px; }
+  .ev-group { display: grid; gap: 12px; margin-block-start: 18px; }
+  .ev-group h2 { margin: 0; font: 400 20px var(--font-display); }
+  .ev-group > ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(460px, 100%), 1fr)); gap: 14px; }
+  .ev-card { display: grid; gap: 14px; padding: 18px; align-content: start; }
+  .ev-card.past { opacity: .78; }
+  .ev-card header { display: flex; gap: 12px; align-items: flex-start; }
+  .ev-card header > div { flex: 1; min-inline-size: 0; }
+  .ev-card h3 { margin: 0; font-size: 18px; }
+  .ev-card header p { margin: 4px 0 0; color: var(--color-ink-soft); font-size: 14px; }
+  .ev-icon { display: grid; place-items: center; flex: none; inline-size: 40px; block-size: 40px; border-radius: 12px; background: var(--color-uv-soft); color: #fff; }
+  .ev-phase { flex: none; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 800; background: var(--color-panel-2); color: var(--color-ink-soft); }
+  .ev-phase.live { background: var(--color-terminal); color: var(--color-on-terminal); }
+  .ev-phase.next { background: var(--color-sky); color: #fff; }
+  .ev-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0; }
+  .ev-facts div { min-inline-size: 0; }
+  .ev-facts dt { color: var(--color-ink-mute); font-size: 12px; font-weight: 800; }
+  .ev-facts dd { margin: 2px 0 0; font-size: 14px; display: grid; gap: 2px; }
+  .ev-facts small { color: var(--color-ink-mute); }
+  .ev-warnings { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .ev-warnings li { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border-radius: 10px; background: rgb(255 201 74 / .1); color: var(--color-solar); font-size: 13px; }
+  .ev-warnings .ico { flex: none; inline-size: 16px; block-size: 16px; margin-block-start: 1px; }
+  .ev-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ev-actions .lip { display: inline-flex; align-items: center; gap: 6px; }
+  .ev-empty { display: grid; justify-items: center; gap: 10px; padding: 40px 16px; margin-block-start: 18px; color: var(--color-ink-soft); text-align: center; }
+  .ev-empty .ico { inline-size: 40px; block-size: 40px; color: var(--color-uv-soft); }
+  .ev-steps { list-style: none; margin: 18px 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
+  .ev-step { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px 8px 8px; border: 0; border-radius: 999px; background: var(--color-panel); color: var(--color-ink-soft); font: inherit; font-weight: 700; cursor: pointer; }
+  .ev-step-n { display: grid; place-items: center; inline-size: 28px; block-size: 28px; border-radius: 50%; background: rgb(0 0 0 / .3); font-size: 13px; }
+  .ev-step-n .ico { inline-size: 16px; block-size: 16px; color: var(--color-nova); }
+  .ev-step.done .ev-step-n { background: var(--color-terminal); color: var(--color-on-terminal); }
+  .ev-step.on { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 0 0 2px var(--color-solar); }
+  .ev-step.on .ev-step-n { background: var(--color-solar); color: var(--color-on-solar); }
+  .ev-wizard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); gap: 18px; align-items: start; }
+  @media (max-width: 1100px) { .ev-wizard { grid-template-columns: minmax(0, 1fr); } }
+  .ev-step-body { display: grid; gap: 14px; min-inline-size: 0; }
+  .ev-step-body > h2 { margin: 0; font: 400 24px var(--font-display); }
+  .ev-step-body > .panel-note { margin: -8px 0 0; }
+  .ev-quick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgb(0 0 0 / .16); font-size: 14px; }
+  .ev-quick > span { color: var(--color-ink-mute); font-weight: 700; }
+  .ev-duration { margin-inline-start: auto; color: var(--color-terminal); }
+  .ev-rewards { display: grid; gap: 14px; }
+  .ev-total { padding: 16px; }
+  .ev-total h3 { margin: 0 0 4px; font-size: 14px; color: var(--color-ink-mute); }
+  .ev-total p { margin: 0; font-size: 18px; font-weight: 800; }
+  .ev-scanner { display: grid; gap: 14px; }
+  .ev-toggle { display: flex; align-items: center; gap: 12px; font-weight: 700; }
+  .ev-preview { pointer-events: none; }
+  .ev-nav { display: flex; justify-content: space-between; gap: 12px; padding-block-start: 6px; }
   /* The tutorial run's briefing: three tips shown in motion, over the waiting arena. */
   .briefing { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgb(4 6 22 / .7); }
   .briefing-card { display: grid; gap: 18px; inline-size: min(760px, 100%); padding: 24px 26px; border-radius: 24px; background: linear-gradient(170deg, #23286a, #161a46); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .08), 0 22px 50px rgb(0 0 0 / .55); color: var(--color-ink); animation: tour-in .3s var(--ease-bounce) both; }

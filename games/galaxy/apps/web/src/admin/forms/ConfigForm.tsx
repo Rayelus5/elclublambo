@@ -19,6 +19,8 @@ interface Ctx {
   set: (path: Path, value: unknown) => void;
   issues: Map<string, string[]>;
   options: Options;
+  /** The ids this form wrote from a name (by path): they keep following it. */
+  autoIds: Set<string>;
 }
 const FormCtx = createContext<Ctx | null>(null);
 const useForm = () => useContext(FormCtx)!;
@@ -90,7 +92,7 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
 
 /** One scalar field: label, control, hint and its problems. */
 function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Path; pattern: string; optional: boolean }) {
-  const { cfgKey, root, set, options, issues } = useForm();
+  const { cfgKey, root, set, options, issues, autoIds } = useForm();
   const id = useId();
   const info = fieldInfo(cfgKey, pattern);
   const invalid = issues.has(pathKey(path));
@@ -98,10 +100,17 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
   const kind = kindOf(n);
   const value = getIn(root, path);
   const parentPath = path.slice(0, -1);
-  const parent = getIn(root, parentPath) as Record<string, unknown> | undefined;
-  // The id of a new item follows its name until someone writes it by hand.
-  const followsName = path.at(-1) === 'name' && parent && typeof parent.id === 'string' && (parent.id === '' || parent.id === slugOf(String(parent.name ?? '')));
-  const change = (v: unknown) => (followsName && typeof v === 'string' ? set(parentPath, { ...parent, name: v, id: slugOf(v) }) : set(path, v));
+  const change = (v: unknown) => {
+    // The id of a new item follows its name until someone writes it by hand. A published id never moves: it names
+    // what players already claimed.
+    const parent = getIn(root, parentPath) as Record<string, unknown> | undefined;
+    const at = pathKey(parentPath);
+    const follows = path.at(-1) === 'name' && typeof v === 'string' && parent && typeof parent.id === 'string' && (parent.id === '' || (autoIds.has(at) && parent.id === slugOf(String(parent.name ?? ''))));
+    if (follows) {
+      autoIds.add(at);
+      set(parentPath, { ...parent, name: v, id: slugOf(v) });
+    } else set(path, v);
+  };
   const choices = info.options ? options[info.options] : undefined;
   let control: ReactNode;
   let hint = info.hint ?? null;
@@ -519,6 +528,8 @@ export function ConfigForm({
   onChange,
   issues,
   options,
+  prefix = '',
+  autoIds,
 }: {
   cfgKey: ConfigKey;
   schema: JsonSchema;
@@ -526,13 +537,18 @@ export function ConfigForm({
   onChange: (next: unknown) => void;
   issues: Map<string, string[]>;
   options: Options;
+  /** Where `value` sits in its key, for the labels («list[]»: one event of the events' list). */
+  prefix?: string;
+  /** Ids written from names, kept by whoever outlives this form (a wizard's steps). */
+  autoIds?: Set<string>;
 }) {
-  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options };
+  const [own] = useState(() => new Set<string>());
+  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own };
   return (
     <FormCtx.Provider value={ctx}>
       <div className="cf-form">
         <Problems path={[]} />
-        <Fields node={schema} path={[]} pattern="" />
+        <Fields node={schema} path={[]} pattern={prefix} />
       </div>
     </FormCtx.Provider>
   );

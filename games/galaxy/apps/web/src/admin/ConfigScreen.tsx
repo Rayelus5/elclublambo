@@ -2,13 +2,13 @@ import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expecte
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { useId, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { ApiError } from '../api/client';
 import { type ConfigKeyRow, useConfigKeys, useConfigVersions, usePublishConfig } from '../api/config';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { EconomySimulator } from './EconomySimulator';
+import { PublishFields } from './PublishFields';
 import { ConfigForm, type Options } from './forms/ConfigForm';
 import { humanDiff, placeOf } from './forms/humanDiff';
 import { issuesByPath, issueText } from './forms/issues';
@@ -20,59 +20,6 @@ const SWITCHES = ['registrationOpen', 'maintenance', 'gacha', 'runs', 'market', 
 const pctFmt = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (x: number) => `${pctFmt.format(x * 100)} %`;
 const oneDecimal = new Intl.NumberFormat('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-
-/** The issues the server found in a publish it refused (config_invalid), if any. */
-function serverIssues(error: unknown): { path: string; message: string }[] {
-  const issues = error instanceof ApiError ? error.details.issues : undefined;
-  return Array.isArray(issues) ? (issues as { path: string; message: string }[]) : [];
-}
-
-/** Reason and the admin's password, then publish (DESIGN_SYSTEM §8 septendecies). */
-function PublishFields({ busy, disabled, error, label = t.publish, onPublish }: { busy: boolean; disabled: boolean; error: unknown; label?: string; onPublish: (reason: string, password: string) => void }) {
-  const id = useId();
-  const [reason, setReason] = useState('');
-  const [password, setPassword] = useState('');
-  const ready = !disabled && !busy && reason.trim().length >= 3 && password.length > 0;
-  return (
-    <form
-      className="admin-publish"
-      onSubmit={(e) => {
-        e.preventDefault();
-        if (ready) onPublish(reason.trim(), password);
-      }}
-    >
-      <div className="field">
-        <label htmlFor={`${id}-r`}>{copy.admin.fields.reason}</label>
-        <div className="control">
-          <input id={`${id}-r`} type="text" maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </div>
-      </div>
-      <div className="field">
-        <label htmlFor={`${id}-p`}>{copy.admin.fields.password}</label>
-        <div className="control">
-          <input id={`${id}-p`} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        </div>
-      </div>
-      {error ? (
-        <div className="field-error" role="alert">
-          <p>{errorText(error, copy.errors)}</p>
-          {serverIssues(error).length ? (
-            <ul className="admin-issues">
-              {serverIssues(error).map((i) => (
-                <li key={`${i.path}:${i.message}`}>
-                  <code>{i.path || '·'}</code> {i.message}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </div>
-      ) : null}
-      <button type="submit" className="lip pill danger" disabled={!ready} aria-busy={busy || undefined}>
-        {label}
-      </button>
-    </form>
-  );
-}
 
 /** The switches: each turns a part of the game on or off, with a reason and the password. */
 function Switches({ features }: { features: Record<string, unknown> }) {
