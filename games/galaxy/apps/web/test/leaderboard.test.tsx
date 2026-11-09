@@ -40,6 +40,29 @@ test('las pestañas son enlaces con la pestaña en la dirección, Clanes incluid
   expect(screen.getByText(t.players(5))).toBeInTheDocument();
 });
 
+test('la pestaña En grupo: cada equipo con sus sondas, la capa, los núcleos y el tiempo; tu mejor grupo, fijado abajo (fase 7)', async () => {
+  const g = (rank: number, names: string[], depth: number, cores: number, seconds: number) => ({ rank, players: names.map((username) => ({ username, probe: 'lumen' })), depth, cores, seconds, outcome: 'died' as const });
+  mockApi({
+    'GET /galaxy/api/leaderboard?tab=groups': () =>
+      jsonResponse(200, board({ tab: 'groups', rows: [], me: null, total: 9, groups: [g(1, ['vega', 'lyra'], 6, 3, 667), g(1, ['altair', 'deneb', 'rigel'], 6, 3, 833)], myGroup: g(5, ['deneb', 'orion'], 2, 0, 300) })),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()),
+  });
+  renderAt('/clasificacion?pestana=grupo', screens);
+  const tabs = await screen.findByRole('navigation', { name: t.tabsLabel });
+  expect(within(tabs).getByRole('link', { name: t.tabs.groups })).toHaveAttribute('aria-current', 'page');
+  const table = await screen.findByRole('table', { name: t.tabs.groups });
+  const lines = within(table).getAllByRole('row').slice(1);
+  expect(lines).toHaveLength(2);
+  expect(lines[0]).toHaveTextContent(t.value.depth(6));
+  expect(lines[0]).toHaveTextContent(t.value.purges(3));
+  expect(lines[0]).toHaveTextContent('11:07');
+  expect(within(lines[0]!).getByRole('link', { name: 'vega' })).toHaveAttribute('href', '/perfil/vega');
+  expect(within(lines[1]!).getAllByRole('link')).toHaveLength(3);
+  const pinned = screen.getByRole('region', { name: t.yourGroup });
+  expect(pinned).toHaveTextContent('orion');
+  expect(pinned).toHaveTextContent(t.value.depth(2));
+});
+
 test('el podio con los tres primeros y la tabla con el resto, cada nombre lleva a su perfil', async () => {
   mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()) });
   renderAt('/clasificacion', screens);

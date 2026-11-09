@@ -7,7 +7,7 @@ import type { PublicGalaxy } from './planetarium';
 // The social API (GDD §14.1, §14.2, §12.1; M5a): the season leaderboard with its tabs, public profiles and public
 // collections. Nothing private travels: no balances, loadout, probe or session.
 
-export const LEADER_TABS = ['general', 'depth', 'purges', 'clans'] as const;
+export const LEADER_TABS = ['general', 'depth', 'purges', 'clans', 'groups'] as const;
 export type LeaderTab = (typeof LEADER_TABS)[number];
 
 export interface LeaderRow {
@@ -28,6 +28,19 @@ export interface ClanRow {
   color: ClanColor;
   members: number;
   value: number;
+}
+
+/**
+ * A group in the En grupo tab (multiplayer plan, phase 7): its best run of the season (deepest layer, then Cores, then
+ * the fastest), with its players in their slots' order.
+ */
+export interface GroupRow {
+  rank: number;
+  players: { username: string; probe: string }[];
+  depth: number;
+  cores: number;
+  seconds: number;
+  outcome: 'extracted' | 'died' | 'interrupted';
 }
 
 export interface SeasonInfo {
@@ -51,6 +64,9 @@ export interface Leaderboard {
   /** The Clanes tab (M5b-1): the clans instead of `rows`, and the viewer's clan (null when not in one with points). */
   clans?: ClanRow[];
   myClan?: ClanRow | null;
+  /** The En grupo tab (phase 7): the groups instead of `rows`, and the viewer's best group (null without one). */
+  groups?: GroupRow[];
+  myGroup?: GroupRow | null;
 }
 
 export interface Profile {
