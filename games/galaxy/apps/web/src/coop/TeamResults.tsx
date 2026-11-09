@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react';
 import { spriteDataUrl } from '../arena/sprites';
 import { TEAM_TINT } from '../arena/stage/stage';
 import { copy, fmt } from '../copy/es';
+import { Icon } from '../ui/Icon';
 
 // The group run's results by player (multiplayer plan, phase 6c): what each one did, read from the simulation every
 // client runs alike (so it needs nothing from the server): probe, level reached, kills, revives, falls and how they
@@ -50,6 +51,21 @@ function best(rows: TeamRow[], key: 'kills' | 'revives'): number | null {
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
+/** A figure of the scoreboard: quiet when zero; the group's best (most kills or revives) in a starred pill. */
+function Figure({ value, award }: { value: number; award: 'kills' | 'revives' | null }) {
+  if (!award) return <td className={value === 0 ? 'zero' : undefined}>{fmt(value)}</td>;
+  const label = award === 'kills' ? t.mostKills : t.mostRevives;
+  return (
+    <td>
+      <span className={`team-best ${award}`} title={label}>
+        <Icon name="starOn" />
+        {fmt(value)}
+      </span>
+      <span className="sr-only">{label}</span>
+    </td>
+  );
+}
+
 export function TeamResults({ rows, me }: { rows: TeamRow[]; me: number }) {
   const kills = best(rows, 'kills');
   const revives = best(rows, 'revives');
@@ -69,7 +85,7 @@ export function TeamResults({ rows, me }: { rows: TeamRow[]; me: number }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.slot} className={r.slot === me ? 'me' : undefined} style={{ '--tint': hex(TEAM_TINT[r.slot % TEAM_TINT.length]!) } as CSSProperties}>
+            <tr key={r.slot} className={r.slot === me ? 'is-me' : undefined} style={{ '--tint': hex(TEAM_TINT[r.slot % TEAM_TINT.length]!) } as CSSProperties}>
               <th scope="row">
                 <span className="team-who">
                   <img src={spriteDataUrl(r.sprite, 2)} alt="" />
@@ -78,18 +94,14 @@ export function TeamResults({ rows, me }: { rows: TeamRow[]; me: number }) {
                     <small>{r.probe}</small>
                   </span>
                 </span>
-                {r.slot === kills || r.slot === revives ? (
-                  <span className="team-awards">
-                    {r.slot === kills ? <span className="team-award kills">{t.mostKills}</span> : null}
-                    {r.slot === revives ? <span className="team-award revives">{t.mostRevives}</span> : null}
-                  </span>
-                ) : null}
               </th>
               <td>{fmt(r.level)}</td>
-              <td>{fmt(r.kills)}</td>
-              <td>{fmt(r.revives)}</td>
-              <td>{fmt(r.downs)}</td>
-              <td>{copy.coop.arena.life[r.life]}</td>
+              <Figure value={r.kills} award={r.slot === kills ? 'kills' : null} />
+              <Figure value={r.revives} award={r.slot === revives ? 'revives' : null} />
+              <Figure value={r.downs} award={null} />
+              <td>
+                <span className={`team-life ${r.life}`}>{copy.coop.arena.life[r.life]}</span>
+              </td>
             </tr>
           ))}
         </tbody>
