@@ -10,6 +10,7 @@ import { jsonResponse, mockApi, renderAt } from './render';
 const r = copy.admin.moderation.rooms;
 const RUN = '00000000-0000-4000-8000-0000000000d1';
 const room = (code: string, state: RoomView['state'], run: RoomView['run']): RoomView & { idleSeconds: number } => ({
+  id: `00000000-0000-4000-8000-${code === 'ABC234' ? '0000000000e1' : '0000000000e2'}`,
   code,
   kind: 'private',
   sector: 'outer-nebula',
