@@ -191,5 +191,14 @@ test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
   expect(document.querySelector('.team-results table')).not.toBeNull();
   const box = document.querySelector('.team-results')!;
   expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1);
+  // Every row (mine too) is a row of the table: its figures line up under their headings, and no heading wraps.
+  const heads = [...document.querySelectorAll('.team-results thead th')].map((h) => h.getBoundingClientRect());
+  for (const tr of document.querySelectorAll('.team-results tbody tr')) {
+    expect(getComputedStyle(tr).display).toBe('table-row');
+    const cells = [...tr.children].map((c) => c.getBoundingClientRect());
+    cells.forEach((c, i) => expect(Math.abs(c.right - heads[i]!.right)).toBeLessThan(2));
+  }
+  for (const h of heads) expect(h.height).toBeLessThan(24);
+  box.scrollIntoView({ block: 'start' });
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-team-1280.png' });
 }, 60_000);
