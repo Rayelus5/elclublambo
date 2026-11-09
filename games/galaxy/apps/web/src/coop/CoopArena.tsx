@@ -21,6 +21,7 @@ import type { CoopMark } from '@galaxy/shared';
 import { CoopCards, LifeNotice, TeamPanel } from './CoopHud';
 import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld } from './Marks';
 import { playMark } from './sfx';
+import { TeamResults, teamRows } from './TeamResults';
 
 // A co-op run in the browser (multiplayer plan, phase 6). The play socket says hello with the run and the sealed log
 // so far; from then on it brings the sealed events and the tick the server closed. The run is simulated only up to
@@ -443,8 +444,7 @@ function CoopWorld({
   }, []);
 
   const pick = useCallback(
-    (i: number) => {
-      const seq = hudRef.current.coop?.offerSeq ?? 0;
+    (i: number, seq: number) => {
       setPicked(seq);
       send({ t: 'pick', i, seq });
     },
@@ -464,7 +464,7 @@ function CoopWorld({
   }
   if (showResult && result) {
     return result.result ? (
-      <ResultsScreen result={result.result} onAgain={onExit} />
+      <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} />} />
     ) : (
       <div className="results sending" role="status">
         <p>{t.noResult}</p>

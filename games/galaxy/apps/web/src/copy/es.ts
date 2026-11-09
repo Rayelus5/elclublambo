@@ -1121,6 +1121,18 @@ export const copy = {
       label: (name: string, kind: string) => `${name}: ${kind}`,
       hint: 'Q: avisar al grupo',
     },
+    // The group run's results by player (phase 6c).
+    results: {
+      title: 'Tu equipo',
+      player: 'Jugador',
+      level: 'Nivel',
+      kills: 'Eliminaciones',
+      revives: 'Reanimaciones',
+      downs: 'Caídas',
+      end: 'Al final',
+      mostKills: 'Más eliminaciones',
+      mostRevives: 'Más reanimaciones',
+    },
     invite: 'Invitar',
     invited: 'Invitación enviada',
     toastInvite: (name: string, sector: string) => `${name} te invita a su sala en ${sector}`,

@@ -14,21 +14,23 @@ import { typing } from '../ui/keys';
 const t = copy.coop.arena;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
-export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnapshot; content: Content; pickSeconds: number; onPick: (i: number) => void }) {
+/** `onPick(i, seq)`: the card and the offer it was on, as shown (never a newer one the frame loop already has). */
+export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnapshot; content: Content; pickSeconds: number; onPick: (i: number, seq: number) => void }) {
   const offer = hud.offer;
+  const seq = hud.coop?.offerSeq ?? 0;
   useEffect(() => {
     if (!offer) return;
     function onKey(e: KeyboardEvent): void {
       if (typing(e)) return;
       const n = Number.parseInt(e.key, 10);
       if (n >= 1 && n <= offer!.length) {
-        onPick(n - 1);
+        onPick(n - 1, seq);
         e.preventDefault();
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [offer, onPick]);
+  }, [offer, onPick, seq]);
   if (!offer) return null;
   const left = Math.ceil(hud.coop?.pickLeft ?? 0);
   const total = Math.max(1, pickSeconds);
@@ -49,7 +51,7 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
         {offer.map((o, i) => {
           const d = describeOffer(content, o);
           return (
-            <button key={`${o.kind}:${o.id}`} type="button" className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : ''}`} onClick={() => onPick(i)}>
+            <button key={`${o.kind}:${o.id}`} type="button" className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : ''}`} onClick={() => onPick(i, seq)}>
               <span className="levelup-key" aria-hidden="true">
                 {i + 1}
               </span>

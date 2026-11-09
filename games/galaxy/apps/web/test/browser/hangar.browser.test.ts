@@ -9,6 +9,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
+import { TeamResults } from '../../src/coop/TeamResults';
 import '../../src/styles/app.css';
 
 // The hangar (the lobby) and the results with the app's real styles: the lobby's areas never overlap at any of these
@@ -174,4 +175,21 @@ test('resultados a 1280×720', async () => {
   await new Promise((r) => setTimeout(r, 1500));
   expect(document.querySelector('.results')).not.toBeNull();
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-1280.png' });
+}, 60_000);
+
+test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
+  await page.viewport(1280, 720);
+  const rows = [
+    { slot: 0, name: 'piloto_rayo', probe: 'Lumen', sprite: 'probe-lumen', level: 9, kills: 120, revives: 0, downs: 2, life: 'up' as const },
+    { slot: 1, name: 'vega_de_la_nebulosa', probe: 'Bastión', sprite: 'probe-bastion', level: 12, kills: 340, revives: 3, downs: 0, life: 'up' as const },
+    { slot: 2, name: 'lyra', probe: 'Chispa', sprite: 'probe-spark', level: 4, kills: 15, revives: 0, downs: 1, life: 'left' as const },
+    { slot: 3, name: 'orion', probe: 'Vigía', sprite: 'probe-sentinel', level: 7, kills: 88, revives: 1, downs: 1, life: 'out' as const },
+  ];
+  const team = createElement(TeamResults, { rows, me: 0 });
+  mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result, onAgain: () => {}, team }))));
+  await new Promise((r) => setTimeout(r, 1200));
+  expect(document.querySelector('.team-results table')).not.toBeNull();
+  const box = document.querySelector('.team-results')!;
+  expect(box.scrollWidth).toBeLessThanOrEqual(box.clientWidth + 1);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-team-1280.png' });
 }, 60_000);
