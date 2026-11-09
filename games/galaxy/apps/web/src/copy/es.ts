@@ -1959,6 +1959,14 @@ export const copy = {
     firstSteps: 'Enseñar otra vez los primeros pasos',
     tutorial: 'Repetir el tutorial',
     firstStepsDone: 'Los primeros pasos vuelven a salir en el inicio si te queda alguno',
+    // Open beta: the game's cursor, and help during a run.
+    cursor: 'Cursor',
+    cursorOn: 'Usar el cursor del juego',
+    cursorSize: 'Tamaño',
+    cursorSizes: { small: 'Pequeño', medium: 'Mediano', large: 'Grande' },
+    cursorColor: 'Color',
+    cursorColors: { solar: 'Amarillo', ice: 'Cian', terminal: 'Verde', nova: 'Rosa', uv: 'Violeta', white: 'Blanco', orange: 'Naranja', blue: 'Azul' },
+    helpInRun: 'Disponible en el menú de inicio',
   },
   redshift: {
     title: 'Corrimiento al rojo',

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { copy } from '../../copy/es';
-import { sfx } from '../../scanner/sfx';
+import { ArenaSection, CursorSection, HelpSectionInRun, SoundSection } from '../../settings/SettingsSections';
 import { Dialog } from '../../ui/Dialog';
+import { Icon } from '../../ui/Icon';
 
-// Pause (GDD §5.2): continue, manual aim, sound, and abandoning the run — a retreat that pays half, so it asks first.
+// Pause (GDD §5.2): continue, the same settings as the home menu (open beta: sound, aiming, the cursor; help waits for
+// the menu), and abandoning the run — a retreat that pays half, so it asks first.
 
 export function PauseMenu({
   manualAim,
@@ -25,7 +27,7 @@ export function PauseMenu({
   abandonBody?: string;
 }) {
   const [confirming, setConfirming] = useState(false);
-  const [muted, setMuted] = useState(sfx.muted());
+  const [settings, setSettingsOpen] = useState(false);
   if (confirming) {
     return (
       <Dialog title={copy.arena.abandon} role="alertdialog" onClose={() => setConfirming(false)} className="pause confirm">
@@ -41,27 +43,36 @@ export function PauseMenu({
       </Dialog>
     );
   }
+  if (settings) {
+    return (
+      <Dialog title={copy.settings.title} onClose={onResume} className="pause pause-settings">
+        <div className="pause-settings-body">
+          <SoundSection />
+          <ArenaSection aim={manualAim} onAim={onManualAim} />
+          <CursorSection />
+          <HelpSectionInRun />
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="lip pill" onClick={() => setSettingsOpen(false)} data-autofocus>
+            {copy.settings.back}
+          </button>
+          <button type="button" className="lip pill pill-solar" onClick={onResume}>
+            {copy.arena.resume}
+          </button>
+        </div>
+      </Dialog>
+    );
+  }
   return (
     <Dialog title={title} onClose={onResume} className="pause">
       <div className="pause-actions">
         <button type="button" className="lip pill pill-solar pause-resume" onClick={onResume} data-autofocus>
           {copy.arena.resume}
         </button>
-        <label className="pause-toggle">
-          <input type="checkbox" checked={manualAim} onChange={(e) => onManualAim(e.target.checked)} />
-          <span>{copy.arena.manualAim}</span>
-        </label>
-        <label className="pause-toggle">
-          <input
-            type="checkbox"
-            checked={!muted}
-            onChange={(e) => {
-              sfx.setMuted(!e.target.checked);
-              setMuted(!e.target.checked);
-            }}
-          />
-          <span>{copy.arena.sound}</span>
-        </label>
+        <button type="button" className="lip pill" onClick={() => setSettingsOpen(true)}>
+          <Icon name="gear" />
+          <span>{copy.settings.title}</span>
+        </button>
         {onSkipTutorial ? (
           <button type="button" className="lip pill" onClick={onSkipTutorial}>
             {copy.tour.skip}
