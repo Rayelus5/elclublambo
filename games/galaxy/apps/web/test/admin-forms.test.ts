@@ -2,8 +2,8 @@ import { CONFIG_KEYS, type ConfigKey, configJsonSchema, type JsonSchema, parseCo
 import { expect, test } from 'vitest';
 import { humanDiff, placeOf } from '../src/admin/forms/humanDiff';
 import { issueText } from '../src/admin/forms/issues';
-import { CATEGORIES, FIELDS, KEY_INFO } from '../src/admin/forms/labels';
-import { emptyOf, setIn, slugOf, unwrap } from '../src/admin/forms/schema';
+import { CATEGORIES, FIELDS, type FieldInfo, KEY_INFO } from '../src/admin/forms/labels';
+import { emptyOf, liveIds, parseNumber, setIn, slugOf, unwrap } from '../src/admin/forms/schema';
 
 // The config forms' words and shape (polish phase 4): every label names a field that exists, every key has a home in
 // a category, changes read as sentences, and the checks across fields speak Spanish.
@@ -72,4 +72,46 @@ test('el identificador sale del nombre: minúsculas, sin tildes, con guiones y d
   expect(slugOf('Semana de la Fisura')).toBe('semana-de-la-fisura');
   expect(slugOf('¡Doble polvo!  Ñandú')).toBe('doble-polvo-nandu');
   expect(slugOf('Un nombre larguísimo que no cabe en treinta y dos')).toBe('un-nombre-larguisimo-que-no-cabe');
+});
+
+/** The node at a pattern ("rewards[].percent"). */
+function nodeAt(node: JsonSchema, pattern: string): JsonSchema | undefined {
+  let at: JsonSchema | undefined = node;
+  for (const seg of pattern.split('.')) {
+    if (!at) return undefined;
+    const list = seg.endsWith('[]');
+    const name = list ? seg.slice(0, -2) : seg;
+    at = name === '*' ? (unwrap(at).node.additionalProperties as JsonSchema) : unwrap(at).node.properties?.[name];
+    if (list && at) at = unwrap(at).node.items;
+  }
+  return at;
+}
+
+test('solo los campos que se guardan de 0 a 1 se escriben como porcentaje (el álbum va de 1 a 100)', () => {
+  for (const [key, fields] of Object.entries(FIELDS) as [ConfigKey, Record<string, FieldInfo>][]) {
+    for (const [path, info] of Object.entries(fields)) {
+      if (info.unit !== 'percent') continue;
+      const n = unwrap(nodeAt(configJsonSchema(key), path)!).node;
+      const leaf = n.type === 'array' ? unwrap(n.items!).node : n.type === 'object' ? unwrap(n.additionalProperties as JsonSchema).node : n;
+      expect(leaf.maximum, `${key}: ${path}`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+test('los números se leen en español: coma decimal y punto de miles', () => {
+  expect(parseNumber('10.000')).toBe(10000);
+  expect(parseNumber('1.500,5')).toBe(1500.5);
+  expect(parseNumber('8,5')).toBe(8.5);
+  expect(parseNumber('0.125')).toBe(0.125);
+  expect(parseNumber('1.5')).toBe(1.5);
+  expect(parseNumber(' 42 ')).toBe(42);
+  expect(parseNumber('')).toBeUndefined();
+  expect(parseNumber('abc')).toBeUndefined();
+});
+
+test('los identificadores publicados se reconocen por su lista, estén donde estén', () => {
+  const ids = liveIds({ list: [{ id: 'fisura', goals: [{ id: 'kills' }] }, { id: 'hielo', goals: [] }] });
+  expect(ids.has('list[]|fisura')).toBe(true);
+  expect(ids.has('list[].goals[]|kills')).toBe(true);
+  expect(ids.has('list[]|kills')).toBe(false);
 });

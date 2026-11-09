@@ -141,10 +141,56 @@ test('editar un evento lo cambia en su sitio, y un paso con problemas lo dice', 
   await user.clear(name);
   expect(screen.getByRole('button', { name: t.problemsIn(t.steps.data, 1) })).toBeInTheDocument();
   await user.type(name, 'Semana del hielo eterno');
-  // An event's id never follows its name once published: it names its claims.
-  expect(screen.getByLabelText('Identificador')).toHaveValue('hielo');
+  // A published event's id is shown, not editable, and never follows its name: it names its claims.
+  expect(screen.getByText('hielo')).toBeInTheDocument();
+  expect(screen.queryByLabelText('Identificador')).toBeNull();
   await signIn(user, t.saveChanges);
   await waitFor(() => expect(batches).toHaveLength(1));
   expect(batches[0]!.items).toHaveLength(1);
   expect((batches[0]!.items[0]!.data.list as { id: string; name: string }[]).map((e) => `${e.id}:${e.name}`)).toEqual(['cometas:Lluvia de cometas', 'hielo:Semana del hielo eterno']);
+});
+
+test('tras un 409 el asistente sigue sobre la versión en la que empezó y ofrece cargar lo publicado', async () => {
+  let version = 5;
+  const sent: number[] = [];
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keysWith([next]).map((k) => (k.key === 'events' ? { ...k, version } : k))),
+    'POST /galaxy/api/admin/config/batch': (body) => {
+      sent.push((body as { items: { key: string; baseVersion: number }[] }).items.find((i) => i.key === 'events')!.baseVersion);
+      version = 6;
+      return jsonResponse(409, { error: 'config_conflict', key: 'events' });
+    },
+  });
+  renderAt('/admin/eventos/hielo', { '/admin/eventos/:id': <EventWizardScreen /> });
+  const user = userEvent.setup();
+  const name = await screen.findByLabelText('Nombre');
+  await user.type(name, ' eterno');
+  await signIn(user, t.saveChanges);
+  expect(await screen.findByText(copy.errors.config_conflict)).toBeInTheDocument();
+  expect(await screen.findByText(t.moved(6))).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: t.saveChanges }));
+  await waitFor(() => expect(sent).toEqual([5, 5]));
+  await user.click(screen.getByRole('button', { name: t.reloadLive }));
+  expect(screen.getByLabelText('Nombre')).toHaveValue(next.name);
+});
+
+test('guardar un evento conserva el identificador, el grupo de garantía y el sitio de su escáner', async () => {
+  const other = { id: 'otro', kind: 'event', name: 'Otro', pityGroup: 'event-otro', currency: 'signal:otro', featured: { trait: 'phenomenon', value: 'comet' } };
+  const own = { id: 'scan-hielo', kind: 'event', name: 'Escáner del hielo', pityGroup: 'grupo-hielo', currency: 'signal:hielo', featured: { trait: 'phenomenon', value: 'pulsar' }, startsAt: next.startsAt, endsAt: next.endsAt };
+  const standard = parseConfig('gacha', {}).banners;
+  const batches = api([next], [...standard, own, other]);
+  renderAt('/admin/eventos/hielo', { '/admin/eventos/:id': <EventWizardScreen />, '/admin/eventos': <p>lista</p> });
+  const user = userEvent.setup();
+  await screen.findByLabelText('Nombre');
+  for (let i = 0; i < 3; i++) await user.click(screen.getByRole('button', { name: t.next }));
+  await user.selectOptions(screen.getByLabelText(t.scannerValue), 'Supernova');
+  await user.click(screen.getByRole('button', { name: t.next }));
+  await signIn(user, t.saveChanges);
+  await waitFor(() => expect(batches).toHaveLength(1));
+  // Only the scanner changed: only the gacha key is published.
+  expect(batches[0]!.items.map((i) => i.key)).toEqual(['gacha']);
+  const banners = batches[0]!.items[0]!.data.banners as { id: string; pityGroup: string; featured: { value: string } }[];
+  expect(banners.map((b) => b.id)).toEqual([...standard.map((b) => b.id), 'scan-hielo', 'otro']);
+  expect(banners[standard.length]).toMatchObject({ id: 'scan-hielo', pityGroup: 'grupo-hielo', featured: { value: 'supernova' } });
 });

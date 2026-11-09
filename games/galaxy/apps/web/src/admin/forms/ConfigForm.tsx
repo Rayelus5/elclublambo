@@ -1,9 +1,10 @@
 import type { ConfigKey, JsonSchema } from '@galaxy/shared';
 import { createContext, type ReactNode, useContext, useId, useState } from 'react';
+import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { fmtNumber, fmtUtc, fromLocalInput, itemSummary, scaleOf, tidy, toLocalInput } from './format';
 import { type FieldInfo, fieldInfo, itemName, UNIT_SUFFIX, valueName } from './labels';
-import { discriminatorOf, emptyOf, getIn, kindOf, optionOf, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
+import { discriminatorOf, emptyOf, getIn, kindOf, liveIds, optionOf, parseNumber, type Path, pathKey, setIn, slugOf, unwrap } from './schema';
 
 // A config key as a form (polish phase 4), drawn from its JSON Schema: numbers with their unit and range, switches,
 // choices with Spanish names, dates in the admin's time, lists of cards (add, duplicate, move, remove), named entries,
@@ -19,8 +20,10 @@ interface Ctx {
   set: (path: Path, value: unknown) => void;
   issues: Map<string, string[]>;
   options: Options;
-  /** The ids this form wrote from a name (by path): they keep following it. */
+  /** The ids this form wrote from a name: they keep following it until published. */
   autoIds: Set<string>;
+  /** The ids published, by list («list[]|fisura»): shown, never changed. */
+  locked: Set<string>;
 }
 const FormCtx = createContext<Ctx | null>(null);
 const useForm = () => useContext(FormCtx)!;
@@ -71,8 +74,8 @@ function NumberInput({ id, value, info, onChange, label, invalid }: { id: string
         onChange={(e) => {
           const raw = e.target.value;
           setText(raw);
-          const parsed = Number(raw.replace(',', '.').trim());
-          const next = raw.trim() === '' || Number.isNaN(parsed) ? undefined : tidy(parsed / s);
+          const parsed = parseNumber(raw);
+          const next = parsed === undefined ? undefined : tidy(parsed / s);
           setSeen(typeof next === 'number' ? String(tidy(next * s)).replace('.', ',') : '');
           onChange(next);
         }}
@@ -92,7 +95,7 @@ function Toggle({ id, on, onChange, label }: { id: string; on: boolean; onChange
 
 /** One scalar field: label, control, hint and its problems. */
 function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Path; pattern: string; optional: boolean }) {
-  const { cfgKey, root, set, options, issues, autoIds } = useForm();
+  const { cfgKey, root, set, options, issues, autoIds, locked } = useForm();
   const id = useId();
   const info = fieldInfo(cfgKey, pattern);
   const invalid = issues.has(pathKey(path));
@@ -100,17 +103,33 @@ function Scalar({ node, path, pattern, optional }: { node: JsonSchema; path: Pat
   const kind = kindOf(n);
   const value = getIn(root, path);
   const parentPath = path.slice(0, -1);
+  // The pattern of the item this field belongs to («list[].goals[]»), where its id is known as published or not.
+  const itemPattern = pattern.slice(0, pattern.lastIndexOf('.'));
+  const isLocked = (id: unknown) => typeof id === 'string' && locked.has(`${itemPattern}|${id}`);
   const change = (v: unknown) => {
     // The id of a new item follows its name until someone writes it by hand. A published id never moves: it names
-    // what players already claimed.
+    // what players already have (claims, progress, pity).
     const parent = getIn(root, parentPath) as Record<string, unknown> | undefined;
-    const at = pathKey(parentPath);
-    const follows = path.at(-1) === 'name' && typeof v === 'string' && parent && typeof parent.id === 'string' && (parent.id === '' || (autoIds.has(at) && parent.id === slugOf(String(parent.name ?? ''))));
+    const follows = path.at(-1) === 'name' && typeof v === 'string' && parent && typeof parent.id === 'string' && !isLocked(parent.id) && (parent.id === '' || autoIds.has(parent.id));
     if (follows) {
-      autoIds.add(at);
-      set(parentPath, { ...parent, name: v, id: slugOf(v) });
+      const id = slugOf(v);
+      autoIds.add(id);
+      set(parentPath, { ...parent, name: v, id });
     } else set(path, v);
   };
+  // A published id is shown as it is.
+  if (path.at(-1) === 'id' && isLocked(value)) {
+    return (
+      <div className="cf-field cf-k-fixed">
+        <span className="cf-label">{info.label}</span>
+        <span className="cf-locked">
+          <Icon name="lock" />
+          <span>{String(value)}</span>
+        </span>
+        <small className="cf-hint">{copy.admin.config.idLocked}</small>
+      </div>
+    );
+  }
   const choices = info.options ? options[info.options] : undefined;
   let control: ReactNode;
   let hint = info.hint ?? null;
@@ -373,7 +392,16 @@ function List({ node, path, pattern }: { node: JsonSchema; path: Path; pattern: 
                     <button type="button" className="cf-icon-btn" aria-label={`Bajar ${name}`} disabled={i === value.length - 1} onClick={() => move(i, 1)}>
                       <Icon name="down" />
                     </button>
-                    <button type="button" className="cf-icon-btn" aria-label={`Duplicar ${name}`} disabled={full} onClick={() => set(path, [...value.slice(0, i + 1), withId(structuredClone(x)), ...value.slice(i + 1)])}>
+                    <button
+                      type="button"
+                      className="cf-icon-btn"
+                      aria-label={`Duplicar ${name}`}
+                      disabled={full}
+                      onClick={() => {
+                        set(path, [...value.slice(0, i + 1), withId(structuredClone(x)), ...value.slice(i + 1)]);
+                        setOpen(new Set([i + 1]));
+                      }}
+                    >
                       <Icon name="copy" />
                     </button>
                     <button
@@ -530,6 +558,7 @@ export function ConfigForm({
   options,
   prefix = '',
   autoIds,
+  live,
 }: {
   cfgKey: ConfigKey;
   schema: JsonSchema;
@@ -541,9 +570,11 @@ export function ConfigForm({
   prefix?: string;
   /** Ids written from names, kept by whoever outlives this form (a wizard's steps). */
   autoIds?: Set<string>;
+  /** What is published (the whole key): its ids are locked. */
+  live?: unknown;
 }) {
   const [own] = useState(() => new Set<string>());
-  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own };
+  const ctx: Ctx = { cfgKey, root: value, set: (path, v) => onChange(setIn(value, path, v)), issues, options, autoIds: autoIds ?? own, locked: liveIds(live) };
   return (
     <FormCtx.Provider value={ctx}>
       <div className="cf-form">

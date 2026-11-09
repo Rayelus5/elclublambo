@@ -563,6 +563,7 @@ export const copy = {
       modes: 'Forma de editar',
       formTab: 'Formulario',
       jsonTab: 'JSON',
+      idLocked: 'Ya publicado: no se cambia, porque los jugadores ya tienen progreso con él',
       advancedNote: 'Estos ajustes tocan la economía y los límites técnicos del juego. Revisa bien «Qué cambia» antes de publicar',
       version: (n: number) => (n ? `Versión ${n}` : 'Valores por defecto'),
       by: (author: string, date: string) => `${author}, ${date}`,
@@ -669,6 +670,8 @@ export const copy = {
       back: 'Atrás',
       next: 'Siguiente',
       publishEvent: 'Publicar evento',
+      moved: (n: number) => `Alguien publicó la versión ${n} mientras editabas. Tus cambios siguen sobre la anterior`,
+      reloadLive: 'Cargar lo publicado',
       saveChanges: 'Guardar cambios',
     },
     audit: {

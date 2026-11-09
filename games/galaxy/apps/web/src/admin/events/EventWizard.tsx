@@ -50,11 +50,23 @@ function startFrom(list: GameEvent[], banners: Banner[], id: string | undefined,
 function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: ConfigKeyRow; id: string | undefined; from: string | null }) {
   const navigate = useNavigate();
   const publish = usePublishBatch();
-  const list = (events.data.list as GameEvent[]) ?? [];
-  const banners = (gacha.data.banners as Banner[]) ?? [];
+  // What the draft is made on: the versions live when editing began. A publish that fails (another admin published
+  // meanwhile, a wrong password) never moves it, so a second try cannot overwrite what the other admin did.
+  const [base, setBase] = useState(() => ({ events: { version: events.version, data: events.data }, gacha: { version: gacha.version, data: gacha.data } }));
+  const list = (base.events.data.list as GameEvent[]) ?? [];
+  const banners = (base.gacha.data.banners as Banner[]) ?? [];
   const [{ event: initial, scanner: initialScanner, original }] = useState(() => startFrom(list, banners, id, from));
   const [event, setEvent] = useState<GameEvent>(initial);
   const [scanner, setScanner] = useState<Scanner>(initialScanner);
+  const moved = (events.version !== base.events.version || gacha.version !== base.gacha.version) && !publish.isPending;
+  const reloadLive = () => {
+    const live = { events: { version: events.version, data: events.data }, gacha: { version: gacha.version, data: gacha.data } };
+    const fresh = startFrom((live.events.data.list as GameEvent[]) ?? [], (live.gacha.data.banners as Banner[]) ?? [], original ?? id, from);
+    setBase(live);
+    setEvent(fresh.event);
+    setScanner(fresh.scanner);
+    publish.reset();
+  };
   const [step, setStep] = useState<Step>('data');
   const [autoIds] = useState(() => new Set<string>());
   const schema = eventSchema();
@@ -63,15 +75,22 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
   const at = original ? list.findIndex((e) => e.id === original) : list.length;
   const nextList = original ? list.map((e, i) => (i === at ? event : e)) : [...list, event];
   const oldBanner = original ? scannerOf({ id: original }, banners) : undefined;
-  const withoutOld = banners.filter((b) => b !== oldBanner);
-  const nextBanners = scanner.on ? [...withoutOld, bannerFor(event, { name: scanner.name || t.scannerDefault(event.name), trait: scanner.trait, value: scanner.value })] : withoutOld;
+  const fields = { name: scanner.name || t.scannerDefault(event.name), trait: scanner.trait, value: scanner.value };
+  // An existing scanner keeps its id, pity group (players' pity lives there) and place; only what the wizard edits
+  // changes, and it opens and closes with the event.
+  const nextBanners = !scanner.on
+    ? banners.filter((b) => b !== oldBanner)
+    : oldBanner
+      ? banners.map((b) => (b === oldBanner ? { ...b, name: fields.name, featured: { trait: fields.trait, value: fields.value }, startsAt: event.startsAt, endsAt: event.endsAt } : b))
+      : [...banners, bannerFor(event, fields)];
   const bannersChanged = JSON.stringify(nextBanners) !== JSON.stringify(banners);
+  const eventsChanged = JSON.stringify(nextList) !== JSON.stringify(list);
 
-  const eventIssues = configIssues('events', mergeDraft('events', events.data, { list: nextList }));
+  const eventIssues = configIssues('events', mergeDraft('events', base.events.data, { list: nextList }));
   const prefix = `list.${at}`;
   const mine = eventIssues.filter((i) => i.path === prefix || i.path.startsWith(`${prefix}.`)).map((i) => ({ ...i, path: i.path === prefix ? '' : i.path.slice(prefix.length + 1) }));
   const others = eventIssues.filter((i) => !(i.path === prefix || i.path.startsWith(`${prefix}.`)));
-  const gachaIssues = bannersChanged ? configIssues('gacha', mergeDraft('gacha', gacha.data, { banners: nextBanners })) : [];
+  const gachaIssues = bannersChanged ? configIssues('gacha', mergeDraft('gacha', base.gacha.data, { banners: nextBanners })) : [];
   const byStep: Record<Step, number> = {
     data: mine.filter((i) => !i.path.startsWith('goals')).length + others.length,
     goals: mine.filter((i) => i.path.startsWith('goals')).length,
@@ -83,11 +102,15 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
   const names = { ...Object.fromEntries(nextList.map((e) => [e.id, e.name])) };
   const warnings = eventWarnings(nextList, nextBanners).filter((w) => ('event' in w ? w.event === event.id : w.banner === event.id));
   const changes = [
-    ...humanDiff('events', configJsonSchema('events'), events.data, { ...events.data, list: nextList }),
-    ...(bannersChanged ? humanDiff('gacha', configJsonSchema('gacha'), gacha.data, { ...gacha.data, banners: nextBanners }) : []),
+    ...(eventsChanged ? humanDiff('events', configJsonSchema('events'), base.events.data, { ...base.events.data, list: nextList }) : []),
+    ...(bannersChanged ? humanDiff('gacha', configJsonSchema('gacha'), base.gacha.data, { ...base.gacha.data, banners: nextBanners }) : []),
   ];
   const issues = issuesByPath(mine);
-  const setDates = (startsAt: string, days: number) => setEvent({ ...event, startsAt, endsAt: new Date(Date.parse(startsAt) + days * DAY).toISOString() });
+  const setDates = (startsAt: string, days: number) => {
+    // A cleared start counts from now.
+    const from = Number.isNaN(Date.parse(startsAt)) ? Date.now() : Date.parse(startsAt);
+    setEvent({ ...event, startsAt: new Date(from).toISOString(), endsAt: new Date(from + days * DAY).toISOString() });
+  };
   const days = Math.max(1, Math.round((Date.parse(event.endsAt) - Date.parse(event.startsAt)) / DAY) || 7);
   const now = new Date();
   now.setSeconds(0, 0);
@@ -140,6 +163,7 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
                 issues={issues}
                 options={{}}
                 autoIds={autoIds}
+                live={base.events.data}
               />
               <div className="ev-quick">
                 <span>{t.quickStart}</span>
@@ -160,7 +184,7 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
             </>
           ) : null}
           {step === 'goals' ? (
-            <ConfigForm cfgKey="events" prefix="list[]" schema={pick(schema, ['goals'])} value={event} onChange={(v) => setEvent(v as GameEvent)} issues={issues} options={{}} autoIds={autoIds} />
+            <ConfigForm cfgKey="events" prefix="list[]" schema={pick(schema, ['goals'])} value={event} onChange={(v) => setEvent(v as GameEvent)} issues={issues} options={{}} autoIds={autoIds} live={base.events.data} />
           ) : null}
           {step === 'rewards' ? (
             <div className="ev-rewards">
@@ -307,6 +331,14 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
               </ul>
             </section>
           )}
+          {moved ? (
+            <div className="admin-moved" role="status">
+              <p>{t.moved(events.version !== base.events.version ? events.version : gacha.version)}</p>
+              <button type="button" className="lip pill small" onClick={reloadLive}>
+                {t.reloadLive}
+              </button>
+            </div>
+          ) : null}
           <PublishFields
             busy={publish.isPending}
             disabled={!valid || changes.length === 0}
@@ -316,8 +348,8 @@ function Wizard({ events, gacha, id, from }: { events: ConfigKeyRow; gacha: Conf
               publish.mutate(
                 {
                   items: [
-                    { key: 'events', data: { list: nextList }, baseVersion: events.version },
-                    ...(bannersChanged ? [{ key: 'gacha' as const, data: { banners: nextBanners }, baseVersion: gacha.version }] : []),
+                    ...(eventsChanged ? [{ key: 'events' as const, data: { list: nextList }, baseVersion: base.events.version }] : []),
+                    ...(bannersChanged ? [{ key: 'gacha' as const, data: { banners: nextBanners }, baseVersion: base.gacha.version }] : []),
                   ],
                   reason,
                   password,

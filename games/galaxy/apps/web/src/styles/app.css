@@ -1882,6 +1882,9 @@
   .cf-k-boolean > .admin-switch { grid-column: 2; grid-row: 1; }
   .cf-k-boolean > .cf-hint, .cf-k-boolean > .cf-problems { grid-column: 1 / -1; }
   .cf-k-fixed output { font-weight: 700; color: var(--color-ink-soft); }
+  .cf-label { font-weight: 700; font-size: 14px; color: var(--color-ink); }
+  .cf-locked { display: inline-flex; align-items: center; gap: 8px; min-block-size: 40px; padding: 8px 12px; border-radius: 10px; background: rgb(0 0 0 / .18); color: var(--color-ink-soft); font-weight: 700; }
+  .cf-locked .ico { inline-size: 16px; block-size: 16px; flex: none; }
   .cf-absent { grid-template-columns: 1fr auto; align-items: center; padding: 10px 12px; border-radius: 12px; border: 1px dashed rgb(255 255 255 / .14); }
   .cf-group { margin: 0; padding: 16px; border: 0; border-radius: 16px; background: rgb(0 0 0 / .16); display: grid; gap: 12px; min-inline-size: 0; }
   .cf-group > legend { float: left; inline-size: 100%; padding: 0; margin-block-end: 4px; font: 400 18px var(--font-display); }

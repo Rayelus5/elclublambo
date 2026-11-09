@@ -255,7 +255,7 @@ function Editor({ row, options }: { row: ConfigKeyRow; options: Options }) {
       <div className="cf-layout">
         <div className="cf-main">
           {mode === 'form' ? (
-            <ConfigForm cfgKey={row.key} schema={schema} value={draft} onChange={setDraft} issues={issuesByPath(issues)} options={options} />
+            <ConfigForm cfgKey={row.key} schema={schema} value={draft} onChange={setDraft} issues={issuesByPath(issues)} options={options} live={base.data} />
           ) : (
             <div className="field">
               <label htmlFor={id}>{t.editor}</label>

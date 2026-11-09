@@ -123,7 +123,7 @@ export function createConfigService(
 
     async publishMany(items, actor, reason) {
       const versions = await inTransaction(db, async (trx) => {
-        // Locks in a fixed order, so two batches never wait on each other.
+        // Locks in a fixed order, so two batches can wait on each other but never deadlock.
         const sorted = [...items].sort((a, b) => a.key.localeCompare(b.key));
         for (const { key } of sorted) await sql`select pg_advisory_xact_lock(hashtext(${`galaxy.config:${key}`}))`.execute(trx);
         const planned = [];

@@ -199,3 +199,39 @@ test('el simulador del gachapón tira el borrador y lo compara con lo esperado, 
   await user.type(hard, '25');
   await waitFor(() => expect(screen.queryByRole('table', { name: t.sim.title })).not.toBeInTheDocument());
 });
+
+test('un identificador publicado no se cambia aunque se reordene la lista; uno nuevo sigue a su nombre', async () => {
+  const live = { list: [{ id: 'finde', name: 'Doble polvo', currency: 'dust', factor: 2, startsAt: '2027-01-01T00:00:00.000Z', endsAt: '2027-01-03T00:00:00.000Z' }] };
+  mockApi({
+    'GET /galaxy/api/auth/me': () => jsonResponse(200, admin),
+    'GET /galaxy/api/admin/config/keys': () => jsonResponse(200, keys.map((k) => (k.key === 'boosts' ? { ...k, version: 2, data: live } : k))),
+    'GET /galaxy/api/admin/config/boosts/versions': () => jsonResponse(200, []),
+  });
+  renderAt('/admin/configuracion/boosts', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  const user = userEvent.setup();
+  const list = await screen.findByRole('region', { name: 'Multiplicadores' });
+  await user.click(within(list).getByRole('button', { name: 'Añadir multiplicador' }));
+  await user.type(within(list).getByLabelText('Nombre'), 'Nuevo');
+  expect(within(list).getByLabelText('Identificador')).toHaveValue('nuevo');
+  // Move the new one first: the published one is now where the new one was.
+  await user.click(within(list).getByRole('button', { name: 'Subir Nuevo' }));
+  await user.click(within(list).getByRole('button', { name: /^Nuevo/, expanded: false }));
+  await user.click(within(list).getByRole('button', { name: /^Doble polvo/, expanded: false }));
+  const names = within(list).getAllByLabelText('Nombre');
+  await user.type(names.at(-1)!, ' x');
+  // The published id is shown, not editable, and never follows its name.
+  expect(within(list).getByText('finde')).toBeInTheDocument();
+  expect(within(list).getAllByLabelText('Identificador')).toHaveLength(1);
+  await user.type(names[0]!, 'r');
+  expect(within(list).getByLabelText('Identificador')).toHaveValue('nuevor');
+});
+
+test('el álbum se escribe en su porcentaje de 1 a 100, sin multiplicar', async () => {
+  api({ 'GET /galaxy/api/admin/config/catalog/versions': () => jsonResponse(200, []) });
+  renderAt('/admin/configuracion/catalog', { '/admin/configuracion/:key': <ConfigKeyScreen /> });
+  const user = userEvent.setup();
+  const list = await screen.findByRole('region', { name: 'Premios del álbum' });
+  const first = parseConfig('catalog', {}).rewards[0]!;
+  await user.click(within(list).getAllByRole('button', { expanded: false })[0]!);
+  expect(within(list).getByLabelText('Al completar el')).toHaveValue(String(first.percent));
+});

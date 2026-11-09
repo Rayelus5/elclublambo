@@ -132,6 +132,34 @@ export function setIn<T>(value: T, path: Path, next: unknown): T {
 
 export const pathKey = (path: Path) => path.join('.');
 
+/**
+ * A number typed in Spanish: comma for decimals, dots for thousands («10.000», «1.500,5»). A dot that does not group
+ * thousands is a decimal point («0.125», «1.5»), as a technical admin types it.
+ */
+export function parseNumber(raw: string): number | undefined {
+  const s = raw.trim();
+  if (s === '') return undefined;
+  const grouped = /^-?[1-9]\d{0,2}(\.\d{3})+(,\d+)?$/.test(s);
+  const n = Number(grouped ? s.replace(/\./g, '').replace(',', '.') : s.replace(',', '.'));
+  return Number.isNaN(n) ? undefined : n;
+}
+
+/**
+ * The ids already published, by the list they live in («list[]|fisura», «list[].goals[]|kills»): those name what
+ * players have (claims, progress, pity), so a form never changes them, wherever the item has moved.
+ */
+export function liveIds(value: unknown, pattern = '', out = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      if (item && typeof item === 'object' && typeof (item as { id?: unknown }).id === 'string') out.add(`${pattern}[]|${(item as { id: string }).id}`);
+      liveIds(item, `${pattern}[]`, out);
+    }
+  } else if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) liveIds(v, pattern ? `${pattern}.${k}` : k, out);
+  }
+  return out;
+}
+
 /** «Semana de la Fisura» → «semana-de-la-fisura»: an id from a name (lowercase, no accents, dashes, 32 at most). */
 export function slugOf(name: string): string {
   return name

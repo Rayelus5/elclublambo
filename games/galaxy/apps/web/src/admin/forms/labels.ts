@@ -320,7 +320,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   },
   catalog: {
     rewards: { label: 'Premios del álbum', noun: 'premio' },
-    'rewards[].percent': { label: 'Al completar el', unit: 'percent' },
+    'rewards[].percent': { label: 'Al completar el', hint: 'Porcentaje del álbum, de 1 a 100' },
   },
   achievements: {
     list: { label: 'Logros', noun: 'logro' },
