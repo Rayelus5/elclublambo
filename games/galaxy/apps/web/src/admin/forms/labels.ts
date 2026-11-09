@@ -37,6 +37,7 @@ export const CATEGORIES: Category[] = [
   { id: 'missions', title: 'Misiones y logros', description: 'Lo que sale cada día y cada semana, los logros y el álbum', icon: 'list', keys: ['missions', 'achievements', 'catalog'] },
   { id: 'gacha', title: 'Escáner', description: 'Probabilidades, garantías, precios y escáneres activos', icon: 'radar', keys: ['gacha'] },
   { id: 'social', title: 'Comunidad y mercado', description: 'Chat, amigos, clanes y compraventa entre jugadores', icon: 'chat', keys: ['chat', 'social', 'clans', 'market'] },
+  { id: 'coop', title: 'En grupo', description: 'Salas, cartas, caídas y reanimación, y cómo cambian la dificultad y el botín con los jugadores', icon: 'clan', keys: ['coop'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
   {
     id: 'advanced',
@@ -66,6 +67,7 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   account: { title: 'Nivel de cuenta', description: 'Experiencia por incursión y lo que pide cada nivel' },
   chat: { title: 'Chat', description: 'Quién escribe, cuánto y qué palabras se filtran' },
   social: { title: 'Amigos', description: 'Cuántos amigos puede tener cada jugador y cuántas solicitudes envía por hora' },
+  coop: { title: 'Partidas en grupo', description: 'Quién puede jugar en grupo, las salas y las reglas de la partida según cuántos jugadores haya' },
   market: { title: 'Mercado', description: 'Precios, comisión, límites diarios y avisos' },
   clans: { title: 'Clanes', description: 'Miembros, coste y requisitos' },
   season: { title: 'Temporada', description: 'Nombre, fechas, puntos, rangos, anomalía y acabado exclusivo' },
@@ -99,6 +101,8 @@ const pool = (p: string, title: string): Record<string, FieldInfo> => ({
   [`${p}.pool`]: { label: 'Misiones posibles', noun: 'misión' },
 });
 
+const PLAYERS = ['1 jugador', '2 jugadores', '3 jugadores', '4 jugadores'] as const;
+
 export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
   features: {
     registrationOpen: { label: 'Registro abierto' },
@@ -108,6 +112,8 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     market: { label: 'Mercado' },
     trades: { label: 'Trueques' },
     chat: { label: 'Chat' },
+    friends: { label: 'Amigos' },
+    coop: { label: 'Partidas en grupo' },
   },
   auth: {
     sessionDays: { label: 'Sesión de jugador', unit: 'days' },
@@ -225,6 +231,24 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'xp.capPerMinute': { label: 'Tope por minuto' },
     minRunSeconds: { label: 'Duración mínima para contar', unit: 'seconds' },
     levels: { label: 'Experiencia para cada nivel', items: level(2) },
+  },
+  coop: {
+    minLevel: { label: 'Nivel mínimo', hint: 'Además hay que acabar o saltar el tutorial' },
+    maxRooms: { label: 'Salas abiertas a la vez como máximo' },
+    lobbyIdleMinutes: { label: 'Una sala sin cambios se cierra tras', unit: 'minutes' },
+    invitesPerMinute: { label: 'Invitaciones por minuto' },
+    pickSeconds: { label: 'Tiempo para elegir carta', unit: 'seconds', hint: 'Pasado este tiempo se elige una al azar' },
+    downSeconds: { label: 'Tiempo caído antes de quedar fuera', unit: 'seconds' },
+    reviveSeconds: { label: 'Tiempo para reanimar', unit: 'seconds', hint: 'Lo que un compañero tiene que estar encima' },
+    reviveRadius: { label: 'Distancia para reanimar' },
+    reviveHp: { label: 'Vida al volver', unit: 'percent' },
+    reviveInvuln: { label: 'Invulnerable al volver', unit: 'seconds' },
+    enemyHp: { label: 'Vida de los enemigos', unit: 'factor', items: PLAYERS },
+    enemyDamage: { label: 'Daño de los enemigos', unit: 'factor', items: PLAYERS },
+    density: { label: 'Cantidad de enemigos', unit: 'factor', items: PLAYERS },
+    bossHp: { label: 'Vida del jefe', unit: 'factor', items: PLAYERS },
+    loot: { label: 'Botín', unit: 'factor', items: PLAYERS, hint: 'Lo que cobra cada jugador del botín del grupo' },
+    points: { label: 'Puntos de temporada', unit: 'factor', items: PLAYERS },
   },
   social: {
     maxFriends: { label: 'Amigos como máximo' },

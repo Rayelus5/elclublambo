@@ -7,6 +7,7 @@ import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
+import { ModeBar } from './ModeBar';
 import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun, useUnlockSlot } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, quirkText } from '../copy/es';
@@ -488,12 +489,14 @@ function ProbePanel({ view }: { view: HangarView }) {
   );
 }
 
-function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaunch: () => void; launching: boolean; error: unknown }) {
+function Hangar({ view, onLaunch, launching, error, modes }: { view: HangarView; onLaunch: () => void; launching: boolean; error: unknown; modes: boolean }) {
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
   const ids = view.loadout.map((g) => g?.id ?? null);
   const save = (next: (string | null)[]) => setLoadout.mutate(next, { onSuccess: () => (next.some((x) => x !== null) ? emitTour('hangar:relicEquipped') : undefined) });
   return (
+    <>
+    {modes ? <ModeBar onQuick={onLaunch} launching={launching} disabled={!view.runsEnabled} /> : null}
     <div className="hangar-grid">
       <SectorPanel view={view} />
       <ProbePanel view={view} />
@@ -531,6 +534,7 @@ function Hangar({ view, onLaunch, launching, error }: { view: HangarView; onLaun
         />
       )}
     </div>
+    </>
   );
 }
 
@@ -655,6 +659,8 @@ export function HangarScreen() {
       <Hangar
         view={hangar.data}
         launching={start.isPending}
+        // Co-op opens after the tutorial: the coached first run keeps the hangar as it was.
+        modes={!coached}
         error={start.error ?? sendError}
         onLaunch={() => {
           setSendError(null);

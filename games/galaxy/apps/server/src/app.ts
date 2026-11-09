@@ -16,6 +16,7 @@ import { registerSocialRoutes } from './social/routes';
 import { registerClanRoutes } from './clans/routes';
 import { ChatHub } from './chat/hub';
 import { LiveHub } from './realtime/live-hub';
+import { createRooms, registerRoomRoutes } from './coop/room-routes';
 import { registerFriendRoutes } from './social/friend-routes';
 import { friendIdsOf, prefsOf } from './social/friends';
 import { registerChatRoutes } from './chat/routes';
@@ -113,9 +114,19 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     const hub = new ChatHub(deps.db);
     api.addHook('onClose', async () => hub.close());
     // Plan phase 3: the live socket (friends, presence, later rooms), beside the chat's.
-    const live = new LiveHub({ friendsOf: (id) => friendIdsOf(deps.db, id), showsStatus: async (id) => (await prefsOf(deps.db, id)).showStatus });
+    // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join).
+    const rooms = createRooms(config);
+    const live = new LiveHub({
+      friendsOf: (id) => friendIdsOf(deps.db, id),
+      showsStatus: async (id) => (await prefsOf(deps.db, id)).showStatus,
+      roomOf: (id) => {
+        const r = rooms.manager.roomOf(id);
+        return r && r.state === 'lobby' ? { size: r.members.length, max: 4, ...(r.kind !== 'private' ? { code: r.code } : {}) } : null;
+      },
+    });
     api.addHook('onClose', async () => live.close());
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
+    registerRoomRoutes(api, { db: deps.db, config, live, rooms, trustCfIp: deps.env.TRUST_CF_IP });
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
     registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });

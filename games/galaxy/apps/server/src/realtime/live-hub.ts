@@ -31,6 +31,8 @@ export interface LiveHubDeps {
   friendsOf: (accountId: string) => Promise<string[]>;
   /** Whether an account shows its status to its friends. */
   showsStatus: (accountId: string) => Promise<boolean>;
+  /** The room an account is in (plan phase 5): its size, and its code when friends may join it. */
+  roomOf?: (accountId: string) => { size: number; max: number; code?: string } | null;
   now?: () => number;
 }
 
@@ -111,6 +113,9 @@ export class LiveHub {
   presenceOf(accountId: string): Presence {
     if (!this.isOnline(accountId)) return { status: 'offline' };
     const d = this.doing.get(accountId) ?? { activity: 'hub' as const };
+    // In a room's lobby (not yet in its run): «in a room, 2/4».
+    const room = d.activity === 'run' ? null : (this.deps.roomOf?.(accountId) ?? null);
+    if (room) return { status: 'online', activity: 'room', room };
     return { status: 'online', activity: d.activity, ...(d.layer ? { layer: d.layer } : {}), ...(d.room ? { room: d.room } : {}) };
   }
 

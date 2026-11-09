@@ -1,9 +1,10 @@
-import type { Activity, LiveEvent } from '@galaxy/shared';
+import type { Activity, LiveEvent, RoomInvite } from '@galaxy/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router';
 import { create } from 'zustand';
 import { FRIENDS_KEY, setPresence } from '../api/friends';
+import { setMyRoom } from '../api/rooms';
 import { useMe } from '../auth/useMe';
 import { retryDelay } from '../chat/useChatSocket';
 
@@ -11,11 +12,17 @@ import { retryDelay } from '../chat/useChatSocket';
 // friends list, pushes their presence and every change to it, and carries what I am doing now (the screen I am on, or
 // the run and its layer, which the arena reports). A dropped socket comes back after 1, 2, 4… seconds; without a
 // session, from another origin or replaced by a newer tab it stops. What arrives that a player should notice (a
-// request, an acceptance) goes to the toasts.
+// request, an acceptance, an invite to a room, being taken out of mine) goes to the toasts; my room follows the cache.
+// During a run nothing pops up, and an invite that arrives then is dropped (joining would end the run).
 
 const FINAL = new Set([4401, 4403, 4008]);
 
-export type LiveToast = { id: number; kind: 'request' | 'accepted'; username: string };
+export type LiveToast =
+  | { id: number; kind: 'request' | 'accepted'; username: string }
+  | { id: number; kind: 'invite'; username: string; invite: RoomInvite }
+  | { id: number; kind: 'kicked' | 'closed'; username: string };
+type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
+type NewToast = WithoutId<LiveToast>;
 
 type LiveState = {
   connected: boolean;
@@ -35,8 +42,9 @@ export const useLive = create<LiveState>((set) => ({
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
 
-function pushToast(kind: LiveToast['kind'], username: string): void {
-  useLive.setState((s) => ({ toasts: [...s.toasts.slice(-2), { id: ++toastId, kind, username }] }));
+function pushToast(toast: NewToast): void {
+  if (toast.kind === 'invite' && useLive.getState().run) return;
+  useLive.setState((s) => ({ toasts: [...s.toasts.slice(-2), { ...toast, id: ++toastId } as LiveToast] }));
 }
 
 /** What the screen says I am doing (the arena's report wins). */
@@ -81,8 +89,11 @@ function LiveSocket() {
         else if (event.type === 'friends') {
           void qc.invalidateQueries({ queryKey: FRIENDS_KEY });
           void qc.invalidateQueries({ queryKey: ['friend-relation'] });
-          if (event.reason === 'request' || event.reason === 'accepted') pushToast(event.reason, event.username);
-        }
+          if (event.reason === 'request' || event.reason === 'accepted') pushToast({ kind: event.reason, username: event.username });
+        } else if (event.type === 'room') {
+          setMyRoom(qc, event.room);
+          if (!event.room && event.why) pushToast({ kind: event.why, username: '' });
+        } else if (event.type === 'invite') pushToast({ kind: 'invite', username: event.invite.from, invite: event.invite });
       };
       s.onclose = (e: CloseEvent) => {
         socket.current = null;

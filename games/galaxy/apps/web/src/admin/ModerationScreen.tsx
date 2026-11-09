@@ -71,6 +71,7 @@ export function ModerationLayout() {
         </NavLink>
         <NavLink to="/admin/moderacion/chat">{t.tabs.live}</NavLink>
         <NavLink to="/admin/moderacion/silencios">{t.tabs.mutes}</NavLink>
+        <NavLink to="/admin/moderacion/salas">{t.tabs.rooms}</NavLink>
         {isAdmin(me.data) ? (
           <>
             <NavLink to="/admin/moderacion/clanes">{t.tabs.clans}</NavLink>

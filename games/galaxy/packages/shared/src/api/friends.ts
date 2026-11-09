@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { usernameSchema } from '../account';
+import type { RoomInvite, RoomView } from './rooms';
 
 // Friends, blocks, presence and the live socket (multiplayer plan, phase 3). Friendship is mutual and starts as a
 // request; a block works both ways for everything social. Presence is what an account is doing now, shown to its
@@ -21,7 +22,7 @@ export type Activity = (typeof ACTIVITIES)[number];
 
 export type Presence =
   | { status: 'offline' }
-  | { status: 'online'; activity: Activity; room?: { size: number; max: number }; layer?: number };
+  | { status: 'online'; activity: Activity; room?: { size: number; max: number; code?: string }; layer?: number };
 
 export interface FriendEntry {
   username: string;
@@ -58,7 +59,11 @@ export type LiveEvent =
   /** A friend's presence changed. */
   | { type: 'presence'; username: string; presence: Presence }
   /** Something in my friends changed (a request, an answer, a removal, a block): read the list again. */
-  | { type: 'friends'; reason: 'request' | 'accepted' | 'removed' | 'declined' | 'blocked'; username: string };
+  | { type: 'friends'; reason: 'request' | 'accepted' | 'removed' | 'declined' | 'blocked'; username: string }
+  /** My room as it is now (plan phase 5), or null when I am out of it (left, kicked, closed: `why`). */
+  | { type: 'room'; room: RoomView | null; why?: 'kicked' | 'closed' }
+  /** Someone invites me to their room. */
+  | { type: 'invite'; invite: RoomInvite };
 
 /** The live socket, client → server: what I am doing now. */
 export const liveMessageSchema = z.discriminatedUnion('type', [
