@@ -92,10 +92,7 @@ export function ScannerScreen() {
     <div className="screen-root collection-root scanner-root">
       <div className="collection scanner">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{copy.collection.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{copy.scanner.title}</h1>
           <div className="lip panel hud">
             <WalletBar wallet={wallet} />

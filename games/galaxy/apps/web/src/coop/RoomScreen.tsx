@@ -123,10 +123,7 @@ export function RoomScreen() {
     <div className="screen-root coop-root">
       <div className="coop lobby">
         <header className="collection-bar">
-          <BackLink fallback="/incursion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink to="/incursion" />
           <h1>{t.roomTitle}</h1>
           <button type="button" className="lip pill lobby-code" onClick={() => void copyCode()} aria-label={t.copyCode(room.code)}>
             <Icon name="copy" />

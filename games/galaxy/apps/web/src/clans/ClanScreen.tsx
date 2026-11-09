@@ -166,10 +166,7 @@ export function ClanScreen() {
     <div className="screen-root clans-root">
       <div className="clans">
         <header className="collection-bar">
-          <BackLink fallback="/clanes">
-            <Icon name="back" />
-            <span>{t.backToList}</span>
-          </BackLink>
+          <BackLink fallback="/clanes" />
         </header>
         {missing ? (
           <div className="lip panel lb-empty">

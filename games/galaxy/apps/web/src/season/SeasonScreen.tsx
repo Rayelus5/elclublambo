@@ -84,10 +84,7 @@ export function SeasonScreen() {
     <div className="screen-root missions-root">
       <div className="missions season-screen">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{v?.season?.name ?? t.title}</h1>
           {v?.season ? <span className="season-left">{copy.social.endsIn(daysLeft(v.season.endsAt))}</span> : null}
         </header>

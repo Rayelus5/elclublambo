@@ -27,10 +27,7 @@ export function VisitScreen() {
     <div className="screen-root planetarium-root">
       <div className="planetarium">
         <header className="collection-bar">
-          <BackLink fallback="/planetario">
-            <Icon name="back" />
-            <span>{t.backToMine}</span>
-          </BackLink>
+          <BackLink fallback="/planetario" />
           <h1>{v ? t.of(v.owner) : t.title}</h1>
         </header>
         {missing ? (

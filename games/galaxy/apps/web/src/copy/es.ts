@@ -989,6 +989,35 @@ export const copy = {
     dismiss: 'Cerrar aviso',
     profile: { add: 'Añadir amigo', sent: 'Solicitud enviada', accept: 'Aceptar solicitud', friends: 'Amigos', remove: 'Quitar amigo', block: 'Bloquear', unblock: 'Desbloquear' },
   },
+  // «Volver» says where it leads (the owner's report): the screen it goes back to, by its address.
+  backTo: {
+    generic: 'Volver',
+    screens: {
+      '/': 'Volver al inicio',
+      '/estacion': 'Volver a la estación',
+      '/incursion': 'Volver al hangar',
+      '/incursion/grupo': 'Volver a jugar en grupo',
+      '/coleccion': 'Volver a la colección',
+      '/escaner': 'Volver al escáner',
+      '/catalogo': 'Volver al catálogo',
+      '/codice': 'Volver al códice',
+      '/laboratorio': 'Volver al laboratorio',
+      '/planetario': 'Volver a tu planetario',
+      '/clasificacion': 'Volver a la clasificación',
+      '/clanes': 'Volver a los clanes',
+      '/mercado': 'Volver al mercado',
+      '/misiones': 'Volver a las misiones',
+      '/guia': 'Volver a la guía',
+      '/temporada': 'Volver a la temporada',
+      '/trofeos': 'Volver a los trofeos',
+      '/ajustes': 'Volver a los ajustes',
+      '/sonda': 'Volver al test de la sonda',
+    } as Record<string, string>,
+    profile: (name: string) => `Volver al perfil de ${name}`,
+    collectionOf: (name: string) => `Volver a la colección de ${name}`,
+    planetariumOf: (name: string) => `Volver al planetario de ${name}`,
+    clan: 'Volver al clan',
+  },
   // Playing in a group (multiplayer plan, phase 5): the modes over the hangar, the rooms and my room.
   coop: {
     modes: {

@@ -85,7 +85,7 @@ test('la colección pública: sus cartas sin acciones, por rareza y paginada', a
   const user = userEvent.setup();
   renderAt('/perfil/vega/coleccion', screens);
   expect(await screen.findByRole('heading', { level: 1, name: t.collectionOf('vega') })).toBeInTheDocument();
-  expect(screen.getByRole('link', { name: t.backToProfile })).toHaveAttribute('href', '/perfil/vega');
+  expect(screen.getByRole('link', { name: copy.backTo.profile('vega') })).toHaveAttribute('href', '/perfil/vega');
   const grid = await screen.findByRole('list', { name: t.collectionOf('vega') });
   expect(within(grid).getAllByRole('article')).toHaveLength(2);
   expect(within(grid).queryAllByRole('button')).toHaveLength(0);

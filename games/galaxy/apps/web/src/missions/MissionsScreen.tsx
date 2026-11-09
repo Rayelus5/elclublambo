@@ -96,10 +96,7 @@ export function MissionsScreen() {
     <div className="screen-root missions-root">
       <div className="missions">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{t.title}</h1>
         </header>
         <div className="tabs missions-tabs" role="tablist" aria-label={t.title}>

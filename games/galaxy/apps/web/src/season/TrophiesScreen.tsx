@@ -59,10 +59,7 @@ export function TrophiesScreen() {
     <div className="screen-root missions-root">
       <div className="missions trophies">
         <header className="collection-bar">
-          <BackLink fallback="/estacion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/estacion" />
           <h1>{t.title}</h1>
         </header>
         <section className="lip panel trophies-mine" aria-labelledby={mine}>
