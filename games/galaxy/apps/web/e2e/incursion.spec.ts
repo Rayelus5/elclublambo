@@ -44,14 +44,14 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await expect(stage.getByRole('article')).toHaveCount(10);
   await page.goto('/galaxy/');
 
-  // Jugar opens the hangar.
+  // Jugar opens the hangar (the lobby).
   await page.getByRole('link', { name: /Jugar/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/incursion$/);
   await expect(page.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeVisible();
-  // The test's probe is equipped; the workshop shows the eight: the other starters wait for three runs, the five
-  // others for theirs.
+  // The test's probe is equipped, on its pad; pressing it opens the workshop, which shows the eight: the other
+  // starters wait for three runs, the five others for theirs.
   await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible();
-  await page.getByRole('link', { name: 'Abrir el taller' }).click();
+  await page.getByRole('link', { name: 'Abrir Bastión en el taller' }).click();
   await expect(page).toHaveURL(/\/galaxy\/taller/);
   const probes = page.getByRole('list', { name: 'Sondas' });
   await expect(probes.getByRole('listitem')).toHaveCount(8);
@@ -76,9 +76,12 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await picker.getByRole('button', { name: /^Equipar / }).first().click();
   const slot = page.getByRole('group', { name: 'Ranura 1' });
   await expect(slot).toBeVisible();
-  const relicName = (await slot.locator('.relic-info b').textContent())!.trim();
-  // Relic sets (M3b-1): the panel is there under the slots, whatever this galaxy can make.
+  const relicName = (await slot.locator('.lobby-slot-text b').textContent())!.trim();
+  // Relic sets (M3b-1): their window opens from the slots, whatever this galaxy can make.
+  await page.getByRole('button', { name: /^Conjuntos/ }).click();
   await expect(page.getByRole('region', { name: 'Conjuntos' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('region', { name: 'Conjuntos' })).toHaveCount(0);
 
   // Launch: the arena draws, the clock runs and the probe moves with the keyboard.
   await page.getByRole('button', { name: 'Lanzar incursión' }).click();

@@ -7,8 +7,6 @@ import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
 import { WorkshopScreen } from './workshop/WorkshopScreen';
-import { GroupScreen } from './coop/GroupScreen';
-import { RoomScreen } from './coop/RoomScreen';
 import { LiveRooms } from './admin/LiveRooms';
 import { ProbeTestScreen } from './probe-test/ProbeTest';
 import { StationScreen } from './station/StationScreen';
@@ -119,8 +117,9 @@ export function App() {
         <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
         <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
         <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
-        <Route path="/incursion/grupo" element={<SignedIn><GroupScreen /></SignedIn>} />
-        <Route path="/incursion/sala" element={<SignedIn><RoomScreen /></SignedIn>} />
+        {/* The group side and the room live in the lobby now; the old addresses lead there. */}
+        <Route path="/incursion/grupo" element={<Navigate to="/incursion?modo=grupo" replace />} />
+        <Route path="/incursion/sala" element={<Navigate to="/incursion" replace />} />
         <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
         <Route path="/taller" element={<SignedIn><WorkshopScreen /></SignedIn>} />
         <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />

@@ -60,7 +60,7 @@ function Toast({ toast }: { toast: LiveToast }) {
               {
                 onSuccess: () => {
                   dismiss(toast.id);
-                  void navigate('/incursion/sala');
+                  void navigate('/incursion');
                 },
               },
             )

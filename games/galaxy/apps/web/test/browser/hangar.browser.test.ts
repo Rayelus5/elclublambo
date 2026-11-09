@@ -11,7 +11,8 @@ import { HangarScreen } from '../../src/hangar/HangarScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
 import '../../src/styles/app.css';
 
-// The hangar and the results with the app's real styles, for review screenshots (VITE_ARENA_SHOTS=1).
+// The hangar (the lobby) and the results with the app's real styles: the lobby's areas never overlap at any of these
+// sizes; review screenshots with VITE_ARENA_SHOTS=1.
 
 const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record<string, string>): GalaxySummary => ({
   id,
@@ -121,8 +122,16 @@ function mount(el: ReturnType<typeof createElement>): void {
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string) => {
-      const body = url.endsWith('/hangar') ? view : url.endsWith('/gacha') ? { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } } : {};
-      return new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
+      const known: Record<string, unknown> = {
+        '/hangar': view,
+        '/gacha': { banners: [], costs: { coins: 100, coinsTen: 900, signals: 1 }, freePullAvailable: false, wallet: { coins: 232, dust: 53, signal: 11, components: 40 } },
+        '/auth/me': { id: 'a1', username: 'piloto_rayo', roles: [], mfa: false, level: 4 },
+        '/rooms': { mine: null, open: [], allowed: true, reason: null, minLevel: 1 },
+      };
+      const key = Object.keys(known).find((k) => url.endsWith(k));
+      // What this page does not need here answers as missing (its panels show nothing, as when it fails).
+      if (!key) return new Response(JSON.stringify({ error: 'not_found' }), { status: 404, headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify(known[key]), { status: 200, headers: { 'content-type': 'application/json' } });
     }),
   );
   const host = document.createElement('div');
@@ -144,7 +153,16 @@ for (const [w, h] of [
     await page.viewport(w, h);
     mount(createElement(HangarScreen));
     await new Promise((r) => setTimeout(r, 1500));
-    expect(document.querySelector('.hangar-grid')).not.toBeNull();
+    expect(document.querySelector('.lobby')).not.toBeNull();
+    // The lobby's areas never overlap (the owner: «nada tape nada»), and nothing pushes the page sideways.
+    const areas = ['.lobby-top', '.lobby-rail', '.lobby-stage', '.lobby-side', '.lobby-foot'].map((sel) => document.querySelector(sel)!.getBoundingClientRect());
+    for (let i = 0; i < areas.length; i++)
+      for (let j = i + 1; j < areas.length; j++) {
+        const [a, b] = [areas[i]!, areas[j]!];
+        expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1).toBe(false);
+      }
+    const screenRoot = document.querySelector('.screen-root')!;
+    expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/hangar-${w}.png` });
   }, 60_000);
 }

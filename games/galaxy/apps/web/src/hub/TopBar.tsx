@@ -27,8 +27,9 @@ export function TopBar({
   me: MeResponse;
   wallet: Wallet | undefined;
   freePull: boolean;
-  onLogout: () => void;
-  leaving: boolean;
+  /** Salir: only on the title screen (the lobby keeps the rest of the bar). */
+  onLogout?: () => void;
+  leaving?: boolean;
 }) {
   const chatOpen = useUi((s) => s.chat !== null);
   const openChat = useUi((s) => s.openChat);
@@ -102,17 +103,19 @@ export function TopBar({
         ) : null}
         <MissionsButton style={delay('1.02s')} />
         <MailButton style={delay('1.05s')} />
-        <button
-          type="button"
-          className="lip iconbtn enter"
-          style={delay('1.1s')}
-          onClick={onLogout}
-          disabled={leaving}
-          aria-label={copy.hub.logout}
-          title={copy.hub.logout}
-        >
-          <Icon name="exit" />
-        </button>
+        {onLogout ? (
+          <button
+            type="button"
+            className="lip iconbtn enter"
+            style={delay('1.1s')}
+            onClick={onLogout}
+            disabled={leaving ?? false}
+            aria-label={copy.hub.logout}
+            title={copy.hub.logout}
+          >
+            <Icon name="exit" />
+          </button>
+        ) : null}
       </div>
     </header>
   );
