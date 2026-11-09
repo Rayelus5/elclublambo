@@ -434,22 +434,22 @@ describe('el lobby', () => {
   });
 });
 
-test('cada reliquia enseña sus habilidades como etiquetas, y cada una abre lo que hace', async () => {
+test('cada reliquia lleva un chip con sus poderes, que abre lo que hace cada uno', async () => {
   const i = copy.hangar.skillInfo;
   mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy(), null] })) });
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
-  const tags = await screen.findByRole('list', { name: i.tags('Kathra') });
-  expect(within(tags).getAllByRole('button').map((b) => b.textContent)).toEqual([
-    copy.hangar.families.blades,
-    copy.hangar.elements.burn,
-    copy.hangar.phenomena.pulsar,
-    expect.stringMatching(/^Potencia ×/),
-  ]);
-  fireEvent.click(within(tags).getByRole('button', { name: copy.hangar.families.blades }));
-  const info = await screen.findByRole('dialog', { name: copy.hangar.families.blades });
-  expect(info).toHaveTextContent(i.family.blades);
-  expect(info).toHaveTextContent(i.kinds.family);
-  fireEvent.click(within(info).getByRole('button', { name: copy.collection.close }));
-  fireEvent.click(within(tags).getByRole('button', { name: copy.hangar.elements.burn }));
-  expect(await screen.findByRole('dialog', { name: copy.hangar.elements.burn })).toHaveTextContent(i.element.burn);
+  const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
+  // One chip: the passive and how many more.
+  const chip = within(slot).getByRole('button', { name: i.open('Kathra') });
+  expect(chip).toHaveTextContent(copy.hangar.families.blades);
+  expect(chip).toHaveTextContent('+2');
+  fireEvent.click(chip);
+  const info = await screen.findByRole('dialog', { name: i.title('Kathra') });
+  const powers = within(info).getByRole('list', { name: i.tags('Kathra') });
+  const rows = within(powers).getAllByRole('listitem');
+  expect(rows).toHaveLength(4);
+  expect(rows[0]).toHaveTextContent(i.family.blades);
+  expect(rows[1]).toHaveTextContent(i.element.burn);
+  expect(rows[2]).toHaveTextContent(i.phenomenon.pulsar);
+  expect(rows[3]).toHaveTextContent(i.power);
 });

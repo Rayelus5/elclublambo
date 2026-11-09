@@ -144,6 +144,11 @@ export class CoopRun {
     this.pending.push(this.closed + 1, slot, PICK_SEQ, index, seq, 0);
   }
 
+  /** Whether the player in `slot` still has a play socket open (who went has their result told elsewhere). */
+  hasSocket(slot: number): boolean {
+    return (this.sockets[slot]?.size ?? 0) > 0;
+  }
+
   /** A quick mark (phase 6c): passed on to everyone at once, outside the sealed log (the world never sees it). */
   mark(slot: number, kind: CoopMark, x: number, y: number, now: number): void {
     if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;

@@ -810,6 +810,10 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **De dónde sale:** de la simulación que corre igual en cada cliente, sin nada nuevo del servidor.
    - **Comprobar:** terminar una partida en grupo con dos cuentas y ver la tabla en las dos.
 
+54. **Resultados para quien abandona una partida en grupo (fase 6c):** sin migraciones.
+   - **Cómo llega:** quien sale de una partida en grupo (o pierde la conexión) recibe su resultado cuando la partida acaba. Le llega por el socket en vivo, como el aviso «Tu partida en grupo ha terminado», que dura 30 s y tiene «Ver resultados».
+   - **Qué abre:** «Ver resultados» abre una ventana con lo que cobró. Quien sigue en la partida lo recibe como siempre, al final de la arena.
+   - **Comprobar:** con dos cuentas en una partida, una abandona y la otra después; la primera ve el aviso y sus resultados.
 55. **Repetir en el admin una partida en grupo:** sin migraciones.
    - **Qué se ve:** en Admin › Partidas, una partida en grupo ya no dice «no guardó sus entradas». Se repite entera con todas sus sondas, a partir de las entradas compartidas de la partida (`coop_run_inputs`) y del arranque del grupo.
    - **Cámara:** empieza en el jugador de la fila y se puede cambiar a cualquier otro.

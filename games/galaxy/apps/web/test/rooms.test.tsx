@@ -235,3 +235,29 @@ test('durante una incursión no salen avisos, y una invitación que llega entonc
   act(() => FakeSocket.last!.push({ type: 'invite', invite: { from: 'lyra', code: 'QWERTY', sector: nebula.id, kind: 'friends', size: 2 } }));
   expect(useLive.getState().toasts).toHaveLength(0);
 });
+
+test('quien abandonó una partida en grupo recibe su resultado al acabar: un aviso que abre los resultados', async () => {
+  vi.stubGlobal('WebSocket', FakeSocket);
+  mockApi(base(rooms()));
+  const user = userEvent.setup();
+  renderAt('/', live);
+  await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+  act(() => FakeSocket.last!.open());
+  const result = {
+    id: 'r9',
+    outcome: 'abandoned',
+    ticks: 3600,
+    depth: 1,
+    kills: 80,
+    level: 6,
+    payout: { coins: 20, dust: 6, signals: 0, material: 4 },
+    breakdown: { layers: [{ layer: 1, coins: 20, dust: 6, multiplier: 1 }], share: 0.5, daily: [{ seconds: 60, multiplier: 1 }] },
+    wallet: { coins: 120, dust: 6, signal: 10 },
+    progress: { xp: 0, level: 1, levelUp: false, points: 0 },
+  };
+  act(() => FakeSocket.last!.push({ type: 'coopResult', outcome: 'died', result } as LiveEvent));
+  const toast = (await screen.findByText(t.resultToast)).closest('li')!;
+  await user.click(within(toast).getByRole('button', { name: t.resultSee }));
+  const dialog = await screen.findByRole('dialog', { name: t.resultTitle });
+  expect(within(dialog).getByRole('heading', { name: copy.results.abandoned })).toBeInTheDocument();
+});

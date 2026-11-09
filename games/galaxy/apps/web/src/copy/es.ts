@@ -1125,6 +1125,10 @@ export const copy = {
       label: (name: string, kind: string) => `${name}: ${kind}`,
       hint: 'Q: avisar al grupo',
     },
+    // The result of a group run one had left (phase 6c), when it ends.
+    resultToast: 'Tu partida en grupo ha terminado',
+    resultSee: 'Ver resultados',
+    resultTitle: 'Resultado de tu partida en grupo',
     // The group run's results by player (phase 6c).
     results: {
       title: 'Tu equipo',
@@ -1786,6 +1790,8 @@ export const copy = {
       kinds: { family: 'Pasiva', element: 'Elemento', phenomenon: 'Fenómeno', power: 'Potencia' },
       from: { family: 'Por el tipo de la galaxia', element: 'Por su paleta', phenomenon: 'Por su fenómeno', power: 'Por su tamaño, su núcleo, su nivel y sus conjuntos' },
       tags: (name: string) => `Habilidades de ${name}`,
+      title: (name: string) => `Poderes de ${name}`,
+      open: (name: string) => `Ver los poderes de ${name}`,
       more: (skill: string) => `Qué hace ${skill}`,
       family: {
         blades: 'Cuchillas que giran a tu alrededor y cortan lo que tocan. Los brazos de la galaxia dan más cuchillas',
