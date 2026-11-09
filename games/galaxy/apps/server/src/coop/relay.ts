@@ -1,4 +1,4 @@
-import { type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
+import { type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
 import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, step, toBase64 } from '@galaxy/sim';
 
 // One co-op run as the server plays it (multiplayer plan, phase 6). Inputs arrive from the players' sockets and are
@@ -16,6 +16,8 @@ const BEAT_TICKS = 3;
 const MAX_TICKS_PER_PUMP = 30;
 export const AWAY_AFTER_MS = 10_000;
 export const ALL_GONE_MS = 120_000;
+/** The least time between two quick marks of one player (phase 6c): a held key never floods the group. */
+export const MARK_GAP_MS = 700;
 const OPEN = 1;
 
 export interface PlaySocket {
@@ -66,6 +68,7 @@ export class CoopRun {
   private readonly move: [number, number, number][];
   private readonly presence: number[];
   private readonly offlineSince: (number | null)[];
+  private readonly markedAt: number[] = [];
   private lastLayer = 0;
   /** When the clock stopped because nobody was connected (null: running). */
   private pausedSince: number | null = null;
@@ -139,6 +142,14 @@ export class CoopRun {
     if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
     this.withdraw(slot, PICK_SEQ);
     this.pending.push(this.closed + 1, slot, PICK_SEQ, index, seq, 0);
+  }
+
+  /** A quick mark (phase 6c): passed on to everyone at once, outside the sealed log (the world never sees it). */
+  mark(slot: number, kind: CoopMark, x: number, y: number, now: number): void {
+    if (this.ended || this.presence[slot] === PRESENCE_LEFT) return;
+    if (now - (this.markedAt[slot] ?? -Infinity) < MARK_GAP_MS) return;
+    this.markedAt[slot] = now;
+    this.broadcast({ t: 'mark', slot, kind, x, y });
   }
 
   /** The player leaves the run for good (Abandonar, or out of the room). */

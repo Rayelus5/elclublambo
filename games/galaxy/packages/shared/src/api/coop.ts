@@ -65,12 +65,17 @@ export function coopSimOptions(start: Pick<CoopRunStart, 'seed' | 'content' | 's
 
 const int = (lo: number, hi: number) => z.number().int().min(lo).max(hi);
 
+/** The quick marks a player puts on the world (phase 6c): over the play socket, never in the sealed log. */
+export const COOP_MARKS = ['here', 'help', 'beacon', 'danger'] as const;
+export type CoopMark = (typeof COOP_MARKS)[number];
+
 /** What a player sends on the play socket. */
 export const coopClientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('in'), mx: int(-127, 127), my: int(-127, 127), aim: int(-1, 4095) }).strict(),
   z.object({ t: z.literal('pick'), i: int(0, 15), seq: int(0, 255) }).strict(),
   z.object({ t: z.literal('leave') }).strict(),
   z.object({ t: z.literal('ping'), at: z.number().finite() }).strict(),
+  z.object({ t: z.literal('mark'), kind: z.enum(COOP_MARKS), x: int(-1_000_000, 1_000_000), y: int(-1_000_000, 1_000_000) }).strict(),
 ]);
 export type CoopClientMessage = z.infer<typeof coopClientMessageSchema>;
 
@@ -85,4 +90,6 @@ export type CoopServerMessage =
   | { t: 'f'; to: number; ev: number[] }
   /** The run is over: how, and what this player was paid (null: nothing, e.g. already paid). */
   | { t: 'end'; outcome: CoopOutcome; result: RunResult | null }
-  | { t: 'pong'; at: number };
+  | { t: 'pong'; at: number }
+  /** A quick mark a player put (the sender too): who, which, where in the world. */
+  | { t: 'mark'; slot: number; kind: CoopMark; x: number; y: number };

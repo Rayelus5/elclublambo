@@ -175,6 +175,7 @@ export class CoopService {
     else if (msg.t === 'pick') run.pick(slot, msg.i, msg.seq);
     else if (msg.t === 'leave') run.leave(slot);
     else if (msg.t === 'ping') socket.send(JSON.stringify({ t: 'pong', at: msg.at }));
+    else if (msg.t === 'mark') run.mark(slot, msg.kind, msg.x, msg.y, Date.now());
   }
 
   /** A member left the room while its run plays: it leaves the run for good. */

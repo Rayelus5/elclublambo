@@ -433,3 +433,23 @@ describe('el lobby', () => {
     expect(within(zones).getAllByRole('link')).toHaveLength(6);
   });
 });
+
+test('cada reliquia enseña sus habilidades como etiquetas, y cada una abre lo que hace', async () => {
+  const i = copy.hangar.skillInfo;
+  mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ loadout: [galaxy(), null] })) });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  const tags = await screen.findByRole('list', { name: i.tags('Kathra') });
+  expect(within(tags).getAllByRole('button').map((b) => b.textContent)).toEqual([
+    copy.hangar.families.blades,
+    copy.hangar.elements.burn,
+    copy.hangar.phenomena.pulsar,
+    expect.stringMatching(/^Potencia ×/),
+  ]);
+  fireEvent.click(within(tags).getByRole('button', { name: copy.hangar.families.blades }));
+  const info = await screen.findByRole('dialog', { name: copy.hangar.families.blades });
+  expect(info).toHaveTextContent(i.family.blades);
+  expect(info).toHaveTextContent(i.kinds.family);
+  fireEvent.click(within(info).getByRole('button', { name: copy.collection.close }));
+  fireEvent.click(within(tags).getByRole('button', { name: copy.hangar.elements.burn }));
+  expect(await screen.findByRole('dialog', { name: copy.hangar.elements.burn })).toHaveTextContent(i.element.burn);
+});

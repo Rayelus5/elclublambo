@@ -17,7 +17,10 @@ import { ResultsScreen } from '../hangar/ResultsScreen';
 import { useLive } from '../live/LiveConnection';
 import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
+import type { CoopMark } from '@galaxy/shared';
 import { CoopCards, LifeNotice, TeamPanel } from './CoopHud';
+import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld } from './Marks';
+import { playMark } from './sfx';
 
 // A co-op run in the browser (multiplayer plan, phase 6). The play socket says hello with the run and the sealed log
 // so far; from then on it brings the sealed events and the tick the server closed. The run is simulated only up to
@@ -61,6 +64,16 @@ export function CoopArena({
   const known = useRef(0);
   const closed = useRef(0);
   const socket = useRef<WebSocket | null>(null);
+  /** The quick marks on screen (phase 6c), newest last. */
+  const [marks, setMarks] = useState<ShownMark[]>([]);
+  const markId = useRef(0);
+  // A mark goes when its time is up (they also fade out on their own in CSS).
+  useEffect(() => {
+    if (marks.length === 0) return;
+    const due = marks[0]!.at + MARK_SHOW_MS - Date.now();
+    const id = setTimeout(() => setMarks((ms) => ms.filter((k) => Date.now() - k.at < MARK_SHOW_MS)), Math.max(0, due));
+    return () => clearTimeout(id);
+  }, [marks]);
 
   /** Bumped on every hello: what was sent before a reconnect may never have arrived, so it is sent again. */
   const [epoch, setEpoch] = useState(0);
@@ -106,6 +119,11 @@ export function CoopArena({
           closed.current = msg.to;
         } else if (msg.t === 'end') {
           setResult({ result: msg.result });
+        } else if (msg.t === 'mark') {
+          const at = Date.now();
+          const shown: ShownMark = { id: ++markId.current, slot: msg.slot, kind: msg.kind, x: msg.x, y: msg.y, at };
+          setMarks((ms) => [...ms.filter((k) => at - k.at < MARK_SHOW_MS).slice(-7), shown]);
+          playMark(msg.kind);
         }
       };
       s.onclose = (e: CloseEvent) => {
@@ -150,6 +168,7 @@ export function CoopArena({
   }
   return (
     <CoopWorld
+      marks={marks}
       start={world.start}
       sim={world.sim}
       feed={world.feed}
@@ -169,6 +188,7 @@ export function CoopArena({
 }
 
 function CoopWorld({
+  marks,
   start,
   sim,
   feed,
@@ -181,6 +201,7 @@ function CoopWorld({
   onExit,
   onAbandon,
 }: {
+  marks: ShownMark[];
   clock: Clock;
   start: CoopRunStart;
   sim: Sim;
@@ -214,6 +235,9 @@ function CoopWorld({
   /** The offer I already answered (its sequence): its strip hides until the next one opens. */
   const [picked, setPicked] = useState(-1);
   const hudRef = useRef(hud);
+  /** The quick-mark wheel while Q is held: where it opened, and the choice under the pointer. */
+  const [wheel, setWheel] = useState<{ x: number; y: number; choice: CoopMark } | null>(null);
+  const wheelRef = useRef(wheel);
 
   const sentAt = useRef(0);
   // A new hello (a reconnect): the server may have missed my last input; it goes again.
@@ -328,10 +352,32 @@ function CoopWorld({
     return () => clearTimeout(id);
   }, [ending]);
 
-  // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world.
+  /** A quick mark at a screen point: to the world through the camera (my probe's place without one). */
+  const sendMark = useCallback(
+    (kind: CoopMark, at: { x: number; y: number }) => {
+      const cam = stageRef.current?.camera();
+      const rect = canvasRef.current?.getBoundingClientRect();
+      const me = sim.probes[slot];
+      const p = cam && rect ? toWorld(cam, rect, at) : { x: me?.x ?? 0, y: me?.y ?? 0 };
+      const clamp = (v: number) => Math.max(-1_000_000, Math.min(1_000_000, Math.round(v)));
+      send({ t: 'mark', kind, x: clamp(p.x), y: clamp(p.y) });
+    },
+    [send, sim, slot],
+  );
+
+  // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world. Q: the quick marks.
   useEffect(() => {
+    const pointer = () => input.current.mouse ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
+      if (e.code === 'KeyQ') {
+        if (!e.repeat && !wheelRef.current && sim.probes[slot]?.life !== 'left') {
+          const at = pointer();
+          wheelRef.current = { x: at.x, y: at.y, choice: 'here' };
+          setWheel(wheelRef.current);
+        }
+        return;
+      }
       if (e.code === 'Escape' || e.code === 'KeyP') {
         setMenu((m) => !m);
         return;
@@ -339,9 +385,27 @@ function CoopWorld({
       input.current.keys.add(e.code);
       if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     };
-    const up = (e: KeyboardEvent) => input.current.keys.delete(e.code);
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'KeyQ' && wheelRef.current) {
+        const w = wheelRef.current;
+        const p = pointer();
+        sendMark(markFrom(p.x - w.x, p.y - w.y), w);
+        wheelRef.current = null;
+        setWheel(null);
+        return;
+      }
+      input.current.keys.delete(e.code);
+    };
     const move = (e: MouseEvent) => {
       input.current.mouse = { x: e.clientX, y: e.clientY };
+      const w = wheelRef.current;
+      if (w) {
+        const choice = markFrom(e.clientX - w.x, e.clientY - w.y);
+        if (choice !== w.choice) {
+          wheelRef.current = { ...w, choice };
+          setWheel(wheelRef.current);
+        }
+      }
     };
     // No focus (another window, a hidden tab): idle at once, the frames stop until it comes back.
     const idle = () => {
@@ -364,7 +428,7 @@ function CoopWorld({
       window.removeEventListener('blur', idle);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [sendInput]);
+  }, [sendInput, sendMark, sim, slot]);
 
   // Gamepad: the left stick moves, the right one aims.
   useEffect(() => {
@@ -418,6 +482,8 @@ function CoopWorld({
       <TeamPanel hud={hud} players={start.players} slot={slot} />
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
+      <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
+      {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />
       {offer && !ending ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
       {link === 'lost' ? (

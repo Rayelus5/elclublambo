@@ -793,6 +793,12 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Detalle:** la carta grande se gira para ver el dorso; la estrella y el nivel van arriba, los datos en dos columnas y Vender y Desintegrar al final.
    - **Celebraciones:** subir de nivel una galaxia lanza chispas del color de su rareza, un destello, el nuevo nivel y un sonido. Fusionar a mano muestra las cartas girando hacia un núcleo antes de la revelación («Saltar» la adelanta). La fusión automática hace aparecer las nuevas una a una, con sonido.
 
+51. **Avisos rápidos en las partidas en grupo (fase 6c):** sin migraciones.
+   - **Uso:** en partida, un toque de Q avisa «Aquí» donde apunta el ratón. Si se mantiene Q, sale una rueda con Aquí a la izquierda, Ayuda arriba, A la baliza a la derecha y Cuidado abajo; se elige soltando Q hacia una opción.
+   - **Lo que ven todos:** el aviso aparece en la pantalla de todo el grupo unos segundos, con el color y el nombre de quien lo puso («Tú» para el propio), y suena. Si queda fuera de la vista, se pega al borde con una flecha.
+   - **Servidor:** reenvía el aviso por el socket de juego, fuera del registro sellado, así que la partida y las repeticiones no cambian. Como mucho admite un aviso cada 0,7 s por jugador, y quien ha abandonado ya no avisa.
+   - **Comprobar** con dos cuentas en una sala: los dos ven los dos avisos.
+
 ## Operación
 
 | Tarea | Cómo |
