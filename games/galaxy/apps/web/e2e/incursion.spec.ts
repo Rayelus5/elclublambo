@@ -76,7 +76,7 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await picker.getByRole('button', { name: /^Equipar / }).first().click();
   const slot = page.getByRole('group', { name: 'Ranura 1' });
   await expect(slot).toBeVisible();
-  const relicName = (await slot.locator('.lobby-slot-text b').textContent())!.trim();
+  const relicName = (await slot.locator('.lobby-slot-name').textContent())!.trim();
   // Relic sets (M3b-1): their window opens from the slots, whatever this galaxy can make.
   await page.getByRole('button', { name: /^Conjuntos/ }).click();
   await expect(page.getByRole('region', { name: 'Conjuntos' })).toBeVisible();
