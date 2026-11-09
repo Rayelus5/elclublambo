@@ -214,3 +214,9 @@ test('en la colección: «Vender» lleva al mercado con la galaxia, y una en ven
   expect(screen.getByRole('button', { name: new RegExp(copy.hangar.levelUp(2)) })).toBeDisabled();
   expect(screen.queryByRole('link', { name: t.sellIt })).not.toBeInTheDocument();
 });
+
+test('el aviso de requisitos dice los días en singular o plural, y sin días no los menciona', () => {
+  expect(t.gate(5, 1)).toBe('Necesitas nivel 5 y 1 día de cuenta para comerciar');
+  expect(t.gate(10, 3)).toBe('Necesitas nivel 10 y 3 días de cuenta para comerciar');
+  expect(t.gate(5, 0)).toBe('Necesitas nivel 5 para comerciar');
+});
