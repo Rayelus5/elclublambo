@@ -53,7 +53,8 @@ function Toast({ toast }: { toast: LiveToast }) {
 export function FriendToasts() {
   const toasts = useLive((s) => s.toasts);
   return (
-    <ul className="live-toasts" role="status" aria-live="polite">
+    // A polite live region, not role=status: the screens keep their own status messages as the only one.
+    <ul className="live-toasts" aria-live="polite" aria-relevant="additions">
       {toasts.map((toast) => (
         <Toast key={toast.id} toast={toast} />
       ))}
