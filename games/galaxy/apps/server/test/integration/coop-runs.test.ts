@@ -164,7 +164,7 @@ describe('despegar y jugar', () => {
       .where('p.achievement', '=', 'a-group10')
       .where('a.username', 'in', players.map((p) => p.username))
       .execute();
-    expect(grouped.map((g) => g.progress)).toEqual([1, 1]);
+    expect(grouped.map((g) => Number(g.progress))).toEqual([1, 1]);
     const inputs = await ctx.db.selectFrom('galaxy.coop_run_inputs').select('ticks').where('coop_run_id', '=', runId).executeTakeFirstOrThrow();
     expect(inputs.ticks).toBeGreaterThan(0);
     // Paying again changes nothing.
