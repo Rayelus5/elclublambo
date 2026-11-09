@@ -1,7 +1,7 @@
 import { coopRulesOf, parseConfig } from '@galaxy/shared';
 import { DEFAULT_CONTENT, MOVE, PRESENCE } from '@galaxy/sim';
 import { expect, test } from 'vitest';
-import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, TICK_MS } from '../../src/coop/relay';
+import { ALL_GONE_MS, AWAY_AFTER_MS, CoopRun, MARK_GAP_MS, TICK_MS } from '../../src/coop/relay';
 
 // The relay's clock and presence (multiplayer plan, phase 6, review): with nobody connected the clock waits (a shared
 // outage never kills the run), «away» is only for one who is missing while others play, everyone gone for long ends
@@ -133,4 +133,26 @@ test('si se van todos (aunque nadie esté conectado), la partida acaba enseguida
   r.leave(1);
   pumpRange(r, T0, T0 + 500);
   expect(r.ended).toBe(true);
+});
+
+test('un aviso rápido llega a todo el grupo con quién lo puso, no se repite sin pausa y quien se fue ya no avisa', () => {
+  const r = run();
+  const a = socket();
+  const b = socket();
+  r.attach(0, a);
+  r.attach(1, b);
+  const marks = (s: ReturnType<typeof socket>) => s.sent.map((d) => JSON.parse(d) as { t: string }).filter((m) => m.t === 'mark');
+  r.mark(0, 'help', 120, -40, T0 + 100);
+  expect(marks(b)).toEqual([{ t: 'mark', slot: 0, kind: 'help', x: 120, y: -40 }]);
+  expect(marks(a)).toHaveLength(1);
+  // Too soon after the last one: dropped (a held key never floods the group).
+  r.mark(0, 'here', 0, 0, T0 + 100 + MARK_GAP_MS - 1);
+  expect(marks(b)).toHaveLength(1);
+  r.mark(0, 'danger', 5, 5, T0 + 100 + MARK_GAP_MS);
+  expect(marks(b)).toHaveLength(2);
+  // Marks never enter the sealed log: the world stays the same.
+  expect(r.events).toEqual([]);
+  r.leave(0);
+  r.mark(0, 'here', 0, 0, T0 + 10_000);
+  expect(marks(b)).toHaveLength(2);
 });

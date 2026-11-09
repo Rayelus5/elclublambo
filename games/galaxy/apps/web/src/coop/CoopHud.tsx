@@ -87,6 +87,7 @@ export function TeamPanel({ hud, players, slot }: { hud: HudSnapshot; players: C
           );
         })}
       </ul>
+      <p className="coop-team-hint">{copy.coop.marks.hint}</p>
     </aside>
   );
 }

@@ -2412,6 +2412,31 @@
   /* A co-op run (multiplayer plan, phase 6): the team on the left under the HUD, the cards as a strip at the bottom
      (the world never stops), the notice of falling, and the link's state. */
   .coop-team { position: absolute; top: 88px; left: 20px; pointer-events: none; }
+  .coop-team-hint { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: var(--color-ink-mute); }
+  /* Quick marks (phase 6c): a pin in its player's colour with the call and the name; at the edge, an arrow. The wheel
+     opens where Q went down: four calls around the pointer, the one it points at lit. */
+  .coop-marks { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+  .coop-mark { position: absolute; translate: -50% -100%; display: grid; justify-items: center; gap: 1px; animation: mark-in .35s var(--ease-bounce) both, mark-out .6s ease-in 3.9s both; }
+  .coop-mark b { padding: 3px 10px; border-radius: 99px; background: rgb(7 10 28 / .85); border: 2px solid var(--tint); color: var(--tint); font: 400 14px var(--font-display); white-space: nowrap; box-shadow: 0 0 14px color-mix(in oklab, var(--tint) 45%, transparent); }
+  .coop-mark small { padding: 1px 8px; border-radius: 99px; background: rgb(7 10 28 / .7); color: var(--color-ink); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+  .coop-mark.k-danger b { color: var(--color-nova); border-color: var(--color-nova); }
+  .coop-mark.k-help b { animation: mark-blink .6s steps(2) 4; }
+  .coop-mark-pin { order: 3; inline-size: 14px; block-size: 14px; margin-top: 2px; border-radius: 50% 50% 50% 0; rotate: -45deg; background: var(--tint); box-shadow: 0 0 10px var(--tint); }
+  .coop-mark-arrow { order: -1; inline-size: 0; block-size: 0; border-block: 8px solid transparent; border-inline-start: 14px solid var(--tint); margin-bottom: 2px; }
+  .coop-mark.edge { translate: -50% -50%; }
+  @keyframes mark-in { from { opacity: 0; scale: .4; } }
+  @keyframes mark-out { to { opacity: 0; } }
+  @keyframes mark-blink { 50% { background: color-mix(in oklab, var(--tint) 35%, rgb(7 10 28)); } }
+  .mark-wheel { position: fixed; z-index: 30; inline-size: 0; block-size: 0; pointer-events: none; }
+  .mark-wheel::before { content: ''; position: absolute; left: -10px; top: -10px; inline-size: 20px; block-size: 20px; border-radius: 50%; border: 2px solid rgb(255 255 255 / .5); }
+  .mark-option { position: absolute; translate: -50% -50%; padding: 6px 14px; border-radius: 14px; background: rgb(7 10 28 / .88); border: 2px solid rgb(255 255 255 / .14); color: var(--color-ink-soft); font: 400 15px var(--font-display); white-space: nowrap; transition: scale .12s var(--ease-bounce), border-color .12s ease; }
+  .mark-option.left { left: -86px; top: 0; }
+  .mark-option.right { left: 92px; top: 0; }
+  .mark-option.up { left: 0; top: -54px; }
+  .mark-option.down { left: 0; top: 54px; }
+  .mark-option.on { scale: 1.12; color: var(--color-ink); border-color: var(--color-solar); box-shadow: 0 0 16px rgb(255 201 74 / .45); }
+  .mark-option.k-danger.on { border-color: var(--color-nova); box-shadow: 0 0 16px rgb(255 92 122 / .45); }
+  @media (prefers-reduced-motion: reduce) { .coop-mark, .coop-mark.k-help b { animation: none; } }
   .coop-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
   .coop-mate { --mate: var(--color-solar); display: grid; gap: 4px; inline-size: 190px; padding: 7px 10px 8px; border-radius: 12px; background: rgb(11 12 36 / .82); border-inline-start: 4px solid var(--mate); }
   .coop-mate-name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }

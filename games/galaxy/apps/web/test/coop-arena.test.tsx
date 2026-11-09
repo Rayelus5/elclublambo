@@ -1,7 +1,7 @@
 import { type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } from '@galaxy/shared';
 import { DEFAULT_CONTENT, encodeLog, gainXp, type Sim, toBase64 } from '@galaxy/sim';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { CoopArena } from '../src/coop/CoopArena';
 import { copy } from '../src/copy/es';
 
@@ -138,6 +138,40 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
   expect(ws.sent).toContainEqual({ t: 'pick', i: 1, seq: sim().probes[0]!.offerSeq & 255 });
   await waitFor(() => expect(screen.queryByRole('region', { name: t.cards })).not.toBeInTheDocument());
+});
+
+describe('avisos rápidos', () => {
+  const m = copy.coop.marks;
+  const sentMarks = (ws: FakeSocket) => ws.sent.filter((x) => (x as { t: string }).t === 'mark');
+
+  test('un toque de Q avisa «Aquí» donde apunto', async () => {
+    const { clock, ws } = await mount();
+    ws.push({ t: 'f', to: 100, ev: [] });
+    clock.frames(3);
+    fireEvent.mouseMove(window, { clientX: 700, clientY: 300 });
+    fireEvent.keyDown(window, { code: 'KeyQ' });
+    fireEvent.keyUp(window, { code: 'KeyQ' });
+    expect(sentMarks(ws)).toEqual([{ t: 'mark', kind: 'here', x: expect.any(Number), y: expect.any(Number) }]);
+  });
+
+  test('con Q pulsada sale la rueda; hacia arriba y soltar es «Ayuda»', async () => {
+    const { clock, ws } = await mount();
+    ws.push({ t: 'f', to: 100, ev: [] });
+    clock.frames(3);
+    fireEvent.mouseMove(window, { clientX: 700, clientY: 300 });
+    fireEvent.keyDown(window, { code: 'KeyQ' });
+    expect(screen.getByRole('menu', { name: m.wheel })).toBeInTheDocument();
+    fireEvent.mouseMove(window, { clientX: 700, clientY: 220 });
+    fireEvent.keyUp(window, { code: 'KeyQ' });
+    expect(sentMarks(ws)).toEqual([expect.objectContaining({ kind: 'help' })]);
+    expect(screen.queryByRole('menu', { name: m.wheel })).not.toBeInTheDocument();
+  });
+
+  test('el aviso de un compañero se ve con su nombre', async () => {
+    const { ws } = await mount();
+    ws.push({ t: 'mark', slot: 1, kind: 'danger', x: 40, y: 0 });
+    expect(await screen.findByRole('img', { name: m.label('vega', m.kinds.danger) })).toBeInTheDocument();
+  });
 });
 
 test('una partida que ya no está lo dice y deja volver a la sala', async () => {

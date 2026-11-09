@@ -1110,6 +1110,13 @@ export const copy = {
     waitReady: 'Despegas cuando todos estén listos',
     inviteTitle: 'Invitar',
     inviteHint: 'Les llega un aviso para entrar en tu sala',
+    // Quick marks in a group run (phase 6c): a tap of Q marks «Aquí»; held, a wheel of four.
+    marks: {
+      wheel: 'Avisos rápidos',
+      kinds: { here: 'Aquí', help: 'Ayuda', beacon: 'A la baliza', danger: 'Cuidado' },
+      label: (name: string, kind: string) => `${name}: ${kind}`,
+      hint: 'Q: avisar al grupo',
+    },
     invite: 'Invitar',
     invited: 'Invitación enviada',
     toastInvite: (name: string, sector: string) => `${name} te invita a su sala en ${sector}`,
