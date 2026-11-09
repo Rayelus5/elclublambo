@@ -1,16 +1,21 @@
 import { randomInt } from 'node:crypto';
-import { currencySchema, ROLES, type Role, usernameSchema } from '@galaxy/shared';
+import { readFileSync } from 'node:fs';
+import { currencySchema, isConfigKey, ROLES, type Role, usernameSchema } from '@galaxy/shared';
 import type { Kysely } from 'kysely';
+import { createNotice } from './admin/communication';
 import { writeAudit } from './audit';
 import { UsernameTakenError, findAccountByUsername, registerAccount } from './auth/accounts';
 import { AccountNotFoundError, issueResetCode } from './auth/recovery';
 import { revokeAllSessions, rolesOf } from './auth/sessions';
 import { encryptSecret, newTotpSecret } from './auth/totp';
+import { createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import { inTransaction } from './db/tx';
 import { credit, debit } from './economy/wallet';
 import { HttpError } from './errors';
 import type { Env } from './env';
+import { closeDue } from './season/close';
+import { seasonConfigs } from './season/service';
 
 export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void };
 
@@ -19,6 +24,9 @@ const USAGE = [
   '  create-admin <usuario> [--role superadmin|admin|moderator] [--json]',
   '  issue-reset-code <usuario>',
   '  reset-totp <usuario> [--json]',
+  '  grant <usuario> <moneda> <cantidad> --reason <motivo>',
+  '  publish-config <clave> <archivo.json | -> --reason <motivo>',
+  '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -204,6 +212,74 @@ async function grant(args: string[], deps: CliDeps): Promise<number> {
   }
 }
 
+/** The value after `--flag`, if any. */
+const flag = (args: string[], name: string) => {
+  const at = args.indexOf(name);
+  return at >= 0 ? args[at + 1]?.trim() : undefined;
+};
+/** The arguments that are neither flags nor their values. */
+const positional = (args: string[], flags: string[]) => args.filter((a, i) => !a.startsWith('--') && !flags.some((f) => args[i - 1] === f));
+
+/**
+ * `publish-config <clave> <archivo.json | -> --reason <motivo>` (open beta launch): publishes a key of the live config
+ * from a JSON file (or stdin), validated like the panel's (the fields it names merged onto what is live), audited as
+ * «cli». With no admin account (after the wipe), this is how the launch config goes live. A new season id archives
+ * the season it replaces, like the panel does.
+ */
+async function publishConfig(args: string[], deps: CliDeps): Promise<number> {
+  const reason = flag(args, '--reason');
+  const [key, source] = positional(args, ['--reason']);
+  if (!key || !source || !reason || reason.length < 3) return usage(deps.out, 'Uso: publish-config <clave> <archivo.json | -> --reason <motivo de 3 caracteres o más>');
+  if (!isConfigKey(key)) {
+    deps.out(`Clave desconocida: ${key}`);
+    return 1;
+  }
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(source === '-' ? 0 : source, 'utf8'));
+  } catch (err) {
+    deps.out(`No se pudo leer el JSON de ${source}: ${(err as Error).message}`);
+    return 1;
+  }
+  const config = createConfigService(deps.db);
+  const before = key === 'season' ? await seasonConfigs(config) : null;
+  try {
+    const { version } = await config.publish(key, data as never, CLI_ACTOR, reason);
+    if (before && (await config.get('season')).id !== before.season.id) await closeDue(deps.db, before, new Date(), { force: true });
+    deps.out(`Publicado ${key} v${version}`);
+    return 0;
+  } catch (err) {
+    if (err instanceof HttpError && err.code === 'config_invalid') {
+      const issues = (err.details?.issues ?? []) as { path: string; message: string }[];
+      deps.out(`La configuración de ${key} no es válida:`);
+      for (const i of issues) deps.out(`  ${i.path || '(raíz)'}: ${i.message}`);
+      return 1;
+    }
+    throw err;
+  }
+}
+
+/** `notice <texto> [--tone info|warning] [--days N] --reason <motivo>`: a title-screen notice from now, audited. */
+async function notice(args: string[], deps: CliDeps): Promise<number> {
+  const reason = flag(args, '--reason');
+  const tone = flag(args, '--tone') ?? 'info';
+  const days = Number(flag(args, '--days') ?? '7');
+  const [text] = positional(args, ['--reason', '--tone', '--days']);
+  if (!text?.trim() || text.length > 200 || !reason || reason.length < 3 || (tone !== 'info' && tone !== 'warning') || !Number.isInteger(days) || days < 1 || days > 365) {
+    return usage(deps.out, 'Uso: notice <texto de 1 a 200 caracteres> [--tone info|warning] [--days 1-365] --reason <motivo>');
+  }
+  const now = new Date();
+  const { id } = await createNotice({ db: deps.db, config: createConfigService(deps.db), now: () => now }, CLI_ACTOR, {
+    text: text.trim(),
+    tone,
+    startsAt: now.toISOString(),
+    endsAt: new Date(now.getTime() + days * 86_400_000).toISOString(),
+    reason,
+  });
+  deps.out(`Aviso ${id} publicado durante ${days} días`);
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
@@ -211,5 +287,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'issue-reset-code') return issueCode(args, deps);
   if (command === 'reset-totp') return resetTotp(args, deps);
   if (command === 'grant') return grant(args, deps);
+  if (command === 'publish-config') return publishConfig(args, deps);
+  if (command === 'notice') return notice(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }
