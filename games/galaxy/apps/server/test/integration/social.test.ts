@@ -297,7 +297,7 @@ async function grouped(ctx: Ctx, members: { id: string; username: string }[], ru
 }
 
 describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
-  const s = season({ top: 2 });
+  const s = season({ top: 3 });
   const clock = at(s, 40);
   let ctx: Ctx;
   let [a, b, c, d, x, solo]: Awaited<ReturnType<typeof player>>[] = [];
@@ -326,12 +326,13 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
     expect(v.groups).toEqual([
       { rank: 1, players: [{ username: c!.username, probe: 'lumen' }, { username: d!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
       { rank: 1, players: [{ username: a!.username, probe: 'lumen' }, { username: b!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
+      { rank: 3, players: [{ username: a!.username, probe: 'lumen' }, { username: c!.username, probe: 'lumen' }], depth: 2, cores: 0, seconds: 150, outcome: 'died' },
     ]);
     expect(v.total).toBe(3);
     expect(v.myGroup).toMatchObject({ rank: 1, depth: 6, seconds: 833 });
   });
 
-  test('tu mejor grupo sale aunque esté fuera del top, y sin partidas en grupo no hay', async () => {
+  test('tu mejor grupo es el más alto en el que estás, y sin partidas en grupo no hay', async () => {
     const mine = (await board(ctx, c!.cookie, 'groups')).myGroup;
     expect(mine).toMatchObject({ rank: 1, depth: 6 });
     // A+C, third, is not C's best; nobody plays alone in a group.
