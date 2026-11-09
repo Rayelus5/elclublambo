@@ -21,11 +21,11 @@ describe(`partidas de referencia (SIM ${SIM_VERSION})`, () => {
     expect(play(sim, 3600 * 2, 1200)).toMatchInlineSnapshot(`
       [
         "1200:c553fda4655b3d64",
-        "2400:53b42622ba80aaae",
-        "3600:8e74d166608848f1",
-        "4800:980b441c5d798d0a",
-        "6000:85d792422895f2c6",
-        "7200:9e560505601aa663",
+        "2400:72972e212b501d1c",
+        "3600:6cbe888dc1ce4f75",
+        "4800:c6a0476e2baa7bdf",
+        "6000:1abe6ea2f0b17633",
+        "7200:6d226846f17699f2",
       ]
     `);
   });
@@ -39,7 +39,7 @@ describe(`partidas de referencia (SIM ${SIM_VERSION})`, () => {
         "3600:61230a36e98405dc",
         "4800:75dd503206851565",
         "6000:936da7d3bf18be90",
-        "7200:836ee664103d650d",
+        "7200:74115620e1fa3fa5",
       ]
     `);
   });
@@ -56,12 +56,12 @@ describe(`partidas de referencia (SIM ${SIM_VERSION})`, () => {
     });
     expect(play(sim, 3600 * 2, 1200)).toMatchInlineSnapshot(`
       [
-        "1200:825727d615990bb6",
-        "2400:fb7e5961cebd5e57",
-        "3600:5fe0273359683aff",
-        "4800:bdb9c01a9713b0e6",
-        "6000:5364611d10a7da04",
-        "7200:1f55b14ffe43af76",
+        "1200:1727cb9933412a4c",
+        "2400:b68cd56edf3de66c",
+        "3600:aaf71c5b8fd92c4c",
+        "4800:72a2caf20e28d786",
+        "6000:f8efdbb15c6226c7",
+        "7200:0ff8210bb04323e9",
       ]
     `);
   });
