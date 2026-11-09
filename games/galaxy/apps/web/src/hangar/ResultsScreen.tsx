@@ -1,5 +1,5 @@
 import type { RunResult } from '@galaxy/shared';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { clockText } from '../arena/hud/Hud';
 import { copy, fmt } from '../copy/es';
@@ -54,7 +54,8 @@ function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal' | 'material' 
   );
 }
 
-export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain: () => void }) {
+/** `team`: a group run's results by player, under the run's own numbers (phase 6c). */
+export function ResultsScreen({ result, onAgain, team }: { result: RunResult; onAgain: () => void; team?: ReactNode }) {
   // The tour's first run ends here (polish phase 3).
   useEffect(() => emitTour('run:ended'), []);
   const r = result;
@@ -80,6 +81,7 @@ export function ResultsScreen({ result, onAgain }: { result: RunResult; onAgain:
           <dd>{copy.arena.levelShort(r.level)}</dd>
         </div>
       </dl>
+      {team}
       {/* A result kept from before M5a (a pending run resent across the deploy) has no progress. */}
       {r.progress ? (
       <section className="lip panel results-progress" aria-label={copy.social.progressTitle}>

@@ -805,6 +805,11 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Moderación:** en «Chat en vivo» salen las salas con mensajes de los últimos 7 días.
    - **Comprobar** con dos cuentas con nivel de chat en una sala: lo que escribe una lo lee la otra en «Sala».
 
+53. **Resultados por jugador en las partidas en grupo (fase 6c):** sin migraciones.
+   - **Qué se ve:** al acabar, bajo las cifras de la partida, la tabla «Tu equipo» con una fila por jugador: su sonda, el nivel que alcanzó, eliminaciones, reanimaciones, caídas y cómo acabó (en pie, fuera, se fue…). Se nombra a quien más eliminó y a quien más reanimó, solo si es uno y tiene alguna.
+   - **De dónde sale:** de la simulación que corre igual en cada cliente, sin nada nuevo del servidor.
+   - **Comprobar:** terminar una partida en grupo con dos cuentas y ver la tabla en las dos.
+
 ## Operación
 
 | Tarea | Cómo |
