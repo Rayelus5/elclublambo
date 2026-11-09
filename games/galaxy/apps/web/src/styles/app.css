@@ -2587,18 +2587,18 @@
   .lobby-rail { grid-area: rail; align-self: center; min-block-size: 0; max-block-size: 100%; overflow-y: auto; scrollbar-width: none; padding: 8px 10px 8px 2px; margin: -8px -10px -8px -2px; }
   .lobby-rail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .lobby-rail ul { grid-template-columns: max-content; }
-  .lobby-zone { --r: 16px; --lip-h: 4px; position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 10px; inline-size: 100%; min-inline-size: 176px; padding: 5px 14px 5px 5px; background: rgb(24 26 61 / .9); color: var(--color-ink); border: 2px solid rgb(255 255 255 / .06); animation: lobby-rail-in .5s var(--ease-bounce) calc(var(--i) * 50ms) both; }
+  .lobby-zone { --r: 18px; --lip-h: 5px; position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 12px; inline-size: 100%; min-inline-size: 196px; padding: 8px 16px 8px 8px; background: rgb(24 26 61 / .9); color: var(--color-ink); border: 2px solid rgb(255 255 255 / .06); animation: lobby-rail-in .5s var(--ease-bounce) calc(var(--i) * 50ms) both; }
   @keyframes lobby-rail-in { from { opacity: 0; translate: -24px 0; } }
   .lobby-zone:hover { transform: translateX(5px); border-color: rgb(255 255 255 / .22); }
   .lobby-zone:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
-  .lobby-zone-icon { display: grid; place-items: center; flex: none; inline-size: 38px; block-size: 38px; border-radius: 11px; font-size: 20px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .25), 0 3px 0 rgb(0 0 0 / .35); }
+  .lobby-zone-icon { display: grid; place-items: center; flex: none; inline-size: 44px; block-size: 44px; border-radius: 13px; font-size: 24px; box-shadow: inset 0 2px 0 rgb(255 255 255 / .25), 0 3px 0 rgb(0 0 0 / .35); }
   .lobby-zone.terminal .lobby-zone-icon { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); color: var(--color-on-terminal); }
   .lobby-zone.uv .lobby-zone-icon { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: #fff; }
   .lobby-zone.sky .lobby-zone-icon { background: linear-gradient(180deg, var(--color-sky), var(--color-sky-2)); color: #fff; }
   .lobby-zone.solar .lobby-zone-icon { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); }
   .lobby-zone.nova .lobby-zone-icon { background: linear-gradient(180deg, var(--color-nova), var(--color-nova-2)); color: var(--color-on-nova); }
   .lobby-zone.ice .lobby-zone-icon { background: linear-gradient(180deg, var(--color-ice), #6fb7ff); color: #102050; }
-  .lobby-zone-name { font: 400 15px var(--font-display); white-space: nowrap; }
+  .lobby-zone-name { font: 400 17px var(--font-display); white-space: nowrap; }
   .lobby-zone-badge { position: absolute; top: -7px; right: -7px; padding: 2px 8px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font-size: 12px; font-weight: 800; box-shadow: 0 0 12px rgb(255 201 74 / .5); }
   @media (max-width: 1499px) {
     .lobby-zone { inline-size: auto; min-inline-size: 0; padding: 6px; }
@@ -2608,14 +2608,14 @@
 
   .lobby-step-head { display: inline-flex; align-items: center; gap: 8px; }
   .lobby-step { display: grid; place-items: center; flex: none; inline-size: 26px; block-size: 26px; border-radius: 50%; background: var(--color-solar); color: var(--color-on-solar); font: 400 14px var(--font-display); box-shadow: 0 2px 0 var(--color-solar-lip); }
-  .lobby-step-q { font: 400 15px var(--font-display); color: var(--color-ink); text-shadow: 0 2px 0 rgb(0 0 0 / .45); }
+  .lobby-step-q { font: 400 17px var(--font-display); color: var(--color-ink); text-shadow: 0 2px 0 rgb(0 0 0 / .45); }
 
   .lobby-stage { grid-area: stage; position: relative; min-inline-size: 0; min-block-size: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 8px; }
   .lobby-who { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .lobby-modes { display: flex; gap: 8px; padding: 6px; border-radius: 24px; background: rgb(7 10 28 / .62); border: 2px solid rgb(255 255 255 / .07); backdrop-filter: blur(6px); }
   .lobby-mode { --r: 18px; --lip-h: 5px; display: flex; align-items: center; gap: 10px; padding: 7px 18px 7px 12px; border: 0; background: var(--color-panel-2); color: var(--color-ink-soft); text-align: start; font-size: 26px; cursor: pointer; }
-  .lobby-mode b { display: block; font: 400 16px var(--font-display); color: var(--color-ink); }
-  .lobby-mode small { display: block; font-size: 12px; font-weight: 600; }
+  .lobby-mode b { display: block; font: 400 18px var(--font-display); color: var(--color-ink); }
+  .lobby-mode small { display: block; font-size: 13px; font-weight: 600; }
   .lobby-mode:hover:not(:disabled) { transform: translateY(-2px); }
   .lobby-mode:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
   .lobby-mode.solo[aria-checked='true'] { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); --lip-c: var(--color-terminal-lip); color: var(--color-on-terminal); }
@@ -2652,7 +2652,7 @@
   .lobby-turn.next { right: 0; }
   .lobby-turn.next .ico { scale: -1 1; }
   .lobby-plate { display: grid; justify-items: center; gap: 4px; padding: 6px 20px 8px; border-radius: 20px; background: rgb(7 10 28 / .66); border: 2px solid rgb(255 255 255 / .07); backdrop-filter: blur(6px); }
-  .lobby-plate h2 { margin: 0; font: 400 clamp(22px, 2vw, 32px) var(--font-display); line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / .45), 0 0 24px rgb(114 89 238 / .55); }
+  .lobby-plate h2 { margin: 0; font: 400 clamp(26px, 2.4vw, 38px) var(--font-display); line-height: 1; text-shadow: 0 3px 0 rgb(0 0 0 / .45), 0 0 24px rgb(114 89 238 / .55); }
   .lobby-plate-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
   .lobby-pips { display: flex; gap: 4px; }
   .lobby-pips i { inline-size: 12px; block-size: 8px; border-radius: 3px; background: rgb(255 255 255 / .16); }
@@ -2682,11 +2682,11 @@
 
   .lobby-side { grid-area: side; --r: 24px; --lip-h: 6px; min-inline-size: 0; min-block-size: 0; overflow-y: auto; overscroll-behavior: contain; padding: 16px 16px 18px; background: rgb(24 26 61 / .9); scrollbar-width: thin; }
   .lobby-where, .lobby-group { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-  .lobby-brief { display: grid; grid-template-columns: 60px minmax(0, 1fr); align-items: center; gap: 12px; }
-  .lobby-brief-boss { box-sizing: border-box; inline-size: 60px; block-size: 60px; image-rendering: pixelated; padding: 4px; border-radius: 16px; background: radial-gradient(circle at 50% 60%, rgb(255 92 122 / .28), rgb(7 10 28 / .6) 70%); }
+  .lobby-brief { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: center; gap: 12px; }
+  .lobby-brief-boss { box-sizing: border-box; inline-size: 72px; block-size: 72px; image-rendering: pixelated; padding: 4px; border-radius: 16px; background: radial-gradient(circle at 50% 60%, rgb(255 92 122 / .28), rgb(7 10 28 / .6) 70%); }
   .lobby-brief-text { display: grid; gap: 1px; min-inline-size: 0; }
   .lobby-brief-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .lobby-brief-title h2 { margin: 0; font: 400 19px var(--font-display); line-height: 1.1; }
+  .lobby-brief-title h2 { margin: 0; font: 400 22px var(--font-display); line-height: 1.1; }
   .lobby-brief-text small { color: var(--color-ink-soft); font-size: 13px; }
   .lobby-brief-text b { color: var(--color-nova); font-weight: 800; }
   .lobby-brief-desc { margin: 0; color: var(--color-ink-soft); line-height: 1.45; font-size: 14.5px; }
@@ -2826,10 +2826,10 @@
   .lobby-daily b { font-size: 13px; color: var(--color-ink); }
   .lobby-daily.cut { border-color: rgb(255 201 74 / .35); color: var(--color-solar); }
   .lobby-dock .field-error { margin: 0; }
-  .lobby-launch { --r: 22px; --lip-h: 8px; position: relative; overflow: hidden; justify-content: center; inline-size: 100%; min-block-size: 62px; font-size: 24px; }
-  .lobby-launch .ico { font-size: 26px; }
+  .lobby-dock .lobby-launch { --r: 26px; --lip-h: 10px; position: relative; overflow: hidden; justify-content: center; inline-size: 100%; min-block-size: clamp(64px, 8vh, 80px); font-size: clamp(22px, 1.8vw, 28px); }
+  .lobby-dock .lobby-launch .ico { font-size: clamp(26px, 2vw, 32px); }
   .lobby-launch > span:last-child { white-space: nowrap; }
-  @media (max-width: 1500px) { .lobby-launch { font-size: 22px; gap: 10px; padding-inline: 20px; } }
+  @media (max-width: 1500px) { .lobby-dock .lobby-launch { font-size: 22px; gap: 10px; padding-inline: 20px; } }
   .lobby-launch:disabled { filter: saturate(.3) brightness(.75); cursor: not-allowed; }
   .lobby-launch.pressed { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); --lip-c: var(--color-terminal-lip); color: var(--color-on-terminal); }
   .lobby-launch:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
@@ -2846,6 +2846,24 @@
   @keyframes lobby-flash { 0%, 55% { opacity: 0; } 78% { opacity: 1; } 100% { opacity: .9; } }
 
   .lobby-missions .hm-head b { font-size: 16px; }
+  /* Large screens (the owner: «solo afectaba a pantallas grandes»): the title screen's scale. The probe and its pad stay
+     at 192 px and 2× (with the 2400 px zoom on top they had grown huge); the rail, tabs, titles and launch calm down. */
+  @media (min-width: 1800px) {
+    .lobby-root { --probe: 192px; --pad-w: 320px; --pad-h: 128px; --mate: 112px; }
+    .lobby-zone { --r: 16px; --lip-h: 4px; gap: 10px; min-inline-size: 176px; padding: 5px 14px 5px 5px; }
+    .lobby-zone-icon { inline-size: 38px; block-size: 38px; border-radius: 11px; font-size: 20px; }
+    .lobby-zone-name { font-size: 15px; }
+    .lobby-step-q { font-size: 15px; }
+    .lobby-mode b { font-size: 16px; }
+    .lobby-mode small { font-size: 12px; }
+    .lobby-plate h2 { font-size: 30px; }
+    .lobby-brief-title h2 { font-size: 19px; }
+    .lobby-brief { grid-template-columns: 60px minmax(0, 1fr); }
+    .lobby-brief-boss { inline-size: 60px; block-size: 60px; }
+    .lobby { grid-template-columns: auto minmax(0, 1fr) 380px; }
+    .lobby-dock .lobby-launch { --r: 22px; --lip-h: 8px; min-block-size: 62px; font-size: 24px; }
+    .lobby-dock .lobby-launch .ico { font-size: 26px; }
+  }
   @media (max-width: 1500px) {
     .lobby-foot { grid-template-columns: minmax(220px, 250px) minmax(0, 1fr) minmax(270px, 330px); }
   }
@@ -2855,7 +2873,7 @@
     .lobby-rail ul { gap: 7px; }
     .lobby-zone { padding: 5px; }
     .lobby-zone-icon { inline-size: 38px; block-size: 38px; font-size: 21px; border-radius: 11px; }
-    .lobby-launch { min-block-size: 56px; }
+    .lobby-dock .lobby-launch { min-block-size: 64px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .lobby-galaxy-art canvas, .lobby-planet, .lobby-station, .lobby-zone, .lobby-halo, .lobby-probe, .lobby-pad, .lobby-mate, .lobby-mate-probe, .lobby-mate-ghost, .lobby-orb-art canvas, .lobby-launch-shine, .lobby-flash { animation: none; }
