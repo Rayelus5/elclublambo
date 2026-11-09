@@ -36,6 +36,7 @@ export function playedRun(ticks = 900): AdminRunReplay {
       hash: s.hash,
       suspicious: false,
       flags: [],
+      party: null,
       simVersion: SIM_VERSION,
       contentVersion: 0,
       claimed: { ticks: s.ticks, depth: s.depth, kills: s.kills, bossKills: s.bossKills, level: s.level },

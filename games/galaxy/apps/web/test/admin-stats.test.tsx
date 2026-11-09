@@ -23,6 +23,7 @@ const stats = (over: Partial<AdminStats> = {}): AdminStats => ({
   currencies: [{ currency: 'coins', in: 1_500_000, out: 20_000, byReason: [{ reason: 'run_payout', in: 1_500_000, out: 0 }, { reason: 'gacha_pull', in: 0, out: 20_000 }] }],
   pulls: { total: 50, tiers: [40, 6, 3, 1, 0].map((count, tier) => ({ tier, count, expected: [0.6, 0.25, 0.1, 0.04, 0.01][tier]! })) },
   market: { listed: 9, sold: 4, coins: 12_000, commission: 840, tradesDone: 2, tradesCancelled: 1 },
+  groups: { runs: 8, players: 22, extracted: 3, died: 5, interrupted: 0, avgDepth: 2.4, abandons: 4, idle: 1 },
   pending: { alerts: 2, reports: 3 },
   ...over,
 });
@@ -47,6 +48,17 @@ test('las cifras de arriba, y el periodo cambia la consulta', async () => {
   expect(within(screen.getByRole('group', { name: t.tiles.pending })).getByText('5')).toBeInTheDocument();
   await userEvent.click(screen.getByRole('button', { name: t.periods['7d'] }));
   await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${A}?period=7d`)).toBe(true));
+});
+
+test('las partidas en grupo: cuántas, jugadores por partida, cómo acabaron, la capa media, abandonos e inactivos (fase 7)', async () => {
+  mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, admin), [`GET ${A}?period=24h`]: () => jsonResponse(200, stats()) });
+  renderAt('/admin/estadisticas', { '/admin/estadisticas': <StatsScreen /> });
+  const section = await screen.findByRole('region', { name: t.groupsTitle });
+  expect(section).toHaveTextContent(t.groups.runs);
+  expect(section).toHaveTextContent('2,8');
+  expect(section).toHaveTextContent('2,4');
+  expect(within(section).getByText(t.groups.abandons)).toBeInTheDocument();
+  expect(within(section).getByRole('link', { name: t.csv })).toHaveAttribute('href', `${A}.csv?period=24h&section=groups`);
 });
 
 test('las partidas son barras con su número y una tabla, y salen cómo terminaron', async () => {
@@ -89,5 +101,5 @@ test('cada sección se exporta a CSV con el periodo elegido', async () => {
   renderAt('/admin/estadisticas', { '/admin/estadisticas': <StatsScreen /> });
   await screen.findByRole('img', { name: t.runsChart });
   const links = screen.getAllByRole('link', { name: t.csv });
-  expect(links.map((l) => l.getAttribute('href'))).toEqual(['runs', 'currencies', 'pulls', 'market'].map((s) => `/galaxy/api/admin/stats.csv?period=24h&section=${s}`));
+  expect(links.map((l) => l.getAttribute('href'))).toEqual(['runs', 'currencies', 'pulls', 'market', 'groups'].map((s) => `/galaxy/api/admin/stats.csv?period=24h&section=${s}`));
 });

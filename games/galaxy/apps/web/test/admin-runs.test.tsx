@@ -62,6 +62,20 @@ test('la lista filtra por sospechosas y por jugador, y cada fila lleva a su repe
   expect(await screen.findByText(t.empty)).toBeInTheDocument();
 });
 
+test('una partida en grupo dice cuántos eran, y el filtro En grupo lo pide (fase 7)', async () => {
+  const fetch = mockApi({
+    [`GET ${R}?page=1`]: () => jsonResponse(200, listOf([{ ...row, party: 3 }])),
+    [`GET ${R}?group=true&page=1`]: () => jsonResponse(200, listOf([{ ...row, party: 3 }])),
+  });
+  renderAt('/admin/partidas', { '/admin/partidas': <RunsScreen /> });
+  const table = await screen.findByRole('table');
+  expect(within(table).getByText(t.party(3))).toBeInTheDocument();
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: t.onlyGroup }));
+  expect(screen.getByRole('button', { name: t.onlyGroup })).toHaveAttribute('aria-pressed', 'true');
+  await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${R}?group=true&page=1`)).toBe(true));
+});
+
 test('una partida sin terminar no se reproduce y lo dice', async () => {
   const open: AdminRunReplay = { ...played, run: { ...row, outcome: null, finishedAt: null, ticks: null, hash: null }, inputs: null };
   mockApi({ [`GET ${R}/${row.id}`]: () => jsonResponse(200, open) });

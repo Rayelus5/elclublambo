@@ -13,6 +13,8 @@ export const adminRunsQuerySchema = z
     page: z.coerce.number().int().min(1).max(10_000).default(1),
     player: usernameSchema.optional(),
     suspicious: z.enum(['true', 'false']).optional(),
+    /** Only group runs (true) or only solo ones (false), phase 7. */
+    group: z.enum(['true', 'false']).optional(),
   })
   .strict();
 export const adminRunParamSchema = z.object({ id: z.string().uuid() }).strict();
@@ -32,6 +34,8 @@ export interface AdminRunRow {
   kills: number | null;
   suspicious: boolean;
   flags: string[];
+  /** A group run (phase 7): how many started it; null for a solo run. */
+  party: number | null;
 }
 
 export interface AdminRunClaim {

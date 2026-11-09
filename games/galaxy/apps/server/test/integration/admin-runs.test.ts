@@ -271,4 +271,25 @@ describe('una partida en grupo (fase 6c)', () => {
     expect(d.coop?.players.map((x) => x.username)).toEqual([p.username, q.username]);
     expect(d.coop?.rules).toEqual(coopRulesOf(parseConfig('coop', {})));
   });
+
+  test('la lista dice cuántos eran en una partida en grupo y filtra en grupo o solo (fase 7)', async () => {
+    const [p, q] = [await player(), await player()];
+    const players = [p, q].map((x) => ({ username: x.username, probe: 'lumen', relics: [], bonuses: [], variant: null }));
+    const coop = await ctx.db
+      .insertInto('galaxy.coop_runs')
+      .values({ room_code: 'GRP234', kind: 'private', leader_id: p.id, sector: 'outer-nebula', seed: '5', anomaly: null, rules: '{}', players: JSON.stringify(players), content_version: 0, sim_version: SIM_VERSION })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const grouped = await ctx.db
+      .insertInto('galaxy.runs')
+      .values({ account_id: q.id, seed: '5', sector: 'outer-nebula', probe: 'lumen', relics: '[]', content_version: 0, sim_version: SIM_VERSION, start_key: randomUUID(), started_at: new Date(), flags: [], suspicious: false, coop_run_id: coop.id, slot: 1, party_size: 2 })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    const solo = await finishedRun(q.id);
+    const all = await list(`player=${q.username}`);
+    expect(all.runs.find((r) => r.id === grouped.id)?.party).toBe(2);
+    expect(all.runs.find((r) => r.id === solo)?.party).toBeNull();
+    expect((await list(`player=${q.username}&group=true`)).runs.map((r) => r.id)).toEqual([grouped.id]);
+    expect((await list(`player=${q.username}&group=false`)).runs.map((r) => r.id)).toEqual([solo]);
+  });
 });
