@@ -705,14 +705,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Catálogo ECN:** con premios por recoger, el botón se vuelve dorado y la ficha Colección del inicio lleva «Premio».
    - **Partidas de la versión anterior:** las repeticiones del panel de partidas jugadas con SIM 1.6.0 avisan de la versión, como siempre.
 
-44. **Multijugador, fase 2 (fusión automática y candado):** migración `20261109140000_galaxy_galaxy_lock.sql`, que se aplica sola al desplegar.
+44. **Multijugador, fase 2 (fusión automática y candado):** migración `20261109120000_galaxy_galaxy_lock.sql`, que se aplica sola al desplegar.
    - **Candado:** se pone desde el detalle de una galaxia. Una galaxia con candado no se fusiona ni se desintegra, y la colección filtra «Con candado».
    - **Fusión automática:** abre su diálogo desde la colección, partiendo de los filtros.
      - Enseña la cadena, el polvo y lo que se queda, y luego revela lo que hizo.
      - Como mucho hace 100 fusiones por vez.
      - En el libro de movimientos quedan como `fusion` con `ref.auto`.
 
-45. **Multijugador, fase 3 (amigos, presencia e invitaciones):** migración `20261109160000_galaxy_friends.sql`, que se aplica sola al desplegar. Crea `friendships`, `blocks` y `social_prefs`.
+45. **Multijugador, fase 3 (amigos, presencia e invitaciones):** migración `20261109121000_galaxy_friends.sql`, que se aplica sola al desplegar. Crea `friendships`, `blocks` y `social_prefs`.
    - **El botón Amigos** de la barra superior abre una hoja con cuatro pestañas:
      - Amigos: los conectados primero, con lo que hacen (en la estación, en el hangar o en una incursión con su capa);
      - Solicitudes;
