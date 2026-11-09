@@ -12,6 +12,8 @@ const KEEP = 200;
 const byId = (a: ChatMessage, b: ChatMessage) => a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 const historyKey = (channel: ChatChannel) => [...CHAT_KEY, channel] as const;
+/** A channel's history in the cache (the room tab resets it when the room changes). */
+export const chatHistoryKey = historyKey;
 // What the socket brings before a channel's first history is in: kept here until that history merges it.
 const earlyKey = (channel: ChatChannel) => [...CHAT_KEY, 'early', channel] as const;
 const merge = (list: ChatMessage[], more: ChatMessage[]) => {

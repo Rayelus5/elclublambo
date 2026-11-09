@@ -2744,6 +2744,7 @@
   .lobby-room-settings dd { margin: 0; display: flex; }
   .lobby-room-settings dd b { font: 400 18px var(--font-display); }
   .lobby-room-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .lobby-side .lobby-room-chat { justify-content: center; block-size: 40px; font-size: 14.5px; }
   .lobby-side .lobby-leave { block-size: 34px; padding: 0 12px; font-size: 13.5px; }
   .lobby-kinds button { padding: 0 11px; font-size: 13.5px; }
 

@@ -23,7 +23,11 @@ export class ChatHub {
   private readonly clients = new Set<Client>();
   private readonly ping: NodeJS.Timeout;
 
-  constructor(private readonly db: Kysely<DB>) {
+  /** `roomMembers`: who is in a room now (the room chat reaches them, phase 6c). */
+  constructor(
+    private readonly db: Kysely<DB>,
+    private readonly roomMembers: (roomId: string) => string[] = () => [],
+  ) {
     // Keeps proxies (Cloudflare's tunnel) from closing a quiet socket.
     this.ping = setInterval(() => {
       for (const c of this.clients) if (c.socket.readyState === c.socket.OPEN) c.socket.ping();
@@ -61,10 +65,11 @@ export class ChatHub {
     }
   }
 
-  /** Sends an event of `channelKey` ('global' or 'clan:<id>') to every socket allowed to read it. */
+  /** Sends an event of `channelKey` ('global', 'clan:<id>' or 'room:<id>') to every socket allowed to read it. */
   async broadcast(channelKey: string, event: ChatEvent): Promise<void> {
     let allowed: Set<string> | null = null;
-    if (channelKey.startsWith('clan:')) {
+    if (channelKey.startsWith('room:')) allowed = new Set(this.roomMembers(channelKey.slice(5)));
+    else if (channelKey.startsWith('clan:')) {
       const rows = await this.db.selectFrom('galaxy.clan_members').select('account_id').where('clan_id', '=', channelKey.slice(5)).execute();
       allowed = new Set(rows.map((r) => r.account_id));
     }

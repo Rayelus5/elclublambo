@@ -5,6 +5,7 @@ import { useInvite, useLeaveRoom, useRoomAction, useRooms } from '../../api/room
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
 import { presenceText } from '../../social/FriendsPanel';
+import { useUi } from '../../state/ui';
 import { Icon } from '../../ui/Icon';
 import { StepHead } from './WherePanel';
 
@@ -156,6 +157,7 @@ export function GroupPanel({ view }: { view: HangarView }) {
 }
 
 export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView; me: string }) {
+  const openChat = useUi((s) => s.openChat);
   const friends = useFriends();
   const action = useRoomAction();
   const leave = useLeaveRoom();
@@ -187,6 +189,10 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
           <span>{t.leave}</span>
         </button>
       </div>
+      <button type="button" className="lip pill small lobby-room-chat" onClick={() => openChat('room')} aria-haspopup="dialog">
+        <Icon name="chat" />
+        <span>{copy.chat.openRoom}</span>
+      </button>
       <button type="button" className="lip lobby-room-code" onClick={() => void copyCode()} aria-label={t.copyCode(room.code)}>
         <span className="lobby-room-code-text">{room.code}</span>
         <Icon name="copy" />

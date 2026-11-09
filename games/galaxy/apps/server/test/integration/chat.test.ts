@@ -1,9 +1,9 @@
 import { randomInt, randomUUID } from 'node:crypto';
-import { type ChatEvent, type ChatHistory, type ChatMessage, PROBE_TEST } from '@galaxy/shared';
+import { type ChatEvent, type ChatHistory, type ChatMessage, PROBE_TEST, type RoomView } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
 import { credit } from '../../src/economy/wallet';
-import { createAdminViaCli, fixedConfig, get, ORIGIN, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import { createAdminViaCli, fixedConfig, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // The chats on the server (GDD §14.4; M5b-2): reading a channel and whether one can write; writing needs the level,
 // no mute and the per-minute limit, and the filter covers its words; the socket pushes each message only to who can
@@ -107,6 +107,39 @@ describe('escribir y leer', () => {
     expect((await get(ctx.app, '/galaxy/api/chat/clan', { cookie: outsider.cookie })).json()).toEqual({ error: 'clan_forbidden' });
     expect((await send(outsider, 'hola', 'clan')).json()).toEqual({ error: 'clan_forbidden' });
     expect((await get(ctx.app, '/galaxy/api/chat/global')).statusCode).toBe(401);
+  });
+});
+
+describe('el canal de la sala (fase 6c)', () => {
+  /** A private room of `ps` (the first makes it, the rest join with its code). */
+  async function roomOf(...ps: P[]): Promise<RoomView> {
+    for (const p of ps) await put(ctx.app, '/galaxy/api/tutorial', { action: 'skip' }, { cookie: p.cookie });
+    const res = await post(ctx.app, '/galaxy/api/rooms', { kind: 'private', sector: 'outer-nebula' }, { cookie: ps[0]!.cookie });
+    expect(res.statusCode, res.body).toBe(200);
+    const room = res.json() as RoomView;
+    for (const p of ps.slice(1)) expect((await post(ctx.app, '/galaxy/api/rooms/join', { code: room.code }, { cookie: p.cookie })).statusCode).toBe(200);
+    return room;
+  }
+
+  test('solo lo leen y escriben quienes están en la sala, les llega en vivo, y al salir deja de llegar', async () => {
+    const [a, b, out] = [await player(), await player(), await player()];
+    await roomOf(a, b);
+    const [sB, sOut] = [await socket(b), await socket(out)];
+    expect((await send(a, 'voy por la izquierda', 'room')).statusCode).toBe(200);
+    expect((await history(b, 'room')).messages.at(-1)).toMatchObject({ channel: 'room', body: 'voy por la izquierda' });
+    expect((await get(ctx.app, '/galaxy/api/chat/room', { cookie: out.cookie })).json()).toEqual({ error: 'room_not_found' });
+    expect((await send(out, 'hola', 'room')).json()).toEqual({ error: 'room_not_found' });
+    await settle();
+    const bodies = (x: typeof sB) => x.events.flatMap((e) => (e.type === 'message' ? [e.message.body] : []));
+    expect(bodies(sB)).toContain('voy por la izquierda');
+    expect(bodies(sOut)).not.toContain('voy por la izquierda');
+
+    expect((await post(ctx.app, '/galaxy/api/rooms/leave', undefined, { cookie: b.cookie })).statusCode).toBe(200);
+    await send(a, 'te has ido', 'room');
+    await settle();
+    expect(bodies(sB)).not.toContain('te has ido');
+    expect((await get(ctx.app, '/galaxy/api/chat/room', { cookie: b.cookie })).statusCode).toBe(404);
+    for (const x of [sB, sOut]) x.ws.terminate();
   });
 });
 

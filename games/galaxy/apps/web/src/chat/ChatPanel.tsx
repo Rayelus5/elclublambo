@@ -1,9 +1,11 @@
 import type { ChatChannel, ChatHistory, ChatMessage, MeResponse } from '@galaxy/shared';
 import { type KeyboardEvent, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useChatHistory, useHideMessage, useMuteAccount, useReportMessage, useSendMessage } from '../api/chat';
+import { useQueryClient } from '@tanstack/react-query';
+import { chatHistoryKey, useChatHistory, useHideMessage, useMuteAccount, useReportMessage, useSendMessage } from '../api/chat';
 import { ApiError } from '../api/client';
 import { useMyClan } from '../api/clans';
+import { useRooms } from '../api/rooms';
 import { errorText, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
@@ -37,10 +39,21 @@ function ChatPanel({ me, channel, onClose }: { me: MeResponse; channel: ChatChan
   const panelId = useId();
   const sheet = useRef<HTMLDivElement>(null);
   const mine = useMyClan();
+  const rooms = useRooms();
+  const room = rooms.data?.mine ?? null;
   const openChat = useUi((s) => s.openChat);
-  // One left their clan with its tab open: back to Comunidad.
-  const active: ChatChannel = channel === 'clan' && mine.isSuccess && !mine.data ? 'global' : channel;
-  const tabs: ChatChannel[] = mine.data ? ['global', 'clan'] : ['global'];
+  // One left their clan (or their room) with its tab open: back to Comunidad.
+  const active: ChatChannel = (channel === 'clan' && mine.isSuccess && !mine.data) || (channel === 'room' && rooms.isSuccess && !room) ? 'global' : channel;
+  const tabs: ChatChannel[] = ['global', ...(mine.data ? (['clan'] as const) : []), ...(room ? (['room'] as const) : [])];
+  // Another room is another conversation: the room tab reads it afresh.
+  const roomId = room?.id ?? null;
+  const qc = useQueryClient();
+  const lastRoom = useRef(roomId);
+  useEffect(() => {
+    if (lastRoom.current === roomId) return;
+    lastRoom.current = roomId;
+    void qc.resetQueries({ queryKey: chatHistoryKey('room') });
+  }, [roomId, qc]);
   const history = useChatHistory(active);
   const down = useChatSocket();
   const report = useReportMessage();
@@ -131,11 +144,11 @@ function ChatPanel({ me, channel, onClose }: { me: MeResponse; channel: ChatChan
             onClick={() => openChat(c)}
             onKeyDown={onTabKey}
           >
-            {c === 'global' ? t.global : t.clan}
+            {t[c]}
           </button>
         ))}
       </div>
-      <div id={panelId} role="tabpanel" aria-label={active === 'global' ? t.global : t.clan} className="chat-channel">
+      <div id={panelId} role="tabpanel" aria-label={t[active]} className="chat-channel">
         {history.data ? (
           <>
             <MessageLog
@@ -309,7 +322,7 @@ function Composer({ channel, history }: { channel: ChatChannel; history: ChatHis
           rows={2}
           value={text}
           disabled={blocked}
-          placeholder={blocked ? undefined : channel === 'global' ? t.placeholder : t.placeholderClan}
+          placeholder={blocked ? undefined : channel === 'global' ? t.placeholder : channel === 'room' ? t.placeholderRoom : t.placeholderClan}
           aria-invalid={over || undefined}
           aria-describedby={`${noteId} ${countId}`}
           onChange={(e) => {
