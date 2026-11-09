@@ -104,10 +104,16 @@
   /* ---------- Relief ---------- */
   .lip { position: relative; border-radius: var(--r, 20px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .28), inset 0 -3px 0 rgb(0 0 0 / .18), 0 var(--lip-h, 6px) 0 var(--lip-c, var(--color-panel-lip)), 0 14px 26px rgb(0 0 0 / .35); transition: transform .18s var(--ease-bounce), box-shadow .18s ease; }
   button.lip { cursor: pointer; border: 0; font: inherit; }
-  /* The game's own cursor (open beta): variables on <html> from ui/cursor.ts; text fields keep the text caret. */
+  /* The game's own cursor (open beta): every state from ui/cursor.ts (variables on <html>), each where it belongs. */
   html.custom-cursor, html.custom-cursor body { cursor: var(--cursor-default); }
-  html.custom-cursor :is(a, button, summary, select, label, [role='button'], [role='tab'], [role='radio'], [role='option'], .lip):not(:disabled) { cursor: var(--cursor-pointer); }
-  html.custom-cursor :is(input:not([type='checkbox'], [type='radio'], [type='range']), textarea) { cursor: text; }
+  html.custom-cursor :is(a, button, summary, select, label, [role='button'], [role='tab'], [role='radio'], [role='option'], [role='switch']):not(:disabled, [aria-disabled='true']) { cursor: var(--cursor-pointer); }
+  html.custom-cursor :is(a, button, summary, [role='button'], [role='tab'], [role='radio'], [role='option']):not(:disabled, [aria-disabled='true']):active { cursor: var(--cursor-press); }
+  html.custom-cursor :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit']), textarea, [contenteditable='true']):not(:disabled) { cursor: var(--cursor-text); }
+  html.custom-cursor :is(:disabled, [aria-disabled='true']) { cursor: var(--cursor-not-allowed); }
+  html.custom-cursor [aria-busy='true'] { cursor: var(--cursor-wait); }
+  html.custom-cursor :is([data-cursor='help'], .anomaly-info, .skills-chip):not(:disabled) { cursor: var(--cursor-help); }
+  html.custom-cursor :is(input[type='range'], [draggable='true'], [data-cursor='grab'], .inspector-gl):not(:disabled) { cursor: var(--cursor-grab); }
+  html.custom-cursor :is(input[type='range'], [draggable='true'], [data-cursor='grab'], .inspector-gl):not(:disabled):active { cursor: var(--cursor-grabbing); }
   html.custom-cursor .arena-canvas { cursor: var(--cursor-aim); }
   a.lip { cursor: pointer; color: inherit; text-decoration: none; }
   :is(button, a).lip:hover:not(:disabled) { transform: translateY(-3px); box-shadow: inset 0 2px 0 rgb(255 255 255 / .32), inset 0 -3px 0 rgb(0 0 0 / .18), 0 calc(var(--lip-h, 6px) + 3px) 0 var(--lip-c, var(--color-panel-lip)), 0 20px 30px rgb(0 0 0 / .4); }

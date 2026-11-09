@@ -116,7 +116,7 @@ export function CursorSection() {
               className="cursor-swatch"
               onClick={() => change({ color: c.hex })}
             >
-              <img src={cursorSvg('arrow', c.hex, 2)} alt="" width={32} height={32} />
+              <img src={cursorSvg('default', c.hex, 2)} alt="" width={36} height={36} />
             </button>
           ))}
         </div>

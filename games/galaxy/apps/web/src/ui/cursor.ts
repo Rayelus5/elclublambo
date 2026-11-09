@@ -1,10 +1,10 @@
-// The game's own cursor (open beta): cartoon pixel art (a white glove pointing up, the same glove tapping over what
-// can be pressed, a sight for the arena), 16×16 cells drawn as crisp SVG at 2×, 3× or 4× and tinted with the player's colour (fill,
-// a lighter edge, a darker shade, a navy outline). It is applied with CSS variables on <html> (the CSP has no
-// inline styles; `element.style` is fine and data: images are allowed) and remembered in this browser. Off, the
-// system's cursor comes back.
+// The game's own cursor (open beta): cartoon pixel art for every state (drawn in Aseprite, games/galaxy/art/cursor/),
+// 24×24 cells drawn as crisp SVG at 1×, 2× or 3× and tinted with the player's colour (the glove's cuff, the tap
+// marks, the text beam, the sight, the help badge). It is applied with CSS variables on <html> (the CSP has no inline
+// styles; `element.style` is fine and data: images are allowed) and remembered in this browser. Off, the system's
+// cursor comes back.
 
-export type CursorShape = 'arrow' | 'hand' | 'aim';
+export type CursorShape = 'default' | 'pointer' | 'press' | 'text' | 'notAllowed' | 'wait' | 'help' | 'grab' | 'grabbing' | 'aim';
 export type CursorSize = 'small' | 'medium' | 'large';
 export interface CursorSettings {
   on: boolean;
@@ -23,66 +23,313 @@ export const CURSOR_COLORS = [
   { id: 'blue', hex: '#6fb7ff' },
 ] as const;
 export type CursorColorId = (typeof CURSOR_COLORS)[number]['id'];
-export const CURSOR_SIZES: Record<CursorSize, number> = { small: 2, medium: 3, large: 4 };
+export const CURSOR_SIZES: Record<CursorSize, number> = { small: 1, medium: 2, large: 3 };
 
 const KEY = 'galaxy.cursor';
 const DEFAULTS: CursorSettings = { on: true, size: 'medium', color: CURSOR_COLORS[0].hex };
 const OUTLINE = '#0b0d26';
 
-// A cartoon white glove (puffy fingers, a thumb, a cuff in the player's colour) pointing up with its index finger;
-// over what can be pressed, the same glove with little «tap» marks round the fingertip.
-// o: outline · w: glove white · g: glove shade · c: cuff (the colour) · d: cuff shade · t: tap marks (the colour)
-// f: fill and h/s/w for the arena's sight · .: clear
-const GLOVE = [
-  '....ooo',
-  '...owwwo',
-  '...owwwo',
-  '...owwgo',
-  '...owwgoooo',
-  '...owwgowwwoooo',
-  '.ooowwgowwgowwwo',
-  'owwwowwwwwwowwgo',
-  'owwwwwwwwwwwwwgo',
-  'owwwwwwwwwwwwwgo',
-  '.owwwwwwwwwwwwgo',
-  '.owwwwwwwwwwwggo',
-  '..owwwwwwwwwggo',
-  '..occcccccccco',
-  '..odccccccccdo',
-  '..oooooooooooo',
-];
-const GLOVE_TAP = GLOVE.map((row, y) => {
-  // Three short strokes round the fingertip: up-left, left and up-right.
-  const marks: Record<number, number[]> = { 0: [1, 9], 1: [0, 10], 3: [0, 1] };
-  const cells = row.padEnd(16, '.').split('');
-  for (const x of marks[y] ?? []) if (cells[x] === '.') cells[x] = 't';
-  return cells.join('');
-});
-/** A ring with four ticks and a dot in the middle, worked out rather than drawn. */
-function aimGrid(): string[] {
-  const rows: string[] = [];
-  for (let y = 0; y < 16; y++) {
-    let row = '';
-    for (let x = 0; x < 16; x++) {
-      const d = Math.hypot(x - 7.5, y - 7.5);
-      const tickV = (x === 7 || x === 8) && (y <= 2 || y >= 13);
-      const tickH = (y === 7 || y === 8) && (x <= 2 || x >= 13);
-      const dot = (x === 7 || x === 8) && (y === 7 || y === 8);
-      if (dot) row += 'w';
-      else if (tickV || tickH) row += 'f';
-      else if (d >= 4.6 && d < 5.8) row += 'f';
-      else if ((d >= 3.8 && d < 4.6) || (d >= 5.8 && d < 6.6)) row += 'o';
-      else if ((x === 6 || x === 9) && (y === 7 || y === 8)) row += 'o';
-      else if ((y === 6 || y === 9) && (x === 7 || x === 8)) row += 'o';
-      else row += '.';
-    }
-    rows.push(row);
-  }
-  return rows;
-}
-const GRIDS: Record<CursorShape, string[]> = { arrow: GLOVE, hand: GLOVE_TAP, aim: aimGrid() };
-const HOTSPOT: Record<CursorShape, [number, number]> = { arrow: [5, 0], hand: [5, 0], aim: [8, 8] };
-const FALLBACK: Record<CursorShape, string> = { arrow: 'auto', hand: 'pointer', aim: 'crosshair' };
+/**
+ * Every state, 24×24:
+ * - default: a cartoon white glove pointing up (a long index finger lit on its left, three curled fingers stepping
+ *   down, the thumb, shading right and below, a rolled cuff in the colour with its shine and a double shadow);
+ * - pointer: the same glove with tap marks round the fingertip, over what can be pressed; press: the finger sinks;
+ * - text: an outlined I-beam; notAllowed: a red «no» badge; wait: an hourglass; help: a «?» badge;
+ * - grab: an open glove; grabbing: a fist; aim: the arena's sight.
+ * o outline · x drop shadow · h shine · w glove · l soft shade · g deep shade · C cuff light · c cuff · d cuff dark
+ * t tap marks · f colour · H colour light · s colour dark · W white · R red (always) · . clear
+ */
+const GRIDS: Record<CursorShape, string[]> = {
+  default: [
+    '........oooo............',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwwwwwwwlo',
+    '...owwwlwwwwwwwwwwwwwwlo',
+    '...owwlwwwwwwwwwwwwwwlgo',
+    '....owlwwwwwwwwwwwwwwlgo',
+    '.....olwwwwwwwwwwwwwlgo.',
+    '.....oglllllllllllllggo.',
+    '.....oooooooooooooooooo.',
+    '.....oCCCCCCCCCCCCCCCco.',
+    '.....occcccccccccccccdo.',
+    '.....oddddddddddddddddo.',
+    '.....oooooooooooooooooo.',
+    '......xxxxxxxxxxxxxxxxx.',
+  ],
+  pointer: [
+    '....t...oooo...t........',
+    '.....t.ohwwlo.t.........',
+    '.......ohwwlo...........',
+    '...tt..ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwwwwwwwlo',
+    '...owwwlwwwwwwwwwwwwwwlo',
+    '...owwlwwwwwwwwwwwwwwlgo',
+    '....owlwwwwwwwwwwwwwwlgo',
+    '.....olwwwwwwwwwwwwwlgo.',
+    '.....oglllllllllllllggo.',
+    '.....oooooooooooooooooo.',
+    '.....oCCCCCCCCCCCCCCCco.',
+    '.....occcccccccccccccdo.',
+    '.....oddddddddddddddddo.',
+    '.....oooooooooooooooooo.',
+    '......xxxxxxxxxxxxxxxxx.',
+  ],
+  press: [
+    '.........tt.............',
+    '.....t........t.........',
+    '......t......t..........',
+    '........oooo............',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwwwwwwwlo',
+    '...owwwlwwwwwwwwwwwwwwlo',
+    '...owwlwwwwwwwwwwwwwwlgo',
+    '....owlwwwwwwwwwwwwwwlgo',
+    '.....olwwwwwwwwwwwwwlgo.',
+    '.....oglllllllllllllggo.',
+    '.....oooooooooooooooooo.',
+    '.....oCCCCCCCCCCCCCCCco.',
+    '.....occcccccccccccccdo.',
+    '.....oddddddddddddddddo.',
+    '.....oooooooooooooooooo.',
+    '......xxxxxxxxxxxxxxxxx.',
+  ],
+  text: [
+    '........................',
+    '......oooooooooooo......',
+    '......oHHHHffffffo......',
+    '......offfssssfffo......',
+    '......oooooffooooo......',
+    '..........offo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........oHfo..........',
+    '..........offo..........',
+    '......oooooffooooo......',
+    '......oHHHffffsffo......',
+    '......offfssssfffo......',
+    '......oooooooooooo......',
+    '.......xxxxxxxxxxxx.....',
+    '........................',
+  ],
+  notAllowed: [
+    '........oooo............',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwoooowwlo',
+    '...owwwlwwwwwwooRRRRoolo',
+    '...owwlwwwwwwooRWWWWRooo',
+    '....owlwwwwwwoRRWWWWWRoo',
+    '.....olwwwwwoRWWRWWWWWRo',
+    '.....ogllllloRWWWRWWWWRo',
+    '.....ooooooooRWWWWRWWWRo',
+    '.....oCCCCCCoRWWWWWRWWRo',
+    '.....occcccccoRWWWWWRRo.',
+    '.....odddddddooRWWWWRoo.',
+    '.....oooooooooooRRRRooo.',
+    '......xxxxxxxxxxooooxxx.',
+  ],
+  wait: [
+    '........oooo............',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwwwwwwwlo',
+    '...owwwlwwwwwwwooooooooo',
+    '...owwlwwwwwwwwoHffffffo',
+    '....owlwwwwwwwwooooooooo',
+    '.....olwwwwwwwwwoWWWWWo.',
+    '.....oglllllllllloWWWoo.',
+    '.....ooooooooooooooWooo.',
+    '.....oCCCCCCCCCCCofWfoo.',
+    '.....occccccccccofWWWfo.',
+    '.....odddddddddoooooooo.',
+    '.....oooooooooooHffffffo',
+    '......xxxxxxxxxooooooooo',
+  ],
+  help: [
+    '........oooo............',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwlo...........',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwoooowwlo',
+    '...owwwlwwwwwwoossssoolo',
+    '...owwlwwwwwwoosWWWWsooo',
+    '....owlwwwwwwosWWffWWsoo',
+    '.....olwwwwwosfffffWWfso',
+    '.....oglllllosfffWWWffso',
+    '.....oooooooosfffWWfffso',
+    '.....oCCCCCCosffffffffso',
+    '.....occcccccosffWWffso.',
+    '.....odddddddoosffffsoo.',
+    '.....ooooooooooossssooo.',
+    '......xxxxxxxxxxooooxxx.',
+  ],
+  grab: [
+    '..........oooo..........',
+    '......ooo.ohwlo.ooo.....',
+    '.....ohwlo.ohwlo.ohwlo..',
+    '.....ohwlo.ohwlo.ohwlo..',
+    '.....ohwlo.ohwlo.ohwlo..',
+    '.....ohwlo.ohwlo.ohwlo..',
+    '.....ohwlooohwloohwwlo..',
+    '.....ohwwlowwwwlowwwlo..',
+    '.....ohwwwwwwwwwwwwwwlo.',
+    '.oo..ohwwwwwwwwwwwwwwlo.',
+    'ohwo.owwwwwwwwwwwwwwwlo.',
+    'ohwwoowwwwwwwwwwwwwwwlo.',
+    '.ohwwwwwwwwwwwwwwwwwwlo.',
+    '..ohwwwwwwwwwwwwwwwwlgo.',
+    '...owwwwwwwwwwwwwwwwlgo.',
+    '....owwwwwwwwwwwwwwwlgo.',
+    '.....olwwwwwwwwwwwwlgo..',
+    '.....ogllllllllllllggo..',
+    '.....oooooooooooooooooo.',
+    '.....oCCCCCCCCCCCCCCCco.',
+    '.....occcccccccccccccdo.',
+    '.....oddddddddddddddddo.',
+    '.....oooooooooooooooooo.',
+    '......xxxxxxxxxxxxxxxxx.',
+  ],
+  grabbing: [
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........................',
+    '........oooo............',
+    '.......ohwwloooo........',
+    '.......ohwwlohwloooo....',
+    '.......ohwwlowwlohwlooo.',
+    '.......ohwwlowwwgwwlohlo',
+    '....oooohwwlgwwwgwwwgwlo',
+    '...ohwwowwwwwwwwwwwwwwlo',
+    '...ohwwgwwwwwwwwwwwwwwlo',
+    '...owwwlwwwwwwwwwwwwwwlo',
+    '...owwlwwwwwwwwwwwwwwlgo',
+    '....owlwwwwwwwwwwwwwwlgo',
+    '.....olwwwwwwwwwwwwwlgo.',
+    '.....oglllllllllllllggo.',
+    '.....oooooooooooooooooo.',
+    '.....oCCCCCCCCCCCCCCCco.',
+    '.....occcccccccccccccdo.',
+    '.....oddddddddddddddddo.',
+    '.....oooooooooooooooooo.',
+    '......xxxxxxxxxxxxxxxxx.',
+  ],
+  aim: [
+    '..........oooo..........',
+    '..........offo..........',
+    '..........offo..........',
+    '........oooffooo........',
+    '......ooffoffoffoo......',
+    '.....offHooffoofffo.....',
+    '....ofHHo.offo.offfo....',
+    '....ofHo..offo..offo....',
+    '...ofHo...offo...offo...',
+    '...ofo....oooo....ofo...',
+    'oooooooooooooooooooooooo',
+    'offffffffooWWooffffffffo',
+    'offffffffooWWooffffffffo',
+    'oooooooooooooooooooooooo',
+    '...ofo....oooo....oso...',
+    '...offo...offo...ofso...',
+    '....offo..offo..ofso....',
+    '....offfo.offo.offso....',
+    '.....offfooffoofsso.....',
+    '......ooffoffossoo......',
+    '........oooffooo........',
+    '..........offo..........',
+    '..........offo..........',
+    '..........oooo..........',
+  ],
+};
+/** Where each state points: the fingertip, or the centre for the beam, the open hand, the fist and the sight. */
+const HOTSPOT: Record<CursorShape, [number, number]> = {
+  default: [9, 0],
+  pointer: [9, 0],
+  press: [9, 0],
+  text: [12, 12],
+  notAllowed: [9, 0],
+  wait: [9, 0],
+  help: [9, 0],
+  grab: [12, 12],
+  grabbing: [12, 12],
+  aim: [12, 12],
+};
+/** The system's own cursor for each, if an image cannot be used. */
+const FALLBACK: Record<CursorShape, string> = {
+  default: 'auto',
+  pointer: 'pointer',
+  press: 'pointer',
+  text: 'text',
+  notAllowed: 'not-allowed',
+  wait: 'progress',
+  help: 'help',
+  grab: 'grab',
+  grabbing: 'grabbing',
+  aim: 'crosshair',
+};
+export const CURSOR_SHAPES = Object.keys(GRIDS) as CursorShape[];
+/** The CSS variable of a state: --cursor-default, --cursor-not-allowed… */
+export const cursorVar = (shape: CursorShape) => `--cursor-${shape.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`;
 
 function mix(hex: string, to: number, k: number): string {
   const n = Number.parseInt(hex.slice(1), 16);
@@ -90,9 +337,25 @@ function mix(hex: string, to: number, k: number): string {
   return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** One shape as a crisp SVG data URL, `scale` screen pixels per cell. */
+/** One state as a crisp SVG data URL, `scale` screen pixels per cell. */
 export function cursorSvg(shape: CursorShape, color: string, scale: number): string {
-  const paint: Record<string, string> = { o: OUTLINE, f: color, h: mix(color, 255, 0.5), s: mix(color, 0, 0.35), w: '#ffffff', g: '#c9d0ea', c: color, d: mix(color, 0, 0.3), t: color };
+  const paint: Record<string, string> = {
+    o: OUTLINE,
+    x: '#05061a',
+    h: '#ffffff',
+    w: '#eef1ff',
+    l: '#cfd6f2',
+    g: '#9aa4cf',
+    C: mix(color, 255, 0.4),
+    c: color,
+    d: mix(color, 0, 0.3),
+    t: color,
+    f: color,
+    H: mix(color, 255, 0.5),
+    s: mix(color, 0, 0.3),
+    W: '#ffffff',
+    R: '#ff3b5c',
+  };
   const rects: string[] = [];
   GRIDS[shape].forEach((row, y) => {
     let x = 0;
@@ -104,8 +367,8 @@ export function cursorSvg(shape: CursorShape, color: string, scale: number): str
       x = end;
     }
   });
-  const px = 16 * scale;
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 16 16" shape-rendering="crispEdges">${rects.join('')}</svg>`;
+  const px = 24 * scale;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 24 24" shape-rendering="crispEdges">${rects.join('')}</svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
@@ -127,20 +390,15 @@ export function readCursor(): CursorSettings {
 export function applyCursor(s: CursorSettings): void {
   if (typeof document === 'undefined') return;
   const root = document.documentElement;
-  const vars: [string, CursorShape][] = [
-    ['--cursor-default', 'arrow'],
-    ['--cursor-pointer', 'hand'],
-    ['--cursor-aim', 'aim'],
-  ];
   if (!s.on) {
     root.classList.remove('custom-cursor');
-    for (const [v] of vars) root.style.removeProperty(v);
+    for (const shape of CURSOR_SHAPES) root.style.removeProperty(cursorVar(shape));
     return;
   }
   const scale = CURSOR_SIZES[s.size];
-  for (const [v, shape] of vars) {
+  for (const shape of CURSOR_SHAPES) {
     const [hx, hy] = HOTSPOT[shape];
-    root.style.setProperty(v, `url("${cursorSvg(shape, s.color, scale)}") ${hx * scale} ${hy * scale}, ${FALLBACK[shape]}`);
+    root.style.setProperty(cursorVar(shape), `url("${cursorSvg(shape, s.color, scale)}") ${hx * scale} ${hy * scale}, ${FALLBACK[shape]}`);
   }
   root.classList.add('custom-cursor');
 }

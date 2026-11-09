@@ -1,32 +1,34 @@
 import { afterEach, expect, test } from 'vitest';
-import { applyCursor, CURSOR_COLORS, cursorSvg, readCursor, saveCursor } from '../src/ui/cursor';
+import { applyCursor, CURSOR_COLORS, CURSOR_SHAPES, cursorSvg, cursorVar, readCursor, saveCursor } from '../src/ui/cursor';
 
 // The game's own cursor (open beta): cartoon pixel art (a white glove pointing, the same glove tapping over what can
-// be pressed, a sight for the arena) drawn as crisp SVG at 2×, 3× or 4×, tinted with the player's colour, applied with CSS variables only (the
-// CSP has no inline styles) and remembered in this browser; off, the system's cursor comes back.
+// be pressed, a sight for the arena) drawn as crisp SVG, tinted with the player's colour, applied with CSS variables only (the
+// CSP has no inline styles) and remembered in this browser; off, the system's cursor comes back. Drawn at 1×, 2× or 3×
+// (24, 48 or 72 px).
 afterEach(() => {
   localStorage.clear();
   applyCursor({ on: false, size: 'medium', color: CURSOR_COLORS[0]!.hex });
 });
 
 test('cada forma es pixel art nítido del tamaño pedido y del color elegido', () => {
-  const url = cursorSvg('arrow', '#45e3a6', 4);
+  const url = cursorSvg('default', '#45e3a6', 3);
   expect(url.startsWith('data:image/svg+xml')).toBe(true);
   const svg = decodeURIComponent(url.split(',')[1]!);
-  expect(svg).toContain('width="64"');
+  expect(svg).toContain('width="72"');
+  expect(svg).toContain('viewBox="0 0 24 24"');
   expect(svg).toContain('shape-rendering="crispEdges"');
   expect(svg).toContain('#45e3a6');
-  expect(cursorSvg('hand', '#45e3a6', 2)).not.toBe(cursorSvg('arrow', '#45e3a6', 2));
-  expect(decodeURIComponent(cursorSvg('aim', '#ff6b7a', 2).split(',')[1]!)).toContain('width="32"');
+  expect(cursorSvg('pointer', '#45e3a6', 2)).not.toBe(cursorSvg('default', '#45e3a6', 2));
+  expect(decodeURIComponent(cursorSvg('aim', '#ff6b7a', 2).split(',')[1]!)).toContain('width="48"');
 });
 
 test('aplicarlo fija las variables del cursor con su punto activo; apagarlo vuelve al del sistema', () => {
   applyCursor({ on: true, size: 'large', color: '#45e3a6' });
   const root = document.documentElement;
   expect(root.classList.contains('custom-cursor')).toBe(true);
-  expect(root.style.getPropertyValue('--cursor-default')).toMatch(/^url\("data:image\/svg\+xml.*"\) 20 0, auto$/);
+  expect(root.style.getPropertyValue('--cursor-default')).toMatch(/^url\("data:image\/svg\+xml.*"\) 27 0, auto$/);
   expect(root.style.getPropertyValue('--cursor-pointer')).toContain('data:image/svg+xml');
-  expect(root.style.getPropertyValue('--cursor-aim')).toMatch(/ 32 32, crosshair$/);
+  expect(root.style.getPropertyValue('--cursor-aim')).toMatch(/ 36 36, crosshair$/);
   applyCursor({ on: false, size: 'large', color: '#45e3a6' });
   expect(root.classList.contains('custom-cursor')).toBe(false);
   expect(root.style.getPropertyValue('--cursor-default')).toBe('');
@@ -38,4 +40,16 @@ test('se recuerda en este navegador, y lo que no vale vuelve a lo de siempre', (
   expect(readCursor()).toEqual({ on: true, size: 'small', color: CURSOR_COLORS[2]!.hex });
   localStorage.setItem('galaxy.cursor', JSON.stringify({ on: 'sí', size: 'enorme', color: 'javascript:alert(1)' }));
   expect(readCursor()).toEqual({ on: true, size: 'medium', color: CURSOR_COLORS[0]!.hex });
+});
+
+test('cada estado del cursor tiene su dibujo y su variable: normal, pulsable, al pulsar, texto, no permitido, cargando, ayuda, agarrar, arrastrando y apuntar', () => {
+  expect(CURSOR_SHAPES).toEqual(['default', 'pointer', 'press', 'text', 'notAllowed', 'wait', 'help', 'grab', 'grabbing', 'aim']);
+  const drawn = new Set(CURSOR_SHAPES.map((s) => cursorSvg(s, '#ffc94a', 1)));
+  expect(drawn.size).toBe(CURSOR_SHAPES.length);
+  applyCursor({ on: true, size: 'medium', color: '#ffc94a' });
+  const root = document.documentElement;
+  expect(root.style.getPropertyValue(cursorVar('notAllowed'))).toMatch(/, not-allowed$/);
+  expect(root.style.getPropertyValue(cursorVar('text'))).toMatch(/ 24 24, text$/);
+  expect(root.style.getPropertyValue(cursorVar('grabbing'))).toMatch(/, grabbing$/);
+  expect(cursorVar('notAllowed')).toBe('--cursor-not-allowed');
 });
