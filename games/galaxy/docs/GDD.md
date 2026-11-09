@@ -455,7 +455,7 @@ Ver §15.
 
 ### 13.1 Temporadas [U]
 
-- **Duración:** unas 6 semanas.
+- **Duración:** unas 6 semanas. La Temporada 1 de la beta abierta dura 4, del 10 de noviembre al 8 de diciembre de 2026.
 - **Se conserva:**
   - la colección completa;
   - las sondas y la estación;

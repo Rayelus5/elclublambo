@@ -873,6 +873,71 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Revisión:** «Descartar» o «Tomar medidas», siempre con motivo; queda en la auditoría como `player_report.review`. Las sanciones siguen en Silencios y en la ficha del jugador.
    - **Comprobar:** tras una partida en grupo, denunciar a un compañero y revisarlo desde Moderación › Jugadores.
 
+## Lanzamiento de la beta abierta (2026-11-10)
+
+La beta abierta se juega en PRE. Se empieza de cero: se borran todos los datos de jugadores, también las cuentas de admin y moderador. Se conserva toda la configuración viva y su historia, la auditoría, los avisos y los nombres reservados. Después se publica la configuración de la Temporada 1 desde `ops/launch/2026-11-10/` con la CLI, porque ya no queda ningún admin para hacerlo desde el panel.
+
+Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee en el servidor y nunca se imprime.
+
+1. **Copia de seguridad completa** de la base:
+   ```bash
+   mkdir -p /root/backups
+   export PGPASSWORD="$(grep '^POSTGRES_PASSWORD=' /opt/supabase/docker/.env | cut -d= -f2-)"
+   docker exec -e PGPASSWORD supabase-db pg_dump -U postgres -h 127.0.0.1 -d postgres --no-owner | gzip > /root/backups/galaxy-beta-cerrada-20261110.sql.gz
+   ls -lh /root/backups/galaxy-beta-cerrada-20261110.sql.gz && gunzip -t /root/backups/galaxy-beta-cerrada-20261110.sql.gz
+   ```
+2. **Parar la aplicación** para que no entre nada durante el borrado:
+   ```bash
+   docker stop elclub-pre-galaxy-1
+   ```
+3. **Copiar el script de borrado y ensayarlo.** Con `ROLLBACK;` no se borra nada; comprueba que «despues» muestra 0 cuentas y que la configuración, la auditoría y los avisos siguen igual.
+   ```bash
+   docker cp <repo>/games/galaxy/ops/reset-beta.sql supabase-db:/tmp/reset-beta.sql
+   docker exec -e PGPASSWORD supabase-db sh -c "{ cat /tmp/reset-beta.sql; echo 'ROLLBACK;'; } | psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1"
+   ```
+4. **Borrar de verdad**, la misma orden con `COMMIT;`:
+   ```bash
+   docker exec -e PGPASSWORD supabase-db sh -c "{ cat /tmp/reset-beta.sql; echo 'COMMIT;'; } | psql -U postgres -h 127.0.0.1 -d postgres -v ON_ERROR_STOP=1"
+   unset PGPASSWORD
+   ```
+5. **Arrancar la aplicación:**
+   ```bash
+   docker start elclub-pre-galaxy-1
+   ```
+6. **Publicar la configuración de la Temporada 1.** Se pasa por la entrada estándar (`-`), una clave cada vez y en este orden:
+   ```bash
+   cd <repo>/games/galaxy/ops/launch/2026-11-10
+   for k in content season seasonRoute missions achievements boosts events gacha; do
+     docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config "$k" - --reason "Lanzamiento de la beta abierta" < "$k.json" || break
+   done
+   docker exec elclub-pre-galaxy-1 node dist/cli.js notice "Arranca la Beta Abierta y la Temporada 1. Eventos activos hasta el 24 de noviembre" --tone info --days 14 --reason "Lanzamiento de la beta abierta"
+   ```
+7. **Comprobar sin crear cuentas.** La beta abierta ya tiene jugadores de verdad; aquí no se crean cuentas de prueba nunca.
+   - `curl -fsS https://pre.elclub.party/galaxy/api/health`
+   - Que no haya ninguna cuenta y que las versiones nuevas estén publicadas: `select count(*) from galaxy.accounts` y `select key, version from galaxy.game_config_active`.
+   - El log del contenedor, sin errores.
+8. **El propietario crea su admin.** La orden imprime una sola vez la contraseña y el secreto TOTP:
+   ```bash
+   ssh root@192.168.1.103
+   docker exec -it elclub-pre-galaxy-1 node dist/cli.js create-admin <usuario> --role superadmin
+   ```
+   - **Para cambiar la contraseña:**
+     1. `docker exec elclub-pre-galaxy-1 node dist/cli.js issue-reset-code <usuario>` da un código de un solo uso, válido 24 h.
+     2. En https://pre.elclub.party/galaxy/recuperar se pone la contraseña nueva.
+   - **Si se pierde la app de autenticación:** `reset-totp <usuario>`.
+
+**Qué trae la Temporada 1.** Las cifras están en los JSON y se pueden cambiar después desde el panel.
+- **La temporada:** 4 semanas, del 10 de noviembre al 8 de diciembre de 2026 (00:00 de Madrid). Los tramos y la ruta están escalados a esa duración.
+- **Eventos:**
+  - «Primer contacto», del 10 al 24 de noviembre, con su escáner de supernovas destacadas;
+  - «Escuadrón estelar», del 17 de noviembre al 8 de diciembre, con metas en grupo y de clan.
+- **Potenciador de lanzamiento:** monedas y polvo ×1,5 la primera semana.
+- **Misiones:** 4 diarias y 4 semanales, más duras y mejor pagadas, y 4 de temporada nuevas.
+- **Logros nuevos:** «Imparable» y «Leyenda del escuadrón».
+- **Dureza por sector (SIM 1.8.0):** del ×1,05 de vida en la Nebulosa Exterior al ×1,30 de vida y ×1,12 de daño en la Falla de la Señal. Se mantiene el «Bosses Buff» publicado en PRE.
+
+**Para volver atrás** (solo si algo sale muy mal): restaurar la copia del paso 1 con la aplicación parada.
+
 ## Operación
 
 | Tarea | Cómo |
@@ -884,3 +949,5 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 | Un admin ha perdido su app de autenticación | `docker exec -it elclub-pre-galaxy-1 node dist/cli.js reset-totp <usuario>`: secreto nuevo, sesiones cerradas, queda auditado |
 | Rotar `GALAXY_TOTP_KEY` | Invalida todos los TOTP: solo si la clave se ha filtrado; después, `reset-totp` para cada admin |
 | Rotar la contraseña de `galaxy_api` | Paso 1 con otra contraseña, actualizar `galaxy.env` y `up -d galaxy` |
+| Publicar una clave de configuración sin el panel | `docker exec -i elclub-pre-galaxy-1 node dist/cli.js publish-config <clave> - --reason "<motivo>" < archivo.json` (validada como en el panel y auditada como `cli`; un id de temporada nuevo archiva la anterior) |
+| Poner un aviso en la pantalla de título | `docker exec elclub-pre-galaxy-1 node dist/cli.js notice "<texto>" --tone info --days 7 --reason "<motivo>"` |
