@@ -37,7 +37,7 @@ export function spawnBoss(sim: Sim): void {
   if (i < 0) return;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);
-  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp');
+  const hp = def.hp * (1 + def.scaling.hpPerLayer * (sim.layer - 1)) * coopFactor(sim, 'bossHp') * sim.sector.enemyHp;
   en.type[i] = sim.content.bosses.indexOf(def);
   en.boss[i] = 1;
   en.x[i] = c.x + cosA(a) * SPAWN_DISTANCE;

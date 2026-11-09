@@ -1,0 +1,56 @@
+import { expect, test } from 'vitest';
+import { contentSchema, DEFAULT_CONTENT, IDLE, scaleAt, type Sim, step } from '../src/index';
+import { quietSim } from './fixtures';
+
+// Each sector's own toughness (open beta launch): its enemies' life and damage are multiplied, from the first sector
+// (easiest) to the season's (hardest); content published before keeps 1 for both, so it plays as it did.
+
+test('el sector multiplica la vida y el daño de sus enemigos', () => {
+  const base = quietSim();
+  const tough = quietSim((c) => {
+    c.sectors[0]!.enemyHp = 1.3;
+    c.sectors[0]!.enemyDamage = 1.12;
+  });
+  expect(scaleAt(tough).hp).toBeCloseTo(scaleAt(base).hp * 1.3, 10);
+  expect(scaleAt(tough).damage).toBeCloseTo(scaleAt(base).damage * 1.12, 10);
+  expect(scaleAt(tough).speed).toBe(scaleAt(base).speed);
+});
+
+test('el Núcleo del sector también aguanta más', () => {
+  const withBoss = (enemyHp: number): Sim => {
+    const sim = quietSim((c) => {
+      c.sectors[0]!.layerSeconds = 1;
+      c.sectors[0]!.enemyHp = enemyHp;
+    });
+    sim.probes[0]!.hp = 1e9;
+    for (let i = 0; i < 70 && !sim.boss; i++) step(sim, [IDLE]);
+    return sim;
+  };
+  const plain = withBoss(1);
+  const tough = withBoss(1.3);
+  expect(tough.enemies.hp[tough.boss!.index]).toBeCloseTo(plain.enemies.hp[plain.boss!.index]! * 1.3, 6);
+});
+
+test('del primer sector al de temporada la vida sube, el daño no baja, y el de temporada es el más duro', () => {
+  const sectors = DEFAULT_CONTENT.sectors;
+  const hp = sectors.map((s) => s.enemyHp);
+  const damage = sectors.map((s) => s.enemyDamage);
+  for (let i = 1; i < sectors.length; i++) {
+    expect(hp[i]!).toBeGreaterThan(hp[i - 1]!);
+    expect(damage[i]!).toBeGreaterThanOrEqual(damage[i - 1]!);
+  }
+  const season = sectors.find((s) => s.season)!;
+  expect(season.enemyHp).toBe(Math.max(...hp));
+  expect(season.enemyDamage).toBe(Math.max(...damage));
+  expect(Math.max(...hp)).toBeLessThanOrEqual(1.35);
+});
+
+test('un contenido publicado antes, sin estos campos, juega con 1', () => {
+  const old = structuredClone(DEFAULT_CONTENT) as unknown as { sectors: Record<string, unknown>[] };
+  for (const s of old.sectors) {
+    delete s['enemyHp'];
+    delete s['enemyDamage'];
+  }
+  const parsed = contentSchema.parse(old);
+  expect(parsed.sectors.every((s) => s.enemyHp === 1 && s.enemyDamage === 1)).toBe(true);
+});

@@ -1077,6 +1077,8 @@ export const DEFAULT_CONTENT: Content = {
       boss: 'hive',
       deepBoss: DEEP,
       season: false,
+      enemyHp: 1.05,
+      enemyDamage: 1,
       layerSeconds: 300,
       beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
       spawns: [
@@ -1118,6 +1120,8 @@ export const DEFAULT_CONTENT: Content = {
       boss: 'glacier',
       deepBoss: DEEP,
       season: false,
+      enemyHp: 1.1,
+      enemyDamage: 1.03,
       spawns: [
         { enemy: 'splinter', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'geode', from: 60, weight: 4, group: [1, 2] },
@@ -1141,6 +1145,8 @@ export const DEFAULT_CONTENT: Content = {
       boss: 'anemone',
       deepBoss: DEEP,
       season: false,
+      enemyHp: 1.15,
+      enemyDamage: 1.06,
       spawns: [
         { enemy: 'polyp', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'eel', from: 60, weight: 3, group: [1, 2] },
@@ -1164,6 +1170,8 @@ export const DEFAULT_CONTENT: Content = {
       boss: 'anvil',
       deepBoss: DEEP,
       season: false,
+      enemyHp: 1.2,
+      enemyDamage: 1.09,
       spawns: [
         { enemy: 'ember', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'crucible', from: 60, weight: 4, group: [1, 2] },
@@ -1193,6 +1201,8 @@ export const DEFAULT_CONTENT: Content = {
       boss: 'signal',
       deepBoss: null,
       season: true,
+      enemyHp: 1.3,
+      enemyDamage: 1.12,
       // A remix too (GDD §13.1 bis): Esquirlas and Arietes come through the rift from other sectors.
       spawns: [
         { enemy: 'splinter', from: 0, weight: 8, group: [3, 5] },

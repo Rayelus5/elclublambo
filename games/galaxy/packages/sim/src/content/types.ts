@@ -234,6 +234,9 @@ export interface SectorDef {
   deepBoss: { boss: string; every: number } | null;
   /** A season sector (GDD §13.1): open only while it is the live config's season. */
   season: boolean;
+  /** Open beta: multiplies its enemies' (and its Core's) life and their damage; 1 for content published before. */
+  enemyHp: number;
+  enemyDamage: number;
   layerSeconds: number;
   beacon: { seconds: number; hold: number; radius: number; distance: number };
   /** `from`: second of layer 1 from which the species appears (from layer 2 on, all appear from the start). */
