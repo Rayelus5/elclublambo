@@ -52,13 +52,14 @@ test('un hangar nuevo: la Nebulosa Exterior, las 8 sondas aún bloqueadas y 2 ra
   // Before the probe test (M3b-2) all eight probes are locked: the test gives the first one.
   expect(h.test).toEqual({ taken: false, probe: null });
   expect(h.probes).toHaveLength(8);
-  expect(h.probes[0]).toMatchObject({ id: 'lumen', unlocked: false, quirk: 'magnet', weapon: expect.objectContaining({ id: 'pulse' }) });
-  expect(h.probes.find((p) => p.id === 'bastion')?.quirk).toBe('thorns');
+  // The quirk comes with its live numbers, so the hangar never states a fixed one.
+  expect(h.probes[0]).toMatchObject({ id: 'lumen', unlocked: false, quirk: { kind: 'magnet', every: 60 }, weapon: expect.objectContaining({ id: 'pulse' }) });
+  expect(h.probes.find((p) => p.id === 'bastion')?.quirk).toMatchObject({ kind: 'thorns', share: 0.5 });
   expect(h.probes.every((p) => !p.unlocked)).toBe(true);
   expect(h.slots).toBe(2);
   expect(h.maxSlots).toBe(6);
   expect(h.loadout).toEqual([null, null]);
-  expect(h.daily).toMatchObject({ playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1 });
+  expect(h.daily).toMatchObject({ playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, fullHours: 3 });
   expect(new Date(h.daily.resetsAt).getTime()).toBeGreaterThan(Date.now());
   expect(h.runsEnabled).toBe(true);
 });

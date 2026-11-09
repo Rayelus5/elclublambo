@@ -126,7 +126,7 @@ describe('cambios', () => {
       [member.username, 'member'],
     ]);
     expect(await mine(leader)).toBeNull();
-    expect((await post(ctx.app, `/galaxy/api/clans/${c.tag}/join`, undefined, { cookie: leader.cookie })).json()).toEqual({ error: 'clan_kicked' });
+    expect((await post(ctx.app, `/galaxy/api/clans/${c.tag}/join`, undefined, { cookie: leader.cookie })).json()).toMatchObject({ error: 'clan_kicked' });
     expect((await act(`/${c.tag}/kick`, { username: leader.username, reason: 'Otra vez' })).json()).toEqual({ error: 'not_in_clan' });
     expect(await audits(c.id)).toMatchObject([{ action: 'clan.kick', before: { username: leader.username, role: 'leader' }, after: { dissolved: false }, reason: 'Trampas' }]);
   });

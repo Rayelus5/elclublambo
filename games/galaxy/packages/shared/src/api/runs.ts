@@ -86,8 +86,8 @@ export interface ProbeCard {
   hp: number;
   speed: number;
   weapon: { id: string; name: string; icon: string };
-  /** Its quirk's kind (what it does is told by the client's copy). */
-  quirk: Quirk['kind'] | null;
+  /** Its quirk with its live numbers (the client's copy tells what it does with them). */
+  quirk: Quirk | null;
   unlocked: boolean;
   /** What earns it (null: the test's probe, or one that cannot be earned yet). */
   condition: ProbeCondition | null;
@@ -130,6 +130,8 @@ export interface DailyView {
   fullSecondsLeft: number;
   /** The rate the next minute would pay. */
   multiplier: number;
+  /** Hours of play a day at the full rate (live `runs.daily.hours[0]`). */
+  fullHours: number;
   /** When the day restarts (Madrid midnight), ISO. */
   resetsAt: string;
 }

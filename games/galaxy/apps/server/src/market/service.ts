@@ -73,9 +73,10 @@ export async function rulesFor(db: Kysely<DB>, accountId: string, cfgs: MarketCo
   };
 }
 
+/** Refuses a trade with the live requirement in the body, so the message says what the admin set, not a fixed number. */
 export function refuse(rules: MarketRules): void {
-  if (rules.reason === 'level') throw new HttpError(403, 'trade_level');
-  if (rules.reason === 'age') throw new HttpError(403, 'trade_age');
+  if (rules.reason === 'level') throw new HttpError(403, 'trade_level', { minLevel: rules.minLevel });
+  if (rules.reason === 'age') throw new HttpError(403, 'trade_age', { minAccountDays: rules.minAccountDays });
 }
 
 const GALAXY = ['g.id', 'g.seed', 'g.tier', 'g.finish', 'g.traits', 'g.name', 'g.designation', 'g.featured', 'g.level', 'g.created_at', 'g.score'] as const;

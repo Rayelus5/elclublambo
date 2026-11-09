@@ -1,8 +1,13 @@
+import type { Quirk } from '@galaxy/sim';
 import type { ElementId, FamilyId, PhenomenonId } from '@galaxy/sim';
 import type { ApiErrorCode } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
+
+type QuirkOf<K extends Quirk['kind']> = Extract<Quirk, { kind: K }>;
+/** A quirk's text from its live numbers. */
+export const quirkText = (q: Quirk): string => (copy.probeTest.quirks[q.kind] as (x: Quirk) => string)(q);
 
 const percent = new Intl.NumberFormat('es-ES', { style: 'percent', maximumFractionDigits: 1 });
 
@@ -824,7 +829,9 @@ export const copy = {
     leaveConfirm: 'Salir',
     disband: 'Salir y disolver',
     kickTitle: (u: string) => `Expulsar a ${u}`,
-    kickBody: 'No podrá volver a entrar ni pedirlo hasta pasadas 24 horas',
+    // The wait is the live `clans.kickHours`.
+    kickBody: (hours: number) =>
+      hours <= 0 ? 'Podrá volver a pedir entrar cuando quiera' : `No podrá volver a entrar ni pedirlo hasta ${hours === 1 ? 'pasada 1 hora' : `pasadas ${fmt(hours)} horas`}`,
     kickConfirm: 'Expulsar',
     transferTitle: (u: string) => `Pasar el liderazgo a ${u}`,
     transferBody: 'Pasarás a ser oficial',
@@ -912,7 +919,8 @@ export const copy = {
     exhibitedReason: 'Está expuesta en tu planetario. Retírala allí para desintegrarla o fusionarla',
     prestige: 'Prestigio',
     bonus: (fraction: number) => `+${fmt(Math.round(fraction * 1000) / 10)} % de experiencia en las incursiones`,
-    prestigeHint: 'Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +5 %',
+    // The cap is the live `planetarium.cap`.
+    prestigeHint: (cap: number) => `Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +${fmt(Math.round(cap * 1000) / 10)} %`,
     visits: (n: number) => (n === 1 ? '1 visita' : `${fmt(n)} visitas`),
     emptyMine: 'Expón tus mejores galaxias en los pedestales. Cuanto más raras, más prestigio',
     emptyVisit: 'Todavía no ha expuesto ninguna galaxia',
@@ -1397,7 +1405,8 @@ export const copy = {
     } satisfies Record<PhenomenonId, string>,
     dailyFull: (left: string) => `Premio completo: te quedan ${left} hoy`,
     dailyTier: (pct: number) => `Canal saturado: ahora cobras el ${fmt(pct)} %`,
-    dailyHint: 'Tras 3 horas de juego al día, el premio económico baja poco a poco. La experiencia y el progreso nunca bajan',
+    // The hours are the live `runs.daily.hours[0]`.
+    dailyHint: (hours: number) => `Tras ${fmt(hours)} ${hours === 1 ? 'hora' : 'horas'} de juego al día, el premio económico baja poco a poco. La experiencia y el progreso nunca bajan`,
     duration: (seconds: number) => `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`,
     launch: 'Lanzar incursión',
   },
@@ -1501,7 +1510,7 @@ export const copy = {
     scanner: {
       odds: 'Cada escaneo descubre una galaxia. Estas son las probabilidades de cada rareza.',
       pity: 'Esta barra es la garantía: antes de llegar al final te toca una Legendaria, seguro.',
-      pull: 'Te he dado 10 señales de bienvenida. Escanea 10 de golpe.',
+      pull: 'Te he regalado señales de bienvenida. Pulsa Escanear 10 para usarlas de golpe.',
       reveal: 'Mira lo que ha salido. Cierra el revelado cuando acabes.',
       relics: 'Tus galaxias van a la colección. Equipadas en la sonda son reliquias y dan poder en combate. Vamos al Hangar.',
       toHangar: 'Ir al Hangar',
@@ -1708,15 +1717,16 @@ export const copy = {
       spark: 'Te mueves rápido y te encanta improvisar. Chispa es veloz, ágil y difícil de atrapar',
     },
     quirk: 'Peculiaridad',
+    // Each quirk says its live numbers (the content can change them).
     quirks: {
-      magnet: 'Cada minuto atrae los fragmentos cercanos',
-      thorns: 'Devuelve la mitad del daño a quien la toca',
-      dash: 'Esquiva un golpe con un salto, cada 30 s',
-      overwatch: 'Siempre lleva un dron de más',
-      'second-wind': 'Cuando cae, se levanta una vez más',
-      'prism-touch': 'Sus golpes prenden elementos que rotan',
-      afterburner: 'Cada baja la acelera un poco',
-      salvage: 'Cada 30 bajas encuentra un kit de reparación',
+      magnet: (q: QuirkOf<'magnet'>) => `Cada ${q.every === 60 ? 'minuto' : `${fmt(q.every)} s`} atrae los fragmentos cercanos`,
+      thorns: (q: QuirkOf<'thorns'>) => `Devuelve ${q.share === 0.5 ? 'la mitad' : `el ${fmt(Math.round(q.share * 1000) / 10)} %`} del daño a quien la toca`,
+      dash: (q: QuirkOf<'dash'>) => `Esquiva un golpe con un salto, cada ${fmt(q.every)} s`,
+      overwatch: (q: QuirkOf<'overwatch'>) => `Siempre lleva ${q.drones === 1 ? 'un dron' : `${fmt(q.drones)} drones`} de más`,
+      'second-wind': (_q: QuirkOf<'second-wind'>) => 'Cuando cae, se levanta una vez más',
+      'prism-touch': (_q: QuirkOf<'prism-touch'>) => 'Sus golpes prenden elementos que rotan',
+      afterburner: (_q: QuirkOf<'afterburner'>) => 'Cada baja la acelera un poco',
+      salvage: (q: QuirkOf<'salvage'>) => `Cada ${fmt(q.kills)} bajas encuentra un kit de reparación`,
     },
     toHangar: 'Ir al hangar',
     toTour: 'Conocer la estación',
@@ -1870,9 +1880,12 @@ export const copy = {
     clan_forbidden: 'Tu rol en el clan no permite hacer eso',
     clan_closed: 'Ese clan está cerrado. Pide entrar y espera a que te acepten',
     request_not_found: 'Esa solicitud ya no está',
-    clan_kicked: 'Te expulsaron de ese clan hace poco. Podrás volver a entrar pasadas 24 horas',
-    trade_level: 'Para comerciar necesitas nivel 10',
-    trade_age: 'Para comerciar tu cuenta necesita 3 días',
+    // These three say the live value the server sends with the refusal, never a number fixed here.
+    clan_kicked: (d: Record<string, unknown>) =>
+      `Te expulsaron de ese clan hace poco. Podrás volver a entrar ${typeof d.until === 'string' ? `a partir del ${new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(d.until))}` : 'más adelante'}`,
+    trade_level: (d: Record<string, unknown>) => (typeof d.minLevel === 'number' ? `Para comerciar necesitas nivel ${d.minLevel}` : 'Para comerciar necesitas más nivel de cuenta'),
+    trade_age: (d: Record<string, unknown>) =>
+      typeof d.minAccountDays === 'number' ? `Para comerciar tu cuenta necesita ${d.minAccountDays} ${d.minAccountDays === 1 ? 'día' : 'días'}` : 'Para comerciar tu cuenta necesita más antigüedad',
     trade_daily_cap: 'Has llegado al límite de hoy. Vuelve mañana',
     price_too_low: 'Ese precio está por debajo del mínimo de su rareza',
     price_too_high: 'Ese precio pasa del máximo del mercado',
@@ -1909,5 +1922,5 @@ export const copy = {
     mail_gone: 'Ese mensaje ya no está en tu buzón',
     notice_gone: 'Ese aviso ya terminó',
     level_too_low: 'Todavía no tienes el nivel que hace falta',
-  } satisfies Record<ApiErrorCode, string>,
+  } satisfies Record<ApiErrorCode, string | ((details: Record<string, unknown>) => string)>,
 } as const;

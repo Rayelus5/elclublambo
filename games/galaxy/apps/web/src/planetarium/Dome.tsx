@@ -38,7 +38,7 @@ export function ShownCard({ galaxy, children }: { galaxy: GalaxySummary | Public
   );
 }
 
-export function PrestigePanel({ prestige, bonus, visits }: { prestige: number; bonus?: number; visits: number }) {
+export function PrestigePanel({ prestige, bonus, cap, visits }: { prestige: number; bonus?: number; cap?: number; visits: number }) {
   const title = useId();
   return (
     <section className="lip panel prestige-panel" aria-labelledby={title}>
@@ -47,7 +47,7 @@ export function PrestigePanel({ prestige, bonus, visits }: { prestige: number; b
       {bonus === undefined ? null : (
         <>
           <p className="prestige-bonus">{t.bonus(bonus)}</p>
-          <p className="prestige-hint">{t.prestigeHint}</p>
+          {cap === undefined ? null : <p className="prestige-hint">{t.prestigeHint(cap)}</p>}
         </>
       )}
       <p className="prestige-visits">

@@ -69,10 +69,10 @@ export async function lockClan(trx: Kysely<DB>, clanId: string): Promise<{ open:
   return c;
 }
 
-/** A kicked account waits `clans.kickHours` before joining that clan again or asking to. */
-async function kickedFrom(trx: Kysely<DB>, clanId: string, accountId: string): Promise<boolean> {
+/** A kicked account waits `clans.kickHours` before joining that clan again or asking to: until when, or null. */
+async function kickedUntil(trx: Kysely<DB>, clanId: string, accountId: string): Promise<Date | null> {
   const k = await trx.selectFrom('galaxy.clan_kicks').select('until').where('clan_id', '=', clanId).where('account_id', '=', accountId).where('until', '>', sql<Date>`now()`).executeTakeFirst();
-  return k !== undefined;
+  return k ? new Date(k.until) : null;
 }
 
 async function membership(db: Kysely<DB>, accountId: string): Promise<{ clan_id: string; role: ClanRole; joined_at: Date } | undefined> {
@@ -124,6 +124,7 @@ export async function clanView(db: Kysely<DB>, clanId: string, viewerId: string,
     open: c.open,
     createdAt: new Date(c.created_at).toISOString(),
     maxMembers: cfgs.clans.maxMembers,
+    kickHours: cfgs.clans.kickHours,
     members,
     score: ranked?.value ?? 0,
     rank: ranked?.rank ?? null,
@@ -210,7 +211,8 @@ export async function joinClan(deps: SocialDeps, accountId: string, tag: string,
   await inTransaction(deps.db, async (trx) => {
     const { open } = await lockClan(trx, c.id);
     await lock(trx, `clan-account:${accountId}`);
-    if (await kickedFrom(trx, c.id, accountId)) throw new HttpError(409, 'clan_kicked');
+    const until = await kickedUntil(trx, c.id, accountId);
+    if (until) throw new HttpError(409, 'clan_kicked', { until: until.toISOString() });
     if (open) return admit(trx, c.id, accountId, cfgs);
     if (!asRequest) throw new HttpError(409, 'clan_closed');
     if (await membership(trx, accountId)) throw new HttpError(409, 'already_in_clan');

@@ -5,7 +5,7 @@ import { Link, Navigate } from 'react-router';
 import { spriteDataUrl } from '../arena/sprites';
 import { useHangar, useProbeTest } from '../api/runs';
 import { tourActive, useTutorial } from '../api/tutorial';
-import { copy } from '../copy/es';
+import { copy, quirkText } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
 // The probe test (GDD §6, §12.2; DESIGN_SYSTEM §8 sexies): PERKINS asks five questions, one at a time; a sixth only
@@ -155,7 +155,7 @@ export function ProbeTestScreen() {
           {def.quirk && (
             <p className="probe-quirk">
               <b>{t.quirk}</b>
-              <span>{t.quirks[def.quirk.kind]}</span>
+              <span>{quirkText(def.quirk)}</span>
             </p>
           )}
           {/* A new player's guided tour starts at the title screen (polish phase 3). */}

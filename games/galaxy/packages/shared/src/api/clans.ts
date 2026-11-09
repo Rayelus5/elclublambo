@@ -75,6 +75,8 @@ export interface ClanView {
   open: boolean;
   createdAt: string;
   maxMembers: number;
+  /** How long a kicked member waits to come back (live `clans.kickHours`). */
+  kickHours: number;
   members: ClanMember[];
   score: number;
   /** Its place among clans this season, or null without points. */
