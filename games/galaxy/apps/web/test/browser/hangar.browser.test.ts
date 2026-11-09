@@ -155,11 +155,12 @@ for (const [w, h] of [
     await new Promise((r) => setTimeout(r, 1500));
     expect(document.querySelector('.lobby')).not.toBeNull();
     // The lobby's areas never overlap (the owner: «nada tape nada»), and nothing pushes the page sideways.
-    const areas = ['.lobby-top', '.lobby-rail', '.lobby-stage', '.lobby-side', '.lobby-foot'].map((sel) => document.querySelector(sel)!.getBoundingClientRect());
+    const names = ['.lobby-top', '.lobby-rail', '.lobby-stage', '.lobby-side', '.lobby-foot'];
+    const areas = names.map((sel) => document.querySelector(sel)!.getBoundingClientRect());
     for (let i = 0; i < areas.length; i++)
       for (let j = i + 1; j < areas.length; j++) {
         const [a, b] = [areas[i]!, areas[j]!];
-        expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1).toBe(false);
+        expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1, `${names[i]} × ${names[j]}`).toBe(false);
       }
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);

@@ -2558,7 +2558,8 @@
   .lobby-back { flex: none; }
   @media (max-width: 1440px) { .lobby-top .me > div { display: none; } .lobby-top .me { padding-right: 4px; } }
 
-  .lobby-rail { grid-area: rail; align-self: center; }
+  /* The rail never leaves its area: on a short screen it scrolls inside rather than over the bar or the foot. */
+  .lobby-rail { grid-area: rail; align-self: center; min-block-size: 0; max-block-size: 100%; overflow-y: auto; scrollbar-width: none; padding: 8px 10px 8px 2px; margin: -8px -10px -8px -2px; }
   .lobby-rail ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
   .lobby-rail ul { grid-template-columns: max-content; }
   .lobby-zone { --r: 18px; --lip-h: 5px; position: relative; box-sizing: border-box; display: flex; align-items: center; gap: 12px; inline-size: 100%; min-inline-size: 196px; padding: 8px 16px 8px 8px; background: rgb(24 26 61 / .9); color: var(--color-ink); border: 2px solid rgb(255 255 255 / .06); animation: lobby-rail-in .5s var(--ease-bounce) calc(var(--i) * 50ms) both; }
@@ -2798,6 +2799,8 @@
   .lobby-dock .field-error { margin: 0; }
   .lobby-launch { --r: 26px; --lip-h: 10px; position: relative; overflow: hidden; justify-content: center; inline-size: 100%; min-block-size: clamp(72px, 9vh, 96px); font-size: clamp(24px, 2vw, 34px); }
   .lobby-launch .ico { font-size: clamp(28px, 2.2vw, 36px); }
+  .lobby-launch > span:last-child { white-space: nowrap; }
+  @media (max-width: 1500px) { .lobby-launch { font-size: 22px; gap: 10px; padding-inline: 20px; } }
   .lobby-launch:disabled { filter: saturate(.3) brightness(.75); cursor: not-allowed; }
   .lobby-launch.pressed { background: linear-gradient(180deg, var(--color-terminal), var(--color-terminal-2)); --lip-c: var(--color-terminal-lip); color: var(--color-on-terminal); }
   .lobby-launch:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
@@ -2819,6 +2822,15 @@
     .lobby-slot.filled { inline-size: 238px; } .lobby-slot.empty { inline-size: 124px; } .lobby-slot.next { inline-size: 168px; } .lobby-slot.locked { inline-size: 40px; }
   }
   @media (max-width: 1300px) { .lobby { grid-template-columns: auto minmax(0, 1fr) 300px; } .lobby-mode small { display: none; } }
+  /* Short screens (720 px tall): a tighter rail, foot and launch, so the stage keeps its room. */
+  @media (max-height: 780px) {
+    .lobby-rail ul { gap: 7px; }
+    .lobby-zone { padding: 5px; }
+    .lobby-zone-icon { inline-size: 38px; block-size: 38px; font-size: 21px; border-radius: 11px; }
+    .lobby-slot.filled { row-gap: 3px; padding-block: 6px; }
+    .skill-tag { block-size: 20px; padding: 0 7px; font-size: 11px; }
+    .lobby-launch { min-block-size: 64px; }
+  }
   @media (prefers-reduced-motion: reduce) {
     .lobby-galaxy-art canvas, .lobby-planet, .lobby-station, .lobby-zone, .lobby-halo, .lobby-probe, .lobby-pad, .lobby-mate, .lobby-mate-probe, .lobby-mate-ghost, .lobby-orb-art canvas, .lobby-launch-shine, .lobby-flash { animation: none; }
     .lobby-root.launching .lobby-probe { animation: none; }
