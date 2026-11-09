@@ -1463,12 +1463,24 @@ export const copy = {
     revealTitle: 'Nueva galaxia',
     equipped: 'Equipada',
     equippedReason: 'Está equipada como reliquia en el hangar. Quítala allí para desintegrarla o fusionarla',
-    // The lock (plan phase 2).
-    lock: 'Poner candado',
-    unlock: 'Quitar candado',
-    lockedBadge: 'Con candado',
-    lockedFilter: 'Con candado',
-    lockedReason: 'Tiene candado: no se fusiona ni se desintegra hasta que se lo quites',
+    // Favourites (the lock of plan phase 2, as the owner asked): kept apart, never fused nor disintegrated.
+    lock: 'Añadir a favoritas',
+    unlock: 'Quitar de favoritas',
+    lockedBadge: 'Favorita',
+    lockedFilter: 'Favoritas',
+    lockedReason: 'Es una de tus favoritas: no se fusiona ni se desintegra mientras lo sea',
+    favoriteHint: 'Las favoritas no se fusionan ni se desintegran',
+    // The fusion tools, side by side, and the fusion itself.
+    fusionTitle: 'Fusión',
+    fusingHint: (count: number) => `Elige ${count} de la misma rareza`,
+    fusionLabel: 'Las galaxias se funden',
+    skipFusion: 'Saltar',
+    // The detail: the card turns over; levelling up is celebrated.
+    flip: 'Ver el dorso',
+    flipBack: 'Ver el frente',
+    levelBanner: (n: number) => `Nivel ${n}`,
+    levelDone: 'La reliquia es más fuerte',
+    galaxies: (n: number) => (n === 1 ? '1 galaxia' : `${fmt(n)} galaxias`),
     // The automatic fusion (plan phase 2).
     auto: {
       open: 'Fusión automática',
@@ -1480,7 +1492,7 @@ export const copy = {
       keepTitle: 'Qué se guarda',
       keepFinishes: 'Guardar las de acabado especial (holo, prismático…)',
       keepLeveled: 'Guardar las que tienen niveles',
-      always: 'Las de candado, las equipadas, las expuestas, las que están en venta y las de un trueque nunca se tocan',
+      always: 'Las favoritas, las equipadas, las expuestas, las que están en venta y las de un trueque nunca se tocan',
       planTitle: 'Qué va a pasar',
       nothing: 'Con estos ajustes no hay nada que fusionar',
       noDust: 'No tienes polvo estelar para ninguna fusión',
@@ -1492,7 +1504,7 @@ export const copy = {
       kept: (what: string[]) => `Se quedan: ${what.join(', ')}`,
       keptWhy: {
         busy: (n: number) => `${fmt(n)} en uso`,
-        locked: (n: number) => `${fmt(n)} con candado`,
+        locked: (n: number) => (n === 1 ? '1 favorita' : `${fmt(n)} favoritas`),
         finishes: (n: number) => `${fmt(n)} con acabado especial`,
         leveled: (n: number) => `${fmt(n)} con niveles`,
       },
@@ -2234,7 +2246,7 @@ export const copy = {
     own_listing: 'No puedes comprar tu propio anuncio',
     galaxy_listed: 'Esa galaxia está en venta. Retírala del mercado primero',
     galaxy_in_trade: 'Esa galaxia está en un trueque. Cancélalo primero',
-    galaxy_locked: 'Esa galaxia tiene candado. Quítaselo primero',
+    galaxy_locked: 'Esa galaxia es una de tus favoritas. Quítala de favoritas primero',
     friend_request_missing: 'Esa solicitud ya no existe',
     friend_blocked: 'Tienes bloqueada a esa persona. Desbloquéala primero',
     friend_limit_them: 'Esa persona ha llegado a su máximo de amigos',

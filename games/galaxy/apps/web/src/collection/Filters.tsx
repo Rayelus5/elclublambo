@@ -3,14 +3,15 @@ import { FINISHES, TIERS, type Tier } from '@galaxy/shared';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
-// The collection's filters (GDD §8.5): rarity chips with their counts, type, palette and finish, and the order. They
-// live in the URL (?tier=rare&sort=rarity…), so a filtered view can be shared, reloaded and gone back to.
+// The collection's filters (GDD §8.5), in two rows: the rarity chips with their counts; then type, palette and finish,
+// the favourites and the order. They live in the URL (?tier=rare&sort=rarity…), so a filtered view can be shared,
+// reloaded and gone back to.
 export interface CollectionFilters {
   tier?: Tier;
   type?: string;
   palette?: string;
   finish?: (typeof FINISHES)[number];
-  /** Only locked galaxies (plan phase 2). */
+  /** Only favourites (the lock of plan phase 2). */
   locked?: true;
   sort: 'new' | 'rarity';
 }
@@ -26,7 +27,8 @@ export function readFilters(params: URLSearchParams): CollectionFilters {
     ...(valid('galaxy_type', params.get('type')) ? { type: params.get('type')! } : {}),
     ...(valid('palette', params.get('palette')) ? { palette: params.get('palette')! } : {}),
     ...(finish && (FINISHES as readonly string[]).includes(finish) ? { finish: finish as CollectionFilters['finish'] } : {}),
-    ...(params.get('candado') === '1' ? { locked: true as const } : {}),
+    // ?candado=1 was its address before it became favourites.
+    ...(params.get('favoritas') === '1' || params.get('candado') === '1' ? { locked: true as const } : {}),
     sort: params.get('sort') === 'rarity' ? 'rarity' : 'new',
   };
 }
@@ -37,7 +39,7 @@ export function writeFilters(f: CollectionFilters): URLSearchParams {
   if (f.type) p.set('type', f.type);
   if (f.palette) p.set('palette', f.palette);
   if (f.finish) p.set('finish', f.finish);
-  if (f.locked) p.set('candado', '1');
+  if (f.locked) p.set('favoritas', '1');
   if (f.sort === 'rarity') p.set('sort', 'rarity');
   return p;
 }
@@ -85,7 +87,7 @@ export function Filters({
           </button>
         ))}
       </div>
-      <div className="selects">
+      <div className="filters-row">
         <Select label={copy.traitNames['galaxy_type']!} value={filters.type} options={options('galaxy_type')} onChange={(type) => set({ type })} />
         <Select label={copy.traitNames['palette']!} value={filters.palette} options={options('palette')} onChange={(palette) => set({ palette })} />
         <Select
@@ -94,11 +96,11 @@ export function Filters({
           options={FINISHES.map((f): [string, string] => [f, copy.finishes[f]])}
           onChange={(finish) => set({ finish: finish as CollectionFilters['finish'] })}
         />
-        <button type="button" className="chip lock-chip" aria-pressed={!!filters.locked} onClick={() => set({ locked: filters.locked ? undefined : true })}>
-          <Icon name="lock" />
+        <button type="button" className="chip fav-chip" aria-pressed={!!filters.locked} onClick={() => set({ locked: filters.locked ? undefined : true })}>
+          <Icon name={filters.locked ? 'starOn' : 'star'} />
           {copy.collection.lockedFilter}
         </button>
-        <div className="segmented" role="group" aria-label={copy.collection.order}>
+        <div className="segmented filters-sort" role="group" aria-label={copy.collection.order}>
           <button type="button" aria-pressed={filters.sort === 'new'} onClick={() => set({ sort: 'new' })}>
             {copy.collection.sortNew}
           </button>

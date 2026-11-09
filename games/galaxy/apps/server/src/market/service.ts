@@ -243,7 +243,7 @@ export async function buyListing(
   const ref = { listing: l.id, galaxy: g.id };
   await debit(trx, buyerId, 'coins', price, 'market_buy', ref, opKey);
   if (price - commission > 0) await credit(trx, l.seller_id, 'coins', price - commission, 'market_sale', ref, opKey);
-  await trx.updateTable('galaxy.galaxies').set({ owner_id: buyerId }).where('id', '=', g.id).execute();
+  await trx.updateTable('galaxy.galaxies').set({ owner_id: buyerId, locked: false }).where('id', '=', g.id).execute();
   await trx.updateTable('galaxy.market_listings').set({ status: 'sold', buyer_id: buyerId, sold_at: now, commission }).where('id', '=', l.id).execute();
   await alertIfSuspicious(trx, cfgs.market, { listing: l.id, seller: l.seller_id, buyer: buyerId, price, floor: minPriceFor(TIERS[g.tier]!, cfgs.market) }, now);
   const bought = await trx

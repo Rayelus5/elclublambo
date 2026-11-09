@@ -1,5 +1,5 @@
 import type { HangarView, ProbeCard } from '@galaxy/shared';
-import { type CSSProperties, useEffect, useRef, useState } from 'react';
+import { type CSSProperties, useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
 import { useChooseProbe, useHangar } from '../api/runs';
@@ -9,6 +9,7 @@ import { copy, quirkText } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
+import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
 import bayUrl from './art/bay.png';
 import { ProbeLevel, Unlock, WeaponPicker } from './parts';
@@ -41,57 +42,6 @@ function useBayScale() {
     return () => ro?.disconnect();
   }, [el]);
   return { ref, px };
-}
-
-/** Welding sparks from the probe, a ring of light and the new level, for a moment. */
-function Celebration({ level, reduced }: { level: number; reduced: boolean }) {
-  const canvas = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    if (reduced) return;
-    const c = canvas.current;
-    const ctx = c?.getContext('2d');
-    if (!c || !ctx) return;
-    const w = (c.width = c.clientWidth);
-    const h = (c.height = c.clientHeight);
-    const sparks = Array.from({ length: 90 }, () => {
-      const a = Math.random() * Math.PI * 2;
-      const s = 120 + Math.random() * 360;
-      return { x: w / 2, y: h * 0.55, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 120, life: 0, max: 0.5 + Math.random() * 0.7, hot: Math.random() < 0.6 };
-    });
-    let last = performance.now();
-    let raf = 0;
-    const frame = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      ctx.clearRect(0, 0, w, h);
-      let alive = 0;
-      for (const s of sparks) {
-        s.life += dt;
-        if (s.life > s.max) continue;
-        alive++;
-        s.vy += 520 * dt;
-        s.x += s.vx * dt;
-        s.y += s.vy * dt;
-        const k = 1 - s.life / s.max;
-        ctx.globalAlpha = k;
-        ctx.fillStyle = s.hot ? (k > 0.6 ? '#fff8e0' : '#ffc94a') : '#6fe3ff';
-        ctx.fillRect(Math.round(s.x), Math.round(s.y), 3, 3);
-      }
-      if (alive) raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-  }, [reduced]);
-  return (
-    <div className="workshop-celebrate" role="status">
-      <span className="workshop-flash" aria-hidden="true" />
-      <canvas ref={canvas} className="workshop-sparks" aria-hidden="true" />
-      <span className="workshop-banner">
-        <b>{t.levelBanner(level)}</b>
-        <small>{t.levelDone}</small>
-      </span>
-    </div>
-  );
 }
 
 function StatBar({ label, value, max }: { label: string; value: number; max: number }) {
@@ -227,7 +177,7 @@ export function WorkshopScreen() {
                     src={spriteDataUrl(probe.sprite, 12)}
                     alt=""
                   />
-                  {celebrate ? <Celebration key={celebrate.key} level={celebrate.level} reduced={reduced} /> : null}
+                  {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>
               </div>
               <div className="workshop-plate">

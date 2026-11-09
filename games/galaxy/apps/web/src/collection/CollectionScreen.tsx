@@ -1,4 +1,4 @@
-import type { GalaxySummary, PulledGalaxy, Tier } from '@galaxy/shared';
+import { TIERS, type GalaxySummary, type PulledGalaxy, type Tier } from '@galaxy/shared';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 import { useCollectionPages, useFuse, useGacha } from '../api/economy';
@@ -11,12 +11,15 @@ import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
 import { AutoFusionDialog } from './AutoFusionDialog';
 import { FuseBar } from './FuseBar';
+import { FusionSequence } from './FusionSequence';
 import { GalaxyDetailDialog } from './GalaxyDetailDialog';
 import { BackLink } from '../ui/BackLink';
 
 // The collection (GDD §8.5): every galaxy the player owns as cards, 30 at a time, filtered and ordered from the URL.
-// A card opens its detail (/coleccion/:id). «Fusionar» turns the cards into toggles to choose `fusion.count` of one
-// tier; legendaries and other tiers cannot be picked. One polite live region tells what each action did.
+// One toolbar holds the filters and, together, the two ways to fuse (the owner: «muy separados»): «Fusionar» turns
+// the cards into toggles to choose `fusion.count` of one tier (legendaries and other tiers cannot be picked), and the
+// fusion plays out before its reveal; «Fusión automática» opens its planner. A card opens its detail (/coleccion/:id).
+// Favourites wear a star. One polite live region tells what each action did.
 const PAGE = 30;
 
 export function CollectionScreen() {
@@ -33,6 +36,9 @@ export function CollectionScreen() {
   const [fusing, setFusing] = useState(() => !!(location.state as { fuse?: boolean } | null)?.fuse);
   const [selected, setSelected] = useState<GalaxySummary[]>([]);
   const [revealed, setRevealed] = useState<PulledGalaxy[] | null>(null);
+  // The fusion on screen: the galaxies going in, and the one that came out once the server answers.
+  const [melting, setMelting] = useState<GalaxySummary[] | null>(null);
+  const [made, setMade] = useState<PulledGalaxy | null>(null);
   const [message, setMessage] = useState('');
   const [auto, setAuto] = useState(false);
 
@@ -67,24 +73,34 @@ export function CollectionScreen() {
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{copy.collection.title}</h1>
+          {first ? <span className="collection-count">{copy.collection.galaxies(TIERS.reduce((n, t) => n + first.counts[t], 0))}</span> : null}
           <CatalogButton />
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />
           </div>
         </header>
 
-        <div className="collection-tools">
+        <div className="lip panel collection-toolbar">
           <Filters filters={filters} counts={first?.counts} onChange={change} />
-          <button type="button" className={`lip pill ${fusing ? '' : 'pill-solar'}`} aria-pressed={fusing} onClick={() => (fusing ? stopFusing() : setFusing(true))}>
-            <Icon name="fuse" />
-            <span>{fusing ? copy.collection.cancel : copy.collection.fuse}</span>
-          </button>
-          {fusing ? null : (
-            <button type="button" className="lip pill" onClick={() => setAuto(true)}>
-              <Icon name="cards" />
-              <span>{copy.collection.auto.open}</span>
-            </button>
-          )}
+          <div className={`fuse-group${fusing ? ' on' : ''}`} role="group" aria-labelledby="fuse-group">
+            <span className="fuse-group-title" id="fuse-group">
+              {copy.collection.fusionTitle}
+            </span>
+            <div className="fuse-group-row">
+              <button type="button" className={`lip pill ${fusing ? 'fusing' : 'pill-solar'}`} aria-pressed={fusing} onClick={() => (fusing ? stopFusing() : setFusing(true))}>
+                <Icon name="fuse" />
+                <span>{copy.collection.fuse}</span>
+              </button>
+              {fusing ? (
+                <span className="fuse-group-hint">{copy.collection.fusingHint(count)}</span>
+              ) : (
+                <button type="button" className="lip pill" onClick={() => setAuto(true)}>
+                  <Icon name="cards" />
+                  <span>{copy.collection.auto.open}</span>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         <main className="collection-main" aria-busy={pages.isPending || pages.isFetchingNextPage || undefined}>
@@ -110,8 +126,8 @@ export function CollectionScreen() {
                   <li key={g.id} className={on ? 'picked' : undefined}>
                     <GalaxyCard galaxy={g} size={200} interactive>
                       {g.locked ? (
-                        <span className="gcard-lock" role="img" aria-label={copy.collection.lockedBadge}>
-                          <Icon name="lock" />
+                        <span className="gcard-fav" role="img" aria-label={copy.collection.lockedBadge}>
+                          <Icon name="starOn" />
                         </span>
                       ) : null}
                       {g.equipped ? (
@@ -154,17 +170,20 @@ export function CollectionScreen() {
             pending={fuse.isPending}
             error={fuse.error}
             onCancel={stopFusing}
-            onFuse={() =>
+            onFuse={() => {
+              setMade(null);
+              setMelting(selected);
               fuse.mutate(
                 selected.map((s) => s.id),
                 {
                   onSuccess: (res) => {
                     stopFusing();
-                    setRevealed([res.galaxy]);
+                    setMade(res.galaxy);
                   },
+                  onError: () => setMelting(null),
                 },
-              )
-            }
+              );
+            }}
           />
         ) : null}
 
@@ -181,6 +200,16 @@ export function CollectionScreen() {
           onDisintegrated={(name, dust) => {
             setMessage(copy.collection.disintegrated(name, dust));
             navigate(`/coleccion${search}`, { replace: true });
+          }}
+        />
+      ) : null}
+      {melting ? (
+        <FusionSequence
+          galaxies={melting}
+          ready={made !== null}
+          onDone={() => {
+            setMelting(null);
+            if (made) setRevealed([made]);
           }}
         />
       ) : null}

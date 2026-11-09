@@ -436,7 +436,18 @@
   .collection-bar { display: flex; align-items: center; gap: 18px; margin-left: -16px; }
   .collection-bar .hud { flex: none; }
   .collection-bar h1 { flex: 1; min-width: 0; margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 34px; line-height: 1; letter-spacing: .02em; }
-  .collection-tools { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  /* One toolbar: the filters on the left (rarity chips, then type, palette, finish, favourites and the order), and the
+     two ways to fuse together on the right. */
+  .collection-toolbar { --r: 22px; --lip-h: 6px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 28px; padding: 14px 18px; }
+  .collection > .collection-bar h1 { flex: none; }
+  .collection-count { margin-inline-end: auto; padding: 4px 12px; border-radius: 99px; background: rgb(0 0 0 / .28); color: var(--color-ink-soft); font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .fuse-group { display: grid; gap: 8px; padding: 10px 12px 12px; border-radius: 18px; background: rgb(0 0 0 / .24); border: 2px solid rgb(255 255 255 / .06); }
+  .fuse-group.on { border-color: color-mix(in oklab, var(--color-solar) 55%, transparent); }
+  .fuse-group-title { font: 400 14px var(--font-display); color: var(--color-ink-soft); }
+  .fuse-group-row { display: flex; align-items: center; gap: 8px; }
+  .fuse-group .pill.fusing { color: var(--color-solar); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 60%, transparent); }
+  .fuse-group-hint { max-inline-size: 190px; font-size: 13.5px; font-weight: 700; color: var(--color-ink-soft); line-height: 1.3; }
+  @media (max-width: 1360px) { .fuse-group-row { flex-direction: column; align-items: stretch; } .fuse-group-hint { max-inline-size: 170px; } }
   .filters { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 8px; border-radius: 99px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink-soft); font: 600 15px var(--font-sans); cursor: pointer; box-shadow: 0 3px 0 var(--color-panel-lip); transition: color .15s, background .15s, border-color .15s; }
@@ -444,8 +455,9 @@
   .chip small { font-size: 13px; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
   .chip:hover { color: var(--color-ink); }
   .chip[aria-pressed='true'] { color: var(--color-ink); border-color: var(--tc, var(--color-ice)); background: color-mix(in oklab, var(--tc, var(--color-ice)) 16%, var(--color-panel-2)); }
-  .selects { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
-  .filter-select { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; color: var(--color-ink-mute); }
+  .filters-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+  .filters-sort { margin-inline-start: auto; }
+  .filter-select { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--color-ink-mute); }
   .filter-select select { height: 40px; min-width: 150px; padding: 0 12px; border-radius: 12px; border: 2px solid transparent; background: var(--color-panel-2); color: var(--color-ink); font: 500 15px var(--font-sans); box-shadow: inset 0 3px 0 rgb(0 0 0 / .25); cursor: pointer; }
   .filter-select select:hover { border-color: rgb(255 255 255 / .08); }
   .segmented { display: flex; gap: 4px; padding: 4px; border-radius: 99px; background: rgb(0 0 0 / .28); }
@@ -454,7 +466,7 @@
   .segmented button[aria-pressed='true'] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
 
   .collection-main { display: flex; flex-direction: column; }
-  .card-grid { list-style: none; margin: 0; padding: 8px 0 0; display: grid; grid-template-columns: repeat(auto-fill, 200px); justify-content: start; gap: 30px 24px; }
+  .card-grid { list-style: none; margin: 0; padding: 8px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); justify-items: center; gap: 30px 24px; }
   .card-grid li { position: relative; }
   /* The card's action covers it (inside the tilt, so the card still follows the pointer). */
   .gcard-hit { position: absolute; inset: 0; z-index: 4; border: 0; border-radius: 7cqw; background: transparent; cursor: pointer; }
@@ -600,14 +612,33 @@
   .modal { --r: 28px; --lip-h: 8px; position: relative; max-width: min(100%, 1060px); max-height: 100%; overflow: auto; padding: 24px 28px 26px; outline: none; }
   .modal-title { margin: 0 0 16px; padding-right: 56px; font-size: 26px; font-weight: 700; line-height: 1.15; }
   .modal-close { position: absolute; top: 16px; right: 16px; }
-  .detail-body { display: flex; align-items: stretch; gap: 28px; }
-  .detail-cards { display: flex; gap: 22px; flex: none; padding-bottom: 8px; }
-  .detail-side { width: 300px; display: flex; flex-direction: column; gap: 12px; }
+  .detail-body { display: flex; align-items: stretch; gap: 30px; }
+  /* The card on its stage: it turns over (both faces stay in the page), and glows when it levels up. */
+  .detail-stage { display: grid; justify-items: center; align-content: start; gap: 14px; flex: none; padding: 6px 4px 8px; }
+  .detail-flip { position: relative; display: grid; perspective: 1200px; }
+  .detail-face { grid-area: 1 / 1; transition: transform .6s var(--ease-bounce), opacity .3s ease; backface-visibility: hidden; }
+  .detail-face.rear { transform: rotateY(180deg); opacity: 0; pointer-events: none; }
+  .detail-flip.back .detail-face.front { transform: rotateY(-180deg); opacity: 0; pointer-events: none; }
+  .detail-flip.back .detail-face.rear { transform: rotateY(0); opacity: 1; pointer-events: auto; }
+  .detail-flip.leveled .detail-face.front { animation: detail-leveled 1.2s var(--ease-bounce); }
+  @keyframes detail-leveled { 0% { scale: 1; filter: none; } 25% { scale: 1.06; filter: brightness(1.5) drop-shadow(0 0 30px rgb(255 201 74 / .8)); } 100% { scale: 1; filter: none; } }
+  .detail-flip .celebrate { inset: -30px; z-index: 6; }
+  .detail-flip .celebrate-banner { top: 40%; }
+  .detail-stage-actions { display: flex; gap: 10px; }
+  .detail-side { width: 340px; display: flex; flex-direction: column; gap: 12px; }
+  .detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .detail-fav-hint { margin: -6px 0 0; font-size: 13px; color: var(--color-ink-mute); }
+  .fav-toggle { block-size: 40px; padding: 0 14px 0 12px; font-size: 15px; }
+  .fav-toggle .ico { font-size: 20px; }
+  .fav-toggle.on { color: var(--color-solar); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 55%, transparent); }
+  @media (prefers-reduced-motion: reduce) { .detail-face { transition: none; } .detail-flip.leveled .detail-face.front { animation: none; } }
   .detail-desig { margin: 0; color: var(--color-ink-mute); font-variant-numeric: tabular-nums; }
-  .detail-facts { margin: 0; display: grid; gap: 6px; }
-  .detail-facts div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 12px; background: rgb(255 255 255 / .04); font-size: 15px; }
+  .detail-facts { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+  .detail-facts div { display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; background: rgb(255 255 255 / .04); font-size: 14.5px; min-inline-size: 0; }
+  .detail-facts dt { font-size: 12.5px; }
   .detail-facts dt { color: var(--color-ink-mute); }
-  .detail-facts dd { margin: 0; font-weight: 600; text-align: right; }
+  .detail-facts dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+  .detail-facts dd.dna { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .detail-facts .dna { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
   /* A galaxy's level (M4c-1): its pips, the next level with its dust and what its levels give back. */
   .relic-level { display: grid; gap: 10px; padding: 12px; border-radius: 14px; background: rgb(255 255 255 / .04); }
@@ -998,11 +1029,32 @@
   .relic-taken { font-size: 12px; font-weight: 700; color: var(--color-terminal); }
   .gcard-badge { position: absolute; z-index: 3; top: 6%; left: 6%; padding: 2px 8px; border-radius: 999px; background: var(--color-terminal); color: var(--color-on-terminal); font-size: 12px; font-weight: 700; pointer-events: none; }
   /* The lock (plan phase 2): a small padlock in the card's top right corner. */
-  .gcard-lock { position: absolute; z-index: 3; top: 15%; right: 6%; display: grid; place-items: center; inline-size: 26px; block-size: 26px; border-radius: 999px; background: var(--color-panel); color: var(--color-solar); box-shadow: 0 0 0 2px var(--color-panel-lip); pointer-events: none; }
-  .gcard-lock .ico { inline-size: 15px; block-size: 15px; }
-  .lock-chip { display: inline-flex; align-items: center; gap: 6px; }
-  .lock-chip .ico { inline-size: 14px; block-size: 14px; }
-  .lock-toggle.on { color: var(--color-solar); box-shadow: inset 0 0 0 2px color-mix(in oklab, var(--color-solar) 55%, transparent); }
+  .gcard-fav { position: absolute; z-index: 3; top: 15%; right: 6%; display: grid; place-items: center; inline-size: 26px; block-size: 26px; border-radius: 999px; background: var(--color-panel); color: var(--color-solar); box-shadow: 0 0 0 2px var(--color-panel-lip); pointer-events: none; }
+  .gcard-fav .ico { font-size: 16px; }
+  .fav-chip { display: inline-flex; align-items: center; gap: 6px; }
+  .fav-chip .ico { font-size: 16px; }
+  .fav-chip[aria-pressed='true'] { --tc: var(--color-solar); }
+  .fav-chip[aria-pressed='true'] .ico { color: var(--color-solar); }
+
+  /* Galaxies fusing: a ring of the chosen cards around a swirling core; they spin in, the core flares, the reveal. */
+  .fusion-seq { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: radial-gradient(60% 60% at 50% 50%, rgb(40 26 90 / .92), rgb(2 3 10 / .96) 70%); animation: fade .25s ease; }
+  .fusion-stage { position: relative; inline-size: 1px; block-size: 1px; }
+  .fusion-core { position: absolute; left: 0; top: 0; inline-size: 220px; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: conic-gradient(from 0deg, #6fe3ff, #b39dff, #ff7ad9, #ffc94a, #6fe3ff); filter: blur(18px); opacity: .75; animation: fusion-swirl 1.1s linear infinite, fusion-grow 1.7s ease-in both; }
+  .fusion-ring { position: absolute; left: 0; top: 0; inline-size: 520px; aspect-ratio: 1.36; translate: -50% -50%; border-radius: 50%; border: 2px dashed rgb(191 227 255 / .35); animation: fusion-swirl 6s linear infinite reverse, fusion-shrink 1.7s ease-in both; }
+  @keyframes fusion-swirl { to { rotate: 1turn; } }
+  @keyframes fusion-grow { 0% { scale: .4; } 70% { scale: 1; } 85% { scale: 1.6; opacity: 1; } 100% { scale: .2; opacity: 0; } }
+  @keyframes fusion-shrink { 0% { scale: 1; opacity: 1; } 100% { scale: .05; opacity: 0; } }
+  .fusion-card { position: absolute; left: 0; top: 0; translate: calc(-50% + var(--x)) calc(-50% + var(--y)); animation: fusion-in 1.45s cubic-bezier(.55, 0, .8, .35) var(--d) both; }
+  @keyframes fusion-in { 0% { translate: calc(-50% + var(--x)) calc(-50% + var(--y)); rotate: 0deg; scale: 1; opacity: 0; } 15% { opacity: 1; } 100% { translate: -50% -50%; rotate: 540deg; scale: .1; opacity: 0; } }
+  .fusion-flash { position: absolute; left: 0; top: 0; inline-size: 60vmax; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, #fff, rgb(255 248 224 / .8) 18%, rgb(179 157 255 / .3) 40%, transparent 65%); opacity: 0; animation: fusion-flash 1.9s ease-out both; }
+  @keyframes fusion-flash { 0%, 72% { opacity: 0; scale: .2; } 84% { opacity: 1; scale: 1; } 100% { opacity: .9; scale: 1.2; } }
+  .fusion-seq.held .fusion-core { animation: fusion-swirl 1.1s linear infinite; scale: .5; opacity: .9; }
+  .fusion-seq.held .fusion-flash { animation: none; opacity: .5; }
+  .fusion-skip { position: absolute; bottom: 40px; right: 40px; }
+  @media (prefers-reduced-motion: reduce) { .fusion-core, .fusion-ring, .fusion-card, .fusion-flash { animation: none; } .fusion-card { display: none; } }
+  .af-pop { animation: af-pop .55s var(--ease-bounce) calc(var(--i) * 70ms) both; }
+  @keyframes af-pop { from { opacity: 0; scale: .5; translate: 0 20px; filter: brightness(2.2); } }
+  @media (prefers-reduced-motion: reduce) { .af-pop { animation: none; } }
   /* The automatic fusion's dialog. */
   .auto-fusion { inline-size: min(640px, calc(100vw - 32px)); }
   .af-lead { color: var(--color-ink-soft); margin: 0 0 14px; }
@@ -2463,18 +2515,18 @@
   .workshop-how .probe-tile-progress { display: flex; align-items: center; gap: 10px; }
   .workshop-how .probe-tile-bar { flex: 1; }
 
-  .workshop-celebrate { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; }
-  .workshop-sparks { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .workshop-flash { position: absolute; left: 50%; top: 58%; inline-size: 30%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, rgb(255 248 224 / .95), rgb(255 201 74 / .45) 40%, transparent 70%); animation: workshop-flash .9s ease-out both; }
-  @keyframes workshop-flash { from { scale: .2; opacity: 1; } to { scale: 3; opacity: 0; } }
-  .workshop-banner { position: absolute; top: 12%; display: grid; justify-items: center; padding: 10px 26px 12px; border-radius: 18px; background: rgb(7 10 28 / .85); border: 3px solid var(--color-solar); box-shadow: 0 0 40px rgb(255 201 74 / .45); animation: workshop-banner 2.6s var(--ease-bounce) both; }
-  .workshop-banner b { font: 400 clamp(30px, 3vw, 46px) var(--font-display); color: var(--color-solar); text-shadow: 0 3px 0 var(--color-solar-lip); }
-  .workshop-banner small { color: var(--color-ink); font-weight: 700; }
-  @keyframes workshop-banner { 0% { opacity: 0; scale: .5; } 12% { opacity: 1; scale: 1.08; } 20%, 85% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: .96; } }
+  .celebrate { position: absolute; inset: 0; pointer-events: none; display: grid; place-items: center; }
+  .celebrate-sparks { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .celebrate-flash { position: absolute; left: 50%; top: 58%; inline-size: 30%; aspect-ratio: 1; translate: -50% -50%; border-radius: 50%; background: radial-gradient(circle, rgb(255 248 224 / .95), rgb(255 201 74 / .45) 40%, transparent 70%); animation: celebrate-flash .9s ease-out both; }
+  @keyframes celebrate-flash { from { scale: .2; opacity: 1; } to { scale: 3; opacity: 0; } }
+  .celebrate-banner { position: absolute; top: 12%; display: grid; justify-items: center; padding: 10px 26px 12px; border-radius: 18px; background: rgb(7 10 28 / .85); border: 3px solid var(--color-solar); box-shadow: 0 0 40px rgb(255 201 74 / .45); animation: celebrate-banner 2.6s var(--ease-bounce) both; }
+  .celebrate-banner b { font: 400 clamp(30px, 3vw, 46px) var(--font-display); color: var(--color-solar); text-shadow: 0 3px 0 var(--color-solar-lip); }
+  .celebrate-banner small { color: var(--color-ink); font-weight: 700; }
+  @keyframes celebrate-banner { 0% { opacity: 0; scale: .5; } 12% { opacity: 1; scale: 1.08; } 20%, 85% { opacity: 1; scale: 1; } 100% { opacity: 0; scale: .96; } }
 
   @media (max-width: 1400px) { .workshop-grid { grid-template-columns: minmax(220px, 250px) minmax(0, 1fr) minmax(300px, 360px); gap: 16px; } .workshop-pick-text small { font-size: 12px; } }
   @media (max-width: 1150px) { .workshop-grid { grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); } .workshop-roster { grid-column: 1 / -1; } .workshop-roster ul { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-  @media (prefers-reduced-motion: reduce) { .workshop-bay-art, .workshop-probe, .workshop-scan, .workshop-flash, .workshop-banner { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .workshop-bay-art, .workshop-probe, .workshop-scan, .celebrate-flash, .celebrate-banner { animation: none; } }
   /* The lobby (/incursion, the owner's «Escenario»): a living backdrop of the chosen sector, then a grid whose areas never
      overlap: the bar on top, the rail of places, the stage with the probe, the side panel (where, or the group) and the
      foot (missions, relics, launch). Pixel art keeps whole multiples: probes are 16 px, the pad 160 × 64. */

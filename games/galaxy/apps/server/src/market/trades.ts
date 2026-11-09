@@ -262,8 +262,8 @@ async function swap(trx: Kysely<DB>, cfgs: MarketConfigs, id: string, now: Date)
   if (await isExhibited(trx, pair)) throw new HttpError(409, 'galaxy_exhibited');
   if (await isListed(trx, pair)) throw new HttpError(409, 'galaxy_listed');
   if (await isTraded(trx, pair, t.id)) throw new HttpError(409, 'galaxy_in_trade');
-  await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id }).where('id', '=', t.a_galaxy).execute();
-  await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id }).where('id', '=', t.b_galaxy).execute();
+  await trx.updateTable('galaxy.galaxies').set({ owner_id: t.b_id, locked: false }).where('id', '=', t.a_galaxy).execute();
+  await trx.updateTable('galaxy.galaxies').set({ owner_id: t.a_id, locked: false }).where('id', '=', t.b_galaxy).execute();
   await trx.updateTable('galaxy.trades').set({ status: 'done', closed_at: now }).where('id', '=', t.id).execute();
   const tierOf = (g: string) => live.find((x) => x.id === g)!.tier;
   await alertIfSuspicious(trx, cfgs, { trade: t.id, a: t.a_id, b: t.b_id, gap: Math.abs(tierOf(t.a_galaxy) - tierOf(t.b_galaxy)) }, now);

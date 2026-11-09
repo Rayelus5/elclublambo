@@ -1,5 +1,5 @@
 import { type AutoFusionCriteria, FINISHES, SPECIAL_FINISHES, type Tier, TIERS } from '@galaxy/shared';
-import { useState } from 'react';
+import { type CSSProperties, useState } from 'react';
 import { useAutoFuse, useAutoFusionPreview } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
@@ -7,6 +7,7 @@ import { copy, fmt } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import type { CollectionFilters } from './Filters';
+import { playFusion } from './sfx';
 
 // The automatic fusion (multiplayer plan, phase 2): from a tier up to a top one, in a chain, for players with a bulk
 // of galaxies. It starts from the collection's filters (the rarity chip picks where it starts; type, palette and
@@ -63,8 +64,8 @@ export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters:
         <p className="af-lead">{t.doneBody(result.fusions, result.galaxies.length, result.dust)}</p>
         {shown.length > 0 ? (
           <ul className="af-made" aria-label={t.madeLabel}>
-            {shown.map((g) => (
-              <li key={g.id}>
+            {shown.map((g, i) => (
+              <li key={g.id} className="af-pop" style={{ '--i': i } as CSSProperties}>
                 <GalaxyCard galaxy={g} size={124} />
               </li>
             ))}
@@ -178,7 +179,7 @@ export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters:
         <button type="button" className="lip pill" onClick={onClose}>
           {copy.collection.cancel}
         </button>
-        <button type="button" className="lip pill pill-solar" disabled={!p || p.fusions === 0 || fuse.isPending} aria-busy={fuse.isPending || undefined} onClick={() => fuse.mutate(criteria)}>
+        <button type="button" className="lip pill pill-solar" disabled={!p || p.fusions === 0 || fuse.isPending} aria-busy={fuse.isPending || undefined} onClick={() => fuse.mutate(criteria, { onSuccess: (r) => (r.fusions > 0 ? playFusion() : undefined) })}>
           <Icon name="fuse" />
           <span>{p && p.fusions > 0 ? t.confirm(p.fusions) : t.confirmNone}</span>
         </button>
