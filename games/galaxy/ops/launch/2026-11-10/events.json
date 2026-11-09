@@ -1,0 +1,187 @@
+{
+  "list": [
+    {
+      "id": "primer-contacto",
+      "name": "Primer contacto",
+      "description": "Arranca la Beta Abierta: juega, purga y explora para ganar señales del escáner de Primer contacto, con supernovas destacadas",
+      "startsAt": "2026-11-09T23:00:00.000Z",
+      "endsAt": "2026-11-23T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "pc-runs",
+          "name": "Juega 5 incursiones",
+          "stat": "runs",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 300,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 3
+          }
+        },
+        {
+          "id": "pc-boss",
+          "name": "Purga 5 Núcleos",
+          "stat": "bossKills",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 150,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4
+          }
+        },
+        {
+          "id": "pc-extract",
+          "name": "Extrae 5 veces",
+          "stat": "extractions",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 400,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4
+          }
+        },
+        {
+          "id": "pc-group",
+          "name": "Juega 3 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 3,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 1,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4
+          }
+        },
+        {
+          "id": "pc-depth",
+          "name": "Llega a la capa 4",
+          "stat": "depth",
+          "target": 4,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 300,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 5
+          }
+        },
+        {
+          "id": "pc-pulls",
+          "name": "Haz 20 escaneos",
+          "stat": "pulls",
+          "target": 20,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4
+          }
+        },
+        {
+          "id": "pc-kills",
+          "name": "Elimina 10.000 enemigos",
+          "stat": "kills",
+          "target": 10000,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 2,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 6
+          }
+        }
+      ]
+    },
+    {
+      "id": "escuadron-estelar",
+      "name": "Escuadrón estelar",
+      "description": "Juega en grupo y con tu clan: metas para ti y metas que tu clan completa entre todos",
+      "startsAt": "2026-11-16T23:00:00.000Z",
+      "endsAt": "2026-12-07T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "ee-group",
+          "name": "Juega 10 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 10,
+          "scope": "personal",
+          "reward": {
+            "coins": 1500,
+            "dust": 0,
+            "signal": 2,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 0
+          }
+        },
+        {
+          "id": "ee-revive",
+          "name": "Reanima a 15 compañeros",
+          "stat": "revives",
+          "target": 15,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 3,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 0
+          }
+        },
+        {
+          "id": "ee-clan-boss",
+          "name": "Tu clan purga 150 Núcleos",
+          "stat": "bossKills",
+          "target": 150,
+          "scope": "clan",
+          "reward": {
+            "coins": 2000,
+            "dust": 0,
+            "signal": 3,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 0
+          }
+        },
+        {
+          "id": "ee-clan-runs",
+          "name": "Tu clan juega 300 incursiones",
+          "stat": "runs",
+          "target": 300,
+          "scope": "clan",
+          "reward": {
+            "coins": 0,
+            "dust": 1500,
+            "signal": 2,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 0
+          }
+        }
+      ]
+    }
+  ]
+}
