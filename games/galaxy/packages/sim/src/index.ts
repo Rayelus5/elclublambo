@@ -33,6 +33,8 @@ export {
 export { curseOf, direct, layerSeconds, relocate, scaleAt } from './systems/director';
 export { dropPickup } from './systems/pickups';
 export { damageProp, PROP_CHUNK, propsAt, syncProps } from './systems/props';
+export { coopFactor, playersIn } from './systems/coop';
+export { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 export { hurtProbe, PROBE_RADIUS, shieldCapacity } from './systems/probes';
 export { type ActiveSet, activeSets, type PossibleSet, possibleSets } from './systems/sets';
 export {

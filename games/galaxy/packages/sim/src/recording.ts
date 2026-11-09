@@ -1,5 +1,5 @@
 import { createSim, step } from './sim';
-import { MOVE, PICK } from './log';
+import { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 import { IDLE, type InputLog, type ProbeInput, type Sim, type SimOptions } from './types';
 
 // Recorded inputs (GDD §5.7, §14.7). A run keeps, per probe, the input in effect whenever it changes (movement and
@@ -9,15 +9,21 @@ import { IDLE, type InputLog, type ProbeInput, type Sim, type SimOptions } from 
 // Binary format, version 1: [1] [probes: varint] then events [Δtick: varint] [probe: varint] [kind: byte] and
 //   kind 0 (move): [mx + 127: byte] [my + 127: byte] [aim + 1: varint]
 //   kind 1 (pick): [index: byte]
+// Version 2 (co-op, multiplayer plan) is the same with two more kinds; a log without them is still written as 1:
+//   kind 2 (pick while the world runs): [index: byte] [offer sequence mod 256: byte]
+//   kind 3 (presence): [0 here, 1 away, 2 left: byte]
 
 const VERSION = 1;
+const VERSION_COOP = 2;
 
 function bad(): never {
   throw new RangeError('bad_log');
 }
 
 export function encodeLog(log: InputLog): Uint8Array {
-  const out: number[] = [VERSION];
+  let coop = false;
+  for (let i = 2; i < log.events.length; i += 6) if (log.events[i]! >= PICK_SEQ) coop = true;
+  const out: number[] = [coop ? VERSION_COOP : VERSION];
   const varint = (n: number) => {
     let v = n;
     while (v >= 0x80) {
@@ -39,7 +45,8 @@ export function encodeLog(log: InputLog): Uint8Array {
     if (kind === MOVE) {
       out.push(ev[i + 3]! + 127, ev[i + 4]! + 127);
       varint(ev[i + 5]! + 1);
-    } else out.push(ev[i + 3]!);
+    } else if (kind === PICK_SEQ) out.push(ev[i + 3]!, ev[i + 4]!);
+    else out.push(ev[i + 3]!);
   }
   return Uint8Array.from(out);
 }
@@ -58,7 +65,8 @@ export function decodeLog(bytes: Uint8Array): InputLog {
     }
     return bad();
   };
-  if (byte() !== VERSION) bad();
+  const version = byte();
+  if (version !== VERSION && version !== VERSION_COOP) bad();
   const probes = varint();
   if (probes < 1 || probes > 16) bad();
   const events: number[] = [];
@@ -78,6 +86,15 @@ export function decodeLog(bytes: Uint8Array): InputLog {
       const pick = byte();
       if (pick > 15) bad();
       events.push(tick, probe, PICK, pick, 0, 0);
+    } else if (kind === PICK_SEQ && version === VERSION_COOP) {
+      const pick = byte();
+      const seq = byte();
+      if (pick > 15) bad();
+      events.push(tick, probe, PICK_SEQ, pick, seq, 0);
+    } else if (kind === PRESENCE && version === VERSION_COOP) {
+      const state = byte();
+      if (state > 2) bad();
+      events.push(tick, probe, PRESENCE, state, 0, 0);
     } else bad();
   }
   return { probes, events };
@@ -106,6 +123,7 @@ export interface Replayer {
 export function createReplayer(opts: SimOptions, log: InputLog, until: number): Replayer {
   const sim = createSim({ ...opts, record: false });
   if (log.probes !== sim.probes.length) bad();
+  if (sim.coop) return coopReplayer(sim, log, until);
   const current: ProbeInput[] = sim.probes.map(() => ({ ...IDLE }));
   const ev = log.events;
   let i = 0;
@@ -130,6 +148,38 @@ export function createReplayer(opts: SimOptions, log: InputLog, until: number): 
       i += 6;
     }
     step(sim, current);
+    return true;
+  }
+  return { sim, next };
+}
+
+/**
+ * A co-op run replayed (multiplayer plan): the world never pauses, so every step is one tick. Moves and presence
+ * logged at tick T are in effect from T on (sticky); a pick logged at T is given at T only, with its offer.
+ */
+function coopReplayer(sim: Sim, log: InputLog, until: number): Replayer {
+  const current: ProbeInput[] = sim.probes.map(() => ({ ...IDLE, presence: 0 }));
+  const ev = log.events;
+  let i = 0;
+  function next(): boolean {
+    if (sim.status !== 'running' || sim.tick >= until) return false;
+    const nextTick = sim.tick + 1;
+    const inputs = current.map((c) => ({ ...c, pick: -1 }));
+    while (i + 5 < ev.length && ev[i]! <= nextTick) {
+      const p = ev[i + 1]!;
+      const kind = ev[i + 2]!;
+      if (kind === MOVE) {
+        current[p] = { ...current[p]!, mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]! };
+        inputs[p] = { ...inputs[p]!, mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]! };
+      } else if (kind === PRESENCE) {
+        current[p] = { ...current[p]!, presence: ev[i + 3]! };
+        inputs[p] = { ...inputs[p]!, presence: ev[i + 3]! };
+      } else if (kind === PICK_SEQ && ev[i]! === nextTick) {
+        inputs[p] = { ...inputs[p]!, pick: ev[i + 3]!, offer: ev[i + 4]! };
+      }
+      i += 6;
+    }
+    step(sim, inputs);
     return true;
   }
   return { sim, next };

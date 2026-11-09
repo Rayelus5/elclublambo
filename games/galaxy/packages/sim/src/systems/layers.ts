@@ -7,6 +7,7 @@ import { layerSeconds } from './director';
 import { probesCentre } from './enemies';
 import { dropPickup } from './pickups';
 import { PROBE_RADIUS } from './probes';
+import { reenter } from './coop';
 
 // Layers (GDD §5.1): each layer lasts layerSeconds and ends with the Static Core. Beating it drops a chest and opens
 // the extraction beacon: every living probe inside its radius for `hold` seconds extracts the run with all its loot;
@@ -58,6 +59,8 @@ export function nextLayer(sim: Sim): void {
   sim.phaseTick = 0;
   sim.beacon = null;
   sim.events.push({ t: 'layer', layer: sim.layer });
+  // Co-op: who was out comes back, and the layer is scaled for the players still in.
+  reenter(sim);
 }
 
 /** Spreads `total` over up to CHEST_PIECES pickups in a small ring. */
