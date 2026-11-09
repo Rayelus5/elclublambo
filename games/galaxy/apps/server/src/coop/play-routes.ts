@@ -1,6 +1,7 @@
 import { coopClientMessageSchema } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { isStaff } from '../auth/guards';
 import { Buckets } from '../realtime/bucket';
 import { isAllowedOrigin } from '../security/origin';
 import type { CoopService } from './service';
@@ -38,5 +39,20 @@ export function registerCoopPlayRoutes(api: FastifyInstance, deps: { coop: CoopS
       if (msg.success) deps.coop.message(run, slot, msg.data, socket);
     });
     socket.on('close', () => deps.coop.disconnect(run, slot, socket));
+  });
+
+  // Watching a run live (multiplayer plan, phase 7): staff only (a TOTP session), from the game's origins. The socket
+  // gets the run and its frames like a player's and sends nothing that reaches it.
+  api.get('/galaxy/api/admin/coop/watch/ws', { websocket: true }, (socket, req) => {
+    if (!isAllowedOrigin(req.headers.origin, deps.origins)) return socket.close(4403, 'origin');
+    const s = req.session;
+    if (!s) return socket.close(4401, 'session');
+    if (!isStaff(s)) return socket.close(4403, 'staff');
+    const q = query.safeParse(req.query);
+    if (!q.success) return socket.close(4400, 'run');
+    const run = deps.coop.watch(q.data.run, socket);
+    if (!run) return socket.close(4404, 'run');
+    req.log.info({ run: run.id, staff: s.username }, 'coop_watch');
+    socket.on('close', () => run.unwatch(socket));
   });
 }

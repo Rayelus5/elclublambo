@@ -860,6 +860,12 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - los abandonos a propósito (`left_at`) y los marcados `coop_idle`.
    - **Partidas:** Admin › Partidas tiene el filtro «Solo en grupo» (`?grupo=1`, API `group=true`). Cada partida en grupo lleva la etiqueta «Grupo de N»; su repetición es la del grupo entero (paso 55).
    - **Comprobar:** tras una partida en grupo, la sección suma 1 y la partida sale con «Solo en grupo».
+63. **Ver en directo una partida en grupo (fase 7):** sin migraciones.
+   - **Dónde:** en Moderación › Salas en vivo, una sala que juega tiene «Ver en directo», que lleva a `/admin/moderacion/directo/<partida>`.
+   - **Cómo va:** el socket `/galaxy/api/admin/coop/watch/ws` solo acepta personal con sesión TOTP; queda en el log como `coop_watch`.
+   - **Qué ve el personal:** la partida tal cual la ven los jugadores, con un selector de cámara (a quién sigue) y «Dejar de mirar». No manda nada a la partida, no cuenta como conectado y al final ve la tabla del equipo.
+   - **Proxy:** en producción, el socket necesita el mismo paso de WebSockets que el de juego.
+   - **Comprobar:** con una partida en grupo en marcha, un moderador la abre desde Salas en vivo y cambia de cámara.
 
 ## Operación
 

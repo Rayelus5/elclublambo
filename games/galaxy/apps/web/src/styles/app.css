@@ -2504,6 +2504,10 @@
   .coop-life { position: absolute; top: 96px; left: 50%; translate: -50% 0; padding: 10px 18px; border-radius: 14px; background: rgb(43 7 18 / .85); border: 2px solid rgb(255 77 109 / .55); color: #ffd3da; font-weight: 700; text-align: center; max-inline-size: min(560px, 70vw); }
   .coop-life.out { background: rgb(11 12 36 / .85); border-color: rgb(255 255 255 / .15); color: var(--color-ink-soft); }
   /* Out until the next layer (phase 6c): whom the camera follows, in the teammate's colour, with arrows to switch. */
+  /* Staff watching live (phase 7): the camera's players and the way out, at the top centre. */
+  .coop-viewer { position: absolute; top: 16px; left: 50%; translate: -50% 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 99px; background: rgb(11 12 36 / .82); }
+  .coop-watch-end { display: grid; justify-items: center; gap: 16px; inline-size: min(880px, 92vw); margin-inline: auto; }
+  .admin-room-actions { display: flex; flex-wrap: wrap; gap: 6px; }
   .coop-spectate { position: absolute; top: 154px; left: 50%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 999px; background: rgb(11 12 36 / .82); border: 2px solid color-mix(in srgb, var(--tint) 60%, transparent); box-shadow: 0 0 24px color-mix(in srgb, var(--tint) 28%, transparent); color: var(--color-ink); font: 400 15px var(--font-display); white-space: nowrap; }
   .coop-spectate > span { padding-inline: 12px; }
   .coop-spectate > span::before { content: ''; display: inline-block; inline-size: 9px; block-size: 9px; margin-inline-end: 9px; border-radius: 50%; background: var(--tint); box-shadow: 0 0 8px var(--tint); vertical-align: 1px; }

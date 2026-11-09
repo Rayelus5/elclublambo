@@ -307,6 +307,9 @@ export const copy = {
         idle: (s: number) => (s < 60 ? `${s} s` : `${Math.floor(s / 60)} min`),
         close: 'Cerrar',
         closeOf: (code: string) => `Cerrar la sala ${code}`,
+        // Phase 7: watching a room's run live.
+        watch: 'Ver en directo',
+        watchOf: (code: string) => `Ver en directo la partida de la sala ${code}`,
         closeSubmit: 'Cerrar sala',
         count: (n: number) => (n === 1 ? '1 sala' : `${n} salas`),
       },
@@ -1179,6 +1182,10 @@ export const copy = {
       out: 'Fuera hasta la siguiente capa',
       // Out until the next layer (phase 6c): the camera follows a teammate still in play.
       watching: (name: string) => `Viendo a ${name}`,
+      // Staff watching live (phase 7).
+      camera: 'Cámara',
+      watchBack: 'Dejar de mirar',
+      watchEnded: 'La partida ha terminado',
       watchPrev: 'Ver al compañero anterior',
       watchNext: 'Ver al siguiente compañero',
       cards: 'Elige una mejora',

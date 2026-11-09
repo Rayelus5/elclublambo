@@ -22,6 +22,7 @@ import { CommunicationScreen } from './admin/CommunicationScreen';
 import { StatsScreen } from './admin/StatsScreen';
 import { RunsScreen } from './admin/RunsScreen';
 import { ReplayScreen } from './admin/ReplayScreen';
+import { WatchScreen } from './admin/WatchScreen';
 import { ConfigKeyScreen, ConfigScreen } from './admin/ConfigScreen';
 import { EventsScreen } from './admin/events/EventsScreen';
 import { EventWizardScreen } from './admin/events/EventWizard';
@@ -156,6 +157,7 @@ export function App() {
             <Route path="chat" element={<LiveChat />} />
             <Route path="silencios" element={<Mutes />} />
             <Route path="salas" element={<LiveRooms />} />
+            <Route path="directo/:runId" element={<WatchScreen />} />
             <Route element={<AdminOnly />}>
               <Route path="clanes" element={<ClanList />} />
               <Route path="clanes/:tag" element={<ClanPage />} />

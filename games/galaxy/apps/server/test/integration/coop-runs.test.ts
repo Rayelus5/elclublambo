@@ -4,7 +4,7 @@ import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
 import type { CoopService } from '../../src/coop/service';
-import { get, ORIGIN, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
+import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // Co-op runs (multiplayer plan, phase 6): the leader launches, every player's socket gets the run and the same sealed
 // inputs, a player who goes is out for good, the run ends when nobody is left, each player is paid once (with the
@@ -226,6 +226,49 @@ describe('abandonos (fase 6c)', () => {
     expect(rows[1]!.left_at).toBeNull();
     a.ws.terminate();
     b.ws.terminate();
+  });
+});
+
+describe('ver en directo (fase 7)', () => {
+  test('un moderador ve la partida en directo sin jugar en ella; a un jugador se le cierra', async () => {
+    const { players, room } = await launched(2);
+    const runId = room.run!.id;
+    const { username, password, totpSecret } = await createAdminViaCli(ctx.db, 'moderator');
+    const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
+    const staff = sessionCookie(await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) }));
+    const watch = async (cookie: string) => {
+      const got: CoopServerMessage[] = [];
+      const ws: WebSocket = await ctx.app.injectWS(`/galaxy/api/admin/coop/watch/ws?run=${runId}`, { headers: { origin: ORIGIN, cookie: `gs_sid=${cookie}` } });
+      const closed = new Promise<number>((resolve) => ws.on('close', (code) => resolve(code)));
+      ws.on('message', (data) => got.push(JSON.parse(String(data)) as CoopServerMessage));
+      return { ws, got, closed, send: (m: unknown) => ws.send(JSON.stringify(m)) };
+    };
+    // A player of the run (or anyone without a staff session) is refused.
+    expect(await (await watch(players[0]!.cookie)).closed).toBe(4403);
+    const w = await watch(staff);
+    await waitFor(() => w.got.some((m) => m.t === 'hello'));
+    const hello = w.got.find((m) => m.t === 'hello')!;
+    if (hello.t !== 'hello') throw new Error('hello');
+    expect(hello.start.players.map((x) => x.username)).toEqual(players.map((x) => x.username));
+    // The watcher sees what the players do, and what it sends never reaches the run.
+    const [a, b] = [await play(players[0]!, runId), await play(players[1]!, runId)];
+    await waitFor(() => a.got.some((m) => m.t === 'hello') && b.got.some((m) => m.t === 'hello'));
+    w.send({ t: 'in', mx: -127, my: 0, aim: -1 });
+    a.send({ t: 'in', mx: 127, my: 0, aim: -1 });
+    await waitFor(() => received(w.got).events.length >= 6);
+    await settle(200);
+    const moves = (got: CoopServerMessage[]) => {
+      const ev = received(got).events;
+      const out: number[][] = [];
+      for (let i = 0; i + 5 < ev.length; i += 6) if (ev[i + 2] === MOVE) out.push(ev.slice(i + 1, i + 4));
+      return out;
+    };
+    expect(moves(w.got)).toEqual([[0, MOVE, 127]]);
+    // When the run ends, the watcher hears it and its socket closes.
+    a.send({ t: 'leave' });
+    b.send({ t: 'leave' });
+    await waitFor(() => w.got.some((m) => m.t === 'end'), 8000);
+    expect(await w.closed).toBe(1000);
   });
 });
 
