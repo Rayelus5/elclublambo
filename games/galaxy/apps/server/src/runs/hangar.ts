@@ -160,7 +160,7 @@ export function probeCards(
       hp: p.hp,
       speed: p.speed,
       weapon: { id: p.weapon, name: w?.name ?? p.weapon, icon: w?.icon ?? '' },
-      quirk: p.quirk?.kind ?? null,
+      quirk: p.quirk ?? null,
       ...status,
       level,
       maxLevel: probeMaxLevel(cfg),
@@ -204,7 +204,7 @@ export async function hangarView(deps: RunsDeps, accountId: string, db: Kysely<D
     slots: h.slots,
     maxSlots: 6,
     loadout: await loadoutOf(db, accountId, h.slots),
-    daily: { ...dailyStatus(await playedToday(db, accountId, now), runs), resetsAt: nextMadridMidnight(now).toISOString() },
+    daily: { ...dailyStatus(await playedToday(db, accountId, now), runs), fullHours: runs.daily.hours[0]!, resetsAt: nextMadridMidnight(now).toISOString() },
     runsEnabled: features.runs,
     nextSlot: nextSlot(h.slots, stats, relics),
   };

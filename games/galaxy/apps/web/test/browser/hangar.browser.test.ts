@@ -30,7 +30,7 @@ const g = (id: string, name: string, tier: GalaxySummary['tier'], traits: Record
 const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
   const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
   const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
-  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
+  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
 };
 
 const sectorCard = (id: string, over: Partial<SectorCard> = {}): SectorCard => {
@@ -84,7 +84,7 @@ const view: HangarView = {
     // A second galaxy that makes sets with the first: the same palette, and the phenomenon its spiral wants.
     g('b', 'Orvel', 'rare', { galaxy_type: 'barred_spiral', arms: '2', size: 'medium', inclination: 'face_on', core: 'bright', star_density: 'normal', palette: 'solar_gold', background: 'cmb', phenomenon: 'satellite_galaxy' }),
   ],
-  daily: { playedSeconds: 1200, fullSecondsLeft: 3 * 3600 - 1200, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
+  daily: { playedSeconds: 1200, fullSecondsLeft: 3 * 3600 - 1200, multiplier: 1, fullHours: 3, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,
   nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 1, dust: 100, ready: true },
 };

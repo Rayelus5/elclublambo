@@ -32,6 +32,7 @@ const view = (over: Partial<PlanetariumView> = {}): PlanetariumView => ({
   exhibits: [mine(), null, mine({ id: 'g2', name: 'Orvel', tier: 'rare', finish: 'normal' }), null, null, null],
   prestige: 16,
   bonus: 0.016,
+  cap: 0.05,
   visits: 12,
   featured: [card('vega', 40), card('lyra', 12)],
   ...over,
@@ -138,8 +139,9 @@ test('mientras se guarda, los pedestales no envían otra fila', async () => {
   expect(puts(fetch)).toHaveLength(1);
 });
 
-test('el prestigio explica que el acabado suma un punto más', () => {
-  expect(t.prestigeHint).toBe('Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +5 %');
+test('el prestigio explica que el acabado suma un punto más, con el tope de la configuración viva', () => {
+  expect(t.prestigeHint(0.05)).toBe('Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +5 %');
+  expect(t.prestigeHint(0.025)).toBe('Cada galaxia expuesta suma según su rareza, y un punto más si su acabado no es normal. Como mucho +2,5 %');
 });
 
 test('retirar deja su pedestal vacío y los demás donde estaban', async () => {

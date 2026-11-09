@@ -28,6 +28,8 @@ export interface PlanetariumView {
   prestige: number;
   /** The experience bonus in runs (a fraction: 0.016 = 1.6 %). */
   bonus: number;
+  /** The most that bonus can reach (live `planetarium.cap`). */
+  cap: number;
   /** Visits received: one per visitor and day. */
   visits: number;
   featured: PlanetariumCard[];

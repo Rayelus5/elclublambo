@@ -29,7 +29,12 @@ export function isStaff(me: MeResponse | null | undefined): boolean {
   return !!me && me.roles.some((r) => r === 'moderator' || r === 'admin' || r === 'superadmin');
 }
 
-export function errorText(err: unknown, errors: Record<string, string>): string | null {
+/** A message is a text, or a text made from the error's details (a live value the server sent with it). */
+type Message = string | ((details: Record<string, unknown>) => string);
+
+export function errorText(err: unknown, errors: Record<string, Message>): string | null {
   if (!err) return null;
-  return err instanceof ApiError ? (errors[err.code] ?? errors.internal ?? null) : (errors.internal ?? null);
+  const pick = (m: Message | undefined, details: Record<string, unknown>) => (typeof m === 'function' ? m(details) : (m ?? null));
+  if (!(err instanceof ApiError)) return pick(errors.internal, {});
+  return pick(errors[err.code], err.details) ?? pick(errors.internal, {});
 }

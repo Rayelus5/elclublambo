@@ -67,8 +67,9 @@ describe('quién comercia', () => {
     const young = await player({ days: 2 });
     const g1 = await own(low.id);
     const g2 = await own(young.id);
-    expect((await list(low, g1, 50)).json()).toEqual({ error: 'trade_level' });
-    expect((await list(young, g2, 50)).json()).toEqual({ error: 'trade_age' });
+    // The refusal says the live requirement, so the message never states a number the admin has changed.
+    expect((await list(low, g1, 50)).json()).toEqual({ error: 'trade_level', minLevel: 10 });
+    expect((await list(young, g2, 50)).json()).toEqual({ error: 'trade_age', minAccountDays: 3 });
     expect((await browse(low)).rules).toMatchObject({ canTrade: false, reason: 'level', minLevel: 10, minAccountDays: 3, commission: 0.07 });
     expect((await browse(young)).rules).toMatchObject({ canTrade: false, reason: 'age' });
     const ok = await player();
@@ -242,7 +243,7 @@ describe('comprar', () => {
     const res = await buy(poor, listingId);
     expect(res.statusCode).toBe(402);
     expect((await browse(poor, '')).listings.map((l) => l.id)).toContain(listingId);
-    expect((await buy(await player({ level10: false, coins: 1000 }), listingId)).json()).toEqual({ error: 'trade_level' });
+    expect((await buy(await player({ level10: false, coins: 1000 }), listingId)).json()).toEqual({ error: 'trade_level', minLevel: 10 });
   });
 
   test('retirar devuelve la galaxia, y solo lo retira su vendedor', async () => {

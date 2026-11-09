@@ -34,6 +34,7 @@ const clan = (over: Partial<ClanView> = {}): ClanView => ({
   open: false,
   createdAt: '2026-11-08T10:00:00.000Z',
   maxMembers: 30,
+  kickHours: 24,
   members: [
     { username: 'sonda_rayo', role: 'leader', level: 9, points: 900, joinedAt: '2026-11-08T10:00:00.000Z' },
     { username: 'vega', role: 'officer', level: 6, points: 400, joinedAt: '2026-11-08T11:00:00.000Z' },
@@ -270,7 +271,9 @@ test('quien ya está en otro clan no puede unirse y ve por qué (revisión M5b-1
 });
 
 test('los textos de expulsar y de salir dicen lo que pasa', () => {
-  expect(t.kickBody).toBe('No podrá volver a entrar ni pedirlo hasta pasadas 24 horas');
+  expect(t.kickBody(24)).toBe('No podrá volver a entrar ni pedirlo hasta pasadas 24 horas');
+  expect(t.kickBody(1)).toBe('No podrá volver a entrar ni pedirlo hasta pasada 1 hora');
+  expect(t.kickBody(0)).toBe('Podrá volver a pedir entrar cuando quiera');
   expect(t.leaderLeaveBody).toBe('El liderazgo pasará al oficial más antiguo o, si no hay, al miembro más antiguo');
   expect(copy.errors.clan_closed).toBe('Ese clan está cerrado. Pide entrar y espera a que te acepten');
 });

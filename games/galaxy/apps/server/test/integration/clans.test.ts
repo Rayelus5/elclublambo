@@ -63,7 +63,7 @@ describe('crear', () => {
     expect(c.members).toEqual([{ username: a.username, role: 'leader', level: 5, points: 0, joinedAt: expect.any(String) }]);
     expect(c.me).toEqual({ role: 'leader' });
     expect(c.requests).toEqual([]);
-    expect(Object.keys(c).sort()).toEqual(['color', 'createdAt', 'description', 'emblem', 'maxMembers', 'me', 'members', 'name', 'open', 'rank', 'requests', 'score', 'tag']);
+    expect(Object.keys(c).sort()).toEqual(['color', 'createdAt', 'description', 'emblem', 'kickHours', 'maxMembers', 'me', 'members', 'name', 'open', 'rank', 'requests', 'score', 'tag']);
     expect(await mine(a)).toMatchObject({ tag: c.tag });
     // Someone else sees no requests and no role.
     const b = await player();
@@ -317,8 +317,11 @@ describe('revisión final de M5b-1', () => {
     expect((await act(lead, `${c.tag}/members/${troll.username}/kick`)).statusCode).toBe(200);
     const back = await act(troll, `${c.tag}/join`);
     expect(back.statusCode).toBe(409);
-    expect(back.json()).toEqual({ error: 'clan_kicked' });
-    expect((await act(troll, `${c.tag}/request`)).json()).toEqual({ error: 'clan_kicked' });
+    // The refusal says until when (the live `clans.kickHours`), never a fixed «24 horas».
+    const { until } = back.json() as { error: string; until: string };
+    expect(back.json()).toEqual({ error: 'clan_kicked', until: expect.any(String) });
+    expect(Math.abs(Date.parse(until) - (Date.now() + 24 * 3_600_000))).toBeLessThan(120_000);
+    expect((await act(troll, `${c.tag}/request`)).json()).toMatchObject({ error: 'clan_kicked' });
     // Another clan takes them at once.
     expect((await act(troll, `${(await clanOf(await player())).tag}/join`)).statusCode).toBe(200);
   });

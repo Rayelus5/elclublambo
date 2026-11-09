@@ -97,7 +97,7 @@ describe('proponer', () => {
     expect((await propose(a, b.username, await own(b.id))).json()).toEqual({ error: 'galaxy_not_found' });
     expect((await propose(a, b.username, ga, await own(a.id))).json()).toEqual({ error: 'galaxy_not_found' });
     const low = await player({ level10: false });
-    expect((await propose(low, b.username, await own(low.id))).json()).toEqual({ error: 'trade_level' });
+    expect((await propose(low, b.username, await own(low.id))).json()).toEqual({ error: 'trade_level', minLevel: 10 });
   });
 
   test('un trueque abierto por pareja, en cualquier sentido', async () => {

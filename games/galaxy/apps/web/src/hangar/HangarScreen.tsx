@@ -9,7 +9,7 @@ import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
 import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun, useUnlockSlot } from '../api/runs';
 import { GalaxyCard } from '../cards/GalaxyCard';
-import { copy } from '../copy/es';
+import { copy, quirkText } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { errorText } from '../auth/useMe';
 import { Icon } from '../ui/Icon';
@@ -193,7 +193,7 @@ function DailyYield({ daily }: { daily: HangarView['daily'] }) {
   return (
     <div className={`hangar-daily${full ? '' : ' cut'}`}>
       <b>{full ? copy.hangar.dailyFull(copy.hangar.duration(daily.fullSecondsLeft)) : copy.hangar.dailyTier(Math.round(daily.multiplier * 100))}</b>
-      <span>{copy.hangar.dailyHint}</span>
+      <span>{copy.hangar.dailyHint(daily.fullHours)}</span>
     </div>
   );
 }
@@ -432,7 +432,7 @@ function ProbePanel({ view }: { view: HangarView }) {
           {probe.quirk && (
             <p className="probe-quirk">
               <b>{copy.probeTest.quirk}</b>
-              <span>{copy.probeTest.quirks[probe.quirk]}</span>
+              <span>{quirkText(probe.quirk)}</span>
             </p>
           )}
         </div>
