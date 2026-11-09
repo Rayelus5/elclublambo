@@ -8,6 +8,7 @@ import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
 import { WorkshopScreen } from './workshop/WorkshopScreen';
 import { LiveRooms } from './admin/LiveRooms';
+import { PlayerReports } from './admin/PlayerReports';
 import { ProbeTestScreen } from './probe-test/ProbeTest';
 import { StationScreen } from './station/StationScreen';
 import { LabScreen } from './lab/LabScreen';
@@ -154,6 +155,7 @@ export function App() {
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />
+            <Route path="jugadores" element={<PlayerReports />} />
             <Route path="chat" element={<LiveChat />} />
             <Route path="silencios" element={<Mutes />} />
             <Route path="salas" element={<LiveRooms />} />

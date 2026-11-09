@@ -18,6 +18,7 @@ import { ChatHub } from './chat/hub';
 import { LiveHub } from './realtime/live-hub';
 import { createRooms, registerRoomRoutes } from './coop/room-routes';
 import { registerCoopPlayRoutes } from './coop/play-routes';
+import { registerPlayerReportRoutes } from './coop/reports';
 import { CoopService } from './coop/service';
 import { registerFriendRoutes } from './social/friend-routes';
 import { friendIdsOf, prefsOf } from './social/friends';
@@ -137,6 +138,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerRoomRoutes(api, { db: deps.db, config, live, rooms, coop, trustCfIp: deps.env.TRUST_CF_IP });
     registerCoopPlayRoutes(api, { coop, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
+    registerPlayerReportRoutes(api, { db: deps.db, trustCfIp: deps.env.TRUST_CF_IP });
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
     registerChatRoutes(api, { db: deps.db, config, now, hub, roomOf: (id) => rooms.manager.roomOf(id)?.id ?? null, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });

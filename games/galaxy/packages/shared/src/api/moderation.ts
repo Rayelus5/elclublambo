@@ -96,3 +96,30 @@ export interface AdminClan extends AdminClanRow {
   open: boolean;
   roster: { username: string; role: ClanRole; joinedAt: string }[];
 }
+
+/** Why a teammate of a group run is reported (multiplayer plan, phase 7). */
+export const PLAYER_REPORT_REASONS = ['idle', 'griefing', 'cheating', 'abuse', 'other'] as const;
+export type PlayerReportReason = (typeof PLAYER_REPORT_REASONS)[number];
+export const playerReportSchema = z.object({ username: usernameSchema, reason: z.enum(PLAYER_REPORT_REASONS), note: z.string().trim().max(300).optional() }).strict();
+/** A review: what was decided and why (the panel's dialogs always send it as `reason`). */
+export const playerReportReviewSchema = z.object({ outcome: z.enum(['dismissed', 'actioned']), reason: z.string().trim().min(3).max(300) }).strict();
+
+/** A report waiting for the staff: who, whom, why, and the run (with the reported player's own row, to replay it). */
+export interface PlayerReport {
+  id: string;
+  reporter: string;
+  reported: string;
+  reason: PlayerReportReason;
+  note: string | null;
+  at: string;
+  coopRunId: string;
+  reportedRunId: string | null;
+  sector: string;
+}
+
+export interface PlayerReportPage {
+  reports: PlayerReport[];
+  total: number;
+  page: number;
+  pages: number;
+}

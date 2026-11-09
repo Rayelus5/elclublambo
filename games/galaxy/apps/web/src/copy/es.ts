@@ -296,7 +296,21 @@ export const copy = {
     },
     moderation: {
       nav: 'Apartados de moderación',
-      tabs: { reports: 'Denuncias', live: 'Chat en vivo', mutes: 'Silencios', rooms: 'Salas en vivo', clans: 'Clanes', commerce: 'Comercio', alerts: 'Alertas' },
+      tabs: { reports: 'Denuncias', players: 'Jugadores', live: 'Chat en vivo', mutes: 'Silencios', rooms: 'Salas en vivo', clans: 'Clanes', commerce: 'Comercio', alerts: 'Alertas' },
+      // Phase 7: reports of players from group runs.
+      playerReports: {
+        live: 'Denuncias de jugadores en partidas en grupo, la más nueva primero',
+        count: (n: number) => (n === 1 ? '1 pendiente' : `${n} pendientes`),
+        none: 'No hay denuncias de jugadores pendientes',
+        cols: { at: 'Cuándo', reported: 'Denunciado', reporter: 'Por', reason: 'Motivo', note: 'Nota', run: 'Partida', actions: 'Acciones' },
+        replay: 'Ver la partida',
+        replayOf: (name: string) => `Ver la partida de ${name}`,
+        dismiss: 'Descartar',
+        dismissOf: (name: string) => `Descartar la denuncia a ${name}`,
+        act: 'Tomar medidas',
+        actOf: (name: string) => `Tomar medidas con ${name}`,
+        submit: 'Guardar',
+      },
       rooms: {
         title: 'Salas abiertas ahora',
         live: 'Se actualiza cada 5 segundos',
@@ -1144,6 +1158,18 @@ export const copy = {
       kinds: { here: 'Aquí', help: 'Ayuda', beacon: 'A la baliza', danger: 'Cuidado' },
       label: (name: string, kind: string) => `${name}: ${kind}`,
       hint: 'Q: avisar al grupo',
+    },
+    // Reporting a teammate from the results (phase 7).
+    report: {
+      open: 'Denunciar',
+      openOf: (name: string) => `Denunciar a ${name}`,
+      title: (name: string) => `Denunciar a ${name}`,
+      reasonLabel: 'Motivo',
+      reasons: { idle: 'No jugaba, se quedó quieto', griefing: 'Jugaba en contra del grupo', cheating: 'Hacía trampas', abuse: 'Insultos o acoso', other: 'Otro motivo' },
+      note: 'Qué pasó (opcional)',
+      send: 'Enviar denuncia',
+      sent: 'Denuncia enviada. La revisará un moderador',
+      close: 'Cerrar',
     },
     // The result of a group run one had left (phase 6c), when it ends.
     resultToast: 'Tu partida en grupo ha terminado',

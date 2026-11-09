@@ -639,6 +639,21 @@ export interface CoopRunsTable {
   ended_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
+/** Multiplayer plan phase 7: a teammate's report of a player of a group run, and its review. */
+export interface PlayerReportsTable {
+  id: Generated<string>;
+  reporter_id: string;
+  reported_id: string;
+  coop_run_id: string;
+  reason: string;
+  note: string | null;
+  created_at: Generated<Date>;
+  reviewed_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+  reviewed_by: ColumnType<string | null, string | null | undefined, string | null>;
+  outcome: ColumnType<'dismissed' | 'actioned' | null, 'dismissed' | 'actioned' | null | undefined, 'dismissed' | 'actioned' | null>;
+  review_note: ColumnType<string | null, string | null | undefined, string | null>;
+}
+
 export interface CoopRunInputsTable {
   coop_run_id: string;
   inputs: Buffer;
@@ -690,6 +705,7 @@ export interface DB {
   'galaxy.run_inputs': RunInputsTable;
   'galaxy.coop_runs': CoopRunsTable;
   'galaxy.coop_run_inputs': CoopRunInputsTable;
+  'galaxy.player_reports': PlayerReportsTable;
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;

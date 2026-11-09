@@ -1115,6 +1115,14 @@
   .team-best .ico { font-size: 14px; }
   .team-best.kills { background: color-mix(in oklab, var(--color-nova) 18%, transparent); color: var(--color-nova); }
   .team-best.revives { background: color-mix(in oklab, var(--color-terminal) 18%, transparent); color: var(--color-terminal); }
+  .team-report { display: block; margin-block-start: 6px; padding: 2px 10px; border: 1px solid rgb(255 255 255 / .14); border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 12px var(--font-sans); cursor: pointer; }
+  .team-report:hover { color: var(--color-nova); border-color: color-mix(in oklab, var(--color-nova) 50%, transparent); }
+  .team-report:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  .report-form { display: grid; gap: 14px; }
+  .report-form fieldset { display: grid; gap: 8px; margin: 0; padding: 0; border: 0; }
+  .report-form legend { margin-block-end: 6px; font-weight: 700; }
+  .report-reason { display: flex; align-items: center; gap: 10px; min-block-size: 40px; padding: 4px 12px; border-radius: 12px; background: rgb(255 255 255 / .04); cursor: pointer; }
+  .report-sent { display: grid; justify-items: center; gap: 14px; }
   .team-life { display: inline-block; padding: 4px 11px; border-radius: 99px; font: 700 13px var(--font-sans); }
   .team-life.up { background: color-mix(in oklab, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
   .team-life.down, .team-life.out { background: color-mix(in oklab, var(--color-nova) 15%, transparent); color: var(--color-nova); }
