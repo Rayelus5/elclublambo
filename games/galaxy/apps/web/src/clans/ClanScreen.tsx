@@ -29,7 +29,7 @@ function Confirm({ pending, view, onConfirm, onClose, busy }: { pending: NonNull
   const alone = view.members.length === 1;
   const [title, body, cta] =
     pending.kind === 'kick'
-      ? [t.kickTitle(pending.username), t.kickBody, t.kickConfirm]
+      ? [t.kickTitle(pending.username), t.kickBody(view.kickHours), t.kickConfirm]
       : pending.kind === 'transfer'
         ? [t.transferTitle(pending.username), t.transferBody, t.transferConfirm]
         : [t.leaveTitle, alone ? t.disbandBody : role === 'leader' ? t.leaderLeaveBody : t.leaveBody, alone ? t.disband : t.leaveConfirm];

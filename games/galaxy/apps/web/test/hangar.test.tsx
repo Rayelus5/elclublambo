@@ -41,7 +41,7 @@ const galaxy = (over: Partial<GalaxySummary> = {}): GalaxySummary => ({
 const card = (id: string, over: Partial<ProbeCard> = {}): ProbeCard => {
   const p = DEFAULT_CONTENT.probes.find((x) => x.id === id)!;
   const w = DEFAULT_CONTENT.weapons.find((x) => x.id === p.weapon)!;
-  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk?.kind ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
+  return { id, name: p.name, description: p.description, sprite: p.sprite, hp: p.hp, speed: p.speed, weapon: { id: w.id, name: w.name, icon: w.icon }, quirk: p.quirk ?? null, unlocked: false, condition: null, progress: 0, ...levelOne(p), ...over };
 };
 
 // The test gave Lumen; Bastión is earned (3 runs), Chispa is one run in; the others have their conditions.
@@ -95,7 +95,7 @@ const view = (over: Partial<HangarView> = {}): HangarView => ({
   slots: 2,
   maxSlots: 6,
   loadout: [null, null],
-  daily: { playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, resetsAt: '2026-11-07T23:00:00.000Z' },
+  daily: { playedSeconds: 0, fullSecondsLeft: 3 * 3600, multiplier: 1, fullHours: 3, resetsAt: '2026-11-07T23:00:00.000Z' },
   runsEnabled: true,
   nextSlot: { slot: 3, condition: { stat: 'runs', value: 5 }, progress: 0.4, dust: 100, ready: false },
   ...over,
@@ -231,7 +231,7 @@ describe('el selector de sondas', () => {
     expect(within(picker).getByRole('button', { name: 'Lumen' })).toHaveAttribute('aria-pressed', 'true');
     expect(within(picker).getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'false');
     expect(within(picker).queryByRole('button', { name: 'Chispa' })).toBeNull();
-    expect(screen.getByText(copy.probeTest.quirks.magnet)).toBeInTheDocument();
+    expect(screen.getByText('Cada minuto atrae los fragmentos cercanos')).toBeInTheDocument();
     const spark = within(picker).getByRole('progressbar', { name: 'Chispa' });
     expect(spark).toHaveAttribute('aria-valuenow', '1');
     expect(spark).toHaveAttribute('aria-valuemax', '3');
@@ -255,7 +255,7 @@ describe('el selector de sondas', () => {
     fireEvent.click(within(picker).getByRole('button', { name: 'Bastión' }));
     expect(await screen.findByRole('heading', { name: 'Bastión' })).toBeInTheDocument();
     expect(within(picker).getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(copy.probeTest.quirks.thorns)).toBeInTheDocument();
+    expect(screen.getByText('Devuelve la mitad del daño a quien la toca')).toBeInTheDocument();
     const put = fetch.mock.calls.find(([url, init]) => url === '/galaxy/api/hangar/probe' && init?.method === 'PUT')!;
     expect(JSON.parse(String(put[1]!.body))).toEqual({ probe: 'bastion' });
     fireEvent.click(screen.getByRole('button', { name: copy.hangar.launch }));
@@ -603,4 +603,15 @@ describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
     await screen.findByRole('group', { name: copy.hangar.slot(2) });
     expect(screen.queryByText(copy.hangar.stacking)).toBeNull();
   });
+});
+
+test('la peculiaridad y el rendimiento diario dicen los números de la configuración viva', () => {
+  // An admin can change a quirk's numbers in the content and the daily hours in the economy: the texts follow.
+  const q = copy.probeTest.quirks;
+  expect(q.dash({ kind: 'dash', every: 20, distance: 50, invuln: 0.3 })).toBe('Esquiva un golpe con un salto, cada 20 s');
+  expect(q.salvage({ kind: 'salvage', kills: 40 })).toBe('Cada 40 bajas encuentra un kit de reparación');
+  expect(q.magnet({ kind: 'magnet', every: 45, radius: 160 })).toBe('Cada 45 s atrae los fragmentos cercanos');
+  expect(q.thorns({ kind: 'thorns', share: 0.3 })).toBe('Devuelve el 30 % del daño a quien la toca');
+  expect(q.overwatch({ kind: 'overwatch', drones: 2 })).toBe('Siempre lleva 2 drones de más');
+  expect(copy.hangar.dailyHint(4)).toBe('Tras 4 horas de juego al día, el premio económico baja poco a poco. La experiencia y el progreso nunca bajan');
 });

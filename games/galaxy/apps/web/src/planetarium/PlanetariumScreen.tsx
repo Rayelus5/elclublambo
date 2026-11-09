@@ -99,7 +99,7 @@ export function PlanetariumScreen() {
                 })}
               />
               <aside className="planetarium-side">
-                <PrestigePanel prestige={v.prestige} bonus={v.bonus} visits={v.visits} />
+                <PrestigePanel prestige={v.prestige} bonus={v.bonus} cap={v.cap} visits={v.visits} />
                 <VisitForm />
               </aside>
             </div>

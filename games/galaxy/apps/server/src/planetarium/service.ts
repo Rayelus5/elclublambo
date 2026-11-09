@@ -104,6 +104,7 @@ export async function planetariumView(deps: PlanetariumDeps, accountId: string):
     exhibits,
     prestige: points,
     bonus: planetariumBonus(points, cfg),
+    cap: cfg.cap,
     visits: await visitsOf(deps.db, accountId),
     featured: await featuredFor(deps.db, accountId, cfg),
   };
