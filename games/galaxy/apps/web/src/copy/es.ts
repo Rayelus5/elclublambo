@@ -230,6 +230,17 @@ export const copy = {
       noPulls: 'Sin tiradas en este periodo. Lo esperado sigue a la vista',
       expectedNote: 'Lo esperado sigue la suerte normal. La suerte de bienvenida de las cuentas nuevas sube las legendarias por encima',
       marketTitle: 'Mercado y trueques',
+      // Phase 7: the group runs of the period.
+      groupsTitle: 'Partidas en grupo',
+      groups: {
+        runs: 'Partidas en grupo',
+        perRun: 'Jugadores por partida',
+        extracted: 'Extracciones',
+        died: 'Derrotas',
+        avgDepth: 'Capa media',
+        abandons: 'Abandonos',
+        idle: 'Marcados inactivos',
+      },
       market: { listed: 'Anuncios', sold: 'Ventas', coins: 'Monedas movidas', commission: 'Comisión', tradesDone: 'Trueques cerrados', tradesCancelled: 'Trueques cancelados' },
       csv: 'Exportar CSV',
     },
@@ -360,6 +371,9 @@ export const copy = {
       player: 'Jugador',
       playerHint: 'El nombre exacto de la cuenta',
       onlySuspicious: 'Solo sospechosas',
+      // Phase 7: the group runs.
+      onlyGroup: 'Solo en grupo',
+      party: (n: number) => `Grupo de ${n}`,
       empty: 'Ninguna partida coincide',
       total: (n: number) => (n === 1 ? '1 partida' : `${fmt(n)} partidas`),
       viewOf: (player: string) => `Ver la partida de ${player}`,

@@ -28,6 +28,8 @@ type RunListRow = {
   kills: number | null;
   suspicious: boolean;
   flags: string[];
+  coop_run_id: string | null;
+  party_size: number;
 };
 
 function rowOf(r: RunListRow): AdminRunRow {
@@ -43,6 +45,7 @@ function rowOf(r: RunListRow): AdminRunRow {
     kills: r.kills ?? null,
     suspicious: r.suspicious,
     flags: r.flags,
+    party: r.coop_run_id ? r.party_size : null,
   };
 }
 
@@ -51,14 +54,15 @@ function base(db: Kysely<DB>) {
 }
 
 /** A page of runs, newest first, by player (exact name, any case) and by whether they are suspicious. */
-export async function listRuns(db: Kysely<DB>, q: { page: number; player?: string; suspicious?: 'true' | 'false' }): Promise<AdminRunList> {
+export async function listRuns(db: Kysely<DB>, q: { page: number; player?: string; suspicious?: 'true' | 'false'; group?: 'true' | 'false' }): Promise<AdminRunList> {
   let query = base(db);
   if (q.player) query = query.where(sql<string>`lower(a.username)`, '=', q.player.toLowerCase());
   if (q.suspicious) query = query.where('r.suspicious', '=', q.suspicious === 'true');
+  if (q.group) query = query.where('r.coop_run_id', q.group === 'true' ? 'is not' : 'is', null);
   const [{ total }, rows] = await Promise.all([
     query.select(sql<number>`count(*)::int`.as('total')).executeTakeFirstOrThrow(),
     query
-      .select(['r.id', 'a.username as player', 'r.started_at', 'r.sector', 'r.probe', 'r.outcome', 'r.seconds', 'r.depth', 'r.kills', 'r.suspicious', 'r.flags'])
+      .select(['r.id', 'a.username as player', 'r.started_at', 'r.sector', 'r.probe', 'r.outcome', 'r.seconds', 'r.depth', 'r.kills', 'r.suspicious', 'r.flags', 'r.coop_run_id', 'r.party_size'])
       .orderBy('r.started_at', 'desc')
       .orderBy('r.id', 'desc')
       .limit(ADMIN_RUNS_PAGE)
@@ -97,6 +101,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       'r.claim',
       'r.coop_run_id',
       'r.slot',
+      'r.party_size',
       'i.inputs',
     ])
     .where('r.id', '=', id)

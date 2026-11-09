@@ -125,10 +125,40 @@ describe('CSV', () => {
       currencies: [{ currency: 'coins', in: 1_500_000, out: 20, byReason: [{ reason: 'a,b "c"', in: 1_500_000, out: 20 }] }],
       pulls: { total: 0, tiers: [0, 1, 2, 3, 4].map((tier) => ({ tier, count: 0, expected: 0.2 })) },
       market: { listed: 0, sold: 0, coins: 0, commission: 0, tradesDone: 0, tradesCancelled: 0 },
+      groups: { runs: 4, players: 10, extracted: 1, died: 3, interrupted: 0, avgDepth: 2.5, abandons: 2, idle: 1 },
       pending: { alerts: 0, reports: 0 },
     };
+    expect(statsCsv(fake, 'groups').trim().split('\n')).toEqual(['cifra,valor', 'partidas,4', 'jugadores,10', 'extracciones,1', 'derrotas,3', 'interrumpidas,0', 'capa_media,2.5', 'abandonos,2', 'inactivos,1']);
     expect(statsCsv(fake, 'currencies').trim().split('\n')).toEqual(['moneda,motivo,entra,sale', 'coins,"a,b ""c""",1500000,20']);
     expect(statsCsv(fake, 'pulls').trim().split('\n')[1]).toBe('comun,0,0.2');
+  });
+});
+
+describe('en grupo (plan multijugador, fase 7)', () => {
+  test('una partida en grupo, sus jugadores, un abandono y un inactivo suman donde toca', async () => {
+    const before = await stats();
+    const [p, q] = [await player(), await player()];
+    const players = [p, q].map((x) => ({ username: x.username, probe: 'lumen', relics: [], bonuses: [], variant: null }));
+    const c = await ctx.db
+      .insertInto('galaxy.coop_runs')
+      .values({ room_code: 'STA234', kind: 'private', leader_id: p.id, sector: 'outer-nebula', seed: '3', anomaly: null, rules: '{}', players: JSON.stringify(players), content_version: 0, sim_version: SIM_VERSION })
+      .returning('id')
+      .executeTakeFirstOrThrow();
+    await ctx.db.updateTable('galaxy.coop_runs').set({ state: 'ended', outcome: 'extracted', ticks: 3600, depth: 4, boss_kills: 1, hash: '0123456789abcdef', ended_at: new Date() }).where('id', '=', c.id).execute();
+    const row = (who: { id: string }, slot: number, extra: Record<string, unknown>) =>
+      ctx.db
+        .insertInto('galaxy.runs')
+        .values({ account_id: who.id, seed: '3', sector: 'outer-nebula', probe: 'lumen', relics: '[]', content_version: 0, sim_version: SIM_VERSION, start_key: randomUUID(), started_at: new Date(), finished_at: new Date(), coop_run_id: c.id, slot, party_size: 2, flags: [], suspicious: false, ...extra })
+        .execute();
+    await row(p, 0, { outcome: 'abandoned', left_at: new Date() });
+    await row(q, 1, { outcome: 'extracted', flags: ['coop_idle'], suspicious: true });
+    const after = await stats();
+    expect(after.groups.runs - before.groups.runs).toBe(1);
+    expect(after.groups.players - before.groups.players).toBe(2);
+    expect(after.groups.extracted - before.groups.extracted).toBe(1);
+    expect(after.groups.abandons - before.groups.abandons).toBe(1);
+    expect(after.groups.idle - before.groups.idle).toBe(1);
+    expect(after.groups.avgDepth).toBeGreaterThan(0);
   });
 });
 

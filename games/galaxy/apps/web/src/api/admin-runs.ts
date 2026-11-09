@@ -5,13 +5,14 @@ import { api } from './client';
 
 // The panel's runs (GDD §16.2, §16.6; M6d-3), admins only. Every key sits under the panel's, so a mark reads them again.
 
-export type RunsFilter = { player?: string; suspicious?: boolean; page: number };
+export type RunsFilter = { player?: string; suspicious?: boolean; group?: boolean; page: number };
 
-/** The filter as a query string, always in the same order: player, suspicious, page. */
+/** The filter as a query string, always in the same order: player, suspicious, group, page. */
 export function runsSearch(f: RunsFilter): string {
   const p = new URLSearchParams();
   if (f.player) p.set('player', f.player);
   if (f.suspicious) p.set('suspicious', 'true');
+  if (f.group) p.set('group', 'true');
   p.set('page', String(f.page));
   return p.toString();
 }

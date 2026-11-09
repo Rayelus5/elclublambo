@@ -852,6 +852,14 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - el logro «Ángel de la guarda»: 25 reanimaciones, plata, con el título del mismo nombre.
    - **Cuándo se aplican:** solo donde la configuración de misiones y logros no esté guardada desde el admin. Si lo está, se añaden desde allí.
    - **Comprobar:** tras una partida en grupo, en Misiones › Logros, «Escuadrón» marca 1/10.
+62. **Admin: partidas en grupo (fase 7):** sin migraciones.
+   - **Estadísticas:** Admin › Estadísticas tiene una sección nueva, «Partidas en grupo», con su CSV (`section=groups`). Muestra para el periodo:
+     - las partidas en grupo y los jugadores por partida;
+     - las extracciones y las derrotas;
+     - la capa media;
+     - los abandonos a propósito (`left_at`) y los marcados `coop_idle`.
+   - **Partidas:** Admin › Partidas tiene el filtro «Solo en grupo» (`?grupo=1`, API `group=true`). Cada partida en grupo lleva la etiqueta «Grupo de N»; su repetición es la del grupo entero (paso 55).
+   - **Comprobar:** tras una partida en grupo, la sección suma 1 y la partida sale con «Solo en grupo».
 
 ## Operación
 

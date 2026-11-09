@@ -24,12 +24,13 @@ export function RunsScreen() {
   const ids = useId();
   const [params, setParams] = useSearchParams();
   const suspicious = params.get('sospechosas') === '1';
+  const group = params.get('grupo') === '1';
   const page = Math.max(1, Number(params.get('pagina') ?? '1') || 1);
   const [player, setPlayer] = useState(params.get('jugador') ?? '');
   // Only a whole name is looked for (the server matches it exactly): half-typed ones wait instead of erroring.
   const typed = (params.get('jugador') ?? '').trim().toLowerCase();
   const settled = useSettled(/^[a-z0-9_]{3,20}$/.test(typed) ? typed : '', 300);
-  const runs = useAdminRuns({ player: settled || undefined, suspicious, page });
+  const runs = useAdminRuns({ player: settled || undefined, suspicious, group, page });
   const change = (next: Record<string, string | null>) => {
     const p = new URLSearchParams(params);
     for (const [k, v] of Object.entries(next)) {
@@ -63,6 +64,9 @@ export function RunsScreen() {
         <button type="button" className="lip pill small" aria-pressed={suspicious} onClick={() => change({ sospechosas: suspicious ? null : '1', pagina: null })}>
           {t.onlySuspicious}
         </button>
+        <button type="button" className="lip pill small" aria-pressed={group} onClick={() => change({ grupo: group ? null : '1', pagina: null })}>
+          {t.onlyGroup}
+        </button>
         {data ? <p className="panel-note runs-total">{t.total(data.total)}</p> : null}
       </div>
       {runs.error ? (
@@ -91,6 +95,7 @@ export function RunsScreen() {
                     <td>{date.format(new Date(r.startedAt))}</td>
                     <td>
                       <Link to={`/admin/jugadores/${r.player}`}>{r.player}</Link>
+                      {r.party ? <span className="run-party">{t.party(r.party)}</span> : null}
                     </td>
                     <td>{sectorName(r.sector)}</td>
                     <td>{probeName(r.probe)}</td>

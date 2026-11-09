@@ -56,6 +56,7 @@ export function StatsScreen() {
           <Currencies s={s} />
           <Pulls s={s} />
           <Market s={s} />
+          <Groups s={s} />
         </>
       ) : null}
     </section>
@@ -86,10 +87,10 @@ function Tiles({ s }: { s: AdminStats }) {
   );
 }
 
-function SectionHead({ title, period, section, children }: { title: string; period: StatsPeriod; section: StatsSection; children?: ReactNode }) {
+function SectionHead({ title, period, section, children, id }: { title: string; period: StatsPeriod; section: StatsSection; children?: ReactNode; id?: string }) {
   return (
     <header className="stats-head">
-      <h2>{title}</h2>
+      <h2 id={id}>{title}</h2>
       {children}
       <a className="stats-csv" href={csvHref(period, section)} download>
         {t.csv}
@@ -289,6 +290,32 @@ function Pulls({ s }: { s: AdminStats }) {
         </table>
       </div>
       <p className="stats-sub">{t.expectedNote}</p>
+    </section>
+  );
+}
+
+const oneDecimal = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 });
+
+/** The group runs of the period (multiplayer plan, phase 7). */
+function Groups({ s }: { s: AdminStats }) {
+  const g = s.groups;
+  const tiles: [string, string][] = [
+    [t.groups.runs, big(g.runs)],
+    [t.groups.perRun, g.runs ? oneDecimal.format(g.players / g.runs) : '0'],
+    [t.groups.extracted, big(g.extracted)],
+    [t.groups.died, big(g.died)],
+    [t.groups.avgDepth, oneDecimal.format(g.avgDepth)],
+    [t.groups.abandons, big(g.abandons)],
+    [t.groups.idle, big(g.idle)],
+  ];
+  return (
+    <section className="lip panel stats-section" aria-labelledby="stats-groups">
+      <SectionHead title={t.groupsTitle} period={s.period} section="groups" id="stats-groups" />
+      <div className="stat-tiles small">
+        {tiles.map(([label, value]) => (
+          <Tile key={label} label={label} value={value} />
+        ))}
+      </div>
     </section>
   );
 }

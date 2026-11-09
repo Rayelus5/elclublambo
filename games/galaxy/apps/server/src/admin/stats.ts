@@ -86,6 +86,26 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
   const expected = expectedTierRates(gacha);
   const tiers = TIERS.map((_, tier) => ({ tier, count: pulls.find((p) => p.tier === tier)?.n ?? 0, expected: expected[tier] ?? 0 }));
 
+  // Group runs (phase 7): those that ended in the period, their players, and who left or stood idle in them.
+  const [coopRuns, coopRows] = await Promise.all([
+    db
+      .selectFrom('galaxy.coop_runs')
+      .select([
+        sql<number>`count(*)::int`.as('n'),
+        sql<number>`(count(*) filter (where outcome = 'extracted'))::int`.as('extracted'),
+        sql<number>`(count(*) filter (where outcome = 'died'))::int`.as('died'),
+        sql<number>`(count(*) filter (where outcome = 'interrupted'))::int`.as('interrupted'),
+        sql<string | null>`avg(depth)`.as('depth'),
+      ])
+      .where('state', '<>', 'running')
+      .where('ended_at', '>=', from)
+      .executeTakeFirstOrThrow(),
+    sql<{ players: number; abandons: number; idle: number }>`
+      select
+        (select count(*)::int from galaxy.runs r join galaxy.coop_runs c on c.id = r.coop_run_id where c.state <> 'running' and c.ended_at >= ${from}) as players,
+        (select count(*)::int from galaxy.runs where left_at >= ${from}) as abandons,
+        (select count(*)::int from galaxy.runs where coop_run_id is not null and finished_at >= ${from} and 'coop_idle' = any(flags)) as idle`.execute(db),
+  ]);
   const [listed, sold, trades, alerts, reports] = await Promise.all([
     db.selectFrom('galaxy.market_listings').select(sql<number>`count(*)::int`.as('n')).where('listed_at', '>=', from).executeTakeFirstOrThrow(),
     db
@@ -121,6 +141,16 @@ export async function adminStats(deps: StatsDeps, period: StatsPeriod): Promise<
       tradesDone: trades.find((t) => t.status === 'done')?.n ?? 0,
       tradesCancelled: trades.find((t) => t.status === 'cancelled')?.n ?? 0,
     },
+    groups: {
+      runs: coopRuns.n,
+      players: coopRows.rows[0]?.players ?? 0,
+      extracted: coopRuns.extracted,
+      died: coopRuns.died,
+      interrupted: coopRuns.interrupted,
+      avgDepth: Math.round(num(coopRuns.depth) * 10) / 10,
+      abandons: coopRows.rows[0]?.abandons ?? 0,
+      idle: coopRows.rows[0]?.idle ?? 0,
+    },
     pending: { alerts: alerts.n, reports: reports.rows[0]?.n ?? 0 },
   };
 }
@@ -139,6 +169,18 @@ export function statsCsv(s: AdminStats, section: StatsSection): string {
   if (section === 'runs') return csv([[s.period === '24h' ? 'hora' : 'dia', 'partidas'], ...s.runs.buckets.map((b) => [b.at, b.count])]);
   if (section === 'currencies') return csv([['moneda', 'motivo', 'entra', 'sale'], ...s.currencies.flatMap((c) => c.byReason.map((r) => [c.currency, r.reason, r.in, r.out]))]);
   if (section === 'pulls') return csv([['rareza', 'tiradas', 'esperado'], ...s.pulls.tiers.map((t) => [TIER_CSV[t.tier] ?? t.tier, t.count, t.expected])]);
+  if (section === 'groups')
+    return csv([
+      ['cifra', 'valor'],
+      ['partidas', s.groups.runs],
+      ['jugadores', s.groups.players],
+      ['extracciones', s.groups.extracted],
+      ['derrotas', s.groups.died],
+      ['interrumpidas', s.groups.interrupted],
+      ['capa_media', s.groups.avgDepth],
+      ['abandonos', s.groups.abandons],
+      ['inactivos', s.groups.idle],
+    ]);
   return csv([
     ['cifra', 'valor'],
     ['anuncios', s.market.listed],

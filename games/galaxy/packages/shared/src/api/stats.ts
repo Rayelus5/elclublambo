@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export const STATS_PERIODS = ['24h', '7d', '30d'] as const;
 export type StatsPeriod = (typeof STATS_PERIODS)[number];
-export const STATS_SECTIONS = ['runs', 'currencies', 'pulls', 'market'] as const;
+export const STATS_SECTIONS = ['runs', 'currencies', 'pulls', 'market', 'groups'] as const;
 export type StatsSection = (typeof STATS_SECTIONS)[number];
 
 export const adminStatsQuerySchema = z.object({ period: z.enum(STATS_PERIODS).default('24h') }).strict();
@@ -32,5 +32,10 @@ export interface AdminStats {
   /** Pulls by tier (0 common … 4 legendary) with the expected share from the live gacha config. */
   pulls: { total: number; tiers: { tier: number; count: number; expected: number }[] };
   market: { listed: number; sold: number; coins: number; commission: number; tradesDone: number; tradesCancelled: number };
+  /**
+   * Group runs that ended in the period (multiplayer plan, phase 7): how many, the players in them, how they ended, the
+   * average layer reached, and its players who left on purpose or were flagged idle (`coop_idle`).
+   */
+  groups: { runs: number; players: number; extracted: number; died: number; interrupted: number; avgDepth: number; abandons: number; idle: number };
   pending: { alerts: number; reports: number };
 }
