@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { useMyClan } from '../api/clans';
+import { readyIn } from '../missions/ready';
 import { useMissions } from '../api/missions';
 import { TodayMissions } from './TodayMissions';
 import { copy } from '../copy/es';
@@ -43,7 +44,9 @@ function Mode({ kind, icon, title, hint, d, to, tour }: { kind: string; icon: Ic
 
 /** The event running now (M7e-1): it leads to its goals; without one, the place stays, quiet. */
 function EventButton() {
-  const event = useMissions().data?.events[0];
+  const missions = useMissions().data;
+  const event = missions?.events[0];
+  const waiting = missions ? readyIn(missions, 'events').length : 0;
   if (!event) {
     return (
       <button type="button" className="lip event locked enter" style={style({ '--d': '1s' })} disabled>
@@ -66,6 +69,7 @@ function EventButton() {
         <b>{event.name}</b>
         <span>{event.description}</span>
       </span>
+      {waiting > 0 ? <span className="event-ready">{copy.hub.eventReady}</span> : null}
     </Link>
   );
 }

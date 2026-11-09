@@ -23,27 +23,30 @@ export const GLITCH_FLASHES = 2;
 const GLITCH_MS = 900;
 
 const STATIC_FIRST = 900;
-const STATIC_NEXT = 320;
+const STATIC_NEXT = 200;
 const STATIC_REDUCED = 250;
-const signalMs = (t: number) => 520 + 170 * t;
-const scanMs = (t: number, reduced: boolean) => (reduced ? 500 : 1000 + 320 * t);
+// A single pull builds up slowly; in a run of ten (open beta) each step is shorter, the commons above all.
+const signalMs = (t: number, inRun: boolean) => (inRun ? 360 + 140 * t : 520 + 170 * t);
+const scanMs = (t: number, reduced: boolean, inRun: boolean) => (reduced ? 500 : inRun ? 620 + 300 * t : 1000 + 320 * t);
 const PHENOMENON_MS = 1300;
-const CARD_IN_SEQUENCE_MS = 1900;
+/** How long a card stays in a run of ten, by tier: the rare ones are looked at longer. */
+const CARD_IN_RUN_MS = [900, 1100, 1500, 1900, 2400];
 
 export function revealSequence(pulls: readonly PulledGalaxy[], opts: { reduced: boolean }): Step[] {
   const steps: Step[] = [];
+  const inRun = pulls.length > 1;
   pulls.forEach((p, index) => {
     const t = TIERS.indexOf(p.tier);
     const staticMs = opts.reduced ? STATIC_REDUCED : index === 0 ? STATIC_FIRST : STATIC_NEXT;
     steps.push({ kind: 'static', index, ms: staticMs });
-    steps.push({ kind: 'signal', index, tier: p.tier, bars: t + 1, ms: signalMs(t) });
-    steps.push({ kind: 'scan', index, tier: p.tier, ms: scanMs(t, opts.reduced) });
+    steps.push({ kind: 'signal', index, tier: p.tier, bars: t + 1, ms: signalMs(t, inRun) });
+    steps.push({ kind: 'scan', index, tier: p.tier, ms: scanMs(t, opts.reduced, inRun) });
     const phenomenon = p.traits['phenomenon'];
     if (phenomenon && phenomenon !== 'none') steps.push({ kind: 'phenomenon', index, tier: p.tier, phenomenon, ms: PHENOMENON_MS });
     if (p.tier === 'legendary' && !opts.reduced) steps.push({ kind: 'glitch', index, tier: p.tier, ms: GLITCH_MS });
     // One pull, or reduced motion: the card waits for the player. In a run of ten, cards follow on their own.
     const waits = pulls.length === 1 || opts.reduced;
-    steps.push({ kind: 'card', index, tier: p.tier, ms: waits ? Infinity : CARD_IN_SEQUENCE_MS });
+    steps.push({ kind: 'card', index, tier: p.tier, ms: waits ? Infinity : (CARD_IN_RUN_MS[t] ?? CARD_IN_RUN_MS[0]!) });
   });
   steps.push({ kind: 'summary', index: -1, ms: Infinity });
   return steps;

@@ -1486,6 +1486,7 @@ export const copy = {
     event: 'Eventos',
     eventHint: 'Galaxias destacadas por tiempo limitado',
     noEvent: 'Ningún evento en marcha ahora',
+    eventReady: 'Recompensas por recoger',
     missions: 'Misiones de hoy',
     collection: 'Colección',
     reward: 'Premio',
@@ -1638,6 +1639,7 @@ export const copy = {
     costCoins: (n: number) => `${fmt(n)} monedas`,
     revealTitle: 'Escaneo de campo profundo',
     skip: 'Saltar',
+    featuredFound: '¡Destacada!',
     next: 'Seguir',
     progress: (i: number, n: number) => `${i} de ${n}`,
     signal: 'Señal',
@@ -2128,6 +2130,25 @@ export const copy = {
     claimOf: (name: string) => `Recoger ${name}`,
     claimed: 'Recogida',
     ready: (n: number) => (n === 1 ? 'Misiones y logros, 1 por recoger' : `Misiones y logros, ${n} por recoger`),
+    // Collecting (open beta): where rewards wait, «Recoger todo», what was collected, and the big moments.
+    readyCount: (n: number) => `${n} por recoger`,
+    readyLabel: (r: { daily: number; weekly: number; season: number; events: number; achievements: number }) => {
+      const part = (n: number, one: string, many: string) => (n > 0 ? `${n} ${n === 1 ? one : many}` : null);
+      const parts = [
+        part(r.daily, 'diaria', 'diarias'),
+        part(r.weekly, 'semanal', 'semanales'),
+        part(r.season, 'misión de temporada', 'misiones de temporada'),
+        part(r.events, 'meta de evento', 'metas de evento'),
+        part(r.achievements, 'logro', 'logros'),
+      ].filter((x): x is string => x !== null);
+      if (parts.length === 0) return 'Misiones';
+      const list = parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)!}`;
+      return `Misiones: ${list} por recoger`;
+    },
+    claimAll: (n: number) => `Recoger todo (${n})`,
+    gained: (what: string) => `Recogido: ${what}`,
+    bigAchievement: 'Logro conseguido',
+    bigSeason: 'Misión de temporada cumplida',
     reward: {
       coins: (n: number) => `${fmt(n)} monedas`,
       dust: (n: number) => `${fmt(n)} de polvo`,

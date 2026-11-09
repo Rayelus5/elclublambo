@@ -1,11 +1,18 @@
 import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView } from '@galaxy/shared';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
+import { useGacha } from '../api/economy';
 import { useClaim, useCosmetics, useMissions } from '../api/missions';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
+import { WalletBar } from '../hub/WalletBar';
 import { BackLink } from '../ui/BackLink';
+import { Celebration } from '../ui/Celebration';
 import { Icon } from '../ui/Icon';
+import { useReducedMotion } from '../ui/motion';
+import { useClaimFx } from './ClaimFx';
+import { addRewards, type ClaimTarget, firstReadyTab, readyByTab, readyIn, type Reward } from './ready';
+import { playClaim } from './sfx';
 
 // Missions and achievements (GDD §12.3; M7a, DESIGN_SYSTEM §8 quinvicies): the day's, the week's and the season's
 // missions and the achievements, each with its progress, what it gives and «Recoger» once reached; and the title and
@@ -14,8 +21,12 @@ import { Icon } from '../ui/Icon';
 const t = copy.missions;
 type Tab = 'daily' | 'weekly' | 'season' | 'events' | 'achievements';
 const TABS: Tab[] = ['daily', 'weekly', 'season', 'events', 'achievements'];
+const SLUGS: Record<string, Tab> = { diarias: 'daily', semanales: 'weekly', temporada: 'season', evento: 'events', logros: 'achievements' };
 
-function rewardText(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | null; eventSignals?: number }): string {
+/** «a, b y c». */
+const listOf = (parts: string[]) => (parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)!}`);
+
+function rewardParts(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | string | null; eventSignals?: number }): string[] {
   const parts: string[] = [];
   if (r.eventSignals) parts.push(t.reward.eventSignals(r.eventSignals));
   if (r.coins) parts.push(t.reward.coins(r.coins));
@@ -25,7 +36,11 @@ function rewardText(r: { coins?: number; dust?: number; signal?: number; xp?: nu
   if (r.points) parts.push(t.reward.points(r.points));
   if (r.title) parts.push(t.reward.title(r.title));
   if (r.frame) parts.push(t.reward.frame(t.frames[r.frame] ?? r.frame));
-  return parts.join(', ');
+  return parts;
+}
+
+function rewardText(r: Parameters<typeof rewardParts>[0]): string {
+  return rewardParts(r).join(', ');
 }
 
 function Progress({ label, progress, target }: { label: string; progress: number; target: number }) {
@@ -71,7 +86,7 @@ export function EventsList({ events, pending, onClaim }: { events: EventView[]; 
                       {t.claimed}
                     </span>
                   ) : (
-                    <button type="button" className="lip pill" disabled={!done || pending} aria-label={t.claimOf(g.name)} onClick={() => onClaim(e.period, g.id)}>
+                    <button type="button" className="lip pill" data-claim={g.id} disabled={!done || pending} aria-label={t.claimOf(g.name)} onClick={() => onClaim(e.period, g.id)}>
                       {t.claim}
                     </button>
                   )}
@@ -86,11 +101,67 @@ export function EventsList({ events, pending, onClaim }: { events: EventView[]; 
 }
 
 export function MissionsScreen() {
+  const ids = useId();
   const missions = useMissions();
+  const gacha = useGacha();
   const claim = useClaim();
+  const reduced = useReducedMotion();
+  const fx = useClaimFx(reduced);
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<Tab>(params.get('pestana') === 'logros' ? 'achievements' : params.get('pestana') === 'evento' ? 'events' : 'daily');
+  const asked = SLUGS[params.get('pestana') ?? ''];
+  const [tab, setTab] = useState<Tab>(asked ?? 'daily');
+  /** Chosen by the address or by a click: then it stays; otherwise the screen opens where rewards wait. */
+  const chosen = useRef(asked !== undefined);
+  const [gained, setGained] = useState<Reward | null>(null);
+  const [collecting, setCollecting] = useState(false);
+  const [big, setBig] = useState<{ key: number; title: string; name: string } | null>(null);
+  const bigKey = useRef(0);
+  /** Claimed in this visit: their stamp lands (the ones claimed before just show it). */
+  const [just, setJust] = useState<ReadonlySet<string>>(new Set());
   const v = missions.data;
+  useEffect(() => {
+    if (!v || chosen.current) return;
+    chosen.current = true;
+    const first = firstReadyTab(v);
+    // The first view with something to collect (a state change on the first data, never in render).
+    if (first) queueMicrotask(() => setTab(first));
+  }, [v]);
+  useEffect(() => {
+    if (!big) return;
+    const id = setTimeout(() => setBig(null), 2600);
+    return () => clearTimeout(id);
+  }, [big]);
+  const ready = v ? readyByTab(v) : null;
+
+  /** One reward: claimed, then heard, seen flying to the wallet, added to what was collected, and celebrated if big. */
+  async function collect(target: ClaimTarget): Promise<void> {
+    const from = document.querySelector(`[data-claim="${target.id}"]`);
+    await claim.mutateAsync(target.kind === 'mission' ? { kind: 'mission', period: target.period, id: target.id } : { kind: 'achievement', id: target.id });
+    playClaim(target.reward, target.big);
+    setJust((j) => new Set(j).add(target.id));
+    fx.burst(from, target.reward);
+    setGained((g) => (g ? addRewards(g, target.reward) : addRewards({}, target.reward)));
+    if (target.big) setBig({ key: ++bigKey.current, title: target.kind === 'achievement' ? t.bigAchievement : t.bigSeason, name: target.name });
+  }
+  async function collectMany(targets: ClaimTarget[]): Promise<void> {
+    if (collecting || targets.length === 0) return;
+    setCollecting(true);
+    setGained(null);
+    try {
+      for (const [i, target] of targets.entries()) {
+        if (i > 0) await new Promise((r) => setTimeout(r, reduced ? 0 : 220));
+        await collect(target);
+      }
+    } catch {
+      // The mutation shows its own error.
+    } finally {
+      setCollecting(false);
+    }
+  }
+  const claimOne = (target: ClaimTarget | undefined) => {
+    if (target) void collectMany([target]);
+  };
+  const here = v ? readyIn(v, tab) : [];
   const period: MissionPeriodView | null = v ? (tab === 'daily' ? v.daily : tab === 'weekly' ? v.weekly : tab === 'season' ? v.season : null) : null;
   return (
     <div className="screen-root missions-root">
@@ -98,14 +169,54 @@ export function MissionsScreen() {
         <header className="collection-bar">
           <BackLink fallback="/" />
           <h1>{t.title}</h1>
+          <div className="lip panel hud missions-wallet">
+            <WalletBar wallet={gacha.data?.wallet} />
+          </div>
         </header>
         <div className="tabs missions-tabs" role="tablist" aria-label={t.title}>
           {TABS.filter((k) => k !== 'events' || (v?.events.length ?? 0) > 0).map((k) => (
-            <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
+            <button
+              key={k}
+              type="button"
+              role="tab"
+              aria-selected={tab === k}
+              aria-describedby={ready && ready[k] > 0 ? `${ids}-ready-${k}` : undefined}
+              onClick={() => {
+                chosen.current = true;
+                setTab(k);
+              }}
+            >
               {t.tabs[k]}
+              {ready && ready[k] > 0 ? (
+                <span className="tab-badge" aria-hidden="true">
+                  {ready[k] > 9 ? '9+' : fmt(ready[k])}
+                </span>
+              ) : null}
             </button>
           ))}
         </div>
+        <div hidden>
+          {TABS.map((k) => (ready && ready[k] > 0 ? <span key={k} id={`${ids}-ready-${k}`}>{t.readyCount(ready[k])}</span> : null))}
+        </div>
+        <div className="missions-collect">
+          {here.length > 1 ? (
+            <button type="button" className="lip pill pill-solar" disabled={collecting} onClick={() => void collectMany(here)}>
+              <Icon name="trophy" />
+              <span>{t.claimAll(here.length)}</span>
+            </button>
+          ) : null}
+          {gained ? (
+            <p className="missions-gained" role="status" aria-atomic="true">
+              {t.gained(listOf(rewardParts(gained)))}
+            </p>
+          ) : null}
+        </div>
+        {fx.view}
+        {big ? (
+          <div className="claim-celebration">
+            <Celebration key={big.key} title={big.title} subtitle={big.name} reduced={reduced} />
+          </div>
+        ) : null}
         {missions.error ? (
           <p className="field-error" role="alert">
             {errorText(missions.error, copy.errors)}
@@ -117,7 +228,7 @@ export function MissionsScreen() {
           </p>
         ) : null}
         <div role="tabpanel" aria-label={t.tabs[tab]}>
-          {v && tab === 'events' ? <EventsList events={v.events} pending={claim.isPending} onClaim={(period, id) => claim.mutate({ kind: 'mission', period, id })} /> : null}
+          {v && tab === 'events' ? <EventsList events={v.events} pending={collecting} onClaim={(period, id) => claimOne(here.find((x) => x.kind === 'mission' && x.period === period && x.id === id))} /> : null}
           {v && tab !== 'achievements' && tab !== 'events' ? (
             period ? (
               <>
@@ -126,7 +237,7 @@ export function MissionsScreen() {
                   {period.missions.map((m: MissionView) => {
                     const done = m.progress >= m.target;
                     return (
-                      <li key={m.id} className={`lip panel mission-card${m.claimed ? ' claimed' : done ? ' ready' : ''}`}>
+                      <li key={m.id} className={`lip panel mission-card${m.claimed ? ' claimed' : done ? ' ready' : ''}${just.has(m.id) ? ' just' : ''}`}>
                         <div className="mission-text">
                           <b>{m.name}</b>
                           <span>{rewardText(m.reward)}</span>
@@ -138,7 +249,7 @@ export function MissionsScreen() {
                             {t.claimed}
                           </span>
                         ) : (
-                          <button type="button" className="lip pill" disabled={!done || claim.isPending} aria-label={t.claimOf(m.name)} onClick={() => claim.mutate({ kind: 'mission', period: period.period, id: m.id })}>
+                          <button type="button" className="lip pill" data-claim={m.id} disabled={!done || collecting} aria-label={t.claimOf(m.name)} onClick={() => claimOne(here.find((x) => x.id === m.id))}>
                             {t.claim}
                           </button>
                         )}
@@ -156,7 +267,7 @@ export function MissionsScreen() {
               <Cosmetics key={`${v.cosmetics.title ?? ''}|${v.cosmetics.frame ?? ''}`} titles={v.cosmetics.titles} frames={v.cosmetics.frames} title={v.cosmetics.title} frame={v.cosmetics.frame} />
               <ul className="mission-list">
                 {v.achievements.map((a: AchievementView) => (
-                  <li key={a.id} className={`lip panel mission-card achievement ${a.tier}${a.claimed ? ' claimed' : a.unlocked ? ' ready' : ''}`}>
+                  <li key={a.id} className={`lip panel mission-card achievement ${a.tier}${a.claimed ? ' claimed' : a.unlocked ? ' ready' : ''}${just.has(a.id) ? ' just' : ''}`}>
                     <div className="mission-text">
                       <b>
                         <span className={`achievement-tier ${a.tier}`}>{t.tiers[a.tier]}</span>
@@ -172,7 +283,7 @@ export function MissionsScreen() {
                         {t.claimed}
                       </span>
                     ) : (
-                      <button type="button" className="lip pill" disabled={!a.unlocked || claim.isPending} aria-label={t.claimOf(a.name)} onClick={() => claim.mutate({ kind: 'achievement', id: a.id })}>
+                      <button type="button" className="lip pill" data-claim={a.id} disabled={!a.unlocked || collecting} aria-label={t.claimOf(a.name)} onClick={() => claimOne(here.find((x) => x.id === a.id))}>
                         {t.claim}
                       </button>
                     )}
@@ -238,8 +349,9 @@ function Cosmetics({ titles, frames, title, frame }: { titles: string[]; frames:
 
 /** The top bar's button to the missions, with how many are ready to collect. */
 export function MissionsButton({ style }: { style?: React.CSSProperties }) {
-  const ready = useMissions().data?.ready ?? 0;
-  const label = ready > 0 ? t.ready(ready) : t.title;
+  const v = useMissions().data;
+  const ready = v?.ready ?? 0;
+  const label = v && ready > 0 ? t.readyLabel(readyByTab(v)) : t.title;
   return (
     <Link to="/misiones" className="lip iconbtn enter mail-button" style={style} aria-label={label} title={label}>
       <Icon name="trophy" />
