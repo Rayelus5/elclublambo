@@ -1,5 +1,5 @@
-import { type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
-import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, step, toBase64 } from '@galaxy/sim';
+import { COOP_SUM_EVERY, type CoopMark, type CoopRunStart, type CoopServerMessage, coopSimOptions } from '@galaxy/shared';
+import { CoopFeed, createSim, encodeLog, MOVE, PICK_SEQ, PRESENCE, type Sim, stateHash, step, toBase64 } from '@galaxy/sim';
 
 // One co-op run as the server plays it (multiplayer plan, phase 6). Inputs arrive from the players' sockets and are
 // sealed at once, as log events, on the next tick not yet closed; the clock closes ticks at 60 Hz whatever the
@@ -18,6 +18,10 @@ export const AWAY_AFTER_MS = 10_000;
 export const ALL_GONE_MS = 120_000;
 /** The least time between two quick marks of one player (phase 6c): a held key never floods the group. */
 export const MARK_GAP_MS = 700;
+/** The referee's hashes kept to compare a client's against (40 s: a client further behind is not compared). */
+const SUMS_KEPT = 8;
+/** How many times a client whose world differs is told to rebuild it (one that keeps differing never loops). */
+export const MAX_RESYNCS = 2;
 const OPEN = 1;
 
 export interface PlaySocket {
@@ -69,6 +73,11 @@ export class CoopRun {
   private readonly presence: number[];
   private readonly offlineSince: (number | null)[];
   private readonly markedAt: number[] = [];
+  /** The referee's world hash every COOP_SUM_EVERY ticks (the last few), to check the clients' (phase 6c). */
+  private readonly sums = new Map<number, string>();
+  /** Each player's last compared tick, and how many times it was told to rebuild. */
+  private readonly summed: number[];
+  private readonly resyncs: number[];
   private lastLayer = 0;
   /** When the clock stopped because nobody was connected (null: running). */
   private pausedSince: number | null = null;
@@ -93,6 +102,8 @@ export class CoopRun {
     this.presence = slots.map(() => PRESENCE_UP);
     // Nobody is connected yet: the grace starts now.
     this.offlineSince = slots.map(() => t0);
+    this.summed = slots.map(() => 0);
+    this.resyncs = slots.map(() => 0);
     this.origin = t0;
     this.noteLayer();
   }
@@ -249,6 +260,10 @@ export class CoopRun {
         }
       }
       this.noteLayer();
+      if (sim.tick % COOP_SUM_EVERY === 0) {
+        this.sums.set(sim.tick, stateHash(sim));
+        this.sums.delete(sim.tick - SUMS_KEPT * COOP_SUM_EVERY);
+      }
       if (sim.status === 'dead' || sim.status === 'extracted') this.ended = true;
     }
     if (this.events.length > this.sent || this.closed - this.sentTo >= BEAT_TICKS || this.ended) this.flush();
@@ -279,6 +294,22 @@ export class CoopRun {
   /** The sealed log so far (log v2 when it has picks or presence), to save. */
   log(): Uint8Array {
     return encodeLog({ probes: this.slots.length, events: this.events });
+  }
+
+  /**
+   * A client's world hash at a tick (phase 6c) against the referee's: 'ok', 'desync' (it is told to rebuild, at most
+   * MAX_RESYNCS times) or 'unknown' (a tick off the interval, not closed, forgotten, or already compared).
+   */
+  sum(slot: number, tick: number, hash: string): 'ok' | 'desync' | 'unknown' {
+    const mine = this.sums.get(tick);
+    if (mine === undefined || tick <= this.summed[slot]!) return 'unknown';
+    this.summed[slot] = tick;
+    if (mine === hash) return 'ok';
+    if (this.resyncs[slot]! < MAX_RESYNCS) {
+      this.resyncs[slot]!++;
+      this.sendTo(slot, { t: 'desync', tick });
+    }
+    return 'desync';
   }
 
   /** Whether a player left the run for good. */

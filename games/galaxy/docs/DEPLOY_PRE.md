@@ -819,6 +819,16 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
    - **Cámara:** empieza en el jugador de la fila y se puede cambiar a cualquier otro.
    - **«Comprobar»:** compara la huella, los ticks y la capa del grupo, y las bajas y el nivel del jugador si llegó al final.
    - **Comprobar:** jugar una partida en grupo, abrir la de un jugador en el admin y pulsar «Comprobar»; debe decir «Coincide con lo guardado».
+56. **Cámara de espectador en las partidas en grupo (fase 6c):** sin migraciones.
+   - **Qué se ve:** quien queda fuera hasta la siguiente capa ya no mira su sonda parada. La cámara sigue a un compañero que sigue en juego (primero uno en pie) y aparece «Viendo a <nombre>» con su color.
+   - **Cambiar:** con más de un compañero en juego, las flechas ‹ › cambian de compañero. Si al que se mira cae del todo o se va, la cámara pasa a otro.
+   - **Volver:** al empezar la siguiente capa, la cámara vuelve a la sonda propia. El marcador y las cartas siguen siendo los propios.
+   - **Comprobar:** en una partida de dos, dejar que una sonda caiga y no reanimarla; al quedar fuera, su pantalla dice «Viendo a <compañero>» y sigue a esa sonda.
+57. **Huellas de los clientes contra el árbitro (fase 6c):** sin migraciones.
+   - **Cómo va:** cada 5 s (300 ticks) cada navegador manda la huella de su mundo y el servidor la compara con la de su árbitro (guarda las últimas 8, 40 s).
+   - **Si no coincide:** el servidor avisa a ese jugador y su navegador rehace el mundo desde el principio con todo el registro sellado («Poniéndote al día»). Como mucho 2 veces por jugador y partida, para no entrar en bucle.
+   - **Rastro:** cada diferencia queda en el log como `coop_desync` (partida, hueco y tick). Indica un fallo de determinismo que hay que mirar.
+   - **Comprobar:** tras una partida en grupo, `docker compose … logs galaxy | grep coop_desync` no debe devolver nada.
 
 ## Operación
 

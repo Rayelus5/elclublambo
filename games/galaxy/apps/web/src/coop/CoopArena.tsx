@@ -1,5 +1,5 @@
-import { type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
-import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, step } from '@galaxy/sim';
+import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
+import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
@@ -18,7 +18,7 @@ import { useLive } from '../live/LiveConnection';
 import { typing } from '../ui/keys';
 import { useReducedMotion } from '../ui/motion';
 import type { CoopMark } from '@galaxy/shared';
-import { CoopCards, LifeNotice, TeamPanel } from './CoopHud';
+import { CoopCards, LifeNotice, SpectateBar, spectateTarget, TeamPanel } from './CoopHud';
 import { CoopMarks, MARK_SHOW_MS, markFrom, MarkWheel, type ShownMark, toWorld } from './Marks';
 import { playMark } from './sfx';
 import { TeamResults, teamRows } from './TeamResults';
@@ -36,6 +36,7 @@ const FINAL = new Set([4401, 4403, 4404, 4400, 4409]);
 const t = copy.coop.arena;
 
 type Link = 'connecting' | 'live' | 'lost' | 'gone';
+type World = { start: CoopRunStart; sim: Sim; feed: CoopFeed; gen: number };
 
 interface Clock {
   now: () => number;
@@ -57,11 +58,16 @@ export function CoopArena({
   /** The simulation once the run arrived (tests). */
   onSim?: (sim: Sim) => void;
 }) {
-  /** The run once the hello arrived: its start, my simulation and the feed of sealed events (made once). */
-  const [world, setWorld] = useState<{ start: CoopRunStart; sim: Sim; feed: CoopFeed } | null>(null);
+  /**
+   * The run once the hello arrived: its start, my simulation and the feed of sealed events (made once, and again from
+   * the whole log if the referee says my world went its own way: `gen` counts the rebuilds).
+   */
+  const [world, setWorld] = useState<World | null>(null);
   const [link, setLink] = useState<Link>('connecting');
   const [result, setResult] = useState<{ result: RunResult | null } | null>(null);
-  const worldRef = useRef<{ start: CoopRunStart; sim: Sim; feed: CoopFeed } | null>(null);
+  const worldRef = useRef<World | null>(null);
+  /** Every sealed event received (flat), to rebuild the world from the start. */
+  const sealed = useRef<number[]>([]);
   const known = useRef(0);
   const closed = useRef(0);
   const socket = useRef<WebSocket | null>(null);
@@ -104,22 +110,34 @@ export function CoopArena({
         if (msg.t === 'hello') {
           attempt = 0;
           if (!worldRef.current) {
-            worldRef.current = { start: msg.start, sim: createSim(coopSimOptions(msg.start)), feed: new CoopFeed(msg.start.players.length) };
+            worldRef.current = { start: msg.start, sim: createSim(coopSimOptions(msg.start)), feed: new CoopFeed(msg.start.players.length), gen: 0 };
             setWorld(worldRef.current);
             onSim?.(worldRef.current.sim);
           }
           const events = decodeLog(fromBase64(msg.log)).events;
-          worldRef.current.feed.push(events.slice(known.current));
+          const missed = events.slice(known.current);
+          worldRef.current.feed.push(missed);
+          for (const v of missed) sealed.current.push(v);
           known.current = Math.max(known.current, events.length);
           closed.current = Math.max(closed.current, msg.to);
           setLink('live');
           setEpoch((e) => e + 1);
         } else if (msg.t === 'f') {
           worldRef.current?.feed.push(msg.ev);
+          for (const v of msg.ev) sealed.current.push(v);
           known.current += msg.ev.length;
           closed.current = msg.to;
         } else if (msg.t === 'end') {
           setResult({ result: msg.result });
+        } else if (msg.t === 'desync') {
+          // My world is not the referee's (phase 6c): a fresh one from the start and the whole sealed log catches up.
+          const was = worldRef.current;
+          if (!was) return;
+          const feed = new CoopFeed(was.start.players.length);
+          feed.push(sealed.current.slice());
+          worldRef.current = { start: was.start, sim: createSim(coopSimOptions(was.start)), feed, gen: was.gen + 1 };
+          setWorld(worldRef.current);
+          onSim?.(worldRef.current.sim);
         } else if (msg.t === 'mark') {
           const at = Date.now();
           const shown: ShownMark = { id: ++markId.current, slot: msg.slot, kind: msg.kind, x: msg.x, y: msg.y, at };
@@ -169,6 +187,7 @@ export function CoopArena({
   }
   return (
     <CoopWorld
+      key={world.gen}
       marks={marks}
       start={world.start}
       sim={world.sim}
@@ -236,6 +255,18 @@ function CoopWorld({
   /** The offer I already answered (its sequence): its strip hides until the next one opens. */
   const [picked, setPicked] = useState(-1);
   const hudRef = useRef(hud);
+  /** Out until the next layer (phase 6c): the teammate the camera follows; null follows my own probe. */
+  const [watching, setWatching] = useState<number | null>(null);
+  const watchingRef = useRef<number | null>(null);
+  const watch = useCallback(
+    (to: number | null) => {
+      if (to === watchingRef.current) return;
+      watchingRef.current = to;
+      setWatching(to);
+      stageRef.current?.follow(to ?? slot);
+    },
+    [slot],
+  );
   /** The quick-mark wheel while Q is held: where it opened, and the choice under the pointer. */
   const [wheel, setWheel] = useState<{ x: number; y: number; choice: CoopMark } | null>(null);
   const wheelRef = useRef(wheel);
@@ -278,6 +309,8 @@ function CoopWorld({
       closed: () => closed.current,
       step: () => {
         step(sim, feed.inputsFor(sim.tick + 1));
+        // My world's hash for the referee (phase 6c), only near the live edge (not while catching up).
+        if (sim.tick % COOP_SUM_EVERY === 0 && closed.current - sim.tick < COOP_SUM_EVERY) send({ t: 'sum', tick: sim.tick, h: stateHash(sim) });
         if (sim.events.length) onEvents(sim.events);
         if (sim.status === 'dead' || sim.status === 'extracted') {
           loop.stop();
@@ -336,11 +369,12 @@ function CoopWorld({
       const h = hudSnapshot(sim, slot);
       hudRef.current = h;
       setHud(h);
+      watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
     }, HUD_EVERY_MS);
     return () => clearInterval(id);
-  }, [sim, slot]);
+  }, [sim, slot, watch]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);
@@ -485,6 +519,7 @@ function CoopWorld({
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />
+      {watching !== null && !ending ? <SpectateBar hud={hud} players={start.players} me={slot} watching={watching} onWatch={watch} /> : null}
       {offer && !ending ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
       {link === 'lost' ? (
         <p className="coop-arena-status" role="status">

@@ -69,6 +69,12 @@ const int = (lo: number, hi: number) => z.number().int().min(lo).max(hi);
 export const COOP_MARKS = ['here', 'help', 'beacon', 'danger'] as const;
 export type CoopMark = (typeof COOP_MARKS)[number];
 
+/**
+ * Every this many ticks (5 s) a client sends the hash of its world (sim stateHash) for the referee to compare (phase
+ * 6c): a client whose world went its own way is told to rebuild it from the sealed log.
+ */
+export const COOP_SUM_EVERY = 300;
+
 /** What a player sends on the play socket. */
 export const coopClientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('in'), mx: int(-127, 127), my: int(-127, 127), aim: int(-1, 4095) }).strict(),
@@ -76,6 +82,7 @@ export const coopClientMessageSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('leave') }).strict(),
   z.object({ t: z.literal('ping'), at: z.number().finite() }).strict(),
   z.object({ t: z.literal('mark'), kind: z.enum(COOP_MARKS), x: int(-1_000_000, 1_000_000), y: int(-1_000_000, 1_000_000) }).strict(),
+  z.object({ t: z.literal('sum'), tick: int(1, 2_147_483_647), h: z.string().regex(/^[0-9a-f]{1,32}$/) }).strict(),
 ]);
 export type CoopClientMessage = z.infer<typeof coopClientMessageSchema>;
 
@@ -92,4 +99,6 @@ export type CoopServerMessage =
   | { t: 'end'; outcome: CoopOutcome; result: RunResult | null }
   | { t: 'pong'; at: number }
   /** A quick mark a player put (the sender too): who, which, where in the world. */
-  | { t: 'mark'; slot: number; kind: CoopMark; x: number; y: number };
+  | { t: 'mark'; slot: number; kind: CoopMark; x: number; y: number }
+  /** This player's world is not the referee's at `tick`: rebuild it from the start and the sealed log. */
+  | { t: 'desync'; tick: number };

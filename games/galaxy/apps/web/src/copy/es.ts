@@ -1160,6 +1160,10 @@ export const copy = {
       life: { up: 'En pie', down: 'Caído', out: 'Fuera', away: 'Ausente', left: 'Se fue' },
       down: (s: number) => `Has caído. Un compañero puede reanimarte quedándose encima: ${s} s`,
       out: 'Fuera hasta la siguiente capa',
+      // Out until the next layer (phase 6c): the camera follows a teammate still in play.
+      watching: (name: string) => `Viendo a ${name}`,
+      watchPrev: 'Ver al compañero anterior',
+      watchNext: 'Ver al siguiente compañero',
       cards: 'Elige una mejora',
       cardsHint: 'Pulsa 1, 2 o 3. El mundo no se para',
       pickLeft: (s: number) => `${s} s para elegir; luego, al azar`,
