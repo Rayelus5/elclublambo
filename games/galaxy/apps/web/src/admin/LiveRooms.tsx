@@ -1,4 +1,5 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
+import { Link } from 'react-router';
 import { useAdminRooms } from '../api/rooms';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -59,7 +60,12 @@ export function LiveRooms() {
                     </ul>
                   </td>
                   <td>{r.idle(room.idleSeconds)}</td>
-                  <td>
+                  <td className="admin-room-actions">
+                    {room.run ? (
+                      <Link className="lip pill small" to={`/admin/moderacion/directo/${room.run.id}`} aria-label={r.watchOf(room.code)}>
+                        {r.watch}
+                      </Link>
+                    ) : null}
                     <button
                       type="button"
                       className="lip pill small"

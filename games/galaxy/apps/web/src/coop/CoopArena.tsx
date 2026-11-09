@@ -50,11 +50,14 @@ export function CoopArena({
   onAbandon,
   clock = browserClock,
   onSim,
+  viewer = false,
 }: {
   runId: string;
   onExit: () => void;
   onAbandon: () => void;
   clock?: Clock;
+  /** Staff watching live (phase 7): the watch socket, nothing sent, a camera to choose, no menu. */
+  viewer?: boolean;
   /** The simulation once the run arrived (tests). */
   onSim?: (sim: Sim) => void;
 }) {
@@ -86,11 +89,13 @@ export function CoopArena({
   const [epoch, setEpoch] = useState(0);
   /** Sends if the socket is open; false when it is not (the caller keeps it pending). */
   const send = useCallback((msg: unknown): boolean => {
+    // A viewer never sends: the run is not theirs.
+    if (viewer) return false;
     const s = socket.current;
     if (!s || s.readyState !== WebSocket.OPEN) return false;
     s.send(JSON.stringify(msg));
     return true;
-  }, []);
+  }, [viewer]);
 
   // The play socket: hello (the run, or what I missed), frames, the end.
   useEffect(() => {
@@ -98,7 +103,8 @@ export function CoopArena({
     let attempt = 0;
     let stopped = false;
     const connect = () => {
-      const s = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/galaxy/api/coop/play/ws?run=${encodeURIComponent(runId)}`);
+      const path = viewer ? '/galaxy/api/admin/coop/watch/ws' : '/galaxy/api/coop/play/ws';
+      const s = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}${path}?run=${encodeURIComponent(runId)}`);
       socket.current = s;
       s.onmessage = (e: MessageEvent) => {
         let msg: CoopServerMessage;
@@ -171,7 +177,7 @@ export function CoopArena({
       <div className="results sending" role="alert">
         <p>{t.gone}</p>
         <button type="button" className="lip pill pill-solar" onClick={onExit}>
-          {t.back}
+          {viewer ? t.watchBack : t.back}
         </button>
       </div>
     );
@@ -198,6 +204,7 @@ export function CoopArena({
       result={result}
       send={send}
       clock={clock}
+      viewer={viewer}
       onExit={onExit}
       onAbandon={() => {
         send({ t: 'leave' });
@@ -218,11 +225,13 @@ function CoopWorld({
   result,
   send,
   clock,
+  viewer,
   onExit,
   onAbandon,
 }: {
   marks: ShownMark[];
   clock: Clock;
+  viewer: boolean;
   start: CoopRunStart;
   sim: Sim;
   feed: CoopFeed;
@@ -234,7 +243,9 @@ function CoopWorld({
   onExit: () => void;
   onAbandon: () => void;
 }) {
-  const slot = start.slot;
+  /** A viewer (phase 7) chooses whose probe the camera and the HUD follow; a player is always their own. */
+  const [viewSlot, setViewSlot] = useState(start.slot);
+  const slot = viewer ? viewSlot : start.slot;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const loopRef = useRef<Lockstep | null>(null);
@@ -402,6 +413,7 @@ function CoopWorld({
 
   // Keyboard and mouse; nothing pauses: Escape or P open the menu over the running world. Q: the quick marks.
   useEffect(() => {
+    if (viewer) return;
     const pointer = () => input.current.mouse ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
     const down = (e: KeyboardEvent) => {
       if (typing(e)) return;
@@ -463,7 +475,7 @@ function CoopWorld({
       window.removeEventListener('blur', idle);
       document.removeEventListener('visibilitychange', hidden);
     };
-  }, [sendInput, sendMark, sim, slot]);
+  }, [sendInput, sendMark, sim, slot, viewer]);
 
   // Gamepad: the left stick moves, the right one aims.
   useEffect(() => {
@@ -496,6 +508,17 @@ function CoopWorld({
       </div>
     );
   }
+  if (showResult && result && viewer) {
+    return (
+      <div className="results sending coop-watch-end" role="status">
+        <p>{t.watchEnded}</p>
+        <TeamResults rows={teamRows(sim, start)} me={-1} />
+        <button type="button" className="lip pill pill-solar" onClick={onExit}>
+          {t.watchBack}
+        </button>
+      </div>
+    );
+  }
   if (showResult && result) {
     return result.result ? (
       <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} />} />
@@ -512,7 +535,32 @@ function CoopWorld({
   return (
     <div className={`arena coop-arena${reduced ? ' reduced' : ''}`}>
       <canvas ref={canvasRef} className="arena-canvas" aria-label={copy.arena.loading} />
-      <Hud hud={hud} content={start.content} onPause={() => setMenu(true)} announce={announce} />
+      <Hud hud={hud} content={start.content} onPause={viewer ? undefined : () => setMenu(true)} announce={announce} />
+      {viewer ? (
+        <div className="coop-viewer">
+          <div className="segmented" role="radiogroup" aria-label={t.camera}>
+            {start.players.map((pl, i) => (
+              <button
+                key={pl.username}
+                type="button"
+                role="radio"
+                aria-checked={slot === i}
+                onClick={() => {
+                  setViewSlot(i);
+                  watchingRef.current = null;
+                  setWatching(null);
+                  stageRef.current?.follow(i);
+                }}
+              >
+                {pl.username}
+              </button>
+            ))}
+          </div>
+          <button type="button" className="lip pill small" onClick={onExit}>
+            {t.watchBack}
+          </button>
+        </div>
+      ) : null}
       <TeamPanel hud={hud} players={start.players} slot={slot} />
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
@@ -520,7 +568,7 @@ function CoopWorld({
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />
       {watching !== null && !ending ? <SpectateBar hud={hud} players={start.players} me={slot} watching={watching} onWatch={watch} /> : null}
-      {offer && !ending ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
+      {offer && !ending && !viewer ? <CoopCards hud={hud} content={start.content} pickSeconds={start.rules.pickSeconds} onPick={pick} /> : null}
       {link === 'lost' ? (
         <p className="coop-arena-status" role="status">
           {t.lost}
@@ -536,7 +584,7 @@ function CoopWorld({
           {showResult && !result ? <small>{t.waitResult}</small> : null}
         </div>
       )}
-      {menu && !ending && (
+      {menu && !ending && !viewer && (
         <PauseMenu
           title={t.menu}
           abandonBody={t.abandonBody}

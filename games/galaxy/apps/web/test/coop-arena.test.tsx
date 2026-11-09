@@ -1,6 +1,6 @@
 import { type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } from '@galaxy/shared';
 import { DEFAULT_CONTENT, encodeLog, gainXp, type Sim, toBase64 } from '@galaxy/sim';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { CoopArena } from '../src/coop/CoopArena';
 import { copy } from '../src/copy/es';
@@ -210,6 +210,42 @@ test('cada 5 s manda la huella de su mundo y, si el árbitro dice que no coincid
   clock.frames(40);
   expect(sim().tick).toBe(400);
   expect(sim().probes[1]!.x).toBe(x);
+});
+
+test('un admin mira en directo: su socket es el de mirar, no manda nada, cambia de cámara y al acabar ve al equipo (fase 7)', async () => {
+  const clock = manualClock();
+  let sim: Sim | null = null;
+  const exit = vi.fn();
+  render(<CoopArena runId={RUN} viewer onExit={exit} onAbandon={() => {}} clock={clock} onSim={(s) => (sim = s)} />);
+  await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+  const ws = FakeSocket.last!;
+  expect(ws.url).toContain(`/galaxy/api/admin/coop/watch/ws?run=${RUN}`);
+  ws.push({ t: 'hello', start, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
+  await waitFor(() => expect(sim).not.toBeNull());
+  await act(async () => {});
+  ws.push({ t: 'f', to: 400, ev: [] });
+  // Keys do nothing and nothing is ever sent (no input, no hash, no menu).
+  fireEvent.keyDown(window, { code: 'KeyD' });
+  fireEvent.keyDown(window, { code: 'Escape' });
+  clock.frames(40);
+  expect(ws.sent).toEqual([]);
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  const cams = screen.getByRole('radiogroup', { name: t.camera });
+  stageFollow.mockClear();
+  fireEvent.click(within(cams).getByRole('radio', { name: 'vega' }));
+  expect(within(cams).getByRole('radio', { name: 'vega' })).toHaveAttribute('aria-checked', 'true');
+  expect(stageFollow).toHaveBeenLastCalledWith(1);
+  // The end: the group's table, and back to the rooms.
+  ws.push({ t: 'end', outcome: 'died', result: null });
+  ws.push({ t: 'f', to: 500, ev: [] });
+  act(() => {
+    sim!.status = 'dead';
+  });
+  clock.frames(3);
+  expect(await screen.findByText(t.watchEnded, {}, { timeout: 4000 })).toBeInTheDocument();
+  expect(screen.getByRole('table', { name: copy.coop.results.title })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: t.watchBack }));
+  expect(exit).toHaveBeenCalled();
 });
 
 test('una partida que ya no está lo dice y deja volver a la sala', async () => {

@@ -74,6 +74,8 @@ export class CoopRun {
   private sent = 0;
   private sentTo = 0;
   private readonly sockets: Set<PlaySocket>[];
+  /** Staff watching the run live (phase 7): they get what the players get, send nothing and never count as present. */
+  private readonly watchers = new Set<PlaySocket>();
   /** Each player's movement in effect after the closed ticks (a new input is sealed only if it differs). */
   private readonly move: [number, number, number][];
   private readonly presence: number[];
@@ -128,13 +130,28 @@ export class CoopRun {
     this.sockets[slot]!.add(socket);
     this.offlineSince[slot] = null;
     if (this.presence[slot] === PRESENCE_AWAY) this.seal(slot, PRESENCE, PRESENCE_UP, 0, 0);
-    const hello: CoopServerMessage = {
-      t: 'hello',
-      start: { ...this.base, slot },
-      log: toBase64(encodeLog({ probes: this.slots.length, events: this.events })),
-      to: this.closed,
-    };
-    socket.send(JSON.stringify(hello));
+    socket.send(JSON.stringify(this.hello(slot)));
+  }
+
+  /** The run so far, as a socket needs it to start: the start (with the slot it plays or looks at), the log, the tick. */
+  private hello(slot: number): CoopServerMessage {
+    return { t: 'hello', start: { ...this.base, slot }, log: toBase64(encodeLog({ probes: this.slots.length, events: this.events })), to: this.closed };
+  }
+
+  /** A staff socket watching live (phase 7): the run so far, as if from the first slot, then every frame. */
+  watch(socket: PlaySocket): void {
+    this.watchers.add(socket);
+    socket.send(JSON.stringify(this.hello(0)));
+  }
+
+  unwatch(socket: PlaySocket): void {
+    this.watchers.delete(socket);
+  }
+
+  /** Only the watchers hear it (the end of the run, whose results go to each player on their own). */
+  tellWatchers(msg: CoopServerMessage): void {
+    const data = JSON.stringify(msg);
+    for (const s of this.watchers) if (s.readyState === OPEN) s.send(data);
   }
 
   detach(slot: number, socket: PlaySocket, now: number): void {
@@ -308,6 +325,7 @@ export class CoopRun {
   broadcast(msg: CoopServerMessage): void {
     const data = JSON.stringify(msg);
     for (const set of this.sockets) for (const s of set) if (s.readyState === OPEN) s.send(data);
+    for (const s of this.watchers) if (s.readyState === OPEN) s.send(data);
   }
 
   sendTo(slot: number, msg: CoopServerMessage): void {
@@ -317,6 +335,7 @@ export class CoopRun {
 
   closeAll(code: number, reason: string): void {
     for (const set of this.sockets) for (const s of set) s.close(code, reason);
+    for (const s of this.watchers) s.close(code, reason);
   }
 
   /** The sealed log so far (log v2 when it has picks or presence), to save. */

@@ -168,6 +168,16 @@ export class CoopService {
     return { run, slot };
   }
 
+  /** A staff socket watching a run live (phase 7); null when the run is not playing here. */
+  watch(runId: string, socket: PlaySocket): CoopRun | null {
+    const run = this.runs.get(runId);
+    if (!run || run.ended) return null;
+    setImmediate(() => {
+      if (socket.readyState === 1 && !run.ended) run.watch(socket);
+    });
+    return run;
+  }
+
   disconnect(run: CoopRun, slot: number, socket: PlaySocket): void {
     run.detach(slot, socket, Date.now());
   }
@@ -296,6 +306,7 @@ export class CoopService {
         if (run.hasSocket(slot)) run.sendTo(slot, { t: 'end', outcome, result });
         else if (result) this.notify(run.slots[slot]!.accountId, { type: 'coopResult', outcome, result });
       }
+      run.tellWatchers({ t: 'end', outcome, result: null });
     } catch (err) {
       this.deps.log?.error({ err: (err as Error).name, run: run.id }, 'coop_settle_failed');
       run.broadcast({ t: 'end', outcome, result: null });
