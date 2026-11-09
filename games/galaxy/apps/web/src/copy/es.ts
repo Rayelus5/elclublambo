@@ -1639,6 +1639,7 @@ export const copy = {
     costCoins: (n: number) => `${fmt(n)} monedas`,
     revealTitle: 'Escaneo de campo profundo',
     skip: 'Saltar',
+    featuredFound: '¡Destacada!',
     next: 'Seguir',
     progress: (i: number, n: number) => `${i} de ${n}`,
     signal: 'Señal',

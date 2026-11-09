@@ -65,3 +65,28 @@ test('sin WebAudio no falla', () => {
     sfx.chord('rare');
   }).not.toThrow();
 });
+
+// Open beta: a ping per signal bar, the rising scan, the impact of the reveal (heavier the rarer), the Legendary's
+// fanfare and the featured sting; muted, nothing.
+const nodes = (f: () => void) => {
+  started = 0;
+  f();
+  return started;
+};
+
+test('un ping por barra, un impacto más fuerte cuanto más rara, la fanfarria y el aviso de destacada suenan', () => {
+  const sfx = createSfx();
+  expect(nodes(() => sfx.bars(5))).toBeGreaterThan(nodes(() => sfx.bars(1)));
+  expect(nodes(() => sfx.riser('rare', 1.6))).toBeGreaterThan(0);
+  expect(nodes(() => sfx.impact('legendary'))).toBeGreaterThan(nodes(() => sfx.impact('common')));
+  expect(nodes(() => sfx.fanfare())).toBeGreaterThan(0);
+  expect(nodes(() => sfx.sting())).toBeGreaterThan(0);
+  expect(nodes(() => sfx.ping(3))).toBeGreaterThan(0);
+  sfx.setMuted(true);
+  expect(nodes(() => {
+    sfx.bars(5);
+    sfx.impact('legendary');
+    sfx.fanfare();
+  })).toBe(0);
+  sfx.setMuted(false);
+});

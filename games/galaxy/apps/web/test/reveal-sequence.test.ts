@@ -71,3 +71,24 @@ test('saltar lleva al resumen desde cualquier paso', () => {
   const steps = revealSequence([pull('common'), pull('legendary')], { reduced: false });
   for (let i = 0; i < steps.length; i++) expect(steps[skipToSummary(steps)]!.kind).toBe('summary');
 });
+
+// Open beta: a run of ten moves on (the commons quickly), and the rare ones still take their time.
+const total = (steps: ReturnType<typeof revealSequence>) => steps.filter((s) => Number.isFinite(s.ms)).reduce((n, s) => n + s.ms, 0);
+
+test('una tirada de diez comunes llega al resumen en 22 s como mucho', () => {
+  const ten = Array.from({ length: 10 }, (_, i) => pull('common', 'none', `c${i}`));
+  expect(total(revealSequence(ten, { reduced: false }))).toBeLessThanOrEqual(22_000);
+});
+
+test('en una tirada de diez, la carta de una épica o una legendaria dura más que la de una común', () => {
+  const steps = revealSequence([pull('common', 'none', 'a'), pull('epic', 'none', 'b'), pull('legendary', 'none', 'c')], { reduced: false });
+  const card = (i: number) => steps.find((s) => s.kind === 'card' && s.index === i)!.ms;
+  expect(card(1)).toBeGreaterThan(card(0));
+  expect(card(2)).toBeGreaterThan(card(1));
+});
+
+test('una sola tirada mantiene su suspense: el escaneo de una legendaria no se acorta', () => {
+  const one = revealSequence([pull('legendary')], { reduced: false });
+  const inTen = revealSequence([pull('common', 'none', 'x'), pull('legendary', 'none', 'y')], { reduced: false });
+  expect(one.find((s) => s.kind === 'scan')!.ms).toBeGreaterThanOrEqual(inTen.find((s) => s.kind === 'scan' && s.index === 1)!.ms);
+});

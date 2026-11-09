@@ -585,6 +585,39 @@
   .stage-summary h3 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 28px; }
   .summary-cards { max-width: 940px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px; }
   .summary-cards .gcard { animation: card-in .5s var(--ease-bounce) both; }
+  /* Open beta: the reveal bursts. Light beams turn behind an epic or legendary card, a featured one says so, the
+     summary's cards land one after another (the rarest first, glowing), and the burst itself lives on a canvas over
+     the whole page (RevealFx) with a flash and, for a legendary, a short shake of the dialog. */
+  .stage-card { isolation: isolate; }
+  .stage-beams { position: absolute; inset: -20%; z-index: -1; display: none; pointer-events: none; }
+  .stage-card[data-tier='epic'] .stage-beams, .stage-card[data-tier='legendary'] .stage-beams {
+    display: block;
+    background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--tc) 55%, transparent) 0deg 9deg, transparent 9deg 30deg);
+    -webkit-mask-image: radial-gradient(circle, #000 18%, transparent 62%);
+    mask-image: radial-gradient(circle, #000 18%, transparent 62%);
+    animation: beams-turn 9s linear infinite, beams-in .5s ease-out both;
+  }
+  .stage-card[data-tier='legendary'] .stage-beams { animation-duration: 6s, .5s; }
+  @keyframes beams-turn { to { transform: rotate(360deg); } }
+  @keyframes beams-in { from { opacity: 0; transform: scale(.6); } }
+  .stage-featured { position: absolute; top: 8%; padding: 6px 14px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font: 400 18px var(--font-display); box-shadow: 0 4px 0 var(--color-solar-lip), 0 0 30px color-mix(in srgb, var(--color-solar) 70%, transparent); animation: featured-in .55s var(--ease-bounce) .35s both; }
+  @keyframes featured-in { from { opacity: 0; transform: scale(2.4) rotate(-8deg); } }
+  .summary-card { display: contents; }
+  .summary-cards .summary-card .gcard { animation-delay: calc(var(--i) * 90ms); }
+  .summary-cards .summary-card.best .gcard { filter: drop-shadow(0 0 10px var(--tc)) drop-shadow(0 0 22px color-mix(in oklab, var(--tc) 60%, transparent)); }
+  .reveal-fx { position: fixed; inset: 0; z-index: 55; pointer-events: none; }
+  .reveal-fx canvas { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; image-rendering: pixelated; }
+  .reveal-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle at 50% 46%, #fff 0%, color-mix(in oklab, var(--tc) 70%, #fff) 26%, transparent 70%); animation: reveal-flash .7s ease-out both; }
+  @keyframes reveal-flash { 12% { opacity: var(--flash); } 100% { opacity: 0; } }
+  .modal.reveal-stage.shake { animation: reveal-shake .45s steps(9) both; }
+  @keyframes reveal-shake {
+    0%, 100% { translate: 0 0; }
+    15% { translate: -6px 3px; }
+    30% { translate: 5px -4px; }
+    45% { translate: -4px -2px; }
+    60% { translate: 4px 3px; }
+    75% { translate: -2px 1px; }
+  }
   .summary-actions { display: flex; gap: 12px; }
 
   /* ---------- 3D inspector (DESIGN_SYSTEM §7) ---------- */
@@ -679,6 +712,7 @@
     .gcard-tilt { transform: none !important; transition: none; }
     .overlay { animation: none; }
     .idle-braille, .signal-bars i[data-on], .phenomenon, .stage-card .gcard, .summary-cards .gcard { animation: none; }
+    .stage-beams, .stage-featured, .modal.reveal-stage.shake { animation: none !important; }
     .crt-scanline { display: none; }
     .crt[data-reduced] .crt-image canvas { animation: crt-fade var(--scan-ms) ease both; }
     .gcard[data-finish='corrupt'] .gcard-art { animation: none !important; }

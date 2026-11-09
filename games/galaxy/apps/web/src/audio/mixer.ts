@@ -48,10 +48,13 @@ function setGain(node: GainNode, value: number): void {
   else node.gain.value = value;
 }
 
+/** The music stepped back (a scanner reveal, open beta): a third of its level until it ends. */
+let ducked = false;
+
 function apply(): void {
   if (!master || !musicBus || !sfxBus) return;
   setGain(master, settings.muted ? 0 : 1);
-  setGain(musicBus, settings.music * 0.6);
+  setGain(musicBus, settings.music * 0.6 * (ducked ? 0.35 : 1));
   setGain(sfxBus, settings.sfx);
 }
 
@@ -82,6 +85,12 @@ export function sfxOut(): { ctx: AudioContext; out: GainNode } | null {
   if (settings.muted || settings.sfx <= 0) return null;
   const b = audioBus();
   return b ? { ctx: b.ctx, out: b.sfx } : null;
+}
+
+/** Steps the music back (or forward again) without touching the settings. */
+export function duckMusic(on: boolean): void {
+  ducked = on;
+  apply();
 }
 
 export function getSettings(): AudioSettings {
