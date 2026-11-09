@@ -21,6 +21,8 @@ export async function creditRunProgress(
   run: RunProgressInput & { suspicious: boolean },
   cfg: { account: AccountConfig; season: SeasonConfig },
   now: Date,
+  /** Co-op (multiplayer plan): the season points scaled by the number of players. */
+  pointsFactor = 1,
 ): Promise<RunResult['progress']> {
   const gained = run.suspicious ? 0 : runXp(run, cfg.account);
   let total: number;
@@ -40,6 +42,6 @@ export async function creditRunProgress(
     xp: gained,
     level,
     levelUp: level > levelOf(total - gained, cfg.account).level,
-    points: !run.suspicious && seasonOpen(cfg.season, now) ? seasonPoints(run, cfg.season, cfg.account.minRunSeconds) : 0,
+    points: !run.suspicious && seasonOpen(cfg.season, now) ? Math.floor(seasonPoints(run, cfg.season, cfg.account.minRunSeconds) * pointsFactor) : 0,
   };
 }

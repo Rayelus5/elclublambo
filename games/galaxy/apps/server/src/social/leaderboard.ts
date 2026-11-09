@@ -55,7 +55,10 @@ export function ranking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTa
 
 async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<LeaderTab, 'clans'>, minRunSeconds: number): Promise<Ranked[]> {
   // Each run's points, never more than the cap per minute it lasted (packages/shared seasonPoints).
-  const points = sql`least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60)`;
+  // A co-op run's points are scaled by the players it started with (multiplayer plan: runs.points_factor).
+  const points = sql`floor(least(r.depth * ${cfg.points.layer}::int + r.boss_kills * ${cfg.points.core}::int + case when r.outcome = 'extracted' then ${cfg.points.extraction}::int else 0 end, (r.seconds * ${cfg.capPerMinute}::int) / 60) * r.points_factor)::int`;
+  // Group records live in the group ranking only: depth and purges count solo runs.
+  const soloOnly = tab === 'general' ? sql`` : sql`and r.coop_run_id is null`;
   const value =
     tab === 'general' ? sql`sum(r.pts)` : tab === 'depth' ? sql`max(r.depth)` : sql`sum(r.boss_kills)`;
   // The season's runs, and in General the points an admin added or took away this season (M6d-4; depth 0, no cores).
@@ -78,6 +81,7 @@ async function computeRanking(db: Kysely<DB>, cfg: SeasonConfig, tab: Exclude<Le
         where r.finished_at >= ${new Date(cfg.startsAt)} and r.finished_at < ${new Date(cfg.endsAt)}
           and not r.suspicious
           and r.seconds >= ${minRunSeconds}::int
+          ${soloOnly}
         ${adjustments}
       ) r
       join galaxy.accounts a on a.id = r.account_id

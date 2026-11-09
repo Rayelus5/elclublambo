@@ -54,6 +54,7 @@ const room = (over: Partial<RoomView> = {}): RoomView => ({
   max: 4,
   createdAt: '2026-11-09T10:00:00Z',
   canStart: false,
+  run: null,
   ...over,
 });
 const rooms = (over: Partial<RoomsView> = {}): RoomsView => ({

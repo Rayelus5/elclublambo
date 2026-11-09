@@ -4,7 +4,7 @@ import type WebSocket from 'ws';
 import { createAdminViaCli, get, ORIGIN, post, put, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
 
 // Rooms (multiplayer plan, phase 5): who may play in a group, public/private/friends rooms, Entrar rápido, the leader's
-// powers, blocks, invites with privacy, launching (not yet: co-op runs come in phase 6) and the admin's live rooms.
+// powers, blocks, invites with privacy, who may launch, and the admin's live rooms.
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
   ctx = await testApp();
@@ -128,13 +128,12 @@ describe('salas', () => {
     expect((await act(a, '/join', { code: room.code })).json()).toMatchObject({ error: 'room_not_found' });
   });
 
-  test('despegar pide que todos estén listos; con todos listos, aún no hay partidas en grupo', async () => {
+  test('despegar pide que todos estén listos y lo hace el líder (las partidas, en coop-runs.test)', async () => {
     const [a, b] = [await player(), await player()];
     const room = await create(a, 'private');
     await act(b, '/join', { code: room.code });
     expect((await act(a, '/start')).json()).toMatchObject({ error: 'room_not_ready' });
     await act(b, '/ready', { ready: true });
-    expect((await act(a, '/start')).json()).toMatchObject({ error: 'coop_soon' });
     expect((await act(b, '/start')).json()).toMatchObject({ error: 'room_not_leader' });
   });
 });

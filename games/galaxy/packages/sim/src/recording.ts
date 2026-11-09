@@ -1,4 +1,5 @@
 import { createSim, step } from './sim';
+import { CoopFeed } from './coop-feed';
 import { MOVE, PICK, PICK_SEQ, PRESENCE } from './log';
 import { IDLE, type InputLog, type ProbeInput, type Sim, type SimOptions } from './types';
 
@@ -158,28 +159,11 @@ export function createReplayer(opts: SimOptions, log: InputLog, until: number): 
  * logged at tick T are in effect from T on (sticky); a pick logged at T is given at T only, with its offer.
  */
 function coopReplayer(sim: Sim, log: InputLog, until: number): Replayer {
-  const current: ProbeInput[] = sim.probes.map(() => ({ ...IDLE, presence: 0 }));
-  const ev = log.events;
-  let i = 0;
+  const feed = new CoopFeed(sim.probes.length);
+  feed.push(log.events);
   function next(): boolean {
     if (sim.status !== 'running' || sim.tick >= until) return false;
-    const nextTick = sim.tick + 1;
-    const inputs = current.map((c) => ({ ...c, pick: -1 }));
-    while (i + 5 < ev.length && ev[i]! <= nextTick) {
-      const p = ev[i + 1]!;
-      const kind = ev[i + 2]!;
-      if (kind === MOVE) {
-        current[p] = { ...current[p]!, mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]! };
-        inputs[p] = { ...inputs[p]!, mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]! };
-      } else if (kind === PRESENCE) {
-        current[p] = { ...current[p]!, presence: ev[i + 3]! };
-        inputs[p] = { ...inputs[p]!, presence: ev[i + 3]! };
-      } else if (kind === PICK_SEQ && ev[i]! === nextTick) {
-        inputs[p] = { ...inputs[p]!, pick: ev[i + 3]!, offer: ev[i + 4]! };
-      }
-      i += 6;
-    }
-    step(sim, inputs);
+    step(sim, feed.inputsFor(sim.tick + 1));
     return true;
   }
   return { sim, next };

@@ -27,6 +27,8 @@ import {
   redshiftBonuses,
   type BoostCurrency,
   type BoostsConfig,
+  type RunClaim,
+  type RunFlag,
 } from '@galaxy/shared';
 import { type Content, decodeLog, fromBase64, logTicks } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
@@ -59,6 +61,31 @@ export interface StartContext {
   now: Date;
 }
 
+/** A run's seed: 64 random bits, in decimal. */
+export function newRunSeed(): string {
+  return randomBytes(8).readBigUInt64BE().toString();
+}
+
+export type LoadoutContext = Pick<StartContext, 'content' | 'probes' | 'lab' | 'planetarium' | 'redshift'>;
+
+/**
+ * What a run snapshots of a player at its start (solo and co-op): the equipped relics, the probe's level bonuses and
+ * starting weapon (GDD §6, M4b-1: a variant its level no longer opens starts as the base), the Laboratorio's stat
+ * bonuses and its push on the pay (M4b-2), the planetarium's experience (M4c-2) and the prestige's bonus (M7e-2).
+ */
+export async function loadoutSnapshot(trx: Kysely<DB>, accountId: string, probe: string, slots: number, ctx: LoadoutContext) {
+  const relics = await relicSnapshot(trx, accountId, slots);
+  const probeDef = ctx.content.probes.find((p) => p.id === probe)!;
+  const saved = (await probeLevels(trx, accountId))[probe];
+  const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
+  const lab = await accountLabEffects(trx, accountId, ctx.lab);
+  const xp = await planetariumXp(trx, accountId, ctx.planetarium);
+  const prestige = redshiftBonuses(await redshiftRank(trx, accountId), ctx.redshift);
+  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : []), ...prestige];
+  const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
+  return { relics, bonuses, variant: weapon === probeDef.weapon ? null : weapon, payout: lab.payout };
+}
+
 export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRunRequest, key: string, ctx: StartContext): Promise<RunStart> {
   const sector = ctx.content.sectors.find((s) => s.id === req.sector);
   if (!sector) throw new HttpError(400, 'invalid_input');
@@ -68,22 +95,8 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
   if (!sectorStatus(sector, await sectorStats(trx, accountId), ctx.sectors).unlocked) throw new HttpError(409, 'sector_locked');
-  const relics = await relicSnapshot(trx, accountId, hangar.slots);
-  // The probe's level and starting weapon (GDD §6, M4b-1), snapshotted like the relics: a variant its level no longer
-  // opens (or no longer of its weapon) starts as the base weapon.
-  const probeDef = ctx.content.probes.find((p) => p.id === req.probe)!;
-  const saved = (await probeLevels(trx, accountId))[req.probe];
-  const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
-  // The Laboratorio (M4b-2): its stat bonuses join the level's, and its push on the pay is kept for the finish.
-  const lab = await accountLabEffects(trx, accountId, ctx.lab);
-  // The planetarium (M4c-2): the experience bonus of what is on display now; changing it later leaves this run alone.
-  const xp = await planetariumXp(trx, accountId, ctx.planetarium);
-  // The prestige (M7e-2): its rank's small bonus, like the Laboratorio's.
-  const prestige = redshiftBonuses(await redshiftRank(trx, accountId), ctx.redshift);
-  const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : []), ...prestige];
-  const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
-  const variant = weapon === probeDef.weapon ? null : weapon;
-  const seed = randomBytes(8).readBigUInt64BE().toString();
+  const { relics, bonuses, variant, payout } = await loadoutSnapshot(trx, accountId, req.probe, hangar.slots, ctx);
+  const seed = newRunSeed();
   const row = await trx
     .insertInto('galaxy.runs')
     .values({
@@ -92,7 +105,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sector: req.sector,
       probe: req.probe,
       relics: JSON.stringify(relics),
-      upgrades: JSON.stringify({ bonuses, variant, payout: lab.payout, anomaly: ctx.anomaly }),
+      upgrades: JSON.stringify({ bonuses, variant, payout, anomaly: ctx.anomaly }),
       content_version: ctx.contentVersion,
       sim_version: req.simVersion,
       start_key: key,
@@ -177,7 +190,31 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   const { inputs: _inputs, ...claimed } = req;
   const sector = ctx.content.sectors.find((s) => s.id === run.sector);
   const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick });
-  const claim = check.claim;
+  return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1 }, key, ctx);
+}
+
+/** What a run is paid on: its row, the figures kept (and those sent), the checks' verdict and its real time. */
+export interface SettleInput {
+  run: { id: string; upgrades: unknown };
+  claim: RunClaim;
+  /** What the client sent (solo) or the referee saw (co-op), before any clipping. */
+  claimed: RunClaim;
+  flags: RunFlag[];
+  penalized: boolean;
+  wallSeconds: number;
+  /** The run's recorded inputs (solo); a co-op run keeps its log in coop_run_inputs. */
+  inputs: Uint8Array | null;
+  /** The factor on its season points (co-op: by the number of players, multiplayer plan). */
+  pointsFactor: number;
+}
+
+/**
+ * Pays a finished run and keeps it (solo and co-op): the day's run time and its yield, the loot by layer, signals,
+ * material and components, the row's figures, the inputs and the account's progress.
+ */
+export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInput, key: string, ctx: FinishContext): Promise<RunResult> {
+  const { run, claim, claimed, wallSeconds } = s;
+  const check = { flags: s.flags, penalized: s.penalized };
   const seconds = Math.max(0, Math.floor(Math.min(claim.ticks / 60, wallSeconds)));
 
   // The day's run time, locked: two runs finishing at once cannot both claim the full rate.
@@ -235,13 +272,14 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
     })
     .where('id', '=', run.id)
     .execute();
-  await trx.insertInto('galaxy.run_inputs').values({ run_id: run.id, inputs: Buffer.from(bytes) }).execute();
+  if (s.inputs) await trx.insertInto('galaxy.run_inputs').values({ run_id: run.id, inputs: Buffer.from(s.inputs) }).execute();
   const progress = await creditRunProgress(
     trx,
     accountId,
     { seconds, depth: claim.depth, bossKills: claim.bossKills, outcome: claim.outcome, suspicious: flags.length > 0 },
     { account: ctx.account, season: ctx.season },
     ctx.now,
+    s.pointsFactor,
   );
 
   return {
