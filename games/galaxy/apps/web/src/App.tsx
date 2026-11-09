@@ -6,6 +6,9 @@ import { TourProvider } from './tour/TourProvider';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
+import { GroupScreen } from './coop/GroupScreen';
+import { RoomScreen } from './coop/RoomScreen';
+import { LiveRooms } from './admin/LiveRooms';
 import { ProbeTestScreen } from './probe-test/ProbeTest';
 import { StationScreen } from './station/StationScreen';
 import { LabScreen } from './lab/LabScreen';
@@ -115,6 +118,8 @@ export function App() {
         <Route path="/coleccion" element={<SignedIn><CollectionScreen /></SignedIn>} />
         <Route path="/coleccion/:id" element={<SignedIn><CollectionScreen /></SignedIn>} />
         <Route path="/incursion" element={<SignedIn><HangarScreen /></SignedIn>} />
+        <Route path="/incursion/grupo" element={<SignedIn><GroupScreen /></SignedIn>} />
+        <Route path="/incursion/sala" element={<SignedIn><RoomScreen /></SignedIn>} />
         <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
         <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
         <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
@@ -149,6 +154,7 @@ export function App() {
             <Route index element={<Reports />} />
             <Route path="chat" element={<LiveChat />} />
             <Route path="silencios" element={<Mutes />} />
+            <Route path="salas" element={<LiveRooms />} />
             <Route element={<AdminOnly />}>
               <Route path="clanes" element={<ClanList />} />
               <Route path="clanes/:tag" element={<ClanPage />} />

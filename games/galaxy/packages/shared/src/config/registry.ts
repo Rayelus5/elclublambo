@@ -79,6 +79,8 @@ export const configSchemas = {
       chat: z.boolean().default(true),
       /** Plan phase 3: friends, presence and invites. */
       friends: z.boolean().default(true),
+      /** Plan phases 5–6: rooms and co-op runs. */
+      coop: z.boolean().default(true),
     })
     .strict(),
   auth: z.object({
@@ -478,6 +480,31 @@ export const configSchemas = {
     .strict()
     .refine((m) => m.maxPrice >= m.minPrice.legendary, 'maxPrice is at least the legendary floor'),
   /** Clans (GDD §14.3; M5b-1): how many members at most, what creating one costs, and the account level it needs. */
+  /**
+   * Co-op (multiplayer plan, phases 5–6): who may play (account level, after the tutorial), the rooms (how many at
+   * once, how long an idle lobby lives, invites per minute), and the run's rules (cards, falls and revives, and the
+   * scaling, loot and season points by the number of players: index = players − 1).
+   */
+  coop: z
+    .object({
+      minLevel: z.number().int().min(1).max(99).default(1),
+      maxRooms: z.number().int().min(1).max(10_000).default(500),
+      lobbyIdleMinutes: z.number().int().min(1).max(240).default(30),
+      invitesPerMinute: z.number().int().min(1).max(60).default(6),
+      pickSeconds: z.number().min(3).max(60).default(15),
+      downSeconds: z.number().min(5).max(120).default(30),
+      reviveSeconds: z.number().min(0.5).max(20).default(3),
+      reviveRadius: z.number().min(8).max(200).default(28),
+      reviveHp: z.number().gt(0).max(1).default(0.5),
+      reviveInvuln: z.number().min(0).max(10).default(2),
+      enemyHp: z.array(z.number().min(0.25).max(10)).length(4).default([1, 1.5, 2, 2.5]),
+      enemyDamage: z.array(z.number().min(0.25).max(10)).length(4).default([1, 1.1, 1.15, 1.2]),
+      density: z.array(z.number().min(0.25).max(10)).length(4).default([1, 1.4, 1.75, 2.1]),
+      bossHp: z.array(z.number().min(0.25).max(10)).length(4).default([1, 1.8, 2.6, 3.4]),
+      loot: z.array(z.number().min(0).max(2)).length(4).default([1, 0.75, 0.62, 0.55]),
+      points: z.array(z.number().min(0).max(2)).length(4).default([1, 0.85, 0.75, 0.7]),
+    })
+    .strict(),
   /** Friends (multiplayer plan, phase 3): how many an account may have, and how many requests it may send per hour. */
   social: z
     .object({

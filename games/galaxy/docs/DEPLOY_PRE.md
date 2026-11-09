@@ -728,6 +728,29 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - pestaña Social en la ficha del jugador, con amigos, solicitudes y bloqueos en los dos sentidos;
      - las estadísticas cuentan los sockets de los dos tipos.
 
+46. **Multijugador, fase 5 (salas y la nueva /incursion):** sin migraciones. Las salas viven en la memoria del servidor: un reinicio las cierra.
+   - **El hangar** gana arriba tres tarjetas:
+     - Partida rápida: despega ya con lo de abajo;
+     - Solitario: la página de siempre;
+     - En grupo: lleva a las salas, o a la tuya si ya estás en una.
+
+     No salen durante el tutorial guiado.
+   - **`/incursion/grupo`:**
+     - Entrar rápido: la sala pública más llena con hueco, o una nueva;
+     - crear sala: pública, solo amigos o privada, en un sector que tengas abierto;
+     - unirse con código;
+     - la lista de salas públicas;
+     - los amigos conectados, con «Unirse» si están en una sala.
+   - **`/incursion/sala`:**
+     - cuatro huecos con sonda, nivel, listo y conexión;
+     - el líder cambia el sector (y nadie queda listo) y el tipo, expulsa y cede el liderazgo;
+     - invitar a amigos conectados: les llega un aviso con «Unirse».
+   - **Despegar** aún responde «Las partidas en grupo llegan muy pronto», hasta la fase 6.
+   - **Acceso:** jugar en grupo pide acabar o saltar el tutorial y el nivel `coop.minLevel`. Se apaga con `features.coop`.
+   - **Admin:**
+     - clave nueva `coop` en Configuración › En grupo, con nivel mínimo, salas, invitaciones y las reglas de la partida por número de jugadores (las usa la fase 6);
+     - Moderación › Salas en vivo: lista cada 5 segundos y cierra una sala con motivo (queda en la auditoría como `room.close`, y a sus jugadores se les avisa).
+
 ## Operación
 
 | Tarea | Cómo |
