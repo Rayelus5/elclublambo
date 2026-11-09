@@ -15,6 +15,17 @@ import type { ConfigService } from './service';
 
 const publishBody = z.object({ data: z.unknown(), reason: z.string().trim().min(3).max(500), password: z.string().min(1).max(200), baseVersion: z.number().int().min(0).optional() });
 const validateBody = z.object({ data: z.unknown() });
+/** The keys a batch may carry (polish phase 4): an event, its scanner, a boost, its missions. The season has its own route (it archives). */
+const BATCH_KEYS = ['events', 'gacha', 'boosts', 'missions'] as const;
+const batchBody = z.object({
+  items: z
+    .array(z.object({ key: z.enum(BATCH_KEYS), data: z.unknown(), baseVersion: z.number().int().min(0).optional() }))
+    .min(1)
+    .max(BATCH_KEYS.length)
+    .refine((list) => new Set(list.map((i) => i.key)).size === list.length, 'duplicate_key'),
+  reason: z.string().trim().min(3).max(500),
+  password: z.string().min(1).max(200),
+});
 
 /**
  * Admin API over the live configuration (GDD §16.3; M6b). Every route needs an admin session opened with TOTP. Every
@@ -63,6 +74,15 @@ export function registerConfigRoutes(app: FastifyInstance, deps: { env: Env; con
     const { data: active } = (await deps.config.active()).find((r) => r.key === key) ?? { data: {} };
     const issues = configIssues(key, mergeDraft(key, active, validateBody.parse(req.body).data));
     return { ok: issues.length === 0, issues };
+  });
+
+  app.post('/galaxy/api/admin/config/batch', async (req, reply) => {
+    const admin = requireAdmin(req);
+    const { items, reason, password } = batchBody.parse(req.body);
+    await hitRateLimit(deps.db, `a:${admin.accountId}`, 'admin', 60, 60);
+    await confirmPassword(deps.db, admin, password);
+    const { versions } = await deps.config.publishMany(items, { id: admin.accountId, label: admin.username, ip: clientIp(req, deps.env.TRUST_CF_IP) }, reason);
+    return reply.code(201).send({ versions });
   });
 
   app.post<{ Params: { key: string } }>('/galaxy/api/admin/config/:key', async (req, reply) => {

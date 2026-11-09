@@ -47,9 +47,9 @@ test('un admin revisa la configuración viva sin publicar nada', async ({ page }
   await expect(page).toHaveURL(/\/galaxy\/admin\/configuracion$/);
 
   // The market switch: a wrong password is refused and nothing changes.
-  const keys = page.getByRole('region', { name: 'Claves' });
-  const featuresRow = keys.getByRole('listitem').filter({ has: page.getByRole('link', { name: 'features', exact: true }) });
-  const before = await featuresRow.locator('span').innerText();
+  const settings = page.getByRole('region', { name: 'Ajustes del juego' });
+  const featuresRow = settings.getByRole('listitem').filter({ has: page.getByRole('link', { name: /^Interruptores/ }) });
+  const before = await featuresRow.locator('.cf-version').innerText();
   const market = page.getByRole('switch', { name: 'Mercado' });
   await expect(market).toBeChecked();
   await market.click();
@@ -61,27 +61,27 @@ test('un admin revisa la configuración viva sin publicar nada', async ({ page }
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
   await expect(market).toBeChecked();
-  await expect(featuresRow.locator('span')).toHaveText(before);
+  await expect(featuresRow.locator('.cf-version')).toHaveText(before);
 
-  // A chat draft: an issue at its path, then what it would change; nothing is published.
-  await keys.getByRole('link', { name: 'chat', exact: true }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'chat' })).toBeVisible();
-  const editor = page.getByRole('textbox', { name: 'Borrador en JSON' });
-  const live = JSON.parse(await editor.inputValue()) as { maxLength: number };
-  await editor.fill(JSON.stringify({ ...live, maxLength: 5 }, null, 2));
+  // Each key is a form (polish phase 4): the field says what is wrong and «Qué cambia» speaks the form's words.
+  await settings.getByRole('link', { name: /^Chat/ }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Chat' })).toBeVisible();
+  const length = page.getByLabel('Caracteres por mensaje');
+  const live = Number(await length.inputValue());
+  await length.fill('5');
   const issues = page.getByRole('region', { name: 'Problemas' });
-  await expect(issues.locator('code')).toHaveText('maxLength');
+  await expect(issues).toContainText('Caracteres por mensaje');
   await expect(issues).toContainText('Demasiado pequeño');
   await expect(page.getByRole('button', { name: 'Publicar' })).toBeDisabled();
-  const next = live.maxLength === 300 ? 299 : 300;
-  await editor.fill(JSON.stringify({ ...live, maxLength: next }, null, 2));
-  await expect(page.getByRole('region', { name: 'Qué cambia' })).toContainText(`maxLength pasa de ${live.maxLength} a ${next}`);
+  const next = live === 300 ? 299 : 300;
+  await length.fill(String(next));
+  await expect(page.getByRole('region', { name: 'Qué cambia' })).toContainText(`Caracteres por mensaje pasa de ${live} a ${next}`);
   const history = page.getByRole('region', { name: 'Historial' });
   await expect(history.getByRole('button', { name: /^Cargar la versión/ }).first().or(history.getByText('Nunca se ha publicado', { exact: false }))).toBeVisible();
 
   // The gacha simulator pulls the draft in the browser.
   await page.getByRole('link', { name: 'Configuración' }).first().click();
-  await keys.getByRole('link', { name: 'gacha', exact: true }).click();
+  await settings.getByRole('link', { name: /^Escáner profundo/ }).click();
   await page.getByRole('button', { name: 'Tirar 10.000 veces' }).click();
   const table = page.getByRole('table', { name: 'Simulador del gachapón' });
   await expect(table.getByRole('rowheader', { name: 'Legendaria' })).toBeVisible();

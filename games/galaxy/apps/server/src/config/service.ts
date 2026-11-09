@@ -12,6 +12,12 @@ export interface ConfigService extends ConfigReader {
   versions(key: ConfigKey): Promise<ConfigVersion[]>;
   active(): Promise<Array<{ key: string; version: number; data: unknown }>>;
   publish<K extends ConfigKey>(key: K, data: unknown, actor: AuditActor, reason: string, opts?: { baseVersion?: number }): Promise<{ version: number }>;
+  /**
+   * Several keys in one transaction (polish phase 4: an event and its scanner): all or nothing, each key on the version
+   * it was edited on (409 names the one that moved), every problem with its key, one audit entry per key (they share
+   * the transaction's moment, actor and reason).
+   */
+  publishMany(items: { key: ConfigKey; data: unknown; baseVersion?: number }[], actor: AuditActor, reason: string): Promise<{ versions: Record<string, number> }>;
 }
 
 /**
@@ -113,6 +119,35 @@ export function createConfigService(
       });
       cache.delete(key);
       return { version };
+    },
+
+    async publishMany(items, actor, reason) {
+      const versions = await inTransaction(db, async (trx) => {
+        // Locks in a fixed order, so two batches can wait on each other but never deadlock.
+        const sorted = [...items].sort((a, b) => a.key.localeCompare(b.key));
+        for (const { key } of sorted) await sql`select pg_advisory_xact_lock(hashtext(${`galaxy.config:${key}`}))`.execute(trx);
+        const planned = [];
+        const issues: { key: string; path: string; message: string }[] = [];
+        for (const { key, data, baseVersion } of sorted) {
+          const current = await trx.selectFrom('galaxy.game_config_active').select(['version', 'data']).where('key', '=', key).executeTakeFirst();
+          if (baseVersion !== undefined && baseVersion !== (current?.version ?? 0)) throw new HttpError(409, 'config_conflict', { key });
+          const merged = mergeDraft(key, current?.data ?? {}, data);
+          const found = configIssues(key, merged);
+          issues.push(...found.map((i) => ({ key, ...i })));
+          if (!found.length) planned.push({ key, current, value: parseConfig(key, merged) as unknown });
+        }
+        if (issues.length) throw new HttpError(400, 'config_invalid', { issues });
+        const out: Record<string, number> = {};
+        for (const { key, current, value } of planned) {
+          const next = (current?.version ?? 0) + 1;
+          await trx.insertInto('galaxy.game_config_versions').values({ key, version: next, data: JSON.stringify(value), created_by: actor.id, note: reason }).execute();
+          await writeAudit(trx, { actor, action: 'config.published', targetType: 'config', targetId: key, before: current?.data ?? null, after: value, reason });
+          out[key] = next;
+        }
+        return out;
+      });
+      for (const { key } of items) cache.delete(key);
+      return { versions };
     },
   };
 }
