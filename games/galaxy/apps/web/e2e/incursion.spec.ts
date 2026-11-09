@@ -48,13 +48,19 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.getByRole('link', { name: /Jugar/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/incursion$/);
   await expect(page.getByRole('heading', { name: 'Nebulosa Exterior' })).toBeVisible();
-  // The test's probe is chosen; the other starters wait for three runs, and the five others for theirs.
+  // The test's probe is equipped; the workshop shows the eight: the other starters wait for three runs, the five
+  // others for theirs.
   await expect(page.getByRole('heading', { name: 'Bastión' })).toBeVisible();
+  await page.getByRole('link', { name: 'Abrir el taller' }).click();
+  await expect(page).toHaveURL(/\/galaxy\/taller/);
   const probes = page.getByRole('list', { name: 'Sondas' });
   await expect(probes.getByRole('listitem')).toHaveCount(8);
   await expect(probes.getByRole('button', { name: 'Bastión' })).toHaveAttribute('aria-pressed', 'true');
+  await expect(probes.getByRole('button', { name: 'Bastión' })).toContainText('Equipada');
   await expect(probes.getByRole('progressbar', { name: 'Lumen' })).toHaveAttribute('aria-valuenow', '0');
   await expect(probes.getByText('Juega 3 incursiones')).toHaveCount(2);
+  await page.getByRole('link', { name: /Volver/ }).click();
+  await expect(page).toHaveURL(/\/galaxy\/incursion$/);
   // Sectors (M3b-3): five, the chain closed behind each Core, and the season open. The run goes to the rift.
   const sectors = page.getByRole('list', { name: 'Sectores' });
   await expect(sectors.getByRole('listitem')).toHaveCount(5);

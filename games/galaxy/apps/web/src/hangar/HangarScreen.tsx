@@ -1,22 +1,22 @@
-import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type ProbeCard, type RunResult, type RunStart, type SectorCard } from '@galaxy/shared';
+import { TIERS, type FinishRunRequest, type GalaxySummary, type HangarView, type RunResult, type RunStart, type SectorCard } from '@galaxy/shared';
 import { DEFAULT_CONTENT, describeRelic, type RelicInput, SIM_VERSION } from '@galaxy/sim';
 import { Component, lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
-import { Navigate } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import type { RunEnd } from '../arena/ArenaScreen';
 import { spriteDataUrl } from '../arena/sprites';
 import { ApiError } from '../api/client';
 import { useGacha } from '../api/economy';
 import { clearPending, loadPending, type PendingRun, savePending } from '../api/pending-run';
 import { ModeBar } from './ModeBar';
-import { useChooseProbe, useChooseSector, useChooseVariant, useFinishRun, useHangar, useLevelUpProbe, useSetLoadout, useStartRun, useUnlockSlot } from '../api/runs';
+import { useChooseSector, useFinishRun, useHangar, useSetLoadout, useStartRun, useUnlockSlot } from '../api/runs';
+import { Progress } from '../workshop/parts';
 import { GalaxyCard } from '../cards/GalaxyCard';
-import { copy, quirkText } from '../copy/es';
+import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { errorText } from '../auth/useMe';
 import { Icon } from '../ui/Icon';
 import { RelicPicker } from './RelicPicker';
 import { SetsPanel } from './SetsPanel';
-import { weaponArtUrl } from './weapons';
 import { ResultsScreen } from './ResultsScreen';
 import { AnomalyTag } from '../hub/AnomalyTag';
 import { BoostChips } from '../hub/Boosts';
@@ -199,30 +199,7 @@ function DailyYield({ daily }: { daily: HangarView['daily'] }) {
   );
 }
 
-/** What earns a locked tile and how far the account is: its line, a bar and the count. */
-function Progress({ name, text, value, progress }: { name: string; text: string; value: number; progress: number }) {
-  // The server sends stat / value; rounding gives the stat back (1999 of 2000 stays 1999, never a full bar).
-  const now = Math.min(value - 1, Math.round(progress * value));
-  return (
-    <>
-      <small className="probe-tile-sub">{text}</small>
-      <span className="probe-tile-progress">
-        <span className="probe-tile-bar" role="progressbar" aria-label={name} aria-valuemin={0} aria-valuemax={value} aria-valuenow={now}>
-          <i style={{ inlineSize: `${(now / value) * 100}%` }} />
-        </span>
-        <small className="probe-tile-count">
-          {now}/{value}
-        </small>
-      </span>
-    </>
-  );
-}
 
-/** Where a locked probe stands: its condition and how far the account is (GDD §6). */
-function Unlock({ card }: { card: ProbeCard }) {
-  if (!card.condition) return <small className="probe-tile-sub">{copy.hangar.unlockSoon}</small>;
-  return <Progress name={card.name} text={copy.hangar.unlock[card.condition.stat](card.condition.value)} value={card.condition.value} progress={card.progress} />;
-}
 
 /** The sector for the next runs and the five to pick from: open ones are chosen, closed ones say what opens them. */
 function SectorPanel({ view }: { view: HangarView }) {
@@ -314,104 +291,14 @@ function SectorPanel({ view }: { view: HangarView }) {
   );
 }
 
-/** The probe's level (GDD §6, M4b-1): its pips, what it adds and the next level with its cost and what is missing. */
-function ProbeLevel({ probe }: { probe: ProbeCard }) {
-  const up = useLevelUpProbe();
-  const wallet = useGacha().data?.wallet;
-  const pips = Array.from({ length: probe.maxLevel }, (_, i) => i < probe.level);
-  const next = probe.next;
-  const short = next && wallet ? { components: Math.max(0, next.components - (wallet['components'] ?? 0)), coins: Math.max(0, next.coins - wallet.coins) } : null;
-  const affordable = short !== null && short.components === 0 && short.coins === 0;
-  return (
-    <div className="probe-level">
-      <div className="probe-level-head">
-        <b>{copy.hangar.level(probe.level, probe.maxLevel)}</b>
-        <span className="level-pips" aria-hidden="true">
-          {pips.map((on, i) => (
-            <i key={i} className={on ? 'on' : undefined} />
-          ))}
-        </span>
-      </div>
-      {probe.bonuses.length > 0 ? <p className="probe-level-bonus">{copy.hangar.bonuses(probe.bonuses)}</p> : null}
-      {next ? (
-        <>
-          <button
-            type="button"
-            className="lip pill pill-solar station-upgrade"
-            disabled={!affordable || up.isPending}
-            aria-busy={up.isPending || undefined}
-            onClick={() => up.mutate({ probe: probe.id, level: probe.level + 1 })}
-          >
-            <Icon name="wrench" />
-            <span>{copy.hangar.levelUp(probe.level + 1)}</span>
-            <small>{copy.station.cost(next.components, next.coins)}</small>
-          </button>
-          {short && !affordable ? <p className="panel-note">{copy.station.missing(short.components, short.coins)}</p> : null}
-        </>
-      ) : (
-        <p className="panel-note">{copy.hangar.levelMax}</p>
-      )}
-      {up.error ? (
-        <p className="field-error" role="alert">
-          {errorText(up.error, copy.errors)}
-        </p>
-      ) : null}
-    </div>
-  );
-}
 
-/** A weapon's animated scene (painted in Aseprite), or its icon if it has none. */
-function WeaponArt({ id, icon }: { id: string; icon: string }) {
-  const url = weaponArtUrl(id);
-  if (!url) return <img className="weapon-card-icon" src={spriteDataUrl(icon, 3)} alt="" width={36} height={36} />;
-  return <span className="weapon-card-art" aria-hidden="true" data-art={id} style={{ backgroundImage: `url(${url})` }} />;
-}
 
-/** The starting weapon: the base and its variants as radio cards; a closed one says the level that opens it. */
-function WeaponPicker({ probe }: { probe: ProbeCard }) {
-  const choose = useChooseVariant();
-  // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
-  const chosen = choose.isPending ? choose.variables.variant : probe.variant;
-  return (
-    <fieldset className="weapon-picker">
-      <legend>{copy.hangar.startingWeapon}</legend>
-      <div role="radiogroup" aria-label={copy.hangar.startingWeapon} className="weapon-cards">
-        {probe.variants.map((w) => (
-          <label key={w.id} className={`weapon-card${w.unlocked ? '' : ' locked'}`}>
-            <input
-              type="radio"
-              name={`weapon-${probe.id}`}
-              value={w.id}
-              checked={chosen === w.id}
-              disabled={!w.unlocked}
-              onChange={() => {
-                if (w.id !== probe.variant) choose.mutate({ probe: probe.id, variant: w.id });
-              }}
-            />
-            <WeaponArt id={w.id} icon={w.icon} />
-            <span className="weapon-card-text">
-              <b>{w.name}</b>
-              <small>{w.unlocked ? w.description : copy.hangar.variantLocked(w.unlockAt)}</small>
-            </span>
-            {chosen === w.id ? <Icon name="check" className="ico weapon-card-check" /> : null}
-            {!w.unlocked ? <Icon name="lock" className="ico weapon-card-check" /> : null}
-          </label>
-        ))}
-      </div>
-      {choose.error ? (
-        <p className="field-error" role="alert">
-          {errorText(choose.error, copy.errors)}
-        </p>
-      ) : null}
-    </fieldset>
-  );
-}
 
-/** The probe for the next runs and the eight to pick from: the unlocked are chosen, the locked say what earns them. */
+/** The probe for the next runs (equipped in the workshop): what it is, its level and weapon, and the way in. */
 function ProbePanel({ view }: { view: HangarView }) {
-  const choose = useChooseProbe();
   const probe = view.probes.find((p) => p.id === view.probe) ?? view.probes[0];
   if (!probe) return null;
+  const weapon = probe.variants.find((w) => w.id === probe.variant) ?? probe.weapon;
   return (
     <section className="lip panel hangar-probe" aria-labelledby="hangar-probe" data-tour="probe">
       <span className="hangar-kicker">{copy.hangar.probe}</span>
@@ -429,62 +316,21 @@ function ProbePanel({ view }: { view: HangarView }) {
               <dt>{copy.hangar.speed}</dt>
               <dd>{probe.speed}</dd>
             </div>
+            <div>
+              <dt>{copy.workshop.levelShort}</dt>
+              <dd>{copy.hangar.level(probe.level, probe.maxLevel)}</dd>
+            </div>
           </dl>
-          {probe.quirk && (
-            <p className="probe-quirk">
-              <b>{copy.probeTest.quirk}</b>
-              <span>{quirkText(probe.quirk)}</span>
-            </p>
-          )}
+          <p className="probe-quirk">
+            <b>{copy.hangar.startingWeapon}</b>
+            <span>{weapon.name}</span>
+          </p>
         </div>
       </div>
-      <ProbeLevel probe={probe} />
-      <WeaponPicker probe={probe} />
-      <ul className="probe-picker" aria-label={copy.hangar.probePicker}>
-        {view.probes.map((p) => {
-          const chosen = p.id === view.probe;
-          const art = <img className="probe-tile-art" src={spriteDataUrl(p.sprite, 3)} alt="" width={48} height={48} />;
-          return (
-            <li key={p.id}>
-              {p.unlocked ? (
-                <button
-                  type="button"
-                  className={`probe-tile${chosen ? ' chosen' : ''}`}
-                  aria-label={p.name}
-                  aria-pressed={chosen}
-                  aria-busy={(choose.isPending && choose.variables === p.id) || undefined}
-                  onClick={() => {
-                    if (!chosen && !choose.isPending) choose.mutate(p.id);
-                  }}
-                >
-                  {art}
-                  <span className="probe-tile-text">
-                    <b>{p.name}</b>
-                    <small className="probe-tile-sub">{chosen ? copy.hangar.chosen : p.weapon.name}</small>
-                  </span>
-                  {chosen && <Icon name="check" className="ico probe-tile-check" />}
-                </button>
-              ) : (
-                <div className="probe-tile locked">
-                  <span className="probe-tile-lock">
-                    {art}
-                    <Icon name="lock" />
-                  </span>
-                  <span className="probe-tile-text">
-                    <b>{p.name}</b>
-                    <Unlock card={p} />
-                  </span>
-                </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {choose.error ? (
-        <p className="field-error" role="alert">
-          {errorText(choose.error, copy.errors)}
-        </p>
-      ) : null}
+      <Link to={`/taller?sonda=${probe.id}`} className="lip pill pill-solar hangar-workshop-link" data-sfx="hover">
+        <Icon name="wrench" />
+        <span>{copy.workshop.open}</span>
+      </Link>
     </section>
   );
 }

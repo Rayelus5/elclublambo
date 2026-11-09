@@ -152,7 +152,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           badge={catalogReady > 0 ? copy.hub.reward : undefined}
           label={catalogReady > 0 ? copy.hub.collectionReward(galaxies ?? 0, catalogReady) : undefined}
         />
-        <Tile to="/incursion" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
+        <Tile to="/taller" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
         <Tile to="/misiones?pestana=logros" icon="trophy" title={copy.hub.achievements} sub={copy.hub.achievementsHint} color="var(--color-solar)" d="1.18s" />
         <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="var(--color-uv-soft)" d="1.22s" />
         <Tile to="/clasificacion" icon="podium" title={copy.hub.ranking} sub={copy.social.rankingTile} color="var(--color-nova)" d="1.26s" />

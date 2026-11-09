@@ -6,6 +6,7 @@ import { TourProvider } from './tour/TourProvider';
 import { useMe } from './auth/useMe';
 import { CollectionScreen } from './collection/CollectionScreen';
 import { HangarScreen } from './hangar/HangarScreen';
+import { WorkshopScreen } from './workshop/WorkshopScreen';
 import { GroupScreen } from './coop/GroupScreen';
 import { RoomScreen } from './coop/RoomScreen';
 import { LiveRooms } from './admin/LiveRooms';
@@ -121,6 +122,7 @@ export function App() {
         <Route path="/incursion/grupo" element={<SignedIn><GroupScreen /></SignedIn>} />
         <Route path="/incursion/sala" element={<SignedIn><RoomScreen /></SignedIn>} />
         <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
+        <Route path="/taller" element={<SignedIn><WorkshopScreen /></SignedIn>} />
         <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
         <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
         <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />

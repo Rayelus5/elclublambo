@@ -28,7 +28,8 @@ test('un admin desbloquea una sonda, repara el laboratorio y suma puntos de temp
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
   await skipProbeTest(page);
-  await page.goto('/galaxy/incursion');
+  // The probes are managed in the workshop.
+  await page.goto('/galaxy/taller');
   const probes = page.getByRole('list', { name: 'Sondas' });
   await expect(probes.getByRole('listitem')).toHaveCount(8);
   await expect(probes.getByRole('listitem').filter({ hasText: 'Vigía' })).toContainText(/Juega|Derrota|Extrae|Alcanza|Elimina/);

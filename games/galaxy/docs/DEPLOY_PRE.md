@@ -773,6 +773,15 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - cámara de espectador;
      - desglose por jugador en los resultados.
 
+48. **Taller de sondas (`/taller`):** sin migraciones.
+   - **Entrada:** la ficha «Sondas» del inicio lleva aquí, y el hangar muestra la sonda equipada con «Abrir el taller».
+   - **Dentro:** se ven las 8 sondas; las bloqueadas dicen qué las gana. La seleccionada aparece en la bahía del taller, pintada en Aseprite (`art/workshop/paint-workshop.lua`).
+   - **Acciones:**
+     - elegir una para verla no la equipa: se equipa con «Equipar»;
+     - se sube de nivel, con chispas, destello, el nuevo nivel y sonido;
+     - se elige el arma inicial.
+   - **Enlace directo:** `/taller?sonda=<id>` abre esa sonda.
+
 ## Operación
 
 | Tarea | Cómo |
