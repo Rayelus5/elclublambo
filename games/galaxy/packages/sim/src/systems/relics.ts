@@ -344,6 +344,16 @@ function runPhenomenon(sim: Sim, p: ProbeState, ri: number, r: Runtime): void {
       p.fx['dashT'] = Math.max(1, ticks(P.comet.seconds));
       p.fx['dashRelic'] = ri;
       p.invulnT = Math.max(p.invulnT, p.fx['dashT']! + 1);
+      sim.events.push({
+        t: 'dash',
+        probe: p.index,
+        kind: 'comet',
+        fx: p.x,
+        fy: p.y,
+        tx: p.x + cosA(p.facing) * P.comet.distance,
+        ty: p.y + sinA(p.facing) * P.comet.distance,
+        ticks: p.fx['dashT']!,
+      });
       dashHits.set(p, new Set());
       dashStep(sim, p, ri, r, m);
       r.phenT = cooldown(p, r, P.comet.cooldown);

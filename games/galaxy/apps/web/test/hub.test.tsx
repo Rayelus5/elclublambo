@@ -59,9 +59,10 @@ const board: Leaderboard = {
   total: 40,
 };
 
-function api(free = true, season: Leaderboard = board) {
+function api(free = true, season: Leaderboard = board, catalogReady = 0) {
   return mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(free)),
+    'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: catalogReady, percent: 30 }),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, season),
     'POST /galaxy/api/auth/logout': () => jsonResponse(204),
@@ -117,6 +118,21 @@ test('la colección muestra cuántas galaxias tienes y lleva a /coleccion', asyn
   expect(await within(tile).findByText(copy.hub.galaxies(6))).toBeInTheDocument();
   await userEvent.setup().click(tile);
   expect(locationOf(await screen.findByTestId('location')).pathname).toBe('/coleccion');
+});
+
+test('con un premio del Catálogo por recoger, la colección lleva la insignia «Premio»', async () => {
+  api(true, board, 1);
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const tile = await screen.findByRole('link', { name: copy.hub.collectionReward(6, 1) });
+  expect(within(tile).getByText(copy.hub.reward)).toBeInTheDocument();
+});
+
+test('sin premios del Catálogo, la colección no lleva insignia', async () => {
+  api();
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const tile = await screen.findByRole('link', { name: new RegExp(copy.hub.collection) });
+  expect(await within(tile).findByText(copy.hub.galaxies(6))).toBeInTheDocument();
+  expect(within(tile).queryByText(copy.hub.reward)).toBeNull();
 });
 
 test('Salir cierra la sesión y vuelve a Entrar', async () => {

@@ -119,6 +119,24 @@ test('extraer paga el botín por la profundidad de cada capa, en el libro', asyn
   ]);
 });
 
+test('los componentes de los objetos rotos (SIM 1.7.0) se cobran sin multiplicar por la profundidad, a la mitad sin extraer', async () => {
+  const { cookie } = await player();
+  const before = await wallet(cookie);
+  const run = await played(cookie, 14);
+  const res = await finish(cookie, run.id, body({ ticks: 13 * 3600, depth: 2, bossKills: 2, kills: 1200, loot: [{ coins: 40, dust: 12, components: 5 }, { coins: 20, dust: 6, components: 3 }] }));
+  expect(res.statusCode).toBe(200);
+  const r = res.json() as RunResult;
+  expect(r.payout.components).toBe(8);
+  expect(r.wallet['components']).toBe((before['components'] ?? 0) + 8);
+  const ledger = await sql<{ currency: string }>`select currency from galaxy.ledger where ref @> ${JSON.stringify({ run: run.id })}::jsonb and reason = 'run'`.execute(ctx.db);
+  expect(ledger.rows.map((l) => l.currency)).toContain('components');
+
+  const other = await player();
+  const died = await played(other.cookie, 7);
+  const half = (await finish(other.cookie, died.id, body({ outcome: 'died', loot: [{ coins: 40, dust: 12, components: 6 }] }))).json() as RunResult;
+  expect(half.payout.components).toBe(3);
+});
+
 test('morir o abandonar paga la mitad', async () => {
   const { cookie } = await player();
   const run = await played(cookie, 7);
@@ -168,8 +186,8 @@ test('botín imposible: se paga recortado y la partida queda como sospechosa', a
   const { cookie } = await player();
   const run = await played(cookie, 7);
   const r = (await finish(cookie, run.id, body({ kills: 100, loot: [{ coins: 99_999, dust: 99_999 }] }))).json() as RunResult;
-  // Topes: 100 × 0,25 + 30 + 5 = 60 monedas; 100 × 0,12 + 10 + 5 = 27 de polvo.
-  expect(r.payout).toMatchObject({ coins: 60, dust: 27 });
+  // Topes: 100 × 0,25 + 30 + 5 = 60 monedas; 100 × 0,12 + 10 + 6 min × 30 (objetos rotos) + 5 = 207 de polvo.
+  expect(r.payout).toMatchObject({ coins: 60, dust: 207 });
   const row = await ctx.db.selectFrom('galaxy.runs').select(['suspicious', 'flags', 'outcome']).where('id', '=', run.id).executeTakeFirstOrThrow();
   expect(row).toMatchObject({ suspicious: true, outcome: 'extracted' });
   expect(row.flags).toContain('loot_cap');

@@ -3,6 +3,7 @@ import {
   checkRun,
   dailyFactor,
   dailySegments,
+  runComponents,
   runMaterial,
   runPayout,
   type FinishRunRequest,
@@ -208,8 +209,11 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   // Raw material for the station's refinery (GDD §10.3), paid like the loot.
   const material = runMaterial(claim, ctx.runs, factor, check.penalized, boost.material, global('material'));
   if (material > 0) await credit(trx, accountId, 'material', material, 'run', ref, key);
+  // Components from the breakable props (SIM 1.7.0), paid like the material.
+  const components = runComponents(claim, ctx.runs, factor, check.penalized, global('material'));
+  if (components > 0) await credit(trx, accountId, 'components', components, 'run', ref, key);
 
-  const payout = { coins: pay.coins, dust: pay.dust, signals, material };
+  const payout = { coins: pay.coins, dust: pay.dust, signals, material, components };
   await trx
     .updateTable('galaxy.runs')
     .set({

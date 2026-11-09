@@ -296,6 +296,15 @@
   .tile b, .tile .sub { max-inline-size: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
   .tile b { font-size: 16px; font-weight: 600; }
   .tile .sub { font-size: 13px; color: var(--color-ink-soft); font-weight: 500; }
+  /* A reward waiting (the Catálogo): a gold badge in the corner that breathes. */
+  .tile.has-badge { position: relative; overflow: visible; }
+  .tile-badge { position: absolute; inset-block-start: -8px; inset-inline-end: -6px; padding: 3px 9px; border-radius: 99px; background: var(--color-solar); color: var(--color-on-solar); font-size: 12px; font-weight: 800; box-shadow: 0 0 14px color-mix(in oklab, var(--color-solar) 60%, transparent); animation: tile-badge 1.8s ease-in-out infinite; }
+  @keyframes tile-badge { 50% { transform: scale(1.08); box-shadow: 0 0 22px color-mix(in oklab, var(--color-solar) 80%, transparent); } }
+  .catalog-door { position: relative; }
+  .catalog-door.ready { box-shadow: 0 0 18px color-mix(in oklab, var(--color-solar) 55%, transparent); animation: catalog-glow 1.8s ease-in-out infinite; }
+  @keyframes catalog-glow { 50% { box-shadow: 0 0 28px color-mix(in oklab, var(--color-solar) 85%, transparent); } }
+  .catalog-badge { display: inline-grid; place-items: center; min-inline-size: 22px; block-size: 22px; padding: 0 6px; border-radius: 99px; background: var(--color-on-solar); color: var(--color-solar); font-size: 13px; font-weight: 800; }
+  @media (prefers-reduced-motion: reduce) { .tile-badge, .catalog-door.ready { animation: none; } }
   .tile .soon.text { font-size: 12px; }
 
   .hub-foot { display: flex; gap: 12px; }
@@ -674,6 +683,7 @@
   .hud-res .ico { font-size: 20px; }
   .hud-res.coin .ico { color: var(--color-solar); }
   .hud-res.dust .ico { color: var(--color-ice); }
+  .hud-res.components .ico { color: var(--color-terminal); }
   .hud-res.kills .ico { color: var(--color-nova); }
   .hud-pause.pill { --lip-h: 3px; width: 44px; height: 44px; padding: 0; justify-content: center; }
   .hud-kit { position: absolute; left: 20px; bottom: 18px; display: grid; gap: 8px; }

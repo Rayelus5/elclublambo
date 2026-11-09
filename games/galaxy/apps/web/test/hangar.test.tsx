@@ -329,7 +329,7 @@ test('con las incursiones cerradas no se puede lanzar y se dice por qué', async
 const started = { id: 'r1', seed: '1', sector: 'outer-nebula', probe: 'lumen', relics: [], content: DEFAULT_CONTENT, contentVersion: 0, startedAt: '2026-11-07T10:00:00Z' };
 const end: RunEnd = {
   outcome: 'died',
-  summary: { ticks: 21600, outcome: 'dead', depth: 1, kills: 640, bossKills: 0, level: 15, loot: [{ coins: 40.6, dust: 12.2 }], hash: '0123456789abcdef' },
+  summary: { ticks: 21600, outcome: 'dead', depth: 1, kills: 640, bossKills: 0, level: 15, loot: [{ coins: 40.6, dust: 12.2, components: 0 }], hash: '0123456789abcdef' },
   inputs: 'AQEA',
 };
 

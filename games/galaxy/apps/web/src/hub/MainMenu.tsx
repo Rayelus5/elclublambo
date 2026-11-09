@@ -5,6 +5,7 @@ import { useMissions } from '../api/missions';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { Soon } from './Soon';
+import { useCatalogSummary } from '../api/catalog';
 
 // The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the two modes, the event and today's
 // missions, the six section tiles and the footer. Everything a later milestone builds is shown but locked: the
@@ -99,9 +100,14 @@ function TodayMissions() {
 }
 
 /** A section tile: the same three lines in all six (icon, title and a one-line note), whatever the note says. */
-function Tile({ to, icon, title, sub, color, d }: { to: string; icon: IconName; title: string; sub: string; color: string; d: string }) {
+function Tile({ to, icon, title, sub, color, d, badge, label }: { to: string; icon: IconName; title: string; sub: string; color: string; d: string; badge?: string; label?: string }) {
   return (
-    <Link to={to} className="lip panel tile enter" data-sfx="hover" style={style({ '--d': d, '--c': color })}>
+    <Link to={to} className={badge ? 'lip panel tile enter has-badge' : 'lip panel tile enter'} data-sfx="hover" style={style({ '--d': d, '--c': color })} aria-label={label}>
+      {badge ? (
+        <span className="tile-badge" aria-hidden="true">
+          {badge}
+        </span>
+      ) : null}
       <Icon name={icon} />
       <b>{title}</b>
       <span className="sub">{sub}</span>
@@ -111,6 +117,7 @@ function Tile({ to, icon, title, sub, color, d }: { to: string; icon: IconName; 
 
 export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   const clan = useMyClan().data;
+  const catalogReady = useCatalogSummary().data?.ready ?? 0;
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
@@ -135,7 +142,16 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
       </div>
 
       <div className="tiles">
-        <Tile to="/coleccion" icon="cards" title={copy.hub.collection} sub={galaxies === undefined ? '⠋⠙⠹' : copy.hub.galaxies(galaxies)} color="var(--color-ice)" d="1.1s" />
+        <Tile
+          to="/coleccion"
+          icon="cards"
+          title={copy.hub.collection}
+          sub={galaxies === undefined ? '⠋⠙⠹' : copy.hub.galaxies(galaxies)}
+          color="var(--color-ice)"
+          d="1.1s"
+          badge={catalogReady > 0 ? copy.hub.reward : undefined}
+          label={catalogReady > 0 ? copy.hub.collectionReward(galaxies ?? 0, catalogReady) : undefined}
+        />
         <Tile to="/incursion" icon="probe" title={copy.hub.probes} sub={copy.hub.probesHint} color="var(--color-terminal)" d="1.14s" />
         <Tile to="/misiones?pestana=logros" icon="trophy" title={copy.hub.achievements} sub={copy.hub.achievementsHint} color="var(--color-solar)" d="1.18s" />
         <Tile to="/clanes" icon="clan" title={copy.hub.clan} sub={clan ? `[${clan.tag}]` : copy.hub.clanHint} color="var(--color-uv-soft)" d="1.22s" />

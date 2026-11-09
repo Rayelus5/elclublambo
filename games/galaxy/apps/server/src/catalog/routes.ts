@@ -1,4 +1,4 @@
-import { catalogClaimParamsSchema, type CatalogView } from '@galaxy/shared';
+import { catalogClaimParamsSchema, type CatalogSummary, type CatalogView } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { requireSession } from '../auth/guards';
@@ -15,6 +15,13 @@ export function registerCatalogRoutes(api: FastifyInstance, deps: { db: Kysely<D
   api.get('/galaxy/api/catalog', async (req): Promise<CatalogView> => {
     const s = requireSession(req);
     return catalogView(deps.db, await deps.config.get('catalog'), s.accountId);
+  });
+
+  // The button's light (hub, collection): how many shares wait to be collected.
+  api.get('/galaxy/api/catalog/summary', async (req): Promise<CatalogSummary> => {
+    const s = requireSession(req);
+    const v = await catalogView(deps.db, await deps.config.get('catalog'), s.accountId);
+    return { ready: v.rewards.filter((r) => r.reached && !r.claimed).length, percent: v.percent };
   });
 
   api.post('/galaxy/api/catalog/:percent/claim', async (req): Promise<CatalogView> => {

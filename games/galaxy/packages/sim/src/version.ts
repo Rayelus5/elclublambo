@@ -2,7 +2,7 @@
  * Version of the simulation rules. A recorded run replays only with the same version: bump it whenever a change makes
  * the same seed and inputs play differently (GDD §5.7, §14.7).
  */
-export const SIM_VERSION = '1.6.0';
+export const SIM_VERSION = '1.7.0';
 
 /** Fixed simulation rate (GDD §18.4). */
 export const TICK_HZ = 60;

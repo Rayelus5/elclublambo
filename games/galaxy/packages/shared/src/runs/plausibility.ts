@@ -51,7 +51,9 @@ export function checkRun(claim: RunClaim, ctx: RunCheckContext): { flags: RunFla
   const bossKills = Math.min(claim.bossKills, depth);
   const loot = claim.loot.slice(0, depth);
   const coinCap = kills * cfg.caps.coinsPerKill + bossKills * cfg.caps.bossCoins + 5;
-  const dustCap = kills * cfg.caps.dustPerKill + bossKills * cfg.caps.bossDust + 5;
+  const minutes = ticks / 3600;
+  const dustCap = kills * cfg.caps.dustPerKill + bossKills * cfg.caps.bossDust + minutes * cfg.caps.propDustPerMinute + 5;
+  const componentCap = minutes * cfg.caps.componentsPerMinute + 2;
   const coins = clip(
     loot.map((l) => l.coins),
     Math.floor(coinCap),
@@ -60,12 +62,23 @@ export function checkRun(claim: RunClaim, ctx: RunCheckContext): { flags: RunFla
     loot.map((l) => l.dust),
     Math.floor(dustCap),
   );
-  if (coins.some((c, i) => c !== loot[i]!.coins) || dust.some((d, i) => d !== loot[i]!.dust)) flags.push('loot_cap');
+  const components = clip(
+    loot.map((l) => l.components ?? 0),
+    Math.floor(componentCap),
+  );
+  if (
+    coins.some((c, i) => c !== loot[i]!.coins) ||
+    dust.some((d, i) => d !== loot[i]!.dust) ||
+    components.some((c, i) => c !== (loot[i]!.components ?? 0))
+  )
+    flags.push('loot_cap');
   const same =
     ticks === claim.ticks && depth === claim.depth && kills === claim.kills && bossKills === claim.bossKills && !flags.includes('loot_cap');
   return {
     flags,
-    claim: same ? claim : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((_, i) => ({ coins: coins[i]!, dust: dust[i]! })) },
+    claim: same
+      ? claim
+      : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((_, i) => ({ coins: coins[i]!, dust: dust[i]!, components: components[i]! })) },
     penalized: flags.some((f) => CHEATING.includes(f)),
   };
 }

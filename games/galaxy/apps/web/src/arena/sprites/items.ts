@@ -9,7 +9,9 @@ const still = (rows: string[]): SpriteDef => ({ w: rows[0]!.length, h: rows.leng
 const loop = (fps: number, ...frames: string[][]): SpriteDef => ({ w: frames[0]![0]!.length, h: frames[0]!.length, fps, anchor: C, palette: P, frames });
 
 export const ITEMS: Record<string, SpriteDef> = {
-  'xp-1': still(grid('..k..', '.kik.', 'kiwik', '.kbk.', '..k..')),
+  // Data fragments read as Terminal green at every size but the Solar 25 (SIM 1.7.0: the ice 1 looked like dust and
+  // the cold grounds); the repair kit is a red cross, so nothing green on the ground but data.
+  'xp-1': still(grid('..k..', '.kgk.', 'kgwgk', '.kGk.', '..k..')),
   'xp-5': still(grid('...k...', '..kgk..', '.kgwgk.', 'kgwggGk', '.kgGGk.', '..kGk..', '...k...')),
   'xp-25': still(grid('....k....', '...ksk...', '..kswsk..', '.kswsssk.', 'kswssssok', '.ksssook.', '..ksook..', '...kok...', '....k....')),
   coin: loop(
@@ -18,7 +20,15 @@ export const ITEMS: Record<string, SpriteDef> = {
     grid('..kkk..', '..ksk..', '.kswok.', '.kssok.', '.kssok.', '..kok..', '..kkk..'),
   ),
   dust: loop(4, grid('..i..', '..w..', 'iwwwi', '..w..', '..i..'), grid('.....', '..i..', '.iwi.', '..i..', '.....')),
-  repair: still(grid('.kkkkkkk.', 'kgggggggk', 'kgggwgggk', 'kggwwwggk', 'kgwwwwwGk', 'kggwwwGGk', 'kgggwGGGk', 'kGGGGGGGk', '.kkkkkkk.')),
+  repair: still(grid('.kkkkkkk.', 'knnnnnnnk', 'knnnwnnnk', 'knnnwnnek', 'knwwwwwek', 'knnnwneek', 'knnnweeek', 'keeeeeeek', '.kkkkkkk.')),
+  // A horseshoe magnet in the Static's red with white tips; the tips blink.
+  magnet: loop(
+    3,
+    grid('..kkkkk..', '.kmmmmmk.', 'kmmkkkmmk', 'kmk...kmk', 'kmk...kmk', 'kYk...kYk', 'kwk...kwk', 'kkk...kkk'),
+    grid('..kkkkk..', '.kmmmmmk.', 'kmmkkkmmk', 'kmk...kmk', 'kmk...kmk', 'kwk...kwk', 'kYk...kYk', 'kkk...kkk'),
+  ),
+  // A component: a steel nut with a Terminal core (the wallet's colour).
+  component: still(grid('..k.k..', '.kTkTk.', 'kTYYYTk', '.kYgYk.', 'kTYYYTk', '.kTkTk.', '..k.k..')),
 
   bolt: still(grid('.kkk.', 'kwwsk', '.kkk.')),
   lance: still(grid('.kkkkkkkk.', 'kciiiiwwwk', '.kkkkkkkk.')),

@@ -5,6 +5,7 @@ import { FAUNA2 } from './fauna2';
 import { ICONS } from './icons';
 import { PROBES } from './probes';
 import { ITEMS } from './items';
+import { PROPS } from './props';
 import { rasterize, type SpriteDef } from './types';
 
 export { pixels, rasterize, type SpriteDef } from './types';
@@ -24,6 +25,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   ...BOSSES,
   ...DECOR,
   ...ITEMS,
+  ...PROPS,
   ...ICONS,
 };
 

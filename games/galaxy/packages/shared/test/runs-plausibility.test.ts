@@ -56,8 +56,16 @@ describe('banderas', () => {
   test('botín imposible: se marca y se recorta a su tope', () => {
     const r = checkRun(claim({ kills: 100, loot: [{ coins: 10_000, dust: 9_000 }] }), ctx);
     expect(r.flags).toContain('loot_cap');
-    // Tope: 100 × 0,25 + 1 × 30 + 5 = 60 monedas; 100 × 0,12 + 1 × 10 + 5 = 27 de polvo.
-    expect(r.claim.loot).toEqual([{ coins: 60, dust: 27 }]);
+    // Tope: 100 × 0,25 + 1 × 30 + 5 = 60 monedas; 100 × 0,12 + 1 × 10 + 6 min × 30 (objetos rotos) + 5 = 207 de polvo.
+    expect(r.claim.loot).toEqual([{ coins: 60, dust: 207, components: 0 }]);
+  });
+
+  test('más componentes de los que caben en el tiempo: se marca y se recortan', () => {
+    // 6 minutos × 20 + 2 = 122 componentes como mucho.
+    const r = checkRun(claim({ loot: [{ coins: 40, dust: 15, components: 500 }] }), ctx);
+    expect(r.flags).toContain('loot_cap');
+    expect(r.claim.loot[0]!.components).toBe(122);
+    expect(checkRun(claim({ loot: [{ coins: 40, dust: 15, components: 30 }] }), ctx).flags).toEqual([]);
   });
 
   test('el botín recortado nunca supera el tope, capa a capa incluida', () => {
@@ -71,7 +79,8 @@ describe('banderas', () => {
           const r = checkRun(c, { ...ctx, wallSeconds: depth * 500, logTicks: null });
           const coins = r.claim.loot.reduce((a, l) => a + l.coins, 0);
           const dust = r.claim.loot.reduce((a, l) => a + l.dust, 0);
-          return coins <= kills * 0.25 + depth * 30 + 5 && dust <= kills * 0.12 + depth * 10 + 5 && r.claim.loot.every((l, i) => l.coins <= loot[i]!.coins);
+          const minutes = (depth * 400) / 60;
+          return coins <= kills * 0.25 + depth * 30 + 5 && dust <= kills * 0.12 + depth * 10 + minutes * 30 + 5 && r.claim.loot.every((l, i) => l.coins <= loot[i]!.coins);
         },
       ),
       { numRuns: 300 },
@@ -94,7 +103,7 @@ describe('una reclamación imposible se recorta a lo que pudo pasar', () => {
     const r = checkRun(forged(), { ...ctx, wallSeconds: 60, logTicks: 0 });
     expect(r.flags).toEqual(expect.arrayContaining(['depth_vs_time', 'kills_rate']));
     expect(r.claim.depth).toBe(1);
-    expect(r.claim.loot).toEqual([{ coins: 0, dust: 0 }]);
+    expect(r.claim.loot).toEqual([{ coins: 0, dust: 0, components: 0 }]);
     expect(r.claim.bossKills).toBe(1);
     expect(r.claim.kills).toBe(cfg.caps.killsPerMinute + 50);
     expect(r.penalized).toBe(true);

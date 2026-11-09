@@ -46,11 +46,14 @@ export function dodge(sim: Sim, p: ProbeState): boolean {
   const dash = quirkOf(p, 'dash');
   if (!dash || (p.fx['quirkDashT'] ?? 0) > 0) return false;
   p.fx['quirkDashT'] = ticks(dash.every);
-  // A jump along the way it faces.
+  // A jump along the way it faces (the renderer glides it, the sim lands it at once).
+  const fx = p.x;
+  const fy = p.y;
   p.x += cosA(p.facing) * dash.distance;
   p.y += sinA(p.facing) * dash.distance;
   p.invulnT = ticks(dash.invuln);
   sim.events.push({ t: 'quirk', probe: p.index, kind: 'dash' });
+  sim.events.push({ t: 'dash', probe: p.index, kind: 'quirk', fx, fy, tx: p.x, ty: p.y, ticks: 0 });
   return true;
 }
 

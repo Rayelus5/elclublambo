@@ -63,7 +63,7 @@ describe('capas y jefe', () => {
   test('la vida del jefe crece con la capa', () => {
     const sim = layered();
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0 });
     untilBoss(sim);
     expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(1800 * 1.7, 9);
   });
@@ -165,8 +165,8 @@ describe('extracción', () => {
       p.y = sim.pickups.y[i]!;
       step(sim, [IDLE]);
     }
-    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0 });
-    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3 });
+    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0, components: 0 });
+    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3, components: 0 });
   });
 });
 

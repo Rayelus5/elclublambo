@@ -253,7 +253,8 @@ export interface SectorDef {
   };
   elite: { hp: number; radius: number; xp: number; coins: number; dust: number };
   /** Drop chances per kill (coin, dust, repair kit) and the boss chest; a repair kit heals repairHeal of max life. */
-  drops: { coin: number; dust: number; repair: number; repairHeal: number; bossCoins: number; bossDust: number };
+  /** `magnet`: a normal kill's chance of a magnet; `eliteMagnet`: an elite's (the boss's chest always has one). */
+  drops: { coin: number; dust: number; repair: number; repairHeal: number; bossCoins: number; bossDust: number; magnet: number; eliteMagnet: number };
 }
 
 /** What a reaction does (GDD §5.4); shares are of the hit that triggered it, × (1 + elemental). */
@@ -394,6 +395,23 @@ export interface Content {
   caps: Record<StatKey, number>;
   crit: { chance: number; damage: number };
   arena: { viewW: number; viewH: number; margin: number; despawn: number };
-  limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number };
+  limits: { weapons: number; passives: number; enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number };
   anomalies: AnomalyDef[];
+  props: PropsTuning;
+}
+
+/**
+ * Breakable props of the ground (systems/props.ts): up to `perChunk` per 256-unit chunk, with `hp` (+`hpPerLayer` per
+ * layer past the first) and `radius`. Breaking one drops `components` with `componentChance` and `dustMin`–`dustMax`
+ * star dust.
+ */
+export interface PropsTuning {
+  perChunk: number;
+  hp: number;
+  hpPerLayer: number;
+  radius: number;
+  componentChance: number;
+  components: number;
+  dustMin: number;
+  dustMax: number;
 }

@@ -4,6 +4,7 @@ import type { HitSource, ProbeState, Sim } from '../types';
 import { dealDamage } from './combat';
 import { elementCode, elementOf } from './elements';
 import { extraDrones } from './quirks';
+import { hitPropsArea, hitPropsShot, touchProps } from './props';
 
 // The probe's weapons (GDD §5.3) and everything they put in the world: bullets, piercing lances, bouncing arcs,
 // orbiting orbs, drones and damaging areas. Damage, cooldown, area and extra projectiles come from the probe's stats.
@@ -231,6 +232,24 @@ export function hitArea(sim: Sim, x: number, y: number, radius: number, damage: 
     dealDamage(sim, e, damage, src);
     hits++;
   }
+  // Props take it too (they never count as hits: nothing triggers on them).
+  const arc = opts.arc ?? 0;
+  hitPropsArea(
+    sim,
+    x,
+    y,
+    radius,
+    damage,
+    src.probe,
+    arc > 0
+      ? (dx, dy) => {
+          if (dx * dx + dy * dy <= 1e-9) return true;
+          let diff = (((angleTo(dx, dy) - (opts.angle ?? 0)) % ANGLE_STEPS) + ANGLE_STEPS) % ANGLE_STEPS;
+          if (diff > ANGLE_STEPS / 2) diff -= ANGLE_STEPS;
+          return Math.abs(diff) <= arc / 2;
+        }
+      : undefined,
+  );
   return hits;
 }
 
@@ -472,6 +491,7 @@ function updateOrb(sim: Sim, i: number): void {
     remember(sim, i, e);
     dealDamage(sim, e, lvl.damage * p.stats.damage, { ...shotHooks.source(sim, i), x: p.x, y: p.y });
   }
+  touchProps(sim, s.x[i]!, s.y[i]!, s.radius[i]!, lvl.damage * p.stats.damage, p.index);
 }
 
 function updateDrone(sim: Sim, i: number): void {
@@ -558,6 +578,7 @@ function updateFlying(sim: Sim, i: number): void {
     s.kill(i);
     return;
   }
+  hitPropsShot(sim, i);
 }
 
 export function updateShots(sim: Sim): void {

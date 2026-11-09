@@ -1,4 +1,4 @@
-import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -181,6 +181,34 @@ for (const sector of DEFAULT_CONTENT.sectors) {
       step(sim, [{ mx: 0, my: 0, aim: -1, pick: -1 }]);
       if (t > 3 * 60) tail.push({ ev: [...sim.events], tick: sim.tick });
     }
+    // SIM 1.7.0: every pickup on the ground in a row (so the review sees them against this biome), and a breakable
+    // prop at half life (its red bar and cracks).
+    const p0 = sim.probes[0]!;
+    const drops: [number, number, number][] = [];
+    [
+      [PICKUP.xp, 1],
+      [PICKUP.xp, 5],
+      [PICKUP.xp, 25],
+      [PICKUP.coin, 1],
+      [PICKUP.dust, 1],
+      [PICKUP.repair, 1],
+      [PICKUP.magnet, 1],
+      [PICKUP.component, 1],
+    ].forEach(([kind, value], k) => drops.push([kind!, value!, k]));
+    // The camera goes to the nearest prop (so the shot always has one), which is left at half life.
+    let near = -1;
+    for (let i = 0; i < sim.props.top; i++) {
+      if (!sim.props.alive[i]) continue;
+      if (near < 0 || Math.hypot(sim.props.x[i]!, sim.props.y[i]!) < Math.hypot(sim.props.x[near]!, sim.props.y[near]!)) near = i;
+    }
+    if (near >= 0) {
+      damageProp(sim, near, sim.props.hp[near]! * 0.55, 0);
+      p0.x = p0.px = sim.props.x[near]! - 90;
+      p0.y = p0.py = sim.props.y[near]! - 40;
+      // Past its hit flash.
+      sim.props.flashT[near] = 0;
+    }
+    for (const [kind, value, k] of drops) dropPickup(sim, kind, value, p0.x - 70 + k * 20, p0.y + 60);
     const canvas = await mount(1280, 720);
     stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '3', preserve: true, biome: sector.biome });
     stage.resize(1280, 720);

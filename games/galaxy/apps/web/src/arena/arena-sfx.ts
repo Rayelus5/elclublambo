@@ -31,6 +31,33 @@ function blip(a: AudioContext, t: number, from: number, to: number, dur: number,
   o.stop(t + dur + 0.02);
 }
 
+let noiseBuf: AudioBuffer | null = null;
+
+/** Filtered noise: a band that sweeps from `from` to `to` Hz (whooshes, crunches). */
+function hiss(a: AudioContext, t: number, from: number, to: number, dur: number, vol: number, q = 1.2): void {
+  noiseBuf ??= (() => {
+    const b = a.createBuffer(1, Math.floor(a.sampleRate * 0.6), a.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  })();
+  const src = a.createBufferSource();
+  src.buffer = noiseBuf;
+  const f = a.createBiquadFilter();
+  f.type = 'bandpass';
+  f.Q.value = q;
+  f.frequency.setValueAtTime(from, t);
+  f.frequency.exponentialRampToValueAtTime(Math.max(40, to), t + dur);
+  const g = a.createGain();
+  // A soft attack, so a dash breathes instead of clicking.
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + Math.min(0.04, dur / 3));
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f).connect(g).connect(out ?? a.destination);
+  src.start(t);
+  src.stop(t + dur + 0.02);
+}
+
 export function playEvents(events: readonly SimEvent[]): void {
   for (const e of events) {
     switch (e.t) {
@@ -42,7 +69,26 @@ export function playEvents(events: readonly SimEvent[]): void {
         break;
       case 'pickup':
         if (e.kind === 'xp') tone('xp', 0.04, (a, t) => blip(a, t, 1200, 1700, 0.05, 0.025, 'sine'));
+        else if (e.kind === 'magnet')
+          tone('magnet', 0.3, (a, t) => {
+            blip(a, t, 300, 1200, 0.35, 0.05, 'sine');
+            hiss(a, t, 400, 2400, 0.4, 0.05, 2);
+          });
+        else if (e.kind === 'component')
+          tone('component', 0.06, (a, t) => {
+            blip(a, t, 2400, 2100, 0.05, 0.035, 'triangle');
+            blip(a, t + 0.05, 3100, 2900, 0.06, 0.03, 'triangle');
+          });
         else tone('coin', 0.05, (a, t) => blip(a, t, 1500, 2300, 0.08, 0.04, 'sine'));
+        break;
+      case 'dash':
+        tone('dash', 0.15, (a, t) => hiss(a, t, 1800, 500, e.kind === 'comet' ? 0.3 : 0.2, 0.07, 0.9));
+        break;
+      case 'propBreak':
+        tone('prop', 0.05, (a, t) => {
+          hiss(a, t, 900, 180, 0.16, 0.08, 1.6);
+          blip(a, t, 220, 90, 0.1, 0.035, 'triangle');
+        });
         break;
       case 'hurt':
         tone('hurt', 0.12, (a, t) => blip(a, t, 180, 60, 0.18, 0.09, 'sawtooth'));

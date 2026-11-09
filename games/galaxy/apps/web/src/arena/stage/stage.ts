@@ -54,6 +54,12 @@ const ELEMENT_COLOR: Record<string, number> = {
   invert: 0x7259ee,
 };
 const STEP_RAD = (Math.PI * 2) / 4096;
+/** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
+const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component' };
+/** A quirk's jump glides over this long; afterimages fade over GHOST_LIFE. */
+const GLIDE_S = 0.12;
+const GHOST_LIFE = 0.28;
+const DASH_TINT = 0x6fe3ff;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
@@ -147,6 +153,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const nebula = new TilingSprite({ texture: nebulaTex, width: w, height: h });
   const world = new Container();
   const decor = new Container();
+  // Breakable props (SIM 1.7.0) over the ground, with their life bars and glints.
+  const propLayer = new Container();
+  const propMarks = new Graphics();
   const pickups = new Container();
   const areas = new Graphics();
   // Light that adds up (beams, flames, blasts): glows on the dark field instead of muddying it.
@@ -156,9 +165,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const marks = new Graphics();
   const enemies = new Container({ label: 'enemies' });
   const probes = new Container();
+  // A dash's afterimages, under the probes.
+  const ghostLayer = new Container();
   const shots = new Container();
   const particles = new Container();
-  world.addChild(decor, pickups, areas, warnings, marks, enemies, probes, beams, shots, particles);
+  world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, probes, beams, shots, particles);
   const numbers = new Container();
   const bars = new Graphics();
   const hurtFlash = new Graphics();
@@ -168,6 +179,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const glitchA = new SpritePool(enemies);
   const glitchB = new SpritePool(enemies);
   const pickupPool = new SpritePool(pickups);
+  const propPool = new SpritePool(propLayer);
+  const ghostSprites: Sprite[] = [];
+  /** Dashes being drawn: a quirk's jump glides from where it took off; every dash leaves afterimages. */
+  const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
+  const ghosts: { x: number; y: number; at: number; life: number; id: string; flip: number; tint: number }[] = [];
   const shotPool = new SpritePool(shots);
   const foePool = new SpritePool(shots);
   const probePool = new SpritePool(probes);
@@ -178,6 +194,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const starA = new SpritePool(enemies);
   const starB = new SpritePool(enemies);
   let lastProbe = { x: 0, y: 0 };
+  let lastSim: Sim | null = null;
 
   const dustDots = [0, 1, 2, 3, 4, 5].map((v) =>
     ditherTexture(3, 4, (x, y) => (((v + 1) >> (x + y * 2)) & 1 && (x === 0 || x === 2) ? look.dust : null)),
@@ -217,15 +234,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         if (chunks.has(key)) continue;
         const box = new Container();
         for (const d of terrainAt(cx, cy, opts.seed, opts.biome)) {
-          // Clouds live in the nebula layer; the chunks carry the rocks and the braille dust.
-          if (d.kind === 'cloud') continue;
-          const tex = d.kind === 'rock' ? atlas.frames[d.sprite ?? 'rock-' + (d.variant + 1)]![0]! : dustDots[d.variant]!;
-          const s = new Sprite(tex);
+          // Clouds live in the nebula layer; rocks are the sim's breakable props now (drawProps). The chunks carry only
+          // the braille dust, faint so nothing on the ground looks like something to pick up or break.
+          if (d.kind !== 'dust') continue;
+          const s = new Sprite(dustDots[d.variant]!);
           s.anchor.set(0.5);
           s.position.set(Math.round(d.x), Math.round(d.y));
           s.scale.set(d.scale);
-          if (d.kind === 'dust') s.alpha = 0.55;
-          if (d.kind === 'rock') s.alpha = 0.9;
+          s.alpha = 0.32;
           box.addChild(s);
         }
         chunks.set(key, box);
@@ -452,13 +468,91 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     }
   }
 
+  function drawProps(sim: Sim): void {
+    const pr = sim.props;
+    const rocks = BIOME_LOOK[opts.biome ?? 'nebula'].props;
+    propMarks.clear();
+    for (let i = 0; i < pr.top; i++) {
+      if (!pr.alive[i]) continue;
+      const id = rocks[pr.look[i]!] ?? rocks[0];
+      const s = propPool.at(i);
+      const flash = pr.flashT[i]! > 0;
+      s.texture = (flash ? atlas.white[id] : atlas.frames[id])![0]!;
+      s.anchor.set(0.5);
+      const x = Math.round(pr.x[i]!);
+      const y = Math.round(pr.y[i]!);
+      s.position.set(x, y);
+      const half = Math.ceil((atlas.defs[id]?.h ?? 12) / 2);
+      const k = pr.maxHp[i]! > 0 ? Math.max(0, pr.hp[i]! / pr.maxHp[i]!) : 1;
+      if (k < 1) {
+        // A small red life bar once it has been hit, and cracks as it weakens.
+        const bw = Math.max(12, Math.round(pr.radius[i]! * 2));
+        const bx = x - Math.round(bw / 2);
+        const by = y - half - 4;
+        propMarks.rect(bx - 1, by - 1, bw + 2, 4).fill({ color: 0x0b0c24, alpha: 0.85 });
+        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k)), 2).fill({ color: 0xff4d6d });
+        if (k < 0.66) propMarks.moveTo(x - 3, y - 3).lineTo(x, y).lineTo(x - 1, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
+        if (k < 0.33) propMarks.moveTo(x + 3, y - 2).lineTo(x + 1, y + 1).lineTo(x + 4, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
+      } else if (!opts.reduced) {
+        // A glint now and then says "this one can be broken".
+        const phase = (clock * 0.45 + i * 0.37) % 1;
+        if (phase < 0.06) propMarks.rect(x + Math.round(pr.radius[i]! / 2), y - half + 1, 1, 1).fill({ color: 0xf3f5ff, alpha: 1 - phase / 0.06 });
+      }
+    }
+    propPool.hideFrom(pr.alive, pr.top);
+  }
+
+  function drawGhosts(): void {
+    let k = 0;
+    for (let g = ghosts.length - 1; g >= 0; g--) {
+      const gh = ghosts[g]!;
+      const age = clock - gh.at;
+      if (age > gh.life) {
+        ghosts.splice(g, 1);
+        continue;
+      }
+      if (age < 0) continue;
+      let s = ghostSprites[k];
+      if (!s) {
+        s = new Sprite();
+        s.anchor.set(0.5);
+        ghostSprites.push(s);
+        ghostLayer.addChild(s);
+      }
+      s.visible = true;
+      s.texture = atlas.white[gh.id]?.[0] ?? atlas.pixel;
+      s.tint = gh.tint;
+      s.position.set(Math.round(gh.x), Math.round(gh.y));
+      s.scale.set(gh.flip, 1);
+      s.alpha = 0.5 * (1 - age / gh.life);
+      k++;
+    }
+    for (; k < ghostSprites.length; k++) ghostSprites[k]!.visible = false;
+  }
+
+  /** A dash from (fx, fy) to (tx, ty): afterimages along the way (over `seconds`), sparks at both ends. */
+  function dashTrail(sim: Sim | null, probe: number, fx0: number, fy0: number, tx: number, ty: number, seconds: number): void {
+    const p = sim?.probes[probe];
+    const id = p?.def.sprite ?? 'probe-lumen';
+    const flip = p && Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1;
+    if (!opts.reduced) {
+      const n = 5;
+      for (let k = 0; k < n; k++) {
+        const f = k / (n - 1);
+        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint: DASH_TINT });
+      }
+    }
+    fx.burst(fx0, fy0, DASH_TINT, 6, 40);
+    fx.burst(tx, ty, 0xf3f5ff, 8, 55);
+  }
+
   function drawPickups(sim: Sim, alpha: number): void {
     const pk = sim.pickups;
     for (let i = 0; i < pk.top; i++) {
       if (!pk.alive[i]) continue;
       const kind = pk.kind[i]!;
       const v = pk.value[i]!;
-      const id = kind === 0 ? (v >= 25 ? 'xp-25' : v >= 5 ? 'xp-5' : 'xp-1') : kind === 1 ? 'coin' : kind === 2 ? 'dust' : 'repair';
+      const id = kind === 0 ? (v >= 25 ? 'xp-25' : v >= 5 ? 'xp-5' : 'xp-1') : (PICKUP_SPRITE[kind] ?? 'repair');
       const s = pickupPool.at(i);
       s.texture = atlas.frames[id]![frameOf(id, i * 0.21)]!;
       s.anchor.set(0.5);
@@ -521,11 +615,24 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const id = p.def.sprite;
       s.texture = atlas.frames[id]![frameOf(id)]!;
       s.anchor.set(0.5);
-      const x = Math.round(lerp(p.px, p.x, alpha));
-      const y = Math.round(lerp(p.py, p.y, alpha));
+      let x = Math.round(lerp(p.px, p.x, alpha));
+      let y = Math.round(lerp(p.py, p.y, alpha));
+      // A quirk's jump lands at once in the sim: the sprite glides there, eased out.
+      const gl = glides.get(i);
+      if (gl) {
+        const k = (clock - gl.t0) / gl.dur;
+        if (k >= 1 || opts.reduced) glides.delete(i);
+        else {
+          const e = 1 - (1 - k) * (1 - k);
+          x = Math.round(gl.fx + (gl.tx - gl.fx) * e + (x - gl.tx));
+          y = Math.round(gl.fy + (gl.ty - gl.fy) * e + (y - gl.ty));
+        }
+      }
       s.position.set(x, y);
       s.scale.set(Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1, 1);
-      s.alpha = p.invulnT > 0 && !opts.reduced && Math.floor(clock * 20) % 2 === 0 ? 0.45 : 1;
+      // Invulnerable: a soft shimmer, not a hard blink.
+      s.alpha = p.invulnT > 0 ? (opts.reduced ? 0.75 : 0.72 + 0.28 * Math.sin(clock * 14)) : 1;
+      if (p.invulnT > 0) marks.circle(x, y, 10).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
       if (p.shield > 0) marks.circle(x, y, 11).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
       if (i === opts.probe) lastProbe = { x, y };
     });
@@ -662,6 +769,21 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.ring(lastProbe.x, lastProbe.y, 0xffc94a);
             fx.burst(lastProbe.x, lastProbe.y, 0xffc94a, 24, 90);
             break;
+          case 'pickup':
+            if (e.kind === 'magnet') {
+              const at = lastSim?.probes[e.probe] ?? lastProbe;
+              fx.ring(at.x, at.y, 0x45e3a6);
+              fx.burst(at.x, at.y, 0x45e3a6, 18, 90);
+            }
+            break;
+          case 'propBreak':
+            fx.burst(e.x, e.y, parseInt(look.dust.slice(1), 16), 12, 70);
+            fx.burst(e.x, e.y, 0xf3f5ff, 4, 40);
+            break;
+          case 'dash':
+            if (e.ticks === 0) glides.set(e.probe, { fx: e.fx, fy: e.fy, tx: e.tx, ty: e.ty, t0: clock, dur: GLIDE_S });
+            dashTrail(lastSim, e.probe, e.fx, e.fy, e.tx, e.ty, e.ticks > 0 ? e.ticks / 60 : GLIDE_S);
+            break;
           default:
             break;
         }
@@ -693,12 +815,15 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         layer.tilePosition.set(-Math.round(c.x * speed * c.zoom), -Math.round(c.y * speed * c.zoom));
       }
       syncChunks(c);
+      lastSim = sim;
+      drawProps(sim);
       drawAreas(sim);
       lastTick = sim.tick;
       drawWarnings(sim.tick + alpha);
       drawEnemies(sim, alpha);
       drawPickups(sim, alpha);
       drawShots(sim, alpha);
+      drawGhosts();
       drawProbes(sim, alpha);
       drawParticles();
       drawNumbers(c, originX + shake.x, originY + shake.y);

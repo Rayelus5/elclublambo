@@ -52,7 +52,7 @@ export function updateLayer(sim: Sim): void {
 
 export function nextLayer(sim: Sim): void {
   sim.layer++;
-  sim.loot.push({ coins: 0, dust: 0 });
+  sim.loot.push({ coins: 0, dust: 0, components: 0 });
   sim.clocks['layerStart'] = sim.tick;
   sim.phase = 'waves';
   sim.phaseTick = 0;
@@ -90,6 +90,8 @@ export function onBossDown(sim: Sim, e: number, src: HitSource): void {
   if (def) dropPickup(sim, PICKUP.xp, def.xp, x, y);
   chest(sim, PICKUP.coin, sim.sector.drops.bossCoins, x, y, 0);
   chest(sim, PICKUP.dust, sim.sector.drops.bossDust, x, y, ANGLE_STEPS / 20);
+  // The chest always holds a magnet: the Core's data and everything left on the ground come home.
+  dropPickup(sim, PICKUP.magnet, 1, x, y + 22);
   const bc = sim.sector.beacon;
   const c = probesCentre(sim);
   const a = sim.rng.spawn.int(ANGLE_STEPS);

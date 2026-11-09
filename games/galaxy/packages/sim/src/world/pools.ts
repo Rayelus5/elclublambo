@@ -133,28 +133,57 @@ export const PICKUP_FIELDS = {
   y: 'f64',
   px: 'f64',
   py: 'f64',
-  /** 0 data fragment (XP), 1 coin, 2 star dust, 3 repair kit. */
+  /** 0 data fragment (XP), 1 coin, 2 star dust, 3 repair kit, 4 magnet, 5 component. */
   kind: 'u8',
   value: 'f64',
   /** Pulled towards a probe. */
   magnet: 'u8',
   mt: 'i32',
+  /** Pulled by a magnet pickup: 1 + the probe that took it (0: the nearest probe). */
+  to: 'u8',
 } as const;
 
-export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3 } as const;
+export const PICKUP = { xp: 0, coin: 1, dust: 2, repair: 3, magnet: 4, component: 5 } as const;
+
+/**
+ * Breakable props of the sector's ground (rocks, ice, coral, slag, rift crystals): placed per chunk from the run
+ * seed, broken by the probes' weapons, they drop components and star dust (systems/props.ts).
+ */
+export const PROP_FIELDS = {
+  x: 'f64',
+  y: 'f64',
+  hp: 'f64',
+  maxHp: 'f64',
+  radius: 'f64',
+  /** Which of the biome's three props it looks like. */
+  look: 'u8',
+  /** Its chunk and its place in it (a broken prop stays broken). */
+  cx: 'i32',
+  cy: 'i32',
+  slot: 'u8',
+  /** White hit flash for the renderer. */
+  flashT: 'i32',
+  /** The last flying shot that hit it (1 + slot, and that shot's generation): a shot hits a prop once. */
+  shot: 'i32',
+  shotGen: 'u16',
+  /** Ticks until an orb can hit it again. */
+  touchT: 'i32',
+} as const;
 
 export type EnemyPool = Pool<typeof ENEMY_FIELDS>;
 export type ShotPool = Pool<typeof SHOT_FIELDS>;
 export type FoeShotPool = Pool<typeof FOE_SHOT_FIELDS>;
 export type AreaPool = Pool<typeof AREA_FIELDS>;
 export type PickupPool = Pool<typeof PICKUP_FIELDS>;
+export type PropPool = Pool<typeof PROP_FIELDS>;
 
-export function createPools(limits: { enemies: number; shots: number; foeShots: number; pickups: number; areas: number }) {
+export function createPools(limits: { enemies: number; shots: number; foeShots: number; pickups: number; areas: number; props: number }) {
   return {
     enemies: createPool(limits.enemies, ENEMY_FIELDS) as EnemyPool,
     shots: createPool(limits.shots, SHOT_FIELDS) as ShotPool,
     foeShots: createPool(limits.foeShots, FOE_SHOT_FIELDS) as FoeShotPool,
     areas: createPool(limits.areas, AREA_FIELDS) as AreaPool,
     pickups: createPool(limits.pickups, PICKUP_FIELDS) as PickupPool,
+    props: createPool(Math.max(1, limits.props), PROP_FIELDS) as PropPool,
   };
 }
