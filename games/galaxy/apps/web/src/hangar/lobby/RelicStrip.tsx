@@ -11,10 +11,11 @@ import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { RelicPicker } from '../RelicPicker';
 import { SetsPanel } from '../SetsPanel';
+import { SkillTags } from '../SkillTags';
 import { StepHead } from './WherePanel';
 
 // Step 3, with what (GDD §8.4): the relic slots along the lobby's foot. A relic is its galaxy as an orb ringed in its
-// tier's colour, with its family and power; an empty slot asks for one; the next slot shows what opens it (and «Abrir
+// tier's colour (pressing it changes the relic), its name and its skills as tags that open what each one does; an empty slot asks for one; the next slot shows what opens it (and «Abrir
 // ranura» once it is earned); the rest are small locks. The sets the relics make open in their own window.
 
 const TIER_COLOR: Record<string, string> = { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' };
@@ -135,25 +136,23 @@ export function RelicStrip({ view }: { view: HangarView }) {
             );
           }
           const skill = describeRelic(relicInput(g), all, DEFAULT_CONTENT);
-          // What it does in words: its family, then its element and phenomenon when it has them.
-          const does = [copy.hangar.families[skill.family], skill.element ? copy.hangar.elements[skill.element] : null, skill.phenomenon ? copy.hangar.phenomena[skill.phenomenon] : null]
-            .filter(Boolean)
-            .join(', ');
           return (
             <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': TIER_COLOR[g.tier] ?? '#c9d0ea' } as CSSProperties}>
-              <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} title={`${g.name}: ${does}`}>
-                <Orb seed={g.seed} size={60} />
-                <span className="lobby-slot-text">
-                  <b>{g.name}</b>
-                  <small>{does}</small>
-                  <small className="lobby-slot-power">{copy.hangar.power(skill.magnitude)}</small>
-                </span>
+              <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} aria-label={copy.lobby.swapRelic(g.name)} title={copy.lobby.swapRelic(g.name)}>
+                <Orb seed={g.seed} size={44} />
               </button>
-              <button type="button" className="lobby-slot-remove" onClick={() => {
-                const next = [...ids];
-                next[i] = null;
-                save(next);
-              }} aria-label={copy.hangar.unequip(g.name)}>
+              <b className="lobby-slot-name">{g.name}</b>
+              <SkillTags skill={skill} galaxy={g.name} />
+              <button
+                type="button"
+                className="lobby-slot-remove"
+                onClick={() => {
+                  const next = [...ids];
+                  next[i] = null;
+                  save(next);
+                }}
+                aria-label={copy.hangar.unequip(g.name)}
+              >
                 <Icon name="close" />
               </button>
             </li>
