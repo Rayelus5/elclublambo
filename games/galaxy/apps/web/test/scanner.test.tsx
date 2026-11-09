@@ -79,6 +79,21 @@ test('escanear 10 con señales pide una vez con su clave, revela y Saltar lleva 
   expect(screen.getByLabelText(copy.hub.resource.signal(0))).toBeInTheDocument();
 });
 
+test('Espacio avanza el revelado (a la carta de la tirada), sin saltar al resumen', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => jsonResponse(200, { pulls: [pulled(0, 'rare'), pulled(1)], wallet: { coins: 250, dust: 0, signal: 0 }, view: view() }),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(10)}.*${copy.scanner.costSignals(10)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  expect(within(stage).queryByRole('article')).not.toBeInTheDocument();
+  fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+  expect(await within(stage).findByRole('article')).toHaveAccessibleName('Nueva 0');
+  expect(within(stage).queryByRole('heading', { name: copy.scanner.summaryTitle(2) })).not.toBeInTheDocument();
+});
+
 test('sin saldo los pagos se bloquean y el escaneo gratis aparece cuando toca', async () => {
   const fetch = mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, view({ freePullAvailable: true, wallet: { coins: 50, dust: 0, signal: 0 } })),

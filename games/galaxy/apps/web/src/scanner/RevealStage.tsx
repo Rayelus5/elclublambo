@@ -4,10 +4,12 @@ import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
 import { composeInto } from '../galaxy/compose';
 import { loadRender } from '../galaxy/images';
+import { duckMusic, onSettings } from '../audio/mixer';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { advance, revealSequence, skipToSummary, type Step } from './reveal-sequence';
+import { type FxTrigger, RevealFx } from './RevealFx';
 import { sfx } from './sfx';
 
 // The deep-field scan on screen (GDD §9, DESIGN_SYSTEM §8 bis). It plays revealSequence(): a CRT terminal sweeps
@@ -119,10 +121,30 @@ export function RevealStage({
     return () => clearTimeout(timer);
   }, [at, step, steps.length, imageSettled]);
 
+  // The sound of each step, in time with what is seen; the card bursts on screen (open beta).
+  const [fx, setFx] = useState<FxTrigger | null>(null);
   useEffect(() => {
-    if (step.kind === 'signal') sfx.clack();
-    if (step.kind === 'card' && step.tier) sfx.chord(step.tier);
-  }, [step]);
+    if (step.kind === 'signal') {
+      sfx.clack();
+      sfx.bars(step.bars ?? 1);
+    }
+    if (step.kind === 'scan' && step.tier) sfx.riser(step.tier, Number.isFinite(step.ms) ? step.ms / 1000 : 1);
+    if (step.kind === 'card' && step.tier && pull) {
+      sfx.impact(step.tier);
+      sfx.chord(step.tier);
+      if (step.tier === 'legendary') sfx.fanfare();
+      if (pull.featured) sfx.sting();
+      // A state change in reply to a step (the timer's), never in render.
+      queueMicrotask(() => setFx({ id: `${pull.id}:${at}`, tier: step.tier!, seed: pull.seed }));
+    }
+  }, [step, pull, at]);
+  // The music steps back while the reveal plays.
+  useEffect(() => {
+    duckMusic(true);
+    return () => duckMusic(false);
+  }, []);
+  // The mute button follows the settings (another screen, or the settings page, may change them).
+  useEffect(() => onSettings((s) => setMuted(s.muted)), []);
 
   const summary = step.kind === 'summary';
   // Saltar (which had the focus) disappears with the summary: the focus moves to Cerrar instead of the page body.
@@ -132,6 +154,24 @@ export function RevealStage({
   }, [summary]);
   const sorted = useMemo(() => [...pulls].sort((a, b) => TIERS.indexOf(b.tier) - TIERS.indexOf(a.tier)), [pulls]);
   const go = () => setAt((i) => advance(steps, i));
+  // Space advances (to the pull's card, then the next pull), even with «Saltar» focused: it never skips everything.
+  useEffect(() => {
+    if (summary) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' && e.key !== ' ') return;
+      e.preventDefault();
+      e.stopPropagation();
+      setAt((i) => advance(steps, i));
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [summary, steps]);
+  // The summary's cards land one after another, the rarest first, each with its ping.
+  useEffect(() => {
+    if (!summary || reduced) return;
+    const timers = pulls.map((_, i) => setTimeout(() => sfx.ping(i), 120 + i * 90));
+    return () => timers.forEach(clearTimeout);
+  }, [summary, reduced, pulls]);
   const cardSize = Math.min(300, Math.round((globalThis.innerHeight || 800) * 0.42));
 
   return (
@@ -172,8 +212,10 @@ export function RevealStage({
         <div className="stage-summary">
           <h3>{copy.scanner.summaryTitle(pulls.length)}</h3>
           <div className="summary-cards" data-count={pulls.length}>
-            {sorted.map((g) => (
-              <GalaxyCard key={g.id} galaxy={g} size={pulls.length > 1 ? 168 : 280} interactive />
+            {sorted.map((g, i) => (
+              <div key={g.id} className={`summary-card${i === 0 && pulls.length > 1 ? ' best' : ''}`} data-tier={g.tier} style={{ '--i': i } as CSSProperties}>
+                <GalaxyCard galaxy={g} size={pulls.length > 1 ? 168 : 280} interactive />
+              </div>
             ))}
           </div>
           <div className="summary-actions">
@@ -207,8 +249,10 @@ export function RevealStage({
           </div>
           {/* The card pops out of the screen, over the bezel. */}
           {step.kind === 'card' && pull ? (
-            <div className="stage-card" key={pull.id}>
+            <div className="stage-card" key={pull.id} data-tier={pull.tier}>
+              <span className="stage-beams" aria-hidden="true" />
               <GalaxyCard galaxy={pull} size={cardSize} interactive />
+              {pull.featured ? <span className="stage-featured">{copy.scanner.featuredFound}</span> : null}
             </div>
           ) : null}
         </div>
@@ -218,6 +262,7 @@ export function RevealStage({
           {copy.scanner.next}
         </button>
       )}
+      <RevealFx trigger={summary ? null : fx} reduced={reduced} />
       <p className="sr-only" aria-live="polite">
         {step.kind === 'card' && pull ? copy.scanner.found(copy.tiers[pull.tier], pull.name) : ''}
       </p>
