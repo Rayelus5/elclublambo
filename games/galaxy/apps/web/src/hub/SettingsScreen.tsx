@@ -36,10 +36,7 @@ export function SettingsScreen() {
     <div className="screen-root missions-root">
       <div className="missions settings">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{t.title}</h1>
         </header>
         <section className="lip panel settings-group" aria-labelledby="settings-sound">

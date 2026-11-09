@@ -17,6 +17,8 @@ import { registerClanRoutes } from './clans/routes';
 import { ChatHub } from './chat/hub';
 import { LiveHub } from './realtime/live-hub';
 import { createRooms, registerRoomRoutes } from './coop/room-routes';
+import { registerCoopPlayRoutes } from './coop/play-routes';
+import { CoopService } from './coop/service';
 import { registerFriendRoutes } from './social/friend-routes';
 import { friendIdsOf, prefsOf } from './social/friends';
 import { registerChatRoutes } from './chat/routes';
@@ -93,6 +95,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     createConfigService(deps.db, {
       onInvalid: (key, err) => app.log.error({ key, err: (err as Error).name }, 'config_invalid_stored_row'),
     });
+  // Plan phase 6: the co-op runs (their clock, logs and pay); tests reach it as app.galaxyCoop.
+  const coop = new CoopService({ db: deps.db, config, now, log: app.log, autoRecover: process.env.NODE_ENV !== 'test' });
+  app.decorate('galaxyCoop', coop);
+  app.addHook('onClose', async () => coop.close());
   // The API lives in its own encapsulated plugin: its hooks (session, maintenance) run only for MATCHED API routes,
   // whatever the raw URL spelling (%-encoded paths included), and static files never touch the database.
   await app.register(async (api) => {
@@ -126,7 +132,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     });
     api.addHook('onClose', async () => live.close());
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
-    registerRoomRoutes(api, { db: deps.db, config, live, rooms, trustCfIp: deps.env.TRUST_CF_IP });
+    registerRoomRoutes(api, { db: deps.db, config, live, rooms, coop, trustCfIp: deps.env.TRUST_CF_IP });
+    registerCoopPlayRoutes(api, { coop, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     // A ban or closed sessions drop both kinds of socket; the statistics count both.
     const sockets = { dropAccount: (id: string) => (hub.dropAccount(id), live.dropAccount(id)), size: () => hub.size() + live.size() };
     registerChatRoutes(api, { db: deps.db, config, now, hub, origins: deps.env.GALAXY_PUBLIC_ORIGINS, trustCfIp: deps.env.TRUST_CF_IP });

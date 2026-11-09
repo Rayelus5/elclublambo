@@ -25,14 +25,15 @@ import { clientIp } from '../security/client-ip';
 import { areFriends, blockedBetween, prefsOf } from '../social/friends';
 import { accountLevel } from '../social/progress';
 import { type MemberInit, type Room, RoomManager } from './rooms';
+import type { CoopService } from './service';
 
 // Rooms' routes (multiplayer plan, phase 5). Every action is HTTP and answers with my room as it is now; every member
 // learns the change through its live socket, and so do the friends watching their presence («in a room, 2/4»). Who
 // may play together is checked here: co-op open (switch, tutorial done, level), the leader's sectors, friends-only
-// rooms, blocks both ways with anyone in the room, and the invitee's privacy. Launching comes with the co-op runs
-// (phase 6): until then the leader is told it is coming soon.
+// rooms, blocks both ways with anyone in the room, and the invitee's privacy. Launching starts the room's co-op run
+// (phase 6, coop/service.ts); when it ends the room waits again, nobody ready.
 
-export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; rooms: Rooms; trustCfIp: boolean };
+export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; rooms: Rooms; coop: CoopService; trustCfIp: boolean };
 
 /** The rooms and how their limits follow the live config (read again on every sweep, every 30 s). */
 export type Rooms = { manager: RoomManager; refresh: () => Promise<void> };
@@ -105,6 +106,15 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     for (const x of extra) live.send(x.accountId, { type: 'room', room: null, ...(x.why ? { why: x.why } : {}) } satisfies LiveEvent);
     await Promise.all([...room.members.map((m) => live.announce(m.accountId)), ...extra.map((x) => live.announce(x.accountId))]);
   }
+
+  // A run ended: its room waits again (if it is still open) and its members learn it.
+  deps.coop.onRunEnded = async (roomId, runId) => {
+    const room = rooms.byId(roomId);
+    // Only the room's own run sends it back to waiting (an older one ending late changes nothing).
+    if (!room || room.runId !== runId) return;
+    rooms.backToLobby(room);
+    await tell(room);
+  };
 
   const mine = async (accountId: string): Promise<RoomView | null> => {
     const room = rooms.roomOf(accountId);
@@ -190,7 +200,10 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
 
   api.post('/galaxy/api/rooms/leave', async (req): Promise<{ left: true }> => {
     const s = requireSession(req);
+    const runId = rooms.roomOf(s.accountId)?.runId;
     const r = rooms.leave(s.accountId);
+    // Out of the room while its run plays: out of the run for good.
+    if (runId) deps.coop.leaveRun(runId, s.accountId);
     if (r) await tell(r.room, [{ accountId: s.accountId }]);
     return { left: true };
   });
@@ -274,15 +287,29 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     return { sent: true };
   });
 
-  // Launching: everyone ready, then the run (phase 6). Until co-op runs exist, the leader hears they are coming.
+  // Launching (phase 6): the leader, everyone ready, the sector still open to the leader; the room plays its run.
+  // The room is marked at once, so a second press (or a second tab) never launches twice.
   api.post('/galaxy/api/rooms/start', async (req): Promise<RoomView> => {
     const s = requireSession(req);
     pace(req, s.accountId);
     const room = rooms.roomOf(s.accountId);
     if (!room) throw new HttpError(404, 'room_not_found');
     if (room.leader !== s.accountId) throw new HttpError(403, 'room_not_leader');
+    if (room.state !== 'lobby') throw new HttpError(409, 'room_started');
     if (!rooms.view(room, online, true).canStart) throw new HttpError(409, 'room_not_ready');
-    throw new HttpError(409, 'coop_soon');
+    // Marked before anything waits: a second press (or tab) meanwhile is refused, never launched twice.
+    room.state = 'starting';
+    try {
+      await mustPlay(s.accountId);
+      if (!(await sectorOpenTo(s.accountId, room.sector))) throw new HttpError(409, 'sector_locked');
+      const runId = await deps.coop.launch(room);
+      rooms.launch(room, runId);
+    } catch (err) {
+      if (room.state === 'starting') room.state = 'lobby';
+      throw err;
+    }
+    await tell(room);
+    return (await mine(s.accountId))!;
   });
 
   // The admin's live rooms (plan phase 5): every room now, and closing one (audited).
@@ -305,6 +332,8 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     if (!room) throw new HttpError(404, 'room_not_found');
     const actor: AuditActor = { id: staff.accountId, label: staff.username, ip: clientIp(req, deps.trustCfIp) };
     const members = room.members.map((m) => m.username);
+    // Closing a room that plays ends its run: everyone leaves it (and is paid as abandoned).
+    if (room.runId) for (const m of room.members) deps.coop.leaveRun(room.runId, m.accountId);
     rooms.close(room);
     await inTransaction(db, (trx) => writeAudit(trx, { actor, action: 'room.close', targetType: 'room', targetId: code, before: { members, sector: room.sector, kind: room.kind }, reason }));
     await tell(room, room.members.map((m) => ({ accountId: m.accountId, why: 'closed' as const })));

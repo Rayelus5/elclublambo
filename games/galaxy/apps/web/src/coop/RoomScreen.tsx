@@ -1,8 +1,9 @@
 import type { RoomKind, RoomMember } from '@galaxy/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { useFriends } from '../api/friends';
-import { useInvite, useLeaveRoom, useRoomAction, useRooms } from '../api/rooms';
+import { ROOMS_KEY, useInvite, useLeaveRoom, useRoomAction, useRooms } from '../api/rooms';
 import { useHangar } from '../api/runs';
 import { errorText, useMe } from '../auth/useMe';
 import { spriteDataUrl } from '../arena/sprites';
@@ -10,11 +11,13 @@ import { copy } from '../copy/es';
 import { Avatar } from '../hub/Avatar';
 import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
+import { CoopArena } from './CoopArena';
 
 // My room (multiplayer plan, phase 5): four places with each player's probe, level, «listo» and whether they are
 // connected; the leader picks the sector and the kind, kicks, hands the lead over and launches when everyone is ready.
 // Everyone marks ready, changes their own probe and relics in the hangar, invites friends online and leaves. The
-// code (and the link) bring friends in.
+// code (and the link) bring friends in. While the room plays its run (phase 6) the page is the run, and it stays on
+// its results until the player goes back to the room.
 
 const t = copy.coop;
 const KINDS: RoomKind[] = ['public', 'friends', 'private'];
@@ -70,7 +73,31 @@ export function RoomScreen() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
   const [invited, setInvited] = useState<string | null>(null);
+  const qc = useQueryClient();
   const room = rooms.data?.mine;
+  // The run on screen: the room's while it plays, and after it until its results are closed.
+  const [playing, setPlaying] = useState<string | null>(null);
+  const [finished, setFinished] = useState<string | null>(null);
+  const runId = room?.run?.id ?? null;
+  if (runId && runId !== playing && runId !== finished) setPlaying(runId);
+  if (playing) {
+    return (
+      <CoopArena
+        key={playing}
+        runId={playing}
+        onExit={() => {
+          setFinished(playing);
+          setPlaying(null);
+          void qc.invalidateQueries({ queryKey: ROOMS_KEY });
+        }}
+        onAbandon={() => {
+          setFinished(playing);
+          setPlaying(null);
+          leave.mutate(undefined, { onSuccess: () => navigate('/incursion/grupo') });
+        }}
+      />
+    );
+  }
   if (rooms.data && !room) return <Navigate to="/incursion/grupo" replace />;
   if (!room) return null;
   const leaderView = room.leader === me;
@@ -96,10 +123,7 @@ export function RoomScreen() {
     <div className="screen-root coop-root">
       <div className="coop lobby">
         <header className="collection-bar">
-          <BackLink fallback="/incursion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink to="/incursion" />
           <h1>{t.roomTitle}</h1>
           <button type="button" className="lip pill lobby-code" onClick={() => void copyCode()} aria-label={t.copyCode(room.code)}>
             <Icon name="copy" />

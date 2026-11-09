@@ -46,10 +46,7 @@ export function GroupScreen() {
     <div className="screen-root coop-root">
       <div className="coop">
         <header className="collection-bar">
-          <BackLink fallback="/incursion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink to="/incursion" />
           <h1>{t.title}</h1>
         </header>
         {v && !v.allowed ? (

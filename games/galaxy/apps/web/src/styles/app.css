@@ -2529,4 +2529,41 @@
   .admin-lobby-members { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   .admin-lobby-members .away { color: var(--color-ink-mute); }
   .admin-table .lobby-code-text { font-size: 16px; }
+  /* A co-op run (multiplayer plan, phase 6): the team on the left under the HUD, the cards as a strip at the bottom
+     (the world never stops), the notice of falling, and the link's state. */
+  .coop-team { position: absolute; top: 88px; left: 20px; pointer-events: none; }
+  .coop-team ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .coop-mate { --mate: var(--color-solar); display: grid; gap: 4px; inline-size: 190px; padding: 7px 10px 8px; border-radius: 12px; background: rgb(11 12 36 / .82); border-inline-start: 4px solid var(--mate); }
+  .coop-mate-name { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .coop-mate-name b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .coop-mate-name small { flex: none; font-size: 12px; color: var(--color-ink-soft); }
+  .coop-mate-hp { display: block; block-size: 7px; border-radius: 99px; background: rgb(0 0 0 / .45); overflow: hidden; }
+  .coop-mate-hp i { display: block; block-size: 100%; background: linear-gradient(90deg, var(--color-nova-2), var(--color-nova)); transition: inline-size .2s ease; }
+  .coop-mate.down { border-inline-start-color: var(--color-static); }
+  .coop-mate.down small { color: var(--color-static); font-weight: 700; }
+  .coop-mate:is(.out, .away, .left) { opacity: .55; }
+  .coop-cards { --r: 20px; position: absolute; left: 50%; bottom: 18px; translate: -50% 0; inline-size: min(760px, calc(100vw - 340px)); display: grid; gap: 8px; padding: 10px 12px 12px; border-radius: 20px; background: rgb(11 12 36 / .88); border: 2px solid rgb(255 201 74 / .45); box-shadow: 0 0 30px rgb(255 201 74 / .18); animation: radio-in .3s var(--ease-bounce) both; }
+  .coop-cards header { display: flex; align-items: center; gap: 12px; }
+  .coop-cards header b { font: 400 18px var(--font-display); color: var(--color-solar); }
+  .coop-cards-hint { flex: 1; font-size: 13px; color: var(--color-ink-soft); }
+  .coop-cards-left { position: relative; inline-size: 36px; block-size: 36px; display: grid; place-items: center; font-weight: 800; font-size: 14px; }
+  .coop-cards-left svg { position: absolute; inset: 0; rotate: -90deg; }
+  .coop-cards-left circle { fill: none; stroke-width: 4; }
+  .coop-cards-left .track { stroke: rgb(255 255 255 / .1); }
+  .coop-cards-left .fill { stroke: var(--color-solar); stroke-linecap: round; transition: stroke-dasharray .2s linear; }
+  .coop-cards-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .coop-card { --r: 14px; --lip-h: 4px; position: relative; display: flex; align-items: center; gap: 10px; min-block-size: 58px; padding: 8px 10px 8px 30px; color: var(--color-ink); text-align: start; }
+  .coop-card .levelup-key { position: absolute; top: 6px; left: 8px; }
+  .coop-card img { image-rendering: pixelated; flex: none; }
+  .coop-card-text { display: grid; min-inline-size: 0; }
+  .coop-card-text b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .coop-card-text small { font-size: 12px; color: var(--color-terminal); }
+  .coop-card.evolve { border-color: rgb(255 201 74 / .6); }
+  .coop-card:hover { transform: translateY(-2px); }
+  .coop-card:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .coop-life { position: absolute; top: 96px; left: 50%; translate: -50% 0; padding: 10px 18px; border-radius: 14px; background: rgb(43 7 18 / .85); border: 2px solid rgb(255 77 109 / .55); color: #ffd3da; font-weight: 700; text-align: center; max-inline-size: min(560px, 70vw); }
+  .coop-life.out { background: rgb(11 12 36 / .85); border-color: rgb(255 255 255 / .15); color: var(--color-ink-soft); }
+  .coop-arena-status { position: absolute; top: 50%; left: 50%; translate: -50% -50%; margin: 0; padding: 14px 22px; border-radius: 16px; background: rgb(11 12 36 / .88); font-weight: 700; color: var(--color-ink); }
+  .arena-ending small { display: block; margin-top: 8px; font-size: 15px; color: var(--color-ink-soft); text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .coop-cards { animation: none; } }
 }

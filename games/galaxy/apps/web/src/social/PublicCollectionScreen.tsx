@@ -6,7 +6,6 @@ import { usePublicCollection } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, fmt } from '../copy/es';
-import { Icon } from '../ui/Icon';
 import { BackLink } from '../ui/BackLink';
 
 // A player's collection as anyone may see it (GDD §14.2; DESIGN_SYSTEM §8 undecies): their cards by rarity, without
@@ -26,10 +25,7 @@ export function PublicCollectionScreen() {
     <div className="screen-root collection-root">
       <div className="collection">
         <header className="collection-bar">
-          <BackLink fallback={`/perfil/${encodeURIComponent(username)}`}>
-            <Icon name="back" />
-            <span>{t.backToProfile}</span>
-          </BackLink>
+          <BackLink fallback={`/perfil/${encodeURIComponent(username)}`} />
           <h1>{title}</h1>
         </header>
         {missing ? (

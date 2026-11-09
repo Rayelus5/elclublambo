@@ -50,6 +50,8 @@ export interface RoomView {
   createdAt: string;
   /** Whether the leader may launch now (everyone ready, co-op runs open). */
   canStart: boolean;
+  /** The run it is playing (phase 6), while it lasts. */
+  run: { id: string } | null;
 }
 
 /** A public room in the list. */

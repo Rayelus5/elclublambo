@@ -32,6 +32,8 @@ export interface Room {
   members: Member[];
   createdAt: number;
   touchedAt: number;
+  /** The co-op run it is playing (phase 6), while it lasts. */
+  runId: string | null;
 }
 
 export interface RoomManagerOptions {
@@ -64,6 +66,10 @@ export class RoomManager {
     return id ? (this.rooms.get(id) ?? null) : null;
   }
 
+  byId(id: string): Room | null {
+    return this.rooms.get(id) ?? null;
+  }
+
   byCodeOf(code: string): Room | null {
     const id = this.byCode.get(code.toUpperCase());
     return id ? (this.rooms.get(id) ?? null) : null;
@@ -88,7 +94,7 @@ export class RoomManager {
     let code = newCode();
     while (this.byCode.has(code)) code = newCode();
     const t = this.now();
-    const room: Room = { id: randomUUID(), code, kind, leader: owner.accountId, sector, state: 'lobby', members: [this.member(owner)], createdAt: t, touchedAt: t };
+    const room: Room = { id: randomUUID(), code, kind, leader: owner.accountId, sector, state: 'lobby', members: [this.member(owner)], createdAt: t, touchedAt: t, runId: null };
     this.rooms.set(room.id, room);
     this.byCode.set(code, room.id);
     this.byAccount.set(owner.accountId, room.id);
@@ -179,6 +185,22 @@ export class RoomManager {
     return room;
   }
 
+  /** The leader launched (phase 6): the room plays that run; nobody joins until it is over. */
+  launch(room: Room, runId: string): void {
+    room.state = 'running';
+    room.runId = runId;
+    this.touch(room);
+  }
+
+  /** The run is over: the room waits again, nobody ready (Volver a la sala). */
+  backToLobby(room: Room): void {
+    if (!this.rooms.has(room.id)) return;
+    room.state = 'lobby';
+    room.runId = null;
+    for (const m of room.members) m.ready = false;
+    this.touch(room);
+  }
+
   /** A member's hangar changed (its probe), or its level: the room shows it. */
   refresh(accountId: string, patch: Partial<Pick<Member, 'probe' | 'level'>>): Room | null {
     const room = this.roomOf(accountId);
@@ -234,6 +256,7 @@ export class RoomManager {
       max: ROOM_MAX,
       createdAt: new Date(room.createdAt).toISOString(),
       canStart: coopOpen && room.state === 'lobby' && members.length >= 1 && members.every((m) => m.ready || m.accountId === room.leader),
+      run: room.runId ? { id: room.runId } : null,
     };
   }
 

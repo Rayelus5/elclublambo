@@ -29,10 +29,7 @@ export function CodexScreen() {
     <div className="screen-root missions-root">
       <div className="missions codex">
         <header className="collection-bar">
-          <BackLink fallback="/estacion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/estacion" />
           <h1>{t.title}</h1>
           {p ? <p className="panel-note codex-count">{t.count(total, entries.length)}</p> : null}
         </header>

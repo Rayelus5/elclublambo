@@ -33,10 +33,7 @@ export function CatalogScreen() {
     <div className="screen-root missions-root">
       <div className="missions catalog">
         <header className="collection-bar">
-          <BackLink fallback="/coleccion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/coleccion" />
           <h1>{t.title}</h1>
         </header>
         {catalog.error ? (

@@ -13,15 +13,25 @@ export function screenOf(pathname: string): string {
   return /^\/coleccion\/[^/]+$/.test(pathname) ? '/coleccion' : pathname;
 }
 
+/** Whether `screen` hangs below `parent` by its address (/incursion/grupo below /incursion; everything below /). */
+function below(screen: string, parent: string): boolean {
+  return parent === '/' ? screen !== '/' : screen.startsWith(`${parent}/`);
+}
+
 /**
  * The trail after arriving at `screen` (at `href`): the same screen updates its address; the one before means going
- * back (it is dropped back to); anything else is a new step. A screen met further back cuts the trail there.
+ * back (it is dropped back to); anything else is a new step. A screen met further back cuts the trail there. Going up
+ * to the screen a page hangs from (the group page's «Volver al hangar») is going back too, even if the visit started
+ * below it (a reload): the pages below it at the end of the trail are dropped, so the parent's own «Volver» never
+ * leads down again.
  */
 export function nextTrail(trail: Step[], screen: string, href: string): Step[] {
   if (trail.at(-1)?.screen === screen) return [...trail.slice(0, -1), { screen, href }];
   const at = trail.findIndex((s) => s.screen === screen);
   if (at >= 0) return [...trail.slice(0, at), { screen, href }];
-  return [...trail, { screen, href }].slice(-30);
+  let end = trail.length;
+  while (end > 0 && below(trail[end - 1]!.screen, screen)) end--;
+  return [...trail.slice(0, end), { screen, href }].slice(-30);
 }
 
 let trail: Step[] = [];

@@ -138,10 +138,7 @@ export function LabScreen() {
     <div className="screen-root lab-root">
       <div className="lab">
         <header className="collection-bar">
-          <BackLink fallback="/estacion">
-            <Icon name="back" />
-            <span>{t.back}</span>
-          </BackLink>
+          <BackLink fallback="/estacion" />
           <h1>{t.title}</h1>
           <div className="lip panel hud">
             {v ? (

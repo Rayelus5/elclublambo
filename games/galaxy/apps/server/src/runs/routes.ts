@@ -15,14 +15,11 @@ import {
   type RunResult,
   type RunStart,
   activeAnomaly,
-  seasonCurrency,
-  shardsFor,
 } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireSession } from '../auth/guards';
 import { operationExists, runOperation } from '../economy/operations';
-import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
@@ -31,7 +28,8 @@ import { chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
-import { countStats, missionConfigs } from '../missions/service';
+import { missionConfigs } from '../missions/service';
+import { creditRunExtras } from './extras';
 import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -157,17 +155,8 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const mcfg = await missionConfigs(deps.config);
     const result = await runOperation(deps.db, s.accountId, key, 'runs.finish', requestHash({ id, body }), async (trx) => {
       const r = await finishRun(trx, s.accountId, id, body, key, { runs, runsVersion, content, account, season, boosts, now });
-      // The season currency (M7d-1): a share of the points a run that counts adds.
-      const shards = shardsFor(r.progress.points, route.currency.perPoint);
-      if (shards > 0) {
-        await credit(trx, s.accountId, seasonCurrency(season.id), shards, 'season_run', { run: id }, key);
-        r.progress.shards = shards;
-      }
-      // Missions and achievements (M7a): what a run that is not suspicious did, as kept.
-      const kept = await trx.selectFrom('galaxy.runs').select(['suspicious', 'seconds', 'kills', 'boss_kills', 'depth', 'outcome']).where('id', '=', id).executeTakeFirstOrThrow();
-      if (!kept.suspicious) {
-        await countStats(trx, mcfg, s.accountId, { runs: 1, minutes: Math.floor((kept.seconds ?? 0) / 60), kills: kept.kills ?? 0, bossKills: kept.boss_kills ?? 0, extractions: kept.outcome === 'extracted' ? 1 : 0, depth: kept.depth ?? 0 }, now);
-      }
+      // The season currency for its points, and the missions for what it did (runs/extras.ts).
+      await creditRunExtras(trx, s.accountId, id, r, key, { season, perPoint: route.currency.perPoint, missions: mcfg, now });
       return r;
     });
     // The season moved (M5a): the next leaderboard read counts this run, not the cached one from before it.

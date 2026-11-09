@@ -607,6 +607,41 @@ export interface RunsTable {
   runs_version: Maybe<number>;
   flags: ColumnType<string[], string[] | undefined, string[]>;
   suspicious: ColumnType<boolean, boolean | undefined, boolean>;
+  /** Plan phase 6: the co-op run it belongs to and its place, how many started it, the factor on its season points. */
+  coop_run_id: ColumnType<string | null, string | null | undefined, never>;
+  slot: ColumnType<number | null, number | null | undefined, never>;
+  party_size: ColumnType<number, number | undefined, never>;
+  points_factor: ColumnType<number, number | undefined, never>;
+}
+
+/** Plan phase 6: a co-op run and its sealed inputs. */
+export interface CoopRunsTable {
+  id: Generated<string>;
+  room_code: string;
+  kind: 'public' | 'friends' | 'private';
+  leader_id: string | null;
+  sector: string;
+  seed: BigNum;
+  anomaly: string | null;
+  rules: ColumnType<unknown, string, never>;
+  players: ColumnType<unknown, string, never>;
+  content_version: number;
+  sim_version: string;
+  state: ColumnType<'running' | 'ended' | 'interrupted', 'running' | undefined, 'ended' | 'interrupted'>;
+  outcome: Maybe<'extracted' | 'died' | 'interrupted'>;
+  ticks: Maybe<number>;
+  depth: Maybe<number>;
+  boss_kills: Maybe<number>;
+  hash: Maybe<string>;
+  started_at: Timestamp;
+  ended_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
+export interface CoopRunInputsTable {
+  coop_run_id: string;
+  inputs: Buffer;
+  ticks: ColumnType<number, number | undefined, number>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
 export interface RunInputsTable {
@@ -651,6 +686,8 @@ export interface DB {
   'galaxy.loadouts': LoadoutsTable;
   'galaxy.runs': RunsTable;
   'galaxy.run_inputs': RunInputsTable;
+  'galaxy.coop_runs': CoopRunsTable;
+  'galaxy.coop_run_inputs': CoopRunInputsTable;
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;

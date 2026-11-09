@@ -65,10 +65,7 @@ export function CollectionScreen() {
     <div className="screen-root collection-root">
       <div className="collection">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{copy.collection.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{copy.collection.title}</h1>
           <CatalogButton />
           <div className="lip panel hud">

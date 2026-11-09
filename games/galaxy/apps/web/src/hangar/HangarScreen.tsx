@@ -674,10 +674,7 @@ export function HangarScreen() {
     <div className="screen-root hangar-root">
       <div className="hangar">
         <header className="collection-bar">
-          <BackLink fallback="/">
-            <Icon name="back" />
-            <span>{copy.hangar.back}</span>
-          </BackLink>
+          <BackLink fallback="/" />
           <h1>{copy.hangar.title}</h1>
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} components />

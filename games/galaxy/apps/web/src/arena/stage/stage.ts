@@ -24,6 +24,8 @@ export interface StageOptions {
   preserve?: boolean;
   /** The sector's biome: its nebula, stars, dust and rocks (default: the M3a nebula). */
   biome?: BiomeId;
+  /** Co-op (multiplayer plan): every player's name by probe, shown over the teammates. */
+  names?: string[];
 }
 
 export interface Stage {
@@ -63,6 +65,8 @@ const DASH_TINT = 0x6fe3ff;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
+/** Each co-op player's colour, by probe (solar, terminal, ice, nova). */
+export const TEAM_TINT = [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a];
 
 /** Sprites kept per slot of a pool, made on demand and hidden when the slot is free. */
 class SpritePool {
@@ -129,7 +133,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   BitmapFont.install({
     name: LABEL_FONT,
     style: { fontFamily: 'Fredoka, system-ui, sans-serif', fontSize: 15, fontWeight: '700', fill: '#ffffff', stroke: { color: '#0b0c24', width: 4 } },
-    chars: [['a', 'z'], ['A', 'Z'], 'áéíóúÁÉÍÓÚñÑüÜ '],
+    chars: [['a', 'z'], ['A', 'Z'], ['0', '9'], 'áéíóúÁÉÍÓÚñÑüÜ _-'],
     resolution: 1,
   });
 
@@ -199,6 +203,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const particleSprites: Sprite[] = [];
   const numberTexts: BitmapText[] = [];
   const labelTexts: BitmapText[] = [];
+  const tagTexts: BitmapText[] = [];
+  /** Where the teammates were drawn this frame (their names go over them). */
+  const tagAt: { i: number; x: number; y: number }[] = [];
   const pipPool = new SpritePool(enemies);
   const starA = new SpritePool(enemies);
   const starB = new SpritePool(enemies);
@@ -617,9 +624,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
 
   function drawProbes(sim: Sim, alpha: number): void {
     const flags = new Uint8Array(sim.probes.length);
+    const coop = sim.coop;
+    tagAt.length = 0;
     sim.probes.forEach((p, i) => {
-      flags[i] = p.alive ? 1 : 0;
-      if (!p.alive) return;
+      // Co-op: a fallen probe stays on the ground (to be revived) and an away one shows as a ghost.
+      const shown = p.alive || (coop !== null && (p.life === 'down' || p.life === 'away'));
+      flags[i] = shown ? 1 : 0;
+      if (!shown) return;
       const s = probePool.at(i);
       const id = p.def.sprite;
       s.texture = atlas.frames[id]![frameOf(id)]!;
@@ -639,6 +650,27 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       s.position.set(x, y);
       s.scale.set(Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1, 1);
+      s.tint = 0xffffff;
+      if (coop && i !== opts.probe) {
+        // A teammate: its colour under it, and its name over it (drawn with the labels).
+        marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: TEAM_TINT[i % TEAM_TINT.length]!, alpha: 0.8 });
+        tagAt.push({ i, x, y });
+      }
+      if (coop && p.life === 'down') {
+        // Fallen: grey on the ground, its countdown in red, a teammate's revive filling in green, and the reach.
+        s.tint = 0x8890c4;
+        s.alpha = 0.6;
+        const left = Math.max(0, p.downT / Math.max(1, coop.downSeconds * 60));
+        const revive = Math.min(1, p.reviveT / Math.max(1, coop.reviveSeconds * 60));
+        marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: 0x45e3a6, alpha: 0.22 });
+        if (left > 0) arcFrom(marks, x, y, 14, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2).stroke({ width: 2, color: 0xff4d6d, alpha: 0.9 });
+        if (revive > 0) arcFrom(marks, x, y, 18, -Math.PI / 2, -Math.PI / 2 + revive * Math.PI * 2).stroke({ width: 3, color: 0x45e3a6, alpha: 0.95 });
+        return;
+      }
+      if (coop && p.life === 'away') {
+        s.alpha = 0.3;
+        return;
+      }
       // Invulnerable: a soft shimmer, not a hard blink.
       s.alpha = p.invulnT > 0 ? (opts.reduced ? 0.75 : 0.72 + 0.28 * Math.sin(clock * 14)) : 1;
       if (p.invulnT > 0) marks.circle(x, y, 10).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
@@ -703,6 +735,26 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       j++;
     }
     for (; j < labelTexts.length; j++) labelTexts[j]!.visible = false;
+    // Co-op: the teammates' names over their probes.
+    let g = 0;
+    for (const at of tagAt) {
+      const name = opts.names?.[at.i];
+      if (!name) continue;
+      let t = tagTexts[g];
+      if (!t) {
+        t = new BitmapText({ text: ' ', style: { fontFamily: LABEL_FONT, fontSize: 15 } });
+        t.anchor.set(0.5, 1);
+        tagTexts.push(t);
+        numbers.addChild(t);
+      }
+      t.visible = true;
+      t.text = name;
+      t.tint = TEAM_TINT[at.i % TEAM_TINT.length]!;
+      t.scale.set(1);
+      t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - 14 - c.y) * c.zoom));
+      g++;
+    }
+    for (; g < tagTexts.length; g++) tagTexts[g]!.visible = false;
   }
 
   function drawBars(c: Camera): void {
