@@ -667,7 +667,7 @@ export const copy = {
     back: 'Volver al inicio',
     tabsLabel: 'Secciones del mercado',
     tabs: { buy: 'Comprar', sell: 'Vender', mine: 'Mis anuncios' },
-    gate: (level: number, days: number) => `Necesitas nivel ${level} y ${days} días de cuenta para comerciar`,
+    gate: (level: number, days: number) => `Necesitas nivel ${level}${days > 0 ? ` y ${days} ${days === 1 ? 'día' : 'días'} de cuenta` : ''} para comerciar`,
     gateLevel: 'Te falta nivel. Súbelo jugando incursiones',
     gateAge: 'Tu cuenta todavía es muy nueva',
     commission: (pct: number) => `El mercado se queda el ${fmt(pct)} % de cada venta`,
