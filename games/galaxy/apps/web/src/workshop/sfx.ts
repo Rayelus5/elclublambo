@@ -64,3 +64,15 @@ export function playEquip(): void {
   tone(ctx, out, t + 0.1, 784, 784, 0.18, 0.045);
   tone(ctx, out, t + 0.16, 1174.7, 1174.7, 0.22, 0.04);
 }
+
+/** Liftoff from the lobby: a deep engine rumble that swells and a rising whine. */
+export function playLaunch(): void {
+  const bus = sfxOut();
+  if (!bus || getSettings().muted) return;
+  const { ctx, out } = bus;
+  const t = ctx.currentTime;
+  tone(ctx, out, t, 55, 90, 0.9, 0.09, 'sawtooth');
+  noise(ctx, out, t, 0.7, 0.45, 300);
+  noise(ctx, out, t + 0.2, 0.6, 0.3, 700);
+  tone(ctx, out, t + 0.15, 330, 1320, 0.7, 0.03);
+}

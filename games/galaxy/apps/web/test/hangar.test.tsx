@@ -255,37 +255,39 @@ test('si la arena no carga, se dice y se ofrece recargar en vez de dejar la pant
 
 describe('conjuntos de reliquias', () => {
   const traits = (over: Record<string, string>) => ({ galaxy_type: 'dwarf', arms: '0', size: 'medium', inclination: 'face_on', core: 'faint', star_density: 'normal', palette: 'monochrome', background: 'deep_void', phenomenon: 'none', ...over });
-  const show = (a: Record<string, string>, b?: Record<string, string>) => {
+  /** The lobby with these relics, and their sets' window open. */
+  const show = async (a: Record<string, string>, b?: Record<string, string>) => {
     mockApi({
       'GET /galaxy/api/hangar': () =>
         jsonResponse(200, view({ loadout: [galaxy({ id: 'a', name: 'Kathra', traits: traits(a) }), b ? galaxy({ id: 'b', name: 'Orvel', traits: traits(b) }) : null] })),
     });
     renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`^${copy.hangar.sets}`) }));
   };
 
   test('dos galaxias de la misma paleta activan la Resonancia cromática y dicen su bonus', async () => {
-    show({ palette: 'solar_gold', galaxy_type: 'spiral', core: 'bright', background: 'cmb' }, { palette: 'solar_gold', galaxy_type: 'ring', core: 'quasar', background: 'starfield' });
+    await show({ palette: 'solar_gold', galaxy_type: 'spiral', core: 'bright', background: 'cmb' }, { palette: 'solar_gold', galaxy_type: 'ring', core: 'quasar', background: 'starfield' });
     const panel = await screen.findByRole('region', { name: copy.hangar.sets });
     expect(within(panel).getByText('Resonancia cromática')).toBeInTheDocument();
     expect(within(panel).getByText(copy.hangar.setBonus.stat('elemental', 0.25))).toBeInTheDocument();
   });
 
   test('una espiral con una galaxia satélite activa el Brazo satélite', async () => {
-    show({ galaxy_type: 'spiral', palette: 'solar_gold' }, { phenomenon: 'satellite_galaxy', palette: 'ultraviolet', background: 'cmb', core: 'bright' });
+    await show({ galaxy_type: 'spiral', palette: 'solar_gold' }, { phenomenon: 'satellite_galaxy', palette: 'ultraviolet', background: 'cmb', core: 'bright' });
     const panel = await screen.findByRole('region', { name: copy.hangar.sets });
     expect(within(panel).getByText('Brazo satélite')).toBeInTheDocument();
     expect(within(panel).getByText(copy.hangar.setBonus.stat('projectiles', 1))).toBeInTheDocument();
   });
 
   test('a medio hacer, dice qué galaxia falta', async () => {
-    show({ galaxy_type: 'spiral' });
+    await show({ galaxy_type: 'spiral' });
     const panel = await screen.findByRole('region', { name: copy.hangar.sets });
     expect(within(panel).getByText('Brazo satélite')).toBeInTheDocument();
     expect(within(panel).getByText(copy.hangar.setMissing('phenomenon', 'Galaxia satélite'))).toBeInTheDocument();
   });
 
   test('sin galaxias que encajen, explica cómo se consiguen', async () => {
-    show({ galaxy_type: 'dwarf' });
+    await show({ galaxy_type: 'dwarf' });
     const panel = await screen.findByRole('region', { name: copy.hangar.sets });
     expect(within(panel).getByText(copy.hangar.setsEmpty)).toBeInTheDocument();
   });
@@ -365,7 +367,7 @@ describe('la misma familia apilada (M4c-1, GDD §8.6)', () => {
     const spiral = (id: string) => galaxy({ id, name: `Espiral ${id}` });
     mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ slots: 3, loadout: [spiral('s1'), spiral('s2'), spiral('s3')], nextSlot: { slot: 4, condition: { stat: 'bossKills', value: 3 }, progress: 0, dust: 300, ready: false } })) });
     renderAt('/incursion', { '/incursion': <HangarScreen /> });
-    const power = async (n: number) => (await screen.findByRole('group', { name: copy.hangar.slot(n) })).querySelector('.relic-power')!.textContent;
+    const power = async (n: number) => (await screen.findByRole('group', { name: copy.hangar.slot(n) })).querySelector('.lobby-slot-power')!.textContent;
     const inputs = ['s1', 's2', 's3'].map((id) => ({ id, seed: '12345', tier: 4, level: 1, traits: spiral(id).traits }));
     const second = describeRelic(inputs[1]!, inputs, DEFAULT_CONTENT).magnitude;
     expect(await power(2)).toBe(copy.hangar.power(second));
@@ -390,4 +392,44 @@ test('la peculiaridad y el rendimiento diario dicen los números de la configura
   expect(q.thorns({ kind: 'thorns', share: 0.3 })).toBe('Devuelve el 30 % del daño a quien la toca');
   expect(q.overwatch({ kind: 'overwatch', drones: 2 })).toBe('Siempre lleva 2 drones de más');
   expect(copy.hangar.dailyHint(4)).toBe('Tras 4 horas de juego al día, el premio económico baja poco a poco. La experiencia y el progreso nunca bajan');
+});
+
+describe('el lobby', () => {
+  const l = copy.lobby;
+  test('pulsar la sonda abre el taller con ella', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(await screen.findByRole('link', { name: l.toWorkshop('Lumen') })).toHaveAttribute('href', '/taller?sonda=lumen');
+  });
+
+  test('las flechas cambian la sonda con la que se vuela, entre las que se tienen', async () => {
+    const fetch = mockApi({
+      'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+      'PUT /galaxy/api/hangar/probe': (b) => jsonResponse(200, view({ probe: (b as { probe: string }).probe })),
+    });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    fireEvent.click(await screen.findByRole('button', { name: l.nextProbe }));
+    expect(await screen.findByRole('heading', { name: 'Bastión' })).toBeInTheDocument();
+    const put = fetch.mock.calls.find(([u, init]) => u === '/galaxy/api/hangar/probe' && init?.method === 'PUT');
+    expect(JSON.parse(String(put![1]!.body))).toEqual({ probe: 'bastion' });
+  });
+
+  test('con una sola sonda no hay flechas', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view({ probes: view().probes.map((p) => (p.id === 'lumen' ? p : { ...p, unlocked: false })) })) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    expect(await screen.findByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: l.nextProbe })).not.toBeInTheDocument();
+  });
+
+  test('los pasos van en orden: con quién, dónde y con qué, y las zonas del juego a un toque', async () => {
+    mockApi({ 'GET /galaxy/api/hangar': () => jsonResponse(200, view()) });
+    renderAt('/incursion', { '/incursion': <HangarScreen /> });
+    const who = await screen.findByRole('radiogroup', { name: l.who });
+    expect(within(who).getByRole('radio', { name: new RegExp(l.solo) })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('complementary', { name: l.where })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: copy.hangar.relics })).toHaveTextContent(l.what);
+    const zones = screen.getByRole('navigation', { name: l.zones });
+    expect(within(zones).getByRole('link', { name: l.zone.workshop })).toHaveAttribute('href', '/taller');
+    expect(within(zones).getAllByRole('link')).toHaveLength(6);
+  });
 });

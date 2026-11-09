@@ -98,7 +98,7 @@ function LiveSocket() {
         } else if (event.type === 'room') {
           setMyRoom(qc, event.room);
           // The leader launched: whoever is elsewhere (not in a run) goes to the room, which is the run now.
-          if (event.room?.run && !useLive.getState().run && !window.location.pathname.endsWith('/incursion/sala')) void go.current('/incursion/sala');
+          if (event.room?.run && !useLive.getState().run && !window.location.pathname.endsWith('/incursion')) void go.current('/incursion');
           if (!event.room && event.why) pushToast({ kind: event.why, username: '' });
         } else if (event.type === 'invite') pushToast({ kind: 'invite', username: event.invite.from, invite: event.invite });
       };

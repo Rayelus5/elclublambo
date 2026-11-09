@@ -774,13 +774,19 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
      - desglose por jugador en los resultados.
 
 48. **Taller de sondas (`/taller`):** sin migraciones.
-   - **Entrada:** la ficha «Sondas» del inicio lleva aquí, y el hangar muestra la sonda equipada con «Abrir el taller».
+   - **Entrada:** la ficha «Sondas» del inicio lleva aquí, y en el lobby de `/incursion` se llega pulsando la sonda.
    - **Dentro:** se ven las 8 sondas; las bloqueadas dicen qué las gana. La seleccionada aparece en la bahía del taller, pintada en Aseprite (`art/workshop/paint-workshop.lua`).
    - **Acciones:**
      - elegir una para verla no la equipa: se equipa con «Equipar»;
      - se sube de nivel, con chispas, destello, el nuevo nivel y sonido;
      - se elige el arma inicial.
    - **Enlace directo:** `/taller?sonda=<id>` abre esa sonda.
+49. **Lobby de `/incursion` (estilo «Escenario»):** sin migraciones.
+   - **Fondo:** el bioma del sector elegido animado, con flotas de sondas, la estación y el planeta pintados en Aseprite (`art/lobby/paint-lobby.lua`) y una galaxia real al fondo.
+   - **Pasos en orden:** 1 ¿Con quién? (Solo o En grupo, sobre el escenario); 2 ¿Dónde? (el sector a la derecha, o la sala); 3 ¿Con qué? (la sonda en su plataforma y las reliquias abajo); y el botón de lanzar.
+   - **La sonda:** pulsarla abre `/taller?sonda=<id>`; las flechas cambian la sonda equipada entre las que se tienen.
+   - **Grupo dentro del lobby:** «En grupo» deja `?modo=grupo`; desde ahí se crea sala, se entra con código, con un amigo o en una pública, y «Entrar rápido» es el botón grande. En una sala, los compañeros salen en sus plataformas, el líder despega y los demás marcan «Estoy listo». `/incursion/grupo` y `/incursion/sala` llevan al lobby.
+   - **Comprobar:** a 1280, 1600 y 2560 px nada se tapa ni se desborda; la barra de arriba y el raíl de zonas (Taller, Colección, Estación, Temporada, Clasificación, Clan) llevan a su sitio.
 
 ## Operación
 
