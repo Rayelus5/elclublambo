@@ -11,11 +11,12 @@ import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { RelicPicker } from '../RelicPicker';
 import { SetsPanel } from '../SetsPanel';
-import { SkillTags } from '../SkillTags';
+import { SkillsChip, skillTags } from '../SkillTags';
 import { StepHead } from './WherePanel';
 
-// Step 3, with what (GDD §8.4): the relic slots along the lobby's foot. A relic is its galaxy as an orb ringed in its
-// tier's colour (pressing it changes the relic), its name and its skills as tags that open what each one does; an empty slot asks for one; the next slot shows what opens it (and «Abrir
+// Step 3, with what (GDD §8.4): the relic slots along the lobby's foot. A relic is a card with its galaxy as the
+// backdrop coming in from the side, edged in its tier's colour: its name, tier and power, and one chip with its powers
+// that opens what each does (pressing the card changes the relic); an empty slot asks for one; the next slot shows what opens it (and «Abrir
 // ranura» once it is earned); the rest are small locks. The sets the relics make open in their own window.
 
 const TIER_COLOR: Record<string, string> = { common: '#c9d0ea', uncommon: '#45e3a6', rare: '#6fb7ff', epic: '#b39dff', legendary: '#ffc94a' };
@@ -24,9 +25,9 @@ export function relicInput(g: GalaxySummary): RelicInput {
   return { id: g.id, seed: g.seed, tier: TIERS.indexOf(g.tier), level: g.level, traits: g.traits };
 }
 
-/** A galaxy drawn small and round (the relic's orb). */
-function Orb({ seed, size }: { seed: string; size: number }) {
-  const { ref, canvas, state } = useGalaxyImage(seed, 96, size);
+/** The relic's galaxy as the card's backdrop: big, turned, coming in from the right edge and fading into the card. */
+function RelicArt({ seed }: { seed: string }) {
+  const { ref, canvas, state } = useGalaxyImage(seed, 96, 180);
   const host = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (!host.current || !canvas) return;
@@ -34,8 +35,8 @@ function Orb({ seed, size }: { seed: string; size: number }) {
     return () => canvas.remove();
   }, [canvas]);
   return (
-    <span ref={ref} className="lobby-orb" data-state={state} style={{ inlineSize: size, blockSize: size }} aria-hidden="true">
-      <span ref={host} className="lobby-orb-art" />
+    <span ref={ref} className="lobby-slot-art" data-state={state} aria-hidden="true">
+      <span ref={host} className="lobby-slot-art-host" />
     </span>
   );
 }
@@ -136,13 +137,23 @@ export function RelicStrip({ view }: { view: HangarView }) {
             );
           }
           const skill = describeRelic(relicInput(g), all, DEFAULT_CONTENT);
+          const names = skillTags(skill)
+            .filter((x) => x.kind !== 'power')
+            .map((x) => x.name);
           return (
             <li key={i} className="lobby-slot filled" role="group" aria-label={copy.hangar.slot(i + 1)} style={{ '--tier': TIER_COLOR[g.tier] ?? '#c9d0ea' } as CSSProperties}>
-              <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} aria-label={copy.lobby.swapRelic(g.name)} title={copy.lobby.swapRelic(g.name)}>
-                <Orb seed={g.seed} size={44} />
-              </button>
-              <b className="lobby-slot-name">{g.name}</b>
-              <SkillTags skill={skill} galaxy={g.name} />
+              <RelicArt seed={g.seed} />
+              <button type="button" className="lobby-slot-swap" onClick={() => setPicking(i)} aria-label={copy.lobby.swapRelic(g.name)} title={copy.lobby.swapRelic(g.name)} />
+              <span className="lobby-slot-body">
+                <b className="lobby-slot-name">{g.name}</b>
+                <span className="lobby-slot-meta">
+                  <i aria-hidden="true" />
+                  {copy.tiers[g.tier]}
+                  <span className="lobby-slot-power">{copy.hangar.power(skill.magnitude)}</span>
+                </span>
+                <SkillsChip skill={skill} galaxy={g.name} />
+                <span className="sr-only">{names.join(', ')}</span>
+              </span>
               <button
                 type="button"
                 className="lobby-slot-remove"

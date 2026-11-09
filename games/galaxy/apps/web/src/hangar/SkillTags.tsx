@@ -3,9 +3,9 @@ import { useState } from 'react';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 
-// A relic's skills as tags (the owner: «no se muestran las habilidades… permitir pulsar en cada tag»): its passive
-// (from the galaxy's type), its element (palette), its phenomenon and its power. Each tag opens what it does, where
-// it comes from, and for an echo which passive it copies now.
+// A relic's skills (the owner: «no se muestran las habilidades… permitir pulsar en cada tag», then «en una sola»): its
+// passive (from the galaxy's type), its element (palette), its phenomenon and its power, behind one chip that opens
+// what each does, where it comes from, and for an echo which passive it copies now.
 
 const h = copy.hangar;
 const i = h.skillInfo;
@@ -35,32 +35,35 @@ export function skillTags(skill: RelicSkill): SkillTag[] {
   return tags;
 }
 
-export function SkillTags({ skill, galaxy }: { skill: RelicSkill; galaxy: string }) {
-  const [open, setOpen] = useState<SkillTag | null>(null);
+/**
+ * A relic's powers in one chip (the owner: «todas las etiquetas… en una sola»): its passive's name and how many more
+ * it has. Pressing it opens every power with what it does and where it comes from.
+ */
+export function SkillsChip({ skill, galaxy }: { skill: RelicSkill; galaxy: string }) {
+  const [open, setOpen] = useState(false);
+  const tags = skillTags(skill).filter((x) => x.kind !== 'power');
+  const all = skillTags(skill);
+  const first = tags[0]!;
   return (
     <>
-      <ul className="skill-tags" aria-label={i.tags(galaxy)}>
-        {skillTags(skill).map((t) => (
-          <li key={t.kind}>
-            <button
-              type="button"
-              className={`skill-tag k-${t.kind}${t.kind === 'element' || t.kind === 'phenomenon' ? ` is-${t.id}` : ''}${t.kind === 'power' ? ' lobby-slot-power' : ''}`}
-              aria-haspopup="dialog"
-              title={i.more(t.name)}
-              onClick={() => setOpen(t)}
-            >
-              {t.name}
-            </button>
-          </li>
-        ))}
-      </ul>
+      <button type="button" className="skills-chip" aria-haspopup="dialog" aria-label={i.open(galaxy)} title={i.open(galaxy)} onClick={() => setOpen(true)}>
+        <span className="skills-chip-name">{first.name}</span>
+        {tags.length > 1 ? <span className="skills-chip-more">+{tags.length - 1}</span> : null}
+      </button>
       {open ? (
-        <Dialog title={open.name} onClose={() => setOpen(null)} className="skill-info">
-          <span className={`skill-kind k-${open.kind}`}>{i.kinds[open.kind]}</span>
-          <p className="skill-text">{open.text}</p>
-          {open.extra ? <p className="skill-extra">{open.extra}</p> : null}
-          <p className="skill-from">{i.from[open.kind]}</p>
-          <button type="button" className="lip pill" data-autofocus onClick={() => setOpen(null)}>
+        <Dialog title={i.title(galaxy)} onClose={() => setOpen(false)} className="skill-info">
+          <ul className="skill-list" aria-label={i.tags(galaxy)}>
+            {all.map((x) => (
+              <li key={x.kind} className={`skill-row k-${x.kind}${x.kind === 'element' || x.kind === 'phenomenon' ? ` is-${x.id}` : ''}`}>
+                <span className={`skill-kind k-${x.kind}`}>{i.kinds[x.kind]}</span>
+                <b className="skill-name">{x.name}</b>
+                <p className="skill-text">{x.text}</p>
+                {x.extra ? <p className="skill-extra">{x.extra}</p> : null}
+                <p className="skill-from">{i.from[x.kind]}</p>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className="lip pill" data-autofocus onClick={() => setOpen(false)}>
             {copy.collection.close}
           </button>
         </Dialog>
