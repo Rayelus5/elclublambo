@@ -1,4 +1,4 @@
-import type { Activity, LiveEvent, RoomInvite } from '@galaxy/shared';
+import type { Activity, LiveEvent, RoomInvite, RunResult } from '@galaxy/shared';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router';
@@ -20,7 +20,9 @@ const FINAL = new Set([4401, 4403, 4008]);
 export type LiveToast =
   | { id: number; kind: 'request' | 'accepted'; username: string }
   | { id: number; kind: 'invite'; username: string; invite: RoomInvite }
-  | { id: number; kind: 'kicked' | 'closed'; username: string };
+  | { id: number; kind: 'kicked' | 'closed'; username: string }
+  /** A group run I had left ended (phase 6c): what it paid me. */
+  | { id: number; kind: 'coopResult'; username: string; result: RunResult };
 type WithoutId<T> = T extends unknown ? Omit<T, 'id'> : never;
 type NewToast = WithoutId<LiveToast>;
 
@@ -29,6 +31,8 @@ type LiveState = {
   /** The arena's report (a run and its layer); null: the screen decides. */
   run: { layer: number } | null;
   toasts: LiveToast[];
+  /** The result open on screen (a group run I had left), or null. */
+  shownResult: RunResult | null;
   setRun: (run: { layer: number } | null) => void;
   dismiss: (id: number) => void;
 };
@@ -38,6 +42,7 @@ export const useLive = create<LiveState>((set) => ({
   connected: false,
   run: null,
   toasts: [],
+  shownResult: null,
   setRun: (run) => set({ run }),
   dismiss: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
 }));
@@ -101,6 +106,7 @@ function LiveSocket() {
           if (event.room?.run && !useLive.getState().run && !window.location.pathname.endsWith('/incursion')) void go.current('/incursion');
           if (!event.room && event.why) pushToast({ kind: event.why, username: '' });
         } else if (event.type === 'invite') pushToast({ kind: 'invite', username: event.invite.from, invite: event.invite });
+        else if (event.type === 'coopResult') pushToast({ kind: 'coopResult', username: '', result: event.result });
       };
       s.onclose = (e: CloseEvent) => {
         socket.current = null;

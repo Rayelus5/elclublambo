@@ -7,14 +7,18 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { useLive, type LiveToast } from '../live/LiveConnection';
 import { useUi } from '../state/ui';
+import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { ResultsScreen } from '../hangar/ResultsScreen';
 
-// What the live socket brings that a player should notice (plan phases 3 and 5): a friend request (accept it right
-// there or open the friends), an acceptance, an invite to a room (join it right there) and being taken out of my room.
+// What the live socket brings that a player should notice (plan phases 3, 5 and 6c): a friend request (accept it
+// right there or open the friends), an acceptance, an invite to a room (join it right there), being taken out of my
+// room, and the result of a group run I had left (its results open in a window).
 // Polite, bottom left, three at most, each gone after 9 seconds; none during a run.
 
 const t = copy.friends;
 const LIFE_MS = 9000;
+const RESULT_LIFE_MS = 30_000;
 
 function InviteText({ from, sector }: { from: string; sector: string }) {
   const name = useHangar().data?.sectors.find((s) => s.id === sector)?.name ?? sector;
@@ -28,14 +32,34 @@ function Toast({ toast }: { toast: LiveToast }) {
   const room = useRoomAction();
   const navigate = useNavigate();
   useEffect(() => {
-    const timer = setTimeout(() => dismiss(toast.id), LIFE_MS);
+    // A result waits longer than a passing notice.
+    const timer = setTimeout(() => dismiss(toast.id), toast.kind === 'coopResult' ? RESULT_LIFE_MS : LIFE_MS);
     return () => clearTimeout(timer);
-  }, [toast.id, dismiss]);
+  }, [toast.id, toast.kind, dismiss]);
   const close = (
     <button type="button" className="lip iconbtn small" aria-label={t.dismiss} title={t.dismiss} onClick={() => dismiss(toast.id)}>
       <Icon name="close" />
     </button>
   );
+  if (toast.kind === 'coopResult') {
+    return (
+      <li className="lip panel live-toast">
+        <Icon name="trophy" />
+        <span>{copy.coop.resultToast}</span>
+        <button
+          type="button"
+          className="lip pill pill-solar small"
+          onClick={() => {
+            useLive.setState({ shownResult: toast.result });
+            dismiss(toast.id);
+          }}
+        >
+          {copy.coop.resultSee}
+        </button>
+        {close}
+      </li>
+    );
+  }
   if (toast.kind === 'kicked' || toast.kind === 'closed') {
     return (
       <li className="lip panel live-toast">
@@ -105,14 +129,24 @@ function Toast({ toast }: { toast: LiveToast }) {
 export function FriendToasts() {
   const toasts = useLive((s) => s.toasts);
   const running = useLive((s) => s.run !== null);
+  const shown = useLive((s) => s.shownResult);
+  const closeResult = () => useLive.setState({ shownResult: null });
   return (
-    // A polite live region, not role=status: the screens keep their own status messages as the only one.
-    <ul className="live-toasts" aria-live="polite" aria-relevant="additions">
-      {running
-        ? null
-        : toasts.map((toast) => (
-            <Toast key={toast.id} toast={toast} />
-          ))}
-    </ul>
+    <>
+      {/* A polite live region, not role=status: the screens keep their own status messages as the only one. */}
+      <ul className="live-toasts" aria-live="polite" aria-relevant="additions">
+        {running
+          ? null
+          : toasts.map((toast) => (
+              <Toast key={toast.id} toast={toast} />
+            ))}
+      </ul>
+      {/* The result of a group run I had left (phase 6c), opened from its notice. */}
+      {shown && !running ? (
+        <Dialog title={copy.coop.resultTitle} hideTitle onClose={closeResult} className="coop-result-dialog">
+          <ResultsScreen result={shown} onAgain={closeResult} />
+        </Dialog>
+      ) : null}
+    </>
   );
 }

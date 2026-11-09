@@ -132,6 +132,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       },
     });
     api.addHook('onClose', async () => live.close());
+    // Phase 6c: who left a group run hears its result on the live socket when it ends.
+    coop.notify = (id, event) => live.send(id, event);
     registerFriendRoutes(api, { db: deps.db, config, live, now, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerRoomRoutes(api, { db: deps.db, config, live, rooms, coop, trustCfIp: deps.env.TRUST_CF_IP });
     registerCoopPlayRoutes(api, { coop, origins: deps.env.GALAXY_PUBLIC_ORIGINS });

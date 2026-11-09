@@ -1121,6 +1121,10 @@ export const copy = {
       label: (name: string, kind: string) => `${name}: ${kind}`,
       hint: 'Q: avisar al grupo',
     },
+    // The result of a group run one had left (phase 6c), when it ends.
+    resultToast: 'Tu partida en grupo ha terminado',
+    resultSee: 'Ver resultados',
+    resultTitle: 'Resultado de tu partida en grupo',
     // The group run's results by player (phase 6c).
     results: {
       title: 'Tu equipo',
