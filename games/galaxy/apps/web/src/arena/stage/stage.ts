@@ -86,6 +86,15 @@ class SpritePool {
   }
 }
 
+/**
+ * An open arc as its own stroke: the pen moves to its start first. Without it PixiJS joins the arc to the last point
+ * drawn on that Graphics (another area, another enemy), and a long line shoots across the arena.
+ */
+export function arcFrom<G extends Pick<Graphics, 'moveTo' | 'arc'>>(g: G, x: number, y: number, r: number, from: number, to: number): G {
+  g.moveTo(x + Math.cos(from) * r, y + Math.sin(from) * r).arc(x, y, r, from, to);
+  return g;
+}
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
@@ -299,7 +308,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         areas.circle(x, y, r).fill({ color: 0x3a2a9a, alpha: 0.2 }).stroke({ width: 1, color: 0x7259ee, alpha: 0.6 });
         for (let k = 0; k < 3; k++) {
           const a0 = (opts.reduced ? 0 : clock * 2.4) + (k * Math.PI * 2) / 3;
-          areas.arc(x, y, r * (0.35 + 0.2 * k), a0, a0 + 1.6).stroke({ width: 2, color: 0xb39dff, alpha: 0.55 });
+          arcFrom(areas, x, y, r * (0.35 + 0.2 * k), a0, a0 + 1.6).stroke({ width: 2, color: 0xb39dff, alpha: 0.55 });
         }
         areas.circle(x, y, 3).fill({ color: 0x0b0c24, alpha: 0.9 });
       } else if (kind === AREA.strike) {
@@ -340,7 +349,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       areas.rect(b.x - 1, b.y - 150, 2, 150).fill({ color: 0xbfe3ff, alpha: 0.35 });
       areas.circle(b.x, b.y, b.radius).fill({ color: 0x45e3a6, alpha: 0.07 }).stroke({ width: 2, color: 0x45e3a6, alpha: 0.85 });
       const progress = b.hold / b.holdNeeded;
-      if (progress > 0) areas.arc(b.x, b.y, b.radius + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2).stroke({ width: 3, color: 0xbfe3ff, alpha: 0.95 });
+      if (progress > 0) arcFrom(areas, b.x, b.y, b.radius + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2).stroke({ width: 3, color: 0xbfe3ff, alpha: 0.95 });
       for (let k = 0; k < 12; k++) {
         const ang = clock * 0.8 + (k * Math.PI) / 6;
         areas.rect(Math.round(b.x + Math.cos(ang) * (b.radius - 6)), Math.round(b.y + Math.sin(ang) * (b.radius - 6)), 1, 1).fill({ color: 0xbfe3ff, alpha: 0.9 });
@@ -406,7 +415,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       if (def && !en.boss[i] && def.behavior.kind === 'armored') {
         const mid = en.facing[i]! * STEP_RAD;
         const half = ((def.behavior.arc / 360) * Math.PI * 2) / 2;
-        marks.arc(x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? 0x45e3a6 : 0xb9bfe6, alpha: 0.9 });
+        arcFrom(marks, x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? 0x45e3a6 : 0xb9bfe6, alpha: 0.9 });
       }
       for (const [pool, tint, dx] of [
         [glitchA, 0xff4d6d, -1],
