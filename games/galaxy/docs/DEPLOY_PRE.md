@@ -696,6 +696,22 @@ grep -E '^PGRST_DB_SCHEMAS=' /opt/supabase/docker/.env
 
    Lo comprueba el propietario con su admin. Las cuentas de admin se crean por SSH.
 
+43. **Multijugador, fase 1 (objetos de la incursión, SIM 1.7.0):** sin migraciones.
+   - **Objetos rompibles:** las rocas, el hielo, el coral, la escoria y los cristales del sector se rompen con las armas. Llevan barra de vida roja y sueltan componentes y polvo.
+   - **HUD y pagos:** el HUD cuenta los componentes, y el resultado los paga, a la mitad sin extraer.
+   - **Topes:** van en `runs.caps` (`runComponents`, `componentsPerMinute`, `propDustPerMinute`). Lo que sueltan los objetos se ajusta en `content.props` y la probabilidad del imán en `content.sectors[].drops.magnet` y `eliteMagnet`.
+   - **Imán:** atrae todos los datos del suelo a quien lo recoge, y el cofre del Núcleo siempre trae uno.
+   - **Datos:** se ven en verde.
+   - **Catálogo ECN:** con premios por recoger, el botón se vuelve dorado y la ficha Colección del inicio lleva «Premio».
+   - **Partidas de la versión anterior:** las repeticiones del panel de partidas jugadas con SIM 1.6.0 avisan de la versión, como siempre.
+
+44. **Multijugador, fase 2 (fusión automática y candado):** migración `20261109140000_galaxy_galaxy_lock.sql`, que se aplica sola al desplegar.
+   - **Candado:** se pone desde el detalle de una galaxia. Una galaxia con candado no se fusiona ni se desintegra, y la colección filtra «Con candado».
+   - **Fusión automática:** abre su diálogo desde la colección, partiendo de los filtros.
+     - Enseña la cadena, el polvo y lo que se queda, y luego revela lo que hizo.
+     - Como mucho hace 100 fusiones por vez.
+     - En el libro de movimientos quedan como `fusion` con `ref.auto`.
+
 ## Operación
 
 | Tarea | Cómo |
