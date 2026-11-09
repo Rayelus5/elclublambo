@@ -1,6 +1,7 @@
 import { CATALOG_KINDS, type CatalogKind, type CatalogView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
+import { CATALOG_SUMMARY_KEY } from '../api/catalog';
 import { GACHA_KEY } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -11,7 +12,7 @@ import { Icon } from '../ui/Icon';
 // what has been found (the rest shows as «?»), and the reward of each share, collected once.
 
 const t = copy.catalog;
-const KEY = ['catalog'] as const;
+const KEY = ['catalog', 'album'] as const;
 
 const nameOf = (kind: CatalogKind, value: string) =>
   kind === 'finish' ? (copy.finishes as Record<string, string>)[value] ?? value : ((copy.traitValues as unknown as Record<string, Record<string, string>>)[kind]?.[value] ?? value);
@@ -24,6 +25,7 @@ export function CatalogScreen() {
     onSuccess: (view) => {
       qc.setQueryData(KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });
+      void qc.invalidateQueries({ queryKey: CATALOG_SUMMARY_KEY });
     },
   });
   const v = catalog.data;

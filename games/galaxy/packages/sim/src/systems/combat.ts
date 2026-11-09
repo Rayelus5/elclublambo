@@ -96,10 +96,12 @@ export function killEnemy(sim: Sim, e: number, src: HitSource): void {
     dropPickup(sim, PICKUP.coin, sector.elite.coins, x + 4, y);
     dropPickup(sim, PICKUP.dust, sector.elite.dust, x - 4, y);
     dropPickup(sim, PICKUP.repair, 1, x, y + 4);
+    if (sim.rng.loot.chance(sector.drops.eliteMagnet)) dropPickup(sim, PICKUP.magnet, 1, x, y - 4);
   } else {
     if (sim.rng.loot.chance(sector.drops.coin * luck)) dropPickup(sim, PICKUP.coin, 1, x + 3, y);
     if (sim.rng.loot.chance(sector.drops.dust * luck)) dropPickup(sim, PICKUP.dust, 1, x - 3, y);
     if (sim.rng.loot.chance(sector.drops.repair * (1 + curseOf(sim)))) dropPickup(sim, PICKUP.repair, 1, x, y + 3);
+    if (sim.rng.loot.chance(sector.drops.magnet)) dropPickup(sim, PICKUP.magnet, 1, x, y - 3);
   }
   if (def.split) {
     const child = sim.content.enemies.find((c) => c.id === def.split!.into);

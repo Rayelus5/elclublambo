@@ -23,7 +23,9 @@ export function tinyContent(over?: (c: Content) => void): Content {
   s.waves = [];
   s.density = { ...s.density, base: 0, perMinute: 0, max: 0 };
   s.scaling = { ...s.scaling, eliteBase: 0, elitePerMinute: 0, eliteMax: 0 };
-  s.drops = { ...s.drops, coin: 0, dust: 0, repair: 0, bossCoins: 0, bossDust: 0 };
+  s.drops = { ...s.drops, coin: 0, dust: 0, repair: 0, bossCoins: 0, bossDust: 0, magnet: 0, eliteMagnet: 0 };
+  // No breakable props unless a test asks for them.
+  c.props = { ...c.props, perChunk: 0 };
   // Pinned: mechanics tests do not follow calibration.
   c.bosses[0]!.hp = 1800;
   c.bosses[0]!.scaling = { hpPerLayer: 0.7, damagePerLayer: 0.25 };

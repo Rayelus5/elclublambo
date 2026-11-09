@@ -72,6 +72,16 @@ test('enseña el material en bruto traído para la refinería (M4a)', () => {
   expect(screen.getByRole('img', { name: copy.results.material(21) })).toBeInTheDocument();
 });
 
+test('enseña los componentes de los objetos rotos (SIM 1.7.0) y los calla si no hay', () => {
+  show({ ...died, payout: { ...died.payout, components: 4 } });
+  expect(screen.getByRole('img', { name: copy.results.components(4) })).toBeInTheDocument();
+});
+
+test('un resultado sin componentes no los enseña', () => {
+  show(died);
+  expect(screen.queryByRole('img', { name: /componente/ })).toBeNull();
+});
+
 test('sin material no lo enseña', () => {
   show({ ...died, payout: { ...died.payout, material: 0 } });
   expect(screen.queryByRole('img', { name: copy.results.material(0) })).toBeNull();

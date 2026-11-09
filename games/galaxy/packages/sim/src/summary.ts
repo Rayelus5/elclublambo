@@ -78,9 +78,17 @@ export function stateHash(sim: Sim): string {
       h.num(pool.y[i]!);
     }
   }
+  const pr = sim.props;
+  h.num(pr.count);
+  for (let i = 0; i < pr.top; i++) {
+    if (!pr.alive[i]) continue;
+    h.num(i);
+    h.num(pr.hp[i]!);
+  }
   for (const l of sim.loot) {
     h.num(l.coins);
     h.num(l.dust);
+    h.num(l.components);
   }
   for (const b of sim.blasts) {
     h.num(b.x);
@@ -102,7 +110,7 @@ export function runSummary(sim: Sim): RunSummary {
     kills: sim.kills,
     bossKills: sim.bossKills,
     level: sim.probes.reduce((m, p) => Math.max(m, p.level), 1),
-    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust })),
+    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust, components: l.components })),
     hash: stateHash(sim),
   };
 }

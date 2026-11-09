@@ -44,7 +44,7 @@ const SECTOR_BASE: Pick<SectorDef, 'layerSeconds' | 'beacon' | 'density' | 'scal
     eliteMax: 0.08,
   },
   elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
-  drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3 },
+  drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },
 };
 
 /** The deep Core that comes every 4 layers in the normal sectors (plan ruling 2). */
@@ -1102,7 +1102,7 @@ export const DEFAULT_CONTENT: Content = {
         eliteMax: 0.08,
       },
       elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
-      drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3 },
+      drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },
     },
     {
       ...SECTOR_BASE,
@@ -1367,7 +1367,9 @@ export const DEFAULT_CONTENT: Content = {
   },
   crit: { chance: 0.05, damage: 1.5 },
   arena: { viewW: 860, viewH: 400, margin: 48, despawn: 1100 },
-  limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300 },
+  limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
+  // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.
+  props: { perChunk: 2, hp: 28, hpPerLayer: 0.5, radius: 9, componentChance: 0.3, components: 1, dustMin: 0, dustMax: 1 },
   // Season anomalies (GDD §13.1; M7d-3): the season chooses one (or none) in the live config `season`.
   anomalies: [
     { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca', enemyHp: 1, enemyDamage: 1, enemySpeed: 1, spawn: 1, elite: 1, xp: 1, contagion: { radius: 70, seconds: 3 } },

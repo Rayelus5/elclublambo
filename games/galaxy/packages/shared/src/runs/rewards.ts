@@ -79,6 +79,16 @@ export function runMaterial(claim: RunClaim, cfg: RunsConfig, factor: number, pe
   return Math.min(Math.floor(raw * share * factor * (1 + boost) * global + 1e-9), cfg.caps.runMaterial);
 }
 
+/**
+ * Components from the run's breakable props (SIM 1.7.0): what was picked up, paid like the material (share, daily
+ * yield, global boosts) and capped per run. Depth does not multiply them.
+ */
+export function runComponents(claim: RunClaim, cfg: RunsConfig, factor: number, penalized = false, global = 1): number {
+  const share = claim.outcome === 'extracted' && !penalized ? 1 : cfg.deathShare;
+  const raw = claim.loot.reduce((a, l) => a + (l.components ?? 0), 0);
+  return Math.min(Math.floor(raw * share * factor * global + 1e-9), cfg.caps.runComponents);
+}
+
 /** The Laboratorio's push on a run's coins and dust (fractions added, M4b-2), applied before the per-run caps. */
 export type PayoutBoost = { coins: number; dust: number };
 

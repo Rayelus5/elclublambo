@@ -174,9 +174,27 @@ export const configSchemas = {
           runCoins: z.number().int().min(0).max(10_000_000).default(20_000),
           runDust: z.number().int().min(0).max(10_000_000).default(10_000),
           runMaterial: z.number().int().min(0).max(10_000_000).default(500),
+          /** Components from breakable props (SIM 1.7.0): the most one run pays, and what fits per minute played. */
+          runComponents: z.number().int().min(0).max(1_000_000).default(30),
+          componentsPerMinute: z.number().min(0).max(10_000).default(20),
+          /** Star dust the props can add per minute played, on top of what the kills drop. */
+          propDustPerMinute: z.number().min(0).max(10_000).default(30),
         })
         .strict()
-        .default({ killsPerMinute: 900, coinsPerKill: 0.25, dustPerKill: 0.12, bossCoins: 30, bossDust: 10, slackSeconds: 20, runCoins: 20_000, runDust: 10_000, runMaterial: 500 }),
+        .default({
+          killsPerMinute: 900,
+          coinsPerKill: 0.25,
+          dustPerKill: 0.12,
+          bossCoins: 30,
+          bossDust: 10,
+          slackSeconds: 20,
+          runCoins: 20_000,
+          runDust: 10_000,
+          runMaterial: 500,
+          runComponents: 30,
+          componentsPerMinute: 20,
+          propDustPerMinute: 30,
+        }),
       expireHours: z.number().int().min(1).max(168).default(24),
       startPerHour: limit(30),
     })

@@ -3,7 +3,7 @@ import type { AnomalyDef, Content, ElementId, ProbeDef, SectorDef } from './cont
 import type { SimEvent } from './events';
 import type { Rng } from './math/rng';
 import type { SpatialGrid } from './world/grid';
-import type { AreaPool, EnemyPool, FoeShotPool, PickupPool, ShotPool } from './world/pools';
+import type { AreaPool, EnemyPool, FoeShotPool, PickupPool, PropPool, ShotPool } from './world/pools';
 
 /**
  * One probe's input for one tick (GDD §5.2, §5.7). `mx, my`: movement, whole numbers in [−127, 127] (keyboard: ±127;
@@ -201,12 +201,16 @@ export interface Sim {
   pickups: PickupPool;
   areas: AreaPool;
   grid: SpatialGrid;
+  /** Breakable props of the ground, the grid that finds them and which chunks are live or broken (systems/props.ts). */
+  props: PropPool;
+  propGrid: SpatialGrid;
+  terrain: TerrainState;
   boss: BossState | null;
   beacon: BeaconState | null;
   /** Warned blasts in the order they were laid. */
   blasts: Blast[];
-  /** Coins and star dust picked up in each layer (index = layer − 1). */
-  loot: { coins: number; dust: number }[];
+  /** Coins, star dust and components picked up in each layer (index = layer − 1). */
+  loot: LayerLoot[];
   kills: number;
   bossKills: number;
   events: SimEvent[];
@@ -224,6 +228,18 @@ export interface RunSummary {
   bossKills: number;
   /** Highest probe level. */
   level: number;
-  loot: { coins: number; dust: number }[];
+  loot: LayerLoot[];
   hash: string;
+}
+
+export interface LayerLoot {
+  coins: number;
+  dust: number;
+  components: number;
+}
+
+/** The chunks whose props are live (sorted keys) and, per chunk, a bit for each prop already broken. */
+export interface TerrainState {
+  live: number[];
+  broken: Map<number, number>;
 }

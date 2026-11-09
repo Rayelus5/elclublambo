@@ -73,6 +73,10 @@ export function Hud({ hud, content, onPause, announce }: { hud: HudSnapshot; con
             <Icon name="dust" />
             <b aria-hidden="true">{Math.floor(hud.loot.dust)}</b>
           </span>
+          <span className="hud-res components" role="img" aria-label={copy.arena.componentsLabel(Math.floor(hud.loot.components))}>
+            <Icon name="wrench" />
+            <b aria-hidden="true">{Math.floor(hud.loot.components)}</b>
+          </span>
           <span className="hud-res kills" role="img" aria-label={`${hud.kills} ${copy.arena.kills.toLowerCase()}`}>
             <Icon name="target" />
             <b aria-hidden="true">{hud.kills}</b>

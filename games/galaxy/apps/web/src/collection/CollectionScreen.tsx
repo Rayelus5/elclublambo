@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams, useLocation } from 'react-router';
 import { useCollectionPages, useFuse, useGacha } from '../api/economy';
 import { GalaxyCard } from '../cards/GalaxyCard';
+import { useCatalogSummary } from '../api/catalog';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { RevealStage } from '../scanner/RevealStage';
@@ -67,10 +68,7 @@ export function CollectionScreen() {
             <span>{copy.collection.back}</span>
           </BackLink>
           <h1>{copy.collection.title}</h1>
-          <Link to="/catalogo" className="lip pill">
-            <Icon name="book" />
-            <span>{copy.catalog.open}</span>
-          </Link>
+          <CatalogButton />
           <div className="lip panel hud">
             <WalletBar wallet={gacha.data?.wallet} />
           </div>
@@ -179,3 +177,19 @@ export function CollectionScreen() {
   );
 }
 
+
+/** The Catálogo's door: gold and lit, with how many rewards wait, while one is ready to collect. */
+function CatalogButton() {
+  const ready = useCatalogSummary().data?.ready ?? 0;
+  return (
+    <Link to="/catalogo" className={ready > 0 ? 'lip pill pill-solar catalog-door ready' : 'lip pill catalog-door'} aria-label={ready > 0 ? copy.catalog.openReady(ready) : undefined}>
+      <Icon name="book" />
+      <span>{copy.catalog.open}</span>
+      {ready > 0 ? (
+        <span className="catalog-badge" aria-hidden="true">
+          {ready}
+        </span>
+      ) : null}
+    </Link>
+  );
+}

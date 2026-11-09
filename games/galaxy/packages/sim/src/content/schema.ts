@@ -208,7 +208,17 @@ const sector = z
     // An elite's coins and dust may be fractional (a dense sector pays less per elite); the HUD and the payout floor them.
     elite: z.object({ hp: pos, radius: pos, xp: n, coins: z.number().min(0).max(1000), dust: z.number().min(0).max(1000) }).strict(),
     drops: z
-      .object({ coin: unit, dust: unit, repair: unit, repairHeal: unit, bossCoins: z.number().int().min(0).max(1000), bossDust: z.number().int().min(0).max(1000) })
+      .object({
+        coin: unit,
+        dust: unit,
+        repair: unit,
+        repairHeal: unit,
+        bossCoins: z.number().int().min(0).max(1000),
+        bossDust: z.number().int().min(0).max(1000),
+        // Published contents from before the magnet (SIM 1.7.0) get the defaults.
+        magnet: unit.default(DEFAULT_CONTENT.sectors[0]!.drops.magnet),
+        eliteMagnet: unit.default(DEFAULT_CONTENT.sectors[0]!.drops.eliteMagnet),
+      })
       .strict(),
   })
   .strict();
@@ -380,9 +390,24 @@ const shape = z
         foeShots: limitInt(5000),
         pickups: limitInt(5000),
         areas: limitInt(2000),
+        props: limitInt(1000).default(D.limits.props),
       })
       .strict()
       .default(D.limits),
+    props: z
+      .object({
+        perChunk: z.number().int().min(0).max(8),
+        hp: pos,
+        hpPerLayer: n,
+        radius: z.number().min(2).max(64),
+        componentChance: unit,
+        components: z.number().int().min(0).max(100),
+        dustMin: z.number().int().min(0).max(100),
+        dustMax: z.number().int().min(0).max(100),
+      })
+      .strict()
+      .refine((p) => p.dustMax >= p.dustMin, 'props_dust_range')
+      .default(D.props),
   })
   .strict();
 

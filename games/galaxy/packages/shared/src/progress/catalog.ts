@@ -47,6 +47,12 @@ export interface CatalogView {
   rewards: { percent: number; reward: z.output<typeof catalogRewardSchema>['reward']; reached: boolean; claimed: boolean }[];
 }
 
+/** What the hub and the collection need to light the Catálogo's button: rewards reached and not collected yet. */
+export interface CatalogSummary {
+  ready: number;
+  percent: number;
+}
+
 export const catalogClaimParamsSchema = z.object({ percent: z.coerce.number().int().min(1).max(100) }).strict();
 
 /** The Códice's progress (GDD §15; M7b-2): what opens its entries, from runs that are not suspicious. */

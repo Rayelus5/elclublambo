@@ -9,17 +9,19 @@ export interface BiomeLook {
   stars: [string, string, string];
   dust: string;
   rocks: [string, string, string];
+  /** The breakable props (SIM 1.7.0): the biome's deposits, by the sim's `look`. */
+  props: [string, string, string];
 }
 
 export const BIOME_LOOK: Record<BiomeId, BiomeLook> = {
   // M3a's ground, unchanged.
-  nebula: { nebula: ['#251d5a', '#171845', '#0d1534'], stars: ['#bfe3ff', '#8890c4', '#2a2f5e'], dust: '#8890c4', rocks: ['rock-1', 'rock-2', 'rock-3'] },
+  nebula: { nebula: ['#251d5a', '#171845', '#0d1534'], stars: ['#bfe3ff', '#8890c4', '#2a2f5e'], dust: '#8890c4', rocks: ['rock-1', 'rock-2', 'rock-3'], props: ['prop-nebula-1', 'prop-nebula-2', 'prop-nebula-3'] },
   // Cold blue haze and white stars.
-  ice: { nebula: ['#1c3560', '#132849', '#0b1b36'], stars: ['#f3f5ff', '#9fc4e8', '#2a3f66'], dust: '#9fc4e8', rocks: ['ice-1', 'ice-2', 'ice-3'] },
+  ice: { nebula: ['#1c3560', '#132849', '#0b1b36'], stars: ['#f3f5ff', '#9fc4e8', '#2a3f66'], dust: '#9fc4e8', rocks: ['ice-1', 'ice-2', 'ice-3'], props: ['prop-ice-1', 'prop-ice-2', 'prop-ice-3'] },
   // Violet and teal glow of a reef in the dark.
-  reef: { nebula: ['#3a1a4c', '#16304a', '#0c2230'], stars: ['#ffd6e6', '#5fc9bb', '#2a2f5e'], dust: '#5fc9bb', rocks: ['coral-1', 'coral-2', 'coral-3'] },
+  reef: { nebula: ['#3a1a4c', '#16304a', '#0c2230'], stars: ['#ffd6e6', '#5fc9bb', '#2a2f5e'], dust: '#5fc9bb', rocks: ['coral-1', 'coral-2', 'coral-3'], props: ['prop-reef-1', 'prop-reef-2', 'prop-reef-3'] },
   // Smoke and embers: deep brown, never close to the warnings' red.
-  forge: { nebula: ['#3a1e1a', '#2a1519', '#170e16'], stars: ['#ffd7a8', '#b0745a', '#3a2430'], dust: '#b0745a', rocks: ['slag-1', 'slag-2', 'slag-3'] },
+  forge: { nebula: ['#3a1e1a', '#2a1519', '#170e16'], stars: ['#ffd7a8', '#b0745a', '#3a2430'], dust: '#b0745a', rocks: ['slag-1', 'slag-2', 'slag-3'], props: ['prop-forge-1', 'prop-forge-2', 'prop-forge-3'] },
   // The rift: violet static.
-  rift: { nebula: ['#3a1050', '#1f0d3a', '#0f0b26'], stars: ['#f0b8ff', '#6fe3ff', '#2a2050'], dust: '#b39dff', rocks: ['rift-1', 'rift-2', 'rift-3'] },
+  rift: { nebula: ['#3a1050', '#1f0d3a', '#0f0b26'], stars: ['#f0b8ff', '#6fe3ff', '#2a2050'], dust: '#b39dff', rocks: ['rift-1', 'rift-2', 'rift-3'], props: ['prop-rift-1', 'prop-rift-2', 'prop-rift-3'] },
 };

@@ -9,6 +9,7 @@ import { tickStatuses } from './systems/elements';
 import { contactDamage, moveProbes, tickProbes } from './systems/probes';
 import { updatePickups } from './systems/pickups';
 import { updateRelics } from './systems/relics';
+import { syncProps } from './systems/props';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
 import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
@@ -53,10 +54,12 @@ export function createSim(opts: SimOptions): Sim {
     probes: [],
     ...createPools(content.limits),
     grid: new SpatialGrid(48),
+    propGrid: new SpatialGrid(64),
+    terrain: { live: [], broken: new Map() },
     boss: null,
     blasts: [],
     beacon: null,
-    loot: [{ coins: 0, dust: 0 }],
+    loot: [{ coins: 0, dust: 0, components: 0 }],
     kills: 0,
     bossKills: 0,
     events: [],
@@ -183,6 +186,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   tickStatuses(sim);
   updateFoeShots(sim);
   rebuildGrid(sim);
+  syncProps(sim);
   for (const p of sim.probes) {
     fireWeapons(sim, p);
     updateRelics(sim, p);
