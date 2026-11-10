@@ -1030,15 +1030,13 @@ export const copy = {
     profile: { add: 'Añadir amigo', sent: 'Solicitud enviada', accept: 'Aceptar solicitud', friends: 'Amigos', remove: 'Quitar amigo', block: 'Bloquear', unblock: 'Desbloquear' },
   },
   // The probe workshop (the owner's «taller espacial»): manage, level up and equip the probes.
-  // The lobby (/incursion, the owner's «Escenario»): who with, where, with what, and the launch.
+  // The lobby (/incursion, the owner's «Escenario»): solo or in a group, the sector, the galaxies (relics), and the launch.
   lobby: {
-    who: '¿Con quién?',
-    where: '¿Dónde?',
-    what: '¿Con qué?',
+    who: 'Con quién juegas',
+    where: 'Sector',
+    what: 'Galaxias',
     solo: 'Solo',
-    soloHint: 'Tú y tu sonda',
     group: 'En grupo',
-    groupHint: 'Hasta 4 jugadores',
     inRoom: (n: number, max: number) => `En tu sala, ${n} de ${max}`,
     soloLocked: 'Sal de la sala para jugar solo',
     zones: 'Zonas del juego',
@@ -1475,7 +1473,7 @@ export const copy = {
     important: 'Importante',
     fresh: 'Nueva',
     rate: (currency: string, factor: number) => `${NEWS_CURRENCIES[currency] ?? currency} ×${fmt(factor)}`,
-    until: (when: string) => `Hasta el ${when}`,
+    until: (day: string, time: string) => `Hasta el ${day} a las ${time}`,
     empty: 'No hay noticias ahora mismo',
     emptyHint: 'Aquí salen los avisos del equipo y los multiplicadores de monedas o polvo mientras estén en marcha',
   },

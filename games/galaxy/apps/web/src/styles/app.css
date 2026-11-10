@@ -2773,7 +2773,6 @@
   }
 
   .lobby-step-head { display: inline-flex; align-items: center; gap: 8px; }
-  .lobby-step { display: grid; place-items: center; flex: none; inline-size: 26px; block-size: 26px; border-radius: 50%; background: var(--color-solar); color: var(--color-on-solar); font: 400 14px var(--font-display); box-shadow: 0 2px 0 var(--color-solar-lip); }
   .lobby-step-q { font: 400 17px var(--font-display); color: var(--color-ink); text-shadow: 0 2px 0 rgb(0 0 0 / .45); }
 
   .lobby-stage { grid-area: stage; position: relative; min-inline-size: 0; min-block-size: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; gap: 8px; }
@@ -2919,6 +2918,7 @@
   .lobby-relics { --r: 22px; --lip-h: 6px; display: grid; align-content: start; gap: 6px; padding: 8px 12px 10px; min-inline-size: 0; background: rgb(24 26 61 / .9); }
   .lobby-relics-head { display: flex; align-items: center; gap: 10px; min-inline-size: 0; }
   .lobby-relics-head h2 { margin: 0; font: 400 15px var(--font-display); color: var(--color-ink-soft); }
+  .lobby-step-sep { margin-inline: -4px; color: var(--color-ink-mute); font: 400 17px var(--font-display); }
   .lobby-sets-btn { margin-inline-start: auto; block-size: 34px; padding: 0 12px; font-size: 14px; }
   .lobby-sets-btn .ico { font-size: 18px; }
   .lobby-sets-btn.on { color: var(--color-terminal); }

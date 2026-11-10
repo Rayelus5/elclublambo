@@ -9,9 +9,8 @@ import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { playEquip } from '../../workshop/sfx';
 import padUrl from '../lobby-art/launchpad.png';
-import { StepHead } from './WherePanel';
 
-// The lobby's stage: step 1 (who with) over it, my probe floating over its launch pad in the middle (the pad painted
+// The lobby's stage: solo or in a group over it (the two buttons, centred), my probe floating over its launch pad in the middle (the pad painted
 // in Aseprite, art/lobby/paint-lobby.lua), and in a room my teammates on their own pads at its sides. The probe is the
 // way into the workshop (the owner: «que el usuario pueda pulsar tal cual en su sonda»); the arrows beside it change
 // the probe I fly with among the ones I have.
@@ -23,10 +22,7 @@ export type Mode = 'solo' | 'group';
 function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; onMode: (m: Mode) => void }) {
   return (
     <div className="lobby-who">
-      <StepHead n={1} id="lobby-who">
-        {l.who}
-      </StepHead>
-      <div className="lobby-modes" role="radiogroup" aria-labelledby="lobby-who">
+      <div className="lobby-modes" role="radiogroup" aria-label={l.who}>
         <button
           type="button"
           role="radio"
@@ -40,14 +36,14 @@ function ModeTabs({ mode, room, onMode }: { mode: Mode; room: RoomView | null; o
           <Icon name="probe" />
           <span>
             <b>{l.solo}</b>
-            <small>{room ? l.soloLocked : l.soloHint}</small>
+            {room ? <small>{l.soloLocked}</small> : null}
           </span>
         </button>
         <button type="button" role="radio" aria-checked={mode === 'group'} className="lip lobby-mode group" onClick={() => onMode('group')} data-sfx="hover">
           <Icon name="clan" />
           <span>
             <b>{l.group}</b>
-            <small>{room ? l.inRoom(room.members.length, room.max) : l.groupHint}</small>
+            {room ? <small>{l.inRoom(room.members.length, room.max)}</small> : null}
           </span>
         </button>
       </div>
