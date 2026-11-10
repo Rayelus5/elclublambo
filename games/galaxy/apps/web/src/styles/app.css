@@ -243,6 +243,14 @@
   .res.dust { color: var(--color-ice); }
   .res.coins { color: var(--color-solar); }
   .res.signal { color: var(--color-nova); }
+  .res.event-signal { position: relative; color: var(--color-uv-soft); }
+  .res.event-signal .ico { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-uv) 70%, transparent)); }
+  .res.event-signal::after { content: ''; position: absolute; inset-block-start: 6px; inset-inline-start: 22px; inline-size: 8px; block-size: 8px; background: var(--color-solar); clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+  /* With the event ticket the home's bar needs about 1590 px: up to 1699 px its shortcuts keep only their icon. */
+  @media (max-width: 1699px) {
+    .topbar:has(.res.event-signal) .pill.fold { width: 48px; padding: 0; justify-content: center; }
+    .topbar:has(.res.event-signal) .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  }
   .res b { color: var(--color-ink); font-weight: 600; }
   .res.pending { font-family: var(--font-braille); color: var(--color-ice); padding: 0 14px; }
   .iconbtn { --r: 999px; --lip-h: 4px; width: 48px; height: 48px; display: grid; place-items: center; background: var(--color-panel-2); color: var(--color-ink); }
@@ -512,7 +520,6 @@
   .banner-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
   .banner-head h2 { margin: 0; font-family: var(--font-display); font-weight: 400; font-size: 26px; line-height: 1; }
   .banner-ends { font-size: 14px; color: var(--color-ink-mute); }
-  .banners { align-self: flex-start; }
   .scanner-side { --r: 26px; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
   .scanner-side > .summary { margin: 0; }
   .odds table { width: 100%; border-collapse: separate; border-spacing: 0 4px; }
@@ -526,7 +533,6 @@
   .pity-head span { font-size: 13.5px; color: var(--color-ink-mute); }
   .pity-bar { height: 10px; margin-top: 8px; overflow: hidden; border-radius: 99px; background: rgb(0 0 0 / .3); }
   .pity-bar i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--color-solar-2), var(--color-solar)); }
-  .pity-featured { margin: 8px 0 0; font-size: 14px; color: var(--color-ink-soft); display: flex; flex-direction: column; }
   .pull-free { --r: 20px; --lip-c: var(--color-terminal-lip); display: flex; align-items: center; gap: 14px; padding: 12px 16px; text-align: left; color: var(--color-on-terminal); background: linear-gradient(160deg, var(--color-terminal), var(--color-terminal-2)); }
   .pull-free .ico { font-size: 30px; }
   .pull-free b { display: block; font-size: 18px; }
@@ -538,6 +544,50 @@
   .pull-btn span { font-size: 13.5px; color: var(--color-ink-soft); }
   .pull-btn.solar { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
   .pull-btn.solar span { color: var(--color-on-solar); opacity: .8; }
+  .pull-btn.pull-event { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 45%, var(--color-uv-2)); }
+  .pull-btn.pull-event span { color: #fff; opacity: .85; }
+
+  /* The two scanners (open beta): big tabs, the standard one in Solar and the event one in UV with its «Evento» badge.
+     The event scanner tints the whole screen purple, pays with its purple tickets, and announces its featured galaxy
+     in a card that is the screen's one animated element (a slow glow and a passing shine; still with reduced motion). */
+  .scanner-tabs { display: flex; flex-wrap: wrap; gap: 12px; align-self: flex-start; }
+  .scanner-tab { --r: 18px; --lip-h: 5px; display: inline-flex; align-items: center; gap: 10px; min-block-size: 52px; padding: 8px 18px 8px 14px; border: 0; background: var(--color-panel-2); color: var(--color-ink-soft); font: 400 17px var(--font-display); cursor: pointer; }
+  .scanner-tab .ico { font-size: 22px; }
+  .scanner-tab:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; }
+  .scanner-tab.tab-standard[aria-pressed='true'] { --lip-c: var(--color-solar-lip); color: var(--color-on-solar); background: linear-gradient(160deg, #ffe17a, var(--color-solar) 45%, var(--color-solar-2)); }
+  .scanner-tab.tab-event { color: #e3dbff; background: linear-gradient(160deg, color-mix(in srgb, var(--color-uv) 38%, var(--color-panel-2)), var(--color-panel-2)); }
+  .scanner-tab.tab-event > .ico { color: var(--color-solar); }
+  .scanner-tab.tab-event[aria-pressed='true'] { --lip-c: var(--color-uv-lip); color: #fff; background: linear-gradient(160deg, #b9a6ff, var(--color-uv) 50%, var(--color-uv-2)); }
+  .scanner-tab-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 99px; background: rgb(0 0 0 / .3); color: #fff; font: 800 14px var(--font-sans); }
+  .scanner-tab-badge .ico { font-size: 16px; color: #d7ccff; }
+  .banner-sub { font-size: 14px; font-weight: 700; color: var(--color-uv-soft); }
+  .scanner.is-event .scanner-terminal, .scanner.is-event .scanner-side { background-image: radial-gradient(120% 70% at 50% 0%, color-mix(in srgb, var(--color-uv) 30%, transparent), transparent 70%); outline: 2px solid color-mix(in srgb, var(--color-uv-soft) 40%, transparent); outline-offset: -2px; }
+  .scanner.is-event .scanner-terminal .crt { width: min(100%, calc((100vh - 500px) * 4 / 3)); background: linear-gradient(160deg, #3d2c84, #1b1446); }
+  .scanner.is-event .banner-head h2 { color: #efe9ff; text-shadow: 0 0 18px color-mix(in srgb, var(--color-uv) 80%, transparent); }
+  .scanner.is-event .pity { background: color-mix(in srgb, var(--color-uv) 12%, transparent); border-color: color-mix(in srgb, var(--color-uv-soft) 35%, transparent); }
+  .scanner.is-event .pity-head b { color: var(--color-uv-soft); }
+  .scanner.is-event .pity-bar i { background: linear-gradient(90deg, var(--color-uv-2), var(--color-uv-soft)); }
+  .scan-featured { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, .9fr); align-items: center; gap: 10px 28px; padding: 18px 24px 20px; border-radius: 22px; text-align: start;
+    background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--color-solar) 26%, transparent), transparent 55%), radial-gradient(120% 140% at 100% 100%, color-mix(in srgb, var(--color-nova) 26%, transparent), transparent 60%), linear-gradient(140deg, #3a237f, #1d1450);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 55%, transparent), 0 0 26px color-mix(in srgb, var(--color-uv) 55%, transparent);
+    animation: scan-featured-glow 2.6s ease-in-out infinite alternate; }
+  .scan-featured-shine { position: absolute; inset: -40% -60%; z-index: -1; pointer-events: none; background: linear-gradient(115deg, transparent 42%, rgb(255 255 255 / .14) 50%, transparent 58%); animation: scan-featured-shine 4.2s ease-in-out infinite; }
+  .scan-featured-main { position: relative; display: grid; gap: 6px; min-inline-size: 0; }
+  /* A still starburst behind the trait (the supernova's flash), drawn with a conic gradient and faded at its edge. */
+  .scan-featured-main::before { content: ''; position: absolute; z-index: -1; inset-block: -60px; inset-inline: -40px 30%; background: repeating-conic-gradient(from 0deg at 30% 55%, color-mix(in srgb, var(--color-solar) 22%, transparent) 0deg 6deg, transparent 6deg 18deg); mask: radial-gradient(circle at 30% 55%, #000 0, transparent 70%); pointer-events: none; }
+  .scan-featured-kicker { display: flex; align-items: center; gap: 8px; margin: 0; font: 400 15px var(--font-display); letter-spacing: .08em; color: var(--color-solar); }
+  .scan-featured-kicker .ico { font-size: 20px; }
+  .scan-featured-value { margin: 0; font: 400 clamp(34px, 3vw, 50px)/1.05 var(--font-display); color: var(--color-solar); background: linear-gradient(90deg, #fff3c4, var(--color-solar) 35%, var(--color-nova) 70%, var(--color-uv-soft)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 3px 0 rgb(0 0 0 / .45)); }
+  .scan-featured-trait { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; font-size: 13.5px; font-weight: 600; color: #d9d2ff; }
+  .scan-featured-trait span:first-child { color: #fff; font-weight: 800; }
+  .scan-featured-pity { display: grid; gap: 10px; }
+  .scan-featured-count { margin: 0; font-size: 15px; font-weight: 700; color: #efeaff; }
+  .scan-featured-count b { margin-inline: 6px; font: 400 40px var(--font-display); color: var(--color-solar); vertical-align: -6px; text-shadow: 0 0 18px color-mix(in srgb, var(--color-solar) 60%, transparent); }
+  .scan-featured-bar { block-size: 14px; overflow: hidden; border-radius: 99px; background: rgb(0 0 0 / .35); box-shadow: inset 0 0 0 1px rgb(255 255 255 / .08); }
+  .scan-featured-bar i { display: block; block-size: 100%; min-inline-size: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--color-uv-soft), var(--color-nova), var(--color-solar)); box-shadow: 0 0 12px color-mix(in srgb, var(--color-solar) 70%, transparent); }
+  @keyframes scan-featured-glow { to { box-shadow: inset 0 0 0 2px var(--color-solar), 0 0 40px color-mix(in srgb, var(--color-solar) 45%, transparent); } }
+  @keyframes scan-featured-shine { from { transform: translateX(-55%); } to { transform: translateX(55%); } }
+  @media (prefers-reduced-motion: reduce) { .scan-featured, .scan-featured-shine { animation: none; } }
   .pull-btn:disabled, .pull-free:disabled { opacity: .45; box-shadow: none; filter: saturate(.5); }
   @media (max-height: 820px) {
     .odds th, .odds td { padding: 4px 12px; }
@@ -1900,6 +1950,10 @@
   .event-head > div { flex: 1; display: grid; gap: 2px; }
   .event-head h2 { margin: 0; font: 400 24px var(--font-display); }
   .event-head p { margin: 0; color: var(--color-ink-soft); }
+  /* An event that pays its own signals: how many are held, and the way to the event scanner. */
+  .event-wallet { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+  .event-wallet .res b { font-size: 15px; }
+  .pill-event { --lip-c: var(--color-uv-lip); display: inline-flex; align-items: center; gap: 8px; color: #fff; background: linear-gradient(180deg, #a58bff, var(--color-uv)); }
   .event-ends { color: var(--color-ink-mute); font-weight: 600; white-space: nowrap; }
   .clan-tag { display: inline-block; margin-inline-end: 8px; padding: 1px 8px; border-radius: 999px; background: color-mix(in oklab, var(--color-uv-soft) 25%, transparent); color: var(--color-uv-soft); font-size: 12px; font-weight: 700; vertical-align: 2px; }
   .mission-card.clan-goal { box-shadow: inset 3px 0 0 var(--color-uv-soft); }
@@ -2362,6 +2416,7 @@
   .claim-chip.coins { color: var(--color-solar); box-shadow: 0 0 12px color-mix(in srgb, var(--color-solar) 60%, transparent); }
   .claim-chip.dust { color: var(--color-uv-soft, #b39dff); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 60%, transparent); }
   .claim-chip.signal { color: var(--color-nova); box-shadow: 0 0 12px color-mix(in srgb, var(--color-nova) 60%, transparent); }
+  .claim-chip.event-signal { color: var(--color-uv-soft); box-shadow: 0 0 12px color-mix(in srgb, var(--color-uv) 70%, transparent); }
   @keyframes chip-fly {
     0% { transform: translate(0, 0) scale(.4); opacity: 0; }
     15% { transform: translate(0, -28px) scale(1.15); opacity: 1; }

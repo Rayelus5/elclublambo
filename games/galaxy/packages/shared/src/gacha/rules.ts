@@ -85,7 +85,7 @@ export function bannerOdds(state: PityState, banner: Banner, cfg: GachaConfig) {
     sinceLegendary: state.sinceLegendary,
     untilGuarantee: Math.max(1, pity.hard - state.sinceLegendary),
     welcome: state.welcome,
-    ...(banner.kind === 'event' ? { untilFeatured: Math.max(1, cfg.featured.hard - state.sinceFeatured) } : {}),
+    ...(banner.kind === 'event' ? { untilFeatured: Math.max(1, cfg.featured.hard - state.sinceFeatured), featuredEvery: cfg.featured.hard } : {}),
   };
 }
 

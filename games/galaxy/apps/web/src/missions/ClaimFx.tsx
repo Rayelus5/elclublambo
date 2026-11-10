@@ -6,10 +6,10 @@ import type { Reward } from './ready';
 // The reward flying to the wallet (open beta): from the «Recoger» pressed, a few chips of each currency it gives arc
 // up to that currency in the wallet, one after another; the wallet then counts up. Nothing with reduced motion.
 
-type Kind = 'coins' | 'dust' | 'signal';
+type Kind = 'coins' | 'dust' | 'signal' | 'event-signal';
 type Chip = { id: number; kind: Kind; x: number; y: number; dx: number; dy: number; delay: number };
 
-const ICON: Record<Kind, IconName> = { coins: 'coin', dust: 'dust', signal: 'ticket' };
+const ICON: Record<Kind, IconName> = { coins: 'coin', dust: 'dust', signal: 'ticket', 'event-signal': 'ticket' };
 const FLIGHT_MS = 900;
 let next = 0;
 
@@ -24,7 +24,9 @@ export function useClaimFx(reduced: boolean) {
       const kinds: Kind[] = [];
       if ((reward.coins ?? 0) > 0) kinds.push('coins');
       if ((reward.dust ?? 0) > 0) kinds.push('dust');
-      if ((reward.signal ?? 0) + (reward.eventSignals ?? 0) > 0) kinds.push('signal');
+      if ((reward.signal ?? 0) > 0) kinds.push('signal');
+      // The event's own signals fly to their purple ticket, not to the normal ones.
+      if ((reward.eventSignals ?? 0) > 0) kinds.push('event-signal');
       const made: Chip[] = [];
       kinds.forEach((kind, k) => {
         const to = document.querySelector(`.missions-wallet .res.${kind}`)?.getBoundingClientRect();
