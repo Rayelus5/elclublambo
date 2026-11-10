@@ -14,11 +14,14 @@ afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.admin.communication;
 const admin: MeResponse = { id: 'ad1', username: 'rayelus', roles: ['superadmin'], mfa: true, level: 30 };
+// Dates round the test's own moment, so «en curso» stays true whenever it runs.
+const DAY = 86_400_000;
+const around = (days: number) => new Date(Date.now() + days * DAY).toISOString();
 const sent: AdminMailRow[] = [
-  { id: 'm1', title: 'Bienvenida', body: 'Hola', gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: '2026-11-08T10:00:00.000Z', expiresAt: '2026-12-08T10:00:00.000Z', withdrawnAt: null, recipients: 40, read: 12, claimed: 9 },
+  { id: 'm1', title: 'Bienvenida', body: 'Hola', gifts: { coins: 100 }, audience: { kind: 'all' }, by: 'rayelus', at: around(-2), expiresAt: around(28), withdrawnAt: null, recipients: 40, read: 12, claimed: 9 },
 ];
 const notices: AdminNoticeRow[] = [
-  { id: 'n1', text: 'Mantenimiento el domingo', tone: 'warning', startsAt: '2026-11-08T10:00:00.000Z', endsAt: '2026-11-10T10:00:00.000Z', endedAt: null, by: 'rayelus', live: true },
+  { id: 'n1', text: 'Mantenimiento el domingo', tone: 'warning', startsAt: around(-2), endsAt: around(2), endedAt: null, by: 'rayelus', live: true },
 ];
 const posted = (fetch: ReturnType<typeof mockApi>, url: string) =>
   fetch.mock.calls.filter(([u, init]) => u === url && init?.method === 'POST').map(([, init]) => JSON.parse(String(init?.body ?? '{}')));
