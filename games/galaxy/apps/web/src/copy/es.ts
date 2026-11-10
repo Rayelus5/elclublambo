@@ -4,6 +4,7 @@ import type { ApiErrorCode } from '@galaxy/shared';
 
 /** Numbers as players read them in Spanish (12.480). */
 export const fmt = (n: number) => new Intl.NumberFormat('es-ES').format(n);
+const NEWS_CURRENCIES: Record<string, string> = { coins: 'Monedas', dust: 'Polvo', material: 'Material', signal: 'Señales' };
 
 type QuirkOf<K extends Quirk['kind']> = Extract<Quirk, { kind: K }>;
 /** A quirk's text from its live numbers. */
@@ -1461,9 +1462,22 @@ export const copy = {
     claim: 'Recoger',
     claimed: 'Recogido',
     expires: (d: string) => `Caduca el ${d}`,
-    closeNotice: 'Cerrar aviso',
     close: 'Cerrar',
-    noticesLabel: 'Avisos',
+  },
+  // Noticias (open beta): the title notices and the multipliers running now, behind a button of the top bar.
+  news: {
+    button: 'Noticias',
+    buttonLabel: (n: number) => (n > 0 ? `Noticias, ${n === 1 ? '1 nueva' : `${fmt(n)} nuevas`}` : 'Noticias'),
+    title: 'Noticias',
+    close: 'Cerrar',
+    notices: 'Avisos',
+    boosts: 'Multiplicadores en marcha',
+    important: 'Importante',
+    fresh: 'Nueva',
+    rate: (currency: string, factor: number) => `${NEWS_CURRENCIES[currency] ?? currency} ×${fmt(factor)}`,
+    until: (when: string) => `Hasta el ${when}`,
+    empty: 'No hay noticias ahora mismo',
+    emptyHint: 'Aquí salen los avisos del equipo y los multiplicadores de monedas o polvo mientras estén en marcha',
   },
   hub: {
     shortcuts: 'Accesos',
@@ -1737,6 +1751,20 @@ export const copy = {
   },
   maintenance: 'El juego está en mantenimiento. Vuelve en un rato',
   loading: 'Cargando',
+  // Condiciones de hoy (open beta): the day's yield, the season's anomaly and the multipliers, behind a button over Lanzar.
+  today: {
+    button: 'Condiciones de hoy',
+    title: 'Condiciones de hoy',
+    close: 'Cerrar',
+    dailyChip: (seconds: number) => (seconds >= 3600 ? `${Math.floor(seconds / 3600)} h` : `${Math.max(1, Math.floor(seconds / 60))} min`),
+    cutChip: (pct: number) => `${fmt(pct)} %`,
+    boostChip: (factor: number) => `×${fmt(factor)}`,
+    srBoosts: (factor: number) => `multiplicadores hasta ×${fmt(factor)}`,
+    srAnomaly: (name: string) => `anomalía ${name}`,
+    daily: 'Premio del día',
+    anomaly: 'Anomalía de temporada',
+    boosts: 'Multiplicadores en marcha',
+  },
   hangar: {
     title: 'Hangar',
     arenaFailed: 'No se pudo cargar la arena. Recarga la página para volver al hangar',
@@ -2170,9 +2198,7 @@ export const copy = {
     saved: 'Guardado. Se ve en tu perfil',
   },
   boosts: {
-    title: 'Multiplicadores en marcha',
     currencies: { coins: 'monedas', dust: 'polvo', material: 'material', signal: 'señales' } as Record<string, string>,
-    chip: (name: string, currency: string, factor: number, until: string) => `${name}, ${currency} x${factor} hasta el ${until}`,
     paid: (name: string, currency: string, factor: number) => `${name}: ${currency} x${factor}`,
     resultsTitle: 'Multiplicadores',
     anomaly: (name: string, description: string) => `Anomalía de temporada: ${name}. ${description}`,

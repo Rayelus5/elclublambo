@@ -2,27 +2,15 @@ import type { HangarView, RoomView } from '@galaxy/shared';
 import { useRoomAction, useRooms } from '../../api/rooms';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
-import { AnomalyTag } from '../../hub/AnomalyTag';
-import { BoostChips } from '../../hub/Boosts';
 import { Icon } from '../../ui/Icon';
 import type { Mode } from './Stage';
+import { TodayButton } from './TodayConditions';
 
-// The lobby's last step: the day's yield, the anomaly and the boosts in force, and the one big button. Alone it
-// launches; in a group without a room it is Entrar rápido; in a room the leader launches once everyone is ready and
-// the others say they are.
+// The lobby's last step: Condiciones de hoy (the day's yield, the anomaly and the boosts in force, in a window) and the
+// one big button. Alone it launches; in a group without a room it is Entrar rápido; in a room the leader launches once
+// everyone is ready and the others say they are.
 
 const t = copy.coop;
-
-function DailyYield({ daily }: { daily: HangarView['daily'] }) {
-  const full = daily.fullSecondsLeft > 0;
-  return (
-    <div className={`lobby-daily${full ? '' : ' cut'}`} title={copy.hangar.dailyHint(daily.fullHours)}>
-      <Icon name="comet" />
-      <b>{full ? copy.hangar.dailyFull(copy.hangar.duration(daily.fullSecondsLeft)) : copy.hangar.dailyTier(Math.round(daily.multiplier * 100))}</b>
-      <span className="sr-only">{copy.hangar.dailyHint(daily.fullHours)}</span>
-    </div>
-  );
-}
 
 function Big({ label, onClick, disabled, busy, tour, pressed }: { label: string; onClick: () => void; disabled: boolean; busy?: boolean; tour?: string; pressed?: boolean }) {
   return (
@@ -65,11 +53,7 @@ export function LaunchDock({ view, mode, room, me, onLaunch, launching, error }:
   }
   return (
     <div className="lobby-dock">
-      <div className="lobby-dock-info">
-        <DailyYield daily={view.daily} />
-        <AnomalyTag className="in-hangar" />
-        <BoostChips />
-      </div>
+      <TodayButton daily={view.daily} />
       {!view.runsEnabled ? <p className="field-error">{copy.errors.runs_disabled}</p> : null}
       {error ? <p className="field-error">{errorText(error, copy.errors)}</p> : null}
       {action.error ? (

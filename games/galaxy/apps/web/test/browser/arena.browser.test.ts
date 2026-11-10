@@ -218,3 +218,11 @@ for (const sector of DEFAULT_CONTENT.sectors) {
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/biome-${sector.id}.png`, element: canvas });
   }, 90_000);
 }
+
+test('el lienzo deja el cursor al juego: al pasar el ratón, PixiJS no le escribe un cursor propio (la mira de Ajustes se ve en la partida)', async () => {
+  const canvas = await mount(640, 360);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107' });
+  canvas.dispatchEvent(new PointerEvent('pointerover', { bubbles: true, clientX: 100, clientY: 100, pointerType: 'mouse' }));
+  canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 110, pointerType: 'mouse' }));
+  expect(canvas.style.cursor).toBe('');
+});

@@ -121,6 +121,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     sharedTicker: false,
   });
   app.stage.eventMode = 'none';
+  // The page's CSS owns the canvas's cursor (the game's sight, ui/cursor.ts): Pixi would write `cursor: inherit` on it.
+  app.renderer.events.cursorStyles.default = '';
   try {
     await document.fonts?.load('700 16px Fredoka');
   } catch {
