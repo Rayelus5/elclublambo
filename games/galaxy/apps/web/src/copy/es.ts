@@ -1477,6 +1477,7 @@ export const copy = {
     close: 'Cerrar',
     notices: 'Avisos',
     boosts: 'Multiplicadores en marcha',
+    anomaly: 'Anomalía de temporada',
     important: 'Importante',
     fresh: 'Nueva',
     rate: (currency: string, factor: number) => `${NEWS_CURRENCIES[currency] ?? currency} ×${fmt(factor)}`,
@@ -2096,12 +2097,8 @@ export const copy = {
     },
   },
   anomaly: {
-    tag: (name: string) => `Anomalía: ${name}`,
-    more: (name: string) => `Más información sobre la anomalía ${name}`,
-    kind: 'Anomalía de temporada',
     note: 'Cambia todas las incursiones mientras dure la temporada, para todos los jugadores.',
     until: (d: string) => `Activa hasta el ${d}`,
-    close: 'Entendido',
   },
   trophies: {
     title: 'Trofeos',

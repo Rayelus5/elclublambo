@@ -3,7 +3,7 @@ import { useId, useState } from 'react';
 import { useBoosts } from '../../api/boosts';
 import { useLeaderboard } from '../../api/social';
 import { copy } from '../../copy/es';
-import { BoostCards, groupBoosts } from '../../hub/News';
+import { AnomalyCard, BoostCards, groupBoosts } from '../../hub/News';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 
@@ -12,7 +12,6 @@ import { Icon } from '../../ui/Icon';
 // the window says it all: the day's yield and its rule, the anomaly and what it does, the multipliers and their end.
 
 const t = copy.today;
-const day = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' });
 
 export function TodayButton({ daily }: { daily: HangarView['daily'] }) {
   const [open, setOpen] = useState(false);
@@ -76,15 +75,7 @@ function TodayDialog({ daily, onClose }: { daily: HangarView['daily']; onClose: 
       {anomaly ? (
         <section className="news-section" aria-labelledby={`${ids}-anomaly`}>
           <h3 id={`${ids}-anomaly`}>{t.anomaly}</h3>
-          <div className="today-card today-anomaly-card">
-            <Icon name="alert" />
-            <div>
-              <p className="news-text">{anomaly.name}</p>
-              <p className="today-desc">{anomaly.description}</p>
-              <p className="today-note">{copy.anomaly.note}</p>
-              {endsAt ? <p className="news-until">{copy.anomaly.until(day.format(new Date(endsAt)))}</p> : null}
-            </div>
-          </div>
+          <AnomalyCard anomaly={anomaly} endsAt={endsAt} />
         </section>
       ) : null}
       {groups.length > 0 ? (

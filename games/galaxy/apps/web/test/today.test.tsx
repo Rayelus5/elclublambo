@@ -40,7 +40,7 @@ test('el premio del día, la anomalía y los multiplicadores esperan en Condicio
   expect(button.querySelector('.today-anomaly')).not.toBeNull();
   // Nothing of it is written out over Lanzar.
   expect(screen.queryByText(copy.hangar.dailyFull('3 h 0 min'))).toBeNull();
-  expect(screen.queryByText(copy.anomaly.tag(anomaly.name))).toBeNull();
+  expect(screen.queryByText(anomaly.name)).toBeNull();
   expect(screen.queryByText('Lanzamiento de la Beta Abierta')).toBeNull();
   await userEvent.click(button);
   const dialog = await screen.findByRole('dialog', { name: t.title });

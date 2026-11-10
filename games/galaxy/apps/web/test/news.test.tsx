@@ -1,4 +1,4 @@
-import type { BoostsView, MeResponse, TitleNotice } from '@galaxy/shared';
+import type { BoostsView, Leaderboard, MeResponse, TitleNotice } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
@@ -28,11 +28,22 @@ const boosts: BoostsView = {
   anomaly: null,
 };
 
+const anomaly = { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca' };
+const SEASON_END = '2026-12-07T23:00:00.000Z';
+const board: Leaderboard = {
+  season: { id: 'season-1', name: 'Temporada 1', startsAt: '2026-11-09T23:00:00.000Z', endsAt: SEASON_END, tiers: [350, 1400, 4200, 10000, 20000] },
+  tab: 'general',
+  rows: [],
+  me: null,
+  total: 0,
+};
+
 function api(n: TitleNotice[] = notices, b: BoostsView = boosts) {
   return mockApi({
     'GET /galaxy/api/notices': () => jsonResponse(200, n),
     'GET /galaxy/api/boosts': () => jsonResponse(200, b),
     'GET /galaxy/api/mailbox': () => jsonResponse(200, { unread: 0, messages: [] }),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board),
   });
 }
 const bar = () => <TopBar me={me} wallet={{ coins: 10, dust: 2, signal: 1 }} freePull={false} onLogout={() => {}} leaving={false} />;
@@ -86,10 +97,28 @@ test('sin avisos ni multiplicadores Noticias no marca nada y su ventana dice que
   expect(within(dialog).queryByRole('region')).toBeNull();
 });
 
-test('la pantalla de inicio ya no enseña los avisos ni los multiplicadores sueltos', async () => {
-  api();
+test('la pantalla de inicio ya no enseña los avisos, los multiplicadores ni la anomalía sueltos', async () => {
+  api(notices, { ...boosts, anomaly });
   renderAt('/', { '/': <TitleScreen me={me} /> });
-  await screen.findByRole('button', { name: t.buttonLabel(3) });
+  await screen.findByRole('button', { name: t.buttonLabel(4) });
+  // The season column is there (its leaderboard answered), without the anomaly's tag.
+  expect(await screen.findByText('Temporada 1')).toBeInTheDocument();
   expect(screen.queryByText(LAUNCH)).toBeNull();
   expect(screen.queryByText('Lanzamiento de la Beta Abierta')).toBeNull();
+  expect(screen.queryByText(new RegExp(anomaly.name))).toBeNull();
+});
+
+test('la anomalía de temporada también está en Noticias: cuenta como nueva una vez y su tarjeta dice lo que hace y hasta cuándo', async () => {
+  api([], { boosts: [], anomaly });
+  renderAt('/', { '/': bar() });
+  await userEvent.click(await screen.findByRole('button', { name: t.buttonLabel(1) }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  const season = within(dialog).getByRole('region', { name: t.anomaly });
+  expect(season).toHaveTextContent(anomaly.name);
+  expect(season).toHaveTextContent(anomaly.description);
+  expect(season).toHaveTextContent(t.fresh);
+  expect(await within(season).findByText(/^Activa hasta el \d{1,2} de diciembre$/)).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('button', { name: t.close }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.getByRole('button', { name: t.buttonLabel(0) })).toBeInTheDocument();
 });
