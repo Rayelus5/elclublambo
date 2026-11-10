@@ -639,6 +639,18 @@ export interface CoopRunsTable {
   ended_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
 }
 
+/** Open beta: event signals left over when their scanner closed, turned into star dust (shown once). */
+export interface EventLeftoversTable {
+  id: Generated<string>;
+  account_id: string;
+  currency: string;
+  label: string;
+  signals: number;
+  dust: number;
+  created_at: Generated<Date>;
+  seen_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
+}
+
 /** Multiplayer plan phase 7: a teammate's report of a player of a group run, and its review. */
 export interface PlayerReportsTable {
   id: Generated<string>;
@@ -706,6 +718,7 @@ export interface DB {
   'galaxy.coop_runs': CoopRunsTable;
   'galaxy.coop_run_inputs': CoopRunInputsTable;
   'galaxy.player_reports': PlayerReportsTable;
+  'galaxy.event_leftovers': EventLeftoversTable;
   'galaxy.run_days': RunDaysTable;
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;

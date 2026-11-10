@@ -77,6 +77,22 @@ export function drawFinish(seed: bigint, cfg: GachaConfig): Finish {
   return FINISHES[subRng(seed, 'finish').choiceP(cfg.finishes)]!;
 }
 
+/**
+ * Whether an event's own signals (`signal:<event>`) can still be spent or earned: some scanner paying with them is
+ * open or yet to open, or the event of that id has not ended. Once neither, what a player has left turns into star
+ * dust (open beta; `leftoverDust` each).
+ */
+export function eventCurrencyAlive(
+  currency: string,
+  banners: readonly { currency: string; endsAt?: string | undefined }[],
+  events: readonly { id: string; endsAt: string }[],
+  now: Date,
+): boolean {
+  const t = now.getTime();
+  if (banners.some((b) => b.currency === currency && (!b.endsAt || Date.parse(b.endsAt) > t))) return true;
+  return events.some((e) => `signal:${e.id}` === currency && Date.parse(e.endsAt) > t);
+}
+
 /** What the scanner shows before a pull: next rates and the counters to the guarantees (GDD §9 transparency). */
 export function bannerOdds(state: PityState, banner: Banner, cfg: GachaConfig) {
   const pity = state.welcome ? cfg.welcome : cfg.standard;

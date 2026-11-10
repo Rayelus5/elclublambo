@@ -3,6 +3,7 @@ import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import {
   bannerOdds,
+  eventCurrencyAlive,
   disintegrateYield,
   drawPull,
   generateGalaxy,
@@ -179,4 +180,19 @@ test('el escáner de evento dice cada cuántos escaneos llega segura la destacad
   expect(odds.featuredEvery).toBe(cfg.featured.hard);
   expect(odds.untilFeatured).toBe(cfg.featured.hard - 12);
   expect(bannerOdds({ sinceLegendary: 0, sinceFeatured: 0, welcome: false }, standard, cfg)).not.toHaveProperty('featuredEvery');
+});
+
+test('las señales de un evento siguen vivas mientras su escáner o su evento estén abiertos o por llegar; luego no', () => {
+  const now = new Date('2026-11-20T12:00:00Z');
+  const open = { ...event, endsAt: '2026-11-23T23:00:00.000Z' };
+  const closed = { ...event, endsAt: '2026-11-19T23:00:00.000Z' };
+  const soon = { ...event, startsAt: '2026-12-01T00:00:00.000Z', endsAt: '2026-12-08T00:00:00.000Z' };
+  expect(eventCurrencyAlive('signal:nova', [standard, open], [], now)).toBe(true);
+  expect(eventCurrencyAlive('signal:nova', [standard, { ...event }], [], now)).toBe(true); // no end date
+  expect(eventCurrencyAlive('signal:nova', [standard, soon], [], now)).toBe(true);
+  expect(eventCurrencyAlive('signal:nova', [standard, closed], [], now)).toBe(false);
+  expect(eventCurrencyAlive('signal:nova', [standard], [], now)).toBe(false);
+  // The event itself still running (its scanner not set yet, or closing later) keeps them alive.
+  expect(eventCurrencyAlive('signal:nova', [standard, closed], [{ id: 'nova', endsAt: '2026-11-21T00:00:00.000Z' }], now)).toBe(true);
+  expect(eventCurrencyAlive('signal:nova', [standard, closed], [{ id: 'nova', endsAt: '2026-11-20T00:00:00.000Z' }], now)).toBe(false);
 });

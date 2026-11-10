@@ -5,6 +5,7 @@ import { isAdmin, isStaff } from '../auth/useMe';
 import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
+import { LeftoversNotice } from './Leftovers';
 import { NewsButton } from './News';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
@@ -120,6 +121,7 @@ export function TopBar({
           </button>
         ) : null}
       </div>
+      <LeftoversNotice />
     </header>
   );
 }

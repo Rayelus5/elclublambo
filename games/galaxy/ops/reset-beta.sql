@@ -59,6 +59,7 @@ truncate table
   galaxy.coop_runs,
   galaxy.cosmetics,
   galaxy.deal_reversals,
+  galaxy.event_leftovers,
   galaxy.exhibits,
   galaxy.friendships,
   galaxy.gacha_accounts,

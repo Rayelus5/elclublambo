@@ -3,6 +3,14 @@ import { DRAWN_FINISHES, FINISHES, fuseRequestSchema, parseConfig, pullRequestSc
 
 // GDD §9, §8.5 and §16.3: every starting number of the gacha and the galaxies is live configuration.
 describe('configuración del gachapón', () => {
+  test('las señales de evento que sobran al cerrar su escáner valen 50 de polvo cada una por defecto, y se puede cambiar', () => {
+    expect(parseConfig('gacha', {}).leftoverDust).toBe(50);
+    expect(parseConfig('gacha', { leftoverDust: 80 }).leftoverDust).toBe(80);
+    expect(parseConfig('gacha', { leftoverDust: 0 }).leftoverDust).toBe(0);
+    expect(() => parseConfig('gacha', { leftoverDust: -1 })).toThrow();
+    expect(() => parseConfig('gacha', { leftoverDust: 10_001 })).toThrow();
+  });
+
   test('por defecto reproduce los valores de partida del plan M2b', () => {
     const g = parseConfig('gacha', {});
     expect(g.tiers.base).toEqual([0.5, 0.28, 0.13, 0.06, 0.03]);
