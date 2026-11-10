@@ -1,7 +1,7 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
-import { probeView } from '../sprites/rotate';
+import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { type Camera, cameraFor } from './camera';
 import { createFx, reactionLabel } from './fx';
@@ -555,7 +555,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   function dashTrail(sim: Sim | null, probe: number, fx0: number, fy0: number, tx: number, ty: number, seconds: number): void {
     const p = sim?.probes[probe];
     // The afterimages show the probe as it faced when it dashed.
-    const { id, flip } = p ? probeView(p.def.sprite, p.aim * STEP_RAD) : { id: 'probe-lumen', flip: 1 };
+    const { id, flip } = p ? probeView(p.def.sprite, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
     if (!opts.reduced) {
       const n = 5;
       for (let k = 0; k < n; k++) {
@@ -637,9 +637,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       flags[i] = shown ? 1 : 0;
       if (!shown) return;
       const s = probePool.at(i);
-      // Eight ways (open beta): where it aims (the mouse with manual aim, else where it moves), as one of the drawings
-      // turned for up, down and the diagonals, or mirrored for the left side.
-      const view = probeView(p.def.sprite, p.aim * STEP_RAD);
+      // Eight ways (open beta): where it moves, also with manual aim (the mouse only steers the shots), as one of the
+      // drawings turned for up, down and the diagonals, or mirrored for the left side.
+      const view = probeView(p.def.sprite, probeHeading(p));
       s.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       s.anchor.set(0.5);
       let x = Math.round(lerp(p.px, p.x, alpha));

@@ -137,6 +137,9 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   const strip = await screen.findByRole('region', { name: t.cards }, { timeout: 2000 });
   expect(strip).toBeInTheDocument();
   expect(sim().status).toBe('running');
+  // The cards listen to the number keys from an effect that runs just after they show: let it run before pressing
+  // (a loaded CI machine pressed in between).
+  await act(async () => {});
   fireEvent.keyDown(window, { key: '2', code: 'Digit2' });
   expect(ws.sent).toContainEqual({ t: 'pick', i: 1, seq: sim().probes[0]!.offerSeq & 255 });
   await waitFor(() => expect(screen.queryByRole('region', { name: t.cards })).not.toBeInTheDocument());

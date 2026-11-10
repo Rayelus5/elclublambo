@@ -90,6 +90,15 @@ const VIEWS: { suffix: string; flip: 1 | -1 }[] = [
   { suffix: '@ne', flip: 1 },
 ];
 
+/**
+ * Where a probe's drawing faces (radians, clockwise from the right): where it moves (kept while it stands still). The
+ * mouse's manual aim only steers the shots; the probe turning to it would hide its own movement, since the camera
+ * keeps it centred.
+ */
+export function probeHeading(p: { facing: number; aim: number }): number {
+  return (p.facing * Math.PI * 2) / 4096;
+}
+
 /** Which drawing of a probe faces `angle` (radians, clockwise from the right) and whether it is mirrored. */
 export function probeView(id: string, angle: number): { id: string; flip: 1 | -1 } {
   const k = (((Math.round(angle / (Math.PI / 4)) % 8) + 8) % 8) as number;
