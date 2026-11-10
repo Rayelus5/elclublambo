@@ -111,7 +111,7 @@
   html.custom-cursor :is(input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit']), textarea, [contenteditable='true']):not(:disabled) { cursor: var(--cursor-text); }
   html.custom-cursor :is(:disabled, [aria-disabled='true']) { cursor: var(--cursor-not-allowed); }
   html.custom-cursor [aria-busy='true'] { cursor: var(--cursor-wait); }
-  html.custom-cursor :is([data-cursor='help'], .anomaly-info, .skills-chip):not(:disabled) { cursor: var(--cursor-help); }
+  html.custom-cursor :is([data-cursor='help'], .skills-chip):not(:disabled) { cursor: var(--cursor-help); }
   html.custom-cursor :is(input[type='range'], [draggable='true'], [data-cursor='grab'], .inspector-gl):not(:disabled) { cursor: var(--cursor-grab); }
   html.custom-cursor :is(input[type='range'], [draggable='true'], [data-cursor='grab'], .inspector-gl):not(:disabled):active { cursor: var(--cursor-grabbing); }
   html.custom-cursor .arena-canvas { cursor: var(--cursor-aim); }
@@ -2157,24 +2157,6 @@
   @media (max-width: 760px) { .briefing-tips { grid-template-columns: minmax(0, 1fr); } }
   @media (prefers-reduced-motion: reduce) { .briefing-keys i, .briefing-probe .shot, .briefing-gems i, .briefing-card { animation: none; } }
   /* The season's anomaly: a tag with its name, and «Más información» opening what it does. */
-  .anomaly-tag { display: flex; align-items: center; gap: 8px; min-inline-size: 0; }
-  .anomaly-tag.in-season { margin: 2px 16px 0; }
-  .anomaly-tag.in-hangar { justify-content: center; }
-  .anomaly-pill { display: inline-flex; align-items: center; gap: 8px; min-inline-size: 0; padding: 6px 12px; border-radius: 999px; background: color-mix(in srgb, var(--color-uv) 24%, var(--color-panel)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-uv-soft) 55%, transparent); color: var(--color-ink); font-size: 14px; font-weight: 700; }
-  .anomaly-pill span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .anomaly-pill .ico { flex: none; font-size: 16px; color: var(--color-uv-soft); }
-  .anomaly-info { flex: none; display: grid; place-items: center; inline-size: 34px; block-size: 34px; border: 0; border-radius: 50%; background: var(--color-panel-2); color: var(--color-uv-soft); cursor: pointer; box-shadow: inset 0 0 0 2px rgb(255 255 255 / .06); transition: background .15s, transform .15s; }
-  .anomaly-info:hover { background: color-mix(in srgb, var(--color-uv) 30%, var(--color-panel-2)); transform: translateY(-1px); }
-  .anomaly-info:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
-  .anomaly-info .ico { font-size: 18px; }
-  .anomaly-body { display: flex; gap: 16px; align-items: flex-start; }
-  .anomaly-badge { flex: none; display: grid; place-items: center; inline-size: 56px; block-size: 56px; border-radius: 16px; background: color-mix(in srgb, var(--color-uv) 30%, transparent); color: var(--color-uv-soft); box-shadow: 0 0 22px color-mix(in srgb, var(--color-uv) 45%, transparent); }
-  .anomaly-badge .ico { font-size: 30px; }
-  .anomaly-body p { margin: 0 0 8px; line-height: 1.5; max-inline-size: 52ch; }
-  .anomaly-kind { color: var(--color-uv-soft); font-weight: 700; font-size: 14px; }
-  .anomaly-desc { font-size: 17px; font-weight: 600; }
-  .anomaly-note, .anomaly-until { color: var(--color-ink-soft); }
-  @media (prefers-reduced-motion: reduce) { .anomaly-info { transition: none; } }
   .missions.season-screen { inline-size: min(100% - 48px, 1240px); gap: 20px; }
   .season-left { margin-inline-start: auto; color: var(--color-ink-soft); font-weight: 600; }
   .season-hero, .season-route, .season-shop, .season-track { min-inline-size: 0; }
