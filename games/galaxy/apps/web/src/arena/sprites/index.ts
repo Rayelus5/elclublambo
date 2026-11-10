@@ -6,6 +6,7 @@ import { ICONS } from './icons';
 import { PROBES } from './probes';
 import { ITEMS } from './items';
 import { PROPS } from './props';
+import { turnedProbe } from './rotate';
 import { rasterize, type SpriteDef } from './types';
 
 export { pixels, rasterize, type SpriteDef } from './types';
@@ -28,6 +29,9 @@ export const SPRITES: Record<string, SpriteDef> = {
   ...PROPS,
   ...ICONS,
 };
+
+// Each probe also faces up, down and the two right-hand diagonals (open beta); left is the mirror (rotate.ts).
+for (const [id, def] of Object.entries({ 'probe-lumen': PROBE_LUMEN, ...PROBES })) Object.assign(SPRITES, turnedProbe(id, def));
 
 const urls = new Map<string, string>();
 
