@@ -179,7 +179,7 @@ export function RevealStage({
     <Dialog
       title={title}
       onClose={onClose}
-      className="reveal-stage"
+      className={summary ? 'reveal-stage' : 'reveal-stage is-revealing'}
       hideTitle
       closeOnVeil={false}
       onEscape={() => (summary ? onClose() : setAt(skipToSummary(steps)))}
