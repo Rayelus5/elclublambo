@@ -1,6 +1,7 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { type Camera, cameraFor } from './camera';
 import { createFx, reactionLabel } from './fx';
@@ -553,8 +554,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   /** A dash from (fx, fy) to (tx, ty): afterimages along the way (over `seconds`), sparks at both ends. */
   function dashTrail(sim: Sim | null, probe: number, fx0: number, fy0: number, tx: number, ty: number, seconds: number): void {
     const p = sim?.probes[probe];
-    const id = p?.def.sprite ?? 'probe-lumen';
-    const flip = p && Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1;
+    // The afterimages show the probe as it faced when it dashed.
+    const { id, flip } = p ? probeView(p.def.sprite, p.aim * STEP_RAD) : { id: 'probe-lumen', flip: 1 };
     if (!opts.reduced) {
       const n = 5;
       for (let k = 0; k < n; k++) {
@@ -636,8 +637,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       flags[i] = shown ? 1 : 0;
       if (!shown) return;
       const s = probePool.at(i);
-      const id = p.def.sprite;
-      s.texture = atlas.frames[id]![frameOf(id)]!;
+      // Eight ways (open beta): where it aims (the mouse with manual aim, else where it moves), as one of the drawings
+      // turned for up, down and the diagonals, or mirrored for the left side.
+      const view = probeView(p.def.sprite, p.aim * STEP_RAD);
+      s.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       s.anchor.set(0.5);
       let x = Math.round(lerp(p.px, p.x, alpha));
       let y = Math.round(lerp(p.py, p.y, alpha));
@@ -653,7 +656,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
         }
       }
       s.position.set(x, y);
-      s.scale.set(Math.cos(p.facing * STEP_RAD) < -0.01 ? -1 : 1, 1);
+      s.scale.set(view.flip, 1);
       s.tint = 0xffffff;
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).
