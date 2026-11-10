@@ -2,8 +2,10 @@ import { botInput, botPick, createSim, DEFAULT_CONTENT, type Sim, type SimOption
 
 // Golden runs of the solo game (multiplayer plan): fixed seeds and bot inputs, their state hash every 20 s. The same
 // table is checked in Node (golden.test.ts) and in real browsers (test/browser/determinism.browser.test.ts): the
-// co-op lockstep needs every engine to play a run the same. A change that moves these hashes changes how runs play:
-// it needs a SIM_VERSION bump (and new goldens). The co-op mode must leave them untouched.
+// co-op lockstep needs every engine to play a run the same. A CODE change that moves these hashes changes how runs
+// play: it needs a SIM_VERSION bump (and new goldens). They play DEFAULT_CONTENT, so new or retuned content data moves
+// them too: that needs only new goldens (published runs carry their own content version; docs/CONTENIDO.md A3). The
+// co-op mode must leave them untouched.
 
 export function playGolden(sim: Sim, until = 3600 * 2, every = 1200): string[] {
   const out: string[] = [];

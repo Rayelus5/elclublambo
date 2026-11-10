@@ -716,9 +716,9 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). It also
- * refuses what the game cannot serve yet: event banners (GDD §9) have their rules, but not their event signals in the
- * wallet, combined odds on screen or featured checks, so until the events milestone no one can publish half a feature.
+ * What is wrong with a draft of `key`, each problem at its path and in Spanish (empty when it is valid; M6b). Only the
+ * key's own schema: what must hold across keys (an event and its scanner, a featured value, the season's anomaly) is
+ * config/ops-checks.ts, run by the CLI's check-config and the ops folders' test.
  */
 export function configIssues(key: ConfigKey, data: unknown): { path: string; message: string }[] {
   const result = configSchemas[key].safeParse(data, { error: esIssues });
