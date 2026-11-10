@@ -2742,6 +2742,12 @@
   .lobby-top .topbar { flex: 1; min-inline-size: 0; margin-left: 0; }
   .lobby-back { flex: none; }
   @media (max-width: 1440px) { .lobby-top .me > div { display: none; } .lobby-top .me { padding-right: 4px; } }
+  /* The lobby's bar also carries «Volver al inicio»: with every name it needs about 1680 px, so up to 1799 px its
+     shortcuts keep only their icon (the name stays for screen readers), as the home's do below 1600. */
+  @media (max-width: 1799px) {
+    .lobby-top .pill.fold { width: 48px; padding: 0; justify-content: center; }
+    .lobby-top .pill.fold .label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  }
 
   /* The rail never leaves its area: on a short screen it scrolls inside rather than over the bar or the foot. */
   .lobby-rail { grid-area: rail; align-self: center; min-block-size: 0; max-block-size: 100%; overflow-y: auto; scrollbar-width: none; padding: 8px 10px 8px 2px; margin: -8px -10px -8px -2px; }
