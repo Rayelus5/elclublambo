@@ -27,7 +27,6 @@ const boosts: BoostsView = {
   ],
   anomaly: null,
 };
-const until = new Intl.DateTimeFormat('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' }).format(new Date(ENDS));
 
 function api(n: TitleNotice[] = notices, b: BoostsView = boosts) {
   return mockApi({
@@ -61,7 +60,8 @@ test('Noticias abre una ventana con los avisos y los multiplicadores en marcha, 
   const card = within(multipliers).getByText('Lanzamiento de la Beta Abierta').closest('li')!;
   expect(card).toHaveTextContent(t.rate('coins', 1.5));
   expect(card).toHaveTextContent(t.rate('dust', 1.5));
-  expect(card).toHaveTextContent(t.until(until));
+  // The end says the day's number and month, not only the weekday (in UTC on CI: Monday the 16th at 23:00).
+  expect(card).toHaveTextContent(/Hasta el (lunes|martes) 1[67] de noviembre a las \d{2}:\d{2}/);
   await userEvent.click(within(dialog).getByRole('button', { name: t.close }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.getByRole('button', { name: t.buttonLabel(0) })).toBeInTheDocument();

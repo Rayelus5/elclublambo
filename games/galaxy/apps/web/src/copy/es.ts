@@ -1475,7 +1475,7 @@ export const copy = {
     important: 'Importante',
     fresh: 'Nueva',
     rate: (currency: string, factor: number) => `${NEWS_CURRENCIES[currency] ?? currency} ×${fmt(factor)}`,
-    until: (when: string) => `Hasta el ${when}`,
+    until: (day: string, time: string) => `Hasta el ${day} a las ${time}`,
     empty: 'No hay noticias ahora mismo',
     emptyHint: 'Aquí salen los avisos del equipo y los multiplicadores de monedas o polvo mientras estén en marcha',
   },

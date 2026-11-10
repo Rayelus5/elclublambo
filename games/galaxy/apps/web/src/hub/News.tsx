@@ -13,7 +13,10 @@ import { Icon, type IconName } from '../ui/Icon';
 
 const t = copy.news;
 const KEY = 'gs.news.seen';
-const until = new Intl.DateTimeFormat('es-ES', { weekday: 'long', hour: '2-digit', minute: '2-digit' });
+// When a multiplier ends, in full: «martes 17 de noviembre» and «00:00».
+const endDay = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+const endTime = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
+const ends = (iso: string) => t.until(endDay.format(new Date(iso)).replace(',', ''), endTime.format(new Date(iso)));
 const CURRENCY_ICON: Record<string, IconName> = { coins: 'coin', dust: 'dust', signal: 'radar', material: 'station' };
 
 type Boost = BoostsView['boosts'][number];
@@ -169,7 +172,7 @@ export function BoostCards({ groups, isNew }: { groups: BoostGroup[]; isNew?: (g
               </li>
             ))}
           </ul>
-          <p className="news-until">{t.until(until.format(new Date(g.endsAt)))}</p>
+          <p className="news-until">{ends(g.endsAt)}</p>
         </li>
       ))}
     </ul>
