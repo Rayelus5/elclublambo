@@ -1,7 +1,7 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { SPRITES } from '../src/arena/sprites';
-import { probeView, quarterTurn, rotSprite, scale2x } from '../src/arena/sprites/rotate';
+import { probeHeading, probeView, quarterTurn, rotSprite, scale2x } from '../src/arena/sprites/rotate';
 
 // The probes face eight ways in the arena (open beta): right is the drawing and left its mirror, as before; up and down
 // are exact quarter turns; the diagonals are turned 45° with RotSprite (Scale2x three times, turn, sample back), the
@@ -66,4 +66,11 @@ test('cada sonda del contenido tiene sus cuatro dibujos girados, con sus mismos 
     expect([SPRITES[`${base}@n`]!.w, SPRITES[`${base}@n`]!.h]).toEqual([def.h, def.w]);
     expect(SPRITES[`${base}@ne`]!.w).toBeGreaterThan(def.w);
   }
+});
+
+test('la sonda mira hacia donde se mueve, también con el apuntado con el ratón (el ratón solo dirige los disparos)', () => {
+  // facing 1024 of 4096 steps = down; the mouse aims right.
+  expect(probeHeading({ facing: 1024, aim: 0 })).toBeCloseTo(Math.PI / 2, 10);
+  expect(probeView('probe-spark', probeHeading({ facing: 1024, aim: 0 }))).toEqual({ id: 'probe-spark@s', flip: 1 });
+  expect(probeView('probe-spark', probeHeading({ facing: 2048, aim: 3072 }))).toEqual({ id: 'probe-spark', flip: -1 });
 });
