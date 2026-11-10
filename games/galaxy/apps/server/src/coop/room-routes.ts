@@ -35,8 +35,11 @@ import type { CoopService } from './service';
 
 export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; rooms: Rooms; coop: CoopService; trustCfIp: boolean };
 
-/** The rooms and how their limits follow the live config (read again on every sweep, every 30 s). */
-export type Rooms = { manager: RoomManager; refresh: () => Promise<void> };
+/**
+ * The rooms and how their limits follow the live config (read again on every sweep, every 30 s). `memberChanged` is
+ * for the rest of the API: a member's probe changed in the hangar, so the room (if any) shows it to everyone in it.
+ */
+export type Rooms = { manager: RoomManager; refresh: () => Promise<void>; memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'level'>>) => Promise<void> };
 
 export function createRooms(config: ConfigReader): Rooms {
   const cfg = { maxRooms: 500, idleMs: 30 * 60_000 };
@@ -46,7 +49,8 @@ export function createRooms(config: ConfigReader): Rooms {
     cfg.idleMs = c.lobbyIdleMinutes * 60_000;
   };
   void refresh().catch(() => {});
-  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh };
+  // Nobody to tell until the routes are registered (registerRoomRoutes sets it).
+  return { manager: new RoomManager({ maxRooms: () => cfg.maxRooms, idleMs: () => cfg.idleMs }), refresh, memberChanged: async () => {} };
 }
 
 export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
@@ -126,6 +130,12 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     for (const x of extra) live.send(x.accountId, { type: 'room', room: null, ...(x.why ? { why: x.why } : {}) } satisfies LiveEvent);
     await Promise.all([...room.members.map((m) => live.announce(m.accountId)), ...extra.map((x) => live.announce(x.accountId))]);
   }
+
+  // A member chose another probe in the hangar: the room's waiting players see it now, not at the next Listo.
+  deps.rooms.memberChanged = async (accountId, patch) => {
+    const room = rooms.refresh(accountId, patch);
+    if (room && room.state === 'lobby') await tell(room);
+  };
 
   // A run ended: its room waits again (if it is still open) and its members learn it.
   deps.coop.onRunEnded = async (roomId, runId) => {

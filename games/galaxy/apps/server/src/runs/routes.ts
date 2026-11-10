@@ -42,7 +42,8 @@ async function requireRuns(deps: RunsDeps): Promise<void> {
 
 const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 
-export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
+/** `onProbeChosen`: the probe was changed in the hangar (the rooms show it to the player's group). */
+export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string) => Promise<void> }): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
     return hangarView(deps, s.accountId);
@@ -73,7 +74,10 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const s = requireSession(req);
     const body = probeChoiceSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_probe', 60, 60);
-    return chooseProbe(deps, s.accountId, body);
+    const view = await chooseProbe(deps, s.accountId, body);
+    // The choice is made; telling the room is a courtesy that never fails it.
+    await deps.onProbeChosen?.(s.accountId, view.probe).catch((err: unknown) => req.log.warn({ err }, 'room probe refresh failed'));
+    return view;
   });
 
   // The next relic slot (M4c-1): an idempotent operation naming the slot it opens.
