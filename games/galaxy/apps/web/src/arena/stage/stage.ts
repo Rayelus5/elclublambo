@@ -226,6 +226,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const warns: Warning[] = [];
   /** The simulation tick of the last frame drawn (feeds without a tick use it). */
   let lastTick = 0;
+  // The simulation's last new tick and when it came: the thrusters only fire while it advances (not paused).
+  let seenTick = -1;
+  let tickAt = 0;
+  let frameDt = 0;
   let hurtAlpha = 0;
   let last = performance.now();
   let clock = 0;
@@ -658,6 +662,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       s.position.set(x, y);
       s.scale.set(view.flip, 1);
       s.tint = 0xffffff;
+      // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
+      // eight ways, so the puffs leave the turbine itself).
+      if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
+        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt);
+      }
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).
         marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: TEAM_TINT[i % TEAM_TINT.length]!, alpha: 0.8 });
@@ -862,6 +871,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       clock += dt;
+      frameDt = dt;
+      if (sim.tick !== seenTick) {
+        seenTick = sim.tick;
+        tickAt = clock;
+      }
       const p = sim.probes[opts.probe] ?? sim.probes[0]!;
       const focus = { x: lerp(p.px, p.x, alpha), y: lerp(p.py, p.y, alpha) };
       const c = cameraFor(w, h, focus, opts.vision);

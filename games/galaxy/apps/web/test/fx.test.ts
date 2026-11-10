@@ -81,3 +81,37 @@ test('un anillo de evolución crece y se apaga', () => {
   fx.update(1);
   expect(fx.rings).toHaveLength(0);
 });
+
+test('la turbina de una sonda que avanza echa partículas calientes por detrás, contra su marcha, a ritmo constante', () => {
+  const fx = createFx(false);
+  // Facing right: the puffs come out to its left and fly further left.
+  for (let i = 0; i < 30; i++) fx.thrust(0, 100, 100, 0, 1 / 60);
+  // 80 puffs a second over half a second (minus the briefest flames, already gone): a dense jet.
+  const n = fx.particles.length;
+  expect(n).toBeGreaterThanOrEqual(30);
+  expect(n).toBeLessThanOrEqual(40);
+  expect(fx.particles.every((p) => p.x < 100 && p.vx < 0)).toBe(true);
+  expect(fx.particles.every((p) => Math.abs(p.y - 100) <= 2)).toBe(true);
+  // Facing up (−90°): below it, flying down.
+  const up = createFx(false);
+  up.thrust(0, 50, 50, -Math.PI / 2, 0.5);
+  expect(up.particles.length).toBeGreaterThan(0);
+  expect(up.particles.every((p) => p.y > 50 && p.vy > 0)).toBe(true);
+  // Short-lived: half a second later the first puffs are gone.
+  fx.update(0.5);
+  expect(fx.particles.length).toBe(0);
+});
+
+test('cada sonda lleva su propia turbina, y con movimiento reducido echa menos', () => {
+  const fx = createFx(false);
+  fx.thrust(0, 0, 0, 0, 0.25);
+  fx.thrust(1, 200, 0, Math.PI, 0.25);
+  expect(fx.particles.some((p) => p.x < 0)).toBe(true);
+  expect(fx.particles.some((p) => p.x > 200)).toBe(true);
+  const calm = createFx(true);
+  calm.thrust(0, 0, 0, 0, 0.5);
+  const lively = createFx(false);
+  lively.thrust(0, 0, 0, 0, 0.5);
+  expect(calm.particles.length).toBeGreaterThan(0);
+  expect(calm.particles.length).toBeLessThan(lively.particles.length / 2);
+});
