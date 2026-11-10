@@ -40,7 +40,7 @@ export function GroupPanel({ view }: { view: HangarView }) {
   const online = (friends.data?.friends ?? []).filter((f) => f.presence.status === 'online');
   return (
     <div className="lobby-group">
-      <StepHead n={2}>{t.title}</StepHead>
+      <StepHead>{t.title}</StepHead>
       {v && !v.allowed ? (
         <p className="lobby-note" role="status">
           <Icon name="lock" />
@@ -191,7 +191,7 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
   return (
     <div className="lobby-group">
       <div className="lobby-room-head">
-        <StepHead n={2}>{t.roomTitle}</StepHead>
+        <StepHead>{t.roomTitle}</StepHead>
         <button type="button" className="lip pill small lobby-leave" disabled={busy} onClick={() => leave.mutate()}>
           <Icon name="exit" />
           <span>{t.leave}</span>

@@ -115,7 +115,10 @@ export function RelicStrip({ view }: { view: HangarView }) {
   return (
     <section className="lip panel lobby-relics" aria-labelledby="lobby-relics">
       <header className="lobby-relics-head">
-        <StepHead n={3}>{copy.lobby.what}</StepHead>
+        <StepHead>{copy.lobby.what}</StepHead>
+        <span className="lobby-step-sep" aria-hidden="true">
+          ·
+        </span>
         <h2 id="lobby-relics">{copy.hangar.relics}</h2>
         <button type="button" className={`lip pill small lobby-sets-btn${active ? ' on' : ''}`} aria-haspopup="dialog" onClick={() => setSets(true)}>
           <Icon name="cards" />

@@ -6,15 +6,13 @@ import { copy } from '../../copy/es';
 import { Icon } from '../../ui/Icon';
 import { Progress } from '../../workshop/parts';
 
-// Step 2, where (solo): the sector for the next runs, its Core and fauna, and the five to pick from. Open ones are
+// The sector (solo): the sector for the next runs, its Core and fauna, and the five to pick from. Open ones are
 // chosen; closed ones say what opens them, with their bar.
 
-export function StepHead({ n, children, id }: { n: number; children: string; id?: string }) {
+/** A lobby area's title (Sector, Galaxias…), in the display font. */
+export function StepHead({ children, id }: { children: string; id?: string }) {
   return (
     <div className="lobby-step-head">
-      <span className="lobby-step" aria-hidden="true">
-        {n}
-      </span>
       <span className="lobby-step-q" id={id}>
         {children}
       </span>
@@ -34,7 +32,7 @@ export function WherePanel({ view }: { view: HangarView }) {
   };
   return (
     <section className="lobby-where" aria-labelledby="lobby-sector" data-tour="sector">
-      <StepHead n={2}>{copy.lobby.where}</StepHead>
+      <StepHead>{copy.lobby.where}</StepHead>
       <div className="lobby-brief">
         <img className="lobby-brief-boss" src={spriteDataUrl(sector.boss.sprite, 2)} alt="" width={72} height={72} />
         <div className="lobby-brief-text">
