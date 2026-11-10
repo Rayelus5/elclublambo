@@ -91,6 +91,8 @@ export interface BannerView {
   welcome: boolean;
   /** Event banners: pulls until the featured galaxy is guaranteed. */
   untilFeatured?: number;
+  /** Event banners: the guarantee's length (pulls from one featured galaxy to the next certain one). */
+  featuredEvery?: number;
 }
 
 export interface GachaView {

@@ -1,4 +1,4 @@
-import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView } from '@galaxy/shared';
+import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView, Wallet } from '@galaxy/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
@@ -52,8 +52,11 @@ function Progress({ label, progress, target }: { label: string; progress: number
   );
 }
 
-/** The events running now (M7e-1): each with its personal goals and its clan goals. The admin's wizard previews with it. */
-export function EventsList({ events, pending, onClaim }: { events: EventView[]; pending: boolean; onClaim: (period: string, id: string) => void }) {
+/**
+ * The events running now (M7e-1): each with its personal goals and its clan goals, and, for one that pays its own
+ * signals, how many are held and the way to the event scanner that spends them. The admin's wizard previews with it.
+ */
+export function EventsList({ events, pending, onClaim, wallet }: { events: EventView[]; pending: boolean; onClaim: (period: string, id: string) => void; wallet?: Wallet }) {
   if (events.length === 0) return <p className="panel-note">{t.noEvent}</p>;
   return (
     <>
@@ -67,6 +70,18 @@ export function EventsList({ events, pending, onClaim }: { events: EventView[]; 
             </div>
             <span className="event-ends">{t.eventEnds(new Date(e.endsAt))}</span>
           </header>
+          {wallet && e.goals.some((g) => (g.reward.eventSignals ?? 0) > 0) ? (
+            <div className="event-wallet">
+              <span className="res event-signal">
+                <Icon name="ticket" />
+                <b>{t.eventWallet(wallet[`signal:${e.id}`] ?? 0)}</b>
+              </span>
+              <Link to="/escaner?tipo=evento" className="lip pill small pill-event">
+                <Icon name="radar" />
+                <span>{t.useEventScanner}</span>
+              </Link>
+            </div>
+          ) : null}
           <ul className="mission-list">
             {e.goals.map((g) => {
               const done = g.progress >= g.target && (g.scope === 'personal' || e.inClan);
@@ -228,7 +243,7 @@ export function MissionsScreen() {
           </p>
         ) : null}
         <div role="tabpanel" aria-label={t.tabs[tab]}>
-          {v && tab === 'events' ? <EventsList events={v.events} pending={collecting} onClaim={(period, id) => claimOne(here.find((x) => x.kind === 'mission' && x.period === period && x.id === id))} /> : null}
+          {v && tab === 'events' ? <EventsList events={v.events} pending={collecting} wallet={gacha.data?.wallet} onClaim={(period, id) => claimOne(here.find((x) => x.kind === 'mission' && x.period === period && x.id === id))} /> : null}
           {v && tab !== 'achievements' && tab !== 'events' ? (
             period ? (
               <>

@@ -1,5 +1,6 @@
 import type { Wallet } from '@galaxy/shared';
 import { useEffect, useRef, useState } from 'react';
+import { useGacha } from '../api/economy';
 import { copy, fmt } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
@@ -34,11 +35,19 @@ function Resource({ kind, icon, amount, label }: { kind: string; icon: IconName;
   );
 }
 
+/** The event signals held (every event's `signal:<id>`, together). */
+export function eventSignals(wallet: Wallet | undefined): number {
+  if (!wallet) return 0;
+  return Object.entries(wallet).reduce((n, [k, v]) => (k.startsWith('signal:') ? n + v : n), 0);
+}
+
 /**
- * Dust, coins and signals (DESIGN_SYSTEM §7), each read as a whole sentence; a braille spinner until it loads. Where
- * components are spent (the Hangar's probe levels, M4b-1) they join the bar.
+ * Dust, coins and signals (DESIGN_SYSTEM §7), each read as a whole sentence; a braille spinner until it loads. The
+ * event signals (open beta) have their own ticket, the same but purple, while an event scanner is open or some are
+ * held. Where components are spent (the Hangar's probe levels, M4b-1) they join the bar.
  */
 export function WalletBar({ wallet, components = false }: { wallet: Wallet | undefined; components?: boolean }) {
+  const eventOpen = useGacha().data?.banners.some((b) => b.kind === 'event') ?? false;
   if (!wallet) {
     return (
       <span className="res pending" role="img" aria-label={copy.loading}>
@@ -51,6 +60,9 @@ export function WalletBar({ wallet, components = false }: { wallet: Wallet | und
       <Resource kind="dust" icon="dust" amount={wallet.dust} label={copy.hub.resource.dust(wallet.dust)} />
       <Resource kind="coins" icon="coin" amount={wallet.coins} label={copy.hub.resource.coins(wallet.coins)} />
       <Resource kind="signal" icon="ticket" amount={wallet.signal} label={copy.hub.resource.signal(wallet.signal)} />
+      {eventOpen || eventSignals(wallet) > 0 ? (
+        <Resource kind="event-signal" icon="ticket" amount={eventSignals(wallet)} label={copy.hub.resource.eventSignal(eventSignals(wallet))} />
+      ) : null}
       {components ? (
         <Resource kind="components" icon="wrench" amount={wallet['components'] ?? 0} label={copy.station.resource.components(wallet['components'] ?? 0)} />
       ) : null}

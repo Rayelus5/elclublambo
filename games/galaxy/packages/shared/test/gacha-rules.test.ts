@@ -2,6 +2,7 @@ import { deriveSeed, drawTraits, galaxyName, scoreTraits, subRng, tierOfScore } 
 import fc from 'fast-check';
 import { describe, expect, test } from 'vitest';
 import {
+  bannerOdds,
   disintegrateYield,
   drawPull,
   generateGalaxy,
@@ -171,4 +172,11 @@ describe('desintegrar y fusionar', () => {
     expect(validateFusion([g('a', 0), g('b', 0), g('c', 1), g('d', 0), g('e', 0)], galaxiesCfg)).toEqual({ error: 'invalid_fusion' });
     expect(validateFusion(['a', 'b', 'c', 'd', 'e'].map((id) => g(id, 4)), galaxiesCfg)).toEqual({ error: 'invalid_fusion' });
   });
+});
+
+test('el escáner de evento dice cada cuántos escaneos llega segura la destacada y cuántos faltan; el estándar no', () => {
+  const odds = bannerOdds({ sinceLegendary: 0, sinceFeatured: 12, welcome: false }, event, cfg);
+  expect(odds.featuredEvery).toBe(cfg.featured.hard);
+  expect(odds.untilFeatured).toBe(cfg.featured.hard - 12);
+  expect(bannerOdds({ sinceLegendary: 0, sinceFeatured: 0, welcome: false }, standard, cfg)).not.toHaveProperty('featuredEvery');
 });
