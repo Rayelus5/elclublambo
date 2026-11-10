@@ -68,7 +68,12 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await sectors.getByRole('button', { name: 'Fisura de la Señal' }).click();
   await expect(page.getByRole('heading', { name: 'Fisura de la Señal' })).toBeVisible();
   await expect(sectors.getByRole('button', { name: 'Fisura de la Señal' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText(/Premio completo: te quedan 3 h 0 min hoy/)).toBeVisible();
+  // The day's yield waits in Condiciones de hoy, over Lanzar.
+  await page.getByRole('button', { name: /^Condiciones de hoy/ }).click();
+  const today = page.getByRole('dialog', { name: 'Condiciones de hoy' });
+  await expect(today.getByRole('region', { name: 'Premio del día' })).toContainText('Premio completo: te quedan 3 h 0 min hoy');
+  await today.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(today).toHaveCount(0);
 
   // Equip the rarest galaxy in the first slot.
   await page.getByRole('button', { name: 'Elegir reliquia' }).first().click();

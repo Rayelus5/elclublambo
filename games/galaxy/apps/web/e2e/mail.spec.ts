@@ -81,10 +81,15 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     await notice.getByRole('button', { name: 'Publicar aviso' }).click();
     await expect(notice.getByRole('status')).toHaveText('Aviso publicado. Queda en la auditoría');
 
-    // The player: the notice on the title screen, the unread count, the letter and its gift.
+    // The player: the notice behind Noticias (it says it is new), the unread count, the letter and its gift.
     const coinsBefore = ((await (await player.request.get('/galaxy/api/gacha')).json()) as { wallet: { coins: number } }).wallet.coins;
     await player.goto('/galaxy/');
-    await expect(player.getByText(noticeText)).toBeVisible();
+    await expect(player.getByText(noticeText)).toHaveCount(0);
+    await player.getByRole('button', { name: /^Noticias, \d+ nuevas?$/ }).click();
+    const news = player.getByRole('dialog', { name: 'Noticias' });
+    await expect(news.getByRole('region', { name: 'Avisos' }).getByText(noticeText)).toBeVisible();
+    await news.getByRole('button', { name: 'Cerrar' }).click();
+    await expect(news).toHaveCount(0);
     await player.getByRole('button', { name: 'Buzón, 1 sin leer' }).click();
     const box = player.getByRole('dialog', { name: 'Buzón' });
     await box.getByRole('button', { name: /Regalo de prueba/ }).click();
