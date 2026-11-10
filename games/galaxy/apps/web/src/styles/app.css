@@ -1862,8 +1862,14 @@
   .cursor-swatch[aria-checked='true'] { border-color: var(--color-solar); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-solar) 30%, transparent); }
   .cursor-swatch:disabled { opacity: .45; }
   .cursor-swatch img { image-rendering: pixelated; }
-  .pause-settings { inline-size: min(100% - 32px, 720px); }
-  .pause-settings-body { display: grid; gap: 12px; max-block-size: min(64vh, 640px); overflow-y: auto; padding-inline-end: 4px; }
+  /* The pause's settings (open beta): wide and in two columns, so it all fits with no scrollbar at 1280×720. */
+  .modal.pause.pause-settings { inline-size: min(100%, 1080px); }
+  .pause-settings-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+  .pause-settings-col { display: grid; gap: 12px; min-inline-size: 0; }
+  .pause-settings-body { gap: 12px; }
+  .pause-settings .settings-group { gap: 10px; padding: 14px 20px; }
+  .pause-settings .settings-group h2 { font-size: 20px; }
+  .pause-settings .setting-check { min-block-size: 38px; }
   .setting-row { display: grid; grid-template-columns: 120px minmax(0, 1fr) 56px; align-items: center; gap: 14px; font-weight: 600; }
   .setting-row input[type='range'] { inline-size: 100%; accent-color: var(--color-solar); block-size: 28px; }
   .setting-row output { text-align: end; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
@@ -2386,21 +2392,35 @@
   .profile-avatar.frame-abyss { box-shadow: 0 0 0 4px #0e1440, 0 0 0 7px var(--color-ice), 0 0 16px 4px rgb(111 183 255 / .4); border-radius: 18px; }
   @media (max-width: 760px) { .mission-card { grid-template-columns: minmax(0, 1fr); } }
   /* The global multipliers running now (DESIGN_SYSTEM §8 quatervicies). */
-  .boost-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-  .boost-chip { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--color-terminal) 14%, var(--color-panel)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-terminal) 45%, transparent); color: var(--color-ink); font-weight: 700; font-size: 14px; }
-  .boost-chip .ico { color: var(--color-terminal); }
-  .boost-chip.coins .ico { color: var(--color-solar); }
-  .boost-chip.dust .ico { color: var(--color-ice); }
-  /* The season's anomaly (M7d-3): the Static's violet, apart from the multipliers' green. */
-  .boost-chip.anomaly { background: color-mix(in srgb, var(--color-uv) 18%, var(--color-panel)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-uv-soft) 55%, transparent); max-inline-size: 640px; }
-  .boost-chip.anomaly .ico { color: var(--color-uv-soft); }
-  .title-notices { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; inline-size: min(560px, 100%); }
-  .title-notice { margin: 0; }
-  .title-notice.info { background: color-mix(in srgb, var(--color-ice) 12%, transparent); border-color: color-mix(in srgb, var(--color-ice) 40%, transparent); color: #d6e6ff; }
-  .title-notice > span { flex: 1; }
-  .title-notice-close { flex: none; display: grid; place-items: center; inline-size: 32px; block-size: 32px; border: 0; border-radius: 99px; background: transparent; color: inherit; cursor: pointer; }
-  .title-notice-close:hover { background: rgb(255 255 255 / .08); }
-  .title-notice-close:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 2px; }
+  /* Noticias (open beta): a Solar count on the top bar's button; a window with the notices (an important one in Solar,
+     information in Hielo) and the multipliers running now, one card per launch with each currency's factor and end. */
+  .news-button { position: relative; }
+  .news-badge { position: absolute; inset-block-start: -6px; inset-inline-end: -6px; min-inline-size: 22px; block-size: 22px; padding: 0 6px; box-sizing: border-box; display: grid; place-items: center; border-radius: 99px; background: var(--color-solar); color: var(--color-void); font: 800 12px/1 var(--font-sans); box-shadow: 0 0 0 3px var(--color-panel); }
+  .modal.news { inline-size: min(620px, 100%); }
+  .news-section { margin-block-start: 18px; }
+  .news-section h3 { margin: 0 0 10px; font-size: 15px; font-weight: 800; color: var(--color-ink-soft); }
+  .news-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .news-notice { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--color-ice) 10%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 32%, transparent); }
+  .news-notice > .ico { font-size: 22px; color: var(--color-ice); margin-block-start: 1px; }
+  .news-notice.warning { background: color-mix(in srgb, var(--color-solar) 12%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 42%, transparent); }
+  .news-notice.warning > .ico { color: var(--color-solar); }
+  .news-text { margin: 0; color: var(--color-ink); font-weight: 600; line-height: 1.45; overflow-wrap: anywhere; }
+  .news-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 6px; }
+  .news-tag { padding: 1px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 800; }
+  .news-tag.important { background: color-mix(in srgb, var(--color-solar) 22%, transparent); color: var(--color-solar); }
+  .news-tag.fresh { background: color-mix(in srgb, var(--color-terminal) 18%, transparent); color: var(--color-terminal); }
+  .news-boost { display: grid; gap: 10px; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--color-terminal) 9%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-terminal) 34%, transparent); }
+  .news-boost-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; color: var(--color-ink); overflow-wrap: anywhere; }
+  .news-rates { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .news-rate { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: rgb(0 0 0 / .22); color: var(--color-ink); font-weight: 800; font-size: 15px; }
+  .news-rate .ico { font-size: 18px; color: var(--color-terminal); }
+  .news-rate.coins .ico { color: var(--color-solar); }
+  .news-rate.dust .ico { color: var(--color-ice); }
+  .news-until { margin: 0; color: var(--color-ink-mute); font-size: 13.5px; font-weight: 600; }
+  .news-empty { display: flex; align-items: center; gap: 14px; margin: 14px 0 4px; color: var(--color-ink-soft); }
+  .news-empty > .ico { flex: none; font-size: 30px; color: var(--color-ice); }
+  .news-empty p { display: grid; gap: 4px; margin: 0; }
+  .news-empty b { color: var(--color-ink); }
   .comms { max-inline-size: 1100px; }
   .comms-compose { --r: 18px; display: grid; gap: 4px; padding: 18px 20px; }
   .comms-compose h2 { margin: 0 0 8px; font: 400 22px var(--font-display); }
@@ -2961,11 +2981,28 @@
   .lobby-relics-note { margin: 0; font-size: 12.5px; color: var(--color-solar); font-weight: 700; }
 
   .lobby-dock { display: grid; gap: 8px; align-content: end; min-inline-size: 0; }
-  .lobby-dock-info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .lobby-daily { display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 14px; background: rgb(7 10 28 / .7); border: 2px solid rgb(69 227 166 / .3); font-size: 18px; color: var(--color-terminal); }
-  .lobby-daily b { font-size: 13px; color: var(--color-ink); }
-  .lobby-daily.cut { border-color: rgb(255 201 74 / .35); color: var(--color-solar); }
   .lobby-dock .field-error { margin: 0; }
+  /* Condiciones de hoy (open beta): one button over Lanzar with small signs; everything else waits in its window. */
+  .today-button { justify-content: flex-start; inline-size: 100%; gap: 10px; background: rgb(7 10 28 / .7); }
+  .today-button > .ico { color: var(--color-ice); }
+  .today-name { flex: 1; text-align: start; }
+  .today-signs { display: inline-flex; align-items: center; gap: 6px; }
+  .today-sign { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 99px; font-size: 13px; font-weight: 800; }
+  .today-sign .ico { font-size: 15px; }
+  .today-daily { background: color-mix(in srgb, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
+  .today-daily.cut { background: color-mix(in srgb, var(--color-solar) 18%, transparent); color: var(--color-solar); }
+  .today-boost { background: color-mix(in srgb, var(--color-solar) 18%, transparent); color: var(--color-solar); }
+  .today-anomaly { padding-inline: 6px; background: color-mix(in srgb, var(--color-uv) 22%, transparent); color: var(--color-uv-soft); }
+  .today-card { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; padding: 14px 16px; border-radius: 16px; background: color-mix(in srgb, var(--color-terminal) 9%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-terminal) 34%, transparent); }
+  .today-card > .ico { font-size: 22px; color: var(--color-terminal); margin-block-start: 1px; }
+  .today-card p { margin: 0; }
+  .today-card > div { display: grid; gap: 6px; }
+  .today-daily-card.cut { background: color-mix(in srgb, var(--color-solar) 10%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-solar) 40%, transparent); }
+  .today-daily-card.cut > .ico { color: var(--color-solar); }
+  .today-anomaly-card { background: color-mix(in srgb, var(--color-uv) 12%, var(--color-panel-2)); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-uv-soft) 45%, transparent); }
+  .today-anomaly-card > .ico { color: var(--color-uv-soft); }
+  .today-desc { color: var(--color-ink); line-height: 1.45; }
+  .today-note { color: var(--color-ink-mute); font-size: 13.5px; line-height: 1.45; }
   .lobby-dock .lobby-launch { --r: 26px; --lip-h: 10px; position: relative; overflow: hidden; justify-content: center; inline-size: 100%; min-block-size: clamp(64px, 8vh, 80px); font-size: clamp(22px, 1.8vw, 28px); }
   .lobby-dock .lobby-launch .ico { font-size: clamp(26px, 2vw, 32px); }
   .lobby-launch > span:last-child { white-space: nowrap; }

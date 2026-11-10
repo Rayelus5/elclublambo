@@ -55,7 +55,7 @@ test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente co
   // Slot 3 shows what opens it (M4c-1); the other three stay closed.
   expect(screen.getByRole('group', { name: copy.hangar.slot(3) })).toBeInTheDocument();
   expect(screen.getAllByText(copy.hangar.lockedSlot)).toHaveLength(3);
-  expect(screen.getByText(copy.hangar.dailyFull('3 h 0 min'))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: new RegExp(copy.hangar.dailyFull('3 h 0 min')) })).toHaveTextContent(copy.today.button);
   expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled();
 });
 

@@ -5,6 +5,7 @@ import { isAdmin, isStaff } from '../auth/useMe';
 import { useFriends } from '../api/friends';
 import { MailButton } from '../mail/Mailbox';
 import { MissionsButton } from '../missions/MissionsScreen';
+import { NewsButton } from './News';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
@@ -15,7 +16,8 @@ const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
  * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
- * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1) and Comunidad opens the chat sheet (M5b-2). Balances are read as whole sentences.
+ * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1), Comunidad opens the chat sheet (M5b-2)
+ * and Noticias the notices and multipliers (open beta). Balances are read as whole sentences.
  */
 export function TopBar({
   me,
@@ -81,6 +83,7 @@ export function TopBar({
           ) : null}
           {requests > 0 ? <span className="friends-request" aria-hidden="true" /> : null}
         </button>
+        <NewsButton style={delay('1.11s')} />
       </nav>
       <div className="group">
         <div className="lip panel hud enter" style={delay('1s')} data-tour="wallet">

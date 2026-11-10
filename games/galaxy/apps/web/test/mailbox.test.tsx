@@ -1,15 +1,14 @@
-import type { MeResponse, MyMailbox, TitleNotice } from '@galaxy/shared';
+import type { MeResponse, MyMailbox } from '@galaxy/shared';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
-import { TitleNotices } from '../src/hub/TitleNotices';
 import { TopBar } from '../src/hub/TopBar';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // The mailbox and the notices for players (GDD §4, §16.5; M6d-1): the top bar's mail button says how many are unread
-// and opens the mailbox; opening a message marks it read; a gift is collected once and says what it gave; the title
-// screen shows the running notices, each closed for good in this browser.
+// and opens the mailbox; opening a message marks it read; a gift is collected once and says what it gave (the title
+// notices moved to Noticias: news.test.tsx).
 beforeEach(() => localStorage.clear());
 afterEach(() => vi.unstubAllGlobals());
 
@@ -70,23 +69,6 @@ test('un buzón vacío lo dice', async () => {
   renderAt('/', { '/': bar() });
   await userEvent.click(await screen.findByRole('button', { name: t.button }));
   expect(await screen.findByText(t.empty)).toBeInTheDocument();
-});
-
-test('los avisos en curso salen en la pantalla de título y se cierran para siempre en este navegador', async () => {
-  const notices: TitleNotice[] = [
-    { id: 'n1', text: 'Mantenimiento el domingo a las 10', tone: 'warning' },
-    { id: 'n2', text: 'Nueva temporada el lunes', tone: 'info' },
-  ];
-  mockApi({ 'GET /galaxy/api/notices': () => jsonResponse(200, notices) });
-  const { unmount } = renderAt('/', { '/': <TitleNotices /> });
-  expect(await screen.findByText('Mantenimiento el domingo a las 10')).toBeInTheDocument();
-  expect(screen.getByText('Nueva temporada el lunes')).toBeInTheDocument();
-  await userEvent.click(screen.getAllByRole('button', { name: t.closeNotice })[0]!);
-  expect(screen.queryByText('Mantenimiento el domingo a las 10')).toBeNull();
-  unmount();
-  renderAt('/', { '/': <TitleNotices /> });
-  expect(await screen.findByText('Nueva temporada el lunes')).toBeInTheDocument();
-  expect(screen.queryByText('Mantenimiento el domingo a las 10')).toBeNull();
 });
 
 test('el buzón se cierra con su botón Cerrar', async () => {

@@ -46,11 +46,16 @@ export function PauseMenu({
   if (settings) {
     return (
       <Dialog title={copy.settings.title} onClose={onResume} className="pause pause-settings">
+        {/* Two columns, so everything fits without scrolling on a 1280×720 screen. */}
         <div className="pause-settings-body">
-          <SoundSection />
-          <ArenaSection aim={manualAim} onAim={onManualAim} />
-          <CursorSection />
-          <HelpSectionInRun />
+          <div className="pause-settings-col">
+            <SoundSection />
+            <ArenaSection aim={manualAim} onAim={onManualAim} />
+          </div>
+          <div className="pause-settings-col">
+            <CursorSection />
+            <HelpSectionInRun />
+          </div>
         </div>
         <div className="modal-actions">
           <button type="button" className="lip pill" onClick={() => setSettingsOpen(false)} data-autofocus>
