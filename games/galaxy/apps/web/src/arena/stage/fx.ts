@@ -54,6 +54,11 @@ export interface Fx {
   shake(amount: number): void;
   number(x: number, y: number, value: number, crit: boolean): void;
   burst(x: number, y: number, color: number, count: number, speed?: number): void;
+  /**
+   * A probe's thruster while it moves (open beta): hot puffs out of the nozzle behind it (`angle` is where it heads),
+   * flying back against its course and fading fast, at a steady rate over `dt` seconds. `key` keeps each probe's own.
+   */
+  thrust(key: number, x: number, y: number, angle: number, dt: number): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
   update(dt: number): { x: number; y: number };
 }
@@ -68,6 +73,13 @@ const LABEL_RISE = 14;
 const MAX_LABELS = 6;
 const RING_LIFE = 0.6;
 const RING_RADIUS = 36;
+/** Thruster puffs per second (a third with reduced motion), how far behind the centre the nozzle is, how fast. */
+const THRUST_RATE = 80;
+const THRUST_REAR = 8;
+const THRUST_SPEED = 34;
+/** The flame at the nozzle (white-hot, slow, brief) and the embers it sheds behind (orange to red, longer). */
+const FLAME_COLORS = [0xffffff, 0xfff3c4, 0xffd36e];
+const EMBER_COLORS = [0xffd36e, 0xff9d2e, 0xff9d2e, 0xff6b3d, 0xe8453c];
 
 /** Reaction colours by what they do (the name is always shown too: never colour alone). */
 const REACTION_COLOR: Record<string, number> = {
@@ -92,6 +104,7 @@ export function createFx(reduced: boolean): Fx {
   const particles: FxParticle[] = [];
   const labels: FxLabel[] = [];
   const rings: FxRing[] = [];
+  const thrusters = new Map<number, number>();
   // A small deterministic wobble (no Math.random: frames stay comparable in screenshots and tests).
   let seed = 1;
   const rand = () => {
@@ -127,6 +140,32 @@ export function createFx(reduced: boolean): Fx {
         const v = speed * (0.4 + rand() * 0.8);
         particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, color, age: 0, life: 0.35 + rand() * 0.35, size: rand() < 0.3 ? 2 : 1 });
       }
+    },
+    thrust(key, x, y, angle, dt) {
+      // Whole puffs due by now, the fraction carried to the next frame.
+      let due = (thrusters.get(key) ?? 0) + dt * (reduced ? THRUST_RATE / 3 : THRUST_RATE);
+      const back = angle + Math.PI;
+      const cos = Math.cos(back);
+      const sin = Math.sin(back);
+      while (due >= 1 && particles.length < MAX_PARTICLES) {
+        due -= 1;
+        const flame = rand() < 0.45;
+        const side = (rand() - 0.5) * (flame ? 1.6 : 2.6);
+        const spread = reduced ? 0 : (rand() - 0.5) * (flame ? 0.3 : 0.7);
+        const v = THRUST_SPEED * (flame ? 0.35 + rand() * 0.3 : 0.8 + rand() * 0.8);
+        const colors = flame ? FLAME_COLORS : EMBER_COLORS;
+        particles.push({
+          x: x + cos * THRUST_REAR - sin * side,
+          y: y + sin * THRUST_REAR + cos * side,
+          vx: Math.cos(back + spread) * v,
+          vy: Math.sin(back + spread) * v,
+          color: colors[Math.floor(rand() * colors.length)]!,
+          age: 0,
+          life: flame ? 0.07 + rand() * 0.07 : 0.18 + rand() * 0.2,
+          size: flame ? 2 : rand() < 0.4 ? 2 : 1,
+        });
+      }
+      thrusters.set(key, Math.min(due, 1));
     },
     update(dt) {
       for (let i = numbers.length - 1; i >= 0; i--) {
