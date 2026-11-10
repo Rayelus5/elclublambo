@@ -1462,6 +1462,13 @@ export const copy = {
     expires: (d: string) => `Caduca el ${d}`,
     close: 'Cerrar',
   },
+  // Event signals left over when their scanner closed, already star dust (open beta): told once in a window.
+  leftovers: {
+    title: 'Tus señales de evento ya son polvo',
+    lead: 'Estos eventos han terminado. Las señales que te quedaban se han convertido en polvo estelar',
+    into: 'se convierten en',
+    ok: 'Recibido',
+  },
   // Noticias (open beta): the title notices and the multipliers running now, behind a button of the top bar.
   news: {
     button: 'Noticias',

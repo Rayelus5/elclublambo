@@ -95,12 +95,26 @@ export interface BannerView {
   featuredEvery?: number;
 }
 
+/** Event signals left over when their scanner closed, already turned into star dust; shown once (open beta). */
+export interface LeftoverView {
+  id: string;
+  /** The event's name (or its scanner's) when it was converted. */
+  label: string;
+  signals: number;
+  dust: number;
+}
+
 export interface GachaView {
   banners: BannerView[];
   costs: { coins: number; coinsTen: number; signals: number };
   freePullAvailable: boolean;
   wallet: Wallet;
+  /** Conversions the player has not seen yet. */
+  leftovers?: LeftoverView[];
 }
+
+/** The conversions the player has now seen. */
+export const leftoversSeenSchema = z.object({ ids: z.array(z.string().regex(/^[0-9]{1,18}$/)).min(1).max(50) }).strict();
 
 export interface PullResponse {
   pulls: PulledGalaxy[];

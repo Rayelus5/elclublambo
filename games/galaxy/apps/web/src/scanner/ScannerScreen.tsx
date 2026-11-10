@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useGacha, usePull } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
-import { eventSignals, WalletBar } from '../hub/WalletBar';
+import { WalletBar } from '../hub/WalletBar';
 import { Icon } from '../ui/Icon';
 import { RevealStage } from './RevealStage';
 import { BackLink } from '../ui/BackLink';
@@ -156,8 +156,8 @@ export function ScannerScreen() {
                 {b.kind === 'event' ? (
                   <span className="scanner-tab-badge">
                     <Icon name="ticket" />
-                    <b aria-hidden="true">{wallet?.[b.currency] ?? eventSignals(wallet)}</b>
-                    <span className="sr-only">{copy.hub.resource.eventSignal(wallet?.[b.currency] ?? eventSignals(wallet))}</span>
+                    <b aria-hidden="true">{wallet?.[b.currency] ?? 0}</b>
+                    <span className="sr-only">{copy.hub.resource.eventSignal(wallet?.[b.currency] ?? 0)}</span>
                   </span>
                 ) : null}
               </button>

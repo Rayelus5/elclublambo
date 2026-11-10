@@ -144,6 +144,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'banners[].featured': { label: 'Rasgo destacado' },
     'banners[].featured.trait': { label: 'Rasgo' },
     'banners[].featured.value': { label: 'Valor' },
+    leftoverDust: { label: 'Polvo por señal de evento sobrante', hint: 'Cuando cierran el escáner y el evento, cada señal suya que le quede a un jugador se convierte en este polvo' },
   },
   galaxies: {
     disintegrate: { label: 'Desintegrar' },

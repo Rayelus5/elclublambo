@@ -212,3 +212,54 @@ test('un banner de evento cobra sus propias señales y lleva su propio contador'
     await app.close();
   }
 });
+
+test('las señales de un evento ya cerrado se convierten en polvo al volver (configurable), una sola vez, y se avisa hasta que el jugador lo ve', async () => {
+  const app = await testApp({ config: fixedConfig({ gacha: { leftoverDust: 60 } }) });
+  try {
+    const { cookie, id } = await player(app.app);
+    await view(cookie, app.app);
+    await inTransaction(ctx.db, (trx) => credit(trx, id, 'signal:viejo', 4, 'prueba'));
+    const v = await view(cookie, app.app);
+    expect(v.wallet['signal:viejo'] ?? 0).toBe(0);
+    expect(v.wallet.dust).toBe(240);
+    expect(v.leftovers).toEqual([expect.objectContaining({ label: 'Viejo', signals: 4, dust: 240 })]);
+    const again = await view(cookie, app.app);
+    expect(again.wallet.dust).toBe(240);
+    expect(again.leftovers).toHaveLength(1);
+    const seen = await post(app.app, '/galaxy/api/gacha/leftovers/seen', { ids: (again.leftovers ?? []).map((l) => l.id) }, { cookie });
+    expect(seen.statusCode).toBe(204);
+    expect((await view(cookie, app.app)).leftovers).toEqual([]);
+    const ledger = await ctx.db.selectFrom('galaxy.ledger').select(['currency', 'delta']).where('account_id', '=', id).where('reason', '=', 'event_leftover').orderBy('currency').execute();
+    expect(ledger.map((r) => [r.currency, Number(r.delta)])).toEqual([
+      ['dust', 240],
+      ['signal:viejo', -4],
+    ]);
+  } finally {
+    await app.close();
+  }
+});
+
+test('las señales del escáner de evento abierto no se tocan, y nadie marca como visto el aviso de otro', async () => {
+  const gacha = {
+    banners: [
+      { id: 'deep-scan', kind: 'standard', name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
+      { id: 'nova', kind: 'event', name: 'Semana nova', pityGroup: 'event-nova', currency: 'signal:nova', featured: { trait: 'phenomenon', value: 'supernova' } },
+    ],
+  };
+  const app = await testApp({ config: fixedConfig({ gacha }) });
+  try {
+    const a = await player(app.app);
+    await view(a.cookie, app.app);
+    await inTransaction(ctx.db, (trx) => credit(trx, a.id, 'signal:nova', 3, 'prueba'));
+    await inTransaction(ctx.db, (trx) => credit(trx, a.id, 'signal:viejo', 2, 'prueba'));
+    const v = await view(a.cookie, app.app);
+    expect(v.wallet['signal:nova']).toBe(3);
+    expect(v.leftovers).toEqual([expect.objectContaining({ signals: 2, dust: 100 })]);
+    const b = await player(app.app);
+    await view(b.cookie, app.app);
+    await post(app.app, '/galaxy/api/gacha/leftovers/seen', { ids: (v.leftovers ?? []).map((l) => l.id) }, { cookie: b.cookie });
+    expect((await view(a.cookie, app.app)).leftovers).toHaveLength(1);
+  } finally {
+    await app.close();
+  }
+});

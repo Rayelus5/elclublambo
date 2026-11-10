@@ -24,6 +24,7 @@ import { inTransaction } from '../db/tx';
 import { madridDay } from '../economy/day';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { convertLeftovers, unseenLeftovers } from './leftovers';
 
 // Deep scan (GDD §9) on the server: it decides every pull. Payment, luck state, galaxies and the audit row commit
 // in one transaction, inside an idempotent operation (routes.ts). Seeds come from crypto; the outcome from the pure
@@ -116,8 +117,14 @@ export async function enabledGacha(config: ConfigReader): Promise<{ cfg: GachaCo
 /** GET /gacha: the first visit also gives the welcome. */
 export async function visit(deps: GachaDeps, accountId: string): Promise<GachaView> {
   const cfg = await requireEnabled(deps.config);
-  await inTransaction(deps.db, (trx) => ensureWelcome(trx, accountId, cfg));
-  return gachaView(deps.db, cfg, accountId, deps.now());
+  // Read before the transaction (one pooled connection each): the events keep their signals alive while they run.
+  const events = (await deps.config.get('events')).list;
+  const now = deps.now();
+  await inTransaction(deps.db, async (trx) => {
+    await ensureWelcome(trx, accountId, cfg);
+    await convertLeftovers(trx, accountId, cfg, events, now);
+  });
+  return { ...(await gachaView(deps.db, cfg, accountId, now)), leftovers: await unseenLeftovers(deps.db, accountId) };
 }
 
 const randomSeed = () => randomBytes(8).readBigUInt64BE();

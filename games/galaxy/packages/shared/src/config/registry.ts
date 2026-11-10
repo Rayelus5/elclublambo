@@ -122,6 +122,8 @@ export const configSchemas = {
         .max(20)
         .refine((list) => new Set(list.map((b) => b.id)).size === list.length, 'duplicate_banner_id')
         .default(DEFAULT_BANNERS),
+      /** Star dust for each event signal a player still holds once its scanner and its event are over (open beta). */
+      leftoverDust: z.number().int().min(0).max(10_000).default(50),
     })
     .strict(),
   /** Disintegration yields (dust per tier × finish multiplier) and fusion recipes (GDD §8.5). */

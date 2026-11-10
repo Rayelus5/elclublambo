@@ -135,6 +135,15 @@ const pullIntent = (req: PullRequest) => `pull:${req.banner}:${req.count}:${req.
 const fuseIntent = (ids: string[]) => `fuse:${[...ids].sort().join(',')}`;
 
 /** A scan: the server rolls, charges and stores; the answer carries the galaxies, the wallet and the new odds. */
+/** The player has seen the window telling them their leftover event signals became star dust. */
+export function useLeftoversSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => api<void>('/gacha/leftovers/seen', { method: 'POST', body: { ids } }),
+    onSettled: () => void qc.invalidateQueries({ queryKey: GACHA_KEY }),
+  });
+}
+
 export function usePull() {
   const qc = useQueryClient();
   return useMutation({
