@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { App } from './App';
 import { DesktopGate } from './shell/DesktopGate';
+import { applyCursor, readCursor } from './ui/cursor';
 import './styles/app.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
@@ -13,6 +14,8 @@ const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 requestAnimationFrame(() => document.body.classList.add('ready'));
 window.setTimeout(() => document.body.classList.add('settled'), reduce ? 0 : 2200);
 
+// The game's own cursor (open beta), as this browser left it.
+applyCursor(readCursor());
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
