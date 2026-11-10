@@ -1,0 +1,23 @@
+{
+  "name": "galaxy-survivor-trailer",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Galaxy Survivor trailer: real game footage captured frame by frame, edited with Remotion",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Trailer out/galaxy-survivor-trailer.mp4",
+    "render:vertical": "remotion render src/index.ts TrailerVertical out/galaxy-survivor-vertical.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.542",
+    "@remotion/transitions": "4.0.542",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.542"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.2",
+    "typescript": "5.9.3"
+  }
+}
