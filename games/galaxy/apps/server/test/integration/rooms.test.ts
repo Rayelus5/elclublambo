@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { type LiveEvent, type RoomsView, type RoomView } from '@galaxy/shared';
+import { type LiveEvent, PROBE_TEST, type RoomsView, type RoomView } from '@galaxy/shared';
 import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import type WebSocket from 'ws';
@@ -160,6 +160,25 @@ describe('salas', () => {
     expect((await act(a, '/start')).json()).toMatchObject({ error: 'room_not_ready' });
     await act(b, '/ready', { ready: true });
     expect((await act(b, '/start')).json()).toMatchObject({ error: 'room_not_leader' });
+  });
+
+  test('quien cambia de sonda en el hangar la cambia en la sala, y los demás lo ven al momento', async () => {
+    const [a, b] = [await player(), await player()];
+    // b's test gives Bastión and Chispa is granted: b may fly either.
+    await post(ctx.app, '/galaxy/api/probe-test', { answers: PROBE_TEST.questions.map((q) => q.answers.indexOf('bastion')) }, { cookie: b.cookie });
+    await ctx.db.insertInto('galaxy.probe_grants').values({ account_id: b.id, probe: 'spark', created_at: new Date() }).execute();
+    const room = await create(a, 'private');
+    await act(b, '/join', { code: room.code });
+    const probeOfB = (v: RoomView | null | undefined) => v?.members.find((m) => m.username === b.username)?.probe;
+    expect(probeOfB((await rooms(a)).mine)).toBe('bastion');
+    const sa = await live(a);
+    await settle();
+    expect((await put(ctx.app, '/galaxy/api/hangar/probe', { probe: 'spark' }, { cookie: b.cookie })).statusCode).toBe(200);
+    await settle();
+    // Without pressing Listo: the room shows the new probe, and a hears it on its live socket.
+    expect(probeOfB((await rooms(a)).mine)).toBe('spark');
+    expect(sa.events.some((e) => e.type === 'room' && probeOfB(e.room) === 'spark')).toBe(true);
+    sa.ws.terminate();
   });
 });
 

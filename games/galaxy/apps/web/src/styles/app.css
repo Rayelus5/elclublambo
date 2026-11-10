@@ -608,6 +608,9 @@
   .crt-static { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; opacity: .5; }
 
   .reveal-stage { width: min(100%, 980px); padding: 18px 22px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px; background: #0b0d26; }
+  /* While a pull is revealed the stage always fits the screen: the beams turning behind an epic or legendary card
+     (wider than the screen) fade out at the dialog's edge instead of growing scrollbars. The summary may scroll. */
+  .modal.reveal-stage.is-revealing { overflow: hidden; overflow: clip; }
   .stage-top { width: 100%; display: flex; justify-content: space-between; align-items: center; }
   .stage-progress { font-size: 18px; font-weight: 700; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
   .stage-tools { display: flex; gap: 10px; }

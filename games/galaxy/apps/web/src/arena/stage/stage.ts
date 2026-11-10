@@ -1,6 +1,6 @@
 import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
-import { Application, BitmapFont, BitmapText, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
+import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { type Camera, cameraFor } from './camera';
@@ -102,6 +102,13 @@ export function arcFrom<G extends Pick<Graphics, 'moveTo' | 'arc'>>(g: G, x: num
   return g;
 }
 
+/**
+ * The backdrop steps back so what is played reads first: the starfield and the nebula are softly blurred, and a dark
+ * veil over them lowers their light. Probes, enemies, loot, rocks and the ground's dust stay sharp above it.
+ */
+const BACKDROP_BLUR = 0.6;
+const VEIL = { color: 0x03040e, alpha: 0.28 };
+
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
@@ -169,7 +176,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   });
   const ground = new TilingSprite({ texture: starTex, width: w, height: h });
   const nebula = new TilingSprite({ texture: nebulaTex, width: w, height: h });
-  const world = new Container();
+  const backdrop = new Container({ label: 'backdrop' });
+  backdrop.addChild(nebula, ground);
+  backdrop.filters = [new BlurFilter({ strength: BACKDROP_BLUR, quality: 2 })];
+  const veil = new Graphics({ label: 'veil' });
+  const paintVeil = () => veil.clear().rect(0, 0, w, h).fill(VEIL);
+  paintVeil();
+  const world = new Container({ label: 'world' });
   const decor = new Container();
   // Breakable props (SIM 1.7.0) over the ground, with their life bars and glints.
   const propLayer = new Container();
@@ -191,7 +204,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const numbers = new Container();
   const bars = new Graphics();
   const hurtFlash = new Graphics();
-  app.stage.addChild(nebula, ground, world, numbers, bars, hurtFlash);
+  app.stage.addChild(backdrop, veil, world, numbers, bars, hurtFlash);
 
   const enemyPool = new SpritePool(enemies);
   const glitchA = new SpritePool(enemies);
@@ -916,6 +929,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       w = Math.max(1, Math.floor(nw));
       h = Math.max(1, Math.floor(nh));
       app.renderer.resize(w, h);
+      paintVeil();
     },
     camera: () => cam,
     follow: (probe: number) => {

@@ -112,15 +112,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
     registerGachaRoutes(api, { db: deps.db, config, now });
     registerCollectionRoutes(api, { db: deps.db, config });
-    registerRunRoutes(api, { db: deps.db, config, now });
+    // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join), and
+    // (phase 6c) the room chat, which reaches who is in the room now. A probe chosen in the hangar shows in the room.
+    const rooms = createRooms(config);
+    registerRunRoutes(api, { db: deps.db, config, now, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });
     registerStationRoutes(api, { db: deps.db, config, now });
     registerLabRoutes(api, { db: deps.db, config, now });
     registerPlanetariumRoutes(api, { db: deps.db, config });
     registerSocialRoutes(api, { db: deps.db, config, now });
     registerClanRoutes(api, { db: deps.db, config, now });
-    // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join), and
-    // (phase 6c) the room chat, which reaches who is in the room now.
-    const rooms = createRooms(config);
     const hub = new ChatHub(deps.db, (id) => rooms.manager.byId(id)?.members.map((m) => m.accountId) ?? []);
     api.addHook('onClose', async () => hub.close());
     // Plan phase 3: the live socket (friends, presence, later rooms), beside the chat's.

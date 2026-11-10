@@ -1,4 +1,5 @@
 import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { createStage, type Stage } from '../../src/arena/stage/stage';
@@ -58,6 +59,31 @@ test('dibuja una partida jugada: fauna, disparos, botín y suelo', async () => {
   expect(stage.camera()).toMatchObject({ zoom: 2, bars: 0 });
   expect(distinctColours(canvas)).toBeGreaterThan(12);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-1280.png', element: canvas });
+}, 90_000);
+
+test('el fondo queda tras un velo oscuro y desenfocado; lo que se juega, encima y nítido', async () => {
+  const { sim, feed } = played(30 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107', preserve: true });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  const root = stage.app.stage;
+  const backdrop = root.getChildByLabel('backdrop')!;
+  const veil = root.getChildByLabel('veil')!;
+  const world = root.getChildByLabel('world')!;
+  // The starfield and the nebula are blurred; nothing that is played is.
+  expect(backdrop.filters).toEqual([expect.any(BlurFilter)]);
+  expect(world.filters ?? []).toHaveLength(0);
+  // The veil lies between them and covers the whole view, also after a resize.
+  expect(root.getChildIndex(backdrop)).toBeLessThan(root.getChildIndex(veil));
+  expect(root.getChildIndex(veil)).toBeLessThan(root.getChildIndex(world));
+  expect(veil.getBounds()).toMatchObject({ x: 0, y: 0, width: 1280, height: 720 });
+  stage.resize(1600, 900);
+  stage.render(sim, 1);
+  expect(veil.getBounds()).toMatchObject({ width: 1600, height: 900 });
+  expect(distinctColours(canvas)).toBeGreaterThan(12);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-veil.png', element: canvas });
 }, 90_000);
 
 test('en una ultrapanorámica pone bandas y no amplía la vista', async () => {
