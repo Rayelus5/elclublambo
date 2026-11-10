@@ -1,0 +1,108 @@
+{
+  "season": [
+    {
+      "id": "s-runs100",
+      "name": "Juega 100 incursiones",
+      "stat": "runs",
+      "target": 100,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-boss40",
+      "name": "Purga 40 Núcleos",
+      "stat": "bossKills",
+      "target": 40,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 5,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-depth5",
+      "name": "Llega a la capa 5",
+      "stat": "depth",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 3,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-legend3",
+      "name": "Consigue 5 legendarias",
+      "stat": "legendaries",
+      "target": 5,
+      "reward": {
+        "coins": 0,
+        "dust": 500,
+        "signal": 0,
+        "xp": 0,
+        "points": 200
+      }
+    },
+    {
+      "id": "s-boss120",
+      "name": "Purga 120 Núcleos",
+      "stat": "bossKills",
+      "target": 120,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 10,
+        "xp": 0,
+        "points": 500
+      }
+    },
+    {
+      "id": "s-depth6",
+      "name": "Llega a la capa 6",
+      "stat": "depth",
+      "target": 6,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 400
+      }
+    },
+    {
+      "id": "s-group30",
+      "name": "Juega 30 partidas en grupo",
+      "stat": "coopRuns",
+      "target": 30,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 300
+      }
+    },
+    {
+      "id": "s-extract60",
+      "name": "Extrae 60 veces",
+      "stat": "extractions",
+      "target": 60,
+      "reward": {
+        "coins": 0,
+        "dust": 0,
+        "signal": 8,
+        "xp": 0,
+        "points": 400
+      }
+    }
+  ]
+}
