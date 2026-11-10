@@ -1,0 +1,12 @@
+{
+  "list": [
+    {
+      "id": "evento-ejemplo-polvo",
+      "name": "Fin de semana de ejemplo",
+      "currency": "dust",
+      "factor": 2,
+      "startsAt": "2026-11-26T23:00:00.000Z",
+      "endsAt": "2026-11-29T23:00:00.000Z"
+    }
+  ]
+}

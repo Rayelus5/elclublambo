@@ -1,0 +1,73 @@
+{
+  "list": [
+    {
+      "id": "evento-ejemplo",
+      "name": "Evento de ejemplo",
+      "description": "Un fin de semana para ganar señales del escáner de ejemplo, con cometas destacados",
+      "startsAt": "2026-11-26T23:00:00.000Z",
+      "endsAt": "2026-11-29T23:00:00.000Z",
+      "goals": [
+        {
+          "id": "ej-runs",
+          "name": "Juega 5 incursiones",
+          "stat": "runs",
+          "target": 5,
+          "scope": "personal",
+          "reward": {
+            "coins": 300,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 3
+          }
+        },
+        {
+          "id": "ej-boss",
+          "name": "Purga 3 Núcleos",
+          "stat": "bossKills",
+          "target": 3,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 150,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 4
+          }
+        },
+        {
+          "id": "ej-group",
+          "name": "Juega 2 partidas en grupo",
+          "stat": "coopRuns",
+          "target": 2,
+          "scope": "personal",
+          "reward": {
+            "coins": 0,
+            "dust": 0,
+            "signal": 0,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 3
+          }
+        },
+        {
+          "id": "ej-clan",
+          "name": "Tu clan purga 50 Núcleos",
+          "stat": "bossKills",
+          "target": 50,
+          "scope": "clan",
+          "reward": {
+            "coins": 1000,
+            "dust": 0,
+            "signal": 1,
+            "xp": 0,
+            "points": 0,
+            "eventSignals": 2
+          }
+        }
+      ]
+    }
+  ]
+}
