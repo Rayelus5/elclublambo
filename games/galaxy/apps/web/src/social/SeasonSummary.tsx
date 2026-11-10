@@ -3,7 +3,6 @@ import { Link } from 'react-router';
 import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
-import { AnomalyTag } from '../hub/AnomalyTag';
 import { Icon } from '../ui/Icon';
 import { daysLeft, nextTier, Podium, TierEmblem, tierOf } from './parts';
 
@@ -29,7 +28,6 @@ export function SeasonSummary() {
           <span>{v?.season ? t.endsIn(daysLeft(v.season.endsAt)) : v || board.error ? '' : copy.loading}</span>
         </div>
       </div>
-      {v?.season ? <AnomalyTag className="in-season" /> : null}
       {!v && board.error ? (
         <p className="empty" role="alert">
           {errorText(board.error, copy.errors)}

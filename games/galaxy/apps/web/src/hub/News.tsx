@@ -2,14 +2,16 @@ import type { BoostsView, TitleNotice } from '@galaxy/shared';
 import { type CSSProperties, useId, useState } from 'react';
 import { useBoosts } from '../api/boosts';
 import { useNotices } from '../api/mail';
+import { useLeaderboard } from '../api/social';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon, type IconName } from '../ui/Icon';
 
-// Noticias (open beta): the title notices and the multipliers running now no longer sit on the home screen. They wait
-// behind a button of the top bar, next to Comunidad and Amigos, which says how many are new to this browser and opens
-// them in a window: the notices (an important one marked), then the multipliers, one card per launch with each
-// currency's factor and when it ends. Opening the window counts everything in it as seen.
+// Noticias (open beta): the title notices, the season's anomaly and the multipliers running now no longer sit on the
+// home screen. They wait behind a button of the top bar, next to Comunidad and Amigos, which says how many are new to
+// this browser and opens them in a window: the notices (an important one marked), the anomaly and what it does, then
+// the multipliers, one card per launch with each currency's factor and when it ends. Opening the window counts
+// everything in it as seen.
 
 const t = copy.news;
 const KEY = 'gs.news.seen';
@@ -18,8 +20,10 @@ const endDay = new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric
 const endTime = new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' });
 const ends = (iso: string) => t.until(endDay.format(new Date(iso)).replace(',', ''), endTime.format(new Date(iso)));
 const CURRENCY_ICON: Record<string, IconName> = { coins: 'coin', dust: 'dust', signal: 'radar', material: 'station' };
+const seasonDay = new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'long' });
 
 type Boost = BoostsView['boosts'][number];
+export type Anomaly = NonNullable<BoostsView['anomaly']>;
 /** The multipliers of one launch (same name, same end), shown and counted as one piece of news. */
 export interface BoostGroup {
   key: string;
@@ -41,6 +45,7 @@ export function groupBoosts(boosts: Boost[]): BoostGroup[] {
 
 const noticeId = (n: TitleNotice) => `n:${n.id}`;
 const boostIds = (g: BoostGroup) => g.items.map((b) => `b:${b.id}`);
+const anomalyId = (a: Anomaly) => `a:${a.id}`;
 
 function readSeen(): string[] {
   try {
@@ -62,12 +67,15 @@ function saveSeen(ids: string[]): void {
 /** What there is now and what of it this browser has not seen. */
 function useNews(seen: string[]) {
   const notices = useNotices().data ?? [];
-  const groups = groupBoosts(useBoosts().data?.boosts ?? []);
+  const boosts = useBoosts().data;
+  const groups = groupBoosts(boosts?.boosts ?? []);
+  const anomaly = boosts?.anomaly ?? null;
   const isNewNotice = (n: TitleNotice) => !seen.includes(noticeId(n));
   const isNewGroup = (g: BoostGroup) => boostIds(g).some((id) => !seen.includes(id));
-  const fresh = notices.filter(isNewNotice).length + groups.filter(isNewGroup).length;
-  const ids = [...notices.map(noticeId), ...groups.flatMap(boostIds)];
-  return { notices, groups, fresh, ids, isNewNotice, isNewGroup };
+  const anomalyNew = !!anomaly && !seen.includes(anomalyId(anomaly));
+  const fresh = notices.filter(isNewNotice).length + groups.filter(isNewGroup).length + (anomalyNew ? 1 : 0);
+  const ids = [...notices.map(noticeId), ...(anomaly ? [anomalyId(anomaly)] : []), ...groups.flatMap(boostIds)];
+  return { notices, groups, anomaly, anomalyNew, fresh, ids, isNewNotice, isNewGroup };
 }
 
 export function NewsButton({ style }: { style?: CSSProperties }) {
@@ -107,14 +115,15 @@ export function NewsButton({ style }: { style?: CSSProperties }) {
 }
 
 function NewsDialog({ seen, onClose }: { seen: string[]; onClose: () => void }) {
-  const { notices, groups, isNewNotice, isNewGroup } = useNews(seen);
+  const { notices, groups, anomaly, anomalyNew, isNewNotice, isNewGroup } = useNews(seen);
+  const endsAt = useLeaderboard('general').data?.season?.endsAt;
   const ids = useId();
   return (
     <Dialog title={t.title} onClose={onClose} className="news">
       <button type="button" className="lip iconbtn modal-close" aria-label={t.close} title={t.close} onClick={onClose}>
         <Icon name="close" />
       </button>
-      {notices.length === 0 && groups.length === 0 ? (
+      {notices.length === 0 && groups.length === 0 && !anomaly ? (
         <div className="news-empty">
           <Icon name="megaphone" />
           <p>
@@ -142,6 +151,12 @@ function NewsDialog({ seen, onClose }: { seen: string[]; onClose: () => void }) 
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+      {anomaly ? (
+        <section className="news-section" aria-labelledby={`${ids}-anomaly`}>
+          <h3 id={`${ids}-anomaly`}>{t.anomaly}</h3>
+          <AnomalyCard anomaly={anomaly} endsAt={endsAt} fresh={anomalyNew} />
         </section>
       ) : null}
       {groups.length > 0 ? (
@@ -176,5 +191,23 @@ export function BoostCards({ groups, isNew }: { groups: BoostGroup[]; isNew?: (g
         </li>
       ))}
     </ul>
+  );
+}
+
+/** The season's anomaly: its name, what it does to every run, and until when (the season's end, when known). */
+export function AnomalyCard({ anomaly, endsAt, fresh = false }: { anomaly: Anomaly; endsAt?: string; fresh?: boolean }) {
+  return (
+    <div className="today-card today-anomaly-card">
+      <Icon name="alert" />
+      <div>
+        <p className="news-boost-head">
+          <b>{anomaly.name}</b>
+          {fresh ? <span className="news-tag fresh">{t.fresh}</span> : null}
+        </p>
+        <p className="today-desc">{anomaly.description}</p>
+        <p className="today-note">{copy.anomaly.note}</p>
+        {endsAt ? <p className="news-until">{copy.anomaly.until(seasonDay.format(new Date(endsAt)))}</p> : null}
+      </div>
+    </div>
   );
 }
