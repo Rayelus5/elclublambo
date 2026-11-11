@@ -1008,10 +1008,10 @@ STRIPE_WEBHOOK_SECRET=whsec_…
 STRIPE_PUBLISHABLE_KEY=pk_live_…
 ```
 
-Guarda y vuelve a crear el contenedor del juego para que lea el archivo (reiniciar no basta):
+Guarda y vuelve a crear el contenedor del juego para que lea el archivo (reiniciar no basta). Hazlo desde la copia del repo que usa el despliegue: la de `/opt/elclub/src` es antigua y no tiene el servicio `galaxy`.
 
 ```bash
-cd /opt/elclub/src && docker compose -p elclub-pre --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
+cd /home/gh-runner/actions-runner/_work/elclublambo/elclublambo && docker compose --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
 docker logs elclub-pre-galaxy-1 2>&1 | grep -m1 stripe_
 ```
 
