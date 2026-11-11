@@ -36,7 +36,7 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await page.goto('/galaxy/');
 
   // Ten welcome scans, so there are galaxies to equip.
-  await page.getByRole('link', { name: /Escáner profundo/ }).click();
+  await page.getByRole('link', { name: /^Escáner Obtén nuevas galaxias/ }).click();
   await page.getByRole('button', { name: /Escanear 10.*10 señales/ }).click();
   const stage = page.getByRole('dialog', { name: 'Escaneo de campo profundo' });
   await expect(stage.locator('.crt-image[data-ready="true"]')).toBeAttached({ timeout: 20_000 });

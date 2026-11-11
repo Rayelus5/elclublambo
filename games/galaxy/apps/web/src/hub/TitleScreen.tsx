@@ -42,6 +42,7 @@ export function TitleScreen({ me }: { me: MeResponse }) {
           me={me}
           wallet={gacha.data?.wallet}
           freePull={gacha.data?.freePullAvailable ?? false}
+          scanner={false}
           onLogout={() => logout.mutate()}
           leaving={logout.isPending}
         />

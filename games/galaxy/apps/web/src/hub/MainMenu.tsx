@@ -10,12 +10,12 @@ import { Soon } from './Soon';
 import { useCatalogSummary } from '../api/catalog';
 import { useGacha } from '../api/economy';
 
-// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the two modes, the event and today's
-// missions, the six section tiles and the footer. Everything a later milestone builds is shown but locked: the
+// The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the scanner and the station, the event and
+// today's missions, the six section tiles and the footer (Ajustes, Guía and, while it is open, the shop, all alike). Everything a later milestone builds is shown but locked: the
 // player sees where the game is going, and nothing pretends to work.
 const style = (vars: Record<string, string>) => vars as CSSProperties;
 
-function Mode({ kind, icon, title, hint, d, to, tour }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string; tour?: string }) {
+function Mode({ kind, icon, title, hint, d, to, tour, badge }: { kind: string; icon: IconName; title: string; hint: string; d: string; to?: string; tour?: string; badge?: string }) {
   if (to) {
     return (
       <Link to={to} className={`lip mode ${kind} enter`} data-sfx="hover" data-tour={tour} style={style({ '--d': d })}>
@@ -26,6 +26,7 @@ function Mode({ kind, icon, title, hint, d, to, tour }: { kind: string; icon: Ic
           <b>{title}</b>
           <span>{hint}</span>
         </span>
+        {badge ? <span className="mode-badge">{badge}</span> : null}
       </Link>
     );
   }
@@ -94,8 +95,9 @@ function Tile({ to, icon, title, sub, color, d, badge, label }: { to: string; ic
 export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   const clan = useMyClan().data;
   const catalogReady = useCatalogSummary().data?.ready ?? 0;
+  const gacha = useGacha().data;
   // The resource shop (shop and lab plan, F5): only while it is open for this account, with a sign while an offer runs.
-  const shop = useGacha().data?.shop;
+  const shop = gacha?.shop;
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
@@ -109,7 +111,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           </span>
         </Link>
         <div className="modes">
-          <Mode kind="m-nova" icon="target" title={copy.hub.survival} hint={copy.hub.survivalHint} d=".88s" to="/incursion" />
+          <Mode kind="m-nova" icon="radar" title={copy.hub.scan} hint={copy.hub.scanHint} d=".88s" to="/escaner" tour="scanner" badge={gacha?.freePullAvailable ? copy.hub.freePull : undefined} />
           <Mode kind="m-terminal" icon="station" title={copy.hub.home} hint={copy.hub.homeHint} d=".94s" to="/estacion" tour="home" />
         </div>
       </div>
@@ -147,7 +149,7 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <span>{copy.hub.guide}</span>
         </Link>
         {shop?.open ? (
-          <Link to="/tienda" className="lip pill pill-solar enter hub-shop" data-sfx="hover" style={style({ '--d': '1.42s' })} aria-label={shop.offer ? copy.hub.shopOffer : undefined}>
+          <Link to="/tienda" className="lip pill enter hub-shop" data-sfx="hover" style={style({ '--d': '1.42s' })} aria-label={shop.offer ? copy.hub.shopOffer : undefined}>
             <Icon name="store" />
             <span>{copy.hub.shop}</span>
             {shop.offer ? (

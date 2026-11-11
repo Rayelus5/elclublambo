@@ -283,6 +283,9 @@
   .mode .chip, .event .chip { width: 48px; height: 48px; padding: 0; border: 0; box-shadow: none; gap: 0; border-radius: 15px; display: grid; place-items: center; background: rgb(0 0 0 / .2); flex: none; cursor: inherit; }
   .mode .chip .ico, .event .chip .ico { font-size: 26px; }
   .mode .text, .event .text { min-width: 0; }
+  /* The free pull on the Escáner button: a white pill on its top corner, like the tiles' badges (the hint keeps its room). */
+  .mode { position: relative; }
+  .mode .mode-badge { position: absolute; top: -9px; right: 14px; padding: 4px 11px; border-radius: 99px; background: #fff; color: var(--color-nova-2); font-size: 13px; font-weight: 800; white-space: nowrap; box-shadow: 0 0 14px rgb(255 255 255 / .45); }
   .mode b, .event b { display: block; font-size: 20px; font-weight: 700; line-height: 1.1; }
   .mode .text > span, .event .text > span { display: block; margin-top: 2px; font-size: 14.5px; font-weight: 500; line-height: 1.25; opacity: .9; }
   .m-nova { --lip-c: var(--color-nova-lip); color: var(--color-on-nova); background-color: var(--color-nova); background-image: radial-gradient(rgb(255 255 255 / .2) 1.3px, transparent 1.8px), linear-gradient(160deg, var(--color-nova), var(--color-nova-2)); background-size: 11px 11px, 100% 100%; }
