@@ -68,6 +68,7 @@ truncate table
   galaxy.galaxies,
   galaxy.hangars,
   galaxy.lab_nodes,
+  galaxy.lab_season_nodes,
   galaxy.ledger,
   galaxy.loadouts,
   galaxy.login_challenges,

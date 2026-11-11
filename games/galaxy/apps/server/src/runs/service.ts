@@ -58,6 +58,8 @@ export interface StartContext {
   anomaly: string | null;
   /** The prestige's config (M7e-2): each rank adds its bonus to the run. */
   redshift: RedshiftConfig;
+  /** The season whose Laboratorio core counts now (`labSeasonId`), or null. */
+  labSeason: string | null;
   now: Date;
 }
 
@@ -66,19 +68,20 @@ export function newRunSeed(): string {
   return randomBytes(8).readBigUInt64BE().toString();
 }
 
-export type LoadoutContext = Pick<StartContext, 'content' | 'probes' | 'lab' | 'planetarium' | 'redshift'>;
+export type LoadoutContext = Pick<StartContext, 'content' | 'probes' | 'lab' | 'planetarium' | 'redshift' | 'labSeason'>;
 
 /**
  * What a run snapshots of a player at its start (solo and co-op): the equipped relics, the probe's level bonuses and
  * starting weapon (GDD §6, M4b-1: a variant its level no longer opens starts as the base), the Laboratorio's stat
- * bonuses and its push on the pay (M4b-2), the planetarium's experience (M4c-2) and the prestige's bonus (M7e-2).
+ * bonuses and its push on the pay (M4b-2; both cores since the shop and lab plan, F2a: a season that ends during the
+ * run changes nothing), the planetarium's experience (M4c-2) and the prestige's bonus (M7e-2).
  */
 export async function loadoutSnapshot(trx: Kysely<DB>, accountId: string, probe: string, slots: number, ctx: LoadoutContext) {
   const relics = await relicSnapshot(trx, accountId, slots);
   const probeDef = ctx.content.probes.find((p) => p.id === probe)!;
   const saved = (await probeLevels(trx, accountId))[probe];
   const level = Math.min(saved?.level ?? 1, probeMaxLevel(ctx.probes));
-  const lab = await accountLabEffects(trx, accountId, ctx.lab);
+  const lab = await accountLabEffects(trx, accountId, ctx.lab, ctx.labSeason);
   const xp = await planetariumXp(trx, accountId, ctx.planetarium);
   const prestige = redshiftBonuses(await redshiftRank(trx, accountId), ctx.redshift);
   const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : []), ...prestige];

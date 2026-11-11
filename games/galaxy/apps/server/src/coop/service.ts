@@ -5,6 +5,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { HttpError } from '../errors';
+import { labSeasonId } from '../lab/levels';
 import { ensureHangar, testedProbe } from '../runs/hangar';
 import { loadoutSnapshot, newRunSeed } from '../runs/service';
 import { CoopRun, type CoopRunBase, type CoopSlot, type Gone, type PlaySocket } from './relay';
@@ -82,6 +83,7 @@ export class CoopService {
     ]);
     const now = this.now();
     const anomaly = activeAnomaly(season, content, now)?.id ?? null;
+    const labSeason = labSeasonId(lab, season, now);
     const rules = coopRulesOf(coopCfg);
     const seed = newRunSeed();
     const members = [...room.members].sort((a, b) => a.joinedAt - b.joinedAt);
@@ -93,7 +95,7 @@ export class CoopService {
       for (const m of members) {
         if ((await testedProbe(trx, m.accountId)) === null) throw new HttpError(409, 'probe_test_required');
         const hangar = await ensureHangar(trx, m.accountId);
-        const snap = await loadoutSnapshot(trx, m.accountId, hangar.probe, hangar.slots, { content, probes, lab, planetarium, redshift });
+        const snap = await loadoutSnapshot(trx, m.accountId, hangar.probe, hangar.slots, { content, probes, lab, planetarium, redshift, labSeason });
         players.push({ username: m.username, probe: hangar.probe, relics: snap.relics, bonuses: snap.bonuses, variant: snap.variant });
         snapshots.push({ accountId: m.accountId, payout: snap.payout });
       }

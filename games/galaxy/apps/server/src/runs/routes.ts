@@ -30,6 +30,7 @@ import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
 import { missionConfigs } from '../missions/service';
 import { creditRunExtras } from './extras';
+import { labSeasonId } from '../lab/levels';
 import { invalidateLeaderboard } from '../social/leaderboard';
 
 const idParam = z.object({ id: z.uuid() }).strict();
@@ -121,10 +122,12 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onPro
     const lab = await deps.config.get('lab');
     const planetarium = await deps.config.get('planetarium');
     const now = deps.now();
-    const anomaly = activeAnomaly(await deps.config.get('season'), content, now)?.id ?? null;
+    const season = await deps.config.get('season');
+    const anomaly = activeAnomaly(season, content, now)?.id ?? null;
+    const labSeason = labSeasonId(lab, season, now);
     const redshift = await deps.config.get('redshift');
     return runOperation(deps.db, s.accountId, key, 'runs.start', requestHash(body), (trx) =>
-      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift }),
+      startRun(trx, s.accountId, body, key, { content, contentVersion, now, sectors, probes, lab, planetarium, anomaly, redshift, labSeason }),
     );
   });
 

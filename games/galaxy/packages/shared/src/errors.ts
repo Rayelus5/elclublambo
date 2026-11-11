@@ -64,6 +64,8 @@ export const API_ERROR_CODES = [
   'lab_locked',
   'lab_maxed',
   'lab_changed',
+  'lab_season_closed',
+  'lab_season_changed',
   'room_unavailable',
   'nothing_to_collect',
   'galaxy_exhibited',

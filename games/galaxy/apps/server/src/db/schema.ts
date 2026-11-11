@@ -317,6 +317,15 @@ export interface LabNodesTable {
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
+/** Shop and lab plan F2a: the Laboratorio's seasonal core, a node's level in one season (no row: level 0). */
+export interface LabSeasonNodesTable {
+  account_id: string;
+  season: string;
+  node: string;
+  level: number;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 /** M4b-1: a probe's level and chosen starting weapon (no row: level 1, base weapon). */
 export interface ProbeLevelsTable {
   account_id: string;
@@ -723,6 +732,7 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.lab_season_nodes': LabSeasonNodesTable;
   'galaxy.probe_grants': ProbeGrantsTable;
   'galaxy.season_adjustments': SeasonAdjustmentsTable;
   'galaxy.mission_progress': MissionProgressTable;
