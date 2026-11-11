@@ -19,6 +19,8 @@ export interface StageOptions {
   vision: number;
   /** The probe the camera follows. */
   probe: number;
+  /** My own probe (co-op; default `probe`): only its hits flash and shake the screen, even while watching another. */
+  me?: number;
   /** The run seed (decoration). */
   seed: string;
   /** Keep the drawing buffer (screenshots in tests). */
@@ -250,6 +252,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   let tickAt = 0;
   let frameDt = 0;
   let hurtAlpha = 0;
+  /** A teammate just hit: its sprite turns red until this clock time (my own hits flash the screen instead). */
+  const hurtBlink = new Map<number, number>();
   let last = performance.now();
   let clock = 0;
   let cam: Camera | null = null;
@@ -686,7 +690,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       s.position.set(x, y);
       s.scale.set(view.flip, 1);
-      s.tint = 0xffffff;
+      s.tint = (hurtBlink.get(i) ?? 0) > clock ? 0xff5a6e : 0xffffff;
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
@@ -835,8 +839,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.x, e.y, KILL_COLOR[e.enemy] ?? 0xff4d6d, e.elite ? 16 : 8, e.elite ? 90 : 60);
             break;
           case 'hurt':
-            fx.shake(Math.min(6, 3 + e.amount / 6));
-            hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            if (e.probe === (opts.me ?? opts.probe)) {
+              fx.shake(Math.min(6, 3 + e.amount / 6));
+              hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            } else hurtBlink.set(e.probe, clock + 0.18);
             break;
           case 'telegraph':
             warns.push(warningFrom(e, tick));
@@ -867,10 +873,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.x, e.y, l.color, 12, 80);
             break;
           }
-          case 'evolve':
-            fx.ring(lastProbe.x, lastProbe.y, 0xffc94a);
-            fx.burst(lastProbe.x, lastProbe.y, 0xffc94a, 24, 90);
+          case 'evolve': {
+            // The gold ring on whoever evolved (a teammate's too), not always on the camera's probe.
+            const at = lastSim?.probes[e.probe] ?? lastProbe;
+            fx.ring(at.x, at.y, 0xffc94a);
+            fx.burst(at.x, at.y, 0xffc94a, 24, 90);
             break;
+          }
           case 'pickup':
             if (e.kind === 'magnet') {
               const at = lastSim?.probes[e.probe] ?? lastProbe;

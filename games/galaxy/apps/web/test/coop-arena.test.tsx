@@ -11,6 +11,8 @@ import { copy } from '../src/copy/es';
 // key without pausing, and a run that is gone says so. The PixiJS stage is replaced (jsdom has no WebGL).
 
 const stageFollow = vi.hoisted(() => vi.fn());
+const sfx = vi.hoisted(() => ({ playEvents: vi.fn() }));
+vi.mock('../src/arena/arena-sfx', () => sfx);
 vi.mock('../src/arena/stage/stage', () => ({
   TEAM_TINT: [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a],
   createStage: vi.fn(async () => ({
@@ -88,14 +90,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-async function mount() {
+async function mount(over: Partial<CoopRunStart> = {}) {
   const clock = manualClock();
   let sim: Sim | null = null;
   render(<CoopArena runId={RUN} onExit={() => {}} onAbandon={() => {}} clock={clock} onSim={(s) => (sim = s)} />);
   await waitFor(() => expect(FakeSocket.last).not.toBeNull());
   const ws = FakeSocket.last!;
   expect(ws.url).toContain(`/galaxy/api/coop/play/ws?run=${RUN}`);
-  ws.push({ t: 'hello', start, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
+  ws.push({ t: 'hello', start: { ...start, ...over }, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
   await waitFor(() => expect(sim).not.toBeNull());
   // The stage loads asynchronously; the loop starts once it is ready.
   await act(async () => {});
@@ -127,6 +129,19 @@ test('mi entrada sale solo cuando cambia', async () => {
   fireEvent.keyUp(window, { code: 'KeyD' });
   clock.frames(2);
   expect(inputs().at(-1)).toEqual({ t: 'in', mx: 0, my: 0, aim: -1 });
+});
+
+test('los sonidos y el destello de daño son de mi sonda, no de la que sigue la cámara', async () => {
+  const { createStage } = await import('../src/arena/stage/stage');
+  const { clock, ws, sim } = await mount({ slot: 1 });
+  expect(vi.mocked(createStage).mock.lastCall?.[2]).toMatchObject({ probe: 1, me: 1 });
+  ws.push({ t: 'f', to: 600, ev: [] });
+  clock.frames(2);
+  // A teammate levels up: the events reach the sounds with my slot, which keeps theirs silent.
+  act(() => gainXp(sim(), sim().probes[0]!, sim().probes[0]!.xpNext));
+  clock.frames(4);
+  expect(sfx.playEvents).toHaveBeenCalled();
+  for (const call of sfx.playEvents.mock.calls) expect(call[1]).toBe(1);
 });
 
 test('las cartas salen sin pausar y se eligen con su número, nombrando la oferta', async () => {

@@ -314,8 +314,8 @@ function CoopWorld({
     let disposed = false;
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events, sim.tick);
-      playEvents(events);
-      const said = announceFor(events, start.content, seenReactions.current);
+      playEvents(events, slot);
+      const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
     };
     const loop = createLockstep({
@@ -354,6 +354,7 @@ function CoopWorld({
       reduced,
       vision: relicVision(sim, sim.probes[slot]!),
       probe: slot,
+      me: slot,
       seed: start.seed,
       biome,
       names: start.players.map((p) => p.username),
