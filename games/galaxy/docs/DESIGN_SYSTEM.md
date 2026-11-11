@@ -983,6 +983,23 @@ Las casillas tienen 44 px de alto.
 
 **Acabado Fisura:** estática violeta con dos vetas de cristal que cruzan la carta despacio. En el inspector, vetas que brillan donde está el puntero y destellos sueltos.
 
+## 8 quattricies. Tienda de recursos
+
+**`/tienda`** (GDD §11.5), según la maqueta aprobada en F0:
+- **Cabecera:** «Volver», el título y el monedero con componentes (clase `shop-wallet`, adonde vuelan las fichas).
+- **Arriba:** la oferta destacada, con rayos que giran, un brillo que la cruza, sus etiquetas («+X % de regalo», «Rebajado», «Primera ×2») y una cuenta atrás real hasta su fin. Al lado, el pack de bienvenida (mientras no se haya comprado) y la tarjeta del extra de primera compra.
+- **Pestañas:** Monedas, Polvo, Componentes y Packs, en la dirección (`?pestana=monedas|polvo|componentes|packs`).
+- **Rejilla de 3×2:** cada pack con su arte de píxel, que crece con el tamaño (montón, saco, cofre, tarros, caja y portal en el mayor) y centellea; su nombre, lo que da, «N + M de regalo», el extra en solar, la cinta («Más popular», «Mejor valor») y el precio en el botón.
+- **El precio de antes** se tacha solo si lo manda el servidor (directiva Ómnibus). Lo que no se puede comprar dice por qué en su botón apagado.
+- **Pie:** «IVA incluido», «Condiciones de compra» (diálogo con el vendedor y el límite) y el límite diario. Nada crece de lado.
+
+**Diálogo de pago** (`Dialog`, 560 px):
+1. Resumen con el arte, lo que da, el extra y el precio, y la casilla, desmarcada.
+2. El formulario de Stripe con su tema `night` en nuestros colores: Apple Pay y Google Pay arriba, el correo para el recibo y la tarjeta. El velo no cierra el diálogo mientras se paga.
+3. La espera, con una ruedecita y «Confirmando el pago con tu banco».
+
+**Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

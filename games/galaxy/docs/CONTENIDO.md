@@ -293,6 +293,25 @@ Un id nunca se reutiliza ni cambia de significado:
 
 **Textos fijos:** «Temporada 1 · La Señal» en `codex/entries.ts` y «Beta Abierta» en `es.ts`.
 
+### B8 bis. Tienda de recursos
+
+La clave `shop` (GDD §11.5) es el catálogo de la tienda con dinero real:
+- `enabled` y `audience` (`staff` o `everyone`): nace cerrada y, al abrirla, primero para el staff.
+- `products[]`:
+  - `kind`: `pack` (un recurso), `bundle` o `welcome`;
+  - `grants` y `bonus`: solo `coins`, `dust` y `components`;
+  - `priceCents` y `stripePriceId`;
+  - `offer`: `bonus` (+X %) o `price` (otro precio, con su propio precio de Stripe), con fechas;
+  - `badge`, `featured`, `enabled`, `staffOnly`, `firstBonus` y `maxPerAccount`.
+- `limits.dailyCents` y `limits.pendingMax`, `firstPurchase` y `legal` (vendedor, contacto y versión de las condiciones).
+
+**Reglas:**
+- Con la tienda abierta, cada producto activo necesita su precio de Stripe, y el de Stripe debe ser el mostrado. Si no lo es, la compra da 409 y salta un aviso.
+- Ninguna oferta dura más de 31 días ni puede costar más que el límite diario.
+- Cambiar `legal.termsVersion` obliga a volver a aceptar las condiciones.
+- Los precios se comprueban, y los que faltan se crean, en Admin › Tienda › Precios. El panel crea el precio en Stripe, pero hay que ponerlo en el producto y publicar `shop`.
+- Lo que da una compra se fija al abrir el pago: cambiar el catálogo no cambia los pagos ya abiertos.
+
 ### B9. Qué es configuración y qué es código
 
 | Solo configuración | Necesita código |
