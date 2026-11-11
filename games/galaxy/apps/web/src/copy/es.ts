@@ -2578,6 +2578,8 @@ export const copy = {
     lab_locked: 'Mejora antes el nodo que lo abre',
     lab_maxed: 'Ese nodo ya está al máximo',
     lab_changed: 'Ese nodo ya había cambiado. Míralo y vuelve a intentarlo',
+    lab_season_closed: 'El núcleo de temporada está cerrado hasta que empiece la próxima temporada',
+    lab_season_changed: 'La temporada ha cambiado. Mira el núcleo nuevo y vuelve a intentarlo',
     room_unavailable: 'Esa sala aún no se puede reparar',
     nothing_to_collect: 'Aún no hay nada que recoger',
     sector_locked: 'Ese sector aún está cerrado. Vence al Núcleo del anterior para abrirlo',

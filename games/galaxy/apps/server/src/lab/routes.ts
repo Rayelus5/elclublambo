@@ -26,23 +26,27 @@ export function registerLabRoutes(api: FastifyInstance, deps: RunsDeps): void {
     const body = labUpgradeSchema.parse(req.body);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'lab', 60, 60);
-    return runOperation(deps.db, s.accountId, key, 'lab.upgrade', requestHash({ id, ...body }), (trx) => upgradeLabNode(deps, trx, s.accountId, id, body.level, key));
+    // The config it needs is read now, not inside the transaction.
+    await Promise.all([deps.config.get('lab'), deps.config.get('season')]);
+    return runOperation(deps.db, s.accountId, key, 'lab.upgrade', requestHash({ id, ...body }), (trx) =>
+      upgradeLabNode(deps, trx, s.accountId, id, body.level, key, body.season),
+    );
   });
 
   // The prestige «Corrimiento al rojo» (GDD §12.5; M7e-2): where you are, and taking the next rank (idempotent).
   api.get('/galaxy/api/redshift', async (req): Promise<RedshiftView> => {
     const s = requireSession(req);
-    const [cfg, account] = await Promise.all([deps.config.get('redshift'), deps.config.get('account')]);
-    return redshiftView(deps.db, cfg, account, s.accountId);
+    const [cfg, account, lab] = await Promise.all([deps.config.get('redshift'), deps.config.get('account'), deps.config.get('lab')]);
+    return redshiftView(deps.db, cfg, account, lab, s.accountId);
   });
 
   api.post('/galaxy/api/redshift', async (req): Promise<RedshiftView> => {
     const s = requireSession(req);
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'lab', 60, 60);
-    const [cfg, account] = await Promise.all([deps.config.get('redshift'), deps.config.get('account')]);
+    const [cfg, account, lab] = await Promise.all([deps.config.get('redshift'), deps.config.get('account'), deps.config.get('lab')]);
     // The station's config is read now, not inside the transaction (settling the refinery needs it).
     await deps.config.get('station');
-    return runOperation(deps.db, s.accountId, key, 'redshift.take', requestHash({}), (trx) => takeRedshift(deps, trx, cfg, account, s.accountId));
+    return runOperation(deps.db, s.accountId, key, 'redshift.take', requestHash({}), (trx) => takeRedshift(deps, trx, cfg, account, lab, s.accountId));
   });
 }

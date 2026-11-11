@@ -1,4 +1,4 @@
-import { type LabView, labEffects, labNodeStatus, parseConfig } from '@galaxy/shared';
+import { type LabNode, type LabView, labEffects, labNodeStatus, nodeNextGain, nodeTotal, parseConfig } from '@galaxy/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
@@ -12,10 +12,16 @@ import '../../src/styles/app.css';
 // bought, one maxed, closed ones, and a wallet short for the deeper nodes.
 
 const cfg = parseConfig('lab', {});
+/** A node as the server sends it. */
+const nodeView = (n: LabNode, levels: Record<string, number>) => {
+  const status = labNodeStatus(n, levels, cfg);
+  return { id: n.id, branch: n.branch, name: n.name, effect: n.effect, per: n.per, requires: n.requires, ...status, now: nodeTotal(n, status.level), nextGain: nodeNextGain(n, status.level), at: n.at };
+};
 const levels: Record<string, number> = { hull: 3, targeting: 1, resonance: 2, recycling: 1, throughput: 5, silos: 2, magnet: 1 };
 const view: LabView = {
   open: true,
-  nodes: cfg.nodes.map((n) => ({ id: n.id, branch: n.branch, name: n.name, effect: n.effect, per: n.per, requires: n.requires, ...labNodeStatus(n, levels, cfg) })),
+  nodes: cfg.nodes.map((n) => nodeView(n, levels)),
+  season: null,
   effects: labEffects(levels, cfg),
   wallet: { coins: 1200, dust: 180, signal: 4, components: 60 },
 };
