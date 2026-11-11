@@ -143,6 +143,17 @@ export const API_ERROR_CODES = [
   'mail_gone',
   'notice_gone',
   'level_too_low',
+  'shop_closed',
+  'shop_blocked',
+  'shop_unavailable',
+  'shop_once_used',
+  'shop_daily_limit',
+  'shop_pending_limit',
+  'shop_price_mismatch',
+  'shop_terms_outdated',
+  'shop_purchase_not_found',
+  'payment_unavailable',
+  'invalid_signature',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

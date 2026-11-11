@@ -39,6 +39,10 @@ import { registerCodexRoutes } from './codex/routes';
 import { registerOnboardingRoutes } from './onboarding/routes';
 import { registerTutorialRoutes } from './onboarding/tutorial';
 import { registerSeasonRoutes } from './season/routes';
+import type { ShopGateway } from './shop/gateway';
+import { registerShopAdminRoutes } from './shop/admin-routes';
+import { registerShopRoutes } from './shop/routes';
+import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
 import type { Env } from './env';
@@ -50,7 +54,14 @@ import { registerSecurityHeaders } from './security/headers';
 import { registerOriginGuard } from './security/origin';
 import { registerStatic, sendSpaShell, wantsSpaShell } from './static';
 
-export type AppDeps = { env: Env; db: Kysely<DB>; now?: () => Date; config?: ConfigService };
+export type AppDeps = {
+  env: Env;
+  db: Kysely<DB>;
+  now?: () => Date;
+  config?: ConfigService;
+  /** The shop's payment gateway: by default Stripe's from the env (none without its keys); tests pass a fake. */
+  shopGateway?: ShopGateway | null;
+};
 
 /**
  * The game server. Logs carry codes and request lines only: bodies (passwords), cookies and tokens are never logged.
@@ -60,7 +71,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logger:
       process.env.NODE_ENV === 'test'
         ? false
-        : { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'] },
+        : { level: 'info', redact: ['req.headers.cookie', 'req.headers.authorization', 'req.headers["stripe-signature"]', 'res.headers["set-cookie"]'] },
     bodyLimit: 64 * 1024,
   });
 
@@ -158,6 +169,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
+    // Shop and lab plan F4: the resource shop (closed without Stripe's keys).
+    const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
+    const shop = { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, live, log: app.log };
+    registerShopRoutes(api, shop);
+    registerShopAdminRoutes(api, { ...shop, trustCfIp: deps.env.TRUST_CF_IP });
   });
   return app;
 }

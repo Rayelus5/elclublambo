@@ -56,7 +56,7 @@ describe('buscar y auditar', () => {
   });
 
   test('las secciones de un jugador y sus errores', () => {
-    expect(ADMIN_SECTIONS).toEqual(['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat', 'social']);
+    expect(ADMIN_SECTIONS).toEqual(['galaxies', 'ledger', 'pulls', 'runs', 'market', 'chat', 'social', 'shop']);
     for (const code of ['password_wrong', 'player_not_found']) expect(API_ERROR_CODES).toContain(code);
   });
 });
