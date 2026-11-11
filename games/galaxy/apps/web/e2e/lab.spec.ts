@@ -6,7 +6,8 @@ import { type Page, expect, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
 // The Laboratorio against the real server (GDD §10.6, M4b-2): a new account repairs it from the station with what the
-// CLI grants, buys Blindaje reforzado, sees Propulsores open, and launches a run carrying the lab's life bonus.
+// CLI grants, buys Blindaje reforzado on the whiteboard, sees Propulsores open, and launches a run carrying the lab's
+// life bonus.
 // Writes e2e_* accounts only.
 const PASS = 'una-clave-larga-e2e';
 const cli = fileURLToPath(new URL('../../server/dist/cli.js', import.meta.url));
@@ -46,14 +47,17 @@ test('el laboratorio: repararlo, comprar Blindaje reforzado y salir con su vida'
   await deck.getByRole('link', { name: /Laboratorio/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/laboratorio$/);
 
-  const probe = page.getByRole('list', { name: 'Sonda' });
-  // A node's card (its list item also holds the nodes it opens).
-  const node = (name: string) => probe.locator('.lab-node').filter({ has: page.getByText(name, { exact: true }) });
-  const hull = node('Blindaje reforzado');
-  await hull.getByRole('button', { name: /Mejorar a nivel 1/ }).click();
-  await expect(hull).toContainText('Nivel 1 de 5');
-  // Propulsores opens (it needs Blindaje reforzado); the wallet is empty now, so its button waits.
-  await expect(node('Propulsores').getByRole('button', { name: /Mejorar a nivel 1/ })).toBeDisabled();
+  // The whiteboard (shop and lab plan, F3): a node opens its panel, «Mejorar» fills its first segment.
+  await expect(page.getByRole('group', { name: 'Pizarra del laboratorio' })).toBeVisible();
+  await page.getByRole('button', { name: /^Blindaje reforzado, nivel 0 de 5/ }).click();
+  await page.getByRole('complementary', { name: 'Blindaje reforzado' }).getByRole('button', { name: 'Mejorar a nivel 1' }).click();
+  await expect(page.getByRole('button', { name: /^Blindaje reforzado, nivel 1 de 5/ })).toBeVisible();
+  // Propulsores opens (it needs Blindaje reforzado); the wallet is empty now, so it waits for material.
+  await page.getByRole('button', { name: /^Propulsores, nivel 0 de 5, disponible/ }).click();
+  await expect(page.getByRole('complementary', { name: 'Propulsores' }).getByRole('button', { name: 'Te falta material' })).toBeDisabled();
+  // The list is one press away, the same tree.
+  await page.getByRole('button', { name: 'Lista', exact: true }).click();
+  await expect(page.getByRole('list', { name: 'Sonda' }).locator('.lab-node').filter({ has: page.getByText('Blindaje reforzado', { exact: true }) })).toContainText('Nivel 1 de 5');
 
   await page.goto('/galaxy/incursion');
   const started = page.waitForResponse((r) => r.url().endsWith('/galaxy/api/runs') && r.request().method() === 'POST');
