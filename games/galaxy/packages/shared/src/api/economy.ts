@@ -111,6 +111,8 @@ export interface GachaView {
   wallet: Wallet;
   /** Conversions the player has not seen yet. */
   leftovers?: LeftoverView[];
+  /** The resource shop for this account (shop and lab plan, F5): open (its links show) and with an offer running. */
+  shop?: { open: boolean; offer: boolean };
 }
 
 /** The conversions the player has now seen. */

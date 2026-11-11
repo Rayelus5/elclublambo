@@ -6,7 +6,7 @@ import type { QueryClient, QueryKey } from '@tanstack/react-query';
 // bar lags behind until its next refetch. (The keys are spelled here to keep this file free of import cycles; the
 // wallet bar's test checks they are the exported ones.)
 
-const HOLDERS: readonly QueryKey[] = [['gacha'], ['station'], ['lab'], ['hangar']];
+const HOLDERS: readonly QueryKey[] = [['gacha'], ['station'], ['lab'], ['hangar'], ['shop']];
 
 export function syncWallet(qc: QueryClient, wallet: Wallet): void {
   for (const key of HOLDERS) {

@@ -155,6 +155,15 @@ async function beforeOf(deps: ShopDeps, p: ShopProduct, now: Date): Promise<numb
   return ref !== null && ref > o.priceCents ? ref : null;
 }
 
+/** Whether the shop is open for this account and has an offer running (the wallet's links and the menu's sign). */
+export async function shopFlag(deps: Pick<ShopDeps, 'db' | 'config' | 'now' | 'gateway'>, session: SessionInfo): Promise<{ open: boolean; offer: boolean }> {
+  const cfg = await deps.config.get('shop');
+  const staff = isStaff(session);
+  if (!shopOpenFor(cfg, deps.gateway !== null, staff) || (await isBlocked(deps.db, session.accountId))) return { open: false, offer: false };
+  const now = deps.now();
+  return { open: true, offer: cfg.products.some((p) => productBlock(p, { staff, bought: 0 }) === null && activeOffer(p, now) !== null) };
+}
+
 export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<ShopView> {
   const cfg = await deps.config.get('shop');
   const now = deps.now();
@@ -182,6 +191,7 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
         name: p.name,
         art: p.art,
         base,
+        bonus: { ...p.bonus },
         extra,
         total,
         priceCents: price.cents,

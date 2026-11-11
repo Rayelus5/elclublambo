@@ -88,3 +88,13 @@ test('syncWallet pone el monedero nuevo en todas las vistas que lo llevan, sin c
   expect(qc.getQueryData<{ wallet: Wallet; nodes: unknown[] }>(LAB_KEY)).toEqual({ wallet, nodes: [] });
   expect(qc.getQueryData(HANGAR_KEY)).toBeUndefined();
 });
+
+test('con la tienda abierta, monedas, polvo y componentes llevan a su pestaña de la tienda', async () => {
+  const w = { coins: 10, dust: 20, signal: 1, components: 3 };
+  mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, { banners: [], wallet: w, shop: { open: true, offer: false } }) });
+  renderAt('/', { '/': <WalletBar wallet={w} components /> });
+  const r = copy.hub.resource;
+  expect(await screen.findByRole('link', { name: `${r.coins(10)}. ${r.goTo.shop}` })).toHaveAttribute('href', '/tienda?pestana=monedas');
+  expect(screen.getByRole('link', { name: `${r.dust(20)}. ${r.goTo.shop}` })).toHaveAttribute('href', '/tienda?pestana=polvo');
+  expect(screen.getByRole('link', { name: `${copy.station.resource.components(3)}. ${r.goTo.shop}` })).toHaveAttribute('href', '/tienda?pestana=componentes');
+});

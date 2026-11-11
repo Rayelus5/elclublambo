@@ -6,7 +6,12 @@ import { copy, fmt } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 
-/** A number that climbs to its new value when it grows (0.7 s, eased); at once with reduced motion. */
+/** How long a number climbs: 0.7 s for a little, up to 2.4 s for a big purchase (shop and lab plan, F5). */
+export function climbMs(delta: number): number {
+  return Math.round(Math.min(2400, 700 + 400 * Math.log10(Math.max(1, delta / 10))));
+}
+
+/** A number that climbs to its new value when it grows (longer the more it grows, eased); at once with reduced motion. */
 function useCountUp(value: number): { shown: number; climbing: boolean } {
   const reduced = useReducedMotion();
   const last = useRef(value);
@@ -16,8 +21,9 @@ function useCountUp(value: number): { shown: number; climbing: boolean } {
     last.current = value;
     if (reduced || value <= from || typeof requestAnimationFrame !== 'function') return;
     const start = performance.now();
+    const ms = climbMs(value - from);
     let raf = requestAnimationFrame(function tick(now: number) {
-      const k = Math.min(1, (now - start) / 700);
+      const k = Math.min(1, (now - start) / ms);
       setShown(k >= 1 ? null : Math.round(from + (value - from) * (1 - (1 - k) ** 3)));
       if (k < 1) raf = requestAnimationFrame(tick);
     });
@@ -76,7 +82,11 @@ export function eventTickets(wallet: Wallet | undefined, currencies: readonly st
  * resource is used: the signals to the Escáner, the event ones to its event tab.
  */
 export function WalletBar({ wallet, components = false, material }: { wallet: Wallet | undefined; components?: boolean; material?: { onOpen: () => void } }) {
-  const eventCurrencies = (useGacha().data?.banners ?? []).filter((b) => b.kind === 'event').map((b) => b.currency);
+  const gacha = useGacha().data;
+  const eventCurrencies = (gacha?.banners ?? []).filter((b) => b.kind === 'event').map((b) => b.currency);
+  // Coins, dust and components lead to their tab of the resource shop while it is open for this account (shop and lab
+  // plan, F5).
+  const shop = gacha?.shop?.open === true;
   if (!wallet) {
     return (
       <span className="res pending" role="img" aria-label={copy.loading}>
@@ -92,10 +102,16 @@ export function WalletBar({ wallet, components = false, material }: { wallet: Wa
         <Resource kind="material" icon="cube" amount={wallet['material'] ?? 0} label={copy.station.resource.material(wallet['material'] ?? 0)} lead={{ onOpen: material.onOpen, label: r.goTo.refinery }} />
       ) : null}
       {components ? (
-        <Resource kind="components" icon="wrench" amount={wallet['components'] ?? 0} label={copy.station.resource.components(wallet['components'] ?? 0)} />
+        <Resource
+          kind="components"
+          icon="wrench"
+          amount={wallet['components'] ?? 0}
+          label={copy.station.resource.components(wallet['components'] ?? 0)}
+          lead={shop ? { to: '/tienda?pestana=componentes', label: r.goTo.shop } : undefined}
+        />
       ) : null}
-      <Resource kind="dust" icon="dust" amount={wallet.dust} label={r.dust(wallet.dust)} />
-      <Resource kind="coins" icon="coin" amount={wallet.coins} label={r.coins(wallet.coins)} />
+      <Resource kind="dust" icon="dust" amount={wallet.dust} label={r.dust(wallet.dust)} lead={shop ? { to: '/tienda?pestana=polvo', label: r.goTo.shop } : undefined} />
+      <Resource kind="coins" icon="coin" amount={wallet.coins} label={r.coins(wallet.coins)} lead={shop ? { to: '/tienda?pestana=monedas', label: r.goTo.shop } : undefined} />
       <Resource kind="signal" icon="ticket" amount={wallet.signal} label={r.signal(wallet.signal)} lead={{ to: '/escaner', label: r.goTo.scanner }} />
       {eventCurrencies.length > 0 ? (
         <Resource kind="event-signal" icon="ticket" amount={events} label={r.eventSignal(events)} lead={{ to: '/escaner?tipo=evento', label: r.goTo.eventScanner }} />

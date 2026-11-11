@@ -42,6 +42,7 @@ import { registerSeasonRoutes } from './season/routes';
 import type { ShopGateway } from './shop/gateway';
 import { registerShopAdminRoutes } from './shop/admin-routes';
 import { registerShopRoutes } from './shop/routes';
+import { shopFlag } from './shop/service';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
 import type { DB } from './db/schema';
@@ -121,7 +122,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     // The live hub is made further down; a logout only happens once the app is up.
     registerAuthRoutes(api, { env: deps.env, db: deps.db, config, now, onLogout: (id) => live.dropSession(id) });
     registerConfigRoutes(api, { env: deps.env, config, db: deps.db });
-    registerGachaRoutes(api, { db: deps.db, config, now });
+    // Shop and lab plan F4: the resource shop's gateway (closed without Stripe's keys).
+    const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
+    registerGachaRoutes(api, { db: deps.db, config, now, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
     registerCollectionRoutes(api, { db: deps.db, config });
     // Plan phase 5: the rooms, which the presence reads («in a room, 2/4», and its code when friends may join), and
     // (phase 6c) the room chat, which reaches who is in the room now. A probe chosen in the hangar shows in the room.
@@ -169,8 +172,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerStatsRoutes(api, { db: deps.db, config, hub: sockets, now });
     registerAdminRunRoutes(api, { db: deps.db, env: deps.env });
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
-    // Shop and lab plan F4: the resource shop (closed without Stripe's keys).
-    const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
+    // The resource shop's routes and its admin (shop and lab plan, F4).
     const shop = { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, live, log: app.log };
     registerShopRoutes(api, shop);
     registerShopAdminRoutes(api, { ...shop, trustCfIp: deps.env.TRUST_CF_IP });

@@ -8,6 +8,7 @@ import { hitRateLimit } from '../ratelimit';
 import { countStats, missionConfigs } from '../missions/service';
 import { markLeftoversSeen } from './leftovers';
 import { enabledGacha, pull, visit, type GachaDeps } from './service';
+import type { SessionInfo } from '../auth/sessions';
 
 /** The client's `Idempotency-Key` header (a UUID): required on every economy action (GDD §11.3). */
 export function idempotencyKey(req: FastifyRequest): string {
@@ -21,10 +22,15 @@ export function requestHash(body: unknown): string {
   return createHash('sha256').update(JSON.stringify(body)).digest('hex');
 }
 
-export function registerGachaRoutes(api: FastifyInstance, deps: GachaDeps): void {
+export function registerGachaRoutes(
+  api: FastifyInstance,
+  deps: GachaDeps & { shopFlag?: (s: SessionInfo) => Promise<NonNullable<GachaView['shop']>> },
+): void {
   api.get('/galaxy/api/gacha', async (req): Promise<GachaView> => {
     const s = requireSession(req);
-    return visit(deps, s.accountId);
+    const view = await visit(deps, s.accountId);
+    // The shop's links and its «Oferta» sign come with the wallet every screen reads (shop and lab plan, F5).
+    return deps.shopFlag ? { ...view, shop: await deps.shopFlag(s) } : view;
   });
 
   // The player has seen the window telling them their leftover event signals became star dust.

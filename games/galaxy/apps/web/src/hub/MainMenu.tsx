@@ -8,6 +8,7 @@ import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
 import { Soon } from './Soon';
 import { useCatalogSummary } from '../api/catalog';
+import { useGacha } from '../api/economy';
 
 // The left column of the title screen (GDD §4, DESIGN_SYSTEM §7): Jugar, the two modes, the event and today's
 // missions, the six section tiles and the footer. Everything a later milestone builds is shown but locked: the
@@ -93,6 +94,8 @@ function Tile({ to, icon, title, sub, color, d, badge, label }: { to: string; ic
 export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
   const clan = useMyClan().data;
   const catalogReady = useCatalogSummary().data?.ready ?? 0;
+  // The resource shop (shop and lab plan, F5): only while it is open for this account, with a sign while an offer runs.
+  const shop = useGacha().data?.shop;
   return (
     <nav className="menu" aria-label={copy.hub.menu}>
       <div className="row1">
@@ -143,6 +146,17 @@ export function MainMenu({ galaxies }: { galaxies: number | undefined }) {
           <Icon name="compass" />
           <span>{copy.hub.guide}</span>
         </Link>
+        {shop?.open ? (
+          <Link to="/tienda" className="lip pill pill-solar enter hub-shop" data-sfx="hover" style={style({ '--d': '1.42s' })} aria-label={shop.offer ? copy.hub.shopOffer : undefined}>
+            <Icon name="store" />
+            <span>{copy.hub.shop}</span>
+            {shop.offer ? (
+              <span className="tile-badge hub-shop-badge" aria-hidden="true">
+                {copy.hub.offer}
+              </span>
+            ) : null}
+          </Link>
+        ) : null}
       </div>
     </nav>
   );

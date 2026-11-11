@@ -19,6 +19,8 @@ export interface ShopProductView {
   art: string;
   /** What it always gives (grants and bonus), what the offer and the first purchase add now, and the sum. */
   base: ShopAmounts;
+  /** The gift inside `base` («1.000 + 200 de regalo»). */
+  bonus: ShopAmounts;
   extra: ShopAmounts;
   total: ShopAmounts;
   priceCents: number;

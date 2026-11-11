@@ -117,8 +117,9 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
 
   // In the collection the equipped galaxy says so and cannot be disintegrated.
   await page.goto('/galaxy/coleccion');
-  const card = page.getByRole('article', { name: relicName });
-  await expect(card).toContainText('Equipada');
+  // Two galaxies of a scan can share a name: the equipped one is the one that says so.
+  const card = page.getByRole('article', { name: relicName }).filter({ hasText: 'Equipada' });
+  await expect(card).toHaveCount(1);
   await card.getByRole('link').click();
   const detail = page.getByRole('dialog', { name: relicName });
   await expect(detail.getByRole('button', { name: 'Desintegrar' })).toBeDisabled();
