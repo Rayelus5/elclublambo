@@ -1,6 +1,7 @@
 // Per-player arena settings kept in localStorage (a convenience: missing storage just means the defaults).
 const AIM_KEY = 'galaxy.aim.manual';
 const RADIO_KEY = 'galaxy.radio.seen';
+const ZOOM_KEY = 'galaxy.arena.zoom';
 
 export function manualAim(): boolean {
   try {
@@ -42,5 +43,23 @@ export function markRadioSeen(id: string): void {
     if (!list.includes(id)) localStorage.setItem(RADIO_KEY, [...list, id].join(','));
   } catch {
     // Private windows: this page only.
+  }
+}
+
+/** The arena's zoom the player left the wheel at (whole steps closer than the base view; 0 by default). */
+export function arenaZoom(): number {
+  try {
+    const n = Number(localStorage.getItem(ZOOM_KEY) ?? '0');
+    return Number.isInteger(n) && n >= 0 && n <= 16 ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setArenaZoom(steps: number): void {
+  try {
+    localStorage.setItem(ZOOM_KEY, String(Math.max(0, Math.round(steps))));
+  } catch {
+    // Private windows: this run only.
   }
 }

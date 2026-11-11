@@ -3,7 +3,7 @@ import { DEFAULT_CONTENT, offerFor, type Sim } from '@galaxy/sim';
 import { act, createEvent, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { ArenaScreen, type RunEnd } from '../src/arena/ArenaScreen';
-import { markRadioSeen } from '../src/arena/settings';
+import { arenaZoom, markRadioSeen, setArenaZoom } from '../src/arena/settings';
 import { copy } from '../src/copy/es';
 import { useUi } from '../src/state/ui';
 
@@ -11,15 +11,24 @@ import { useUi } from '../src/state/ui';
 // a confirmation, PERKINS on the radio once, an accessible HUD, and the end of the run. The PixiJS stage is replaced:
 // jsdom has no WebGL, and the stage has its own browser test.
 
+// The stage's zoom, as the fake stage keeps it: whole steps closer, from 0 to 2 (a 1280×720 screen).
+const zoomed = { level: 0 };
 vi.mock('../src/arena/stage/stage', () => ({
-  createStage: vi.fn(async () => ({
-    app: {},
-    render: vi.fn(),
-    feed: vi.fn(),
-    resize: vi.fn(),
-    camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
-    destroy: vi.fn(),
-  })),
+  createStage: vi.fn(async (_canvas: unknown, _content: unknown, opts: { zoom?: number }) => {
+    zoomed.level = opts.zoom ?? 0;
+    return {
+      app: {},
+      render: vi.fn(),
+      feed: vi.fn(),
+      resize: vi.fn(),
+      camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
+      zoom: (steps: number) => {
+        zoomed.level = Math.min(2, Math.max(0, zoomed.level + steps));
+      },
+      zoomLevel: () => zoomed.level,
+      destroy: vi.fn(),
+    };
+  }),
 }));
 
 const run: RunStart = {
@@ -79,6 +88,31 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.useRealTimers();
+});
+
+test('la rueda del ratón sobre el campo acerca y aleja la vista, sin pasar de sus límites, y la próxima incursión empieza igual', async () => {
+  await mount();
+  const canvas = document.querySelector<HTMLCanvasElement>('canvas.arena-canvas')!;
+  // Up comes closer; the page itself never scrolls.
+  expect(fireEvent.wheel(canvas, { deltaY: -100 })).toBe(false);
+  expect(zoomed.level).toBe(1);
+  expect(arenaZoom()).toBe(1);
+  fireEvent.wheel(canvas, { deltaY: -100 });
+  fireEvent.wheel(canvas, { deltaY: -100 });
+  expect(zoomed.level).toBe(2);
+  // At the limit the extra turn is dropped: one notch down goes back at once.
+  fireEvent.wheel(canvas, { deltaY: 100 });
+  expect(zoomed.level).toBe(1);
+  expect(arenaZoom()).toBe(1);
+  // Ctrl+wheel is the browser's own zoom: left alone.
+  expect(fireEvent.wheel(canvas, { deltaY: -100, ctrlKey: true })).toBe(true);
+  expect(zoomed.level).toBe(1);
+});
+
+test('la vista empieza donde el jugador dejó la rueda', async () => {
+  setArenaZoom(2);
+  await mount();
+  expect(zoomed.level).toBe(2);
 });
 
 test('el diálogo de mejora aparece con la oferta, se elige con 2 y Enter, y la partida sigue', async () => {
