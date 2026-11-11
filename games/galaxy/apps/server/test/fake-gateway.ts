@@ -100,6 +100,13 @@ export function fakeGateway(mode: 'live' | 'test' = 'live'): FakeGateway {
       const { clientSecret: _secret, ...rest } = s;
       return { ...rest, metadata: { ...rest.metadata } };
     },
+    async expireCheckoutSession(id) {
+      const s = sessions.get(id);
+      if (!s) throw new Error('no_such_session');
+      if (s.status === 'open') s.status = 'expired';
+      const { clientSecret: _secret, ...rest } = s;
+      return { ...rest, metadata: { ...rest.metadata } };
+    },
     async retrievePrice(id) {
       const p = prices.get(id);
       if (!p) throw new Error('no_such_price');

@@ -91,6 +91,16 @@ export function createStripeGateway(env: StripeEnv): ShopGateway {
     async retrieveCheckoutSession(id: string): Promise<GatewaySession> {
       return sessionOf(await stripe.checkout.sessions.retrieve(id));
     },
+    async expireCheckoutSession(id: string): Promise<GatewaySession> {
+      try {
+        return sessionOf(await stripe.checkout.sessions.expire(id));
+      } catch (err) {
+        // Stripe only expires open sessions: one already paid or expired is just read.
+        const s = sessionOf(await stripe.checkout.sessions.retrieve(id));
+        if (s.status !== 'open') return s;
+        throw err;
+      }
+    },
     async retrievePrice(id: string): Promise<GatewayPrice> {
       const p = await stripe.prices.retrieve(id);
       return { id: p.id, unitAmount: p.unit_amount ?? null, currency: p.currency, active: p.active, livemode: p.livemode, oneTime: p.type === 'one_time' };

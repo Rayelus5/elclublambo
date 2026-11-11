@@ -58,6 +58,10 @@ export interface ShopDeps {
 const OPEN: ShopPurchaseStatus[] = ['creating', 'pending'];
 /** A purchase that never took money (it frees its limits and its once-only reservations). */
 const DEAD: ShopPurchaseStatus[] = ['expired', 'failed'];
+/** A purchase that took money: only these make a once-only product bought and use up its first-purchase extra. */
+const TAKEN: ShopPurchaseStatus[] = ['paid', 'refunded', 'partially_refunded', 'disputed'];
+/** An unfinished payment is picked up again only while it has at least this long left. */
+const RESUME_MS = 5 * 60_000;
 /** Our purchase outlives Stripe's session by a few minutes (its own expiry is 30 min, Stripe's minimum). */
 const PURCHASE_MS = 35 * 60_000;
 const SESSION_MS = 34 * 60_000;
@@ -95,16 +99,74 @@ async function isBlocked(db: Db, accountId: string): Promise<boolean> {
   return (await db.selectFrom('galaxy.shop_blocks').select('account_id').where('account_id', '=', accountId).executeTakeFirst()) !== undefined;
 }
 
-/** Per product: how many live purchases the account has, and whether one of them took the first-purchase extra. */
+/**
+ * Per product: how many purchases took money, and whether one of them took the first-purchase extra. An unfinished
+ * payment counts for nothing here: leaving the payment halfway never hides the welcome pack or the extra.
+ */
 async function purchaseCounts(db: Db, accountId: string): Promise<Map<string, { bought: number; firstUsed: boolean }>> {
   const rows = await db
     .selectFrom('galaxy.shop_purchases')
     .select(['product', sql<number>`count(*)::int`.as('bought'), sql<boolean>`bool_or(first_bonus)`.as('first_used')])
     .where('account_id', '=', accountId)
-    .where('status', 'not in', DEAD)
+    .where('status', 'in', TAKEN)
     .groupBy('product')
     .execute();
   return new Map(rows.map((r) => [r.product, { bought: r.bought, firstUsed: r.first_used }]));
+}
+
+type OpenRow = {
+  id: string;
+  amount_cents: number;
+  stripe_price_id: string;
+  first_bonus: boolean;
+  terms_version: string;
+  expires_at: Date;
+  stripe_session_id: string | null;
+  snapshot: unknown;
+};
+
+/** The account's unfinished payments of one product, newest first. */
+async function openOf(db: Db, accountId: string, product: string, now: Date): Promise<OpenRow[]> {
+  return db
+    .selectFrom('galaxy.shop_purchases')
+    .select(['id', 'amount_cents', 'stripe_price_id', 'first_bonus', 'terms_version', 'expires_at', 'stripe_session_id', 'snapshot'])
+    .where('account_id', '=', accountId)
+    .where('product', '=', product)
+    .where('status', 'in', OPEN)
+    .where('expires_at', '>', now)
+    .orderBy('created_at', 'desc')
+    .execute();
+}
+
+/** Whether an unfinished payment can simply carry on: the same price, extra, terms and name, and time left. */
+function resumable(r: OpenRow, product: ShopProduct, price: { cents: number; stripePriceId: string | null }, first: boolean, terms: string, now: Date): boolean {
+  return (
+    r.amount_cents === price.cents &&
+    r.stripe_price_id === price.stripePriceId &&
+    r.first_bonus === first &&
+    r.terms_version === terms &&
+    (r.snapshot as Snapshot).product.name === product.name &&
+    r.expires_at.getTime() - now.getTime() > RESUME_MS
+  );
+}
+
+/**
+ * Closes an unfinished payment that cannot carry on, in Stripe first, so the same thing is never paid twice; if it had
+ * been paid meanwhile, it is delivered instead.
+ */
+async function closeOpen(deps: ShopDeps, gateway: ShopGateway, r: OpenRow): Promise<void> {
+  if (r.stripe_session_id) {
+    let session: GatewaySession;
+    try {
+      session = await gateway.expireCheckoutSession(r.stripe_session_id);
+    } catch {
+      deps.log?.warn({ purchase: r.id }, 'shop_session_unexpired');
+      throw new HttpError(503, 'payment_unavailable');
+    }
+    await applySession(deps, r.id, session);
+    if (session.status !== 'expired') return;
+  }
+  await deps.db.updateTable('galaxy.shop_purchases').set({ status: 'expired', updated_at: deps.now() }).where('id', '=', r.id).where('status', 'in', OPEN).execute();
 }
 
 /** What the account spent today (Madrid) and still has open: every purchase that took or may take money. */
@@ -273,6 +335,13 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
     throw new HttpError(409, 'shop_price_mismatch');
   }
 
+  // An unfinished payment of this product carries on (the same Stripe session); one that cannot is closed first.
+  const done = (await purchaseCounts(deps.db, accountId)).get(product.id) ?? { bought: 0, firstUsed: false };
+  const first = product.firstBonus && cfg.firstPurchase.enabled && !done.firstUsed;
+  for (const r of await openOf(deps.db, accountId, product.id, now)) {
+    if (!resumable(r, product, price, first, body.terms, now)) await closeOpen(deps, gateway, r);
+  }
+
   const reservation = await runOperation(deps.db, accountId, key, 'shop.checkout', hash, (trx) => reserve(trx, cfg, product, accountId, staff, now, body.terms, price));
   return startSession(deps, gateway, reservation, accountId);
 }
@@ -294,9 +363,12 @@ async function reserve(
   const block = productBlock(product, { staff, bought: c.bought });
   if (block === 'once_used') throw new HttpError(409, 'shop_once_used');
   if (block) throw new HttpError(409, 'shop_unavailable');
+  const first = product.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
+  // Pressing «Comprar» again carries on with the unfinished payment of this product (its limits already count it).
+  const open = (await openOf(trx, accountId, product.id, now)).find((r) => resumable(r, product, price, first, terms, now));
+  if (open) return { purchase: open.id, priceId: open.stripe_price_id, product: product.id, name: product.name };
   if ((await openPayments(trx, accountId, now)) >= cfg.limits.pendingMax) throw new HttpError(409, 'shop_pending_limit');
   if ((await spentToday(trx, accountId, now)) + price.cents > cfg.limits.dailyCents) throw new HttpError(409, 'shop_daily_limit');
-  const first = product.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
   const { base, extra, total } = purchaseGrants(product, now, first, cfg);
   const snapshot: Snapshot = { product: { id: product.id, name: product.name, kind: product.kind, art: product.art }, base, extra, total, priceCents: price.cents, offer: activeOffer(product, now) };
   const row = await trx
