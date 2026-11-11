@@ -13,12 +13,13 @@ export function useLab() {
   return useQuery({ queryKey: LAB_KEY, queryFn: () => api<LabView>('/lab') });
 }
 
+/** A node's next level; a seasonal node names its season (shop and lab plan, F2a: a stale view of another one is refused). */
 export function useUpgradeLabNode() {
   const qc = useQueryClient();
-  const intent = (v: { node: string; level: number }) => `lab:${v.node}:${v.level}`;
+  const intent = (v: { node: string; level: number; season?: string }) => `lab:${v.season ?? ''}:${v.node}:${v.level}`;
   return useMutation({
-    mutationFn: (v: { node: string; level: number }) =>
-      api<LabView>(`/lab/nodes/${v.node}/upgrade`, { method: 'POST', body: { level: v.level }, headers: keyFor(intent(v)) }),
+    mutationFn: (v: { node: string; level: number; season?: string }) =>
+      api<LabView>(`/lab/nodes/${v.node}/upgrade`, { method: 'POST', body: v.season ? { level: v.level, season: v.season } : { level: v.level }, headers: keyFor(intent(v)) }),
     onSuccess: (view) => {
       qc.setQueryData(LAB_KEY, view);
       void qc.invalidateQueries({ queryKey: GACHA_KEY });

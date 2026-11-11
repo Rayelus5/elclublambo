@@ -30,7 +30,7 @@ function view(levels: Record<string, number> = {}, over: Partial<LabView> = {}):
 }
 const open = (v = view(), routes: Record<string, (b: unknown) => Response> = {}) => {
   const fetch = mockApi({ 'GET /galaxy/api/lab': () => jsonResponse(200, v), ...routes });
-  renderAt('/laboratorio', { '/laboratorio': <LabScreen /> });
+  renderAt('/laboratorio?vista=lista', { '/laboratorio': <LabScreen /> });
   return fetch;
 };
 const card = (name: string) => screen.getByText(name, { selector: 'b' }).closest('li')!;
@@ -83,7 +83,7 @@ test('mejorar envía el nivel con su clave y enseña la vista nueva; un 409 dice
     'POST /galaxy/api/lab/nodes/hull/upgrade': () => jsonResponse(200, view({ hull: 1 })),
     'POST /galaxy/api/lab/nodes/resonance/upgrade': () => jsonResponse(409, { error: 'lab_changed' }),
   });
-  renderAt('/laboratorio', { '/laboratorio': <LabScreen /> });
+  renderAt('/laboratorio?vista=lista', { '/laboratorio': <LabScreen /> });
   const hull = (await screen.findByText('Blindaje reforzado', { selector: 'b' })).closest('li')!;
   fireEvent.click(within(hull).getByRole('button', { name: new RegExp(t.upgrade(1)) }));
   await waitFor(() => expect(card('Blindaje reforzado')).toHaveTextContent(t.level(1, 5)));
