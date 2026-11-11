@@ -15,6 +15,12 @@ const t = copy.redshift;
 const KEY = ['redshift'] as const;
 const pct = (x: number) => `${fmt(Math.round(x * 1000) / 10)} %`;
 
+/** Whether the prestige shows at all (from its level, or with a rank): the whiteboard's toolbar button follows it. */
+export function useRedshiftShown(): boolean {
+  const v = useQuery({ queryKey: KEY, queryFn: () => api<RedshiftView>('/redshift') }).data;
+  return !!v && !((v.rank === 0 && v.level < v.minLevel) || v.maxRank === 0);
+}
+
 export function Redshift() {
   const qc = useQueryClient();
   const view = useQuery({ queryKey: KEY, queryFn: () => api<RedshiftView>('/redshift') });
