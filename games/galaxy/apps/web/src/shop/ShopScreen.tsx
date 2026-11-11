@@ -51,7 +51,7 @@ function Featured({ product, firstPercent, reduced, onBuy }: { product: ShopProd
     <article className="lip panel shop-featured">
       <div className="shop-featured-art">
         <span className="shop-rays" aria-hidden="true" />
-        <PackCanvas product={product} size={60} reduced={reduced} className="shop-featured-canvas" />
+        <PackCanvas product={product} reduced={reduced} className="shop-featured-canvas" />
       </div>
       <div className="shop-featured-body">
         <div className="shop-tags">
@@ -177,7 +177,7 @@ export function ShopScreen() {
           <div className="shop-side">
             {welcome ? (
               <article className="lip panel shop-welcome">
-                <PackCanvas product={welcome} size={40} reduced={reduced} className="shop-welcome-art" />
+                <PackCanvas product={welcome} reduced={reduced} className="shop-welcome-art" />
                 <div>
                   <h3>{t.welcome.title}</h3>
                   <p>{t.welcome.lead(amountsText(welcome.total))}</p>

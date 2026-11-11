@@ -2,7 +2,7 @@ import { SHOP_CURRENCIES, type ShopAmounts, type ShopProductView } from '@galaxy
 import { type CSSProperties, useRef } from 'react';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
-import { artOf } from './art';
+import { artOf, SPRITE } from './art';
 import { eur, usePackArt } from './art-hooks';
 
 // A product of the shop (shop and lab plan, F5; the approved F0 mockup): its art, name, what it gives (with its gift
@@ -19,10 +19,10 @@ export function amountsText(a: ShopAmounts): string {
     .join(', ');
 }
 
-export function PackCanvas({ product, size, reduced, className }: { product: Pick<ShopProductView, 'art' | 'kind'>; size: number; reduced: boolean; className?: string }) {
+export function PackCanvas({ product, reduced, className }: { product: Pick<ShopProductView, 'art' | 'kind'>; reduced: boolean; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   usePackArt(ref, artOf(product.art, product.kind), reduced);
-  return <canvas ref={ref} width={size} height={size} className={className} aria-hidden="true" />;
+  return <canvas ref={ref} width={SPRITE} height={SPRITE} className={className} aria-hidden="true" />;
 }
 
 /** Its block in words, or null when it can be bought. */
@@ -43,7 +43,7 @@ export function ProductCard({ product, index, firstPercent, reduced, onBuy }: { 
       <span className="pack-glow" aria-hidden="true" />
       {product.badge ? <span className={`pack-ribbon ${product.badge}`}>{t.badges[product.badge]}</span> : null}
       {product.first ? <span className="shop-tag gift pack-first">{t.first.tag(firstPercent)}</span> : null}
-      <PackCanvas product={product} size={44} reduced={reduced} className="pack-art" />
+      <PackCanvas product={product} reduced={reduced} className="pack-art" />
       <h3 className="pack-name">{product.name}</h3>
       {single ? (
         <>

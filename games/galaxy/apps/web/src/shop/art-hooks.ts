@@ -1,5 +1,5 @@
 import { type RefObject, useEffect } from 'react';
-import { paintPack, type PackArt } from './art';
+import { paintPack, type PackArt, whenStrip } from './art';
 
 // The packs' sparkles (shop and lab plan, F5): every pack canvas on screen joins one animation loop (one frame for all
 // of them, not one each); with reduced motion each is painted once, still. A canvas leaves the loop when it unmounts.
@@ -20,10 +20,13 @@ export function usePackArt(ref: RefObject<HTMLCanvasElement | null>, art: PackAr
     if (!canvas) return;
     const a = { kind, tier };
     paintPack(canvas, a, 0);
-    if (reduced || typeof requestAnimationFrame !== 'function') return;
+    // The sprites' strip may still be on its way: paint again once it is here.
+    const stop = whenStrip(() => paintPack(canvas, a, 0));
+    if (reduced || typeof requestAnimationFrame !== 'function') return stop;
     live.set(canvas, a);
     if (!raf) raf = requestAnimationFrame(loop);
     return () => {
+      stop();
       live.delete(canvas);
     };
   }, [ref, kind, tier, reduced]);

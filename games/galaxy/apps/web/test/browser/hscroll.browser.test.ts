@@ -33,12 +33,21 @@ test('una tira más ancha que su sitio no enseña barra, se mueve con la rueda y
   const turned = list.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, bubbles: true, cancelable: true }));
   expect(turned).toBe(false);
   expect(list.scrollLeft).toBe(200);
-
-  next.click();
-  // A smooth scroll: its pace depends on the machine, so wait for it rather than for a fixed time.
-  await expect.poll(() => list.scrollLeft, { timeout: 5000 }).toBeGreaterThan(300);
-  await expect.poll(() => host.querySelector('.hscroll-arrow.prev'), { timeout: 2000 }).not.toBeNull();
+  // Moved from the start: the arrow back shows up.
+  await expect.poll(() => host.querySelector('.hscroll-arrow.prev')).not.toBeNull();
   if (import.meta.env['VITE_SCROLL_SHOTS']) await page.screenshot({ path: '__shots__/hscroll-middle.png', element: host });
+
+  // The arrow asks for a smooth scroll of most of the width (the browser does the animation, at its own pace).
+  const asked: ScrollToOptions[] = [];
+  const own = list.scrollBy.bind(list);
+  list.scrollBy = ((o: ScrollToOptions) => asked.push(o)) as typeof list.scrollBy;
+  next.click();
+  expect(asked).toEqual([{ left: Math.max(120, list.clientWidth * 0.8), behavior: 'smooth' }]);
+  list.scrollBy = own;
+
+  // At the end, the arrow forward goes away.
+  list.scrollLeft = list.scrollWidth;
+  await expect.poll(() => host.querySelector('.hscroll-arrow.next')).toBeNull();
   host.remove();
 });
 

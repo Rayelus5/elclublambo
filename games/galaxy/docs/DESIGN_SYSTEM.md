@@ -1026,7 +1026,21 @@ Las casillas tienen 44 px de alto.
 - **Cabecera:** «Volver», el título y el monedero con componentes (clase `shop-wallet`, adonde vuelan las fichas).
 - **Arriba:** la oferta destacada, con rayos que giran, un brillo que la cruza, sus etiquetas («+X % de regalo», «Rebajado», «Primera ×2») y una cuenta atrás real hasta su fin. Al lado, el pack de bienvenida (mientras no se haya comprado) y la tarjeta del extra de primera compra.
 - **Pestañas:** Monedas, Polvo, Componentes y Packs, en la dirección (`?pestana=monedas|polvo|componentes|packs`).
-- **Rejilla de 3×2:** cada pack con su arte de píxel, que crece con el tamaño (montón, saco, cofre, tarros, caja y portal en el mayor) y centellea; su nombre, lo que da, «N + M de regalo», el extra en solar, la cinta («Más popular», «Mejor valor») y el precio en el botón.
+- **Rejilla de 3×2:** cada pack con su arte de píxel y centelleos, su nombre, lo que da, «N + M de regalo», el extra en solar, la cinta («Más popular», «Mejor valor») y el precio en el botón.
+- **Arte de los packs [U, 2026-11-11]:** 22 sprites de 84×84, sobre el brillo de su recurso: a ×2 en las tarjetas, a ×3 en la oferta destacada (×2 en pantallas pequeñas) y a ×1 en el pack de bienvenida y en el resumen del pago. Siguen el nombre de cada producto:
+
+  | Pack | Monedas | Polvo | Componentes |
+  |---|---|---|---|
+  | 1 | Puñado | Pizca | Caja de piezas |
+  | 2 | Bolsa | Frasco | Kit |
+  | 3 | Saco | Tarro | Cajón técnico |
+  | 4 | Cofre | Ánfora | Palé |
+  | 5 | Arca | Nebulosa embotellada | Contenedor de carga |
+  | 6 | Bóveda estelar | Galaxia de polvo | Fábrica en una caja |
+
+  - Estilo: contorno de tinta por fuera y del tono oscuro de cada material por dentro, sombreado por bandas con la luz arriba a la izquierda, brillo en el metal y el cristal, y destellos.
+  - Detrás van el pack de bienvenida (una caja de regalo) y los kits: de arranque (caja de suministros), del explorador (mochila con brújula) y del comandante (cofre real con los tres recursos). Un combinado nuevo toma el kit de su tamaño.
+  - Fuente: `art/shop/tienda-packs.aseprite`, un fotograma por pack. Se generan con `art/shop/gen/` (`build.py` escribe la tira `apps/web/src/shop/packs.png`; `preview.py` saca la hoja de aprobación).
 - **El precio de antes** se tacha solo si lo manda el servidor (directiva Ómnibus). Lo que no se puede comprar dice por qué en su botón apagado.
 - **Pie:** «IVA incluido», «Condiciones de compra» (diálogo con el vendedor y el límite) y el límite diario. Nada crece de lado.
 

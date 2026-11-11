@@ -121,7 +121,7 @@ export function CheckoutDialog({
     <Dialog title={product ? product.name : tc.title} onClose={onClose} className="shop-dialog" closeOnVeil={step.kind === 'consent'}>
       {product ? (
         <div className="shop-summary">
-          <PackCanvas product={product} size={40} reduced={reduced} className="shop-summary-art" />
+          <PackCanvas product={product} reduced={reduced} className="shop-summary-art" />
           <div className="shop-summary-lines">
             <b>{amountsText(product.total)}</b>
             {product.offer?.kind === 'bonus' || product.first ? <span className="shop-summary-extra">{t.extraOf(amountsText(product.extra))}</span> : null}
