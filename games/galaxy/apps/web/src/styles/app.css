@@ -2291,6 +2291,7 @@
   .season-shop button .ico { inline-size: 16px; block-size: 16px; }
   .season-shop button:disabled { opacity: .45; filter: grayscale(.5); cursor: default; }
   .results-points .ico { inline-size: 16px; block-size: 16px; vertical-align: -3px; margin-inline-end: 4px; }
+  .results-shards .ico { margin-inline: 4px 0; }
   @media (prefers-reduced-motion: reduce) { .season-track li.ready .season-node { animation: none; } .season-track ol { scroll-behavior: auto; } }
   @media (max-width: 900px) { .season-hero { grid-template-columns: minmax(0, 1fr); } }
   /* First steps and the Guía (DESIGN_SYSTEM §8 octovicies). */

@@ -1436,7 +1436,9 @@ export const copy = {
     xp: (n: number) => `+${fmt(n)} de experiencia`,
     levelUp: 'Subes de nivel',
     points: (n: number) => `+${fmt(n)} puntos de temporada`,
-    shards: (n: number) => `+${fmt(n)} de moneda de temporada`,
+    /** Shown next to the shard icon; the label is what a screen reader says. */
+    shards: (n: number) => `+${fmt(n)}`,
+    shardsLabel: (n: number) => `+${fmt(n)} de moneda de temporada`,
     rankingTile: 'Temporada',
     route: 'Tienda de temporada',
   },
@@ -2423,7 +2425,8 @@ export const copy = {
     coins: 'Monedas',
     dust: 'Polvo',
     multiplier: 'Profundidad',
-    half: 'Sin extracción se cobra la mitad',
+    /** The share of the loot paid (`runs.deathShare` without extraction, set by the admin; less if the result was cut). */
+    share: (pct: number, extracted: boolean) => (extracted ? `Cobras el ${fmt(pct)} % del botín` : `Sin extracción te llevas el ${fmt(pct)} % del botín`),
     dailyTitle: 'Rendimiento del día',
     daily: (minutes: number, mult: number) => `${fmt(minutes)} min a ×${fmt(mult)}`,
     paid: 'Cobrado',
@@ -2505,7 +2508,8 @@ export const copy = {
     sound: 'Sonido',
     abandon: 'Abandonar incursión',
     abandonConfirm: 'Abandonar',
-    abandonBody: 'Se cobra la mitad del botín. No se puede deshacer',
+    // No number: the share without extraction is `runs.deathShare`, set by the admin (the results screen says the real one).
+    abandonBody: 'Solo cobras una parte del botín, como si la sonda cayera. No se puede deshacer',
     keepPlaying: 'Seguir jugando',
     hp: 'Vida',
     xp: 'Experiencia',
