@@ -943,6 +943,113 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 
 **Para volver atrás** (solo si algo sale muy mal): restaurar la copia del paso 1 con la aplicación parada.
 
+## Tienda de recursos: puesta en marcha
+
+La tienda (GDD §11.5) cobra con Stripe **en modo real**. Desde la primera compra, PRE es producción para los pagos: `ops/reset-beta.sql` se niega a borrar y una cuenta con compras no se puede borrar. Los secretos nunca pasan por el repo ni por el chat: solo los pegas tú en el servidor. Pasos, en orden:
+
+### 1. En Stripe (Dashboard, modo real)
+
+1. **Descriptor del cargo** (Configuración › Datos públicos de la empresa): lo que el jugador verá en su banco, por ejemplo `GALAXY SURVIVOR`.
+2. **Recibos por correo:** Configuración › Correos electrónicos de clientes › «Pagos correctos», activado.
+3. **Métodos de pago:** Configuración › Métodos de pago. Tarjeta, Apple Pay y Google Pay activados; el resto, apagados. El código ya solo pide tarjeta, que incluye Apple Pay y Google Pay.
+4. **Dominios de métodos de pago:** Configuración › Métodos de pago › Dominios. Añade `pre.elclub.party`. Si Stripe pide un archivo de verificación de Apple Pay, dímelo y lo servimos.
+5. **Radar** (Pagos › Fraude): bloquear si falla el CVC y si falla el código postal.
+6. **Avisos de disputas:** Configuración › Notificaciones › «Disputas», a tu correo.
+
+### 2. La clave restringida
+
+Desarrolladores › Claves de API › «Crear clave restringida», con el nombre `galaxy-pre` y estos permisos:
+
+| Recurso | Permiso |
+|---|---|
+| Checkout Sessions | Escritura |
+| Prices | Escritura (para «Crear en Stripe los que faltan»; Lectura si prefieres crearlos tú) |
+| Products | Escritura (igual que Prices) |
+| PaymentIntents, Charges, Disputes | Lectura |
+| Todo lo demás | Ninguno |
+
+Copia la clave `rk_live_…`. Sale una sola vez: guárdala en tu gestor de contraseñas. Copia también la **clave publicable** `pk_live_…`.
+
+### 3. El webhook
+
+Desarrolladores › Webhooks › «Añadir destino»:
+- **URL:** `https://pre.elclub.party/galaxy/api/shop/webhook`
+- **Versión de la API:** `2026-10-28.endive`, la del SDK del servidor (`STRIPE_API_VERSION` en `apps/server/src/shop/stripe-gateway.ts`).
+- **Eventos:**
+  - `checkout.session.completed`
+  - `checkout.session.async_payment_succeeded`
+  - `checkout.session.async_payment_failed`
+  - `checkout.session.expired`
+  - `charge.refunded`
+  - `charge.dispute.created`
+  - `charge.dispute.closed`
+
+Copia el **secreto de firma** `whsec_…`.
+
+### 4. Cloudflare
+
+Que ni el WAF ni Bot Fight Mode desafíen el `POST /galaxy/api/shop/webhook`: Stripe no resuelve desafíos. Si tienes reglas, añade una que salte esa ruta. Después de la primera compra, comprueba en Stripe › Webhooks › tu destino › Entregas que respondió `200`.
+
+### 5. Copia de seguridad
+
+Antes de abrir, programa una copia nocturna de la base de datos de PRE (`pg_dump` del esquema `galaxy` como mínimo) y que se copie fuera de la máquina. Una base de datos con dinero real no puede depender de un solo disco.
+
+### 6. En el servidor (por SSH, en el CT 103)
+
+```bash
+nano /opt/elclub/pre/galaxy.env
+```
+
+Rellena las tres líneas que ya están vacías al final:
+
+```
+STRIPE_SECRET_KEY=rk_live_…
+STRIPE_WEBHOOK_SECRET=whsec_…
+STRIPE_PUBLISHABLE_KEY=pk_live_…
+```
+
+Guarda y vuelve a crear el contenedor del juego para que lea el archivo (reiniciar no basta):
+
+```bash
+cd /opt/elclub/src && docker compose -p elclub-pre --env-file /opt/elclub/pre/web.env -f deploy/preprod/docker-compose.yml up -d --no-build --force-recreate galaxy
+docker logs elclub-pre-galaxy-1 2>&1 | grep -m1 stripe_
+```
+
+Debe salir `stripe_ready` con `"mode":"live"`. Si sale `stripe_env_incomplete`, falta una clave o no son las tres del mismo modo; si sale `stripe_off`, el archivo no tiene ninguna.
+
+### 7. En el panel (Admin › Tienda y Admin › Configuración › Tienda)
+
+1. **Precios de Stripe:** en Admin › Tienda › Precios, «Crear en Stripe los que faltan». Necesita tu contraseña y crea un precio en euros de pago único por producto. Pon cada `price_…` en su producto en Configuración › Tienda (o créalos tú en Stripe con el mismo importe) y después pulsa «Comprobar con Stripe»: todos deben salir «Correcto».
+2. **Datos legales:** en Configuración › Tienda › `legal`, tu nombre o razón social como vendedor y un contacto.
+3. **El producto de prueba:** añade uno de 0,50 € con `staffOnly: true` y su precio de Stripe.
+4. **Abrir solo para el staff:** `enabled: true` y `audience: staff`. Publica.
+
+### 8. La compra de prueba (tú, con tu cuenta de admin entrada con TOTP)
+
+1. Compra el producto de 0,50 €. Debe pasar todo esto:
+   - la celebración;
+   - una línea `shop` en tu libro de movimientos;
+   - la compra «Pagada» en Admin › Tienda › Compras;
+   - la entrega del webhook con `200` en Stripe;
+   - el recibo en tu correo.
+2. Prueba también Apple Pay en Safari y Google Pay en Chrome.
+3. La consola del navegador no debe tener errores de CSP.
+4. **La devolución:** devuélvela desde Stripe (Pagos › el pago › Reembolsar). Deben pasar estas cuatro cosas:
+   - se quita lo que te dio;
+   - tu tienda queda bloqueada;
+   - salta un aviso en Admin › Tienda › Avisos;
+   - te llega un mensaje al buzón.
+
+   Revisa el aviso y desbloquéate en Bloqueos.
+
+### 9. Abrir a todos
+
+Con tu OK, se prepara `shop` con `audience: everyone` (y el producto de prueba desactivado) en una carpeta de `ops/launch/`, se publica con la skill `galaxy-publicar-config` y se avisa en Noticias.
+
+### 10. En local
+
+Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y todo lo demás funciona igual. No hay modo de pruebas: la interfaz del pago se prueba con Stripe simulado en los tests (`apps/web/test/shop.test.tsx`).
+
 ## Operación
 
 | Tarea | Cómo |
