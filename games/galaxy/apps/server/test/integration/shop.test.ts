@@ -156,7 +156,9 @@ describe('los límites', () => {
   test('el límite diario cuenta lo pagado; un pago sin terminar que estorba se cierra en Stripe, el más antiguo primero', async () => {
     const { cookie } = await player();
     const big = await opened(cookie, 'coins-5');
+    later(1_000);
     const other = await opened(cookie, 'dust-5');
+    later(1_000);
     let v = await view(cookie);
     expect(v.limits.spentTodayCents).toBe(0);
     expect(v.products.find((x) => x.id === 'coins-1')!.block).toBeNull();
@@ -187,7 +189,11 @@ describe('los límites', () => {
   test('los pagos sin terminar de más se cierran para dejar sitio: nunca hay más abiertos que los permitidos', async () => {
     const { cookie, id } = await player();
     const first = await opened(cookie, 'coins-1');
-    for (const p of ['dust-1', 'components-1']) await opened(cookie, p);
+    for (const p of ['dust-1', 'components-1']) {
+      later(1_000);
+      await opened(cookie, p);
+    }
+    later(1_000);
     expect((await checkout(cookie, 'coins-2')).statusCode).toBe(200);
     expect(gateway.sessionOfPurchase(first).status).toBe('expired');
     const open = await ctx.db.selectFrom('galaxy.shop_purchases').select('id').where('account_id', '=', id).where('status', 'in', ['creating', 'pending']).execute();
