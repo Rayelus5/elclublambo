@@ -48,7 +48,8 @@ test('las diez salas: las que funcionan llevan a su pantalla y las de más adela
   open();
   const deck = await screen.findByRole('list', { name: t.title });
   expect(within(deck).getAllByRole('listitem')).toHaveLength(10);
-  expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.hangar) })).toHaveAttribute('href', '/incursion');
+  // The hangar room is the probes' Taller.
+  expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.hangar) })).toHaveAttribute('href', '/taller');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.scanner) })).toHaveAttribute('href', '/escaner');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.planetarium) })).toHaveAttribute('href', '/planetario');
   expect(within(deck).getByRole('link', { name: new RegExp(t.rooms.collider) })).toHaveAttribute('href', '/coleccion');
@@ -62,8 +63,8 @@ test('las diez salas: las que funcionan llevan a su pantalla y las de más adela
   expect(within(deck).getByText(t.rooms.antenna).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'antenna-broken');
   expect(within(deck).getByText(t.rooms.refinery).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'refinery-1');
   expect(within(deck).getByText(t.rooms.lab).closest('li')!.querySelector('.room-art')).toHaveAttribute('data-sheet', 'lab-broken');
-  // Raw material and components in the bar, read as sentences.
-  expect(screen.getByRole('img', { name: t.resource.material(45) })).toBeInTheDocument();
+  // Raw material and components in the bar, read as sentences; material opens the refinery.
+  expect(screen.getByRole('button', { name: new RegExp(t.resource.material(45)) })).toBeInTheDocument();
   expect(screen.getByRole('img', { name: t.resource.components(12) })).toBeInTheDocument();
 });
 
@@ -144,7 +145,7 @@ test('la Antena funcionando: lo que espera, su ritmo, cuándo se llena y recoger
   expect(dialog).toHaveTextContent(t.antenna.fullAt('18:00', 'today'));
   expect(within(dialog).getByRole('progressbar', { name: t.antenna.fill })).toHaveAttribute('aria-valuenow', '1');
   fireEvent.click(within(dialog).getByRole('button', { name: t.antenna.collectN(3) }));
-  expect(await screen.findByRole('img', { name: copy.hub.resource.signal(7) })).toBeInTheDocument();
+  expect(await screen.findByRole('link', { name: new RegExp(copy.hub.resource.signal(7)) })).toBeInTheDocument();
   expect(sent(fetch, 'antenna/collect')).toHaveLength(1);
 });
 

@@ -8,9 +8,9 @@ import { page } from 'vitest/browser';
 import { MainMenu } from '../../src/hub/MainMenu';
 import '../../src/styles/app.css';
 
-// The title menu in a real Chromium (M6d-1, the owner's request): the illustrated icon of Supervivencia, Hogar and
+// The title menu in a real Chromium (M6d-1, the owner's request): the illustrated icon of Supervivencia, Estación and
 // Eventos sits in the middle of its square chip (the filters' own .chip padding and lip do not reach it).
-test('el icono de Supervivencia, Hogar y Eventos queda centrado en su recuadro', async () => {
+test('el icono de Supervivencia, Estación y Eventos queda centrado en su recuadro', async () => {
   await page.viewport(1400, 900);
   const host = document.createElement('div');
   host.style.width = '700px';

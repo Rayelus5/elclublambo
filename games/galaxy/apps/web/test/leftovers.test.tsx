@@ -50,6 +50,7 @@ test('sin escÃ¡ner de evento abierto el ticket morado no sale, aunque queden seÃ
   const wallet = { coins: 10, dust: 200, signal: 1, 'signal:viejo': 3 };
   mockApi({ 'GET /galaxy/api/gacha': () => jsonResponse(200, view({ wallet })) });
   renderAt('/', { '/': bar(wallet) });
-  await screen.findByRole('img', { name: copy.hub.resource.signal(1) });
-  await waitFor(() => expect(screen.queryByRole('img', { name: copy.hub.resource.eventSignal(3) })).toBeNull());
+  await screen.findByRole('link', { name: new RegExp(copy.hub.resource.signal(1)) });
+  await waitFor(() => expect(screen.queryByRole('link', { name: new RegExp(copy.hub.resource.eventSignal(3)) })).toBeNull());
+  expect(document.querySelector('.res.event-signal')).toBeNull();
 });
