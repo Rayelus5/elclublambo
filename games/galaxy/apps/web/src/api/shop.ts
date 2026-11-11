@@ -1,7 +1,8 @@
 import type { ShopCheckout, ShopPurchaseView, ShopView, Wallet } from '@galaxy/shared';
 import { type QueryClient, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { endIntent, GACHA_KEY, keyFor } from './economy';
+import { endIntent, keyFor } from './economy';
+import { syncWallet } from './wallet';
 
 // The resource shop as the client sees it (shop and lab plan, F5): its view (prices, what each product gives, the
 // limits), opening a payment (one intent per product chosen: a lost answer reuses its key, so the same payment is
@@ -15,11 +16,9 @@ export function useShop() {
   return useQuery({ queryKey: SHOP_KEY, queryFn: () => api<ShopView>('/shop'), staleTime: 15_000 });
 }
 
-/** The wallet a delivered purchase left, everywhere a wallet is shown. */
+/** The wallet a delivered purchase left, everywhere a wallet is shown (the shop's own view among them). */
 export function settleWallet(qc: QueryClient, wallet: Wallet): void {
-  for (const key of [GACHA_KEY, SHOP_KEY, ['station'], ['lab'], ['hangar']] as const) {
-    qc.setQueryData<{ wallet?: Wallet }>(key, (old) => (old && typeof old === 'object' && 'wallet' in old ? { ...old, wallet } : old));
-  }
+  syncWallet(qc, wallet);
 }
 
 const intent = (product: string) => `shop:${product}`;

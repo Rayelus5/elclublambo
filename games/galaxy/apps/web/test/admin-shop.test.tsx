@@ -81,7 +81,7 @@ test('un aviso se revisa con un motivo, sin contraseña', async () => {
   expect(await screen.findByRole('cell', { name: t.alertKinds.refund })).toBeInTheDocument();
   expect(screen.getByRole('cell', { name: `${eur(699)}, ${t.detail.taken('200 de polvo')}, ${t.detail.short('400 de polvo')}` })).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: t.review }));
-  const d = await screen.findByRole('dialog', { name: t.reviewTitle(t.alertKinds.refund) });
+  const d = await screen.findByRole('dialog', { name: t.reviewTitle(t.alertKinds.refund!) });
   expect(within(d).queryByLabelText(copy.admin.fields.password)).toBeNull();
   fireEvent.change(within(d).getByLabelText(copy.admin.fields.reason), { target: { value: 'Hablado con el jugador' } });
   fireEvent.click(within(d).getByRole('button', { name: t.review }));
