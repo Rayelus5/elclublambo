@@ -23,6 +23,10 @@ begin
   if not exists (select 1 from information_schema.schemata where schema_name = 'galaxy') then
     raise exception 'Esta base no tiene el esquema galaxy';
   end if;
+  -- Real money (the resource shop): once there is a purchase, this reset can never run again.
+  if exists (select 1 from galaxy.shop_purchases) then
+    raise exception 'Hay compras con dinero real en la tienda: este borrado ya no se puede usar';
+  end if;
 end $$;
 
 select 'antes' as momento,
@@ -94,6 +98,9 @@ truncate table
   galaxy.season_results,
   galaxy.season_route_claims,
   galaxy.sessions,
+  galaxy.shop_alerts,
+  galaxy.shop_blocks,
+  galaxy.shop_stripe_events,
   galaxy.social_prefs,
   galaxy.station_rooms,
   galaxy.trade_alerts,

@@ -41,6 +41,11 @@ nano /opt/elclub/pre/galaxy.env
 | `GALAXY_PUBLIC_ORIGINS` | `https://pre.elclub.party` |
 | `GALAXY_TOTP_KEY` | la salida de `openssl rand -base64 32` (guárdala también en tu gestor de contraseñas) |
 | `NODE_ENV` | `production` |
+| `STRIPE_SECRET_KEY` | vacía hasta abrir la tienda; después, la clave restringida `rk_live_…` (ver «Tienda de recursos») |
+| `STRIPE_WEBHOOK_SECRET` | vacía hasta abrir la tienda; después, el `whsec_…` del webhook |
+| `STRIPE_PUBLISHABLE_KEY` | vacía hasta abrir la tienda; después, la clave publicable `pk_live_…` |
+
+Las tres de Stripe son opcionales. Si están vacías, o no son las tres del mismo modo, la tienda queda cerrada y el log de arranque dice `stripe_off` o `stripe_env_incomplete`; el resto del juego no cambia. Con las tres bien puestas, dice `stripe_ready` con su modo.
 
 ### 3. Comprobar que la API de Supabase no ve el esquema
 
