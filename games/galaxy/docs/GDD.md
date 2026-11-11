@@ -823,6 +823,8 @@ Se mantiene la arquitectura de `BRIEF.md` §4, validada. Resumen y cambios:
   - `worker-src 'self' blob:`;
   - `frame-ancestors 'none'`;
   - HSTS.
+  - **Excepción: Stripe.js para la tienda (§11.5).** Script, marcos, API e imágenes de Stripe, tal como los pide su guía de CSP: `js.stripe.com` y `*.js.stripe.com` en `script-src` y `frame-src`, `hooks.stripe.com` en `frame-src` (3D Secure), `api.stripe.com` en `connect-src` y `*.stripe.com` en `img-src`. Stripe.js solo se carga al abrir el pago.
+  - `Cross-Origin-Opener-Policy: same-origin-allow-popups`, porque Google Pay abre su propia ventana.
 
   PixiJS se importa como `pixi.js/unsafe-eval`.
 - **Pipeline:** `preproduction.yml` construye, reinicia y hace el smoke de `/galaxy/api/health`. Además, `galaxy-ci.yml` corre con runners de GitHub para los cambios en `games/**`.

@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router';
 import { create } from 'zustand';
 import { FRIENDS_KEY, setPresence } from '../api/friends';
 import { setMyRoom } from '../api/rooms';
+import { settleWallet, SHOP_KEY } from '../api/shop';
 import { useMe } from '../auth/useMe';
 import { retryDelay } from '../chat/useChatSocket';
 
@@ -107,6 +108,13 @@ function LiveSocket() {
           if (!event.room && event.why) pushToast({ kind: event.why, username: '' });
         } else if (event.type === 'invite') pushToast({ kind: 'invite', username: event.invite.from, invite: event.invite });
         else if (event.type === 'coopResult') pushToast({ kind: 'coopResult', username: '', result: event.result });
+        else if (event.type === 'purchase') {
+          // A purchase of the shop delivered (shop and lab plan, F5): its wallet everywhere, and the purchase itself
+          // for the payment dialog waiting on it.
+          settleWallet(qc, event.purchase.wallet);
+          qc.setQueryData(['shop-purchase', event.purchase.id], event.purchase);
+          void qc.invalidateQueries({ queryKey: SHOP_KEY });
+        }
       };
       s.onclose = (e: CloseEvent) => {
         socket.current = null;

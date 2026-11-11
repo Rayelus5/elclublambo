@@ -55,6 +55,7 @@ import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
 import { TrophiesScreen } from './season/TrophiesScreen';
 import { SettingsScreen } from './hub/SettingsScreen';
+import { ShopScreen } from './shop/ShopScreen';
 
 function Splash() {
   return (
@@ -124,6 +125,7 @@ export function App() {
         <Route path="/incursion/sala" element={<Navigate to="/incursion" replace />} />
         <Route path="/sonda" element={<SignedIn><ProbeTestScreen /></SignedIn>} />
         <Route path="/taller" element={<SignedIn><WorkshopScreen /></SignedIn>} />
+        <Route path="/tienda" element={<SignedIn><ShopScreen /></SignedIn>} />
         <Route path="/estacion" element={<SignedIn><StationScreen /></SignedIn>} />
         <Route path="/laboratorio" element={<SignedIn><LabScreen /></SignedIn>} />
         <Route path="/planetario" element={<SignedIn><PlanetariumScreen /></SignedIn>} />

@@ -78,6 +78,11 @@ describe('la tienda abierta', () => {
     expect(b).toEqual(a);
     expect(await ctx.db.selectFrom('galaxy.shop_purchases').select('id').where('product', '=', 'dust-1').where('stripe_session_id', '=', gateway.sessionOfPurchase(a.purchase).id).execute()).toHaveLength(1);
   });
+
+  test('la vista del escáner dice si la tienda está abierta para mí y si hay oferta', async () => {
+    const { cookie } = await player();
+    expect((await get(ctx.app, '/galaxy/api/gacha', { cookie })).json().shop).toEqual({ open: true, offer: false });
+  });
 });
 
 describe('la entrega', () => {
@@ -234,6 +239,7 @@ describe('la tienda cerrada', () => {
         const cookie = sessionCookie(res);
         expect(await view(cookie, app.app)).toMatchObject({ open: false, closed: 'closed', publishableKey: null, products: [] });
         expect((await checkout(cookie, 'coins-1', {}, randomUUID(), app.app)).json()).toEqual({ error: 'shop_closed' });
+        expect((await get(app.app, '/galaxy/api/gacha', { cookie })).json().shop).toEqual({ open: false, offer: false });
       } finally {
         await app.close();
       }
