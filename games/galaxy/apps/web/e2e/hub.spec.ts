@@ -27,9 +27,9 @@ test('una cuenta nueva ve sus señales de bienvenida, la tirada gratis y lo que 
   await expect(page.getByRole('img', { name: '10 señales de galaxia' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Escáner profundo/ })).toContainText('Tirada gratis');
   await expect(page.getByRole('link', { name: /Colección/ })).toContainText('0 galaxias');
-  // M3a: Jugar opens the hangar; M4a: the Hogar opens the station.
+  // M3a: Jugar opens the hangar; M4a: the Estación opens the station.
   await expect(page.getByRole('link', { name: /Jugar/ })).toHaveAttribute('href', '/galaxy/incursion');
-  await expect(page.getByRole('link', { name: /Hogar/ })).toHaveAttribute('href', '/galaxy/estacion');
+  await expect(page.getByRole('link', { name: /^Estación/ })).toHaveAttribute('href', '/galaxy/estacion');
   // M5a: the right column is the season (closed or open, a new account has no place yet) and Ranking leads to it.
   await expect(page.getByRole('complementary', { name: /Temporada|Clasificación/ })).toContainText(/Juega una incursión para entrar en la clasificación|No hay ninguna temporada abierta/);
   await expect(page.getByRole('link', { name: /Ranking/ })).toHaveAttribute('href', '/galaxy/clasificacion');

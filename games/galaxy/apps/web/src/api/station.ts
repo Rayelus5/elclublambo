@@ -1,7 +1,8 @@
 import type { StationView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import { endIntent, GACHA_KEY, keyFor } from './economy';
+import { endIntent, keyFor } from './economy';
+import { syncWallet } from './wallet';
 
 // The station (GDD §10): its view (refreshed every minute, the refinery and the antenna move with the hour) and its
 // four actions. Each action keeps its idempotency key until a real answer, so a lost request is retried with it.
@@ -21,8 +22,8 @@ function useStationAction<T>(intent: (v: T) => string, request: (v: T) => { path
     },
     onSuccess: (view) => {
       qc.setQueryData(STATION_KEY, view);
-      // Signals and coins also live in the hub's wallet.
-      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+      // The same wallet lives in the hub's, the Laboratorio's and the Hangar's views.
+      syncWallet(qc, view.wallet);
     },
     onSettled: (_r, error, v) => endIntent(intent(v), error),
   });

@@ -20,7 +20,7 @@ test('una cuenta nueva empieza el tour tras su sonda, lo sigue y lo puede saltar
 
   const card = page.getByRole('dialog', { name: 'Tutorial' });
   await expect(card).toContainText('Soy PERKINS');
-  for (const text of ['Aquí arriba están tus recursos', 'Jugar lanza una incursión', 'Hogar es tu estación']) {
+  for (const text of ['Aquí arriba están tus recursos', 'Jugar lanza una incursión', 'En la Estación reparas salas']) {
     await card.getByRole('button', { name: 'Siguiente' }).click();
     await expect(card).toContainText(text);
   }
