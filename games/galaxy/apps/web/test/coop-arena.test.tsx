@@ -2,6 +2,7 @@ import { type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } f
 import { DEFAULT_CONTENT, encodeLog, gainXp, type Sim, toBase64 } from '@galaxy/sim';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { describeOffer } from '../src/arena/hud/LevelUp';
 import { CoopArena } from '../src/coop/CoopArena';
 import { copy } from '../src/copy/es';
 
@@ -137,6 +138,11 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   const strip = await screen.findByRole('region', { name: t.cards }, { timeout: 2000 });
   expect(strip).toBeInTheDocument();
   expect(sim().status).toBe('running');
+  // Like solo runs, each card says what it does (Nov plan A1).
+  const offer = sim().probes[0]!.offer!;
+  const cards = within(strip).getAllByRole('button');
+  expect(cards).toHaveLength(offer.length);
+  offer.forEach((o, i) => expect(cards[i]).toHaveTextContent(describeOffer(DEFAULT_CONTENT, o).text));
   // The cards listen to the number keys from an effect that runs just after they show: let it run before pressing
   // (a loaded CI machine pressed in between).
   await act(async () => {});
