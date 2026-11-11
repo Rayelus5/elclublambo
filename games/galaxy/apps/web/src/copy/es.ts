@@ -2324,7 +2324,7 @@ export const copy = {
     open: 'Guía',
     chaptersLabel: 'Capítulos',
     chapters: {
-      run: { title: 'La incursión', points: ['Te mueves con WASD o las flechas; la sonda dispara sola.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
+      run: { title: 'La incursión', points: ['Te mueves con WASD o las flechas; la sonda dispara sola.', 'Con la rueda del ratón acercas o alejas la vista; nunca ves menos de lo que ves al empezar.', 'Los enemigos dejan experiencia: recógela para subir de nivel.', 'Las monedas y el polvo que caen se cobran al terminar.'] },
       upgrades: { title: 'Las mejoras', points: ['Al subir de nivel eliges una mejora entre varias; el sector espera.', 'Las armas y las pasivas suben de nivel. Algunas parejas evolucionan.', 'Tus reliquias, las galaxias equipadas, dan bonos desde el principio.'] },
       layers: { title: 'Capas, Núcleos y baliza', points: ['Cada capa acaba con un Núcleo de la Estática.', 'Al purgarlo se abre una baliza: llega y aguanta dentro para extraer.', 'Si no extraes, bajas a la capa siguiente: más difícil y mejor botín.'] },
       galaxies: { title: 'Las galaxias', points: ['El Escáner transcribe galaxias nuevas con señales o monedas.', 'Cada una tiene su rareza, su acabado y sus rasgos.', 'En la colección las fusionas para subir de rareza o las desintegras por polvo.'] },

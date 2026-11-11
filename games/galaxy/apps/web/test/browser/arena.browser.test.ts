@@ -252,3 +252,42 @@ test('el lienzo deja el cursor al juego: al pasar el ratón, PixiJS no le escrib
   canvas.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 120, clientY: 110, pointerType: 'mouse' }));
   expect(canvas.style.cursor).toBe('');
 });
+
+test('la rueda acerca la vista a pasos enteros hasta el doble de cerca y vuelve; nunca ve más que la vista de siempre', async () => {
+  const { sim, feed } = played(10 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '20261107', preserve: true, zoom: 1 });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  expect(stage.camera()).toMatchObject({ zoom: 3, worldH: 240 });
+  stage.zoom(5);
+  stage.render(sim, 1);
+  expect(stage.zoomLevel()).toBe(2);
+  expect(stage.camera()!.zoom).toBe(4);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-zoom-4.png', element: canvas });
+  stage.zoom(-9);
+  stage.render(sim, 1);
+  expect(stage.zoomLevel()).toBe(0);
+  expect(stage.camera()!.zoom).toBe(2);
+}, 90_000);
+
+test('con movimiento, el zoom se desliza unos fotogramas hasta su paso entero', async () => {
+  const { sim, feed } = played(10 * 60);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, seed: '20261107', preserve: true });
+  stage.resize(1280, 720);
+  feed(stage);
+  stage.render(sim, 1);
+  stage.zoom(1);
+  await new Promise((r) => setTimeout(r, 30));
+  stage.render(sim, 1);
+  const mid = stage.camera()!.zoom;
+  expect(mid).toBeGreaterThan(2);
+  expect(mid).toBeLessThan(3);
+  for (let i = 0; i < 40; i++) {
+    await new Promise((r) => setTimeout(r, 16));
+    stage.render(sim, 1);
+  }
+  expect(stage.camera()!.zoom).toBe(3);
+}, 90_000);

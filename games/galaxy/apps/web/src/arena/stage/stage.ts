@@ -3,7 +3,7 @@ import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type Sim
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
-import { type Camera, cameraFor } from './camera';
+import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
@@ -27,6 +27,8 @@ export interface StageOptions {
   biome?: BiomeId;
   /** Co-op (multiplayer plan): every player's name by probe, shown over the teammates. */
   names?: string[];
+  /** Whole steps closer than the base view the run starts at (the player's wheel, kept between runs). */
+  zoom?: number;
 }
 
 export interface Stage {
@@ -36,6 +38,10 @@ export interface Stage {
   feed(events: readonly SimEvent[], tick?: number): void;
   resize(w: number, h: number): void;
   camera(): Camera | null;
+  /** The mouse wheel: `steps` whole steps closer (negative: farther), within the camera's limits; it glides there. */
+  zoom(steps: number): void;
+  /** How many steps closer than the base view it is set to now. */
+  zoomLevel(): number;
   /** Follows another probe from now on (the admin's replay of a group run switches between players). */
   follow(probe: number): void;
   destroy(): void;
@@ -247,6 +253,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   let last = performance.now();
   let clock = 0;
   let cam: Camera | null = null;
+  // The player's zoom: the steps asked for, and the value drawn now (it glides there in a few frames).
+  let closer = Math.max(0, Math.round(opts.zoom ?? 0));
+  let shownCloser = closer;
+  const clampCloser = () => {
+    closer = Math.min(Math.max(0, closer), zoomSteps(baseZoom(h, opts.vision)));
+  };
 
   function enemySprite(sim: Sim, i: number): string {
     const t = sim.enemies.type[i]!;
@@ -891,7 +903,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       const p = sim.probes[opts.probe] ?? sim.probes[0]!;
       const focus = { x: lerp(p.px, p.x, alpha), y: lerp(p.py, p.y, alpha) };
-      const c = cameraFor(w, h, focus, opts.vision);
+      clampCloser();
+      shownCloser = opts.reduced || Math.abs(closer - shownCloser) < 0.02 ? closer : shownCloser + (closer - shownCloser) * (1 - Math.exp(-dt * 16));
+      const c = cameraFor(w, h, focus, opts.vision, shownCloser);
       cam = c;
       const shake = fx.update(dt);
       hurtAlpha *= 0.88;
@@ -932,6 +946,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       paintVeil();
     },
     camera: () => cam,
+    zoom(steps) {
+      closer += Math.round(steps);
+      clampCloser();
+    },
+    zoomLevel: () => closer,
     follow: (probe: number) => {
       opts.probe = probe;
     },

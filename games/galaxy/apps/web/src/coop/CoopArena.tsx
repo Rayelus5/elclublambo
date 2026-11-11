@@ -8,7 +8,8 @@ import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
 import { emptyInput, readInput } from '../arena/input';
 import { createLockstep, type Lockstep } from '../arena/lockstep';
-import { manualAim as storedAim, setManualAim } from '../arena/settings';
+import { arenaZoom, manualAim as storedAim, setManualAim } from '../arena/settings';
+import { useWheelZoom } from '../arena/zoom';
 import type { Camera } from '../arena/stage/camera';
 import { createStage, type Stage } from '../arena/stage/stage';
 import { retryDelay } from '../chat/useChatSocket';
@@ -249,6 +250,7 @@ function CoopWorld({
   const slot = viewer ? viewSlot : start.slot;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
+  useWheelZoom(canvasRef, stageRef);
   const loopRef = useRef<Lockstep | null>(null);
   const input = useRef(emptyInput());
   const lastSent = useRef<string>('');
@@ -355,6 +357,7 @@ function CoopWorld({
       seed: start.seed,
       biome,
       names: start.players.map((p) => p.username),
+      zoom: arenaZoom(),
     }).then((stage) => {
       if (disposed) {
         stage.destroy();

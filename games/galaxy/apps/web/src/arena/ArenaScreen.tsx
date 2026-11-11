@@ -15,7 +15,8 @@ import { LevelUp } from './hud/LevelUp';
 import { PauseMenu } from './hud/PauseMenu';
 import { emptyInput, readInput } from './input';
 import { createLoop, type Loop } from './loop';
-import { manualAim as storedAim, markRadioSeen, radioSeen, setManualAim } from './settings';
+import { arenaZoom, manualAim as storedAim, markRadioSeen, radioSeen, setManualAim } from './settings';
+import { useWheelZoom } from './zoom';
 import type { Camera } from './stage/camera';
 import { createStage, type Stage } from './stage/stage';
 import { useUi } from '../state/ui';
@@ -67,6 +68,7 @@ export function ArenaScreen({
   const [sim] = useState(() => createSim(simOptions(run)));
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
+  useWheelZoom(canvasRef, stageRef);
   const loopRef = useRef<Loop | null>(null);
   const input = useRef(emptyInput());
   /** A level-up pick, with the offer it was made on: it only counts while that offer is still the open one. */
@@ -204,7 +206,7 @@ export function ArenaScreen({
       setSize({ w, h });
     };
     const biome = run.content.sectors.find((s) => s.id === run.sector)?.biome ?? 'nebula';
-    void createStage(canvas, run.content, { reduced, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome }).then((stage) => {
+    void createStage(canvas, run.content, { reduced, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: run.seed, biome, zoom: arenaZoom() }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;
