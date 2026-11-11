@@ -3,13 +3,13 @@ import { AbsoluteFill, Img, staticFile } from 'remotion';
 import { Fonts, Logo } from '../parts';
 import { C, DISPLAY, PLAY_URL, SANS } from '../theme';
 
-// Weekend tournament promo (13–15 Nov 2026): an external contest the owner runs on the in-game General ranking, reset
+// Weekend tournament promo (13–22 Nov 2026): an external contest the owner runs on the in-game General ranking, reset
 // on Friday. Four stills, two art directions in two formats: «Podio» (the prizes as a podium over a solo horde) and
 // «Solo o en grupo» (the screen split between a solo run and a group run). Everything said lives in TORNEO, once.
 
 export const TORNEO = {
   title: 'Torneo de fin de semana',
-  dates: 'Del viernes 13 al domingo 15 de noviembre',
+  dates: 'Del viernes 13 al domingo 22 de noviembre',
   rules: ['Todos empiezan de cero el viernes', 'Gana quien más puntos de temporada consiga', 'Solo o en grupo: todo suma', 'Mínimo 5.000 puntos para optar a premio'],
   prizes: [
     { place: '1.º', amount: '10 €' },
