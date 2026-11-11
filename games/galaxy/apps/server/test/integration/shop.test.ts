@@ -153,20 +153,51 @@ describe('los límites', () => {
     expect((await view(cookie)).products.find((x) => x.id === 'welcome')!.block).toBe('once_used');
   });
 
-  test('el límite diario cuenta lo pagado y lo abierto', async () => {
+  test('el límite diario cuenta lo pagado; un pago sin terminar que estorba se cierra en Stripe, el más antiguo primero', async () => {
     const { cookie } = await player();
-    await opened(cookie, 'coins-5');
-    await opened(cookie, 'dust-5');
-    expect((await checkout(cookie, 'coins-1')).json()).toEqual({ error: 'shop_daily_limit' });
-    const v = await view(cookie);
-    expect(v.limits.spentTodayCents).toBe(9998);
-    expect(v.products.find((x) => x.id === 'coins-1')!.block).toBe('daily_limit');
+    const big = await opened(cookie, 'coins-5');
+    later(1_000);
+    const other = await opened(cookie, 'dust-5');
+    later(1_000);
+    let v = await view(cookie);
+    expect(v.limits.spentTodayCents).toBe(0);
+    expect(v.products.find((x) => x.id === 'coins-1')!.block).toBeNull();
+    // coins-1 only fits once an unfinished payment goes: the oldest is closed, the other stays.
+    const small = await opened(cookie, 'coins-1');
+    expect(gateway.sessionOfPurchase(big).status).toBe('expired');
+    expect((await purchase(cookie, big)).status).toBe('expired');
+    expect(gateway.sessionOfPurchase(other).status).toBe('open');
+    // What is paid counts.
+    for (const p of [other, small]) {
+      gateway.pay(p);
+      await deliver(gateway.webhook('checkout.session.completed', p));
+    }
+    v = await view(cookie);
+    expect(v.limits.spentTodayCents).toBe(priceOf('dust-5').priceCents + priceOf('coins-1').priceCents);
+    expect(v.products.find((x) => x.id === 'coins-6')!.block).toBe('daily_limit');
+    expect((await checkout(cookie, 'coins-6')).json()).toEqual({ error: 'shop_daily_limit' });
   });
 
-  test('no más pagos abiertos a la vez que los permitidos', async () => {
+  test('si el pago que estorba se llegó a pagar, se entrega, cuenta y el límite se respeta', async () => {
     const { cookie } = await player();
-    for (const p of ['coins-1', 'dust-1', 'components-1']) await opened(cookie, p);
-    expect((await checkout(cookie, 'coins-2')).json()).toEqual({ error: 'shop_pending_limit' });
+    const p = await opened(cookie, 'coins-6');
+    gateway.pay(p);
+    expect((await checkout(cookie, 'coins-1')).json()).toEqual({ error: 'shop_daily_limit' });
+    expect((await purchase(cookie, p)).status).toBe('paid');
+  });
+
+  test('los pagos sin terminar de más se cierran para dejar sitio: nunca hay más abiertos que los permitidos', async () => {
+    const { cookie, id } = await player();
+    const first = await opened(cookie, 'coins-1');
+    for (const p of ['dust-1', 'components-1']) {
+      later(1_000);
+      await opened(cookie, p);
+    }
+    later(1_000);
+    expect((await checkout(cookie, 'coins-2')).statusCode).toBe(200);
+    expect(gateway.sessionOfPurchase(first).status).toBe('expired');
+    const open = await ctx.db.selectFrom('galaxy.shop_purchases').select('id').where('account_id', '=', id).where('status', 'in', ['creating', 'pending']).execute();
+    expect(open).toHaveLength(3);
   });
 
   test('un precio de Stripe distinto del mostrado no cobra y avisa al admin', async () => {
