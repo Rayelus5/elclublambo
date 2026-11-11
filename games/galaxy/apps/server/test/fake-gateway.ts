@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import type { CheckoutInput, GatewayPrice, GatewaySession, ShopGateway } from '../src/shop/gateway';
-import { sessionOf, STRIPE_API_VERSION } from '../src/shop/stripe-gateway';
+import { eventOf, STRIPE_API_VERSION } from '../src/shop/stripe-gateway';
 
 // A payment gateway for the shop's tests (shop and lab plan, F4): no network and no keys. Its sessions live in memory
 // and are paid or expired by the test; its prices are the test's. Webhooks are signed and checked with Stripe's own
@@ -29,6 +29,12 @@ export interface FakeGateway extends ShopGateway {
   expire(purchase: string): FakeSession;
   /** A signed webhook about the purchase's session, as Stripe sends it. */
   webhook(type: string, purchase: string, opts?: { id?: string; livemode?: boolean; badSignature?: boolean }): { body: string; signature: string };
+  /** A signed refund event of the purchase's charge, refunded up to `refunded` cents in all. */
+  refund(purchase: string, refunded: number, opts?: { id?: string }): { body: string; signature: string };
+  /** A signed dispute event (`charge.dispute.created` or `.closed`) of the purchase's charge. */
+  dispute(type: string, purchase: string, status?: string): { body: string; signature: string };
+  /** Prices made by `createPrice`. */
+  createdPrices: { productId: string; name: string; cents: number; id: string }[];
 }
 
 let n = 0;
@@ -100,9 +106,7 @@ export function fakeGateway(mode: 'live' | 'test' = 'live'): FakeGateway {
       return p;
     },
     verifyWebhook(rawBody, signature) {
-      const e = stripe.webhooks.constructEvent(rawBody, signature, SECRET);
-      const object = e.data.object as unknown as Record<string, unknown>;
-      return { id: e.id, type: e.type, livemode: e.livemode, object, session: object.object === 'checkout.session' ? sessionOf(object as unknown as Stripe.Checkout.Session) : null };
+      return eventOf(stripe.webhooks.constructEvent(rawBody, signature, SECRET));
     },
     sessionOfPurchase(purchase) {
       const id = byPurchase.get(purchase);
@@ -120,19 +124,46 @@ export function fakeGateway(mode: 'live' | 'test' = 'live'): FakeGateway {
       return s;
     },
     webhook(type, purchase, opts = {}) {
+      return signed(type, rawSession(g.sessionOfPurchase(purchase)), opts);
+    },
+    refund(purchase, refunded, opts = {}) {
       const s = g.sessionOfPurchase(purchase);
-      const body = JSON.stringify({
-        id: opts.id ?? nextId('evt'),
-        object: 'event',
-        api_version: STRIPE_API_VERSION,
-        type,
-        livemode: opts.livemode ?? mode === 'live',
-        created: Math.floor(Date.now() / 1000),
-        data: { object: rawSession(s) },
-      });
-      const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret: opts.badSignature ? `${SECRET}x` : SECRET });
-      return { body, signature };
+      const charge = {
+        id: `ch_${s.paymentIntent}`,
+        object: 'charge',
+        amount: s.amountTotal,
+        amount_refunded: refunded,
+        currency: 'eur',
+        payment_intent: s.paymentIntent,
+        refunded: refunded >= (s.amountTotal ?? 0),
+      };
+      return signed('charge.refunded', charge, opts);
+    },
+    dispute(type, purchase, status = 'needs_response') {
+      const s = g.sessionOfPurchase(purchase);
+      const dispute = { id: `dp_${s.paymentIntent}`, object: 'dispute', amount: s.amountTotal, charge: `ch_${s.paymentIntent}`, payment_intent: s.paymentIntent, status, reason: 'fraudulent' };
+      return signed(type, dispute, {});
+    },
+    createdPrices: [],
+    async createPrice(input) {
+      const id = `price_made${input.productId.replace(/-/g, '')}${input.cents}`;
+      g.createdPrices.push({ ...input, id });
+      g.setPrice(id, input.cents);
+      return { id };
     },
   };
+  function signed(type: string, object: unknown, opts: { id?: string; livemode?: boolean; badSignature?: boolean }) {
+    const body = JSON.stringify({
+      id: opts.id ?? nextId('evt'),
+      object: 'event',
+      api_version: STRIPE_API_VERSION,
+      type,
+      livemode: opts.livemode ?? mode === 'live',
+      created: Math.floor(Date.now() / 1000),
+      data: { object },
+    });
+    const signature = stripe.webhooks.generateTestHeaderString({ payload: body, secret: opts.badSignature ? `${SECRET}x` : SECRET });
+    return { body, signature };
+  }
   return g;
 }

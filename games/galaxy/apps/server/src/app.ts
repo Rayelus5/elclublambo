@@ -40,6 +40,7 @@ import { registerOnboardingRoutes } from './onboarding/routes';
 import { registerTutorialRoutes } from './onboarding/tutorial';
 import { registerSeasonRoutes } from './season/routes';
 import type { ShopGateway } from './shop/gateway';
+import { registerShopAdminRoutes } from './shop/admin-routes';
 import { registerShopRoutes } from './shop/routes';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { type ConfigService, createConfigService } from './config/service';
@@ -170,7 +171,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerAdminProgressRoutes(api, { db: deps.db, config, env: deps.env });
     // Shop and lab plan F4: the resource shop (closed without Stripe's keys).
     const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
-    registerShopRoutes(api, { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, live, log: app.log });
+    const shop = { db: deps.db, config, now, gateway, origins: deps.env.GALAXY_PUBLIC_ORIGINS, live, log: app.log };
+    registerShopRoutes(api, shop);
+    registerShopAdminRoutes(api, { ...shop, trustCfIp: deps.env.TRUST_CF_IP });
   });
   return app;
 }

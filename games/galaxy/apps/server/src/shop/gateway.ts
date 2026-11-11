@@ -24,14 +24,36 @@ export interface GatewayPrice {
   oneTime: boolean;
 }
 
+/** A charge (a refund event carries it): what was charged and how much of it is refunded by now, in cents. */
+export interface GatewayCharge {
+  id: string;
+  paymentIntent: string | null;
+  amount: number;
+  amountRefunded: number;
+  currency: string;
+}
+
+/** A dispute (chargeback) of a charge. */
+export interface GatewayDispute {
+  id: string;
+  charge: string | null;
+  paymentIntent: string | null;
+  amount: number;
+  /** Stripe's: needs_response, under_review, won, lost… */
+  status: string;
+  reason: string;
+}
+
 export interface GatewayEvent {
   id: string;
   type: string;
   livemode: boolean;
   /** `data.object` of the event (a session, a charge, a dispute…). */
   object: Record<string, unknown>;
-  /** The object read as a Checkout Session, when it is one. */
+  /** The object read as a Checkout Session, a charge or a dispute, when it is one. */
   session: GatewaySession | null;
+  charge: GatewayCharge | null;
+  dispute: GatewayDispute | null;
 }
 
 export interface CheckoutInput {
@@ -51,6 +73,8 @@ export interface ShopGateway {
   createCheckoutSession(input: CheckoutInput): Promise<{ id: string; clientSecret: string }>;
   retrieveCheckoutSession(id: string): Promise<GatewaySession>;
   retrievePrice(id: string): Promise<GatewayPrice>;
+  /** A one-off euro price for a product of the shop (the admin's «Crear precios»), idempotent per product and amount. */
+  createPrice(input: { productId: string; name: string; cents: number }): Promise<{ id: string }>;
   /** Checks the signature of a webhook's raw body and reads it; throws when it does not hold. */
   verifyWebhook(rawBody: Buffer, signature: string): GatewayEvent;
 }

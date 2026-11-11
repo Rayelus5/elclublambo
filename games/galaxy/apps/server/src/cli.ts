@@ -32,8 +32,12 @@ import { HttpError } from './errors';
 import type { Env } from './env';
 import { closeDue } from './season/close';
 import { seasonConfigs } from './season/service';
+import { reconcileShop, unblockShop } from './shop/cli';
+import type { ShopGateway } from './shop/gateway';
+import { createStripeGateway } from './shop/stripe-gateway';
 
-export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void };
+/** `shopGateway`: the shop's payment gateway (tests pass a fake; by default Stripe's from the env). */
+export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void; shopGateway?: ShopGateway | null };
 
 const USAGE = [
   'Uso:',
@@ -47,6 +51,8 @@ const USAGE = [
   '  draft-config <clave> <campo[,campo…]> [--ids id,id…]',
   '  check-config <lote.json | ->',
   '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
+  '  shop-reconcile [--days N]',
+  '  shop-unblock <usuario> --reason <motivo>',
 ].join('\n');
 
 const CLI_ACTOR = { id: null, label: 'cli' };
@@ -451,6 +457,34 @@ async function notice(args: string[], deps: CliDeps): Promise<number> {
   return 0;
 }
 
+/** Asks Stripe about the recent payments not delivered (shop and lab plan, F4): delivers the paid ones. */
+async function shopReconcile(args: string[], deps: CliDeps): Promise<number> {
+  const days = Number(flag(args, '--days') ?? '7');
+  if (!Number.isInteger(days) || days < 1 || days > 90) return usage(deps.out, 'Uso: shop-reconcile [--days 1-90]');
+  const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
+  if (!gateway) {
+    deps.out('La tienda no tiene las claves de Stripe: no hay nada que conciliar');
+    return 1;
+  }
+  const r = await reconcileShop(deps.db, gateway, days);
+  deps.out(`Revisadas ${r.checked} compras de los últimos ${days} días: ${r.delivered} entregadas, ${r.expired} caducadas, ${r.failed} sin respuesta de Stripe`);
+  return r.failed > 0 ? 1 : 0;
+}
+
+async function shopUnblock(args: string[], deps: CliDeps): Promise<number> {
+  const reason = flag(args, '--reason');
+  const [username] = positional(args, ['--reason']);
+  if (!username || !usernameSchema.safeParse(username).success || !reason || reason.length < 3) return usage(deps.out, 'Uso: shop-unblock <usuario> --reason <motivo>');
+  const account = await findAccountByUsername(deps.db, username);
+  if (!account) {
+    deps.out(`No existe la cuenta ${username}`);
+    return 1;
+  }
+  const done = await unblockShop(deps.db, CLI_ACTOR, account.id, reason);
+  deps.out(done ? `Tienda de ${username} desbloqueada` : `La tienda de ${username} no estaba bloqueada`);
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
@@ -463,5 +497,7 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'draft-config') return draftConfig(args, deps);
   if (command === 'check-config') return checkConfig(args, deps);
   if (command === 'notice') return notice(args, deps);
+  if (command === 'shop-reconcile') return shopReconcile(args, deps);
+  if (command === 'shop-unblock') return shopUnblock(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

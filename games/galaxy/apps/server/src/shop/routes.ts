@@ -5,12 +5,14 @@ import { requireSession } from '../auth/guards';
 import { HttpError } from '../errors';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
+import { applyDispute, applyRefund } from './aftersale';
 import type { GatewayEvent } from './gateway';
 import { applySession, openCheckout, purchaseOfSession, purchaseStatus, type ShopDeps, shopView } from './service';
 
 // The resource shop's routes (shop and lab plan, F4). The webhook is Stripe's: no session and no Origin (its route is
 // exempt from the CSRF guard and open during maintenance), its raw body is read as bytes for the signature, which is
 // checked before anything touches the database; events of the other mode are ignored, and each event is handled once.
+// It hears the payments (checkout.session.*), refunds (charge.refunded) and disputes (charge.dispute.created/closed).
 
 export const WEBHOOK_PATH = '/galaxy/api/shop/webhook';
 const purchaseParam = z.object({ id: z.uuid() }).strict();
@@ -69,6 +71,9 @@ export function registerShopRoutes(api: FastifyInstance, deps: ShopDeps): void {
 
 /** One Stripe event; returns the purchase it was about (null: none of the shop's). */
 async function handleEvent(deps: ShopDeps, event: GatewayEvent): Promise<string | null> {
+  if (event.type === 'charge.refunded' && event.charge) return applyRefund(deps, event.charge);
+  if (event.type === 'charge.dispute.created' && event.dispute) return applyDispute(deps, event.dispute, false);
+  if (event.type === 'charge.dispute.closed' && event.dispute) return applyDispute(deps, event.dispute, true);
   const session = event.session;
   if (!session || !event.type.startsWith('checkout.session.')) return null;
   const purchase = await purchaseOfSession(deps.db, session);

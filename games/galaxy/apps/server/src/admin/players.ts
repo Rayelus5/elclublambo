@@ -28,6 +28,7 @@ import { HttpError } from '../errors';
 import { hitRateLimit, RateLimitedError } from '../ratelimit';
 import { invalidateLeaderboard } from '../social/leaderboard';
 import { accountXp } from '../social/progress';
+import { playerShopRows } from '../shop/admin';
 
 // The admin panel's players (GDD §16.2; M6a). Everything about a player, and what an admin may change: currency (as
 // compensating ledger entries), galaxies (granted or revoked, never deleted), experience, name, sessions, bans and the
@@ -252,6 +253,11 @@ export async function playerSection(deps: AdminDeps, username: string, name: Adm
       ...trades.map((t) => ({ kind: 'trueque', id: t.id, at: iso(t.created_at), status: t.status, detail: t.a_id === a.id ? 'propuesto' : 'recibido' })),
     ].sort((x, y) => (x.at! < y.at! ? 1 : -1));
     return { rows: all.slice(off, off + PAGE), page, pages: pages(all.length) };
+  }
+  if (name === 'shop') {
+    // Shop and lab plan F4: the player's purchases of the resource shop, and its block first when there is one.
+    const { rows, total } = await playerShopRows(db, a.id, page);
+    return { rows, page, pages: pages(total) };
   }
   if (name === 'social') {
     // Plan phase 3: friends, requests both ways and blocks both ways (who blocked whom).

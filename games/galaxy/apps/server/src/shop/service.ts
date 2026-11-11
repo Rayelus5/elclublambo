@@ -1,6 +1,8 @@
 import {
   activeOffer,
   effectivePrice,
+  referencePrice,
+  type ShopVersion,
   type LiveEvent,
   productBlock,
   productTab,
@@ -20,7 +22,7 @@ import {
 import { type Kysely, sql } from 'kysely';
 import { isStaff } from '../auth/guards';
 import type { SessionInfo } from '../auth/sessions';
-import type { ConfigReader } from '../config/reader';
+import type { ConfigService } from '../config/service';
 import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { madridDay } from '../economy/day';
@@ -42,7 +44,8 @@ type Db = Kysely<DB>;
 
 export interface ShopDeps {
   db: Db;
-  config: ConfigReader;
+  /** The live config, and the shop's history (the «antes» of a sale). */
+  config: Pick<ConfigService, 'get' | 'getVersioned' | 'versions'>;
   now: () => Date;
   gateway: ShopGateway | null;
   /** The first is the shop's public origin (Stripe's return URL is built from it, never from the request). */
@@ -61,6 +64,7 @@ const SESSION_MS = 34 * 60_000;
 /** The purchase's own check asks Stripe only after this long (the webhook usually comes first). */
 const CHECK_AFTER_MS = 5_000;
 const PRICE_TTL_MS = 5 * 60_000;
+const HISTORY_TTL_MS = 60_000;
 
 interface Snapshot {
   product: { id: string; name: string; kind: ShopProduct['kind']; art: string };
@@ -132,6 +136,25 @@ function offerView(p: ShopProduct, now: Date): ShopProductView['offer'] {
   return o.kind === 'bonus' ? { kind: 'bonus', percent: o.percent, endsAt: o.endsAt } : { kind: 'price', endsAt: o.endsAt };
 }
 
+// The shop config's history (its published versions), read at most once a minute per config service.
+const historyCache = new WeakMap<object, { at: number; versions: ShopVersion[] }>();
+
+async function shopHistory(deps: ShopDeps, now: number): Promise<ShopVersion[]> {
+  const hit = historyCache.get(deps.config);
+  if (hit && now - hit.at < HISTORY_TTL_MS) return hit.versions;
+  const versions = (await deps.config.versions('shop')).map((v) => ({ at: new Date(v.createdAt), data: v.data }));
+  historyCache.set(deps.config, { at: now, versions });
+  return versions;
+}
+
+/** The struck «antes» of a price offer running now: the lowest of the 30 days before it, only when higher. */
+async function beforeOf(deps: ShopDeps, p: ShopProduct, now: Date): Promise<number | null> {
+  const o = activeOffer(p, now);
+  if (o?.kind !== 'price') return null;
+  const ref = referencePrice(await shopHistory(deps, now.getTime()), p.id, new Date(o.startsAt));
+  return ref !== null && ref > o.priceCents ? ref : null;
+}
+
 export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<ShopView> {
   const cfg = await deps.config.get('shop');
   const now = deps.now();
@@ -144,9 +167,9 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
     return { open: false, closed: blocked ? 'blocked' : 'closed', publishableKey: null, products: [], limits: { ...cfg.limits, spentTodayCents: 0 }, ...common };
   }
   const [counts, spent] = await Promise.all([purchaseCounts(deps.db, session.accountId), spentToday(deps.db, session.accountId, now)]);
-  const products = cfg.products
-    .filter((p) => productBlock(p, { staff, bought: 0 }) !== 'unavailable')
-    .map((p): ShopProductView => {
+  const sellable = cfg.products.filter((p) => productBlock(p, { staff, bought: 0 }) !== 'unavailable');
+  const before = new Map(await Promise.all(sellable.map(async (p) => [p.id, await beforeOf(deps, p, now)] as const)));
+  const products = sellable.map((p): ShopProductView => {
       const c = counts.get(p.id) ?? { bought: 0, firstUsed: false };
       const first = p.firstBonus && cfg.firstPurchase.enabled && !c.firstUsed;
       const { base, extra, total } = purchaseGrants(p, now, first, cfg);
@@ -162,7 +185,7 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
         extra,
         total,
         priceCents: price.cents,
-        beforeCents: null,
+        beforeCents: before.get(p.id) ?? null,
         offer: offerView(p, now),
         badge: p.badge,
         featured: p.featured,
