@@ -9,7 +9,8 @@ import { ShopScreen } from '../../src/shop/ShopScreen';
 import '../../src/styles/app.css';
 
 // The resource shop in a real browser with the app's styles (shop and lab plan, F5): the featured offer, the welcome
-// pack and the first purchase's card, a tab of six packs, at four widths; the page never grows sideways. Screenshots
+// pack and the first purchase's card, a tab of six packs drawn with their sprites, at four widths; the page never
+// grows sideways. Screenshots
 // for review with VITE_SHOP_SHOTS=1 (apps/web/test/browser/__shots__/).
 
 const cfg = parseConfig('shop', {});
@@ -83,6 +84,13 @@ for (const [w, h] of [
     root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/tienda'] }, createElement(ShopScreen))));
     await new Promise((r) => setTimeout(r, 1400));
     expect(document.querySelectorAll('.shop-grid .pack-card')).toHaveLength(6);
+    // The coins' tab (the first): every pack draws its 84×84 sprite of the Aseprite set, opaque pixels included.
+    const arts = [...document.querySelectorAll<HTMLCanvasElement>('.shop-grid canvas.pack-art')];
+    expect(arts).toHaveLength(6);
+    expect(arts.every((a) => a.width === 84 && a.height === 84)).toBe(true);
+    await expect
+      .poll(() => arts.every((a) => a.getContext('2d')!.getImageData(0, 0, 84, 84).data.some((v, i) => i % 4 === 3 && v === 255)), { timeout: 5000 })
+      .toBe(true);
     expect(document.querySelector('.shop-featured')).not.toBeNull();
     // Never sideways.
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);

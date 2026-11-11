@@ -2,7 +2,7 @@ import { SHOP_CURRENCIES, type ShopAmounts, type ShopProductView } from '@galaxy
 import { type CSSProperties, useRef } from 'react';
 import { copy } from '../copy/es';
 import { Icon, type IconName } from '../ui/Icon';
-import { artOf } from './art';
+import { artOf, canvasSizeOf } from './art';
 import { eur, usePackArt } from './art-hooks';
 
 // A product of the shop (shop and lab plan, F5; the approved F0 mockup): its art, name, what it gives (with its gift
@@ -21,8 +21,10 @@ export function amountsText(a: ShopAmounts): string {
 
 export function PackCanvas({ product, size, reduced, className }: { product: Pick<ShopProductView, 'art' | 'kind'>; size: number; reduced: boolean; className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
-  usePackArt(ref, artOf(product.art, product.kind), reduced);
-  return <canvas ref={ref} width={size} height={size} className={className} aria-hidden="true" />;
+  const art = artOf(product.art, product.kind);
+  usePackArt(ref, art, reduced);
+  const side = canvasSizeOf(art, size);
+  return <canvas ref={ref} width={side} height={side} className={className} aria-hidden="true" />;
 }
 
 /** Its block in words, or null when it can be bought. */
