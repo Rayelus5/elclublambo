@@ -15,8 +15,11 @@ const SEASON_NODES = [
   { id: 'swarm-reap', branch: 'extraction', name: 'Cosecha', effect: { kind: 'payout', currency: 'dust' }, per: 0.04, max: 3, requires: 'swarm-hunt', cost: { dust: 40, components: 10 }, growth: 1.5 },
 ];
 const id = (tag: string) => `t-${tag}-${randomBytes(3).toString('hex')}`;
-const SEASON = { id: id('lab'), name: 'Temporada de prueba', startsAt: '2030-01-01T00:00:00.000Z', endsAt: '2030-01-29T00:00:00.000Z' };
-let clock = new Date('2030-01-10T12:00:00.000Z');
+// Near today: a session goes idle against the database's own clock, so the app's clock stays close to it.
+const OPEN = new Date();
+const DAY = 86_400_000;
+const SEASON = { id: id('lab'), name: 'Temporada de prueba', startsAt: new Date(OPEN.getTime() - DAY).toISOString(), endsAt: new Date(OPEN.getTime() + 2 * DAY).toISOString() };
+let clock = OPEN;
 
 let ctx: Awaited<ReturnType<typeof testApp>>;
 beforeAll(async () => {
@@ -76,12 +79,12 @@ test('otra temporada, o ninguna, no compra niveles de temporada y no paga nada',
   expect((await buy(cookie, 'swarm-hunt', { level: 1 })).json()).toEqual({ error: 'lab_season_changed' });
   expect((await buy(cookie, 'swarm-hunt', { level: 1, season: 'otra-temporada' })).json()).toEqual({ error: 'lab_season_changed' });
   // After its end: no seasonal tree, nothing to buy.
-  clock = new Date('2030-02-01T00:00:00.000Z');
+  clock = new Date(OPEN.getTime() + 3 * DAY);
   try {
     expect((await lab(cookie)).season).toBeNull();
     expect((await buy(cookie, 'swarm-hunt', { level: 1, season: SEASON.id })).json()).toEqual({ error: 'lab_season_closed' });
   } finally {
-    clock = new Date('2030-01-10T12:00:00.000Z');
+    clock = OPEN;
   }
   expect(await getWallet(ctx.db, account)).toEqual(before);
 });
