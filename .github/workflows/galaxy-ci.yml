@@ -35,6 +35,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: New migrations go after the newest on the base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          # The PRE deploy (supabase db push) refuses a migration older than the last one applied, and stops there.
+          # If another PR's migration reached the base first, give this one a newer timestamp.
+          git fetch --no-tags --depth=1 origin "$GITHUB_BASE_REF"
+          base=$(git ls-tree --name-only FETCH_HEAD supabase/migrations/ | sort)
+          newest=$(printf '%s\n' "$base" | tail -n 1)
+          late=$(git ls-tree --name-only HEAD supabase/migrations/ | sort | comm -13 <(printf '%s\n' "$base") - | awk -v n="$newest" '$0 <= n')
+          if [ -n "$late" ]; then
+            echo "::error::Migraciones con fecha anterior a la última de $GITHUB_BASE_REF ($newest), renómbralas: $late"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
