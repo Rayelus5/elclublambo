@@ -24,7 +24,7 @@ test('una cuenta nueva ve sus señales de bienvenida, la tirada gratis y lo que 
     if (/Content Security Policy/i.test(msg.text())) csp.push(msg.text());
   });
   await newAccount(page);
-  await expect(page.getByRole('img', { name: '10 señales de galaxia' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '10 señales de galaxia. Ir al Escáner' })).toBeVisible();
   await expect(page.getByRole('link', { name: /Escáner profundo/ })).toContainText('Tirada gratis');
   await expect(page.getByRole('link', { name: /Colección/ })).toContainText('0 galaxias');
   // M3a: Jugar opens the hangar; M4a: the Estación opens the station.
@@ -45,7 +45,7 @@ test('tras escanear, el mosaico de la colección cuenta sus galaxias', async ({ 
   expect(res.status()).toBe(200);
   await page.reload();
   await expect(page.getByRole('link', { name: /Colección/ })).toContainText('10 galaxias');
-  await expect(page.getByRole('img', { name: '0 señales de galaxia' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '0 señales de galaxia. Ir al Escáner' })).toBeVisible();
 });
 
 test('Salir cierra la sesión desde la pantalla de título', async ({ page }) => {

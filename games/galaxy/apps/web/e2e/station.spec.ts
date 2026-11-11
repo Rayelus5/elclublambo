@@ -51,7 +51,7 @@ test('la estación: entrar desde el menú, cargar la refinería y reparar la ant
   await expect(refinery.getByRole('slider', { name: 'Cantidad' })).toHaveValue('60');
   await refinery.getByRole('button', { name: 'Cargar 60' }).click();
   await expect(refinery.getByRole('progressbar', { name: 'En cola' })).toHaveAttribute('aria-valuenow', '60');
-  await expect(page.getByRole('img', { name: '0 de material en bruto' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '0 de material en bruto. Abrir la refinería' })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(refinery).toBeHidden();
 
