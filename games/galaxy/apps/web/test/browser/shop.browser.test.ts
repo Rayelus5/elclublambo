@@ -84,9 +84,10 @@ for (const [w, h] of [
     root.render(createElement(QueryClientProvider, { client }, createElement(MemoryRouter, { initialEntries: ['/tienda'] }, createElement(ShopScreen))));
     await new Promise((r) => setTimeout(r, 1400));
     expect(document.querySelectorAll('.shop-grid .pack-card')).toHaveLength(6);
-    // The coins' tab (the first): every pack draws its 84×84 sprite of the Aseprite set, opaque pixels included.
-    const arts = [...document.querySelectorAll<HTMLCanvasElement>('.shop-grid canvas.pack-art')];
-    expect(arts).toHaveLength(6);
+    // The coins' tab (the first), the featured kit and the welcome pack: each draws its 84×84 sprite of the Aseprite
+    // set, opaque pixels included.
+    const arts = [...document.querySelectorAll<HTMLCanvasElement>('.shop-grid canvas.pack-art, canvas.shop-featured-canvas, canvas.shop-welcome-art')];
+    expect(arts).toHaveLength(8);
     expect(arts.every((a) => a.width === 84 && a.height === 84)).toBe(true);
     await expect
       .poll(() => arts.every((a) => a.getContext('2d')!.getImageData(0, 0, 84, 84).data.some((v, i) => i % 4 === 3 && v === 255)), { timeout: 5000 })
