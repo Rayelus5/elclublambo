@@ -2418,8 +2418,10 @@
   }
   .claim-celebration { position: fixed; inset: 0; z-index: 65; pointer-events: none; }
   /* A chip that leads somewhere (the signals to the Escáner, material to the refinery): the same chip, lifted on hover. */
-  .res.res-link { cursor: var(--cursor-pointer, pointer); border-radius: 10px; padding-inline: 4px; margin-inline: -4px; background: none; border: 0; font: inherit; color: inherit; transition: background-color .15s, transform .15s; }
-  .res.res-link:hover { background: color-mix(in oklab, var(--color-ink) 9%, transparent); transform: translateY(-1px); }
+  /* A chip that leads somewhere looks exactly like the others (its pill, its colour, its type); only the cursor, a
+     lighter pill on hover and the focus ring tell it apart. Links and buttons lose their own defaults, nothing more. */
+  .res.res-link { cursor: var(--cursor-pointer, pointer); border: 0; margin: 0; font-family: inherit; line-height: inherit; text-decoration: none; transition: background-color .15s, transform .15s; }
+  .res.res-link:hover { background: rgb(255 255 255 / .12); transform: translateY(-1px); }
   .res.res-link:focus-visible { outline: 2px solid var(--color-solar); outline-offset: 2px; }
   .res.climbing { color: var(--color-solar); }
   .res.climbing .ico { animation: res-bump .35s ease-out infinite alternate; }
