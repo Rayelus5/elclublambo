@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import type { StripeEnv } from '../env';
-import type { CheckoutInput, GatewayEvent, GatewayPrice, GatewaySession, ShopGateway } from './gateway';
+import type { CheckoutInput, GatewayCharge, GatewayDispute, GatewayEvent, GatewayPrice, GatewaySession, ShopGateway } from './gateway';
 
 // The real gateway (shop and lab plan, F4), on Stripe's official SDK with its version pinned (the SDK and the API it
 // speaks: a new Stripe API never reaches the shop without a change here, and the webhook is set to the same version).
@@ -30,6 +30,29 @@ export function sessionOf(s: Stripe.Checkout.Session): GatewaySession {
     paymentIntent: idOf(s.payment_intent),
     livemode: s.livemode,
     metadata: { ...(s.metadata ?? {}) },
+  };
+}
+
+export function chargeOf(c: Stripe.Charge): GatewayCharge {
+  return { id: c.id, paymentIntent: idOf(c.payment_intent), amount: c.amount, amountRefunded: c.amount_refunded, currency: c.currency };
+}
+
+export function disputeOf(d: Stripe.Dispute): GatewayDispute {
+  return { id: d.id, charge: idOf(d.charge), paymentIntent: idOf(d.payment_intent), amount: d.amount, status: d.status, reason: d.reason };
+}
+
+/** An event's object as the shop reads it (a session, a charge or a dispute; the rest is left as it is). */
+export function eventOf(e: { id: string; type: string; livemode: boolean; data: { object: unknown } }): GatewayEvent {
+  const object = e.data.object as Record<string, unknown>;
+  const kind = object.object;
+  return {
+    id: e.id,
+    type: e.type,
+    livemode: e.livemode,
+    object,
+    session: kind === 'checkout.session' ? sessionOf(object as unknown as Stripe.Checkout.Session) : null,
+    charge: kind === 'charge' ? chargeOf(object as unknown as Stripe.Charge) : null,
+    dispute: kind === 'dispute' ? disputeOf(object as unknown as Stripe.Dispute) : null,
   };
 }
 
@@ -72,10 +95,20 @@ export function createStripeGateway(env: StripeEnv): ShopGateway {
       const p = await stripe.prices.retrieve(id);
       return { id: p.id, unitAmount: p.unit_amount ?? null, currency: p.currency, active: p.active, livemode: p.livemode, oneTime: p.type === 'one_time' };
     },
+    async createPrice(input) {
+      const price = await stripe.prices.create(
+        {
+          currency: 'eur',
+          unit_amount: input.cents,
+          product_data: { name: `Galaxy Survivor: ${input.name}`, metadata: { product: input.productId } },
+          metadata: { product: input.productId },
+        },
+        { idempotencyKey: `galaxy-price-${input.productId}-${input.cents}` },
+      );
+      return { id: price.id };
+    },
     verifyWebhook(rawBody: Buffer, signature: string): GatewayEvent {
-      const e = stripe.webhooks.constructEvent(rawBody, signature, env.webhookSecret);
-      const object = e.data.object as unknown as Record<string, unknown>;
-      return { id: e.id, type: e.type, livemode: e.livemode, object, session: object.object === 'checkout.session' ? sessionOf(object as unknown as Stripe.Checkout.Session) : null };
+      return eventOf(stripe.webhooks.constructEvent(rawBody, signature, env.webhookSecret));
     },
   };
 }

@@ -55,5 +55,7 @@ export * from './api/mail';
 export * from './api/stats';
 export * from './shop/schema';
 export * from './shop/rules';
+export * from './shop/omnibus';
 export * from './api/shop';
+export * from './api/admin-shop';
 export * from './gacha/simulate';

@@ -22,6 +22,7 @@ const COLUMNS: Record<AdminSectionName, string[]> = {
   market: ['at', 'kind', 'status', 'detail'],
   chat: ['at', 'channel', 'body', 'hidden'],
   social: ['at', 'kind', 'username'],
+  shop: ['at', 'product', 'status', 'amount', 'refunded', 'paid'],
 };
 
 type Action = { key: string; title: string; path: string; fields?: FieldSpec[]; password: (v: Record<string, string>) => boolean; build?: (v: Record<string, string>) => Record<string, unknown>; code?: boolean };
