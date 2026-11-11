@@ -18,7 +18,7 @@ test('una cuenta nueva recibe la bienvenida, escanea 10, ve el resumen y las enc
   await page.getByLabel('Repite la contraseña').fill(PASS);
   await page.getByRole('button', { name: 'Crear cuenta' }).click();
   await skipProbeTest(page);
-  await page.getByRole('link', { name: /Escáner profundo/ }).click();
+  await page.getByRole('link', { name: /^Escáner Obtén nuevas galaxias/ }).click();
   await expect(page).toHaveURL(/\/galaxy\/escaner$/);
 
   await expect(page.getByRole('table', { name: 'Probabilidades del próximo escaneo' })).toBeVisible();

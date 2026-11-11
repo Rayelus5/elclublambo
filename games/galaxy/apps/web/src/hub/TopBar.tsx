@@ -16,7 +16,8 @@ import { WalletBar } from './WalletBar';
 const delay = (d: string) => ({ '--d': d }) as CSSProperties;
 
 /**
- * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan, with its free-pull notice),
+ * The title screen's top bar (DESIGN_SYSTEM §7): shortcuts on the left (the deep scan with its free-pull notice, only
+ * where the page has no scanner button of its own: the title menu has it as a big button),
  * the operator and their balances on the right, then the mailbox and Salir. Mercado leads to the market (M5c-1), Comunidad opens the chat sheet (M5b-2)
  * and Noticias the notices and multipliers (open beta). Balances are read as whole sentences.
  */
@@ -26,6 +27,7 @@ export function TopBar({
   freePull,
   onLogout,
   leaving,
+  scanner = true,
 }: {
   me: MeResponse;
   wallet: Wallet | undefined;
@@ -33,6 +35,8 @@ export function TopBar({
   /** Salir: only on the title screen (the lobby keeps the rest of the bar). */
   onLogout?: () => void;
   leaving?: boolean;
+  /** The deep scan's shortcut (the title menu leaves it out: its own Escáner button leads there). */
+  scanner?: boolean;
 }) {
   const chatOpen = useUi((s) => s.chat !== null);
   const openChat = useUi((s) => s.openChat);
@@ -46,11 +50,13 @@ export function TopBar({
   return (
     <header className="topbar">
       <nav className="group" aria-label={copy.hub.shortcuts}>
-        <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
-          <Icon name="radar" />
-          <span>{copy.hub.scanner}</span>
-          {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
-        </Link>
+        {scanner ? (
+          <Link to="/escaner" className="lip pill pill-solar enter" style={delay('.95s')} data-tour="scanner">
+            <Icon name="radar" />
+            <span>{copy.hub.scanner}</span>
+            {freePull ? <span className="badge-new">{copy.hub.freePull}</span> : null}
+          </Link>
+        ) : null}
         <Link to="/mercado" className="lip pill fold enter" style={delay('1s')}>
           <Icon name="store" />
           <span className="label">{copy.hub.market}</span>

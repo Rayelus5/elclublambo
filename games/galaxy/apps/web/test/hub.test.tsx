@@ -6,7 +6,7 @@ import { copy } from '../src/copy/es';
 import { TitleScreen } from '../src/hub/TitleScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
-// The title screen (GDD §4): resources, the deep scan with its free-pull notice, the collection, and every section
+// The title screen (GDD §4): resources, the scanner button with its free-pull notice, the collection, and every section
 // that does not exist yet visible but locked («En desarrollo»).
 afterEach(() => vi.unstubAllGlobals());
 
@@ -78,11 +78,15 @@ test('la barra superior muestra polvo, monedas y señales con su número accesib
   expect(screen.getByText('sonda_rayo')).toBeInTheDocument();
 });
 
-test('el escáner avisa de la tirada gratis solo cuando toca', async () => {
+test('el Escáner del menú lleva al escáner y avisa de la tirada gratis solo cuando toca; la barra de arriba ya no lo repite', async () => {
   api(true);
   const { unmount } = renderAt('/', { '/': <TitleScreen me={me} /> });
-  const scanner = await screen.findByRole('link', { name: new RegExp(copy.hub.scanner) });
+  const scanner = await screen.findByRole('link', { name: new RegExp(`^${copy.hub.scan}`) });
+  expect(scanner).toHaveAttribute('href', '/escaner');
+  expect(scanner).toHaveAttribute('data-tour', 'scanner');
+  expect(scanner).toHaveTextContent(copy.hub.scanHint);
   expect(await within(scanner).findByText(copy.hub.freePull)).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: new RegExp(copy.hub.scanner) })).not.toBeInTheDocument();
   unmount();
   vi.unstubAllGlobals();
   api(false);
@@ -152,15 +156,29 @@ test('el botón Estación lleva a la estación (M4a)', async () => {
   expect(link).not.toHaveTextContent(copy.hub.soon);
 });
 
-test('Jugar y Supervivencia llevan al hangar de las incursiones', async () => {
+test('Jugar lleva al hangar de las incursiones', async () => {
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
-  for (const name of [copy.hub.play, copy.hub.survival]) {
-    const link = screen.getByRole('link', { name: new RegExp(name) });
-    expect(link).toHaveAttribute('href', '/incursion');
-    expect(link).not.toHaveTextContent(copy.hub.soon);
-  }
+  const link = screen.getByRole('link', { name: new RegExp(copy.hub.play) });
+  expect(link).toHaveAttribute('href', '/incursion');
+  expect(link).not.toHaveTextContent(copy.hub.soon);
+});
+
+test('la Tienda del pie se ve como Ajustes y Guía, con su aviso de oferta', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, { ...view(false), shop: { open: true, offer: true } }),
+    'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: 0, percent: 30 }),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board),
+  });
+  renderAt('/', { '/': <TitleScreen me={me} /> });
+  const shop = await screen.findByRole('link', { name: copy.hub.shopOffer });
+  const settings = screen.getByRole('link', { name: copy.hub.settings });
+  expect(shop).toHaveAttribute('href', '/tienda');
+  expect(shop).not.toHaveClass('pill-solar');
+  expect(shop.className.split(' ').filter((c) => c !== 'hub-shop')).toEqual(settings.className.split(' '));
+  expect(within(shop).getByText(copy.hub.offer)).toBeInTheDocument();
 });
 
 test('la columna derecha es la temporada: los tres primeros, tu puesto, tu tramo y la clasificación completa (M5a)', async () => {

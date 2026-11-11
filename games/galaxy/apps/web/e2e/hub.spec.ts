@@ -25,7 +25,7 @@ test('una cuenta nueva ve sus señales de bienvenida, la tirada gratis y lo que 
   });
   await newAccount(page);
   await expect(page.getByRole('link', { name: '10 señales de galaxia. Ir al Escáner' })).toBeVisible();
-  await expect(page.getByRole('link', { name: /Escáner profundo/ })).toContainText('Tirada gratis');
+  await expect(page.getByRole('link', { name: /^Escáner Obtén nuevas galaxias/ })).toContainText('Tirada gratis');
   await expect(page.getByRole('link', { name: /Colección/ })).toContainText('0 galaxias');
   // M3a: Jugar opens the hangar; M4a: the Estación opens the station.
   await expect(page.getByRole('link', { name: /Jugar/ })).toHaveAttribute('href', '/galaxy/incursion');

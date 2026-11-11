@@ -69,7 +69,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 ### 3.1 Una sesión típica [U+D]
 
 1. Entras en `/galaxy` y aparece la **pantalla de título** (§4).
-2. **Jugar** te lleva al último modo que usaste. **Supervivencia** abre la elección de sector; **Hogar**, la estación.
+2. **Jugar** te lleva al último modo que usaste. **Escáner** abre el gachapón; **Estación**, la estación.
 3. Lanzas incursiones. Traes monedas, polvo estelar, material en bruto y, rara vez, señales de galaxia o fragmentos de transmisión.
 4. En la estación recoges lo refinado, mejoras módulos y el laboratorio, tiras del gachapón, gestionas reliquias y colección, comercias.
 5. Las misiones diarias, el evento activo y la clasificación de temporada te dan metas cortas; el Catálogo ECN, la profundidad y los Núcleos, metas largas.
@@ -90,12 +90,12 @@ Referencia visual aprobada: `.superpowers/brainstorm/1011-1793971787/content/tit
 - **Columna izquierda [U]:**
   - título animado (con «Galaxy Survivor» escrito en braille debajo);
   - **Jugar**, grande y lo más llamativo, retoma el último modo;
-  - al lado, apilados, **Supervivencia** y **Hogar**;
+  - al lado, apilados, **Escáner** («Obtén nuevas galaxias», rojo, con el aviso de tirada gratis) y **Estación** [U, 2026-11-11: el Escáner sustituye a Supervivencia, que repetía Jugar];
   - tarjeta del **evento activo** y tarjeta de **misiones**;
   - accesos: Colección, Sondas, Logros, Clan, Ranking, Códice;
-  - Ajustes y Guía.
+  - Ajustes, Guía y, mientras está abierta, Tienda, con el mismo estilo.
 - **Columna derecha [U]:** clasificación de la temporada con pestañas (General, Profundidad, Purgas, Clanes), podio, tu fila, tramos de premios y «Ver clasificación completa».
-- **Barra superior [U]:** perfil (avatar, nombre, nivel), polvo estelar, monedas, señales de galaxia, buzón de noticias, Comunidad (chat global) y Salir. A la izquierda, accesos al Escáner profundo (con aviso de tirada gratis) y al Mercado.
+- **Barra superior [U]:** perfil (avatar, nombre, nivel), polvo estelar, monedas, señales de galaxia, buzón de noticias, Comunidad (chat global) y Salir. A la izquierda, el Mercado; en la sala de las incursiones, también el Escáner profundo (con aviso de tirada gratis), que en la pantalla de título ya está en la columna izquierda.
 - **Cooperativo [D]:** acceso visible pero bloqueado, con la etiqueta «En desarrollo».
 
 ---
