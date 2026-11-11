@@ -4,6 +4,7 @@ import type {
   AutoFusionResult, CollectionPage, Finish, GachaView, GalaxyDetail, GalaxySummary, PullRequest, PullResponse, Tier, Wallet } from '@galaxy/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { ApiError, api } from './client';
+import { syncWallet } from './wallet';
 
 // The economy as the client sees it (GDD §9, §8.5). The server decides everything; the client only shows what it
 // answers. Every action carries an Idempotency-Key made once per player INTENT (this scan of 10 with signals, this
@@ -83,7 +84,7 @@ export function endIntent(intent: string, error: unknown): void {
 
 /** After an action: the new wallet everywhere, and every list of galaxies read again. */
 function settle(qc: QueryClient, wallet: Wallet): void {
-  qc.setQueryData<GachaView>(GACHA_KEY, (old) => (old ? { ...old, wallet } : old));
+  syncWallet(qc, wallet);
   void qc.invalidateQueries({ queryKey: COLLECTION_KEY });
 }
 

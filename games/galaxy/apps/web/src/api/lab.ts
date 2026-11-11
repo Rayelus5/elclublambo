@@ -2,6 +2,7 @@ import type { LabView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 import { endIntent, GACHA_KEY, keyFor } from './economy';
+import { syncWallet } from './wallet';
 
 // The Laboratorio (GDD §10.6, M4b-2): its view and buying a node's next level. The level travels with the request and
 // its intent's key, so a retry of a lost answer reuses it and a stale view never buys the one after; a refusal brings
@@ -21,7 +22,7 @@ export function useUpgradeLabNode() {
       api<LabView>(`/lab/nodes/${v.node}/upgrade`, { method: 'POST', body: { level: v.level }, headers: keyFor(intent(v)) }),
     onSuccess: (view) => {
       qc.setQueryData(LAB_KEY, view);
-      void qc.invalidateQueries({ queryKey: GACHA_KEY });
+      syncWallet(qc, view.wallet);
     },
     onError: () => {
       void qc.invalidateQueries({ queryKey: LAB_KEY });

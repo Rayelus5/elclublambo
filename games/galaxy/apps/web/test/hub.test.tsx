@@ -74,7 +74,7 @@ test('la barra superior muestra polvo, monedas y señales con su número accesib
   renderAt('/', { '/': <TitleScreen me={me} /> });
   expect(await screen.findByLabelText(copy.hub.resource.coins(1250))).toBeInTheDocument();
   expect(screen.getByLabelText(copy.hub.resource.dust(40))).toBeInTheDocument();
-  expect(screen.getByLabelText(copy.hub.resource.signal(10))).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: new RegExp(copy.hub.resource.signal(10)) })).toHaveAttribute('href', '/escaner');
   expect(screen.getByText('sonda_rayo')).toBeInTheDocument();
 });
 
@@ -143,7 +143,7 @@ test('Salir cierra la sesión y vuelve a Entrar', async () => {
   expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/auth/logout' && init?.method === 'POST')).toBe(true);
 });
 
-test('el Hogar lleva a la estación (M4a)', async () => {
+test('el botón Estación lleva a la estación (M4a)', async () => {
   api();
   renderAt('/', { '/': <TitleScreen me={me} /> });
   await screen.findByLabelText(copy.hub.resource.coins(1250));
