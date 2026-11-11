@@ -4,7 +4,8 @@ Una Temporada 2 de ejemplo:
 - 4 semanas, del 8 de diciembre de 2026 al 5 de enero de 2027, a las 00:00 de Madrid;
 - anomalía «swarm»;
 - acabado «rift»;
-- la ruta y las misiones de temporada de la Temporada 1.
+- la ruta y las misiones de temporada de la Temporada 1;
+- el núcleo de temporada del laboratorio (`lab.json`, solo `season`): 36 nodos en tres ramas (Asalto, Resistencia y Botín), con estadísticas y cobro de partida, tres niveles cada uno. Un jugador activo completa en torno al 80 % en las cuatro semanas. Empieza vacío con el id nuevo de la temporada.
 
 Para usarla, sigue la skill `galaxy-temporada`:
 1. Copia esta carpeta a `ops/launch/<aaaa-mm-dd>-temporada-<n>/`.

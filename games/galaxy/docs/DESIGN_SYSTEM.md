@@ -386,6 +386,38 @@ Consulta de ui-ux-pro-max: no hubo resultado para «árbol de mejoras». Se apli
 - **Cabecera:** «Volver a la estación», el título y el saldo de polvo y componentes.
 - **Sin reparar:** «Repara el laboratorio en la estación para usarlo» y «Ir a la estación».
 
+**La pizarra** (plan de tienda y laboratorio, F3; la maqueta aprobada en F0) es la vista de siempre; la de arriba queda como «Lista» (`?vista=lista`).
+- **Un tablero que llena la pantalla bajo la cabecera**, con una retícula de puntos que se mueve con él.
+- **El núcleo permanente** («Para siempre», solar) y, mientras hay una temporada abierta con su árbol, **el de temporada** a su derecha (ultravioleta, con su nombre y «Se reinicia el…»).
+- **Colocación:** cada núcleo es un árbol radial. Las ramas salen en diagonal y su ancho va según sus hojas; cada profundidad es un anillo más afuera, y un árbol grande abre sus anillos hasta que ningún nodo se apiña. La pista `at` de un nodo manda.
+- **Nodos:** su icono, un disco y un aro con un tramo por nivel (`pathLength` igual al máximo).
+  - Bloqueado: borde discontinuo y el icono en gris.
+  - Disponible: late.
+  - Puedes pagarlo: borde del color de la rama.
+  - Al máximo: dorado.
+  - Debajo, su nombre y «N / máx». Con el zoom lejos, sin rótulos.
+- **Aristas:** curvas suaves desde quien lo abre. Se iluminan con el color de la rama al abrirse.
+- **Moverse:**
+  - arrastrar, a partir de 5 px para que un clic siga siendo un clic;
+  - la rueda o dos dedos acercan hacia el puntero, de ×0,3 a ×2,5;
+  - teclado: +, − y 0; las flechas van de nodo a nodo, y [ y ] suben y bajan por la rama;
+  - herramientas abajo a la izquierda: acercar, alejar, «Ver todo», ir a cada núcleo, «Leyenda» y «Corrimiento al rojo» (en un diálogo);
+  - el minimapa, abajo a la derecha, lleva a donde se pulse.
+- **Panel del nodo**, a la derecha:
+  - núcleo y rama;
+  - nombre y qué da por nivel;
+  - las barras de nivel;
+  - «Ahora» y «Siguiente nivel», calculados en el servidor;
+  - coste, con lo que falta en Nova;
+  - qué lo abre;
+  - en los de temporada, «Se reinicia el…»;
+  - «Mejorar a nivel N», o por qué no se puede.
+- **Subir de nivel:**
+  - el tramo se llena, el disco da un bote y saltan chispas;
+  - la energía corre por las aristas de los nodos que se abren, cada uno con su campanilla;
+  - suena un arpegio que sube con el nivel, y un acorde y «… al máximo» al llegar arriba.
+  - Con movimiento reducido: sin movimiento, solo el sonido.
+
 ## 8 nonies. Niveles de las reliquias
 
 Una galaxia sube de nivel con polvo estelar desde su detalle, y la siguiente ranura de reliquia se abre desde el Hangar (GDD §8.4 y §8.4 bis, M4c-1).
