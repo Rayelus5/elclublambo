@@ -3,6 +3,7 @@ import { usernameSchema } from '../account';
 import type { CoopOutcome } from './coop';
 import type { RoomInvite, RoomView } from './rooms';
 import type { RunResult } from './runs';
+import type { ShopPurchaseView } from './shop';
 
 // Friends, blocks, presence and the live socket (multiplayer plan, phase 3). Friendship is mutual and starts as a
 // request; a block works both ways for everything social. Presence is what an account is doing now, shown to its
@@ -67,7 +68,9 @@ export type LiveEvent =
   /** Someone invites me to their room. */
   | { type: 'invite'; invite: RoomInvite }
   /** A group run I had left (or lost) ended: what it paid me (phase 6c). */
-  | { type: 'coopResult'; outcome: CoopOutcome; result: RunResult };
+  | { type: 'coopResult'; outcome: CoopOutcome; result: RunResult }
+  /** A purchase of the resource shop was delivered (shop and lab plan, F4): the celebration starts. */
+  | { type: 'purchase'; purchase: ShopPurchaseView };
 
 /** The live socket, client → server: what I am doing now. */
 export const liveMessageSchema = z.discriminatedUnion('type', [

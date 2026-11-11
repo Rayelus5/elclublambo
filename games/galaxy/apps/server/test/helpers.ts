@@ -9,6 +9,7 @@ import { type ConfigService, createConfigService } from '../src/config/service';
 import { createDb } from '../src/db';
 import type { DB } from '../src/db/schema';
 import type { Env } from '../src/env';
+import type { ShopGateway } from '../src/shop/gateway';
 
 /** Local (or CI) Postgres as galaxy_api; scripts/dev-db-role.mjs sets the dev password. */
 export const TEST_DATABASE_URL =
@@ -25,6 +26,8 @@ export function testEnv(overrides: Partial<Env> = {}): Env {
     PORT: 8080,
     WEB_DIST: '/nonexistent-web-dist',
     TRUST_CF_IP: true,
+    stripe: null,
+    stripeIssue: null,
     ...overrides,
   };
 }
@@ -103,12 +106,14 @@ export async function testApp(
     pool?: { max: number; timeoutMs: number };
     /** Live config cache lifetime; 0 reads the database every time. */
     configTtlMs?: number;
+    /** The shop's payment gateway (test/fake-gateway.ts); none by default (a closed shop). */
+    shopGateway?: ShopGateway | null;
   } = {},
 ): Promise<{ app: FastifyInstance; db: Kysely<DB>; close: () => Promise<void> }> {
   const env = testEnv(opts.env);
   const db = createDb(env.DATABASE_URL, opts.pool ? { max: opts.pool.max, connectionTimeoutMillis: opts.pool.timeoutMs } : {});
   const config = opts.config ?? (opts.configTtlMs === undefined ? undefined : createConfigService(db, { ttlMs: opts.configTtlMs }));
-  const app = await buildApp({ env, db, now: opts.now, config });
+  const app = await buildApp({ env, db, now: opts.now, config, shopGateway: opts.shopGateway ?? null });
   opts.beforeReady?.(app);
   await app.ready();
   return {

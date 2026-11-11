@@ -317,6 +317,60 @@ export interface LabNodesTable {
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
+/** Shop and lab plan F4: a payment of the resource shop, from its checkout to its delivery (and any refund). */
+export interface ShopPurchasesTable {
+  id: Generated<string>;
+  account_id: string;
+  product: string;
+  snapshot: ColumnType<unknown, string, string>;
+  amount_cents: number;
+  currency: Generated<string>;
+  stripe_price_id: string;
+  first_bonus: Generated<boolean>;
+  status: ColumnType<string, string | undefined, string>;
+  stripe_session_id: string | null;
+  stripe_payment_intent: string | null;
+  granted: ColumnType<unknown | null, string | null | undefined, string | null>;
+  clawed: ColumnType<unknown, string | undefined, string>;
+  refunded_cents: Generated<number>;
+  consent_at: ColumnType<Date, Date | string, Date | string>;
+  terms_version: string;
+  madrid_day: ColumnType<string, string, string>;
+  created_at: ColumnType<Date, Date | string | undefined, Date | string>;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+  paid_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** Shop and lab plan F4: a Stripe event already handled (append-only). */
+export interface ShopStripeEventsTable {
+  id: string;
+  type: string;
+  purchase_id: string | null;
+  received_at: ColumnType<Date, Date | string | undefined, never>;
+}
+
+/** Shop and lab plan F4: something about a purchase the admin must look at. */
+export interface ShopAlertsTable {
+  id: Generated<string>;
+  kind: string;
+  account_id: string | null;
+  purchase_id: string | null;
+  details: ColumnType<unknown, string | undefined, string>;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  reviewed_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+  reviewed_by: string | null;
+}
+
+/** Shop and lab plan F4: an account whose shop is closed until an admin opens it. */
+export interface ShopBlocksTable {
+  account_id: string;
+  reason: string;
+  purchase_id: string | null;
+  created_at: ColumnType<Date, Date | string | undefined, never>;
+  created_by: string | null;
+}
+
 /** M4b-1: a probe's level and chosen starting weapon (no row: level 1, base weapon). */
 export interface ProbeLevelsTable {
   account_id: string;
@@ -723,6 +777,10 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.shop_purchases': ShopPurchasesTable;
+  'galaxy.shop_stripe_events': ShopStripeEventsTable;
+  'galaxy.shop_alerts': ShopAlertsTable;
+  'galaxy.shop_blocks': ShopBlocksTable;
   'galaxy.probe_grants': ProbeGrantsTable;
   'galaxy.season_adjustments': SeasonAdjustmentsTable;
   'galaxy.mission_progress': MissionProgressTable;
