@@ -33,7 +33,9 @@ test('una tira más ancha que su sitio no enseña barra, se mueve con la rueda y
   const turned = list.dispatchEvent(new WheelEvent('wheel', { deltaY: 200, bubbles: true, cancelable: true }));
   expect(turned).toBe(false);
   expect(list.scrollLeft).toBe(200);
-  // Moved from the start: the arrow back shows up.
+  // Moved from the start: the arrow back shows up. (The browser sends «scroll» with its next frame; the CI's headless
+  // Chromium may draw none, so the test sends it.)
+  list.dispatchEvent(new Event('scroll'));
   await expect.poll(() => host.querySelector('.hscroll-arrow.prev')).not.toBeNull();
   if (import.meta.env['VITE_SCROLL_SHOTS']) await page.screenshot({ path: '__shots__/hscroll-middle.png', element: host });
 
@@ -47,6 +49,7 @@ test('una tira más ancha que su sitio no enseña barra, se mueve con la rueda y
 
   // At the end, the arrow forward goes away.
   list.scrollLeft = list.scrollWidth;
+  list.dispatchEvent(new Event('scroll'));
   await expect.poll(() => host.querySelector('.hscroll-arrow.next')).toBeNull();
   host.remove();
 });
