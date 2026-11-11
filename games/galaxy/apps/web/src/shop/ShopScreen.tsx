@@ -142,7 +142,7 @@ export function ShopScreen() {
 
   if (!v) {
     return (
-      <main className="screen shop-screen">
+      <main className="shop-screen">
         {header}
         {shop.error ? <p className="field-error" role="alert">{errorText(shop.error, copy.errors)}</p> : null}
       </main>
@@ -150,7 +150,7 @@ export function ShopScreen() {
   }
   if (!v.open) {
     return (
-      <main className="screen shop-screen">
+      <main className="shop-screen">
         {header}
         <section className="lip panel shop-closed" role="status">
           <Icon name="store" />
@@ -169,7 +169,7 @@ export function ShopScreen() {
   const dialogProduct = resume ? null : buying;
 
   return (
-    <main className="screen shop-screen">
+    <main className="shop-screen">
       {header}
       {featured || welcome || showFirst ? (
         <section className={`shop-hero${featured ? '' : ' no-featured'}`}>
