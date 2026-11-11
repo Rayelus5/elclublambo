@@ -1870,8 +1870,11 @@ export const copy = {
     signal: 'Señal',
     phenomenon: 'Fenómeno detectado',
     summaryTitle: (n: number) => (n === 1 ? 'Galaxia nueva' : `${fmt(n)} galaxias nuevas`),
-    again: 'Escanear otra vez',
-    toCollection: 'Ver en la colección',
+    /** The summary's main button: the same scan again (Nov plan A1). */
+    again: (n: 1 | 10) => (n === 1 ? '¡Escanear otra!' : `¡Escanear otras ${fmt(n)}!`),
+    missingCoins: (n: number) => (n === 1 ? 'Te falta 1 moneda' : `Te faltan ${fmt(n)} monedas`),
+    missingSignals: (n: number) => (n === 1 ? 'Te falta 1 señal' : `Te faltan ${fmt(n)} señales`),
+    toCollection: 'Colección',
     close: 'Cerrar',
     mute: 'Silenciar',
     unmute: 'Activar sonido',

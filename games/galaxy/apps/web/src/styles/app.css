@@ -227,6 +227,7 @@
   .pill { --r: 999px; --lip-h: 4px; height: 48px; padding: 0 20px 0 16px; display: inline-flex; align-items: center; gap: 10px; background: var(--color-panel-2); color: var(--color-ink); font-weight: 600; font-size: 17px; white-space: nowrap; }
   .pill .ico { font-size: 22px; }
   .pill-solar { background: linear-gradient(180deg, var(--color-solar), var(--color-solar-2)); color: var(--color-on-solar); --lip-c: var(--color-solar-lip); }
+  .pill-uv { background: linear-gradient(180deg, var(--color-uv), var(--color-uv-2)); color: var(--color-ink); --lip-c: var(--color-uv-lip); }
   .badge-new { font-size: 12.5px; font-weight: 700; background: var(--color-on-solar); color: var(--color-solar); padding: 3px 9px; border-radius: 99px; }
   .badge-admin { display: inline-block; font-weight: 700; font-size: 11.5px; line-height: 1.5; padding: 0 8px; border-radius: 99px; background: var(--color-terminal); color: var(--color-on-terminal); }
 
@@ -689,7 +690,9 @@
     60% { translate: 4px 3px; }
     75% { translate: -2px 1px; }
   }
-  .summary-actions { display: flex; gap: 12px; }
+  .summary-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+  .scan-again small { font-size: 13px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: rgb(58 23 0 / .16); }
+  .summary-missing { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--color-ink-soft); }
 
   /* ---------- 3D inspector (DESIGN_SYSTEM §7) ---------- */
   .inspector-dialog { width: min(100%, 980px); display: flex; flex-direction: column; gap: 14px; background: #0b0d26; }

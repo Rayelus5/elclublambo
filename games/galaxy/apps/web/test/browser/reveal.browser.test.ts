@@ -1,9 +1,10 @@
 import { renderFromSeed } from '@galaxy/engine';
 import type { PulledGalaxy, Tier } from '@galaxy/shared';
-import { createElement } from 'react';
+import { createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
+import { copy } from '../../src/copy/es';
 import { RevealStage } from '../../src/scanner/RevealStage';
 import '../../src/styles/app.css';
 
@@ -73,4 +74,36 @@ for (const [tier, width, height] of [
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/reveal-${tier}-${width}.png` });
     expect(overflowed).toEqual([]);
   }, 60_000);
+}
+
+// «¡Escanear otra!» and «Colección» (Nov plan A1): the summary's buttons fit, with the missing line over them.
+for (const [width, height] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`el resumen de un escaneo con «¡Escanear otra!» y «Colección» cabe a ${width}×${height}`, async () => {
+    await page.viewport(width, height);
+    document.body.style.margin = '0';
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    const actions = createElement(
+      Fragment,
+      null,
+      createElement('button', { type: 'button', className: 'lip pill pill-solar scan-again', disabled: true }, createElement('span', null, copy.scanner.again(1)), createElement('small', null, copy.scanner.costCoins(100))),
+      createElement('a', { href: '#', className: 'lip pill pill-uv' }, createElement('span', null, copy.scanner.toCollection)),
+    );
+    const status = createElement('p', { className: 'summary-missing' }, copy.scanner.missingCoins(50));
+    root.render(createElement(RevealStage, { pulls: [pulled('rare')], onClose: () => {}, actions, status }));
+    await until(() => [...document.querySelectorAll('button')].some((b) => b.textContent === copy.scanner.skip));
+    ([...document.querySelectorAll('button')].find((b) => b.textContent === copy.scanner.skip) as HTMLButtonElement).click();
+    await until(() => document.querySelector('.summary-actions .pill-uv') !== null);
+    await new Promise((r) => setTimeout(r, 600));
+    const modal = document.querySelector('.modal.reveal-stage') as HTMLElement;
+    expect(modal.scrollHeight).toBeLessThanOrEqual(modal.clientHeight + 1);
+    for (const el of document.querySelectorAll<HTMLElement>('.summary-actions > *')) expect(el.scrollWidth).toBeLessThanOrEqual(el.clientWidth + 1);
+    const uv = getComputedStyle(document.querySelector('.pill-uv')!);
+    expect(uv.backgroundImage).toContain('gradient');
+    if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/reveal-summary-${width}.png` });
+  });
 }
