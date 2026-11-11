@@ -44,6 +44,9 @@ export function AdminLayout() {
                 <li>
                   <NavLink to="/admin/partidas">{t.sections.runs}</NavLink>
                 </li>
+                <li>
+                  <NavLink to="/admin/tienda">{t.sections.shop}</NavLink>
+                </li>
               </>
             ) : null}
             <li>
