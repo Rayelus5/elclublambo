@@ -35,9 +35,9 @@ test('una tira más ancha que su sitio no enseña barra, se mueve con la rueda y
   expect(list.scrollLeft).toBe(200);
 
   next.click();
-  await wait(700);
-  expect(list.scrollLeft).toBeGreaterThan(300);
-  expect(host.querySelector('.hscroll-arrow.prev')).not.toBeNull();
+  // A smooth scroll: its pace depends on the machine, so wait for it rather than for a fixed time.
+  await expect.poll(() => list.scrollLeft, { timeout: 5000 }).toBeGreaterThan(300);
+  await expect.poll(() => host.querySelector('.hscroll-arrow.prev'), { timeout: 2000 }).not.toBeNull();
   if (import.meta.env['VITE_SCROLL_SHOTS']) await page.screenshot({ path: '__shots__/hscroll-middle.png', element: host });
   host.remove();
 });
