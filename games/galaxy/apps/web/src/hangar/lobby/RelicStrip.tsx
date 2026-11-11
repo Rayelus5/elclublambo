@@ -1,3 +1,4 @@
+import { HScroll } from '../../ui/HScroll';
 import { TIERS, type GalaxySummary, type HangarView } from '@galaxy/shared';
 import { activeSets, DEFAULT_CONTENT, describeRelic, type RelicInput } from '@galaxy/sim';
 import { type CSSProperties, useId, useLayoutEffect, useRef, useState } from 'react';
@@ -126,7 +127,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
           {active ? <span className="lobby-sets-count">{copy.lobby.setsCount(active)}</span> : null}
         </button>
       </header>
-      <ol className="lobby-slots">
+      <HScroll as="ol" className="lobby-slots" label={copy.hangar.relics}>
         {Array.from({ length: view.slots }, (_, i) => {
           const g = view.loadout[i];
           if (!g) {
@@ -179,7 +180,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
             <span className="sr-only">{copy.hangar.lockedSlot}</span>
           </li>
         ))}
-      </ol>
+      </HScroll>
       {stacked ? <p className="lobby-relics-note">{copy.hangar.stacking}</p> : null}
       {setLoadout.error ? (
         <p className="field-error" role="alert">

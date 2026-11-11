@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type ConfigKey, configIssues, configJsonSchema, DRAWN_FINISHES, expectedTierRates, type GachaSimulation, isConfigKey, mergeDraft, parseConfig, simulateGacha, TIERS } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { useId, useState } from 'react';
@@ -141,7 +142,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
       </div>
       {run ? (
         <>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table" aria-label={t.sim.title}>
               <thead>
                 <tr>
@@ -162,7 +163,7 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           <p>
             {t.sim.every} {t.sim.pulls(oneDecimal.format(run.legendaryEvery))}
           </p>

@@ -1,3 +1,4 @@
+import { HScroll } from '../../ui/HScroll';
 import { type AdminCreatedPrice, SHOP_PURCHASE_STATUSES, type ShopAmounts, type ShopPurchaseStatus } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -270,13 +271,13 @@ export function ShopAdminScreen() {
           {copy.admin.done}
         </p>
       ) : null}
-      <div className="tabs admin-tabs" role="tablist" aria-label={t.tabsLabel}>
+      <HScroll className="tabs admin-tabs" role="tablist" aria-label={t.tabsLabel}>
         {TABS.map((x) => (
           <button key={x.tab} type="button" role="tab" aria-selected={tab === x.tab} onClick={() => choose(x.tab)}>
             {t.tabs[x.tab]}
           </button>
         ))}
-      </div>
+      </HScroll>
       <div role="tabpanel" aria-label={t.tabs[tab]}>
         {tab === 'summary' ? <Summary /> : null}
         {tab === 'purchases' ? <Purchases /> : null}

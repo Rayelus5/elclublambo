@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import type { ModMessage } from '@galaxy/shared';
 import { type ReactNode, useId, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router';
@@ -281,7 +282,7 @@ export function Mutes() {
       ) : null}
       {mutes.data && rows.length === 0 ? <p className="panel-note">{t.noMutes}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{t.mutesTitle}</caption>
             <thead>
@@ -317,7 +318,7 @@ export function Mutes() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </div>
   );

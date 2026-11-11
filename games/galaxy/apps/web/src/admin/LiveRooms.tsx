@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { Link } from 'react-router';
 import { useAdminRooms } from '../api/rooms';
@@ -31,7 +32,7 @@ export function LiveRooms() {
       ) : null}
       {rooms.data && rows.length === 0 ? <p className="panel-note">{r.none}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{r.title}</caption>
             <thead>
@@ -80,7 +81,7 @@ export function LiveRooms() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </div>
   );
