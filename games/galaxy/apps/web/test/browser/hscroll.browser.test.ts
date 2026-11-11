@@ -19,7 +19,7 @@ test('una tira más ancha que su sitio no enseña barra, se mueve con la rueda y
   const items = Array.from({ length: 12 }, (_, i) =>
     createElement('li', { key: i, style: { flex: 'none', width: '140px', height: '90px', borderRadius: '16px', background: `hsl(${i * 30} 70% 55%)` } }, String(i + 1)),
   );
-  flushSync(() => createRoot(host).render(createElement(HScroll, { as: 'ol', className: 'lobby-slots', label: 'Reliquias', 'aria-label': 'Reliquias' }, items)));
+  flushSync(() => createRoot(host).render(createElement(HScroll, { as: 'ol', className: 'lobby-slots', label: 'Reliquias', 'aria-label': 'Reliquias', children: items })));
   await wait(50);
   const list = host.querySelector<HTMLElement>('ol')!;
   expect(getComputedStyle(list).scrollbarWidth).toBe('none');
