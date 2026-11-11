@@ -72,6 +72,8 @@ export interface ShopGateway {
   publishableKey: string;
   createCheckoutSession(input: CheckoutInput): Promise<{ id: string; clientSecret: string }>;
   retrieveCheckoutSession(id: string): Promise<GatewaySession>;
+  /** Closes an open session so it can no longer be paid; returns it as it is after (complete, if it was paid first). */
+  expireCheckoutSession(id: string): Promise<GatewaySession>;
   retrievePrice(id: string): Promise<GatewayPrice>;
   /** A one-off euro price for a product of the shop (the admin's «Crear precios»), idempotent per product and amount. */
   createPrice(input: { productId: string; name: string; cents: number }): Promise<{ id: string }>;

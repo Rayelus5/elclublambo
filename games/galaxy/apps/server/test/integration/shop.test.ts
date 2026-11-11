@@ -246,3 +246,45 @@ describe('la tienda cerrada', () => {
     }
   });
 });
+
+describe('los pagos sin terminar', () => {
+  test('un pago a medias no hace desaparecer el pack de bienvenida; al volver a pulsar sigue el mismo pago', async () => {
+    const { cookie } = await player();
+    const first = (await checkout(cookie, 'welcome')).json() as ShopCheckout;
+    expect((await view(cookie)).products.find((x) => x.id === 'welcome')).toMatchObject({ block: null, bought: 0 });
+    const again = await checkout(cookie, 'welcome');
+    expect(again.statusCode, again.body).toBe(200);
+    expect(again.json()).toEqual(first);
+    gateway.pay(first.purchase);
+    await deliver(gateway.webhook('checkout.session.completed', first.purchase));
+    expect((await view(cookie)).products.find((x) => x.id === 'welcome')!.block).toBe('once_used');
+  });
+
+  test('el extra de primera compra sigue a la vista mientras el pago no se termina', async () => {
+    const { cookie } = await player();
+    const p = await opened(cookie, 'coins-2');
+    expect((await view(cookie)).products.find((x) => x.id === 'coins-2')).toMatchObject({ first: true, bought: 0 });
+    expect(await opened(cookie, 'coins-2')).toBe(p);
+  });
+
+  test('volver a un pago que está a punto de caducar lo cierra en Stripe y abre otro', async () => {
+    const { cookie } = await player();
+    const p1 = await opened(cookie, 'welcome');
+    later(31 * 60_000);
+    const p2 = await opened(cookie, 'welcome');
+    expect(p2).not.toBe(p1);
+    expect(gateway.sessionOfPurchase(p1).status).toBe('expired');
+    expect((await purchase(cookie, p1)).status).toBe('expired');
+  });
+
+  test('si ese pago se llegó a pagar, se entrega y el pack de bienvenida no se vende otra vez', async () => {
+    const { cookie, id } = await player();
+    const before = (await getWallet(ctx.db, id)).coins;
+    const p1 = await opened(cookie, 'welcome');
+    gateway.pay(p1);
+    later(31 * 60_000);
+    expect((await checkout(cookie, 'welcome')).json()).toEqual({ error: 'shop_once_used' });
+    expect((await purchase(cookie, p1)).status).toBe('paid');
+    expect((await getWallet(ctx.db, id)).coins - before).toBe(priceOf('welcome').grants.coins + priceOf('welcome').bonus.coins);
+  });
+});

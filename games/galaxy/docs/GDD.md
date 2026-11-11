@@ -438,6 +438,7 @@ El precio tachado de una rebaja es el más bajo de los 30 días anteriores (dire
 - La tienda nace cerrada y, al abrirse, primero solo para el staff.
 - El servidor cobra con el precio de Stripe del producto, nunca con un importe del navegador, y comprueba que es el mostrado.
 - Lo que da una compra se fija al abrir el pago y se entrega una sola vez cuando Stripe confirma el cobro (webhook firmado o consulta de la compra), sin multiplicadores ni topes.
+- Un pago sin terminar no gasta nada: el pack de bienvenida y el extra de primera compra siguen a la vista. Volver a pulsar «Comprar» en ese pack retoma el mismo pago de Stripe. Si ya no puede seguir (cambió el precio, el extra o las condiciones, o le quedan menos de 5 minutos), primero se cierra en Stripe y después se abre otro; si se llegó a pagar, se entrega.
 - Desde la primera compra real, PRE ya no se borra (`ops/reset-beta.sql` se niega).
 
 ---
