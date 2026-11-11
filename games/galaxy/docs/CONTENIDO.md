@@ -213,13 +213,14 @@ Es `PUBLISH_ORDER` en `packages/shared/src/config/drafts.ts`:
 1. `content`
 2. `sectors` / `probes` / `relics`, si cambian
 3. `season`
-4. `seasonRoute`
-5. `missions`
-6. `achievements`
-7. `boosts`
-8. `events`
-9. `gacha`
-10. el aviso
+4. `lab`, si cambia (el núcleo de temporada, `lab.season`, sale con su temporada)
+5. `seasonRoute`
+6. `missions`
+7. `achievements`
+8. `boosts`
+9. `events`
+10. `gacha`
+11. el aviso
 
 **Por qué este orden:**
 - **`season` antes que `seasonRoute`:** un id de temporada nuevo archiva la anterior con los premios de la ruta que esté viva en ese momento.
@@ -292,6 +293,14 @@ Un id nunca se reutiliza ni cambia de significado:
 **El sector de temporada:** `sectors.season` (hoy `signal-rift`) es independiente de las fechas; `null` lo cierra.
 
 **Textos fijos:** «Temporada 1 · La Señal» en `codex/entries.ts` y «Beta Abierta» en `es.ts`.
+
+**El núcleo de temporada del laboratorio** (`lab.season`) es un segundo árbol, aparte del permanente (`lab.nodes`):
+- Sus niveles se guardan por `season.id` (`galaxy.lab_season_nodes`). Con un id nuevo empieza vacío, y entre temporadas ni se ve ni da nada.
+- Solo admite efectos de partida: `stat` y `payout` (`lab_season_kind`). La refinería, la antena, la desintegración y la fusión son del permanente.
+- Los ids no se repiten entre los dos árboles, y cada `requires` apunta a su propio árbol.
+- Los topes de cobro se suman entre los dos árboles. Cada estadística tiene un presupuesto con todo al máximo (`lab_stat_cap:<stat>`, `LAB_STAT_BUDGET`).
+- `falloff` (de 0,5 a 1) hace que cada nivel dé un poco menos. `at` es la pista de colocación en la pizarra.
+- El «Corrimiento al rojo» solo borra el permanente y solo cuenta sus niveles.
 
 ### B9. Qué es configuración y qué es código
 

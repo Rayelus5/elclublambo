@@ -317,6 +317,15 @@ export interface LabNodesTable {
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
+/** Shop and lab plan F2a: the Laboratorio's seasonal core, a node's level in one season (no row: level 0). */
+export interface LabSeasonNodesTable {
+  account_id: string;
+  season: string;
+  node: string;
+  level: number;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 /** Shop and lab plan F4: a payment of the resource shop, from its checkout to its delivery (and any refund). */
 export interface ShopPurchasesTable {
   id: Generated<string>;
@@ -777,6 +786,7 @@ export interface DB {
   'galaxy.probe_tests': ProbeTestsTable;
   'galaxy.probe_levels': ProbeLevelsTable;
   'galaxy.lab_nodes': LabNodesTable;
+  'galaxy.lab_season_nodes': LabSeasonNodesTable;
   'galaxy.shop_purchases': ShopPurchasesTable;
   'galaxy.shop_stripe_events': ShopStripeEventsTable;
   'galaxy.shop_alerts': ShopAlertsTable;

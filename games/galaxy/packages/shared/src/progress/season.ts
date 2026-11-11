@@ -38,7 +38,12 @@ export function activeAnomaly(cfg: SeasonConfig, content: { anomalies: { id: str
 }
 
 /** Open from its start (included) to its end (excluded). */
-export function seasonOpen(cfg: SeasonConfig, now: Date): boolean {
+/** The id of the season open at `now` (the seasonal Laboratorio keeps its levels by it), or null between seasons. */
+export function openSeasonId(cfg: Pick<SeasonConfig, 'id' | 'startsAt' | 'endsAt'>, now: Date): string | null {
+  return seasonOpen(cfg, now) ? cfg.id : null;
+}
+
+export function seasonOpen(cfg: Pick<SeasonConfig, 'startsAt' | 'endsAt'>, now: Date): boolean {
   const t = now.getTime();
   return t >= Date.parse(cfg.startsAt) && t < Date.parse(cfg.endsAt);
 }

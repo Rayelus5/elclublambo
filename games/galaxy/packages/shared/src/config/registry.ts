@@ -1,5 +1,5 @@
 import { contentSchema, STAT_KEYS } from '@galaxy/sim';
-import { DEFAULT_LAB_NODES } from '../lab/tree';
+import { DEFAULT_LAB_NODES, nodeTotal } from '../lab/tree';
 import { z } from 'zod';
 import es from 'zod/v4/locales/es.js';
 import { SEASON_FINISHES, TRAIT_KEYS } from '../gacha/types';
@@ -66,6 +66,75 @@ const banner = z
 const DEFAULT_BANNERS = [
   { id: 'deep-scan', kind: 'standard' as const, name: 'Escáner profundo', pityGroup: 'standard', currency: 'signal' },
 ];
+
+/** One node of a Laboratorio tree (`falloff` and `at` came with the seasonal core: older nodes get 1 and null). */
+const labNodeSchema = z
+  .object({
+    id: z.string().regex(/^[a-z0-9-]{1,32}$/),
+    branch: z.enum(['probe', 'relics', 'station', 'extraction']),
+    name: z.string().min(1).max(40),
+    effect: z.discriminatedUnion('kind', [
+      z.object({ kind: z.literal('stat'), stat: z.enum(STAT_KEYS) }).strict(),
+      z.object({ kind: z.literal('payout'), currency: z.enum(['coins', 'dust', 'material']) }).strict(),
+      z.object({ kind: z.literal('refinery'), field: z.enum(['rate', 'queue']) }).strict(),
+      z.object({ kind: z.literal('antenna') }).strict(),
+      z.object({ kind: z.literal('disintegrate') }).strict(),
+      z.object({ kind: z.literal('fusion') }).strict(),
+    ]),
+    per: z.number().gt(0).max(0.2),
+    max: z.number().int().min(1).max(10),
+    requires: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
+    cost: z.object({ dust: z.number().int().min(0).max(10_000_000), components: z.number().int().min(0).max(1_000_000) }).strict(),
+    growth: z.number().min(1).max(3),
+    falloff: z.number().min(0.5).max(1).default(1),
+    at: z.object({ angle: z.number().min(-180).max(180), ring: z.number().int().min(1).max(12) }).strict().nullable().default(null),
+  })
+  .strict();
+
+/** What every stat may add from both trees at their max: a guard against a tree that would break the brakes (§8.6). */
+export const LAB_STAT_BUDGET = 1;
+
+/**
+ * The checks over both Laboratorio trees together: unique ids across both, each requirement inside its own tree, no
+ * cycles, the fusion discount and each run pay bonus at most half, each stat within its budget, and no station machine
+ * in the season's tree (the refinery and the antenna run lazily over time; a seasonal reset would rewrite the past).
+ */
+function labTreesIssues(lab: { nodes: { id: string; requires: string | null; effect: { kind: string; currency?: string; stat?: string }; per: number; max: number; falloff: number }[]; season: { id: string; requires: string | null; effect: { kind: string; currency?: string; stat?: string }; per: number; max: number; falloff: number }[] }, ctx: z.RefinementCtx): void {
+  const ids = new Set<string>();
+  for (const [path, tree] of [['nodes', lab.nodes], ['season', lab.season]] as const) {
+    for (const n of tree) {
+      if (ids.has(n.id)) ctx.addIssue({ code: 'custom', path: [path], message: `lab_duplicate:${n.id}` });
+      ids.add(n.id);
+    }
+    const byId = new Map(tree.map((n) => [n.id, n]));
+    for (const n of tree) {
+      if (n.requires !== null && !byId.has(n.requires)) ctx.addIssue({ code: 'custom', path: [path], message: `lab_requires:${n.id}` });
+      // Follow the chain of requirements: a node seen twice is a cycle.
+      const seen = new Set<string>([n.id]);
+      for (let at = n.requires; at !== null; at = byId.get(at)?.requires ?? null) {
+        if (seen.has(at)) {
+          ctx.addIssue({ code: 'custom', path: [path], message: `lab_cycle:${n.id}` });
+          break;
+        }
+        seen.add(at);
+      }
+    }
+  }
+  for (const n of lab.season) {
+    // Only what a run uses: the station's machines run lazily over time and the collection prices galaxies, so a reset
+    // in the middle of a season would change their past (or their quotes).
+    if (n.effect.kind !== 'stat' && n.effect.kind !== 'payout') ctx.addIssue({ code: 'custom', path: ['season'], message: `lab_season_kind:${n.id}` });
+  }
+  const both = [...lab.nodes, ...lab.season];
+  const sum = (pick: (n: (typeof both)[number]) => boolean) => both.filter(pick).reduce((a, n) => a + nodeTotal(n, n.max), 0);
+  if (sum((n) => n.effect.kind === 'fusion') > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: 'lab_fusion_cap' });
+  for (const c of ['coins', 'dust', 'material'] as const) {
+    if (sum((n) => n.effect.kind === 'payout' && n.effect.currency === c) > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_payout_cap:${c}` });
+  }
+  for (const stat of STAT_KEYS) {
+    if (sum((n) => n.effect.kind === 'stat' && n.effect.stat === stat) > LAB_STAT_BUDGET + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_stat_cap:${stat}` });
+  }
+}
 
 export const configSchemas = {
   features: z
@@ -257,59 +326,11 @@ export const configSchemas = {
    */
   lab: z
     .object({
-      nodes: z
-        .array(
-          z
-            .object({
-              id: z.string().regex(/^[a-z0-9-]{1,32}$/),
-              branch: z.enum(['probe', 'relics', 'station', 'extraction']),
-              name: z.string().min(1).max(40),
-              effect: z.discriminatedUnion('kind', [
-                z.object({ kind: z.literal('stat'), stat: z.enum(STAT_KEYS) }).strict(),
-                z.object({ kind: z.literal('payout'), currency: z.enum(['coins', 'dust', 'material']) }).strict(),
-                z.object({ kind: z.literal('refinery'), field: z.enum(['rate', 'queue']) }).strict(),
-                z.object({ kind: z.literal('antenna') }).strict(),
-                z.object({ kind: z.literal('disintegrate') }).strict(),
-                z.object({ kind: z.literal('fusion') }).strict(),
-              ]),
-              per: z.number().gt(0).max(0.2),
-              max: z.number().int().min(1).max(10),
-              requires: z.string().regex(/^[a-z0-9-]{1,32}$/).nullable(),
-              cost: z.object({ dust: z.number().int().min(0).max(10_000_000), components: z.number().int().min(0).max(1_000_000) }).strict(),
-              growth: z.number().min(1).max(3),
-            })
-            .strict(),
-        )
-        .min(1)
-        .max(200)
-        .superRefine((nodes, ctx) => {
-          const ids = new Set<string>();
-          for (const n of nodes) {
-            if (ids.has(n.id)) ctx.addIssue({ code: 'custom', message: `lab_duplicate:${n.id}` });
-            ids.add(n.id);
-          }
-          const byId = new Map(nodes.map((n) => [n.id, n]));
-          for (const n of nodes) {
-            if (n.requires !== null && !byId.has(n.requires)) ctx.addIssue({ code: 'custom', message: `lab_requires:${n.id}` });
-            // Follow the chain of requirements: a node seen twice is a cycle.
-            const seen = new Set<string>([n.id]);
-            for (let at = n.requires; at !== null; at = byId.get(at)?.requires ?? null) {
-              if (seen.has(at)) {
-                ctx.addIssue({ code: 'custom', message: `lab_cycle:${n.id}` });
-                break;
-              }
-              seen.add(at);
-            }
-          }
-          const sum = (pick: (n: (typeof nodes)[number]) => boolean) => nodes.filter(pick).reduce((a, n) => a + n.per * n.max, 0);
-          if (sum((n) => n.effect.kind === 'fusion') > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: 'lab_fusion_cap' });
-          for (const c of ['coins', 'dust', 'material'] as const) {
-            if (sum((n) => n.effect.kind === 'payout' && n.effect.currency === c) > 0.5 + 1e-9) ctx.addIssue({ code: 'custom', message: `lab_payout_cap:${c}` });
-          }
-        })
-        .default(DEFAULT_LAB_NODES),
+      nodes: z.array(labNodeSchema).min(1).max(200).default(DEFAULT_LAB_NODES),
+      season: z.array(labNodeSchema).max(120).default([]),
     })
-    .strict(),
+    .strict()
+    .superRefine((lab, ctx) => labTreesIssues(lab, ctx)),
   /**
    * Relic levels and slots (GDD §8.4, §8.4 bis; M4c-1): the dust of reaching each level from 2 to 10, the share of it
    * returned when a galaxy is fused or disintegrated, and the milestone and dust of each slot from the third to the sixth.
