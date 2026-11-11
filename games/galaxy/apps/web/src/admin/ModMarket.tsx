@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type AdminAlertRow, type AdminListingRow, type AdminTradeRow, type DealReversal, type GalaxyLineage, LISTING_STATUSES, TIERS, TRADE_STATUSES } from '@galaxy/shared';
 import { useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
@@ -180,9 +181,9 @@ export function Commerce() {
       ) : null}
       {data && data.rows.length === 0 ? <p className="panel-note">{kind === 'listings' ? t.noListings : t.noTrades}</p> : null}
       {data && data.rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           {data.kind === 'listings' ? <ListingsTable rows={data.rows} onAction={start} /> : <TradesTable rows={data.rows} onAction={start} />}
-        </div>
+        </HScroll>
       ) : null}
       {data ? <Pager page={data.page} pages={data.pages} onPage={(p) => change({ pagina: p > 1 ? String(p) : null })} /> : null}
       {open?.action === 'cancel' ? (
@@ -348,7 +349,7 @@ export function Alerts() {
       ) : null}
       {alerts.data && rows.length === 0 ? <p className="panel-note">{reviewed ? t.noReviewed : t.noAlerts}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{t.alertsTitle}</caption>
             <thead>
@@ -397,7 +398,7 @@ export function Alerts() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {alerts.data ? <Pager page={alerts.data.page} pages={alerts.data.pages} onPage={setPage} /> : null}
       {open ? (

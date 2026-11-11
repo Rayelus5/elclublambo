@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { ADMIN_CURRENCIES, ADMIN_SECTIONS, type AdminPlayer, type AdminSectionName, FINISHES, GALAXY_TYPES, TIERS } from '@galaxy/shared';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -224,13 +225,13 @@ export function PlayerScreen() {
           {t.done}
         </p>
       ) : null}
-      <div className="tabs admin-tabs" role="tablist" aria-label={p.username}>
+      <HScroll className="tabs admin-tabs" role="tablist" aria-label={p.username}>
         {TABS.map((k) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}>
             {t.tabs[k]}
           </button>
         ))}
-      </div>
+      </HScroll>
       <div role="tabpanel" aria-label={t.tabs[tab]}>
         {tab === 'summary' ? (
           <Summary p={p} />

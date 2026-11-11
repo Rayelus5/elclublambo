@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type AdminMailRow, type AdminNoticeRow, MAIL_GIFTS, type MailAudience, mailAudienceSchema, type MailGifts } from '@galaxy/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useId, useState } from 'react';
@@ -208,7 +209,7 @@ function SentList() {
     <div className="comms-block">
       {mail.data && rows.length === 0 ? <p className="panel-note">{t.noSent}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{t.sentTitle}</caption>
             <thead>
@@ -255,7 +256,7 @@ function SentList() {
               })}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {open ? <ActionDialog url={open.url} title={open.title} submit={open.submit} password={() => false} onDone={() => setOpen(null)} onClose={() => setOpen(null)} /> : null}
     </div>
@@ -344,7 +345,7 @@ function NoticeList() {
     <div className="comms-block">
       {notices.data && rows.length === 0 ? <p className="panel-note">{t.noNotices}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <caption>{t.noticesTitle}</caption>
             <thead>
@@ -384,7 +385,7 @@ function NoticeList() {
               })}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {open ? <ActionDialog url={open.url} title={open.title} submit={open.submit} password={() => false} onDone={() => setOpen(null)} onClose={() => setOpen(null)} /> : null}
     </div>

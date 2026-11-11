@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { useId, useState } from 'react';
 import { Link } from 'react-router';
 import { usePlayerSearch } from '../api/admin';
@@ -32,7 +33,7 @@ export function PlayersScreen() {
       ) : null}
       {settled && search.data && rows.length === 0 ? <p className="panel-note">{t.noResults}</p> : null}
       {rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
@@ -59,7 +60,7 @@ export function PlayersScreen() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </section>
   );

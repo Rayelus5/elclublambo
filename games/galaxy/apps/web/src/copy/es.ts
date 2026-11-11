@@ -1672,6 +1672,13 @@ export const copy = {
     empty: 'No hay noticias ahora mismo',
     emptyHint: 'Aquí salen los avisos del equipo y los multiplicadores de monedas o polvo mientras estén en marcha',
   },
+  /** The arrows of what scrolls sideways (ui/HScroll.tsx): the game shows no scrollbars. */
+  scroll: {
+    prev: 'Ver anteriores',
+    next: 'Ver más',
+    prevOf: (what: string) => `${what}: ver anteriores`,
+    nextOf: (what: string) => `${what}: ver más`,
+  },
   hub: {
     shortcuts: 'Accesos',
     menu: 'Menú principal',
