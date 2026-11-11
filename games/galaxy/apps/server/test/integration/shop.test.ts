@@ -66,8 +66,8 @@ describe('la tienda abierta', () => {
     const row = await ctx.db.selectFrom('galaxy.shop_purchases').selectAll().where('id', '=', c.purchase).executeTakeFirstOrThrow();
     expect(row).toMatchObject({ status: 'pending', amount_cents: 399, first_bonus: true, terms_version: 'v1', stripe_session_id: gateway.sessionOfPurchase(c.purchase).id });
     expect(row.snapshot).toMatchObject({ total: { coins: 1000, dust: 0, components: 0 } });
-    // The first-purchase extra is now taken by this payment.
-    expect((await view(cookie)).products.find((p) => p.id === 'coins-1')).toMatchObject({ first: false, bought: 1 });
+    // Until it is paid, nothing counts as bought and the first-purchase extra stays on show.
+    expect((await view(cookie)).products.find((p) => p.id === 'coins-1')).toMatchObject({ first: true, bought: 0 });
   });
 
   test('repetir la misma petición no abre otra compra ni otro pago', async () => {
