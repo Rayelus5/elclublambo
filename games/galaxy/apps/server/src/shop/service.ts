@@ -169,6 +169,30 @@ async function closeOpen(deps: ShopDeps, gateway: ShopGateway, r: OpenRow): Prom
   await deps.db.updateTable('galaxy.shop_purchases').set({ status: 'expired', updated_at: deps.now() }).where('id', '=', r.id).where('status', 'in', OPEN).execute();
 }
 
+/** What the account paid today (Madrid): what the player sees as spent (an unfinished payment spends nothing). */
+async function paidToday(db: Db, accountId: string, now: Date): Promise<number> {
+  const row = await db
+    .selectFrom('galaxy.shop_purchases')
+    .select(sql<number>`coalesce(sum(amount_cents), 0)::int`.as('cents'))
+    .where('account_id', '=', accountId)
+    .where('madrid_day', '=', madridDay(now))
+    .where('status', 'in', TAKEN)
+    .executeTakeFirstOrThrow();
+  return row.cents;
+}
+
+/** The account's unfinished payments, oldest first. */
+async function allOpen(db: Db, accountId: string, now: Date): Promise<OpenRow[]> {
+  return db
+    .selectFrom('galaxy.shop_purchases')
+    .select(['id', 'amount_cents', 'stripe_price_id', 'first_bonus', 'terms_version', 'expires_at', 'stripe_session_id', 'snapshot'])
+    .where('account_id', '=', accountId)
+    .where('status', 'in', OPEN)
+    .where('expires_at', '>', now)
+    .orderBy('created_at', 'asc')
+    .execute();
+}
+
 /** What the account spent today (Madrid) and still has open: every purchase that took or may take money. */
 async function spentToday(db: Db, accountId: string, now: Date): Promise<number> {
   const row = await db
@@ -237,7 +261,7 @@ export async function shopView(deps: ShopDeps, session: SessionInfo): Promise<Sh
   if (!open || blocked) {
     return { open: false, closed: blocked ? 'blocked' : 'closed', publishableKey: null, products: [], limits: { ...cfg.limits, spentTodayCents: 0 }, ...common };
   }
-  const [counts, spent] = await Promise.all([purchaseCounts(deps.db, session.accountId), spentToday(deps.db, session.accountId, now)]);
+  const [counts, spent] = await Promise.all([purchaseCounts(deps.db, session.accountId), paidToday(deps.db, session.accountId, now)]);
   const sellable = cfg.products.filter((p) => productBlock(p, { staff, bought: 0 }) !== 'unavailable');
   const before = new Map(await Promise.all(sellable.map(async (p) => [p.id, await beforeOf(deps, p, now)] as const)));
   const products = sellable.map((p): ShopProductView => {
@@ -340,6 +364,18 @@ export async function openCheckout(deps: ShopDeps, session: SessionInfo, body: S
   const first = product.firstBonus && cfg.firstPurchase.enabled && !done.firstUsed;
   for (const r of await openOf(deps.db, accountId, product.id, now)) {
     if (!resumable(r, product, price, first, body.terms, now)) await closeOpen(deps, gateway, r);
+  }
+  // Unfinished payments never take up the limits: when they would leave this purchase out (of the daily limit or of
+  // the open payments allowed), the oldest are closed first, in Stripe too, so what gets paid always stays within them
+  // (one paid meanwhile is delivered and counts). Carrying on with this product's own payment needs no room.
+  const carriesOn = (await openOf(deps.db, accountId, product.id, now)).some((r) => resumable(r, product, price, first, body.terms, now));
+  if (!carriesOn) {
+    await expireStale(deps.db, accountId, now);
+    for (const r of await allOpen(deps.db, accountId, now)) {
+      const fits = (await spentToday(deps.db, accountId, now)) + price.cents <= cfg.limits.dailyCents && (await openPayments(deps.db, accountId, now)) < cfg.limits.pendingMax;
+      if (fits) break;
+      await closeOpen(deps, gateway, r);
+    }
   }
 
   const reservation = await runOperation(deps.db, accountId, key, 'shop.checkout', hash, (trx) => reserve(trx, cfg, product, accountId, staff, now, body.terms, price));
