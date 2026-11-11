@@ -9,6 +9,9 @@ const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
 const app = await buildApp({ env, db });
 const stopRetention = startRetention(db, app.log);
+// The shop's keys: a code, never the keys (shop and lab plan, F4).
+if (env.stripe) app.log.info({ mode: env.stripe.mode }, 'stripe_ready');
+else app.log.info({ issue: env.stripeIssue ?? 'stripe_off' }, env.stripeIssue ?? 'stripe_off');
 
 let closing = false;
 async function shutdown(signal: string) {

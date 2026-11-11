@@ -1,6 +1,12 @@
 import { expect, test } from 'vitest';
 import { loadEnv } from '../../src/env';
 
+// Fake keys with the real shapes: never real ones in the repo.
+const SK = 'sk_live_' + 'a1B2c3D4e5';
+const RK = 'rk_live_' + 'f6G7h8I9';
+const PK = 'pk_live_' + 'j0K1l2M3';
+const WH = 'whsec_' + 'n4O5p6Q7r8';
+
 const KEY = Buffer.alloc(32, 1).toString('base64');
 const base = {
   DATABASE_URL: 'postgresql://galaxy_api:pw@db:5432/postgres',
@@ -33,4 +39,28 @@ test.each([
   ['sin clave TOTP', { ...base, GALAXY_TOTP_KEY: undefined }],
 ])('falla %s', (_name, src) => {
   expect(() => loadEnv(src)).toThrow();
+});
+
+test('sin claves de Stripe la tienda queda cerrada y nada falla', () => {
+  const env = loadEnv(base);
+  expect(env.stripe).toBeNull();
+  expect(env.stripeIssue).toBeNull();
+  expect(loadEnv({ ...base, STRIPE_SECRET_KEY: '', STRIPE_WEBHOOK_SECRET: '', STRIPE_PUBLISHABLE_KEY: '' }).stripe).toBeNull();
+});
+
+test('con las tres claves de Stripe del mismo modo, la tienda puede cobrar', () => {
+  expect(loadEnv({ ...base, STRIPE_SECRET_KEY: SK, STRIPE_WEBHOOK_SECRET: WH, STRIPE_PUBLISHABLE_KEY: PK }).stripe).toEqual({ secretKey: SK, webhookSecret: WH, publishableKey: PK, mode: 'live' });
+  // A restricted key works too.
+  expect(loadEnv({ ...base, STRIPE_SECRET_KEY: RK, STRIPE_WEBHOOK_SECRET: WH, STRIPE_PUBLISHABLE_KEY: PK }).stripe?.secretKey).toBe(RK);
+});
+
+test.each([
+  ['falta una', { STRIPE_SECRET_KEY: SK, STRIPE_PUBLISHABLE_KEY: PK }],
+  ['mezclan modos', { STRIPE_SECRET_KEY: SK, STRIPE_WEBHOOK_SECRET: WH, STRIPE_PUBLISHABLE_KEY: PK.replace('live', 'test') }],
+  ['la publicable donde va la secreta', { STRIPE_SECRET_KEY: PK, STRIPE_WEBHOOK_SECRET: WH, STRIPE_PUBLISHABLE_KEY: PK }],
+  ['un secreto de webhook que no lo es', { STRIPE_SECRET_KEY: SK, STRIPE_WEBHOOK_SECRET: 'otra-cosa', STRIPE_PUBLISHABLE_KEY: PK }],
+])('claves de Stripe que no encajan (%s): tienda cerrada con su motivo, sin romper el arranque', (_name, keys) => {
+  const env = loadEnv({ ...base, ...keys });
+  expect(env.stripe).toBeNull();
+  expect(env.stripeIssue).toBe('stripe_env_incomplete');
 });

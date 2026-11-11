@@ -53,4 +53,7 @@ export * from './progress/tutorial';
 export * from './progress/events-admin';
 export * from './api/mail';
 export * from './api/stats';
+export * from './shop/schema';
+export * from './shop/rules';
+export * from './api/shop';
 export * from './gacha/simulate';

@@ -7,6 +7,7 @@ import { achievementSchema, DEFAULT_ACHIEVEMENTS, DEFAULT_DAILY, DEFAULT_SEASON,
 import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalog';
 import { seasonRouteSchema } from '../progress/season-route';
 import { redshiftSchema } from '../progress/redshift';
+import { shopSchema } from '../shop/schema';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -709,6 +710,11 @@ export const configSchemas = {
         .default([]),
     })
     .strict(),
+  /**
+   * The resource shop (shop and lab plan, F4): coins, star dust and components for real money with Stripe, closed by
+   * default and first for the staff alone. Products, prices, Stripe prices, offers and limits.
+   */
+  shop: shopSchema,
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;

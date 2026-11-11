@@ -12,7 +12,7 @@
 
 ## 1. Qué es y por qué
 
-Galaxy Survivor es un juego web de escritorio, sin web3 ni dinero real, que une tres ganchos alrededor de un solo objeto: **la galaxia braille** generada por el motor de ElClub Nebula.
+Galaxy Survivor es un juego web de escritorio, sin web3, que une tres ganchos alrededor de un solo objeto: **la galaxia braille** generada por el motor de ElClub Nebula.
 
 1. **La tirada.** Un gachapón genera en el momento una galaxia única. Da la incertidumbre de lo aleatorio, el coleccionismo y estatus dentro del grupo.
 2. **La incursión.** Un survivor de 5 a 20 minutos: empiezas siendo nadie en un sector hostil y acabas arrasando gracias a tus mejoras y a tus reliquias. Cada partida es distinta.
@@ -39,7 +39,7 @@ Las tres partes se empujan entre sí: las galaxias del gachapón son las reliqui
 
 ### 1.3 No objetivos
 
-- Pagos con dinero real de cualquier tipo **[U]**.
+- ~~Pagos con dinero real de cualquier tipo~~. **Cambiado por el propietario (2026-11-11) [U]:** hay una tienda de recursos con dinero real (§11.5). Sigue sin venderse nada del escáner: ni señales ni tiradas.
 - Móvil, tableta o idiomas distintos del español **[U]**.
 - Cooperativo en la beta: el juego se prepara para él, pero no se entrega **[U]**.
 - Exponer o usar las 1.000 piezas de la colección NFT: las galaxias se generan en vivo **[U]**.
@@ -345,9 +345,9 @@ Tabla de partida, ajustable:
 
 | Recurso | Sale de | Se gasta en |
 |---|---|---|
-| **Monedas** | Incursiones, sobre todo; misiones; ventas en el mercado | Tiradas, mejoras, compras en el mercado |
-| **Polvo estelar** | Desintegrar galaxias; incursiones | Mejoras de reliquias, ranuras, fusiones, laboratorio |
-| **Material en bruto → componentes** | Incursiones → refinería | Reparar y mejorar módulos, hangar |
+| **Monedas** | Incursiones, sobre todo; misiones; ventas en el mercado; tienda (§11.5) | Tiradas, mejoras, compras en el mercado |
+| **Polvo estelar** | Desintegrar galaxias; incursiones; tienda (§11.5) | Mejoras de reliquias, ranuras, fusiones, laboratorio |
+| **Material en bruto → componentes** | Incursiones → refinería; componentes en la tienda (§11.5) | Reparar y mejorar módulos, hangar |
 | **Señales de galaxia** (boletos) | Misiones, logros, eventos, niveles, botín raro | Tiradas |
 | **Moneda de temporada** | Actividad de la temporada | Tienda de la temporada; lo que sobra se convierte en polvo con un cambio desfavorable |
 
@@ -412,6 +412,33 @@ Tabla de partida, ajustable:
   - que el rendimiento diario de §11.3 bis frene al jugador intenso sin castigar al normal, que no debería pasar de 3 h casi nunca;
   - que ningún bucle produzca más de lo que consume sin límite.
 - Los parámetros viven en configuración editable (§16.3).
+
+### 11.5 Tienda de recursos [U, 2026-11-11]
+
+**Qué vende [U].** Monedas, polvo estelar y componentes por dinero real, cobrados con Stripe en modo real:
+- 6 packs de cada recurso: cuanto más grande, mejor precio por unidad y más regalo;
+- packs combinados y un pack de bienvenida, una vez por cuenta;
+- **nunca señales del escáner**. Las monedas siguen comprando tiradas, como siempre.
+
+**Ofertas [U].** Se pueden apagar todas:
+- extra en la primera compra de cada pack;
+- pack de bienvenida;
+- ofertas por tiempo limitado, de «+X % de regalo» o de precio rebajado;
+- packs combinados.
+
+El precio tachado de una rebaja es el más bajo de los 30 días anteriores (directiva Ómnibus) y lo calcula el servidor; si no lo hay, no se tacha nada.
+
+**Protecciones [U]:**
+- límite de gasto diario por cuenta (día de Madrid);
+- una casilla obligatoria al pagar: mayor de edad o con permiso, y renuncia al desistimiento por entrega inmediata;
+- devolución o contracargo: se quita lo que quede de lo entregado (el saldo nunca baja de 0), se bloquea la tienda de esa cuenta y salta un aviso en el panel.
+
+**Reglas del servidor [U]:**
+- Todo es configuración viva (`shop`): productos, precios mostrados, precios de Stripe, ofertas y límites.
+- La tienda nace cerrada y, al abrirse, primero solo para el staff.
+- El servidor cobra con el precio de Stripe del producto, nunca con un importe del navegador, y comprueba que es el mostrado.
+- Lo que da una compra se fija al abrir el pago y se entrega una sola vez cuando Stripe confirma el cobro (webhook firmado o consulta de la compra), sin multiplicadores ni topes.
+- Desde la primera compra real, PRE ya no se borra (`ops/reset-beta.sql` se niega).
 
 ---
 

@@ -9,6 +9,8 @@ const ALWAYS_OPEN = new Set([
   'POST /galaxy/api/auth/totp',
   'GET /galaxy/api/auth/me',
   'POST /galaxy/api/auth/logout',
+  // Stripe's webhook: a payment taken during maintenance is still delivered.
+  'POST /galaxy/api/shop/webhook',
 ]);
 
 function isAdmin(req: FastifyRequest): boolean {
