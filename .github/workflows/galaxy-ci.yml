@@ -63,9 +63,9 @@ jobs:
 
       - name: Chromium for the browser tests (WebGL2) and the e2e
         # The runner image already has Chromium's libraries; when apt cannot reach Ubuntu's mirrors (DNS failures on
-        # the runners), the browser alone is enough.
+        # the runners, which retry for many minutes), after 5 min the browser alone is enough.
         run: |
-          pnpm -C games/galaxy exec playwright install --with-deps chromium || pnpm -C games/galaxy exec playwright install chromium
+          timeout 300 pnpm -C games/galaxy exec playwright install --with-deps chromium || pnpm -C games/galaxy exec playwright install chromium
 
       - name: Tests
         run: pnpm -C games/galaxy test
