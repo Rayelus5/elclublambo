@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { copy } from '../copy/es';
 
 const t = copy.admin;
@@ -26,7 +27,7 @@ export function DataTable({
 }) {
   if (rows.length === 0) return <p className="panel-note">{t.empty}</p>;
   return (
-    <div className="admin-table-wrap">
+    <HScroll variant="table" className="admin-table-wrap">
       <table className="admin-table">
         {caption ? <caption>{caption}</caption> : null}
         <thead>
@@ -50,7 +51,7 @@ export function DataTable({
           ))}
         </tbody>
       </table>
-    </div>
+    </HScroll>
   );
 }
 

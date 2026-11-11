@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import type { AdminRunRow } from '@galaxy/shared';
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { useId, useState } from 'react';
@@ -77,7 +78,7 @@ export function RunsScreen() {
       {data && data.runs.length === 0 ? <p className="panel-note">{t.empty}</p> : null}
       {data && data.runs.length > 0 ? (
         <>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -113,7 +114,7 @@ export function RunsScreen() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           <Pager page={data.page} pages={data.pages} onPage={(p) => change({ pagina: p > 1 ? String(p) : null })} />
         </>
       ) : null}

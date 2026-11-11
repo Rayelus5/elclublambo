@@ -144,6 +144,11 @@ box-shadow:
 
 Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con anillo `--ice` de 3 px separado 3–4 px, y estado deshabilitado (opacidad 50 %, sin labio, `cursor: not-allowed`).
 
+**Sin barras de desplazamiento [U, 2026-11-11].** No hay barras en ningún sitio, aunque todo sigue desplazándose con la rueda, el dedo o el teclado. Lo que se desplaza de lado usa `ui/HScroll.tsx`:
+- una flecha en el lado donde hay más contenido, y ese borde difuminado;
+- en las tiras, la rueda del ratón lo mueve de lado hasta el final, y después la rueda vuelve a ser de la página;
+- en las tablas (`variant="table"`), la rueda sigue siendo de la página y las flechas van arriba.
+
 | Componente | Variantes | Notas |
 |---|---|---|
 | **Button** | `primary` (Solar, héroe), `mode` (Nova, Terminal), `event` (UV), `nav` (Sky), `pill` (oscura o Solar), `icon` (redondo oscuro 48 px) | Estados: reposo, hover, pulsado, foco, deshabilitado, cargando (spinner braille + `aria-busy`). `icon` siempre con `aria-label` |

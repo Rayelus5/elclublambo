@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type BoostsConfig, type ConfigValue, type EconomyPay, type EconomyResult, type EconomySample, parseConfig, simulateEconomy } from '@galaxy/shared';
 import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, step } from '@galaxy/sim';
 import { useEffect, useId, useRef, useState } from 'react';
@@ -151,7 +152,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
           <p className="panel-note" role="status">
             {t.estimate(result.samples, result.draft.perDay.runs)}
           </p>
-          <div className="admin-table-wrap">
+          <HScroll variant="table" className="admin-table-wrap">
             <table className="admin-table economy-table">
               <caption>{t.tableTitle}</caption>
               <thead>
@@ -173,7 +174,7 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
                 ))}
               </tbody>
             </table>
-          </div>
+          </HScroll>
           {result.draft.capped > 0 ? <p className="panel-note">{t.capped(result.draft.capped)}</p> : null}
         </>
       ) : null}

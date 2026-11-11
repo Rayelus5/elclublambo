@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { useId, useState } from 'react';
 import { auditSearch, useAudit } from '../api/admin';
 import { errorText } from '../auth/useMe';
@@ -46,7 +47,7 @@ export function AuditScreen() {
       ) : null}
       {audit.data && audit.data.rows.length === 0 ? <p className="panel-note">{t.audit.empty}</p> : null}
       {audit.data && audit.data.rows.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table">
             <thead>
               <tr>
@@ -84,7 +85,7 @@ export function AuditScreen() {
               ))}
             </tbody>
           </table>
-        </div>
+        </HScroll>
       ) : null}
       {audit.data ? <Pager page={audit.data.page} pages={audit.data.pages} onPage={setPage} /> : null}
     </section>

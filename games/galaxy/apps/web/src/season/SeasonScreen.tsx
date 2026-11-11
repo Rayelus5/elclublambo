@@ -1,3 +1,4 @@
+import { useWheelSideways } from '../ui/HScroll';
 import type { SeasonResult, SeasonReward, SeasonView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { type CSSProperties, useCallback, useEffect, useRef, useState } from 'react';
@@ -77,6 +78,7 @@ export function SeasonScreen() {
     el.scrollLeft = li ? Math.max(0, li.offsetLeft - 24) : 0;
     measure();
   }, [firstOpen, measure]);
+  useWheelSideways(track);
   const slide = (dir: 1 | -1) => track.current?.scrollBy({ left: dir * track.current.clientWidth * 0.8, behavior: 'smooth' });
   const next = v?.steps.find((s) => !s.reached);
   const nextT = v?.season ? nextTier(v.score, v.season.tiers) : null;

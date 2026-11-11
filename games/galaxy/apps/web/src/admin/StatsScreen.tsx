@@ -1,3 +1,4 @@
+import { HScroll } from '../ui/HScroll';
 import { type AdminStats, STATS_PERIODS, type StatsPeriod, type StatsSection, TIERS } from '@galaxy/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
@@ -189,7 +190,7 @@ function Currencies({ s }: { s: AdminStats }) {
       </SectionHead>
       {s.currencies.length === 0 ? <p className="panel-note">{t.noFlows}</p> : null}
       {s.currencies.length > 0 ? (
-        <div className="admin-table-wrap">
+        <HScroll variant="table" className="admin-table-wrap">
           <table className="admin-table stats-flows">
             <caption className="sr-only">{t.currenciesTitle}</caption>
             <thead>
@@ -221,7 +222,7 @@ function Currencies({ s }: { s: AdminStats }) {
               </tbody>
             ))}
           </table>
-        </div>
+        </HScroll>
       ) : null}
     </section>
   );
@@ -254,7 +255,7 @@ function Pulls({ s }: { s: AdminStats }) {
         </p>
       </SectionHead>
       <p className="stats-sub">{total ? t.pullsTotal(total) : t.noPulls}</p>
-      <div className="admin-table-wrap">
+      <HScroll variant="table" className="admin-table-wrap">
         <table className="admin-table stats-pulls">
           <caption className="sr-only">{t.pullsTitle}</caption>
           <thead>
@@ -288,7 +289,7 @@ function Pulls({ s }: { s: AdminStats }) {
             })}
           </tbody>
         </table>
-      </div>
+      </HScroll>
       <p className="stats-sub">{t.expectedNote}</p>
     </section>
   );
