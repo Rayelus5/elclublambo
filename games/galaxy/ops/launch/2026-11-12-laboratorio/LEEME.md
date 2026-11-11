@@ -37,3 +37,12 @@ Todo queda dentro de los topes del esquema (por estadística, cobro y fusión, s
 **El árbol de temporada** no va aquí: sale con la Temporada 2, desde `ops/plantillas/temporada/lab.json`.
 
 Lo validan `packages/shared/test/launch-config.test.ts` y `packages/shared/test/lab-content.test.ts`. Los genera `scripts/lab-tree.py` (`python games/galaxy/scripts/lab-tree.py` enseña los totales; con `write` reescribe los archivos).
+
+## Publicado
+
+**El 2026-11-11 hacia las 18:15 (hora de Madrid)**, con el OK del propietario y adelantado a la fecha de la carpeta: la pizarra ya estaba en PRE y así la Temporada 1 (desde el 13/11) se juega entera con el mismo árbol.
+- **`lab` v0 → v1** (107 nodos; el árbol de temporada sigue vacío) y **`redshift` v0 → v1** (50, 80, 110, 140 y 170).
+- **Motivo:** «Laboratorio ampliado a 107 nodos y umbrales nuevos del Corrimiento al rojo».
+- **Aviso** en Noticias durante 7 días: «El Laboratorio crece: 91 mejoras nuevas en sus cuatro ramas y una pizarra para recorrerlas. El Corrimiento al rojo ahora pide más niveles por rango».
+- **Lo de antes** (los valores por defecto, versión 0) está en `antes/` para volver atrás. El polvo y los componentes gastados en nodos nuevos no se devolverían.
+- **`check-config`** avisó de dos problemas que ya estaban en lo vivo y que esta carpeta no toca: los eventos `primer-contacto` (del 10 al 24/11) y `escuadron-estelar` (del 17/11 al 8/12) se salen de las fechas de `season-1` (del 13 al 23/11).
