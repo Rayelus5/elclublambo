@@ -280,7 +280,8 @@ for (const [w, h] of [
     mount(createElement(WorkshopScreen), { '/hangar': withSkins });
     await new Promise((r) => setTimeout(r, 1500));
     const picker = document.querySelector<HTMLElement>('.skin-picker')!;
-    expect(picker.querySelectorAll('input[type="radio"]')).toHaveLength(3);
+    // The base and the four collections of Lumen (two owned, Aurora and Leyenda locked).
+    expect(picker.querySelectorAll('input[type="radio"]')).toHaveLength(5);
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
     picker.scrollIntoView({ block: 'center' });
     if (import.meta.env['VITE_ARENA_SHOTS']) {

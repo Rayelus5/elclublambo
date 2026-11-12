@@ -1,5 +1,7 @@
 import { DEFAULT_COSMETICS, type ProbeCard, SCRAP_SKIN_RUNS, skinParts } from '@galaxy/shared';
 import { useCosmeticsView } from '../api/cosmetics';
+import { SpriteLoop } from '../ui/SpriteLoop';
+import { useReducedMotion } from '../ui/motion';
 import { useGacha } from '../api/economy';
 import { useChooseSkin, useChooseVariant, useLevelUpProbe } from '../api/runs';
 import { spriteDataUrl } from '../arena/sprites';
@@ -136,6 +138,7 @@ export function WeaponPicker({ probe }: { probe: ProbeCard }) {
 export function SkinPicker({ probe }: { probe: ProbeCard }) {
   const t = copy.workshop;
   const choose = useChooseSkin();
+  const reduced = useReducedMotion();
   const catalog = useCosmeticsView().data?.catalog.skins ?? DEFAULT_COSMETICS.skins;
   const skins = catalog.filter((k) => skinParts(k.id)?.probe === probe.id);
   // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
@@ -166,7 +169,7 @@ export function SkinPicker({ probe }: { probe: ProbeCard }) {
           return (
             <label key={k.id} className={`weapon-card${owned ? '' : ' locked'}`}>
               <input type="radio" name={`skin-${probe.id}`} value={k.id} checked={chosen === k.id} disabled={!owned} onChange={() => pick(k.id)} />
-              <img className="skin-card-art" src={spriteDataUrl(k.id, 2)} alt="" width={48} height={48} />
+              <SpriteLoop className="skin-card-art" id={k.id} scale={2} reduced={reduced} width={48} height={48} />
               <span className="weapon-card-text">
                 <b>{k.name}</b>
                 <small>{hint(k.id, k.hint)}</small>

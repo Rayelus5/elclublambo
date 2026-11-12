@@ -10,6 +10,8 @@ import { copy } from '../../copy/es';
 import { AddFriendButton } from '../../social/AddFriendButton';
 import { Icon } from '../../ui/Icon';
 import { playEquip } from '../../workshop/sfx';
+import { SpriteLoop } from '../../ui/SpriteLoop';
+import { useReducedMotion } from '../../ui/motion';
 import padUrl from '../lobby-art/launchpad.png';
 import { Avatar } from '../../hub/Avatar';
 
@@ -101,6 +103,8 @@ function SkinSwatches({ probe, fixed }: { probe: ProbeCard; fixed: boolean }) {
 
 function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
   const choose = useChooseProbe();
+  // My probe idles over its pad (its engine, core and lights; a skin's own life).
+  const reduced = useReducedMotion();
   const [dir, setDir] = useState<1 | -1>(1);
   const open = view.probes.filter((p) => p.unlocked);
   const id = (choose.isPending ? choose.variables : null) ?? view.probe;
@@ -126,7 +130,7 @@ function Hero({ view, self }: { view: HangarView; self: RoomMember | null }) {
         ) : null}
         <Link to={`/taller?sonda=${probe.id}`} className="lobby-probe-link" aria-label={l.toWorkshop(probe.name)} data-sfx="hover">
           <span className="lobby-halo" aria-hidden="true" />
-          <img key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} src={spriteDataUrl(probeDrawing(probe.skin, probe.sprite), 16)} alt="" draggable={false} />
+          <SpriteLoop key={probe.id} className={`lobby-probe from-${dir > 0 ? 'right' : 'left'}`} id={probeDrawing(probe.skin, probe.sprite)} scale={16} reduced={reduced} />
           <span className="lobby-pad" style={{ backgroundImage: `url(${padUrl})` }} aria-hidden="true" />
           <span className="lobby-probe-hint" aria-hidden="true">
             <Icon name="wrench" />

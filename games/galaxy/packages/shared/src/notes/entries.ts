@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-9-skins-animadas',
+    version: '1.9',
+    date: '2026-11-12',
+    title: 'Skins animadas',
+    summary: 'Llegan las skins que se mueven: Aurora, con su velo de luz, y Leyenda, la más trabajada',
+    items: [
+      { kind: 'nuevo', text: 'Colección Aurora: aletas de cristal, un velo de luz polar que la cruza y una cinta que ondea detrás. Se ganará en la ruta de temporada' },
+      { kind: 'nuevo', text: 'Colección Leyenda: corona y proa de oro, un destello que la recorre y chispas en órbita. Llegará a la tienda, en la pestaña Estilo' },
+      { kind: 'nuevo', text: 'Aurora y Leyenda tienen su propia llama y su propia estela al impulsarte' },
+      { kind: 'mejora', text: 'Tu sonda se mueve en el lobby y en el Taller, y las skins animadas también en su selector' },
+    ],
+  },
+  {
     id: 'v1-8-skins-de-sondas',
     version: '1.8',
     date: '2026-11-12',

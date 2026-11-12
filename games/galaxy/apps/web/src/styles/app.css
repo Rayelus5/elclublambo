@@ -1247,6 +1247,7 @@
   @keyframes weapon-frames { to { background-position-x: 133.333%; } }
   .weapon-card-icon { width: 36px; height: 36px; image-rendering: pixelated; }
   /* A skin's drawing at ×2 (its 24 px), centred in the card's art column. */
+  .piece-skin { image-rendering: pixelated; filter: drop-shadow(0 4px 0 rgb(0 0 0 / .35)); }
   .skin-card-art { justify-self: center; inline-size: 48px; block-size: 48px; image-rendering: pixelated; filter: drop-shadow(0 3px 0 rgb(0 0 0 / .35)); }
   .weapon-card.locked .skin-card-art { filter: grayscale(1) brightness(.5); }
   .weapon-card-text { display: grid; gap: 3px; min-width: 0; }
