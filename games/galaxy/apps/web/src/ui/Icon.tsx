@@ -258,6 +258,13 @@ const PATHS = {
       <path d="M12 5v14M5 12h14" />
     </>
   ),
+  // «Añadir amigo» (Nov plan A3): a person with a plus.
+  addFriend: (
+    <>
+      <circle cx="9.5" cy="8" r="3.5" />
+      <path d="M3 19.5c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5M18.5 8v6M15.5 11h6" />
+    </>
+  ),
   trash: (
     <>
       <path d="M4.5 7h15M9.5 7V4.8h5V7M6.5 7l.9 12.2h9.2L17.5 7M10.2 10.5v5.5M13.8 10.5v5.5" />

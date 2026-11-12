@@ -57,3 +57,10 @@ test('nombra a quien más eliminó y a quien más reanimó; sin reanimaciones no
   render(<TeamResults rows={none} me={0} />);
   expect(screen.getAllByText(t.mostRevives)).toHaveLength(1);
 });
+
+test('ofrece añadir como amigo a cada compañero, nunca en mi fila (plan de noviembre A3)', () => {
+  const rows = teamRows(finished(), start);
+  render(<TeamResults rows={rows} me={0} befriend={(u) => <button type="button">{`amigo:${u}`}</button>} />);
+  const offered = screen.getAllByRole('button', { name: /^amigo:/ }).map((b) => b.textContent);
+  expect(offered).toEqual(rows.filter((r) => r.slot !== 0).map((r) => `amigo:${r.name}`));
+});

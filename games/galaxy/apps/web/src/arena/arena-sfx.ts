@@ -1,4 +1,5 @@
 import type { SimEvent } from '@galaxy/sim';
+import { isPersonal } from './personal';
 import { sfxOut } from '../audio/mixer';
 
 // Combat sounds (GDD §17.4), synthesised like the scanner's: short, quiet, rate-limited so a swarm never turns into
@@ -58,8 +59,10 @@ function hiss(a: AudioContext, t: number, from: number, to: number, dur: number,
   src.stop(t + dur + 0.02);
 }
 
-export function playEvents(events: readonly SimEvent[]): void {
+/** `me`: my probe; a teammate's hit, level-up, pickup or dash is theirs and stays silent here (Nov plan A2). */
+export function playEvents(events: readonly SimEvent[], me = 0): void {
   for (const e of events) {
+    if (!isPersonal(e, me)) continue;
     switch (e.t) {
       case 'hit':
         tone('hit', 0.05, (a, t) => blip(a, t, e.crit ? 900 : 620, 300, 0.05, 0.035));
