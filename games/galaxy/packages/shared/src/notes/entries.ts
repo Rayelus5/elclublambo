@@ -17,7 +17,7 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
       { kind: 'nuevo', text: 'Cada sector tiene su propia música, que crece de la calma al combate y al peligro según la partida' },
       { kind: 'nuevo', text: 'Los Núcleos entran con su música, con coros, timbales y metales, y el Núcleo profundo tiene la suya' },
       { kind: 'nuevo', text: 'Remates musicales al pasar de capa, al extraer y al caer, y una pieza tranquila en los resultados' },
-      { kind: 'nuevo', text: 'Ajustes › Sonido › Estilo de música' },
+      { kind: 'nuevo', text: 'Tres estilos de música a elegir en Ajustes › Sonido: Ambiente espacial, Lo-fi espacial y Synthwave suave' },
       { kind: 'mejora', text: 'Las partidas en grupo también tienen música' },
       { kind: 'mejora', text: 'La música baja al elegir mejora y en la pausa' },
     ],

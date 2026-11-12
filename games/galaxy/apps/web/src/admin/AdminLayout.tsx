@@ -51,6 +51,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/escaner-ensayo">{t.sections.rehearsal}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/musica">{t.sections.music}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/notas-de-version">{t.sections.notes}</NavLink>
                 </li>
               </>
