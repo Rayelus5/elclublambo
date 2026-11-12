@@ -33,7 +33,7 @@ test('registro → 201 con el perfil, cookie gs_sid con atributos exactos y /me'
   const me = await get(ctx.app, ME, { cookie: c.value });
   expect(me.statusCode).toBe(200);
   // /me also says the account level (M5a): a new account is level 1.
-  expect(me.json()).toEqual({ id: res.json().id, username: username.toLowerCase(), roles: [], mfa: false, level: 1 });
+  expect(me.json()).toEqual({ id: res.json().id, username: username.toLowerCase(), roles: [], mfa: false, level: 1, avatar: null, frame: null });
 });
 
 test('la BD guarda el sha256 del token, nunca el token', async () => {

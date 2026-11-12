@@ -9,6 +9,7 @@ import { useUi } from '../state/ui';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
 import { Avatar } from '../hub/Avatar';
+import { Select } from '../ui/Select';
 
 // Friends (multiplayer plan, phase 3): a side sheet like the chat's, that never blocks the game. Friends first (the
 // online ones on top, with what they are doing), requests both ways, whom I blocked, and my privacy. Adding is by
@@ -319,13 +320,14 @@ function PrivacyTab({ v, onNotice }: { v: FriendsView; onNotice: (s: string) => 
   return (
     <div className="friends-privacy">
       <label htmlFor={id}>{t.privacyInvites}</label>
-      <select id={id} value={v.prefs.invites} disabled={prefs.isPending} onChange={(e) => save({ invites: e.target.value as InvitePolicy })}>
-        {(['everyone', 'friends', 'nobody'] as const).map((k) => (
-          <option key={k} value={k}>
-            {t.invites[k]}
-          </option>
-        ))}
-      </select>
+      <Select<InvitePolicy>
+        id={id}
+        block
+        value={v.prefs.invites}
+        disabled={prefs.isPending}
+        options={(['everyone', 'friends', 'nobody'] as const).map((k) => ({ value: k, label: t.invites[k] }))}
+        onChange={(invites) => save({ invites })}
+      />
       <label className="check">
         <input type="checkbox" checked={v.prefs.showStatus} disabled={prefs.isPending} onChange={(e) => save({ showStatus: e.target.checked })} />
         <span>{t.privacyStatus}</span>

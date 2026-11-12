@@ -99,11 +99,13 @@ test('crear una sala privada en un sector abierto, y unirse por código o a la s
   lobby('/incursion?modo=grupo');
   expect(await screen.findByText(t.noRooms)).toBeInTheDocument();
   // Only the sectors I have open can be chosen.
-  const sector = await screen.findByLabelText(t.sector);
+  const sector = await screen.findByRole('combobox', { name: t.sector });
   const open = view()
     .sectors.filter((s) => s.unlocked)
     .map((s) => s.name);
-  await waitFor(() => expect(within(sector).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.click(sector);
+  await waitFor(() => expect(within(screen.getByRole('listbox', { name: t.sector })).getAllByRole('option').map((o) => o.textContent)).toEqual(open));
+  await user.keyboard('{Escape}');
   // A friend in a room can be joined from the side.
   const side = screen.getByRole('region', { name: t.friendsTitle });
   expect(within(side).getByText('lyra').closest('li')).toContainElement(within(side).getByRole('button', { name: t.joinFriend }));
@@ -153,6 +155,33 @@ test('el líder ve a su equipo en sus plataformas, expulsa, y no despega hasta q
   await user.click(within(items[0]!).getByRole('button', { name: t.kick }));
   await waitFor(() => expect(bodyOf(fetch, '/galaxy/api/rooms/kick')).toEqual({ username: 'deneb' }));
   await waitFor(() => expect(within(team).queryByText('deneb')).not.toBeInTheDocument());
+});
+
+test('desde la sala se puede añadir como amigo a quien no lo es, y no a uno mismo (plan de noviembre A3)', async () => {
+  const withMates = room({
+    members: [
+      room().members[0]!,
+      { username: 'deneb', level: 5, probe: 'lumen', ready: false, connected: true, leader: false },
+      { username: 'vega', level: 7, probe: 'lumen', ready: true, connected: true, leader: false },
+    ],
+  });
+  const after: FriendsView = { ...friends, outgoing: [{ username: 'deneb', level: 5, at: '2026-11-12T00:00:00Z' }] };
+  const fetch = mockApi({ ...base(rooms({ mine: withMates })), 'POST /galaxy/api/friends/requests': () => jsonResponse(200, after) });
+  const user = userEvent.setup();
+  lobby();
+  // The leader's own view (who I am arrives with the session): there the button is round, beside theirs.
+  expect(await screen.findByRole('button', { name: t.start })).toBeInTheDocument();
+  const team = await screen.findByRole('list', { name: t.playersTitle });
+  const deneb = within(team).getAllByRole('listitem').find((li) => li.textContent?.includes('deneb'))!;
+  const vega = within(team).getAllByRole('listitem').find((li) => li.textContent?.includes('vega'))!;
+  const add = await within(deneb).findByRole('button', { name: copy.friends.profile.add });
+  // Already a friend (once my friends list is in): no button.
+  await waitFor(() => expect(within(vega).queryByRole('button', { name: copy.friends.profile.add })).not.toBeInTheDocument());
+  await user.click(add);
+  await waitFor(() => expect(bodyOf(fetch, '/galaxy/api/friends/requests')).toEqual({ username: 'deneb' }));
+  expect(await within(deneb).findByRole('button', { name: copy.friends.profile.sent })).toBeDisabled();
+  // My own pad (the hero) never offers it.
+  expect(screen.queryAllByRole('button', { name: copy.friends.profile.add })).toHaveLength(0);
 });
 
 test('quien no lidera marca que está listo, y no ve los mandos del líder', async () => {

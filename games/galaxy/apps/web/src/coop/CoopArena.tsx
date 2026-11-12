@@ -1,6 +1,8 @@
 import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptions, type RunResult } from '@galaxy/shared';
 import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AddFriendButton } from '../social/AddFriendButton';
+import { hudInsets } from './hud-insets';
 import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
 import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
@@ -314,8 +316,8 @@ function CoopWorld({
     let disposed = false;
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events, sim.tick);
-      playEvents(events);
-      const said = announceFor(events, start.content, seenReactions.current);
+      playEvents(events, slot);
+      const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
     };
     const loop = createLockstep({
@@ -354,6 +356,7 @@ function CoopWorld({
       reduced,
       vision: relicVision(sim, sim.probes[slot]!),
       probe: slot,
+      me: slot,
       seed: start.seed,
       biome,
       names: start.players.map((p) => p.username),
@@ -389,6 +392,13 @@ function CoopWorld({
       watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
+      // Where the HUD covers the arena: the teammates' arrows keep out of it (Nov plan A2 review).
+      const canvas = canvasRef.current;
+      const box = canvas?.parentElement;
+      if (canvas && box) {
+        const at = (sel: string) => box.querySelector(sel)?.getBoundingClientRect() ?? null;
+        stageRef.current?.setInsets(hudInsets(canvas.getBoundingClientRect(), { top: at('.hud-top'), team: at('.coop-team'), kit: at('.hud-kit'), cards: at('.coop-cards') }));
+      }
     }, HUD_EVERY_MS);
     return () => clearInterval(id);
   }, [sim, slot, watch]);
@@ -528,7 +538,7 @@ function CoopWorld({
   if (showResult && result) {
     return result.result ? (
       <>
-        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} />} />
+        <ResultsScreen result={result.result} onAgain={onExit} team={<TeamResults rows={teamRows(sim, start)} me={slot} onReport={setReporting} befriend={(u) => <AddFriendButton username={u} className="team-friend" />} />} />
         {reporting ? <ReportDialog runId={start.id} username={reporting} onClose={() => setReporting(null)} /> : null}
       </>
     ) : (

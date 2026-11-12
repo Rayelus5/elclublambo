@@ -60,7 +60,7 @@ describe('crear', () => {
     const c = await clanOf(a, { tag: tag.toLowerCase(), name: `Los Ñandúes ${randomInt(1_000_000)}` });
     expect(c.tag).toBe(tag);
     expect((await getWallet(ctx.db, a.id)).coins).toBe(before - 2000);
-    expect(c.members).toEqual([{ username: a.username, role: 'leader', level: 5, points: 0, joinedAt: expect.any(String) }]);
+    expect(c.members).toEqual([{ username: a.username, avatar: null, frame: null, role: 'leader', level: 5, points: 0, joinedAt: expect.any(String) }]);
     expect(c.me).toEqual({ role: 'leader' });
     expect(c.requests).toEqual([]);
     expect(Object.keys(c).sort()).toEqual(['color', 'createdAt', 'description', 'emblem', 'kickHours', 'maxMembers', 'me', 'members', 'name', 'open', 'rank', 'requests', 'score', 'tag']);
@@ -70,7 +70,7 @@ describe('crear', () => {
     const other = await view(b, c.tag.toLowerCase());
     expect(other.requests).toBeUndefined();
     expect(other.me).toBeNull();
-    expect(Object.keys(other.members[0]!).sort()).toEqual(['joinedAt', 'level', 'points', 'role', 'username']);
+    expect(Object.keys(other.members[0]!).sort()).toEqual(['avatar', 'frame', 'joinedAt', 'level', 'points', 'role', 'username']);
   });
 
   test('nombre o etiqueta ocupados, nivel bajo o sin monedas: nada creado ni cobrado', async () => {

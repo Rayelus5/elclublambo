@@ -4,6 +4,7 @@ import { botInput, botPick, createSim, DEFAULT_CONTENT, runSummary, step } from 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useConfigKeys } from '../api/config';
 import { copy, fmt } from '../copy/es';
+import { Select } from '../ui/Select';
 
 // The economy simulator (GDD §16.6; M6d-5, DESIGN_SYSTEM §8 quatervicies), under the editor of `runs` and `boosts`:
 // three runs played by the simulation's bot in the chosen sector and length, in slices (the page stays alive, and it can
@@ -93,37 +94,33 @@ export function EconomySimulator({ editing, draft, lengths = [5, 10, 15] }: { ed
         <div className="field">
           <label htmlFor={`${ids}-sector`}>{t.sector}</label>
           <div className="control">
-            <select id={`${ids}-sector`} value={sector} onChange={(e) => setSector(e.target.value)}>
-              {DEFAULT_CONTENT.sectors.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+            <Select id={`${ids}-sector`} size="lg" block value={sector} options={DEFAULT_CONTENT.sectors.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
           </div>
         </div>
         <div className="field">
           <label htmlFor={`${ids}-len`}>{t.length}</label>
           <div className="control">
-            <select id={`${ids}-len`} value={minutes} onChange={(e) => setMinutes(Number(e.target.value))}>
-              {lengths.map((m) => (
-                <option key={m} value={m}>
-                  {t.minutes(m)}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-len`}
+              size="lg"
+              block
+              value={String(minutes)}
+              options={lengths.map((m) => ({ value: String(m), label: t.minutes(m) }))}
+              onChange={(v) => setMinutes(Number(v))}
+            />
           </div>
         </div>
         <div className="field">
           <label htmlFor={`${ids}-day`}>{t.dayLength}</label>
           <div className="control">
-            <select id={`${ids}-day`} value={perDay} onChange={(e) => setPerDay(Number(e.target.value))}>
-              {PER_DAY.map((m) => (
-                <option key={m} value={m}>
-                  {t.minutes(m)}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-day`}
+              size="lg"
+              block
+              value={String(perDay)}
+              options={PER_DAY.map((m) => ({ value: String(m), label: t.minutes(m) }))}
+              onChange={(v) => setPerDay(Number(v))}
+            />
           </div>
         </div>
         {pct === null ? (

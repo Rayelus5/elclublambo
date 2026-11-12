@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { expect, type Page, test as base } from '@playwright/test';
+import { expect, type Locator, type Page, test as base } from '@playwright/test';
 
 // Rate limits live in the database per client IP (registration, login, pulls). Every test gets its own address, so
 // a growing suite never trips the limits of the one before it, locally or in CI.
@@ -28,6 +28,19 @@ export async function skipProbeTest(page: Page): Promise<void> {
   await expect(page.getByText('Tu sonda')).toBeVisible();
   await skipTutorial(page);
   await page.goto('/galaxy/');
+}
+
+/**
+ * Picks `option` in the game's own dropdown named `label` inside `scope` (ui/Select.tsx, C1): it opens the combobox
+ * and clicks the option in its list, which lives on <body> (outside any dialog), as a player does.
+ */
+export async function pickOption(scope: Page | Locator, label: string, option: string): Promise<void> {
+  const page = 'page' in scope ? scope.page() : scope;
+  const combobox = scope.getByRole('combobox', { name: label, exact: true });
+  await combobox.click();
+  await expect(combobox).toHaveAttribute('aria-expanded', 'true');
+  await page.getByRole('listbox', { name: label, exact: true }).getByRole('option', { name: option, exact: true }).click();
+  await expect(combobox).toHaveText(option);
 }
 
 export { expect, type Page };

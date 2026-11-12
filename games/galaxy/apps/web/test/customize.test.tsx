@@ -45,11 +45,11 @@ test('en mi perfil, «Personalizar» abre el inventario por pestañas; en el de 
   const dialog = await screen.findByRole('dialog', { name: t.title });
   for (const tab of [t.tabs.avatar, t.tabs.frame, t.tabs.title, t.tabs.banner]) expect(within(dialog).getByRole('tab', { name: tab })).toBeInTheDocument();
   // Defaults are mine; a Núcleo portrait I earned too; one I lack is locked with how to get it.
-  expect(await within(dialog).findByRole('radio', { name: /Gato de la estación/ })).toBeEnabled();
-  expect(within(dialog).getByRole('radio', { name: /La Colmena/ })).toBeEnabled();
-  const locked = within(dialog).getByRole('radio', { name: /El Glaciar/ });
+  expect(await within(dialog).findByRole('radio', { name: /Gato de a bordo/ })).toBeEnabled();
+  expect(within(dialog).getByRole('radio', { name: /La Colmena Rota/ })).toBeEnabled();
+  const locked = within(dialog).getByRole('radio', { name: /La Madre Glaciar/ });
   expect(locked).toBeDisabled();
-  expect(within(dialog).getByText('Vence al Glaciar por primera vez')).toBeInTheDocument();
+  expect(within(dialog).getByText('Vence a la Madre Glaciar por primera vez')).toBeInTheDocument();
   expect(within(dialog).getAllByRole('link', { name: t.inShop })[0]).toHaveAttribute('href', '/tienda?pestana=estilo');
 });
 
@@ -66,7 +66,7 @@ test('elegir un avatar y un marco y guardar manda solo lo cambiado', async () =>
   renderAt('/perfil/vega', screens);
   await user.click(await screen.findByRole('button', { name: t.open }));
   const dialog = await screen.findByRole('dialog', { name: t.title });
-  await user.click(await within(dialog).findByRole('radio', { name: /Gato de la estación/ }));
+  await user.click(await within(dialog).findByRole('radio', { name: /Gato de a bordo/ }));
   await user.click(within(dialog).getByRole('tab', { name: t.tabs.frame }));
   await user.click(within(dialog).getByRole('radio', { name: /Bronce/ }));
   await user.click(within(dialog).getByRole('button', { name: t.save }));

@@ -5,6 +5,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useAdminAlerts, useAdminDeals, useDealLineage } from '../api/admin-market';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
+import { Select } from '../ui/Select';
 import { useSettled } from '../ui/useSettled';
 import { ActionDialog } from './ActionDialog';
 import { Pager } from './DataTable';
@@ -158,14 +159,14 @@ export function Commerce() {
         <div className="field">
           <label htmlFor={`${ids}-status`}>{t.status}</label>
           <div className="control">
-            <select id={`${ids}-status`} value={status} onChange={(e) => change({ estado: e.target.value || null, pagina: null })}>
-              <option value="">{t.all}</option>
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {t.statuses[s]}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-status`}
+              size="lg"
+              block
+              value={status}
+              options={[{ value: '', label: t.all }, ...statuses.map((s) => ({ value: s, label: t.statuses[s] ?? s }))]}
+              onChange={(v) => change({ estado: v || null, pagina: null })}
+            />
           </div>
         </div>
       </div>

@@ -4,10 +4,11 @@ import { copy } from '../copy/es';
 // What the run screen reads aloud from a step's events (DESIGN_SYSTEM §8 quinquies): an evolution, and the first time
 // each reaction goes off in the run (`seen` remembers them), so the live region never floods.
 
-export function announceFor(events: readonly SimEvent[], content: Content, seen: Set<string>): string | null {
+/** `me`: my probe; in a group only my own evolution is read aloud (Nov plan A2). */
+export function announceFor(events: readonly SimEvent[], content: Content, seen: Set<string>, me = 0): string | null {
   let out: string | null = null;
   for (const e of events) {
-    if (e.t === 'evolve') {
+    if (e.t === 'evolve' && e.probe === me) {
       const name = content.weapons.find((w) => w.id === e.to)?.name;
       if (name) out = copy.arena.announce.evolved(name);
     } else if (e.t === 'reaction' && !seen.has(e.id)) {

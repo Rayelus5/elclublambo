@@ -1,4 +1,5 @@
-import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
+import { coopRulesOf, parseConfig } from '@galaxy/shared';
+import { botInput, botPick, createSim, damageProp, DEFAULT_CONTENT, dropPickup, IDLE, PICKUP, type Sim, spawnBoss, spawnEnemy, step } from '@galaxy/sim';
 import { BlurFilter } from 'pixi.js';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
@@ -290,4 +291,68 @@ test('con movimiento, el zoom se desliza unos fotogramas hasta su paso entero', 
     stage.render(sim, 1);
   }
   expect(stage.camera()!.zoom).toBe(3);
+}, 90_000);
+
+// Arrows towards teammates off screen (Nov plan A2): one far to the right in its team colour, one down far to the left.
+test('en grupo, los compañeros fuera de pantalla tienen su flecha en el borde', async () => {
+  const sim = createSim({
+    seed: '20261112',
+    content: DEFAULT_CONTENT,
+    sector: 'outer-nebula',
+    probes: [
+      { probe: 'lumen', relics: [] },
+      { probe: 'lumen', relics: [] },
+      { probe: 'lumen', relics: [] },
+    ],
+    coop: coopRulesOf(parseConfig('coop', {})),
+  });
+  step(sim, [IDLE, IDLE, IDLE]);
+  const [me, right, left] = sim.probes;
+  right!.x = right!.px = me!.x + 1500;
+  right!.y = right!.py = me!.y;
+  left!.x = left!.px = me!.x - 1500;
+  left!.y = left!.py = me!.y;
+  left!.life = 'down';
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega', 'orion'] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const near = (x0: number, x1: number, rgb: [number, number, number]) => {
+    const data = ctx.getImageData(x0, 300, x1 - x0, 120).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - rgb[0]) < 40 && Math.abs(data[i + 1]! - rgb[1]) < 40 && Math.abs(data[i + 2]! - rgb[2]) < 40) return true;
+    return false;
+  };
+  // Team tint of slot 1 (Terminal green) at the right edge; a fallen teammate's arrow in red at the left edge.
+  expect(near(1180, 1280, [0x45, 0xe3, 0xa6])).toBe(true);
+  expect(near(0, 100, [0xff, 0x4d, 0x6d])).toBe(true);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/coop-mates-1280.png', element: canvas });
+}, 90_000);
+
+// The arrows keep out of the HUD's bands (Nov plan A review): a teammate straight above sits below the top bar.
+test('la flecha de un compañero justo encima queda debajo de la barra de arriba', async () => {
+  const sim = createSim({ seed: '20261113', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }, { probe: 'lumen', relics: [] }], coop: coopRulesOf(parseConfig('coop', {})) });
+  step(sim, [IDLE, IDLE]);
+  const [me, up] = sim.probes;
+  up!.x = up!.px = me!.x;
+  up!.y = up!.py = me!.y - 1500;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, me: 0, seed: '20261113', preserve: true, names: ['yo', 'vega'] });
+  stage.resize(1280, 720);
+  stage.setInsets({ top: 100, right: 0, bottom: 0, left: 0 });
+  stage.render(sim, 1);
+  const ctx = document.createElement('canvas').getContext('2d')!;
+  ctx.canvas.width = 1280;
+  ctx.canvas.height = 720;
+  ctx.drawImage(canvas, 0, 0);
+  const green = (y0: number, y1: number) => {
+    const data = ctx.getImageData(600, y0, 80, y1 - y0).data;
+    for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - 0x45) < 40 && Math.abs(data[i + 1]! - 0xe3) < 40 && Math.abs(data[i + 2]! - 0xa6) < 40) return true;
+    return false;
+  };
+  expect(green(0, 100)).toBe(false);
+  expect(green(100, 200)).toBe(true);
 }, 90_000);

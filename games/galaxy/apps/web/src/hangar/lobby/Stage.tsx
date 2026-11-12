@@ -6,6 +6,7 @@ import { useChooseProbe } from '../../api/runs';
 import { spriteDataUrl } from '../../arena/sprites';
 import { errorText } from '../../auth/useMe';
 import { copy } from '../../copy/es';
+import { AddFriendButton } from '../../social/AddFriendButton';
 import { Icon } from '../../ui/Icon';
 import { playEquip } from '../../workshop/sfx';
 import padUrl from '../lobby-art/launchpad.png';
@@ -147,7 +148,11 @@ function Mate({ m, k, lead, busy, probeOf, onKick, onLead }: { m: RoomMember | n
         </span>
         <small>{copy.social.level(m.level)}</small>
         <span className={`lobby-state${m.ready || m.leader ? ' on' : ''}${m.connected ? '' : ' away'}`}>{!m.connected ? t.disconnected : m.leader ? t.leads : m.ready ? t.ready : t.notReady}</span>
+        {/* The leader's row under the card is already full: there it is a round button on the tag's corner. */}
+        {lead ? <AddFriendButton username={m.username} className="lobby-mate-friend-corner" compact /> : null}
       </span>
+      {/* Anyone in the room may befriend a teammate who is not a friend yet (Nov plan A3). */}
+      {lead ? null : <AddFriendButton username={m.username} className="lobby-mate-friend" />}
       {lead ? (
         <span className="lobby-mate-actions">
           <button type="button" className="lip pill small" disabled={busy} onClick={() => onLead(m.username)}>

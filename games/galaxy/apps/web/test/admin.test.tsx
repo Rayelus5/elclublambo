@@ -8,6 +8,7 @@ import { PlayerScreen } from '../src/admin/PlayerScreen';
 import { PlayersScreen } from '../src/admin/PlayersScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The admin panel on the web (GDD §16.1, §16.2; M6a): only for admins signed in with TOTP; finding a player, their
 // page with state and tabs, the change dialogs (reason always, the admin's password for destructive ones), the reset
@@ -91,7 +92,7 @@ test('dar moneda pide motivo; quitarla pide además tu contraseña, y se confirm
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.actions.wallet }));
   const dialog = await screen.findByRole('dialog', { name: t.actions.wallet });
-  await user.selectOptions(within(dialog).getByLabelText(t.fields.currency), 'coins');
+  await pickOption(user, within(dialog).getByLabelText(t.fields.currency), 'coins');
   await user.type(within(dialog).getByLabelText(t.fields.amount), '-100');
   expect(within(dialog).getByLabelText(t.fields.password)).toBeInTheDocument();
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Corrección');
@@ -107,7 +108,7 @@ test('banear elige la duración y pide la contraseña', async () => {
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.actions.ban }));
   const dialog = await screen.findByRole('dialog', { name: t.actions.ban });
-  await user.selectOptions(within(dialog).getByLabelText(t.fields.duration), '10080');
+  await pickOption(user, within(dialog).getByLabelText(t.fields.duration), '10080');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Trampas');
   expect(within(dialog).getByRole('button', { name: t.apply })).toBeDisabled();
   await user.type(within(dialog).getByLabelText(t.fields.password), 'mi-clave');
@@ -148,10 +149,18 @@ test('la auditoría se filtra y se exporta a CSV con los mismos filtros', async 
     page: 1,
     pages: 1,
   };
-  api({ 'GET /galaxy/api/admin/audit?page=1': () => jsonResponse(200, page), 'GET /galaxy/api/admin/audit?actor=rayelus&page=1': () => jsonResponse(200, page) });
+  api({
+    'GET /galaxy/api/admin/audit?page=1': () => jsonResponse(200, page),
+    'GET /galaxy/api/admin/audit?actor=rayelus&page=1': () => jsonResponse(200, page),
+    'GET /galaxy/api/admin/audit?actor=rayelus&from=2026-11-01&page=1': () => jsonResponse(200, page),
+  });
   renderAt('/admin/auditoria', { '/admin/auditoria': <AuditScreen /> });
   const user = userEvent.setup();
   expect(await screen.findByRole('cell', { name: 'player.ban' })).toBeInTheDocument();
   await user.type(screen.getByLabelText(t.audit.actor), 'rayelus');
   await waitFor(() => expect(screen.getByRole('link', { name: t.audit.export })).toHaveAttribute('href', '/galaxy/api/admin/audit?actor=rayelus&format=csv'));
+  // The dates use the game's own calendar, and keep sending the day as the native field did.
+  expect(screen.getAllByRole('button', { name: copy.picker.open })).toHaveLength(2);
+  await user.type(screen.getByLabelText(t.audit.from), '01/11/2026');
+  await waitFor(() => expect(screen.getByRole('link', { name: t.audit.export })).toHaveAttribute('href', '/galaxy/api/admin/audit?actor=rayelus&from=2026-11-01&format=csv'));
 });
