@@ -6,6 +6,7 @@ import { Alerts, Commerce } from '../src/admin/ModMarket';
 import { ModerationLayout } from '../src/admin/ModerationScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Trade moderation on the web (GDD §16.4; M6c-2), for admins: the history of listings and trades with its filters in
 // the address, cancelling, reverting after seeing each galaxy's lineage (with the password; not possible when a galaxy
@@ -61,7 +62,7 @@ test('el historial de anuncios se filtra por cuenta y estado desde la dirección
   expect(within(table).getByRole('button', { name: t.withdrawOf('Cúmulo Orión') })).toBeInTheDocument();
   expect(within(table).getByRole('button', { name: t.revertOf('Nebulosa Vega') })).toBeInTheDocument();
   await userEvent.type(screen.getByLabelText(t.account), 'vega');
-  await userEvent.selectOptions(screen.getByLabelText(t.status), 'sold');
+  await pickOption(userEvent, screen.getByLabelText(t.status), 'sold');
   await waitFor(() => expect(fetch.mock.calls.some(([u]) => u === `${A}/deals?kind=listings&user=vega&status=sold&page=1`)).toBe(true));
   await userEvent.click(screen.getByRole('button', { name: t.kinds.trades }));
   expect(await screen.findByText(t.noTrades)).toBeInTheDocument();

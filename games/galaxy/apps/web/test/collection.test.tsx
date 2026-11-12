@@ -8,6 +8,7 @@ import { HANGAR_KEY } from '../src/api/runs';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The collection (GDD §8.5): a paged grid with filters and order, the detail with front, back and lineage, and the two
 // ways to spend galaxies — disintegrate into dust (confirmed) and fuse five of a tier into the next (cost shown first).
@@ -79,7 +80,7 @@ test('los filtros y el orden cambian la consulta', async () => {
   await user.click(screen.getByRole('button', { name: new RegExp(copy.tiers.rare) }));
   expect(await screen.findByRole('article', { name: 'Gal r' })).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: copy.collection.sortRarity }));
-  await user.selectOptions(screen.getByLabelText(copy.traitNames['galaxy_type']!), copy.traitValues.galaxy_type.ring);
+  await pickOption(user, screen.getByRole('combobox', { name: copy.traitNames['galaxy_type']! }), copy.traitValues.galaxy_type.ring);
   expect(await screen.findByText(copy.collection.emptyFiltered)).toBeInTheDocument();
   expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?tier=rare&type=ring&sort=rarity&limit=30');
 });

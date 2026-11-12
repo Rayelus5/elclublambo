@@ -8,6 +8,7 @@ import { TradesPanel } from '../trades/TradesPanel';
 import { errorText, useMe } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 import { useSettled } from '../ui/useSettled';
 import { postUrl } from './art';
 import { BuyDialog } from './BuyDialog';
@@ -41,6 +42,7 @@ function Gate({ rules, id }: { rules: MarketRules; id: string }) {
 function Shop({ gateId }: { gateId: string }) {
   const me = useMe().data;
   const coins = useGacha({ fresh: true }).data?.wallet.coins;
+  const ids = useId();
   const [tier, setTier] = useState<Tier | ''>('');
   const [sort, setSort] = useState<MarketSort>('new');
   const [search, setSearch] = useState('');
@@ -54,39 +56,30 @@ function Shop({ gateId }: { gateId: string }) {
     <>
       {v ? <Gate rules={v.rules} id={gateId} /> : null}
       <div className="market-filters">
-        <label>
-          <span>{t.filterTier}</span>
-          <select
+        <div className="market-filter">
+          <label htmlFor={`${ids}-tier`}>{t.filterTier}</label>
+          <Select<Tier | ''>
+            id={`${ids}-tier`}
             value={tier}
-            onChange={(e) => {
-              setTier(e.target.value as Tier | '');
+            options={[{ value: '', label: t.allTiers }, ...TIERS.map((x) => ({ value: x, label: copy.tiers[x] }))]}
+            onChange={(v) => {
+              setTier(v);
               reset();
             }}
-          >
-            <option value="">{t.allTiers}</option>
-            {TIERS.map((x) => (
-              <option key={x} value={x}>
-                {copy.tiers[x]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>{t.sortLabel}</span>
-          <select
+          />
+        </div>
+        <div className="market-filter">
+          <label htmlFor={`${ids}-sort`}>{t.sortLabel}</label>
+          <Select<MarketSort>
+            id={`${ids}-sort`}
             value={sort}
-            onChange={(e) => {
-              setSort(e.target.value as MarketSort);
+            options={(['new', 'cheap', 'dear'] as const).map((x) => ({ value: x, label: t.sorts[x] }))}
+            onChange={(v) => {
+              setSort(v);
               reset();
             }}
-          >
-            {(['new', 'cheap', 'dear'] as const).map((x) => (
-              <option key={x} value={x}>
-                {t.sorts[x]}
-              </option>
-            ))}
-          </select>
-        </label>
+          />
+        </div>
         <label className="market-search">
           <span>{t.search}</span>
           <input

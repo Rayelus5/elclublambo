@@ -8,6 +8,7 @@ import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 import { EconomySimulator } from './EconomySimulator';
 import { PublishFields } from './PublishFields';
 import { ConfigForm, type Options } from './forms/ConfigForm';
@@ -124,16 +125,10 @@ function Simulator({ cfg }: { cfg: ReturnType<typeof parseConfig<'gacha'>> }) {
       <h2>{t.sim.title}</h2>
       <p className="panel-note">{t.sim.hint}</p>
       <div className="admin-filters">
-        <label htmlFor={id}>
-          <span>{t.sim.banner}</span>
-          <select id={id} value={banner} onChange={(e) => setBanner(e.target.value)}>
-            {cfg.banners.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="admin-filter">
+          <label htmlFor={id}>{t.sim.banner}</label>
+          <Select id={id} size="sm" value={banner} options={cfg.banners.map((b) => ({ value: b.id, label: b.name }))} onChange={setBanner} />
+        </div>
         {[1000, 10_000, 100_000].map((n) => (
           <button key={n} type="button" className="lip pill small" onClick={() => setDrawn({ of, run: simulateGacha(cfg, banner, n, 20261108n) })}>
             {t.sim.run(n)}

@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Secret, TOTP } from 'otpauth';
-import { type Page, expect, skipProbeTest, test } from './fixtures';
+import { type Page, expect, pickOption, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
 // Communication against the real server (GDD §4, §16.5; M6d-1). A new admin (CLI) sends a message with 100 coins to one
@@ -62,7 +62,7 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     const compose = page.getByRole('form', { name: 'Enviar un mensaje' });
     await compose.getByLabel('Título').fill('Regalo de prueba');
     await compose.getByLabel('Mensaje', { exact: true }).fill('Gracias por probar el buzón');
-    await compose.getByLabel('Para').selectOption('names');
+    await pickOption(compose, 'Para', 'Una lista de cuentas');
     await compose.getByLabel('Cuentas').fill(name);
     await expect(compose.getByText('Llega a 1 cuenta')).toBeVisible();
     await compose.getByLabel('Monedas').fill('100');
@@ -74,7 +74,7 @@ test('un admin envía un regalo a un jugador y publica un aviso; el jugador lo r
     // The notice, running now for an hour.
     const notice = page.getByRole('form', { name: 'Publicar un aviso' });
     await notice.getByLabel('Texto del aviso').fill(noticeText);
-    await notice.getByLabel('Tono').selectOption('warning');
+    await pickOption(notice, 'Tono', 'Importante');
     await notice.getByLabel('Empieza').fill(local(Date.now() - 60_000));
     await notice.getByLabel('Termina').fill(local(Date.now() + 3_600_000));
     await notice.getByLabel('Motivo').fill('Prueba de avisos');

@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { PlayerScreen } from '../src/admin/PlayerScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The «Progreso» tab of a player's page (GDD §16.2; M6d-4): the gacha luck, the probes, the station's machines, the
 // Laboratorio and the season, each with its change. Raising asks only for a reason; taking away also the password.
@@ -89,7 +90,7 @@ test('subir una sonda pide solo el motivo; bajarla pide además la contraseña',
   await user.clear(level);
   await user.type(level, '6');
   expect(within(dialog).queryByLabelText(t.fields.password)).toBeNull();
-  await user.selectOptions(within(dialog).getByLabelText(g.fields.variant), 'pulse-wide');
+  await pickOption(user, within(dialog).getByLabelText(g.fields.variant), 'pulse-wide');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Compensación');
   await user.click(within(dialog).getByRole('button', { name: t.apply }));
   await waitFor(() => expect(posted(fetch, 'probe')).toEqual([{ probe: 'lumen', level: 6, variant: 'pulse-wide', reason: 'Compensación' }]));
@@ -138,7 +139,7 @@ test('la suerte del gachapón se cambia con los valores de ahora ya puestos', as
   await user.clear(within(dialog).getByLabelText(g.fields.sinceLegendary));
   await user.type(within(dialog).getByLabelText(g.fields.sinceLegendary), '9');
   expect(within(dialog).queryByLabelText(t.fields.password)).toBeNull();
-  await user.selectOptions(within(dialog).getByLabelText(g.fields.welcome), 'false');
+  await pickOption(user, within(dialog).getByLabelText(g.fields.welcome), 'false');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Fin de la bienvenida');
   await user.type(within(dialog).getByLabelText(t.fields.password), 'secreta');
   await user.click(within(dialog).getByRole('button', { name: t.apply }));
@@ -150,7 +151,7 @@ test('dar una galaxia deja elegir el tipo', async () => {
   const user = userEvent.setup();
   await user.click(await screen.findByRole('button', { name: t.actions.grant }));
   const dialog = await screen.findByRole('dialog', { name: t.actions.grant });
-  await user.selectOptions(within(dialog).getByLabelText(t.fields.type), 'ring');
+  await pickOption(user, within(dialog).getByLabelText(t.fields.type), 'ring');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Premio de un evento');
   await user.click(within(dialog).getByRole('button', { name: t.apply }));
   await waitFor(() => expect(posted(fetch, 'galaxies')[0]).toMatchObject({ type: 'ring' }));
@@ -162,7 +163,7 @@ test('bajar una sonda por debajo de su arma elegida la devuelve al arma base', a
   const row = within(await screen.findByRole('table', { name: g.probesTitle })).getByRole('row', { name: /Chispa/ });
   await user.click(within(row).getByRole('button', { name: g.levelOfProbe('Chispa') }));
   const dialog = await screen.findByRole('dialog', { name: g.levelOfProbe('Chispa') });
-  expect(within(dialog).getByLabelText(g.fields.variant)).toHaveValue('spark-fan');
+  expect(within(dialog).getByRole('combobox', { name: g.fields.variant })).toHaveTextContent(g.variantOpt('Abanico', 4));
   await user.clear(within(dialog).getByLabelText(g.fields.level));
   await user.type(within(dialog).getByLabelText(g.fields.level), '2');
   await user.type(within(dialog).getByLabelText(t.fields.reason), 'Corrección');

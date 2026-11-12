@@ -8,6 +8,7 @@ import { errorText } from '../../auth/useMe';
 import { copy, fmt } from '../../copy/es';
 import { eur } from '../../shop/art-hooks';
 import { amountsText } from '../../shop/ProductCard';
+import { Select } from '../../ui/Select';
 import { ActionDialog } from '../ActionDialog';
 import { DataTable, Pager } from '../DataTable';
 
@@ -81,14 +82,13 @@ function Purchases() {
         }}
       >
         <label htmlFor={`${ids}-status`}>{copy.admin.cols.status}</label>
-        <select id={`${ids}-status`} value={status} onChange={(e) => (setStatus(e.target.value as ShopPurchaseStatus | ''), setPage(1))}>
-          <option value="">{t.all}</option>
-          {SHOP_PURCHASE_STATUSES.map((s) => (
-            <option key={s} value={s}>
-              {t.statuses[s]}
-            </option>
-          ))}
-        </select>
+        <Select<ShopPurchaseStatus | ''>
+          id={`${ids}-status`}
+          size="sm"
+          value={status}
+          options={[{ value: '', label: t.all }, ...SHOP_PURCHASE_STATUSES.map((s) => ({ value: s, label: t.statuses[s] ?? s }))]}
+          onChange={(v) => (setStatus(v), setPage(1))}
+        />
         <label htmlFor={`${ids}-user`}>{t.account}</label>
         <input id={`${ids}-user`} type="text" value={draft} onChange={(e) => setDraft(e.target.value)} />
         <button type="submit" className="lip pill small">

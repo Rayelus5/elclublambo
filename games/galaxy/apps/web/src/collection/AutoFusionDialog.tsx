@@ -1,11 +1,12 @@
 import { type AutoFusionCriteria, FINISHES, SPECIAL_FINISHES, type Tier, TIERS } from '@galaxy/shared';
-import { type CSSProperties, useState } from 'react';
+import { type CSSProperties, useId, useState } from 'react';
 import { useAutoFuse, useAutoFusionPreview } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy, fmt } from '../copy/es';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Select } from '../ui/Select';
 import type { CollectionFilters } from './Filters';
 import { playFusion } from './sfx';
 
@@ -22,6 +23,7 @@ const next = (tier: Tier) => TIERS[Math.min(TIERS.length - 1, TIERS.indexOf(tier
 
 export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters: CollectionFilters; count: number; onClose: () => void; onDone: (message: string) => void }) {
   const start: From = filters.tier && filters.tier !== 'legendary' ? filters.tier : 'common';
+  const ids = useId();
   const [from, setFrom] = useState<From>(start);
   const [upTo, setUpTo] = useState<UpTo>(next(start));
   // Filtering by a special finish means fusing that finish: it is not kept then.
@@ -92,27 +94,21 @@ export function AutoFusionDialog({ filters, count, onClose, onDone }: { filters:
     <Dialog title={t.title} onClose={onClose} className="auto-fusion">
       <p className="af-lead">{t.lead(count)}</p>
       <div className="af-range">
-        <label>
-          <span>{t.from}</span>
-          <select value={from} onChange={(e) => pickFrom(e.target.value as From)} data-autofocus>
-            {FROM.map((tier) => (
-              <option key={tier} value={tier}>
-                {copy.tiers[tier]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="af-tier">
+          <label htmlFor={`${ids}-from`}>{t.from}</label>
+          <Select id={`${ids}-from`} block value={from} options={FROM.map((tier) => ({ value: tier, label: copy.tiers[tier] }))} onChange={pickFrom} data-autofocus />
+        </div>
         <Icon name="fuse" />
-        <label>
-          <span>{t.upTo}</span>
-          <select value={upTo} onChange={(e) => setUpTo(e.target.value as UpTo)}>
-            {TIERS.filter((tier) => TIERS.indexOf(tier) > TIERS.indexOf(from)).map((tier) => (
-              <option key={tier} value={tier}>
-                {copy.tiers[tier]}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="af-tier">
+          <label htmlFor={`${ids}-up`}>{t.upTo}</label>
+          <Select
+            id={`${ids}-up`}
+            block
+            value={upTo}
+            options={TIERS.filter((tier) => TIERS.indexOf(tier) > TIERS.indexOf(from)).map((tier) => ({ value: tier as UpTo, label: copy.tiers[tier] }))}
+            onChange={setUpTo}
+          />
+        </div>
       </div>
       {narrowed.length > 0 ? <p className="af-note">{t.narrowed(narrowed)}</p> : null}
       <div className="af-keep" role="group" aria-label={t.keepTitle}>
