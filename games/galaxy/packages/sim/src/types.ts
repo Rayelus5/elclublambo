@@ -216,10 +216,13 @@ export interface BossState {
   index: number;
   def: string;
   phase: number;
-  /** Ticks until the next pattern, the pattern cursor and the running pattern (spiral, charge). */
+  /**
+   * Ticks until the next pattern, the pattern cursor and the running pattern (spiral, charge…). Nov plan B4: a laser
+   * keeps the signed turn of its beam in `arc`; a closing ring, its centre in `x`, `y`.
+   */
   t: number;
   cursor: number;
-  active: { kind: string; t: number; a: number } | null;
+  active: { kind: string; t: number; a: number; arc?: number; x?: number; y?: number } | null;
 }
 
 /** A warned blast waiting to go off (systems/blasts.ts). */

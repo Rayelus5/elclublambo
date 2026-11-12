@@ -1,6 +1,6 @@
-import type { BossDef, BossPattern } from '../content/types';
+import type { BossDef, BossPattern, SectorDef } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
-import type { Sim } from '../types';
+import type { BossState, Sim } from '../types';
 import { ticks } from '../version';
 import { scaleAt } from './director';
 import { angleDiff, fireFoeBullet, nearestProbe, probesCentre, spawnEnemy } from './enemies';
@@ -8,14 +8,29 @@ import { hurtProbe, PROBE_RADIUS } from './probes';
 import { coopFactor } from './coop';
 
 // The Static Core (GDD §5.5): a boss with phases that change with its life, and a cycle of patterns that are always
-// announced before they hit (a burst warning, or the wind-up of a charge).
+// announced before they hit (a burst warning, the wind-up of a charge, the line of a laser, the marks on the ground).
 
 const SPAWN_DISTANCE = 260;
 
-/** The Core of the current layer: the sector's, or its deep Core every `every` layers (GDD §5.5). */
+/**
+ * The Core of `layer` in `sector` (GDD §5.5; Nov plan B4): every `every` layers its deep Core, which takes the forms of
+ * its cycle by how many times it has come; any other layer, the sector's forms in turn, the deep layers not counting
+ * (with a deep Core every 4: 1, 2, 3, deep, 1, 2, 3, deep…). Without cycles, always `boss` (content published before).
+ */
+export function bossIdAt(sector: SectorDef, layer: number): string {
+  const deep = sector.deepBoss;
+  if (deep && layer % deep.every === 0) {
+    const cycle = deep.cycle?.length ? deep.cycle : [deep.boss];
+    return cycle[(layer / deep.every - 1) % cycle.length]!;
+  }
+  const cycle = sector.bossCycle?.length ? sector.bossCycle : [sector.boss];
+  const skipped = deep ? Math.floor((layer - 1) / deep.every) : 0;
+  return cycle[(layer - 1 - skipped) % cycle.length]!;
+}
+
+/** The Core of the current layer (`bossIdAt`). */
 export function bossDef(sim: Sim): BossDef | undefined {
-  const deep = sim.sector.deepBoss;
-  const id = deep && sim.layer % deep.every === 0 ? deep.boss : sim.sector.boss;
+  const id = bossIdAt(sim.sector, sim.layer);
   return sim.content.bosses.find((b) => b.id === id);
 }
 
@@ -133,10 +148,73 @@ function fire(sim: Sim, def: BossDef, p: BossPattern): void {
       sim.events.push({ t: 'telegraph', kind: 'blink', x: en.tx[b.index]!, y: en.ty[b.index]!, angle: a, ticks: ticks(p.windup), radius: en.radius[b.index]! });
       return;
     }
+    case 'laser': {
+      // The line points at the probe; the beam then turns to a side drawn at random, and the warning shows which.
+      const arc = (sim.rng.ai.int(2) === 0 ? -1 : 1) * degToSteps(p.sweep);
+      b.active = { kind: 'aim', t: ticks(p.windup), a: aim, arc };
+      sim.events.push({ t: 'telegraph', kind: 'laser', x, y, angle: aim, ticks: ticks(p.windup), radius: p.length, arc });
+      return;
+    }
+    case 'closing': {
+      // Marked around where the probe stands now, with its way out at random; the bullets come when the mark is full.
+      if (!target) return;
+      const hole = sim.rng.ai.int(ANGLE_STEPS);
+      b.active = { kind: 'closing', t: ticks(p.delay), a: hole, x: target.x, y: target.y };
+      sim.events.push({ t: 'telegraph', kind: 'closing', x: target.x, y: target.y, angle: hole, ticks: ticks(p.delay), radius: p.radius, arc: degToSteps(p.gap) });
+      return;
+    }
+    case 'barrage': {
+      // A line of blasts walking from the Core towards the probe, each one warned until it goes off.
+      for (let k = 0; k < p.count; k++) {
+        const d = p.spacing * (k + 1);
+        const mx = x + cosA(aim) * d;
+        const my = y + sinA(aim) * d;
+        const wait = ticks(p.delay) + k * ticks(p.step);
+        sim.blasts.push({ x: mx, y: my, radius: p.radius, damage: p.damage * dmg, at: sim.tick + wait });
+        sim.events.push({ t: 'telegraph', kind: 'explode', x: mx, y: my, angle: 0, ticks: wait, radius: p.radius });
+      }
+      return;
+    }
   }
 }
 
-/** Runs the pattern in progress (spiral, charge); true while the boss must not walk. */
+/** Where a laser's beam points `act.t` ticks before it ends: from its first line, turned by the share of `arc` done. */
+function laserAngle(act: NonNullable<BossState['active']>, p: Extract<BossPattern, { kind: 'laser' }>): number {
+  const total = Math.max(1, ticks(p.duration));
+  return act.a + Math.round(((act.arc ?? 0) * (total - act.t)) / total);
+}
+
+/** The beam burns every probe within half its width of its segment (the usual breather stops a hit every tick). */
+function burnLaser(sim: Sim, def: BossDef, p: Extract<BossPattern, { kind: 'laser' }>, angle: number): void {
+  const en = sim.enemies;
+  const x = en.x[sim.boss!.index]!;
+  const y = en.y[sim.boss!.index]!;
+  const cx = cosA(angle);
+  const cy = sinA(angle);
+  const r = p.width / 2 + PROBE_RADIUS;
+  for (const probe of sim.probes) {
+    if (!probe.alive) continue;
+    const dx = probe.x - x;
+    const dy = probe.y - y;
+    const along = Math.min(p.length, Math.max(0, dx * cx + dy * cy));
+    const ox = dx - cx * along;
+    const oy = dy - cy * along;
+    if (ox * ox + oy * oy <= r * r) hurtProbe(sim, probe, p.damage * layerDamage(sim, def));
+  }
+}
+
+/** The Core's laser while it burns, for the renderer (Nov plan B4); null when there is none. */
+export function activeLaser(sim: Sim): { x: number; y: number; angle: number; length: number; width: number } | null {
+  const b = sim.boss;
+  if (!b || b.active?.kind !== 'laser') return null;
+  const def = sim.content.bosses.find((x) => x.id === b.def);
+  if (!def) return null;
+  const p = patternFor(def, b.phase, b.cursor - 1);
+  if (p.kind !== 'laser') return null;
+  return { x: sim.enemies.x[b.index]!, y: sim.enemies.y[b.index]!, angle: laserAngle(b.active, p), length: p.length, width: p.width };
+}
+
+/** Runs the pattern in progress (spiral, charge…); true while the boss must not walk. */
 function runActive(sim: Sim, def: BossDef): boolean {
   const b = sim.boss!;
   const act = b.active;
@@ -186,9 +264,40 @@ function runActive(sim: Sim, def: BossDef): boolean {
     if (act.t <= 0) b.active = null;
     return true;
   }
+  if (act.kind === 'aim' && p.kind === 'laser') {
+    // The warning is over: the beam burns from its first line on this very tick.
+    if (act.t > 0) return true;
+    b.active = { kind: 'laser', t: Math.max(1, ticks(p.duration)), a: act.a, arc: act.arc ?? 0 };
+    burnLaser(sim, def, p, act.a);
+    return true;
+  }
+  if (act.kind === 'laser' && p.kind === 'laser') {
+    burnLaser(sim, def, p, laserAngle(act, p));
+    if (act.t <= 0) b.active = null;
+    return true;
+  }
+  if (act.kind === 'closing' && p.kind === 'closing') {
+    // The Core keeps walking while its ring is only marked.
+    if (act.t > 0) return false;
+    b.active = null;
+    const half = degToSteps(p.gap) / 2;
+    // They die at the centre, so the ring never opens out again on the far side.
+    const life = Math.max(1, ticks(p.radius / p.speed));
+    const dmg = p.damage * layerDamage(sim, def);
+    for (let k = 0; k < p.count; k++) {
+      const a = act.a + Math.round(((k + 0.5) * ANGLE_STEPS) / p.count);
+      if (Math.abs(angleDiff(act.a, a)) <= half) continue;
+      const i = fireFoeBullet(sim, act.x! + cosA(a) * p.radius, act.y! + sinA(a) * p.radius, a + ANGLE_STEPS / 2, p.speed, dmg);
+      if (i >= 0) sim.foeShots.ttl[i] = life;
+    }
+    return false;
+  }
   b.active = null;
   return false;
 }
+
+/** Running patterns a stun drops: their warnings run on without them (a blink, already away, is never stunned). */
+const STUN_DROPS = new Set(['windup', 'aim', 'laser', 'closing']);
 
 /** One tick of the boss: phase changes, its pattern clock and its walk. */
 export function updateBoss(sim: Sim): void {
@@ -201,8 +310,8 @@ export function updateBoss(sim: Sim): void {
   // Stunned (a reaction): no movement, no patterns, the clocks stand still.
   if (en.freezeT[e]! > 0) {
     en.freezeT[e] = en.freezeT[e]! - 1;
-    // A charge being wound up is dropped: its warning runs on without it (a blink, already away, is never stunned).
-    if (b.active?.kind === 'windup') b.active = null;
+    // A charge being wound up is dropped, and so are a laser and a closing ring (Nov plan B4).
+    if (b.active && STUN_DROPS.has(b.active.kind)) b.active = null;
     return;
   }
 

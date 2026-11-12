@@ -28,7 +28,9 @@ export function tinyContent(over?: (c: Content) => void): Content {
   s.drops = { ...s.drops, coin: 0, dust: 0, repair: 0, bossCoins: 0, bossDust: 0, magnet: 0, eliteMagnet: 0 };
   // No breakable props unless a test asks for them.
   c.props = { ...c.props, perChunk: 0 };
-  // Pinned: mechanics tests do not follow calibration.
+  // Pinned: mechanics tests do not follow calibration, nor the Core's forms (Nov plan B4: boss.test.ts sets its own).
+  delete s.bossCycle;
+  if (s.deepBoss) s.deepBoss = { boss: s.deepBoss.boss, every: s.deepBoss.every };
   c.bosses[0]!.hp = 1800;
   c.bosses[0]!.scaling = { hpPerLayer: 0.7, damagePerLayer: 0.25 };
   s.scaling = { ...s.scaling, hpPerMinute: 0.08, damagePerMinute: 0.04, hpPerLayer: 0.5, damagePerLayer: 0.2, speedPerLayer: 0.05 };
