@@ -13,7 +13,8 @@ import { VOICES } from './voices';
 // intensity moves, so nothing clicks; a change of piece waits for the bar line and crossfades over two seconds; the
 // menu moves to another piece when one has played through; choosing a level-up dims it (a low-pass), a pause ducks
 // it. It never holds more than its voices (the least essential notes give way), and everything goes through a soft
-// reverb, an echo and a gentle compressor so the pieces sit at one level. Where the owner put a file for a piece
+// reverb, an echo and a gentle compressor so the pieces sit at one level. A voice counts while its note is held (its
+// release tail is free), and notes that fell behind (a hidden tab, a busy page) are skipped, never played at once. Where the owner put a file for a piece
 // (files.ts), the piece plays from it instead, its layers following the intensity; a file that fails to load leaves
 // the generated piece in its place.
 
@@ -46,6 +47,9 @@ export interface EngineState {
   section: string;
   intensity: Layer;
   voices: number;
+  /** Notes played and dropped for lack of voices, by instrument (the Ensayo, the tests). */
+  played: Partial<Record<Role, number>>;
+  dropped: Partial<Record<Role, number>>;
   filtered: boolean;
   ducked: boolean;
   /** Its seed, and each instrument's level (the Ensayo can change them). */
@@ -103,15 +107,26 @@ function impulse(ctx: BaseAudioContext, seconds: number, seed: number): AudioBuf
   return b;
 }
 
-function ramp(param: AudioParam, from: number, to: number, at: number, over: number) {
-  param.cancelScheduledValues(at);
+/** From wherever the value is now (a fade turned round halfway carries on from there: no jump), to `to`. */
+function ramp(param: AudioParam, to: number, at: number, over: number) {
+  const hold = (param as AudioParam & { cancelAndHoldAtTime?: (t: number) => void }).cancelAndHoldAtTime;
+  if (typeof hold === 'function') hold.call(param, at);
+  else {
+    param.cancelScheduledValues(at);
+    param.setValueAtTime(param.value, at);
+  }
+  param.linearRampToValueAtTime(to, at + over);
+}
+
+/** A fresh node's fade, from a known value. */
+function fade(param: AudioParam, from: number, to: number, at: number, over: number) {
   param.setValueAtTime(from, at);
   param.linearRampToValueAtTime(to, at + over);
 }
 
 export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: EngineOptions = {}) {
-  const lookahead = opts.lookahead ?? 0.15;
-  const cap = opts.voiceCap ?? 24;
+  let lookahead = opts.lookahead ?? 0.15;
+  const cap = opts.voiceCap ?? 32;
   const session = opts.seed ?? 1;
   const styleOf = (c: MusicChoice): Style => (c === 'own' ? STYLES.ambient : (STYLES[c] ?? STYLES.ambient));
   let choice: MusicChoice = opts.choice ?? 'ambient';
@@ -179,6 +194,8 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
   let intensity: Layer = 2;
   const layerOffUntil = [0, 0, 0, 0];
   let voices: number[] = [];
+  const played: Partial<Record<Role, number>> = {};
+  const dropped: Partial<Record<Role, number>> = {};
   let filtered = false;
   let ducked = false;
   let pieces = 0;
@@ -221,7 +238,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
   function newPlayer(comp: Composition, at: number, fadeIn: boolean): Player {
     const stepDur = 60 / (comp.bpm * style.tempo) / 4;
     const gain = ctx.createGain();
-    if (fadeIn) ramp(gain.gain, 0, 1, at, FADE_IN);
+    if (fadeIn) fade(gain.gain, 0, 1, at, FADE_IN);
     else gain.gain.value = 1;
     gain.connect(input);
     const want = intensityFor(scene, comp.group);
@@ -238,7 +255,8 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       g.connect(layers[layer]!);
       roles.set(role, g);
     }
-    delay.delayTime.value = Math.min(1.9, style.fx.delayBeats * stepDur * 4);
+    // Glided, so the echo's tail never clicks.
+    delay.delayTime.setTargetAtTime(Math.min(1.9, style.fx.delayBeats * stepDur * 4), at, 0.2);
     pieces++;
     const p: Player = { comp, style, planner: createPlanner(comp, style, seedOf(session, comp.id, pieces)), gain, layers, roles, bar: 0, step: 0, stepAt: at, stepDur, byStep: [], startedAt: at, until: null, file: null };
     const files = opts.library?.piece(choice, comp.id);
@@ -271,7 +289,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       const now = l <= target;
       if (was === now) continue;
       if (!now) layerOffUntil[l] = at + LAYER_FADE + 0.1;
-      for (const p of [current, ...fading]) if (p) ramp(p.layers[l]!.gain, was ? 1 : 0, now ? 1 : 0, at, LAYER_FADE);
+      for (const p of [current, ...fading]) if (p) ramp(p.layers[l]!.gain, now ? 1 : 0, at, LAYER_FADE);
     }
     intensity = target;
     current?.file?.score?.level(Math.min(target, current.file.layers - 1) as Layer, at, LAYER_FADE);
@@ -281,11 +299,17 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
     const layer = p.style.arrangement[p.comp.group][e.role];
     if (layer === undefined) return;
     if (layer > intensity && !(time < layerOffUntil[layer]!)) return;
-    if (voices.length >= cap) return;
     const out = p.roles.get(e.role);
     if (!out) return;
-    const end = VOICES[p.style.voices[e.role]](ctx, out, { midi: e.midi, at: time, dur: e.len * p.stepDur, vel: e.vel }, { bright: p.comp.color.bright, texture: p.style.texture ?? p.comp.color.texture, seed: seedOf(session, p.comp.id, p.bar, e.at, e.role) });
-    voices.push(end);
+    if (voices.length >= cap) {
+      dropped[e.role] = (dropped[e.role] ?? 0) + 1;
+      return;
+    }
+    const dur = e.len * p.stepDur;
+    VOICES[p.style.voices[e.role]](ctx, out, { midi: e.midi, at: time, dur, vel: e.vel }, { bright: p.comp.color.bright, texture: p.style.texture ?? p.comp.color.texture, seed: seedOf(session, p.comp.id, p.bar, e.at, e.role) });
+    // A voice is busy while its note is held; its release fades on its own.
+    voices.push(time + Math.max(dur, 0.25));
+    played[e.role] = (played[e.role] ?? 0) + 1;
   }
 
   /** One sixteenth of a player; at a bar line, the change of piece (or the menu's next) happens here. */
@@ -298,7 +322,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
           const comp = COMPOSITIONS.find((c) => c.id === pending!.piece)!;
           pending = null;
           p.until = p.stepAt + CROSSFADE;
-          ramp(p.gain.gain, 1, 0, p.stepAt, CROSSFADE);
+          ramp(p.gain.gain, 0, p.stepAt, CROSSFADE);
           p.file?.score?.stop(p.stepAt + CROSSFADE, 0.05);
           fading.push(p);
           current = newPlayer(comp, p.stepAt, true);
@@ -312,7 +336,9 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       for (const list of p.byStep) list.sort((a, b) => (PRIORITY.get(a.role) ?? 99) - (PRIORITY.get(b.role) ?? 99));
     }
     const time = p.stepAt + (p.step % 2 === 1 ? p.style.swing * p.stepDur : 0);
-    if ((p.until === null || time < p.until) && generated(p)) for (const e of p.byStep[p.step] ?? []) play(p, e, time);
+    // A step already past (the page was busy, the tab hidden) is skipped: its notes would all sound at once.
+    const late = time < ctx.currentTime - 0.02;
+    if (!late && (p.until === null || time < p.until) && generated(p)) for (const e of p.byStep[p.step] ?? []) play(p, e, time);
     p.step++;
     p.stepAt += p.stepDur;
     if (p.step === 16) {
@@ -350,12 +376,12 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       const dim = next.kind === 'run' && next.choosing;
       if (dim !== filtered) {
         filtered = dim;
-        ramp(tone.frequency, dim ? style.fx.tone : 900, dim ? 900 : style.fx.tone, at, 0.4);
+        ramp(tone.frequency, dim ? 900 : style.fx.tone, at, 0.4);
       }
       const duck = next.kind === 'run' && next.paused;
       if (duck !== ducked) {
         ducked = duck;
-        if (playing) ramp(level.gain, duck ? 1 : 0.35, duck ? 0.35 : 1, at, 0.5);
+        if (playing) ramp(level.gain, duck ? 0.35 : 1, at, 0.5);
       }
     },
     /** The music Ensayo: an instrument's level (0–1), now and for the pieces to come. */
@@ -364,8 +390,12 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       mixOver.set(role, v);
       for (const p of [current, ...fading]) {
         const g = p?.roles.get(role);
-        if (g) ramp(g.gain, g.gain.value, v, ctx.currentTime, 0.1);
+        if (g) ramp(g.gain, v, ctx.currentTime, 0.1);
       }
+    },
+    /** How far ahead to schedule: more while the tab is hidden (its timers run once a second). */
+    setLookahead(seconds: number) {
+      lookahead = Math.max(0.05, seconds);
     },
     /** The music Ensayo: hold a piece and an intensity (null lets the scene decide again). */
     direct(next: { piece?: string | null; intensity?: Layer | null }) {
@@ -384,7 +414,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       if (playing) return;
       playing = true;
       const at = ctx.currentTime + 0.05;
-      ramp(level.gain, 0, ducked ? 0.35 : 1, at, 1.2);
+      ramp(level.gain, ducked ? 0.35 : 1, at, 1.2);
       if (!current) {
         const piece = pending?.piece ?? pieceFor(scene);
         pending = null;
@@ -397,7 +427,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       if (!playing) return;
       playing = false;
       const at = ctx.currentTime;
-      ramp(level.gain, ducked ? 0.35 : 1, 0, at, 0.6);
+      ramp(level.gain, 0, at, 0.6);
       // Their notes already scheduled fade with the level; the players go once it is silent.
       const gone = [current, ...fading];
       for (const p of gone) p?.file?.score?.stop(at, 0.6);
@@ -436,6 +466,8 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
         section: where?.section ?? '',
         intensity,
         voices: voices.filter((end) => end > ctx.currentTime).length,
+        played: { ...played },
+        dropped: { ...dropped },
         filtered,
         ducked,
         seed: session,

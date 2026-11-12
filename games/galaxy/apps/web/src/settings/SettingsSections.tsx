@@ -67,7 +67,6 @@ function NoticesRow() {
   );
 }
 
-/** Sound; `inRun` leaves out the account's notices mode, so the pause fits a 1280×720 screen. */
 /** The soundtrack's style (plan «banda sonora»): it changes from the next bar, everywhere. */
 function MusicStyleRow({ off }: { off: boolean }) {
   const style = usePrefs((p) => p.musicStyle);
@@ -88,6 +87,7 @@ function MusicStyleRow({ off }: { off: boolean }) {
   );
 }
 
+/** Sound; `inRun` leaves out the account's notices mode, so the pause fits a 1280×720 screen. */
 export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   useEffect(() => onSettings(setAudio), []);

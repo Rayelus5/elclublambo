@@ -110,3 +110,13 @@ test('tres estilos: Ambiente espacial, Lo-fi espacial (con swing) y Synthwave su
     for (const group of ['menu', 'sector', 'boss', 'results'] as const) expect(Object.keys(style.arrangement[group]).length, `${style.id} ${group}`).toBeGreaterThan(2);
   }
 });
+
+test('el bajo nunca suena dos notas a la vez (tampoco la de paso al final de una sección)', () => {
+  for (const comp of COMPOSITIONS) {
+    const all = bars(comp.id, 'ambient', 64, 4);
+    for (const b of all) {
+      const bass = b.events.filter((e) => e.role === 'bass').sort((x, y) => x.at - y.at);
+      for (let i = 1; i < bass.length; i++) expect(bass[i - 1]!.at + bass[i - 1]!.len, `${comp.id} bar ${b.bar}`).toBeLessThanOrEqual(bass[i]!.at);
+    }
+  }
+});

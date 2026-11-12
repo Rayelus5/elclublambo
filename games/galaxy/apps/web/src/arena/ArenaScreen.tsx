@@ -287,7 +287,8 @@ export function ArenaScreen({
         if (line) say(line[0], line[1]);
       }
       // The music follows the run (plan «banda sonora»): the sector's piece, its intensity, the Núcleo's, a choice.
-      setMusicScene(runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), pausedRef.current));
+      const scene = runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), pausedRef.current);
+      if (scene) setMusicScene(scene);
     }, HUD_EVERY_MS);
     startMusic();
     return () => {

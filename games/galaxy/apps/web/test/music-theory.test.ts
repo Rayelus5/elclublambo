@@ -53,3 +53,10 @@ test('el azar con semilla repite lo mismo con la misma semilla y nada fuera de [
     expect(x).toBeLessThan(1);
   }
 });
+
+test('después de un acorde de cuatro notas, una tríada no dobla ninguna nota', () => {
+  const seventh = voiceLead(chordOf(54, 'dorian', 0, '9'), null, 60);
+  const triad = voiceLead(chordOf(54, 'dorian', 6, 'triad'), seventh, 60);
+  expect(triad).toHaveLength(3);
+  expect(new Set(triad).size).toBe(3);
+});

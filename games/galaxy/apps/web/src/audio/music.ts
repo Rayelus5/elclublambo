@@ -127,3 +127,7 @@ onSettings((s) => {
 });
 // A new style plays from the next bar.
 subscribePrefs(() => engine?.setChoice(choiceNow()));
+// A hidden tab runs its timers once a second: the music schedules further ahead so it never stutters there.
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => engine?.setLookahead(document.hidden ? 1.4 : 0.15));
+}
