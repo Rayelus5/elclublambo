@@ -24,6 +24,8 @@ export interface CollectionQuery {
   tier?: Tier;
   type?: string;
   palette?: string;
+  /** A phenomenon, `any` or `none` (plan «escáner pro», part D). */
+  phenomenon?: string;
   finish?: Finish;
   /** Only locked galaxies (plan phase 2). */
   locked?: true;
@@ -35,7 +37,7 @@ export interface CollectionQuery {
 /** `/galaxies?…` with the parameters in a fixed order, so equal queries are equal URLs. */
 export function collectionPath(q: CollectionQuery): string {
   const params = new URLSearchParams();
-  for (const key of ['tier', 'type', 'palette', 'finish', 'locked', 'sort', 'limit', 'cursor'] as const) {
+  for (const key of ['tier', 'type', 'palette', 'phenomenon', 'finish', 'locked', 'sort', 'limit', 'cursor'] as const) {
     const value = q[key];
     if (value !== undefined) params.set(key, String(value));
   }

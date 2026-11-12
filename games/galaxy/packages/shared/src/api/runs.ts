@@ -34,6 +34,12 @@ export type ProbeChoice = z.infer<typeof probeChoiceSchema>;
 export const sectorChoiceSchema = z.object({ sector: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 export type SectorChoice = z.infer<typeof sectorChoiceSchema>;
 
+/** The live content the web describes relics with (plan «escáner pro», part D): GET /galaxy/api/content. */
+export interface LiveContentView {
+  version: number;
+  content: Content;
+}
+
 export const startRunRequestSchema = z.object({ sector: contentId, probe: contentId, simVersion: z.string().min(1).max(20) }).strict();
 export type StartRunRequest = z.infer<typeof startRunRequestSchema>;
 

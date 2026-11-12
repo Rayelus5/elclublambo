@@ -49,6 +49,8 @@ export const listQuerySchema = z
     tier: z.enum(TIERS).optional(),
     type: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     palette: z.string().regex(/^[a-z_]{1,24}$/).optional(),
+    /** A phenomenon, `any` (with one) or `none` (plan «escáner pro», part D: it decides relics most). */
+    phenomenon: z.string().regex(/^[a-z_]{1,24}$/).optional(),
     finish: z.enum(FINISHES).optional(),
     /** Only locked galaxies (plan phase 2). */
     locked: z.enum(['true']).optional(),
@@ -112,6 +114,8 @@ export async function listGalaxies(deps: CollectionDeps, ownerId: string, q: Lis
   if (q.finish) query = query.where('finish', '=', q.finish);
   if (q.type) query = query.where(sql<string>`traits->>'galaxy_type'`, '=', q.type);
   if (q.palette) query = query.where(sql<string>`traits->>'palette'`, '=', q.palette);
+  if (q.phenomenon === 'any') query = query.where(sql<string>`coalesce(traits->>'phenomenon', 'none')`, '<>', 'none');
+  else if (q.phenomenon) query = query.where(sql<string>`coalesce(traits->>'phenomenon', 'none')`, '=', q.phenomenon);
   if (q.locked) query = query.where('locked', '=', true);
   if (q.cursor) {
     // The cursor is the last row's id: the boundary is that row's own stored values, compared in SQL. Exact for

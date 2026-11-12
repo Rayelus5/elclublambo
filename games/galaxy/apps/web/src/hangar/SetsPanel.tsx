@@ -1,9 +1,9 @@
-import { activeSets, DEFAULT_CONTENT, possibleSets, type RelicInput, type SetBonus } from '@galaxy/sim';
+import { activeSets, type Content, DEFAULT_CONTENT, possibleSets, type RelicInput, type SetBonus } from '@galaxy/sim';
 import { copy } from '../copy/es';
 
 // Relic sets in the Hangar (GDD §8.3, «Conjunto»; DESIGN_SYSTEM §8 ter): the sets the equipped galaxies make, with
-// their bonus in words, and the ones a single galaxy away. Described with DEFAULT_CONTENT like the rest of the
-// Hangar (M3a ruling: the view carries no content).
+// their bonus in words, and the ones a single galaxy away. Described with the live content when it is given (plan
+// «escáner pro», part D), the built-in one otherwise.
 
 const names = copy.traitValues as Record<string, Record<string, string> | undefined>;
 
@@ -14,9 +14,9 @@ function bonusLines(bonus: SetBonus): string[] {
   return out;
 }
 
-export function SetsPanel({ relics }: { relics: RelicInput[] }) {
-  const active = activeSets(relics, DEFAULT_CONTENT);
-  const all = possibleSets(relics, DEFAULT_CONTENT);
+export function SetsPanel({ relics, content = DEFAULT_CONTENT }: { relics: RelicInput[]; content?: Content }) {
+  const active = activeSets(relics, content);
+  const all = possibleSets(relics, content);
   const byId = new Map(relics.map((r) => [r.id, r]));
   /** A bigger tier of an active set reads as a hint inside it, not as a second entry with the same name. */
   const nextOf = (id: string, members: string[]) =>

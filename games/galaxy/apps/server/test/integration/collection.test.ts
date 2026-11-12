@@ -99,6 +99,26 @@ test('filtra por nivel, tipo, paleta y acabado, y solo enseña las propias', asy
   expect((await get(ctx.app, '/galaxy/api/galaxies?tier=mythic', { cookie: me.cookie })).statusCode).toBe(400);
 });
 
+test('filtra por fenómeno: uno concreto, cualquiera o ninguno (plan «escáner pro», parte D)', async () => {
+  const me = await player();
+  await own(me.id, 4, 3);
+  await own(me.id, 0, 6);
+  const all = await list(me.cookie, '?limit=60');
+  const withOne = all.items.filter((g) => g.traits['phenomenon'] !== 'none');
+  const without = all.items.filter((g) => g.traits['phenomenon'] === 'none');
+  // Legendaries always have one.
+  expect(withOne.length).toBeGreaterThanOrEqual(3);
+  const any = await list(me.cookie, '?phenomenon=any&limit=60');
+  expect(any.items.map((g) => g.id).sort()).toEqual(withOne.map((g) => g.id).sort());
+  const none = await list(me.cookie, '?phenomenon=none&limit=60');
+  expect(none.items.map((g) => g.id).sort()).toEqual(without.map((g) => g.id).sort());
+  const one = withOne[0]!.traits['phenomenon']!;
+  const exact = await list(me.cookie, `?phenomenon=${one}&limit=60`);
+  expect(exact.items.length).toBeGreaterThan(0);
+  expect(exact.items.every((g) => g.traits['phenomenon'] === one)).toBe(true);
+  expect((await get(ctx.app, '/galaxy/api/galaxies?phenomenon=Supernova!', { cookie: me.cookie })).statusCode).toBe(400);
+});
+
 test('desintegrar da el polvo una vez; la galaxia desaparece de la colección', async () => {
   const { cookie, id } = await player();
   const [galaxy] = await own(id, 2, 1, 'holo');

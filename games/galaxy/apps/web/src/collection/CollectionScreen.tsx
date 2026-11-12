@@ -47,7 +47,7 @@ export function CollectionScreen() {
   const recipe = first?.fusion;
   const count = recipe?.count ?? 5;
   const tier: Tier | undefined = selected[0]?.tier;
-  const filtered = !!(filters.tier || filters.type || filters.palette || filters.finish || filters.locked);
+  const filtered = !!(filters.tier || filters.type || filters.palette || filters.phenomenon || filters.finish || filters.locked);
 
   function change(next: CollectionFilters): void {
     setSelected([]);

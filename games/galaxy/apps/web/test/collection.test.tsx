@@ -8,6 +8,7 @@ import { HANGAR_KEY } from '../src/api/runs';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { readFilters, writeFilters } from '../src/collection/Filters';
 import { pickOption } from './pick';
 
 // The collection (GDD §8.5): a paged grid with filters and order, the detail with front, back and lineage, and the two
@@ -85,6 +86,31 @@ test('los filtros y el orden cambian la consulta', async () => {
   expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?tier=rare&type=ring&sort=rarity&limit=30');
 });
 
+test('filtrar por fenómeno: uno concreto, con cualquiera o sin ninguno, en la dirección y en la consulta', async () => {
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('a')])),
+    'GET /galaxy/api/galaxies?phenomenon=pulsar&sort=new&limit=30': () => jsonResponse(200, page([g('p')])),
+    'GET /galaxy/api/galaxies?phenomenon=any&sort=new&limit=30': () => jsonResponse(200, page([g('p')])),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion', screens);
+  await screen.findByRole('article', { name: 'Gal a' });
+  const phenomenon = screen.getByRole('combobox', { name: copy.traitNames['phenomenon']! });
+  await pickOption(user, phenomenon, copy.traitValues.phenomenon.pulsar);
+  expect(await screen.findByRole('article', { name: 'Gal p' })).toBeInTheDocument();
+  await pickOption(user, phenomenon, copy.collection.phenomenonAny);
+  await waitFor(() => expect(calls(fetch)).toContain('GET /galaxy/api/galaxies?phenomenon=any&sort=new&limit=30'));
+});
+
+test('el filtro de fenómeno se lee de la dirección (y uno que no existe se ignora)', () => {
+  expect(readFilters(new URLSearchParams('phenomenon=comet'))).toMatchObject({ phenomenon: 'comet' });
+  expect(readFilters(new URLSearchParams('phenomenon=none'))).toMatchObject({ phenomenon: 'none' });
+  expect(readFilters(new URLSearchParams('phenomenon=any'))).toMatchObject({ phenomenon: 'any' });
+  expect(readFilters(new URLSearchParams('phenomenon=dragon')).phenomenon).toBeUndefined();
+  expect(writeFilters({ sort: 'new', phenomenon: 'any' }).toString()).toBe('phenomenon=any');
+});
+
 test('el detalle muestra anverso, reverso, el polvo que daría y el linaje', async () => {
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
@@ -99,6 +125,25 @@ test('el detalle muestra anverso, reverso, el polvo que daría y el linaje', asy
   expect(lineage).toHaveTextContent('Selem');
   expect(lineage).toHaveTextContent('Orty');
   expect(dialog).toHaveTextContent(copy.collection.origin.fusion);
+});
+
+test('pulsar la carta del detalle abre su ficha de reliquia (lo que hace y la carta en 3D) sin botón de equipar', async () => {
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, gacha),
+    'GET /galaxy/api/galaxies?sort=new&limit=30': () => jsonResponse(200, page([g('g9', 'epic', 'Kathra')])),
+    'GET /galaxy/api/galaxies/g9': () => jsonResponse(200, detail()),
+  });
+  const user = userEvent.setup();
+  renderAt('/coleccion/g9', screens);
+  const dialog = await screen.findByRole('dialog', { name: 'Kathra' });
+  await user.click(within(dialog).getByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') });
+  expect(within(sheet).getByText(copy.hangar.families.blades)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.sheet.alone)).toBeInTheDocument();
+  expect(within(sheet).queryByRole('button', { name: copy.hangar.sheet.equip })).toBeNull();
+  await user.click(within(sheet).getByRole('button', { name: copy.collection.close }));
+  expect(screen.queryByRole('dialog', { name: copy.hangar.sheet.title('Kathra') })).toBeNull();
+  expect(screen.getByRole('dialog', { name: 'Kathra' })).toBeInTheDocument();
 });
 
 test('desintegrar pide confirmación con el polvo que da y actualiza el saldo', async () => {

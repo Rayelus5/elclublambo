@@ -12,6 +12,8 @@ export interface CollectionFilters {
   tier?: Tier;
   type?: string;
   palette?: string;
+  /** A phenomenon, `any` (with one) or `none` (plan «escáner pro», part D: it decides relics most). */
+  phenomenon?: string;
   finish?: (typeof FINISHES)[number];
   /** Only favourites (the lock of plan phase 2). */
   locked?: true;
@@ -19,6 +21,9 @@ export interface CollectionFilters {
 }
 
 const names = copy.traitValues as Record<string, Record<string, string>>;
+
+/** A phenomenon the engine knows, or `any`. */
+export const validPhenomenon = (v: string | null): boolean => !!v && (v === 'any' || TRAITS.traits.phenomenon.values.some((x) => x.value === v));
 
 export function readFilters(params: URLSearchParams): CollectionFilters {
   const tier = params.get('tier');
@@ -28,6 +33,7 @@ export function readFilters(params: URLSearchParams): CollectionFilters {
     ...(tier && (TIERS as readonly string[]).includes(tier) ? { tier: tier as Tier } : {}),
     ...(valid('galaxy_type', params.get('type')) ? { type: params.get('type')! } : {}),
     ...(valid('palette', params.get('palette')) ? { palette: params.get('palette')! } : {}),
+    ...(validPhenomenon(params.get('phenomenon')) ? { phenomenon: params.get('phenomenon')! } : {}),
     ...(finish && (FINISHES as readonly string[]).includes(finish) ? { finish: finish as CollectionFilters['finish'] } : {}),
     // ?candado=1 was its address before it became favourites.
     ...(params.get('favoritas') === '1' || params.get('candado') === '1' ? { locked: true as const } : {}),
@@ -40,14 +46,21 @@ export function writeFilters(f: CollectionFilters): URLSearchParams {
   if (f.tier) p.set('tier', f.tier);
   if (f.type) p.set('type', f.type);
   if (f.palette) p.set('palette', f.palette);
+  if (f.phenomenon) p.set('phenomenon', f.phenomenon);
   if (f.finish) p.set('finish', f.finish);
   if (f.locked) p.set('favoritas', '1');
   if (f.sort === 'rarity') p.set('sort', 'rarity');
   return p;
 }
 
+/** The phenomenon filter's choices: with one, without, then each (the engine's own, with their Spanish names). */
+export function phenomenonOptions(): [string, string][] {
+  const each = TRAITS.traits.phenomenon.values.filter((v) => v.value !== 'none').map((v): [string, string] => [v.value, names['phenomenon']?.[v.value] ?? v.value]);
+  return [['any', copy.collection.phenomenonAny], ['none', copy.collection.phenomenonNone], ...each];
+}
+
 /** A filter with its visible label and «Cualquiera» first (the game's own dropdown). */
-function FilterSelect({ label, value, options, onChange }: { label: string; value: string | undefined; options: [string, string][]; onChange: (v: string | undefined) => void }) {
+export function FilterSelect({ label, value, options, onChange }: { label: string; value: string | undefined; options: [string, string][]; onChange: (v: string | undefined) => void }) {
   const id = useId();
   return (
     <div className="filter-select">
@@ -93,6 +106,7 @@ export function Filters({
       <div className="filters-row">
         <FilterSelect label={copy.traitNames['galaxy_type']!} value={filters.type} options={options('galaxy_type')} onChange={(type) => set({ type })} />
         <FilterSelect label={copy.traitNames['palette']!} value={filters.palette} options={options('palette')} onChange={(palette) => set({ palette })} />
+        <FilterSelect label={copy.traitNames['phenomenon']!} value={filters.phenomenon} options={phenomenonOptions()} onChange={(phenomenon) => set({ phenomenon })} />
         <FilterSelect
           label={copy.finishLabel}
           value={filters.finish}

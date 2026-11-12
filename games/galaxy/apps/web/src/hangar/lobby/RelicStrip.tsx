@@ -1,6 +1,7 @@
 import { HScroll } from '../../ui/HScroll';
 import { TIERS, type GalaxySummary, type HangarView } from '@galaxy/shared';
-import { activeSets, DEFAULT_CONTENT, describeRelic, type RelicInput } from '@galaxy/sim';
+import { activeSets, describeRelic, type RelicInput } from '@galaxy/sim';
+import { useLiveContent } from '../../api/content';
 import { type CSSProperties, useId, useLayoutEffect, useRef, useState } from 'react';
 import { useGacha } from '../../api/economy';
 import { useSetLoadout, useUnlockSlot } from '../../api/runs';
@@ -11,6 +12,7 @@ import { emitTour } from '../../tour/bus';
 import { Dialog } from '../../ui/Dialog';
 import { Icon } from '../../ui/Icon';
 import { RelicPicker } from '../RelicPicker';
+import { RelicSheet } from '../RelicSheet';
 import { SetsPanel } from '../SetsPanel';
 import { SkillsChip, skillTags } from '../SkillTags';
 import { StepHead } from './WherePanel';
@@ -102,15 +104,19 @@ function NextSlot({ next }: { next: NonNullable<HangarView['nextSlot']> }) {
 
 export function RelicStrip({ view }: { view: HangarView }) {
   const colorVision = usePrefs((p) => p.colorVision);
+  // The content published on PRE (plan «escáner pro», part D): a retuned relic reads right here too.
+  const content = useLiveContent();
   const setLoadout = useSetLoadout();
   const [picking, setPicking] = useState<number | null>(null);
+  // The galaxy picked for that slot, shown in its sheet before it is equipped (plan «escáner pro», part D).
+  const [preview, setPreview] = useState<GalaxySummary | null>(null);
   const [sets, setSets] = useState(false);
   const ids = view.loadout.map((g) => g?.id ?? null);
   const all = view.loadout.filter((g): g is GalaxySummary => g !== null).map(relicInput);
   // The same family stacked (GDD §8.6): said when some family has as many relics as the rule starts at.
-  const families = all.map((r) => describeRelic(r, all, DEFAULT_CONTENT).family);
-  const stacked = families.some((f) => families.filter((x) => x === f).length >= DEFAULT_CONTENT.relics.stacking.from);
-  const active = activeSets(all, DEFAULT_CONTENT).length;
+  const families = all.map((r) => describeRelic(r, all, content).family);
+  const stacked = families.some((f) => families.filter((x) => x === f).length >= content.relics.stacking.from);
+  const active = activeSets(all, content).length;
   const save = (next: (string | null)[]) => setLoadout.mutate(next, { onSuccess: () => (next.some((x) => x !== null) ? emitTour('hangar:relicEquipped') : undefined) });
   const firstEmpty = view.loadout.findIndex((x, i) => i < view.slots && !x);
   const locked = Math.max(0, view.maxSlots - view.slots - (view.nextSlot ? 1 : 0));
@@ -142,7 +148,7 @@ export function RelicStrip({ view }: { view: HangarView }) {
               </li>
             );
           }
-          const skill = describeRelic(relicInput(g), all, DEFAULT_CONTENT);
+          const skill = describeRelic(relicInput(g), all, content);
           const names = skillTags(skill)
             .filter((x) => x.kind !== 'power')
             .map((x) => x.name);
@@ -191,17 +197,29 @@ export function RelicStrip({ view }: { view: HangarView }) {
       ) : null}
       {sets ? (
         <Dialog title={copy.hangar.sets} hideTitle onClose={() => setSets(false)} className="lobby-sets-dialog">
-          <SetsPanel relics={all} />
+          <SetsPanel relics={all} content={content} />
         </Dialog>
       ) : null}
-      {picking !== null ? (
-        <RelicPicker
-          taken={new Set(ids.filter((x): x is string => x !== null && x !== ids[picking]))}
-          onClose={() => setPicking(null)}
-          onPick={(g) => {
-            const next = ids.map((x) => (x === g.id ? null : x));
-            next[picking] = g.id;
+      {picking !== null && !preview ? (
+        <RelicPicker taken={new Set(ids.filter((x): x is string => x !== null && x !== ids[picking]))} onClose={() => setPicking(null)} onPick={setPreview} />
+      ) : null}
+      {picking !== null && preview ? (
+        <RelicSheet
+          mode="equip"
+          galaxy={preview}
+          loadout={view.loadout.slice(0, view.slots)}
+          slot={picking}
+          busy={setLoadout.isPending}
+          onBack={() => setPreview(null)}
+          onClose={() => {
+            setPreview(null);
+            setPicking(null);
+          }}
+          onEquip={() => {
+            const next = ids.map((x) => (x === preview.id ? null : x));
+            next[picking] = preview.id;
             save(next);
+            setPreview(null);
             setPicking(null);
           }}
         />

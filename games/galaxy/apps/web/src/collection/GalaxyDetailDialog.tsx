@@ -12,6 +12,7 @@ import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import { Link } from 'react-router';
 import { playGalaxyLevel } from './sfx';
+import { RelicSheet } from '../hangar/RelicSheet';
 
 // A galaxy up close (GDD §8.1, §8.5): the card big on the left (it turns over to show its back) with the 3D
 // inspector under it; on the right, in the order a player looks for them, the favourite star, its level (levelling
@@ -109,6 +110,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
   const lock = useLock();
   const [confirming, setConfirming] = useState(false);
   const [inspecting, setInspecting] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const [back, setBack] = useState(false);
   const [celebrate, setCelebrate] = useState<{ level: number; key: number } | null>(null);
   const reduced = useReducedMotion();
@@ -151,7 +153,10 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
           <div className="detail-stage">
             <div className={`detail-flip${back ? ' back' : ''}${celebrate ? ' leveled' : ''}`} data-tier={g.tier}>
               <div className="detail-face front">
-                <GalaxyCard galaxy={g} size={280} interactive />
+                <GalaxyCard galaxy={g} size={280} interactive>
+                  {/* The card opens what it does as a relic (plan «escáner pro», part D). */}
+                  <button type="button" className="gcard-hit" aria-label={copy.hangar.sheet.open(g.name)} title={copy.hangar.sheet.open(g.name)} aria-haspopup="dialog" onClick={() => setSheet(true)} />
+                </GalaxyCard>
               </div>
               <div className="detail-face rear">
                 <CardBack galaxy={g} size={280} />
@@ -234,6 +239,7 @@ export function GalaxyDetailDialog({ id, onClose, onDisintegrated }: { id: strin
         </div>
       </Dialog>
       {inspecting ? <Inspector galaxy={g} onClose={() => setInspecting(false)} /> : null}
+      {sheet ? <RelicSheet mode="view" galaxy={g} onClose={() => setSheet(false)} /> : null}
       {confirming ? (
         <Dialog role="alertdialog" title={copy.collection.disintegrateTitle(g.name)} onClose={() => setConfirming(false)} className="confirm">
           <p>{copy.collection.disintegrateBody(g.dust)}</p>

@@ -11,6 +11,7 @@ import {
   sectorChoiceSchema,
   startRunRequestSchema,
   type HangarView,
+  type LiveContentView,
   type ProbeTestResult,
   type RunResult,
   type RunStart,
@@ -108,6 +109,18 @@ export function registerRunRoutes(api: FastifyInstance, deps: RunsDeps & { onPro
     const body = probeVariantSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_variant', 60, 60);
     return chooseVariant(deps, s.accountId, id, body.variant);
+  });
+
+  // The live content, for what the web tells about relics and sets (plan «escáner pro», part D): the version as an
+  // ETag, so an unchanged one is a 304.
+  api.get('/galaxy/api/content', async (req, reply) => {
+    requireSession(req);
+    const { value, version } = await deps.config.getVersioned('content');
+    const etag = `"content-${version}"`;
+    reply.header('etag', etag).header('cache-control', 'private, max-age=60');
+    if (req.headers['if-none-match'] === etag) return reply.code(304).send();
+    const view: LiveContentView = { version, content: value };
+    return view;
   });
 
   api.post('/galaxy/api/runs', async (req): Promise<RunStart> => {
