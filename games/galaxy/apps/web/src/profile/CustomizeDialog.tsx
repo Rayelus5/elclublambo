@@ -4,6 +4,7 @@ import { type ReactNode, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../api/client';
 import { useSaveCosmetics } from '../api/cosmetics';
+import { collectionPath } from '../api/economy';
 import { errorText } from '../auth/useMe';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
@@ -66,8 +67,8 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
     () => ({ avatars: new Set(view.owned.avatars), frames: new Set(view.owned.frames), titles: new Set(view.owned.titles) }),
     [view.owned],
   );
-  // My galaxies, only once the banner tab is open.
-  const galaxies = useQuery({ queryKey: ['collection', 'banner'], queryFn: () => api<CollectionPage>('/collection?limit=48'), enabled: tab === 'banner' });
+  // My galaxies, rarest first (a banner shows off its finish), only once the banner tab is open.
+  const galaxies = useQuery({ queryKey: ['collection', 'banner'], queryFn: () => api<CollectionPage>(collectionPath({ sort: 'rarity', limit: 48 })), enabled: tab === 'banner' });
   // Titles: the styled ones in the catalog plus every title I earned.
   const titles = useMemo(() => {
     const listed = view.catalog.titles.map((x) => ({ text: x.text, rarity: x.rarity, hint: x.hint, shop: x.source === 'shop' }));

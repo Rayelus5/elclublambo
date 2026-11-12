@@ -4,10 +4,13 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { ProfileScreen } from '../src/social/ProfileScreen';
+import { galaxy } from './hangar-fixtures';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // «Personalizar» (Nov plan C2): on my own profile, an inventory of avatars, frames, titles and banners with a live
 // preview; what I lack says how to get it (the shop's, a way to the shop); saving sends only what changed.
+vi.mock('../src/galaxy/client', () => ({ requestGalaxy: vi.fn(() => new Promise(() => {})) }));
+vi.mock('../src/galaxy/compose', () => ({ composeInto: vi.fn(() => 'webgl') }));
 afterEach(() => vi.unstubAllGlobals());
 
 const t = copy.customize;
@@ -34,7 +37,7 @@ const base = {
   'GET /galaxy/api/auth/me': () => jsonResponse(200, me),
   'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ title: 'Cadete' })),
   'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
-  'GET /galaxy/api/collection?limit=48': () => jsonResponse(200, { items: [], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 }, fusion: { count: 3, dust: [] } }),
+  'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 0 }, fusion: { count: 3, dust: [] } }),
 };
 
 test('en mi perfil, «Personalizar» abre el inventario por pestañas; en el de otro no aparece', async () => {
@@ -89,4 +92,22 @@ test('quitar el título y volver a «Tu firma» se manda como null', async () =>
   await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')).toBe(true));
   const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
   expect(JSON.parse(String(put[1]?.body))).toEqual({ avatar: null, title: null });
+});
+
+test('la pestaña «Banner» lista mis galaxias y guardar manda la elegida', async () => {
+  const fetch = mockApi({
+    ...base,
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g1', name: 'Kathra' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 3, dust: [] } }),
+    'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: t.open }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  await user.click(within(dialog).getByRole('tab', { name: t.tabs.banner }));
+  await user.click(await within(dialog).findByRole('radio', { name: /Kathra/ }));
+  await user.click(within(dialog).getByRole('button', { name: t.save }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')).toBe(true));
+  const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
+  expect(JSON.parse(String(put[1]?.body))).toEqual({ banner: 'g1' });
 });
