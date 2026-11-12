@@ -1,6 +1,6 @@
 import { TIERS } from '@galaxy/shared';
 import { afterEach, expect, test } from 'vitest';
-import { contrast, deltaE, PALETTES, simulate, tierHex, type ColorVisionMode } from '../src/a11y/color-vision';
+import { contrast, deltaE, PALETTES, simulate, tierHex, tierSparks, type ColorVisionMode } from '../src/a11y/color-vision';
 import { stagePalette, teamTint } from '../src/arena/stage/palette';
 import { applyPrefs, resetPrefs, setPrefs } from '../src/settings/prefs';
 
@@ -78,5 +78,19 @@ test('el escenario de la incursión usa la paleta elegida', () => {
   for (const [id, color] of Object.entries(deutan.element)) {
     expect(typeof color).toBe('number');
     expect(deutan.glyph[id]).toHaveLength(9);
+  }
+});
+
+test('las chispas de subir de nivel siguen la rareza del modo, con su tono claro', () => {
+  // «Normal» keeps the design's own pairs.
+  expect(tierSparks('uncommon', 'none')).toEqual(['#d8fff0', '#45e3a6']);
+  expect(tierSparks('legendary', 'none')).toEqual(['#fff8e0', '#ffc94a']);
+  for (const mode of ['protan', 'deutan', 'tritan'] as const) {
+    for (const tier of TIERS) {
+      const [light, deep] = tierSparks(tier, mode);
+      expect(deep).toBe(PALETTES[mode].tier[tier]);
+      const ch = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+      ch(light).forEach((v, i) => expect(v).toBeGreaterThanOrEqual(ch(deep)[i]!));
+    }
   }
 });

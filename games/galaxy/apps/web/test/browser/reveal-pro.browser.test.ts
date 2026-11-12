@@ -102,8 +102,11 @@ for (const [label, pulls] of [
     await until(() => !!hooks.control && !!document.querySelector('.pro-canvas'));
     const control = hooks.control!;
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(1600);
+    // Every kind of phase, but the chain of flips only once (ten flips are the same phase ten times, and each frame is
+    // slow in the CI's software WebGL).
+    let flips = 0;
     for (const p of control.script.phases) {
-      if (p.kind === 'resumen') continue;
+      if (p.kind === 'resumen' || (p.kind === 'giro' && flips++ > 0)) continue;
       const face = control.script.faces.find((f) => f.slot === p.slot)?.at;
       const at =
         p.kind === 'solo' && face !== undefined
@@ -133,5 +136,5 @@ for (const [label, pulls] of [
     await wait(700);
     expect(document.querySelectorAll('.pro-summary .summary-card')).toHaveLength(pulls().length);
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-${label}-99-resumen.png` });
-  }, 90_000);
+  }, 150_000);
 }

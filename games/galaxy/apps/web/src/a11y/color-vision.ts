@@ -75,6 +75,18 @@ export function tierHex(tier: Tier, mode: ColorVisionMode): string {
   return PALETTES[mode].tier[tier];
 }
 
+/** The design's light tone of each tier, for sparks drawn bright then deep. */
+const SPARK_LIGHT: Record<Tier, string> = { common: '#ffffff', uncommon: '#d8fff0', rare: '#e6f3ff', epic: '#f1ebff', legendary: '#fff8e0' };
+
+/** A tier's sparks (bright, then deep) for this mode: «Normal» keeps the design's pairs, a palette lightens its own tier. */
+export function tierSparks(tier: Tier, mode: ColorVisionMode): [string, string] {
+  const deep = tierHex(tier, mode);
+  if (mode === 'none') return [SPARK_LIGHT[tier], deep];
+  const n = Number.parseInt(deep.slice(1), 16);
+  const light = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => Math.round(c + (255 - c) * 0.78).toString(16).padStart(2, '0'));
+  return [`#${light.join('')}`, deep];
+}
+
 /** The CSS tokens a mode replaces (its value, or the design's own when the mode is «Normal»). */
 export function cssTokens(mode: ColorVisionMode): Record<string, string> | null {
   if (mode === 'none') return null;
