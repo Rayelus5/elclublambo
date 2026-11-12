@@ -4,8 +4,10 @@ import { encodeEvents, type InputLog, toBase64 } from '@galaxy/sim';
 // A solo run's live feed (plan «escáner pro», part G; the owner: «los admins deberían de poder ver partidas
 // individuales en directo»). While the run is played its input log goes to the server in pieces: every 2 s while
 // nobody watches, every 150 ms while staff do. The server says, on connecting and whenever a piece does not follow, how
-// much of the log it has; the stream sends from there. It never gets in the run's way: a socket that will not open,
-// drops or misbehaves is retried in the background, and nothing here throws into the game loop.
+// much of the log it has; the stream sends from there, two pieces at a time (under the server's rate) every 150 ms
+// until it is level. It never gets in the run's way: a socket that will not open or drops is retried in the background;
+// one closed for good (not this player's open run, a newer run of the account, a log refused) is left alone; and
+// nothing here throws into the game loop.
 
 /** The bits of a WebSocket the stream uses (the browser's fits; the tests use a fake). */
 export interface StreamSocket {
@@ -14,7 +16,7 @@ export interface StreamSocket {
   close(code?: number): void;
   onopen: (() => void) | null;
   onmessage: ((e: { data: string }) => void) | null;
-  onclose: (() => void) | null;
+  onclose: ((e: { code: number }) => void) | null;
   onerror: (() => void) | null;
 }
 
@@ -24,6 +26,10 @@ const IDLE_MS = 2000;
 const RETRY_MS = [1000, 2000, 5000, 10_000];
 /** Events per piece: at most 9 bytes each, so a piece stays under SOLO_CHUNK_MAX once in base64. */
 const PER_PIECE = 250;
+/** Pieces per flush: a long backlog (after a deploy) goes out over a few seconds, not as one burst. */
+const PIECES_PER_FLUSH = 2;
+/** Closes that end the stream for good: a bad request, no session, not allowed, no such open run, a newer run, a log refused. */
+const FOR_GOOD = new Set([4400, 4401, 4403, 4404, 4409, 4413]);
 
 export interface RunStream {
   /** The run is over: what is left, then «end», and the socket closes for good. */
@@ -55,6 +61,7 @@ export function createRunStream(opts: {
   let retry: ReturnType<typeof setTimeout> | null = null;
   let attempts = 0;
   let done = false;
+  let backlog = false;
 
   const send = (m: unknown) => {
     if (socket && socket.readyState === OPEN) socket.send(JSON.stringify(m));
@@ -67,6 +74,7 @@ export function createRunStream(opts: {
     const to = opts.tick();
     const s = opts.state();
     if (cursor >= total && to === sentTo && s === sentState) return;
+    let pieces = 0;
     do {
       const upto = Math.min(total, cursor + PER_PIECE);
       const piece = encodeEvents(events.slice(cursor * 6, upto * 6), prevTick);
@@ -76,13 +84,20 @@ export function createRunStream(opts: {
       cursor = upto;
       prevTick = piece.tick;
       sentTo = reach;
-    } while (cursor < total);
+      pieces++;
+    } while (cursor < total && pieces < PIECES_PER_FLUSH);
     sentState = s;
+    // Behind: the quick pace until level, then the usual one.
+    const behind = cursor < total;
+    if (behind !== backlog) {
+      backlog = behind;
+      pace();
+    }
   }
 
   function pace(): void {
     if (timer) clearInterval(timer);
-    timer = done ? null : setInterval(() => safely(flush), watched ? WATCHED_MS : IDLE_MS);
+    timer = done ? null : setInterval(() => safely(flush), watched || backlog ? WATCHED_MS : IDLE_MS);
   }
 
   function safely(fn: () => void): void {
@@ -101,6 +116,7 @@ export function createRunStream(opts: {
       watched = m.watched;
       sentTo = -1;
       sentState = null;
+      backlog = false;
       ready = true;
       attempts = 0;
       pace();
@@ -121,11 +137,12 @@ export function createRunStream(opts: {
       socket = s;
       s.onmessage = (e) => safely(() => onMessage(e.data));
       s.onerror = () => {};
-      s.onclose = () => {
+      s.onclose = (e) => {
         if (socket !== s) return;
         socket = null;
         ready = false;
-        reconnect();
+        if (FOR_GOOD.has(e?.code)) stop();
+        else reconnect();
       };
     } catch {
       socket = null;

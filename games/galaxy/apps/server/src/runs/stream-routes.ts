@@ -34,6 +34,7 @@ export function registerSoloStreamRoutes(api: FastifyInstance, deps: { db: Kysel
         if (++strikes > 30) socket.close(4429, 'rate');
         return;
       }
+      strikes = 0;
       let parsed: unknown;
       try {
         parsed = JSON.parse(String(data));
@@ -57,9 +58,10 @@ export function registerSoloStreamRoutes(api: FastifyInstance, deps: { db: Kysel
         .executeTakeFirst();
       if (socket.readyState !== socket.OPEN) return;
       if (!run) return socket.close(4404, 'run');
-      if (!deps.feeds.connect({ id: run.id, accountId: s.accountId, player: s.username, sector: run.sector, probe: run.probe, startedAt: new Date(run.started_at).toISOString() }, socket)) {
-        return socket.close(1013, 'busy');
-      }
+      const joined = deps.feeds.connect({ id: run.id, accountId: s.accountId, player: s.username, sector: run.sector, probe: run.probe, startedAt: new Date(run.started_at).toISOString() }, socket);
+      // 'older': this account streams a newer run (another tab or device); this one is told so for good (4409).
+      if (joined === 'older') return socket.close(4409, 'older');
+      if (joined === 'busy') return socket.close(1013, 'busy');
       attached = true;
     })().catch((err: unknown) => {
       req.log.error({ err, run: runId }, 'solo_stream');

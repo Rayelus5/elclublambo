@@ -14,7 +14,7 @@ class Sock implements StreamSocket {
   closedWith: number | null = null;
   onopen: (() => void) | null = null;
   onmessage: ((e: { data: string }) => void) | null = null;
-  onclose: (() => void) | null = null;
+  onclose: ((e: { code: number }) => void) | null = null;
   onerror: (() => void) | null = null;
   constructor(readonly url: string) {
     Sock.all.push(this);
@@ -33,9 +33,9 @@ class Sock implements StreamSocket {
   push(m: SoloStreamServerMessage) {
     this.onmessage?.({ data: JSON.stringify(m) });
   }
-  drop() {
+  drop(code = 1006) {
     this.readyState = 3;
-    this.onclose?.();
+    this.onclose?.({ code });
   }
   pieces() {
     return this.sent.filter((m): m is Extract<SoloStreamMessage, { t: 'f' }> => m.t === 'f');
@@ -110,14 +110,20 @@ describe('el directo de la partida', () => {
     expect(p.b).toBe(btoa(String.fromCharCode(...encodeEvents(log.events.slice(24), 40).bytes)));
   });
 
-  test('un registro largo sale en trozos que caben, seguidos', () => {
+  test('un registro largo sale en trozos que caben, seguidos, dos cada vez y deprisa aunque nadie mire', () => {
     start();
     const s = Sock.all[0]!;
     for (let t = 1; t <= 900; t++) move(t * 400, (t % 200) - 100);
     tick = 900 * 400;
     s.open();
-    s.push({ t: 'hello', have: 0, tick: 0, watched: true });
+    s.push({ t: 'hello', have: 0, tick: 0, watched: false });
+    // Two pieces at a time (under the server's rate), the rest every 150 ms until it is level.
+    expect(s.pieces()).toHaveLength(2);
+    vi.advanceTimersByTime(150);
+    expect(s.pieces()).toHaveLength(4);
+    vi.advanceTimersByTime(2000);
     const pieces = s.pieces();
+    expect(pieces).toHaveLength(4);
     expect(pieces.length).toBeGreaterThan(2);
     let at = 0;
     let prev = 0;
@@ -177,4 +183,22 @@ describe('el directo de la partida', () => {
     stream.end();
     stream.close();
   });
+});
+
+test('un cierre definitivo (ya no es su partida, otra pestaña más nueva, registro malo) no reintenta', () => {
+  for (const code of [4404, 4409, 4400, 4413]) {
+    Sock.all = [];
+    const stream = start();
+    Sock.all[0]!.open();
+    Sock.all[0]!.drop(code);
+    vi.advanceTimersByTime(60_000);
+    expect(Sock.all).toHaveLength(1);
+    stream.close();
+  }
+  // A restart of the server (1012) is retried.
+  Sock.all = [];
+  start();
+  Sock.all[0]!.drop(1012);
+  vi.advanceTimersByTime(1000);
+  expect(Sock.all).toHaveLength(2);
 });

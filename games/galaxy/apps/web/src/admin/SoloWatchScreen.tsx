@@ -21,7 +21,9 @@ import { createLiveFeed, type LiveFeed } from './replay/live-feed';
 const s = copy.admin.moderation.solo;
 /** Further behind than 2 s, it catches up fast; a little behind, it plays a touch quicker until it is level again. */
 const LAG = 120;
-const CATCH_UP = 600;
+/** Catching up goes in slices, for at most this long per step, so the tab never freezes on a long run. */
+const CATCH_UP = 120;
+const CATCH_UP_MS = 6;
 const SYNC_MS = 100;
 
 interface Clock {
@@ -92,7 +94,7 @@ function SoloWatch({ runId, clock, open }: { runId: string; clock: Clock; open: 
       <section className="admin-page">
         {back}
         <p className="panel-note" role="status">
-          {closed !== null ? (closed === 4404 ? s.gone : s.closed) : s.connecting}
+          {feed.state === 'broken' ? s.broken : closed !== null ? (closed === 4404 ? s.gone : s.closed) : s.connecting}
         </p>
       </section>
     );
@@ -150,8 +152,10 @@ function LiveArena({ feed, clock, closed, onTick }: { feed: LiveFeed; clock: Clo
       schedule: clock.schedule,
       step: () => {
         const behind = feed.behind;
-        if (behind > LAG) feed.advance(CATCH_UP);
-        else feed.advance(behind > 30 ? 2 : 1, (events) => stageRef.current?.feed(events, sim.tick));
+        if (behind > LAG) {
+          const until = performance.now() + CATCH_UP_MS;
+          while (feed.behind > LAG && feed.advance(CATCH_UP) > 0 && performance.now() < until);
+        } else feed.advance(behind > 30 ? 2 : 1, (events) => stageRef.current?.feed(events, sim.tick));
       },
       render: (alpha) => stageRef.current?.render(sim, sim.status === 'running' && feed.behind > 0 ? alpha : 1),
     });

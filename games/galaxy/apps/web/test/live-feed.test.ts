@@ -80,4 +80,21 @@ describe('el directo visto desde el panel', () => {
     expect(feed.state).toBe('broken');
     expect(feed.advance(100)).toBe(0);
   });
+
+  test('un hola que no se lee también lo deja roto; y una repetición que se acaba ya no va por detrás', () => {
+    const bad = createLiveFeed();
+    bad.apply({ ...(hello(encodeLog({ probes: 1, events: [] }), 0) as Extract<SoloWatchMessage, { t: 'hello' }>), log: 'AAAA' });
+    expect(bad.state).toBe('broken');
+    expect(bad.hello).toBeNull();
+
+    const full = played(1500);
+    const ev = full.log!.events;
+    let pick = 0;
+    while (ev[pick + 2] !== 1) pick += 6;
+    const feed = createLiveFeed();
+    feed.apply(hello(encodeLog({ probes: 1, events: [...ev.slice(0, pick), ev[pick]! + 3, 0, 1, 0, 0, 0] }), ev[pick]! + 600));
+    while (feed.advance(500) > 0);
+    expect(feed.over).toBe(true);
+    expect(feed.behind).toBe(0);
+  });
 });

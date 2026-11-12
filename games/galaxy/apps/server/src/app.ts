@@ -143,7 +143,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerGachaRoutes(api, { db: deps.db, config, now, live, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
     registerCollectionRoutes(api, { db: deps.db, config, live });
     // Plan «escáner pro», part G: the solo runs' live feeds, ended when a run is saved.
-    const soloFeeds = new SoloFeeds();
+    const soloFeeds = new SoloFeeds({ now: () => now().getTime() });
     soloFeeds.start();
     api.addHook('onClose', async () => soloFeeds.close());
     registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });

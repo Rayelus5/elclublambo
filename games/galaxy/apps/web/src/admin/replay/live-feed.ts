@@ -21,6 +21,8 @@ export interface LiveFeed {
   readonly behind: number;
   /** At a level-up, waiting for the pick. */
   readonly waiting: boolean;
+  /** The replay can go no further (the run ended in it, or the log disagreed): nothing is behind any more. */
+  readonly over: boolean;
   apply(msg: SoloWatchMessage): void;
   /** Up to `max` steps towards the player, each step's events to `onStep`; how many it took. */
   advance(max: number, onStep?: (events: readonly SimEvent[]) => void): number;
@@ -88,7 +90,10 @@ export function createLiveFeed(): LiveFeed {
       return to;
     },
     get behind() {
-      return live ? Math.max(0, to - live.sim.tick) : 0;
+      return live && last !== 'over' ? Math.max(0, to - live.sim.tick) : 0;
+    },
+    get over() {
+      return last === 'over';
     },
     get waiting() {
       return !!live && last === 'wait' && live.sim.status === 'choosing';

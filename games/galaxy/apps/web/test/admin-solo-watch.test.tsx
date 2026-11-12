@@ -91,6 +91,12 @@ test('una partida que ya no está en directo lo dice; un corte también', async 
   expect(screen.getByRole('link', { name: s.back })).toBeInTheDocument();
 });
 
+test('un hola que no se lee lo dice en vez de quedarse conectando', () => {
+  const sock = watch();
+  sock.push({ ...(hello() as Extract<SoloWatchMessage, { t: 'hello' }>), log: 'AAAA' });
+  expect(screen.getByRole('status')).toHaveTextContent(s.broken);
+});
+
 test('si el directo se corta a medias lo dice', async () => {
   const sock = watch();
   sock.push(hello());

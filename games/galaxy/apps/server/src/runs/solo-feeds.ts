@@ -4,9 +4,11 @@ import { decodeEvents, fromBase64, toBase64 } from '@galaxy/sim';
 // The solo runs' live feeds (plan «escáner pro», part G; the owner: «los admins deberían de poder ver partidas
 // individuales en directo»). A solo run streams its input log while it is played: each piece must follow the last
 // (else the player hears where to resume), read as a solo log and never go back in time; it is kept and handed to the
-// staff watching, who start from the whole log so far. One feed per account (a new run ends the old one's), 2000 at
-// most, 2 MB of log each. A feed ends when its run is saved, or 5 minutes after its player went quiet. Only for
-// watching: the reward still comes from the finish, which replays the log the client sends there.
+// staff watching, who start from the whole log so far. One feed per account (the newest run's), 2000 at most, 2 MB
+// of log each and 256 MB in all; a run never claims more ticks than the time it has been running, nor more bytes than
+// those ticks can log. A feed ends when its run is saved, or 5 minutes after its player's socket went (a player still
+// connected keeps it, however long it pauses). Only for watching, and not evidence: the client could stage its own
+// replay; the reward still comes from the finish, which replays the log the client sends there.
 
 /** The bits of a websocket the feeds use (ws's WebSocket fits; the tests use a fake). */
 export interface FeedSocket {
@@ -28,7 +30,9 @@ export interface FeedRun {
 
 interface Feed {
   run: FeedRun;
-  chunks: Uint8Array[];
+  startedMs: number;
+  /** The log so far (pieces one after another), in a buffer that doubles as it fills. */
+  buf: Uint8Array;
   bytes: number;
   /** Events kept (6 numbers each in the sim's log). */
   events: number;
@@ -44,8 +48,13 @@ interface Feed {
 
 const GRACE_MS = 5 * 60_000;
 const SWEEP_MS = 30_000;
-/** A viewer this far behind (bytes waiting to go) is dropped rather than buffered forever. */
-const WATCHER_BUFFER_MAX = 1_000_000;
+/** A viewer this far behind (bytes waiting to go) is dropped rather than buffered forever: above the biggest hello. */
+const WATCHER_BUFFER_MAX = 4_000_000;
+/** Ticks a run may claim beyond the time it has been running (clock skew, a slow start). */
+const TICK_SLACK = 600;
+/** Bytes a run may log per tick it claims (a move is 9 at most, one per tick), and some slack for the picks. */
+const BYTES_PER_TICK = 12;
+const BYTES_SLACK = 4096;
 /** encodeLog's header for one probe: version 1, one probe. */
 const HEADER = Uint8Array.from([1, 1]);
 
@@ -55,12 +64,15 @@ export class SoloFeeds {
   private readonly now: () => number;
   private readonly maxBytes: number;
   private readonly maxFeeds: number;
+  private readonly maxTotalBytes: number;
+  private totalBytes = 0;
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(opts: { now?: () => number; maxBytes?: number; maxFeeds?: number } = {}) {
+  constructor(opts: { now?: () => number; maxBytes?: number; maxFeeds?: number; maxTotalBytes?: number } = {}) {
     this.now = opts.now ?? Date.now;
     this.maxBytes = opts.maxBytes ?? 2_000_000;
     this.maxFeeds = opts.maxFeeds ?? 2000;
+    this.maxTotalBytes = opts.maxTotalBytes ?? 256_000_000;
   }
 
   /** Sweeps every 30 s (the app starts it; tests sweep by hand). */
@@ -69,24 +81,50 @@ export class SoloFeeds {
     this.timer.unref();
   }
 
+  /** The server is going away (a deploy): every socket closes as «restarting» (1012), and nobody is told a run ended. */
   close(): void {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
-    for (const id of [...this.feeds.keys()]) this.end(id);
+    for (const feed of this.feeds.values()) {
+      for (const w of feed.watchers) if (w.readyState === w.OPEN) w.close(1012, 'restart');
+      if (feed.socket && feed.socket.readyState === feed.socket.OPEN) feed.socket.close(1012, 'restart');
+    }
+    this.feeds.clear();
+    this.byAccount.clear();
+    this.totalBytes = 0;
   }
 
   has(runId: string): boolean {
     return this.feeds.has(runId);
   }
 
-  /** The player's socket for its open solo run: hello with what is kept. False when there is no room for another feed. */
-  connect(run: FeedRun, socket: FeedSocket): boolean {
+  /**
+   * The player's socket for its open solo run: hello with what is kept. 'busy' when there is no room for another feed;
+   * 'older' when the account streams a run that started later (two tabs or devices): the newest run keeps the feed.
+   */
+  connect(run: FeedRun, socket: FeedSocket): 'ok' | 'busy' | 'older' {
     const previous = this.byAccount.get(run.accountId);
-    if (previous && previous !== run.id) this.end(previous);
+    const other = previous && previous !== run.id ? this.feeds.get(previous) : undefined;
+    if (other) {
+      if (Date.parse(other.run.startedAt) > Date.parse(run.startedAt)) return 'older';
+      this.end(other.run.id);
+    }
     let feed = this.feeds.get(run.id);
     if (!feed) {
-      if (this.feeds.size >= this.maxFeeds) return false;
-      feed = { run, chunks: [], bytes: 0, events: 0, tick: 0, to: 0, state: 'run', seenAt: this.now(), socket: null, watchers: new Set() };
+      if (this.feeds.size >= this.maxFeeds) return 'busy';
+      feed = {
+        run,
+        startedMs: Date.parse(run.startedAt),
+        buf: new Uint8Array(1024),
+        bytes: 0,
+        events: 0,
+        tick: 0,
+        to: 0,
+        state: 'run',
+        seenAt: this.now(),
+        socket: null,
+        watchers: new Set(),
+      };
       this.feeds.set(run.id, feed);
       this.byAccount.set(run.accountId, run.id);
     }
@@ -98,7 +136,7 @@ export class SoloFeeds {
       this.tell(feed, { t: 'st', s: 'run' });
     }
     this.hello(feed);
-    return true;
+    return 'ok';
   }
 
   /** A message from the player's socket (already parsed by the route). */
@@ -115,6 +153,11 @@ export class SoloFeeds {
       this.hello(feed);
       return;
     }
+    // No run is further on than the time it has been running.
+    if (msg.to > Math.floor(((this.now() - feed.startedMs) / 1000) * 60) + TICK_SLACK) {
+      this.reject(feed, 4400, 'future');
+      return;
+    }
     let bytes: Uint8Array;
     let read: { events: number[]; tick: number };
     try {
@@ -129,15 +172,22 @@ export class SoloFeeds {
       this.reject(feed, 4400, 'tick');
       return;
     }
-    if (feed.bytes + bytes.length > this.maxBytes) {
+    const cap = Math.min(this.maxBytes, BYTES_PER_TICK * Math.max(feed.to, msg.to) + BYTES_SLACK);
+    if (feed.bytes + bytes.length > cap || this.totalBytes + bytes.length > this.maxTotalBytes) {
       feed.socket?.close(4413, 'too big');
       feed.socket = null;
       this.end(runId);
       return;
     }
     if (bytes.length > 0) {
-      feed.chunks.push(bytes);
+      if (feed.bytes + bytes.length > feed.buf.length) {
+        const grown = new Uint8Array(Math.max(feed.buf.length * 2, feed.bytes + bytes.length));
+        grown.set(feed.buf.subarray(0, feed.bytes));
+        feed.buf = grown;
+      }
+      feed.buf.set(bytes, feed.bytes);
       feed.bytes += bytes.length;
+      this.totalBytes += bytes.length;
       feed.events += read.events.length / 6;
       feed.tick = read.tick;
     }
@@ -164,11 +214,7 @@ export class SoloFeeds {
     if (!feed) return false;
     const log = new Uint8Array(HEADER.length + feed.bytes);
     log.set(HEADER, 0);
-    let at = HEADER.length;
-    for (const c of feed.chunks) {
-      log.set(c, at);
-      at += c.length;
-    }
+    log.set(feed.buf.subarray(0, feed.bytes), HEADER.length);
     const hello: SoloWatchMessage = {
       t: 'hello',
       run: { id: feed.run.id, player: feed.run.player, startedAt: feed.run.startedAt },
@@ -196,6 +242,7 @@ export class SoloFeeds {
     const feed = this.feeds.get(runId);
     if (!feed) return;
     this.feeds.delete(runId);
+    this.totalBytes -= feed.bytes;
     if (this.byAccount.get(feed.run.accountId) === runId) this.byAccount.delete(feed.run.accountId);
     for (const w of feed.watchers) {
       if (w.readyState === w.OPEN) {
@@ -208,10 +255,10 @@ export class SoloFeeds {
     feed.socket = null;
   }
 
-  /** Feeds quiet for longer than the grace (no player, or a player that stopped sending) end. */
+  /** Feeds without their player for longer than the grace end (a connected player may pause as long as it likes). */
   sweep(): void {
     const t = this.now();
-    for (const [id, feed] of [...this.feeds]) if (t - feed.seenAt > GRACE_MS) this.end(id);
+    for (const [id, feed] of [...this.feeds]) if (!feed.socket && t - feed.seenAt > GRACE_MS) this.end(id);
   }
 
   /** The runs being played now, newest first. */
@@ -236,6 +283,7 @@ export class SoloFeeds {
 
   private tell(feed: Feed, msg: SoloWatchMessage): void {
     const data = JSON.stringify(msg);
+    const had = feed.watchers.size;
     for (const w of [...feed.watchers]) {
       if (w.readyState !== w.OPEN) {
         feed.watchers.delete(w);
@@ -248,5 +296,7 @@ export class SoloFeeds {
       }
       w.send(data);
     }
+    // The last one left without a word (closed, or dropped as too slow): the player can slow down again.
+    if (had > 0 && feed.watchers.size === 0) this.toPlayer(feed, { t: 'watch', on: false });
   }
 }
