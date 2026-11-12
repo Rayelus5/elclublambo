@@ -25,7 +25,7 @@ async function player() {
 async function staff(role: 'moderator' | 'admin') {
   const { username, password, totpSecret } = await createAdminViaCli(ctx.db, role);
   const login = await post(ctx.app, '/galaxy/api/auth/login', { username, password });
-  const res = await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret) });
+  const res = await post(ctx.app, '/galaxy/api/auth/totp', { challenge: login.json().challenge, code: totpNow(totpSecret, clock) });
   return { cookie: sessionCookie(res), username };
 }
 
