@@ -86,12 +86,10 @@ for (const [label, pulls] of [
     await page.viewport(1600, 900);
     const hooks: { control?: CinemaControl | null; phase?: Phase | null } = {};
     const render = mount(null, hooks);
-    await wait(700);
     const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
     expect(rootEl.dataset['state']).toBe('closing');
-    // The bands have closed: black, top to bottom.
-    const top = document.querySelector<HTMLElement>('.pro-bar.top')!.getBoundingClientRect();
-    expect(top.height).toBeGreaterThan(440);
+    // The bands close: black, top to bottom (a slow runner takes longer than the 0.6 s they last).
+    await until(() => document.querySelector<HTMLElement>('.pro-bar.top')!.getBoundingClientRect().height > 440, 5000);
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/pro-${label}-0-cierre.png` });
     render(pulls());
     // A rehearsal render gets the control once the cinema runs; it re-renders on each phase.
