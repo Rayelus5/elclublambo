@@ -43,6 +43,7 @@ import { LiveConnection } from './live/LiveConnection';
 import { SettingsSync } from './settings/SettingsSync';
 import { NotesScreen } from './notes/NotesScreen';
 import { NotesAdmin } from './admin/NotesAdmin';
+import { MusicRehearsal } from './admin/MusicRehearsal';
 import { FriendsHost } from './social/FriendsPanel';
 import { LiveToasts } from './live/Toasts';
 import { copy } from './copy/es';
@@ -164,6 +165,7 @@ export function App() {
             <Route path="tienda" element={<ShopAdminScreen />} />
             <Route path="escaner-ensayo" element={<RevealRehearsal />} />
             <Route path="notas-de-version" element={<NotesAdmin />} />
+            <Route path="musica" element={<MusicRehearsal />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />

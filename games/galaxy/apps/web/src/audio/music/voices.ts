@@ -291,10 +291,15 @@ const texture: Play = (ctx, out, n, color) => {
     noise(ctx, n.at, end).connect(bp).connect(amp).connect(out);
     return end;
   }
+  if (kind === 'vinyl') {
+    const hiss = ctx.createGain();
+    envelope(hiss.gain, n.at, 0.05, n.dur, 0.2, 0.012 * n.vel);
+    noise(ctx, n.at, end).connect(filter(ctx, 'bandpass', 3200, 0.5)).connect(hiss).connect(out);
+  }
   amp.gain.value = n.vel;
   amp.connect(out);
   // Grains spread over the bar.
-  const grains = kind === 'crystal' ? 4 : kind === 'bubbles' ? 5 : kind === 'embers' ? 9 : 6;
+  const grains = kind === 'crystal' ? 4 : kind === 'bubbles' ? 5 : kind === 'embers' || kind === 'vinyl' ? 9 : 6;
   for (let i = 0; i < grains; i++) {
     const t = n.at + rand() * n.dur;
     const g = ctx.createGain();
@@ -313,15 +318,173 @@ const texture: Play = (ctx, out, n, color) => {
       g.gain.exponentialRampToValueAtTime(FLOOR, t + 0.1);
       o.connect(g).connect(amp);
     } else {
-      // Embers crackle; static buzzes in short bursts.
-      const len = kind === 'embers' ? 0.012 : 0.05 + rand() * 0.08;
+      // Embers and the record crackle; static buzzes in short bursts.
+      const crackle = kind === 'embers' || kind === 'vinyl';
+      const len = crackle ? 0.01 : 0.05 + rand() * 0.08;
       g.gain.setValueAtTime(FLOOR, t);
-      g.gain.linearRampToValueAtTime(kind === 'embers' ? 0.06 : 0.025, t + 0.002);
+      g.gain.linearRampToValueAtTime(kind === 'embers' ? 0.06 : kind === 'vinyl' ? 0.035 : 0.025, t + 0.002);
       g.gain.exponentialRampToValueAtTime(FLOOR, t + len);
-      noise(ctx, t, t + len + 0.02).connect(filter(ctx, kind === 'embers' ? 'highpass' : 'bandpass', kind === 'embers' ? 3000 : 2400, kind === 'embers' ? 0.7 : 4)).connect(g).connect(amp);
+      noise(ctx, t, t + len + 0.02).connect(filter(ctx, crackle ? 'highpass' : 'bandpass', crackle ? 3000 : 2400, crackle ? 0.7 : 4)).connect(g).connect(amp);
     }
   }
   return end;
 };
 
-export const VOICES: Record<VoiceName, Play> = { pad, sub, pluck, bells, flute, choir, brass, timpani, kick, snare, hat, tom, texture };
+// ---- Lo-fi espacial (part A2): a warm FM electric piano that wobbles, soft round drums, and the record's crackle.
+
+const epiano: Play = (ctx, out, n) => {
+  const release = 0.5;
+  const end = n.at + n.dur + release + 0.05;
+  const f = hz(n.midi);
+  const carrier = osc(ctx, 'sine', f, n.at, end);
+  const mod = osc(ctx, 'sine', f, n.at, end);
+  const index = ctx.createGain();
+  index.gain.setValueAtTime(f * 2.2, n.at);
+  index.gain.exponentialRampToValueAtTime(f * 0.25, n.at + 0.6);
+  mod.connect(index).connect(carrier.frequency);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.16 * n.vel, n.at + 0.006);
+  amp.gain.exponentialRampToValueAtTime(0.07 * n.vel, n.at + 0.45);
+  amp.gain.setValueAtTime(0.07 * n.vel, n.at + Math.max(0.45, n.dur));
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + Math.max(0.45, n.dur) + release);
+  // The tape's wobble: a slow tremolo.
+  const wobble = ctx.createGain();
+  wobble.gain.value = 1;
+  const lfo = osc(ctx, 'sine', 4.3, n.at, end);
+  const depth = ctx.createGain();
+  depth.gain.value = 0.12;
+  lfo.connect(depth).connect(wobble.gain);
+  carrier.connect(amp).connect(wobble).connect(out);
+  return end;
+};
+
+const lofikick: Play = (ctx, out, n) => {
+  const end = n.at + 0.45;
+  const o = osc(ctx, 'sine', 95, n.at, end);
+  o.frequency.exponentialRampToValueAtTime(42, n.at + 0.16);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.6 * n.vel, n.at + 0.008);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.4);
+  o.connect(filter(ctx, 'lowpass', 900)).connect(amp).connect(out);
+  return end;
+};
+
+const lofisnare: Play = (ctx, out, n) => {
+  const end = n.at + 0.35;
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.24 * n.vel, n.at + 0.004);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.28);
+  noise(ctx, n.at, end).connect(filter(ctx, 'bandpass', 1500, 0.7)).connect(filter(ctx, 'lowpass', 3800)).connect(amp).connect(out);
+  return end;
+};
+
+const lofihat: Play = (ctx, out, n) => {
+  const end = n.at + 0.08;
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.1 * n.vel, n.at + 0.003);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.05);
+  noise(ctx, n.at, end).connect(filter(ctx, 'bandpass', 6000, 1.2)).connect(amp).connect(out);
+  return end;
+};
+
+// ---- Synthwave suave (part A2): wide detuned saws, a pulsing bass, a gated snare.
+
+const sawpad: Play = (ctx, out, n, color) => {
+  const attack = Math.min(0.7, n.dur * 0.3);
+  const release = 1.2;
+  const end = n.at + n.dur + release + 0.05;
+  const lp = filter(ctx, 'lowpass', 900 + color.bright * 1500, 0.6);
+  const amp = ctx.createGain();
+  envelope(amp.gain, n.at, attack, n.dur, release, 0.1 * n.vel);
+  const f = hz(n.midi);
+  for (const cents of [-12, -4, 4, 12]) osc(ctx, 'sawtooth', f, n.at, end, cents).connect(lp);
+  lp.connect(amp).connect(out);
+  return end;
+};
+
+const pulsebass: Play = (ctx, out, n) => {
+  const end = n.at + n.dur + 0.15;
+  const f = hz(n.midi);
+  const lp = filter(ctx, 'lowpass', 300, 2);
+  lp.frequency.setValueAtTime(950, n.at);
+  lp.frequency.exponentialRampToValueAtTime(260, n.at + 0.18);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.32 * n.vel, n.at + 0.005);
+  amp.gain.exponentialRampToValueAtTime(0.14 * n.vel, n.at + 0.12);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + n.dur + 0.12);
+  osc(ctx, 'sawtooth', f, n.at, end).connect(lp);
+  const sq = ctx.createGain();
+  sq.gain.value = 0.5;
+  osc(ctx, 'square', f / 2, n.at, end).connect(sq).connect(lp);
+  lp.connect(amp).connect(out);
+  return end;
+};
+
+const arpsaw: Play = (ctx, out, n, color) => {
+  const end = n.at + 0.6;
+  const lp = filter(ctx, 'lowpass', 600, 3);
+  lp.frequency.setValueAtTime(1400 + color.bright * 2400, n.at);
+  lp.frequency.exponentialRampToValueAtTime(500, n.at + 0.22);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.13 * n.vel, n.at + 0.004);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.5);
+  osc(ctx, 'sawtooth', hz(n.midi), n.at, end).connect(lp).connect(amp).connect(out);
+  return end;
+};
+
+const sawlead: Play = (ctx, out, n) => {
+  const release = 0.3;
+  const end = n.at + n.dur + release + 0.05;
+  const f = hz(n.midi);
+  const lp = filter(ctx, 'lowpass', 3200, 0.8);
+  const amp = ctx.createGain();
+  envelope(amp.gain, n.at, 0.03, n.dur, release, 0.1 * n.vel);
+  const lfo = osc(ctx, 'sine', 5.6, n.at, end);
+  const depth = ctx.createGain();
+  depth.gain.setValueAtTime(0, n.at);
+  depth.gain.linearRampToValueAtTime(12, n.at + Math.min(0.4, n.dur));
+  for (const cents of [-8, 8]) {
+    const o = osc(ctx, 'sawtooth', f, n.at, end, cents);
+    lfo.connect(depth).connect(o.detune);
+    o.connect(lp);
+  }
+  lp.connect(amp).connect(out);
+  return end;
+};
+
+const synthkick: Play = (ctx, out, n) => {
+  const end = n.at + 0.4;
+  const o = osc(ctx, 'sine', 150, n.at, end);
+  o.frequency.exponentialRampToValueAtTime(48, n.at + 0.1);
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.68 * n.vel, n.at + 0.003);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.32);
+  o.connect(amp).connect(out);
+  return end;
+};
+
+const gatesnare: Play = (ctx, out, n) => {
+  // A big snare cut short: the eighties' gated reverb, made by holding the noise and closing it at once.
+  const end = n.at + 0.3;
+  const amp = ctx.createGain();
+  amp.gain.setValueAtTime(FLOOR, n.at);
+  amp.gain.linearRampToValueAtTime(0.26 * n.vel, n.at + 0.003);
+  amp.gain.setValueAtTime(0.2 * n.vel, n.at + 0.16);
+  amp.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.22);
+  noise(ctx, n.at, end).connect(filter(ctx, 'bandpass', 2100, 0.6)).connect(amp).connect(out);
+  const body = ctx.createGain();
+  body.gain.setValueAtTime(0.2 * n.vel, n.at);
+  body.gain.exponentialRampToValueAtTime(FLOOR, n.at + 0.12);
+  osc(ctx, 'triangle', 200, n.at, n.at + 0.14).connect(body).connect(out);
+  amp.connect(out);
+  return end;
+};
+
+export const VOICES: Record<VoiceName, Play> = { pad, sub, pluck, bells, flute, choir, brass, timpani, kick, snare, hat, tom, texture, epiano, lofikick, lofisnare, lofihat, sawpad, pulsebass, arpsaw, sawlead, synthkick, gatesnare };

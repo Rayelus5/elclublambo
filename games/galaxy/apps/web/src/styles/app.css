@@ -3688,6 +3688,10 @@
   .shop-celebrate { position: fixed; inset: 0; z-index: 66; padding: 0; border: 0; background: radial-gradient(circle at 50% 45%, rgb(20 16 60 / .55), rgb(4 5 18 / .82) 70%); cursor: pointer; animation: fade .3s ease both; }
   .hub-shop { position: relative; }
   .hub-notes { position: relative; }
+  /* The music Ensayo (plan «banda sonora», part A2). */
+  .music-mixer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px 22px; }
+  .music-mixer-row { display: grid; gap: 4px; font-weight: 600; font-size: 14.5px; }
+  .music-now { margin: 14px 0 0; color: var(--color-ink-soft); font-variant-numeric: tabular-nums; }
   .hub-notes .hub-notes-badge { background: var(--color-terminal); color: var(--color-on-terminal); }
   .hub-shop .hub-shop-badge { background: var(--color-nova); color: var(--color-on-nova); box-shadow: 0 0 14px color-mix(in oklab, var(--color-nova) 60%, transparent); }
   .claim-chip.components { color: var(--color-terminal); box-shadow: 0 0 12px color-mix(in srgb, var(--color-terminal) 60%, transparent); }

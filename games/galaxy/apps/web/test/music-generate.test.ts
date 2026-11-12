@@ -3,6 +3,7 @@ import { COMPOSITIONS, formBars } from '../src/audio/music/compositions';
 import { createPlanner, type NoteEvent } from '../src/audio/music/generate';
 import { STYLES } from '../src/audio/music/styles';
 import { inScale } from '../src/audio/music/theory';
+import { VOICES } from '../src/audio/music/voices';
 
 // The soundtrack's generator (plan «banda sonora», part A): every composition is well formed, and a style turns it
 // into bars of notes — the same seed the same notes, every melodic note in the key, the melody on a chord tone on the
@@ -96,6 +97,17 @@ test('los acordes se enlazan sin saltos: ninguna voz del pad salta más de una q
   for (let i = 1; i < all.length; i++) {
     const [a, b] = [all[i - 1]!.chord, all[i]!.chord];
     for (let v = 0; v < Math.min(a.length, b.length); v++) expect(Math.abs(b[v]! - a[v]!)).toBeLessThanOrEqual(7);
+  }
+});
+
+// Part A2: the three styles the owner chose, each with every instrument it names.
+test('tres estilos: Ambiente espacial, Lo-fi espacial (con swing) y Synthwave suave, con sus instrumentos', () => {
+  expect(Object.keys(STYLES)).toEqual(['ambient', 'lofi', 'synthwave']);
+  expect(STYLES.lofi.swing).toBeGreaterThan(0.1);
+  expect(STYLES.lofi.tempo).toBeLessThan(1);
+  for (const style of Object.values(STYLES)) {
+    for (const voice of Object.values(style.voices)) expect(VOICES[voice], `${style.id} ${voice}`).toBeTypeOf('function');
+    for (const group of ['menu', 'sector', 'boss', 'results'] as const) expect(Object.keys(style.arrangement[group]).length, `${style.id} ${group}`).toBeGreaterThan(2);
   }
 });
 

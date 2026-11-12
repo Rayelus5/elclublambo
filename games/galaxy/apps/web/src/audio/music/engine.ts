@@ -52,6 +52,9 @@ export interface EngineState {
   dropped: Partial<Record<Role, number>>;
   filtered: boolean;
   ducked: boolean;
+  /** Its seed, and each instrument's level (the Ensayo can change them). */
+  seed: number;
+  mix: Record<Role, number>;
 }
 
 export interface EngineOptions {
@@ -198,6 +201,9 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
   let pieces = 0;
   /** The Ensayo's direction: a piece and an intensity held whatever the scene says. */
   let forced: { piece: string | null; intensity: Layer | null } = { piece: null, intensity: null };
+  /** The Ensayo's levels, over the style's. */
+  const mixOver = new Map<Role, number>();
+  const mixOf = (role: Role) => mixOver.get(role) ?? style.mix[role];
 
   // The menu's playlist: its pieces in an order of their own, never the same one twice in a row.
   const menu = COMPOSITIONS.filter((c) => c.group === 'menu').map((c) => c.id);
@@ -245,7 +251,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
     const roles = new Map<Role, GainNode>();
     for (const [role, layer] of Object.entries(style.arrangement[comp.group]) as [Role, Layer][]) {
       const g = ctx.createGain();
-      g.gain.value = style.mix[role];
+      g.gain.value = mixOf(role);
       g.connect(layers[layer]!);
       roles.set(role, g);
     }
@@ -300,7 +306,7 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       return;
     }
     const dur = e.len * p.stepDur;
-    VOICES[p.style.voices[e.role]](ctx, out, { midi: e.midi, at: time, dur, vel: e.vel }, { bright: p.comp.color.bright, texture: p.comp.color.texture, seed: seedOf(session, p.comp.id, p.bar, e.at, e.role) });
+    VOICES[p.style.voices[e.role]](ctx, out, { midi: e.midi, at: time, dur, vel: e.vel }, { bright: p.comp.color.bright, texture: p.style.texture ?? p.comp.color.texture, seed: seedOf(session, p.comp.id, p.bar, e.at, e.role) });
     // A voice is busy while its note is held; its release fades on its own.
     voices.push(time + Math.max(dur, 0.25));
     played[e.role] = (played[e.role] ?? 0) + 1;
@@ -376,6 +382,15 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
       if (duck !== ducked) {
         ducked = duck;
         if (playing) ramp(level.gain, duck ? 0.35 : 1, at, 0.5);
+      }
+    },
+    /** The music Ensayo: an instrument's level (0–1), now and for the pieces to come. */
+    setMix(role: Role, value: number) {
+      const v = Math.max(0, Math.min(1, value));
+      mixOver.set(role, v);
+      for (const p of [current, ...fading]) {
+        const g = p?.roles.get(role);
+        if (g) ramp(g.gain, v, ctx.currentTime, 0.1);
       }
     },
     /** How far ahead to schedule: more while the tab is hidden (its timers run once a second). */
@@ -455,6 +470,8 @@ export function createEngine(ctx: BaseAudioContext, out: AudioNode, opts: Engine
         dropped: { ...dropped },
         filtered,
         ducked,
+        seed: session,
+        mix: Object.fromEntries((Object.keys(style.mix) as Role[]).map((r) => [r, mixOf(r)])) as Record<Role, number>,
       };
     },
     dispose() {

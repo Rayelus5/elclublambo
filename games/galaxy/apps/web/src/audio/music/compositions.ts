@@ -9,7 +9,7 @@ import type { ChordExt, Mode } from './theory';
 
 export type Group = 'menu' | 'sector' | 'boss' | 'results';
 export type Biome = 'nebula' | 'ice' | 'reef' | 'forge' | 'rift';
-export type Texture = 'wind' | 'crystal' | 'bubbles' | 'embers' | 'static' | 'space';
+export type Texture = 'wind' | 'crystal' | 'bubbles' | 'embers' | 'static' | 'space' | 'vinyl';
 
 export interface ChordStep {
   degree: number;

@@ -167,6 +167,26 @@ test('con archivos propios, la pieza suena desde ellos (sus capas siguen la inte
   expect(broken.state().source).toBe('generated');
 });
 
+test('cambiar de estilo vuelve a tocar la misma pieza en el nuevo, desde el compás siguiente', () => {
+  const { engine, run } = setup(run1('nebula', 2));
+  run(2);
+  engine.setChoice('lofi');
+  run(6);
+  expect(engine.state()).toMatchObject({ style: 'lofi', piece: 'sector-nebulosa' });
+  engine.setChoice('synthwave');
+  run(6);
+  expect(engine.state()).toMatchObject({ style: 'synthwave', piece: 'sector-nebulosa' });
+});
+
+test('el Ensayo puede subir o bajar un instrumento y cambiar la semilla', () => {
+  const { engine, run } = setup(run1('nebula', 2));
+  run(1);
+  engine.setMix('lead', 0);
+  expect(engine.state().mix['lead']).toBe(0);
+  run(1);
+  expect(engine.state().seed).toBe(5);
+});
+
 test('en un Núcleo a tope casi no se pierden bajo, bombo, coro ni metales por falta de voces', () => {
   const { engine, run } = setup({ kind: 'run', biome: 'nebula', boss: { deep: false, form: 1 }, intensity: 3, choosing: false, paused: false });
   run(90, 0.05);
