@@ -8,3 +8,5 @@ alter table galaxy.accounts add column deleted_at timestamptz;
 
 grant delete on galaxy.account_ips, galaxy.social_prefs, galaxy.chat_messages, galaxy.admin_totp to galaxy_api;
 grant insert on galaxy.reserved_usernames to galaxy_api;
+-- The table has row level security with a read-only policy (foundation): reserving a name needs one for inserting.
+create policy galaxy_api_insert on galaxy.reserved_usernames for insert to galaxy_api with check (true);

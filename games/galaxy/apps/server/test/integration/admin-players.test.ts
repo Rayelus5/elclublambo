@@ -333,7 +333,7 @@ describe('eliminar', () => {
     await post(ctx.app, '/galaxy/api/market/listings', { galaxyId: g1, price: 50 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
     await post(ctx.app, '/galaxy/api/trades', { username: friend.username, give: g2 }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
     const [lo, hi] = p.id < friend.id ? [p.id, friend.id] : [friend.id, p.id];
-    await ctx.db.insertInto('galaxy.friendships').values({ a: lo, b: hi, status: 'accepted', requested_by: p.id }).execute();
+    await ctx.db.insertInto('galaxy.friendships').values({ a: lo, b: hi, status: 'accepted', requested_by: p.id, accepted_at: new Date() }).execute();
     await ctx.db.insertInto('galaxy.chat_messages').values({ author_id: p.id, channel: 'global', body: 'hola a todos' }).execute();
     const ledger = await count('galaxy.ledger', p.id);
     expect(await count('galaxy.account_ips', p.id)).toBeGreaterThan(0);
