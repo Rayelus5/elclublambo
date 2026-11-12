@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { SeasonTier } from './season';
 import { FRAMES } from './missions';
+import { ART_AVATARS } from '../cosmetics/catalog';
 
 // The season route and shop (GDD §11.1, §13.1; M7d-1). The route is a free ladder climbed with the season score: each
 // step pays its reward once. Runs that count earn the season currency (a share of their points), the route gives some
@@ -16,11 +17,12 @@ export const seasonRewardSchema = z
     shards: z.number().int().min(0).max(100_000).default(0),
     title: z.string().trim().min(1).max(30).nullable().default(null),
     frame: z.enum(FRAMES).nullable().default(null),
+    avatar: z.enum(ART_AVATARS).nullable().default(null),
   })
   .strict();
 export type SeasonReward = z.output<typeof seasonRewardSchema>;
 
-const r = (x: Partial<SeasonReward>): SeasonReward => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, ...x });
+const r = (x: Partial<SeasonReward>): SeasonReward => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, ...x });
 
 /** Twenty steps up to the Estelar tier (30 000 points by default). */
 export const DEFAULT_ROUTE = [

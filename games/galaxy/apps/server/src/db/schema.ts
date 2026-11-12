@@ -17,6 +17,9 @@ export interface AccountsTable {
   /** M7a: the title and the frame the account shows (among its cosmetics). */
   title: ColumnType<string | null, string | null | undefined, string | null>;
   frame: ColumnType<string | null, string | null | undefined, string | null>;
+  /** Nov plan C2: the avatar shown (null: the drawing made from the name) and the galaxy shown as the profile banner. */
+  avatar: ColumnType<string | null, string | null | undefined, string | null>;
+  banner: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 export interface AccountRolesTable {
@@ -305,7 +308,7 @@ export interface TutorialTable {
 /** M7a: the titles and frames an account has earned. */
 export interface CosmeticsTable {
   account_id: string;
-  kind: 'title' | 'frame';
+  kind: 'title' | 'frame' | 'avatar';
   value: string;
   created_at: Timestamp;
 }

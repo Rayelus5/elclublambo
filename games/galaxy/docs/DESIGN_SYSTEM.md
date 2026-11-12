@@ -1054,6 +1054,34 @@ Las casillas tienen 44 px de alto.
 
 **Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave.
 
+## 8 quinquatricies. Perfil: avatar, marco, título, banner y «Personalizar» (plan de noviembre C2–C4)
+
+**Avatar**
+- Pixel art de 32×32 a escala entera (×1 en listas y barra, ×2 en el perfil y en «Personalizar»).
+- Un avatar animado es una tira de 4 fotogramas a 6 fps; con movimiento reducido se queda quieto.
+- Sin avatar se ve «Tu firma»: la figura de 5×5 que sale del nombre.
+
+**Marco**
+- Pixel art de 48×48 con una ventana transparente de 32×32: el avatar va en (8, 8).
+- Los épicos y legendarios son tiras de 6 fotogramas a 8 fps.
+- Si a un marco le falta el arte, se ve un aro de su color.
+- El componente es `hub/Avatar.tsx`, con `name`, `avatar`, `frame` y `size`.
+
+**Título**
+- Se escribe con el estilo del catálogo: `plain`, `shine` (un brillo que lo recorre), `aurora` (un degradado que fluye) o `flare` (un resplandor solar).
+- Con movimiento reducido, sin animación.
+
+**«Personalizar»**
+- Se abre desde tu perfil. Es un diálogo con una vista previa arriba («Así te verán») y pestañas Avatar, Marco, Título y Banner.
+- Cada pestaña es una rejilla de piezas con su rareza en su color de rareza.
+- Lo que no tienes sale bloqueado (gris, con candado), con el texto de cómo conseguirlo y, si es de la tienda, un enlace a «Estilo».
+- «Guardar» manda solo lo que cambió.
+
+**Banner**
+- Una galaxia del jugador arriba en su perfil: dibujada una vez en un canvas, difuminada y oscurecida, y fundida con la página.
+- Un acabado especial la recorre (holo, prismático, braille, corrupto o fisura). Una copia más suave tiñe toda la página detrás de los paneles, que conservan su fondo para que todo se lea.
+- Nunca se usa `backdrop-filter` encima de capas que se mueven.
+
 ## 9. Copy
 
 - Tú, frases cortas, verbos claros. Botones que dicen lo que pasa («Entrar», «Crear cuenta», «Verificar código»).

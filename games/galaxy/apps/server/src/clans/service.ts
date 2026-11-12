@@ -99,13 +99,15 @@ export async function clanView(db: Kysely<DB>, clanId: string, viewerId: string,
     .selectFrom('galaxy.clan_members as m')
     .innerJoin('galaxy.accounts as a', 'a.id', 'm.account_id')
     .leftJoin('galaxy.account_xp as x', 'x.account_id', 'm.account_id')
-    .select(['m.account_id', 'm.role', 'm.joined_at', 'a.username', 'x.xp'])
+    .select(['m.account_id', 'm.role', 'm.joined_at', 'a.username', 'a.avatar', 'a.frame', 'x.xp'])
     .where('m.clan_id', '=', clanId)
     .execute();
   const points = seasonOpen(cfgs.season, now) ? new Map((await ranking(db, cfgs.season, 'general', cfgs.account.minRunSeconds)).map((r) => [r.accountId, r.value])) : new Map<string, number>();
   const members: ClanMember[] = rows
     .map((r) => ({
       username: r.username,
+      avatar: r.avatar,
+      frame: r.frame,
       role: r.role,
       level: levelOf(Number(r.xp ?? 0), cfgs.account).level,
       points: points.get(r.account_id) ?? 0,

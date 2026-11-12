@@ -101,7 +101,7 @@ function MemberRow({ m, myRole, me, onAct, busy }: { m: ClanMember; myRole: Clan
   return (
     <tr className={me ? 'mine' : undefined} aria-current={me ? 'true' : undefined}>
       <th scope="row" className="lb-who">
-        <Avatar name={m.username} />
+        <Avatar name={m.username} avatar={m.avatar} frame={m.frame} />
         <Link to={`/perfil/${encodeURIComponent(m.username)}`}>{m.username}</Link>
         {me ? <span className="lb-you">{t.you}</span> : null}
       </th>

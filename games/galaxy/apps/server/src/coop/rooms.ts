@@ -13,6 +13,9 @@ export interface MemberInit {
   username: string;
   level: number;
   probe: string;
+  /** Nov plan C2: how they show on the pads (null: their name's drawing / no frame). */
+  avatar?: string | null;
+  frame?: string | null;
 }
 
 interface Member extends MemberInit {
@@ -252,7 +255,7 @@ export class RoomManager {
       leader: members.find((m) => m.accountId === room.leader)?.username ?? '',
       sector: room.sector,
       state: room.state,
-      members: members.map((m) => ({ username: m.username, level: m.level, probe: m.probe, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader })),
+      members: members.map((m) => ({ username: m.username, avatar: m.avatar ?? null, frame: m.frame ?? null, level: m.level, probe: m.probe, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader })),
       max: ROOM_MAX,
       createdAt: new Date(room.createdAt).toISOString(),
       canStart: coopOpen && room.state === 'lobby' && members.length >= 1 && members.every((m) => m.ready || m.accountId === room.leader),

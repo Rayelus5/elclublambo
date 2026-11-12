@@ -180,16 +180,16 @@ describe('la clasificación de la temporada', () => {
     expect(v.season).toEqual({ id: s.id, name: s.name, startsAt: s.startsAt, endsAt: s.endsAt, tiers: [500, 2000, 6000, 15000, 30000] });
     expect(v.tab).toBe('general');
     expect(v.rows).toEqual([
-      { rank: 1, username: b.username, level: 1, value: 180 },
-      { rank: 2, username: c.username, level: 1, value: 175 },
-      { rank: 2, username: a.username, level: 5, value: 175 },
+      { rank: 1, username: b.username, level: 1, value: 180, avatar: null, frame: null },
+      { rank: 2, username: c.username, level: 1, value: 175, avatar: null, frame: null },
+      { rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null },
     ]);
-    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175 });
+    expect(v.me).toEqual({ rank: 2, username: a.username, level: 5, value: 175, avatar: null, frame: null });
     expect(v.total).toBe(4);
   });
 
   test('tu fila sale aunque estés fuera del top, y sin puntos no hay fila', async () => {
-    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10 });
+    expect((await board(ctx, d.cookie)).me).toEqual({ rank: 4, username: d.username, level: 1, value: 10, avatar: null, frame: null });
     expect((await board(ctx, early.cookie)).me).toBeNull();
     expect((await board(ctx, cheat.cookie)).me).toBeNull();
   });
@@ -228,7 +228,7 @@ describe('la clasificación de la temporada', () => {
     const res = await get(ctx.app, `/galaxy/api/profiles/${a.username.toUpperCase()}`, { cookie: b.cookie });
     expect(res.statusCode).toBe(200);
     const p = res.json() as Profile;
-    expect(Object.keys(p).sort()).toEqual(['clan', 'collection', 'frame', 'level', 'planetarium', 'records', 'season', 'since', 'title', 'username']);
+    expect(Object.keys(p).sort()).toEqual(['avatar', 'banner', 'clan', 'collection', 'frame', 'level', 'planetarium', 'records', 'season', 'since', 'title', 'username']);
     expect(p.clan).toBeNull();
     expect(p.username).toBe(a.username);
     expect(p.level).toBe(5);

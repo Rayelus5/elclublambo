@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
 import type { CoopOutcome } from './coop';
@@ -27,7 +28,7 @@ export type Presence =
   | { status: 'offline' }
   | { status: 'online'; activity: Activity; room?: { size: number; max: number; code?: string }; layer?: number };
 
-export interface FriendEntry {
+export interface FriendEntry extends PlayerLook {
   username: string;
   level: number;
   /** Its clan's tag, if any. */

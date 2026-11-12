@@ -15,6 +15,10 @@ import { useTrades } from '../api/trades';
 import { TradeComposer } from '../trades/TradeComposer';
 import { HomeLink } from '../ui/BackLink';
 import { SeasonHistoryList } from '../season/TrophiesScreen';
+import { useCosmeticsView } from '../api/cosmetics';
+import { CustomizeDialog } from '../profile/CustomizeDialog';
+import { ProfileBanner } from '../profile/ProfileBanner';
+import { TitleText } from '../profile/TitleText';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
 // season with its tier; their records; their collection by rarity with a way into it; their planetarium with a way
@@ -125,11 +129,15 @@ export function ProfileScreen() {
   const viewer = useMe().data?.username;
   const navigate = useNavigate();
   const [proposing, setProposing] = useState(false);
+  const [customizing, setCustomizing] = useState(false);
   const trades = useTrades();
+  // My cosmetics: the inventory for «Personalizar» on my profile, and the catalog that styles anyone's title.
+  const cosmetics = useCosmeticsView(!!viewer);
   const p = profile.data;
   const missing = profile.error instanceof ApiError && (profile.error.status === 404 || profile.error.status === 400);
   return (
-    <div className="screen-root profile-root">
+    <div className="screen-root profile-root" data-finish={p?.banner && p.banner.finish !== 'normal' ? p.banner.finish : undefined}>
+      {p?.banner ? <ProfileBanner galaxy={p.banner} /> : null}
       <div className="profile">
         <header className="collection-bar">
           <HomeLink>
@@ -153,12 +161,16 @@ export function ProfileScreen() {
         {p ? (
           <>
             <section className="profile-head">
-              <span className={`profile-avatar${p.frame ? ` frame-${p.frame}` : ''}`}>
-                <Avatar name={p.username} />
+              <span className="profile-avatar">
+                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={64} />
               </span>
               <div>
                 <h1>{p.username}</h1>
-                {p.title ? <p className="profile-title">{p.title}</p> : null}
+                {p.title ? (
+                  <p className="profile-title">
+                    <TitleText text={p.title} catalog={cosmetics.data?.catalog} />
+                  </p>
+                ) : null}
                 <p className="profile-level">{t.level(p.level)}</p>
                 <p className="profile-since">{t.since(p.since)}</p>
                 {p.clan ? (
@@ -170,6 +182,15 @@ export function ProfileScreen() {
                 ) : null}
               </div>
             </section>
+            {viewer && viewer === p.username ? (
+              <div className="profile-actions">
+                <button type="button" className="lip pill pill-uv" aria-haspopup="dialog" disabled={!cosmetics.data} onClick={() => setCustomizing(true)}>
+                  <Icon name="starOn" />
+                  <span>{copy.customize.open}</span>
+                </button>
+              </div>
+            ) : null}
+            {customizing && cosmetics.data ? <CustomizeDialog username={p.username} view={cosmetics.data} onClose={() => setCustomizing(false)} /> : null}
             {viewer && viewer !== p.username ? (
               <div className="profile-actions">
                 <FriendButtons username={p.username} />

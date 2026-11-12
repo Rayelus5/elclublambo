@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
 
@@ -27,7 +28,7 @@ export const roomTargetSchema = z.object({ username: usernameSchema }).strict();
 
 export type RoomState = 'lobby' | 'starting' | 'running' | 'ended';
 
-export interface RoomMember {
+export interface RoomMember extends PlayerLook {
   username: string;
   level: number;
   /** The probe it will fly (its hangar's choice). */

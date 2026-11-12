@@ -19,8 +19,8 @@ test('el álbum enseña lo descubierto por su nombre, lo demás como ?, y el pre
     total: 3,
     percent: 66,
     rewards: [
-      { percent: 10, reward: { coins: 0, dust: 300, signal: 0, title: null, frame: null }, reached: true, claimed: false },
-      { percent: 100, reward: { coins: 0, dust: 0, signal: 10, title: 'Guardián del cielo', frame: 'gold' }, reached: false, claimed: false },
+      { percent: 10, reward: { coins: 0, dust: 300, signal: 0, title: null, frame: null, avatar: null }, reached: true, claimed: false },
+      { percent: 100, reward: { coins: 0, dust: 0, signal: 10, title: 'Guardián del cielo', frame: 'gold', avatar: null }, reached: false, claimed: false },
     ],
   };
   mockApi({ 'GET /galaxy/api/catalog': () => jsonResponse(200, view) });

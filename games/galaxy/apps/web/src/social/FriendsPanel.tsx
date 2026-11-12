@@ -8,6 +8,7 @@ import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Dialog } from '../ui/Dialog';
 import { Icon } from '../ui/Icon';
+import { Avatar } from '../hub/Avatar';
 import { Select } from '../ui/Select';
 
 // Friends (multiplayer plan, phase 3): a side sheet like the chat's, that never blocks the game. Friends first (the
@@ -187,7 +188,10 @@ function FriendRow({ f, onAsk }: { f: FriendEntry; onAsk: (kind: 'remove' | 'blo
   const on = f.presence.status === 'online';
   return (
     <li className={on ? 'friend on' : 'friend'}>
-      <span className="friend-dot" aria-hidden="true" />
+      <span className="friend-face">
+        <Avatar name={f.username} avatar={f.avatar} frame={f.frame} />
+        <span className="friend-dot" aria-hidden="true" />
+      </span>
       <div className="friend-main">
         <Link to={`/perfil/${encodeURIComponent(f.username)}`} className="friend-name">
           {f.username}

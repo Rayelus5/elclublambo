@@ -2,15 +2,14 @@ import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView,
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
-import { useClaim, useCosmetics, useMissions } from '../api/missions';
-import { errorText } from '../auth/useMe';
+import { useClaim, useMissions } from '../api/missions';
+import { errorText, useMe } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { BackLink } from '../ui/BackLink';
 import { Celebration } from '../ui/Celebration';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
-import { Select } from '../ui/Select';
 import { useClaimFx } from './ClaimFx';
 import { addRewards, type ClaimTarget, firstReadyTab, readyByTab, readyIn, type Reward } from './ready';
 import { playClaim } from './sfx';
@@ -117,6 +116,7 @@ export function EventsList({ events, pending, onClaim, wallet }: { events: Event
 }
 
 export function MissionsScreen() {
+  const me = useMe().data?.username;
   const ids = useId();
   const missions = useMissions();
   const gacha = useGacha();
@@ -280,7 +280,16 @@ export function MissionsScreen() {
           ) : null}
           {v && tab === 'achievements' ? (
             <>
-              <Cosmetics key={`${v.cosmetics.title ?? ''}|${v.cosmetics.frame ?? ''}`} titles={v.cosmetics.titles} frames={v.cosmetics.frames} title={v.cosmetics.title} frame={v.cosmetics.frame} />
+              {/* Title and frame (and avatar and banner) are chosen in «Personalizar», on the profile (Nov plan C2). */}
+              <p className="lip panel cosmetics-moved">
+                <Icon name="starOn" />
+                <span>{t.customizeMoved}</span>
+                {me ? (
+                  <Link to={`/perfil/${encodeURIComponent(me)}`} className="lip pill small pill-uv">
+                    {copy.customize.open}
+                  </Link>
+                ) : null}
+              </p>
               <ul className="mission-list">
                 {v.achievements.map((a: AchievementView) => (
                   <li key={a.id} className={`lip panel mission-card achievement ${a.tier}${a.claimed ? ' claimed' : a.unlocked ? ' ready' : ''}${just.has(a.id) ? ' just' : ''}`}>
@@ -314,52 +323,6 @@ export function MissionsScreen() {
   );
 }
 
-/** The title and the frame shown on the profile, among the earned ones. */
-function Cosmetics({ titles, frames, title, frame }: { titles: string[]; frames: Frame[]; title: string | null; frame: Frame | null }) {
-  const ids = useId();
-  const save = useCosmetics();
-  const [chosen, setChosen] = useState({ title: title ?? '', frame: frame ?? '' });
-  return (
-    <section className="lip panel cosmetics" aria-labelledby={`${ids}-title`}>
-      <h2 id={`${ids}-title`}>{t.customize}</h2>
-      {titles.length === 0 && frames.length === 0 ? <p className="panel-note">{t.noCosmetics}</p> : null}
-      <div className="cosmetics-fields">
-        <div className="field">
-          <label htmlFor={`${ids}-t`}>{t.titleLabel}</label>
-          <div className="control">
-            <Select
-              id={`${ids}-t`}
-              block
-              value={chosen.title}
-              options={[{ value: '', label: t.none }, ...titles.map((x) => ({ value: x, label: x }))]}
-              onChange={(title) => setChosen((c) => ({ ...c, title }))}
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor={`${ids}-f`}>{t.frameLabel}</label>
-          <div className="control">
-            <Select
-              id={`${ids}-f`}
-              block
-              value={chosen.frame}
-              options={[{ value: '', label: t.none }, ...frames.map((x) => ({ value: x, label: t.frames[x] ?? x }))]}
-              onChange={(frame) => setChosen((c) => ({ ...c, frame }))}
-            />
-          </div>
-        </div>
-        <button type="button" className="lip pill" disabled={save.isPending} onClick={() => save.mutate({ title: chosen.title || null, frame: (chosen.frame || null) as Frame | null })}>
-          {t.save}
-        </button>
-      </div>
-      {save.isSuccess ? (
-        <p className="admin-done" role="status">
-          {t.saved}
-        </p>
-      ) : null}
-    </section>
-  );
-}
 
 /** The top bar's button to the missions, with how many are ready to collect. */
 export function MissionsButton({ style }: { style?: React.CSSProperties }) {

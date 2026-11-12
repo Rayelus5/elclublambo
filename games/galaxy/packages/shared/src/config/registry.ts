@@ -8,6 +8,7 @@ import { catalogRewardSchema, DEFAULT_CATALOG_REWARDS } from '../progress/catalo
 import { seasonRouteSchema } from '../progress/season-route';
 import { redshiftSchema } from '../progress/redshift';
 import { shopSchema } from '../shop/schema';
+import { cosmeticsConfigSchema } from '../cosmetics/catalog';
 
 /** Zod's messages in Spanish, only for the drafts the admin panel checks (the rest keep the default). */
 const esIssues = es().localeError;
@@ -715,6 +716,11 @@ export const configSchemas = {
    * default and first for the staff alone. Products, prices, Stripe prices, offers and limits.
    */
   shop: shopSchema,
+  /**
+   * Profile cosmetics (Nov plan C2): the avatars, frames and styled titles, how rare each is, where it comes from and
+   * how to get it. The art is in the web app, found by id.
+   */
+  cosmetics: cosmeticsConfigSchema,
 } as const;
 
 export type ConfigKey = keyof typeof configSchemas;
