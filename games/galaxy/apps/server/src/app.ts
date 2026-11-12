@@ -34,6 +34,7 @@ import { registerAdminRunRoutes } from './admin/runs-routes';
 import { registerAdminProgressRoutes } from './admin/progress-routes';
 import { registerMailRoutes } from './mail/routes';
 import { registerMissionRoutes } from './missions/routes';
+import { registerCosmeticsRoutes } from './cosmetics/routes';
 import { registerCatalogRoutes } from './catalog/routes';
 import { registerCodexRoutes } from './codex/routes';
 import { registerOnboardingRoutes } from './onboarding/routes';
@@ -163,6 +164,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     registerAdminMarketRoutes(api, { db: deps.db, env: deps.env, now });
     registerMailRoutes(api, { db: deps.db, config, now });
     registerMissionRoutes(api, { db: deps.db, config, now });
+    registerCosmeticsRoutes(api, { db: deps.db, config });
     registerCatalogRoutes(api, { db: deps.db, config });
     registerCodexRoutes(api, { db: deps.db, config });
     registerOnboardingRoutes(api, { db: deps.db });

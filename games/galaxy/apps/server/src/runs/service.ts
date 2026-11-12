@@ -42,6 +42,7 @@ import { accountLabEffects } from '../lab/levels';
 import { redshiftRank } from '../lab/redshift';
 import { planetariumXp } from '../planetarium/service';
 import { creditRunProgress } from '../social/progress';
+import { grantPortraits } from '../cosmetics/service';
 
 // Starting and finishing runs (GDD §5.1, §11.3 bis, §14.7). The server seeds the run and snapshots the equipped
 // relics; the result comes back once, with the recorded inputs, and is checked, paid and kept. Both run inside an
@@ -278,6 +279,12 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
     .where('id', '=', run.id)
     .execute();
   if (s.inputs) await trx.insertInto('galaxy.run_inputs').values({ run_id: run.id, inputs: Buffer.from(s.inputs) }).execute();
+  // The Núcleos it beat give their portraits the first time (Nov plan C2); never from a run the checks doubted.
+  if (claim.bossKills > 0 && flags.length === 0) {
+    const row = await trx.selectFrom('galaxy.runs').select('sector').where('id', '=', run.id).executeTakeFirst();
+    const sector = row ? ctx.content.sectors.find((x) => x.id === row.sector) : undefined;
+    if (sector) await grantPortraits(trx, accountId, { boss: sector.boss, deepBoss: sector.deepBoss, depth: claim.depth, bossKills: claim.bossKills });
+  }
   const progress = await creditRunProgress(
     trx,
     accountId,

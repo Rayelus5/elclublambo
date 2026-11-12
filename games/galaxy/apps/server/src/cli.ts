@@ -35,6 +35,7 @@ import { seasonConfigs } from './season/service';
 import { reconcileShop, unblockShop } from './shop/cli';
 import type { ShopGateway } from './shop/gateway';
 import { createStripeGateway } from './shop/stripe-gateway';
+import { backfillCosmetics } from './cosmetics/backfill';
 
 /** `shopGateway`: the shop's payment gateway (tests pass a fake; by default Stripe's from the env). */
 export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void; shopGateway?: ShopGateway | null };
@@ -48,6 +49,7 @@ const USAGE = [
   '  publish-config <clave> <archivo.json | -> --reason <motivo>',
   '  publish-config <clave> <archivo.json | -> --dry-run',
   '  show-config <clave> [--data]',
+  '  cosmetics-backfill',
   '  draft-config <clave> <campo[,campo…]> [--ids id,id…]',
   '  check-config <lote.json | ->',
   '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
@@ -485,6 +487,15 @@ async function shopUnblock(args: string[], deps: CliDeps): Promise<number> {
   return 0;
 }
 
+/** Nov plan C2: gives the November cosmetics to who already earned them (portraits, achievements, catalog, route). */
+async function cosmeticsBackfill(deps: CliDeps): Promise<number> {
+  const config = createConfigService(deps.db);
+  const [content, achievements, catalog, seasonRoute, season] = await Promise.all([config.get('content'), config.get('achievements'), config.get('catalog'), config.get('seasonRoute'), config.get('season')]);
+  const done = await backfillCosmetics(deps.db, { content, achievements: achievements.list, catalog: catalog.rewards, route: seasonRoute.steps, season: season.id });
+  deps.out(`Retratos revisados en ${done.portraits} partidas · logros ${done.achievements} · catálogo ${done.catalog} · ruta ${done.route}`);
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
@@ -499,5 +510,6 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'notice') return notice(args, deps);
   if (command === 'shop-reconcile') return shopReconcile(args, deps);
   if (command === 'shop-unblock') return shopUnblock(args, deps);
+  if (command === 'cosmetics-backfill') return cosmeticsBackfill(deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }

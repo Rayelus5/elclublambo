@@ -5,7 +5,7 @@ import type { ConfigKey } from './registry';
 // from the published value instead and takes from the defaults only what is new (or the ids asked for).
 
 /** The order keys are published in, so each finds what it depends on already live (CONTENIDO.md B3). */
-export const PUBLISH_ORDER: readonly ConfigKey[] = ['content', 'sectors', 'probes', 'relics', 'season', 'lab', 'seasonRoute', 'missions', 'achievements', 'boosts', 'events', 'gacha'];
+export const PUBLISH_ORDER: readonly ConfigKey[] = ['content', 'sectors', 'probes', 'relics', 'season', 'lab', 'seasonRoute', 'missions', 'achievements', 'boosts', 'events', 'gacha', 'cosmetics'];
 
 type WithId = { id: string };
 const isIdList = (v: unknown): v is WithId[] =>

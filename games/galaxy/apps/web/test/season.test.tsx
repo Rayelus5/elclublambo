@@ -10,7 +10,7 @@ import { jsonResponse, mockApi, renderAt } from './render';
 // The season route and shop (GDD §13.1; M7d-1).
 afterEach(() => vi.unstubAllGlobals());
 
-const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, ...x });
+const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, shards: 0, title: null, frame: null, avatar: null, ...x });
 const view: SeasonView = {
   season: { id: 'season-1', name: 'Temporada 1', endsAt: new Date(Date.now() + 10 * 86_400_000).toISOString(), tiers: [500, 2000, 6000, 15000, 30000] },
   score: 600,
@@ -55,7 +55,7 @@ test('fuera de temporada lo dice', async () => {
 });
 
 test('al cerrar una temporada enseña el puesto y sus premios para recogerlos una vez (M7d-2)', async () => {
-  const closing = { season: 'season-0', name: 'Temporada 0', endsAt: '2026-10-31T00:00:00.000Z', rank: 2, score: 7000, tier: 'gold' as const, podium: true, rewards: [r({ coins: 3000 }), r({ title: 'Podio de temporada', frame: 'crown' })], claimed: false };
+  const closing = { season: 'season-0', name: 'Temporada 0', endsAt: '2026-10-31T00:00:00.000Z', rank: 2, score: 7000, tier: 'gold' as const, podium: true, rewards: [r({ coins: 3000 }), r({ title: 'Podio de temporada', frame: 'crown', avatar: null })], claimed: false };
   const fetch = mockApi({
     'GET /galaxy/api/season': () => jsonResponse(200, { ...view, season: null, steps: [], shop: [], closing }),
     'POST /galaxy/api/season/results/season-0/claim': () => jsonResponse(200, { ...view, season: null, steps: [], shop: [], closing: null }),

@@ -40,6 +40,7 @@ export const CATEGORIES: Category[] = [
   { id: 'coop', title: 'En grupo', description: 'Salas, cartas, caídas y reanimación, y cómo cambian la dificultad y el botín con los jugadores', icon: 'clan', keys: ['coop'] },
   { id: 'progress', title: 'Progreso', description: 'Niveles de cuenta, planetario y prestigio', icon: 'trophy', keys: ['account', 'planetarium', 'redshift'] },
   { id: 'shop', title: 'Tienda', description: 'Packs de pago, precios de Stripe, ofertas y límites', icon: 'store', keys: ['shop'] },
+  { id: 'cosmetics', title: 'Cosméticos', description: 'Avatares, marcos y títulos del perfil: nombres, rareza y cómo se consiguen', icon: 'starOn', keys: ['cosmetics'] },
   {
     id: 'advanced',
     title: 'Avanzado',
@@ -82,6 +83,7 @@ export const KEY_INFO: Record<ConfigKey, { title: string; description: string }>
   achievements: { title: 'Logros', description: 'Metas para siempre con títulos y marcos' },
   boosts: { title: 'Multiplicadores', description: 'Pagos multiplicados durante un tiempo' },
   shop: { title: 'Tienda de recursos', description: 'Si está abierta y para quién, los packs con su precio de Stripe, las ofertas y el límite diario' },
+  cosmetics: { title: 'Cosméticos del perfil', description: 'Avatares, marcos y títulos: nombre, rareza, de dónde salen y el texto de cómo conseguirlos' },
 };
 
 const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Épica', 'Legendaria'] as const;

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ART_AVATARS, ART_FRAMES } from '../cosmetics/catalog';
 
 // Missions and achievements (GDD §12.1, §12.3, §14.1; M7a): what is counted, the missions of each period, the
 // achievements with their titles and frames, and what the missions screen shows.
@@ -8,8 +9,8 @@ export const MISSION_STATS = ['runs', 'minutes', 'kills', 'bossKills', 'extracti
 export type MissionStat = (typeof MISSION_STATS)[number];
 export type MissionCounts = Partial<Record<MissionStat, number>>;
 
-/** The frames an achievement can give (a ring round the avatar). */
-export const FRAMES = ['bronze', 'silver', 'gold', 'nebula', 'abyss', 'crown'] as const;
+/** The frames a reward can give (a pixel-art frame round the avatar): every frame with art (Nov plan C2). */
+export const FRAMES = ART_FRAMES;
 export type Frame = (typeof FRAMES)[number];
 
 const id = z.string().regex(/^[a-z0-9-]{1,32}$/);
@@ -25,7 +26,7 @@ export const achievementSchema = z
     target: z.number().int().min(1).max(10_000_000),
     tier: z.enum(['bronze', 'silver', 'gold']),
     reward: z
-      .object({ signal: z.number().int().min(0).max(100).default(0), points: z.number().int().min(0).max(100_000).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null) })
+      .object({ signal: z.number().int().min(0).max(100).default(0), points: z.number().int().min(0).max(100_000).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null) })
       .strict(),
   })
   .strict();
@@ -36,7 +37,15 @@ export type Mission = z.infer<typeof missionSchema>;
  * up, and each member collects its reward once). They can pay the event's own signals, `signal:<event id>`, that buy
  * pulls on its event scanner.
  */
-export const eventRewardSchema = missionRewardSchema.extend({ eventSignals: z.number().int().min(0).max(100).default(0) }).strict();
+export const eventRewardSchema = missionRewardSchema
+  .extend({
+    eventSignals: z.number().int().min(0).max(100).default(0),
+    // Nov plan C2: an event can give profile cosmetics too.
+    title: z.string().trim().min(1).max(30).nullable().default(null),
+    frame: z.enum(FRAMES).nullable().default(null),
+    avatar: z.enum(ART_AVATARS).nullable().default(null),
+  })
+  .strict();
 export type EventReward = z.output<typeof eventRewardSchema>;
 export const eventGoalSchema = z
   .object({ id, name: z.string().trim().min(1).max(60), stat: z.enum(MISSION_STATS), target: z.number().int().min(1).max(10_000_000), scope: z.enum(['personal', 'clan']).default('personal'), reward: eventRewardSchema })
@@ -93,28 +102,28 @@ export const DEFAULT_SEASON = [
   m('s-depth5', 'Llega a la capa 5', 'depth', 5, { signal: 3, points: 300 }),
   m('s-legend3', 'Consigue 3 legendarias', 'legendaries', 3, { dust: 500, points: 200 }),
 ];
-const a = (aid: string, name: string, description: string, stat: MissionStat, target: number, tier: 'bronze' | 'silver' | 'gold', reward: { signal: number; title?: string; frame?: Frame }) => ({
+const a = (aid: string, name: string, description: string, stat: MissionStat, target: number, tier: 'bronze' | 'silver' | 'gold', reward: { signal: number; title?: string; frame?: Frame; avatar?: (typeof ART_AVATARS)[number] }) => ({
   id: aid,
   name,
   description,
   stat,
   target,
   tier,
-  reward: { signal: reward.signal, points: tier === 'bronze' ? 20 : tier === 'silver' ? 50 : 120, title: reward.title ?? null, frame: reward.frame ?? null },
+  reward: { signal: reward.signal, points: tier === 'bronze' ? 20 : tier === 'silver' ? 50 : 120, title: reward.title ?? null, frame: reward.frame ?? null, avatar: reward.avatar ?? null },
 });
 export const DEFAULT_ACHIEVEMENTS = [
-  a('a-first-run', 'Primer despegue', 'Juega tu primera incursión', 'runs', 1, 'bronze', { signal: 1, title: 'Cadete' }),
+  a('a-first-run', 'Primer despegue', 'Juega tu primera incursión', 'runs', 1, 'bronze', { signal: 1, title: 'Cadete', avatar: 'probe-lumen' }),
   a('a-legend1', 'Primera legendaria', 'Consigue una galaxia legendaria', 'legendaries', 1, 'bronze', { signal: 1, frame: 'bronze' }),
   a('a-runs50', 'Veterano', 'Juega 50 incursiones', 'runs', 50, 'silver', { signal: 2, title: 'Veterano', frame: 'silver' }),
-  a('a-boss10', 'Purgador', 'Purga 10 Núcleos', 'bossKills', 10, 'silver', { signal: 2, title: 'Purgador' }),
-  a('a-kills10k', 'Exterminador', 'Elimina 10.000 enemigos', 'kills', 10_000, 'silver', { signal: 2, title: 'Exterminador' }),
-  a('a-fuse10', 'Alquimista', 'Fusiona 10 veces', 'fusions', 10, 'silver', { signal: 2, title: 'Alquimista' }),
-  a('a-extract25', 'Siempre vuelvo', 'Extrae 25 veces', 'extractions', 25, 'silver', { signal: 2, title: 'Superviviente' }),
+  a('a-boss10', 'Purgador', 'Purga 10 Núcleos', 'bossKills', 10, 'silver', { signal: 2, title: 'Purgador', frame: 'ember' }),
+  a('a-kills10k', 'Exterminador', 'Elimina 10.000 enemigos', 'kills', 10_000, 'silver', { signal: 2, title: 'Exterminador', avatar: 'probe-spark' }),
+  a('a-fuse10', 'Alquimista', 'Fusiona 10 veces', 'fusions', 10, 'silver', { signal: 2, title: 'Alquimista', frame: 'circuit' }),
+  a('a-extract25', 'Siempre vuelvo', 'Extrae 25 veces', 'extractions', 25, 'silver', { signal: 2, title: 'Superviviente', avatar: 'probe-bastion' }),
   a('a-depth5', 'Abismo', 'Llega a la capa 5', 'depth', 5, 'gold', { signal: 3, title: 'Abisal', frame: 'abyss' }),
-  a('a-boss100', 'Azote de Núcleos', 'Purga 100 Núcleos', 'bossKills', 100, 'gold', { signal: 5, frame: 'nebula' }),
-  a('a-runs500', 'Leyenda del ECN', 'Juega 500 incursiones', 'runs', 500, 'gold', { signal: 5, title: 'Leyenda del ECN', frame: 'gold' }),
-  a('a-group10', 'Escuadrón', 'Juega 10 partidas en grupo', 'coopRuns', 10, 'bronze', { signal: 1, title: 'Compañero' }),
-  a('a-revive25', 'Ángel de la guarda', 'Reanima a 25 compañeros', 'revives', 25, 'silver', { signal: 2, title: 'Ángel de la guarda' }),
+  a('a-boss100', 'Azote de Núcleos', 'Purga 100 Núcleos', 'bossKills', 100, 'gold', { signal: 5, frame: 'nebula', avatar: 'static-ghost' }),
+  a('a-runs500', 'Leyenda del ECN', 'Juega 500 incursiones', 'runs', 500, 'gold', { signal: 5, title: 'Leyenda del ECN', frame: 'quasar' }),
+  a('a-group10', 'Escuadrón', 'Juega 10 partidas en grupo', 'coopRuns', 10, 'bronze', { signal: 1, title: 'Compañero', frame: 'orbit' }),
+  a('a-revive25', 'Ángel de la guarda', 'Reanima a 25 compañeros', 'revives', 25, 'silver', { signal: 2, title: 'Ángel de la guarda', frame: 'frost' }),
 ];
 
 /** FNV-1a of a string, for a draw that is the same for everyone in a period. */
