@@ -118,7 +118,7 @@ const friendsView = {
   incoming: [],
   outgoing: [],
   blocked: [],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
 };
 

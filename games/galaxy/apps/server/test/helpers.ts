@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { type ConfigKey, parseConfig, type Role } from '@galaxy/shared';
+import { type ConfigKey, type LiveEvent, type LiveNotice, parseConfig, type Role } from '@galaxy/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Kysely } from 'kysely';
 import { Secret, TOTP } from 'otpauth';
@@ -140,3 +140,17 @@ export function fixedConfig(overrides: Partial<Record<ConfigKey, unknown>>): Con
     publishMany: async () => ({ versions: {} }),
   } as ConfigService;
 }
+
+/**
+ * A live socket as the browser opens it (real-time notices plan), with every event it receives and the notices among
+ * them. Close it with `ws.terminate()` at the end of the test.
+ */
+export async function openLive(app: FastifyInstance, cookie: string) {
+  const events: LiveEvent[] = [];
+  const ws = await app.injectWS('/galaxy/api/live/ws', { headers: { origin: ORIGIN, cookie: `gs_sid=${cookie}` } });
+  ws.on('message', (data) => events.push(JSON.parse(String(data)) as LiveEvent));
+  return { ws, events, notices: (): LiveNotice[] => events.flatMap((e) => (e.type === 'notice' ? [e.notice] : [])) };
+}
+
+/** Lets what the server pushes arrive. */
+export const settle = (ms = 150) => new Promise((r) => setTimeout(r, ms));

@@ -40,7 +40,7 @@ import { ScannerScreen } from './scanner/ScannerScreen';
 import { ChatHost } from './chat/ChatPanel';
 import { LiveConnection } from './live/LiveConnection';
 import { FriendsHost } from './social/FriendsPanel';
-import { FriendToasts } from './social/FriendToasts';
+import { LiveToasts } from './live/Toasts';
 import { copy } from './copy/es';
 import { TitleScreen } from './hub/TitleScreen';
 import { CrearCuenta } from './routes/CrearCuenta';
@@ -185,7 +185,7 @@ export function App() {
       </Routes>
       <ChatHost />
       <FriendsHost />
-      <FriendToasts />
+      <LiveToasts />
       <LiveConnection />
       <TrailTracker />
     </>

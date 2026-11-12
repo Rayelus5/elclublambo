@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { ProfileScreen } from '../src/social/ProfileScreen';
 import { galaxy } from './hangar-fixtures';
+import { pickOption } from './pick';
 import { jsonResponse, mockApi, renderAt } from './render';
 
 // «Personalizar» (Nov plan C2): on my own profile, an inventory of avatars, frames, titles and banners with a live
@@ -124,4 +125,29 @@ test('en la pestaña de títulos cada título sale una vez, con su rareza debajo
   expect(within(patron).getAllByText('Mecenas estelar')).toHaveLength(1);
   expect(within(patron).getByText(t.rarity.legendary!)).toBeInTheDocument();
   expect(within(within(panel).getByRole('radio', { name: /Cadete/ })).getAllByText('Cadete')).toHaveLength(1);
+});
+
+test('en mi perfil elijo cómo me llegan los avisos: «Silencio» se guarda en la cuenta', async () => {
+  const friendsView = { friends: [], incoming: [], outgoing: [], blocked: [], prefs: { invites: 'friends', showStatus: true, notices: 'sound' }, max: 200 };
+  const fetch = mockApi({
+    ...base,
+    'GET /galaxy/api/friends': () => jsonResponse(200, friendsView),
+    'PUT /galaxy/api/friends/prefs': () => jsonResponse(200, { ...friendsView, prefs: { ...friendsView.prefs, notices: 'off' } }),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  const mode = await screen.findByRole('combobox', { name: copy.notices.mode });
+  expect(mode).toHaveTextContent(copy.notices.modes.sound);
+  await pickOption(user, mode, copy.notices.modes.off);
+  await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/friends/prefs' && i?.method === 'PUT')).toBe(true));
+  const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/friends/prefs' && i?.method === 'PUT')!;
+  expect(JSON.parse(String(put[1]?.body))).toEqual({ invites: 'friends', showStatus: true, notices: 'off' });
+  await waitFor(() => expect(screen.getByRole('combobox', { name: copy.notices.mode })).toHaveTextContent(copy.notices.modes.off));
+});
+
+test('en el perfil de otro no está el modo de avisos', async () => {
+  mockApi({ ...base, 'GET /galaxy/api/profiles/lyra': () => jsonResponse(200, profile({ username: 'lyra' })) });
+  renderAt('/perfil/lyra', screens);
+  expect(await screen.findByRole('heading', { level: 1, name: 'lyra' })).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: copy.notices.mode })).not.toBeInTheDocument();
 });

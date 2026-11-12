@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { copy } from '../src/copy/es';
 import { LiveConnection, useLive } from '../src/live/LiveConnection';
 import { FriendsHost } from '../src/social/FriendsPanel';
-import { FriendToasts } from '../src/social/FriendToasts';
+import { LiveToasts } from '../src/live/Toasts';
 import { useUi } from '../src/state/ui';
 import { jsonResponse, mockApi, renderAt } from './render';
 
@@ -21,7 +21,7 @@ const view = (over: Partial<FriendsView> = {}): FriendsView => ({
   incoming: [{ username: 'deneb', level: 2, at: '2026-11-09T10:00:00Z' }],
   outgoing: [],
   blocked: [],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
   ...over,
 });
@@ -65,7 +65,7 @@ afterEach(() => {
 const shell = { '/': (
   <>
     <FriendsHost />
-    <FriendToasts />
+    <LiveToasts />
     <LiveConnection />
   </>
 ) };
@@ -159,4 +159,21 @@ test('el socket vivo saluda con la lista, cambia la presencia y avisa de una sol
   const toast = await screen.findByText(t.toastRequest('orion'));
   await user.click(within(toast.closest('li')!).getByRole('button', { name: t.accept }));
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/friends/orion/accept')).toBe(true));
+});
+
+test('quien envió la solicitud ve al nuevo amigo sin recargar, aunque detrás llegue su presencia', async () => {
+  const withOrion = view({ incoming: [], friends: [...view().friends, { username: 'orion', level: 5, clan: null, presence: { status: 'online', activity: 'hub' }, since: '2026-11-12T08:00:00Z' }] });
+  const fetch = mockApi({ 'GET /galaxy/api/auth/me': () => jsonResponse(200, me), 'GET /galaxy/api/friends': () => jsonResponse(200, withOrion) });
+  renderAt('/', shell);
+  await waitFor(() => expect(FakeSocket.last).not.toBeNull());
+  const ws = FakeSocket.last!;
+  act(() => ws.open());
+  // The sheet is closed: nothing on screen reads the list when orion accepts.
+  act(() => ws.push({ type: 'hello', friends: view({ incoming: [] }) }));
+  act(() => ws.push({ type: 'friends', reason: 'accepted', username: 'orion' }));
+  act(() => ws.push({ type: 'presence', username: 'orion', presence: { status: 'online', activity: 'hub' } }));
+  await waitFor(() => expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/friends').length).toBeGreaterThan(0));
+  act(() => useUi.getState().openFriends());
+  const sheet = await screen.findByRole('dialog', { name: t.title });
+  expect(await within(sheet).findByText('orion')).toBeInTheDocument();
 });

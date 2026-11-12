@@ -8,7 +8,7 @@ const view: FriendsView = {
   incoming: [{ username: 'lyra', level: 2, at: '2026-11-10T00:00:00Z' }],
   outgoing: [{ username: 'orion', level: 9, at: '2026-11-10T00:00:00Z' }],
   blocked: [{ username: 'troll', at: '2026-11-10T00:00:00Z' }],
-  prefs: { invites: 'friends', showStatus: true },
+  prefs: { invites: 'friends', showStatus: true, notices: 'sound' },
   max: 200,
 };
 

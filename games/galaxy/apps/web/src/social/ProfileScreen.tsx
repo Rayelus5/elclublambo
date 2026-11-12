@@ -18,6 +18,7 @@ import { SeasonHistoryList } from '../season/TrophiesScreen';
 import { useCosmeticsView } from '../api/cosmetics';
 import { CustomizeDialog } from '../profile/CustomizeDialog';
 import { ProfileBanner } from '../profile/ProfileBanner';
+import { NoticeModeField } from '../live/NoticeMode';
 import { TitleText } from '../profile/TitleText';
 
 // A player's public profile (GDD §14.2, §12.1; DESIGN_SYSTEM §8 undecies): their name, level and since when; this
@@ -208,6 +209,7 @@ export function ProfileScreen() {
                   <Icon name="starOn" />
                   <span>{copy.customize.open}</span>
                 </button>
+                <NoticeModeField />
               </div>
             ) : null}
             {customizing && cosmetics.data ? <CustomizeDialog username={p.username} view={cosmetics.data} onClose={() => setCustomizing(false)} /> : null}

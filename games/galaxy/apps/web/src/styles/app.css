@@ -1671,11 +1671,35 @@
   .friends-button { position: relative; }
   .friends-online { display: inline-grid; place-items: center; min-inline-size: 20px; block-size: 20px; padding: 0 5px; border-radius: 99px; background: var(--color-terminal); color: var(--color-on-terminal); font-size: 12px; font-weight: 800; }
   .friends-request { position: absolute; inset-block-start: -3px; inset-inline-end: -3px; inline-size: 12px; block-size: 12px; border-radius: 50%; background: var(--color-solar); box-shadow: 0 0 0 2px var(--color-panel-lip); }
-  .live-toasts { position: fixed; z-index: 45; inset-inline-start: 16px; inset-block-end: 16px; display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; max-inline-size: min(460px, calc(100vw - 32px)); }
-  .live-toast { --r: 18px; --lip-h: 4px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--color-panel); animation: chat-in .24s cubic-bezier(.2, .8, .2, 1) both; }
-  .live-toast > span { flex: 1; font-weight: 700; }
-  .live-toast > .ico { color: var(--color-terminal); }
-  @media (prefers-reduced-motion: reduce) { .live-toast { animation: none; } }
+  /* The live toasts (real-time notices plan, 2026-11-12): top centre, under the top bar, above any window (the overlay
+     is 50) and below the tour (90). Each in its tone: a stripe and a glow of it, the other player's avatar or an icon,
+     a title and a detail, its buttons, and a bar with the time it has left (it stops with .paused). */
+  .live-toasts { position: fixed; z-index: 60; inset-block-start: 88px; inset-inline: 0; display: grid; justify-items: center; gap: 10px; inline-size: min(560px, calc(100vw - 32px)); margin: 0 auto; padding: 0; list-style: none; pointer-events: none; }
+  .live-toast { --tone: var(--color-uv); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; column-gap: 14px; row-gap: 8px; box-sizing: border-box; inline-size: 100%; padding: 14px 14px 16px 18px; overflow: hidden; border: 2px solid color-mix(in srgb, var(--tone) 45%, rgb(255 255 255 / .08)); border-radius: 20px; background: linear-gradient(100deg, color-mix(in oklab, var(--tone) 16%, var(--color-panel)), var(--color-panel) 55%); box-shadow: inset 5px 0 0 var(--tone), 0 6px 0 var(--color-panel-lip), 0 18px 44px rgb(0 0 0 / .55), 0 0 32px color-mix(in srgb, var(--tone) 28%, transparent); pointer-events: auto; animation: toast-drop .5s var(--ease-bounce) both; }
+  .live-toast.tone-trade, .live-toast.tone-result { --tone: var(--color-solar); }
+  .live-toast.tone-sale { --tone: var(--color-terminal); }
+  .live-toast.tone-mail { --tone: var(--color-ice); }
+  .live-toast.tone-clan { --tone: var(--color-sky); }
+  .live-toast.tone-achievement { --tone: #ffd36b; }
+  .live-toast.tone-alert { --tone: var(--color-static); }
+  .live-toast-face { display: grid; place-items: center; inline-size: 52px; block-size: 52px; border-radius: 14px; background: rgb(0 0 0 / .3); color: var(--tone); font-size: 28px; }
+  .live-toast-face .avatar-box:has(> .avatar-frame) { margin: 0; }
+  .live-toast-text { display: grid; gap: 3px; min-inline-size: 0; }
+  .live-toast-text > b { font-size: 17px; font-weight: 700; line-height: 1.25; color: var(--color-ink); overflow-wrap: anywhere; }
+  .live-toast-text > span { font-size: 14.5px; line-height: 1.3; color: var(--color-ink-soft); overflow-wrap: anywhere; }
+  .live-toast-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+  .live-toast-close { align-self: start; }
+  .live-toast-time { position: absolute; inset: auto 0 0; block-size: 4px; background: var(--tone); opacity: .75; transform-origin: left; animation: toast-time var(--life, 10s) linear forwards; }
+  .live-toast.paused .live-toast-time { animation-play-state: paused; }
+  @keyframes toast-drop { from { opacity: 0; transform: translateY(-28px) scale(.94); } }
+  @keyframes toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+  @media (max-width: 640px) {
+    .live-toasts { inset-block-start: 12px; }
+    .live-toast { grid-template-columns: auto minmax(0, 1fr) auto; }
+    .live-toast-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+  @media (prefers-reduced-motion: reduce) { .live-toast { animation: toast-fade .2s ease both; } }
+  @keyframes toast-fade { from { opacity: 0; } }
   .chat-tabs button { flex: 1; height: 40px; border: 0; border-radius: 99px; background: transparent; color: var(--color-ink-mute); font: 600 15px var(--font-sans); cursor: pointer; transition: background .15s, color .15s; }
   .chat-tabs button:hover { color: var(--color-ink); }
   .chat-tabs button[aria-selected="true"] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
@@ -1809,6 +1833,13 @@
   .trade-status { padding: 3px 10px; border-radius: 99px; font-size: 13px; font-weight: 700; background: rgb(255 255 255 / .06); color: var(--color-ink-soft); }
   .trade-status.done { background: color-mix(in srgb, var(--color-terminal) 16%, transparent); color: var(--color-terminal); }
   .profile-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  /* How notices reach me (real-time notices plan): a bell, «Avisos» and its dropdown; in the privacy tab, with a hint. */
+  .profile-actions { align-items: center; }
+  .notice-mode { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .notice-mode-label { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; color: var(--color-ink-soft); }
+  .notice-mode-label .ico { font-size: 20px; color: var(--color-solar); }
+  .notice-mode-hint { flex-basis: 100%; margin: 0; font-size: 13.5px; line-height: 1.35; color: var(--color-ink-mute); }
+  .friends-privacy .notice-mode { margin-block-start: 6px; }
   .trade-closed-g { font-size: 14px; color: var(--color-ink-soft); }
   /* The admin area (M6a): sober and dense, on the game's tokens; tables scroll on their own. */
   .admin-root { display: grid; grid-template-columns: 232px minmax(0, 1fr); min-height: 100%; overflow-x: hidden; overflow-y: auto; background: var(--color-void); }
@@ -2733,8 +2764,7 @@
   @media (prefers-reduced-motion: reduce) { .gift-art { animation: none; } }
   .segmented button[aria-checked='true'] { background: var(--color-panel-2); color: var(--color-ink); box-shadow: inset 0 2px 0 rgb(255 255 255 / .14), 0 3px 0 var(--color-panel-lip); }
 
-  .live-toast-error { flex-basis: 100%; font-size: 13px; color: var(--color-static); }
-  .live-toast { flex-wrap: wrap; }
+  .live-toast-error { color: var(--color-static); font-weight: 700; }
   .admin-lobby-members { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
   .admin-lobby-members .away { color: var(--color-ink-mute); }
   .admin-table .lobby-code-text { font: 400 16px var(--font-display); letter-spacing: .2em; color: var(--color-solar); }

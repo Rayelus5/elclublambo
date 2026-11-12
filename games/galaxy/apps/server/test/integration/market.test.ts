@@ -3,7 +3,7 @@ import { ENGINE_VERSION } from '@galaxy/engine';
 import { type GalaxyDetail, generateGalaxy, type MarketPage, type MyMarket, PROBE_TEST, parseConfig, TIERS, type Tier } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
-import { fixedConfig, get, post, put, randomIp, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, openLive, post, put, randomIp, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // The market on the server (GDD §14.6, §14.7; M5c-1): who may trade, listing a galaxy at least at its rarity's floor
 // (it stays in escrow), browsing, buying it once (the commission sinks), withdrawing it, today's caps, and the alerts
@@ -288,4 +288,43 @@ describe('avisos al admin', () => {
 
 test('sin sesión no se ve el mercado', async () => {
   expect((await get(ctx.app, '/galaxy/api/market')).statusCode).toBe(401);
+});
+
+describe('avisos en tiempo real', () => {
+  test('el vendedor se entera de la venta con lo que cobra y su cartera; el comprador no, y repetir la compra no repite el aviso', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { galaxyId, listingId } = await listed(s, 'uncommon', 600, 'Vía Lactea');
+    const [ls, lb] = [await openLive(ctx.app, s.cookie), await openLive(ctx.app, b.cookie)];
+    const headers = key();
+    expect((await buy(b, listingId, headers)).statusCode).toBe(200);
+    await buy(b, listingId, headers);
+    await settle();
+    expect(ls.notices()).toEqual([
+      {
+        kind: 'sale',
+        listing: listingId,
+        galaxy: { id: galaxyId, name: 'Vía Lactea', tier: 'uncommon' },
+        price: 600,
+        net: 558,
+        buyer: { username: b.username, avatar: null, frame: null },
+        wallet: expect.objectContaining({ coins: 558 }),
+      },
+    ]);
+    expect(lb.notices()).toEqual([]);
+    ls.ws.terminate();
+    lb.ws.terminate();
+  });
+
+  test('una compra que no se hace no avisa', async () => {
+    const s = await player();
+    const b = await player({ coins: 1000 });
+    const { listingId } = await listed(s, 'common', 50);
+    expect((await cancel(s, listingId)).statusCode).toBe(200);
+    const ls = await openLive(ctx.app, s.cookie);
+    expect((await buy(b, listingId)).json()).toEqual({ error: 'listing_gone' });
+    await settle();
+    expect(ls.notices()).toEqual([]);
+    ls.ws.terminate();
+  });
 });

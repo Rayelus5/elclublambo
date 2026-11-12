@@ -5,6 +5,7 @@ import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { requireFeature } from '../config/features';
 import { hitRateLimit } from '../ratelimit';
+import { withNotices } from '../realtime/notices';
 import { browseMarket, buyListing, cancelListing, listGalaxy, type MarketDeps, marketConfigs, myMarket } from './service';
 
 // The market's routes (GDD §14.6; M5c-1). Listing and buying are idempotent operations (the configs are read before
@@ -45,6 +46,6 @@ export function registerMarketRoutes(api: FastifyInstance, deps: MarketDeps): vo
     const key = idempotencyKey(req);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'market', 60, 60);
     const cfgs = await marketConfigs(deps);
-    return runOperation(deps.db, s.accountId, key, 'market.buy', requestHash({ id }), (trx) => buyListing(cfgs, trx, s.accountId, id, deps.now(), key));
+    return withNotices(deps.live, (out) => runOperation(deps.db, s.accountId, key, 'market.buy', requestHash({ id }), (trx) => buyListing(cfgs, trx, s.accountId, id, deps.now(), key, out)));
   });
 }

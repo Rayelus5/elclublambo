@@ -22,6 +22,7 @@ import type { DB } from '../db/schema';
 import { nextMadridMidnight } from '../economy/day';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { type Notices, noticePlayer, type WithLive } from '../realtime/notices';
 import { accountXp } from '../social/progress';
 import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 
@@ -31,7 +32,8 @@ import { isEquipped, isExhibited, isListed, isTraded } from './escrow';
 // account; today's listings and purchases are capped; a sale between accounts that shared an IP, or at a price far
 // above the floor, leaves an alert for the admin (the sale goes through).
 
-export type MarketDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
+/** `live`: the live hub, for the notices of a sale and of a trade (real-time notices plan); none in the CLI. */
+export type MarketDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date } & WithLive;
 export type MarketConfigs = { market: MarketConfig; account: AccountConfig };
 
 const PAGE = 24;
@@ -211,6 +213,7 @@ export async function buyListing(
   id: string,
   now: Date,
   opKey: string,
+  out?: Notices,
 ): Promise<{ galaxy: GalaxySummary; wallet: Wallet }> {
   await lockTrader(trx, buyerId);
   const rules = await rulesFor(trx, buyerId, cfgs, now);
@@ -251,6 +254,16 @@ export async function buyListing(
     .select(['id', 'seed', 'tier', 'finish', 'traits', 'name', 'designation', 'featured', 'level', 'created_at', 'score'])
     .where('id', '=', g.id)
     .executeTakeFirstOrThrow();
+  // The seller hears it (real-time notices plan): what it fetched, what they got and their wallet now.
+  out?.add(l.seller_id, {
+    kind: 'sale',
+    listing: l.id,
+    galaxy: { id: g.id, name: bought.name, tier: TIERS[bought.tier]! },
+    price,
+    net: price - commission,
+    buyer: await noticePlayer(trx, buyerId),
+    wallet: await getWallet(trx, l.seller_id),
+  });
   return { galaxy: summary(bought), wallet: await getWallet(trx, buyerId) };
 }
 
