@@ -17,7 +17,7 @@ const view: MissionsView = {
   weekly: { period: 'w:2026-W45', endsAt: '2026-11-09T23:00:00.000Z', missions: [] },
   season: null,
   events: [],
-  achievements: [{ id: 'a-first-run', name: 'Primer despegue', description: 'Juega tu primera incursión', tier: 'bronze', target: 1, progress: 1, unlocked: true, claimed: false, reward: { signal: 1, points: 20, title: 'Cadete', frame: null } }],
+  achievements: [{ id: 'a-first-run', name: 'Primer despegue', description: 'Juega tu primera incursión', tier: 'bronze', target: 1, progress: 1, unlocked: true, claimed: false, reward: { signal: 1, points: 20, title: 'Cadete', frame: null, avatar: null } }],
   ready: 2,
   cosmetics: { titles: [], frames: [], title: null, frame: null },
 };
@@ -42,7 +42,7 @@ test('los logros dicen qué dan', async () => {
   expect(within(card).getByRole('button', { name: t.claimOf('Primer despegue') })).toBeEnabled();
 });
 
-const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, xp: 0, points: 0, eventSignals: 0, ...x });
+const r = (x: object) => ({ coins: 0, dust: 0, signal: 0, xp: 0, points: 0, eventSignals: 0, title: null, frame: null, avatar: null, ...x });
 const withEvent: MissionsView = {
   ...view,
   events: [

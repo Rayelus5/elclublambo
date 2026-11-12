@@ -27,7 +27,7 @@ function Row({ r, tab, mine }: { r: LeaderRow; tab: LeaderTab; mine: boolean }) 
     <tr aria-current={mine ? 'true' : undefined} className={mine ? 'mine' : undefined}>
       <td className="lb-rank">{fmt(r.rank)}</td>
       <th scope="row" className="lb-who">
-        <Avatar name={r.username} />
+        <Avatar name={r.username} avatar={r.avatar} frame={r.frame} />
         <Link to={`/perfil/${encodeURIComponent(r.username)}`}>{r.username}</Link>
         {mine ? <span className="lb-you">{t.you}</span> : null}
       </th>

@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { usernameSchema } from '../account';
 import { CLAN_COLORS, CLAN_EMBLEMS, type ClanColor, type ClanEmblem, type ClanRole } from '../clans/rules';
@@ -57,7 +58,7 @@ export interface ClanCard {
   score: number;
 }
 
-export interface ClanMember {
+export interface ClanMember extends PlayerLook {
   username: string;
   role: ClanRole;
   level: number;

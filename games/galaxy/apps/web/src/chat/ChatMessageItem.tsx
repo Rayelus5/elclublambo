@@ -39,7 +39,7 @@ export function ChatMessageItem({
   const u = m.author.username;
   return (
     <li className={`chat-msg${own ? ' own' : ''}`}>
-      <Avatar name={u} />
+      <Avatar name={u} avatar={m.author.avatar} frame={m.author.frame} />
       <div className="chat-msg-main">
         <p className="chat-msg-head">
           <Link to={`/perfil/${encodeURIComponent(u)}`} className="chat-author">

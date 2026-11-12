@@ -173,7 +173,7 @@ export async function friendsView(
     .leftJoin('galaxy.clan_members as m', 'm.account_id', 'o.id')
     .leftJoin('galaxy.clans as c', 'c.id', 'm.clan_id')
     .leftJoin('galaxy.social_prefs as p', 'p.account_id', 'o.id')
-    .select(['o.id', 'o.username', 'f.status', 'f.requested_by', 'f.created_at', 'f.accepted_at', 'x.xp', 'c.tag', 'p.show_status'])
+    .select(['o.id', 'o.username', 'o.avatar', 'o.frame', 'f.status', 'f.requested_by', 'f.created_at', 'f.accepted_at', 'x.xp', 'c.tag', 'p.show_status'])
     .where((eb) => eb.or([eb('f.a', '=', me), eb('f.b', '=', me)]))
     .orderBy('o.username')
     .execute();
@@ -189,6 +189,8 @@ export async function friendsView(
     .filter((r) => r.status === 'accepted')
     .map((r) => ({
       username: r.username,
+      avatar: r.avatar,
+      frame: r.frame,
       level: level(r.xp),
       clan: r.tag ?? null,
       presence: r.show_status === false ? ({ status: 'offline' } as const) : presenceOf(r.id),

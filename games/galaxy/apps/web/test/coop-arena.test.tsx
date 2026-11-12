@@ -2,6 +2,7 @@ import { type CoopRunStart, type CoopServerMessage, coopRulesOf, parseConfig } f
 import { DEFAULT_CONTENT, encodeLog, gainXp, type Sim, toBase64 } from '@galaxy/sim';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
+import { describeOffer } from '../src/arena/hud/LevelUp';
 import { CoopArena } from '../src/coop/CoopArena';
 import { copy } from '../src/copy/es';
 
@@ -10,6 +11,8 @@ import { copy } from '../src/copy/es';
 // key without pausing, and a run that is gone says so. The PixiJS stage is replaced (jsdom has no WebGL).
 
 const stageFollow = vi.hoisted(() => vi.fn());
+const sfx = vi.hoisted(() => ({ playEvents: vi.fn() }));
+vi.mock('../src/arena/arena-sfx', () => sfx);
 vi.mock('../src/arena/stage/stage', () => ({
   TEAM_TINT: [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a],
   createStage: vi.fn(async () => ({
@@ -20,6 +23,7 @@ vi.mock('../src/arena/stage/stage', () => ({
     camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
     destroy: vi.fn(),
     follow: stageFollow,
+    setInsets: vi.fn(),
   })),
 }));
 
@@ -87,14 +91,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-async function mount() {
+async function mount(over: Partial<CoopRunStart> = {}) {
   const clock = manualClock();
   let sim: Sim | null = null;
   render(<CoopArena runId={RUN} onExit={() => {}} onAbandon={() => {}} clock={clock} onSim={(s) => (sim = s)} />);
   await waitFor(() => expect(FakeSocket.last).not.toBeNull());
   const ws = FakeSocket.last!;
   expect(ws.url).toContain(`/galaxy/api/coop/play/ws?run=${RUN}`);
-  ws.push({ t: 'hello', start, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
+  ws.push({ t: 'hello', start: { ...start, ...over }, log: toBase64(encodeLog({ probes: 2, events: [] })), to: 0 });
   await waitFor(() => expect(sim).not.toBeNull());
   // The stage loads asynchronously; the loop starts once it is ready.
   await act(async () => {});
@@ -128,6 +132,19 @@ test('mi entrada sale solo cuando cambia', async () => {
   expect(inputs().at(-1)).toEqual({ t: 'in', mx: 0, my: 0, aim: -1 });
 });
 
+test('los sonidos y el destello de daño son de mi sonda, no de la que sigue la cámara', async () => {
+  const { createStage } = await import('../src/arena/stage/stage');
+  const { clock, ws, sim } = await mount({ slot: 1 });
+  expect(vi.mocked(createStage).mock.lastCall?.[2]).toMatchObject({ probe: 1, me: 1 });
+  ws.push({ t: 'f', to: 600, ev: [] });
+  clock.frames(2);
+  // A teammate levels up: the events reach the sounds with my slot, which keeps theirs silent.
+  act(() => gainXp(sim(), sim().probes[0]!, sim().probes[0]!.xpNext));
+  clock.frames(4);
+  expect(sfx.playEvents).toHaveBeenCalled();
+  for (const call of sfx.playEvents.mock.calls) expect(call[1]).toBe(1);
+});
+
 test('las cartas salen sin pausar y se eligen con su número, nombrando la oferta', async () => {
   const { clock, ws, sim } = await mount();
   ws.push({ t: 'f', to: 600, ev: [] });
@@ -137,6 +154,11 @@ test('las cartas salen sin pausar y se eligen con su número, nombrando la ofert
   const strip = await screen.findByRole('region', { name: t.cards }, { timeout: 2000 });
   expect(strip).toBeInTheDocument();
   expect(sim().status).toBe('running');
+  // Like solo runs, each card says what it does (Nov plan A1).
+  const offer = sim().probes[0]!.offer!;
+  const cards = within(strip).getAllByRole('button');
+  expect(cards).toHaveLength(offer.length);
+  offer.forEach((o, i) => expect(cards[i]).toHaveTextContent(describeOffer(DEFAULT_CONTENT, o).text));
   // The cards listen to the number keys from an effect that runs just after they show: let it run before pressing
   // (a loaded CI machine pressed in between).
   await act(async () => {});

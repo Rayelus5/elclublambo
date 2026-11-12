@@ -20,6 +20,7 @@ import { madridDay, nextMadridMidnight } from '../economy/day';
 import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
 import { invalidateLeaderboard } from '../social/leaderboard';
+import { grantCosmetics } from '../cosmetics/service';
 
 // Missions and achievements (GDD §12.1, §12.3, §14.1; M7a). What a run, a pull, a fusion, a disintegration or the
 // refinery does is counted where it happens (countStats, in the same transaction); the day's and the week's missions are
@@ -188,7 +189,7 @@ export async function missionsView(db: Kysely<DB>, c: MissionConfigs, accountId:
 async function pay(
   trx: Kysely<DB>,
   accountId: string,
-  reward: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; eventSignals?: number },
+  reward: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; eventSignals?: number; title?: string | null; frame?: string | null; avatar?: string | null },
   reason: 'mission' | 'achievement' | 'event',
   ref: unknown,
   key: string,
@@ -200,6 +201,8 @@ async function pay(
     const n = reward[cur] ?? 0;
     if (n > 0) await credit(trx, accountId, cur, n, reason, ref, key);
   }
+  // Profile cosmetics an event goal gives (Nov plan C2); achievements give theirs where they are collected.
+  if (reason === 'event') await grantCosmetics(trx, accountId, reward);
   // The event's own signals (M7e-1), for its event scanner.
   if (eventId && (reward.eventSignals ?? 0) > 0) await credit(trx, accountId, `signal:${eventId}`, reward.eventSignals!, reason, ref, key);
   if ((reward.xp ?? 0) > 0) {
@@ -261,16 +264,7 @@ export async function claimAchievement(trx: Kysely<DB>, c: MissionConfigs, accou
   if (!row?.unlocked_at) throw new HttpError(409, 'mission_not_ready');
   await trx.updateTable('galaxy.achievement_progress').set({ claimed_at: now }).where('account_id', '=', accountId).where('achievement', '=', id).where('claimed_at', 'is', null).execute();
   await pay(trx, accountId, { signal: a.reward.signal, points: a.reward.points }, 'achievement', { achievement: id }, key, { id: c.season.id, open: seasonOpen(c.season, now) }, now);
-  for (const [kind, value] of [['title', a.reward.title], ['frame', a.reward.frame]] as const) {
-    if (value) await trx.insertInto('galaxy.cosmetics').values({ account_id: accountId, kind, value }).onConflict((oc) => oc.doNothing()).execute();
-  }
+  await grantCosmetics(trx, accountId, a.reward);
   if (a.reward.points > 0) invalidateLeaderboard();
 }
 
-/** Chooses the title and the frame shown on the profile (null: none), among the earned ones. */
-export async function setCosmetics(db: Kysely<DB>, accountId: string, req: { title: string | null; frame: Frame | null }): Promise<void> {
-  const owned = await db.selectFrom('galaxy.cosmetics').select(['kind', 'value']).where('account_id', '=', accountId).execute();
-  if (req.title && !owned.some((o) => o.kind === 'title' && o.value === req.title)) throw new HttpError(409, 'cosmetic_locked');
-  if (req.frame && !owned.some((o) => o.kind === 'frame' && o.value === req.frame)) throw new HttpError(409, 'cosmetic_locked');
-  await db.updateTable('galaxy.accounts').set({ title: req.title, frame: req.frame }).where('id', '=', accountId).execute();
-}

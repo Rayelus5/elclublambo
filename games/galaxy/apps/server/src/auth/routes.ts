@@ -134,7 +134,11 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthDeps): void {
   app.get('/galaxy/api/auth/me', async (req): Promise<MeResponse> => {
     const s = requireSession(req);
     // The account level (M5a) for the top bar.
-    const level = await accountLevel(deps.db, s.accountId, await deps.config.get('account'));
-    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, level };
+    const [level, look] = await Promise.all([
+      accountLevel(deps.db, s.accountId, await deps.config.get('account')),
+      // Nov plan C2: the avatar and frame the top bar shows.
+      deps.db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
+    ]);
+    return { id: s.accountId, username: s.username, roles: s.roles, mfa: s.mfa, level, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
   });
 }

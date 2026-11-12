@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import type { Browser } from '@playwright/test';
 import { Secret, TOTP } from 'otpauth';
-import { type Page, expect, skipProbeTest, test } from './fixtures';
+import { type Page, expect, pickOption, skipProbeTest, test } from './fixtures';
 import { E2E_ENV } from '../playwright.config';
 
 // Moderation against the real server (GDD §16.1, §16.4; M6c-1). A new moderator (CLI) signs in with TOTP and reaches
@@ -129,7 +129,7 @@ test('un moderador revisa una denuncia, oculta y restaura en vivo, y silencia y 
   await page.getByRole('button', { name: 'Silenciar una cuenta' }).click();
   const mute = page.getByRole('dialog', { name: 'Silenciar una cuenta' });
   await mute.getByLabel('Cuenta').fill(writer.username);
-  await mute.getByLabel('Duración').selectOption('60');
+  await pickOption(mute, 'Duración', '1 hora');
   await confirm(page, 'Silenciar una cuenta', 'Prueba de silencio', 'Silenciar');
   await expect(page.getByRole('cell', { name: writer.username, exact: true })).toBeVisible();
   expect((await writer.page.request.post('/galaxy/api/chat/global/messages', { data: { body: 'sigo aquí' }, headers: { origin } })).status()).toBe(403);

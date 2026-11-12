@@ -197,7 +197,21 @@ export async function clanRanking(db: Kysely<DB>, season: SeasonConfig, account:
 
 export const clanRow = (c: RankedClan): ClanRow => ({ rank: c.rank ?? 0, tag: c.tag, name: c.name, emblem: c.emblem, color: c.color, members: c.members, value: c.value });
 
-const row = (r: Ranked, account: AccountConfig): LeaderRow => ({ rank: r.rank, username: r.username, level: levelOf(r.xp, account).level, value: r.value });
+const row = (r: Ranked, account: AccountConfig, looks: Map<string, { avatar: string | null; frame: string | null }> = new Map()): LeaderRow => ({
+  rank: r.rank,
+  username: r.username,
+  level: levelOf(r.xp, account).level,
+  value: r.value,
+  avatar: looks.get(r.accountId)?.avatar ?? null,
+  frame: looks.get(r.accountId)?.frame ?? null,
+});
+
+/** The avatar and frame of the accounts shown (Nov plan C2), read fresh: the ranking itself is cached. */
+async function looksOf(db: SocialDeps['db'], ids: string[]): Promise<Map<string, { avatar: string | null; frame: string | null }>> {
+  if (ids.length === 0) return new Map();
+  const rows = await db.selectFrom('galaxy.accounts').select(['id', 'avatar', 'frame']).where('id', 'in', ids).execute();
+  return new Map(rows.map((r) => [r.id, { avatar: r.avatar, frame: r.frame }]));
+}
 
 export async function leaderboard(deps: SocialDeps, viewerId: string, tab: LeaderTab): Promise<Leaderboard> {
   const [cfg, account] = await Promise.all([deps.config.get('season'), deps.config.get('account')]);
@@ -216,11 +230,13 @@ export async function leaderboard(deps: SocialDeps, viewerId: string, tab: Leade
   }
   const ranked = await ranking(deps.db, cfg, tab, account.minRunSeconds);
   const mine = ranked.find((r) => r.accountId === viewerId);
+  const top = ranked.slice(0, cfg.top);
+  const looks = await looksOf(deps.db, [...top.map((r) => r.accountId), ...(mine ? [mine.accountId] : [])]);
   return {
     season: info,
     tab,
-    rows: ranked.slice(0, cfg.top).map((r) => row(r, account)),
-    me: mine ? row(mine, account) : null,
+    rows: top.map((r) => row(r, account, looks)),
+    me: mine ? row(mine, account, looks) : null,
     total: ranked.length,
   };
 }

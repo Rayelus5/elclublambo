@@ -154,6 +154,8 @@ Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con a
 | **Button** | `primary` (Solar, héroe), `mode` (Nova, Terminal), `event` (UV), `nav` (Sky), `pill` (oscura o Solar), `icon` (redondo oscuro 48 px) | Estados: reposo, hover, pulsado, foco, deshabilitado, cargando (spinner braille + `aria-busy`). `icon` siempre con `aria-label` |
 | **Panel** | normal, cabecera de color (Solar en la temporada) | Opaco 94 %, borde blanco al 6 %, labio `--panel-lip` |
 | **Field** | texto, contraseña (con mostrar/ocultar), código de 6 dígitos | Etiqueta visible encima (nunca solo placeholder); 48 px de alto; fondo `--panel-2` con sombra interior; error debajo en `--static` enlazado con `aria-describedby`; `autocomplete` correcto (`username`, `current-password`, `new-password`, `one-time-code`); se puede pegar siempre |
+| **Select** (`ui/Select.tsx`) | `sm` 40 px (filtros, barras y tablas del admin), `md` 44 px (juego), `lg` 50 px (formularios junto a campos de 50 px); `block` a todo el ancho | Nunca el desplegable del sistema [U, 2026-11-12]. Combobox de solo selección de WAI-ARIA: el botón (Panel 2, labio de 4 px, chevrón que gira al abrir) se nombra por su `<label htmlFor>`, `aria-label` o `aria-labelledby` y es tan ancho como su opción más larga. La lista vive en `<body>` con posición fija (ningún panel ni diálogo la recorta), sale debajo o encima según el sitio, mide como mucho 320 px y se desplaza por dentro; sigue al botón al desplazarse y lleva el zoom de las pantallas grandes. Opción activa con fondo hielo y barra a la izquierda; elegida con la marca Solar; deshabilitadas al 55 %. Teclado: flechas, Inicio, Fin, páginas, buscar al escribir (sin acentos), Intro, Espacio, Tab elige y sigue, Escape cierra solo la lista. Entrada corta (150 ms) que desaparece con movimiento reducido. Con `name` lleva un `input` oculto para los formularios |
+| **DateField** (`ui/DateField.tsx`) | fecha, fecha y hora (`time`) | Las fechas del admin sin el calendario del sistema. Campo de texto en español (`dd/mm/aaaa` y `hh:mm`; también acepta ISO pegado) con un botón de calendario dentro. El calendario (diálogo de WAI-ARIA, sobre `<body>`) empieza en lunes: mes con flechas a los lados, día elegido en Solar, hoy con borde hielo; flechas por día y semana, Inicio y Fin de la semana, páginas por mes (con Mayúsculas, por año), Intro elige, Escape cierra solo el calendario, Tab no sale de él. Con hora, hora y minutos con las flechas y «Listo». Se ve entero: si no cabe ni arriba ni abajo, tapa su campo. El valor conserva el formato del `input` nativo (`2026-11-12`, `2026-11-12T10:30`) |
 | **Badge** | contador (Nova), novedad (tinta Solar), en línea (punto Terminal) | Contadores con `aria-label` que diga el número |
 | **Tabs** | segmentadas en píldora | `role="tablist"`, flechas del teclado |
 | **Toast** | info, éxito, error | Región `aria-live="polite"`; errores críticos con `role="alert"` |
@@ -1051,6 +1053,34 @@ Las casillas tienen 44 px de alto.
 3. La espera, con una ruedecita y «Confirmando el pago con tu banco».
 
 **Celebración:** velo, destello y chispas (`Celebration`), el cartel con lo que llegó y las fichas de cada recurso volando al monedero. Vuelan más cuanto más grande es el pack, de 4 a 18. Cada una suena con un tic que sube, y al final hay una fanfarria. El monedero sube contando. Con movimiento reducido: el cartel y un único sonido suave.
+
+## 8 quinquatricies. Perfil: avatar, marco, título, banner y «Personalizar» (plan de noviembre C2–C4)
+
+**Avatar**
+- Pixel art de 32×32 a escala entera (×1 en listas y barra, ×2 en el perfil y en «Personalizar»).
+- Un avatar animado es una tira de 4 fotogramas a 6 fps; con movimiento reducido se queda quieto.
+- Sin avatar se ve «Tu firma»: la figura de 5×5 que sale del nombre.
+
+**Marco**
+- Pixel art de 48×48 con una ventana transparente de 32×32: el avatar va en (8, 8).
+- Los épicos y legendarios son tiras de 6 fotogramas a 8 fps.
+- Si a un marco le falta el arte, se ve un aro de su color.
+- El componente es `hub/Avatar.tsx`, con `name`, `avatar`, `frame` y `size`.
+
+**Título**
+- Se escribe con el estilo del catálogo: `plain`, `shine` (un brillo que lo recorre), `aurora` (un degradado que fluye) o `flare` (un resplandor solar).
+- Con movimiento reducido, sin animación.
+
+**«Personalizar»**
+- Se abre desde tu perfil. Es un diálogo con una vista previa arriba («Así te verán») y pestañas Avatar, Marco, Título y Banner.
+- Cada pestaña es una rejilla de piezas con su rareza en su color de rareza.
+- Lo que no tienes sale bloqueado (gris, con candado), con el texto de cómo conseguirlo y, si es de la tienda, un enlace a «Estilo».
+- «Guardar» manda solo lo que cambió.
+
+**Banner**
+- Una galaxia del jugador arriba en su perfil: dibujada una vez en un canvas, difuminada y oscurecida, y fundida con la página.
+- Un acabado especial la recorre (holo, prismático, braille, corrupto o fisura). Una copia más suave tiñe toda la página detrás de los paneles, que conservan su fondo para que todo se lea.
+- Nunca se usa `backdrop-filter` encima de capas que se mueven.
 
 ## 9. Copy
 

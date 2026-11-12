@@ -1,4 +1,4 @@
-import type { Frame, MissionsView } from '@galaxy/shared';
+import type { MissionsView } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -24,13 +24,3 @@ export function useClaim() {
   });
 }
 
-export function useCosmetics() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { title: string | null; frame: Frame | null }) => api<MissionsView>('/profile/cosmetics', { method: 'PUT', body: v }),
-    onSuccess: (view) => {
-      qc.setQueryData(MISSIONS_KEY, view);
-      void qc.invalidateQueries({ queryKey: ['profile'] });
-    },
-  });
-}

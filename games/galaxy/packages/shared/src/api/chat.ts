@@ -10,7 +10,7 @@ export type ChatChannel = (typeof CHAT_CHANNELS)[number];
 export interface ChatMessage {
   id: string;
   channel: ChatChannel;
-  author: { username: string; level: number; clan: string | null };
+  author: { username: string; level: number; clan: string | null; avatar?: string | null; frame?: string | null };
   body: string;
   /** When it was sent (ISO). */
   at: string;

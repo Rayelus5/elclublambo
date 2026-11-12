@@ -46,7 +46,7 @@ export function Podium({ rows, tab, me }: { rows: LeaderRow[]; tab: LeaderTab; m
           <span className="sr-only">{t.rank(r.rank)}</span>
           <Link to={`/perfil/${encodeURIComponent(r.username)}`} className="podium-who">
             <span className="podium-avatar">
-              <Avatar name={r.username} />
+              <Avatar name={r.username} avatar={r.avatar} frame={r.frame} />
             </span>
             <b>{r.username}</b>
           </Link>

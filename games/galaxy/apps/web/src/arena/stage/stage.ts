@@ -8,6 +8,8 @@ import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
+import { mateMarkers } from './mates';
+import { type Insets, NO_INSETS } from './edge';
 import { type Warning, warningFrom, warningProgress } from './warnings';
 import { drawCoreBeam, drawCoreWarning, isCoreWarning } from './core-attacks';
 
@@ -21,6 +23,8 @@ export interface StageOptions {
   vision: number;
   /** The probe the camera follows. */
   probe: number;
+  /** My own probe (co-op; default `probe`): only its hits flash and shake the screen, even while watching another. */
+  me?: number;
   /** The run seed (decoration). */
   seed: string;
   /** Keep the drawing buffer (screenshots in tests). */
@@ -46,6 +50,8 @@ export interface Stage {
   zoomLevel(): number;
   /** Follows another probe from now on (the admin's replay of a group run switches between players). */
   follow(probe: number): void;
+  /** Co-op: the screen bands the HUD covers; the teammates' arrows keep out of them (Nov plan A2 review). */
+  setInsets(insets: Insets): void;
   destroy(): void;
 }
 
@@ -242,6 +248,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const particles = new Container();
   world.addChild(decor, propLayer, propMarks, pickups, areas, warnings, marks, enemies, ghostLayer, probes, beams, shots, particles);
   const numbers = new Container();
+  // Co-op: arrows at the field's edge towards teammates off screen (Nov plan A2), under the labels.
+  const mateArrows = new Graphics();
+  numbers.addChild(mateArrows);
   const bars = new Graphics();
   const hurtFlash = new Graphics();
   app.stage.addChild(backdrop, veil, world, numbers, bars, hurtFlash);
@@ -262,6 +271,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const numberTexts: BitmapText[] = [];
   const labelTexts: BitmapText[] = [];
   const tagTexts: BitmapText[] = [];
+  const mateTexts: BitmapText[] = [];
+  let markerInsets: Insets = NO_INSETS;
   /** Where the teammates were drawn this frame (their names go over them). */
   const tagAt: { i: number; x: number; y: number }[] = [];
   const pipPool = new SpritePool(enemies);
@@ -284,6 +295,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   let tickAt = 0;
   let frameDt = 0;
   let hurtAlpha = 0;
+  /** A teammate just hit: its sprite turns red until this clock time (my own hits flash the screen instead). */
+  const hurtBlink = new Map<number, number>();
   let last = performance.now();
   let clock = 0;
   let cam: Camera | null = null;
@@ -838,7 +851,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       }
       s.position.set(x, y);
       s.scale.set(view.flip, 1);
-      s.tint = 0xffffff;
+      s.tint = (hurtBlink.get(i) ?? 0) > clock ? 0xff5a6e : 0xffffff;
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
@@ -950,6 +963,48 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     for (; g < tagTexts.length; g++) tagTexts[g]!.visible = false;
   }
 
+  /** Co-op: an arrow in each off-screen teammate's colour, their name inward and a life bar under it. */
+  function drawMates(sim: Sim, c: Camera): void {
+    mateArrows.clear();
+    let g = 0;
+    if (sim.coop) {
+      for (const m of mateMarkers(sim.probes, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe, markerInsets)) {
+        const team = TEAM_TINT[m.index % TEAM_TINT.length]!;
+        const tint = m.state === 'down' ? 0xff4d6d : team;
+        const alpha = m.state === 'away' ? 0.4 : m.state === 'down' && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 10) : 1;
+        const ux = Math.cos(m.angle);
+        const uy = Math.sin(m.angle);
+        const bx0 = m.x - ux * 6;
+        const by0 = m.y - uy * 6;
+        mateArrows
+          .poly([m.x + ux * 12, m.y + uy * 12, bx0 - uy * 9, by0 + ux * 9, bx0 + uy * 9, by0 - ux * 9])
+          .fill({ color: tint, alpha })
+          .stroke({ width: 2, color: 0x0b0c24, alpha: alpha * 0.9 });
+        let t = mateTexts[g];
+        if (!t) {
+          t = new BitmapText({ text: ' ', style: { fontFamily: LABEL_FONT, fontSize: 15 } });
+          mateTexts.push(t);
+          numbers.addChild(t);
+        }
+        t.visible = true;
+        t.text = opts.names?.[m.index] ?? '';
+        t.tint = team;
+        t.alpha = m.state === 'away' ? 0.5 : 1;
+        // The name sits inward from the arrow, never past the screen's edge.
+        t.anchor.set(0.5 + 0.5 * ux, 0.5 + 0.5 * uy);
+        t.position.set(Math.round(m.x - ux * 20), Math.round(m.y - uy * 20));
+        const left = t.position.x - t.anchor.x * t.width;
+        const top = t.position.y - t.anchor.y * t.height;
+        const bx = Math.round(left + (t.width - 34) / 2);
+        const by = Math.round(top + t.height + 3);
+        mateArrows.rect(bx, by, 34, 4).fill({ color: 0x0b0c24, alpha: 0.85 * (m.state === 'away' ? 0.5 : 1) });
+        if (m.hp > 0) mateArrows.rect(bx, by, Math.max(1, Math.round(34 * m.hp)), 4).fill({ color: m.hp > 0.3 ? 0x45e3a6 : 0xff4d6d, alpha: m.state === 'away' ? 0.5 : 1 });
+        g++;
+      }
+    }
+    for (; g < mateTexts.length; g++) mateTexts[g]!.visible = false;
+  }
+
   function drawBars(c: Camera): void {
     bars.clear();
     hurtFlash.clear();
@@ -987,8 +1042,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.x, e.y, KILL_COLOR[e.enemy] ?? 0xff4d6d, e.elite ? 16 : 8, e.elite ? 90 : 60);
             break;
           case 'hurt':
-            fx.shake(Math.min(6, 3 + e.amount / 6));
-            hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            if (e.probe === (opts.me ?? opts.probe)) {
+              fx.shake(Math.min(6, 3 + e.amount / 6));
+              hurtAlpha = opts.reduced ? 0.25 : 0.45;
+            } else hurtBlink.set(e.probe, clock + 0.18);
             break;
           case 'telegraph':
             warns.push(warningFrom(e, tick));
@@ -1019,10 +1076,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
             fx.burst(e.x, e.y, l.color, 12, 80);
             break;
           }
-          case 'evolve':
-            fx.ring(lastProbe.x, lastProbe.y, 0xffc94a);
-            fx.burst(lastProbe.x, lastProbe.y, 0xffc94a, 24, 90);
+          case 'evolve': {
+            // The gold ring on whoever evolved (a teammate's too), not always on the camera's probe.
+            const at = lastSim?.probes[e.probe] ?? lastProbe;
+            fx.ring(at.x, at.y, 0xffc94a);
+            fx.burst(at.x, at.y, 0xffc94a, 24, 90);
             break;
+          }
           case 'pickup':
             if (e.kind === 'magnet') {
               const at = lastSim?.probes[e.probe] ?? lastProbe;
@@ -1095,6 +1155,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
       drawProbes(sim, alpha);
       drawParticles();
       drawNumbers(c, originX + shake.x, originY + shake.y);
+      drawMates(sim, c);
       drawBars(c);
       app.render();
     },
@@ -1112,6 +1173,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     zoomLevel: () => closer,
     follow: (probe: number) => {
       opts.probe = probe;
+    },
+    setInsets(insets) {
+      markerInsets = insets;
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

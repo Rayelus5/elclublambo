@@ -3,6 +3,7 @@ import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { credit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { grantCosmetics } from '../cosmetics/service';
 
 // The ECN Catalogue (GDD §12.3; M7b). What an account has found is read from the galaxies it holds and the ones it
 // pulled (a pull stays found after a trade or a disintegration); each share of the album pays its reward once.
@@ -50,7 +51,5 @@ export async function claimCatalog(trx: Kysely<DB>, cfg: CatalogConfig, accountI
     const n = r.reward[cur];
     if (n > 0) await credit(trx, accountId, cur, n, 'catalog', { percent }, key);
   }
-  for (const [kind, value] of [['title', r.reward.title], ['frame', r.reward.frame]] as const) {
-    if (value) await trx.insertInto('galaxy.cosmetics').values({ account_id: accountId, kind, value }).onConflict((oc) => oc.doNothing()).execute();
-  }
+  await grantCosmetics(trx, accountId, r.reward);
 }

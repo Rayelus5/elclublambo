@@ -550,6 +550,15 @@ Ver §15.
 - Cualquiera puede ver tu perfil y tu colección.
 - Desde ahí se puede visitar tu estación (§10).
 
+**Personalización del perfil (plan de noviembre C2–C5).**
+- Cada jugador elige en «Personalizar» (en su perfil) su avatar, su marco, su título y su banner.
+- **Avatares:** 12 de serie para todos. Los exclusivos se ganan con logros, el catálogo, la temporada y los eventos, o al vencer por primera vez a cada Núcleo (su retrato); otros se compran en la pestaña «Estilo» de la tienda (0,99–2,99 €, una vez por cuenta).
+- **Marcos y títulos:** se consiguen de la misma forma.
+- **El catálogo** es configuración viva (`cosmetics`): nombres, rarezas, de dónde sale cada pieza y el texto de cómo conseguirla.
+- **El banner** es una galaxia propia y lleva su acabado a la página del perfil. Deja de verse si la galaxia cambia de dueño.
+- **Avatar y marco** se ven en todas partes (barra, rankings, chat, clan, amigos, sala). El título se ve en el perfil.
+- **Devoluciones:** un cosmético de pago devuelto o en disputa se retira.
+
 ### 14.3 Clanes [U+D]
 
 - **Qué hacen [U]:** chat entre miembros, intercambios, eventos de clan y donar recursos.

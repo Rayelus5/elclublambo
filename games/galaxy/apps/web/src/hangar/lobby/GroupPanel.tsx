@@ -7,6 +7,7 @@ import { copy } from '../../copy/es';
 import { presenceText } from '../../social/FriendsPanel';
 import { useUi } from '../../state/ui';
 import { Icon } from '../../ui/Icon';
+import { Select } from '../../ui/Select';
 import { StepHead } from './WherePanel';
 
 // Step 2 in a group (multiplayer plan, phase 5, now inside the lobby): without a room, make one (its kind and sector),
@@ -75,13 +76,7 @@ export function GroupPanel({ view }: { view: HangarView }) {
           <label htmlFor={sectorId} className="sr-only">
             {t.sector}
           </label>
-          <select id={sectorId} value={chosen} onChange={(e) => setSector(e.target.value)}>
-            {open.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <Select id={sectorId} size="sm" value={chosen} options={open.map((s) => ({ value: s.id, label: s.name }))} onChange={setSector} />
           <button type="button" className="lip pill pill-solar small" disabled={!allowed || !chosen || action.isPending} onClick={() => action.mutate({ kind: 'create', room: kind, sector: chosen })}>
             <Icon name="plus" />
             <span>{t.create}</span>
@@ -218,15 +213,14 @@ export function RoomPanel({ view, room, me }: { view: HangarView; room: RoomView
           <dt>{t.sector}</dt>
           <dd>
             {lead ? (
-              <select aria-label={t.sector} value={room.sector} disabled={busy} onChange={(e) => action.mutate({ kind: 'sector', sector: e.target.value })}>
-                {view.sectors
-                  .filter((s) => s.unlocked)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-              </select>
+              <Select
+                aria-label={t.sector}
+                size="sm"
+                value={room.sector}
+                disabled={busy}
+                options={view.sectors.filter((s) => s.unlocked).map((s) => ({ value: s.id, label: s.name }))}
+                onChange={(sector) => action.mutate({ kind: 'sector', sector })}
+              />
             ) : (
               <b>{sectorName}</b>
             )}

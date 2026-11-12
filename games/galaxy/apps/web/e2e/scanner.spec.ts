@@ -36,7 +36,8 @@ test('una cuenta nueva recibe la bienvenida, escanea 10, ve el resumen y las enc
   await expect(stage.getByRole('article')).toHaveCount(10);
   await expect(page.getByRole('img', { name: '0 señales de galaxia' })).toBeVisible();
 
-  await stage.getByRole('link', { name: 'Ver en la colección' }).click();
+  await expect(stage.getByRole('button', { name: /¡Escanear otras 10!/ })).toBeVisible();
+  await stage.getByRole('link', { name: 'Colección' }).click();
   await expect(page).toHaveURL(/\/galaxy\/coleccion$/);
   await expect(page.getByRole('article')).toHaveCount(10);
   // The welcome guarantees a Legendary within the first ten scans.

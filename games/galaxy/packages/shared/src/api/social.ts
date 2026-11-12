@@ -1,3 +1,4 @@
+import type { PlayerLook } from './cosmetics';
 import { z } from 'zod';
 import { type Tier, TIERS } from '../gacha/types';
 import type { ClanColor, ClanEmblem } from '../clans/rules';
@@ -10,7 +11,7 @@ import type { PublicGalaxy } from './planetarium';
 export const LEADER_TABS = ['general', 'depth', 'purges', 'clans', 'groups'] as const;
 export type LeaderTab = (typeof LEADER_TABS)[number];
 
-export interface LeaderRow {
+export interface LeaderRow extends PlayerLook {
   /** Competition rank: equal values share it. */
   rank: number;
   username: string;
@@ -85,6 +86,9 @@ export interface Profile {
   /** The title and the frame they chose (M7a), null when none. */
   title?: string | null;
   frame?: string | null;
+  /** Nov plan C2: their avatar (null: the drawing from their name) and the galaxy shown as their banner (C4). */
+  avatar?: string | null;
+  banner?: PublicGalaxy | null;
 }
 
 export interface PublicCollectionPage {
