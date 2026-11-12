@@ -24,7 +24,7 @@ afterEach(() => {
 test('la pestaña de títulos: cada título una vez, con su rareza debajo', async () => {
   await page.viewport(1280, 900);
   vi.stubGlobal('fetch', () => new Promise(() => {}));
-  const view: CosmeticsView = { equipped: { avatar: 'crew-cat', frame: 'prism', title: 'Mecenas estelar', banner: null }, owned: { avatars: [], frames: ['prism'], titles: ['Cadete', 'Mecenas estelar'] }, catalog: DEFAULT_COSMETICS };
+  const view: CosmeticsView = { equipped: { avatar: 'crew-cat', frame: 'prism', title: 'Mecenas estelar', banner: null, backdrop: [] }, owned: { avatars: [], frames: ['prism'], titles: ['Cadete', 'Mecenas estelar'] }, catalog: DEFAULT_COSMETICS };
   const host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);

@@ -42,6 +42,7 @@ export const API_ERROR_CODES = [
   'season_result_not_found',
   'redshift_not_ready',
   'cosmetic_locked',
+  'backdrop_ineligible',
   'catalog_reward_not_found',
   'runs_disabled',
   'bad_inputs',

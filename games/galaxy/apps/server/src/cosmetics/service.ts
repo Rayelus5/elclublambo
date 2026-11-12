@@ -1,5 +1,5 @@
-import { type CosmeticsConfig, type CosmeticsView, portraitFor, type ProfileCosmeticsRequest } from '@galaxy/shared';
-import type { Kysely, Transaction } from 'kysely';
+import { type BackdropView, backdropEligible, type CosmeticsConfig, type CosmeticsView, portraitFor, type ProfileCosmeticsRequest } from '@galaxy/shared';
+import { type Kysely, sql, type Transaction } from 'kysely';
 import type { DB } from '../db/schema';
 import { HttpError } from '../errors';
 
@@ -52,6 +52,38 @@ async function ownBanner(db: Db, accountId: string, banner: string | null): Prom
   return g ? banner : null;
 }
 
+/** The sky's galaxies a player chose that are still theirs (plan «escáner pro», part E), in slot order. */
+async function ownBackdrop(db: Db, accountId: string): Promise<{ id: string; seed: string; traits: Record<string, string> }[]> {
+  return db
+    .selectFrom('galaxy.backdrops as b')
+    .innerJoin('galaxy.galaxies as g', 'g.id', 'b.galaxy_id')
+    .select(['g.id', 'g.seed', 'g.traits'])
+    .where('b.account_id', '=', accountId)
+    .where('g.owner_id', '=', accountId)
+    .where('g.disintegrated_at', 'is', null)
+    .orderBy('b.slot')
+    .execute();
+}
+
+/** The title screen's sky: the galaxies chosen (still theirs), or the six rarest fit for it when none is. */
+export async function backdropView(db: Db, accountId: string): Promise<BackdropView> {
+  const chosen = (await ownBackdrop(db, accountId)).filter((g) => backdropEligible(g.traits));
+  if (chosen.length > 0) return { galaxies: chosen, chosen: true };
+  const rarest = await db
+    .selectFrom('galaxy.galaxies')
+    .select(['id', 'seed', 'traits'])
+    .where('owner_id', '=', accountId)
+    .where('disintegrated_at', 'is', null)
+    .where(sql<string>`coalesce(traits->>'palette', '')`, '<>', 'antimatter')
+    .where(sql<string>`coalesce(traits->>'phenomenon', 'none')`, '<>', 'anomaly')
+    .orderBy('tier', 'desc')
+    .orderBy('score', 'desc')
+    .orderBy('id', 'desc')
+    .limit(6)
+    .execute();
+  return { galaxies: rarest, chosen: false };
+}
+
 export async function cosmeticsView(db: Db, accountId: string, cfg: CosmeticsConfig): Promise<CosmeticsView> {
   const [owned, account] = await Promise.all([
     db.selectFrom('galaxy.cosmetics').select(['kind', 'value']).where('account_id', '=', accountId).orderBy('created_at').execute(),
@@ -59,7 +91,7 @@ export async function cosmeticsView(db: Db, accountId: string, cfg: CosmeticsCon
   ]);
   const of = (kind: string) => owned.filter((o) => o.kind === kind).map((o) => o.value);
   return {
-    equipped: { avatar: account.avatar, frame: account.frame, title: account.title, banner: await ownBanner(db, accountId, account.banner) },
+    equipped: { avatar: account.avatar, frame: account.frame, title: account.title, banner: await ownBanner(db, accountId, account.banner), backdrop: (await ownBackdrop(db, accountId)).map((g) => g.id) },
     owned: { avatars: of('avatar'), frames: of('frame'), titles: of('title') },
     catalog: enabledOnly(cfg),
   };
@@ -80,7 +112,23 @@ export async function setProfileCosmetics(db: Db, accountId: string, req: Profil
     const g = await db.selectFrom('galaxy.galaxies').select('id').where('id', '=', req.banner).where('owner_id', '=', accountId).executeTakeFirst();
     if (!g) throw new HttpError(409, 'cosmetic_locked');
   }
+  // The sky (plan «escáner pro», part E): each one theirs and fit for it, all replaced at once.
+  const backdrop = req.backdrop;
+  if (backdrop && backdrop.length > 0) {
+    const rows = await db.selectFrom('galaxy.galaxies').select(['id', 'traits']).where('id', 'in', backdrop).where('owner_id', '=', accountId).where('disintegrated_at', 'is', null).execute();
+    if (rows.length !== backdrop.length) throw new HttpError(409, 'cosmetic_locked');
+    if (rows.some((g) => !backdropEligible(g.traits))) throw new HttpError(409, 'backdrop_ineligible');
+  }
   const set: Partial<Record<'avatar' | 'frame' | 'title' | 'banner', string | null>> = {};
   for (const k of ['avatar', 'frame', 'title', 'banner'] as const) if (req[k] !== undefined) set[k] = req[k] ?? null;
-  if (Object.keys(set).length > 0) await db.updateTable('galaxy.accounts').set(set).where('id', '=', accountId).execute();
+  if (Object.keys(set).length === 0 && !backdrop) return;
+  const write = async (trx: Db) => {
+    if (Object.keys(set).length > 0) await trx.updateTable('galaxy.accounts').set(set).where('id', '=', accountId).execute();
+    if (backdrop) {
+      await trx.deleteFrom('galaxy.backdrops').where('account_id', '=', accountId).execute();
+      if (backdrop.length > 0) await trx.insertInto('galaxy.backdrops').values(backdrop.map((galaxy_id, slot) => ({ account_id: accountId, slot, galaxy_id }))).execute();
+    }
+  };
+  if (db.isTransaction) await write(db);
+  else await (db as Kysely<DB>).transaction().execute(write);
 }

@@ -4,10 +4,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../api/client';
+import { useBackdrop } from '../api/cosmetics';
 import { useCollection, useGacha } from '../api/economy';
 import { ME_KEY } from '../auth/useMe';
 import { GalaxyBackdrop } from '../scene/GalaxyBackdrop';
-import { backdropSeeds } from '../scene/backdrop-seeds';
+import { backdropSeeds, shuffledLaps } from '../scene/backdrop-seeds';
 import { Logo, MaintenanceNotice } from '../shell/AuthLayout';
 import { SeasonSummary } from '../social/SeasonSummary';
 import { MainMenu } from './MainMenu';
@@ -17,14 +18,18 @@ const BEST = { sort: 'rarity', limit: 6 } as const;
 
 /**
  * The title screen (GDD §4): the hub every session starts from. Top bar with balances, the main menu on the left,
- * the season on the right (M5a) and the player's own rarest galaxies drifting in the sky between them.
+ * the season on the right (M5a) and the player's own galaxies drifting in the sky between them: the ones chosen in
+ * «Personalizar» (plan «escáner pro», part E) or, without a choice, the rarest — in a random order.
  */
 export function TitleScreen({ me }: { me: MeResponse }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const gacha = useGacha();
   const best = useCollection(BEST);
-  const seeds = useMemo(() => backdropSeeds(best.data?.items ?? []), [best.data]);
+  // The sky (plan «escáner pro», part E): the galaxies I chose in «Personalizar» (or my rarest), in a random order that
+  // changes every visit and every lap.
+  const sky = useBackdrop();
+  const seeds = useMemo(() => shuffledLaps(backdropSeeds(sky.data?.galaxies ?? []), 8), [sky.data]);
   const logout = useMutation({
     mutationFn: () => api<void>('/auth/logout', { method: 'POST' }),
     onSettled: () => {

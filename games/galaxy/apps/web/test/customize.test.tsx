@@ -28,7 +28,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
   ...over,
 });
 const view = (over: Partial<CosmeticsView> = {}): CosmeticsView => ({
-  equipped: { avatar: null, frame: null, title: 'Cadete', banner: null },
+  equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: [] },
   owned: { avatars: ['portrait-hive'], frames: ['bronze'], titles: ['Cadete'] },
   catalog: DEFAULT_COSMETICS,
   ...over,
@@ -65,7 +65,7 @@ test('no aparece en el perfil de otro jugador', async () => {
 });
 
 test('elegir un avatar y un marco y guardar manda solo lo cambiado', async () => {
-  const fetch = mockApi({ ...base, 'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: 'crew-cat', frame: 'bronze', title: 'Cadete', banner: null } })) });
+  const fetch = mockApi({ ...base, 'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: 'crew-cat', frame: 'bronze', title: 'Cadete', banner: null, backdrop: [] } })) });
   const user = userEvent.setup();
   renderAt('/perfil/vega', screens);
   await user.click(await screen.findByRole('button', { name: t.open }));
@@ -81,7 +81,7 @@ test('elegir un avatar y un marco y guardar manda solo lo cambiado', async () =>
 });
 
 test('quitar el título y volver a «Tu firma» se manda como null', async () => {
-  const fetch = mockApi({ ...base, 'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: 'portrait-hive', frame: null, title: 'Cadete', banner: null } })), 'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()) });
+  const fetch = mockApi({ ...base, 'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: 'portrait-hive', frame: null, title: 'Cadete', banner: null, backdrop: [] } })), 'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()) });
   const user = userEvent.setup();
   renderAt('/perfil/vega', screens);
   await user.click(await screen.findByRole('button', { name: t.open }));
@@ -111,6 +111,50 @@ test('la pestaña «Banner» lista mis galaxias y guardar manda la elegida', asy
   await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')).toBe(true));
   const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
   expect(JSON.parse(String(put[1]?.body))).toEqual({ banner: 'g1' });
+});
+
+test('la pestaña «Fondo» elige hasta 12 galaxias para el cielo del menú; las que no se ven bien no se pueden', async () => {
+  const items = [galaxy({ id: 'g1', name: 'Kathra' }), galaxy({ id: 'g2', name: 'Orvel' }), galaxy({ id: 'g3', name: 'Blanca', traits: { ...galaxy().traits, palette: 'antimatter' } })];
+  const fetch = mockApi({
+    ...base,
+    'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: ['g2'] } })),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items, counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 3 }, fusion: { count: 3, dust: [] } }),
+    'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: t.open }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  await user.click(within(dialog).getByRole('tab', { name: t.tabs.backdrop }));
+  const kathra = await within(dialog).findByRole('checkbox', { name: /Kathra/ });
+  expect(within(dialog).getByRole('checkbox', { name: /Orvel/ })).toBeChecked();
+  expect(within(dialog).getByRole('checkbox', { name: /Blanca/ })).toBeDisabled();
+  expect(within(dialog).getByText(t.backdropCount(1))).toBeInTheDocument();
+  await user.click(kathra);
+  expect(within(dialog).getByText(t.backdropCount(2))).toBeInTheDocument();
+  await user.click(within(dialog).getByRole('button', { name: t.save }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')).toBe(true));
+  const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
+  expect(JSON.parse(String(put[1]?.body))).toEqual({ backdrop: ['g2', 'g1'] });
+});
+
+test('«Usar las más raras» vacía la elección del fondo', async () => {
+  const fetch = mockApi({
+    ...base,
+    'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, view({ equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: ['g2'] } })),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=48': () => jsonResponse(200, { items: [galaxy({ id: 'g2', name: 'Orvel' })], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 3, dust: [] } }),
+    'PUT /galaxy/api/profile/cosmetics': () => jsonResponse(200, view()),
+  });
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: t.open }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  await user.click(within(dialog).getByRole('tab', { name: t.tabs.backdrop }));
+  await user.click(await within(dialog).findByRole('button', { name: t.backdropRarest }));
+  await user.click(within(dialog).getByRole('button', { name: t.save }));
+  await waitFor(() => expect(fetch.mock.calls.some(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')).toBe(true));
+  const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
+  expect(JSON.parse(String(put[1]?.body))).toEqual({ backdrop: [] });
 });
 
 test('en la pestaña de títulos cada título sale una vez, con su rareza debajo si la tiene', async () => {

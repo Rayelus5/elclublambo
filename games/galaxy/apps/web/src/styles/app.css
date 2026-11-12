@@ -327,6 +327,8 @@
   /* A frame is drawn a quarter of the side round the avatar: the layout keeps that room, so in a list it covers
      neither the name nor the text beside it (owner, 2026-11-12). The top bar's pill lets it stick out on purpose. */
   .avatar-box:has(> .avatar-frame) { margin: calc(8px * var(--s)); }
+  /* `fit="outer"`: the frameless avatar fills the frame's room with no panel behind it. */
+  .avatar-box[data-fit='outer']:not(:has(> .avatar-frame)) { background: none; }
   .avatar-frame { position: absolute; inset: calc(-8px * var(--s)); background: no-repeat 0 0 / calc(var(--frames, 1) * 100%) 100%; image-rendering: pixelated; pointer-events: none; }
   .avatar-art.anim { animation: avatar-frames .68s steps(4) infinite; }
   .avatar-frame.anim { animation: frame-frames .9s steps(6) infinite; }
@@ -1527,16 +1529,15 @@
   .podium-who b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 700; }
   .podium-who:hover b { text-decoration: underline; }
   .podium-who:focus-visible { outline: 3px solid var(--color-ice); outline-offset: 3px; border-radius: 12px; }
-  .podium-avatar { display: grid; place-items: center; inline-size: 52px; block-size: 52px; border-radius: 16px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px var(--metal), 0 0 18px color-mix(in srgb, var(--metal) 40%, transparent); }
-  .podium li.place-1 .podium-avatar { inline-size: 64px; block-size: 64px; }
-  .podium-avatar .avatar { inline-size: 70%; block-size: 70%; }
+  /* No box behind the avatar (plan «escáner pro», part E): a frame is its border; framed or not, the same footprint. */
+  .podium-avatar { display: grid; place-items: center; inline-size: 48px; block-size: 48px; }
   .podium-avatar .avatar-box .avatar { inline-size: 100%; block-size: 100%; }
   .podium-level { font-size: 12px; color: var(--color-ink-mute); }
   .podium-value { font-size: 13px; font-weight: 700; color: var(--metal); font-variant-numeric: tabular-nums; }
   .podium-step { display: grid; place-items: center; inline-size: 100%; margin-top: 6px; border-radius: 12px 12px 4px 4px; font: 400 26px var(--font-display); color: var(--color-void); background: linear-gradient(180deg, var(--metal), color-mix(in srgb, var(--metal) 60%, #000)); box-shadow: inset 0 3px 0 rgb(255 255 255 / .35); block-size: 34px; }
   .podium li.place-1 .podium-step { block-size: 56px; }
   .podium li.place-2 .podium-step { block-size: 44px; }
-  .podium li[aria-current="true"] .podium-avatar { box-shadow: 0 0 0 3px var(--metal), 0 0 0 6px var(--color-ice), 0 0 22px color-mix(in srgb, var(--metal) 50%, transparent); }
+  .podium li[aria-current="true"] .podium-avatar { filter: drop-shadow(0 0 10px color-mix(in srgb, var(--color-ice) 70%, transparent)); }
   /* The leaderboard screen. */
   .leaderboard-root, .profile-root { overflow-x: hidden; overflow-y: auto; background: radial-gradient(80% 60% at 30% 0%, #2a1240 0%, var(--color-void) 62%); }
   .leaderboard, .profile { box-sizing: border-box; width: min(100%, 1560px); min-height: 100%; margin: 0 auto; padding: 24px clamp(16px, 2.6vw, 44px) 40px; display: flex; flex-direction: column; gap: 18px; }
@@ -1547,8 +1548,8 @@
   .lb-main > .podium { padding: 20px 18px 0; border-radius: 24px; background: radial-gradient(70% 90% at 50% 100%, rgb(255 201 74 / .1), transparent 70%); }
   /* The leaderboard's podium has its avatars large (Podium `large`: 64 px for the first, 48 for the others), each box the
      size of its framed avatar (a quarter of the side round it) plus the metal's breath. */
-  .lb-main > .podium .podium-avatar { inline-size: 80px; block-size: 80px; border-radius: 22px; }
-  .lb-main > .podium li.place-1 .podium-avatar { inline-size: 104px; block-size: 104px; border-radius: 26px; }
+  .lb-main > .podium .podium-avatar { inline-size: 72px; block-size: 72px; }
+  .lb-main > .podium li.place-1 .podium-avatar { inline-size: 96px; block-size: 96px; }
   .lb-main > .podium .podium-who b { font-size: 18px; }
   .lb-main > .podium .podium-value { font-size: 15px; }
   .lb-main > .podium li.place-1 .podium-step { block-size: 84px; font-size: 40px; }
@@ -1594,8 +1595,7 @@
   /* The profile. */
   /* The head: a large avatar (96 px, 144 with its frame) beside the name, title, level bar, clan and since when. */
   .profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
-  .profile-avatar { display: grid; place-items: center; flex: none; inline-size: 152px; block-size: 152px; border-radius: 34px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px rgb(255 255 255 / .1), 0 14px 34px rgb(0 0 0 / .45); }
-  .profile-avatar .avatar { inline-size: 96px; block-size: 96px; }
+  .profile-avatar { display: grid; place-items: center; flex: none; inline-size: 144px; block-size: 144px; filter: drop-shadow(0 14px 22px rgb(0 0 0 / .45)); }
   .profile-id { display: grid; justify-items: start; gap: 10px; flex: 1 1 320px; min-inline-size: 0; max-inline-size: 560px; }
   .profile-id > * { margin: 0; }
   .profile-head .profile-title { font-size: 18px; }
@@ -3738,6 +3738,9 @@
   .cz-shop { font-size: 12.5px; font-weight: 700; color: var(--color-uv-soft); }
   .cz-title-none { font: 400 26px var(--font-display); color: var(--color-ink-mute); }
   .cz-note { margin: 10px 2px 0; font-size: 13px; color: var(--color-ink-soft); }
+  /* «Fondo» (plan «escáner pro», part E): how many are chosen and the way back to the rarest. */
+  .cz-backdrop-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 2px 10px; }
+  .cz-backdrop-count { font-weight: 700; color: var(--color-ice); font-variant-numeric: tabular-nums; }
   .cz-actions { display: flex; justify-content: flex-end; gap: 12px; margin-block-start: 14px; }
 
   /* Titles with a style (Nov plan C2): a moving shine, an aurora gradient or a flare for the rare ones. */

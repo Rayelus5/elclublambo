@@ -135,10 +135,12 @@ test('los emblemas van a escala entera: 32 o 64 píxeles para un arte de 32 (rev
   for (const size of sizes) expect(['32px', '64px']).toContain(size);
 });
 
-test('en la clasificación, el podio lleva los avatares grandes: el primero a 64 px, los otros a 48', async () => {
+test('en la clasificación, el podio lleva los avatares grandes: el primero ocupa 96 px y los otros 72, con marco o sin él', async () => {
   mockApi({ 'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board()) });
   const { container } = renderAt('/clasificacion', screens);
   await screen.findByRole('list', { name: t.podium });
-  const scale = (place: number) => container.querySelector<HTMLElement>(`.podium .place-${place} .avatar-box`)!.style.getPropertyValue('--s');
-  expect([scale(1), scale(2), scale(3)]).toEqual(['2', '1.5', '1.5']);
+  const box = (place: number) => container.querySelector<HTMLElement>(`.podium .place-${place} .avatar-box`)!;
+  // Plan «escáner pro», part E: the size is the outer footprint; without a frame the avatar fills it (32 px × scale).
+  expect([1, 2, 3].map((p) => box(p).dataset['fit'])).toEqual(['outer', 'outer', 'outer']);
+  expect([1, 2, 3].map((p) => box(p).style.getPropertyValue('--s'))).toEqual(['3', '2.25', '2.25']);
 });

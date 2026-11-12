@@ -147,6 +147,14 @@ export const cosmeticsConfigSchema = z
   .refine((c) => unique(c.titles, (t) => t.text), { message: 'cosmetics_title_twice', path: ['titles'] });
 export type CosmeticsConfig = z.output<typeof cosmeticsConfigSchema>;
 
+/** How many galaxies the title screen's sky may show (plan «escáner pro», part E). */
+export const BACKDROP_MAX = 12;
+
+/** A galaxy fit for the sky: not the paper-white Antimatter palette, not the Anomaly glitch (a broken screen). */
+export function backdropEligible(traits: Readonly<Record<string, string | undefined>>): boolean {
+  return traits['palette'] !== 'antimatter' && traits['phenomenon'] !== 'anomaly';
+}
+
 /** What «Personalizar» saves: only the fields sent change; null takes the piece off (the avatar: back to «Tu firma»). */
 export const profileCosmeticsSchema = z
   .object({
@@ -154,6 +162,12 @@ export const profileCosmeticsSchema = z
     frame: z.string().regex(/^[a-z]{1,16}$/).nullable().optional(),
     title: titleText.nullable().optional(),
     banner: z.uuid().nullable().optional(),
+    /** The sky's galaxies (empty: the rarest, as before). */
+    backdrop: z
+      .array(z.uuid())
+      .max(BACKDROP_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, { message: 'backdrop_twice' })
+      .optional(),
   })
   .strict();
 export type ProfileCosmeticsRequest = z.output<typeof profileCosmeticsSchema>;
