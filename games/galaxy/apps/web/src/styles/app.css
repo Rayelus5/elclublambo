@@ -313,6 +313,11 @@
   }
   .hud { --r: 999px; --lip-h: 4px; display: flex; align-items: center; gap: 4px; padding: 5px 6px 5px 5px; }
   .me { display: flex; align-items: center; gap: 10px; padding-right: 10px; }
+  /* The top bar's player pill: the square avatar fills its height at the left end, whose corners are square like it;
+     the right end stays round. A framed avatar keeps room for its frame (a quarter of its side round it). */
+  .hud.hud-me { padding: 0 6px 0 0; border-radius: 8px var(--r) var(--r) 8px; }
+  .hud-me .me > .avatar-box { border-radius: 6px; }
+  .hud-me .me > .avatar-box:has(> .avatar-frame) { margin: calc(8px * var(--s)); }
   .me > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
   .me b { max-width: 13ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; font-weight: 600; line-height: 1.1; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--color-panel-lip); box-shadow: 0 0 0 3px var(--color-solar); }
@@ -2400,7 +2405,9 @@
   .season-shop button .ico { inline-size: 16px; block-size: 16px; }
   .season-shop button:disabled { opacity: .45; filter: grayscale(.5); cursor: default; }
   .results-points .ico { inline-size: 16px; block-size: 16px; vertical-align: -3px; margin-inline-end: 4px; }
-  .results-shards .ico { margin-inline: 4px 0; }
+  /* A flex row: Tailwind's base makes every svg a block, which in a plain box drops the shard icon below its number. */
+  .results-shards { display: inline-flex; align-items: center; gap: 4px; }
+  .results-shards .ico { margin: 0; vertical-align: 0; }
   @media (prefers-reduced-motion: reduce) { .season-track li.ready .season-node { animation: none; } .season-track ol { scroll-behavior: auto; } }
   @media (max-width: 900px) { .season-hero { grid-template-columns: minmax(0, 1fr); } }
   /* First steps and the Guía (DESIGN_SYSTEM §8 octovicies). */

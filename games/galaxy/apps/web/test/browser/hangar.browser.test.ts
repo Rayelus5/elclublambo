@@ -190,6 +190,23 @@ test('resultados a 1280×720', async () => {
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-1280.png' });
 }, 60_000);
 
+test('las esquirlas de temporada: el icono justo a la derecha del número, en su línea', async () => {
+  await page.viewport(1280, 720);
+  const progress = { xp: 250, level: 7, levelUp: true, points: 145, shards: 72 };
+  mount(createElement('div', { className: 'screen-root hangar-root' }, createElement('div', { className: 'hangar' }, createElement(ResultsScreen, { result: { ...result, progress }, onAgain: () => {} }))));
+  const shards = await vi.waitFor(() => {
+    const el = document.querySelector<HTMLElement>('.results-shards');
+    if (!el) throw new Error('sin esquirlas');
+    return el;
+  });
+  const number = shards.querySelector<HTMLElement>('[aria-hidden="true"]')!.getBoundingClientRect();
+  const icon = shards.querySelector('.ico')!.getBoundingClientRect();
+  expect(Math.abs(icon.top + icon.height / 2 - (number.top + number.height / 2))).toBeLessThan(3);
+  expect(icon.left - number.right).toBeGreaterThanOrEqual(0);
+  expect(icon.left - number.right).toBeLessThan(10);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/results-shards.png', element: shards.closest<HTMLElement>('.results-progress')! });
+}, 60_000);
+
 test('resultados en grupo a 1280×720: la tabla del equipo cabe', async () => {
   await page.viewport(1280, 720);
   const rows = [

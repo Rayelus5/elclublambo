@@ -10,6 +10,7 @@ import { NewsButton } from './News';
 import { copy } from '../copy/es';
 import { useUi } from '../state/ui';
 import { Icon } from '../ui/Icon';
+import { frameArt } from '../profile/art';
 import { Avatar } from './Avatar';
 import { WalletBar } from './WalletBar';
 
@@ -93,9 +94,10 @@ export function TopBar({
         <NewsButton style={delay('1.11s')} />
       </nav>
       <div className="group">
-        <div className="lip panel hud enter" style={delay('1s')} data-tour="wallet">
+        <div className="lip panel hud hud-me enter" style={delay('1s')} data-tour="wallet">
           <Link to={`/perfil/${encodeURIComponent(me.username)}`} className="me">
-            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} />
+            {/* The pill's whole height: 32 px inside a 48 px frame, or the bare avatar at 48. */}
+            <Avatar name={me.username} avatar={me.avatar} frame={me.frame} size={me.frame && frameArt(me.frame) ? 32 : 48} />
             <div>
               <b>{me.username}</b>
               {me.level ? <span className="me-level">{copy.social.level(me.level)}</span> : null}

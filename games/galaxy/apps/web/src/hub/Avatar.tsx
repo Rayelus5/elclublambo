@@ -38,8 +38,9 @@ export function Signature({ name }: { name: string }) {
 
 const strip = (url: string, frames: number) => ({ backgroundImage: `url(${url})`, '--frames': String(frames) }) as CSSProperties;
 
-/** `size`: the avatar's side in px, a whole multiple of 32 (the frame adds a quarter of it round each side). */
-export function Avatar({ name, avatar, frame, size = 32 }: { name: string; avatar?: string | null; frame?: string | null; size?: 32 | 64 | 96 }) {
+/** `size`: the avatar's side in px, a whole multiple of 32 (the frame adds a quarter of it round each side); 48 only where
+ *  a frameless avatar must match a framed one's 48 px (the top bar's pill). */
+export function Avatar({ name, avatar, frame, size = 32 }: { name: string; avatar?: string | null; frame?: string | null; size?: 32 | 48 | 64 | 96 }) {
   const art = avatar ? avatarArt(avatar) : undefined;
   const ring = frame ? frameArt(frame) : undefined;
   return (
