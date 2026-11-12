@@ -6,6 +6,8 @@ import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
 import { createFx, reactionLabel } from './fx';
+import { stagePalette, type StagePalette } from './palette';
+import type { ColorVisionMode } from '../../a11y/color-vision';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
 import { mateMarkers } from './mates';
@@ -35,6 +37,8 @@ export interface StageOptions {
   names?: string[];
   /** Whole steps closer than the base view the run starts at (the player's wheel, kept between runs). */
   zoom?: number;
+  /** The colour-blind palette (plan «escáner pro», part C). */
+  colorVision?: ColorVisionMode;
 }
 
 export interface Stage {
@@ -54,6 +58,8 @@ export interface Stage {
   setInsets(insets: Insets): void;
   /** Ajustes → Movimiento changed while playing (plan «escáner pro», part A): applies from the next frame. */
   setReduced(on: boolean): void;
+  /** Ajustes → Visión del color changed while playing (part C): applies from the next frame. */
+  setColorVision(mode: ColorVisionMode): void;
   destroy(): void;
 }
 
@@ -93,19 +99,6 @@ const PHOTON = 0xffc94a;
 const HOLO = 0x6fe3ff;
 const GRAVITY = 0xb39dff;
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
-const ELEMENT_COLOR: Record<string, number> = {
-  burn: 0xff9a3c,
-  slow: 0x6fb7ff,
-  corrosion: 0x45e3a6,
-  shock: 0xb39dff,
-  hack: 0xffc94a,
-  leech: 0xff4d6d,
-  breach: 0x17b07e,
-  chain: 0x6fe3ff,
-  pure: 0xf3f5ff,
-  prism: 0xffc94a,
-  invert: 0x7259ee,
-};
 const STEP_RAD = (Math.PI * 2) / 4096;
 /** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
 const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component' };
@@ -116,7 +109,7 @@ const DASH_TINT = 0x6fe3ff;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
-/** Each co-op player's colour, by probe (solar, terminal, ice, nova). */
+/** Each co-op player's colour, by probe (solar, terminal, ice, nova); the colour-blind modes swap it (palette.ts). */
 export const TEAM_TINT = [0xffc94a, 0x45e3a6, 0xbfe3ff, 0xff6b7a];
 
 /** Sprites kept per slot of a pool, made on demand and hidden when the slot is free. */
@@ -150,6 +143,13 @@ export function arcFrom<G extends Pick<Graphics, 'moveTo' | 'arc'>>(g: G, x: num
   return g;
 }
 
+/** An arc drawn in dashes (a downed teammate's countdown: shape, not only colour, tells it from the revive). */
+function dashedArc(g: Graphics, x: number, y: number, r: number, from: number, to: number, style: { width: number; color: number; alpha: number }): void {
+  const dash = 0.42;
+  const gap = 0.26;
+  for (let a = from; a < to; a += dash + gap) arcFrom(g, x, y, r, a, Math.min(to, a + dash)).stroke(style);
+}
+
 /**
  * The backdrop steps back so what is played reads first: the starfield and the nebula are softly blurred, and a dark
  * veil over them lowers their light. Probes, enemies, loot, rocks and the ground's dust stay sharp above it.
@@ -164,6 +164,8 @@ function lerp(a: number, b: number, t: number): number {
 export async function createStage(canvas: HTMLCanvasElement, content: Content, given: StageOptions): Promise<Stage> {
   // Its own copy: some options change while playing (setReduced), and the caller's object stays as it was.
   const opts: StageOptions = { ...given };
+  // The meaningful colours (danger, good, the players, the elements), swapped live by Ajustes → Visión del color.
+  let pal: StagePalette = stagePalette(opts.colorVision ?? 'none');
   const app = new Application();
   await app.init({
     canvas,
@@ -433,9 +435,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         if (arc > 0) {
           const mid = a.angle[i]! * STEP_RAD;
           const half = (arc * STEP_RAD) / 2;
-          areas.moveTo(x, y).arc(x, y, r, mid - half, mid + half).closePath().fill({ color: 0x45e3a6, alpha: 0.12 }).stroke({ width: 1, color: 0x45e3a6, alpha: 0.4 });
+          areas.moveTo(x, y).arc(x, y, r, mid - half, mid + half).closePath().fill({ color: pal.good, alpha: 0.12 }).stroke({ width: 1, color: pal.good, alpha: 0.4 });
         } else {
-          areas.circle(x, y, r).fill({ color: 0x45e3a6, alpha: 0.08 }).stroke({ width: 1, color: 0x45e3a6, alpha: 0.35 });
+          areas.circle(x, y, r).fill({ color: pal.good, alpha: 0.08 }).stroke({ width: 1, color: pal.good, alpha: 0.35 });
         }
       }
     }
@@ -444,9 +446,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     // The beacon: a Terminal ring with turning braille dots, its hold arc and a beam of light.
     const b = sim.beacon;
     if (b) {
-      areas.rect(b.x - 5, b.y - 150, 10, 150).fill({ color: 0x45e3a6, alpha: 0.12 });
+      areas.rect(b.x - 5, b.y - 150, 10, 150).fill({ color: pal.good, alpha: 0.12 });
       areas.rect(b.x - 1, b.y - 150, 2, 150).fill({ color: 0xbfe3ff, alpha: 0.35 });
-      areas.circle(b.x, b.y, b.radius).fill({ color: 0x45e3a6, alpha: 0.07 }).stroke({ width: 2, color: 0x45e3a6, alpha: 0.85 });
+      areas.circle(b.x, b.y, b.radius).fill({ color: pal.good, alpha: 0.07 }).stroke({ width: 2, color: pal.good, alpha: 0.85 });
       const progress = b.hold / b.holdNeeded;
       if (progress > 0) arcFrom(areas, b.x, b.y, b.radius + 5, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2).stroke({ width: 3, color: 0xbfe3ff, alpha: 0.95 });
       for (let k = 0; k < 12; k++) {
@@ -475,13 +477,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const a = wv.angle * STEP_RAD;
         const ex = wv.x + Math.cos(a) * wv.radius;
         const ey = wv.y + Math.sin(a) * wv.radius;
-        warnings.moveTo(wv.x, wv.y).lineTo(ex, ey).stroke({ width: 10, color: 0xff4d6d, alpha: pulse });
-        warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: 0xff6b7a, alpha: 0.9 });
+        warnings.moveTo(wv.x, wv.y).lineTo(ex, ey).stroke({ width: 10, color: pal.danger, alpha: pulse });
+        warnings.moveTo(wv.x, wv.y).lineTo(wv.x + (ex - wv.x) * k, wv.y + (ey - wv.y) * k).stroke({ width: 2, color: pal.bad, alpha: 0.9 });
       } else if (wv.kind === 'burst') {
-        warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: 0xff4d6d, alpha: 0.7 });
+        warnings.circle(wv.x, wv.y, wv.radius * (2.2 - 1.2 * k)).stroke({ width: 2, color: pal.danger, alpha: 0.7 });
       } else {
-        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 1, color: 0xff4d6d, alpha: 0.8 });
-        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: 0xff4d6d, alpha: 0.25 });
+        warnings.circle(wv.x, wv.y, wv.radius).stroke({ width: 1, color: pal.danger, alpha: 0.8 });
+        warnings.circle(wv.x, wv.y, wv.radius * k).fill({ color: pal.danger, alpha: 0.25 });
       }
     }
   }
@@ -510,14 +512,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       s.alpha = away ? 0.2 : en.fuseT[i]! > 0 ? 0.5 + 0.5 * Math.sin(clock * 30) : en.hackT[i]! > 0 ? 0.75 : 1;
       s.tint = en.hackT[i]! > 0 ? 0xffc94a : opts.reduced && (en.elite[i] || en.boss[i]) ? 0xffd0dc : 0xffffff;
       const special = en.elite[i]! > 0 || en.boss[i] === 1;
-      if (special) marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: 0xff4d6d, alpha: 0.55 });
+      if (special) marks.circle(x, y + en.radius[i]! * 0.6, en.radius[i]! + 2).stroke({ width: 1, color: pal.danger, alpha: 0.55 });
       // Any shield shows: elites' own and the one a corruptor lends.
       if (en.shield[i]! > 0) marks.circle(x, y, en.radius[i]! + 4).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.8 });
       drawStates(sim, i, x, y);
       if (def && !en.boss[i] && def.behavior.kind === 'armored') {
         const mid = en.facing[i]! * STEP_RAD;
         const half = ((def.behavior.arc / 360) * Math.PI * 2) / 2;
-        arcFrom(marks, x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? 0x45e3a6 : 0xb9bfe6, alpha: 0.9 });
+        arcFrom(marks, x, y, en.radius[i]! + 3, mid - half, mid + half).stroke({ width: 2, color: en.corrT[i]! > 0 ? (pal.element['corrosion'] ?? 0x45e3a6) : 0xb9bfe6, alpha: 0.9 });
       }
       for (const [pool, tint, dx] of [
         [glitchA, 0xff4d6d, -1],
@@ -550,10 +552,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     const top = y - en.radius[i]! - 5;
     if (en.markT[i]! > 0 && en.mark[i]! > 0) {
       const pip = pipPool.at(i);
-      pip.texture = atlas.frames['mark-pip']![0]!;
+      const element = ELEMENT_IDS[en.mark[i]! - 1] ?? '';
+      pip.texture = (atlas.frames[`mark-${element}`] ?? atlas.frames['mark-pip']!)[0]!;
       pip.anchor.set(0.5);
       pip.position.set(x, top);
-      pip.tint = ELEMENT_COLOR[ELEMENT_IDS[en.mark[i]! - 1] ?? ''] ?? 0xffffff;
+      pip.tint = pal.element[element] ?? 0xffffff;
       pip.alpha = Math.min(1, en.markT[i]! / 30);
     } else if (pipPool.list[i]) pipPool.list[i]!.visible = false;
     for (const [pool, phase] of [
@@ -601,7 +604,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const bx = x - Math.round(bw / 2);
         const by = y - half - 4;
         propMarks.rect(bx - 1, by - 1, bw + 2, 4).fill({ color: 0x0b0c24, alpha: 0.85 });
-        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k)), 2).fill({ color: 0xff4d6d });
+        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k)), 2).fill({ color: pal.danger });
         if (k < 0.66) propMarks.moveTo(x - 3, y - 3).lineTo(x, y).lineTo(x - 1, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
         if (k < 0.33) propMarks.moveTo(x + 3, y - 2).lineTo(x + 1, y + 1).lineTo(x + 4, y + 3).stroke({ width: 1, color: 0x0b0c24, alpha: 0.9 });
       } else if (!opts.reduced) {
@@ -689,7 +692,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const y0 = lerp(s.py[i]!, s.y[i]!, alpha);
         const x1 = x0 + Math.cos(a) * s.reach[i]!;
         const y1 = y0 + Math.sin(a) * s.reach[i]!;
-        const color = ELEMENT_COLOR[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? 0xb39dff;
+        const color = pal.element[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? 0xb39dff;
         const flick = opts.reduced ? 0.35 : 0.28 + 0.12 * Math.sin(clock * 50 + i);
         beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: s.radius[i]! * 2 + 2, color, alpha: flick });
         beams.moveTo(x0, y0).lineTo(x1, y1).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
@@ -761,7 +764,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       const y0 = y + sin * 8;
       const x1 = x + cos * len;
       const y1 = y + sin * len;
-      const color = ELEMENT_COLOR[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? PHOTON;
+      const color = pal.element[ELEMENT_IDS[s.element[i]! - 1] ?? ''] ?? PHOTON;
       const flick = opts.reduced ? 0.32 : 0.26 + 0.08 * Math.sin(clock * 37 + i);
       const back = a - 0.06;
       beams.moveTo(x0, y0).lineTo(x1, y1).lineTo(x + Math.cos(back) * len, y + Math.sin(back) * len).lineTo(x + Math.cos(back) * 8, y + Math.sin(back) * 8).closePath().fill({ color, alpha: 0.04 });
@@ -855,7 +858,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       s.position.set(x, y);
       s.scale.set(view.flip, 1);
-      s.tint = (hurtBlink.get(i) ?? 0) > clock ? 0xff5a6e : 0xffffff;
+      s.tint = (hurtBlink.get(i) ?? 0) > clock ? pal.hurt : 0xffffff;
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
@@ -863,7 +866,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).
-        marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: TEAM_TINT[i % TEAM_TINT.length]!, alpha: 0.8 });
+        marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: pal.team[i % pal.team.length]!, alpha: 0.8 });
         tagAt.push({ i, x, y });
       }
       if (coop && p.life === 'down') {
@@ -872,9 +875,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         s.alpha = 0.6;
         const left = Math.max(0, p.downT / Math.max(1, coop.downSeconds * 60));
         const revive = Math.min(1, p.reviveT / Math.max(1, coop.reviveSeconds * 60));
-        marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: 0x45e3a6, alpha: 0.22 });
-        if (left > 0) arcFrom(marks, x, y, 14, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2).stroke({ width: 2, color: 0xff4d6d, alpha: 0.9 });
-        if (revive > 0) arcFrom(marks, x, y, 18, -Math.PI / 2, -Math.PI / 2 + revive * Math.PI * 2).stroke({ width: 3, color: 0x45e3a6, alpha: 0.95 });
+        marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: pal.good, alpha: 0.22 });
+        // The countdown is dashed and the revive solid with a «+» at its head: told apart by shape, not only colour.
+        if (left > 0) dashedArc(marks, x, y, 14, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2, { width: 2, color: pal.danger, alpha: 0.9 });
+        if (revive > 0) {
+          const end = -Math.PI / 2 + revive * Math.PI * 2;
+          arcFrom(marks, x, y, 18, -Math.PI / 2, end).stroke({ width: 3, color: pal.good, alpha: 0.95 });
+          const hx = x + Math.cos(end) * 18;
+          const hy = y + Math.sin(end) * 18;
+          marks.moveTo(hx - 3, hy).lineTo(hx + 3, hy).moveTo(hx, hy - 3).lineTo(hx, hy + 3).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
+        }
         return;
       }
       if (coop && p.life === 'away') {
@@ -959,7 +969,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       t.visible = true;
       t.text = name;
-      t.tint = TEAM_TINT[at.i % TEAM_TINT.length]!;
+      t.tint = pal.team[at.i % pal.team.length]!;
       t.scale.set(1);
       t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - 14 - c.y) * c.zoom));
       g++;
@@ -973,8 +983,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     let g = 0;
     if (sim.coop) {
       for (const m of mateMarkers(sim.probes, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe, markerInsets)) {
-        const team = TEAM_TINT[m.index % TEAM_TINT.length]!;
-        const tint = m.state === 'down' ? 0xff4d6d : team;
+        const team = pal.team[m.index % pal.team.length]!;
+        const tint = m.state === 'down' ? pal.danger : team;
         const alpha = m.state === 'away' ? 0.4 : m.state === 'down' && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 10) : 1;
         const ux = Math.cos(m.angle);
         const uy = Math.sin(m.angle);
@@ -1002,7 +1012,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const bx = Math.round(left + (t.width - 34) / 2);
         const by = Math.round(top + t.height + 3);
         mateArrows.rect(bx, by, 34, 4).fill({ color: 0x0b0c24, alpha: 0.85 * (m.state === 'away' ? 0.5 : 1) });
-        if (m.hp > 0) mateArrows.rect(bx, by, Math.max(1, Math.round(34 * m.hp)), 4).fill({ color: m.hp > 0.3 ? 0x45e3a6 : 0xff4d6d, alpha: m.state === 'away' ? 0.5 : 1 });
+        const low = m.hp <= 0.3;
+        const pulse = low && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 9) : 1;
+        if (m.hp > 0) mateArrows.rect(bx, by, Math.max(1, Math.round(34 * m.hp)), 4).fill({ color: low ? pal.bad : pal.good, alpha: (m.state === 'away' ? 0.5 : 1) * pulse });
+        // The 30 % line: a low life reads by where the bar ends, not only by its colour.
+        mateArrows.rect(bx + 10, by - 1, 1, 6).fill({ color: 0xf3f5ff, alpha: 0.75 });
         g++;
       }
     }
@@ -1040,7 +1054,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         switch (e.t) {
           case 'hit':
             fx.number(e.x, e.y - 8, e.amount, e.crit);
-            if (e.element) fx.burst(e.x, e.y, ELEMENT_COLOR[e.element] ?? 0xffffff, 3, 40);
+            if (e.element) fx.burst(e.x, e.y, pal.element[e.element] ?? 0xffffff, 3, 40);
             break;
           case 'kill':
             fx.burst(e.x, e.y, KILL_COLOR[e.enemy] ?? 0xff4d6d, e.elite ? 16 : 8, e.elite ? 90 : 60);
@@ -1072,7 +1086,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
             fx.shake(6);
             break;
           case 'element':
-            fx.burst(e.x, e.y, ELEMENT_COLOR[e.element] ?? 0xffffff, 2, 30);
+            fx.burst(e.x, e.y, pal.element[e.element] ?? 0xffffff, 2, 30);
             break;
           case 'reaction': {
             const l = reactionLabel(content, e.id);
@@ -1184,6 +1198,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     setReduced(on) {
       opts.reduced = on;
       fx.setReduced(on);
+    },
+    setColorVision(mode) {
+      opts.colorVision = mode;
+      pal = stagePalette(mode);
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

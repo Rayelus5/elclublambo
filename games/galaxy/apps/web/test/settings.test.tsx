@@ -93,6 +93,18 @@ test('Accesibilidad: el movimiento se elige entre Sistema, Reducido y Completo y
   expect(getPrefs().motion).toBe('full');
 });
 
+test('Accesibilidad: la visión del color cambia la paleta al momento y enseña cómo se ve', async () => {
+  openSettings('/ajustes?seccion=accesibilidad');
+  await userEvent.click(screen.getByRole('combobox', { name: t.colorVision }));
+  await userEvent.click(screen.getByRole('option', { name: t.colorVisions.deutan }));
+  expect(getPrefs().colorVision).toBe('deutan');
+  const preview = screen.getByRole('group', { name: t.preview });
+  for (const tier of ['common', 'uncommon', 'rare', 'epic', 'legendary'] as const) expect(within(preview).getByText(copy.tiers[tier])).toBeInTheDocument();
+  expect(within(preview).getByText(t.good)).toBeInTheDocument();
+  expect(within(preview).getByText(t.danger)).toBeInTheDocument();
+  expect(within(preview).getAllByRole('img')).toHaveLength(11);
+});
+
 // Open beta: the game's cursor is chosen here, and the pause has the same settings as the home menu.
 test('Pantalla: el cursor cambia de color y de tamaño al momento, lo recuerda, y se puede volver al del sistema', async () => {
   openSettings('/ajustes?seccion=pantalla');

@@ -2189,6 +2189,19 @@
   .cursor-swatch:disabled { opacity: .45; cursor: not-allowed; }
   .cursor-swatch img { image-rendering: pixelated; }
   .segmented button:disabled { opacity: .45; cursor: not-allowed; }
+  /* Ajustes → Visión del color (plan «escáner pro», part C): how the meaningful colours look now. */
+  .cvd-setting { display: grid; gap: 14px; inline-size: 100%; justify-items: start; }
+  .cvd-preview { display: grid; gap: 10px; inline-size: 100%; padding: 14px 16px; border-radius: 16px; background: rgb(0 0 0 / .26); box-shadow: inset 0 2px 4px rgb(0 0 0 / .35); }
+  .cvd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .cvd-label { inline-size: 140px; flex: none; font-size: 13.5px; font-weight: 700; color: var(--color-ink-mute); }
+  .cvd-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 99px; border: 2px solid var(--tc, var(--mate, currentColor)); color: var(--tc, var(--mate, var(--color-ink))); font-size: 13.5px; font-weight: 700; background: color-mix(in srgb, var(--tc, var(--mate, #fff)) 12%, transparent); }
+  .cvd-pips { font-size: 9px; letter-spacing: 1px; }
+  .cvd-good { --mate: var(--color-terminal); }
+  .cvd-danger { --mate: var(--color-static); }
+  .cvd-glyph { display: inline-grid; grid-template-columns: repeat(3, 6px); grid-auto-rows: 6px; gap: 1px; padding: 4px; border-radius: 6px; background: rgb(255 255 255 / .05); }
+  .cvd-glyph i { border-radius: 1px; background: rgb(255 255 255 / .06); }
+  .cvd-glyph i[data-on] { background: var(--el); box-shadow: 0 0 4px color-mix(in srgb, var(--el) 50%, transparent); }
+  @media (max-width: 760px) { .cvd-label { inline-size: 100%; } }
 
   /* The game's slider (ui/Slider.tsx): a native range drawn as a sunken track with a solar fill up to --fill, a knob
      with a lip, and the value in a little well beside it. */

@@ -2,7 +2,8 @@ import type { CoopRunStart } from '@galaxy/shared';
 import type { ProbeLife, Sim } from '@galaxy/sim';
 import type { CSSProperties, ReactNode } from 'react';
 import { spriteDataUrl } from '../arena/sprites';
-import { TEAM_TINT } from '../arena/stage/stage';
+import { teamTint } from '../arena/stage/palette';
+import { usePrefs } from '../settings/prefs';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 
@@ -71,6 +72,7 @@ function Figure({ value, award }: { value: number; award: 'kills' | 'revives' | 
  * on the viewer's own row, nor when not given (the staff viewer).
  */
 export function TeamResults({ rows, me, onReport, befriend }: { rows: TeamRow[]; me: number; onReport?: (username: string) => void; befriend?: (username: string) => ReactNode }) {
+  const cvd = usePrefs((p) => p.colorVision);
   const kills = best(rows, 'kills');
   const revives = best(rows, 'revives');
   return (
@@ -89,7 +91,7 @@ export function TeamResults({ rows, me, onReport, befriend }: { rows: TeamRow[];
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.slot} className={r.slot === me ? 'is-me' : undefined} style={{ '--tint': hex(TEAM_TINT[r.slot % TEAM_TINT.length]!) } as CSSProperties}>
+            <tr key={r.slot} className={r.slot === me ? 'is-me' : undefined} style={{ '--tint': hex(teamTint(r.slot, cvd)) } as CSSProperties}>
               <th scope="row">
                 <span className="team-who">
                   <img src={spriteDataUrl(r.sprite, 2)} alt="" />

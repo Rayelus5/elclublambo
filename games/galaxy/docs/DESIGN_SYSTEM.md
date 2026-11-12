@@ -41,6 +41,25 @@ Es distinta de la web de ElClub a propósito: nada de Base Blue, Cerulean ni Arc
 
 **Regla de tinta:** las superficies brillantes (Solar, Nova, Terminal) llevan **tinta oscura** (`--on-*`); las profundas (UV, Sky) llevan **blanco**. Ningún componente usa hex sueltos: solo tokens.
 
+### 2.1 bis Visión del color
+
+Plan «escáner pro», parte C. En Ajustes → Accesibilidad, «Visión del color» (Normal, Protanopía, Deuteranopía, Tritanopía) cambia solo los colores que significan algo. El arte de las galaxias y los sprites decorativos no cambian.
+- **Qué cambia:** los tokens de rareza, Terminal (a favor), Nova (daño) y Estática (peligro); los cuatro colores de jugador y los elementos.
+- **De dónde salen:** una sola fuente, `a11y/color-vision.ts`. La aplican:
+  - el CSS, con las variables puestas en `<html>`;
+  - la arena, con `stagePalette`, que cambia al momento;
+  - el escáner pro;
+  - los tonos de rareza en JS.
+- **Con qué criterio:**
+  - Rojo-verde (protanopía y deuteranopía) pasa el significado al eje azul–naranja, al estilo Okabe–Ito; tritanopía, al rojo–turquesa.
+  - Cada grupo (rarezas, jugadores, bien y peligro), simulado (Machado 2009, severidad total), queda a una ΔE2000 de 12 o más entre pares, con contraste de 3:1 o más sobre el fondo. Lo comprueba `test/color-vision.test.ts`.
+  - Hoy, sin este modo, rara y épica quedan a ΔE 0,6 con deuteranopía.
+- **Forma además de color:**
+  - cada elemento lleva su glifo de 3×3 en la marca del enemigo;
+  - la rareza lleva rombos (1–5);
+  - la cuenta atrás de un compañero caído es discontinua y su reanimación lleva un «+»;
+  - la vida de un compañero tiene una muesca al 30 % y parpadea cuando baja de ahí.
+
 ### 2.2 Contraste medido (WCAG 2.2)
 
 | Texto sobre fondo | Relación | Nivel |
@@ -1074,7 +1093,7 @@ La confirmación es un `alertdialog` que dice qué vuelve a cero y qué se queda
 - **Pestañas** (`?seccion=`, que se sustituye, así «Volver» sigue llevando a donde estabas):
   - **Sonido:** Música y Efectos (deslizadores), sonidos de la interfaz y «Silenciar todo» (interruptores), la prueba de sonido y «Avisos» de la cuenta.
   - **Pantalla:** el cursor del juego, su tamaño y su color.
-  - **Accesibilidad:** Movimiento (Sistema, Reducido, Completo), con lo que pide ahora el ordenador.
+  - **Accesibilidad:** Movimiento (Sistema, Reducido, Completo), con lo que pide ahora el ordenador, y Visión del color con su vista previa (rarezas, jugadores, a favor y peligro, elementos con su glifo; en la pausa, sin la vista previa).
   - **Incursión:** apuntar con el ratón.
   - **Ayuda:** PERKINS, los primeros pasos y el tutorial, con su confirmación escrita.
 - **La elegida:** fondo Panel 2 con labio, icono Solar y una barra Solar con brillo en el borde. Las pestañas siguen el patrón de WAI-ARIA (flechas, Inicio, Fin).

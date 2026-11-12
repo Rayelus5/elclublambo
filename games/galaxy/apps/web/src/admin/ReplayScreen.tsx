@@ -16,6 +16,7 @@ import { useReducedMotion } from '../ui/motion';
 import { ActionDialog } from './ActionDialog';
 import { checkReplay, type CheckRow, CLIPPING_FLAGS, createPlayback, type Playback, replayOptionsOf, replayUntil } from './replay/playback';
 import { outcomeText } from './RunsScreen';
+import { usePrefs } from '../settings/prefs';
 
 // A run's replay in the panel (GDD §16.2, §16.6; M6d-3, DESIGN_SYSTEM §8 duovicies): the arena drawn from the run's own
 // seed, snapshot and recorded inputs, played at 1x to 8x and moved along a timeline; «Comprobar» replays it to its last
@@ -176,6 +177,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
   const { until } = replayable;
   const playback = useMemo<Playback>(() => createPlayback(replayable.opts, replayable.log, replayable.until), [replayable]);
   const reduced = useReducedMotion();
+  const colorVision = usePrefs((p) => p.colorVision);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const playing = useRef(false);
@@ -282,7 +284,7 @@ function Player({ replayable, data, clock }: { replayable: Replayable; data: Adm
     };
     const biome = data.start.content.sectors.find((s) => s.id === data.start.sector)?.biome ?? 'nebula';
     const first = followRef.current;
-    void createStage(canvas, data.start.content, { reduced, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome }).then((stage) => {
+    void createStage(canvas, data.start.content, { reduced, colorVision, vision: relicVision(playback.sim, playback.sim.probes[first]!), probe: first, seed: data.start.seed, biome }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;

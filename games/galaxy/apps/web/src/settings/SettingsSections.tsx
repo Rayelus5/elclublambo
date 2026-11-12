@@ -1,5 +1,5 @@
 import { NOTICE_MODES, type NoticeMode } from '@galaxy/shared';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { useFriends, useSocialPrefs } from '../api/friends';
 import { useTutorialUpdate } from '../api/tutorial';
@@ -15,7 +15,9 @@ import { Segmented } from '../ui/Segmented';
 import { Select } from '../ui/Select';
 import { Slider } from '../ui/Slider';
 import { Switch } from '../ui/Switch';
-import { type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
+import { type ColorVisionMode, PALETTES } from '../a11y/color-vision';
+import { ELEMENT_GLYPH } from '../arena/stage/palette';
+import { COLOR_VISIONS, type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
 import { SettingRow } from './SettingRow';
 
 // What each tab of the settings holds (GDD §17.4; open beta; redesigned in the «escáner pro» plan, part A), shared by
@@ -162,9 +164,57 @@ function subscribeSystem(onChange: () => void): () => void {
   return () => m?.removeEventListener?.('change', onChange);
 }
 
-/** Motion (and, with part C, colour vision): the game's own, over the operating system's. */
-export function AccessSection() {
+/** How the meaningful colours look now: the tiers, the four players, good and danger, the elements with their marks. */
+function ColorPreview({ mode }: { mode: ColorVisionMode }) {
+  const p = PALETTES[mode];
+  return (
+    <div className="cvd-preview" role="group" aria-label={t.preview}>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewTiers}</span>
+        {(['common', 'uncommon', 'rare', 'epic', 'legendary'] as const).map((tier, i) => (
+          <span key={tier} className="cvd-chip" data-tier={tier}>
+            <span className="cvd-pips" aria-hidden="true">
+              {'◆'.repeat(i + 1)}
+            </span>
+            {copy.tiers[tier]}
+          </span>
+        ))}
+      </div>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewTeam}</span>
+        {p.team.map((c, i) => (
+          <span key={c + i} className="cvd-chip cvd-team" style={{ '--mate': c } as CSSProperties}>
+            {t.player(i + 1)}
+          </span>
+        ))}
+      </div>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewSignals}</span>
+        <span className="cvd-chip cvd-good">{t.good}</span>
+        <span className="cvd-chip cvd-danger">{t.danger}</span>
+      </div>
+      <div className="cvd-row">
+        <span className="cvd-label">{t.previewElements}</span>
+        {Object.entries(ELEMENT_GLYPH).map(([id, glyph]) => {
+          const name = (copy.hangar.elements as Record<string, string>)[id] ?? id;
+          return (
+            <span key={id} className="cvd-glyph" role="img" aria-label={name} title={name} style={{ '--el': p.element[id] } as CSSProperties}>
+              {[...glyph].map((cell, k) => (
+                <i key={k} data-on={cell === '1' || undefined} />
+              ))}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Motion and colour vision: the game's own, over the operating system's (the preview only in the menu: the pause
+ * must fit a 1280×720 screen). */
+export function AccessSection({ inRun = false }: { inRun?: boolean }) {
   const motion = usePrefs((p) => p.motion);
+  const colorVision = usePrefs((p) => p.colorVision);
   const os = useSyncExternalStore(subscribeSystem, systemReduced, () => false);
   return (
     <>
@@ -185,6 +235,20 @@ export function AccessSection() {
             options={MOTIONS.map((m) => ({ value: m, label: t.motions[m] }))}
             onChange={(m) => setPrefs({ motion: m })}
           />
+        )}
+      </SettingRow>
+      <SettingRow label={t.colorVision} hint={inRun ? undefined : t.colorVisionHint} layout={inRun ? 'side' : 'stack'}>
+        {(ids) => (
+          <div className="cvd-setting">
+            <Select<ColorVisionMode>
+              aria-labelledby={ids.label}
+              aria-describedby={ids.hint}
+              value={colorVision}
+              options={COLOR_VISIONS.map((m) => ({ value: m, label: t.colorVisions[m] }))}
+              onChange={(m) => setPrefs({ colorVision: m })}
+            />
+            {inRun ? null : <ColorPreview mode={colorVision} />}
+          </div>
         )}
       </SettingRow>
     </>

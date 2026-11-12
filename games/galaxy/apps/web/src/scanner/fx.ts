@@ -1,4 +1,6 @@
 import { TIERS, type Tier } from '@galaxy/shared';
+import { tierHex } from '../a11y/color-vision';
+import { getPrefs } from '../settings/prefs';
 
 // The reveal's burst (open beta), as pure data so it is tested and the stage only draws it: sparks from the card,
 // confetti from rare up (raining from the top on epic and legendary), rings of light, a flash for epic and
@@ -74,7 +76,8 @@ export function burstFor(tier: Tier, seed: string, w: number, h: number): Burst 
   const t = TIERS.indexOf(tier);
   const spec = SPEC[t] ?? SPEC[0]!;
   const r = seeded(`${seed}:${tier}`);
-  const colors = TIER_COLORS[tier];
+  // Its tier's colour as the player sees it (the colour-blind palettes, plan «escáner pro», part C), then its accents.
+  const colors = [tierHex(tier, getPrefs().colorVision), ...TIER_COLORS[tier].slice(1)];
   const pick = () => colors[Math.floor(r() * colors.length)]!;
   const cx = w / 2;
   const cy = h * 0.46;

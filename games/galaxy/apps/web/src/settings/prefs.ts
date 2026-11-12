@@ -1,5 +1,6 @@
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { CSS_TOKENS, cssTokens } from '../a11y/color-vision';
 
 // The game's own preferences (plan «escáner pro», part A): the pro scanner, motion and colour vision. They live in this
 // browser under one versioned key, like the rest of the settings, are checked on the way in (a hand-edited or older
@@ -95,9 +96,20 @@ export function prefersReduced(): boolean {
 
 /** Keeps <html data-motion data-cvd> in step with the preferences and the system; the CSS reads both. */
 export function applyPrefs(root: HTMLElement = document.documentElement): () => void {
+  let painted: string | null = null;
   const paint = () => {
     root.dataset['motion'] = prefersReduced() ? 'reduced' : 'full';
-    root.dataset['cvd'] = getPrefs().colorVision;
+    const mode = getPrefs().colorVision;
+    root.dataset['cvd'] = mode;
+    // The colour-blind palette replaces the meaningful tokens on <html> (CSSOM, allowed by the CSP); «Normal» clears
+    // them, so the design's own come back.
+    if (painted === mode) return;
+    painted = mode;
+    const tokens = cssTokens(mode);
+    for (const name of CSS_TOKENS) {
+      if (tokens?.[name]) root.style.setProperty(name, tokens[name]);
+      else root.style.removeProperty(name);
+    }
   };
   paint();
   const unsubscribe = store.subscribe(paint);
