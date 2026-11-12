@@ -383,6 +383,9 @@ function CoopWorld({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Ajustes → Movimiento can change from the pause: the stage follows without restarting the run.
+  useEffect(() => stageRef.current?.setReduced(reduced), [reduced]);
+
   // The HUD a few times per second; friends see the layer.
   useEffect(() => {
     const id = setInterval(() => {

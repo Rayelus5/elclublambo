@@ -130,7 +130,9 @@ box-shadow:
 - **Entrada de pantalla:** una sola coreografía; el fondo primero, el logo cae, los paneles entran en cascada (40–60 ms entre piezas). Después la pantalla queda quieta salvo el fondo.
 - **Fondo:** galaxia girando, estrellas titilando, sondas y cometas ocasionales; la Estática corrompe la galaxia unos 300 ms cada 7–12 s.
 - **Carga:** el indicador es un **spinner braille** (`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏` a 80 ms por paso).
-- **`prefers-reduced-motion`:** sin desplazamientos ni rebotes; la galaxia queda fija; la entrada es instantánea; el spinner pasa a tres puntos que cambian de opacidad.
+- **Movimiento reducido:** sin desplazamientos ni rebotes; la galaxia queda fija; la entrada es instantánea; el spinner pasa a tres puntos que cambian de opacidad.
+  - Lo decide Ajustes → Accesibilidad → Movimiento (plan «escáner pro», parte A): «Sistema» sigue el `prefers-reduced-motion` del ordenador, «Reducido» y «Completo» mandan sobre él.
+  - El CSS lo lee de `<html data-motion="reduced">` (bloques `:where(:root[data-motion='reduced'])`, nunca `@media (prefers-reduced-motion)`); React, de `useReducedMotion()`; el resto, de `prefersReduced()` (`settings/prefs.ts`). La arena lo cambia sin reiniciar la incursión.
 
 ## 6. Composición y pantallas anchas
 
@@ -154,6 +156,9 @@ Todos los controles: área mínima 44×44, `cursor: pointer`, foco visible con a
 | **Button** | `primary` (Solar, héroe), `mode` (Nova, Terminal), `event` (UV), `nav` (Sky), `pill` (oscura o Solar), `icon` (redondo oscuro 48 px) | Estados: reposo, hover, pulsado, foco, deshabilitado, cargando (spinner braille + `aria-busy`). `icon` siempre con `aria-label` |
 | **Panel** | normal, cabecera de color (Solar en la temporada) | Opaco 94 %, borde blanco al 6 %, labio `--panel-lip` |
 | **Field** | texto, contraseña (con mostrar/ocultar), código de 6 dígitos | Etiqueta visible encima (nunca solo placeholder); 48 px de alto; fondo `--panel-2` con sombra interior; error debajo en `--static` enlazado con `aria-describedby`; `autocomplete` correcto (`username`, `current-password`, `new-password`, `one-time-code`); se puede pegar siempre |
+| **Deslizador** (`ui/Slider.tsx`) | con o sin valor | Un `range` nativo (teclas, táctil y lectores como siempre) dibujado por el juego: pista hundida de 12 px, relleno Solar hasta `--fill`, mando de 28 px con borde Solar y labio, que crece al pasar por encima; el valor en un pocillo a la derecha y en `aria-valuetext`. Deshabilitado al 45 % |
+| **Interruptor** (`ui/Switch.tsx`) | encendido, apagado | `button role="switch"` de 62×36: pista hundida; encendido, verde Terminal con labio y el mando con una marca, que se desliza con rebote. Siempre con una etiqueta visible que lo nombra |
+| **Elección segmentada** (`ui/Segmented.tsx`) | 2–4 opciones | `radiogroup` de WAI-ARIA con la apariencia de `.segmented`: una sola parada de Tab y las flechas, Inicio y Fin eligen (saltan las deshabilitadas) |
 | **Select** (`ui/Select.tsx`) | `sm` 40 px (filtros, barras y tablas del admin), `md` 44 px (juego), `lg` 50 px (formularios junto a campos de 50 px); `block` a todo el ancho | Nunca el desplegable del sistema [U, 2026-11-12]. Combobox de solo selección de WAI-ARIA: el botón (Panel 2, labio de 4 px, chevrón que gira al abrir) se nombra por su `<label htmlFor>`, `aria-label` o `aria-labelledby` y es tan ancho como su opción más larga. La lista vive en `<body>` con posición fija (ningún panel ni diálogo la recorta), sale debajo o encima según el sitio, mide como mucho 320 px y se desplaza por dentro; sigue al botón al desplazarse y lleva el zoom de las pantallas grandes. Opción activa con fondo hielo y barra a la izquierda; elegida con la marca Solar; deshabilitadas al 55 %. Teclado: flechas, Inicio, Fin, páginas, buscar al escribir (sin acentos), Intro, Espacio, Tab elige y sigue, Escape cierra solo la lista. Entrada corta (150 ms) que desaparece con movimiento reducido. Con `name` lleva un `input` oculto para los formularios |
 | **DateField** (`ui/DateField.tsx`) | fecha, fecha y hora (`time`) | Las fechas del admin sin el calendario del sistema. Campo de texto en español (`dd/mm/aaaa` y `hh:mm`; también acepta ISO pegado) con un botón de calendario dentro. El calendario (diálogo de WAI-ARIA, sobre `<body>`) empieza en lunes: mes con flechas a los lados, día elegido en Solar, hoy con borde hielo; flechas por día y semana, Inicio y Fin de la semana, páginas por mes (con Mayúsculas, por año), Intro elige, Escape cierra solo el calendario, Tab no sale de él. Con hora, hora y minutos con las flechas y «Listo». Se ve entero: si no cabe ni arriba ni abajo, tapa su campo. El valor conserva el formato del `input` nativo (`2026-11-12`, `2026-11-12T10:30`) |
 | **Badge** | contador (Nova), novedad (tinta Solar), en línea (punto Terminal) | Contadores con `aria-label` que diga el número |
@@ -1014,12 +1019,16 @@ La confirmación es un `alertdialog` que dice qué vuelve a cero y qué se queda
 
 ## 8 tertricies. Ajustes
 
-**`/ajustes`**, desde el pie del menú: tres grupos con labio.
-- **Sonido:** deslizadores de Música y Efectos con su porcentaje, «Silenciar todo» y «Probar un efecto».
-- **Incursión:** apuntar con el ratón.
-- **Ayuda:** volver a oír a PERKINS y enseñar otra vez los primeros pasos, con su confirmación escrita.
-
-Las casillas tienen 44 px de alto.
+**`/ajustes`**, desde el pie del menú (rediseño del plan «escáner pro», parte A; el propietario: «un estilo y organización mucho más intuitiva»): un solo panel con una columna de pestañas con icono y, al lado, la pestaña elegida con su nombre, una línea de lo que contiene y sus filas. Cada fila dice qué es el ajuste y, debajo, qué hace; su control va a la derecha.
+- **Pestañas** (`?seccion=`, que se sustituye, así «Volver» sigue llevando a donde estabas):
+  - **Sonido:** Música y Efectos (deslizadores), sonidos de la interfaz y «Silenciar todo» (interruptores), la prueba de sonido y «Avisos» de la cuenta.
+  - **Pantalla:** el cursor del juego, su tamaño y su color.
+  - **Accesibilidad:** Movimiento (Sistema, Reducido, Completo), con lo que pide ahora el ordenador.
+  - **Incursión:** apuntar con el ratón.
+  - **Ayuda:** PERKINS, los primeros pasos y el tutorial, con su confirmación escrita.
+- **La elegida:** fondo Panel 2 con labio, icono Solar y una barra Solar con brillo en el borde. Las pestañas siguen el patrón de WAI-ARIA (flechas, Inicio, Fin).
+- **En la pausa:** el mismo panel, algo más apretado y sin la fila de «Avisos», cabe sin barra a 1280×720; la Ayuda espera al menú de inicio.
+- **Pantallas estrechas:** las pestañas pasan arriba en fila y los controles bajan bajo su texto.
 
 **Acabado Fisura:** estática violeta con dos vetas de cristal que cruzan la carta despacio. En el inspector, vetas que brillan donde está el puntero y destellos sueltos.
 

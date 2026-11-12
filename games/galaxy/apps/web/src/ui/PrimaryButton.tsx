@@ -1,4 +1,5 @@
 import { type ButtonHTMLAttributes, useEffect, useState } from 'react';
+import { prefersReduced } from '../settings/prefs';
 
 const FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
 
@@ -6,7 +7,7 @@ const FRAMES = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏';
 function BrailleSpinner() {
   const [i, setI] = useState(0);
   useEffect(() => {
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+    if (prefersReduced()) return;
     const t = window.setInterval(() => setI((n) => (n + 1) % FRAMES.length), 80);
     return () => window.clearInterval(t);
   }, []);

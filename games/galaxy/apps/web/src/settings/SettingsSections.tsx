@@ -1,127 +1,196 @@
-import { useEffect, useId, useState } from 'react';
+import { NOTICE_MODES, type NoticeMode } from '@galaxy/shared';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
+import { useFriends, useSocialPrefs } from '../api/friends';
 import { useTutorialUpdate } from '../api/tutorial';
 import { type AudioSettings, getSettings, onSettings, setSettings } from '../audio/mixer';
 import { startMusic } from '../audio/music';
 import { resetRadio } from '../arena/settings';
+import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
 import { sfx } from '../scanner/sfx';
 import { CURSOR_COLORS, CURSOR_SIZES, type CursorSize, cursorSvg, readCursor, saveCursor } from '../ui/cursor';
 import { Icon } from '../ui/Icon';
+import { Segmented } from '../ui/Segmented';
+import { Select } from '../ui/Select';
+import { Slider } from '../ui/Slider';
+import { Switch } from '../ui/Switch';
+import { type Motion, MOTIONS, setPrefs, systemReduced, usePrefs } from './prefs';
+import { SettingRow } from './SettingRow';
 
-// The settings' sections (GDD §17.4; open beta), shared by the Ajustes screen and the run's pause so both are always
-// the same: sound, the run (aiming), the game's cursor, and help (in a run it waits for the home menu, since its
-// actions leave the run).
+// What each tab of the settings holds (GDD §17.4; open beta; redesigned in the «escáner pro» plan, part A), shared by
+// the Ajustes screen and the run's pause so both are always the same: sound, display, accessibility, the run, and help
+// (in a run it waits for the home menu, since its actions leave the run). Each one is a list of rows (SettingRow) with
+// the game's own controls.
 
 const t = copy.settings;
 
-function Volume({ label, value, onChange, disabled }: { label: string; value: number; onChange: (v: number) => void; disabled: boolean }) {
-  const id = useId();
+function Volume({ label, value, onChange, off }: { label: string; value: number; onChange: (v: number) => void; off: boolean }) {
   return (
-    <div className="setting-row">
-      <label htmlFor={id}>{label}</label>
-      <input id={id} type="range" min={0} max={100} step={5} value={Math.round(value * 100)} disabled={disabled} onChange={(e) => onChange(Number(e.target.value) / 100)} />
-      <output htmlFor={id}>{t.percent(Math.round(value * 100))}</output>
-    </div>
+    <SettingRow label={label} layout="wide" off={off}>
+      {(ids) => (
+        <Slider aria-labelledby={ids.label} value={Math.round(value * 100)} step={5} disabled={off} valueText={t.percent} onChange={(v) => onChange(v / 100)} />
+      )}
+    </SettingRow>
   );
 }
 
-function Section({ name, title, children }: { name: string; title: string; children: React.ReactNode }) {
-  const id = useId();
+/** How notices reach me (the account's own setting, also on the profile): shown once the friends' view is here. */
+function NoticesRow() {
+  const friends = useFriends();
+  const prefs = useSocialPrefs();
+  const v = friends.data;
+  if (!v) return null;
   return (
-    <section className={`lip panel settings-group settings-${name}`} aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
-      {children}
-    </section>
+    <SettingRow label={copy.notices.mode} hint={copy.notices.modeHint}>
+      {(ids) => (
+        <div className="setting-select">
+          <Select<NoticeMode>
+            aria-labelledby={ids.label}
+            aria-describedby={ids.hint}
+            value={v.prefs.notices}
+            disabled={prefs.isPending}
+            options={NOTICE_MODES.map((m) => ({ value: m, label: copy.notices.modes[m] }))}
+            onChange={(notices) => prefs.mutate({ ...v.prefs, notices })}
+          />
+          {prefs.isError ? (
+            <p className="field-error" role="alert">
+              {errorText(prefs.error, copy.errors)}
+            </p>
+          ) : null}
+        </div>
+      )}
+    </SettingRow>
   );
 }
 
-export function SoundSection() {
+/** Sound; `inRun` leaves out the account's notices mode, so the pause fits a 1280×720 screen. */
+export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   useEffect(() => onSettings(setAudio), []);
   return (
-    <Section name="sound" title={t.sound}>
+    <>
       <Volume
         label={t.music}
         value={audio.music}
-        disabled={audio.muted}
+        off={audio.muted}
         onChange={(music) => {
           setSettings({ music });
           if (music > 0) startMusic();
         }}
       />
-      <Volume label={t.effects} value={audio.sfx} disabled={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
-      <label className="setting-check">
-        <input type="checkbox" checked={audio.ui} disabled={audio.muted} onChange={(e) => setSettings({ ui: e.target.checked })} />
-        <span>{t.uiSounds}</span>
-      </label>
-      <label className="setting-check">
-        <input type="checkbox" checked={audio.muted} onChange={(e) => setSettings({ muted: e.target.checked })} />
-        <span>{t.muteAll}</span>
-      </label>
-      <button type="button" className="lip pill small" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
-        <Icon name="sound" />
-        <span>{t.test}</span>
-      </button>
-    </Section>
+      <Volume label={t.effects} value={audio.sfx} off={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
+      <SettingRow label={t.uiSounds} hint={t.uiSoundsHint} off={audio.muted}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.ui} disabled={audio.muted} onChange={(ui) => setSettings({ ui })} />}
+      </SettingRow>
+      <SettingRow label={t.muteAll} hint={t.muteAllHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.muted} onChange={(muted) => setSettings({ muted })} />}
+      </SettingRow>
+      <SettingRow label={t.testTitle} hint={t.testHint} off={audio.muted || audio.sfx <= 0}>
+        {() => (
+          <button type="button" className="lip pill small setting-button" disabled={audio.muted || audio.sfx <= 0} onClick={() => sfx.clack()}>
+            <Icon name="sound" />
+            <span>{t.test}</span>
+          </button>
+        )}
+      </SettingRow>
+      {inRun ? null : <NoticesRow />}
+    </>
+  );
+}
+
+/** The game's cursor: on or the system's, its size and its colour, applied at once. */
+export function DisplaySection() {
+  const [cursor, setCursor] = useState(readCursor);
+  const change = (next: Parameters<typeof saveCursor>[0]) => setCursor(saveCursor(next));
+  return (
+    <>
+      <SettingRow label={t.cursorOn} hint={t.cursorOnHint}>
+        {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={cursor.on} onChange={(on) => change({ on })} />}
+      </SettingRow>
+      <SettingRow label={t.cursorSize} off={!cursor.on}>
+        {(ids) => (
+          <Segmented<CursorSize>
+            aria-labelledby={ids.label}
+            className="cursor-sizes"
+            value={cursor.size}
+            disabled={!cursor.on}
+            options={(Object.keys(CURSOR_SIZES) as CursorSize[]).map((size) => ({ value: size, label: t.cursorSizes[size] }))}
+            onChange={(size) => change({ size })}
+          />
+        )}
+      </SettingRow>
+      <SettingRow label={t.cursorColor} layout="stack" off={!cursor.on}>
+        {(ids) => (
+          <div className="cursor-colors" role="radiogroup" aria-labelledby={ids.label}>
+            {CURSOR_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={cursor.color === c.hex}
+                aria-label={t.cursorColors[c.id]}
+                title={t.cursorColors[c.id]}
+                disabled={!cursor.on}
+                className="cursor-swatch"
+                onClick={() => change({ color: c.hex })}
+              >
+                <img src={cursorSvg('default', c.hex, 2)} alt="" width={36} height={36} />
+              </button>
+            ))}
+          </div>
+        )}
+      </SettingRow>
+    </>
+  );
+}
+
+function subscribeSystem(onChange: () => void): () => void {
+  let m: MediaQueryList | null = null;
+  try {
+    m = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  } catch {
+    m = null;
+  }
+  m?.addEventListener?.('change', onChange);
+  return () => m?.removeEventListener?.('change', onChange);
+}
+
+/** Motion (and, with part C, colour vision): the game's own, over the operating system's. */
+export function AccessSection() {
+  const motion = usePrefs((p) => p.motion);
+  const os = useSyncExternalStore(subscribeSystem, systemReduced, () => false);
+  return (
+    <>
+      <SettingRow
+        label={t.motion}
+        hint={
+          <>
+            {t.motionHint}
+            {motion === 'system' ? <span className="setting-hint-now">{t.motionSystem(os)}</span> : null}
+          </>
+        }
+      >
+        {(ids) => (
+          <Segmented<Motion>
+            aria-labelledby={ids.label}
+            aria-describedby={ids.hint}
+            value={motion}
+            options={MOTIONS.map((m) => ({ value: m, label: t.motions[m] }))}
+            onChange={(m) => setPrefs({ motion: m })}
+          />
+        )}
+      </SettingRow>
+    </>
   );
 }
 
 /** The run's own settings: aiming with the mouse (the pause passes the run's live switch). */
 export function ArenaSection({ aim, onAim }: { aim: boolean; onAim: (on: boolean) => void }) {
   return (
-    <Section name="arena" title={t.arena}>
-      <label className="setting-check">
-        <input type="checkbox" checked={aim} onChange={(e) => onAim(e.target.checked)} />
-        <span>{t.manualAim}</span>
-      </label>
-      <p className="panel-note">{t.manualAimHint}</p>
-    </Section>
-  );
-}
-
-/** The game's cursor: on or the system's, its size and its colour, applied at once. */
-export function CursorSection() {
-  const [cursor, setCursor] = useState(readCursor);
-  const ids = useId();
-  const change = (next: Parameters<typeof saveCursor>[0]) => setCursor(saveCursor(next));
-  return (
-    <Section name="cursor" title={t.cursor}>
-      <label className="setting-check">
-        <input type="checkbox" checked={cursor.on} onChange={(e) => change({ on: e.target.checked })} />
-        <span>{t.cursorOn}</span>
-      </label>
-      <div className="setting-row cursor-row">
-        <span id={`${ids}-size`}>{t.cursorSize}</span>
-        <div className="segmented cursor-sizes" role="radiogroup" aria-labelledby={`${ids}-size`}>
-          {(Object.keys(CURSOR_SIZES) as CursorSize[]).map((size) => (
-            <button key={size} type="button" role="radio" aria-checked={cursor.size === size} disabled={!cursor.on} onClick={() => change({ size })}>
-              {t.cursorSizes[size]}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="setting-row cursor-row">
-        <span id={`${ids}-color`}>{t.cursorColor}</span>
-        <div className="cursor-colors" role="radiogroup" aria-labelledby={`${ids}-color`}>
-          {CURSOR_COLORS.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              role="radio"
-              aria-checked={cursor.color === c.hex}
-              aria-label={t.cursorColors[c.id]}
-              title={t.cursorColors[c.id]}
-              disabled={!cursor.on}
-              className="cursor-swatch"
-              onClick={() => change({ color: c.hex })}
-            >
-              <img src={cursorSvg('default', c.hex, 2)} alt="" width={36} height={36} />
-            </button>
-          ))}
-        </div>
-      </div>
-    </Section>
+    <SettingRow label={t.manualAim} hint={t.manualAimHint}>
+      {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={aim} onChange={onAim} />}
+    </SettingRow>
   );
 }
 
@@ -131,71 +200,93 @@ export function HelpSection() {
   const restart = useTutorialUpdate();
   const navigate = useNavigate();
   return (
-    <Section name="help" title={t.help}>
-      <div className="setting-actions">
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() => {
-            resetRadio();
-            setDone(t.radioDone);
-          }}
-        >
-          {t.radio}
-        </button>
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() => {
-            try {
-              localStorage.removeItem('galaxy.firstSteps.hidden');
-            } catch {
-              // Private windows: nothing kept anyway.
-            }
-            setDone(t.firstStepsDone);
-          }}
-        >
-          {t.firstSteps}
-        </button>
-        <button
-          type="button"
-          className="lip pill small"
-          onClick={() =>
-            restart.mutate(
-              { action: 'restart' },
-              {
-                onSuccess: () => {
-                  resetRadio();
-                  navigate('/');
+    <>
+      <SettingRow label={t.radioTitle} hint={t.radioHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() => {
+              resetRadio();
+              setDone(t.radioDone);
+            }}
+          >
+            {t.radio}
+          </button>
+        )}
+      </SettingRow>
+      <SettingRow label={t.firstStepsTitle} hint={t.firstStepsHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() => {
+              try {
+                localStorage.removeItem('galaxy.firstSteps.hidden');
+              } catch {
+                // Private windows: nothing kept anyway.
+              }
+              setDone(t.firstStepsDone);
+            }}
+          >
+            {t.firstSteps}
+          </button>
+        )}
+      </SettingRow>
+      <SettingRow label={t.tutorialTitle} hint={t.tutorialHint}>
+        {() => (
+          <button
+            type="button"
+            className="lip pill small setting-button"
+            onClick={() =>
+              restart.mutate(
+                { action: 'restart' },
+                {
+                  onSuccess: () => {
+                    resetRadio();
+                    navigate('/');
+                  },
                 },
-              },
-            )
-          }
-        >
-          {t.tutorial}
-        </button>
-      </div>
+              )
+            }
+          >
+            {t.tutorial}
+          </button>
+        )}
+      </SettingRow>
       {done ? (
-        <p className="panel-note" role="status">
+        <p className="setting-done" role="status">
+          <Icon name="check" />
           {done}
         </p>
       ) : null}
-    </Section>
+    </>
   );
 }
 
 /** Help during a run: the same actions, waiting for the home menu (they would leave the run). */
 export function HelpSectionInRun() {
   return (
-    <Section name="help" title={t.help}>
-      <div className="setting-actions">
-        {[t.radio, t.firstSteps, t.tutorial].map((label) => (
-          <button key={label} type="button" className="lip pill small" disabled>
-            {label}
-          </button>
-        ))}
-      </div>
-      <p className="panel-note">{t.helpInRun}</p>
-    </Section>
+    <>
+      {(
+        [
+          [t.radioTitle, t.radioHint, t.radio],
+          [t.firstStepsTitle, t.firstStepsHint, t.firstSteps],
+          [t.tutorialTitle, t.tutorialHint, t.tutorial],
+        ] as const
+      ).map(([title, hint, action]) => (
+        <SettingRow key={title} label={title} hint={hint} off>
+          {() => (
+            <button type="button" className="lip pill small setting-button" disabled>
+              {action}
+            </button>
+          )}
+        </SettingRow>
+      ))}
+      <p className="setting-done is-note">
+        <Icon name="info" />
+        {t.helpInRun}
+      </p>
+    </>
   );
 }
