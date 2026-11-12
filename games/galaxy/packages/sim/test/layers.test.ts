@@ -68,6 +68,19 @@ describe('capas y jefe', () => {
     expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(1800 * 1.7, 9);
   });
 
+  test('Nov plan B4: en la capa 2 llega la segunda forma, con su nombre en el HUD y la vida de su capa', () => {
+    const sim = layered((c) => {
+      c.sectors[0]!.bossCycle = ['hive', 'hive-swarm', 'hive-queen'];
+    });
+    sim.layer = 2;
+    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    untilBoss(sim);
+    const form = sim.content.bosses.find((b) => b.id === 'hive-swarm')!;
+    expect(events(sim, 'bossSpawn')).toEqual([{ t: 'bossSpawn', boss: 'hive-swarm', layer: 2 }]);
+    expect(hudSnapshot(sim, 0).boss).toMatchObject({ name: form.name, title: form.title });
+    expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(form.hp * (1 + form.scaling.hpPerLayer), 9);
+  });
+
   test('al vencerlo cae el cofre y se abre la baliza a 520 u', () => {
     const sim = layered();
     untilBoss(sim);
