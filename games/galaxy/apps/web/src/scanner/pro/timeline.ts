@@ -30,10 +30,21 @@ export const RING = {
   ry: 1.75,
   close: 0.6,
   spin: 1.75 * Math.PI * 2,
-  /** Five or fewer, a little bigger. */
+  /** Six or fewer, a little bigger. */
   scale: (n: number) => (n > 6 ? 0.26 : 0.3),
   angle: (i: number, n: number) => (i / Math.max(1, n)) * Math.PI * 2 + Math.PI / 2,
 } as const;
+
+/**
+ * Where one of a fusion's galaxies stands: on the ring, turned by the spin, swirling in and shrinking as it sinks. With
+ * reduced motion it never moves: it only fades where it is (`absorb` then means nothing here).
+ */
+export function ringSpot(i: number, n: number, s: { ring: number; spin: number; absorb: number }, reduced: boolean) {
+  const sink = reduced ? 0 : s.absorb;
+  const angle = RING.angle(i, n) + s.spin + sink * 1.2;
+  const r = s.ring * (1 - sink);
+  return { x: Math.cos(angle) * RING.rx * r, y: Math.sin(angle) * RING.ry * r, z: -0.4 * sink, scale: RING.scale(n) * (1 - 0.85 * sink), angle, r };
+}
 
 /** One of a fusion's galaxies going in. */
 export interface InputRig {
@@ -96,6 +107,8 @@ export interface Rig {
   /** A fusion's ring: its size (1 round the core, smaller as it closes in) and how far it has turned (radians). */
   ring: number;
   spin: number;
+  /** How fast the ring turns (0 still … 1 full speed): its streaks and tilt, the same on a still frame. */
+  whirl: number;
   /** A fusion's core: its glow (0–1), tinted as the trail. */
   core: number;
   inputs: InputRig[];
@@ -131,6 +144,7 @@ export function createRig(s: Script): Rig {
     summary: 0,
     ring: fusion && !s.reduced ? 1.15 : 1,
     spin: 0,
+    whirl: 0,
     core: 0,
     inputs: s.inputs.map(() => ({ alpha: 0, absorb: 0, glow: 0 })),
     // A fusion's new card is born small in the core; a scan's falls from above its place.
@@ -199,6 +213,8 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
       case 'orbita':
         // Faster and closer: the spin speeds up to the collapse (it carries on there at that pace).
         tl.to(rig, { spin: RING.spin, duration: dur, ease: 'power2.in' }, at);
+        // Its speed: the spin's own pace (power2 in, so the speed grows evenly).
+        tl.to(rig, { whirl: 1, duration: dur, ease: 'none' }, at);
         tl.to(rig, { ring: RING.close, duration: dur, ease: 'power1.in' }, at);
         tl.to(rig, { core: 0.75, speed: 0.12, duration: dur, ease: 'power1.in' }, at);
         tl.to(rig, { nebula: 1, duration: dur * 0.8, ease: 'power1.inOut' }, at);
@@ -216,8 +232,8 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
           // The ring seems to settle (it widens, the core dims), then the core breaks into the real colour.
           spun = RING.spin + Math.PI * 1.5;
           tl.to(rig, { spin: spun, duration: dur, ease: 'power1.inOut' }, at);
-          tl.to(rig, { ring: RING.close + 0.12, core: 0.45, duration: dur * 0.5, ease: 'power2.out' }, at);
-          tl.to(rig, { ring: RING.close, core: 1, duration: dur * 0.5, ease: 'expo.in' }, at + dur * 0.5);
+          tl.to(rig, { ring: RING.close + 0.12, core: 0.45, whirl: 0.55, duration: dur * 0.5, ease: 'power2.out' }, at);
+          tl.to(rig, { ring: RING.close, core: 1, whirl: 1, duration: dur * 0.5, ease: 'expo.in' }, at + dur * 0.5);
           tl.to(rig, { trail: 2, duration: 0.18, ease: 'expo.out' }, at + dur * 0.6);
           break;
         }
@@ -259,7 +275,7 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         const strike = at + (p.lead ?? 0);
         tl.fromTo(rig, { impact: 0 }, { impact: 1, duration: at + dur - strike + 0.9, ease: 'power2.out', immediateRender: false }, strike);
         // A fusion's core bursts.
-        if (fusion) tl.to(rig, { core: 0, duration: 0.12, ease: 'power2.out' }, strike);
+        if (fusion) tl.to(rig, { core: 0, whirl: 0, duration: 0.12, ease: 'power2.out' }, strike);
         break;
       }
       case 'carta': {

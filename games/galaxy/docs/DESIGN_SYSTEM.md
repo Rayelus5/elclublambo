@@ -232,11 +232,13 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
 
 
-### Presentación pro del escáner
+### Presentación pro (escáner y fusiones)
 
 Plan «escáner pro», parte B. Activada por defecto [U, 2026-11-12]; se apaga en Ajustes → Pantalla.
 
-**Cuándo sale la clásica:** sin WebGL2, en la fusión, mientras el tutorial guiado está en el escáner, o con el ajuste apagado.
+**Cuándo sale la clásica:** sin WebGL2, mientras el tutorial guiado está en el escáner, o con el ajuste apagado. La fusión automática no tiene revelación.
+
+**Fusión** (plan «fusión pro»): en vez del salto, las galaxias que entran aparecen en anillo alrededor de un núcleo (`ignicion`), giran cada vez más rápido y más cerca mientras el núcleo anticipa la rareza (`orbita`, con `ascenso` a veces), se hunden en él una a una (`colapso`) y la nueva nace de la explosión (`impacto`, `carta`). Con movimiento reducido, el anillo se funde en su sitio.
 
 **Cómo está hecha:**
 - **Línea de tiempo:** una sola de GSAP, en pausa, construida a partir de un guion de datos (`scanner/pro/script.ts`, `GUION`).

@@ -26,7 +26,7 @@ import {
 import { FOIL_FRAGMENT, FOIL_VERTEX } from '../../inspector/foil';
 import { drawMask } from '../../inspector/textures';
 import { GUION, type Script, type TrailTint } from './script';
-import { GRID, RING, type Rig, SINGLE } from './timeline';
+import { GRID, RING, type Rig, ringSpot, SINGLE } from './timeline';
 
 // The pro scanner's 3D stage (plan «escáner pro», part B), in its own chunk with three.js. It draws what the rig says,
 // frame by frame, and decides nothing: a warp tunnel of stars that stretch into streaks (one instanced draw), a nebula
@@ -495,7 +495,8 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
     scene.add(trail, group);
     return { group, halo, haloMat, front, frontMat, trail, trailMat };
   });
-  let lastSpin = 0;
+  // The core shines over the galaxies sinking into it.
+  if (fusion) ignite.renderOrder = flare.renderOrder = 9.5;
 
   const cleanup: (() => void)[] = [];
   const lost = (e: Event) => {
@@ -593,36 +594,32 @@ export function createProScene(canvas: HTMLCanvasElement, opts: ProSceneOptions)
         (flare.material as MeshBasicMaterial).color.copy(trailColor);
       }
 
-      // A fusion's ring: each galaxy on its ellipse, turned by the spin, drawn in as it sinks; a streak behind it
-      // as long as the ring is fast (never with reduced motion).
-      const turn = dt > 0 ? Math.min(40, Math.abs(rig.spin - lastSpin) / dt) : 0;
-      lastSpin = rig.spin;
+      // A fusion's ring: each galaxy on its ellipse, turned by the spin, drawn in as it sinks (with reduced motion it
+      // only fades where it is); a streak behind it and a tilt as fast as the rig says the ring turns.
+      const whirl = opts.reduced ? 0 : rig.whirl;
       inputs.forEach((c, i) => {
         const ir = rig.inputs[i];
         const shown = !!ir && ir.alpha > 0.001;
         c.group.visible = shown;
         c.trail.visible = false;
         if (!ir || !shown) return;
-        const a = RING.angle(i, inputs.length) + rig.spin + ir.absorb * 1.2;
-        const r = rig.ring * (1 - ir.absorb);
-        const x = Math.cos(a) * RING.rx * r;
-        const y = Math.sin(a) * RING.ry * r;
-        c.group.position.set(x, y, -0.4 * ir.absorb);
-        c.group.scale.setScalar(ringScale * (1 - 0.85 * ir.absorb));
-        c.group.rotation.set(0, opts.reduced ? 0 : Math.sin(clock * 1.3 + i) * 0.08, opts.reduced ? 0 : Math.min(0.35, turn * 0.025));
+        const spot = ringSpot(i, inputs.length, { ring: rig.ring, spin: rig.spin, absorb: ir.absorb }, opts.reduced);
+        c.group.position.set(spot.x, spot.y, spot.z);
+        c.group.scale.setScalar(spot.scale);
+        c.group.rotation.set(0, opts.reduced ? 0 : Math.sin(clock * 1.3 + i) * 0.08, Math.min(0.35, whirl * 0.3));
         c.frontMat.opacity = ir.alpha;
         c.haloMat.opacity = ir.glow * ir.alpha * 0.9;
-        if (opts.reduced || turn < 1.5) return;
+        if (whirl < 0.12) return;
         // Along the way it is going (anticlockwise round the ellipse), from behind the card.
-        const vx = -Math.sin(a) * RING.rx;
-        const vy = Math.cos(a) * RING.ry;
+        const vx = -Math.sin(spot.angle) * RING.rx;
+        const vy = Math.cos(spot.angle) * RING.ry;
         const angle = Math.atan2(vy, vx);
-        const length = Math.min(3.2, turn * 0.22) * Math.max(0.3, r);
+        const length = Math.min(3.2, whirl * 2.8) * Math.max(0.3, spot.r);
         c.trail.visible = true;
-        c.trail.position.set(x - (Math.cos(angle) * length) / 2, y - (Math.sin(angle) * length) / 2, -0.5);
+        c.trail.position.set(spot.x - (Math.cos(angle) * length) / 2, spot.y - (Math.sin(angle) * length) / 2, -0.5);
         c.trail.rotation.z = angle;
         c.trail.scale.set(length, 0.45 * (ringScale / 0.3), 1);
-        c.trailMat.opacity = ir.alpha * Math.min(1, (turn - 1.5) / 6);
+        c.trailMat.opacity = ir.alpha * Math.min(1, (whirl - 0.12) / 0.5);
       });
 
       // The shooting stars.

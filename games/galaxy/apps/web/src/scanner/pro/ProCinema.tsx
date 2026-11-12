@@ -64,6 +64,9 @@ export interface ProCinemaProps {
 
 const TINTS: TrailTint[] = ['ice', 'common', 'uncommon', 'rare', 'epic', 'legendary'];
 const IMAGE_PX = 640;
+/** A fusion's galaxies going in are drawn some 150 px wide. */
+const INPUT_FACE_PX = 240;
+const INPUT_IMAGE_PX = 192;
 
 /** Each tint as a hex from the design tokens (the colour-blind palettes override them). */
 function tokenColors(): Record<TrailTint, string> {
@@ -108,7 +111,8 @@ export default function ProCinema(props: ProCinemaProps) {
       scene = createProScene(canvas, {
         script,
         cards: slots.map((g) => ({ galaxy: g, front: composeCardFace(g, null) })),
-        inputs: inputs.map((g) => ({ galaxy: g, front: composeCardFace(g, null) })),
+        // The ring's cards are small on screen: small faces, quick to make and to upload.
+        inputs: inputs.map((g) => ({ galaxy: g, front: composeCardFace(g, null, INPUT_FACE_PX) })),
         back: drawCardBack(),
         colors: tokenColors(),
         reduced: p.reduced,
@@ -146,7 +150,7 @@ export default function ProCinema(props: ProCinemaProps) {
           (render) => {
             if (controller.signal.aborted) return;
             const image = document.createElement('canvas');
-            if (composeInto(image, render, IMAGE_PX)) scene?.setInputFront(i, composeCardFace(g, image));
+            if (composeInto(image, render, INPUT_IMAGE_PX)) scene?.setInputFront(i, composeCardFace(g, image, INPUT_FACE_PX));
           },
           () => {},
         );

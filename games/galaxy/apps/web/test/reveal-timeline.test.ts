@@ -2,7 +2,7 @@ import type { PulledGalaxy, Tier } from '@galaxy/shared';
 import { gsap } from 'gsap';
 import { expect, test } from 'vitest';
 import { buildScript } from '../src/scanner/pro/script';
-import { buildTimeline, CINEMA, createRig, GRID, RING, SINGLE } from '../src/scanner/pro/timeline';
+import { buildTimeline, CINEMA, createRig, GRID, RING, ringSpot, SINGLE } from '../src/scanner/pro/timeline';
 
 // The pro scanner's timeline (plan «escáner pro», part B): one paused GSAP timeline, built from the script, that moves
 // a plain «rig» of numbers the 3D scene and the overlays read every frame. Real GSAP: its labels sit where the script
@@ -194,4 +194,58 @@ test('una fusión con movimiento reducido: sin giro, temblor ni destellos; las q
   tl.time(at('espera-carta').at);
   expect(rig.cards[0]!.alpha).toBeCloseTo(1, 2);
   expect(rig.cards[0]!.rotY).toBeCloseTo(Math.PI, 2);
+});
+
+test('una fusión con movimiento reducido: cada carta se funde en su sitio, sin girar ni ir hacia el núcleo', () => {
+  const at0 = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 0 }, true);
+  const sunk = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 1 }, true);
+  expect(sunk).toEqual(at0);
+  // With full motion it swirls in and shrinks.
+  const full = ringSpot(2, 5, { ring: 1, spin: 0, absorb: 0.9 }, false);
+  expect(Math.hypot(full.x, full.y)).toBeLessThan(Math.hypot(at0.x, at0.y) * 0.2);
+  expect(full.scale).toBeLessThan(at0.scale);
+});
+
+test('una fusión: la velocidad del giro va en el rig (las estelas se ven también en pausa) y nunca con movimiento reducido', () => {
+  const { rig, tl, at } = fusion('epic', five('rare'));
+  tl.time(at('orbita').at);
+  expect(rig.whirl).toBeCloseTo(0, 3);
+  tl.time(at('orbita').at + at('orbita').dur * 0.5);
+  expect(rig.whirl).toBeGreaterThan(0.1);
+  expect(rig.whirl).toBeLessThan(0.9);
+  tl.time(at('colapso').at + 0.1);
+  expect(rig.whirl).toBeCloseTo(1, 1);
+  tl.time(at('carta').at);
+  expect(rig.whirl).toBeCloseTo(0, 3);
+  const calm = fusion('epic', five('rare'), 'reduced');
+  for (let t = 0; t <= calm.script.duration; t += 0.05) {
+    calm.tl.time(t);
+    expect(calm.rig.whirl).toBe(0);
+  }
+});
+
+test('una fusión: ir hacia delante o hacia atrás hasta el mismo momento deja el mismo rig', () => {
+  const { rig, tl, script } = fusion('legendary', five('epic'), 'full', true);
+  // To the millionth: GSAP's own arithmetic may differ in the last bits between the two ways in.
+  const round = (v: object) => JSON.parse(JSON.stringify(v, (_, x: unknown) => (typeof x === 'number' ? Math.round(x * 1e6) / 1e6 : x))) as unknown;
+  const card = rig.cards[0]!;
+  const pick = () =>
+    round({
+      ring: rig.ring,
+      spin: rig.spin,
+      core: rig.core,
+      whirl: rig.whirl,
+      trail: rig.trail,
+      inputs: rig.inputs.map(({ alpha, absorb, glow }) => ({ alpha, absorb, glow })),
+      card: { x: card.x, y: card.y, z: card.z, scale: card.scale, rotY: card.rotY, alpha: card.alpha },
+    });
+  for (const p of script.phases) {
+    const t = p.at + p.dur * 0.5;
+    tl.time(0);
+    tl.time(t);
+    const forward = pick();
+    tl.time(script.duration);
+    tl.time(t);
+    expect(pick()).toEqual(forward);
+  }
 });

@@ -106,7 +106,8 @@ export function RevealRehearsal() {
   const ids = useId();
   const [origin, setOrigin] = useState<'scan' | 'fusion'>('scan');
   const [going, setGoing] = useState<(typeof INPUT_COUNTS)[number]>('5');
-  const [inputs, setInputs] = useState<PulledGalaxy[]>([]);
+  // What was made for the take playing, and as what (the controls may change while the next one is being made).
+  const [shot, setShot] = useState<{ intro: 'scan' | 'fusion'; inputs: PulledGalaxy[] }>({ intro: 'scan', inputs: [] });
   const [count, setCount] = useState<'one' | 'ten'>('ten');
   const [tier, setTier] = useState<Tier>('legendary');
   const [preset, setPreset] = useState<RehearsalPreset>('variada');
@@ -129,7 +130,7 @@ export function RevealRehearsal() {
     setBusy(true);
     try {
       const tiers = fusion || count === 'one' ? [tier] : [...REHEARSAL_PRESETS[preset]];
-      setInputs(fusion ? await fabricatePulls({ tiers: fusionInputs(tier, Number(going)) }, randomSeed()) : []);
+      const inputs = fusion ? await fabricatePulls({ tiers: fusionInputs(tier, Number(going)) }, randomSeed()) : [];
       const made = await fabricatePulls({
         tiers,
         finish,
@@ -137,6 +138,7 @@ export function RevealRehearsal() {
         phenomenon: phenomenon === 'auto' ? null : phenomenon,
       });
       setPulls(made);
+      setShot({ intro: fusion ? 'fusion' : 'scan', inputs });
       setTake((n) => n + 1);
       setOpen(true);
     } finally {
@@ -153,10 +155,13 @@ export function RevealRehearsal() {
     saveDurations(next);
   };
 
+  // Only the phases this origin has (the same phase, «carta» say, is shared by a scan and a fusion).
+  const used: Durations = Object.fromEntries(Object.entries(durations).filter(([k]) => families.includes(k as PhaseKind)));
+  const playing: Durations = Object.fromEntries(Object.entries(durations).filter(([k]) => (shot.intro === 'fusion' ? FUSION : (pulls?.length ?? 0) > 1 ? TEN : SINGLE).includes(k as PhaseKind)));
   const script = JSON.stringify(
     fusion
-      ? { origen: 'fusion', entran: Number(going), rareza: tier, duraciones: durations }
-      : { tiradas: count === 'one' ? 1 : 10, rarezas: count === 'one' ? [tier] : REHEARSAL_PRESETS[preset], duraciones: durations },
+      ? { origen: 'fusion', entran: Number(going), rareza: tier, duraciones: used }
+      : { tiradas: count === 'one' ? 1 : 10, rarezas: count === 'one' ? [tier] : REHEARSAL_PRESETS[preset], duraciones: used },
     null,
     2,
   );
@@ -261,10 +266,10 @@ export function RevealRehearsal() {
         <ProShell
           pulls={pulls}
           title={t.title}
-          intro={fusion ? 'fusion' : 'scan'}
-          inputs={inputs}
+          intro={shot.intro}
+          inputs={shot.inputs}
           onClose={() => setOpen(false)}
-          direction={{ overrides: durations, surge: surge === 'auto' ? undefined : surge === 'yes', rate: Number(speed), take, motion }}
+          direction={{ overrides: playing, surge: surge === 'auto' ? undefined : surge === 'yes', rate: Number(speed), take, motion }}
           rehearsal={(control, phase) => <Hud control={control} phase={phase} onReplay={() => setTake((n) => n + 1)} />}
         />
       ) : null}

@@ -2433,7 +2433,7 @@ export const copy = {
     testHint: 'Suena un efecto con el volumen elegido',
     cursorOnHint: 'Si está apagado, se usa el del sistema',
     scannerPro: 'Presentación pro',
-    scannerProHint: 'Cada escaneo y cada fusión son una cinemática: bandas de cine, un salto por el espacio o un remolino de galaxias, y cada carta revelada con su música. «Saltar» siempre a mano',
+    scannerProHint: 'Escanear y fusionar a mano son una cinemática: bandas de cine, un salto por el espacio o un remolino de galaxias, y cada carta revelada con su música. «Saltar» siempre a mano',
     motion: 'Movimiento',
     motionHint: 'Reducido quita temblores, destellos y animaciones largas. Sistema hace lo que diga tu ordenador',
     motions: { system: 'Sistema', reduced: 'Reducido', full: 'Completo' },
