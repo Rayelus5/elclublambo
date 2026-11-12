@@ -36,6 +36,7 @@ import { reconcileShop, unblockShop } from './shop/cli';
 import type { ShopGateway } from './shop/gateway';
 import { createStripeGateway } from './shop/stripe-gateway';
 import { backfillCosmetics } from './cosmetics/backfill';
+import { cosmeticsToGrant } from './cosmetics/everything';
 
 /** `shopGateway`: the shop's payment gateway (tests pass a fake; by default Stripe's from the env). */
 export type CliDeps = { db: Kysely<DB>; env: Env; out: (s: string) => void; shopGateway?: ShopGateway | null };
@@ -50,6 +51,7 @@ const USAGE = [
   '  publish-config <clave> <archivo.json | -> --dry-run',
   '  show-config <clave> [--data]',
   '  cosmetics-backfill',
+  '  grant-cosmetics <usuario> --all|--shop --reason <motivo>',
   '  draft-config <clave> <campo[,campo…]> [--ids id,id…]',
   '  check-config <lote.json | ->',
   '  notice <texto> [--tone info|warning] [--days N] --reason <motivo>',
@@ -496,6 +498,42 @@ async function cosmeticsBackfill(deps: CliDeps): Promise<number> {
   return 0;
 }
 
+/**
+ * `grant-cosmetics <usuario> --all|--shop --reason <motivo>`: gives a player every piece (`--all`: the catalog and every
+ * reward of the live config, events included) or only the shop's (`--shop`), what they lack. Audited.
+ */
+async function grantAllCosmetics(args: string[], deps: CliDeps): Promise<number> {
+  const reason = flag(args, '--reason');
+  const [username] = positional(args, ['--reason']);
+  const scope = args.includes('--all') ? 'all' : args.includes('--shop') ? 'shop' : null;
+  if (!username || !scope || (args.includes('--all') && args.includes('--shop')) || !reason || reason.length < 3) return usage(deps.out, 'Uso: grant-cosmetics <usuario> --all|--shop --reason <motivo>');
+  const account = await findAccountByUsername(deps.db, username);
+  if (!account) {
+    deps.out(`No existe la cuenta ${username}`);
+    return 1;
+  }
+  const config = createConfigService(deps.db);
+  const [cosmetics, shop, achievements, missions, events, catalog, seasonRoute, season] = await Promise.all([
+    config.get('cosmetics'),
+    config.get('shop'),
+    config.get('achievements'),
+    config.get('missions'),
+    config.get('events'),
+    config.get('catalog'),
+    config.get('seasonRoute'),
+    config.get('season'),
+  ]);
+  const pieces = cosmeticsToGrant({ cosmetics, shopProducts: shop.products, rewards: [achievements, missions, events, catalog, seasonRoute, season] }, scope);
+  const rows = [...pieces.avatars.map((value) => ({ kind: 'avatar' as const, value })), ...pieces.frames.map((value) => ({ kind: 'frame' as const, value })), ...pieces.titles.map((value) => ({ kind: 'title' as const, value }))].map((r) => ({ account_id: account.id, ...r }));
+  const added = await inTransaction(deps.db, async (trx) => {
+    const made = rows.length > 0 ? await trx.insertInto('galaxy.cosmetics').values(rows).onConflict((oc) => oc.doNothing()).returning(['kind', 'value']).execute() : [];
+    await writeAudit(trx, { actor: CLI_ACTOR, action: 'cosmetics.grant', targetType: 'account', targetId: account.id, after: { scope, added: made }, reason });
+    return made.length;
+  });
+  deps.out(`${account.username}: ${added} piezas nuevas de ${rows.length} (${pieces.avatars.length} avatares, ${pieces.frames.length} marcos, ${pieces.titles.length} títulos)`);
+  return 0;
+}
+
 /** Container CLI (GDD §18.2): `node dist/cli.js <command> …`. Returns the process exit code. */
 export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   const [command, ...args] = argv;
@@ -511,5 +549,6 @@ export async function runCli(argv: string[], deps: CliDeps): Promise<number> {
   if (command === 'shop-reconcile') return shopReconcile(args, deps);
   if (command === 'shop-unblock') return shopUnblock(args, deps);
   if (command === 'cosmetics-backfill') return cosmeticsBackfill(deps);
+  if (command === 'grant-cosmetics') return grantAllCosmetics(args, deps);
   return usage(deps.out, command ? `Comando desconocido: ${command}` : undefined);
 }
