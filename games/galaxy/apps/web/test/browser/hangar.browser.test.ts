@@ -231,9 +231,9 @@ for (const [w, h] of [
     ];
     const mine = { id: 'r1', code: 'ABC234', kind: 'public', leader: 'piloto_rayo', sector: 'outer-nebula', state: 'lobby', members, max: 4, createdAt: '2026-11-12T10:00:00Z', canStart: false, run: null };
     mount(createElement(HangarScreen), { '/rooms': { mine, open: [], allowed: true, reason: null, minLevel: 1 } });
-    await new Promise((r) => setTimeout(r, 1800));
+    // A loaded CI machine takes longer than a fixed wait: poll until the room and my friends are in.
+    await vi.waitFor(() => expect(document.querySelectorAll('.lobby-mate .add-friend button').length).toBe(2), { timeout: 30_000, interval: 200 });
     const adds = [...document.querySelectorAll<HTMLElement>('.lobby-mate .add-friend button')];
-    expect(adds.length).toBe(2);
     for (const b of adds) expect(b.scrollWidth).toBeLessThanOrEqual(b.clientWidth + 1);
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
