@@ -21,39 +21,58 @@ function bad(): never {
   throw new RangeError('bad_log');
 }
 
+function pushVarint(out: number[], n: number): void {
+  let v = n;
+  while (v >= 0x80) {
+    out.push((v & 0x7f) | 0x80);
+    v = Math.floor(v / 128);
+  }
+  out.push(v);
+}
+
+/** Writes `ev`'s events after `prevTick` (no header); `solo` refuses the co-op kinds. The last tick written. */
+function writeEvents(out: number[], ev: readonly number[], prevTick: number, solo: boolean): number {
+  let prev = prevTick;
+  for (let i = 0; i + 5 < ev.length; i += 6) {
+    const tick = ev[i]!;
+    const kind = ev[i + 2]!;
+    if (tick < prev || (solo && kind !== MOVE && kind !== PICK)) bad();
+    pushVarint(out, tick - prev);
+    prev = tick;
+    pushVarint(out, ev[i + 1]!);
+    out.push(kind);
+    if (kind === MOVE) {
+      out.push(ev[i + 3]! + 127, ev[i + 4]! + 127);
+      pushVarint(out, ev[i + 5]! + 1);
+    } else if (kind === PICK_SEQ) out.push(ev[i + 3]!, ev[i + 4]!);
+    else out.push(ev[i + 3]!);
+  }
+  return prev;
+}
+
 export function encodeLog(log: InputLog): Uint8Array {
   let coop = false;
   for (let i = 2; i < log.events.length; i += 6) if (log.events[i]! >= PICK_SEQ) coop = true;
   const out: number[] = [coop ? VERSION_COOP : VERSION];
-  const varint = (n: number) => {
-    let v = n;
-    while (v >= 0x80) {
-      out.push((v & 0x7f) | 0x80);
-      v = Math.floor(v / 128);
-    }
-    out.push(v);
-  };
-  varint(log.probes);
-  let prev = 0;
-  const ev = log.events;
-  for (let i = 0; i + 5 < ev.length; i += 6) {
-    const tick = ev[i]!;
-    varint(tick - prev);
-    prev = tick;
-    varint(ev[i + 1]!);
-    const kind = ev[i + 2]!;
-    out.push(kind);
-    if (kind === MOVE) {
-      out.push(ev[i + 3]! + 127, ev[i + 4]! + 127);
-      varint(ev[i + 5]! + 1);
-    } else if (kind === PICK_SEQ) out.push(ev[i + 3]!, ev[i + 4]!);
-    else out.push(ev[i + 3]!);
-  }
+  pushVarint(out, log.probes);
+  writeEvents(out, log.events, 0, false);
   return Uint8Array.from(out);
 }
 
-export function decodeLog(bytes: Uint8Array): InputLog {
-  let pos = 0;
+/**
+ * A piece of a solo run's log (plan «escáner pro», part G): `events` encoded as encodeLog does, without its header and
+ * counting ticks from `prevTick` (the tick the previous piece reached). The pieces of a log one after another, behind
+ * encodeLog's header, are encodeLog's bytes. Only the solo kinds (moves and picks), in tick order.
+ */
+export function encodeEvents(events: readonly number[], prevTick: number): { bytes: Uint8Array; tick: number } {
+  const out: number[] = [];
+  const tick = writeEvents(out, events, prevTick, true);
+  return { bytes: Uint8Array.from(out), tick };
+}
+
+/** Reads events from `pos` to the end, counting ticks from `tick`. */
+function readEvents(bytes: Uint8Array, start: number, tick0: number, probes: number, coop: boolean): { events: number[]; tick: number } {
+  let pos = start;
   const byte = () => (pos < bytes.length ? bytes[pos++]! : bad());
   const varint = () => {
     let n = 0;
@@ -66,12 +85,8 @@ export function decodeLog(bytes: Uint8Array): InputLog {
     }
     return bad();
   };
-  const version = byte();
-  if (version !== VERSION && version !== VERSION_COOP) bad();
-  const probes = varint();
-  if (probes < 1 || probes > 16) bad();
   const events: number[] = [];
-  let tick = 0;
+  let tick = tick0;
   while (pos < bytes.length) {
     tick += varint();
     const probe = varint();
@@ -87,18 +102,44 @@ export function decodeLog(bytes: Uint8Array): InputLog {
       const pick = byte();
       if (pick > 15) bad();
       events.push(tick, probe, PICK, pick, 0, 0);
-    } else if (kind === PICK_SEQ && version === VERSION_COOP) {
+    } else if (kind === PICK_SEQ && coop) {
       const pick = byte();
       const seq = byte();
       if (pick > 15) bad();
       events.push(tick, probe, PICK_SEQ, pick, seq, 0);
-    } else if (kind === PRESENCE && version === VERSION_COOP) {
+    } else if (kind === PRESENCE && coop) {
       const state = byte();
       if (state > 2) bad();
       events.push(tick, probe, PRESENCE, state, 0, 0);
     } else bad();
   }
-  return { probes, events };
+  return { events, tick };
+}
+
+export function decodeLog(bytes: Uint8Array): InputLog {
+  if (bytes.length === 0) bad();
+  const version = bytes[0]!;
+  if (version !== VERSION && version !== VERSION_COOP) bad();
+  let pos = 1;
+  let probes = 0;
+  let mul = 1;
+  for (let k = 0; ; k++) {
+    if (k >= 5 || pos >= bytes.length) bad();
+    const b = bytes[pos++]!;
+    probes += (b & 0x7f) * mul;
+    if (b < 0x80) break;
+    mul *= 128;
+  }
+  if (probes < 1 || probes > 16) bad();
+  return { probes, events: readEvents(bytes, pos, 0, probes, version === VERSION_COOP).events };
+}
+
+/**
+ * Reads a piece written by encodeEvents (part G), counting ticks from `prevTick`, for a run of `probes` probes. Throws
+ * on anything that is not a solo run's moves and picks: co-op kinds, a probe the run does not have, a cut-short event.
+ */
+export function decodeEvents(bytes: Uint8Array, prevTick: number, probes: number): { events: number[]; tick: number } {
+  return readEvents(bytes, 0, prevTick, probes, false);
 }
 
 /** The last tick the log mentions (0 when empty). */
@@ -152,6 +193,62 @@ export function createReplayer(opts: SimOptions, log: InputLog, until: number): 
     return true;
   }
   return { sim, next };
+}
+
+/** A solo run replayed as its log arrives (part G). */
+export interface LiveReplayer {
+  readonly sim: Sim;
+  /** More of the log, in order (decodeEvents' events). */
+  push(events: readonly number[]): void;
+  /**
+   * One step towards `to`, the tick the player had reached when it sent what arrived: 'stepped'; 'wait' at `to`, or at a
+   * level-up choice whose pick has not arrived yet; 'over' once the run ended or the log disagrees at a choice.
+   */
+  next(to: number): 'stepped' | 'wait' | 'over';
+}
+
+/**
+ * The live viewer's replayer (part G): `createReplayer` that never stops for lack of log, it waits for more. Moves logged
+ * at tick T drive the step that simulates T, so it only steps up to the tick the player had reached; a choice waits for
+ * its pick.
+ */
+export function createLiveReplayer(opts: SimOptions): LiveReplayer {
+  const sim = createSim({ ...opts, record: false });
+  if (sim.coop) bad();
+  const current: ProbeInput[] = sim.probes.map(() => ({ ...IDLE }));
+  const ev: number[] = [];
+  let i = 0;
+  let over = false;
+  function next(to: number): 'stepped' | 'wait' | 'over' {
+    if (over || (sim.status !== 'running' && sim.status !== 'choosing')) return 'over';
+    if (sim.status === 'choosing') {
+      if (!(i + 5 < ev.length)) return 'wait';
+      if (ev[i + 2] !== PICK || ev[i]! !== sim.tick) {
+        over = true;
+        return 'over';
+      }
+      const inputs = sim.probes.map(() => IDLE);
+      inputs[ev[i + 1]!] = { ...IDLE, pick: ev[i + 3]! };
+      i += 6;
+      step(sim, inputs);
+      return 'stepped';
+    }
+    if (sim.tick >= to) return 'wait';
+    const nextTick = sim.tick + 1;
+    while (i + 5 < ev.length && ev[i + 2] === MOVE && ev[i]! <= nextTick) {
+      current[ev[i + 1]!] = { mx: ev[i + 3]!, my: ev[i + 4]!, aim: ev[i + 5]!, pick: -1 };
+      i += 6;
+    }
+    step(sim, current);
+    return 'stepped';
+  }
+  return {
+    sim,
+    push(events) {
+      for (const n of events) ev.push(n);
+    },
+    next,
+  };
 }
 
 /**

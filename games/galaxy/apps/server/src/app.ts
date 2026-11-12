@@ -9,6 +9,8 @@ import { registerConfigRoutes } from './config/routes';
 import { registerCollectionRoutes } from './collection/routes';
 import { registerGachaRoutes } from './gacha/routes';
 import { registerRunRoutes } from './runs/routes';
+import { SoloFeeds } from './runs/solo-feeds';
+import { registerSoloStreamRoutes } from './runs/stream-routes';
 import { registerStationRoutes } from './station/routes';
 import { registerLabRoutes } from './lab/routes';
 import { registerPlanetariumRoutes } from './planetarium/routes';
@@ -140,7 +142,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     const gateway = deps.shopGateway !== undefined ? deps.shopGateway : deps.env.stripe ? createStripeGateway(deps.env.stripe) : null;
     registerGachaRoutes(api, { db: deps.db, config, now, live, shopFlag: (s) => shopFlag({ db: deps.db, config, now, gateway }, s) });
     registerCollectionRoutes(api, { db: deps.db, config, live });
-    registerRunRoutes(api, { db: deps.db, config, now, live, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });
+    // Plan «escáner pro», part G: the solo runs' live feeds, ended when a run is saved.
+    const soloFeeds = new SoloFeeds();
+    soloFeeds.start();
+    api.addHook('onClose', async () => soloFeeds.close());
+    registerRunRoutes(api, { db: deps.db, config, now, live, feeds: soloFeeds, onProbeChosen: (id, probe) => rooms.memberChanged(id, { probe }) });
+    registerSoloStreamRoutes(api, { db: deps.db, feeds: soloFeeds, origins: deps.env.GALAXY_PUBLIC_ORIGINS });
     registerStationRoutes(api, { db: deps.db, config, now, live });
     registerLabRoutes(api, { db: deps.db, config, now });
     registerPlanetariumRoutes(api, { db: deps.db, config });

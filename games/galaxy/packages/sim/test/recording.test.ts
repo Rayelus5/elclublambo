@@ -3,10 +3,13 @@ import { describe, expect, test } from 'vitest';
 import {
   botInput,
   botPick,
+  createLiveReplayer,
   createReplayer,
   createSim,
   DEFAULT_CONTENT,
+  decodeEvents,
   decodeLog,
+  encodeEvents,
   encodeLog,
   fromBase64,
   type InputLog,
@@ -202,5 +205,117 @@ describe('el reproductor paso a paso', () => {
       } else expect(r.sim.tick).toBe(before + 1);
     }
     expect(picks).toBe(sim.probes[0]!.level - 1);
+  });
+});
+
+// Watching a solo run live (plan «escáner pro», part G): the player's client sends its log in pieces as it plays, the
+// server checks each piece and passes it on, and the viewer replays it as it comes, waiting where the log has not
+// arrived yet (above all at a level-up choice).
+describe('el directo en solitario', () => {
+  const recorded = () => {
+    const sim = createSim(opts());
+    play(sim, 3000);
+    return sim;
+  };
+  /** The log cut into pieces of `ticks` world ticks each: the events of each piece and the tick it reaches. */
+  const pieces = (events: readonly number[], end: number, ticks: number) => {
+    const out: { from: number; to: number; tick: number }[] = [];
+    let from = 0;
+    let prev = 0;
+    for (let to = ticks; ; to += ticks) {
+      const reach = Math.min(to, end);
+      let i = from;
+      while (i + 5 < events.length && events[i]! <= reach) i += 6;
+      out.push({ from, to: i, tick: reach });
+      from = i;
+      prev = reach;
+      if (reach >= end) break;
+    }
+    expect(prev).toBe(end);
+    return out;
+  };
+
+  test('el registro en trozos da los mismos bytes que encodeLog', () => {
+    const sim = recorded();
+    const ev = sim.log!.events;
+    let tick = 0;
+    const bytes: number[] = [];
+    for (const piece of pieces(ev, sim.tick, 97)) {
+      const chunk = encodeEvents(ev.slice(piece.from, piece.to), tick);
+      bytes.push(...chunk.bytes);
+      tick = chunk.tick;
+    }
+    expect(Uint8Array.from([1, 1, ...bytes])).toEqual(encodeLog(sim.log!));
+    expect(decodeEvents(Uint8Array.from(bytes), 0, 1).events).toEqual(ev);
+  });
+
+  test('un trozo sigue la cuenta de ticks del anterior', () => {
+    const sim = recorded();
+    const ev = sim.log!.events;
+    const half = Math.floor(ev.length / 12) * 6;
+    const a = encodeEvents(ev.slice(0, half), 0);
+    const b = encodeEvents(ev.slice(half), a.tick);
+    expect(decodeEvents(a.bytes, 0, 1)).toEqual({ events: ev.slice(0, half), tick: a.tick });
+    expect(decodeEvents(b.bytes, a.tick, 1).events).toEqual(ev.slice(half));
+    expect(encodeEvents([], 40)).toEqual({ bytes: new Uint8Array(0), tick: 40 });
+  });
+
+  test('un trozo con eventos de grupo, de otra sonda, o cortado, no vale', () => {
+    // A pick of the co-op kind (2), a probe the run does not have, a move cut short.
+    expect(() => decodeEvents(Uint8Array.from([0, 0, 2, 1, 0]), 0, 1)).toThrow('bad_log');
+    expect(() => decodeEvents(Uint8Array.from([0, 1, 0, 127, 127, 0]), 0, 1)).toThrow('bad_log');
+    expect(() => decodeEvents(Uint8Array.from([0, 0, 0, 127]), 0, 1)).toThrow('bad_log');
+    expect(() => encodeEvents([5, 0, 2, 1, 0, 0], 0)).toThrow('bad_log');
+    expect(() => encodeEvents([5, 0, 0, 0, 0, 0], 9)).toThrow('bad_log');
+  });
+
+  test('el reproductor en directo llega al mismo estado, trozo a trozo, y espera donde falta el registro', () => {
+    const sim = recorded();
+    const ev = sim.log!.events;
+    const live = createLiveReplayer({ ...opts(), record: false });
+    let waits = 0;
+    for (const piece of pieces(ev, sim.tick, 61)) {
+      live.push(ev.slice(piece.from, piece.to));
+      let r: ReturnType<typeof live.next>;
+      while ((r = live.next(piece.tick)) === 'stepped');
+      expect(r).toBe('wait');
+      waits++;
+      // It never runs past what it was told.
+      expect(live.sim.tick).toBeLessThanOrEqual(piece.tick);
+    }
+    expect(waits).toBeGreaterThan(10);
+    expect(live.sim.tick).toBe(sim.tick);
+    expect(stateHash(live.sim)).toBe(stateHash(sim));
+  });
+
+  test('en una elección espera a que llegue la mejora elegida, sin pararse para siempre', () => {
+    const sim = recorded();
+    const ev = sim.log!.events;
+    let pick = 0;
+    while (ev[pick + 2] !== 1) pick += 6;
+    const at = ev[pick]!;
+    const live = createLiveReplayer({ ...opts(), record: false });
+    live.push(ev.slice(0, pick));
+    while (live.next(at) === 'stepped');
+    expect(live.sim.status).toBe('choosing');
+    expect(live.sim.tick).toBe(at);
+    expect(live.next(at)).toBe('wait');
+    live.push(ev.slice(pick));
+    expect(live.next(at)).toBe('stepped');
+    expect(live.sim.status).toBe('running');
+    while (live.next(sim.tick) === 'stepped');
+    expect(stateHash(live.sim)).toBe(stateHash(sim));
+  });
+
+  test('un registro que no cuadra en la elección termina el directo', () => {
+    const sim = recorded();
+    const ev = sim.log!.events;
+    let pick = 0;
+    while (ev[pick + 2] !== 1) pick += 6;
+    const live = createLiveReplayer({ ...opts(), record: false });
+    live.push(ev.slice(0, pick));
+    while (live.next(ev[pick]!) === 'stepped');
+    live.push([ev[pick]! + 3, 0, 1, 0, 0, 0]);
+    expect(live.next(ev[pick]!)).toBe('over');
   });
 });
