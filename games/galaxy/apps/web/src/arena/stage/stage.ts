@@ -52,6 +52,8 @@ export interface Stage {
   follow(probe: number): void;
   /** Co-op: the screen bands the HUD covers; the teammates' arrows keep out of them (Nov plan A2 review). */
   setInsets(insets: Insets): void;
+  /** Ajustes → Movimiento changed while playing (plan «escáner pro», part A): applies from the next frame. */
+  setReduced(on: boolean): void;
   destroy(): void;
 }
 
@@ -159,7 +161,9 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export async function createStage(canvas: HTMLCanvasElement, content: Content, opts: StageOptions): Promise<Stage> {
+export async function createStage(canvas: HTMLCanvasElement, content: Content, given: StageOptions): Promise<Stage> {
+  // Its own copy: some options change while playing (setReduced), and the caller's object stays as it was.
+  const opts: StageOptions = { ...given };
   const app = new Application();
   await app.init({
     canvas,
@@ -1176,6 +1180,10 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     },
     setInsets(insets) {
       markerInsets = insets;
+    },
+    setReduced(on) {
+      opts.reduced = on;
+      fx.setReduced(on);
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

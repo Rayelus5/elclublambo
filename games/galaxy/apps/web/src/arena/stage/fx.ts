@@ -66,6 +66,8 @@ export interface Fx {
   trail(key: number, x: number, y: number, color: number, dt: number): void;
   /** Advances by `dt` seconds; returns the shake offset (screen pixels) for this frame. */
   update(dt: number): { x: number; y: number };
+  /** Ajustes → Movimiento changed mid-run (plan «escáner pro», part A): applies from the next frame. */
+  setReduced(on: boolean): void;
 }
 
 const NUMBER_LIFE = 0.6;
@@ -104,7 +106,8 @@ export function reactionLabel(content: Content, id: string): { text: string; col
   return r ? { text: r.name, color: REACTION_COLOR[r.effect.kind] ?? 0xffffff } : { text: '', color: 0xffffff };
 }
 
-export function createFx(reduced: boolean): Fx {
+export function createFx(startReduced: boolean): Fx {
+  let reduced = startReduced;
   let trauma = 0;
   let phase = 0;
   const numbers: FxNumber[] = [];
@@ -191,6 +194,10 @@ export function createFx(reduced: boolean): Fx {
         });
       }
       trails.set(key, Math.min(due, 1));
+    },
+    setReduced(on) {
+      reduced = on;
+      if (on) trauma = 0;
     },
     update(dt) {
       for (let i = numbers.length - 1; i >= 0; i--) {

@@ -1,0 +1,115 @@
+import { useStore } from 'zustand';
+import { createStore } from 'zustand/vanilla';
+
+// The game's own preferences (plan «escáner pro», part A): the pro scanner, motion and colour vision. They live in this
+// browser under one versioned key, like the rest of the settings, are checked on the way in (a hand-edited or older
+// value falls back to the usual one) and keep working in memory when storage is blocked (private windows). The audio,
+// the cursor and the aiming keep their own keys (audio/mixer.ts, ui/cursor.ts, arena/settings.ts).
+
+export const MOTIONS = ['system', 'reduced', 'full'] as const;
+export type Motion = (typeof MOTIONS)[number];
+export const COLOR_VISIONS = ['none', 'protan', 'deutan', 'tritan'] as const;
+export type ColorVision = (typeof COLOR_VISIONS)[number];
+
+export interface Prefs {
+  /** The cinematic scanner reveal (on by default: the owner, 2026-11-12). */
+  scannerPro: boolean;
+  /** «Sistema» follows the operating system's reduced-motion setting; the other two override it. */
+  motion: Motion;
+  /** The colour-blind palettes (part C). */
+  colorVision: ColorVision;
+}
+
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none' });
+
+const KEY = 'galaxy.prefs';
+const VERSION = 1;
+const QUERY = '(prefers-reduced-motion: reduce)';
+
+const oneOf = <T extends string>(list: readonly T[], v: unknown, fallback: T): T => (list.includes(v as T) ? (v as T) : fallback);
+
+function sanitize(raw: unknown): Prefs {
+  const r = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return {
+    scannerPro: typeof r['scannerPro'] === 'boolean' ? r['scannerPro'] : DEFAULT_PREFS.scannerPro,
+    motion: oneOf(MOTIONS, r['motion'], DEFAULT_PREFS.motion),
+    colorVision: oneOf(COLOR_VISIONS, r['colorVision'], DEFAULT_PREFS.colorVision),
+  };
+}
+
+/** What this browser has kept (version 1 is the first; a later one would be migrated here). */
+export function readStoredPrefs(): Prefs {
+  try {
+    const text = localStorage.getItem(KEY);
+    if (!text) return { ...DEFAULT_PREFS };
+    const saved = JSON.parse(text) as { state?: unknown; version?: unknown } | null;
+    return sanitize(saved?.state);
+  } catch {
+    return { ...DEFAULT_PREFS };
+  }
+}
+
+function write(p: Prefs) {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({ state: p, version: VERSION }));
+  } catch {
+    // Private windows: the choice lasts until the tab closes.
+  }
+}
+
+const store = createStore<Prefs>(() => readStoredPrefs());
+
+export const getPrefs = (): Prefs => store.getState();
+export const subscribePrefs = (fn: (p: Prefs) => void): (() => void) => store.subscribe(fn);
+
+export function setPrefs(patch: Partial<Prefs>) {
+  const next = sanitize({ ...store.getState(), ...patch });
+  store.setState(next, true);
+  write(next);
+}
+
+/** Back to the usual values in memory (tests; storage is left as it is). */
+export function resetPrefs() {
+  store.setState({ ...DEFAULT_PREFS }, true);
+}
+
+export function usePrefs<T>(selector: (p: Prefs) => T): T {
+  return useStore(store, selector);
+}
+
+/** Whether the operating system asks for less motion (false without matchMedia: old browsers, tests). */
+export function systemReduced(): boolean {
+  try {
+    return typeof matchMedia === 'function' && matchMedia(QUERY).matches;
+  } catch {
+    return false;
+  }
+}
+
+export const reducedFor = (motion: Motion, os: boolean): boolean => motion === 'reduced' || (motion === 'system' && os);
+
+/** Reduced motion right now, for code outside React (the stage, the backdrop, the entrance). */
+export function prefersReduced(): boolean {
+  return reducedFor(getPrefs().motion, systemReduced());
+}
+
+/** Keeps <html data-motion data-cvd> in step with the preferences and the system; the CSS reads both. */
+export function applyPrefs(root: HTMLElement = document.documentElement): () => void {
+  const paint = () => {
+    root.dataset['motion'] = prefersReduced() ? 'reduced' : 'full';
+    root.dataset['cvd'] = getPrefs().colorVision;
+  };
+  paint();
+  const unsubscribe = store.subscribe(paint);
+  let media: MediaQueryList | null = null;
+  try {
+    media = typeof matchMedia === 'function' ? matchMedia(QUERY) : null;
+  } catch {
+    media = null;
+  }
+  media?.addEventListener?.('change', paint);
+  return () => {
+    unsubscribe();
+    media?.removeEventListener?.('change', paint);
+  };
+}

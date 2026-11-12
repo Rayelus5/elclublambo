@@ -1,17 +1,22 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { manualAim, setManualAim } from '../arena/settings';
 import { copy } from '../copy/es';
-import { ArenaSection, CursorSection, HelpSection, SoundSection } from '../settings/SettingsSections';
+import { isSettingsTab, SettingsPanel } from '../settings/SettingsPanel';
 import { BackLink } from '../ui/BackLink';
 
-// Ajustes (GDD §17.4; M8a, DESIGN_SYSTEM §8 tertricies): sound, the arena's aiming, the game's cursor (open beta), and
-// bringing back PERKINS's lines, the first steps and the tutorial. Everything lives in this browser. The run's pause
-// shows the same sections (settings/SettingsSections.tsx).
+// Ajustes (GDD §17.4; M8a, DESIGN_SYSTEM §8 tertricies; redesigned in the «escáner pro» plan, part A): sound,
+// display, accessibility, the run and help, as tabs. The tab lives in the address (`?seccion=`), replaced rather than
+// pushed, so «Volver» still goes back to where the player came from. Everything lives in this browser except the
+// notices mode, which is the account's. The run's pause shows the same panel (settings/SettingsPanel.tsx).
 
 const t = copy.settings;
 
 export function SettingsScreen() {
   const [aim, setAim] = useState(manualAim);
+  const [params, setParams] = useSearchParams();
+  const asked = params.get('seccion');
+  const tab = isSettingsTab(asked) ? asked : 'sonido';
   return (
     <div className="screen-root missions-root">
       <div className="missions settings">
@@ -19,16 +24,23 @@ export function SettingsScreen() {
           <BackLink fallback="/" />
           <h1>{t.title}</h1>
         </header>
-        <SoundSection />
-        <ArenaSection
+        <SettingsPanel
+          tab={tab}
+          onTab={(next) =>
+            setParams(
+              (p) => {
+                p.set('seccion', next);
+                return p;
+              },
+              { replace: true },
+            )
+          }
           aim={aim}
           onAim={(on) => {
             setManualAim(on);
             setAim(on);
           }}
         />
-        <CursorSection />
-        <HelpSection />
       </div>
     </div>
   );
