@@ -120,3 +120,32 @@ describe('quién puede comprar', () => {
     expect(() => shopCheckoutSchema.parse({ product: 'coins-1', terms: 'v1' })).toThrow();
   });
 });
+
+// Cosmetics for real money (Nov plan C5): avatars, frames and titles, each once per account, in the «Estilo» tab;
+// born switched off, waiting for their Stripe prices.
+describe('los cosméticos de la tienda', () => {
+  const cosmetic = shop.products.filter((p) => p.kind === 'cosmetic');
+
+  test('vienen 12, apagados, de 0,99 a 2,99 €, sin recursos y una vez por cuenta, en la pestaña Estilo', () => {
+    expect(cosmetic).toHaveLength(12);
+    for (const p of cosmetic) {
+      expect(p.enabled).toBe(false);
+      expect(p.priceCents).toBeGreaterThanOrEqual(99);
+      expect(p.priceCents).toBeLessThanOrEqual(299);
+      expect(p.grants).toEqual({ coins: 0, dust: 0, components: 0 });
+      expect(p.firstBonus).toBe(false);
+      expect(productTab(p)).toBe('style');
+      expect(productBlock({ ...p, enabled: true }, { staff: false, bought: 1 })).toBe('once_used');
+    }
+    expect(cosmetic.map((p) => p.cosmetic!.kind).sort()).toEqual([...Array(4).fill('avatar'), ...Array(4).fill('frame'), ...Array(4).fill('title')]);
+  });
+
+  test('un cosmético necesita su pieza, que exista su arte, y no da recursos', () => {
+    const base = { ...cosmetic[0]!, enabled: true, stripePriceId: 'price_x1' };
+    const issues = (p: object) => messages({ products: [p] });
+    expect(issues({ ...base, cosmetic: null })).toContain('shop_cosmetic_piece');
+    expect(issues({ ...base, cosmetic: { kind: 'avatar', id: 'no-existe' } })).toContain('shop_cosmetic_piece');
+    expect(issues({ ...base, grants: { coins: 10, dust: 0, components: 0 } })).toContain('shop_cosmetic_grants');
+    expect(issues({ ...product('coins-1'), cosmetic: { kind: 'frame', id: 'prism' } })).toContain('shop_cosmetic_piece');
+  });
+});

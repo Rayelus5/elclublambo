@@ -51,7 +51,7 @@ export function spriteFrame(art: PackArt): number {
 const GLOW: Record<PackArt['kind'], string> = { coins: '255,201,74', dust: '155,134,255', components: '69,227,166', bundle: '255,107,122' };
 
 /** The art of a product's `art` id: `coins-3`, `dust-1`, `components-6`, or a bundle (the welcome pack, a kit by size). */
-export function artOf(art: string, kind: 'pack' | 'bundle' | 'welcome'): PackArt {
+export function artOf(art: string, kind: 'pack' | 'bundle' | 'welcome' | 'cosmetic'): PackArt {
   const m = /^(coins|dust|components)-([1-6])$/.exec(art);
   if (m) return { kind: m[1] as PackArt['kind'], tier: Number(m[2]) - 1 };
   if (kind === 'welcome') return { kind: 'bundle', tier: 1 };
