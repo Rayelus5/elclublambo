@@ -21,6 +21,7 @@ import { TrailTracker } from './ui/trail';
 import { AuditScreen } from './admin/AuditScreen';
 import { CommunicationScreen } from './admin/CommunicationScreen';
 import { StatsScreen } from './admin/StatsScreen';
+import { StorageScreen } from './admin/StorageScreen';
 import { RunsScreen } from './admin/RunsScreen';
 import { ReplayScreen } from './admin/ReplayScreen';
 import { WatchScreen } from './admin/WatchScreen';
@@ -160,6 +161,7 @@ export function App() {
             <Route path="eventos/:id" element={<EventWizardScreen />} />
             <Route path="comunicacion" element={<CommunicationScreen />} />
             <Route path="estadisticas" element={<StatsScreen />} />
+            <Route path="almacenamiento" element={<StorageScreen />} />
             <Route path="partidas" element={<RunsScreen />} />
             <Route path="partidas/:id" element={<ReplayScreen />} />
             <Route path="tienda" element={<ShopAdminScreen />} />

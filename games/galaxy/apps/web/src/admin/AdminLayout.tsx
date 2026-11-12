@@ -42,6 +42,9 @@ export function AdminLayout() {
                   <NavLink to="/admin/estadisticas">{t.sections.stats}</NavLink>
                 </li>
                 <li>
+                  <NavLink to="/admin/almacenamiento">{t.sections.storage}</NavLink>
+                </li>
+                <li>
                   <NavLink to="/admin/partidas">{t.sections.runs}</NavLink>
                 </li>
                 <li>
