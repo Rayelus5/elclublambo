@@ -42,10 +42,11 @@ export interface SettleDeps {
   live?: LiveSink;
 }
 
-const scaled = (loot: { coins: number; dust: number; components: number }[], factorOf: (layer: number) => number) =>
+// Satellite signals (SIM 1.10.0) are not shared out: every player gets each one the group picked up.
+const scaled = (loot: { coins: number; dust: number; components: number; signals?: number }[], factorOf: (layer: number) => number) =>
   loot.map((l, i) => {
     const f = factorOf(i);
-    return { coins: Math.floor(l.coins * f), dust: Math.floor(l.dust * f), components: Math.floor(l.components * f) };
+    return { coins: Math.floor(l.coins * f), dust: Math.floor(l.dust * f), components: Math.floor(l.components * f), signals: l.signals ?? 0 };
   });
 
 /** Pays every player once; returns each one's result (null for a player whose pay failed, logged by the caller). */
@@ -92,7 +93,7 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
       const r = await settleRun(
         trx,
         who.accountId,
-        { run: row, claim, claimed: claim, flags: s.idle?.[slot] ? ['coop_idle'] : [], penalized: false, wallSeconds, inputs: null, pointsFactor },
+        { run: row, claim, claimed: claim, flags: s.idle?.[slot] ? ['coop_idle'] : [], penalized: false, wallSeconds, inputs: null, pointsFactor, satellites: runs.caps.satelliteSignals },
         `coop:${s.coopRunId}`,
         { runs, runsVersion, content, account, season, boosts, now },
       );

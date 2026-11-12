@@ -1,3 +1,4 @@
+import type { WorldState } from './systems/world-events';
 import type { StatBonus } from './systems/stats';
 import type { AnomalyDef, Content, ElementId, ProbeDef, SectorDef } from './content/types';
 import type { SimEvent } from './events';
@@ -278,8 +279,10 @@ export interface Sim {
   beacon: BeaconState | null;
   /** Warned blasts in the order they were laid. */
   blasts: Blast[];
-  /** Coins, star dust and components picked up in each layer (index = layer − 1). */
+  /** Coins, star dust, components and satellite signals picked up in each layer (index = layer − 1). */
   loot: LayerLoot[];
+  /** World events from the seed (SIM 1.10.0): the schedule and the abandoned satellites drifting now. */
+  world: WorldState;
   kills: number;
   bossKills: number;
   events: SimEvent[];
@@ -308,6 +311,8 @@ export interface LayerLoot {
   coins: number;
   dust: number;
   components: number;
+  /** Signals from abandoned satellites (SIM 1.10.0; world events). */
+  signals: number;
 }
 
 /** The chunks whose props are live (sorted keys) and, per chunk, a bit for each prop already broken. */

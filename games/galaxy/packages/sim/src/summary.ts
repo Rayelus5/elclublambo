@@ -97,6 +97,13 @@ export function stateHash(sim: Sim): string {
     h.num(l.coins);
     h.num(l.dust);
     h.num(l.components);
+    // SIM 1.10.0: only when there are any, so a run without satellites hashes as before.
+    if (l.signals) h.num(l.signals);
+  }
+  for (const s of sim.world.satellites) {
+    h.num(s.x);
+    h.num(s.y);
+    h.num(s.hp);
   }
   for (const b of sim.blasts) {
     h.num(b.x);
@@ -118,7 +125,7 @@ export function runSummary(sim: Sim): RunSummary {
     kills: sim.kills,
     bossKills: sim.bossKills,
     level: sim.probes.reduce((m, p) => Math.max(m, p.level), 1),
-    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust, components: l.components })),
+    loot: sim.loot.map((l) => ({ coins: l.coins, dust: l.dust, components: l.components, signals: l.signals })),
     hash: stateHash(sim),
   };
 }

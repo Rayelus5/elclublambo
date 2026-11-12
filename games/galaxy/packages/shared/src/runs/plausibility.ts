@@ -78,7 +78,7 @@ export function checkRun(claim: RunClaim, ctx: RunCheckContext): { flags: RunFla
     flags,
     claim: same
       ? claim
-      : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((_, i) => ({ coins: coins[i]!, dust: dust[i]!, components: components[i]! })) },
+      : { ...claim, ticks, depth, kills, bossKills, loot: loot.map((l, i) => ({ coins: coins[i]!, dust: dust[i]!, components: components[i]!, ...(l.signals ? { signals: l.signals } : {}) })) },
     penalized: flags.some((f) => CHEATING.includes(f)),
   };
 }

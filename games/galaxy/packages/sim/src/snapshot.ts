@@ -15,12 +15,14 @@ export interface HudSnapshot {
   /** Seconds left in this phase: the layer's time before its boss, or the beacon's time; 0 during the boss. */
   phaseLeft: number;
   kills: number;
-  loot: { coins: number; dust: number; components: number };
+  loot: { coins: number; dust: number; components: number; signals: number };
   weapons: { id: string; level: number; evolved: boolean }[];
   passives: { id: string; level: number }[];
   boss: { name: string; title: string; hp: number; maxHp: number; phase: number } | null;
   /** The beacon relative to the probe (dx, dy), how long it has been held and how long is left (seconds). */
   beacon: { x: number; y: number; dx: number; dy: number; hold: number; holdNeeded: number; left: number } | null;
+  /** The nearest abandoned satellite drifting by, relative to the probe (SIM 1.10.0), for its arrow at the edge. */
+  satellite: { dx: number; dy: number } | null;
   offer: Offer[] | null;
   status: SimStatus;
   /** Co-op (multiplayer plan): seconds left to pick, where this probe stands, its countdown and revive (0–1), and
@@ -33,6 +35,19 @@ export interface HudSnapshot {
     revive: number;
     team: { index: number; hp: number; maxHp: number; life: ProbeState['life']; x: number; y: number; level: number }[];
   };
+}
+
+function nearestSatellite(sim: Sim, x: number, y: number): HudSnapshot['satellite'] {
+  let best: HudSnapshot['satellite'] = null;
+  let bestD = Infinity;
+  for (const s of sim.world.satellites) {
+    const d = (s.x - x) * (s.x - x) + (s.y - y) * (s.y - y);
+    if (d < bestD) {
+      bestD = d;
+      best = { dx: s.x - x, dy: s.y - y };
+    }
+  }
+  return best;
 }
 
 export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
@@ -59,11 +74,12 @@ export function hudSnapshot(sim: Sim, probe: number): HudSnapshot {
     phase: sim.phase,
     phaseLeft,
     kills: sim.kills,
-    loot: sim.loot.reduce((a, l) => ({ coins: a.coins + l.coins, dust: a.dust + l.dust, components: a.components + l.components }), { coins: 0, dust: 0, components: 0 }),
+    loot: sim.loot.reduce((a, l) => ({ coins: a.coins + l.coins, dust: a.dust + l.dust, components: a.components + l.components, signals: a.signals + l.signals }), { coins: 0, dust: 0, components: 0, signals: 0 }),
     weapons: p.weapons.map((w) => ({ id: w.id, level: w.level, evolved: !!sim.content.weapons.find((d) => d.id === w.id)?.evolution })),
     passives: p.passives.map((s) => ({ id: s.id, level: s.level })),
     boss,
     beacon: b ? { x: b.x, y: b.y, dx: b.x - p.x, dy: b.y - p.y, hold: b.hold / 60, holdNeeded: b.holdNeeded / 60, left: b.t / 60 } : null,
+    satellite: nearestSatellite(sim, p.x, p.y),
     offer: p.offer,
     status: sim.status,
     ...(sim.coop

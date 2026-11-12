@@ -1103,3 +1103,18 @@ Sin claves, la tienda sale cerrada («La tienda está cerrada ahora mismo») y t
 | Tienda: compras pagadas sin entregar (el webhook no llegó) | `docker exec elclub-pre-galaxy-1 node dist/cli.js shop-reconcile [--days 7]`: pregunta a Stripe por cada pago reciente sin entregar, entrega los pagados y caduca los vencidos. También hay «Sincronizar» por compra en Admin › Tienda |
 | Tienda: desbloquear a un jugador | `docker exec elclub-pre-galaxy-1 node dist/cli.js shop-unblock <usuario> --reason "<motivo>"` (auditado como `cli`), o desde Admin › Tienda › Bloqueos |
 | Publicar contenido, temporadas y eventos preparados en `ops/launch/` | Con las skills del repo (`.claude/skills/galaxy-*`, ver `games/galaxy/AGENTS.md`): siempre `show-config` y `--dry-run` antes, y solo con el OK del propietario |
+
+## Un espacio vivo: satélites abandonados (SIM 1.10.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.10.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- **Satélites abandonados.** Más o menos en una de cada tres partidas llega uno; a veces dos, y rara vez tres, uno por capa desde la primera. Llega entre los 40 y los 240 s de las oleadas de su capa y pasa a la deriva durante 45 s. Si una sonda lo rompe, suelta una **señal** del Escáner profundo.
+- **Dónde está su ajuste.** Va en `content.satellites` y vale por defecto aunque el `content` publicado no lo traiga. El tope por partida es `runs.caps.satelliteSignals` (3).
+- **El calendario sale de la semilla de la partida** (`worldSchedule`). Una partida en solitario no se vuelve a simular, así que el servidor solo paga los satélites que su semilla tenía hasta la capa a la que llegó, con el contenido con el que empezó.
+- **En grupo** paga el árbitro: cada jugador recibe todas las señales de satélite que recogió el grupo, sin el reparto `coop.loot`.
+- **Lo que ve el jugador:**
+  - una flecha cian en el borde mientras el satélite está fuera de pantalla;
+  - el aviso de PERKINS la primera vez;
+  - las señales en el HUD;
+  - «N de satélites» en Resultados.

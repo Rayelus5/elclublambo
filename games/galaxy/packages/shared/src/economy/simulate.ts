@@ -14,7 +14,8 @@ export interface EconomySample {
   kills: number;
   bossKills: number;
   level: number;
-  loot: { coins: number; dust: number }[];
+  /** `signals`: from abandoned satellites (SIM 1.10.0), when the sample's runs broke any. */
+  loot: { coins: number; dust: number; signals?: number }[];
 }
 export interface EconomyPay {
   coins: number;
@@ -38,7 +39,8 @@ function payOf(s: EconomySample, runs: RunsConfig, boosts: BoostsConfig, at: Dat
   const claim = { ...s, hash: '0000000000000000' };
   const pay = runPayout(claim, runs, factor, false, { coins: 0, dust: 0 }, { coins: g('coins'), dust: g('dust') });
   const material = runMaterial(claim, runs, factor, false, 0, g('material'));
-  const signals = s.bossKills * Math.min(1, runs.signalChancePerBoss * factor * g('signal'));
+  const satellites = Math.min(runs.caps.satelliteSignals, s.loot.reduce((n, l) => n + (l.signals ?? 0), 0));
+  const signals = s.bossKills * Math.min(1, runs.signalChancePerBoss * factor * g('signal')) + satellites;
   return { coins: pay.coins, dust: pay.dust, material, signals, capped: pay.capped };
 }
 

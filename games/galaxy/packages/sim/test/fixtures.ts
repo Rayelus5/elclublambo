@@ -29,6 +29,8 @@ export function tinyContent(over?: (c: Content) => void): Content {
   s.drops = { ...s.drops, coin: 0, dust: 0, repair: 0, bossCoins: 0, bossDust: 0, magnet: 0, eliteMagnet: 0 };
   // No breakable props unless a test asks for them.
   c.props = { ...c.props, perChunk: 0 };
+  // No abandoned satellites in the quiet tests (SIM 1.10.0): world-events.test.ts turns them on.
+  c.satellites = { ...c.satellites, chances: [] };
   // Pinned: mechanics tests do not follow calibration, nor the Core's forms (Nov plan B4: boss.test.ts sets its own).
   delete s.bossCycle;
   if (s.deepBoss) s.deepBoss = { boss: s.deepBoss.boss, every: s.deepBoss.every };

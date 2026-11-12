@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
   checkRun,
+  parseConfig,
   dailyFactor,
   dailySegments,
   runComponents,
@@ -30,7 +31,7 @@ import {
   type RunClaim,
   type RunFlag,
 } from '@galaxy/shared';
-import { type Content, decodeLog, fromBase64, logTicks } from '@galaxy/sim';
+import { type Content, decodeLog, fromBase64, logTicks, satelliteSignalsUpTo } from '@galaxy/sim';
 import { type Kysely, sql } from 'kysely';
 import type { DB } from '../db/schema';
 import { madridDay } from '../economy/day';
@@ -170,7 +171,7 @@ function inputsOf(b64: string, probes: number): { bytes: Uint8Array; lastTick: n
 export async function finishRun(trx: Kysely<DB>, accountId: string, runId: string, req: FinishRunRequest, key: string, ctx: FinishContext): Promise<RunResult> {
   const run = await trx
     .selectFrom('galaxy.runs')
-    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades'])
+    .select(['id', 'sector', 'started_at', 'finished_at', 'upgrades', 'seed', 'content_version'])
     .where('id', '=', runId)
     .where('account_id', '=', accountId)
     // A co-op player's row is paid by its run (coop/settle.ts), never through the solo finish.
@@ -196,7 +197,22 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   const { inputs: _inputs, ...claimed } = req;
   const sector = ctx.content.sectors.find((s) => s.id === run.sector);
   const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick });
-  return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1 }, key, ctx);
+  // A solo run is not replayed here: its satellites are bounded by the ones its seed had up to the depth it reached,
+  // with the satellites of the content it started with.
+  const satellites = satelliteSignalsUpTo(String(run.seed), (await contentAt(trx, run.content_version, ctx.content)).satellites, check.claim.depth);
+  return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1, satellites }, key, ctx);
+}
+
+/** The content a run started with (its version in the history), or today's when that version is gone. */
+async function contentAt(trx: Kysely<DB>, version: number, today: Content): Promise<Content> {
+  if (version <= 0) return today;
+  const row = await trx.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', version).executeTakeFirst();
+  if (!row) return today;
+  try {
+    return parseConfig('content', row.data);
+  } catch {
+    return today;
+  }
 }
 
 /** What a run is paid on: its row, the figures kept (and those sent), the checks' verdict and its real time. */
@@ -212,6 +228,11 @@ export interface SettleInput {
   inputs: Uint8Array | null;
   /** The factor on its season points (co-op: by the number of players, multiplayer plan). */
   pointsFactor: number;
+  /**
+   * The most satellite signals this run can be paid (SIM 1.10.0): solo, the ones its seed had up to its depth; co-op,
+   * the referee's simulation is the run itself (each player gets every signal, no share).
+   */
+  satellites: number;
 }
 
 /**
@@ -245,6 +266,11 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
   let signals = 0;
   const chance = Math.min(1, ctx.runs.signalChancePerBoss * factor * global('signal'));
   for (let k = 0; k < claim.bossKills; k++) if (randomInt(1_000_000) < chance * 1_000_000) signals++;
+  // The abandoned satellites' signals (SIM 1.10.0): what was picked up, within the run's bound and the cap; a run that
+  // cheated gets none.
+  const picked = claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0);
+  const fromSatellites = s.penalized ? 0 : Math.max(0, Math.min(picked, s.satellites, ctx.runs.caps.satelliteSignals));
+  signals += fromSatellites;
   const ref = { run: run.id };
   if (pay.coins > 0) await credit(trx, accountId, 'coins', pay.coins, 'run', ref, key);
   if (pay.dust > 0) await credit(trx, accountId, 'dust', pay.dust, 'run', ref, key);
@@ -256,7 +282,7 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
   const components = runComponents(claim, ctx.runs, factor, check.penalized, global('material'));
   if (components > 0) await credit(trx, accountId, 'components', components, 'run', ref, key);
 
-  const payout = { coins: pay.coins, dust: pay.dust, signals, material, components };
+  const payout = { coins: pay.coins, dust: pay.dust, signals, material, components, satellites: fromSatellites };
   await trx
     .updateTable('galaxy.runs')
     .set({

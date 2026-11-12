@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { ENGINE_VERSION } from '@galaxy/engine';
 import { generateGalaxy, type FinishRunRequest, PROBE_TEST, type RunResult, type RunStart, type Wallet } from '@galaxy/shared';
-import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64 } from '@galaxy/sim';
+import { DEFAULT_CONTENT, encodeLog, SIM_VERSION, toBase64, worldSchedule } from '@galaxy/sim';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { madridDay } from '../../src/economy/day';
@@ -330,4 +330,23 @@ test('el laboratorio (M4b-2): la partida sale con sus bonos y cobra más monedas
   expect(res.statusCode).toBe(200);
   // The same claim as «extraer paga…» (70 coins, 21 dust, 56 material), with +10 %, +10 % and +20 %.
   expect((res.json() as RunResult).payout).toMatchObject({ coins: 77, dust: 23, material: 67 });
+});
+
+// Plan «skins, perfil y entorno», part E (SIM 1.10.0): the abandoned satellites' signals. A solo run is not replayed,
+// so the server pays only the satellites its seed had up to the depth it reached, never more than the cap.
+test('las señales de satélite solo se pagan si la semilla de la partida trajo satélites', async () => {
+  const T = DEFAULT_CONTENT.satellites;
+  const seedWith = (n: number) => {
+    for (let k = 1; ; k++) if (worldSchedule(String(k), T).length === n) return String(k);
+  };
+  const paid = async (seed: string) => {
+    const p = await player();
+    const run = await played(p.cookie, 7);
+    await ctx.db.updateTable('galaxy.runs').set({ seed }).where('id', '=', run.id).execute();
+    const res = await finish(p.cookie, run.id, body({ loot: [{ coins: 40, dust: 12, signals: 1 }] }));
+    expect(res.statusCode, res.body).toBe(200);
+    return (res.json() as RunResult).payout.satellites;
+  };
+  expect(await paid(seedWith(0))).toBe(0);
+  expect(await paid(seedWith(1))).toBe(1);
 });

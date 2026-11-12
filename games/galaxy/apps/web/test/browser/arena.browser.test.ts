@@ -418,3 +418,18 @@ test('la flecha de un compañero justo encima queda debajo de la barra de arriba
   expect(green(0, 100)).toBe(false);
   expect(green(100, 200)).toBe(true);
 }, 90_000);
+
+// Plan «skins, perfil y entorno», part E (SIM 1.10.0): an abandoned satellite drifting by and a signal on the ground.
+test('un satélite abandonado a la deriva y una señal en el suelo', async () => {
+  const sim = createSim({ seed: '20261112', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }] });
+  step(sim, [IDLE]);
+  const p = sim.probes[0]!;
+  sim.world.satellites.push({ x: p.x + 60, y: p.y - 30, px: p.x + 60, py: p.y - 30, vx: 0, vy: 0, hp: 30, maxHp: 60, radius: 10, until: 99_999, flashT: 0, shot: 0, shotGen: 0, touchT: 0 });
+  dropPickup(sim, PICKUP.signal, 1, p.x - 40, p.y + 20);
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: true, vision: 0, probe: 0, seed: '20261112', preserve: true, zoom: 2 });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(8);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-satellite.png', element: canvas });
+}, 90_000);

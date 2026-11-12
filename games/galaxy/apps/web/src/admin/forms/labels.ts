@@ -184,6 +184,7 @@ export const FIELDS: Partial<Record<ConfigKey, Record<string, FieldInfo>>> = {
     'caps.runComponents': { label: 'Componentes por incursión', hint: 'Lo más que paga una incursión en componentes de objetos rotos' },
     'caps.componentsPerMinute': { label: 'Componentes por minuto', hint: 'Lo más creíble que recoge un jugador por minuto' },
     'caps.propDustPerMinute': { label: 'Polvo de objetos por minuto', hint: 'Polvo que pueden añadir los objetos rotos, aparte de los enemigos' },
+    'caps.satelliteSignals': { label: 'Señales de satélites por incursión', hint: 'Lo más que paga una incursión en señales de satélites abandonados; nunca más de los que trajo su semilla' },
     expireHours: { label: 'Una incursión sin terminar caduca a las', unit: 'hours' },
     startPerHour: { label: 'Incursiones por hora y cuenta' },
   },

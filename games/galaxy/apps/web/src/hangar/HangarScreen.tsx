@@ -127,7 +127,7 @@ export function HangarScreen() {
       kills: s.kills,
       bossKills: s.bossKills,
       level: s.level,
-      loot: s.loot.map((l) => ({ coins: Math.floor(l.coins), dust: Math.floor(l.dust), components: Math.floor(l.components ?? 0) })),
+      loot: s.loot.map((l) => ({ coins: Math.floor(l.coins), dust: Math.floor(l.dust), components: Math.floor(l.components ?? 0), ...(l.signals ? { signals: l.signals } : {}) })),
       hash: s.hash,
       inputs: end.inputs,
     };

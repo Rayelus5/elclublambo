@@ -1279,6 +1279,12 @@
   .hud-boss-bar { height: 14px; border-radius: 7px; background: var(--color-panel-lip); border: 2px solid rgb(255 77 109 / .4); overflow: hidden; }
   .hud-boss-bar i { display: block; height: 100%; width: var(--p); background: linear-gradient(90deg, var(--color-nova-lip), var(--color-static)); transition: width .2s ease; }
   .hud-beacon { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
+  /* Plan «skins, perfil y entorno», part E: an abandoned satellite off screen, in the deep scanner's cyan. */
+  .hud-satellite { position: absolute; transform: translate(-50%, -50%); pointer-events: none; display: grid; justify-items: center; gap: 4px; }
+  .hud-satellite-arrow { width: 0; height: 0; border-left: 14px solid var(--color-static-cyan, #6fe3ff); border-top: 9px solid transparent; border-bottom: 9px solid transparent; filter: drop-shadow(0 0 6px rgb(111 227 255 / .7)); }
+  .hud-satellite-label { display: grid; justify-items: center; padding: 4px 9px; border-radius: 10px; background: rgb(6 30 48 / .9); border: 2px solid #1f7aa8; color: var(--color-ink); font-size: 12px; white-space: nowrap; }
+  .hud-satellite-label b { color: #6fe3ff; font-size: 13px; }
+  .result-paid-note { align-self: center; font-size: 13px; color: var(--color-ink-soft); }
   .hud-beacon-arrow { width: 0; height: 0; border-left: 16px solid var(--color-terminal); border-top: 10px solid transparent; border-bottom: 10px solid transparent; filter: drop-shadow(0 0 6px rgb(69 227 166 / .7)); }
   .hud-beacon-label { display: grid; justify-items: center; padding: 6px 10px; border-radius: 12px; background: rgb(4 40 28 / .9); border: 2px solid var(--color-terminal-2); color: var(--color-ink); font-size: 13px; white-space: nowrap; }
   .hud-beacon-label b { color: var(--color-terminal); font-size: 14px; }

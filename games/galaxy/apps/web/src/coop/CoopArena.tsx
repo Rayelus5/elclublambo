@@ -7,7 +7,7 @@ import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
 import { musicStinger, setMusicScene, startMusic } from '../audio/music';
 import { deepLayer, runScene } from '../audio/music/state';
-import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
+import { BeaconMarker, BossBar, SatelliteMarker } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
 import { emptyInput, readInput } from '../arena/input';
@@ -609,6 +609,7 @@ function CoopWorld({
       <TeamPanel hud={hud} players={start.players} slot={slot} />
       {hud.boss && <BossBar boss={hud.boss} />}
       {hud.beacon && <BeaconMarker beacon={hud.beacon} camera={camera} width={size.w} height={size.h} />}
+      {hud.satellite && <SatelliteMarker satellite={hud.satellite} camera={camera} width={size.w} height={size.h} />}
       <CoopMarks marks={marks} camera={camera} width={size.w} height={size.h} players={start.players} me={slot} />
       {wheel ? <MarkWheel at={wheel} choice={wheel.choice} /> : null}
       <LifeNotice hud={hud} downSeconds={start.rules.downSeconds} />

@@ -2102,6 +2102,8 @@ export const DEFAULT_CONTENT: Content = {
   limits: { weapons: 6, passives: 6, enemies: 400, shots: 1200, foeShots: 600, pickups: 1500, areas: 300, props: 160 },
   // Breakable props of the ground (SIM 1.7.0): about one per chunk; most give a component, all give a little dust.
   props: { perChunk: 2, hp: 28, hpPerLayer: 0.5, radius: 9, componentChance: 0.3, components: 1, dustMin: 0, dustMax: 1 },
+  // Abandoned satellites (SIM 1.10.0): about one run in three has one, a few two, rarely three; each gives a signal.
+  satellites: { chances: [0.33, 0.12, 0.04], earliest: 40, latest: 240, drift: 45, distance: 300, speed: 26, hp: 60, hpPerLayer: 0.6, radius: 10 },
   // Season anomalies (GDD §13.1; M7d-3): the season chooses one (or none) in the live config `season`.
   anomalies: [
     { id: 'contagion', name: 'Corrosión contagiosa', description: 'Un enemigo corroído que cae corroe a los que tiene cerca', enemyHp: 1, enemyDamage: 1, enemySpeed: 1, spawn: 1, elite: 1, xp: 1, contagion: { radius: 70, seconds: 3 } },

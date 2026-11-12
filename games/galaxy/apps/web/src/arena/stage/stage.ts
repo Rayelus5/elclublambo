@@ -102,7 +102,7 @@ const GRAVITY = 0xb39dff;
 const KILL_COLOR: Record<string, number> = { mite: 0xff4d6d, cell: 0xb39dff, cellet: 0xb39dff, ray: 0x6fb7ff, spitter: 0xff9a3c, shell: 0xb9bfe6 };
 const STEP_RAD = (Math.PI * 2) / 4096;
 /** Sprite per pickup kind after the data fragments (world/pools.ts PICKUP). */
-const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component' };
+const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair', 4: 'magnet', 5: 'component', 6: 'signal-ticket' };
 /** A quirk's jump glides over this long; afterimages fade over GHOST_LIFE. */
 const GLIDE_S = 0.12;
 const GHOST_LIFE = 0.28;
@@ -269,6 +269,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   const glitchB = new SpritePool(enemies);
   const pickupPool = new SpritePool(pickups);
   const propPool = new SpritePool(propLayer);
+  // Abandoned satellites (SIM 1.10.0), drifting over the props.
+  const satPool = new SpritePool(propLayer);
   const ghostSprites: Sprite[] = [];
   /** Dashes being drawn: a quirk's jump glides from where it took off; every dash leaves afterimages. */
   const glides = new Map<number, { fx: number; fy: number; tx: number; ty: number; t0: number; dur: number }>();
@@ -585,7 +587,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     }
   }
 
-  function drawProps(sim: Sim): void {
+  function drawProps(sim: Sim, alpha: number): void {
     const pr = sim.props;
     const rocks = BIOME_LOOK[opts.biome ?? 'nebula'].props;
     propMarks.clear();
@@ -617,6 +619,32 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
     }
     propPool.hideFrom(pr.alive, pr.top);
+    drawSatellites(sim, alpha);
+  }
+
+  /** The abandoned satellites (SIM 1.10.0): drifting, a white flash when hit, and their life bar once damaged. */
+  function drawSatellites(sim: Sim, alpha: number): void {
+    const list = sim.world.satellites;
+    const shown = new Uint8Array(Math.max(1, list.length));
+    list.forEach((sat, k) => {
+      shown[k] = 1;
+      const s = satPool.at(k);
+      const fr = frameOf('satellite');
+      s.texture = (sat.flashT > 0 ? atlas.white['satellite'] : atlas.frames['satellite'])![fr]!;
+      s.anchor.set(0.5);
+      const x = Math.round(lerp(sat.px, sat.x, alpha));
+      const y = Math.round(lerp(sat.py, sat.y, alpha));
+      s.position.set(x, y);
+      const k01 = sat.maxHp > 0 ? Math.max(0, sat.hp / sat.maxHp) : 1;
+      if (k01 < 1) {
+        const bw = 20;
+        const bx = x - bw / 2;
+        const by = y - 10;
+        propMarks.rect(bx - 1, by - 1, bw + 2, 4).fill({ color: 0x0b0c24, alpha: 0.85 });
+        propMarks.rect(bx, by, Math.max(1, Math.round(bw * k01)), 2).fill({ color: 0x6fe3ff });
+      }
+    });
+    satPool.hideFrom(shown, list.length);
   }
 
   function drawGhosts(): void {
@@ -1117,6 +1145,14 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
             fx.label(at.x, at.y - PROBE_HALF - 4, copy.arena.evaded, 0x6fe3ff);
             break;
           }
+          case 'satellite':
+            // A satellite breaking: a burst of cyan and white and a ring, where its signal falls.
+            if (e.what === 'break') {
+              fx.burst(e.x, e.y, 0x6fe3ff, 18, 80);
+              fx.burst(e.x, e.y, 0xf3f5ff, 8, 50);
+              fx.ring(e.x, e.y, 0x6fe3ff);
+            }
+            break;
           case 'propBreak':
             fx.burst(e.x, e.y, parseInt(look.dust.slice(1), 16), 12, 70);
             fx.burst(e.x, e.y, 0xf3f5ff, 4, 40);
@@ -1164,7 +1200,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       syncChunks(c);
       lastSim = sim;
-      drawProps(sim);
+      drawProps(sim, alpha);
       drawAreas(sim);
       lastTick = sim.tick;
       drawWarnings(sim.tick + alpha);

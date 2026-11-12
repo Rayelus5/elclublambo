@@ -63,7 +63,7 @@ describe('capas y jefe', () => {
   test('la vida del jefe crece con la capa', () => {
     const sim = layered();
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
     untilBoss(sim);
     expect(sim.enemies.hp[sim.boss!.index]).toBeCloseTo(1800 * 1.7, 9);
   });
@@ -73,7 +73,7 @@ describe('capas y jefe', () => {
       c.sectors[0]!.bossCycle = ['hive', 'hive-swarm', 'hive-queen'];
     });
     sim.layer = 2;
-    sim.loot.push({ coins: 0, dust: 0, components: 0 });
+    sim.loot.push({ coins: 0, dust: 0, components: 0, signals: 0 });
     untilBoss(sim);
     const form = sim.content.bosses.find((b) => b.id === 'hive-swarm')!;
     expect(events(sim, 'bossSpawn')).toEqual([{ t: 'bossSpawn', boss: 'hive-swarm', layer: 2 }]);
@@ -178,8 +178,8 @@ describe('extracción', () => {
       p.y = sim.pickups.y[i]!;
       step(sim, [IDLE]);
     }
-    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0, components: 0 });
-    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3, components: 0 });
+    expect(sim.loot[0]).toEqual({ coins: 0, dust: 0, components: 0, signals: 0 });
+    expect(sim.loot[1]).toEqual({ coins: 10, dust: 3, components: 0, signals: 0 });
   });
 });
 

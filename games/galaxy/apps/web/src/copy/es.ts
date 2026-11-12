@@ -2761,6 +2761,8 @@ export const copy = {
     daily: (minutes: number, mult: number) => `${fmt(minutes)} min a ×${fmt(mult)}`,
     paid: 'Cobrado',
     signals: (n: number) => (n === 1 ? '1 señal' : `${fmt(n)} señales`),
+    // Plan «skins, perfil y entorno», part E: the signals that came from abandoned satellites.
+    fromSatellites: (n: number) => (n === 1 ? '1 de un satélite' : `${fmt(n)} de satélites`),
     material: (n: number) => `${fmt(n)} de material en bruto`,
     components: (n: number) => (n === 1 ? '1 componente' : `${fmt(n)} componentes`),
     again: 'Otra incursión',
@@ -2847,6 +2849,9 @@ export const copy = {
     coins: 'Monedas',
     dust: 'Polvo estelar',
     componentsLabel: (n: number) => (n === 1 ? '1 componente' : `${fmt(n)} componentes`),
+    signalsLabel: (n: number) => (n === 1 ? '1 señal de satélite' : `${fmt(n)} señales de satélite`),
+    satellite: 'Satélite',
+    satelliteHint: 'Rómpelo: da una señal',
     time: 'Tiempo',
     layer: (n: number) => `Capa ${n}`,
     coreIn: (t: string) => `Núcleo en ${t}`,
@@ -2863,6 +2868,7 @@ export const copy = {
       start: 'PERKINS: Sector a la vista. La Estática ya se ha comido medio cielo. Muévete, la sonda dispara sola',
       boss: 'PERKINS: Núcleo de la Estática en el radar. Es grande. Tú también, más o menos',
       beacon: 'PERKINS: Baliza abierta. Tienes un minuto para llegar o bajamos una capa',
+      satellite: 'PERKINS: Satélite abandonado a la deriva. Rómpelo antes de que se aleje y nos quedamos su señal',
       levelup: 'PERKINS: Subes de nivel. Elige una mejora: el sector espera mientras decides',
       layer: (n: number) => `PERKINS: Capa ${n}. Aquí la Estática muerde más fuerte, y el botín también`,
       // The first run in each new sector, and the first time each new Core shows up (GDD §15: one line, skippable).

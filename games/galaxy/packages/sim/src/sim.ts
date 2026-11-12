@@ -11,6 +11,7 @@ import { updatePickups } from './systems/pickups';
 import { updateRelics } from './systems/relics';
 import { applyCoopInputs, updateDowned, updateOffers } from './systems/coop';
 import { syncProps } from './systems/props';
+import { createWorld, updateWorld } from './systems/world-events';
 import { refreshStats } from './systems/stats';
 import { applyOffer, offerFor } from './systems/upgrades';
 import { fireWeapons, updateAreas, updateShots } from './systems/weapons';
@@ -70,7 +71,8 @@ export function createSim(opts: SimOptions): Sim {
     boss: null,
     blasts: [],
     beacon: null,
-    loot: [{ coins: 0, dust: 0, components: 0 }],
+    loot: [{ coins: 0, dust: 0, components: 0, signals: 0 }],
+    world: createWorld(opts.seed, content.satellites),
     kills: 0,
     bossKills: 0,
     events: [],
@@ -212,6 +214,7 @@ export function step(sim: Sim, inputs: readonly ProbeInput[]): void {
   updateFoeShots(sim);
   rebuildGrid(sim);
   syncProps(sim);
+  updateWorld(sim);
   for (const p of sim.probes) {
     fireWeapons(sim, p);
     updateRelics(sim, p);

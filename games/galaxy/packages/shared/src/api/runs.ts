@@ -54,8 +54,11 @@ export const finishRunRequestSchema = z
     kills: count(10_000_000),
     bossKills: count(999),
     level: z.number().int().min(1).max(999),
-    /** Coins, star dust and components (SIM 1.7.0; absent before) picked up in each layer (length = depth). */
-    loot: z.array(z.object({ coins: count(10_000_000), dust: count(10_000_000), components: count(1_000_000).optional() }).strict()).min(1).max(999),
+    /**
+     * Coins, star dust and components (SIM 1.7.0; absent before) picked up in each layer (length = depth), and the
+     * abandoned satellites' signals (SIM 1.10.0; absent before).
+     */
+    loot: z.array(z.object({ coins: count(10_000_000), dust: count(10_000_000), components: count(1_000_000).optional(), signals: count(3).optional() }).strict()).min(1).max(999),
     /** The simulation's final state hash. */
     hash: z.string().regex(/^[0-9a-f]{16}$/),
     /** The recorded inputs (packages/sim encodeLog) in base64. */
@@ -198,7 +201,7 @@ export interface RunResult {
   kills: number;
   level: number;
   /** `material`: raw material for the station's refinery (M4a). */
-  payout: { coins: number; dust: number; signals: number; material: number; components?: number };
+  payout: { coins: number; dust: number; signals: number; material: number; components?: number; satellites?: number };
   /**
    * `boosts`: the global multipliers that paid this run (M6d-5), empty when none ran at its finish; absent from results
    * kept before M6d-5 (a resent finish answers what was stored).
