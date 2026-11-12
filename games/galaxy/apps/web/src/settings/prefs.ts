@@ -1,4 +1,4 @@
-import { SETTINGS_COLOR_VISIONS, SETTINGS_MOTIONS } from '@galaxy/shared';
+import { type MusicStyleChoice, SETTINGS_COLOR_VISIONS, SETTINGS_MOTIONS, SETTINGS_MUSIC_STYLES } from '@galaxy/shared';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { CSS_TOKENS, cssTokens } from '../a11y/color-vision';
@@ -23,9 +23,11 @@ export interface Prefs {
   colorVision: ColorVision;
   /** The highest «Notas de versión» opened (`1.4`), or none yet. */
   notesSeen: string | null;
+  /** The soundtrack's style (plan «banda sonora»): Ambiente espacial by default. */
+  musicStyle: MusicStyleChoice;
 }
 
-export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null });
+export const DEFAULT_PREFS: Readonly<Prefs> = Object.freeze({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient' });
 const NOTE_VERSION = /^\d{1,3}\.\d{1,3}$/;
 
 const KEY = 'galaxy.prefs';
@@ -41,6 +43,7 @@ function sanitize(raw: unknown): Prefs {
     motion: oneOf(MOTIONS, r['motion'], DEFAULT_PREFS.motion),
     colorVision: oneOf(COLOR_VISIONS, r['colorVision'], DEFAULT_PREFS.colorVision),
     notesSeen: typeof r['notesSeen'] === 'string' && NOTE_VERSION.test(r['notesSeen']) ? r['notesSeen'] : null,
+    musicStyle: oneOf(SETTINGS_MUSIC_STYLES, r['musicStyle'], DEFAULT_PREFS.musicStyle),
   };
 }
 

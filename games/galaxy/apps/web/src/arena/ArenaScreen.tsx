@@ -2,7 +2,8 @@ import { simOptions } from './sim-options';
 import type { RunStart } from '@galaxy/shared';
 import { createSim, encodeLog, hudSnapshot, type HudSnapshot, relicVision, runSummary, type RunSummary, type Sim, type SimEvent, step, toBase64 } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { setIntensity, startMusic } from '../audio/music';
+import { musicStinger, setMusicScene, startMusic } from '../audio/music';
+import { deepLayer, runScene } from '../audio/music/state';
 import { emitTour } from '../tour/bus';
 import { Briefing } from './hud/Briefing';
 import { copy } from '../copy/es';
@@ -84,6 +85,11 @@ export function ArenaScreen({
   const [camera, setCamera] = useState<Camera | null>(null);
   const [size, setSize] = useState({ w: 1280, h: 720 });
   const [paused, setPaused] = useState(false);
+  // The music reads it a few times a second (plan «banda sonora»).
+  const pausedRef = useRef(false);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
   const [manualAim, setAim] = useState(storedAim);
   const aimRef = useRef(manualAim);
   // PERKINS's first line, unless this player has heard it (marked as heard once shown, below).
@@ -177,6 +183,8 @@ export function ArenaScreen({
       const said = announceFor(events, run.content, seenReactions.current);
       if (said) setAnnounce(said);
       for (const e of events) {
+        if (e.t === 'layer') musicStinger('layer');
+        if (e.t === 'extracted') musicStinger('extract');
         if (e.t === 'bossSpawn') {
           const line = copy.arena.radio.bosses[e.boss];
           if (line) say(`boss:${e.boss}`, line);
@@ -203,6 +211,7 @@ export function ArenaScreen({
         if (sim.events.length) onEvents(sim.events);
         if ((sim.status === 'dead' || sim.status === 'extracted') && !ended.current) {
           ended.current = true;
+          if (sim.status === 'dead') musicStinger('death');
           const outcome = sim.status === 'extracted' ? 'extracted' : 'died';
           setEnding(outcome);
           finish(outcome, END_DELAY_MS);
@@ -277,13 +286,14 @@ export function ArenaScreen({
           : null;
         if (line) say(line[0], line[1]);
       }
-      // The music follows the fight (M8a): a boss or little life is the most, the beacon or a deeper layer more.
-      setIntensity(h.boss || h.hp <= h.maxHp * 0.3 ? 3 : h.phase === 'beacon' || h.layer >= 2 ? 2 : 1);
+      // The music follows the run (plan «banda sonora»): the sector's piece, its intensity, the Núcleo's, a choice.
+      const scene = runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), pausedRef.current);
+      if (scene) setMusicScene(scene);
     }, HUD_EVERY_MS);
     startMusic();
     return () => {
       clearInterval(id);
-      setIntensity(0);
+      setMusicScene({ kind: 'menu' });
     };
   }, [sim, say]);
 

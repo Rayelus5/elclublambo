@@ -796,7 +796,7 @@ Todo parámetro del juego vive en **configuración versionada en base de datos**
 ### 17.4 Audio [U]
 
 - Sintetizado con WebAudio y un planificador anticipado.
-- **Música adaptativa** chiptune/synthwave por capas según la intensidad.
+- **Música adaptativa y generativa** (plan «banda sonora», a petición del propietario): 13 composiciones (4 del menú que se turnan, una por bioma de sector, 3 de Núcleo y la de resultados) que cada estilo toca a su manera (Ambiente espacial por defecto; Lo-fi espacial y Synthwave suave), con capas por intensidad, remates y variación con semilla en cada vuelta. Un archivo en `apps/web/src/assets/audio/musica/` sustituye a una pieza (ver su `LEEME.md`).
 - **Efectos del gachapón** que escalan con la rareza.
 - **Sello sonoro:** el clac de la máquina Perkins.
 

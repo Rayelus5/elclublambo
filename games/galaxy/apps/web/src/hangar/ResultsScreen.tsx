@@ -2,6 +2,7 @@ import type { RunResult } from '@galaxy/shared';
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { clockText } from '../arena/hud/Hud';
+import { setMusicScene } from '../audio/music';
 import { copy, fmt } from '../copy/es';
 import { Icon } from '../ui/Icon';
 import { emitTour } from '../tour/bus';
@@ -58,6 +59,11 @@ function Paid({ kind, value }: { kind: 'coins' | 'dust' | 'signal' | 'material' 
 export function ResultsScreen({ result, onAgain, team }: { result: RunResult; onAgain: () => void; team?: ReactNode }) {
   // The tour's first run ends here (polish phase 3).
   useEffect(() => emitTour('run:ended'), []);
+  // The results' own quiet piece (plan «banda sonora»), and the menu's again after.
+  useEffect(() => {
+    setMusicScene({ kind: 'results' });
+    return () => setMusicScene({ kind: 'menu' });
+  }, []);
   const r = result;
   const title = r.outcome === 'extracted' ? copy.results.extracted : r.outcome === 'died' ? copy.results.died : copy.results.abandoned;
   return (

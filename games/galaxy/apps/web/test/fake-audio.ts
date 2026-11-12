@@ -58,6 +58,10 @@ function param(value = 0) {
       moves.push({ kind: 'cancel', value: 0, at });
       return this;
     },
+    cancelAndHoldAtTime(at: number) {
+      moves.push({ kind: 'hold', value: 0, at });
+      return this;
+    },
   };
 }
 
@@ -94,7 +98,7 @@ export class FakeAudioContext {
     return g;
   }
   createBiquadFilter() {
-    return { type: '', frequency: param(350), Q: param(1), connect: (n: unknown) => n };
+    return { type: '', frequency: param(350), Q: param(1), connect: (n: unknown) => n, disconnect() {} };
   }
   createBuffer(channels: number, length: number, rate: number) {
     return new FakeBuffer(channels, length, rate);
@@ -116,6 +120,16 @@ export class FakeAudioContext {
       },
     };
     return src;
+  }
+  /** The soundtrack's effects (plan «banda sonora»): a reverb, an echo and a compressor. */
+  createConvolver() {
+    return { buffer: null as FakeBuffer | null, normalize: true, connect: (n: unknown) => n, disconnect() {} };
+  }
+  createDelay() {
+    return { delayTime: param(0), connect: (n: unknown) => n, disconnect() {} };
+  }
+  createDynamicsCompressor() {
+    return { threshold: param(-24), knee: param(30), ratio: param(12), attack: param(0.003), release: param(0.25), connect: (n: unknown) => n, disconnect() {} };
   }
   decodeAudioData = vi.fn(async (data: ArrayBuffer) => new FakeBuffer(1, Math.max(1, data.byteLength) * 100, 8_000));
   getOutputTimestamp() {

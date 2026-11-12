@@ -185,3 +185,11 @@ test('sin sesión no se piden ni se guardan ajustes en ninguna cuenta', async ()
   await new Promise((r) => setTimeout(r, 50));
   expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/galaxy/api/auth/me']);
 });
+
+// Plan «banda sonora»: the style of the music, in Sonido, Ambiente espacial by default.
+test('Sonido: el estilo de música se elige, con Ambiente espacial por defecto', () => {
+  openSettings('/ajustes?seccion=sonido');
+  const row = screen.getByText(t.musicStyle).closest('.setting') as HTMLElement;
+  expect(within(row).getByRole('combobox')).toHaveTextContent(t.musicStyles.ambient);
+  expect(screen.getByText(t.musicStyleHint)).toBeInTheDocument();
+});

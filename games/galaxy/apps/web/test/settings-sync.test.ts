@@ -203,3 +203,19 @@ test('volver la conexión vuelve a pedir la cuenta una sola vez', async () => {
   expect(deps.load).toHaveBeenCalledTimes(2);
   expect(getPrefs().colorVision).toBe('deutan');
 });
+
+test('el estilo de música viaja con los demás ajustes', async () => {
+  setPrefs({ musicStyle: 'own' });
+  const deps = fake({ settings: null, updatedAt: null });
+  stop = startSync(deps);
+  await settle();
+  await vi.advanceTimersByTimeAsync(800);
+  expect(deps.save.mock.calls[0]![0]).toMatchObject({ musicStyle: 'own' });
+  stop();
+  stop = null;
+  resetPrefs();
+  const other = fake({ settings: { v: 1, musicStyle: 'own' }, updatedAt: null });
+  stop = startSync(other);
+  await settle();
+  expect(getPrefs().musicStyle).toBe('own');
+});

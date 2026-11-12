@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 test('sin nada guardado: escáner pro, movimiento del sistema y visión normal', () => {
-  expect(getPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null });
+  expect(getPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'none', notesSeen: null, musicStyle: 'ambient' });
   expect(DEFAULT_PREFS.scannerPro).toBe(true);
 });
 
@@ -38,12 +38,12 @@ test('se guardan con versión en galaxy.prefs y se leen al volver', () => {
   expect(getPrefs()).toMatchObject({ scannerPro: false, motion: 'reduced' });
   const stored = JSON.parse(localStorage.getItem('galaxy.prefs')!);
   expect(stored.version).toBe(1);
-  expect(readStoredPrefs()).toEqual({ scannerPro: false, motion: 'reduced', colorVision: 'none', notesSeen: null });
+  expect(readStoredPrefs()).toEqual({ scannerPro: false, motion: 'reduced', colorVision: 'none', notesSeen: null, musicStyle: 'ambient' });
 });
 
 test('lo guardado que no vale se cambia por el valor de siempre', () => {
   localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { scannerPro: 'sí', motion: 'rapido', colorVision: 'deutan', notesSeen: 'beta' }, version: 1 }));
-  expect(readStoredPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'deutan', notesSeen: null });
+  expect(readStoredPrefs()).toEqual({ scannerPro: true, motion: 'system', colorVision: 'deutan', notesSeen: null, musicStyle: 'ambient' });
   localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { notesSeen: '1.4' }, version: 1 }));
   expect(readStoredPrefs().notesSeen).toBe('1.4');
   localStorage.setItem('galaxy.prefs', '{roto');
@@ -92,4 +92,12 @@ test('sin localStorage (ventana privada) funciona en memoria', () => {
   });
   expect(() => setPrefs({ motion: 'reduced' })).not.toThrow();
   expect(getPrefs().motion).toBe('reduced');
+});
+
+test('el estilo de música: Ambiente espacial por defecto; uno que no existe vuelve a él', () => {
+  expect(getPrefs().musicStyle).toBe('ambient');
+  setPrefs({ musicStyle: 'own' });
+  expect(readStoredPrefs().musicStyle).toBe('own');
+  localStorage.setItem('galaxy.prefs', JSON.stringify({ state: { musicStyle: 'reguetón' }, version: 1 }));
+  expect(readStoredPrefs().musicStyle).toBe('ambient');
 });
