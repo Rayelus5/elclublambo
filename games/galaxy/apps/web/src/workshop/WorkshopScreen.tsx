@@ -3,7 +3,7 @@ import { type CSSProperties, useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
 import { useChooseProbe, useHangar } from '../api/runs';
-import { spriteDataUrl } from '../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
 import { copy, quirkText } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -73,7 +73,7 @@ function Roster({ view, selected, onSelect }: { view: HangarView; selected: stri
                 onClick={() => onSelect(p.id)}
               >
                 <span className="workshop-pick-art">
-                  <img src={spriteDataUrl(p.skin ?? p.sprite, 3)} alt="" />
+                  <img src={spriteDataUrl(probeDrawing(p.skin, p.sprite), 3)} alt="" />
                   {!p.unlocked ? <Icon name="lock" /> : null}
                 </span>
                 <span className="workshop-pick-text">
@@ -177,7 +177,7 @@ export function WorkshopScreen() {
                   <img
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    src={spriteDataUrl(probe.skin ?? probe.sprite, 12)}
+                    src={spriteDataUrl(probeDrawing(probe.skin, probe.sprite), 12)}
                     alt=""
                   />
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}

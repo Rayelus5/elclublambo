@@ -51,6 +51,8 @@ describe('skins de sondas (plan «skins», parte C)', () => {
     expect(skinParts('skin-sentinel-coral')).toEqual({ probe: 'sentinel', line: 'coral' });
     expect(skinParts('skin-lumen-oro')).toBeNull();
     expect(skinParts('probe-lumen')).toBeNull();
+    // galaxy.cosmetics.value holds 30 characters at most.
+    for (const id of ART_SKINS) expect(id.length, id).toBeLessThanOrEqual(30);
   });
 
   test('una skin sin arte o repetida no vale en la configuración', () => {

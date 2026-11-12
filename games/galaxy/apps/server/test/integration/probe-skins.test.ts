@@ -70,6 +70,17 @@ test('con la skin, la sonda la lleva: el Hangar la enseña, la incursión la gua
   expect(lumenOf((await wear(p.cookie, 'lumen', null)).json() as HangarView).skin).toBeNull();
 });
 
+test('una skin que ya no es suya no vuela aunque siga apuntada en la sonda', async () => {
+  const p = await lumenPlayer();
+  await grantCosmetics(ctx.db, p.id, { skin: 'skin-lumen-coral' });
+  expect((await wear(p.cookie, 'lumen', 'skin-lumen-coral')).statusCode).toBe(200);
+  // Taken away behind the API's back (as a refund racing the choice could leave it): the row still names it.
+  await ctx.db.deleteFrom('galaxy.cosmetics').where('account_id', '=', p.id).where('kind', '=', 'skin').execute();
+  expect(lumenOf(await hangar(p.cookie)).skin).toBeNull();
+  const start = await post(ctx.app, '/galaxy/api/runs', { sector: 'outer-nebula', probe: 'lumen', simVersion: SIM_VERSION }, { cookie: p.cookie, headers: { 'idempotency-key': randomUUID() } });
+  expect((start.json() as RunStart).skin).toBeNull();
+});
+
 test('si la skin se retira (una devolución), la sonda vuelve a su dibujo', async () => {
   const p = await lumenPlayer();
   await grantCosmetics(ctx.db, p.id, { skin: 'skin-lumen-chatarra' });
@@ -85,6 +96,7 @@ test(`la skin Chatarra de una sonda llega con ${SCRAP_SKIN_RUNS} incursiones con
   await flown(p.id, 'lumen', 1);
   expect(lumenOf(await hangar(p.cookie))).toMatchObject({ runs: SCRAP_SKIN_RUNS, skins: ['skin-lumen-chatarra'] });
   // Given once: reading the Hangar again changes nothing.
+  expect(lumenOf(await hangar(p.cookie)).skins).toEqual(['skin-lumen-chatarra']);
   const rows = await ctx.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', p.id).where('kind', '=', 'skin').execute();
   expect(rows).toHaveLength(1);
 });

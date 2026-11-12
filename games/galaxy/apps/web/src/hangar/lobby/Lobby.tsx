@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router';
 import { useGacha } from '../../api/economy';
 import { useRooms } from '../../api/rooms';
 import { BIOME_LOOK } from '../../arena/stage/biomes';
+import { probeDrawing } from '../../arena/sprites';
 import { useMe } from '../../auth/useMe';
 import { useGalaxyImage } from '../../cards/useGalaxyImage';
 import { copy } from '../../copy/es';
@@ -56,7 +57,7 @@ export function Lobby({ view, onLaunch, launching, error, coached }: { view: Han
   const fauna = sector?.fauna.map((f) => f.sprite).join(',') ?? '';
   const probes = view.probes
     .filter((p) => p.unlocked)
-    .map((p) => p.skin ?? p.sprite)
+    .map((p) => probeDrawing(p.skin, p.sprite))
     .join(',');
   const cast = useMemo(() => ({ look, fauna: fauna ? fauna.split(',') : [], probes: probes ? probes.split(',') : [] }), [look, fauna, probes]);
   const seed = view.loadout.find((g) => g !== null)?.seed ?? '2026110901';

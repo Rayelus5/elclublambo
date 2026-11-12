@@ -13,14 +13,23 @@ import { hangarView, probeGrants, runStats, type RunsDeps, testedProbe } from '.
 
 export type ProbeLevels = Record<string, { level: number; variant: string | null; skin: string | null }>;
 
-export async function probeLevels(db: Kysely<DB>, accountId: string): Promise<ProbeLevels> {
-  const rows = await db.selectFrom('galaxy.probe_levels').select(['probe', 'level', 'variant', 'skin']).where('account_id', '=', accountId).execute();
-  return Object.fromEntries(rows.map((r) => [r.probe, { level: r.level, variant: r.variant, skin: r.skin }]));
+/** A probe's row with its skin only while the account still has it (a skin taken away never flies again). */
+function levelsWithSkin(db: Kysely<DB>, accountId: string) {
+  return db
+    .selectFrom('galaxy.probe_levels as pl')
+    .leftJoin('galaxy.cosmetics as c', (j) => j.onRef('c.account_id', '=', 'pl.account_id').on('c.kind', '=', 'skin').onRef('c.value', '=', 'pl.skin'))
+    .select(['pl.probe', 'pl.level', 'pl.variant', 'c.value as skin'])
+    .where('pl.account_id', '=', accountId);
 }
 
-/** The skin a probe of the account wears (null: its base drawing). */
+export async function probeLevels(db: Kysely<DB>, accountId: string): Promise<ProbeLevels> {
+  const rows = await levelsWithSkin(db, accountId).execute();
+  return Object.fromEntries(rows.map((r) => [r.probe, { level: r.level, variant: r.variant, skin: r.skin ?? null }]));
+}
+
+/** The skin a probe of the account wears and still has (null: its base drawing). */
 export async function wornSkin(db: Kysely<DB>, accountId: string, probe: string): Promise<string | null> {
-  const row = await db.selectFrom('galaxy.probe_levels').select('skin').where('account_id', '=', accountId).where('probe', '=', probe).executeTakeFirst();
+  const row = await levelsWithSkin(db, accountId).where('pl.probe', '=', probe).executeTakeFirst();
   return row?.skin ?? null;
 }
 
@@ -60,18 +69,21 @@ export async function levelUpProbe(deps: RunsDeps, trx: Kysely<DB>, accountId: s
 export async function chooseSkin(deps: RunsDeps, accountId: string, probe: string, skin: string | null): Promise<HangarView> {
   const [content, cfg, cosmetics] = await Promise.all([deps.config.get('content'), deps.config.get('probes'), deps.config.get('cosmetics')]);
   await requireOwned(deps.db, accountId, probe, content, cfg);
-  if (skin !== null) {
-    if (skinParts(skin)?.probe !== probe) throw new HttpError(400, 'invalid_input');
-    const item = cosmetics.skins.find((k) => k.id === skin);
-    const owned = await deps.db.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', 'skin').where('value', '=', skin).executeTakeFirst();
-    if (!item?.enabled || !owned) throw new HttpError(409, 'cosmetic_locked');
-  }
+  if (skin !== null && skinParts(skin)?.probe !== probe) throw new HttpError(400, 'invalid_input');
+  if (skin !== null && !cosmetics.skins.find((k) => k.id === skin)?.enabled) throw new HttpError(409, 'cosmetic_locked');
   const now = deps.now();
-  await deps.db
-    .insertInto('galaxy.probe_levels')
-    .values({ account_id: accountId, probe, skin, updated_at: now })
-    .onConflict((oc) => oc.columns(['account_id', 'probe']).doUpdateSet({ skin, updated_at: now }))
-    .execute();
+  await deps.db.transaction().execute(async (trx) => {
+    // The skin row stays locked until the probe wears it: a refund taking it away waits, then takes it off.
+    if (skin !== null) {
+      const owned = await trx.selectFrom('galaxy.cosmetics').select('value').where('account_id', '=', accountId).where('kind', '=', 'skin').where('value', '=', skin).forShare().executeTakeFirst();
+      if (!owned) throw new HttpError(409, 'cosmetic_locked');
+    }
+    await trx
+      .insertInto('galaxy.probe_levels')
+      .values({ account_id: accountId, probe, skin, updated_at: now })
+      .onConflict((oc) => oc.columns(['account_id', 'probe']).doUpdateSet({ skin, updated_at: now }))
+      .execute();
+  });
   return hangarView(deps, accountId);
 }
 

@@ -56,6 +56,11 @@ export function skinSprites(ids: readonly (string | null | undefined)[]): Record
   return out;
 }
 
+/** What a probe is drawn as outside the arena: its skin when it has art (a retired or newer id falls back), or its own. */
+export function probeDrawing(skin: string | null | undefined, sprite: string): string {
+  return skin && SKIN_ART[skin] ? skin : sprite;
+}
+
 /** How far behind its centre a probe drawing's nozzle is (px), where its thruster's flame comes out. */
 export function probeNozzle(sprite: string): number {
   return PROBE_NOZZLE[sprite] ?? 8;

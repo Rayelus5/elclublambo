@@ -451,8 +451,8 @@ test('cada sonda se dibuja con su skin: Lumen de coral, Bastión de chatarra y P
     for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i]! - rgb[0]) < 24 && Math.abs(data[i + 1]! - rgb[1]) < 24 && Math.abs(data[i + 2]! - rgb[2]) < 24) return true;
     return false;
   };
-  // Coral pink at the centre (my Lumen), rust to its right (the Bastión).
-  expect(has(560, 720, [0xc4, 0x42, 0x6a])).toBe(true);
-  expect(has(720, 900, [0x8a, 0x44, 0x22])).toBe(true);
+  // The coral skin's deep-sea hull at the centre (my Lumen), the scrap one's rust to its right (the Bastión).
+  expect(has(560, 720, [0x13, 0x86, 0x7f])).toBe(true);
+  expect(has(720, 900, [0xa0, 0x4a, 0x22])).toBe(true);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins.png', element: canvas });
 }, 90_000);

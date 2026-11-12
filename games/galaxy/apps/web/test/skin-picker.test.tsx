@@ -58,3 +58,17 @@ test('sin skins de la sonda, el lobby no enseña selector', async () => {
   expect(await screen.findByRole('heading', { name: 'Lumen' })).toBeInTheDocument();
   expect(screen.queryByRole('radiogroup', { name: copy.lobby.skins })).not.toBeInTheDocument();
 });
+
+test('si el servidor no deja ponerla, el lobby lo dice y vuelve a la que llevaba', async () => {
+  mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, withSkins(null)),
+    'GET /galaxy/api/profile/cosmetics': () => jsonResponse(200, cosmetics),
+    'PUT /galaxy/api/hangar/probes/lumen/skin': () => jsonResponse(409, { error: 'cosmetic_locked' }),
+  });
+  const user = userEvent.setup();
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  const group = await screen.findByRole('radiogroup', { name: copy.lobby.skins });
+  await user.click(within(group).getByRole('radio', { name: 'Lumen de coral' }));
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+  expect(within(group).getByRole('radio', { name: copy.lobby.skinBase })).toHaveAttribute('aria-checked', 'true');
+});
