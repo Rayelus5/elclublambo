@@ -50,6 +50,7 @@ import { Verificar } from './routes/Verificar';
 import { AuthLayout } from './shell/AuthLayout';
 import { MissionsScreen } from './missions/MissionsScreen';
 import { CatalogScreen } from './collection/CatalogScreen';
+import { RevealRehearsal } from './admin/RevealRehearsal';
 import { CodexScreen } from './codex/CodexScreen';
 import { GuideScreen } from './hub/GuideScreen';
 import { SeasonScreen } from './season/SeasonScreen';
@@ -156,6 +157,7 @@ export function App() {
             <Route path="partidas" element={<RunsScreen />} />
             <Route path="partidas/:id" element={<ReplayScreen />} />
             <Route path="tienda" element={<ShopAdminScreen />} />
+            <Route path="escaner-ensayo" element={<RevealRehearsal />} />
           </Route>
           <Route path="moderacion" element={<ModerationLayout />}>
             <Route index element={<Reports />} />

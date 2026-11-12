@@ -99,9 +99,13 @@ function tick(): void {
   }
 }
 
+/** The pro scanner's own music is playing (plan «escáner pro», part B): the game's loop waits for it to end. */
+let held = false;
+let resumeAfterHold = false;
+
 /** Starts the music (after a gesture) or keeps it going; harmless to call again. */
 export function startMusic(): void {
-  if (timer || getSettings().music <= 0) return;
+  if (held || timer || getSettings().music <= 0) return;
   const b = audioBus();
   if (!b) return;
   level = b.ctx.createGain();
@@ -123,6 +127,23 @@ export function stopMusic(): void {
   if (b && l) {
     l.gain.setTargetAtTime(0, b.ctx.currentTime, 0.3);
     setTimeout(() => l.disconnect(), 1500);
+  }
+}
+
+/**
+ * Silences the game's loop while another music plays (the pro scanner's), and brings it back after if it was playing.
+ * Unlike duckMusic it stops it, so the two never sound together.
+ */
+export function holdMusic(on: boolean): void {
+  if (on === held) return;
+  if (on) {
+    resumeAfterHold = timer !== null;
+    stopMusic();
+    held = true;
+  } else {
+    held = false;
+    if (resumeAfterHold) startMusic();
+    resumeAfterHold = false;
   }
 }
 

@@ -5,7 +5,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, expect, test } from 'vitest';
 import { page } from 'vitest/browser';
 import { copy } from '../../src/copy/es';
-import { RevealStage } from '../../src/scanner/RevealStage';
+import { ClassicStage as RevealStage } from '../../src/scanner/ClassicStage';
 import '../../src/styles/app.css';
 
 // The scan's reveal in a real Chromium: the featured galaxy's sign, the card's beams and the burst animate over the

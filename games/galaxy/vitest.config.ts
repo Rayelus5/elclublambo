@@ -54,7 +54,7 @@ export default defineConfig({
         resolve: { alias: webReact, dedupe: ['react', 'react-dom'] },
         // three.js is only imported dynamically (the inspector): declare it so Vite does not reload the page mid-test.
         // React Query and React Router are pre-bundled with the same React as the components (one copy of React).
-        optimizeDeps: { include: ['three', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
+        optimizeDeps: { include: ['three', 'gsap', 'pixi.js', 'react', 'react-dom', 'react-dom/client', '@tanstack/react-query', 'react-router'] },
         test: {
           name: 'browser',
           include: ['packages/*/test/browser/**/*.browser.test.ts', 'apps/web/test/browser/**/*.browser.test.ts'],

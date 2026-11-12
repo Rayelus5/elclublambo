@@ -99,12 +99,18 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   );
 }
 
-/** The game's cursor: on or the system's, its size and its colour, applied at once. */
-export function DisplaySection() {
+/** The pro scanner (home menu only) and the game's cursor: on or the system's, its size and its colour, at once. */
+export function DisplaySection({ inRun = false }: { inRun?: boolean }) {
   const [cursor, setCursor] = useState(readCursor);
+  const scannerPro = usePrefs((p) => p.scannerPro);
   const change = (next: Parameters<typeof saveCursor>[0]) => setCursor(saveCursor(next));
   return (
     <>
+      {inRun ? null : (
+        <SettingRow label={t.scannerPro} hint={t.scannerProHint}>
+          {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={scannerPro} onChange={(on) => setPrefs({ scannerPro: on })} />}
+        </SettingRow>
+      )}
       <SettingRow label={t.cursorOn} hint={t.cursorOnHint}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={cursor.on} onChange={(on) => change({ on })} />}
       </SettingRow>

@@ -211,6 +211,57 @@ El momento orquestado del juego (GDD §9). Antes de pagar se ve todo: probabilid
 - **Sonido:** sintetizado con WebAudio (sin archivos, la CSP no cambia), siempre después de un clic del jugador.
 - **Fusión:** la galaxia nueva de una fusión usa este mismo revelado.
 
+
+### Presentación pro del escáner
+
+Plan «escáner pro», parte B. Activada por defecto [U, 2026-11-12]; se apaga en Ajustes → Pantalla.
+
+**Cuándo sale la clásica:** sin WebGL2, en la fusión, mientras el tutorial guiado está en el escáner, o con el ajuste apagado.
+
+**Cómo está hecha:**
+- **Línea de tiempo:** una sola de GSAP, en pausa, construida a partir de un guion de datos (`scanner/pro/script.ts`, `GUION`).
+- **Rig:** la línea de tiempo no mueve elementos. Mueve un «rig» de números, que leen en cada fotograma la escena 3D (three.js, en su propio trozo) y las capas del DOM (variables CSS).
+- **Reloj:** el reloj de audio lleva el tiempo, así imagen y sonido no se separan.
+
+**Fases:**
+1. **Cierre:** al pulsar, dos bandas negras cierran la pantalla, de arriba abajo y de abajo arriba, hasta el negro absoluto. Ocurre mientras la petición viaja.
+2. **Ignición:** nace un punto de luz con un destello anamórfico y las bandas se abren a formato cine (12 % arriba y abajo).
+3. **Salto:** viaje warp entre estrellas que se estiran. Desde rara, la estela toma el color de la rareza máxima.
+4. **Ascenso:** a veces, una épica finge acabar y una legendaria rompe de violeta a dorado, con un solo destello.
+5. **Caída:** una estrella fugaz, o diez en lluvia, la primera del color máximo.
+6. **Impacto:** un parón, dos ondas expansivas, un resplandor y chispas.
+7. **Las cartas:**
+   - **Una tirada:** la carta sube boca abajo y gira. En la banda inferior, el nombre se escribe letra a letra y la rareza se estampa con sus rombos (1–5).
+   - **Diez:** las cartas caen boca abajo en una rejilla de 5×2, de menor a mayor rareza. Giran en cascada, con el canto encendido en su color justo antes. Épicas y legendarias pasan a primer plano, la legendaria con rayos dorados.
+   - **«¡Destacada!»** bajo la banda superior y **«Fenómeno detectado»** dentro de ella.
+8. **Resumen:** el mismo de la clásica, sobre el cielo apagado.
+
+**Durante la cinemática:**
+- **Controles:**
+  - «Seguir» (clic, Espacio) va a la siguiente parada y nunca se salta una revelación;
+  - «Saltar» y Escape van al resumen;
+  - los dos se ignoran 400 ms al empezar y 250 ms tras cada salto.
+- **Una tirada** espera en su carta («Pulsa para seguir»).
+- **Imagen que no llega:** la carta espera hasta 4 s antes de girar.
+
+**Sonido:**
+- cada momento tiene su sonido sintetizado;
+- se puede cambiar por un archivo en `src/assets/audio/escaner/` (ver su `LEEME.md`);
+- la música son cuatro capas de un mismo bucle, que entran según la rareza más alta vista;
+- la música del juego espera mientras tanto.
+
+**Movimiento reducido:**
+- sin salto, ascenso, temblores, destellos ni parones;
+- las cartas aparecen y se descubren con fundidos.
+
+**Fotosensibilidad** (comprobada por test): como máximo 2 destellos por segundo, con opacidad de 0,6 o menos y ninguno rojo.
+
+**Rendimiento:**
+- un contexto WebGL que se devuelve al cerrar;
+- resolución de 1,5 como mucho, que baja a la versión ligera si los primeros fotogramas pasan de 20 ms.
+
+**Ensayo** (`/admin/escaner-ensayo`): la reproduce con tiradas inventadas, para dirigirla. Detalle en el plan.
+
 ## 8 ter. Hangar y resultados
 
 Antes y después de cada incursión (GDD §5.1, §8.4, §11.3 bis). Consulta de ui-ux-pro-max: indicador de carga accesible en la acción principal, números con formato español, tablas estrechas y conteos que desaceleran al llegar.

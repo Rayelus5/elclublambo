@@ -47,6 +47,9 @@ export function AdminLayout() {
                 <li>
                   <NavLink to="/admin/tienda">{t.sections.shop}</NavLink>
                 </li>
+                <li>
+                  <NavLink to="/admin/escaner-ensayo">{t.sections.rehearsal}</NavLink>
+                </li>
               </>
             ) : null}
             <li>

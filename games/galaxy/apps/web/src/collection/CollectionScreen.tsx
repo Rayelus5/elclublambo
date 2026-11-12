@@ -6,7 +6,7 @@ import { GalaxyCard } from '../cards/GalaxyCard';
 import { useCatalogSummary } from '../api/catalog';
 import { copy } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
-import { RevealStage } from '../scanner/RevealStage';
+import { ClassicStage } from '../scanner/ClassicStage';
 import { Icon } from '../ui/Icon';
 import { Filters, readFilters, writeFilters, type CollectionFilters } from './Filters';
 import { AutoFusionDialog } from './AutoFusionDialog';
@@ -213,7 +213,7 @@ export function CollectionScreen() {
           }}
         />
       ) : null}
-      {revealed ? <RevealStage pulls={revealed} title={copy.collection.revealTitle} onClose={() => setRevealed(null)} /> : null}
+      {revealed ? <ClassicStage pulls={revealed} title={copy.collection.revealTitle} onClose={() => setRevealed(null)} /> : null}
     </div>
   );
 }
