@@ -7,6 +7,22 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-6-banda-sonora',
+    version: '1.6',
+    date: '2026-11-12',
+    title: 'Banda sonora nueva',
+    summary: 'La música deja de ser un bucle corto: piezas tranquilas para el menú, cada sector con la suya y Núcleos con música épica',
+    items: [
+      { kind: 'nuevo', text: 'Cuatro piezas tranquilas para el menú que se turnan sin repetirse' },
+      { kind: 'nuevo', text: 'Cada sector tiene su propia música, que crece de la calma al combate y al peligro según la partida' },
+      { kind: 'nuevo', text: 'Los Núcleos entran con su música, con coros, timbales y metales, y el Núcleo profundo tiene la suya' },
+      { kind: 'nuevo', text: 'Remates musicales al pasar de capa, al extraer y al caer, y una pieza tranquila en los resultados' },
+      { kind: 'nuevo', text: 'Ajustes › Sonido › Estilo de música' },
+      { kind: 'mejora', text: 'Las partidas en grupo también tienen música' },
+      { kind: 'mejora', text: 'La música baja al elegir mejora y en la pausa' },
+    ],
+  },
+  {
     id: 'v1-5-fusiones-de-cine',
     version: '1.5',
     date: '2026-11-12',

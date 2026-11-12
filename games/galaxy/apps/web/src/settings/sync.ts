@@ -54,6 +54,7 @@ export function snapshot(): AccountSettings {
     cursorColor: c.color,
     manualAim: manualAim(),
     notesSeen: p.notesSeen,
+    musicStyle: p.musicStyle,
   };
 }
 
@@ -63,6 +64,7 @@ export function applyRemote(s: AccountSettings): void {
   if (s.scannerPro !== undefined) prefs.scannerPro = s.scannerPro;
   if (s.motion !== undefined) prefs.motion = s.motion;
   if (s.colorVision !== undefined) prefs.colorVision = s.colorVision;
+  if (s.musicStyle !== undefined) prefs.musicStyle = s.musicStyle;
   // Seen only moves forward: an older value from the account never brings «Nuevo» back.
   if (s.notesSeen !== undefined) {
     const later = laterNote(getPrefs().notesSeen, s.notesSeen);

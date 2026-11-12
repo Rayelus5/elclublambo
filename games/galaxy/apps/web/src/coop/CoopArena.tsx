@@ -5,6 +5,8 @@ import { AddFriendButton } from '../social/AddFriendButton';
 import { hudInsets } from './hud-insets';
 import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
+import { musicStinger, setMusicScene, startMusic } from '../audio/music';
+import { deepLayer, runScene } from '../audio/music/state';
 import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
 import { Hud } from '../arena/hud/Hud';
 import { PauseMenu } from '../arena/hud/PauseMenu';
@@ -319,6 +321,13 @@ function CoopWorld({
     const onEvents = (events: readonly SimEvent[]) => {
       stageRef.current?.feed(events, sim.tick);
       playEvents(events, slot);
+      // The music's stingers (plan «banda sonora»): a new layer, the extraction (never for staff watching).
+      if (!viewer) {
+        for (const e of events) {
+          if (e.t === 'layer') musicStinger('layer');
+          else if (e.t === 'extracted') musicStinger('extract');
+        }
+      }
       const said = announceFor(events, start.content, seenReactions.current, slot);
       if (said) setAnnounce(said);
     };
@@ -396,6 +405,8 @@ function CoopWorld({
       const h = hudSnapshot(sim, slot);
       hudRef.current = h;
       setHud(h);
+      // The music follows the run as in solo (plan «banda sonora»; before, a group run had none). Staff watching hear none.
+      if (!viewer) setMusicScene(runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), false));
       watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
@@ -407,8 +418,12 @@ function CoopWorld({
         stageRef.current?.setInsets(hudInsets(canvas.getBoundingClientRect(), { top: at('.hud-top'), team: at('.coop-team'), kit: at('.hud-kit'), cards: at('.coop-cards') }));
       }
     }, HUD_EVERY_MS);
-    return () => clearInterval(id);
-  }, [sim, slot, watch]);
+    if (!viewer) startMusic();
+    return () => {
+      clearInterval(id);
+      if (!viewer) setMusicScene({ kind: 'menu' });
+    };
+  }, [sim, slot, watch, viewer]);
   useEffect(() => {
     useLive.getState().setRun({ layer: hud.layer });
   }, [hud.layer]);

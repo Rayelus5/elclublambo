@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router';
 import { useFriends, useSocialPrefs } from '../api/friends';
 import { useTutorialUpdate } from '../api/tutorial';
 import { type AudioSettings, getSettings, onSettings, setSettings } from '../audio/mixer';
-import { startMusic } from '../audio/music';
+import { musicChoices, startMusic } from '../audio/music';
+import type { MusicChoice } from '../audio/music/files';
 import { resetRadio } from '../arena/settings';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -67,6 +68,26 @@ function NoticesRow() {
 }
 
 /** Sound; `inRun` leaves out the account's notices mode, so the pause fits a 1280×720 screen. */
+/** The soundtrack's style (plan «banda sonora»): it changes from the next bar, everywhere. */
+function MusicStyleRow({ off }: { off: boolean }) {
+  const style = usePrefs((p) => p.musicStyle);
+  const choices = musicChoices();
+  const value: MusicChoice = (choices as string[]).includes(style) ? (style as MusicChoice) : 'ambient';
+  return (
+    <SettingRow label={t.musicStyle} hint={t.musicStyleHint} off={off}>
+      {(ids) => (
+        <Select
+          aria-labelledby={ids.label}
+          aria-describedby={ids.hint}
+          value={value}
+          options={choices.map((c) => ({ value: c, label: t.musicStyles[c] }))}
+          onChange={(musicStyle) => setPrefs({ musicStyle })}
+        />
+      )}
+    </SettingRow>
+  );
+}
+
 export function SoundSection({ inRun = false }: { inRun?: boolean }) {
   const [audio, setAudio] = useState<AudioSettings>(getSettings);
   useEffect(() => onSettings(setAudio), []);
@@ -81,6 +102,7 @@ export function SoundSection({ inRun = false }: { inRun?: boolean }) {
           if (music > 0) startMusic();
         }}
       />
+      <MusicStyleRow off={audio.muted || audio.music <= 0} />
       <Volume label={t.effects} value={audio.sfx} off={audio.muted} onChange={(v) => setSettings({ sfx: v })} />
       <SettingRow label={t.uiSounds} hint={t.uiSoundsHint} off={audio.muted}>
         {(ids) => <Switch aria-labelledby={ids.label} aria-describedby={ids.hint} checked={audio.ui} disabled={audio.muted} onChange={(ui) => setSettings({ ui })} />}

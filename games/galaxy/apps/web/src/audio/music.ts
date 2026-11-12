@@ -1,119 +1,79 @@
+import { getPrefs, subscribePrefs } from '../settings/prefs';
+import { pickFormat } from './bank';
 import { audioBus, getSettings, onSettings } from './mixer';
+import { createEngine, type EngineState, type MusicEngine, type MusicScene, type StingerKind } from './music/engine';
+import { type MusicChoice, musicLibrary, type MusicLibrary } from './music/files';
+import { MUSIC_STYLES } from './music/styles';
 
-// Adaptive music (GDD §17.4; M8a): a synthwave loop in A minor (Am, F, C, G; 104 bpm) built from layers that join as
-// the intensity rises: a pad always, then the bass, then an arpeggio, then the drums. A lookahead scheduler (a timer
-// every 25 ms queues the notes of the next 120 ms on the audio clock), so the timing never depends on the frame rate.
-// Intensity 0 is the hub's calm; the arena sets 1–3 from what happens on screen.
+// The game's music (GDD §17.4; plan «banda sonora», part A): the generative soundtrack (audio/music/) behind a small
+// facade the screens use. The menu plays its playlist; a run sets its scene several times a second (sector, intensity,
+// Núcleo, a level-up choice, the pause); the end of a run plays its stinger and the results' piece. The style comes from
+// Ajustes (prefs.musicStyle, on the account), and «Mi música» from the owner's files when there are any. The pro
+// scanner's own music holds the game's while it plays.
 
-const BPM = 104;
-const STEP = 60 / BPM / 4; // a sixteenth
-const LOOKAHEAD = 0.12;
-const TICK_MS = 25;
-// Root of each bar (Hz) and its chord (semitones over the root).
-const BARS: { root: number; chord: number[] }[] = [
-  { root: 110, chord: [0, 3, 7] }, // Am
-  { root: 87.31, chord: [0, 4, 7] }, // F
-  { root: 130.81, chord: [0, 4, 7] }, // C
-  { root: 98, chord: [0, 4, 7] }, // G
-];
-const ARP = [0, 2, 1, 2, 0, 2, 1, 3];
-const semis = (hz: number, n: number) => hz * 2 ** (n / 12);
+export type { MusicScene, StingerKind } from './music/engine';
 
+const FOUND = import.meta.glob('../assets/audio/musica/**/*.{ogg,m4a}', { query: '?no-inline', import: 'default', eager: true }) as Record<string, string>;
+
+function canPlay(type: string): string {
+  try {
+    return document.createElement('audio').canPlayType(type);
+  } catch {
+    return '';
+  }
+}
+
+let library: MusicLibrary | null = null;
+/** The owner's music files there are (built in, so known before anything plays). */
+export function musicFiles(): MusicLibrary {
+  library ??= musicLibrary(FOUND, pickFormat(canPlay));
+  return library;
+}
+
+/** The styles a player can pick: the generated ones, and «Mi música» when it has files. */
+export function musicChoices(): MusicChoice[] {
+  return musicFiles().hasOwn ? [...MUSIC_STYLES, 'own'] : [...MUSIC_STYLES];
+}
+
+/** The chosen style, or the default one where the choice is not available (a style still to come, no own files). */
+function choiceNow(): MusicChoice {
+  const c = getPrefs().musicStyle as MusicChoice;
+  return musicChoices().includes(c) ? c : 'ambient';
+}
+
+let engine: MusicEngine | null = null;
 let timer: ReturnType<typeof setInterval> | null = null;
-let step = 0;
-let nextAt = 0;
-let intensity = 0;
-let level: GainNode | null = null;
-let noise: AudioBuffer | null = null;
+let scene: MusicScene = { kind: 'menu' };
 
-function voice(ctx: AudioContext, out: AudioNode, type: OscillatorType, hz: number, t: number, dur: number, vol: number, attack = 0.01): void {
-  const o = ctx.createOscillator();
-  o.type = type;
-  o.frequency.setValueAtTime(hz, t);
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.0001, t);
-  g.gain.linearRampToValueAtTime(vol, t + attack);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(out);
-  o.start(t);
-  o.stop(t + dur + 0.05);
-}
-
-function hit(ctx: AudioContext, out: AudioNode, t: number, kind: 'kick' | 'hat' | 'snare'): void {
-  if (kind === 'kick') {
-    const o = ctx.createOscillator();
-    o.frequency.setValueAtTime(140, t);
-    o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
-    o.connect(g).connect(out);
-    o.start(t);
-    o.stop(t + 0.2);
-    return;
-  }
-  noise ??= (() => {
-    const b = ctx.createBuffer(1, ctx.sampleRate * 0.2, ctx.sampleRate);
-    const d = b.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    return b;
-  })();
-  const src = ctx.createBufferSource();
-  src.buffer = noise;
-  const f = ctx.createBiquadFilter();
-  f.type = kind === 'hat' ? 'highpass' : 'bandpass';
-  f.frequency.value = kind === 'hat' ? 7000 : 1800;
-  const g = ctx.createGain();
-  const dur = kind === 'hat' ? 0.04 : 0.14;
-  g.gain.setValueAtTime(kind === 'hat' ? 0.12 : 0.25, t);
-  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  src.connect(f).connect(g).connect(out);
-  src.start(t);
-  src.stop(t + dur + 0.02);
-}
-
-function schedule(ctx: AudioContext, out: AudioNode, s: number, t: number): void {
-  const bar = BARS[Math.floor(s / 16) % BARS.length]!;
-  const inBar = s % 16;
-  // Pad: the chord at the start of each bar, long and soft.
-  if (inBar === 0) for (const n of bar.chord) voice(ctx, out, 'triangle', semis(bar.root * 2, n), t, STEP * 16, 0.05, 0.4);
-  // Bass: eighths on the root, an octave jump on the off-beat.
-  if (intensity >= 1 && inBar % 2 === 0) voice(ctx, out, 'sawtooth', inBar % 4 === 2 ? bar.root : bar.root / 2, t, STEP * 1.6, 0.07);
-  // Arpeggio: sixteenths over the chord, two octaves up.
-  if (intensity >= 2) voice(ctx, out, 'square', semis(bar.root * 4, bar.chord[ARP[inBar % 8]! % 3]! + (ARP[inBar % 8] === 3 ? 12 : 0)), t, STEP * 0.9, 0.025);
-  // Drums: four on the floor, hats on the off-beats, a snare on two and four.
-  if (intensity >= 3) {
-    if (inBar % 4 === 0) hit(ctx, out, t, 'kick');
-    if (inBar % 4 === 2) hit(ctx, out, t, 'hat');
-    if (inBar === 4 || inBar === 12) hit(ctx, out, t, 'snare');
+function sessionSeed(): number {
+  try {
+    return crypto.getRandomValues(new Uint32Array(1))[0]!;
+  } catch {
+    return 1;
   }
 }
 
-function tick(): void {
+function ensure(): MusicEngine | null {
+  if (engine) return engine;
   const b = audioBus();
-  if (!b || !level) return;
-  while (nextAt < b.ctx.currentTime + LOOKAHEAD) {
-    schedule(b.ctx, level, step, nextAt);
-    step++;
-    nextAt += STEP;
-  }
+  if (!b) return null;
+  engine = createEngine(b.ctx, b.music, { seed: sessionSeed(), choice: choiceNow(), library: musicFiles() });
+  return engine;
 }
 
-/** The pro scanner's own music is playing (plan «escáner pro», part B): the game's loop waits for it to end. */
+/** The pro scanner's own music is playing (plan «escáner pro», part B): the game's waits for it to end. */
 let held = false;
 let resumeAfterHold = false;
 
 /** Starts the music (after a gesture) or keeps it going; harmless to call again. */
 export function startMusic(): void {
   if (held || timer || getSettings().music <= 0) return;
-  const b = audioBus();
-  if (!b) return;
-  level = b.ctx.createGain();
-  level.gain.value = 0;
-  level.gain.setTargetAtTime(1, b.ctx.currentTime, 0.6);
-  level.connect(b.music);
-  nextAt = b.ctx.currentTime + 0.05;
-  timer = setInterval(tick, TICK_MS);
+  const e = ensure();
+  if (!e) return;
+  e.setScene(scene);
+  e.start();
+  e.tick();
+  timer = setInterval(() => e.tick(), 25);
 }
 
 /** Fades the music out and stops scheduling. */
@@ -121,17 +81,11 @@ export function stopMusic(): void {
   if (!timer) return;
   clearInterval(timer);
   timer = null;
-  const b = audioBus();
-  const l = level;
-  level = null;
-  if (b && l) {
-    l.gain.setTargetAtTime(0, b.ctx.currentTime, 0.3);
-    setTimeout(() => l.disconnect(), 1500);
-  }
+  engine?.stop();
 }
 
 /**
- * Silences the game's loop while another music plays (the pro scanner's), and brings it back after if it was playing.
+ * Silences the game's music while another plays (the pro scanner's), and brings it back after if it was playing.
  * Unlike duckMusic it stops it, so the two never sound together.
  */
 export function holdMusic(on: boolean): void {
@@ -147,9 +101,20 @@ export function holdMusic(on: boolean): void {
   }
 }
 
-/** 0 calm (the hub) to 3 (a boss, a swarm, low life): the layers that play. */
-export function setIntensity(n: number): void {
-  intensity = Math.max(0, Math.min(3, Math.round(n)));
+/** What is going on, for the music: the menu, a run (and how it goes), the results. */
+export function setMusicScene(next: MusicScene): void {
+  scene = next;
+  engine?.setScene(next);
+}
+
+/** A short phrase in the piece's key: extraction, death, a new layer. */
+export function musicStinger(kind: StingerKind): void {
+  engine?.stinger(kind);
+}
+
+/** What is playing (the music Ensayo). */
+export function musicState(): EngineState | null {
+  return engine?.state() ?? null;
 }
 
 export function musicPlaying(): boolean {
@@ -160,3 +125,5 @@ export function musicPlaying(): boolean {
 onSettings((s) => {
   if (s.music <= 0 || s.muted) stopMusic();
 });
+// A new style plays from the next bar.
+subscribePrefs(() => engine?.setChoice(choiceNow()));

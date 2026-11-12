@@ -8,6 +8,9 @@ import { z } from 'zod';
 export const SETTINGS_MOTIONS = ['system', 'reduced', 'full'] as const;
 export const SETTINGS_COLOR_VISIONS = ['none', 'protan', 'deutan', 'tritan'] as const;
 export const SETTINGS_CURSOR_SIZES = ['small', 'medium', 'large'] as const;
+/** The soundtrack's styles (plan «banda sonora»), and «Mi música» (the owner's own files). */
+export const SETTINGS_MUSIC_STYLES = ['ambient', 'lofi', 'synthwave', 'own'] as const;
+export type MusicStyleChoice = (typeof SETTINGS_MUSIC_STYLES)[number];
 
 const unit = z.number().min(0).max(1);
 
@@ -24,6 +27,7 @@ export const accountSettingsSchema = z.object({
   cursorSize: z.enum(SETTINGS_CURSOR_SIZES).optional(),
   cursorColor: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
   manualAim: z.boolean().optional(),
+  musicStyle: z.enum(SETTINGS_MUSIC_STYLES).optional(),
   /** The highest release note («Notas de versión») the player has opened, e.g. `1.4`. */
   notesSeen: z.string().regex(/^\d{1,3}\.\d{1,3}$/).nullable().optional(),
 });
