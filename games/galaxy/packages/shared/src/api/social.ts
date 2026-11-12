@@ -91,7 +91,33 @@ export interface Profile {
   /** Nov plan C2: their avatar (null: the drawing from their name) and the galaxy shown as their banner (C4). */
   avatar?: string | null;
   banner?: PublicGalaxy | null;
+  /**
+   * Plan «skins», part D: the probes they show (up to PROBE_SHOWCASE_MAX, in their order) and every probe they have,
+   * each with its level, its skin and its starting weapon (null: the base one). Only what they earned: nothing locked.
+   */
+  probes?: { showcase: ProfileProbe[]; all: ProfileProbe[] };
 }
+
+/** A probe on a profile (plan «skins», part D). */
+export interface ProfileProbe {
+  id: string;
+  level: number;
+  skin: string | null;
+  variant: string | null;
+}
+
+/** How many probes a profile shows in its showcase. */
+export const PROBE_SHOWCASE_MAX = 3;
+/** The showcase a player chooses: up to three of their probes, each once, in order. */
+export const profileProbesSchema = z
+  .object({
+    probes: z
+      .array(z.string().regex(/^[a-z0-9-]{1,32}$/))
+      .max(PROBE_SHOWCASE_MAX)
+      .refine((ids) => new Set(ids).size === ids.length, { message: 'showcase_twice' }),
+  })
+  .strict();
+export type ProfileProbesRequest = z.infer<typeof profileProbesSchema>;
 
 export interface PublicCollectionPage {
   items: PublicGalaxy[];

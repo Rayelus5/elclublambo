@@ -7,6 +7,19 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-10-sondas-en-el-perfil',
+    version: '1.10',
+    date: '2026-11-12',
+    title: 'Sondas en el perfil',
+    summary: 'Tu perfil enseña tus sondas: elige hasta tres para el escaparate y debajo salen todas con su nivel',
+    items: [
+      { kind: 'nuevo', text: 'Sección Sondas en el perfil: hasta tres sondas en el escaparate, con su skin, su nivel y su arma inicial' },
+      { kind: 'nuevo', text: 'En tu perfil, Elegir sondas: marca hasta tres y salen en el orden en que las marques' },
+      { kind: 'mejora', text: 'Debajo del escaparate, todas tus sondas con su nivel y la skin que llevan' },
+      { kind: 'arreglo', text: 'En el móvil, el perfil va en una columna y ya no se sale por el lado' },
+    ],
+  },
+  {
     id: 'v1-9-skins-animadas',
     version: '1.9',
     date: '2026-11-12',
