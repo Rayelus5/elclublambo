@@ -152,6 +152,10 @@ function settle(sim: Sim): void {
       pool.py[i] = pool.y[i]!;
     }
   }
+  for (const s of sim.world.satellites) {
+    s.px = s.x;
+    s.py = s.y;
+  }
 }
 
 function resolveChoices(sim: Sim, inputs: readonly ProbeInput[]): void {

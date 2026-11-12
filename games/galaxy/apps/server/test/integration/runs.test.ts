@@ -350,3 +350,23 @@ test('las señales de satélite solo se pagan si la semilla de la partida trajo 
   expect(await paid(seedWith(0))).toBe(0);
   expect(await paid(seedWith(1))).toBe(1);
 });
+
+test('una partida que acaba antes de la hora de su satélite no cobra su señal, y pedir más de las que hubo se marca', async () => {
+  const T = DEFAULT_CONTENT.satellites;
+  // A seed whose only satellite comes late in layer 1.
+  let seed = '';
+  for (let k = 1; !seed; k++) {
+    const plan = worldSchedule(String(k), T);
+    if (plan.length === 1 && plan[0]!.at > 120) seed = String(k);
+  }
+  const p = await player();
+  const run = await played(p.cookie, 7);
+  await ctx.db.updateTable('galaxy.runs').set({ seed }).where('id', '=', run.id).execute();
+  // A minute played: the satellite was still to come.
+  const res = await finish(p.cookie, run.id, body({ outcome: 'died', ticks: 60 * 60, bossKills: 0, kills: 50, loot: [{ coins: 5, dust: 2, signals: 3 }] }));
+  expect(res.statusCode, res.body).toBe(200);
+  const r = res.json() as RunResult;
+  expect(r.payout.satellites).toBe(0);
+  const row = await ctx.db.selectFrom('galaxy.runs').select('flags').where('id', '=', run.id).executeTakeFirstOrThrow();
+  expect(row.flags).toContain('satellite_cap');
+});

@@ -162,3 +162,9 @@ test('al recortar el botín, las señales de satélite se conservan', () => {
   expect(r.flags).toContain('loot_cap');
   expect(r.claim.loot[0]!.signals).toBe(1);
 });
+
+test('las señales de capas a las que no le dio tiempo de llegar se quedan fuera con ellas', () => {
+  const r = checkRun(claim({ depth: 3, bossKills: 3, loot: [{ coins: 40, dust: 15 }, { coins: 1, dust: 1, signals: 1 }, { coins: 1, dust: 1, signals: 1 }] }), ctx);
+  expect(r.claim.depth).toBeLessThan(3);
+  expect(r.claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0)).toBeLessThan(2);
+});

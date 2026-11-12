@@ -35,9 +35,13 @@ export function worldSchedule(seed: string, tuning: SatellitesTuning): WorldEven
   return out;
 }
 
-/** How many satellite signals a run that reached `depth` could have had (the server's bound). */
-export function satelliteSignalsUpTo(seed: string, tuning: SatellitesTuning, depth: number): number {
-  return worldSchedule(seed, tuning).filter((e) => e.kind === 'satellite' && e.layer <= depth).length;
+/**
+ * How many satellite signals a run could have had (the server's bound): the ones its seed had in the layers it reached,
+ * and only those whose time had come in the ticks it played. A layer L never starts before (L − 1) × `layerSeconds`,
+ * so an honest run is never refused one it saw.
+ */
+export function satelliteSignalsUpTo(seed: string, tuning: SatellitesTuning, run: { depth: number; ticks: number; layerSeconds: number }): number {
+  return worldSchedule(seed, tuning).filter((e) => e.kind === 'satellite' && e.layer <= run.depth && ((e.layer - 1) * run.layerSeconds + e.at) * 60 <= run.ticks).length;
 }
 
 export interface SatelliteState {

@@ -197,19 +197,31 @@ export async function finishRun(trx: Kysely<DB>, accountId: string, runId: strin
   const { inputs: _inputs, ...claimed } = req;
   const sector = ctx.content.sectors.find((s) => s.id === run.sector);
   const check = checkRun(claimed, { wallSeconds, layerSeconds: sector?.layerSeconds ?? 300, cfg: ctx.runs, logTicks: lastTick });
-  // A solo run is not replayed here: its satellites are bounded by the ones its seed had up to the depth it reached,
-  // with the satellites of the content it started with.
-  const satellites = satelliteSignalsUpTo(String(run.seed), (await contentAt(trx, run.content_version, ctx.content)).satellites, check.claim.depth);
+  // A solo run is not replayed here: its satellites are bounded by the ones its seed had in the layers it reached and
+  // whose time had come in the ticks it played, with the content it started with.
+  const started = await contentAt(trx, run.content_version, ctx.content);
+  const layerSeconds = started.sectors.find((s) => s.id === run.sector)?.layerSeconds ?? sector?.layerSeconds ?? 300;
+  const satellites = satelliteSignalsUpTo(String(run.seed), started.satellites, { depth: check.claim.depth, ticks: check.claim.ticks, layerSeconds });
   return settleRun(trx, accountId, { run, claim: check.claim, claimed, flags: check.flags, penalized: check.penalized, wallSeconds, inputs: bytes, pointsFactor: 1, satellites }, key, ctx);
 }
 
-/** The content a run started with (its version in the history), or today's when that version is gone. */
+const contentCache = new Map<number, Content>();
+
+/**
+ * The content a run started with: its version in the history (kept: versions never change), the defaults for version
+ * 0 (as the replays do), or today's when that version is gone or no longer reads.
+ */
 async function contentAt(trx: Kysely<DB>, version: number, today: Content): Promise<Content> {
-  if (version <= 0) return today;
+  if (version <= 0) return parseConfig('content', {});
+  const kept = contentCache.get(version);
+  if (kept) return kept;
   const row = await trx.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', version).executeTakeFirst();
   if (!row) return today;
   try {
-    return parseConfig('content', row.data);
+    const content = parseConfig('content', row.data);
+    if (contentCache.size > 32) contentCache.clear();
+    contentCache.set(version, content);
+    return content;
   } catch {
     return today;
   }
@@ -262,13 +274,14 @@ export async function settleRun(trx: Kysely<DB>, accountId: string, s: SettleInp
   const boosted = activeBoosts(ctx.boosts, ctx.now).map((b) => ({ id: b.id, name: b.name, currency: b.currency, factor: b.factor }));
   const global = (c: BoostCurrency) => boostFactor(ctx.boosts, c, ctx.now);
   const pay = runPayout(claim, ctx.runs, factor, check.penalized, boost, { coins: global('coins'), dust: global('dust') });
-  const flags = pay.capped ? [...check.flags, 'payout_cap' as const] : check.flags;
+  // More satellite signals claimed than the run could have had (SIM 1.10.0): an honest client never does that.
+  const picked = claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0);
+  const flags = [...check.flags, ...(pay.capped ? ['payout_cap' as const] : []), ...(picked > s.satellites ? ['satellite_cap' as const] : [])];
   let signals = 0;
   const chance = Math.min(1, ctx.runs.signalChancePerBoss * factor * global('signal'));
   for (let k = 0; k < claim.bossKills; k++) if (randomInt(1_000_000) < chance * 1_000_000) signals++;
   // The abandoned satellites' signals (SIM 1.10.0): what was picked up, within the run's bound and the cap; a run that
   // cheated gets none.
-  const picked = claim.loot.reduce((n, l) => n + (l.signals ?? 0), 0);
   const fromSatellites = s.penalized ? 0 : Math.max(0, Math.min(picked, s.satellites, ctx.runs.caps.satelliteSignals));
   signals += fromSatellites;
   const ref = { run: run.id };

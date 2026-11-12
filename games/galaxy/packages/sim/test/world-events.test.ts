@@ -52,14 +52,22 @@ describe('el calendario', () => {
     expect(Math.abs(at[2]! / 10_000 - 0.04)).toBeLessThan(0.01);
   });
 
-  test('el tope del servidor: solo los satélites de la semilla hasta la capa a la que llegó', () => {
+  test('el tope del servidor: solo los satélites de la semilla hasta la capa a la que llegó, y si le dio tiempo', () => {
     const seed = seedWith(2);
-    expect(satelliteSignalsUpTo(seed, T, 1)).toBe(1);
-    expect(satelliteSignalsUpTo(seed, T, 9)).toBe(worldSchedule(seed, T).length);
+    const long = (depth: number) => ({ depth, ticks: depth * 300 * 60, layerSeconds: 300 });
+    expect(satelliteSignalsUpTo(seed, T, long(1))).toBe(1);
+    expect(satelliteSignalsUpTo(seed, T, long(9))).toBe(worldSchedule(seed, T).length);
+    // A run that ended before its satellite's time never had it (the review: a script finishing at once).
+    const first = worldSchedule(seed, T)[0]!;
+    expect(satelliteSignalsUpTo(seed, T, { depth: 1, ticks: Math.floor(first.at * 60) - 1, layerSeconds: 300 })).toBe(0);
+    expect(satelliteSignalsUpTo(seed, T, { depth: 1, ticks: Math.ceil(first.at * 60), layerSeconds: 300 })).toBe(1);
+    // The second one comes in layer 2: never before a whole first layer and its own time.
+    const second = worldSchedule(seed, T)[1]!;
+    expect(satelliteSignalsUpTo(seed, T, { depth: 2, ticks: Math.floor((300 + second.at) * 60) - 1, layerSeconds: 300 })).toBe(1);
     const none = (() => {
       for (let k = 1; ; k++) if (worldSchedule(String(k), T).length === 0) return String(k);
     })();
-    expect(satelliteSignalsUpTo(none, T, 9)).toBe(0);
+    expect(satelliteSignalsUpTo(none, T, { depth: 9, ticks: 9 * 300 * 60, layerSeconds: 300 })).toBe(0);
   });
 });
 

@@ -527,7 +527,7 @@ export const copy = {
       contentVersionOf: (v: number) => (v === 0 ? 'Valores por defecto' : `Versión ${v}`),
       noFlags: 'Ninguna',
       playerPage: (player: string) => `Ficha de ${player}`,
-      flagNames: { admin: 'Marcada por un admin', too_fast: 'Demasiado rápida', depth_vs_time: 'Capa imposible para su duración', kills_rate: 'Demasiadas bajas por minuto', boss_kills: 'Demasiados jefes', log_mismatch: 'Entradas que no cuadran', loot_cap: 'Botín recortado', payout_cap: 'Paga recortada', coop_idle: 'Inactivo en grupo' } as Record<string, string>,
+      flagNames: { admin: 'Marcada por un admin', too_fast: 'Demasiado rápida', depth_vs_time: 'Capa imposible para su duración', kills_rate: 'Demasiadas bajas por minuto', boss_kills: 'Demasiados jefes', log_mismatch: 'Entradas que no cuadran', loot_cap: 'Botín recortado', payout_cap: 'Paga recortada', coop_idle: 'Inactivo en grupo', satellite_cap: 'Más señales de satélite que satélites' } as Record<string, string>,
       marked: 'Sospechosa',
       notMarked: 'Sin marcar',
       mark: 'Marcar como sospechosa',
