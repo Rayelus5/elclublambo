@@ -1,4 +1,4 @@
-import type { CosmeticsView, ProfileCosmeticsRequest } from '@galaxy/shared';
+import type { BackdropView, CosmeticsView, ProfileCosmeticsRequest } from '@galaxy/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
 
@@ -10,6 +10,13 @@ export function useCosmeticsView(enabled = true) {
   return useQuery({ queryKey: COSMETICS_KEY, queryFn: () => api<CosmeticsView>('/profile/cosmetics'), staleTime: 60_000, enabled });
 }
 
+/** The title screen's sky (plan «escáner pro», part E): the galaxies I chose, or my rarest. */
+export const BACKDROP_KEY = ['backdrop'] as const;
+
+export function useBackdrop() {
+  return useQuery({ queryKey: BACKDROP_KEY, queryFn: () => api<BackdropView>('/profile/backdrop'), staleTime: 5 * 60_000 });
+}
+
 export function useSaveCosmetics() {
   const qc = useQueryClient();
   return useMutation({
@@ -19,6 +26,7 @@ export function useSaveCosmetics() {
       // My look shows in the top bar, my profile and the lists.
       void qc.invalidateQueries({ queryKey: ['me'] });
       void qc.invalidateQueries({ queryKey: ['profile'] });
+      void qc.invalidateQueries({ queryKey: BACKDROP_KEY });
     },
   });
 }

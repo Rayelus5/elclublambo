@@ -1,4 +1,4 @@
-import type { CollectionPage, CosmeticsView, ProfileCosmeticsRequest } from '@galaxy/shared';
+import { BACKDROP_MAX, backdropEligible, type CollectionPage, type CosmeticsView, type ProfileCosmeticsRequest } from '@galaxy/shared';
 import { useQuery } from '@tanstack/react-query';
 import { type ReactNode, useId, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -17,8 +17,8 @@ import { TitleText } from './TitleText';
 // live preview of how others will see me. What I lack stays visible, locked, saying how to get it (the shop's lead to
 // the shop). Saving sends only what changed; «Tu firma», «Sin marco»… take a piece off.
 const t = copy.customize;
-type Tab = 'avatar' | 'frame' | 'title' | 'banner';
-type Choice = { avatar: string | null; frame: string | null; title: string | null; banner: string | null };
+type Tab = 'avatar' | 'frame' | 'title' | 'banner' | 'backdrop';
+type Choice = { avatar: string | null; frame: string | null; title: string | null; banner: string | null; backdrop: string[] };
 
 function Piece({
   selected,
@@ -71,7 +71,7 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
     [view.owned],
   );
   // My galaxies, rarest first (a banner shows off its finish), only once the banner tab is open.
-  const galaxies = useQuery({ queryKey: ['collection', 'banner'], queryFn: () => api<CollectionPage>(collectionPath({ sort: 'rarity', limit: 48 })), enabled: tab === 'banner' });
+  const galaxies = useQuery({ queryKey: ['collection', 'banner'], queryFn: () => api<CollectionPage>(collectionPath({ sort: 'rarity', limit: 48 })), enabled: tab === 'banner' || tab === 'backdrop' });
   // Titles: the styled ones in the catalog plus every title I earned.
   const titles = useMemo(() => {
     const listed = view.catalog.titles.map((x) => ({ text: x.text, rarity: x.rarity, hint: x.hint, shop: x.source === 'shop' }));
@@ -82,11 +82,13 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
   function onSave(): void {
     const req: ProfileCosmeticsRequest = {};
     for (const k of ['avatar', 'frame', 'title', 'banner'] as const) if (choice[k] !== view.equipped[k]) req[k] = choice[k];
+    if (choice.backdrop.join() !== view.equipped.backdrop.join()) req.backdrop = choice.backdrop;
     if (Object.keys(req).length === 0) return onClose();
     save.mutate(req, { onSuccess: onClose });
   }
 
-  const tabs: Tab[] = ['avatar', 'frame', 'title', 'banner'];
+  const tabs: Tab[] = ['avatar', 'frame', 'title', 'banner', 'backdrop'];
+  const toggleBackdrop = (id: string) => setChoice((c) => ({ ...c, backdrop: c.backdrop.includes(id) ? c.backdrop.filter((x) => x !== id) : [...c.backdrop, id] }));
   return (
     <Dialog title={t.title} onClose={onClose} className="customize">
       <div className="cz-preview" aria-label={t.preview} role="group">
@@ -104,7 +106,17 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
         ))}
       </div>
       <div className="cz-panel" role="tabpanel" id={`${tabsId}-panel`} aria-labelledby={`${tabsId}-${tab}`}>
-        <ul className={`cz-grid cz-${tab}`} role="radiogroup" aria-label={t.tabs[tab]}>
+        {tab === 'backdrop' ? (
+          <div className="cz-backdrop-bar">
+            <span className="cz-backdrop-count" aria-live="polite">
+              {t.backdropCount(choice.backdrop.length)}
+            </span>
+            <button type="button" className="lip pill small" disabled={choice.backdrop.length === 0} onClick={() => setChoice((c) => ({ ...c, backdrop: [] }))}>
+              {t.backdropRarest}
+            </button>
+          </div>
+        ) : null}
+        <ul className={`cz-grid cz-${tab}`} role={tab === 'backdrop' ? 'group' : 'radiogroup'} aria-label={t.tabs[tab]}>
           {tab === 'avatar' ? (
             <>
               <Piece selected={choice.avatar === null} locked={false} onPick={() => set('avatar', null)} label={t.signature} hint={t.signatureHint}>
@@ -162,7 +174,27 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
               ))}
             </>
           ) : null}
+          {tab === 'backdrop'
+            ? (galaxies.data?.items ?? []).map((g) => {
+                const on = choice.backdrop.includes(g.id);
+                const fit = backdropEligible(g.traits);
+                const full = !on && choice.backdrop.length >= BACKDROP_MAX;
+                return (
+                  <li key={g.id} className={`cz-piece${on ? ' selected' : ''}${fit ? '' : ' locked'}`}>
+                    <button type="button" role="checkbox" aria-checked={on} disabled={!fit || full} title={!fit ? t.backdropIneligible : full ? t.backdropFull : undefined} onClick={() => toggleBackdrop(g.id)} className="cz-pick">
+                      <span className="cz-art">
+                        <GalaxyCard galaxy={g} size={112} />
+                      </span>
+                      <span className="cz-name">{g.name}</span>
+                      {on ? <Icon name="check" /> : !fit ? <Icon name="lock" /> : null}
+                    </button>
+                    {!fit ? <small className="cz-hint">{t.backdropIneligible}</small> : null}
+                  </li>
+                );
+              })
+            : null}
         </ul>
+        {tab === 'backdrop' ? <p className="cz-note">{galaxies.data && galaxies.data.items.length === 0 ? t.noGalaxies : t.backdropHint}</p> : null}
         {tab === 'banner' ? <p className="cz-note">{galaxies.data && galaxies.data.items.length === 0 ? t.noGalaxies : t.bannerHint}</p> : null}
       </div>
       {save.error ? (

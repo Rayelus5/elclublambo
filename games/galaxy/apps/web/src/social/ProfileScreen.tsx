@@ -181,7 +181,7 @@ export function ProfileScreen() {
           <>
             <section className="profile-head">
               <span className="profile-avatar">
-                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={96} />
+                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={144} fit="outer" />
               </span>
               <div className="profile-id">
                 <h1>{p.username}</h1>

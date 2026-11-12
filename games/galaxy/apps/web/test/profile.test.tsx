@@ -129,7 +129,10 @@ test('la cabecera: el avatar grande y la barra de experiencia hasta el siguiente
   expect(bar).toHaveAttribute('aria-valuenow', '1240');
   expect(bar).toHaveAttribute('aria-valuemax', '2000');
   expect(screen.getByText(t.xpLeft(760, 8))).toBeInTheDocument();
-  expect(container.querySelector<HTMLElement>('.profile-avatar .avatar-box')!.style.getPropertyValue('--s')).toBe('3');
+  // Plan «escáner pro», part E: the avatar takes the whole 144 px footprint (without a frame, it fills it: 32 × 4.5).
+  const box = container.querySelector<HTMLElement>('.profile-avatar .avatar-box')!;
+  expect(box.dataset['fit']).toBe('outer');
+  expect(box.style.getPropertyValue('--s')).toBe('4.5');
 });
 
 test('en el nivel más alto no hay barra: lo dice', async () => {

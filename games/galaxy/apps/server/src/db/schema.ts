@@ -631,6 +631,13 @@ export interface AccountXpTable {
 }
 
 /** The galaxies an account exhibits in its planetarium, one per pedestal (M4c-2). */
+/** Plan «escáner pro», part E: the galaxies a player chose for the title screen's sky (up to 12). */
+export interface BackdropsTable {
+  account_id: string;
+  slot: number;
+  galaxy_id: string;
+}
+
 export interface ExhibitsTable {
   account_id: string;
   slot: number;
@@ -813,6 +820,7 @@ export interface DB {
   'galaxy.social_prefs': SocialPrefsTable;
   'galaxy.season_results': SeasonResultsTable;
   'galaxy.exhibits': ExhibitsTable;
+  'galaxy.backdrops': BackdropsTable;
   'galaxy.account_xp': AccountXpTable;
   'galaxy.clans': ClansTable;
   'galaxy.clan_members': ClanMembersTable;

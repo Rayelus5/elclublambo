@@ -1088,6 +1088,18 @@ Un panel al pie del Laboratorio, solo a partir del nivel en que se abre:
 
 La confirmación es un `alertdialog` que dice qué vuelve a cero y qué se queda. Con movimiento reducido, el orbe no late.
 
+### Avatares en el podio y el perfil, y el cielo del menú
+
+Plan «escáner pro», parte E.
+- **Sin caja detrás:** `.podium-avatar` y `.profile-avatar` no tienen fondo, borde ni aro; el marco hace de borde.
+- **Misma huella:** `Avatar` con `fit="outer"` toma `size` como huella exterior (96/72 en el podio, 144 en el perfil). Con marco, la imagen mide size·32/48 y el marco la rodea; sin marco, la imagen llena la huella. Así todos miden lo mismo por fuera.
+- **El cielo del menú:**
+  - en «Personalizar» → «Fondo» se eligen hasta 12 galaxias propias (`galaxy.backdrops`, `GET /profile/backdrop`);
+  - salen barajadas en cada visita y en cada vuelta, sin repetir la misma dos veces seguidas;
+  - sin elegir ninguna, salen las 6 más raras;
+  - la paleta antimateria y la anomalía no se pueden elegir (se verían como una pantalla rota);
+  - las que se venden o se cambian desaparecen solas.
+
 ## 8 tertricies. Ajustes
 
 **`/ajustes`**, desde el pie del menú (rediseño del plan «escáner pro», parte A; el propietario: «un estilo y organización mucho más intuitiva»): un solo panel con una columna de pestañas con icono y, al lado, la pestaña elegida con su nombre, una línea de lo que contiene y sus filas. Cada fila dice qué es el ajuste y, debajo, qué hace; su control va a la derecha.

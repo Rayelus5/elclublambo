@@ -64,6 +64,7 @@ function api(free = true, season: Leaderboard = board, catalogReady = 0) {
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(free)),
     'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: catalogReady, percent: 30 }),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, season),
     'POST /galaxy/api/auth/logout': () => jsonResponse(204),
   });
@@ -170,6 +171,7 @@ test('la Tienda del pie se ve como Ajustes y Guía, con su aviso de oferta', asy
     'GET /galaxy/api/gacha': () => jsonResponse(200, { ...view(false), shop: { open: true, offer: true } }),
     'GET /galaxy/api/catalog/summary': () => jsonResponse(200, { ready: 0, percent: 30 }),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(200, board),
   });
   renderAt('/', { '/': <TitleScreen me={me} /> });
@@ -220,6 +222,7 @@ test('si la temporada no llega, la columna lo dice en vez de quedarse cargando (
   mockApi({
     'GET /galaxy/api/gacha': () => jsonResponse(200, view(true)),
     'GET /galaxy/api/galaxies?sort=rarity&limit=6': () => jsonResponse(200, page),
+    'GET /galaxy/api/profile/backdrop': () => jsonResponse(200, { galaxies: [], chosen: false }),
     'GET /galaxy/api/leaderboard?tab=general': () => jsonResponse(500, { error: 'internal' }),
   });
   renderAt('/', { '/': <TitleScreen me={me} /> });

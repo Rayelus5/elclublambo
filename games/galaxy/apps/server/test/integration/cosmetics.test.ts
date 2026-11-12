@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { type CosmeticsView, DEFAULT_ACHIEVEMENTS, DEFAULT_CATALOG_REWARDS, PROBE_TEST } from '@galaxy/shared';
+import { type BackdropView, type CosmeticsView, DEFAULT_ACHIEVEMENTS, DEFAULT_CATALOG_REWARDS, PROBE_TEST } from '@galaxy/shared';
 import { DEFAULT_CONTENT, SIM_VERSION, encodeLog, toBase64 } from '@galaxy/sim';
+import { sql } from 'kysely';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { backfillCosmetics } from '../../src/cosmetics/backfill';
 import { get, post, put, sessionCookie, testApp, uniqueName } from '../helpers';
@@ -35,7 +36,7 @@ async function runWithBoss(cookie: string) {
 test('sin nada, lleva su firma y puede ponerse cualquier avatar de serie, pero no uno que no tiene', async () => {
   const { cookie } = await player();
   const v = await view(cookie);
-  expect(v.equipped).toEqual({ avatar: null, frame: null, title: null, banner: null });
+  expect(v.equipped).toEqual({ avatar: null, frame: null, title: null, banner: null, backdrop: [] });
   expect(v.owned).toEqual({ avatars: [], frames: [], titles: [] });
   expect(v.catalog.avatars.filter((a) => a.source === 'default')).toHaveLength(12);
   const worn = await put(ctx.app, '/galaxy/api/profile/cosmetics', { avatar: 'crew-cat' }, { cookie });
@@ -70,6 +71,40 @@ test('el banner es una galaxia suya; si deja de serlo, deja de verse', async () 
   expect(((await put(ctx.app, '/galaxy/api/profile/cosmetics', { banner: galaxy }, { cookie: me.cookie })).json() as CosmeticsView).equipped.banner).toBe(galaxy);
   await ctx.db.updateTable('galaxy.galaxies').set({ owner_id: other.id }).where('id', '=', galaxy).execute();
   expect((await view(me.cookie)).equipped.banner).toBeNull();
+});
+
+test('el fondo del menú: hasta 12 galaxias suyas y que se vean bien; las que deja de tener desaparecen (plan «escáner pro», parte E)', async () => {
+  const me = await player();
+  const other = await player();
+  const pull = await post(ctx.app, '/galaxy/api/gacha/pull', { banner: 'deep-scan', count: 10, pay: 'signal' }, { cookie: me.cookie, headers: { 'idempotency-key': randomUUID() } });
+  expect(pull.statusCode).toBe(200);
+  const ids = (pull.json() as { pulls: { id: string }[] }).pulls.map((p) => p.id);
+  // Fit for the sky: no Antimatter palette, no Anomaly (they would look like a broken screen).
+  await ctx.db.updateTable('galaxy.galaxies').set({ traits: sql`traits || '{"palette":"nebula","phenomenon":"none"}'::jsonb` }).where('id', 'in', ids).execute();
+  const chosen = ids.slice(0, 3);
+  const saved = await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: chosen }, { cookie: me.cookie });
+  expect(saved.statusCode).toBe(200);
+  expect([...(saved.json() as CosmeticsView).equipped.backdrop].sort()).toEqual([...chosen].sort());
+  const sky = (await get(ctx.app, '/galaxy/api/profile/backdrop', { cookie: me.cookie })).json() as BackdropView;
+  expect(sky.chosen).toBe(true);
+  expect(sky.galaxies.map((g) => g.id).sort()).toEqual([...chosen].sort());
+  expect(sky.galaxies[0]).toMatchObject({ seed: expect.stringMatching(/^\d+$/), traits: expect.any(Object) });
+  // Only one's own, at most 12, never twice, and fit for the sky.
+  expect((await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: chosen }, { cookie: other.cookie })).json()).toMatchObject({ error: 'cosmetic_locked' });
+  expect((await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: Array.from({ length: 13 }, () => randomUUID()) }, { cookie: me.cookie })).statusCode).toBe(400);
+  expect((await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: [chosen[0], chosen[0]] }, { cookie: me.cookie })).statusCode).toBe(400);
+  await ctx.db.updateTable('galaxy.galaxies').set({ traits: sql`traits || '{"palette":"antimatter"}'::jsonb` }).where('id', '=', ids[5]!).execute();
+  expect((await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: [ids[5]] }, { cookie: me.cookie })).json()).toMatchObject({ error: 'backdrop_ineligible' });
+  // Given away: it leaves the sky.
+  await ctx.db.updateTable('galaxy.galaxies').set({ owner_id: other.id }).where('id', '=', chosen[0]!).execute();
+  expect((await view(me.cookie)).equipped.backdrop).not.toContain(chosen[0]);
+  expect(((await get(ctx.app, '/galaxy/api/profile/backdrop', { cookie: me.cookie })).json() as BackdropView).galaxies.map((g) => g.id)).not.toContain(chosen[0]);
+  // None chosen: the six rarest that fit.
+  await put(ctx.app, '/galaxy/api/profile/cosmetics', { backdrop: [] }, { cookie: me.cookie });
+  const fallback = (await get(ctx.app, '/galaxy/api/profile/backdrop', { cookie: me.cookie })).json() as BackdropView;
+  expect(fallback.chosen).toBe(false);
+  expect(fallback.galaxies.length).toBe(6);
+  expect(fallback.galaxies.map((g) => g.id)).not.toContain(ids[5]);
 });
 
 test('el relleno da con carácter retroactivo los retratos y lo de los logros ya cobrados, y se puede repetir', async () => {
