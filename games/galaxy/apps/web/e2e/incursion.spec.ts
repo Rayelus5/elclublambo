@@ -109,7 +109,7 @@ test('del hangar a la arena y a los resultados, con una reliquia equipada', asyn
   await expect(confirm).toContainText('Solo cobras una parte del botín');
   await confirm.getByRole('button', { name: 'Abandonar', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Incursión abandonada' })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('Sin extracción se cobra la mitad')).toBeVisible();
+  await expect(page.getByText(/^Sin extracción te llevas el \d+ % del botín$/)).toBeVisible();
 
   // Another run starts from the hangar, which keeps the relic.
   await page.getByRole('button', { name: 'Otra incursión' }).click();
