@@ -155,6 +155,45 @@ export function hitsFront(sim: Sim, e: number, ox: number, oy: number): boolean 
   return Math.abs(angleDiff(sim.enemies.facing[e]!, dir)) <= degToSteps(def.behavior.arc / 2);
 }
 
+/** A point that draws the fauna instead of the probes (a decoy, Nov plan B3) and how far it reaches. */
+export interface Lure {
+  x: number;
+  y: number;
+  reach: number;
+}
+
+/**
+ * The lures of this tick (systems/arsenal-nov.ts fills it): an ordinary enemy or an elite within a lure's reach heads for
+ * the nearest one instead of its probe. Núcleos never come here (systems/boss.ts), so they never take the bait.
+ */
+export const lureHooks: { collect: (sim: Sim, out: Lure[]) => void } = { collect: () => {} };
+const lures: Lure[] = [];
+
+/** The nearest lure that reaches enemy `e`, or null. */
+function lureFor(sim: Sim, e: number): Lure | null {
+  const en = sim.enemies;
+  let best: Lure | null = null;
+  let bestD2 = Infinity;
+  for (const l of lures) {
+    const dx = l.x - en.x[e]!;
+    const dy = l.y - en.y[e]!;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= l.reach * l.reach && d2 < bestD2) {
+      bestD2 = d2;
+      best = l;
+    }
+  }
+  return best;
+}
+
+/** The shot holding enemy `e` (a harpoon's catch, a thrown body), or −1: a hold whose shot is gone is no hold. */
+export function heldBy(sim: Sim, e: number): number {
+  const h = sim.enemies.held[e]!;
+  if (h === 0) return -1;
+  const s = h - 1;
+  return sim.shots.alive[s] && sim.shots.gen[s] === sim.enemies.heldGen[e] ? s : -1;
+}
+
 /** Speed after statuses: a slowed enemy (element slow) moves at 1 − factor. */
 export const statusHooks: { speedFactor: (sim: Sim, e: number) => number } = {
   speedFactor: (sim, e) => (sim.enemies.slowT[e]! > 0 ? 1 - sim.content.elements.slow.factor : 1),
@@ -221,7 +260,8 @@ function separate(sim: Sim, e: number): void {
   }
 }
 
-function behave(sim: Sim, e: number, def: EnemyDef, target: ProbeState): void {
+/** One tick of a species' behaviour towards `target`: its probe, or a lure that drew it. */
+function behave(sim: Sim, e: number, def: EnemyDef, target: { x: number; y: number }): void {
   const en = sim.enemies;
   const speed = en.speed[e]! * statusHooks.speedFactor(sim, e);
   const dx = target.x - en.x[e]!;
@@ -429,12 +469,19 @@ function dropWindup(en: Sim['enemies'], e: number): void {
 export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void): void {
   const en = sim.enemies;
   const despawn = sim.content.arena.despawn;
+  lures.length = 0;
+  lureHooks.collect(sim, lures);
   for (let e = 0; e < en.top; e++) {
     if (!en.alive[e] || en.boss[e]) continue;
     if (en.fuseT[e]! > 0) {
       en.fuseT[e] = en.fuseT[e]! - 1;
       if (en.fuseT[e] === 0) explode(sim, e);
       continue;
+    }
+    // On a harpoon's line or in flight from the sling: the shot moves it (systems/arsenal-nov.ts).
+    if (en.held[e]! > 0) {
+      if (heldBy(sim, e) >= 0) continue;
+      en.held[e] = 0;
     }
     // Knockback
     if (en.kx[e] !== 0 || en.ky[e] !== 0) {
@@ -461,7 +508,7 @@ export function updateEnemies(sim: Sim, relocate: (sim: Sim, e: number) => void)
       relocate(sim, e);
       continue;
     }
-    behave(sim, e, sim.content.enemies[en.type[e]!]!, target);
+    behave(sim, e, sim.content.enemies[en.type[e]!]!, (lures.length > 0 ? lureFor(sim, e) : null) ?? target);
     separate(sim, e);
   }
 }

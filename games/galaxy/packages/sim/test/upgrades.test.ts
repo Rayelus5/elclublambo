@@ -122,12 +122,40 @@ describe('evoluciones', () => {
     }
   });
 
-  test('el contenido trae 16 armas y una evolución para cada una (las variantes de M4b-1 aparte)', () => {
+  test('el contenido trae 21 armas y una evolución para cada una (las variantes de M4b-1 aparte)', () => {
     const base = sim0().content.weapons.filter((w) => !w.evolution && !w.variant && w.id !== 'dud');
     const evos = sim0().content.weapons.filter((w) => w.evolution);
-    expect(base).toHaveLength(16);
-    expect(evos).toHaveLength(16);
+    expect(base).toHaveLength(21);
+    expect(evos).toHaveLength(21);
     expect(new Set(evos.map((w) => w.evolution!.from))).toEqual(new Set(base.map((w) => w.id)));
+  });
+
+  test('las cinco armas de noviembre: un tipo nuevo cada una, cinco niveles, ninguna inicial, y su evolución con la pasiva y el especial acordados', () => {
+    const C = sim0().content;
+    const plan: [string, string, string, string][] = [
+      ['harpoon', 'tow-harpoon', 'thrusters', 'pierceAll'],
+      ['sling', 'singularity-catapult', 'repulsor', 'vortex'],
+      ['decoy', 'mirage-legion', 'deflector', 'echo'],
+      ['lighthouse', 'binary-lighthouse', 'inertia', 'chain'],
+      ['mortar', 'siege-mortar', 'core-hunter', 'chain'],
+    ];
+    for (const [id, evoId, passive, special] of plan) {
+      const base = C.weapons.find((w) => w.id === id)!;
+      const evo = C.weapons.find((w) => w.id === evoId)!;
+      expect(base.kind, id).toBe(id);
+      expect(base.levels, id).toHaveLength(5);
+      expect(C.weapons.filter((w) => w.kind === id).map((w) => w.id), id).toEqual([id, evoId]);
+      expect(C.probes.map((p) => p.weapon), id).not.toContain(id);
+      expect(evo.levels, evoId).toHaveLength(1);
+      expect(evo.evolution, evoId).toEqual({ from: id, requires: { passive } });
+      expect(evo.special, evoId).toBe(special);
+      expect(evo.icon, evoId).toBe(`${base.icon}-evo`);
+    }
+    // The Faro binario turns two beams at least.
+    expect(C.weapons.find((w) => w.id === 'binary-lighthouse')!.levels[0]!.count).toBeGreaterThanOrEqual(2);
+    // Every evolution asks for its own passive or element: no two share one.
+    const asks = C.weapons.filter((w) => w.evolution).map((w) => JSON.stringify(w.evolution!.requires));
+    expect(new Set(asks).size).toBe(asks.length);
   });
 });
 

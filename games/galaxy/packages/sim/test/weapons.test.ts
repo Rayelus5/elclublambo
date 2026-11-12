@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { applyOffer, AREA, type Content, ELEMENT_IDS, hitArea, IDLE, persistentFor, refreshStats, SHOT, type Sim, spawnEnemy, step } from '../src/index';
+import { applyOffer, AREA, type Content, dealDamage, ELEMENT_IDS, hitArea, IDLE, persistentFor, refreshStats, SHOT, type Sim, spawnBoss, spawnEnemy, step } from '../src/index';
 import { move, quietSim, run } from './fixtures';
 
 // The probe's weapons (GDD §5.3): each one has its own role — the nearest target, a ring around you, a piercing line,
@@ -648,5 +648,379 @@ describe('revisión final', () => {
     for (let i = 0; i < 30; i++) step(sim, [aimEast]);
     expect(sim.enemies.x[front]).toBeLessThan(100);
     expect(sim.enemies.x[back]).toBe(-60);
+  });
+});
+
+// ── Nov plan B3: arpón, honda, señuelo, faro y mortero ───────────────────────────────────────────────────────────
+
+/** A weapon's first level, pinned by the test (mechanics tests do not follow calibration). */
+const pin = (c: Content, id: string, row: Partial<Content['weapons'][number]['levels'][number]>) => Object.assign(c.weapons.find((w) => w.id === id)!.levels[0]!, row);
+const dist = (sim: Sim, e: number, x = 0, y = 0) => Math.hypot(sim.enemies.x[e]! - x, sim.enemies.y[e]! - y);
+
+describe('Arpón magnético (harpoon)', () => {
+  const harpoon = (id = 'harpoon', over?: (c: Content) => void) =>
+    armed(id, 1, (c) => {
+      pin(c, id, { damage: 20, cooldown: 100, speed: 480, range: 200, knockback: 240 });
+      over?.(c);
+    });
+
+  test('ensarta al más cercano, lo arrastra hacia ti y lo suelta cerca de la sonda', () => {
+    const sim = harpoon();
+    const prey = target(sim, 150, 0);
+    const other = target(sim, 0, -170);
+    run(sim, 4);
+    expect(lost(sim, prey)).toBe(0);
+    run(sim, 26);
+    expect(lost(sim, prey)).toBe(20);
+    expect(sim.enemies.x[prey]).toBeLessThan(140);
+    run(sim, 70);
+    expect(dist(sim, prey)).toBeGreaterThan(20);
+    expect(dist(sim, prey)).toBeLessThan(45);
+    expect(kindCount(sim, SHOT.harpoon)).toBe(0);
+    expect(lost(sim, other)).toBe(0);
+    // Let go: it stays where it was dropped.
+    const at = [sim.enemies.x[prey], sim.enemies.y[prey]];
+    run(sim, 20);
+    expect([sim.enemies.x[prey], sim.enemies.y[prey]]).toEqual(at);
+  });
+
+  test('lo que arrastra golpea una vez a cada enemigo que toca por el camino, y a él no lo vuelve a dañar', () => {
+    const sim = harpoon();
+    const prey = target(sim, 150, 0);
+    run(sim, 24);
+    expect(lost(sim, prey)).toBe(20);
+    // Off the harpoon's own line (3 + 6 < 10) but in the catch's way (6 + 6 > 10).
+    const bx = sim.enemies.x[prey]! - 50;
+    const bystander = target(sim, bx, 10);
+    run(sim, 60);
+    expect(lost(sim, bystander)).toBe(20);
+    expect(lost(sim, prey)).toBe(20);
+    // Shoved aside as the catch goes by, never taken along.
+    expect(Math.abs(sim.enemies.x[bystander]! - bx)).toBeLessThan(3);
+  });
+
+  test('prefiere al más cercano que no está ya a tus pies; si no hay otro, ensarta a ese', () => {
+    const sim = harpoon();
+    const close = target(sim, 0, 25);
+    const prey = target(sim, 120, 0);
+    run(sim, 20);
+    expect(lost(sim, prey)).toBe(20);
+    expect(lost(sim, close)).toBe(0);
+    const only = harpoon();
+    const lone = target(only, 0, 25);
+    run(only, 5);
+    expect(lost(only, lone)).toBe(20);
+  });
+
+  test('a un Núcleo solo lo daña y el arpón vuelve vacío; a una élite la arrastra a la mitad de velocidad', () => {
+    const sim = harpoon();
+    const core = target(sim, 120, 0);
+    sim.enemies.boss[core] = 1;
+    run(sim, 100);
+    expect(lost(sim, core)).toBe(20);
+    expect([sim.enemies.x[core], sim.enemies.y[core]]).toEqual([120, 0]);
+    expect(kindCount(sim, SHOT.harpoon)).toBe(0);
+
+    const plain = harpoon();
+    const a = target(plain, 150, 0);
+    const elite = harpoon();
+    const b = target(elite, 150, 0);
+    elite.enemies.elite[b] = 1;
+    run(plain, 25);
+    run(elite, 25);
+    const a0 = plain.enemies.x[a]!;
+    const b0 = elite.enemies.x[b]!;
+    run(plain, 12);
+    run(elite, 12);
+    expect(a0 - plain.enemies.x[a]!).toBeCloseTo(48, 6);
+    expect(b0 - elite.enemies.x[b]!).toBeCloseTo(24, 6);
+  });
+
+  test('suelta a una élite volátil que muere en su línea: no te trae su estallido', () => {
+    const sim = harpoon('harpoon', (c) => (c.enemies.find((e) => e.id === 'dummy')!.xp = 0));
+    const bomb = target(sim, 150, 0);
+    sim.enemies.elite[bomb] = 3;
+    run(sim, 24);
+    expect(sim.enemies.x[bomb]).toBeLessThan(140);
+    dealDamage(sim, bomb, 1e6, { probe: 0, weapon: null, relic: null, element: null });
+    expect(sim.enemies.fuseT[bomb]).toBeGreaterThan(0);
+    const at = sim.enemies.x[bomb];
+    run(sim, 5);
+    expect(sim.enemies.x[bomb]).toBe(at);
+  });
+
+  test('el arpón de remolque atraviesa la fila entera y arrastra hasta su número de enemigos', () => {
+    const sim = harpoon('tow-harpoon', (c) => {
+      pin(c, 'tow-harpoon', { count: 3, range: 260 });
+      c.enemies.find((e) => e.id === 'dummy')!.xp = 0;
+    });
+    const row = [40, 70, 100, 130, 160, 190].map((x) => target(sim, x, 0));
+    run(sim, 160);
+    for (const e of row) expect(lost(sim, e)).toBe(20);
+    // The first three it skewered are at the probe's feet; the rest stay where they were.
+    for (const e of row.slice(0, 3)) expect(dist(sim, e)).toBeLessThan(45);
+    expect(row.slice(3).map((e) => sim.enemies.x[e])).toEqual([130, 160, 190]);
+    expect(kindCount(sim, SHOT.harpoon)).toBe(0);
+  });
+});
+
+describe('Honda gravitatoria (sling)', () => {
+  const sling = (id = 'sling', over?: (c: Content) => void) =>
+    armed(id, 1, (c) => {
+      pin(c, id, { damage: 30, cooldown: 100, count: 1, speed: 360, range: 150, area: 30 });
+      // Thrown enemies die: no data fragments, so no level-up freezes the world.
+      c.enemies.find((e) => e.id === 'dummy')!.xp = 0;
+      over?.(c);
+    });
+
+  test('agarra al enemigo corriente más cercano y lo lanza contra el grupo más denso: estalla al chocar y muere', () => {
+    const sim = sling();
+    const thrown = target(sim, 40, 0);
+    const group = [target(sim, 30, 120), target(sim, 42, 126), target(sim, 18, 128)];
+    const lone = target(sim, -110, 0);
+    const kills = sim.kills;
+    run(sim, 60);
+    expect(sim.enemies.alive[thrown]).toBe(0);
+    expect(sim.kills).toBe(kills + 1);
+    for (const e of group) expect(lost(sim, e)).toBeGreaterThanOrEqual(30);
+    expect(lost(sim, lone)).toBe(0);
+    expect(kindCount(sim, SHOT.sling)).toBe(0);
+  });
+
+  test('lo lanzado golpea una vez a lo que roza por el camino', () => {
+    const sim = sling();
+    const thrown = target(sim, 40, 0);
+    // In the way (6 + 6 > 10), far from the burst at the group.
+    const grazed = target(sim, 50, 60);
+    const group = [target(sim, 40, 170), target(sim, 52, 176), target(sim, 28, 178)];
+    run(sim, 60);
+    expect(sim.enemies.alive[thrown]).toBe(0);
+    expect(lost(sim, grazed)).toBe(30);
+    for (const e of group) expect(lost(sim, e)).toBeGreaterThanOrEqual(30);
+  });
+
+  test('nunca agarra a una élite ni a un Núcleo, que solo reciben el golpe; sin un enemigo corriente no dispara', () => {
+    const sim = sling();
+    const elite = target(sim, 40, 0);
+    sim.enemies.elite[elite] = 1;
+    const core = target(sim, 0, 50);
+    sim.enemies.boss[core] = 1;
+    expect(fires(sim, 120)).toBe(0);
+    expect(kindCount(sim, SHOT.sling)).toBe(0);
+    const plain = target(sim, 110, 0);
+    expect(fires(sim, 2)).toBe(1);
+    run(sim, 40);
+    expect(sim.enemies.alive[plain]).toBe(0);
+    expect(lost(sim, elite)).toBe(30);
+    expect([sim.enemies.x[elite], sim.enemies.y[elite]]).toEqual([40, 0]);
+    expect([sim.enemies.x[core], sim.enemies.y[core]]).toEqual([0, 50]);
+  });
+
+  test('la catapulta de singularidad deja al chocar un pozo breve que atrae a los de alrededor', () => {
+    const sim = sling('singularity-catapult', (c) => pin(c, 'singularity-catapult', { knockback: 90, duration: 1 }));
+    target(sim, 40, 0);
+    const hit = target(sim, 40, 130);
+    // Outside the burst (30 + 6), inside the pull.
+    const pulled = target(sim, 92, 132);
+    run(sim, 30);
+    expect(lost(sim, hit)).toBeGreaterThanOrEqual(30);
+    expect(lost(sim, pulled)).toBe(0);
+    expect(sim.enemies.x[pulled]).toBeLessThan(85);
+    expect(areaCount(sim, AREA.field)).toBe(1);
+  });
+});
+
+describe('Señuelo holográfico (decoy)', () => {
+  const decoy = (id = 'decoy') =>
+    armed(id, 1, (c) => {
+      pin(c, id, { damage: 40, cooldown: 100, count: 1, duration: 2, range: 90, area: 40 });
+      // Something that walks: a sturdy chaser.
+      c.enemies.push({ ...c.enemies.find((e) => e.id === 'dummy')!, id: 'runner', hp: 1000, speed: 30, xp: 0 });
+    });
+  const runner = (sim: Sim, x: number, y: number) => spawnEnemy(sim, sim.content.enemies.find((e) => e.id === 'runner')!, x, y);
+  const lost1000 = (sim: Sim, e: number) => 1000 - sim.enemies.hp[e]!;
+
+  test('deja un holograma donde estás que atrae a los enemigos y élites de su radio, no a los de fuera, y luego estalla', () => {
+    const sim = decoy();
+    const lured = runner(sim, 0, -60);
+    const elite = runner(sim, -50, 30);
+    sim.enemies.elite[elite] = 2;
+    const outside = runner(sim, 0, 200);
+    step(sim, [IDLE]);
+    const [holo] = slotsOf(sim, SHOT.decoy);
+    expect(holo).toBeDefined();
+    expect([sim.shots.x[holo!], sim.shots.y[holo!]]).toEqual([0, 0]);
+    // The probe walks off east; the lured ones go to the hologram, the others after the probe.
+    for (let t = 0; t < 60; t++) step(sim, [move(127, 0)]);
+    expect(Math.abs(sim.enemies.x[lured]!)).toBeLessThan(0.5);
+    expect(sim.enemies.y[lured]).toBeGreaterThan(-35);
+    expect(dist(sim, elite)).toBeLessThan(35);
+    expect(sim.enemies.x[outside]).toBeGreaterThan(2);
+    expect(lost1000(sim, lured)).toBe(0);
+    // When its time is up it blows up on what it drew in, and they go back to the probe.
+    run(sim, 62);
+    expect(slotsOf(sim, SHOT.decoy)).toHaveLength(0);
+    expect(lost1000(sim, lured)).toBe(40);
+    expect(lost1000(sim, elite)).toBe(40);
+    expect(lost1000(sim, outside)).toBe(0);
+    const x = sim.enemies.x[lured]!;
+    run(sim, 20);
+    expect(sim.enemies.x[lured]).toBeGreaterThan(x + 3);
+  });
+
+  test('un Núcleo no le hace caso', () => {
+    const sim = decoy();
+    target(sim, 30, 0);
+    step(sim, [IDLE]);
+    expect(slotsOf(sim, SHOT.decoy)).toHaveLength(1);
+    spawnBoss(sim);
+    const core = sim.boss!.index;
+    sim.enemies.x[core] = -40;
+    sim.enemies.y[core] = 0;
+    for (let t = 0; t < 40; t++) step(sim, [move(0, -127)]);
+    expect(sim.enemies.y[core]).toBeLessThan(-5);
+  });
+
+  test('sin enemigos cerca no lo deja', () => {
+    const sim = decoy();
+    target(sim, 200, 0);
+    expect(fires(sim, 60)).toBe(0);
+    target(sim, 60, 0);
+    expect(fires(sim, 2)).toBe(1);
+  });
+
+  test('la legión de espejismos deja varios hologramas y los repite poco después', () => {
+    const sim = decoy('mirage-legion');
+    pin(sim.content, 'mirage-legion', { count: 3 });
+    target(sim, 30, 0);
+    step(sim, [IDLE]);
+    expect(slotsOf(sim, SHOT.decoy)).toHaveLength(3);
+    run(sim, 10);
+    expect(slotsOf(sim, SHOT.decoy)).toHaveLength(6);
+  });
+});
+
+describe('Faro de fotones (lighthouse)', () => {
+  const lighthouse = (id = 'lighthouse', row: Partial<Content['weapons'][number]['levels'][number]> = {}) =>
+    armed(id, 1, (c) => pin(c, id, { damage: 10, count: 1, speed: 120, range: 120, area: 4, interval: 0.5, ...row }));
+  const beams = (sim: Sim) => slotsOf(sim, SHOT.photon);
+
+  test('un láser largo gira sin parar alrededor de la sonda y la sigue', () => {
+    const sim = lighthouse();
+    step(sim, [IDLE]);
+    const [beam] = beams(sim);
+    expect(beam).toBeDefined();
+    const a0 = sim.shots.reach[beam!]!;
+    run(sim, 30);
+    const turned = (((sim.shots.reach[beam!]! - a0) % 4096) + 4096) % 4096;
+    // 120 °/s: 682,67 angle steps in half a second.
+    expect(turned).toBeCloseTo((120 * 4096) / 360 / 2, 6);
+    for (let t = 0; t < 20; t++) step(sim, [move(127, 0)]);
+    const p = sim.probes[0]!;
+    expect([sim.shots.x[beam!], sim.shots.y[beam!]]).toEqual([p.x, p.y]);
+    expect(Math.hypot(sim.shots.tx[beam!]! - p.x, sim.shots.ty[beam!]! - p.y)).toBeCloseTo(120, 6);
+  });
+
+  test('barre a cada enemigo que toca una vez por vuelta y no llega más allá de su largo', () => {
+    const sim = lighthouse();
+    const near = target(sim, 0, 60);
+    const edge = target(sim, -110, 0);
+    const far = target(sim, 0, -150);
+    // One turn takes 3 s.
+    run(sim, 180);
+    expect(lost(sim, near)).toBe(10);
+    expect(lost(sim, edge)).toBe(10);
+    expect(lost(sim, far)).toBe(0);
+    run(sim, 180);
+    expect(lost(sim, near)).toBe(20);
+  });
+
+  test('aunque gire muy deprisa, golpea a cada enemigo como mucho una vez por intervalo', () => {
+    // Four turns a second, a hit every 0.5 s at most: 4 hits in 2 s, not 8.
+    const sim = lighthouse('lighthouse', { speed: 1440 });
+    const e = target(sim, 0, 60);
+    run(sim, 120);
+    expect(lost(sim, e)).toBe(40);
+  });
+
+  test('el faro binario gira dos láseres opuestos', () => {
+    const sim = lighthouse('binary-lighthouse', { count: 2 });
+    step(sim, [IDLE]);
+    const [a, b] = beams(sim);
+    expect(beams(sim)).toHaveLength(2);
+    const apart = (((sim.shots.reach[b!]! - sim.shots.reach[a!]!) % 4096) + 4096) % 4096;
+    expect(apart).toBeCloseTo(2048, 6);
+  });
+});
+
+describe('Mortero de racimo (mortar)', () => {
+  const mortar = (id = 'mortar') => armed(id, 1, (c) => pin(c, id, { damage: 30, cooldown: 100, count: 4, speed: 200, range: 150, area: 30, interval: 0.5 }));
+  const shells = (sim: Sim) => slotsOf(sim, SHOT.shell);
+  const bomblets = (sim: Sim) => {
+    const out: number[] = [];
+    for (let i = 0; i < sim.areas.top; i++) if (sim.areas.alive[i] && sim.areas.kind[i] === AREA.bomblet) out.push(i);
+    return out;
+  };
+
+  test('lanza un proyectil en parábola a su alcance por delante, que no choca en el aire y estalla al caer', () => {
+    const sim = mortar();
+    const landing = target(sim, 150, 0);
+    const under = target(sim, 70, 0);
+    step(sim, [IDLE]);
+    const [shell] = shells(sim);
+    expect(shell).toBeDefined();
+    expect([sim.shots.tx[shell!], sim.shots.ty[shell!]]).toEqual([150, 0]);
+    // 150 units at 200 per second: 45 ticks in the air.
+    expect(sim.shots.life[shell!]).toBe(45);
+    run(sim, 43);
+    expect(lost(sim, landing)).toBe(0);
+    expect(lost(sim, under)).toBe(0);
+    run(sim, 2);
+    expect(lost(sim, landing)).toBe(30);
+    expect(lost(sim, under)).toBe(0);
+    expect(shells(sim)).toHaveLength(0);
+  });
+
+  test('cuando te mueves cae por delante de donde vas; quieta, hacia donde apuntas', () => {
+    const moving = mortar();
+    target(moving, 0, -100);
+    step(moving, [move(0, -127)]);
+    const [a] = shells(moving);
+    const p = moving.probes[0]!;
+    expect(moving.shots.tx[a!]).toBeCloseTo(p.x, 6);
+    expect(moving.shots.ty[a!]).toBeCloseTo(p.y - 150, 6);
+    const still = mortar();
+    target(still, -100, 0);
+    step(still, [{ ...IDLE, aim: 2048 }]);
+    const [b] = shells(still);
+    expect(still.shots.tx[b!]).toBeCloseTo(-150, 6);
+    expect(still.shots.ty[b!]).toBeCloseTo(0, 6);
+  });
+
+  test('al caer suelta sus bombitas alrededor, que solo hacen daño cuando acaba su aviso', () => {
+    const sim = mortar();
+    target(sim, 150, 0);
+    run(sim, 45);
+    const marks = bomblets(sim);
+    expect(marks).toHaveLength(4);
+    const ar = sim.areas;
+    const victims = marks.map((i) => target(sim, ar.x[i]!, ar.y[i]!));
+    for (const i of marks) expect(Math.hypot(ar.x[i]! - 150, ar.y[i]!)).toBeGreaterThan(10);
+    const shortest = Math.min(...marks.map((i) => ar.ttl[i]!));
+    const longest = Math.max(...marks.map((i) => ar.ttl[i]!));
+    // Half a second of warning (a tick of it goes in the landing tick itself).
+    expect(shortest).toBeGreaterThanOrEqual(29);
+    const damage = marks.map((i) => ar.knockback[i]!);
+    run(sim, shortest - 1);
+    expect(victims.map((e) => lost(sim, e))).toEqual([0, 0, 0, 0]);
+    run(sim, longest - shortest + 2);
+    for (const [k, e] of victims.entries()) expect(lost(sim, e)).toBeGreaterThanOrEqual(damage[k]!);
+    expect(bomblets(sim)).toHaveLength(0);
+  });
+
+  test('sin enemigos a su alcance no dispara', () => {
+    const sim = mortar();
+    target(sim, 0, 260);
+    expect(fires(sim, 60)).toBe(0);
   });
 });

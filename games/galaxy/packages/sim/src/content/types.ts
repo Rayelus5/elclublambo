@@ -22,6 +22,12 @@ export const WEAPON_KINDS = [
   'field',
   'strike',
   'turret',
+  // The November arsenal (Nov plan B3, systems/arsenal-nov.ts).
+  'harpoon',
+  'sling',
+  'decoy',
+  'lighthouse',
+  'mortar',
 ] as const;
 export type WeaponKind = (typeof WEAPON_KINDS)[number];
 

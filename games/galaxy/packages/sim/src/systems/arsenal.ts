@@ -2,6 +2,7 @@ import type { WeaponDef, WeaponLevel } from '../content/types';
 import { angleTo, ANGLE_STEPS, cosA, degToSteps, sinA } from '../math/trig';
 import type { HitSource, ProbeState, Sim } from '../types';
 import { ticks } from '../version';
+import { fireNovember, updateNovember } from './arsenal-nov';
 import { combatHooks, dealDamage } from './combat';
 import { elementCode, elementOf as elementOfCode } from './elements';
 import {
@@ -225,7 +226,7 @@ function fire(sim: Sim, p: ProbeState, wi: number, def: WeaponDef, lvl: WeaponLe
       return i >= 0;
     }
     default:
-      return null;
+      return fireNovember(sim, p, wi, def, lvl);
   }
 }
 
@@ -367,10 +368,10 @@ function pull(sim: Sim, i: number): void {
   }
 }
 
-/** An orbital strike blows up when its warning ends. */
+/** An orbital strike, or a cluster shell's bomblet (Nov plan B3), blows up when its warning ends. */
 function expire(sim: Sim, i: number): void {
   const a = sim.areas;
-  if (a.kind[i] !== AREA.strike) return;
+  if (a.kind[i] !== AREA.strike && a.kind[i] !== AREA.bomblet) return;
   const p = sim.probes[a.owner[i]!];
   if (!p) return;
   const x = a.x[i]!;
@@ -469,7 +470,7 @@ function update(sim: Sim, i: number): boolean {
   else if (kind === SHOT.mine) updateMine(sim, i);
   else if (kind === SHOT.disc) updateDisc(sim, i);
   else if (kind === SHOT.turret) updateTurret(sim, i);
-  else return false;
+  else return updateNovember(sim, i);
   return true;
 }
 
