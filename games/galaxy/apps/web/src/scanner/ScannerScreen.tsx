@@ -1,5 +1,5 @@
 import { TIERS, type BannerView, type PulledGalaxy, type PullRequest } from '@galaxy/shared';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha, usePull } from '../api/economy';
 import { errorText } from '../auth/useMe';
@@ -7,7 +7,9 @@ import { copy, fmt } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
 import { Icon } from '../ui/Icon';
 import { againPlan } from './again';
+import { preloadProCinema } from './pro/ProShell';
 import { RevealStage } from './RevealStage';
+import { useRevealMode } from './useRevealMode';
 import { BackLink } from '../ui/BackLink';
 import { emitTour } from '../tour/bus';
 
@@ -114,7 +116,24 @@ export function ScannerScreen() {
   const [bannerId, setBannerId] = useState<string | null>(null);
   // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
   // The scanner it was too: «¡Escanear otra!» never scans in another one (Nov plan A review).
-  const [revealed, setRevealed] = useState<{ pulls: PulledGalaxy[]; count: 1 | 10; pay: PullRequest['pay']; banner: string } | null>(null);
+  // The pro reveal opens while the request is out (`pulls` null) and keeps the last summary to come back to if it
+  // fails (`last`); `failed` opens its bands again (plan «escáner pro», part B).
+  const [revealed, setRevealed] = useState<{
+    pulls: PulledGalaxy[] | null;
+    last: PulledGalaxy[] | null;
+    count: 1 | 10;
+    pay: PullRequest['pay'];
+    banner: string;
+    failed?: boolean;
+    summaryOnly?: boolean;
+  } | null>(null);
+  const mode = useRevealMode();
+  // The cinema's chunk (GSAP, three.js) is fetched while the player reads the odds.
+  useEffect(() => {
+    if (mode !== 'pro') return;
+    const timer = setTimeout(preloadProCinema, 1200);
+    return () => clearTimeout(timer);
+  }, [mode]);
   // `?tipo=evento` (from the event's missions tab) opens on the event scanner.
   const [params] = useSearchParams();
   const view = gacha.data;
@@ -125,12 +144,17 @@ export function ScannerScreen() {
 
   function scan(count: 1 | 10, pay: PullRequest['pay'], on: string | undefined = banner?.id): void {
     if (!on) return;
+    const pro = mode === 'pro';
+    if (pro) setRevealed((r) => ({ pulls: null, last: r?.pulls ?? r?.last ?? null, count, pay, banner: on }));
     pull.mutate(
       { banner: on, count, pay },
       {
         onSuccess: (res) => {
-          setRevealed({ pulls: res.pulls, count, pay, banner: on });
+          setRevealed({ pulls: res.pulls, last: null, count, pay, banner: on });
           emitTour('scanner:pulled');
+        },
+        onError: () => {
+          if (pro) setRevealed((r) => (r ? { ...r, failed: true } : r));
         },
       },
     );
@@ -233,9 +257,11 @@ export function ScannerScreen() {
 
       {revealed ? (
         <RevealStage
-          // A new scan from the summary starts its own reveal (its steps, images and focus).
-          key={revealed.pulls[0]?.id ?? 'none'}
           pulls={revealed.pulls}
+          failed={revealed.failed}
+          summaryOnly={revealed.summaryOnly}
+          // The bands have opened again: back to the last summary (its error over the buttons), or to the scanner.
+          onAbort={() => setRevealed((r) => (r?.last ? { ...r, pulls: r.last, last: null, failed: false, summaryOnly: true } : null))}
           onClose={() => {
             setRevealed(null);
             emitTour('scanner:revealClosed');

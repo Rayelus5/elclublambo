@@ -108,12 +108,23 @@ test('Pantalla: el cursor cambia de color y de tamaño al momento, lo recuerda, 
   await userEvent.click(within(panel).getByRole('switch', { name: t.cursorOn }));
 });
 
+test('Pantalla: la presentación pro del escáner viene activada y se puede apagar (solo desde el menú)', async () => {
+  openSettings('/ajustes?seccion=pantalla');
+  const sw = screen.getByRole('switch', { name: t.scannerPro });
+  expect(sw).toHaveAttribute('aria-checked', 'true');
+  await userEvent.click(sw);
+  expect(getPrefs().scannerPro).toBe(false);
+  expect(JSON.parse(localStorage.getItem('galaxy.prefs')!).state.scannerPro).toBe(false);
+});
+
 test('la pausa tiene las mismas pestañas que el menú de inicio; la ayuda espera al menú', async () => {
   renderAt('/', { '/': <PauseMenu manualAim={false} onManualAim={() => {}} onResume={() => {}} onAbandon={() => {}} /> });
   await userEvent.click(screen.getByRole('button', { name: t.title }));
   const dialog = screen.getByRole('dialog');
   expect(within(dialog).getAllByRole('tab').map((x) => x.textContent)).toEqual(TABS);
   expect(within(dialog).getByRole('slider', { name: t.music })).toBeInTheDocument();
+  await userEvent.click(within(dialog).getByRole('tab', { name: t.display }));
+  expect(within(dialog).queryByRole('switch', { name: t.scannerPro })).toBeNull();
   await userEvent.click(within(dialog).getByRole('tab', { name: t.arena }));
   expect(within(dialog).getByRole('switch', { name: t.manualAim })).toBeInTheDocument();
   await userEvent.click(within(dialog).getByRole('tab', { name: t.help }));

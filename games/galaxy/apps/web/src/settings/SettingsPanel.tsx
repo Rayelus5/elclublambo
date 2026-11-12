@@ -60,7 +60,7 @@ export function SettingsPanel({
 
   let body: ReactNode;
   if (tab === 'sonido') body = <SoundSection inRun={inRun} />;
-  else if (tab === 'pantalla') body = <DisplaySection />;
+  else if (tab === 'pantalla') body = <DisplaySection inRun={inRun} />;
   else if (tab === 'accesibilidad') body = <AccessSection />;
   else if (tab === 'incursion') body = <ArenaSection aim={aim} onAim={onAim} />;
   else body = inRun ? <HelpSectionInRun /> : <HelpSection />;

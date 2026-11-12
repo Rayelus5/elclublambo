@@ -11,6 +11,7 @@ import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
 import type { InspectorScene, InspectorVariant } from './inspector-scene';
 import { drawBack, drawFront, drawMask, drawStarfield, featherGalaxy, glowGalaxy } from './textures';
+import { probeWebGL2 } from '../ui/webgl';
 
 // The 3D inspector (GDD §8.1): the card up close in three.js — layers in depth, parallax with the pointer, the
 // finish's own light and a turn to see the back, with the button or by dragging the card sideways (M6d-1). three.js is imported only here, when it opens (its own chunk), and
@@ -26,19 +27,9 @@ function reasonOf(err: unknown): string {
   return copy.inspector.reasons.other(message.slice(0, 120));
 }
 
-function hasWebGL2(): boolean {
-  try {
-    const probe = document.createElement('canvas').getContext('webgl2');
-    probe?.getExtension('WEBGL_lose_context')?.loseContext();
-    return !!probe;
-  } catch {
-    return false;
-  }
-}
-
 export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?: number }; onClose: () => void }) {
   const reduced = useReducedMotion();
-  const [gl] = useState(hasWebGL2);
+  const [gl] = useState(probeWebGL2);
   const [mode, setMode] = useState<Mode>(gl ? 'loading' : 'flat');
   const [variant, setVariant] = useState<InspectorVariant>('pro');
   const [reason, setReason] = useState<string | null>(gl ? null : copy.inspector.reasons.noWebgl2);

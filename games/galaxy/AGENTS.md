@@ -69,7 +69,7 @@ pnpm viene de corepack y se usa Node 22. Desde la raíz del repo, con `-C games/
 - **El motor de galaxias está congelado.** Un rasgo nuevo cambia galaxias que ya tienen los jugadores: decisión del propietario.
 - **El contenido son datos.** `DEFAULT_CONTENT` es el valor por defecto de la clave viva `content`. En PRE manda lo publicado; lo nuevo hay que volver a publicarlo. Detalles en `docs/CONTENIDO.md`.
 - **La configuración viva** se publica por clave y sustituye los campos de primer nivel enteros. Ids permanentes. Temporadas y eventos, a medianoche de Madrid.
-- **CSP estricta:** nada de `<style>` ni `style=""` en línea (se usan variables CSS o el CSSOM). Sonidos sintetizados, fuentes propias. Pixi se importa como `pixi.js/unsafe-eval`.
+- **CSP estricta:** nada de `<style>` ni `style=""` en línea (se usan variables CSS o el CSSOM). Sonidos sintetizados (los del escáner pro pueden venir de archivos propios en `apps/web/src/assets/audio/escaner/`, con su versión sintetizada siempre detrás), fuentes propias. Pixi se importa como `pixi.js/unsafe-eval`.
 - **Migraciones:**
   - nombre `YYYYMMDDHHMMSS_galaxy_<nombre>.sql`, nunca con fecha futura (hay un test que lo comprueba);
   - compatibles hacia atrás;
