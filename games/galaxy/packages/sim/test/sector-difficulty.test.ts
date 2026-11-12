@@ -31,17 +31,15 @@ test('el Núcleo del sector también aguanta más', () => {
   expect(tough.enemies.hp[tough.boss!.index]).toBeCloseTo(plain.enemies.hp[plain.boss!.index]! * 1.3, 6);
 });
 
-test('del primer sector al de temporada la vida sube, el daño no baja, y el de temporada es el más duro', () => {
+// Nov plan B1: how hard a sector plays is its base damage AND how it grows by the minute, measured as a whole by the bot
+// (difficulty.test.ts, GALAXY_CALIBRATE=1): the base damage alone no longer rises sector by sector. What stays fixed
+// here is the life, rising, and the season's sector at the top of it.
+test('del primer sector al de temporada la vida sube y el de temporada es el más duro', () => {
   const sectors = DEFAULT_CONTENT.sectors;
   const hp = sectors.map((s) => s.enemyHp);
-  const damage = sectors.map((s) => s.enemyDamage);
-  for (let i = 1; i < sectors.length; i++) {
-    expect(hp[i]!).toBeGreaterThan(hp[i - 1]!);
-    expect(damage[i]!).toBeGreaterThanOrEqual(damage[i - 1]!);
-  }
+  for (let i = 1; i < sectors.length; i++) expect(hp[i]!).toBeGreaterThan(hp[i - 1]!);
   const season = sectors.find((s) => s.season)!;
   expect(season.enemyHp).toBe(Math.max(...hp));
-  expect(season.enemyDamage).toBe(Math.max(...damage));
   expect(Math.max(...hp)).toBeLessThanOrEqual(1.35);
 });
 

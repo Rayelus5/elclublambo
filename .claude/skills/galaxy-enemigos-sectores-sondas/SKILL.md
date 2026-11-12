@@ -49,7 +49,8 @@ Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude):
 **Élite:** sus ids son un enum fijo del esquema (`shielded | swift | volatile`). Uno nuevo es código: `EliteDef`, `ELITE_CODE` en `enemies.ts` y `combat.ts`. Sube `SIM_VERSION`.
 
 **Núcleo:**
-1. En `bosses`: fases con `below` que empiecen en 1 y bajen, patrones existentes y `scaling`.
+1. En `bosses`: fases con `below` que empiecen en 1 y bajen, patrones existentes y `scaling`. Hay 11 tipos de patrón: `radial`, `aimed`, `spiral`, `summon`, `charge`, `wall`, `mines`, `blink` y, desde noviembre, `laser` (un rayo avisado que barre), `closing` (un anillo que se cierra sobre la sonda, con un hueco de al menos 20°) y `barrage` (círculos en fila hacia la sonda que estallan uno tras otro).
+   - **Formas por capa (noviembre):** un sector rota sus Núcleos con `bossCycle: [forma1, forma2, forma3]`. `bossCycle[0]` debe ser `boss`. Las capas del Núcleo profundo no cuentan. El Núcleo profundo rota con `deepBoss.cycle`, según las veces que ha salido. Sin estos campos, se usa siempre `boss`, como antes. La elección está en `bossIdAt()` (`systems/boss.ts`). Cada forma nueva lleva su sprite (`apps/web/src/arena/sprites/forms.ts`), su texto en el Códice y su frase de radio.
 2. Sprite de 40×40 y 2 fotogramas en `arena/sprites/bosses.ts` (`core(fn, fps)`).
 3. `CORE_TEXT` en `entries.ts` y la frase de PERKINS en `copy.arena.radio.bosses[id]` (`es.ts`).
 4. **Patrón nuevo:** `BossPattern`, la unión en `schema.ts`, `systems/boss.ts` y los avisos. Sube `SIM_VERSION`.

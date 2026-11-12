@@ -47,9 +47,10 @@ function fieldDps(relics: RelicInput[], seconds: number): number {
 }
 
 describe('calibración corta (CI)', () => {
-  test.each(['lumen', 'bastion', 'spark'])('con %s y sin reliquias, el bot aguanta 3 minutos de la capa 1', (probe) => {
+  // Nov plan B1: a beginner dies around minute 5 in the Nebula, so a bare probe must outlast 2 minutes (it was 3).
+  test.each(['lumen', 'bastion', 'spark'])('con %s y sin reliquias, el bot aguanta 2 minutos de la capa 1', (probe) => {
     for (const seed of ['1', '2', '3']) {
-      const sim = botRun(seed, 3 * 3600, [], probe);
+      const sim = botRun(seed, 2 * 3600, [], probe);
       expect(sim.status, `semilla ${seed}`).not.toBe('dead');
     }
   });

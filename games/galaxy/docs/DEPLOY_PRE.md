@@ -943,6 +943,25 @@ Todo se hace por SSH a `root@192.168.1.103`. La contraseña de `postgres` se lee
 
 **Para volver atrás** (solo si algo sale muy mal): restaurar la copia del paso 1 con la aplicación parada.
 
+## Mejoras de noviembre: combate (SIM 1.9.0)
+
+**Qué cambia.** Sin migraciones. La simulación pasa a **SIM_VERSION 1.9.0**: un cliente con la web vieja en caché tiene que recargar, y una partida en grupo con versiones mezcladas no arranca.
+
+**El código ya trae (vale para todas las partidas desde el despliegue):**
+- el daño de los Núcleos aplica el del sector, el del grupo y el de la anomalía;
+- su vida aplica la de la anomalía.
+
+**El contenido nuevo solo llega a PRE al publicar `content`.** Hay que publicarlo partiendo de lo vivo:
+- **Armas:** 5 nuevas (Arpón magnético, Honda gravitatoria, Señuelo holográfico, Faro de fotones y Mortero de racimo), con sus evoluciones.
+- **Pasivas:** 5 nuevas (Fase cuántica, Cazanúcleos, Protocolo de purga, Repulsor e Inercia), con sus topes en `caps`.
+- **Núcleos:** 12 formas nuevas.
+- **Sectores:** el ciclo de formas de cada uno (`bossCycle` y `deepBoss.cycle`) y la curva de dificultad calibrada (`enemyDamage`, `scaling` y `density`).
+- **Se conserva** el «Bosses Buff» de la vida de los Núcleos y las gotas de la Nebulosa retocadas desde el panel.
+
+**Curva calibrada con el bot** (`packages/sim/test/difficulty.test.ts`, `GALAXY_CALIBRATE=1`):
+- En la Nebulosa, quien empieza dura unos 5 minutos, un jugador medio unos 13–15 y un veterano unos 30.
+- Cada sector siguiente es más corto para el medio y el veterano, y el de temporada es el más duro.
+
 ## Tienda de recursos: puesta en marcha
 
 La tienda (GDD §11.5) cobra con Stripe **en modo real**. Desde la primera compra, PRE es producción para los pagos: `ops/reset-beta.sql` se niega a borrar y una cuenta con compras no se puede borrar. Los secretos nunca pasan por el repo ni por el chat: solo los pegas tú en el servidor. Pasos, en orden:

@@ -1784,8 +1784,6 @@ export const DEFAULT_CONTENT: Content = {
       bossCycle: ['hive', 'hive-swarm', 'hive-queen'],
       deepBoss: DEEP,
       season: false,
-      enemyHp: 1.05,
-      enemyDamage: 1,
       layerSeconds: 300,
       beacon: { seconds: 60, hold: 8, radius: 70, distance: 520 },
       spawns: [
@@ -1799,19 +1797,13 @@ export const DEFAULT_CONTENT: Content = {
         { at: 150, kind: 'ring', enemy: 'mite', count: 24 },
         { at: 270, kind: 'burst', enemy: 'cell', count: 12 },
       ],
-      density: { base: 0.3, perMinute: 0.18, max: 3.5, cap: 240, bossFactor: 0.5 },
-      scaling: {
-        hpPerMinute: 0.06,
-        damagePerMinute: 0.065,
-        hpPerLayer: 0.35,
-        damagePerLayer: 0.15,
-        speedPerLayer: 0.05,
-        eliteBase: 0,
-        elitePerMinute: 0.006,
-        eliteMax: 0.08,
-      },
       elite: { hp: 4, radius: 1.25, xp: 5, coins: 3, dust: 1 },
-      drops: { coin: 0.04, dust: 0.02, repair: 0.004, repairHeal: 0.25, bossCoins: 10, bossDust: 3, magnet: 0.0015, eliteMagnet: 0.08 },
+      drops: { coin: 0.04, dust: 0.02, repair: 0.0025, repairHeal: 0.2, bossCoins: 10, bossDust: 3, magnet: 0.0012, eliteMagnet: 0.08 },
+      // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
+      enemyHp: 1.05,
+      enemyDamage: 1.65,
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.09, damagePerMinute: 0.1 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
       ...SECTOR_BASE,
@@ -1820,16 +1812,12 @@ export const DEFAULT_CONTENT: Content = {
       // The same loot per minute as the Nebulosa (plan ruling 3; calibration test, ±15 %): its fauna dies at its own pace.
       drops: { ...SECTOR_BASE.drops, coin: 0.027, dust: 0.014 },
       // Calibration (GDD §5.6): its fauna feeds more experience, so the Static grows faster here.
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.09 },
-      density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
       description: 'Hielo que canta cuando se rompe. La Estática lo ha vuelto cortante',
       biome: 'ice',
       boss: 'glacier',
       bossCycle: ['glacier', 'glacier-egg', 'glacier-daughter'],
       deepBoss: DEEP,
       season: false,
-      enemyHp: 1.1,
-      enemyDamage: 1.03,
       spawns: [
         { enemy: 'splinter', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'geode', from: 60, weight: 4, group: [1, 2] },
@@ -1841,6 +1829,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 150, kind: 'ring', enemy: 'splinter', count: 24 },
         { at: 270, kind: 'burst', enemy: 'geode', count: 10 },
       ],
+      // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
+      enemyHp: 1.12,
+      enemyDamage: 2.6,
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.08, damagePerMinute: 0.1 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
       ...SECTOR_BASE,
@@ -1854,8 +1847,6 @@ export const DEFAULT_CONTENT: Content = {
       bossCycle: ['anemone', 'anemone-spore', 'anemone-maw'],
       deepBoss: DEEP,
       season: false,
-      enemyHp: 1.15,
-      enemyDamage: 1.06,
       spawns: [
         { enemy: 'polyp', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'eel', from: 60, weight: 3, group: [1, 2] },
@@ -1867,6 +1858,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 150, kind: 'ring', enemy: 'polyp', count: 24 },
         { at: 270, kind: 'burst', enemy: 'urchin', count: 6 },
       ],
+      // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
+      enemyHp: 1.15,
+      enemyDamage: 1.15,
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.14, damagePerMinute: 0.18 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
       ...SECTOR_BASE,
@@ -1880,8 +1876,6 @@ export const DEFAULT_CONTENT: Content = {
       bossCycle: ['anvil', 'anvil-hammer', 'anvil-furnace'],
       deepBoss: DEEP,
       season: false,
-      enemyHp: 1.2,
-      enemyDamage: 1.09,
       spawns: [
         { enemy: 'ember', from: 0, weight: 10, group: [3, 5] },
         { enemy: 'crucible', from: 60, weight: 4, group: [1, 2] },
@@ -1894,6 +1888,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 150, kind: 'ring', enemy: 'ember', count: 24 },
         { at: 270, kind: 'burst', enemy: 'ram', count: 6 },
       ],
+      // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
+      enemyHp: 1.2,
+      enemyDamage: 1.6,
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.1, damagePerMinute: 0.14 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.24, max: 4.5 },
     },
     {
       ...SECTOR_BASE,
@@ -1904,16 +1903,12 @@ export const DEFAULT_CONTENT: Content = {
       // Dense, so it kills more elites: each one pays less here (values, not chances: the loot rolls stay the same).
       elite: { ...SECTOR_BASE.elite, coins: 2, dust: 0.7 },
       // Calibration (GDD §5.6): no deep Core here, so its layers bite harder instead.
-      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.075, damagePerMinute: 0.09, hpPerLayer: 0.45, damagePerLayer: 0.3 },
-      density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
       description: 'Una grieta por la que la Estática habla. Solo se abre esta temporada',
       biome: 'rift',
       boss: 'signal',
       bossCycle: ['signal', 'signal-carrier', 'signal-answer'],
       deepBoss: null,
       season: true,
-      enemyHp: 1.3,
-      enemyDamage: 1.12,
       // A remix too (GDD §13.1 bis): Esquirlas and Arietes come through the rift from other sectors.
       spawns: [
         { enemy: 'splinter', from: 0, weight: 8, group: [3, 5] },
@@ -1926,6 +1921,11 @@ export const DEFAULT_CONTENT: Content = {
         { at: 150, kind: 'ring', enemy: 'glitch', count: 18 },
         { at: 270, kind: 'burst', enemy: 'ram', count: 6 },
       ],
+      // Nov plan B1: the calibrated curve (packages/sim/test/difficulty.test.ts).
+      enemyHp: 1.3,
+      enemyDamage: 2.4,
+      scaling: { ...SECTOR_BASE.scaling, hpPerMinute: 0.12, damagePerMinute: 0.14, hpPerLayer: 0.45, damagePerLayer: 0.3 },
+      density: { ...SECTOR_BASE.density, perMinute: 0.3, max: 4.5 },
     },
   ],
   elements: {

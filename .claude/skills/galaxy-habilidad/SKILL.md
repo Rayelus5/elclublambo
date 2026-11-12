@@ -13,14 +13,14 @@ Las armas y pasivas son datos de `content` (`packages/sim/src/content/default.ts
 
 ## 1. Pregunta primero al propietario
 
-Antes de preguntar, **busca el nombre y el id** que tengas en mente en `default.ts`: hay 48 armas (16 base, 16 evoluciones, 16 variantes; el tope es 64) y 20 pasivas, y el esquema no impide nombres repetidos («Lanza de plasma» ya existe).
+Antes de preguntar, **busca el nombre y el id** que tengas en mente en `default.ts`: hay 58 armas (21 base, 21 evoluciones, 16 variantes; el tope es 64) y 25 pasivas (una por stat; las de noviembre, `evasion`, `bossDamage`, `execute`, `knockback` y `movingDamage`, tienen tope por defecto en `caps`), y el esquema no impide nombres repetidos («Lanza de plasma» ya existe). **Queda sitio para 6 armas más:** antes de añadir, mira si hace falta subir el tope de 64.
 
 Después, con AskUserQuestion (o preguntando con opciones, si no eres Claude), en una sola tanda:
 - **Nombre y fantasía:** qué hace y cómo se ve. Propón nombres como opciones; el texto va en español, sin punto final.
 - **Tipo:**
   - Un arma o pasiva que encaja en un tipo existente se queda en datos. Tipos de arma: `WEAPON_KINDS` en `content/types.ts`. Stats de pasiva: `STAT_KEYS`.
   - Una mecánica nueva es código y sube `SIM_VERSION`. Recomienda reutilizar un tipo cuando se pueda.
-- **Evolución:** cada arma lleva una. Hay que decidir qué la activa (una pasiva o un elemento) y qué efecto especial tiene (`SPECIALS`). Cada `special` solo lo lee el código de ciertos tipos (`grep -n "special ===" packages/sim/src/systems`): `vortex` actúa en `nova` y en el cono, `pierceAll` en `lance`, `split` y `chain` en sus armas del arsenal. Un `special` en un tipo que no lo lee no hace nada, sin dar error.
+- **Evolución:** cada arma lleva una. Hay que decidir qué la activa (una pasiva o un elemento) y qué efecto especial tiene (`SPECIALS`). Cada `special` solo lo lee el código de ciertos tipos (`grep -n "special ===" packages/sim/src/systems`): `vortex` actúa en `nova`, el cono y la honda (`sling`); `pierceAll`, en `lance` y el arpón (`harpoon`); `split`, en los disparos que vuelan; `chain` y `echo`, en cualquier arma. Los tipos de noviembre (`harpoon`, `sling`, `decoy`, `lighthouse` y `mortar`) viven en `systems/arsenal-nov.ts`. **Una stat nueva** va en `STAT_KEYS` y en `LATE_STATS` (`content/types.ts`), con su tope en `caps`: así el contenido ya publicado sigue validando. Un `special` en un tipo que no lo lee no hace nada, sin dar error.
 - **Variantes:** solo si es el arma inicial de una sonda (variantes de nivel 4 y 8).
 - **Números de partida:** propón valores parecidos a un arma de su mismo papel y deja que los calibren los tests (paso 4).
 
