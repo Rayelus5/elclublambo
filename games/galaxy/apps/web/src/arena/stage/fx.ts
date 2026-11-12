@@ -57,9 +57,10 @@ export interface Fx {
   /**
    * A probe's thruster while it moves (open beta): hot puffs out of the nozzle behind it (`angle` is where it heads),
    * flying back against its course and fading fast, at a steady rate over `dt` seconds. `key` keeps each probe's own;
-   * `rear` is how far behind the centre its drawing's nozzle is (sprites' probeNozzle).
+   * `rear` is how far behind the centre its drawing's nozzle is (sprites' probeNozzle), `colors` a skin's own flame
+   * and embers (sprites' probeFlame).
    */
-  thrust(key: number, x: number, y: number, angle: number, dt: number, rear?: number): void;
+  thrust(key: number, x: number, y: number, angle: number, dt: number, rear?: number, colors?: { flame: readonly number[]; embers: readonly number[] }): void;
   /**
    * A shot's wake (Nov plan B3: a mortar shell's smoke, a thrown body's pull): slow motes left where it passes, at a
    * steady rate over `dt` seconds, fading fast. `key` keeps each shot's own rate.
@@ -153,7 +154,7 @@ export function createFx(startReduced: boolean): Fx {
         particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, color, age: 0, life: 0.35 + rand() * 0.35, size: rand() < 0.3 ? 2 : 1 });
       }
     },
-    thrust(key, x, y, angle, dt, rear = THRUST_REAR) {
+    thrust(key, x, y, angle, dt, rear = THRUST_REAR, own) {
       // Whole puffs due by now, the fraction carried to the next frame.
       let due = (thrusters.get(key) ?? 0) + dt * (reduced ? THRUST_RATE / 3 : THRUST_RATE);
       const back = angle + Math.PI;
@@ -165,7 +166,7 @@ export function createFx(startReduced: boolean): Fx {
         const side = (rand() - 0.5) * (flame ? 1.6 : 2.6);
         const spread = reduced ? 0 : (rand() - 0.5) * (flame ? 0.3 : 0.7);
         const v = THRUST_SPEED * (flame ? 0.35 + rand() * 0.3 : 0.8 + rand() * 0.8);
-        const colors = flame ? FLAME_COLORS : EMBER_COLORS;
+        const colors = flame ? (own?.flame ?? FLAME_COLORS) : (own?.embers ?? EMBER_COLORS);
         particles.push({
           x: x + cos * rear - sin * side,
           y: y + sin * rear + cos * side,

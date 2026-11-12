@@ -16,7 +16,7 @@ export interface ShopProductView {
   kind: ShopProduct['kind'];
   tab: 'coins' | 'dust' | 'components' | 'packs' | 'style';
   /** A cosmetic's piece (Nov plan C5), null for the rest; `owned`: the player has it already (bought or earned). */
-  cosmetic?: { kind: 'avatar' | 'frame' | 'title'; id: string } | null;
+  cosmetic?: { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string } | null;
   owned?: boolean;
   name: string;
   art: string;

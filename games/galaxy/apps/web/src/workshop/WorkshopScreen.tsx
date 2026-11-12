@@ -11,6 +11,7 @@ import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
 import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
+import { SpriteLoop } from '../ui/SpriteLoop';
 import bayUrl from './art/bay.png';
 import { ProbeLevel, SkinPicker, Unlock, WeaponPicker } from './parts';
 import { playEquip, playLevelUp } from './sfx';
@@ -174,11 +175,12 @@ export function WorkshopScreen() {
               <div className="workshop-bay-frame" ref={bayRef}>
                 <div className="workshop-bay-art" style={{ '--px': `${px}px`, backgroundImage: `url(${bayUrl})` } as CSSProperties}>
                   <span className="workshop-scan" aria-hidden="true" />
-                  <img
+                  <SpriteLoop
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    src={spriteDataUrl(probeDrawing(probe.skin, probe.sprite), 12)}
-                    alt=""
+                    id={probeDrawing(probe.skin, probe.sprite)}
+                    scale={12}
+                    reduced={reduced}
                   />
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>

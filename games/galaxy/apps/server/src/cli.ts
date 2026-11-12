@@ -524,13 +524,13 @@ async function grantAllCosmetics(args: string[], deps: CliDeps): Promise<number>
     config.get('season'),
   ]);
   const pieces = cosmeticsToGrant({ cosmetics, shopProducts: shop.products, rewards: [achievements, missions, events, catalog, seasonRoute, season] }, scope);
-  const rows = [...pieces.avatars.map((value) => ({ kind: 'avatar' as const, value })), ...pieces.frames.map((value) => ({ kind: 'frame' as const, value })), ...pieces.titles.map((value) => ({ kind: 'title' as const, value }))].map((r) => ({ account_id: account.id, ...r }));
+  const rows = [...pieces.avatars.map((value) => ({ kind: 'avatar' as const, value })), ...pieces.frames.map((value) => ({ kind: 'frame' as const, value })), ...pieces.titles.map((value) => ({ kind: 'title' as const, value })), ...pieces.skins.map((value) => ({ kind: 'skin' as const, value }))].map((r) => ({ account_id: account.id, ...r }));
   const added = await inTransaction(deps.db, async (trx) => {
     const made = rows.length > 0 ? await trx.insertInto('galaxy.cosmetics').values(rows).onConflict((oc) => oc.doNothing()).returning(['kind', 'value']).execute() : [];
     await writeAudit(trx, { actor: CLI_ACTOR, action: 'cosmetics.grant', targetType: 'account', targetId: account.id, after: { scope, added: made }, reason });
     return made.length;
   });
-  deps.out(`${account.username}: ${added} piezas nuevas de ${rows.length} (${pieces.avatars.length} avatares, ${pieces.frames.length} marcos, ${pieces.titles.length} títulos)`);
+  deps.out(`${account.username}: ${added} piezas nuevas de ${rows.length} (${pieces.avatars.length} avatares, ${pieces.frames.length} marcos, ${pieces.titles.length} títulos, ${pieces.skins.length} skins)`);
   return 0;
 }
 

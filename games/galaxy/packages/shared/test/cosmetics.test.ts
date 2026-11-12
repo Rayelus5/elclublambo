@@ -45,8 +45,11 @@ test('el retrato de cada Núcleo', () => {
 });
 
 describe('skins de sondas (plan «skins», parte C)', () => {
-  test('cuatro por sonda a la larga; hoy Chatarra y Coral de las ocho, cada una con su arte y su sonda', () => {
-    expect(ART_SKINS).toHaveLength(16);
+  test('cuatro por sonda: Chatarra, Coral, Aurora y Leyenda de las ocho, cada una con su arte y su sonda', () => {
+    expect(ART_SKINS).toHaveLength(32);
+    // The animated ones: Aurora rides the route, Leyenda is the shop's.
+    expect(DEFAULT_COSMETICS.skins.filter((k) => k.animated).map((k) => skinParts(k.id)!.line).sort()).toEqual([...Array(8).fill('aurora'), ...Array(8).fill('leyenda')]);
+    expect(DEFAULT_COSMETICS.skins.filter((k) => skinParts(k.id)!.line === 'leyenda').every((k) => k.source === 'shop')).toBe(true);
     expect(DEFAULT_COSMETICS.skins.map((k) => k.id).sort()).toEqual([...ART_SKINS].sort());
     expect(skinParts('skin-sentinel-coral')).toEqual({ probe: 'sentinel', line: 'coral' });
     expect(skinParts('skin-lumen-oro')).toBeNull();

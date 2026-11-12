@@ -34,7 +34,7 @@ async function takeBack(trx: Db, account: string, purchase: string, product: str
 
 /** A refunded or disputed cosmetic (Nov plan C5): its piece goes, and comes off if worn. */
 async function takePiece(trx: Db, account: string, snapshot: unknown): Promise<void> {
-  const piece = (snapshot as { cosmetic?: { kind: 'avatar' | 'frame' | 'title'; id: string } | null } | null)?.cosmetic;
+  const piece = (snapshot as { cosmetic?: { kind: 'avatar' | 'frame' | 'title' | 'skin'; id: string } | null } | null)?.cosmetic;
   if (piece) await revokeCosmetic(trx, account, piece.kind, piece.id);
 }
 

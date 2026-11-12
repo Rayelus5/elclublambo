@@ -235,7 +235,7 @@ export const shopSchema = z
       })
       .strict()
       .prefault({}),
-    products: z.array(shopProductSchema).max(40).default(DEFAULT_SHOP_PRODUCTS),
+    products: z.array(shopProductSchema).max(60).default(DEFAULT_SHOP_PRODUCTS),
   })
   .strict()
   .superRefine((shop, ctx) => shopIssues(shop, ctx));

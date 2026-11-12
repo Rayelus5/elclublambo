@@ -456,3 +456,18 @@ test('cada sonda se dibuja con su skin: Lumen de coral, Bastión de chatarra y P
   expect(has(720, 900, [0xa0, 0x4a, 0x22])).toBe(true);
   if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins.png', element: canvas });
 }, 90_000);
+
+// Plan «skins», C2: the animated ones in the arena (Aurora and Leyenda), with their own thruster colours.
+test('Aurora y Leyenda en la arena, con su llama propia', async () => {
+  const sim = createSim({ seed: '20261112', content: DEFAULT_CONTENT, sector: 'outer-nebula', probes: [{ probe: 'lumen', relics: [] }, { probe: 'prism', relics: [] }], coop: coopRulesOf(parseConfig('coop', {})) });
+  step(sim, [IDLE, IDLE]);
+  const [me, mate] = sim.probes;
+  mate!.x = mate!.px = me!.x + 40;
+  mate!.y = mate!.py = me!.y;
+  const canvas = await mount(1280, 720);
+  stage = await createStage(canvas, DEFAULT_CONTENT, { reduced: false, vision: 0, probe: 0, me: 0, seed: '20261112', preserve: true, names: ['yo', 'vega'], zoom: 2, skins: ['skin-lumen-aurora', 'skin-prism-leyenda'] });
+  stage.resize(1280, 720);
+  stage.render(sim, 1);
+  expect(distinctColours(canvas)).toBeGreaterThan(8);
+  if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: '__shots__/arena-skins-animadas.png', element: canvas });
+}, 90_000);

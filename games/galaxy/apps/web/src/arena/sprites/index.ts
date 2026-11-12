@@ -61,9 +61,31 @@ export function probeDrawing(skin: string | null | undefined, sprite: string): s
   return skin && SKIN_ART[skin] ? skin : sprite;
 }
 
+/** A skin's own flame, embers and dash afterimages (plan «skins», part C2): Aurora's polar light, Leyenda's gold. */
+export interface ProbeFlame {
+  flame: number[];
+  embers: number[];
+  dash: number;
+}
+const FLAMES: Record<string, ProbeFlame> = {
+  aurora: { flame: [0xffffff, 0xd8fff0, 0x7cffc4], embers: [0x45e3a6, 0x3fe0d0, 0xb39dff, 0x7259ee], dash: 0x45e3a6 },
+  leyenda: { flame: [0xffffff, 0xfff2b8, 0xffc94a], embers: [0xffc94a, 0xe05cff, 0x8e2bb3, 0xffc94a], dash: 0xffc94a },
+};
+
+/** The flame of what a probe is drawn as: a skin's own (Aurora, Leyenda), or null for the usual one. */
+export function probeFlame(drawing: string): ProbeFlame | null {
+  const line = drawing.startsWith('skin-') ? drawing.slice(drawing.lastIndexOf('-') + 1) : '';
+  return FLAMES[line] ?? null;
+}
+
 /** How far behind its centre a probe drawing's nozzle is (px), where its thruster's flame comes out. */
 export function probeNozzle(sprite: string): number {
   return PROBE_NOZZLE[sprite] ?? 8;
+}
+
+/** A drawing of the arena or a skin by id (undefined: none). */
+export function spriteDef(id: string): SpriteDef | undefined {
+  return SPRITES[id] ?? SKIN_ART[id];
 }
 
 const urls = new Map<string, string>();

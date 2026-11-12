@@ -1,7 +1,7 @@
 import { DEFAULT_CONTENT } from '@galaxy/sim';
 import { expect, test } from 'vitest';
 import { ART_SKINS, skinParts } from '@galaxy/shared';
-import { pixels, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
+import { pixels, probeFlame, probeNozzle, SKIN_ART, skinSprites, SPRITES } from '../src/arena/sprites';
 
 // The arena's pixel art is written in code as palette grids (plan ruling 10). Every grid must be well formed and
 // every sprite the content names must exist, or the renderer would draw holes.
@@ -119,7 +119,9 @@ test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gi
     const def = SKIN_ART[id];
     expect(def, id).toBeDefined();
     const probe = SPRITES[`probe-${skinParts(id)!.probe}`]!;
-    expect([def!.w, def!.h, def!.frames.length], id).toEqual([probe.w, probe.h, probe.frames.length]);
+    // Still ones keep their probe's idle frames; Aurora moves in six, Leyenda in eight.
+    const frames = { chatarra: probe.frames.length, coral: probe.frames.length, aurora: 6, leyenda: 8 }[skinParts(id)!.line];
+    expect([def!.w, def!.h, def!.frames.length], id).toEqual([probe.w, probe.h, frames]);
     expect(probeNozzle(id), id).toBe(probeNozzle(`probe-${skinParts(id)!.probe}`));
     // Not in the base atlas: a run with no skins never turns or packs them.
     expect(SPRITES[id], id).toBeUndefined();
@@ -127,4 +129,11 @@ test('cada skin con arte existe, con el tamaño y la tobera de su sonda, y se gi
   const used = skinSprites(['skin-lumen-coral', null, 'no-such-skin', undefined]);
   expect(Object.keys(used).sort()).toEqual(['skin-lumen-coral', 'skin-lumen-coral@n', 'skin-lumen-coral@ne', 'skin-lumen-coral@s', 'skin-lumen-coral@se']);
   expect(skinSprites([])).toEqual({});
+});
+
+test('Aurora y Leyenda llevan su llama y su estela; las demás, las de siempre', () => {
+  expect(probeFlame('skin-lumen-aurora')).toMatchObject({ dash: expect.any(Number) });
+  expect(probeFlame('skin-comet-leyenda')!.flame.length).toBeGreaterThan(0);
+  expect(probeFlame('skin-lumen-coral')).toBeNull();
+  expect(probeFlame('probe-lumen')).toBeNull();
 });

@@ -113,6 +113,16 @@ test('la llama sale de la tobera de cada dibujo: más atrás en una sonda más l
   expect(old.particles.every((p) => Math.abs(p.x - 92) < 0.001)).toBe(true);
 });
 
+test('una skin con llama propia echa sus colores (plan «skins», C2), y sin ella la de siempre', () => {
+  const gold = createFx(false);
+  gold.thrust(0, 100, 100, 0, 0.5, 9, { flame: [0x123456], embers: [0x654321] });
+  expect(gold.particles.length).toBeGreaterThan(0);
+  expect(gold.particles.every((p) => p.color === 0x123456 || p.color === 0x654321)).toBe(true);
+  const plain = createFx(false);
+  plain.thrust(0, 100, 100, 0, 0.5);
+  expect(plain.particles.some((p) => p.color === 0x123456 || p.color === 0x654321)).toBe(false);
+});
+
 test('cada sonda lleva su propia turbina, y con movimiento reducido echa menos', () => {
   const fx = createFx(false);
   fx.thrust(0, 0, 0, 0, 0.25);
