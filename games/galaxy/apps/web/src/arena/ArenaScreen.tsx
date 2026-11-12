@@ -22,6 +22,7 @@ import { createStage, type Stage } from './stage/stage';
 import { useUi } from '../state/ui';
 import { typing } from '../ui/keys';
 import { useLive } from '../live/LiveConnection';
+import { createRunStream, type RunStream } from './run-stream';
 import { usePrefs } from '../settings/prefs';
 
 // A run in the browser (GDD §5.1–5.2): the simulation stepped at 60 Hz by a fixed-step loop, drawn by the PixiJS
@@ -124,9 +125,22 @@ export function ArenaScreen({
   useEffect(() => {
     handlers.current = { onEnd, onSave };
   });
+  // Plan «escáner pro», part G: the run streams its log live, for staff to watch; it never gets in the run's way.
+  const streamRef = useRef<RunStream | null>(null);
+  useEffect(() => {
+    const stream = createRunStream({
+      runId: run.id,
+      log: () => sim.log,
+      tick: () => sim.tick,
+      state: () => (loopRef.current?.paused ? 'pause' : sim.status === 'choosing' ? 'pick' : 'run'),
+    });
+    streamRef.current = stream;
+    return () => stream.close();
+  }, [run.id, sim]);
   /** Builds the result, hands it over to be kept, and ends the screen now or after `delay` ms. */
   const finish = useCallback(
     (outcome: RunEnd['outcome'], delay = 0) => {
+      streamRef.current?.end();
       const end: RunEnd = { outcome, summary: runSummary(sim), inputs: toBase64(encodeLog(sim.log ?? { probes: 1, events: [] })) };
       handlers.current.onSave?.(end);
       if (delay > 0) setTimeout(() => handlers.current.onEnd(end), delay);

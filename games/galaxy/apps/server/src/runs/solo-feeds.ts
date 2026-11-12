@@ -124,7 +124,8 @@ export class SoloFeeds {
       this.reject(feed, 4400, 'log');
       return;
     }
-    if (msg.to < Math.max(read.tick, feed.to)) {
+    // Its events never go past the tick it says the run reached (an older `to` after a resume is fine: the furthest counts).
+    if (read.events.length > 0 && msg.to < read.tick) {
       this.reject(feed, 4400, 'tick');
       return;
     }
@@ -140,9 +141,9 @@ export class SoloFeeds {
       feed.events += read.events.length / 6;
       feed.tick = read.tick;
     }
-    feed.to = msg.to;
+    feed.to = Math.max(feed.to, msg.to);
     feed.state = msg.s;
-    this.tell(feed, { t: 'f', b: msg.b, to: msg.to, s: msg.s });
+    this.tell(feed, { t: 'f', b: msg.b, to: feed.to, s: msg.s });
   }
 
   /** The player's socket closed: the viewers hear it is lost, and the feed waits for it (5 minutes). */

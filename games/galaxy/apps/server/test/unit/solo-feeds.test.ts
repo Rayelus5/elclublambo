@@ -85,7 +85,11 @@ describe('el directo de una partida en solitario', () => {
 
     const again = new FakeSocket();
     feeds.connect(run(), again);
+    // An older `to` is fine (the furthest counts); events past the `to` it gives are not.
     feeds.message('r1', again, { t: 'f', at: p1.events, b: '', to: 10, s: 'run' });
+    expect(again.closed).toBeNull();
+    expect(feeds.list()[0]!.tick).toBe(300);
+    feeds.message('r1', again, { t: 'f', at: p1.events, b: toBase64(encodeEvents([p1.tick + 200, 0, 0, 0, 0, -1], p1.tick).bytes), to: p1.tick + 100, s: 'run' });
     expect(again.closed).toMatchObject({ code: 4400 });
   });
 
