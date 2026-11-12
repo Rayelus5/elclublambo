@@ -3,7 +3,7 @@ import { type CSSProperties, useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
 import { useChooseProbe, useHangar } from '../api/runs';
-import { spriteDataUrl } from '../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
 import { copy, quirkText } from '../copy/es';
 import { WalletBar } from '../hub/WalletBar';
@@ -11,8 +11,9 @@ import { BackLink } from '../ui/BackLink';
 import { Icon } from '../ui/Icon';
 import { Celebration } from '../ui/Celebration';
 import { useReducedMotion } from '../ui/motion';
+import { SpriteLoop } from '../ui/SpriteLoop';
 import bayUrl from './art/bay.png';
-import { ProbeLevel, Unlock, WeaponPicker } from './parts';
+import { ProbeLevel, SkinPicker, Unlock, WeaponPicker } from './parts';
 import { playEquip, playLevelUp } from './sfx';
 
 // The probe workshop (the owner's «taller espacial»): every probe in the roster (locked ones say what earns them), the
@@ -73,7 +74,7 @@ function Roster({ view, selected, onSelect }: { view: HangarView; selected: stri
                 onClick={() => onSelect(p.id)}
               >
                 <span className="workshop-pick-art">
-                  <img src={spriteDataUrl(p.sprite, 3)} alt="" />
+                  <img src={spriteDataUrl(probeDrawing(p.skin, p.sprite), 3)} alt="" />
                   {!p.unlocked ? <Icon name="lock" /> : null}
                 </span>
                 <span className="workshop-pick-text">
@@ -112,6 +113,9 @@ function Sheet({ probe, maxHp, maxSpeed, onLeveled }: { probe: ProbeCard; maxHp:
           </section>
           <section className="workshop-section">
             <WeaponPicker probe={probe} />
+          </section>
+          <section className="workshop-section">
+            <SkinPicker probe={probe} />
           </section>
         </>
       ) : (
@@ -171,11 +175,12 @@ export function WorkshopScreen() {
               <div className="workshop-bay-frame" ref={bayRef}>
                 <div className="workshop-bay-art" style={{ '--px': `${px}px`, backgroundImage: `url(${bayUrl})` } as CSSProperties}>
                   <span className="workshop-scan" aria-hidden="true" />
-                  <img
+                  <SpriteLoop
                     key={`${probe.id}-${clamp}`}
                     className={`workshop-probe${probe.unlocked ? '' : ' locked'}${clamp ? ' clamped' : ''}`}
-                    src={spriteDataUrl(probe.sprite, 12)}
-                    alt=""
+                    id={probeDrawing(probe.skin, probe.sprite)}
+                    scale={12}
+                    reduced={reduced}
                   />
                   {celebrate ? <Celebration key={celebrate.key} title={t.levelBanner(celebrate.level)} subtitle={t.levelDone} reduced={reduced} /> : null}
                 </div>

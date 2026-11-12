@@ -21,6 +21,7 @@ import { HttpError } from '../errors';
 import type { LiveHub } from '../realtime/live-hub';
 import { Buckets } from '../realtime/bucket';
 import { ensureHangar, sectorStats } from '../runs/hangar';
+import { wornSkin } from '../runs/levels';
 import { clientIp } from '../security/client-ip';
 import { areFriends, blockedBetween, prefsOf } from '../social/friends';
 import { accountLevel } from '../social/progress';
@@ -39,7 +40,7 @@ export type RoomDeps = { db: Kysely<DB>; config: ConfigReader; live: LiveHub; ro
  * The rooms and how their limits follow the live config (read again on every sweep, every 30 s). `memberChanged` is
  * for the rest of the API: a member's probe changed in the hangar, so the room (if any) shows it to everyone in it.
  */
-export type Rooms = { manager: RoomManager; refresh: () => Promise<void>; memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'level'>>) => Promise<void> };
+export type Rooms = { manager: RoomManager; refresh: () => Promise<void>; memberChanged: (accountId: string, patch: Partial<Pick<MemberInit, 'probe' | 'skin' | 'level'>>) => Promise<void> };
 
 export function createRooms(config: ConfigReader): Rooms {
   const cfg = { maxRooms: 500, idleMs: 30 * 60_000 };
@@ -105,7 +106,7 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
       ensureHangar(db, s.accountId),
       db.selectFrom('galaxy.accounts').select(['avatar', 'frame']).where('id', '=', s.accountId).executeTakeFirst(),
     ]);
-    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, avatar: look?.avatar ?? null, frame: look?.frame ?? null };
+    return { accountId: s.accountId, username: s.username, level, probe: hangar.probe, skin: await wornSkin(db, s.accountId, hangar.probe), avatar: look?.avatar ?? null, frame: look?.frame ?? null };
   }
 
   async function sectorOpenTo(accountId: string, sector: string): Promise<boolean> {
@@ -247,7 +248,8 @@ export function registerRoomRoutes(api: FastifyInstance, deps: RoomDeps): void {
     pace(req, s.accountId);
     const { ready } = roomReadySchema.parse(req.body);
     // The probe may have changed in the hangar since joining.
-    rooms.refresh(s.accountId, { probe: (await ensureHangar(db, s.accountId)).probe });
+    const probe = (await ensureHangar(db, s.accountId)).probe;
+    rooms.refresh(s.accountId, { probe, skin: await wornSkin(db, s.accountId, probe) });
     const room = rooms.setReady(s.accountId, ready);
     await tell(room);
     return (await mine(s.accountId))!;

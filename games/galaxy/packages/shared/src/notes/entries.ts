@@ -21,6 +21,33 @@ export const RELEASE_NOTES: readonly ReleaseNote[] = [
     ],
   },
   {
+    id: 'v1-9-skins-animadas',
+    version: '1.9',
+    date: '2026-11-12',
+    title: 'Skins animadas',
+    summary: 'Llegan las skins que se mueven: Aurora, con su velo de luz, y Leyenda, la más trabajada',
+    items: [
+      { kind: 'nuevo', text: 'Colección Aurora: aletas de cristal, un velo de luz polar que la cruza y una cinta que ondea detrás. Se ganará en la ruta de temporada' },
+      { kind: 'nuevo', text: 'Colección Leyenda: corona y proa de oro, un destello que la recorre y chispas en órbita. Llegará a la tienda, en la pestaña Estilo' },
+      { kind: 'nuevo', text: 'Aurora y Leyenda tienen su propia llama y su propia estela al impulsarte' },
+      { kind: 'mejora', text: 'Tu sonda se mueve en el lobby y en el Taller, y las skins animadas también en su selector' },
+    ],
+  },
+  {
+    id: 'v1-8-skins-de-sondas',
+    version: '1.8',
+    date: '2026-11-12',
+    title: 'Skins de sondas',
+    summary: 'Tus sondas estrenan skins con diseño propio: las primeras colecciones, Chatarra y Coral, para las ocho',
+    items: [
+      { kind: 'nuevo', text: 'Skins de sondas, cada una con su propio diseño: se ven en la incursión, en el lobby y en la sala de tu grupo' },
+      { kind: 'nuevo', text: 'Colección Chatarra, remendada con chimenea y blindaje: la skin de cada sonda llega cuando completas 25 incursiones con ella' },
+      { kind: 'nuevo', text: 'Colección Coral, de mar profundo con astas de coral: se ganará en eventos y en el Catálogo' },
+      { kind: 'nuevo', text: 'Elige la skin en el Taller, donde ves también cómo se gana cada una, o al momento bajo tu sonda en el lobby' },
+      { kind: 'mejora', text: 'Tus compañeros de sala ven al momento la skin que te pones' },
+    ],
+  },
+  {
     id: 'v1-7-sondas-redisenadas',
     version: '1.7',
     date: '2026-11-12',

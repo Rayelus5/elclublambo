@@ -119,7 +119,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
   const stored = r.content_version > 0
     ? await db.selectFrom('galaxy.game_config_versions').select('data').where('key', '=', 'content').where('version', '=', r.content_version).executeTakeFirst()
     : undefined;
-  const upgrades = (r.upgrades ?? {}) as { bonuses?: StatBonus[]; variant?: string | null; anomaly?: string | null };
+  const upgrades = (r.upgrades ?? {}) as { bonuses?: StatBonus[]; variant?: string | null; anomaly?: string | null; skin?: string | null };
   // A version gone from the history, or one today's schema no longer reads, replays with the defaults, and says so.
   let content = parseConfig('content', {});
   let contentFallback = r.content_version > 0 && !stored;
@@ -151,6 +151,7 @@ export async function runReplay(db: Kysely<DB>, id: string): Promise<AdminRunRep
       bonuses: Array.isArray(upgrades.bonuses) ? upgrades.bonuses : [],
       variant: typeof upgrades.variant === 'string' ? upgrades.variant : null,
       anomaly: coop ? coop.anomaly : typeof upgrades.anomaly === 'string' ? upgrades.anomaly : null,
+      skin: typeof upgrades.skin === 'string' ? upgrades.skin : null,
       content,
     },
     inputs: coop ? (coop.inputs ? Buffer.from(coop.inputs).toString('base64') : null) : r.inputs ? Buffer.from(r.inputs).toString('base64') : null,

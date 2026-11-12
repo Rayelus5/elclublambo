@@ -8,6 +8,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { HangarScreen } from '../../src/hangar/HangarScreen';
+import { WorkshopScreen } from '../../src/workshop/WorkshopScreen';
 import { ResultsScreen } from '../../src/hangar/ResultsScreen';
 import { TeamResults } from '../../src/coop/TeamResults';
 import { AddFriendButton } from '../../src/social/AddFriendButton';
@@ -255,5 +256,37 @@ for (const [w, h] of [
     const screenRoot = document.querySelector('.screen-root')!;
     expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
     if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/room-friends-${w}.png` });
+  }, 60_000);
+}
+
+// Plan «skins», part C: the big probe's swatches in the lobby and the skin picker in the Taller fit at both sizes,
+// without pushing the page sideways. VITE_ARENA_SHOTS=1 saves them.
+const withSkins: HangarView = { ...view, probes: view.probes.map((p) => (p.id === 'lumen' ? { ...p, skin: 'skin-lumen-coral', skins: ['skin-lumen-chatarra', 'skin-lumen-coral'], runs: 30 } : p)) };
+for (const [w, h] of [
+  [1280, 720],
+  [1920, 1080],
+] as const) {
+  test(`skins en el lobby y en el Taller a ${w}×${h}`, async () => {
+    await page.viewport(w, h);
+    mount(createElement(HangarScreen), { '/hangar': withSkins });
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(document.querySelectorAll('.lobby-skin')).toHaveLength(3);
+    expect(document.querySelector('.lobby-skin[aria-checked="true"]')?.getAttribute('aria-label')).toBe('Lumen de coral');
+    const screenRoot = document.querySelector('.screen-root')!;
+    expect(screenRoot.scrollWidth).toBeLessThanOrEqual(screenRoot.clientWidth + 1);
+    if (import.meta.env['VITE_ARENA_SHOTS']) await page.screenshot({ path: `__shots__/lobby-skins-${w}.png` });
+    root?.unmount();
+    document.body.innerHTML = '';
+    mount(createElement(WorkshopScreen), { '/hangar': withSkins });
+    await new Promise((r) => setTimeout(r, 1500));
+    const picker = document.querySelector<HTMLElement>('.skin-picker')!;
+    // The base and the four collections of Lumen (two owned, Aurora and Leyenda locked).
+    expect(picker.querySelectorAll('input[type="radio"]')).toHaveLength(5);
+    expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w + 1);
+    picker.scrollIntoView({ block: 'center' });
+    if (import.meta.env['VITE_ARENA_SHOTS']) {
+      await page.screenshot({ path: `__shots__/workshop-skins-${w}.png` });
+      await page.screenshot({ path: `__shots__/workshop-skin-picker-${w}.png`, element: picker });
+    }
   }, 60_000);
 }

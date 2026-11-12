@@ -112,6 +112,11 @@ export interface ProbeCard {
   variant: string;
   /** The base weapon first, then its variants. */
   variants: ProbeVariantCard[];
+  /** The skin it wears (plan «skins», part C; null: its base drawing) and the skins of it the player has. */
+  skin: string | null;
+  skins: string[];
+  /** Runs counted with it (its Chatarra skin comes at SCRAP_SKIN_RUNS). */
+  runs: number;
 }
 
 /** One starting weapon in the Hangar's picker. */
@@ -132,6 +137,9 @@ export type ProbeLevelUp = z.infer<typeof probeLevelUpSchema>;
 /** The starting weapon: the base or one of its variants. */
 export const probeVariantSchema = z.object({ variant: contentId }).strict();
 export type ProbeVariantChoice = z.infer<typeof probeVariantSchema>;
+/** The skin a probe wears: one of the player's skins of that probe, or null for its base drawing (plan «skins»). */
+export const probeSkinSchema = z.object({ skin: z.string().regex(/^skin-[a-z0-9-]{1,40}$/).nullable() }).strict();
+export type ProbeSkinChoice = z.infer<typeof probeSkinSchema>;
 
 export interface DailyView {
   playedSeconds: number;
@@ -181,6 +189,8 @@ export interface RunStart {
   variant: string | null;
   /** The season's anomaly at the start (M7d-3), or null. */
   anomaly: string | null;
+  /** The skin its probe wears (only drawing: the simulation never sees it; null: the base drawing). */
+  skin: string | null;
   content: Content;
   contentVersion: number;
   startedAt: string;

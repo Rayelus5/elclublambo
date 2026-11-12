@@ -88,7 +88,7 @@ export async function loadoutSnapshot(trx: Kysely<DB>, accountId: string, probe:
   const prestige = redshiftBonuses(await redshiftRank(trx, accountId), ctx.redshift);
   const bonuses = [...probeLevelBonuses(level, ctx.probes), ...lab.bonuses, ...(xp > 0 ? [{ stat: 'xp' as const, value: xp }] : []), ...prestige];
   const weapon = startingWeapon(probeDef, level, saved?.variant ?? null, ctx.content);
-  return { relics, bonuses, variant: weapon === probeDef.weapon ? null : weapon, payout: lab.payout };
+  return { relics, bonuses, variant: weapon === probeDef.weapon ? null : weapon, payout: lab.payout, skin: saved?.skin ?? null };
 }
 
 export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRunRequest, key: string, ctx: StartContext): Promise<RunStart> {
@@ -100,7 +100,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
   if (req.probe !== hangar.probe || !ctx.content.probes.some((p) => p.id === req.probe)) throw new HttpError(400, 'invalid_input');
   // Only an open sector (GDD §5.5, §13.1): its condition met, or the season now open.
   if (!sectorStatus(sector, await sectorStats(trx, accountId), ctx.sectors).unlocked) throw new HttpError(409, 'sector_locked');
-  const { relics, bonuses, variant, payout } = await loadoutSnapshot(trx, accountId, req.probe, hangar.slots, ctx);
+  const { relics, bonuses, variant, payout, skin } = await loadoutSnapshot(trx, accountId, req.probe, hangar.slots, ctx);
   const seed = newRunSeed();
   const row = await trx
     .insertInto('galaxy.runs')
@@ -110,7 +110,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
       sector: req.sector,
       probe: req.probe,
       relics: JSON.stringify(relics),
-      upgrades: JSON.stringify({ bonuses, variant, payout, anomaly: ctx.anomaly }),
+      upgrades: JSON.stringify({ bonuses, variant, payout, anomaly: ctx.anomaly, skin }),
       content_version: ctx.contentVersion,
       sim_version: req.simVersion,
       start_key: key,
@@ -127,6 +127,7 @@ export async function startRun(trx: Kysely<DB>, accountId: string, req: StartRun
     bonuses,
     variant,
     anomaly: ctx.anomaly,
+    skin,
     content: ctx.content,
     contentVersion: ctx.contentVersion,
     startedAt: new Date(row.started_at).toISOString(),

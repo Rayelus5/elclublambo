@@ -126,18 +126,20 @@ describe('quién puede comprar', () => {
 describe('los cosméticos de la tienda', () => {
   const cosmetic = shop.products.filter((p) => p.kind === 'cosmetic');
 
-  test('vienen 12, apagados, de 0,99 a 2,99 €, sin recursos y una vez por cuenta, en la pestaña Estilo', () => {
-    expect(cosmetic).toHaveLength(12);
+  test('vienen 20, apagados, de 0,99 a 3,99 €, sin recursos y una vez por cuenta, en la pestaña Estilo', () => {
+    expect(cosmetic).toHaveLength(20);
     for (const p of cosmetic) {
       expect(p.enabled).toBe(false);
       expect(p.priceCents).toBeGreaterThanOrEqual(99);
-      expect(p.priceCents).toBeLessThanOrEqual(299);
+      // Plan «skins», C2: the Leyenda skins from 1,99 to 3,99 €.
+      expect(p.priceCents).toBeLessThanOrEqual(p.cosmetic!.kind === 'skin' ? 399 : 299);
+      if (p.cosmetic!.kind === 'skin') expect(p.priceCents).toBeGreaterThanOrEqual(199);
       expect(p.grants).toEqual({ coins: 0, dust: 0, components: 0 });
       expect(p.firstBonus).toBe(false);
       expect(productTab(p)).toBe('style');
       expect(productBlock({ ...p, enabled: true }, { staff: false, bought: 1 })).toBe('once_used');
     }
-    expect(cosmetic.map((p) => p.cosmetic!.kind).sort()).toEqual([...Array(4).fill('avatar'), ...Array(4).fill('frame'), ...Array(4).fill('title')]);
+    expect(cosmetic.map((p) => p.cosmetic!.kind).sort()).toEqual([...Array(4).fill('avatar'), ...Array(4).fill('frame'), ...Array(8).fill('skin'), ...Array(4).fill('title')]);
   });
 
   test('un cosmético necesita su pieza, que exista su arte, y no da recursos', () => {

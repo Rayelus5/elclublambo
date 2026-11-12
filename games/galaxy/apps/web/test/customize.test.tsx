@@ -29,7 +29,7 @@ const profile = (over: Partial<Profile> = {}): Profile => ({
 });
 const view = (over: Partial<CosmeticsView> = {}): CosmeticsView => ({
   equipped: { avatar: null, frame: null, title: 'Cadete', banner: null, backdrop: [] },
-  owned: { avatars: ['portrait-hive'], frames: ['bronze'], titles: ['Cadete'] },
+  owned: { avatars: ['portrait-hive'], frames: ['bronze'], titles: ['Cadete'], skins: [] },
   catalog: DEFAULT_COSMETICS,
   ...over,
 });

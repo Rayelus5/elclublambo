@@ -1,6 +1,9 @@
-import type { ProbeCard } from '@galaxy/shared';
+import { DEFAULT_COSMETICS, type ProbeCard, SCRAP_SKIN_RUNS, skinParts } from '@galaxy/shared';
+import { useCosmeticsView } from '../api/cosmetics';
+import { SpriteLoop } from '../ui/SpriteLoop';
+import { useReducedMotion } from '../ui/motion';
 import { useGacha } from '../api/economy';
-import { useChooseVariant, useLevelUpProbe } from '../api/runs';
+import { useChooseSkin, useChooseVariant, useLevelUpProbe } from '../api/runs';
 import { spriteDataUrl } from '../arena/sprites';
 import { errorText } from '../auth/useMe';
 import { copy } from '../copy/es';
@@ -118,6 +121,64 @@ export function WeaponPicker({ probe }: { probe: ProbeCard }) {
             {!w.unlocked ? <Icon name="lock" className="ico weapon-card-check" /> : null}
           </label>
         ))}
+      </div>
+      {choose.error ? (
+        <p className="field-error" role="alert">
+          {errorText(choose.error, copy.errors)}
+        </p>
+      ) : null}
+    </fieldset>
+  );
+}
+
+/**
+ * The probe's skin (plan «skins», part C): its base drawing and every skin of it in the catalog, as radio cards. The
+ * ones the player has go on at once (and fly in the next run); the rest are locked and say how they are won.
+ */
+export function SkinPicker({ probe }: { probe: ProbeCard }) {
+  const t = copy.workshop;
+  const choose = useChooseSkin();
+  const reduced = useReducedMotion();
+  const catalog = useCosmeticsView().data?.catalog.skins ?? DEFAULT_COSMETICS.skins;
+  const skins = catalog.filter((k) => skinParts(k.id)?.probe === probe.id);
+  // The choice shows at once; the server's answer confirms it (or the error puts the old one back).
+  const chosen = choose.isPending ? choose.variables.skin : probe.skin;
+  const pick = (skin: string | null) => {
+    if (skin !== probe.skin) choose.mutate({ probe: probe.id, skin });
+  };
+  const hint = (id: string, fallback: string) => {
+    const line = skinParts(id)?.line ?? '';
+    if (probe.skins.includes(id)) return t.skinLines[line] ?? fallback;
+    return line === 'chatarra' ? t.scrapProgress(probe.runs, SCRAP_SKIN_RUNS, probe.name) : fallback;
+  };
+  return (
+    <fieldset className="weapon-picker skin-picker">
+      <legend>{t.skins}</legend>
+      <div role="radiogroup" aria-label={t.skins} className="weapon-cards">
+        <label className="weapon-card">
+          <input type="radio" name={`skin-${probe.id}`} value="" checked={chosen === null} onChange={() => pick(null)} />
+          <img className="skin-card-art" src={spriteDataUrl(probe.sprite, 2)} alt="" width={48} height={48} />
+          <span className="weapon-card-text">
+            <b>{t.skinBase}</b>
+            <small>{t.skinBaseHint}</small>
+          </span>
+          {chosen === null ? <Icon name="check" className="ico weapon-card-check" /> : null}
+        </label>
+        {skins.map((k) => {
+          const owned = probe.skins.includes(k.id);
+          return (
+            <label key={k.id} className={`weapon-card${owned ? '' : ' locked'}`}>
+              <input type="radio" name={`skin-${probe.id}`} value={k.id} checked={chosen === k.id} disabled={!owned} onChange={() => pick(k.id)} />
+              <SpriteLoop className="skin-card-art" id={k.id} scale={2} reduced={reduced} width={48} height={48} />
+              <span className="weapon-card-text">
+                <b>{k.name}</b>
+                <small>{hint(k.id, k.hint)}</small>
+              </span>
+              {chosen === k.id ? <Icon name="check" className="ico weapon-card-check" /> : null}
+              {!owned ? <Icon name="lock" className="ico weapon-card-check" /> : null}
+            </label>
+          );
+        })}
       </div>
       {choose.error ? (
         <p className="field-error" role="alert">

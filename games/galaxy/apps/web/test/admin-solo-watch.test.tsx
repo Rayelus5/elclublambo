@@ -112,7 +112,7 @@ const room = (): RoomView & { idleSeconds: number } => ({
   sector: 'outer-nebula',
   leader: 'vega',
   state: 'lobby',
-  members: [{ username: 'vega', level: 3, probe: 'lumen', ready: true, connected: true, leader: true }],
+  members: [{ username: 'vega', level: 3, probe: 'lumen', skin: null, ready: true, connected: true, leader: true }],
   max: 4,
   createdAt: '2026-11-09T10:00:00Z',
   canStart: false,

@@ -2,7 +2,7 @@ import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { copy } from '../../copy/es';
-import { probeNozzle } from '../sprites';
+import { probeFlame, probeNozzle, skinSprites } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm, maskTexture } from './atlas';
 import { createEnvironment, hashSeed, OVERLAY_MAX } from './environment';
@@ -42,6 +42,8 @@ export interface StageOptions {
   zoom?: number;
   /** The colour-blind palette (plan «escáner pro», part C). */
   colorVision?: ColorVisionMode;
+  /** The skin each probe wears, by probe (plan «skins», part C; null or absent: its own drawing). Only drawing. */
+  skins?: readonly (string | null | undefined)[];
 }
 
 export interface Stage {
@@ -206,7 +208,13 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
     resolution: 1,
   });
 
-  const atlas = buildAtlas();
+  // The atlas carries the skins this run draws, and no others.
+  const atlas = buildAtlas(skinSprites(opts.skins ?? []));
+  /** What probe `i` is drawn as: its skin, or its own drawing (a skin with no art falls back to it). */
+  const drawingOf = (i: number, def: { sprite: string }): string => {
+    const skin = opts.skins?.[i];
+    return skin && atlas.frames[skin] ? skin : def.sprite;
+  };
   const look = BIOME_LOOK[opts.biome ?? 'nebula'];
   let w = app.renderer.width;
   let h = app.renderer.height;
@@ -702,15 +710,18 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
   function dashTrail(sim: Sim | null, probe: number, fx0: number, fy0: number, tx: number, ty: number, seconds: number): void {
     const p = sim?.probes[probe];
     // The afterimages show the probe as it faced when it dashed.
-    const { id, flip } = p ? probeView(p.def.sprite, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+    const drawing = p ? drawingOf(probe, p.def) : 'probe-lumen';
+    const { id, flip } = p ? probeView(drawing, probeHeading(p)) : { id: 'probe-lumen', flip: 1 };
+    // A skin with its own flame dashes in its colour (plan «skins», C2).
+    const tint = probeFlame(drawing)?.dash ?? DASH_TINT;
     if (!opts.reduced) {
       const n = 5;
       for (let k = 0; k < n; k++) {
         const f = k / (n - 1);
-        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint: DASH_TINT });
+        ghosts.push({ x: fx0 + (tx - fx0) * f, y: fy0 + (ty - fy0) * f, at: clock + seconds * f, life: GHOST_LIFE, id, flip, tint });
       }
     }
-    fx.burst(fx0, fy0, DASH_TINT, 6, 40);
+    fx.burst(fx0, fy0, tint, 6, 40);
     fx.burst(tx, ty, 0xf3f5ff, 8, 55);
   }
 
@@ -841,7 +852,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       // A hologram: its probe's own drawing, see-through and cyan, scanlines running down it and the reach of its lure
       // faint on the ground; it flickers red when it is about to blow.
       const owner = sim.probes[s.owner[i]!];
-      const view = probeView(owner?.def.sprite ?? 'probe-lumen', s.angle[i]! * STEP_RAD);
+      const view = probeView(owner ? drawingOf(s.owner[i]!, owner.def) : 'probe-lumen', s.angle[i]! * STEP_RAD);
       const sp = shotPool.at(i);
       sp.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       sp.anchor.set(0.5);
@@ -894,7 +905,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       const s = probePool.at(i);
       // Eight ways (open beta): where it moves, also with manual aim (the mouse only steers the shots), as one of the
       // drawings turned for up, down and the diagonals, or mirrored for the left side.
-      const view = probeView(p.def.sprite, probeHeading(p));
+      const drawing = drawingOf(i, p.def);
+      const view = probeView(drawing, probeHeading(p));
       s.texture = atlas.frames[view.id]![frameOf(view.id)]!;
       s.anchor.set(0.5);
       let x = Math.round(lerp(p.px, p.x, alpha));
@@ -916,7 +928,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
-        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt, probeNozzle(p.def.sprite));
+        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt, probeNozzle(drawing), probeFlame(drawing) ?? undefined);
       }
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).

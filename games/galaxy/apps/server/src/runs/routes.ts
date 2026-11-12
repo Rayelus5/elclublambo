@@ -6,6 +6,7 @@ import {
   probeChoiceSchema,
   probeLevelUpSchema,
   probeVariantSchema,
+  probeSkinSchema,
   slotUnlockSchema,
   probeTestRequestSchema,
   sectorChoiceSchema,
@@ -26,7 +27,7 @@ import { withNotices } from '../realtime/notices';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
 import { hangarView, type RunsDeps, setLoadout, unlockSlot } from './hangar';
-import { chooseVariant, levelUpProbe } from './levels';
+import { chooseSkin, chooseVariant, levelUpProbe } from './levels';
 import { chooseProbe, takeProbeTest } from './probes';
 import { chooseSector } from './sectors';
 import { finishRun, startRun } from './service';
@@ -46,10 +47,13 @@ async function requireRuns(deps: RunsDeps): Promise<void> {
 
 const probeParam = z.object({ id: z.string().regex(/^[a-z0-9-]{1,32}$/) }).strict();
 
-/** `onProbeChosen`: the probe was changed in the hangar (the rooms show it to the player's group). */
+/** `onProbeChosen`: the probe (or its skin) was changed in the hangar (the rooms show it to the player's group). */
+/** The skin the chosen probe wears in a Hangar view. */
+const wornOf = (view: HangarView): string | null => view.probes.find((p) => p.id === view.probe)?.skin ?? null;
+
 export function registerRunRoutes(
   api: FastifyInstance,
-  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'> },
+  deps: RunsDeps & { onProbeChosen?: (accountId: string, probe: string, skin: string | null) => Promise<void>; feeds?: Pick<SoloFeeds, 'end'> },
 ): void {
   api.get('/galaxy/api/hangar', async (req): Promise<HangarView> => {
     const s = requireSession(req);
@@ -83,7 +87,7 @@ export function registerRunRoutes(
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_probe', 60, 60);
     const view = await chooseProbe(deps, s.accountId, body);
     // The choice is made; telling the room is a courtesy that never fails it.
-    await deps.onProbeChosen?.(s.accountId, view.probe).catch((err: unknown) => req.log.warn({ err }, 'room probe refresh failed'));
+    await deps.onProbeChosen?.(s.accountId, view.probe, wornOf(view)).catch((err: unknown) => req.log.warn({ err }, 'room probe refresh failed'));
     return view;
   });
 
@@ -113,6 +117,17 @@ export function registerRunRoutes(
     const body = probeVariantSchema.parse(req.body);
     await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_variant', 60, 60);
     return chooseVariant(deps, s.accountId, id, body.variant);
+  });
+
+  // A probe's skin (plan «skins», part C): a plain update; the room sees it if it is the probe flying.
+  api.put('/galaxy/api/hangar/probes/:id/skin', async (req): Promise<HangarView> => {
+    const s = requireSession(req);
+    const { id } = probeParam.parse(req.params);
+    const body = probeSkinSchema.parse(req.body);
+    await hitRateLimit(deps.db, `a:${s.accountId}`, 'hangar_skin', 60, 60);
+    const view = await chooseSkin(deps, s.accountId, id, body.skin);
+    if (id === view.probe) await deps.onProbeChosen?.(s.accountId, view.probe, wornOf(view)).catch((err: unknown) => req.log.warn({ err }, 'room skin refresh failed'));
+    return view;
   });
 
   // The live content, for what the web tells about relics and sets (plan «escáner pro», part D): the version as an

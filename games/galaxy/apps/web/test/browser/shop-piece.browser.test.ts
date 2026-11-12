@@ -57,3 +57,26 @@ test('el avatar, el marco y el título llenan el hueco del dibujo y van centrado
   expect(parseFloat(getComputedStyle(arts[2]!.querySelector('.title-text')!).fontSize)).toBeGreaterThanOrEqual(20);
   if (import.meta.env['VITE_SHOP_SHOTS']) await page.screenshot({ path: '__shots__/shop-pieces.png', element: host });
 });
+
+// Plan «skins», C2: a Leyenda skin in the Estilo tab, moving at 96 px (×4 its 24 px) in the middle of its art box.
+test('una skin Leyenda llena el hueco del dibujo, centrada y a 96 px', async () => {
+  await page.viewport(1600, 900);
+  vi.stubGlobal('fetch', () => new Promise(() => {}));
+  const host = document.createElement('div');
+  host.style.cssText = 'display:grid;grid-template-columns:repeat(3,280px);gap:16px;padding:16px';
+  document.body.append(host);
+  root = createRoot(host);
+  const ids = ['style-skin-lumen', 'style-skin-prism', 'style-skin-echo'];
+  root.render(createElement(QueryClientProvider, { client: new QueryClient() }, ids.map((id, i) => createElement(ProductCard, { key: id, product: productView(id), index: i, firstPercent: 100, reduced: false, onBuy: () => {} }))));
+  await frames();
+  for (const art of host.querySelectorAll<HTMLElement>('.pack-art')) {
+    const skin = art.querySelector<HTMLElement>('.piece-skin')!;
+    const r = skin.getBoundingClientRect();
+    expect(r.width).toBe(96);
+    const [ax, ay] = mid(art.getBoundingClientRect());
+    const [px, py] = mid(r);
+    expect(Math.abs(px - ax)).toBeLessThan(2);
+    expect(Math.abs(py - ay)).toBeLessThan(2);
+  }
+  if (import.meta.env['VITE_SHOP_SHOTS']) await page.screenshot({ path: '__shots__/shop-skins.png', element: host });
+});
