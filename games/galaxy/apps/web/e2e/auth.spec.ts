@@ -39,7 +39,7 @@ test('crear cuenta, pantalla de título, salir y volver a entrar con el nombre e
   expect(csp).toEqual([]);
 });
 
-test('un admin entra con contraseña y código TOTP y ve su insignia', async ({ page }) => {
+test('un admin entra con contraseña y código TOTP y ve el escudo del panel', async ({ page }) => {
   const admin = JSON.parse(readFileSync(ADMIN_FILE, 'utf8')) as { username: string; password: string; totpSecret: string };
   await page.goto('/galaxy/entrar');
   await page.getByLabel('Usuario').fill(admin.username);
@@ -51,7 +51,8 @@ test('un admin entra con contraseña y código TOTP y ve su insignia', async ({ 
   await page.getByLabel('Código').fill(code);
   await page.getByRole('button', { name: 'Verificar' }).click();
   await expect(page.locator('.hud').getByText(admin.username, { exact: true })).toBeVisible();
-  await expect(page.getByText('Admin', { exact: true })).toBeVisible();
+  // No staff badge by the name (owner, 2026-11-12): the panel's shield says it.
+  await expect(page.getByRole('link', { name: 'Administración', exact: true })).toBeVisible();
 });
 
 test('sin sesión, la portada lleva a Entrar y no hay bucle (Review Focus 3)', async ({ page }) => {
