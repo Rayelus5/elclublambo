@@ -9,6 +9,10 @@
 --     [--script-param preview=<folder>] [--script-param only=<id>] --script art/probes/paint-probes.lua
 -- It saves art/probes/<id>.aseprite (layers «casco» and «luces»), its 4-frame strip art/probes/<id>.png, an 8× preview
 -- sheet when asked, and the generated module apps/web/src/arena/sprites/probe-art.ts the game draws from.
+--
+-- Part C (skins): the same script paints every probe in each collection (SKINS below), over the probe's own shape:
+-- the collection swaps the materials' ramps and adds its surface details. Saved as art/probes/skins/<probe>-<line>.*
+-- and generated as SKIN_ART (ids `skin-<probe>-<line>`).
 local W, H, FRAMES = 24, 24, 4
 local OUT = app.params['out']
 local WEB = app.params['web']
@@ -18,6 +22,14 @@ local OUTLINE = '#0b0c24'
 
 -- Ramps, dark to light (hue-shifted toward violet in the shadows and warm in the lights).
 local R = {
+  rust = { '#24100e', '#552616', '#8a4422', '#bd7438', '#e8b070' },
+  scrap = { '#1a1a26', '#30303e', '#4a4a58', '#6e6e7a', '#a2a2aa' },
+  paint = { '#16241e', '#2c4436', '#486650', '#6e8e70', '#a4bc9c' },
+  amber = { '#2a1606', '#6a3a0c', '#b8701a', '#f0a830', '#ffe08a' },
+  coral = { '#3a0c26', '#7a1c46', '#c4426a', '#ff8296', '#ffd2d2' },
+  reef = { '#22103a', '#4a2268', '#7a3c96', '#b064c0', '#e8a8ee' },
+  sea = { '#04202e', '#0a4c5c', '#14888c', '#40ccbc', '#b4fff0' },
+  glow = { '#06302a', '#0e6a52', '#22c48a', '#7cffc4', '#e6fff4' },
   ice = { '#16205a', '#3a58e0', '#6fb7ff', '#bfe3ff', '#f3f5ff' },
   steel = { '#1f2350', '#363d72', '#4b5390', '#6f78b4', '#b9bfe6' },
   plate = { '#3a4278', '#6670b0', '#9aa2d6', '#c9cff0', '#f3f5ff' },
@@ -214,6 +226,8 @@ local ENGINE = { 0.55, 0.85, 1.0, 0.75 }
 --- One frame's colours: { casco = {y = {x = colour}}, luces = … } and the merged frame.
 local function paint(M, look, f)
   local casco, luces = grid(), grid()
+  -- The light falls on the shape before the collection's details: a panel or a spot follows the hull's shading.
+  local U = look.under or M
   for y = 0, H - 1 do
     for x = 0, W - 1 do
       local m = M[y][x]
@@ -222,24 +236,36 @@ local function paint(M, look, f)
         if m == 'engine' then
           -- Hottest at its back edge, flickering frame by frame.
           local back = x <= 4 and 1 or 0.8
-          c = pick(R.engine, math.min(1, ENGINE[f + 1] * back * (0.75 + 0.25 * bayer(x + f, y))), x, y)
+          local beat = look.enginePulse or ENGINE
+          c = pick(look.engine or R.engine, math.min(1, beat[f % #beat + 1] * back * (0.75 + 0.25 * bayer(x + f, y))), x, y)
           luces[y][x] = c
         elseif m == 'light' then
-          local on = f < 2
+          local on = f % 4 < 2
           c = (look.lights or R.cyan)[on and #(look.lights or R.cyan) or 2]
           luces[y][x] = c
         elseif m == 'core' then
-          c = pick(look.core or R.cyan, math.min(1, shadeOf(M, x, y) * 0.7 + 0.3 + PULSE[f + 1]), x, y)
+          c = pick(look.core or R.cyan, math.min(1, shadeOf(U, x, y) * 0.7 + 0.3 + PULSE[f % #PULSE + 1]), x, y)
+          luces[y][x] = c
+        elseif m == 'rivet' then
+          c = look.rivet or R.plate[4]
+          casco[y][x] = c
+        elseif m == 'crack' then
+          c = R.dark[1]
+          casco[y][x] = c
+        elseif m == 'spot' then
+          -- A bioluminescent spot: each one breathes on its own beat.
+          local glow = 0.55 + 0.45 * math.sin((f / 4) * math.pi * 2 + (x // 2) * 1.9 + (y // 2) * 2.3) + (x % 2 == 0 and y % 2 == 0 and 0.2 or 0)
+          c = pick(look.spot or R.glow, math.max(0, math.min(1, glow)), x, y)
           luces[y][x] = c
         elseif m == 'dark' then
-          c = pick(R.dark, shadeOf(M, x, y), x, y)
+          c = pick(R.dark, shadeOf(U, x, y), x, y)
           casco[y][x] = c
         elseif m == 'glass' then
-          c = pick(look.glass or R.cyan, math.min(1, shadeOf(M, x, y) * 0.8 + 0.2), x, y)
+          c = pick(look.glass or R.cyan, math.min(1, shadeOf(U, x, y) * 0.8 + 0.2), x, y)
           casco[y][x] = c
         else
           local ramp = look[m] or look.hull
-          c = pick(ramp, shadeOf(M, x, y), x, y)
+          c = pick(ramp, shadeOf(U, x, y), x, y)
           casco[y][x] = c
         end
       end
@@ -313,9 +339,7 @@ local generated = {}
 local nozzles = {}
 local previews = {}
 
-local function build(id)
-  local M = grid()
-  local look = PROBES[id](M)
+local function build(id, M, look, file, group)
   local spr = Sprite(W, H, ColorMode.RGB)
   local layers = { spr.layers[1], spr:newLayer() }
   layers[1].name = 'casco'
@@ -346,24 +370,107 @@ local function build(id)
       rows[#rows + 1] = table.concat(row)
     end
     frames[f] = rows
-    previews[#previews + 1] = { id = id, f = f, img = image(merged, 8) }
+    previews[group] = previews[group] or {}
+    table.insert(previews[group], { id = id, f = f, img = image(merged, 8) })
   end
   assert(n <= #KEYS, id .. ': too many colours')
-  spr:saveAs(OUT .. '/' .. id:gsub('^probe%-', '') .. '.aseprite')
+  spr:saveAs(OUT .. '/' .. file .. '.aseprite')
   local sheet = Image(W * FRAMES, H, ColorMode.RGB)
   for f = 1, FRAMES do
     local frame = Image(W, H, ColorMode.RGB)
     frame:drawSprite(spr, f)
     sheet:drawImage(frame, Point((f - 1) * W, 0))
   end
-  sheet:saveAs(OUT .. '/' .. id:gsub('^probe%-', '') .. '.png')
+  sheet:saveAs(OUT .. '/' .. file .. '.png')
   spr:close()
-  generated[#generated + 1] = { id = id, palette = palette, frames = frames }
+  generated[#generated + 1] = { id = id, palette = palette, frames = frames, skin = group ~= 'probes' }
   nozzles[#nozzles + 1] = { id = id, rear = look.nozzle }
 end
 
+-- ── Skins (part C): the collections, each one over every probe's own shape ──────────────────────────────────────
+local function hash(s)
+  local h = 2166136261
+  for i = 1, #s do h = ((h ~ s:byte(i)) * 16777619) % 4294967296 end
+  return h
+end
+local function isHull(m) return m == 'hull' or m == 'hull2' end
+
+-- A pixel of the hull with hull all around it (details never sit on the edge, where the contour would eat them).
+local function deep(M, x, y)
+  if not (inside(x, y) and isHull(M[y][x])) then return false end
+  for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }) do
+    local qx, qy = x + d[1], y + d[2]
+    if not inside(qx, qy) or not isHull(M[qy][qx]) then return false end
+  end
+  return true
+end
+
+local SKINS = {
+  -- Chatarra: rebuilt from salvage. Rust, panels of old paint riveted on, a crack, an engine that sputters.
+  {
+    line = 'chatarra',
+    look = { hull = R.rust, hull2 = R.paint, trim = R.scrap, trim2 = R.scrap, glass = R.amber, core = R.amber, lights = R.amber, patch = R.paint, rivet = '#d8c49a', enginePulse = { 0.35, 0.95, 0.2, 0.8 } },
+    decorate = function(M, seed)
+      local spots = {}
+      for y = 1, H - 2 do for x = 1, W - 2 do if deep(M, x, y) then spots[#spots + 1] = { x, y } end end end
+      if #spots == 0 then return end
+      -- Three panels of old paint riveted at their corners, where the probe's own name puts them.
+      local sizes = { { 4, 3 }, { 3, 4 }, { 3, 3 } }
+      for k = 0, 2 do
+        local at = spots[(seed >> (k * 7)) % #spots + 1]
+        local w, h = sizes[k + 1][1], sizes[k + 1][2]
+        for y = at[2], at[2] + h - 1 do for x = at[1], at[1] + w - 1 do if deep(M, x, y) then M[y][x] = 'patch' end end end
+        for _, c in ipairs({ { at[1], at[2] }, { at[1] + w - 1, at[2] }, { at[1], at[2] + h - 1 }, { at[1] + w - 1, at[2] + h - 1 } }) do
+          if inside(c[1], c[2]) and M[c[2]][c[1]] == 'patch' then M[c[2]][c[1]] = 'rivet' end
+        end
+      end
+      -- A crack running down and back.
+      local c = spots[(seed >> 20) % #spots + 1]
+      for i = 0, 2 do
+        local x, y = c[1] - i, c[2] + i
+        if deep(M, x, y) then M[y][x] = 'crack' end
+      end
+    end,
+  },
+  -- Coral: grown, not built. Coral and reef ramps, sea-green trims, and spots that glow like the deep's creatures.
+  {
+    line = 'coral',
+    look = { hull = R.coral, hull2 = R.reef, trim = R.sea, trim2 = R.sea, glass = R.glow, core = R.glow, lights = R.glow, spot = R.glow, engine = R.sea },
+    decorate = function(M, seed)
+      -- A few round glowing spots (2 × 2), far apart.
+      for y = 2, H - 3 do
+        for x = 2, W - 3 do
+          if deep(M, x, y) and deep(M, x + 1, y) and deep(M, x, y + 1) and deep(M, x + 1, y + 1) and (x * 7 + y * 13 + seed) % 23 == 0 then
+            M[y][x], M[y][x + 1], M[y + 1][x], M[y + 1][x + 1] = 'spot', 'spot', 'spot', 'spot'
+          end
+        end
+      end
+    end,
+  },
+}
+
+local function skinLook(base, skin)
+  local look = {}
+  for k, v in pairs(base) do look[k] = v end
+  for k, v in pairs(skin.look) do look[k] = v end
+  return look
+end
+
 for _, id in ipairs(ORDER) do
-  if not ONLY or ONLY == id then build(id) end
+  if not ONLY or ONLY == id then
+    local M = grid()
+    build(id, M, PROBES[id](M), id:gsub('^probe%-', ''), 'probes')
+    for _, skin in ipairs(SKINS) do
+      local S = grid()
+      local look = skinLook(PROBES[id](S), skin)
+      local U = grid()
+      for y = 0, H - 1 do for x = 0, W - 1 do U[y][x] = S[y][x] end end
+      look.under = U
+      skin.decorate(S, hash(id .. skin.line))
+      local probe = id:gsub('^probe%-', '')
+      build('skin-' .. probe .. '-' .. skin.line, S, look, 'skins/' .. probe .. '-' .. skin.line, skin.line)
+    end
+  end
 end
 
 -- The game's module (every probe, so `only` is for a quick look and skips it).
@@ -373,9 +480,10 @@ if not ONLY then
   out[#out + 1] = '// hand: change the script and run it again (the command is at its top).'
   out[#out + 1] = "import type { SpriteDef } from './types';"
   out[#out + 1] = ''
-  out[#out + 1] = '/** The eight probes, 24 × 24, four idle frames each, facing right. */'
-  out[#out + 1] = 'export const PROBE_ART: Record<string, SpriteDef> = {'
-  for _, g in ipairs(generated) do
+  local function emit(title, name, skins)
+  out[#out + 1] = title
+  out[#out + 1] = 'export const ' .. name .. ': Record<string, SpriteDef> = {'
+  for _, g in ipairs(generated) do if g.skin == skins then
     out[#out + 1] = "  '" .. g.id .. "': {"
     out[#out + 1] = '    w: 24,'
     out[#out + 1] = '    h: 24,'
@@ -392,10 +500,13 @@ if not ONLY then
     end
     out[#out + 1] = '    ],'
     out[#out + 1] = '  },'
-  end
+  end end
   out[#out + 1] = '};'
   out[#out + 1] = ''
-  out[#out + 1] = '/** How far behind the centre each probe\'s exhaust is (px): where its flame comes out. */'
+  end
+  emit('/** The eight probes, 24 × 24, four idle frames each, facing right. */', 'PROBE_ART', false)
+  emit('/** The probes\' skins (part C), over each probe\'s own shape: `skin-<probe>-<collection>`. */', 'SKIN_ART', true)
+  out[#out + 1] = '/** How far behind the centre each probe\'s (and skin\'s) exhaust is (px): where its flame comes out. */'
   out[#out + 1] = 'export const PROBE_NOZZLE: Record<string, number> = {'
   for _, nz in ipairs(nozzles) do out[#out + 1] = "  '" .. nz.id .. "': " .. nz.rear .. ',' end
   out[#out + 1] = '};'
@@ -406,12 +517,14 @@ end
 
 -- An 8× preview sheet (one row per probe, its four frames), to look at the art.
 if PREVIEW then
-  local rows = math.ceil(#previews / FRAMES)
-  local sheet = Image(W * 8 * FRAMES + (FRAMES - 1) * 8, rows * (H * 8 + 8), ColorMode.RGB)
-  sheet:clear(colour('#20244a'))
-  for i, p in ipairs(previews) do
-    local r = math.floor((i - 1) / FRAMES)
-    sheet:drawImage(p.img, Point((p.f - 1) * (W * 8 + 8), r * (H * 8 + 8)), 255, BlendMode.NORMAL)
+  for group, list in pairs(previews) do
+    local rows = math.ceil(#list / FRAMES)
+    local sheet = Image(W * 8 * FRAMES + (FRAMES - 1) * 8, rows * (H * 8 + 8), ColorMode.RGB)
+    sheet:clear(colour('#20244a'))
+    for i, p in ipairs(list) do
+      local r = math.floor((i - 1) / FRAMES)
+      sheet:drawImage(p.img, Point((p.f - 1) * (W * 8 + 8), r * (H * 8 + 8)), 255, BlendMode.NORMAL)
+    end
+    sheet:saveAs(PREVIEW .. '/' .. group .. '-preview.png')
   end
-  sheet:saveAs(PREVIEW .. '/probes-preview.png')
 end
