@@ -126,7 +126,7 @@ describe('la repetición', () => {
 
     const r = await detail(start.id);
     expect(r.run).toMatchObject({ id: start.id, player: p.username, ticks: s.ticks, hash: s.hash, simVersion: SIM_VERSION, kills: s.kills, level: s.level });
-    expect(r.start).toEqual({ seed: start.seed, sector: start.sector, probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant, anomaly: start.anomaly, content: start.content });
+    expect(r.start).toEqual({ seed: start.seed, sector: start.sector, probe: start.probe, relics: start.relics, bonuses: start.bonuses, variant: start.variant, anomaly: start.anomaly, skin: start.skin, content: start.content });
     const again = replay({ ...r.start, probes: [{ probe: r.start.probe, relics: r.start.relics, bonuses: r.start.bonuses, variant: r.start.variant }], anomaly: r.start.anomaly, record: false }, decodeLog(fromBase64(r.inputs!)), r.run.ticks!);
     expect(stateHash(again)).toBe(r.run.hash);
   });

@@ -36,8 +36,8 @@ const room = (over: Partial<RoomView> = {}): RoomView => ({
   sector: nebula.id,
   state: 'lobby',
   members: [
-    { username: 'sonda_rayo', level: 3, probe: 'lumen', ready: false, connected: true, leader: true },
-    { username: 'deneb', level: 5, probe: 'lumen', ready: false, connected: false, leader: false },
+    { username: 'sonda_rayo', level: 3, probe: 'lumen', skin: null, ready: false, connected: true, leader: true },
+    { username: 'deneb', level: 5, probe: 'lumen', skin: null, ready: false, connected: false, leader: false },
   ],
   max: 4,
   createdAt: '2026-11-09T10:00:00Z',
@@ -161,8 +161,8 @@ test('desde la sala se puede añadir como amigo a quien no lo es, y no a uno mis
   const withMates = room({
     members: [
       room().members[0]!,
-      { username: 'deneb', level: 5, probe: 'lumen', ready: false, connected: true, leader: false },
-      { username: 'vega', level: 7, probe: 'lumen', ready: true, connected: true, leader: false },
+      { username: 'deneb', level: 5, probe: 'lumen', skin: null, ready: false, connected: true, leader: false },
+      { username: 'vega', level: 7, probe: 'lumen', skin: null, ready: true, connected: true, leader: false },
     ],
   });
   const after: FriendsView = { ...friends, outgoing: [{ username: 'deneb', level: 5, at: '2026-11-12T00:00:00Z' }] };

@@ -5,7 +5,7 @@ import { useLeaderboard } from '../api/social';
 import { errorText } from '../auth/useMe';
 import { copy, fmt } from '../copy/es';
 import { clockText } from '../arena/hud/Hud';
-import { spriteDataUrl } from '../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { ClanEmblem } from '../clans/ClanEmblem';
 import { Avatar } from '../hub/Avatar';
 import { Icon } from '../ui/Icon';
@@ -51,7 +51,7 @@ function GroupTable({ groups, mine }: { groups: GroupRow[]; mine: GroupRow | nul
         <ul className="lb-team-list">
           {g.players.map((p) => (
             <li key={p.username}>
-              <img src={spriteDataUrl(probeSprite(p.probe), 2)} alt="" />
+              <img src={spriteDataUrl(probeDrawing(p.skin, probeSprite(p.probe)), 2)} alt="" />
               <Link to={`/perfil/${encodeURIComponent(p.username)}`}>{p.username}</Link>
             </li>
           ))}

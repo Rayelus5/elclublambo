@@ -133,11 +133,15 @@ export function groupRanking(db: Kysely<DB>, cfg: SeasonConfig, minRunSeconds: n
       const team = [...r.members].sort().join(',');
       if (seen.has(team)) continue;
       seen.add(team);
-      const probes = Array.isArray(r.players) ? (r.players as { probe?: unknown }[]) : [];
+      const probes = Array.isArray(r.players) ? (r.players as { probe?: unknown; skin?: unknown }[]) : [];
       const prev = out[out.length - 1];
       out.push({
         rank: prev && prev.depth === r.depth && prev.cores === r.cores ? prev.rank : out.length + 1,
-        players: r.names.map((username, i) => ({ username, probe: typeof probes[i]?.probe === 'string' ? (probes[i]!.probe as string) : 'lumen' })),
+        players: r.names.map((username, i) => ({
+          username,
+          probe: typeof probes[i]?.probe === 'string' ? (probes[i]!.probe as string) : 'lumen',
+          skin: typeof probes[i]?.skin === 'string' ? (probes[i]!.skin as string) : null,
+        })),
         depth: r.depth,
         cores: r.cores,
         seconds: Math.round(r.ticks / 60),

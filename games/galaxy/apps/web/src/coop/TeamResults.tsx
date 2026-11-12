@@ -1,7 +1,7 @@
 import type { CoopRunStart } from '@galaxy/shared';
 import type { ProbeLife, Sim } from '@galaxy/sim';
 import type { CSSProperties, ReactNode } from 'react';
-import { spriteDataUrl } from '../arena/sprites';
+import { probeDrawing, spriteDataUrl } from '../arena/sprites';
 import { teamTint } from '../arena/stage/palette';
 import { usePrefs } from '../settings/prefs';
 import { copy, fmt } from '../copy/es';
@@ -33,7 +33,8 @@ export function teamRows(sim: Sim, start: Pick<CoopRunStart, 'players' | 'conten
       slot,
       name: p.username,
       probe: def?.name ?? p.probe,
-      sprite: def?.sprite ?? 'probe-lumen',
+      // Its skin when it wore one (plan «skins»), or its own drawing.
+      sprite: probeDrawing(p.skin, def?.sprite ?? 'probe-lumen'),
       level: probe?.level ?? 1,
       kills: probe?.kills ?? 0,
       revives: probe?.revives ?? 0,

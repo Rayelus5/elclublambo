@@ -96,7 +96,7 @@ export class CoopService {
         if ((await testedProbe(trx, m.accountId)) === null) throw new HttpError(409, 'probe_test_required');
         const hangar = await ensureHangar(trx, m.accountId);
         const snap = await loadoutSnapshot(trx, m.accountId, hangar.probe, hangar.slots, { content, probes, lab, planetarium, redshift, labSeason });
-        players.push({ username: m.username, probe: hangar.probe, relics: snap.relics, bonuses: snap.bonuses, variant: snap.variant });
+        players.push({ username: m.username, probe: hangar.probe, relics: snap.relics, bonuses: snap.bonuses, variant: snap.variant, skin: snap.skin });
         snapshots.push({ accountId: m.accountId, payout: snap.payout });
       }
       const row = await trx
@@ -127,7 +127,7 @@ export class CoopService {
             sector: room.sector,
             probe: p.probe,
             relics: JSON.stringify(p.relics),
-            upgrades: JSON.stringify({ bonuses: p.bonuses, variant: p.variant, payout: snapshots[slot]!.payout, anomaly }),
+            upgrades: JSON.stringify({ bonuses: p.bonuses, variant: p.variant, payout: snapshots[slot]!.payout, anomaly, skin: p.skin ?? null }),
             content_version: contentVersion,
             sim_version: SIM_VERSION,
             start_key: `coop:${row.id}`,

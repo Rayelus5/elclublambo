@@ -170,7 +170,7 @@ function LiveArena({ feed, clock, closed, onTick }: { feed: LiveFeed; clock: Clo
       setSize({ w, h });
     };
     const biome = start.content.sectors.find((x) => x.id === start.sector)?.biome ?? 'nebula';
-    void createStage(canvas, start.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: start.seed, biome }).then((stage) => {
+    void createStage(canvas, start.content, { reduced, colorVision, vision: relicVision(sim, sim.probes[0]!), probe: 0, seed: start.seed, biome, skins: [start.skin ?? null] }).then((stage) => {
       if (disposed) {
         stage.destroy();
         return;

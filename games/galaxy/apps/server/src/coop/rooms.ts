@@ -13,6 +13,8 @@ export interface MemberInit {
   username: string;
   level: number;
   probe: string;
+  /** The skin their probe wears (plan «skins»; null: its base drawing). */
+  skin?: string | null;
   /** Nov plan C2: how they show on the pads (null: their name's drawing / no frame). */
   avatar?: string | null;
   frame?: string | null;
@@ -204,8 +206,8 @@ export class RoomManager {
     this.touch(room);
   }
 
-  /** A member's hangar changed (its probe), or its level: the room shows it. */
-  refresh(accountId: string, patch: Partial<Pick<Member, 'probe' | 'level'>>): Room | null {
+  /** A member's hangar changed (its probe or its skin), or its level: the room shows it. */
+  refresh(accountId: string, patch: Partial<Pick<Member, 'probe' | 'skin' | 'level'>>): Room | null {
     const room = this.roomOf(accountId);
     if (!room) return null;
     Object.assign(room.members.find((m) => m.accountId === accountId)!, patch);
@@ -255,7 +257,7 @@ export class RoomManager {
       leader: members.find((m) => m.accountId === room.leader)?.username ?? '',
       sector: room.sector,
       state: room.state,
-      members: members.map((m) => ({ username: m.username, avatar: m.avatar ?? null, frame: m.frame ?? null, level: m.level, probe: m.probe, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader })),
+      members: members.map((m) => ({ username: m.username, avatar: m.avatar ?? null, frame: m.frame ?? null, level: m.level, probe: m.probe, skin: m.skin ?? null, ready: m.ready, connected: online(m.accountId), leader: m.accountId === room.leader })),
       max: ROOM_MAX,
       createdAt: new Date(room.createdAt).toISOString(),
       canStart: coopOpen && room.state === 'lobby' && members.length >= 1 && members.every((m) => m.ready || m.accountId === room.leader),

@@ -325,9 +325,9 @@ describe('la clasificación en grupo (plan multijugador, fase 7)', () => {
     expect(v.tab).toBe('groups');
     expect(v.rows).toEqual([]);
     expect(v.groups).toEqual([
-      { rank: 1, players: [{ username: c!.username, probe: 'lumen' }, { username: d!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
-      { rank: 1, players: [{ username: a!.username, probe: 'lumen' }, { username: b!.username, probe: 'lumen' }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
-      { rank: 3, players: [{ username: a!.username, probe: 'lumen' }, { username: c!.username, probe: 'lumen' }], depth: 2, cores: 0, seconds: 150, outcome: 'died' },
+      { rank: 1, players: [{ username: c!.username, probe: 'lumen', skin: null }, { username: d!.username, probe: 'lumen', skin: null }], depth: 6, cores: 3, seconds: 667, outcome: 'died' },
+      { rank: 1, players: [{ username: a!.username, probe: 'lumen', skin: null }, { username: b!.username, probe: 'lumen', skin: null }], depth: 6, cores: 3, seconds: 833, outcome: 'extracted' },
+      { rank: 3, players: [{ username: a!.username, probe: 'lumen', skin: null }, { username: c!.username, probe: 'lumen', skin: null }], depth: 2, cores: 0, seconds: 150, outcome: 'died' },
     ]);
     expect(v.total).toBe(3);
     expect(v.myGroup).toMatchObject({ rank: 1, depth: 6, seconds: 833 });

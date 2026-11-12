@@ -37,7 +37,7 @@ test('sin nada, lleva su firma y puede ponerse cualquier avatar de serie, pero n
   const { cookie } = await player();
   const v = await view(cookie);
   expect(v.equipped).toEqual({ avatar: null, frame: null, title: null, banner: null, backdrop: [] });
-  expect(v.owned).toEqual({ avatars: [], frames: [], titles: [] });
+  expect(v.owned).toEqual({ avatars: [], frames: [], titles: [], skins: [] });
   expect(v.catalog.avatars.filter((a) => a.source === 'default')).toHaveLength(12);
   const worn = await put(ctx.app, '/galaxy/api/profile/cosmetics', { avatar: 'crew-cat' }, { cookie });
   expect(worn.statusCode).toBe(200);

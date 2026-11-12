@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ART_AVATARS, ART_FRAMES } from '../cosmetics/catalog';
+import { ART_AVATARS, ART_FRAMES, ART_SKINS, type SkinId } from '../cosmetics/catalog';
 
 // Missions and achievements (GDD §12.1, §12.3, §14.1; M7a): what is counted, the missions of each period, the
 // achievements with their titles and frames, and what the missions screen shows.
@@ -26,7 +26,7 @@ export const achievementSchema = z
     target: z.number().int().min(1).max(10_000_000),
     tier: z.enum(['bronze', 'silver', 'gold']),
     reward: z
-      .object({ signal: z.number().int().min(0).max(100).default(0), points: z.number().int().min(0).max(100_000).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null) })
+      .object({ signal: z.number().int().min(0).max(100).default(0), points: z.number().int().min(0).max(100_000).default(0), title: z.string().trim().min(1).max(30).nullable().default(null), frame: z.enum(FRAMES).nullable().default(null), avatar: z.enum(ART_AVATARS).nullable().default(null), skin: z.enum(ART_SKINS as [SkinId, ...SkinId[]]).nullable().default(null) })
       .strict(),
   })
   .strict();
@@ -44,6 +44,8 @@ export const eventRewardSchema = missionRewardSchema
     title: z.string().trim().min(1).max(30).nullable().default(null),
     frame: z.enum(FRAMES).nullable().default(null),
     avatar: z.enum(ART_AVATARS).nullable().default(null),
+    // Plan «skins», part C: and probe skins (the Coral collection).
+    skin: z.enum(ART_SKINS as [SkinId, ...SkinId[]]).nullable().default(null),
   })
   .strict();
 export type EventReward = z.output<typeof eventRewardSchema>;

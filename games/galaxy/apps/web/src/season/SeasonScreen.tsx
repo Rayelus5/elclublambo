@@ -34,7 +34,7 @@ function useSeasonAction() {
 
 /** What a reward is mostly about, for its icon and its colour: the season currency first, then the rest. */
 function rewardKind(r: SeasonReward): { icon: IconName; kind: string } {
-  if (r.title || r.frame) return { icon: 'trophy', kind: 'cosmetic' };
+  if (r.title || r.frame || r.avatar || r.skin) return { icon: 'trophy', kind: 'cosmetic' };
   if (r.shards) return { icon: 'shard', kind: 'shards' };
   if (r.signal) return { icon: 'ticket', kind: 'signal' };
   if (r.dust) return { icon: 'dust', kind: 'dust' };

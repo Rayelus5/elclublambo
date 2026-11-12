@@ -372,6 +372,7 @@ function CoopWorld({
       seed: start.seed,
       biome,
       names: start.players.map((p) => p.username),
+      skins: start.players.map((p) => p.skin ?? null),
       zoom: arenaZoom(),
     }).then((stage) => {
       if (disposed) {

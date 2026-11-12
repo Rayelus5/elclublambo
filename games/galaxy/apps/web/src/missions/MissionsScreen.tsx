@@ -1,4 +1,4 @@
-import type { AchievementView, EventView, Frame, MissionPeriodView, MissionView, Wallet } from '@galaxy/shared';
+import { type AchievementView, type EventView, type Frame, type MissionPeriodView, type MissionView, pieceName, type Wallet } from '@galaxy/shared';
 import { useEffect, useId, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useGacha } from '../api/economy';
@@ -26,7 +26,7 @@ const SLUGS: Record<string, Tab> = { diarias: 'daily', semanales: 'weekly', temp
 /** «a, b y c». */
 const listOf = (parts: string[]) => (parts.length <= 1 ? (parts[0] ?? '') : `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)!}`);
 
-function rewardParts(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | string | null; eventSignals?: number }): string[] {
+function rewardParts(r: { coins?: number; dust?: number; signal?: number; xp?: number; points?: number; title?: string | null; frame?: Frame | string | null; avatar?: string | null; skin?: string | null; eventSignals?: number }): string[] {
   const parts: string[] = [];
   if (r.eventSignals) parts.push(t.reward.eventSignals(r.eventSignals));
   if (r.coins) parts.push(t.reward.coins(r.coins));
@@ -36,6 +36,9 @@ function rewardParts(r: { coins?: number; dust?: number; signal?: number; xp?: n
   if (r.points) parts.push(t.reward.points(r.points));
   if (r.title) parts.push(t.reward.title(r.title));
   if (r.frame) parts.push(t.reward.frame(t.frames[r.frame] ?? r.frame));
+  // Plan «skins», part C: an avatar or a probe skin a goal or an achievement gives.
+  if (r.avatar) parts.push(t.reward.avatar(pieceName('avatar', r.avatar)));
+  if (r.skin) parts.push(t.reward.skin(pieceName('skin', r.skin)));
   return parts;
 }
 
