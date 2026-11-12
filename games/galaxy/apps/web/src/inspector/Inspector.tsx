@@ -1,6 +1,6 @@
 import { PALETTES } from '@galaxy/engine';
 import type { PulledGalaxy } from '@galaxy/shared';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { CardBack } from '../cards/CardBack';
 import { GalaxyCard } from '../cards/GalaxyCard';
 import { copy } from '../copy/es';
@@ -27,7 +27,11 @@ function reasonOf(err: unknown): string {
   return copy.inspector.reasons.other(message.slice(0, 120));
 }
 
-export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?: number }; onClose: () => void }) {
+/**
+ * The 3D card on its own (part D of the «escáner pro» plan: the relic sheet shows it beside the powers): the view, its
+ * reason when it had to fall back, and «Ver el reverso»; `children` are more buttons beside that one.
+ */
+export function InspectorView({ galaxy, children, className = '' }: { galaxy: PulledGalaxy & { level?: number }; children?: ReactNode; className?: string }) {
   const reduced = useReducedMotion();
   const [gl] = useState(probeWebGL2);
   const [mode, setMode] = useState<Mode>(gl ? 'loading' : 'flat');
@@ -95,7 +99,7 @@ export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?
   useEffect(() => scene.current?.flip(back), [back, mode]);
 
   return (
-    <Dialog title={copy.inspector.title(galaxy.name)} onClose={onClose} className="inspector-dialog">
+    <div className={`inspector-view ${className}`}>
       {reason && (mode === 'flat' || variant === 'classic') ? (
         <p className="inspector-notice" role="note">
           <Icon name="alert" />
@@ -133,10 +137,21 @@ export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?
             </button>
           </>
         ) : null}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** The inspector as its own window (the collection's «Inspeccionar en 3D»). */
+export function Inspector({ galaxy, onClose }: { galaxy: PulledGalaxy & { level?: number }; onClose: () => void }) {
+  return (
+    <Dialog title={copy.inspector.title(galaxy.name)} onClose={onClose} className="inspector-dialog">
+      <InspectorView galaxy={galaxy}>
         <button type="button" className="lip pill" data-autofocus onClick={onClose}>
           {copy.collection.close}
         </button>
-      </div>
+      </InspectorView>
     </Dialog>
   );
 }

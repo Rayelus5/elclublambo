@@ -6,6 +6,8 @@ import { clearPending, loadPending, savePending } from '../src/api/pending-run';
 import type { RunEnd } from '../src/arena/ArenaScreen';
 import { copy } from '../src/copy/es';
 import { HangarScreen } from '../src/hangar/HangarScreen';
+import userEvent from '@testing-library/user-event';
+import { pickOption } from './pick';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
 
 // The hangar (GDD §5.1, §8.4, §11.3 bis): sector, probe, relic slots and the daily yield before launching; and a run
@@ -59,7 +61,7 @@ test('el Hangar muestra el sector, la sonda, 2 ranuras abiertas, la siguiente co
   expect(screen.getByRole('button', { name: copy.hangar.launch })).toBeEnabled();
 });
 
-test('elegir una reliquia la equipa y dice qué hará; también se puede quitar', async () => {
+test('elegir una reliquia abre su ficha con lo que hace; «Equipar» la equipa y también se puede quitar', async () => {
   const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   const fetch = mockApi({
     'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
@@ -72,7 +74,14 @@ test('elegir una reliquia la equipa y dice qué hará; también se puede quitar'
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
   const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
-  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.equip('Kathra') }));
+  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  // Nothing is saved yet: the sheet says what it does first.
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') });
+  expect(fetch.mock.calls.some(([url, init]) => url === '/galaxy/api/hangar/loadout' && init?.method === 'PUT')).toBe(false);
+  expect(within(sheet).getByText(copy.hangar.families.blades)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.phenomena.pulsar)).toBeInTheDocument();
+  expect(within(sheet).getByText(copy.hangar.sheet.intoSlot(1))).toBeInTheDocument();
+  fireEvent.click(within(sheet).getByRole('button', { name: copy.hangar.sheet.equip }));
   const slot = await screen.findByRole('group', { name: copy.hangar.slot(1) });
   expect(slot).toHaveTextContent('Kathra');
   expect(slot).toHaveTextContent(copy.hangar.families.blades);
@@ -293,6 +302,37 @@ describe('conjuntos de reliquias', () => {
   });
 });
 
+test('desde la ficha, «Volver a la lista» vuelve al selector sin equipar nada', async () => {
+  const page: CollectionPage = { items: [galaxy(), galaxy({ id: 'g2', name: 'Orvel', tier: 'common', equipped: false })], counts: { common: 1, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const fetch = mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+  });
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
+  fireEvent.click(await within(await screen.findByRole('dialog', { name: copy.hangar.pickerTitle })).findByRole('button', { name: copy.hangar.sheet.open('Orvel') }));
+  const sheet = await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Orvel') });
+  fireEvent.click(within(sheet).getByRole('button', { name: copy.hangar.sheet.back }));
+  expect(await screen.findByRole('dialog', { name: copy.hangar.pickerTitle })).toBeInTheDocument();
+  expect(screen.queryByRole('dialog', { name: copy.hangar.sheet.title('Orvel') })).toBeNull();
+  expect(fetch.mock.calls.some(([, init]) => init?.method === 'PUT')).toBe(false);
+});
+
+test('el selector de reliquias filtra por fenómeno', async () => {
+  const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
+  const fetch = mockApi({
+    'GET /galaxy/api/hangar': () => jsonResponse(200, view()),
+    'GET /galaxy/api/galaxies?sort=rarity&limit=30': () => jsonResponse(200, page),
+    'GET /galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30': () => jsonResponse(200, page),
+  });
+  const user = userEvent.setup();
+  renderAt('/incursion', { '/incursion': <HangarScreen /> });
+  await user.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
+  const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
+  await pickOption(user, within(picker).getByRole('combobox', { name: copy.traitNames['phenomenon']! }), copy.collection.phenomenonAny);
+  await waitFor(() => expect(fetch.mock.calls.map(([url]) => url)).toContain('/galaxy/api/galaxies?phenomenon=any&sort=rarity&limit=30'));
+});
+
 test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
   const page: CollectionPage = { items: [galaxy()], counts: { common: 0, uncommon: 0, rare: 0, epic: 0, legendary: 1 }, fusion: { count: 5, dust: [20, 50, 120, 300] } };
   mockApi({
@@ -303,7 +343,8 @@ test('un cambio de equipo rechazado se dice junto a las ranuras', async () => {
   renderAt('/incursion', { '/incursion': <HangarScreen /> });
   fireEvent.click((await screen.findAllByRole('button', { name: copy.hangar.chooseRelic }))[0]!);
   const picker = await screen.findByRole('dialog', { name: copy.hangar.pickerTitle });
-  fireEvent.click((await within(picker).findAllByRole('button', { name: /^Equipar / }))[0]!);
+  fireEvent.click(await within(picker).findByRole('button', { name: copy.hangar.sheet.open('Kathra') }));
+  fireEvent.click(within(await screen.findByRole('dialog', { name: copy.hangar.sheet.title('Kathra') })).getByRole('button', { name: copy.hangar.sheet.equip }));
   const relics = screen.getByRole('region', { name: copy.hangar.relics });
   expect(await within(relics).findByText(copy.errors.invalid_loadout)).toBeInTheDocument();
 });
