@@ -5,6 +5,7 @@ import { afterEach, expect, test, vi } from 'vitest';
 import { CollectionScreen } from '../src/collection/CollectionScreen';
 import { copy } from '../src/copy/es';
 import { jsonResponse, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // Multiplayer plan, phase 2: the lock on a galaxy (detail and grid) and the automatic fusion's dialog (its starting
 // point from the filters, the preview, the confirmation and what it made).
@@ -98,8 +99,8 @@ test('la fusión automática parte del filtro de rareza, enseña la previsión y
   await waitFor(() => expect(screen.getByRole('button', { name: new RegExp(`^${copy.tiers.common}`) })).toHaveAttribute('aria-pressed', 'true'));
   await user.click(screen.getByRole('button', { name: t.open }));
   const dialog = await screen.findByRole('dialog', { name: t.title });
-  expect(within(dialog).getByLabelText(t.from)).toHaveValue('common');
-  expect(within(dialog).getByLabelText(t.upTo)).toHaveValue('uncommon');
+  expect(within(dialog).getByRole('combobox', { name: t.from })).toHaveTextContent(new RegExp(`^${copy.tiers.common}$`));
+  expect(within(dialog).getByRole('combobox', { name: t.upTo })).toHaveTextContent(new RegExp(`^${copy.tiers.uncommon}$`));
   expect(await within(dialog).findByText(t.total(6, 150, 250))).toBeInTheDocument();
   expect(dialog).toHaveTextContent(t.kept([t.keptWhy.locked(2), t.keptWhy.finishes(1)]));
   expect(dialog).toHaveTextContent(t.upperBound);
@@ -128,7 +129,9 @@ test('cambiar el «Desde» por encima del «Hasta» sube el «Hasta» y vuelve a
   const dialog = await screen.findByRole('dialog', { name: t.title });
   expect(await within(dialog).findByText(t.nothing)).toBeInTheDocument();
   expect(within(dialog).getByRole('button', { name: t.confirmNone })).toBeDisabled();
-  await user.selectOptions(within(dialog).getByLabelText(t.from), 'rare');
-  expect(within(dialog).getByLabelText(t.upTo)).toHaveValue('epic');
+  await pickOption(user, within(dialog).getByRole('combobox', { name: t.from }), copy.tiers.rare);
+  expect(within(dialog).getByRole('combobox', { name: t.upTo })).toHaveTextContent(new RegExp(`^${copy.tiers.epic}$`));
+  // The dialog stays open: the list closed on its own.
+  expect(screen.getByRole('dialog', { name: t.title })).toBeInTheDocument();
   await waitFor(() => expect(bodies.some((b) => b.criteria['from'] === 'rare' && b.criteria['upTo'] === 'epic')).toBe(true));
 });

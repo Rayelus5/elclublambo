@@ -6,6 +6,7 @@ import { copy } from '../src/copy/es';
 import { GalaxyDetailDialog } from '../src/collection/GalaxyDetailDialog';
 import { MarketScreen } from '../src/market/MarketScreen';
 import { jsonResponse, locationOf, mockApi, renderAt } from './render';
+import { pickOption } from './pick';
 
 // The market on the web (GDD §14.6, §14.7; M5c-1): Comprar, Vender and Mis anuncios; who may trade and why not;
 // buying after a confirmation that shows the price and the balance; selling at least at the rarity's floor, with what
@@ -134,8 +135,8 @@ test('el escaparate se filtra por rareza y se ordena', async () => {
   screenAt();
   const user = userEvent.setup();
   await itemOf('Vega g1');
-  await user.selectOptions(screen.getByLabelText(t.filterTier), 'epic');
-  await user.selectOptions(screen.getByLabelText(t.sortLabel), 'cheap');
+  await pickOption(user, screen.getByRole('combobox', { name: t.filterTier }), copy.tiers.epic);
+  await pickOption(user, screen.getByRole('combobox', { name: t.sortLabel }), t.sorts.cheap);
   await waitFor(() => expect(fetch.mock.calls.some(([url]) => url === '/galaxy/api/market?tier=epic&sort=cheap&page=1')).toBe(true));
   expect(await itemOf('Vega g9')).toBeInTheDocument();
 });

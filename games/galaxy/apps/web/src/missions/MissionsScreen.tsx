@@ -10,6 +10,7 @@ import { BackLink } from '../ui/BackLink';
 import { Celebration } from '../ui/Celebration';
 import { Icon } from '../ui/Icon';
 import { useReducedMotion } from '../ui/motion';
+import { Select } from '../ui/Select';
 import { useClaimFx } from './ClaimFx';
 import { addRewards, type ClaimTarget, firstReadyTab, readyByTab, readyIn, type Reward } from './ready';
 import { playClaim } from './sfx';
@@ -326,27 +327,25 @@ function Cosmetics({ titles, frames, title, frame }: { titles: string[]; frames:
         <div className="field">
           <label htmlFor={`${ids}-t`}>{t.titleLabel}</label>
           <div className="control">
-            <select id={`${ids}-t`} value={chosen.title} onChange={(e) => setChosen((c) => ({ ...c, title: e.target.value }))}>
-              <option value="">{t.none}</option>
-              {titles.map((x) => (
-                <option key={x} value={x}>
-                  {x}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-t`}
+              block
+              value={chosen.title}
+              options={[{ value: '', label: t.none }, ...titles.map((x) => ({ value: x, label: x }))]}
+              onChange={(title) => setChosen((c) => ({ ...c, title }))}
+            />
           </div>
         </div>
         <div className="field">
           <label htmlFor={`${ids}-f`}>{t.frameLabel}</label>
           <div className="control">
-            <select id={`${ids}-f`} value={chosen.frame} onChange={(e) => setChosen((c) => ({ ...c, frame: e.target.value }))}>
-              <option value="">{t.none}</option>
-              {frames.map((x) => (
-                <option key={x} value={x}>
-                  {t.frames[x] ?? x}
-                </option>
-              ))}
-            </select>
+            <Select
+              id={`${ids}-f`}
+              block
+              value={chosen.frame}
+              options={[{ value: '', label: t.none }, ...frames.map((x) => ({ value: x, label: t.frames[x] ?? x }))]}
+              onChange={(frame) => setChosen((c) => ({ ...c, frame }))}
+            />
           </div>
         </div>
         <button type="button" className="lip pill" disabled={save.isPending} onClick={() => save.mutate({ title: chosen.title || null, frame: (chosen.frame || null) as Frame | null })}>
