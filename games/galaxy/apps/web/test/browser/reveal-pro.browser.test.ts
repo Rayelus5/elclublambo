@@ -13,7 +13,8 @@ import '../../src/styles/app.css';
 
 // The pro scanner in a real browser (plan «escáner pro», part B): the bands close while the request is out, the
 // cinema starts when the galaxies arrive, every phase draws inside the screen, «Saltar» lands on the summary, and the
-// WebGL context is given back on close. VITE_REVEAL_SHOTS=1 saves a screenshot of each phase.
+// WebGL context is given back on close. A fusion (plan «fusión pro») does the same with its ring of galaxies going in.
+// VITE_REVEAL_SHOTS=1 saves a screenshot of each phase.
 
 let root: Root | null = null;
 afterEach(() => {
@@ -39,7 +40,9 @@ function pull(tier: Tier, extra: Partial<PulledGalaxy> = {}): PulledGalaxy {
   };
 }
 
-function mount(pulls: readonly PulledGalaxy[] | null, hooks: { control?: CinemaControl | null; phase?: Phase | null }) {
+type Extra = { intro?: 'scan' | 'fusion'; inputs?: readonly PulledGalaxy[] };
+
+function mount(pulls: readonly PulledGalaxy[] | null, hooks: { control?: CinemaControl | null; phase?: Phase | null }, extra: Extra = {}) {
   const host = document.createElement('div');
   document.body.append(host);
   root ??= createRoot(host);
@@ -53,6 +56,7 @@ function mount(pulls: readonly PulledGalaxy[] | null, hooks: { control?: CinemaC
             MemoryRouter,
             null,
             createElement(ProShell, {
+              ...extra,
               pulls: p,
               onClose: () => {},
               direction: { surge: true },
@@ -78,14 +82,16 @@ async function until(check: () => boolean, ms = 15_000) {
   }
 }
 
-for (const [label, pulls] of [
-  ['una-legendaria', () => [pull('legendary', { featured: true, finish: 'holo', traits: { phenomenon: 'pulsar', palette: 'nebula' } })]],
-  ['diez', () => [pull('common'), pull('rare'), pull('common'), pull('uncommon'), pull('epic', { finish: 'prismatic' }), pull('common'), pull('legendary'), pull('common'), pull('uncommon'), pull('common')]],
-] as const) {
+const going = [pull('epic'), pull('epic', { finish: 'holo' }), pull('epic'), pull('epic'), pull('epic')];
+for (const [label, pulls, extra] of [
+  ['una-legendaria', () => [pull('legendary', { featured: true, finish: 'holo', traits: { phenomenon: 'pulsar', palette: 'nebula' } })], {}],
+  ['diez', () => [pull('common'), pull('rare'), pull('common'), pull('uncommon'), pull('epic', { finish: 'prismatic' }), pull('common'), pull('legendary'), pull('common'), pull('uncommon'), pull('common')], {}],
+  ['fusion', () => [pull('legendary', { traits: { phenomenon: 'comet', palette: 'nebula' } })], { intro: 'fusion', inputs: going }],
+] as const satisfies readonly (readonly [string, () => PulledGalaxy[], Extra])[]) {
   test(`la cinemática pro (${label}) dibuja cada fase dentro de la pantalla y Saltar lleva al resumen`, async () => {
     await page.viewport(1600, 900);
     const hooks: { control?: CinemaControl | null; phase?: Phase | null } = {};
-    const render = mount(null, hooks);
+    const render = mount(null, hooks, extra);
     const rootEl = document.querySelector<HTMLElement>('.pro-root')!;
     expect(rootEl.dataset['state']).toBe('closing');
     // The bands close: black, top to bottom. A loaded runner may not move their 0.6 s transition along at all, so the
@@ -115,16 +121,18 @@ for (const [label, pulls] of [
             ? p.at + p.dur * 0.85
             : p.kind === 'impacto'
               ? p.at + (p.lead ?? 0) + 0.12
-              : p.kind === 'caida'
+              : p.kind === 'caida' || p.kind === 'orbita'
                 ? p.at + p.dur * 0.7
-                : p.at + p.dur * 0.55;
+                : p.kind === 'colapso'
+                  ? p.at + p.dur * 0.45
+                  : p.at + p.dur * 0.55;
       // The exact frame: jump there and hold still while the screenshot is taken.
       control.seek(at);
       control.pause();
       await wait(220);
       const canvas = document.querySelector<HTMLCanvasElement>('.pro-canvas')!;
       expect(canvas.clientWidth).toBe(1600);
-      if (import.meta.env['VITE_REVEAL_SHOTS'] && (label === 'una-legendaria' || /^(salto|ascenso|caida|impacto|reparto|solo-9|solo-8|final|giro-4)$/.test(p.label))) {
+      if (import.meta.env['VITE_REVEAL_SHOTS'] && (label !== 'diez' || /^(salto|ascenso|caida|impacto|reparto|solo-9|solo-8|final|giro-4)$/.test(p.label))) {
         await page.screenshot({ path: `__shots__/pro-${label}-${String(control.script.phases.indexOf(p) + 1).padStart(2, '0')}-${p.label}.png` });
       }
       control.resume();

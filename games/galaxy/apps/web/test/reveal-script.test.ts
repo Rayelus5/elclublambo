@@ -174,3 +174,78 @@ test('Seguir: diez van al reparto, a cada primer plano, a su vuelta y al final',
   expect(nextStop(s, solo8.at + solo8.dur - 0.1)).toBe(solo9.at);
   expect(nextStop(s, phase(s, 'final').at + 0.1)).toBe(phase(s, 'resumen').at);
 });
+
+// A fusion (plan «fusión pro»): the galaxies going in circle a core, spiral into it and burst into the new one, whose
+// card then turns as a single scan's does.
+const five = (t: Tier): Tier[] => [t, t, t, t, t];
+
+test('una fusión: ignición con las que entran, órbita, colapso, impacto, carta, espera y resumen', () => {
+  const s = buildScript([pull('uncommon')], { motion: 'full', surge: false, intro: 'fusion', inputs: five('common') });
+  expect(s.intro).toBe('fusion');
+  expect(s.inputs).toEqual(five('common'));
+  expect(labels(s)).toEqual(['ignicion', 'orbita', 'colapso', 'impacto', 'carta', 'espera-carta', 'resumen']);
+  expect(phase(s, 'ignicion').dur).toBe(GUION.fusion.ignicion);
+  expect(phase(s, 'orbita').dur).toBe(GUION.fusion.orbita[1]);
+  expect(phase(s, 'colapso').dur).toBe(GUION.fusion.colapso[1]);
+  s.phases.forEach((p, i) => {
+    if (i > 0) expect(p.at).toBeCloseTo(s.phases[i - 1]!.at + s.phases[i - 1]!.dur, 6);
+  });
+  // The riser spans the orbit, the plunge sounds at the collapse, the burst always.
+  const riser = s.cues.find((c) => c.id === 'salto')!;
+  expect(riser.at).toBeCloseTo(phase(s, 'orbita').at, 6);
+  expect(riser.dur).toBeCloseTo(phase(s, 'orbita').dur, 6);
+  expect(s.cues.find((c) => c.id === 'meteoro')!.at).toBeCloseTo(phase(s, 'colapso').at, 6);
+  expect(s.cues.find((c) => c.id === 'impacto')!.essential).toBe(true);
+  expect(ids(s).filter((x) => x === 'latido')).toHaveLength(2);
+  expect(s.trail).toEqual({ shown: 'ice', max: 'ice' });
+  // Until the card waits: about 4,5 s.
+  expect(phase(s, 'espera-carta').at).toBeGreaterThan(3.8);
+  expect(phase(s, 'espera-carta').at).toBeLessThan(5.5);
+});
+
+test('una fusión que da legendaria: el núcleo la anticipa, a veces asciende, y suena la fanfarria', () => {
+  const s = buildScript([pull('legendary')], { motion: 'full', surge: true, intro: 'fusion', inputs: five('epic') });
+  expect(labels(s)).toEqual(['ignicion', 'orbita', 'ascenso', 'colapso', 'impacto', 'carta', 'espera-carta', 'resumen']);
+  expect(s.trail).toEqual({ shown: 'epic', max: 'legendary' });
+  const riser = s.cues.find((c) => c.id === 'salto')!;
+  expect(riser.dur).toBeCloseTo(phase(s, 'orbita').dur + phase(s, 'ascenso').dur, 6);
+  expect(ids(s)).toEqual(expect.arrayContaining(['ascenso', 'impacto-grande', 'fanfarria']));
+  expect(s.score.at(-1)!.level).toBe(3);
+  expect(phase(s, 'espera-carta').at).toBeGreaterThan(7);
+  expect(phase(s, 'espera-carta').at).toBeLessThan(9);
+  // Without the surge it goes straight to its colour.
+  const plain = buildScript([pull('legendary')], { motion: 'full', surge: false, intro: 'fusion', inputs: five('epic') });
+  expect(labels(plain)).not.toContain('ascenso');
+  expect(plain.trail).toEqual({ shown: 'legendary', max: 'legendary' });
+});
+
+test('una fusión con movimiento reducido: el anillo, el fundido en el núcleo y la carta, sin destellos ni temblores', () => {
+  const s = buildScript([pull('rare')], { motion: 'reduced', intro: 'fusion', inputs: five('uncommon') });
+  expect(labels(s)).toEqual(['ignicion', 'colapso', 'carta', 'espera-carta', 'resumen']);
+  expect(phase(s, 'colapso').dur).toBe(GUION.calm.colapso);
+  expect(s.flashes).toEqual([]);
+  expect(s.shakes).toEqual([]);
+  expect(s.duration).toBeLessThan(3);
+});
+
+test('una fusión: fotosensibilidad, el Ensayo cambia la órbita y el colapso, y Seguir va a la carta', () => {
+  for (const t of TIERS) {
+    for (const surge of [false, true]) {
+      const s = buildScript([pull(t)], { motion: 'full', surge, intro: 'fusion', inputs: five(t) });
+      expect(maxFlashesPerSecond(s.flashes)).toBeLessThanOrEqual(2);
+      for (const f of s.flashes) expect(f.alpha).toBeLessThanOrEqual(0.6);
+    }
+  }
+  const s = buildScript([pull('epic')], { motion: 'full', surge: false, intro: 'fusion', inputs: five('rare'), overrides: { orbita: 3, colapso: 1.5 } });
+  expect(phase(s, 'orbita').dur).toBe(3);
+  expect(phase(s, 'colapso').dur).toBe(1.5);
+  expect(nextStop(s, 0)).toBeCloseTo(phase(s, 'carta').at, 6);
+  expect(nextStop(s, phase(s, 'carta').at + 0.1)).toBeCloseTo(phase(s, 'espera-carta').at, 6);
+  expect(nextStop(s, phase(s, 'espera-carta').at)).toBeCloseTo(phase(s, 'resumen').at, 6);
+});
+
+test('un escaneo sigue siendo un escaneo: sin anillo ni galaxias que entran', () => {
+  const s = buildScript([pull('rare')], { motion: 'full', surge: false });
+  expect(s.intro).toBe('scan');
+  expect(s.inputs).toEqual([]);
+});

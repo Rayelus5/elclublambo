@@ -21,6 +21,40 @@ export const GRID = {
   y: (slot: number) => (slot < 5 ? 1.42 : -1.42),
 } as const;
 
+/**
+ * A fusion's ring (plan «fusión pro»): the galaxies going in sit on an ellipse round the core (`rx` × `ry` at ring 1,
+ * the first on top), close in to `close` along the orbit while it turns `spin` radians, then sink into the core.
+ */
+export const RING = {
+  rx: 3.3,
+  ry: 1.75,
+  close: 0.6,
+  spin: 1.75 * Math.PI * 2,
+  /** Six or fewer, a little bigger. */
+  scale: (n: number) => (n > 6 ? 0.26 : 0.3),
+  angle: (i: number, n: number) => (i / Math.max(1, n)) * Math.PI * 2 + Math.PI / 2,
+} as const;
+
+/**
+ * Where one of a fusion's galaxies stands: on the ring, turned by the spin, swirling in and shrinking as it sinks. With
+ * reduced motion it never moves: it only fades where it is (`absorb` then means nothing here).
+ */
+export function ringSpot(i: number, n: number, s: { ring: number; spin: number; absorb: number }, reduced: boolean) {
+  const sink = reduced ? 0 : s.absorb;
+  const angle = RING.angle(i, n) + s.spin + sink * 1.2;
+  const r = s.ring * (1 - sink);
+  return { x: Math.cos(angle) * RING.rx * r, y: Math.sin(angle) * RING.ry * r, z: -0.4 * sink, scale: RING.scale(n) * (1 - 0.85 * sink), angle, r };
+}
+
+/** One of a fusion's galaxies going in. */
+export interface InputRig {
+  alpha: number;
+  /** 0 on the ring … 1 sunk into the core. */
+  absorb: number;
+  /** Its edge lit with its tier (0–1). */
+  glow: number;
+}
+
 export interface CardRig {
   x: number;
   y: number;
@@ -70,6 +104,14 @@ export interface Rig {
   /** The summary fading in over the scene. */
   summary: number;
   cards: CardRig[];
+  /** A fusion's ring: its size (1 round the core, smaller as it closes in) and how far it has turned (radians). */
+  ring: number;
+  spin: number;
+  /** How fast the ring turns (0 still … 1 full speed): its streaks and tilt, the same on a still frame. */
+  whirl: number;
+  /** A fusion's core: its glow (0–1), tinted as the trail. */
+  core: number;
+  inputs: InputRig[];
 }
 
 const ABOVE = 6;
@@ -77,6 +119,7 @@ const ABOVE = 6;
 /** The rig at the very start (black, closed), with every card hidden above its place. */
 export function createRig(s: Script): Rig {
   const ten = s.count > 1;
+  const fusion = s.intro === 'fusion';
   return {
     bars: 1,
     black: 1,
@@ -99,11 +142,17 @@ export function createRig(s: Script): Rig {
     featured: 0,
     phenomenon: 0,
     summary: 0,
+    ring: fusion && !s.reduced ? 1.15 : 1,
+    spin: 0,
+    whirl: 0,
+    core: 0,
+    inputs: s.inputs.map(() => ({ alpha: 0, absorb: 0, glow: 0 })),
+    // A fusion's new card is born small in the core; a scan's falls from above its place.
     cards: Array.from({ length: s.count }, (_, slot) => ({
       x: ten ? GRID.x(slot) : SINGLE.x,
-      y: (ten ? GRID.y(slot) : SINGLE.y) + ABOVE,
-      z: -3,
-      scale: ten ? GRID.scale * 0.6 : SINGLE.scale * 0.6,
+      y: (ten ? GRID.y(slot) : SINGLE.y) + (fusion ? 0 : ABOVE),
+      z: fusion ? -1 : -3,
+      scale: ten ? GRID.scale * 0.6 : SINGLE.scale * (fusion ? 0.05 : 0.6),
       rotY: 0,
       rotZ: 0,
       alpha: 0,
@@ -135,7 +184,11 @@ function untexts(tl: Timeline, rig: Rig, at: number, dur: number) {
 export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline {
   const tl = gsap.timeline({ paused: true });
   const ten = s.count > 1;
+  const fusion = s.intro === 'fusion';
   const T = GUION.ten;
+  const F = GUION.fusion;
+  // Where the ring stands when the orbit ends (a surge turns it further): the collapse goes on from there.
+  let spun = RING.spin;
   const card = (slot: number) => rig.cards[slot]!;
   const tierOf = (p: Phase) => p.tier;
   const faceOf = (slot: number) => s.faces.find((f) => f.slot === slot)!;
@@ -147,7 +200,26 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
       case 'ignicion':
         tl.to(rig, { bars: CINEMA, duration: dur * 0.8, ease: 'expo.inOut' }, at);
         tl.to(rig, { black: 0, duration: dur * 0.6, ease: 'power2.out' }, at + dur * 0.2);
-        if (!s.reduced) tl.fromTo(rig, { ignite: 0 }, { ignite: 1, duration: dur * 0.5, ease: 'power4.out', immediateRender: false }, at);
+        if (fusion) {
+          // The galaxies going in appear round a dim core, one after another, as the ring settles.
+          if (!s.reduced) tl.to(rig, { ring: 1, duration: dur * 0.8, ease: 'power2.out' }, at);
+          tl.to(rig, { core: 0.3, duration: dur * 0.6, ease: 'power2.out' }, at + dur * 0.2);
+          // Each fades in `stagger` after the last, all of them in before the ignition ends (a short calm one too).
+          const fade = Math.min(0.3, dur * 0.4);
+          const step = rig.inputs.length > 1 ? Math.min(F.stagger, (dur * 0.9 - 0.1 - fade) / (rig.inputs.length - 1)) : 0;
+          rig.inputs.forEach((inp, i) => tl.to(inp, { alpha: 1, glow: 0.6, duration: fade, ease: 'power1.out' }, at + 0.1 + i * step));
+        } else if (!s.reduced) tl.fromTo(rig, { ignite: 0 }, { ignite: 1, duration: dur * 0.5, ease: 'power4.out', immediateRender: false }, at);
+        break;
+      case 'orbita':
+        // Faster and closer: the spin speeds up to the collapse (it carries on there at that pace).
+        tl.to(rig, { spin: RING.spin, duration: dur, ease: 'power2.in' }, at);
+        // Its speed: the spin's own pace (power2 in, so the speed grows evenly).
+        tl.to(rig, { whirl: 1, duration: dur, ease: 'none' }, at);
+        tl.to(rig, { ring: RING.close, duration: dur, ease: 'power1.in' }, at);
+        tl.to(rig, { core: 0.75, speed: 0.12, duration: dur, ease: 'power1.in' }, at);
+        tl.to(rig, { nebula: 1, duration: dur * 0.8, ease: 'power1.inOut' }, at);
+        rig.inputs.forEach((inp) => tl.to(inp, { glow: 1, duration: dur * 0.3, ease: 'power2.in' }, at + dur * 0.7));
+        if (s.trail.shown !== 'ice') tl.to(rig, { trail: 1, duration: 0.3, ease: 'power2.out' }, at + dur * GUION.trailShift);
         break;
       case 'salto':
         tl.to(rig, { warp: 1, speed: 1, duration: dur, ease: 'expo.in' }, at);
@@ -156,11 +228,43 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         if (s.trail.shown !== 'ice') tl.to(rig, { trail: 1, duration: 0.3, ease: 'power2.out' }, at + dur * GUION.trailShift);
         break;
       case 'ascenso':
+        if (fusion) {
+          // The ring seems to settle (it widens, the core dims), then the core breaks into the real colour.
+          spun = RING.spin + Math.PI * 1.5;
+          tl.to(rig, { spin: spun, duration: dur, ease: 'power1.inOut' }, at);
+          tl.to(rig, { ring: RING.close + 0.12, core: 0.45, whirl: 0.55, duration: dur * 0.5, ease: 'power2.out' }, at);
+          tl.to(rig, { ring: RING.close, core: 1, whirl: 1, duration: dur * 0.5, ease: 'expo.in' }, at + dur * 0.5);
+          tl.to(rig, { trail: 2, duration: 0.18, ease: 'expo.out' }, at + dur * 0.6);
+          break;
+        }
         // It seems to end (the speed falls), then breaks into the real colour.
         tl.to(rig, { speed: 0.5, duration: dur * 0.5, ease: 'power2.out' }, at);
         tl.to(rig, { speed: 1.35, duration: dur * 0.25, ease: 'expo.in' }, at + dur * 0.5);
         tl.to(rig, { trail: 2, duration: 0.18, ease: 'expo.out' }, at + dur * 0.6);
         break;
+      case 'colapso': {
+        const n = rig.inputs.length;
+        if (s.reduced) {
+          // They fade into the core, which glows a moment and goes.
+          rig.inputs.forEach((inp) => tl.to(inp, { alpha: 0, absorb: 1, duration: dur * 0.7, ease: 'power1.inOut' }, at));
+          tl.to(rig, { core: 0.6, duration: dur * 0.5, ease: 'power1.out' }, at);
+          tl.to(rig, { core: 0, duration: dur * 0.5, ease: 'power1.in' }, at + dur * 0.5);
+          break;
+        }
+        // One by one into the core, still turning; the core swells with each and shrinks to a point for the burst.
+        const sink = dur * 0.4;
+        const gap = n > 1 ? (dur * 0.55) / (n - 1) : 0;
+        rig.inputs.forEach((inp, i) => {
+          tl.to(inp, { absorb: 1, duration: sink, ease: 'power2.in' }, at + i * gap);
+          tl.to(inp, { alpha: 0, duration: sink * 0.35, ease: 'power1.in' }, at + i * gap + sink * 0.65);
+        });
+        tl.to(rig, { spin: spun + Math.PI * 3, duration: dur, ease: 'none' }, at);
+        tl.to(rig, { ring: 0.35, duration: dur, ease: 'power1.in' }, at);
+        tl.to(rig, { core: 1, duration: dur * 0.7, ease: 'power1.in' }, at);
+        tl.to(rig, { core: 0.1, duration: dur * 0.3, ease: 'expo.in' }, at + dur * 0.7);
+        tl.to(rig, { nebula: 0.35, speed: 0, duration: dur, ease: 'power1.out' }, at);
+        break;
+      }
       case 'caida':
         tl.to(rig, { warp: 0, speed: 0, duration: dur * 0.45, ease: 'expo.out' }, at);
         tl.fromTo(rig, { meteor: 0 }, { meteor: 1, duration: dur, ease: 'power1.in', immediateRender: false }, at);
@@ -170,6 +274,8 @@ export function buildTimeline(gsap: typeof Gsap, s: Script, rig: Rig): Timeline 
         // The hit-stop first: nothing moves, then the shockwave rolls out past the end of the phase.
         const strike = at + (p.lead ?? 0);
         tl.fromTo(rig, { impact: 0 }, { impact: 1, duration: at + dur - strike + 0.9, ease: 'power2.out', immediateRender: false }, strike);
+        // A fusion's core bursts.
+        if (fusion) tl.to(rig, { core: 0, whirl: 0, duration: 0.12, ease: 'power2.out' }, strike);
         break;
       }
       case 'carta': {
