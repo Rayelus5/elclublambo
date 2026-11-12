@@ -406,7 +406,11 @@ function CoopWorld({
       hudRef.current = h;
       setHud(h);
       // The music follows the run as in solo (plan «banda sonora»; before, a group run had none). Staff watching hear none.
-      if (!viewer) setMusicScene(runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), false));
+      if (!viewer) {
+        // Once the run is over the results' piece takes over (runScene says nothing then).
+        const scene = runScene({ hp: h.hp, maxHp: h.maxHp, phase: h.phase, layer: h.layer, status: h.status, boss: h.boss ? { phase: h.boss.phase } : null }, sim.sector.biome, deepLayer(sim), false);
+        if (scene) setMusicScene(scene);
+      }
       watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);

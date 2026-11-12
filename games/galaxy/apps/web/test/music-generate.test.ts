@@ -98,3 +98,13 @@ test('los acordes se enlazan sin saltos: ninguna voz del pad salta más de una q
     for (let v = 0; v < Math.min(a.length, b.length); v++) expect(Math.abs(b[v]! - a[v]!)).toBeLessThanOrEqual(7);
   }
 });
+
+test('el bajo nunca suena dos notas a la vez (tampoco la de paso al final de una sección)', () => {
+  for (const comp of COMPOSITIONS) {
+    const all = bars(comp.id, 'ambient', 64, 4);
+    for (const b of all) {
+      const bass = b.events.filter((e) => e.role === 'bass').sort((x, y) => x.at - y.at);
+      for (let i = 1; i < bass.length; i++) expect(bass[i - 1]!.at + bass[i - 1]!.len, `${comp.id} bar ${b.bar}`).toBeLessThanOrEqual(bass[i]!.at);
+    }
+  }
+});

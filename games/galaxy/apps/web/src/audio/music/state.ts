@@ -5,7 +5,8 @@ import type { Layer } from './styles';
 // The music of a run (plan «banda sonora», part A), from what the HUD already knows: calm in the first waves, combat
 // from the second layer or at the beacon, danger with under 30 % of life or in a Núcleo's later phases; the Núcleo
 // brings its own piece (the deep one its own, the rest alternating by layer); a level-up choice dims it and a pause
-// ducks it. Pure, so it is tested as a table.
+// ducks it. Once the run is over (extracted or down for good) it says nothing: the stinger and the results' piece take
+// over. Pure, so it is tested as a table.
 
 export interface RunMood {
   hp: number;
@@ -16,7 +17,8 @@ export interface RunMood {
   boss: { phase: number } | null;
 }
 
-export function runScene(m: RunMood, biome: Biome, deep: boolean, paused: boolean): Extract<MusicScene, { kind: 'run' }> {
+export function runScene(m: RunMood, biome: Biome, deep: boolean, paused: boolean): Extract<MusicScene, { kind: 'run' }> | null {
+  if (m.status === 'dead' || m.status === 'extracted') return null;
   const low = m.maxHp > 0 && m.hp <= m.maxHp * 0.3;
   const onBoss = m.phase === 'boss' && m.boss !== null;
   let intensity: Layer = 1;

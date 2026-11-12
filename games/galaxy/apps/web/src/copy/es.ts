@@ -2445,10 +2445,10 @@ export const copy = {
   settings: {
     title: 'Ajustes',
     back: 'Volver',
-    /** Where the settings are kept (plan «ajustes en la cuenta»). */
     musicStyle: 'Estilo de música',
     musicStyleHint: 'Cambia en el siguiente compás, en el menú y en las incursiones',
     musicStyles: { ambient: 'Ambiente espacial', lofi: 'Lo-fi espacial', synthwave: 'Synthwave suave', own: 'Mi música' } as Record<'ambient' | 'lofi' | 'synthwave' | 'own', string>,
+    /** Where the settings are kept (plan «ajustes en la cuenta»). */
     sync: { saved: 'Guardados en tu cuenta', saving: 'Guardando en tu cuenta', offline: 'Sin conexión. Se guardarán al volver' } as Record<'saved' | 'saving' | 'offline', string>,
     sound: 'Sonido',
     music: 'Música',

@@ -166,3 +166,37 @@ test('con archivos propios, la pieza suena desde ellos (sus capas siguen la inte
   expect(ctx2.started.filter((s) => s.kind === 'osc').length).toBeGreaterThan(0);
   expect(broken.state().source).toBe('generated');
 });
+
+test('en un Núcleo a tope casi no se pierden bajo, bombo, coro ni metales por falta de voces', () => {
+  const { engine, run } = setup({ kind: 'run', biome: 'nebula', boss: { deep: false, form: 1 }, intensity: 3, choosing: false, paused: false });
+  run(90, 0.05);
+  const { played, dropped } = engine.state();
+  for (const role of ['bass', 'kick', 'choir', 'brass', 'pad'] as const) {
+    const total = (played[role] ?? 0) + (dropped[role] ?? 0);
+    expect(total, role).toBeGreaterThan(0);
+    expect((dropped[role] ?? 0) / total, role).toBeLessThan(0.05);
+  }
+});
+
+test('tras un parón (otra pestaña, el navegador ocupado) no suenan de golpe las notas atrasadas', () => {
+  const { ctx, engine, run } = setup(run1('forge', 3));
+  run(2);
+  const before = ctx.started.length;
+  ctx.currentTime += 3;
+  engine.tick();
+  const late = ctx.started.slice(before).filter((s) => s.at < ctx.currentTime - 0.02);
+  expect(late).toEqual([]);
+  run(2);
+  expect(ctx.started.length).toBeGreaterThan(before);
+});
+
+test('una capa que se enciende y se apaga a medio fundido sigue desde donde estaba (sin saltos)', () => {
+  const { ctx, engine, run } = setup(run1('ice', 2));
+  run(2);
+  engine.setScene(run1('ice', 3));
+  run(0.3);
+  engine.setScene(run1('ice', 2));
+  run(0.3);
+  const holds = ctx.gains.flatMap((g) => g.gain.moves).filter((m) => m.kind === 'hold');
+  expect(holds.length).toBeGreaterThan(0);
+});

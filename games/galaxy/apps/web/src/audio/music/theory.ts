@@ -52,41 +52,32 @@ export function chordOf(tonic: number, mode: Mode, degree: number, ext: ChordExt
 }
 
 /**
- * The chord's notes placed near `center`, each voice as close as it can be to the last chord's (a calm voice leading).
- * Without a last chord, the closest voicing to the centre.
+ * The chord's notes placed near `center`, low to high: one voice per chord tone (never a doubled note), each as close
+ * as it can be to one of the last chord's voices (a calm voice leading) and within a sixth of the centre. Without a
+ * last chord, the closest voicing to the centre.
  */
 export function voiceLead(chord: readonly number[], last: readonly number[] | null, center: number): number[] {
-  const pcs = chord.map((n) => ((n % 12) + 12) % 12);
+  const pcs = [...new Set(chord.map((n) => ((n % 12) + 12) % 12))];
   const near = (pc: number, target: number) => {
     const base = target - ((((target - pc) % 12) + 12) % 12);
     return target - base > 6 ? base + 12 : base;
   };
   if (!last || last.length === 0) return pcs.map((pc) => near(pc, center)).sort((a, b) => a - b);
-  const out: number[] = [];
-  const used = new Set<number>();
-  // Each voice of the last chord takes the nearest free note of the new one, kept within an octave of the centre.
-  for (const prev of last) {
-    let best = -1;
-    let bestNote = 0;
-    let bestDist = Infinity;
-    pcs.forEach((pc, i) => {
-      if (used.has(i) && used.size < pcs.length) return;
-      let n = near(pc, prev);
-      if (n - center > 9) n -= 12;
-      if (center - n > 9) n += 12;
-      const d = Math.abs(n - prev);
-      if (d < bestDist) {
-        bestDist = d;
-        best = i;
-        bestNote = n;
+  return pcs
+    .map((pc) => {
+      let best = near(pc, center);
+      let bestDist = Infinity;
+      for (const prev of last) {
+        let n = near(pc, prev);
+        if (n - center > 9) n -= 12;
+        if (center - n > 9) n += 12;
+        const d = Math.abs(n - prev);
+        if (d < bestDist) {
+          bestDist = d;
+          best = n;
+        }
       }
-    });
-    used.add(best);
-    out.push(bestNote);
-  }
-  // A chord with more notes than the last one: the rest near the centre.
-  pcs.forEach((pc, i) => {
-    if (!used.has(i)) out.push(near(pc, center));
-  });
-  return out;
+      return best;
+    })
+    .sort((a, b) => a - b);
 }

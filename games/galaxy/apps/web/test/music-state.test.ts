@@ -30,3 +30,8 @@ test('eligiendo mejora se atenúa, y en pausa baja', () => {
   expect(runScene(mood({ status: 'choosing' }), 'nebula', false, false)).toMatchObject({ choosing: true, paused: false });
   expect(runScene(mood(), 'nebula', false, true)).toMatchObject({ choosing: false, paused: true });
 });
+
+test('al acabar (extraída o caída) la partida ya no manda en la música: suenan el remate y los resultados', () => {
+  expect(runScene(mood({ status: 'dead', hp: 0 }), 'nebula', false, false)).toBeNull();
+  expect(runScene(mood({ status: 'extracted' }), 'nebula', false, false)).toBeNull();
+});

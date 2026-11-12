@@ -58,6 +58,10 @@ function param(value = 0) {
       moves.push({ kind: 'cancel', value: 0, at });
       return this;
     },
+    cancelAndHoldAtTime(at: number) {
+      moves.push({ kind: 'hold', value: 0, at });
+      return this;
+    },
   };
 }
 

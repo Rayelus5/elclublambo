@@ -136,6 +136,13 @@ export function createPlanner(comp: Composition, style: Style, seed: number) {
       add('bass', i, Math.max(1, end - i), midi, 0.8 - (k % 2) * 0.15);
     });
     if (lastBarOfSection && roles.bass !== undefined) {
+      // One bass note at a time: what would still sound at step 14 ends there, what starts after it goes.
+      for (let i = events.length - 1; i >= 0; i--) {
+        const e = events[i]!;
+        if (e.role !== 'bass') continue;
+        if (e.at >= 14) events.splice(i, 1);
+        else if (e.at + e.len > 14) e.len = 14 - e.at;
+      }
       const toward = at.nextDegree > at.degree ? 1 : -1;
       const passing = within(degreeMidi(comp.tonic, comp.mode, at.nextDegree - toward), root - 2);
       add('bass', 14, 2, passing, 0.6);
