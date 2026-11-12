@@ -90,10 +90,12 @@ export async function profileOf(deps: SocialDeps, username: string): Promise<Pro
     .select(['c.tag', 'c.name', 'c.emblem', 'c.color'])
     .where('m.account_id', '=', owner.id)
     .executeTakeFirst();
+  const lvl = levelOf(await accountXp(db, owner.id), account);
   return {
     username: owner.username,
     since: owner.created_at.toISOString(),
-    level: levelOf(await accountXp(db, owner.id), account).level,
+    level: lvl.level,
+    xp: { into: lvl.into, next: lvl.next },
     season: standing,
     records,
     collection: { total: Object.values(counts).reduce((a, b) => a + b, 0), counts },

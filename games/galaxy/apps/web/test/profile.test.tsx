@@ -121,3 +121,20 @@ test('sin banner no hay banner ni tema; con acabado normal, banner sin tema', as
   expect(second.container.querySelector('.profile-banner')).not.toBeNull();
   expect(second.container.querySelector('.profile-root')).not.toHaveAttribute('data-finish');
 });
+
+test('la cabecera: el avatar grande y la barra de experiencia hasta el siguiente nivel', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ xp: { into: 1240, next: 2000 } })) });
+  const { container } = renderAt('/perfil/vega', screens);
+  const bar = await screen.findByRole('progressbar', { name: t.xpBar(8) });
+  expect(bar).toHaveAttribute('aria-valuenow', '1240');
+  expect(bar).toHaveAttribute('aria-valuemax', '2000');
+  expect(screen.getByText(t.xpLeft(760, 8))).toBeInTheDocument();
+  expect(container.querySelector<HTMLElement>('.profile-avatar .avatar-box')!.style.getPropertyValue('--s')).toBe('3');
+});
+
+test('en el nivel más alto no hay barra: lo dice', async () => {
+  mockApi({ 'GET /galaxy/api/profiles/vega': () => jsonResponse(200, profile({ xp: { into: 500, next: null } })) });
+  renderAt('/perfil/vega', screens);
+  expect(await screen.findByText(t.maxLevel)).toBeInTheDocument();
+  expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+});

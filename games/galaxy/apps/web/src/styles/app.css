@@ -1487,13 +1487,26 @@
   .lb-tiers li small { font-size: 13px; color: var(--color-ink-mute); }
   .lb-tiers li[aria-current="true"] { background: rgb(255 255 255 / .06); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-ice) 45%, transparent); }
   /* The profile. */
-  .profile-head { display: flex; align-items: center; gap: 20px; }
-  .profile-avatar { display: grid; place-items: center; inline-size: 96px; block-size: 96px; border-radius: 26px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px rgb(255 255 255 / .1), 0 12px 30px rgb(0 0 0 / .4); }
-  .profile-avatar .avatar { inline-size: 64px; block-size: 64px; }
+  /* The head: a large avatar (96 px, 144 with its frame) beside the name, title, level bar, clan and since when. */
+  .profile-head { display: flex; flex-wrap: wrap; align-items: center; gap: 18px 28px; }
+  .profile-avatar { display: grid; place-items: center; flex: none; inline-size: 152px; block-size: 152px; border-radius: 34px; background: rgb(0 0 0 / .35); box-shadow: 0 0 0 3px rgb(255 255 255 / .1), 0 14px 34px rgb(0 0 0 / .45); }
+  .profile-avatar .avatar { inline-size: 96px; block-size: 96px; }
+  .profile-id { display: grid; justify-items: start; gap: 10px; flex: 1 1 320px; min-inline-size: 0; max-inline-size: 560px; }
+  .profile-id > * { margin: 0; }
+  .profile-head .profile-title { font-size: 18px; }
+  .profile-level { display: grid; gap: 7px; inline-size: min(100%, 460px); }
+  .profile-level-row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+  .profile-level-chip { font-weight: 700; font-size: 17px; color: var(--color-terminal); }
+  .profile-level-left { font-size: 14px; color: var(--color-ink-soft); }
+  .profile-xp { position: relative; display: block; block-size: 12px; border-radius: 99px; overflow: hidden; background: rgb(0 0 0 / .45); box-shadow: inset 0 0 0 2px rgb(255 255 255 / .07); }
+  .profile-xp > span { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, color-mix(in oklab, var(--color-terminal) 70%, var(--color-ice)), var(--color-terminal)); box-shadow: 0 0 12px color-mix(in srgb, var(--color-terminal) 55%, transparent); transform-origin: left; transform: scaleX(var(--p, 0)); animation: xp-fill .9s var(--ease-bounce) both; }
+  @keyframes xp-fill { from { transform: scaleX(0); } }
+  @media (prefers-reduced-motion: reduce) { .profile-xp > span { animation: none; } }
+  .profile-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+  .profile-meta .profile-clan { margin: 0; }
   .profile-avatar .avatar-box .avatar { inline-size: 100%; block-size: 100%; }
   .profile-head h1 { margin: 0; font: 400 clamp(34px, 3.4vw, 48px)/1 var(--font-display); overflow-wrap: anywhere; }
-  .profile-head p { margin: 4px 0 0; }
-  .profile-level { font-weight: 700; color: var(--color-terminal); }
+  .profile-head p { margin: 0; }
   .profile-since { color: var(--color-ink-mute); }
   .profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .profile-panel { display: grid; gap: 12px; align-content: start; justify-items: start; padding: 18px 20px 20px; }

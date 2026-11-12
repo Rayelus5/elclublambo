@@ -75,6 +75,8 @@ export interface Profile {
   /** When the account was created (ISO). */
   since: string;
   level: number;
+  /** The experience into their level and what the next one asks for (null at the top). */
+  xp?: { into: number; next: number | null };
   /** This season's standing, or null when no season is open or it has no points. */
   season: { score: number; rank: number; tier: SeasonTier | null; maxDepth: number; purges: number; extractions: number } | null;
   /** All-time records from runs that are not suspicious. */

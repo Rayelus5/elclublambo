@@ -1433,6 +1433,9 @@ export const copy = {
     toNext: (points: number, tier: string) => `Te faltan ${fmt(points)} puntos para ${tier}`,
     seeAll: 'Ver clasificación completa',
     level: (n: number) => `Nivel ${n}`,
+    xpBar: (next: number) => `Experiencia hacia el nivel ${next}`,
+    xpLeft: (left: number, next: number) => `${fmt(left)} XP para el nivel ${next}`,
+    maxLevel: 'Nivel máximo',
     /** Read after the username and level of the top bar's avatar link. */
     yourProfile: ', tu perfil',
     since: (iso: string) => `Miembro desde ${new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(iso))}`,

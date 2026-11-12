@@ -1,5 +1,5 @@
 import { type Profile, TIERS } from '@galaxy/shared';
-import { useId, useState } from 'react';
+import { type CSSProperties, useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { ApiError } from '../api/client';
 import { useProfile } from '../api/social';
@@ -25,6 +25,24 @@ import { TitleText } from '../profile/TitleText';
 // to visit it. Nothing private.
 
 const t = copy.social;
+
+/** The level and how far the next one is: a bar of the experience into this level, or «Nivel máximo» at the top. */
+function LevelBar({ level, xp }: { level: number; xp: Profile['xp'] }) {
+  const next = xp && xp.next !== null && xp.next > 0 ? xp.next : null;
+  return (
+    <div className="profile-level">
+      <div className="profile-level-row">
+        <span className="profile-level-chip">{t.level(level)}</span>
+        {xp ? <span className="profile-level-left">{next === null ? t.maxLevel : t.xpLeft(Math.max(0, next - xp.into), level + 1)}</span> : null}
+      </div>
+      {xp && next !== null ? (
+        <span className="profile-xp" role="progressbar" aria-label={t.xpBar(level + 1)} aria-valuemin={0} aria-valuemax={next} aria-valuenow={Math.min(xp.into, next)}>
+          <span style={{ '--p': String(Math.min(1, xp.into / next)) } as CSSProperties} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function Panel({ title, className, children }: { title: string; className: string; children: React.ReactNode }) {
   const id = useId();
@@ -162,24 +180,26 @@ export function ProfileScreen() {
           <>
             <section className="profile-head">
               <span className="profile-avatar">
-                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={64} />
+                <Avatar name={p.username} avatar={p.avatar} frame={p.frame} size={96} />
               </span>
-              <div>
+              <div className="profile-id">
                 <h1>{p.username}</h1>
                 {p.title ? (
                   <p className="profile-title">
                     <TitleText text={p.title} catalog={cosmetics.data?.catalog} />
                   </p>
                 ) : null}
-                <p className="profile-level">{t.level(p.level)}</p>
-                <p className="profile-since">{t.since(p.since)}</p>
-                {p.clan ? (
-                  <Link to={`/clanes/${p.clan.tag}`} className="profile-clan">
-                    <ClanEmblem emblem={p.clan.emblem} color={p.clan.color} scale={1} />
-                    <span>{p.clan.name}</span>
-                    <span className="clan-tag">{p.clan.tag}</span>
-                  </Link>
-                ) : null}
+                <LevelBar level={p.level} xp={p.xp} />
+                <div className="profile-meta">
+                  {p.clan ? (
+                    <Link to={`/clanes/${p.clan.tag}`} className="profile-clan">
+                      <ClanEmblem emblem={p.clan.emblem} color={p.clan.color} scale={1} />
+                      <span>{p.clan.name}</span>
+                      <span className="clan-tag">{p.clan.tag}</span>
+                    </Link>
+                  ) : null}
+                  <p className="profile-since">{t.since(p.since)}</p>
+                </div>
               </div>
             </section>
             {viewer && viewer === p.username ? (
