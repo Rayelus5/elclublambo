@@ -23,6 +23,7 @@ import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { debit } from '../economy/wallet';
 import { HttpError } from '../errors';
+import { type Notices, noticePlayer, type WithLive, withNotices } from '../realtime/notices';
 import { clanRanking, ranking, type SocialDeps } from '../social/leaderboard';
 import { accountXp } from '../social/progress';
 
@@ -54,6 +55,12 @@ const lock = (trx: Kysely<DB>, key: string) => sql`select pg_advisory_xact_lock(
 const ROLE_ORDER: Record<ClanRole, number> = { leader: 0, officer: 1, member: 2 };
 
 type ClanRowDb = { id: string; tag: string; name: string; description: string; emblem: string; color: string; open: boolean; created_at: Date };
+
+/** `live`: the live hub, for the clan's notices (real-time notices plan); none in the CLI. */
+export type ClanDeps = SocialDeps & WithLive;
+
+/** A clan in a notice. */
+const noticeClan = (c: { tag: string; name: string }) => ({ tag: c.tag, name: c.name });
 
 async function clanByTag(db: Kysely<DB>, tag: string): Promise<ClanRowDb> {
   const c = await db.selectFrom('galaxy.clans').selectAll().where('tag', '=', tag).executeTakeFirst();
@@ -207,20 +214,37 @@ async function admit(trx: Kysely<DB>, clanId: string, accountId: string, cfgs: C
   await trx.deleteFrom('galaxy.clan_requests').where('account_id', '=', accountId).execute();
 }
 
-export async function joinClan(deps: SocialDeps, accountId: string, tag: string, asRequest: boolean): Promise<ClanView> {
+export async function joinClan(deps: ClanDeps, accountId: string, tag: string, asRequest: boolean): Promise<ClanView> {
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
-  await inTransaction(deps.db, async (trx) => {
-    const { open } = await lockClan(trx, c.id);
-    await lock(trx, `clan-account:${accountId}`);
-    const until = await kickedUntil(trx, c.id, accountId);
-    if (until) throw new HttpError(409, 'clan_kicked', { until: until.toISOString() });
-    if (open) return admit(trx, c.id, accountId, cfgs);
-    if (!asRequest) throw new HttpError(409, 'clan_closed');
-    if (await membership(trx, accountId)) throw new HttpError(409, 'already_in_clan');
-    await trx.insertInto('galaxy.clan_requests').values({ clan_id: c.id, account_id: accountId }).onConflict((oc) => oc.columns(['clan_id', 'account_id']).doNothing()).execute();
-  });
+  await withNotices(deps.live, (out) =>
+    inTransaction(deps.db, async (trx) => {
+      const { open } = await lockClan(trx, c.id);
+      await lock(trx, `clan-account:${accountId}`);
+      const until = await kickedUntil(trx, c.id, accountId);
+      if (until) throw new HttpError(409, 'clan_kicked', { until: until.toISOString() });
+      if (open) return admit(trx, c.id, accountId, cfgs);
+      if (!asRequest) throw new HttpError(409, 'clan_closed');
+      if (await membership(trx, accountId)) throw new HttpError(409, 'already_in_clan');
+      const asked = await trx
+        .insertInto('galaxy.clan_requests')
+        .values({ clan_id: c.id, account_id: accountId })
+        .onConflict((oc) => oc.columns(['clan_id', 'account_id']).doNothing())
+        .returning('account_id')
+        .executeTakeFirst();
+      // A new request (not one asked again) reaches who can answer it: the leader and the officers.
+      if (asked) await tellManagers(trx, c, accountId, out);
+    }),
+  );
   return clanView(deps.db, c.id, accountId, cfgs, deps.now());
+}
+
+/** The clan's leader and officers hear of a request to join it. */
+async function tellManagers(trx: Kysely<DB>, c: { id: string; tag: string; name: string }, applicantId: string, out: Notices): Promise<void> {
+  const managers = await trx.selectFrom('galaxy.clan_members').select('account_id').where('clan_id', '=', c.id).where('role', 'in', ['leader', 'officer']).execute();
+  if (managers.length === 0) return;
+  const who = await noticePlayer(trx, applicantId);
+  for (const m of managers) out.add(m.account_id, { kind: 'clan', event: 'request', clan: noticeClan(c), who });
 }
 
 export async function cancelRequest(deps: SocialDeps, accountId: string, tag: string): Promise<ClanView> {
@@ -237,29 +261,33 @@ async function actorRole(trx: Kysely<DB>, clanId: string, actorId: string): Prom
   return m.role;
 }
 
-export async function answerRequest(deps: SocialDeps, actorId: string, tag: string, username: string, accept: boolean): Promise<ClanView> {
+export async function answerRequest(deps: ClanDeps, actorId: string, tag: string, username: string, accept: boolean): Promise<ClanView> {
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
-  await inTransaction(deps.db, async (trx) => {
-    await lockClan(trx, c.id);
-    if (!canManage(await actorRole(trx, c.id, actorId), 'member', 'accept')) throw new HttpError(403, 'clan_forbidden');
-    const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', username).executeTakeFirst();
-    const request = target && (await trx.selectFrom('galaxy.clan_requests').select('account_id').where('clan_id', '=', c.id).where('account_id', '=', target.id).executeTakeFirst());
-    if (!target || !request) throw new HttpError(404, 'request_not_found');
-    if (!accept) {
-      await trx.deleteFrom('galaxy.clan_requests').where('clan_id', '=', c.id).where('account_id', '=', target.id).execute();
-      return;
-    }
-    await lock(trx, `clan-account:${target.id}`);
-    await admit(trx, c.id, target.id, cfgs);
-  });
+  await withNotices(deps.live, (out) =>
+    inTransaction(deps.db, async (trx) => {
+      await lockClan(trx, c.id);
+      if (!canManage(await actorRole(trx, c.id, actorId), 'member', 'accept')) throw new HttpError(403, 'clan_forbidden');
+      const target = await trx.selectFrom('galaxy.accounts').select('id').where('username', '=', username).executeTakeFirst();
+      const request = target && (await trx.selectFrom('galaxy.clan_requests').select('account_id').where('clan_id', '=', c.id).where('account_id', '=', target.id).executeTakeFirst());
+      if (!target || !request) throw new HttpError(404, 'request_not_found');
+      if (!accept) {
+        await trx.deleteFrom('galaxy.clan_requests').where('clan_id', '=', c.id).where('account_id', '=', target.id).execute();
+      } else {
+        await lock(trx, `clan-account:${target.id}`);
+        await admit(trx, c.id, target.id, cfgs);
+      }
+      // Who asked hears the answer.
+      out.add(target.id, { kind: 'clan', event: accept ? 'accepted' : 'rejected', clan: noticeClan(c), who: await noticePlayer(trx, actorId) });
+    }),
+  );
   return clanView(deps.db, c.id, actorId, cfgs, deps.now());
 }
 
-export async function manageMember(deps: SocialDeps, actorId: string, tag: string, username: string, action: Exclude<ClanAction, 'accept' | 'edit'>): Promise<ClanView> {
+export async function manageMember(deps: ClanDeps, actorId: string, tag: string, username: string, action: Exclude<ClanAction, 'accept' | 'edit'>): Promise<ClanView> {
   const cfgs = await clanConfigs(deps);
   const c = await clanByTag(deps.db, tag);
-  await inTransaction(deps.db, async (trx) => {
+  await withNotices(deps.live, (out) => inTransaction(deps.db, async (trx) => {
     await lockClan(trx, c.id);
     const role = await actorRole(trx, c.id, actorId);
     const targetId = await accountNamed(trx, username);
@@ -283,7 +311,10 @@ export async function manageMember(deps: SocialDeps, actorId: string, tag: strin
       await trx.updateTable('galaxy.clan_members').set({ role: 'officer' }).where('account_id', '=', actorId).execute();
       await trx.updateTable('galaxy.clan_members').set({ role: 'leader' }).where('account_id', '=', targetId).execute();
     }
-  });
+    // Who it was done to hears it.
+    const event = action === 'kick' ? 'kicked' : action === 'promote' ? 'promoted' : action === 'demote' ? 'demoted' : 'leader';
+    out.add(targetId, { kind: 'clan', event, clan: noticeClan(c), who: await noticePlayer(trx, actorId) });
+  }));
   return clanView(deps.db, c.id, actorId, cfgs, deps.now());
 }
 
@@ -291,7 +322,7 @@ export async function manageMember(deps: SocialDeps, actorId: string, tag: strin
  * Takes an account out of its clan (under the clan's lock): a leader's place goes to the oldest officer, else the
  * oldest member; the last one out disbands the clan. Says whether it did.
  */
-export async function removeMember(trx: Kysely<DB>, clanId: string, accountId: string, role: ClanRole): Promise<{ dissolved: boolean }> {
+export async function removeMember(trx: Kysely<DB>, clanId: string, accountId: string, role: ClanRole): Promise<{ dissolved: boolean; heir?: string }> {
   await trx.deleteFrom('galaxy.clan_members').where('account_id', '=', accountId).execute();
   if (role !== 'leader') return { dissolved: false };
   const rest = await trx.selectFrom('galaxy.clan_members').select(['account_id', 'role', 'joined_at']).where('clan_id', '=', clanId).execute();
@@ -301,18 +332,21 @@ export async function removeMember(trx: Kysely<DB>, clanId: string, accountId: s
     return { dissolved: true };
   }
   await trx.updateTable('galaxy.clan_members').set({ role: 'leader' }).where('account_id', '=', rest[next]!.account_id).execute();
-  return { dissolved: false };
+  return { dissolved: false, heir: rest[next]!.account_id };
 }
 
-/** Leaving (see `removeMember`). */
-export async function leaveClan(deps: SocialDeps, accountId: string, tag: string): Promise<MyClan> {
+/** Leaving (see `removeMember`): a new leader hears it leads now. */
+export async function leaveClan(deps: ClanDeps, accountId: string, tag: string): Promise<MyClan> {
   const c = await clanByTag(deps.db, tag);
-  await inTransaction(deps.db, async (trx) => {
-    await lockClan(trx, c.id);
-    const me = await membership(trx, accountId);
-    if (!me || me.clan_id !== c.id) throw new HttpError(409, 'not_in_clan');
-    await removeMember(trx, c.id, accountId, me.role);
-  });
+  await withNotices(deps.live, (out) =>
+    inTransaction(deps.db, async (trx) => {
+      await lockClan(trx, c.id);
+      const me = await membership(trx, accountId);
+      if (!me || me.clan_id !== c.id) throw new HttpError(409, 'not_in_clan');
+      const { heir } = await removeMember(trx, c.id, accountId, me.role);
+      if (heir) out.add(heir, { kind: 'clan', event: 'leader', clan: noticeClan(c), who: null });
+    }),
+  );
   return null;
 }
 

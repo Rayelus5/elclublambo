@@ -5,6 +5,7 @@ import type { ConfigReader } from '../config/reader';
 import type { DB } from '../db/schema';
 import { runOperation } from '../economy/operations';
 import { missionConfigs } from '../missions/service';
+import { type LiveSink, Notices } from '../realtime/notices';
 import { creditRunExtras } from '../runs/extras';
 import { settleRun } from '../runs/service';
 import { invalidateLeaderboard } from '../social/leaderboard';
@@ -37,6 +38,8 @@ export interface SettleDeps {
   config: ConfigReader;
   now: () => Date;
   log?: { error: (obj: object, msg: string) => void };
+  /** Where an achievement's notice goes once a player's pay is saved (real-time notices plan). */
+  live?: LiveSink;
 }
 
 const scaled = (loot: { coins: number; dust: number; components: number }[], factorOf: (layer: number) => number) =>
@@ -82,6 +85,7 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
       loot: scaled(gone ? gone.loot : summary.loot, lootFactor),
       hash: summary.hash,
     };
+    const out = new Notices();
     const result = await runOperation(deps.db, who.accountId, `coop:${s.coopRunId}`, 'coop.finish', `coop:${s.coopRunId}:${slot}`, async (trx) => {
       const row = await trx.selectFrom('galaxy.runs').select(['id', 'upgrades', 'started_at', 'finished_at']).where('id', '=', who.runRowId).forUpdate().executeTakeFirstOrThrow();
       const wallSeconds = Math.max(0, (now.getTime() - new Date(row.started_at).getTime()) / 1000);
@@ -93,12 +97,13 @@ export async function settleCoop(deps: SettleDeps, s: CoopSettlement): Promise<(
         { runs, runsVersion, content, account, season, boosts, now },
       );
       // The teammates this player revived count for the group missions and achievements (phase 7).
-      await creditRunExtras(trx, who.accountId, row.id, r, `coop:${s.coopRunId}`, { season, perPoint: route.currency.perPoint, missions, now }, { revives: probe.revives });
+      await creditRunExtras(trx, who.accountId, row.id, r, `coop:${s.coopRunId}`, { season, perPoint: route.currency.perPoint, missions, now }, { revives: probe.revives }, out);
       return r;
     }).catch((err: unknown) => {
       deps.log?.error({ err: (err as Error).name, run: s.coopRunId, slot }, 'coop_pay_failed');
       return null;
     });
+    if (result) out.flush(deps.live);
     results.push(result);
   }
   if (results.some((r) => r === null)) return results;

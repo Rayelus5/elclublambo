@@ -14,7 +14,7 @@ import { runCli } from '../../src/cli';
 import type { ConfigService } from '../../src/config/service';
 import { credit, debit, getWallet } from '../../src/economy/wallet';
 import { fakeGateway } from '../fake-gateway';
-import { createAdminViaCli, fixedConfig, get, post, randomIp, sessionCookie, testApp, testEnv, totpNow, uniqueName } from '../helpers';
+import { createAdminViaCli, fixedConfig, get, openLive, post, randomIp, sessionCookie, settle, testApp, testEnv, totpNow, uniqueName } from '../helpers';
 
 // After a purchase (shop and lab plan, F4): refunds and disputes take back what is left (never below 0), block the
 // account's shop, raise an alert and tell the player; the admin sees the shop, reviews alerts, blocks and unblocks,
@@ -130,7 +130,7 @@ describe('el admin', () => {
 
   test('revisa un aviso una vez', async () => {
     const p = await player();
-    const id = await bought(p.cookie, 'coins-1');
+    const id = await bought(p.cookie, 'coins-3');
     await deliver(gateway.refund(id, 399));
     const [alert] = await alertsOf(id);
     const review = (body: unknown) => post(ctx.app, `/galaxy/api/admin/shop/alerts/${alert!.id}/review`, body, { cookie: admin.cookie });
@@ -250,4 +250,16 @@ test('devolver un cosmético lo quita y, si lo llevabas puesto, también (plan d
   expect(owned.map((o) => o.value)).not.toContain('shop-star-fox');
   expect((await ctx.db.selectFrom('galaxy.accounts').select('avatar').where('id', '=', account).executeTakeFirstOrThrow()).avatar).toBeNull();
   expect(await blocked(account)).toBe(true);
+});
+
+describe('avisos en tiempo real', () => {
+  test('una devolución avisa al jugador de su correo al momento', async () => {
+    const p = await player();
+    const id = await bought(p.cookie, 'coins-3');
+    const live = await openLive(ctx.app, p.cookie);
+    expect((await deliver(gateway.refund(id, 1299))).statusCode).toBe(200);
+    await settle();
+    expect(live.notices()).toEqual([expect.objectContaining({ kind: 'mail', title: 'Compra devuelta' })]);
+    live.ws.terminate();
+  });
 });

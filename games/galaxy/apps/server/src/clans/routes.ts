@@ -4,13 +4,12 @@ import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { idempotencyKey, requestHash } from '../gacha/routes';
 import { hitRateLimit } from '../ratelimit';
-import type { SocialDeps } from '../social/leaderboard';
-import { answerRequest, cancelRequest, clanConfigs, createClan, editClan, joinClan, leaveClan, listClans, manageMember, myClan, viewByTag } from './service';
+import { answerRequest, cancelRequest, type ClanDeps, clanConfigs, createClan, editClan, joinClan, leaveClan, listClans, manageMember, myClan, viewByTag } from './service';
 
 // The clans' routes (GDD §14.3; M5b-1), for anyone signed in. Creating a clan charges coins, so it is an idempotent
 // operation; every change is limited per account. The session is checked first, then the input.
 
-export function registerClanRoutes(api: FastifyInstance, deps: SocialDeps): void {
+export function registerClanRoutes(api: FastifyInstance, deps: ClanDeps): void {
   const limited = (accountId: string) => hitRateLimit(deps.db, `a:${accountId}`, 'clans', 60, 60);
 
   api.get('/galaxy/api/clans', async (req): Promise<ClanList> => {

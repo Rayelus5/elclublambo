@@ -4,6 +4,7 @@ import type { DB } from '../db/schema';
 import { inTransaction } from '../db/tx';
 import { revokeCosmetic } from '../cosmetics/service';
 import { debitUpTo } from '../economy/wallet';
+import { type Notices, withNotices } from '../realtime/notices';
 import type { GatewayCharge, GatewayDispute } from './gateway';
 import type { ShopDeps } from './service';
 
@@ -41,8 +42,8 @@ async function blockShop(trx: Db, account: string, purchase: string, reason: str
   await trx.insertInto('galaxy.shop_blocks').values({ account_id: account, reason, purchase_id: purchase }).onConflict((oc) => oc.column('account_id').doNothing()).execute();
 }
 
-/** A personal message in the player's mailbox (its audience is the account alone). */
-async function tellPlayer(trx: Db, account: string, title: string, body: string, now: Date): Promise<void> {
+/** A personal message in the player's mailbox (its audience is the account alone), and its notice once saved. */
+async function tellPlayer(trx: Db, account: string, title: string, body: string, now: Date, out: Notices): Promise<void> {
   const a = await trx.selectFrom('galaxy.accounts').select('username').where('id', '=', account).executeTakeFirstOrThrow();
   const m = await trx
     .insertInto('galaxy.mailbox_messages')
@@ -58,6 +59,7 @@ async function tellPlayer(trx: Db, account: string, title: string, body: string,
     .returning('id')
     .executeTakeFirstOrThrow();
   await trx.insertInto('galaxy.mailbox_receipts').values({ message_id: m.id, account_id: account }).execute();
+  out.add(account, { kind: 'mail', id: m.id, title });
 }
 
 const amounts = (a: ShopAmounts) =>
@@ -80,7 +82,7 @@ async function lockedByIntent(trx: Db, paymentIntent: string | null) {
 
 /** A refund, total or partial (`charge.refunded`): returns the purchase it was about. */
 export async function applyRefund(deps: ShopDeps, charge: GatewayCharge): Promise<string | null> {
-  return inTransaction(deps.db, async (trx) => {
+  return withNotices(deps.live, (out) => inTransaction(deps.db, async (trx) => {
     const r = await lockedByIntent(trx, charge.paymentIntent);
     if (!r) return null;
     const refunded = Math.min(charge.amountRefunded, r.amount_cents);
@@ -109,15 +111,16 @@ export async function applyRefund(deps: ShopDeps, charge: GatewayCharge): Promis
       'Compra devuelta',
       `Hemos recibido la devolución de una compra de la tienda.${back ? ` Hemos retirado ${back}.` : ''} Tu tienda queda bloqueada hasta que la revisemos.`,
       now,
+      out,
     );
     deps.log?.info({ purchase: r.id, refunded }, 'shop_refund');
     return r.id;
-  });
+  }));
 }
 
 /** A dispute (chargeback): opened takes everything back and blocks; closed only tells the admin how it ended. */
 export async function applyDispute(deps: ShopDeps, dispute: GatewayDispute, closed: boolean): Promise<string | null> {
-  return inTransaction(deps.db, async (trx) => {
+  return withNotices(deps.live, (out) => inTransaction(deps.db, async (trx) => {
     const r = await lockedByIntent(trx, dispute.paymentIntent);
     if (!r) return null;
     const now = deps.now();
@@ -139,8 +142,8 @@ export async function applyDispute(deps: ShopDeps, dispute: GatewayDispute, clos
       .insertInto('galaxy.shop_alerts')
       .values({ kind: 'dispute', account_id: r.account_id, purchase_id: r.id, details: JSON.stringify({ dispute: dispute.id, reason: dispute.reason, amountCents: dispute.amount, taken, short }) })
       .execute();
-    await tellPlayer(trx, r.account_id, 'Compra en disputa', 'Tu banco ha abierto una reclamación sobre una compra de la tienda. Hemos retirado lo que te dio y tu tienda queda bloqueada hasta que se resuelva.', now);
+    await tellPlayer(trx, r.account_id, 'Compra en disputa', 'Tu banco ha abierto una reclamación sobre una compra de la tienda. Hemos retirado lo que te dio y tu tienda queda bloqueada hasta que se resuelva.', now, out);
     deps.log?.info({ purchase: r.id }, 'shop_dispute');
     return r.id;
-  });
+  }));
 }

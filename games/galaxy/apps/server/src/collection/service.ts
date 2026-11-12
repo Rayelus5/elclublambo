@@ -34,13 +34,15 @@ import type { ConfigReader } from '../config/reader';
 import type { DB, GalaxiesTable } from '../db/schema';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { WithLive } from '../realtime/notices';
 import { accountLabEffects } from '../lab/levels';
 import { isEquipped, isExhibited, isListed, isTraded, listedColumn, tradedColumn } from '../market/escrow';
 
 // The collection (GDD §8.5): owned galaxies, paged with a keyset cursor; disintegration into dust and fusion of
 // `fusion.count` same-tier galaxies into one of the next tier. Both are idempotent operations (routes.ts) and lock
 // the galaxies they consume, so a galaxy is never spent twice.
-export type CollectionDeps = { db: Kysely<DB>; config: ConfigReader };
+/** `live`: the live hub, for an achievement's notice (real-time notices plan). */
+export type CollectionDeps = { db: Kysely<DB>; config: ConfigReader } & WithLive;
 
 export const listQuerySchema = z
   .object({

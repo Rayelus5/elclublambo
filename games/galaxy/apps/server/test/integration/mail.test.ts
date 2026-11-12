@@ -1,7 +1,7 @@
 import { type AdminMailRow, type AdminNoticeRow, type MyMailbox, PROBE_TEST, type Role, type TitleNotice } from '@galaxy/shared';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { getWallet } from '../../src/economy/wallet';
-import { createAdminViaCli, fixedConfig, get, post, sessionCookie, testApp, totpNow, uniqueName } from '../helpers';
+import { createAdminViaCli, fixedConfig, get, openLive, post, sessionCookie, settle, testApp, totpNow, uniqueName } from '../helpers';
 
 // Communication on the server (GDD §16.5; M6d-1). Admins send news to a segment (here always a list of these tests'
 // own accounts: the local database is the owner's, and a message for everyone would reach their accounts too), with
@@ -231,5 +231,18 @@ describe('revisión final', () => {
       ['mail.send', 'Prueba del buzón'],
       ['mail.withdraw', 'Error de texto'],
     ]);
+  });
+});
+
+describe('avisos en tiempo real', () => {
+  test('un correo nuevo llega al momento a sus destinatarios conectados, y a nadie más', async () => {
+    const [a, b, out] = [await player(), await player(), await player()];
+    const [la, lb, lo] = [await openLive(ctx.app, a.cookie), await openLive(ctx.app, b.cookie), await openLive(ctx.app, out.cookie)];
+    const { id } = (await send([a.username, b.username])).json() as { id: string };
+    await settle();
+    expect(la.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta' }]);
+    expect(lb.notices()).toEqual([{ kind: 'mail', id, title: 'Novedades de la beta' }]);
+    expect(lo.notices()).toEqual([]);
+    for (const l of [la, lb, lo]) l.ws.terminate();
   });
 });

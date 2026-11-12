@@ -5,6 +5,7 @@ import { requireSession } from '../auth/guards';
 import { runOperation } from '../economy/operations';
 import { HttpError } from '../errors';
 import { hitRateLimit } from '../ratelimit';
+import { withNotices } from '../realtime/notices';
 import { countStats, missionConfigs } from '../missions/service';
 import { markLeftoversSeen } from './leftovers';
 import { enabledGacha, pull, visit, type GachaDeps } from './service';
@@ -50,10 +51,12 @@ export function registerGachaRoutes(
     const seasonCfg = await deps.config.get('season');
     const season = seasonOpen(seasonCfg, deps.now()) ? seasonCfg : null;
     const mcfg = await missionConfigs(deps.config);
-    return runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
-      const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
-      await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now());
-      return r;
-    });
+    return withNotices(deps.live, (out) =>
+      runOperation(deps.db, s.accountId, key, 'gacha.pull', requestHash(body), async (trx) => {
+        const r = await pull(deps, trx, s.accountId, body, key, gacha, season);
+        await countStats(trx, mcfg, s.accountId, { pulls: r.pulls.length, legendaries: r.pulls.filter((p) => p.tier === 'legendary').length }, deps.now(), out);
+        return r;
+      }),
+    );
   });
 }

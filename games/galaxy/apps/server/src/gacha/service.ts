@@ -24,12 +24,14 @@ import { inTransaction } from '../db/tx';
 import { madridDay } from '../economy/day';
 import { credit, debit, getWallet } from '../economy/wallet';
 import { HttpError } from '../errors';
+import type { WithLive } from '../realtime/notices';
 import { convertLeftovers, unseenLeftovers } from './leftovers';
 
 // Deep scan (GDD §9) on the server: it decides every pull. Payment, luck state, galaxies and the audit row commit
 // in one transaction, inside an idempotent operation (routes.ts). Seeds come from crypto; the outcome from the pure
 // rules in @galaxy/shared, so any pull can be replayed from its audit row.
-export type GachaDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date };
+/** `live`: the live hub, for an achievement's notice (real-time notices plan). */
+export type GachaDeps = { db: Kysely<DB>; config: ConfigReader; now: () => Date } & WithLive;
 
 /** A banner is open between its optional startsAt and endsAt. */
 export function openBanners(cfg: GachaConfig, now: Date): Banner[] {

@@ -4,7 +4,7 @@ import { SIM_VERSION } from '@galaxy/sim';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import { credit, getWallet } from '../../src/economy/wallet';
 import { invalidateLeaderboard } from '../../src/social/leaderboard';
-import { fixedConfig, get, post, sessionCookie, testApp, uniqueName } from '../helpers';
+import { fixedConfig, get, openLive, post, sessionCookie, settle, testApp, uniqueName } from '../helpers';
 
 // Clans on the server (GDD §14.3, §14.1; M5b-1): creating one costs coins and needs a level; open clans take anyone
 // until they are full, closed ones take requests that the leader or an officer accepts; roles decide who can do what;
@@ -339,5 +339,63 @@ describe('revisión final de M5b-1', () => {
     const c = await clanOf(a, { name: `Ñandúes ${word}` });
     const found = (await get(ctx.app, `/galaxy/api/clans?q=${encodeURIComponent(`nandues ${word}`)}`, { cookie: a.cookie })).json() as ClanList;
     expect(found.clans.map((x) => x.tag)).toContain(c.tag);
+  });
+});
+
+describe('avisos en tiempo real', () => {
+  test('una petición nueva llega al líder y a los oficiales, no a los miembros, y pedir otra vez no repite el aviso', async () => {
+    const lead = await player();
+    const c = await clanOf(lead, { open: false });
+    const [officer, member, asker] = [await player(1), await player(1), await player(1)];
+    for (const p of [officer, member]) {
+      await act(p, `${c.tag}/request`);
+      await act(lead, `${c.tag}/requests/${p.username}/accept`);
+    }
+    await act(lead, `${c.tag}/members/${officer.username}/promote`);
+    const [ll, lo, lm] = [await openLive(ctx.app, lead.cookie), await openLive(ctx.app, officer.cookie), await openLive(ctx.app, member.cookie)];
+    expect((await act(asker, `${c.tag}/request`)).statusCode).toBe(200);
+    await act(asker, `${c.tag}/request`);
+    await settle();
+    const request = { kind: 'clan', event: 'request', clan: { tag: c.tag, name: c.name }, who: { username: asker.username, avatar: null, frame: null } };
+    expect(ll.notices()).toEqual([request]);
+    expect(lo.notices()).toEqual([request]);
+    expect(lm.notices()).toEqual([]);
+    for (const l of [ll, lo, lm]) l.ws.terminate();
+  });
+
+  test('quien pidió entrar sabe si le aceptan o no; quien es expulsado, ascendido o degradado, también', async () => {
+    const lead = await player();
+    const c = await clanOf(lead, { open: false });
+    const [yes, no] = [await player(1), await player(1)];
+    await act(yes, `${c.tag}/request`);
+    await act(no, `${c.tag}/request`);
+    const [ly, ln] = [await openLive(ctx.app, yes.cookie), await openLive(ctx.app, no.cookie)];
+    await act(lead, `${c.tag}/requests/${yes.username}/accept`);
+    await act(lead, `${c.tag}/requests/${no.username}/reject`);
+    await act(lead, `${c.tag}/members/${yes.username}/promote`);
+    await act(lead, `${c.tag}/members/${yes.username}/demote`);
+    await act(lead, `${c.tag}/members/${yes.username}/kick`);
+    await settle();
+    expect(ly.notices().map((n) => (n.kind === 'clan' ? [n.event, n.who?.username] : n.kind))).toEqual([
+      ['accepted', lead.username],
+      ['promoted', lead.username],
+      ['demoted', lead.username],
+      ['kicked', lead.username],
+    ]);
+    expect(ln.notices()).toEqual([{ kind: 'clan', event: 'rejected', clan: { tag: c.tag, name: c.name }, who: expect.objectContaining({ username: lead.username }) }]);
+    ly.ws.terminate();
+    ln.ws.terminate();
+  });
+
+  test('cuando el líder se va, quien hereda el clan se entera de que ahora lo lidera', async () => {
+    const lead = await player();
+    const c = await clanOf(lead);
+    const heir = await player(1);
+    await act(heir, `${c.tag}/join`);
+    const lh = await openLive(ctx.app, heir.cookie);
+    expect((await act(lead, `${c.tag}/leave`)).statusCode).toBe(200);
+    await settle();
+    expect(lh.notices()).toEqual([{ kind: 'clan', event: 'leader', clan: { tag: c.tag, name: c.name }, who: null }]);
+    lh.ws.terminate();
   });
 });
