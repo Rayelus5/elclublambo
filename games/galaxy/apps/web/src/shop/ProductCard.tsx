@@ -20,12 +20,13 @@ export function giftText(p: Pick<ShopProductView, 'total' | 'cosmetic'>): string
   return p.cosmetic ? t.piece[p.cosmetic.kind] : amountsText(p.total);
 }
 
-/** A cosmetic's piece, drawn (Nov plan C5): the avatar, a frame round the default face, or the title in its style. */
-function PieceArt({ piece, className }: { piece: NonNullable<ShopProductView['cosmetic']>; className?: string }) {
+/** A cosmetic's piece, drawn (Nov plan C5): the avatar, a frame round the default face, or the title in its style, in the
+ *  middle of its art box. `size`: the avatar's side (96 on a card, which a frame grows to 144). */
+function PieceArt({ piece, className, size = 64 }: { piece: NonNullable<ShopProductView['cosmetic']>; className?: string; size?: 64 | 96 }) {
   const catalog = useCosmeticsView().data?.catalog;
   return (
     <span className={`piece-art ${className ?? ''}`.trim()} aria-hidden="true">
-      {piece.kind === 'title' ? <TitleText text={piece.id} catalog={catalog} /> : <Avatar name="ECN" avatar={piece.kind === 'avatar' ? piece.id : 'crew-pilot'} frame={piece.kind === 'frame' ? piece.id : null} size={64} />}
+      {piece.kind === 'title' ? <TitleText text={piece.id} catalog={catalog} /> : <Avatar name="ECN" avatar={piece.kind === 'avatar' ? piece.id : 'crew-pilot'} frame={piece.kind === 'frame' ? piece.id : null} size={size} />}
     </span>
   );
 }
@@ -37,8 +38,8 @@ export function amountsText(a: ShopAmounts): string {
     .join(', ');
 }
 
-export function PackCanvas({ product, reduced, className }: { product: Pick<ShopProductView, 'art' | 'kind' | 'cosmetic'>; reduced: boolean; className?: string }) {
-  if (product.cosmetic) return <PieceArt piece={product.cosmetic} className={className} />;
+export function PackCanvas({ product, reduced, className, pieceSize }: { product: Pick<ShopProductView, 'art' | 'kind' | 'cosmetic'>; reduced: boolean; className?: string; pieceSize?: 64 | 96 }) {
+  if (product.cosmetic) return <PieceArt piece={product.cosmetic} className={className} size={pieceSize} />;
   return <PackDrawing art={product.art} kind={product.kind} reduced={reduced} className={className} />;
 }
 
@@ -66,7 +67,7 @@ export function ProductCard({ product, index, firstPercent, reduced, onBuy }: { 
       <span className="pack-glow" aria-hidden="true" />
       {product.badge ? <span className={`pack-ribbon ${product.badge}`}>{t.badges[product.badge]}</span> : null}
       {product.first ? <span className="shop-tag gift pack-first">{t.first.tag(firstPercent)}</span> : null}
-      <PackCanvas product={product} reduced={reduced} className="pack-art" />
+      <PackCanvas product={product} reduced={reduced} className="pack-art" pieceSize={96} />
       <h3 className="pack-name">{product.name}</h3>
       {product.cosmetic ? (
         <>

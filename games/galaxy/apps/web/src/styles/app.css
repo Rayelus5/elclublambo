@@ -3290,6 +3290,9 @@
   .pack-glow { position: absolute; inset: 0; background: radial-gradient(60% 45% at 50% 34%, var(--g), transparent 70%); pointer-events: none; }
   .pack-art { position: relative; inline-size: 168px; block-size: 168px; margin: 6px 0 4px; image-rendering: pixelated; transition: transform .25s var(--ease-bounce); }
   .pack-card:hover .pack-art { transform: scale(1.06) rotate(-2deg); }
+  /* A style piece (ProductCard's PieceArt) in place of a sprite: a box like the sprite's, the piece in its middle. */
+  .piece-art { display: grid; place-items: center; text-align: center; }
+  .pack-art.piece-art .title-text { font-size: 22px; line-height: 1.2; text-wrap: balance; }
   .pack-name { position: relative; margin: 0; font: 600 15px var(--font-sans); color: var(--color-ink-soft); }
   .pack-amount { position: relative; display: inline-flex; align-items: center; gap: 8px; margin: 4px 0 2px; font: 400 26px/1.1 var(--font-display); text-shadow: 0 3px 0 var(--color-panel-lip); }
   .pack-amount.several { flex-wrap: wrap; justify-content: center; gap: 4px 12px; font-size: 17px; }
