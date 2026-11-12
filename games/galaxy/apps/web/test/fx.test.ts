@@ -102,6 +102,17 @@ test('la turbina de una sonda que avanza echa partículas calientes por detrás,
   expect(fx.particles.length).toBe(0);
 });
 
+test('la llama sale de la tobera de cada dibujo: más atrás en una sonda más larga', () => {
+  const fx = createFx(false);
+  fx.thrust(0, 100, 100, 0, 0.1, 12);
+  expect(fx.particles.length).toBeGreaterThan(0);
+  expect(fx.particles.every((p) => Math.abs(p.x - 88) < 0.001)).toBe(true);
+  // Without one, eight pixels behind (the old drawings).
+  const old = createFx(false);
+  old.thrust(0, 100, 100, 0, 0.1);
+  expect(old.particles.every((p) => Math.abs(p.x - 92) < 0.001)).toBe(true);
+});
+
 test('cada sonda lleva su propia turbina, y con movimiento reducido echa menos', () => {
   const fx = createFx(false);
   fx.thrust(0, 0, 0, 0, 0.25);

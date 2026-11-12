@@ -7,6 +7,18 @@ import type { ReleaseNote } from './schema';
 
 export const RELEASE_NOTES: readonly ReleaseNote[] = [
   {
+    id: 'v1-7-sondas-redisenadas',
+    version: '1.7',
+    date: '2026-11-12',
+    title: 'Sondas rediseñadas',
+    summary: 'Las ocho sondas estrenan dibujo: las mismas de siempre, más grandes, con más detalle y con vida',
+    items: [
+      { kind: 'mejora', text: 'Las ocho sondas, redibujadas con más detalle, luces y sombras, y algo más grandes en la incursión' },
+      { kind: 'mejora', text: 'En reposo también se mueven: la turbina late, el núcleo brilla y las luces de posición parpadean' },
+      { kind: 'mejora', text: 'La llama de la turbina sale de la tobera de cada sonda' },
+    ],
+  },
+  {
     id: 'v1-6-banda-sonora',
     version: '1.6',
     date: '2026-11-12',

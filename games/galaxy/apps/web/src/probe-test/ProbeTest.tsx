@@ -130,7 +130,7 @@ export function ProbeTestScreen() {
       <main className={`screen-root probe-test reveal p-${probe}`}>
         <div className="probe-test-card reveal" role="status">
           <span className="probe-test-kicker">{t.yourProbe}</span>
-          <img className="probe-reveal-art" src={spriteDataUrl(def.sprite, 10)} alt="" width={160} height={160} />
+          <img className="probe-reveal-art" src={spriteDataUrl(def.sprite, 7)} alt="" width={168} height={168} />
           <h1 ref={heading} tabIndex={-1}>
             {def.name}
           </h1>

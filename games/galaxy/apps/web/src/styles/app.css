@@ -1059,7 +1059,7 @@
   .probe-test.p-bastion { --glow: rgb(255 201 74 / .28); }
   .probe-test.p-spark { --glow: rgb(179 157 255 / .34); }
   .probe-test-kicker { color: var(--color-ink-soft); font-weight: 700; letter-spacing: .04em; }
-  .probe-reveal-art { width: 160px; height: 160px; image-rendering: pixelated; filter: drop-shadow(0 0 22px var(--glow)); animation: probe-rise .9s var(--ease-bounce) both; }
+  .probe-reveal-art { width: 168px; height: 168px; image-rendering: pixelated; filter: drop-shadow(0 0 22px var(--glow)); animation: probe-rise .9s var(--ease-bounce) both; }
   @keyframes probe-rise { from { transform: translateY(28px) scale(.55); opacity: 0; } to { transform: none; opacity: 1; } }
   .probe-profile { max-width: 52ch; margin: 0; font-size: 20px; line-height: 1.5; }
   .probe-quirk { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; align-items: baseline; margin: 0; padding: 10px 16px; border-radius: 14px; background: var(--color-panel); }
@@ -1415,7 +1415,7 @@
   .team-results tbody tr > :last-child { border-radius: 0 14px 14px 0; }
   .team-results tbody tr.is-me > * { background: color-mix(in oklab, var(--tint) 13%, rgb(255 255 255 / .03)); }
   .team-who { display: inline-flex; align-items: center; gap: 12px; vertical-align: middle; }
-  .team-who img { box-sizing: border-box; inline-size: 40px; block-size: 40px; padding: 4px; border-radius: 12px; background: color-mix(in oklab, var(--tint) 18%, transparent); image-rendering: pixelated; }
+  .team-who img { box-sizing: border-box; inline-size: 52px; block-size: 52px; padding: 2px; border-radius: 12px; background: color-mix(in oklab, var(--tint) 18%, transparent); image-rendering: pixelated; }
   .team-who > span { display: grid; gap: 1px; }
   .team-who b { font-size: 15.5px; line-height: 1.15; }
   .team-who small { color: var(--color-ink-soft); font-size: 12px; font-weight: 600; }
@@ -1570,7 +1570,7 @@
   /* En grupo (phase 7): the team as a row of probes with names, wrapping on narrow screens. */
   .lb-groups .lb-team-list { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 0; padding: 0; list-style: none; }
   .lb-groups .lb-team-list li { display: inline-flex; align-items: center; gap: 6px; }
-  .lb-groups .lb-team-list img { inline-size: 28px; block-size: 28px; image-rendering: pixelated; }
+  .lb-groups .lb-team-list img { inline-size: 24px; block-size: 24px; image-rendering: pixelated; }
   .lb-groups td:nth-child(n + 3), .lb-groups thead th:nth-child(n + 3) { text-align: right; white-space: nowrap; }
   .lb-rank { inline-size: 70px; font-weight: 700; color: var(--color-ink-soft); }
   .lb-who { display: flex; align-items: center; gap: 10px; font-weight: 600; }
@@ -3227,10 +3227,11 @@
   /* The lobby (/incursion, the owner's «Escenario»): a living backdrop of the chosen sector, then a grid whose areas never
      overlap: the bar on top, the rail of places, the stage with the probe, the side panel (where, or the group) and the
      foot (missions, relics, launch). Pixel art keeps whole multiples: probes are 16 px, the pad 160 × 64. */
-  .lobby-root { --probe: 128px; --pad-w: 320px; --pad-h: 128px; --mate: 80px; --mate-pad-w: 160px; --mate-pad-h: 64px;
+  /* The probes are 24 px drawings: their sizes are whole multiples of 24, so every pixel stays square. */
+  .lobby-root { --probe: 144px; --pad-w: 320px; --pad-h: 128px; --mate: 96px; --mate-pad-w: 160px; --mate-pad-h: 64px;
     background: radial-gradient(90% 80% at 50% 30%, color-mix(in oklab, var(--n1, #251d5a) 75%, var(--color-void)), var(--color-void) 72%); }
-  @media (min-height: 860px) { .lobby-root { --probe: 192px; --mate: 112px; } }
-  @media (min-height: 1000px) { .lobby-root { --probe: 224px; --pad-w: 480px; --pad-h: 192px; --mate: 128px; } }
+  @media (min-height: 860px) { .lobby-root { --probe: 192px; --mate: 120px; } }
+  @media (min-height: 1000px) { .lobby-root { --probe: 240px; --pad-w: 480px; --pad-h: 192px; --mate: 144px; } }
   .lobby-sky { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
   .lobby-scene { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
   .lobby-galaxy { position: absolute; left: 52%; top: 38%; translate: -50% -50%; inline-size: 560px; block-size: 560px; border-radius: 50%; overflow: hidden; opacity: .3; mix-blend-mode: screen; filter: saturate(1.2); }
@@ -3557,7 +3558,7 @@
   /* Large screens (the owner: «solo afectaba a pantallas grandes»): the title screen's scale. The probe and its pad stay
      at 192 px and 2× (with the 2400 px zoom on top they had grown huge); the rail, tabs, titles and launch calm down. */
   @media (min-width: 1800px) {
-    .lobby-root { --probe: 192px; --pad-w: 320px; --pad-h: 128px; --mate: 112px; }
+    .lobby-root { --probe: 192px; --pad-w: 320px; --pad-h: 128px; --mate: 120px; }
     .lobby-zone { --r: 16px; --lip-h: 4px; gap: 10px; min-inline-size: 176px; padding: 5px 14px 5px 5px; }
     .lobby-zone-icon { inline-size: 38px; block-size: 38px; border-radius: 11px; font-size: 20px; }
     .lobby-zone-name { font-size: 15px; }

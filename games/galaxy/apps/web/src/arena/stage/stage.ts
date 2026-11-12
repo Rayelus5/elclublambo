@@ -2,6 +2,7 @@ import 'pixi.js/unsafe-eval';
 import { AREA, type BiomeId, type Content, ELEMENT_IDS, SHOT, type Sim, type SimEvent } from '@galaxy/sim';
 import { Application, BitmapFont, BitmapText, BlurFilter, Container, Graphics, Sprite, TilingSprite } from 'pixi.js';
 import { copy } from '../../copy/es';
+import { probeNozzle } from '../sprites';
 import { probeHeading, probeView } from '../sprites/rotate';
 import { BAYER, buildAtlas, ditherTexture, fbm } from './atlas';
 import { baseZoom, type Camera, cameraFor, zoomSteps } from './camera';
@@ -106,6 +107,8 @@ const PICKUP_SPRITE: Record<number, string> = { 1: 'coin', 2: 'dust', 3: 'repair
 const GLIDE_S = 0.12;
 const GHOST_LIFE = 0.28;
 const DASH_TINT = 0x6fe3ff;
+/** Half a probe drawing (24 × 24 since part B of the plan «banda sonora, skins, perfil y entorno»): where its marks go. */
+const PROBE_HALF = 12;
 const FONT = 'gs-dmg';
 /** Reaction names: letters with Spanish accents. */
 const LABEL_FONT = 'gs-react';
@@ -862,11 +865,11 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       // Its thruster while it moves and the run advances, out of the nozzle of the drawing shown (snapped to its
       // eight ways, so the puffs leave the turbine itself).
       if (p.alive && p.moving && sim.status === 'running' && clock - tickAt < 0.1 && !(coop && (p.life === 'down' || p.life === 'away'))) {
-        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt);
+        fx.thrust(i, x, y, Math.round(probeHeading(p) / (Math.PI / 4)) * (Math.PI / 4), frameDt, probeNozzle(p.def.sprite));
       }
       if (coop && i !== opts.probe) {
         // A teammate: its colour under it, and its name over it (drawn with the labels).
-        marks.ellipse(x, y + 8, 9, 3).stroke({ width: 2, color: pal.team[i % pal.team.length]!, alpha: 0.8 });
+        marks.ellipse(x, y + PROBE_HALF, PROBE_HALF + 1, 3).stroke({ width: 2, color: pal.team[i % pal.team.length]!, alpha: 0.8 });
         tagAt.push({ i, x, y });
       }
       if (coop && p.life === 'down') {
@@ -877,12 +880,12 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
         const revive = Math.min(1, p.reviveT / Math.max(1, coop.reviveSeconds * 60));
         marks.circle(x, y, coop.reviveRadius).stroke({ width: 1, color: pal.good, alpha: 0.22 });
         // The countdown is dashed and the revive solid with a «+» at its head: told apart by shape, not only colour.
-        if (left > 0) dashedArc(marks, x, y, 14, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2, { width: 2, color: pal.danger, alpha: 0.9 });
+        if (left > 0) dashedArc(marks, x, y, PROBE_HALF + 4, -Math.PI / 2, -Math.PI / 2 + left * Math.PI * 2, { width: 2, color: pal.danger, alpha: 0.9 });
         if (revive > 0) {
           const end = -Math.PI / 2 + revive * Math.PI * 2;
-          arcFrom(marks, x, y, 18, -Math.PI / 2, end).stroke({ width: 3, color: pal.good, alpha: 0.95 });
-          const hx = x + Math.cos(end) * 18;
-          const hy = y + Math.sin(end) * 18;
+          arcFrom(marks, x, y, PROBE_HALF + 8, -Math.PI / 2, end).stroke({ width: 3, color: pal.good, alpha: 0.95 });
+          const hx = x + Math.cos(end) * (PROBE_HALF + 8);
+          const hy = y + Math.sin(end) * (PROBE_HALF + 8);
           marks.moveTo(hx - 3, hy).lineTo(hx + 3, hy).moveTo(hx, hy - 3).lineTo(hx, hy + 3).stroke({ width: 2, color: 0xf3f5ff, alpha: 0.95 });
         }
         return;
@@ -893,8 +896,8 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       }
       // Invulnerable: a soft shimmer, not a hard blink.
       s.alpha = p.invulnT > 0 ? (opts.reduced ? 0.75 : 0.72 + 0.28 * Math.sin(clock * 14)) : 1;
-      if (p.invulnT > 0) marks.circle(x, y, 10).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
-      if (p.shield > 0) marks.circle(x, y, 11).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
+      if (p.invulnT > 0) marks.circle(x, y, PROBE_HALF + 2).stroke({ width: 1, color: DASH_TINT, alpha: opts.reduced ? 0.35 : 0.25 + 0.2 * Math.sin(clock * 14) });
+      if (p.shield > 0) marks.circle(x, y, PROBE_HALF + 3).stroke({ width: 1, color: 0xbfe3ff, alpha: 0.7 });
       if (i === opts.probe) lastProbe = { x, y };
     });
     probePool.hideFrom(flags, flags.length);
@@ -971,7 +974,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
       t.text = name;
       t.tint = pal.team[at.i % pal.team.length]!;
       t.scale.set(1);
-      t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - 14 - c.y) * c.zoom));
+      t.position.set(Math.round(originX + (at.x - c.x) * c.zoom), Math.round(originY + (at.y - PROBE_HALF - 6 - c.y) * c.zoom));
       g++;
     }
     for (; g < tagTexts.length; g++) tagTexts[g]!.visible = false;
@@ -1111,7 +1114,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, g
           case 'evade': {
             // Fase cuántica (Nov plan B2): the hit went through; a cyan word over the probe says so.
             const at = lastSim?.probes[e.probe] ?? lastProbe;
-            fx.label(at.x, at.y - 14, copy.arena.evaded, 0x6fe3ff);
+            fx.label(at.x, at.y - PROBE_HALF - 4, copy.arena.evaded, 0x6fe3ff);
             break;
           }
           case 'propBreak':
