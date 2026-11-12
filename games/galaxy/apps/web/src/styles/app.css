@@ -186,7 +186,8 @@
   .select[aria-expanded='true'] .select-chevron { rotate: 180deg; color: var(--color-ice); }
   .select[aria-invalid='true'] { border-color: var(--color-static); }
   .select:disabled { opacity: .5; box-shadow: none; cursor: not-allowed; }
-  .select.block { display: grid; inline-size: 100%; }
+  /* Not .block: Tailwind's .block { display: block } utility sits in a later layer, wins, and drops the chevron below the text. */
+  .select.select-block { display: grid; inline-size: 100%; }
   .select-sm { block-size: 40px; padding: 0 10px 0 12px; border-radius: 11px; font-size: 14.5px; }
   .select-sm .select-chevron { font-size: 16px; }
   .select-lg { block-size: 50px; padding: 0 14px 0 16px; border-radius: 14px; font: 500 16px var(--font-sans); }

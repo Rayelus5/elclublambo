@@ -233,7 +233,7 @@ export function Select<V extends string>({
   // A press anywhere else closes it without choosing.
   useOutsidePress(open, [trigger, list], close);
 
-  const classes = ['select', `select-${size}`, block ? 'block' : '', className].filter(Boolean).join(' ');
+  const classes = ['select', `select-${size}`, block ? 'select-block' : '', className].filter(Boolean).join(' ');
   return (
     <>
       <button
