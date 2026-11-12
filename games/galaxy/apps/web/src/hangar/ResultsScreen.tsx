@@ -92,9 +92,10 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
         </span>
         {r.progress.points > 0 ? <span className="results-points">{copy.social.points(r.progress.points)}</span> : null}
         {r.progress.shards ? (
-          <span className="results-points">
+          <span className="results-points results-shards">
+            <span aria-hidden="true">{copy.social.shards(r.progress.shards)}</span>
+            <span className="sr-only">{copy.social.shardsLabel(r.progress.shards)}</span>
             <Icon name="shard" />
-            {copy.social.shards(r.progress.shards)}
           </span>
         ) : null}
       </section>
@@ -121,7 +122,7 @@ export function ResultsScreen({ result, onAgain, team }: { result: RunResult; on
             ))}
           </tbody>
         </table>
-        {r.breakdown.share < 1 && <p className="results-note static">{copy.results.half}</p>}
+        {r.breakdown.share < 1 && <p className="results-note static">{copy.results.share(Math.round(r.breakdown.share * 100), r.outcome === 'extracted')}</p>}
         {(r.breakdown.boosts ?? []).length > 0 && (
           <div className="results-daily results-boosts">
             <h3>{copy.boosts.resultsTitle}</h3>

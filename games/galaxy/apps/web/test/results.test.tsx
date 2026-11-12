@@ -53,7 +53,7 @@ test('el botín de cada capa con su multiplicador, la mitad sin extracción y lo
   show(died);
   const rows = screen.getAllByRole('row');
   expect(rows.some((r) => r.textContent?.includes(copy.arena.layer(2)) && r.textContent.includes('×1,5'))).toBe(true);
-  expect(screen.getByText(copy.results.half)).toBeInTheDocument();
+  expect(screen.getByText('Sin extracción te llevas el 50 % del botín')).toBeInTheDocument();
   expect(screen.getByText(copy.results.daily(5, 1))).toBeInTheDocument();
   expect(screen.getByText(copy.results.daily(7.5, 0.75))).toBeInTheDocument();
   expect(screen.getByRole('img', { name: copy.hub.resource.coins(52) })).toBeInTheDocument();
@@ -62,7 +62,7 @@ test('el botín de cada capa con su multiplicador, la mitad sin extracción y lo
 test('ofrece otra incursión y volver al inicio', () => {
   show({ ...died, outcome: 'extracted', breakdown: { ...died.breakdown, share: 1 } });
   expect(screen.getByRole('heading', { name: copy.results.extracted })).toBeInTheDocument();
-  expect(screen.queryByText(copy.results.half)).toBeNull();
+  expect(screen.queryByText(/del botín/)).toBeNull();
   expect(screen.getByRole('button', { name: copy.results.again })).toBeInTheDocument();
   expect(screen.getByRole('link', { name: copy.results.home })).toHaveAttribute('href', '/');
 });
@@ -85,6 +85,25 @@ test('un resultado sin componentes no los enseña', () => {
 test('sin material no lo enseña', () => {
   show({ ...died, payout: { ...died.payout, material: 0 } });
   expect(screen.queryByRole('img', { name: copy.results.material(0) })).toBeNull();
+});
+
+test('sin extraer dice la parte que fija el admin, no siempre la mitad', () => {
+  show({ ...died, breakdown: { ...died.breakdown, share: 0.35 } });
+  expect(screen.getByText('Sin extracción te llevas el 35 % del botín')).toBeInTheDocument();
+});
+
+test('un resultado extraído pero recortado dice cuánto cobra', () => {
+  show({ ...died, outcome: 'extracted', breakdown: { ...died.breakdown, share: 0.5 } });
+  expect(screen.getByText('Cobras el 50 % del botín')).toBeInTheDocument();
+});
+
+test('la moneda de temporada se enseña como +N con el icono de las esquirlas al lado', () => {
+  show({ ...died, progress: { xp: 25, level: 2, levelUp: false, points: 0, shards: 5 } });
+  const shards = document.querySelector<HTMLElement>('.results-shards')!;
+  expect(shards.querySelector('[aria-hidden="true"]')?.textContent).toBe('+5');
+  expect(shards.lastElementChild?.tagName.toLowerCase()).toBe('svg');
+  expect(shards).not.toHaveTextContent(/^\+5 de moneda/);
+  expect(within(shards).getByText(copy.social.shardsLabel(5))).toHaveClass('sr-only');
 });
 
 test('dice la experiencia de cuenta, el nivel, si subes y los puntos de temporada (M5a)', () => {

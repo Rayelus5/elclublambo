@@ -51,14 +51,21 @@ export function CoopCards({ hud, content, pickSeconds, onPick }: { hud: HudSnaps
         {offer.map((o, i) => {
           const d = describeOffer(content, o);
           return (
-            <button key={`${o.kind}:${o.id}`} type="button" className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : ''}`} onClick={() => onPick(i, seq)}>
+            <button
+              key={`${o.kind}:${o.id}`}
+              type="button"
+              className={`lip panel coop-card${o.kind === 'evolve' ? ' evolve' : o.level === 1 && o.kind !== 'heal' ? ' fresh' : ''}`}
+              onClick={() => onPick(i, seq)}
+            >
               <span className="levelup-key" aria-hidden="true">
                 {i + 1}
               </span>
-              <img src={spriteDataUrl(d.icon, 3)} alt="" width={36} height={36} />
+              <img src={spriteDataUrl(d.icon, 4)} alt="" width={48} height={48} />
               <span className="coop-card-text">
                 <b>{d.name}</b>
                 {d.tag ? <small>{d.tag}</small> : null}
+                {/* What it does, as in solo runs (Nov plan A1): clamped to three lines over the running world. */}
+                <span className="coop-card-desc">{d.text}</span>
               </span>
             </button>
           );

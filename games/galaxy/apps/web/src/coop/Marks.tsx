@@ -1,6 +1,7 @@
 import { COOP_MARKS, type CoopMark, type CoopPlayer } from '@galaxy/shared';
 import type { CSSProperties } from 'react';
 import type { Camera } from '../arena/stage/camera';
+import { edgePoint } from '../arena/stage/edge';
 import { TEAM_TINT } from '../arena/stage/stage';
 import { copy } from '../copy/es';
 
@@ -56,28 +57,11 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
 export function CoopMarks({ marks, camera, width, height, players, me }: { marks: ShownMark[]; camera: Camera | null; width: number; height: number; players: CoopPlayer[]; me: number }) {
   const zoom = camera?.zoom ?? 2;
-  const bars = camera?.bars ?? 0;
-  const fieldW = width - bars * 2;
-  const cx = bars + fieldW / 2;
-  const cy = height / 2;
-  const pad = 48;
+  const field = { width, height, bars: camera?.bars ?? 0 };
   return (
     <div className="coop-marks" aria-live="polite">
       {marks.map((k) => {
-          const sx = cx + (k.x - (camera?.x ?? 0)) * zoom;
-          const sy = cy + (k.y - (camera?.y ?? 0)) * zoom;
-          const inside = sx > bars + pad && sx < width - bars - pad && sy > pad && sy < height - pad;
-          let x = sx;
-          let y = sy;
-          let angle = 0;
-          if (!inside) {
-            angle = Math.atan2(sy - cy, sx - cx);
-            const kx = (fieldW / 2 - pad) / Math.max(1e-6, Math.abs(Math.cos(angle)));
-            const ky = (height / 2 - pad) / Math.max(1e-6, Math.abs(Math.sin(angle)));
-            const r = Math.min(kx, ky);
-            x = cx + Math.cos(angle) * r;
-            y = cy + Math.sin(angle) * r;
-          }
+          const { x, y, angle, inside } = edgePoint(field, (k.x - (camera?.x ?? 0)) * zoom, (k.y - (camera?.y ?? 0)) * zoom, 48);
           const who = k.slot === me ? copy.coop.arena.you : (players[k.slot]?.username ?? '');
           return (
             <span

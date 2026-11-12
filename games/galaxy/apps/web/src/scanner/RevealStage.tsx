@@ -98,12 +98,15 @@ export function RevealStage({
   title = copy.scanner.revealTitle,
   onClose,
   actions,
+  status,
 }: {
   pulls: readonly PulledGalaxy[];
   title?: string;
   onClose: () => void;
-  /** Extra buttons in the summary (Escanear otra vez, Ver en la colección…). */
+  /** Extra buttons in the summary («¡Escanear otra!», «Colección»…). */
   actions?: ReactNode;
+  /** A line over the summary's buttons: what is missing to scan again, or why it failed. */
+  status?: ReactNode;
 }) {
   const reduced = useReducedMotion();
   const steps = useMemo(() => revealSequence(pulls, { reduced }), [pulls, reduced]);
@@ -173,6 +176,8 @@ export function RevealStage({
     return () => timers.forEach(clearTimeout);
   }, [summary, reduced, pulls]);
   const cardSize = Math.min(300, Math.round((globalThis.innerHeight || 800) * 0.42));
+  // A single scan's summary card leaves room for the line and buttons under it on a 720 px screen.
+  const soloSize = Math.min(280, Math.round((globalThis.innerHeight || 800) * 0.36));
 
   return (
     // Players click fast to advance: the veil never closes the reveal, and Escape skips to the summary first.
@@ -214,10 +219,11 @@ export function RevealStage({
           <div className="summary-cards" data-count={pulls.length}>
             {sorted.map((g, i) => (
               <div key={g.id} className={`summary-card${i === 0 && pulls.length > 1 ? ' best' : ''}`} data-tier={g.tier} style={{ '--i': i } as CSSProperties}>
-                <GalaxyCard galaxy={g} size={pulls.length > 1 ? 168 : 280} interactive />
+                <GalaxyCard galaxy={g} size={pulls.length > 1 ? 168 : soloSize} interactive />
               </div>
             ))}
           </div>
+          {status}
           <div className="summary-actions">
             {actions}
             <button ref={closeButton} type="button" className="lip pill" onClick={onClose}>
