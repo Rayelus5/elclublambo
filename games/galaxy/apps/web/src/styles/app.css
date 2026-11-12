@@ -2915,7 +2915,8 @@
   .add-friend { display: grid; justify-items: center; gap: 4px; max-inline-size: 180px; }
   .add-friend .pill.small { block-size: 30px; padding: 0 10px; font-size: 13px; gap: 6px; }
   .add-friend .pill.small .ico { font-size: 15px; }
-  .add-friend-error { font-size: 12px; color: #ffd3da; text-align: center; }
+  .add-friend-error { font-size: 12px; color: #ffd3da; text-align: center; white-space: normal; max-inline-size: 180px; }
+  .lobby-mate-friend-corner .add-friend-error { position: absolute; inset-block-start: calc(100% + 4px); inset-inline-end: 0; inline-size: 170px; padding: 6px 8px; border-radius: 10px; background: rgb(7 10 28 / .92); z-index: 2; }
   .lobby-mate-friend { margin-top: 4px; }
   .add-friend-icon { --lip-h: 3px; inline-size: 32px; block-size: 32px; font-size: 16px; }
   .lobby-mate-tag { position: relative; }

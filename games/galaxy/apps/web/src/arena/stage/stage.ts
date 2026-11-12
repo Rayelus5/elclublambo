@@ -8,6 +8,7 @@ import { createFx, reactionLabel } from './fx';
 import { BIOME_LOOK } from './biomes';
 import { CHUNK, terrainAt } from './terrain';
 import { mateMarkers } from './mates';
+import { type Insets, NO_INSETS } from './edge';
 import { type Warning, warningFrom, warningProgress } from './warnings';
 
 // The arena renderer (GDD §18.4, DESIGN_SYSTEM §8 quater): PixiJS only draws the simulation. It interpolates between
@@ -47,6 +48,8 @@ export interface Stage {
   zoomLevel(): number;
   /** Follows another probe from now on (the admin's replay of a group run switches between players). */
   follow(probe: number): void;
+  /** Co-op: the screen bands the HUD covers; the teammates' arrows keep out of them (Nov plan A2 review). */
+  setInsets(insets: Insets): void;
   destroy(): void;
 }
 
@@ -235,6 +238,7 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
   const labelTexts: BitmapText[] = [];
   const tagTexts: BitmapText[] = [];
   const mateTexts: BitmapText[] = [];
+  let markerInsets: Insets = NO_INSETS;
   /** Where the teammates were drawn this frame (their names go over them). */
   const tagAt: { i: number; x: number; y: number }[] = [];
   const pipPool = new SpritePool(enemies);
@@ -812,17 +816,16 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     mateArrows.clear();
     let g = 0;
     if (sim.coop) {
-      const probesNow = sim.probes.map((p) => ({ x: p.x, y: p.y, hp: p.hp, maxHp: p.stats.maxHp, life: p.life }));
-      for (const m of mateMarkers(probesNow, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe)) {
+      for (const m of mateMarkers(sim.probes, c, { width: w, height: h, bars: c.bars }, opts.me ?? opts.probe, markerInsets)) {
         const team = TEAM_TINT[m.index % TEAM_TINT.length]!;
         const tint = m.state === 'down' ? 0xff4d6d : team;
         const alpha = m.state === 'away' ? 0.4 : m.state === 'down' && !opts.reduced ? 0.55 + 0.45 * Math.sin(clock * 10) : 1;
         const ux = Math.cos(m.angle);
         const uy = Math.sin(m.angle);
-        const tip = [m.x + ux * 12, m.y + uy * 12];
-        const back = [m.x - ux * 6, m.y - uy * 6];
+        const bx0 = m.x - ux * 6;
+        const by0 = m.y - uy * 6;
         mateArrows
-          .poly([tip[0]!, tip[1]!, back[0]! - uy * 9, back[1]! + ux * 9, back[0]! + uy * 9, back[1]! - ux * 9])
+          .poly([m.x + ux * 12, m.y + uy * 12, bx0 - uy * 9, by0 + ux * 9, bx0 + uy * 9, by0 - ux * 9])
           .fill({ color: tint, alpha })
           .stroke({ width: 2, color: 0x0b0c24, alpha: alpha * 0.9 });
         let t = mateTexts[g];
@@ -1011,6 +1014,9 @@ export async function createStage(canvas: HTMLCanvasElement, content: Content, o
     zoomLevel: () => closer,
     follow: (probe: number) => {
       opts.probe = probe;
+    },
+    setInsets(insets) {
+      markerInsets = insets;
     },
     destroy() {
       for (const box of chunks.values()) box.destroy({ children: true });

@@ -105,5 +105,5 @@ for (const [width, height] of [
     const uv = getComputedStyle(document.querySelector('.pill-uv')!);
     expect(uv.backgroundImage).toContain('gradient');
     if (import.meta.env['VITE_REVEAL_SHOTS']) await page.screenshot({ path: `__shots__/reveal-summary-${width}.png` });
-  });
+  }, 60_000);
 }

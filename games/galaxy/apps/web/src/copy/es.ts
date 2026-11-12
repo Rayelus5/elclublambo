@@ -1875,6 +1875,8 @@ export const copy = {
     missingCoins: (n: number) => (n === 1 ? 'Te falta 1 moneda' : `Te faltan ${fmt(n)} monedas`),
     missingSignals: (n: number) => (n === 1 ? 'Te falta 1 señal' : `Te faltan ${fmt(n)} señales`),
     toCollection: 'Colección',
+    scanning: 'Escaneando…',
+    againClosed: 'Este escáner ya ha cerrado',
     close: 'Cerrar',
     mute: 'Silenciar',
     unmute: 'Activar sonido',

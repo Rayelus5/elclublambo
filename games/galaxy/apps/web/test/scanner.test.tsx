@@ -293,3 +293,39 @@ test('si «¡Escanear otra!» falla, el error se ve en el resumen y se puede rei
   expect(await within(stage).findByRole('alert')).toHaveTextContent(copy.errors.banner_closed);
   expect(again).toBeEnabled();
 });
+
+test('«¡Escanear otra!» repite en el mismo escáner: si el de evento ha cerrado, no escanea en otro (revisión A)', async () => {
+  const event = { ...view().banners[0]!, id: 'ev-1', kind: 'event' as const, name: 'Primer contacto', currency: 'signal:ev', welcome: false };
+  const both = view({ banners: [view().banners[0]!, event], wallet: { coins: 250, dust: 0, signal: 10, 'signal:ev': 5 } });
+  const closed = view({ wallet: { coins: 250, dust: 0, signal: 10, 'signal:ev': 4 } });
+  const fetch = mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, both),
+    'POST /galaxy/api/gacha/pull': pullSequence([closed]),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner?tipo=evento', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  const again = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(1).replace(/[¡!]/g, '.')) });
+  expect(again).toBeDisabled();
+  expect(within(stage).getByText(copy.scanner.againClosed)).toBeInTheDocument();
+  expect(fetch.mock.calls.filter(([url]) => url === '/galaxy/api/gacha/pull')).toHaveLength(1);
+});
+
+test('mientras «¡Escanear otra!» espera, dice que está escaneando y no deja repetir', async () => {
+  let posts = 0;
+  mockApi({
+    'GET /galaxy/api/gacha': () => jsonResponse(200, view()),
+    'POST /galaxy/api/gacha/pull': () => (++posts === 1 ? jsonResponse(200, { pulls: [pulled(1)], wallet: { coins: 250, dust: 0, signal: 9 }, view: view({ wallet: { coins: 250, dust: 0, signal: 9 } }) }) : (new Promise<Response>(() => {}) as unknown as Response)),
+  });
+  const user = userEvent.setup();
+  renderAt('/escaner', { '/escaner': <ScannerScreen /> });
+  await user.click(await screen.findByRole('button', { name: new RegExp(`${copy.scanner.pull(1)}.*${copy.scanner.costSignals(1)}`) }));
+  const stage = await screen.findByRole('dialog', { name: copy.scanner.revealTitle });
+  await user.click(within(stage).getByRole('button', { name: copy.scanner.skip }));
+  await user.click(await within(stage).findByRole('button', { name: new RegExp(copy.scanner.again(1).replace(/[¡!]/g, '.')) }));
+  const busy = await within(stage).findByRole('button', { name: new RegExp(copy.scanner.scanning) });
+  expect(busy).toBeDisabled();
+  expect(busy).toHaveAttribute('aria-busy', 'true');
+});

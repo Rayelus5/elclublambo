@@ -29,3 +29,15 @@ test('con bandas a los lados nunca entra en ellas', () => {
   expect(p.x).toBeCloseTo(600 + 56);
   expect(p.inside).toBe(false);
 });
+
+test('con márgenes por lado (el HUD), la marca se queda fuera de ellos', () => {
+  const insets = { top: 100, right: 0, bottom: 120, left: 230 };
+  const up = edgePoint(field, 0, -5000, 10, insets);
+  expect(up.y).toBeCloseTo(110);
+  const left = edgePoint(field, -5000, 0, 10, insets);
+  expect(left.x).toBeCloseTo(240);
+  const down = edgePoint(field, 0, 5000, 10, insets);
+  expect(down.y).toBeCloseTo(720 - 130);
+  // A point behind the HUD (inside the screen but in its band) counts as off the free field.
+  expect(edgePoint(field, 0, -300, 10, insets).inside).toBe(false);
+});

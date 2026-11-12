@@ -2,6 +2,7 @@ import { COOP_SUM_EVERY, type CoopRunStart, type CoopServerMessage, coopSimOptio
 import { CoopFeed, createSim, decodeLog, fromBase64, hudSnapshot, type HudSnapshot, relicVision, type Sim, type SimEvent, stateHash, step } from '@galaxy/sim';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AddFriendButton } from '../social/AddFriendButton';
+import { hudInsets } from './hud-insets';
 import { announceFor } from '../arena/announce';
 import { playEvents } from '../arena/arena-sfx';
 import { BeaconMarker, BossBar } from '../arena/hud/Overlays';
@@ -391,6 +392,13 @@ function CoopWorld({
       watch(spectateTarget(h, slot, watchingRef.current));
       setCamera(stageRef.current?.camera() ?? null);
       setBehind(loopRef.current?.behind() ?? 0);
+      // Where the HUD covers the arena: the teammates' arrows keep out of it (Nov plan A2 review).
+      const canvas = canvasRef.current;
+      const box = canvas?.parentElement;
+      if (canvas && box) {
+        const at = (sel: string) => box.querySelector(sel)?.getBoundingClientRect() ?? null;
+        stageRef.current?.setInsets(hudInsets(canvas.getBoundingClientRect(), { top: at('.hud-top'), team: at('.coop-team'), kit: at('.hud-kit'), cards: at('.coop-cards') }));
+      }
     }, HUD_EVERY_MS);
     return () => clearInterval(id);
   }, [sim, slot, watch]);

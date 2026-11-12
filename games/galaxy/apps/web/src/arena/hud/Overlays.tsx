@@ -27,7 +27,7 @@ export function BeaconMarker({ beacon, camera, width, height }: { beacon: NonNul
   const dy = camera ? beacon.y - camera.y : beacon.dy;
   const { x, y, angle, inside } = edgePoint({ width, height, bars: camera?.bars ?? 0 }, dx * zoom, dy * zoom - 40, 56);
   const holding = beacon.hold > 0 && beacon.hold < beacon.holdNeeded;
-  const distance = Math.round(Math.hypot(beacon.dx, beacon.dy));
+  const distance = Math.round(Math.hypot(dx, dy));
   return (
     <div className={`hud-beacon${inside ? ' here' : ''}`} style={{ left: `${Math.round(x)}px`, top: `${Math.round(y)}px` } as CSSProperties}>
       {!inside && <span className="hud-beacon-arrow" aria-hidden="true" style={{ transform: `rotate(${angle}rad)` }} />}

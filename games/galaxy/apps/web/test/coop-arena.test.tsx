@@ -23,6 +23,7 @@ vi.mock('../src/arena/stage/stage', () => ({
     camera: () => ({ zoom: 2, worldW: 640, worldH: 360, bars: 0, x: 0, y: 0 }),
     destroy: vi.fn(),
     follow: stageFollow,
+    setInsets: vi.fn(),
   })),
 }));
 

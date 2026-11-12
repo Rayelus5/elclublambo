@@ -113,7 +113,8 @@ export function ScannerScreen() {
   const pull = usePull();
   const [bannerId, setBannerId] = useState<string | null>(null);
   // The scan on screen and how it was paid: the summary offers the same one again (Nov plan A1).
-  const [revealed, setRevealed] = useState<{ pulls: PulledGalaxy[]; count: 1 | 10; pay: PullRequest['pay'] } | null>(null);
+  // The scanner it was too: «¡Escanear otra!» never scans in another one (Nov plan A review).
+  const [revealed, setRevealed] = useState<{ pulls: PulledGalaxy[]; count: 1 | 10; pay: PullRequest['pay']; banner: string } | null>(null);
   // `?tipo=evento` (from the event's missions tab) opens on the event scanner.
   const [params] = useSearchParams();
   const view = gacha.data;
@@ -122,13 +123,13 @@ export function ScannerScreen() {
   const isEvent = banner?.kind === 'event';
   const wallet = view?.wallet;
 
-  function scan(count: 1 | 10, pay: PullRequest['pay']): void {
-    if (!banner) return;
+  function scan(count: 1 | 10, pay: PullRequest['pay'], on: string | undefined = banner?.id): void {
+    if (!on) return;
     pull.mutate(
-      { banner: banner.id, count, pay },
+      { banner: on, count, pay },
       {
         onSuccess: (res) => {
-          setRevealed({ pulls: res.pulls, count, pay });
+          setRevealed({ pulls: res.pulls, count, pay, banner: on });
           emitTour('scanner:pulled');
         },
       },
@@ -138,7 +139,8 @@ export function ScannerScreen() {
   const busy = pull.isPending;
   // The standard signals, or an event scanner's own (M7e-1).
   const signals = banner ? (wallet?.[banner.currency] ?? 0) : 0;
-  const again = revealed && view ? againPlan(revealed.count, revealed.pay, view.costs, signals, wallet?.coins ?? 0) : null;
+  const againOn = revealed ? view?.banners.find((b) => b.id === revealed.banner) : undefined;
+  const again = revealed && view && againOn ? againPlan(revealed.count, revealed.pay, view.costs, wallet?.[againOn.currency] ?? 0, wallet?.coins ?? 0) : null;
   return (
     <div className="screen-root collection-root scanner-root">
       <div className={`collection scanner${isEvent ? ' is-event' : ''}`}>
@@ -244,6 +246,8 @@ export function ScannerScreen() {
                 <Icon name="alert" />
                 <span>{errorText(pull.error, copy.errors)}</span>
               </p>
+            ) : revealed && !againOn ? (
+              <p className="summary-missing">{copy.scanner.againClosed}</p>
             ) : again && again.missing > 0 ? (
               <p className="summary-missing">{again.currency === 'signal' ? copy.scanner.missingSignals(again.missing) : copy.scanner.missingCoins(again.missing)}</p>
             ) : null
@@ -251,10 +255,16 @@ export function ScannerScreen() {
           actions={
             <>
               {again ? (
-                <button type="button" className="lip pill pill-solar scan-again" disabled={busy || again.missing > 0} onClick={() => scan(again.count, again.pay)}>
+                <button type="button" className="lip pill pill-solar scan-again" disabled={busy || again.missing > 0} aria-busy={busy || undefined} onClick={() => scan(again.count, again.pay, revealed?.banner)}>
                   <Icon name="radar" />
-                  <span>{copy.scanner.again(again.count)}</span>
-                  <small>{again.currency === 'signal' ? copy.scanner.costSignals(again.cost) : copy.scanner.costCoins(again.cost)}</small>
+                  <span>{busy ? copy.scanner.scanning : copy.scanner.again(again.count)}</span>
+                  {busy ? null : <small>{again.currency === 'signal' ? copy.scanner.costSignals(again.cost) : copy.scanner.costCoins(again.cost)}</small>}
+                </button>
+              ) : revealed ? (
+                // Its scanner has closed: the button stays, off, with the reason over it.
+                <button type="button" className="lip pill pill-solar scan-again" disabled>
+                  <Icon name="radar" />
+                  <span>{copy.scanner.again(revealed.count)}</span>
                 </button>
               ) : null}
               <Link to="/coleccion" className="lip pill pill-uv">
