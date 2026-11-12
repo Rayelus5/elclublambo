@@ -111,3 +111,17 @@ test('la pestaña «Banner» lista mis galaxias y guardar manda la elegida', asy
   const put = fetch.mock.calls.find(([u, i]) => u === '/galaxy/api/profile/cosmetics' && i?.method === 'PUT')!;
   expect(JSON.parse(String(put[1]?.body))).toEqual({ banner: 'g1' });
 });
+
+test('en la pestaña de títulos cada título sale una vez, con su rareza debajo si la tiene', async () => {
+  mockApi(base);
+  const user = userEvent.setup();
+  renderAt('/perfil/vega', screens);
+  await user.click(await screen.findByRole('button', { name: t.open }));
+  const dialog = await screen.findByRole('dialog', { name: t.title });
+  await user.click(within(dialog).getByRole('tab', { name: t.tabs.title }));
+  const panel = within(dialog).getByRole('radiogroup', { name: t.tabs.title });
+  const patron = within(panel).getByRole('radio', { name: /Mecenas estelar/ });
+  expect(within(patron).getAllByText('Mecenas estelar')).toHaveLength(1);
+  expect(within(patron).getByText(t.rarity.legendary!)).toBeInTheDocument();
+  expect(within(within(panel).getByRole('radio', { name: /Cadete/ })).getAllByText('Cadete')).toHaveLength(1);
+});

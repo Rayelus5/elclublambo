@@ -3512,6 +3512,8 @@
   .cz-piece.locked .cz-pick > .ico { color: var(--color-ink-mute); }
   .cz-piece.locked .cz-art { filter: grayscale(.85) brightness(.75); }
   .cz-art { display: grid; place-items: center; min-block-size: 96px; }
+  /* A title is its own art (no name under it): a short box, the title a little larger. */
+  .cz-title .cz-art { min-block-size: 44px; font-size: 17px; text-align: center; }
   .cz-name { font-weight: 700; font-size: 14px; line-height: 1.2; }
   .cz-rarity { font-size: 11.5px; font-weight: 700; letter-spacing: .02em; color: var(--tone); }
   .cz-hint { font-size: 12px; color: var(--color-ink-soft); line-height: 1.3; }

@@ -28,12 +28,15 @@ function Piece({
   rarity,
   hint,
   shop,
+  named = true,
   children,
 }: {
   selected: boolean;
   locked: boolean;
   onPick: () => void;
   label: string;
+  /** False when the art already is the name (a title in its style): it is not written twice. */
+  named?: boolean;
   rarity?: string;
   hint?: string;
   shop?: boolean;
@@ -43,7 +46,7 @@ function Piece({
     <li className={`cz-piece${selected ? ' selected' : ''}${locked ? ' locked' : ''}`} data-rarity={rarity}>
       <button type="button" role="radio" aria-checked={selected} disabled={locked} onClick={onPick} className="cz-pick">
         <span className="cz-art">{children}</span>
-        <span className="cz-name">{label}</span>
+        {named ? <span className="cz-name">{label}</span> : null}
         {rarity ? <span className="cz-rarity">{t.rarity[rarity] ?? rarity}</span> : null}
         {locked ? <Icon name="lock" /> : selected ? <Icon name="check" /> : null}
       </button>
@@ -141,7 +144,7 @@ export function CustomizeDialog({ username, view, onClose }: { username: string;
                 <span className="cz-title-none">—</span>
               </Piece>
               {titles.map((x) => (
-                <Piece key={x.text} selected={choice.title === x.text} locked={!owned.titles.has(x.text)} onPick={() => set('title', x.text)} label={x.text} rarity={x.rarity} hint={x.hint} shop={x.shop}>
+                <Piece key={x.text} selected={choice.title === x.text} locked={!owned.titles.has(x.text)} onPick={() => set('title', x.text)} label={x.text} named={false} rarity={x.rarity} hint={x.hint} shop={x.shop}>
                   <TitleText text={x.text} catalog={view.catalog} />
                 </Piece>
               ))}
