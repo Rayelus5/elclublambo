@@ -91,7 +91,8 @@ test('jugar una incursión, verse en la clasificación y que otro abra tu perfil
   await newAccount(visitor);
   await visitor.goto(`/galaxy/perfil/${player}`);
   await expect(visitor.getByRole('heading', { level: 1, name: player })).toBeVisible();
-  await expect(visitor.getByText('Nivel 1', { exact: true })).toBeVisible();
+  // The player's level (the «Sondas» panel shows each probe's level too).
+  await expect(visitor.locator('.profile-level-chip')).toHaveText('Nivel 1');
   await expect(visitor.getByRole('region', { name: 'Esta temporada' })).toContainText('10');
   await expect(visitor.getByRole('region', { name: 'Récords' })).toContainText('1');
   await visitor.getByRole('link', { name: 'Ver su colección' }).click();
